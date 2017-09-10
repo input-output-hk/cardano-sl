@@ -1,4 +1,4 @@
--- | Types defining a command in Rubbish.
+-- | Types defining a command in Auxx.
 
 module Command.Types
        ( Command (..)

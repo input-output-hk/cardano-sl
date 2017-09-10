@@ -1,7 +1,7 @@
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE QuasiQuotes    #-}
 
--- | This module provides a function to run Rubbish's command.
+-- | This module provides a function to run Auxx's command.
 
 module Command.Run
        ( runCmd
@@ -15,6 +15,7 @@ import           Data.List              ((!!))
 import           Formatting             (build, int, sformat, stext, (%))
 import           NeatInterpolation      (text)
 
+import           Pos.Auxx               (makePubKeyAddressAuxx)
 import           Pos.Binary             (serialize')
 import           Pos.Communication      (MsgType (..), Origin (..), SendActions, dataFlow,
                                          immediateConcurrentConversations)
@@ -27,14 +28,13 @@ import           Pos.Crypto             (emptyPassphrase, encToPublic, fullPubli
                                          hashHexF, noPassEncrypt, safeCreatePsk,
                                          withSafeSigner)
 import           Pos.Genesis            (genesisDevSecretKeys)
-import           Pos.Rubbish            (makePubKeyAddressRubbish)
 import           Pos.Util.UserSecret    (readUserSecret, usKeys)
 import           Pos.Wallet             (addSecretKey, getBalance, getSecretKeys)
 
 import qualified Command.Tx             as Tx
 import           Command.Types          (Command (..))
 import qualified Command.Update         as Update
-import           Mode                   (CmdCtx (..), RubbishMode, getCmdCtx)
+import           Mode                   (AuxxMode, CmdCtx (..), getCmdCtx)
 
 
 helpMsg :: Text
@@ -74,9 +74,9 @@ Avaliable commands:
 
 runCmd ::
        HasCoreConstants
-    => SendActions RubbishMode
+    => SendActions AuxxMode
     -> Command
-    -> RubbishMode ()
+    -> AuxxMode ()
 runCmd _ (Balance addr) =
     getBalance addr >>=
     putText . sformat ("Current balance: "%coinF)
@@ -92,7 +92,7 @@ runCmd _ ListAddresses = do
    addrs <- map encToPublic <$> getSecretKeys
    putText "Available addresses:"
    for_ (zip [0 :: Int ..] addrs) $ \(i, pk) -> do
-       addr <- makePubKeyAddressRubbish pk
+       addr <- makePubKeyAddressAuxx pk
        putText $ sformat ("    #"%int%":   addr:      "%build%"\n"%
                           "          pk base58: "%stext%"\n"%
                           "          pk hex:    "%fullPublicKeyHexF%"\n"%

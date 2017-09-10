@@ -1,6 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
--- | Update system related functionality in Rubbish.
+-- | Update system related functionality in Auxx.
 
 module Command.Update
        ( vote
@@ -32,7 +32,7 @@ import           Pos.Update          (BlockVersionData (..), BlockVersionModifie
 import           Pos.Wallet          (getSecretKeys)
 
 import           Command.Types       (ProposeUpdateParams (..), ProposeUpdateSystem (..))
-import           Mode                (CmdCtx (..), RubbishMode, getCmdCtx)
+import           Mode                (CmdCtx (..), AuxxMode, getCmdCtx)
 
 ----------------------------------------------------------------------------
 -- Vote
@@ -40,11 +40,11 @@ import           Mode                (CmdCtx (..), RubbishMode, getCmdCtx)
 
 vote ::
        HasCoreConstants
-    => SendActions RubbishMode
+    => SendActions AuxxMode
     -> Int
     -> Bool
     -> UpId
-    -> RubbishMode ()
+    -> AuxxMode ()
 vote sendActions idx decision upid = do
     CmdCtx{ccPeers} <- getCmdCtx
     logDebug $ "Submitting a vote :" <> show (idx, decision, upid)
@@ -72,9 +72,9 @@ vote sendActions idx decision upid = do
 
 propose ::
        HasCoreConstants
-    => SendActions RubbishMode
+    => SendActions AuxxMode
     -> ProposeUpdateParams
-    -> RubbishMode ()
+    -> AuxxMode ()
 propose sendActions ProposeUpdateParams{..} = do
     CmdCtx{ccPeers} <- getCmdCtx
     logDebug "Proposing update..."

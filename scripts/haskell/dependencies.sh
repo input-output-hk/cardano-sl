@@ -68,12 +68,12 @@ mkPackage t = case T.splitOn " " (T.strip t) of
 
 --------------------------------------------------------------------------------
 blacklistedPackages :: [T.Text]
-blacklistedPackages = [ "cardano-sl-rubbish"
+blacklistedPackages = [ "cardano-sl-auxx"
                       , "cardano-sl-tools"
                       ]
 
 --------------------------------------------------------------------------------
--- Filter `cardano-sl-rubbish` & `cardano-sl-tools` as they cannot be
+-- Filter `cardano-sl-auxx` & `cardano-sl-tools` as they cannot be
 -- found by `ghc-pkg`, for some reason.
 getTotalPackages :: IO [Package]
 getTotalPackages = do

@@ -1,10 +1,10 @@
 {-# LANGUAGE CPP        #-}
 {-# LANGUAGE RankNTypes #-}
 
--- | Rubbish plugin.
+-- | Auxx plugin.
 
 module Plugin
-       ( rubbishPlugin
+       ( auxxPlugin
        ) where
 
 import           Universum
@@ -31,20 +31,20 @@ import           Pos.Txp              (unGenesisUtxo)
 import           Pos.Util.Util        (lensOf')
 import           Pos.WorkMode         (RealMode, RealModeContext)
 
+import           AuxxOptions          (AuxxAction (..), AuxxOptions (..))
 import           Command              (Command (..), parseCommand, runCmd)
-import           Mode                 (RubbishMode)
-import           RubbishOptions       (RubbishAction (..), RubbishOptions (..))
+import           Mode                 (AuxxMode)
 
 ----------------------------------------------------------------------------
 -- Plugin implementation
 ----------------------------------------------------------------------------
 
-rubbishPlugin ::
+auxxPlugin ::
        HasCoreConstants
-    => RubbishOptions
-    -> (WorkerSpec RubbishMode, OutSpecs)
-rubbishPlugin RubbishOptions {..} =
-    case roAction of
+    => AuxxOptions
+    -> (WorkerSpec AuxxMode, OutSpecs)
+auxxPlugin AuxxOptions {..} =
+    case aoAction of
         Repl    -> worker' runCmdOuts $ runWalletRepl
         Cmd cmd -> worker' runCmdOuts $ runWalletCmd cmd
   where
@@ -59,14 +59,14 @@ rubbishPlugin RubbishOptions {..} =
 
 evalCmd ::
        HasCoreConstants
-    => SendActions RubbishMode
+    => SendActions AuxxMode
     -> Command
-    -> RubbishMode ()
+    -> AuxxMode ()
 evalCmd _ Quit = pure ()
 evalCmd sa cmd = runCmd sa cmd >> evalCommands sa
 
 evalCommands ::
-       HasCoreConstants => SendActions RubbishMode -> RubbishMode ()
+       HasCoreConstants => SendActions AuxxMode -> AuxxMode ()
 evalCommands sa = do
     putStr @Text "> "
     liftIO $ hFlush stdout
@@ -76,12 +76,12 @@ evalCommands sa = do
         Left err   -> putStrLn err >> evalCommands sa
         Right cmd_ -> evalCmd sa cmd_
 
-runWalletRepl :: HasCoreConstants => Worker RubbishMode
+runWalletRepl :: HasCoreConstants => Worker AuxxMode
 runWalletRepl sa = do
     putText "Welcome to Wallet CLI Node"
     evalCmd sa Help
 
-runWalletCmd :: HasCoreConstants => Text -> Worker RubbishMode
+runWalletCmd :: HasCoreConstants => Text -> Worker AuxxMode
 runWalletCmd str sa = do
     let strs = T.splitOn "," str
     for_ strs $ \scmd -> do
@@ -134,13 +134,13 @@ addLogging SendActions{..} = SendActions{
             => ConversationActions snd rcv m -> ConversationActions snd rcv m
     auxActs (ConversationActions{..}) = ConversationActions {
         send = \body -> do
-                 logDebug $ sformat ("Rubbish sending " % stext) (formatMessage body)
+                 logDebug $ sformat ("Auxx sending " % stext) (formatMessage body)
                  send body
       , recv = \limit -> do
                  mRcv <- recv limit
                  logDebug $
                    case mRcv of
-                     Nothing  -> sformat ("Rubbish received end of input")
-                     Just rcv -> sformat ("Rubbish received " % stext) (formatMessage rcv)
+                     Nothing  -> sformat ("Auxx received end of input")
+                     Just rcv -> sformat ("Auxx received " % stext) (formatMessage rcv)
                  return mRcv
       }

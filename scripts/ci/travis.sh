@@ -35,7 +35,7 @@ if [[ "$with_haddock" == "true" ]]; then
   find core/ -name '*.hs' -exec sed -i 's/QUOTED(CONFIG)/"'$DCONFIG'"/g' {} +
 fi
 
-targets="cardano-sl cardano-sl-rubbish cardano-sl-tools cardano-sl-wallet"
+targets="cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet"
 
 # There are no macOS explorer devs atm and it's only deployed on linux
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then

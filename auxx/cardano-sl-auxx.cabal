@@ -1,7 +1,7 @@
-name:                cardano-sl-rubbish
+name:                cardano-sl-auxx
 version:             0.6.0
-synopsis:            Cardano SL - Rubbish
-description:         Cardano SL - Rubbish
+synopsis:            Cardano SL - Auxx
+description:         Cardano SL - Auxx
 license:             MIT
 license-file:        LICENSE
 author:              Serokell
@@ -11,7 +11,7 @@ category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
 
-executable cardano-rubbish
+executable cardano-auxx
   hs-source-dirs:      src
   main-is:             Main.hs
   other-modules:
@@ -23,11 +23,11 @@ executable cardano-rubbish
                        Command.Update
                        Mode
                        Plugin
-                       RubbishOptions
+                       AuxxOptions
 
                        -- TODO: delete these
-                       Pos.Rubbish
-                       Pos.Rubbish.Hacks
+                       Pos.Auxx
+                       Pos.Auxx.Hacks
 
   build-depends:
                        QuickCheck

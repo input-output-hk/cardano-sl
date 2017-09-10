@@ -19,19 +19,19 @@ import           Pos.Ssc.SscAlgo     (SscAlgo (GodTossingAlgo))
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode        (RealMode)
 
-import           Mode                (CmdCtx (..), RubbishContext (..), RubbishMode,
-                                      RubbishSscType, realModeToRubbish)
-import           Plugin              (rubbishPlugin)
-import           RubbishOptions      (RubbishOptions (..), getRubbishOptions)
+import           AuxxOptions         (AuxxOptions (..), getAuxxOptions)
+import           Mode                (AuxxContext (..), AuxxMode, AuxxSscType,
+                                      CmdCtx (..), realModeToAuxx)
+import           Plugin              (auxxPlugin)
 
 -- 'NodeParams' obtained using 'CLI.getNodeParams' are not perfect for
--- Rubbish, so we need to adopt them slightly.
-correctNodeParams :: RubbishOptions -> NodeParams -> NodeParams
-correctNodeParams RubbishOptions {..} np =
-    np {npNetworkConfig = defaultNetworkConfig $ TopologyRubbish roPeers}
+-- Auxx, so we need to adopt them slightly.
+correctNodeParams :: AuxxOptions -> NodeParams -> NodeParams
+correctNodeParams AuxxOptions {..} np =
+    np {npNetworkConfig = defaultNetworkConfig $ TopologyAuxx aoPeers}
 
-action :: HasCoreConstants => RubbishOptions -> Production ()
-action opts@RubbishOptions {..} = do
+action :: HasCoreConstants => AuxxOptions -> Production ()
+action opts@AuxxOptions {..} = do
     CLI.printFlags
     systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
     logInfo $ sformat ("System start time is "%shown) systemStart
@@ -41,21 +41,21 @@ action opts@RubbishOptions {..} = do
         correctNodeParams opts <$> CLI.getNodeParams cArgs nArgs systemStart
     let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
     let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
-    bracketNodeResources @RubbishSscType nodeParams gtParams actionWithResources
+    bracketNodeResources @AuxxSscType nodeParams gtParams actionWithResources
   where
-    cArgs@CLI.CommonNodeArgs {..} = roCommonNodeArgs
+    cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     nArgs =
         CLI.NodeArgs {sscAlgo = GodTossingAlgo, behaviorConfigPath = Nothing}
-    cmdCtx = CmdCtx {ccPeers = roPeers}
+    cmdCtx = CmdCtx {ccPeers = aoPeers}
     actionWithResources nr =
-        runRealBasedMode toRealMode realModeToRubbish nr (rubbishPlugin opts)
-    toRealMode :: RubbishMode a -> RealMode RubbishSscType a
-    toRealMode rubbishAction = do
+        runRealBasedMode toRealMode realModeToAuxx nr (auxxPlugin opts)
+    toRealMode :: AuxxMode a -> RealMode AuxxSscType a
+    toRealMode auxxAction = do
         realModeContext <- ask
-        let rubbishContext =
-                RubbishContext
-                {rcRealModeContext = realModeContext, rcCmdCtx = cmdCtx}
-        lift $ runReaderT rubbishAction rubbishContext
+        let auxxContext =
+                AuxxContext
+                {acRealModeContext = realModeContext, acCmdCtx = cmdCtx}
+        lift $ runReaderT auxxAction auxxContext
 
 main :: IO ()
-main = giveStaticConsts $ runProduction . action =<< getRubbishOptions
+main = giveStaticConsts $ runProduction . action =<< getAuxxOptions

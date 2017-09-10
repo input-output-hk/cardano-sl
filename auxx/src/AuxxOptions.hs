@@ -1,12 +1,12 @@
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE QuasiQuotes   #-}
 
--- | Command line options of cardano-rubbish
+-- | Command line options of cardano-auxx
 
-module RubbishOptions
-       ( RubbishOptions (..)
-       , RubbishAction (..)
-       , getRubbishOptions
+module AuxxOptions
+       ( AuxxOptions (..)
+       , AuxxAction (..)
+       , getAuxxOptions
        ) where
 
 import           Universum
@@ -28,15 +28,15 @@ import qualified Pos.Client.CLI               as CLI
 -- Types
 ----------------------------------------------------------------------------
 
-data RubbishOptions = RubbishOptions
-    { roAction         :: !RubbishAction
-    , roCommonNodeArgs :: !CLI.CommonNodeArgs  -- ^ Common CLI args for nodes
-    , roPeers          :: ![NodeId]
+data AuxxOptions = AuxxOptions
+    { aoAction         :: !AuxxAction
+    , aoCommonNodeArgs :: !CLI.CommonNodeArgs  -- ^ Common CLI args for nodes
+    , aoPeers          :: ![NodeId]
     -- ^ Peers with which we want to communicate
     --   TODO: we also have topology, so it can be redundant.
     }
 
-data RubbishAction
+data AuxxAction
     = Repl
     | Cmd { cmd :: !Text }
 
@@ -44,14 +44,14 @@ data RubbishAction
 -- Parse action
 ----------------------------------------------------------------------------
 
-actionParser :: Parser RubbishAction
+actionParser :: Parser AuxxAction
 actionParser = subparser $ replParser <> cmdParser
 
-replParser :: Mod CommandFields RubbishAction
+replParser :: Mod CommandFields AuxxAction
 replParser = command "repl" $ info (pure Repl) $
              progDesc "Run REPL in console to evaluate the commands."
 
-cmdParser :: Mod CommandFields RubbishAction
+cmdParser :: Mod CommandFields AuxxAction
 cmdParser = command "cmd" $ info opts desc
   where opts = Cmd <$> strOption (long "commands"
                                <> metavar "CMD"
@@ -62,30 +62,30 @@ cmdParser = command "cmd" $ info opts desc
 -- Parse everything
 ----------------------------------------------------------------------------
 
-rubbishOptionsParser :: Parser RubbishOptions
-rubbishOptionsParser = do
-    roAction <- actionParser
-    roCommonNodeArgs <- CLI.commonNodeArgsParser
-    roPeers <- many $ CLI.nodeIdOption "peer" "Address of a peer."
-    pure RubbishOptions {..}
+auxxOptionsParser :: Parser AuxxOptions
+auxxOptionsParser = do
+    aoAction <- actionParser
+    aoCommonNodeArgs <- CLI.commonNodeArgsParser
+    aoPeers <- many $ CLI.nodeIdOption "peer" "Address of a peer."
+    pure AuxxOptions {..}
 
-getRubbishOptions :: IO RubbishOptions
-getRubbishOptions = execParser programInfo
+getAuxxOptions :: IO AuxxOptions
+getAuxxOptions = execParser programInfo
   where
-    programInfo = info (helper <*> versionOption <*> rubbishOptionsParser) $
+    programInfo = info (helper <*> versionOption <*> auxxOptionsParser) $
         fullDesc <> progDesc "Cardano SL CLI utilities."
-                 <> header "CLI-based utilities (rubbish)."
+                 <> header "CLI-based utilities (auxx)."
                  <> footerDoc usageExample
 
     versionOption = infoOption
-        ("cardano-rubbish-" <> showVersion version)
+        ("cardano-auxx-" <> showVersion version)
         (long "version" <> help "Show version.")
 
 usageExample :: Maybe Doc
 usageExample = (Just . fromString @Doc . toString @Text) [text|
 Command example:
 
-  stack exec -- cardano-rubbish                                  \
+  stack exec -- cardano-auxx                                     \
     --db-path node-db0                                           \
     --rebuild-db                                                 \
     --json-log=/tmp/logs/2017-05-22_181224/node0.json            \

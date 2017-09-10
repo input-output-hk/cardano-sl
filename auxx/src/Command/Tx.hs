@@ -1,6 +1,6 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
--- | Tx sending functionality in Rubbish.
+-- | Tx sending functionality in Auxx.
 
 module Command.Tx
        ( sendToAllGenesis
@@ -43,8 +43,8 @@ import           Pos.Wallet                    (getSecretKeys)
 
 import           Command.Types                 (SendMode (..),
                                                 SendToAllGenesisParams (..))
-import           Mode                          (CmdCtx (..), RubbishMode, getCmdCtx)
-import           Pos.Rubbish                   (makePubKeyAddressRubbish)
+import           Mode                          (AuxxMode, CmdCtx (..), getCmdCtx)
+import           Pos.Auxx                      (makePubKeyAddressAuxx)
 
 ----------------------------------------------------------------------------
 -- Send to all genesis
@@ -65,7 +65,7 @@ addTxSubmit mvar = modifySharedAtomic mvar (\(TxCount submitted failed sending) 
 addTxFailed :: Mockable SharedAtomic m => SharedAtomicT m TxCount -> m ()
 addTxFailed mvar = modifySharedAtomic mvar (\(TxCount submitted failed sending) -> return (TxCount submitted (failed + 1) sending, ()))
 
-sendToAllGenesis :: HasCoreConstants => SendActions RubbishMode -> SendToAllGenesisParams -> RubbishMode ()
+sendToAllGenesis :: HasCoreConstants => SendActions AuxxMode -> SendToAllGenesisParams -> AuxxMode ()
 sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMode tpsSentFile) = do
     unless (isDevelopment) $
         throwString "sendToAllGenesis works only in development mode"
@@ -87,7 +87,7 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
         -- prepare a queue with all transactions
         logInfo $ sformat ("Found "%shown%" keys in the genesis block.") (length keysToSend)
         forM_ (zip keysToSend [0..]) $ \(secretKey, n) -> do
-            outAddr <- makePubKeyAddressRubbish (toPublic secretKey)
+            outAddr <- makePubKeyAddressAuxx (toPublic secretKey)
             let val1 = mkCoin 1
                 txOut1 = TxOut {
                     txOutAddress = outAddr,
@@ -103,7 +103,7 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
             atomically $ writeTQueue txQueue (secretKey, txOuts, neighbours)
 
             -- every <slotDuration> seconds, write the number of sent and failed transactions to a CSV file.
-        let writeTPS :: RubbishMode ()
+        let writeTPS :: AuxxMode ()
             writeTPS = do
                 delay (sec slotDuration)
                 curTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
@@ -118,7 +118,7 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
                 else writeTPS
             -- Repeatedly take transactions from the queue and send them.
             -- Do this n times.
-            sendTxs :: Int -> RubbishMode ()
+            sendTxs :: Int -> AuxxMode ()
             sendTxs n
                 | n <= 0 = do
                       logInfo "All done sending transactions on this thread."
@@ -160,10 +160,10 @@ instance Exception LWalletException
 
 send ::
        HasCoreConstants
-    => SendActions RubbishMode
+    => SendActions AuxxMode
     -> Int
     -> NonEmpty TxOut
-    -> RubbishMode ()
+    -> AuxxMode ()
 send sendActions idx outputs = do
     CmdCtx{ccPeers} <- getCmdCtx
     skeys <- getSecretKeys

@@ -410,7 +410,7 @@ dataFlow what enqueue msg dt = handleAll handleE $ do
     -- all exceptions and log them instead of letting higher-level
     -- code to do it?
     -- FIXME: are we sure we don't want to propagate exception to caller???
-    -- Fortunatelly, it's used only in rubbish, so I don't care much.
+    -- Fortunatelly, it's used only in auxx, so I don't care much.
     -- @gromak
     handleE e =
         logWarning $

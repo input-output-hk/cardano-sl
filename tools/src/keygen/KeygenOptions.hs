@@ -25,6 +25,7 @@ import qualified Text.Parsec.Text       as P
 
 import           Pos.Client.CLI         (stakeholderIdParser)
 import           Pos.Core               (StakeholderId)
+import           Pos.Core.Genesis.Types (FakeAvvmOptions (..), TestBalanceOptions (..))
 
 import           Paths_cardano_sl       (version)
 
@@ -64,23 +65,10 @@ data GenesisGenOptions = GenesisGenOptions
       -- is used)
     } deriving (Show)
 
-data TestBalanceOptions = TestBalanceOptions
-    { tsoPattern      :: FilePath
-    , tsoPoors        :: Word
-    , tsoRichmen      :: Word
-    , tsoRichmenShare :: Double
-    , tsoTotalBalance :: Word64
-    } deriving (Show)
-
 data AvvmBalanceOptions = AvvmBalanceOptions
     { asoJsonPath      :: FilePath
     , asoHolderKeyfile :: Maybe FilePath
     , asoBlacklisted   :: Maybe FilePath
-    } deriving (Show)
-
-data FakeAvvmOptions = FakeAvvmOptions
-    { faoCount      :: Word
-    , faoOneBalance :: Word64
     } deriving (Show)
 
 keygenCommandParser :: Parser KeygenCommand

@@ -11,6 +11,9 @@ module Pos.Core.Genesis.Types
        , GenesisDelegation (..)
        , noGenesisDelegation
        , mkGenesisDelegation
+       , GenesisSpec (..)
+       , TestBalanceOptions (..)
+       , FakeAvvmOptions (..)
        , GenesisCoreData (..)
        , bootDustThreshold
        , mkGenesisCoreData
@@ -21,15 +24,21 @@ import           Universum
 import           Control.Lens         (at)
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.HashMap.Strict  as HM
+import qualified Data.Map.Lazy        as M
 import qualified Data.Text.Buildable  as Buildable
-import           Formatting           (bprint, (%))
+import           Formatting           (bprint, sformat, (%))
 import           Serokell.Util        (allDistinct, mapJson)
+import qualified Serokell.Util.Base16 as B16
+import           Text.JSON.Canonical  (Int54, JSValue (..), ToJSON (..), ToObjectKey (..))
 
+import           Pos.Binary.Class     (serialize')
 import           Pos.Core.Address     (addressHash, isBootstrapEraDistrAddress)
 import           Pos.Core.Coin        (coinToInteger, sumCoins, unsafeGetCoin,
                                        unsafeIntegerToCoin)
-import           Pos.Core.Types       (Address, Coin, ProxySKHeavy, StakeholderId, mkCoin)
-import           Pos.Crypto           (ProxySecretKey (..), isSelfSignedPsk)
+import           Pos.Core.Types       (Address, Coin, EpochIndex, ProxySKHeavy,
+                                       StakeholderId, mkCoin)
+import           Pos.Crypto           (ProxyCert, ProxySecretKey (..), PublicKey,
+                                       fullPublicKeyHexF, hashHexF, isSelfSignedPsk)
 
 -- | Balances distribution in genesis block.
 data BalanceDistribution
@@ -135,7 +144,20 @@ mkGenesisDelegation psks = do
         throwError "one of the delegates is also an issuer, don't do it"
     return $ UnsafeGenesisDelegation resMap
 
--- | Hardcoded genesis data to generate utxo from.
+data TestBalanceOptions = TestBalanceOptions
+    { tsoPattern      :: FilePath
+    , tsoPoors        :: Word
+    , tsoRichmen      :: Word
+    , tsoRichmenShare :: Double
+    , tsoTotalBalance :: Word64
+    } deriving (Show)
+
+data FakeAvvmOptions = FakeAvvmOptions
+    { faoCount      :: Word
+    , faoOneBalance :: Word64
+    } deriving (Show)
+
+--- | Generated genesis data, generated from genesis.json to generate utxo from.
 data GenesisCoreData = UnsafeGenesisCoreData
     { gcdAddrDistribution      :: ![AddrDistribution]
       -- ^ Address distribution. Determines utxo without boot
@@ -145,6 +167,145 @@ data GenesisCoreData = UnsafeGenesisCoreData
     , gcdHeavyDelegation       :: !GenesisDelegation
       -- ^ Genesis state of heavyweight delegation.
     } deriving (Show, Eq, Generic)
+
+
+-- | Hardcoded genesis data to generate utxo from.
+data GenesisSpec = GenesisSpec
+    { gsAvvmData        :: !GenesisCoreData
+    -- ^ Genesis data describes avvm.
+    -- Only this field must be presented in mainnet.
+
+    -- Fields below describe parameters to generate utxo for testnet.
+    , gsTestBalance     :: !(Maybe TestBalanceOptions)
+    , gsFakeAvvmBalance :: !(Maybe FakeAvvmOptions)
+      -- ^ Explicit bootstrap era stakeholders, list of addresses with
+      -- weights (@[(A, 5), (B, 2), (C, 3)]@). Setting this
+      -- overrides default settings for boot stakeholders (e.g. rich
+      -- in testnet stakes).
+    , gsSeed            :: !(Maybe Integer)
+      -- ^ Seed to use (when no seed is provided, a secure random generator
+      -- is used)
+    } deriving (Show, Generic)
+
+----------------------------------------------------------------------------
+-- ToJSON/FromJSON instances
+----------------------------------------------------------------------------
+
+wordToJSON :: Word -> JSValue
+wordToJSON = JSNum . fromIntegral
+
+word64ToJSON :: Word64 -> JSValue
+word64ToJSON = JSString . show
+
+integerToJSON :: Word64 -> JSValue
+integerToJSON = JSString . show
+
+coinToJSON :: Coin -> JSValue
+coinToJSON = word64ToJSON . unsafeGetCoin
+
+doubleToJSON :: Double -> JSValue
+doubleToJSON = JSString . show
+
+instance Monad m => ToJSON m Word16 where
+    toJSON = pure . JSString . show
+
+instance Monad m => ToJSON m Coin where
+    toJSON = pure . coinToJSON
+
+instance Monad m => ToJSON m Address where
+    toJSON = pure . JSString . show . B16.encode . serialize'
+
+instance Monad m => ToJSON m PublicKey where
+    toJSON = pure . JSString . show . sformat fullPublicKeyHexF
+
+instance Monad m => ToJSON m EpochIndex where
+    toJSON = pure . word64ToJSON . fromIntegral
+
+instance (Monad m, Typeable w) => ToJSON m (ProxyCert w) where
+    toJSON = pure . JSString . show . B16.encode . serialize'
+
+instance (Monad m, ToJSON m w, Typeable w) => ToJSON m (ProxySecretKey w) where
+    toJSON ProxySecretKey{..} = fmap JSObject $ sequence $
+        [ ("omega",)      <$> toJSON pskOmega
+        , ("issuerPk",)   <$> toJSON pskIssuerPk
+        , ("delegatePk",) <$> toJSON pskDelegatePk
+        , ("cert",)       <$> toJSON pskCert
+        ]
+
+instance Monad m => ToJSON m BalanceDistribution where
+    toJSON (FlatBalances n coin) = pure $
+        JSObject [("FlatBalances",
+            JSObject [ ("n", wordToJSON n)
+                     , ("coin", coinToJSON coin)
+                     ]
+                 )]
+    toJSON RichPoorBalances{..} = pure $
+        JSObject [("RichPoorBalances",
+            JSObject [ ("richmen", wordToJSON sdRichmen)
+                     , ("richBalance", coinToJSON sdRichBalance)
+                     , ("poor", wordToJSON sdPoor)
+                     , ("poorBalance", coinToJSON sdPoorBalance)
+                     ]
+                 )]
+    toJSON (ExponentialBalances n minCoin) = pure $
+        JSObject [("ExponentialBalances",
+            JSObject [ ("n", wordToJSON n)
+                     , ("minCoin", coinToJSON minCoin)
+                     ]
+                 )]
+    toJSON (CustomBalances coins) = do
+        coinsList <- toJSON coins
+        pure $
+            JSObject [("CustomBalances",
+                JSObject [("coins", coinsList)]
+                     )]
+
+instance Monad m => ToJSON m AddrDistribution where
+    toJSON (addresses, balDistr) = do
+        addressesField <- ("addresses",) <$> toJSON addresses
+        balDistrField <- ("balanceDistribution",) <$> toJSON balDistr
+        pure $ JSObject [addressesField, balDistrField]
+
+instance Monad m => ToObjectKey m StakeholderId where
+    toObjectKey = pure . show . sformat hashHexF
+
+instance Monad m => ToJSON m GenesisWStakeholders where
+    toJSON (GenesisWStakeholders stks) = toJSON stks
+
+instance Monad m => ToJSON m GenesisDelegation where
+    toJSON (UnsafeGenesisDelegation hm) = toJSON $ M.fromList $ HM.toList hm
+
+instance Monad m => ToJSON m GenesisCoreData where
+    toJSON UnsafeGenesisCoreData {..} = fmap JSObject $ sequence $
+        [ ("addrDistribution",) <$> toJSON gcdAddrDistribution
+        , ("bootStakeholders",) <$> toJSON gcdBootstrapStakeholders
+        , ("heavyDelegation",)  <$> toJSON gcdHeavyDelegation
+        ]
+
+instance Monad m => ToJSON m TestBalanceOptions where
+    toJSON TestBalanceOptions{..} = pure $ JSObject
+        [ ("pattern", JSString tsoPattern)
+        , ("poors", wordToJSON tsoPoors)
+        , ("richmen", wordToJSON tsoRichmen)
+        , ("richmenShare", doubleToJSON tsoRichmenShare)
+        , ("totalBalance", word64ToJSON tsoTotalBalance)
+        ]
+
+instance Monad m => ToJSON m FakeAvvmOptions where
+    toJSON FakeAvvmOptions{..} = pure $ JSObject $
+        [ ("count", wordToJSON faoCount)
+        , ("oneBalance", word64ToJSON faoOneBalance)
+        ]
+
+instance Monad m => ToJSON m GenesisSpec where
+    toJSON GenesisSpec {..} = do
+        avvmData <- ("avvmData",) <$> toJSON gsAvvmData
+        optionalTestnetFields <- fmap catMaybes $ sequence [
+            ("testBalance",) <<$>> traverse toJSON gsTestBalance
+          , ("fakeAvvmBalance",) <<$>> traverse toJSON gsFakeAvvmBalance
+          , ("seed",) . JSNum . fromIntegral <<$>> pure gsSeed
+          ]
+        pure $ JSObject $ avvmData : optionalTestnetFields
 
 -- | Calculates a minimum amount of coins user can set as an output in
 -- boot era.
@@ -157,8 +318,8 @@ bootDustThreshold (GenesisWStakeholders bootHolders) =
 
 -- | Safe constructor for 'GenesisCoreData'. Throws error if something
 -- goes wrong.
-mkGenesisCoreData ::
-       [AddrDistribution]
+mkGenesisCoreData
+    :: [AddrDistribution]
     -> Map StakeholderId Word16
     -> GenesisDelegation
     -> Either String GenesisCoreData

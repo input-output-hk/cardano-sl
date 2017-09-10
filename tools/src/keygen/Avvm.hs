@@ -74,9 +74,9 @@ instance FromJSON AvvmEntry where
 -- calling funciton.
 avvmAddrDistribution
     :: AvvmData
-    -> [AddrDistribution]
+    -> AddrDistribution
 avvmAddrDistribution (utxo -> avvmData) =
-    one $ (HM.keys balances, CustomBalances $ HM.elems balances)
+    (HM.keys balances, CustomBalances $ HM.elems balances)
   where
 --    randCerts = HM.fromList [(addressHash (vcSigningKey c), c)
 --                            | c <- runGen (replicateM 10 arbitrary)]

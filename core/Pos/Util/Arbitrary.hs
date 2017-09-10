@@ -15,6 +15,7 @@ import           Universum
 import           Data.ByteString        (pack)
 import qualified Data.ByteString.Lazy   as BL (ByteString, pack)
 import           Data.List.NonEmpty     (NonEmpty ((:|)))
+import           Formatting             (build, sformat, (%))
 import           Test.QuickCheck        (Arbitrary (..), Gen, listOf, scale, shuffle,
                                          vector)
 import           Test.QuickCheck.Gen    (unGen)
@@ -51,9 +52,13 @@ deriving instance Bi a => Bi (SmallGenerator a)
 -- | Choose a random (shuffled) subset of length n. Throws an error if
 -- there's not enough elements.
 sublistN :: Int -> [a] -> Gen [a]
-sublistN n xs
-    | length xs < n = error "sublistN: not enough elements"
-    | otherwise     = take n <$> shuffle xs
+sublistN n xs =
+    let len = length xs in
+    if len < n then
+        error $ sformat ("sublistN: requested "%build%" elements, "%
+            "but list only contains "%build) n len
+    else
+        take n <$> shuffle xs
 
 -- | Make arbitrary `ByteString` of given length.
 arbitrarySizedS :: Int -> Gen ByteString

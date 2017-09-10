@@ -39,7 +39,6 @@ getNodeParams args@CommonNodeArgs{..} systemStart = do
             CLI.updateUserSecretVSS args =<<
                 peekUserSecret (CLI.getKeyfilePath args)
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
-    npTransport <- CLI.getTransportParams args npNetworkConfig
     let devBalanceDistr =
             devBalancesDistr
                 (CLI.flatDistr commonArgs)

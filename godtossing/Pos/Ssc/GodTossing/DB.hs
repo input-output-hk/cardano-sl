@@ -13,11 +13,11 @@ import qualified Data.Text.Buildable
 import qualified Database.RocksDB               as Rocks
 import           Formatting                     (bprint, build, (%))
 
-import           Pos.Binary.Class               (serialize')
 import           Pos.Binary.GodTossing          ()
 import           Pos.Core                       (HasCoreConstants)
 import           Pos.DB                         (MonadDB, MonadDBRead, RocksBatchOp (..))
 import           Pos.DB.Error                   (DBError (DBMalformed))
+import           Pos.DB.Functions               (dbSerializeValue)
 import           Pos.DB.GState.Common           (gsGetBi, gsPutBi)
 import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..))
@@ -48,7 +48,7 @@ instance Buildable GtOp where
     build (PutGlobalState gs) = bprint ("GtOp ("%build%")") gs
 
 instance HasCoreConstants => RocksBatchOp GtOp where
-    toBatchOp (PutGlobalState gs) = [Rocks.Put gtKey (serialize' gs)]
+    toBatchOp (PutGlobalState gs) = [Rocks.Put gtKey (dbSerializeValue gs)]
 
 ----------------------------------------------------------------------------
 -- Key

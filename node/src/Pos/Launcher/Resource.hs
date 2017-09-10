@@ -55,7 +55,7 @@ import           Pos.Delegation             (DelegationVar, mkDelegationVar)
 import           Pos.DHT.Real               (KademliaDHTInstance, KademliaParams (..),
                                              startDHTInstance, stopDHTInstance)
 import           Pos.Launcher.Param         (BaseParams (..), LoggingParams (..),
-                                             NodeParams (..), TransportParams (..))
+                                             NodeParams (..))
 import           Pos.Lrc.Context            (LrcContext (..), mkLrcSyncData)
 import           Pos.Network.Types          (NetworkConfig (..), Topology (..))
 import           Pos.Shutdown.Types         (ShutdownContext (..))
@@ -200,14 +200,14 @@ bracketNodeResources :: forall ssc m a.
     -> SscParams ssc
     -> (HasCoreConstants => NodeResources ssc m -> Production a)
     -> Production a
-bracketNodeResources np sp k = bracketTransport tcpAddr $ \transport ->
-    bracketKademlia (npBaseParams np) (npNetworkConfig np) $ \networkConfig ->
-        bracket (allocateNodeResources transport networkConfig np sp) releaseNodeResources $ \nodeRes ->do
-            -- Notify systemd we are fully operative
-            notifyReady
-            k nodeRes
-  where
-    tcpAddr = tpTcpAddr (npTransport np)
+bracketNodeResources np sp k =
+    bracketTransport (ncTcpAddr (npNetworkConfig np)) $ \transport ->
+        bracketKademlia (npBaseParams np) (npNetworkConfig np) $ \networkConfig ->
+            bracket (allocateNodeResources transport networkConfig np sp)
+                    releaseNodeResources $ \nodeRes ->do
+                -- Notify systemd we are fully operative
+                notifyReady
+                k nodeRes
 
 ----------------------------------------------------------------------------
 -- Logging
@@ -358,8 +358,8 @@ bracketKademlia bp nc@NetworkConfig {..} action = case ncTopology of
         k $ TopologyCore{topologyOptKademlia = Nothing, ..}
     TopologyBehindNAT{..} ->
         k $ TopologyBehindNAT{..}
-    TopologyLightWallet{..} ->
-        k $ TopologyLightWallet{..}
+    TopologyAuxx{..} ->
+        k $ TopologyAuxx{..}
   where
     k topology = action (nc { ncTopology = topology })
 

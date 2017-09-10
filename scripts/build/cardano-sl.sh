@@ -60,7 +60,7 @@ set -o pipefail
 # * Pass --no-asserts to disable asserts.
 # * Pass --bench-mode to use the configuration used by modern benchmarks.
 
-# We can't have lwallet, wallet or explorer here, because it depends on 'cardano-sl'.
+# We can't have auxx, wallet or explorer here, because it depends on 'cardano-sl'.
 projects="core db lrc infra update ssc godtossing txp"
 
 args=''
@@ -169,8 +169,8 @@ do
     spec_prj="sl+"
   elif [[ $var == "gt" ]]; then
     spec_prj="godtossing"
-  elif [[ $var == "lwallet" ]]; then
-    spec_prj="lwallet"
+  elif [[ $var == "auxx" ]]; then
+    spec_prj="auxx"
   elif [[ $var == "wallet" ]]; then
     spec_prj="wallet"
   elif [[ $var == "explorer" ]]; then
@@ -269,8 +269,8 @@ if [[ $clean == true ]]; then
   echo "Cleaning cardano-sl-tools"
   stack clean cardano-sl-tools
 
-  echo "Cleaning cardano-sl-lwallet"
-  stack clean cardano-sl-lwallet
+  echo "Cleaning cardano-sl-auxx"
+  stack clean cardano-sl-auxx
 
   echo "Cleaning cardano-sl-wallet"
   stack clean cardano-sl-wallet
@@ -294,18 +294,18 @@ if [[ $spec_prj == "" ]]; then
     to_build="$to_build cardano-sl-$prj"
   done
 
-  to_build="$to_build cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-wallet cardano-sl-explorer"
+  to_build="$to_build cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet cardano-sl-explorer"
 
 elif [[ $spec_prj == "sl" ]]; then
   to_build="cardano-sl"
-elif [[ $spec_prj == "lwallet" ]]; then
-  to_build="cardano-sl-lwallet"
+elif [[ $spec_prj == "auxx" ]]; then
+  to_build="cardano-sl-auxx"
 elif [[ $spec_prj == "wallet" ]]; then
   to_build="cardano-sl-wallet"
 elif [[ $spec_prj == "explorer" ]]; then
   to_build="cardano-sl-explorer"
 elif [[ $spec_prj == "sl+" ]]; then
-  to_build="cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-explorer cardano-sl-wallet "
+  to_build="cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-explorer cardano-sl-wallet "
 else
   to_build="cardano-sl-$spec_prj"
 fi

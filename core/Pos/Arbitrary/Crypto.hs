@@ -36,6 +36,9 @@ import           Pos.Crypto.Signing                (ProxyCert, ProxySecretKey,
 import           Pos.Crypto.SignTag                (SignTag (..))
 import           Pos.Util.Arbitrary                (arbitrarySizedS, arbitraryUnsafe)
 
+keysToGenerate :: Int
+keysToGenerate = 128
+
 ----------------------------------------------------------------------------
 -- SignTag
 ----------------------------------------------------------------------------

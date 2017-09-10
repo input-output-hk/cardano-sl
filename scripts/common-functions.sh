@@ -245,10 +245,10 @@ function bench_cmd {
   local sendmode=$7
   ensure_run
 
-  echo -n "$(find_binary cardano-wallet)"
+  echo -n "$(find_binary cardano-auxx)"
   # This assumes that the n-1 node is the relay
   echo -n " --peer 127.0.0.1:"`get_port $((i-1))`
-  echo -n " $(logs node_lightwallet.log)"
+  echo -n " $(logs node_auxx.log)"
   echo -n " --system-start $system_start"
   echo -n " $stake_distr"
   echo -n " cmd --commands \"send-to-all-genesis $time $conc $delay $sendmode tps-sent.csv\""

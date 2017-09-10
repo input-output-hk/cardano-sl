@@ -312,7 +312,6 @@ getNoLongerRichmen newEpoch =
         lrcActionOnEpochReason e "getNoLongerRichmen" LrcDB.getRichmenDlg
 
 
-
 -- | Verifies if blocks are correct relatively to the delegation logic
 -- and returns a non-empty list of proxySKs needed for undoing
 -- them. Predicate for correctness here is:

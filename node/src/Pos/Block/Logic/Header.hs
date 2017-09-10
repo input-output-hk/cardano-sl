@@ -39,6 +39,7 @@ import           Pos.Crypto                (hash)
 import           Pos.DB                    (MonadDBRead)
 import qualified Pos.DB.Block              as DB
 import qualified Pos.DB.DB                 as DB
+import           Pos.Delegation.Cede       (dlgVerifyHeader, runDBCede)
 import qualified Pos.GState                as GS
 import           Pos.Slotting.Class        (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Class             (SscHelpersClass)
@@ -87,20 +88,19 @@ classifyNewHeader (Right header) = do
     let tip = headerHash tipHeader
     -- First of all we check whether header is from current slot and
     -- ignore it if it's not.
-    pure $ if
-        -- Checks on slots
+    if -- Checks on slots
         | maybe False (newHeaderSlot >) curSlot ->
-            CHUseless $ sformat
+            pure $ CHUseless $ sformat
                ("header is for future slot: our is "%build%
                 ", header's is "%build)
                curSlot newHeaderSlot
         | newHeaderEoS <= tipEoS ->
-            CHUseless $ sformat
+            pure $ CHUseless $ sformat
                ("header's slot "%build%
                 " is less or equal than our tip's slot "%build)
                newHeaderEoS tipEoS
         -- If header's parent is our tip, we verify it against tip's header.
-        | tip == header ^. prevBlockL ->
+        | tip == header ^. prevBlockL -> do
             let vhp =
                     VerifyHeaderParams
                     { vhpPrevHeader = Just tipHeader
@@ -118,17 +118,21 @@ classifyNewHeader (Right header) = do
                     , vhpMaxSize = Nothing
                     , vhpVerifyNoUnknown = False
                     }
-                verRes = verifyHeader vhp (Right header)
-            in case verRes of
-                   VerSuccess        -> CHContinues
-                   VerFailure errors -> mkCHRinvalid errors
+            let verRes = verifyHeader vhp (Right header)
+            dlgHeaderValid <- runDBCede $ runExceptT $ dlgVerifyHeader header
+            -- this case should be implemented using exceptions/monaderror (maybe..?)
+            pure $ case (verRes,dlgHeaderValid) of
+                   (VerSuccess,Right ())        -> CHContinues
+                   (VerSuccess,Left e)          -> mkCHRinvalid [e]
+                   (VerFailure errors,Left e)   -> mkCHRinvalid (e:errors)
+                   (VerFailure errors,Right ()) -> mkCHRinvalid errors
         -- If header's parent is not our tip, we check whether it's
         -- more difficult than our main chain.
-        | tipHeader ^. difficultyL < header ^. difficultyL -> CHAlternative
+        | tipHeader ^. difficultyL < header ^. difficultyL -> pure CHAlternative
         -- If header can't continue main chain and is not more
         -- difficult than main chain, it's useless.
         | otherwise ->
-            CHUseless $
+            pure $ CHUseless $
             "header doesn't continue main chain and is not more difficult"
 
 -- | Result of multiple headers classification.

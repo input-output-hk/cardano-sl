@@ -3,32 +3,47 @@ module Main
        ) where
 
 import           Universum
-import           Unsafe              (unsafeFromJust)
+import           Unsafe                (unsafeFromJust)
 
-import           Formatting          (sformat, shown, (%))
-import           Mockable            (Production, currentTime, runProduction)
-import           System.Wlog         (logInfo)
+import           Formatting            (sformat, shown, (%))
+import           Mockable              (Production, currentTime, runProduction)
+import qualified Network.Transport.TCP as TCP (TCPAddr (..))
+import           System.Wlog           (logInfo)
 
-import qualified Pos.Client.CLI      as CLI
-import           Pos.Core            (Timestamp (..))
-import           Pos.Core.Context    (HasCoreConstants, giveStaticConsts)
-import           Pos.Launcher        (NodeParams (..), bracketNodeResources,
-                                      runRealBasedMode)
-import           Pos.Network.Types   (Topology (..), defaultNetworkConfig)
-import           Pos.Ssc.SscAlgo     (SscAlgo (GodTossingAlgo))
-import           Pos.Util.UserSecret (usVss)
-import           Pos.WorkMode        (RealMode)
+import qualified Pos.Client.CLI        as CLI
+import           Pos.Core              (Timestamp (..))
+import           Pos.Core.Context      (HasCoreConstants, giveStaticConsts)
+import           Pos.Launcher          (NodeParams (..), bracketNodeResources,
+                                        runRealBasedMode)
+import           Pos.Network.Types     (NetworkConfig (..), Topology (..),
+                                        topologyDequeuePolicy, topologyEnqueuePolicy,
+                                        topologyFailurePolicy)
+import           Pos.Ssc.SscAlgo       (SscAlgo (GodTossingAlgo))
+import           Pos.Util.UserSecret   (usVss)
+import           Pos.WorkMode          (RealMode)
 
-import           AuxxOptions         (AuxxOptions (..), getAuxxOptions)
-import           Mode                (AuxxContext (..), AuxxMode, AuxxSscType,
-                                      CmdCtx (..), realModeToAuxx)
-import           Plugin              (auxxPlugin)
+import           AuxxOptions           (AuxxOptions (..), getAuxxOptions)
+import           Mode                  (AuxxContext (..), AuxxMode, AuxxSscType,
+                                        CmdCtx (..), realModeToAuxx)
+import           Plugin                (auxxPlugin)
 
 -- 'NodeParams' obtained using 'CLI.getNodeParams' are not perfect for
 -- Auxx, so we need to adopt them slightly.
 correctNodeParams :: AuxxOptions -> NodeParams -> NodeParams
 correctNodeParams AuxxOptions {..} np =
-    np {npNetworkConfig = defaultNetworkConfig $ TopologyAuxx aoPeers}
+    np {npNetworkConfig = networkConfig}
+  where
+    topology = TopologyAuxx aoPeers
+    networkConfig =
+        NetworkConfig
+        { ncDefaultPort = 3000
+        , ncSelfName = Nothing
+        , ncEnqueuePolicy = topologyEnqueuePolicy topology
+        , ncDequeuePolicy = topologyDequeuePolicy topology
+        , ncFailurePolicy = topologyFailurePolicy topology
+        , ncTopology = topology
+        , ncTcpAddr = TCP.Unaddressable
+        }
 
 action :: HasCoreConstants => AuxxOptions -> Production ()
 action opts@AuxxOptions {..} = do

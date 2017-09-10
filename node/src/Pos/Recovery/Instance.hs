@@ -29,7 +29,7 @@ instance ( Monad m
          MonadRecoveryInfo m where
     getSyncStatus lagBehindParam =
         fmap convertRes . runExceptT $ do
-            recoveryInProgress >>= \case
+            recoveryIsInProgress >>= \case
                 False -> pass
                 True -> throwError SSDoingRecovery
             curSlot <- note SSUnknownSlot =<< getCurrentSlot
@@ -41,7 +41,7 @@ instance ( Monad m
                     SSLagBehind
                     {sslbCurrentSlot = curSlot, sslbTipSlot = tipSlot}
       where
-        recoveryInProgress = do
+        recoveryIsInProgress = do
             var <- view (lensOf @RecoveryHeaderTag)
             isJust <$> atomically (STM.tryReadTMVar var)
         convertRes :: Either SyncStatus () -> SyncStatus

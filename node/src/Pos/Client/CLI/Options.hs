@@ -9,12 +9,9 @@ module Pos.Client.CLI.Options
        , optionalJSONPath
        , optionalLogPrefix
        , portOption
-       , timeLordOption
        , webPortOption
        , walletPortOption
        , networkAddressOption
-       , externalNetworkAddressOption
-       , listenNetworkAddressOption
        , templateParser
        , sscAlgoOption
 
@@ -30,6 +27,7 @@ import           Serokell.Util                        (sec)
 import           Serokell.Util.OptParse               (fromParsec)
 
 import           Pos.Binary.Core                      ()
+import           Pos.Client.CLI.Util                  (sscAlgoParser)
 import           Pos.Communication                    (NodeId)
 import           Pos.Constants                        (isDevelopment, staticSysStart)
 import           Pos.Core                             (Timestamp (..))
@@ -37,7 +35,6 @@ import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
 import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
                                                        addrParserNoWildcard,
                                                        addressToNodeId)
-import           Pos.Client.CLI.Util                   (sscAlgoParser)
 
 data CommonArgs = CommonArgs
     { logConfig     :: !(Maybe FilePath)
@@ -174,13 +171,6 @@ expDistrOption =
                 "INT"
                 "Use exponential distribution with given amount of nodes."
 
-timeLordOption :: Opt.Parser Bool
-timeLordOption =
-    Opt.switch
-        (Opt.long "time-lord" <>
-         Opt.help "Peer is time lord, i.e. one responsible for system start time decision\
-                  \ and propagation (used only in development mode).")
-
 webPortOption :: Word16 -> String -> Opt.Parser Word16
 webPortOption portNum help =
     Opt.option Opt.auto $
@@ -194,32 +184,6 @@ walletPortOption portNum help =
         templateParser "wallet-port" "PORT" help -- "Port for wallet"
         <> Opt.value portNum
         <> Opt.showDefault
-
-externalNetworkAddressOption :: Maybe NetworkAddress -> Opt.Parser NetworkAddress
-externalNetworkAddressOption na =
-    Opt.option (fromParsec addrParserNoWildcard) $
-            Opt.long "address"
-         <> Opt.metavar "IP:PORT"
-         <> Opt.help helpMsg
-         <> Opt.showDefault
-         <> maybe mempty Opt.value na
-  where
-    helpMsg = "IP and port of external address. "
-        <> "Please make sure these IP and port (on which node is running) are accessible "
-        <> "otherwise proper work of CSL isn't guaranteed. "
-        <> "0.0.0.0 is not accepted as a valid host."
-
-listenNetworkAddressOption :: Maybe NetworkAddress -> Opt.Parser NetworkAddress
-listenNetworkAddressOption na =
-    Opt.option (fromParsec addrParser) $
-            Opt.long "listen"
-         <> Opt.metavar "IP:PORT"
-         <> Opt.help helpMsg
-         <> Opt.showDefault
-         <> maybe mempty Opt.value na
-  where
-    helpMsg = "IP and port on which to bind and listen. Please make sure these IP "
-        <> "and port are accessible, otherwise proper work of CSL isn't guaranteed."
 
 sysStartOption :: Opt.Parser Timestamp
 sysStartOption = Opt.option (Timestamp . sec <$> Opt.auto) $

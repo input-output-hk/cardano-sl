@@ -13,10 +13,11 @@ module Pos.Util.Arbitrary
        , runGen
        ) where
 
-import           Pos.Binary.Class       (Bi)
 import           Data.ByteString        (pack)
 import qualified Data.ByteString.Lazy   as BL (ByteString, pack)
 import           Data.List.NonEmpty     (NonEmpty ((:|)))
+import           Formatting             (build, sformat, (%))
+import           Pos.Binary.Class       (Bi)
 import           System.IO.Unsafe       (unsafePerformIO)
 import           Test.QuickCheck        (Arbitrary (..), Gen, listOf, scale, shuffle,
                                          vector)
@@ -53,9 +54,13 @@ deriving instance Bi a => Bi (SmallGenerator a)
 -- | Choose a random (shuffled) subset of length n. Throws an error if
 -- there's not enough elements.
 sublistN :: Int -> [a] -> Gen [a]
-sublistN n xs
-    | length xs < n = error "sublistN: not enough elements"
-    | otherwise     = take n <$> shuffle xs
+sublistN n xs =
+    let len = length xs in
+    if len < n then
+        error $ sformat ("sublistN: requested "%build%" elements, "%
+            "but list only contains "%build) n len
+    else
+        take n <$> shuffle xs
 
 -- | Type for generating list of unique (nonrepeating) elemets.
 class Nonrepeating a where

@@ -97,6 +97,7 @@ dev: &dev
   ntpMaxError: 120000000 # 2 mins
 
   # Misc
+  dbSerializeVersion: 0
   protocolMagic: 55550001
   enhancedMessageTimeout: 360 # 6 mins
   enhancedMessageBroadcast: 2

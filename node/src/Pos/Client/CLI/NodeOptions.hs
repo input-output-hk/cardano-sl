@@ -20,8 +20,7 @@ import           NeatInterpolation            (text)
 import           Options.Applicative          (Parser, auto, execParser, footerDoc,
                                                fullDesc, header, help, helper, info,
                                                infoOption, long, metavar, option,
-                                               progDesc, showDefault, strOption, switch,
-                                               value)
+                                               progDesc, strOption, switch, value)
 import           Prelude                      (show)
 import           Serokell.Util.OptParse       (fromParsec)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
@@ -29,8 +28,6 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Paths_cardano_sl             (version)
 
 import           Pos.Client.CLI.Options       (CommonArgs (..), commonArgsParser,
-                                               externalNetworkAddressOption,
-                                               listenNetworkAddressOption,
                                                optionalJSONPath, sscAlgoOption)
 import           Pos.Constants                (isDevelopment)
 import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
@@ -50,17 +47,12 @@ data CommonNodeArgs = CommonNodeArgs
     , devVssGenesisI      :: !(Maybe Int)
     , keyfilePath         :: !FilePath
     , backupPhrase        :: !(Maybe BackupPhrase)
-    , externalAddress     :: !(Maybe NetworkAddress)
-      -- ^ A node must be addressable on the network.
-    , bindAddress         :: !(Maybe NetworkAddress)
-      -- ^ A node may have a bind address which differs from its external
-      -- address.
-    , peers               :: ![(NodeId, NodeType)]
-      -- ^ Known peers (addresses with classification).
     , networkConfigOpts   :: !NetworkConfigOpts
       -- ^ Network configuration
+    , peers               :: ![(NodeId, NodeType)]
+      -- ^ Known peers (addresses with classification).
+
     , jlPath              :: !(Maybe FilePath)
-    , kademliaDumpPath    :: !FilePath
     , commonArgs          :: !CommonArgs
     , updateLatestPath    :: !FilePath
     , updateWithPackage   :: !Bool
@@ -104,20 +96,10 @@ commonNodeArgsParser = do
         metavar "PHRASE" <>
         help    (show backupPhraseWordsNum ++
                  "-word phrase to recover the wallet. Words should be separated by spaces.")
-    externalAddress <-
-        optional $ externalNetworkAddressOption Nothing
-    bindAddress <-
-        optional $ listenNetworkAddressOption Nothing
     peers <- (++) <$> corePeersList <*> relayPeersList
     networkConfigOpts <- networkConfigOption
     jlPath <-
         optionalJSONPath
-    kademliaDumpPath <- strOption $
-        long    "kademlia-dump-path" <>
-        metavar "FILEPATH" <>
-        value   "kademlia.dump" <>
-        help    "Path to Kademlia dump file. If file doesn't exist, it will be created." <>
-        showDefault
     commonArgs <- commonArgsParser
     updateLatestPath <- strOption $
         long    "update-latest-path" <>

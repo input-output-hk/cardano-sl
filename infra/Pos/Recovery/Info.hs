@@ -57,8 +57,8 @@ class Monad m => MonadRecoveryInfo m where
     -- are enumerated in 'SyncStatus'.
     getSyncStatus :: SlotCount -> m SyncStatus
 
--- | Returns if 'RecoveryHeader' is 'Just' (which is equivalent to “we're
--- doing recovery”).
+-- | Returns if our 'SyncStatus' is 'SSDoingRecovery' (which is
+-- equivalent to “we're doing recovery”).
 recoveryInProgress :: MonadRecoveryInfo m => m Bool
 recoveryInProgress =
     getSyncStatus 0 {- 0 doesn't matter -} <&> \case

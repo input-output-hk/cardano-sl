@@ -6,45 +6,46 @@
 #endif
 
 module Pos.Network.Types
-    ( -- * Network configuration
-      NetworkConfig (..)
-    , NodeName (..)
-    , defaultNetworkConfig
-      -- * Topology
-    , StaticPeers(..)
-    , Topology(..)
-      -- ** Derived information
-    , SubscriptionWorker(..)
-    , topologyNodeType
-    , topologySubscribers
-    , topologyUnknownNodeType
-    , topologySubscriptionWorker
-    , topologyRunKademlia
-    , topologyEnqueuePolicy
-    , topologyDequeuePolicy
-    , topologyFailurePolicy
-    , topologyMaxBucketSize
-      -- * Queue initialization
-    , Bucket(..)
-    , initQueue
-      -- * Constructing peers
-    , Valency
-    , Fallbacks
-    , choosePeers
-      -- * DNS support
-    , Resolver
-    , resolveDnsDomains
-    , initDnsOnUse
-      -- * Re-exports
-      -- ** from .DnsDomains
-    , DnsDomains(..)
-      -- ** from time-warp
-    , NodeType (..)
-    , MsgType (..)
-    , Origin (..)
-      -- ** other
-    , NodeId (..)
-    ) where
+       ( -- * Network configuration
+         NetworkConfig (..)
+       , NodeName (..)
+         -- * Topology
+       , StaticPeers(..)
+       , Topology(..)
+         -- ** Derived information
+       , SubscriptionWorker(..)
+       , topologyNodeType
+       , topologySubscribers
+       , topologyUnknownNodeType
+       , topologySubscriptionWorker
+       , topologyRunKademlia
+       , topologyEnqueuePolicy
+       , topologyDequeuePolicy
+       , topologyFailurePolicy
+       , topologyMaxBucketSize
+         -- * Queue initialization
+       , Bucket(..)
+       , initQueue
+         -- * Constructing peers
+       , Valency
+       , Fallbacks
+       , choosePeers
+         -- * DNS support
+       , Resolver
+       , resolveDnsDomains
+       , initDnsOnUse
+         -- * Re-exports
+         -- ** from .DnsDomains
+       , DnsDomains(..)
+         -- ** from time-warp
+       , NodeType (..)
+       , MsgType (..)
+       , Origin (..)
+         -- ** other
+       , NodeId (..)
+       ) where
+
+import           Universum                             hiding (show)
 
 import           Data.IP                               (IPv4)
 import           GHC.Show                              (Show (..))
@@ -53,23 +54,24 @@ import qualified Network.Broadcast.OutboundQueue       as OQ
 import           Network.Broadcast.OutboundQueue.Types
 import           Network.DNS                           (DNSError)
 import qualified Network.DNS                           as DNS
+import qualified Network.Transport.TCP                 as TCP
 import           Node.Internal                         (NodeId (..))
+import qualified System.Metrics                        as Monitoring
+import           System.Wlog.CanLog                    (WithLogger)
+
 import           Pos.Network.DnsDomains                (DnsDomains (..))
 import qualified Pos.Network.DnsDomains                as DnsDomains
 import qualified Pos.Network.Policy                    as Policy
 import           Pos.System.Metrics.Constants          (cardanoNamespace)
 import           Pos.Util.TimeWarp                     (addressToNodeId)
-import qualified System.Metrics                        as Monitoring
-import           System.Wlog.CanLog                    (WithLogger)
-import           Universum                             hiding (show)
 
 #if !defined(POSIX)
 import qualified Pos.Network.Windows.DnsDomains        as Win
 #endif
 
-{-------------------------------------------------------------------------------
-  Network configuration
--------------------------------------------------------------------------------}
+----------------------------------------------------------------------------
+-- Network configuration
+----------------------------------------------------------------------------
 
 newtype NodeName = NodeName Text
     deriving (Show, Ord, Eq, IsString)
@@ -88,17 +90,19 @@ data NetworkConfig kademlia = NetworkConfig
     , ncEnqueuePolicy :: !(OQ.EnqueuePolicy NodeId)
     , ncDequeuePolicy :: !OQ.DequeuePolicy
     , ncFailurePolicy :: !(OQ.FailurePolicy NodeId)
+    , ncTcpAddr       :: !TCP.TCPAddr
+      -- ^ External TCP address of the node.
+      -- It encapsulates both bind address and address visible to other nodes.
     }
 
 instance Show kademlia => Show (NetworkConfig kademlia) where
     show = show . showableNetworkConfig
 
-data ShowableNetworkConfig kademlia = ShowableNetworkConfig {
-      sncTopology    :: !(Topology kademlia)
+data ShowableNetworkConfig kademlia = ShowableNetworkConfig
+    { sncTopology    :: !(Topology kademlia)
     , sncDefaultPort :: !Word16
     , sncSelfName    :: !(Maybe NodeName)
-    }
-    deriving (Show)
+    } deriving (Show)
 
 showableNetworkConfig :: NetworkConfig kademlia -> ShowableNetworkConfig kademlia
 showableNetworkConfig NetworkConfig {..} =
@@ -107,19 +111,9 @@ showableNetworkConfig NetworkConfig {..} =
         sncSelfName    = ncSelfName
     in  ShowableNetworkConfig {..}
 
-defaultNetworkConfig :: Topology kademlia -> NetworkConfig kademlia
-defaultNetworkConfig ncTopology = NetworkConfig {
-      ncDefaultPort   = 3000
-    , ncSelfName      = Nothing
-    , ncEnqueuePolicy = topologyEnqueuePolicy ncTopology
-    , ncDequeuePolicy = topologyDequeuePolicy ncTopology
-    , ncFailurePolicy = topologyFailurePolicy ncTopology
-    , ..
-    }
-
-{-------------------------------------------------------------------------------
-  Topology (from the pov of a single node)
--------------------------------------------------------------------------------}
+----------------------------------------------------------------------------
+-- Topology
+----------------------------------------------------------------------------
 
 -- | Statically configured peers
 --
@@ -134,7 +128,7 @@ data StaticPeers = forall m. (MonadIO m, WithLogger m) => StaticPeers {
     }
 
 instance Show StaticPeers where
-  show _ = "<<StaticPeers>>"
+    show _ = "<<StaticPeers>>"
 
 -- | Topology of the network, from the point of view of the current node
 data Topology kademlia =
@@ -185,9 +179,9 @@ data Topology kademlia =
       }
   deriving (Show)
 
-{-------------------------------------------------------------------------------
-  Information derived from the topology
--------------------------------------------------------------------------------}
+----------------------------------------------------------------------------
+-- Information derived from the topology
+----------------------------------------------------------------------------
 
 -- | Derive node type from its topology
 topologyNodeType :: Topology kademlia -> NodeType
@@ -295,9 +289,9 @@ topologyMaxBucketSize topology bucket =
       _otherBucket ->
         OQ.BucketSizeUnlimited
 
-{-------------------------------------------------------------------------------
-  Queue initialization
--------------------------------------------------------------------------------}
+----------------------------------------------------------------------------
+-- Queue initialization
+----------------------------------------------------------------------------
 
 -- | The various buckets we use for the outbound queue
 data Bucket =
@@ -366,9 +360,9 @@ initQueue NetworkConfig{..} mStore = do
 
     return oq
 
-{-------------------------------------------------------------------------------
-  Constructing peers
--------------------------------------------------------------------------------}
+----------------------------------------------------------------------------
+-- Constructing peers
+----------------------------------------------------------------------------
 
 -- | The number of peers we want to send to
 --
@@ -396,9 +390,9 @@ choosePeers valency fallbacks peerType =
     mkGroupsOf n lst = case splitAt n lst of
                          (these, those) -> these : mkGroupsOf n those
 
-{-------------------------------------------------------------------------------
-  DNS support
--------------------------------------------------------------------------------}
+----------------------------------------------------------------------------
+-- DNS support
+----------------------------------------------------------------------------
 
 type Resolver = DNS.Domain -> IO (Either DNSError [IPv4])
 

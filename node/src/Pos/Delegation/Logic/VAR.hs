@@ -33,9 +33,9 @@ import           Pos.Block.Core               (Block, BlockSignature (..),
 import           Pos.Block.Types              (Blund, Undo (undoDlg))
 import           Pos.Context                  (lrcActionOnEpochReason)
 import           Pos.Core                     (EpochIndex (..), HasCoreConstants,
-                                               StakeholderId, addressHash, epochIndexL,
-                                               gbHeader, gbhConsensus, headerHash,
-                                               prevBlockL)
+                                               ProxySKHeavy, StakeholderId, addressHash,
+                                               epochIndexL, gbHeader, gbhConsensus,
+                                               headerHash, prevBlockL)
 import           Pos.Crypto                   (ProxySecretKey (..), ProxySignature (..),
                                                psigPsk, shortHashF)
 import           Pos.DB                       (DBError (DBMalformed), MonadDBRead,
@@ -318,12 +318,7 @@ getNoLongerRichmen newEpoch =
 
 -- | Verifies a header from delegation perspective (signature checks).
 dlgVerifyHeader ::
-       forall ssc ctx m.
-       ( MonadCedeRead m
-       , MonadReader ctx m
-       , HasLens' ctx LrcContext
-       , HasCoreConstants
-       )
+       (MonadCedeRead m)
     => MainBlockHeader ssc
     -> ExceptT Text m ()
 dlgVerifyHeader h = do
@@ -361,6 +356,69 @@ dlgVerifyHeader h = do
                          build%" doesn't match block slot leader "%build)
                         pSig pskIPk issuer
         _ -> pass
+
+-- | Wrapper that turns on/off check of cycle creation in psk
+-- verification.
+newtype CheckForCycle = CheckForCycle Bool
+
+-- | Verify heavy PSK.
+dlgVerifyPskHeavy ::
+       forall m. (MonadCedeRead m)
+    => HashSet StakeholderId
+    -> CheckForCycle
+    -> ProxySKHeavy
+    -> ExceptT Text m ()
+dlgVerifyPskHeavy richmen (CheckForCycle checkCycle) psk  = do
+    let iPk = pskIssuerPk psk
+    let dPk = pskDelegatePk psk
+    let stakeholderId = addressHash iPk
+
+    -- Issuers have enough money (though it's free to revoke).
+    when (not (isRevokePsk psk) &&
+          not (stakeholderId `HS.member` richmen)) $
+        throwError $ sformat
+            ("PSK can't be accepted: issuer doesn't have enough stake: "%build)
+            psk
+
+    -- There are no psks that are isomorphic to ones from
+    -- db. That is, if i delegated to d using psk1, we forbid
+    -- using psk2 (in the next epoch) if psk2 delegates i → d
+    -- as well.
+    prevPsk <- getPsk stakeholderId
+    let duplicate = do
+            psk2@ProxySecretKey{..} <- prevPsk
+            guard $ pskIssuerPk == iPk && pskDelegatePk == dPk
+            pure psk2
+    whenJust duplicate $ \psk2 ->
+        throwError $ sformat
+            ("User effectively duplicates his previous PSK: "%
+             build%" with new one "%build)
+            psk2 psk
+
+    -- No issuer has posted psk this epoch before (unless
+    -- processed psk is a revocation).
+    alreadyPostedThisEpoch <- hasPostedThisEpoch stakeholderId
+    when (not (isRevokePsk psk) && alreadyPostedThisEpoch) $
+        throwError $ sformat
+            ("PSK "%build%" is not a revocation and his issuer "%
+             " has already published psk this epoch")
+            psk
+
+    -- Every revoking psk indeed revokes previous non-revoking
+    -- psk.
+    when (isRevokePsk psk && isNothing prevPsk) $
+        throwError $ sformat
+            ("Revoke PSK "%build%" doesn't revoke anything")
+            psk
+
+    -- No cycle is created. This check is optional because when
+    -- applying blocks we want to check for cycles after bulk
+    -- application.
+    when checkCycle $
+        whenJustM (detectCycleOnAddition psk) $ \cyclePoint ->
+            throwError $ sformat
+                ("Adding PSK "%build%" leads to cycle at point "%build)
+                psk cyclePoint
 
 
 -- | Verifies if blocks are correct relatively to the delegation logic
@@ -421,52 +479,12 @@ dlgVerifyBlocks blocks = do
         let proxySKs = getDlgPayload $ view mainBlockDlgPayload blk
             allIssuers = map pskIssuerPk proxySKs
 
-        forM_ proxySKs $ \psk -> do
-            let iPk = pskIssuerPk psk
-            let dPk = pskDelegatePk psk
-            let stakeholderId = addressHash iPk
-
-            -- Check 3: Issuers have enough money (though it's free to revoke).
-            when (not (isRevokePsk psk) &&
-                  not (stakeholderId `HS.member` richmen)) $
-                throwError $ sformat
-                    ("Block "%build%" contains psk issuers that "%
-                    "don't have enough stake: "%build)
-                    (headerHash blk) psk
-
-            -- Check 4: There are no psks that isomorphic to psks from
-            -- db. That is, if i delegated to d using psk1, we forbid
-            -- using psk2 (in the next epoch) if psk2 delegates i → d
-            -- as well.
-            prevPsk <- getPsk stakeholderId
-            let duplicate = do
-                    psk2@ProxySecretKey{..} <- prevPsk
-                    guard $ pskIssuerPk == iPk && pskDelegatePk == dPk
-                    pure psk2
-            whenJust duplicate $ \psk2 ->
-                throwError $ sformat
-                    ("Block "%build%" contains psk issuers that"%
-                    " effectively duplicate their previous psk: "%build%" with new "%build)
-                    (headerHash blk) psk2 psk
-
-            -- Check 5: No issuer has posted psk this epoch before (unless
-            -- processed psk is a revocation).
-            alreadyPostedThisEpoch <- hasPostedThisEpoch stakeholderId
-            when (not (isRevokePsk psk) && alreadyPostedThisEpoch) $
-                throwError $ sformat
-                    ("Block "%build%" contains psk "%build%
-                     " which is not revocation and issuer of which has"%
-                     " already published psk this epoch")
-                    (headerHash blk)
-                    psk
-
-            -- Check 6: Every revoking psk indeed revokes previous
-            -- non-revoking psk.
-            when (isRevokePsk psk && isNothing prevPsk) $
-                throwError $ sformat
-                    ("Block "%build%" contains revoke psk "%build%
-                    " that doesn't revoke anything.")
-                    (headerHash blk) psk
+        -- Collect rollback info (all certificates we'll
+        -- delete/override), apply new psks.
+        toRollback <- fmap catMaybes $ forM proxySKs $ \psk ->do
+            dlgVerifyPskHeavy richmen (CheckForCycle False) psk
+            modPsk $ pskToDlgEdgeAction psk
+            getPskPk $ pskIssuerPk psk
 
         -- Check 7: applying psks won't create a cycle.
         --
@@ -484,12 +502,6 @@ dlgVerifyBlocks blocks = do
         -- 'proxySKs' together. So it's alright to first apply 'proxySKs'
         -- to 'dvPskChanged' and then perform the check.
 
-        -- Collect rollback info (all certificates we'll
-        -- delete/override), apply new psks
-        toRollback <- catMaybes <$> mapM getPskPk allIssuers
-        mapM_ (modPsk . pskToDlgEdgeAction) proxySKs
-
-        -- Perform the last check
         cyclePoints <- catMaybes <$> mapM detectCycleOnAddition proxySKs
         unless (null cyclePoints) $
             throwError $

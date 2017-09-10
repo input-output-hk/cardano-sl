@@ -4,6 +4,7 @@ module Pos.Txp.Toil.Utxo.Functions
        ( VTxContext (..)
        , verifyTxUtxo
        , applyTxToUtxo
+       , applyTxToUtxoWarily
        , rollbackTxUtxo
        ) where
 
@@ -233,6 +234,16 @@ applyTxToUtxo (WithHash UnsafeTx {..} txid) = do
     mapM_ applyOutput . zip [0 ..] . toList . map TxOutAux $ _txOutputs
   where
     applyOutput (idx, toa) = utxoPut (TxInUtxo  txid idx) toa
+
+-- | Like 'applyTxToUtxo', but drops transaction if relevant `TxIn`s are not
+-- present.
+applyTxToUtxoWarily :: MonadUtxo m => WithHash Tx -> m Bool
+applyTxToUtxoWarily whtx@(WithHash UnsafeTx {..} _) = do
+    fits <- allM present $ filter (not . isTxInUnknown) (toList _txInputs)
+    when fits $ applyTxToUtxo whtx
+    return fits
+  where
+    present = fmap isJust . utxoGet
 
 -- | Rollback application of given transaction to Utxo using Undo
 -- data.  This function assumes that transaction has been really

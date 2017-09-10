@@ -18,7 +18,6 @@ import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxSubmitTiming (
                                                pstNextDelay, pstNextSlot, ptxPeerAck,
                                                ptxSubmitTiming)
 
-
 mkPtxSubmitTiming :: HasCoreConstants => SlotId -> PtxSubmitTiming
 mkPtxSubmitTiming creationSlot =
     PtxSubmitTiming

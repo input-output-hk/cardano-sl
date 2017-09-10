@@ -2,6 +2,7 @@
 
 module Pos.Client.Txp.Balances
        ( MonadBalances(..)
+       , BalancesError(..)
        , getOwnUtxo
        , getBalanceFromUtxo
        , getOwnUtxosDefault
@@ -11,22 +12,29 @@ module Pos.Client.Txp.Balances
 
 import           Universum
 
-import           Control.Monad.Trans  (MonadTrans)
-import qualified Data.HashSet         as HS
-import           Data.List            (partition)
-import qualified Data.Map             as M
+import           Control.Monad.Trans          (MonadTrans)
+import qualified Data.HashSet                 as HS
+import           Data.List                    (partition)
+import qualified Data.Map                     as M
+import qualified Data.Text.Buildable
+import           Formatting                   (bprint, stext, (%))
 
-import           Pos.Core             (Address (..), Coin, IsBootstrapEraAddr (..),
-                                       isRedeemAddress, makePubKeyAddress)
-import           Pos.Crypto           (PublicKey)
-import           Pos.DB               (MonadDBRead, MonadGState, MonadRealDB)
-import           Pos.Txp              (MonadTxpMem, Utxo, addrBelongsToSet,
-                                       getUtxoModifier)
-import qualified Pos.Txp.DB           as DB
-import           Pos.Txp.Toil.Utxo    (getTotalCoinsInUtxo)
-import qualified Pos.Util.Modifier    as MM
-import           Pos.Wallet.Web.State (WebWalletModeDB)
-import qualified Pos.Wallet.Web.State as WS
+import           Pos.Client.Txp.History       (TxHistoryEntry (..))
+import           Pos.Core                     (Address (..), Coin,
+                                               IsBootstrapEraAddr (..), isRedeemAddress,
+                                               makePubKeyAddress)
+import           Pos.Crypto                   (PublicKey, WithHash (..))
+import           Pos.DB                       (MonadDBRead, MonadGState, MonadRealDB)
+import           Pos.Txp                      (MonadTxpMem, Tx, Utxo, addrBelongsToSet,
+                                               getUtxoModifier, topsortTxs)
+import qualified Pos.Txp.DB                   as DB
+import           Pos.Txp.Toil.Utxo            (applyTxToUtxoWarilyPure)
+import           Pos.Txp.Toil.Utxo            (getTotalCoinsInUtxo)
+import qualified Pos.Util.Modifier            as MM
+import           Pos.Util.Util                (maybeThrow)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..))
+import           Pos.Wallet.Web.State         (WebWalletModeDB)
+import qualified Pos.Wallet.Web.State         as WS
 
 -- | A class which have the methods to get state of address' balance
 class Monad m => MonadBalances m where
@@ -53,17 +61,44 @@ type BalancesEnv ext ctx m =
     , MonadMask m
     , MonadTxpMem ext ctx m)
 
+newtype BalancesError = BalancesError Text
+    deriving (Show)
+
+instance Buildable BalancesError where
+    build (BalancesError msg) =
+        bprint ("Error while evaluating balance: "%stext) msg
+
+instance Exception BalancesError
+
+
+-- | Get active pending transactions which are *not* in blockchain yet.
+getRecentTxs
+    :: (MonadThrow m, WebWalletModeDB ctx m)
+    => m [WithHash Tx]
+getRecentTxs = topsortTxsOrThrow . mapMaybe extract =<< WS.getPendingTxs
+  where
+    extract PendingTx{..} = do
+        let PtxApplying th = _ptxCond
+        Just $ WithHash (_thTx th) _ptxTxId
+    topsortTxsOrThrow =
+        maybeThrow (BalancesError "Failed to topsort pending transactions") .
+        topsortTxs identity
+
 getOwnUtxosDefault :: BalancesEnv ext ctx m => [Address] -> m Utxo
 getOwnUtxosDefault addrs = do
     let (redeemAddrs, commonAddrs) = partition isRedeemAddress addrs
 
-    updates <- getUtxoModifier
+    mempoolUpdates <- getUtxoModifier
+    recentTxs <- getRecentTxs
+    let applyUpdates = flip (foldl' (flip applyTxToUtxoWarilyPure)) recentTxs
+                     . MM.modifyMap mempoolUpdates
+
     commonUtxo <- if null commonAddrs then pure mempty
                     else WS.getWalletUtxo
     redeemUtxo <- if null redeemAddrs then pure mempty
                     else DB.getFilteredUtxo redeemAddrs
 
-    let allUtxo = MM.modifyMap updates $ commonUtxo <> redeemUtxo
+    let allUtxo = applyUpdates (commonUtxo <> redeemUtxo)
         addrsSet = HS.fromList addrs
     pure $ M.filter (`addrBelongsToSet` addrsSet) allUtxo
 

@@ -9,6 +9,7 @@ module Pos.Txp.Toil.Utxo.Pure
        , execUtxoStateT
 
        , applyTxToUtxoPure
+       , applyTxToUtxoWarilyPure
        , verifyTxUtxoPure
        ) where
 
@@ -22,7 +23,8 @@ import           Pos.Crypto                  (WithHash (..))
 import           Pos.Txp.Core                (Tx, TxAux, TxUndo)
 import           Pos.Txp.Toil.Failure        (ToilVerFailure)
 import           Pos.Txp.Toil.Types          (TxFee, Utxo)
-import           Pos.Txp.Toil.Utxo.Functions (VTxContext, applyTxToUtxo, verifyTxUtxo)
+import           Pos.Txp.Toil.Utxo.Functions (VTxContext, applyTxToUtxo,
+                                              applyTxToUtxoWarily, verifyTxUtxo)
 
 ----------------------------------------------------------------------------
 -- State
@@ -51,4 +53,10 @@ verifyTxUtxoPure ctx utxo txAux = evalUtxoStateT (verifyTxUtxo ctx txAux) utxo
 
 -- | Pure version of applyTxToUtxo.
 applyTxToUtxoPure :: WithHash Tx -> Utxo -> Utxo
-applyTxToUtxoPure tx u = runIdentity $ execUtxoStateT (applyTxToUtxo tx) u
+applyTxToUtxoPure tx u =
+    runIdentity $ execUtxoStateT (applyTxToUtxo tx) u
+
+-- | Pure version of applyTxToUtxoWarily.
+applyTxToUtxoWarilyPure :: WithHash Tx -> Utxo -> Utxo
+applyTxToUtxoWarilyPure tx u =
+    runIdentity $ execUtxoStateT (applyTxToUtxoWarily tx) u

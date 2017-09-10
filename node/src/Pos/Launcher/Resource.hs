@@ -20,7 +20,7 @@ module Pos.Launcher.Resource
        , bracketTransport
        ) where
 
-import           Universum                  hiding (bracket, finally)
+import           Universum                  hiding (bracket)
 
 import           Control.Concurrent.STM     (newEmptyTMVarIO, newTBQueueIO)
 import           Data.Tagged                (untag)
@@ -54,6 +54,7 @@ import           Pos.DB.Rocks               (closeNodeDBs, openNodeDBs)
 import           Pos.Delegation             (DelegationVar, mkDelegationVar)
 import           Pos.DHT.Real               (KademliaDHTInstance, KademliaParams (..),
                                              startDHTInstance, stopDHTInstance)
+import qualified Pos.GState                 as GS
 import           Pos.Launcher.Param         (BaseParams (..), LoggingParams (..),
                                              NodeParams (..))
 import           Pos.Lrc.Context            (LrcContext (..), mkLrcSyncData)
@@ -255,7 +256,7 @@ allocateNodeContext ancd = do
                                 , ancdTxpMemState = TxpLocalData {..}
                                 } = ancd
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
-    ncStateLock <- newStateLock
+    ncStateLock <- newStateLock =<< GS.getTip
     ncStateLockMetrics <- liftIO $ recordTxpMetrics store txpMemPool
     lcLrcSync <- mkLrcSyncData >>= newTVarIO
     ncSlottingVar <- (npSystemStart,) <$> mkSlottingVar

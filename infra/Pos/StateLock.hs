@@ -12,6 +12,7 @@ how long the action takes.
 module Pos.StateLock
        ( Priority (..)
        , StateLock (..)
+       , newEmptyStateLock
        , newStateLock
 
        , StateLockMetrics (..)
@@ -45,8 +46,13 @@ data StateLock = StateLock
     , slLock :: !PriorityLock
     }
 
-newStateLock :: MonadIO m => m StateLock
-newStateLock = StateLock <$> newEmptyMVar <*> newPriorityLock
+-- | Create empty (i. e. locked) 'StateLock'.
+newEmptyStateLock :: MonadIO m => m StateLock
+newEmptyStateLock = StateLock <$> newEmptyMVar <*> newPriorityLock
+
+-- | Create a 'StateLock' with given tip.
+newStateLock :: MonadIO m => HeaderHash -> m StateLock
+newStateLock tip = StateLock <$> newMVar tip <*> newPriorityLock
 
 -- | Effectful getters and setters for metrics related to the actions
 -- which use 'StateLock'.

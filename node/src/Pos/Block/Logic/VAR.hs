@@ -81,7 +81,7 @@ verifyBlocksPrefix blocks = runExceptT $ do
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     txUndo <- withExceptT (VerifyBlocksError . pretty) $
         tgsVerifyBlocks dataMustBeKnown $ map toTxpBlock blocks
-    pskUndo <- withExceptT VerifyBlocksError . ExceptT $ dlgVerifyBlocks blocks
+    pskUndo <- withExceptT VerifyBlocksError $ dlgVerifyBlocks blocks
     (pModifier, usUndos) <- withExceptT (VerifyBlocksError . pretty) $
         ExceptT $ usVerifyBlocks dataMustBeKnown (map toUpdateBlock blocks)
 

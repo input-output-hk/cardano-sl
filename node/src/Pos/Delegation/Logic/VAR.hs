@@ -4,7 +4,9 @@
 -- | Delegation-related verify/apply/rollback part.
 
 module Pos.Delegation.Logic.VAR
-       ( dlgVerifyBlocks
+       (
+         dlgVerifyHeader
+       , dlgVerifyBlocks
        , dlgApplyBlocks
        , dlgRollbackBlocks
        , dlgNormalizeOnRollback
@@ -13,7 +15,8 @@ module Pos.Delegation.Logic.VAR
 import           Universum
 
 import           Control.Lens                 (at, non, uses, (.=), (?=), _Wrapped)
-import           Control.Monad.Except         (runExceptT, throwError)
+import           Control.Monad.Except         (throwError)
+import           Control.Monad.Morph          (hoist)
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.HashSet                 as HS
 import           Data.List                    ((\\))
@@ -25,8 +28,8 @@ import           System.Wlog                  (WithLogger, logDebug)
 
 import           Pos.Binary.Communication     ()
 import           Pos.Block.Core               (Block, BlockSignature (..),
-                                               mainBlockDlgPayload, mainHeaderLeaderKey,
-                                               mcdSignature)
+                                               MainBlockHeader, mainBlockDlgPayload,
+                                               mainHeaderLeaderKey, mcdSignature)
 import           Pos.Block.Types              (Blund, Undo (undoDlg))
 import           Pos.Context                  (lrcActionOnEpochReason)
 import           Pos.Core                     (EpochIndex (..), HasCoreConstants,
@@ -313,6 +316,53 @@ getNoLongerRichmen newEpoch =
         toList <$>
         lrcActionOnEpochReason e "getNoLongerRichmen" LrcDB.getRichmenDlg
 
+-- | Verifies a header from delegation perspective (signature checks).
+dlgVerifyHeader ::
+       forall ssc ctx m.
+       ( MonadCedeRead m
+       , MonadReader ctx m
+       , HasLens' ctx LrcContext
+       , HasCoreConstants
+       )
+    => MainBlockHeader ssc
+    -> ExceptT Text m ()
+dlgVerifyHeader h = do
+    -- Issuer didn't delegate the right to issue to elseone.
+    let issuer = h ^. mainHeaderLeaderKey
+    let sig = h ^. gbhConsensus ^. mcdSignature
+    issuerPsk <- getPskPk issuer
+    whenJust issuerPsk $ \psk -> case sig of
+        (BlockSignature _) ->
+            throwError $
+            sformat ("issuer "%build%" has delegated issuance right, "%
+                     "so he can't issue the block, psk: "%build%", sig: "%build)
+                issuer psk sig
+        _ -> pass
+
+    -- Check that if proxy sig is used, delegate indeed has right to
+    -- issue the block. Signatures themselves are checked in the
+    -- constructor, here we only verify they are related to slot
+    -- leader. Self-signed proxySigs are forbidden on block
+    -- construction level.
+    case h ^. gbhConsensus ^. mcdSignature of
+        (BlockPSignatureHeavy pSig) -> do
+            let psk = psigPsk pSig
+            let delegate = pskDelegatePk psk
+            canIssue <- dlgReachesIssuance issuer delegate psk
+            unless canIssue $ throwError $
+                sformat ("heavy proxy signature's "%build%" "%
+                         "related proxy cert can't be found/doesn't "%
+                         "match the one in current allowed heavy psks set")
+                        pSig
+        (BlockPSignatureLight pSig) -> do
+            let pskIPk = pskIssuerPk (psigPsk pSig)
+            unless (pskIPk == issuer) $ throwError $
+                sformat ("light proxy signature's "%build%" issuer "%
+                         build%" doesn't match block slot leader "%build)
+                        pSig pskIPk issuer
+        _ -> pass
+
+
 -- | Verifies if blocks are correct relatively to the delegation logic
 -- and returns a non-empty list of proxySKs needed for undoing
 -- them. Predicate for correctness here is:
@@ -333,15 +383,14 @@ dlgVerifyBlocks ::
        , HasCoreConstants
        )
     => OldestFirst NE (Block ssc)
-    -> m (Either Text (OldestFirst NE DlgUndo))
+    -> ExceptT Text m (OldestFirst NE DlgUndo)
 dlgVerifyBlocks blocks = do
     (richmen :: HashSet StakeholderId) <-
         lrcActionOnEpochReason
         headEpoch
         "Delegation.Logic#delegationVerifyBlocks: there are no richmen for current epoch"
         LrcDB.getRichmenDlg
-    evalMapCede mempty . runExceptT $
-        mapM (verifyBlock richmen) blocks
+    hoist (evalMapCede mempty) $ mapM (verifyBlock richmen) blocks
   where
     headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
 
@@ -365,41 +414,7 @@ dlgVerifyBlocks blocks = do
 
         ------------- [Header] -------------
 
-        -- Check 1: Issuer didn't delegate the right to issue to elseone.
-        let h = blk ^. gbHeader
-        let issuer = h ^. mainHeaderLeaderKey
-        let sig = h ^. gbhConsensus ^. mcdSignature
-        issuerPsk <- getPskPk issuer
-        whenJust issuerPsk $ \psk -> case sig of
-            (BlockSignature _) ->
-                throwError $
-                sformat ("issuer "%build%" has delegated issuance right, "%
-                         "so he can't issue the block, psk: "%build%", sig: "%build)
-                    issuer psk sig
-            _ -> pass
-
-        -- Check 2: Check that if proxy sig is used, delegate indeed
-        -- has right to issue the block. Signatures themselves are
-        -- checked in the constructor, here we only verify they are
-        -- related to slot leader. Self-signed proxySigs are forbidden
-        -- on block construction level.
-        case h ^. gbhConsensus ^. mcdSignature of
-            (BlockPSignatureHeavy pSig) -> do
-                let psk = psigPsk pSig
-                let delegate = pskDelegatePk psk
-                canIssue <- dlgReachesIssuance issuer delegate psk
-                unless canIssue $ throwError $
-                    sformat ("heavy proxy signature's "%build%" "%
-                             "related proxy cert can't be found/doesn't "%
-                             "match the one in current allowed heavy psks set")
-                            pSig
-            (BlockPSignatureLight pSig) -> do
-                let pskIPk = pskIssuerPk (psigPsk pSig)
-                unless (pskIPk == issuer) $ throwError $
-                    sformat ("light proxy signature's "%build%" issuer "%
-                             build%" doesn't match block slot leader "%build)
-                            pSig pskIPk issuer
-            _ -> pass
+        dlgVerifyHeader $ blk ^. gbHeader
 
         ------------- [Payload] -------------
 

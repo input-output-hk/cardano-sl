@@ -12,8 +12,7 @@ module Pos.Delegation.Logic.VAR
 
 import           Universum
 
-import           Control.Lens                 (at, makeLenses, non, uses, (%=), (.=),
-                                               (?=), _Wrapped)
+import           Control.Lens                 (at, non, uses, (.=), (?=), _Wrapped)
 import           Control.Monad.Except         (runExceptT, throwError)
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.HashSet                 as HS
@@ -42,10 +41,10 @@ import qualified Pos.DB                       as DB
 import qualified Pos.DB.Block                 as DB
 import qualified Pos.DB.DB                    as DB
 import           Pos.Delegation.Cede          (CedeModifier (..), DlgEdgeAction (..),
-                                               MapCede, MonadCedeRead (getPsk),
-                                               detectCycleOnAddition, dlgEdgeActionIssuer,
-                                               dlgReachesIssuance, evalMapCede,
-                                               getPskChain, getPskPk, modPsk,
+                                               MapCede, MonadCede (..),
+                                               MonadCedeRead (..), detectCycleOnAddition,
+                                               dlgEdgeActionIssuer, dlgReachesIssuance,
+                                               evalMapCede, getPskChain, getPskPk, modPsk,
                                                pskToDlgEdgeAction, runDBCede)
 import           Pos.Delegation.Class         (MonadDelegation, dwProxySKPool, dwTip)
 import           Pos.Delegation.Helpers       (isRevokePsk)
@@ -314,14 +313,6 @@ getNoLongerRichmen newEpoch =
         toList <$>
         lrcActionOnEpochReason e "getNoLongerRichmen" LrcDB.getRichmenDlg
 
--- State needed for 'delegationVerifyBlocks'.
-data DlgVerState = DlgVerState
-    { _dvCurEpoch   :: !(HashSet StakeholderId)
-      -- ^ Set of issuers that have already posted certificates this epoch
-    }
-
-makeLenses ''DlgVerState
-
 -- | Verifies if blocks are correct relatively to the delegation logic
 -- and returns a non-empty list of proxySKs needed for undoing
 -- them. Predicate for correctness here is:
@@ -344,14 +335,12 @@ dlgVerifyBlocks ::
     => OldestFirst NE (Block ssc)
     -> m (Either Text (OldestFirst NE DlgUndo))
 dlgVerifyBlocks blocks = do
-    _dvCurEpoch <- GS.getThisEpochPostedKeys
-    let initState = DlgVerState _dvCurEpoch
     (richmen :: HashSet StakeholderId) <-
         lrcActionOnEpochReason
         headEpoch
         "Delegation.Logic#delegationVerifyBlocks: there are no richmen for current epoch"
         LrcDB.getRichmenDlg
-    flip evalStateT initState . evalMapCede mempty . runExceptT $
+    evalMapCede mempty . runExceptT $
         mapM (verifyBlock richmen) blocks
   where
     headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
@@ -359,11 +348,11 @@ dlgVerifyBlocks blocks = do
     verifyBlock ::
         HashSet StakeholderId ->
         Block ssc ->
-        ExceptT Text (MapCede (StateT DlgVerState m)) DlgUndo
+        ExceptT Text (MapCede m) DlgUndo
     verifyBlock _ (Left genesisBlk) = do
-        prevThisEpochPosted <- use dvCurEpoch
-        dvCurEpoch .= HS.empty
         let blkEpoch = genesisBlk ^. epochIndexL
+        prevThisEpochPosted <- getAllPostedThisEpoch
+        mapM_ delThisEpochPosted prevThisEpochPosted
         noLongerRichmen <- lift $ lift $ getNoLongerRichmen blkEpoch
         deletedPSKs <- catMaybes <$> mapM getPsk noLongerRichmen
         -- We should delete all certs for people who are not richmen.
@@ -447,8 +436,8 @@ dlgVerifyBlocks blocks = do
 
             -- Check 5: No issuer has posted psk this epoch before (unless
             -- processed psk is a revocation).
-            curEpoch <- use dvCurEpoch
-            when (not (isRevokePsk psk) && stakeholderId `HS.member` curEpoch) $
+            alreadyPostedThisEpoch <- hasPostedThisEpoch stakeholderId
+            when (not (isRevokePsk psk) && alreadyPostedThisEpoch) $
                 throwError $ sformat
                     ("Block "%build%" contains psk "%build%
                      " which is not revocation and issuer of which has"%
@@ -493,7 +482,7 @@ dlgVerifyBlocks blocks = do
                     (headerHash blk)
                     (take 5 $ cyclePoints) -- should be enough
 
-        dvCurEpoch %= HS.union (HS.fromList $ map addressHash allIssuers)
+        mapM_ (addThisEpochPosted . addressHash) allIssuers
         pure $ DlgUndo toRollback mempty
 
 -- | Applies a sequence of definitely valid blocks to memory state and

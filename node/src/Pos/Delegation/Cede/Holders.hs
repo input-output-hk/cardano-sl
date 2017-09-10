@@ -16,6 +16,7 @@ import           Control.Lens                 (at, (%=))
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
 import qualified Data.HashMap.Strict          as HM
+import           Data.HashSet                 as HS
 import qualified Ether
 
 import           Pos.DB.Class                 (MonadDBRead)
@@ -40,6 +41,7 @@ runDBCede = coerce
 instance MonadDBRead m => MonadCedeRead (DBCede m) where
     getPsk = DB.getPskByIssuer . Right
     hasPostedThisEpoch = DB.isIssuerPostedThisEpoch
+    getAllPostedThisEpoch = DB.getThisEpochPostedKeys
 
 -- We don't provide 'MonadCede' instance as writing into database is
 -- performed in batches on block application only.
@@ -68,6 +70,13 @@ instance MonadDBRead m => MonadCedeRead (MapCede m) where
         ether $ use (cmHasPostedThisEpoch . at sId) >>= \case
             Nothing                -> lift $ DB.isIssuerPostedThisEpoch sId
             Just v                 -> pure v
+    getAllPostedThisEpoch = ether $ do
+        allPostedDb <- lift DB.getThisEpochPostedKeys
+        mods <- use cmHasPostedThisEpoch
+        pure $ HM.foldlWithKey'
+                   (\hs k v -> (if v then HS.insert else HS.delete) k hs)
+                   allPostedDb
+                   mods
 
 instance MonadDBRead m => MonadCede (MapCede m) where
     modPsk eAction = do

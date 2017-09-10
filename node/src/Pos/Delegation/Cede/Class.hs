@@ -30,6 +30,9 @@ class MonadThrow m => MonadCedeRead m where
     -- certificate this epoch.
     hasPostedThisEpoch :: StakeholderId -> m Bool
 
+    -- | Get all stakeholders that have posted cert this epoch.
+    getAllPostedThisEpoch :: m (HashSet StakeholderId)
+
     default getPsk :: (MonadTrans t, MonadCedeRead n, t n ~ m) =>
         StakeholderId -> m (Maybe ProxySKHeavy)
     getPsk = lift . getPsk
@@ -37,6 +40,11 @@ class MonadThrow m => MonadCedeRead m where
     default hasPostedThisEpoch :: (MonadTrans t, MonadCedeRead n, t n ~ m) =>
         StakeholderId -> m Bool
     hasPostedThisEpoch = lift . hasPostedThisEpoch
+
+    default getAllPostedThisEpoch :: (MonadTrans t, MonadCedeRead n, t n ~ m) =>
+        m (HashSet StakeholderId)
+    getAllPostedThisEpoch = lift getAllPostedThisEpoch
+
 
 -- | Resolve by public key. Equialent to @getPsk . addressHash@.
 getPskPk :: (MonadCedeRead m) => PublicKey -> m (Maybe ProxySKHeavy)

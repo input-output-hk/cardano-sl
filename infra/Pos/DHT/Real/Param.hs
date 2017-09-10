@@ -1,4 +1,3 @@
-
 module Pos.DHT.Real.Param
        ( KademliaParams (..)
        , fromYamlConfig
@@ -42,7 +41,8 @@ fromYamlConfig yamlParams = do
         }
 
 kademliaAddressToNetworkAddress :: Y.KademliaAddress -> NetworkAddress
-kademliaAddressToNetworkAddress yamlAddr = (B8.pack $ Y.kaHost yamlAddr, Y.kaPort yamlAddr)
+kademliaAddressToNetworkAddress yamlAddr =
+    (B8.pack $ Y.kaHost yamlAddr, Y.kaPort yamlAddr)
 
 kademliaIdToDHTKey :: Y.KademliaId -> Either String DHTKey
 kademliaIdToDHTKey (Y.KademliaId txt) = do

@@ -30,6 +30,9 @@ module Pos.Binary.Class.Primitive
        , encodeUnknownCborDataItem
        , decodeKnownCborDataItem
        , decodeUnknownCborDataItem
+       -- * Cyclic redundancy check
+       , encodeCrcProtected
+       , decodeCrcProtected
        ) where
 
 import qualified Codec.CBOR.Decoding           as D
@@ -44,8 +47,11 @@ import qualified Data.ByteString.Lazy.Internal as BSL
 import           Data.SafeCopy                 (Contained, SafeCopy (..), contain,
                                                 safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
+import           Data.Typeable                 (typeOf)
 
-import           Pos.Binary.Class.Core         (Bi (..))
+import           Data.Digest.CRC32             (CRC32 (..))
+import           Formatting                    (format, shown, (%))
+import           Pos.Binary.Class.Core         (Bi (..), enforceSize)
 import           Serokell.Data.Memory.Units    (Byte)
 import           Universum
 
@@ -240,3 +246,25 @@ decodeUnknownCborDataItem :: D.Decoder s ByteString
 decodeUnknownCborDataItem = do
     decodeCborDataItemTag
     D.decodeBytes
+
+-- | Encodes a type `a` , protecting it from tampering/network-transport-alteration by
+-- protecting it with a CRC.
+encodeCrcProtected :: Bi a => a -> E.Encoding
+encodeCrcProtected x = E.encodeListLen 2 <> encodeUnknownCborDataItem body <> encode (crc32 body)
+  where
+    body = serialize' x
+
+-- | Decodes a CBOR blob into a type `a`, checking the serialised CRC corresponds to the computed one.
+decodeCrcProtected :: forall s a. Bi a => D.Decoder s a
+decodeCrcProtected = do
+    enforceSize ("decodeCrcProtected: " <> show (typeOf (Proxy @a))) 2
+    body <- decodeUnknownCborDataItem
+    expectedCrc  <- decode
+    let actualCrc = crc32 body
+    let crcError = format ("decodeCrcProtected, expected CRC " % shown % " was not the computed one, which was " % shown)
+                          expectedCrc
+                          actualCrc
+    when (actualCrc /= expectedCrc) $ fail (toString crcError)
+    case decodeFull body of
+      Left e  -> fail (toString e)
+      Right x -> pure x

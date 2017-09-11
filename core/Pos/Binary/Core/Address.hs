@@ -10,10 +10,10 @@ import qualified Codec.CBOR.Write      as CBOR.Write
 import qualified Data.ByteString       as BS
 import           Data.Digest.CRC32     (CRC32 (..))
 import           Data.Word             (Word8)
-import           Formatting            (build, formatToString, shown, (%))
 
-import           Pos.Binary.Class      (Bi (..), decodeListLen, deserialize',
-                                        encodeListLen, enforceSize, serialize')
+import           Pos.Binary.Class      (Bi (..), decodeCrcProtected, decodeListLen,
+                                        deserialize', encodeCrcProtected, encodeListLen,
+                                        enforceSize, serialize')
 import           Pos.Binary.Core.Types ()
 import           Pos.Binary.Crypto     ()
 import           Pos.Core.Types        (AddrAttributes (..), AddrSpendingData (..),
@@ -179,12 +179,8 @@ encodeAddr Address {..} =
 -- relies on 'Bi', but it uses only encoding, while 'Buildable' is
 -- used here only in decoding.
 instance Buildable Address => Bi Address where
-    encode addr = encodeListLen 4 <> encodeAddr addr <> encode (crc32 addr)
+    encode Address{..} = encodeCrcProtected (addrRoot, addrAttributes, addrType)
     decode = do
-        (addrRoot, addrAttributes, addrType, decodedCRC) <- decode
+        (addrRoot, addrAttributes, addrType) <- decodeCrcProtected
         let res = Address {..}
-        let actualCRC = crc32 res
-        let errFmt = ("Address "%build%"has invalid checksum (decoded: "
-                      %shown%", actual: "%shown%")")
-        let err = formatToString errFmt res decodedCRC actualCRC
-        res <$ unless (actualCRC == decodedCRC) (fail err)
+        pure res

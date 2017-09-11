@@ -12,8 +12,10 @@ import           Data.Digest.CRC32     (CRC32 (..))
 import           Data.Word             (Word8)
 
 import           Pos.Binary.Class      (Bi (..), decodeCrcProtected, decodeListLen,
-                                        deserialize', encodeCrcProtected, encodeListLen,
-                                        enforceSize, serialize')
+                                        decodeUnknownCborDataItem, deserialize',
+                                        encodeCrcProtected, encodeListLen,
+                                        encodeUnknownCborDataItem, enforceSize,
+                                        serialize')
 import           Pos.Binary.Core.Types ()
 import           Pos.Binary.Crypto     ()
 import           Pos.Core.Types        (AddrAttributes (..), AddrSpendingData (..),
@@ -72,14 +74,17 @@ instance Bi AddrSpendingData where
             PubKeyASD pk -> encode (w8 0, pk)
             ScriptASD script -> encode (w8 1, script)
             RedeemASD redeemPK -> encode (w8 2, redeemPK)
-            UnknownASD tag payload -> encode (tag, payload)
+            UnknownASD tag payload ->
+                -- `encodeListLen 2` is semantically equivalent to encode (x,y)
+                -- but we need to "unroll" it in order to apply CBOR's tag 24 to `payload`.
+                encodeListLen 2 <> encode tag <> encodeUnknownCborDataItem payload
     decode = do
         enforceSize "AddrSpendingData" 2
         decode @Word8 >>= \case
             0 -> PubKeyASD <$> decode
             1 -> ScriptASD <$> decode
             2 -> RedeemASD <$> decode
-            tag -> UnknownASD tag <$> decode
+            tag -> UnknownASD tag <$> decodeUnknownCborDataItem
 
 instance Bi AddrStakeDistribution where
     encode =

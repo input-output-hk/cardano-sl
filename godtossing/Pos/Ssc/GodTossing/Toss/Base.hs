@@ -61,9 +61,9 @@ import           Pos.Ssc.GodTossing.Core         (Commitment (..),
                                                   SharesDistribution, SharesMap,
                                                   SignedCommitment,
                                                   VssCertificatesMap (..), commShares,
-                                                  getCommShares, lookupVss, memberVss,
-                                                  vcSigningKey, vcVssKey, verifyOpening,
-                                                  vssThreshold, _gpCertificates)
+                                                  getCommShares, gpVss, lookupVss,
+                                                  memberVss, vcSigningKey, vcVssKey,
+                                                  verifyOpening, vssThreshold)
 import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossEnv (..),
                                                   MonadTossRead (..))
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
@@ -481,7 +481,7 @@ checkPayload
     -> GtPayload
     -> m ()
 checkPayload epoch payload = do
-    let payloadCerts = _gpCertificates payload
+    let payloadCerts = gpVss payload
     case payload of
         CommitmentsPayload comms _ -> checkCommitmentsPayload epoch comms
         OpeningsPayload opens _    -> checkOpeningsPayload opens

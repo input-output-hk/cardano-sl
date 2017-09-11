@@ -279,18 +279,32 @@ mkVssCertificatesMap = VssCertificatesMap . HM.fromList . map toCertPair
 
 -- | Payload included into blocks.
 data GtPayload
-    = CommitmentsPayload  !CommitmentsMap !VssCertificatesMap
-    | OpeningsPayload     !OpeningsMap    !VssCertificatesMap
-    | SharesPayload       !SharesMap      !VssCertificatesMap
-    | CertificatesPayload !VssCertificatesMap
+    = CommitmentsPayload
+        { gpComms :: !CommitmentsMap
+        , gpVss   :: !VssCertificatesMap }
+    | OpeningsPayload
+        { gpOpenings :: !OpeningsMap
+        , gpVss      :: !VssCertificatesMap }
+    | SharesPayload
+        { gpShares :: !SharesMap
+        , gpVss    :: !VssCertificatesMap }
+    | CertificatesPayload
+        { gpVss    :: !VssCertificatesMap }
     deriving (Eq, Show, Generic)
 
 -- | Proof of GtPayload.
 data GtProof
-    = CommitmentsProof !(Hash CommitmentsMap) !(Hash VssCertificatesMap)
-    | OpeningsProof !(Hash OpeningsMap) !(Hash VssCertificatesMap)
-    | SharesProof !(Hash SharesMap) !(Hash VssCertificatesMap)
-    | CertificatesProof !(Hash VssCertificatesMap)
+    = CommitmentsProof
+        { gprComms :: !(Hash CommitmentsMap)
+        , gprVss   :: !(Hash VssCertificatesMap) }
+    | OpeningsProof
+        { gprOpenings :: !(Hash OpeningsMap)
+        , gprVss      :: !(Hash VssCertificatesMap) }
+    | SharesProof
+        { gprShares :: !(Hash SharesMap)
+        , gprVss    :: !(Hash VssCertificatesMap) }
+    | CertificatesProof
+        { gprVss    :: !(Hash VssCertificatesMap) }
     deriving (Show, Eq, Generic)
 
 instance NFData GtPayload

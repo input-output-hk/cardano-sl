@@ -31,7 +31,6 @@ module Pos.Ssc.GodTossing.Core.Core
        , verifyOpening
 
        -- * Payload and proof
-       , _gpCertificates
        , mkGtProof
        , stripGtPayload
        , defaultGtPayload
@@ -245,12 +244,6 @@ checkCertTTL curEpochIndex vc =
 ----------------------------------------------------------------------------
 -- Payload and proof
 ----------------------------------------------------------------------------
-
-_gpCertificates :: GtPayload -> VssCertificatesMap
-_gpCertificates (CommitmentsPayload _ certs) = certs
-_gpCertificates (OpeningsPayload _ certs)    = certs
-_gpCertificates (SharesPayload _ certs)      = certs
-_gpCertificates (CertificatesPayload certs)  = certs
 
 isEmptyGtPayload :: GtPayload -> Bool
 isEmptyGtPayload (CommitmentsPayload comms certs) = null comms && null certs

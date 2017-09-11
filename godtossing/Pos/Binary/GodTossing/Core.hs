@@ -7,14 +7,15 @@ module Pos.Binary.GodTossing.Core
 import qualified Data.HashSet                  as HS
 import           Universum
 
-import           Pos.Binary.Class              (Bi (..), Decoder, Encoding, decodeListLen,
-                                                encodeListLen, enforceSize, matchSize)
+import           Pos.Binary.Class              (Bi (..), Cons (..), Decoder, Encoding,
+                                                Field (..), deriveSimpleBi, encodeListLen,
+                                                enforceSize)
 import           Pos.Binary.Crypto             ()
-import           Pos.Crypto                    (PublicKey)
+import           Pos.Crypto                    (Hash, PublicKey)
 import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), CommitmentsMap (..),
                                                 GtPayload (..), GtProof (..),
-                                                Opening (..), SignedCommitment,
-                                                VssCertificate (..),
+                                                Opening (..), OpeningsMap, SharesMap,
+                                                SignedCommitment, VssCertificate (..),
                                                 VssCertificatesMap (..), mkCommitmentsMap,
                                                 mkVssCertificatesMap,
                                                 recreateVssCertificate)
@@ -49,78 +50,13 @@ instance Bi VssCertificate where
       Left e  -> fail e
       Right v -> pure v
 
-deriving instance Bi VssCertificatesMap
+instance Bi VssCertificatesMap where
+  encode = encodeVssCertificates
+  decode = decodeVssCertificates
 
 instance Bi Opening where
   encode = encode . getOpening
   decode = Opening <$> decode
-
-instance Bi GtPayload where
-  encode input = case input of
-    CommitmentsPayload cmap vss ->
-        encodeListLen 3
-            <> encode (0 :: Word8)
-            <> encode cmap
-            <> encodeVssCertificates vss
-    OpeningsPayload omap vss ->
-        encodeListLen 3
-            <> encode (1 :: Word8)
-            <> encode omap
-            <> encodeVssCertificates vss
-    SharesPayload smap vss ->
-        encodeListLen 3
-            <> encode (2 :: Word8)
-            <> encode smap
-            <> encodeVssCertificates vss
-    CertificatesPayload vss ->
-        encodeListLen 2
-            <> encode (3 :: Word8)
-            <> encodeVssCertificates vss
-  decode = do
-    len <- decodeListLen
-    tag <- decode @Word8
-    case tag of
-      0 -> do
-        matchSize len "GtPayload.CommitmentsPayload" 3
-        liftM2 CommitmentsPayload decode decodeVssCertificates
-      1 -> do
-        matchSize len "GtPayload.OpeningsPayload" 3
-        liftM2 OpeningsPayload decode decodeVssCertificates
-      2 -> do
-        matchSize len "GtPayload.SharesPayload" 3
-        liftM2 SharesPayload decode decodeVssCertificates
-      3 -> do
-        matchSize len "GtPayload.CertificatesPayload" 2
-        CertificatesPayload <$> decodeVssCertificates
-      _ -> fail ("decode@GtPayload: invalid tag: " <> show tag)
-
-instance Bi GtProof where
-  encode input = case input of
-    CommitmentsProof  cmap vss -> encodeListLen 3 <> encode (0 :: Word8)
-                                                  <> encode cmap <> encode vss
-    OpeningsProof     omap vss -> encodeListLen 3 <> encode (1 :: Word8)
-                                                  <> encode omap <> encode vss
-    SharesProof       smap vss -> encodeListLen 3 <> encode (2 :: Word8)
-                                                  <> encode smap <> encode vss
-    CertificatesProof vss      -> encodeListLen 2 <> encode (3 :: Word8)
-                                                  <> encode vss
-  decode = do
-    len   <- decodeListLen
-    tag <- decode @Word8
-    case tag of
-      0 -> do
-        matchSize len "GtProof.CommitmentsProof" 3
-        CommitmentsProof  <$> decode <*> decode
-      1 -> do
-        matchSize len "GtProof.OpeningsProof" 3
-        OpeningsProof     <$> decode <*> decode
-      2 -> do
-        matchSize len "GtProof.SharesProof" 3
-        SharesProof       <$> decode <*> decode
-      3 -> do
-        matchSize len "GtProof.CertificatesProof" 2
-        CertificatesProof <$> decode
-      _ -> fail ("decode@GtProof: invalid tag: " ++ show tag)
 
 ----------------------------------------------------------------------------
 -- Maps encoding/decoding
@@ -163,3 +99,35 @@ decodeCommitments = do
     unless (allDistinct (map (view _1) comms :: [PublicKey])) $
         fail "decodeCommitments: two commitments have the same signing key"
     pure (mkCommitmentsMap comms)
+
+----------------------------------------------------------------------------
+-- TH-generated instances go to the end of the file
+----------------------------------------------------------------------------
+
+deriveSimpleBi ''GtPayload [
+    Cons 'CommitmentsPayload [
+        Field [| gpComms    :: CommitmentsMap     |],
+        Field [| gpVss      :: VssCertificatesMap |] ],
+    Cons 'OpeningsPayload [
+        Field [| gpOpenings :: OpeningsMap        |],
+        Field [| gpVss      :: VssCertificatesMap |] ],
+    Cons 'SharesPayload [
+        Field [| gpShares   :: SharesMap          |],
+        Field [| gpVss      :: VssCertificatesMap |] ],
+    Cons 'CertificatesPayload [
+        Field [| gpVss      :: VssCertificatesMap |] ]
+    ]
+
+deriveSimpleBi ''GtProof [
+    Cons 'CommitmentsProof [
+        Field [| gprComms    :: Hash CommitmentsMap     |],
+        Field [| gprVss      :: Hash VssCertificatesMap |] ],
+    Cons 'OpeningsProof [
+        Field [| gprOpenings :: Hash OpeningsMap        |],
+        Field [| gprVss      :: Hash VssCertificatesMap |] ],
+    Cons 'SharesProof [
+        Field [| gprShares   :: Hash SharesMap          |],
+        Field [| gprVss      :: Hash VssCertificatesMap |] ],
+    Cons 'CertificatesProof [
+        Field [| gprVss      :: Hash VssCertificatesMap |] ]
+    ]

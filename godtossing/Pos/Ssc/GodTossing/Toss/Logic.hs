@@ -26,8 +26,8 @@ import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (..), GtPayload
                                                   InnerSharesMap, Opening,
                                                   SignedCommitment, VssCertificate,
                                                   VssCertificatesMap (..),
-                                                  getCommitmentsMap,
-                                                  mkCommitmentsMapUnsafe, _gpCertificates)
+                                                  getCommitmentsMap, gpVss,
+                                                  mkCommitmentsMapUnsafe)
 import           Pos.Ssc.GodTossing.Functions    (sanityChecksGtPayload)
 import           Pos.Ssc.GodTossing.Toss.Base    (checkPayload)
 import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossEnv (..))
@@ -52,7 +52,7 @@ verifyAndApplyGtPayload eoh payload = do
     -- (in the 'recreateGenericBlock').  So this check is just in case.
     inAssertMode $
         whenRight eoh $ const $ sanityChecksGtPayload eoh payload
-    let blockCerts = _gpCertificates payload
+    let blockCerts = gpVss payload
     let curEpoch = either identity (^. epochIndexL) eoh
     checkPayload curEpoch payload
 

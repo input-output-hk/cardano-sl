@@ -32,7 +32,7 @@ let
   lib = pkgs.lib;
 in lib // (rec {
   inherit fetchNixPkgs;
-    
+
   # modulo operator
   # mod 11 10 == 1
   # mod 1 10 == 1

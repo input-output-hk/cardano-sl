@@ -53,7 +53,6 @@ instance Ord IndexedJLTimedEvent where
 runParseLogs :: FilePath -> (Producer IndexedJLTimedEvent IO () -> IO r) -> IO r
 runParseLogs logDir f = do
     xs <- jsonLogs logDir
-    print xs
     runWithFiles (assert (xs /= []) xs) ReadMode $ \ys -> f $ interleave (map (uncurry producer) ys)
   where
     producer :: Int -> Handle -> Producer IndexedJLTimedEvent IO ()

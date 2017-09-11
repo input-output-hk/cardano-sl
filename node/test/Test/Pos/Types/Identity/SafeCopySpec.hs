@@ -4,26 +4,29 @@ module Test.Pos.Types.Identity.SafeCopySpec
        ( spec
        ) where
 
-import           Test.Hspec    (Spec, describe)
 import           Universum
 
+import           Test.Hspec    (Spec, describe)
+
 import           Pos.Core      (giveStaticConsts)
-import qualified Pos.Txp       as T
-import qualified Pos.Types     as T
+import qualified Pos.Core      as Core
+import qualified Pos.Txp       as Txp
 
 import           Test.Pos.Util (safeCopyTest)
 
 spec :: Spec
 spec = giveStaticConsts $ describe "Types" $ do
     describe "SafeCopy instances" $ do
-        safeCopyTest @T.EpochIndex
-        safeCopyTest @T.LocalSlotIndex
-        safeCopyTest @T.SlotId
-        safeCopyTest @T.Coin
-        safeCopyTest @T.Address
-        safeCopyTest @T.TxInWitness
-        safeCopyTest @T.TxIn
-        safeCopyTest @T.TxOut
-        safeCopyTest @T.Tx
-        safeCopyTest @T.SharedSeed
-        safeCopyTest @T.ChainDifficulty
+        safeCopyTest @Core.EpochIndex
+        safeCopyTest @Core.LocalSlotIndex
+        safeCopyTest @Core.SlotId
+        safeCopyTest @Core.Coin
+        safeCopyTest @Core.Address
+        safeCopyTest @Core.SharedSeed
+        safeCopyTest @Core.ChainDifficulty
+        safeCopyTest @Core.VssCertificate
+
+        safeCopyTest @Txp.TxInWitness
+        safeCopyTest @Txp.TxIn
+        safeCopyTest @Txp.TxOut
+        safeCopyTest @Txp.Tx

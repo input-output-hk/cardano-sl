@@ -15,14 +15,14 @@ import           Formatting                        (int, sformat, (%))
 import           Universum
 
 import           Pos.Binary.Class                  (asBinary)
-import           Pos.Core                          (EpochIndex (..), genesisDevKeyPairs)
+import           Pos.Core                          (EpochIndex (..), VssCertificatesMap,
+                                                    genesisDevKeyPairs, mkVssCertificate)
 import           Pos.Core.Address                  (addressHash)
 import           Pos.Core.Constants                (genesisKeysN, isDevelopment)
 import           Pos.Crypto                        (VssKeyPair, VssPublicKey,
                                                     deterministicVssKeyGen,
                                                     toVssPublicKey)
 import           Pos.Ssc.GodTossing.Constants      (vssMaxTTL, vssMinTTL)
-import           Pos.Ssc.GodTossing.Core.Types     (VssCertificatesMap, mkVssCertificate)
 
 -- reexports
 import           Pos.Ssc.GodTossing.Genesis.Parser

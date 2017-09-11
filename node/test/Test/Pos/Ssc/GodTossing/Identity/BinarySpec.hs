@@ -21,7 +21,6 @@ spec = giveStaticConsts $ describe "GodTossing" $ do
     describe "Bi instances" $ do
         binaryTest @GT.Commitment
         binaryTest @GT.CommitmentsMap
-        binaryTest @GT.VssCertificate
         binaryTest @GT.Opening
         binaryTest @GT.GtPayload
         binaryTest @GT.GtProof
@@ -39,7 +38,6 @@ spec = giveStaticConsts $ describe "GodTossing" $ do
         binaryTest @GT.GtSecretStorage
     describe "Message length limit" $ do
         msgLenLimitedTest @GT.Opening
-        msgLenLimitedTest @GT.VssCertificate
         msgLenLimitedTest @(R.InvMsg (Tagged GT.MCCommitment StakeholderId))
         msgLenLimitedTest @(R.ReqMsg (Tagged GT.MCCommitment StakeholderId))
         msgLenLimitedTest @(R.MempoolMsg GT.MCCommitment)

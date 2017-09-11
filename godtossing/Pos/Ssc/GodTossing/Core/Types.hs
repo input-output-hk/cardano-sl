@@ -268,6 +268,9 @@ deleteVss :: StakeholderId -> VssCertificatesMap -> VssCertificatesMap
 deleteVss id (VssCertificatesMap m) = VssCertificatesMap (HM.delete id m)
 
 -- | Safe constructor of 'VssCertificatesMap'.
+--
+-- (Well, almost safe: it doesn't check that all certificates have different
+-- 'vcVssKey's).
 mkVssCertificatesMap :: [VssCertificate] -> VssCertificatesMap
 mkVssCertificatesMap = VssCertificatesMap . HM.fromList . map toCertPair
   where

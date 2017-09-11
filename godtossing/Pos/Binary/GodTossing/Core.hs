@@ -88,6 +88,8 @@ decodeVssCertificates = do
     -- other cert to be anything at all)
     unless (allDistinct (map vcSigningKey certs)) $
         fail "decodeVssCertificates: two certs have the same signing key"
+    unless (allDistinct (map vcVssKey certs)) $
+        fail "decodeVssCertificates: two certs have the same VSS key"
     pure (mkVssCertificatesMap certs)
 
 encodeCommitments :: CommitmentsMap -> Encoding

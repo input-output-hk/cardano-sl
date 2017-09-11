@@ -17,7 +17,7 @@ dht_conf=" --peer 127.0.0.1:3000 --peer 127.0.0.1:3001 --peer 127.0.0.1:3002 --p
 logs_conf=$(logs auxx.log)
 binary=$(find_binary cardano-auxx)
 template="$binary $dht_conf $logs_conf \
-                 --db-path run/auxx-db --rebuild-db \
+                 --db-path run/auxx-db \
                  --flat-distr \"(4, 100000)\" \
                  --system-start 100500"  # random value, not used, but mandatory
 

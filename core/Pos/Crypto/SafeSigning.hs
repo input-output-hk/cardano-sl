@@ -141,9 +141,10 @@ safeDeterministicKeyGen
 safeDeterministicKeyGen seed pp =
     bimap PublicKey (mkEncSecret pp) (safeCreateKeypairFromSeed seed pp)
 
--- | SafeSigner datatype to encapsulate sensible data
+-- | SafeSigner datatype to encapsulate sensitive data
 data SafeSigner = SafeSigner EncryptedSecretKey PassPhrase
                 | FakeSigner SecretKey
+                deriving Show
 
 safeSign :: Bi a => SignTag -> SafeSigner -> a -> Signature a
 safeSign t (SafeSigner sk pp) = sign' t pp sk

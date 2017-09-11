@@ -229,7 +229,7 @@ function node_cmd {
   fi
 
   local topology_file="$config_dir/topology$i.yaml"
-  local kademlia_file="$config_dir/kademlia$i.yaml"
+  #local kademlia_file="$config_dir/kademlia$i.yaml"
 
   echo -n "$(find_binary $exec_name) --db-path $run_dir/node-db$i $rts_opts $reb $no_ntp $keys_args"
 
@@ -239,7 +239,7 @@ function node_cmd {
   # A sloppy test but it'll do for now.
   local topology_first_six_bytes=`cat $topology_file | head -c 6`
   if [[ "$topology_first_six_bytes" != "wallet" ]]; then
-    echo -n " --address 127.0.0.1:"`get_port $i`
+    #echo -n " --address 127.0.0.1:"`get_port $i`
     echo -n " --listen 127.0.0.1:"`get_port $i`
   fi
   echo -n " $(logs node$i.log) $time_lord $stats"
@@ -253,7 +253,7 @@ function node_cmd {
   #echo -n " --statsd-server $statsd_server"
   echo -n " --node-id node$i"
   echo -n " --topology $topology_file"
-  echo -n " --kademlia $kademlia_file"
+  #echo -n " --kademlia $kademlia_file"
   # Use the policies option if you want to change enqueue/dequeue/failure
   # policies without re-compiling. See example files
   #   scripts/policies/policy_core.yaml
@@ -273,10 +273,10 @@ function bench_cmd {
   local sendmode=$7
   ensure_run
 
-  echo -n "$(find_binary cardano-wallet)"
+  echo -n "$(find_binary cardano-auxx)"
   # This assumes that the n-1 node is the relay
   echo -n " --peer 127.0.0.1:"`get_port $((i-1))`
-  echo -n " $(logs node_lightwallet.log)"
+  echo -n " $(logs node_auxx.log)"
   echo -n " --system-start $system_start"
   echo -n " $stake_distr"
   echo -n " cmd --commands \"send-to-all-genesis $time $conc $delay $sendmode tps-sent.csv\""

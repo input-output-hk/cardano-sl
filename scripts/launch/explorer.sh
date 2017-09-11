@@ -31,8 +31,8 @@ cmd="stack exec cardano-explorer --
       --log-config explorer/log-config.yaml \
       --topology ./run/topology0.yaml \
       --node-id explorer \
-      --kademlia ./run/kademlia_explorer.yaml \
       --no-ntp"
+#     --kademlia ./run/kademlia_explorer.yaml \ # topology is not kademlia-suitable
 echo "$cmd"
 $cmd
 #tmux select-pane -t 3

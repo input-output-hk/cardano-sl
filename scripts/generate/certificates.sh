@@ -1,53 +1,34 @@
-#!/usr/bin/env nix-shell
-#! nix-shell -j 4 -i bash -p nodejs-7_x stack
+#!/bin/bash
 
-# NOTE: this file must be kept idempotent
-
-
-set -ex
+set -e
 
 genesis=$1
 
 if [[ ! -d "$genesis" ]]; then
-  echo "No such folder $genesis"
+  echo "No genesis"
   exit 1
 fi
 
-pushd "$genesis"
-  if [[ ! -d postvend-app ]]; then
-    git clone git@github.com:input-output-hk/postvend-app.git
-  fi
+genesis_=`cd $genesis && pwd`
 
-  pushd postvend-app
-    if [[ ! -f "build-done" ]]; then
-      for i in certificate-generation-script new-certificate-generator paper-vend-generator; do
-        pushd $i
-          npm install
-        popd
-      done
-      mkdir -p bin
-      stack build --nix --local-bin-path bin --copy-bins
-      echo "done" > build-done
-    fi
+postvend_app_dir=`pwd`/../postvend-app
 
-    # cleanup
-    rm -Rf paper-certs-* redeem-certs-* seeds.txt
+{ for i in $genesis/keys-fakeavvm/*.seed; do cat $i; echo ''; done; } > $postvend_app_dir/seeds.txt
 
-    for i in ../avvm/*.seed; do
-      cat "$i" >> seeds.txt
-      echo '' >> seeds.txt
-    done
-  
-    ./bin/postvend-cli -- gen-test-certs --seeds-file seeds.txt
-  
-    mkdir ../certs
-  
-    mv paper-certs-mnem-* ../certs/paper-certs-mnem
-    mv paper-certs-* ../certs/paper-certs
-    mv redeem-certs-* ../certs/redeem-certs
-  popd
-popd
+DIR=`pwd`
 
-tar -czf "$genesis-certs-secrets.tgz" "$genesis/certs" "$genesis/secrets"
+cd $postvend_app_dir
 
-echo "Done"
+rm -Rf paper-certs-* redeem-certs-*
+
+stack exec postvend-cli -- gen-test-certs --seeds-file seeds.txt
+
+mkdir $genesis_/certs
+
+mv paper-certs-mnem-* $genesis_/certs/paper-certs-mnem
+mv paper-certs-* $genesis_/certs/paper-certs
+mv redeem-certs-* $genesis_/certs/redeem-certs
+
+cd $DIR
+
+tar -czf `basename $genesis`-certs-secrets.tgz $genesis/certs $genesis/keys-testnet/poor

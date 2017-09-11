@@ -77,7 +77,7 @@
   }
 
   .column {
-    lost-column: 2.5/12;
+    lost-column: 3.5/12;
     padding: 10px 0;
     font-family: var(--fontFamily0-Regular);
     color: var(--color8);
@@ -86,10 +86,11 @@
     overflow: hidden;
 
     &:last-child {
-      lost-column: 9.5/12;
+      lost-column: 8.5/12;
     }
 
     &__hash,
+    &__label,
     &__hash--link {
       text-overflow: ellipsis;
     }
@@ -99,6 +100,15 @@
       background-repeat: no-repeat;
       background-position: right center;
       background-size: 8px 7px;
+    }
+  }
+
+  @media (--sm) {
+    .column {
+      lost-column: 2.5/12;
+    }
+    &:last-child {
+      lost-column: 9.5/12;
     }
   }
 

@@ -22,7 +22,6 @@ import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CHash, _CTxBrief, _CTxId
 import Pux.DOM.Events (onClick) as P
 import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.HTML.Attributes (key) as P
-import Pux.Renderer.React (dangerouslySetInnerHTML) as P
 import Text.Smolder.HTML (a, div, span, h3, p) as S
 import Text.Smolder.HTML.Attributes (className, href, id) as S
 import Text.Smolder.Markup ((#!), (!))
@@ -71,7 +70,7 @@ addressQr _ lang =
         S.div ! S.className "address-qr__wrapper" $ do
             S.div ! S.className "address-qr__image"
                   ! S.id addressQRImageId
-                  $ mempty
+                  $ S.text ""
             S.p ! S.className "address-qr__description"
                 $ S.text (translate (I18nL.address <<< I18nL.addScan) lang)
 
@@ -119,8 +118,7 @@ addressDetailRow item =
 emptyAddressDetail :: String -> P.HTML Action
 emptyAddressDetail message =
     S.div ! S.className "message"
-          $ S.div ! P.dangerouslySetInnerHTML message
-                  $ mempty
+          $ S.div $ S.text message
 
 maxTxRows :: Int
 maxTxRows = 5

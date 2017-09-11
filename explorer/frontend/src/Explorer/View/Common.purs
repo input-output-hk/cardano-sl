@@ -29,7 +29,6 @@ import Data.Foldable (for_)
 import Data.Int (ceil, fromString, toNumber)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromMaybe)
-import Data.Monoid (mempty)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..))
 import Explorer.I18n.Lang (Language(..), readLanguage, translate)
@@ -70,7 +69,7 @@ class TxHeaderViewPropsFactory a where
 instance cTxEntryTxHeaderViewPropsFactory :: TxHeaderViewPropsFactory CTxEntry where
     mkTxHeaderViewProps (CTxEntry entry) = TxHeaderViewProps
         { txhHash: entry ^. cteId
-        , txhTimeIssued: Just $ entry ^. cteTimeIssued
+        , txhTimeIssued: entry ^. cteTimeIssued
         , txhAmount: entry . cteAmount
         }
 
@@ -78,7 +77,7 @@ instance cTxEntryTxHeaderViewPropsFactory :: TxHeaderViewPropsFactory CTxEntry w
 instance cTxBriefTxHeaderViewPropsFactory :: TxHeaderViewPropsFactory CTxBrief where
     mkTxHeaderViewProps (CTxBrief txBrief) = TxHeaderViewProps
         { txhHash: txBrief ^. ctbId
-        , txhTimeIssued: Just $ txBrief ^. ctbTimeIssued
+        , txhTimeIssued: txBrief ^. ctbTimeIssued
         , txhAmount: txBrief ^. ctbOutputSum
         }
 
@@ -119,7 +118,7 @@ txHeaderView lang (TxHeaderViewProps props) =
 emptyTxHeaderView :: P.HTML Action
 emptyTxHeaderView =
     S.div ! S.className "transaction-header"
-          $ mempty
+          $ S.text ""
 
 txAmountView :: CCoin -> Language -> P.HTML Action
 txAmountView coin lang =
@@ -175,7 +174,7 @@ txBodyView lang (TxBodyViewProps props) =
               S.div ! S.className "from-hash__amounts"
                     $ if (lInputs > lOutputs)
                           then for_ inputs (txBodyMaybeAmountView lang)
-                          else mempty
+                          else S.text ""
         S.div ! S.className "to-hash__container bg-transaction-arrow" $ do
               S.div ! S.className "to-hash__wrapper"
                     $ for_ outputs txToView
@@ -184,7 +183,7 @@ txBodyView lang (TxBodyViewProps props) =
               S.div ! S.className "to-hash__amounts"
                     $ if (lOutputs >= lInputs)
                           then for_ outputs (txBodyAmountView lang)
-                          else mempty
+                          else S.text ""
         -- On desktop we do show amounts within an extra column.
         -- This column is hidden on mobile by CSS.
         S.div ! S.className "amounts-container"
@@ -199,7 +198,7 @@ txBodyView lang (TxBodyViewProps props) =
 emptyTxBodyView :: P.HTML Action
 emptyTxBodyView =
     S.div ! S.className "transaction-body"
-          $ mempty
+          $ S.text ""
 
 txMaybeFromView :: Language -> Maybe (Tuple CAddress CCoin) -> P.HTML Action
 txMaybeFromView _ (Just tuple) = txFromView tuple
@@ -271,7 +270,7 @@ paginationView props =
                       S.div ! S.className ("btn-page" <> disablePrevBtnClazz)
                               #! P.onClick prevClickHandler
                               $ S.div ! S.className "icon bg-triangle-left"
-                                      $ mempty
+                                      $ S.text ""
                       (S.input !? not props.editable) (S.value <<< show $ unwrap props.currentPage)
                             ! S.className "page-number"
                             -- ! S.disabled (show $ props.maxPage == props.minPage)
@@ -290,10 +289,10 @@ paginationView props =
                       S.div ! S.className ("btn-page" <> disableNextBtnClazz)
                             #! P.onClick nextClickHandler
                             $ S.div ! S.className "icon bg-triangle-right"
-                                    $ mempty
+                                    $ S.text ""
           S.div ! S.className ("pagination-cover" <> if props.disabled then " show" else "")
                 #! P.onClick (const NoOp) -- add click handler to hide clickes from children
-                $ mempty
+                $ S.text ""
           where
               disablePrevBtnClazz = if props.currentPage == props.minPage then " disabled" else ""
               disableNextBtnClazz = if props.currentPage == props.maxPage then " disabled" else ""
@@ -422,4 +421,4 @@ placeholderView label =
           $ S.text label
 
 emptyView :: P.HTML Action
-emptyView = S.div $ mempty
+emptyView = S.div $ S.text ""

@@ -1,5 +1,5 @@
 name:                cardano-sl-core
-version:             0.5.1
+version:             0.6.0
 synopsis:            Cardano SL - core
 description:         Cardano SL - core
 license:             MIT
@@ -98,9 +98,12 @@ library
                        Pos.Binary.Core.Version
                        Pos.Binary.Core.Genesis
 
+                       Pos.System.Metrics.Constants
+
                        Pos.Util.Arbitrary
                        Pos.Util.Concurrent
                        Pos.Util.Concurrent.LockedTVar
+                       Pos.Util.Concurrent.PriorityLock
                        Pos.Util.Concurrent.RWLock
                        Pos.Util.Concurrent.RWVar
                        Pos.Util.Chrono
@@ -110,6 +113,7 @@ library
                        Pos.Util.LRU
                        Pos.Util.Mnemonics
                        Pos.Util.Modifier
+                       Pos.Util.Queue
                        Pos.Util.Util
 
   other-modules:

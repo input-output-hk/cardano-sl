@@ -14,7 +14,7 @@ import           Pos.Client.CLI      (CommonNodeArgs (..))
 import qualified Pos.Client.CLI      as CLI
 import           Pos.Constants       (isDevelopment)
 import           Pos.Core.Types      (Timestamp (..))
-import           Pos.Genesis         (devGenesisContext, devStakesDistr,
+import           Pos.Genesis         (devBalancesDistr, devGenesisContext,
                                       genesisContextProduction)
 import           Pos.Launcher        (NodeParams (..))
 import           Pos.Network.CLI     (intNetworkConfigOpts)
@@ -39,14 +39,13 @@ getNodeParams args@CommonNodeArgs{..} systemStart = do
             CLI.updateUserSecretVSS args =<<
                 peekUserSecret (CLI.getKeyfilePath args)
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
-    npTransport <- CLI.getTransportParams args npNetworkConfig
-    let devStakeDistr =
-            devStakesDistr
+    let devBalanceDistr =
+            devBalancesDistr
                 (CLI.flatDistr commonArgs)
                 (CLI.richPoorDistr commonArgs)
                 (CLI.expDistr commonArgs)
     let npGenesisCtx
-            | isDevelopment = devGenesisContext devStakeDistr
+            | isDevelopment = devGenesisContext devBalanceDistr
             | otherwise = genesisContextProduction
     pure NodeParams
         { npDbPathM = dbPath

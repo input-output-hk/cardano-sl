@@ -1,4 +1,3 @@
-
 -- | Leaders part of LRC DB.
 
 module Pos.Lrc.DB.Leaders
@@ -18,10 +17,9 @@ import           Universum
 import           Pos.Binary.Class      (serialize')
 import           Pos.Binary.Core       ()
 import           Pos.Context.Functions (genesisLeadersM)
-import           Pos.Core              (EpochIndex, GenesisWStakeholders,
-                                        HasCoreConstants, SlotLeaders)
+import           Pos.Core              (EpochIndex, HasCoreConstants, SlotLeaders)
 import           Pos.DB.Class          (MonadDB, MonadDBRead)
-import           Pos.Genesis           (GenesisUtxo)
+import           Pos.Genesis           (GenesisContext)
 import           Pos.Lrc.DB.Common     (getBi, putBi)
 import           Pos.Util.Util         (HasLens')
 
@@ -45,8 +43,7 @@ putLeaders epoch = putBi (leadersKey epoch)
 
 prepareLrcLeaders ::
        ( MonadReader ctx m
-       , HasLens' ctx GenesisUtxo
-       , HasLens' ctx GenesisWStakeholders
+       , HasLens' ctx GenesisContext
        , MonadDB m
        , HasCoreConstants
        )

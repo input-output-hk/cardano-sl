@@ -30,9 +30,8 @@ import           Pos.Txp.Core                   (TxAux (..), TxOut (..))
 import           Pos.Util                       (eitherToThrow, maybeThrow)
 import           Pos.Wallet.Web.Account         (GenSeed (..), getSKByAccAddr)
 import           Pos.Wallet.Web.ClientTypes     (AccountId (..), Addr, CAddress (..),
-                                                 CCoin, CId, CTx (..), CTxs (..),
-                                                 CWAddressMeta (..), Wal,
-                                                 addrMetaToAccount, mkCCoin)
+                                                 CCoin, CId, CTx (..), CWAddressMeta (..),
+                                                 Wal, addrMetaToAccount, mkCCoin)
 import           Pos.Wallet.Web.Error           (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTx)
 import qualified Pos.Wallet.Web.Methods.Logic   as L
@@ -70,7 +69,8 @@ getTxFee
 getTxFee srcAccount dstAccount coin = do
     utxo <- getMoneySourceUtxo (AccountMoneySource srcAccount)
     outputs <- coinDistrToOutputs $ one (dstAccount, coin)
-    TxFee fee <- eitherToThrow =<< runTxCreator (computeTxFee utxo outputs)
+    TxFee fee <- rewrapTxError "Cannot compute transaction fee" $
+        eitherToThrow =<< runTxCreator (computeTxFee utxo outputs)
     pure $ mkCCoin fee
 
 data MoneySource
@@ -162,10 +162,8 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
             (toList srcAddrs)
             dstAddrs
 
-        ctxs <- addHistoryTx srcWallet th
-        ctsOutgoing ctxs `whenNothing` throwM noOutgoingTx
+        addHistoryTx srcWallet th
   where
-     noOutgoingTx = InternalError "Can't report outgoing transaction"
      -- TODO eliminate copy-paste
      listF separator formatter =
          F.later $ fold . intersperse separator . fmap (F.bprint formatter)

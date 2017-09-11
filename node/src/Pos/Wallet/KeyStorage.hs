@@ -17,12 +17,13 @@ module Pos.Wallet.KeyStorage
 import qualified Control.Concurrent.STM as STM
 import           Control.Lens           ((<>~))
 import           Control.Monad.Catch    (MonadThrow)
+import           Serokell.Util          (modifyTVarS)
 import           System.Wlog            (WithLogger)
 import           Universum
 
 import           Pos.Binary.Crypto      ()
 import           Pos.Crypto             (EncryptedSecretKey, PassPhrase, SecretKey, hash,
-                                         safeKeyGen)
+                                         runSecureRandom, safeKeyGen)
 import           Pos.Util               ()
 import           Pos.Util.UserSecret    (HasUserSecret (..), UserSecret, peekUserSecret,
                                          usKeys, usPrimKey, writeUserSecret)
@@ -47,9 +48,10 @@ getSecretKeys = view usKeys <$> getSecret
 
 addSecretKey :: MonadKeys ctx m => EncryptedSecretKey -> m ()
 addSecretKey sk = do
-    us <- getSecret
-    unless (view usKeys us `containsKey` sk) $
-        putSecret (us & usKeys <>~ [sk])
+    modifySecret $ \us ->
+        if view usKeys us `containsKey` sk
+        then us
+        else us & usKeys <>~ [sk]
 
 deleteSecretKey :: MonadKeys ctx m => Word -> m ()
 deleteSecretKey (fromIntegral -> i) =
@@ -58,7 +60,7 @@ deleteSecretKey (fromIntegral -> i) =
 -- | Helper for generating a new secret key
 newSecretKey :: MonadKeys ctx m => PassPhrase -> m EncryptedSecretKey
 newSecretKey pp = do
-    (_, sk) <- safeKeyGen pp
+    (_, sk) <- liftIO $ runSecureRandom $ safeKeyGen pp
     addSecretKey sk
     return sk
 
@@ -69,15 +71,14 @@ newSecretKey pp = do
 getSecret :: MonadKeys ctx m => m UserSecret
 getSecret = view userSecret >>= atomically . STM.readTVar
 
-putSecret :: MonadKeys ctx m => UserSecret -> m ()
-putSecret s = view userSecret >>= atomically . flip STM.writeTVar s >> writeUserSecret s
-
-modifySecret :: MonadKeys ctx m => (UserSecret -> UserSecret) -> m ()
-modifySecret f =
-    -- TODO: Current definition preserves the behavior before the refactoring.
-    -- It can be improved if we access the TVar just once to modify it instead
-    -- of reading and writing it separately.
-    putSecret . f =<< getSecret
+modifySecret
+    :: MonadKeys ctx m
+    => (UserSecret -> UserSecret) -> m ()
+modifySecret f = do
+    us <- view userSecret
+    let modifier = state $ join (,) . f
+    new <- atomically $ modifyTVarS us modifier
+    writeUserSecret new
 
 deleteAt :: Int -> [a] -> [a]
 deleteAt j ls = let (l, r) = splitAt j ls in l ++ drop 1 r

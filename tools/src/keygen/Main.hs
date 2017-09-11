@@ -1,7 +1,8 @@
-
 module Main
        ( main
        ) where
+
+import           Universum
 
 import           Control.Lens          ((?~))
 import           Data.Aeson            (eitherDecode)
@@ -18,28 +19,29 @@ import           System.FilePath.Glob  (glob)
 import           System.Wlog           (Severity (Debug), WithLogger, consoleOutB,
                                         lcTermSeverity, logError, logInfo, setupLogging,
                                         usingLoggerName)
-import           Universum
 
 import           Pos.Binary            (asBinary, decodeFull, serialize')
 import           Pos.Core              (StakeholderId, addressDetailedF, addressHash,
                                         makePubKeyAddressBoot, makeRedeemAddress, mkCoin)
 import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair, redeemPkB64F,
-                                        toVssPublicKey)
+                                        setGlobalRandomSeed, toVssPublicKey)
 import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
-import           Pos.Genesis           (AddrDistribution, GenesisCoreData (..),
-                                        GenesisGtData (..), StakeDistribution (..),
+import           Pos.Genesis           (AddrDistribution, BalanceDistribution (..),
+                                        GenesisCoreData (..), GenesisGtData (..),
                                         genesisDevHdwSecretKeys, genesisDevSecretKeys,
-                                        mkGenesisCoreData)
+                                        mkGenesisCoreData, noGenesisDelegation)
 import           Pos.Util.UserSecret   (readUserSecret, usKeys, usPrimKey, usVss,
                                         usWalletSet)
+import           Pos.Util.Util         (leftToPanic)
 import           Pos.Wallet.Web.Secret (wusRootKey)
 
 import           Avvm                  (aeCoin, applyBlacklisted, avvmAddrDistribution,
                                         utxo)
-import           KeygenOptions         (AvvmStakeOptions (..), DumpAvvmSeedsOptions (..),
-                                        FakeAvvmOptions (..), GenesisGenOptions (..),
-                                        KeygenCommand (..), KeygenOptions (..),
-                                        TestStakeOptions (..), getKeygenOptions)
+import           KeygenOptions         (AvvmBalanceOptions (..),
+                                        DumpAvvmSeedsOptions (..), FakeAvvmOptions (..),
+                                        GenesisGenOptions (..), KeygenCommand (..),
+                                        KeygenOptions (..), TestBalanceOptions (..),
+                                        getKeygenOptions)
 import           Testnet               (genTestnetDistribution, generateFakeAvvm,
                                         generateKeyfile, rearrangeKeyfile)
 
@@ -54,7 +56,7 @@ applyPattern fp a = replace "{}" (show a) fp
     replace x b = toString . (T.replace `on` toText) x b . toText
 
 ----------------------------------------------------------------------------
--- Stake distributions generation
+-- Balance distributions generation
 ----------------------------------------------------------------------------
 
 -- Generates keys and vss certs for testnet data. Returns:
@@ -64,9 +66,9 @@ applyPattern fp a = replace "{}" (show a) fp
 getTestnetData ::
        (MonadIO m, MonadFail m, WithLogger m)
     => FilePath
-    -> TestStakeOptions
+    -> TestBalanceOptions
     -> m ([AddrDistribution], Map StakeholderId Word16, GenesisGtData)
-getTestnetData dir tso@TestStakeOptions{..} = do
+getTestnetData dir tso@TestBalanceOptions{..} = do
 
     let keysDir = dir </> "keys-testnet"
     let richDir = keysDir </> "rich"
@@ -91,9 +93,9 @@ getTestnetData dir tso@TestStakeOptions{..} = do
 
     let distr = genTestnetDistribution tso
         richmenStakeholders = case distr of
-            RichPoorStakes {..} ->
+            RichPoorBalances {..} ->
                 Map.fromList $ map ((,1) . addressHash . fst) genesisListRich
-            _ -> error "cardano-keygen: impossible type of generated testnet stake"
+            _ -> error "cardano-keygen: impossible type of generated testnet balance"
         genesisAddrs = map (makePubKeyAddressBoot . fst) genesisList
                     <> map (view _3) poorsList
         genesisAddrDistr = [(genesisAddrs, distr)]
@@ -123,25 +125,25 @@ getFakeAvvmGenesis dir FakeAvvmOptions{..} = do
     logInfo $ show faoCount <> " fake avvm seeds are generated"
 
     let gcdAddresses = map makeRedeemAddress fakeAvvmPubkeys
-        gcdDistribution = CustomStakes $
+        gcdDistribution = CustomBalances $
             replicate (length gcdAddresses)
-                      (mkCoin $ fromIntegral faoOneStake)
+                      (mkCoin $ fromIntegral faoOneBalance)
 
     pure $ [(gcdAddresses, gcdDistribution)]
 
 -- Reads avvm json file and returns related 'AddrDistribution'
 getAvvmGenesis
     :: (MonadIO m, WithLogger m, MonadFail m)
-    => AvvmStakeOptions -> m [AddrDistribution]
-getAvvmGenesis AvvmStakeOptions {..} = do
+    => AvvmBalanceOptions -> m [AddrDistribution]
+getAvvmGenesis AvvmBalanceOptions {..} = do
     logInfo "Generating avvm data"
     jsonfile <- liftIO $ BSL.readFile asoJsonPath
     case eitherDecode jsonfile of
         Left err       -> error $ toText err
         Right avvmData -> do
             avvmDataFiltered <- applyBlacklisted asoBlacklisted avvmData
-            let totalAvvmStake = sum $ map aeCoin $ utxo avvmDataFiltered
-            logInfo $ "Total avvm stake after applying blacklist: " <> show totalAvvmStake
+            let totalAvvmBalance = sum $ map aeCoin $ utxo avvmDataFiltered
+            logInfo $ "Total avvm balance after applying blacklist: " <> show totalAvvmBalance
             pure $ avvmAddrDistribution avvmDataFiltered
 
 ----------------------------------------------------------------------------
@@ -214,16 +216,19 @@ genGenesisFiles
     :: (MonadIO m, MonadFail m, WithLogger m)
     => GenesisGenOptions -> m ()
 genGenesisFiles GenesisGenOptions{..} = do
-    when (isNothing ggoAvvmStake &&
-          isNothing ggoTestStake &&
-          isNothing ggoFakeAvvmStake) $
-        error "At least one of options (AVVM stake or testnet stake) \
+    when (isNothing ggoAvvmBalance &&
+          isNothing ggoTestBalance &&
+          isNothing ggoFakeAvvmBalance) $
+        error "At least one of options (AVVM balance or testnet balance) \
               \should be provided"
 
+    whenJust ggoSeed $ \seed ->
+        liftIO (setGlobalRandomSeed seed)
+
     logInfo "Generating requested raw data"
-    mAvvmAddrDistr <- traverse getAvvmGenesis ggoAvvmStake
-    mFakeAvvmAddrDistr <- traverse (getFakeAvvmGenesis ggoGenesisDir) ggoFakeAvvmStake
-    mTestnetData <- traverse (getTestnetData ggoGenesisDir) ggoTestStake
+    mAvvmAddrDistr <- traverse getAvvmGenesis ggoAvvmBalance
+    mFakeAvvmAddrDistr <- traverse (getFakeAvvmGenesis ggoGenesisDir) ggoFakeAvvmBalance
+    mTestnetData <- traverse (getTestnetData ggoGenesisDir) ggoTestBalance
 
     ------ Generating genesis core data
 
@@ -239,14 +244,16 @@ genGenesisFiles GenesisGenOptions{..} = do
             | otherwise =
                 Map.fromList ggoBootStakeholders
     when (null gcdBootstrapStakeholders) $
-        error "gcdBootstrapStakeholders is empty. Current keygen implementation \
-              \doesn't support explicit boot stakeholders, so if testnet is not \
-              \enabled it can't work (with testnet case we take richmen as bootst.). \
-              \See CSL-1315"
+        error "gcdBootstrapStakeholders is empty. You can pass genesis \
+              \stakeholders explicitly or use testnet genesis."
+    -- [CSL-1596] TODO: add CLI for it!
+    let genesisDelegation = noGenesisDelegation
     let genCoreData =
-            either (\e -> error $ "Couldn't create genesis core data: " <> fromString e)
-                   identity
-                   (mkGenesisCoreData gcdAddrDistribution gcdBootstrapStakeholders)
+            leftToPanic "Couldn't create genesis core data: " $
+                mkGenesisCoreData
+                    gcdAddrDistribution
+                    gcdBootstrapStakeholders
+                    genesisDelegation
 
     ------ Generating GT core data
 
@@ -292,7 +299,7 @@ genGenesisFiles GenesisGenOptions{..} = do
 main :: IO ()
 main = do
     KeygenOptions{..} <- getKeygenOptions
-    setupLogging $ consoleOutB True & lcTermSeverity ?~ Debug
+    setupLogging $ consoleOutB & lcTermSeverity ?~ Debug
     usingLoggerName "keygen" $ do
         logInfo "Processing command"
         case koCommand of

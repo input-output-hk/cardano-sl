@@ -11,7 +11,6 @@ import           Universum
 
 import           Control.Concurrent                (forkFinally)
 import           Control.Lens                      ((.=))
-import           Control.Monad.State               (runStateT)
 import           Data.Default                      (Default (def))
 import           Data.Time.Units                   (Microsecond, Second)
 import           Serokell.Util                     (threadDelay)
@@ -91,4 +90,3 @@ launchNotifier nat =
     --         newHistoryLength <- length <$> getHistory cAddress
     --         when (oldHistoryLength /= newHistoryLength) .
     --             notifyAll $ NewWalletTransaction cAddress
-

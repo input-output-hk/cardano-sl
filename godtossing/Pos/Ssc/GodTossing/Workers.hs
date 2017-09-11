@@ -21,7 +21,8 @@ import qualified Data.List.NonEmpty                    as NE
 import           Data.Tagged                           (Tagged)
 import           Data.Time.Units                       (Microsecond, Millisecond,
                                                         convertUnit)
-import           Formatting                            (build, ords, sformat, shown, (%))
+import           Formatting                            (build, int, ords, sformat, shown,
+                                                        (%))
 import           Mockable                              (currentTime, delay)
 import           Serokell.Util.Exceptions              ()
 import           Serokell.Util.Text                    (listJson)
@@ -34,7 +35,8 @@ import           Pos.Binary.Infra                      ()
 import           Pos.Communication.Protocol            (EnqueueMsg, Message, MsgType (..),
                                                         Origin (..), OutSpecs,
                                                         SendActions (..), Worker,
-                                                        WorkerSpec, onNewSlotWorker)
+                                                        WorkerSpec, localWorker,
+                                                        onNewSlotWorker)
 import           Pos.Communication.Relay               (DataMsg, ReqOrRes,
                                                         invReqDataFlowTK)
 import           Pos.Communication.Specs               (createOutSpecs)
@@ -43,9 +45,10 @@ import           Pos.Core                              (EpochIndex, HasCoreConst
                                                         SlotId (..), StakeholderId,
                                                         Timestamp (..), addressHash,
                                                         bvdMpcThd, getOurSecretKey,
-                                                        getOurStakeholderId,
+                                                        getOurStakeholderId, getSlotIndex,
                                                         mkLocalSlotIndex,
                                                         slotSecurityParam)
+import           Pos.Core.Context                      (blkSecurityParam)
 import           Pos.Crypto                            (SecretKey, VssKeyPair,
                                                         VssPublicKey, randomNumber,
                                                         runSecureRandom, vssKeyGen)
@@ -54,14 +57,17 @@ import           Pos.DB                                (gsAdoptedBVData)
 import           Pos.Lrc.Context                       (lrcActionOnEpochReason)
 import           Pos.Lrc.Types                         (RichmenStakes)
 import           Pos.Recovery.Info                     (recoveryCommGuard)
+import           Pos.Reporting                         (reportMisbehaviour)
 import           Pos.Slotting                          (getCurrentSlot,
-                                                        getSlotStartEmpatically)
+                                                        getSlotStartEmpatically,
+                                                        onNewSlot)
 import           Pos.Ssc.Class                         (HasSscContext (..),
                                                         SscWorkersClass (..))
 import           Pos.Ssc.GodTossing.Behavior           (GtBehavior (..),
                                                         GtOpeningParams (..),
                                                         GtSharesParams (..))
-import           Pos.Ssc.GodTossing.Constants          (mpcSendInterval, vssMaxTTL)
+import           Pos.Ssc.GodTossing.Constants          (mdNoCommitmentsEpochThreshold,
+                                                        mpcSendInterval, vssMaxTTL)
 import           Pos.Ssc.GodTossing.Core               (Commitment (..), SignedCommitment,
                                                         VssCertificate (..),
                                                         VssCertificatesMap,
@@ -97,8 +103,23 @@ import           Pos.Util.Util                         (getKeys, inAssertMode,
                                                         leftToPanic)
 
 instance GtMessageConstraints => SscWorkersClass SscGodTossing where
-    sscWorkers = first pure onNewSlotSsc
+    sscWorkers = merge [onNewSlotSsc, checkForIgnoredCommitmentsWorker]
+      where
+        merge = mconcat . map (first pure)
     sscLrcConsumers = [gtLrcConsumer]
+
+shouldParticipate :: (SscMode SscGodTossing ctx m) => EpochIndex -> m Bool
+shouldParticipate epoch = do
+    richmen <- lrcActionOnEpochReason epoch
+        "couldn't get SSC richmen"
+        getRichmenSsc
+    participationEnabled <- view sscContext >>=
+        atomically . readTVar . gtcParticipateSsc
+    ourId <- getOurStakeholderId
+    let enoughStake = ourId `HM.member` richmen
+    when (participationEnabled && not enoughStake) $
+        logDebug "Not enough stake to participate in MPC"
+    return (participationEnabled && enoughStake)
 
 -- CHECK: @onNewSlotSsc
 -- #checkNSendOurCert
@@ -106,20 +127,11 @@ onNewSlotSsc
     :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
     => (WorkerSpec m, OutSpecs)
 onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions ->
-    recoveryCommGuard $ do
-        richmen <- lrcActionOnEpochReason (siEpoch slotId)
-            "couldn't get SSC richmen"
-            getRichmenSsc
+    recoveryCommGuard "onNewSlot worker in GodTossing" $ do
         localOnNewSlot slotId
-        participationEnabled <- view sscContext >>=
-            atomically . readTVar . gtcParticipateSsc
-        behavior <- view sscContext >>=
-            atomically . readTVar . gtcBehavior
-        ourId <- getOurStakeholderId
-        let enoughStake = ourId `HM.member` richmen
-        when (participationEnabled && not enoughStake) $
-            logDebug "Not enough stake to participate in MPC"
-        when (participationEnabled && enoughStake) $ do
+        whenM (shouldParticipate $ siEpoch slotId) $ do
+            behavior <- view sscContext >>=
+                atomically . readTVar . gtcBehavior
             checkNSendOurCert sendActions
             onNewSlotCommitment slotId sendActions
             onNewSlotOpening (gbSendOpening behavior) slotId sendActions
@@ -419,3 +431,55 @@ waitUntilSend msgTag epoch slMultiplier = do
                 ttwMillisecond
                 msgTag
         delay timeToWait
+
+----------------------------------------------------------------------------
+-- Security check
+----------------------------------------------------------------------------
+
+checkForIgnoredCommitmentsWorker
+    :: forall ctx m.
+       SscMode SscGodTossing ctx m
+    => (WorkerSpec m, OutSpecs)
+checkForIgnoredCommitmentsWorker = localWorker $ do
+    counter <- newTVarIO 0
+    onNewSlot True (checkForIgnoredCommitmentsWorkerImpl counter)
+
+-- This worker checks whether our commitments appear in blocks. This
+-- check is done only if we actually should participate in
+-- GodTossing. It's triggered if there are
+-- 'mdNoCommitmentsEpochThreshold' consequent epochs during which we
+-- had to participate in GodTossing, but our commitment didn't appear
+-- in blocks. If check fails, it's reported as non-critical misbehavior.
+--
+-- The first argument is a counter which is incremented every time we
+-- detect unexpected absence of our commitment and is reset to 0 when
+-- our commitment appears in blocks.
+checkForIgnoredCommitmentsWorkerImpl
+    :: forall ctx m. (SscMode SscGodTossing ctx m)
+    => TVar Word -> SlotId -> m ()
+checkForIgnoredCommitmentsWorkerImpl counter SlotId {..}
+    -- It's enough to do this check once per epoch near the end of the epoch.
+    | getSlotIndex siSlot /= 9 * fromIntegral blkSecurityParam = pass
+    | otherwise =
+        recoveryCommGuard "checkForIgnoredCommitmentsWorker" $
+        whenM (shouldParticipate siEpoch) $ do
+            ourId <- getOurStakeholderId
+            globalCommitments <-
+                getCommitmentsMap . view gsCommitments <$> gtGetGlobalState
+            case globalCommitments ^. at ourId of
+                Nothing -> do
+                    -- `modifyTVar'` returns (), hence not used
+                    newCounterValue <-
+                        atomically $ do
+                            !x <- succ <$> readTVar counter
+                            x <$ writeTVar counter x
+                    when (newCounterValue > mdNoCommitmentsEpochThreshold) $ do
+    -- REPORT:MISBEHAVIOUR(F) Possible eclipse attack was detected:
+    -- our commitments don't get included into blockchain
+                        let msg = sformat warningFormat newCounterValue
+                        reportMisbehaviour False msg
+                Just _ -> atomically $ writeTVar counter 0
+  where
+    warningFormat =
+        "Our neighbors are likely trying to carry out an eclipse attack! "%
+        "Out commitment didn't appear in blocks for "%int%" epochs in a row :("

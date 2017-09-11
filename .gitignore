@@ -18,8 +18,8 @@ b
 # Various DBs
 node-db*
 wallet-db/
-db-qanet/
-wdb-qanet/
+db-*/
+wdb-*/
 
 # Keys
 *.key
@@ -67,3 +67,13 @@ scripts/haskell/dependencies
 
 # 'pkgs/stack2nix' is a symlink into the nix store, it can safely be ignored
 pkgs/stack2nix
+
+# explorer
+explorer-node.log.*
+explorer-node.log
+explorer.log
+socket-io.log
+
+# importify
+.importify
+

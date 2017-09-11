@@ -4,7 +4,6 @@ import           Universum
 
 import           Control.Lens                (to)
 import           Control.Monad.Random.Strict (evalRandT)
-import           Data.Default                (def)
 import qualified Data.Map                    as M
 import           Formatting                  (build, sformat, (%))
 import           Mockable                    (runProduction)
@@ -18,8 +17,7 @@ import           Pos.Core                    (genesisDevSecretKeys, giveStaticCo
                                               isDevelopment, mkCoin, unsafeMulCoin)
 import           Pos.DB                      (closeNodeDBs, openNodeDBs)
 import           Pos.Generator.Block         (BlockGenParams (..), genBlocks)
-import           Pos.Genesis                 (GenesisContext (..),
-                                              StakeDistribution (FlatStakes),
+import           Pos.Genesis                 (BalanceDistribution (FlatBalances),
                                               devGenesisContext, genesisContextProduction,
                                               gtcUtxo, gtcWStakeholders)
 import           Pos.Txp.Toil                (GenesisUtxo (..))
@@ -45,18 +43,17 @@ main = flip catch catchEx $ giveStaticConsts $ do
             when (null bgoSecretFiles) $ throwM NoOneSecrets
             usingLoggerName "block-gen" $ mapM parseSecret bgoSecretFiles
 
-    let devStakeDistr =
+    let devBalanceDistr =
             let nodesN :: Integral n => n
                 nodesN = fromIntegral $ length $
                          allSecrets ^. asSecretKeys . to unInvSecretsMap
-            in FlatStakes nodesN $ mkCoin 10000 `unsafeMulCoin` (nodesN :: Int)
-    let npGenesisCtx
-            | isDevelopment = devGenesisContext devStakeDistr
+            in FlatBalances nodesN $ mkCoin 10000 `unsafeMulCoin` (nodesN :: Int)
+    let genCtx
+            | isDevelopment = devGenesisContext devBalanceDistr
             | otherwise = genesisContextProduction
 
-    let bootStakeholders = npGenesisCtx ^. gtcWStakeholders
-    let genUtxo = npGenesisCtx ^. gtcUtxo
-    let genCtx = GenesisContext genUtxo bootStakeholders
+    let bootStakeholders = genCtx ^. gtcWStakeholders
+    let genUtxo = genCtx ^. gtcUtxo
     when (M.null $ unGenesisUtxo genUtxo) $ throwM EmptyUtxo
 
     let bgenParams =
@@ -64,7 +61,7 @@ main = flip catch catchEx $ giveStaticConsts $ do
                 { _bgpSecrets         = allSecrets
                 , _bgpGenStakeholders = bootStakeholders
                 , _bgpBlockCount      = fromIntegral bgoBlockN
-                , _bgpTxGenParams     = def
+                , _bgpTxGenParams     = bgoTxGenParams
                 , _bgpInplaceDB       = True
                 , _bgpSkipNoKey       = True
                 }

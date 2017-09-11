@@ -14,29 +14,28 @@ module Pos.Client.CLI.Util
 
 import           Universum
 
-import           Control.Lens                         (zoom, (?=))
-import           Data.Time.Clock.POSIX                (getPOSIXTime)
-import           Data.Time.Units                      (toMicroseconds)
-import           Serokell.Util                        (sec)
-import           System.Wlog                          (LoggerConfig (..),
-                                                       Severity (Info, Warning),
-                                                       fromScratch, lcTree, ltSeverity,
-                                                       parseLoggerConfig, zoomLogger)
-import           Text.Parsec                          (try)
-import qualified Text.Parsec.Char                     as P
-import qualified Text.Parsec.Text                     as P
+import           Control.Lens          (zoom, (?=))
+import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Data.Time.Units       (toMicroseconds)
+import           Serokell.Util         (sec)
+import           System.Wlog           (LoggerConfig (..), Severity (Info, Warning),
+                                        fromScratch, lcTree, ltSeverity,
+                                        parseLoggerConfig, zoomLogger)
+import           Text.Parsec           (try)
+import qualified Text.Parsec.Char      as P
+import qualified Text.Parsec.Text      as P
 
-import           Pos.Binary.Core                      ()
-import           Pos.Constants                        (isDevelopment)
-import           Pos.Core                             (StakeholderId, Timestamp (..))
+import           Pos.Binary.Core       ()
+import           Pos.Constants         (isDevelopment)
+import           Pos.Core              (StakeholderId, Timestamp (..))
 
-import           Pos.Crypto                           (decodeAbstractHash)
-import           Pos.Security.Params                  (AttackTarget (..), AttackType (..))
-import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
-import           Pos.Util                             (inAssertMode, eitherToFail)
-import           Pos.Util.TimeWarp                    (addrParser)
+import           Pos.Crypto            (decodeAbstractHash)
+import           Pos.Security.Params   (AttackTarget (..), AttackType (..))
+import           Pos.Ssc.SscAlgo       (SscAlgo (..))
+import           Pos.Util              (eitherToFail, inAssertMode)
+import           Pos.Util.TimeWarp     (addrParser)
 
-printFlags :: IO ()
+printFlags :: MonadIO m => m ()
 printFlags = do
     if isDevelopment
         then putText "[Attention] We are in DEV mode"
@@ -55,7 +54,7 @@ attackTypeParser = P.string "No" >>
 
 stakeholderIdParser :: P.Parser StakeholderId
 stakeholderIdParser = do
-    token <- some $ P.noneOf " "
+    token <- some P.alphaNum
     eitherToFail $ decodeAbstractHash (toText token)
 
 attackTargetParser :: P.Parser AttackTarget

@@ -6,7 +6,6 @@
 module Pos.Launcher.Param
        ( LoggingParams (..)
        , BaseParams (..)
-       , TransportParams (..)
        , NodeParams (..)
        ) where
 
@@ -14,7 +13,6 @@ import           Universum
 
 import           Control.Lens                (makeLensesWith)
 import           Ether.Internal              (HasLens (..))
-import qualified Network.Transport.TCP       as TCP
 import           System.Wlog                 (LoggerName)
 
 import           Pos.Behavior                (BehaviorConfig (..))
@@ -45,13 +43,6 @@ data BaseParams = BaseParams
     { bpLoggingParams   :: !LoggingParams  -- ^ Logger parameters
     } deriving (Show)
 
--- | Network parameters.
-data TransportParams = TransportParams
-    { tpTcpAddr   :: !TCP.TCPAddr
-    -- ^ External TCP address of the node.
-    -- It encapsulates bind address and address visible to other nodes.
-    }
-
 -- | This data type contains all data necessary to launch node and
 -- known in advance (from CLI, configs, etc.)
 data NodeParams = NodeParams
@@ -66,7 +57,6 @@ data NodeParams = NodeParams
     , npReportServers  :: ![Text]               -- ^ List of report server URLs
     , npUpdateParams   :: !UpdateParams         -- ^ Params for update system
     , npUseNTP         :: !Bool                 -- ^ Whether to use synchronisation with NTP servers.
-    , npTransport      :: !TransportParams      -- ^ (TCP) transport parameters.
     , npEnableMetrics  :: !Bool                 -- ^ Gather runtime statistics.
     , npEkgParams      :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring.
     , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend.

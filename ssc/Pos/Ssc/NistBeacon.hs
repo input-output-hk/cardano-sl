@@ -52,6 +52,7 @@ instance SscHelpersClass SscNistBeacon where
     sscVerifyPayload _ _ = Right ()
     sscStripPayload _ () = Just ()
     sscDefaultPayload _ = ()
+    sscIsCriticalError _ = True
 
 instance SscWorkersClass SscNistBeacon where
     sscWorkers = ([], mempty)

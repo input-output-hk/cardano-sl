@@ -16,7 +16,7 @@ import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, sformat, stext, (%))
 import           Pos.Communication          (EnqueueMsg)
 
-import           Pos.Client.Txp.Util        (TxError (..))
+import           Pos.Client.Txp.Util        (isCheckedTxError)
 import           Pos.Core.Types             (Coin)
 import           Pos.Txp                    (TxOut (..), TxOutAux (..))
 import           Pos.Wallet.Web.ClientTypes (Addr, CId)
@@ -32,7 +32,7 @@ rewrapTxError
     => Text -> m a -> m a
 rewrapTxError prefix =
     rewrapToWalletError (\SomeException{} -> True) (InternalError . sbuild) .
-    rewrapToWalletError (\TxError{} -> True) (RequestError . sbuild)
+    rewrapToWalletError isCheckedTxError (RequestError . sbuild)
   where
     sbuild :: Buildable e => e -> Text
     sbuild = sformat (stext%": "%build) prefix

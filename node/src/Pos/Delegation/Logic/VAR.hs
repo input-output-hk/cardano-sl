@@ -17,9 +17,8 @@ import           Control.Lens                 (at, makeLenses, non, uses, (%=), 
 import           Control.Monad.Except         (runExceptT, throwError)
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.HashSet                 as HS
-import           Data.List                    (partition, (\\))
+import           Data.List                    ((\\))
 import qualified Data.Text.Buildable          as B
-import           Ether.Internal               (HasLens (..))
 import           Formatting                   (bprint, build, sformat, (%))
 import           Mockable                     (CurrentTime, Mockable)
 import           Serokell.Util                (listJson, mapJson)
@@ -48,17 +47,19 @@ import           Pos.Delegation.Cede          (CedeModifier, DlgEdgeAction (..),
                                                dlgReachesIssuance, evalMapCede,
                                                getPskChain, getPskPk, modPsk,
                                                pskToDlgEdgeAction, runDBCede)
-import           Pos.Delegation.Class         (MonadDelegation, dwEpochId, dwProxySKPool)
+import           Pos.Delegation.Class         (MonadDelegation, dwProxySKPool, dwTip)
 import           Pos.Delegation.Helpers       (isRevokePsk)
 import           Pos.Delegation.Logic.Common  (DelegationError (..),
                                                runDelegationStateAction)
 import           Pos.Delegation.Logic.Mempool (clearDlgMemPoolAction,
-                                               deleteFromDlgMemPool, processProxySKHeavy)
+                                               deleteFromDlgMemPool,
+                                               processProxySKHeavyInternal)
 import           Pos.Delegation.Types         (DlgPayload (getDlgPayload), DlgUndo (..))
 import qualified Pos.GState                   as GS
 import           Pos.Lrc.Context              (LrcContext)
 import qualified Pos.Lrc.DB                   as LrcDB
-import           Pos.Util                     (getKeys, _neHead)
+import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
+import           Pos.Util                     (HasLens', getKeys, _neHead)
 import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..))
 
 
@@ -299,7 +300,7 @@ getNoLongerRichmen ::
        , MonadIO m
        , MonadDBRead m
        , MonadReader ctx m
-       , HasLens LrcContext ctx LrcContext
+       , HasLens' ctx LrcContext
        )
     => EpochIndex
     -> m [StakeholderId]
@@ -335,7 +336,7 @@ dlgVerifyBlocks ::
        ( DB.MonadBlockDB ssc m
        , MonadIO m
        , MonadReader ctx m
-       , HasLens LrcContext ctx LrcContext
+       , HasLens' ctx LrcContext
        , HasCoreConstants
        )
     => OldestFirst NE (Block ssc)
@@ -412,36 +413,56 @@ dlgVerifyBlocks blocks = do
         ------------- [Payload] -------------
 
         let proxySKs = getDlgPayload $ view mainBlockDlgPayload blk
-            toIssuers = map pskIssuerPk
-            allIssuers = toIssuers proxySKs
-            allIssuersSt = map addressHash allIssuers
-            (revokeIssuers, changeIssuers) =
-                bimap toIssuers toIssuers $ partition isRevokePsk proxySKs
+            allIssuers = map pskIssuerPk proxySKs
 
-        -- Check 3: Issuers have enough money (though it's free to revoke).
-        when (any (not . (`HS.member` richmen) . addressHash) changeIssuers) $
-            throwError $ sformat ("Block "%build%" contains psk issuers that "%
-                                  "don't have enough stake")
-                                 (headerHash blk)
+        forM_ proxySKs $ \psk -> do
+            let iPk = pskIssuerPk psk
+            let dPk = pskDelegatePk psk
+            let stakeholderId = addressHash iPk
 
-        -- Check 4: No issuer has posted psk this epoch before.
-        curEpoch <- use dvCurEpoch
-        when (any (`HS.member` curEpoch) allIssuersSt) $
-            throwError $ sformat ("Block "%build%" contains issuers that "%
-                                  "have already published psk this epoch")
-                                 (headerHash blk)
+            -- Check 3: Issuers have enough money (though it's free to revoke).
+            when (not (isRevokePsk psk) &&
+                  not (stakeholderId `HS.member` richmen)) $
+                throwError $ sformat
+                    ("Block "%build%" contains psk issuers that "%
+                    "don't have enough stake: "%build)
+                    (headerHash blk) psk
 
-        -- Check 5: Every revoking psk indeed revokes previous
-        -- non-revoking psk.
-        revokePrevCerts <- mapM (\x -> (x,) <$> getPskPk x) revokeIssuers
-        let dontHavePrevPsk = filter (isNothing . snd) revokePrevCerts
-        unless (null dontHavePrevPsk) $
-            throwError $
-            sformat ("Block "%build%" contains revoke certs that "%
-                     "don't revoke anything: "%listJson)
-                     (headerHash blk) (map fst dontHavePrevPsk)
+            -- Check 4: There are no psks that isomorphic to psks from
+            -- db. That is, if i delegated to d using psk1, we forbid
+            -- using psk2 (in the next epoch) if psk2 delegates i → d
+            -- as well.
+            prevPsk <- getPsk stakeholderId
+            let duplicate = do
+                    psk2@ProxySecretKey{..} <- prevPsk
+                    guard $ pskIssuerPk == iPk && pskDelegatePk == dPk
+                    pure psk2
+            whenJust duplicate $ \psk2 ->
+                throwError $ sformat
+                    ("Block "%build%" contains psk issuers that"%
+                    " effectively duplicate their previous psk: "%build%" with new "%build)
+                    (headerHash blk) psk2 psk
 
-        -- Check 6: applying psks won't create a cycle.
+            -- Check 5: No issuer has posted psk this epoch before (unless
+            -- processed psk is a revocation).
+            curEpoch <- use dvCurEpoch
+            when (not (isRevokePsk psk) && stakeholderId `HS.member` curEpoch) $
+                throwError $ sformat
+                    ("Block "%build%" contains psk "%build%
+                     " which is not revocation and issuer of which has"%
+                     " already published psk this epoch")
+                    (headerHash blk)
+                    psk
+
+            -- Check 6: Every revoking psk indeed revokes previous
+            -- non-revoking psk.
+            when (isRevokePsk psk && isNothing prevPsk) $
+                throwError $ sformat
+                    ("Block "%build%" contains revoke psk "%build%
+                    " that doesn't revoke anything.")
+                    (headerHash blk) psk
+
+        -- Check 7: applying psks won't create a cycle.
         --
         -- Lemma 1: Removing edges from acyclic graph doesn't create cycles.
         --
@@ -457,12 +478,12 @@ dlgVerifyBlocks blocks = do
         -- 'proxySKs' together. So it's alright to first apply 'proxySKs'
         -- to 'dvPskChanged' and then perform the check.
 
-        -- Collect rollback info, apply new psks
-        changePrevCerts <- mapM getPskPk changeIssuers
-        let toRollback = catMaybes $ map snd revokePrevCerts <> changePrevCerts
+        -- Collect rollback info (all certificates we'll
+        -- delete/override), apply new psks
+        toRollback <- catMaybes <$> mapM getPskPk allIssuers
         mapM_ (modPsk . pskToDlgEdgeAction) proxySKs
 
-        -- Perform the check
+        -- Perform the last check
         cyclePoints <- catMaybes <$> mapM detectCycleOnAddition proxySKs
         unless (null cyclePoints) $
             throwError $
@@ -470,7 +491,7 @@ dlgVerifyBlocks blocks = do
                     (headerHash blk)
                     (take 5 $ cyclePoints) -- should be enough
 
-        dvCurEpoch %= HS.union (HS.fromList allIssuersSt)
+        dvCurEpoch %= HS.union (HS.fromList $ map addressHash allIssuers)
         pure $ DlgUndo toRollback mempty
 
 -- | Applies a sequence of definitely valid blocks to memory state and
@@ -483,6 +504,8 @@ dlgApplyBlocks ::
        , MonadDBRead m
        , WithLogger m
        , MonadMask m
+       , HasCoreConstants
+       , SscHelpersClass ssc
        )
     => OldestFirst NE (Blund ssc)
     -> m (NonEmpty SomeBatchOp)
@@ -502,7 +525,7 @@ dlgApplyBlocks blunds = do
         runDelegationStateAction $ do
             -- all possible psks candidates are now invalid because epoch changed
             clearDlgMemPoolAction
-            dwEpochId .= (block ^. epochIndexL)
+            dwTip .= headerHash block
         -- For genesis blocks, dlg undo is richmen that lost their stake.
         -- So we delete all these guys.
         let edgeActions = map (DlgEdgeDel . addressHash . pskIssuerPk) duPsks
@@ -519,10 +542,14 @@ dlgApplyBlocks blunds = do
         let proxySKs = getDlgPayload $ view mainBlockDlgPayload block
             issuers = map pskIssuerPk proxySKs
             edgeActions = map pskToDlgEdgeAction proxySKs
+            postedThisEpoch = SomeBatchOp $ map (GS.AddPostedThisEpoch . addressHash) issuers
         transCorrections <- calculateTransCorrections $ HS.fromList edgeActions
-        let batchOps = SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <> transCorrections
+        let batchOps =
+                SomeBatchOp (map GS.PskFromEdgeAction edgeActions) <>
+                transCorrections <>
+                postedThisEpoch
         runDelegationStateAction $ do
-            dwEpochId .= block ^. epochIndexL
+            dwTip .= headerHash block
             forM_ issuers deleteFromDlgMemPool
         pure $ SomeBatchOp batchOps
 
@@ -556,7 +583,8 @@ dlgRollbackBlocks blunds = do
         let postedOp = SomeBatchOp $ map (GS.DelPostedThisEpoch . addressHash) issuers
         pure $ pskOp <> postedOp
 
--- | Normalizes the memory state after the rollback.
+-- | Normalizes the memory state after the rollback. Must be called
+-- only when 'StateLock' is taken.
 dlgNormalizeOnRollback ::
        forall ssc ctx m.
        ( MonadDelegation ctx m
@@ -564,15 +592,17 @@ dlgNormalizeOnRollback ::
        , DB.MonadGState m
        , MonadIO m
        , MonadMask m
-       , HasLens LrcContext ctx LrcContext
+       , HasLens' ctx LrcContext
        , Mockable CurrentTime m
+       , HasCoreConstants
+       , SscHelpersClass ssc
        )
     => m ()
 dlgNormalizeOnRollback = do
     tip <- DB.getTipHeader @ssc
     oldPool <- runDelegationStateAction $ do
-        dwEpochId .= (tip ^. epochIndexL)
         pool <- uses dwProxySKPool toList
         dwProxySKPool .= mempty
+        dwTip .= headerHash tip
         pure pool
-    forM_ oldPool (processProxySKHeavy @ssc)
+    forM_ oldPool $ processProxySKHeavyInternal @ssc

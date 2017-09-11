@@ -3,36 +3,36 @@ let
 in
   { supportedSystems ? [ "x86_64-linux" "x86_64-darwin" ]
   , scrubJobs ? false
-  , dconfigs ? [ "testnet_staging" ]
+  , dconfigs ? [ "testnet_staging_full" "testnet_staging_wallet" ]
   , cardano ? { outPath = ./.; rev = "abcdef"; }
-}:
-with import (fixedNixpkgs + "/pkgs/top-level/release-lib.nix") { inherit supportedSystems scrubJobs; packageSet = import ./.; };
-with builtins;
+  }:
+
 let
-  rlib = import (fixedNixpkgs + "/pkgs/top-level/release-lib.nix") { inherit supportedSystems scrubJobs; };
   lib = import ./lib.nix;
-  pkgs = import lib.fetchNixPkgs { config={}; };
-  mkJob = dconfig: system: let
-    jobs = import ./. { inherit system dconfig; gitrev = cardano.rev; };
-  in {
-    name = system;
-    value = {
-      inherit (jobs) cardano-sl cardano-sl-static cardano-sl-tools cardano-sl-explorer-static stack2nix;
+  mergeAttrsMap = f: attrs: lib.foldl (x: y: x // (f y)) {} attrs;
+  rlib = import (fixedNixpkgs + "/pkgs/top-level/release-lib.nix") { inherit supportedSystems scrubJobs; };
+  withDconfig = dconfig: import (fixedNixpkgs + "/pkgs/top-level/release-lib.nix") { 
+    inherit supportedSystems scrubJobs; 
+    packageSet = import ./.;
+    nixpkgsArgs = { 
+      inherit dconfig; 
+      gitrev = cardano.rev;
+      config = { allowUnfree = false; inHydra = true; };
     };
   };
-  mkJobs = dconfig: systems: listToAttrs (map (mkJob dconfig) systems);
-  mkDconfigs = dconfig: let
-    cardano = import ./. { inherit pkgs dconfig; gitrev = cardano.rev; };
-    jobs = mkJobs dconfig supportedSystems;
-  in {
-    name = dconfig;
-    value = jobs;
+  platforms = {
+    cardano-sl = supportedSystems;
+    cardano-sl-static = supportedSystems;
+    cardano-sl-tools = supportedSystems;
+    cardano-sl-explorer-static = [ "x86_64-linux" ];
+    cardano-report-server-static = [ "x86_64-linux" ];
+    make-genesis = [ "x86_64-linux" ];
   };
-  cardano-jobs = (listToAttrs (map mkDconfigs dconfigs));
+  pkgs = import fixedNixpkgs { config = {}; };
   tests = import ./tests { inherit pkgs; supportedSystems = [ "x86_64-linux" ]; };
-  cardano' = import ./. { inherit pkgs; };
-in {
-  inherit (cardano') make-genesis;
-  inherit tests;
-} // cardano-jobs
-// (rlib.mapTestOn { purescript = supportedSystems; })
+in (mergeAttrsMap (dconfig: { ${dconfig } = (withDconfig dconfig).mapTestOn platforms; }) dconfigs)
+   // ((withDconfig null).mapTestOn { stack2nix = supportedSystems; })
+   // (rlib.mapTestOn { purescript = supportedSystems; })
+   // {
+     inherit tests;
+  }

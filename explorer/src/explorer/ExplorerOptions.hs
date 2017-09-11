@@ -16,51 +16,32 @@ import           Options.Applicative.Simple (Parser, auto, help, long, metavar, 
                                              showDefault, simpleOptions, strOption,
                                              switch, value)
 import           Prelude                    (show)
-import           Serokell.Util.OptParse     (fromParsec)
 
 import           Paths_cardano_sl_explorer  (version)
 import qualified Pos.Client.CLI             as CLI
 import           Pos.Network.CLI            (NetworkConfigOpts, networkConfigOption)
-import           Pos.DHT.Model              (DHTKey)
-import           Pos.DHT.Real.CLI           (dhtExplicitInitialOption, dhtKeyOption,
-                                             dhtNetworkAddressOption, dhtPeersFileOption)
 import           Pos.Statistics             (EkgParams, StatsdParams, ekgParamsOption,
                                              statsdParamsOption)
 import           Pos.Util.BackupPhrase      (BackupPhrase, backupPhraseWordsNum)
-import           Pos.Util.TimeWarp          (NetworkAddress, addrParser)
 
 data Args = Args
-    { dbPath             :: !FilePath
-    , rebuildDB          :: !Bool
-    , keyfilePath        :: !FilePath
-    , backupPhrase       :: !(Maybe BackupPhrase)
-    , dhtKey             :: !(Maybe DHTKey)
-    , bindAddress        :: !NetworkAddress
-    , externalAddress    :: !NetworkAddress
-      -- ^ A node must be addressable on the network.
-    , dhtNetworkAddress  :: !NetworkAddress
-      -- ^ A node may have a bind address which differs from its external
-      -- address.
-    , dhtPeersList       :: ![NetworkAddress]
-      -- ^ A list of initial Kademlia peers to use.
-    , dhtExplicitInitial :: !Bool
-    , dhtPeersFile       :: !(Maybe FilePath)
-      -- ^ A file containing a list of Kademlia peers to use.
-    , networkConfigOpts  :: !NetworkConfigOpts
+    { dbPath            :: !FilePath
+    , rebuildDB         :: !Bool
+    , keyfilePath       :: !FilePath
+    , backupPhrase      :: !(Maybe BackupPhrase)
+    , networkConfigOpts :: !NetworkConfigOpts
       -- ^ Network configuration
       -- TODO: Does this obsolete 'peers' and 'peersFile'?
-    , timeLord           :: !Bool
-    , jlPath             :: !(Maybe FilePath)
-    , kademliaDumpPath   :: !FilePath
-    , webPort            :: !Word16
-    , commonArgs         :: !CLI.CommonArgs
-    , noSystemStart      :: !Int
-    , noNTP              :: !Bool
-    , enableMetrics      :: !Bool
-    , ekgParams          :: !(Maybe EkgParams)
-    , statsdParams       :: !(Maybe StatsdParams)
-    , notifierPort       :: !Word16
-    , staticPeers        :: !Bool
+    , jlPath            :: !(Maybe FilePath)
+    , webPort           :: !Word16
+    , commonArgs        :: !CLI.CommonArgs
+    , noSystemStart     :: !Int
+    , noNTP             :: !Bool
+    , enableMetrics     :: !Bool
+    , ekgParams         :: !(Maybe EkgParams)
+    , statsdParams      :: !(Maybe StatsdParams)
+    , notifierPort      :: !Word16
+    , staticPeers       :: !Bool
     } deriving Show
 
 argsParser :: Parser Args
@@ -90,25 +71,9 @@ argsParser = do
         help    (show backupPhraseWordsNum ++
                  "-word phrase to recover the wallet. Words should be separated by spaces.")
 
-    externalAddress <- CLI.externalNetworkAddressOption (Just ("0.0.0.0", 0))
-    bindAddress <- CLI.listenNetworkAddressOption (Just ("0.0.0.0", 0))
-    dhtNetworkAddress <- dhtNetworkAddressOption (Just ("0.0.0.0", 0))
-    dhtExplicitInitial <- dhtExplicitInitialOption
-    dhtPeersList <- many addrNodeOption
-    dhtPeersFile <- optional dhtPeersFileOption
     networkConfigOpts <- networkConfigOption
-    dhtKey <- optional dhtKeyOption
-
-    timeLord <- CLI.timeLordOption
 
     jlPath <- CLI.optionalJSONPath
-
-    kademliaDumpPath <- strOption $
-        long    "kademlia-dump-path" <>
-        metavar "FILEPATH" <>
-        value   "kademlia.dump" <>
-        help    "Path to Kademlia dump file. If file doesn't exist, it will be created." <>
-        showDefault
 
     webPort <- CLI.webPortOption 8100 "Port for web API."
 
@@ -137,13 +102,6 @@ argsParser = do
         help "Don't use Kademlia, use only static peers"
 
     pure Args{..}
-
-addrNodeOption :: Parser NetworkAddress
-addrNodeOption =
-    option (fromParsec addrParser) $
-        long "kademlia-peer" <>
-        metavar "HOST:PORT" <>
-        help "Identifier of a node in a Kademlia network"
 
 getExplorerOptions :: IO Args
 getExplorerOptions = do

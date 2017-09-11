@@ -14,6 +14,7 @@ module Pos.Util.Util
        , liftLensSome
        , liftGetterSome
 
+       -- * Something
        , maybeThrow
        , eitherToFail
        , eitherToThrow
@@ -21,6 +22,7 @@ module Pos.Util.Util
        , sortWithMDesc
        , leftToPanic
        , dumpSplices
+       , (<//>)
 
        -- * Lenses
        , _neHead
@@ -64,8 +66,12 @@ module Pos.Util.Util
        -- ** Lift Byte
        -- ** FromJSON Byte
        -- ** ToJSON Byte
+       -- ** Hashable Byte
        -- ** MonadFail (Either s), assuming IsString s
        -- ** HasLoggerName (MonadPseudoRandom drg)
+
+       -- ** Hashable
+       -- *** Millisecond, Microsecond
 
        -- ** NFData
        -- *** Millisecond, Microsecond
@@ -98,6 +104,7 @@ import           Data.Aeson                     (FromJSON (..), ToJSON (..))
 import qualified Data.Aeson                     as A
 import qualified Data.Aeson.Types               as A
 import           Data.Char                      (isAlphaNum)
+import           Data.Hashable                  (Hashable (hashWithSalt))
 import           Data.HashSet                   (fromMap)
 import           Data.List                      (last)
 import qualified Data.Semigroup                 as Smg
@@ -180,6 +187,9 @@ instance MonadReader r m => MonadReader r (PropertyM m) where
     local f (MkPropertyM propertyM) =
         MkPropertyM $ \hole -> local f <$> propertyM hole
 
+instance Hashable Byte where
+    hashWithSalt i = hashWithSalt i . toInteger
+
 instance TH.Lift Byte where
     lift x = let b = toBytes x in [|fromBytes b :: Byte|]
 
@@ -206,11 +216,18 @@ instance Rand.MonadRandom QC.Gen where
         [a,b,c,d,e] <- replicateM 5 QC.arbitrary
         pure $ fst $ Rand.randomBytesGenerate n (Rand.drgNewTest (a,b,c,d,e))
 
+instance Hashable Millisecond where
+    hashWithSalt i a = hashWithSalt i (toInteger a)
+
+instance Hashable Microsecond where
+    hashWithSalt i a = hashWithSalt i (toInteger a)
+
 instance NFData Millisecond where
     rnf ms = rnf (toInteger ms)
 
 instance NFData Microsecond where
     rnf ms = rnf (toInteger ms)
+
 
 ----------------------------------------------------------------------------
 -- Orphan Buildable instances for time-units
@@ -396,6 +413,15 @@ inAssertMode x = x *> pure ()
 inAssertMode _ = pure ()
 #endif
 {-# INLINE inAssertMode #-}
+
+-- | Concatenates two url parts using regular slash '/'.
+-- E.g. @"./dir/" <//> "/file" = "./dir/file"@.
+(<//>) :: String -> String -> String
+(<//>) lhs rhs = lhs' ++ "/" ++ rhs'
+  where
+    isSlash = (== '/')
+    lhs' = reverse $ dropWhile isSlash $ reverse lhs
+    rhs' = dropWhile isSlash rhs
 
 ----------------------------------------------------------------------------
 -- Lenses

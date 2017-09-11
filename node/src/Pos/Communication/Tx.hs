@@ -4,7 +4,6 @@
 
 module Pos.Communication.Tx
        ( TxMode
-       , submitAndSaveTx
        , submitTx
        , prepareMTx
        , prepareRedemptionTx
@@ -49,10 +48,10 @@ type TxMode ssc m
       , TxCreateMode m
       )
 
-submitAndSaveTx
+submitAndSave
     :: TxMode ssc m
     => EnqueueMsg m -> TxAux -> m Bool
-submitAndSaveTx enqueue txAux@TxAux {..} = do
+submitAndSave enqueue txAux@TxAux {..} = do
     let txId = hash taTx
     accepted <- submitTxRaw enqueue txAux
     saveTx (txId, txAux)
@@ -82,7 +81,7 @@ submitTx enqueue ss outputs addrData = do
     let ourPk = safeToPublic ss
     utxo <- getOwnUtxoForPk ourPk
     txWSpendings <- eitherToThrow =<< createTx utxo ss outputs addrData
-    txWSpendings <$ submitAndSaveTx enqueue (fst txWSpendings)
+    txWSpendings <$ submitAndSave enqueue (fst txWSpendings)
 
 -- | Construct redemption Tx using redemption secret key and a output address
 prepareRedemptionTx
@@ -97,7 +96,7 @@ prepareRedemptionTx rsk output = do
         redeemBalance = foldl' addCoin (mkCoin 0) utxo
         txOuts = one $
             TxOutAux {toaOut = TxOut output redeemBalance}
-    when (redeemBalance == mkCoin 0) $ throwM . TxError $ "Redeem balance is 0"
+    when (redeemBalance == mkCoin 0) $ throwM RedemptionDepleted
     txAux <- eitherToThrow =<< createRedemptionTx utxo rsk txOuts
     pure (txAux, redeemAddress, redeemBalance)
 

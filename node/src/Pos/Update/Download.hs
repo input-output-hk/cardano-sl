@@ -4,16 +4,16 @@
 
 module Pos.Update.Download
        ( downloadUpdate
-       , downloadHash
        ) where
 
-import           Control.Concurrent.STM  (modifyTVar')
+import           Universum
+
+import           Control.Exception.Safe  (handleAny)
 import           Control.Lens            (views)
 import           Control.Monad.Except    (ExceptT (..), throwError)
 import qualified Data.ByteArray          as BA
 import qualified Data.ByteString.Lazy    as BSL
 import qualified Data.HashMap.Strict     as HM
-import qualified Data.Set                as S
 import           Ether.Internal          (HasLens (..))
 import           Formatting              (build, sformat, stext, (%))
 import           Network.HTTP.Client     (Manager, newManager)
@@ -22,97 +22,138 @@ import           Network.HTTP.Simple     (getResponseBody, getResponseStatus,
                                           getResponseStatusCode, httpLBS, parseRequest,
                                           setRequestManager)
 import qualified Serokell.Util.Base16    as B16
-import           Serokell.Util.Text      (listJsonIndent)
+import           Serokell.Util.Text      (listJsonIndent, mapJson)
 import           System.Directory        (doesFileExist)
-import           System.Wlog             (logDebug, logInfo, logWarning)
-import           Universum
+import           System.Wlog             (WithLogger, logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Update       ()
-import           Pos.Constants           (appSystemTag, curSoftwareVersion)
+import           Pos.Constants           (curSoftwareVersion, ourSystemTag)
 import           Pos.Core.Types          (SoftwareVersion (..))
 import           Pos.Crypto              (Hash, castHash, hash)
+import           Pos.Exception           (reportFatalError)
+import           Pos.Reporting           (reportOrLogW)
 import           Pos.Update.Context      (UpdateContext (..))
-import           Pos.Update.Core.Types   (UpId, UpdateData (..), UpdateProposal (..))
+import           Pos.Update.Core.Types   (UpdateData (..), UpdateProposal (..))
 import           Pos.Update.Mode         (UpdateMode)
 import           Pos.Update.Params       (UpdateParams (..))
 import           Pos.Update.Poll.Types   (ConfirmedProposalState (..))
 import           Pos.Util                ((<//>))
+import           Pos.Util.Concurrent     (withMVar)
 
-showHash :: Hash a -> FilePath
-showHash = toString . B16.encode . BA.convert
-
--- CSL-887: if we're downloading update not for `cardano-sl`,
--- but e. g. for `daedalus`, how do we check that version is new?
-versionIsNew :: SoftwareVersion -> Bool
-versionIsNew ver = svAppName ver /= svAppName curSoftwareVersion
-    || svNumber ver > svNumber curSoftwareVersion
-
--- TODO Now we suppose there is no more than one update at every moment.
--- | Determine whether to download update and download it if needed.
+-- | Download a software update for given 'ConfirmedProposalState' and
+-- put it into a variable which holds 'ConfirmedProposalState' of
+-- downloaded update.
+-- Parallel downloads aren't supported, so this function may blocks.
+-- If we have already downloaded an update successfully, this function won't
+-- download new updates.
+--
+-- The caller must ensure that:
+-- 1. This update is for our software.
+-- 2. This update is for our system (according to system tag).
+-- 3. This update brings newer software version than our current version.
 downloadUpdate :: forall ctx m . UpdateMode ctx m => ConfirmedProposalState -> m ()
-downloadUpdate cst@ConfirmedProposalState {..} = do
-    unlessM (liftIO . doesFileExist =<< views (lensOf @UpdateParams) upUpdatePath) $ do
-        downSetVar <- views (lensOf @UpdateContext) ucDownloadingUpdates
-        let upId = hash cpsUpdateProposal
-        whenM (tryPutToSet downSetVar upId) $
-            downloadUpdateDo cst
-            `finally` (atomically $ modifyTVar' downSetVar (S.delete upId))
+downloadUpdate cps = do
+    downloadLock <- ucDownloadLock <$> view (lensOf @UpdateContext)
+    withMVar downloadLock $ \() -> do
+        downloadedUpdateMVar <-
+            ucDownloadedUpdate <$> view (lensOf @UpdateContext)
+        tryReadMVar downloadedUpdateMVar >>= \case
+            Nothing -> downloadUpdateDo cps
+            Just existingCPS -> onAlreadyDownloaded existingCPS
   where
-    -- Whether to start downloading?
-    tryPutToSet :: TVar (Set UpId) -> UpId -> m Bool
-    tryPutToSet downSetVar upId = atomically $ do
-        downSet <- readTVar downSetVar
-        if S.member upId downSet then pure False
-        else True <$ writeTVar downSetVar (S.insert upId downSet)
+    proposalToDL = cpsUpdateProposal cps
+    onAlreadyDownloaded ConfirmedProposalState {..} =
+        logInfo $
+        sformat
+            ("We won't download an update for proposal "%build%
+             ", because we have already downloaded another update: "%build%
+             " and we are waiting for it to be applied")
+            proposalToDL
+            cpsUpdateProposal
 
--- | Download and save archive update by given `ConfirmedProposalState`
+-- Download and save archive update by given `ConfirmedProposalState`
 downloadUpdateDo :: UpdateMode ctx m => ConfirmedProposalState -> m ()
-downloadUpdateDo cst@ConfirmedProposalState {..} = do
-    logDebug "Update downloading triggered"
+downloadUpdateDo cps@ConfirmedProposalState {..} = do
     useInstaller <- views (lensOf @UpdateParams) upUpdateWithPkg
     updateServers <- views (lensOf @UpdateParams) upUpdateServers
 
-    let dataHash = if useInstaller then udPkgHash else udAppDiffHash
+    let data_ = upData cpsUpdateProposal
+        dataHash = if useInstaller then udPkgHash else udAppDiffHash
         mupdHash = castHash . dataHash <$>
-                   HM.lookup appSystemTag (upData cpsUpdateProposal)
+                   HM.lookup ourSystemTag data_
 
-    res <- runExceptT $ do
-        updHash <- maybe (throwError "This update is not for our system")
-                   pure mupdHash
+    logDebug $ sformat ("Proposal's upData: "%mapJson) data_
+
+
+    logInfo $ sformat ("We are going to start downloading an update for "%build)
+              cpsUpdateProposal
+    res <- handleAny handleErr $ runExceptT $ do
+        -- It must be enforced by the caller.
+        updHash <- maybe (reportFatalError $ sformat
+                            ("We are trying to download an update not for our "%
+                            "system, update proposal is: "%build)
+                            cpsUpdateProposal)
+                          pure
+                   mupdHash
         let updateVersion = upSoftwareVersion cpsUpdateProposal
-        unless (versionIsNew updateVersion) $
-            throwError $ sformat ("Update #"%build%" hasn't been downloaded: \
-                                  \current software version is newer than \
-                                  \update version") updHash
+        -- It's just a sanity check which must always pass due to the
+        -- outside logic. We take only updates for our software and
+        -- explicitly request only new updates. This invariant must be
+        -- ensure by the caller of 'downloadUpdate'.
+        unless (isVersionAppropriate updateVersion) $
+            reportFatalError $
+            sformat ("Update #"%build%" hasn't been downloaded: "%
+                    "its version is not newer than current software "%
+                    "software version or it's not for our "%
+                    "software at all") updHash
 
         updPath <- views (lensOf @UpdateParams) upUpdatePath
         whenM (liftIO $ doesFileExist updPath) $
             throwError "There's unapplied update already downloaded"
 
         logInfo "Downloading update..."
-        file <- ExceptT $ liftIO (downloadHash updateServers updHash) <&>
+        file <- ExceptT $ downloadHash updateServers updHash <&>
                 first (sformat ("Update download (hash "%build%
                                 ") has failed: "%stext) updHash)
 
+        logInfo $ "Update was downloaded, saving to " <> show updPath
+
         liftIO $ BSL.writeFile updPath file
-        logInfo "Update was downloaded"
-        sm <- views (lensOf @UpdateContext) ucUpdateSemaphore
-        putMVar sm cst
+        logInfo $ "Update was downloaded, saved to " <> show updPath
+        downloadedMVar <- views (lensOf @UpdateContext) ucDownloadedUpdate
+        putMVar downloadedMVar cps
         logInfo "Update MVar filled, wallet is notified"
 
-    whenLeft res logWarning
+    whenLeft res logDownloadError
+  where
+    handleErr e =
+        Left (pretty e) <$ reportOrLogW "Update downloading failed: " e
+    logDownloadError e =
+        logWarning $ sformat
+            ("Failed to download update proposal "%build%": "%stext)
+            cpsUpdateProposal e
+    -- Check that we really should download an update with given
+    -- 'SoftwareVersion'.
+    isVersionAppropriate :: SoftwareVersion -> Bool
+    isVersionAppropriate ver = svAppName ver == svAppName curSoftwareVersion
+        && svNumber ver > svNumber curSoftwareVersion
 
--- | Download a file by its hash.
+-- Download a file by its hash.
 --
 -- Tries all servers in turn, fails if none of them work.
-downloadHash :: [Text] -> Hash LByteString -> IO (Either Text LByteString)
+downloadHash ::
+       (MonadIO m, WithLogger m)
+    => [Text]
+    -> Hash LByteString
+    -> m (Either Text LByteString)
 downloadHash updateServers h = do
-    manager <- newManager tlsManagerSettings
+    manager <- liftIO $ newManager tlsManagerSettings
 
     let -- try all servers in turn until there's a Right
         go errs (serv:rest) = do
             let uri = toString serv <//> showHash h
-            downloadUri manager uri h >>= \case
+            logDebug $ "Trying url " <> show uri
+            liftIO (downloadUri manager uri h) >>= \case
                 Left e -> go (e:errs) rest
                 Right r -> return (Right r)
 
@@ -125,6 +166,9 @@ downloadHash updateServers h = do
                     (reverse errs)
 
     go [] updateServers
+  where
+    showHash :: Hash a -> FilePath
+    showHash = toString . B16.encode . BA.convert
 
 -- Download a file and check its hash.
 downloadUri :: Manager
@@ -141,7 +185,6 @@ downloadUri manager uri h = do
                 | otherwise  -> Right (getResponseBody resp)
 
 {- TODO
-=======
 
 * check timeouts?
 * how should we in general deal with e.g. 1B/s download speed?

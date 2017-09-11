@@ -19,6 +19,7 @@ import           Servant.Utils.Enter     ((:~>) (..), enter)
 
 import           Pos.Communication       (OutSpecs, SendActions, WorkerSpec, worker)
 import           Pos.Core                (HasCoreConstants)
+import           Pos.Recovery            ()
 import           Pos.Ssc.GodTossing      (SscGodTossing)
 import           Pos.WorkMode            (RealMode, RealModeContext (..))
 

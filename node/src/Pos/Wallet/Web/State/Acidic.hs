@@ -32,6 +32,7 @@ module Pos.Wallet.Web.State.Acidic
        , GetCustomAddresses (..)
        , GetCustomAddress (..)
        , GetPendingTxs (..)
+       , GetWalletPendingTxs (..)
        , GetPendingTx (..)
        , AddCustomAddress (..)
        , CreateAccount (..)
@@ -124,6 +125,7 @@ makeAcidic ''WalletStorage
     , 'WS.getCustomAddresses
     , 'WS.getCustomAddress
     , 'WS.getPendingTxs
+    , 'WS.getWalletPendingTxs
     , 'WS.getPendingTx
     , 'WS.addCustomAddress
     , 'WS.removeCustomAddress

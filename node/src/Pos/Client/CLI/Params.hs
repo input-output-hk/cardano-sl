@@ -5,18 +5,14 @@ module Pos.Client.CLI.Params
        , getBaseParams
        , getKeyfilePath
        , getNodeParams
-       , getTransportParams
        , gtSscParams
        ) where
 
 import           Universum
 
-import qualified Data.ByteString.Char8      as BS8 (unpack)
 import           Data.Default               (def)
 import qualified Data.Yaml                  as Yaml
 import           Mockable                   (Catch, Fork, Mockable, Throw, throw)
-import qualified Network.Transport.TCP      as TCP (TCPAddr (..), TCPAddrInfo (..))
-import qualified Prelude
 import           System.Wlog                (LoggerName, WithLogger)
 
 import           Pos.Behavior               (BehaviorConfig (..))
@@ -27,12 +23,11 @@ import           Pos.Client.CLI.Secrets     (updateUserSecretVSS,
 import           Pos.Constants              (isDevelopment)
 import           Pos.Core.Types             (Timestamp (..))
 import           Pos.Crypto                 (VssKeyPair)
-import           Pos.Genesis                (devGenesisContext, devStakesDistr,
+import           Pos.Genesis                (devBalancesDistr, devGenesisContext,
                                              genesisContextProduction)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
-                                             NodeParams (..), TransportParams (..))
+                                             NodeParams (..))
 import           Pos.Network.CLI            (intNetworkConfigOpts)
-import           Pos.Network.Types          (NetworkConfig (..), Topology (..))
 import           Pos.Ssc.GodTossing         (GtParams (..))
 import           Pos.Update.Params          (UpdateParams (..))
 import           Pos.Util.UserSecret        (peekUserSecret)
@@ -77,17 +72,16 @@ getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} systemStart = do
             updateUserSecretVSS cArgs =<<
                 peekUserSecret (getKeyfilePath cArgs)
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
-    npTransport <- getTransportParams cArgs npNetworkConfig
     npBehaviorConfig <- case behaviorConfigPath of
         Nothing -> pure def
         Just fp -> either throw pure =<< liftIO (Yaml.decodeFileEither fp)
-    let devStakeDistr =
-            devStakesDistr
+    let devBalanceDistr =
+            devBalancesDistr
                 (flatDistr commonArgs)
                 (richPoorDistr commonArgs)
                 (expDistr commonArgs)
     let npGenesisCtx
-            | isDevelopment = devGenesisContext devStakeDistr
+            | isDevelopment = devGenesisContext devBalanceDistr
             | otherwise = genesisContextProduction
     pure NodeParams
         { npDbPathM = dbPath
@@ -109,39 +103,3 @@ getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} systemStart = do
         , npStatsdParams = statsdParams
         , ..
         }
-
-data NetworkTransportMisconfiguration =
-
-      -- | A bind address was not given.
-      MissingBindAddress
-
-      -- | An external address was not given.
-    | MissingExternalAddress
-
-      -- | An address was given when one was not expected (behind NAT).
-    | UnnecessaryAddress
-
-instance Show NetworkTransportMisconfiguration where
-    show MissingBindAddress     = "No network bind address given. Use the --listen option."
-    show MissingExternalAddress = "No external network address given. Use the --address option."
-    show UnnecessaryAddress     = "Network address given when none was expected. Remove the --listen and --address options."
-
-instance Exception NetworkTransportMisconfiguration
-
-getTransportParams :: ( Mockable Throw m ) => CommonNodeArgs -> NetworkConfig kademlia -> m TransportParams
-getTransportParams args networkConfig = case ncTopology networkConfig of
-    -- Behind-NAT topology claims no address for the transport, and also
-    -- throws an exception if the --listen parameter is given, to avoid
-    -- confusion: if a user gives a --listen parameter then they probably
-    -- think the program will bind a socket.
-    TopologyBehindNAT{} -> do
-        _ <- whenJust (bindAddress args) (const (throw UnnecessaryAddress))
-        _ <- whenJust (externalAddress args) (const (throw UnnecessaryAddress))
-        return $ TransportParams { tpTcpAddr = TCP.Unaddressable }
-    _ -> do
-        (bindHost, bindPort) <- maybe (throw MissingBindAddress) return (bindAddress args)
-        (externalHost, externalPort) <- maybe (throw MissingExternalAddress) return (externalAddress args)
-        let tcpHost = BS8.unpack bindHost
-            tcpPort = show bindPort
-            tcpMkExternal = const (BS8.unpack externalHost, show externalPort)
-        return $ TransportParams { tpTcpAddr = TCP.Addressable (TCP.TCPAddrInfo tcpHost tcpPort tcpMkExternal) }

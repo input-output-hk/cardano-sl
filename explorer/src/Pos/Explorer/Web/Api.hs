@@ -107,11 +107,12 @@ type GenesisAddressInfo = API
     :> QueryParam "pageSize" Word
     :> Get '[JSON] (Either ExplorerError [CGenesisAddressInfo])
 
+type TxsStats = (PageNumber, [(CTxId, Byte)])
 type StatsTxs = API
     :> "stats"
     :> "txs"
     :> QueryParam "page" Word
-    :> Get '[JSON] (Either ExplorerError (PageNumber, [(CTxId, Byte)]))
+    :> Get '[JSON] (Either ExplorerError TxsStats)
 
 -- | Servant API which provides access to explorer
 type ExplorerApi =

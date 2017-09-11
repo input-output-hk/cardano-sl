@@ -5,6 +5,7 @@ module Pos.Update.Constants
        , ourAppName
        , lastKnownBlockVersion
        , curSoftwareVersion
+       , ourSystemTag
 
        -- * Genesis constants
        , genesisBlockVersion
@@ -12,16 +13,20 @@ module Pos.Update.Constants
        , genesisAppNames
        ) where
 
-import           Universum
+import           Universum                  hiding (lift)
 
-import           Data.Aeson             (FromJSON (..), genericParseJSON)
-import qualified Data.Aeson.Types       as A
-import           Data.Tagged            (Tagged (..))
-import           Serokell.Aeson.Options (defaultOptions)
+import           Data.Aeson                 (FromJSON (..), genericParseJSON)
+import qualified Data.Aeson.Types           as A
+import           Data.Tagged                (Tagged (..))
+import           Language.Haskell.TH.Syntax (lift, runIO)
+import           Serokell.Aeson.Options     (defaultOptions)
+import           System.Environment         (lookupEnv)
 
-import           Pos.Core               (ApplicationName, BlockVersion (..),
-                                         SoftwareVersion (..), mkApplicationName)
-import           Pos.Util.Config        (IsConfig (..), configParser, parseFromCslConfig)
+import           Pos.Core                   (ApplicationName, BlockVersion (..),
+                                             SoftwareVersion (..), mkApplicationName)
+import           Pos.Update.Core            (SystemTag, mkSystemTag)
+import           Pos.Util.Config            (IsConfig (..), configParser,
+                                             parseFromCslConfig)
 
 ----------------------------------------------------------------------------
 -- Config itself
@@ -81,6 +86,18 @@ lastKnownBlockVersion = BlockVersion (ccLastKnownBVMajor updateConstants)
 curSoftwareVersion :: SoftwareVersion
 curSoftwareVersion = SoftwareVersion ourAppName
                                      (ccApplicationVersion updateConstants)
+
+ourSystemTag :: SystemTag
+ourSystemTag =
+    $(do mbTag <- runIO (lookupEnv "CSL_SYSTEM_TAG")
+         case mbTag of
+             Just tag -> lift =<< mkSystemTag (toText tag)
+             Nothing ->
+                 fail $
+                 "Failed to init ourSystemTag: \
+                       \couldn't find env var \"CSL_SYSTEM_TAG\". " <>
+                 "If you have no idea what it means, just set " <>
+                 "\"CSL_SYSTEM_TAG\" environmental variable (to arbitrary value)")
 
 ----------------------------------------------------------------------------
 -- Genesis constants

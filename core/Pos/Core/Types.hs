@@ -89,7 +89,7 @@ import           Control.Monad.Except       (MonadError (throwError))
 import           Crypto.Hash                (Blake2b_224)
 import           Data.Char                  (isAscii)
 import           Data.Data                  (Data)
-import           Data.Hashable              (Hashable)
+import           Data.Hashable              (Hashable (..))
 import           Data.Ix                    (Ix)
 import qualified Data.Text                  as T
 import qualified Data.Text.Buildable        as Buildable

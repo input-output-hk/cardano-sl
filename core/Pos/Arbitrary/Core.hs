@@ -44,6 +44,7 @@ import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
 import qualified Pos.Core.Slotting                 as Types
 import qualified Pos.Core.Types                    as Types
+import           Pos.Core.Vss                      (VssCertificate, mkVssCertificate)
 import           Pos.Crypto                        (createPsk, toPublic)
 import           Pos.Data.Attributes               (Attributes (..), UnparsedFields (..))
 import           Pos.Util.Arbitrary                (nonrepeating)
@@ -577,3 +578,11 @@ deriving instance Arbitrary a => Arbitrary (UnsignedVarInt a)
 deriving instance Arbitrary a => Arbitrary (SignedVarInt a)
 deriving instance Arbitrary a => Arbitrary (FixedSizeInt a)
 deriving instance Arbitrary TinyVarInt
+
+----------------------------------------------------------------------------
+-- GodTossing
+----------------------------------------------------------------------------
+
+instance Arbitrary VssCertificate where
+    arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary <*> arbitrary
+    -- The 'shrink' method wasn't implement to avoid breaking the datatype's invariant.

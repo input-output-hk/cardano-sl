@@ -25,12 +25,12 @@ import qualified Pos.Communication          ()
 import           Pos.Constants              (genesisMaxBlockSize)
 import           Pos.Core                   (HasCoreConstants, SlotId (..),
                                              blkSecurityParam, giveStaticConsts,
-                                             unsafeMkLocalSlotIndex)
+                                             mkVssCertificatesMap, unsafeMkLocalSlotIndex)
 import           Pos.Crypto                 (SecretKey)
 import           Pos.Delegation             (DlgPayload, ProxySKBlockInfo)
 import           Pos.Ssc.Class              (Ssc (..), sscDefaultPayload)
 import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
-                                             commitmentMapEpochGen, mkVssCertificatesMap,
+                                             commitmentMapEpochGen,
                                              vssCertificateEpochGen)
 import           Pos.Txp.Core               (TxAux)
 import           Pos.Update.Core            (UpdatePayload (..))

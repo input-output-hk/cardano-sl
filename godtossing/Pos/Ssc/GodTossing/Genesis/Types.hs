@@ -4,7 +4,7 @@ module Pos.Ssc.GodTossing.Genesis.Types
 
 import           Universum
 
-import           Pos.Ssc.GodTossing.Core.Types (VssCertificatesMap)
+import           Pos.Core.Vss (VssCertificatesMap)
 
 -- | GodTossing data hardcoded in genesis.
 data GenesisGtData = GenesisGtData

@@ -17,6 +17,7 @@ executable cardano-auxx
   other-modules:
                        Command
                        Command.Parser
+                       Command.Rollback
                        Command.Run
                        Command.Tx
                        Command.Types

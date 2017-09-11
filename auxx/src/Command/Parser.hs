@@ -148,6 +148,12 @@ addrStakeDistrP =
 addrDistrP :: Parser Command
 addrDistrP = AddrDistr <$> lexeme base58PkParser <*> lexeme addrStakeDistrP
 
+rollbackP :: Parser Command
+rollbackP = Rollback <$> num <*> filePath
+
+sendTxsFromFileP :: Parser Command
+sendTxsFromFileP = SendTxsFromFile <$> filePath
+
 parseProposeUpdateSystem :: Parser ProposeUpdateSystem
 parseProposeUpdateSystem =
     ProposeUpdateSystem <$>
@@ -167,6 +173,7 @@ parseSystemTag =
 command :: Parser Command
 command = try (text "balance") *> balance <|>
           try (text "send-to-all-genesis") *> sendToAllGenesis <|>
+          try (text "send-from-file") *> sendTxsFromFileP <|>
           try (text "send") *> send <|>
           try (text "vote") *> vote <|>
           try (text "propose-update") *> proposeUpdate <|>
@@ -175,6 +182,7 @@ command = try (text "balance") *> balance <|>
           try (text "add-key-pool") *> addKeyFromPool <|>
           try (text "add-key") *> addKeyFromFile <|>
           try (text "addr-distr") *> addrDistrP <|>
+          try (text "rollback") *> rollbackP <|>
           try (text "quit") *> pure Quit <|>
           try (text "help") *> pure Help <|>
           try (text "listaddr") *> pure ListAddresses <?>

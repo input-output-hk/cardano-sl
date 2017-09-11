@@ -24,14 +24,14 @@ import           Universum
 import           Pos.Binary.GodTossing          ()
 import           Pos.Core                       (BlockVersionData, EpochIndex (..),
                                                  HasCoreConstants, SlotId (..),
-                                                 epochIndexL, epochOrSlotG)
+                                                 VssCertificatesMap, epochIndexL,
+                                                 epochOrSlotG, vcVssKey)
 import           Pos.DB                         (MonadDBRead, SomeBatchOp (..))
 import           Pos.Lrc.Types                  (RichmenStakes)
 import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
 import           Pos.Ssc.Class.Types            (SscBlock, getSscBlock)
 import           Pos.Ssc.Extra                  (MonadSscMem, sscRunGlobalQuery)
-import           Pos.Ssc.GodTossing.Core        (GtPayload (..), VssCertificatesMap,
-                                                 vcVssKey)
+import           Pos.Ssc.GodTossing.Core        (GtPayload (..))
 import qualified Pos.Ssc.GodTossing.DB          as DB
 import           Pos.Ssc.GodTossing.Functions   (getStableCertsPure)
 import           Pos.Ssc.GodTossing.Seed        (calculateSeed)

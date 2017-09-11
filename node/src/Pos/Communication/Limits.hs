@@ -28,7 +28,7 @@ import           Pos.Communication.Types.Protocol   (MsgSubscribe (..))
 import           Pos.Communication.Types.Relay      (DataMsg (..))
 import qualified Pos.Constants                      as Const
 import           Pos.Core                           (BlockVersionData (..),
-                                                     coinPortionToDouble)
+                                                     VssCertificate, coinPortionToDouble)
 import           Pos.Core.Context                   (HasCoreConstants, blkSecurityParam)
 import           Pos.Crypto                         (AbstractHash, DecShare, EncShare,
                                                      ProxyCert (..), ProxySecretKey (..),
@@ -38,8 +38,7 @@ import           Pos.Crypto                         (AbstractHash, DecShare, Enc
 import qualified Pos.DB.Class                       as DB
 import           Pos.Delegation.Types               (ProxySKLightConfirmation)
 import           Pos.Ssc.GodTossing.Core.Types      (Commitment (..), InnerSharesMap,
-                                                     Opening (..), SignedCommitment,
-                                                     VssCertificate)
+                                                     Opening (..), SignedCommitment)
 import           Pos.Ssc.GodTossing.Types.Message   (MCCommitment (..), MCOpening (..),
                                                      MCShares (..), MCVssCertificate (..))
 import           Pos.Txp.Core                       (TxAux)

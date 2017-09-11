@@ -11,7 +11,7 @@ module Pos.Core.Genesis.Types
        , GenesisDelegation (..)
        , noGenesisDelegation
        , mkGenesisDelegation
-       , AvvmDistribution (..)
+       , GenesisAddrDistr (..)
        , TestnetDistribution (..)
        , GenesisInitializer (..)
        , GenesisSpec (..)
@@ -35,6 +35,7 @@ import           Pos.Core.Coin        (coinToInteger, sumCoins, unsafeGetCoin,
                                        unsafeIntegerToCoin)
 import           Pos.Core.Types       (Address, Coin, ProxySKHeavy, StakeholderId,
                                        Timestamp, mkCoin)
+import           Pos.Core.Vss         (VssCertificatesMap)
 import           Pos.Crypto           (ProxySecretKey (..), isSelfSignedPsk)
 
 -- | Balances distribution in genesis block.
@@ -158,7 +159,7 @@ data TestnetDistribution
     | TestnetRichmenStakeDistr
     | TestnetCustomStakeDistr
     { tcsdBootStakeholders :: !GenesisWStakeholders
-    --, tcsdVssCerts         :: !VssCertificatesMap
+    , tcsdVssCerts         :: !VssCertificatesMap
     } deriving (Show)
 
 data GenesisInitializer
@@ -177,17 +178,17 @@ data GenesisInitializer
     | MainnetInitializer {
       miStartTime        :: !Timestamp
     , miBootStakeholders :: !GenesisWStakeholders
-    --, msVssCerts         :: !VssCertificatesMap
+    , msVssCerts         :: !VssCertificatesMap
     } deriving (Show)
 
 -- | Predefined balances of avvm entries.
-newtype AvvmDistribution = AvvmDistribution
-    { getAvvmDistribution :: HashMap Address Coin
+newtype GenesisAddrDistr = GenesisAddrDistr
+    { getAddrDistr :: HashMap Address Coin
     } deriving (Show)
 
 -- | Hardcoded genesis data to generate utxo from.
 data GenesisSpec = UnsafeGenesisSpec
-    { gsAvvmDistr       :: !AvvmDistribution
+    { gsAvvmDistr       :: !GenesisAddrDistr
     -- ^ Genesis data describes avvm utxo.
     , gsHeavyDelegation :: !GenesisDelegation
     -- ^ Genesis state of heavyweight delegation.
@@ -206,15 +207,16 @@ bootDustThreshold (GenesisWStakeholders bootHolders) =
 -- | Safe constructor for 'GenesisSpec'. Throws error if something
 -- goes wrong.
 mkGenesisSpec
-    :: AvvmDistribution
+    :: GenesisAddrDistr
     -> GenesisDelegation
     -> GenesisInitializer
     -> Either String GenesisSpec
 mkGenesisSpec avvmDistr delega specType = do
-    let addrs = HM.keys $ getAvvmDistribution avvmDistr
+    let addrs = HM.keys $ getAddrDistr avvmDistr
     unless (all isBootstrapEraDistrAddress addrs) $
         Left $ "mkGenesisCoreData: there is an address with stake " <>
                 "distribution different from BootstrapEraDistr"
 
     -- All checks passed
     pure $ UnsafeGenesisSpec avvmDistr delega specType
+

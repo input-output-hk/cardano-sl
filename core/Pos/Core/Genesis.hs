@@ -9,7 +9,7 @@ module Pos.Core.Genesis
 
        -- * /genesis-core.bin/
        , module Pos.Core.Genesis.Types
-       , compileGenCoreData
+       , compileGenSpec
 
        -- ** Derived data
        , genesisProdAddresses
@@ -30,14 +30,14 @@ import           Formatting              (int, sformat, (%))
 import           Pos.Binary.Crypto       ()
 import           Pos.Core.Coin           (unsafeMulCoin)
 import           Pos.Core.Constants      (genesisKeysN)
-import           Pos.Core.Genesis.Parser (compileGenCoreData)
+import           Pos.Core.Genesis.Parser (compileGenSpec)
 import           Pos.Core.Genesis.Types  (AddrDistribution, BalanceDistribution (..),
-                                          FakeAvvmOptions (..), GenesisCoreData (..),
-                                          GenesisDelegation (..), GenesisSpec (..),
+                                          FakeAvvmOptions (..), GenesisDelegation (..),
+                                          GenesisSpec (..), GenesisSpec (..),
                                           GenesisWStakeholders (..),
                                           TestBalanceOptions (..), bootDustThreshold,
-                                          getTotalBalance, mkGenesisCoreData,
-                                          mkGenesisDelegation, noGenesisDelegation,
+                                          getTotalBalance, mkGenesisDelegation,
+                                          mkGenesisSpec, noGenesisDelegation,
                                           safeExpBalances)
 import           Pos.Core.Types          (Address, mkCoin)
 import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,
@@ -78,20 +78,20 @@ genesisDevFlatDistr =
 -- | List of addresses in genesis binary file.
 genesisProdAddresses :: [Address]
 genesisProdAddresses =
-    concatMap (toList . fst) $ gcdAddrDistribution compileGenCoreData
+    concatMap (toList . fst) genesisProdAddrDistribution
 
 -- | Address and distribution set for production mode.
 genesisProdAddrDistribution :: [AddrDistribution]
-genesisProdAddrDistribution = gcdAddrDistribution compileGenCoreData
+genesisProdAddrDistribution = undefined --gcdAddrDistribution compileGenCoreData
 
 -- | Bootstrap era stakeholders for production mode.
 genesisProdBootStakeholders :: GenesisWStakeholders
-genesisProdBootStakeholders =
-    gcdBootstrapStakeholders compileGenCoreData
+genesisProdBootStakeholders = undefined
+    --gcdBootstrapStakeholders compileGenCoreData
 
 -- | 'GenesisDelegation' for production mode.
 genesisProdDelegation :: GenesisDelegation
-genesisProdDelegation = gcdHeavyDelegation compileGenCoreData
+genesisProdDelegation = gsHeavyDelegation compileGenSpec
 
 ----------------------------------------------------------------------------
 -- Utils

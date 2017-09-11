@@ -11,8 +11,8 @@ import qualified Serokell.Util.Base16   as B16
 import           Text.JSON.Canonical    (JSValue (..), ToJSON (..), ToObjectKey (..))
 
 import           Pos.Binary.Class       (serialize')
-import           Pos.Core.Genesis.Types (AddrDistribution, AvvmDistribution (..),
-                                         BalanceDistribution (..), FakeAvvmOptions (..),
+import           Pos.Core.Genesis.Types (AddrDistribution, BalanceDistribution (..),
+                                         FakeAvvmOptions (..), GenesisAddrDistr (..),
                                          GenesisDelegation (..), GenesisInitializer (..),
                                          GenesisSpec (..), GenesisWStakeholders (..),
                                          TestBalanceOptions (..),
@@ -131,8 +131,8 @@ instance Monad m => ToJSON m FakeAvvmOptions where
         , ("oneBalance", word64ToJSON faoOneBalance)
         ]
 
-instance Monad m => ToJSON m AvvmDistribution where
-    toJSON (AvvmDistribution hm) = toJSON $ M.fromList $ HM.toList hm
+instance Monad m => ToJSON m GenesisAddrDistr where
+    toJSON (GenesisAddrDistr hm) = toJSON $ M.fromList $ HM.toList hm
 
 instance Monad m => ToJSON m GenesisDelegation where
     toJSON (UnsafeGenesisDelegation hm) = toJSON $ M.fromList $ HM.toList hm

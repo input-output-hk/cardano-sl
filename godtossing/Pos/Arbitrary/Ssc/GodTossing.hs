@@ -23,18 +23,17 @@ import           Pos.Binary.Class                  (asBinary)
 import           Pos.Binary.GodTossing             ()
 import           Pos.Communication.Types.Relay     (DataMsg (..))
 import           Pos.Core                          (EpochIndex, HasCoreConstants,
-                                                    SlotId (..), addressHash)
+                                                    SlotId (..), VssCertificate (..),
+                                                    addressHash, mkVssCertificate)
 import           Pos.Crypto                        (SecretKey, toVssPublicKey, vssKeyGen)
 import           Pos.Ssc.GodTossing.Constants      (vssMaxTTL, vssMinTTL)
 import           Pos.Ssc.GodTossing.Core           (Commitment (..), CommitmentsMap,
                                                     GtPayload (..), GtProof (..),
                                                     Opening (..), SignedCommitment,
-                                                    VssCertificate (..),
                                                     genCommitmentAndOpening,
                                                     isCommitmentId, isOpeningId,
                                                     isSharesId, mkCommitmentsMap,
-                                                    mkCommitmentsMap, mkSignedCommitment,
-                                                    mkVssCertificate)
+                                                    mkCommitmentsMap, mkSignedCommitment)
 import qualified Pos.Ssc.GodTossing.Genesis.Types  as G
 import           Pos.Ssc.GodTossing.Toss.Types     (TossModifier (..))
 import           Pos.Ssc.GodTossing.Type           (SscGodTossing)

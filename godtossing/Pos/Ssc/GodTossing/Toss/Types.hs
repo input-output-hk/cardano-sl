@@ -16,10 +16,9 @@ import           Control.Lens            (makeLenses)
 import qualified Data.Text.Buildable     as Buildable
 import           Universum
 
-import           Pos.Core                (LocalSlotIndex, SlotId, HasCoreConstants)
+import           Pos.Core                (LocalSlotIndex, SlotId, HasCoreConstants, VssCertificatesMap)
 import           Pos.Ssc.GodTossing.Core (CommitmentsMap, OpeningsMap, SharesMap,
-                                          VssCertificatesMap, isCommitmentId,
-                                          isCommitmentIdx, isOpeningId, isOpeningIdx,
+                                          isCommitmentId, isCommitmentIdx, isOpeningId, isOpeningIdx,
                                           isSharesId, isSharesIdx)
 
 -- | Tag corresponding to GodTossing data.

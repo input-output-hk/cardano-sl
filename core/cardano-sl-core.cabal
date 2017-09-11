@@ -60,6 +60,7 @@ library
                        Pos.Core.Timestamp
                        Pos.Core.Types
                        Pos.Core.Version
+                       Pos.Core.Vss
 
                        Pos.Core.Genesis
                        Pos.Core.Genesis.JSON

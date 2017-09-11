@@ -18,7 +18,7 @@ logs_conf=$(logs auxx.log)
 binary=$(find_binary cardano-auxx)
 template="$binary $dht_conf $logs_conf \
                  --db-path run/auxx-db \
-                 --flat-distr \"(4, 100000)\" \
+                 --flat-distr \"(4, 100000000)\" \
                  --system-start 100500"  # random value, not used, but mandatory
 
 if [[ $1 == "init-dev" ]]; then

@@ -55,6 +55,7 @@ import           Pos.Delegation.Types         (DlgPayload (getDlgPayload), DlgUn
 import qualified Pos.GState                   as GS
 import           Pos.Lrc.Context              (LrcContext)
 import qualified Pos.Lrc.DB                   as LrcDB
+import           Pos.Lrc.Types                (RichmenSet)
 import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
 import           Pos.Util                     (HasLens', getKeys, _neHead)
 import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..))
@@ -334,7 +335,7 @@ dlgVerifyBlocks ::
     => OldestFirst NE (Block ssc)
     -> ExceptT Text m (OldestFirst NE DlgUndo)
 dlgVerifyBlocks blocks = do
-    (richmen :: HashSet StakeholderId) <-
+    (richmen :: RichmenSet) <-
         lrcActionOnEpochReason
         headEpoch
         "Delegation.Logic#delegationVerifyBlocks: there are no richmen for current epoch"
@@ -344,7 +345,7 @@ dlgVerifyBlocks blocks = do
     headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
 
     verifyBlock ::
-        HashSet StakeholderId ->
+        RichmenSet ->
         Block ssc ->
         ExceptT Text (MapCede m) DlgUndo
     verifyBlock _ (Left genesisBlk) = do

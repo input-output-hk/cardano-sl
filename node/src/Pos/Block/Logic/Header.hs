@@ -14,7 +14,6 @@ module Pos.Block.Logic.Header
 
 import           Universum
 
-import           Control.Lens              (_Wrapped)
 import           Control.Monad.Except      (MonadError (throwError))
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
 import           Data.List.NonEmpty        ((<|))
@@ -48,7 +47,8 @@ import           Pos.Slotting.Class        (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Class             (SscHelpersClass)
 import           Pos.Util                  (HasLens', _neHead, _neLast)
 import           Pos.Util.Chrono           (NE, NewestFirst (..), OldestFirst (..),
-                                            toNewestFirst, toOldestFirst)
+                                            toNewestFirst, toOldestFirst, _NewestFirst,
+                                            _OldestFirst)
 
 -- | Result of single (new) header classification.
 data ClassifyHeaderRes
@@ -76,8 +76,9 @@ mkCHRinvalid = CHInvalid . T.intercalate "; "
 classifyNewHeader
     :: forall ctx ssc m.
     ( HasCoreConstants
-    , MonadSlots ctx m
     , DB.MonadBlockDB ssc m
+    , MonadSlots ctx m
+    , HasLens' ctx LrcContext
     )
     => BlockHeader ssc -> m ClassifyHeaderRes
 -- Genesis headers seem useless, we can create them by ourselves.
@@ -88,7 +89,13 @@ classifyNewHeader (Right header) = do
     let tipEoS = getEpochOrSlot tipHeader
     let newHeaderEoS = getEpochOrSlot header
     let newHeaderSlot = header ^. headerSlotL
+    let newHeaderEpoch = header ^. epochIndexL
     let tip = headerHash tipHeader
+    leaders <-
+        lrcActionOnEpochReason
+            newHeaderEpoch
+            "classifyNewHeader"
+            LrcDB.getLeaders
     -- First of all we check whether header is from current slot and
     -- ignore it if it's not.
     if -- Checks on slots
@@ -115,9 +122,8 @@ classifyNewHeader (Right header) = do
                     -- It's questionable though, maybe we will change
                     -- this decision.
                     , vhpCurrentSlot = Nothing
-                    -- [CSL-1152] TODO:
-                    -- we don't do these checks, but perhaps we can.
-                    , vhpLeaders = Nothing
+                    , vhpLeaders = Just leaders
+                    -- can't know in advance since this can change over epoch
                     , vhpMaxSize = Nothing
                     , vhpVerifyNoUnknown = False
                     }
@@ -174,13 +180,12 @@ classifyHeaders inRecovery headers = do
     haveOldestParent <- isJust <$> DB.blkGetHeader @ssc oldestParentHash
     leaders <-
         lrcActionOnEpochReason
-            newestHeaderEpoch
-            (sformat ("classifyHeaders: there are no leaders for epoch " %build)
-                     newestHeaderEpoch)
+            oldestHeaderEpoch
+            "classifyHeaders"
             LrcDB.getLeaders
     let headersValid =
             isVerSuccess $
-            verifyHeaders (Just leaders) (headers & _Wrapped %~ toList)
+            verifyHeaders (Just leaders) (headers & _NewestFirst %~ toList)
     mbCurrentSlot <- getCurrentSlot
     let newestHeaderConvertedSlot =
             case newestHeader ^. epochOrSlotG of
@@ -206,10 +211,11 @@ classifyHeaders inRecovery headers = do
                  (newestHeader ^. epochOrSlotG) currentSlot
        | otherwise -> fromMaybe uselessGeneral <$> processClassify tipHeader
   where
-    newestHeader = headers ^. _Wrapped . _neHead
+    newestHeader = headers ^. _NewestFirst . _neHead
     newestHash = headerHash newestHeader
-    newestHeaderEpoch = newestHeader ^. epochIndexL
-    oldestParentHash = headers ^. _Wrapped . _neLast . prevBlockL
+    oldestHeader = headers ^. _NewestFirst . _neLast
+    oldestHeaderEpoch = oldestHeader ^. epochIndexL
+    oldestParentHash = oldestHeader ^. prevBlockL
     uselessGeneral =
         CHsUseless "Couldn't find lca -- maybe db state updated in the process"
     processClassify tipHeader = runMaybeT $ do
@@ -262,10 +268,10 @@ getHeadersFromManyTo checkpoints startM = do
         parentIsCheckpoint bh =
             any (\c -> bh ^. prevBlockL == c ^. headerHashG) validCheckpoints
         whileCond bh = not (isCheckpoint bh)
-    headers <- noteM "Failed to load headers by depth" . fmap (_Wrapped nonEmpty) $
+    headers <- noteM "Failed to load headers by depth" . fmap (_NewestFirst nonEmpty) $
         DB.loadHeadersByDepthWhile whileCond recoveryHeadersMessage startFrom
-    let newestH = headers ^. _Wrapped . _neHead
-        oldestH = headers ^. _Wrapped . _neLast
+    let newestH = headers ^. _NewestFirst . _neHead
+        oldestH = headers ^. _NewestFirst . _neLast
     logDebug $
         sformat ("getHeadersFromManyTo: retrieved headers, oldest is "
                 % build % ", newest is " % build) oldestH newestH
@@ -282,7 +288,7 @@ getHeadersFromManyTo checkpoints startM = do
             loadUpCond _ h = h < recoveryHeadersMessage
         up <- GS.loadHeadersUpWhile lowestCheckpoint loadUpCond
         res <- note "loadHeadersUpWhile returned empty list" $
-            _Wrapped nonEmpty (toNewestFirst $ over _Wrapped (drop 1) up)
+            _NewestFirst nonEmpty (toNewestFirst $ over _OldestFirst (drop 1) up)
         logDebug $ "getHeadersFromManyTo: loaded non-empty list of headers, returning"
         pure res
   where
@@ -310,9 +316,9 @@ getHeadersOlderExp upto = do
     let selectedHashes :: NewestFirst [] HeaderHash
         selectedHashes =
             fmap headerHash allHeaders &
-                _Wrapped %~ selectIndices (twoPowers $ length allHeaders)
+                _NewestFirst %~ selectIndices (twoPowers $ length allHeaders)
 
-    pure . toOldestFirst . (_Wrapped %~ toNE) $ selectedHashes
+    pure . toOldestFirst . (_NewestFirst %~ toNE) $ selectedHashes
   where
     -- For given n, select indices from start so they decrease as
     -- power of 2. Also include last element of the list.

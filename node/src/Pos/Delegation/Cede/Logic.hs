@@ -30,6 +30,7 @@ import           Pos.DB                    (DBError (DBMalformed))
 import           Pos.Delegation.Cede.Class (MonadCedeRead (..), getPskPk)
 import           Pos.Delegation.Helpers    (isRevokePsk)
 import           Pos.Delegation.Types      (DlgMemPool)
+import           Pos.Lrc.Types             (RichmenSet)
 
 -- | Given an issuer, retrieves all certificate chains starting in
 -- issuer. This function performs a series of sequential db reads so
@@ -121,7 +122,7 @@ dlgVerifyHeader ::
 dlgVerifyHeader h = do
     -- Issuer didn't delegate the right to issue to elseone.
     let issuer = h ^. mainHeaderLeaderKey
-    let sig = h ^. gbhConsensus ^. mcdSignature
+    let sig = h ^. gbhConsensus . mcdSignature
     issuerPsk <- getPskPk issuer
     whenJust issuerPsk $ \psk -> case sig of
         (BlockSignature _) ->
@@ -161,7 +162,7 @@ newtype CheckForCycle = CheckForCycle Bool
 -- | Verify consistent heavy PSK.
 dlgVerifyPskHeavy ::
        (MonadCedeRead m)
-    => HashSet StakeholderId
+    => RichmenSet
     -> CheckForCycle
     -> EpochIndex
     -> ProxySKHeavy

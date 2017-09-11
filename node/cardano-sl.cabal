@@ -577,7 +577,6 @@ test-suite cardano-test
                        -- Txp
                        Test.Pos.Client.Txp.Mode
                        Test.Pos.Client.Txp.UtilSpec
-                       Test.Pos.Client.Txp.Util
 
                        -- Everything else
                        Test.Pos.CborSpec

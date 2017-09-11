@@ -19,7 +19,6 @@ module Test.Pos.Block.Logic.Mode
 
        , BlockProperty
        , blockPropertyToProperty
-       , genSuitableBalanceDistribution
        ) where
 
 import           Universum

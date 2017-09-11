@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
-{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Types for using in purescript-bridge
 module Pos.Explorer.Web.ClientTypes
@@ -45,7 +45,6 @@ module Pos.Explorer.Web.ClientTypes
 
 import           Universum
 
-import           Control.Arrow              ((&&&))
 import           Control.Lens               (ix, _Left)
 import qualified Data.ByteArray             as BA
 import qualified Data.List.NonEmpty         as NE

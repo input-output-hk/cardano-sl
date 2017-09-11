@@ -34,7 +34,7 @@ import           Pos.Ssc.SscAlgo       (SscAlgo (..))
 import           Pos.Util              (eitherToFail, inAssertMode)
 import           Pos.Util.TimeWarp     (addrParser)
 
-printFlags :: IO ()
+printFlags :: MonadIO m => m ()
 printFlags = do
     if isDevelopment
         then putText "[Attention] We are in DEV mode"

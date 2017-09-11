@@ -13,7 +13,7 @@ packages:
 - infra
 - db
 - lrc
-- lwallet
+- auxx
 - ssc
 - godtossing
 - tools
@@ -127,6 +127,6 @@ ghc-options:
   cardano-sl-txp:        -Werror
   cardano-sl:            -Werror
   cardano-sl-tools:      -Werror
-  cardano-sl-lwallet:    -Werror
+  cardano-sl-auxx:       -Werror
   cardano-sl-wallet:     -Werror
   cardano-sl-explorer:   -Werror

@@ -19,6 +19,7 @@ import           Serokell.Data.Memory.Units      (Byte, fromBytes, toBytes)
 import           Pos.Binary.Class                (Bi)
 import qualified Pos.Binary.Class                as Bi
 import           Pos.Block.Core
+import           Pos.Core.Vss                    (VssCertificate (..))
 import           Pos.Core.Fee                    (Coeff (..), TxFeePolicy (..),
                                                   TxSizeLinear (..))
 import           Pos.Core.Types                  (AddrAttributes (..),
@@ -51,7 +52,7 @@ import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (.
 import           Pos.Ssc.Class.Types             (Ssc (..))
 import           Pos.Ssc.GodTossing.Core.Types   (Commitment (..), CommitmentsMap,
                                                   GtPayload (..), GtProof (..),
-                                                  Opening (..), VssCertificate (..))
+                                                  Opening (..))
 import           Pos.Txp.Core.Types              (Tx (..), TxIn (..), TxInWitness (..),
                                                   TxOut (..), TxOutAux (..),
                                                   TxPayload (..), TxProof (..))

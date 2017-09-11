@@ -19,7 +19,11 @@ import           Test.QuickCheck       (Arbitrary (..), Gen, NonEmptyList (..), 
 import           Pos.Arbitrary.Lrc     (GenesisMpcThd, ValidRichmenStakes (..))
 import           Pos.Binary            (AsBinary)
 import           Pos.Constants         (genesisBlockVersionData)
-import           Pos.Core              (HasCoreConstants, giveStaticConsts)
+import           Pos.Core              (Coin, EpochIndex, EpochOrSlot (..),
+                                        HasCoreConstants, StakeholderId,
+                                        VssCertificate (vcSigningKey), VssCertificatesMap,
+                                        addressHash, crucialSlot, giveStaticConsts,
+                                        mkCoin)
 import           Pos.Crypto            (DecShare, PublicKey, SecretKey,
                                         SignTag (SignCommitment), sign, toPublic)
 import           Pos.Lrc.Types         (RichmenStakes)
@@ -30,15 +34,12 @@ import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadSignedCommitm
                                         MultiRichmenStakes, Opening, OpeningsMap,
                                         PureTossWithEnv, SharesMap, SignedCommitment,
                                         TossVerFailure (..), VssCertData (..),
-                                        VssCertificate (vcSigningKey), VssCertificatesMap,
                                         checkCertificatesPayload, checkCommitmentsPayload,
                                         checkOpeningsPayload, checkSharesPayload,
                                         gsCommitments, gsOpenings, gsShares,
                                         gsVssCertificates, mkCommitmentsMapUnsafe,
                                         runPureToss, supplyPureTossEnv, verifyCommitment,
                                         verifyCommitmentSignature, verifyOpening)
-import           Pos.Types             (Coin, EpochIndex, EpochOrSlot (..), StakeholderId,
-                                        addressHash, crucialSlot, mkCoin)
 
 spec :: Spec
 spec = giveStaticConsts $ describe "Ssc.GodTossing.Base" $ do

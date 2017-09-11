@@ -16,7 +16,9 @@ import           System.Wlog           (WithLogger)
 
 import           Pos.Binary            (asBinary)
 import qualified Pos.Constants         as Const
-import           Pos.Core              (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
+import           Pos.Core              (Address, IsBootstrapEraAddr (..), VssCertificate,
+                                        coinPortionToDouble, deriveLvl2KeyPair,
+                                        mkVssCertificate, unsafeIntegerToCoin)
 import           Pos.Crypto            (EncryptedSecretKey, PublicKey, RedeemPublicKey,
                                         SecretKey, emptyPassphrase, keyGen, noPassEncrypt,
                                         randomNumberInRange, redeemDeterministicKeyGen,
@@ -24,8 +26,6 @@ import           Pos.Crypto            (EncryptedSecretKey, PublicKey, RedeemPub
                                         toVssPublicKey, vssKeyGen)
 import           Pos.Genesis           (BalanceDistribution (..), accountGenesisIndex,
                                         wAddressGenesisIndex)
-import           Pos.Ssc.GodTossing    (VssCertificate, mkVssCertificate)
-import           Pos.Types             (Address, coinPortionToDouble, unsafeIntegerToCoin)
 import           Pos.Util.UserSecret   (initializeUserSecret, takeUserSecret, usKeys,
                                         usPrimKey, usVss, usWalletSet,
                                         writeUserSecretRelease)

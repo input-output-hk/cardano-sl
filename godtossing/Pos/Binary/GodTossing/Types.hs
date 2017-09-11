@@ -7,9 +7,9 @@ import           Universum
 import           Pos.Binary.Class                 (Cons (..), Field (..), deriveSimpleBi, deriveSimpleBiCxt)
 import           Pos.Core.Context                 (HasCoreConstants)
 import           Pos.Core.Types                   (EpochIndex, EpochOrSlot, StakeholderId)
+import           Pos.Core.Vss                     (VssCertificatesMap, VssCertificate)
 import           Pos.Ssc.GodTossing.Core          (CommitmentsMap, Opening, OpeningsMap,
-                                                   SharesMap, SignedCommitment,
-                                                   VssCertificate, VssCertificatesMap)
+                                                   SharesMap, SignedCommitment)
 import           Pos.Ssc.GodTossing.Genesis.Types (GenesisGtData (..))
 import           Pos.Ssc.GodTossing.Types         (GtGlobalState (..),
                                                    GtSecretStorage (..))

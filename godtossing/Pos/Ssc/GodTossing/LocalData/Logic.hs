@@ -33,7 +33,8 @@ import           Pos.Binary.Class                   (biSize)
 import           Pos.Binary.GodTossing              ()
 import           Pos.Core                           (BlockVersionData (..), EpochIndex,
                                                      HasCoreConstants, SlotId (..),
-                                                     StakeholderId)
+                                                     StakeholderId, VssCertificate,
+                                                     mkVssCertificatesMap)
 import           Pos.Core.Constants                 (memPoolLimitRatio)
 import           Pos.DB                             (MonadDBRead,
                                                      MonadGState (gsAdoptedBVData))
@@ -45,10 +46,8 @@ import           Pos.Ssc.Extra                      (MonadSscMem, sscRunGlobalQu
                                                      sscRunLocalQuery, sscRunLocalSTM)
 import           Pos.Ssc.GodTossing.Core            (GtPayload (..), InnerSharesMap,
                                                      Opening, SignedCommitment,
-                                                     VssCertificate, isCommitmentIdx,
-                                                     isOpeningIdx, isSharesIdx,
-                                                     mkCommitmentsMap,
-                                                     mkVssCertificatesMap)
+                                                     isCommitmentIdx, isOpeningIdx,
+                                                     isSharesIdx, mkCommitmentsMap)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData (..), ldEpoch,
                                                      ldModifier, ldSize)
 import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossT,

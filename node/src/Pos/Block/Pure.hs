@@ -26,7 +26,7 @@ import           Pos.Binary.Block.Core      ()
 import qualified Pos.Binary.Class           as Bi
 import           Pos.Binary.Core            ()
 import           Pos.Binary.Update          ()
-import           Pos.Block.Core             (BiSsc, Block, BlockHeader, gebAttributes,
+import           Pos.Block.Core             (Block, BlockHeader, gebAttributes,
                                              gehAttributes, genBlockLeaders,
                                              getBlockHeader, mainHeaderLeaderKey,
                                              mebAttributes, mehAttributes)
@@ -72,7 +72,7 @@ maybeMempty = maybe mempty
 -- | Check some predicates (determined by 'VerifyHeaderParams') about
 -- 'BlockHeader'.
 verifyHeader
-    :: forall ssc . BiSsc ssc
+    :: forall ssc . (SscHelpersClass ssc, HasCoreConstants)
     => VerifyHeaderParams ssc -> BlockHeader ssc -> VerificationRes
 verifyHeader VerifyHeaderParams {..} h =
     verifyGeneric checks
@@ -171,23 +171,28 @@ verifyHeader VerifyHeaderParams {..} h =
 
 -- | Verifies a set of block headers. Only basic consensus check and
 -- linking checks are performed!
-verifyHeaders
-    :: BiSsc ssc
-    => NewestFirst [] (BlockHeader ssc) -> VerificationRes
-verifyHeaders (NewestFirst []) = mempty
-verifyHeaders (NewestFirst (headers@(_:xh))) = mconcat verified
+verifyHeaders ::
+       (SscHelpersClass ssc, HasCoreConstants)
+    => Maybe SlotLeaders
+    -> NewestFirst [] (BlockHeader ssc)
+    -> VerificationRes
+verifyHeaders _ (NewestFirst []) = mempty
+verifyHeaders leaders (NewestFirst (headers@(_:xh))) =
+    snd $
+    foldr foldFoo (leaders,mempty) $ headers `zip` (map Just xh ++ [Nothing])
   where
-    verified =
-        zipWith
-            (\cur prev -> verifyHeader (toVHP prev) cur)
-            headers
-            (map Just xh ++ [Nothing])
-    -- [CSL-1052] Consider doing more checks here.
-    toVHP p =
+    foldFoo (cur,prev) (prevLeaders,res) =
+        let curLeaders = case cur of
+                             -- we don't know leaders for the next epoch
+                             (Left _) -> Nothing
+                             _        -> prevLeaders
+
+        in (curLeaders, verifyHeader (toVHP curLeaders prev) cur <> res)
+    toVHP l p =
         VerifyHeaderParams
         { vhpPrevHeader = p
         , vhpCurrentSlot = Nothing
-        , vhpLeaders = Nothing
+        , vhpLeaders = l
         , vhpMaxSize = Nothing
         , vhpVerifyNoUnknown = False
         }
@@ -214,7 +219,7 @@ data VerifyBlockParams ssc = VerifyBlockParams
 -- | Check predicates defined by VerifyBlockParams.
 -- #verifyHeader
 verifyBlock
-    :: forall ssc. (SscHelpersClass ssc, BiSsc ssc, HasCoreConstants)
+    :: forall ssc. (SscHelpersClass ssc, HasCoreConstants)
     => VerifyBlockParams ssc -> Block ssc -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk =
     mconcat
@@ -256,7 +261,6 @@ type VerifyBlocksIter ssc = (SlotLeaders, Maybe (BlockHeader ssc), VerificationR
 verifyBlocks
     :: forall ssc f t.
        ( SscHelpersClass ssc
-       , BiSsc ssc
        , t ~ OldestFirst f (Block ssc)
        , NontrivialContainer t
        , HasCoreConstants

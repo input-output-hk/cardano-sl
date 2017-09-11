@@ -33,7 +33,6 @@ import           Formatting                 (bprint, build, builder, int, sforma
                                              stext, (%))
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util.Text         (listJson)
-import           Serokell.Util.Verify       (VerificationRes (..), formatFirstError)
 import           System.Wlog                (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Class           (biSize)
@@ -49,7 +48,6 @@ import qualified Pos.Block.Logic            as L
 import           Pos.Block.Network.Announce (announceBlock)
 import           Pos.Block.Network.Types    (MsgGetBlocks (..), MsgGetHeaders (..),
                                              MsgHeaders (..))
-import           Pos.Block.Pure             (verifyHeaders)
 import           Pos.Block.RetrievalQueue   (BlockRetrievalQueue, BlockRetrievalTask (..))
 import           Pos.Block.Types            (Blund)
 import           Pos.Communication.Limits   (recvLimited)
@@ -244,7 +242,6 @@ matchRequestedHeaders headers mgh@MsgGetHeaders {..} inRecovery =
             | inRecovery = True
             | isNothing mghTo = True
             | otherwise = Just (headerHash newTip) == mghTo
-        verRes = verifyHeaders (headers & _Wrapped %~ toList)
     in if | not startMatches ->
             MRUnexpected $ sformat ("start (from) header "%build%
                                     " doesn't match request "%build)
@@ -254,8 +251,6 @@ matchRequestedHeaders headers mgh@MsgGetHeaders {..} inRecovery =
                                     " doesn't match request "%build%
                                     ", recovery: "%shown%", newTip:"%build)
                                    mghTo mgh inRecovery newTip
-          | VerFailure errs <- verRes ->
-              MRUnexpected $ "headers are bad: " <> formatFirstError errs
           | otherwise -> MRGood
 
 requestHeaders
@@ -280,8 +275,10 @@ requestHeaders cont mgh nodeId conv = do
             (unitBuilder $ biSize headers)
             nodeId
             (map headerHash headers)
+        -- only checks if headers were requested or not, validity is
+        -- checked next.
         case matchRequestedHeaders headers mgh inRecovery of
-            MRGood           -> do
+            MRGood           ->
                 handleRequestedHeaders cont inRecovery headers
             MRUnexpected msg -> handleUnexpected headers msg
   where

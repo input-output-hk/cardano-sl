@@ -29,21 +29,24 @@ import           Pos.Block.Logic.Util      (lcaWithMainChain)
 import           Pos.Block.Pure            (VerifyHeaderParams (..), verifyHeader,
                                             verifyHeaders)
 import           Pos.Constants             (genesisHash, recoveryHeadersMessage)
+import           Pos.Context               (lrcActionOnEpochReason)
 import           Pos.Core                  (BlockCount, EpochOrSlot (..),
                                             HasCoreConstants, HeaderHash, SlotId (..),
-                                            blkSecurityParam, difficultyL, epochOrSlotG,
-                                            getChainDifficulty, getEpochOrSlot,
-                                            headerHash, headerHashG, headerSlotL,
-                                            prevBlockL)
+                                            blkSecurityParam, difficultyL, epochIndexL,
+                                            epochOrSlotG, getChainDifficulty,
+                                            getEpochOrSlot, headerHash, headerHashG,
+                                            headerSlotL, prevBlockL)
 import           Pos.Crypto                (hash)
 import           Pos.DB                    (MonadDBRead)
 import qualified Pos.DB.Block              as DB
 import qualified Pos.DB.DB                 as DB
 import           Pos.Delegation.Cede       (dlgVerifyHeader, runDBCede)
 import qualified Pos.GState                as GS
+import           Pos.Lrc.Context           (LrcContext)
+import qualified Pos.Lrc.DB                as LrcDB
 import           Pos.Slotting.Class        (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Class             (SscHelpersClass)
-import           Pos.Util                  (_neHead, _neLast)
+import           Pos.Util                  (HasLens', _neHead, _neLast)
 import           Pos.Util.Chrono           (NE, NewestFirst (..), OldestFirst (..),
                                             toNewestFirst, toOldestFirst)
 
@@ -156,6 +159,7 @@ data ClassifyHeadersRes ssc
 classifyHeaders ::
        forall ctx ssc m.
        ( DB.MonadBlockDB ssc m
+       , HasLens' ctx LrcContext
        , MonadSlots ctx m
        , MonadCatch m
        , WithLogger m
@@ -168,8 +172,15 @@ classifyHeaders inRecovery headers = do
     tipHeader <- DB.getTipHeader @ssc
     let tip = headerHash tipHeader
     haveOldestParent <- isJust <$> DB.blkGetHeader @ssc oldestParentHash
-    let headersValid = isVerSuccess $
-                       verifyHeaders (headers & _Wrapped %~ toList)
+    leaders <-
+        lrcActionOnEpochReason
+            newestHeaderEpoch
+            (sformat ("classifyHeaders: there are no leaders for epoch " %build)
+                     newestHeaderEpoch)
+            LrcDB.getLeaders
+    let headersValid =
+            isVerSuccess $
+            verifyHeaders (Just leaders) (headers & _Wrapped %~ toList)
     mbCurrentSlot <- getCurrentSlot
     let newestHeaderConvertedSlot =
             case newestHeader ^. epochOrSlotG of
@@ -197,6 +208,7 @@ classifyHeaders inRecovery headers = do
   where
     newestHeader = headers ^. _Wrapped . _neHead
     newestHash = headerHash newestHeader
+    newestHeaderEpoch = newestHeader ^. epochIndexL
     oldestParentHash = headers ^. _Wrapped . _neLast . prevBlockL
     uselessGeneral =
         CHsUseless "Couldn't find lca -- maybe db state updated in the process"

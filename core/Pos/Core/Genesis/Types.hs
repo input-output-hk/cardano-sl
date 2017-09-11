@@ -33,8 +33,8 @@ import           Serokell.Util        (allDistinct, mapJson)
 import           Pos.Core.Address     (addressHash, isBootstrapEraDistrAddress)
 import           Pos.Core.Coin        (coinToInteger, sumCoins, unsafeGetCoin,
                                        unsafeIntegerToCoin)
-import           Pos.Core.Types       (Address, Coin, ProxySKHeavy, StakeholderId,
-                                       Timestamp, mkCoin)
+import           Pos.Core.Types       (Address, BlockVersionData, Coin, ProxySKHeavy,
+                                       StakeholderId, Timestamp, mkCoin)
 import           Pos.Core.Vss         (VssCertificatesMap)
 import           Pos.Crypto           (ProxySecretKey (..), isSelfSignedPsk)
 
@@ -220,3 +220,23 @@ mkGenesisSpec avvmDistr delega specType = do
     -- All checks passed
     pure $ UnsafeGenesisSpec avvmDistr delega specType
 
+data ProtocolConstants = ProtocolConstants
+    { -- | Security parameter from paper
+      pcK             :: !Int
+      -- | Magic constant for separating real/testnet
+    , pcProtocolMagic :: !Int32
+      -- | VSS certificates max timeout to live (number of epochs)
+    , pcVssMaxTTL     :: !Word64
+      -- | VSS certificates min timeout to live (number of epochs)
+    , pcVssMinTTL     :: !Word64
+    }
+data GenesisData = GenesisData
+    { gdBootStakeholders :: !GenesisWStakeholders
+    , gdHeavyDelegation  :: !GenesisDelegation
+    , gdStartTime        :: !(Maybe Timestamp)
+    , gdVssCerts         :: !VssCertificatesMap
+    , gdAvvmDistr        :: !GenesisAddrDistr
+    , gdPkDistr          :: !GenesisAddrDistr
+    , gdGenesisConsts    :: !BlockVersionData
+    , gdProtocolConsts   :: !ProtocolConstants
+    }

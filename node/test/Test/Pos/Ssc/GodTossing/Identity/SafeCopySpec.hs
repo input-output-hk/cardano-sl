@@ -18,6 +18,5 @@ spec = describe "GodTossing" $ do
         safeCopyTest @GT.CommitmentSignature
         safeCopyTest @GT.SignedCommitment
         safeCopyTest @GT.Opening
-        safeCopyTest @GT.VssCertificate
         safeCopyTest @GT.GtPayload
         safeCopyTest @GT.GtProof

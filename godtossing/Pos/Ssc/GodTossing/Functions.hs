@@ -25,12 +25,12 @@ import           Pos.Binary.Crypto               ()
 import           Pos.Binary.GodTossing.Core      ()
 import           Pos.Core                        (EpochIndex (..), HasCoreConstants,
                                                   IsMainHeader, SlotId (..),
-                                                  StakeholderId, headerSlotL)
+                                                  StakeholderId, VssCertificatesMap,
+                                                  headerSlotL)
 import           Pos.Core.Slotting               (crucialSlot)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (getCommitmentsMap),
-                                                  GtPayload (..), VssCertificatesMap,
-                                                  checkCertTTL, isCommitmentId,
-                                                  isOpeningId, isSharesId,
+                                                  GtPayload (..), checkCertTTL,
+                                                  isCommitmentId, isOpeningId, isSharesId,
                                                   verifySignedCommitment, vssThreshold)
 import           Pos.Ssc.GodTossing.Genesis      (genesisCertificates)
 import           Pos.Ssc.GodTossing.Toss.Base    (verifyEntriesGuardM)

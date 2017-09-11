@@ -19,13 +19,12 @@ import           Pos.Core                        (EpochIndex, EpochOrSlot (..),
                                                   HasCoreConstants, IsMainHeader,
                                                   LocalSlotIndex, SlotCount,
                                                   SlotId (siSlot), StakeholderId,
-                                                  epochIndexL, epochOrSlot,
-                                                  getEpochOrSlot, headerSlotL, mkCoin,
-                                                  slotSecurityParam)
+                                                  VssCertificate, epochIndexL,
+                                                  epochOrSlot, getEpochOrSlot,
+                                                  headerSlotL, mkCoin, slotSecurityParam)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (..), GtPayload (..),
                                                   InnerSharesMap, Opening,
-                                                  SignedCommitment, VssCertificate,
-                                                  getCommitmentsMap,
+                                                  SignedCommitment, getCommitmentsMap,
                                                   mkCommitmentsMapUnsafe, _gpCertificates)
 import           Pos.Ssc.GodTossing.Functions    (sanityChecksGtPayload)
 import           Pos.Ssc.GodTossing.Toss.Base    (checkPayload)

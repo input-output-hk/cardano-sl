@@ -10,13 +10,14 @@ import           Universum
 import           Pos.Binary.Class              (Bi (..), Decoder, Encoding, decodeListLen,
                                                 encodeListLen, enforceSize, matchSize)
 import           Pos.Binary.Crypto             ()
+import           Pos.Core.Vss                  (VssCertificate (..), VssCertificatesMap,
+                                                mkVssCertificatesMap,
+                                                recreateVssCertificate)
 import           Pos.Crypto                    (PublicKey)
 import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), CommitmentsMap (..),
                                                 GtPayload (..), GtProof (..),
                                                 Opening (..), SignedCommitment,
-                                                VssCertificate (..), VssCertificatesMap,
-                                                mkCommitmentsMap, mkVssCertificatesMap,
-                                                recreateVssCertificate)
+                                                mkCommitmentsMap)
 import           Serokell.Util                 (allDistinct)
 
 instance Bi Commitment where

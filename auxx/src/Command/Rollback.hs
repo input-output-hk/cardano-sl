@@ -23,7 +23,7 @@ import qualified Pos.DB.Block.Load as DB
 import qualified Pos.DB.BlockIndex as DB
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.StateLock (Priority (..), withStateLock)
-import           Pos.Txp (flattenTxPayload)
+import           Pos.Txp (MemPoolModifyReason (..), flattenTxPayload)
 import           Pos.Util.Chrono (NewestFirst, _NewestFirst)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 
@@ -38,7 +38,7 @@ rollbackAndDump
     => Word
     -> FilePath
     -> m ()
-rollbackAndDump numToRollback outFile = withStateLock HighPriority "auxx" $ \_ -> do
+rollbackAndDump numToRollback outFile = withStateLock HighPriority ApplyBlock $ \_ -> do
     printTipDifficulty
     blundsMaybeEmpty <- modifyBlunds <$>
         DB.loadBlundsFromTipByDepth (fromIntegral numToRollback)

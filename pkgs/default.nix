@@ -5616,8 +5616,8 @@ self: {
           pname = "semigroupoids";
           version = "5.2.1";
           sha256 = "006jys6kvckkmbnhf4jc51sh64hamkz464mr8ciiakybrfvixr3r";
-          revision = "1";
-          editedCabalFile = "1lb59k2hdz9kbhmpw7bzc0n9pb5x3b9ysglp69dn4yf5xxjw03wx";
+          revision = "2";
+          editedCabalFile = "049j2jl6f5mxqnavi1aadx37j4bk5xksvkxsl43hp4rg7n53p11z";
           setupHaskellDepends = [
             base
             Cabal

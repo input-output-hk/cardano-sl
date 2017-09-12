@@ -1,5 +1,6 @@
-{-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE CPP           #-}
+{-# LANGUAGE ApplicativeDo  #-}
+{-# LANGUAGE CPP            #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 -- following Pos.Util.UserSecret
 #if !defined(mingw32_HOST_OS)
@@ -301,34 +302,41 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
                             "TopologyStatic doesn't require kademlia, but it was passed"
                         pure Nothing
             topology <- case nmType of
-                T.NodeCore  -> pure $ T.TopologyCore{..}
-                T.NodeRelay -> pure $ T.TopologyRelay{topologyMaxSubscrs = nmMaxSubscrs, ..}
+                T.NodeCore  -> return T.TopologyCore{..}
+                T.NodeRelay -> return T.TopologyRelay {
+                                 topologyStaticPeers,
+                                 topologyDnsDomains = nmSubscribe,
+                                 topologyValency    = nmValency,
+                                 topologyFallbacks  = nmFallbacks,
+                                 topologyOptKademlia,
+                                 topologyMaxSubscrs = nmMaxSubscrs
+                               }
                 T.NodeEdge  -> throw NetworkConfigSelfEdge
             tcpAddr <- createTcpAddr topologyOptKademlia
             pure (topology, tcpAddr)
         Y.TopologyBehindNAT{..} -> do
-            -- Behind-NAT topology claims no address for the transport, and also
-            -- throws an exception if the --listen parameter is given, to avoid
-            -- confusion: if a user gives a --listen parameter then they probably
-            -- think the program will bind a socket.
-            whenJust ncoKademlia $ const $ throw $
-                RedundantCliParameter
-                "BehindNAT topology is used, so no kademlia config is expected"
-            when (isJust ncoBindAddress) $ throw $ RedundantCliParameter $
-                "BehindNAT topology is used, no bind address is expected"
-            when (isJust ncoExternalAddress) $ throw $ RedundantCliParameter $
-                "BehindNAT topology is used, no external address is expected"
-            pure (T.TopologyBehindNAT{..}, TCP.Unaddressable)
+          -- Behind-NAT topology claims no address for the transport, and also
+          -- throws an exception if the --listen parameter is given, to avoid
+          -- confusion: if a user gives a --listen parameter then they probably
+          -- think the program will bind a socket.
+          whenJust ncoKademlia $ const $ throw $
+              RedundantCliParameter
+              "BehindNAT topology is used, so no kademlia config is expected"
+          when (isJust ncoBindAddress) $ throw $ RedundantCliParameter $
+              "BehindNAT topology is used, no bind address is expected"
+          when (isJust ncoExternalAddress) $ throw $ RedundantCliParameter $
+              "BehindNAT topology is used, no external address is expected"
+          pure (T.TopologyBehindNAT{..}, TCP.Unaddressable)
         Y.TopologyP2P{..} -> do
-            kparams <- either throw return =<< liftIO getKademliaParamsFromFile
-            tcpAddr <- createTcpAddr (Just kparams)
-            pure ( T.TopologyP2P{topologyKademlia = kparams, ..}
-                 , tcpAddr )
+          kparams <- either throw return =<< liftIO getKademliaParamsFromFile
+          tcpAddr <- createTcpAddr (Just kparams)
+          pure ( T.TopologyP2P{topologyKademlia = kparams, ..}
+               , tcpAddr )
         Y.TopologyTraditional{..} -> do
-            kparams <- either throw return =<< liftIO getKademliaParamsFromFile
-            tcpAddr <- createTcpAddr (Just kparams)
-            pure ( T.TopologyTraditional{topologyKademlia = kparams, ..}
-                 , tcpAddr )
+              kparams <- either throw return =<< liftIO getKademliaParamsFromFile
+              tcpAddr <- createTcpAddr (Just kparams)
+              pure ( T.TopologyTraditional{topologyKademlia = kparams, ..}
+                   , tcpAddr )
 
     (enqueuePolicy, dequeuePolicy, failurePolicy) <- case ncoPolicies of
         -- If no policy file is given we just use the default derived from the

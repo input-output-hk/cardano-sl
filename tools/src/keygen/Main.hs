@@ -42,7 +42,7 @@ import           KeygenOptions         (AvvmBalanceOptions (..),
 -- Helpers
 ----------------------------------------------------------------------------
 
-rearrangeKeyfile :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
+rearrangeKeyfile :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
 rearrangeKeyfile fp = do
     us <- takeUserSecret fp
     let sk = maybeToList $ us ^. usPrimKey
@@ -51,7 +51,7 @@ rearrangeKeyfile fp = do
 
 -- Reads avvm json file and returns related 'GenesisAvvmBalances'
 _readAvvmGenesis
-    :: (MonadIO m, WithLogger m, MonadFail m)
+    :: (MonadIO m, WithLogger m, MonadThrow m)
     => AvvmBalanceOptions -> m GenesisAvvmBalances
 _readAvvmGenesis AvvmBalanceOptions {..} = do
     logInfo "Reading avvm data"
@@ -68,15 +68,15 @@ _readAvvmGenesis AvvmBalanceOptions {..} = do
 -- Commands
 ----------------------------------------------------------------------------
 
-rearrange :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
+rearrange :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
 rearrange msk = mapM_ rearrangeKeyfile =<< liftIO (glob msk)
 
-genPrimaryKey :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
+genPrimaryKey :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
 genPrimaryKey path = do
     _ <- generateKeyfile True Nothing (Just path)
     logInfo $ "Successfully generated primary key " <> (toText path)
 
-readKey :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
+readKey :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
 readKey path = do
     us <- readUserSecret path
     logInfo $ maybe "No Pimary key"
@@ -104,7 +104,7 @@ showPvssKey = sformat build . asBinary . toVssPublicKey
 decryptESK :: EncryptedSecretKey -> SecretKey
 decryptESK (EncryptedSecretKey sk _) = SecretKey sk
 
-dumpKeys :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
+dumpKeys :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
 dumpKeys pat = do
     let keysDir = takeDirectory pat
     liftIO $ createDirectoryIfMissing True keysDir

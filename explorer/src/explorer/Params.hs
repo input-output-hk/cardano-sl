@@ -18,7 +18,7 @@ import           Pos.Constants       (isDevelopment)
 import           Pos.Core.Types      (Timestamp (..))
 import           Pos.Crypto          (VssKeyPair)
 import           Pos.Genesis         (devBalancesDistr, devGenesisContext,
-                                      genesisContextProduction)
+                                      genesisContextProductionM)
 import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
                                       NodeParams (..))
 import           Pos.Network.CLI     (intNetworkConfigOpts)
@@ -75,9 +75,8 @@ getNodeParams args@Args {..} systemStart = do
                 (CLI.richPoorDistr commonArgs)
                 (CLI.expDistr commonArgs)
 
-    let npGenesisCtx
-            | isDevelopment = devGenesisContext devBalanceDistr
-            | otherwise = genesisContextProduction
+    npGenesisCtx <- if isDevelopment then pure (devGenesisContext devBalanceDistr)
+                    else genesisContextProductionM
 
     return NodeParams
         { npDbPathM = dbPath

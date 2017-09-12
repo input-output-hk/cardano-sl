@@ -49,8 +49,8 @@ applyConfigInfo ConfigInfo{..} = do
         Nothing   -> Cfg.setCslConfigName Cfg.defaultCslConfigName
         Just name -> Cfg.setCslConfigName name
     case customGenCorePath of
-        Nothing   -> GenCore.setGenCoreData GenCore.defaultGenCoreData
-        Just path -> GenCore.setGenCoreDataFromFile path
+        Nothing   -> GenCore.setGenesisSpec GenCore.defaultGenesisSpec
+        Just path -> GenCore.setGenesisSpecFromFile path
     case customGenGtPath of
         Nothing   -> GenGt.setGenGtData GenGt.defaultGenGtData
         Just path -> GenGt.setGenGtDataFromFile path

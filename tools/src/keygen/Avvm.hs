@@ -18,9 +18,8 @@ import           System.Wlog          (WithLogger, logInfo)
 import           Universum
 
 import           Pos.Crypto           (RedeemPublicKey (..), redeemPkBuild)
-import           Pos.Genesis          (AddrDistribution, BalanceDistribution (..))
-import           Pos.Types            (Address, Coin, makeRedeemAddress, unsafeAddCoin,
-                                       unsafeIntegerToCoin)
+import           Pos.Genesis          (GenesisAvvmBalances (..))
+import           Pos.Types            (Coin, unsafeAddCoin, unsafeIntegerToCoin)
 
 
 -- | Read the text into a redeeming public key.
@@ -74,19 +73,15 @@ instance FromJSON AvvmEntry where
 -- calling funciton.
 avvmAddrDistribution
     :: AvvmData
-    -> [AddrDistribution]
-avvmAddrDistribution (utxo -> avvmData) =
-    one $ (HM.keys balances, CustomBalances $ HM.elems balances)
+    -> GenesisAvvmBalances
+avvmAddrDistribution (utxo -> avvmData) = GenesisAvvmBalances balances
   where
---    randCerts = HM.fromList [(addressHash (vcSigningKey c), c)
---                            | c <- runGen (replicateM 10 arbitrary)]
-
-    balances :: HashMap Address Coin
-    balances = HM.fromListWith unsafeAddCoin $ do
-        AvvmEntry{..} <- avvmData
-        let addr = makeRedeemAddress aePublicKey
-            adaCoin = unsafeIntegerToCoin aeCoin
-        return (addr, adaCoin)
+    balances :: HashMap RedeemPublicKey Coin
+    balances =
+        HM.fromListWith unsafeAddCoin $ do
+            AvvmEntry {..} <- avvmData
+            let adaCoin = unsafeIntegerToCoin aeCoin
+            return (aePublicKey, adaCoin)
 
 -- | Applies blacklist to avvm utxo, produces warnings and stats about
 -- how much was deleted.

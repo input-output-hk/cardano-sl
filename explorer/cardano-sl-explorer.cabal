@@ -18,6 +18,7 @@ library
                         Pos.Explorer.Web.Api
                         Pos.Explorer.Web.ClientTypes
                         Pos.Explorer.Web.Error
+                        Pos.Explorer.Web.ExtraContext
                         Pos.Explorer.Web.TestServer
                         Pos.Explorer.Web.Server
 
@@ -53,6 +54,7 @@ library
                       , transformers
                       , universum
                       , unordered-containers
+                      , vector
 
                       -- cardano sl
                       , cardano-sl

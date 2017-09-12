@@ -3,6 +3,8 @@
 
 module Pos.Explorer.Web.Transform
        ( ExplorerProd
+       , runExplorerProd
+       , liftToExplorerProd
        , explorerServeWebReal
        , explorerPlugin
        , notifierPlugin
@@ -10,29 +12,39 @@ module Pos.Explorer.Web.Transform
 
 import           Universum
 
-import qualified Control.Monad.Catch     as Catch (Handler (..), catches)
-import           Control.Monad.Except    (MonadError (throwError))
-import qualified Control.Monad.Reader    as Mtl
-import           Mockable                (runProduction)
-import           Servant.Server          (Handler)
-import           Servant.Utils.Enter     ((:~>) (..), enter)
+import qualified Control.Monad.Catch           as Catch (Handler (..), catches)
+import           Control.Monad.Except          (MonadError (throwError))
+import qualified Control.Monad.Reader          as Mtl
+import           Mockable                      (runProduction)
+import           Servant.Server                (Handler)
+import           Servant.Utils.Enter           ((:~>) (..), enter)
 
-import           Pos.Communication       (OutSpecs, SendActions, WorkerSpec, worker)
-import           Pos.Core                (HasCoreConstants)
-import           Pos.Recovery            ()
-import           Pos.Ssc.GodTossing      (SscGodTossing)
-import           Pos.WorkMode            (RealMode, RealModeContext (..))
+import           Pos.Communication             (OutSpecs, SendActions, WorkerSpec, worker)
+import           Pos.Context                   (NodeContext)
+import           Pos.Core                      (HasCoreConstants)
+import           Pos.Recovery                  ()
+import           Pos.Ssc.GodTossing            (SscGodTossing)
+import           Pos.Util.Util                 (lensOf)
+import           Pos.WorkMode                  (RealMode, RealModeContext (..))
 
-import           Pos.Explorer            (ExplorerBListener, runExplorerBListener)
-import           Pos.Explorer.Socket.App (NotifierSettings, notifierApp)
-import           Pos.Explorer.Web.Server (explorerApp, explorerHandlers,
-                                          explorerServeImpl)
+import           Pos.Explorer                  (ExplorerBListener, runExplorerBListener)
+import           Pos.Explorer.Socket.App       (NotifierSettings, notifierApp)
+import           Pos.Explorer.Web.ExtraContext (ExtraContext, ExtraContextT, makeExtraCtx,
+                                                runExtraContextT)
+import           Pos.Explorer.Web.Server       (explorerApp, explorerHandlers,
+                                                explorerServeImpl)
 
 -----------------------------------------------------------------
 -- Transformation to `Handler`
 -----------------------------------------------------------------
 
-type ExplorerProd = ExplorerBListener (RealMode SscGodTossing)
+type ExplorerProd = ExtraContextT (ExplorerBListener (RealMode SscGodTossing))
+
+runExplorerProd :: ExtraContext -> ExplorerProd a -> RealMode SscGodTossing a
+runExplorerProd extraCtx = runExplorerBListener . runExtraContextT extraCtx
+
+liftToExplorerProd :: RealMode SscGodTossing a -> ExplorerProd a
+liftToExplorerProd = lift . lift
 
 notifierPlugin :: HasCoreConstants => NotifierSettings -> ([WorkerSpec ExplorerProd], OutSpecs)
 notifierPlugin = first pure . worker mempty .
@@ -64,7 +76,11 @@ convertHandler
     -> ExplorerProd a
     -> Handler a
 convertHandler rctx handler =
-    liftIO (realRunner $ runExplorerBListener $ handler) `Catch.catches` excHandlers
+    let extraCtx = makeExtraCtx $ view (lensOf @NodeContext) rctx
+        ioAction = realRunner $
+                   runExplorerProd extraCtx
+                   handler
+    in liftIO ioAction `Catch.catches` excHandlers
   where
 
     realRunner :: forall t . RealMode SscGodTossing t -> IO t

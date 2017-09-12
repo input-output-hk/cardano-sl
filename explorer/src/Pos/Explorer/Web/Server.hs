@@ -26,6 +26,7 @@ import qualified Data.ByteString                as BS
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.List.NonEmpty             as NE
 import           Data.Maybe                     (fromMaybe)
+import qualified Data.Vector                    as V
 import           Formatting                     (build, int, sformat, (%))
 import           Network.Wai                    (Application)
 import qualified Serokell.Util.Base64           as B64
@@ -44,23 +45,20 @@ import           Pos.Binary.Class               (biSize)
 import           Pos.Block.Core                 (MainBlock, mainBlockSlot,
                                                  mainBlockTxPayload, mcdSlot)
 import           Pos.Block.Types                (Blund, Undo)
-import           Pos.Context                    (genesisUtxoM, unGenesisUtxo)
 import           Pos.Core                       (AddrType (..), Address (..), Coin,
                                                  EpochIndex, HeaderHash, Timestamp,
                                                  difficultyL, gbHeader, gbhConsensus,
-                                                 getChainDifficulty, isRedeemAddress,
-                                                 isUnknownAddressType, makeRedeemAddress,
-                                                 mkCoin, siEpoch, siSlot, sumCoins,
-                                                 timestampToPosix, unsafeIntegerToCoin,
-                                                 unsafeSubCoin)
+                                                 getChainDifficulty, isUnknownAddressType,
+                                                 makeRedeemAddress, mkCoin, siEpoch,
+                                                 siSlot, sumCoins, timestampToPosix,
+                                                 unsafeIntegerToCoin, unsafeSubCoin)
 import           Pos.DB.Class                   (MonadDBRead)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
 import           Pos.Txp                        (MonadTxpMem, Tx (..), TxAux, TxId, TxMap,
-                                                 TxOutAux (..), Utxo, getLocalTxs,
-                                                 getMemPool, mpLocalTxs, taTx, topsortTxs,
-                                                 txOutValue, txpTxs,
-                                                 utxoToAddressCoinPairs, _txOutputs)
+                                                 TxOutAux (..), getLocalTxs, getMemPool,
+                                                 mpLocalTxs, taTx, topsortTxs, txOutValue,
+                                                 txpTxs, _txOutputs)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (NewestFirst (..))
 import           Pos.Web                        (serveImplNoTLS)
@@ -87,6 +85,7 @@ import           Pos.Explorer.Web.ClientTypes   (Byte, CAddress (..),
                                                  toBlockSummary, toCAddress, toCHash,
                                                  toCTxId, toTxBrief)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
+import           Pos.Explorer.Web.ExtraContext  (HasGenesisRedeemAddressInfo (..))
 
 
 ----------------------------------------------------------------
@@ -94,7 +93,10 @@ import           Pos.Explorer.Web.Error         (ExplorerError (..))
 ----------------------------------------------------------------
 type MainBlund ssc = (MainBlock ssc, Undo)
 
-type ExplorerMode ctx m = WorkMode SscGodTossing ctx m
+type ExplorerMode ctx m =
+    ( WorkMode SscGodTossing ctx m
+    , HasGenesisRedeemAddressInfo m
+    )
 
 explorerServeImpl
     :: ExplorerMode ctx m
@@ -505,18 +507,6 @@ getTxSummary cTxId = do
             , ctsOutputs         = map (second mkCCoin) txOutputs
             }
 
-getRedeemAddressCoinPairs :: ExplorerMode ctx m => m [(Address, Coin)]
-getRedeemAddressCoinPairs = do
-    genesisUtxo :: Utxo <- unGenesisUtxo <$> genesisUtxoM
-
-    let addressCoinPairs :: [(Address, Coin)]
-        addressCoinPairs = utxoToAddressCoinPairs genesisUtxo
-
-        redeemOnly :: [(Address, Coin)]
-        redeemOnly = filter (isRedeemAddress . fst) addressCoinPairs
-
-    pure redeemOnly
-
 isAddressRedeemed :: MonadDBRead m => Address -> Coin -> m Bool
 isAddressRedeemed address initialBalance = do
   currentBalance <- fromMaybe (mkCoin 0) <$> EX.getAddrBalance address
@@ -526,9 +516,9 @@ getGenesisSummary
     :: ExplorerMode ctx m
     => m CGenesisSummary
 getGenesisSummary = do
-    redeemAddressCoinPairs <- getRedeemAddressCoinPairs
-    cgsNumRedeemed <- length <$> filterM (uncurry isAddressRedeemed) redeemAddressCoinPairs
-    pure CGenesisSummary {cgsNumTotal = length redeemAddressCoinPairs, ..}
+    grai <- getGenesisRedeemAddressInfo
+    cgsNumRedeemed <- V.length <$> V.filterM (uncurry isAddressRedeemed) grai
+    pure CGenesisSummary {cgsNumTotal = V.length grai, ..}
 
 getGenesisAddressInfo
     :: (ExplorerMode ctx m)
@@ -536,11 +526,11 @@ getGenesisAddressInfo
     -> Word        -- ^ pageSize
     -> m [CGenesisAddressInfo]
 getGenesisAddressInfo (fmap fromIntegral -> mPage) (fromIntegral -> pageSize) = do
-    redeemAddressCoinPairs <- getRedeemAddressCoinPairs
+    grai <- getGenesisRedeemAddressInfo
     let pageNumber    = fromMaybe 1 mPage
         skipItems     = (pageNumber - 1) * pageSize
-        requestedPage = take pageSize $ drop skipItems redeemAddressCoinPairs
-    mapM toGenesisAddressInfo requestedPage
+        requestedPage = V.slice skipItems pageSize grai
+    V.toList <$> V.mapM toGenesisAddressInfo requestedPage
   where
     toGenesisAddressInfo :: ExplorerMode ctx m => (Address, Coin) -> m CGenesisAddressInfo
     toGenesisAddressInfo (address, coin) = do
@@ -559,8 +549,8 @@ getGenesisPagesTotal
     => Word
     -> m Integer
 getGenesisPagesTotal (fromIntegral -> pageSize) = do
-    redeemAddressCoinPairs <- getRedeemAddressCoinPairs
-    pure $ fromIntegral $ (length redeemAddressCoinPairs + pageSize - 1) `div` pageSize
+    grai <- getGenesisRedeemAddressInfo
+    pure $ fromIntegral $ (V.length grai + pageSize - 1) `div` pageSize
 
 -- | Search the blocks by epoch and slot. Slot is optional.
 epochSlotSearch

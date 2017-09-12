@@ -12,12 +12,14 @@ import           Universum
 import qualified Data.ByteString        as BS
 import           Data.FileEmbed         (embedFile, makeRelativeToProject)
 import qualified Data.HashMap.Strict    as HM
+import           Data.Yaml              (decodeEither)
 import           Data.List              (stripPrefix)
 import qualified Language.Haskell.TH    as TH
 import           System.Directory       (listDirectory)
 import           System.FilePath        (takeBaseName, takeExtension, (</>))
 import           System.IO.Unsafe       (unsafePerformIO)
 
+import           Pos.Aeson.Genesis      ()
 import           Pos.Core.Constants     (genesisBinSuffix)
 import           Pos.Core.Genesis.Types (GenesisSpec)
 import           Pos.Util.Future        (newInitFuture)
@@ -40,9 +42,9 @@ allGenesisSpecs =
                 [|(suff, path, $(embedFile path))|]
             )
     in HM.fromList $ bins <&> \(suff, path, file) ->
-           case error "TODO: parse JSON here" file of
+           case decodeEither file of
                Left err -> error $ "Failed to read genesis-input from " <>
-                                   toText path <> ": " <> err
+                                   toText path <> ": " <> toText err
                Right d  -> (suff, d)
 
 defaultGenesisSpec :: GenesisSpec

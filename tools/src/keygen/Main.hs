@@ -22,8 +22,10 @@ import           Pos.Core              (addressHash)
 import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair,
                                         noPassEncrypt, redeemPkB64F, toVssPublicKey)
 import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
-import           Pos.Genesis           (GenesisAvvmBalances, genesisDevHdwSecretKeys,
-                                        genesisDevSecretKeys)
+import           Pos.Genesis           (GenesisAvvmBalances, aeCoin,
+                                        convertAvvmDataToBalances,
+                                        genesisDevHdwSecretKeys, genesisDevSecretKeys,
+                                        getAvvmData)
 import           Pos.Testnet           (generateFakeAvvm, generateKeyfile)
 
 import           Pos.Launcher          (applyConfigInfo)
@@ -32,8 +34,7 @@ import           Pos.Util.UserSecret   (readUserSecret, takeUserSecret, usKeys, 
 import           Pos.Util.Util         (applyPattern)
 import           Pos.Wallet.Web.Secret (wusRootKey)
 
-import           Avvm                  (aeCoin, applyBlacklisted, avvmAddrDistribution,
-                                        utxo)
+import           Avvm                  (applyBlacklisted)
 import           KeygenOptions         (AvvmBalanceOptions (..),
                                         DumpAvvmSeedsOptions (..), KeygenCommand (..),
                                         KeygenOptions (..), getKeygenOptions)
@@ -51,7 +52,7 @@ rearrangeKeyfile fp = do
 
 -- Reads avvm json file and returns related 'GenesisAvvmBalances'
 _readAvvmGenesis
-    :: (MonadIO m, WithLogger m, MonadThrow m)
+    :: (MonadIO m, WithLogger m, MonadThrow m, MonadFail m)
     => AvvmBalanceOptions -> m GenesisAvvmBalances
 _readAvvmGenesis AvvmBalanceOptions {..} = do
     logInfo "Reading avvm data"
@@ -60,9 +61,9 @@ _readAvvmGenesis AvvmBalanceOptions {..} = do
         Left err       -> error $ toText err
         Right avvmData -> do
             avvmDataFiltered <- applyBlacklisted asoBlacklisted avvmData
-            let totalAvvmBalance = sum $ map aeCoin $ utxo avvmDataFiltered
+            let totalAvvmBalance = sum $ map aeCoin $ getAvvmData avvmDataFiltered
             logInfo $ "Total avvm balance after applying blacklist: " <> show totalAvvmBalance
-            pure $ avvmAddrDistribution avvmDataFiltered
+            pure $ convertAvvmDataToBalances avvmDataFiltered
 
 ----------------------------------------------------------------------------
 -- Commands

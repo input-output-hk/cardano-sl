@@ -23,7 +23,7 @@ module Pos.Genesis
        , genesisContextImplicit
 
        -- * Prod mode genesis
-       , genesisContextProduction
+       , genesisContextProductionM
 
        -- * Dev mode genesis
        , devBalancesDistr
@@ -35,11 +35,13 @@ module Pos.Genesis
 import           Universum
 
 import           Control.Lens               (at, makeLenses)
+import qualified Data.HashMap.Strict        as HM
 import           Data.List                  (genericReplicate)
 import qualified Data.Map.Strict            as Map
 import qualified Data.Ratio                 as Ratio
 import           Formatting                 (build, sformat, (%))
 import           Serokell.Util              (mapJson)
+import           System.Wlog                (WithLogger)
 
 import           Pos.AllSecrets             (InvAddrSpendingData (unInvAddrSpendingData),
                                              mkInvAddrSpendingData)
@@ -50,12 +52,13 @@ import           Pos.Core                   (AddrSpendingData (PubKeyASD), Addre
                                              StakeholderId, addressHash,
                                              applyCoinPortionUp, coinToInteger,
                                              deriveLvl2KeyPair, divCoin,
-                                             makePubKeyAddressBoot, mkCoin,
-                                             safeExpBalances, unsafeMulCoin)
+                                             makePubKeyAddressBoot, makeRedeemAddress,
+                                             mkCoin, safeExpBalances, unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
                                              firstHardened, unsafeHash)
 import           Pos.Lrc.FtsPure            (followTheSatoshiUtxo)
 import           Pos.Lrc.Genesis            (genesisSeed)
+import           Pos.Testnet                (genTestnetOrMainnetData)
 import           Pos.Txp.Core               (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil               (GenesisUtxo (..))
 import           Pos.Util.Util              (HasLens (..))
@@ -221,16 +224,24 @@ genesisLeaders GenesisContext { _gtcUtxo = (GenesisUtxo utxo)
 ----------------------------------------------------------------------------
 
 -- | 'GenesisContext' that uses all the data for prod.
-genesisContextProduction :: GenesisContext
-genesisContextProduction =
-    GenesisContext
-        genesisUtxoProduction
-        genesisProdBootStakeholders
-        genesisProdDelegation
-  where
-    -- 'GenesisUtxo' used in production.
-    genesisUtxoProduction :: GenesisUtxo
-    genesisUtxoProduction = genesisUtxo genesisProdAddrDistribution
+genesisContextProductionM
+    :: (MonadIO m, MonadThrow m, WithLogger m)
+    => m GenesisContext
+genesisContextProductionM = do
+    (testnetDistr, bootStakeholders, _) <-
+        genTestnetOrMainnetData genesisProdInitializer
+    let addrCoins = HM.toList (getGenesisAvvmBalances genesisProdAvvmBalances)
+    let avvmAddrDistr =
+            ( map (makeRedeemAddress . fst) addrCoins
+            , CustomBalances (map snd addrCoins))
+    let genesisDistr = avvmAddrDistr : testnetDistr
+    let genesisUtxoProduction = genesisUtxo genesisDistr
+    pure $
+        GenesisContext
+        { _gtcUtxo = genesisUtxoProduction
+        , _gtcWStakeholders = bootStakeholders
+        , _gtcDelegation = genesisProdDelegation
+        }
 
 ----------------------------------------------------------------------------
 -- Development mode genesis

@@ -15,7 +15,7 @@ import qualified Pos.Client.CLI      as CLI
 import           Pos.Constants       (isDevelopment)
 import           Pos.Core.Types      (Timestamp (..))
 import           Pos.Genesis         (devBalancesDistr, devGenesisContext,
-                                      genesisContextProduction)
+                                      genesisContextProductionM)
 import           Pos.Launcher        (NodeParams (..))
 import           Pos.Network.CLI     (intNetworkConfigOpts)
 import           Pos.Update.Params   (UpdateParams (..))
@@ -45,9 +45,10 @@ getNodeParams args@CommonNodeArgs{..} systemStart = do
                 (CLI.flatDistr commonArgs)
                 (CLI.richPoorDistr commonArgs)
                 (CLI.expDistr commonArgs)
-    let npGenesisCtx
-            | isDevelopment = devGenesisContext devBalanceDistr
-            | otherwise = genesisContextProduction
+
+    npGenesisCtx <- if isDevelopment then pure (devGenesisContext devBalanceDistr)
+                    else genesisContextProductionM
+
     pure NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB

@@ -256,7 +256,7 @@ data GenesisInitializer
     | MainnetInitializer {
       miStartTime        :: !Timestamp
     , miBootStakeholders :: !GenesisWStakeholders
-    , msVssCerts         :: !VssCertificatesMap
+    , miVssCerts         :: !VssCertificatesMap
     } deriving (Show)
 
 -- | Predefined balances of avvm entries.

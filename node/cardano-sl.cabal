@@ -405,6 +405,7 @@ library
                       , resourcet
                       , rocksdb-haskell >= 1.0.0
                       , safecopy
+                      , safe-exceptions
                       , serokell-util >= 0.1.3.4
                       , servant >= 0.8.1
                       , servant-multipart >= 0.10

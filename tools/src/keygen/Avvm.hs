@@ -8,33 +8,36 @@ module Avvm
        , applyBlacklisted
        ) where
 
-import           Data.Aeson           (FromJSON (..), withObject, (.:))
-import qualified Data.ByteString      as BS
-import qualified Data.HashMap.Strict  as HM
-import           Data.List            ((\\))
-import qualified Data.Text            as T
-import qualified Serokell.Util.Base64 as B64
-import           System.Wlog          (WithLogger, logInfo)
 import           Universum
 
-import           Pos.Crypto           (RedeemPublicKey (..), redeemPkBuild)
-import           Pos.Genesis          (GenesisAvvmBalances (..))
-import           Pos.Types            (Coin, unsafeAddCoin, unsafeIntegerToCoin)
+import           Control.Exception.Safe (displayException, throwString)
+import           Data.Aeson             (FromJSON (..), withObject, (.:))
+import qualified Data.ByteString        as BS
+import qualified Data.HashMap.Strict    as HM
+import           Data.List              ((\\))
+import qualified Data.Text              as T
+import qualified Serokell.Util.Base64   as B64
+import           System.Wlog            (WithLogger, logInfo)
+
+import           Pos.Crypto             (RedeemPublicKey (..), redeemPkBuild)
+import           Pos.Genesis            (GenesisAvvmBalances (..))
+import           Pos.Types              (Coin, unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Util.Util          (eitherToFail)
 
 
 -- | Read the text into a redeeming public key.
 --
 -- There's also a copy of this function in cardano-addr-convert.
-fromAvvmPk :: (MonadFail m, Monad m) => Text -> m RedeemPublicKey
+fromAvvmPk :: (MonadThrow m, Monad m) => Text -> m RedeemPublicKey
 fromAvvmPk addrText = do
     let base64rify = T.replace "-" "+" . T.replace "_" "/"
     let parsedM = B64.decode $ base64rify addrText
     addrParsed <-
-        maybe (fail $ "Address " <> toString addrText <> " is not base64(url) format")
+        maybe (throwString $ "Address " <> toString addrText <> " is not base64(url) format")
         pure
         (rightToMaybe parsedM)
     unless (BS.length addrParsed == 32) $
-        fail "Address' length is not equal to 32, can't be redeeming pk"
+        throwString "Address' length is not equal to 32, can't be redeeming pk"
     pure $ redeemPkBuild addrParsed
 
 data AvvmData = AvvmData
@@ -62,11 +65,13 @@ data AvvmEntry = AvvmEntry
     } deriving (Show, Generic, Eq)
 
 instance FromJSON AvvmEntry where
-    parseJSON = withObject "avvmEntry" $ \o -> do
-        aeCoin <- (* (1000000 :: Integer)) <$> o .: "coin"
-        (addrText :: Text) <- o .: "address"
-        aePublicKey <- fromAvvmPk addrText
-        return AvvmEntry{..}
+    parseJSON =
+        withObject "avvmEntry" $ \o -> do
+            aeCoin <- (* (1000000 :: Integer)) <$> o .: "coin"
+            (addrText :: Text) <- o .: "address"
+            aePublicKey <-
+                eitherToFail $ first displayException $ fromAvvmPk addrText
+            return AvvmEntry {..}
 
 -- | Generate genesis address distribution out of avvm
 -- parameters. Txdistr of the utxo is all empty. Redelegate it in
@@ -86,7 +91,7 @@ avvmAddrDistribution (utxo -> avvmData) = GenesisAvvmBalances balances
 -- | Applies blacklist to avvm utxo, produces warnings and stats about
 -- how much was deleted.
 applyBlacklisted ::
-       (WithLogger m, MonadIO m, MonadFail m)
+       (WithLogger m, MonadIO m, MonadThrow m)
     => Maybe FilePath
     -> AvvmData
     -> m AvvmData

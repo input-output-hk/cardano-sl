@@ -99,9 +99,8 @@ getNodeParams args@Args {..} systemStart = do
                 (CLI.richPoorDistr commonArgs)
                 (CLI.expDistr commonArgs)
 
-    let npGenesisCtx
-            | isDevelopment = devGenesisContext devBalanceDistr
-            | otherwise = genesisContextProduction
+    npGenesisCtx <- if isDevelopment then pure (devGenesisContext devBalanceDistr)
+                    else genesisContextProductionM
 
     return NodeParams
         { npDbPathM = dbPath

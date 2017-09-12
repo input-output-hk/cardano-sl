@@ -12,9 +12,8 @@ module Pos.Core.Genesis
        , module Pos.Core.Genesis.Parser
 
        -- ** Derived data
-       , genesisProdAddresses
-       , genesisProdAddrDistribution
-       , genesisProdBootStakeholders
+       , genesisProdAvvmBalances
+       , genesisProdInitializer
        , genesisProdDelegation
 
        -- * Utils
@@ -30,7 +29,7 @@ import           Formatting              (int, sformat, (%))
 import           Pos.Binary.Crypto       ()
 import           Pos.Core.Coin           (unsafeMulCoin)
 import           Pos.Core.Constants      (genesisKeysN)
-import           Pos.Core.Types          (Address, mkCoin)
+import           Pos.Core.Types          (mkCoin)
 import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,
                                           safeDeterministicKeyGen)
 import           Pos.Crypto.Signing      (PublicKey, SecretKey, deterministicKeyGen)
@@ -70,22 +69,18 @@ genesisDevFlatDistr =
 -- GenesisCore derived data, production
 ----------------------------------------------------------------------------
 
--- | List of addresses in genesis binary file.
-genesisProdAddresses :: [Address]
-genesisProdAddresses =
-    concatMap (toList . fst) $ gcdAddrDistribution genCoreData
+-- | Genesis avvm balances.
+genesisProdAvvmBalances :: GenesisAvvmBalances
+genesisProdAvvmBalances = gsAvvmDistr genesisSpec
 
--- | Address and distribution set for production mode.
-genesisProdAddrDistribution :: [AddrDistribution]
-genesisProdAddrDistribution = gcdAddrDistribution genCoreData
-
--- | Bootstrap era stakeholders for production mode.
-genesisProdBootStakeholders :: GenesisWStakeholders
-genesisProdBootStakeholders = gcdBootstrapStakeholders genCoreData
+-- | Genesis initializer determines way of initialization
+-- utxo, bootstrap stakeholders, etc.
+genesisProdInitializer :: GenesisInitializer
+genesisProdInitializer = gsInitializer genesisSpec
 
 -- | 'GenesisDelegation' for production mode.
 genesisProdDelegation :: GenesisDelegation
-genesisProdDelegation = gcdHeavyDelegation genCoreData
+genesisProdDelegation = gsHeavyDelegation genesisSpec
 
 ----------------------------------------------------------------------------
 -- Utils

@@ -55,7 +55,7 @@ import           Pos.Wallet.Web.Secret      (accountGenesisIndex,
 
 
 genTestnetOrMainnetData
-    :: (MonadIO m, MonadFail m, WithLogger m)
+    :: (MonadIO m, MonadThrow m, WithLogger m)
     => GenesisInitializer
     -> m ([AddrDistribution], GenesisWStakeholders, GenesisGtData)
 genTestnetOrMainnetData TestnetInitializer{..} = do
@@ -70,7 +70,7 @@ genTestnetOrMainnetData MainnetInitializer{..} =
 -- 2. Set of boot stakeholders (richmen addresses)
 -- 3. Genesis vss data (vss certs of richmen)
 genTestnetData
-    :: (MonadIO m, MonadFail m, WithLogger m)
+    :: (MonadIO m, MonadThrow m, WithLogger m)
     => Maybe (FilePath, FilePath) -- directory and key-file pattern
     -> TestnetBalanceOptions
     -> TestnetDistribution
@@ -155,7 +155,7 @@ genFakeAvvmGenesis dirMB FakeAvvmOptions{..} = do
 ----------------------------------------------------------------------------
 
 generateKeyfile
-    :: (MonadIO m, MonadFail m, WithLogger m)
+    :: (MonadIO m, MonadThrow m, WithLogger m)
     => Bool
     -> Maybe (SecretKey, EncryptedSecretKey)
     -> Maybe FilePath
@@ -163,7 +163,7 @@ generateKeyfile
 generateKeyfile = generateKeyfile' (IsBootstrapEraAddr True)
 
 generateKeyfile'
-    :: (MonadIO m, MonadFail m, WithLogger m)
+    :: (MonadIO m, MonadThrow m, WithLogger m)
     => IsBootstrapEraAddr                     -- ^ is boot era
     -> Bool
     -> Maybe (SecretKey, EncryptedSecretKey)  -- ^ plain key & hd wallet root key

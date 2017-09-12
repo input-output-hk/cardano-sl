@@ -281,7 +281,7 @@ instance FromJSON NodeMetadata where
      defaultRunKademlia NodeRelay = True
      defaultRunKademlia NodeEdge  = False
 
-     defaultInPublicDNS :: NodeType -> RunKademlia
+     defaultInPublicDNS :: NodeType -> InPublicDNS
      defaultInPublicDNS NodeCore  = False
      defaultInPublicDNS NodeRelay = True
      defaultInPublicDNS NodeEdge  = False

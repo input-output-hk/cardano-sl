@@ -26,8 +26,6 @@ module Pos.Genesis
        , genesisContextProduction
 
        -- * Dev mode genesis
-       , accountGenesisIndex
-       , wAddressGenesisIndex
        , devBalancesDistr
        , devGenesisContext
        , concatAddrDistrs
@@ -238,15 +236,6 @@ genesisContextProduction =
 -- Development mode genesis
 ----------------------------------------------------------------------------
 
--- | First index in derivation path for HD account, which is put to genesis utxo
-accountGenesisIndex :: Word32
-accountGenesisIndex = firstHardened
-
--- | Second index in derivation path for HD account, which is put to genesis
--- utxo
-wAddressGenesisIndex :: Word32
-wAddressGenesisIndex = firstHardened
-
 -- | Chooses among common distributions for dev mode.
 devBalancesDistr
     :: Maybe (Int, Int)                   -- flat distr
@@ -290,8 +279,8 @@ genesisDevHdwAccountKeyDatas =
             (IsBootstrapEraAddr True)
             emptyPassphrase
             key
-            accountGenesisIndex
-            wAddressGenesisIndex
+            firstHardened
+            firstHardened
 
 -- | 'GenesisContext' for dev mode. It's supposed that you pass the
 -- distribution from 'devBalancesDistr' here. This function will add dev

@@ -18,7 +18,7 @@ module Pos.Genesis
        , gtcDelegation
 
        -- * Static state/functions/common
-       , stakeDistribution
+       , balanceDistribution
        , genesisLeaders
        , genesisContextImplicit
 
@@ -28,7 +28,7 @@ module Pos.Genesis
        -- * Dev mode genesis
        , accountGenesisIndex
        , wAddressGenesisIndex
-       , devStakesDistr
+       , devBalancesDistr
        , devGenesisContext
        , concatAddrDistrs
 
@@ -52,8 +52,8 @@ import           Pos.Core                   (AddrSpendingData (PubKeyASD), Addre
                                              StakeholderId, addressHash,
                                              applyCoinPortionUp, coinToInteger,
                                              deriveLvl2KeyPair, divCoin,
-                                             makePubKeyAddressBoot, mkCoin, safeExpStakes,
-                                             unsafeMulCoin)
+                                             makePubKeyAddressBoot, mkCoin,
+                                             safeExpBalances, unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
                                              firstHardened, unsafeHash)
 import           Pos.Lrc.FtsPure            (followTheSatoshiUtxo)
@@ -97,33 +97,33 @@ instance HasLens GenesisDelegation GenesisContext GenesisDelegation where
 -- Static state & funcitons
 ----------------------------------------------------------------------------
 
--- | Given 'StakeDistribution', calculates a list containing amounts
+-- | Given 'BalanceDistribution', calculates a list containing amounts
 -- of coins (balances) belonging to genesis addresses.
-stakeDistribution :: StakeDistribution -> [Coin]
-stakeDistribution (FlatStakes stakeholders coins) =
+balanceDistribution :: BalanceDistribution -> [Coin]
+balanceDistribution (FlatBalances stakeholders coins) =
     genericReplicate stakeholders val
   where
     val = coins `divCoin` stakeholders
-stakeDistribution (ExponentialStakes n mc) =
+balanceDistribution (ExponentialBalances n mc) =
     reverse $ take (fromIntegral n) $
     iterate (`unsafeMulCoin` (2::Integer)) mc
-stakeDistribution ts@RichPoorStakes {..} =
-    checkMpcThd (getTotalStake ts) sdRichStake basicDist
+balanceDistribution ts@RichPoorBalances {..} =
+    checkMpcThd (getTotalBalance ts) sdRichBalance basicDist
   where
     -- Node won't start if richmen cannot participate in MPC
     checkMpcThd total richs =
         if richs < applyCoinPortionUp Const.genesisMpcThd total
-        then error "Pos.Genesis: RichPoorStakes: richmen stake \
+        then error "Pos.Genesis: RichPoorBalances: richmen balance \
                    \is less than MPC threshold"
         else identity
-    basicDist = genericReplicate sdRichmen sdRichStake ++
-                genericReplicate sdPoor sdPoorStake
-stakeDistribution (CustomStakes coins) = coins
+    basicDist = genericReplicate sdRichmen sdRichBalance ++
+                genericReplicate sdPoor sdPoorBalance
+balanceDistribution (CustomBalances coins) = coins
 
 -- Converts list of addr distrs to pre-map (addr,coin)
 concatAddrDistrs :: [AddrDistribution] -> [(Address, Coin)]
 concatAddrDistrs addrDistrs =
-    concatMap (uncurry zip . second stakeDistribution) addrDistrs
+    concatMap (uncurry zip . second balanceDistribution) addrDistrs
 
 -- | Generates 'GenesisUtxo' given address distributions (which also
 -- include stake distributions as parts of addresses).
@@ -168,15 +168,15 @@ genesisContextImplicit invAddrSpendingData addrDistr =
 generateWStakeholders :: InvAddrSpendingData -> AddrDistribution -> GenesisWStakeholders
 generateWStakeholders iasd@(unInvAddrSpendingData -> addrToSpending) (addrs,stakeDistr) =
     case stakeDistr of
-        FlatStakes _ _    ->
+        FlatBalances _ _    ->
             createList $ map ((,1) . toStakeholderId) addrs
-        RichPoorStakes{..} ->
+        RichPoorBalances{..} ->
             createList $ map ((,1) . toStakeholderId) $
             take (fromIntegral sdRichmen) addrs
-        e@(ExponentialStakes _ _) ->
+        e@(ExponentialBalances _ _) ->
             GenesisWStakeholders $
-            assignWeights iasd $ addrs `zip` stakeDistribution e
-        CustomStakes coins ->
+            assignWeights iasd $ addrs `zip` balanceDistribution e
+        CustomBalances coins ->
             GenesisWStakeholders $ assignWeights iasd $ addrs `zip` coins
   where
     createList = GenesisWStakeholders . Map.fromList
@@ -248,33 +248,33 @@ wAddressGenesisIndex :: Word32
 wAddressGenesisIndex = firstHardened
 
 -- | Chooses among common distributions for dev mode.
-devStakesDistr
+devBalancesDistr
     :: Maybe (Int, Int)                   -- flat distr
     -> Maybe (Int, Int, Integer, Double)  -- rich/poor distr
     -> Maybe Int                          -- exp distr
-    -> StakeDistribution
-devStakesDistr Nothing Nothing Nothing = genesisDevFlatDistr
-devStakesDistr (Just (nodes, coins)) Nothing Nothing =
-    FlatStakes (fromIntegral nodes) (mkCoin (fromIntegral coins))
-devStakesDistr Nothing (Just (richs, poors, coins, richShare)) Nothing =
-    checkConsistency $ RichPoorStakes {..}
+    -> BalanceDistribution
+devBalancesDistr Nothing Nothing Nothing = genesisDevFlatDistr
+devBalancesDistr (Just (nodes, coins)) Nothing Nothing =
+    FlatBalances (fromIntegral nodes) (mkCoin (fromIntegral coins))
+devBalancesDistr Nothing (Just (richs, poors, coins, richShare)) Nothing =
+    checkConsistency $ RichPoorBalances {..}
   where
     sdRichmen = fromIntegral richs
     sdPoor = fromIntegral poors
 
-    totalRichStake = round $ richShare * fromIntegral coins
-    totalPoorStake = coins - totalRichStake
-    richStake = totalRichStake `div` fromIntegral richs
-    poorStake = totalPoorStake `div` fromIntegral poors
-    sdRichStake = mkCoin $ fromIntegral richStake
-    sdPoorStake = mkCoin $ fromIntegral poorStake
+    totalRichBalance = round $ richShare * fromIntegral coins
+    totalPoorBalance = coins - totalRichBalance
+    richBalance = totalRichBalance `div` fromIntegral richs
+    poorBalance = totalPoorBalance `div` fromIntegral poors
+    sdRichBalance = mkCoin $ fromIntegral richBalance
+    sdPoorBalance = mkCoin $ fromIntegral poorBalance
 
     checkConsistency =
-        if poorStake <= 0 || richStake <= 0
-        then error "Impossible to make RichPoorStakes with given parameters."
+        if poorBalance <= 0 || richBalance <= 0
+        then error "Impossible to make RichPoorBalances with given parameters."
         else identity
-devStakesDistr Nothing Nothing (Just n) = safeExpStakes n
-devStakesDistr _ _ _ =
+devBalancesDistr Nothing Nothing (Just n) = safeExpBalances n
+devBalancesDistr _ _ _ =
     error "Conflicting distribution options were enabled. \
           \Choose one at most or nothing."
 
@@ -294,7 +294,7 @@ genesisDevHdwAccountKeyDatas =
             wAddressGenesisIndex
 
 -- | 'GenesisContext' for dev mode. It's supposed that you pass the
--- distribution from 'devStakesDistr' here. This function will add dev
+-- distribution from 'devBalancesDistr' here. This function will add dev
 -- genesis addresses and hd addrs/distr.
 --
 -- Related genesis stakeholders are computed using only related
@@ -302,11 +302,11 @@ genesisDevHdwAccountKeyDatas =
 --
 -- Genesis delegation is empty. Non-empty one can be supported, but
 -- probably will never be needed.
-devGenesisContext :: StakeDistribution -> GenesisContext
+devGenesisContext :: BalanceDistribution -> GenesisContext
 devGenesisContext distr =
     GenesisContext (genesisUtxo aDistr) gws noGenesisDelegation
   where
-    distrSize = length $ stakeDistribution distr
+    distrSize = length $ balanceDistribution distr
     tailPks = map (fst . generateGenesisKeyPair) [Const.genesisKeysN ..]
     mainPks = genesisDevPublicKeys <> tailPks
     mainAddrs = take distrSize $ map makePubKeyAddressBoot mainPks
@@ -327,7 +327,7 @@ devGenesisContext distr =
     hdwSize = 2 -- should be positive
     -- 20 ADA (20 millon coins) split among hdwSize users.
     -- Shouldn't mess with LRC after CSL-1502
-    hdwDistr = FlatStakes (fromIntegral hdwSize) (mkCoin 20000000)
+    hdwDistr = FlatBalances (fromIntegral hdwSize) (mkCoin 20000000)
     -- should be enough for testing.
     hdwAddresses = take hdwSize genesisDevHdwAccountAddresses
     genesisDevHdwAccountAddresses :: [Address]

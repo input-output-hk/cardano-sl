@@ -38,6 +38,7 @@ module Pos.Crypto.Signing
        ) where
 
 import qualified Cardano.Crypto.Wallet  as CC
+import           Crypto.Random          (MonadRandom, getRandomBytes)
 -- import qualified Cardano.Crypto.Wallet.Encrypted as CC
 -- import qualified Crypto.ECC.Edwards25519         as Ed25519
 import           Data.ByteArray         (ScrubbedBytes)
@@ -58,7 +59,6 @@ import           Universum              hiding (show)
 import           Pos.Binary.Class       (Bi, Raw)
 import qualified Pos.Binary.Class       as Bi
 import           Pos.Crypto.Hashing     (hash)
-import           Pos.Crypto.Random      (secureRandomBS)
 import           Pos.Crypto.SignTag     (SignTag (SignProxySK), signTag)
 
 ----------------------------------------------------------------------------
@@ -140,10 +140,12 @@ createKeypairFromSeed seed =
     let prv = CC.generate seed emptyPass
     in  (CC.toXPub prv, prv)
 
--- | Generate a key pair.
-keyGen :: MonadIO m => m (PublicKey, SecretKey)
-keyGen = liftIO $ do
-    seed <- secureRandomBS 32
+-- | Generate a key pair. It's recommended to run it with 'runSecureRandom'
+-- from "Pos.Crypto.Random" because the OpenSSL generator is probably safer
+-- than the default IO generator.
+keyGen :: MonadRandom m => m (PublicKey, SecretKey)
+keyGen = do
+    seed <- getRandomBytes 32
     let (pk, sk) = createKeypairFromSeed seed
     return (PublicKey pk, SecretKey sk)
 

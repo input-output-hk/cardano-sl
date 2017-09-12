@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies #-}
+
 -- | Specification of Pos.Client.Txp.Util
 
 module Test.Pos.Client.Txp.UtilSpec
@@ -6,29 +8,35 @@ module Test.Pos.Client.Txp.UtilSpec
 
 import           Universum
 
-import qualified Data.ByteString          as BS
 import qualified Data.List.NonEmpty       as NE
 import qualified Data.Map                 as M
 import qualified Data.Set                 as S
 import           Formatting               (build, hex, left, sformat, shown, (%), (%.))
 import           Test.Hspec               (Spec, describe)
 import           Test.Hspec.QuickCheck    (prop)
+import           Test.QuickCheck          (Discard (..), Gen, arbitrary, choose)
+import           Test.QuickCheck.Monadic  (forAllM, stop)
 
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Util      (TxError (..), TxOutputs, TxWithSpendings,
-                                           createMTx, createRedemptionTx)
-import           Pos.Core                 (HasCoreConstants, unsafeIntegerToCoin)
+                                           createMTx, createRedemptionTx,
+                                           isNotEnoughMoneyTxError)
+import           Pos.Core                 (BlockVersionData (..), Coeff (..),
+                                           HasCoreConstants, TxFeePolicy (..),
+                                           TxSizeLinear (..), makePubKeyAddressBoot,
+                                           makeRedeemAddress, unsafeIntegerToCoin)
 import           Pos.Crypto               (RedeemSecretKey, SafeSigner, SecretKey,
-                                           decodeHash, fakeSigner)
-import           Pos.Txp                  (TxId, TxIn (..), TxOut (..), TxOutAux (..),
-                                           Utxo)
+                                           decodeHash, fakeSigner, redeemToPublic,
+                                           toPublic)
+import           Pos.DB                   (gsAdoptedBVData)
+import           Pos.Txp                  (Tx (..), TxAux (..), TxId, TxIn (..),
+                                           TxOut (..), TxOutAux (..), Utxo)
 import           Pos.Types                (Address)
+import           Pos.Util.Arbitrary       (nonrepeating)
 import           Pos.Util.Util            (leftToPanic)
 import           Test.Pos.Util            (giveTestsConsts, stopProperty)
 
-import           Test.Pos.Client.Txp.Mode (TxpTestMode, TxpTestProperty)
-import           Test.Pos.Client.Txp.Util (generateAddressWithKey,
-                                           generateRedeemAddressWithKey, seedSize)
+import           Test.Pos.Client.Txp.Mode (TxpTestMode, TxpTestProperty, withBVData)
 
 ----------------------------------------------------------------------------
 -- Tests
@@ -48,6 +56,7 @@ createMTxSpec = do
     prop manyAddressesToManyDesc manyAddressesToManySpec
     prop redemptionDesc redemptionSpec
     prop txWithRedeemOutputFailsDesc txWithRedeemOutputFailsSpec
+    prop feeForManyAddressesDesc feeForManyAddressesSpec
   where
     createMTxWorksWhenWeAreRichDesc =
         "Transaction is created successfully when we have 1 input with 1M coins " <>
@@ -71,100 +80,153 @@ createMTxSpec = do
         "Redemption transaction is created successfully"
     txWithRedeemOutputFailsDesc =
         "An attempt to create a tx with a redeem address as an output fails"
+    feeForManyAddressesDesc =
+        "Fee evaluation succeedes when many addresses are used"
 
 createMTxWorksWhenWeAreRichSpec :: HasCoreConstants => TxpTestProperty ()
-createMTxWorksWhenWeAreRichSpec = do
-    txOrError <- createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
-    case txOrError of
-        Left err -> stopProperty $ sformat ("Failed to create tx: "%build) err
-        Right tx -> ensureTxMakesSense tx cmpUtxo cmpOutputs
+createMTxWorksWhenWeAreRichSpec =
+    forAllM gen $ \(CreateMTxParams {..}) -> do
+        txOrError <- createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
+        case txOrError of
+            Left err -> stopProperty $ sformat ("Failed to create tx: "%build) err
+            Right tx -> ensureTxMakesSense tx cmpUtxo cmpOutputs
   where
-    CreateMTxParams {..} = makeManyAddressesToManyParams 1 1000000 1 1
+    gen = makeManyAddressesToManyParams 1 1000000 1 1
 
 stabilizationDoesNotFailSpec :: HasCoreConstants => TxpTestProperty ()
 stabilizationDoesNotFailSpec = do
-    txOrError <- createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
-    case txOrError of
-        Left err@(FailedToStabilize _) -> stopProperty $ pretty err
-        Left _                         -> return ()
-        Right tx                       -> ensureTxMakesSense tx cmpUtxo cmpOutputs
+    forAllM gen $ \(CreateMTxParams {..}) -> do
+        txOrError <- createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
+        case txOrError of
+            Left err@FailedToStabilize -> stopProperty $ pretty err
+            Left _                     -> return ()
+            Right tx                   -> ensureTxMakesSense tx cmpUtxo cmpOutputs
   where
-    CreateMTxParams {..} = makeManyAddressesToManyParams 1 200000 1 1
+    gen = makeManyAddressesToManyParams 1 200000 1 1
 
 feeIsNonzeroSpec :: HasCoreConstants => TxpTestProperty ()
 feeIsNonzeroSpec = do
-    txOrError <- createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
-    case txOrError of
-        Left (NotEnoughMoney _) -> return ()
-        Left err -> stopProperty $ pretty err
-        Right _ -> stopProperty $
-            "Transaction was created even though there were " <>
-                "not enough funds for the fee"
+    forAllM gen $ \(CreateMTxParams {..}) -> do
+        txOrError <- createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
+        case txOrError of
+            Left (NotEnoughMoney _) -> return ()
+            Left err -> stopProperty $ pretty err
+            Right _ -> stopProperty $
+                "Transaction was created even though there were " <>
+                    "not enough funds for the fee"
   where
-    CreateMTxParams {..} = makeManyAddressesToManyParams 1 100000 1 1
+    gen = makeManyAddressesToManyParams 1 100000 1 1
 
 manyUtxoTo1Spec :: HasCoreConstants => TxpTestProperty ()
 manyUtxoTo1Spec = do
-    txOrError <- createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
-    case txOrError of
-        Left err -> stopProperty $ pretty err
-        Right tx -> ensureTxMakesSense tx cmpUtxo cmpOutputs
+    forAllM gen $ \(CreateMTxParams {..}) -> do
+        txOrError <- createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
+        case txOrError of
+            Left err -> stopProperty $ pretty err
+            Right tx -> ensureTxMakesSense tx cmpUtxo cmpOutputs
   where
-    CreateMTxParams {..} = makeManyUtxoTo1Params 10 100000 1
+    gen = makeManyUtxoTo1Params 10 100000 1
 
 manyAddressesTo1Spec :: HasCoreConstants => TxpTestProperty ()
 manyAddressesTo1Spec = do
-    txOrError <- createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
-    case txOrError of
-        Left err -> stopProperty $ pretty err
-        Right tx -> ensureTxMakesSense tx cmpUtxo cmpOutputs
+    forAllM gen $ \(CreateMTxParams {..}) -> do
+        txOrError <- createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
+        case txOrError of
+            Left err -> stopProperty $ pretty err
+            Right tx -> ensureTxMakesSense tx cmpUtxo cmpOutputs
   where
-    CreateMTxParams {..} = makeManyAddressesToManyParams 10 100000 1 1
+    gen = makeManyAddressesToManyParams 10 100000 1 1
 
 manyAddressesToManySpec :: HasCoreConstants => TxpTestProperty ()
 manyAddressesToManySpec = do
-    txOrError <- createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
-    case txOrError of
-        Left err -> stopProperty $ pretty err
-        Right tx -> ensureTxMakesSense tx cmpUtxo cmpOutputs
+    forAllM gen $ \(CreateMTxParams {..}) -> do
+        txOrError <- createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
+        case txOrError of
+            Left err -> stopProperty $ pretty err
+            Right tx -> ensureTxMakesSense tx cmpUtxo cmpOutputs
   where
-    CreateMTxParams {..} = makeManyAddressesToManyParams 10 100000 10 1
+    gen = makeManyAddressesToManyParams 10 100000 10 1
 
 redemptionSpec :: HasCoreConstants => TxpTestProperty ()
 redemptionSpec = do
-    txOrError <- createRedemptionTx utxo rsk outputs
-    case txOrError of
-        Left err -> stopProperty $ pretty err
-        Right _  -> return ()
+    forAllM genParams $ \(CreateRedemptionTxParams {..}) -> do
+        txOrError <- createRedemptionTx crpUtxo crpRsk crpOutputs
+        case txOrError of
+            Left err -> stopProperty $ pretty err
+            Right _  -> return ()
   where
-    seedInput  = BS.replicate seedSize (0 :: Word8)
-    seedOutput = BS.replicate seedSize (1 :: Word8)
+    genParams = do
+        crpRsk <- arbitrary
+        skTo   <- arbitrary
 
-    (rsk, txOutAuxInput)   = generateRedeemTxOutAux 1 seedInput
-    (_, _, txOutAuxOutput) = generateTxOutAux 1 seedOutput
+        let txOutAuxInput = generateRedeemTxOutAux 1 crpRsk
+            txOutAuxOutput = generateTxOutAux 1 skTo
+            crpUtxo = one (TxInUtxo (unsafeIntegerToTxId 0) 0, txOutAuxInput)
+            crpOutputs = one txOutAuxOutput
 
-    utxo = one (TxInUtxo (unsafeIntegerToTxId 0) 0, txOutAuxInput)
-    outputs = one txOutAuxOutput
+        pure CreateRedemptionTxParams {..}
 
 txWithRedeemOutputFailsSpec :: HasCoreConstants => TxpTestProperty ()
 txWithRedeemOutputFailsSpec = do
-    txOrError <- createMTx utxo signers outputs addrData
-    case txOrError of
-        Left (OutputIsRedeem _) -> return ()
-        Left err -> stopProperty $ pretty err
-        Right _  -> stopProperty $
-            sformat ("Transaction to a redeem address was created")
+    forAllM genParams $ \(CreateMTxParams {..}) -> do
+        txOrError <- createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
+        case txOrError of
+            Left (OutputIsRedeem _) -> return ()
+            Left err -> stopProperty $ pretty err
+            Right _  -> stopProperty $
+                sformat ("Transaction to a redeem address was created")
   where
-    seedInput  = BS.replicate seedSize (0 :: Word8)
-    seedOutput = BS.replicate seedSize (1 :: Word8)
+    genParams = do
+        txOutAuxOutput <- generateRedeemTxOutAux 1 <$> arbitrary
+        params <- makeManyAddressesToManyParams 1 1000000 1 1
+        pure params{ cmpOutputs = one txOutAuxOutput }
 
-    (sk, addr, txOutAuxInput) = generateTxOutAux 1000000 seedInput
-    (_, txOutAuxOutput)       = generateRedeemTxOutAux 1 seedOutput
+feeForManyAddressesSpec
+    :: HasCoreConstants
+    => Bool
+    -> TxpTestProperty ()
+feeForManyAddressesSpec manyAddrs =
+    forAllM (choose (5, 20)) $
+        \(Coeff . fromInteger -> feePolicySlope) ->
+    forAllM (choose (10000, 100000)) $
+        \(Coeff . fromInteger -> feePolicyConstTerm) ->
+    forAllM (choose (10000, 100000)) $
+        \toSpend ->
+    forAllM (choose (1000, 10000)) $
+        \perAddrAmount ->
+    forAllM (mkParams 100 perAddrAmount toSpend) $
+        \params ->
+    do
 
-    utxo = one (TxInUtxo (unsafeIntegerToTxId 0) 0, txOutAuxInput)
-    signers = one (fakeSigner sk, addr)
-    outputs = one txOutAuxOutput
-    addrData = ()
+    withTxFeePolicy feePolicyConstTerm feePolicySlope $ do
+        -- tx builder should find this utxo to be enough for construction
+        txOrError <- createTxWithParams params
+        txAux <- case txOrError of
+            Left err ->
+                if isNotEnoughMoneyTxError err
+                then stop Discard
+                else stopProperty $ sformat ("On first attempt: "%build) err
+            Right (txAux, _) ->
+                return txAux
+
+        -- even if utxo size is barely enough - fee stabilization should achieve
+        -- success as well
+        -- 'succ' is needed here because current algorithm may fail to stabilize fee if
+        -- almost all money are spent
+        let enoughInputs = succ . length . _txInputs $ taTx txAux
+            utxo' = M.fromList . take enoughInputs . M.toList $ cmpUtxo params
+            params' = params { cmpUtxo = utxo' }
+        txOrError' <- createTxWithParams params'
+        case txOrError' of
+            Left err -> stopProperty $ sformat ("On second attempt: "%build) err
+            Right _  -> return ()
+  where
+    createTxWithParams CreateMTxParams {..} =
+        createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
+    -- considering two corner cases of utxo outputs distribution
+    mkParams
+        | manyAddrs = makeManyAddressesTo1Params
+        | otherwise = makeManyUtxoTo1Params
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -181,42 +243,56 @@ data CreateMTxParams = CreateMTxParams
     , cmpAddrData :: !(AddrData TxpTestMode)
     -- ^ Data that is normally used for creation of change addresses.
     -- In tests, it is always `()`.
-    }
+    } deriving Show
 
-makeManyUtxoTo1Params :: Integer -> Integer -> Integer -> CreateMTxParams
-makeManyUtxoTo1Params numFrom amountEachFrom amountTo = CreateMTxParams {..}
-  where
-    seedInput  = BS.replicate seedSize (0 :: Word8)
-    seedOutput = BS.replicate seedSize (1 :: Word8)
+-- | Container for parameters of `createRedemptionTx`.
+-- The parameters mirror those of `createMTx` almost perfectly.
+data CreateRedemptionTxParams = CreateRedemptionTxParams
+    { crpUtxo    :: !Utxo
+    , crpRsk     :: !RedeemSecretKey
+    , crpOutputs :: !TxOutputs
+    } deriving Show
 
-    (sk, addr, txOutAuxInput) = generateTxOutAux amountEachFrom seedInput
-    (_, _, txOutAuxOutput)    = generateTxOutAux amountTo       seedOutput
+makeManyUtxoTo1Params :: Int -> Integer -> Integer -> Gen CreateMTxParams
+makeManyUtxoTo1Params numFrom amountEachFrom amountTo = do
+    [skFrom, skTo] <- nonrepeating 2
 
-    cmpUtxo = M.fromList
-        [(TxInUtxo (unsafeIntegerToTxId 0) (fromIntegral k), txOutAuxInput) |
-            k <- [0..numFrom-1]]
-    cmpSigners = one (fakeSigner sk, addr)
-    cmpOutputs = one txOutAuxOutput
-    cmpAddrData = ()
+    let txOutAuxInput  = generateTxOutAux amountEachFrom skFrom
+        txOutAuxOutput = generateTxOutAux amountTo skTo
+        cmpUtxo = M.fromList
+            [(TxInUtxo (unsafeIntegerToTxId 0) (fromIntegral k), txOutAuxInput) |
+                k <- [0..numFrom-1]]
+        cmpSigners = one $ makeSigner skFrom
+        cmpOutputs = one txOutAuxOutput
+        cmpAddrData = ()
 
-makeManyAddressesToManyParams :: Word8 -> Integer -> Word8 -> Integer -> CreateMTxParams
-makeManyAddressesToManyParams numFrom amountEachFrom numTo amountEachTo = CreateMTxParams {..}
-  where
-    seedsInput = [BS.replicate seedSize v | v <- [0..numFrom-1]]
-    (cmpSignersList, txOutAuxInputs) = unzip
-        [((fakeSigner sk, addr), txOutAux) |
-            (sk, addr, txOutAux) <- map (generateTxOutAux amountEachFrom) seedsInput]
+    pure CreateMTxParams {..}
 
-    cmpSigners = NE.fromList cmpSignersList
+makeManyAddressesToManyParams
+    :: Int
+    -> Integer
+    -> Int
+    -> Integer
+    -> Gen CreateMTxParams
+makeManyAddressesToManyParams numFrom amountEachFrom numTo amountEachTo = do
+    sks <- nonrepeating (numFrom + numTo)
 
-    seedsOutput = [BS.replicate seedSize v | v <- [numFrom..numFrom+numTo-1]]
-    txOutAuxOutputs = [txOutAux |
-        (_, _, txOutAux) <- map (generateTxOutAux amountEachTo) seedsOutput]
+    let (sksFrom, sksTo) = splitAt numFrom sks
+        cmpSignersList = map makeSigner sksFrom
+        cmpSigners = NE.fromList cmpSignersList
+        txOutAuxInputs = map (generateTxOutAux amountEachFrom) sksFrom
+        txOutAuxOutputs = map (generateTxOutAux amountEachTo) sksTo
+        cmpUtxo = M.fromList
+            [(TxInUtxo (unsafeIntegerToTxId $ fromIntegral k) 0, txOutAux) |
+                (k, txOutAux) <- zip [0..numFrom-1] txOutAuxInputs]
+        cmpOutputs = NE.fromList txOutAuxOutputs
+        cmpAddrData = ()
 
-    cmpUtxo = M.fromList [(TxInUtxo (unsafeIntegerToTxId $ fromIntegral k) 0, txOutAux) |
-        (k, txOutAux) <- zip [0..numFrom-1] txOutAuxInputs]
-    cmpOutputs = NE.fromList txOutAuxOutputs
-    cmpAddrData = ()
+    pure CreateMTxParams {..}
+
+makeManyAddressesTo1Params :: Int -> Integer -> Integer -> Gen CreateMTxParams
+makeManyAddressesTo1Params numFrom amountEachFrom amountEachTo =
+    makeManyAddressesToManyParams numFrom amountEachFrom 1 amountEachTo
 
 ensureTxMakesSense
   :: HasCoreConstants
@@ -243,12 +319,24 @@ makeTxOutAux amount addr =
         txOut = TxOut addr coin
     in TxOutAux txOut
 
-generateTxOutAux :: Integer -> ByteString -> (SecretKey, Address, TxOutAux)
-generateTxOutAux amount seed =
-    let (sk, addr) = generateAddressWithKey seed
-    in (sk, addr, makeTxOutAux amount addr)
+generateTxOutAux :: Integer -> SecretKey -> TxOutAux
+generateTxOutAux amount sk =
+    makeTxOutAux amount (secretKeyToAddress sk)
 
-generateRedeemTxOutAux :: Integer -> ByteString -> (RedeemSecretKey, TxOutAux)
-generateRedeemTxOutAux amount seed =
-    let (sk, addr) = generateRedeemAddressWithKey seed
-    in (sk, makeTxOutAux amount addr)
+generateRedeemTxOutAux :: Integer -> RedeemSecretKey -> TxOutAux
+generateRedeemTxOutAux amount rsk =
+    makeTxOutAux amount (makeRedeemAddress $ redeemToPublic rsk)
+
+secretKeyToAddress :: SecretKey -> Address
+secretKeyToAddress = makePubKeyAddressBoot . toPublic
+
+makeSigner :: SecretKey -> (SafeSigner, Address)
+makeSigner sk = (fakeSigner sk, secretKeyToAddress sk)
+
+withTxFeePolicy
+  :: HasCoreConstants
+  => Coeff -> Coeff -> TxpTestProperty () -> TxpTestProperty ()
+withTxFeePolicy a b action = do
+    let policy = TxFeePolicyTxSizeLinear $ TxSizeLinear a b
+    bvd <- gsAdoptedBVData
+    withBVData bvd{ bvdTxFeePolicy = policy } action

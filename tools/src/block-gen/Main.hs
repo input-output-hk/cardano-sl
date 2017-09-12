@@ -4,6 +4,7 @@ import           Universum
 
 import           Control.Lens                (to)
 import           Control.Monad.Random.Strict (evalRandT)
+import           Data.Default                (def)
 import qualified Data.Map                    as M
 import           Formatting                  (build, sformat, (%))
 import           Mockable                    (runProduction)
@@ -17,9 +18,10 @@ import           Pos.Core                    (genesisDevSecretKeys, giveStaticCo
                                               isDevelopment, mkCoin, unsafeMulCoin)
 import           Pos.DB                      (closeNodeDBs, openNodeDBs)
 import           Pos.Generator.Block         (BlockGenParams (..), genBlocks)
-import           Pos.Genesis                 (StakeDistribution (FlatStakes),
+import           Pos.Genesis                 (BalanceDistribution (FlatBalances),
                                               devGenesisContext, genesisContextProduction,
                                               gtcUtxo, gtcWStakeholders)
+import           Pos.Launcher                (applyConfigInfo)
 import           Pos.Txp.Toil                (GenesisUtxo (..))
 import           Pos.Util.UserSecret         (peekUserSecret, usPrimKey)
 
@@ -28,7 +30,7 @@ import           Error                       (TBlockGenError (..))
 import           Options                     (BlockGenOptions (..), getBlockGenOptions)
 
 main :: IO ()
-main = flip catch catchEx $ giveStaticConsts $ do
+main = (applyConfigInfo def >>) $ flip catch catchEx $ giveStaticConsts $ do
     BlockGenOptions{..} <- getBlockGenOptions
     seed <- maybe randomIO pure bgoSeed
     let runMode = bool "PROD" "DEV" isDevelopment
@@ -43,13 +45,13 @@ main = flip catch catchEx $ giveStaticConsts $ do
             when (null bgoSecretFiles) $ throwM NoOneSecrets
             usingLoggerName "block-gen" $ mapM parseSecret bgoSecretFiles
 
-    let devStakeDistr =
+    let devBalanceDistr =
             let nodesN :: Integral n => n
                 nodesN = fromIntegral $ length $
                          allSecrets ^. asSecretKeys . to unInvSecretsMap
-            in FlatStakes nodesN $ mkCoin 10000 `unsafeMulCoin` (nodesN :: Int)
+            in FlatBalances nodesN $ mkCoin 10000 `unsafeMulCoin` (nodesN :: Int)
     let genCtx
-            | isDevelopment = devGenesisContext devStakeDistr
+            | isDevelopment = devGenesisContext devBalanceDistr
             | otherwise = genesisContextProduction
 
     let bootStakeholders = genCtx ^. gtcWStakeholders

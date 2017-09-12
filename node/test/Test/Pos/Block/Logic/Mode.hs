@@ -19,7 +19,6 @@ module Test.Pos.Block.Logic.Mode
 
        , BlockProperty
        , blockPropertyToProperty
-       , genSuitableStakeDistribution
        ) where
 
 import           Universum
@@ -46,8 +45,9 @@ import           Pos.Block.BListener            (MonadBListener (..), onApplyBlo
 import           Pos.Block.Core                 (Block, BlockHeader)
 import           Pos.Block.Slog                 (HasSlogGState (..), mkSlogGState)
 import           Pos.Block.Types                (Undo)
-import           Pos.Core                       (AddrSpendingData (..), HasCoreConstants,
-                                                 IsHeader, SlotId, StakeDistribution (..),
+import           Pos.Core                       (AddrSpendingData (..),
+                                                 BalanceDistribution (..),
+                                                 HasCoreConstants, IsHeader, SlotId,
                                                  Timestamp (..), makePubKeyAddressBoot,
                                                  mkCoin, unsafeGetCoin)
 import           Pos.Crypto                     (SecretKey, toPublic)
@@ -64,10 +64,9 @@ import           Pos.Generator.BlockEvent       (SnapshotId)
 import           Pos.Genesis                    (GenesisContext (..), GenesisUtxo (..),
                                                  GenesisWStakeholders (..),
                                                  genesisContextImplicit, gtcUtxo,
-                                                 gtcWStakeholders, safeExpStakes)
+                                                 gtcWStakeholders, safeExpBalances)
 import qualified Pos.GState                     as GS
 import           Pos.KnownPeers                 (MonadFormatPeers (..))
-import           Pos.Launcher                   (newInitFuture)
 import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
 import           Pos.Reporting                  (HasReportingContext (..),
                                                  ReportingContext, emptyReportingContext)
@@ -86,10 +85,10 @@ import           Pos.Ssc.GodTossing             (SscGodTossing)
 import           Pos.Txp                        (GenericTxpLocalData, TxpGlobalSettings,
                                                  TxpHolderTag, mkTxpLocalData, utxoF)
 import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
+import           Pos.Util                       (Some, newInitFuture, postfixLFields)
 import           Pos.Util.LoggerName            (HasLoggerName' (..),
                                                  getLoggerNameDefault,
                                                  modifyLoggerNameDefault)
-import           Pos.Util.Util                  (Some, postfixLFields)
 import           Pos.WorkMode.Class             (TxpExtra_TMP)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer                   (explorerTxpGlobalSettings)
@@ -109,18 +108,18 @@ import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, s
 -- | This data type contains all parameters which should be generated
 -- before testing starts.
 data TestParams = TestParams
-    { _tpGenesisContext     :: !GenesisContext
-    , _tpAllSecrets         :: !AllSecrets
+    { _tpGenesisContext       :: !GenesisContext
+    , _tpAllSecrets           :: !AllSecrets
     -- ^ Secret keys corresponding to 'PubKeyAddress'es from
     -- genesis 'Utxo'.
     -- They are stored in map (with 'StakeholderId' as key) to make it easy
     -- to find 'SecretKey' corresponding to given 'StakeholderId'.
     -- In tests we often want to have inverse of 'hash' and 'toPublic'.
-    , _tpStakeDistributions :: ![StakeDistribution]
-    -- ^ Stake distributions which were used to generate genesis txp data.
+    , _tpBalanceDistributions :: ![BalanceDistribution]
+    -- ^ Balance distributions which were used to generate genesis txp data.
     -- It's primarily needed to see (in logs) which distribution was used (e. g.
     -- when test fails).
-    , _tpStartTime          :: !Microsecond
+    , _tpStartTime            :: !Microsecond
     }
 
 makeClassy ''TestParams
@@ -133,12 +132,12 @@ instance Buildable TestParams where
         bprint ("TestParams {\n"%
                 "  utxo = "%utxoF%"\n"%
                 "  secrets: "%build%"\n"%
-                "  stake distributions: "%shown%"\n"%
+                "  balance distributions: "%shown%"\n"%
                 "  start time: "%shown%"\n"%
                 "}\n")
             utxo
             _tpAllSecrets
-            _tpStakeDistributions
+            _tpBalanceDistributions
             _tpStartTime
       where
         utxo = unGenesisUtxo (_tpGenesisContext ^. gtcUtxo)
@@ -147,17 +146,18 @@ instance Show TestParams where
     show = formatToString build
 
 -- More distributions can be added if we want (e. g. RichPoor).
-genSuitableStakeDistribution :: Word -> Gen StakeDistribution
-genSuitableStakeDistribution stakeholdersNum =
+genSuitableBalanceDistribution :: Word -> Gen BalanceDistribution
+genSuitableBalanceDistribution stakeholdersNum =
     oneof [ genFlat
           {-, genBitcoin-} -- is broken
-          , pure $ safeExpStakes (25::Integer) -- 25 participants should be enough
+          , pure $ safeExpBalances (25::Integer) -- 25 participants should be enough
           ]
   where
     -- We set the lower bound to 10 ADA per stakeholder to make sure that we have
     -- enough money in genesis to generate transactions with proper fees
-    totalCoins = mkCoin <$> choose (fromIntegral stakeholdersNum * 10000000, unsafeGetCoin maxBound)
-    genFlat = FlatStakes stakeholdersNum <$> totalCoins
+    totalCoins = mkCoin <$> choose ( fromIntegral stakeholdersNum * 10000000
+                                   , unsafeGetCoin maxBound)
+    genFlat = FlatBalances stakeholdersNum <$> totalCoins
 
 instance Arbitrary TestParams where
     arbitrary = do
@@ -171,13 +171,13 @@ instance Arbitrary TestParams where
         let invAddrSpendingData =
                 mkInvAddrSpendingData $
                 addresses `zip` (map PubKeyASD publicKeys)
-        stakeDistribution <-
-            genSuitableStakeDistribution (fromIntegral $ length invSecretsMap)
-        let addrDistribution = [(addresses, stakeDistribution)]
+        balanceDistribution <-
+            genSuitableBalanceDistribution (fromIntegral $ length invSecretsMap)
+        let addrDistribution = [(addresses, balanceDistribution)]
         let _tpGenesisContext =
                 genesisContextImplicit invAddrSpendingData addrDistribution
         let _tpAllSecrets = AllSecrets invSecretsMap invAddrSpendingData
-        let _tpStakeDistributions = one stakeDistribution
+        let _tpBalanceDistributions = one balanceDistribution
         let _tpStartTime = fromMicroseconds 0
         return TestParams {..}
 
@@ -248,8 +248,8 @@ initBlockTestContext
 initBlockTestContext tp@TestParams {..} callback = do
     clockVar <- Emulation ask
     dbPureVar <- newDBPureVar
-    (futureLrcCtx, putLrcCtx) <- newInitFuture
-    (futureSlottingVar, putSlottingVar) <- newInitFuture
+    (futureLrcCtx, putLrcCtx) <- newInitFuture "lrcCtx"
+    (futureSlottingVar, putSlottingVar) <- newInitFuture "slottingVar"
     systemStart <- Timestamp <$> currentTime
     let initCtx =
             TestInitModeContext

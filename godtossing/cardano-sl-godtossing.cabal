@@ -1,5 +1,5 @@
 name:                cardano-sl-godtossing
-version:             0.5.1
+version:             0.6.0
 synopsis:            Cardano SL - GodTossing implementation of SSC
 description:         Cardano SL - GodTossing implementation of SSC
 license:             MIT
@@ -76,8 +76,10 @@ library
                      , containers
                      , cryptonite
                      , data-default
+                     , directory
                      , ether
                      , file-embed
+                     , filepath
                      , formatting
                      , generic-arbitrary
                      , hashable
@@ -92,6 +94,7 @@ library
                      , serokell-util
                      , stm
                      , tagged
+                     , template-haskell
                      , text
                      , text-format
                      , time-units

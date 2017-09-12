@@ -2,26 +2,30 @@
 
 {-# LANGUAGE RankNTypes #-}
 
-module Pos.Network.Yaml (
-    Topology(..)
-  , AllStaticallyKnownPeers(..)
-  , DnsDomains(..)
-  , KademliaParams(..)
-  , KademliaId(..)
-  , KademliaAddress(..)
-  , NodeRegion(..)
-  , NodeRoutes(..)
-  , NodeMetadata(..)
-  , RunKademlia
-  , Valency
-  , Fallbacks
+module Pos.Network.Yaml
+       (
+         Topology(..)
+       , AllStaticallyKnownPeers(..)
+       , DnsDomains(..)
+       , KademliaParams(..)
+       , KademliaId(..)
+       , KademliaAddress(..)
+       , NodeRegion(..)
+       , NodeRoutes(..)
+       , NodeMetadata(..)
+       , RunKademlia
+       , Valency
+       , Fallbacks
 
-  , StaticPolicies(..)
-  , StaticEnqueuePolicy -- opaque
-  , StaticDequeuePolicy -- opaque
-  , StaticFailurePolicy -- opaque
-  , fromStaticPolicies
-  ) where
+       , StaticPolicies(..)
+       , StaticEnqueuePolicy -- opaque
+       , StaticDequeuePolicy -- opaque
+       , StaticFailurePolicy -- opaque
+       , fromStaticPolicies
+       ) where
+
+
+import           Universum
 
 import           Data.Aeson                            (FromJSON (..), ToJSON (..), (.!=),
                                                         (.:), (.:?), (.=))
@@ -34,11 +38,10 @@ import qualified Data.Map.Strict                       as M
 import qualified Network.Broadcast.OutboundQueue       as OQ
 import           Network.Broadcast.OutboundQueue.Types
 import qualified Network.DNS                           as DNS
-import           Pos.Network.Types                     (Fallbacks, NodeName (..), Valency)
-import           Pos.Util.Config
-import           Universum
 
 import           Pos.Network.DnsDomains                (DnsDomains (..), NodeAddr (..))
+import           Pos.Network.Types                     (Fallbacks, NodeName (..), Valency)
+import           Pos.Util.Config
 
 -- | Description of the network topology in a Yaml file
 --
@@ -70,10 +73,9 @@ data Topology =
   deriving (Show)
 
 -- | All statically known peers in the newtork
-data AllStaticallyKnownPeers = AllStaticallyKnownPeers {
-    allStaticallyKnownPeers :: !(Map NodeName NodeMetadata)
-  }
-  deriving (Show)
+data AllStaticallyKnownPeers = AllStaticallyKnownPeers
+    { allStaticallyKnownPeers :: !(Map NodeName NodeMetadata)
+    } deriving (Show)
 
 newtype NodeRegion = NodeRegion Text
     deriving (Show, Ord, Eq, IsString)
@@ -170,8 +172,7 @@ instance ToJSON KademliaId where
 data KademliaAddress = KademliaAddress
     { kaHost :: !String
     , kaPort :: !Word16
-    }
-    deriving (Show)
+    } deriving (Show)
 
 instance FromJSON KademliaAddress where
     parseJSON = A.withObject "KademliaAddress " $ \obj ->
@@ -183,9 +184,9 @@ instance ToJSON KademliaAddress where
         , "port" .= kaPort
         ]
 
-{-------------------------------------------------------------------------------
-  FromJSON instances
--------------------------------------------------------------------------------}
+----------------------------------------------------------------------------
+-- FromJSON instances
+----------------------------------------------------------------------------
 
 instance FromJSON NodeRegion where
   parseJSON = fmap NodeRegion . parseJSON
@@ -324,29 +325,29 @@ maybeBucketSize (Just n) = OQ.BucketSizeMax n
 instance IsConfig Topology where
   configPrefix = return Nothing
 
-{-------------------------------------------------------------------------------
-  Policies described in JSON/YAML.
--------------------------------------------------------------------------------}
+----------------------------------------------------------------------------
+-- Policies described in JSON/YAML.
+----------------------------------------------------------------------------
 
 -- | Policies described by a JSON/YAML.
-data StaticPolicies = StaticPolicies {
-      staticEnqueuePolicy :: StaticEnqueuePolicy
+data StaticPolicies = StaticPolicies
+    { staticEnqueuePolicy :: StaticEnqueuePolicy
     , staticDequeuePolicy :: StaticDequeuePolicy
     , staticFailurePolicy :: StaticFailurePolicy
     }
 
 -- | An enqueue policy which can be described by JSON/YAML.
-newtype StaticEnqueuePolicy = StaticEnqueuePolicy {
-      getStaticEnqueuePolicy :: forall nid . MsgType nid -> [OQ.Enqueue]
+newtype StaticEnqueuePolicy = StaticEnqueuePolicy
+    { getStaticEnqueuePolicy :: forall nid. MsgType nid -> [OQ.Enqueue]
     }
 
 -- | A dequeue policy which can be described by JSON/YAML.
-newtype StaticDequeuePolicy = StaticDequeuePolicy {
-      getStaticDequeuePolicy :: NodeType -> OQ.Dequeue
+newtype StaticDequeuePolicy = StaticDequeuePolicy
+    { getStaticDequeuePolicy :: NodeType -> OQ.Dequeue
     }
 
-newtype StaticFailurePolicy = StaticFailurePolicy {
-      getStaticFailurePolicy :: forall nid. NodeType -> MsgType nid -> OQ.ReconsiderAfter
+newtype StaticFailurePolicy = StaticFailurePolicy
+    { getStaticFailurePolicy :: forall nid. NodeType -> MsgType nid -> OQ.ReconsiderAfter
     }
 
 fromStaticPolicies :: StaticPolicies
@@ -354,8 +355,8 @@ fromStaticPolicies :: StaticPolicies
                       , OQ.DequeuePolicy
                       , OQ.FailurePolicy nid
                       )
-fromStaticPolicies StaticPolicies{..} = (
-      fromStaticEnqueuePolicy staticEnqueuePolicy
+fromStaticPolicies StaticPolicies {..} =
+    ( fromStaticEnqueuePolicy staticEnqueuePolicy
     , fromStaticDequeuePolicy staticDequeuePolicy
     , fromStaticFailurePolicy staticFailurePolicy
     )
@@ -373,17 +374,17 @@ fromStaticFailurePolicy p nodeType = const . getStaticFailurePolicy p nodeType
   Common patterns in the .yaml file
 -------------------------------------------------------------------------------}
 
-data SendOrForward t = SendOrForward {
-      send    :: !t
+data SendOrForward t = SendOrForward
+    { send    :: !t
     , forward :: !t
     }
 
-newtype ByMsgType t = ByMsgType {
-      byMsgType :: forall nid. MsgType nid -> t
+newtype ByMsgType t = ByMsgType
+    { byMsgType :: forall nid. MsgType nid -> t
     }
 
-newtype ByNodeType t = ByNodeType {
-      byNodeType :: NodeType -> t
+newtype ByNodeType t = ByNodeType
+    { byNodeType :: NodeType -> t
     }
 
 instance FromJSON t => FromJSON (SendOrForward t) where
@@ -418,9 +419,9 @@ instance FromJSON t => FromJSON (ByNodeType t) where
             NodeRelay -> relay
             NodeEdge  -> edge
 
-{-------------------------------------------------------------------------------
-  FromJSON instances
--------------------------------------------------------------------------------}
+----------------------------------------------------------------------------
+-- FromJSON instances
+----------------------------------------------------------------------------
 
 instance FromJSON StaticPolicies where
     parseJSON = A.withObject "StaticPolicies" $ \obj -> do
@@ -447,9 +448,9 @@ instance FromJSON StaticFailurePolicy where
         aux :: ByNodeType (ByMsgType OQ.ReconsiderAfter) -> StaticFailurePolicy
         aux f = StaticFailurePolicy (byMsgType . byNodeType f)
 
-{-------------------------------------------------------------------------------
-  Orphans
--------------------------------------------------------------------------------}
+----------------------------------------------------------------------------
+-- Orphans
+----------------------------------------------------------------------------
 
 instance FromJSON OQ.Enqueue where
     parseJSON = A.withObject "Enqueue" $ \obj -> do

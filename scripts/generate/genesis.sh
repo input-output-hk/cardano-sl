@@ -16,8 +16,9 @@ buildMode=stack
 installAsSuffix=dn
 fakeAVVMEntries=100
 richmenShare=0.94
-testnetStake=19072918462000000
+testnetStake=13887504355000000
 verboseBuild=
+seedOpt=
 parallelBuild=true
 error() { echo "ERROR: $*" >&2; exit 1;
 }
@@ -35,6 +36,7 @@ case "$1" in
         --output-dir )         outputDir="$2";       shift;;
         --no-parallel-build )  parallelBuild="";     shift;;
         --verbose-build )      verboseBuild=yes;     shift;;
+        --seed )               seedOpt="--seed $2";  shift;;
         "--"* ) error "unknown option: $1";;
         * ) break;; esac; shift; done
 
@@ -59,7 +61,7 @@ esac
 # print commit
 PAGER=cat git show HEAD --oneline --no-patch --text | tee $outputDir/genesisCreation.log
 
-keygenCmd="${keygen} generate-genesis --genesis-dir $outputDir -m $M -n $N --richmen-share ${richmenShare} --testnet-stake ${testnetStake} --utxo-file $utxo_file --blacklisted $blacklisted --fake-avvm-entries ${fakeAVVMEntries}"
+keygenCmd="${keygen} generate-genesis --genesis-dir $outputDir -m $M -n $N --richmen-share ${richmenShare} --testnet-balance ${testnetStake} --utxo-file $utxo_file --blacklisted $blacklisted --fake-avvm-entries ${fakeAVVMEntries} ${seedOpt}"
 echo "Running command: $keygenCmd"
 $keygenCmd |& tee -a $outputDir/genesisCreation.log
 

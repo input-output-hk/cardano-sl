@@ -6,8 +6,8 @@ module KeygenOptions
        , KeygenCommand (..)
        , DumpAvvmSeedsOptions (..)
        , GenesisGenOptions (..)
-       , AvvmStakeOptions (..)
-       , TestStakeOptions (..)
+       , AvvmBalanceOptions (..)
+       , TestBalanceOptions (..)
        , FakeAvvmOptions (..)
        , getKeygenOptions
        ) where
@@ -23,13 +23,15 @@ import           Serokell.Util.OptParse (fromParsec)
 import qualified Text.Parsec            as P
 import qualified Text.Parsec.Text       as P
 
-import           Pos.Client.CLI         (stakeholderIdParser)
+import           Pos.Client.CLI         (configInfoParser, stakeholderIdParser)
 import           Pos.Core               (StakeholderId)
+import           Pos.Launcher           (ConfigInfo)
 
 import           Paths_cardano_sl       (version)
 
 data KeygenOptions = KeygenOptions
-    { koCommand :: KeygenCommand
+    { koCommand    :: KeygenCommand
+    , koConfigInfo :: ConfigInfo
     } deriving (Show)
 
 data KeygenCommand
@@ -51,33 +53,36 @@ data DumpAvvmSeedsOptions = DumpAvvmSeedsOptions
 data GenesisGenOptions = GenesisGenOptions
     { ggoGenesisDir       :: FilePath
       -- ^ Output directory everything will be put into
-    , ggoTestStake        :: Maybe TestStakeOptions
-    , ggoAvvmStake        :: Maybe AvvmStakeOptions
-    , ggoFakeAvvmStake    :: Maybe FakeAvvmOptions
+    , ggoTestBalance      :: Maybe TestBalanceOptions
+    , ggoAvvmBalance      :: Maybe AvvmBalanceOptions
+    , ggoFakeAvvmBalance  :: Maybe FakeAvvmOptions
     , ggoBootStakeholders :: [(StakeholderId, Word16)]
       -- ^ Explicit bootstrap era stakeholders, list of addresses with
       -- weights (@[(A, 5), (B, 2), (C, 3)]@). Setting this
       -- overrides default settings for boot stakeholders (e.g. rich
       -- in testnet stakes).
+    , ggoSeed             :: Maybe Integer
+      -- ^ Seed to use (when no seed is provided, a secure random generator
+      -- is used)
     } deriving (Show)
 
-data TestStakeOptions = TestStakeOptions
+data TestBalanceOptions = TestBalanceOptions
     { tsoPattern      :: FilePath
     , tsoPoors        :: Word
     , tsoRichmen      :: Word
     , tsoRichmenShare :: Double
-    , tsoTotalStake   :: Word64
+    , tsoTotalBalance :: Word64
     } deriving (Show)
 
-data AvvmStakeOptions = AvvmStakeOptions
+data AvvmBalanceOptions = AvvmBalanceOptions
     { asoJsonPath      :: FilePath
     , asoHolderKeyfile :: Maybe FilePath
     , asoBlacklisted   :: Maybe FilePath
     } deriving (Show)
 
 data FakeAvvmOptions = FakeAvvmOptions
-    { faoCount    :: Word
-    , faoOneStake :: Word64
+    { faoCount      :: Word
+    , faoOneBalance :: Word64
     } deriving (Show)
 
 keygenCommandParser :: Parser KeygenCommand
@@ -137,14 +142,18 @@ genesisGenParser = do
         metavar "DIR" <>
         value   "." <>
         help    "Directory to dump genesis data into."
-    ggoTestStake <- optional testStakeParser
-    ggoAvvmStake <- optional avvmStakeParser
-    ggoFakeAvvmStake <- optional fakeAvvmParser
+    ggoTestBalance <- optional testBalanceParser
+    ggoAvvmBalance <- optional avvmBalanceParser
+    ggoFakeAvvmBalance <- optional fakeAvvmParser
     ggoBootStakeholders <- many bootStakeholderParser
+    ggoSeed <-
+        optional $ option auto $
+        long "seed" <> metavar "INTEGER" <>
+        help "Seed to use for randomness"
     pure $ GenesisGenOptions{..}
 
-testStakeParser :: Parser TestStakeOptions
-testStakeParser = do
+testBalanceParser :: Parser TestBalanceOptions
+testBalanceParser = do
     tsoPattern <- strOption $
         long    "file-pattern" <>
         short   'f' <>
@@ -165,30 +174,30 @@ testStakeParser = do
     tsoRichmenShare <- option auto $
         long    "richmen-share" <>
         metavar "FLOAT" <>
-        help    "Percent of stake dedicated to richmen (between 0 and 1)."
-    tsoTotalStake <- option auto $
-        long    "testnet-stake" <>
+        help    "Percent of balance dedicated to richmen (between 0 and 1)."
+    tsoTotalBalance <- option auto $
+        long    "testnet-balance" <>
         metavar "INT" <>
-        help    "Total coins in genesis stake, excluding RSCoin ledger."
-    pure TestStakeOptions{..}
+        help    "Total coins in genesis balance, excluding RSCoin ledger."
+    pure TestBalanceOptions{..}
 
-avvmStakeParser :: Parser AvvmStakeOptions
-avvmStakeParser = do
+avvmBalanceParser :: Parser AvvmBalanceOptions
+avvmBalanceParser = do
     asoJsonPath <- strOption $
         long    "utxo-file" <>
         metavar "FILE" <>
-        help    "JSON file with AVVM stakes data."
+        help    "JSON file with AVVM balances data."
     asoHolderKeyfile <- optional $ strOption $
         long    "fileholder" <>
         metavar "FILE" <>
-        help    "A keyfile from which to read public key of stakeholder \
-                \to which AVVM stakes are delegated."
+        help    "A keyfile from which to read public key of balanceholder \
+                \to which AVVM balances are delegated."
     asoBlacklisted <- optional $ strOption $
         long    "blacklisted" <>
         metavar "FILE" <>
         help    "Path to the file containing blacklisted addresses \
                 \(an address per line)."
-    pure AvvmStakeOptions{..}
+    pure AvvmBalanceOptions{..}
 
 fakeAvvmParser :: Parser FakeAvvmOptions
 fakeAvvmParser = do
@@ -196,11 +205,11 @@ fakeAvvmParser = do
         long    "fake-avvm-entries" <>
         metavar "INT" <>
         help    "Number of fake AVVM stakeholders."
-    faoOneStake <- option auto $
-        long    "fake-avvm-stake" <>
+    faoOneBalance <- option auto $
+        long    "fake-avvm-balance" <>
         metavar "INT" <>
         value   15000000 <>
-        help    "A stake assigned to each of fake AVVM stakeholders."
+        help    "A balance assigned to each of fake AVVM balanceholders."
     return FakeAvvmOptions{..}
 
 bootStakeholderParser :: Parser (StakeholderId, Word16)
@@ -230,9 +239,11 @@ bootStakeholderParser =
 getKeygenOptions :: IO KeygenOptions
 getKeygenOptions = execParser programInfo
   where
-    programInfo = info (helper <*> versionOption <*> (KeygenOptions <$> keygenCommandParser)) $
+    programInfo = info (helper <*> versionOption <*> koParser) $
         fullDesc <> header "Tool to generate keyfiles-related data"
 
     versionOption = infoOption
         ("cardano-keygen-" <> showVersion version)
         (long "version" <> help "Show version.")
+
+    koParser = KeygenOptions <$> keygenCommandParser <*> configInfoParser

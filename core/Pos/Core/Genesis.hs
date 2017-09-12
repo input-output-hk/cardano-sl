@@ -1,4 +1,3 @@
-
 module Pos.Core.Genesis
        (
        -- * Constants/devmode
@@ -10,7 +9,7 @@ module Pos.Core.Genesis
 
        -- * /genesis-core.bin/
        , module Pos.Core.Genesis.Types
-       , compileGenCoreData
+       , module Pos.Core.Genesis.Parser
 
        -- ** Derived data
        , genesisProdAddresses
@@ -31,18 +30,14 @@ import           Formatting              (int, sformat, (%))
 import           Pos.Binary.Crypto       ()
 import           Pos.Core.Coin           (unsafeMulCoin)
 import           Pos.Core.Constants      (genesisKeysN)
-import           Pos.Core.Genesis.Parser (compileGenCoreData)
-import           Pos.Core.Genesis.Types  (AddrDistribution, GenesisCoreData (..),
-                                          GenesisDelegation (..),
-                                          GenesisWStakeholders (..),
-                                          StakeDistribution (..), bootDustThreshold,
-                                          getTotalStake, mkGenesisCoreData,
-                                          mkGenesisDelegation, noGenesisDelegation,
-                                          safeExpStakes)
 import           Pos.Core.Types          (Address, mkCoin)
 import           Pos.Crypto.SafeSigning  (EncryptedSecretKey, emptyPassphrase,
                                           safeDeterministicKeyGen)
 import           Pos.Crypto.Signing      (PublicKey, SecretKey, deterministicKeyGen)
+
+-- reexports
+import           Pos.Core.Genesis.Parser
+import           Pos.Core.Genesis.Types
 
 ----------------------------------------------------------------------------
 -- Constants/development
@@ -66,9 +61,9 @@ genesisDevHdwSecretKeys =
     map generateHdwGenesisSecretKey [0 .. genesisKeysN - 1]
 
 -- | Default flat stakes distributed among 'genesisKeysN' (from constants).
-genesisDevFlatDistr :: StakeDistribution
+genesisDevFlatDistr :: BalanceDistribution
 genesisDevFlatDistr =
-    FlatStakes genesisKeysN $
+    FlatBalances genesisKeysN $
     mkCoin 10000 `unsafeMulCoin` (genesisKeysN :: Int)
 
 ----------------------------------------------------------------------------
@@ -78,20 +73,19 @@ genesisDevFlatDistr =
 -- | List of addresses in genesis binary file.
 genesisProdAddresses :: [Address]
 genesisProdAddresses =
-    concatMap (toList . fst) $ gcdAddrDistribution compileGenCoreData
+    concatMap (toList . fst) $ gcdAddrDistribution genCoreData
 
 -- | Address and distribution set for production mode.
 genesisProdAddrDistribution :: [AddrDistribution]
-genesisProdAddrDistribution = gcdAddrDistribution compileGenCoreData
+genesisProdAddrDistribution = gcdAddrDistribution genCoreData
 
 -- | Bootstrap era stakeholders for production mode.
 genesisProdBootStakeholders :: GenesisWStakeholders
-genesisProdBootStakeholders =
-    gcdBootstrapStakeholders compileGenCoreData
+genesisProdBootStakeholders = gcdBootstrapStakeholders genCoreData
 
 -- | 'GenesisDelegation' for production mode.
 genesisProdDelegation :: GenesisDelegation
-genesisProdDelegation = gcdHeavyDelegation compileGenCoreData
+genesisProdDelegation = gcdHeavyDelegation genCoreData
 
 ----------------------------------------------------------------------------
 -- Utils

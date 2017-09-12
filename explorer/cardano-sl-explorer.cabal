@@ -1,5 +1,5 @@
 name:                cardano-sl-explorer
-version:             0.2.0
+version:             0.6.0
 synopsis:            Cardano explorer
 description:         Please see README.md
 license:             MIT
@@ -233,6 +233,7 @@ executable cardano-explorer-swagger
                      , servant-swagger-ui
                      , text
                      , universum >= 0.1.11
+                     , optparse-applicative
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -260,7 +261,7 @@ executable cardano-explorer-mock
                      , cardano-sl
                      , cardano-sl-explorer
                      , universum
-                     , optparse-simple
+                     , optparse-applicative
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall

@@ -21,8 +21,11 @@ module Pos.Core.Genesis.Types
        , TestnetDistribution (..)
        , GenesisInitializer (..)
        , GenesisAvvmBalances (..)
+       , AvvmData (..)
+       , AvvmEntry (..)
        , ProtocolConstants (..)
        , GenesisSpec (..)
+       , convertAvvmDataToBalances
        , mkGenesisSpec
 
        -- * GenesisData
@@ -39,8 +42,8 @@ import           Formatting           (bprint, (%))
 import           Serokell.Util        (allDistinct, mapJson)
 
 import           Pos.Core.Address     (addressHash, isBootstrapEraDistrAddress)
-import           Pos.Core.Coin        (coinToInteger, sumCoins, unsafeGetCoin,
-                                       unsafeIntegerToCoin)
+import           Pos.Core.Coin        (coinToInteger, sumCoins, unsafeAddCoin,
+                                       unsafeGetCoin, unsafeIntegerToCoin)
 import           Pos.Core.Types       (Address, BlockVersionData, Coin, ProxySKHeavy,
                                        SharedSeed, StakeholderId, Timestamp, mkCoin)
 import           Pos.Core.Vss         (VssCertificatesMap)
@@ -259,10 +262,36 @@ data GenesisInitializer
     , miVssCerts         :: !VssCertificatesMap
     } deriving (Show)
 
+data AvvmEntry = AvvmEntry
+    { aeCoin      :: !Integer         -- in lovelaces
+    , aePublicKey :: !RedeemPublicKey -- in base64(u), yep
+    } deriving (Show, Generic, Eq)
+
+-- | AvvmData raw format of AVVM stored in a json file.
+-- We parse AvvmData from a JSON and transform it to GenesisAvvmBalances.
+data AvvmData = AvvmData
+    { getAvvmData :: [AvvmEntry]
+    } deriving (Show, Generic)
+
 -- | Predefined balances of avvm entries.
 newtype GenesisAvvmBalances = GenesisAvvmBalances
     { getGenesisAvvmBalances :: HashMap RedeemPublicKey Coin
     } deriving (Show)
+
+-- | Generate genesis address distribution out of avvm
+-- parameters. Txdistr of the utxo is all empty. Redelegate it in
+-- calling funciton.
+convertAvvmDataToBalances
+    :: AvvmData
+    -> GenesisAvvmBalances
+convertAvvmDataToBalances (getAvvmData -> avvmData) = GenesisAvvmBalances balances
+  where
+    balances :: HashMap RedeemPublicKey Coin
+    balances =
+        HM.fromListWith unsafeAddCoin $ do
+            AvvmEntry {..} <- avvmData
+            let adaCoin = unsafeIntegerToCoin aeCoin
+            return (aePublicKey, adaCoin)
 
 -- | 'ProtocolConstants' are not really part of genesis global state,
 -- but they affect consensus, so they are part of 'GenesisSpec' and

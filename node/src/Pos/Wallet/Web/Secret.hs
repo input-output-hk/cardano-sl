@@ -6,6 +6,8 @@ module Pos.Wallet.Web.Secret
     , wusWalletName
     , wusAccounts
     , wusAddrs
+    , accountGenesisIndex
+    , wAddressGenesisIndex
 
     , mkGenesisWalletUserSecret
     ) where
@@ -18,8 +20,16 @@ import           Formatting          (Format, bprint, build, later, (%))
 
 import           Pos.Binary.Class    (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Core            (addressF, makeRootPubKeyAddress)
-import           Pos.Crypto          (EncryptedSecretKey, encToPublic)
-import           Pos.Genesis         (accountGenesisIndex, wAddressGenesisIndex)
+import           Pos.Crypto          (EncryptedSecretKey, encToPublic, firstHardened)
+
+-- | First index in derivation path for HD account, which is put to genesis utxo
+accountGenesisIndex :: Word32
+accountGenesisIndex = firstHardened
+
+-- | Second index in derivation path for HD account, which is put to genesis
+-- utxo
+wAddressGenesisIndex :: Word32
+wAddressGenesisIndex = firstHardened
 
 --- | Describes HD wallets keyfile content
 data WalletUserSecret = WalletUserSecret

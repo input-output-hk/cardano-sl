@@ -209,7 +209,7 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) 
 ----------------------------------------------------------------------------
 -- These operation aren't atomic and don't take the block lock.
 
--- BE CAREFUL! This function iterates over blockchain, the blockcahin can be large.
+-- BE CAREFUL! This function iterates over blockchain, the blockchain can be large.
 syncWalletWithGStateUnsafe
     :: forall ssc ctx m .
     ( WebWalletModeDB ctx m
@@ -292,6 +292,8 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
     startFromH <- maybe firstGenesisHeader pure wTipHeader
     mapModifier@CAccModifier{..} <- computeAccModifier startFromH
     applyModifierToWallet wAddr gstateHHash mapModifier
+    -- Mark the wallet as ready, so it will be available from api endpoints.
+    WS.setWalletReady wAddr True
     logInfo $ sformat ("Wallet "%build%" has been synced with tip "
                     %shortHashF%", "%build)
                 wAddr (maybe genesisHash headerHash wTipHeader) mapModifier

@@ -300,7 +300,8 @@ test-suite cardano-explorer-test
   other-modules:
                        -- Standard module with some magic
                        Spec
-
+                       -- Arbitrary instances
+                       Test.Pos.Arbitrary.Explorer
                        -- Tests
                        Test.Pos.Explorer.Socket.AppSpec
                        Test.Pos.Explorer.Socket.MethodsSpec

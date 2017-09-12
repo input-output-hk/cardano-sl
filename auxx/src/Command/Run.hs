@@ -31,6 +31,7 @@ import           Pos.Genesis            (genesisDevSecretKeys)
 import           Pos.Util.UserSecret    (readUserSecret, usKeys)
 import           Pos.Wallet             (addSecretKey, getBalance, getSecretKeys)
 
+import qualified Command.Rollback       as Rollback
 import qualified Command.Tx             as Tx
 import           Command.Types          (Command (..))
 import qualified Command.Update         as Update
@@ -67,6 +68,12 @@ Avaliable commands:
                                   -- print the address for pk <N> (encoded in base58) with the specified distribution,
                                   -- where <M> is stakeholder id (pk hash), and the coin portion can be a coefficient
                                   -- in [0..1] or a percentage (ex. 42%)
+
+   rollback <N> <file>            -- Rollback <N> blocks (genesis or main doesn't matter) and dump transactions from
+                                  -- them to <file> in binary format.
+
+   send-from-file <file>          -- Read transactions in binary format from <file> and submit them to the network.
+                                  -- <file> should be in format produced by 'rollback' command.
 
    help                           -- show this message
    quit                           -- shutdown node wallet
@@ -135,4 +142,8 @@ runCmd _ (AddrDistr pk asd) = do
     putText $ pretty addr
   where
     addr = makeAddress (PubKeyASD pk) (AddrAttributes Nothing asd)
+runCmd _ (Rollback rollbackNum rollbackDumpPath) =
+    Rollback.rollbackAndDump rollbackNum rollbackDumpPath
+runCmd sendActions (SendTxsFromFile filePath) =
+    Tx.sendTxsFromFile sendActions filePath
 runCmd _ Quit = pure ()

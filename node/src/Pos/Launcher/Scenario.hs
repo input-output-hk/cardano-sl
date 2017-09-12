@@ -38,7 +38,7 @@ import           Pos.Shutdown          (waitForShutdown)
 import           Pos.Slotting          (waitSystemStart)
 import           Pos.Ssc.Class         (SscConstraint)
 import           Pos.Util              (inAssertMode)
-import           Pos.Util.Config       (configName)
+import           Pos.Util.Config       (cslConfigName)
 import           Pos.Util.LogSafe      (logInfoS)
 import           Pos.Worker            (allWorkers)
 import           Pos.WorkMode.Class    (WorkMode)
@@ -64,7 +64,8 @@ runNode'
     -> WorkerSpec m
 runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> do
 
-    logInfo $ "cardano-sl: commit " <> gitRev <> ", configName: " <> configName
+    logInfo $ "cardano-sl: commit " <> gitRev <>
+                        ", cslConfigName: " <> cslConfigName
     nodeStartMsg
     inAssertMode $ logInfo "Assert mode on"
     pk <- getOurPublicKey

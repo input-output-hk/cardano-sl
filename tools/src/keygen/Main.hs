@@ -30,6 +30,7 @@ import           Pos.Genesis           (AddrDistribution, BalanceDistribution (.
                                         GenesisCoreData (..), GenesisGtData (..),
                                         genesisDevHdwSecretKeys, genesisDevSecretKeys,
                                         mkGenesisCoreData, noGenesisDelegation)
+import           Pos.Launcher          (applyConfigInfo)
 import           Pos.Util.UserSecret   (readUserSecret, usKeys, usPrimKey, usVss,
                                         usWalletSet)
 import           Pos.Util.Util         (leftToPanic)
@@ -299,6 +300,7 @@ genGenesisFiles GenesisGenOptions{..} = do
 main :: IO ()
 main = do
     KeygenOptions{..} <- getKeygenOptions
+    applyConfigInfo koConfigInfo
     setupLogging $ consoleOutB & lcTermSeverity ?~ Debug
     usingLoggerName "keygen" $ do
         logInfo "Processing command"

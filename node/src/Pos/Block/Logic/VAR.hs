@@ -217,7 +217,7 @@ applyBlocks calculateLrc pModifier blunds = do
 
 -- | Rollbacks blocks. Head must be the current tip.
 rollbackBlocks
-    :: (BlockLrcMode ssc ctx m)
+    :: (MonadBlockApply ssc ctx m)
     => NewestFirst NE (Blund ssc) -> m ()
 rollbackBlocks blunds = do
     tip <- GS.getTip

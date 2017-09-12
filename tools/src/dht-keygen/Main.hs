@@ -9,10 +9,10 @@ import           Network.Kademlia.HashNodeId (HashId (..), Nonce (..), genNonce,
 import           Options.Applicative         (Parser, execParser, fullDesc, header, help,
                                               helper, info, infoOption, long, metavar,
                                               progDesc, short, strOption)
-import           Paths_cardano_sl            (version)
 import           Serokell.Util.Base64        (encodeUrl)
 import           Universum
 
+import           Paths_cardano_sl            (version)
 import           Pos.Crypto                  (runSecureRandom)
 
 nonceLen :: Int

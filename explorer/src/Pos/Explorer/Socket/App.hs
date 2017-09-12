@@ -9,6 +9,7 @@
 module Pos.Explorer.Socket.App
        ( NotifierSettings (..)
        , notifierApp
+       , toConfig
        ) where
 
 import           Universum                      hiding (on)

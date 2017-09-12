@@ -14,6 +14,19 @@ module Pos.Core.Genesis.Types
        , GenesisCoreData (..)
        , bootDustThreshold
        , mkGenesisCoreData
+
+         -- * GenesisSpec
+       , TestnetBalanceOptions (..)
+       , FakeAvvmOptions (..)
+       , TestnetDistribution (..)
+       , GenesisInitializer (..)
+       , GenesisAvvmBalances (..)
+       , ProtocolConstants (..)
+       , GenesisSpec (..)
+       , mkGenesisSpec
+
+       -- * GenesisData
+       , GenesisData (..)
        ) where
 
 import           Universum
@@ -28,8 +41,11 @@ import           Serokell.Util        (allDistinct, mapJson)
 import           Pos.Core.Address     (addressHash, isBootstrapEraDistrAddress)
 import           Pos.Core.Coin        (coinToInteger, sumCoins, unsafeGetCoin,
                                        unsafeIntegerToCoin)
-import           Pos.Core.Types       (Address, Coin, ProxySKHeavy, StakeholderId, mkCoin)
-import           Pos.Crypto           (ProxySecretKey (..), isSelfSignedPsk)
+import           Pos.Core.Types       (Address, BlockVersionData, Coin, ProxySKHeavy,
+                                       SharedSeed, StakeholderId, Timestamp, mkCoin)
+import           Pos.Core.Vss         (VssCertificatesMap)
+import           Pos.Crypto           (ProxySecretKey (..), RedeemPublicKey,
+                                       isSelfSignedPsk)
 
 -- | Balances distribution in genesis block.
 data BalanceDistribution
@@ -189,3 +205,128 @@ mkGenesisCoreData distribution bootStakeholders delega = do
         , gcdBootstrapStakeholders = GenesisWStakeholders bootStakeholders
         , gcdHeavyDelegation = delega
         }
+
+----------------------------------------------------------------------------
+-- Genesis Spec
+----------------------------------------------------------------------------
+
+-- | These options determine balances of nodes specific for testnet.
+data TestnetBalanceOptions = TestnetBalanceOptions
+    { tboPoors        :: !Word
+    -- ^ Number of poor nodes (with small balance).
+    , tboRichmen      :: !Word
+    -- ^ Number of rich nodes (with huge balance).
+    , tboRichmenShare :: !Double
+    -- ^ Portion of stake owned by all richmen together.
+    , tboTotalBalance :: !Word64
+    -- ^ Total balance owned by these nodes.
+    } deriving (Show)
+
+-- | These options determines balances of fake AVVM nodes which didn't
+-- really go through vending, but pretend they did.
+data FakeAvvmOptions = FakeAvvmOptions
+    { faoCount      :: !Word
+    , faoOneBalance :: !Word64
+    } deriving (Show)
+
+-- | This data type determines how to generate bootstrap stakeholders
+-- in testnet.
+data TestnetDistribution
+    = TestnetRichmenStakeDistr
+    -- ^ Rich nodes will be bootstrap stakeholders with equal weights.
+    | TestnetCustomStakeDistr
+    { tcsdBootStakeholders :: !GenesisWStakeholders
+    -- ^ Bootstrap stakeholders and their weights are provided explicitly.
+    , tcsdVssCerts         :: !VssCertificatesMap
+    -- ^ Vss certificates are provided explicitly too, because they
+    -- can't be generated automatically in this case.
+    } deriving (Show)
+
+-- | This data type contains various options presense of which depends
+-- on whether we want genesis for mainnet or testnet.
+data GenesisInitializer
+    = TestnetInitializer {
+      tiTestBalance     :: !TestnetBalanceOptions
+    , tiFakeAvvmBalance :: !FakeAvvmOptions
+    , tiDistribution    :: !TestnetDistribution
+    , tiSeed            :: !Integer
+      -- ^ Seed to use to generate secret data. It's used only in
+      -- testnet, shouldn't be used for anything important.
+    }
+    | MainnetInitializer {
+      miStartTime        :: !Timestamp
+    , miBootStakeholders :: !GenesisWStakeholders
+    , msVssCerts         :: !VssCertificatesMap
+    } deriving (Show)
+
+-- | Predefined balances of avvm entries.
+newtype GenesisAvvmBalances = GenesisAvvmBalances
+    { getGenesisAvvmBalances :: HashMap RedeemPublicKey Coin
+    } deriving (Show)
+
+-- | 'ProtocolConstants' are not really part of genesis global state,
+-- but they affect consensus, so they are part of 'GenesisSpec' and
+-- 'GenesisData'.
+data ProtocolConstants = ProtocolConstants
+    { -- | Security parameter from the paper.
+      pcK             :: !Int
+      -- | Magic constant for separating real/testnet.
+    , pcProtocolMagic :: !Int32
+      -- | VSS certificates max timeout to live (number of epochs).
+    , pcVssMaxTTL     :: !Word32
+      -- | VSS certificates min timeout to live (number of epochs).
+    , pcVssMinTTL     :: !Word32
+    } deriving (Show, Generic)
+
+-- | Specification how to generate full genesis data.
+data GenesisSpec = UnsafeGenesisSpec
+    { gsAvvmDistr         :: !GenesisAvvmBalances
+    -- ^ Genesis data describes avvm utxo.
+    , gsFtsSeed           :: !SharedSeed
+    -- ^ Seed for FTS for 0-th epoch.
+    , gsHeavyDelegation   :: !GenesisDelegation
+    -- ^ Genesis state of heavyweight delegation.
+    , gsBlockVersionData  :: !BlockVersionData
+    -- ^ Genesis 'BlockVersionData'.
+    , gsProtocolConstants :: !ProtocolConstants
+    -- ^ Other constants which affect consensus.
+    , gsInitializer       :: !GenesisInitializer
+    -- ^ Other data which depend on genesis type.
+    } deriving (Show, Generic)
+
+-- | Safe constructor for 'GenesisSpec'. Throws error if something
+-- goes wrong.
+mkGenesisSpec
+    :: GenesisAvvmBalances
+    -> SharedSeed
+    -> GenesisDelegation
+    -> BlockVersionData
+    -> ProtocolConstants
+    -> GenesisInitializer
+    -> Either String GenesisSpec
+mkGenesisSpec avvmDistr seed delega bvd pc specType = do
+    let avvmKeys = HM.keys $ getGenesisAvvmBalances avvmDistr
+    unless (allDistinct avvmKeys) $
+        throwError $ "mkGenesisSpec: there are duplicates in avvm balances"
+
+    -- All checks passed
+    pure $ UnsafeGenesisSpec avvmDistr seed delega bvd pc specType
+
+----------------------------------------------------------------------------
+-- GenesisData
+----------------------------------------------------------------------------
+
+-- | Genesis data contains all data which determines consensus
+-- rules. It must be same for all nodes. It's used to initialize
+-- global state, slotting, etc.
+data GenesisData = GenesisData
+    { gdBootStakeholders :: !GenesisWStakeholders
+    , gdHeavyDelegation  :: !GenesisDelegation
+    , gdStartTime        :: !Timestamp
+    , gdVssCerts         :: !VssCertificatesMap
+    , gdNonAvvmBalances  :: !(HashMap Address Coin)
+    , gdBlockVersionData :: !BlockVersionData
+    , gdProtocolConsts   :: !ProtocolConstants
+    , gdAvvmDistr        :: !GenesisAvvmBalances
+    , gdFtsSeed          :: !SharedSeed
+    }

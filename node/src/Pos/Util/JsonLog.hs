@@ -22,15 +22,16 @@ module Pos.Util.JsonLog
 import           Universum
 
 import           Control.Monad.Except          (MonadError)
+import           Control.Monad.Trans.Identity  (IdentityT (..))
 import           Data.Aeson                    (encode)
 import           Data.Aeson.TH                 (deriveJSON)
 import           Data.Aeson.Types              (ToJSON)
 import qualified Data.ByteString.Lazy          as LBS
-import           Ether                         (TaggedTrans (..), IdentityT)
+import qualified Ether
 import           Formatting                    (sformat)
+import           JsonLog.CanJsonLog            (CanJsonLog)
 import           JsonLog.JsonLogT              (JsonLogConfig (..))
 import qualified JsonLog.JsonLogT              as JL
-import           JsonLog.CanJsonLog            (CanJsonLog)
 import           Mockable                      (Catch, Mockable, realTime)
 import           Serokell.Aeson.Options        (defaultOptions)
 import           System.Wlog                   (WithLogger)
@@ -41,8 +42,8 @@ import           Pos.Block.Core                (BiSsc, Block, mainBlockTxPayload
 import           Pos.Block.Core.Genesis.Lens   (genBlockEpoch)
 import           Pos.Block.Core.Main.Lens      (mainBlockSlot)
 import           Pos.Communication.Relay.Logic (InvReqDataFlowLog)
-import           Pos.Core                      (HasCoreConstants, SlotId (..), gbHeader, gbhPrevBlock,
-                                                getSlotIndex, headerHash,
+import           Pos.Core                      (HasCoreConstants, SlotId (..), gbHeader,
+                                                gbhPrevBlock, getSlotIndex, headerHash,
                                                 mkLocalSlotIndex)
 import           Pos.Crypto                    (hash, hashHexF)
 import           Pos.Ssc.Class.Helpers         (SscHelpersClass)
@@ -176,7 +177,8 @@ jsonLogDefault x = do
     jlc <- view jsonLogConfig
     JL.jsonLogDefault jlc x
 
-deriving instance CanJsonLog (t m) => CanJsonLog (TaggedTrans tag t m)
+deriving instance CanJsonLog (t m) => CanJsonLog (Ether.TaggedTrans tag t m)
 
--- Required for @Explorer@ @BListener@ redirect
-deriving instance CanJsonLog m => CanJsonLog (TaggedTrans tag IdentityT m)
+-- Required for @Explorer@ @BListener@ and @ExtraContext@ redirect
+deriving instance CanJsonLog m => CanJsonLog (Ether.TaggedTrans tag IdentityT m)
+deriving instance CanJsonLog m => CanJsonLog (Ether.ReaderT tag r m)

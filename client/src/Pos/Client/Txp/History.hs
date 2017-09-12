@@ -33,6 +33,7 @@ import           Control.Monad.Trans (MonadTrans)
 import qualified Data.Map.Strict as M (fromList, insert)
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
+import           JsonLog (CanJsonLog (..))
 import           Mockable (CurrentTime, Mockable)
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (WithLogger)
@@ -51,12 +52,10 @@ import           Pos.Network.Types (HasNodeType)
 import           Pos.Reporting (HasReportingContext)
 import           Pos.Slotting (MonadSlots, getSlotStartPure, getSystemStartM)
 import           Pos.StateLock (StateLock, StateLockMetrics)
-import           Pos.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, ToilVerFailure, Tx (..),
-                          TxAux (..), TxId, TxOut, TxOutAux (..), TxWitness, TxpError (..),
-                          UtxoLookup, UtxoM, UtxoModifier, applyTxToUtxo, buildUtxo, evalUtxoM,
-                          flattenTxPayload, genesisUtxo, getLocalTxs, runUtxoM, topsortTxs,
-                          txOutAddress, txpProcessTx, unGenesisUtxo, utxoGet, utxoToLookup,
-                          withTxpLocalData)
+import           Pos.Txp (MempoolExt, MemPoolModifyReason, MonadTxpLocal, MonadTxpMem, MonadUtxo, MonadUtxoRead, ToilT,
+                          Tx (..), TxAux (..), TxId, TxOut, TxOutAux (..), TxWitness, TxpError (..),
+                          applyTxToUtxo, evalToilTEmpty, flattenTxPayload, genesisUtxo, getLocalTxs,
+                          runDBToil, topsortTxs, txOutAddress, txpProcessTx, unGenesisUtxo, utxoGet)
 import           Pos.Util (eitherToThrow, maybeThrow)
 import           Pos.Util.Util (HasLens')
 
@@ -190,11 +189,12 @@ type TxHistoryEnv ctx m =
     , MonadReader ctx m
     , MonadTxpMem (MempoolExt m) ctx m
     , HasLens' ctx StateLock
-    , HasLens' ctx StateLockMetrics
+    , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
     , HasReportingContext ctx
     , Mockable CurrentTime m
     , MonadFormatPeers m
     , HasNodeType ctx
+    , CanJsonLog m
     )
 
 getBlockHistoryDefault

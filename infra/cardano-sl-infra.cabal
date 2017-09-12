@@ -118,6 +118,7 @@ library
                         Pos.Binary.Infra.Relay
 
                         -- Pos.Util
+                        Pos.Util.JsonLog.Events
                         Pos.Util.LogSafe
                         Pos.Util.Monitor
                         Pos.Util.TimeLimit

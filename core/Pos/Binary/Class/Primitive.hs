@@ -260,7 +260,8 @@ decodeCrcProtected = do
     enforceSize ("decodeCrcProtected: " <> show (typeOf (Proxy @a))) 2
     body <- decodeUnknownCborDataItem
     expectedCrc  <- decode
-    let actualCrc = crc32 body
+    let actualCrc :: Word32
+        actualCrc = crc32 body
     let crcErrorFmt = "decodeCrcProtected, expected CRC " % shown % " was not the computed one, which was " % shown
     when (actualCrc /= expectedCrc) $ fail (formatToString crcErrorFmt expectedCrc actualCrc)
     case decodeFull body of

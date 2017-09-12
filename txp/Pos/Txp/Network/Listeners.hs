@@ -27,6 +27,7 @@ import           Pos.Crypto (hash)
 import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem, getMemPool, txpProcessTx)
 import           Pos.Txp.Network.Types (TxMsgContents (..))
 import           Pos.Txp.Toil.Types (MemPool (..))
+import           Pos.Util.JsonLog.Events (JLTxR (..))
 
 txInvReqDataParams
     :: TxpMode ctx m
@@ -105,13 +106,3 @@ type TxpMode ctx m =
          ]
     , MessageLimited (Relay.DataMsg TxMsgContents) m
     )
-
-----------------------------------------------------------------------------
--- Logging
-----------------------------------------------------------------------------
-
--- | Json log of one transaction being received by a node.
-data JLTxR = JLTxR
-    { jlrTxId  :: Text
-    , jlrError :: Maybe Text
-    } deriving Show

@@ -41,6 +41,7 @@ import qualified Data.Map.Strict as M (fromList, insert, lookup)
 import qualified Data.Text.Buildable
 import qualified Ether
 import           Formatting (bprint, build, (%))
+import           JsonLog (CanJsonLog (..))
 import           Mockable (CurrentTime, Mockable)
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (WithLogger)
@@ -58,7 +59,7 @@ import           Pos.Network.Types (HasNodeType)
 import           Pos.Reporting (HasReportingContext)
 import           Pos.Slotting (MonadSlots, getSlotStartPure, getSystemStartM)
 import           Pos.StateLock (StateLock, StateLockMetrics)
-import           Pos.Txp (MempoolExt, MonadTxpLocal, MonadTxpMem, MonadUtxo, MonadUtxoRead, ToilT,
+import           Pos.Txp (MempoolExt, MemPoolModifyReason, MonadTxpLocal, MonadTxpMem, MonadUtxo, MonadUtxoRead, ToilT,
                           Tx (..), TxAux (..), TxId, TxOut, TxOutAux (..), TxWitness, TxpError (..),
                           applyTxToUtxo, evalToilTEmpty, flattenTxPayload, genesisUtxo, getLocalTxs,
                           runDBToil, topsortTxs, txOutAddress, txpProcessTx, unGenesisUtxo, utxoGet)
@@ -219,12 +220,13 @@ type TxHistoryEnv ctx m =
     , MonadReader ctx m
     , MonadTxpMem (MempoolExt m) ctx m
     , HasLens' ctx StateLock
-    , HasLens' ctx StateLockMetrics
+    , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
     , HasReportingContext ctx
     , MonadBaseControl IO m
     , Mockable CurrentTime m
     , MonadFormatPeers m
     , HasNodeType ctx
+    , CanJsonLog m
     )
 
 type GenesisHistoryFetcher m = ToilT () (GenesisToil m)

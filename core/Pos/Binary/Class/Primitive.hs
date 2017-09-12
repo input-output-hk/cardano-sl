@@ -50,7 +50,7 @@ import qualified Data.Serialize                as Cereal (Get, Put)
 import           Data.Typeable                 (typeOf)
 
 import           Data.Digest.CRC32             (CRC32 (..))
-import           Formatting                    (format, shown, (%))
+import           Formatting                    (formatToString, shown, (%))
 import           Pos.Binary.Class.Core         (Bi (..), enforceSize)
 import           Serokell.Data.Memory.Units    (Byte)
 import           Universum
@@ -261,10 +261,8 @@ decodeCrcProtected = do
     body <- decodeUnknownCborDataItem
     expectedCrc  <- decode
     let actualCrc = crc32 body
-    let crcError = format ("decodeCrcProtected, expected CRC " % shown % " was not the computed one, which was " % shown)
-                          expectedCrc
-                          actualCrc
-    when (actualCrc /= expectedCrc) $ fail (toString crcError)
+    let crcErrorFmt = "decodeCrcProtected, expected CRC " % shown % " was not the computed one, which was " % shown
+    when (actualCrc /= expectedCrc) $ fail (formatToString crcErrorFmt expectedCrc actualCrc)
     case decodeFull body of
       Left e  -> fail (toString e)
       Right x -> pure x

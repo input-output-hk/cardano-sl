@@ -68,7 +68,7 @@ import           Pos.Explorer.Web.Server        (ExplorerMode, getMempoolTxs)
 
 data NotifierSettings = NotifierSettings
     { nsPort :: Word16
-    }
+    } deriving (Show)
 
 -- TODO(ks): Add logging, currently it's missing.
 toConfig :: NotifierSettings -> LoggerName -> Settings

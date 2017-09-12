@@ -60,6 +60,8 @@ data Command
     | AddKeyFromPool !Int
     | AddKeyFromFile !FilePath
     | AddrDistr !PublicKey !AddrStakeDistribution
+    | Rollback !Word !FilePath
+    | SendTxsFromFile !FilePath
     | Quit
     deriving Show
 

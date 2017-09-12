@@ -41,7 +41,7 @@ fi
 # The stake distribution.
 # Use "flat" for flat_distr. Anything else will use rich_poor_distr
 stake_distr_param=$3
-flat_distr=" --flat-distr \"($n, 100000)\" "
+flat_distr=" --flat-distr \"($n, 100000000)\" " # 100 ADA
 rich_poor_distr=" --rich-poor-distr \"($RICH_NODES,50000,6000000000,0.99)\" "
 
 # Stats are not mandatory either

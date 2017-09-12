@@ -28,8 +28,7 @@ import           Pos.Crypto                 (EncryptedSecretKey (..), VssKeyPair
 import           Pos.Crypto.Signing         (SecretKey (..), toPublic)
 import           Pos.Genesis                (AddrDistribution, GenesisSpec (..),
                                              genesisDevHdwSecretKeys,
-                                             genesisDevSecretKeys, mkGenesisCoreData,
-                                             noGenesisDelegation)
+                                             genesisDevSecretKeys, noGenesisDelegation)
 import           Pos.Testnet                (genFakeAvvmGenesis, genTestnetData,
                                              generateFakeAvvm, generateKeyfile)
 import           Pos.Util.UserSecret        (readUserSecret, usKeys, usPrimKey, usVss,

@@ -15,6 +15,7 @@ module Pos.Core.Genesis.Types
        , TestnetDistribution (..)
        , GenesisInitializer (..)
        , GenesisSpec (..)
+       , GenesisData (..)
        , TestBalanceOptions (..)
        , FakeAvvmOptions (..)
        , bootDustThreshold
@@ -178,7 +179,7 @@ data GenesisInitializer
     | MainnetInitializer {
       miStartTime        :: !Timestamp
     , miBootStakeholders :: !GenesisWStakeholders
-    , msVssCerts         :: !VssCertificatesMap
+    , miVssCerts         :: !VssCertificatesMap
     } deriving (Show)
 
 -- | Predefined balances of avvm entries.
@@ -230,6 +231,7 @@ data ProtocolConstants = ProtocolConstants
       -- | VSS certificates min timeout to live (number of epochs)
     , pcVssMinTTL     :: !Word64
     }
+
 data GenesisData = GenesisData
     { gdBootStakeholders :: !GenesisWStakeholders
     , gdHeavyDelegation  :: !GenesisDelegation

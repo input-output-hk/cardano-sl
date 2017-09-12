@@ -6,45 +6,64 @@ module Pos.Testnet
 
        , generateKeyfile
        , generateFakeAvvm
+       , genTestnetOrMainnetData
        ) where
 
 import           Universum
 
-import           Control.Lens          ((?~))
-import           Crypto.Random         (getRandomBytes)
-import qualified Data.HashMap.Strict   as HM
-import qualified Data.Map.Strict       as Map
-import qualified Data.Text             as T
-import           Formatting            (build, sformat, shown, (%))
-import qualified Serokell.Util.Base64  as B64
-import           Serokell.Util.Text    (listJson)
-import           Serokell.Util.Verify  (VerificationRes (..), formatAllErrors,
-                                        verifyGeneric)
-import           System.Directory      (createDirectoryIfMissing)
-import           System.FilePath       ((</>))
-import           System.Wlog           (WithLogger, logInfo)
+import           Control.Lens               ((?~))
+import           Crypto.Random              (getRandomBytes)
+import qualified Data.HashMap.Strict        as HM
+import qualified Data.Map.Strict            as Map
+import           Formatting                 (sformat, shown, (%))
+import qualified Serokell.Util.Base64       as B64
+import           Serokell.Util.Text         (listJson)
+import           Serokell.Util.Verify       (VerificationRes (..), formatAllErrors,
+                                             verifyGeneric)
+import           System.Directory           (createDirectoryIfMissing)
+import           System.FilePath            ((</>))
+import           System.Wlog                (WithLogger, logInfo)
 
-import           Pos.Binary            (asBinary)
-import qualified Pos.Constants         as Const
-import           Pos.Core              (IsBootstrapEraAddr (..), StakeholderId,
-                                        VssCertificate, addressDetailedF, addressHash,
-                                        deriveLvl2KeyPair, makePubKeyAddressBoot,
-                                        makeRedeemAddress, mkCoin, mkVssCertificate)
-import           Pos.Crypto            (EncryptedSecretKey, PublicKey, RedeemPublicKey,
-                                        SecretKey, emptyPassphrase, keyGen, noPassEncrypt,
-                                        randomNumberInRange, redeemDeterministicKeyGen,
-                                        runGlobalRandom, safeKeyGen, toPublic,
-                                        toVssPublicKey, vssKeyGen)
-import           Pos.Genesis           (AddrDistribution, BalanceDistribution (..),
-                                        FakeAvvmOptions (..), GenesisGtData (..),
-                                        TestBalanceOptions (..), accountGenesisIndex,
-                                        wAddressGenesisIndex)
-import           Pos.Types             (Address, coinPortionToDouble, unsafeIntegerToCoin)
-import           Pos.Util.UserSecret   (initializeUserSecret, takeUserSecret, usKeys,
-                                        usPrimKey, usVss, usWalletSet,
-                                        writeUserSecretRelease)
-import           Pos.Util.Util         (applyPattern)
-import           Pos.Wallet.Web.Secret (mkGenesisWalletUserSecret)
+import           Pos.Binary                 (asBinary)
+import qualified Pos.Constants              as Const
+import           Pos.Core                   (IsBootstrapEraAddr (..), VssCertificate,
+                                             addressDetailedF, addressHash,
+                                             deriveLvl2KeyPair, makePubKeyAddressBoot,
+                                             makeRedeemAddress, mkCoin, mkVssCertificate)
+import           Pos.Core.Genesis           (AddrDistribution, BalanceDistribution (..),
+                                             FakeAvvmOptions (..),
+                                             GenesisInitializer (..),
+                                             GenesisWStakeholders (..),
+                                             TestBalanceOptions (..),
+                                             TestnetDistribution (..))
+import           Pos.Crypto                 (EncryptedSecretKey, PublicKey,
+                                             RedeemPublicKey, SecretKey, emptyPassphrase,
+                                             keyGen, noPassEncrypt, randomNumberInRange,
+                                             redeemDeterministicKeyGen, runGlobalRandom,
+                                             safeKeyGen, setGlobalRandomSeed, toPublic,
+                                             toVssPublicKey, vssKeyGen)
+import           Pos.Ssc.GodTossing.Genesis (GenesisGtData (..))
+import           Pos.Types                  (Address, coinPortionToDouble,
+                                             unsafeIntegerToCoin)
+import           Pos.Util.UserSecret        (initializeUserSecret, takeUserSecret, usKeys,
+                                             usPrimKey, usVss, usWalletSet,
+                                             writeUserSecretRelease)
+import           Pos.Util.Util              (applyPattern)
+import           Pos.Wallet.Web.Secret      (accountGenesisIndex,
+                                             mkGenesisWalletUserSecret,
+                                             wAddressGenesisIndex)
+
+
+genTestnetOrMainnetData
+    :: (MonadIO m, MonadFail m, WithLogger m)
+    => GenesisInitializer
+    -> m ([AddrDistribution], GenesisWStakeholders, GenesisGtData)
+genTestnetOrMainnetData TestnetInitializer{..} = do
+    liftIO (setGlobalRandomSeed tiSeed)
+    fakeAvvmDistr <- genFakeAvvmGenesis Nothing tiFakeAvvmBalance
+    (_1 %~ (++fakeAvvmDistr)) <$> genTestnetData Nothing tiTestBalance tiDistribution
+genTestnetOrMainnetData MainnetInitializer{..} =
+    pure ([], miBootStakeholders, GenesisGtData miVssCerts)
 
 -- Generates keys and vss certs for testnet data. Returns:
 -- 1. Address distribution
@@ -54,8 +73,15 @@ genTestnetData
     :: (MonadIO m, MonadFail m, WithLogger m)
     => Maybe (FilePath, FilePath) -- directory and key-file pattern
     -> TestBalanceOptions
-    -> m ([AddrDistribution], Map StakeholderId Word16, GenesisGtData)
-genTestnetData dirPatMB tso@TestBalanceOptions{..} = do
+    -> TestnetDistribution
+    -> m ([AddrDistribution], GenesisWStakeholders, GenesisGtData)
+genTestnetData dirPatMB tso@TestBalanceOptions{..} distrSpec = do
+    -- TestnetBalanceStakeDistr determines utxo where rich and poor addresses
+    -- have single key distribution (SingleKeyDistr), like there is no bootstrap era
+    let isBoot = case distrSpec of
+            TestnetBalanceStakeDistr -> IsBootstrapEraAddr False
+            _                        -> IsBootstrapEraAddr True
+
     (richmenList, poorsList) <-
         case dirPatMB of
             Just (dir, pat) -> do
@@ -75,31 +101,35 @@ genTestnetData dirPatMB tso@TestBalanceOptions{..} = do
 
                 logInfo $ show totalStakeholders <> " keyfiles are generated"
                 pure (richmenList, poorsList)
-            Nothing -> (,) <$> replicateM (fromIntegral tsoRichmen) (generateKeyfile True Nothing Nothing)
-                           <*> replicateM (fromIntegral tsoPoors)   (generateKeyfile False Nothing Nothing)
+            Nothing -> (,) <$> replicateM (fromIntegral tsoRichmen) (generateKeyfile' isBoot True Nothing Nothing)
+                           <*> replicateM (fromIntegral tsoPoors)   (generateKeyfile' isBoot False Nothing Nothing)
 
     let genesisList = map (\(k, vc, _) -> (k, vc)) $ richmenList ++ poorsList
     let genesisListRich = take (fromIntegral tsoRichmen) genesisList
 
     let distr = genTestnetDistribution tso
-        richmenStakeholders = case distr of
-            RichPoorBalances {..} ->
-                Map.fromList $ map ((,1) . addressHash . fst) genesisListRich
-            _ -> error "Impossible type of generated testnet balance"
         genesisAddrs = map (makePubKeyAddressBoot . fst) genesisList
                     <> map (view _3) poorsList
         genesisAddrDistr = [(genesisAddrs, distr)]
-        genGtData = GenesisGtData
-            { ggdVssCertificates =
-              HM.fromList $ map (_1 %~ addressHash) genesisListRich
-            }
+
+    case distr of
+        RichPoorBalances {} -> pass
+        _                   -> error "Impossible type of generated testnet balance"
+    let toStakeholders = Map.fromList . map ((,1) . addressHash . fst)
+    let toVss = HM.fromList . map (_1 %~ addressHash)
+
+    let (bootStakeholders, gtData) =
+            case distrSpec of
+                TestnetRichmenStakeDistr    -> (toStakeholders genesisListRich, toVss genesisListRich)
+                TestnetBalanceStakeDistr    -> (toStakeholders genesisListRich, toVss genesisList)
+                TestnetCustomStakeDistr{..} -> (getGenesisWStakeholders tcsdBootStakeholders, tcsdVssCerts)
 
     logInfo $ sformat ("testnet genesis created successfully. "
                       %"First 10 addresses: "%listJson%" distr: "%shown)
               (map (sformat addressDetailedF) $ take 10 genesisAddrs)
               distr
 
-    return (genesisAddrDistr, richmenStakeholders, genGtData)
+    return (genesisAddrDistr, GenesisWStakeholders bootStakeholders, GenesisGtData gtData)
 
 genFakeAvvmGenesis
     :: (MonadIO m, WithLogger m)
@@ -131,11 +161,20 @@ genFakeAvvmGenesis dirMB FakeAvvmOptions{..} = do
 generateKeyfile
     :: (MonadIO m, MonadFail m, WithLogger m)
     => Bool
+    -> Maybe (SecretKey, EncryptedSecretKey)
+    -> Maybe FilePath
+    -> m (PublicKey, VssCertificate, Address)
+generateKeyfile = generateKeyfile' (IsBootstrapEraAddr True)
+
+generateKeyfile'
+    :: (MonadIO m, MonadFail m, WithLogger m)
+    => IsBootstrapEraAddr                     -- ^ is boot era
+    -> Bool
     -> Maybe (SecretKey, EncryptedSecretKey)  -- ^ plain key & hd wallet root key
     -> Maybe FilePath
     -> m (PublicKey, VssCertificate, Address)  -- ^ plain key, certificate & hd wallet
                                                -- account address with bootstrap era distribution
-generateKeyfile isPrim mbSk fpMB = do
+generateKeyfile' isBoot isPrim mbSk fpMB = do
     (sk, hdwSk) <- case mbSk of
         Just x  -> return x
         Nothing -> liftIO $ runGlobalRandom $
@@ -163,7 +202,7 @@ generateKeyfile isPrim mbSk fpMB = do
         -- put it into a keyfile.
         hdwAccountPk =
             fst $ fromMaybe (error "generateKeyfile: pass mismatch") $
-            deriveLvl2KeyPair (IsBootstrapEraAddr True) emptyPassphrase hdwSk
+            deriveLvl2KeyPair isBoot emptyPassphrase hdwSk
                 accountGenesisIndex wAddressGenesisIndex
     pure (toPublic sk, vssCert, hdwAccountPk)
 

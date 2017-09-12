@@ -18,8 +18,7 @@ import           System.Wlog          (WithLogger, logInfo)
 import           Universum
 
 import           Pos.Crypto           (RedeemPublicKey (..), redeemPkBuild)
-import           Pos.Genesis          (AddrDistribution, AvvmDistribution (..),
-                                       BalanceDistribution (..))
+import           Pos.Genesis          (GenesisAddrDistr (..))
 import           Pos.Types            (Address, Coin, makeRedeemAddress, unsafeAddCoin,
                                        unsafeIntegerToCoin)
 
@@ -75,8 +74,8 @@ instance FromJSON AvvmEntry where
 -- calling funciton.
 avvmAddrDistribution
     :: AvvmData
-    -> AvvmDistribution
-avvmAddrDistribution (utxo -> avvmData) = AvvmDistribution balances
+    -> GenesisAddrDistr
+avvmAddrDistribution (utxo -> avvmData) = GenesisAddrDistr balances
   where
     balances :: HashMap Address Coin
     balances = HM.fromListWith unsafeAddCoin $ do

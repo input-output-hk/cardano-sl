@@ -23,11 +23,10 @@ module Pos.Genesis
        , genesisContextImplicit
 
        -- * Prod mode genesis
-       , genesisContextProduction
+       , genesisDataProductionM
+       , genesisContextProductionM
 
        -- * Dev mode genesis
-       , accountGenesisIndex
-       , wAddressGenesisIndex
        , devBalancesDistr
        , devGenesisContext
        , concatAddrDistrs
@@ -39,8 +38,10 @@ import           Universum
 import           Control.Lens               (at, makeLenses)
 import           Data.List                  (genericReplicate)
 import qualified Data.Map.Strict            as Map
+import qualified Data.HashMap.Strict            as HM
 import qualified Data.Ratio                 as Ratio
 import           Formatting                 (build, sformat, (%))
+import           System.Wlog                (WithLogger)
 import           Serokell.Util              (mapJson)
 
 import           Pos.AllSecrets             (InvAddrSpendingData (unInvAddrSpendingData),
@@ -61,6 +62,7 @@ import           Pos.Lrc.Genesis            (genesisSeed)
 import           Pos.Txp.Core               (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil               (GenesisUtxo (..))
 import           Pos.Util.Util              (HasLens (..))
+import           Pos.Testnet                (genTestnetOrMainnetData)
 
 -- reexports
 import           Pos.Core.Genesis
@@ -222,30 +224,46 @@ genesisLeaders GenesisContext { _gtcUtxo = (GenesisUtxo utxo)
 -- Production mode genesis
 ----------------------------------------------------------------------------
 
--- | 'GenesisContext' that uses all the data for prod.
-genesisContextProduction :: GenesisContext
-genesisContextProduction =
-    GenesisContext
-        genesisUtxoProduction
-        genesisProdBootStakeholders
+genesisDataProductionM
+    :: (MonadIO m, MonadFail m, WithLogger m)
+    => m GenesisData
+genesisDataProductionM = do
+    (testnetDistr, bootStakeholders, gtData) <- genTestnetOrMainnetData genesisProdInitializer
+    pure $ GenesisData
+        bootStakeholders
         genesisProdDelegation
+        startTime
+        (ggdVssCertificates gtData)
+        genesisProdAvvmDistr
+        (GenesisAddrDistr $ HM.fromList $ concatAddrDistrs testnetDistr)
+        genesisConsts
+        protocolConsts
   where
-    -- 'GenesisUtxo' used in production.
-    genesisUtxoProduction :: GenesisUtxo
-    genesisUtxoProduction = genesisUtxo genesisProdAddrDistribution
+    startTime = case genesisProdInitializer of
+        TestnetInitializer{}   -> Nothing
+        MainnetInitializer{..} -> Just miStartTime
+    -- Consts will be added when they are presented in genesis-input
+    genesisConsts = undefined
+    protocolConsts = undefined
+
+-- | 'GenesisContext' that uses all the data for prod.
+genesisContextProductionM
+    :: (MonadIO m, MonadFail m, WithLogger m)
+    => m GenesisContext
+genesisContextProductionM = do
+    (testnetDistr, bootStakeholders, _) <- genTestnetOrMainnetData genesisProdInitializer
+    let addrCoins = HM.toList (getAddrDistr genesisProdAvvmDistr)
+    let avvmAddrDistr = (map fst addrCoins, CustomBalances (map snd addrCoins))
+    let genesisDistr = avvmAddrDistr : testnetDistr
+    let genesisUtxoProduction = genesisUtxo genesisDistr
+    pure $ GenesisContext
+        genesisUtxoProduction
+        bootStakeholders
+        genesisProdDelegation
 
 ----------------------------------------------------------------------------
 -- Development mode genesis
 ----------------------------------------------------------------------------
-
--- | First index in derivation path for HD account, which is put to genesis utxo
-accountGenesisIndex :: Word32
-accountGenesisIndex = firstHardened
-
--- | Second index in derivation path for HD account, which is put to genesis
--- utxo
-wAddressGenesisIndex :: Word32
-wAddressGenesisIndex = firstHardened
 
 -- | Chooses among common distributions for dev mode.
 devBalancesDistr
@@ -290,8 +308,8 @@ genesisDevHdwAccountKeyDatas =
             (IsBootstrapEraAddr True)
             emptyPassphrase
             key
-            accountGenesisIndex
-            wAddressGenesisIndex
+            firstHardened
+            firstHardened
 
 -- | 'GenesisContext' for dev mode. It's supposed that you pass the
 -- distribution from 'devBalancesDistr' here. This function will add dev

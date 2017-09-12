@@ -12,9 +12,8 @@ module Pos.Core.Genesis
        , compileGenSpec
 
        -- ** Derived data
-       , genesisProdAddresses
-       , genesisProdAddrDistribution
-       , genesisProdBootStakeholders
+       , genesisProdAvvmDistr
+       , genesisProdInitializer
        , genesisProdDelegation
 
        -- * Utils
@@ -31,11 +30,13 @@ import           Pos.Binary.Crypto       ()
 import           Pos.Core.Coin           (unsafeMulCoin)
 import           Pos.Core.Constants      (genesisKeysN)
 import           Pos.Core.Genesis.Parser (compileGenSpec)
-import           Pos.Core.Genesis.Types  (AddrDistribution, BalanceDistribution (..),
-                                          FakeAvvmOptions (..), GenesisDelegation (..),
-                                          GenesisSpec (..), GenesisSpec (..),
-                                          GenesisWStakeholders (..),
-                                          TestBalanceOptions (..), bootDustThreshold,
+import           Pos.Core.Genesis.Types  (AddrDistribution (..), BalanceDistribution (..),
+                                          FakeAvvmOptions (..), GenesisAddrDistr (..),
+                                          GenesisData (..), GenesisDelegation (..),
+                                          GenesisInitializer (..), GenesisSpec (..),
+                                          GenesisSpec (..), GenesisWStakeholders (..),
+                                          TestBalanceOptions (..),
+                                          TestnetDistribution (..), bootDustThreshold,
                                           getTotalBalance, mkGenesisDelegation,
                                           mkGenesisSpec, noGenesisDelegation,
                                           safeExpBalances)
@@ -75,19 +76,14 @@ genesisDevFlatDistr =
 -- GenesisCore derived data, production
 ----------------------------------------------------------------------------
 
--- | List of addresses in genesis binary file.
-genesisProdAddresses :: [Address]
-genesisProdAddresses =
-    concatMap (toList . fst) genesisProdAddrDistribution
+-- | Avvm distribution
+genesisProdAvvmDistr :: GenesisAddrDistr
+genesisProdAvvmDistr = gsAvvmDistr compileGenSpec
 
--- | Address and distribution set for production mode.
-genesisProdAddrDistribution :: [AddrDistribution]
-genesisProdAddrDistribution = undefined --gcdAddrDistribution compileGenCoreData
-
--- | Bootstrap era stakeholders for production mode.
-genesisProdBootStakeholders :: GenesisWStakeholders
-genesisProdBootStakeholders = undefined
-    --gcdBootstrapStakeholders compileGenCoreData
+-- | Genesis initializer determines way of initialization
+-- utxo, bootstrap stakeholders and etc.
+genesisProdInitializer :: GenesisInitializer
+genesisProdInitializer = gsInitializer compileGenSpec
 
 -- | 'GenesisDelegation' for production mode.
 genesisProdDelegation :: GenesisDelegation

@@ -18,8 +18,9 @@ import           Pos.Core                    (genesisDevSecretKeys, giveStaticCo
 import           Pos.DB                      (closeNodeDBs, openNodeDBs)
 import           Pos.Generator.Block         (BlockGenParams (..), genBlocks)
 import           Pos.Genesis                 (BalanceDistribution (FlatBalances),
-                                              devGenesisContext, genesisContextProduction,
-                                              gtcUtxo, gtcWStakeholders)
+                                              devGenesisContext,
+                                              genesisContextProductionM, gtcUtxo,
+                                              gtcWStakeholders)
 import           Pos.Txp.Toil                (GenesisUtxo (..))
 import           Pos.Util.UserSecret         (peekUserSecret, usPrimKey)
 
@@ -48,9 +49,8 @@ main = flip catch catchEx $ giveStaticConsts $ do
                 nodesN = fromIntegral $ length $
                          allSecrets ^. asSecretKeys . to unInvSecretsMap
             in FlatBalances nodesN $ mkCoin 10000 `unsafeMulCoin` (nodesN :: Int)
-    let genCtx
-            | isDevelopment = devGenesisContext devBalanceDistr
-            | otherwise = genesisContextProduction
+    genCtx <- if isDevelopment then pure $ devGenesisContext devBalanceDistr
+              else usingLoggerName "block-gen" $ genesisContextProductionM
 
     let bootStakeholders = genCtx ^. gtcWStakeholders
     let genUtxo = genCtx ^. gtcUtxo

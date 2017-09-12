@@ -28,7 +28,7 @@ import           Pos.Constants              (isDevelopment)
 import           Pos.Core.Types             (Timestamp (..))
 import           Pos.Crypto                 (VssKeyPair)
 import           Pos.Genesis                (devBalancesDistr, devGenesisContext,
-                                             genesisContextProduction)
+                                             genesisContextProductionM)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), TransportParams (..))
 import           Pos.Network.CLI            (intNetworkConfigOpts)
@@ -66,7 +66,7 @@ getKeyfilePath CommonNodeArgs {..}
 
 
 getNodeParams ::
-       (MonadIO m, WithLogger m, Mockable Fork m, Mockable Catch m, Mockable Throw m)
+       (MonadIO m, WithLogger m, MonadFail m, Mockable Fork m, Mockable Catch m, Mockable Throw m)
     => CommonNodeArgs
     -> NodeArgs
     -> Timestamp
@@ -86,9 +86,8 @@ getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} systemStart = do
                 (flatDistr commonArgs)
                 (richPoorDistr commonArgs)
                 (expDistr commonArgs)
-    let npGenesisCtx
-            | isDevelopment = devGenesisContext devBalanceDistr
-            | otherwise = genesisContextProduction
+    npGenesisCtx <- if isDevelopment then pure (devGenesisContext devBalanceDistr)
+                    else genesisContextProductionM
     pure NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB

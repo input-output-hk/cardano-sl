@@ -32,11 +32,10 @@ import           Pos.Genesis          (GenesisContext (..), gtcUtxo, gtcWStakeho
 import           Pos.GState           (GStateContext (..))
 import qualified Pos.GState           as GS
 import           Pos.KnownPeers       (MonadFormatPeers (..))
-import           Pos.Launcher         (newInitFuture)
 import           Pos.Lrc.Context      (LrcContext (..), mkLrcSyncData)
 import           Pos.Slotting         (HasSlottingVar (..))
 import           Pos.Ssc.GodTossing   (SscGodTossing)
-import           Pos.Util.Util        (postfixLFields)
+import           Pos.Util             (newInitFuture, postfixLFields)
 
 -- | Enough context for generation of blocks.
 -- "T" means tool
@@ -61,9 +60,9 @@ initTBlockGenMode ::
     -> Production a
 initTBlockGenMode nodeDBs genesisCtx action = do
     let _gscDB = RealDB nodeDBs
-    (_gscSlogGState, putSlogGState) <- newInitFuture
-    (_gscLrcContext, putLrcCtx) <- newInitFuture
-    (_gscSlottingVar, putSlottingVar) <- newInitFuture
+    (_gscSlogGState, putSlogGState) <- newInitFuture "slogGState"
+    (_gscLrcContext, putLrcCtx) <- newInitFuture "lrcCtx"
+    (_gscSlottingVar, putSlottingVar) <- newInitFuture "slottingVar"
     let tbgcGState = GStateContext {..}
 
     tbgcSystemStart <- Timestamp <$> currentTime

@@ -11,18 +11,18 @@ import           Universum
 import           Control.Concurrent           (modifyMVar_)
 import           Control.Concurrent.Async     (Async, async, cancel, poll, wait, waitAny,
                                                withAsyncWithUnmask)
+import           Data.Default                 (def)
 import           Data.List                    (isSuffixOf)
-import qualified NeatInterpolation            as Q (text)
 import qualified Data.Text.IO                 as T
 import qualified Data.Text.Lazy.IO            as TL
 import           Data.Version                 (showVersion)
 import           Formatting                   (format, int, shown, stext, text, (%))
+import qualified NeatInterpolation            as Q (text)
 import           Options.Applicative          (Mod, OptionFields, Parser, auto,
                                                execParser, footerDoc, fullDesc, header,
                                                help, helper, info, infoOption, long,
                                                metavar, option, progDesc, short,
                                                strOption)
-import           Pos.Util                     (directory, sleep)
 import           System.Directory             (createDirectoryIfMissing, doesFileExist,
                                                getTemporaryDirectory, removeFile)
 import           System.Environment           (getExecutablePath)
@@ -41,9 +41,11 @@ import           Foreign.C.Error              (Errno (..), ePIPE)
 import           GHC.IO.Exception             (IOErrorType (..), IOException (..))
 
 import           Paths_cardano_sl             (version)
-import           Pos.Client.CLI                (readLoggerConfig)
+import           Pos.Client.CLI               (readLoggerConfig)
+import           Pos.Launcher                 (applyConfigInfo)
 import           Pos.Reporting.Methods        (retrieveLogFiles, sendReport)
 import           Pos.ReportServer.Report      (ReportType (..))
+import           Pos.Util                     (directory, sleep)
 
 data LauncherOptions = LO
     { loNodePath            :: !FilePath
@@ -168,6 +170,7 @@ Command example:
 
 main :: IO ()
 main = do
+    applyConfigInfo def
     LO {..} <- getLauncherOptions
     let realNodeArgs = case loNodeLogConfig of
             Nothing -> loNodeArgs

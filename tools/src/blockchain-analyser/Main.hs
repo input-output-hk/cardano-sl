@@ -2,6 +2,9 @@
 {-# LANGUAGE TupleSections #-}
 module Main where
 
+import           Universum
+
+import           Data.Default       (def)
 import           Mockable           (runProduction)
 import           Pos.Block.Core     (Block)
 import           Pos.Block.Types    (Undo)
@@ -10,6 +13,7 @@ import           Pos.Core.Types     (HeaderHash)
 import           Pos.DB             (closeNodeDBs, openNodeDBs)
 import qualified Pos.DB.Block       as DB
 import qualified Pos.DB.DB          as DB
+import           Pos.Launcher       (applyConfigInfo)
 import           Pos.Ssc.GodTossing (SscGodTossing)
 import           Pos.Util.Chrono    (NewestFirst (..))
 import           System.Directory   (canonicalizePath, doesDirectoryExist, getFileSize,
@@ -19,8 +23,6 @@ import           Options            (CLIOptions (..), getOptions)
 import           Rendering          (render, renderBlock, renderBlocks, renderHeader)
 import           Types              (BlockchainInspector, DBFolderStat,
                                      initBlockchainAnalyser, prevBlock)
-
-import           Universum
 
 -- | Like Unix's `du -s`, but works across all the major platforms and
 -- returns the total number of bytes the directory occupies on disk.
@@ -80,7 +82,7 @@ analyseBlockchainEagerly cli currentTip = do
 
 -- | The main entrypoint.
 main :: IO ()
-main = giveStaticConsts $ do
+main = (applyConfigInfo def >>) $ giveStaticConsts $ do
     cli@CLIOptions{..} <- getOptions
 
     -- Render the first report

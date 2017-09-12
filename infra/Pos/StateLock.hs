@@ -1,4 +1,5 @@
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE RankNTypes #-}
 {-|
 Module:      Pos.StateLock
 Description: A lock on the local state of a node
@@ -25,7 +26,9 @@ module Pos.StateLock
 import           Universum
 
 import           Control.Monad.Catch              (MonadMask)
+import           Data.Aeson.Types                 (Value, ToJSON (..))
 import           Data.Time.Units                  (Microsecond)
+import           JsonLog                          (CanJsonLog (..))
 import           Mockable                         (CurrentTime, Mockable, currentTime)
 import           System.Wlog                      (LoggerNameBox, WithLogger,
                                                    getLoggerName, usingLoggerName)
@@ -57,26 +60,26 @@ newStateLock = StateLock <$> newEmptyMVar <*> newPriorityLock
 --
 --   TODO: make it type class if we want to use other things we have
 --   in application and to be more consistent with other code. @gromak
-data StateLockMetrics = StateLockMetrics
+data StateLockMetrics slr = StateLockMetrics
     { -- | Called when a thread begins to wait to modify the mempool.
       --   Parameter is the reason for modifying the mempool.
-      slmWait    :: !(String -> LoggerNameBox IO ())
+      slmWait    :: !(slr -> LoggerNameBox IO ())
       -- | Called when a thread is granted the lock on the mempool. Parameter
       --   indicates how long it waited.
-    , slmAcquire :: !(Microsecond -> LoggerNameBox IO ())
+    , slmAcquire :: !(slr -> Microsecond -> LoggerNameBox IO ())
       -- | Called when a thread is finished modifying the mempool and has
       --   released the lock. Parameters indicates time elapsed since acquiring
       --   the lock, and new mempool size.
-    , slmRelease :: !(Microsecond -> LoggerNameBox IO ())
+    , slmRelease :: !(slr -> Microsecond -> Microsecond -> LoggerNameBox IO Value)
     }
 
 -- | A 'StateLockMetrics' that never does any writes. Use it if you
 -- don't care about metrics.
-ignoreStateLockMetrics :: StateLockMetrics
+ignoreStateLockMetrics :: StateLockMetrics ()
 ignoreStateLockMetrics = StateLockMetrics
     { slmWait = const (pure ())
-    , slmAcquire = (const (pure ()))
-    , slmRelease = (const (pure ()))
+    , slmAcquire = const (const (pure ()))
+    , slmRelease = const (const (const (pure (toJSON ()))))
     }
 
 type MonadStateLockBase ctx m
@@ -86,26 +89,27 @@ type MonadStateLockBase ctx m
        , HasLens' ctx StateLock
        )
 
-type MonadStateLock ctx m
+type MonadStateLock ctx slr m
      = ( MonadStateLockBase ctx m
        , WithLogger m
        , Mockable CurrentTime m
-       , HasLens' ctx StateLockMetrics
+       , HasLens' ctx (StateLockMetrics slr)
+       , CanJsonLog m
        )
 
 -- | Run an action acquiring 'StateLock' lock. Argument of
 -- action is an old tip, result is put as a new tip.
-modifyStateLock ::
-       MonadStateLock ctx m
+modifyStateLock :: forall ctx slr m a.
+       MonadStateLock ctx slr m
     => Priority
-    -> String
+    -> slr
     -> (HeaderHash -> m (HeaderHash, a))
     -> m a
 modifyStateLock = stateLockHelper modifyMVar
 
 -- | Run an action acquiring 'StateLock' lock without modifying tip.
 withStateLock ::
-       MonadStateLock ctx m => Priority -> String -> (HeaderHash -> m a) -> m a
+       MonadStateLock ctx slr m => Priority -> slr -> (HeaderHash -> m a) -> m a
 withStateLock = stateLockHelper withMVar
 
 -- | Version of 'withStateLock' that does not gather metrics
@@ -115,26 +119,29 @@ withStateLockNoMetrics prio action = do
     StateLock mvar prioLock <- view (lensOf @StateLock)
     withPriorityLock prioLock prio $ withMVar mvar action
 
-stateLockHelper ::
-       MonadStateLock ctx m
+stateLockHelper :: forall ctx slr m a b.
+       MonadStateLock ctx slr m
     => (MVar HeaderHash -> (HeaderHash -> m b) -> m a)
     -> Priority
-    -> String
+    -> slr
     -> (HeaderHash -> m b)
     -> m a
 stateLockHelper doWithMVar prio reason action = do
     StateLock mvar prioLock <- view (lensOf @StateLock)
-    StateLockMetrics {..} <- view (lensOf @StateLockMetrics)
+    StateLockMetrics {..} <- view (lensOf @(StateLockMetrics slr))
     lname <- getLoggerName
     liftIO . usingLoggerName lname $ slmWait reason
     timeBeginWait <- currentTime
     withPriorityLock prioLock prio $ doWithMVar mvar $ \hh -> do
         timeEndWait <- currentTime
         liftIO . usingLoggerName lname $
-            slmAcquire (timeEndWait - timeBeginWait)
+            slmAcquire reason (timeEndWait - timeBeginWait)
         timeBeginModify <- currentTime
         res <- action hh
         timeEndModify <- currentTime
-        liftIO . usingLoggerName lname $
-            slmRelease (timeEndModify - timeBeginModify)
+        json <- liftIO . usingLoggerName lname $ slmRelease
+            reason
+            (timeEndWait - timeBeginWait)
+            (timeEndModify - timeBeginModify)
+        jsonLog json
         pure res

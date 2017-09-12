@@ -8,43 +8,44 @@ module Pos.Explorer.Txp.Local
 
 import           Universum
 
-import           Control.Lens           (makeLenses)
-import           Control.Monad.Except   (MonadError (..))
-import           Data.Default           (def)
-import qualified Data.HashMap.Strict    as HM
-import qualified Data.List.NonEmpty     as NE
-import qualified Data.Map               as M (fromList)
-import           Formatting             (build, sformat, (%))
-import           Mockable               (CurrentTime, Mockable)
-import           System.Wlog            (WithLogger, logDebug)
+import           Control.Lens          (makeLenses)
+import           Control.Monad.Except  (MonadError (..))
+import           Data.Default          (def)
+import qualified Data.HashMap.Strict   as HM
+import qualified Data.List.NonEmpty    as NE
+import qualified Data.Map              as M (fromList)
+import           Formatting            (build, sformat, (%))
+import           JsonLog               (CanJsonLog (..))
+import           Mockable              (CurrentTime, Mockable)
+import           System.Wlog           (WithLogger, logDebug)
 
-import           Pos.Core               (BlockVersionData, EpochIndex, HeaderHash,
-                                         Timestamp, siEpoch)
-import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.DB.Class           (MonadDBRead, MonadGState (..))
-import qualified Pos.Explorer.DB        as ExDB
-import qualified Pos.GState             as GS
-import           Pos.KnownPeers         (MonadFormatPeers)
-import           Pos.Reporting          (HasReportingContext, reportError)
-import           Pos.Slotting           (MonadSlots (getCurrentSlot), getSlotStart)
-import           Pos.StateLock          (Priority (..), StateLock, StateLockMetrics,
-                                         withStateLock)
-import           Pos.Txp.Core           (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
-import           Pos.Txp.MemState       (GenericTxpLocalDataPure, MonadTxpMem,
-                                         getLocalTxsMap, getTxpExtra, getUtxoModifier,
-                                         modifyTxpLocalData, setTxpLocalData)
-import           Pos.Txp.Toil           (GenericToilModifier (..), MonadUtxoRead (..),
-                                         ToilT, ToilVerFailure (..), Utxo, runDBToil,
-                                         runDBToil, runToilTLocalExtra, utxoGet,
-                                         utxoGetReader)
-import           Pos.Util.Chrono        (NewestFirst (..))
-import qualified Pos.Util.Modifier      as MM
-import           Pos.Util.Util          (HasLens (..), HasLens')
+import           Pos.Core              (BlockVersionData, EpochIndex, HasConfiguration,
+                                        HeaderHash, Timestamp, siEpoch)
+import           Pos.DB.Class          (MonadDBRead, MonadGState (..))
+import qualified Pos.Explorer.DB       as ExDB
+import qualified Pos.GState            as GS
+import           Pos.KnownPeers        (MonadFormatPeers)
+import           Pos.Reporting         (HasReportingContext, reportError)
+import           Pos.Slotting          (MonadSlots (getCurrentSlot), getSlotStart)
+import           Pos.StateLock         (Priority (..), StateLock, StateLockMetrics,
+                                        withStateLock)
+import           Pos.Txp.Core          (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
+import           Pos.Txp.MemState      (GenericTxpLocalDataPure, MemPoolModifyReason (..),
+                                        MonadTxpMem,
+                                        getLocalTxsMap, getTxpExtra, getUtxoModifier,
+                                        modifyTxpLocalData, setTxpLocalData)
+import           Pos.Txp.Toil          (GenericToilModifier (..), MonadUtxoRead (..),
+                                        ToilT, ToilVerFailure (..), Utxo, runDBToil,
+                                        runDBToil, runToilTLocalExtra, utxoGet,
+                                        utxoGetReader)
+import           Pos.Util.Chrono       (NewestFirst (..))
+import qualified Pos.Util.Modifier     as MM
+import           Pos.Util.Util         (HasLens (..), HasLens')
 
-import           Pos.Explorer.Core      (TxExtra (..))
-import           Pos.Explorer.Txp.Toil  (ExplorerExtra, ExplorerExtraTxp (..),
-                                         MonadTxExtraRead (..), eNormalizeToil,
-                                         eProcessTx, eeLocalTxsExtra)
+import           Pos.Explorer.Core     (TxExtra (..))
+import           Pos.Explorer.Txp.Toil (ExplorerExtra, ExplorerExtraTxp (..),
+                                        MonadTxExtraRead (..), eNormalizeToil, eProcessTx,
+                                        eeLocalTxsExtra)
 
 
 type ETxpLocalWorkMode ctx m =
@@ -92,11 +93,11 @@ instance MonadTxExtraRead EProcessTxMode where
         HM.lookup addr . eetAddrBalances <$> view eptcExtraBase
 
 eTxProcessTransaction
-    :: (ETxpLocalWorkMode ctx m, MonadMask m,
-        HasLens' ctx StateLock, HasLens' ctx StateLockMetrics)
+    :: (ETxpLocalWorkMode ctx m, MonadMask m, CanJsonLog m,
+        HasLens' ctx StateLock, HasLens' ctx (StateLockMetrics MemPoolModifyReason))
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 eTxProcessTransaction itw =
-    withStateLock LowPriority "eTxProcessTransaction" $ \__tip -> eTxProcessTransactionNoLock itw
+    withStateLock LowPriority ProcessTransaction $ \__tip -> eTxProcessTransactionNoLock itw
 
 eTxProcessTransactionNoLock
     :: (ETxpLocalWorkMode ctx m)

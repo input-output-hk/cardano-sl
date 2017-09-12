@@ -51,7 +51,7 @@ import           Pos.Ssc.Class.Storage       (SscGStateClass)
 import           Pos.Ssc.Class.Workers       (SscWorkersClass)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.StateLock               (StateLock, StateLockMetrics)
-import           Pos.Txp.MemState            (MonadTxpMem)
+import           Pos.Txp.MemState            (MonadTxpMem, MemPoolModifyReason)
 import           Pos.Update.Configuration    (HasUpdateConfiguration)
 import           Pos.Update.Context          (UpdateContext)
 import           Pos.Update.Params           (UpdateParams)
@@ -95,7 +95,7 @@ type WorkMode ssc ctx m
       , MonadFormatPeers m
       , HasLens StartTime ctx StartTime
       , HasLens' ctx StateLock
-      , HasLens' ctx StateLockMetrics
+      , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
       , HasLens LrcContext ctx LrcContext
       , HasLens UpdateContext ctx UpdateContext
       , HasLens UpdateParams ctx UpdateParams

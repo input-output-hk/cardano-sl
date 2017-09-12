@@ -53,6 +53,7 @@ import           Pos.Slotting             (HasSlottingVar (..), SlottingContextS
                                            SlottingData)
 import           Pos.Ssc.Class.Types      (HasSscContext (..), Ssc (SscNodeContext))
 import           Pos.StateLock            (StateLock, StateLockMetrics)
+import           Pos.Txp.MemState.Types   (MemPoolModifyReason)
 import           Pos.Txp.Settings         (TxpGlobalSettings)
 import           Pos.Update.Context       (UpdateContext)
 import           Pos.Util.UserSecret      (HasUserSecret (..), UserSecret)
@@ -101,7 +102,7 @@ data NodeContext ssc = NodeContext
     , ncStateLock           :: !StateLock
     -- ^ A lock which manages access to shared resources.
     -- Stored hash is a hash of last applied block.
-    , ncStateLockMetrics    :: !StateLockMetrics
+    , ncStateLockMetrics    :: !(StateLockMetrics MemPoolModifyReason)
     -- ^ A set of callbacks for 'StateLock'.
     , ncUserSecret          :: !(TVar UserSecret)
     -- ^ Secret keys (and path to file) which are used to send transactions
@@ -166,7 +167,7 @@ instance HasLens ProgressHeaderTag (NodeContext ssc) (ProgressHeader ssc) where
 instance HasLens StateLock (NodeContext ssc) StateLock where
     lensOf = ncStateLock_L
 
-instance HasLens StateLockMetrics (NodeContext ssc) StateLockMetrics where
+instance HasLens (StateLockMetrics MemPoolModifyReason) (NodeContext ssc) (StateLockMetrics MemPoolModifyReason) where
     lensOf = ncStateLockMetrics_L
 
 instance HasLens LastKnownHeaderTag (NodeContext ssc) (LastKnownHeader ssc) where

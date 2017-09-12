@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
 
 -- | Logic for local processing of transactions.
@@ -19,6 +20,7 @@ import qualified Data.HashMap.Strict  as HM
 import qualified Data.List.NonEmpty   as NE
 import qualified Data.Map             as M (fromList)
 import           Formatting           (build, sformat, (%))
+import           JsonLog              (CanJsonLog (..))
 import           Mockable             (CurrentTime, Mockable)
 import           System.Wlog          (WithLogger, logDebug, logError, logWarning)
 
@@ -33,7 +35,8 @@ import           Pos.Slotting         (MonadSlots (..))
 import           Pos.StateLock        (Priority (..), StateLock, StateLockMetrics,
                                        withStateLock)
 import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId, TxUndo, topsortTxs)
-import           Pos.Txp.MemState     (GenericTxpLocalData (..), MonadTxpMem,
+import           Pos.Txp.MemState     (GenericTxpLocalData (..), MemPoolModifyReason (..),
+                                       MonadTxpMem,
                                        TxpLocalDataPure, askTxpMem, getLocalTxs,
                                        getUtxoModifier, modifyTxpLocalData,
                                        setTxpLocalData)
@@ -81,11 +84,11 @@ instance MonadGState ProcessTxMode where
 -- transaction in 'TxAux'. Separation is supported for optimization
 -- only.
 txProcessTransaction
-    :: (TxpLocalWorkMode ctx m, HasLens' ctx StateLock,
-        HasLens' ctx StateLockMetrics, MonadMask m)
+    :: (TxpLocalWorkMode ctx m, HasLens' ctx StateLock, CanJsonLog m,
+        HasLens' ctx (StateLockMetrics MemPoolModifyReason), MonadMask m)
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 txProcessTransaction itw =
-    withStateLock LowPriority "txProcessTransaction" $ \__tip -> txProcessTransactionNoLock itw
+    withStateLock LowPriority ProcessTransaction $ \__tip -> txProcessTransactionNoLock itw
 
 -- | Unsafe version of 'txProcessTransaction' which doesn't take a
 -- lock. Can be used in tests.

@@ -36,7 +36,9 @@ library
                        Pos.Arbitrary.Crypto
                        Pos.Arbitrary.Crypto.Unsafe
 
+                       Pos.Aeson.Core
                        Pos.Aeson.Crypto
+                       Pos.Aeson.Genesis
 
                        Pos.Core
                        Pos.Core.Address

@@ -18,6 +18,7 @@ module Pos.Crypto.Signing
        , sign
        , checkSig
        , fullSignatureHexF
+       , parseFullSignature
 
        , Signed (..)
        , mkSigned
@@ -29,6 +30,8 @@ module Pos.Crypto.Signing
        -- * Proxy signature scheme
        , ProxyCert (..)
        , verifyProxyCert
+       , fullProxyCertHexF
+       , parseFullProxyCert
        , ProxySecretKey (..)
        , verifyPsk
        , isSelfSignedPsk
@@ -39,8 +42,6 @@ module Pos.Crypto.Signing
 
 import qualified Cardano.Crypto.Wallet  as CC
 import           Crypto.Random          (MonadRandom, getRandomBytes)
--- import qualified Cardano.Crypto.Wallet.Encrypted as CC
--- import qualified Crypto.ECC.Edwards25519         as Ed25519
 import           Data.ByteArray         (ScrubbedBytes)
 import qualified Data.ByteString        as BS
 import           Data.Coerce            (coerce)
@@ -170,6 +171,12 @@ fullSignatureHexF :: Format r (Signature a -> r)
 fullSignatureHexF = later $ \(Signature x) ->
     B16.formatBase16 . CC.unXSignature $ x
 
+-- | Parse 'Signature' from base16 encoded string.
+parseFullSignature :: Text -> Maybe (Signature a)
+parseFullSignature s = do
+    b <- rightToMaybe $ B16.decode s
+    Signature <$> rightToMaybe (CC.xsignature b)
+
 -- | Encode something with 'Binary' and sign it.
 sign
     :: Bi a
@@ -231,6 +238,17 @@ verifyProxyCert issuerPk (PublicKey delegatePk) o (ProxyCert sig) =
     checkSig SignProxySK issuerPk
         (mconcat ["00", CC.unXPub delegatePk, Bi.serialize' o])
         (Signature sig)
+
+-- | Formatter for 'ProxyCert' to show it in hex.
+fullProxyCertHexF :: Format r (ProxyCert a -> r)
+fullProxyCertHexF = later $ \(ProxyCert x) ->
+    B16.formatBase16 . CC.unXSignature $ x
+
+-- | Parse 'ProxyCert' from base16 encoded string.
+parseFullProxyCert :: Text -> Maybe (ProxyCert a)
+parseFullProxyCert s = do
+    b <- rightToMaybe $ B16.decode s
+    ProxyCert <$> rightToMaybe (CC.xsignature b)
 
 -- | Convenient wrapper for secret key, that's basically ω plus
 -- certificate.

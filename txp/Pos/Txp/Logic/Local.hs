@@ -51,6 +51,7 @@ type TxpProcessTransactionMode ctx m =
     , HasLens' ctx StateLock
     , HasLens' ctx StateLockMetrics
     , MempoolExt m ~ ()
+    , CanJsonLog m
     )
 
 -- | Process transaction. 'TxId' is expected to be the hash of
@@ -60,7 +61,7 @@ txProcessTransaction
     :: TxpProcessTransactionMode ctx m
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 txProcessTransaction itw =
-    withStateLock LowPriority "txProcessTransaction" $ \__tip -> txProcessTransactionNoLock itw
+    withStateLock LowPriority ProcessTransaction $ \__tip -> txProcessTransactionNoLock itw
 
 -- | Unsafe version of 'txProcessTransaction' which doesn't take a
 -- lock. Can be used in tests.

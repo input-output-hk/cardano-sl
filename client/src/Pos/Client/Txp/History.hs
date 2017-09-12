@@ -33,6 +33,7 @@ import           Control.Monad.Trans (MonadTrans)
 import qualified Data.Map.Strict as M (fromList, insert)
 import qualified Data.Text.Buildable
 import           Formatting (bprint, build, (%))
+import           JsonLog (CanJsonLog (..))
 import           Mockable (CurrentTime, Mockable)
 import           Serokell.Util.Text (listJson)
 import           System.Wlog (WithLogger)
@@ -190,11 +191,12 @@ type TxHistoryEnv ctx m =
     , MonadReader ctx m
     , MonadTxpMem (MempoolExt m) ctx m
     , HasLens' ctx StateLock
-    , HasLens' ctx StateLockMetrics
+    , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
     , HasReportingContext ctx
     , Mockable CurrentTime m
     , MonadFormatPeers m
     , HasNodeType ctx
+    , CanJsonLog m
     )
 
 getBlockHistoryDefault

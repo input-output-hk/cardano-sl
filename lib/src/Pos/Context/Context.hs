@@ -44,6 +44,7 @@ import           Pos.Slotting (HasSlottingVar (..), SimpleSlottingStateVar)
 import           Pos.Slotting.Types (SlottingData)
 import           Pos.Ssc.Types (HasSscContext (..), SscContext)
 import           Pos.StateLock (StateLock, StateLockMetrics)
+import           Pos.Txp (MemPoolModifyReason (..))
 import           Pos.Txp.Settings (TxpGlobalSettings)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Util.Lens (postfixLFields)
@@ -138,7 +139,7 @@ instance HasLens SimpleSlottingStateVar NodeContext SimpleSlottingStateVar where
 instance HasLens StateLock NodeContext StateLock where
     lensOf = ncStateLock_L
 
-instance HasLens StateLockMetrics NodeContext StateLockMetrics where
+instance HasLens (StateLockMetrics MemPoolModifyReason) NodeContext (StateLockMetrics MemPoolModifyReason) where
     lensOf = ncStateLockMetrics_L
 
 instance HasLens LastKnownHeaderTag NodeContext LastKnownHeader where

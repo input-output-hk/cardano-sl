@@ -28,6 +28,7 @@ import           Pos.Security.Params (SecurityParams)
 import           Pos.Shutdown.Class (HasShutdownContext)
 import           Pos.StateLock (StateLock, StateLockMetrics)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal, TxpHolderTag)
+import           Pos.Txp.MemState (MemPoolModifyReason)
 import           Pos.Update.Context (UpdateContext)
 import           Pos.Util.TimeWarp (CanJsonLog)
 import           Pos.Util.Util (HasLens, HasLens')
@@ -70,7 +71,7 @@ type BlockWorkMode ctx m =
     , HasLens TxpHolderTag ctx (GenericTxpLocalData (MempoolExt m))
     , HasLens' ctx SecurityParams
     , HasLens' ctx StateLock
-    , HasLens' ctx StateLockMetrics
+    , HasLens' ctx (StateLockMetrics MemPoolModifyReason)
     , HasLens' ctx UpdateContext
 
     , CanJsonLog m

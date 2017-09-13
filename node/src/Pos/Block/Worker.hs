@@ -10,12 +10,13 @@ module Pos.Block.Worker
 
 import           Universum
 
+import           Control.Exception.Safe      (tryAny)
 import           Control.Lens                (ix)
 import qualified Data.List.NonEmpty          as NE
 import           Data.Time.Units             (Microsecond)
 import           Formatting                  (Format, bprint, build, fixed, int, now,
                                               sformat, shown, (%))
-import           Mockable                    (concurrently, delay, fork)
+import           Mockable                    (concurrently, delay, fork, throw)
 import           Serokell.Util               (listJson, pairF, sec)
 import qualified System.Metrics.Label        as Label
 import           System.Wlog                 (logDebug, logInfo, logWarning)
@@ -83,17 +84,17 @@ blkWorkers =
   where
     merge = mconcatPair . map (first pure)
 
--- FIXME [CSL-1576] Metric worker should be independent of block creator.
 -- TODO [CSL-1606] Using 'fork' here is quite bad, it's a temporary solution.
 blkOnNewSlot :: WorkMode ssc ctx m => (WorkerSpec m, OutSpecs)
 blkOnNewSlot =
     onNewSlotWorker True announceBlockOuts $ \slotId sendActions ->
-        recoveryCommGuard "onNewSlot worker in block processing" $
-        () <$
-        metricWorker slotId `concurrently`
-        void
-            (fork $
-             blockCreator slotId sendActions `catchAny` onBlockCreatorException)
+        recoveryCommGuard "onNewSlot worker in block processing" $ do
+            let m = metricWorker slotId
+            let n = void $ fork $ blockCreator slotId sendActions
+                        `catchAny` onBlockCreatorException
+            (tryAny m `concurrently` n) >>= \case
+                (Right (), ()) -> pass
+                (Left e, ())   -> throw e
   where
     onBlockCreatorException = reportOrLogE "blockCreator failed: "
 

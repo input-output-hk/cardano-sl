@@ -47,6 +47,7 @@ module Network.Broadcast.OutboundQueue (
   , ReconsiderAfter(..)
     -- ** Subscription
   , MaxBucketSize(..)
+  , bucketSpareCapacity
     -- * Enqueueing
   , Origin(..)
   , EnqueueTo (..)
@@ -84,7 +85,7 @@ import Data.Either (rights)
 import Data.Foldable (fold)
 import Data.List (sortBy, intercalate)
 import Data.Map.Strict (Map)
-import Data.Maybe (maybeToList)
+import Data.Maybe (fromMaybe, maybeToList)
 import Data.Monoid ((<>))
 import Data.Ord (comparing)
 import Data.Set (Set)
@@ -1294,6 +1295,15 @@ data MaxBucketSize = BucketSizeUnlimited | BucketSizeMax Int
 exceedsBucketSize :: Int -> MaxBucketSize -> Bool
 exceedsBucketSize _ BucketSizeUnlimited = False
 exceedsBucketSize n (BucketSizeMax m)   = n > m
+
+-- | Returns how many "free slots" the bucket `buck` still has for peers.
+-- Returns `Nothing` if there is no bucket size limit.
+bucketSpareCapacity :: MonadIO m => OutboundQ msg nid buck -> buck -> m (Maybe Int)
+bucketSpareCapacity OutQ{..} buck = case qMaxBucketSize buck of
+  BucketSizeUnlimited        -> return Nothing
+  BucketSizeMax maxCapacity  -> do
+    currentCapacity <- countPeers . fromMaybe mempty . Map.lookup buck <$> liftIO (readMVar qBuckets)
+    return . Just $ max 0 (maxCapacity - currentCapacity)
 
 -- | Internal method: read all buckets of peers
 getAllPeers :: MonadIO m => OutboundQ msg nid buck -> m (Peers nid)

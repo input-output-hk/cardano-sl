@@ -58,4 +58,3 @@ deriveToJSON defaultOptions ''SlotId
 deriveToJSON defaultOptions ''LocalSlotIndex
 deriveJSON defaultOptions ''Coin
 deriveJSON defaultOptions ''EpochIndex
-deriveJSON defaultOptions ''Coin

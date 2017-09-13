@@ -77,7 +77,7 @@ genTestnetData
     -> m ([AddrDistribution], GenesisWStakeholders, GenesisGtData)
 genTestnetData dirPatMB tso@TestnetBalanceOptions{..} distrSpec = do
     -- We always want to have bootstrap era distribution in genesis addresses.
-    let isBoot = IsBootstrapEraAddr False
+    let isBoot = IsBootstrapEraAddr True
 
     (richmenList, poorsList) <-
         case dirPatMB of

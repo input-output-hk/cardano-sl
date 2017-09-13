@@ -275,7 +275,7 @@ keyDerivation = do
     pk `shouldBe` Crypto.toPublic sk
 
 keyParsing :: Crypto.PublicKey -> Property
-keyParsing pk = Crypto.parseFullPublicKey (sformat Crypto.fullPublicKeyF pk) === Just pk
+keyParsing pk = Crypto.parseFullPublicKey (sformat Crypto.fullPublicKeyF pk) === Right pk
 
 signThenVerify
     :: Bi a

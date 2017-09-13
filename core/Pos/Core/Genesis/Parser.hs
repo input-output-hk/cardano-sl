@@ -12,8 +12,8 @@ import           Universum
 import qualified Data.ByteString        as BS
 import           Data.FileEmbed         (embedFile, makeRelativeToProject)
 import qualified Data.HashMap.Strict    as HM
-import           Data.Yaml              (decodeEither)
 import           Data.List              (stripPrefix)
+import           Data.Yaml              (decodeEither)
 import qualified Language.Haskell.TH    as TH
 import           System.Directory       (listDirectory)
 import           System.FilePath        (takeBaseName, takeExtension, (</>))
@@ -66,7 +66,7 @@ setGenesisSpec :: GenesisSpec -> IO ()
 setGenesisSpecFromFile :: FilePath -> IO ()
 setGenesisSpecFromFile path = do
     bs <- BS.readFile path
-    case error "TODO: parse JSON here" bs of
+    case decodeEither bs of
         Left err -> error $ "Failed to read genesis input from " <>
-                            toText path <> ": " <> err
+                            toText path <> ": " <> toText err
         Right gd -> setGenesisSpec gd

@@ -7,14 +7,13 @@ import           Universum
 import           Crypto.Hash   (HashAlgorithm)
 import           Data.Aeson    (FromJSON (..), FromJSONKey (..), FromJSONKeyFunction (..),
                                 ToJSON (..))
-import qualified Data.Text     as T
 import           Formatting    (sformat)
 
-import           Pos.Crypto    (AbstractHash, ProxyCert, PublicKey, Signature (..),
-                                decodeAbstractHash, fullPublicKeyF, hashHexF,
-                                parseFullProxyCert, parseFullPublicKey,
+import           Pos.Crypto    (AbstractHash, ProxyCert, ProxySecretKey, PublicKey,
+                                Signature (..), decodeAbstractHash, fullPublicKeyF,
+                                hashHexF, parseFullProxyCert, parseFullPublicKey,
                                 parseFullSignature)
-import           Pos.Util.Util (parseJSONWithRead)
+import           Pos.Util.Util (eitherToFail, parseJSONWithRead)
 
 instance ToJSON (AbstractHash algo a) where
     toJSON = toJSON . sformat hashHexF
@@ -26,22 +25,22 @@ instance (HashAlgorithm algo, FromJSON (AbstractHash algo a))
          => FromJSONKey (AbstractHash algo a) where
     fromJSONKey = FromJSONKeyTextParser parser
       where
-        parser = either (fail . T.unpack) pure . decodeAbstractHash
+        parser = eitherToFail . decodeAbstractHash
 
 instance ToJSON PublicKey where
     toJSON = toJSON . sformat fullPublicKeyF
 
+eitherMsgFail :: (MonadFail m, ToString s) => String -> Either s a -> m a
+eitherMsgFail msg =
+    either (fail . (("Unable to parse json " <> msg <> " reason: ") <>) . toString) pure
+
 instance FromJSON PublicKey where
-    parseJSON v =
-        parseJSON v >>=
-        maybe (fail "FromJSON PublicKey: unable to parse") pure . parseFullPublicKey
+    parseJSON v = parseJSON v >>= eitherMsgFail "PublicKey" . parseFullPublicKey
 
 instance FromJSON (Signature w) where
-    parseJSON v =
-        parseJSON v >>=
-        maybe (fail "FromJSON Signature: unable to parse") pure . parseFullSignature
+    parseJSON v = parseJSON v >>= eitherMsgFail "Signature" . parseFullSignature
 
 instance FromJSON (ProxyCert w) where
-    parseJSON v =
-        parseJSON v >>=
-        maybe (fail "FromJSON ProxyCert: unable to parse") pure . parseFullProxyCert
+    parseJSON v = parseJSON v >>= eitherMsgFail "Signature" . parseFullProxyCert
+
+instance FromJSON w => FromJSON (ProxySecretKey w)

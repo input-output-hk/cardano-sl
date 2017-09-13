@@ -34,6 +34,7 @@ import           Formatting                 (build, sformat, (%))
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()
+import           Pos.Client.Txp.Balances    (BalancesError (..))
 import           Pos.Core                   (Coin, sumCoins, unsafeIntegerToCoin)
 import           Pos.Crypto                 (PassPhrase, changeEncPassphrase,
                                              checkPassMatches, emptyPassphrase)
@@ -49,7 +50,7 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..),
                                              CAddress (..), CId, CWAddressMeta (..),
                                              CWallet (..), CWalletMeta (..), Wal,
                                              addrMetaToAccount, encToCId, mkCCoin)
-import           Pos.Wallet.Web.Error       (WalletError (..))
+import           Pos.Wallet.Web.Error       (WalletError (..), rewrapToWalletError)
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
 import           Pos.Wallet.Web.State       (AddressLookupMode (Existing),
                                              CustomAddressType (ChangeAddr, UsedAddr),
@@ -73,6 +74,7 @@ import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsO
 
 getWAddressBalance :: MonadWalletWebMode m => CWAddressMeta -> m Coin
 getWAddressBalance addr =
+    rewrapToWalletError @BalancesError (const True) (InternalError . pretty) $
     getBalance <=< decodeCTypeOrFail $ cwamId addr
 
 getWAddress

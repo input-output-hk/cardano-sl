@@ -60,7 +60,7 @@ type PtxPoolInfo = TxHistoryEntry
 -- transaction becomes just "not deep enough" due to rollbacks, it doesn't cause
 -- the transaction to become 'PtxInNewestBlocks' again, because such small
 -- "tides" of chain difficulty likely occur and we do not want to confuse users
--- switching status back and forth.
+-- switching status back and forth often.
 --
 -- If transaction is ever noticed to be impossible to apply to current utxo,
 -- it is assigned 'PtxWontApply' state and is stopped being tracked further

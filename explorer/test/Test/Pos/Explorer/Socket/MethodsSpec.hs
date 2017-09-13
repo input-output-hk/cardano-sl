@@ -9,7 +9,10 @@ module Test.Pos.Explorer.Socket.MethodsSpec
 
 import           Universum
 
-import           Test.Hspec                        (Spec, describe, it, shouldBe)
+import           Test.Hspec                        (Spec, describe, it, shouldThrow, anyException)
+
+import           Pos.Explorer.Socket.Methods       (fromCAddressOrThrow)
+import           Pos.Explorer.Web.ClientTypes      (CAddress(..))
 
 ----------------------------------------------------------------------------
 -- Spec
@@ -25,6 +28,6 @@ spec =
 
 getTxInfoSpec :: Spec
 getTxInfoSpec =
-    describe "getTxInfo" $
-        it "has to be tested" $
-            True `shouldBe` True
+    describe "fromCAddressOrThrow" $
+        it "throws an exception if a given CAddress is invalid" $
+            fromCAddressOrThrow (CAddress "invalid" ) `shouldThrow` anyException

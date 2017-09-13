@@ -13,6 +13,7 @@ module Pos.Explorer.Socket.Methods
 
        , startSession
        , finishSession
+       , fromCAddressOrThrow
        , subscribeAddr
        , subscribeBlocksLastPage
        , subscribeTxs

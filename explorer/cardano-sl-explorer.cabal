@@ -15,6 +15,7 @@ cabal-version:       >=1.10
 library
   exposed-modules:      Pos.Explorer.Socket
                         Pos.Explorer.Socket.App
+                        Pos.Explorer.Socket.Methods
                         Pos.Explorer.Socket.Util
                         Pos.Explorer.Web
                         Pos.Explorer.Web.Api
@@ -26,7 +27,6 @@ library
   other-modules:        Pos.Explorer.Aeson.ClientTypes
 
                         Pos.Explorer.Socket.Holder
-                        Pos.Explorer.Socket.Methods
 
                         Pos.Explorer.Web.Transform
   build-depends:        aeson

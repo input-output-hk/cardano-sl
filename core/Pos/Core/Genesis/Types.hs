@@ -228,7 +228,7 @@ data AvvmData = AvvmData
 -- | Predefined balances of avvm entries.
 newtype GenesisAvvmBalances = GenesisAvvmBalances
     { getGenesisAvvmBalances :: HashMap RedeemPublicKey Coin
-    } deriving (Show)
+    } deriving (Show, Eq)
 
 -- | Generate genesis address distribution out of avvm
 -- parameters. Txdistr of the utxo is all empty. Redelegate it in
@@ -257,7 +257,7 @@ data ProtocolConstants = ProtocolConstants
     , pcVssMaxTTL     :: !Word32
       -- | VSS certificates min timeout to live (number of epochs).
     , pcVssMinTTL     :: !Word32
-    } deriving (Show, Generic)
+    } deriving (Show, Eq, Generic)
 
 -- | Specification how to generate full genesis data.
 data GenesisSpec = UnsafeGenesisSpec
@@ -310,4 +310,4 @@ data GenesisData = GenesisData
     , gdProtocolConsts   :: !ProtocolConstants
     , gdAvvmDistr        :: !GenesisAvvmBalances
     , gdFtsSeed          :: !SharedSeed
-    }
+    } deriving (Show, Eq)

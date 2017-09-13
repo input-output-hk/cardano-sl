@@ -13,7 +13,7 @@ import           Data.Tuple            (swap)
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Arbitrary (..), Gen, Property, choose, conjoin,
-                                        suchThat, vectorOf, (==>))
+                                        counterexample, suchThat, vectorOf, (==>))
 
 import           Pos.Core.Context      (HasCoreConstants, giveStaticConsts,
                                         slotSecurityParam)
@@ -86,24 +86,30 @@ instance HasCoreConstants => Arbitrary CorrectVssCertData where
         vssCertificates   <- vectorOf @VssCertificate certificatesToAdd notExpiredGen
         let dataUpdaters   = map insert vssCertificates
         pure $ foldl' (&) (empty {lastKnownEoS = lkeos}) dataUpdaters
+
 ----------------------------------------------------------------------------
 -- Properties for VssCertData
 ----------------------------------------------------------------------------
 
 verifyInsertVssCertData :: VssCertificate -> VssCertData -> Property
 verifyInsertVssCertData certificate certData =
-    certificate `canBeIn` certData ==> member shid (insert certificate certData)
+    certificate `canBeIn` certData ==>
+    counterexample
+        ("expected " <> show shid <> " to be in certdata")
+        (shid `member` insert certificate certData)
   where
     shid = getCertId certificate
 
-verifyDeleteVssCertData :: VssCertificate -> VssCertData -> Bool
+verifyDeleteVssCertData :: VssCertificate -> VssCertData -> Property
 verifyDeleteVssCertData certificate certData =
     let shid = getCertId certificate
         certWithShid    = insert certificate certData
         certWithoutShid = delete shid certWithShid
-    in not $ member shid certWithoutShid
+    in  counterexample
+            ("expected " <> show shid <> " not to be in certdata")
+            (not (shid `member` certWithoutShid))
 
--- | This function checks all imaginable properties for correctly created 'VssCertdata'.
+-- | This function checks all imaginable properties for correctly created 'VssCertData'.
 -- TODO: some checks are not assimptotically efficient but nobody cares untill time is reasonable
 isConsistent :: CorrectVssCertData -> Bool
 isConsistent (getVssCertData -> VssCertData{..}) =

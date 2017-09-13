@@ -15,8 +15,7 @@ import           Serokell.Util         (allDistinct)
 import           Test.Hspec            (Expectation, Spec, describe, expectationFailure,
                                         it)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Property, arbitrary, counterexample, property,
-                                        (==>))
+import           Test.QuickCheck       (Property, arbitrary, (==>))
 
 import           Pos.Arbitrary.Txp     (BadSigsTx (..), DoubleInputTx (..), GoodTx (..))
 import           Pos.Core              (addressHash, checkPubKeyAddress,
@@ -38,7 +37,8 @@ import           Pos.Txp               (MonadUtxoRead (utxoGet), ToilVerFailure 
                                         TxWitness, Utxo, VTxContext (..),
                                         WitnessVerFailure (..), applyTxToUtxoPure,
                                         isTxInUnknown, verifyTxUtxo, verifyTxUtxoPure)
-import           Pos.Util              (SmallGenerator (..), nonrepeating, runGen)
+import           Pos.Util              (SmallGenerator (..), nonrepeating, qcIsLeft,
+                                        qcIsRight, runGen)
 
 ----------------------------------------------------------------------------
 -- Spec
@@ -449,17 +449,3 @@ txShouldFailWithPlutus res err = case res of
     other -> expectationFailure $
         "expected: Left ...: " <> show (WitnessScriptError err) <> "\n" <>
         " but got: " <> show other
-
-----------------------------------------------------------------------------
--- General-purpose utilities
-----------------------------------------------------------------------------
-
-qcIsLeft :: Show b => Either a b -> Property
-qcIsLeft (Left _) = property True
-qcIsLeft (Right x) =
-    counterexample ("expected Left, got Right (" ++ show x ++ ")") False
-
-qcIsRight :: Show a => Either a b -> Property
-qcIsRight (Right _) = property True
-qcIsRight (Left x) =
-    counterexample ("expected Right, got Left (" ++ show x ++ ")") False

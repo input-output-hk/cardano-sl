@@ -14,7 +14,7 @@ import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Arbitrary (..), Gen, NonEmptyList (..), Property,
                                         elements, listOf, sublistOf, suchThat, vector,
-                                        (==>))
+                                        (.&&.), (===), (==>))
 
 import           Pos.Arbitrary.Lrc     (GenesisMpcThd, ValidRichmenStakes (..))
 import           Pos.Binary            (AsBinary)
@@ -40,6 +40,7 @@ import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadSignedCommitm
                                         verifyCommitmentSignature, verifyOpening)
 import           Pos.Types             (Coin, EpochIndex, EpochOrSlot (..), StakeholderId,
                                         addressHash, crucialSlot, mkCoin)
+import           Pos.Util              (qcElem, qcFail, qcIsRight)
 
 spec :: Spec
 spec = giveStaticConsts $ describe "Ssc.GodTossing.Base" $ do
@@ -126,15 +127,19 @@ notVerifiesBadOpening (getBadCAndO -> badCommsAndOp) =
     not . uncurry verifyOpening $ badCommsAndOp
 
 emptyPayload
-    :: Monoid container
+    :: (Monoid container, Show e)
     => (container -> ExceptT e PureTossWithEnv a)
     -> MultiRichmenStakes
     -> GtGlobalState
-    -> Bool
+    -> Property
 emptyPayload pureToss mrs gtgs =
-    isRight $ tossRunner mrs gtgs $ pureToss mempty
+    qcIsRight $ tossRunner mrs gtgs $ pureToss mempty
 
-emptyPayloadComms :: HasCoreConstants => GoodCommsPayload -> GtGlobalState -> Bool
+emptyPayloadComms
+    :: HasCoreConstants
+    => GoodCommsPayload
+    -> GtGlobalState
+    -> Property
     -- The 'checkCommitmentsPayload' function will never pass without a valid
     -- multirichmen hashmap, meaning we can't use entirely arbitrary data.
     -- As such, one from a 'GoodCommsPayload' is fetched instead since the
@@ -304,9 +309,11 @@ instance HasCoreConstants => Arbitrary GoodOpeningPayload where
 
         return (GtGlobalState {..}, opensPayload)
 
-checksGoodOpeningsPayload :: HasCoreConstants => MultiRichmenStakes -> GoodOpeningPayload -> Bool
+checksGoodOpeningsPayload
+    :: HasCoreConstants
+    => MultiRichmenStakes -> GoodOpeningPayload -> Property
 checksGoodOpeningsPayload mrs (getGoodOpens -> (gtgs, openPayload)) =
-    isRight . tossRunner mrs gtgs $ checkOpeningsPayload openPayload
+    qcIsRight . tossRunner mrs gtgs $ checkOpeningsPayload openPayload
 
 checksBadOpeningsPayload
     :: HasCoreConstants
@@ -535,9 +542,9 @@ instance HasCoreConstants => Arbitrary GoodCertsPayload where
 
         return GoodPayload {..}
 
-checksGoodCertsPayload :: HasCoreConstants => GoodCertsPayload -> Bool
+checksGoodCertsPayload :: HasCoreConstants => GoodCertsPayload -> Property
 checksGoodCertsPayload (GoodPayload epoch gtgs certsMap mrs) =
-    isRight . tossRunner mrs gtgs $ checkCertificatesPayload epoch certsMap
+    qcIsRight . tossRunner mrs gtgs $ checkCertificatesPayload epoch certsMap
 
 checksBadCertsPayload :: HasCoreConstants => GoodCertsPayload -> StakeholderId -> VssCertificate -> Property
 checksBadCertsPayload (GoodPayload epoch gtgs certsMap mrs) sid cert =

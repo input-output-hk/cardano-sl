@@ -26,6 +26,7 @@ import           Pos.Ssc.GodTossing    (SharesDistribution, TossVerFailure,
                                         computeSharesDistrPure,
                                         isDistrInaccuracyAcceptable,
                                         sharesDistrMaxSumDistr)
+import           Pos.Util              (qcIsLeft)
 
 spec :: Spec
 spec = describe "computeSharesDistr" $ do
@@ -223,9 +224,9 @@ emptyRichmenStakes =
     let emptyRes = computeShares' mempty
     in isRight emptyRes `shouldBe` True
 
-invalidStakeErrors :: InvalidRichmenStakes GenesisMpcThd -> Bool
+invalidStakeErrors :: InvalidRichmenStakes GenesisMpcThd -> Property
 invalidStakeErrors (getInvalid -> richmen) =
-    isLeft $ computeShares' richmen
+    qcIsLeft $ computeShares' richmen
 
 lrcConsistency :: Property
 lrcConsistency =

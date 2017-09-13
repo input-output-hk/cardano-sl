@@ -44,6 +44,7 @@ import qualified Data.HashSet                    as HS
 import qualified Data.List.NonEmpty              as NE
 import           Data.STRef                      (newSTRef, readSTRef, writeSTRef)
 import           Formatting                      (ords, sformat, (%))
+import           GHC.Exts                        (groupWith)
 import           System.Wlog                     (logWarning)
 
 import           Pos.Binary.Class                (AsBinary, fromBinaryM)
@@ -483,12 +484,17 @@ checkCertificatesPayload epoch certs = do
     exceptGuardSnd CertificateDuplicateVssKey
         (not . (`HS.member` existingVssKeys) . vcVssKey)
         (HM.toList (getVssCertificatesMap certs))
-    let newVssKeys =
-            HS.fromList . map vcVssKey . toList . getVssCertificatesMap $
-            certs
-    exceptGuardSnd CertificateDuplicateVssKey
-        (not . (`HS.member` newVssKeys) . vcVssKey)
-        (HM.toList (getVssCertificatesMap certs))
+    -- find pubkeys corresponding to vss keys that are duplicated
+    let isDupGroup (_:_:_) = True
+        isDupGroup _       = False
+    let keysWithDups =
+            getVssCertificatesMap certs
+                & fmap vcVssKey & HM.toList    -- take (pubkey, vsskey) pairs
+                & groupWith snd                -- group by vsskey
+                & filter isDupGroup            -- leave groups with >1 element
+                & concat & map fst             -- leave only pubkeys
+    whenJust (nonEmpty keysWithDups) $ \ks ->
+        throwError (CertificateDuplicateVssKey ks)
 
 checkPayload
     :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m,

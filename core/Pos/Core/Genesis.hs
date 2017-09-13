@@ -45,6 +45,7 @@ import           Pos.Crypto.SafeSigning     (EncryptedSecretKey, emptyPassphrase
 import           Pos.Crypto.Signing         (PublicKey, SecretKey, deterministicKeyGen)
 
 -- reexports
+import           Pos.Core.Genesis.Canonical ()
 import           Pos.Core.Genesis.Parser
 import           Pos.Core.Genesis.Types
 

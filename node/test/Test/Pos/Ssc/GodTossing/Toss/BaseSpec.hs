@@ -35,8 +35,9 @@ import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadSignedCommitm
                                         VssCertificate (vcSigningKey),
                                         VssCertificatesMap (..), checkCertificatesPayload,
                                         checkCommitmentsPayload, checkOpeningsPayload,
-                                        checkSharesPayload, gsCommitments, gsOpenings,
-                                        gsShares, gsVssCertificates, insertVss,
+                                        checkSharesPayload, deleteSignedCommitment,
+                                        gsCommitments, gsOpenings, gsShares,
+                                        gsVssCertificates, insertVss,
                                         mkCommitmentsMapUnsafe, runPureToss,
                                         supplyPureTossEnv, vcVssKey, verifyCommitment,
                                         verifyCommitmentSignature, verifyOpening)
@@ -442,31 +443,29 @@ checksBadSharesPayload (GoodPayload epoch g@GtGlobalState {..} sm mrs) pk ne cer
         -- commitments nor shares map. Instead of writing a new 'Arbitrary' type which
         -- will only be useful here, this condition is just enforced by deleting it from
         -- where it shouldn't be.
-        gtgs = g & (gsShares %~ HM.delete sid) .
-                   (gsCommitments %~ mkCommitmentsMapUnsafe .
-                                     HM.delete sid .
-                                     getCommitmentsMap)
+        gtgs = g & gsShares %~ HM.delete sid
+                 & gsCommitments %~ deleteSignedCommitment sid
         sharesMap = fmap (HM.delete sid) . HM.delete sid $ sm
 
         mrsWithMissingEpoch = HM.delete epoch mrs
         noRichmen =
             tossRunner mrsWithMissingEpoch gtgs $ checkSharesPayload epoch sharesMap
-        res1 = case noRichmen of
-            Left (NoRichmen e) -> e == epoch
-            _                  -> False
+        res1 = noRichmen === Left (NoRichmen epoch)
 
         newSharesMap = HM.insert sid mempty sharesMap
         sharesNotRichmen = tossRunner mrs gtgs $ checkSharesPayload epoch newSharesMap
         res2 = case sharesNotRichmen of
-            Left (SharesNotRichmen nes) -> sid `elem` nes
-            _                           -> False
+            Left (SharesNotRichmen nes) -> sid `qcElem` nes
+            _ -> qcFail $ "expected " <> show sharesNotRichmen <>
+                          " to be a Left (SharesNotRichmen ...)"
 
         newerSharesMap = fmap (HM.insert sid ne) sharesMap
         internalShareWithoutComm =
             tossRunner mrs gtgs $ checkSharesPayload epoch newerSharesMap
         res3 = case internalShareWithoutComm of
-            Left (InternalShareWithoutCommitment nes) -> sid `elem` nes
-            _                                         -> False
+            Left (InternalShareWithoutCommitment nes) -> sid `qcElem` nes
+            _ -> qcFail $ "expected " <> show internalShareWithoutComm <>
+                          " to be a Left (InternalShareWithoutCommitment ...)"
 
         cert' = cert {vcSigningKey = pk}
         newestSharesMap = HM.insert sid mempty sharesMap
@@ -477,10 +476,12 @@ checksBadSharesPayload (GoodPayload epoch g@GtGlobalState {..} sm mrs) pk ne cer
         sharesAlreadySent =
             tossRunner mrs' gtgs' $ checkSharesPayload epoch newestSharesMap
         res4 = case sharesAlreadySent of
-            Left (SharesAlreadySent nes) -> sid `elem` nes
-            _                            -> False
+            Left (SharesAlreadySent nes) -> sid `qcElem` nes
+            _ -> qcFail $ "expected " <> show sharesAlreadySent <>
+                          " to be a Left (SharesAlreadySent ...)"
 
-    in not (null sharesMap) ==> res1 && res2 && res3 && res4
+    in not (null sharesMap)
+       ==> res1 .&&. res2 .&&. res3 .&&. res4
 
 type GoodCertsPayload = GoodPayload VssCertificatesMap
 
@@ -564,9 +565,7 @@ checksBadCertsPayload (GoodPayload epoch gtgs certsMap mrs) pk cert =
         mrsWithMissingEpoch = HM.delete epoch mrs
         noRichmen =
             tossRunner mrsWithMissingEpoch gtgs $ checkCertificatesPayload epoch certsMap
-        res1 = case noRichmen of
-            Left (NoRichmen e) -> e == epoch
-            _                  -> False
+        res1 = noRichmen === Left (NoRichmen epoch)
 
         cert' = cert {vcSigningKey = pk}
         certsMap2 = insertVss cert' certsMap
@@ -575,15 +574,17 @@ checksBadCertsPayload (GoodPayload epoch gtgs certsMap mrs) pk cert =
         certAlreadySent =
             tossRunner mrs newGtgs $ checkCertificatesPayload epoch certsMap2
         res2 = case certAlreadySent of
-            Left (CertificateAlreadySent nes) -> sid `elem` nes
-            _                                 -> False
+            Left (CertificateAlreadySent nes) -> sid `qcElem` nes
+            _ -> qcFail $ "expected " <> show certAlreadySent <>
+                          " to be a Left (CertificateAlreadySent ...)"
 
         certSid = addressHash . vcSigningKey $ cert
         certsMap3 = insertVss cert certsMap
         certNoRichmen = tossRunner mrs gtgs $ checkCertificatesPayload epoch certsMap3
         res3 = case certNoRichmen of
-            Left (CertificateNotRichmen nes) -> certSid `elem` nes
-            _                                -> False
+            Left (CertificateNotRichmen nes) -> certSid `qcElem` nes
+            _ -> qcFail $ "expected " <> show certNoRichmen <>
+                          " to be a Left (CertificateNotRichmen ...)"
 
         allVssKeys = map vcVssKey (toList (getVssCertificatesMap certsMap))
 

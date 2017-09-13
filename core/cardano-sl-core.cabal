@@ -38,6 +38,7 @@ library
 
                        Pos.Aeson.Core
                        Pos.Aeson.Crypto
+                       Pos.Aeson.Fee
                        Pos.Aeson.Genesis
 
                        Pos.Core

@@ -25,7 +25,8 @@ import           Universum
 import           Control.Concurrent.STM     (isFullTBQueue, readTVar, writeTBQueue,
                                              writeTVar)
 import           Control.Exception          (Exception (..))
-import           Control.Lens               (to, _Wrapped)
+import           Control.Exception.Safe     (tryAny)
+import           Control.Lens               (to)
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Text.Buildable        as B
 import           Ether.Internal             (HasLens (..))
@@ -58,18 +59,21 @@ import qualified Pos.Constants              as Constants
 import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHeaderTag,
                                              recoveryInProgress)
 import           Pos.Core                   (HasCoreConstants, HasHeaderHash (..),
-                                             HeaderHash, gbHeader, headerHashG,
-                                             isMoreDifficult, prevBlockL)
+                                             HeaderHash, epochIndexL, gbHeader,
+                                             headerHashG, isMoreDifficult, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.DB.Block               (blkGetHeader)
 import qualified Pos.DB.DB                  as DB
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
+import           Pos.Lrc.Worker             (lrcSingleShot)
 import           Pos.Reporting.Methods      (reportMisbehaviour)
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
-import           Pos.StateLock              (Priority (..), modifyStateLock)
+import           Pos.StateLock              (Priority (..), modifyStateLock,
+                                             withStateLockNoMetrics)
 import           Pos.Util                   (inAssertMode, _neHead, _neLast)
-import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..),
+                                             _NewestFirst, _OldestFirst)
 import           Pos.Util.JsonLog           (jlAdoptedBlock)
 import           Pos.Util.TimeWarp          (CanJsonLog (..))
 import           Pos.WorkMode.Class         (WorkMode)
@@ -232,8 +236,8 @@ matchRequestedHeaders
     :: (SscHelpersClass ssc, HasCoreConstants)
     => NewestFirst NE (BlockHeader ssc) -> MsgGetHeaders -> Bool -> MatchReqHeadersRes
 matchRequestedHeaders headers mgh@MsgGetHeaders {..} inRecovery =
-    let newTip = headers ^. _Wrapped . _neHead
-        startHeader = headers ^. _Wrapped . _neLast
+    let newTip = headers ^. _NewestFirst . _neHead
+        startHeader = headers ^. _NewestFirst . _neLast
         startMatches =
             or [ (startHeader ^. headerHashG) `elem` mghFrom
                , (startHeader ^. prevBlockL) `elem` mghFrom
@@ -271,7 +275,7 @@ requestHeaders cont mgh nodeId conv = do
         logDebug $ sformat
             ("requestHeaders: received "%int%" headers of total size "%builder%
              " from nodeId "%build%": "%listJson)
-            (headers ^. _Wrapped . to NE.length)
+            (headers ^. _NewestFirst . to NE.length)
             (unitBuilder $ biSize headers)
             nodeId
             (map headerHash headers)
@@ -280,7 +284,8 @@ requestHeaders cont mgh nodeId conv = do
         case matchRequestedHeaders headers mgh inRecovery of
             MRGood           ->
                 handleRequestedHeaders cont inRecovery headers
-            MRUnexpected msg -> handleUnexpected headers msg
+            MRUnexpected msg ->
+                handleUnexpected headers msg
   where
     onNothing = do
         logWarning "requestHeaders: received Nothing, waiting for MsgHeaders"
@@ -297,7 +302,6 @@ requestHeaders cont mgh nodeId conv = do
         throwM $ DialogUnexpected $
             sformat ("requestHeaders: received unexpected headers from "%build) nodeId
 
--- First case of 'handleBlockheaders'
 handleRequestedHeaders
     :: forall ssc ctx m t.
        WorkMode ssc ctx m
@@ -306,10 +310,20 @@ handleRequestedHeaders
     -> NewestFirst NE (BlockHeader ssc)
     -> m (Maybe t)
 handleRequestedHeaders cont inRecovery headers = do
-    classificationRes <- classifyHeaders inRecovery headers
-    let newestHeader = headers ^. _Wrapped . _neHead
+    let newestHeader = headers ^. _NewestFirst . _neHead
+        oldestHeader = headers ^. _NewestFirst . _neLast
         newestHash = headerHash newestHeader
-        oldestHash = headerHash $ headers ^. _Wrapped . _neLast
+        oldestHash = headerHash oldestHeader
+        oldestEpoch = oldestHeader ^. epochIndexL
+    -- Try to calculate LRC for the oldest header epoch. If we're in
+    -- recovery and oldest header is from the next epoch, no lrc will
+    -- be automatically calculated as all workers are locked in
+    -- recovery mode. So we should try to do it manually.
+    logDebug "handleREquesteHeaders: LRC started"
+    -- TODO EXCEPTION HANDLING HERE
+    void $ tryAny $ withStateLockNoMetrics LowPriority $ const $ lrcSingleShot oldestEpoch
+    logDebug "handleRequesteHeaders: LRC ended"
+    classificationRes <- classifyHeaders inRecovery headers
     case classificationRes of
         CHsValid lcaChild -> do
             let lcaHash = lcaChild ^. prevBlockL
@@ -440,7 +454,7 @@ handleBlocksWithLca nodeId enqueue blocks lcaHash = do
     toRollback <- DB.loadBlundsFromTipWhile $ \blk -> headerHash blk /= lcaHash
     maybe (applyWithoutRollback enqueue blocks)
           (applyWithRollback nodeId enqueue blocks lcaHash)
-          (_Wrapped nonEmpty toRollback)
+          (_NewestFirst nonEmpty toRollback)
   where
     lcaFmt = "Handling block w/ LCA, which is "%shortHashF
 
@@ -466,7 +480,7 @@ applyWithoutRollback enqueue blocks = do
                     fromMaybe (error "Listeners#applyWithoutRollback is broken") $
                     find (\b -> headerHash b == newTip) blocks
                 prefix = blocks
-                    & _Wrapped %~ NE.takeWhile ((/= newTip) . headerHash)
+                    & _OldestFirst %~ NE.takeWhile ((/= newTip) . headerHash)
                     & map (view blockHeader)
                 applied = NE.fromList $
                     getOldestFirst prefix <> one (toRelay ^. blockHeader)
@@ -474,7 +488,7 @@ applyWithoutRollback enqueue blocks = do
             logInfo $ blocksAppliedMsg applied
             for_ blocks $ jsonLog . jlAdoptedBlock
   where
-    newestTip = blocks ^. _Wrapped . _neLast . headerHashG
+    newestTip = blocks ^. _OldestFirst . _neLast . headerHashG
     applyWithoutRollbackDo
         :: HeaderHash -> m (HeaderHash, Either ApplyBlocksException HeaderHash)
     applyWithoutRollbackDo curTip = do
@@ -511,7 +525,7 @@ applyWithRollback nodeId enqueue toApply lca toRollback = do
             logInfo $ blocksRolledBackMsg (getNewestFirst toRollback)
             logInfo $ blocksAppliedMsg (getOldestFirst toApply)
             for_ (getOldestFirst toApply) $ jsonLog . jlAdoptedBlock
-            relayBlock enqueue $ toApply ^. _Wrapped . _neLast
+            relayBlock enqueue $ toApply ^. _OldestFirst . _neLast
   where
     toRollbackHashes = fmap headerHash toRollback
     toApplyHashes = fmap headerHash toApply

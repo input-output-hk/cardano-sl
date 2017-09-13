@@ -156,14 +156,14 @@ retrievalWorkerImpl SendActions {..} =
                 mkAny = maybe (Any False) Any
 
             updateRecoveryHeader nodeId header
-            let cont (headers :: NewestFirst NE (BlockHeader ssc)) =
+            let cont (headers :: NewestFirst NE (BlockHeader ssc)) = do
                     let oldestHeader = headers ^. _NewestFirst . _neLast
                         newestHeader = headers ^. _NewestFirst . _neHead
-                    in getProcessBlocks enqueueMsg nodeId
-                                      oldestHeader (headerHash newestHeader)
-            convs <- enqueueMsg (MsgRequestBlockHeaders (Just (S.singleton nodeId))) $
-                \_ _ -> pure $ Conversation $ \conv ->
-                    requestHeaders cont mgh nodeId conv
+                    getProcessBlocks enqueueMsg nodeId
+                        oldestHeader (headerHash newestHeader)
+            convs <-
+                enqueueMsg (MsgRequestBlockHeaders (Just (S.singleton nodeId))) $ \_ _ ->
+                    pure $ Conversation $ requestHeaders cont mgh nodeId
             results <- waitForConversations $ fmap (handleAll (\_ -> return (Just False))) convs
             let Any endedRecovery = fold $ fmap mkAny results
             when endedRecovery $ logInfo "Recovery mode exited gracefully"

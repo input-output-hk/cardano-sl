@@ -65,9 +65,9 @@ empty = VssCertData (EpochOrSlot $ Left $ EpochIndex 0) mempty mempty mempty mem
 -- | Remove old certificate corresponding to the specified 'StakeholderId'
 -- and insert new certificate.
 insert :: VssCertificate -> VssCertData -> VssCertData
-insert (first getCertId . join (,) -> (id, cert)) mp@VssCertData{..}
+insert cert mp@VssCertData{..}
     | expiryEoS cert <= lastKnownEoS = mp
-    | otherwise                      = addInt id cert mp
+    | otherwise                      = addInt cert mp
 
 -- | Lookup certificate corresponding to the specified 'StakeholderId'.
 lookup :: StakeholderId -> VssCertData -> Maybe VssCertificate
@@ -135,10 +135,11 @@ fromList = foldr' insert empty
 
 -- | Helper for insert.
 -- Expiry epoch will be converted to expiry slot.
-addInt :: StakeholderId -> VssCertificate -> VssCertData -> VssCertData
-addInt id cert vcd =
+addInt :: VssCertificate -> VssCertData -> VssCertData
+addInt cert vcd =
     insertRaw $ expireById False id (addEpoch $ lastKnownEoS vcd) vcd
   where
+    id = getCertId cert
     insertRaw VssCertData{..} = VssCertData
         lastKnownEoS
         (insertVss cert certs)

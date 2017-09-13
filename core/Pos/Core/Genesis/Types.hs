@@ -19,15 +19,18 @@ module Pos.Core.Genesis.Types
        , TestnetDistribution (..)
        , GenesisInitializer (..)
        , GenesisAvvmBalances (..)
+       , GenesisNonAvvmBalances (..)
        , AvvmData (..)
        , AvvmEntry (..)
        , ProtocolConstants (..)
        , GenesisSpec (..)
        , convertAvvmDataToBalances
+       , convertNonAvvmDataToBalances
        , mkGenesisSpec
 
        -- * GenesisData
        , GenesisData (..)
+       , genesisDataFromSpec
        ) where
 
 import           Universum
@@ -35,18 +38,20 @@ import           Universum
 import           Control.Lens         (at)
 import           Control.Monad.Except (MonadError (throwError))
 import qualified Data.HashMap.Strict  as HM
+import qualified Data.Text            as T
 import qualified Data.Text.Buildable  as Buildable
 import           Formatting           (bprint, (%))
 import           Serokell.Util        (allDistinct, mapJson)
 
-import           Pos.Core.Address     (addressHash)
+import           Pos.Binary.Class     (Bi)
+import           Pos.Core.Address     (addressHash, decodeTextAddress)
 import           Pos.Core.Coin        (coinToInteger, sumCoins, unsafeAddCoin,
                                        unsafeGetCoin, unsafeIntegerToCoin)
 import           Pos.Core.Types       (Address, BlockVersionData, Coin, ProxySKHeavy,
                                        SharedSeed, StakeholderId, Timestamp, mkCoin)
-import           Pos.Core.Vss         (VssCertificatesMap)
-import           Pos.Crypto           (ProxySecretKey (..), RedeemPublicKey,
-                                       isSelfSignedPsk)
+import           Pos.Core.Vss.Types   (VssCertificatesMap)
+import           Pos.Crypto.Signing.Types (ProxySecretKey (..), RedeemPublicKey,
+                                           isSelfSignedPsk)
 
 -- | Balances distribution in genesis block.
 data BalanceDistribution
@@ -212,6 +217,7 @@ data GenesisInitializer
       miStartTime        :: !Timestamp
     , miBootStakeholders :: !GenesisWStakeholders
     , miVssCerts         :: !VssCertificatesMap
+    , miNonAvvmBalances  :: !GenesisNonAvvmBalances
     } deriving (Show)
 
 data AvvmEntry = AvvmEntry
@@ -244,6 +250,28 @@ convertAvvmDataToBalances AvvmData{..} = GenesisAvvmBalances balances
             AvvmEntry {..} <- avvmData
             let adaCoin = unsafeIntegerToCoin aeCoin
             return (aePublicKey, adaCoin)
+
+-- | Predefined balances of non avvm entries.
+newtype GenesisNonAvvmBalances = GenesisNonAvvmBalances
+    { getGenesisNonAvvmBalances :: HashMap Address Coin
+    } deriving (Show, Eq)
+
+-- | Generate genesis address distribution out of avvm
+-- parameters. Txdistr of the utxo is all empty. Redelegate it in
+-- calling funciton.
+convertNonAvvmDataToBalances
+    :: forall m .
+       ( MonadFail m, Bi Address )
+    => HashMap Text Integer
+    -> m GenesisNonAvvmBalances
+convertNonAvvmDataToBalances balances = GenesisNonAvvmBalances <$> balances'
+  where
+    balances' :: m (HashMap Address Coin)
+    balances' = HM.fromListWith unsafeAddCoin <$> traverse convert (HM.toList balances)
+    convert :: (Text, Integer) -> m (Address, Coin)
+    convert (txt, i) = case decodeTextAddress txt of
+        Left err   -> fail (T.unpack err)
+        Right addr -> return (addr, unsafeIntegerToCoin i)
 
 -- | 'ProtocolConstants' are not really part of genesis global state,
 -- but they affect consensus, so they are part of 'GenesisSpec' and
@@ -305,9 +333,26 @@ data GenesisData = GenesisData
     , gdHeavyDelegation  :: !GenesisDelegation
     , gdStartTime        :: !Timestamp
     , gdVssCerts         :: !VssCertificatesMap
-    , gdNonAvvmBalances  :: !(HashMap Address Coin)
+    , gdNonAvvmBalances  :: !GenesisNonAvvmBalances
     , gdBlockVersionData :: !BlockVersionData
     , gdProtocolConsts   :: !ProtocolConstants
     , gdAvvmDistr        :: !GenesisAvvmBalances
     , gdFtsSeed          :: !SharedSeed
     } deriving (Show, Eq)
+
+-- | 'GenesisData' is determined by 'GenesisSpec' whenever it has a
+-- 'MainnetInitializer'.
+genesisDataFromSpec :: GenesisSpec -> Maybe GenesisData
+genesisDataFromSpec UnsafeGenesisSpec{..}
+  | MainnetInitializer{..} <- gsInitializer =
+        let gdBootStakeholders = miBootStakeholders
+            gdHeavyDelegation = gsHeavyDelegation
+            gdStartTime = miStartTime
+            gdVssCerts = miVssCerts
+            gdNonAvvmBalances = miNonAvvmBalances
+            gdBlockVersionData = gsBlockVersionData
+            gdProtocolConsts = gsProtocolConstants
+            gdAvvmDistr = gsAvvmDistr
+            gdFtsSeed = gsFtsSeed
+        in  Just GenesisData{..}
+  | otherwise = Nothing

@@ -27,12 +27,12 @@ import           Pos.Binary.Class         (AsBinary (..), Bi (..), Cons (..), Fi
 import           Pos.Crypto.Hashing       (AbstractHash (..), HashAlgorithm,
                                            WithHash (..), withHash)
 import           Pos.Crypto.HD            (HDAddressPayload (..))
-import           Pos.Crypto.RedeemSigning (RedeemPublicKey (..), RedeemSecretKey (..),
-                                           RedeemSignature (..))
-import           Pos.Crypto.SafeSigning   (EncryptedSecretKey (..), PassPhrase,
-                                           passphraseLength)
 import qualified Pos.Crypto.SecretSharing as C
-import           Pos.Crypto.Signing       (ProxyCert (..), ProxySecretKey (..),
+import           Pos.Crypto.Signing.Types.Redeem (RedeemPublicKey (..), RedeemSecretKey (..),
+                                                  RedeemSignature (..))
+import           Pos.Crypto.Signing.Types.Safe (EncryptedSecretKey (..), PassPhrase,
+                                                passphraseLength)
+import           Pos.Crypto.Signing.Types (ProxyCert (..), ProxySecretKey (..),
                                            ProxySignature (..), PublicKey (..),
                                            SecretKey (..), Signature (..), Signed (..))
 

@@ -27,10 +27,9 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Paths_cardano_sl             (version)
 
 import           Pos.Client.CLI.Options       (CommonArgs (..), commonArgsParser,
-                                               configInfoParser, optionalJSONPath,
+                                               optionalJSONPath,
                                                sscAlgoOption)
 import           Pos.Constants                (isDevelopment)
-import           Pos.Launcher.ConfigInfo      (ConfigInfo (..))
 import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
 import           Pos.Ssc.SscAlgo              (SscAlgo (..))
 import           Pos.Statistics               (EkgParams, StatsdParams, ekgParamsOption,
@@ -47,15 +46,14 @@ data CommonNodeArgs = CommonNodeArgs
     , backupPhrase           :: !(Maybe BackupPhrase)
     , networkConfigOpts      :: !NetworkConfigOpts
       -- ^ Network configuration
-    , jlPath                 :: !(Maybe FilePath)
-    , commonArgs             :: !CommonArgs
-    , updateLatestPath       :: !FilePath
-    , updateWithPackage      :: !Bool
-    , noNTP                  :: !Bool
-    , enableMetrics          :: !Bool
-    , ekgParams              :: !(Maybe EkgParams)
-    , statsdParams           :: !(Maybe StatsdParams)
-    , configInfo             :: !ConfigInfo
+    , jlPath              :: !(Maybe FilePath)
+    , commonArgs          :: !CommonArgs
+    , updateLatestPath    :: !FilePath
+    , updateWithPackage   :: !Bool
+    , noNTP               :: !Bool
+    , enableMetrics       :: !Bool
+    , ekgParams           :: !(Maybe EkgParams)
+    , statsdParams        :: !(Maybe StatsdParams)
     , cnaDumpGenesisDataPath :: !(Maybe FilePath)
     } deriving Show
 
@@ -116,7 +114,6 @@ commonNodeArgsParser = do
 
     ekgParams <- optional ekgParamsOption
     statsdParams <- optional statsdParamsOption
-    configInfo <- configInfoParser
 
     cnaDumpGenesisDataPath <- optional $ strOption $
         long "dump-genesis-data-to" <>

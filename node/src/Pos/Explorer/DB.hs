@@ -34,6 +34,7 @@ import           Pos.Binary.Class             (UnsignedVarInt (..), serialize')
 import           Pos.Context.Functions        (GenesisUtxo, genesisUtxoM)
 import           Pos.Core                     (Address, Coin, EpochIndex, HeaderHash,
                                                unsafeAddCoin)
+import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.DB                       (DBError (..), DBIteratorClass (..),
                                                DBTag (GStateDB), MonadDB,
                                                MonadDBRead (dbGet), RocksBatchOp (..),
@@ -134,7 +135,7 @@ data ExplorerOp
     | PutAddrBalance !Address !Coin
     | DelAddrBalance !Address
 
-instance RocksBatchOp ExplorerOp where
+instance HasConfiguration => RocksBatchOp ExplorerOp where
 
     toBatchOp (AddTxExtra id extra) =
         [Rocks.Put (txExtraPrefix id) (dbSerializeValue extra)]

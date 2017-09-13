@@ -14,7 +14,7 @@ import qualified Data.Text.Buildable
 import           Formatting          (bprint, build, sformat, stext, (%))
 import           System.Wlog         (WithLogger, logDebug)
 
-import           Pos.Core            (HasCoreConstants, SlotCount, SlotId, slotIdF,
+import           Pos.Core            (HasConfiguration, SlotCount, SlotId, slotIdF,
                                       slotSecurityParam)
 
 -- | An algebraic data type which represents how well we are
@@ -69,7 +69,7 @@ recoveryInProgress =
 -- kinda synchronized with the network.  It is useful for workers
 -- which shouldn't do anything while we are not synchronized.
 recoveryCommGuard
-    :: (MonadRecoveryInfo m, WithLogger m, HasCoreConstants)
+    :: (MonadRecoveryInfo m, WithLogger m, HasConfiguration)
     => Text -> m () -> m ()
 recoveryCommGuard actionName action =
     getSyncStatus lagBehindParam >>= \case

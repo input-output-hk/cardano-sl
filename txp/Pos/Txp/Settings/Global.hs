@@ -18,7 +18,7 @@ import           Control.Monad.Except (MonadError)
 import           System.Wlog          (WithLogger)
 
 import           Pos.Core             (GenesisWStakeholders, IsGenesisHeader,
-                                       IsMainHeader)
+                                       IsMainHeader, HasConfiguration)
 import           Pos.DB               (MonadDBRead, MonadGState, SomeBatchOp)
 import           Pos.Slotting         (MonadSlots)
 import           Pos.Txp.Core         (TxPayload, TxpUndo)
@@ -32,6 +32,7 @@ type TxpCommonMode ctx m =
     , MonadGState m
     , MonadReader ctx m
     , HasLens' ctx GenesisWStakeholders
+    , HasConfiguration
     )
 
 type TxpGlobalVerifyMode ctx m =

@@ -32,7 +32,7 @@ import           Pos.Block.Slog.Types   (HasSlogContext (..), HasSlogGState (..)
 import           Pos.Block.Types        (Undo)
 import           Pos.Context            (HasNodeContext (..), HasPrimaryKey (..),
                                          HasSscContext (..), NodeContext)
-import           Pos.Core               (HasCoreConstants, IsHeader)
+import           Pos.Core               (HasConfiguration, IsHeader)
 import           Pos.DB                 (MonadGState (..), NodeDBs)
 import           Pos.DB.Block           (dbGetBlockDefault, dbGetBlockSscDefault,
                                          dbGetHeaderDefault, dbGetHeaderSscDefault,
@@ -46,6 +46,7 @@ import           Pos.DB.Rocks           (dbDeleteDefault, dbGetDefault,
                                          dbIterSourceDefault, dbPutDefault,
                                          dbWriteBatchDefault)
 import           Pos.Delegation.Class   (DelegationVar)
+import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.KnownPeers         (MonadFormatPeers (..), MonadKnownPeers (..))
 import           Pos.Reporting          (HasReportingContext (..))
 import           Pos.Shutdown           (HasShutdownContext (..))
@@ -145,7 +146,7 @@ instance {-# OVERLAPPING #-} HasLoggerName (RealMode ssc) where
 instance {-# OVERLAPPING #-} CanJsonLog (RealMode ssc) where
     jsonLog = jsonLogDefault
 
-instance (HasCoreConstants, MonadSlotsData ctx (RealMode ssc))
+instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx (RealMode ssc))
       => MonadSlots ctx (RealMode ssc)
   where
     getCurrentSlot = getCurrentSlotSum
@@ -153,14 +154,14 @@ instance (HasCoreConstants, MonadSlotsData ctx (RealMode ssc))
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
     currentTimeSlotting = currentTimeSlottingSum
 
-instance MonadGState (RealMode ssc) where
+instance HasConfiguration => MonadGState (RealMode ssc) where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
-instance MonadDBRead (RealMode ssc) where
+instance HasConfiguration => MonadDBRead (RealMode ssc) where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
 
-instance MonadDB (RealMode ssc) where
+instance HasConfiguration => MonadDB (RealMode ssc) where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
@@ -170,7 +171,7 @@ instance MonadBListener (RealMode ssc) where
     onRollbackBlocks = onRollbackBlocksStub
 
 instance
-    (HasCoreConstants, SscHelpersClass ssc) =>
+    (HasConfiguration, SscHelpersClass ssc) =>
     MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (RealMode ssc)
   where
     dbGetBlock  = dbGetBlockDefault @ssc
@@ -178,14 +179,14 @@ instance
     dbGetHeader = dbGetHeaderDefault @ssc
 
 instance
-    (HasCoreConstants, SscHelpersClass ssc) =>
+    (HasConfiguration, SscHelpersClass ssc) =>
     MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (RealMode ssc)
   where
     dbGetBlock  = dbGetBlockSscDefault @ssc
     dbGetUndo   = dbGetUndoSscDefault @ssc
     dbGetHeader = dbGetHeaderSscDefault @ssc
 
-instance (HasCoreConstants, SscHelpersClass ssc) =>
+instance (HasConfiguration, SscHelpersClass ssc) =>
          MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo (RealMode ssc) where
     dbPutBlund = dbPutBlundDefault
 

@@ -20,8 +20,9 @@ import           Pos.Core.Types         (ApplicationName (..), BlockCount (..),
                                          BlockVersionData, ChainDifficulty, Coin,
                                          CoinPortion, EpochIndex (..), LocalSlotIndex,
                                          SharedSeed (..), SlotCount (..), SlotId,
-                                         SoftforkRule, Timestamp,
-                                         unsafeCoinPortionFromDouble)
+                                         SoftforkRule, Timestamp, BlockVersion,
+                                         unsafeCoinPortionFromDouble,
+                                         mkApplicationName)
 import           Pos.Core.Vss           (VssCertificate)
 
 instance ToJSON SharedSeed where
@@ -52,9 +53,19 @@ deriveFromJSON S.defaultOptions ''BlockVersionData
 -- any other way of deriving if possible.
 
 deriveToJSON defaultOptions ''BlockCount
+
+instance FromJSON ApplicationName where
+    -- mkApplicationName will fail if the parsed text isn't appropriate.
+    --
+    -- FIXME does the defaultOptions derived JSON encode directly as text? Or
+    -- as an object with a single key?
+    parseJSON v = parseJSON v >>= mkApplicationName
+
 deriveToJSON defaultOptions ''ApplicationName
+
 deriveToJSON defaultOptions ''ChainDifficulty
 deriveToJSON defaultOptions ''SlotId
 deriveToJSON defaultOptions ''LocalSlotIndex
 deriveJSON defaultOptions ''Coin
+deriveJSON defaultOptions ''BlockVersion
 deriveJSON defaultOptions ''EpochIndex

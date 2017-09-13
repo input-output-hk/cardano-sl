@@ -15,7 +15,7 @@ import           Pos.Arbitrary.Slotting            ()
 import           Pos.Arbitrary.Update.Core         ()
 import           Pos.Binary.Core                   ()
 import           Pos.Binary.Update                 ()
-import           Pos.Core.Context                  (HasCoreConstants)
+import           Pos.Core.Configuration            (HasConfiguration)
 import           Pos.Update.Poll.PollState         (PollState (..), psActivePropsIdx)
 import           Pos.Update.Poll.Types             (BlockVersionState (..),
                                                     ConfirmedProposalState (..),
@@ -29,7 +29,7 @@ instance Arbitrary UpsExtra where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasCoreConstants => Arbitrary UndecidedProposalState where
+instance HasConfiguration => Arbitrary UndecidedProposalState where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -37,15 +37,15 @@ instance Arbitrary DpsExtra where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasCoreConstants => Arbitrary DecidedProposalState where
+instance HasConfiguration => Arbitrary DecidedProposalState where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary ConfirmedProposalState where
+instance HasConfiguration => Arbitrary ConfirmedProposalState where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasCoreConstants => Arbitrary ProposalState  where
+instance HasConfiguration => Arbitrary ProposalState  where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -53,17 +53,17 @@ instance Arbitrary BlockVersionState where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasCoreConstants => Arbitrary PollModifier where
+instance HasConfiguration => Arbitrary PollModifier where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasCoreConstants => Arbitrary PollState where
+instance HasConfiguration => Arbitrary PollState where
     arbitrary = do
         ps <- genericArbitrary
         return (ps & psActivePropsIdx %~ HM.filter (not . null))
     shrink = genericShrink
 
-instance HasCoreConstants => Arbitrary USUndo where
+instance HasConfiguration => Arbitrary USUndo where
     arbitrary = genericArbitrary
     shrink = genericShrink
 

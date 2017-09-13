@@ -23,11 +23,12 @@ import           Serokell.Util.Verify            (isVerSuccess)
 
 import           Pos.Binary.Crypto               ()
 import           Pos.Binary.GodTossing.Core      ()
-import           Pos.Core                        (EpochIndex (..), HasCoreConstants,
+import           Pos.Core                        (EpochIndex (..),
                                                   IsMainHeader, SlotId (..),
                                                   StakeholderId, VssCertificatesMap,
                                                   headerSlotL)
-import           Pos.Core.Genesis                (genesisCertificates)
+import           Pos.Core.Configuration          (HasConfiguration, HasGeneratedGenesisData,
+                                                  genesisCertificates, HasProtocolConstants)
 import           Pos.Core.Slotting               (crucialSlot)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (getCommitmentsMap),
                                                   GtPayload (..), checkCertTTL,
@@ -72,7 +73,7 @@ hasVssCertificate id = VCD.member id . _gsVssCertificates
 --
 -- We also do some general sanity checks.
 sanityChecksGtPayload
-    :: (HasCoreConstants, MonadError TossVerFailure m)
+    :: (HasConfiguration, MonadError TossVerFailure m)
     => Either EpochIndex (Some IsMainHeader) -> GtPayload -> m ()
 sanityChecksGtPayload eoh payload = case payload of
     CommitmentsPayload comms certs -> do
@@ -134,7 +135,7 @@ sanityChecksGtPayload eoh payload = case payload of
 -- Modern
 ----------------------------------------------------------------------------
 
-getStableCertsPure :: HasCoreConstants => EpochIndex -> VCD.VssCertData -> VssCertificatesMap
+getStableCertsPure :: (HasProtocolConstants, HasGeneratedGenesisData) => EpochIndex -> VCD.VssCertData -> VssCertificatesMap
 getStableCertsPure epoch certs
     | epoch == 0 = genesisCertificates
     | otherwise =

@@ -10,14 +10,17 @@ import           Data.Aeson             (FromJSON (..), withObject, (.:))
 import           Data.Aeson.TH          (deriveFromJSON)
 import           Serokell.Aeson.Options (defaultOptions)
 
+import           Pos.Binary.Core.Address ()
 import           Pos.Aeson.Core         ()
 import           Pos.Aeson.Crypto       ()
 import           Pos.Core.Genesis.Types (AvvmData, AvvmEntry (..), FakeAvvmOptions,
-                                         GenesisAvvmBalances, GenesisDelegation,
+                                         GenesisAvvmBalances,
+                                         GenesisNonAvvmBalances, GenesisDelegation,
                                          GenesisInitializer, GenesisSpec,
                                          GenesisWStakeholders, ProtocolConstants,
                                          TestnetBalanceOptions, TestnetDistribution,
-                                         convertAvvmDataToBalances)
+                                         convertAvvmDataToBalances,
+                                         convertNonAvvmDataToBalances)
 import           Pos.Crypto             (fromAvvmPk)
 
 instance FromJSON AvvmEntry where
@@ -31,6 +34,9 @@ instance FromJSON AvvmData
 
 instance FromJSON GenesisAvvmBalances where
     parseJSON v = convertAvvmDataToBalances <$> parseJSON v
+
+instance FromJSON GenesisNonAvvmBalances where
+    parseJSON = convertNonAvvmDataToBalances <=< parseJSON
 
 deriveFromJSON defaultOptions ''GenesisDelegation
 deriveFromJSON defaultOptions ''GenesisWStakeholders

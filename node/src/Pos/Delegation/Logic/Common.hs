@@ -27,9 +27,9 @@ import qualified Data.Text.Buildable  as B
 import           Data.Time.Clock      (UTCTime, addUTCTime)
 import           Formatting           (bprint, build, sformat, stext, (%))
 
-import           Pos.Constants        (dlgCacheParam, lightDlgConfirmationTimeout,
-                                       messageCacheTimeout)
-import           Pos.Core             (HasCoreConstants, ProxySKHeavy, StakeholderId,
+import           Pos.Configuration    (dlgCacheParam, lightDlgConfirmationTimeout,
+                                       messageCacheTimeout, HasNodeConfiguration)
+import           Pos.Core             (HasConfiguration, ProxySKHeavy, StakeholderId,
                                        addressHash, headerHash)
 import           Pos.Crypto           (ProxySecretKey (..), PublicKey)
 import           Pos.DB               (DBError (DBMalformed), MonadDBRead)
@@ -82,7 +82,7 @@ runDelegationStateAction action = do
         pure r
 
 -- | Invalidates proxy caches using built-in constants.
-invalidateProxyCaches :: UTCTime -> DelegationStateAction ()
+invalidateProxyCaches :: HasNodeConfiguration => UTCTime -> DelegationStateAction ()
 invalidateProxyCaches curTime = do
     dwMessageCache %=
         filterLRU (\t -> addUTCTime (toDiffTime messageCacheTimeout) t > curTime)
@@ -100,7 +100,7 @@ invalidateProxyCaches curTime = do
 -- * Sets '_dwEpochId' to epoch of tip.
 -- * Initializes mempools/LRU caches.
 mkDelegationVar ::
-       forall ssc m. (MonadIO m, DB.MonadBlockDB ssc m, HasCoreConstants)
+       forall ssc m. (MonadIO m, DB.MonadBlockDB ssc m, HasConfiguration, HasNodeConfiguration)
     => m DelegationVar
 mkDelegationVar = do
     tip <- DB.getTipHeader @ssc

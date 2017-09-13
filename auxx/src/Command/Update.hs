@@ -20,15 +20,17 @@ import           System.Wlog         (logDebug)
 import           Pos.Binary          (Raw)
 import           Pos.Communication   (SendActions, immediateConcurrentConversations,
                                       submitUpdateProposal, submitVote)
-import           Pos.Constants       (genesisBlockVersionData)
-import           Pos.Core.Context    (HasCoreConstants)
+import           Pos.Configuration   (HasNodeConfiguration)
+import           Pos.Core.Configuration (HasConfiguration, blockVersionData)
 import           Pos.Crypto          (Hash, SignTag (SignUSVote), emptyPassphrase,
                                       encToPublic, hash, hashHexF, safeSign, unsafeHash,
                                       withSafeSigner)
 import           Pos.Data.Attributes (mkAttributes)
+import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Update          (BlockVersionData (..), BlockVersionModifier (..),
                                       SystemTag, UpId, UpdateData (..), UpdateVote (..),
                                       mkUpdateProposalWSign)
+import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Wallet          (getSecretKeys)
 
 import           Command.Types       (ProposeUpdateParams (..), ProposeUpdateSystem (..))
@@ -39,7 +41,11 @@ import           Mode                (CmdCtx (..), AuxxMode, getCmdCtx)
 ----------------------------------------------------------------------------
 
 vote ::
-       HasCoreConstants
+       ( HasConfiguration
+       , HasInfraConfiguration
+       , HasUpdateConfiguration
+       , HasNodeConfiguration
+       )
     => SendActions AuxxMode
     -> Int
     -> Bool
@@ -71,7 +77,11 @@ vote sendActions idx decision upid = do
 ----------------------------------------------------------------------------
 
 propose ::
-       HasCoreConstants
+       ( HasConfiguration
+       , HasInfraConfiguration
+       , HasUpdateConfiguration
+       , HasNodeConfiguration
+       )
     => SendActions AuxxMode
     -> ProposeUpdateParams
     -> AuxxMode ()
@@ -79,7 +89,7 @@ propose sendActions ProposeUpdateParams{..} = do
     CmdCtx{ccPeers} <- getCmdCtx
     logDebug "Proposing update..."
     skey <- (!! puIdx) <$> getSecretKeys
-    let BlockVersionData {..} = genesisBlockVersionData
+    let BlockVersionData {..} = blockVersionData
     let bvm =
             BlockVersionModifier
             { bvmScriptVersion     = puScriptVersion

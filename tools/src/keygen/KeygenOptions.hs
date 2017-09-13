@@ -21,16 +21,16 @@ import           Options.Applicative (Parser, auto, command, execParser, fullDes
                                       option, progDesc, short, strOption, subparser,
                                       value)
 
-import           Pos.Client.CLI      (configInfoParser)
+import           Pos.Client.CLI      (configurationOptionsParser)
 import           Pos.Core            (StakeholderId)
 import           Pos.Genesis         (FakeAvvmOptions (..), TestnetBalanceOptions (..))
-import           Pos.Launcher        (ConfigInfo)
+import           Pos.Launcher        (ConfigurationOptions)
 
 import           Paths_cardano_sl    (version)
 
 data KeygenOptions = KeygenOptions
-    { koCommand    :: KeygenCommand
-    , koConfigInfo :: ConfigInfo
+    { koCommand              :: KeygenCommand
+    , koConfigurationOptions :: ConfigurationOptions
     } deriving (Show)
 
 data KeygenCommand
@@ -149,4 +149,4 @@ getKeygenOptions = execParser programInfo
         ("cardano-keygen-" <> showVersion version)
         (long "version" <> help "Show version.")
 
-    koParser = KeygenOptions <$> keygenCommandParser <*> configInfoParser
+    koParser = KeygenOptions <$> keygenCommandParser <*> configurationOptionsParser

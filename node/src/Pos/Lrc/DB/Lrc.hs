@@ -6,7 +6,7 @@ module Pos.Lrc.DB.Lrc
 
 import           Universum
 
-import           Pos.Core           (HasCoreConstants)
+import           Pos.Core           (HasConfiguration)
 import           Pos.DB.Class       (MonadDB)
 import           Pos.DB.Error       (DBError (..))
 import           Pos.Genesis        (GenesisContext, GenesisUtxo, GenesisWStakeholders)
@@ -24,7 +24,7 @@ prepareLrcDB
        , HasLens' ctx GenesisUtxo
        , HasLens' ctx GenesisWStakeholders
        , MonadDB m
-       , HasCoreConstants
+       , HasConfiguration
        )
     => m ()
 prepareLrcDB = do

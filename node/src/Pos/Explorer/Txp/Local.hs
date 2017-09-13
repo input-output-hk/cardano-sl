@@ -21,6 +21,7 @@ import           System.Wlog           (WithLogger, logDebug)
 import           Pos.Core              (BlockVersionData, EpochIndex,
                                         GenesisWStakeholders, HeaderHash, Timestamp,
                                         siEpoch)
+import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB.Class          (MonadDBRead, MonadGState (..))
 import qualified Pos.Explorer.DB       as ExDB
 import qualified Pos.GState            as GS
@@ -82,7 +83,7 @@ instance HasLens Utxo EProcessTxContext Utxo where
 -- Base monad for tx processing in explorer.
 type EProcessTxMode = Reader EProcessTxContext
 
-instance MonadUtxoRead EProcessTxMode where
+instance HasConfiguration => MonadUtxoRead EProcessTxMode where
     utxoGet = utxoGetReader
 
 instance MonadGState EProcessTxMode where

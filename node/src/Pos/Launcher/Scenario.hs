@@ -21,7 +21,6 @@ import           System.Wlog           (WithLogger, getLoggerName, logInfo, logW
 
 import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec,
                                         wrapActionSpec)
-import qualified Pos.Constants         as Const
 import           Pos.Context           (getOurPublicKey, ncNetworkConfig)
 import           Pos.Core              (addressHash)
 import qualified Pos.DB.DB             as DB
@@ -37,8 +36,11 @@ import           Pos.Reporting         (reportError)
 import           Pos.Shutdown          (waitForShutdown)
 import           Pos.Slotting          (waitSystemStart)
 import           Pos.Ssc.Class         (SscConstraint)
+import           Pos.Update.Configuration (HasUpdateConfiguration,
+                                           curSoftwareVersion,
+                                           lastKnownBlockVersion,
+                                           ourSystemTag)
 import           Pos.Util              (inAssertMode)
-import           Pos.Util.Config       (cslConfigName)
 import           Pos.Util.LogSafe      (logInfoS)
 import           Pos.Worker            (allWorkers)
 import           Pos.WorkMode.Class    (WorkMode)
@@ -64,8 +66,7 @@ runNode'
     -> WorkerSpec m
 runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> do
 
-    logInfo $ "cardano-sl: commit " <> gitRev <>
-                        ", cslConfigName: " <> cslConfigName
+    logInfo $ "cardano-sl: commit " <> gitRev
     nodeStartMsg
     inAssertMode $ logInfo "Assert mode on"
     pk <- getOurPublicKey
@@ -144,14 +145,14 @@ runNode nr (plugins, plOuts) =
     plugins' = map (wrapActionSpec "plugin") plugins
 
 -- | This function prints a very useful message when node is started.
-nodeStartMsg :: WithLogger m => m ()
+nodeStartMsg :: (HasUpdateConfiguration, WithLogger m) => m ()
 nodeStartMsg = logInfo msg
   where
     msg = sformat ("Application: " %build% ", last known block version "
                     %build% ", systemTag: " %build)
-                   Const.curSoftwareVersion
-                   Const.lastKnownBlockVersion
-                   Const.ourSystemTag
+                   curSoftwareVersion
+                   lastKnownBlockVersion
+                   ourSystemTag
 
 ----------------------------------------------------------------------------
 -- Details

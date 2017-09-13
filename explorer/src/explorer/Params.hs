@@ -14,13 +14,14 @@ import           Mockable            (Catch, Fork, Mockable, Throw)
 import           System.Wlog         (LoggerName, WithLogger)
 
 import qualified Pos.Client.CLI      as CLI
-import           Pos.Core.Types      (Timestamp (..))
+import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto          (VssKeyPair)
 import           Pos.Genesis         (genesisContext)
 import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
                                       NodeParams (..))
 import           Pos.Network.CLI     (intNetworkConfigOpts)
 import           Pos.Ssc.GodTossing  (GtParams (..))
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Update.Params   (UpdateParams (..))
 import           Pos.Util.UserSecret (peekUserSecret)
 
@@ -57,9 +58,11 @@ getNodeParams
        , Mockable Fork  m
        , Mockable Catch m
        , Mockable Throw m
+       , HasConfiguration
+       , HasGtConfiguration
        )
-    => Args -> Timestamp -> m NodeParams
-getNodeParams args@Args {..} systemStart = do
+    => Args -> m NodeParams
+getNodeParams args@Args {..} = do
     (primarySK, userSecret) <-
         userSecretWithGenesisKey args =<<
         updateUserSecretVSS args =<<
@@ -74,7 +77,6 @@ getNodeParams args@Args {..} systemStart = do
         , npRebuildDb = rebuildDB
         , npSecretKey = primarySK
         , npUserSecret = userSecret
-        , npSystemStart = systemStart
         , npBaseParams = getBaseParams "node" args
         , npJLFile = jlPath
         , npUpdateParams = UpdateParams

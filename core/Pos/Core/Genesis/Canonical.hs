@@ -24,10 +24,13 @@ import           Text.JSON.Canonical        (FromJSON (..), FromObjectKey (..), 
                                              fromJSObject, mkObject)
 
 import           Pos.Binary.Class           (AsBinary (..))
+import           Pos.Binary.Core.Address    ()
 import           Pos.Core.Address           (addressF, decodeTextAddress)
 import           Pos.Core.Fee               (Coeff (..), TxFeePolicy (..),
                                              TxSizeLinear (..))
-import           Pos.Core.Genesis.Types     (GenesisAvvmBalances (..), GenesisData (..),
+import           Pos.Core.Genesis.Types     (GenesisAvvmBalances (..),
+                                             GenesisNonAvvmBalances (..),
+                                             GenesisData (..),
                                              GenesisDelegation (..),
                                              GenesisWStakeholders (..),
                                              ProtocolConstants (..), mkGenesisDelegation)
@@ -37,8 +40,7 @@ import           Pos.Core.Types             (Address, BlockVersionData (..), Coi
                                              StakeholderId, Timestamp (..),
                                              getCoinPortion, mkCoin, mkCoinPortion,
                                              unsafeGetCoin)
-import           Pos.Core.Vss               (VssCertificate (..), mkVssCertificatesMap,
-                                             recreateVssCertificate)
+import           Pos.Core.Vss               (VssCertificate (..), mkVssCertificatesMap)
 import           Pos.Crypto                 (ProxyCert, ProxySecretKey (..), PublicKey,
                                              RedeemPublicKey, Signature,
                                              decodeAbstractHash, fromAvvmPk,
@@ -50,6 +52,14 @@ import           Pos.Crypto                 (ProxyCert, ProxySecretKey (..), Pub
 ----------------------------------------------------------------------------
 -- Primitive standard/3rdparty types
 ----------------------------------------------------------------------------
+
+instance (Monad m, Applicative m, MonadFail m) => ReportSchemaErrors m where
+    expected expec got = fail $ mconcat
+        [ "expected "
+        , expec
+        , " but got "
+        , fromMaybe "" got
+        ]
 
 instance Monad m => ToJSON m Int32 where
     toJSON = pure . JSNum . fromIntegral
@@ -184,6 +194,9 @@ instance Monad m => ToJSON m ProtocolConstants where
 
 instance Monad m => ToJSON m GenesisAvvmBalances where
     toJSON = toJSON . getGenesisAvvmBalances
+
+instance Monad m => ToJSON m GenesisNonAvvmBalances where
+    toJSON = toJSON . getGenesisNonAvvmBalances
 
 instance Monad m => ToJSON m SharedSeed where
     toJSON (SharedSeed seed) = pure . JSString . formatToString base16F $ seed
@@ -326,14 +339,18 @@ instance ReportSchemaErrors m => FromJSON m (AsBinary smth) where
 instance ReportSchemaErrors m => FromJSON m EpochIndex where
     fromJSON = fmap EpochIndex . fromJSON
 
-instance ReportSchemaErrors m => FromJSON m VssCertificate where
+instance (ReportSchemaErrors m) => FromJSON m VssCertificate where
     fromJSON obj = do
         vssKey <- fromJSField obj "vssKey"
         expiryEpoch <- fromIntegral @Int54 <$> fromJSField obj "expiryEpoch"
         signature <- fromJSField obj "signature"
         signingKey <- fromJSField obj "signingKey"
-        wrapConstructor @String $
-            recreateVssCertificate vssKey expiryEpoch signature signingKey
+        return $ VssCertificate
+            { vcVssKey      = vssKey
+            , vcExpiryEpoch = expiryEpoch
+            , vcSignature   = signature
+            , vcSigningKey  = signingKey
+            }
 
 instance ReportSchemaErrors m => FromObjectKey m StakeholderId where
     fromObjectKey = fmap Just . tryParseString (decodeAbstractHash) . JSString
@@ -400,6 +417,9 @@ instance ReportSchemaErrors m => FromJSON m ProtocolConstants where
 instance ReportSchemaErrors m => FromJSON m GenesisAvvmBalances where
     fromJSON = fmap GenesisAvvmBalances . fromJSON
 
+instance ReportSchemaErrors m => FromJSON m GenesisNonAvvmBalances where
+    fromJSON = fmap GenesisNonAvvmBalances . fromJSON
+
 instance ReportSchemaErrors m => FromJSON m SharedSeed where
     fromJSON = fmap SharedSeed . tryParseString B16.decode
 
@@ -421,7 +441,7 @@ instance ReportSchemaErrors m => FromJSON m BlockVersionData where
         bvdUnlockStakeEpoch <- fromJSField obj "unlockStakeEpoch"
         return BlockVersionData {..}
 
-instance ReportSchemaErrors m => FromJSON m GenesisData where
+instance (ReportSchemaErrors m) => FromJSON m GenesisData where
     fromJSON obj = do
         gdBootStakeholders <- fromJSField obj "bootStakeholders"
         gdHeavyDelegation <- fromJSField obj "heavyDelegation"

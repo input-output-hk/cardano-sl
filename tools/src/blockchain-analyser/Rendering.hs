@@ -16,10 +16,11 @@ import           Pos.Block.Core             (Block, BlockHeader, blockHeaderHash
                                              _gbhConsensus, _mcdLeaderKey)
 import           Pos.Block.Types            (Undo)
 import           Pos.Core                   (EpochIndex, EpochOrSlot (..),
-                                             HasCoreConstants, LocalSlotIndex (..),
+                                             LocalSlotIndex (..),
                                              SlotId (..), getEpochIndex, getEpochOrSlot)
 import           Pos.Crypto                 (PublicKey)
 import           Pos.Merkle                 (MerkleTree (..))
+import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Txp.Core               (Tx)
 import           Serokell.Data.Memory.Units (Byte, fromBytes, memory, toBytes)
@@ -90,7 +91,7 @@ renderAsciiTable uom stats =
     vdecor = DecorAll
     aligns = [AlignLeft, AlignLeft]
 
-renderBlock :: HasCoreConstants
+renderBlock :: HasConfigurations
             => CLIOptions
             -> (Block SscGodTossing, Maybe Undo)
             -> Text
@@ -100,10 +101,10 @@ renderBlock cli block = case printMode cli of
                   in renderAsTable DecorNone DecorNone (defaultAlignment rows) rows
     CSV        -> renderBlockCSV (uom cli) block
 
-renderBlockHuman :: HasCoreConstants => Block SscGodTossing -> Text
+renderBlockHuman :: HasConfigurations => Block SscGodTossing -> Text
 renderBlockHuman = either pretty pretty
 
-renderBlockCSV :: HasCoreConstants => UOM -> (Block SscGodTossing, Maybe Undo) -> Text
+renderBlockCSV :: HasConfigurations => UOM -> (Block SscGodTossing, Maybe Undo) -> Text
 renderBlockCSV uom = T.intercalate "," . (toTableRow uom)
 
 defaultHorizontalDecoration :: Decoration
@@ -142,7 +143,7 @@ header uom = [
          , "Block + Undo (" <> renderUnit uom <> ")"
          ]
 
-renderBlocks :: HasCoreConstants
+renderBlocks :: HasConfigurations
              => CLIOptions
              -> [(Block SscGodTossing, Maybe Undo)]
              -> Text
@@ -169,18 +170,18 @@ getTxs :: Block SscGodTossing -> MerkleTree Tx
 getTxs (Left _)          = MerkleEmpty
 getTxs (Right mainBlock) = (_gbBody mainBlock) ^. mbTxs
 
-getHeaderSize :: HasCoreConstants => BlockHeader SscGodTossing -> Integer
+getHeaderSize :: HasConfigurations => BlockHeader SscGodTossing -> Integer
 getHeaderSize = either (toBytes . biSize) (toBytes . biSize)
 
-getBlockSize :: HasCoreConstants => Block SscGodTossing -> Integer
+getBlockSize :: HasConfigurations => Block SscGodTossing -> Integer
 getBlockSize = either (toBytes . biSize) (toBytes . biSize)
 
-getUndoSize :: HasCoreConstants => Maybe Undo -> Integer
+getUndoSize :: HasConfigurations => Maybe Undo -> Integer
 getUndoSize = maybe 0 (toBytes . biSize)
 
 -- | Given a `Block`, returns a table row suitable for being printed
 -- by `tabl`.
-toTableRow :: HasCoreConstants => UOM -> (Block SscGodTossing, Maybe Undo) -> [Text]
+toTableRow :: HasConfigurations => UOM -> (Block SscGodTossing, Maybe Undo) -> [Text]
 toTableRow uom (block, mbUndo) =
     let blockHeader   = getBlockHeader block
         previousBlock = pretty (prevBlock block)

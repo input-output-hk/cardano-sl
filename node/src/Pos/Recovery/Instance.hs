@@ -10,7 +10,7 @@ import qualified Control.Concurrent.STM as STM
 import           Control.Monad.Except   (runExceptT, throwError)
 
 import           Pos.Context.Context    (RecoveryHeader, RecoveryHeaderTag)
-import           Pos.Core               (HasCoreConstants, epochOrSlotG,
+import           Pos.Core               (HasConfiguration, epochOrSlotG,
                                          epochOrSlotToSlot, flattenSlotId)
 import           Pos.DB.Block           (MonadBlockDB)
 import           Pos.DB.DB              (getTipHeader)
@@ -24,7 +24,7 @@ instance ( Monad m
          , MonadSlots ctx m
          , MonadReader ctx m
          , HasLens RecoveryHeaderTag ctx (RecoveryHeader ssc)
-         , HasCoreConstants
+         , HasConfiguration
          ) =>
          MonadRecoveryInfo m where
     getSyncStatus lagBehindParam =

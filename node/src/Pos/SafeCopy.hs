@@ -37,14 +37,14 @@ import           Pos.Core.Types                  (AddrAttributes (..),
                                                   SoftforkRule (..), SoftwareVersion (..))
 import           Pos.Crypto.Hashing              (AbstractHash (..))
 import           Pos.Crypto.HD                   (HDAddressPayload (..))
-import           Pos.Crypto.RedeemSigning        (RedeemPublicKey (..),
+import           Pos.Crypto.Signing.Redeem       (RedeemPublicKey (..),
                                                   RedeemSecretKey (..),
                                                   RedeemSignature (..))
-import           Pos.Crypto.SecretSharing        (SecretProof)
-import           Pos.Crypto.Signing              (ProxyCert (..), ProxySecretKey (..),
+import           Pos.Crypto.Signing.Signing      (ProxyCert (..), ProxySecretKey (..),
                                                   ProxySignature (..), PublicKey (..),
                                                   SecretKey (..), Signature (..),
                                                   Signed (..))
+import           Pos.Crypto.SecretSharing        (SecretProof)
 import           Pos.Data.Attributes             (Attributes (..), UnparsedFields)
 import           Pos.Delegation.Types            (DlgPayload (..))
 import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (..),

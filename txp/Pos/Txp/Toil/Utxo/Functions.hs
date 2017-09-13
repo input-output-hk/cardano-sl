@@ -20,7 +20,8 @@ import           Serokell.Util             (VerificationRes, allDistinct, enumer
 import           Pos.Binary.Txp.Core       ()
 import           Pos.Core                  (AddrType (..), Address (..), addressF,
                                             integerToCoin, isRedeemAddress,
-                                            isUnknownAddressType, sumCoins)
+                                            isUnknownAddressType, sumCoins,
+                                            HasConfiguration)
 import           Pos.Core.Address          (checkPubKeyAddress, checkRedeemAddress,
                                             checkScriptAddress)
 import           Pos.Crypto                (SignTag (SignRedeemTx, SignTx), WithHash (..),
@@ -156,7 +157,7 @@ verifyOutputs VTxContext {..} (TxAux UnsafeTx {..} _) =
         ]
 
 verifyInputs ::
-       MonadError ToilVerFailure m
+       (HasConfiguration, MonadError ToilVerFailure m)
     => VTxContext
     -> NonEmpty (TxIn, TxOutAux)
     -> TxAux
@@ -175,7 +176,7 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} = do
     allInputsDifferent = allDistinct (toList (map fst resolvedInputs))
 
     checkInput
-        :: MonadError ToilVerFailure m
+        :: (HasConfiguration, MonadError ToilVerFailure m)
         => Word32           -- ^ Input index
         -> (TxIn, TxOutAux) -- ^ Input and corresponding output data
         -> TxInWitness
@@ -197,7 +198,7 @@ verifyInputs VTxContext {..} resolvedInputs TxAux {..} = do
             _                 -> False
 
     -- the first argument here includes local context, can be used for scripts
-    checkWitness :: TxOutAux -> TxInWitness -> Either WitnessVerFailure ()
+    checkWitness :: HasConfiguration => TxOutAux -> TxInWitness -> Either WitnessVerFailure ()
     checkWitness _txOutAux witness = case witness of
         PkWitness{..} ->
             unless (checkSig SignTx twKey txSigData twSig) $

@@ -3,6 +3,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE FlexibleContexts  #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -32,7 +33,7 @@ import qualified System.IO                    as IO
 import           System.Process               (ProcessHandle, readProcessWithExitCode)
 import qualified System.Process               as Process
 import           System.Timeout               (timeout)
-import           System.Wlog                  (lcFilePrefix)
+import           System.Wlog                  (usingLoggerName, lcFilePrefix)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 -- Modules needed for system'
@@ -42,7 +43,7 @@ import           GHC.IO.Exception             (IOErrorType (..), IOException (..
 
 import           Paths_cardano_sl             (version)
 import           Pos.Client.CLI               (readLoggerConfig)
-import           Pos.Launcher                 (applyConfigInfo)
+import           Pos.Launcher                 (HasConfigurations, withConfigurations)
 import           Pos.Reporting.Methods        (retrieveLogFiles, sendReport)
 import           Pos.ReportServer.Report      (ReportType (..))
 import           Pos.Util                     (directory, sleep)
@@ -169,8 +170,7 @@ Command example:
     --update-archive updateDownloaded.tar|]
 
 main :: IO ()
-main = do
-    applyConfigInfo def
+main = usingLoggerName "launcher" $ withConfigurations def $ liftIO $ do
     LO {..} <- getLauncherOptions
     let realNodeArgs = case loNodeLogConfig of
             Nothing -> loNodeArgs
@@ -199,7 +199,8 @@ main = do
 -- * Launch the node.
 -- * If it exits with code 20, then update and restart, else quit.
 serverScenario
-    :: Maybe FilePath                      -- ^ Logger config
+    :: HasConfigurations
+    => Maybe FilePath                      -- ^ Logger config
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
     -- ^ Updater, args, updater runner, the update .tar
@@ -223,7 +224,8 @@ serverScenario logConf node updater report = do
 -- * Launch the node and the wallet.
 -- * If the wallet exits with code 20, then update and restart, else quit.
 clientScenario
-    :: Maybe FilePath                      -- ^ Logger config
+    :: HasConfigurations
+    => Maybe FilePath                      -- ^ Logger config
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text])                  -- ^ Wallet, args
     -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
@@ -262,7 +264,7 @@ clientScenario logConf node wallet updater nodeTimeout report = do
 
 -- | We run the updater and delete the update file if the update was
 -- successful.
-runUpdater :: (FilePath, [Text], Maybe FilePath, Maybe FilePath) -> IO ()
+runUpdater :: HasConfigurations => (FilePath, [Text], Maybe FilePath, Maybe FilePath) -> IO ()
 runUpdater (path, args, runnerPath, updateArchive) = do
     whenM (doesFileExist path) $ do
         putText "Running the updater"
@@ -280,7 +282,7 @@ runUpdater (path, args, runnerPath, updateArchive) = do
             -- hopefully if the updater has succeeded it *does* exist
             whenJust updateArchive removeFile
 
-runUpdaterProc :: FilePath -> [Text] -> IO ExitCode
+runUpdaterProc :: HasConfigurations => FilePath -> [Text] -> IO ExitCode
 runUpdaterProc path args = do
     let cr = (Process.proc (toString path) (map toString args))
                  { Process.std_in  = Process.CreatePipe
@@ -313,7 +315,8 @@ writeWindowsUpdaterRunner runnerPath = do
 ----------------------------------------------------------------------------
 
 spawnNode
-    :: (FilePath, [Text], Maybe FilePath)
+    :: HasConfigurations
+    => (FilePath, [Text], Maybe FilePath)
     -> IO (ProcessHandle, Async ExitCode, FilePath)
 spawnNode (path, args, mbLogPath) = do
     putText "Starting the node"
@@ -371,7 +374,7 @@ runWallet (path, args) = do
 -- ...Or maybe we don't care because we don't restart anything after sending
 -- logs (and so the user never actually sees the process or waits for it).
 reportNodeCrash
-    :: MonadIO m
+    :: (HasConfigurations, MonadIO m)
     => ExitCode        -- ^ Exit code of the node
     -> Maybe FilePath  -- ^ Path to the logger config
     -> String          -- ^ URL of the server
@@ -389,7 +392,7 @@ reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
     sendReport (normalise logPath:logFiles) [] (RCrash ec) "cardano-node" reportServ
 
 system'
-    :: MonadIO io
+    :: (HasConfigurations, MonadIO io)
     => MVar ProcessHandle
     -- ^ Where to put process handle
     -> Process.CreateProcess

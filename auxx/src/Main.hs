@@ -11,10 +11,10 @@ import qualified Network.Transport.TCP as TCP (TCPAddr (..))
 import           System.Wlog           (logInfo)
 
 import qualified Pos.Client.CLI        as CLI
-import           Pos.Core              (Timestamp (..))
-import           Pos.Core.Context      (HasCoreConstants, giveStaticConsts)
-import           Pos.Launcher          (NodeParams (..), applyConfigInfo,
-                                        bracketNodeResources, runRealBasedMode)
+import           Pos.Core              (Timestamp (..), systemStart)
+import           Pos.Launcher          (NodeParams (..),
+                                        bracketNodeResources, runRealBasedMode,
+                                        withConfigurations)
 import           Pos.Network.Types     (NetworkConfig (..), Topology (..),
                                         topologyDequeuePolicy, topologyEnqueuePolicy,
                                         topologyFailurePolicy)
@@ -45,25 +45,24 @@ correctNodeParams AuxxOptions {..} np =
         , ncTcpAddr = TCP.Unaddressable
         }
 
-action :: HasCoreConstants => AuxxOptions -> Production ()
-action opts@AuxxOptions {..} = do
+action :: AuxxOptions -> Production ()
+action opts@AuxxOptions {..} = withConfigurations conf $ do
     CLI.printFlags
-    systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
     logInfo $ sformat ("System start time is "%shown) systemStart
     t <- currentTime
     logInfo $ sformat ("Current time is "%shown) (Timestamp t)
     nodeParams <-
-        correctNodeParams opts <$> CLI.getNodeParams cArgs nArgs systemStart
+        correctNodeParams opts <$> CLI.getNodeParams cArgs nArgs
     let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
     let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
-    bracketNodeResources @AuxxSscType nodeParams gtParams actionWithResources
+    bracketNodeResources @AuxxSscType nodeParams gtParams $ \nr ->
+        runRealBasedMode toRealMode realModeToAuxx nr (auxxPlugin opts)
   where
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
+    conf = CLI.configurationOptions (CLI.commonArgs cArgs)
     nArgs =
         CLI.NodeArgs {sscAlgo = GodTossingAlgo, behaviorConfigPath = Nothing}
     cmdCtx = CmdCtx {ccPeers = aoPeers}
-    actionWithResources nr =
-        runRealBasedMode toRealMode realModeToAuxx nr (auxxPlugin opts)
     toRealMode :: AuxxMode a -> RealMode AuxxSscType a
     toRealMode auxxAction = do
         realModeContext <- ask
@@ -73,7 +72,4 @@ action opts@AuxxOptions {..} = do
         lift $ runReaderT auxxAction auxxContext
 
 main :: IO ()
-main = do
-    opts <- getAuxxOptions
-    applyConfigInfo (CLI.configInfo (aoCommonNodeArgs opts))
-    giveStaticConsts $ runProduction $ action opts
+main = getAuxxOptions >>= runProduction . action

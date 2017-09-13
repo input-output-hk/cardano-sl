@@ -8,16 +8,17 @@ import           Data.Default       (def)
 import           Mockable           (runProduction)
 import           Pos.Block.Core     (Block)
 import           Pos.Block.Types    (Undo)
-import           Pos.Core           (HasCoreConstants, giveStaticConsts, headerHash)
+import           Pos.Core           (headerHash)
 import           Pos.Core.Types     (HeaderHash)
 import           Pos.DB             (closeNodeDBs, openNodeDBs)
 import qualified Pos.DB.Block       as DB
 import qualified Pos.DB.DB          as DB
-import           Pos.Launcher       (applyConfigInfo)
+import           Pos.Launcher       (HasConfigurations, withConfigurations)
 import           Pos.Ssc.GodTossing (SscGodTossing)
 import           Pos.Util.Chrono    (NewestFirst (..))
 import           System.Directory   (canonicalizePath, doesDirectoryExist, getFileSize,
                                      listDirectory, withCurrentDirectory)
+import           System.Wlog        (usingLoggerName)
 
 import           Options            (CLIOptions (..), getOptions)
 import           Rendering          (render, renderBlock, renderBlocks, renderHeader)
@@ -47,31 +48,31 @@ dbSizes root = do
     forM (root : parents) $ \f -> (toText f,) <$> du_s f
 
 -- | Analyse the blockchain, printing useful statistics.
-analyseBlockchain :: HasCoreConstants => CLIOptions -> HeaderHash -> BlockchainInspector ()
+analyseBlockchain :: HasConfigurations => CLIOptions -> HeaderHash -> BlockchainInspector ()
 analyseBlockchain cli tip =
     if incremental cli then do putText (renderHeader cli)
                                analyseBlockchainEagerly cli tip
                        else analyseBlockchainLazily cli
 
 -- | Tries to fetch a `Block` given its `HeaderHash`.
-fetchBlock :: HasCoreConstants => HeaderHash -> BlockchainInspector (Maybe (Block SscGodTossing))
+fetchBlock :: HasConfigurations => HeaderHash -> BlockchainInspector (Maybe (Block SscGodTossing))
 fetchBlock = DB.blkGetBlock @SscGodTossing
 
 -- | Tries to fetch an `Undo` for the given `Block`.
-fetchUndo :: HasCoreConstants => Block SscGodTossing -> BlockchainInspector (Maybe Undo)
+fetchUndo :: HasConfigurations => Block SscGodTossing -> BlockchainInspector (Maybe Undo)
 fetchUndo block = DB.blkGetUndo @SscGodTossing (headerHash block)
 
 -- | Analyse the blockchain lazily by rendering all the blocks at once, loading the whole
 -- blockchain into memory. This mode generates very nice-looking tables, but using it for
 -- big DBs might not be feasible.
-analyseBlockchainLazily :: HasCoreConstants => CLIOptions -> BlockchainInspector ()
+analyseBlockchainLazily :: HasConfigurations => CLIOptions -> BlockchainInspector ()
 analyseBlockchainLazily cli = do
     allBlocks <- map (bimap identity Just) . getNewestFirst <$> DB.loadBlundsFromTipWhile (const True)
     putText (renderBlocks cli allBlocks)
 
 -- | Analyse the blockchain eagerly, rendering a block at time, without loading the whole
 -- blockchain into memory.
-analyseBlockchainEagerly :: HasCoreConstants => CLIOptions -> HeaderHash -> BlockchainInspector ()
+analyseBlockchainEagerly :: HasConfigurations => CLIOptions -> HeaderHash -> BlockchainInspector ()
 analyseBlockchainEagerly cli currentTip = do
     let processBlock block mbUndo = do putText (renderBlock cli (block, mbUndo))
                                        analyseBlockchainEagerly cli (prevBlock block)
@@ -82,7 +83,7 @@ analyseBlockchainEagerly cli currentTip = do
 
 -- | The main entrypoint.
 main :: IO ()
-main = (applyConfigInfo def >>) $ giveStaticConsts $ do
+main = usingLoggerName "blockchain-analyzer" $ withConfigurations def $ liftIO $ do
     cli@CLIOptions{..} <- getOptions
 
     -- Render the first report

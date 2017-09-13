@@ -35,12 +35,13 @@ import           Pos.Client.Txp.History   (MonadTxHistory (..), getBlockHistoryD
                                            getLocalHistoryDefault, saveTxDefault)
 import           Pos.Communication        (NodeId)
 import           Pos.Context              (HasNodeContext (..), unGenesisUtxo)
-import           Pos.Core                 (HasCoreConstants, HasPrimaryKey (..), IsHeader)
+import           Pos.Core                 (HasConfiguration, HasPrimaryKey (..), IsHeader)
 import           Pos.Crypto               (PublicKey)
 import           Pos.DB                   (MonadGState (..))
 import           Pos.DB.Class             (MonadBlockDBGeneric (..),
                                            MonadBlockDBGenericWrite (..), MonadDB (..),
                                            MonadDBRead (..))
+import           Pos.Infra.Configuration  (HasInfraConfiguration)
 import           Pos.KnownPeers           (MonadFormatPeers (..), MonadKnownPeers (..))
 import           Pos.Recovery             ()
 import           Pos.Reporting            (HasReportingContext (..))
@@ -49,6 +50,7 @@ import           Pos.Slotting.Class       (MonadSlots (..))
 import           Pos.Slotting.MemState    (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Ssc.Class            (HasSscContext (..), SscBlock)
 import           Pos.Ssc.GodTossing       (SscGodTossing)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                  (filterUtxoByAddrs)
 import           Pos.Util                 (Some (..))
 import           Pos.Util.JsonLog         (HasJsonLogConfig (..))
@@ -133,7 +135,7 @@ instance HasSlogGState AuxxContext where
 instance HasJsonLogConfig AuxxContext where
     jsonLogConfig = acRealModeContext_L . jsonLogConfig
 
-instance (HasCoreConstants, MonadSlotsData ctx AuxxMode)
+instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx AuxxMode)
       => MonadSlots ctx AuxxMode
   where
     getCurrentSlot = realModeToAuxx getCurrentSlot
@@ -152,47 +154,47 @@ instance {-# OVERLAPPING #-} HasLoggerName AuxxMode where
 instance {-# OVERLAPPING #-} CanJsonLog AuxxMode where
     jsonLog = realModeToAuxx ... jsonLog
 
-instance MonadDBRead AuxxMode where
+instance HasConfiguration => MonadDBRead AuxxMode where
     dbGet = realModeToAuxx ... dbGet
     dbIterSource tag p = hoist (hoist realModeToAuxx) (dbIterSource tag p)
 
-instance MonadDB AuxxMode where
+instance HasConfiguration => MonadDB AuxxMode where
     dbPut = realModeToAuxx ... dbPut
     dbWriteBatch = realModeToAuxx ... dbWriteBatch
     dbDelete = realModeToAuxx ... dbDelete
 
-instance HasCoreConstants =>
+instance (HasConfiguration, HasGtConfiguration) =>
          MonadBlockDBGenericWrite (BlockHeader AuxxSscType) (Block AuxxSscType) Undo AuxxMode where
     dbPutBlund = realModeToAuxx ... dbPutBlund
 
-instance HasCoreConstants =>
+instance (HasConfiguration, HasGtConfiguration) =>
          MonadBlockDBGeneric (BlockHeader AuxxSscType) (Block AuxxSscType) Undo AuxxMode
   where
     dbGetBlock  = realModeToAuxx ... dbGetBlock
     dbGetUndo   = realModeToAuxx ... dbGetUndo @(BlockHeader AuxxSscType) @(Block AuxxSscType) @Undo
     dbGetHeader = realModeToAuxx ... dbGetHeader @(BlockHeader AuxxSscType) @(Block AuxxSscType) @Undo
 
-instance HasCoreConstants =>
+instance (HasConfiguration, HasGtConfiguration) =>
          MonadBlockDBGeneric (Some IsHeader) (SscBlock AuxxSscType) () AuxxMode
   where
     dbGetBlock  = realModeToAuxx ... dbGetBlock
     dbGetUndo   = realModeToAuxx ... dbGetUndo @(Some IsHeader) @(SscBlock AuxxSscType) @()
     dbGetHeader = realModeToAuxx ... dbGetHeader @(Some IsHeader) @(SscBlock AuxxSscType) @()
 
-instance MonadGState AuxxMode where
+instance HasConfiguration => MonadGState AuxxMode where
     gsAdoptedBVData = realModeToAuxx ... gsAdoptedBVData
 
-instance HasCoreConstants => MonadBListener AuxxMode where
+instance HasConfiguration => MonadBListener AuxxMode where
     onApplyBlocks = realModeToAuxx ... onApplyBlocks
     onRollbackBlocks = realModeToAuxx ... onRollbackBlocks
 
 -- FIXME: I preserved the old behavior, but it most likely should be
 -- changed!
-instance HasCoreConstants => MonadBalances AuxxMode where
+instance HasConfiguration => MonadBalances AuxxMode where
     getOwnUtxos addrs = filterUtxoByAddrs addrs . unGenesisUtxo <$> view lensOf'
     getBalance = getBalanceFromUtxo
 
-instance HasCoreConstants => MonadTxHistory AuxxSscType AuxxMode where
+instance (HasConfiguration, HasInfraConfiguration, HasGtConfiguration) => MonadTxHistory AuxxSscType AuxxMode where
     getBlockHistory = getBlockHistoryDefault @AuxxSscType
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
@@ -203,6 +205,6 @@ instance MonadKnownPeers AuxxMode where
 instance MonadFormatPeers AuxxMode where
     formatKnownPeers = OQ.Reader.formatKnownPeersReader (rmcOutboundQ . acRealModeContext)
 
-instance MonadAddresses AuxxMode where
+instance HasConfiguration => MonadAddresses AuxxMode where
     type AddrData AuxxMode = PublicKey
     getNewAddress = makePubKeyAddressAuxx

@@ -22,10 +22,11 @@ import           Mockable             (Production)
 
 import           Pos.Block.Core       (Block, BlockHeader)
 import           Pos.Block.Types      (Undo)
-import           Pos.Core             (HasCoreConstants, HeaderHash, prevBlockL)
+import           Pos.Core             (HeaderHash, prevBlockL)
 import           Pos.DB               (MonadBlockDBGeneric (..), MonadDBRead (..))
 import qualified Pos.DB               as DB
 import qualified Pos.DB.Block         as BDB
+import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Util.Util        (postfixLFields)
 
@@ -42,7 +43,7 @@ runBlockchainInspector :: BlockchainInspectorContext -> BlockchainInspector a ->
 runBlockchainInspector = flip Mtl.runReaderT
 
 initBlockchainAnalyser ::
-    HasCoreConstants
+       HasConfigurations
     => DB.NodeDBs
     -> BlockchainInspector a
     -> Production a
@@ -58,17 +59,17 @@ initBlockchainAnalyser nodeDBs action = do
 instance HasLens DB.NodeDBs BlockchainInspectorContext DB.NodeDBs where
     lensOf = bicNodeDBs_L
 
-instance MonadDBRead BlockchainInspector where
+instance HasConfigurations => MonadDBRead BlockchainInspector where
     dbGet = DB.dbGetDefault
     dbIterSource = DB.dbIterSourceDefault
 
 instance
-    HasCoreConstants =>
+    HasConfigurations =>
     MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockchainInspector
   where
     dbGetBlock = BDB.dbGetBlockDefault @SscGodTossing
     dbGetUndo = BDB.dbGetUndoDefault @SscGodTossing
     dbGetHeader = BDB.dbGetHeaderDefault @SscGodTossing
 
-prevBlock :: HasCoreConstants => Block SscGodTossing -> HeaderHash
+prevBlock :: HasConfigurations => Block SscGodTossing -> HeaderHash
 prevBlock = view prevBlockL

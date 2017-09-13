@@ -28,7 +28,8 @@ import           Pos.Core                     (EpochIndex, EpochOrSlot (..),
                                                HasEpochOrSlot (..), HasHeaderHash (..),
                                                HeaderHash, IsGenesisHeader, IsHeader,
                                                SlotLeaders, gbHeader, gbhConsensus,
-                                               mkGenericHeader, recreateGenericBlock)
+                                               mkGenericHeader, recreateGenericBlock,
+                                               HasConfiguration)
 import           Pos.Crypto                   (hashHexF)
 import           Pos.Data.Attributes          (mkAttributes)
 import           Pos.Util.Util                (leftToPanic)
@@ -114,6 +115,7 @@ instance BiHeader ssc => IsGenesisHeader (GenesisBlockHeader ssc)
 type SanityConstraint ssc
      = ( HasDifficulty $ BlockHeader ssc
        , HasHeaderHash $ BlockHeader ssc
+       , HasConfiguration
        )
 
 -- | Smart constructor for 'GenesisBlockHeader'. Uses 'mkGenericHeader'.

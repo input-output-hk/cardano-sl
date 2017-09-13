@@ -59,23 +59,22 @@ import           Serokell.Util           (mapJson)
 
 import           Pos.Binary.Class        (Bi)
 import qualified Pos.Binary.Class        as Bi
-import           Pos.Binary.Core.Address ()
 import           Pos.Binary.Crypto       ()
 import           Pos.Core.Coin           ()
 import           Pos.Core.Types          (AddrAttributes (..), AddrSpendingData (..),
                                           AddrStakeDistribution (..), AddrType (..),
                                           Address (..), Address' (..), AddressHash,
                                           Script, StakeholderId)
-import           Pos.Crypto              (AbstractHash (AbstractHash), EncryptedSecretKey,
-                                          PublicKey, RedeemPublicKey, encToPublic,
-                                          hashHexF, shortHashF)
+import           Pos.Crypto.Hashing      (AbstractHash (AbstractHash), hashHexF,
+                                          shortHashF)
 import           Pos.Crypto.HD           (HDAddressPayload, HDPassphrase,
                                           deriveHDPassphrase, deriveHDPublicKey,
                                           deriveHDSecretKey, packHDAddressAttr)
-import           Pos.Crypto.SafeSigning  (PassPhrase)
+import           Pos.Crypto.Signing.Types (PassPhrase, EncryptedSecretKey,
+                                           PublicKey, RedeemPublicKey, encToPublic)
 import           Pos.Data.Attributes     (attrData, mkAttributes)
 
-instance Hashable Address where
+instance Bi Address => Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.serialize'
 
 ----------------------------------------------------------------------------
@@ -131,21 +130,21 @@ addressDetailedF =
 addrAlphabet :: Alphabet
 addrAlphabet = bitcoinAlphabet
 
-addrToBase58 :: Address -> ByteString
+addrToBase58 :: Bi Address => Address -> ByteString
 addrToBase58 = encodeBase58 addrAlphabet . Bi.serialize'
 
-instance Buildable Address where
+instance Bi Address => Buildable Address where
     build = Buildable.build . decodeUtf8 @Text . addrToBase58
 
 -- | Specialized formatter for 'Address'.
-addressF :: Format r (Address -> r)
+addressF :: Bi Address => Format r (Address -> r)
 addressF = build
 
 -- | A function which decodes base58-encoded 'Address'.
-decodeTextAddress :: Text -> Either Text Address
+decodeTextAddress :: Bi Address => Text -> Either Text Address
 decodeTextAddress = decodeAddress . encodeUtf8
   where
-    decodeAddress :: ByteString -> Either Text Address
+    decodeAddress :: Bi Address => ByteString -> Either Text Address
     decodeAddress bs = do
         let base58Err = "Invalid base58 representation of address"
         dbs <- maybeToRight base58Err $ decodeBase58 addrAlphabet bs
@@ -156,7 +155,7 @@ decodeTextAddress = decodeAddress . encodeUtf8
 ----------------------------------------------------------------------------
 
 -- | Make an 'Address' from spending data and attributes.
-makeAddress :: AddrSpendingData -> AddrAttributes -> Address
+makeAddress :: Bi Address' => AddrSpendingData -> AddrAttributes -> Address
 makeAddress spendingData attributesUnwrapped =
     Address
     { addrRoot = addressHash address'
@@ -174,11 +173,11 @@ makeAddress spendingData attributesUnwrapped =
 newtype IsBootstrapEraAddr = IsBootstrapEraAddr Bool
 
 -- | A function for making an address from 'PublicKey'.
-makePubKeyAddress :: IsBootstrapEraAddr -> PublicKey -> Address
+makePubKeyAddress :: Bi Address' => IsBootstrapEraAddr -> PublicKey -> Address
 makePubKeyAddress = makePubKeyAddressImpl Nothing
 
 -- | A function for making an address from 'PublicKey' for bootstrap era.
-makePubKeyAddressBoot :: PublicKey -> Address
+makePubKeyAddressBoot :: Bi Address' => PublicKey -> Address
 makePubKeyAddressBoot = makePubKeyAddress (IsBootstrapEraAddr True)
 
 -- | This function creates a root public key address. Stake
@@ -186,19 +185,24 @@ makePubKeyAddressBoot = makePubKeyAddress (IsBootstrapEraAddr True)
 -- nobody should even use these addresses as outputs, so we can put
 -- arbitrary distribution there. We use bootstrap era distribution
 -- because its representation is more compact.
-makeRootPubKeyAddress :: PublicKey -> Address
+makeRootPubKeyAddress :: Bi Address' => PublicKey -> Address
 makeRootPubKeyAddress = makePubKeyAddressBoot
 
 -- | A function for making an HDW address.
 makePubKeyHdwAddress
-    :: IsBootstrapEraAddr
+    :: Bi Address'
+    => IsBootstrapEraAddr
     -> HDAddressPayload    -- ^ Derivation path
     -> PublicKey
     -> Address
 makePubKeyHdwAddress ibe path = makePubKeyAddressImpl (Just path) ibe
 
-makePubKeyAddressImpl ::
-    Maybe HDAddressPayload -> IsBootstrapEraAddr -> PublicKey -> Address
+makePubKeyAddressImpl
+    :: Bi Address'
+    => Maybe HDAddressPayload
+    -> IsBootstrapEraAddr
+    -> PublicKey
+    -> Address
 makePubKeyAddressImpl path (IsBootstrapEraAddr isBootstrapEra) key =
     makeAddress spendingData attrs
   where
@@ -213,7 +217,7 @@ makePubKeyAddressImpl path (IsBootstrapEraAddr isBootstrapEra) key =
 -- takes an optional 'StakeholderId'. If it's given, it will receive
 -- the stake sent to the resulting 'Address'. Otherwise it's assumed
 -- that an 'Address' is created for bootstrap era.
-makeScriptAddress :: Maybe StakeholderId -> Script -> Address
+makeScriptAddress :: Bi Address' => Maybe StakeholderId -> Script -> Address
 makeScriptAddress stakeholder scr = makeAddress spendingData attrs
   where
     spendingData = ScriptASD scr
@@ -221,7 +225,7 @@ makeScriptAddress stakeholder scr = makeAddress spendingData attrs
     attrs = AddrAttributes {aaPkDerivationPath = Nothing, ..}
 
 -- | A function for making an address from 'RedeemPublicKey'.
-makeRedeemAddress :: RedeemPublicKey -> Address
+makeRedeemAddress :: Bi Address' => RedeemPublicKey -> Address
 makeRedeemAddress key = makeAddress spendingData attrs
   where
     spendingData = RedeemASD key
@@ -231,7 +235,8 @@ makeRedeemAddress key = makeAddress spendingData attrs
 
 -- | Create address from secret key in hardened way.
 createHDAddressH
-    :: IsBootstrapEraAddr
+    :: Bi Address'
+    => IsBootstrapEraAddr
     -> PassPhrase
     -> HDPassphrase
     -> EncryptedSecretKey
@@ -246,7 +251,8 @@ createHDAddressH ibea passphrase walletPassphrase parent parentPath childIndex =
 
 -- | Create address from public key via non-hardened way.
 createHDAddressNH
-    :: IsBootstrapEraAddr
+    :: Bi Address'
+    => IsBootstrapEraAddr
     -> HDPassphrase
     -> PublicKey
     -> [Word32]
@@ -263,22 +269,22 @@ createHDAddressNH ibea passphrase parent parentPath childIndex = do
 
 -- | Check whether given 'AddrSpendingData' corresponds to given
 -- 'Address'.
-checkAddrSpendingData :: AddrSpendingData -> Address -> Bool
+checkAddrSpendingData :: (Bi Address, Bi Address') => AddrSpendingData -> Address -> Bool
 checkAddrSpendingData asd Address {..} =
     addrRoot == addressHash address' && addrType == addrSpendingDataToType asd
   where
     address' = Address' (addrType, asd, addrAttributes)
 
 -- | Check if given 'Address' is created from given 'PublicKey'
-checkPubKeyAddress :: PublicKey -> Address -> Bool
+checkPubKeyAddress :: (Bi Address, Bi Address') => PublicKey -> Address -> Bool
 checkPubKeyAddress pk = checkAddrSpendingData (PubKeyASD pk)
 
 -- | Check if given 'Address' is created from given validation script
-checkScriptAddress :: Script -> Address -> Bool
+checkScriptAddress :: (Bi Address, Bi Address') => Script -> Address -> Bool
 checkScriptAddress script = checkAddrSpendingData (ScriptASD script)
 
 -- | Check if given 'Address' is created from given 'RedeemPublicKey'
-checkRedeemAddress :: RedeemPublicKey -> Address -> Bool
+checkRedeemAddress :: (Bi Address, Bi Address') => RedeemPublicKey -> Address -> Bool
 checkRedeemAddress rpk = checkAddrSpendingData (RedeemASD rpk)
 
 ----------------------------------------------------------------------------
@@ -315,7 +321,8 @@ addrAttributesUnwrapped = attrData . addrAttributes
 
 -- | Makes account secret key for given wallet set.
 deriveLvl2KeyPair
-    :: IsBootstrapEraAddr
+    :: Bi Address'
+    => IsBootstrapEraAddr
     -> PassPhrase
     -> EncryptedSecretKey -- ^ key of wallet set
     -> Word32 -- ^ wallet derivation index

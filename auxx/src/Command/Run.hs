@@ -22,12 +22,12 @@ import           Pos.Communication      (MsgType (..), Origin (..), SendActions,
 import           Pos.Constants          (isDevelopment)
 import           Pos.Core               (addressHash, coinF)
 import           Pos.Core.Address       (makeAddress)
-import           Pos.Core.Context       (HasCoreConstants)
 import           Pos.Core.Types         (AddrAttributes (..), AddrSpendingData (..))
 import           Pos.Crypto             (emptyPassphrase, encToPublic, fullPublicKeyHexF,
                                          hashHexF, noPassEncrypt, safeCreatePsk,
                                          withSafeSigner)
-import           Pos.Genesis            (genesisSecretKeys)
+import           Pos.Core.Configuration (genesisSecretKeys)
+import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.UserSecret    (readUserSecret, usKeys)
 import           Pos.Wallet             (addSecretKey, getBalance, getSecretKeys)
 
@@ -80,7 +80,7 @@ Avaliable commands:
 |]
 
 runCmd ::
-       HasCoreConstants
+       HasConfigurations
     => SendActions AuxxMode
     -> Command
     -> AuxxMode ()

@@ -29,16 +29,7 @@ module Pos.Util.Config
        , unsafeReadConfigSet
 
        -- * Cardano SL config
-       -- ** default/embedded values
-       , defaultFullCslConfig
-       , defaultCslConfigName
-       -- ** global vars
-       , fullCslConfig
-       , setFullCslConfig
-       , cslConfigName
-       , setCslConfigName
        -- ** cut-out config
-       , cslConfig
        , parseFromCslConfig
        ) where
 
@@ -46,17 +37,11 @@ import           Universum
 
 import           Control.Lens               (Getting, _Left)
 import qualified Data.Aeson                 as Y (withObject)
-import qualified Data.HashMap.Strict        as HM
 import           Data.Tagged                (Tagged, untag)
 import           Data.Yaml                  (FromJSON)
 import qualified Data.Yaml                  as Y
 import           Instances.TH.Lift          ()
-import qualified Language.Haskell.TH.Syntax as TH
-import           System.Directory           (canonicalizePath, getDirectoryContents)
-import           System.FilePath            (takeDirectory, takeFileName, (</>))
-import           System.IO.Unsafe           (unsafePerformIO)
 
-import           Pos.Util.Future            (newInitFuture)
 import           Pos.Util.HVect             (HVect)
 import qualified Pos.Util.HVect             as HVect
 import           Pos.Util.Util              ()
@@ -234,100 +219,10 @@ instance (IsConfig x, FromJSON (ConfigSet xs)) =>
 instance FromJSON (ConfigSet '[]) where
     parseJSON = \_ -> return (ConfigSet HVect.empty)
 
-----------------------------------------------------------------------------
--- Cardano SL config
-----------------------------------------------------------------------------
-
-{- Note: CSL config
-~~~~~~~~~~~~~~~~~~~
-
-We have a config in @constants.yaml@. That config consists of several
-sections, only one of which will be used by CSL. By default @constants.yaml@
-is embedded into the node and the name of the section to be used is passed
-as the @CONFIG@ CPP definition, but both the config and the section name can
-be overridden by passing a CLI option.
-
-We have:
-  * 'defaultFullCslConfig', 'defaultCslConfigName' – default values
-  * 'fullCslConfig', 'cslConfigName' – global vars (futures)
-  * 'setFullCslConfig', 'setCslConfigName' – setters for the global vars
--}
-
--- embedded values ---------------------------------------------------
-
--- | Full embedded config.
-defaultFullCslConfig :: Y.Object
-defaultFullCslConfig = $(do
-    let name = "constants.yaml"
-    -- This code was stolen from file-embed ('makeRelativeToProject'). We
-    -- don't use file-embed because the config-finding logic has already been
-    -- changed several times and switching from file-embed to custom logic
-    -- and back is annoying.
-    let marker = "cardano-sl-core.cabal"
-        findConfigDir x = do
-            let dir = takeDirectory x
-            contents <- getDirectoryContents dir
-            let isRoot = any ((== marker) . takeFileName) contents
-            if | dir == x  -> return Nothing
-               | isRoot    -> return (Just dir)
-               | otherwise -> findConfigDir dir
-    loc <- TH.qLocation
-    path <- TH.runIO $ do
-        srcFP <- canonicalizePath $ TH.loc_filename loc
-        mdir <- findConfigDir srcFP
-        case mdir of
-            Just dir -> return (dir </> name)
-            Nothing  -> error $ toText $
-                "Could not find " ++ marker ++ " for path: " ++ srcFP
-    TH.qAddDependentFile path
-    TH.runIO (Y.decodeFileEither @Y.Object path) >>= \case
-        Right x  -> TH.lift x
-        Left err -> fail $ "Couldn't parse " ++ path ++ ": " ++
-                           Y.prettyPrintParseException err
-  )
-
-#if defined(CONFIG)
-
-#define QUOTED(x) "/**/x/**/"
-
--- | Section name passed via CPP.
-defaultCslConfigName :: Text
-defaultCslConfigName = QUOTED(CONFIG)
-
-#else
-
-# error CPP variable CONFIG isn't defined. If you're building with Stack, pass --ghc-options=-DCONFIG=..., or consider using scripts/build/cardano-sl.sh instead because it sets CONFIG automatically.
-
-#endif
-
--- global vars -------------------------------------------------------
-
-fullCslConfig :: Y.Object
-setFullCslConfig :: Y.Object -> IO ()
-(fullCslConfig, setFullCslConfig) =
-    unsafePerformIO (newInitFuture "fullCslConfig")
-{-# NOINLINE fullCslConfig #-}
-{-# NOINLINE setFullCslConfig #-}
-
-cslConfigName :: Text
-setCslConfigName :: Text -> IO ()
-(cslConfigName, setCslConfigName) =
-    unsafePerformIO (newInitFuture "cslConfigName")
-{-# NOINLINE cslConfigName #-}
-{-# NOINLINE setCslConfigName #-}
-
--- the part of the config that CSL will be using ---------------------
-
-cslConfig :: Y.Value
-cslConfig = case HM.lookup cslConfigName fullCslConfig of
-    Just x  -> x
-    Nothing -> error $ "Couldn't find config " <> show cslConfigName <>
-                       " in the full config ('fullCslConfig')"
-
 -- | Read a value from 'cslConfig'.
 --
 -- Usually you would pass 'configParser' here if you need to extract a single
 -- config from a hierarchical config, or 'parseJSON' if you need to read a
 -- 'ConfigSet'.
-parseFromCslConfig :: (Y.Value -> Y.Parser a) -> Either String a
-parseFromCslConfig p = Y.parseEither p cslConfig
+parseFromCslConfig :: Y.Value -> (Y.Value -> Y.Parser a) -> Either String a
+parseFromCslConfig cslConfig p = Y.parseEither p cslConfig

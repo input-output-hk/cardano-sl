@@ -25,7 +25,7 @@ import           System.Wlog          (WithLogger, logDebug, logInfo)
 import           Pos.Communication    (Conversation (..), OutSpecs (..), SendActions (..),
                                        Worker, WorkerSpec, delegationRelays,
                                        relayPropagateOut, txRelays, usRelays, worker)
-import           Pos.Core.Context     (HasCoreConstants)
+import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Txp              (unGenesisUtxo)
 import           Pos.Util.Util        (lensOf')
@@ -40,7 +40,7 @@ import           Mode                 (AuxxMode)
 ----------------------------------------------------------------------------
 
 auxxPlugin ::
-       HasCoreConstants
+       HasConfigurations
     => AuxxOptions
     -> (WorkerSpec AuxxMode, OutSpecs)
 auxxPlugin AuxxOptions {..} =
@@ -58,7 +58,7 @@ auxxPlugin AuxxOptions {..} =
             w (addLogging sa)
 
 evalCmd ::
-       HasCoreConstants
+       HasConfigurations
     => SendActions AuxxMode
     -> Command
     -> AuxxMode ()
@@ -66,7 +66,7 @@ evalCmd _ Quit = pure ()
 evalCmd sa cmd = runCmd sa cmd >> evalCommands sa
 
 evalCommands ::
-       HasCoreConstants => SendActions AuxxMode -> AuxxMode ()
+       HasConfigurations => SendActions AuxxMode -> AuxxMode ()
 evalCommands sa = do
     putStr @Text "> "
     liftIO $ hFlush stdout
@@ -76,12 +76,12 @@ evalCommands sa = do
         Left err   -> putStrLn err >> evalCommands sa
         Right cmd_ -> evalCmd sa cmd_
 
-runWalletRepl :: HasCoreConstants => Worker AuxxMode
+runWalletRepl :: HasConfigurations => Worker AuxxMode
 runWalletRepl sa = do
     putText "Welcome to Wallet CLI Node"
     evalCmd sa Help
 
-runWalletCmd :: HasCoreConstants => Text -> Worker AuxxMode
+runWalletCmd :: HasConfigurations => Text -> Worker AuxxMode
 runWalletCmd str sa = do
     let strs = T.splitOn "," str
     for_ strs $ \scmd -> do
@@ -102,7 +102,7 @@ runWalletCmd str sa = do
 ----------------------------------------------------------------------------
 
 -- This solution is hacky, but will work for now
-runCmdOuts :: HasCoreConstants => OutSpecs
+runCmdOuts :: HasConfigurations => OutSpecs
 runCmdOuts =
     relayPropagateOut $
     mconcat

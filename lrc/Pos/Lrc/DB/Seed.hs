@@ -16,7 +16,7 @@ import           Pos.Binary.Class  (serialize')
 import           Pos.Core.Types    (EpochIndex (..), SharedSeed)
 import           Pos.DB.Class      (MonadDB, MonadDBRead)
 import           Pos.Lrc.DB.Common (getBi, putBi)
-import           Pos.Lrc.Genesis   (genesisSeed)
+import           Pos.Core.Configuration.SharedSeed (HasSharedSeed, sharedSeed)
 
 getSeed :: MonadDBRead m => EpochIndex -> m (Maybe SharedSeed)
 getSeed epoch = getBi (seedKey epoch)
@@ -24,9 +24,9 @@ getSeed epoch = getBi (seedKey epoch)
 putSeed :: MonadDB m => EpochIndex -> SharedSeed -> m ()
 putSeed epoch = putBi (seedKey epoch)
 
-prepareLrcSeed :: MonadDB m => m ()
+prepareLrcSeed :: (HasSharedSeed, MonadDB m) => m ()
 prepareLrcSeed =
-    unlessM isInitialized $ putSeed (EpochIndex 0) genesisSeed
+    unlessM isInitialized $ putSeed (EpochIndex 0) sharedSeed
 
 isInitialized :: MonadDBRead m => m Bool
 isInitialized = isJust <$> getSeed (EpochIndex 0)

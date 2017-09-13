@@ -20,14 +20,15 @@ import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..))
 import           Pos.Client.CLI.Options     (CommonArgs (..))
 import           Pos.Client.CLI.Secrets     (updateUserSecretVSS,
                                              userSecretWithGenesisKey)
-import           Pos.Constants              (isDevelopment)
-import           Pos.Core.Types             (Timestamp (..))
+import           Pos.Core.Configuration     (HasConfiguration)
+import           Pos.Core.Constants         (isDevelopment)
 import           Pos.Crypto                 (VssKeyPair)
 import           Pos.Genesis                (genesisContext)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..))
 import           Pos.Network.CLI            (intNetworkConfigOpts)
 import           Pos.Ssc.GodTossing         (GtParams (..))
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Update.Params          (UpdateParams (..))
 import           Pos.Util.UserSecret        (peekUserSecret)
 
@@ -66,12 +67,13 @@ getNodeParams ::
        , Mockable Fork m
        , Mockable Catch m
        , Mockable Throw m
+       , HasConfiguration
+       , HasGtConfiguration
        )
     => CommonNodeArgs
     -> NodeArgs
-    -> Timestamp
     -> m NodeParams
-getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} systemStart = do
+getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} = do
     (primarySK, userSecret) <-
         userSecretWithGenesisKey cArgs =<<
             updateUserSecretVSS cArgs =<<
@@ -86,7 +88,6 @@ getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} systemStart = do
         , npRebuildDb = rebuildDB
         , npSecretKey = primarySK
         , npUserSecret = userSecret
-        , npSystemStart = systemStart
         , npBaseParams = getBaseParams "node" cArgs
         , npJLFile = jlPath
         , npReportServers = reportServers commonArgs

@@ -30,7 +30,7 @@ library
                         -- Slotting
                         Pos.Slotting
                         Pos.Slotting.Class
-                        Pos.Slotting.Constants
+                        Pos.Slotting.Configuration
                         Pos.Slotting.Impl
                         Pos.Slotting.Impl.Ntp
                         Pos.Slotting.Impl.Simple
@@ -43,7 +43,7 @@ library
 
                         -- Pos.DHT
                         Pos.DHT
-                        Pos.DHT.Constants
+                        Pos.DHT.Configuration
                         Pos.DHT.Model
                         Pos.DHT.Model.Types
                         Pos.DHT.Real
@@ -54,7 +54,7 @@ library
                         Pos.DHT.Workers
 
                         -- Pos.Communication
-                        Pos.Communication.Constants
+                        Pos.Communication.Configuration
                         Pos.Communication.Types.Protocol
                         Pos.Communication.Types.Relay
                         Pos.Communication.BiP
@@ -69,6 +69,9 @@ library
                         Pos.Communication.Relay.Types
                         Pos.Communication.Relay.Util
                         Pos.Communication.Util
+
+                        -- Configuration
+                        Pos.Infra.Configuration
 
                         -- Known peers
                         Pos.KnownPeers
@@ -111,7 +114,6 @@ library
 
 
   other-modules:        Paths_cardano_sl_infra
-                        Pos.Infra.Constants
 
   build-depends:        aeson
                       , base

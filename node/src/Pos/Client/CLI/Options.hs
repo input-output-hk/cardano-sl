@@ -6,6 +6,7 @@
 module Pos.Client.CLI.Options
        ( CommonArgs (..)
        , commonArgsParser
+       , configurationOptionsParser
        , optionalJSONPath
        , optionalLogPrefix
        , portOption
@@ -15,14 +16,13 @@ module Pos.Client.CLI.Options
        , templateParser
        , sscAlgoOption
 
-       , sysStartOption
        , nodeIdOption
 
-       , configInfoParser
        ) where
 
 import           Universum
 
+import           Data.Default                         (def)
 import qualified Options.Applicative                  as Opt
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
 import           Serokell.Util                        (sec)
@@ -32,41 +32,54 @@ import           Pos.Binary.Core                      ()
 import           Pos.Client.CLI.Util                  (sscAlgoParser)
 import           Pos.Communication                    (NodeId)
 import           Pos.Core                             (Timestamp (..))
-import           Pos.Launcher.ConfigInfo              (ConfigInfo (..))
+import           Pos.Launcher.Configuration           (ConfigurationOptions (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
 import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
                                                        addrParserNoWildcard,
                                                        addressToNodeId)
 
 data CommonArgs = CommonArgs
-    { logConfig     :: !(Maybe FilePath)
-    , logPrefix     :: !(Maybe FilePath)
-    , reportServers :: ![Text]
-    , updateServers :: ![Text]
-    , sysStart      :: !(Maybe Timestamp)
-      -- ^ The system start time. It's passed via CLI if
-      -- 'TestnetInitializer' is used, otherwise it's taken from
-      -- 'GenesisSpec' (or 'GenesisData').
+    { logConfig            :: !(Maybe FilePath)
+    , logPrefix            :: !(Maybe FilePath)
+    , reportServers        :: ![Text]
+    , updateServers        :: ![Text]
+    , configurationOptions :: !ConfigurationOptions
     } deriving Show
 
 commonArgsParser :: Opt.Parser CommonArgs
 commonArgsParser = do
     logConfig <- optionalLogConfig
     logPrefix <- optionalLogPrefix
-    --
     reportServers <- reportServersOption
     updateServers <- updateServersOption
-    --
-    sysStart <- sysStartOption
+    configurationOptions <- configurationOptionsParser
     pure CommonArgs{..}
 
-sysStartOption :: Opt.Parser (Maybe Timestamp)
-sysStartOption =
-    Opt.optional $
-    Opt.option (Timestamp . sec <$> Opt.auto) $
-    Opt.long "system-start" <> Opt.metavar "TIMESTAMP" <> Opt.help helpMsg
+configurationOptionsParser :: Opt.Parser ConfigurationOptions
+configurationOptionsParser = do
+    cfoFilePath    <- filePathParser
+    cfoKey         <- keyParser
+    cfoSystemStart <- systemStartParser
+    return ConfigurationOptions{..}
   where
-    helpMsg = "System start time. Format - seconds since Unix-epoch."
+    filePathParser :: Opt.Parser FilePath
+    filePathParser = Opt.strOption $
+        Opt.long    "configuration-file" <>
+        Opt.metavar "FILEPATH" <>
+        Opt.help    "Path to a yaml configuration file" <>
+        Opt.value   (cfoFilePath def)
+    keyParser :: Opt.Parser Text
+    keyParser = Opt.option Opt.auto $
+        Opt.long    "configuration-key" <>
+        Opt.metavar "TEXT" <>
+        Opt.help    "Key within the configuration file to use" <>
+        Opt.value   (cfoKey def)
+    systemStartParser :: Opt.Parser (Maybe Timestamp)
+    systemStartParser = Opt.option (Just . Timestamp . sec <$> Opt.auto) $
+        Opt.long    "system-start" <>
+        Opt.metavar "TIMESTAMP" <>
+        Opt.help    "System start time. Format - seconds since Unix Epoch." <>
+        Opt.value   (cfoSystemStart def)
 
 templateParser :: (HasName f, HasMetavar f) => String -> String -> String -> Opt.Mod f a
 templateParser long metavar help =
@@ -145,19 +158,3 @@ walletPortOption portNum help =
         templateParser "wallet-port" "PORT" help -- "Port for wallet"
         <> Opt.value portNum
         <> Opt.showDefault
-
-configInfoParser :: Opt.Parser ConfigInfo
-configInfoParser = do
-    customConfigPath <- optional $ Opt.strOption $
-        Opt.long    "custom-config-file" <>
-        Opt.metavar "FILEPATH" <>
-        Opt.help    "Path to constants.yaml"
-    customConfigName <- optional $ fmap toText $ Opt.strOption $
-        Opt.long    "custom-config-name" <>
-        Opt.metavar "KEY" <>
-        Opt.help    "Section of constants.yaml to use"
-    customGenSpecPath <- optional $ Opt.strOption $
-        Opt.long    "custom-genesis-spec-yaml" <>
-        Opt.metavar "FILEPATH" <>
-        Opt.help    "Path to genesis-spec.yaml"
-    pure ConfigInfo{..}

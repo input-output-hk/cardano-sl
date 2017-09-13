@@ -17,5 +17,4 @@ spec :: Spec
 spec = describe "Genesis" $ do
     describe "Bi instances" $ do
         binaryTest @T.BalanceDistribution
-        binaryTest @T.GenesisCoreData
         binaryTest @T.GenesisGtData

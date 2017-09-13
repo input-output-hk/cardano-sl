@@ -11,9 +11,7 @@ module Pos.Core.Genesis.Types
        , GenesisDelegation (..)
        , noGenesisDelegation
        , mkGenesisDelegation
-       , GenesisCoreData (..)
        , bootDustThreshold
-       , mkGenesisCoreData
 
          -- * GenesisSpec
        , TestnetBalanceOptions (..)
@@ -41,7 +39,7 @@ import qualified Data.Text.Buildable  as Buildable
 import           Formatting           (bprint, (%))
 import           Serokell.Util        (allDistinct, mapJson)
 
-import           Pos.Core.Address     (addressHash, isBootstrapEraDistrAddress)
+import           Pos.Core.Address     (addressHash)
 import           Pos.Core.Coin        (coinToInteger, sumCoins, unsafeAddCoin,
                                        unsafeGetCoin, unsafeIntegerToCoin)
 import           Pos.Core.Types       (Address, BlockVersionData, Coin, ProxySKHeavy,
@@ -154,17 +152,6 @@ mkGenesisDelegation psks = do
         throwError "one of the delegates is also an issuer, don't do it"
     return $ UnsafeGenesisDelegation resMap
 
--- | Hardcoded genesis data to generate utxo from.
-data GenesisCoreData = UnsafeGenesisCoreData
-    { gcdAddrDistribution      :: ![AddrDistribution]
-      -- ^ Address distribution. Determines utxo without boot
-      -- stakeholders distribution (addresses and coins).
-    , gcdBootstrapStakeholders :: !GenesisWStakeholders
-      -- ^ Bootstrap era stakeholders, values are weights.
-    , gcdHeavyDelegation       :: !GenesisDelegation
-      -- ^ Genesis state of heavyweight delegation.
-    } deriving (Show, Eq, Generic)
-
 -- | Calculates a minimum amount of coins user can set as an output in
 -- boot era.
 bootDustThreshold :: GenesisWStakeholders -> Coin
@@ -173,41 +160,6 @@ bootDustThreshold (GenesisWStakeholders bootHolders) =
     -- be really low in production, so this sum is not going to be
     -- even more than 10-15 coins.
     unsafeIntegerToCoin . sum $ map fromIntegral $ toList bootHolders
-
--- | Safe constructor for 'GenesisCoreData'. Throws error if something
--- goes wrong.
-mkGenesisCoreData ::
-       [AddrDistribution]
-    -> Map StakeholderId Word16
-    -> GenesisDelegation
-    -> Either String GenesisCoreData
-mkGenesisCoreData distribution bootStakeholders delega = do
-    for_ distribution $ \(addrs, distr) -> do
-        -- Every set of addresses should match the stakeholders count
-        unless (fromIntegral (length addrs) == getDistributionSize distr) $
-            Left "mkGenesisCoreData: addressCount != stakeholdersCount \
-                 \for some set of addresses"
-        -- Addresses in each list are distinct (except for CustomBalances)
-        let isCustom = case distr of
-                CustomBalances{} -> True
-                _                -> False
-        unless (isCustom || allDistinct addrs) $
-            Left "mkGenesisCoreData: addresses in some list aren't distinct"
-        unless (all isBootstrapEraDistrAddress addrs) $
-            Left $ "mkGenesisCoreData: there is an address with stake " <>
-                   "distribution different from BootstrapEraDistr"
-
-    -- No address belongs to more than one distribution
-    let addrList = concatMap (ordNub . fst) distribution
-    unless (allDistinct addrList) $
-        Left "mkGenesisCoreData: some address belongs to more than one distr"
-    -- All checks passed
-    pure
-        UnsafeGenesisCoreData
-        { gcdAddrDistribution = distribution
-        , gcdBootstrapStakeholders = GenesisWStakeholders bootStakeholders
-        , gcdHeavyDelegation = delega
-        }
 
 ----------------------------------------------------------------------------
 -- Genesis Spec

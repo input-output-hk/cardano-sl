@@ -25,9 +25,9 @@ import qualified Data.Map                          as M
 import           Data.Time.Units                   (Microsecond, Millisecond,
                                                     TimeUnit (..))
 import           System.Random                     (Random)
-import           Test.QuickCheck                   (Arbitrary (..), Gen, NonNegative (..),
-                                                    choose, oneof, scale, shrinkIntegral,
-                                                    sized, suchThat, vector, vectorOf)
+import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, oneof,
+                                                    scale, shrinkIntegral, sized,
+                                                    suchThat)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Test.QuickCheck.Instances         ()
 
@@ -36,7 +36,7 @@ import           Pos.Binary.Class                  (FixedSizeInt (..), SignedVar
                                                     TinyVarInt (..), UnsignedVarInt (..))
 import           Pos.Binary.Core                   ()
 import           Pos.Binary.Crypto                 ()
-import           Pos.Core.Address                  (makeAddress, makePubKeyAddressBoot)
+import           Pos.Core.Address                  (makeAddress)
 import           Pos.Core.Coin                     (coinToInteger, divCoin, unsafeSubCoin)
 import           Pos.Core.Constants                (sharedSeedLength)
 import           Pos.Core.Context                  (HasCoreConstants, epochSlots)
@@ -501,48 +501,6 @@ instance Arbitrary G.GenesisDelegation where
                     [] -> []
                     (delegate:issuers) ->
                         issuers <&> \sk -> createPsk sk (toPublic delegate) 0
-
-instance Arbitrary G.GenesisCoreData where
-    arbitrary = do
-        -- This number'll be the length of every address list in the first argument of
-        -- 'mkGenesisCoreData'.
-        innerLen <- getNonNegative <$> arbitrary `suchThat` (<= (NonNegative 7))
-        -- This number is the length of the first argument of 'mkGenesisCoreData'
-        -- Because of the way 'PublicKey's are generated, 'innerLen * outerLen' cannot be
-        -- greater than 50 if a list of unique adresses with that length is to be
-        -- generated.
-        -- '7 = (floor . sqrt) 50', and if 'a * b = 50', then at least one of 'a' or 'b'
-        -- must be less than or equalto '7'.
-        outerLen <- getNonNegative <$>
-            arbitrary `suchThat` (\(NonNegative n) -> n * innerLen <= 50)
-        let chop _ [] = []
-            chop n l = taken : chop n dropped
-              where (taken, dropped) = splitAt n l
-        allAddrs <- fmap makePubKeyAddressBoot <$>
-            nonrepeating (outerLen * innerLen)
-        let listOfAddrList = chop innerLen allAddrs
-        -- This may seem like boilerplate but it's necessary to pass the first check in
-        -- 'mkGenesisCoreData'. Certain parameters in the generated 'BalanceDistribution'
-        -- must be equal to the length of the first element of the tuple in
-        -- 'AddrDistribution'
-            wordILen = fromIntegral innerLen
-            distributionGen = oneof
-                [ G.FlatBalances wordILen <$> arbitrary
-                , do a <- choose (0, wordILen)
-                     G.RichPoorBalances a
-                         <$> arbitrary
-                         <*> pure (wordILen - a)
-                         <*> arbitrary
-                , pure $ G.safeExpBalances wordILen
-                , G.CustomBalances <$> vector innerLen
-                ]
-        stakeDistrs <- vectorOf outerLen distributionGen
-        hashmapOfHolders <- arbitrary :: Gen (Map Types.StakeholderId Word16)
-        delegation <- arbitrary
-        return $ leftToPanic "arbitrary@GenesisCoreData: " $
-            G.mkGenesisCoreData (zip listOfAddrList stakeDistrs)
-                                hashmapOfHolders
-                                delegation
 
 instance Arbitrary G.BalanceDistribution where
     arbitrary = oneof

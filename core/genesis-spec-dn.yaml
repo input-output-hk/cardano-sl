@@ -1,15 +1,9 @@
 initializer:
   testnetInitializer:
     testBalance:
-<<<<<<< HEAD
-      poors:        10
+      poors:        12
       richmen:      4
       richmenShare: 0.99
-=======
-      poors:        0
-      richmen:      4
-      richmenShare: 1.0
->>>>>>> 80a5bffa4... [CSL-1617] Rename flags. Add genesis-spec.yaml for dev-mode
       totalBalance: 13887504355000000
     fakeAvvmBalance: 
       count: 0
@@ -37,12 +31,8 @@ blockVersionData:
     txSizeLinear:
       a: 155381 # absolute minimal fees per transaction
       b: 43.946 # additional minimal fees per byte of transaction size
-<<<<<<< HEAD
   unlockStakeEpoch: 
     getEpochIndex: 18446744073709551615 # last epoch (maxBound @Word64)
-=======
-  unlockStakeEpoch: 18446744073709551615 # last epoch (maxBound @Word64)
->>>>>>> 80a5bffa4... [CSL-1617] Rename flags. Add genesis-spec.yaml for dev-mode
 protocolConstants:
   k: 2
   protocolMagic: 55550001

@@ -48,9 +48,6 @@ data CommonArgs = CommonArgs
     , reportServers :: ![Text]
     , updateServers :: ![Text]
     -- distributions, only used in dev mode
-    , flatDistr     :: !(Maybe (Int, Int))
-    , richPoorDistr :: !(Maybe (Int, Int, Integer, Double))
-    , expDistr      :: !(Maybe Int)
     , sysStart      :: !Timestamp
       -- ^ The system start time.
     } deriving Show
@@ -62,10 +59,6 @@ commonArgsParser = do
     --
     reportServers <- reportServersOption
     updateServers <- updateServersOption
-    -- distributions
-    flatDistr     <- if isDevelopment then flatDistrOptional else pure Nothing
-    richPoorDistr <- if isDevelopment then rnpDistrOptional  else pure Nothing
-    expDistr      <- if isDevelopment then expDistrOption    else pure Nothing
     --
     sysStart <- sysStartParser
     pure CommonArgs{..}
@@ -147,35 +140,6 @@ updateServersOption =
     toText <$>
     Opt.strOption
         (templateParser "update-server" "URI" "Server to download updates from.")
-
-flatDistrOptional :: Opt.Parser (Maybe (Int, Int))
-flatDistrOptional =
-    Opt.optional $
-        Opt.option Opt.auto $
-            templateParser
-                "flat-distr"
-                "(INT,INT)"
-                "Use flat stake distribution with given parameters (nodes, coins)."
-
-rnpDistrOptional :: Opt.Parser (Maybe (Int, Int, Integer, Double))
-rnpDistrOptional =
-    Opt.optional $
-        Opt.option Opt.auto $
-            templateParser
-                "rich-poor-distr"
-                "(INT,INT,INT,FLOAT)"
-                "Use rich'n'poor stake distribution with given parameters\
-                \ (number of richmen, number of poors, total stake, richmen's\
-                \ share of stake)."
-
-expDistrOption :: Opt.Parser (Maybe Int)
-expDistrOption =
-    Opt.optional $
-        Opt.option Opt.auto $
-            templateParser
-                "exp-distr"
-                "INT"
-                "Use exponential distribution with given amount of nodes."
 
 timeLordOption :: Opt.Parser Bool
 timeLordOption =

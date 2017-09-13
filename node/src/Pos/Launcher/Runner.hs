@@ -60,6 +60,7 @@ import           Pos.Ssc.Class                   (SscConstraint)
 import           Pos.Statistics                  (EkgParams (..), StatsdParams (..))
 import           Pos.Util.JsonLog                (JsonLogConfig (..),
                                                   jsonLogConfigFromHandle)
+import           Pos.Web.Server                  (healthCheckApplication, serveImpl)
 import           Pos.WorkMode                    (EnqueuedConversation (..), OQ, RealMode,
                                                   RealModeContext (..), WorkMode)
 
@@ -121,7 +122,13 @@ runRealModeDo NodeResources {..} outSpecs action =
     NetworkConfig {..} = ncNetworkConfig
     NodeParams {..} = ncNodeParams
     LoggingParams {..} = bpLoggingParams npBaseParams
-    startMonitoring oq node' =
+
+    -- Expose the health-check endpoint for DNS load-balancing
+    -- and optionally other services as EKG & statsd.
+    startMonitoring oq node' = do
+        -- Expose the health-check
+        serveImpl healthCheckApplication "0.0.0.0" 8888 Nothing
+        -- Run the optional tools.
         case npEnableMetrics of
             False -> return Nothing
             True  -> Just <$> do

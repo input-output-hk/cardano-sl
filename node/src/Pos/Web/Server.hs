@@ -10,6 +10,7 @@ module Pos.Web.Server
        , nat
        , serveWebBase
        , applicationBase
+       , healthCheckApplication
        , serveWebGT
        , applicationGT
        ) where
@@ -49,7 +50,9 @@ import           Pos.Web.Mode                         (WebMode, WebModeContext (
 import           Pos.WorkMode.Class                   (TxpExtra_TMP, WorkMode)
 
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
-                                                       GtNodeApi, baseNodeApi, gtNodeApi)
+                                                       GtNodeApi, HealthCheckApi,
+                                                       baseNodeApi, gtNodeApi,
+                                                       healthCheckApi)
 import           Pos.Web.Types                        (TlsParams (..))
 
 ----------------------------------------------------------------------------
@@ -70,6 +73,11 @@ applicationBase :: MyWorkMode ssc ctx m => m Application
 applicationBase = do
     server <- servantServerBase
     return $ serve baseNodeApi server
+
+healthCheckApplication :: MyWorkMode ssc ctx m => m Application
+healthCheckApplication = do
+    server <- servantServerHealthCheck
+    return $ serve healthCheckApi server
 
 serveWebGT :: MyWorkMode SscGodTossing ctx m => Word16 -> Maybe TlsParams -> m ()
 serveWebGT = serveImpl applicationGT "127.0.0.1"
@@ -137,6 +145,9 @@ nat = do
 servantServerBase :: forall ssc ctx m . MyWorkMode ssc ctx m => m (Server (BaseNodeApi ssc))
 servantServerBase = flip enter baseServantHandlers <$> (nat @ssc @ctx @m)
 
+servantServerHealthCheck :: forall ssc ctx m . MyWorkMode ssc ctx m => m (Server HealthCheckApi)
+servantServerHealthCheck = flip enter healthCheckServantHandlers <$> (nat @ssc @ctx @m)
+
 servantServerGT :: forall ctx m . MyWorkMode SscGodTossing ctx m => m (Server GtNodeApi)
 servantServerGT = flip enter (baseServantHandlers :<|> gtServantHandlers) <$>
     (nat @SscGodTossing @ctx @m)
@@ -170,6 +181,17 @@ getUtxo = map toaOut . toList <$> GS.getAllPotentiallyHugeUtxo
 
 getLocalTxsNum :: WebMode ssc Word
 getLocalTxsNum = fromIntegral . length <$> getLocalTxs
+
+----------------------------------------------------------------------------
+-- HealthCheck handlers
+----------------------------------------------------------------------------
+
+healthCheckServantHandlers :: ServerT HealthCheckApi (WebMode ssc)
+healthCheckServantHandlers =
+    getHealthCheck
+
+getHealthCheck :: ServerT HealthCheckApi (WebMode ssc)
+getHealthCheck = return "test"
 
 ----------------------------------------------------------------------------
 -- GodTossing handlers

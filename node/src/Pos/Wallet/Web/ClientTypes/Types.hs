@@ -295,7 +295,7 @@ data CTExMeta = CTExMeta
 data CUpdateInfo = CUpdateInfo
     { cuiSoftwareVersion :: !SoftwareVersion
     , cuiBlockVesion     :: !BlockVersion
-    , cuiScriptVersion   :: !ScriptVersion
+    , cuiScriptVersion   :: !(Maybe ScriptVersion)
     , cuiImplicit        :: !Bool
 --    , cuiProposed        :: !HeaderHash
 --    , cuiDecided         :: !HeaderHash

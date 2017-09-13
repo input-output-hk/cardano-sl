@@ -15,7 +15,6 @@ module Pos.Update.Poll.Logic.Base
        , canBeProposedBV
        , canCreateBlockBV
        , isConfirmedBV
-       , getBVScriptVersion
        , confirmBlockVersion
        , updateSlottingData
        , verifyNextBVMod
@@ -42,7 +41,7 @@ import           System.Wlog             (WithLogger, logDebug, logNotice)
 import           Pos.Binary.Update       ()
 import           Pos.Core                (BlockVersion (..), Coin, EpochIndex,
                                           HasCoreConstants, HeaderHash, IsMainHeader (..),
-                                          ScriptVersion, SlotId, SoftforkRule (..),
+                                          SlotId, SoftforkRule (..),
                                           TimeDiff (..), addressHash, applyCoinPortionUp,
                                           coinPortionDenominator, coinToInteger,
                                           difficultyL, epochSlots, getCoinPortion,
@@ -63,7 +62,7 @@ import           Pos.Update.Poll.Types   (BlockVersionState (..),
                                           ConfirmedProposalState (..),
                                           DecidedProposalState (..), DpsExtra (..),
                                           ProposalState (..), UndecidedProposalState (..),
-                                          UpsExtra (..), bvsIsConfirmed, bvsScriptVersion,
+                                          UpsExtra (..), bvsIsConfirmed,
                                           cpsBlockVersion)
 import           Pos.Util.Util           (leftToPanic)
 
@@ -76,10 +75,6 @@ import           Pos.Util.Util           (leftToPanic)
 -- | Check whether BlockVersion is confirmed.
 isConfirmedBV :: MonadPollRead m => BlockVersion -> m Bool
 isConfirmedBV = fmap (maybe False bvsIsConfirmed) . getBVState
-
--- | Get 'ScriptVersion' associated with given 'BlockVersion' if it is known.
-getBVScriptVersion :: MonadPollRead m => BlockVersion -> m (Maybe ScriptVersion)
-getBVScriptVersion = fmap (fmap bvsScriptVersion) . getBVState
 
 -- | Mark given 'BlockVersion' as confirmed if it is known. This
 -- function also takes epoch when proposal was confirmed.
@@ -267,18 +262,20 @@ verifyNextBVMod upId epoch
                    , bvdMaxBlockSize = oldMBS
                    , bvdUnlockStakeEpoch = oldUnlockStakeEpoch
                    }
-  BlockVersionModifier { bvmScriptVersion = newSV
-                       , bvmMaxBlockSize = newMBS
+  BlockVersionModifier { bvmScriptVersion = newSVM
+                       , bvmMaxBlockSize = newMBSM
                        , bvmUnlockStakeEpoch = newUnlockStakeEpochM
                        }
-    | newSV /= oldSV + 1 && newSV /= oldSV =
+    | Just newSV <- newSVM,
+      newSV /= oldSV + 1 && newSV /= oldSV =
         throwError
             PollWrongScriptVersion
             { pwsvAdopted = oldSV
             , pwsvProposed = newSV
             , pwsvUpId = upId
             }
-    | newMBS > oldMBS * 2 =
+    | Just newMBS <- newMBSM,
+      newMBS > oldMBS * 2 =
         throwError
             PollLargeMaxBlockSize
             { plmbsMaxPossible = oldMBS * 2

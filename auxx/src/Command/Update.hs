@@ -20,13 +20,12 @@ import           System.Wlog         (logDebug)
 import           Pos.Binary          (Raw)
 import           Pos.Communication   (SendActions, immediateConcurrentConversations,
                                       submitUpdateProposal, submitVote)
-import           Pos.Constants       (genesisBlockVersionData)
 import           Pos.Core.Context    (HasCoreConstants)
 import           Pos.Crypto          (Hash, SignTag (SignUSVote), emptyPassphrase,
                                       encToPublic, hash, hashHexF, safeSign, unsafeHash,
                                       withSafeSigner)
 import           Pos.Data.Attributes (mkAttributes)
-import           Pos.Update          (BlockVersionData (..), BlockVersionModifier (..),
+import           Pos.Update          (BlockVersionModifier (..),
                                       SystemTag, UpId, UpdateData (..), UpdateVote (..),
                                       mkUpdateProposalWSign)
 import           Pos.Wallet          (getSecretKeys)
@@ -79,20 +78,19 @@ propose sendActions ProposeUpdateParams{..} = do
     CmdCtx{ccPeers} <- getCmdCtx
     logDebug "Proposing update..."
     skey <- (!! puIdx) <$> getSecretKeys
-    let BlockVersionData {..} = genesisBlockVersionData
     let bvm =
             BlockVersionModifier
-            { bvmScriptVersion     = puScriptVersion
-            , bvmSlotDuration      = convertUnit (sec puSlotDurationSec)
-            , bvmMaxBlockSize      = puMaxBlockSize
-            , bvmMaxHeaderSize     = bvdMaxHeaderSize
-            , bvmMaxTxSize         = bvdMaxTxSize
-            , bvmMaxProposalSize   = bvdMaxProposalSize
-            , bvmMpcThd            = bvdMpcThd
-            , bvmHeavyDelThd       = bvdHeavyDelThd
-            , bvmUpdateVoteThd     = bvdUpdateVoteThd
-            , bvmUpdateProposalThd = bvdUpdateProposalThd
-            , bvmUpdateImplicit    = bvdUpdateImplicit
+            { bvmScriptVersion     = Just puScriptVersion
+            , bvmSlotDuration      = Just $ convertUnit (sec puSlotDurationSec)
+            , bvmMaxBlockSize      = Just puMaxBlockSize
+            , bvmMaxHeaderSize     = Nothing
+            , bvmMaxTxSize         = Nothing
+            , bvmMaxProposalSize   = Nothing
+            , bvmMpcThd            = Nothing
+            , bvmHeavyDelThd       = Nothing
+            , bvmUpdateVoteThd     = Nothing
+            , bvmUpdateProposalThd = Nothing
+            , bvmUpdateImplicit    = Nothing
             , bvmSoftforkRule      = Nothing
             , bvmTxFeePolicy       = Nothing
             , bvmUnlockStakeEpoch  = Nothing

@@ -53,7 +53,7 @@ let
           echo root $sourceRoot
           ls -ltrh $sourceRoot
           rm -v $sourceRoot/genesis*bin
-          cp -vi ${genesis}/genesis-core.bin $sourceRoot/genesis-core-tns.bin
+          cp -vi ${genesis}/genesis-core.bin $sourceRoot/genesis-core-tn.bin
         '';
       });
       cardano-sl-godtossing = overrideCabal super.cardano-sl-godtossing (drv:
@@ -65,7 +65,7 @@ let
           echo todo
           ls -ltrh $sourceRoot
           rm -v $sourceRoot/genesis*.bin
-          cp -vi ${genesis}/genesis-godtossing.bin $sourceRoot/genesis-godtossing-tns.bin
+          cp -vi ${genesis}/genesis-godtossing.bin $sourceRoot/genesis-godtossing-tn.bin
         '';
       });
       cardano-sl-update = overrideCabal super.cardano-sl-update (drv: {

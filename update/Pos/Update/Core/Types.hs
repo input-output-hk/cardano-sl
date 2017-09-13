@@ -201,8 +201,6 @@ mkUpdateProposal
     upAttributes
     upFrom
     upSignature = do
-        when (HM.null upData) $ -- Check if proposal data is non-empty
-            fail "UpdateProposal: empty proposal data"
         let toSign =
                 UpdateProposalToSign
                     upBlockVersion
@@ -230,8 +228,6 @@ mkUpdateProposalWSign
     upData
     upAttributes
     ss = do
-        when (HM.null upData) $ -- Check if proposal data is non-empty
-            fail "UpdateProposal: empty proposal data"
         let toSign =
                 UpdateProposalToSign
                     upBlockVersion

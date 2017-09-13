@@ -22,6 +22,7 @@ module Pos.Util.Util
        , sortWithMDesc
        , leftToPanic
        , dumpSplices
+       , histogram
        , (<//>)
 
        -- * Lenses
@@ -107,6 +108,8 @@ import           Data.Char                      (isAlphaNum)
 import           Data.Hashable                  (Hashable (hashWithSalt))
 import           Data.HashSet                   (fromMap)
 import           Data.List                      (last)
+import           Data.Map                       (Map)
+import qualified Data.Map                       as M
 import qualified Data.Semigroup                 as Smg
 import           Data.Tagged                    (Tagged (Tagged))
 import           Data.Text.Buildable            (build)
@@ -461,6 +464,13 @@ dumpSplices x = do
 
 postfixLFields :: LensRules
 postfixLFields = lensRules & lensField .~ mappingNamer (\s -> [s++"_L"])
+
+-- | Count elements in a list.
+histogram :: forall a. Ord a => [a] -> Map a Int
+histogram = foldl' step M.empty
+  where
+    step :: Map a Int -> a -> Map a Int
+    step m x = M.insertWith (+) x 1 m
 
 -- MinMax
 

@@ -353,7 +353,10 @@ retrieveBlocks'
     -> HeaderHash -- ^ Block at which to stop
     -> ExceptT Text m (OldestFirst NE (Block ssc))
 retrieveBlocks' i conv prevH endH = lift (recvLimited conv) >>= \case
-    Nothing -> throwError $ sformat ("Failed to receive block #"%int) i
+    Nothing ->
+        throwError $ sformat ("Failed to receive block #"%int) i
+    Just (MsgNoBlock t) ->
+        throwError $ sformat ("Server failed to return block #"%int%": "%stext) i t
     Just (MsgBlock block) -> do
         let prevH' = block ^. prevBlockL
             curH = headerHash block

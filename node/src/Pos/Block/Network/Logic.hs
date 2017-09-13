@@ -143,7 +143,8 @@ requestTip nodeId conv = do
     handleTip (MsgHeaders (NewestFirst (tip:|[]))) = do
         logDebug $ sformat ("Got tip "%shortHashF%", processing") (headerHash tip)
         handleUnsolicitedHeader tip nodeId
-    handleTip _ = pass
+    handleTip t =
+        logWarning $ sformat ("requestTip: got unexpected response: "%shown) t
 
 ----------------------------------------------------------------------------
 -- Headers processing
@@ -272,23 +273,32 @@ requestHeaders cont mgh nodeId conv = do
     mHeaders <- recvLimited conv
     inRecovery <- recoveryInProgress
     logDebug $ sformat ("requestHeaders: inRecovery = "%shown) inRecovery
-    flip (maybe onNothing) mHeaders $ \(MsgHeaders headers) -> do
-        logDebug $ sformat
-            ("requestHeaders: received "%int%" headers of total size "%builder%
-             " from nodeId "%build%": "%listJson)
-            (headers ^. _Wrapped . to NE.length)
-            (unitBuilder $ biSize headers)
-            nodeId
-            (map headerHash headers)
-        case matchRequestedHeaders headers mgh inRecovery of
-            MRGood           -> do
-                handleRequestedHeaders cont inRecovery headers
-            MRUnexpected msg -> handleUnexpected headers msg
+    case mHeaders of
+        Nothing -> do
+            logWarning "requestHeaders: received Nothing as a response on MsgGetHeaders"
+            throwM $ DialogUnexpected $
+                sformat ("requestHeaders: received Nothing from "%build) nodeId
+        Just (MsgNoHeaders t) -> do
+            logWarning $ "requestHeaders: received MsgNoHeaders: " <> t
+            throwM $ DialogUnexpected $
+                sformat ("requestHeaders: received MsgNoHeaders from "%
+                         build%", msg: "%stext)
+                        nodeId
+                        t
+        Just (MsgHeaders headers) -> do
+            logDebug $ sformat
+                ("requestHeaders: received "%int%" headers of total size "%builder%
+                 " from nodeId "%build%": "%listJson)
+                (headers ^. _Wrapped . to NE.length)
+                (unitBuilder $ biSize headers)
+                nodeId
+                (map headerHash headers)
+            case matchRequestedHeaders headers mgh inRecovery of
+                MRGood           ->
+                    handleRequestedHeaders cont inRecovery headers
+                MRUnexpected msg ->
+                    handleUnexpected headers msg
   where
-    onNothing = do
-        logWarning "requestHeaders: received Nothing, waiting for MsgHeaders"
-        throwM $ DialogUnexpected $
-            sformat ("requestHeaders: received Nothing from "%build) nodeId
     handleUnexpected hs msg = do
         -- TODO: ban node for sending unsolicited header in conversation
         logWarning $ sformat

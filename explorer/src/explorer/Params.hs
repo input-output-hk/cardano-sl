@@ -14,11 +14,9 @@ import           Mockable            (Catch, Fork, Mockable, Throw)
 import           System.Wlog         (LoggerName, WithLogger)
 
 import qualified Pos.Client.CLI      as CLI
-import           Pos.Constants       (isDevelopment)
 import           Pos.Core.Types      (Timestamp (..))
 import           Pos.Crypto          (VssKeyPair)
-import           Pos.Genesis         (devBalancesDistr, devGenesisContext,
-                                      genesisContextProductionM)
+import           Pos.Genesis         (genesisContextProduction)
 import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
                                       NodeParams (..))
 import           Pos.Network.CLI     (intNetworkConfigOpts)
@@ -69,14 +67,7 @@ getNodeParams args@Args {..} systemStart = do
 
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
 
-    let devBalanceDistr =
-            devBalancesDistr
-                (CLI.flatDistr commonArgs)
-                (CLI.richPoorDistr commonArgs)
-                (CLI.expDistr commonArgs)
-
-    npGenesisCtx <- if isDevelopment then pure (devGenesisContext devBalanceDistr)
-                    else genesisContextProductionM
+    let npGenesisCtx = genesisContextProduction
 
     return NodeParams
         { npDbPathM = dbPath

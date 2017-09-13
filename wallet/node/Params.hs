@@ -12,10 +12,8 @@ import           System.Wlog         (WithLogger)
 
 import           Pos.Client.CLI      (CommonNodeArgs (..))
 import qualified Pos.Client.CLI      as CLI
-import           Pos.Constants       (isDevelopment)
 import           Pos.Core.Types      (Timestamp (..))
-import           Pos.Genesis         (devBalancesDistr, devGenesisContext,
-                                      genesisContextProductionM)
+import           Pos.Genesis         (genesisContextProduction)
 import           Pos.Launcher        (NodeParams (..))
 import           Pos.Network.CLI     (intNetworkConfigOpts)
 import           Pos.Update.Params   (UpdateParams (..))
@@ -39,14 +37,8 @@ getNodeParams args@CommonNodeArgs{..} systemStart = do
             CLI.updateUserSecretVSS args =<<
                 peekUserSecret (CLI.getKeyfilePath args)
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
-    let devBalanceDistr =
-            devBalancesDistr
-                (CLI.flatDistr commonArgs)
-                (CLI.richPoorDistr commonArgs)
-                (CLI.expDistr commonArgs)
 
-    npGenesisCtx <- if isDevelopment then pure (devGenesisContext devBalanceDistr)
-                    else genesisContextProductionM
+    let npGenesisCtx = genesisContextProduction
 
     pure NodeParams
         { npDbPathM = dbPath

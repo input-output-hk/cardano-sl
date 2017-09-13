@@ -23,7 +23,8 @@ module Pos.Genesis
        , genesisContextImplicit
 
        -- * Prod mode genesis
-       , genesisContextProductionM
+       , genesisContextProduction
+       , generatedGenesisData
 
        -- * Dev mode genesis
        , devBalancesDistr
@@ -41,7 +42,8 @@ import qualified Data.Map.Strict            as Map
 import qualified Data.Ratio                 as Ratio
 import           Formatting                 (build, sformat, (%))
 import           Serokell.Util              (mapJson)
-import           System.Wlog                (WithLogger)
+import           System.IO.Unsafe           (unsafePerformIO)
+import           System.Wlog                (usingLoggerName)
 
 import           Pos.AllSecrets             (InvAddrSpendingData (unInvAddrSpendingData),
                                              mkInvAddrSpendingData)
@@ -58,7 +60,8 @@ import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase
                                              firstHardened, unsafeHash)
 import           Pos.Lrc.FtsPure            (followTheSatoshiUtxo)
 import           Pos.Lrc.Genesis            (genesisSeed)
-import           Pos.Testnet                (genTestnetOrMainnetData)
+import           Pos.Testnet                (GeneratedGenesisData (..),
+                                             genTestnetOrMainnetData)
 import           Pos.Txp.Core               (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil               (GenesisUtxo (..))
 import           Pos.Util.Util              (HasLens (..))
@@ -223,23 +226,28 @@ genesisLeaders GenesisContext { _gtcUtxo = (GenesisUtxo utxo)
 -- Production mode genesis
 ----------------------------------------------------------------------------
 
+-- This unsafePerformIO is more or less safe,
+-- because MonadIO caused by writing to file,
+-- but we don't write to file when generate this data
+-- (it's needed for dump of keys and avvm-seed by utility)
+generatedGenesisData :: GeneratedGenesisData
+generatedGenesisData =
+    unsafePerformIO $ usingLoggerName "node" $ genTestnetOrMainnetData genesisProdInitializer
+{-# NOINLINE generatedGenesisData #-}
+
 -- | 'GenesisContext' that uses all the data for prod.
-genesisContextProductionM
-    :: (MonadIO m, MonadThrow m, WithLogger m)
-    => m GenesisContext
-genesisContextProductionM = do
-    (testnetDistr, bootStakeholders, _) <-
-        genTestnetOrMainnetData genesisProdInitializer
+genesisContextProduction :: GenesisContext
+genesisContextProduction = do
+    let GeneratedGenesisData{..} = generatedGenesisData
     let addrCoins = HM.toList (getGenesisAvvmBalances genesisProdAvvmBalances)
     let avvmAddrDistr =
             ( map (makeRedeemAddress . fst) addrCoins
             , CustomBalances (map snd addrCoins))
-    let genesisDistr = avvmAddrDistr : testnetDistr
+    let genesisDistr = avvmAddrDistr : ggdNonAvvmDistr
     let genesisUtxoProduction = genesisUtxo genesisDistr
-    pure $
-        GenesisContext
+    GenesisContext
         { _gtcUtxo = genesisUtxoProduction
-        , _gtcWStakeholders = bootStakeholders
+        , _gtcWStakeholders = ggdBootStakeholders
         , _gtcDelegation = genesisProdDelegation
         }
 

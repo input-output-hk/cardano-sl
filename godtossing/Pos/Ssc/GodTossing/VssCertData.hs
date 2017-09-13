@@ -82,15 +82,21 @@ lookupExpiryEpoch id mp = vcExpiryEpoch <$> lookup id mp
 -- This function is dangerous, because after using it you can't rollback
 -- deleted certificates. Use carefully.
 delete :: StakeholderId -> VssCertData -> VssCertData
-delete id mp@VssCertData{..}
-    | Just (ins, expiry) <- lookupEoSes id mp = VssCertData
-          lastKnownEoS
-          (deleteVss id certs)
-          (HM.delete id whenInsMap)
-          (S.delete (ins, id) whenInsSet)
-          (S.delete (expiry, id) whenExpire)
-          expiredCerts
-    | otherwise = mp
+delete id mp@VssCertData{..} =
+    VssCertData
+        { lastKnownEoS = lastKnownEoS
+        , certs        = deleteVss id certs
+        , whenInsMap   = HM.delete id whenInsMap
+        , whenInsSet   = case mbIns of
+              Nothing  -> whenInsSet
+              Just ins -> S.delete (ins, id) whenInsSet
+        , whenExpire   = case mbExpiry of
+              Nothing     -> whenExpire
+              Just expiry -> S.delete (expiry, id) whenExpire
+        , expiredCerts = expiredCerts
+        }
+  where
+    (mbIns, mbExpiry) = lookupEoSes id mp
 
 -- | Set last known slot (lks).
 --   1. If new lks is bigger than 'lastKnownEoS' then some expired certificates
@@ -154,7 +160,7 @@ addInt cert vcd =
 -- this function 'panic's, otherwise it returns passed 'VssCertData'.
 expireById :: Bool -> StakeholderId -> EpochOrSlot -> VssCertData -> VssCertData
 expireById contains id wExp vcd@VssCertData{..}
-    | Just (ins, expiry) <- lookupEoSes id vcd
+    | (Just ins, Just expiry) <- lookupEoSes id vcd
     , Just cert <- HM.lookup id (getVssCertificatesMap certs) = VssCertData
         lastKnownEoS
         (deleteVss id certs)
@@ -213,7 +219,8 @@ expiryEpoch cert = vcExpiryEpoch cert + EpochIndex 1
 expiryEoS :: VssCertificate -> EpochOrSlot
 expiryEoS = EpochOrSlot . Left . expiryEpoch
 
-lookupEoSes :: StakeholderId -> VssCertData -> Maybe (EpochOrSlot, EpochOrSlot)
+lookupEoSes :: StakeholderId
+            -> VssCertData
+            -> (Maybe EpochOrSlot, Maybe EpochOrSlot)
 lookupEoSes id VssCertData{..} =
-    (,) <$> HM.lookup id whenInsMap
-        <*> (expiryEoS <$> lookupVss id certs)
+    (HM.lookup id whenInsMap, expiryEoS <$> lookupVss id certs)

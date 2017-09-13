@@ -13,8 +13,8 @@ import           System.Wlog           (logInfo)
 import qualified Pos.Client.CLI        as CLI
 import           Pos.Core              (Timestamp (..))
 import           Pos.Core.Context      (HasCoreConstants, giveStaticConsts)
-import           Pos.Launcher          (NodeParams (..), bracketNodeResources,
-                                        runRealBasedMode)
+import           Pos.Launcher          (NodeParams (..), applyConfigInfo,
+                                        bracketNodeResources, runRealBasedMode)
 import           Pos.Network.Types     (NetworkConfig (..), Topology (..),
                                         topologyDequeuePolicy, topologyEnqueuePolicy,
                                         topologyFailurePolicy)
@@ -73,4 +73,7 @@ action opts@AuxxOptions {..} = do
         lift $ runReaderT auxxAction auxxContext
 
 main :: IO ()
-main = giveStaticConsts $ runProduction . action =<< getAuxxOptions
+main = do
+    opts <- getAuxxOptions
+    applyConfigInfo (CLI.configInfo (aoCommonNodeArgs opts))
+    giveStaticConsts $ runProduction $ action opts

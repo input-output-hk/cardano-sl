@@ -189,6 +189,62 @@ The exact method is described in the section below as part of the various
 configurations.
 
 
+## Scaling relays: privileged and unprivileged relays
+
+Relays serve two purposes:
+
+ 1. to act as the public proxy for core nodes that are otherwise hidden from
+    the public network and support connectivity of the core network; and
+ 2. to support large numbers of edge node subscribers behind NAT
+
+For the first purpose, only a small number are needed but for the second we
+may require a large number, and a number that will vary with the load.
+
+We choose to divide relays into two kinds, one serving the first purpose and
+others the second:
+
+ 1. The first class, the "privileged" relays are the ones that will use static
+    routing and the core nodes will know about them and communicate with them
+    directly.
+
+ 2. The second class, the "unprivileged" relays will only talk to other
+    privileged relays and to edge node subscribers, and not directly to core
+    nodes.
+
+To make the unprivileged relays scalable, such that we can easily add or remove
+them without making other changes, the privileged relays need to not know about
+them statically, so that static configuration does not need to be updated. So
+unprivileged relays will statically know about privileged ones, but not the
+other way around and unprivileged relays will dynamically subscribe to
+privileged relays, using the normal subscription mechanism (using simple DNS
+based discovery).
+
+In principle a group of unprivileged relays could be made to scale
+automatically based on their load. The obvious load metric is the number of
+subscribers on each relay.
+
+Thus relays can be configured in two ways: to use static routing, or to
+subscribe to one or more other relays. Unprivileged relays should subscribe
+to two or three privileged relays to maintains redundancy, and have multiple
+other fallbacks.
+
+Only unprivileged relays should be listed in the public DNS for edge nodes,
+so that privileged relays are not overloaded. If this proves insufficient
+then it may be helpful to also firewall the privileged relays.
+
+It is worth noting that (as described below) relays consider all subscribers
+to be edge nodes, which means that privileged relays will consider their
+unprivileged relay subscribers to be edge nodes. This is odd at first glance
+the policy works fine. Study the Relay -> Relay and Edge -> Relay enqueuing
+policies below to convince yourself. The intuitive argument is that a
+privileged relay need not tell the difference between an individual edge node
+and an unprivileged relay that is proxying for many other edge nodes. Only the
+privileged relays need to send transactions to each other to improve
+connectivity of the core network, unprivileged relays do not need to do this
+as their only purpose is to scale the number of edge nodes that can be
+supported.
+
+
 ## Configuring network nodes
 
 At a global network level there are two main arrangements: transitional and
@@ -231,26 +287,30 @@ In the mainnet arrangement, core and relay nodes use config files:
     * the node name (which is assumed to be resolvable by the network layer)
     * the node type: core or relay
     * if it should run kademlia or not
+    * if it should be listed in public DNS for edge nodes or not
     * static routing tables compatible with the routing policy described
       below. This includes the name statically known peers (from which their
       type can be inferred).
+    * or as an alternative to static routing tables, a set of DNS names or IP
+      addresses for peers to subscribe to
     * port, address, host
     * region
 
-Note also (as mentioned previously) that the static routing is assumed to be
-symmetric (at least when it is in a stable state). The "static" configuration
-need not in fact be completely static. During a redeployment or when
-reconfiguring the network there will be times when not all nodes share the
-same configuration. Indeed it is useful to be able to alter the configuration
-and reload without having to restart processes. So the "static" configuration
-is in fact merely slowly changing.
+The "static" configuration need not in fact be completely static. During a
+redeployment or whenreconfiguring the network there will be times when not all
+nodes share the same configuration. Indeed it is useful to be able to alter the
+configuration and reload without having to restart processes. So the "static"
+configuration is in fact merely slowly changing.
 
 Then based on the config file, their network configuration is such that they:
 
   * Consider themselves to be of the type indicated in the config
   * Join the kademlia network iff the config indicates it should
-  * Use statically known peers (core and/or relay) from the config
-  * No dynamic subscriptions to other nodes (DNS or kademlia based)
+  * If specified in the config, use statically known peers (core and/or relay)
+  * If specified in the config, use DNS to discover nodes and adds them as
+    known peers considering them as relay nodes.
+  * If specified in the config, use the same DNS discovery to select N relays
+    to subscribe to, with other relays as backup choices.
   * Relay nodes allow subscribers and consider those subscribers to be
     edge nodes
   * Unknown peer fallback type: use the entire static configuration to give an
@@ -258,6 +318,9 @@ Then based on the config file, their network configuration is such that they:
 
 Note that running kademlia makes sense here even though it is not used
 directly by these nodes. It is to seed the kademlia network for other users.
+
+Note that privileged relays will use configuration for static routing, while
+unprivileged relays will use configuration for dynamic subscription.
 
 At this stage it is worth recalling the kinds of edge nodes:
 

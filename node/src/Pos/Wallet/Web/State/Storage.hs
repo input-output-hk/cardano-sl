@@ -17,6 +17,7 @@ module Pos.Wallet.Web.State.Storage
        , getAccountMeta
        , getWalletMetas
        , getWalletMeta
+       , getWalletMetaIncludeUnready
        , getWalletPassLU
        , getWalletSyncTip
        , getWalletAddresses
@@ -39,6 +40,7 @@ module Pos.Wallet.Web.State.Storage
        , addRemovedAccount
        , setAccountMeta
        , setWalletMeta
+       , setWalletReady
        , setWalletPassLU
        , setWalletSyncTip
        , setWalletTxHistory
@@ -115,11 +117,15 @@ data WalletTip
     | SyncedWith !HeaderHash
 
 data WalletInfo = WalletInfo
-    { _wiMeta         :: !CWalletMeta
-    , _wiPassphraseLU :: !PassPhraseLU
-    , _wiCreationTime :: !POSIXTime
-    , _wiSyncTip      :: !WalletTip
-    , _wsPendingTxs   :: !(HashMap TxId PendingTx)
+    { _wiMeta          :: !CWalletMeta
+    , _wiPassphraseLU  :: !PassPhraseLU
+    , _wiCreationTime  :: !POSIXTime
+    , _wiSyncTip       :: !WalletTip
+    , _wsPendingTxs    :: !(HashMap TxId PendingTx)
+    -- Wallets that are being synced are marked as not ready, and
+    -- are excluded from api endpoints. This info should not be leaked
+    -- into a client facing data structure (for example `CWalletMeta`)
+    , _wiIsReady :: !Bool
     }
 
 makeLenses ''WalletInfo
@@ -196,10 +202,17 @@ getAccountMeta :: AccountId -> Query (Maybe CAccountMeta)
 getAccountMeta accId = preview (wsAccountInfos . ix accId . aiMeta)
 
 getWalletMetas :: Query [CWalletMeta]
-getWalletMetas = toList . fmap _wiMeta <$> view wsWalletInfos
+getWalletMetas = toList . fmap _wiMeta . HM.filter _wiIsReady <$> view wsWalletInfos
+
+getWalletMetaIncludeUnready :: Bool -> CId Wal -> Query (Maybe CWalletMeta)
+getWalletMetaIncludeUnready includeUnready cWalId = fmap _wiMeta . applyFilter <$> preview (wsWalletInfos . ix cWalId)
+  where
+    applyFilter xs = if includeUnready then xs else filterMaybe _wiIsReady xs
+    filterMaybe :: (a -> Bool) -> Maybe a -> Maybe a
+    filterMaybe p ma = ma >>= \a -> guard (p a) >> return a
 
 getWalletMeta :: CId Wal -> Query (Maybe CWalletMeta)
-getWalletMeta cWalId = preview (wsWalletInfos . ix cWalId . wiMeta)
+getWalletMeta = getWalletMetaIncludeUnready False
 
 getWalletPassLU :: CId Wal -> Query (Maybe PassPhraseLU)
 getWalletPassLU cWalId = preview (wsWalletInfos . ix cWalId . wiPassphraseLU)
@@ -209,7 +222,7 @@ getWalletSyncTip cWalId = preview (wsWalletInfos . ix cWalId . wiSyncTip)
 
 getWalletAddresses :: Query [CId Wal]
 getWalletAddresses =
-    map fst . sortOn (view wiCreationTime . snd) . HM.toList <$>
+    map fst . sortOn (view wiCreationTime . snd) . filter (view wiIsReady . snd) . HM.toList <$>
     view wsWalletInfos
 
 getAccountWAddresses :: AddressLookupMode
@@ -288,9 +301,10 @@ createAccount :: AccountId -> CAccountMeta -> Update ()
 createAccount accId cAccMeta =
     wsAccountInfos . at accId %= Just . fromMaybe (AccountInfo cAccMeta mempty mempty 0)
 
-createWallet :: CId Wal -> CWalletMeta -> POSIXTime -> Update ()
-createWallet cWalId cWalMeta curTime = do
-    let info = WalletInfo cWalMeta curTime curTime NotSynced mempty
+-- `isReady` is marked False when an additional step such as syncing is still needed.
+createWallet :: CId Wal -> CWalletMeta -> Bool -> POSIXTime -> Update ()
+createWallet cWalId cWalMeta isReady curTime = do
+    let info = WalletInfo cWalMeta curTime curTime NotSynced mempty isReady
     wsWalletInfos . at cWalId %= (<|> Just info)
 
 addWAddress :: CWAddressMeta -> Update ()
@@ -316,6 +330,9 @@ setAccountMeta accId cAccMeta = wsAccountInfos . ix accId . aiMeta .= cAccMeta
 
 setWalletMeta :: CId Wal -> CWalletMeta -> Update ()
 setWalletMeta cWalId cWalMeta = wsWalletInfos . ix cWalId . wiMeta .= cWalMeta
+
+setWalletReady :: CId Wal -> Bool -> Update ()
+setWalletReady cWalId isReady = wsWalletInfos . ix cWalId . wiIsReady .= isReady
 
 setWalletPassLU :: CId Wal -> PassPhraseLU -> Update ()
 setWalletPassLU cWalId passLU = wsWalletInfos . ix cWalId . wiPassphraseLU .= passLU

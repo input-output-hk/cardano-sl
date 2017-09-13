@@ -58,7 +58,7 @@ import           Pos.Communication.Protocol (Conversation (..), ConversationActi
                                              convH, toOutSpecs, waitForConversations)
 import qualified Pos.Constants              as Constants
 import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHeaderTag,
-                                             recoveryCommGuard, recoveryInProgress)
+                                             recoveryInProgress)
 import           Pos.Core                   (HasCoreConstants, HasHeaderHash (..),
                                              HeaderHash, gbHeader, headerHashG,
                                              isMoreDifficult, prevBlockL)
@@ -522,14 +522,12 @@ applyWithRollback nodeId enqueue toApply lca toRollback = do
         "Fork happened, data received from "%build%
         ". Blocks rolled back: "%listJson%
         ", blocks applied: "%listJson
-    reportRollback =
-        recoveryCommGuard "applyWithRollback" $
-            -- REPORT:MISBEHAVIOUR(F/T) Blockchain fork occurred (depends on depth).
-            reportMisbehaviour isCritical $
-                sformat reportF nodeId toRollbackHashes toApplyHashes
-      where
-        rollbackDepth = length toRollback
-        isCritical = rollbackDepth >= Constants.criticalForkThreshold
+    reportRollback = do
+        let rollbackDepth = length toRollback
+        let isCritical = rollbackDepth >= Constants.criticalForkThreshold
+        -- REPORT:MISBEHAVIOUR(F/T) Blockchain fork occurred (depends on depth).
+        reportMisbehaviour isCritical $
+            sformat reportF nodeId toRollbackHashes toApplyHashes
 
     panicBrokenLca = error "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =

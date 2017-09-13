@@ -8,7 +8,7 @@ module Pos.Wallet.Web.Pending.Util
 
 import           Universum
 
-import           Control.Lens                 ((%=), (+=), (+~), (<<*=), (<<.=))
+import           Control.Lens                 ((*=), (+=), (+~), (<<*=), (<<.=))
 
 import           Pos.Core.Context             (HasCoreConstants)
 import           Pos.Core.Slotting            (flatSlotId)
@@ -37,4 +37,4 @@ incPtxSubmitTimingPure = execState $ do
 ptxMarkAcknowledgedPure :: PendingTx -> PendingTx
 ptxMarkAcknowledgedPure = execState $ do
     wasAcked <- ptxPeerAck <<.= True
-    unless wasAcked $ ptxSubmitTiming . pstNextDelay %= (* 8)
+    unless wasAcked $ ptxSubmitTiming . pstNextDelay *= 8

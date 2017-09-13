@@ -27,6 +27,7 @@ import           Pos.Core.Types         (AddrAttributes (..), AddrSpendingData (
 import           Pos.Crypto             (emptyPassphrase, encToPublic, fullPublicKeyHexF,
                                          hashHexF, noPassEncrypt, safeCreatePsk,
                                          withSafeSigner)
+import           Pos.DB.Class           (gsAdoptedBVData)
 import           Pos.Genesis            (genesisDevSecretKeys)
 import           Pos.Util.UserSecret    (readUserSecret, usKeys)
 import           Pos.Wallet             (addSecretKey, getBalance, getSecretKeys)
@@ -54,6 +55,11 @@ Avaliable commands:
    propose-update <N> <block ver> <script ver> <slot duration> <max block size> <software ver> <propose_file>?
                                   -- propose an update with given versions and other data
                                      with one positive vote for it, from own address #N
+
+   propose-unlock-stake-epoch <N> <block ver> <software ver> <epoch>
+                                  -- propose an update with the specified unlock stake epoch,
+                                  -- with one positive vote for it, from our own address #N
+
    listaddr                       -- list own addresses
    delegate-light <N> <M> <eStart> <eEnd>?
                                   -- delegate secret key #N to pk <M> light version (M is encoded in base58),
@@ -87,6 +93,7 @@ runCmd ::
 runCmd _ (Balance addr) =
     getBalance addr >>=
     putText . sformat ("Current balance: "%coinF)
+runCmd _ PrintBlockVersionData = putText . pretty =<< gsAdoptedBVData
 runCmd sendActions (Send idx outputs) = Tx.send sendActions idx outputs
 runCmd sendActions (SendToAllGenesis stagp) =
     Tx.sendToAllGenesis sendActions stagp
@@ -94,6 +101,8 @@ runCmd sendActions (Vote idx decision upId) =
     Update.vote sendActions idx decision upId
 runCmd sendActions (ProposeUpdate params) =
     Update.propose sendActions params
+runCmd sendActions (ProposeUnlockStakeEpoch params) =
+    Update.proposeUnlockStakeEpoch sendActions params
 runCmd _ Help = putText helpMsg
 runCmd _ ListAddresses = do
    addrs <- map encToPublic <$> getSecretKeys

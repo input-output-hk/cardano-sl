@@ -6,6 +6,7 @@ module Command.Types
        , SendMode (..)
        , SendToAllGenesisParams (..)
        , ProposeUpdateParams (..)
+       , ProposeUnlockStakeEpochParams (..)
        ) where
 
 import           Universum
@@ -38,7 +39,7 @@ data SendToAllGenesisParams = SendToAllGenesisParams
 
 -- | Parameters for 'ProposeUpdate' command.
 data ProposeUpdateParams = ProposeUpdateParams
-    { puIdx             :: Int -- TODO: what is this? rename
+    { puSecretKeyIdx    :: Int -- the node that creates/signs the proposal
     , puBlockVersion    :: BlockVersion
     , puScriptVersion   :: ScriptVersion
     , puSlotDurationSec :: Int
@@ -47,12 +48,20 @@ data ProposeUpdateParams = ProposeUpdateParams
     , puUpdates         :: [ProposeUpdateSystem]
     } deriving (Show)
 
+data ProposeUnlockStakeEpochParams = ProposeUnlockStakeEpochParams
+    { puseSecretKeyIdx     :: Int -- the node that creates/signs the proposal
+    , puseBlockVersion     :: BlockVersion
+    , puseSoftwareVersion  :: SoftwareVersion
+    , puseUnlockStakeEpoch :: EpochIndex
+    } deriving (Show)
+
 data Command
     = Balance Address
     | Send Int (NonEmpty TxOut)
     | SendToAllGenesis !SendToAllGenesisParams
     | Vote Int Bool UpId
     | ProposeUpdate !ProposeUpdateParams
+    | ProposeUnlockStakeEpoch !ProposeUnlockStakeEpochParams
     | Help
     | ListAddresses
     | DelegateLight !Int !PublicKey !EpochIndex !(Maybe EpochIndex) -- first and last epoch of psk ttl
@@ -62,6 +71,7 @@ data Command
     | AddrDistr !PublicKey !AddrStakeDistribution
     | Rollback !Word !FilePath
     | SendTxsFromFile !FilePath
+    | PrintBlockVersionData
     | Quit
     deriving Show
 

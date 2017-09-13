@@ -26,6 +26,7 @@ import           Pos.Core.Types             (AddrAttributes (..), AddrSpendingDa
 import           Pos.Crypto                 (emptyPassphrase, encToPublic,
                                              fullPublicKeyHexF, hashHexF, noPassEncrypt,
                                              safeCreatePsk, withSafeSigner)
+import           Pos.DB.Class               (MonadGState (..))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo       (HasCompileInfo)
 import           Pos.Util.UserSecret        (readUserSecret, usKeys)
@@ -51,9 +52,14 @@ Avaliable commands:
                                      "round-robin", and "send-random".
    vote <N> <decision> <upid>     -- send vote with given hash of proposal id (in base16) and
                                      decision, from own address #N
-   propose-update <N> <block ver> <script ver> <slot duration> <max block size> <software ver> <propose_file>?
+   propose-update <N> <block ver> <software ver> <script ver> <slot duration> <max block size> <propose_file>?
                                   -- propose an update with given versions and other data
                                      with one positive vote for it, from own address #N
+
+   propose-unlock-stake-epoch <N> <block ver> <software ver> <epoch>
+                                  -- propose an update with the specified unlock stake epoch,
+                                  -- with one positive vote for it, from our own address #N
+
    listaddr                       -- list own addresses
    delegate-light <N> <M> <eStart> <eEnd>?
                                   -- delegate secret key #N to pk <M> light version (M is encoded in base58),
@@ -91,6 +97,7 @@ runCmd
 runCmd _ (Balance addr) =
     getBalance addr >>=
     putText . sformat ("Current balance: "%coinF)
+runCmd _ PrintBlockVersionData = putText . pretty =<< gsAdoptedBVData
 runCmd sendActions (Send idx outputs) = Tx.send sendActions idx outputs
 runCmd sendActions (SendToAllGenesis stagp) =
     Tx.sendToAllGenesis sendActions stagp

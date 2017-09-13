@@ -1,3 +1,5 @@
+{-# LANGUAGE ApplicativeDo #-}
+
 -- | Module for commands parsing.
 
 module Command.Parser
@@ -5,6 +7,10 @@ module Command.Parser
        ) where
 
 import           Universum
+
+import           Data.Default           (def)
+import           Data.Time.Units        (convertUnit)
+import           Serokell.Util          (sec)
 
 import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58)
 import qualified Data.List.NonEmpty     as NE
@@ -27,7 +33,8 @@ import           Pos.Txp                (TxOut (..))
 import           Pos.Types              (AddrStakeDistribution (..), Address, Coin,
                                          CoinPortion, decodeTextAddress, mkCoin,
                                          mkMultiKeyDistr, unsafeCoinPortionFromDouble)
-import           Pos.Update             (SystemTag, mkSystemTag)
+import           Pos.Update             (BlockVersionModifier (..), SystemTag,
+                                         mkSystemTag)
 import           Pos.Util.Util          (eitherToFail)
 
 import           Command.Types          (Command (..), ProposeUpdateParams (..),
@@ -121,14 +128,38 @@ proposeUpdateParams =
     ProposeUpdateParams <$>
     num <*>
     lexeme parseBlockVersion <*>
-    lexeme parseIntegralSafe <*>
-    lexeme parseIntegralSafe <*>
-    lexeme parseIntegralSafe <*>
     lexeme parseSoftwareVersion <*>
+    parseBvm <*>
     many1 parseProposeUpdateSystem
+  where
+    parseBvm = do
+        updScriptVersion <- parseIntegralSafe
+        updSlotDurationSec <- parseIntegralSafe
+        updMaxBlockSize <- parseIntegralSafe
+        return def
+            { bvmScriptVersion = Just updScriptVersion
+            , bvmSlotDuration  = Just $ convertUnit (sec updSlotDurationSec)
+            , bvmMaxBlockSize  = Just updMaxBlockSize
+            }
 
 proposeUpdate :: Parser Command
 proposeUpdate = ProposeUpdate <$> proposeUpdateParams
+
+proposeUnlockStakeEpochParams :: Parser ProposeUpdateParams
+proposeUnlockStakeEpochParams =
+    ProposeUpdateParams <$>
+    num <*>
+    lexeme parseBlockVersion <*>
+    lexeme parseSoftwareVersion <*>
+    parseBvm <*>
+    pure []
+  where
+    parseBvm = do
+        updUnlockStakeEpoch <- num
+        return $ def { bvmUnlockStakeEpoch = Just updUnlockStakeEpoch }
+
+proposeUnlockStakeEpoch :: Parser Command
+proposeUnlockStakeEpoch = ProposeUpdate <$> proposeUnlockStakeEpochParams
 
 coinPortionP :: Parser CoinPortion
 coinPortionP = do
@@ -177,11 +208,13 @@ parseSystemTag =
 
 command :: Parser Command
 command = try (text "balance") *> balance <|>
+          try (text "print-bvd") $> PrintBlockVersionData <|>
           try (text "send-to-all-genesis") *> sendToAllGenesis <|>
           try (text "send-from-file") *> sendTxsFromFileP <|>
           try (text "send") *> send <|>
           try (text "vote") *> vote <|>
           try (text "propose-update") *> proposeUpdate <|>
+          try (text "propose-unlock-stake-epoch") *> proposeUnlockStakeEpoch <|>
           try (text "delegate-light") *> delegateL <|>
           try (text "delegate-heavy") *> delegateH <|>
           try (text "add-key-pool") *> addKeyFromPool <|>

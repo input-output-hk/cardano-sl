@@ -1,4 +1,3 @@
-
 -- | Leaders part of LRC DB.
 
 module Pos.Lrc.DB.Leaders

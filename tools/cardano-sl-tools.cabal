@@ -35,6 +35,7 @@ executable cardano-analyzer
                      , cardano-sl-core
                      , cardano-sl-infra
                      , cardano-sl
+                     , data-default
                      , formatting
                      , log-warper
                      , neat-interpolation
@@ -205,6 +206,7 @@ executable cardano-keygen
                      , cardano-sl-txp
                      , containers
                      , cryptonite
+                     , data-default
                      , directory
                      , ed25519
                      , filepath
@@ -267,6 +269,7 @@ executable cardano-launcher
                      , log-warper
                      , cardano-sl
                      , cardano-sl-infra
+                     , data-default
                      , directory
                      , filepath
                      , neat-interpolation
@@ -305,6 +308,7 @@ executable cardano-addr-convert
                      , bytestring
                      , cardano-sl
                      , cardano-sl-core
+                     , data-default
                      , directory
                      , filepath
                      , neat-interpolation
@@ -541,6 +545,7 @@ executable cardano-blockchain-analyser
                      , cardano-sl-lrc
                      , cardano-sl-txp
                      , cardano-sl
+                     , data-default
                      , directory
                      , ether
                      , formatting

@@ -49,6 +49,9 @@ production and in tests?). So, we just generate lots of keys and seeds with
 'unsafePerformIO' and use them for everything.
 -}
 
+keysToGenerate :: Int
+keysToGenerate = 128
+
 ----------------------------------------------------------------------------
 -- SignTag
 ----------------------------------------------------------------------------
@@ -66,7 +69,7 @@ instance Arbitrary SignTag where
 -- public key.
 
 keys :: [(PublicKey, SecretKey)]
-keys = unsafeMakePool "[generating keys for tests...]" 50 keyGen
+keys = unsafeMakePool "[generating keys for tests...]" keysToGenerate keyGen
 {-# NOINLINE keys #-}
 
 instance Arbitrary PublicKey where
@@ -81,7 +84,7 @@ instance Nonrepeating SecretKey where
 
 -- Repeat the same for ADA redemption keys
 redemptionKeys :: [(RedeemPublicKey, RedeemSecretKey)]
-redemptionKeys = unsafeMakePool "[generating redemption keys for tests..]" 50 redeemKeyGen
+redemptionKeys = unsafeMakePool "[generating redemption keys for tests..]" keysToGenerate redeemKeyGen
 
 instance Arbitrary RedeemPublicKey where
     arbitrary = fst <$> elements redemptionKeys
@@ -98,7 +101,7 @@ instance Nonrepeating RedeemSecretKey where
 ----------------------------------------------------------------------------
 
 vssKeys :: [VssKeyPair]
-vssKeys = unsafeMakePool "[generating VSS keys for tests...]" 50 vssKeyGen
+vssKeys = unsafeMakePool "[generating VSS keys for tests...]" keysToGenerate vssKeyGen
 {-# NOINLINE vssKeys #-}
 
 instance Arbitrary VssKeyPair where
@@ -160,7 +163,7 @@ data SharedSecrets = SharedSecrets
 
 sharedSecrets :: [SharedSecrets]
 sharedSecrets =
-    unsafeMakePool "[generating shared secrets for tests...]" 50 $ do
+    unsafeMakePool "[generating shared secrets for tests...]" keysToGenerate $ do
         parties <- generate $ choose (4, length vssKeys)
         threshold <- generate $ choose (2, toInteger parties - 2)
         vssKs <- sortWith toVssPublicKey <$>

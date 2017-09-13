@@ -81,8 +81,8 @@ import           Pos.Crypto            (hashHexF, shortHashF)
 import           Pos.DB.Class          (DBTag (..), MonadBlockDBGeneric (..),
                                         MonadBlockDBGenericWrite (..), MonadDBRead,
                                         dbGetBlund)
-import           Pos.DB.Error          (DBError (DBMalformed))
-import           Pos.DB.Functions      (dbGetBi)
+import           Pos.DB.Error          (DBError (..))
+import           Pos.DB.Functions      (dbGetBi, dbSerializeValue)
 import           Pos.DB.Pure           (DBPureVar, MonadPureDB, atomicModifyIORefPure,
                                         pureBlockIndexDB, pureBlocksStorage)
 import           Pos.DB.Rocks          (MonadRealDB, blockDataDir, getBlockIndexDB,
@@ -287,7 +287,10 @@ type MonadBlockDBWrite ssc m
 -- Pure implementation
 ----------------------------------------------------------------------------
 
-decodeOrFailPureDB :: (HasCoreConstants, SscHelpersClass ssc) => ByteString -> Either Text (Block ssc, Undo)
+decodeOrFailPureDB
+    :: forall ssc . (HasCoreConstants, SscHelpersClass ssc)
+    => ByteString
+    -> Either Text (Block ssc, Undo)
 decodeOrFailPureDB = decodeFull
 
 dbGetBlundPure ::
@@ -328,8 +331,8 @@ dbPutBlundPureDefault (blk,undo) = do
     let h = headerHash blk
     (var :: DBPureVar) <- view (lensOf @DBPureVar)
     flip atomicModifyIORefPure var $
-        (pureBlocksStorage . at h .~ Just (serialize' (blk,undo))) .
-        (pureBlockIndexDB . at (blockIndexKey h) .~ Just (serialize' $ BC.getBlockHeader blk))
+        (pureBlocksStorage . at h .~ Just (serialize'  (blk,undo))) .
+        (pureBlockIndexDB . at (blockIndexKey h) .~ Just (dbSerializeValue $ BC.getBlockHeader blk))
 
 dbGetBlockSscPureDefault ::
        forall ssc ctx m. (HasCoreConstants, MonadPureDB ctx m, SscHelpersClass ssc)
@@ -486,7 +489,7 @@ putBi k v = rocksPutBi k v =<< getBlockIndexDB
 delete :: (MonadRealDB ctx m) => ByteString -> m ()
 delete k = rocksDelete k =<< getBlockIndexDB
 
-getData ::  (MonadIO m, MonadCatch m, Bi v) => FilePath -> m (Maybe v)
+getData ::  forall m v . (MonadIO m, MonadCatch m, Bi v) => FilePath -> m (Maybe v)
 getData fp = flip catch handle $ liftIO $
     either (\er -> throwM $ DBMalformed $
              sformat ("Couldn't deserialize "%build%", reason: "%build) fp er) pure .

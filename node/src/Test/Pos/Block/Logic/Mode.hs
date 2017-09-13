@@ -19,7 +19,6 @@ module Test.Pos.Block.Logic.Mode
 
        , BlockProperty
        , blockPropertyToProperty
-       , genSuitableBalanceDistribution
        ) where
 
 import           Universum
@@ -68,7 +67,6 @@ import           Pos.Genesis                    (GenesisContext (..), GenesisUtx
                                                  gtcWStakeholders, safeExpBalances)
 import qualified Pos.GState                     as GS
 import           Pos.KnownPeers                 (MonadFormatPeers (..))
-import           Pos.Launcher                   (newInitFuture)
 import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
 import           Pos.Reporting                  (HasReportingContext (..),
                                                  ReportingContext, emptyReportingContext)
@@ -87,10 +85,10 @@ import           Pos.Ssc.GodTossing             (SscGodTossing)
 import           Pos.Txp                        (GenericTxpLocalData, TxpGlobalSettings,
                                                  TxpHolderTag, mkTxpLocalData, utxoF)
 import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
+import           Pos.Util                       (Some, newInitFuture, postfixLFields)
 import           Pos.Util.LoggerName            (HasLoggerName' (..),
                                                  getLoggerNameDefault,
                                                  modifyLoggerNameDefault)
-import           Pos.Util.Util                  (Some, postfixLFields)
 import           Pos.WorkMode.Class             (TxpExtra_TMP)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer                   (explorerTxpGlobalSettings)
@@ -250,8 +248,8 @@ initBlockTestContext
 initBlockTestContext tp@TestParams {..} callback = do
     clockVar <- Emulation ask
     dbPureVar <- newDBPureVar
-    (futureLrcCtx, putLrcCtx) <- newInitFuture
-    (futureSlottingVar, putSlottingVar) <- newInitFuture
+    (futureLrcCtx, putLrcCtx) <- newInitFuture "lrcCtx"
+    (futureSlottingVar, putSlottingVar) <- newInitFuture "slottingVar"
     systemStart <- Timestamp <$> currentTime
     let initCtx =
             TestInitModeContext

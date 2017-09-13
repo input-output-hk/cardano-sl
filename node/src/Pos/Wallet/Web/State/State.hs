@@ -22,6 +22,7 @@ module Pos.Wallet.Web.State.State
        , getAccountWAddresses
        , getWalletMetas
        , getWalletMeta
+       , getWalletMetaIncludeUnready
        , getWalletPassLU
        , getWalletSyncTip
        , getWalletAddresses
@@ -49,6 +50,7 @@ module Pos.Wallet.Web.State.State
        , setProfile
        , setAccountMeta
        , setWalletMeta
+       , setWalletReady
        , setWalletPassLU
        , setWalletSyncTip
        , setWalletTxMeta
@@ -131,6 +133,9 @@ getWalletAddresses = queryDisk A.GetWalletAddresses
 getWalletMeta :: WebWalletModeDB ctx m => CId Wal -> m (Maybe CWalletMeta)
 getWalletMeta = queryDisk . A.GetWalletMeta
 
+getWalletMetaIncludeUnready :: WebWalletModeDB ctx m => Bool -> CId Wal -> m (Maybe CWalletMeta)
+getWalletMetaIncludeUnready includeReady = queryDisk . A.GetWalletMetaIncludeUnready includeReady
+
 getWalletMetas :: WebWalletModeDB ctx m => m ([CWalletMeta])
 getWalletMetas = queryDisk A.GetWalletMetas
 
@@ -189,8 +194,8 @@ getPendingTx = queryDisk ... A.GetPendingTx
 createAccount :: WebWalletModeDB ctx m => AccountId -> CAccountMeta -> m ()
 createAccount accId = updateDisk . A.CreateAccount accId
 
-createWallet :: WebWalletModeDB ctx m => CId Wal -> CWalletMeta -> PassPhraseLU -> m ()
-createWallet cWalId passLU = updateDisk . A.CreateWallet cWalId passLU
+createWallet :: WebWalletModeDB ctx m => CId Wal -> CWalletMeta -> Bool -> PassPhraseLU -> m ()
+createWallet cWalId cwMeta isReady = updateDisk . A.CreateWallet cWalId cwMeta isReady
 
 addWAddress :: WebWalletModeDB ctx m => CWAddressMeta -> m ()
 addWAddress addr = updateDisk $ A.AddWAddress addr
@@ -206,6 +211,9 @@ setAccountMeta accId = updateDisk . A.SetAccountMeta accId
 
 setWalletMeta :: WebWalletModeDB ctx m => CId Wal -> CWalletMeta -> m ()
 setWalletMeta cWalId = updateDisk . A.SetWalletMeta cWalId
+
+setWalletReady :: WebWalletModeDB ctx m => CId Wal -> Bool -> m ()
+setWalletReady cWalId = updateDisk . A.SetWalletReady cWalId
 
 setWalletPassLU :: WebWalletModeDB ctx m => CId Wal -> PassPhraseLU -> m ()
 setWalletPassLU cWalId = updateDisk . A.SetWalletPassLU cWalId
@@ -283,4 +291,3 @@ ptxUpdateMeta = updateDisk ... A.PtxUpdateMeta
 
 addOnlyNewPendingTx :: WebWalletModeDB ctx m => PendingTx -> m ()
 addOnlyNewPendingTx = updateDisk ... A.AddOnlyNewPendingTx
-

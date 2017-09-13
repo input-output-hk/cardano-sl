@@ -47,7 +47,6 @@ module Pos.Explorer.Web.ClientTypes
 
 import           Universum
 
-import           Control.Arrow              ((&&&))
 import           Control.Lens               (ix, _Left)
 import qualified Data.ByteArray             as BA
 import           Data.Default               (Default (..), def)

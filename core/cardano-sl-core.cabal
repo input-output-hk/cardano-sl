@@ -119,6 +119,7 @@ library
 
   build-depends:       QuickCheck
                      , aeson
+                     , ansi-terminal
                      , autoexporter
                      , base
                      , base58-bytestring

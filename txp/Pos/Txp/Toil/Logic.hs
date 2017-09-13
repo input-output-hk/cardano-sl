@@ -31,7 +31,7 @@ import           Pos.Core                   (AddrAttributes (..),
                                              BlockVersionData (..), EpochIndex,
                                              addrAttributesUnwrapped, isRedeemAddress)
 import           Pos.Core.Coin              (integerToCoin)
-import           Pos.Core.Constants         (memPoolLimitRatio)
+import           Pos.Core.Configuration     (HasConfiguration, memPoolLimitRatio)
 import qualified Pos.Core.Fee               as Fee
 import           Pos.Core.Genesis           (GenesisWStakeholders (..))
 import           Pos.Crypto                 (WithHash (..), hash)
@@ -111,6 +111,7 @@ type LocalToilMode ctx m =
     , HasLens' ctx GenesisWStakeholders
     , MonadReader ctx m
     -- The war which we lost.
+    , HasConfiguration
     )
 
 -- CHECK: @processTx

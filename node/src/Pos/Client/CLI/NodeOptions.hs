@@ -29,12 +29,10 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Paths_cardano_sl             (version)
 
 import           Pos.Client.CLI.Options       (CommonArgs (..), commonArgsParser,
-                                               configInfoParser,
                                                externalNetworkAddressOption,
                                                listenNetworkAddressOption,
                                                optionalJSONPath, sscAlgoOption)
 import           Pos.Constants                (isDevelopment)
-import           Pos.Launcher.ConfigInfo      (ConfigInfo (..))
 import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
 import           Pos.Network.Types            (NodeId, NodeType (..))
 import           Pos.Ssc.SscAlgo              (SscAlgo (..))
@@ -70,7 +68,6 @@ data CommonNodeArgs = CommonNodeArgs
     , enableMetrics          :: !Bool
     , ekgParams              :: !(Maybe EkgParams)
     , statsdParams           :: !(Maybe StatsdParams)
-    , configInfo             :: !ConfigInfo
     , cnaDumpGenesisDataPath :: !(Maybe FilePath)
     } deriving Show
 
@@ -142,7 +139,6 @@ commonNodeArgsParser = do
 
     ekgParams <- optional ekgParamsOption
     statsdParams <- optional statsdParamsOption
-    configInfo <- configInfoParser
 
     cnaDumpGenesisDataPath <- optional $ strOption $
         long "dump-genesis-data-to" <>

@@ -29,8 +29,8 @@ import           Universum
 
 import           Pos.Binary.Class             (Bi, decodeFull, serialize')
 import           Pos.Crypto.Hashing           (hash)
-import           Pos.Crypto.SafeSigning       (EncryptedSecretKey (..), PassPhrase)
-import           Pos.Crypto.Signing           (PublicKey (..))
+import           Pos.Crypto.Signing.Types     (PublicKey (..), EncryptedSecretKey (..),
+                                               PassPhrase)
 
 -- | Passphrase is a hash of root public key.
 --- We don't use root public key to store money, we use its hash instead.

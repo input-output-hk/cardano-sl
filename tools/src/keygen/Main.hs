@@ -5,9 +5,11 @@ module Main
 import           Universum
 
 import           Control.Lens          ((?~))
+import           Crypto.Random         (MonadRandom)
 import           Data.Aeson            (eitherDecode)
 import qualified Data.ByteString       as BS
 import qualified Data.ByteString.Lazy  as BSL
+import           Data.Default          (def)
 import qualified Data.List             as L
 import qualified Data.Text             as T
 import           Data.Yaml             (decodeEither)
@@ -29,7 +31,7 @@ import           Pos.Genesis           (GenesisAvvmBalances, GenesisInitializer 
                                         generateFakeAvvm, generateGenesisData,
                                         generateSecrets, gsInitializer)
 
-import           Pos.Launcher          (applyConfigInfo)
+import           Pos.Launcher          (withConfigurations, HasConfigurations)
 import           Pos.Util.UserSecret   (readUserSecret, takeUserSecret, usKeys, usPrimKey,
                                         usVss, usWalletSet, writeUserSecretRelease)
 import           Pos.Wallet.Web.Secret (wusRootKey)
@@ -75,7 +77,7 @@ _readAvvmGenesis AvvmBalanceOptions {..} = do
 rearrange :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
 rearrange msk = mapM_ rearrangeKeyfile =<< liftIO (glob msk)
 
-genPrimaryKey :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
+genPrimaryKey :: (HasConfigurations, MonadIO m, MonadThrow m, WithLogger m, MonadRandom m) => FilePath -> m ()
 genPrimaryKey path = do
     sk <- liftIO $ generateSecrets Nothing
     void $ dumpKeyfile True path sk
@@ -130,7 +132,7 @@ dumpAvvmSeeds DumpAvvmSeedsOptions{..} = do
     logInfo $ "Seeds were generated"
 
 generateKeysByGenesis
-    :: (MonadIO m, WithLogger m, MonadThrow m)
+    :: (HasConfigurations, MonadIO m, WithLogger m, MonadThrow m, MonadRandom m)
     => GenKeysOptions -> m ()
 generateKeysByGenesis GenKeysOptions{..} = do
     yaml <- liftIO $ BS.readFile gkoGenesisJSON
@@ -152,9 +154,8 @@ generateKeysByGenesis GenKeysOptions{..} = do
 main :: IO ()
 main = do
     KeygenOptions{..} <- getKeygenOptions
-    applyConfigInfo koConfigInfo
     setupLogging $ consoleOutB & lcTermSeverity ?~ Debug
-    usingLoggerName "keygen" $ do
+    usingLoggerName "keygen" $ withConfigurations def $ do
         logInfo "Processing command"
         case koCommand of
             RearrangeMask msk       -> rearrange msk

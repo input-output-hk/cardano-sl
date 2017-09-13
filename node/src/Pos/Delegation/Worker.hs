@@ -11,6 +11,7 @@ import           Mockable                   (CurrentTime, Delay, Mockable, curre
 import           Serokell.Util              (sec)
 
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localWorker)
+import           Pos.Configuration          (HasNodeConfiguration)
 import           Pos.Delegation.Class       (MonadDelegation)
 import           Pos.Delegation.Logic       (invalidateProxyCaches,
                                              runDelegationStateAction)
@@ -34,6 +35,7 @@ dlgInvalidateCaches
        , MonadReporting ctx m
        , MonadReader ctx m
        , Mockable CurrentTime m
+       , HasNodeConfiguration
        )
     => m ()
 dlgInvalidateCaches = runIfNotShutdown $ do

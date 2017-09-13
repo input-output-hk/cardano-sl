@@ -1,15 +1,9 @@
 -- | Module for safe (zero-memory) signing
 
-module Pos.Crypto.SafeSigning
-       ( EncryptedSecretKey (..)
-       , PassPhrase
-       , SafeSigner
-       , passphraseLength
-       , emptyPassphrase
-       , noPassEncrypt
+module Pos.Crypto.Signing.Safe
+       ( noPassEncrypt
        , checkPassMatches
        , changeEncPassphrase
-       , encToPublic
        , safeSign
        , safeToPublic
        , safeKeyGen
@@ -21,67 +15,27 @@ module Pos.Crypto.SafeSigning
        , safeCreatePsk
        , createProxyCert
        , createPsk
+       , module Pos.Crypto.Signing.Types.Safe
        ) where
 
 import qualified Cardano.Crypto.Wallet as CC
 import           Crypto.Random         (MonadRandom, getRandomBytes)
-import           Data.ByteArray        (ByteArray, ByteArrayAccess, ScrubbedBytes)
 import qualified Data.ByteString       as BS
 import           Data.Coerce           (coerce)
-import           Data.Default          (Default (..))
-import           Data.Text.Buildable   (build)
-import qualified Data.Text.Buildable   as B
-import qualified Prelude
 import           Universum
 
 import           Pos.Binary.Class      (Bi, Raw)
 import qualified Pos.Binary.Class      as Bi
-import           Pos.Crypto.Hashing    (Hash, hash)
-import           Pos.Crypto.Signing    (ProxyCert (..), ProxySecretKey (..),
-                                        PublicKey (..), SecretKey (..), Signature (..),
-                                        sign, toPublic)
-import           Pos.Crypto.SignTag    (SignTag (SignProxySK), signTag)
-
-data EncryptedSecretKey = EncryptedSecretKey
-    { eskPayload :: !CC.XPrv
-    , eskHash    :: !(Hash PassPhrase)
-    }
-
-instance Show EncryptedSecretKey where
-    show _ = "<encrypted key>"
-
-instance B.Buildable EncryptedSecretKey where
-    build _ = "<encrypted key>"
-
-newtype PassPhrase = PassPhrase ScrubbedBytes
-    deriving (Eq, Ord, Monoid, NFData, ByteArray, ByteArrayAccess)
-
-passphraseLength :: Int
-passphraseLength = 32
-
-instance Show PassPhrase where
-    show _ = "<passphrase>"
-
-instance Buildable PassPhrase where
-    build _ = "<passphrase>"
-
--- | Empty passphrase used in development.
-emptyPassphrase :: PassPhrase
-emptyPassphrase = PassPhrase mempty
-
-instance Default PassPhrase where
-    def = emptyPassphrase
-
-{-instance Monoid PassPhrase where
-    mempty = PassPhrase mempty
-    mappend (PassPhrase p1) (PassPhrase p2) = PassPhrase (p1 `mappend` p2)-}
+import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
+import           Pos.Crypto.Hashing    (hash)
+import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..),
+                                             PublicKey (..), SecretKey (..), Signature (..),
+                                             sign, toPublic)
+import           Pos.Crypto.Signing.Tag (SignTag (SignProxySK), signTag)
+import           Pos.Crypto.Signing.Types.Safe
 
 mkEncSecret :: Bi PassPhrase => PassPhrase -> CC.XPrv -> EncryptedSecretKey
 mkEncSecret pp payload = EncryptedSecretKey payload (hash pp)
-
--- | Generate a public key using an encrypted secret key and passphrase
-encToPublic :: EncryptedSecretKey -> PublicKey
-encToPublic (EncryptedSecretKey sk _) = PublicKey (CC.toXPub sk)
 
 -- | Re-wrap unencrypted secret key as an encrypted one
 noPassEncrypt :: Bi PassPhrase => SecretKey -> EncryptedSecretKey
@@ -100,7 +54,8 @@ changeEncPassphrase oldPass newPass esk@(EncryptedSecretKey sk _) = do
     checkPassMatches oldPass esk
     return $ mkEncSecret newPass $ CC.xPrvChangePass oldPass newPass sk
 
-signRaw' :: Maybe SignTag
+signRaw' :: HasProtocolConstants
+         => Maybe SignTag
          -> PassPhrase
          -> EncryptedSecretKey
          -> ByteString
@@ -111,7 +66,7 @@ signRaw' mbTag (PassPhrase pp) (EncryptedSecretKey sk _) x =
     tag = maybe mempty signTag mbTag
 
 sign'
-    :: Bi a
+    :: (HasProtocolConstants, Bi a)
     => SignTag -> PassPhrase -> EncryptedSecretKey -> a -> Signature a
 sign' t pp sk = coerce . signRaw' (Just t) pp sk . Bi.serialize'
 
@@ -141,11 +96,7 @@ safeDeterministicKeyGen
 safeDeterministicKeyGen seed pp =
     bimap PublicKey (mkEncSecret pp) (safeCreateKeypairFromSeed seed pp)
 
--- | SafeSigner datatype to encapsulate sensible data
-data SafeSigner = SafeSigner EncryptedSecretKey PassPhrase
-                | FakeSigner SecretKey
-
-safeSign :: Bi a => SignTag -> SafeSigner -> a -> Signature a
+safeSign :: (HasProtocolConstants, Bi a) => SignTag -> SafeSigner -> a -> Signature a
 safeSign t (SafeSigner sk pp) = sign' t pp sk
 safeSign t (FakeSigner sk)    = sign t sk
 
@@ -182,7 +133,7 @@ fakeSigner = FakeSigner
 
 -- | Proxy certificate creation from secret key of issuer, public key
 -- of delegate and the message space ω.
-safeCreateProxyCert :: (Bi w) => SafeSigner -> PublicKey -> w -> ProxyCert w
+safeCreateProxyCert :: (HasProtocolConstants, Bi w) => SafeSigner -> PublicKey -> w -> ProxyCert w
 safeCreateProxyCert ss (PublicKey delegatePk) o = coerce $ ProxyCert sig
   where
     Signature sig = safeSign SignProxySK ss $
@@ -190,7 +141,7 @@ safeCreateProxyCert ss (PublicKey delegatePk) o = coerce $ ProxyCert sig
                           ["00", CC.unXPub delegatePk, Bi.serialize' o]
 
 -- | Creates proxy secret key
-safeCreatePsk :: (Bi w) => SafeSigner -> PublicKey -> w -> ProxySecretKey w
+safeCreatePsk :: (HasProtocolConstants, Bi w) => SafeSigner -> PublicKey -> w -> ProxySecretKey w
 safeCreatePsk ss delegatePk w =
     ProxySecretKey w (safeToPublic ss) delegatePk $ safeCreateProxyCert ss delegatePk w
 
@@ -200,9 +151,9 @@ safeCreatePsk ss delegatePk w =
 
 -- | Proxy certificate creation from secret key of issuer, public key
 -- of delegate and the message space ω.
-createProxyCert :: (Bi w) => SecretKey -> PublicKey -> w -> ProxyCert w
+createProxyCert :: (HasProtocolConstants, Bi w) => SecretKey -> PublicKey -> w -> ProxyCert w
 createProxyCert = safeCreateProxyCert . fakeSigner
 
 -- | Creates proxy secret key
-createPsk :: (Bi w) => SecretKey -> PublicKey -> w -> ProxySecretKey w
+createPsk :: (HasProtocolConstants, Bi w) => SecretKey -> PublicKey -> w -> ProxySecretKey w
 createPsk = safeCreatePsk . fakeSigner

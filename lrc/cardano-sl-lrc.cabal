@@ -20,7 +20,6 @@ library
                        Pos.Lrc.Core
                        Pos.Lrc.Consumer
                        Pos.Lrc.Class
-                       Pos.Lrc.Genesis
                        Pos.Lrc.Context
                        Pos.Lrc.Mode
 

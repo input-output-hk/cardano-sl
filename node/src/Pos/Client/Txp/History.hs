@@ -50,7 +50,7 @@ import           Pos.Block.Core               (Block, MainBlock, mainBlockSlot,
                                                mainBlockTxPayload)
 import           Pos.Block.Types              (Blund)
 import           Pos.Context                  (genesisBlock0M, genesisUtxoM)
-import           Pos.Core                     (Address, ChainDifficulty, HasCoreConstants,
+import           Pos.Core                     (Address, ChainDifficulty, HasConfiguration,
                                                HeaderHash, Timestamp (..), difficultyL,
                                                headerHash)
 import           Pos.Crypto                   (WithHash (..), withHash)
@@ -194,7 +194,7 @@ type GenesisToil = Ether.TaggedTrans GenesisToilTag IdentityT
 runGenesisToil :: GenesisToil m a -> m a
 runGenesisToil = coerce
 
-instance (Monad m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo) =>
+instance (HasConfiguration, Monad m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo) =>
          MonadUtxoRead (GenesisToil m) where
     utxoGet txIn = M.lookup txIn . unGenesisUtxo <$> genesisUtxoM
 
@@ -256,7 +256,7 @@ type TxHistoryEnv' ssc ctx m =
 type GenesisHistoryFetcher m = ToilT () (GenesisToil m)
 
 getBlockHistoryDefault
-    :: forall ssc ctx m. (HasCoreConstants, SscHelpersClass ssc, TxHistoryEnv' ssc ctx m)
+    :: forall ssc ctx m. (HasConfiguration, SscHelpersClass ssc, TxHistoryEnv' ssc ctx m)
     => [Address] -> m (DList TxHistoryEntry)
 getBlockHistoryDefault addrs = do
     bot         <- headerHash <$> genesisBlock0M @ssc

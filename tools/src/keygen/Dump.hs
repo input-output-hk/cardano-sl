@@ -9,6 +9,7 @@ module Dump
 import           Universum
 
 import           Control.Lens          ((?~))
+import           Crypto.Random         (MonadRandom)
 import qualified Data.Text             as T
 import qualified Serokell.Util.Base64  as B64
 import           System.Directory      (createDirectoryIfMissing)
@@ -26,7 +27,7 @@ import           Pos.Wallet.Web.Secret (mkGenesisWalletUserSecret)
 
 
 dumpGeneratedGenesisData
-    :: (MonadIO m, WithLogger m, MonadThrow m)
+    :: (MonadIO m, WithLogger m, MonadThrow m, MonadRandom m)
     => (FilePath, FilePath)
     -> TestnetBalanceOptions
     -> GeneratedGenesisData
@@ -36,7 +37,7 @@ dumpGeneratedGenesisData (dir, pat) tbo GeneratedGenesisData {..} = do
     maybe (logInfo "Avvm seeds are unknown") (dumpFakeAvvmSeeds dir) ggdFakeAvvmSeeds
 
 dumpKeyfiles
-    :: (MonadIO m, MonadThrow m, WithLogger m)
+    :: (MonadIO m, MonadThrow m, WithLogger m, MonadRandom m)
     => (FilePath, FilePath) -- directory and key-file pattern
     -> TestnetBalanceOptions
     -> [(SecretKey, EncryptedSecretKey, VssKeyPair)]
@@ -80,7 +81,7 @@ dumpFakeAvvmSeeds dir seeds = do
 ----------------------------------------------------------------------------
 
 dumpKeyfile
-    :: (MonadIO m, MonadThrow m, WithLogger m)
+    :: (MonadIO m, MonadThrow m, WithLogger m, MonadRandom m)
     => Bool
     -> FilePath
     -> (SecretKey, EncryptedSecretKey, VssKeyPair)

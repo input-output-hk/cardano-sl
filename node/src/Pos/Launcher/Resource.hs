@@ -44,16 +44,17 @@ import           System.Wlog                (CanLog, LoggerConfig (..), WithLogg
 import           Pos.Binary                 ()
 import           Pos.Block.Slog             (mkSlogContext)
 import           Pos.Client.CLI.Util        (readLoggerConfig)
-import qualified Pos.Constants              as Const
+import           Pos.Configuration
 import           Pos.Context                (ConnectedPeers (..), NodeContext (..),
                                              StartTime (..))
-import           Pos.Core                   (HasCoreConstants, Timestamp)
+import           Pos.Core                   (HasConfiguration, systemStart, Timestamp)
 import           Pos.DB                     (MonadDBRead, NodeDBs)
 import           Pos.DB.DB                  (initNodeDBs)
 import           Pos.DB.Rocks               (closeNodeDBs, openNodeDBs)
 import           Pos.Delegation             (DelegationVar, mkDelegationVar)
 import           Pos.DHT.Real               (KademliaDHTInstance, KademliaParams (..),
                                              startDHTInstance, stopDHTInstance)
+import           Pos.Infra.Configuration    (HasInfraConfiguration)
 import           Pos.Launcher.Param         (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), TransportParams (..))
 import           Pos.Lrc.Context            (LrcContext (..), mkLrcSyncData)
@@ -64,6 +65,7 @@ import           Pos.Slotting               (SlottingContextSum (..), SlottingDa
 import           Pos.Ssc.Class              (SscConstraint, SscParams,
                                              sscCreateNodeContext)
 import           Pos.Ssc.Extra              (SscState, mkSscState)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.StateLock              (newStateLock)
 import           Pos.Txp                    (GenericTxpLocalData (..), mkTxpLocalData,
                                              recordTxpMetrics)
@@ -120,7 +122,19 @@ hoistNodeResources nat nr =
 allocateNodeResources
     :: forall ssc m.
        ( SscConstraint ssc
-       , HasCoreConstants
+       , HasConfiguration
+       , HasNodeConfiguration
+       , HasInfraConfiguration
+       -- FIXME avieth
+       -- 'HasGtConfiguration' arises from 'initNodeDBs', where that constraint
+       -- in turn arises from 'prepareGStateDB', which is in fact tied to
+       -- godtossing.
+       -- So the 'forall ssc' here is misleading. This only works for
+       -- godtossing. The dependency was hidden before, where the godtossing
+       -- data was all delivered by global mutable variables. That's to say,
+       -- 'allocateNodeResources' had a hidden assumption that somebody will
+       -- fill in the required godtossing data, probably using 'unsafePerformIO'.
+       , HasGtConfiguration
        )
     => Transport m
     -> NetworkConfig KademliaDHTInstance
@@ -194,11 +208,14 @@ releaseNodeResources NodeResources {..} = do
 bracketNodeResources :: forall ssc m a.
       ( SscConstraint ssc
       , MonadIO m
-      , HasCoreConstants
+      , HasConfiguration
+      , HasNodeConfiguration
+      , HasInfraConfiguration
+      , HasGtConfiguration
       )
     => NodeParams
     -> SscParams ssc
-    -> (HasCoreConstants => NodeResources ssc m -> Production a)
+    -> (HasConfiguration => NodeResources ssc m -> Production a)
     -> Production a
 bracketNodeResources np sp k = bracketTransport tcpAddr $ \transport ->
     bracketKademlia (npBaseParams np) (npNetworkConfig np) $ \networkConfig ->
@@ -243,7 +260,7 @@ data AllocateNodeContextData ssc = AllocateNodeContextData
 
 allocateNodeContext
     :: forall ssc .
-      (HasCoreConstants, SscConstraint ssc)
+      (HasConfiguration, HasNodeConfiguration, HasInfraConfiguration, SscConstraint ssc)
     => AllocateNodeContextData ssc
     -> InitMode ssc (NodeContext ssc)
 allocateNodeContext ancd = do
@@ -258,14 +275,14 @@ allocateNodeContext ancd = do
     ncStateLock <- newStateLock
     ncStateLockMetrics <- liftIO $ recordTxpMetrics store txpMemPool
     lcLrcSync <- mkLrcSyncData >>= newTVarIO
-    ncSlottingVar <- (npSystemStart,) <$> mkSlottingVar
+    ncSlottingVar <- (systemStart,) <$> mkSlottingVar
     ncSlottingContext <-
         case npUseNTP of
             True  -> SCNtp <$> mkNtpSlottingVar
             False -> SCSimple <$> mkSimpleSlottingVar
     putSlotting ncSlottingVar ncSlottingContext
     ncUserSecret <- newTVarIO $ npUserSecret
-    ncBlockRetrievalQueue <- liftIO $ newTBQueueIO Const.blockRetrievalQueueSize
+    ncBlockRetrievalQueue <- liftIO $ newTBQueueIO blockRetrievalQueueSize
     ncRecoveryHeader <- liftIO newEmptyTMVarIO
     ncProgressHeader <- liftIO newEmptyTMVarIO
     ncShutdownFlag <- newTVarIO False
@@ -307,7 +324,7 @@ mkSlottingVar = newTVarIO =<< GState.getSlottingData
 ----------------------------------------------------------------------------
 
 createKademliaInstance ::
-       (MonadIO m, Mockable Catch m, Mockable Throw m, CanLog m)
+       (HasNodeConfiguration, MonadIO m, Mockable Catch m, Mockable Throw m, CanLog m)
     => BaseParams
     -> KademliaParams
     -> Word16 -- ^ Default port to bind to.
@@ -315,12 +332,12 @@ createKademliaInstance ::
 createKademliaInstance BaseParams {..} kp defaultPort =
     usingLoggerName (lpRunnerTag bpLoggingParams) (startDHTInstance instConfig defaultBindAddress)
   where
-    instConfig = kp {kpPeers = ordNub $ kpPeers kp ++ Const.defaultPeers}
+    instConfig = kp {kpPeers = ordNub $ kpPeers kp ++ defaultPeers}
     defaultBindAddress = ("0.0.0.0", defaultPort)
 
 -- | RAII for 'KademliaDHTInstance'.
 bracketKademliaInstance
-    :: (MonadIO m, Mockable Catch m, Mockable Throw m, Mockable Bracket m, CanLog m)
+    :: (HasNodeConfiguration, MonadIO m, Mockable Catch m, Mockable Throw m, Mockable Bracket m, CanLog m)
     => BaseParams
     -> KademliaParams
     -> Word16 -- ^ Default port to bind to.
@@ -332,7 +349,7 @@ bracketKademliaInstance bp kp defaultPort action =
 -- | The 'NodeParams' contain enough information to determine whether a Kademlia
 -- instance should be brought up. Use this to safely acquire/release one.
 bracketKademlia
-    :: (MonadIO m, Mockable Catch m, Mockable Throw m, Mockable Bracket m, CanLog m)
+    :: (HasNodeConfiguration, MonadIO m, Mockable Catch m, Mockable Throw m, Mockable Bracket m, CanLog m)
     => BaseParams
     -> NetworkConfig KademliaParams
     -> (NetworkConfig KademliaDHTInstance -> m a)
@@ -374,7 +391,7 @@ instance Exception MissingKademliaParams
 ----------------------------------------------------------------------------
 
 createTransportTCP
-    :: (MonadIO n, MonadIO m, WithLogger m, Mockable Throw m)
+    :: (HasNodeConfiguration, MonadIO n, MonadIO m, WithLogger m, Mockable Throw m)
     => TCP.TCPAddr
     -> m (Transport n, m ())
 createTransportTCP addrInfo = do
@@ -382,7 +399,7 @@ createTransportTCP addrInfo = do
     let tcpParams =
             (TCP.defaultTCPParameters
              { TCP.transportConnectTimeout =
-                   Just $ fromIntegral Const.networkConnectionTimeout
+                   Just $ fromIntegral networkConnectionTimeout
              , TCP.tcpNewQDisc = fairQDisc $ \_ -> return Nothing
              -- Will check the peer's claimed host against the observed host
              -- when new connections are made. This prevents an easy denial
@@ -402,7 +419,7 @@ createTransportTCP addrInfo = do
 
 -- | RAII for 'Transport'.
 bracketTransport
-    :: ( MonadIO m, MonadIO n, Mockable Throw m, Mockable Bracket m, WithLogger m )
+    :: (HasNodeConfiguration, MonadIO m, MonadIO n, Mockable Throw m, Mockable Bracket m, WithLogger m)
     => TCP.TCPAddr
     -> (Transport n -> m a)
     -> m a

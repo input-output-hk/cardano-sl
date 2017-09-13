@@ -18,7 +18,7 @@ import qualified Network.Transport.TCP       as TCP
 import           System.Wlog                 (LoggerName)
 
 import           Pos.Behavior                (BehaviorConfig (..))
-import           Pos.Core                    (HasPrimaryKey (..), Timestamp)
+import           Pos.Core                    (HasPrimaryKey (..))
 import           Pos.Crypto                  (SecretKey)
 import           Pos.DHT.Real.Param          (KademliaParams)
 import           Pos.Genesis                 (GenesisContext, GenesisUtxo,
@@ -57,7 +57,6 @@ data TransportParams = TransportParams
 data NodeParams = NodeParams
     { npDbPathM        :: !FilePath             -- ^ Path to node's database
     , npRebuildDb      :: !Bool                 -- ^ @True@ if data-base should be rebuilt
-    , npSystemStart    :: !Timestamp            -- ^ System start
     , npSecretKey      :: !SecretKey            -- ^ Primary secret key of node
     , npUserSecret     :: !UserSecret           -- ^ All node secret keys
     , npBaseParams     :: !BaseParams           -- ^ See 'BaseParams'

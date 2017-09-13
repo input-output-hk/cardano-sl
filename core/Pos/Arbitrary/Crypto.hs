@@ -17,14 +17,10 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Pos.Arbitrary.Crypto.Unsafe       ()
 import           Pos.Binary.Class                  (AsBinary (..), AsBinaryClass (..), Bi)
 import           Pos.Binary.Crypto                 ()
+import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
 import           Pos.Crypto.AsBinary               ()
 import           Pos.Crypto.Hashing                (AbstractHash, HashAlgorithm)
 import           Pos.Crypto.HD                     (HDAddressPayload, HDPassphrase (..))
-import           Pos.Crypto.RedeemSigning          (RedeemPublicKey, RedeemSecretKey,
-                                                    RedeemSignature, redeemKeyGen,
-                                                    redeemSign)
-import           Pos.Crypto.SafeSigning            (PassPhrase, createProxyCert,
-                                                    createPsk)
 import           Pos.Crypto.SecretSharing          (DecShare, EncShare, Secret,
                                                     SecretProof, Threshold, VssKeyPair,
                                                     VssPublicKey, decryptShare,
@@ -34,7 +30,12 @@ import           Pos.Crypto.Signing                (ProxyCert, ProxySecretKey,
                                                     ProxySignature, PublicKey, SecretKey,
                                                     Signature, Signed, keyGen, mkSigned,
                                                     proxySign, sign, toPublic)
-import           Pos.Crypto.SignTag                (SignTag (..))
+import           Pos.Crypto.Signing.Redeem         (RedeemPublicKey, RedeemSecretKey,
+                                                    RedeemSignature, redeemKeyGen,
+                                                    redeemSign)
+import           Pos.Crypto.Signing.Safe           (PassPhrase, createProxyCert,
+                                                    createPsk)
+import           Pos.Crypto.Signing.Types.Tag      (SignTag (..))
 import           Pos.Util.Arbitrary                (Nonrepeating (..), arbitraryUnsafe,
                                                     sublistN, unsafeMakePool)
 
@@ -120,22 +121,22 @@ instance Nonrepeating VssPublicKey where
 -- Arbitrary signatures
 ----------------------------------------------------------------------------
 
-instance (Bi a, Arbitrary a) => Arbitrary (Signature a) where
+instance (HasProtocolConstants, Bi a, Arbitrary a) => Arbitrary (Signature a) where
     arbitrary = sign <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance (Bi a, Arbitrary a) => Arbitrary (RedeemSignature a) where
+instance (HasProtocolConstants, Bi a, Arbitrary a) => Arbitrary (RedeemSignature a) where
     arbitrary = redeemSign <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance (Bi a, Arbitrary a) => Arbitrary (Signed a) where
+instance (HasProtocolConstants, Bi a, Arbitrary a) => Arbitrary (Signed a) where
     arbitrary = mkSigned <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance (Bi w, Arbitrary w) => Arbitrary (ProxyCert w) where
+instance (HasProtocolConstants, Bi w, Arbitrary w) => Arbitrary (ProxyCert w) where
     arbitrary = liftA3 createProxyCert arbitrary arbitrary arbitrary
 
-instance (Bi w, Arbitrary w) => Arbitrary (ProxySecretKey w) where
+instance (HasProtocolConstants, Bi w, Arbitrary w) => Arbitrary (ProxySecretKey w) where
     arbitrary = liftA3 createPsk arbitrary arbitrary arbitrary
 
-instance (Bi w, Arbitrary w, Bi a, Arbitrary a) =>
+instance (HasProtocolConstants, Bi w, Arbitrary w, Bi a, Arbitrary a) =>
          Arbitrary (ProxySignature w a) where
     arbitrary = do
         delegateSk <- arbitrary

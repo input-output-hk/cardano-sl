@@ -34,9 +34,8 @@ import           System.Wlog            (WithLogger, logWarning)
 
 import           Pos.Binary.Class       (biSize)
 import           Pos.Core               (BlockVersionData (bvdMaxBlockSize),
-                                         HasCoreConstants, HeaderHash, SlotId (..),
-                                         slotIdF)
-import           Pos.Core.Constants     (memPoolLimitRatio)
+                                         HasConfiguration, HeaderHash, SlotId (..),
+                                         slotIdF, memPoolLimitRatio)
 import           Pos.Crypto             (PublicKey, shortHashF)
 import           Pos.DB.Class           (MonadDBRead)
 import qualified Pos.DB.GState.Common   as DB
@@ -44,6 +43,7 @@ import           Pos.KnownPeers         (MonadFormatPeers)
 import           Pos.Lrc.Context        (LrcContext)
 import           Pos.Reporting          (HasReportingContext)
 import           Pos.StateLock          (StateLock)
+import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context     (UpdateContext (..))
 import           Pos.Update.Core        (UpId, UpdatePayload (..), UpdateProposal,
                                          UpdateVote (..), canCombineVotes)
@@ -67,7 +67,8 @@ type USLocalLogicMode ctx m =
     , MonadReader ctx m
     , HasLens UpdateContext ctx UpdateContext
     , HasLens LrcContext ctx LrcContext
-    , HasCoreConstants
+    , HasConfiguration
+    , HasUpdateConfiguration
     )
 
 type USLocalLogicModeWithLock ctx m =
@@ -167,7 +168,8 @@ refreshMemPool
        , HasLens UpdateContext ctx UpdateContext
        , HasLens LrcContext ctx LrcContext
        , WithLogger m
-       , HasCoreConstants
+       , HasConfiguration
+       , HasUpdateConfiguration
        )
     => MemState -> m MemState
 refreshMemPool ms@MemState {..} = do

@@ -19,7 +19,7 @@ import           Pos.Core                          (Coin, CoinPortion, mkCoin,
                                                     unsafeAddCoin, unsafeGetCoin,
                                                     unsafeSubCoin)
 import           Pos.Core.Coin                     (coinPortionToDouble)
-import           Pos.Core.Genesis                  (genesisMpcThd)
+import           Pos.Core.Configuration            (HasBlockVersionData, mpcThd)
 import           Pos.Lrc.Types                     (RichmenStakes)
 
 -- | Wrapper over 'RichmenStakes'. Its 'Arbitrary' instance enforces that the
@@ -76,5 +76,5 @@ genRichmenStakes thd = do
 
 data GenesisMpcThd
 
-instance Reifies GenesisMpcThd CoinPortion where
-    reflect _ = genesisMpcThd
+instance HasBlockVersionData => Reifies GenesisMpcThd CoinPortion where
+    reflect _ = mpcThd

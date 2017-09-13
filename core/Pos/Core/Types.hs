@@ -2,8 +2,10 @@
 
 module Pos.Core.Types
        (
+         ProtocolMagic (..)
+
        -- * Address and StakeholderId
-         AddressHash
+       , AddressHash
        , AddrSpendingData (..)
        , AddrType (..)
        , Address' (..)
@@ -105,10 +107,14 @@ import           System.Random              (Random (..))
 
 import           Pos.Core.Fee               (TxFeePolicy)
 import           Pos.Core.Timestamp         (TimeDiff (..), Timestamp (..))
-import           Pos.Crypto                 (AbstractHash, HDAddressPayload, Hash,
-                                             ProxySecretKey, ProxySignature, PublicKey,
+import           Pos.Crypto.Hashing         (AbstractHash, Hash)
+import           Pos.Crypto.HD              (HDAddressPayload)
+import           Pos.Crypto.Signing.Types   (ProxySecretKey, ProxySignature, PublicKey,
                                              RedeemPublicKey)
 import           Pos.Data.Attributes        (Attributes)
+
+newtype ProtocolMagic = ProtocolMagic { getProtocolMagic :: Int32 }
+    deriving (Show)
 
 ----------------------------------------------------------------------------
 -- Address, StakeholderId

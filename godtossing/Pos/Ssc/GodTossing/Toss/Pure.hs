@@ -21,8 +21,8 @@ import           System.Wlog                    (CanLog, HasLoggerName (..), Log
                                                  launchNamedPureLog, runNamedPureLog)
 
 import           Pos.Core                       (BlockVersionData, EpochIndex,
-                                                 HasCoreConstants, crucialSlot)
-import           Pos.Core.Genesis               (genesisCertificates)
+                                                 HasGeneratedGenesisData, genesisCertificates,
+                                                 HasProtocolConstants, crucialSlot)
 import           Pos.Lrc.Types                  (RichmenSet, RichmenStakes)
 import           Pos.Ssc.GodTossing.Core        (deleteSignedCommitment,
                                                  insertSignedCommitment)
@@ -51,10 +51,10 @@ newtype PureTossWithEnv a = PureTossWithEnv
     } deriving (Functor, Applicative, Monad, Rand.MonadRandom,
                 CanLog, HasLoggerName)
 
-deriving instance HasCoreConstants => MonadTossRead PureTossWithEnv
-deriving instance HasCoreConstants => MonadToss PureTossWithEnv
+deriving instance (HasProtocolConstants, HasGeneratedGenesisData) => MonadTossRead PureTossWithEnv
+deriving instance (HasProtocolConstants, HasGeneratedGenesisData) => MonadToss PureTossWithEnv
 
-instance HasCoreConstants => MonadTossRead PureToss where
+instance (HasGeneratedGenesisData, HasProtocolConstants) => MonadTossRead PureToss where
     getCommitments = PureToss $ use gsCommitments
     getOpenings = PureToss $ use gsOpenings
     getShares = PureToss $ use gsShares
@@ -70,7 +70,7 @@ instance MonadTossEnv PureTossWithEnv where
     getRichmen epoch = PureTossWithEnv $ view (_1 . at epoch)
     getAdoptedBVData = PureTossWithEnv $ view _2
 
-instance HasCoreConstants => MonadToss PureToss where
+instance (HasProtocolConstants, HasGeneratedGenesisData) => MonadToss PureToss where
     putCommitment signedComm =
         PureToss $ gsCommitments %= insertSignedCommitment signedComm
     putOpening id op = PureToss $ gsOpenings . at id .= Just op

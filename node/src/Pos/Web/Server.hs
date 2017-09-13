@@ -30,6 +30,7 @@ import           Servant.Server              (Handler, ServantErr (errBody), Ser
 import           Servant.Utils.Enter         ((:~>) (NT), enter)
 
 import           Pos.Aeson.Types             ()
+import           Pos.Core.Configuration      (HasConfiguration)
 import           Pos.Context                 (HasNodeContext (..), HasSscContext (..),
                                               NodeContext, getOurPublicKey)
 import           Pos.Core                    (EpochIndex (..), SlotLeaders)
@@ -74,7 +75,7 @@ applicationGT = do
     server <- servantServerGT
     return $ serve gtNodeApi server
 
-serveImplNoTLS :: MonadIO m => m Application -> String -> Word16 -> m ()
+serveImplNoTLS :: (HasConfiguration, MonadIO m) => m Application -> String -> Word16 -> m ()
 serveImplNoTLS application host port =
     liftIO . runSettings mySettings =<< application
   where
@@ -82,7 +83,7 @@ serveImplNoTLS application host port =
                  setPort (fromIntegral port) defaultSettings
 
 serveImpl
-    :: MonadIO m
+    :: (HasConfiguration, MonadIO m)
     => m Application -> String -> Word16 -> Maybe TlsParams -> m ()
 serveImpl application host port walletTLSParams =
     liftIO . maybe runSettings runTLS mTlsConfig mySettings
@@ -135,7 +136,7 @@ servantServerGT = flip enter (baseServantHandlers :<|> gtServantHandlers) <$>
 -- Base handlers
 ----------------------------------------------------------------------------
 
-baseServantHandlers :: ServerT (BaseNodeApi ssc) (WebMode ssc)
+baseServantHandlers :: HasConfiguration => ServerT (BaseNodeApi ssc) (WebMode ssc)
 baseServantHandlers =
     getLeaders
     :<|>
@@ -147,7 +148,7 @@ baseServantHandlers =
     :<|>
     getLocalTxsNum
 
-getLeaders :: Maybe EpochIndex -> WebMode ssc SlotLeaders
+getLeaders :: HasConfiguration => Maybe EpochIndex -> WebMode ssc SlotLeaders
 getLeaders maybeEpoch = do
     -- epoch <- maybe (siEpoch <$> getCurrentSlot) pure maybeEpoch
     epoch <- maybe (pure 0) pure maybeEpoch
@@ -155,7 +156,7 @@ getLeaders maybeEpoch = do
   where
     err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
 
-getUtxo :: WebMode ssc [TxOut]
+getUtxo :: HasConfiguration => WebMode ssc [TxOut]
 getUtxo = map toaOut . toList <$> GS.getAllPotentiallyHugeUtxo
 
 getLocalTxsNum :: WebMode ssc Word

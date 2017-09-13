@@ -50,7 +50,7 @@ import qualified Database.RocksDB             as Rocks
 import           Ether.Internal               (HasLens (..))
 
 import           Pos.Binary.Class             (Bi)
-import           Pos.Core                     (HeaderHash)
+import           Pos.Core                     (HeaderHash, HasConfiguration)
 import           Pos.DB.Class                 (DBIteratorClass (..), DBTag (..), IterType,
                                                iterKeyPrefix)
 import           Pos.DB.Functions             (processIterEntry)
@@ -98,6 +98,7 @@ type MonadPureDB ctx m =
     , MonadMask m
     , MonadBaseControl IO m
     , MonadIO m
+    , HasConfiguration
     )
 
 dbPureDump :: MonadPureDB ctx m => m DBPure

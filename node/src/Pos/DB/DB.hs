@@ -27,7 +27,7 @@ import           Pos.Block.Core        (Block, BlockHeader)
 import           Pos.Block.Types       (Blund)
 import           Pos.Context.Functions (genesisBlock0M)
 import           Pos.Core              (BlockCount, BlockVersionData,
-                                        GenesisWStakeholders, HasCoreConstants,
+                                        GenesisWStakeholders, HasConfiguration,
                                         headerHash)
 import           Pos.DB.Block          (MonadBlockDB, MonadBlockDBWrite,
                                         loadBlundsByDepth, loadBlundsWhile,
@@ -39,6 +39,7 @@ import           Pos.Genesis           (GenesisContext, GenesisUtxo)
 import           Pos.GState.GState     (prepareGStateDB, sanityCheckGStateDB)
 import           Pos.Lrc.DB            (prepareLrcDB)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Update.DB         (getAdoptedBVData)
 import           Pos.Util              (HasLens', inAssertMode)
 import           Pos.Util.Chrono       (NewestFirst)
@@ -58,7 +59,8 @@ initNodeDBs
        , MonadBlockDBWrite ssc m
        , SscHelpersClass ssc
        , MonadDB m
-       , HasCoreConstants
+       , HasConfiguration
+       , HasGtConfiguration
        )
     => m ()
 initNodeDBs = do

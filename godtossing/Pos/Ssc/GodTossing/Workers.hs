@@ -41,7 +41,7 @@ import           Pos.Communication.Relay               (DataMsg, ReqOrRes,
                                                         invReqDataFlowTK)
 import           Pos.Communication.Specs               (createOutSpecs)
 import           Pos.Communication.Types.Relay         (InvOrData, InvOrDataTK)
-import           Pos.Core                              (EpochIndex, HasCoreConstants,
+import           Pos.Core                              (EpochIndex, HasConfiguration,
                                                         SlotId (..), StakeholderId,
                                                         Timestamp (..),
                                                         VssCertificate (..),
@@ -50,13 +50,15 @@ import           Pos.Core                              (EpochIndex, HasCoreConst
                                                         getOurStakeholderId, getSlotIndex,
                                                         mkLocalSlotIndex,
                                                         mkVssCertificate,
-                                                        slotSecurityParam, vssMaxTTL)
-import           Pos.Core.Context                      (blkSecurityParam)
+                                                        slotSecurityParam,
+                                                        blkSecurityParam,
+                                                        vssMaxTTL)
 import           Pos.Crypto                            (SecretKey, VssKeyPair,
                                                         VssPublicKey, randomNumber,
                                                         runSecureRandom, vssKeyGen)
 import           Pos.Crypto.SecretSharing              (toVssPublicKey)
 import           Pos.DB                                (gsAdoptedBVData)
+import           Pos.Infra.Configuration               (HasInfraConfiguration)
 import           Pos.Lrc.Context                       (lrcActionOnEpochReason)
 import           Pos.Lrc.Types                         (RichmenStakes)
 import           Pos.Recovery.Info                     (recoveryCommGuard)
@@ -69,7 +71,8 @@ import           Pos.Ssc.Class                         (HasSscContext (..),
 import           Pos.Ssc.GodTossing.Behavior           (GtBehavior (..),
                                                         GtOpeningParams (..),
                                                         GtSharesParams (..))
-import           Pos.Ssc.GodTossing.Constants          (mdNoCommitmentsEpochThreshold,
+import           Pos.Ssc.GodTossing.Configuration      (HasGtConfiguration,
+                                                        mdNoCommitmentsEpochThreshold,
                                                         mpcSendInterval)
 import           Pos.Ssc.GodTossing.Core               (Commitment (..), SignedCommitment,
                                                         genCommitmentAndOpening,
@@ -320,6 +323,8 @@ sendOurData ::
     , Typeable contents
     , Message (InvOrData (Tagged contents StakeholderId) contents)
     , Message (ReqOrRes (Tagged contents StakeholderId))
+    , HasInfraConfiguration
+    , HasGtConfiguration
     )
     => EnqueueMsg m
     -> GtTag
@@ -345,7 +350,7 @@ sendOurData enqueue msgTag ourId dt epoch slMultiplier = do
 -- synchronized).
 generateAndSetNewSecret
     :: forall ctx m.
-       (HasCoreConstants, SscMode SscGodTossing ctx m, Bi Commitment)
+       (HasGtConfiguration, HasConfiguration, SscMode SscGodTossing ctx m, Bi Commitment)
     => SecretKey
     -> SlotId -- ^ Current slot
     -> m (Maybe SignedCommitment)
@@ -408,7 +413,7 @@ randomTimeInInterval interval =
     n = toInteger @Microsecond interval
 
 waitUntilSend
-    :: SscMode SscGodTossing ctx m
+    :: (HasInfraConfiguration, HasGtConfiguration, SscMode SscGodTossing ctx m)
     => GtTag -> EpochIndex -> Word16 -> m ()
 waitUntilSend msgTag epoch slMultiplier = do
     let slot =
@@ -438,7 +443,7 @@ waitUntilSend msgTag epoch slMultiplier = do
 
 checkForIgnoredCommitmentsWorker
     :: forall ctx m.
-       SscMode SscGodTossing ctx m
+       (HasInfraConfiguration, HasGtConfiguration, SscMode SscGodTossing ctx m)
     => (WorkerSpec m, OutSpecs)
 checkForIgnoredCommitmentsWorker = localWorker $ do
     counter <- newTVarIO 0
@@ -455,7 +460,7 @@ checkForIgnoredCommitmentsWorker = localWorker $ do
 -- detect unexpected absence of our commitment and is reset to 0 when
 -- our commitment appears in blocks.
 checkForIgnoredCommitmentsWorkerImpl
-    :: forall ctx m. (SscMode SscGodTossing ctx m)
+    :: forall ctx m. (HasInfraConfiguration, HasGtConfiguration, SscMode SscGodTossing ctx m)
     => TVar Word -> SlotId -> m ()
 checkForIgnoredCommitmentsWorkerImpl counter SlotId {..}
     -- It's enough to do this check once per epoch near the end of the epoch.

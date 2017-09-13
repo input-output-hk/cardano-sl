@@ -30,7 +30,7 @@ import           Universum
 import qualified Data.HashMap.Strict         as HM
 
 import           Pos.Binary.Core             ()
-import           Pos.Constants               (genesisHeavyDelThd)
+import           Pos.Core.Configuration      (HasConfiguration, heavyDelThd)
 import           Pos.Context                 (GenesisUtxo, genesisStakesM)
 import           Pos.Core                    (Coin, EpochIndex, GenesisWStakeholders,
                                               StakeholderId)
@@ -81,7 +81,7 @@ computeInitial initialDistr proxy =
 -- Instances. They are here, because we want to have a DB schema in Pos.DB
 ----------------------------------------------------------------------------
 
-richmenComponents :: [SomeRichmenComponent]
+richmenComponents :: HasConfiguration => [SomeRichmenComponent]
 richmenComponents =
     [ someRichmenComponent @RCSsc
     , someRichmenComponent @RCUs
@@ -94,11 +94,11 @@ richmenComponents =
 
 data RCDlg
 
-instance RichmenComponent RCDlg where
+instance HasConfiguration => RichmenComponent RCDlg where
     type RichmenData RCDlg = RichmenSet
     rcToData = getKeys . snd
     rcTag Proxy = "dlg"
-    rcInitialThreshold Proxy = genesisHeavyDelThd
+    rcInitialThreshold Proxy = heavyDelThd
     rcConsiderDelegated Proxy = False
 
 getRichmenDlg :: MonadDBRead m => EpochIndex -> m (Maybe RichmenSet)

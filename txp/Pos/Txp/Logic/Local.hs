@@ -23,7 +23,7 @@ import           Mockable             (CurrentTime, Mockable)
 import           System.Wlog          (WithLogger, logDebug, logError, logWarning)
 
 import           Pos.Core             (BlockVersionData, EpochIndex, GenesisWStakeholders,
-                                       HeaderHash, siEpoch)
+                                       HeaderHash, siEpoch, HasConfiguration)
 import           Pos.Crypto           (WithHash (..))
 import           Pos.DB.Class         (MonadDBRead, MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
@@ -55,6 +55,7 @@ type TxpLocalWorkMode ctx m =
     , MonadMask m
     , MonadFormatPeers m
     , HasReportingContext ctx
+    , HasConfiguration
     )
 
 -- Base context for tx processing in.
@@ -75,7 +76,7 @@ instance HasLens Utxo ProcessTxContext Utxo where
 -- Base monad for tx processing in.
 type ProcessTxMode = Reader ProcessTxContext
 
-instance MonadUtxoRead ProcessTxMode where
+instance HasConfiguration => MonadUtxoRead ProcessTxMode where
     utxoGet = utxoGetReader
 
 instance MonadGState ProcessTxMode where

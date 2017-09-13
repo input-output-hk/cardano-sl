@@ -19,11 +19,15 @@ import           Serokell.Util.Verify       (VerificationRes (..), formatAllErro
                                              verifyGeneric)
 
 import           Pos.Binary.Class           (asBinary, serialize')
+import           Pos.Binary.Core.Address    ()
 import           Pos.Core.Address           (Address, IsBootstrapEraAddr (..),
                                              addressHash, deriveLvl2KeyPair,
                                              makePubKeyAddressBoot, makeRedeemAddress)
 import           Pos.Core.Coin              (coinPortionToDouble, mkCoin,
                                              unsafeIntegerToCoin)
+import           Pos.Core.Configuration.Protocol (HasProtocolConstants, vssMinTTL,
+                                                  vssMaxTTL)
+import           Pos.Core.Configuration.BlockVersionData (HasBlockVersionData, mpcThd)
 import qualified Pos.Core.Genesis.Constants as Const
 import           Pos.Core.Genesis.Types     (AddrDistribution, BalanceDistribution (..),
                                              FakeAvvmOptions (..),
@@ -53,7 +57,10 @@ data GeneratedGenesisData = GeneratedGenesisData
     -- ^ Fake avvm seeds (needed only for testnet)
     }
 
-generateGenesisData :: GenesisInitializer -> GeneratedGenesisData
+generateGenesisData
+    :: (HasProtocolConstants, HasBlockVersionData)
+    => GenesisInitializer
+    -> GeneratedGenesisData
 generateGenesisData TestnetInitializer{..} = deterministic (serialize' tiSeed) $ do
     (fakeAvvmDistr, seeds) <- generateFakeAvvmGenesis tiFakeAvvmBalance
     testnetGenData <- generateTestnetData tiTestBalance tiDistribution
@@ -68,7 +75,7 @@ generateGenesisData MainnetInitializer{..} =
 
 -- | Generates keys and vss certs for testnet data.
 generateTestnetData
-    :: (MonadRandom m)
+    :: (HasProtocolConstants, HasBlockVersionData, MonadRandom m)
     => TestnetBalanceOptions
     -> TestnetDistribution
     -> m GeneratedGenesisData
@@ -123,7 +130,7 @@ generateFakeAvvmGenesis FakeAvvmOptions{..} = do
 ----------------------------------------------------------------------------
 
 generateSecretsAndAddress
-    :: (MonadRandom m)
+    :: (HasProtocolConstants, MonadRandom m)
     => Maybe (SecretKey, EncryptedSecretKey)  -- ^ plain key & hd wallet root key
     -> m (SecretKey, EncryptedSecretKey, VssKeyPair, VssCertificate, Address)
     -- ^ secret key, vss key pair, vss certificate,
@@ -132,7 +139,7 @@ generateSecretsAndAddress mbSk = do
     (sk, hdwSk, vss) <- generateSecrets mbSk
 
     expiry <- fromInteger <$>
-        randomNumberInRange (Const.vssMinTTL - 1) (Const.vssMaxTTL - 1)
+        randomNumberInRange (vssMinTTL - 1) (vssMaxTTL - 1)
     let vssPk = asBinary $ toVssPublicKey vss
         vssCert = mkVssCertificate sk vssPk expiry
         -- This address is used only to create genesis data. We don't
@@ -167,7 +174,7 @@ generateSecrets mbSk = do
     pure (sk, hdwSk, vss)
 
 -- | Generates balance distribution for testnet.
-genTestnetDistribution :: TestnetBalanceOptions -> BalanceDistribution
+genTestnetDistribution :: HasBlockVersionData => TestnetBalanceOptions -> BalanceDistribution
 genTestnetDistribution TestnetBalanceOptions{..} =
     checkConsistency $ RichPoorBalances {..}
   where
@@ -184,7 +191,7 @@ genTestnetDistribution TestnetBalanceOptions{..} =
     onePoorBalance = if poors == 0 then 0 else poorsBalance `div` poors
     realPoorBalance = onePoorBalance * poors
 
-    mpcBalance = getShare (coinPortionToDouble Const.genesisMpcThd) testBalance
+    mpcBalance = getShare (coinPortionToDouble mpcThd) testBalance
 
     sdRichmen = fromInteger richs
     sdRichBalance = unsafeIntegerToCoin oneRichmanBalance

@@ -45,8 +45,8 @@ library
                         Pos.Block.Slog
                         Pos.Block.Types
                         Pos.Context
-                        Pos.CompileConfig
                         Pos.Communication
+                        Pos.Configuration
                         Pos.Constants
 
                         Pos.DB.DB
@@ -76,6 +76,7 @@ library
 
                         -- Something
                         Pos.Launcher
+                        Pos.Launcher.Configuration
                         Pos.Launcher.Resource
                         Pos.Launcher.Runner
 
@@ -173,8 +174,7 @@ library
 
                         Pos.Util.Servant
 
-  other-modules:        Pos.Aeson.CompileConfig
-                        Pos.Aeson.Types
+  other-modules:        Pos.Aeson.Types
 
                         -- Binary serialization
                         Pos.Binary.Block
@@ -223,10 +223,6 @@ library
                         Pos.Client.CLI.Secrets
                         Pos.Client.CLI.Util
 
-                        -- Compile config
-                        Pos.CompileConfig.Parser
-                        Pos.CompileConfig.Type
-
                         -- NodeContext
                         Pos.Context.Context
                         Pos.Context.Functions
@@ -269,7 +265,6 @@ library
                         Pos.Launcher.Mode
                         Pos.Launcher.Param
                         Pos.Launcher.Scenario
-                        Pos.Launcher.ConfigInfo
 
                         -- Network
                         Pos.Communication.Types

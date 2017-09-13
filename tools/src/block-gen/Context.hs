@@ -19,7 +19,7 @@ import           Pos.Block.Core       (Block, BlockHeader)
 import           Pos.Block.Slog       (HasSlogGState (..), mkSlogGState)
 import           Pos.Block.Types      (Undo)
 import           Pos.Context          (GenesisUtxo (..))
-import           Pos.Core             (GenesisWStakeholders, HasCoreConstants,
+import           Pos.Core             (GenesisWStakeholders,
                                        Timestamp (..))
 import           Pos.DB               (MonadBlockDBGeneric (..),
                                        MonadBlockDBGenericWrite (..), MonadDB (..),
@@ -32,6 +32,7 @@ import           Pos.Genesis          (GenesisContext (..), gtcUtxo, gtcWStakeho
 import           Pos.GState           (GStateContext (..))
 import qualified Pos.GState           as GS
 import           Pos.KnownPeers       (MonadFormatPeers (..))
+import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Lrc.Context      (LrcContext (..), mkLrcSyncData)
 import           Pos.Slotting         (HasSlottingVar (..))
 import           Pos.Ssc.GodTossing   (SscGodTossing)
@@ -53,7 +54,7 @@ runTBlockGenMode :: TBlockGenContext -> TBlockGenMode a -> Production a
 runTBlockGenMode = flip Mtl.runReaderT
 
 initTBlockGenMode ::
-       HasCoreConstants
+       HasConfigurations
     => DB.NodeDBs
     -> GenesisContext
     -> TBlockGenMode a
@@ -112,17 +113,17 @@ instance HasSlottingVar TBlockGenContext where
     slottingVar = tbgcGState_L . GS.gscSlottingVar
 
 
-instance MonadDBRead TBlockGenMode where
+instance HasConfigurations => MonadDBRead TBlockGenMode where
     dbGet = DB.dbGetSumDefault
     dbIterSource = DB.dbIterSourceSumDefault
 
-instance MonadDB TBlockGenMode where
+instance HasConfigurations => MonadDB TBlockGenMode where
     dbPut = DB.dbPutSumDefault
     dbWriteBatch = DB.dbWriteBatchSumDefault
     dbDelete = DB.dbDeleteSumDefault
 
 instance
-    HasCoreConstants =>
+    HasConfigurations =>
     MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo TBlockGenMode
   where
     dbGetBlock = BDB.dbGetBlockSumDefault @SscGodTossing
@@ -130,7 +131,7 @@ instance
     dbGetHeader = BDB.dbGetHeaderSumDefault @SscGodTossing
 
 instance
-    HasCoreConstants =>
+    HasConfigurations =>
     MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo TBlockGenMode
   where
     dbPutBlund = BDB.dbPutBlundSumDefault

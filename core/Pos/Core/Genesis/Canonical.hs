@@ -9,31 +9,43 @@ import           Universum
 import           Data.Fixed                 (Fixed (..))
 import qualified Data.HashMap.Strict        as HM
 import           Data.Time.Units            (Millisecond)
+import           Data.Typeable              (typeRep)
 import           Formatting                 (formatToString)
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Base16       (base16F)
+import qualified Serokell.Util.Base16       as B16
 import           Serokell.Util.Base64       (base64F)
-import           Text.JSON.Canonical        (JSValue (..), ToJSON (..), ToObjectKey (..),
-                                             mkObject)
+import qualified Serokell.Util.Base64       as B64
+import           Serokell.Util.Text         (readDecimal, readUnsignedDecimal)
+import           Text.JSON.Canonical        (FromJSON (..), FromObjectKey (..), Int54,
+                                             JSValue (..), ReportSchemaErrors (expected),
+                                             ToJSON (..), ToObjectKey (..),
+                                             expectedButGotValue, fromJSField,
+                                             fromJSObject, mkObject)
 
 import           Pos.Binary.Class           (AsBinary (..))
-import           Pos.Core.Address           (addressF)
+import           Pos.Core.Address           (addressF, decodeTextAddress)
 import           Pos.Core.Fee               (Coeff (..), TxFeePolicy (..),
                                              TxSizeLinear (..))
 import           Pos.Core.Genesis.Types     (GenesisAvvmBalances (..), GenesisData (..),
                                              GenesisDelegation (..),
                                              GenesisWStakeholders (..),
-                                             ProtocolConstants (..))
+                                             ProtocolConstants (..), mkGenesisDelegation)
 import           Pos.Core.Types             (Address, BlockVersionData (..), Coin,
                                              CoinPortion, EpochIndex (..),
                                              SharedSeed (..), SoftforkRule (..),
                                              StakeholderId, Timestamp (..),
-                                             getCoinPortion, unsafeGetCoin)
-import           Pos.Core.Vss               (VssCertificate (..))
+                                             getCoinPortion, mkCoin, mkCoinPortion,
+                                             unsafeGetCoin)
+import           Pos.Core.Vss               (VssCertificate (..), mkVssCertificatesMap,
+                                             recreateVssCertificate)
 import           Pos.Crypto                 (ProxyCert, ProxySecretKey (..), PublicKey,
                                              RedeemPublicKey, Signature,
+                                             decodeAbstractHash, fromAvvmPk,
                                              fullProxyCertHexF, fullPublicKeyF,
-                                             fullSignatureHexF, hashHexF, redeemPkB64UrlF)
+                                             fullSignatureHexF, hashHexF,
+                                             parseFullProxyCert, parseFullPublicKey,
+                                             parseFullSignature, redeemPkB64UrlF)
 
 ----------------------------------------------------------------------------
 -- Primitive standard/3rdparty types
@@ -209,3 +221,215 @@ instance Monad m => ToJSON m GenesisData where
             , ("avvmDistr", toJSON gdAvvmDistr)
             , ("ftsSeed", toJSON gdFtsSeed)
             ]
+
+
+
+
+----------------------------------------------------------------------------
+-- Parsing
+----------------------------------------------------------------------------
+
+----------------------------------------------------------------------------
+-- Helpers
+----------------------------------------------------------------------------
+
+tryParseString ::
+       forall a m e. (Typeable a, ReportSchemaErrors m, ToString e)
+    => (Text -> Either e a)
+    -> JSValue
+    -> m a
+tryParseString parser =
+    \case
+        JSString str ->
+            case parser (toText str) of
+                Right res -> pure res
+                Left (toString -> err) ->
+                    expected typeName (Just $ str <> ", err was: " <> err)
+        val -> expectedButGotValue typeName val
+  where
+    typeName = show $ typeRep (Proxy @a)
+
+wrapConstructor ::
+       forall e a m. (Typeable a, ReportSchemaErrors m, ToString e)
+    => Either e a
+    -> m a
+wrapConstructor =
+    \case
+        Left err ->
+            expected typeName (Just $ "error occurred: " <> toString err)
+        Right x -> pure x
+  where
+    typeName = show $ typeRep (Proxy @a)
+
+----------------------------------------------------------------------------
+-- External
+---------------------------------------------------------------------------
+
+instance (ReportSchemaErrors m) => FromJSON m Int32 where
+    fromJSON (JSNum i) = pure . fromIntegral $ i
+    fromJSON val       = expectedButGotValue "Int32" val
+
+instance (ReportSchemaErrors m) => FromJSON m Word16 where
+    fromJSON (JSNum i) = pure . fromIntegral $ i
+    fromJSON val       = expectedButGotValue "Word16" val
+
+instance (ReportSchemaErrors m) => FromJSON m Word32 where
+    fromJSON (JSNum i) = pure . fromIntegral $ i
+    fromJSON val       = expectedButGotValue "Word32" val
+
+instance (ReportSchemaErrors m) => FromJSON m Word64 where
+    fromJSON = tryParseString readUnsignedDecimal
+
+instance (ReportSchemaErrors m) => FromJSON m Integer where
+    fromJSON = tryParseString readDecimal
+
+instance (ReportSchemaErrors m, Eq k, Hashable k, FromObjectKey m k, FromJSON m a) =>
+         FromJSON m (HashMap k a) where
+    fromJSON enc = do
+        obj <- fromJSObject enc
+        HM.fromList . catMaybes <$> mapM aux obj
+      where
+        aux :: (String, JSValue) -> m (Maybe (k, a))
+        aux (k, a) = knownKeys <$> fromObjectKey k <*> fromJSON a
+        knownKeys :: Maybe k -> a -> Maybe (k, a)
+        knownKeys Nothing _  = Nothing
+        knownKeys (Just k) a = Just (k, a)
+
+instance ReportSchemaErrors m => FromJSON m Byte where
+    fromJSON = fmap fromInteger . fromJSON
+
+instance ReportSchemaErrors m => FromJSON m Millisecond where
+    fromJSON = fmap fromInteger . fromJSON
+
+----------------------------------------------------------------------------
+-- Crypto
+----------------------------------------------------------------------------
+
+instance ReportSchemaErrors m => FromJSON m PublicKey where
+    fromJSON = tryParseString parseFullPublicKey
+
+instance (Typeable w, ReportSchemaErrors m) => FromJSON m (ProxyCert w) where
+    fromJSON = tryParseString parseFullProxyCert
+
+instance (Typeable x, ReportSchemaErrors m) => FromJSON m (Signature x) where
+    fromJSON = tryParseString parseFullSignature
+
+instance ReportSchemaErrors m => FromObjectKey m RedeemPublicKey where
+    fromObjectKey =
+        fmap Just .
+        tryParseString (fromAvvmPk :: Text -> Either String RedeemPublicKey) .
+        JSString
+
+instance ReportSchemaErrors m => FromJSON m (AsBinary smth) where
+    fromJSON = fmap AsBinary . tryParseString B64.decode
+
+instance ReportSchemaErrors m => FromJSON m EpochIndex where
+    fromJSON = fmap EpochIndex . fromJSON
+
+instance ReportSchemaErrors m => FromJSON m VssCertificate where
+    fromJSON obj = do
+        vssKey <- fromJSField obj "vssKey"
+        expiryEpoch <- fromIntegral @Int54 <$> fromJSField obj "expiryEpoch"
+        signature <- fromJSField obj "signature"
+        signingKey <- fromJSField obj "signingKey"
+        wrapConstructor @String $
+            recreateVssCertificate vssKey expiryEpoch signature signingKey
+
+instance ReportSchemaErrors m => FromObjectKey m StakeholderId where
+    fromObjectKey = fmap Just . tryParseString (decodeAbstractHash) . JSString
+
+-- A bit unsafe because 'mkCoin' is partial, but it is read only on
+-- start, so 'error' should be ok.
+instance ReportSchemaErrors m => FromJSON m Coin where
+    fromJSON = fmap mkCoin . fromJSON
+
+instance ReportSchemaErrors m => FromJSON m CoinPortion where
+    fromJSON val = do
+        number <- fromJSON val
+        wrapConstructor @String $ mkCoinPortion number
+
+instance ReportSchemaErrors m => FromJSON m Timestamp where
+    fromJSON = fmap fromIntegral . fromJSON @_ @Int54
+
+instance ReportSchemaErrors m => FromObjectKey m Address where
+    fromObjectKey = fmap Just . tryParseString decodeTextAddress . JSString
+
+instance ReportSchemaErrors m => FromJSON m Address where
+    fromJSON = tryParseString decodeTextAddress
+
+instance ReportSchemaErrors m => FromJSON m (ProxySecretKey EpochIndex) where
+    fromJSON obj = do
+        pskOmega <- fromIntegral @Int54 <$> fromJSField obj "omega"
+        pskIssuerPk <- fromJSField obj "issuerPk"
+        pskDelegatePk <- fromJSField obj "delegatePk"
+        pskCert <- fromJSField obj "cert"
+        return ProxySecretKey {..}
+
+instance ReportSchemaErrors m => FromJSON m SoftforkRule where
+    fromJSON obj = do
+        srInitThd <- fromJSField obj "initThd"
+        srMinThd <- fromJSField obj "minThd"
+        srThdDecrement <- fromJSField obj "thdDecrement"
+        return SoftforkRule {..}
+
+instance ReportSchemaErrors m => FromJSON m Coeff where
+    fromJSON = fmap (Coeff . MkFixed) . fromJSON @_ @Integer
+
+instance ReportSchemaErrors m => FromJSON m TxFeePolicy where
+    fromJSON obj = do
+        summand <- fromJSField obj "summand"
+        multiplier <- fromJSField obj "multiplier"
+        return $ TxFeePolicyTxSizeLinear (TxSizeLinear summand multiplier)
+
+instance ReportSchemaErrors m => FromJSON m GenesisWStakeholders where
+    fromJSON = fmap GenesisWStakeholders . fromJSON
+
+instance ReportSchemaErrors m => FromJSON m GenesisDelegation where
+    fromJSON val = do
+        psks <- fromJSON val
+        wrapConstructor $ mkGenesisDelegation psks
+
+instance ReportSchemaErrors m => FromJSON m ProtocolConstants where
+    fromJSON obj = do
+        pcK <- fromIntegral @Int54 <$> fromJSField obj "k"
+        pcProtocolMagic <- fromJSField obj "protocolMagic"
+        pcVssMaxTTL <- fromJSField obj "vssMaxTTL"
+        pcVssMinTTL <- fromJSField obj "vssMinTTL"
+        return ProtocolConstants {..}
+
+instance ReportSchemaErrors m => FromJSON m GenesisAvvmBalances where
+    fromJSON = fmap GenesisAvvmBalances . fromJSON
+
+instance ReportSchemaErrors m => FromJSON m SharedSeed where
+    fromJSON = fmap SharedSeed . tryParseString B16.decode
+
+instance ReportSchemaErrors m => FromJSON m BlockVersionData where
+    fromJSON obj = do
+        bvdScriptVersion <- fromJSField obj "scriptVersion"
+        bvdSlotDuration <- fromJSField obj "slotDuration"
+        bvdMaxBlockSize <- fromJSField obj "maxBlockSize"
+        bvdMaxHeaderSize <- fromJSField obj "maxHeaderSize"
+        bvdMaxTxSize <- fromJSField obj "maxTxSize"
+        bvdMaxProposalSize <- fromJSField obj "maxProposalSize"
+        bvdMpcThd <- fromJSField obj "mpcThd"
+        bvdHeavyDelThd <- fromJSField obj "heavyDelThd"
+        bvdUpdateVoteThd <- fromJSField obj "updateVoteThd"
+        bvdUpdateProposalThd <- fromJSField obj "updateProposalThd"
+        bvdUpdateImplicit <- fromJSField obj "updateImplicit"
+        bvdSoftforkRule <- fromJSField obj "softforkRule"
+        bvdTxFeePolicy <- fromJSField obj "txFeePolicy"
+        bvdUnlockStakeEpoch <- fromJSField obj "unlockStakeEpoch"
+        return BlockVersionData {..}
+
+instance ReportSchemaErrors m => FromJSON m GenesisData where
+    fromJSON obj = do
+        gdBootStakeholders <- fromJSField obj "bootStakeholders"
+        gdHeavyDelegation <- fromJSField obj "heavyDelegation"
+        gdStartTime <- fromJSField obj "startTime"
+        gdVssCerts <- mkVssCertificatesMap <$> fromJSField obj "vssCerts"
+        gdNonAvvmBalances <- fromJSField obj "nonAvvmBalances"
+        gdBlockVersionData <- fromJSField obj "blockVersionData"
+        gdProtocolConsts <- fromJSField obj "protocolConsts"
+        gdAvvmDistr <- fromJSField obj "avvmDistr"
+        gdFtsSeed <- fromJSField obj "ftsSeed"
+        return GenesisData {..}

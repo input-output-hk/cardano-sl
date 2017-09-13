@@ -52,7 +52,7 @@ data VssCertData = VssCertData
       --   (in increasing order, so the oldest certificate is first element).
     , whenExpire   :: !(Set (EpochOrSlot, StakeholderId))
       -- | Set of expired certs for current 'lastKnownEoS'.
-      --   We store only certificates which expried no earlier than
+      --   We store only certificates which expired no earlier than
       --   in previous epoch.
       -- Set (full expired slot, (id, insertion slot, cert))
     , expiredCerts :: !(Set (EpochOrSlot, (StakeholderId, EpochOrSlot, VssCertificate)))

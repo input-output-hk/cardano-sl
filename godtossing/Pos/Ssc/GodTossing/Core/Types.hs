@@ -248,6 +248,10 @@ getCertId = addressHash . vcSigningKey
 
 -- | VssCertificatesMap contains all valid certificates collected
 -- during some period of time.
+--
+-- Invariants:
+--   * stakeholder ids correspond to 'vcSigningKey's of associated certs
+--   * no two certs have the same 'vcVssKey'
 newtype VssCertificatesMap = VssCertificatesMap
     { getVssCertificatesMap :: HashMap StakeholderId VssCertificate }
     deriving (Eq, Show, Generic, NFData, Monoid, Container, NontrivialContainer)

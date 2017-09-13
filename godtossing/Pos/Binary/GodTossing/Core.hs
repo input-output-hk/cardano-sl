@@ -82,12 +82,14 @@ encodeVssCertificates = encode . HS.fromList . toList
 decodeVssCertificates :: Decoder s VssCertificatesMap
 decodeVssCertificates = do
     certs <- toList <$> decode @(HashSet VssCertificate)
-    -- if the attacker creates two certs that are different but have the same
+    -- If the attacker creates two certs that are different but have the same
     -- 'vcSigningKey', it's bad because then we lose canonicity (only one
     -- cert will be present in resulting map and the attacker can set the
     -- other cert to be anything at all)
     unless (allDistinct (map vcSigningKey certs)) $
         fail "decodeVssCertificates: two certs have the same signing key"
+    -- Having duplicate VSS keys doesn't violate canonicity but we forbid it
+    -- because it's an invariant of 'VssCertificatesMap'
     unless (allDistinct (map vcVssKey certs)) $
         fail "decodeVssCertificates: two certs have the same VSS key"
     pure (mkVssCertificatesMap certs)

@@ -270,7 +270,7 @@ data AvvmEntry = AvvmEntry
 -- | AvvmData raw format of AVVM stored in a json file.
 -- We parse AvvmData from a JSON and transform it to GenesisAvvmBalances.
 data AvvmData = AvvmData
-    { getAvvmData :: [AvvmEntry]
+    { avvmData :: [AvvmEntry]
     } deriving (Show, Generic)
 
 -- | Predefined balances of avvm entries.
@@ -284,7 +284,7 @@ newtype GenesisAvvmBalances = GenesisAvvmBalances
 convertAvvmDataToBalances
     :: AvvmData
     -> GenesisAvvmBalances
-convertAvvmDataToBalances (getAvvmData -> avvmData) = GenesisAvvmBalances balances
+convertAvvmDataToBalances AvvmData{..} = GenesisAvvmBalances balances
   where
     balances :: HashMap RedeemPublicKey Coin
     balances =

@@ -22,10 +22,9 @@ import           Pos.Core              (addressHash)
 import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair,
                                         noPassEncrypt, redeemPkB64F, toVssPublicKey)
 import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
-import           Pos.Genesis           (GenesisAvvmBalances, aeCoin,
+import           Pos.Genesis           (GenesisAvvmBalances, aeCoin, avvmData,
                                         convertAvvmDataToBalances,
-                                        genesisDevHdwSecretKeys, genesisDevSecretKeys,
-                                        getAvvmData)
+                                        genesisDevHdwSecretKeys, genesisDevSecretKeys)
 import           Pos.Testnet           (generateFakeAvvm, generateKeyfile)
 
 import           Pos.Launcher          (applyConfigInfo)
@@ -61,7 +60,7 @@ _readAvvmGenesis AvvmBalanceOptions {..} = do
         Left err       -> error $ toText err
         Right avvmData -> do
             avvmDataFiltered <- applyBlacklisted asoBlacklisted avvmData
-            let totalAvvmBalance = sum $ map aeCoin $ getAvvmData avvmDataFiltered
+            let totalAvvmBalance = sum $ map aeCoin $ avvmData avvmDataFiltered
             logInfo $ "Total avvm balance after applying blacklist: " <> show totalAvvmBalance
             pure $ convertAvvmDataToBalances avvmDataFiltered
 

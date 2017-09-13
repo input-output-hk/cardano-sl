@@ -13,6 +13,7 @@ module Test.Pos.Util
        , serDeserTest
        , showReadId
        , showReadTest
+       , canonicalJsonTest
 
        -- * Message length
        , msgLenLimitedTest
@@ -45,6 +46,7 @@ import           Data.Tagged              (Tagged (..))
 import           Data.Typeable            (typeRep)
 import           Formatting               (formatToString, int, (%))
 import           Prelude                  (read)
+import qualified Text.JSON.Canonical      as CanonicalJSON
 
 import           Pos.Binary               (AsBinaryClass (..), Bi (..), serialize,
                                            serialize', unsafeDeserialize)
@@ -94,9 +96,11 @@ serDeserId a =
 showReadId :: (Show a, Eq a, Read a) => a -> Property
 showReadId a = read (show a) === a
 
+type IdTestingRequiredClassesAlmost a = (Eq a, Show a, Arbitrary a, Typeable a)
+
 type IdTestingRequiredClasses f a = (Eq a, Show a, Arbitrary a, Typeable a, f a)
 
-identityTest :: forall f a. (IdTestingRequiredClasses f a) => (a -> Property) -> Spec
+identityTest :: forall a. (IdTestingRequiredClassesAlmost a) => (a -> Property) -> Spec
 identityTest fun = prop (typeName @a) fun
   where
     typeName :: forall x. Typeable x => String
@@ -104,16 +108,66 @@ identityTest fun = prop (typeName @a) fun
 
 binaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
 binaryTest =
-    identityTest @Bi @a $ \x -> binaryEncodeDecode x .&&. cborFlatTermValid x
+    identityTest @a $ \x -> binaryEncodeDecode x .&&. cborFlatTermValid x
 
 safeCopyTest :: forall a. IdTestingRequiredClasses SafeCopy a => Spec
-safeCopyTest = identityTest @SafeCopy @a safeCopyEncodeDecode
+safeCopyTest = identityTest @a safeCopyEncodeDecode
 
 serDeserTest :: forall a. IdTestingRequiredClasses AsBinaryClass a => Spec
-serDeserTest = identityTest @AsBinaryClass @a serDeserId
+serDeserTest = identityTest @a serDeserId
 
 showReadTest :: forall a. IdTestingRequiredClasses Read a => Spec
-showReadTest = identityTest @Read @a showReadId
+showReadTest = identityTest @a showReadId
+
+
+newtype CatchesCanonicalJsonParseErrors a = CatchesCanonicalJsonParseErrors
+    { unCatchesCanonicalJsonParseErrors :: Either Text a
+    } deriving (Functor, Applicative, Monad)
+
+-- In tests 'error' is fine.
+instance CanonicalJSON.ReportSchemaErrors CatchesCanonicalJsonParseErrors where
+    expected expctd got =
+        CatchesCanonicalJsonParseErrors $
+        Left $
+        toText $ "expected: " <> expctd <> ", got: " <> fromMaybe "<unknown>" got
+
+type ToAndFromCanonicalJson a
+     = ( CanonicalJSON.ToJSON Identity a
+       , CanonicalJSON.FromJSON CatchesCanonicalJsonParseErrors a
+       )
+
+canonicalJsonTest ::
+       forall a. (IdTestingRequiredClassesAlmost a, ToAndFromCanonicalJson a)
+    => Spec
+canonicalJsonTest =
+    identityTest @a $ \x ->
+        canonicalJsonRenderAndDecode x .&&. canonicalJsonPrettyAndDecode x
+  where
+    canonicalJsonRenderAndDecode x =
+        let encodedX =
+                CanonicalJSON.renderCanonicalJSON $
+                runIdentity $ CanonicalJSON.toJSON x
+        in canonicalJsonDecodeAndCompare x encodedX
+    canonicalJsonPrettyAndDecode x =
+        let encodedX =
+                encodeUtf8 $
+                CanonicalJSON.prettyCanonicalJSON $
+                runIdentity $ CanonicalJSON.toJSON x
+        in canonicalJsonDecodeAndCompare x encodedX
+    canonicalJsonDecodeAndCompare ::
+           CanonicalJSON.FromJSON CatchesCanonicalJsonParseErrors a
+        => a
+        -> LByteString
+        -> Property
+    canonicalJsonDecodeAndCompare x encodedX =
+        let decodedValue =
+                either (error . toText) identity $
+                CanonicalJSON.parseCanonicalJSON encodedX
+            decodedX =
+                either error identity $
+                unCatchesCanonicalJsonParseErrors $
+                CanonicalJSON.fromJSON decodedValue
+        in decodedX === x
 
 ----------------------------------------------------------------------------
 -- Message length
@@ -138,7 +192,7 @@ msgLenLimitedTest' limit desc whetherTest =
     -- correct limit on the spot, if needed.
     addDesc $
         modifyMaxSuccess (const 1) $
-            identityTest @Bi @a $ \_ -> findLargestCheck .&&. listsCheck
+            identityTest @a $ \_ -> findLargestCheck .&&. listsCheck
   where
     addDesc act = if null desc then act else describe desc act
 

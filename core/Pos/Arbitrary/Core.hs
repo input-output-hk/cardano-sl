@@ -43,8 +43,10 @@ import           Pos.Core.Context                  (HasCoreConstants, epochSlots
 import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
 import qualified Pos.Core.Slotting                 as Types
+import           Pos.Core.Types                    (BlockVersionData (..))
 import qualified Pos.Core.Types                    as Types
-import           Pos.Core.Vss                      (VssCertificate, mkVssCertificate)
+import           Pos.Core.Vss                      (VssCertificate, mkVssCertificate,
+                                                    mkVssCertificatesMap)
 import           Pos.Crypto                        (createPsk, toPublic)
 import           Pos.Data.Attributes               (Attributes (..), UnparsedFields (..))
 import           Pos.Util.Arbitrary                (nonrepeating)
@@ -516,6 +518,30 @@ instance Arbitrary G.BalanceDistribution where
       , G.CustomBalances <$> arbitrary
       ]
     shrink = genericShrink
+
+instance Arbitrary G.GenesisWStakeholders where
+    arbitrary = G.GenesisWStakeholders <$> arbitrary
+
+instance Arbitrary G.GenesisAvvmBalances where
+    arbitrary = G.GenesisAvvmBalances <$> arbitrary
+
+instance Arbitrary G.ProtocolConstants where
+    arbitrary =
+        G.ProtocolConstants <$> choose (1, 20000) <*> arbitrary <*> arbitrary <*>
+        arbitrary
+
+instance Arbitrary G.GenesisData where
+    arbitrary = G.GenesisData
+        <$> arbitrary <*> arbitrary <*> arbitrary
+        <*> arbitraryVssCerts <*> arbitrary <*> arbitraryBVD
+        <*> arbitrary <*> arbitrary <*> arbitrary
+      where
+        -- Unknown tx fee policy in genesis is not ok.
+        arbitraryBVD = arbitrary `suchThat` hasKnownFeePolicy
+        hasKnownFeePolicy BlockVersionData {bvdTxFeePolicy = Fee.TxFeePolicyTxSizeLinear {}} =
+            True
+        hasKnownFeePolicy _ = False
+        arbitraryVssCerts = mkVssCertificatesMap <$> arbitrary
 
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types

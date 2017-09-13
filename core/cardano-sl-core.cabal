@@ -59,6 +59,7 @@ library
                        Pos.Core.Vss
 
                        Pos.Core.Genesis
+                       Pos.Core.Genesis.Canonical
                        Pos.Core.Genesis.Parser
                        Pos.Core.Genesis.Types
 
@@ -129,6 +130,7 @@ library
                      , base58-bytestring
                      , binary
                      , bytestring
+                     , canonical-json
                      , cardano-crypto
                      , cborg
                      , cereal

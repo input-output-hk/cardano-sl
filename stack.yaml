@@ -93,6 +93,11 @@ packages:
     commit: 1869714a616b8092d8dc16af6e834e81f4c56bad
   extra-dep: true
 
+- location:
+    git: https://github.com/well-typed/canonical-json.git
+    commit: 2d261bb971bada1893753b503452d9e6e217bc4a
+  extra-dep: true
+
 nix:
   shell-file: shell.nix
 

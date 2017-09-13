@@ -1,10 +1,12 @@
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
-{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Types for using in purescript-bridge
 module Pos.Explorer.Web.ClientTypes
-       ( CHash (..)
+       ( ExplorerMockMode (..)
+       , prodMode
+       , CHash (..)
        , CAddress (..)
        , CTxId (..)
        , CBlockEntry (..)
@@ -48,39 +50,103 @@ import           Universum
 import           Control.Arrow              ((&&&))
 import           Control.Lens               (ix, _Left)
 import qualified Data.ByteArray             as BA
+import           Data.Default               (Default (..), def)
 import qualified Data.List.NonEmpty         as NE
 import           Data.Time.Clock.POSIX      (POSIXTime)
 import           Formatting                 (sformat)
 import           Pos.Binary                 (Bi, biSize)
-import           Pos.Block.Core             (MainBlock, mainBlockSlot, mainBlockTxPayload,
-                                             mcdSlot)
-import           Pos.Block.Types            (Undo (..))
+import           Pos.Block.Core             (Block, MainBlock, mainBlockSlot,
+                                             mainBlockTxPayload, mcdSlot)
+import           Pos.Block.Types            (Blund, Undo (..))
 import           Pos.Core                   (HasCoreConstants, timestampToPosix)
 import           Pos.Crypto                 (AbstractHash, Hash, HashAlgorithm, hash)
-import           Pos.DB.Block               (MonadBlockDB)
+
+import           Pos.DB                     (MonadRealDB)
+import           Pos.DB.Block               (MonadBlockDB, blkGetBlund)
 import           Pos.DB.Class               (MonadDBRead)
-import           Pos.DB.Rocks               (MonadRealDB)
-import           Pos.Explorer               (TxExtra (..))
+import           Pos.DB.DB                  (getTipBlock)
+
+import           Pos.Explorer               (Page, TxExtra (..), getPageBlocks)
 import qualified Pos.GState                 as GS
 import           Pos.Lrc                    (getLeaders)
 import           Pos.Merkle                 (getMerkleRoot, mtRoot)
-import           Pos.Slotting               (MonadSlots (..), getSlotStart)
+import           Pos.Slotting               (MonadSlots (..), MonadSlotsData,
+                                             getSlotStart)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Txp                    (Tx (..), TxId, TxOut (..), TxOutAux (..),
                                              TxUndo, txpTxs, _txOutputs)
-import           Pos.Types                  (Address, Coin, EpochIndex, LocalSlotIndex,
-                                             SlotId (..), StakeholderId, Timestamp,
-                                             addressF, coinToInteger, decodeTextAddress,
-                                             gbHeader, gbhConsensus, getEpochIndex,
-                                             getSlotIndex, headerHash, mkCoin, prevBlockL,
-                                             sumCoins, unsafeAddCoin, unsafeGetCoin,
-                                             unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Types                  (Address, Coin, EpochIndex, HeaderHash,
+                                             LocalSlotIndex, SlotId (..), StakeholderId,
+                                             Timestamp, addressF, coinToInteger,
+                                             decodeTextAddress, gbHeader, gbhConsensus,
+                                             getEpochIndex, getSlotIndex, headerHash,
+                                             mkCoin, prevBlockL, sumCoins, unsafeAddCoin,
+                                             unsafeGetCoin, unsafeIntegerToCoin,
+                                             unsafeSubCoin)
 import           Prelude                    ()
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Base16       as SB16
 import           Servant.API                (FromHttpApiData (..))
 
 
+-------------------------------------------------------------------------------------
+-- Explorer mock mode
+--
+-- The simple data structure that encapsulates functions that use CSL. We want to "cut"
+-- them out of the picture in order to be able to mock them.
+-------------------------------------------------------------------------------------
+
+-- TODO(KS): A reader `ReaderT (ExplorerMockMode m ssc) m a` would be convenient.
+-- | A simple data structure that holds all the foreign functions Explorer needs to call.
+-- `emm`.
+data ExplorerMockMode m ssc = ExplorerMockMode
+    { emmGetTipBlock
+          :: MonadBlockDB ssc m
+          => m (Block ssc)
+    , emmGetPageBlocks
+          :: MonadDBRead m
+          => Page
+          -> m (Maybe [HeaderHash])
+    , emmGetBlundFromHH
+          :: MonadBlockDB ssc m
+          => HeaderHash
+          -> m (Maybe (Blund ssc))
+    , emmGetSlotStart
+          :: forall ctx. MonadSlotsData ctx m
+          => SlotId
+          -> m (Maybe Timestamp)
+    , emmGetLeaderFromEpochSlot
+          :: (MonadBlockDB SscGodTossing m, MonadDBRead m)
+          => EpochIndex
+          -> LocalSlotIndex
+          -> m (Maybe StakeholderId)
+    }
+
+-- | This is what we use in production when we run Explorer.
+prodMode :: forall m. ExplorerMockMode m SscGodTossing
+prodMode = ExplorerMockMode {
+      emmGetTipBlock            = getTipBlock,
+      emmGetPageBlocks          = getPageBlocks,
+      emmGetBlundFromHH         = blkGetBlund,
+      emmGetSlotStart           = getSlotStart,
+      emmGetLeaderFromEpochSlot = getLeaderFromEpochSlot
+    }
+
+-- | So we can just reuse the default instance and change individial functions.
+-- On one side, it removes the compile error(s) for having all functions implemented.
+-- On the other side, it moves that error into runtime and enables simple mocking.
+-- This is a good thing once we have a larger amount of functions, like in _explorer_,
+-- and this gives us the flexibility to "mock" whichever we want.
+instance Default (ExplorerMockMode m SscGodTossing) where
+  def = ExplorerMockMode {
+        emmGetTipBlock            = errorImpl,
+        emmGetPageBlocks          = errorImpl,
+        emmGetBlundFromHH         = errorImpl,
+        emmGetSlotStart           = errorImpl,
+        emmGetLeaderFromEpochSlot = errorImpl
+      }
+    where
+      errorImpl = error "Cannot be used, please implement this function!"
 
 -------------------------------------------------------------------------------------
 -- Hash types
@@ -191,16 +257,20 @@ toBlockEntry
     :: forall ctx m .
     ( MonadBlockDB SscGodTossing m
     , MonadDBRead m
-    , MonadRealDB ctx m
     , MonadSlots ctx m
     , MonadThrow m
     , HasCoreConstants
     )
-    => (MainBlock SscGodTossing, Undo)
+    => ExplorerMockMode m SscGodTossing
+    -> (MainBlock SscGodTossing, Undo)
     -> m CBlockEntry
-toBlockEntry (blk, Undo{..}) = do
+toBlockEntry mode (blk, Undo{..}) = do
 
-    blkSlotStart      <- getSlotStart (blk ^. gbHeader . gbhConsensus . mcdSlot)
+    -- The CSL interface functions which can be mocked.
+    let getSlotStartE           = emmGetSlotStart mode
+    let getLeaderFromEpochSlotE = emmGetLeaderFromEpochSlot mode
+
+    blkSlotStart      <- getSlotStartE $ blk ^. gbHeader . gbhConsensus . mcdSlot
 
     -- Get the header slot, from which we can fetch epoch and slot index.
     let blkHeaderSlot = blk ^. mainBlockSlot
@@ -208,7 +278,7 @@ toBlockEntry (blk, Undo{..}) = do
         slotIndex     = siSlot  blkHeaderSlot
 
     -- Find the epoch and slot leader
-    epochSlotLeader   <- getLeaderFromEpochSlot epochIndex slotIndex
+    epochSlotLeader   <- getLeaderFromEpochSlotE epochIndex slotIndex
 
     -- Fill required fields for @CBlockEntry@
     let cbeEpoch      = getEpochIndex epochIndex
@@ -230,11 +300,12 @@ toBlockEntry (blk, Undo{..}) = do
 
     return CBlockEntry {..}
 
+
 -- | Get leader from epoch and slot in order to display them on the frontend.
 -- Returning @Maybe@ is the simplest implementation for now, since it's hard
 -- to forsee what is and what will the state of leaders be at any given moment.
 getLeaderFromEpochSlot
-    :: (MonadBlockDB SscGodTossing m, MonadDBRead m, MonadRealDB ctx m)
+    :: (MonadBlockDB SscGodTossing m, MonadDBRead m)
     => EpochIndex
     -> LocalSlotIndex
     -> m (Maybe StakeholderId)
@@ -247,6 +318,7 @@ getLeaderFromEpochSlot epochIndex slotIndex = do
     pure $ leadersMaybe >>= \leaders -> leaders ^? ix intSlotIndex
   where
     intSlotIndex = fromIntegral $ getSlotIndex slotIndex
+
 
 -- | List of tx entries is returned from "get latest N transactions" endpoint
 data CTxEntry = CTxEntry
@@ -287,10 +359,11 @@ toBlockSummary
     , MonadThrow m
     , HasCoreConstants
     )
-    => (MainBlock SscGodTossing, Undo)
+    => ExplorerMockMode m SscGodTossing
+    -> (MainBlock SscGodTossing, Undo)
     -> m CBlockSummary
-toBlockSummary blund@(blk, _) = do
-    cbsEntry <- toBlockEntry blund
+toBlockSummary mode blund@(blk, _) = do
+    cbsEntry    <- toBlockEntry mode blund
     cbsNextHash <- fmap toCHash <$> GS.resolveForwardLink blk
 
     let blockTxs      = blk ^. mainBlockTxPayload . txpTxs

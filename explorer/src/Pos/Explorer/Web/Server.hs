@@ -1,9 +1,11 @@
+{-# OPTIONS_GHC #-}
+
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeOperators       #-}
-{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE OverloadedStrings   #-}
 
 -- API server logic
 
@@ -20,6 +22,9 @@ module Pos.Explorer.Web.Server
 
        -- functions for unit testing
        , getBlocksTotalEMode
+       , getBlocksPagesTotalEMode
+       , getBlocksPageEMode
+       , getBlocksLastPageEMode
 
        -- api functions
        , getBlocksTotal
@@ -35,10 +40,12 @@ import           Universum
 
 import           Control.Lens                   (at)
 import           Control.Monad.Catch            (try)
+
 import qualified Data.ByteString                as BS
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.List.NonEmpty             as NE
 import           Data.Maybe                     (fromMaybe)
+
 import           Formatting                     (build, int, sformat, (%))
 import           Network.Wai                    (Application)
 import qualified Serokell.Util.Base64           as B64
@@ -49,10 +56,7 @@ import           System.Wlog                    (logDebug)
 import           Pos.Communication              (SendActions)
 import           Pos.Crypto                     (WithHash (..), hash, redeemPkBuild,
                                                  withHash)
-
-import qualified Pos.DB.Block                   as DB
-import qualified Pos.DB.DB                      as DB
-
+import           Pos.DB.Block                   (MonadBlockDB, blkGetBlund)
 import           Pos.Binary.Class               (biSize)
 import           Pos.Block.Core                 (Block, MainBlock, mainBlockSlot,
                                                  mainBlockTxPayload, mcdSlot)
@@ -81,8 +85,7 @@ import           Pos.Web                        (serveImplNoTLS)
 import           Pos.WorkMode                   (WorkMode)
 
 import           Pos.Explorer                   (TxExtra (..), getEpochBlocks,
-                                                 getLastTransactions, getPageBlocks,
-                                                 getTxExtra)
+                                                 getLastTransactions, getTxExtra)
 import qualified Pos.Explorer                   as EX (getAddrBalance, getAddrHistory,
                                                        getTxExtra)
 import           Pos.Explorer.Aeson.ClientTypes ()
@@ -93,14 +96,17 @@ import           Pos.Explorer.Web.ClientTypes   (Byte, CAddress (..),
                                                  CGenesisAddressInfo (..),
                                                  CGenesisSummary (..), CHash,
                                                  CTxBrief (..), CTxEntry (..), CTxId (..),
-                                                 CTxSummary (..), TxInternal (..),
-                                                 convertTxOutputs, convertTxOutputsMB,
-                                                 fromCAddress, fromCHash, fromCTxId,
-                                                 getEpochIndex, getSlotIndex, mkCCoin,
-                                                 mkCCoinMB, tiToTxEntry, toBlockEntry,
+                                                 CTxSummary (..), ExplorerMockMode (..),
+                                                 TxInternal (..), convertTxOutputs,
+                                                 convertTxOutputsMB, fromCAddress,
+                                                 fromCHash, fromCTxId, getEpochIndex,
+                                                 getSlotIndex, mkCCoin, mkCCoinMB,
+                                                 prodMode, tiToTxEntry, toBlockEntry,
                                                  toBlockSummary, toCAddress, toCHash,
                                                  toCTxId, toTxBrief)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
+
+
 
 
 ----------------------------------------------------------------
@@ -109,18 +115,6 @@ import           Pos.Explorer.Web.Error         (ExplorerError (..))
 type MainBlund ssc = (MainBlock ssc, Undo)
 
 type ExplorerMode ctx m = WorkMode SscGodTossing ctx m
-
--- TODO(KS): A reader `ReaderT (ExplorerMockMode m ssc) m a` would be convenient.
--- | A simple data structure that holds all the foreign functions Explorer needs to call.
-data ExplorerMockMode m ssc = ExplorerMockMode {
-        eGetTipBlock :: DB.MonadBlockDB ssc m => m (Block ssc)
-    }
-
--- | This is what we use in production when we run Explorer.
-prodMode :: forall m. ExplorerMockMode m SscGodTossing
-prodMode = ExplorerMockMode {
-      eGetTipBlock = DB.getTipBlock
-    }
 
 explorerServeImpl
     :: ExplorerMode ctx m
@@ -210,21 +204,22 @@ explorerHandlers _sendActions =
 -- Total number of main blocks   = difficulty of the topmost (tip) header.
 -- Total number of anchor blocks = current epoch + 1
 getBlocksTotal
-    :: forall m. (HasCoreConstants, DB.MonadBlockDB SscGodTossing m)
+    :: forall m. (HasCoreConstants, MonadBlockDB SscGodTossing m)
     => m Integer
 getBlocksTotal = getBlocksTotalEMode prodMode
 
+-- | getBlocksTotal configurable function.
 getBlocksTotalEMode
-    :: (HasCoreConstants,  DB.MonadBlockDB SscGodTossing m)
+    :: (HasCoreConstants,  MonadBlockDB SscGodTossing m)
     => ExplorerMockMode m SscGodTossing
     -> m Integer
 getBlocksTotalEMode mode = do
 
     -- Get the required function for getting the tip of the block from the mode.
-    let getTipBlock = eGetTipBlock mode
+    let getTipBlockE = emmGetTipBlock mode
 
     -- Get the tip block.
-    tipBlock <- getTipBlock
+    tipBlock <- getTipBlockE
 
     pure $ pureGetBlocksTotal tipBlock
 
@@ -236,14 +231,35 @@ pureGetBlocksTotal tipBlock = fromIntegral $ getChainDifficulty $ tipBlock ^. di
 -- client side and should enable a simple and thin client logic.
 -- Currently the pages are in chronological order.
 getBlocksPage
-    :: ExplorerMode ctx m
+    :: forall ctx m .
+    ( MonadBlockDB SscGodTossing m
+    , MonadDBRead m
+    , MonadSlots ctx m
+    , MonadThrow m
+    , HasCoreConstants
+    )
     => Maybe Word
     -> Word
     -> m (Integer, [CBlockEntry])
-getBlocksPage mPageNumber pageSize = do
+getBlocksPage mPageNumber pageSize = getBlocksPageEMode prodMode mPageNumber pageSize
+
+-- | getBlocksPage configurable function.
+getBlocksPageEMode
+    :: forall ctx m .
+    ( MonadBlockDB SscGodTossing m
+    , MonadDBRead m
+    , MonadSlots ctx m
+    , MonadThrow m
+    , HasCoreConstants
+    )
+    => ExplorerMockMode m SscGodTossing
+    -> Maybe Word
+    -> Word
+    -> m (Integer, [CBlockEntry])
+getBlocksPageEMode mode mPageNumber pageSize = do
 
     -- Get total pages from the blocks.
-    totalPages <- getBlocksPagesTotal pageSize
+    totalPages <- getBlocksPagesTotalEMode mode pageSize
 
     -- Initially set on the last page number if page number not defined.
     let pageNumber = fromMaybe totalPages $ toInteger <$> mPageNumber
@@ -265,42 +281,49 @@ getBlocksPage mPageNumber pageSize = do
     -- Get pages from the database
     -- TODO: Fix this Int / Integer thing once we merge repositories
     pageBlocksHH    <- getPageHHsOrThrow $ fromIntegral pageNumber
-    blunds          <- forM pageBlocksHH getBlundOrThrow
-    cBlocksEntry    <- forM (rights' blunds) toBlockEntry
+    blunds          <- forM pageBlocksHH $ getBlundOrThrow mode
+    cBlocksEntry    <- forM (blundToMainBlockUndo blunds) $ toBlockEntry mode
 
     -- Return total pages and the blocks. We start from page 1.
     pure (totalPages, reverse cBlocksEntry)
   where
-    rights' x = [(mb, u) | (Right mb, u) <- x]
+    blundToMainBlockUndo :: [Blund SscGodTossing] -> [(MainBlock SscGodTossing, Undo)]
+    blundToMainBlockUndo blund = [(mainBlock, undo) | (Right mainBlock, undo) <- blund]
 
     -- Either get the @HeaderHash@es from the @Page@ or throw an exception.
     getPageHHsOrThrow
-        :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
+        :: (MonadBlockDB SscGodTossing m, MonadThrow m)
         => Int
         -> m [HeaderHash]
-    getPageHHsOrThrow pageNumber = getPageBlocks pageNumber >>=
-        maybeThrow (Internal errMsg)
+    getPageHHsOrThrow pageNumber = do
+        -- First let's retrive the @getPageBlocks@ function.
+        let getPageBlocksE = emmGetPageBlocks mode
+
+        -- Then let's fetch blocks for a specific page from it and raise exception if not
+        -- found.
+        getPageBlocksE pageNumber >>= maybeThrow (Internal errMsg)
       where
         errMsg :: Text
         errMsg = sformat ("No blocks on page "%build%" found!") pageNumber
 
--- Either get the block from the @HeaderHash@ or throw an exception.
-getBlundOrThrow
-    :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
-    => HeaderHash
-    -> m (Blund SscGodTossing)
-getBlundOrThrow headerHash = DB.blkGetBlund headerHash >>=
-    maybeThrow (Internal "Blund with hash cannot be found!")
-
 -- | Get total pages from blocks. Calculated from
 -- pageSize we pass to it.
 getBlocksPagesTotal
-    :: (HasCoreConstants,  DB.MonadBlockDB SscGodTossing m)
+    :: (HasCoreConstants,  MonadBlockDB SscGodTossing m)
     => Word
     -> m Integer
-getBlocksPagesTotal pageSize = do
-    -- Get total blocks in the blockchain.
-    blocksTotal <- toInteger <$> getBlocksTotal
+getBlocksPagesTotal pageSize = getBlocksPagesTotalEMode prodMode pageSize
+
+-- | getBlocksPagesTotal configurable function.
+getBlocksPagesTotalEMode
+    :: (HasCoreConstants,  MonadBlockDB SscGodTossing m)
+    => ExplorerMockMode m SscGodTossing
+    -> Word
+    -> m Integer
+getBlocksPagesTotalEMode mode pageSize = do
+
+    -- Get total blocks in the blockchain. Get the blocks total using this mode.
+    blocksTotal <- toInteger <$> getBlocksTotalEMode mode
 
     -- Make sure the parameters are valid.
     when (blocksTotal < 1) $
@@ -310,7 +333,10 @@ getBlocksPagesTotal pageSize = do
         throwM $ Internal "Page size must be greater than 1 if you want to display blocks."
 
     -- We start from page 1.
-    pure $ pureGetBlocksPagesTotal blocksTotal pageSizeInt
+    let pagesTotal = pureGetBlocksPagesTotal blocksTotal pageSizeInt
+
+    pure pagesTotal
+
   where
     pageSizeInt     = toInteger pageSize
 
@@ -331,13 +357,32 @@ pureGetBlocksPagesTotal blocksTotal pageSizeInt = divRoundUp blocksTotal pageSiz
 -- | Get the last page from the blockchain. We use the default 10
 -- for the page size since this is called from __explorer only__.
 getBlocksLastPage
-    :: ExplorerMode ctx m
+    :: forall ctx m .
+    ( MonadBlockDB SscGodTossing m
+    , MonadDBRead m
+    , MonadSlots ctx m
+    , MonadThrow m
+    , HasCoreConstants
+    )
     => m (Integer, [CBlockEntry])
-getBlocksLastPage = getBlocksPage Nothing pageSize
+getBlocksLastPage = getBlocksLastPageEMode prodMode
+
+-- | getBlocksLastPage configurable function.
+getBlocksLastPageEMode
+    :: forall ctx m .
+    ( MonadBlockDB SscGodTossing m
+    , MonadDBRead m
+    , MonadSlots ctx m
+    , MonadThrow m
+    , HasCoreConstants
+    )
+    => ExplorerMockMode m SscGodTossing
+    -> m (Integer, [CBlockEntry])
+getBlocksLastPageEMode mode =
+    getBlocksPageEMode mode Nothing pageSize
   where
     pageSize :: Word
     pageSize = 10
-
 
 -- | Get last transactions from the blockchain.
 getLastTxs
@@ -379,11 +424,17 @@ getBlockSummary
     :: ExplorerMode ctx m
     => CHash
     -> m CBlockSummary
-getBlockSummary cHash = do
-    h <- unwrapOrThrow $ fromCHash cHash
-    mainBlund <- getMainBlund h
-    toBlockSummary mainBlund
+getBlockSummary cHash = getBlockSummaryEMode prodMode cHash
 
+getBlockSummaryEMode
+    :: ExplorerMode ctx m
+    => ExplorerMockMode m SscGodTossing
+    -> CHash
+    -> m CBlockSummary
+getBlockSummaryEMode mode cHash = do
+    headerHash <- unwrapOrThrow $ fromCHash cHash
+    mainBlund  <- getMainBlund headerHash
+    toBlockSummary mode mainBlund
 
 -- | Get transactions from a block.
 getBlockTxs
@@ -626,8 +677,10 @@ epochSlotSearch epochIndex slotIndex = do
     -- Get pages from the database
     -- TODO: Fix this Int / Integer thing once we merge repositories
     epochBlocksHH   <- getPageHHsOrThrow epochIndex
-    blunds          <- forM epochBlocksHH getBlundOrThrow
-    cBlocksEntry    <- forM (getEpochSlots slotIndex (rights' blunds)) toBlockEntry
+    -- TODO (ks): Extract mode for testing.
+    blunds          <- forM epochBlocksHH $ getBlundOrThrow prodMode
+    -- TODO (ks): Extract mode for testing.
+    cBlocksEntry    <- forM (getEpochSlots slotIndex (rights' blunds)) $ toBlockEntry prodMode
 
     pure cBlocksEntry
   where
@@ -653,11 +706,10 @@ epochSlotSearch epochIndex slotIndex = do
 
     -- Either get the @HeaderHash@es from the @Epoch@ or throw an exception.
     getPageHHsOrThrow
-        :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
+        :: (MonadBlockDB SscGodTossing m, MonadThrow m)
         => EpochIndex
         -> m [HeaderHash]
-    getPageHHsOrThrow epoch = getEpochBlocks epoch >>=
-        maybeThrow (Internal errMsg)
+    getPageHHsOrThrow epoch = getEpochBlocks epoch >>= maybeThrow (Internal errMsg)
       where
         errMsg :: Text
         errMsg = sformat ("No blocks on epoch "%build%" found!") epoch
@@ -756,6 +808,22 @@ topsortTxsOrFail f =
     maybeThrow (Internal "Dependency loop in txs set") .
     topsortTxs f
 
+-- Either get the block from the @HeaderHash@ or throw an exception.
+getBlundOrThrow
+    :: forall m. (MonadBlockDB SscGodTossing m, MonadThrow m)
+    => ExplorerMockMode m SscGodTossing
+    -> HeaderHash
+    -> m (Blund SscGodTossing)
+getBlundOrThrow mode headerHash =
+    blkGetBlundE headerHash >>= maybeThrow (Internal "Blund with hash cannot be found!")
+  where
+    -- A function from mode.
+    blkGetBlundE
+        :: MonadBlockDB SscGodTossing m
+        => HeaderHash
+        -> m (Maybe (Blund SscGodTossing))
+    blkGetBlundE = emmGetBlundFromHH mode
+
 -- | Deserialize Cardano or RSCoin address and convert it to Cardano address.
 -- Throw exception on failure.
 cAddrToAddr :: MonadThrow m => CAddress -> m Address
@@ -790,7 +858,7 @@ cTxIdToTxId cTxId = either exception pure (fromCTxId cTxId)
 
 getMainBlund :: ExplorerMode ctx m => HeaderHash -> m (MainBlund SscGodTossing)
 getMainBlund h = do
-    (blk, undo) <- DB.blkGetBlund h >>= maybeThrow (Internal "No block found")
+    (blk, undo) <- blkGetBlund h >>= maybeThrow (Internal "No block found")
     either (const $ throwM $ Internal "Block is genesis block") (pure . (,undo)) blk
 
 getMainBlock :: ExplorerMode ctx m => HeaderHash -> m (MainBlock SscGodTossing)

@@ -1,39 +1,54 @@
 -- | This module is testing the server api.
 
-{-# LANGUAGE TypeFamilies               #-}
+{-# LANGUAGE TypeFamilies #-}
 
 module Test.Pos.Explorer.Web.ServerSpec
        ( spec
        ) where
 
 import           Universum
+import qualified Prelude
 
-import           Data.Default               (def)
-import           Serokell.Data.Memory.Units (Byte, Gigabyte, convertUnit)
-import           Test.Hspec                 (Spec, describe, shouldBe)
-import           Test.Hspec.QuickCheck      (modifyMaxSuccess, prop)
-import           Test.QuickCheck            (Property, Testable, arbitrary,
-                                             counterexample, forAll, property, (==>))
-import           Test.QuickCheck.Monadic    (run, monadicIO, assert)
+import           Data.Default                      (def)
+import           Data.Text.Buildable               (build)
+import           Serokell.Data.Memory.Units        (Byte, Gigabyte, convertUnit)
+import           Test.Hspec                        (Spec, describe, shouldBe)
+import           Test.Hspec.QuickCheck             (modifyMaxSuccess, prop)
+import           Test.QuickCheck                   (Arbitrary, Property, Testable,
+                                                    arbitrary, counterexample, forAll,
+                                                    property, (==>))
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary)
+import           Test.QuickCheck.Monadic           (assert, monadicIO, run)
 
-import           Test.Pos.Block.Logic.Mode  (BlockTestMode, runBlockTestMode)
+import           Test.Pos.Block.Logic.Mode         (BlockTestMode, runBlockTestMode)
 
-import           Pos.Arbitrary.Block        ()
-import           Pos.Block.Core             (Block, BlockHeader, MainBlock)
-import           Pos.Block.Logic            (RawPayload (..), createMainBlockPure)
-import qualified Pos.Communication          ()
-import           Pos.Core                   (HasCoreConstants, SlotId (..),
-                                             giveStaticConsts)
-import           Pos.Crypto                 (SecretKey)
-import           Pos.Delegation             (DlgPayload, ProxySKBlockInfo)
-import           Pos.Explorer.Web.Server    (ExplorerMockMode (..),
-                                             getBlocksTotal, getBlocksTotalEMode,
-                                             pureGetBlocksPagesTotal, pureGetBlocksTotal)
-import           Pos.Ssc.Class              (Ssc (..), sscDefaultPayload)
-import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing)
-import           Pos.Txp.Core               (TxAux)
-import           Pos.Update.Core            (UpdatePayload (..))
+import           Pos.Arbitrary.Block               ()
+import           Pos.Block.Core                    (Block, BlockHeader, MainBlock)
+import           Pos.Block.Logic                   (RawPayload (..), createMainBlockPure)
+import           Pos.Block.Types                   (SlogUndo, Undo)
+import qualified Pos.Communication                 ()
+import           Pos.Core                          (HasCoreConstants, SlotId (..),
+                                                    giveStaticConsts)
+import           Pos.Crypto                        (SecretKey)
+import           Pos.DB.Block                      (MonadBlockDB)
+import           Pos.Delegation                    (DlgPayload, DlgUndo, ProxySKBlockInfo)
+import           Pos.Explorer.Web.ClientTypes      (CBlockEntry)
+import           Pos.Explorer.Web.Server           (ExplorerMockMode (..),
+                                                    getBlocksLastPageEMode,
+                                                    getBlocksPageEMode,
+                                                    getBlocksPagesTotalEMode,
+                                                    getBlocksTotal, getBlocksTotalEMode,
+                                                    pureGetBlocksPagesTotal,
+                                                    pureGetBlocksTotal)
+import           Pos.Ssc.Class                     (Ssc (..), sscDefaultPayload)
+import           Pos.Ssc.GodTossing                (GtPayload (..), SscGodTossing)
+import           Pos.Txp.Core                      (TxAux)
+import           Pos.Update.Core                   (UpdatePayload (..))
 
+
+----------------------------------------------------------------
+-- Spec
+----------------------------------------------------------------
 
 -- stack test cardano-sl-explorer --fast --test-arguments "-m Test.Pos.Explorer.Web.ServerSpec"
 spec :: Spec
@@ -42,6 +57,10 @@ spec = do
     blocksPagesPureTotalSpec
 
     blocksTotalUnitSpec
+    blocksPagesTotalUnitSpec
+    blocksPageUnitSpec
+    blocksLastPageUnitSpec
+
     blocksTotalFunctionalSpec
 
 -- | A spec with the following test invariant. If a block is generated, there is no way
@@ -81,11 +100,18 @@ blocksTotalUnitSpec = giveStaticConsts
         prop "created blocks means block size > 0" $
             forAll arbitrary $ \(testParams, prevHeader, sk, slotId) ->
                 monadicIO $ do
+
+                  -- The created arbitrary block.
+                  let testBlock :: MonadBlockDB SscGodTossing m => m (Block SscGodTossing)
+                      testBlock = pure $ basicBlockGenericUnsafe prevHeader sk slotId
+
+                  -- The default @ExplorerMockMode@ instance that has no implementation.
+                  let defaultInstance :: ExplorerMockMode BlockTestMode SscGodTossing
+                      defaultInstance = def
+
                   -- We replace the "real" database with our custom data.
                   let mode :: ExplorerMockMode BlockTestMode SscGodTossing
-                      mode = ExplorerMockMode {
-                          eGetTipBlock = pure $ basicBlockGenericUnsafe prevHeader sk slotId
-                      }
+                      mode = defaultInstance { emmGetTipBlock = testBlock }
 
                   -- We run the function in @BlockTestMode@ so we don't need to define
                   -- a million instances.
@@ -95,6 +121,118 @@ blocksTotalUnitSpec = giveStaticConsts
                   -- We finally run it as @PropertyM@ and check if it holds.
                   blocksTotal <- run blockExecution
                   assert $ blocksTotal > 0
+
+-- | A spec with the following test invariant. If a block is generated, there is no way
+-- that blocks pages could be < 1.
+blocksPagesTotalUnitSpec :: Spec
+blocksPagesTotalUnitSpec = giveStaticConsts
+    $ describe "getBlocksPagesTotal"
+    $ modifyMaxSuccess (const 200) $ do
+        prop "block pages = 1" $
+            forAll arbitrary $ \(testParams, prevHeader, sk, slotId) ->
+                monadicIO $ do
+
+                  -- The created arbitrary block.
+                  let testBlock :: MonadBlockDB SscGodTossing m => m (Block SscGodTossing)
+                      testBlock = pure $ basicBlockGenericUnsafe prevHeader sk slotId
+
+                  -- The default @ExplorerMockMode@ instance that has no implementation.
+                  let defaultInstance :: ExplorerMockMode BlockTestMode SscGodTossing
+                      defaultInstance = def
+
+                  -- We replace the "real" database with our custom data.
+                  let mode :: ExplorerMockMode BlockTestMode SscGodTossing
+                      mode = defaultInstance { emmGetTipBlock = testBlock }
+
+                  -- We run the function in @BlockTestMode@ so we don't need to define
+                  -- a million instances.
+                  let blockExecution :: IO Integer
+                      blockExecution = runBlockTestMode testParams $ getBlocksPagesTotalEMode mode 10
+
+                  -- We finally run it as @PropertyM@ and check if it holds.
+                  blocksTotal <- run blockExecution
+                  assert $ blocksTotal > 0
+
+-- | A spec with the following test invariant. If a block is generated, there is no way
+-- that the client block is not. Also, we can check for specific properties on the
+-- client block and they should be relational as to the block.
+blocksPageUnitSpec :: Spec
+blocksPageUnitSpec = giveStaticConsts
+    $ describe "getBlocksPage"
+    $ modifyMaxSuccess (const 200) $ do
+        prop "count(block) > 0" $
+            forAll arbitrary $ \(testParams, prevHeader, sk, slotId) ->
+            forAll arbitrary $ \(timestamp, blund, leader, hh) ->
+                monadicIO $ do
+
+                  -- The created arbitrary block.
+                  let testBlock :: MonadBlockDB SscGodTossing m => m (Block SscGodTossing)
+                      testBlock = pure $ basicBlockGenericUnsafe prevHeader sk slotId
+
+                  -- The default @ExplorerMockMode@ instance that has no implementation.
+                  let defaultInstance :: ExplorerMockMode BlockTestMode SscGodTossing
+                      defaultInstance = def
+
+                  -- We replace the "real" functions with our custom functions.
+                  let mode :: ExplorerMockMode BlockTestMode SscGodTossing
+                      mode = defaultInstance {
+                          emmGetTipBlock            = testBlock,
+                          emmGetPageBlocks          = \_   -> pure $ Just hh,
+                          emmGetBlundFromHH         = \_   -> pure $ Just blund,
+                          emmGetSlotStart           = \_   -> pure $ Just timestamp,
+                          emmGetLeaderFromEpochSlot = \_ _ -> pure $ Just leader
+                      }
+
+                  -- We run the function in @BlockTestMode@ so we don't need to define
+                  -- a million instances.
+                  let blockExecution :: IO (Integer, [CBlockEntry])
+                      blockExecution =
+                          runBlockTestMode testParams $ getBlocksPageEMode mode Nothing 10
+
+                  -- We finally run it as @PropertyM@ and check if it holds.
+                  blocksTotal <- fst <$> run blockExecution
+                  assert $ blocksTotal > 0
+
+-- | A spec with the following test invariant. If a block is generated, there is no way
+-- that the client block is not. Also, we can check for specific properties on the
+-- client block and they should be relational as to the block.
+blocksLastPageUnitSpec :: Spec
+blocksLastPageUnitSpec = giveStaticConsts
+    $ describe "getBlocksLastPage"
+    $ modifyMaxSuccess (const 200) $ do
+        prop "count(block) > 0" $
+            forAll arbitrary $ \(testParams, prevHeader, sk, slotId) ->
+            forAll arbitrary $ \(timestamp, blund, leader, hh) ->
+                monadicIO $ do
+
+                  -- The created arbitrary block.
+                  let testBlock :: MonadBlockDB SscGodTossing m => m (Block SscGodTossing)
+                      testBlock = pure $ basicBlockGenericUnsafe prevHeader sk slotId
+
+                  -- The default @ExplorerMockMode@ instance that has no implementation.
+                  let defaultInstance :: ExplorerMockMode BlockTestMode SscGodTossing
+                      defaultInstance = def
+
+                  -- We replace the "real" functions with our custom functions.
+                  let mode :: ExplorerMockMode BlockTestMode SscGodTossing
+                      mode = defaultInstance {
+                          emmGetTipBlock            = testBlock,
+                          emmGetPageBlocks          = \_   -> pure $ Just hh,
+                          emmGetBlundFromHH         = \_   -> pure $ Just blund,
+                          emmGetSlotStart           = \_   -> pure $ Just timestamp,
+                          emmGetLeaderFromEpochSlot = \_ _ -> pure $ Just leader
+                      }
+
+                  -- We run the function in @BlockTestMode@ so we don't need to define
+                  -- a million instances.
+                  let blockExecution :: IO (Integer, [CBlockEntry])
+                      blockExecution =
+                          runBlockTestMode testParams $ getBlocksLastPageEMode mode
+
+                  -- We finally run it as @PropertyM@ and check if it holds.
+                  blocksTotal <- fst <$> run blockExecution
+                  assert $ blocksTotal > 0
+
 
 -- | A spec with the following test invariant. If a block is generated, there is no way
 -- that blocksTotal could be less than 0.
@@ -115,6 +253,29 @@ blocksTotalFunctionalSpec = giveStaticConsts
                   -- We finally run it as @PropertyM@ and check if it holds.
                   blocksTotal <- run blockExecution
                   assert $ blocksTotal >= 0
+
+----------------------------------------------------------------
+-- Arbitrary and Show instances
+----------------------------------------------------------------
+
+-- I used the build function since I suspect that it's safe (even in tests).
+instance HasCoreConstants => Prelude.Show SlogUndo where
+    show = show . build
+
+instance Prelude.Show DlgUndo where
+    show = show . build
+
+instance HasCoreConstants => Prelude.Show Undo where
+    show = show . build
+
+instance Arbitrary SlogUndo where
+    arbitrary = genericArbitrary
+
+instance Arbitrary DlgUndo where
+    arbitrary = genericArbitrary
+
+instance HasCoreConstants => Arbitrary Undo where
+    arbitrary = genericArbitrary
 
 ----------------------------------------------------------------
 -- Utility

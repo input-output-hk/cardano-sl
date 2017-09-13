@@ -24,6 +24,7 @@ import           Test.Hspec.QuickCheck        (modifyMaxSuccess, prop)
 import           Test.QuickCheck              (Arbitrary, Gen, Property, arbitrary,
                                                forAll, (===))
 
+
 ----------------------------------------------------------------------------
 -- Utility functions
 ----------------------------------------------------------------------------

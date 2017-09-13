@@ -13,13 +13,13 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:      Pos.Explorer.Socket
-                        Pos.Explorer.Web
+  exposed-modules:      Pos.Explorer.Web
                         Pos.Explorer.Web.Api
                         Pos.Explorer.Web.ClientTypes
                         Pos.Explorer.Web.Error
                         Pos.Explorer.Web.TestServer
                         Pos.Explorer.Web.Server
+                        Pos.Explorer.Socket
 
   other-modules:        Pos.Explorer.Aeson.ClientTypes
 
@@ -38,6 +38,7 @@ library
                       , either
                       , ether >= 0.5.1
                       , exceptions
+                      , data-default
                       , formatting
                       , lens
                       , log-warper

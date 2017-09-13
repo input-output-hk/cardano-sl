@@ -5,13 +5,12 @@ module Pos.Binary.Core.Genesis () where
 import           Universum
 
 import           Pos.Binary.Class        (Bi (..), decodeListLen, encodeListLen,
-                                          enforceSize, matchSize)
+                                          matchSize)
 import           Pos.Binary.Core.Address ()
 import           Pos.Binary.Core.Types   ()
 import           Pos.Core.Address        ()
-import           Pos.Core.Genesis.Types  (BalanceDistribution (..), GenesisCoreData (..),
-                                          GenesisDelegation, GenesisWStakeholders (..),
-                                          mkGenesisCoreData, mkGenesisDelegation,
+import           Pos.Core.Genesis.Types  (BalanceDistribution (..), GenesisDelegation,
+                                          GenesisWStakeholders (..), mkGenesisDelegation,
                                           unGenesisDelegation)
 import           Pos.Util.Util           (eitherToFail)
 
@@ -54,15 +53,3 @@ instance Bi GenesisWStakeholders where
 instance Bi GenesisDelegation where
     encode (unGenesisDelegation -> m) = encode (toList m)
     decode = eitherToFail . mkGenesisDelegation =<< decode
-
-instance Bi GenesisCoreData where
-    encode (UnsafeGenesisCoreData addr stakes delega) =
-        encode (addr, stakes, delega)
-    decode = do
-        enforceSize "GenesisCoreData" 3
-        addrDistribution <- decode
-        bootstrapStakeholders <- decode
-        delega <- decode
-        case mkGenesisCoreData addrDistribution bootstrapStakeholders delega of
-            Left e  -> fail $ "Couldn't construct genesis data: " <> e
-            Right x -> pure x

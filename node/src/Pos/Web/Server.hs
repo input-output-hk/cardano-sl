@@ -21,6 +21,7 @@ import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Except                 (MonadError (throwError))
 import qualified Control.Monad.Reader                 as Mtl
 import           Mockable                             (Production (runProduction))
+import qualified Network.Broadcast.OutboundQueue      as OQ
 import           Network.Wai                          (Application, Middleware)
 import           Network.Wai.Handler.Warp             (defaultSettings, runSettings,
                                                        setHost, setPort)
@@ -29,7 +30,8 @@ import           Network.Wai.Handler.WarpTLS          (TLSSettings, runTLS,
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import           Servant.API                          ((:<|>) ((:<|>)), FromHttpApiData)
 import           Servant.Server                       (Handler, ServantErr (errBody),
-                                                       Server, ServerT, err404, serve)
+                                                       Server, ServerT, err404, err503,
+                                                       serve)
 import           Servant.Utils.Enter                  ((:~>) (NT), enter)
 
 import           Pos.Aeson.Types                      ()
@@ -41,12 +43,15 @@ import           Pos.Core                             (EpochIndex (..), SlotLead
 import qualified Pos.DB                               as DB
 import qualified Pos.GState                           as GS
 import qualified Pos.Lrc.DB                           as LrcDB
+import           Pos.Network.Types                    (Bucket (BucketSubscriptionListener),
+                                                       Topology, topologyMaxBucketSize)
 import           Pos.Ssc.Class                        (SscConstraint)
 import           Pos.Ssc.GodTossing                   (SscGodTossing, gtcParticipateSsc)
 import           Pos.Txp                              (TxOut (..), toaOut)
 import           Pos.Txp.MemState                     (GenericTxpLocalData, askTxpMem,
                                                        getLocalTxs)
 import           Pos.Web.Mode                         (WebMode, WebModeContext (..))
+import           Pos.WorkMode                         (OQ)
 import           Pos.WorkMode.Class                   (TxpExtra_TMP, WorkMode)
 
 import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
@@ -74,9 +79,9 @@ applicationBase = do
     server <- servantServerBase
     return $ serve baseNodeApi server
 
-healthCheckApplication :: MyWorkMode ssc ctx m => m Application
-healthCheckApplication = do
-    server <- servantServerHealthCheck
+healthCheckApplication :: MyWorkMode ssc ctx m => Topology t -> OQ m -> m Application
+healthCheckApplication topology oq = do
+    server <- servantServerHealthCheck topology oq
     return $ serve healthCheckApi server
 
 serveWebGT :: MyWorkMode SscGodTossing ctx m => Word16 -> Maybe TlsParams -> m ()
@@ -145,8 +150,8 @@ nat = do
 servantServerBase :: forall ssc ctx m . MyWorkMode ssc ctx m => m (Server (BaseNodeApi ssc))
 servantServerBase = flip enter baseServantHandlers <$> (nat @ssc @ctx @m)
 
-servantServerHealthCheck :: forall ssc ctx m . MyWorkMode ssc ctx m => m (Server HealthCheckApi)
-servantServerHealthCheck = flip enter healthCheckServantHandlers <$> (nat @ssc @ctx @m)
+servantServerHealthCheck :: forall ssc ctx t m . MyWorkMode ssc ctx m => Topology t -> OQ m -> m (Server HealthCheckApi)
+servantServerHealthCheck topology oq = flip enter (healthCheckServantHandlers topology oq) <$> (nat @ssc @ctx @m)
 
 servantServerGT :: forall ctx m . MyWorkMode SscGodTossing ctx m => m (Server GtNodeApi)
 servantServerGT = flip enter (baseServantHandlers :<|> gtServantHandlers) <$>
@@ -186,12 +191,23 @@ getLocalTxsNum = fromIntegral . length <$> getLocalTxs
 -- HealthCheck handlers
 ----------------------------------------------------------------------------
 
-healthCheckServantHandlers :: ServerT HealthCheckApi (WebMode ssc)
-healthCheckServantHandlers =
-    getHealthCheck
+healthCheckServantHandlers :: Topology t -> OQ m -> ServerT HealthCheckApi (WebMode ssc)
+healthCheckServantHandlers topology oq =
+    getHealthCheck topology oq
 
-getHealthCheck :: ServerT HealthCheckApi (WebMode ssc)
-getHealthCheck = return "test"
+getHealthCheck :: Topology t -> OQ m -> ServerT HealthCheckApi (WebMode ssc)
+getHealthCheck (topologyMaxBucketSize -> getSize) oq = do
+    let maxCapacityTxt = case getSize BucketSubscriptionListener of
+                             OQ.BucketSizeUnlimited -> "unlimited"
+                             (OQ.BucketSizeMax x)   -> fromString (show x)
+    -- If the node doesn't have any more subscription slots available,
+    -- mark the node as "unhealthy" by returning a 503 "Service Unavailable".
+    spareCapacity <- OQ.bucketSpareCapacity oq BucketSubscriptionListener
+    case spareCapacity of
+        OQ.UnlimitedCapacity          ->
+            return maxCapacityTxt -- yields "unlimited" as it means the `BucketMaxSize` was unlimited.
+        OQ.SpareCapacity sc | sc == 0 -> throwM $ err503 { errBody = encodeUtf8 ("0/" <> maxCapacityTxt) }
+        OQ.SpareCapacity sc           -> return $ show sc <> "/" <> maxCapacityTxt -- yields 200/OK
 
 ----------------------------------------------------------------------------
 -- GodTossing handlers

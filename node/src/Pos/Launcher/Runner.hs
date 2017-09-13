@@ -26,6 +26,7 @@ import           Mockable                        (Mockable, MonadMockable,
                                                   Production (..), Throw, async, bracket,
                                                   cancel, killThread, throw)
 import qualified Network.Broadcast.OutboundQueue as OQ
+import qualified Network.Transport.TCP           as TCP
 import           Node                            (Node, NodeAction (..), NodeEndPoint,
                                                   ReceiveDelay, Statistics,
                                                   defaultNodeEnvironment, noReceiveDelay,
@@ -113,7 +114,7 @@ runRealModeDo NodeResources {..} outSpecs action =
                     (const noReceiveDelay)
                     (allListeners oq ncTopology)
                     outSpecs
-                    (startMonitoring oq)
+                    (startMonitoring ncTopology oq)
                     stopMonitoring
                     oq
                     action
@@ -125,9 +126,12 @@ runRealModeDo NodeResources {..} outSpecs action =
 
     -- Expose the health-check endpoint for DNS load-balancing
     -- and optionally other services as EKG & statsd.
-    startMonitoring oq node' = do
+    startMonitoring topology oq node' = do
         -- Expose the health-check
-        serveImpl healthCheckApplication "0.0.0.0" 8888 Nothing
+        let listeningPort = case ncTcpAddr of
+                TCP.Unaddressable                             -> ncDefaultPort
+                TCP.Addressable (TCP.tcpBindPort -> bindPort) -> fromMaybe ncDefaultPort (readMaybe bindPort)
+        healthCheck <- async (serveImpl (healthCheckApplication topology oq) "127.0.0.1" (listeningPort + 30) Nothing)
         -- Run the optional tools.
         case npEnableMetrics of
             False -> return Nothing
@@ -150,12 +154,13 @@ runRealModeDo NodeResources {..} outSpecs action =
                                 , Monitoring.suffix = statsdSuffix
                                 }
                         liftIO $ Monitoring.forkStatsd statsdOptions nrEkgStore
-                return (mEkgServer, mStatsdServer)
+                return (mEkgServer, mStatsdServer, healthCheck)
 
     stopMonitoring Nothing = return ()
-    stopMonitoring (Just (mEkg, mStatsd)) = do
+    stopMonitoring (Just (mEkg, mStatsd, healthCheckAsync)) = do
         whenJust mStatsd (killThread . Monitoring.statsdThreadId)
         whenJust mEkg stopMonitor
+        cancel healthCheckAsync
 
     runToProd :: forall t .
                  JsonLogConfig

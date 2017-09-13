@@ -24,6 +24,7 @@ nodes:
     kademlia: false
     addr: 127.0.0.1
     port: 3004
+    maxSubscrs: 1
   node5:
     type: relay
     region: undefined
@@ -33,3 +34,4 @@ nodes:
     kademlia: false
     addr: 127.0.0.1
     port: 3005
+    maxSubscrs: 10

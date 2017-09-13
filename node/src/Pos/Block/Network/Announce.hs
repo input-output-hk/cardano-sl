@@ -91,12 +91,12 @@ handleHeadersCommunication conv = do
             Right _ -> pure tipHeader
     handleSuccess h = do
         send conv (MsgHeaders h)
-        onSuccess
-        handleHeadersCommunication conv
-    onSuccess =
         logDebug "handleGetHeaders: responded successfully"
-    onRecovery =
+        handleHeadersCommunication conv
+    onNoHeaders reason = do
+        let err = "getheadersFromManyTo returned Nothing, reason: " <> reason
+        logDebug err
+        send conv (MsgNoHeaders err)
+    onRecovery = do
         logDebug "handleGetHeaders: not responding, we're in recovery mode"
-    onNoHeaders reason =
-        logDebug $ "getheadersFromManyTo returned Nothing, " <>
-                   "not replying to node, reason: " <> reason
+        send conv (MsgNoHeaders "server node is in recovery mode")

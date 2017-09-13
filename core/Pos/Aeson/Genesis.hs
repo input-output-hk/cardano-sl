@@ -6,21 +6,21 @@ module Pos.Aeson.Genesis
 
 import           Universum
 
-import qualified Data.Text               as T
-import qualified Data.ByteString         as BS
-import           Data.Aeson.TH          (defaultOptions, deriveFromJSON)
 import           Data.Aeson             (FromJSON (..), withObject, (.:))
-import qualified Serokell.Util.Base64    as B64
+import           Data.Aeson.TH          (defaultOptions, deriveFromJSON)
+import qualified Data.ByteString        as BS
+import qualified Data.Text              as T
+import qualified Serokell.Util.Base64   as B64
 
-import           Pos.Aeson.Crypto ()
-import           Pos.Aeson.Core   ()
-import           Pos.Core.Types         (EpochIndex)
-import           Pos.Crypto             (RedeemPublicKey, redeemPkBuild, ProxySecretKey)
-import           Pos.Core.Genesis.Types (GenesisSpec, GenesisAvvmBalances,
-                                         AvvmEntry (..), AvvmData, GenesisDelegation,
-                                         convertAvvmDataToBalances, ProtocolConstants,
-                                         GenesisInitializer, TestnetBalanceOptions, FakeAvvmOptions,
-                                         TestnetDistribution, GenesisWStakeholders)
+import           Pos.Aeson.Core         ()
+import           Pos.Aeson.Crypto       ()
+import           Pos.Core.Genesis.Types (AvvmData, AvvmEntry (..), FakeAvvmOptions,
+                                         GenesisAvvmBalances, GenesisDelegation,
+                                         GenesisInitializer, GenesisSpec,
+                                         GenesisWStakeholders, ProtocolConstants,
+                                         TestnetBalanceOptions, TestnetDistribution,
+                                         convertAvvmDataToBalances)
+import           Pos.Crypto             (RedeemPublicKey, redeemPkBuild)
 -- | Read the text into a redeeming public key.
 --
 -- There's also a copy of this function in cardano-addr-convert.
@@ -44,8 +44,6 @@ instance FromJSON AvvmEntry where
         return AvvmEntry{..}
 
 instance FromJSON AvvmData
-
-instance FromJSON (ProxySecretKey EpochIndex)
 
 instance FromJSON GenesisAvvmBalances where
     parseJSON v = convertAvvmDataToBalances <$> parseJSON v

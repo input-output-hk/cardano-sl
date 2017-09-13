@@ -126,10 +126,10 @@ shortPublicKeyHexF :: Format r (PublicKey -> r)
 shortPublicKeyHexF = fitLeft 8 %. fullPublicKeyHexF
 
 -- | Parse 'PublicKey' from base64 encoded string.
-parseFullPublicKey :: Text -> Maybe PublicKey
+parseFullPublicKey :: Text -> Either Text PublicKey
 parseFullPublicKey s = do
-    b <- rightToMaybe $ Base64.decode s
-    PublicKey <$> rightToMaybe (CC.xpub b)
+    b <- Base64.decode s
+    PublicKey <$> first fromString (CC.xpub b)
 
 emptyPass :: ScrubbedBytes
 emptyPass = mempty
@@ -172,10 +172,10 @@ fullSignatureHexF = later $ \(Signature x) ->
     B16.formatBase16 . CC.unXSignature $ x
 
 -- | Parse 'Signature' from base16 encoded string.
-parseFullSignature :: Text -> Maybe (Signature a)
+parseFullSignature :: Text -> Either Text (Signature a)
 parseFullSignature s = do
-    b <- rightToMaybe $ B16.decode s
-    Signature <$> rightToMaybe (CC.xsignature b)
+    b <- B16.decode s
+    Signature <$> first fromString (CC.xsignature b)
 
 -- | Encode something with 'Binary' and sign it.
 sign
@@ -245,10 +245,10 @@ fullProxyCertHexF = later $ \(ProxyCert x) ->
     B16.formatBase16 . CC.unXSignature $ x
 
 -- | Parse 'ProxyCert' from base16 encoded string.
-parseFullProxyCert :: Text -> Maybe (ProxyCert a)
+parseFullProxyCert :: Text -> Either Text (ProxyCert a)
 parseFullProxyCert s = do
-    b <- rightToMaybe $ B16.decode s
-    ProxyCert <$> rightToMaybe (CC.xsignature b)
+    b <- B16.decode s
+    ProxyCert <$> first fromString (CC.xsignature b)
 
 -- | Convenient wrapper for secret key, that's basically ω plus
 -- certificate.

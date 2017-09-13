@@ -70,7 +70,7 @@ import           Pos.Core                   (BlockVersion, BlockVersionData (..)
                                              CoinPortion, EpochIndex, FlatSlotId,
                                              IsGenesisHeader, IsMainHeader, ScriptVersion,
                                              SoftforkRule, SoftwareVersion, TxFeePolicy,
-                                             addressHash)
+                                             addressHash, HasConfiguration)
 import           Pos.Crypto                 (Hash, PublicKey, SafeSigner,
                                              SignTag (SignUSProposal), Signature,
                                              checkSig, hash, safeSign, safeToPublic,
@@ -190,7 +190,7 @@ data UpdateProposal = UnsafeUpdateProposal
 instance Hashable UpdateProposal
 
 mkUpdateProposal
-    :: (MonadFail m, Bi UpdateProposalToSign)
+    :: (HasConfiguration, MonadFail m, Bi UpdateProposalToSign)
     => BlockVersion
     -> BlockVersionModifier
     -> SoftwareVersion
@@ -221,7 +221,7 @@ mkUpdateProposal
         pure UnsafeUpdateProposal{..}
 
 mkUpdateProposalWSign
-    :: (MonadFail m, Bi UpdateProposalToSign)
+    :: (HasConfiguration, MonadFail m, Bi UpdateProposalToSign)
     => BlockVersion
     -> BlockVersionModifier
     -> SoftwareVersion

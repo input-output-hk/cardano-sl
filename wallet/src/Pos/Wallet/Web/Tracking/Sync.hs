@@ -51,16 +51,15 @@ import           Pos.Block.Core                   (BlockHeader, getBlockHeader,
                                                    mainBlockTxPayload)
 import           Pos.Block.Types                  (Blund, undoTx)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
-import           Pos.Constants                    (genesisHash)
 import           Pos.Context                      (GenesisUtxo (..), genesisUtxoM)
 import           Pos.Core                         (Address (..), BlockHeaderStub,
-                                                   ChainDifficulty, HasCoreConstants,
+                                                   ChainDifficulty, HasConfiguration,
                                                    HasDifficulty (..), HeaderHash,
                                                    Timestamp, aaPkDerivationPath,
                                                    addrAttributesUnwrapped,
                                                    blkSecurityParam, headerHash,
                                                    headerSlotL, makeRootPubKeyAddress,
-                                                   timestampToPosix)
+                                                   timestampToPosix, genesisHash)
 import           Pos.Crypto                       (EncryptedSecretKey, HDPassphrase,
                                                    WithHash (..), deriveHDPassphrase,
                                                    encToPublic, hash, shortHashF,
@@ -118,7 +117,7 @@ type WalletTrackingEnv ext ctx m =
      , WS.MonadWalletWebDB ctx m
      , MonadSlotsData ctx m
      , WithLogger m
-     , HasCoreConstants
+     , HasConfiguration
      )
 
 syncWalletOnImport :: WalletTrackingEnv ext ctx m => EncryptedSecretKey -> m ()
@@ -159,7 +158,7 @@ syncWalletsWithGState
     , BlockLockMode ssc ctx m
     , HasLens GenesisUtxo ctx GenesisUtxo
     , MonadSlotsData ctx m
-    , HasCoreConstants
+    , HasConfiguration
     )
     => [EncryptedSecretKey] -> m ()
 syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) $ do
@@ -217,7 +216,7 @@ syncWalletWithGStateUnsafe
     , WithLogger m
     , HasLens GenesisUtxo ctx GenesisUtxo
     , MonadSlotsData ctx m
-    , HasCoreConstants
+    , HasConfiguration
     )
     => EncryptedSecretKey      -- ^ Secret key for decoding our addresses
     -> Maybe (BlockHeader ssc) -- ^ Block header corresponding to wallet's tip.
@@ -317,7 +316,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
 -- Addresses are used in TxIn's will be deleted,
 -- in TxOut's will be added.
 trackingApplyTxs
-    :: forall ssc . (HasCoreConstants, SscHelpersClass ssc)
+    :: forall ssc . (HasConfiguration, SscHelpersClass ssc)
     => EncryptedSecretKey                          -- ^ Wallet's secret key
     -> [CWAddressMeta]                             -- ^ All addresses in wallet
     -> (BlockHeader ssc -> Maybe ChainDifficulty)  -- ^ Function to determine tx chain difficulty
@@ -379,7 +378,7 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs getPtxBlkInf
 -- Process transactions on block rollback.
 -- Like @trackingApplyTx@, but vise versa.
 trackingRollbackTxs
-    :: forall ssc . (HasCoreConstants, SscHelpersClass ssc)
+    :: forall ssc . (HasConfiguration, SscHelpersClass ssc)
     => EncryptedSecretKey -- ^ Wallet's secret key
     -> [CWAddressMeta] -- ^ All adresses
     -> (BlockHeader ssc -> Maybe ChainDifficulty)  -- ^ Function to determine tx chain difficulty

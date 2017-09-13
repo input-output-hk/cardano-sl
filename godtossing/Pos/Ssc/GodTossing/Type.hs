@@ -11,7 +11,7 @@ import           Universum
 
 import           Pos.Binary.Core                    ()
 import           Pos.Binary.GodTossing              ()
-import           Pos.Core                           (HasCoreConstants)
+import           Pos.Core                           (HasConfiguration)
 import           Pos.Ssc.Class.Helpers              (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types                (Ssc (..))
 import           Pos.Ssc.GodTossing.Core            (GtPayload, GtProof, defaultGtPayload,
@@ -31,7 +31,7 @@ data SscGodTossing
 deriving instance Show SscGodTossing
 deriving instance Eq SscGodTossing
 
-instance Ssc SscGodTossing where
+instance (HasConfiguration) => Ssc SscGodTossing where
     type SscLocalData   SscGodTossing = GtLocalData
     type SscPayload     SscGodTossing = GtPayload
     type SscGlobalState SscGodTossing = GtGlobalState
@@ -43,7 +43,7 @@ instance Ssc SscGodTossing where
     mkSscProof = Tagged mkGtProof
     sscCreateNodeContext = Tagged createGtContext
 
-instance HasCoreConstants => SscHelpersClass SscGodTossing where
+instance (HasConfiguration) => SscHelpersClass SscGodTossing where
     sscVerifyPayload = sanityChecksGtPayload
     sscStripPayload = stripGtPayload
     sscDefaultPayload = defaultGtPayload

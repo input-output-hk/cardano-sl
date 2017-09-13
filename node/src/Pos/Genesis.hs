@@ -36,13 +36,14 @@ import           Serokell.Util       (mapJson)
 import           Pos.AllSecrets      (InvAddrSpendingData (unInvAddrSpendingData))
 import qualified Pos.Constants       as Const
 import           Pos.Core            (AddrSpendingData (PubKeyASD), Address (..), Coin,
-                                      GeneratedGenesisData (..), HasCoreConstants,
+                                      GeneratedGenesisData (..), HasConfiguration,
                                       SlotLeaders, StakeholderId, addressHash,
                                       coinToInteger, generatedGenesisData,
-                                      makeRedeemAddress, safeExpBalances)
+                                      makeRedeemAddress, safeExpBalances,
+                                      genesisAvvmBalances, sharedSeed,
+                                      genesisDelegation)
 import           Pos.Crypto          (unsafeHash)
 import           Pos.Lrc.FtsPure     (followTheSatoshiUtxo)
-import           Pos.Lrc.Genesis     (genesisSeed)
 import           Pos.Txp.Core        (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil        (GenesisUtxo (..))
 import           Pos.Util.Util       (HasLens (..))
@@ -83,10 +84,10 @@ instance HasLens GenesisDelegation GenesisContext GenesisDelegation where
 
 -- | Generates 'GenesisUtxo' given address distributions (which also
 -- include stake distributions as parts of addresses).
-genesisUtxo :: [AddrDistribution] -> GenesisUtxo
+genesisUtxo :: HasConfiguration => [AddrDistribution] -> GenesisUtxo
 genesisUtxo ad = GenesisUtxo . Map.fromList $ map utxoEntry balances
   where
-    balances :: [(Address, Coin)]
+    balances :: HasConfiguration => [(Address, Coin)]
     balances = concatAddrDistrs ad
     utxoEntry (addr, coin) =
         ( TxInUtxo (unsafeHash addr) 0
@@ -100,7 +101,7 @@ genesisUtxo ad = GenesisUtxo . Map.fromList $ map utxoEntry balances
 -- It uses empty genesis delegation, because non-empty one is useful
 -- only in production and for production we have
 -- 'genesisContextProduction'.
-genesisContextImplicit :: InvAddrSpendingData -> [AddrDistribution] -> GenesisContext
+genesisContextImplicit :: HasConfiguration => InvAddrSpendingData -> [AddrDistribution] -> GenesisContext
 genesisContextImplicit _ [] = error "genesisContextImplicit: empty list passed"
 genesisContextImplicit invAddrSpendingData addrDistr =
     GenesisContext utxo genStakeholders noGenesisDelegation
@@ -121,7 +122,7 @@ genesisContextImplicit invAddrSpendingData addrDistr =
     utxo = genesisUtxo addrDistr
 
 -- | Generate weighted stakeholders using passed address distribution.
-generateWStakeholders :: InvAddrSpendingData -> AddrDistribution -> GenesisWStakeholders
+generateWStakeholders :: HasConfiguration => InvAddrSpendingData -> AddrDistribution -> GenesisWStakeholders
 generateWStakeholders iasd@(unInvAddrSpendingData -> addrToSpending) (addrs,stakeDistr) =
     case stakeDistr of
         FlatBalances _ _    ->
@@ -169,27 +170,28 @@ assignWeights (unInvAddrSpendingData -> addrToSpending) withCoins =
             _ -> identity
 
 -- | Compute leaders of the 0-th epoch from stake distribution.
-genesisLeaders :: HasCoreConstants => GenesisContext -> SlotLeaders
+genesisLeaders :: HasConfiguration => GenesisContext -> SlotLeaders
 genesisLeaders GenesisContext { _gtcUtxo = (GenesisUtxo utxo)
                               , _gtcWStakeholders = gws
-                              } = followTheSatoshiUtxo gws genesisSeed utxo
+                              } = followTheSatoshiUtxo gws sharedSeed utxo
 
 ----------------------------------------------------------------------------
 -- Production mode genesis
 ----------------------------------------------------------------------------
 
 -- | 'GenesisContext' that uses all the data for prod.
-genesisContext :: GenesisContext
-genesisContext = do
+genesisContext :: HasConfiguration => GenesisContext
+genesisContext =
     let GeneratedGenesisData{..} = generatedGenesisData
-    let addrCoins = HM.toList (getGenesisAvvmBalances genesisAvvmBalances)
-    let avvmAddrDistr =
+        -- 
+        addrCoins = HM.toList (getGenesisAvvmBalances genesisAvvmBalances)
+        avvmAddrDistr =
             ( map (makeRedeemAddress . fst) addrCoins
             , CustomBalances (map snd addrCoins))
-    let genesisDistr = avvmAddrDistr : ggdNonAvvmDistr
-    let genesisUtxoProduction = genesisUtxo genesisDistr
-    GenesisContext
-        { _gtcUtxo = genesisUtxoProduction
-        , _gtcWStakeholders = ggdBootStakeholders
-        , _gtcDelegation = genesisDelegation
-        }
+        genesisDistr = avvmAddrDistr : ggdNonAvvmDistr
+        genesisUtxoProduction = genesisUtxo genesisDistr
+    in  GenesisContext
+            { _gtcUtxo = genesisUtxoProduction
+            , _gtcWStakeholders = ggdBootStakeholders
+            , _gtcDelegation = genesisDelegation
+            }

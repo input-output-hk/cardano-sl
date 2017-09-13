@@ -14,7 +14,7 @@ import           Control.Monad.Catch    (MonadMask)
 import qualified Database.RocksDB       as Rocks
 import           System.Wlog            (WithLogger)
 
-import           Pos.Core               (GenesisWStakeholders, HasCoreConstants,
+import           Pos.Core               (GenesisWStakeholders, HasConfiguration,
                                          HeaderHash)
 import           Pos.DB.Class           (MonadDB, MonadDBRead)
 import           Pos.DB.GState.Stakes   (getRealTotalStake)
@@ -26,6 +26,7 @@ import           Pos.Delegation.DB      (initGStateDlg)
 import           Pos.Genesis            (GenesisContext, gtcDelegation, gtcUtxo,
                                          gtcWStakeholders)
 import           Pos.GState.BlockExtra  (initGStateBlockExtra)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Ssc.GodTossing.DB  (initGtDB)
 import           Pos.Txp.DB             (initGStateStakes, initGStateUtxo,
                                          sanityCheckStakes, sanityCheckUtxo)
@@ -42,7 +43,8 @@ prepareGStateDB ::
        ( MonadReader ctx m
        , HasLens' ctx GenesisContext
        , MonadDB m
-       , HasCoreConstants)
+       , HasConfiguration
+       , HasGtConfiguration)
     => HeaderHash
     -> m ()
 prepareGStateDB initialTip = unlessM isInitialized $ do

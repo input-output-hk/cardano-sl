@@ -56,12 +56,11 @@ import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              EnqueueMsg, MsgType (..), NodeId, OutSpecs,
                                              convH, toOutSpecs, waitForConversations)
-import qualified Pos.Constants              as Constants
 import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHeaderTag,
                                              recoveryCommGuard, recoveryInProgress)
-import           Pos.Core                   (HasCoreConstants, HasHeaderHash (..),
-                                             HeaderHash, gbHeader, headerHashG,
-                                             isMoreDifficult, prevBlockL)
+import           Pos.Core                   (HasConfiguration, HasHeaderHash (..),
+                                             HeaderHash, criticalForkThreshold, gbHeader,
+                                             headerHashG, isMoreDifficult, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.DB.Block               (blkGetHeader)
 import qualified Pos.DB.DB                  as DB
@@ -231,7 +230,7 @@ data MatchReqHeadersRes
     deriving (Show)
 
 matchRequestedHeaders
-    :: (SscHelpersClass ssc, HasCoreConstants)
+    :: (SscHelpersClass ssc, HasConfiguration)
     => NewestFirst NE (BlockHeader ssc) -> MsgGetHeaders -> Bool -> MatchReqHeadersRes
 matchRequestedHeaders headers mgh@MsgGetHeaders {..} inRecovery =
     let newTip = headers ^. _Wrapped . _neHead

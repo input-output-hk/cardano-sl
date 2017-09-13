@@ -28,6 +28,7 @@ import           System.Random                     (Random)
 import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, oneof,
                                                     scale, shrinkIntegral, sized,
                                                     suchThat)
+
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Test.QuickCheck.Instances         ()
 
@@ -38,8 +39,8 @@ import           Pos.Binary.Core                   ()
 import           Pos.Binary.Crypto                 ()
 import           Pos.Core.Address                  (makeAddress)
 import           Pos.Core.Coin                     (coinToInteger, divCoin, unsafeSubCoin)
+import           Pos.Core.Configuration.Protocol (HasProtocolConstants, epochSlots)
 import           Pos.Core.Constants                (sharedSeedLength)
-import           Pos.Core.Context                  (HasCoreConstants, epochSlots)
 import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
 import qualified Pos.Core.Slotting                 as Types
@@ -100,17 +101,17 @@ instance Arbitrary Types.EpochIndex where
     arbitrary = choose (0, maxReasonableEpoch)
     shrink = genericShrink
 
-instance HasCoreConstants => Arbitrary Types.LocalSlotIndex where
+instance HasProtocolConstants => Arbitrary Types.LocalSlotIndex where
     arbitrary =
         leftToPanic "arbitrary@LocalSlotIndex: " . Types.mkLocalSlotIndex <$>
         choose (Types.getSlotIndex minBound, Types.getSlotIndex maxBound)
     shrink = genericShrink
 
-instance HasCoreConstants => Arbitrary Types.SlotId where
+instance HasProtocolConstants => Arbitrary Types.SlotId where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasCoreConstants => Arbitrary Types.EpochOrSlot where
+instance HasProtocolConstants => Arbitrary Types.EpochOrSlot where
     arbitrary = oneof [
           Types.EpochOrSlot . Left <$> arbitrary
         , Types.EpochOrSlot . Right <$> arbitrary
@@ -123,7 +124,7 @@ newtype EoSToIntOverflow = EoSToIntOverflow
     { getEoS :: Types.EpochOrSlot
     } deriving (Show, Eq, Generic)
 
-instance HasCoreConstants => Arbitrary EoSToIntOverflow where
+instance HasProtocolConstants => Arbitrary EoSToIntOverflow where
     arbitrary = EoSToIntOverflow <$> do
         let maxIntAsInteger = toInteger (maxBound :: Int)
             maxW64 = toInteger (maxBound :: Word64)
@@ -150,7 +151,7 @@ newtype UnreasonableEoS = Unreasonable
     { getUnreasonable :: Types.EpochOrSlot
     } deriving (Show, Eq, Generic)
 
-instance HasCoreConstants => Arbitrary UnreasonableEoS where
+instance HasProtocolConstants => Arbitrary UnreasonableEoS where
     arbitrary = Unreasonable . Types.EpochOrSlot <$> do
         let maxI = (maxBound :: Int) `div` (1 + fromIntegral epochSlots)
         localSlot <- arbitrary
@@ -491,7 +492,7 @@ instance Arbitrary Fee.TxFeePolicy where
 -- Arbitrary types from 'Pos.Core.Genesis'
 ----------------------------------------------------------------------------
 
-instance Arbitrary G.GenesisDelegation where
+instance HasProtocolConstants => Arbitrary G.GenesisDelegation where
     arbitrary =
         leftToPanic "arbitrary@GenesisDelegation" . G.mkGenesisDelegation <$> do
             secretKeys <- sized (nonrepeating . min 10) -- we generate at most tens keys,
@@ -525,12 +526,15 @@ instance Arbitrary G.GenesisWStakeholders where
 instance Arbitrary G.GenesisAvvmBalances where
     arbitrary = G.GenesisAvvmBalances <$> arbitrary
 
+instance Arbitrary G.GenesisNonAvvmBalances where
+    arbitrary = G.GenesisNonAvvmBalances <$> arbitrary
+
 instance Arbitrary G.ProtocolConstants where
     arbitrary =
         G.ProtocolConstants <$> choose (1, 20000) <*> arbitrary <*> arbitrary <*>
         arbitrary
 
-instance Arbitrary G.GenesisData where
+instance HasProtocolConstants => Arbitrary G.GenesisData where
     arbitrary = G.GenesisData
         <$> arbitrary <*> arbitrary <*> arbitrary
         <*> arbitraryVssCerts <*> arbitrary <*> arbitraryBVD
@@ -567,6 +571,6 @@ deriving instance Arbitrary TinyVarInt
 -- GodTossing
 ----------------------------------------------------------------------------
 
-instance Arbitrary VssCertificate where
+instance HasProtocolConstants => Arbitrary VssCertificate where
     arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary <*> arbitrary
     -- The 'shrink' method wasn't implement to avoid breaking the datatype's invariant.

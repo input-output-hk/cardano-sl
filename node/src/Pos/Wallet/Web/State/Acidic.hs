@@ -76,7 +76,7 @@ import           Serokell.AcidState           (ExtendedState, closeExtendedState
                                                openMemoryExtendedState, queryExtended,
                                                tidyExtendedState, updateExtended)
 
-import           Pos.Core.Context             (HasCoreConstants)
+import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 import           Pos.Wallet.Web.State.Storage as WS
 
@@ -92,10 +92,10 @@ update
     => WalletState -> event -> m (EventResult event)
 update = updateExtended
 
-openState :: (MonadIO m, HasCoreConstants) => Bool -> FilePath -> m WalletState
+openState :: (MonadIO m, HasConfiguration) => Bool -> FilePath -> m WalletState
 openState deleteIfExists fp = openLocalExtendedState deleteIfExists fp def
 
-openMemState :: (MonadIO m, HasCoreConstants) => m WalletState
+openMemState :: (MonadIO m, HasConfiguration) => m WalletState
 openMemState = openMemoryExtendedState def
 
 closeState :: MonadIO m => WalletState -> m ()

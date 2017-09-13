@@ -26,7 +26,7 @@ import           Data.Time.Units     (Microsecond, fromMicroseconds)
 
 import           Pos.Block.Core      (GenesisBlock, mkGenesisBlock)
 import           Pos.Context.Context (StartTime (..))
-import           Pos.Core            (GenesisWStakeholders, HasCoreConstants, SlotLeaders,
+import           Pos.Core            (GenesisWStakeholders, HasConfiguration, SlotLeaders,
                                       StakesMap)
 import           Pos.Genesis         (GenesisContext (..), GenesisUtxo (..),
                                       genesisLeaders)
@@ -59,7 +59,7 @@ genesisLeadersM ::
        ( Functor m
        , MonadReader ctx m
        , HasLens' ctx GenesisContext
-       , HasCoreConstants
+       , HasConfiguration
        )
     => m SlotLeaders
 genesisLeadersM =
@@ -68,7 +68,7 @@ genesisLeadersM =
 genesisBlock0M ::
     forall ssc ctx m. ( Functor m, MonadReader ctx m
                       , HasLens' ctx GenesisContext
-                      , HasCoreConstants, SscHelpersClass ssc)
+                      , HasConfiguration, SscHelpersClass ssc)
     => m (GenesisBlock ssc)
 genesisBlock0M = mkGenesisBlock @ssc Nothing 0 <$> genesisLeadersM
 

@@ -44,7 +44,7 @@ import           System.Wlog                  (WithLogger, logError)
 import           Pos.Binary.Core              ()
 import           Pos.Core                     (Address, Coin, GenesisWStakeholders, coinF,
                                                mkCoin, sumCoins, unsafeAddCoin,
-                                               unsafeIntegerToCoin)
+                                               unsafeIntegerToCoin, HasConfiguration)
 import           Pos.DB                       (DBError (..), DBIteratorClass (..),
                                                DBTag (GStateDB), IterType, MonadDB,
                                                MonadDBRead, RocksBatchOp (..),
@@ -78,7 +78,7 @@ instance Buildable UtxoOp where
         bprint ("AddTxOut ("%build%", "%build%")")
         txIn txOutAux
 
-instance RocksBatchOp UtxoOp where
+instance HasConfiguration => RocksBatchOp UtxoOp where
     toBatchOp (AddTxOut txIn txOut) =
         [Rocks.Put (txInKey txIn) (dbSerializeValue txOut)]
     toBatchOp (DelTxIn txIn) = [Rocks.Del $ txInKey txIn]

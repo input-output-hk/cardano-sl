@@ -8,4 +8,3 @@ module Pos.Aeson
 
 import           Pos.Aeson.Crypto        ()
 import           Pos.Aeson.Types         ()
-import           Pos.Aeson.CompileConfig ()

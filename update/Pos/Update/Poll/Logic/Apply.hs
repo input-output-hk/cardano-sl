@@ -24,7 +24,7 @@ import           Pos.Core                      (ChainDifficulty (..), Coin, Epoc
                                                 epochIndexL, flattenSlotId, headerHashG,
                                                 headerSlotL, sumCoins, unflattenSlotId,
                                                 unsafeIntegerToCoin)
-import           Pos.Core.Context              (HasCoreConstants, blkSecurityParam)
+import           Pos.Core.Configuration        (HasConfiguration, blkSecurityParam)
 import           Pos.Crypto                    (hash, shortHashF)
 import           Pos.Data.Attributes           (areAttributesKnown)
 import           Pos.Update.Core               (BlockVersionData (..), UpId,
@@ -48,7 +48,7 @@ import           Pos.Util.Util                 (Some (..))
 type ApplyMode m =
     ( MonadError PollVerFailure m
     , MonadPoll m
-    , HasCoreConstants)
+    , HasConfiguration)
 
 -- | Verify UpdatePayload with respect to data provided by
 -- MonadPoll. If data is valid it is also applied.  Otherwise
@@ -149,7 +149,7 @@ resolveVoteStake epoch totalStake UpdateVote {..} = do
 -- If all checks pass, proposal is added. It can be in undecided or decided
 -- state (if it has enough voted stake at once).
 verifyAndApplyProposal
-    :: (MonadError PollVerFailure m, MonadPoll m)
+    :: (HasConfiguration, MonadError PollVerFailure m, MonadPoll m)
     => Bool
     -> Either SlotId (Some IsMainHeader)
     -> [UpdateVote]
@@ -279,7 +279,7 @@ verifyAndApplyVoteDo cd ups v@UpdateVote {..} = do
 -- If proposal's total positive stake is bigger than negative, it's
 -- approved. Otherwise it's rejected.
 applyImplicitAgreement
-    :: (HasCoreConstants, MonadPoll m)
+    :: (HasConfiguration, MonadPoll m)
     => SlotId -> ChainDifficulty -> HeaderHash -> m ()
 applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
     BlockVersionData {..} <- getAdoptedBVData

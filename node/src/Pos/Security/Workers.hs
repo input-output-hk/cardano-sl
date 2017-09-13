@@ -16,12 +16,12 @@ import           Pos.Block.Logic            (needRecovery)
 import           Pos.Block.Network          (requestTipOuts, triggerRecovery)
 import           Pos.Communication.Protocol (OutSpecs, SendActions (..), WorkerSpec,
                                              worker)
-import           Pos.Constants              (genesisHash, mdNoBlocksSlotThreshold)
+import           Pos.Configuration          (HasNodeConfiguration, mdNoBlocksSlotThreshold)
 import           Pos.Context                (getOurPublicKey, getUptime,
                                              recoveryCommGuard)
-import           Pos.Core                   (HasCoreConstants, SlotId (..),
-                                             flattenEpochOrSlot, flattenSlotId,
+import           Pos.Core                   (SlotId (..), flattenEpochOrSlot, flattenSlotId,
                                              headerHash, headerLeaderKeyL, prevBlockL)
+import           Pos.Core.Configuration     (HasConfiguration, genesisHash)
 import           Pos.Crypto                 (PublicKey)
 import           Pos.DB                     (DBError (DBMalformed))
 import           Pos.DB.Block               (MonadBlockDB, blkGetHeader)
@@ -44,7 +44,7 @@ checkForReceivedBlocksWorker =
     worker requestTipOuts checkForReceivedBlocksWorkerImpl
 
 checkEclipsed
-    :: (MonadBlockDB ssc m, HasCoreConstants)
+    :: (MonadBlockDB ssc m, HasConfiguration, HasNodeConfiguration)
     => PublicKey -> SlotId -> BlockHeader ssc -> m Bool
 checkEclipsed ourPk slotId x = notEclipsed x
   where

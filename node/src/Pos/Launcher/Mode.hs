@@ -31,7 +31,7 @@ import           Mockable.Production   (Production)
 
 import           Pos.Block.Core        (Block, BlockHeader)
 import           Pos.Block.Types       (Undo)
-import           Pos.Core              (HasCoreConstants, IsHeader, Timestamp)
+import           Pos.Core              (HasConfiguration, IsHeader, Timestamp)
 import           Pos.DB                (NodeDBs)
 import           Pos.DB.Block          (dbGetBlockDefault, dbGetBlockSscDefault,
                                         dbGetHeaderDefault, dbGetHeaderSscDefault,
@@ -44,6 +44,7 @@ import           Pos.DB.Rocks          (dbDeleteDefault, dbGetDefault,
                                         dbIterSourceDefault, dbPutDefault,
                                         dbWriteBatchDefault)
 import           Pos.Genesis           (GenesisContext, GenesisUtxo, GenesisWStakeholders)
+import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Lrc.Context       (LrcContext)
 import           Pos.Slotting          (HasSlottingVar (..), SlottingData)
 import           Pos.Slotting.Class    (MonadSlots (..))
@@ -96,36 +97,36 @@ instance HasSlottingVar (InitModeContext ssc) where
     slottingTimestamp = imcSlottingVar_L . _1
     slottingVar = imcSlottingVar_L . _2
 
-instance MonadDBRead (InitMode ssc) where
+instance HasConfiguration => MonadDBRead (InitMode ssc) where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
 
-instance MonadDB (InitMode ssc) where
+instance HasConfiguration => MonadDB (InitMode ssc) where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
 
 instance
-    (HasCoreConstants, SscHelpersClass ssc) =>
+    (HasConfiguration, SscHelpersClass ssc) =>
     MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (InitMode ssc)
   where
     dbGetBlock  = dbGetBlockDefault @ssc
     dbGetUndo   = dbGetUndoDefault @ssc
     dbGetHeader = dbGetHeaderDefault @ssc
 
-instance (HasCoreConstants, SscHelpersClass ssc) =>
+instance (HasConfiguration, SscHelpersClass ssc) =>
          MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo (InitMode ssc) where
     dbPutBlund = dbPutBlundDefault
 
 instance
-    (HasCoreConstants, SscHelpersClass ssc) =>
+    (HasConfiguration, SscHelpersClass ssc) =>
     MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (InitMode ssc)
   where
     dbGetBlock  = dbGetBlockSscDefault @ssc
     dbGetUndo   = dbGetUndoSscDefault @ssc
     dbGetHeader = dbGetHeaderSscDefault @ssc
 
-instance (HasCoreConstants, MonadSlotsData ctx (InitMode ssc)) =>
+instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx (InitMode ssc)) =>
          MonadSlots ctx (InitMode ssc)
   where
     getCurrentSlot           = getCurrentSlotSum

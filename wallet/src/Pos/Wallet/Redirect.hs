@@ -25,7 +25,7 @@ import           System.Wlog               (WithLogger)
 
 import           Pos.Block.Core            (BlockHeader)
 import qualified Pos.Context               as PC
-import           Pos.Core                  (ChainDifficulty, HasCoreConstants,
+import           Pos.Core                  (ChainDifficulty, HasConfiguration,
                                             difficultyL, flattenEpochOrSlot,
                                             flattenSlotId, slotSecurityParam)
 import           Pos.DB                    (MonadRealDB)
@@ -56,7 +56,7 @@ type BlockchainInfoEnv ssc ctx m =
     , MonadIO m
     , MonadRealDB ctx m
     , MonadSlots ctx m
-    , HasCoreConstants
+    , HasConfiguration
     )
 
 networkChainDifficultyWebWallet

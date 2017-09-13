@@ -19,6 +19,7 @@ import qualified Data.List.NonEmpty      as NE
 import           Formatting              (build, sformat, (%))
 import           Universum
 
+import           Pos.Core.Configuration  (HasConfiguration)
 import           Pos.Core.Class          (epochIndexL)
 import           Pos.DB                  (MonadDBRead, SomeBatchOp (..))
 import           Pos.Exception           (assertionFailed)
@@ -99,7 +100,8 @@ rollbackBlocks blunds =
 ----------------------------------------------------------------------------
 
 -- | Convert 'GenericToilModifier' to batch of database operations.
-genericToilModifierToBatch :: (e -> SomeBatchOp)
+genericToilModifierToBatch :: HasConfiguration
+                           => (e -> SomeBatchOp)
                            -> GenericToilModifier e
                            -> SomeBatchOp
 genericToilModifierToBatch convertExtra modifier =
@@ -121,7 +123,7 @@ genericToilModifierToBatch convertExtra modifier =
     extraOp = convertExtra extra
 
 -- | Convert simple 'ToilModifier' to batch of database operations.
-toilModifierToBatch :: ToilModifier -> SomeBatchOp
+toilModifierToBatch :: HasConfiguration => ToilModifier -> SomeBatchOp
 toilModifierToBatch = genericToilModifierToBatch (const mempty)
 
 -- | Run action which requires toil interfaces.

@@ -50,12 +50,13 @@ import           Pos.Binary.Class             (serialize')
 import           Pos.Binary.Infra.Slotting    ()
 import           Pos.Binary.Update            ()
 import           Pos.Core                     (ApplicationName, BlockVersion,
-                                               ChainDifficulty, HasCoreConstants,
+                                               ChainDifficulty,
                                                NumSoftwareVersion, SlotId,
                                                SoftwareVersion (..), StakeholderId,
                                                TimeDiff (..), epochSlots)
-import           Pos.Core.Genesis             (genesisBlockVersionData,
-                                               genesisSlotDuration)
+import           Pos.Core.Configuration       (blockVersionData,
+                                               slotDuration,
+                                               HasConfiguration)
 import           Pos.Crypto                   (hash)
 import           Pos.DB                       (DBIteratorClass (..), DBTag (..), IterType,
                                                MonadDB, MonadDBRead (..),
@@ -66,8 +67,8 @@ import           Pos.DB.GState.Common         (gsGetBi, writeBatchGState)
 import           Pos.Slotting.Types           (EpochSlottingData (..), SlottingData,
                                                createInitSlottingData)
 import           Pos.Update.Constants         (genesisBlockVersion,
-                                               genesisSoftwareVersions, ourAppName,
-                                               ourSystemTag)
+                                               genesisSoftwareVersions)
+import           Pos.Update.Configuration     (HasUpdateConfiguration, ourAppName, ourSystemTag)
 import           Pos.Update.Core              (BlockVersionData (..), UpId,
                                                UpdateProposal (..))
 import           Pos.Update.Poll.Types        (BlockVersionState (..),
@@ -107,7 +108,7 @@ getBVState :: MonadDBRead m => BlockVersion -> m (Maybe BlockVersionState)
 getBVState = gsGetBi . bvStateKey
 
 -- | Get state of UpdateProposal for given UpId
-getProposalState :: (HasCoreConstants, MonadDBRead m) => UpId -> m (Maybe ProposalState)
+getProposalState :: (HasConfiguration, MonadDBRead m) => UpId -> m (Maybe ProposalState)
 getProposalState = gsGetBi . proposalKey
 
 -- | Get last confirmed SoftwareVersion of given application.
@@ -144,7 +145,7 @@ data UpdateOp
     | PutSlottingData !SlottingData
     | PutEpochProposers !(HashSet StakeholderId)
 
-instance HasCoreConstants => RocksBatchOp UpdateOp where
+instance HasConfiguration => RocksBatchOp UpdateOp where
     toBatchOp (PutProposal ps) =
         [ Rocks.Put (proposalKey upId) (dbSerializeValue ps)]
       where
@@ -175,26 +176,26 @@ instance HasCoreConstants => RocksBatchOp UpdateOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-initGStateUS :: (HasCoreConstants, MonadDB m) => m ()
+initGStateUS :: (HasConfiguration, MonadDB m) => m ()
 initGStateUS = do
     writeBatchGState $
         PutSlottingData genesisSlottingData :
         PutEpochProposers mempty :
-        SetAdopted genesisBlockVersion genesisBlockVersionData :
+        SetAdopted genesisBlockVersion blockVersionData :
         map ConfirmVersion genesisSoftwareVersions
   where
     genesisEpochDuration :: Microsecond
-    genesisEpochDuration = fromIntegral epochSlots * convertUnit genesisSlotDuration
+    genesisEpochDuration = fromIntegral epochSlots * convertUnit slotDuration
 
     esdCurrent :: EpochSlottingData
     esdCurrent = EpochSlottingData
-        { esdSlotDuration = genesisSlotDuration
+        { esdSlotDuration = slotDuration
         , esdStartDiff    = 0
         }
 
     esdNext :: EpochSlottingData
     esdNext = EpochSlottingData
-        { esdSlotDuration = genesisSlotDuration
+        { esdSlotDuration = slotDuration
         , esdStartDiff    = TimeDiff genesisEpochDuration
         }
 
@@ -212,14 +213,14 @@ instance DBIteratorClass PropIter where
     type IterValue PropIter = ProposalState
     iterKeyPrefix = iterationPrefix
 
-proposalSource :: (HasCoreConstants, MonadDBRead m) => Source (ResourceT m) (IterType PropIter)
+proposalSource :: (HasConfiguration, MonadDBRead m) => Source (ResourceT m) (IterType PropIter)
 proposalSource = dbIterSource GStateDB (Proxy @PropIter)
 
 -- TODO: it can be optimized by storing some index sorted by
 -- 'SlotId's, but I don't think it may be crucial.
 -- | Get all proposals which were issued no later than given slot.
 getOldProposals
-    :: (HasCoreConstants, MonadDBRead m)
+    :: (HasConfiguration, MonadDBRead m)
     => SlotId -> m [UndecidedProposalState]
 getOldProposals slotId =
     runConduitRes $ mapOutput snd proposalSource .| CL.mapMaybe isOld .| CL.consume
@@ -230,7 +231,7 @@ getOldProposals slotId =
 -- | Get all decided proposals which were accepted deeper than given
 -- difficulty.
 getDeepProposals
-    :: (HasCoreConstants, MonadDBRead m)
+    :: (HasConfiguration, MonadDBRead m)
     => ChainDifficulty -> m [DecidedProposalState]
 getDeepProposals cd =
     runConduitRes $ mapOutput snd proposalSource .| CL.mapMaybe isDeep .| CL.consume
@@ -241,7 +242,7 @@ getDeepProposals cd =
     isDeep _                 = Nothing
 
 -- | Get states of all active 'UpdateProposal's for given 'ApplicationName'.
-getProposalsByApp :: (HasCoreConstants, MonadDBRead m) => ApplicationName -> m [ProposalState]
+getProposalsByApp :: (HasConfiguration, MonadDBRead m) => ApplicationName -> m [ProposalState]
 getProposalsByApp appName =
     runConduitRes $ mapOutput snd proposalSource .| CL.filter matchesName .| CL.consume
   where
@@ -262,7 +263,7 @@ instance DBIteratorClass ConfPropIter where
 -- software as argument.
 -- Returns __all__ confirmed proposals if the argument is 'Nothing'.
 getConfirmedProposals
-    :: MonadDBRead m
+    :: (HasUpdateConfiguration, MonadDBRead m)
     => Maybe NumSoftwareVersion -> m [ConfirmedProposalState]
 getConfirmedProposals reqNsv =
     runConduitRes $

@@ -56,6 +56,7 @@ import           Pos.Core                       (AddrType (..), Address (..), Co
 import           Pos.DB.Class                   (MonadDBRead)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                        (MonadTxpMem, Tx (..), TxAux, TxId, TxMap,
                                                  TxOutAux (..), Utxo, getLocalTxs,
                                                  getMemPool, mpLocalTxs, taTx, topsortTxs,
@@ -94,7 +95,10 @@ import           Pos.Explorer.Web.Error         (ExplorerError (..))
 ----------------------------------------------------------------
 type MainBlund ssc = (MainBlock ssc, Undo)
 
-type ExplorerMode ctx m = WorkMode SscGodTossing ctx m
+type ExplorerMode ctx m =
+    ( WorkMode SscGodTossing ctx m
+    , HasGtConfiguration
+    )
 
 explorerServeImpl
     :: ExplorerMode ctx m

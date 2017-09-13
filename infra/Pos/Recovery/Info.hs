@@ -18,7 +18,7 @@ class Monad m => MonadRecoveryInfo m where
 -- not doing recovery at this moment.  It is useful for workers which
 -- shouldn't do anything while we are not synchronized.
 recoveryCommGuard
-    :: (MonadRecoveryInfo m, WithLogger m)
+    :: (MonadRecoveryInfo m, WithLogger m, HasConfiguration)
     => m () -> m ()
 recoveryCommGuard action = ifM recoveryInProgress onIgnore action
   where

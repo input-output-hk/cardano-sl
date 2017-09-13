@@ -25,7 +25,7 @@ import           Servant.Swagger.UI               (swaggerSchemaUIServer)
 import           Servant.Utils.Enter              ((:~>) (..), enter)
 
 import           Pos.Communication                (OutSpecs, SendActions (..), sendTxOuts)
-import           Pos.Core.Context                 (HasCoreConstants)
+import           Pos.Launcher.Configuration       (HasConfigurations)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.Web.Account           (findKey, myRootAddresses)
 import           Pos.Wallet.Web.Api               (WalletSwaggerApi, swaggerWalletApi)
@@ -81,7 +81,7 @@ walletServer sendActions natM = do
 bracketWalletWebDB
     :: ( MonadIO m
        , MonadMask m
-       , HasCoreConstants
+       , HasConfigurations
        )
     => FilePath  -- ^ Path to wallet acid-state
     -> Bool      -- ^ Rebuild flag for acid-state

@@ -16,12 +16,13 @@ import           System.Wlog                (WithLogger, logNotice)
 import           Pos.Binary.Class           (serialize)
 import           Pos.Binary.Infra.DHTModel  ()
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
-import           Pos.Core.Context           (HasCoreConstants)
+import           Pos.Core.Configuration     (HasConfiguration)
 import           Pos.Core.Slotting          (flattenSlotId)
 import           Pos.Core.Types             (slotIdF)
-import           Pos.DHT.Constants          (kademliaDumpInterval)
+import           Pos.DHT.Configuration      (kademliaDumpInterval)
 import           Pos.DHT.Real.Types         (KademliaDHTInstance (..))
 import           Pos.KnownPeers             (MonadFormatPeers, MonadKnownPeers)
+import           Pos.Infra.Configuration    (HasInfraConfiguration)
 import           Pos.Recovery.Info          (MonadRecoveryInfo, recoveryCommGuard)
 import           Pos.Reporting              (HasReportingContext)
 import           Pos.Shutdown               (HasShutdownContext)
@@ -42,7 +43,8 @@ type DhtWorkMode ctx m =
     , MonadFormatPeers m
     , HasReportingContext ctx
     , HasShutdownContext ctx
-    , HasCoreConstants
+    , HasConfiguration
+    , HasInfraConfiguration
     )
 
 dhtWorkers

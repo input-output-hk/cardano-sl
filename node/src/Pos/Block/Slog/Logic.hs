@@ -37,10 +37,10 @@ import           Pos.Block.Pure         (verifyBlocks)
 import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
 import           Pos.Block.Slog.Types   (HasSlogGState, LastBlkSlots, SlogUndo (..))
 import           Pos.Block.Types        (Blund, Undo (..))
-import           Pos.Constants          (lastKnownBlockVersion)
+import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
 import           Pos.Context            (lrcActionOnEpochReason)
 import           Pos.Core               (BlockVersion (..), FlatSlotId,
-                                         GenesisWStakeholders, HasCoreConstants,
+                                         GenesisWStakeholders, HasConfiguration,
                                          blkSecurityParam, difficultyL, epochIndexL,
                                          flattenSlotId, headerHash, headerHashG,
                                          prevBlockL)
@@ -88,7 +88,7 @@ import           Pos.Util.Chrono        (NE, NewestFirst (getNewestFirst),
 -- done only if `alt` component is the same as adopted one. In
 -- other cases (i. e. when our `(major, minor)` is less than from
 -- adopted version) check is not done.
-mustDataBeKnown :: BlockVersion -> Bool
+mustDataBeKnown :: HasUpdateConfiguration => BlockVersion -> Bool
 mustDataBeKnown adoptedBV =
     lastKnownMajMin > adoptedMajMin || lastKnownBlockVersion == adoptedBV
   where
@@ -107,7 +107,8 @@ type MonadSlogBase ssc ctx m =
     , SscHelpersClass ssc
     , MonadDBRead m
     , WithLogger m
-    , HasCoreConstants
+    , HasConfiguration
+    , HasUpdateConfiguration
     )
 
 -- | Set of constraints needed for Slog verification.

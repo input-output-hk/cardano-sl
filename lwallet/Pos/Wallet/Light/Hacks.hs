@@ -7,6 +7,7 @@ module Pos.Wallet.Light.Hacks
 import           Universum
 
 import           Pos.Core   (Address, IsBootstrapEraAddr (..), makePubKeyAddress)
+import           Pos.Binary.Core.Address ()
 import           Pos.Crypto (PublicKey)
 import           Pos.DB     (MonadGState, gsIsBootstrapEra)
 

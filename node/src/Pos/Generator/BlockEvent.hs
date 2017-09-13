@@ -62,13 +62,14 @@ import           Serokell.Util               (listJson)
 
 import           Pos.AllSecrets              (AllSecrets)
 import           Pos.Block.Types             (Blund)
-import           Pos.Core                    (HasCoreConstants, HeaderHash, headerHash,
+import           Pos.Core                    (HasConfiguration, HeaderHash, headerHash,
                                               prevBlockL)
 import           Pos.Crypto.Hashing          (hashHexF)
 import           Pos.Generator.Block         (BlockGenParams (..), MonadBlockGen,
                                               TxGenParams (..), genBlocks)
 import           Pos.Genesis                 (GenesisWStakeholders)
 import           Pos.GState.Context          (withClonedGState)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Ssc.GodTossing.Type     (SscGodTossing)
 import           Pos.Util.Chrono             (NE, NewestFirst (..), OldestFirst (..),
                                               toNewestFirst, toOldestFirst, _OldestFirst)
@@ -329,7 +330,7 @@ newtype CheckCount = CheckCount Word
     deriving (Eq, Ord, Show, Num)
 
 -- The tip after the block event. 'Nothing' when the event doesn't affect the tip.
-blkEvTip :: HasCoreConstants => BlockEvent -> Maybe HeaderHash
+blkEvTip :: (HasConfiguration, HasGtConfiguration) => BlockEvent -> Maybe HeaderHash
 blkEvTip = \case
     BlkEvApply bea -> Just $
         (headerHash . NE.head . getNewestFirst . toNewestFirst . view beaInput) bea
@@ -347,7 +348,7 @@ hhSnapshotId = SnapshotId . sformat hashHexF
 
 -- | Whenever the resulting tips of apply/rollback operations coincide,
 -- add a snapshot equivalence comparison.
-enrichWithSnapshotChecking :: HasCoreConstants => BlockScenario -> (BlockScenario, CheckCount)
+enrichWithSnapshotChecking :: (HasConfiguration, HasGtConfiguration) => BlockScenario -> (BlockScenario, CheckCount)
 enrichWithSnapshotChecking (BlockScenario bs) = (BlockScenario bs', checkCount)
   where
     checkCount = sum (hhStatusEnd :: HhStatusMap)

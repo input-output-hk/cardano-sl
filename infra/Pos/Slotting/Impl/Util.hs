@@ -10,7 +10,7 @@ import           Universum
 import           Data.Time.Units       (Microsecond, convertUnit)
 import           NTP.Example           ()
 
-import           Pos.Core.Context      (HasCoreConstants, epochSlots)
+import           Pos.Core.Configuration (HasConfiguration, epochSlots)
 import           Pos.Core.Slotting     (flattenEpochIndex, mkLocalSlotIndex,
                                         unflattenSlotId)
 import           Pos.Core.Timestamp    (addTimeDiffToTimestamp)
@@ -24,7 +24,7 @@ import           Pos.Slotting.Types    (EpochSlottingData (..), SlottingData,
 
 -- | Approximate current slot using outdated slotting data.
 approxSlotUsingOutdated
-    :: (MonadSlotsData ctx m, HasCoreConstants)
+    :: (MonadSlotsData ctx m, HasConfiguration)
     => Timestamp
     -> m SlotId
 approxSlotUsingOutdated t = do
@@ -60,7 +60,7 @@ approxSlotUsingOutdated t = do
 -- | Compute current slot from current timestamp based on data
 -- provided by 'MonadSlotsData'.
 slotFromTimestamp
-    :: (MonadSlotsData ctx m, HasCoreConstants)
+    :: (MonadSlotsData ctx m, HasConfiguration)
     => Timestamp
     -> m (Maybe SlotId)
 slotFromTimestamp approxCurTime = do

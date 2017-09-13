@@ -12,12 +12,12 @@ import           System.Random               (mkStdGen, randomIO)
 import           System.Wlog                 (usingLoggerName)
 
 import           Pos.AllSecrets              (mkAllSecretsSimple)
-import           Pos.Core                    (giveStaticConsts, isDevelopment)
+import           Pos.Core                    (genesisSecretKeys, isDevelopment)
 import           Pos.DB                      (closeNodeDBs, openNodeDBs)
 import           Pos.Generator.Block         (BlockGenParams (..), genBlocks)
-import           Pos.Genesis                 (genesisContext, genesisSecretKeys, gtcUtxo,
+import           Pos.Genesis                 (genesisContext, gtcUtxo,
                                               gtcWStakeholders)
-import           Pos.Launcher                (applyConfigInfo)
+import           Pos.Launcher                (withConfigurations)
 import           Pos.Txp.Toil                (GenesisUtxo (..))
 import           Pos.Util.UserSecret         (peekUserSecret, usPrimKey)
 
@@ -26,13 +26,14 @@ import           Error                       (TBlockGenError (..))
 import           Options                     (BlockGenOptions (..), getBlockGenOptions)
 
 main :: IO ()
-main = (applyConfigInfo def >>) $ flip catch catchEx $ giveStaticConsts $ do
-    BlockGenOptions{..} <- getBlockGenOptions
-    seed <- maybe randomIO pure bgoSeed
+main = flip catch catchEx $ usingLoggerName "block-gen" $ withConfigurations def $ do
+    BlockGenOptions{..} <- liftIO getBlockGenOptions
+    seed <- liftIO $ maybe randomIO pure bgoSeed
     let runMode = bool "PROD" "DEV" isDevelopment
     putText $ "Generating in " <> runMode <> " mode with seed " <> show seed
 
-    when bgoAppend $ checkExistence bgoPath
+    liftIO $ when bgoAppend $ checkExistence bgoPath
+
     allSecrets <- mkAllSecretsSimple <$> case bgoNodes of
         Left bgoNodesN -> do
             unless (bgoNodesN > 0) $ throwM NoOneSecrets
@@ -40,7 +41,7 @@ main = (applyConfigInfo def >>) $ flip catch catchEx $ giveStaticConsts $ do
             pure $ take (fromIntegral bgoNodesN) secrets
         Right bgoSecretFiles -> do
             when (null bgoSecretFiles) $ throwM NoOneSecrets
-            usingLoggerName "block-gen" $ mapM parseSecret bgoSecretFiles
+            mapM parseSecret bgoSecretFiles
 
     let genCtx = genesisContext
 
@@ -57,7 +58,7 @@ main = (applyConfigInfo def >>) $ flip catch catchEx $ giveStaticConsts $ do
                 , _bgpInplaceDB       = True
                 , _bgpSkipNoKey       = True
                 }
-    bracket (openNodeDBs (not bgoAppend) bgoPath) closeNodeDBs $ \db ->
+    liftIO $ bracket (openNodeDBs (not bgoAppend) bgoPath) closeNodeDBs $ \db ->
         runProduction $
         initTBlockGenMode db genCtx $
             void $ evalRandT (genBlocks bgenParams) (mkStdGen seed)

@@ -7,9 +7,10 @@ module Pos.Aeson.Genesis
 import           Universum
 
 import           Data.Aeson             (FromJSON (..), withObject, (.:))
-import           Data.Aeson.TH          (defaultOptions, deriveFromJSON)
+import           Data.Aeson.TH          (deriveFromJSON)
 import qualified Data.ByteString        as BS
 import qualified Data.Text              as T
+import           Serokell.Aeson.Options (defaultOptions)
 import qualified Serokell.Util.Base64   as B64
 
 import           Pos.Aeson.Core         ()

@@ -243,12 +243,8 @@ configInfoParser = do
         Opt.long    "custom-config-name" <>
         Opt.metavar "KEY" <>
         Opt.help    "Section of constants.yaml to use"
-    customGenCorePath <- optional $ Opt.strOption $
-        Opt.long    "custom-genesis-core-bin" <>
+    customGenSpecPath <- optional $ Opt.strOption $
+        Opt.long    "custom-genesis-spec-yaml" <>
         Opt.metavar "FILEPATH" <>
-        Opt.help    "Path to genesis-core.bin"
-    customGenGtPath <- optional $ Opt.strOption $
-        Opt.long    "custom-genesis-gt-bin" <>
-        Opt.metavar "FILEPATH" <>
-        Opt.help    "Path to genesis-godtossing.bin"
+        Opt.help    "Path to genesis-spec.yaml"
     pure ConfigInfo{..}

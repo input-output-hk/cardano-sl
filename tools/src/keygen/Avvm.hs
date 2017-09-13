@@ -38,8 +38,8 @@ applyBlacklisted Nothing r = r <$ logInfo "Blacklisting: file not specified, ski
 applyBlacklisted (Just blacklistPath) AvvmData{..} = do
     addrTexts <- lines <$> readFile blacklistPath
     blacklisted <- mapM fromAvvmPk addrTexts
-    let filteredBad = filter ((`elem` blacklisted) . aePublicKey) getAvvmData
-    let filtered = getAvvmData \\ filteredBad
+    let filteredBad = filter ((`elem` blacklisted) . aePublicKey) avvmData
+    let filtered = avvmData \\ filteredBad
     logInfo $
         "Removing " <> show (length filteredBad) <> " entries from utxo (out of " <>
         show (length blacklisted) <> " total entries in the blacklist)"

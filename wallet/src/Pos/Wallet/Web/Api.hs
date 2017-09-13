@@ -64,23 +64,28 @@ module Pos.Wallet.Web.Api
 
 
 import           Control.Monad.Catch        (try)
+import           Data.Reflection            (Reifies (..))
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
-                                             Post, Put, QueryParam, ReqBody, Verb)
-import           Servant.Server             (Handler (..))
+                                             Post, Put, QueryParam, ReflectMethod (..),
+                                             ReqBody, Verb)
+import           Servant.Server             (Handler (..), HasServer (..))
 import           Servant.Swagger.UI         (SwaggerSchemaUI)
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Util.Servant           (CCapture, CQueryParam, CReqBody,
-                                             DCQueryParam, ModifiesApiRes (..),
-                                             ReportDecodeError (..), VerbMod)
+import           Pos.Util.Servant           (ApiLoggingConfig, CCapture, CQueryParam,
+                                             CReqBody, DCQueryParam,
+                                             HasLoggingServer (..), LoggingApi,
+                                             ModifiesApiRes (..), ReportDecodeError (..),
+                                             VerbMod, applyLoggingToVerb, inRouteServer,
+                                             serverHandlerL)
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
-                                             CAccountMeta, CAddress, CCoin,
-                                             CId, CInitialized,
-                                             CPaperVendWalletRedeem, CPassPhrase,
-                                             CProfile, CTx, CTxId, CTxMeta, CUpdateInfo,
-                                             CWallet, CWalletInit, CWalletMeta,
-                                             CWalletRedeem, SyncProgress, Wal)
+                                             CAccountMeta, CAddress, CCoin, CId,
+                                             CInitialized, CPaperVendWalletRedeem,
+                                             CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
+                                             CUpdateInfo, CWallet, CWalletInit,
+                                             CWalletMeta, CWalletRedeem, SyncProgress,
+                                             Wal)
 import           Pos.Wallet.Web.Error       (WalletError (DecodeError),
                                              catchEndpointErrors)
 
@@ -100,6 +105,28 @@ instance ModifiesApiRes WalletVerbTag where
 
 instance ReportDecodeError (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) where
     reportDecodeError _ err = Handler . ExceptT . throwM $ DecodeError err
+
+instance ( HasServer (WalletVerb (Verb mt st ct a)) ctx
+         , Reifies config ApiLoggingConfig
+         , ReflectMethod mt
+         , Show a
+         ) =>
+         HasLoggingServer config (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) ctx where
+    routeWithLog =
+        inRouteServer @(WalletVerb (Verb mt st ct a)) route $
+        \(paramsInfo, handler) ->
+            handler & serverHandlerL %~ withLogging paramsInfo
+      where
+        method = decodeUtf8 $ reflectMethod (Proxy @mt)
+        withLogging params = applyLoggingToVerb (Proxy @config) method params show
+
+
+-- | Specifes servant logging config.
+data WalletLoggingConfig
+
+-- If logger config will be ever determined in runtime, `reify` can be used.
+instance Reifies WalletLoggingConfig ApiLoggingConfig where
+    reflect _ = "wallet" <> "servant"
 
 -- | Shortcut for common api result types.
 type WRes verbType a = WalletVerb (verbType '[JSON] a)
@@ -464,7 +491,7 @@ type SwaggerApi =
     SwaggerSchemaUI "docs" "swagger.json"
 
 type WalletSwaggerApi =
-     WalletApi
+     LoggingApi WalletLoggingConfig WalletApi
     :<|>
      SwaggerApi
 

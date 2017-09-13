@@ -59,6 +59,9 @@ module Pos.Util.Util
        , withTempFile
        , withSystemTempFile
 
+       -- * Coloring
+       , colorizeDull
+
        -- * Aeson
        , parseJSONWithRead
 
@@ -130,6 +133,7 @@ import           Mockable                       (ChannelT, Counter, Distribution
                                                  ThreadId)
 import qualified Prelude
 import           Serokell.Data.Memory.Units     (Byte, fromBytes, toBytes)
+import qualified System.Console.ANSI            as ANSI
 import           System.Directory               (canonicalizePath, createDirectory,
                                                  doesDirectoryExist,
                                                  getTemporaryDirectory, listDirectory,
@@ -581,6 +585,18 @@ withTempFile tmpDir template action =
   where
      ignoringIOErrors :: MC.MonadCatch m => m () -> m ()
      ignoringIOErrors ioe = ioe `MC.catch` (\e -> const (return ()) (e :: Prelude.IOError))
+
+----------------------------------------------------------------------------
+-- Coloring
+----------------------------------------------------------------------------
+
+-- | Colorize text using 'ANSI.Dull' palete
+-- (in contrast to 'Serokell.Util.colorize' which uses 'ANSI.Vivid' palete)
+colorizeDull :: ANSI.Color -> Text -> Text
+colorizeDull color msg =
+    toText (ANSI.setSGRCode [ANSI.SetColor ANSI.Foreground ANSI.Dull color]) <>
+    msg <>
+    toText (ANSI.setSGRCode [ANSI.Reset])
 
 ----------------------------------------------------------------------------
 -- Aeson

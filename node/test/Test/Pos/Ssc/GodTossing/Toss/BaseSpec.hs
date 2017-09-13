@@ -38,7 +38,7 @@ import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadSignedCommitm
                                         checkSharesPayload, gsCommitments, gsOpenings,
                                         gsShares, gsVssCertificates, insertVss,
                                         mkCommitmentsMapUnsafe, runPureToss,
-                                        supplyPureTossEnv, verifyCommitment,
+                                        supplyPureTossEnv, vcVssKey, verifyCommitment,
                                         verifyCommitmentSignature, verifyOpening)
 import           Pos.Types             (Coin, EpochIndex, EpochOrSlot (..), StakeholderId,
                                         addressHash, crucialSlot, mkCoin)
@@ -431,12 +431,14 @@ checksGoodSharesPayload (GoodPayload epoch gtgs sharesMap mrs) =
 checksBadSharesPayload
     :: HasCoreConstants
     => GoodSharesPayload
-    -> StakeholderId
+    -> PublicKey
     -> NonEmpty (AsBinary DecShare)
     -> VssCertificate
     -> Property
-checksBadSharesPayload (GoodPayload epoch g@GtGlobalState {..} sm mrs) sid ne cert =
-    let -- This property assumes the existence of a stakeholder not present in neither the
+checksBadSharesPayload (GoodPayload epoch g@GtGlobalState {..} sm mrs) pk ne cert =
+    let sid = addressHash pk
+
+        -- This property assumes the existence of a stakeholder not present in neither the
         -- commitments nor shares map. Instead of writing a new 'Arbitrary' type which
         -- will only be useful here, this condition is just enforced by deleting it from
         -- where it shouldn't be.
@@ -466,10 +468,11 @@ checksBadSharesPayload (GoodPayload epoch g@GtGlobalState {..} sm mrs) sid ne ce
             Left (InternalShareWithoutCommitment nes) -> sid `elem` nes
             _                                         -> False
 
+        cert' = cert {vcSigningKey = pk}
         newestSharesMap = HM.insert sid mempty sharesMap
         gtgs' = gtgs & (gsShares %~ HM.insert sid mempty) .
                        (gsVssCertificates %~ \vcd@VssCertData{..} ->
-                           vcd { certs = insertVss cert certs})
+                           vcd { certs = insertVss cert' certs})
         mrs' = HM.update (Just . HM.insert sid (mkCoin 0)) epoch mrs
         sharesAlreadySent =
             tossRunner mrs' gtgs' $ checkSharesPayload epoch newestSharesMap
@@ -554,32 +557,39 @@ checksGoodCertsPayload :: HasCoreConstants => GoodCertsPayload -> Property
 checksGoodCertsPayload (GoodPayload epoch gtgs certsMap mrs) =
     qcIsRight . tossRunner mrs gtgs $ checkCertificatesPayload epoch certsMap
 
-checksBadCertsPayload :: HasCoreConstants => GoodCertsPayload -> StakeholderId -> VssCertificate -> Property
-checksBadCertsPayload (GoodPayload epoch gtgs certsMap mrs) sid cert =
-    let mrsWithMissingEpoch = HM.delete epoch mrs
+checksBadCertsPayload :: HasCoreConstants => GoodCertsPayload -> PublicKey -> VssCertificate -> Property
+checksBadCertsPayload (GoodPayload epoch gtgs certsMap mrs) pk cert =
+    let sid = addressHash pk
+
+        mrsWithMissingEpoch = HM.delete epoch mrs
         noRichmen =
             tossRunner mrsWithMissingEpoch gtgs $ checkCertificatesPayload epoch certsMap
         res1 = case noRichmen of
             Left (NoRichmen e) -> e == epoch
             _                  -> False
 
-        newCertsMap = insertVss cert certsMap
+        cert' = cert {vcSigningKey = pk}
+        certsMap2 = insertVss cert' certsMap
         newGtgs = gtgs & gsVssCertificates %~
-            \vcd -> vcd { certs = insertVss cert (certs vcd) }
+            \vcd -> vcd { certs = insertVss cert' (certs vcd) }
         certAlreadySent =
-            tossRunner mrs newGtgs  $ checkCertificatesPayload epoch newCertsMap
+            tossRunner mrs newGtgs $ checkCertificatesPayload epoch certsMap2
         res2 = case certAlreadySent of
             Left (CertificateAlreadySent nes) -> sid `elem` nes
             _                                 -> False
 
-        sid' = addressHash . vcSigningKey $ cert
-        newerCertsMap = insertVss cert certsMap
-        certNoRichmen = tossRunner mrs gtgs $ checkCertificatesPayload epoch newerCertsMap
+        certSid = addressHash . vcSigningKey $ cert
+        certsMap3 = insertVss cert certsMap
+        certNoRichmen = tossRunner mrs gtgs $ checkCertificatesPayload epoch certsMap3
         res3 = case certNoRichmen of
-            Left (CertificateNotRichmen nes) -> sid' `elem` nes
+            Left (CertificateNotRichmen nes) -> certSid `elem` nes
             _                                -> False
 
-    in not (HM.member sid' $ mrs HM.! epoch) ==> res1 && res2 && res3
+        allVssKeys = map vcVssKey (toList (getVssCertificatesMap certsMap))
+
+    in (not (HM.member certSid $ mrs HM.! epoch) &&
+        not (vcVssKey cert `elem` allVssKeys))
+       ==> res1 .&&. res2 .&&. res3
 
 ----------------------------------------------------------------------------
 -- Utility functions for this module

@@ -58,8 +58,8 @@ _readAvvmGenesis AvvmBalanceOptions {..} = do
     jsonfile <- liftIO $ BSL.readFile asoJsonPath
     case eitherDecode jsonfile of
         Left err       -> error $ toText err
-        Right avvmData -> do
-            avvmDataFiltered <- applyBlacklisted asoBlacklisted avvmData
+        Right avvmUtxo -> do
+            avvmDataFiltered <- applyBlacklisted asoBlacklisted avvmUtxo
             let totalAvvmBalance = sum $ map aeCoin $ avvmData avvmDataFiltered
             logInfo $ "Total avvm balance after applying blacklist: " <> show totalAvvmBalance
             pure $ convertAvvmDataToBalances avvmDataFiltered

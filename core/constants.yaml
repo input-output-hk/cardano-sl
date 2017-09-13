@@ -126,7 +126,7 @@ dev: &dev
   memPoolLimitRatio: 2 # mem pool will be limited by this value
                        # muliplied by block size limit
 
-  genesisBinSuffix: tn # it is set here arbitrarily, it won't be actually used
+  genesisBinSuffix: dn # it is set here arbitrarily, it won't be actually used
 
   # Mode-sensitive logging options
   webLoggingEnabled: true

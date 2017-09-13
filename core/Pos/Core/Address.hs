@@ -48,7 +48,6 @@ module Pos.Core.Address
 
 import           Universum
 
-import           Control.Lens            (_Left)
 import           Crypto.Hash             (Blake2b_224, Digest, SHA3_256)
 import qualified Crypto.Hash             as CryptoHash
 import           Data.ByteString.Base58  (Alphabet (..), bitcoinAlphabet, decodeBase58,
@@ -144,13 +143,13 @@ addressF = build
 
 -- | A function which decodes base58-encoded 'Address'.
 decodeTextAddress :: Text -> Either Text Address
-decodeTextAddress = first toText . decodeAddress . encodeUtf8
+decodeTextAddress = decodeAddress . encodeUtf8
   where
-    decodeAddress :: ByteString -> Either String Address
+    decodeAddress :: ByteString -> Either Text Address
     decodeAddress bs = do
         let base58Err = "Invalid base58 representation of address"
         dbs <- maybeToRight base58Err $ decodeBase58 addrAlphabet bs
-        over _Left toString $ Bi.decodeFull dbs
+        Bi.decodeFull dbs
 
 ----------------------------------------------------------------------------
 -- Constructors

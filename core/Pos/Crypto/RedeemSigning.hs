@@ -6,11 +6,14 @@ module Pos.Crypto.RedeemSigning
        , redeemToPublic
        , redeemPkBuild
        , redeemPkB64F
+       , redeemPkB64UrlF
        , redeemPkB64ShortF
        , RedeemSignature (..)
        , redeemSign
        , redeemCheckSig
        ) where
+
+import           Universum
 
 import           Crypto.Random        (MonadRandom, getRandomBytes)
 import qualified Data.ByteString      as BS
@@ -19,7 +22,7 @@ import           Data.Hashable        (Hashable)
 import qualified Data.Text.Buildable  as B
 import           Formatting           (Format, bprint, fitLeft, later, (%), (%.))
 import           Serokell.Util.Base64 (formatBase64)
-import           Universum
+import qualified Serokell.Util.Base64 as B64
 
 import qualified Crypto.Sign.Ed25519  as Ed25519
 import           Pos.Binary.Class     (Bi, Raw)
@@ -54,6 +57,12 @@ newtype RedeemSecretKey = RedeemSecretKey Ed25519.SecretKey
 redeemPkB64F :: Format r (RedeemPublicKey -> r)
 redeemPkB64F =
     later $ \(RedeemPublicKey pk) -> formatBase64 $ Ed25519.openPublicKey pk
+
+-- | Base64url Format for 'RedeemPublicKey'.
+redeemPkB64UrlF :: Format r (RedeemPublicKey -> r)
+redeemPkB64UrlF =
+    later $ \(RedeemPublicKey pk) ->
+        B.build $ B64.encodeUrl $ Ed25519.openPublicKey pk
 
 redeemPkB64ShortF :: Format r (RedeemPublicKey -> r)
 redeemPkB64ShortF = fitLeft 8 %. redeemPkB64F

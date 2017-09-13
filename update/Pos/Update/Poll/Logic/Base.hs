@@ -41,8 +41,8 @@ import           System.Wlog             (WithLogger, logDebug, logNotice)
 import           Pos.Binary.Update       ()
 import           Pos.Core                (BlockVersion (..), Coin, EpochIndex,
                                           HasCoreConstants, HeaderHash, IsMainHeader (..),
-                                          SlotId, SoftforkRule (..),
-                                          TimeDiff (..), addressHash, applyCoinPortionUp,
+                                          SlotId, SoftforkRule (..), TimeDiff (..),
+                                          addressHash, applyCoinPortionUp,
                                           coinPortionDenominator, coinToInteger,
                                           difficultyL, epochSlots, getCoinPortion,
                                           headerHashG, isBootstrapEra, mkCoinPortion,
@@ -62,8 +62,7 @@ import           Pos.Update.Poll.Types   (BlockVersionState (..),
                                           ConfirmedProposalState (..),
                                           DecidedProposalState (..), DpsExtra (..),
                                           ProposalState (..), UndecidedProposalState (..),
-                                          UpsExtra (..), bvsIsConfirmed,
-                                          cpsBlockVersion)
+                                          UpsExtra (..), bvsIsConfirmed, cpsBlockVersion)
 import           Pos.Util.Util           (leftToPanic)
 
 

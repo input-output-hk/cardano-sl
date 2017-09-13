@@ -8,15 +8,17 @@ import           Universum
 import           Data.Time.Units            (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Raw, deriveSimpleBi, enforceSize,
-                                             encodeListLen, decodeListLen, deriveSimpleBiCxt)
+import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Raw,
+                                             decodeListLen, deriveSimpleBi,
+                                             deriveSimpleBiCxt, encodeListLen,
+                                             enforceSize)
 import           Pos.Binary.Infra           ()
-import           Pos.Core                   (ApplicationName, BlockVersion, HasCoreConstants,
+import           Pos.Core                   (ApplicationName, BlockVersion,
                                              ChainDifficulty, Coin, CoinPortion,
-                                             EpochIndex, FlatSlotId, HeaderHash,
-                                             NumSoftwareVersion, ScriptVersion, SlotId,
-                                             SoftforkRule, SoftwareVersion, StakeholderId,
-                                             TxFeePolicy)
+                                             EpochIndex, FlatSlotId, HasCoreConstants,
+                                             HeaderHash, NumSoftwareVersion,
+                                             ScriptVersion, SlotId, SoftforkRule,
+                                             SoftwareVersion, StakeholderId, TxFeePolicy)
 import           Pos.Crypto                 (Hash, SignTag (SignUSVote), checkSig)
 import           Pos.Slotting.Types         (SlottingData)
 import qualified Pos.Update.Core.Types      as U

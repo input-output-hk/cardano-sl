@@ -25,13 +25,13 @@ import           Pos.Crypto          (Hash, SignTag (SignUSVote), emptyPassphras
                                       encToPublic, hash, hashHexF, safeSign, unsafeHash,
                                       withSafeSigner)
 import           Pos.Data.Attributes (mkAttributes)
-import           Pos.Update          (BlockVersionModifier (..),
-                                      SystemTag, UpId, UpdateData (..), UpdateVote (..),
+import           Pos.Update          (BlockVersionModifier (..), SystemTag, UpId,
+                                      UpdateData (..), UpdateVote (..),
                                       mkUpdateProposalWSign)
 import           Pos.Wallet          (getSecretKeys)
 
 import           Command.Types       (ProposeUpdateParams (..), ProposeUpdateSystem (..))
-import           Mode                (CmdCtx (..), AuxxMode, getCmdCtx)
+import           Mode                (AuxxMode, CmdCtx (..), getCmdCtx)
 
 ----------------------------------------------------------------------------
 -- Vote

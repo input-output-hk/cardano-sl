@@ -9,6 +9,8 @@ import           Universum
 import           Control.Lens          (ix)
 import qualified Crypto.Random         as Rand
 import qualified Data.HashMap.Strict   as HM
+import qualified Data.HashSet          as HS
+import           Data.List.Extra       (nubOrdOn)
 import           System.Random         (mkStdGen, randomR)
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
@@ -525,17 +527,23 @@ instance HasCoreConstants => Arbitrary GoodCertsPayload where
                 gen sid = (,) <$> pure sid <*> vssGen
             participantsMap <- HM.fromList <$> mapM gen participants
             fillerMap <- customHashMapGen arbitrary vssGen
-            return $ HM.union participantsMap fillerMap
+            return $
+                -- remove certs with duplicate VSS keys
+                HM.fromList . nubOrdOn (vcVssKey . snd) . HM.toList $
+                HM.union participantsMap fillerMap
 
         -- The 'VssCertificatesMap' field of this 'VssCertData' value satisfies:
         --   * None of its 'StakeholderId' keys is a richman
         --    (i.e. is a member of 'richmen')
+        --   * None of the VSS keys from 'gpPayload' are present here
         -- TODO: this generates an invalid VssCertificatesMap because the
         -- stakeholders don't match the certificates
+        let payloadVssKeys = HS.fromList $ map vcVssKey $
+                toList (getVssCertificatesMap gpPayload)
         _gsVssCertificates <- do
             certs <- VssCertificatesMap <$> customHashMapGen
                 (arbitrary `suchThat` (not . flip HM.member richmen))
-                arbitrary
+                (arbitrary `suchThat` (not . flip HS.member payloadVssKeys . vcVssKey))
             vssData <- arbitrary
             return $ vssData {certs = certs}
         let gpGlobalState = GtGlobalState {..}

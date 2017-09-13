@@ -10,6 +10,7 @@ module Pos.Arbitrary.Ssc.GodTossing
 
 import           Universum
 
+import           Data.List.Extra                   (nubOrdOn)
 import qualified Data.List.NonEmpty                as NE
 import qualified System.Random                     as R
 import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, elements,
@@ -179,12 +180,15 @@ instance HasCoreConstants => Arbitrary (SscPayloadDependsOnSlot SscGodTossing) w
 
         genVssCerts slot =
             mkVssCertificatesMap .
+            nubOrdOn vcVssKey .
             map (genValidCert slot) <$>
             arbitrary
         genValidCert SlotId{..} (sk, pk) = mkVssCertificate sk pk $ siEpoch + 5
 
 instance Arbitrary VssCertificatesMap where
-    arbitrary = mkVssCertificatesMap <$> arbitrary
+    arbitrary = do
+        certs <- arbitrary
+        pure $ mkVssCertificatesMap (nubOrdOn vcVssKey certs)
     shrink = genericShrink
 
 instance HasCoreConstants => Arbitrary VssCertData where

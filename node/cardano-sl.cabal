@@ -637,6 +637,7 @@ test-suite cardano-test
                      , data-default
                      , ether
                      , exceptions
+                     , extra
                      , formatting
                      , generic-arbitrary
                      , hspec

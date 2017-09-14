@@ -28,29 +28,9 @@ dev: &dev
 
   # Genesis constants
   genesisN: 12
-  genesisSlotDurationSec: 7
-  genesisMaxBlockSize: 2000000
-  genesisMaxHeaderSize: 200000
-  genesisMaxTxSize: 4096 # 4 Kb
   maxReqSize: 102 # 102 bytes
   maxMempoolMsgSize: 100 # 100 bytes
   maxInvSize: 102 # 102 bytes
-  genesisMpcThd: 0.01 # 1% of stake
-  genesisHeavyDelThd: 0.005 # 0.5% of stake
-  genesisUpdateVoteThd: 0.001 # 0.1% of total stake
-  genesisMaxUpdateProposalSize: 700 # 700 bytes
-  genesisUpdateProposalThd: 0.1 # 10% of total stake
-  genesisUpdateImplicit: 10 # slots
-  genesisSoftforkInit: 0.9 # 90% of total stake
-  genesisSoftforkMin: 0.6 # 60% of total stake
-  genesisSoftforkDec: 0.05 # 5% of total stake
-  genesisTxFeePolicy:
-    # Note: these constants here are provided in lovelaces, not ADA
-    # (1 ADA is 1,000,000 lovelaces)
-    txSizeLinear:
-      a: 155381 # absolute minimal fees per transaction
-      b: 43.946 # additional minimal fees per byte of transaction size
-  genesisUnlockStakeEpoch: 18446744073709551615 # last epoch (maxBound @Word64)
 
 
   # P2P, networking

@@ -36,20 +36,16 @@ module Pos.Core.Constants.Raw
 
 import           Universum
 
-import           Data.Aeson                 (FromJSON (..), genericParseJSON)
-import qualified Data.Aeson.Types           as A
-import           Data.Tagged                (Tagged (..))
-import           Data.Time.Units            (Microsecond, Second, convertUnit)
-import           Serokell.Aeson.Options     (defaultOptions)
-import           Serokell.Data.Memory.Units (Byte)
-import           Serokell.Util              (sec)
+import           Data.Aeson             (FromJSON (..), genericParseJSON)
+import qualified Data.Aeson.Types       as A
+import           Data.Tagged            (Tagged (..))
+import           Data.Time.Units        (Microsecond, Second, convertUnit)
+import           Serokell.Aeson.Options (defaultOptions)
+import           Serokell.Util          (sec)
 
-import           Pos.Core.Fee               (TxFeePolicy)
-import           Pos.Core.Fee.Config        (ConfigOf (..))
-import           Pos.Crypto.Hashing         (Hash, unsafeHash)
-import           Pos.Util.Config            (IsConfig (..), configParser,
-                                             parseFromCslConfig)
-import           Pos.Util.Util              ()
+import           Pos.Crypto.Hashing     (Hash, unsafeHash)
+import           Pos.Util.Config        (IsConfig (..), configParser, parseFromCslConfig)
+import           Pos.Util.Util          ()
 
 ----------------------------------------------------------------------------
 -- Constants which are not configurable
@@ -72,77 +68,42 @@ genesisHash = unsafeHash @Text "patak"
 data CoreConfig = CoreConfig
     {
       -- | Security parameter from paper
-      ccK                            :: !Int
+      ccK                          :: !Int
     , -- | Versioning for values in node's DB
-      ccDbSerializeVersion           :: Word8
+      ccDbSerializeVersion         :: Word8
     , -- | Magic constant for separating real/testnet
-      ccProtocolMagic                :: !Int32
+      ccProtocolMagic              :: !Int32
     , -- | Start time of network (in @Production@ running mode). If set to
       -- zero, then running time is 2 minutes after build.
-      ccProductionNetworkStartTime   :: !Int
+      ccProductionNetworkStartTime :: !Int
     , -- | Number of pre-generated keys
-      ccGenesisN                     :: !Int
+      ccGenesisN                   :: !Int
       -- | Size of mem pool will be limited by this value muliplied by block
       -- size limit.
-    , ccMemPoolLimitRatio            :: !Word
+    , ccMemPoolLimitRatio          :: !Word
       -- | Suffix for genesis.bin files
-    , ccGenesisBinSuffix             :: ![Char]
-
-       -- Genesis block version data
-
-      -- | Genesis length of slot in seconds.
-    , ccGenesisSlotDurationSec       :: !Int
-      -- | Portion of total stake necessary to vote for or against update.
-    , ccGenesisUpdateVoteThd         :: !Double
-      -- | Maximum update proposal size in bytes
-    , ccGenesisMaxUpdateProposalSize :: !Byte
-      -- | Portion of total stake such that block containing UpdateProposal
-      -- must contain positive votes for this proposal from stakeholders
-      -- owning at least this amount of stake.
-    , ccGenesisUpdateProposalThd     :: !Double
-      -- | Number of slots after which update is implicitly approved unless
-      -- it has more negative votes than positive.
-    , ccGenesisUpdateImplicit        :: !Word
-      -- | The following three values define 'SoftforkRule', see the
-      -- documentation of this type for more detail.
-    , ccGenesisSoftforkInit          :: !Double
-      -- | See 'SoftforkRule'.
-    , ccGenesisSoftforkMin           :: !Double
-      -- | See 'SoftforkRule'.
-    , ccGenesisSoftforkDec           :: !Double
-    , ccGenesisTxFeePolicy           :: !(ConfigOf TxFeePolicy)
-    , ccGenesisUnlockStakeEpoch      :: !Word64
-      -- | Maximum block size in bytes
-    , ccGenesisMaxBlockSize          :: !Byte
-      -- | Maximum block header size in bytes
-    , ccGenesisMaxHeaderSize         :: !Byte
-      -- | Maximum tx size in bytes
-    , ccGenesisMaxTxSize             :: !Byte
-      -- | Threshold for heavyweight delegation
-    , ccGenesisHeavyDelThd           :: !Double
-      -- | Eligibility threshold for MPC
-    , ccGenesisMpcThd                :: !Double
+    , ccGenesisBinSuffix           :: ![Char]
 
        -- Chain quality thresholds and other constants to detect
        -- suspicious things.
 
       -- | If chain quality in bootstrap era is less than this value,
       -- non critical misbehavior will be reported.
-    , ccNonCriticalCQBootstrap       :: !Double
+    , ccNonCriticalCQBootstrap     :: !Double
       -- | If chain quality in bootstrap era is less than this value,
       -- critical misbehavior will be reported.
-    , ccCriticalCQBootstrap          :: !Double
+    , ccCriticalCQBootstrap        :: !Double
       -- | If chain quality after bootstrap era is less than this
       -- value, non critical misbehavior will be reported.
-    , ccNonCriticalCQ                :: !Double
+    , ccNonCriticalCQ              :: !Double
       -- | If chain quality after bootstrap era is less than this
       -- value, critical misbehavior will be reported.
-    , ccCriticalCQ                   :: !Double
+    , ccCriticalCQ                 :: !Double
       -- | Number of blocks such that if so many blocks are rolled
       -- back, it requires immediate reaction.
-    , ccCriticalForkThreshold        :: !Int
+    , ccCriticalForkThreshold      :: !Int
       -- | Chain quality will be also calculated for this amount of seconds.
-    , ccFixedTimeCQ                  :: !Int
+    , ccFixedTimeCQ                :: !Int
     }
     deriving (Show, Generic)
 
@@ -162,26 +123,30 @@ instance FromJSON CoreConfig where
 instance IsConfig CoreConfig where
     configPrefix = Tagged Nothing
 
--- | Check invariants
+-- | Check invariants.
+--
+-- Note: during genesis files rework (CSL-1617) all these values were
+-- moved into 'GenesisSpec', so currently there are no checks.
 checkConstants :: CoreConfig -> A.Parser CoreConfig
-checkConstants cs@CoreConfig{..} = do
-    let check :: [a -> Bool] -> a -> Bool
-        check ps x = all ($ x) ps
-    unless (check [(>= 0), (< 1)] ccGenesisMpcThd) $
-        fail "CoreConfig: genesisMpcThd is not in range [0, 1)"
-    unless (check [(>= 0), (< 1)] ccGenesisUpdateVoteThd) $
-        fail "CoreConfig: genesisUpdateVoteThd is not in range [0, 1)"
-    unless (check [(>= 0), (< 1)] ccGenesisHeavyDelThd) $
-        fail "CoreConfig: genesisHeavyDelThd is not in range [0, 1)"
-    unless (check [(> 0), (< 1)] ccGenesisUpdateProposalThd) $
-        fail "CoreConfig: genesisUpdateProposalThd is not in range (0, 1)"
-    unless (check [(> 0), (< 1)] ccGenesisSoftforkInit) $
-        fail "CoreConfig: genesisSoftforkInit is not in range (0, 1)"
-    unless (check [(> 0), (< 1)] ccGenesisSoftforkMin) $
-        fail "CoreConfig: genesisSoftforkMin is not in range (0, 1)"
-    unless (check [(> 0), (< 1)] ccGenesisSoftforkDec) $
-        fail "CoreConfig: genesisSoftforkDec is not in range (0, 1)"
-    pure cs
+checkConstants = pure
+-- checkConstants cs@CoreConfig{..} = do
+--     let check :: [a -> Bool] -> a -> Bool
+--         check ps x = all ($ x) ps
+--     unless (check [(>= 0), (< 1)] ccGenesisMpcThd) $
+--         fail "CoreConfig: genesisMpcThd is not in range [0, 1)"
+--     unless (check [(>= 0), (< 1)] ccGenesisUpdateVoteThd) $
+--         fail "CoreConfig: genesisUpdateVoteThd is not in range [0, 1)"
+--     unless (check [(>= 0), (< 1)] ccGenesisHeavyDelThd) $
+--         fail "CoreConfig: genesisHeavyDelThd is not in range [0, 1)"
+--     unless (check [(> 0), (< 1)] ccGenesisUpdateProposalThd) $
+--         fail "CoreConfig: genesisUpdateProposalThd is not in range (0, 1)"
+--     unless (check [(> 0), (< 1)] ccGenesisSoftforkInit) $
+--         fail "CoreConfig: genesisSoftforkInit is not in range (0, 1)"
+--     unless (check [(> 0), (< 1)] ccGenesisSoftforkMin) $
+--         fail "CoreConfig: genesisSoftforkMin is not in range (0, 1)"
+--     unless (check [(> 0), (< 1)] ccGenesisSoftforkDec) $
+--         fail "CoreConfig: genesisSoftforkDec is not in range (0, 1)"
+--     pure cs
 
 ----------------------------------------------------------------------------
 -- Constants taken from the config

@@ -19,7 +19,7 @@ import           Pos.Core                          (Coin, CoinPortion, mkCoin,
                                                     unsafeAddCoin, unsafeGetCoin,
                                                     unsafeSubCoin)
 import           Pos.Core.Coin                     (coinPortionToDouble)
-import           Pos.Core.Constants                (genesisMpcThd)
+import           Pos.Core.Genesis                  (genesisMpcThd)
 import           Pos.Lrc.Types                     (RichmenStakes)
 
 -- | Wrapper over 'RichmenStakes'. Its 'Arbitrary' instance enforces that the

@@ -1,3 +1,5 @@
+-- | Aeson instances for 'TxFeePolicy' and its subtypes.
+
 module Pos.Aeson.Fee
        (
        ) where
@@ -10,8 +12,6 @@ import           Data.Fixed          (Fixed (..), resolution)
 import qualified Data.HashMap.Strict as HM.S
 
 import           Pos.Core.Fee        (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
-
--- Copy-pasted from Pos.Core.Fee.Config
 
 instance JSON.FromJSON Coeff where
     parseJSON = JSON.withScientific "Coeff" $ \sc -> do
@@ -51,4 +51,3 @@ instance JSON.FromJSON TxFeePolicy where
             mkTxFeePolicyUnknown (policyTag, policyPayload) =
                 TxFeePolicyUnknown policyTag
                     (encodeUtf8 @Text @ByteString policyPayload)
-

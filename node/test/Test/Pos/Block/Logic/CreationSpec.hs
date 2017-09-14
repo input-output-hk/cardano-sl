@@ -22,10 +22,10 @@ import           Pos.Binary.Class           (biSize)
 import           Pos.Block.Core             (BlockHeader, MainBlock)
 import           Pos.Block.Logic            (RawPayload (..), createMainBlockPure)
 import qualified Pos.Communication          ()
-import           Pos.Constants              (genesisMaxBlockSize)
 import           Pos.Core                   (HasCoreConstants, SlotId (..),
                                              blkSecurityParam, giveStaticConsts,
                                              mkVssCertificatesMap, unsafeMkLocalSlotIndex)
+import           Pos.Core.Genesis           (genesisMaxBlockSize)
 import           Pos.Crypto                 (SecretKey)
 import           Pos.Delegation             (DlgPayload, ProxySKBlockInfo)
 import           Pos.Ssc.Class              (Ssc (..), sscDefaultPayload)

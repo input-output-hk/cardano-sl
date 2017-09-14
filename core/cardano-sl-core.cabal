@@ -50,7 +50,6 @@ library
                        Pos.Core.Constants
                        Pos.Core.Context
                        Pos.Core.Fee
-                       Pos.Core.Fee.Config
                        Pos.Core.Script
                        Pos.Core.SharedSeed
                        Pos.Core.Slotting

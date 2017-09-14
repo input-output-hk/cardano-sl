@@ -10,6 +10,11 @@ module Pos.Explorer.Socket.Methods
        ( Subscription (..)
        , ClientEvent (..)
        , ServerEvent (..)
+       , SubscriptionParam (..)
+
+       , addrSubParam
+       , blockPageSubParam
+       , txsSubParam
 
        , startSession
        , finishSession

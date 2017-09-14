@@ -48,7 +48,7 @@ import           Pos.Ssc.GodTossing.Core            (GtPayload (..), InnerShares
                                                      VssCertificate, isCommitmentIdx,
                                                      isOpeningIdx, isSharesIdx,
                                                      mkCommitmentsMap,
-                                                     mkVssCertificatesMap)
+                                                     mkVssCertificatesMapSingleton)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData (..), ldEpoch,
                                                      ldModifier, ldSize)
 import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossT,
@@ -206,7 +206,7 @@ sscProcessCertificate
     => VssCertificate -> m ()
 sscProcessCertificate cert =
     sscProcessData VssCertificateMsg $
-    CertificatesPayload (mkVssCertificatesMap [cert])
+    CertificatesPayload (mkVssCertificatesMapSingleton cert)
 
 sscProcessData
     :: forall ctx m.

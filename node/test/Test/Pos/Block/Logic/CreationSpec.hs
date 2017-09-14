@@ -30,7 +30,8 @@ import           Pos.Crypto                 (SecretKey)
 import           Pos.Delegation             (DlgPayload, ProxySKBlockInfo)
 import           Pos.Ssc.Class              (Ssc (..), sscDefaultPayload)
 import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
-                                             commitmentMapEpochGen, mkVssCertificatesMap,
+                                             commitmentMapEpochGen,
+                                             mkVssCertificatesMapLossy,
                                              vssCertificateEpochGen)
 import           Pos.Txp.Core               (TxAux)
 import           Pos.Update.Core            (UpdatePayload (..))
@@ -150,7 +151,7 @@ spec = giveStaticConsts $ describe "Block.Logic.Creation" $ do
 
 validGtPayloadGen :: HasCoreConstants => Gen (GtPayload, SlotId)
 validGtPayloadGen = do
-    vssCerts <- makeSmall $ fmap mkVssCertificatesMap $ listOf $ vssCertificateEpochGen 0
+    vssCerts <- makeSmall $ fmap mkVssCertificatesMapLossy $ listOf $ vssCertificateEpochGen 0
     let mkSlot i = SlotId 0 (unsafeMkLocalSlotIndex (fromIntegral i))
     oneof [ do commMap <- makeSmall $ commitmentMapEpochGen 0
                pure (CommitmentsPayload commMap vssCerts, SlotId 0 minBound)

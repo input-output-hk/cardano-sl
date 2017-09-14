@@ -27,7 +27,8 @@ import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (..), GtPayload
                                                   SignedCommitment, VssCertificate,
                                                   VssCertificatesMap (..),
                                                   getCommitmentsMap, gpVss,
-                                                  mkCommitmentsMapUnsafe)
+                                                  mkCommitmentsMapUnsafe,
+                                                  mkVssCertificatesMapSingleton)
 import           Pos.Ssc.GodTossing.Functions    (sanityChecksGtPayload)
 import           Pos.Ssc.GodTossing.Toss.Base    (checkPayload)
 import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossEnv (..))
@@ -164,7 +165,7 @@ normalizeTossDo epoch (comms, opens, shares, certs) = do
         comms
     putsUseful $ map (flip OpeningsPayload mempty . one) opens
     putsUseful $ map (flip SharesPayload mempty . one) shares
-    putsUseful $ map (CertificatesPayload . UnsafeVssCertificatesMap . one) certs
+    putsUseful $ map (CertificatesPayload . mkVssCertificatesMapSingleton . snd) certs
   where
     putsUseful :: [GtPayload] -> m ()
     putsUseful entries = do

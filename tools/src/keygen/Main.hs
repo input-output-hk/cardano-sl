@@ -102,7 +102,8 @@ getTestnetData dir tso@TestBalanceOptions{..} = do
         genesisAddrDistr = [(genesisAddrs, distr)]
         genGtData = GenesisGtData
             { ggdVssCertificates =
-              mkVssCertificatesMap (map snd genesisListRich)
+                  either error identity $
+                  mkVssCertificatesMap (map snd genesisListRich)
             }
 
     logInfo $ sformat ("testnet genesis created successfully. "

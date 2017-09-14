@@ -47,7 +47,8 @@ genesisDevVssPublicKeys = map toVssPublicKey genesisDevVssKeyPairs
 genesisCertificates :: VssCertificatesMap
 genesisCertificates
     | isDevelopment = case certEntries of
-          c0:c1:_:cs -> mkVssCertificatesMap (c0 : c1 : cs)
+          c0:c1:_:cs -> either error identity $
+                        mkVssCertificatesMap (c0 : c1 : cs)
           _          -> error "genesisCertificates: can't happen"
     | otherwise     = ggdVssCertificates genGtData
   where

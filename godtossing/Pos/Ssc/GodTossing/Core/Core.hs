@@ -328,6 +328,8 @@ stripGtPayload lim payload = case payload of
   where
     limCerts = lim `div` 3 -- certificates are 1/3 less important than everything else
                            -- this is a random choice in fact
+    -- Using 'UnsafeVssCertificatesMap' is safe here because if the original
+    -- map is okay, a subset of the original map is okay too.
     stripVss l = fmap UnsafeVssCertificatesMap .
                  stripHashMap l .
                  getVssCertificatesMap

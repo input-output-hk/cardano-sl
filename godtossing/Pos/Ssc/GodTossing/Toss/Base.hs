@@ -141,6 +141,8 @@ checkShares epoch (id, sh) = do
 -- richmen and stable certificates.
 computeParticipants :: RichmenSet -> VssCertificatesMap -> VssCertificatesMap
 computeParticipants (HS.toMap -> richmen) (UnsafeVssCertificatesMap certs) =
+    -- Using 'UnsafeVssCertificatesMap' is safe here because if the original
+    -- 'certs' map is okay, a subset of the original 'certs' map is okay too.
     UnsafeVssCertificatesMap (HM.intersection certs richmen)
 
 -- | We accept inaccuracy in computation not greater than 0.05,

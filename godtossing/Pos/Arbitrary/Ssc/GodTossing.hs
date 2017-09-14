@@ -10,7 +10,6 @@ module Pos.Arbitrary.Ssc.GodTossing
 
 import           Universum
 
-import           Data.List.Extra                   (nubOrdOn)
 import qualified Data.List.NonEmpty                as NE
 import qualified System.Random                     as R
 import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, elements,
@@ -36,7 +35,7 @@ import           Pos.Ssc.GodTossing.Core           (Commitment (..), Commitments
                                                     isSharesId, mkCommitmentsMap,
                                                     mkCommitmentsMap, mkSignedCommitment,
                                                     mkVssCertificate,
-                                                    mkVssCertificatesMap)
+                                                    mkVssCertificatesMapLossy)
 import qualified Pos.Ssc.GodTossing.Genesis.Types  as G
 import           Pos.Ssc.GodTossing.Toss.Types     (TossModifier (..))
 import           Pos.Ssc.GodTossing.Type           (SscGodTossing)
@@ -179,8 +178,7 @@ instance HasCoreConstants => Arbitrary (SscPayloadDependsOnSlot SscGodTossing) w
         genValidComm SlotId{..} (sk, c) = mkSignedCommitment sk siEpoch c
 
         genVssCerts slot =
-            mkVssCertificatesMap .
-            nubOrdOn vcVssKey .
+            mkVssCertificatesMapLossy .
             map (genValidCert slot) <$>
             arbitrary
         genValidCert SlotId{..} (sk, pk) = mkVssCertificate sk pk $ siEpoch + 5
@@ -188,7 +186,7 @@ instance HasCoreConstants => Arbitrary (SscPayloadDependsOnSlot SscGodTossing) w
 instance Arbitrary VssCertificatesMap where
     arbitrary = do
         certs <- arbitrary
-        pure $ mkVssCertificatesMap (nubOrdOn vcVssKey certs)
+        pure $ mkVssCertificatesMapLossy certs
     shrink = genericShrink
 
 instance HasCoreConstants => Arbitrary VssCertData where

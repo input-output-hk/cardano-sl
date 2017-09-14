@@ -76,9 +76,11 @@ library
                      , containers
                      , cryptonite
                      , data-default
+                     , directory
                      , ether
                      , extra
                      , file-embed
+                     , filepath
                      , formatting
                      , generic-arbitrary
                      , hashable
@@ -93,6 +95,7 @@ library
                      , serokell-util
                      , stm
                      , tagged
+                     , template-haskell
                      , text
                      , text-format
                      , time-units

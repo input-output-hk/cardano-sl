@@ -9,6 +9,8 @@ import           Statistics
 import           Types
 import           Universum       hiding (head)
 
+import           Pos.Util.Util   (histogram)
+
 main :: IO ()
 main = do
     opts <- parseOptions

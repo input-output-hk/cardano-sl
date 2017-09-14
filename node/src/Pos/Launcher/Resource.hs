@@ -20,7 +20,7 @@ module Pos.Launcher.Resource
        , bracketTransport
        ) where
 
-import           Universum                  hiding (bracket, finally)
+import           Universum                  hiding (bracket)
 
 import           Control.Concurrent.STM     (newEmptyTMVarIO, newTBQueueIO)
 import           Data.Tagged                (untag)
@@ -54,6 +54,7 @@ import           Pos.DB.Rocks               (closeNodeDBs, openNodeDBs)
 import           Pos.Delegation             (DelegationVar, mkDelegationVar)
 import           Pos.DHT.Real               (KademliaDHTInstance, KademliaParams (..),
                                              startDHTInstance, stopDHTInstance)
+import qualified Pos.GState                 as GS
 import           Pos.Launcher.Param         (BaseParams (..), LoggingParams (..),
                                              NodeParams (..))
 import           Pos.Lrc.Context            (LrcContext (..), mkLrcSyncData)
@@ -73,10 +74,10 @@ import           Pos.Explorer               (explorerTxpGlobalSettings)
 import           Pos.Txp                    (txpGlobalSettings)
 #endif
 
-import           Pos.Launcher.Mode          (InitMode, InitModeContext (..),
-                                             newInitFuture, runInitMode)
+import           Pos.Launcher.Mode          (InitMode, InitModeContext (..), runInitMode)
 import           Pos.Update.Context         (mkUpdateContext)
 import qualified Pos.Update.DB              as GState
+import           Pos.Util                   (newInitFuture)
 import           Pos.WorkMode               (TxpExtra_TMP)
 
 #ifdef linux_HOST_OS
@@ -129,9 +130,9 @@ allocateNodeResources
     -> Production (NodeResources ssc m)
 allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
     db <- openNodeDBs npRebuildDb npDbPathM
-    (futureLrcContext, putLrcContext) <- newInitFuture
-    (futureSlottingVar, putSlottingVar) <- newInitFuture
-    (futureSlottingContext, putSlottingContext) <- newInitFuture
+    (futureLrcContext, putLrcContext) <- newInitFuture "lrcContext"
+    (futureSlottingVar, putSlottingVar) <- newInitFuture "slottingVar"
+    (futureSlottingContext, putSlottingContext) <- newInitFuture "slottingContext"
     let putSlotting sv sc = do
             putSlottingVar sv
             putSlottingContext sc
@@ -255,7 +256,7 @@ allocateNodeContext ancd = do
                                 , ancdTxpMemState = TxpLocalData {..}
                                 } = ancd
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
-    ncStateLock <- newStateLock
+    ncStateLock <- newStateLock =<< GS.getTip
     ncStateLockMetrics <- liftIO $ recordTxpMetrics store txpMemPool
     lcLrcSync <- mkLrcSyncData >>= newTVarIO
     ncSlottingVar <- (npSystemStart,) <$> mkSlottingVar

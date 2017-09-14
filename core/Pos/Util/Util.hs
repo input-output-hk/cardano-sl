@@ -72,8 +72,8 @@ module Pos.Util.Util
 
        -- * Instances
        -- ** Lift Byte
-       -- ** FromJSON Byte
-       -- ** ToJSON Byte
+       -- ** Lift HashMap
+       -- ** FromJSON Byte, ToJSON Byte
        -- ** Hashable Byte
        -- ** MonadFail (Either s), assuming IsString s
        -- ** HasLoggerName (MonadPseudoRandom drg)
@@ -113,6 +113,8 @@ import qualified Data.Aeson                     as A
 import qualified Data.Aeson.Types               as A
 import           Data.Char                      (isAlphaNum)
 import           Data.Hashable                  (Hashable (hashWithSalt))
+import           Data.HashMap.Strict            (HashMap)
+import qualified Data.HashMap.Strict            as HM
 import           Data.HashSet                   (fromMap)
 import           Data.List                      (last)
 import           Data.Map                       (Map)
@@ -196,6 +198,9 @@ instance MonadReader r m => MonadReader r (PropertyM m) where
     ask = lift ask
     local f (MkPropertyM propertyM) =
         MkPropertyM $ \hole -> local f <$> propertyM hole
+
+instance (TH.Lift k, TH.Lift v) => TH.Lift (HashMap k v) where
+    lift x = let l = HM.toList x in [|HM.fromList l|]
 
 instance Hashable Byte where
     hashWithSalt i = hashWithSalt i . toInteger

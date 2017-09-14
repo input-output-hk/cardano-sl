@@ -50,7 +50,10 @@ restoreWalletFromBackup WalletBackup {..} = do
                     seedGen = DeterminedSeed aIdx
                 accId <- genUniqueAccountId seedGen wId
                 createAccount accId meta
-            void $ L.createWalletSafe wId wMeta
+            -- Restoring a wallet from backup may take a long time.
+            -- Hence we mark the wallet as "not ready" until `syncWalletOnImport` completes.
+            void $ L.createWalletSafe wId wMeta False
+            -- `syncWalletOnImport` automatically marks a wallet as "ready".
             void $ syncWalletOnImport wbSecretKey
             -- Get wallet again to return correct balance and stuff
             L.getWallet wId
@@ -69,4 +72,3 @@ exportWalletJSON :: MonadWalletWebMode m => CId Wal -> Text -> m ()
 exportWalletJSON wid (toString -> fp) = do
     wBackup <- TotalBackup <$> getWalletBackup wid
     liftIO $ BSL.writeFile fp $ A.encode wBackup
-

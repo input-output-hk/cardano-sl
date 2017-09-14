@@ -5,6 +5,7 @@ module Main (main) where
 import           Universum
 
 import qualified Data.ByteString              as BS
+import           Data.Default                 (def)
 import qualified Data.Text                    as T
 import           Data.Version                 (showVersion)
 import           NeatInterpolation            (text)
@@ -18,6 +19,7 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl             (version)
 import           Pos.Crypto                   (RedeemPublicKey (..), redeemPkBuild)
+import           Pos.Launcher                 (applyConfigInfo)
 import           Pos.Types                    (makeRedeemAddress)
 
 data AddrConvertOptions = AddrConvertOptions
@@ -62,6 +64,7 @@ In this case each entered vending address is echoed with a testnet address.|]
 
 main :: IO ()
 main = do
+    applyConfigInfo def
     AddrConvertOptions{..} <- getAddrConvertOptions
     case address of
         Just addr -> convertAddr addr >>= putText

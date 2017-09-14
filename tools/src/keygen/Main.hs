@@ -7,7 +7,6 @@ import           Universum
 import           Control.Lens          ((?~))
 import           Data.Aeson            (eitherDecode)
 import qualified Data.ByteString.Lazy  as BSL
-import qualified Data.HashMap.Strict   as HM
 import qualified Data.List             as L
 import qualified Data.Map.Strict       as Map
 import qualified Data.Text             as T
@@ -30,6 +29,8 @@ import           Pos.Genesis           (AddrDistribution, BalanceDistribution (.
                                         GenesisCoreData (..), GenesisGtData (..),
                                         genesisDevHdwSecretKeys, genesisDevSecretKeys,
                                         mkGenesisCoreData, noGenesisDelegation)
+import           Pos.Launcher          (applyConfigInfo)
+import           Pos.Ssc.GodTossing    (mkVssCertificatesMap)
 import           Pos.Util.UserSecret   (readUserSecret, usKeys, usPrimKey, usVss,
                                         usWalletSet)
 import           Pos.Util.Util         (leftToPanic)
@@ -101,7 +102,7 @@ getTestnetData dir tso@TestBalanceOptions{..} = do
         genesisAddrDistr = [(genesisAddrs, distr)]
         genGtData = GenesisGtData
             { ggdVssCertificates =
-              HM.fromList $ map (_1 %~ addressHash) genesisListRich
+              mkVssCertificatesMap (map snd genesisListRich)
             }
 
     logInfo $ sformat ("testnet genesis created successfully. "
@@ -262,7 +263,7 @@ genGenesisFiles GenesisGenOptions{..} = do
             [ view _3 <$> mTestnetData
             -- , CSL-1315 vss certificates for boot stakeholders
             ]
-    when (HM.null $ ggdVssCertificates genGtData) $
+    when (null $ ggdVssCertificates genGtData) $
         error "genGtData seems to be empty. Are you sure you've specified testnet \
               \flag ? See CSL-1315"
 
@@ -299,6 +300,7 @@ genGenesisFiles GenesisGenOptions{..} = do
 main :: IO ()
 main = do
     KeygenOptions{..} <- getKeygenOptions
+    applyConfigInfo koConfigInfo
     setupLogging $ consoleOutB & lcTermSeverity ?~ Debug
     usingLoggerName "keygen" $ do
         logInfo "Processing command"

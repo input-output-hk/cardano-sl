@@ -5,22 +5,19 @@
 
 module Pos.Launcher.Scenario
        ( runNode
-       , initSemaphore
        , runNode'
        , nodeStartMsg
        ) where
 
 import           Universum
 
-import           Control.Lens          (views)
 import           Data.Time.Units       (Second)
 import           Ether.Internal        (HasLens (..))
 import           Formatting            (build, int, sformat, shown, (%))
 import           Mockable              (mapConcurrently, race)
 import           Serokell.Util.Text    (listJson)
 import           System.Exit           (ExitCode (..))
-import           System.Wlog           (WithLogger, getLoggerName, logError, logInfo,
-                                        logWarning)
+import           System.Wlog           (WithLogger, getLoggerName, logInfo, logWarning)
 
 import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec,
                                         wrapActionSpec)
@@ -40,9 +37,8 @@ import           Pos.Reporting         (reportError)
 import           Pos.Shutdown          (waitForShutdown)
 import           Pos.Slotting          (waitSystemStart)
 import           Pos.Ssc.Class         (SscConstraint)
-import           Pos.StateLock         (StateLock (..))
 import           Pos.Util              (inAssertMode)
-import           Pos.Util.Config       (configName)
+import           Pos.Util.Config       (cslConfigName)
 import           Pos.Util.LogSafe      (logInfoS)
 import           Pos.Worker            (allWorkers)
 import           Pos.WorkMode.Class    (WorkMode)
@@ -68,7 +64,8 @@ runNode'
     -> WorkerSpec m
 runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> do
 
-    logInfo $ "cardano-sl: commit " <> gitRev <> ", configName: " <> configName
+    logInfo $ "cardano-sl: commit " <> gitRev <>
+                        ", cslConfigName: " <> cslConfigName
     nodeStartMsg
     inAssertMode $ logInfo "Assert mode on"
     pk <- getOurPublicKey
@@ -107,7 +104,6 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
     tipHeader <- DB.getTipHeader @ssc
     logInfo $ sformat ("Current tip header: "%build) tipHeader
 
-    initSemaphore
     waitSystemStart
     let unpackPlugin (ActionSpec action) =
             action vI sendActions `catch` reportHandler
@@ -183,11 +179,3 @@ nodeStartMsg = logInfo msg
 --             flip (createPsk secretKey) eternity . encToPublic
 --         ownPSKs = uSecret ^.. usKeys . _tail . each . to makeOwnPSK
 --     for_ ownPSKs addProxySecretKey
-
-initSemaphore :: (WorkMode ssc ctx m) => m ()
-initSemaphore = do
-    semaphore <- views (lensOf @StateLock) slTip
-    whenJustM (tryReadMVar semaphore) $ const $
-        logError "ncStateLock is not empty at the very beginning"
-    tip <- GS.getTip
-    putMVar semaphore tip

@@ -11,6 +11,7 @@ module Pos.Wallet.Web.Methods.History
 import           Universum
 
 import qualified Data.DList                 as DL
+import qualified Data.Set                   as S
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (build, sformat, stext, (%))
 import           Serokell.Util              (listJson)
@@ -40,6 +41,8 @@ getFullWalletHistory :: MonadWalletWebMode m => CId Wal -> m ([CTx], Word)
 getFullWalletHistory cWalId = do
     addrs <- mapM decodeCTypeOrFail =<< getWalletAddrs Ever cWalId
 
+    unfilteredLocalHistory <- getLocalHistory addrs
+
     blockHistory <- getHistoryCache cWalId >>= \case
         Just hist -> pure $ DL.fromList hist
         Nothing -> do
@@ -48,7 +51,10 @@ getFullWalletHistory cWalId = do
                 cWalId
             pure mempty
 
-    localHistory <- getLocalHistory addrs
+    let localHistory =
+            DL.fromList $ filterLocalTh
+                (DL.toList blockHistory)
+                (DL.toList unfilteredLocalHistory)
 
     logTxHistory "Block" blockHistory
     logTxHistory "Mempool" localHistory
@@ -56,6 +62,11 @@ getFullWalletHistory cWalId = do
     fullHistory <- addRecentPtxHistory cWalId $ DL.toList $ localHistory <> blockHistory
     cHistory <- forM fullHistory $ addHistoryTx cWalId
     pure (cHistory, fromIntegral $ length cHistory)
+  where
+    filterLocalTh :: [TxHistoryEntry] -> [TxHistoryEntry] -> [TxHistoryEntry]
+    filterLocalTh blockH localH =
+        let blockTxIdsSet = S.fromList $ map _thTxId blockH
+        in  filter ((`S.notMember` blockTxIdsSet) . _thTxId) localH
 
 getHistory
     :: MonadWalletWebMode m

@@ -199,6 +199,11 @@ classifyHeaders inRecovery headers = do
                  ("Newest header is from slot "%build%", but current slot"%
                   " is "%build%" (and we're not in recovery mode)")
                  (newestHeader ^. epochOrSlotG) currentSlot
+         -- This check doesn't normally fail. RetrievalWorker
+         -- calculates lrc every time before calling this function so
+         -- it only fails when oldest header is from the next epoch e'
+         -- and somehow lrc didn't calculate data for e' knowing the
+         -- last header from e.
        | isNothing leaders ->
              pure $ CHsUseless $
              "Don't know leaders for oldest header epoch " <> pretty headersValid

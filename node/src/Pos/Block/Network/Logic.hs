@@ -320,7 +320,6 @@ handleRequestedHeaders cont inRecovery headers = do
     -- be automatically calculated as all workers are locked in
     -- recovery mode. So we should try to do it manually.
     logDebug "handleREquesteHeaders: LRC started"
-    -- TODO EXCEPTION HANDLING HERE
     void $ tryAny $ withStateLockNoMetrics LowPriority $ const $ lrcSingleShot oldestEpoch
     logDebug "handleRequesteHeaders: LRC ended"
     classificationRes <- classifyHeaders inRecovery headers

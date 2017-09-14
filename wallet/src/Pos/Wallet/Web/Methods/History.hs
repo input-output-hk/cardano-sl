@@ -12,8 +12,9 @@ import           Universum
 
 import qualified Data.DList                 as DL
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
-import           Formatting                 (build, sformat, (%))
-import           System.Wlog                (logError, logWarning)
+import           Formatting                 (build, sformat, stext, (%))
+import           Serokell.Util              (listJson)
+import           System.Wlog                (WithLogger, logError, logInfo, logWarning)
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()
@@ -48,6 +49,9 @@ getFullWalletHistory cWalId = do
             pure mempty
 
     localHistory <- getLocalHistory addrs
+
+    logTxHistory "Block" blockHistory
+    logTxHistory "Mempool" localHistory
 
     fullHistory <- addRecentPtxHistory cWalId $ DL.toList $ localHistory <> blockHistory
     cHistory <- forM fullHistory $ addHistoryTx cWalId
@@ -130,6 +134,7 @@ addRecentPtxHistory
     => CId Wal -> [TxHistoryEntry] -> m [TxHistoryEntry]
 addRecentPtxHistory wid currentHistory = do
     candidates <- sortWith (Down . _thTimestamp) <$> getCandidates
+    logTxHistory "Pending" candidates
     merge currentHistory candidates
   where
     getCandidates =
@@ -155,3 +160,11 @@ addRecentPtxHistory wid currentHistory = do
         sformat ("Pending transaction "%build%" has no timestamp set")
                 (_thTxId th)
 
+
+logTxHistory
+    :: (Container t, Element t ~ TxHistoryEntry, WithLogger m)
+    => Text -> t -> m ()
+logTxHistory desc =
+    logInfo .
+    sformat (stext%" transactions history: "%listJson) desc .
+    map _thTxId . toList

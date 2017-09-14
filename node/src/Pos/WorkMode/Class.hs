@@ -91,18 +91,18 @@ type WorkMode ssc ctx m
       , MonadReader ctx m
       , MonadKnownPeers m
       , MonadFormatPeers m
-      , HasLens StartTime ctx StartTime
+      , HasLens' ctx StartTime
       , HasLens' ctx StateLock
       , HasLens' ctx StateLockMetrics
-      , HasLens LrcContext ctx LrcContext
-      , HasLens UpdateContext ctx UpdateContext
-      , HasLens UpdateParams ctx UpdateParams
-      , HasLens SecurityParams ctx SecurityParams
-      , HasLens TxpGlobalSettings ctx TxpGlobalSettings
-      , HasLens GenesisUtxo ctx GenesisUtxo
-      , HasLens GenesisWStakeholders ctx GenesisWStakeholders
+      , HasLens' ctx LrcContext
+      , HasLens' ctx UpdateContext
+      , HasLens' ctx UpdateParams
+      , HasLens' ctx SecurityParams
+      , HasLens' ctx TxpGlobalSettings
+      , HasLens' ctx GenesisUtxo
+      , HasLens' ctx GenesisWStakeholders
       , HasLens BlockRetrievalQueueTag ctx (BlockRetrievalQueue ssc)
-      , HasLens (NetworkConfig KademliaDHTInstance) ctx (NetworkConfig KademliaDHTInstance)
+      , HasLens' ctx (NetworkConfig KademliaDHTInstance)
       , HasSscContext ssc ctx
       , HasReportingContext ctx
       , HasPrimaryKey ctx

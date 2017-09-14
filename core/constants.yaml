@@ -249,7 +249,7 @@ benchmark: &benchmark
       b: 0 # additional minimal fees per byte of transaction size
 
   protocolMagic: 55550007
-  genesisBinSuffix: tn # it is set here arbitrarily, it won't be actually used
+  genesisBinSuffix: bn # it is set here arbitrarily, it won't be actually used
 
 ##############################################################################
 ##                                                                          ##

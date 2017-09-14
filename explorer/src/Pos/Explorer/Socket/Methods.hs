@@ -12,6 +12,7 @@ module Pos.Explorer.Socket.Methods
        , ServerEvent (..)
        , SubscriptionParam (..)
 
+       , addressSetByTxs
        , addrSubParam
        , blockPageSubParam
        , txsSubParam
@@ -312,15 +313,20 @@ addrsTouchedByTx
     :: (MonadDBRead m, WithLogger m)
     => Tx -> m (S.Set Address)
 addrsTouchedByTx tx = do
-    -- for each transaction, get its OutTx
-    -- and transactions from InTx
-    inTxs <- forM (_txInputs tx) $ DB.getTxOut >=> \case
-        -- TODO [CSM-153]: lookup mempool as well
-        Nothing    -> mempty <$ return () -- logError "Can't find input of transaction!"
-        Just txOut -> return . one $ toaOut txOut
+      -- for each transaction, get its OutTx
+      -- and transactions from InTx
+      inTxs <- forM (_txInputs tx) $ DB.getTxOut >=> \case
+      -- ^ inTxs :: NonEmpty [TxOut]
+          -- TODO [CSM-153]: lookup mempool as well
+          Nothing    -> mempty <$ return () -- logError "Can't find input of transaction!"
+          Just txOutAux -> return . one $ toaOut txOutAux
 
-    let relatedTxs = toList (_txOutputs tx) <> concat (toList inTxs)
-    return . S.fromList $ txOutAddress <$> relatedTxs
+      return $ addressSetByTxs (_txOutputs tx) inTxs
+
+addressSetByTxs :: NonEmpty TxOut -> NonEmpty [TxOut] -> (S.Set Address)
+addressSetByTxs tx txs =
+    let txs' = (toList tx) <> (concat txs) in
+    S.fromList $ txOutAddress <$> txs'
 
 getBlockTxs
     :: forall ssc ctx m . ExplorerMode ctx m

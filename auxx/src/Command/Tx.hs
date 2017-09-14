@@ -27,6 +27,7 @@ import           Formatting (build, int, sformat, shown, stext, (%))
 import           Mockable (Mockable, SharedAtomic, SharedAtomicT, concurrently, currentTime, delay,
                            forConcurrently, modifySharedAtomic, newSharedAtomic)
 import           Serokell.Util (ms, sec)
+import           System.Environment (lookupEnv)
 import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
 import           System.Wlog (logError, logInfo)
 

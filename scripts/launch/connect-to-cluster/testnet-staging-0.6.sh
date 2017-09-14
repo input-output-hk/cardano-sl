@@ -5,6 +5,15 @@ readonly CLUSTER=testnet-staging-0.6
 readonly DOMAIN=aws.iohkdev.io
 readonly SYSTEM_START_TIME=1504807319
 
+if [[ "$1" == "-c" ]]; then
+  shift
+  rm -Rf \
+    db-${CLUSTER}                                 \
+    wdb-${CLUSTER}                         \
+    secret-$CLUSTER.key \
+    logs/$CLUSTER
+fi
+
 echo "Launch a single node and connect it to '${CLUSTER}' cluster..."
 
 readonly TMP_TOPOLOGY_YAML=/tmp/topology.yaml
@@ -34,4 +43,6 @@ stack exec -- cardano-node                                  \
     --logs-prefix "logs/${CLUSTER}"                         \
     --db-path db-${CLUSTER}                                 \
     --wallet-db-path wdb-${CLUSTER}                         \
-    --system-start "${SYSTEM_START_TIME}"
+    --keyfile secret-$CLUSTER.key \
+    --system-start "${SYSTEM_START_TIME}"                   \
+    --custom-config-name testnet_staging_full

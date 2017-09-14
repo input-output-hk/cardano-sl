@@ -54,7 +54,7 @@ import           Pos.Core                     (ApplicationName, BlockVersion,
                                                NumSoftwareVersion, SlotId,
                                                SoftwareVersion (..), StakeholderId,
                                                TimeDiff (..), epochSlots)
-import           Pos.Core.Constants           (genesisBlockVersionData,
+import           Pos.Core.Genesis             (genesisBlockVersionData,
                                                genesisSlotDuration)
 import           Pos.Crypto                   (hash)
 import           Pos.DB                       (DBIteratorClass (..), DBTag (..), IterType,

@@ -328,7 +328,7 @@ stripGtPayload lim payload = case payload of
   where
     limCerts = lim `div` 3 -- certificates are 1/3 less important than everything else
                            -- this is a random choice in fact
-    stripVss l = fmap VssCertificatesMap .
+    stripVss l = fmap UnsafeVssCertificatesMap .
                  stripHashMap l .
                  getVssCertificatesMap
 

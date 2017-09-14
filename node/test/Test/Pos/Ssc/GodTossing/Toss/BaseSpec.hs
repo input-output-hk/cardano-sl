@@ -181,7 +181,7 @@ instance HasCoreConstants => Arbitrary GoodCommsPayload where
 
         -- TODO: this generates an invalid VssCertificatesMap because the
         -- stakeholders don't match the certificates
-        stableCerts <- VssCertificatesMap . HM.fromList <$>
+        stableCerts <- UnsafeVssCertificatesMap . HM.fromList <$>
             mapM (\r -> (,) <$> pure r <*> (arbitrary :: Gen VssCertificate))
                  richmenWithCerts
 
@@ -381,7 +381,7 @@ instance HasCoreConstants => Arbitrary GoodSharesPayload where
         richmenWithShares <- sublistOf richmenWithCerts
         let n = length richmenWithShares
 
-        stableCerts <- VssCertificatesMap . HM.fromList <$>
+        stableCerts <- UnsafeVssCertificatesMap . HM.fromList <$>
             mapM (\r -> (,) <$> pure r <*> (arbitrary :: Gen VssCertificate))
                  richmenWithCerts
 
@@ -520,7 +520,7 @@ instance HasCoreConstants => Arbitrary GoodCertsPayload where
         --    'StakeholderId' in 'mrs HM.! epoch'
         --   * The set of its 'StakeholderId' keys is a subset of all the
         --    'StakeholderId's in 'mrs'
-        gpPayload <- VssCertificatesMap <$> do
+        gpPayload <- UnsafeVssCertificatesMap <$> do
             let vssGen :: Gen VssCertificate
                 vssGen = do
                     -- This list is guaranteed to be non-empty
@@ -545,7 +545,7 @@ instance HasCoreConstants => Arbitrary GoodCertsPayload where
         let payloadVssKeys = HS.fromList $ map vcVssKey $
                 toList (getVssCertificatesMap gpPayload)
         _gsVssCertificates <- do
-            certs <- VssCertificatesMap <$> customHashMapGen
+            certs <- UnsafeVssCertificatesMap <$> customHashMapGen
                 (arbitrary `suchThat` (not . flip HM.member richmen))
                 (arbitrary `suchThat` (not . flip HS.member payloadVssKeys . vcVssKey))
             vssData <- arbitrary

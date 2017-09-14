@@ -164,7 +164,7 @@ normalizeTossDo epoch (comms, opens, shares, certs) = do
         comms
     putsUseful $ map (flip OpeningsPayload mempty . one) opens
     putsUseful $ map (flip SharesPayload mempty . one) shares
-    putsUseful $ map (CertificatesPayload . VssCertificatesMap . one) certs
+    putsUseful $ map (CertificatesPayload . UnsafeVssCertificatesMap . one) certs
   where
     putsUseful :: [GtPayload] -> m ()
     putsUseful entries = do

@@ -252,31 +252,31 @@ getCertId = addressHash . vcSigningKey
 -- Invariants:
 --   * stakeholder ids correspond to 'vcSigningKey's of associated certs
 --   * no two certs have the same 'vcVssKey'
-newtype VssCertificatesMap = VssCertificatesMap
+newtype VssCertificatesMap = UnsafeVssCertificatesMap
     { getVssCertificatesMap :: HashMap StakeholderId VssCertificate }
     deriving (Eq, Show, Generic, NFData, Monoid, Container, NontrivialContainer)
 
 type instance Element VssCertificatesMap = VssCertificate
 
 memberVss :: StakeholderId -> VssCertificatesMap -> Bool
-memberVss id (VssCertificatesMap m) = HM.member id m
+memberVss id (UnsafeVssCertificatesMap m) = HM.member id m
 
 lookupVss :: StakeholderId -> VssCertificatesMap -> Maybe VssCertificate
-lookupVss id (VssCertificatesMap m) = HM.lookup id m
+lookupVss id (UnsafeVssCertificatesMap m) = HM.lookup id m
 
 insertVss :: VssCertificate -> VssCertificatesMap -> VssCertificatesMap
-insertVss c (VssCertificatesMap m) =
-    VssCertificatesMap (HM.insert (getCertId c) c m)
+insertVss c (UnsafeVssCertificatesMap m) =
+    UnsafeVssCertificatesMap (HM.insert (getCertId c) c m)
 
 deleteVss :: StakeholderId -> VssCertificatesMap -> VssCertificatesMap
-deleteVss id (VssCertificatesMap m) = VssCertificatesMap (HM.delete id m)
+deleteVss id (UnsafeVssCertificatesMap m) = UnsafeVssCertificatesMap (HM.delete id m)
 
 -- | Safe constructor of 'VssCertificatesMap'.
 --
 -- (Well, almost safe: it doesn't check that all certificates have different
 -- 'vcVssKey's).
 mkVssCertificatesMap :: [VssCertificate] -> VssCertificatesMap
-mkVssCertificatesMap = VssCertificatesMap . HM.fromList . map toCertPair
+mkVssCertificatesMap = UnsafeVssCertificatesMap . HM.fromList . map toCertPair
   where
     toCertPair vc = (getCertId vc, vc)
 

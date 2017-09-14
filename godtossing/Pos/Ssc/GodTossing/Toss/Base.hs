@@ -140,8 +140,8 @@ checkShares epoch (id, sh) = do
 -- | Compute 'VssCertificate's of GodTossing participants using set of
 -- richmen and stable certificates.
 computeParticipants :: RichmenSet -> VssCertificatesMap -> VssCertificatesMap
-computeParticipants (HS.toMap -> richmen) (VssCertificatesMap certs) =
-    VssCertificatesMap (HM.intersection certs richmen)
+computeParticipants (HS.toMap -> richmen) (UnsafeVssCertificatesMap certs) =
+    UnsafeVssCertificatesMap (HM.intersection certs richmen)
 
 -- | We accept inaccuracy in computation not greater than 0.05,
 -- so stakeholders must have at least 55% of stake to reveal secret

@@ -49,7 +49,7 @@ import qualified Data.Map                   as M
 import qualified Data.Text.Buildable        as B
 import qualified Data.Text.Encoding         as Text (decodeUtf8, encodeUtf8)
 import qualified Data.Text.Internal.Builder as B
-import           Formatting                 (bprint, build, hex, shown, sformat, (%))
+import           Formatting                 (bprint, build, hex, sformat, shown, (%))
 -- TODO should not have to import outboundqueue stuff here. MsgType and
 -- NodeType should be a cardano-sl notion.
 import           Mockable.Class             (Mockable)
@@ -78,6 +78,12 @@ type WorkerSpec m = ActionSpec m ()
 
 type Msg = MsgType NodeId
 
+type EnqueueMsg' m t =
+       Msg
+    -> (NodeId -> PeerData -> NonEmpty (Conversation m t))
+    -> m (Map NodeId (m t))
+type EnqueueMsg m = forall t . EnqueueMsg' m t
+
 data SendActions m = SendActions {
       -- | Establish a bi-direction conversation session with a node.
       --
@@ -92,11 +98,7 @@ data SendActions m = SendActions {
              NodeId
           -> (PeerData -> NonEmpty (Conversation m t))
           -> m t
-    , enqueueMsg
-          :: forall t .
-             Msg
-          -> (NodeId -> PeerData -> NonEmpty (Conversation m t))
-          -> m (Map NodeId (m t))
+    , enqueueMsg :: EnqueueMsg m
     }
 
 -- | An 'EnqueueMsg m' which concurrently converses with a list of nodes.
@@ -114,17 +116,11 @@ immediateConcurrentConversations sendActions peers _ k = do
         return (peer, wait it)
     return $ M.fromList lst
 
-type EnqueueMsg m =
-       forall t .
-       Msg
-    -> (NodeId -> PeerData -> NonEmpty (Conversation m t))
-    -> m (Map NodeId (m t))
-
 -- | Enqueue a conversation with a bunch of peers and then wait for all of
 -- the results.
 enqueueMsg'
     :: forall m t .
-       ( Monad m )
+       (Monad m)
     => SendActions m
     -> Msg
     -> (NodeId -> PeerData -> NonEmpty (Conversation m t))

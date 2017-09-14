@@ -69,7 +69,7 @@ handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
             Just hashes -> do
                 logDebug $ sformat
                     ("handleGetBlocks: started sending "%int%
-                     "blocks to "%build%" one-by-one: "%listJson)
+                     " blocks to "%build%" one-by-one: "%listJson)
                     (length hashes) nodeId hashes
                 for_ hashes $ \hHash ->
                     DB.blkGetBlock @ssc hHash >>= \case

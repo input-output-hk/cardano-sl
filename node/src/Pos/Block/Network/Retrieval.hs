@@ -28,7 +28,8 @@ import           Pos.Binary.Communication   ()
 import           Pos.Block.Core             (Block, BlockHeader, blockHeader)
 import           Pos.Block.Logic            (ClassifyHeaderRes (..), classifyNewHeader)
 import           Pos.Block.Network.Announce (announceBlockOuts)
-import           Pos.Block.Network.Logic    (MkHeadersRequestResult (..), handleBlocks,
+import           Pos.Block.Network.Logic    (BlockNetLogicException (DialogUnexpected),
+                                             MkHeadersRequestResult (..), handleBlocks,
                                              mkBlocksRequest, mkHeadersRequest,
                                              requestHeaders, triggerRecovery)
 import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..))
@@ -109,8 +110,11 @@ retrievalWorkerImpl SendActions {..} =
         (if brtContinues then handleContinues else handleAlternative)
             nodeId
             brtHeader
-    handleContinues nodeId header = processContHeader enqueueMsg nodeId header
+    handleContinues nodeId header = do
+        logDebug $ "handleContinues: " <> pretty header
+        processContHeader enqueueMsg nodeId header
     handleAlternative nodeId header = do
+        logDebug $ "handleAlternative: " <> pretty header
         mhrr <- mkHeadersRequest (headerHash header)
         case mhrr of
             MhrrBlockAdopted ->
@@ -125,21 +129,17 @@ retrievalWorkerImpl SendActions {..} =
                     newestHeader = headers ^. _NewestFirst . _neHead
                 in handleCHsValid enqueueMsg nodeId
                                   oldestHeader (headerHash newestHeader)
-        convs <- enqueueMsg (MsgRequestBlockHeaders (Just (S.singleton nodeId))) $
-            \_ _ -> pure $ Conversation $ \conv ->
-                requestHeaders cont mgh nodeId conv
-        results <- waitForConversations $ fmap (handleAll (\_ -> return (Just False))) convs
-        let Any endedRecovery = fold $ fmap mkAny results
-        when endedRecovery $ logInfo "Recovery mode exited gracefully"
-      where
-        -- If there was an exception, or if requestHeaders didn't even run the
-        -- continuation, then recovery was not ended.
-        mkAny :: Maybe Bool -> Any
-        mkAny = maybe (Any False) Any
+        -- If it returns w/o exception then we're:
+        --  * Either still in recovery mode
+        --  * Or just exited it and recoverVar was taken.
+        () <-
+            enqueueMsgSingle enqueueMsg (MsgRequestBlockHeaders $ Just $ S.singleton nodeId) $
+            Conversation $ requestHeaders cont mgh nodeId
+        logInfo "Recovery mode exited gracefully"
     handleBlockRetrievalE nodeId header e = do
         -- REPORT:ERROR 'reportOrLogW' in block retrieval worker.
         reportOrLogW (sformat
-            ("Error handling nodeId="%build%", header="%build%": ")
+            ("handleBlockRetrievalE: error handling nodeId="%build%", header="%build%": ")
             nodeId (headerHash header)) e
         dropUpdateHeader
         dropRecoveryHeaderAndRepeat enqueueMsg nodeId
@@ -274,6 +274,8 @@ processContHeader enqueue nodeId header = do
             "processContHeader: expected header to " <>
              "be continuation, but it's " <> show res
 
+-- Returns only if blocks were successfully downloaded and
+-- processed. Throws exception if something goes wrong.
 handleCHsValid
     :: forall ssc ctx m.
        (SscWorkersClass ssc, WorkMode ssc ctx m)
@@ -281,12 +283,12 @@ handleCHsValid
     -> NodeId
     -> BlockHeader ssc
     -> HeaderHash
-    -> m Bool
+    -> m ()
 handleCHsValid enqueue nodeId lcaChild newestHash = do
     -- The conversation will attempt to retrieve the necessary blocks and apply
     -- them. Each one gives a 'Bool' where 'True' means that a recovery was
     -- completed (depends upon the state of the recovery-mode TMVar).
-    convs <- enqueue (MsgRequestBlocks (S.singleton nodeId)) $ \_ _ -> pure $ Conversation $
+    enqueueMsgSingle enqueue (MsgRequestBlocks (S.singleton nodeId)) $ Conversation $
       \(conv :: ConversationActions MsgGetBlocks (MsgBlock ssc) m) -> do
         let lcaChildHash = headerHash lcaChild
         logDebug $ sformat ("Requesting blocks from "%shortHashF%" to "%shortHashF)
@@ -297,12 +299,12 @@ handleCHsValid enqueue nodeId lcaChild newestHash = do
         recHeaderVar <- view (lensOf @RecoveryHeaderTag)
         case chainE of
             Left e -> do
-                logWarning $ sformat
-                    ("Error retrieving blocks from "%shortHashF%
-                     " to "%shortHashF%" from peer "%build%": "%stext)
-                    lcaChildHash newestHash nodeId e
-                dropRecoveryHeaderAndRepeat enqueue nodeId
-                return False
+                let msg = sformat ("Error retrieving blocks from "%shortHashF%
+                                   " to "%shortHashF%" from peer "%
+                                   build%": "%stext)
+                                  lcaChildHash newestHash nodeId e
+                logWarning msg
+                throwM $ DialogUnexpected msg
             Right blocks -> do
                 logDebug $ sformat
                     ("Retrieved "%int%" blocks of total size "%builder%": "%listJson)
@@ -315,17 +317,15 @@ handleCHsValid enqueue nodeId lcaChild newestHash = do
                 -- difficulty than ncrecoveryheader, we're
                 -- gracefully exiting recovery mode.
                 let isMoreDifficultThan b x = b ^. difficultyL >= x ^. difficultyL
-                atomically $ do
-                    mRecHeader <- tryReadTMVar recHeaderVar
-                    case mRecHeader of
-                        Nothing -> return False
-                        Just (_, rHeader) ->
-                            if any (`isMoreDifficultThan` rHeader) blocks
-                                then isJust <$> tryTakeTMVar recHeaderVar
-                                else return False
-    results <- waitForConversations $ fmap (handleAll (\_ -> return False)) convs
-    let Any endedRecovery = fold $ fmap Any results
-    return endedRecovery
+                atomically $ tryReadTMVar recHeaderVar >>= \case
+                    -- We're not in recovery mode? That must be ok.
+                    Nothing -> pass
+                    -- If we're in recovery mode we should exit it if
+                    -- any block is more difficult than one in
+                    -- recHeader.
+                    Just (_, rHeader) ->
+                        when (any (`isMoreDifficultThan` rHeader) blocks) $
+                            void $ tryTakeTMVar recHeaderVar
 
 retrieveBlocks
     :: (SscWorkersClass ssc, WorkMode ssc ctx m)
@@ -370,3 +370,25 @@ retrieveBlocks' i conv prevH endH = lift (recvLimited conv) >>= \case
         if curH == endH
         then pure $ one block
         else over _Wrapped (block <|) <$> retrieveBlocks' (i+1) conv curH endH
+
+----------------------------------------------------------------------------
+-- Networking
+----------------------------------------------------------------------------
+
+-- | Expects sending message to exactly one node. Receives result or
+-- fails if no result was obtained (no nodes available, timeout, etc).
+enqueueMsgSingle ::
+       (MonadThrow m)
+    => (t2 -> (t1 -> t -> NonEmpty x) -> m (Map NodeId (m b)))
+    -> t2
+    -> x
+    -> m b
+enqueueMsgSingle enqueue msg conv = do
+    results <- enqueue msg (\_ _ -> one conv) >>=
+               waitForConversations
+    case toList results of
+        [] ->      throwM $ DialogUnexpected $
+            "enqueueMsgSingle: contacted no peers"
+        (_:_:_) -> throwM $ DialogUnexpected $
+            "enqueueMsgSingle: contacted more than one peers, probably internal error"
+        [x] -> pure x

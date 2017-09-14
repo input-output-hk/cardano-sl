@@ -32,7 +32,8 @@ import           Pos.Types                        (Address (..), ChainDifficulty
                                                    decodeTextAddress,
                                                    makePubKeyAddressBoot, sumCoins,
                                                    unsafeGetCoin, unsafeIntegerToCoin)
-import           Pos.Update.Core                  (BlockVersionModifier (..),
+import           Pos.Update.Core                  (BlockVersionData (..),
+                                                   BlockVersionModifier (..),
                                                    StakeholderVotes, UpdateProposal (..),
                                                    isPositiveVote)
 import           Pos.Update.Poll                  (ConfirmedProposalState (..))
@@ -175,12 +176,13 @@ countVotes = foldl' counter (0, 0)
                               else (n, m + 1)
 
 -- | Creates 'CTUpdateInfo' from 'ConfirmedProposalState'
-toCUpdateInfo :: ConfirmedProposalState -> CUpdateInfo
-toCUpdateInfo ConfirmedProposalState {..} =
+toCUpdateInfo :: BlockVersionData -> ConfirmedProposalState -> CUpdateInfo
+toCUpdateInfo bvd ConfirmedProposalState {..} =
     let UnsafeUpdateProposal {..} = cpsUpdateProposal
         cuiSoftwareVersion  = upSoftwareVersion
         cuiBlockVesion      = upBlockVersion
-        cuiScriptVersion    = bvmScriptVersion upBlockVersionMod
+        cuiScriptVersion    = maybe identity const (bvmScriptVersion upBlockVersionMod) $
+            bvdScriptVersion bvd
         cuiImplicit         = cpsImplicit
 --        cuiProposed         = cpsProposed
 --        cuiDecided          = cpsDecided

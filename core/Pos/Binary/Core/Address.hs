@@ -10,12 +10,10 @@ import qualified Codec.CBOR.Write      as CBOR.Write
 import qualified Data.ByteString       as BS
 import           Data.Digest.CRC32     (CRC32 (..))
 import           Data.Word             (Word8)
+import           Formatting            (build, formatToString, shown, (%))
 
-import           Pos.Binary.Class      (Bi (..), decodeCrcProtected, decodeListLen,
-                                        decodeUnknownCborDataItem, deserialize',
-                                        encodeCrcProtected, encodeListLen,
-                                        encodeUnknownCborDataItem, enforceSize,
-                                        serialize')
+import           Pos.Binary.Class      (Bi (..), decodeListLen, deserialize',
+                                        encodeListLen, enforceSize, serialize')
 import           Pos.Binary.Core.Types ()
 import           Pos.Binary.Crypto     ()
 import           Pos.Core.Types        (AddrAttributes (..), AddrSpendingData (..),
@@ -74,17 +72,14 @@ instance Bi AddrSpendingData where
             PubKeyASD pk -> encode (w8 0, pk)
             ScriptASD script -> encode (w8 1, script)
             RedeemASD redeemPK -> encode (w8 2, redeemPK)
-            UnknownASD tag payload ->
-                -- `encodeListLen 2` is semantically equivalent to encode (x,y)
-                -- but we need to "unroll" it in order to apply CBOR's tag 24 to `payload`.
-                encodeListLen 2 <> encode tag <> encodeUnknownCborDataItem payload
+            UnknownASD tag payload -> encode (tag, payload)
     decode = do
         enforceSize "AddrSpendingData" 2
         decode @Word8 >>= \case
             0 -> PubKeyASD <$> decode
             1 -> ScriptASD <$> decode
             2 -> RedeemASD <$> decode
-            tag -> UnknownASD tag <$> decodeUnknownCborDataItem
+            tag -> UnknownASD tag <$> decode
 
 instance Bi AddrStakeDistribution where
     encode =
@@ -184,8 +179,12 @@ encodeAddr Address {..} =
 -- relies on 'Bi', but it uses only encoding, while 'Buildable' is
 -- used here only in decoding.
 instance Buildable Address => Bi Address where
-    encode Address{..} = encodeCrcProtected (addrRoot, addrAttributes, addrType)
+    encode addr = encodeListLen 4 <> encodeAddr addr <> encode (crc32 addr)
     decode = do
-        (addrRoot, addrAttributes, addrType) <- decodeCrcProtected
+        (addrRoot, addrAttributes, addrType, decodedCRC) <- decode
         let res = Address {..}
-        pure res
+        let actualCRC = crc32 res
+        let errFmt = ("Address "%build%"has invalid checksum (decoded: "
+                      %shown%", actual: "%shown%")")
+        let err = formatToString errFmt res decodedCRC actualCRC
+        res <$ unless (actualCRC == decodedCRC) (fail err)

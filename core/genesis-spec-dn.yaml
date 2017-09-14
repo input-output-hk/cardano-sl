@@ -13,7 +13,7 @@ initializer:
     seed: 0
 blockVersionData:
   scriptVersion:     0
-  slotDuration:      7
+  slotDuration:      7000 # sec
   maxBlockSize:      2000000
   maxHeaderSize:     2000000
   maxTxSize:         4096 # 4 Kb

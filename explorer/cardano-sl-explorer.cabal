@@ -115,9 +115,7 @@ library
 executable cardano-explorer
   hs-source-dirs:      src/explorer
   main-is:             Main.hs
-  other-modules:       ExplorerOptions
-                     , Params
-                     , Secrets
+  other-modules:       NodeOptions
   build-depends:       base
                      , bytestring
                      , ether
@@ -135,7 +133,7 @@ executable cardano-explorer
                      , mtl
                      , network-transport-tcp
                      , node-sketch
-                     , optparse-simple
+                     , optparse-applicative
                      , universum
                      , serokell-util
                      , time

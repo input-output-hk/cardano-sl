@@ -17,7 +17,7 @@ import           Mockable            (Production, currentTime, runProduction)
 import           System.Wlog         (logInfo)
 
 import           Pos.Binary          ()
-import           Pos.Client.CLI      (CommonNodeArgs (..))
+import           Pos.Client.CLI      (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI      as CLI
 import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec, worker)
 import           Pos.Context         (HasNodeContext)
@@ -26,6 +26,7 @@ import           Pos.Launcher        (NodeParams (..), NodeResources (..),
                                       applyConfigInfo, bracketNodeResources, runNode)
 import           Pos.Ssc.Class       (SscParams)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
+import           Pos.Ssc.SscAlgo     (SscAlgo (..))
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web      (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
                                       runWRealMode, walletServeWebFull, walletServerOuts)
@@ -34,7 +35,10 @@ import           Pos.WorkMode        (WorkMode)
 
 import           NodeOptions         (WalletArgs (..), WalletNodeArgs (..),
                                       getWalletNodeOptions)
-import           Params              (getNodeParams)
+
+----------------------------------------------------------------------------
+-- Main action
+----------------------------------------------------------------------------
 
 actionWithWallet :: HasCoreConstants => SscParams SscGodTossing -> NodeParams -> WalletArgs -> Production ()
 actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
@@ -75,7 +79,7 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) = do
         logInfo $ sformat ("System start time is " % shown) systemStart
         t <- currentTime
         logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-        currentParams <- getNodeParams cArgs systemStart
+        currentParams <- getNodeParams cArgs nodeArgs systemStart
         putText $ "Wallet is enabled!"
         logInfo $ sformat ("Using configs and genesis:\n"%build) configInfo
 
@@ -83,6 +87,9 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) = do
         let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
         actionWithWallet gtParams currentParams wArgs
+  where
+    nodeArgs :: NodeArgs
+    nodeArgs = NodeArgs { sscAlgo = GodTossingAlgo, behaviorConfigPath = Nothing }
 
 main :: IO ()
 main = do

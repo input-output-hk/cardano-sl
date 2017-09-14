@@ -231,6 +231,8 @@ data MatchReqHeadersRes
       -- request. Reason is attached.
     deriving (Show)
 
+-- TODO This function is used ONLY in recovery mode, so passing the
+-- flag is redundant, it's always True.
 matchRequestedHeaders
     :: (SscHelpersClass ssc, HasCoreConstants)
     => NewestFirst NE (BlockHeader ssc) -> MsgGetHeaders -> Bool -> MatchReqHeadersRes
@@ -260,18 +262,20 @@ matchRequestedHeaders headers mgh@MsgGetHeaders {..} inRecovery =
           | otherwise -> MRGood
 
 requestHeaders
-    :: forall ssc ctx m t.
+    :: forall ssc ctx m.
        (SscWorkersClass ssc, WorkMode ssc ctx m)
-    => (NewestFirst NE (BlockHeader ssc) -> m t)
+    => (NewestFirst NE (BlockHeader ssc) -> m ())
     -> MsgGetHeaders
     -> NodeId
     -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
-    -> m (Maybe t)
+    -> m ()
 requestHeaders cont mgh nodeId conv = do
     logDebug $ sformat ("requestHeaders: sending "%build) mgh
     send conv mgh
     mHeaders <- recvLimited conv
     inRecovery <- recoveryInProgress
+    -- TODO: it's very suspicious to see False here as requestHeaders
+    -- is only called when we're in recovery mode.
     logDebug $ sformat ("requestHeaders: inRecovery = "%shown) inRecovery
     case mHeaders of
         Nothing -> do
@@ -312,12 +316,12 @@ requestHeaders cont mgh nodeId conv = do
 
 -- First case of 'handleBlockheaders'
 handleRequestedHeaders
-    :: forall ssc ctx m t.
+    :: forall ssc ctx m.
        WorkMode ssc ctx m
-    => (NewestFirst NE (BlockHeader ssc) -> m t)
+    => (NewestFirst NE (BlockHeader ssc) -> m ())
     -> Bool -- recovery in progress?
     -> NewestFirst NE (BlockHeader ssc)
-    -> m (Maybe t)
+    -> m ()
 handleRequestedHeaders cont inRecovery headers = do
     classificationRes <- classifyHeaders inRecovery headers
     let newestHeader = headers ^. _Wrapped . _neHead
@@ -335,13 +339,11 @@ handleRequestedHeaders cont inRecovery headers = do
                         "handleRequestedHeaders: couldn't find LCA child " <>
                         "within headers returned, most probably classifyHeaders is broken"
                 Just headersPostfix ->
-                    Just <$> cont (NewestFirst headersPostfix)
+                    cont (NewestFirst headersPostfix)
         CHsUseless reason -> do
             let msg = sformat uselessFormat oldestHash newestHash reason
             logDebug msg
-            -- It's weird to have useless headers in recovery mode.
-            whenM recoveryInProgress $ throwM $ BlockNetLogicInternal msg
-            return Nothing
+            throwM $ DialogUnexpected msg
         CHsInvalid reason -> do
              -- TODO: ban node for sending invalid block.
             let msg = sformat invalidFormat oldestHash newestHash reason
@@ -349,10 +351,12 @@ handleRequestedHeaders cont inRecovery headers = do
             throwM $ DialogUnexpected msg
   where
     validFormat =
-        "Received valid headers, can request blocks from " %shortHashF % " to " %shortHashF
+        "Received valid headers, can request blocks from "%shortHashF%
+        " to "%shortHashF
     genericFormat what =
-        "Chain of headers from " %shortHashF % " to " %shortHashF %
-        " is "%what%" for the following reason: " %stext
+        "handleRequestedHeaders: chain of headers from "%shortHashF%
+        " to "%shortHashF%
+        " is "%what%" for the following reason: "%stext
     uselessFormat = genericFormat "useless"
     invalidFormat = genericFormat "invalid"
 

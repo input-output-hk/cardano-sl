@@ -9,6 +9,7 @@ import           Crypto.Random         (MonadRandom)
 import qualified Data.List             as L
 import qualified Data.Text             as T
 import           Formatting            (build, sformat, (%))
+import           Serokell.Util.Base16  (base16F)
 import           System.Directory      (createDirectoryIfMissing)
 import           System.FilePath       ((</>))
 import           System.FilePath.Glob  (glob)
@@ -17,16 +18,16 @@ import           System.Wlog           (Severity (Debug), WithLogger, consoleOut
                                         usingLoggerName)
 import qualified Text.JSON.Canonical   as CanonicalJSON
 
-import           Pos.Binary            (asBinary)
+import           Pos.Binary            (asBinary, serialize')
 import           Pos.Core              (CoreConfiguration (..), GenesisConfiguration (..),
                                         GenesisInitializer (..), addressHash, ccGenesis,
                                         coreConfiguration, generateFakeAvvm,
                                         generateSecrets, generatedSecrets, gsInitializer,
                                         mkVssCertificate, vssMaxTTL)
-import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair,
-                                        noPassEncrypt, redeemPkB64F, toVssPublicKey)
-import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
-
+import           Pos.Crypto            (EncryptedSecretKey (..), SecretKey (..),
+                                        VssKeyPair, fullPublicKeyHexF, hashHexF,
+                                        noPassEncrypt, redeemPkB64F, toPublic,
+                                        toVssPublicKey)
 import           Pos.Launcher          (HasConfigurations, withConfigurations)
 import           Pos.Util.UserSecret   (readUserSecret, takeUserSecret, usKeys, usPrimKey,
                                         usVss, usWalletSet, writeUserSecretRelease)
@@ -65,7 +66,7 @@ genPrimaryKey path = do
 readKey :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
 readKey path = do
     us <- readUserSecret path
-    logInfo $ maybe "No Pimary key"
+    logInfo $ maybe "No Primary key"
                     (("Primary: " <>) . showKeyWithAddressHash) $
                     view usPrimKey us
     logInfo $ maybe "No wallet set"
@@ -79,13 +80,17 @@ readKey path = do
                     view usVss us
 
 showKeyWithAddressHash :: SecretKey -> Text
-showKeyWithAddressHash sk = sformat (build%"; address hash: "%build) pk ah
+showKeyWithAddressHash sk =
+    sformat (fullPublicKeyHexF%"; address hash: "%hashHexF) pk ah
   where
     pk = toPublic sk
     ah = addressHash pk
 
 showPvssKey :: VssKeyPair -> Text
-showPvssKey = sformat build . asBinary . toVssPublicKey
+showPvssKey sk =
+    sformat (base16F%"; short = "%build) (serialize' pk) (asBinary pk)
+  where
+    pk = toVssPublicKey sk
 
 decryptESK :: EncryptedSecretKey -> SecretKey
 decryptESK (EncryptedSecretKey sk _) = SecretKey sk

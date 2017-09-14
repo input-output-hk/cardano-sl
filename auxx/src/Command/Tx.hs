@@ -26,6 +26,7 @@ import           Formatting (build, int, sformat, shown, stext, (%))
 import           Mockable (Mockable, SharedAtomic, SharedAtomicT, concurrently, currentTime, delay,
                            forConcurrently, modifySharedAtomic, newSharedAtomic)
 import           Serokell.Util (ms, sec)
+import           System.Environment (lookupEnv)
 import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
 import           System.Random (randomRIO)
 import           System.Wlog (logError, logInfo)
@@ -106,7 +107,9 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
         txQueue <- atomically $ newTQueue
         -- prepare a queue with all transactions
         logInfo $ sformat ("Found "%shown%" keys in the genesis block.") (length keysToSend)
-        forM_ (zip keysToSend [0..]) $ \(secretKey, n) -> do
+        startAtTxt <- liftIO $ lookupEnv "AUXX_START_AT"
+        let startAt = fromMaybe 0 . readMaybe . fromMaybe "" $ startAtTxt :: Int
+        forM_ (zip (drop startAt keysToSend) [0..]) $ \(secretKey, n) -> do
             outAddr <- makePubKeyAddressAuxx (toPublic secretKey)
             let val1 = mkCoin 1
                 txOut1 = TxOut {

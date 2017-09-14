@@ -4,20 +4,23 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
 
-module Main where
+module Main
+       ( main
+       ) where
 
 import           Universum
 
-import           Data.Default        (def)
 import           Data.Maybe          (fromJust)
 import           Formatting          (build, sformat, shown, (%))
 import           Mockable            (Production, currentTime, runProduction)
 import           System.Wlog         (logInfo)
 
+import           NodeOptions         (ExplorerArgs (..), ExplorerNodeArgs (..),
+                                      getExplorerNodeOptions)
 import           Pos.Binary          ()
+import           Pos.Client.CLI      (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI      as CLI
 import           Pos.Communication   (OutSpecs, WorkerSpec)
-import           Pos.Constants       (isDevelopment)
 import           Pos.Core            (HasCoreConstants, giveStaticConsts)
 import           Pos.Explorer        (runExplorerBListener)
 import           Pos.Explorer.Socket (NotifierSettings (..))
@@ -26,20 +29,12 @@ import           Pos.Launcher        (NodeParams (..), NodeResources (..),
                                       applyConfigInfo, bracketNodeResources,
                                       hoistNodeResources, runNode, runRealBasedMode)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
+import           Pos.Ssc.SscAlgo     (SscAlgo (..))
 import           Pos.Types           (Timestamp (Timestamp))
 import           Pos.Update          (updateTriggerWorker)
-import           Pos.Util            (inAssertMode, mconcatPair)
+import           Pos.Util            (mconcatPair)
 import           Pos.Util.UserSecret (usVss)
 
-import           ExplorerOptions     (Args (..), getExplorerOptions)
-import           Params              (getNodeParams, gtSscParams)
-
-printFlags :: IO ()
-printFlags = do
-    if isDevelopment
-        then putText "[Attention] We are in DEV mode"
-        else putText "[Attention] We are in PRODUCTION mode"
-    inAssertMode $ putText "Asserts are ON"
 
 ----------------------------------------------------------------------------
 -- Main action
@@ -47,25 +42,25 @@ printFlags = do
 
 main :: IO ()
 main = do
-    args <- getExplorerOptions
-    printFlags
+    args <- getExplorerNodeOptions
+    CLI.printFlags
+    putText "[Attention] Software is built with explorer part"
     runProduction (action args)
 
-action :: Args -> Production ()
-action args@Args {..} = do
-    let configInfo = def
+action :: ExplorerNodeArgs -> Production ()
+action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) = do
     liftIO $ applyConfigInfo configInfo
     giveStaticConsts $ do
         systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
         logInfo $ sformat ("System start time is " % shown) systemStart
         t <- currentTime
         logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-        nodeParams <- getNodeParams args systemStart
-        putText $ "Static peers is on: " <> show staticPeers
+        currentParams <- getNodeParams cArgs nodeArgs systemStart
+        putText $ "Explorer is enabled!"
         logInfo $ sformat ("Using configs and genesis:\n"%build) configInfo
 
-        let vssSK = fromJust $ npUserSecret nodeParams ^. usVss
-        let sscParams = gtSscParams args vssSK
+        let vssSK = fromJust $ npUserSecret currentParams ^. usVss
+        let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
         let plugins :: HasCoreConstants => ([WorkerSpec ExplorerProd], OutSpecs)
             plugins = mconcatPair
@@ -74,7 +69,7 @@ action args@Args {..} = do
                 , updateTriggerWorker
                 ]
 
-        bracketNodeResources nodeParams sscParams $ \nr@NodeResources {..} ->
+        bracketNodeResources currentParams gtParams $ \nr@NodeResources {..} ->
             runExplorerRealMode
                 (hoistNodeResources (lift . runExplorerBListener) nr)
                 (runNode @SscGodTossing nr plugins)
@@ -85,3 +80,6 @@ action args@Args {..} = do
         -> (WorkerSpec ExplorerProd, OutSpecs)
         -> Production ()
     runExplorerRealMode = runRealBasedMode runExplorerBListener lift
+
+    nodeArgs :: NodeArgs
+    nodeArgs = NodeArgs { sscAlgo = GodTossingAlgo, behaviorConfigPath = Nothing }

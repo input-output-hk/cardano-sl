@@ -25,7 +25,7 @@ fi
 source "$common_path"
 cmd="stack exec cardano-explorer --
       --rebuild-db \
-      --flat-distr ($n,100000) \
+      --flat-distr ($n,100000000) \
       --listen 127.0.0.1:300$n \
       --system-start $system_start \
       --log-config explorer/log-config.yaml \

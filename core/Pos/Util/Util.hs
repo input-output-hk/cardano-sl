@@ -23,7 +23,6 @@ module Pos.Util.Util
        , leftToPanic
        , dumpSplices
        , (<//>)
-       , applyPattern
 
        -- * Lenses
        , _neHead
@@ -112,7 +111,6 @@ import           Data.HashSet                   (fromMap)
 import           Data.List                      (last)
 import qualified Data.Semigroup                 as Smg
 import           Data.Tagged                    (Tagged (Tagged))
-import qualified Data.Text                      as T
 import           Data.Text.Buildable            (build)
 import           Data.Time                      (getCurrentTime)
 import           Data.Time.Clock                (NominalDiffTime)
@@ -429,14 +427,6 @@ inAssertMode _ = pure ()
     isSlash = (== '/')
     lhs' = reverse $ dropWhile isSlash $ reverse lhs
     rhs' = dropWhile isSlash rhs
-
--- | Replace "{}" with the result of applying 'show' to the given
--- value. Used in keygen, probably shouldn't be here.
-applyPattern :: Show a => FilePath -> a -> FilePath
-applyPattern fp a = replace "{}" (show a) fp
-  where
-    replace :: FilePath -> FilePath -> FilePath -> FilePath
-    replace x b = toString . (T.replace `on` toText) x b . toText
 
 ----------------------------------------------------------------------------
 -- Lenses

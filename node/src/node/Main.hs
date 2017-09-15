@@ -13,7 +13,6 @@ import           Universum
 import           Data.Maybe          (fromJust)
 import           Formatting          (build, sformat, shown, (%))
 import           Mockable            (Production, currentTime, runProduction)
-import           System.Wlog         (logInfo)
 
 import           Pos.Binary          ()
 import           Pos.Client.CLI      (CommonNodeArgs (..), NodeArgs (..),
@@ -49,13 +48,13 @@ action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
     giveStaticConsts $ do
         systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
         whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData systemStart
-        logInfo $ sformat ("System start time is " % shown) systemStart
+        putText $ sformat ("System start time is " % shown) systemStart
         t <- currentTime
-        logInfo $ sformat ("Current time is " % shown) (Timestamp t)
+        putText $ sformat ("Current time is " % shown) (Timestamp t)
         currentParams <- CLI.getNodeParams cArgs nArgs systemStart
         putText $ "Running using " <> show sscAlgo
         putText "Wallet is disabled, because software is built w/o it"
-        logInfo $ sformat ("Using configs and genesis:\n"%build) configInfo
+        putText $ sformat ("Using configs and genesis:\n"%build) configInfo
 
         let vssSK = fromJust $ npUserSecret currentParams ^. usVss
         let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)

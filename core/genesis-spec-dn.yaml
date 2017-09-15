@@ -36,8 +36,8 @@ blockVersionData:
 protocolConstants:
   k: 2
   protocolMagic: 55550001
-  vssMaxTTL: 2
-  vssMinTTL: 6
+  vssMaxTTL: 6
+  vssMinTTL: 2
 ftsSeed: "c2tvdm9yb2RhIEdndXJkYSBib3JvZGEgcHJvdm9kYSA="
 heavyDelegation:
   genesisDelegation: {}

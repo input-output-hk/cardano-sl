@@ -1,4 +1,3 @@
-
 -- | Module for command-line utilites, parsers and convenient handlers.
 
 module Pos.Client.CLI.Util
@@ -17,9 +16,11 @@ import           Universum
 
 import           Control.Exception.Safe (throwString)
 import           Control.Lens           (zoom, (?=))
+import qualified Crypto.Hash            as Hash
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Time.Clock.POSIX  (getPOSIXTime)
 import           Data.Time.Units        (toMicroseconds)
+import           Formatting             (sformat, shown, (%))
 import           Serokell.Util          (sec)
 import           System.Wlog            (LoggerConfig (..), Severity (Info, Warning),
                                          fromScratch, lcTree, ltSeverity,
@@ -118,8 +119,12 @@ getNodeSystemStart (Just cliOrConfigSystemStart)
 
 -- | Dump our 'GenesisData' into a file.
 dumpGenesisData :: MonadIO m => Timestamp -> FilePath -> m ()
-dumpGenesisData systemStart path =
-    liftIO $
-    BSL.writeFile path (renderCanonicalJSON $ runIdentity $ toJSON genesisData)
+dumpGenesisData systemStart path = do
+    putText $ sformat ("Writing JSON with hash "%shown%" to "%shown) jsonHash path
+    liftIO $ BSL.writeFile path canonicalJsonBytes
   where
+    jsonHash :: Hash.Digest Hash.Blake2b_256
+    jsonHash = Hash.hash $ BSL.toStrict canonicalJsonBytes
+
+    canonicalJsonBytes = renderCanonicalJSON $ runIdentity $ toJSON genesisData
     genesisData = mkGenesisData systemStart

@@ -35,7 +35,7 @@ import           System.Wlog            (WithLogger, logWarning)
 import           Pos.Binary.Class       (biSize)
 import           Pos.Core               (BlockVersionData (bvdMaxBlockSize),
                                          HasConfiguration, HeaderHash, SlotId (..),
-                                         slotIdF, memPoolLimitRatio)
+                                         slotIdF)
 import           Pos.Crypto             (PublicKey, shortHashF)
 import           Pos.DB.Class           (MonadDBRead)
 import qualified Pos.DB.GState.Common   as DB
@@ -146,9 +146,8 @@ processSkeleton payload =
             let err = PollTipMismatch {ptmTipMemory = msTip, ptmTipDB = dbTip}
             throwError err
         maxBlockSize <- bvdMaxBlockSize <$> DB.getAdoptedBVData
-        let maxMemPoolSize = maxBlockSize * memPoolLimitRatio
         msIntermediate <-
-            if | maxMemPoolSize <= mpSize msPool -> refreshMemPool ms
+            if | maxBlockSize <= mpSize msPool -> refreshMemPool ms
                | otherwise -> pure ms
         processSkeletonDo msIntermediate
   where

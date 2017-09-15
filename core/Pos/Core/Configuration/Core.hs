@@ -13,7 +13,7 @@ module Pos.Core.Configuration.Core
 
        , coreConfiguration
        , dbSerializeVersion
-       , memPoolLimitRatio
+       , memPoolLimit
        , nonCriticalCQBootstrap
        , criticalCQBootstrap
        , nonCriticalCQ
@@ -53,9 +53,8 @@ data CoreConfiguration = CoreConfiguration
 
     , -- | Versioning for values in node's DB
       ccDbSerializeVersion     :: !Word8
-      -- | Size of mem pool will be limited by this value muliplied by block
-      -- size limit.
-    , ccMemPoolLimitRatio      :: !Word
+      -- | Limit on the number of transactions that can be stored in the mempool.
+    , ccMemPoolLimit           :: !Int
 
       -- Chain quality thresholds and other constants to detect
       -- suspicious things.
@@ -101,8 +100,8 @@ dbSerializeVersion = fromIntegral . ccDbSerializeVersion $ coreConfiguration
 
 -- | Size of mem pool will be limited by this value muliplied by block
 -- size limit.
-memPoolLimitRatio :: (HasCoreConfiguration, Integral i) => i
-memPoolLimitRatio = fromIntegral . ccMemPoolLimitRatio $ coreConfiguration
+memPoolLimit :: HasCoreConfiguration => Int
+memPoolLimit = ccMemPoolLimit coreConfiguration
 
 -- | If chain quality in bootstrap era is less than this value,
 -- non critical misbehavior will be reported.

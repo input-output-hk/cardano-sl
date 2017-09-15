@@ -1,7 +1,8 @@
 -- | Constants from GenesisSpec
 
 module Pos.Core.Genesis.Constants
-       ( genesisBlockVersionData
+       ( staticSystemStart
+       , genesisBlockVersionData
        , genesisMpcThd
        , genesisHeavyDelThd
        , genesisUpdateVoteThd
@@ -23,9 +24,20 @@ import           Data.Time.Units            (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Core.Genesis.Parser    (genesisSpec)
-import           Pos.Core.Genesis.Types     (gsBlockVersionData)
-import           Pos.Core.Types             (BlockVersionData (..), CoinPortion)
+import           Pos.Core.Genesis.Types     (GenesisInitializer (..), GenesisSpec (..),
+                                             gsBlockVersionData)
+import           Pos.Core.Types             (BlockVersionData (..), CoinPortion,
+                                             Timestamp)
 import           Pos.Crypto                 (firstHardened)
+
+-- | System start can be known from 'GenesisSpec', in this case this
+-- value is 'Just'. If it's unknown, it's 'Nothing' and is expected to
+-- be specified via CLI.
+staticSystemStart :: Maybe Timestamp
+staticSystemStart =
+    case gsInitializer genesisSpec of
+        TestnetInitializer {}   -> Nothing
+        MainnetInitializer {..} -> Just miStartTime
 
 -- | Genesis 'BlockVersionData'.
 genesisBlockVersionData :: BlockVersionData

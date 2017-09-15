@@ -22,12 +22,12 @@ import           System.Wlog           (Severity (Debug), WithLogger, consoleOut
 import           Pos.Binary            (asBinary)
 import           Pos.Core              (addressHash)
 import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair,
-                                        noPassEncrypt, redeemDeterministicKeyGen,
-                                        redeemPkB64F, setGlobalRandomSeed, toVssPublicKey)
+                                        noPassEncrypt, redeemPkB64F, toVssPublicKey)
 import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
 import           Pos.Genesis           (GenesisAvvmBalances, GenesisInitializer (..),
                                         aeCoin, avvmData, convertAvvmDataToBalances,
-                                        gsInitializer)
+                                        generateFakeAvvm, generateSecrets,
+                                        generateTestnetOrMainnetData, gsInitializer)
 
 import           Pos.Launcher          (applyConfigInfo)
 import           Pos.Util.UserSecret   (readUserSecret, takeUserSecret, usKeys, usPrimKey,
@@ -35,8 +35,8 @@ import           Pos.Util.UserSecret   (readUserSecret, takeUserSecret, usKeys, 
 import           Pos.Wallet.Web.Secret (wusRootKey)
 
 import           Avvm                  (applyBlacklisted)
-import           Dump                  (dumpFakeAvvmGenesis, dumpFakeAvvmSeed,
-                                        dumpKeyfile, dumpKeyfiles)
+import           Dump                  (dumpFakeAvvmSeed, dumpGeneratedGenesisData,
+                                        dumpKeyfile)
 import           KeygenOptions         (AvvmBalanceOptions (..),
                                         DumpAvvmSeedsOptions (..), GenKeysOptions (..),
                                         KeygenCommand (..), KeygenOptions (..),
@@ -77,7 +77,8 @@ rearrange msk = mapM_ rearrangeKeyfile =<< liftIO (glob msk)
 
 genPrimaryKey :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
 genPrimaryKey path = do
-    _ <- dumpKeyfile True path
+    sk <- liftIO $ generateSecrets Nothing
+    void $ dumpKeyfile True path sk
     logInfo $ "Successfully generated primary key " <> (toText path)
 
 readKey :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
@@ -118,12 +119,10 @@ dumpAvvmSeeds DumpAvvmSeedsOptions{..} = do
     when (dasNumber <= 0) $ error $
         "number of seeds should be positive, but it's " <> show dasNumber
 
-    let toRedPk = fst .
-                  fromMaybe (error "Impossible - seed is not 32 bytes long") .
-                  redeemDeterministicKeyGen
+    (fakeAvvmPubkeys, seeds) <- liftIO $ unzip <$> replicateM (fromIntegral dasNumber) generateFakeAvvm
 
-    fakeAvvmPubkeys <- forM [1 .. dasNumber] $ \i->
-        toRedPk <$> dumpFakeAvvmSeed (dasPath </> ("key"<>show i<>".seed"))
+    forM_ (zip seeds [1 .. dasNumber]) $ \(seed, i) ->
+        dumpFakeAvvmSeed (dasPath </> ("key"<>show i<>".seed")) seed
     forM_ (fakeAvvmPubkeys `zip` [1..dasNumber]) $
         \(rPk,i) -> writeFile (dasPath </> "key"<>show i<>".pk")
                               (sformat redeemPkB64F rPk)
@@ -141,10 +140,9 @@ generateKeysByGenesis GenKeysOptions{..} = do
                     toText gkoGenesisJSON <> ": " <> toText err
         Right spec -> case gsInitializer spec of
             MainnetInitializer{}   -> error "Can't generate keys for MainnetInitializer"
-            TestnetInitializer{..} -> do
-                liftIO (setGlobalRandomSeed tiSeed)
-                dumpFakeAvvmGenesis gkoOutDir tiFakeAvvmBalance
-                dumpKeyfiles (gkoOutDir, gkoKeyPattern) tiTestBalance
+            init@TestnetInitializer{..} -> do
+                let generated = generateTestnetOrMainnetData init
+                dumpGeneratedGenesisData (gkoOutDir, gkoKeyPattern) tiTestBalance generated
                 logInfo (toText gkoOutDir <> " generated successfully")
 
 ----------------------------------------------------------------------------

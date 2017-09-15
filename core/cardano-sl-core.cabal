@@ -23,12 +23,6 @@ flag dev-mode
 
   description: Switch between Development and Production mode
 
-flag dev-custom-config
-  default:     False
-  manual:      True
-
-  description: Enable this to set CONFIG manually even in dev mode (via --ghc-options=-DCONFIG=benchmark); otherwise it'll be 'dev'. In other modes you always have to set CONFIG manually.
-
 library
   exposed-modules:
                        Pos.Arbitrary.Core
@@ -222,5 +216,3 @@ library
     cpp-options: -DASSERTS_ON
   if flag(dev-mode)
     cpp-options: -DDEV_MODE
-    if !flag(dev-custom-config)
-      cpp-options: -DCONFIG=dev

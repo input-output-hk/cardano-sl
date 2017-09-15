@@ -1,4 +1,3 @@
-
 -- | Module for command-line utilites, parsers and convenient handlers.
 
 module Pos.Client.CLI.Util
@@ -20,6 +19,7 @@ import           Control.Lens           (zoom, (?=))
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Time.Clock.POSIX  (getPOSIXTime)
 import           Data.Time.Units        (toMicroseconds)
+import           Formatting             (sformat, shown, (%))
 import           Serokell.Util          (sec)
 import           System.Wlog            (LoggerConfig (..), Severity (Info, Warning),
                                          fromScratch, lcTree, ltSeverity,
@@ -33,7 +33,7 @@ import           Pos.Binary.Core        ()
 import           Pos.Constants          (isDevelopment)
 import           Pos.Core               (StakeholderId, Timestamp (..))
 import           Pos.Core.Genesis       (mkGenesisData, staticSystemStart)
-import           Pos.Crypto             (decodeAbstractHash)
+import           Pos.Crypto             (decodeAbstractHash, hash, hashHexF)
 import           Pos.Security.Params    (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
 import           Pos.Util               (eitherToFail, inAssertMode)
@@ -118,8 +118,10 @@ getNodeSystemStart (Just cliOrConfigSystemStart)
 
 -- | Dump our 'GenesisData' into a file.
 dumpGenesisData :: MonadIO m => Timestamp -> FilePath -> m ()
-dumpGenesisData systemStart path =
-    liftIO $
-    BSL.writeFile path (renderCanonicalJSON $ runIdentity $ toJSON genesisData)
+dumpGenesisData systemStart path = do
+    putText $ sformat ("Writing JSON with hash "%hashHexF%" to "%shown) jsonHash path
+    liftIO $ BSL.writeFile path canonicalJsonBytes
   where
+    jsonHash = hash canonicalJsonBytes
+    canonicalJsonBytes = renderCanonicalJSON $ runIdentity $ toJSON genesisData
     genesisData = mkGenesisData systemStart

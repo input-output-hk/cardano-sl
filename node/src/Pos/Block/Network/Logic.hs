@@ -25,7 +25,6 @@ import           Universum
 import           Control.Concurrent.STM     (isFullTBQueue, readTVar, writeTBQueue,
                                              writeTVar)
 import           Control.Exception          (Exception (..))
-import           Control.Exception.Safe     (tryAny)
 import           Control.Lens               (to)
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Text.Buildable        as B
@@ -58,14 +57,17 @@ import           Pos.Communication.Protocol (Conversation (..), ConversationActi
 import qualified Pos.Constants              as Constants
 import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHeaderTag,
                                              recoveryInProgress)
-import           Pos.Core                   (HasCoreConstants, HasHeaderHash (..),
-                                             HeaderHash, epochIndexL, gbHeader,
-                                             headerHashG, isMoreDifficult, prevBlockL)
+import           Pos.Core                   (EpochOrSlot (..), HasCoreConstants,
+                                             HasHeaderHash (..), HeaderHash, SlotId (..),
+                                             crucialSlot, epochIndexL, epochOrSlotG,
+                                             gbHeader, headerHashG, isMoreDifficult,
+                                             prevBlockL)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.DB.Block               (blkGetHeader)
 import qualified Pos.DB.DB                  as DB
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
+import           Pos.Lrc.Error              (LrcError (UnknownBlocksForLrc))
 import           Pos.Lrc.Worker             (lrcSingleShot)
 import           Pos.Reporting.Methods      (reportMisbehaviour)
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
@@ -310,18 +312,12 @@ handleRequestedHeaders
     -> NewestFirst NE (BlockHeader ssc)
     -> m (Maybe t)
 handleRequestedHeaders cont inRecovery headers = do
-    let newestHeader = headers ^. _NewestFirst . _neHead
-        oldestHeader = headers ^. _NewestFirst . _neLast
-        newestHash = headerHash newestHeader
-        oldestHash = headerHash oldestHeader
-        oldestEpoch = oldestHeader ^. epochIndexL
     -- Try to calculate LRC for the oldest header epoch. If we're in
     -- recovery and oldest header is from the next epoch, no lrc will
     -- be automatically calculated as all workers are locked in
     -- recovery mode. So we should try to do it manually.
-    logDebug "handleREquesteHeaders: LRC started"
-    void $ tryAny $ withStateLockNoMetrics LowPriority $ const $ lrcSingleShot oldestEpoch
-    logDebug "handleRequesteHeaders: LRC ended"
+    tryCalculateLrc
+
     classificationRes <- classifyHeaders inRecovery headers
     case classificationRes of
         CHsValid lcaChild -> do
@@ -348,6 +344,41 @@ handleRequestedHeaders cont inRecovery headers = do
             logDebug msg
             throwM $ DialogUnexpected msg
   where
+    newestHeader = headers ^. _NewestFirst . _neHead
+    oldestHeader = headers ^. _NewestFirst . _neLast
+    newestHash = headerHash newestHeader
+    oldestHash = headerHash oldestHeader
+    oldestEpoch = oldestHeader ^. epochIndexL
+
+    tryCalculateLrc = do
+        tip <- DB.getTipHeader @ssc
+        let tipEpochOrSlot = tip ^. epochOrSlotG
+        let tipEpoch = tip ^. epochIndexL
+        let differentEpochs = oldestEpoch == tipEpoch + 1
+        -- CSL-1660 We should also check that there's k blocks after
+        -- crucial slot.
+        let tipAfterCrucial = case unEpochOrSlot tipEpochOrSlot of
+                -- we assume differentEpochs is true, so this is
+                -- before zero's slot of epoch e, while new header has
+                -- epoch e+1.
+                Left _   -> False
+                Right si -> siSlot si > siSlot (crucialSlot $ siEpoch si)
+        let shouldExecute = differentEpochs && tipAfterCrucial
+
+        if shouldExecute then do
+            logDebug "handleRequesteHeaders: LRC started"
+            let handler UnknownBlocksForLrc =
+                    logWarning $
+                    "handleRequestedHeaders: tried lrcSingleShot, " <>
+                    "got UnknownBlocksForLrc"
+                handler e                   = throwM e
+            withStateLockNoMetrics HighPriority $ const $
+                lrcSingleShot oldestEpoch `catch` handler
+            logDebug "handleRequesteHeaders: LRC ended"
+        else logDebug $ sformat ("handleRequestHeaders: not calculating LRC: "%
+                                 "oldest header epoch "%build%", tip epoch "%build)
+                                oldestEpoch tipEpoch
+
     validFormat =
         "Received valid headers, can request blocks from " %shortHashF % " to " %shortHashF
     genericFormat what =
@@ -367,7 +398,7 @@ addHeaderToBlockRequestQueue
        (WorkMode ssc ctx m)
     => NodeId
     -> BlockHeader ssc
-    -> Bool -- Continues?
+    -> Bool -- brtContinues flag
     -> m ()
 addHeaderToBlockRequestQueue nodeId header continues = do
     logDebug $ sformat ("addToBlockRequestQueue, : "%build) header

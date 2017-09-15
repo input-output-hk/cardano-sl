@@ -62,7 +62,6 @@ library
 
                         -- Genesis data
                         Pos.Genesis
-                        Pos.Testnet
 
                         -- GState
                         Pos.GState

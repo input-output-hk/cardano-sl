@@ -60,7 +60,9 @@ library
 
                        Pos.Core.Genesis
                        Pos.Core.Genesis.Canonical
+                       Pos.Core.Genesis.Constants
                        Pos.Core.Genesis.Parser
+                       Pos.Core.Genesis.Testnet
                        Pos.Core.Genesis.Types
 
                        Pos.Crypto

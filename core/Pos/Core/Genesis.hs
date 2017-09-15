@@ -5,13 +5,8 @@ module Pos.Core.Genesis
        , genesisProdInitializer
        , genesisProdDelegation
 
-       -- ** Genesis BlockVersionData
-       , genesisBlockVersionData
-       , genesisMpcThd
-       , genesisHeavyDelThd
-       , genesisUpdateVoteThd
-       , genesisSlotDuration
-       , genesisMaxBlockSize
+       , generatedGenesisData
+       , genesisCertificates
 
        -- * Obsolete constants for dev mode
        , genesisDevKeyPairs
@@ -25,28 +20,33 @@ module Pos.Core.Genesis
        , generateHdwGenesisSecretKey
 
        -- * Re-exports
-       , module Pos.Core.Genesis.Types
+       , module Pos.Core.Genesis.Constants
        , module Pos.Core.Genesis.Parser
+       , module Pos.Core.Genesis.Testnet
+       , module Pos.Core.Genesis.Types
        ) where
 
 import           Universum
 
 import qualified Data.Text                  as T
-import           Data.Time.Units            (Millisecond)
 import           Formatting                 (int, sformat, (%))
-import           Serokell.Data.Memory.Units (Byte)
+import           System.IO.Unsafe           (unsafePerformIO)
+import           System.Wlog                (usingLoggerName)
 
 import           Pos.Binary.Crypto          ()
 import           Pos.Core.Coin              (unsafeMulCoin)
 import           Pos.Core.Constants         (genesisKeysN)
-import           Pos.Core.Types             (BlockVersionData (..), CoinPortion, mkCoin)
+import           Pos.Core.Types             (mkCoin)
+import           Pos.Core.Vss               (VssCertificatesMap)
 import           Pos.Crypto.SafeSigning     (EncryptedSecretKey, emptyPassphrase,
                                              safeDeterministicKeyGen)
 import           Pos.Crypto.Signing         (PublicKey, SecretKey, deterministicKeyGen)
 
 -- reexports
 import           Pos.Core.Genesis.Canonical ()
+import           Pos.Core.Genesis.Constants
 import           Pos.Core.Genesis.Parser
+import           Pos.Core.Genesis.Testnet
 import           Pos.Core.Genesis.Types
 
 ----------------------------------------------------------------------------
@@ -66,24 +66,16 @@ genesisProdInitializer = gsInitializer genesisSpec
 genesisProdDelegation :: GenesisDelegation
 genesisProdDelegation = gsHeavyDelegation genesisSpec
 
--- | Genesis 'BlockVersionData'.
-genesisBlockVersionData :: BlockVersionData
-genesisBlockVersionData = gsBlockVersionData genesisSpec
+-- This unsafePerformIO is more or less safe,
+-- because MonadIO needed for random.
+-- Will be fixed soon.
+generatedGenesisData :: GeneratedGenesisData
+generatedGenesisData =
+    unsafePerformIO $ usingLoggerName "core" $ generateTestnetOrMainnetData genesisProdInitializer
+{-# NOINLINE generatedGenesisData #-}
 
-genesisMpcThd :: CoinPortion
-genesisMpcThd = bvdMpcThd genesisBlockVersionData
-
-genesisHeavyDelThd :: CoinPortion
-genesisHeavyDelThd = bvdHeavyDelThd genesisBlockVersionData
-
-genesisUpdateVoteThd :: CoinPortion
-genesisUpdateVoteThd = bvdUpdateVoteThd genesisBlockVersionData
-
-genesisSlotDuration :: Millisecond
-genesisSlotDuration = bvdSlotDuration genesisBlockVersionData
-
-genesisMaxBlockSize :: Byte
-genesisMaxBlockSize = bvdMaxBlockSize genesisBlockVersionData
+genesisCertificates :: VssCertificatesMap
+genesisCertificates = ggdGtData generatedGenesisData
 
 ----------------------------------------------------------------------------
 -- Obsolete constants for dev mode

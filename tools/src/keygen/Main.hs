@@ -13,7 +13,7 @@ import qualified Data.Text             as T
 import           Data.Yaml             (decodeEither)
 import           Formatting            (build, sformat, (%))
 import           System.Directory      (createDirectoryIfMissing)
-import           System.FilePath       (takeDirectory, (</>))
+import           System.FilePath       ((</>))
 import           System.FilePath.Glob  (glob)
 import           System.Wlog           (Severity (Debug), WithLogger, consoleOutB,
                                         lcTermSeverity, logInfo, setupLogging,
@@ -22,23 +22,21 @@ import           System.Wlog           (Severity (Debug), WithLogger, consoleOut
 import           Pos.Binary            (asBinary)
 import           Pos.Core              (addressHash)
 import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair,
-                                        noPassEncrypt, redeemPkB64F, setGlobalRandomSeed,
-                                        toVssPublicKey)
+                                        noPassEncrypt, redeemDeterministicKeyGen,
+                                        redeemPkB64F, setGlobalRandomSeed, toVssPublicKey)
 import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
 import           Pos.Genesis           (GenesisAvvmBalances, GenesisInitializer (..),
                                         aeCoin, avvmData, convertAvvmDataToBalances,
-                                        genesisDevHdwSecretKeys, genesisDevSecretKeys,
                                         gsInitializer)
-import           Pos.Testnet           (genFakeAvvmGenesis, genTestnetData,
-                                        generateFakeAvvm, generateKeyfile)
 
 import           Pos.Launcher          (applyConfigInfo)
 import           Pos.Util.UserSecret   (readUserSecret, takeUserSecret, usKeys, usPrimKey,
                                         usVss, usWalletSet, writeUserSecretRelease)
-import           Pos.Util.Util         (applyPattern)
 import           Pos.Wallet.Web.Secret (wusRootKey)
 
 import           Avvm                  (applyBlacklisted)
+import           Dump                  (dumpFakeAvvmGenesis, dumpFakeAvvmSeed,
+                                        dumpKeyfile, dumpKeyfiles)
 import           KeygenOptions         (AvvmBalanceOptions (..),
                                         DumpAvvmSeedsOptions (..), GenKeysOptions (..),
                                         KeygenCommand (..), KeygenOptions (..),
@@ -79,7 +77,7 @@ rearrange msk = mapM_ rearrangeKeyfile =<< liftIO (glob msk)
 
 genPrimaryKey :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
 genPrimaryKey path = do
-    _ <- generateKeyfile True Nothing (Just path)
+    _ <- dumpKeyfile True path
     logInfo $ "Successfully generated primary key " <> (toText path)
 
 readKey :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
@@ -110,14 +108,6 @@ showPvssKey = sformat build . asBinary . toVssPublicKey
 decryptESK :: EncryptedSecretKey -> SecretKey
 decryptESK (EncryptedSecretKey sk _) = SecretKey sk
 
-dumpKeys :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
-dumpKeys pat = do
-    let keysDir = takeDirectory pat
-    liftIO $ createDirectoryIfMissing True keysDir
-    for_ (zip3 [1 ..] genesisDevSecretKeys genesisDevHdwSecretKeys) $
-        \(i :: Int, k, wk) ->
-        generateKeyfile False (Just (k, wk)) $ Just $ applyPattern pat i
-
 dumpAvvmSeeds
     :: (MonadIO m, WithLogger m)
     => DumpAvvmSeedsOptions -> m ()
@@ -128,8 +118,12 @@ dumpAvvmSeeds DumpAvvmSeedsOptions{..} = do
     when (dasNumber <= 0) $ error $
         "number of seeds should be positive, but it's " <> show dasNumber
 
-    fakeAvvmPubkeys <- forM [1 .. dasNumber] $
-        generateFakeAvvm . Just . (\x -> dasPath </> ("key"<>show x<>".seed"))
+    let toRedPk = fst .
+                  fromMaybe (error "Impossible - seed is not 32 bytes long") .
+                  redeemDeterministicKeyGen
+
+    fakeAvvmPubkeys <- forM [1 .. dasNumber] $ \i->
+        toRedPk <$> dumpFakeAvvmSeed (dasPath </> ("key"<>show i<>".seed"))
     forM_ (fakeAvvmPubkeys `zip` [1..dasNumber]) $
         \(rPk,i) -> writeFile (dasPath </> "key"<>show i<>".pk")
                               (sformat redeemPkB64F rPk)
@@ -149,8 +143,8 @@ generateKeysByGenesis GenKeysOptions{..} = do
             MainnetInitializer{}   -> error "Can't generate keys for MainnetInitializer"
             TestnetInitializer{..} -> do
                 liftIO (setGlobalRandomSeed tiSeed)
-                void $ genFakeAvvmGenesis (Just gkoOutDir) tiFakeAvvmBalance
-                void $ genTestnetData (Just (gkoOutDir, gkoKeyPattern)) tiTestBalance tiDistribution
+                dumpFakeAvvmGenesis gkoOutDir tiFakeAvvmBalance
+                dumpKeyfiles (gkoOutDir, gkoKeyPattern) tiTestBalance
                 logInfo (toText gkoOutDir <> " generated successfully")
 
 ----------------------------------------------------------------------------
@@ -168,6 +162,5 @@ main = do
             RearrangeMask msk       -> rearrange msk
             GenerateKey path        -> genPrimaryKey path
             ReadKey path            -> readKey path
-            DumpDevGenKeys pat      -> dumpKeys pat
             DumpAvvmSeeds opts      -> dumpAvvmSeeds opts
             GenerateKeysBySpec gkbg -> generateKeysByGenesis gkbg

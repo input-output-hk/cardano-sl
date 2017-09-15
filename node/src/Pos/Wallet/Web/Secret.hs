@@ -19,17 +19,9 @@ import qualified Data.Text.Buildable
 import           Formatting          (Format, bprint, build, later, (%))
 
 import           Pos.Binary.Class    (Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Core            (addressF, makeRootPubKeyAddress)
-import           Pos.Crypto          (EncryptedSecretKey, encToPublic, firstHardened)
-
--- | First index in derivation path for HD account, which is put to genesis utxo
-accountGenesisIndex :: Word32
-accountGenesisIndex = firstHardened
-
--- | Second index in derivation path for HD account, which is put to genesis
--- utxo
-wAddressGenesisIndex :: Word32
-wAddressGenesisIndex = firstHardened
+import           Pos.Core            (accountGenesisIndex, addressF,
+                                      makeRootPubKeyAddress, wAddressGenesisIndex)
+import           Pos.Crypto          (EncryptedSecretKey, encToPublic)
 
 --- | Describes HD wallets keyfile content
 data WalletUserSecret = WalletUserSecret

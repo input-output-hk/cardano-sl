@@ -50,7 +50,7 @@ import           Pos.Core                              (EpochIndex, HasCoreConst
                                                         getOurStakeholderId, getSlotIndex,
                                                         mkLocalSlotIndex,
                                                         mkVssCertificate,
-                                                        slotSecurityParam)
+                                                        slotSecurityParam, vssMaxTTL)
 import           Pos.Core.Context                      (blkSecurityParam)
 import           Pos.Crypto                            (SecretKey, VssKeyPair,
                                                         VssPublicKey, randomNumber,
@@ -70,7 +70,7 @@ import           Pos.Ssc.GodTossing.Behavior           (GtBehavior (..),
                                                         GtOpeningParams (..),
                                                         GtSharesParams (..))
 import           Pos.Ssc.GodTossing.Constants          (mdNoCommitmentsEpochThreshold,
-                                                        mpcSendInterval, vssMaxTTL)
+                                                        mpcSendInterval)
 import           Pos.Ssc.GodTossing.Core               (Commitment (..), SignedCommitment,
                                                         genCommitmentAndOpening,
                                                         getCommitmentsMap,

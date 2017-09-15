@@ -2,8 +2,6 @@ module Pos.Ssc.GodTossing.Constants
        ( GodTossingConstants (..)
        , godTossingConstants
 
-       , vssMaxTTL
-       , vssMinTTL
        , mpcSendInterval
        , mdNoCommitmentsEpochThreshold
        ) where
@@ -49,14 +47,6 @@ instance IsConfig GodTossingConstants where
 ----------------------------------------------------------------------------
 -- Constants
 ----------------------------------------------------------------------------
-
--- | VSS certificates max timeout to live (number of epochs)
-vssMaxTTL :: Integral i => i
-vssMaxTTL = fromIntegral . ccVssMaxTTL $ godTossingConstants
-
--- | VSS certificates min timeout to live (number of epochs)
-vssMinTTL :: Integral i => i
-vssMinTTL = fromIntegral . ccVssMinTTL $ godTossingConstants
 
 -- | Length of interval during which node should send her MPC message.
 mpcSendInterval :: Microsecond

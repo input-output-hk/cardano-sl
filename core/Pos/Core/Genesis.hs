@@ -27,7 +27,6 @@ import           Universum
 import qualified Data.Text                  as T
 import           Formatting                 (int, sformat, (%))
 import           System.IO.Unsafe           (unsafePerformIO)
-import           System.Wlog                (usingLoggerName)
 
 import           Pos.Binary.Crypto          ()
 import           Pos.Core.Vss               (VssCertificatesMap)
@@ -65,7 +64,7 @@ genesisDelegation = gsHeavyDelegation genesisSpec
 -- Will be fixed soon.
 generatedGenesisData :: GeneratedGenesisData
 generatedGenesisData =
-    unsafePerformIO $ usingLoggerName "core" $ generateTestnetOrMainnetData genesisInitializer
+    unsafePerformIO $ generateTestnetOrMainnetData genesisInitializer
 {-# NOINLINE generatedGenesisData #-}
 
 genesisCertificates :: VssCertificatesMap

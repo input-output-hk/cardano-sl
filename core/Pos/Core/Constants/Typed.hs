@@ -3,22 +3,17 @@
 
 module Pos.Core.Constants.Typed
        (
-         staticSysStart
-       , staticBlkSecurityParam
+         staticBlkSecurityParam
        ) where
 
 import           Universum
 
-import           Pos.Core.Constants.Raw (CoreConfig (..), coreConfig, staticSysStartRaw)
-import           Pos.Core.Types         (BlockCount, Timestamp (..))
+import           Pos.Core.Constants.Raw (CoreConfig (..), coreConfig)
+import           Pos.Core.Types         (BlockCount)
 
 ----------------------------------------------------------------------------
 -- Constants taken from the config
 ----------------------------------------------------------------------------
-
--- | System start time embedded into binary.
-staticSysStart :: Timestamp
-staticSysStart = Timestamp staticSysStartRaw
 
 -- | Security parameter which is maximum number of blocks which can be
 -- rolled back. This value is embedded into library and can be used

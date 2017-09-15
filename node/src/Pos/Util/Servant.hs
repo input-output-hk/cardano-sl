@@ -44,6 +44,7 @@ import           Control.Monad.Catch     (handleAll)
 import           Control.Monad.Except    (ExceptT (..), MonadError (..))
 import           Data.Default            (Default (..))
 import           Data.Reflection         (Reifies (..), reflect)
+import           Data.Time.Clock.POSIX   (getPOSIXTime)
 import           Formatting              (bprint, build, formatToString, sformat, shown,
                                           stext, string, (%))
 import           Serokell.Util.ANSI      (Color (..))
@@ -341,51 +342,69 @@ applyLoggingToVerb
        , Reifies config ApiLoggingConfig
        )
     => Proxy config -> Text -> ApiParamsLogInfo -> (a -> Text) -> m a -> m a
-applyLoggingToVerb configP method paramsInfo showResponse action =
-    catchErrors $ do
+applyLoggingToVerb configP method paramsInfo showResponse action = do
+    timer <- mkTimer
+    catchErrors timer $ do
         res <- action
-        reportResponse res
+        reportResponse timer res
         return res
   where
-    doLog msg = do
-        let loggerName = reflect configP
-        liftIO . usingLoggerName loggerName $ logInfo msg
-    mkParamLogs = case paramsInfo of
-        (ApiParamsLogInfo info) -> do
-            let params = mconcat $ reverse info <&>
-                  bprint ("    "%stext%" "%stext%"\n") (colorizeDull White ":>")
-            Right $ sformat ("\n"%stext%"\n"%build) cmethod params
-        ApiNoParamsLogInfo why -> Left why
-    logWithParamInfo msg =
-        case mkParamLogs of
-            Left e ->
-                doLog $ sformat ("\n"%stext%" "%stext)
-                        (colorizeDull Red "Unexecuted request due to error") e
-            Right paramLogs ->
-                doLog (paramLogs <> msg)
-    reportResponse resp =
-        logWithParamInfo $
-            sformat (stext%" "%stext%"\n"%stext)
-                (colorizeDull White "Status")
-                (colorizeDull Green "OK")
-                (showResponse resp)
-    catchErrors =
-        flip catchError servantErrHandler .
-        handleAll totalHandler
-    servantErrHandler (e :: ServantErr) = do
-        logWithParamInfo $
-            sformat ("Status: "%stext%"\n") (colorizeDull Red $ show e)
-        throwError e
-    totalHandler (e :: SomeException) = do
-        logWithParamInfo $
-            sformat (stext%" "%shown%"\n") (colorizeDull Red "Exception") e
-        throwM e
     cmethod = flip colorizeDull method $ case method of
         "GET"    -> Cyan
         "POST"   -> Yellow
         "PUT"    -> Blue
         "DELETE" -> Red
         _        -> Magenta
+    mkTimer :: MonadIO m => m (m Text)
+    mkTimer = do
+        startTime <- liftIO getPOSIXTime
+        return $ do
+            endTime <- liftIO getPOSIXTime
+            return $ sformat (shown%"s") (endTime - startTime)
+    performLogging msg = do
+        let loggerName = reflect configP
+        liftIO . usingLoggerName loggerName $ logInfo msg
+    eParamLogs = case paramsInfo of
+        (ApiParamsLogInfo info) -> do
+            let params = mconcat $ reverse info <&>
+                  bprint ("    "%stext%" "%stext%"\n") (colorizeDull White ":>")
+            Right $ sformat ("\n"%stext%"\n"%build) cmethod params
+        ApiNoParamsLogInfo why -> Left why
+    logWithParamInfo msg =
+        case eParamLogs of
+            Left e ->
+                performLogging $ sformat ("\n"%stext%" "%stext)
+                        (colorizeDull Red "Unexecuted request due to error") e
+            Right paramLogs ->
+                performLogging $ paramLogs <> msg
+    reportResponse timer resp = do
+        durationText <- timer
+        logWithParamInfo $
+            sformat (stext%" "%stext%" "%stext%"\n"%stext)
+                (colorizeDull White "Status:")
+                (colorizeDull Green "OK")
+                durationText
+                (showResponse resp)
+    catchErrors st =
+        flip catchError (servantErrHandler st) .
+        handleAll (totalHandler st)
+    servantErrHandler timer (e :: ServantErr) = do
+        durationText <- timer
+        logWithParamInfo $
+            sformat (stext%" "%stext%" "%stext)
+                (colorizeDull White "Status: ")
+                (colorizeDull Red $ show e)
+                durationText
+
+        throwError e
+    totalHandler timer (e :: SomeException) = do
+        durationText <- timer
+        logWithParamInfo $
+            sformat (stext%" "%shown%" "%stext)
+                (colorizeDull Red "Exception")
+                e
+                durationText
+        throwM e
 
 instance ( HasServer (Verb mt st ct a) ctx
          , Reifies config ApiLoggingConfig

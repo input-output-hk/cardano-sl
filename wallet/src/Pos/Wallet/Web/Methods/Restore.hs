@@ -23,7 +23,7 @@ import           Pos.Aeson.WalletBackup       ()
 import           Pos.Constants                (isDevelopment)
 import           Pos.Crypto                   (EncryptedSecretKey, PassPhrase,
                                                emptyPassphrase, firstHardened)
-import           Pos.Genesis                  (genesisDevHdwSecretKeys)
+import           Pos.Genesis                  (genesisHdwSecretKeys)
 import           Pos.StateLock                (Priority (..), withStateLockNoMetrics)
 import           Pos.Util                     (maybeThrow)
 import           Pos.Util.UserSecret          (UserSecretDecodingError (..),
@@ -141,7 +141,8 @@ importWalletSecret passphrase WalletUserSecret{..} = do
 addInitialRichAccount :: MonadWalletWebMode m => Int -> m ()
 addInitialRichAccount keyId =
     when isDevelopment . E.handleAll wSetExistsHandler $ do
-        key <- maybeThrow noKey (genesisDevHdwSecretKeys ^? ix keyId)
+        let hdwSecretKeys = fromMaybe (error "Hdw secrets keys are unknown") genesisHdwSecretKeys
+        key <- maybeThrow noKey (hdwSecretKeys ^? ix keyId)
         void $ importWalletSecret emptyPassphrase $
             mkGenesisWalletUserSecret key
                 & wusWalletName .~ "Precreated wallet full of money"

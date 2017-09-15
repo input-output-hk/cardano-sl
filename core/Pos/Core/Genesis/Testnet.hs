@@ -56,7 +56,7 @@ data GeneratedGenesisData = GeneratedGenesisData
     -- ^ Set of boot stakeholders (richmen addresses or custom addresses)
     , ggdGtData           :: !VssCertificatesMap
     -- ^ Genesis vss data (vss certs of richmen)
-    , ggdSecretKeys       :: !(Maybe [(SecretKey, VssKeyPair)])
+    , ggdSecretKeys       :: !(Maybe [(SecretKey, EncryptedSecretKey, VssKeyPair)])
     -- ^ Secret keys for non avvm addresses
     }
 
@@ -84,13 +84,13 @@ generateTestnetData tso@TestnetBalanceOptions{..} distrSpec = do
         (,) <$> replicateM (fromIntegral tboRichmen) (generateSecretsAndAddress Nothing)
             <*> replicateM (fromIntegral tboPoors)   (generateSecretsAndAddress Nothing)
 
-    let skVssCerts = map (\(sk, _, vc, _) -> (sk, vc)) $ richmenList ++ poorsList
+    let skVssCerts = map (\(sk, _, _, vc, _) -> (sk, vc)) $ richmenList ++ poorsList
     let richSkVssCerts = take (fromIntegral tboRichmen) skVssCerts
-    let secretKeys = map (\(sk, vssSk, _, _) -> (sk, vssSk)) $ richmenList ++ poorsList
+    let secretKeys = map (\(sk, hdwSk, vssSk, _, _) -> (sk, hdwSk, vssSk)) $ richmenList ++ poorsList
 
     let distr = genTestnetDistribution tso
         genesisAddrs = map (makePubKeyAddressBoot . toPublic . fst) skVssCerts
-                    <> map (view _4) poorsList
+                    <> map (view _5) poorsList
         genesisAddrDistr = [(genesisAddrs, distr)]
 
     case distr of
@@ -135,7 +135,7 @@ generateFakeAvvmGenesis FakeAvvmOptions{..} = do
 generateSecretsAndAddress
     :: (MonadIO m, MonadThrow m, WithLogger m)
     => Maybe (SecretKey, EncryptedSecretKey)  -- ^ plain key & hd wallet root key
-    -> m (SecretKey, VssKeyPair, VssCertificate, Address)
+    -> m (SecretKey, EncryptedSecretKey, VssKeyPair, VssCertificate, Address)
     -- ^ secret key, vss key pair, vss certificate,
     -- hd wallet account address with bootstrap era distribution
 generateSecretsAndAddress mbSk = do
@@ -152,7 +152,7 @@ generateSecretsAndAddress mbSk = do
             fst $ fromMaybe (error "generateKeyfile: pass mismatch") $
             deriveLvl2KeyPair (IsBootstrapEraAddr True) emptyPassphrase hdwSk
                 Const.accountGenesisIndex Const.wAddressGenesisIndex
-    pure (sk, vss, vssCert, hdwAccountPk)
+    pure (sk, hdwSk, vss, vssCert, hdwAccountPk)
 
 generateFakeAvvm :: MonadIO m => m RedeemPublicKey
 generateFakeAvvm = do

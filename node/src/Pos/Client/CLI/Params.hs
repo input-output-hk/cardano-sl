@@ -23,7 +23,7 @@ import           Pos.Client.CLI.Secrets     (updateUserSecretVSS,
 import           Pos.Constants              (isDevelopment)
 import           Pos.Core.Types             (Timestamp (..))
 import           Pos.Crypto                 (VssKeyPair)
-import           Pos.Genesis                (genesisContextProduction)
+import           Pos.Genesis                (genesisContext)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..))
 import           Pos.Network.CLI            (intNetworkConfigOpts)
@@ -80,7 +80,7 @@ getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} systemStart = do
     npBehaviorConfig <- case behaviorConfigPath of
         Nothing -> pure def
         Just fp -> either throw pure =<< liftIO (Yaml.decodeFileEither fp)
-    let npGenesisCtx = genesisContextProduction
+    let npGenesisCtx = genesisContext
     pure NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB

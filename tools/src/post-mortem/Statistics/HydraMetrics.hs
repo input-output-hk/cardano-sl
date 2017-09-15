@@ -1,6 +1,9 @@
 module Statistics.HydraMetrics
     ( findBlockChainState
     , ChainState(..)
+    , ChainStateInternal(..)
+    , BlockWrapper(..)
+    , BlockId
     ) where
 
 import           Control.Foldl   (Fold (..))

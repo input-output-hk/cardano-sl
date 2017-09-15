@@ -60,12 +60,19 @@ postProcessLogs logDir = do
   let
     missedBlocks = expectedLength chainState - totalBlocks
     totalBlocks = chainLength chainState
+    printChain :: Maybe BlockWrapper -> IO ()
+    printChain (Just block) = do
+      printChain $ parent block
+      err $ show $ jlBlock block
+    printChain Nothing = do
+      return ()
     content :: Text
     content = unlines
       [
         "chain-length " <> show totalBlocks <> " blocks",
         "missing-blocks " <> show missedBlocks <> " blocks"
       ]
+  printChain (M.lookup (topMostBlock (internal chainState)) (blocks (internal chainState)))
   err $ "metrics: " <> (toString content)
   writeFile (nixSupport <> "/hydra-metrics") content
   unless (missedBlocks == 0) $ writeFile (nixSupport <> "/failed") "1"

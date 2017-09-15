@@ -29,8 +29,8 @@ blockVersionData:
     thdDecrement:   0.05 # 5% of total stake
   txFeePolicy:
     txSizeLinear:
-      a: 0 # absolute minimal fees per transaction
-      b: 0 # additional minimal fees per byte of transaction size
+      a: 155381 # absolute minimal fees per transaction
+      b: 43.946 # additional minimal fees per byte of transaction size
   unlockStakeEpoch: 
     getEpochIndex: 0 # last epoch (maxBound @Word64)
 protocolConstants:

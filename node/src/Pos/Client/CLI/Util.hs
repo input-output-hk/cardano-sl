@@ -10,18 +10,21 @@ module Pos.Client.CLI.Util
        , readLoggerConfig
        , sscAlgoParser
        , stakeholderIdParser
+       , dumpGenesisData
        ) where
 
 import           Universum
 
 import           Control.Exception.Safe (throwString)
 import           Control.Lens           (zoom, (?=))
+import qualified Data.ByteString.Lazy   as BSL
 import           Data.Time.Clock.POSIX  (getPOSIXTime)
 import           Data.Time.Units        (toMicroseconds)
 import           Serokell.Util          (sec)
 import           System.Wlog            (LoggerConfig (..), Severity (Info, Warning),
                                          fromScratch, lcTree, ltSeverity,
                                          parseLoggerConfig, zoomLogger)
+import           Text.JSON.Canonical    (renderCanonicalJSON, toJSON)
 import           Text.Parsec            (try)
 import qualified Text.Parsec.Char       as P
 import qualified Text.Parsec.Text       as P
@@ -29,7 +32,7 @@ import qualified Text.Parsec.Text       as P
 import           Pos.Binary.Core        ()
 import           Pos.Constants          (isDevelopment)
 import           Pos.Core               (StakeholderId, Timestamp (..))
-import           Pos.Core.Genesis       (staticSystemStart)
+import           Pos.Core.Genesis       (mkGenesisData, staticSystemStart)
 import           Pos.Crypto             (decodeAbstractHash)
 import           Pos.Security.Params    (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
@@ -112,3 +115,11 @@ getNodeSystemStart (Just cliOrConfigSystemStart)
   where
     timestampToSeconds :: Timestamp -> Integer
     timestampToSeconds = (`div` 1000000) . toMicroseconds . getTimestamp
+
+-- | Dump our 'GenesisData' into a file.
+dumpGenesisData :: MonadIO m => Timestamp -> FilePath -> m ()
+dumpGenesisData systemStart path =
+    liftIO $
+    BSL.writeFile path (renderCanonicalJSON $ runIdentity $ toJSON genesisData)
+  where
+    genesisData = mkGenesisData systemStart

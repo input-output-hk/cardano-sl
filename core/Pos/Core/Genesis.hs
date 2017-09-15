@@ -18,7 +18,7 @@ module Pos.Core.Genesis
        -- * Re-exports
        , module Pos.Core.Genesis.Constants
        , module Pos.Core.Genesis.Parser
-       , module Pos.Core.Genesis.Testnet
+       , module Pos.Core.Genesis.Generate
        , module Pos.Core.Genesis.Types
        ) where
 
@@ -37,8 +37,8 @@ import           Pos.Crypto.Signing         (PublicKey, SecretKey, deterministic
 -- reexports
 import           Pos.Core.Genesis.Canonical ()
 import           Pos.Core.Genesis.Constants
+import           Pos.Core.Genesis.Generate
 import           Pos.Core.Genesis.Parser
-import           Pos.Core.Genesis.Testnet
 import           Pos.Core.Genesis.Types
 
 ----------------------------------------------------------------------------
@@ -59,7 +59,7 @@ genesisDelegation :: GenesisDelegation
 genesisDelegation = gsHeavyDelegation genesisSpec
 
 generatedGenesisData :: GeneratedGenesisData
-generatedGenesisData = generateTestnetOrMainnetData genesisInitializer
+generatedGenesisData = generateGenesisData genesisInitializer
 
 genesisCertificates :: VssCertificatesMap
 genesisCertificates = ggdGtData generatedGenesisData

@@ -1,16 +1,13 @@
 -- | Generation of genesis data for testnet.
 
-module Pos.Core.Genesis.Testnet
+module Pos.Core.Genesis.Generate
        ( GeneratedGenesisData (..)
        , generateSecrets
 
        , generateFakeAvvm
-       , generateSecretsAndAddress
-
        , generateFakeAvvmGenesis
-       , generateTestnetData
 
-       , generateTestnetOrMainnetData
+       , generateGenesisData
        ) where
 
 import           Universum
@@ -56,8 +53,8 @@ data GeneratedGenesisData = GeneratedGenesisData
     -- ^ Fake avvm seeds (needed only for testnet)
     }
 
-generateTestnetOrMainnetData :: GenesisInitializer -> GeneratedGenesisData
-generateTestnetOrMainnetData TestnetInitializer{..} = deterministic (serialize' tiSeed) $ do
+generateGenesisData :: GenesisInitializer -> GeneratedGenesisData
+generateGenesisData TestnetInitializer{..} = deterministic (serialize' tiSeed) $ do
     (fakeAvvmDistr, seeds) <- generateFakeAvvmGenesis tiFakeAvvmBalance
     testnetGenData <- generateTestnetData tiTestBalance tiDistribution
     let testnetDistr = ggdNonAvvmDistr testnetGenData
@@ -66,7 +63,7 @@ generateTestnetOrMainnetData TestnetInitializer{..} = deterministic (serialize' 
         { ggdNonAvvmDistr = testnetDistr ++ fakeAvvmDistr
         , ggdFakeAvvmSeeds = Just seeds
         }
-generateTestnetOrMainnetData MainnetInitializer{..} =
+generateGenesisData MainnetInitializer{..} =
     GeneratedGenesisData [] miBootStakeholders miVssCerts Nothing Nothing
 
 -- | Generates keys and vss certs for testnet data.

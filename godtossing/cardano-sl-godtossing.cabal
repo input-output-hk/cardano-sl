@@ -26,8 +26,6 @@ library
     Pos.Ssc.GodTossing.Types.Message
 
     Pos.Ssc.GodTossing.Genesis
-    Pos.Ssc.GodTossing.Genesis.Types
-    Pos.Ssc.GodTossing.Genesis.Parser
 
     Pos.Ssc.GodTossing.Toss
     Pos.Ssc.GodTossing.Toss.Logic

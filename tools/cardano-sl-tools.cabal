@@ -193,6 +193,7 @@ executable cardano-keygen
   main-is:             Main.hs
   other-modules:       KeygenOptions
                      , Avvm
+                     , Dump
   if !flag(for-installer)
    build-depends:      Glob
                      , QuickCheck >= 2.9

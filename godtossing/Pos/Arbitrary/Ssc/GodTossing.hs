@@ -24,9 +24,9 @@ import           Pos.Binary.GodTossing             ()
 import           Pos.Communication.Types.Relay     (DataMsg (..))
 import           Pos.Core                          (EpochIndex, HasCoreConstants,
                                                     SlotId (..), VssCertificate (..),
-                                                    addressHash, mkVssCertificate)
+                                                    addressHash, mkVssCertificate,
+                                                    vssMaxTTL, vssMinTTL)
 import           Pos.Crypto                        (SecretKey, toVssPublicKey, vssKeyGen)
-import           Pos.Ssc.GodTossing.Constants      (vssMaxTTL, vssMinTTL)
 import           Pos.Ssc.GodTossing.Core           (Commitment (..), CommitmentsMap,
                                                     GtPayload (..), GtProof (..),
                                                     Opening (..), SignedCommitment,
@@ -34,7 +34,6 @@ import           Pos.Ssc.GodTossing.Core           (Commitment (..), Commitments
                                                     isCommitmentId, isOpeningId,
                                                     isSharesId, mkCommitmentsMap,
                                                     mkCommitmentsMap, mkSignedCommitment)
-import qualified Pos.Ssc.GodTossing.Genesis.Types  as G
 import           Pos.Ssc.GodTossing.Toss.Types     (TossModifier (..))
 import           Pos.Ssc.GodTossing.Type           (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Message  (GtTag (..), MCCommitment (..),
@@ -231,13 +230,5 @@ instance Arbitrary (DataMsg MCShares) where
     shrink = genericShrink
 
 instance Arbitrary (DataMsg MCVssCertificate) where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-----------------------------------------------------------------------------
--- Arbitrary types from 'Pos.Ssc.GodTossing.Genesis.Types'
-----------------------------------------------------------------------------
-
-instance Arbitrary G.GenesisGtData where
     arbitrary = genericArbitrary
     shrink = genericShrink

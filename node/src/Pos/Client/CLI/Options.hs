@@ -34,8 +34,8 @@ import           Serokell.Util.OptParse               (fromParsec)
 import           Pos.Binary.Core                      ()
 import           Pos.Client.CLI.Util                  (sscAlgoParser)
 import           Pos.Communication                    (NodeId)
-import           Pos.Constants                        (isDevelopment, staticSysStart)
 import           Pos.Core                             (Timestamp (..))
+import           Pos.Core.Genesis                     (staticSystemStart)
 import           Pos.Launcher.ConfigInfo              (ConfigInfo (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
 import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
@@ -60,22 +60,19 @@ commonArgsParser = do
     reportServers <- reportServersOption
     updateServers <- updateServersOption
     --
-    sysStart <- sysStartParser
+    sysStart <- sysStartOption
     pure CommonArgs{..}
 
-sysStartParser :: Opt.Parser Timestamp
-sysStartParser = Opt.option (Timestamp . sec <$> Opt.auto) $
-    Opt.long    "system-start" <>
-    Opt.metavar "TIMESTAMP" <>
-    Opt.help    helpMsg <>
-    defaultValue
+sysStartOption :: Opt.Parser Timestamp
+sysStartOption =
+    case staticSystemStart of
+        Nothing ->
+            Opt.option (Timestamp . sec <$> Opt.auto) $
+            Opt.long "system-start" <> Opt.metavar "TIMESTAMP" <>
+            Opt.help helpMsg
+        Just timestamp -> pure timestamp
   where
-    -- In development mode, this parameter is mandatory.
-    -- In production mode, it is optional, and its default value is populated
-    -- from `staticSysStart`, which gets it from the config file.
-    defaultValue =
-        if isDevelopment then mempty else Opt.value staticSysStart
-    helpMsg = "System start time. Mandatory in development mode. Format - seconds since Unix-epoch."
+    helpMsg = "System start time. Format - seconds since Unix-epoch."
 
 templateParser :: (HasName f, HasMetavar f) => String -> String -> String -> Opt.Mod f a
 templateParser long metavar help =
@@ -191,15 +188,6 @@ listenNetworkAddressOption na =
   where
     helpMsg = "IP and port on which to bind and listen. Please make sure these IP "
         <> "and port are accessible, otherwise proper work of CSL isn't guaranteed."
-
-sysStartOption :: Opt.Parser Timestamp
-sysStartOption = Opt.option (Timestamp . sec <$> Opt.auto) $
-    Opt.long    "system-start" <>
-    Opt.metavar "TIMESTAMP" <>
-    Opt.value   staticSysStart <>
-    Opt.help    helpMsg
-  where
-    helpMsg = "System start time. Format - seconds since Unix Epoch."
 
 configInfoParser :: Opt.Parser ConfigInfo
 configInfoParser = do

@@ -1,6 +1,6 @@
 -- Classes and datatypes for managing extra context in Explorer.
 
-module Pos.Explorer.Web.ExtraContext
+module Pos.Explorer.ExtraContext
     ( ExtraContext
     , ExtraContextT
     , runExtraContextT

@@ -70,6 +70,7 @@ import           Pos.Explorer                   (TxExtra (..), getEpochBlocks,
 import qualified Pos.Explorer                   as EX (getAddrBalance, getAddrHistory,
                                                        getTxExtra)
 import           Pos.Explorer.Aeson.ClientTypes ()
+import           Pos.Explorer.ExtraContext      (HasGenesisRedeemAddressInfo (..))
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes   (Byte, CAddress (..),
                                                  CAddressSummary (..), CAddressType (..),
@@ -85,7 +86,6 @@ import           Pos.Explorer.Web.ClientTypes   (Byte, CAddress (..),
                                                  toBlockSummary, toCAddress, toCHash,
                                                  toCTxId, toTxBrief)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
-import           Pos.Explorer.Web.ExtraContext  (HasGenesisRedeemAddressInfo (..))
 
 
 ----------------------------------------------------------------

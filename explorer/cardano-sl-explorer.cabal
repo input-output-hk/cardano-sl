@@ -13,12 +13,12 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:      Pos.Explorer.Socket
+  exposed-modules:      Pos.Explorer.ExtraContext
+                        Pos.Explorer.Socket
                         Pos.Explorer.Web
                         Pos.Explorer.Web.Api
                         Pos.Explorer.Web.ClientTypes
                         Pos.Explorer.Web.Error
-                        Pos.Explorer.Web.ExtraContext
                         Pos.Explorer.Web.TestServer
                         Pos.Explorer.Web.Server
 

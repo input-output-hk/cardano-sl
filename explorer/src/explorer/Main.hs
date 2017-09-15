@@ -8,34 +8,33 @@ module Main where
 
 import           Universum
 
-import           Data.Default                  (def)
-import           Data.Maybe                    (fromJust)
-import           Formatting                    (build, sformat, shown, (%))
-import           Mockable                      (Production, currentTime, runProduction)
-import           System.Wlog                   (logInfo)
+import           Data.Default              (def)
+import           Data.Maybe                (fromJust)
+import           Formatting                (build, sformat, shown, (%))
+import           Mockable                  (Production, currentTime, runProduction)
+import           System.Wlog               (logInfo)
 
-import           Pos.Binary                    ()
-import qualified Pos.Client.CLI                as CLI
-import           Pos.Communication             (OutSpecs, WorkerSpec)
-import           Pos.Constants                 (isDevelopment)
-import           Pos.Core                      (HasCoreConstants, giveStaticConsts)
-import           Pos.Explorer.Socket           (NotifierSettings (..))
-import           Pos.Explorer.Web              (ExplorerProd, explorerPlugin,
-                                                liftToExplorerProd, notifierPlugin,
-                                                runExplorerProd)
-import           Pos.Explorer.Web.ExtraContext (makeExtraCtx)
-import           Pos.Launcher                  (NodeParams (..), NodeResources (..),
-                                                applyConfigInfo, bracketNodeResources,
-                                                hoistNodeResources, runNode,
-                                                runRealBasedMode)
-import           Pos.Ssc.GodTossing            (SscGodTossing)
-import           Pos.Types                     (Timestamp (Timestamp))
-import           Pos.Update                    (updateTriggerWorker)
-import           Pos.Util                      (inAssertMode, mconcatPair)
-import           Pos.Util.UserSecret           (usVss)
+import           Pos.Binary                ()
+import qualified Pos.Client.CLI            as CLI
+import           Pos.Communication         (OutSpecs, WorkerSpec)
+import           Pos.Constants             (isDevelopment)
+import           Pos.Core                  (HasCoreConstants, giveStaticConsts)
+import           Pos.Explorer.ExtraContext (makeExtraCtx)
+import           Pos.Explorer.Socket       (NotifierSettings (..))
+import           Pos.Explorer.Web          (ExplorerProd, explorerPlugin,
+                                            liftToExplorerProd, notifierPlugin,
+                                            runExplorerProd)
+import           Pos.Launcher              (NodeParams (..), NodeResources (..),
+                                            applyConfigInfo, bracketNodeResources,
+                                            hoistNodeResources, runNode, runRealBasedMode)
+import           Pos.Ssc.GodTossing        (SscGodTossing)
+import           Pos.Types                 (Timestamp (Timestamp))
+import           Pos.Update                (updateTriggerWorker)
+import           Pos.Util                  (inAssertMode, mconcatPair)
+import           Pos.Util.UserSecret       (usVss)
 
-import           ExplorerOptions               (Args (..), getExplorerOptions)
-import           Params                        (getNodeParams, gtSscParams)
+import           ExplorerOptions           (Args (..), getExplorerOptions)
+import           Params                    (getNodeParams, gtSscParams)
 
 printFlags :: IO ()
 printFlags = do

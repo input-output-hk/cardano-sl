@@ -15,11 +15,11 @@ import           Formatting                     (bprint, build, (%))
 
 import           Pos.Binary.GodTossing          ()
 import           Pos.Core                       (HasCoreConstants)
+import           Pos.Core.Genesis               (genesisCertificates)
 import           Pos.DB                         (MonadDB, MonadDBRead, RocksBatchOp (..))
 import           Pos.DB.Error                   (DBError (DBMalformed))
 import           Pos.DB.Functions               (dbSerializeValue)
 import           Pos.DB.GState.Common           (gsGetBi, gsPutBi)
-import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..))
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Util.Util                  (maybeThrow)

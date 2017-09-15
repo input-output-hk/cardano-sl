@@ -19,7 +19,6 @@ module Pos.Core.Constants.Raw
        , isDevelopment
        , dbSerializeVersion
        , protocolMagic
-       , genesisKeysN
        , memPoolLimitRatio
 
        , genesisBinSuffix
@@ -74,8 +73,6 @@ data CoreConfig = CoreConfig
       ccDbSerializeVersion     :: Word8
     , -- | Magic constant for separating real/testnet
       ccProtocolMagic          :: !Int32
-    , -- | Number of pre-generated keys
-      ccGenesisN               :: !Int
       -- | Size of mem pool will be limited by this value muliplied by block
       -- size limit.
     , ccMemPoolLimitRatio      :: !Word
@@ -174,10 +171,6 @@ dbSerializeVersion = fromIntegral . ccDbSerializeVersion $ coreConfig
 -- wider).
 protocolMagic :: Int32
 protocolMagic = fromIntegral . ccProtocolMagic $ coreConfig
-
--- | Number of pre-generated keys
-genesisKeysN :: Integral i => i
-genesisKeysN = fromIntegral . ccGenesisN $ coreConfig
 
 -- | Size of mem pool will be limited by this value muliplied by block
 -- size limit.

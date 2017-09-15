@@ -60,15 +60,16 @@ genesisMaxBlockSize = bvdMaxBlockSize genesisBlockVersionData
 
 -- Protocol constants
 
--- TODO will read from genSpec
--- | VSS certificates max timeout to live (number of epochs)
-vssMaxTTL :: Integral i => i
-vssMaxTTL = 2
 
 -- TODO will read from genSpec
 -- | VSS certificates min timeout to live (number of epochs)
 vssMinTTL :: Integral i => i
-vssMinTTL = 6
+vssMinTTL = 2
+
+-- TODO will read from genSpec
+-- | VSS certificates max timeout to live (number of epochs)
+vssMaxTTL :: Integral i => i
+vssMaxTTL = 6
 
 -- Other constants
 

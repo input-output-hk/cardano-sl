@@ -1,19 +1,15 @@
 module Pos.Core.Genesis
        (
        -- * Data from 'GenesisSpec'
-         genesisProdAvvmBalances
-       , genesisProdInitializer
-       , genesisProdDelegation
+         genesisAvvmBalances
+       , genesisInitializer
+       , genesisDelegation
 
        , generatedGenesisData
+       , genesisSecretKeys
+       , genesisHdwSecretKeys
+       , genesisVssSecretKeys
        , genesisCertificates
-
-       -- * Obsolete constants for dev mode
-       , genesisDevKeyPairs
-       , genesisDevPublicKeys
-       , genesisDevSecretKeys
-       , genesisDevHdwSecretKeys
-       , genesisDevFlatDistr
 
        -- * Utils
        , generateGenesisKeyPair
@@ -34,12 +30,10 @@ import           System.IO.Unsafe           (unsafePerformIO)
 import           System.Wlog                (usingLoggerName)
 
 import           Pos.Binary.Crypto          ()
-import           Pos.Core.Coin              (unsafeMulCoin)
-import           Pos.Core.Constants         (genesisKeysN)
-import           Pos.Core.Types             (mkCoin)
 import           Pos.Core.Vss               (VssCertificatesMap)
 import           Pos.Crypto.SafeSigning     (EncryptedSecretKey, emptyPassphrase,
                                              safeDeterministicKeyGen)
+import           Pos.Crypto.SecretSharing   (VssKeyPair)
 import           Pos.Crypto.Signing         (PublicKey, SecretKey, deterministicKeyGen)
 
 -- reexports
@@ -54,55 +48,37 @@ import           Pos.Core.Genesis.Types
 ----------------------------------------------------------------------------
 
 -- | Genesis avvm balances.
-genesisProdAvvmBalances :: GenesisAvvmBalances
-genesisProdAvvmBalances = gsAvvmDistr genesisSpec
+genesisAvvmBalances :: GenesisAvvmBalances
+genesisAvvmBalances = gsAvvmDistr genesisSpec
 
 -- | Genesis initializer determines way of initialization
 -- utxo, bootstrap stakeholders, etc.
-genesisProdInitializer :: GenesisInitializer
-genesisProdInitializer = gsInitializer genesisSpec
+genesisInitializer :: GenesisInitializer
+genesisInitializer = gsInitializer genesisSpec
 
 -- | 'GenesisDelegation' for production mode.
-genesisProdDelegation :: GenesisDelegation
-genesisProdDelegation = gsHeavyDelegation genesisSpec
+genesisDelegation :: GenesisDelegation
+genesisDelegation = gsHeavyDelegation genesisSpec
 
 -- This unsafePerformIO is more or less safe,
 -- because MonadIO needed for random.
 -- Will be fixed soon.
 generatedGenesisData :: GeneratedGenesisData
 generatedGenesisData =
-    unsafePerformIO $ usingLoggerName "core" $ generateTestnetOrMainnetData genesisProdInitializer
+    unsafePerformIO $ usingLoggerName "core" $ generateTestnetOrMainnetData genesisInitializer
 {-# NOINLINE generatedGenesisData #-}
 
 genesisCertificates :: VssCertificatesMap
 genesisCertificates = ggdGtData generatedGenesisData
 
-----------------------------------------------------------------------------
--- Obsolete constants for dev mode
-----------------------------------------------------------------------------
+genesisSecretKeys :: Maybe [SecretKey]
+genesisSecretKeys = map (view _1) <$> ggdSecretKeys generatedGenesisData
 
--- | List of pairs from 'SecretKey' with corresponding 'PublicKey'.
-genesisDevKeyPairs :: [(PublicKey, SecretKey)]
-genesisDevKeyPairs = map generateGenesisKeyPair [0 .. genesisKeysN - 1]
+genesisHdwSecretKeys :: Maybe [EncryptedSecretKey]
+genesisHdwSecretKeys = map (view _2) <$> ggdSecretKeys generatedGenesisData
 
--- | List of 'PublicKey's in genesis.
-genesisDevPublicKeys :: [PublicKey]
-genesisDevPublicKeys = map fst genesisDevKeyPairs
-
--- | List of 'SecretKey's in genesis.
-genesisDevSecretKeys :: [SecretKey]
-genesisDevSecretKeys = map snd genesisDevKeyPairs
-
--- | List of 'SecretKey's in genesis for HD wallets.
-genesisDevHdwSecretKeys :: [EncryptedSecretKey]
-genesisDevHdwSecretKeys =
-    map generateHdwGenesisSecretKey [0 .. genesisKeysN - 1]
-
--- | Default flat stakes distributed among 'genesisKeysN' (from constants).
-genesisDevFlatDistr :: BalanceDistribution
-genesisDevFlatDistr =
-    FlatBalances genesisKeysN $
-    mkCoin 10000 `unsafeMulCoin` (genesisKeysN :: Int)
+genesisVssSecretKeys :: Maybe [VssKeyPair]
+genesisVssSecretKeys = map (view _3) <$> ggdSecretKeys generatedGenesisData
 
 ----------------------------------------------------------------------------
 -- Utils

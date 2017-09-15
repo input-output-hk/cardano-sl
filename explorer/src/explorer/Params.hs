@@ -20,7 +20,7 @@ import qualified Pos.Client.CLI        as CLI
 import           Pos.Constants         (isDevelopment)
 import           Pos.Core.Types        (Timestamp (..))
 import           Pos.Crypto            (VssKeyPair)
-import           Pos.Genesis           (genesisContextProduction)
+import           Pos.Genesis           (genesisContext)
 import           Pos.Launcher          (BaseParams (..), LoggingParams (..),
                                         NodeParams (..), TransportParams (..))
 import           Pos.Network.CLI       (intNetworkConfigOpts)
@@ -91,7 +91,7 @@ getNodeParams args@Args {..} systemStart = do
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
     let npTransport = getTransportParams args npNetworkConfig
 
-    let npGenesisCtx = genesisContextProduction
+    let npGenesisCtx = genesisContext
 
     return NodeParams
         { npDbPathM = dbPath

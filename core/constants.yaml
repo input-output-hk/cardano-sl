@@ -27,7 +27,6 @@ dev: &dev
   k: 2
 
   # Genesis constants
-  genesisN: 12
   maxReqSize: 102 # 102 bytes
   maxMempoolMsgSize: 100 # 100 bytes
   maxInvSize: 102 # 102 bytes
@@ -123,7 +122,6 @@ mainnet: &mainnet
 
   # mainnet config is a modification of the development config,
   # so we merge it into the production config using YAML's << syntax
-  genesisN: 30000
   genesisMpcThd: 0.02                    # 2% of stake
   genesisHeavyDelThd: 0.0003             # 0.03% of stake
   genesisUpdateImplicit: 10000           # slots
@@ -215,7 +213,6 @@ devnet_shortep_wallet: &devnet_shortep_wallet
 benchmark: &benchmark
   <<: *testnet_public_full
 
-  genesisN: 50000
   k: 6
   fixedTimeCQ: 30 # 30 sec
 

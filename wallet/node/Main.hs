@@ -21,9 +21,9 @@ import qualified Pos.Client.CLI      as CLI
 import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec, worker)
 import           Pos.Context         (HasNodeContext)
 import           Pos.Core            (Timestamp (..), systemStart)
-import           Pos.Launcher        (NodeParams (..), NodeResources (..),
-                                      bracketNodeResources, runNode,
-                                      HasConfigurations, withConfigurations)
+import           Pos.Launcher        (HasConfigurations, NodeParams (..),
+                                      NodeResources (..), bracketNodeResources, runNode,
+                                      withConfigurations)
 import           Pos.Ssc.Class       (SscParams)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
 import           Pos.Util.UserSecret (usVss)
@@ -75,9 +75,9 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
         putText $ sformat ("System start time is " % shown) systemStart
         t <- currentTime
         putText $ sformat ("Current time is " % shown) (Timestamp t)
-        currentParams <- getNodeParams cArgs
+        currentParams <- getNodeParams cArgs systemStart
         putText $ "Wallet is enabled!"
-        putText $ sformat ("Using configs and genesis:\n"%shown) conf
+        putText $ sformat ("Using configs and genesis:\n"%build) configInfo
 
         let vssSK = fromJust $ npUserSecret currentParams ^. usVss
         let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)

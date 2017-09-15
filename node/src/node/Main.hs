@@ -20,8 +20,8 @@ import           Pos.Client.CLI      (CommonNodeArgs (..), NodeArgs (..),
 import qualified Pos.Client.CLI      as CLI
 import           Pos.Communication   (OutSpecs, WorkerSpec)
 import           Pos.Core            (Timestamp (..), systemStart)
-import           Pos.Launcher        (NodeParams (..), runNodeReal,
-                                      HasConfigurations, withConfigurations)
+import           Pos.Launcher        (HasConfigurations, NodeParams (..), runNodeReal,
+                                      withConfigurations)
 import           Pos.Ssc.Class       (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
 import           Pos.Ssc.NistBeacon  (SscNistBeacon)
@@ -49,14 +49,17 @@ action
     => SimpleNodeArgs
     -> Production ()
 action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
-    whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData systemStart
-    putText $ sformat ("System start time is " % shown) systemStart
-    t <- currentTime
-    putText $ sformat ("Current time is " % shown) (Timestamp t)
-    currentParams <- CLI.getNodeParams cArgs nArgs
-    putText $ "Running using " <> show sscAlgo
-    putText "Wallet is disabled, because software is built w/o it"
-    putText $ sformat ("Using configs and genesis:\n"%shown) (CLI.configurationOptions (CLI.commonArgs cArgs))
+    liftIO $ applyConfigInfo configInfo
+    giveStaticConsts $ do
+        systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
+        whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData systemStart
+        putText $ sformat ("System start time is " % shown) systemStart
+        t <- currentTime
+        putText $ sformat ("Current time is " % shown) (Timestamp t)
+        currentParams <- CLI.getNodeParams cArgs nArgs systemStart
+        putText $ "Running using " <> show sscAlgo
+        putText "Wallet is disabled, because software is built w/o it"
+        putText $ sformat ("Using configs and genesis:\n"%build) configInfo
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
     let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)

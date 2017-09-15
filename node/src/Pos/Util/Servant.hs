@@ -54,7 +54,7 @@ import           Serokell.Util           (listJsonIndent)
 import           Serokell.Util.ANSI      (Color (..))
 import           Servant.API             ((:<|>) (..), (:>), Capture, QueryParam,
                                           ReflectMethod (..), ReqBody, Verb)
-import           Servant.Server          (Handler (..), HasServer (..), ServantErr,
+import           Servant.Server          (Handler (..), HasServer (..), ServantErr (..),
                                           Server)
 import qualified Servant.Server.Internal as SI
 import           System.Wlog             (LoggerName, logInfo, usingLoggerName)
@@ -414,7 +414,7 @@ applyLoggingToVerb configP method paramsInfo showResponse action = do
     reportResponse timer resp = do
         durationText <- timer
         logWithParamInfo $
-            sformat (stext%" "%stext%" "%stext%" "%stext%" "%stext)
+            sformat ("  "%stext%" "%stext%" "%stext%" "%stext%" "%stext)
                 (colorizeDull White "Status:")
                 (colorizeDull Green "OK")
                 durationText
@@ -423,19 +423,19 @@ applyLoggingToVerb configP method paramsInfo showResponse action = do
     catchErrors st =
         flip catchError (servantErrHandler st) .
         handleAll (totalHandler st)
-    servantErrHandler timer (e :: ServantErr) = do
+    servantErrHandler timer err@ServantErr{..} = do
         durationText <- timer
+        let errMsg = sformat (build%" "%string) errHTTPCode errReasonPhrase
         logWithParamInfo $
-            sformat (stext%" "%stext%" "%stext)
+            sformat ("  "%stext%" "%stext%" "%stext)
                 (colorizeDull White "Status: ")
-                (colorizeDull Red $ show e)
+                (colorizeDull Red errMsg)
                 durationText
-
-        throwError e
+        throwError err
     totalHandler timer (e :: SomeException) = do
         durationText <- timer
         logWithParamInfo $
-            sformat (stext%" "%shown%" "%stext)
+            sformat ("  "%stext%" "%shown%" "%stext)
                 (colorizeDull Red "Exception")
                 e
                 durationText

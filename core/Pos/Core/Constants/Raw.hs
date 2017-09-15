@@ -21,7 +21,7 @@ module Pos.Core.Constants.Raw
        , protocolMagic
        , staticSysStartRaw
        , genesisKeysN
-       , memPoolLimitRatio
+       , memPoolLimit
 
        , genesisBinSuffix
 
@@ -86,8 +86,9 @@ data CoreConfig = CoreConfig
       ccGenesisN                     :: !Int
       -- | Size of mem pool will be limited by this value muliplied by block
       -- size limit.
-    , ccMemPoolLimitRatio            :: !Word
-      -- | Suffix for genesis.bin files
+    , ccMemPoolLimit                 :: !Int
+      -- | Limint on the number of transactions that can be stored in
+      -- the mem pool.
     , ccGenesisBinSuffix             :: ![Char]
 
        -- Genesis block version data
@@ -228,8 +229,8 @@ genesisKeysN = fromIntegral . ccGenesisN $ coreConfig
 
 -- | Size of mem pool will be limited by this value muliplied by block
 -- size limit.
-memPoolLimitRatio :: Integral i => i
-memPoolLimitRatio = fromIntegral . ccMemPoolLimitRatio $ coreConfig
+memPoolLimit :: Int
+memPoolLimit = ccMemPoolLimit coreConfig
 
 -- | If chain quality in bootstrap era is less than this value,
 -- non critical misbehavior will be reported.

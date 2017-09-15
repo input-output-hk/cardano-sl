@@ -123,8 +123,7 @@ dev: &dev
 
 
   # These constants mostly depend on hardware capabilities
-  memPoolLimitRatio: 2 # mem pool will be limited by this value
-                       # muliplied by block size limit
+  memPoolLimit: 200 # mem pool will be limited to this many transactions
 
   genesisBinSuffix: tn # it is set here arbitrarily, it won't be actually used
 
@@ -266,4 +265,3 @@ devnet_shortep_updated_full: &devnet_shortep_updated_full
 devnet_shortep_updated_wallet: &devnet_shortep_updated_wallet
   <<: *devnet_shortep_updated_full
   applicationName: csl-daedalus
-

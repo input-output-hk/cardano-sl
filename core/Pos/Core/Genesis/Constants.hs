@@ -8,6 +8,7 @@ module Pos.Core.Genesis.Constants
        , genesisUpdateVoteThd
        , genesisSlotDuration
        , genesisMaxBlockSize
+       , genesisProtocolConstants
 
        -- Protocol constants
        , vssMinTTL
@@ -25,7 +26,7 @@ import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Core.Genesis.Parser    (genesisSpec)
 import           Pos.Core.Genesis.Types     (GenesisInitializer (..), GenesisSpec (..),
-                                             gsBlockVersionData)
+                                             ProtocolConstants, gsBlockVersionData)
 import           Pos.Core.Types             (BlockVersionData (..), CoinPortion,
                                              Timestamp)
 import           Pos.Crypto                 (firstHardened)
@@ -59,6 +60,9 @@ genesisMaxBlockSize :: Byte
 genesisMaxBlockSize = bvdMaxBlockSize genesisBlockVersionData
 
 -- Protocol constants
+
+genesisProtocolConstants :: ProtocolConstants
+genesisProtocolConstants = gsProtocolConstants genesisSpec
 
 
 -- TODO will read from genSpec

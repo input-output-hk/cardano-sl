@@ -17,21 +17,17 @@ module Pos.Genesis
        , gtcDelegation
 
        -- * Static state/functions/common
-       , balanceDistribution
        , genesisLeaders
        , genesisContextImplicit
 
        -- * Prod mode genesis
        , genesisContext
-
-       , concatAddrDistrs
        ) where
 
 import           Universum
 
 import           Control.Lens        (at, makeLenses)
 import qualified Data.HashMap.Strict as HM
-import           Data.List           (genericReplicate)
 import qualified Data.Map.Strict     as Map
 import qualified Data.Ratio          as Ratio
 import           Formatting          (build, sformat, (%))
@@ -42,9 +38,8 @@ import qualified Pos.Constants       as Const
 import           Pos.Core            (AddrSpendingData (PubKeyASD), Address (..), Coin,
                                       GeneratedGenesisData (..), HasCoreConstants,
                                       SlotLeaders, StakeholderId, addressHash,
-                                      applyCoinPortionUp, coinToInteger, divCoin,
-                                      generatedGenesisData, makeRedeemAddress,
-                                      safeExpBalances, unsafeMulCoin)
+                                      coinToInteger, generatedGenesisData,
+                                      makeRedeemAddress, safeExpBalances)
 import           Pos.Crypto          (unsafeHash)
 import           Pos.Lrc.FtsPure     (followTheSatoshiUtxo)
 import           Pos.Lrc.Genesis     (genesisSeed)
@@ -85,34 +80,6 @@ instance HasLens GenesisDelegation GenesisContext GenesisDelegation where
 ----------------------------------------------------------------------------
 -- Static state & funcitons
 ----------------------------------------------------------------------------
-
--- | Given 'BalanceDistribution', calculates a list containing amounts
--- of coins (balances) belonging to genesis addresses.
-balanceDistribution :: BalanceDistribution -> [Coin]
-balanceDistribution (FlatBalances stakeholders coins) =
-    genericReplicate stakeholders val
-  where
-    val = coins `divCoin` stakeholders
-balanceDistribution (ExponentialBalances n mc) =
-    reverse $ take (fromIntegral n) $
-    iterate (`unsafeMulCoin` (2::Integer)) mc
-balanceDistribution ts@RichPoorBalances {..} =
-    checkMpcThd (getTotalBalance ts) sdRichBalance basicDist
-  where
-    -- Node won't start if richmen cannot participate in MPC
-    checkMpcThd total richs =
-        if richs < applyCoinPortionUp Const.genesisMpcThd total
-        then error "Pos.Genesis: RichPoorBalances: richmen balance \
-                   \is less than MPC threshold"
-        else identity
-    basicDist = genericReplicate sdRichmen sdRichBalance ++
-                genericReplicate sdPoor sdPoorBalance
-balanceDistribution (CustomBalances coins) = coins
-
--- Converts list of addr distrs to pre-map (addr,coin)
-concatAddrDistrs :: [AddrDistribution] -> [(Address, Coin)]
-concatAddrDistrs addrDistrs =
-    concatMap (uncurry zip . second balanceDistribution) addrDistrs
 
 -- | Generates 'GenesisUtxo' given address distributions (which also
 -- include stake distributions as parts of addresses).

@@ -27,12 +27,12 @@ import           Pos.Core                        (EpochIndex (..), HasCoreConsta
                                                   IsMainHeader, SlotId (..),
                                                   StakeholderId, VssCertificatesMap,
                                                   headerSlotL)
+import           Pos.Core.Genesis                (genesisCertificates)
 import           Pos.Core.Slotting               (crucialSlot)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (getCommitmentsMap),
                                                   GtPayload (..), checkCertTTL,
                                                   isCommitmentId, isOpeningId, isSharesId,
                                                   verifySignedCommitment, vssThreshold)
-import           Pos.Ssc.GodTossing.Genesis      (genesisCertificates)
 import           Pos.Ssc.GodTossing.Toss.Base    (verifyEntriesGuardM)
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Types.Types  (GtGlobalState (..))

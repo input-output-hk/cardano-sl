@@ -12,11 +12,10 @@ import           System.Random               (mkStdGen, randomIO)
 import           System.Wlog                 (usingLoggerName)
 
 import           Pos.AllSecrets              (mkAllSecretsSimple)
-import           Pos.Core                    (genesisDevSecretKeys, giveStaticConsts,
-                                              isDevelopment)
+import           Pos.Core                    (giveStaticConsts, isDevelopment)
 import           Pos.DB                      (closeNodeDBs, openNodeDBs)
 import           Pos.Generator.Block         (BlockGenParams (..), genBlocks)
-import           Pos.Genesis                 (genesisContextProduction, gtcUtxo,
+import           Pos.Genesis                 (genesisContext, genesisSecretKeys, gtcUtxo,
                                               gtcWStakeholders)
 import           Pos.Launcher                (applyConfigInfo)
 import           Pos.Txp.Toil                (GenesisUtxo (..))
@@ -37,12 +36,13 @@ main = (applyConfigInfo def >>) $ flip catch catchEx $ giveStaticConsts $ do
     allSecrets <- mkAllSecretsSimple <$> case bgoNodes of
         Left bgoNodesN -> do
             unless (bgoNodesN > 0) $ throwM NoOneSecrets
-            pure $ take (fromIntegral bgoNodesN) genesisDevSecretKeys
+            let secrets = fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
+            pure $ take (fromIntegral bgoNodesN) secrets
         Right bgoSecretFiles -> do
             when (null bgoSecretFiles) $ throwM NoOneSecrets
             usingLoggerName "block-gen" $ mapM parseSecret bgoSecretFiles
 
-    let genCtx = genesisContextProduction
+    let genCtx = genesisContext
 
     let bootStakeholders = genCtx ^. gtcWStakeholders
     let genUtxo = genCtx ^. gtcUtxo

@@ -10,8 +10,7 @@ import           Universum
 
 import           Pos.Crypto                 (SecretKey, keyGen, runSecureRandom,
                                              vssKeyGen)
-import           Pos.Genesis                (GeneratedGenesisData (..),
-                                             generatedGenesisData)
+import           Pos.Genesis                (genesisSecretKeys, genesisVssSecretKeys)
 import           Pos.Util.UserSecret        (UserSecret, usPrimKey, usVss,
                                              writeUserSecret)
 
@@ -21,12 +20,12 @@ userSecretWithGenesisKey
     :: (MonadIO m) => CommonNodeArgs -> UserSecret -> m (SecretKey, UserSecret)
 userSecretWithGenesisKey CommonNodeArgs{..} userSecret
     | Just i <- devSpendingGenesisI,
-      Just secretKeys <- ggdSecretKeys generatedGenesisData = do
-        let sk = fst $ secretKeys !! i
+      Just secretKeys <- genesisSecretKeys = do
+        let sk = secretKeys !! i
             us = userSecret & usPrimKey .~ Just sk
         writeUserSecret us
         pure (sk, us)
-    | Just _ <- devSpendingGenesisI, Nothing <- ggdSecretKeys generatedGenesisData =
+    | Just _ <- devSpendingGenesisI, Nothing <- genesisSecretKeys =
         error "devSpendingGenesisI is specified, but secret keys are unknown.\n\
               \Try to change initializer in genesis spec"
     | otherwise = fetchPrimaryKey userSecret
@@ -35,9 +34,9 @@ updateUserSecretVSS
     :: (MonadIO m) => CommonNodeArgs -> UserSecret -> m UserSecret
 updateUserSecretVSS CommonNodeArgs{..} us
     | Just i <- devVssGenesisI,
-      Just secretKeys <- ggdSecretKeys generatedGenesisData =
-        pure $ us & usVss .~ Just (snd $ secretKeys !! i)
-    | Just _ <- devVssGenesisI, Nothing <- ggdSecretKeys generatedGenesisData =
+      Just secretKeys <- genesisVssSecretKeys =
+        pure $ us & usVss .~ Just (secretKeys !! i)
+    | Just _ <- devVssGenesisI, Nothing <- genesisVssSecretKeys =
         error "devSpendingGenesisI is specified, but secret keys are unknown.\n\
               \Try to change initializer in genesis spec"
     | otherwise = fillUserSecretVSS us

@@ -72,6 +72,7 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) = do
     liftIO $ applyConfigInfo configInfo
     giveStaticConsts $ do
         systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
+        whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData systemStart
         logInfo $ sformat ("System start time is " % shown) systemStart
         t <- currentTime
         logInfo $ sformat ("Current time is " % shown) (Timestamp t)

@@ -336,6 +336,7 @@ library
                       , base64-bytestring
                       , binary
                       , bytestring
+                      , canonical-json
                       , cardano-crypto
                       , cardano-report-server >= 0.2.1
                       , cardano-sl-core

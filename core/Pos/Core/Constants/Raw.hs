@@ -19,7 +19,6 @@ module Pos.Core.Constants.Raw
        , isDevelopment
        , dbSerializeVersion
        , protocolMagic
-       , staticSysStartRaw
        , genesisKeysN
        , memPoolLimitRatio
 
@@ -70,48 +69,45 @@ genesisHash = unsafeHash @Text "patak"
 data CoreConfig = CoreConfig
     {
       -- | Security parameter from paper
-      ccK                          :: !Int
+      ccK                      :: !Int
     , -- | Versioning for values in node's DB
-      ccDbSerializeVersion         :: Word8
+      ccDbSerializeVersion     :: Word8
     , -- | Magic constant for separating real/testnet
-      ccProtocolMagic              :: !Int32
-    , -- | Start time of network (in @Production@ running mode). If set to
-      -- zero, then running time is 2 minutes after build.
-      ccProductionNetworkStartTime :: !Int
+      ccProtocolMagic          :: !Int32
     , -- | Number of pre-generated keys
-      ccGenesisN                   :: !Int
+      ccGenesisN               :: !Int
       -- | Size of mem pool will be limited by this value muliplied by block
       -- size limit.
-    , ccMemPoolLimitRatio          :: !Word
+    , ccMemPoolLimitRatio      :: !Word
       -- | Suffix for genesis.bin files
-    , ccGenesisBinSuffix           :: ![Char]
+    , ccGenesisBinSuffix       :: ![Char]
 
        -- Chain quality thresholds and other constants to detect
        -- suspicious things.
 
       -- | If chain quality in bootstrap era is less than this value,
       -- non critical misbehavior will be reported.
-    , ccNonCriticalCQBootstrap     :: !Double
+    , ccNonCriticalCQBootstrap :: !Double
       -- | If chain quality in bootstrap era is less than this value,
       -- critical misbehavior will be reported.
-    , ccCriticalCQBootstrap        :: !Double
+    , ccCriticalCQBootstrap    :: !Double
       -- | If chain quality after bootstrap era is less than this
       -- value, non critical misbehavior will be reported.
-    , ccNonCriticalCQ              :: !Double
+    , ccNonCriticalCQ          :: !Double
       -- | If chain quality after bootstrap era is less than this
       -- value, critical misbehavior will be reported.
-    , ccCriticalCQ                 :: !Double
+    , ccCriticalCQ             :: !Double
       -- | Number of blocks such that if so many blocks are rolled
       -- back, it requires immediate reaction.
-    , ccCriticalForkThreshold      :: !Int
+    , ccCriticalForkThreshold  :: !Int
       -- | Chain quality will be also calculated for this amount of seconds.
-    , ccFixedTimeCQ                :: !Int
+    , ccFixedTimeCQ            :: !Int
 
        -- Web settings
 
       -- | Whether incoming requests logging should be performed by web
       -- part
-    , ccWebLoggingEnabled          :: !Bool
+    , ccWebLoggingEnabled      :: !Bool
     }
     deriving (Show, Generic)
 
@@ -167,14 +163,6 @@ isDevelopment = True
 #else
 isDevelopment = False
 #endif
-
--- | System start time embedded into binary.
-staticSysStartRaw :: Microsecond
-staticSysStartRaw
-    | isDevelopment = error "System start time should be passed \
-                              \as a command line argument in dev mode."
-    | otherwise     =
-          sec $ ccProductionNetworkStartTime coreConfig
 
 -- | DB format version. When serializing items into the node's DB, the values are paired
 -- with this constant.

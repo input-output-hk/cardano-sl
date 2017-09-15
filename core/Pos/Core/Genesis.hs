@@ -26,7 +26,6 @@ import           Universum
 
 import qualified Data.Text                  as T
 import           Formatting                 (int, sformat, (%))
-import           System.IO.Unsafe           (unsafePerformIO)
 
 import           Pos.Binary.Crypto          ()
 import           Pos.Core.Vss               (VssCertificatesMap)
@@ -59,13 +58,8 @@ genesisInitializer = gsInitializer genesisSpec
 genesisDelegation :: GenesisDelegation
 genesisDelegation = gsHeavyDelegation genesisSpec
 
--- This unsafePerformIO is more or less safe,
--- because MonadIO needed for random.
--- Will be fixed soon.
 generatedGenesisData :: GeneratedGenesisData
-generatedGenesisData =
-    unsafePerformIO $ generateTestnetOrMainnetData genesisInitializer
-{-# NOINLINE generatedGenesisData #-}
+generatedGenesisData = generateTestnetOrMainnetData genesisInitializer
 
 genesisCertificates :: VssCertificatesMap
 genesisCertificates = ggdGtData generatedGenesisData

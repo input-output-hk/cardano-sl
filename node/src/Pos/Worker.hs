@@ -80,6 +80,6 @@ allWorkers NodeResources {..} = mconcatPair
   where
     NodeContext {..} = nrContext
     properSlottingWorkers =
-       fst (localWorker (recoveryCommGuard logNewSlotWorker)) :
+       fst (localWorker (recoveryCommGuard "logNewSlot" logNewSlotWorker)) :
        map (fst . localWorker) (slottingWorkers ncSlottingContext)
     wrap' lname = first (map $ wrapActionSpec $ "worker" <> lname)

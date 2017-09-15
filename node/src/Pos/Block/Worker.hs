@@ -15,7 +15,7 @@ import qualified Data.List.NonEmpty          as NE
 import           Data.Time.Units             (Microsecond)
 import           Formatting                  (Format, bprint, build, fixed, int, now,
                                               sformat, shown, (%))
-import           Mockable                    (concurrently, delay)
+import           Mockable                    (concurrently, delay, fork)
 import           Serokell.Util               (listJson, pairF, sec)
 import qualified System.Metrics.Label        as Label
 import           System.Wlog                 (logDebug, logInfo, logWarning)
@@ -57,7 +57,7 @@ import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.GState                  (getAdoptedBVData, getPskByIssuer)
 import           Pos.Lrc.DB                  (getLeaders)
 import           Pos.Reporting               (MetricMonitor (..), MetricMonitorState,
-                                              noReportMonitor, recordValue)
+                                              noReportMonitor, recordValue, reportOrLogE)
 import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
 import           Pos.Ssc.Class               (SscWorkersClass)
@@ -83,14 +83,19 @@ blkWorkers =
   where
     merge = mconcatPair . map (first pure)
 
--- Action which should be done when new slot starts.
+-- FIXME [CSL-1576] Metric worker should be independent of block creator.
+-- TODO [CSL-1606] Using 'fork' here is quite bad, it's a temporary solution.
 blkOnNewSlot :: WorkMode ssc ctx m => (WorkerSpec m, OutSpecs)
 blkOnNewSlot =
     onNewSlotWorker True announceBlockOuts $ \slotId sendActions ->
-        recoveryCommGuard $
+        recoveryCommGuard "onNewSlot worker in block processing" $
         () <$
         metricWorker slotId `concurrently`
-        blockCreator slotId sendActions
+        void
+            (fork $
+             blockCreator slotId sendActions `catchAny` onBlockCreatorException)
+  where
+    onBlockCreatorException = reportOrLogE "blockCreator failed: "
 
 ----------------------------------------------------------------------------
 -- Block creation worker
@@ -108,10 +113,6 @@ blockCreator (slotId@SlotId {..}) sendActions = do
         jsonLog $ jlCreatedBlock (Left createdBlk)
 
     -- Then we get leaders for current epoch.
-    -- Note: we are using non-blocking version here.  If we known
-    -- genesis block for current epoch, then we either have calculated
-    -- it before and it implies presense of leaders in MVar or we have
-    -- read leaders from DB during initialization.
     leadersMaybe <- getLeaders siEpoch
     case leadersMaybe of
         -- If we don't know leaders, we can't do anything.
@@ -155,11 +156,12 @@ blockCreator (slotId@SlotId {..}) sendActions = do
                                        ])
                        proxyCerts
             -- cert we can use to _issue_ instead of real slot leader
-            validLightCert = find (\psk -> addressHash (pskIssuerPk psk) == leader &&
+        let validLightCert = find (\psk -> addressHash (pskIssuerPk psk) == leader &&
                                            pskDelegatePk psk == ourPk)
                              validCerts
-            ourLightPsk = find (\psk -> pskIssuerPk psk == ourPk) validCerts
-            lightWeDelegated = isJust ourLightPsk
+        let ourLightPsk = find (\psk -> pskIssuerPk psk == ourPk) validCerts
+        let lightWeDelegated = isJust ourLightPsk
+        let lightWeAreDelegate = isJust validLightCert
         logDebugS $ sformat ("Available to use lightweight PSKs: "%listJson) validCerts
 
         ourHeavyPsk <- getPskByIssuer (Left ourPk)
@@ -169,20 +171,23 @@ blockCreator (slotId@SlotId {..}) sendActions = do
         logDebug $ "End delegation psk for this slot: " <> maybe "none" pretty finalHeavyPsk
         let heavyWeAreDelegate = maybe False ((== ourPk) . pskDelegatePk) finalHeavyPsk
 
-        if | heavyWeAreIssuer ->
+        let weAreLeader = leader == ourPkHash
+        if | weAreLeader && heavyWeAreIssuer ->
                  logInfoS $ sformat
-                 ("Not creating the block because it's delegated by heavy psk: "%build)
+                 ("Not creating the block (though we're leader) because it's "%
+                  "delegated by heavy psk: "%build)
                  ourHeavyPsk
-           | lightWeDelegated ->
+           | weAreLeader && lightWeDelegated ->
                  logInfoS $ sformat
-                 ("Not creating the block because it's delegated by light psk: "%build)
+                 ("Not creating the block (though we're leader) because it's "%
+                  "delegated by light psk: "%build)
                  ourLightPsk
-           | leader == ourPkHash ->
+           | weAreLeader ->
                  onNewSlotWhenLeader slotId Nothing sendActions
            | heavyWeAreDelegate ->
                  let pske = Right . swap <$> dlgTransM
                  in onNewSlotWhenLeader slotId pske sendActions
-           | isJust validLightCert ->
+           | lightWeAreDelegate ->
                  onNewSlotWhenLeader slotId  (Left <$> validLightCert) sendActions
            | otherwise -> pass
 

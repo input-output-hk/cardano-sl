@@ -1,8 +1,8 @@
 -- | Genesis values related to GodTossing SSC.
 
 module Pos.Ssc.GodTossing.Genesis
-       ( GenesisGtData(..)
-       , compileGenGtData
+       ( module Pos.Ssc.GodTossing.Genesis.Types
+       , module Pos.Ssc.GodTossing.Genesis.Parser
 
        , genesisCertificates
        , genesisDevVssKeyPairs
@@ -23,8 +23,11 @@ import           Pos.Crypto                        (VssKeyPair, VssPublicKey,
                                                     toVssPublicKey)
 import           Pos.Ssc.GodTossing.Constants      (vssMaxTTL, vssMinTTL)
 import           Pos.Ssc.GodTossing.Core.Types     (VssCertificatesMap, mkVssCertificate)
-import           Pos.Ssc.GodTossing.Genesis.Parser (compileGenGtData)
-import           Pos.Ssc.GodTossing.Genesis.Types  (GenesisGtData (..))
+
+-- reexports
+import           Pos.Ssc.GodTossing.Genesis.Parser
+import           Pos.Ssc.GodTossing.Genesis.Types
+
 
 -- | List of 'VssKeyPair's in genesis.
 genesisDevVssKeyPairs :: [VssKeyPair]
@@ -47,7 +50,7 @@ genesisCertificates
     | isDevelopment = case certEntries of
           c0:c1:_:cs -> HM.fromList $ c0 : c1 : cs
           _          -> error "genesisCertificates: can't happen"
-    | otherwise     = ggdVssCertificates compileGenGtData
+    | otherwise     = ggdVssCertificates genGtData
   where
     ttlExp :: Int -> EpochIndex
     ttlExp 1 = EpochIndex vssMinTTL - 1

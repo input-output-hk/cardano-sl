@@ -36,12 +36,12 @@ cd nodes2
 for i in {0..4}; do stack exec -- cardano-keygen rearrange --mask testnet$i.key; done
 ```
 
-### Cardano-wallet
+### cardano-auxx
 
-Launch `cardano-wallet` with CLI:
+Launch `cardano-auxx` with CLI:
 
 ```
-stack exec -- cardano-wallet --system-start 0 --log-config log-config-prod.yaml --logs-prefix "logs/abc4" --db-path db-abc4 --peer {relayHost}:3000 repl
+stack exec -- cardano-auxx --system-start 0 --log-config log-config-prod.yaml --logs-prefix "logs/abc4" --db-path db-abc4 --peer {relayHost}:3000 repl
 ```
 
 (!) Replace:

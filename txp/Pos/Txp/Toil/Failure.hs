@@ -37,7 +37,7 @@ data ToilVerFailure
     | ToilOutGTIn { tInputSum  :: !Integer
                   , tOutputSum :: !Integer}
     | ToilInconsistentTxAux !Text
-    | ToilInvalidOutputs !Text  -- [CSL-814] TODO: make it more informative
+    | ToilInvalidOutputs !Text  -- [CSL-1628] TODO: make it more informative
     | ToilUnknownInput !Word32 !TxIn
 
     -- | The witness can't be used to justify spending an output – either

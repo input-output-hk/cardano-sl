@@ -1,79 +1,39 @@
--- | Module for commands parsing
+-- | Module for commands parsing.
 
-module Command
-       ( Command (..)
-       , ProposeUpdateSystem (..)
-       , SendMode (..)
-       , parseCommand
+module Command.Parser
+       ( parseCommand
        ) where
 
-import           Universum                  hiding (show)
+import           Universum
 
-import           Data.ByteString.Base58     (bitcoinAlphabet, decodeBase58)
-import qualified Data.List.NonEmpty         as NE
-import qualified Data.Map                   as Map
-import qualified Data.Text                  as Text
-import           Prelude                    (read, show)
-import           Serokell.Data.Memory.Units (Byte)
-import           Serokell.Util.Parse        (parseIntegralSafe)
-import           Text.Parsec                (many1, parse, parserFail, try, (<?>))
-import           Text.Parsec.Char           (alphaNum, anyChar, digit, noneOf, oneOf,
-                                             space, spaces, string)
-import           Text.Parsec.Combinator     (eof, manyTill)
-import           Text.Parsec.Text           (Parser)
+import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58)
+import qualified Data.List.NonEmpty     as NE
+import qualified Data.Map               as Map
+import qualified Data.Text              as Text
+import           Prelude                (read)
+import           Serokell.Util.Parse    (parseIntegralSafe)
+import           Text.Parsec            (many1, parse, parserFail, try, (<?>))
+import           Text.Parsec.Char       (alphaNum, anyChar, digit, noneOf, space, spaces,
+                                         string)
+import           Text.Parsec.Combinator (eof, manyTill)
+import           Text.Parsec.Text       (Parser)
 
-import           Pos.Binary                 (decodeFull)
-import           Pos.Client.CLI             (stakeholderIdParser)
-import           Pos.Core.Types             (ScriptVersion)
-import           Pos.Core.Version           (parseBlockVersion, parseSoftwareVersion)
-import           Pos.Crypto                 (AbstractHash, HashAlgorithm, PublicKey,
-                                             decodeAbstractHash)
-import           Pos.Txp                    (TxOut (..))
-import           Pos.Types                  (AddrStakeDistribution (..), Address (..),
-                                             BlockVersion, Coin, CoinPortion, EpochIndex,
-                                             SoftwareVersion, decodeTextAddress, mkCoin,
-                                             mkMultiKeyDistr, unsafeCoinPortionFromDouble)
-import           Pos.Update                 (SystemTag, UpId, mkSystemTag)
-import           Pos.Util.Util              (eitherToFail)
+import           Pos.Binary             (decodeFull)
+import           Pos.Client.CLI         (stakeholderIdParser)
+import           Pos.Core.Version       (parseBlockVersion, parseSoftwareVersion)
+import           Pos.Crypto             (AbstractHash, HashAlgorithm, PublicKey,
+                                         decodeAbstractHash)
+import           Pos.Txp                (TxOut (..))
+import           Pos.Types              (AddrStakeDistribution (..), Address, Coin,
+                                         CoinPortion, decodeTextAddress, mkCoin,
+                                         mkMultiKeyDistr, unsafeCoinPortionFromDouble)
+import           Pos.Update             (SystemTag, mkSystemTag)
+import           Pos.Util.Util          (eitherToFail)
 
--- | Specify how transactions are sent to the network during benchmarks using 'SendToAllGenesis'.
-data SendMode =
-      SendNeighbours -- ^ Send each transaction to every specified neighbour
-    | SendRoundRobin -- ^ Send transactions to neighbours in a round-robin fashion
-    | SendRandom     -- ^ Send each transaction to a randomly picked neighbour
-    deriving Show
+import           Command.Types          (Command (..), ProposeUpdateParams (..),
+                                         ProposeUpdateSystem (..), SendMode (..),
+                                         SendToAllGenesisParams (..))
 
-data Command
-    = Balance Address
-    | Send Int (NonEmpty TxOut)
-    | SendToAllGenesis !Int !Int !Int !SendMode !FilePath
-      -- ^ In-order: number of txs to send per-thread, number of threads, and
-      -- delay (milliseconds) between sends.
-    | Vote Int Bool UpId
-    | ProposeUpdate
-          { puIdx             :: Int           -- TODO: what is this? rename
-          , puBlockVersion    :: BlockVersion
-          , puScriptVersion   :: ScriptVersion
-          , puSlotDurationSec :: Int
-          , puMaxBlockSize    :: Byte
-          , puSoftwareVersion :: SoftwareVersion
-          , puUpdates         :: [ProposeUpdateSystem]
-          }
-    | Help
-    | ListAddresses
-    | DelegateLight !Int !PublicKey !EpochIndex !(Maybe EpochIndex) -- first and last epoch of psk ttl
-    | DelegateHeavy !Int !PublicKey !EpochIndex -- last argument is current epoch
-    | AddKeyFromPool !Int
-    | AddKeyFromFile !FilePath
-    | AddrDistr !PublicKey !AddrStakeDistribution
-    | Quit
-    deriving Show
-
-data ProposeUpdateSystem = ProposeUpdateSystem
-    { pusSystemTag     :: SystemTag
-    , pusInstallerPath :: Maybe FilePath
-    , pusBinDiffPath   :: Maybe FilePath
-    } deriving Show
 
 lexeme :: Parser a -> Parser a
 lexeme p = spaces *> p >>= \x -> spaces $> x
@@ -81,14 +41,13 @@ lexeme p = spaces *> p >>= \x -> spaces $> x
 text :: String -> Parser Text
 text = lexeme . fmap toText . string
 
-many1Till :: Parser a -> Parser b -> Parser [a]
-many1Till p end = (:) <$> p <*> manyTill p end
-
 anyText :: Parser Text
 anyText = lexeme $ fmap toText $ manyTill anyChar (void (try space) <|> try eof)
 
 filePath :: Parser FilePath
-filePath = many1Till (alphaNum <|> oneOf "_.") (void (try space) <|> try eof)
+filePath = lexeme (many1 nonSpace)
+  where
+    nonSpace = noneOf [' ']
 
 address :: Parser Address
 address = lexeme $ do
@@ -96,10 +55,6 @@ address = lexeme $ do
     case decodeTextAddress (toText str) of
         Left err -> fail (toString err)
         Right x  -> return x
--- pubKey :: Parser PublicKey
--- pubKey =
---     fromMaybe (panic "couldn't read pk") . parseFullPublicKey . toText <$>
---     lexeme (many1 alphaNum)
 
 num :: Num a => Parser a
 num = lexeme $ fromInteger . read <$> many1 digit
@@ -136,7 +91,7 @@ delegateH = DelegateHeavy <$> num <*> base58PkParser <*> num
 
 addKeyFromPool, addKeyFromFile :: Parser Command
 addKeyFromPool = AddKeyFromPool <$> num
-addKeyFromFile = AddKeyFromFile <$> lexeme (many1 anyChar)
+addKeyFromFile = AddKeyFromFile <$> filePath
 
 send :: Parser Command
 send = Send <$> num <*> (NE.fromList <$> many1 txout)
@@ -146,15 +101,19 @@ sendMode = lexeme $ text "neighbours" $> SendNeighbours
                 <|> text "round-robin" $> SendRoundRobin
                 <|> text "send-random" $> SendRandom
 
+sendToAllGenesisParams :: Parser SendToAllGenesisParams
+sendToAllGenesisParams =
+    SendToAllGenesisParams <$> num <*> num <*> num <*> sendMode <*> filePath
+
 sendToAllGenesis :: Parser Command
-sendToAllGenesis = SendToAllGenesis <$> num <*> num <*> num <*> sendMode <*> lexeme (many1 anyChar)
+sendToAllGenesis = SendToAllGenesis <$> sendToAllGenesisParams
 
 vote :: Parser Command
 vote = Vote <$> num <*> switch <*> hash
 
-proposeUpdate :: Parser Command
-proposeUpdate =
-    ProposeUpdate <$>
+proposeUpdateParams :: Parser ProposeUpdateParams
+proposeUpdateParams =
+    ProposeUpdateParams <$>
     num <*>
     lexeme parseBlockVersion <*>
     lexeme parseIntegralSafe <*>
@@ -162,6 +121,9 @@ proposeUpdate =
     lexeme parseIntegralSafe <*>
     lexeme parseSoftwareVersion <*>
     many1 parseProposeUpdateSystem
+
+proposeUpdate :: Parser Command
+proposeUpdate = ProposeUpdate <$> proposeUpdateParams
 
 coinPortionP :: Parser CoinPortion
 coinPortionP = do
@@ -186,6 +148,12 @@ addrStakeDistrP =
 addrDistrP :: Parser Command
 addrDistrP = AddrDistr <$> lexeme base58PkParser <*> lexeme addrStakeDistrP
 
+rollbackP :: Parser Command
+rollbackP = Rollback <$> num <*> filePath
+
+sendTxsFromFileP :: Parser Command
+sendTxsFromFileP = SendTxsFromFile <$> filePath
+
 parseProposeUpdateSystem :: Parser ProposeUpdateSystem
 parseProposeUpdateSystem =
     ProposeUpdateSystem <$>
@@ -205,6 +173,7 @@ parseSystemTag =
 command :: Parser Command
 command = try (text "balance") *> balance <|>
           try (text "send-to-all-genesis") *> sendToAllGenesis <|>
+          try (text "send-from-file") *> sendTxsFromFileP <|>
           try (text "send") *> send <|>
           try (text "vote") *> vote <|>
           try (text "propose-update") *> proposeUpdate <|>
@@ -213,6 +182,7 @@ command = try (text "balance") *> balance <|>
           try (text "add-key-pool") *> addKeyFromPool <|>
           try (text "add-key") *> addKeyFromFile <|>
           try (text "addr-distr") *> addrDistrP <|>
+          try (text "rollback") *> rollbackP <|>
           try (text "quit") *> pure Quit <|>
           try (text "help") *> pure Help <|>
           try (text "listaddr") *> pure ListAddresses <?>

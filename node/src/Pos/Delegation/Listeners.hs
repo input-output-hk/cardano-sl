@@ -8,12 +8,10 @@ module Pos.Delegation.Listeners
 
 import           Universum
 
-import           Control.Lens               (views)
 import qualified Data.Text.Buildable
-import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, sformat, shown, (%))
 import           Serokell.Util.Text         (pairBuilder)
-import           System.Wlog                (logDebug, logInfo)
+import           System.Wlog                (logDebug, logInfo, logWarning)
 
 import           Pos.Binary                 ()
 import           Pos.Communication.Limits   ()
@@ -29,7 +27,6 @@ import           Pos.Delegation.Logic       (ConfirmPskLightVerdict (..),
                                              processConfirmProxySk, processProxySKHeavy,
                                              processProxySKLight)
 import           Pos.Delegation.Types       (ProxySKLightConfirmation)
-import           Pos.StateLock              (StateLock (..))
 import           Pos.Types                  (ProxySKHeavy)
 import           Pos.WorkMode.Class         (WorkMode)
 
@@ -54,10 +51,10 @@ pskHeavyRelay = Data $ DataParams MsgTransaction $ \_ _ -> handlePsk
         logDebug $ sformat ("The verdict for cert "%build%" is: "%shown) pSk verdict
         case verdict of
             PHTipMismatch -> do
-                -- We're probably updating state over epoch, so leaders
-                -- can be calculated incorrectly.
-                stateLock <- views (lensOf @StateLock) slTip
-                void $ readMVar stateLock
+                -- We're probably updating state over epoch, so
+                -- leaders can be calculated incorrectly. This is
+                -- really weird and must not happen. We'll just retry.
+                logWarning "Tip mismatch happened in delegation db!"
                 handlePsk pSk
             PHAdded -> pure True
             PHRemoved -> pure True

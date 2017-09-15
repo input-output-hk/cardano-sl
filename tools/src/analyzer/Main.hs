@@ -11,6 +11,7 @@ import qualified Data.Aeson                 as A
 import           Data.Attoparsec.ByteString (eitherResult, many', parseWith)
 import qualified Data.ByteString            as BS
 import qualified Data.ByteString.Lazy       as LBS
+import           Data.Default               (def)
 import qualified Data.HashMap.Strict        as HM
 import           Data.Time.Clock            (UTCTime)
 import           Data.Time.Clock.POSIX      (posixSecondsToUTCTime)
@@ -20,6 +21,7 @@ import           Formatting                 (fixed, int, sformat, shown, string,
 import           AnalyzerOptions            (Args (..), getAnalyzerOptions)
 import           Pos.Core                   (BlockCount, HasCoreConstants,
                                              giveStaticConsts)
+import           Pos.Launcher               (applyConfigInfo)
 import           Pos.Types                  (flattenSlotId, unflattenSlotId)
 import           Pos.Util                   (mapEither)
 import           Pos.Util.JsonLog           (JLBlock (..), JLEvent (..),
@@ -30,7 +32,7 @@ type TxId = Text
 type BlockId = Text
 
 main :: IO ()
-main = giveStaticConsts $ do
+main = (applyConfigInfo def >>) $ giveStaticConsts $ do
     Args {..} <- getAnalyzerOptions
     logs <- parseFiles files
 

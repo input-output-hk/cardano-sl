@@ -16,6 +16,7 @@ import           Universum
 
 import           Control.Exception.Safe (throwString)
 import           Control.Lens           (zoom, (?=))
+import qualified Crypto.Hash            as Hash
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Time.Clock.POSIX  (getPOSIXTime)
 import           Data.Time.Units        (toMicroseconds)
@@ -33,7 +34,7 @@ import           Pos.Binary.Core        ()
 import           Pos.Constants          (isDevelopment)
 import           Pos.Core               (StakeholderId, Timestamp (..))
 import           Pos.Core.Genesis       (mkGenesisData, staticSystemStart)
-import           Pos.Crypto             (decodeAbstractHash, hash, hashHexF)
+import           Pos.Crypto             (decodeAbstractHash)
 import           Pos.Security.Params    (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
 import           Pos.Util               (eitherToFail, inAssertMode)
@@ -119,9 +120,11 @@ getNodeSystemStart (Just cliOrConfigSystemStart)
 -- | Dump our 'GenesisData' into a file.
 dumpGenesisData :: MonadIO m => Timestamp -> FilePath -> m ()
 dumpGenesisData systemStart path = do
-    putText $ sformat ("Writing JSON with hash "%hashHexF%" to "%shown) jsonHash path
+    putText $ sformat ("Writing JSON with hash "%shown%" to "%shown) jsonHash path
     liftIO $ BSL.writeFile path canonicalJsonBytes
   where
-    jsonHash = hash canonicalJsonBytes
+    jsonHash :: Hash.Digest Hash.Blake2b_256
+    jsonHash = Hash.hash $ BSL.toStrict canonicalJsonBytes
+
     canonicalJsonBytes = renderCanonicalJSON $ runIdentity $ toJSON genesisData
     genesisData = mkGenesisData systemStart

@@ -24,6 +24,8 @@ module Pos.Util.Servant
     , ApiLoggingConfig
     , LoggingApi
     , LoggingApiRec
+    , WithTruncatedLog (..)
+    , HasTruncateLogPolicy (..)
 
     , CQueryParam
     , CCapture
@@ -44,9 +46,11 @@ import           Control.Monad.Catch     (handleAll)
 import           Control.Monad.Except    (ExceptT (..), MonadError (..))
 import           Data.Default            (Default (..))
 import           Data.Reflection         (Reifies (..), reflect)
+import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX   (getPOSIXTime)
-import           Formatting              (bprint, build, formatToString, sformat, shown,
-                                          stext, string, (%))
+import           Formatting              (bprint, build, builder, formatToString, sformat,
+                                          shown, stext, string, (%))
+import           Serokell.Util           (listJsonIndent)
 import           Serokell.Util.ANSI      (Color (..))
 import           Servant.API             ((:<|>) (..), (:>), Capture, QueryParam,
                                           ReflectMethod (..), ReqBody, Verb)
@@ -241,6 +245,36 @@ makePrisms ''ApiParamsLogInfo
 instance Default ApiParamsLogInfo where
     def = ApiParamsLogInfo mempty
 
+-- | When it comes to logging responses, returned data may be very large.
+-- Log space is valuable (already in testnet we got truncated logs),
+-- so we have to care about printing only whose data which may be useful.
+newtype WithTruncatedLog a = WithTruncatedLog a
+
+instance {-# OVERLAPPABLE #-}
+         Buildable a => Buildable (WithTruncatedLog a) where
+    build (WithTruncatedLog a) = bprint build a
+
+-- | When item list is going to be printed, we impose taking care of
+-- truncating.
+-- How much data to remain depends on how big output may be, how can response
+-- change from call to call and how often related endpoints are called in
+-- practise.
+class HasTruncateLogPolicy a where
+    truncateLogPolicy :: [a] -> [a]
+
+instance (Buildable (WithTruncatedLog a), HasTruncateLogPolicy a) =>
+         Buildable (WithTruncatedLog [a]) where
+    build (WithTruncatedLog l) = do
+        let lt = truncateLogPolicy l
+            diff = length l - length lt
+            mMore | diff == 0 = ""
+                  | otherwise = bprint ("\n    and "%build%" entries more...")
+                                diff
+        bprint (listJsonIndent 4%builder)
+            (map WithTruncatedLog lt)
+            mMore
+
+
 instance HasServer (LoggingApiRec config api) ctx =>
          HasServer (LoggingApi config api) ctx where
     type ServerT (LoggingApi config api) m = ServerT api m
@@ -288,41 +322,41 @@ class ApiHasArgClass apiType a =>
     type ApiArgToLog apiType a = a
 
     toLogParamInfo
-        :: Show (ApiArgToLog apiType a)
+        :: Buildable (ApiArgToLog apiType a)
         => Proxy (apiType a) -> ApiArg apiType a -> Text
     default toLogParamInfo
-        :: (Show a, ApiArgToLog apiType a ~ a)
+        :: (Buildable a, ApiArgToLog apiType a ~ a)
         => Proxy (apiType a) -> a -> Text
-    toLogParamInfo _ = show
+    toLogParamInfo _ = pretty
 
 instance KnownSymbol s => ApiCanLogArg (Capture s) a
 instance ApiCanLogArg (ReqBody ct) a
 instance KnownSymbol cs => ApiCanLogArg (QueryParam cs) a where
-    toLogParamInfo _ = maybe noEntry show
+    toLogParamInfo _ = maybe noEntry pretty
       where
         noEntry = colorizeDull White "-"
 
 instance ( ApiHasArgClass apiType a
          , ApiArg apiType a ~ Maybe b
          , ApiCanLogArg apiType a
-         , Show (ApiArgToLog apiType a)
+         , Buildable (ApiArgToLog apiType a)
          ) =>
          ApiCanLogArg (WithDefaultApiArg apiType) a where
     type ApiArgToLog (WithDefaultApiArg apiType) a = Unmaybe (ApiArg apiType a)
-    toLogParamInfo _ = show
+    toLogParamInfo _ = pretty
 
 instance ( ApiCanLogArg apiType a
          , Show (ApiArgToLog apiType a)
          ) =>
          ApiCanLogArg (CDecodeApiArg apiType) a where
     type ApiArgToLog (CDecodeApiArg apiType) a = OriginType (ApiArg apiType a)
-    toLogParamInfo _ = show
+    toLogParamInfo _ = pretty
 
 instance ( HasServer (apiType a :> LoggingApiRec config res) ctx
          , ApiHasArg apiType a res
          , ApiHasArg apiType a (LoggingApiRec config res)
          , ApiCanLogArg apiType a
-         , Show (ApiArgToLog apiType a)
+         , Buildable (ApiArgToLog apiType a)
          ) =>
          HasLoggingServer config (apiType a :> res) ctx where
     routeWithLog =
@@ -360,7 +394,7 @@ applyLoggingToVerb configP method paramsInfo showResponse action = do
         startTime <- liftIO getPOSIXTime
         return $ do
             endTime <- liftIO getPOSIXTime
-            return $ sformat (shown%"s") (endTime - startTime)
+            return $ sformat shown (endTime - startTime)
     performLogging msg = do
         let loggerName = reflect configP
         liftIO . usingLoggerName loggerName $ logInfo msg
@@ -380,10 +414,11 @@ applyLoggingToVerb configP method paramsInfo showResponse action = do
     reportResponse timer resp = do
         durationText <- timer
         logWithParamInfo $
-            sformat (stext%" "%stext%" "%stext%"\n"%stext)
+            sformat (stext%" "%stext%" "%stext%" "%stext%" "%stext)
                 (colorizeDull White "Status:")
                 (colorizeDull Green "OK")
                 durationText
+                (colorizeDull White ">")
                 (showResponse resp)
     catchErrors st =
         flip catchError (servantErrHandler st) .
@@ -409,7 +444,7 @@ applyLoggingToVerb configP method paramsInfo showResponse action = do
 instance ( HasServer (Verb mt st ct a) ctx
          , Reifies config ApiLoggingConfig
          , ReflectMethod mt
-         , Show a
+         , Buildable (WithTruncatedLog a)
          ) =>
          HasLoggingServer config (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a) ctx where
     routeWithLog =
@@ -418,7 +453,8 @@ instance ( HasServer (Verb mt st ct a) ctx
             handler & serverHandlerL %~ withLogging paramsInfo
       where
         method = decodeUtf8 $ reflectMethod (Proxy @mt)
-        withLogging params = applyLoggingToVerb (Proxy @config) method params show
+        display = sformat build . WithTruncatedLog
+        withLogging params = applyLoggingToVerb (Proxy @config) method params display
 
 instance ReportDecodeError api =>
          ReportDecodeError (LoggingApiRec config api) where

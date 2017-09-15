@@ -65,6 +65,7 @@ module Pos.Wallet.Web.Api
 
 import           Control.Monad.Catch        (try)
 import           Data.Reflection            (Reifies (..))
+import           Formatting                 (build, sformat)
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
                                              Post, Put, QueryParam, ReflectMethod (..),
                                              ReqBody, Verb)
@@ -77,7 +78,8 @@ import           Pos.Util.Servant           (ApiLoggingConfig, CCapture, CQueryP
                                              CReqBody, DCQueryParam,
                                              HasLoggingServer (..), LoggingApi,
                                              ModifiesApiRes (..), ReportDecodeError (..),
-                                             VerbMod, applyLoggingToVerb, inRouteServer,
+                                             VerbMod, WithTruncatedLog (..),
+                                             applyLoggingToVerb, inRouteServer,
                                              serverHandlerL)
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
                                              CAccountMeta, CAddress, CCoin, CId,
@@ -109,7 +111,7 @@ instance ReportDecodeError (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) 
 instance ( HasServer (WalletVerb (Verb mt st ct a)) ctx
          , Reifies config ApiLoggingConfig
          , ReflectMethod mt
-         , Show a
+         , Buildable (WithTruncatedLog a)
          ) =>
          HasLoggingServer config (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) ctx where
     routeWithLog =
@@ -118,7 +120,8 @@ instance ( HasServer (WalletVerb (Verb mt st ct a)) ctx
             handler & serverHandlerL %~ withLogging paramsInfo
       where
         method = decodeUtf8 $ reflectMethod (Proxy @mt)
-        withLogging params = applyLoggingToVerb (Proxy @config) method params show
+        display = sformat build . WithTruncatedLog
+        withLogging params = applyLoggingToVerb (Proxy @config) method params display
 
 
 -- | Specifes servant logging config.

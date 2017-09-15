@@ -35,7 +35,6 @@ import           Pos.Binary.Core                      ()
 import           Pos.Client.CLI.Util                  (sscAlgoParser)
 import           Pos.Communication                    (NodeId)
 import           Pos.Core                             (Timestamp (..))
-import           Pos.Core.Genesis                     (staticSystemStart)
 import           Pos.Launcher.ConfigInfo              (ConfigInfo (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
 import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
@@ -47,9 +46,10 @@ data CommonArgs = CommonArgs
     , logPrefix     :: !(Maybe FilePath)
     , reportServers :: ![Text]
     , updateServers :: ![Text]
-    -- distributions, only used in dev mode
-    , sysStart      :: !Timestamp
-      -- ^ The system start time.
+    , sysStart      :: !(Maybe Timestamp)
+      -- ^ The system start time. It's passed via CLI if
+      -- 'TestnetInitializer' is used, otherwise it's taken from
+      -- 'GenesisSpec' (or 'GenesisData').
     } deriving Show
 
 commonArgsParser :: Opt.Parser CommonArgs
@@ -63,14 +63,11 @@ commonArgsParser = do
     sysStart <- sysStartOption
     pure CommonArgs{..}
 
-sysStartOption :: Opt.Parser Timestamp
+sysStartOption :: Opt.Parser (Maybe Timestamp)
 sysStartOption =
-    case staticSystemStart of
-        Nothing ->
-            Opt.option (Timestamp . sec <$> Opt.auto) $
-            Opt.long "system-start" <> Opt.metavar "TIMESTAMP" <>
-            Opt.help helpMsg
-        Just timestamp -> pure timestamp
+    Opt.optional $
+    Opt.option (Timestamp . sec <$> Opt.auto) $
+    Opt.long "system-start" <> Opt.metavar "TIMESTAMP" <> Opt.help helpMsg
   where
     helpMsg = "System start time. Format - seconds since Unix-epoch."
 

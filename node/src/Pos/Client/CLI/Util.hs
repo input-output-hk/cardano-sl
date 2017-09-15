@@ -14,25 +14,27 @@ module Pos.Client.CLI.Util
 
 import           Universum
 
-import           Control.Lens          (zoom, (?=))
-import           Data.Time.Clock.POSIX (getPOSIXTime)
-import           Data.Time.Units       (toMicroseconds)
-import           Serokell.Util         (sec)
-import           System.Wlog           (LoggerConfig (..), Severity (Info, Warning),
-                                        fromScratch, lcTree, ltSeverity,
-                                        parseLoggerConfig, zoomLogger)
-import           Text.Parsec           (try)
-import qualified Text.Parsec.Char      as P
-import qualified Text.Parsec.Text      as P
+import           Control.Exception.Safe (throwString)
+import           Control.Lens           (zoom, (?=))
+import           Data.Time.Clock.POSIX  (getPOSIXTime)
+import           Data.Time.Units        (toMicroseconds)
+import           Serokell.Util          (sec)
+import           System.Wlog            (LoggerConfig (..), Severity (Info, Warning),
+                                         fromScratch, lcTree, ltSeverity,
+                                         parseLoggerConfig, zoomLogger)
+import           Text.Parsec            (try)
+import qualified Text.Parsec.Char       as P
+import qualified Text.Parsec.Text       as P
 
-import           Pos.Binary.Core       ()
-import           Pos.Constants         (isDevelopment)
-import           Pos.Core              (StakeholderId, Timestamp (..))
-import           Pos.Crypto            (decodeAbstractHash)
-import           Pos.Security.Params   (AttackTarget (..), AttackType (..))
-import           Pos.Ssc.SscAlgo       (SscAlgo (..))
-import           Pos.Util              (eitherToFail, inAssertMode)
-import           Pos.Util.TimeWarp     (addrParser)
+import           Pos.Binary.Core        ()
+import           Pos.Constants          (isDevelopment)
+import           Pos.Core               (StakeholderId, Timestamp (..))
+import           Pos.Core.Genesis       (staticSystemStart)
+import           Pos.Crypto             (decodeAbstractHash)
+import           Pos.Security.Params    (AttackTarget (..), AttackType (..))
+import           Pos.Ssc.SscAlgo        (SscAlgo (..))
+import           Pos.Util               (eitherToFail, inAssertMode)
+import           Pos.Util.TimeWarp      (addrParser)
 
 printFlags :: IO ()
 printFlags = do
@@ -81,8 +83,18 @@ readLoggerConfig = maybe (return defaultLoggerConfig) parseLoggerConfig
 
 -- | This function carries out special logic to convert given
 -- timestamp to the system start time.
-getNodeSystemStart :: MonadIO m => Timestamp -> m Timestamp
-getNodeSystemStart cliOrConfigSystemStart
+getNodeSystemStart :: MonadIO m => Maybe Timestamp -> m Timestamp
+getNodeSystemStart Nothing =
+    case staticSystemStart of
+        Nothing ->
+            liftIO $
+            throwString
+                "Can't get system start, it's not known from GenesisSpec and wasn't passed via CLI"
+        Just timestamp -> pure timestamp
+getNodeSystemStart (Just cliOrConfigSystemStart)
+  | isJust staticSystemStart =
+      liftIO $ throwString
+          "System start was passed via CLI, but it's also stored in 'GenesisSpec', can't choose"
   | cliOrConfigSystemStart >= 1400000000 =
     -- UNIX time 1400000000 is Tue, 13 May 2014 16:53:20 GMT.
     -- It was chosen arbitrarily as some date far enough in the past.

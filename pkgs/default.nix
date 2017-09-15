@@ -1510,6 +1510,7 @@ self: {
             transformers
             universum
             unordered-containers
+            vector
             wai
             wai-cors
             warp

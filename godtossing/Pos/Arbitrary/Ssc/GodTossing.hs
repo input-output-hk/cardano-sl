@@ -24,8 +24,7 @@ import           Pos.Binary.GodTossing             ()
 import           Pos.Communication.Types.Relay     (DataMsg (..))
 import           Pos.Core                          (EpochIndex, HasCoreConstants,
                                                     SlotId (..), addressHash)
-import           Pos.Crypto                        (SecretKey, deterministicVssKeyGen,
-                                                    secureRandomBS, toVssPublicKey)
+import           Pos.Crypto                        (SecretKey, toVssPublicKey, vssKeyGen)
 import           Pos.Ssc.GodTossing.Constants      (vssMaxTTL, vssMinTTL)
 import           Pos.Ssc.GodTossing.Core           (Commitment (..), CommitmentsMap,
                                                     GtPayload (..), GtProof (..),
@@ -93,8 +92,7 @@ commitmentsAndOpenings =
     unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $ do
       t <- R.randomRIO (3, 10)
       n <- R.randomRIO (t*2-1, t*2)
-      vssKeys <- replicateM n $
-          toVssPublicKey . deterministicVssKeyGen <$> secureRandomBS 2
+      vssKeys <- replicateM n $ toVssPublicKey <$> vssKeyGen
       genCommitmentAndOpening (fromIntegral t)
           (NE.fromList (map asBinary vssKeys))
 {-# NOINLINE commitmentsAndOpenings #-}

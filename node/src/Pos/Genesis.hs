@@ -24,13 +24,11 @@ module Pos.Genesis
 
        -- * Prod mode genesis
        , genesisContextProduction
-       , generatedGenesisData
 
        -- * Dev mode genesis
        , devBalancesDistr
        , devGenesisContext
        , concatAddrDistrs
-
        ) where
 
 import           Universum
@@ -42,26 +40,23 @@ import qualified Data.Map.Strict            as Map
 import qualified Data.Ratio                 as Ratio
 import           Formatting                 (build, sformat, (%))
 import           Serokell.Util              (mapJson)
-import           System.IO.Unsafe           (unsafePerformIO)
-import           System.Wlog                (usingLoggerName)
 
 import           Pos.AllSecrets             (InvAddrSpendingData (unInvAddrSpendingData),
                                              mkInvAddrSpendingData)
 import qualified Pos.Constants              as Const
 import           Pos.Core                   (AddrSpendingData (PubKeyASD), Address (..),
-                                             Coin, HasCoreConstants,
-                                             IsBootstrapEraAddr (..), SlotLeaders,
-                                             StakeholderId, addressHash,
+                                             Coin, GeneratedGenesisData (..),
+                                             HasCoreConstants, IsBootstrapEraAddr (..),
+                                             SlotLeaders, StakeholderId, addressHash,
                                              applyCoinPortionUp, coinToInteger,
                                              deriveLvl2KeyPair, divCoin,
-                                             makePubKeyAddressBoot, makeRedeemAddress,
-                                             mkCoin, safeExpBalances, unsafeMulCoin)
+                                             generatedGenesisData, makePubKeyAddressBoot,
+                                             makeRedeemAddress, mkCoin, safeExpBalances,
+                                             unsafeMulCoin)
 import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
                                              firstHardened, unsafeHash)
 import           Pos.Lrc.FtsPure            (followTheSatoshiUtxo)
 import           Pos.Lrc.Genesis            (genesisSeed)
-import           Pos.Testnet                (GeneratedGenesisData (..),
-                                             genTestnetOrMainnetData)
 import           Pos.Txp.Core               (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil               (GenesisUtxo (..))
 import           Pos.Util.Util              (HasLens (..))
@@ -225,15 +220,6 @@ genesisLeaders GenesisContext { _gtcUtxo = (GenesisUtxo utxo)
 ----------------------------------------------------------------------------
 -- Production mode genesis
 ----------------------------------------------------------------------------
-
--- This unsafePerformIO is more or less safe,
--- because MonadIO caused by writing to file,
--- but we don't write to file when generate this data
--- (it's needed for dump of keys and avvm-seed by utility)
-generatedGenesisData :: GeneratedGenesisData
-generatedGenesisData =
-    unsafePerformIO $ usingLoggerName "node" $ genTestnetOrMainnetData genesisProdInitializer
-{-# NOINLINE generatedGenesisData #-}
 
 -- | 'GenesisContext' that uses all the data for prod.
 genesisContextProduction :: GenesisContext

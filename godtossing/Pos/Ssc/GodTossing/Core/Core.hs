@@ -58,6 +58,7 @@ import           Pos.Core                      (EpochIndex (..), LocalSlotIndex,
                                                 StakeholderId, unsafeMkLocalSlotIndex)
 import           Pos.Core.Address              (addressHash)
 import           Pos.Core.Context              (HasCoreConstants, slotSecurityParam)
+import           Pos.Core.Genesis              (vssMaxTTL, vssMinTTL)
 import           Pos.Core.Vss                  (VssCertificate (vcExpiryEpoch),
                                                 VssCertificatesMap)
 import           Pos.Crypto                    (Secret, SecretKey, SecureRandom (..),
@@ -65,7 +66,6 @@ import           Pos.Crypto                    (Secret, SecretKey, SecureRandom 
                                                 VssPublicKey, checkSig, genSharedSecret,
                                                 getDhSecret, hash, secretToDhSecret,
                                                 shortHashF, sign, toPublic, verifySecret)
-import           Pos.Ssc.GodTossing.Constants  (vssMaxTTL, vssMinTTL)
 import           Pos.Ssc.GodTossing.Core.Types (Commitment (..),
                                                 CommitmentsMap (getCommitmentsMap),
                                                 GtPayload (..), GtProof (..),

@@ -35,7 +35,6 @@ data KeygenOptions = KeygenOptions
 
 data KeygenCommand
     = RearrangeMask FilePath
-    | DumpDevGenKeys FilePath
     | GenerateKey FilePath
     | ReadKey FilePath
     | DumpAvvmSeeds DumpAvvmSeedsOptions
@@ -86,8 +85,6 @@ keygenCommandParser =
       (infoH generateKey (progDesc "Generate keyfile."))
     , command "read-key"
       (infoH readKey (progDesc "Dump keyfile contents."))
-    , command "dump-dev-keys"
-      (infoH dumpKeys (progDesc "Dump CSL dev-mode keys."))
     , command "generate-avvm-seeds"
       (infoH (fmap DumpAvvmSeeds dumpAvvmSeedsParser)
             (progDesc "Generate avvm seeds with public keys."))
@@ -109,11 +106,6 @@ keygenCommandParser =
         long "path" <>
         metavar "PATH" <>
         help "Dump the contents of this keyfile"
-    dumpKeys = fmap DumpDevGenKeys . strOption $
-        long    "pattern" <>
-        metavar "PATTERN" <>
-        help    "Dump keys from genesisDevSecretKeys to files \
-                \named according to this pattern."
 
 dumpAvvmSeedsParser :: Parser DumpAvvmSeedsOptions
 dumpAvvmSeedsParser = do

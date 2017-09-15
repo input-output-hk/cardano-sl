@@ -10,8 +10,8 @@ import           Universum
 
 import           Pos.Crypto                 (SecretKey, keyGen, runSecureRandom,
                                              vssKeyGen)
-import           Pos.Genesis                (generatedGenesisData)
-import           Pos.Testnet                (GeneratedGenesisData (..))
+import           Pos.Genesis                (GeneratedGenesisData (..),
+                                             generatedGenesisData)
 import           Pos.Util.UserSecret        (UserSecret, usPrimKey, usVss,
                                              writeUserSecret)
 

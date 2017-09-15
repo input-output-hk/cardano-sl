@@ -39,7 +39,7 @@ findBlockChainState = Fold combine (ChainStateInternal (0,0) "error" mempty) fin
         chainLength = measureLength $ M.lookup (topMostBlock internal) (blocks internal)
         (epoch, slot) = topMostSlot internal
         epochLength = 1080 -- TODO, look it up somehow
-    measureLength :: Maybe BlockWrapper -> Integer
+    measureLength :: Maybe BlockWrapper -> Integer -- TODO, make this tail-recursive
     measureLength (Just block) = 1 + measureLength (parent block)
     measureLength Nothing = 0
     combine :: ChainStateInternal -> IndexedJLTimedEvent -> ChainStateInternal

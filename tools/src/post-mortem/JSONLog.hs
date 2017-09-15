@@ -40,7 +40,7 @@ data IndexedJLTimedEvent = IndexedJLTimedEvent
     { ijlNode      :: !NodeIndex
     , ijlTimestamp :: !Timestamp
     , ijlEvent     :: !JLEvent
-    } deriving (Show)
+    } deriving Show
 
 instance Eq IndexedJLTimedEvent where
 

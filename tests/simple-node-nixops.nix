@@ -20,7 +20,6 @@ in {
   testScript = ''
     startAll
     $machine->waitForUnit("cardano-node.service");
-    # TODO, implement sd_notify?
     $machine->waitForOpenPort(3000);
   '';
 }

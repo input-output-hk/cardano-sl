@@ -26,8 +26,8 @@ import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair,
 import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
 import           Pos.Genesis           (GenesisAvvmBalances, GenesisInitializer (..),
                                         aeCoin, avvmData, convertAvvmDataToBalances,
-                                        generateFakeAvvm, generateSecrets,
-                                        generateTestnetOrMainnetData, gsInitializer)
+                                        generateFakeAvvm, generateGenesisData,
+                                        generateSecrets, gsInitializer)
 
 import           Pos.Launcher          (applyConfigInfo)
 import           Pos.Util.UserSecret   (readUserSecret, takeUserSecret, usKeys, usPrimKey,
@@ -141,7 +141,7 @@ generateKeysByGenesis GenKeysOptions{..} = do
         Right spec -> case gsInitializer spec of
             MainnetInitializer{}   -> error "Can't generate keys for MainnetInitializer"
             init@TestnetInitializer{..} -> do
-                let generated = generateTestnetOrMainnetData init
+                let generated = generateGenesisData init
                 dumpGeneratedGenesisData (gkoOutDir, gkoKeyPattern) tiTestBalance generated
                 logInfo (toText gkoOutDir <> " generated successfully")
 

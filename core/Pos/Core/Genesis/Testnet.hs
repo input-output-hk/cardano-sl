@@ -19,17 +19,13 @@ import           Universum
 import           Crypto.Random              (getRandomBytes)
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.Map.Strict            as Map
-import           Formatting                 (sformat, shown, (%))
-import           Serokell.Util.Text         (listJson)
 import           Serokell.Util.Verify       (VerificationRes (..), formatAllErrors,
                                              verifyGeneric)
-import           System.Wlog                (WithLogger, logInfo)
 
 import           Pos.Binary.Class           (asBinary)
 import           Pos.Core.Address           (Address, IsBootstrapEraAddr (..),
-                                             addressDetailedF, addressHash,
-                                             deriveLvl2KeyPair, makePubKeyAddressBoot,
-                                             makeRedeemAddress)
+                                             addressHash, deriveLvl2KeyPair,
+                                             makePubKeyAddressBoot, makeRedeemAddress)
 import           Pos.Core.Coin              (coinPortionToDouble, mkCoin,
                                              unsafeIntegerToCoin)
 import qualified Pos.Core.Genesis.Constants as Const
@@ -61,7 +57,7 @@ data GeneratedGenesisData = GeneratedGenesisData
     }
 
 generateTestnetOrMainnetData
-    :: (MonadIO m, MonadThrow m, WithLogger m)
+    :: (MonadIO m)
     => GenesisInitializer
     -> m GeneratedGenesisData
 generateTestnetOrMainnetData TestnetInitializer{..} = do
@@ -75,7 +71,7 @@ generateTestnetOrMainnetData MainnetInitializer{..} =
 
 -- | Generates keys and vss certs for testnet data.
 generateTestnetData
-    :: (MonadIO m, MonadThrow m, WithLogger m)
+    :: (MonadIO m)
     => TestnetBalanceOptions
     -> TestnetDistribution
     -> m GeneratedGenesisData
@@ -104,10 +100,6 @@ generateTestnetData tso@TestnetBalanceOptions{..} distrSpec = do
                 TestnetRichmenStakeDistr    -> (toStakeholders richSkVssCerts, toVss richSkVssCerts)
                 TestnetCustomStakeDistr{..} -> (getGenesisWStakeholders tcsdBootStakeholders, tcsdVssCerts)
 
-    logInfo $ sformat ("testnet genesis created successfully. "
-                      %"First 10 addresses: "%listJson%" distr: "%shown)
-              (map (sformat addressDetailedF) $ take 10 genesisAddrs)
-              distr
     pure $ GeneratedGenesisData
         { ggdNonAvvmDistr = genesisAddrDistr
         , ggdBootStakeholders = GenesisWStakeholders bootStakeholders
@@ -116,7 +108,7 @@ generateTestnetData tso@TestnetBalanceOptions{..} distrSpec = do
         }
 
 generateFakeAvvmGenesis
-    :: (MonadIO m, WithLogger m)
+    :: (MonadIO m)
     => FakeAvvmOptions -> m [AddrDistribution]
 generateFakeAvvmGenesis FakeAvvmOptions{..} = do
     fakeAvvmPubkeys <- replicateM (fromIntegral faoCount) generateFakeAvvm
@@ -133,7 +125,7 @@ generateFakeAvvmGenesis FakeAvvmOptions{..} = do
 ----------------------------------------------------------------------------
 
 generateSecretsAndAddress
-    :: (MonadIO m, MonadThrow m, WithLogger m)
+    :: (MonadIO m)
     => Maybe (SecretKey, EncryptedSecretKey)  -- ^ plain key & hd wallet root key
     -> m (SecretKey, EncryptedSecretKey, VssKeyPair, VssCertificate, Address)
     -- ^ secret key, vss key pair, vss certificate,
@@ -163,7 +155,7 @@ generateFakeAvvm = do
     pure pk
 
 generateSecrets
-    :: (MonadIO m, MonadThrow m)
+    :: (MonadIO m)
     => Maybe (SecretKey, EncryptedSecretKey)
     -> m (SecretKey, EncryptedSecretKey, VssKeyPair)
 generateSecrets mbSk = do

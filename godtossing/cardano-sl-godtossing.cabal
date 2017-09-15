@@ -25,8 +25,6 @@ library
     Pos.Ssc.GodTossing.Types.Types
     Pos.Ssc.GodTossing.Types.Message
 
-    Pos.Ssc.GodTossing.Genesis
-
     Pos.Ssc.GodTossing.Toss
     Pos.Ssc.GodTossing.Toss.Logic
     Pos.Ssc.GodTossing.Toss.Pure

@@ -25,7 +25,7 @@ import           Pos.AllSecrets            (HasAllSecrets (..), mkAllSecretsSimp
 import           Pos.Block.Core            (mainBlockTxPayload)
 import           Pos.Block.Logic           (applyBlocksUnsafe)
 import           Pos.Core                  (AddrDistribution, Coin, EpochIndex,
-                                            GenesisWStakeholders (..), HasCoreConstants,
+                                            GenesisWStakeholders (..),
                                             IsBootstrapEraAddr (..), StakeholderId,
                                             addressHash, applyCoinPortionUp,
                                             blkSecurityParam, coinF, divCoin,
@@ -42,21 +42,23 @@ import           Pos.Txp                   (TxAux, TxIn (..), TxOut (..), TxOutA
 import           Pos.Util.Arbitrary        (nonrepeating)
 import           Pos.Util.Util             (getKeys, lensOf)
 
-import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..),
-                                            blockPropertyToProperty)
+import           Test.Pos.Block.Logic.Mode (BlockProperty, HasVarSpecConfigurations,
+                                            TestParams (..), blockPropertyToProperty)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..),
                                             bpGenBlock, bpGenBlocks)
-import           Test.Pos.Util             (giveTestsConsts, maybeStopProperty,
-                                            stopProperty)
+import           Test.Pos.Util             (giveGtConf, giveInfraConf, giveNodeConf,
+                                            giveCoreConf, giveUpdateConf,
+                                            maybeStopProperty, stopProperty)
 
 spec :: Spec
 -- Currently we want to run it only 4 times, because there is no
 -- much randomization (its effect is likely negligible) and
 -- performance matters (but not very much, so we can run more than once).
-spec = giveTestsConsts $ describe "Lrc.Worker" $ modifyMaxSuccess (const 4) $ do
-    describe "lrcSingleShotNoLock" $ do
-        prop lrcCorrectnessDesc $
-            blockPropertyToProperty genTestParams lrcCorrectnessProp
+spec = giveGtConf $ giveNodeConf $ giveInfraConf $ giveUpdateConf $ giveCoreConf $
+    describe "Lrc.Worker" $ modifyMaxSuccess (const 4) $ do
+        describe "lrcSingleShotNoLock" $ do
+            prop lrcCorrectnessDesc $
+                blockPropertyToProperty genTestParams lrcCorrectnessProp
   where
     lrcCorrectnessDesc =
         "Computes richmen correctly according to the stake distribution " <>
@@ -69,7 +71,7 @@ spec = giveTestsConsts $ describe "Lrc.Worker" $ modifyMaxSuccess (const 4) $ do
 type GroupId = Int
 
 -- It's copy-pasted here because we rely on the order.
-allRichmenComponents :: [Lrc.SomeRichmenComponent]
+allRichmenComponents :: HasVarSpecConfigurations => [Lrc.SomeRichmenComponent]
 allRichmenComponents =
     [ Lrc.someRichmenComponent @Lrc.RCSsc
     , Lrc.someRichmenComponent @Lrc.RCUs
@@ -80,7 +82,7 @@ allRichmenComponents =
 -- genesis stakeholders `RC × {A, B, C, D}` (where `RC` is the set of
 -- all richmen components and `{A, B, C, D}` is just a set of 4 items)
 -- and make sure that there are `|RC| · 3` richmen (`RC × {B, C, D}`).
-genTestParams :: Gen TestParams
+genTestParams :: HasVarSpecConfigurations => Gen TestParams
 genTestParams = do
     let _tpStartTime = 0
     let stakeholdersNum = 4 * groupsNumber
@@ -120,7 +122,8 @@ genTestParams = do
 
     groupsNumber = length allRichmenComponents
     genAddressesAndDistrs
-        :: Coin
+        :: HasVarSpecConfigurations
+        => Coin
         -> [SecretKey]
         -> (GroupId, Lrc.SomeRichmenComponent)
         -> Gen AddrDistribution
@@ -153,7 +156,7 @@ genTestParams = do
             True  -> return (addresses, CustomBalances stakes)
             False -> error "threshold is too big, tests are not ready for it"
 
-lrcCorrectnessProp :: HasCoreConstants => BlockProperty ()
+lrcCorrectnessProp :: HasVarSpecConfigurations => BlockProperty ()
 lrcCorrectnessProp = do
     let k = blkSecurityParam
     -- This value is how many blocks we need to generate first. We
@@ -196,7 +199,7 @@ lrcCorrectnessProp = do
         stopProperty "expectedLeadersStakes /= leaders1"
     checkRichmen
 
-checkRichmen :: BlockProperty ()
+checkRichmen :: HasVarSpecConfigurations => BlockProperty ()
 -- Here we check richmen.  The order must be the same as the one
 -- in 'allRichmenComponents'. Unfortunately, I don't know how to
 -- do it better without spending too much time on it (@gromak).
@@ -216,7 +219,7 @@ checkRichmen = do
         -> BlockProperty richmen
     getRichmen getter = maybeStopProperty "No richmen for epoch#1!" =<< getter 1
 
-    checkRichmenFull :: GroupId -> Lrc.FullRichmenData -> BlockProperty ()
+    checkRichmenFull :: HasVarSpecConfigurations => GroupId -> Lrc.FullRichmenData -> BlockProperty ()
     checkRichmenFull i (totalStake, richmenStakes) = do
         realTotalStake <- lift GS.getRealTotalStake
         unless (totalStake == realTotalStake) $
@@ -226,7 +229,7 @@ checkRichmen = do
              totalStake realTotalStake
         checkRichmenStakes i richmenStakes
 
-    checkRichmenStakes :: GroupId -> Lrc.RichmenStakes -> BlockProperty ()
+    checkRichmenStakes :: HasVarSpecConfigurations => GroupId -> Lrc.RichmenStakes -> BlockProperty ()
     checkRichmenStakes i richmenStakes = do
         checkRichmenSet i (getKeys richmenStakes)
         let checkRich (id, realStake)
@@ -239,7 +242,7 @@ checkRichmen = do
                 | otherwise = pass
         mapM_ checkRich =<< expectedRichmenStakes i
 
-    checkRichmenSet :: GroupId -> Lrc.RichmenSet -> BlockProperty ()
+    checkRichmenSet :: HasVarSpecConfigurations => GroupId -> Lrc.RichmenSet -> BlockProperty ()
     checkRichmenSet i richmenSet = do
         checkPoor i richmenSet
         let checkRich (id, realStake) =
@@ -249,7 +252,7 @@ checkRichmen = do
                  realStake
         mapM_ checkRich =<< expectedRichmenStakes i
 
-    expectedRichmenStakes :: GroupId -> BlockProperty [(StakeholderId, Coin)]
+    expectedRichmenStakes :: HasVarSpecConfigurations => GroupId -> BlockProperty [(StakeholderId, Coin)]
     expectedRichmenStakes i = do
         richmen <- unsafeTail <$> relevantStakeholders i
         let resolve id = (id, ) . fromMaybe minBound <$> GS.getRealStake id
@@ -269,7 +272,7 @@ checkRichmen = do
                  %coinF%", real total stake is "%coinF)
                 poorGuyStake totalStake
 
-genAndApplyBlockFixedTxs :: HasCoreConstants => [TxAux] -> BlockProperty ()
+genAndApplyBlockFixedTxs :: HasVarSpecConfigurations => [TxAux] -> BlockProperty ()
 genAndApplyBlockFixedTxs txs = do
     let txPayload = mkTxPayload txs
     emptyBlund <- bpGenBlock (EnableTxPayload False) (InplaceDB False)

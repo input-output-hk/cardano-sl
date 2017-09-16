@@ -176,7 +176,7 @@ withCoreConfigurations conf@CoreConfiguration{..} mSystemStart act = case ccGene
 
         withCoreConfiguration conf $
           withProtocolConstants theProtocolConstants $
-          withBlockVersionData theBlockVersionData $
+          withGenesisBlockVersionData theBlockVersionData $
           withGenesisAvvmBalances theGenesisAvvmBalances $
           withGenesisDelegation theGenesisDelegation $
           withGenesisHash theGenesisHash $
@@ -215,7 +215,7 @@ withCoreConfigurations conf@CoreConfiguration{..} mSystemStart act = case ccGene
 
         withCoreConfiguration conf $
           withProtocolConstants theProtocolConstants $
-          withBlockVersionData theBlockVersionData $
+          withGenesisBlockVersionData theBlockVersionData $
           withGenesisAvvmBalances theGenesisAvvmBalances $
           withGenesisDelegation theGenesisDelegation $
           withGenesisHash theGenesisHash $

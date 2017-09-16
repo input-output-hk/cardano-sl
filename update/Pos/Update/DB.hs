@@ -50,13 +50,10 @@ import           Pos.Binary.Class             (serialize')
 import           Pos.Binary.Infra.Slotting    ()
 import           Pos.Binary.Update            ()
 import           Pos.Core                     (ApplicationName, BlockVersion,
-                                               ChainDifficulty,
-                                               NumSoftwareVersion, SlotId,
-                                               SoftwareVersion (..), StakeholderId,
-                                               TimeDiff (..), epochSlots)
-import           Pos.Core.Configuration       (blockVersionData,
-                                               slotDuration,
-                                               HasConfiguration)
+                                               ChainDifficulty, NumSoftwareVersion,
+                                               SlotId, SoftwareVersion (..),
+                                               StakeholderId, TimeDiff (..), epochSlots)
+import           Pos.Core.Configuration       (HasConfiguration, genesisBlockVersionData)
 import           Pos.Crypto                   (hash)
 import           Pos.DB                       (DBIteratorClass (..), DBTag (..), IterType,
                                                MonadDB, MonadDBRead (..),
@@ -66,9 +63,10 @@ import           Pos.DB.Error                 (DBError (DBMalformed))
 import           Pos.DB.GState.Common         (gsGetBi, writeBatchGState)
 import           Pos.Slotting.Types           (EpochSlottingData (..), SlottingData,
                                                createInitSlottingData)
+import           Pos.Update.Configuration     (HasUpdateConfiguration, ourAppName,
+                                               ourSystemTag)
 import           Pos.Update.Constants         (genesisBlockVersion,
                                                genesisSoftwareVersions)
-import           Pos.Update.Configuration     (HasUpdateConfiguration, ourAppName, ourSystemTag)
 import           Pos.Update.Core              (BlockVersionData (..), UpId,
                                                UpdateProposal (..))
 import           Pos.Update.Poll.Types        (BlockVersionState (..),
@@ -181,21 +179,23 @@ initGStateUS = do
     writeBatchGState $
         PutSlottingData genesisSlottingData :
         PutEpochProposers mempty :
-        SetAdopted genesisBlockVersion blockVersionData :
+        SetAdopted genesisBlockVersion genesisBlockVersionData :
         map ConfirmVersion genesisSoftwareVersions
   where
+    genesisSlotDuration = bvdSlotDuration genesisBlockVersionData
+
     genesisEpochDuration :: Microsecond
-    genesisEpochDuration = fromIntegral epochSlots * convertUnit slotDuration
+    genesisEpochDuration = fromIntegral epochSlots * convertUnit genesisSlotDuration
 
     esdCurrent :: EpochSlottingData
     esdCurrent = EpochSlottingData
-        { esdSlotDuration = slotDuration
+        { esdSlotDuration = genesisSlotDuration
         , esdStartDiff    = 0
         }
 
     esdNext :: EpochSlottingData
     esdNext = EpochSlottingData
-        { esdSlotDuration = slotDuration
+        { esdSlotDuration = genesisSlotDuration
         , esdStartDiff    = TimeDiff genesisEpochDuration
         }
 

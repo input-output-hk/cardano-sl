@@ -22,12 +22,17 @@ import qualified Data.Text                  as T
 import           Formatting                 (int, sformat, (%))
 
 import           Pos.Binary.Crypto          ()
-import           Pos.Core.Configuration
 import           Pos.Core.Coin              (applyCoinPortionUp, divCoin, unsafeMulCoin)
-import           Pos.Core.Types             (Address, Coin, Timestamp)
+import           Pos.Core.Configuration     (HasConfiguration, HasGenesisBlockVersionData,
+                                             generatedGenesisData, genesisAvvmBalances,
+                                             genesisBlockVersionData, genesisCertificates,
+                                             genesisDelegation, protocolConstants,
+                                             sharedSeed)
+import           Pos.Core.Types             (Address, BlockVersionData (bvdMpcThd), Coin,
+                                             Timestamp)
+import           Pos.Crypto.Signing         (PublicKey, SecretKey, deterministicKeyGen)
 import           Pos.Crypto.Signing.Safe    (EncryptedSecretKey, emptyPassphrase,
                                              safeDeterministicKeyGen)
-import           Pos.Crypto.Signing         (PublicKey, SecretKey, deterministicKeyGen)
 
 -- reexports
 import           Pos.Core.Genesis.Canonical ()
@@ -44,7 +49,7 @@ mkGenesisData startTime =
     , gdVssCerts = genesisCertificates
     , gdNonAvvmBalances = GenesisNonAvvmBalances $
           HM.fromList $ concatAddrDistrs (ggdNonAvvmDistr generatedGenesisData)
-    , gdBlockVersionData = blockVersionData
+    , gdBlockVersionData = genesisBlockVersionData
     , gdProtocolConsts = protocolConstants
     , gdAvvmDistr = genesisAvvmBalances
     , gdFtsSeed = sharedSeed
@@ -56,7 +61,7 @@ mkGenesisData startTime =
 
 -- | Given 'BalanceDistribution', calculates a list containing amounts
 -- of coins (balances) belonging to genesis addresses.
-balanceDistribution :: HasBlockVersionData => BalanceDistribution -> [Coin]
+balanceDistribution :: HasGenesisBlockVersionData => BalanceDistribution -> [Coin]
 balanceDistribution (FlatBalances stakeholders coins) =
     genericReplicate stakeholders val
   where
@@ -69,7 +74,7 @@ balanceDistribution ts@RichPoorBalances {..} =
   where
     -- Node won't start if richmen cannot participate in MPC
     checkMpcThd total richs =
-        if richs < applyCoinPortionUp mpcThd total
+        if richs < applyCoinPortionUp (bvdMpcThd genesisBlockVersionData) total
         then error "Pos.Genesis: RichPoorBalances: richmen balance \
                    \is less than MPC threshold"
         else identity
@@ -78,7 +83,7 @@ balanceDistribution ts@RichPoorBalances {..} =
 balanceDistribution (CustomBalances coins) = coins
 
 -- Converts list of addr distrs to pre-map (addr,coin)
-concatAddrDistrs :: HasBlockVersionData => [AddrDistribution] -> [(Address, Coin)]
+concatAddrDistrs :: HasGenesisBlockVersionData => [AddrDistribution] -> [(Address, Coin)]
 concatAddrDistrs addrDistrs =
     concatMap (uncurry zip . second balanceDistribution) addrDistrs
 

@@ -30,10 +30,12 @@ import           Universum
 import qualified Data.HashMap.Strict         as HM
 
 import           Pos.Binary.Core             ()
-import           Pos.Core.Configuration      (HasConfiguration, heavyDelThd)
 import           Pos.Context                 (GenesisUtxo, genesisStakesM)
-import           Pos.Core                    (Coin, EpochIndex, GenesisWStakeholders,
-                                              StakeholderId)
+import           Pos.Core                    (BlockVersionData (bvdHeavyDelThd), Coin,
+                                              EpochIndex, GenesisWStakeholders,
+                                              HasConfiguration,
+                                              HasGenesisBlockVersionData, StakeholderId,
+                                              genesisBlockVersionData)
 import           Pos.DB.Class                (MonadDB, MonadDBRead)
 import           Pos.Lrc.Class               (RichmenComponent (..),
                                               SomeRichmenComponent (..),
@@ -98,7 +100,7 @@ instance HasConfiguration => RichmenComponent RCDlg where
     type RichmenData RCDlg = RichmenSet
     rcToData = getKeys . snd
     rcTag Proxy = "dlg"
-    rcInitialThreshold Proxy = heavyDelThd
+    rcInitialThreshold Proxy = bvdHeavyDelThd genesisBlockVersionData
     rcConsiderDelegated Proxy = False
 
 getRichmenDlg :: MonadDBRead m => EpochIndex -> m (Maybe RichmenSet)

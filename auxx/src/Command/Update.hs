@@ -21,7 +21,7 @@ import           Pos.Binary          (Raw)
 import           Pos.Communication   (SendActions, immediateConcurrentConversations,
                                       submitUpdateProposal, submitVote)
 import           Pos.Configuration   (HasNodeConfiguration)
-import           Pos.Core.Configuration (HasConfiguration, blockVersionData)
+import           Pos.Core.Configuration (HasConfiguration, genesisBlockVersionData)
 import           Pos.Crypto          (Hash, SignTag (SignUSVote), emptyPassphrase,
                                       encToPublic, hash, hashHexF, safeSign, unsafeHash,
                                       withSafeSigner)
@@ -89,7 +89,7 @@ propose sendActions ProposeUpdateParams{..} = do
     CmdCtx{ccPeers} <- getCmdCtx
     logDebug "Proposing update..."
     skey <- (!! puIdx) <$> getSecretKeys
-    let BlockVersionData {..} = blockVersionData
+    let BlockVersionData {..} = genesisBlockVersionData
     let bvm =
             BlockVersionModifier
             { bvmScriptVersion     = puScriptVersion

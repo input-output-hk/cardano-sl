@@ -23,7 +23,7 @@ import           Pos.Client.Txp.Util      (TxError (..), TxOutputs, TxWithSpendi
                                            createMTx, createRedemptionTx,
                                            isNotEnoughMoneyTxError)
 import           Pos.Core                 (BlockVersionData (..), Coeff (..),
-                                           HasCoreConstants, TxFeePolicy (..),
+                                           HasConfiguration, TxFeePolicy (..),
                                            TxSizeLinear (..), unsafeIntegerToCoin)
 import           Pos.Crypto               (RedeemSecretKey, SafeSigner, SecretKey,
                                            decodeHash, fakeSigner)
@@ -33,7 +33,7 @@ import           Pos.Txp                  (Tx (..), TxAux (..), TxId, TxIn (..),
 import           Pos.Types                (Address)
 import qualified Pos.Update.DB            as DB
 import           Pos.Util.Util            (leftToPanic)
-import           Test.Pos.Util            (giveTestsConsts, stopProperty)
+import           Test.Pos.Util            (giveCoreConf, stopProperty)
 
 import           Test.Pos.Client.Txp.Mode (TxpTestMode, TxpTestProperty)
 import           Test.Pos.Client.Txp.Util (generateAddressWithKey,
@@ -44,10 +44,10 @@ import           Test.Pos.Client.Txp.Util (generateAddressWithKey,
 ----------------------------------------------------------------------------
 
 spec :: Spec
-spec = giveTestsConsts $ describe "Client.Txp.Util" $ do
+spec = giveCoreConf $ describe "Client.Txp.Util" $ do
     describe "createMTx" $ createMTxSpec
 
-createMTxSpec :: HasCoreConstants => Spec
+createMTxSpec :: HasConfiguration => Spec
 createMTxSpec = do
     prop createMTxWorksWhenWeAreRichDesc createMTxWorksWhenWeAreRichSpec
     prop stabilizationDoesNotFailDesc stabilizationDoesNotFailSpec
@@ -84,7 +84,7 @@ createMTxSpec = do
     feeForManyAddressesDesc =
         "Fee evaluation succeedes when many addresses are used"
 
-createMTxWorksWhenWeAreRichSpec :: HasCoreConstants => TxpTestProperty ()
+createMTxWorksWhenWeAreRichSpec :: HasConfiguration => TxpTestProperty ()
 createMTxWorksWhenWeAreRichSpec = do
     txOrError <- createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
     case txOrError of
@@ -93,7 +93,7 @@ createMTxWorksWhenWeAreRichSpec = do
   where
     CreateMTxParams {..} = makeManyAddressesToManyParams 1 1000000 1 1
 
-stabilizationDoesNotFailSpec :: HasCoreConstants => TxpTestProperty ()
+stabilizationDoesNotFailSpec :: HasConfiguration => TxpTestProperty ()
 stabilizationDoesNotFailSpec = do
     txOrError <- createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
     case txOrError of
@@ -103,7 +103,7 @@ stabilizationDoesNotFailSpec = do
   where
     CreateMTxParams {..} = makeManyAddressesToManyParams 1 200000 1 1
 
-feeIsNonzeroSpec :: HasCoreConstants => TxpTestProperty ()
+feeIsNonzeroSpec :: HasConfiguration => TxpTestProperty ()
 feeIsNonzeroSpec = do
     txOrError <- createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
     case txOrError of
@@ -115,7 +115,7 @@ feeIsNonzeroSpec = do
   where
     CreateMTxParams {..} = makeManyAddressesToManyParams 1 100000 1 1
 
-manyUtxoTo1Spec :: HasCoreConstants => TxpTestProperty ()
+manyUtxoTo1Spec :: HasConfiguration => TxpTestProperty ()
 manyUtxoTo1Spec = do
     txOrError <- createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
     case txOrError of
@@ -124,7 +124,7 @@ manyUtxoTo1Spec = do
   where
     CreateMTxParams {..} = makeManyUtxoTo1Params 10 100000 1
 
-manyAddressesTo1Spec :: HasCoreConstants => TxpTestProperty ()
+manyAddressesTo1Spec :: HasConfiguration => TxpTestProperty ()
 manyAddressesTo1Spec = do
     txOrError <- createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
     case txOrError of
@@ -133,7 +133,7 @@ manyAddressesTo1Spec = do
   where
     CreateMTxParams {..} = makeManyAddressesToManyParams 10 100000 1 1
 
-manyAddressesToManySpec :: HasCoreConstants => TxpTestProperty ()
+manyAddressesToManySpec :: HasConfiguration => TxpTestProperty ()
 manyAddressesToManySpec = do
     txOrError <- createMTx cmpUtxo cmpSigners cmpOutputs cmpAddrData
     case txOrError of
@@ -142,7 +142,7 @@ manyAddressesToManySpec = do
   where
     CreateMTxParams {..} = makeManyAddressesToManyParams 10 100000 10 1
 
-redemptionSpec :: HasCoreConstants => TxpTestProperty ()
+redemptionSpec :: HasConfiguration => TxpTestProperty ()
 redemptionSpec = do
     txOrError <- createRedemptionTx utxo rsk outputs
     case txOrError of
@@ -158,7 +158,7 @@ redemptionSpec = do
     utxo = one (TxInUtxo (unsafeIntegerToTxId 0) 0, txOutAuxInput)
     outputs = one txOutAuxOutput
 
-txWithRedeemOutputFailsSpec :: HasCoreConstants => TxpTestProperty ()
+txWithRedeemOutputFailsSpec :: HasConfiguration => TxpTestProperty ()
 txWithRedeemOutputFailsSpec = do
     txOrError <- createMTx utxo signers outputs addrData
     case txOrError of
@@ -179,7 +179,7 @@ txWithRedeemOutputFailsSpec = do
     addrData = ()
 
 feeForManyAddressesSpec
-    :: HasCoreConstants
+    :: HasConfiguration
     => Bool
     -> TxpTestProperty ()
 feeForManyAddressesSpec manyAddrs =
@@ -281,7 +281,7 @@ makeManyAddressesTo1Params numFrom amountEachFrom amountEachTo =
     makeManyAddressesToManyParams numFrom amountEachFrom 1 amountEachTo
 
 ensureTxMakesSense
-  :: HasCoreConstants
+  :: HasConfiguration
   => TxWithSpendings -> Utxo -> TxOutputs -> TxpTestProperty ()
 ensureTxMakesSense (_, neTxOut) utxo _ = do
     unless (S.fromList txOutUsed `S.isSubsetOf` S.fromList txOutAvailable) $
@@ -315,7 +315,7 @@ generateRedeemTxOutAux amount seed =
     let (sk, addr) = generateRedeemAddressWithKey seed
     in (sk, makeTxOutAux amount addr)
 
-setTxFeePolicy :: HasCoreConstants => Coeff -> Coeff -> TxpTestProperty ()
+setTxFeePolicy :: HasConfiguration => Coeff -> Coeff -> TxpTestProperty ()
 setTxFeePolicy a b = lift $ do
     let policy = TxFeePolicyTxSizeLinear $ TxSizeLinear a b
     (bv, bvd) <- DB.getAdoptedBVFull

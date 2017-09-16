@@ -1,4 +1,3 @@
-
 -- | Specification of 'Pos.Block.Logic.Creation' module.
 
 module Test.Pos.Block.Logic.CreationSpec
@@ -22,10 +21,10 @@ import           Pos.Binary.Class           (biSize)
 import           Pos.Block.Core             (BlockHeader, MainBlock)
 import           Pos.Block.Logic            (RawPayload (..), createMainBlockPure)
 import qualified Pos.Communication          ()
-import           Pos.Core                   (HasCoreConstants, SlotId (..),
-                                             blkSecurityParam, giveStaticConsts,
+import           Pos.Core                   (BlockVersionData (bvdMaxBlockSize),
+                                             HasConfiguration, SlotId (..),
+                                             blkSecurityParam, genesisBlockVersionData,
                                              mkVssCertificatesMap, unsafeMkLocalSlotIndex)
-import           Pos.Core.Genesis           (genesisMaxBlockSize)
 import           Pos.Crypto                 (SecretKey)
 import           Pos.Delegation             (DlgPayload, ProxySKBlockInfo)
 import           Pos.Ssc.Class              (Ssc (..), sscDefaultPayload)
@@ -33,11 +32,14 @@ import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
                                              commitmentMapEpochGen,
                                              vssCertificateEpochGen)
 import           Pos.Txp.Core               (TxAux)
+import           Pos.Update.Configuration   (HasUpdateConfiguration)
 import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Util                   (SmallGenerator (..), makeSmall)
 
+import           Test.Pos.Util              (giveCoreConf, giveUpdateConf)
+
 spec :: Spec
-spec = giveStaticConsts $ describe "Block.Logic.Creation" $ do
+spec = giveUpdateConf $ giveCoreConf $ describe "Block.Logic.Creation" $ do
 
     -- Sampling the minimum empty block size
     (sk0,prevHeader0) <- runIO $ generate arbitrary
@@ -60,7 +62,7 @@ spec = giveStaticConsts $ describe "Block.Logic.Creation" $ do
                  -- bytes; this is *completely* independent of encoding used.
                  -- Empirically, empty blocks don't get bigger than 550
                  -- bytes.
-                 s <= 550 && s <= genesisMaxBlockSize
+                 s <= 550 && s <= bvdMaxBlockSize genesisBlockVersionData
         prop "doesn't create blocks bigger than the limit" $
             forAll (choose (emptyBSize, emptyBSize * 10)) $ \(fromBytes -> limit) ->
             forAll arbitrary $ \(prevHeader, sk, updatePayload) ->
@@ -101,7 +103,7 @@ spec = giveStaticConsts $ describe "Block.Logic.Creation" $ do
                 in counterexample ("Tested with block size limit: " <> show s) $
                    leftToCounter blk2 (const True)
   where
-    defGTP :: HasCoreConstants => SlotId -> GtPayload
+    defGTP :: HasConfiguration => SlotId -> GtPayload
     defGTP sId = sscDefaultPayload @SscGodTossing $ siSlot sId
 
     infLimit = convertUnit @Gigabyte @Byte 1
@@ -109,17 +111,17 @@ spec = giveStaticConsts $ describe "Block.Logic.Creation" $ do
     leftToCounter :: (ToString s, Testable p) => Either s a -> (a -> p) -> Property
     leftToCounter x c = either (\t -> counterexample (toString t) False) (property . c) x
 
-    emptyBlk :: (HasCoreConstants, Testable p) => (Either Text (MainBlock SscGodTossing) -> p) -> Property
+    emptyBlk :: (HasConfiguration, HasUpdateConfiguration, Testable p) => (Either Text (MainBlock SscGodTossing) -> p) -> Property
     emptyBlk foo =
         forAll arbitrary $ \(prevHeader, sk, slotId) ->
         foo $ producePureBlock infLimit prevHeader [] Nothing slotId def (defGTP slotId) def sk
 
-    genTxAux :: Gen TxAux
+    genTxAux :: HasConfiguration => Gen TxAux
     genTxAux =
         goodTxToTxAux . getSmallGenerator <$> (arbitrary :: Gen (SmallGenerator GoodTx))
 
     noSscBlock
-        :: HasCoreConstants
+        :: (HasConfiguration, HasUpdateConfiguration)
         => Byte
         -> BlockHeader SscGodTossing
         -> [TxAux]
@@ -133,7 +135,7 @@ spec = giveStaticConsts $ describe "Block.Logic.Creation" $ do
             limit prevHeader txs Nothing neutralSId proxyCerts (defGTP neutralSId) updatePayload sk
 
     producePureBlock
-        :: HasCoreConstants
+        :: (HasConfiguration, HasUpdateConfiguration)
         => Byte
         -> BlockHeader SscGodTossing
         -> [TxAux]
@@ -148,7 +150,7 @@ spec = giveStaticConsts $ describe "Block.Logic.Creation" $ do
         createMainBlockPure limit prev psk slot sk $
         RawPayload txs sscPay dlgPay usPay
 
-validGtPayloadGen :: HasCoreConstants => Gen (GtPayload, SlotId)
+validGtPayloadGen :: HasConfiguration => Gen (GtPayload, SlotId)
 validGtPayloadGen = do
     vssCerts <- makeSmall $ fmap mkVssCertificatesMap $ listOf $ vssCertificateEpochGen 0
     let mkSlot i = SlotId 0 (unsafeMkLocalSlotIndex (fromIntegral i))

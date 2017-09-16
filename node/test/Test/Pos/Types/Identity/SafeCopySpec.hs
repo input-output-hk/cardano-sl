@@ -8,14 +8,13 @@ import           Universum
 
 import           Test.Hspec    (Spec, describe)
 
-import           Pos.Core      (giveStaticConsts)
 import qualified Pos.Core      as Core
 import qualified Pos.Txp       as Txp
 
-import           Test.Pos.Util (safeCopyTest)
+import           Test.Pos.Util (giveCoreConf, safeCopyTest)
 
 spec :: Spec
-spec = giveStaticConsts $ describe "Types" $ do
+spec = giveCoreConf $ describe "Types" $ do
     describe "SafeCopy instances" $ do
         safeCopyTest @Core.EpochIndex
         safeCopyTest @Core.LocalSlotIndex

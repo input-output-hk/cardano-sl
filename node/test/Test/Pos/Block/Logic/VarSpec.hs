@@ -24,7 +24,7 @@ import           Test.QuickCheck.Random       (QCGen)
 
 import           Pos.Block.Logic              (verifyAndApplyBlocks, verifyBlocksPrefix)
 import           Pos.Block.Types              (Blund)
-import           Pos.Core                     (HasCoreConstants, blkSecurityParam,
+import           Pos.Core                     (HasConfiguration, blkSecurityParam,
                                                epochSlots, headerHash)
 import           Pos.DB.Pure                  (dbPureDump)
 import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..), BlockEventGenT,
@@ -45,34 +45,38 @@ import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst
 import           Test.Pos.Block.Logic.Event   (BlockScenarioResult (..),
                                                DbNotEquivalentToSnapshot (..),
                                                runBlockScenario)
-import           Test.Pos.Block.Logic.Mode    (BlockProperty, BlockTestMode)
+import           Test.Pos.Block.Logic.Mode    (BlockProperty, BlockTestMode,
+                                               HasVarSpecConfigurations)
 import           Test.Pos.Block.Logic.Util    (EnableTxPayload (..), InplaceDB (..),
                                                bpGenBlock, bpGenBlocks,
                                                bpGoToArbitraryState, getAllSecrets,
                                                satisfySlotCheck)
-import           Test.Pos.Util                (giveTestsConsts, splitIntoChunks,
-                                               stopProperty)
+import           Test.Pos.Util                (giveGtConf, giveInfraConf, giveNodeConf,
+                                               giveCoreConf, giveUpdateConf,
+                                               splitIntoChunks, stopProperty)
 
 spec :: Spec
 -- Unfortunatelly, blocks generation is quite slow nowdays.
 -- See CSL-1382.
-spec = giveTestsConsts $ describe "Block.Logic.VAR" $ modifyMaxSuccess (min 12) $ do
-    describe "verifyBlocksPrefix" verifyBlocksPrefixSpec
-    describe "verifyAndApplyBlocks" verifyAndApplyBlocksSpec
-    describe "applyBlocks" applyBlocksSpec
-    describe "Block.Event" $ do
-        describe "Successful sequence" $ blockEventSuccessSpec
-        describe "Apply through epoch" $ applyThroughEpochSpec 0
-        describe "Apply through epoch" $ applyThroughEpochSpec 4
-        describe "Fork - short" $ singleForkSpec ForkShort
-        describe "Fork - medium" $ singleForkSpec ForkMedium
-        describe "Fork - deep" $ singleForkSpec ForkDeep
+spec = giveGtConf $ giveNodeConf $ giveInfraConf $ giveUpdateConf $ giveCoreConf $
+    describe "Block.Logic.VAR" $ modifyMaxSuccess (min 12) $ do
+        describe "verifyBlocksPrefix" verifyBlocksPrefixSpec
+        describe "verifyAndApplyBlocks" verifyAndApplyBlocksSpec
+        describe "applyBlocks" applyBlocksSpec
+        describe "Block.Event" $ do
+            describe "Successful sequence" $ blockEventSuccessSpec
+            describe "Apply through epoch" $ applyThroughEpochSpec 0
+            describe "Apply through epoch" $ applyThroughEpochSpec 4
+            describe "Fork - short" $ singleForkSpec ForkShort
+            describe "Fork - medium" $ singleForkSpec ForkMedium
+            describe "Fork - deep" $ singleForkSpec ForkDeep
 
 ----------------------------------------------------------------------------
 -- verifyBlocksPrefix
 ----------------------------------------------------------------------------
 
-verifyBlocksPrefixSpec :: HasCoreConstants => Spec
+verifyBlocksPrefixSpec
+    :: HasVarSpecConfigurations => Spec
 verifyBlocksPrefixSpec = do
     prop verifyEmptyMainBlockDesc verifyEmptyMainBlock
     prop verifyValidBlocksDesc verifyValidBlocks
@@ -87,13 +91,15 @@ verifyBlocksPrefixSpec = do
         "always succeeds for GState for which these blocks where generated " <>
         "as long as all these blocks are from the same epoch"
 
-verifyEmptyMainBlock :: HasCoreConstants => BlockProperty ()
+verifyEmptyMainBlock
+    :: HasVarSpecConfigurations => BlockProperty ()
 verifyEmptyMainBlock = do
     emptyBlock <- fst <$> bpGenBlock (EnableTxPayload False) (InplaceDB False)
     whenLeftM (lift $ verifyBlocksPrefix (one emptyBlock)) $
         stopProperty . pretty
 
-verifyValidBlocks :: HasCoreConstants => BlockProperty ()
+verifyValidBlocks
+    :: HasVarSpecConfigurations => BlockProperty ()
 verifyValidBlocks = do
     bpGoToArbitraryState
     blocks <-
@@ -118,7 +124,8 @@ verifyValidBlocks = do
 -- verifyAndApplyBlocks
 ----------------------------------------------------------------------------
 
-verifyAndApplyBlocksSpec :: HasCoreConstants => Spec
+verifyAndApplyBlocksSpec
+    :: HasVarSpecConfigurations => Spec
 verifyAndApplyBlocksSpec = do
     prop applyByOneOrAllAtOnceDesc (applyByOneOrAllAtOnce applier)
   where
@@ -153,9 +160,9 @@ applyBlocksSpec = pass
 ----------------------------------------------------------------------------
 
 applyByOneOrAllAtOnce
-    :: HasCoreConstants
-    => (OldestFirst NE (Blund SscGodTossing) -> BlockTestMode ())
-    -> BlockProperty ()
+    :: HasVarSpecConfigurations
+       => (OldestFirst NE (Blund SscGodTossing) -> BlockTestMode ())
+       -> BlockProperty ()
 applyByOneOrAllAtOnce applier = do
     bpGoToArbitraryState
     blunds <-
@@ -186,7 +193,7 @@ applyByOneOrAllAtOnce applier = do
 -- Block events
 ----------------------------------------------------------------------------
 
-blockEventSuccessSpec :: HasCoreConstants => Spec
+blockEventSuccessSpec :: HasVarSpecConfigurations => Spec
 blockEventSuccessSpec = do
     prop blockEventSuccessDesc blockEventSuccessProp
   where
@@ -221,7 +228,7 @@ blockEventSuccessSpec = do
    and a few sheets of paper trying to figure out how to write it.
 -}
 
-genSuccessWithForks :: forall g m. (HasCoreConstants, RandomGen g, Monad m) => BlockEventGenT g m ()
+genSuccessWithForks :: forall g m. (HasConfiguration, RandomGen g, Monad m) => BlockEventGenT g m ()
 genSuccessWithForks = do
       emitBlockApply BlockApplySuccess $ pathSequence mempty ["0"]
       generateFork "0" []
@@ -266,17 +273,19 @@ genSuccessWithForks = do
     generateRelativePath1 =
         uniform (["rekt", "kek", "mems", "peka"] :: NE Path)
 
-blockPropertyScenarioGen :: HasCoreConstants => BlockEventGenT QCGen BlockTestMode () -> BlockProperty BlockScenario
+blockPropertyScenarioGen
+    :: HasVarSpecConfigurations => BlockEventGenT QCGen BlockTestMode () -> BlockProperty BlockScenario
 blockPropertyScenarioGen m = do
     allSecrets <- getAllSecrets
     genStakeholders <- view (lensOf @GenesisWStakeholders)
     g <- pick $ MkGen $ \qc _ -> qc
     lift $ flip evalRandT g $ runBlockEventGenT allSecrets genStakeholders m
 
-prettyScenario :: HasCoreConstants => BlockScenario -> Text
+prettyScenario :: HasConfiguration => BlockScenario -> Text
 prettyScenario scenario = pretty (fmap (headerHash . fst) scenario)
 
-blockEventSuccessProp :: HasCoreConstants => BlockProperty ()
+blockEventSuccessProp
+    :: HasVarSpecConfigurations => BlockProperty ()
 blockEventSuccessProp = do
     scenario <- blockPropertyScenarioGen $ genSuccessWithForks
     let (scenario', checkCount) = enrichWithSnapshotChecking scenario
@@ -285,7 +294,8 @@ blockEventSuccessProp = do
         prettyScenario scenario'
     runBlockScenarioAndVerify scenario'
 
-runBlockScenarioAndVerify :: HasCoreConstants => BlockScenario -> BlockProperty ()
+runBlockScenarioAndVerify
+    :: HasVarSpecConfigurations => BlockScenario -> BlockProperty ()
 runBlockScenarioAndVerify bs =
     verifyBlockScenarioResult =<< lift (runBlockScenario bs)
 
@@ -309,7 +319,8 @@ verifyBlockScenarioResult = \case
 ----------------------------------------------------------------------------
 
 -- Input: the amount of blocks after crossing.
-applyThroughEpochSpec :: HasCoreConstants => Int -> Spec
+applyThroughEpochSpec
+    :: HasVarSpecConfigurations => Int -> Spec
 applyThroughEpochSpec afterCross = do
     prop applyThroughEpochDesc (applyThroughEpochProp afterCross)
   where
@@ -317,7 +328,7 @@ applyThroughEpochSpec afterCross = do
       "apply a sequence of blocks that spans through epochs (additional blocks after crossing: " ++
       show afterCross ++ ")"
 
-applyThroughEpochProp :: HasCoreConstants => Int -> BlockProperty ()
+applyThroughEpochProp :: HasVarSpecConfigurations => Int -> BlockProperty ()
 applyThroughEpochProp afterCross = do
     scenario <- blockPropertyScenarioGen $ do
         let
@@ -338,7 +349,8 @@ applyThroughEpochProp afterCross = do
 -- Forks
 ----------------------------------------------------------------------------
 
-singleForkSpec :: HasCoreConstants => ForkDepth -> Spec
+singleForkSpec
+    :: HasVarSpecConfigurations => ForkDepth -> Spec
 singleForkSpec fd = do
     prop singleForkDesc (singleForkProp fd)
   where
@@ -346,14 +358,15 @@ singleForkSpec fd = do
       "a blockchain of length q<=(9.5*k) blocks can switch to a fork " <>
       "of length j>i with a common prefix i, rollback depth d=q-i"
 
-singleForkProp :: HasCoreConstants => ForkDepth -> BlockProperty ()
+singleForkProp :: HasVarSpecConfigurations => ForkDepth -> BlockProperty ()
 singleForkProp fd = do
     scenario <- blockPropertyScenarioGen $ genSingleFork fd
     runBlockScenarioAndVerify scenario
 
 data ForkDepth = ForkShort | ForkMedium | ForkDeep
 
-genSingleFork :: forall g m. (HasCoreConstants, RandomGen g, Monad m) => ForkDepth -> BlockEventGenT g m ()
+genSingleFork :: forall g m. (HasVarSpecConfigurations, RandomGen g, Monad m)
+              => ForkDepth -> BlockEventGenT g m ()
 genSingleFork fd = do
     let k = fromIntegral blkSecurityParam :: Int
     -- 'd' is how deeply in the chain the fork starts. In other words, it's how many

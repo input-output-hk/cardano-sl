@@ -25,7 +25,7 @@ import           Pos.Block.Slog                 (mkSlogGState)
 import           Pos.Block.Types                (Undo)
 import           Pos.Client.Txp.Addresses       (MonadAddresses (..))
 import           Pos.Client.Txp.Util            (TxCreateMode)
-import           Pos.Core                       (AddrSpendingData (..), HasCoreConstants,
+import           Pos.Core                       (AddrSpendingData (..), HasConfiguration,
                                                  IsHeader, SlotId, Timestamp (..),
                                                  makePubKeyAddressBoot)
 import           Pos.Crypto                     (SecretKey, toPublic)
@@ -105,7 +105,7 @@ data TxpTestContext = TxpTestContext
 
 makeLensesWith postfixLFields ''TxpTestContext
 
-instance HasCoreConstants => TxCreateMode TxpTestMode
+instance HasConfiguration => TxCreateMode TxpTestMode
 
 ----------------------------------------------------------------------------
 -- Mock initialization
@@ -283,14 +283,5 @@ instance MonadAddresses TxpTestProperty where
     type AddrData TxpTestProperty = AddrData TxpTestMode
     getNewAddress = lift . getNewAddress
 
-txCreatePropertyToProperty
-    :: HasCoreConstants
-    => Gen TxpTestParams
-    -> TxpTestProperty a
-    -> Property
-txCreatePropertyToProperty tpGen txpTestProperty =
-    forAll tpGen $ \tp ->
-        monadic (ioProperty . runTxpTestMode tp) txpTestProperty
-
-instance HasCoreConstants => Testable (TxpTestProperty a) where
-    property = txCreatePropertyToProperty arbitrary
+instance HasConfiguration => Testable (TxpTestProperty a) where
+    property = monadic (ioProperty . flip runReaderT genesisBlockVersionData)

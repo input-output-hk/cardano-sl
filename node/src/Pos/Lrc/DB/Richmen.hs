@@ -33,8 +33,7 @@ import           Pos.Binary.Core             ()
 import           Pos.Context                 (GenesisUtxo, genesisStakesM)
 import           Pos.Core                    (BlockVersionData (bvdHeavyDelThd), Coin,
                                               EpochIndex, GenesisWStakeholders,
-                                              HasConfiguration,
-                                              HasGenesisBlockVersionData, StakeholderId,
+                                              HasConfiguration, StakeholderId,
                                               genesisBlockVersionData)
 import           Pos.DB.Class                (MonadDB, MonadDBRead)
 import           Pos.Lrc.Class               (RichmenComponent (..),

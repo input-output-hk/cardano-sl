@@ -294,12 +294,9 @@ maybeBucketSize :: Maybe Int -> OQ.MaxBucketSize
 maybeBucketSize Nothing  = OQ.BucketSizeUnlimited
 maybeBucketSize (Just n) = OQ.BucketSizeMax n
 
-instance IsConfig Topology where
-  configPrefix = return Nothing
-
-{-------------------------------------------------------------------------------
-  Policies described in JSON/YAML.
--------------------------------------------------------------------------------}
+----------------------------------------------------------------------------
+-- Policies described in JSON/YAML.
+----------------------------------------------------------------------------
 
 -- | Policies described by a JSON/YAML.
 data StaticPolicies = StaticPolicies {

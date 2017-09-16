@@ -6,12 +6,12 @@
 
 dev: &dev
 
-  core:
+  core: &dev_core
 
-    genesis:
+    genesis: &dev_core_genesis
       # To use a canonical JSON genesis, use the 'src' key instead of 'spec'.
       # src: './genesis.json'
-      spec:
+      spec: &dev_core_genesis_spec
         initializer:
           testnetInitializer:
             testBalance:
@@ -47,7 +47,7 @@ dev: &dev
               b: 43.946 # additional minimal fees per byte of transaction size
           unlockStakeEpoch: 
             getEpochIndex: 18446744073709551615 # last epoch (maxBound @Word64)
-        protocolConstants:
+        protocolConstants: &dev_core_genesis_spec_protocolConstants
           k: 2
           protocolMagic: 55550001
           vssMinTTL: 2
@@ -244,3 +244,17 @@ bench: &bench
 
 default:
   <<: *dev
+
+test:
+  <<: *dev
+  core:
+    <<: *dev_core
+    genesis:
+      <<: *dev_core_genesis
+      # To use a canonical JSON genesis, use the 'src' key instead of 'spec'.
+      # src: './genesis.json'
+      spec:
+        <<: *dev_core_genesis_spec
+        protocolConstants:
+          <<: *dev_core_genesis_spec_protocolConstants
+          k: 35

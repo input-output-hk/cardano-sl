@@ -18,8 +18,6 @@ import           Universum
 
 import           Data.Aeson                       (FromJSON (..), genericParseJSON)
 import           Data.Default                     (Default (..))
-import qualified Data.Map                         as Map
-import qualified Data.Yaml                        as Yaml
 import           Serokell.Aeson.Options           (defaultOptions)
 import           System.Wlog                      (WithLogger)
 
@@ -33,6 +31,7 @@ import           Pos.Core.Types                   (Timestamp)
 import           Pos.Infra.Configuration
 import           Pos.Ssc.GodTossing.Configuration
 import           Pos.Update.Configuration
+import           Pos.Util.Config                  (parseYamlConfig)
 
 -- | Product of all configurations required to run a node.
 data Configuration = Configuration
@@ -88,25 +87,10 @@ withConfigurations
     => ConfigurationOptions
     -> (HasConfigurations => m r)
     -> m r
-withConfigurations cfo@ConfigurationOptions{..} act = do
-    decoded <- liftIO $ Yaml.decodeFileEither cfoFilePath
-    multiConfig <- either (throwM . ConfigurationParseFailure cfo) return decoded
-    Configuration{..} <- maybe (throwM (ConfigurationKeyNotFound cfo)) return (Map.lookup cfoKey multiConfig)
+withConfigurations ConfigurationOptions{..} act = do
+    Configuration{..} <- parseYamlConfig cfoFilePath cfoKey
     withCoreConfigurations ccCore cfoSystemStart $
       withInfraConfiguration ccInfra $
       withUpdateConfiguration ccUpdate $
       withGtConfiguration ccGt $
       withNodeConfiguration ccNode $ act
-
-data ConfigurationException =
-
-      -- | Couldn't parse the configuration file.
-      ConfigurationParseFailure !ConfigurationOptions !(Yaml.ParseException)
-
-      -- | Configuration at the given key not found.
-    | ConfigurationKeyNotFound !ConfigurationOptions
-
-    deriving (Show)
-
-instance Exception ConfigurationException
-

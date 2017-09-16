@@ -41,7 +41,6 @@ import qualified Network.DNS                           as DNS
 
 import           Pos.Network.DnsDomains                (DnsDomains (..), NodeAddr (..))
 import           Pos.Network.Types                     (Fallbacks, NodeName (..), Valency)
-import           Pos.Util.Config
 
 -- | Description of the network topology in a Yaml file
 --
@@ -321,9 +320,6 @@ instance FromJSON Topology where
 maybeBucketSize :: Maybe Int -> OQ.MaxBucketSize
 maybeBucketSize Nothing  = OQ.BucketSizeUnlimited
 maybeBucketSize (Just n) = OQ.BucketSizeMax n
-
-instance IsConfig Topology where
-  configPrefix = return Nothing
 
 ----------------------------------------------------------------------------
 -- Policies described in JSON/YAML.

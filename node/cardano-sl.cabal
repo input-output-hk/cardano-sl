@@ -116,6 +116,7 @@ library
 
                         -- Utilities/helpers
                         Pos.Util
+                        Pos.Util.Config
                         Pos.Util.LoggerName
                         Pos.Util.Monitor
                         Pos.Util.Undefined
@@ -618,6 +619,7 @@ test-suite cardano-test
   type:                exitcode-stdio-1.0
   build-depends:       MonadRandom
                      , QuickCheck
+                     , aeson >= 0.11.2.1
                      , base
                      , bytestring
                      , canonical-json

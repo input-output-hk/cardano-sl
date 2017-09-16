@@ -119,7 +119,6 @@ library
                        Pos.Util.Concurrent.RWLock
                        Pos.Util.Concurrent.RWVar
                        Pos.Util.Chrono
-                       Pos.Util.Config
                        Pos.Util.HVect
                        Pos.Util.Limits
                        Pos.Util.LRU

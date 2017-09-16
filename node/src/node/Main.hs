@@ -20,8 +20,8 @@ import           Pos.Client.CLI      (CommonNodeArgs (..), NodeArgs (..),
 import qualified Pos.Client.CLI      as CLI
 import           Pos.Communication   (OutSpecs, WorkerSpec)
 import           Pos.Core            (Timestamp (..), systemStart)
-import           Pos.Launcher        (NodeParams (..), runNodeReal,
-                                      HasConfigurations, withConfigurations)
+import           Pos.Launcher        (HasConfigurations, NodeParams (..), runNodeReal,
+                                      withConfigurations)
 import           Pos.Ssc.Class       (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
 import           Pos.Ssc.NistBeacon  (SscNistBeacon)

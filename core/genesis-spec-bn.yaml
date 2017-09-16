@@ -5,6 +5,7 @@ initializer:
       richmen:      4
       richmenShare: 0.99
       totalBalance: 6000000000
+      useHDAddresses: False
     fakeAvvmBalance: 
       count: 100
       oneBalance: 15000000

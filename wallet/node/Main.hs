@@ -21,9 +21,9 @@ import qualified Pos.Client.CLI      as CLI
 import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec, worker)
 import           Pos.Context         (HasNodeContext)
 import           Pos.Core            (Timestamp (..), systemStart)
-import           Pos.Launcher        (NodeParams (..), NodeResources (..),
-                                      bracketNodeResources, runNode,
-                                      HasConfigurations, withConfigurations)
+import           Pos.Launcher        (HasConfigurations, NodeParams (..),
+                                      NodeResources (..), bracketNodeResources, runNode,
+                                      withConfigurations)
 import           Pos.Ssc.Class       (SscParams)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
 import           Pos.Util.UserSecret (usVss)

@@ -232,9 +232,32 @@ instance ( HasServer (apiType a :> res) ctx
 -- Logging
 -------------------------------------------------------------------------
 
+-- | Enables logging for server which serves given api.
+--
+-- `config` is a type at which you have to specify 'ApiLoggingConfig' via
+-- reflection. This way was chosen because the least thing we need in
+-- config is 'LoggerName', and we want to have '<>' on 'LoggerName's thus
+-- 'KnownSymbol' is not enough.
+--
+-- This logging will report
+--
+-- * Request parameters, including request bodies
+-- * Truncated response (for exact meaning of /truncated/ see 'WithTruncatedLog')
+-- * If execution failed with error, it will be displayed
+-- * Details like request method and endpoint execution time
+--
+-- If user makes request which can't be processed (e.g. with path to undefined
+-- endpoint which normally terminates with 404) it won't be loged. However,
+-- I don't find it a great problem, it may impede only in development or on
+-- getting acknoledged with api.
 data LoggingApi config api
+
+-- | Helper to traverse servant api and apply logging.
 data LoggingApiRec config api
+
 type ApiLoggingConfig = LoggerName
+
+-- | Used to incrementally collect info about passed parameters.
 data ApiParamsLogInfo
     = ApiParamsLogInfo [Text]  -- ^ Parameters gathered at current stage
     | ApiNoParamsLogInfo Text  -- ^ Parameters collection failed with reason
@@ -256,9 +279,9 @@ instance {-# OVERLAPPABLE #-}
 
 -- | When item list is going to be printed, we impose taking care of
 -- truncating.
--- How much data to remain depends on how big output may be, how can response
--- change from call to call and how often related endpoints are called in
--- practise.
+-- How much data to remain should depend on how big output may be, how can
+-- response change from call to call and how often related endpoints are called
+-- in practise.
 class HasTruncateLogPolicy a where
     truncateLogPolicy :: [a] -> [a]
 
@@ -281,6 +304,9 @@ instance HasServer (LoggingApiRec config api) ctx =>
     route = inRouteServer @(LoggingApiRec config api) route
             (def, )
 
+-- | Version of 'HasServer' which is assumed to perform logging.
+-- It's helpful because 'ServerT (LoggingApi ...)' is already defined for us
+-- in actual 'HasServer' instance once and forever.
 class HasLoggingServer config api ctx where
     routeWithLog
         :: Proxy (LoggingApiRec config api)
@@ -316,6 +342,7 @@ instance ( KnownSymbol path
             let path = toText . symbolVal $ Proxy @path
             _ApiParamsLogInfo %~ (path :)
 
+-- | Describes a way to log a single parameter.
 class ApiHasArgClass apiType a =>
       ApiCanLogArg apiType a where
     type ApiArgToLog (apiType :: * -> *) a :: *
@@ -369,6 +396,7 @@ instance ( HasServer (apiType a :> LoggingApiRec config res) ctx
                 paramInfo = sformat (string%": "%stext) paramName paramVal
             _ApiParamsLogInfo %~ (paramInfo :)
 
+-- | Modify an action so that it performs all the required logging.
 applyLoggingToVerb
     :: ( MonadIO m
        , MonadCatch m

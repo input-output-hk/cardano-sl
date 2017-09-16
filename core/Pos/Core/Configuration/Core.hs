@@ -13,7 +13,6 @@ module Pos.Core.Configuration.Core
 
        , coreConfiguration
        , dbSerializeVersion
-       , genesisKeysN
        , memPoolLimitRatio
        , nonCriticalCQBootstrap
        , criticalCQBootstrap
@@ -28,10 +27,10 @@ module Pos.Core.Configuration.Core
 
 import           Universum
 
-import           Data.Reflection            (Given (..), give)
-import           Data.Time.Units            (Microsecond, Second, convertUnit)
+import           Data.Reflection        (Given (..), give)
+import           Data.Time.Units        (Microsecond, Second, convertUnit)
 
-import           Pos.Core.Genesis.Types     (GenesisSpec (..))
+import           Pos.Core.Genesis.Types (GenesisSpec (..))
 
 data GenesisConfiguration =
       -- | Genesis from a 'GenesisSpec'.
@@ -43,42 +42,42 @@ data GenesisConfiguration =
 data CoreConfiguration = CoreConfiguration
     {
       -- | Specifies the genesis
-      ccGenesis                      :: !GenesisConfiguration
+      ccGenesis                :: !GenesisConfiguration
 
     , -- | Versioning for values in node's DB
-      ccDbSerializeVersion           :: !Word8
+      ccDbSerializeVersion     :: !Word8
     , -- | Number of pre-generated keys
-      ccGenesisN                     :: !Int
+      ccGenesisN               :: !Int
       -- | Size of mem pool will be limited by this value muliplied by block
       -- size limit.
-    , ccMemPoolLimitRatio            :: !Word
+    , ccMemPoolLimitRatio      :: !Word
 
       -- Chain quality thresholds and other constants to detect
       -- suspicious things.
 
       -- | If chain quality in bootstrap era is less than this value,
       -- non critical misbehavior will be reported.
-    , ccNonCriticalCQBootstrap       :: !Double
+    , ccNonCriticalCQBootstrap :: !Double
       -- | If chain quality in bootstrap era is less than this value,
       -- critical misbehavior will be reported.
-    , ccCriticalCQBootstrap          :: !Double
+    , ccCriticalCQBootstrap    :: !Double
       -- | If chain quality after bootstrap era is less than this
       -- value, non critical misbehavior will be reported.
-    , ccNonCriticalCQ                :: !Double
+    , ccNonCriticalCQ          :: !Double
       -- | If chain quality after bootstrap era is less than this
       -- value, critical misbehavior will be reported.
-    , ccCriticalCQ                   :: !Double
+    , ccCriticalCQ             :: !Double
       -- | Number of blocks such that if so many blocks are rolled
       -- back, it requires immediate reaction.
-    , ccCriticalForkThreshold        :: !Int
+    , ccCriticalForkThreshold  :: !Int
       -- | Chain quality will be also calculated for this amount of seconds.
-    , ccFixedTimeCQ                  :: !Microsecond
+    , ccFixedTimeCQ            :: !Microsecond
 
       -- Web settings
 
       -- | Whether incoming requests logging should be performed by web
       -- part
-    , ccWebLoggingEnabled            :: !Bool
+    , ccWebLoggingEnabled      :: !Bool
     }
     deriving (Show, Generic)
 
@@ -94,10 +93,6 @@ coreConfiguration = given
 -- with this constant.
 dbSerializeVersion :: HasCoreConfiguration => Word8
 dbSerializeVersion = fromIntegral . ccDbSerializeVersion $ coreConfiguration
-
--- | Number of pre-generated keys
-genesisKeysN :: (HasCoreConfiguration, Integral i) => i
-genesisKeysN = fromIntegral . ccGenesisN $ coreConfiguration
 
 -- | Size of mem pool will be limited by this value muliplied by block
 -- size limit.

@@ -127,7 +127,7 @@ instance ( HasServer (WalletVerb (Verb mt st ct a)) ctx
 -- | Specifes servant logging config.
 data WalletLoggingConfig
 
--- If logger config will be ever determined in runtime, `reify` can be used.
+-- If logger config will ever be determined in runtime, `reify` can be used.
 instance Reifies WalletLoggingConfig ApiLoggingConfig where
     reflect _ = "wallet" <> "servant"
 

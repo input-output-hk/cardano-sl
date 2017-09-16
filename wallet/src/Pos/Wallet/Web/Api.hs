@@ -65,7 +65,6 @@ module Pos.Wallet.Web.Api
 
 import           Control.Monad.Catch        (try)
 import           Data.Reflection            (Reifies (..))
-import           Formatting                 (build, sformat)
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
                                              Post, Put, QueryParam, ReflectMethod (..),
                                              ReqBody, Verb)
@@ -79,8 +78,7 @@ import           Pos.Util.Servant           (ApiLoggingConfig, CCapture, CQueryP
                                              HasLoggingServer (..), LoggingApi,
                                              ModifiesApiRes (..), ReportDecodeError (..),
                                              VerbMod, WithTruncatedLog (..),
-                                             applyLoggingToVerb, inRouteServer,
-                                             serverHandlerL)
+                                             applyLoggingToHandler, inRouteServer)
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
                                              CAccountMeta, CAddress, CCoin, CId,
                                              CInitialized, CPaperVendWalletRedeem,
@@ -116,13 +114,7 @@ instance ( HasServer (WalletVerb (Verb mt st ct a)) ctx
          HasLoggingServer config (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) ctx where
     routeWithLog =
         inRouteServer @(WalletVerb (Verb mt st ct a)) route $
-        \(paramsInfo, handler) ->
-            handler & serverHandlerL %~ withLogging paramsInfo
-      where
-        method = decodeUtf8 $ reflectMethod (Proxy @mt)
-        display = sformat build . WithTruncatedLog
-        withLogging params = applyLoggingToVerb (Proxy @config) method params display
-
+        applyLoggingToHandler (Proxy @config) (Proxy @mt)
 
 -- | Specifes servant logging config.
 data WalletLoggingConfig

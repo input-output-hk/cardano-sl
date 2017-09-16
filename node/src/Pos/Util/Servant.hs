@@ -36,7 +36,8 @@ module Pos.Util.Servant
     , serverHandlerL'
     , inRouteServer
 
-    , applyLoggingToVerb
+    , applyServantLogging
+    , applyLoggingToHandler
     ) where
 
 import           Universum
@@ -397,26 +398,35 @@ instance ( HasServer (apiType a :> LoggingApiRec config res) ctx
             _ApiParamsLogInfo %~ (paramInfo :)
 
 -- | Modify an action so that it performs all the required logging.
-applyLoggingToVerb
+applyServantLogging
     :: ( MonadIO m
        , MonadCatch m
        , MonadError ServantErr m
        , Reifies config ApiLoggingConfig
+       , ReflectMethod (method :: k)
        )
-    => Proxy config -> Text -> ApiParamsLogInfo -> (a -> Text) -> m a -> m a
-applyLoggingToVerb configP method paramsInfo showResponse action = do
+    => Proxy config
+    -> Proxy method
+    -> ApiParamsLogInfo
+    -> (a -> Text)
+    -> m a
+    -> m a
+applyServantLogging configP methodP paramsInfo showResponse action = do
     timer <- mkTimer
     catchErrors timer $ do
         res <- action
         reportResponse timer res
         return res
   where
-    cmethod = flip colorizeDull method $ case method of
-        "GET"    -> Cyan
-        "POST"   -> Yellow
-        "PUT"    -> Blue
-        "DELETE" -> Red
-        _        -> Magenta
+    method = decodeUtf8 $ reflectMethod methodP
+    cmethod =
+        flip colorizeDull method $
+            case method of
+            "GET"    -> Cyan
+            "POST"   -> Yellow
+            "PUT"    -> Blue
+            "DELETE" -> Red
+            _        -> Magenta
     mkTimer :: MonadIO m => m (m Text)
     mkTimer = do
         startTime <- liftIO getPOSIXTime
@@ -469,20 +479,28 @@ applyLoggingToVerb configP method paramsInfo showResponse action = do
                 durationText
         throwM e
 
+applyLoggingToHandler
+    :: forall config method a.
+       ( Buildable (WithTruncatedLog a)
+       , Reifies config ApiLoggingConfig
+       , ReflectMethod method
+       )
+    => Proxy config -> Proxy (method :: k) -> (ApiParamsLogInfo, Handler a) -> Handler a
+applyLoggingToHandler configP methodP (paramsInfo, handler) =
+    handler & serverHandlerL %~ withLogging paramsInfo
+  where
+    display = sformat build . WithTruncatedLog
+    withLogging params = applyServantLogging configP methodP params display
+
 instance ( HasServer (Verb mt st ct a) ctx
          , Reifies config ApiLoggingConfig
          , ReflectMethod mt
          , Buildable (WithTruncatedLog a)
          ) =>
-         HasLoggingServer config (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a) ctx where
+         HasLoggingServer config (Verb (mt :: k) (st :: Nat) (ct :: [*]) a) ctx where
     routeWithLog =
         inRouteServer @(Verb mt st ct a) route $
-        \(paramsInfo, handler) ->
-            handler & serverHandlerL %~ withLogging paramsInfo
-      where
-        method = decodeUtf8 $ reflectMethod (Proxy @mt)
-        display = sformat build . WithTruncatedLog
-        withLogging params = applyLoggingToVerb (Proxy @config) method params display
+        applyLoggingToHandler (Proxy @config) (Proxy @mt)
 
 instance ReportDecodeError api =>
          ReportDecodeError (LoggingApiRec config api) where

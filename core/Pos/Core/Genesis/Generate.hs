@@ -12,36 +12,45 @@ module Pos.Core.Genesis.Generate
 
 import           Universum
 
-import           Crypto.Random              (MonadRandom, getRandomBytes)
-import qualified Data.HashMap.Strict        as HM
-import qualified Data.Map.Strict            as Map
-import           Serokell.Util.Verify       (VerificationRes (..), formatAllErrors,
-                                             verifyGeneric)
+import           Crypto.Random                           (MonadRandom, getRandomBytes)
+import qualified Data.HashMap.Strict                     as HM
+import qualified Data.Map.Strict                         as Map
+import           Serokell.Util.Verify                    (VerificationRes (..),
+                                                          formatAllErrors, verifyGeneric)
 
-import           Pos.Binary.Class           (asBinary, serialize')
-import           Pos.Binary.Core.Address    ()
-import           Pos.Core.Address           (Address, IsBootstrapEraAddr (..),
-                                             addressHash, deriveLvl2KeyPair,
-                                             makePubKeyAddressBoot, makeRedeemAddress)
-import           Pos.Core.Coin              (coinPortionToDouble, mkCoin,
-                                             unsafeIntegerToCoin)
-import           Pos.Core.Configuration.Protocol (HasProtocolConstants, vssMinTTL,
-                                                  vssMaxTTL)
-import           Pos.Core.Configuration.BlockVersionData (HasBlockVersionData, mpcThd)
-import qualified Pos.Core.Genesis.Constants as Const
-import           Pos.Core.Genesis.Types     (AddrDistribution, BalanceDistribution (..),
-                                             FakeAvvmOptions (..),
-                                             GenesisInitializer (..),
-                                             GenesisWStakeholders (..),
-                                             TestnetBalanceOptions (..),
-                                             TestnetDistribution (..))
-import           Pos.Core.Vss               (VssCertificate, VssCertificatesMap,
-                                             mkVssCertificate)
-import           Pos.Crypto                 (EncryptedSecretKey, RedeemPublicKey,
-                                             SecretKey, VssKeyPair, deterministic,
-                                             emptyPassphrase, keyGen, randomNumberInRange,
-                                             redeemDeterministicKeyGen, safeKeyGen,
-                                             toPublic, toVssPublicKey, vssKeyGen)
+import           Pos.Binary.Class                        (asBinary, serialize')
+import           Pos.Binary.Core.Address                 ()
+import           Pos.Core.Address                        (Address,
+                                                          IsBootstrapEraAddr (..),
+                                                          addressHash, deriveLvl2KeyPair,
+                                                          makePubKeyAddressBoot,
+                                                          makeRedeemAddress)
+import           Pos.Core.Coin                           (coinPortionToDouble, mkCoin,
+                                                          unsafeIntegerToCoin)
+import           Pos.Core.Configuration.BlockVersionData (HasGenesisBlockVersionData,
+                                                          genesisBlockVersionData)
+import           Pos.Core.Configuration.Protocol         (HasProtocolConstants, vssMaxTTL,
+                                                          vssMinTTL)
+import qualified Pos.Core.Genesis.Constants              as Const
+import           Pos.Core.Genesis.Types                  (AddrDistribution,
+                                                          BalanceDistribution (..),
+                                                          FakeAvvmOptions (..),
+                                                          GenesisInitializer (..),
+                                                          GenesisWStakeholders (..),
+                                                          TestnetBalanceOptions (..),
+                                                          TestnetDistribution (..))
+import           Pos.Core.Types                          (BlockVersionData (bvdMpcThd))
+import           Pos.Core.Vss                            (VssCertificate,
+                                                          VssCertificatesMap,
+                                                          mkVssCertificate)
+import           Pos.Crypto                              (EncryptedSecretKey,
+                                                          RedeemPublicKey, SecretKey,
+                                                          VssKeyPair, deterministic,
+                                                          emptyPassphrase, keyGen,
+                                                          randomNumberInRange,
+                                                          redeemDeterministicKeyGen,
+                                                          safeKeyGen, toPublic,
+                                                          toVssPublicKey, vssKeyGen)
 
 -- | Data generated by @genTestnetOrMainnetData@ using genesis-spec.
 data GeneratedGenesisData = GeneratedGenesisData
@@ -58,7 +67,7 @@ data GeneratedGenesisData = GeneratedGenesisData
     }
 
 generateGenesisData
-    :: (HasProtocolConstants, HasBlockVersionData)
+    :: (HasProtocolConstants, HasGenesisBlockVersionData)
     => GenesisInitializer
     -> GeneratedGenesisData
 generateGenesisData TestnetInitializer{..} = deterministic (serialize' tiSeed) $ do
@@ -75,7 +84,7 @@ generateGenesisData MainnetInitializer{..} =
 
 -- | Generates keys and vss certs for testnet data.
 generateTestnetData
-    :: (HasProtocolConstants, HasBlockVersionData, MonadRandom m)
+    :: (HasProtocolConstants, HasGenesisBlockVersionData, MonadRandom m)
     => TestnetBalanceOptions
     -> TestnetDistribution
     -> m GeneratedGenesisData
@@ -174,7 +183,7 @@ generateSecrets mbSk = do
     pure (sk, hdwSk, vss)
 
 -- | Generates balance distribution for testnet.
-genTestnetDistribution :: HasBlockVersionData => TestnetBalanceOptions -> BalanceDistribution
+genTestnetDistribution :: HasGenesisBlockVersionData => TestnetBalanceOptions -> BalanceDistribution
 genTestnetDistribution TestnetBalanceOptions{..} =
     checkConsistency $ RichPoorBalances {..}
   where
@@ -191,7 +200,7 @@ genTestnetDistribution TestnetBalanceOptions{..} =
     onePoorBalance = if poors == 0 then 0 else poorsBalance `div` poors
     realPoorBalance = onePoorBalance * poors
 
-    mpcBalance = getShare (coinPortionToDouble mpcThd) testBalance
+    mpcBalance = getShare (coinPortionToDouble $ bvdMpcThd genesisBlockVersionData) testBalance
 
     sdRichmen = fromInteger richs
     sdRichBalance = unsafeIntegerToCoin oneRichmanBalance

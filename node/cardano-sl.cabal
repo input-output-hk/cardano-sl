@@ -269,6 +269,7 @@ library
                         Pos.Launcher.Mode
                         Pos.Launcher.Param
                         Pos.Launcher.Scenario
+                        Pos.Launcher.ConfigInfo
 
                         -- Network
                         Pos.Communication.Types
@@ -720,6 +721,7 @@ benchmark cardano-bench-criterion
                      , cardano-sl
                      , containers
                      , criterion
+                     , data-default
                      , formatting
                      , lens
                      , log-warper

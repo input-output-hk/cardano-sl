@@ -12,7 +12,7 @@ module Main
 import           Universum           hiding (over)
 
 import           Data.Maybe          (fromJust)
-import           Formatting          (sformat, shown, (%))
+import           Formatting          (build, sformat, shown, (%))
 import           Mockable            (Production, currentTime, runProduction)
 import           System.Wlog         (logInfo)
 
@@ -23,7 +23,7 @@ import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec, wor
 import           Pos.Context         (HasNodeContext)
 import           Pos.Core            (HasCoreConstants, Timestamp (..), giveStaticConsts)
 import           Pos.Launcher        (NodeParams (..), NodeResources (..),
-                                      bracketNodeResources, runNode)
+                                      applyConfigInfo, bracketNodeResources, runNode)
 import           Pos.Ssc.Class       (SscParams)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
 import           Pos.Util.UserSecret (usVss)
@@ -68,18 +68,21 @@ pluginsGT WalletArgs {..}
     | otherwise = []
 
 action :: WalletNodeArgs -> Production ()
-action (WalletNodeArgs (cArgs@CommonNodeArgs {..}) (wArgs@WalletArgs {..})) = giveStaticConsts $ do
-    systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
-    logInfo $ sformat ("System start time is " % shown) systemStart
-    t <- currentTime
-    logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-    currentParams <- getNodeParams cArgs systemStart
-    putText $ "Wallet is enabled!"
+action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) = do
+    liftIO $ applyConfigInfo configInfo
+    giveStaticConsts $ do
+        systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
+        logInfo $ sformat ("System start time is " % shown) systemStart
+        t <- currentTime
+        logInfo $ sformat ("Current time is " % shown) (Timestamp t)
+        currentParams <- getNodeParams cArgs systemStart
+        putText $ "Wallet is enabled!"
+        logInfo $ sformat ("Using configs and genesis:\n"%build) configInfo
 
-    let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-    let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
+        let vssSK = fromJust $ npUserSecret currentParams ^. usVss
+        let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-    actionWithWallet gtParams currentParams wArgs
+        actionWithWallet gtParams currentParams wArgs
 
 main :: IO ()
 main = do

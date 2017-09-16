@@ -19,13 +19,14 @@ import           Options.Applicative          (Parser, execParser, footerDoc, fu
                                                header, help, helper, info, infoOption,
                                                long, metavar, option, progDesc, short)
 import           Options.Applicative.Types    (readerAsk)
-import           Paths_cardano_sl             (version)
-import           Pos.Util                     (directory, ls, withTempDir)
 import           System.Exit                  (ExitCode (ExitFailure))
 import           System.FilePath              (normalise, takeFileName, (<.>), (</>))
 import qualified System.PosixCompat           as PosixCompat
 import           System.Process               (readProcess)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
+
+import           Paths_cardano_sl             (version)
+import           Pos.Util                     (directory, ls, withTempDir)
 
 data UpdateGenOptions = UpdateGenOptions
     { oldDir    :: !Text

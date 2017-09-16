@@ -4,6 +4,7 @@ import           Universum
 
 import           Control.Lens                (to)
 import           Control.Monad.Random.Strict (evalRandT)
+import           Data.Default                (def)
 import qualified Data.Map                    as M
 import           Formatting                  (build, sformat, (%))
 import           Mockable                    (runProduction)
@@ -20,6 +21,7 @@ import           Pos.Generator.Block         (BlockGenParams (..), genBlocks)
 import           Pos.Genesis                 (BalanceDistribution (FlatBalances),
                                               devGenesisContext, genesisContextProduction,
                                               gtcUtxo, gtcWStakeholders)
+import           Pos.Launcher                (applyConfigInfo)
 import           Pos.Txp.Toil                (GenesisUtxo (..))
 import           Pos.Util.UserSecret         (peekUserSecret, usPrimKey)
 
@@ -28,7 +30,7 @@ import           Error                       (TBlockGenError (..))
 import           Options                     (BlockGenOptions (..), getBlockGenOptions)
 
 main :: IO ()
-main = flip catch catchEx $ giveStaticConsts $ do
+main = (applyConfigInfo def >>) $ flip catch catchEx $ giveStaticConsts $ do
     BlockGenOptions{..} <- getBlockGenOptions
     seed <- maybe randomIO pure bgoSeed
     let runMode = bool "PROD" "DEV" isDevelopment

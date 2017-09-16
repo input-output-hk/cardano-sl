@@ -20,6 +20,8 @@ module Pos.Client.CLI.Options
 
        , sysStartOption
        , nodeIdOption
+
+       , configInfoParser
        ) where
 
 import           Universum
@@ -30,14 +32,15 @@ import           Serokell.Util                        (sec)
 import           Serokell.Util.OptParse               (fromParsec)
 
 import           Pos.Binary.Core                      ()
+import           Pos.Client.CLI.Util                  (sscAlgoParser)
 import           Pos.Communication                    (NodeId)
 import           Pos.Constants                        (isDevelopment, staticSysStart)
 import           Pos.Core                             (Timestamp (..))
+import           Pos.Launcher.ConfigInfo              (ConfigInfo (..))
 import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
 import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
                                                        addrParserNoWildcard,
                                                        addressToNodeId)
-import           Pos.Client.CLI.Util                   (sscAlgoParser)
 
 data CommonArgs = CommonArgs
     { logConfig     :: !(Maybe FilePath)
@@ -229,3 +232,23 @@ sysStartOption = Opt.option (Timestamp . sec <$> Opt.auto) $
     Opt.help    helpMsg
   where
     helpMsg = "System start time. Format - seconds since Unix Epoch."
+
+configInfoParser :: Opt.Parser ConfigInfo
+configInfoParser = do
+    customConfigPath <- optional $ Opt.strOption $
+        Opt.long    "custom-config-file" <>
+        Opt.metavar "FILEPATH" <>
+        Opt.help    "Path to constants.yaml"
+    customConfigName <- optional $ fmap toText $ Opt.strOption $
+        Opt.long    "custom-config-name" <>
+        Opt.metavar "KEY" <>
+        Opt.help    "Section of constants.yaml to use"
+    customGenCorePath <- optional $ Opt.strOption $
+        Opt.long    "custom-genesis-core-bin" <>
+        Opt.metavar "FILEPATH" <>
+        Opt.help    "Path to genesis-core.bin"
+    customGenGtPath <- optional $ Opt.strOption $
+        Opt.long    "custom-genesis-gt-bin" <>
+        Opt.metavar "FILEPATH" <>
+        Opt.help    "Path to genesis-godtossing.bin"
+    pure ConfigInfo{..}

@@ -17,6 +17,7 @@ module Pos.Core.Constants.Raw
 
        -- * Constants
        , isDevelopment
+       , dbSerializeVersion
        , protocolMagic
        , staticSysStartRaw
        , genesisKeysN
@@ -74,6 +75,8 @@ data CoreConfig = CoreConfig
     {
       -- | Security parameter from paper
       ccK                            :: !Int
+    , -- | Versioning for values in node's DB
+      ccDbSerializeVersion           :: Word8
     , -- | Magic constant for separating real/testnet
       ccProtocolMagic                :: !Int32
     , -- | Start time of network (in @Production@ running mode). If set to
@@ -152,7 +155,7 @@ data CoreConfig = CoreConfig
     deriving (Show, Generic)
 
 -- | Suffix for genesis.bin files
-genesisBinSuffix :: [Char]
+genesisBinSuffix :: String
 genesisBinSuffix = ccGenesisBinSuffix coreConfig
 
 coreConfig :: CoreConfig
@@ -207,6 +210,11 @@ staticSysStartRaw
                               \as a command line argument in dev mode."
     | otherwise     =
           sec $ ccProductionNetworkStartTime coreConfig
+
+-- | DB format version. When serializing items into the node's DB, the values are paired
+-- with this constant.
+dbSerializeVersion :: Word8
+dbSerializeVersion = fromIntegral . ccDbSerializeVersion $ coreConfig
 
 -- | Protocol magic constant. Is put to block serialized version to
 -- distinguish testnet and realnet (for example, possible usages are

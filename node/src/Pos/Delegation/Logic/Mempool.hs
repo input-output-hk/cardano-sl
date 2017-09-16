@@ -220,7 +220,8 @@ processProxySKHeavyInternal psk = do
         let rerevoke = isRevoke && not hasPskInDB
         coherent <- uses dwTip $ (==) dbTipHash
         dwMessageCache %= LRU.insert msg curTime
-        let exhausted = memPoolSize >= maxBlockSize
+        -- TODO: This is a rather arbitrary limit, we should revisit it (see CSL-1664)
+        let exhausted = memPoolSize >= maxBlockSize * 2
         let res = if | not consistent -> PHBroken
                      | not coherent -> PHTipMismatch
                      | not omegaCorrect -> PHInvalid "PSK epoch is different from current"

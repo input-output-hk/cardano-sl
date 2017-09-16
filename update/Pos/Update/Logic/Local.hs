@@ -147,7 +147,8 @@ processSkeleton payload =
             throwError err
         maxBlockSize <- bvdMaxBlockSize <$> DB.getAdoptedBVData
         msIntermediate <-
-            if | maxBlockSize <= mpSize msPool -> refreshMemPool ms
+            -- TODO: This is a rather arbitrary limit, we should revisit it (see CSL-1664)
+            if | maxBlockSize * 2 <= mpSize msPool -> refreshMemPool ms
                | otherwise -> pure ms
         processSkeletonDo msIntermediate
   where

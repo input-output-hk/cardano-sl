@@ -114,7 +114,7 @@ processTx
     => EpochIndex -> (TxId, TxAux) -> m TxUndo
 processTx curEpoch tx@(id, aux) = do
     whenM (hasTx id) $ throwError ToilKnown
-    whenM ((>= memPoolLimit) <$> (poolSize)) $
+    whenM ((>= memPoolLimit) <$> poolSize) $
         throwError (ToilOverwhelmed memPoolLimit)
     undo <- verifyAndApplyTx curEpoch True tx
     undo <$ putTxWithUndo id aux undo

@@ -167,14 +167,16 @@ bootDustThreshold (GenesisWStakeholders bootHolders) =
 
 -- | These options determine balances of nodes specific for testnet.
 data TestnetBalanceOptions = TestnetBalanceOptions
-    { tboPoors        :: !Word
+    { tboPoors          :: !Word
     -- ^ Number of poor nodes (with small balance).
-    , tboRichmen      :: !Word
+    , tboRichmen        :: !Word
     -- ^ Number of rich nodes (with huge balance).
-    , tboRichmenShare :: !Double
+    , tboRichmenShare   :: !Double
     -- ^ Portion of stake owned by all richmen together.
-    , tboTotalBalance :: !Word64
+    , tboTotalBalance   :: !Word64
     -- ^ Total balance owned by these nodes.
+    , tboUseHDAddresses :: !Bool
+    -- ^ Whether generate plain addresses or with hd payload.
     } deriving (Show)
 
 -- | These options determines balances of fake AVVM nodes which didn't

@@ -10,17 +10,17 @@ import           Universum
 import           Pos.Arbitrary.Core    ()
 import           Pos.Arbitrary.Infra   ()
 import qualified Pos.Core              as T
-import           Pos.Core.Context      (giveStaticConsts)
 import qualified Pos.Core.Fee          as Fee
 import           Pos.Data.Attributes   (Attributes (..))
 import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Util.Chrono       (NE, NewestFirst, OldestFirst)
 
 import           Test.Pos.CborSpec     (U)
-import           Test.Pos.Util         (binaryTest, msgLenLimitedTest)
+import           Test.Pos.Util         (binaryTest, giveInfraConf, giveCoreConf,
+                                        msgLenLimitedTest)
 
 spec :: Spec
-spec = giveStaticConsts $ describe "Types" $ do
+spec = giveInfraConf $ giveCoreConf $ describe "Types" $ do
     -- 100 is not enough to catch some bugs (e.g. there was a bug with
     -- addresses that only manifested when address's CRC started with 0x00)
     describe "Bi instances" $ do

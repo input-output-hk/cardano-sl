@@ -19,18 +19,20 @@ import           Universum
 
 import           Pos.Arbitrary.Crypto    (SharedSecrets (..))
 import           Pos.Binary              (AsBinary, Bi)
+import           Pos.Core                (HasConfiguration)
 import qualified Pos.Crypto              as Crypto
 import           Pos.Ssc.GodTossing      ()
 
 import           Test.Pos.CborSpec       (U)
-import           Test.Pos.Util           (binaryEncodeDecode, binaryTest,
-                                          msgLenLimitedTest, safeCopyEncodeDecode,
-                                          safeCopyTest, serDeserId, (.=.))
+import           Test.Pos.Util           (binaryEncodeDecode, binaryTest, giveInfraConf,
+                                          giveCoreConf, msgLenLimitedTest,
+                                          safeCopyEncodeDecode, safeCopyTest, serDeserId,
+                                          (.=.))
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 spec :: Spec
-spec = describe "Crypto" $ do
+spec = giveInfraConf $ giveCoreConf $ describe "Crypto" $ do
     describe "Random" $ do
         -- Let's protect ourselves against *accidental* random gen changes
         -- (e.g. if binary or cryptonite or some other package decide to
@@ -279,30 +281,30 @@ keyParsing pk = Crypto.parseFullPublicKey (sformat Crypto.fullPublicKeyF pk) ===
 
 signThenVerify
     :: Bi a
-    => Crypto.SignTag -> Crypto.SecretKey -> a -> Bool
+    => HasConfiguration => Crypto.SignTag -> Crypto.SecretKey -> a -> Bool
 signThenVerify t sk a = Crypto.checkSig t (Crypto.toPublic sk) a $ Crypto.sign t sk a
 
 signThenVerifyDifferentKey
     :: Bi a
-    => Crypto.SignTag -> Crypto.SecretKey -> Crypto.PublicKey -> a -> Property
+    => HasConfiguration => Crypto.SignTag -> Crypto.SecretKey -> Crypto.PublicKey -> a -> Property
 signThenVerifyDifferentKey t sk1 pk2 a =
     (Crypto.toPublic sk1 /= pk2) ==> not (Crypto.checkSig t pk2 a $ Crypto.sign t sk1 a)
 
 signThenVerifyDifferentData
     :: (Eq a, Bi a)
-    => Crypto.SignTag -> Crypto.SecretKey -> a -> a -> Property
+    => HasConfiguration => Crypto.SignTag -> Crypto.SecretKey -> a -> a -> Property
 signThenVerifyDifferentData t sk a b =
     (a /= b) ==> not (Crypto.checkSig t (Crypto.toPublic sk) b $ Crypto.sign t sk a)
 
 proxySecretKeyCheckCorrect
-    :: (Bi w) => Crypto.SecretKey -> Crypto.SecretKey -> w -> Bool
+    :: (HasConfiguration, Bi w) => Crypto.SecretKey -> Crypto.SecretKey -> w -> Bool
 proxySecretKeyCheckCorrect issuerSk delegateSk w =
     Crypto.verifyPsk proxySk
   where
     proxySk = Crypto.createPsk issuerSk (Crypto.toPublic delegateSk) w
 
 proxySecretKeyCheckIncorrect
-    :: (Bi w) => Crypto.SecretKey -> Crypto.SecretKey -> Crypto.PublicKey -> w -> Property
+    :: (HasConfiguration, Bi w) => Crypto.SecretKey -> Crypto.SecretKey -> Crypto.PublicKey -> w -> Property
 proxySecretKeyCheckIncorrect issuerSk delegateSk pk2 w = do
     let Crypto.ProxySecretKey{..} =
             Crypto.createPsk issuerSk (Crypto.toPublic delegateSk) w
@@ -310,7 +312,7 @@ proxySecretKeyCheckIncorrect issuerSk delegateSk pk2 w = do
     (Crypto.toPublic issuerSk /= pk2) ==> not (Crypto.verifyPsk wrongPsk)
 
 proxySignVerify
-    :: (Bi a, Bi w, Eq w)
+    :: (HasConfiguration, Bi a, Bi w, Eq w)
     => Crypto.SecretKey
     -> Crypto.SecretKey
     -> w
@@ -323,7 +325,7 @@ proxySignVerify issuerSk delegateSk w m =
     signature = Crypto.proxySign Crypto.SignForTestingOnly delegateSk proxySk m
 
 proxySignVerifyDifferentKey
-    :: (Bi a, Bi w, Eq w)
+    :: (HasConfiguration, Bi a, Bi w, Eq w)
     => Crypto.SecretKey -> Crypto.SecretKey -> Crypto.PublicKey -> w -> a -> Property
 proxySignVerifyDifferentKey issuerSk delegateSk pk2 w m =
     (Crypto.toPublic issuerSk /= pk2) ==>
@@ -334,7 +336,7 @@ proxySignVerifyDifferentKey issuerSk delegateSk pk2 w m =
     sigBroken = signature { Crypto.psigPsk = proxySk { Crypto.pskIssuerPk = pk2 } }
 
 proxySignVerifyDifferentData
-    :: (Bi a, Eq a, Bi w, Eq w)
+    :: (HasConfiguration, Bi a, Eq a, Bi w, Eq w)
     => Crypto.SecretKey -> Crypto.SecretKey -> w -> a -> a -> Property
 proxySignVerifyDifferentData issuerSk delegateSk w m m2 =
     (m /= m2) ==>
@@ -343,7 +345,7 @@ proxySignVerifyDifferentData issuerSk delegateSk w m m2 =
     proxySk = Crypto.createPsk issuerSk (Crypto.toPublic delegateSk) w
     signature = Crypto.proxySign Crypto.SignForTestingOnly delegateSk proxySk m
 
-redeemSignCheck :: Bi a => Crypto.RedeemSecretKey -> a -> Bool
+redeemSignCheck :: (HasConfiguration, Bi a) => Crypto.RedeemSecretKey -> a -> Bool
 redeemSignCheck redeemerSK a =
     Crypto.redeemCheckSig Crypto.SignForTestingOnly redeemerPK a $
     Crypto.redeemSign Crypto.SignForTestingOnly redeemerSK a
@@ -352,14 +354,14 @@ redeemSignCheck redeemerSK a =
 
 redeemThenCheckDifferentKey
     :: Bi a
-    => Crypto.RedeemSecretKey -> Crypto.RedeemPublicKey -> a -> Property
+    => HasConfiguration => Crypto.RedeemSecretKey -> Crypto.RedeemPublicKey -> a -> Property
 redeemThenCheckDifferentKey sk1 pk2 a =
     (Crypto.redeemToPublic sk1 /= pk2) ==>
     not (Crypto.redeemCheckSig Crypto.SignForTestingOnly pk2 a $
          Crypto.redeemSign Crypto.SignForTestingOnly sk1 a)
 
 redeemThenCheckDifferentData
-    :: (Eq a, Bi a)
+    :: (HasConfiguration, Eq a, Bi a)
     => Crypto.RedeemSecretKey -> a -> a -> Property
 redeemThenCheckDifferentData sk a b =
     (a /= b) ==>

@@ -9,10 +9,10 @@ import           Universum
 
 import qualified Pos.Ssc.GodTossing as GT
 
-import           Test.Pos.Util      (safeCopyTest)
+import           Test.Pos.Util      (giveCoreConf, safeCopyTest)
 
 spec :: Spec
-spec = describe "GodTossing" $ do
+spec = giveCoreConf $ describe "GodTossing" $ do
     describe "SafeCopy instances" $ do
         safeCopyTest @GT.Commitment
         safeCopyTest @GT.CommitmentSignature

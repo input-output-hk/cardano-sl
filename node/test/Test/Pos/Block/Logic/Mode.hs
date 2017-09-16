@@ -20,84 +20,100 @@ module Test.Pos.Block.Logic.Mode
        , BlockProperty
        , blockPropertyToProperty
        , genSuitableBalanceDistribution
+
+       , HasVarSpecConfigurations
        ) where
 
 import           Universum
 
-import           Control.Lens                   (lens, makeClassy, makeLensesWith)
-import qualified Data.Map                       as Map
+import           Control.Lens                     (lens, makeClassy, makeLensesWith)
+import qualified Data.Map                         as Map
 import qualified Data.Text.Buildable
-import           Data.Time.Units                (Microsecond, TimeUnit (..))
-import           Ether.Internal                 (HasLens (..))
-import           Formatting                     (bprint, build, formatToString, shown,
-                                                 (%))
-import           Mockable                       (Production, currentTime, runProduction)
+import           Data.Time.Units                  (Microsecond, TimeUnit (..))
+import           Ether.Internal                   (HasLens (..))
+import           Formatting                       (bprint, build, formatToString, shown,
+                                                   (%))
+import           Mockable                         (Production, currentTime, runProduction)
 import qualified Prelude
-import           System.Wlog                    (HasLoggerName (..), LoggerName)
-import           Test.QuickCheck                (Arbitrary (..), Gen, Property,
-                                                 Testable (..), choose, forAll,
-                                                 ioProperty, oneof, suchThat)
-import           Test.QuickCheck.Monadic        (PropertyM, monadic)
+import           System.Wlog                      (HasLoggerName (..), LoggerName)
+import           Test.QuickCheck                  (Arbitrary (..), Gen, Property,
+                                                   Testable (..), choose, forAll,
+                                                   ioProperty, oneof, suchThat)
+import           Test.QuickCheck.Monadic          (PropertyM, monadic)
 
-import           Pos.AllSecrets                 (AllSecrets (..), HasAllSecrets (..),
-                                                 mkInvAddrSpendingData, mkInvSecretsMap)
-import           Pos.Block.BListener            (MonadBListener (..), onApplyBlocksStub,
-                                                 onRollbackBlocksStub)
-import           Pos.Block.Core                 (Block, BlockHeader)
-import           Pos.Block.Slog                 (HasSlogGState (..), mkSlogGState)
-import           Pos.Block.Types                (Undo)
-import           Pos.Core                       (AddrSpendingData (..),
-                                                 BalanceDistribution (..),
-                                                 HasCoreConstants, IsHeader, SlotId,
-                                                 Timestamp (..), makePubKeyAddressBoot,
-                                                 mkCoin, unsafeGetCoin)
-import           Pos.Crypto                     (SecretKey, toPublic)
-import           Pos.DB                         (DBPure, MonadBlockDBGeneric (..),
-                                                 MonadBlockDBGenericWrite (..),
-                                                 MonadDB (..), MonadDBRead (..),
-                                                 MonadGState (..))
-import qualified Pos.DB                         as DB
-import qualified Pos.DB.Block                   as DB
-import           Pos.DB.DB                      (gsAdoptedBVDataDefault, initNodeDBs)
-import           Pos.DB.Pure                    (DBPureVar, newDBPureVar)
-import           Pos.Delegation                 (DelegationVar, mkDelegationVar)
-import           Pos.Generator.BlockEvent       (SnapshotId)
-import           Pos.Genesis                    (GenesisContext (..), GenesisUtxo (..),
-                                                 GenesisWStakeholders (..),
-                                                 genesisContextImplicit, gtcUtxo,
-                                                 gtcWStakeholders, safeExpBalances)
-import qualified Pos.GState                     as GS
-import           Pos.KnownPeers                 (MonadFormatPeers (..))
-import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
-import           Pos.Reporting                  (HasReportingContext (..),
-                                                 ReportingContext, emptyReportingContext)
-import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots (..),
-                                                 SimpleSlottingVar, SlottingData,
-                                                 currentTimeSlottingSimple,
-                                                 getCurrentSlotBlockingSimple,
-                                                 getCurrentSlotInaccurateSimple,
-                                                 getCurrentSlotSimple,
-                                                 mkSimpleSlottingVar)
-import           Pos.Slotting.MemState          (MonadSlotsData)
-import           Pos.Ssc.Class                  (SscBlock)
-import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
-import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState)
-import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (GenericTxpLocalData, TxpGlobalSettings,
-                                                 TxpHolderTag, mkTxpLocalData, utxoF)
-import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
-import           Pos.Util                       (Some, newInitFuture, postfixLFields)
-import           Pos.Util.LoggerName            (HasLoggerName' (..),
-                                                 getLoggerNameDefault,
-                                                 modifyLoggerNameDefault)
-import           Pos.WorkMode.Class             (TxpExtra_TMP)
+import           Pos.AllSecrets                   (AllSecrets (..), HasAllSecrets (..),
+                                                   mkInvAddrSpendingData, mkInvSecretsMap)
+import           Pos.Block.BListener              (MonadBListener (..), onApplyBlocksStub,
+                                                   onRollbackBlocksStub)
+import           Pos.Block.Core                   (Block, BlockHeader)
+import           Pos.Block.Slog                   (HasSlogGState (..), mkSlogGState)
+import           Pos.Block.Types                  (Undo)
+import           Pos.Configuration                (HasNodeConfiguration)
+import           Pos.Core                         (AddrSpendingData (..),
+                                                   BalanceDistribution (..),
+                                                   HasConfiguration, IsHeader, SlotId,
+                                                   Timestamp (..), makePubKeyAddressBoot,
+                                                   mkCoin, unsafeGetCoin)
+import           Pos.Crypto                       (SecretKey, toPublic)
+import           Pos.DB                           (DBPure, MonadBlockDBGeneric (..),
+                                                   MonadBlockDBGenericWrite (..),
+                                                   MonadDB (..), MonadDBRead (..),
+                                                   MonadGState (..))
+import qualified Pos.DB                           as DB
+import qualified Pos.DB.Block                     as DB
+import           Pos.DB.DB                        (gsAdoptedBVDataDefault, initNodeDBs)
+import           Pos.DB.Pure                      (DBPureVar, newDBPureVar)
+import           Pos.Delegation                   (DelegationVar, mkDelegationVar)
+import           Pos.Generator.BlockEvent         (SnapshotId)
+import           Pos.Genesis                      (GenesisContext (..), GenesisUtxo (..),
+                                                   GenesisWStakeholders (..),
+                                                   genesisContextImplicit, gtcUtxo,
+                                                   gtcWStakeholders, safeExpBalances)
+import qualified Pos.GState                       as GS
+import           Pos.Infra.Configuration          (HasInfraConfiguration)
+import           Pos.KnownPeers                   (MonadFormatPeers (..))
+import           Pos.Lrc                          (LrcContext (..), mkLrcSyncData)
+import           Pos.Reporting                    (HasReportingContext (..),
+                                                   ReportingContext,
+                                                   emptyReportingContext)
+import           Pos.Slotting                     (HasSlottingVar (..), MonadSlots (..),
+                                                   SimpleSlottingVar, SlottingData,
+                                                   currentTimeSlottingSimple,
+                                                   getCurrentSlotBlockingSimple,
+                                                   getCurrentSlotInaccurateSimple,
+                                                   getCurrentSlotSimple,
+                                                   mkSimpleSlottingVar)
+import           Pos.Slotting.MemState            (MonadSlotsData)
+import           Pos.Ssc.Class                    (SscBlock)
+import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
+import           Pos.Ssc.Extra                    (SscMemTag, SscState, mkSscState)
+import           Pos.Ssc.GodTossing               (SscGodTossing)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Txp                          (GenericTxpLocalData, TxpGlobalSettings,
+                                                   TxpHolderTag, mkTxpLocalData, utxoF)
+import           Pos.Update.Configuration         (HasUpdateConfiguration)
+import           Pos.Update.Context               (UpdateContext, mkUpdateContext)
+import           Pos.Util                         (Some, newInitFuture, postfixLFields)
+import           Pos.Util.LoggerName              (HasLoggerName' (..),
+                                                   getLoggerNameDefault,
+                                                   modifyLoggerNameDefault)
+import           Pos.WorkMode.Class               (TxpExtra_TMP)
 #ifdef WITH_EXPLORER
-import           Pos.Explorer                   (explorerTxpGlobalSettings)
+import           Pos.Explorer                     (explorerTxpGlobalSettings)
 #else
-import           Pos.Txp                        (txpGlobalSettings)
+import           Pos.Txp                          (txpGlobalSettings)
 #endif
 
-import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, sudoLiftIO)
+import           Test.Pos.Block.Logic.Emulation   (Emulation (..), runEmulation,
+                                                   sudoLiftIO)
+
+type HasVarSpecConfigurations =
+       ( HasNodeConfiguration
+       , HasGtConfiguration
+       , HasConfiguration
+       , HasInfraConfiguration
+       , HasUpdateConfiguration
+       )
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -160,7 +176,7 @@ genSuitableBalanceDistribution stakeholdersNum =
                                    , unsafeGetCoin maxBound)
     genFlat = FlatBalances stakeholdersNum <$> totalCoins
 
-instance Arbitrary TestParams where
+instance HasConfiguration => Arbitrary TestParams where
     arbitrary = do
         secretKeysList <-
             toList @(NonEmpty SecretKey) <$>
@@ -242,7 +258,7 @@ instance HasAllSecrets BlockTestContext where
 ----------------------------------------------------------------------------
 
 initBlockTestContext
-    :: HasCoreConstants
+    :: (HasConfiguration, HasGtConfiguration, HasNodeConfiguration)
     => TestParams
     -> (BlockTestContext -> Emulation a)
     -> Emulation a
@@ -298,7 +314,8 @@ instance HasLens BlockTestContextTag BlockTestContext BlockTestContext where
 
 type BlockTestMode = ReaderT BlockTestContext Emulation
 
-runBlockTestMode :: HasCoreConstants => TestParams -> BlockTestMode a -> IO a
+runBlockTestMode :: (HasNodeConfiguration, HasGtConfiguration, HasConfiguration)
+                 => TestParams -> BlockTestMode a -> IO a
 runBlockTestMode tp action =
     runEmulation (tp ^. tpStartTime) $
     initBlockTestContext tp (runReaderT action)
@@ -311,7 +328,8 @@ type BlockProperty = PropertyM BlockTestMode
 
 -- | Convert 'BlockProperty' to 'Property' using given generator of
 -- 'TestParams'.
-blockPropertyToProperty :: HasCoreConstants => Gen TestParams -> BlockProperty a -> Property
+blockPropertyToProperty :: (HasNodeConfiguration, HasGtConfiguration, HasConfiguration)
+                        => Gen TestParams -> BlockProperty a -> Property
 blockPropertyToProperty tpGen blockProperty =
     forAll tpGen $ \tp ->
         monadic (ioProperty . runBlockTestMode tp) blockProperty
@@ -320,7 +338,8 @@ blockPropertyToProperty tpGen blockProperty =
 -- do-notation and pass them directly to QuickCheck engine. It uses
 -- arbitrary 'TestParams'. For more fine-grained control over
 -- parameters use 'blockPropertyToProperty'.
-instance HasCoreConstants => Testable (BlockProperty a) where
+instance (HasNodeConfiguration, HasGtConfiguration, HasConfiguration)
+         => Testable (BlockProperty a) where
     property = blockPropertyToProperty arbitrary
 
 ----------------------------------------------------------------------------
@@ -346,36 +365,36 @@ instance HasSlottingVar TestInitModeContext where
     slottingTimestamp = timcSystemStart_L
     slottingVar = timcSlottingVar_L
 
-instance MonadDBRead TestInitMode where
+instance HasConfiguration => MonadDBRead TestInitMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
 
-instance MonadDB TestInitMode where
+instance HasConfiguration => MonadDB TestInitMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
 
 instance
-    (HasCoreConstants, SscHelpersClass ssc) =>
+    (HasConfiguration, SscHelpersClass ssc) =>
     MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo TestInitMode
   where
     dbGetBlock  = DB.dbGetBlockPureDefault @ssc
     dbGetUndo   = DB.dbGetUndoPureDefault @ssc
     dbGetHeader = DB.dbGetHeaderPureDefault @ssc
 
-instance (HasCoreConstants, SscHelpersClass ssc) =>
+instance (HasConfiguration, SscHelpersClass ssc) =>
          MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo TestInitMode where
     dbPutBlund = DB.dbPutBlundPureDefault
 
 instance
-    (HasCoreConstants, SscHelpersClass ssc) =>
+    (HasConfiguration, SscHelpersClass ssc) =>
     MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () TestInitMode
   where
     dbGetBlock  = DB.dbGetBlockSscPureDefault @ssc
     dbGetUndo   = DB.dbGetUndoSscPureDefault @ssc
     dbGetHeader = DB.dbGetHeaderSscPureDefault @ssc
 
-instance (HasCoreConstants, MonadSlotsData ctx TestInitMode)
+instance (HasConfiguration, MonadSlotsData ctx TestInitMode)
       => MonadSlots ctx TestInitMode
   where
     getCurrentSlot           = getCurrentSlotSimple           =<< mkSimpleSlottingVar
@@ -454,7 +473,7 @@ instance {-# OVERLAPPING #-} HasLoggerName BlockTestMode where
     getLoggerName = getLoggerNameDefault
     modifyLoggerName = modifyLoggerNameDefault
 
-instance (HasCoreConstants, MonadSlotsData ctx BlockTestMode)
+instance (HasConfiguration, MonadSlotsData ctx BlockTestMode)
       => MonadSlots ctx BlockTestMode
   where
     getCurrentSlot = do
@@ -471,33 +490,33 @@ instance (HasCoreConstants, MonadSlotsData ctx BlockTestMode)
             Just slot -> pure slot
     currentTimeSlotting = currentTimeSlottingSimple
 
-instance MonadDBRead BlockTestMode where
+instance HasConfiguration => MonadDBRead BlockTestMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
 
-instance MonadDB BlockTestMode where
+instance HasConfiguration => MonadDB BlockTestMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
 
-instance HasCoreConstants =>
+instance HasConfiguration =>
          MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode
   where
     dbGetBlock = DB.dbGetBlockPureDefault
     dbGetUndo = DB.dbGetUndoPureDefault @SscGodTossing
     dbGetHeader = DB.dbGetHeaderPureDefault @SscGodTossing
 
-instance HasCoreConstants => MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () BlockTestMode
+instance HasConfiguration => MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () BlockTestMode
   where
     dbGetBlock = DB.dbGetBlockSscPureDefault
     dbGetUndo = DB.dbGetUndoSscPureDefault @SscGodTossing
     dbGetHeader = DB.dbGetHeaderSscPureDefault @SscGodTossing
 
-instance HasCoreConstants =>
+instance HasConfiguration =>
          MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode where
     dbPutBlund = DB.dbPutBlundPureDefault
 
-instance MonadGState BlockTestMode where
+instance HasConfiguration => MonadGState BlockTestMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
 instance MonadBListener BlockTestMode where

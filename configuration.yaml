@@ -19,6 +19,7 @@ dev: &dev
               richmen:      4
               richmenShare: 0.99
               totalBalance: 100000000
+              useHDAddresses: False
             fakeAvvmBalance: 
               count: 0
               oneBalance: 0

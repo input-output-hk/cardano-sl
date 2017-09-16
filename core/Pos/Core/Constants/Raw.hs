@@ -84,11 +84,10 @@ data CoreConfig = CoreConfig
       ccProductionNetworkStartTime   :: !Int
     , -- | Number of pre-generated keys
       ccGenesisN                     :: !Int
-      -- | Size of mem pool will be limited by this value muliplied by block
-      -- size limit.
-    , ccMemPoolLimit                 :: !Int
       -- | Limint on the number of transactions that can be stored in
       -- the mem pool.
+    , ccMemPoolLimit                 :: !Int
+      -- | Suffix for genesis.bin files
     , ccGenesisBinSuffix             :: ![Char]
 
        -- Genesis block version data
@@ -227,8 +226,7 @@ protocolMagic = fromIntegral . ccProtocolMagic $ coreConfig
 genesisKeysN :: Integral i => i
 genesisKeysN = fromIntegral . ccGenesisN $ coreConfig
 
--- | Size of mem pool will be limited by this value muliplied by block
--- size limit.
+-- | Size of mem pool will be limited to this number of transactions.
 memPoolLimit :: Int
 memPoolLimit = ccMemPoolLimit coreConfig
 

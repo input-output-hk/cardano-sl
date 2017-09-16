@@ -90,8 +90,8 @@ generateTestnetData
     -> m GeneratedGenesisData
 generateTestnetData tso@TestnetBalanceOptions{..} distrSpec = do
     (richmenList, poorsList) <-
-        (,) <$> replicateM (fromIntegral tboRichmen) (generateSecretsAndAddress Nothing)
-            <*> replicateM (fromIntegral tboPoors)   (generateSecretsAndAddress Nothing)
+        (,) <$> replicateM (fromIntegral tboRichmen) (generateSecretsAndAddress Nothing tboUseHDAddresses)
+            <*> replicateM (fromIntegral tboPoors)   (generateSecretsAndAddress Nothing tboUseHDAddresses)
 
     let skVssCerts = map (\(sk, _, _, vc, _) -> (sk, vc)) $ richmenList ++ poorsList
     let richSkVssCerts = take (fromIntegral tboRichmen) skVssCerts
@@ -141,10 +141,11 @@ generateFakeAvvmGenesis FakeAvvmOptions{..} = do
 generateSecretsAndAddress
     :: (HasProtocolConstants, MonadRandom m)
     => Maybe (SecretKey, EncryptedSecretKey)  -- ^ plain key & hd wallet root key
+    -> Bool                                   -- ^ whether address contains hd payload
     -> m (SecretKey, EncryptedSecretKey, VssKeyPair, VssCertificate, Address)
     -- ^ secret key, vss key pair, vss certificate,
     -- hd wallet account address with bootstrap era distribution
-generateSecretsAndAddress mbSk = do
+generateSecretsAndAddress mbSk hasHDPayload= do
     (sk, hdwSk, vss) <- generateSecrets mbSk
 
     expiry <- fromInteger <$>
@@ -154,9 +155,11 @@ generateSecretsAndAddress mbSk = do
         -- This address is used only to create genesis data. We don't
         -- put it into a keyfile.
         hdwAccountPk =
-            fst $ fromMaybe (error "generateKeyfile: pass mismatch") $
-            deriveLvl2KeyPair (IsBootstrapEraAddr True) emptyPassphrase hdwSk
-                Const.accountGenesisIndex Const.wAddressGenesisIndex
+            if not hasHDPayload then makePubKeyAddressBoot (toPublic sk)
+            else
+                fst $ fromMaybe (error "generateKeyfile: pass mismatch") $
+                deriveLvl2KeyPair (IsBootstrapEraAddr True) emptyPassphrase hdwSk
+                    Const.accountGenesisIndex Const.wAddressGenesisIndex
     pure (sk, hdwSk, vss, vssCert, hdwAccountPk)
 
 generateFakeAvvm :: MonadRandom m => m (RedeemPublicKey, ByteString)

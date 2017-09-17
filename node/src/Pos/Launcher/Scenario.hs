@@ -12,7 +12,6 @@ module Pos.Launcher.Scenario
 import           Universum
 
 import           Data.Time.Units          (Second)
-import           Ether.Internal           (HasLens (..))
 import           Formatting               (build, int, sformat, shown, (%))
 import           Mockable                 (mapConcurrently, race)
 import           Serokell.Util.Text       (listJson)

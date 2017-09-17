@@ -2,11 +2,7 @@
 
 module Pos.Core.Genesis.Types
        ( BalanceDistribution (..)
-       , getDistributionSize
-       , getTotalBalance
-       , safeExpBalances
 
-       , AddrDistribution
        , GenesisWStakeholders (..)
        , GenesisDelegation (..)
        , noGenesisDelegation
@@ -35,88 +31,39 @@ module Pos.Core.Genesis.Types
 
 import           Universum
 
-import           Control.Lens         (at)
-import           Control.Monad.Except (MonadError (throwError))
-import qualified Data.HashMap.Strict  as HM
-import qualified Data.Text            as T
-import qualified Data.Text.Buildable  as Buildable
-import           Formatting           (bprint, (%))
-import           Serokell.Util        (allDistinct, mapJson)
+import           Control.Lens             (at)
+import           Control.Monad.Except     (MonadError (throwError))
+import qualified Data.HashMap.Strict      as HM
+import qualified Data.Text                as T
+import qualified Data.Text.Buildable      as Buildable
+import           Formatting               (bprint, (%))
+import           Serokell.Util            (allDistinct, mapJson)
 
-import           Pos.Binary.Class     (Bi)
-import           Pos.Core.Address     (addressHash, decodeTextAddress)
-import           Pos.Core.Coin        (coinToInteger, sumCoins, unsafeAddCoin,
-                                       unsafeGetCoin, unsafeIntegerToCoin)
-import           Pos.Core.Types       (Address, BlockVersionData, Coin, ProxySKHeavy,
-                                       SharedSeed, StakeholderId, Timestamp, mkCoin)
-import           Pos.Core.Vss.Types   (VssCertificatesMap)
+import           Pos.Binary.Class         (Bi)
+import           Pos.Core.Address         (addressHash, decodeTextAddress)
+import           Pos.Core.Coin            (unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Core.Types           (Address, BlockVersionData, Coin, ProxySKHeavy,
+                                           SharedSeed, StakeholderId, Timestamp)
+import           Pos.Core.Vss.Types       (VssCertificatesMap)
 import           Pos.Crypto.Signing.Types (ProxySecretKey (..), RedeemPublicKey,
                                            isSelfSignedPsk)
 
 -- | Balances distribution in genesis block.
-data BalanceDistribution
-    -- | FlatBalances is a flat distribution, i. e. each node has the
-    -- same amount of coins.
-    = FlatBalances !Word     -- ^ Number of stakeholders
-                   !Coin     -- ^ Total number of coins
+data BalanceDistribution =
     -- | Rich/poor distribution, for testnet mostly.
-    | RichPoorBalances
+    RichPoorBalances
         { sdRichmen     :: !Word
         , sdRichBalance :: !Coin
         , sdPoor        :: !Word
         , sdPoorBalance :: !Coin
         }
-    -- | First three nodes get 0.875% of balance.
-    | ExponentialBalances !Word -- ^ Numbers of participants
-                          !Coin -- ^ Minimal coin
-    -- | Custom balances list.
-    | CustomBalances [Coin]
     deriving (Show, Eq, Generic)
-
--- | Get the amount of stakeholders in a distribution.
-getDistributionSize :: BalanceDistribution -> Word
-getDistributionSize (FlatBalances n _)         = n
-getDistributionSize (RichPoorBalances a _ b _) = a + b
-getDistributionSize (ExponentialBalances n _)  = n
-getDistributionSize (CustomBalances cs)        = fromIntegral (length cs)
-
--- | Get total amount of balance in a distribution.
-getTotalBalance :: BalanceDistribution -> Coin
-getTotalBalance (FlatBalances _ st) = st
-getTotalBalance RichPoorBalances {..} = unsafeIntegerToCoin $
-    coinToInteger sdRichBalance * fromIntegral sdRichmen +
-    coinToInteger sdPoorBalance * fromIntegral sdPoor
-getTotalBalance (ExponentialBalances n (fromIntegral . unsafeGetCoin -> mc)) =
-    mkCoin $ sum $ take (fromIntegral n) $ iterate (*2) mc
-getTotalBalance (CustomBalances balances) =
-    unsafeIntegerToCoin $ sumCoins balances
-
--- | Generates exponential balances that will be valid in boot era prior
--- to number of participants.
---
--- Exponential balances have the form @map (*b) [2^0, 2^1, 2^2, ...]@,
--- where @b@ is the last argument of @ExponentialBalances@. It means
--- that when distribution balances are created, @b@ is their common
--- divisor, so weights are @[2^0, 2^1, ..]@. We also require that no
--- genesis balance is lower than sum of weights. So if balances list has
--- length @k@ we have weights sum @2^{k+1}-1@. That's why the lowest
--- coin is taken to be @2^{k+1}@.
-safeExpBalances :: (Integral a) => a -> BalanceDistribution
-safeExpBalances n =
-    -- This function should be used on start only so if this
-    -- `unsafeIntegerToCoin` fails it means we've misconfigured
-    -- something and it's easy to find/fix.
-    ExponentialBalances (fromIntegral n) (unsafeIntegerToCoin $ (2::Integer) ^ n)
-
--- | Distributions accompained by related addresses set (what to
--- distribute and how).
-type AddrDistribution = ([Address], BalanceDistribution)
 
 -- | Wrapper around weighted stakeholders map to be used in genesis
 -- core data.
 newtype GenesisWStakeholders = GenesisWStakeholders
     { getGenesisWStakeholders :: Map StakeholderId Word16
-    } deriving (Show, Eq)
+    } deriving (Show, Eq, Monoid)
 
 instance Buildable GenesisWStakeholders where
     build (GenesisWStakeholders m) =
@@ -132,7 +79,7 @@ instance Buildable GenesisWStakeholders where
 --    It's not needed in genesis, it can always be reduced.
 newtype GenesisDelegation = UnsafeGenesisDelegation
     { unGenesisDelegation :: HashMap StakeholderId ProxySKHeavy
-    } deriving (Show, Eq)
+    } deriving (Show, Eq, Monoid)
 
 -- | Empty 'GenesisDelegation'.
 noGenesisDelegation :: GenesisDelegation
@@ -178,8 +125,6 @@ data TestnetBalanceOptions = TestnetBalanceOptions
     -- ^ Number of rich nodes (with huge balance).
     , tboRichmenShare   :: !Double
     -- ^ Portion of stake owned by all richmen together.
-    , tboTotalBalance   :: !Word64
-    -- ^ Total balance owned by these nodes.
     , tboUseHDAddresses :: !Bool
     -- ^ Whether generate plain addresses or with hd payload.
     } deriving (Show)
@@ -236,7 +181,7 @@ data AvvmData = AvvmData
 -- | Predefined balances of avvm entries.
 newtype GenesisAvvmBalances = GenesisAvvmBalances
     { getGenesisAvvmBalances :: HashMap RedeemPublicKey Coin
-    } deriving (Show, Eq)
+    } deriving (Show, Eq, Monoid)
 
 -- | Generate genesis address distribution out of avvm
 -- parameters. Txdistr of the utxo is all empty. Redelegate it in
@@ -257,6 +202,8 @@ convertAvvmDataToBalances AvvmData{..} = GenesisAvvmBalances balances
 newtype GenesisNonAvvmBalances = GenesisNonAvvmBalances
     { getGenesisNonAvvmBalances :: HashMap Address Coin
     } deriving (Show, Eq)
+
+deriving instance Bi Address => Monoid GenesisNonAvvmBalances
 
 -- | Generate genesis address distribution out of avvm
 -- parameters. Txdistr of the utxo is all empty. Redelegate it in

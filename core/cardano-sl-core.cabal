@@ -45,13 +45,10 @@ library
                        Pos.Core.Configuration
                        Pos.Core.Configuration.BlockVersionData
                        Pos.Core.Configuration.Core
-                       Pos.Core.Configuration.GeneratedGenesisData
-                       Pos.Core.Configuration.GenesisAvvmBalances
-                       Pos.Core.Configuration.GenesisDelegation
+                       Pos.Core.Configuration.GeneratedSecrets
+                       Pos.Core.Configuration.GenesisData
                        Pos.Core.Configuration.GenesisHash
                        Pos.Core.Configuration.Protocol
-                       Pos.Core.Configuration.SharedSeed
-                       Pos.Core.Configuration.SystemStart
                        Pos.Core.Constants
                        Pos.Core.Coin
                        Pos.Core.Context

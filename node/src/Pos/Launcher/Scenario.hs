@@ -11,39 +11,38 @@ module Pos.Launcher.Scenario
 
 import           Universum
 
-import           Data.Time.Units       (Second)
-import           Ether.Internal        (HasLens (..))
-import           Formatting            (build, int, sformat, shown, (%))
-import           Mockable              (mapConcurrently, race)
-import           Serokell.Util.Text    (listJson)
-import           System.Exit           (ExitCode (..))
-import           System.Wlog           (WithLogger, getLoggerName, logInfo, logWarning)
+import           Data.Time.Units          (Second)
+import           Ether.Internal           (HasLens (..))
+import           Formatting               (build, int, sformat, shown, (%))
+import           Mockable                 (mapConcurrently, race)
+import           Serokell.Util.Text       (listJson)
+import           System.Exit              (ExitCode (..))
+import           System.Wlog              (WithLogger, getLoggerName, logInfo, logWarning)
 
-import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec,
-                                        wrapActionSpec)
-import           Pos.Context           (getOurPublicKey, ncNetworkConfig)
-import           Pos.Core              (addressHash)
-import qualified Pos.DB.DB             as DB
-import           Pos.DHT.Real          (KademliaDHTInstance (..),
-                                        kademliaJoinNetworkNoThrow,
-                                        kademliaJoinNetworkRetry)
-import           Pos.Genesis           (GenesisWStakeholders (..), bootDustThreshold)
-import qualified Pos.GState            as GS
-import           Pos.Launcher.Resource (NodeResources (..))
-import           Pos.Lrc.DB            as LrcDB
-import           Pos.Network.Types     (NetworkConfig (..), topologyRunKademlia)
-import           Pos.Reporting         (reportError)
-import           Pos.Shutdown          (waitForShutdown)
-import           Pos.Slotting          (waitSystemStart)
-import           Pos.Ssc.Class         (SscConstraint)
-import           Pos.Update.Configuration (HasUpdateConfiguration,
-                                           curSoftwareVersion,
-                                           lastKnownBlockVersion,
-                                           ourSystemTag)
-import           Pos.Util              (inAssertMode)
-import           Pos.Util.LogSafe      (logInfoS)
-import           Pos.Worker            (allWorkers)
-import           Pos.WorkMode.Class    (WorkMode)
+import           Pos.Communication        (ActionSpec (..), OutSpecs, WorkerSpec,
+                                           wrapActionSpec)
+import           Pos.Context              (getOurPublicKey, ncNetworkConfig)
+import           Pos.Core                 (GenesisData (gdBootStakeholders),
+                                           GenesisWStakeholders (..), addressHash,
+                                           bootDustThreshold, genesisData)
+import qualified Pos.DB.DB                as DB
+import           Pos.DHT.Real             (KademliaDHTInstance (..),
+                                           kademliaJoinNetworkNoThrow,
+                                           kademliaJoinNetworkRetry)
+import qualified Pos.GState               as GS
+import           Pos.Launcher.Resource    (NodeResources (..))
+import           Pos.Lrc.DB               as LrcDB
+import           Pos.Network.Types        (NetworkConfig (..), topologyRunKademlia)
+import           Pos.Reporting            (reportError)
+import           Pos.Shutdown             (waitForShutdown)
+import           Pos.Slotting             (waitSystemStart)
+import           Pos.Ssc.Class            (SscConstraint)
+import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
+                                           lastKnownBlockVersion, ourSystemTag)
+import           Pos.Util                 (inAssertMode)
+import           Pos.Util.LogSafe         (logInfoS)
+import           Pos.Worker               (allWorkers)
+import           Pos.WorkMode.Class       (WorkMode)
 
 #define QUOTED(x) "/**/x/**/"
 
@@ -87,7 +86,7 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
         Just (kInst, False) -> kademliaJoinNetworkNoThrow kInst (kdiInitialPeers kInst)
         Nothing             -> return ()
 
-    genesisStakeholders <- view (lensOf @GenesisWStakeholders)
+    let genesisStakeholders = gdBootStakeholders genesisData
     logInfo $ sformat ("Dust threshold: "%build)
         (bootDustThreshold genesisStakeholders)
     logInfo $ sformat ("Genesis stakeholders: " %int)

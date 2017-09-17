@@ -30,10 +30,9 @@ import           Universum
 import qualified Data.HashMap.Strict         as HM
 
 import           Pos.Binary.Core             ()
-import           Pos.Context                 (GenesisUtxo, genesisStakesM)
+import           Pos.Context                 (genesisStakes)
 import           Pos.Core                    (BlockVersionData (bvdHeavyDelThd), Coin,
-                                              EpochIndex, GenesisWStakeholders,
-                                              HasConfiguration, StakeholderId,
+                                              EpochIndex, HasConfiguration, StakeholderId,
                                               genesisBlockVersionData)
 import           Pos.DB.Class                (MonadDB, MonadDBRead)
 import           Pos.Lrc.Class               (RichmenComponent (..),
@@ -44,21 +43,19 @@ import           Pos.Lrc.Logic               (RichmenType (..), findRichmenPure)
 import           Pos.Lrc.Types               (FullRichmenData, RichmenSet)
 import           Pos.Ssc.RichmenComponent    (RCSsc, getRichmenSsc)
 import           Pos.Update.RichmenComponent (RCUs, getRichmenUS)
-import           Pos.Util.Util               (HasLens', getKeys)
+import           Pos.Util.Util               (getKeys)
 
 ----------------------------------------------------------------------------
 -- Initialization
 ----------------------------------------------------------------------------
 
 prepareLrcRichmen ::
-       ( MonadReader ctx m
-       , HasLens' ctx GenesisUtxo
-       , HasLens' ctx GenesisWStakeholders
+       ( HasConfiguration
        , MonadDB m
        )
     => m ()
 prepareLrcRichmen = do
-    genesisDistribution <- HM.toList <$> genesisStakesM
+    let genesisDistribution = HM.toList genesisStakes
     mapM_ (prepareLrcRichmenDo genesisDistribution) richmenComponents
   where
     prepareLrcRichmenDo distr (SomeRichmenComponent proxy) =

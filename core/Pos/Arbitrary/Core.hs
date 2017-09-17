@@ -39,7 +39,7 @@ import           Pos.Binary.Core                   ()
 import           Pos.Binary.Crypto                 ()
 import           Pos.Core.Address                  (makeAddress)
 import           Pos.Core.Coin                     (coinToInteger, divCoin, unsafeSubCoin)
-import           Pos.Core.Configuration.Protocol (HasProtocolConstants, epochSlots)
+import           Pos.Core.Configuration.Protocol   (HasProtocolConstants, epochSlots)
 import           Pos.Core.Constants                (sharedSeedLength)
 import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
@@ -506,18 +506,18 @@ instance HasProtocolConstants => Arbitrary G.GenesisDelegation where
                         issuers <&> \sk -> createPsk sk (toPublic delegate) 0
 
 instance Arbitrary G.BalanceDistribution where
-    arbitrary = oneof
-      [ do stakeholders <- choose (1, 10000)
-           coins <- Types.mkCoin <$> choose (stakeholders, 20*1000*1000*1000)
-           return (G.FlatBalances (fromIntegral stakeholders) coins)
-      , do sdRichmen <- choose (0, 20)
+    arbitrary = do
+           sdRichmen <- choose (0, 20)
            sdRichBalance <- Types.mkCoin <$> choose (100000, 5000000)
            sdPoor <- choose (0, 20)
            sdPoorBalance <- Types.mkCoin <$> choose (1000, 50000)
            return G.RichPoorBalances{..}
-      , G.safeExpBalances <$> choose (0::Integer, 20)
-      , G.CustomBalances <$> arbitrary
-      ]
+      --[ do stakeholders <- choose (1, 10000)
+      --     coins <- Types.mkCoin <$> choose (stakeholders, 20*1000*1000*1000)
+      --     return (G.FlatBalances (fromIntegral stakeholders) coins)
+      -- , G.safeExpBalances <$> choose (0::Integer, 20)
+      -- , G.CustomBalances <$> arbitrary
+      -- ]
     shrink = genericShrink
 
 instance Arbitrary G.GenesisWStakeholders where

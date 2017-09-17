@@ -15,31 +15,30 @@ import           Formatting          (sformat, (%))
 import           Serokell.Util.Text  (listJson)
 import           System.Wlog         (WithLogger, logDebug)
 
-import           Pos.Core            (GenesisWStakeholders, StakesList, coinToInteger,
-                                      mkCoin, sumCoins, unsafeIntegerToCoin)
+import           Pos.Core            (GenesisWStakeholders (..), HasGenesisData,
+                                      StakesList, coinToInteger, gdBootStakeholders,
+                                      genesisData, mkCoin, sumCoins, unsafeIntegerToCoin)
 import           Pos.Txp.Core        (Tx (..), TxAux (..), TxOutAux (..), TxUndo,
                                       txOutStake)
 import           Pos.Txp.Toil.Class  (MonadStakes (..), MonadStakesRead (..))
-import           Pos.Util.Util       (HasLens', lensOf')
 
-type StakesMode ctx m
+type StakesMode m
      = ( MonadStakes m
        , WithLogger m
-       , MonadReader ctx m
-       , HasLens' ctx GenesisWStakeholders
+       , HasGenesisData
        )
 
 -- | Apply transactions to stakes.
-applyTxsToStakes :: StakesMode ctx m => [(TxAux, TxUndo)] -> m ()
+applyTxsToStakes :: StakesMode m => [(TxAux, TxUndo)] -> m ()
 applyTxsToStakes txun = do
-    gws <- view lensOf'
+    let gws = gdBootStakeholders genesisData
     let (txOutPlus, txInMinus) = concatStakes gws txun
     recomputeStakes txOutPlus txInMinus
 
 -- | Rollback application of transactions to stakes.
-rollbackTxsStakes :: StakesMode ctx m => [(TxAux, TxUndo)] -> m ()
+rollbackTxsStakes :: StakesMode m => [(TxAux, TxUndo)] -> m ()
 rollbackTxsStakes txun = do
-    gws <- view lensOf'
+    let gws = gdBootStakeholders genesisData
     let (txOutMinus, txInPlus) = concatStakes gws txun
     recomputeStakes txInPlus txOutMinus
 
@@ -49,7 +48,7 @@ rollbackTxsStakes txun = do
 
 -- Compute new stakeholder's stakes by lists of spent and received coins.
 recomputeStakes
-    :: StakesMode ctx m
+    :: StakesMode m
     => StakesList
     -> StakesList
     -> m ()

@@ -6,57 +6,44 @@ module Pos.Core.Configuration
        , withCoreConfigurations
        , withGenesisSpec
 
-       , module Pos.Core.Configuration.BlockVersionData
-       , module Pos.Core.Configuration.Core
-       , module Pos.Core.Configuration.GeneratedGenesisData
-       , module Pos.Core.Configuration.GenesisAvvmBalances
-       , module Pos.Core.Configuration.GenesisDelegation
-       , module Pos.Core.Configuration.GenesisHash
-       , module Pos.Core.Configuration.Protocol
-       , module Pos.Core.Configuration.SharedSeed
-       , module Pos.Core.Configuration.SystemStart
+       , module E
        ) where
 
 import           Universum
 
-import qualified Crypto.Hash                                 as Hash
-import qualified Data.ByteString                             as BS
-import qualified Data.ByteString.Lazy                        as BSL
-import           Formatting                                  (sformat, shown, (%))
-import           System.Wlog                                 (WithLogger, logInfo)
-import qualified Text.JSON.Canonical                         as Canonical
+import qualified Crypto.Hash                             as Hash
+import qualified Data.ByteString                         as BS
+import qualified Data.ByteString.Lazy                    as BSL
+import           Formatting                              (sformat, shown, (%))
+import           System.Wlog                             (WithLogger, logInfo)
+import qualified Text.JSON.Canonical                     as Canonical
 
-import           Pos.Core.Configuration.BlockVersionData
-import           Pos.Core.Configuration.Core
-import           Pos.Core.Configuration.GeneratedGenesisData
-import           Pos.Core.Configuration.GenesisAvvmBalances
-import           Pos.Core.Configuration.GenesisDelegation
-import           Pos.Core.Configuration.GenesisHash
-import           Pos.Core.Configuration.Protocol
-import           Pos.Core.Configuration.SharedSeed
-import           Pos.Core.Configuration.SystemStart
-import           Pos.Core.Constants                          (genesisDataDigest)
-import           Pos.Core.Genesis.Canonical                  ()
-import           Pos.Core.Genesis.Generate                   (GeneratedGenesisData (..),
-                                                              generateGenesisData)
-import           Pos.Core.Genesis.Types                      (GenesisData (..),
-                                                              GenesisInitializer (..),
-                                                              GenesisSpec (..))
-import           Pos.Core.Types                              (Timestamp)
-import           Pos.Crypto.Hashing                          (AbstractHash (..),
-                                                              unsafeHash)
+import           Pos.Core.Coin                           (coinToInteger)
+import           Pos.Core.Configuration.BlockVersionData as E
+import           Pos.Core.Configuration.Core             as E
+import           Pos.Core.Configuration.GeneratedSecrets as E
+import           Pos.Core.Configuration.GenesisData      as E
+import           Pos.Core.Configuration.GenesisHash      as E
+import           Pos.Core.Configuration.Protocol         as E
+import           Pos.Core.Constants                      (genesisDataDigest)
+import           Pos.Core.Genesis.Canonical              ()
+import           Pos.Core.Genesis.Generate               (GeneratedGenesisData (..),
+                                                          generateGenesisData)
+import           Pos.Core.Genesis.Types                  (GenesisData (..),
+                                                          GenesisInitializer (..),
+                                                          GenesisSpec (..),
+                                                          getGenesisAvvmBalances)
+import           Pos.Core.Types                          (Coin, Timestamp)
+import           Pos.Crypto.Hashing                      (AbstractHash (..), unsafeHash)
 
 -- | Coarse catch-all configuration constraint for use by depending modules.
 type HasConfiguration =
     ( HasCoreConfiguration
-    , HasProtocolConstants
-    , HasGenesisBlockVersionData
+    , HasGenesisData
     , HasGenesisHash
-    , HasSharedSeed
-    , HasSystemStart
-    , HasGeneratedGenesisData
-    , HasGenesisDelegation
-    , HasGenesisAvvmBalances
+    , HasGeneratedSecrets
+    , HasGenesisBlockVersionData
+    , HasProtocolConstants
     )
 
 -- | Come up with a HasConfiguration constraint using a Configuration.
@@ -101,27 +88,16 @@ withCoreConfigurations conf@CoreConfiguration{..} mSystemStart act = case ccGene
             Left str -> throwM $ GenesisDataParseFailure (fromString str)
             Right it -> return it
 
-        gdata <- case Canonical.fromJSON gdataJSON of
+        theGenesisData <- case Canonical.fromJSON gdataJSON of
             Left str -> throwM $ GenesisDataParseFailure (fromString str)
             Right it -> return it
 
-        let theProtocolConstants = gdProtocolConsts gdata
-            theBlockVersionData = gdBlockVersionData gdata
-            theSharedSeed = gdFtsSeed gdata
-            theGenesisAvvmBalances = gdAvvmDistr gdata
-            theGenesisDelegation = gdHeavyDelegation gdata
-            theSystemStart = gdStartTime gdata
-            theGeneratedGData = GeneratedGenesisData [] (gdBootStakeholders gdata) (gdVssCerts gdata) Nothing Nothing
-
         withCoreConfiguration conf $
-          withProtocolConstants theProtocolConstants $
-          withGenesisBlockVersionData theBlockVersionData $
-          withGenesisAvvmBalances theGenesisAvvmBalances $
-          withGenesisDelegation theGenesisDelegation $
+          withProtocolConstants (gdProtocolConsts theGenesisData) $
+          withGenesisBlockVersionData (gdBlockVersionData theGenesisData) $
+          withGenesisData theGenesisData $
           withGenesisHash theGenesisHash $
-          withSharedSeed theSharedSeed $
-          withSystemStart theSystemStart $
-          withGeneratedGenesisData theGeneratedGData $
+          withGeneratedSecrets Nothing $
           act
 
     -- If a 'GenesisSpec' is given, we ensure we have a start time (needed if
@@ -150,28 +126,30 @@ withGenesisSpec
 withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis of
     GCSrc _ -> error "withGenesisSpec called with GCSrc"
     GCSpec spec ->
-        -- We can immediately get everything we need except for the generated
-        -- genesis data. To get that we need the protocol constants and block
-        -- version data
-        let theProtocolConstants = gsProtocolConstants spec
-            theBlockVersionData = gsBlockVersionData spec
-            theSharedSeed = gsFtsSeed spec
-            theGenesisAvvmBalances = gsAvvmDistr spec
-            theGenesisDelegation = gsHeavyDelegation spec
-            -- Anything will do for the genesis hash. A hash of "patak" was used
-            -- before, and so it remains.
-            theGenesisHash = unsafeHash @Text "patak"
-         in withCoreConfiguration conf $
-                withProtocolConstants theProtocolConstants $
-                withGenesisBlockVersionData theBlockVersionData $
-                withGenesisAvvmBalances theGenesisAvvmBalances $
-                withGenesisDelegation theGenesisDelegation $
-                withGenesisHash theGenesisHash $
-                withSharedSeed theSharedSeed $
-                withSystemStart theSystemStart $
-                    let theGeneratedGData = generateGenesisData (gsInitializer spec)
-                     in withGeneratedGenesisData theGeneratedGData val
-
+        withProtocolConstants (gsProtocolConstants spec) $
+        withGenesisBlockVersionData (gsBlockVersionData spec) $
+            let avvmSum = foldr' ((+) . coinToInteger) 0 $ getGenesisAvvmBalances $ gsAvvmDistr spec
+                tnBalance = fromIntegral $! coinToInteger (maxBound @Coin) - avvmSum
+                GeneratedGenesisData {..} = generateGenesisData (gsInitializer spec) tnBalance
+                theGenesisData =
+                   GenesisData
+                      { gdBootStakeholders = ggdBootStakeholders
+                      , gdHeavyDelegation  = gsHeavyDelegation spec
+                      , gdStartTime        = theSystemStart
+                      , gdVssCerts         = ggdVssCerts
+                      , gdNonAvvmBalances  = ggdNonAvvm
+                      , gdBlockVersionData = genesisBlockVersionData
+                      , gdProtocolConsts   = protocolConstants
+                      , gdAvvmDistr        = ggdAvvm <> gsAvvmDistr spec
+                      , gdFtsSeed          = gsFtsSeed spec
+                      }
+                -- Anything will do for the genesis hash. A hash of "patak" was used
+                -- before, and so it remains.
+                theGenesisHash = unsafeHash @Text "patak"
+             in withCoreConfiguration conf $
+                  withGenesisHash theGenesisHash $
+                  withGeneratedSecrets ggdSecrets $
+                  withGenesisData theGenesisData val
 
 data ConfigurationError =
       -- | A system start time must be given when a testnet genesis is used.

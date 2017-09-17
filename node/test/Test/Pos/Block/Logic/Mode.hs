@@ -36,22 +36,19 @@ import           Mockable                         (Production, currentTime, runP
 import qualified Prelude
 import           System.Wlog                      (HasLoggerName (..), LoggerName)
 import           Test.QuickCheck                  (Arbitrary (..), Gen, Property,
-                                                   Testable (..), forAll, ioProperty,
-                                                   suchThat)
+                                                   Testable (..), forAll, ioProperty)
 import           Test.QuickCheck.Monadic          (PropertyM, monadic)
 
 import           Pos.AllSecrets                   (AllSecrets (..), HasAllSecrets (..),
-                                                   mkInvAddrSpendingData, mkInvSecretsMap)
+                                                   mkAllSecretsSimple)
 import           Pos.Block.BListener              (MonadBListener (..), onApplyBlocksStub,
                                                    onRollbackBlocksStub)
 import           Pos.Block.Core                   (Block, BlockHeader)
 import           Pos.Block.Slog                   (HasSlogGState (..), mkSlogGState)
 import           Pos.Block.Types                  (Undo)
 import           Pos.Configuration                (HasNodeConfiguration)
-import           Pos.Core                         (AddrSpendingData (..),
-                                                   HasConfiguration, IsHeader, SlotId,
-                                                   Timestamp (..), makePubKeyAddressBoot)
-import           Pos.Crypto                       (SecretKey, toPublic)
+import           Pos.Core                         (HasConfiguration, IsHeader, SlotId,
+                                                   Timestamp (..), genesisSecretKeys)
 import           Pos.DB                           (DBPure, MonadBlockDBGeneric (..),
                                                    MonadBlockDBGenericWrite (..),
                                                    MonadDB (..), MonadDBRead (..),
@@ -146,18 +143,11 @@ instance Show TestParams where
 
 instance HasConfiguration => Arbitrary TestParams where
     arbitrary = do
-        secretKeysList <-
-            toList @(NonEmpty SecretKey) <$>
-             -- might have repetitions
-            (arbitrary `suchThat` (\l -> length l < 15 && length l > 2))
-        let invSecretsMap = mkInvSecretsMap secretKeysList
-        let publicKeys = map toPublic (toList invSecretsMap)
-        let addresses = map makePubKeyAddressBoot publicKeys
-        let invAddrSpendingData =
-                mkInvAddrSpendingData $
-                addresses `zip` (map PubKeyASD publicKeys)
-        let _tpAllSecrets = AllSecrets invSecretsMap invAddrSpendingData
-        let _tpStartTime = fromMicroseconds 0
+        keys <- case genesisSecretKeys of
+            Nothing -> error "arbitrary @TestParams: no genesisSecretKeys"
+            Just ks -> pure ks
+        let _tpAllSecrets = mkAllSecretsSimple keys
+            _tpStartTime  = fromMicroseconds 0
         return TestParams {..}
 
 ----------------------------------------------------------------------------

@@ -1,6 +1,10 @@
 # Stack
 .stack-work/
 
+# Artifacts
+*.hp
+*.prof
+
 # From daedalus-bridge
 node_modules/*
 

@@ -5,7 +5,6 @@ module KeygenOptions
        ( KeygenOptions (..)
        , KeygenCommand (..)
        , DumpAvvmSeedsOptions (..)
-       , GenesisGenOptions (..)
        , AvvmBalanceOptions (..)
        , TestnetBalanceOptions (..)
        , FakeAvvmOptions (..)
@@ -22,7 +21,6 @@ import           Options.Applicative    (Parser, auto, command, execParser, full
                                          subparser, value)
 
 import           Pos.Client.CLI         (configurationOptionsParser)
-import           Pos.Core               (StakeholderId)
 import           Pos.Core.Genesis.Types (FakeAvvmOptions (..), TestnetBalanceOptions (..))
 import           Pos.Launcher           (ConfigurationOptions)
 
@@ -46,22 +44,6 @@ data DumpAvvmSeedsOptions = DumpAvvmSeedsOptions
       -- ^ Number of seeds to generate.
     , dasPath   :: FilePath
       -- ^ Path to directory to generate seeds in.
-    } deriving (Show)
-
-data GenesisGenOptions = GenesisGenOptions
-    { ggoGenesisDir       :: FilePath
-      -- ^ Output directory everything will be put into
-    , ggoTestBalance      :: Maybe TestnetBalanceOptions
-    , ggoAvvmBalance      :: Maybe AvvmBalanceOptions
-    , ggoFakeAvvmBalance  :: Maybe FakeAvvmOptions
-    , ggoBootStakeholders :: [(StakeholderId, Word16)]
-      -- ^ Explicit bootstrap era stakeholders, list of addresses with
-      -- weights (@[(A, 5), (B, 2), (C, 3)]@). Setting this
-      -- overrides default settings for boot stakeholders (e.g. rich
-      -- in testnet stakes).
-    , ggoSeed             :: Maybe Integer
-      -- ^ Seed to use (when no seed is provided, a secure random generator
-      -- is used)
     } deriving (Show)
 
 data GenKeysOptions = GenKeysOptions

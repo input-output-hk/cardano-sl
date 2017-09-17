@@ -18,7 +18,7 @@ import           Pos.Binary          ()
 import           Pos.Client.CLI      (configurationOptions)
 import           Pos.Communication   (OutSpecs, WorkerSpec)
 import           Pos.Constants       (isDevelopment)
-import           Pos.Core            (systemStart)
+import           Pos.Core            (gdStartTime, genesisData)
 import           Pos.Explorer        (runExplorerBListener)
 import           Pos.Explorer.Socket (NotifierSettings (..))
 import           Pos.Explorer.Web    (ExplorerProd, explorerPlugin, notifierPlugin)
@@ -54,7 +54,7 @@ main = do
 
 action :: Args -> Production ()
 action args@Args {..} = withConfigurations conf $ do
-    logInfo $ sformat ("System start time is " % shown) systemStart
+    logInfo $ sformat ("System start time is " % shown) $ gdStartTime genesisData
     t <- currentTime
     logInfo $ sformat ("Current time is " % shown) (Timestamp t)
     nodeParams <- getNodeParams args

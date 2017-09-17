@@ -14,7 +14,6 @@ import           Universum
 
 import           Control.Lens             (views)
 import           Data.Time.Units          (Second)
-import           Ether.Internal           (HasLens (..))
 import           Formatting               (build, int, sformat, shown, (%))
 import           Mockable                 (fork)
 import           Serokell.Util.Text       (listJson)

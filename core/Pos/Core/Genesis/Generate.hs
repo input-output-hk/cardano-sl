@@ -58,7 +58,7 @@ data GeneratedGenesisData = GeneratedGenesisData
     -- ^ Avvm balances
     , ggdBootStakeholders :: !GenesisWStakeholders
     -- ^ Set of boot stakeholders (richmen addresses or custom addresses)
-    , ggdVssCerts           :: !VssCertificatesMap
+    , ggdVssCerts         :: !VssCertificatesMap
     -- ^ Genesis vss data (vss certs of richmen)
     , ggdSecrets          :: !(Maybe GeneratedSecrets)
     }
@@ -70,14 +70,12 @@ data GeneratedSecrets = GeneratedSecrets
     -- ^ Fake avvm seeds (needed only for testnet)
     }
 
-        -- testnetBalance = coinToInteger (maxBound @Coin) - fromIntegral fakeAvvmBalance -- CSL-1617 subtract avvm
-
 generateGenesisData
     :: (HasProtocolConstants, HasGenesisBlockVersionData)
     => GenesisInitializer
     -> Word64
     -> GeneratedGenesisData
-generateGenesisData (TestnetInitializer{..}) tnBalance = deterministic (serialize' tiSeed) $ do
+generateGenesisData (TestnetInitializer{..}) maxTnBalance = deterministic (serialize' tiSeed) $ do
     let TestnetBalanceOptions{..} = tiTestBalance
     (fakeAvvmDistr, seeds, fakeAvvmBalance) <- generateFakeAvvmGenesis tiFakeAvvmBalance
     (richmenList, poorsList) <-
@@ -89,6 +87,8 @@ generateGenesisData (TestnetInitializer{..}) tnBalance = deterministic (serializ
         secretKeys = map (\(sk, hdwSk, vssSk, _, _) -> (sk, hdwSk, vssSk)) $ richmenList ++ poorsList
 
         safeZip a b = if length a /= length b then error "lists differ in size" else zip a b
+
+        tnBalance = min maxTnBalance tboTotalBalance
 
         (richBs, poorBs) = genTestnetDistribution tiTestBalance (fromIntegral $ tnBalance - fakeAvvmBalance)
         -- ^ Rich and poor balances

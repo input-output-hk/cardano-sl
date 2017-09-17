@@ -129,8 +129,8 @@ withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis o
         withProtocolConstants (gsProtocolConstants spec) $
         withGenesisBlockVersionData (gsBlockVersionData spec) $
             let avvmSum = foldr' ((+) . coinToInteger) 0 $ getGenesisAvvmBalances $ gsAvvmDistr spec
-                tnBalance = fromIntegral $! coinToInteger (maxBound @Coin) - avvmSum
-                GeneratedGenesisData {..} = generateGenesisData (gsInitializer spec) tnBalance
+                maxTnBalance = fromIntegral $! coinToInteger (maxBound @Coin) - avvmSum
+                GeneratedGenesisData {..} = generateGenesisData (gsInitializer spec) maxTnBalance
                 theGenesisData =
                    GenesisData
                       { gdBootStakeholders = ggdBootStakeholders

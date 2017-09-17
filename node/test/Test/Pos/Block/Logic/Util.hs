@@ -22,11 +22,11 @@ import           Test.QuickCheck.Monadic     (pick)
 import           Pos.AllSecrets              (AllSecrets)
 import           Pos.Block.Core              (Block)
 import           Pos.Block.Types             (Blund)
-import           Pos.Core                    (BlockCount, HasConfiguration, SlotId (..),
-                                              epochIndexL)
+import           Pos.Core                    (BlockCount, GenesisData (..),
+                                              HasConfiguration, SlotId (..), epochIndexL,
+                                              genesisData)
 import           Pos.Generator.Block         (BlockGenParams (..), genBlocks,
                                               tgpTxCountRange)
-import           Pos.Genesis                 (GenesisWStakeholders)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Util.Chrono             (NE, OldestFirst (..))
 import           Pos.Util.Util               (HasLens (..), _neLast)
@@ -54,7 +54,7 @@ bpGenBlocks
     -> BlockProperty (OldestFirst [] (Blund SscGodTossing))
 bpGenBlocks blkCnt (EnableTxPayload enableTxPayload) (InplaceDB inplaceDB) = do
     allSecrets <- getAllSecrets
-    genStakeholders <- view (lensOf @GenesisWStakeholders)
+    let genStakeholders = gdBootStakeholders genesisData
     let genBlockGenParams s =
             pure
                 BlockGenParams

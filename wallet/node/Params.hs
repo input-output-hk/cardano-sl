@@ -13,7 +13,6 @@ import           System.Wlog                      (WithLogger)
 import           Pos.Client.CLI                   (CommonNodeArgs (..))
 import qualified Pos.Client.CLI                   as CLI
 import           Pos.Core.Configuration           (HasConfiguration)
-import           Pos.Genesis                      (genesisContext)
 import           Pos.Launcher                     (NodeParams (..))
 import           Pos.Network.CLI                  (intNetworkConfigOpts)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)

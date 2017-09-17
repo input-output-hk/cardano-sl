@@ -15,7 +15,6 @@ import           Data.List.NonEmpty           (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty           as NE
 import qualified Data.Ratio                   as Ratio
 import           Data.Semigroup               ((<>))
-import           Ether.Internal               (HasLens (..))
 import           Test.Hspec                   (Spec, describe)
 import           Test.Hspec.QuickCheck        (modifyMaxSuccess, prop)
 import           Test.QuickCheck.Gen          (Gen (MkGen))
@@ -24,8 +23,9 @@ import           Test.QuickCheck.Random       (QCGen)
 
 import           Pos.Block.Logic              (verifyAndApplyBlocks, verifyBlocksPrefix)
 import           Pos.Block.Types              (Blund)
-import           Pos.Core                     (HasConfiguration, blkSecurityParam,
-                                               epochSlots, headerHash)
+import           Pos.Core                     (GenesisData (..), HasConfiguration,
+                                               blkSecurityParam, epochSlots, genesisData,
+                                               headerHash)
 import           Pos.DB.Pure                  (dbPureDump)
 import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..), BlockEventGenT,
                                                BlockRollbackFailure (..),
@@ -34,7 +34,6 @@ import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..), BlockEvent
                                                emitBlockRollback,
                                                enrichWithSnapshotChecking, pathSequence,
                                                runBlockEventGenT)
-import           Pos.Genesis                  (GenesisWStakeholders)
 import qualified Pos.GState                   as GS
 import           Pos.Ssc.GodTossing           (SscGodTossing)
 import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..),
@@ -51,8 +50,8 @@ import           Test.Pos.Block.Logic.Util    (EnableTxPayload (..), InplaceDB (
                                                bpGenBlock, bpGenBlocks,
                                                bpGoToArbitraryState, getAllSecrets,
                                                satisfySlotCheck)
-import           Test.Pos.Util                (giveGtConf, giveInfraConf, giveNodeConf,
-                                               giveCoreConf, giveUpdateConf,
+import           Test.Pos.Util                (giveCoreConf, giveGtConf, giveInfraConf,
+                                               giveNodeConf, giveUpdateConf,
                                                splitIntoChunks, stopProperty)
 
 spec :: Spec
@@ -277,7 +276,7 @@ blockPropertyScenarioGen
     :: HasVarSpecConfigurations => BlockEventGenT QCGen BlockTestMode () -> BlockProperty BlockScenario
 blockPropertyScenarioGen m = do
     allSecrets <- getAllSecrets
-    genStakeholders <- view (lensOf @GenesisWStakeholders)
+    let genStakeholders = gdBootStakeholders genesisData
     g <- pick $ MkGen $ \qc _ -> qc
     lift $ flip evalRandT g $ runBlockEventGenT allSecrets genStakeholders m
 

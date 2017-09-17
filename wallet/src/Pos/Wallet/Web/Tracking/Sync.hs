@@ -51,15 +51,15 @@ import           Pos.Block.Core                   (BlockHeader, getBlockHeader,
                                                    mainBlockTxPayload)
 import           Pos.Block.Types                  (Blund, undoTx)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
-import           Pos.Context                      (GenesisUtxo (..), genesisUtxoM)
 import           Pos.Core                         (Address (..), BlockHeaderStub,
                                                    ChainDifficulty, HasConfiguration,
                                                    HasDifficulty (..), HeaderHash,
                                                    Timestamp, aaPkDerivationPath,
                                                    addrAttributesUnwrapped,
-                                                   blkSecurityParam, headerHash,
-                                                   headerSlotL, makeRootPubKeyAddress,
-                                                   timestampToPosix, genesisHash)
+                                                   blkSecurityParam, genesisHash,
+                                                   headerHash, headerSlotL,
+                                                   makeRootPubKeyAddress,
+                                                   timestampToPosix)
 import           Pos.Crypto                       (EncryptedSecretKey, HDPassphrase,
                                                    WithHash (..), deriveHDPassphrase,
                                                    encToPublic, hash, shortHashF,
@@ -71,11 +71,12 @@ import qualified Pos.GState                       as GS
 import           Pos.GState.BlockExtra            (foldlUpWhileM, resolveForwardLink)
 import           Pos.Slotting                     (MonadSlots (..), MonadSlotsData,
                                                    getSlotStartPure, getSystemStartM)
-import           Pos.StateLock                    (Priority (..), StateLock, withStateLockNoMetrics)
-import           Pos.Txp.Core                     (Tx (..), TxAux (..), TxId, TxIn (..),
-                                                   TxOutAux (..), TxUndo,
-                                                   flattenTxPayload, toaOut, topsortTxs,
-                                                   txOutAddress)
+import           Pos.StateLock                    (Priority (..), StateLock,
+                                                   withStateLockNoMetrics)
+import           Pos.Txp                          (GenesisUtxo (..), Tx (..), TxAux (..),
+                                                   TxId, TxIn (..), TxOutAux (..), TxUndo,
+                                                   flattenTxPayload, genesisUtxo, toaOut,
+                                                   topsortTxs, txOutAddress)
 import           Pos.Txp.MemState.Class           (MonadTxpMem, getLocalTxsNUndo)
 import           Pos.Util.Chrono                  (getNewestFirst)
 import qualified Pos.Util.Modifier                as MM
@@ -113,7 +114,6 @@ type WalletTrackingEnv ext ctx m =
      ( BlockLockMode WalletSscType ctx m
      , WebWalletModeDB ctx m
      , MonadTxpMem ext ctx m
-     , HasLens GenesisUtxo ctx GenesisUtxo
      , WS.MonadWalletWebDB ctx m
      , MonadSlotsData ctx m
      , WithLogger m
@@ -156,7 +156,6 @@ syncWalletsWithGState
     :: forall ssc ctx m.
     ( WebWalletModeDB ctx m
     , BlockLockMode ssc ctx m
-    , HasLens GenesisUtxo ctx GenesisUtxo
     , MonadSlotsData ctx m
     , HasConfiguration
     )
@@ -214,7 +213,6 @@ syncWalletWithGStateUnsafe
     ( WebWalletModeDB ctx m
     , DB.MonadBlockDB ssc m
     , WithLogger m
-    , HasLens GenesisUtxo ctx GenesisUtxo
     , MonadSlotsData ctx m
     , HasConfiguration
     )
@@ -278,7 +276,6 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
                | otherwise -> mempty <$ logInfo (sformat ("Wallet "%build%" is already synced") wAddr)
 
     whenNothing_ wTipHeader $ do
-        genesisUtxo <- genesisUtxoM
         let encInfo = getEncInfo encSK
             ownGenesisData =
                 selectOwnAccounts encInfo (txOutAddress . toaOut . snd) $

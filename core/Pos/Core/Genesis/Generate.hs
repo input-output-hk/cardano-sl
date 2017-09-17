@@ -86,7 +86,9 @@ generateGenesisData (TestnetInitializer{..}) maxTnBalance = deterministic (seria
         richSkVssCerts = take (fromIntegral tboRichmen) skVssCerts
         secretKeys = map (\(sk, hdwSk, vssSk, _, _) -> (sk, hdwSk, vssSk)) $ richmenList ++ poorsList
 
-        safeZip a b = if length a /= length b then error "lists differ in size" else zip a b
+        safeZip s a b = if length a /= length b
+                           then error $ s <> " :lists differ in size, " <> show (length a) <> " and " <> show (length b)
+                           else zip a b
 
         tnBalance = min maxTnBalance tboTotalBalance
 
@@ -96,7 +98,7 @@ generateGenesisData (TestnetInitializer{..}) maxTnBalance = deterministic (seria
         -- ^ Rich addresses
         poorAs = map (view _5) poorsList
         -- ^ Poor addresses
-        nonAvvmDistr = HM.fromList $ safeZip richAs richBs ++ safeZip poorAs poorBs
+        nonAvvmDistr = HM.fromList $ safeZip "rich" richAs richBs ++ safeZip "poor" poorAs poorBs
 
     let toStakeholders = Map.fromList . map ((,1) . addressHash . toPublic . fst)
     let toVss = HM.fromList . map (_1 %~ addressHash . toPublic)
@@ -185,7 +187,7 @@ genTestnetDistribution TestnetBalanceOptions{..} testBalance =
     checkConsistency (richBalances, poorBalances)
   where
     richs = fromIntegral tboRichmen
-    poors = fromIntegral tboPoors * 2  -- for plain and hd wallet keys
+    poors = fromIntegral tboPoors
 
     -- Calculate actual balances
     desiredRichBalance = getShare tboRichmenShare testBalance

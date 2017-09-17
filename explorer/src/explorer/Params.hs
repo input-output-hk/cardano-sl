@@ -10,28 +10,28 @@ module Params
 
 import           Universum
 
-import           Data.Default        (def)
-import           Mockable            (Catch, Fork, Mockable, Throw)
-import           System.Wlog         (LoggerName, WithLogger)
+import           Data.Default                     (def)
+import           Mockable                         (Catch, Fork, Mockable, Throw)
+import           System.Wlog                      (LoggerName, WithLogger)
 
 import qualified Data.ByteString.Char8 as BS8 (unpack)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..), TCPAddrInfo (..))
-import qualified Pos.Client.CLI      as CLI
-import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Crypto          (VssKeyPair)
-import           Pos.Genesis         (genesisContext)
-import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
-                                      NodeParams (..), TransportParams (..))
-import           Pos.Network.CLI     (intNetworkConfigOpts)
-import           Pos.Network.Types   (NetworkConfig (..), Topology (..))
-import           Pos.Ssc.GodTossing  (GtParams (..))
+import qualified Pos.Client.CLI                   as CLI
+import           Pos.Core.Configuration           (HasConfiguration)
+import           Pos.Crypto                       (VssKeyPair)
+import           Pos.Launcher                     (BaseParams (..), LoggingParams (..),
+                                                   NodeParams (..), TransportParams (..))
+import           Pos.Network.CLI                  (intNetworkConfigOpts)
+import           Pos.Network.Types                (NetworkConfig (..), Topology (..))
+import           Pos.Ssc.GodTossing               (GtParams (..))
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Update.Params   (UpdateParams (..))
-import           Pos.Util.TimeWarp   (NetworkAddress, readAddrFile)
-import           Pos.Util.UserSecret (peekUserSecret)
+import           Pos.Update.Params                (UpdateParams (..))
+import           Pos.Util.TimeWarp                (NetworkAddress, readAddrFile)
+import           Pos.Util.UserSecret              (peekUserSecret)
 
-import           ExplorerOptions     (Args (..))
-import           Secrets             (updateUserSecretVSS, userSecretWithGenesisKey)
+import           ExplorerOptions                  (Args (..))
+import           Secrets                          (updateUserSecretVSS,
+                                                   userSecretWithGenesisKey)
 
 
 
@@ -92,8 +92,6 @@ getNodeParams args@Args {..} = do
 
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
     let npTransport = getTransportParams args npNetworkConfig
-
-    let npGenesisCtx = genesisContext
 
     return NodeParams
         { npDbPathM = dbPath

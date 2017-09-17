@@ -47,7 +47,8 @@ import           Pos.Client.CLI.Util        (readLoggerConfig)
 import           Pos.Configuration
 import           Pos.Context                (ConnectedPeers (..), NodeContext (..),
                                              StartTime (..))
-import           Pos.Core                   (HasConfiguration, systemStart, Timestamp)
+import           Pos.Core                   (HasConfiguration, Timestamp,
+                                             gdStartTime, genesisData)
 import           Pos.DB                     (MonadDBRead, NodeDBs)
 import           Pos.DB.DB                  (initNodeDBs)
 import           Pos.DB.Rocks               (closeNodeDBs, openNodeDBs)
@@ -66,24 +67,25 @@ import           Pos.Ssc.Class              (SscConstraint, SscParams,
                                              sscCreateNodeContext)
 import           Pos.Ssc.Extra              (SscState, mkSscState)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.StateLock              (newStateLock)
-import           Pos.Txp                    (GenericTxpLocalData (..), mkTxpLocalData,
-                                             recordTxpMetrics)
+import           Pos.StateLock                    (newStateLock)
+import           Pos.Txp                          (GenericTxpLocalData (..),
+                                                   mkTxpLocalData, recordTxpMetrics)
 #ifdef WITH_EXPLORER
-import           Pos.Explorer               (explorerTxpGlobalSettings)
+import           Pos.Explorer                     (explorerTxpGlobalSettings)
 #else
-import           Pos.Txp                    (txpGlobalSettings)
+import           Pos.Txp                          (txpGlobalSettings)
 #endif
 
-import           Pos.Launcher.Mode          (InitMode, InitModeContext (..), runInitMode)
-import           Pos.Update.Context         (mkUpdateContext)
-import qualified Pos.Update.DB              as GState
-import           Pos.Util                   (newInitFuture)
-import           Pos.WorkMode               (TxpExtra_TMP)
+import           Pos.Launcher.Mode                (InitMode, InitModeContext (..),
+                                                   runInitMode)
+import           Pos.Update.Context               (mkUpdateContext)
+import qualified Pos.Update.DB                    as GState
+import           Pos.Util                         (newInitFuture)
+import           Pos.WorkMode                     (TxpExtra_TMP)
 
 #ifdef linux_HOST_OS
-import qualified System.Systemd.Daemon      as Systemd
-import qualified System.Wlog                as Logger
+import qualified System.Systemd.Daemon            as Systemd
+import qualified System.Wlog                      as Logger
 #endif
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
@@ -151,7 +153,6 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
             putSlottingContext sc
         initModeContext = InitModeContext
             db
-            npGenesisCtx
             futureSlottingVar
             futureSlottingContext
             futureLrcContext
@@ -275,7 +276,7 @@ allocateNodeContext ancd = do
     ncStateLock <- newStateLock
     ncStateLockMetrics <- liftIO $ recordTxpMetrics store txpMemPool
     lcLrcSync <- mkLrcSyncData >>= newTVarIO
-    ncSlottingVar <- (systemStart,) <$> mkSlottingVar
+    ncSlottingVar <- (gdStartTime genesisData,) <$> mkSlottingVar
     ncSlottingContext <-
         case npUseNTP of
             True  -> SCNtp <$> mkNtpSlottingVar

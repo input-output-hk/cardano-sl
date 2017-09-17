@@ -1,50 +1,16 @@
--- | Binary instances for Genesis data (such as 'BalanceDistribution')
+-- | Binary instances for Genesis data
 
 module Pos.Binary.Core.Genesis () where
 
 import           Universum
 
-import           Pos.Binary.Class        (Bi (..), decodeListLen, encodeListLen,
-                                          matchSize)
+import           Pos.Binary.Class        (Bi (..))
 import           Pos.Binary.Core.Address ()
 import           Pos.Binary.Core.Types   ()
 import           Pos.Core.Address        ()
-import           Pos.Core.Genesis.Types  (BalanceDistribution (..), GenesisDelegation,
-                                          GenesisWStakeholders (..), mkGenesisDelegation,
-                                          unGenesisDelegation)
+import           Pos.Core.Genesis.Types  (GenesisDelegation, GenesisWStakeholders (..),
+                                          mkGenesisDelegation, unGenesisDelegation)
 import           Pos.Util.Util           (eitherToFail)
-
-instance Bi BalanceDistribution where
-    encode input = case input of
-      FlatBalances w c             ->
-          encodeListLen 3 <> encode (0 :: Word8) <> encode w <> encode c
-      RichPoorBalances w1 c1 w2 c2 ->
-          encodeListLen 5 <> encode (1 :: Word8)
-                          <> encode w1
-                          <> encode c1
-                          <> encode w2
-                          <> encode c2
-      ExponentialBalances w mc     ->
-          encodeListLen 3 <> encode (2 :: Word8) <> encode w <> encode mc
-      CustomBalances c             ->
-          encodeListLen 2 <> encode (3 :: Word8) <> encode c
-    decode = do
-      len <- decodeListLen
-      tag <- decode @Word8
-      case tag of
-          0 -> do
-              matchSize 3 "BalanceDistribution.FlatBalances" len
-              FlatBalances        <$> decode <*> decode
-          1 -> do
-              matchSize 5 "BalanceDistribution.RichPoorBalances" len
-              RichPoorBalances    <$> decode <*> decode <*> decode <*> decode
-          2 -> do
-              matchSize 3 "BalanceDistribution.ExponentialBalances" len
-              ExponentialBalances <$> decode <*> decode
-          3 -> do
-              matchSize 2 "BalanceDistribution.CustomBalances" len
-              CustomBalances      <$> decode
-          _ -> fail "Pos.Binary.Genesis: BalanceDistribution: invalid tag"
 
 instance Bi GenesisWStakeholders where
     encode (GenesisWStakeholders m) = encode m

@@ -20,7 +20,7 @@ import           Pos.Client.CLI      (CommonNodeArgs (..))
 import qualified Pos.Client.CLI      as CLI
 import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec, worker)
 import           Pos.Context         (HasNodeContext)
-import           Pos.Core            (Timestamp (..), systemStart)
+import           Pos.Core            (Timestamp (..), gdStartTime, genesisData)
 import           Pos.Launcher        (NodeParams (..), NodeResources (..),
                                       bracketNodeResources, runNode,
                                       HasConfigurations, withConfigurations)
@@ -71,8 +71,8 @@ pluginsGT WalletArgs {..}
 action :: WalletNodeArgs -> Production ()
 action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
     withConfigurations conf $ do
-        whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData systemStart
-        putText $ sformat ("System start time is " % shown) systemStart
+        whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData
+        putText $ sformat ("System start time is " % shown) (gdStartTime genesisData)
         t <- currentTime
         putText $ sformat ("Current time is " % shown) (Timestamp t)
         currentParams <- getNodeParams cArgs

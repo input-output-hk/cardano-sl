@@ -27,15 +27,14 @@ import           Pos.Client.CLI.Secrets     (updateUserSecretVSS,
 import           Pos.Core.Configuration     (HasConfiguration)
 import           Pos.Core.Constants         (isDevelopment)
 import           Pos.Crypto                 (VssKeyPair)
-import           Pos.Genesis                (genesisContext)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), TransportParams (..))
 import           Pos.Network.CLI            (intNetworkConfigOpts)
 import           Pos.Network.Types          (NetworkConfig (..), Topology (..))
 import           Pos.Ssc.GodTossing         (GtParams (..))
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Update.Params          (UpdateParams (..))
-import           Pos.Util.UserSecret        (peekUserSecret)
+import           Pos.Update.Params                (UpdateParams (..))
+import           Pos.Util.UserSecret              (peekUserSecret)
 
 loggingParams :: LoggerName -> CommonNodeArgs -> LoggingParams
 loggingParams tag CommonNodeArgs{..} =
@@ -88,7 +87,6 @@ getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} = do
     npBehaviorConfig <- case behaviorConfigPath of
         Nothing -> pure def
         Just fp -> either throw pure =<< liftIO (Yaml.decodeFileEither fp)
-    let npGenesisCtx = genesisContext
     pure NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB

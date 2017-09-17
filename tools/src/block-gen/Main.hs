@@ -12,12 +12,12 @@ import           System.Random               (mkStdGen, randomIO)
 import           System.Wlog                 (usingLoggerName)
 
 import           Pos.AllSecrets              (mkAllSecretsSimple)
-import           Pos.Core                    (genesisSecretKeys, isDevelopment)
+import           Pos.Core                    (gdBootStakeholders, genesisData,
+                                              genesisSecretKeys, isDevelopment)
 import           Pos.DB                      (closeNodeDBs, openNodeDBs)
 import           Pos.Generator.Block         (BlockGenParams (..), genBlocks)
-import           Pos.Genesis                 (genesisContext, gtcUtxo,
-                                              gtcWStakeholders)
 import           Pos.Launcher                (withConfigurations)
+import           Pos.Txp.GenesisUtxo         (genesisUtxo)
 import           Pos.Txp.Toil                (GenesisUtxo (..))
 import           Pos.Util.UserSecret         (peekUserSecret, usPrimKey)
 
@@ -43,16 +43,12 @@ main = flip catch catchEx $ usingLoggerName "block-gen" $ withConfigurations def
             when (null bgoSecretFiles) $ throwM NoOneSecrets
             mapM parseSecret bgoSecretFiles
 
-    let genCtx = genesisContext
-
-    let bootStakeholders = genCtx ^. gtcWStakeholders
-    let genUtxo = genCtx ^. gtcUtxo
-    when (M.null $ unGenesisUtxo genUtxo) $ throwM EmptyUtxo
+    when (M.null $ unGenesisUtxo genesisUtxo) $ throwM EmptyUtxo
 
     let bgenParams =
             BlockGenParams
                 { _bgpSecrets         = allSecrets
-                , _bgpGenStakeholders = bootStakeholders
+                , _bgpGenStakeholders = gdBootStakeholders genesisData
                 , _bgpBlockCount      = fromIntegral bgoBlockN
                 , _bgpTxGenParams     = bgoTxGenParams
                 , _bgpInplaceDB       = True
@@ -60,8 +56,8 @@ main = flip catch catchEx $ usingLoggerName "block-gen" $ withConfigurations def
                 }
     liftIO $ bracket (openNodeDBs (not bgoAppend) bgoPath) closeNodeDBs $ \db ->
         runProduction $
-        initTBlockGenMode db genCtx $
-            void $ evalRandT (genBlocks bgenParams) (mkStdGen seed)
+        initTBlockGenMode db $
+        void $ evalRandT (genBlocks bgenParams) (mkStdGen seed)
     -- We print it twice because there can be a ton of logs and
     -- you don't notice the first message.
     if isDevelopment then

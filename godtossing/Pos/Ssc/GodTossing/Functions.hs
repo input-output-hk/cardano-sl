@@ -23,12 +23,12 @@ import           Serokell.Util.Verify            (isVerSuccess)
 
 import           Pos.Binary.Crypto               ()
 import           Pos.Binary.GodTossing.Core      ()
-import           Pos.Core                        (EpochIndex (..),
-                                                  IsMainHeader, SlotId (..),
-                                                  StakeholderId, VssCertificatesMap,
-                                                  headerSlotL)
-import           Pos.Core.Configuration          (HasConfiguration, HasGeneratedGenesisData,
-                                                  genesisCertificates, HasProtocolConstants)
+import           Pos.Core                        (EpochIndex (..), IsMainHeader,
+                                                  SlotId (..), StakeholderId,
+                                                  VssCertificatesMap, headerSlotL)
+import           Pos.Core                        (HasConfiguration, HasGenesisData,
+                                                  HasProtocolConstants, gdVssCerts,
+                                                  genesisData)
 import           Pos.Core.Slotting               (crucialSlot)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (getCommitmentsMap),
                                                   GtPayload (..), checkCertTTL,
@@ -135,8 +135,8 @@ sanityChecksGtPayload eoh payload = case payload of
 -- Modern
 ----------------------------------------------------------------------------
 
-getStableCertsPure :: (HasProtocolConstants, HasGeneratedGenesisData) => EpochIndex -> VCD.VssCertData -> VssCertificatesMap
+getStableCertsPure :: (HasProtocolConstants, HasGenesisData) => EpochIndex -> VCD.VssCertData -> VssCertificatesMap
 getStableCertsPure epoch certs
-    | epoch == 0 = genesisCertificates
+    | epoch == 0 = gdVssCerts genesisData
     | otherwise =
           VCD.certs $ VCD.setLastKnownSlot (crucialSlot epoch) certs

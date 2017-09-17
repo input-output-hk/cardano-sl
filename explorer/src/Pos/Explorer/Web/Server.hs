@@ -44,7 +44,6 @@ import           Pos.Binary.Class               (biSize)
 import           Pos.Block.Core                 (MainBlock, mainBlockSlot,
                                                  mainBlockTxPayload, mcdSlot)
 import           Pos.Block.Types                (Blund, Undo)
-import           Pos.Context                    (genesisUtxoM, unGenesisUtxo)
 import           Pos.Core                       (AddrType (..), Address (..), Coin,
                                                  EpochIndex, HeaderHash, Timestamp,
                                                  difficultyL, gbHeader, gbhConsensus,
@@ -61,6 +60,7 @@ import           Pos.Txp                        (MonadTxpMem, Tx (..), TxAux, Tx
                                                  TxOutAux (..), Utxo, getLocalTxs,
                                                  getMemPool, mpLocalTxs, taTx, topsortTxs,
                                                  txOutValue, txpTxs,
+                                                 unGenesisUtxo, genesisUtxo,
                                                  utxoToAddressCoinPairs, _txOutputs)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (NewestFirst (..))
@@ -511,10 +511,9 @@ getTxSummary cTxId = do
 
 getRedeemAddressCoinPairs :: ExplorerMode ctx m => m [(Address, Coin)]
 getRedeemAddressCoinPairs = do
-    genesisUtxo :: Utxo <- unGenesisUtxo <$> genesisUtxoM
 
     let addressCoinPairs :: [(Address, Coin)]
-        addressCoinPairs = utxoToAddressCoinPairs genesisUtxo
+        addressCoinPairs = utxoToAddressCoinPairs (unGenesisUtxo genesisUtxo)
 
         redeemOnly :: [(Address, Coin)]
         redeemOnly = filter (isRedeemAddress . fst) addressCoinPairs

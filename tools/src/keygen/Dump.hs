@@ -16,7 +16,7 @@ import           System.Directory      (createDirectoryIfMissing)
 import           System.FilePath       ((</>))
 import           System.Wlog           (WithLogger, logInfo)
 
-import           Pos.Core.Genesis      (GeneratedGenesisData (..),
+import           Pos.Core.Genesis      (GeneratedGenesisData (..), GeneratedSecrets (..),
                                         TestnetBalanceOptions (..))
 import           Pos.Crypto            (EncryptedSecretKey, SecretKey, VssKeyPair,
                                         noPassEncrypt)
@@ -33,8 +33,12 @@ dumpGeneratedGenesisData
     -> GeneratedGenesisData
     -> m ()
 dumpGeneratedGenesisData (dir, pat) tbo GeneratedGenesisData {..} = do
-    maybe (logInfo "Secret keys are unknown") (dumpKeyfiles (dir, pat) tbo) ggdSecretKeys
-    maybe (logInfo "Avvm seeds are unknown") (dumpFakeAvvmSeeds dir) ggdFakeAvvmSeeds
+    maybe (logInfo "Secret keys are unknown")
+          (dumpKeyfiles (dir, pat) tbo)
+          (gsSecretKeys <$> ggdSecrets)
+    maybe (logInfo "Avvm seeds are unknown")
+          (dumpFakeAvvmSeeds dir)
+          (gsFakeAvvmSeeds <$> ggdSecrets)
 
 dumpKeyfiles
     :: (MonadIO m, MonadThrow m, WithLogger m, MonadRandom m)

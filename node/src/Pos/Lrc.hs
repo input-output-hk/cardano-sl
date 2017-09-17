@@ -5,7 +5,6 @@
 
 module Pos.Lrc
        ( module Pos.Arbitrary.Lrc
-       , module Pos.Core.Configuration.SharedSeed
        , module Pos.Lrc.Class
        , module Pos.Lrc.Consumer
        , module Pos.Lrc.Consumers
@@ -22,7 +21,6 @@ module Pos.Lrc
        ) where
 
 import           Pos.Arbitrary.Lrc
-import           Pos.Core.Configuration.SharedSeed
 import           Pos.Lrc.Class
 import           Pos.Lrc.Consumer
 import           Pos.Lrc.Consumers

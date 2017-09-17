@@ -24,45 +24,43 @@ module Pos.Launcher.Mode
 
 import           Universum
 
-import           Control.Lens          (makeLensesWith)
-import qualified Control.Monad.Reader  as Mtl
-import           Ether.Internal        (HasLens (..))
-import           Mockable.Production   (Production)
+import           Control.Lens            (makeLensesWith)
+import qualified Control.Monad.Reader    as Mtl
+import           Ether.Internal          (HasLens (..))
+import           Mockable.Production     (Production)
 
-import           Pos.Block.Core        (Block, BlockHeader)
-import           Pos.Block.Types       (Undo)
-import           Pos.Core              (HasConfiguration, IsHeader, Timestamp)
-import           Pos.DB                (NodeDBs)
-import           Pos.DB.Block          (dbGetBlockDefault, dbGetBlockSscDefault,
-                                        dbGetHeaderDefault, dbGetHeaderSscDefault,
-                                        dbGetUndoDefault, dbGetUndoSscDefault,
-                                        dbPutBlundDefault)
-import           Pos.DB.Class          (MonadBlockDBGeneric (..),
-                                        MonadBlockDBGenericWrite (..), MonadDB (..),
-                                        MonadDBRead (..))
-import           Pos.DB.Rocks          (dbDeleteDefault, dbGetDefault,
-                                        dbIterSourceDefault, dbPutDefault,
-                                        dbWriteBatchDefault)
-import           Pos.Genesis           (GenesisContext, GenesisUtxo, GenesisWStakeholders)
+import           Pos.Block.Core          (Block, BlockHeader)
+import           Pos.Block.Types         (Undo)
+import           Pos.Core                (HasConfiguration, IsHeader, Timestamp)
+import           Pos.DB                  (NodeDBs)
+import           Pos.DB.Block            (dbGetBlockDefault, dbGetBlockSscDefault,
+                                          dbGetHeaderDefault, dbGetHeaderSscDefault,
+                                          dbGetUndoDefault, dbGetUndoSscDefault,
+                                          dbPutBlundDefault)
+import           Pos.DB.Class            (MonadBlockDBGeneric (..),
+                                          MonadBlockDBGenericWrite (..), MonadDB (..),
+                                          MonadDBRead (..))
+import           Pos.DB.Rocks            (dbDeleteDefault, dbGetDefault,
+                                          dbIterSourceDefault, dbPutDefault,
+                                          dbWriteBatchDefault)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
-import           Pos.Lrc.Context       (LrcContext)
-import           Pos.Slotting          (HasSlottingVar (..), SlottingData)
-import           Pos.Slotting.Class    (MonadSlots (..))
-import           Pos.Slotting.Impl.Sum (SlottingContextSum, currentTimeSlottingSum,
-                                        getCurrentSlotBlockingSum,
-                                        getCurrentSlotInaccurateSum, getCurrentSlotSum)
-import           Pos.Slotting.MemState (MonadSlotsData)
-import           Pos.Ssc.Class.Helpers (SscHelpersClass)
-import           Pos.Ssc.Class.Types   (SscBlock)
-import           Pos.Util              (Some (..))
-import           Pos.Util.Util         (postfixLFields)
+import           Pos.Lrc.Context         (LrcContext)
+import           Pos.Slotting            (HasSlottingVar (..), SlottingData)
+import           Pos.Slotting.Class      (MonadSlots (..))
+import           Pos.Slotting.Impl.Sum   (SlottingContextSum, currentTimeSlottingSum,
+                                          getCurrentSlotBlockingSum,
+                                          getCurrentSlotInaccurateSum, getCurrentSlotSum)
+import           Pos.Slotting.MemState   (MonadSlotsData)
+import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
+import           Pos.Ssc.Class.Types     (SscBlock)
+import           Pos.Util                (Some (..))
+import           Pos.Util.Util           (postfixLFields)
 
 
 -- The fields are lazy on purpose: this allows using them with
 -- futures.
 data InitModeContext ssc = InitModeContext
     { imcNodeDBs            :: NodeDBs
-    , imcGenesisContext     :: GenesisContext
     , imcSlottingVar        :: (Timestamp, TVar SlottingData)
     , imcSlottingContextSum :: SlottingContextSum
     , imcLrcContext         :: LrcContext
@@ -77,15 +75,6 @@ runInitMode = flip Mtl.runReaderT
 
 instance HasLens NodeDBs (InitModeContext ssc) NodeDBs where
     lensOf = imcNodeDBs_L
-
-instance HasLens GenesisContext (InitModeContext ssc) GenesisContext where
-    lensOf = imcGenesisContext_L
-
-instance HasLens GenesisUtxo (InitModeContext ssc) GenesisUtxo where
-    lensOf = imcGenesisContext_L . lensOf @GenesisUtxo
-
-instance HasLens GenesisWStakeholders (InitModeContext ssc) GenesisWStakeholders where
-    lensOf = imcGenesisContext_L . lensOf @GenesisWStakeholders
 
 instance HasLens SlottingContextSum (InitModeContext ssc) SlottingContextSum where
     lensOf = imcSlottingContextSum_L

@@ -25,7 +25,7 @@ import           Pos.Block.Core            (mainBlockTxPayload)
 import           Pos.Block.Logic           (applyBlocksUnsafe)
 import           Pos.Core                  (Coin, EpochIndex, GenesisData (..),
                                             StakeholderId, addressHash, blkSecurityParam,
-                                            coinF, genesisData)
+                                            coinF, genesisData, genesisSecretKeys)
 import           Pos.Crypto                (toPublic)
 import qualified Pos.GState                as GS
 import qualified Pos.Lrc                   as Lrc
@@ -48,8 +48,7 @@ spec :: Spec
 spec = giveGtConf $ giveNodeConf $ giveInfraConf $ giveUpdateConf $ giveCoreConf $
     describe "Lrc.Worker" $ modifyMaxSuccess (const 4) $ do
         describe "lrcSingleShotNoLock" $ do
-            prop lrcCorrectnessDesc $
-                blockPropertyToProperty genTestParams lrcCorrectnessProp
+            prop lrcCorrectnessDesc lrcCorrectnessProp
   where
     lrcCorrectnessDesc =
         "Computes richmen correctly according to the stake distribution " <>
@@ -68,21 +67,6 @@ allRichmenComponents =
     , Lrc.someRichmenComponent @Lrc.RCUs
     , Lrc.someRichmenComponent @Lrc.RCDlg
     ]
-
--- | We need to generate some genesis with
--- genesis stakeholders `RC × {A, B, C, D}` (where `RC` is the set of
--- all richmen components and `{A, B, C, D}` is just a set of 4 items)
--- and make sure that there are `|RC| · 3` richmen (`RC × {B, C, D}`).
-genTestParams :: HasVarSpecConfigurations => Gen TestParams
-genTestParams = do
-    let _tpStartTime = 0
-    let stakeholdersNum = 4 * groupsNumber
-    secretKeys <- nonrepeating stakeholdersNum
-    let _tpAllSecrets = mkAllSecretsSimple secretKeys
-
-    return TestParams {..}
-  where
-    groupsNumber = length allRichmenComponents
 
 lrcCorrectnessProp :: HasVarSpecConfigurations => BlockProperty ()
 lrcCorrectnessProp = do

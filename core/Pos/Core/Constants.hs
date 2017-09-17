@@ -9,10 +9,10 @@ module Pos.Core.Constants
     , isDevelopment
     ) where
 
-import           Universum
 import           Crypto.Hash
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Base16 as B16
+import           Universum
 
 ----------------------------------------------------------------------------
 -- Constants which are not configurable
@@ -39,9 +39,9 @@ sharedSeedLength = 32
 genesisDataDigest :: Digest Blake2b_256
 Just genesisDataDigest = digestFromByteString @_ @BS.ByteString bytesDigest
   where
-    hexDigest = "0e5751c026e543b2e8ab2eb06099daa1d1e5df47778f7787faab45cdf12fe3a8"
+    hexDigest = "1b570b6e6dd992889ba1e67a4bd802df19edb9e9a51fb0772ca2016bff979068"
     (bytesDigest, _) = B16.decode hexDigest
- 
+
 {-# INLINE genesisDataDigest #-}
 
 -- | @True@ if current mode is 'Development'.

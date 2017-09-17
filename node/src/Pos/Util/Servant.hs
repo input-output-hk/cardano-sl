@@ -248,7 +248,7 @@ instance ( HasServer (apiType a :> res) ctx
 -- * Details like request method and endpoint execution time
 --
 -- If user makes request which can't be processed (e.g. with path to undefined
--- endpoint which normally terminates with 404) it won't be loged. However,
+-- endpoint which normally terminates with 404) it won't be logged. However,
 -- I don't find it a great problem, it may impede only in development or on
 -- getting acknoledged with api.
 data LoggingApi config api
@@ -337,7 +337,7 @@ instance ( KnownSymbol path
          HasLoggingServer config (path :> res) ctx where
     routeWithLog =
         inRouteServer @(path :> LoggingApiRec config res) route $
-        \(paramsInfo, f) -> (updateParamsInfo paramsInfo, f)
+        first updateParamsInfo
       where
         updateParamsInfo = do
             let path = toText . symbolVal $ Proxy @path
@@ -347,19 +347,20 @@ instance ( KnownSymbol path
 class ApiHasArgClass apiType a =>
       ApiCanLogArg apiType a where
     type ApiArgToLog (apiType :: * -> *) a :: *
-    type ApiArgToLog apiType a = a
+    type ApiArgToLog apiType a = ApiArg apiType a
 
     toLogParamInfo
         :: Buildable (ApiArgToLog apiType a)
         => Proxy (apiType a) -> ApiArg apiType a -> Text
     default toLogParamInfo
-        :: (Buildable a, ApiArgToLog apiType a ~ a)
-        => Proxy (apiType a) -> a -> Text
+        :: Buildable (ApiArgToLog apiType a)
+        => Proxy (apiType a) -> ApiArgToLog apiType a -> Text
     toLogParamInfo _ = pretty
 
 instance KnownSymbol s => ApiCanLogArg (Capture s) a
 instance ApiCanLogArg (ReqBody ct) a
 instance KnownSymbol cs => ApiCanLogArg (QueryParam cs) a where
+    type ApiArgToLog (QueryParam cs) a = a
     toLogParamInfo _ = maybe noEntry pretty
       where
         noEntry = colorizeDull White "-"
@@ -367,18 +368,11 @@ instance KnownSymbol cs => ApiCanLogArg (QueryParam cs) a where
 instance ( ApiHasArgClass apiType a
          , ApiArg apiType a ~ Maybe b
          , ApiCanLogArg apiType a
-         , Buildable (ApiArgToLog apiType a)
          ) =>
          ApiCanLogArg (WithDefaultApiArg apiType) a where
-    type ApiArgToLog (WithDefaultApiArg apiType) a = Unmaybe (ApiArg apiType a)
-    toLogParamInfo _ = pretty
 
-instance ( ApiCanLogArg apiType a
-         , Show (ApiArgToLog apiType a)
-         ) =>
+instance ( ApiCanLogArg apiType a ) =>
          ApiCanLogArg (CDecodeApiArg apiType) a where
-    type ApiArgToLog (CDecodeApiArg apiType) a = OriginType (ApiArg apiType a)
-    toLogParamInfo _ = pretty
 
 instance ( HasServer (apiType a :> LoggingApiRec config res) ctx
          , ApiHasArg apiType a res
@@ -437,7 +431,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
         let loggerName = reflect configP
         liftIO . usingLoggerName loggerName $ logInfo msg
     eParamLogs = case paramsInfo of
-        (ApiParamsLogInfo info) -> do
+        ApiParamsLogInfo info -> do
             let params = mconcat $ reverse info <&>
                   bprint ("    "%stext%" "%stext%"\n") (colorizeDull White ":>")
             Right $ sformat ("\n"%stext%"\n"%build) cmethod params
@@ -460,7 +454,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
                 (showResponse resp)
     catchErrors st =
         flip catchError (servantErrHandler st) .
-        handleAll (totalHandler st)
+        handleAll (exceptionsHandler st)
     servantErrHandler timer err@ServantErr{..} = do
         durationText <- timer
         let errMsg = sformat (build%" "%string) errHTTPCode errReasonPhrase
@@ -470,7 +464,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
                 (colorizeDull Red errMsg)
                 durationText
         throwError err
-    totalHandler timer (e :: SomeException) = do
+    exceptionsHandler timer e = do
         durationText <- timer
         logWithParamInfo $
             sformat ("  "%stext%" "%shown%" "%stext)

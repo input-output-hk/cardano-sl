@@ -63,12 +63,13 @@ module Pos.Wallet.Web.Api
        ) where
 
 
+import           Control.Lens               (from)
 import           Control.Monad.Catch        (try)
 import           Data.Reflection            (Reifies (..))
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
                                              Post, Put, QueryParam, ReflectMethod (..),
                                              ReqBody, Verb)
-import           Servant.Server             (Handler (..), HasServer (..))
+import           Servant.Server             (HasServer (..))
 import           Servant.Swagger.UI         (SwaggerSchemaUI)
 import           Universum
 
@@ -78,7 +79,8 @@ import           Pos.Util.Servant           (ApiLoggingConfig, CCapture, CQueryP
                                              HasLoggingServer (..), LoggingApi,
                                              ModifiesApiRes (..), ReportDecodeError (..),
                                              VerbMod, WithTruncatedLog (..),
-                                             applyLoggingToHandler, inRouteServer)
+                                             applyLoggingToHandler, inRouteServer,
+                                             serverHandlerL')
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
                                              CAccountMeta, CAddress, CCoin, CId,
                                              CInitialized, CPaperVendWalletRedeem,
@@ -104,7 +106,7 @@ instance ModifiesApiRes WalletVerbTag where
     modifyApiResult _ = try . catchEndpointErrors . (either throwM pure =<<)
 
 instance ReportDecodeError (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) where
-    reportDecodeError _ err = Handler . ExceptT . throwM $ DecodeError err
+    reportDecodeError _ err = throwM (DecodeError err) ^. from serverHandlerL'
 
 instance ( HasServer (WalletVerb (Verb mt st ct a)) ctx
          , Reifies config ApiLoggingConfig
@@ -119,7 +121,8 @@ instance ( HasServer (WalletVerb (Verb mt st ct a)) ctx
 -- | Specifes servant logging config.
 data WalletLoggingConfig
 
--- If logger config will ever be determined in runtime, `reify` can be used.
+-- If logger config will ever be determined in runtime, 'Data.Reflection.reify'
+-- can be used.
 instance Reifies WalletLoggingConfig ApiLoggingConfig where
     reflect _ = "node" <> "wallet" <> "servant"
 

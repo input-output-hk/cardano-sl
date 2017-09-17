@@ -22,16 +22,18 @@ import           System.Wlog           (Severity (Debug), WithLogger, consoleOut
                                         usingLoggerName)
 
 import           Pos.Binary            (asBinary)
-import           Pos.Core              (addressHash)
+import           Pos.Core              (Coin, GenesisAvvmBalances,
+                                        GenesisInitializer (..), addressHash, aeCoin,
+                                        avvmData, coinToInteger,
+                                        convertAvvmDataToBalances, generateFakeAvvm,
+                                        generateGenesisData, generateSecrets,
+                                        getGenesisAvvmBalances, gsAvvmDistr,
+                                        gsInitializer)
 import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair,
                                         noPassEncrypt, redeemPkB64F, toVssPublicKey)
 import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
-import           Pos.Genesis           (GenesisAvvmBalances, GenesisInitializer (..),
-                                        aeCoin, avvmData, convertAvvmDataToBalances,
-                                        generateFakeAvvm, generateGenesisData,
-                                        generateSecrets, gsInitializer)
 
-import           Pos.Launcher          (withConfigurations, HasConfigurations)
+import           Pos.Launcher          (HasConfigurations, withConfigurations)
 import           Pos.Util.UserSecret   (readUserSecret, takeUserSecret, usKeys, usPrimKey,
                                         usVss, usWalletSet, writeUserSecretRelease)
 import           Pos.Wallet.Web.Secret (wusRootKey)
@@ -121,7 +123,8 @@ dumpAvvmSeeds DumpAvvmSeedsOptions{..} = do
     when (dasNumber <= 0) $ error $
         "number of seeds should be positive, but it's " <> show dasNumber
 
-    (fakeAvvmPubkeys, seeds) <- liftIO $ unzip <$> replicateM (fromIntegral dasNumber) generateFakeAvvm
+    (fakeAvvmPubkeys, seeds) <-
+        liftIO $ unzip <$> replicateM (fromIntegral dasNumber) generateFakeAvvm
 
     forM_ (zip seeds [1 .. dasNumber]) $ \(seed, i) ->
         dumpFakeAvvmSeed (dasPath </> ("key"<>show i<>".seed")) seed
@@ -142,9 +145,20 @@ generateKeysByGenesis GenKeysOptions{..} = do
                     toText gkoGenesisJSON <> ": " <> toText err
         Right spec -> case gsInitializer spec of
             MainnetInitializer{}   -> error "Can't generate keys for MainnetInitializer"
-            init@TestnetInitializer{..} -> do
-                let generated = generateGenesisData init
-                dumpGeneratedGenesisData (gkoOutDir, gkoKeyPattern) tiTestBalance generated
+            TestnetInitializer{..} -> do
+                -- TODO This is awful copy-paste of 'withGenesisSpec'
+                -- code. Currently we do not store 'GeneratedGenesisData'
+                -- inside config as it is so constructing it back from
+                -- reflection is hard. Thus we re-generate it using same
+                -- parameters it was generated (hopefully lol).
+                let avvmSum = foldr' ((+) . coinToInteger) 0 $
+                                     getGenesisAvvmBalances $ gsAvvmDistr spec
+                    maxTnBalance = fromIntegral $! coinToInteger (maxBound @Coin) - avvmSum
+                    generated = generateGenesisData (gsInitializer spec) maxTnBalance
+
+                dumpGeneratedGenesisData (gkoOutDir, gkoKeyPattern)
+                                         tiTestBalance
+                                         generated
                 logInfo (toText gkoOutDir <> " generated successfully")
 
 ----------------------------------------------------------------------------

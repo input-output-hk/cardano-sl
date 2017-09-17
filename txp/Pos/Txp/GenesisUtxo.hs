@@ -1,9 +1,9 @@
 {-# LANGUAGE NamedFieldPuns #-}
 
 module Pos.Txp.GenesisUtxo
-    ( genesisUtxo
-    , genesisStakes
-    ) where
+       ( genesisUtxo
+       , genesisStakes
+       ) where
 
 import           Universum
 
@@ -33,4 +33,3 @@ genesisUtxo =
                  , TxOutAux (TxOut addr coin)
                  )
      in GenesisUtxo . Map.fromList $ utxoEntry <$> preUtxo
-

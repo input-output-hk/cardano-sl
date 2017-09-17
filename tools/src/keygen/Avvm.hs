@@ -11,21 +11,8 @@ import           Data.List         ((\\))
 import           System.Wlog       (WithLogger, logInfo)
 
 import           Pos.Aeson.Genesis (fromAvvmPk)
-import           Pos.Genesis       (AvvmData (..), aePublicKey)
+import           Pos.Core.Genesis  (AvvmData (..), aePublicKey)
 
-
-{- I will use rscoin's dump-state(-new) format for now which doesn't use colored coins,
-data AvvmCoin = AvvmCoin
-    { coinAmount :: Integer
-    , coinColor  :: Integer
-    } deriving (Show, Generic)
-
-instance FromJSON AvvmCoin where
-    parseJSON = withObject "coin" $ \o -> do
-        coinAmount <- o .: "coinAmount"
-        coinColor <- o .: "coinColor" >>= (.: "getColor")
-        return AvvmCoin{..}
--}
 
 -- | Applies blacklist to avvm utxo, produces warnings and stats about
 -- how much was deleted.

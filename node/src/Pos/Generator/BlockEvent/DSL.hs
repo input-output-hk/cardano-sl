@@ -34,6 +34,7 @@ import           Control.Monad.Random.Strict (RandT, RandomGen, mapRandT)
 import qualified Data.Map                    as Map
 
 import           Pos.AllSecrets              (AllSecrets)
+import           Pos.Core                    (GenesisWStakeholders)
 import           Pos.Generator.Block         (MonadBlockGen)
 import           Pos.Generator.BlockEvent    (BlockApplyResult (..), BlockDesc (..),
                                               BlockEvent' (..), BlockEventApply' (..),
@@ -45,7 +46,6 @@ import           Pos.Generator.BlockEvent    (BlockApplyResult (..), BlockDesc (
                                               SnapshotId, SnapshotOperation (..),
                                               byChance, enrichWithSnapshotChecking,
                                               genBlocksInStructure, pathSequence)
-import           Pos.Genesis                 (GenesisWStakeholders)
 import           Pos.Util.Chrono             (NE, NewestFirst (..), OldestFirst (..),
                                               toOldestFirst, _NewestFirst)
 

@@ -42,9 +42,11 @@ import           Serokell.Util                (Color (Red), colorize)
 import           System.Wlog                  (WithLogger, logError)
 
 import           Pos.Binary.Core              ()
-import           Pos.Core                     (Address, Coin, GenesisWStakeholders, coinF,
+import           Pos.Core                     (Address, Coin,
+                                               GenesisData (gdBootStakeholders),
+                                               HasConfiguration, coinF, genesisData,
                                                mkCoin, sumCoins, unsafeAddCoin,
-                                               unsafeIntegerToCoin, HasConfiguration)
+                                               unsafeIntegerToCoin)
 import           Pos.DB                       (DBError (..), DBIteratorClass (..),
                                                DBTag (GStateDB), IterType, MonadDB,
                                                MonadDBRead, RocksBatchOp (..),
@@ -133,10 +135,10 @@ getAllPotentiallyHugeUtxo = runConduitRes $ utxoSource .| utxoSink
 ----------------------------------------------------------------------------
 
 sanityCheckUtxo
-    :: (MonadDBRead m, WithLogger m, MonadReader ctx m, HasLens' ctx GenesisWStakeholders)
+    :: (MonadDBRead m, WithLogger m)
     => Coin -> m ()
 sanityCheckUtxo expectedTotalStake = do
-    gws <- view (lensOf @GenesisWStakeholders)
+    let gws = gdBootStakeholders genesisData
     let stakesSource =
             mapOutput (map snd . txOutStake gws . toaOut . snd) utxoSource
     calculatedTotalStake <-

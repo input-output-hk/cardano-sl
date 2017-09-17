@@ -31,7 +31,6 @@ import           Pos.DB.Class                (MonadDB, MonadGState)
 import           Pos.DB.Rocks                (MonadRealDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.DHT.Real.Types          (KademliaDHTInstance)
-import           Pos.Genesis                 (GenesisUtxo, GenesisWStakeholders)
 import           Pos.Lrc.Context             (LrcContext)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
@@ -97,13 +96,11 @@ type WorkMode ssc ctx m
       , HasLens StartTime ctx StartTime
       , HasLens' ctx StateLock
       , HasLens' ctx StateLockMetrics
-      , HasLens LrcContext ctx LrcContext
-      , HasLens UpdateContext ctx UpdateContext
-      , HasLens UpdateParams ctx UpdateParams
-      , HasLens SecurityParams ctx SecurityParams
-      , HasLens TxpGlobalSettings ctx TxpGlobalSettings
-      , HasLens GenesisUtxo ctx GenesisUtxo
-      , HasLens GenesisWStakeholders ctx GenesisWStakeholders
+      , HasLens' ctx LrcContext
+      , HasLens' ctx UpdateContext
+      , HasLens' ctx UpdateParams
+      , HasLens' ctx SecurityParams
+      , HasLens' ctx TxpGlobalSettings
       , HasLens BlockRetrievalQueueTag ctx (BlockRetrievalQueue ssc)
       , HasLens (NetworkConfig KademliaDHTInstance) ctx (NetworkConfig KademliaDHTInstance)
       , HasSscContext ssc ctx

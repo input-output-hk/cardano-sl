@@ -94,8 +94,6 @@ getNodeParams args@Args {..} = do
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
     let npTransport = getTransportParams args npNetworkConfig
 
-    let npGenesisCtx = genesisContext
-
     return NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB

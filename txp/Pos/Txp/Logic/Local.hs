@@ -22,8 +22,8 @@ import           Formatting           (build, sformat, (%))
 import           Mockable             (CurrentTime, Mockable)
 import           System.Wlog          (WithLogger, logDebug, logError, logWarning)
 
-import           Pos.Core             (BlockVersionData, EpochIndex, GenesisWStakeholders,
-                                       HeaderHash, siEpoch, HasConfiguration)
+import           Pos.Core             (BlockVersionData, EpochIndex, HasConfiguration,
+                                       HeaderHash, siEpoch)
 import           Pos.Crypto           (WithHash (..))
 import           Pos.DB.Class         (MonadDBRead, MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
@@ -50,7 +50,6 @@ type TxpLocalWorkMode ctx m =
     , MonadSlots ctx m
     , MonadTxpMem () ctx m
     , WithLogger m
-    , HasLens' ctx GenesisWStakeholders
     , Mockable CurrentTime m
     , MonadMask m
     , MonadFormatPeers m
@@ -60,15 +59,11 @@ type TxpLocalWorkMode ctx m =
 
 -- Base context for tx processing in.
 data ProcessTxContext = ProcessTxContext
-    { _ptcGenStakeholders :: !GenesisWStakeholders
-    , _ptcAdoptedBVData   :: !BlockVersionData
-    , _ptcUtxoBase        :: !Utxo
+    { _ptcAdoptedBVData :: !BlockVersionData
+    , _ptcUtxoBase      :: !Utxo
     }
 
 makeLenses ''ProcessTxContext
-
-instance HasLens GenesisWStakeholders ProcessTxContext GenesisWStakeholders where
-    lensOf = ptcGenStakeholders
 
 instance HasLens Utxo ProcessTxContext Utxo where
     lensOf = ptcUtxoBase
@@ -116,7 +111,6 @@ txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ 
     tipDB <- GS.getTip
     bvd <- gsAdoptedBVData
     epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)
-    bootHolders <- view (lensOf @GenesisWStakeholders)
     localUM <- lift $ getUtxoModifier @()
     let runUM um = runToilTLocal um def mempty
     (resolvedOuts, _) <- runDBToil $ runUM localUM $ mapM utxoGet _txInputs
@@ -128,8 +122,7 @@ txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ 
             toList $ NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
     let ctx =
             ProcessTxContext
-            { _ptcGenStakeholders = bootHolders
-            , _ptcAdoptedBVData = bvd
+            { _ptcAdoptedBVData = bvd
             , _ptcUtxoBase = resolved
             }
     pRes <-

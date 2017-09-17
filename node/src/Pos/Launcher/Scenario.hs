@@ -25,12 +25,13 @@ import           System.Wlog              (WithLogger, getLoggerName, logError, 
 import           Pos.Communication        (ActionSpec (..), OutSpecs, WorkerSpec,
                                            wrapActionSpec)
 import           Pos.Context              (getOurPublicKey, ncNetworkConfig)
-import           Pos.Core                 (addressHash)
+import           Pos.Core                 (GenesisData (gdBootStakeholders),
+                                           GenesisWStakeholders (..), addressHash,
+                                           bootDustThreshold, genesisData)
 import qualified Pos.DB.DB                as DB
 import           Pos.DHT.Real             (KademliaDHTInstance (..),
                                            kademliaJoinNetworkNoThrow,
                                            kademliaJoinNetworkRetry)
-import           Pos.Genesis              (GenesisWStakeholders (..), bootDustThreshold)
 import qualified Pos.GState               as GS
 import           Pos.Launcher.Resource    (NodeResources (..))
 import           Pos.Lrc.DB               as LrcDB
@@ -89,7 +90,7 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
         Just (kInst, False) -> kademliaJoinNetworkNoThrow kInst (kdiInitialPeers kInst)
         Nothing             -> return ()
 
-    genesisStakeholders <- view (lensOf @GenesisWStakeholders)
+    let genesisStakeholders = gdBootStakeholders genesisData
     logInfo $ sformat ("Dust threshold: "%build)
         (bootDustThreshold genesisStakeholders)
     logInfo $ sformat ("Genesis stakeholders: " %int)

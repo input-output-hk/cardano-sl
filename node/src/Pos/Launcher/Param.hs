@@ -21,9 +21,6 @@ import           Pos.Behavior                (BehaviorConfig (..))
 import           Pos.Core                    (HasPrimaryKey (..))
 import           Pos.Crypto                  (SecretKey)
 import           Pos.DHT.Real.Param          (KademliaParams)
-import           Pos.Genesis                 (GenesisContext, GenesisUtxo,
-                                              GenesisWStakeholders, gtcUtxo,
-                                              gtcWStakeholders)
 import           Pos.Network.Types           (NetworkConfig)
 import           Pos.Reporting.MemState      (HasReportServers (..))
 import           Pos.Security.Params         (SecurityParams)
@@ -60,7 +57,6 @@ data NodeParams = NodeParams
     , npSecretKey      :: !SecretKey            -- ^ Primary secret key of node
     , npUserSecret     :: !UserSecret           -- ^ All node secret keys
     , npBaseParams     :: !BaseParams           -- ^ See 'BaseParams'
-    , npGenesisCtx     :: !GenesisContext       -- ^ Predefined genesis context
     , npJLFile         :: !(Maybe FilePath)     -- TODO COMMENT
     , npReportServers  :: ![Text]               -- ^ List of report server URLs
     , npUpdateParams   :: !UpdateParams         -- ^ Params for update system
@@ -85,15 +81,6 @@ instance HasLens SecurityParams NodeParams SecurityParams where
     lensOf = npBehaviorConfig_L . bcSecurityParams_L
 instance HasLens GtBehavior NodeParams GtBehavior where
     lensOf = npBehaviorConfig_L . bcGtBehavior_L
-
-instance HasLens GenesisContext NodeParams GenesisContext where
-    lensOf = npGenesisCtx_L
-
-instance HasLens GenesisUtxo NodeParams GenesisUtxo where
-    lensOf = npGenesisCtx_L . gtcUtxo
-
-instance HasLens GenesisWStakeholders NodeParams GenesisWStakeholders where
-    lensOf = npGenesisCtx_L . gtcWStakeholders
 
 instance HasLens (NetworkConfig KademliaParams) NodeParams (NetworkConfig KademliaParams) where
     lensOf = npNetworkConfig_L

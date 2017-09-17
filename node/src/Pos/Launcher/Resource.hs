@@ -20,7 +20,7 @@ module Pos.Launcher.Resource
        , bracketTransport
        ) where
 
-import           Universum                        hiding (bracket, finally)
+import           Universum                        hiding (bracket)
 
 import           Control.Concurrent.STM           (newEmptyTMVarIO, newTBQueueIO)
 import           Data.Tagged                      (untag)
@@ -48,7 +48,7 @@ import           Pos.Configuration
 import           Pos.Context                      (ConnectedPeers (..), NodeContext (..),
                                                    StartTime (..))
 import           Pos.Core                         (HasConfiguration, Timestamp,
-                                                   systemStart)
+                                                   gdStartTime, genesisData)
 import           Pos.DB                           (MonadDBRead, NodeDBs)
 import           Pos.DB.DB                        (initNodeDBs)
 import           Pos.DB.Rocks                     (closeNodeDBs, openNodeDBs)
@@ -155,7 +155,6 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
             putSlottingContext sc
         initModeContext = InitModeContext
             db
-            npGenesisCtx
             futureSlottingVar
             futureSlottingContext
             futureLrcContext
@@ -279,7 +278,7 @@ allocateNodeContext ancd = do
     ncStateLock <- newStateLock
     ncStateLockMetrics <- liftIO $ recordTxpMetrics store txpMemPool
     lcLrcSync <- mkLrcSyncData >>= newTVarIO
-    ncSlottingVar <- (systemStart,) <$> mkSlottingVar
+    ncSlottingVar <- (gdStartTime genesisData,) <$> mkSlottingVar
     ncSlottingContext <-
         case npUseNTP of
             True  -> SCNtp <$> mkNtpSlottingVar

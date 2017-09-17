@@ -31,8 +31,8 @@ import qualified Text.Parsec.Text       as P
 
 import           Pos.Binary.Core        ()
 import           Pos.Constants          (isDevelopment)
-import           Pos.Core               (StakeholderId, Timestamp (..))
-import           Pos.Core.Genesis       (mkGenesisData, staticSystemStart)
+import           Pos.Core               (StakeholderId)
+import           Pos.Core.Configuration (HasConfiguration, genesisData)
 import           Pos.Crypto             (decodeAbstractHash)
 import           Pos.Security.Params    (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
@@ -85,8 +85,12 @@ readLoggerConfig :: MonadIO m => Maybe FilePath -> m LoggerConfig
 readLoggerConfig = maybe (return defaultLoggerConfig) parseLoggerConfig
 
 -- | Dump our 'GenesisData' into a file.
-dumpGenesisData :: MonadIO m => Timestamp -> FilePath -> m ()
-dumpGenesisData systemStart path = do
+--
+-- FIXME avieth
+-- system start parameter isn't needed. The genesis data can be derived from
+-- the HasConfiguration constraint.
+dumpGenesisData :: (HasConfiguration, MonadIO m) => FilePath -> m ()
+dumpGenesisData path = do
     putText $ sformat ("Writing JSON with hash "%shown%" to "%shown) jsonHash path
     liftIO $ BSL.writeFile path canonicalJsonBytes
   where
@@ -94,4 +98,3 @@ dumpGenesisData systemStart path = do
     jsonHash = Hash.hash $ BSL.toStrict canonicalJsonBytes
 
     canonicalJsonBytes = renderCanonicalJSON $ runIdentity $ toJSON genesisData
-    genesisData = mkGenesisData systemStart

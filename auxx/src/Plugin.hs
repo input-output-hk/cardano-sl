@@ -9,31 +9,31 @@ module Plugin
 
 import           Universum
 
-import qualified Data.Text            as T
+import qualified Data.Text                  as T
 #if !(defined(mingw32_HOST_OS))
-import           System.Exit          (ExitCode (ExitSuccess))
-import           System.Posix.Process (exitImmediately)
+import           System.Exit                (ExitCode (ExitSuccess))
+import           System.Posix.Process       (exitImmediately)
 #endif
-import           Formatting           (int, sformat, stext, (%))
-import           Mockable             (delay)
-import           Node.Conversation    (ConversationActions (..))
-import           Node.Message.Class   (Message (..))
-import           Serokell.Util        (sec)
-import           System.IO            (hFlush, stdout)
-import           System.Wlog          (WithLogger, logDebug, logInfo)
+import           Formatting                 (int, sformat, stext, (%))
+import           Mockable                   (delay)
+import           Node.Conversation          (ConversationActions (..))
+import           Node.Message.Class         (Message (..))
+import           Serokell.Util              (sec)
+import           System.IO                  (hFlush, stdout)
+import           System.Wlog                (WithLogger, logDebug, logInfo)
 
-import           Pos.Communication    (Conversation (..), OutSpecs (..), SendActions (..),
-                                       Worker, WorkerSpec, delegationRelays,
-                                       relayPropagateOut, txRelays, usRelays, worker)
+import           Pos.Communication          (Conversation (..), OutSpecs (..),
+                                             SendActions (..), Worker, WorkerSpec,
+                                             delegationRelays, relayPropagateOut,
+                                             txRelays, usRelays, worker)
 import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Ssc.GodTossing   (SscGodTossing)
-import           Pos.Txp              (unGenesisUtxo)
-import           Pos.Util.Util        (lensOf')
-import           Pos.WorkMode         (RealMode, RealModeContext)
+import           Pos.Ssc.GodTossing         (SscGodTossing)
+import           Pos.Txp                    (genesisUtxo, unGenesisUtxo)
+import           Pos.WorkMode               (RealMode, RealModeContext)
 
-import           AuxxOptions          (AuxxAction (..), AuxxOptions (..))
-import           Command              (Command (..), parseCommand, runCmd)
-import           Mode                 (AuxxMode)
+import           AuxxOptions                (AuxxAction (..), AuxxOptions (..))
+import           Command                    (Command (..), parseCommand, runCmd)
+import           Mode                       (AuxxMode)
 
 ----------------------------------------------------------------------------
 -- Plugin implementation
@@ -50,11 +50,8 @@ auxxPlugin AuxxOptions {..} =
   where
     worker' specs w =
         worker specs $ \sa -> do
-            genesisUtxo <- view lensOf'
-            logInfo $
-                sformat
-                    ("Length of genesis utxo: " %int)
-                    (length $ unGenesisUtxo genesisUtxo)
+            logInfo $ sformat ("Length of genesis utxo: " %int)
+                              (length $ unGenesisUtxo genesisUtxo)
             w (addLogging sa)
 
 evalCmd ::

@@ -19,49 +19,53 @@ module Mode
 
 import           Universum
 
-import           Control.Lens             (makeLensesWith)
-import           Control.Monad.Morph      (hoist)
-import           Control.Monad.Reader     (withReaderT)
-import           Mockable                 (Production)
-import           System.Wlog              (HasLoggerName (..))
+import           Control.Lens                     (makeLensesWith)
+import           Control.Monad.Morph              (hoist)
+import           Control.Monad.Reader             (withReaderT)
+import           Mockable                         (Production)
+import           System.Wlog                      (HasLoggerName (..))
 
-import           Pos.Block.BListener      (MonadBListener (..))
-import           Pos.Block.Core           (Block, BlockHeader)
-import           Pos.Block.Slog           (HasSlogContext (..), HasSlogGState (..))
-import           Pos.Block.Types          (Undo)
-import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Client.Txp.Balances  (MonadBalances (..), getBalanceFromUtxo)
-import           Pos.Client.Txp.History   (MonadTxHistory (..), getBlockHistoryDefault,
-                                           getLocalHistoryDefault, saveTxDefault)
-import           Pos.Communication        (NodeId)
-import           Pos.Context              (HasNodeContext (..), unGenesisUtxo)
-import           Pos.Core                 (HasConfiguration, HasPrimaryKey (..), IsHeader)
-import           Pos.Crypto               (PublicKey)
-import           Pos.DB                   (MonadGState (..))
-import           Pos.DB.Class             (MonadBlockDBGeneric (..),
-                                           MonadBlockDBGenericWrite (..), MonadDB (..),
-                                           MonadDBRead (..))
-import           Pos.Infra.Configuration  (HasInfraConfiguration)
-import           Pos.KnownPeers           (MonadFormatPeers (..), MonadKnownPeers (..))
-import           Pos.Recovery             ()
-import           Pos.Reporting            (HasReportingContext (..))
-import           Pos.Shutdown             (HasShutdownContext (..))
-import           Pos.Slotting.Class       (MonadSlots (..))
-import           Pos.Slotting.MemState    (HasSlottingVar (..), MonadSlotsData)
-import           Pos.Ssc.Class            (HasSscContext (..), SscBlock)
-import           Pos.Ssc.GodTossing       (SscGodTossing)
+import           Pos.Block.BListener              (MonadBListener (..))
+import           Pos.Block.Core                   (Block, BlockHeader)
+import           Pos.Block.Slog                   (HasSlogContext (..),
+                                                   HasSlogGState (..))
+import           Pos.Block.Types                  (Undo)
+import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
+import           Pos.Client.Txp.Balances          (MonadBalances (..), getBalanceFromUtxo)
+import           Pos.Client.Txp.History           (MonadTxHistory (..),
+                                                   getBlockHistoryDefault,
+                                                   getLocalHistoryDefault, saveTxDefault)
+import           Pos.Communication                (NodeId)
+import           Pos.Context                      (HasNodeContext (..), unGenesisUtxo)
+import           Pos.Core                         (HasConfiguration, HasPrimaryKey (..),
+                                                   IsHeader)
+import           Pos.Crypto                       (PublicKey)
+import           Pos.DB                           (MonadGState (..))
+import           Pos.DB.Class                     (MonadBlockDBGeneric (..),
+                                                   MonadBlockDBGenericWrite (..),
+                                                   MonadDB (..), MonadDBRead (..))
+import           Pos.Infra.Configuration          (HasInfraConfiguration)
+import           Pos.KnownPeers                   (MonadFormatPeers (..),
+                                                   MonadKnownPeers (..))
+import           Pos.Recovery                     ()
+import           Pos.Reporting                    (HasReportingContext (..))
+import           Pos.Shutdown                     (HasShutdownContext (..))
+import           Pos.Slotting.Class               (MonadSlots (..))
+import           Pos.Slotting.MemState            (HasSlottingVar (..), MonadSlotsData)
+import           Pos.Ssc.Class                    (HasSscContext (..), SscBlock)
+import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Txp                  (filterUtxoByAddrs)
-import           Pos.Util                 (Some (..))
-import           Pos.Util.JsonLog         (HasJsonLogConfig (..))
-import           Pos.Util.LoggerName      (HasLoggerName' (..))
-import qualified Pos.Util.OutboundQueue   as OQ.Reader
-import           Pos.Util.TimeWarp        (CanJsonLog (..))
-import           Pos.Util.UserSecret      (HasUserSecret (..))
-import           Pos.Util.Util            (HasLens (..), lensOf', postfixLFields)
-import           Pos.WorkMode             (RealMode, RealModeContext (..))
+import           Pos.Txp                          (filterUtxoByAddrs, genesisUtxo)
+import           Pos.Util                         (Some (..))
+import           Pos.Util.JsonLog                 (HasJsonLogConfig (..))
+import           Pos.Util.LoggerName              (HasLoggerName' (..))
+import qualified Pos.Util.OutboundQueue           as OQ.Reader
+import           Pos.Util.TimeWarp                (CanJsonLog (..))
+import           Pos.Util.UserSecret              (HasUserSecret (..))
+import           Pos.Util.Util                    (HasLens (..), postfixLFields)
+import           Pos.WorkMode                     (RealMode, RealModeContext (..))
 
-import           Pos.Auxx.Hacks        (makePubKeyAddressAuxx)
+import           Pos.Auxx.Hacks                   (makePubKeyAddressAuxx)
 
 -- | Command execution context.
 data CmdCtx = CmdCtx
@@ -191,10 +195,11 @@ instance HasConfiguration => MonadBListener AuxxMode where
 -- FIXME: I preserved the old behavior, but it most likely should be
 -- changed!
 instance HasConfiguration => MonadBalances AuxxMode where
-    getOwnUtxos addrs = filterUtxoByAddrs addrs . unGenesisUtxo <$> view lensOf'
+    getOwnUtxos addrs = pure $ filterUtxoByAddrs addrs $ unGenesisUtxo genesisUtxo
     getBalance = getBalanceFromUtxo
 
-instance (HasConfiguration, HasInfraConfiguration, HasGtConfiguration) => MonadTxHistory AuxxSscType AuxxMode where
+instance (HasConfiguration, HasInfraConfiguration, HasGtConfiguration) =>
+         MonadTxHistory AuxxSscType AuxxMode where
     getBlockHistory = getBlockHistoryDefault @AuxxSscType
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault

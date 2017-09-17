@@ -11,10 +11,9 @@ import qualified Network.Transport.TCP as TCP (TCPAddr (..))
 import           System.Wlog           (logInfo)
 
 import qualified Pos.Client.CLI        as CLI
-import           Pos.Core              (Timestamp (..), systemStart)
-import           Pos.Launcher          (NodeParams (..),
-                                        bracketNodeResources, runRealBasedMode,
-                                        withConfigurations)
+import           Pos.Core              (Timestamp (..), gdStartTime, genesisData)
+import           Pos.Launcher          (NodeParams (..), bracketNodeResources,
+                                        runRealBasedMode, withConfigurations)
 import           Pos.Network.Types     (NetworkConfig (..), Topology (..),
                                         topologyDequeuePolicy, topologyEnqueuePolicy,
                                         topologyFailurePolicy)
@@ -48,7 +47,7 @@ correctNodeParams AuxxOptions {..} np =
 action :: AuxxOptions -> Production ()
 action opts@AuxxOptions {..} = withConfigurations conf $ do
     CLI.printFlags
-    logInfo $ sformat ("System start time is "%shown) systemStart
+    logInfo $ sformat ("System start time is "%shown) $ gdStartTime genesisData
     t <- currentTime
     logInfo $ sformat ("Current time is "%shown) (Timestamp t)
     nodeParams <-

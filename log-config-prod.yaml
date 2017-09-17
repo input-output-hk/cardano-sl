@@ -5,8 +5,8 @@ severity: Info
 node:
     severity: Debug
     handlers:
-      - file: node.pub
-        round: 5
+      - file: pub/node.pub    # NB. the / will work on Windows too
+        round: 5              # because we do filepath normalization
       - file: node
     comm:
         severity: Info

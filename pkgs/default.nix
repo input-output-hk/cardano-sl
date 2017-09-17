@@ -4363,8 +4363,8 @@ self: {
       log-warper = callPackage ({ aeson, ansi-terminal, base, containers, directory, dlist, errors, exceptions, extra, filepath, formatting, hashable, lens, mkDerivation, mmorph, monad-control, monad-loops, mtl, network, safecopy, stdenv, text, text-format, time, transformers, transformers-base, universum, unix, unordered-containers, yaml }:
       mkDerivation {
           pname = "log-warper";
-          version = "1.2.0";
-          sha256 = "0y02wlfw12x2y6hgq9878ynnghyg4xvai806fbapz3vi9xypd5jv";
+          version = "1.2.1";
+          sha256 = "0qy1i40ypjcsvqy63jgn824a8iclvw49bhnkxab4k5vjhypd78ga";
           isLibrary = true;
           isExecutable = true;
           libraryHaskellDepends = [

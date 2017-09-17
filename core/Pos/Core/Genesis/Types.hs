@@ -123,6 +123,8 @@ data TestnetBalanceOptions = TestnetBalanceOptions
     -- ^ Number of poor nodes (with small balance).
     , tboRichmen        :: !Word
     -- ^ Number of rich nodes (with huge balance).
+    , tboTotalBalance   :: !Word64
+    -- ^ Total balance owned by these nodes.
     , tboRichmenShare   :: !Double
     -- ^ Portion of stake owned by all richmen together.
     , tboUseHDAddresses :: !Bool

@@ -46,8 +46,6 @@ data CoreConfiguration = CoreConfiguration
 
     , -- | Versioning for values in node's DB
       ccDbSerializeVersion     :: !Word8
-    , -- | Number of pre-generated keys
-      ccGenesisN               :: !Int
       -- | Size of mem pool will be limited by this value muliplied by block
       -- size limit.
     , ccMemPoolLimitRatio      :: !Word

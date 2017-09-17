@@ -58,7 +58,8 @@ import           Pos.Core                         (Address (..), BlockHeaderStub
                                                    addrAttributesUnwrapped,
                                                    blkSecurityParam, genesisHash,
                                                    headerHash, headerSlotL,
-                                                   makeRootPubKeyAddress, timestampToPosix)
+                                                   makeRootPubKeyAddress,
+                                                   timestampToPosix)
 import           Pos.Crypto                       (EncryptedSecretKey, HDPassphrase,
                                                    WithHash (..), deriveHDPassphrase,
                                                    encToPublic, hash, shortHashF,

@@ -19,7 +19,6 @@ module Test.Pos.Block.Logic.Mode
 
        , BlockProperty
        , blockPropertyToProperty
-       , genSuitableBalanceDistribution
 
        , HasVarSpecConfigurations
        ) where
@@ -37,8 +36,8 @@ import           Mockable                         (Production, currentTime, runP
 import qualified Prelude
 import           System.Wlog                      (HasLoggerName (..), LoggerName)
 import           Test.QuickCheck                  (Arbitrary (..), Gen, Property,
-                                                   Testable (..), choose, forAll,
-                                                   ioProperty, oneof, suchThat)
+                                                   Testable (..), forAll, ioProperty,
+                                                   suchThat)
 import           Test.QuickCheck.Monadic          (PropertyM, monadic)
 
 import           Pos.AllSecrets                   (AllSecrets (..), HasAllSecrets (..),
@@ -50,10 +49,8 @@ import           Pos.Block.Slog                   (HasSlogGState (..), mkSlogGSt
 import           Pos.Block.Types                  (Undo)
 import           Pos.Configuration                (HasNodeConfiguration)
 import           Pos.Core                         (AddrSpendingData (..),
-                                                   BalanceDistribution (..),
                                                    HasConfiguration, IsHeader, SlotId,
-                                                   Timestamp (..), makePubKeyAddressBoot,
-                                                   mkCoin, unsafeGetCoin)
+                                                   Timestamp (..), makePubKeyAddressBoot)
 import           Pos.Crypto                       (SecretKey, toPublic)
 import           Pos.DB                           (DBPure, MonadBlockDBGeneric (..),
                                                    MonadBlockDBGenericWrite (..),
@@ -65,10 +62,6 @@ import           Pos.DB.DB                        (gsAdoptedBVDataDefault, initN
 import           Pos.DB.Pure                      (DBPureVar, newDBPureVar)
 import           Pos.Delegation                   (DelegationVar, mkDelegationVar)
 import           Pos.Generator.BlockEvent         (SnapshotId)
-import           Pos.Genesis                      (GenesisContext (..), GenesisUtxo (..),
-                                                   GenesisWStakeholders (..),
-                                                   genesisContextImplicit, gtcUtxo,
-                                                   gtcWStakeholders, safeExpBalances)
 import qualified Pos.GState                       as GS
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.KnownPeers                   (MonadFormatPeers (..))
@@ -90,7 +83,7 @@ import           Pos.Ssc.Extra                    (SscMemTag, SscState, mkSscSta
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                          (GenericTxpLocalData, TxpGlobalSettings,
-                                                   TxpHolderTag, mkTxpLocalData, utxoF)
+                                                   TxpHolderTag, mkTxpLocalData)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Update.Context               (UpdateContext, mkUpdateContext)
 import           Pos.Util                         (Some, newInitFuture, postfixLFields)
@@ -125,18 +118,13 @@ type HasVarSpecConfigurations =
 -- | This data type contains all parameters which should be generated
 -- before testing starts.
 data TestParams = TestParams
-    { _tpGenesisContext       :: !GenesisContext
-    , _tpAllSecrets           :: !AllSecrets
+    { _tpAllSecrets :: !AllSecrets
     -- ^ Secret keys corresponding to 'PubKeyAddress'es from
     -- genesis 'Utxo'.
     -- They are stored in map (with 'StakeholderId' as key) to make it easy
     -- to find 'SecretKey' corresponding to given 'StakeholderId'.
     -- In tests we often want to have inverse of 'hash' and 'toPublic'.
-    , _tpBalanceDistributions :: ![BalanceDistribution]
-    -- ^ Balance distributions which were used to generate genesis txp data.
-    -- It's primarily needed to see (in logs) which distribution was used (e. g.
-    -- when test fails).
-    , _tpStartTime            :: !Microsecond
+    , _tpStartTime  :: !Microsecond
     }
 
 makeClassy ''TestParams
@@ -147,34 +135,14 @@ instance HasAllSecrets TestParams where
 instance Buildable TestParams where
     build TestParams {..} =
         bprint ("TestParams {\n"%
-                "  utxo = "%utxoF%"\n"%
                 "  secrets: "%build%"\n"%
-                "  balance distributions: "%shown%"\n"%
                 "  start time: "%shown%"\n"%
                 "}\n")
-            utxo
             _tpAllSecrets
-            _tpBalanceDistributions
             _tpStartTime
-      where
-        utxo = unGenesisUtxo (_tpGenesisContext ^. gtcUtxo)
 
 instance Show TestParams where
     show = formatToString build
-
--- More distributions can be added if we want (e. g. RichPoor).
-genSuitableBalanceDistribution :: Word -> Gen BalanceDistribution
-genSuitableBalanceDistribution stakeholdersNum =
-    oneof [ genFlat
-          {-, genBitcoin-} -- is broken
-          , pure $ safeExpBalances (25::Integer) -- 25 participants should be enough
-          ]
-  where
-    -- We set the lower bound to 10 ADA per stakeholder to make sure that we have
-    -- enough money in genesis to generate transactions with proper fees
-    totalCoins = mkCoin <$> choose ( fromIntegral stakeholdersNum * 10000000
-                                   , unsafeGetCoin maxBound)
-    genFlat = FlatBalances stakeholdersNum <$> totalCoins
 
 instance HasConfiguration => Arbitrary TestParams where
     arbitrary = do
@@ -188,13 +156,7 @@ instance HasConfiguration => Arbitrary TestParams where
         let invAddrSpendingData =
                 mkInvAddrSpendingData $
                 addresses `zip` (map PubKeyASD publicKeys)
-        balanceDistribution <-
-            genSuitableBalanceDistribution (fromIntegral $ length invSecretsMap)
-        let addrDistribution = [(addresses, balanceDistribution)]
-        let _tpGenesisContext =
-                genesisContextImplicit invAddrSpendingData addrDistribution
         let _tpAllSecrets = AllSecrets invSecretsMap invAddrSpendingData
-        let _tpBalanceDistributions = one balanceDistribution
         let _tpStartTime = fromMicroseconds 0
         return TestParams {..}
 
@@ -205,11 +167,10 @@ instance HasConfiguration => Arbitrary TestParams where
 -- The fields are lazy on purpose: this allows using them with
 -- futures.
 data TestInitModeContext = TestInitModeContext
-    { timcDBPureVar      :: DBPureVar
-    , timcGenesisContext :: GenesisContext
-    , timcSlottingVar    :: TVar SlottingData
-    , timcSystemStart    :: !Timestamp
-    , timcLrcContext     :: LrcContext
+    { timcDBPureVar   :: DBPureVar
+    , timcSlottingVar :: TVar SlottingData
+    , timcSystemStart :: !Timestamp
+    , timcLrcContext  :: LrcContext
     }
 
 makeLensesWith postfixLFields ''TestInitModeContext
@@ -271,7 +232,6 @@ initBlockTestContext tp@TestParams {..} callback = do
     let initCtx =
             TestInitModeContext
                 dbPureVar
-                _tpGenesisContext
                 futureSlottingVar
                 systemStart
                 futureLrcCtx
@@ -348,15 +308,6 @@ instance (HasNodeConfiguration, HasGtConfiguration, HasConfiguration)
 
 instance HasLens DBPureVar TestInitModeContext DBPureVar where
     lensOf = timcDBPureVar_L
-
-instance HasLens GenesisUtxo TestInitModeContext GenesisUtxo where
-    lensOf = timcGenesisContext_L . gtcUtxo
-
-instance HasLens GenesisWStakeholders TestInitModeContext GenesisWStakeholders where
-    lensOf = timcGenesisContext_L . gtcWStakeholders
-
-instance HasLens GenesisContext TestInitModeContext GenesisContext where
-    lensOf = timcGenesisContext_L
 
 instance HasLens LrcContext TestInitModeContext LrcContext where
     lensOf = timcLrcContext_L
@@ -459,12 +410,6 @@ instance HasLens DelegationVar BlockTestContext DelegationVar where
 
 instance HasLens TxpHolderTag BlockTestContext (GenericTxpLocalData TxpExtra_TMP) where
     lensOf = btcTxpMem_L
-
-instance HasLens GenesisUtxo BlockTestContext GenesisUtxo where
-    lensOf = btcParams_L . tpGenesisContext . gtcUtxo
-
-instance HasLens GenesisWStakeholders BlockTestContext GenesisWStakeholders where
-    lensOf = btcParams_L . tpGenesisContext . gtcWStakeholders
 
 instance HasLoggerName' BlockTestContext where
     loggerName = lensOf @LoggerName

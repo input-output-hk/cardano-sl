@@ -72,7 +72,7 @@ action :: WalletNodeArgs -> Production ()
 action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
     withConfigurations conf $ do
         whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData
-        putText $ sformat ("System start time is " % shown) (gdStartTime genesisData)
+        putText $ sformat ("System start time is " % shown) $ gdStartTime genesisData
         t <- currentTime
         putText $ sformat ("Current time is " % shown) (Timestamp t)
         currentParams <- getNodeParams cArgs

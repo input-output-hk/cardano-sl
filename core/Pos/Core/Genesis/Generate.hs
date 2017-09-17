@@ -79,20 +79,26 @@ generateGenesisData (TestnetInitializer{..}) maxTnBalance = deterministic (seria
     let TestnetBalanceOptions{..} = tiTestBalance
     (fakeAvvmDistr, seeds, fakeAvvmBalance) <- generateFakeAvvmGenesis tiFakeAvvmBalance
     (richmenList, poorsList) <-
-        (,) <$> replicateM (fromIntegral tboRichmen) (generateSecretsAndAddress Nothing tboUseHDAddresses)
-            <*> replicateM (fromIntegral tboPoors)   (generateSecretsAndAddress Nothing tboUseHDAddresses)
+        (,) <$> replicateM (fromIntegral tboRichmen)
+                           (generateSecretsAndAddress Nothing tboUseHDAddresses)
+            <*> replicateM (fromIntegral tboPoors)
+                           (generateSecretsAndAddress Nothing tboUseHDAddresses)
 
     let skVssCerts = map (\(sk, _, _, vc, _) -> (sk, vc)) $ richmenList ++ poorsList
         richSkVssCerts = take (fromIntegral tboRichmen) skVssCerts
-        secretKeys = map (\(sk, hdwSk, vssSk, _, _) -> (sk, hdwSk, vssSk)) $ richmenList ++ poorsList
+        secretKeys = map (\(sk, hdwSk, vssSk, _, _) -> (sk, hdwSk, vssSk))
+                         (richmenList ++ poorsList)
 
-        safeZip s a b = if length a /= length b
-                           then error $ s <> " :lists differ in size, " <> show (length a) <> " and " <> show (length b)
-                           else zip a b
+        safeZip s a b =
+            if length a /= length b
+            then error $ s <> " :lists differ in size, " <> show (length a) <>
+                         " and " <> show (length b)
+            else zip a b
 
         tnBalance = min maxTnBalance tboTotalBalance
 
-        (richBs, poorBs) = genTestnetDistribution tiTestBalance (fromIntegral $ tnBalance - fakeAvvmBalance)
+        (richBs, poorBs) =
+            genTestnetDistribution tiTestBalance (fromIntegral $ tnBalance - fakeAvvmBalance)
         -- ^ Rich and poor balances
         richAs = map (makePubKeyAddressBoot . toPublic . fst) richSkVssCerts
         -- ^ Rich addresses
@@ -105,8 +111,10 @@ generateGenesisData (TestnetInitializer{..}) maxTnBalance = deterministic (seria
 
     let (bootStakeholders, gtData) =
             case tiDistribution of
-                TestnetRichmenStakeDistr    -> (toStakeholders richSkVssCerts, toVss richSkVssCerts)
-                TestnetCustomStakeDistr{..} -> (getGenesisWStakeholders tcsdBootStakeholders, tcsdVssCerts)
+                TestnetRichmenStakeDistr    ->
+                    (toStakeholders richSkVssCerts, toVss richSkVssCerts)
+                TestnetCustomStakeDistr{..} ->
+                    (getGenesisWStakeholders tcsdBootStakeholders, tcsdVssCerts)
 
     pure $ GeneratedGenesisData
         { ggdNonAvvm = GenesisNonAvvmBalances nonAvvmDistr
@@ -128,7 +136,9 @@ generateFakeAvvmGenesis FakeAvvmOptions{..} = do
     fakeAvvmPubkeysAndSeeds <- replicateM (fromIntegral faoCount) generateFakeAvvm
     let oneBalance = mkCoin $ fromIntegral faoOneBalance
         fakeAvvms = map ((,oneBalance) . fst) fakeAvvmPubkeysAndSeeds
-    pure (GenesisAvvmBalances $ HM.fromList fakeAvvms, map snd fakeAvvmPubkeysAndSeeds, faoOneBalance * fromIntegral faoCount)
+    pure ( GenesisAvvmBalances $ HM.fromList fakeAvvms
+         , map snd fakeAvvmPubkeysAndSeeds
+         , faoOneBalance * fromIntegral faoCount)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -182,7 +192,11 @@ generateSecrets mbSk = do
     pure (sk, hdwSk, vss)
 
 -- | Generates balance distribution for testnet.
-genTestnetDistribution :: HasGenesisBlockVersionData => TestnetBalanceOptions -> Integer -> ([Coin], [Coin])
+genTestnetDistribution ::
+       HasGenesisBlockVersionData
+    => TestnetBalanceOptions
+    -> Integer
+    -> ([Coin], [Coin])
 genTestnetDistribution TestnetBalanceOptions{..} testBalance =
     checkConsistency (richBalances, poorBalances)
   where

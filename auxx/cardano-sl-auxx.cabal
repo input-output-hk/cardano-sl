@@ -79,6 +79,7 @@ executable cardano-auxx
                      , transformers-lift
                      , universum >= 0.1.11
                      , unordered-containers
+                     , yaml
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall

@@ -85,9 +85,14 @@ base58PkParser = do
         decodeBase58 bitcoinAlphabet (encodeUtf8 $ toText token)
     eitherToFail (decodeFull bs)
 
+dumpFlag :: Parser Bool
+dumpFlag = (False <$ lexeme (try $ string "dump")) <|> pure True
+
 delegateL, delegateH :: Parser Command
-delegateL = DelegateLight <$> num <*> base58PkParser <*> num <*> optional num
-delegateH = DelegateHeavy <$> num <*> base58PkParser <*> num
+delegateL =
+    DelegateLight <$> num <*> base58PkParser <*> num <*> optional num <*> dumpFlag
+delegateH =
+    DelegateHeavy <$> num <*> base58PkParser <*> num <*> dumpFlag
 
 addKeyFromPool, addKeyFromFile :: Parser Command
 addKeyFromPool = AddKeyFromPool <$> num

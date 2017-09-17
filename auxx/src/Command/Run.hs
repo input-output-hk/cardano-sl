@@ -9,33 +9,34 @@ module Command.Run
 
 import           Universum
 
-import           Control.Exception.Safe (throwString)
-import           Data.ByteString.Base58 (bitcoinAlphabet, encodeBase58)
-import           Data.List              ((!!))
-import           Formatting             (build, int, sformat, stext, (%))
-import           NeatInterpolation      (text)
+import           Control.Exception.Safe     (throwString)
+import           Data.ByteString.Base58     (bitcoinAlphabet, encodeBase58)
+import           Data.List                  ((!!))
+import qualified Data.Yaml                  as Y
+import           Formatting                 (build, int, sformat, stext, (%))
+import           NeatInterpolation          (text)
 
-import           Pos.Auxx               (makePubKeyAddressAuxx)
-import           Pos.Binary             (serialize')
-import           Pos.Communication      (MsgType (..), Origin (..), SendActions, dataFlow,
-                                         immediateConcurrentConversations)
-import           Pos.Constants          (isDevelopment)
-import           Pos.Core               (addressHash, coinF)
-import           Pos.Core.Address       (makeAddress)
-import           Pos.Core.Types         (AddrAttributes (..), AddrSpendingData (..))
-import           Pos.Crypto             (emptyPassphrase, encToPublic, fullPublicKeyHexF,
-                                         hashHexF, noPassEncrypt, safeCreatePsk,
-                                         withSafeSigner)
-import           Pos.Core.Configuration (genesisSecretKeys)
+import           Pos.Auxx                   (makePubKeyAddressAuxx)
+import           Pos.Binary                 (serialize')
+import           Pos.Communication          (MsgType (..), Origin (..), SendActions,
+                                             dataFlow, immediateConcurrentConversations)
+import           Pos.Constants              (isDevelopment)
+import           Pos.Core                   (addressHash, coinF)
+import           Pos.Core.Address           (makeAddress)
+import           Pos.Core.Configuration     (genesisSecretKeys)
+import           Pos.Core.Types             (AddrAttributes (..), AddrSpendingData (..))
+import           Pos.Crypto                 (emptyPassphrase, encToPublic,
+                                             fullPublicKeyHexF, hashHexF, noPassEncrypt,
+                                             safeCreatePsk, withSafeSigner)
 import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Util.UserSecret    (readUserSecret, usKeys)
-import           Pos.Wallet             (addSecretKey, getBalance, getSecretKeys)
+import           Pos.Util.UserSecret        (readUserSecret, usKeys)
+import           Pos.Wallet                 (addSecretKey, getBalance, getSecretKeys)
 
-import qualified Command.Rollback       as Rollback
-import qualified Command.Tx             as Tx
-import           Command.Types          (Command (..))
-import qualified Command.Update         as Update
-import           Mode                   (AuxxMode, CmdCtx (..), getCmdCtx)
+import qualified Command.Rollback           as Rollback
+import qualified Command.Tx                 as Tx
+import           Command.Types              (Command (..))
+import qualified Command.Update             as Update
+import           Mode                       (AuxxMode, CmdCtx (..), getCmdCtx)
 
 
 helpMsg :: Text
@@ -107,27 +108,34 @@ runCmd _ ListAddresses = do
                     i addr (toBase58Text pk) pk (addressHash pk)
   where
     toBase58Text = decodeUtf8 . encodeBase58 bitcoinAlphabet . serialize'
-runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) = do
+runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM dry) = do
     CmdCtx{ccPeers} <- getCmdCtx
     issuerSk <- (!! i) <$> getSecretKeys
     withSafeSigner issuerSk (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
             let psk = safeCreatePsk ss delegatePk (startEpoch, fromMaybe 1000 lastEpochM)
-            dataFlow "pskLight" (immediateConcurrentConversations sendActions ccPeers) (MsgTransaction OriginSender) psk
+            if dry
+            then putStrLn $ Y.encode psk
+            else dataFlow
+                     "pskLight"
+                     (immediateConcurrentConversations sendActions ccPeers)
+                     (MsgTransaction OriginSender) psk
     putText "Sent lightweight cert"
-runCmd sendActions (DelegateHeavy i delegatePk curEpoch) = do
+runCmd sendActions (DelegateHeavy i delegatePk curEpoch dry) = do
     CmdCtx {ccPeers} <- getCmdCtx
     issuerSk <- (!! i) <$> getSecretKeys
     withSafeSigner issuerSk (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
             let psk = safeCreatePsk ss delegatePk curEpoch
-            dataFlow
-                "pskHeavy"
-                (immediateConcurrentConversations sendActions ccPeers)
-                (MsgTransaction OriginSender)
-                psk
+            if dry
+            then putStrLn $ Y.encode psk
+            else dataFlow
+                     "pskHeavy"
+                     (immediateConcurrentConversations sendActions ccPeers)
+                     (MsgTransaction OriginSender)
+                     psk
     putText "Sent heavyweight cert"
 runCmd _ (AddKeyFromPool i) = do
     unless isDevelopment $

@@ -38,24 +38,25 @@ import           Pos.Statistics               (EkgParams, StatsdParams, ekgParam
 import           Pos.Util.BackupPhrase        (BackupPhrase, backupPhraseWordsNum)
 
 data CommonNodeArgs = CommonNodeArgs
-    { dbPath              :: !FilePath
-    , rebuildDB           :: !Bool
+    { dbPath                 :: !FilePath
+    , rebuildDB              :: !Bool
     -- these two arguments are only used in development mode
-    , devSpendingGenesisI :: !(Maybe Int)
-    , devVssGenesisI      :: !(Maybe Int)
-    , keyfilePath         :: !FilePath
-    , backupPhrase        :: !(Maybe BackupPhrase)
-    , networkConfigOpts   :: !NetworkConfigOpts
+    , devSpendingGenesisI    :: !(Maybe Int)
+    , devVssGenesisI         :: !(Maybe Int)
+    , keyfilePath            :: !FilePath
+    , backupPhrase           :: !(Maybe BackupPhrase)
+    , networkConfigOpts      :: !NetworkConfigOpts
       -- ^ Network configuration
-    , jlPath              :: !(Maybe FilePath)
-    , commonArgs          :: !CommonArgs
-    , updateLatestPath    :: !FilePath
-    , updateWithPackage   :: !Bool
-    , noNTP               :: !Bool
-    , enableMetrics       :: !Bool
-    , ekgParams           :: !(Maybe EkgParams)
-    , statsdParams        :: !(Maybe StatsdParams)
-    , configInfo          :: !ConfigInfo
+    , jlPath                 :: !(Maybe FilePath)
+    , commonArgs             :: !CommonArgs
+    , updateLatestPath       :: !FilePath
+    , updateWithPackage      :: !Bool
+    , noNTP                  :: !Bool
+    , enableMetrics          :: !Bool
+    , ekgParams              :: !(Maybe EkgParams)
+    , statsdParams           :: !(Maybe StatsdParams)
+    , configInfo             :: !ConfigInfo
+    , cnaDumpGenesisDataPath :: !(Maybe FilePath)
     } deriving Show
 
 commonNodeArgsParser :: Parser CommonNodeArgs
@@ -116,6 +117,10 @@ commonNodeArgsParser = do
     ekgParams <- optional ekgParamsOption
     statsdParams <- optional statsdParamsOption
     configInfo <- configInfoParser
+
+    cnaDumpGenesisDataPath <- optional $ strOption $
+        long "dump-genesis-data-to" <>
+        help "Dump genesis data in canonical JSON format to this file."
 
     pure CommonNodeArgs{..}
 

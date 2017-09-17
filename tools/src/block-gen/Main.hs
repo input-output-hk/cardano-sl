@@ -2,7 +2,6 @@ module Main where
 
 import           Universum
 
-import           Control.Lens                (to)
 import           Control.Monad.Random.Strict (evalRandT)
 import           Data.Default                (def)
 import qualified Data.Map                    as M
@@ -12,15 +11,12 @@ import           System.Directory            (doesDirectoryExist)
 import           System.Random               (mkStdGen, randomIO)
 import           System.Wlog                 (usingLoggerName)
 
-import           Pos.AllSecrets              (asSecretKeys, mkAllSecretsSimple,
-                                              unInvSecretsMap)
-import           Pos.Core                    (genesisDevSecretKeys, giveStaticConsts,
-                                              isDevelopment, mkCoin, unsafeMulCoin)
+import           Pos.AllSecrets              (mkAllSecretsSimple)
+import           Pos.Core                    (giveStaticConsts, isDevelopment)
 import           Pos.DB                      (closeNodeDBs, openNodeDBs)
 import           Pos.Generator.Block         (BlockGenParams (..), genBlocks)
-import           Pos.Genesis                 (BalanceDistribution (FlatBalances),
-                                              devGenesisContext, genesisContextProduction,
-                                              gtcUtxo, gtcWStakeholders)
+import           Pos.Genesis                 (genesisContext, genesisSecretKeys, gtcUtxo,
+                                              gtcWStakeholders)
 import           Pos.Launcher                (applyConfigInfo)
 import           Pos.Txp.Toil                (GenesisUtxo (..))
 import           Pos.Util.UserSecret         (peekUserSecret, usPrimKey)
@@ -40,19 +36,13 @@ main = (applyConfigInfo def >>) $ flip catch catchEx $ giveStaticConsts $ do
     allSecrets <- mkAllSecretsSimple <$> case bgoNodes of
         Left bgoNodesN -> do
             unless (bgoNodesN > 0) $ throwM NoOneSecrets
-            pure $ take (fromIntegral bgoNodesN) genesisDevSecretKeys
+            let secrets = fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
+            pure $ take (fromIntegral bgoNodesN) secrets
         Right bgoSecretFiles -> do
             when (null bgoSecretFiles) $ throwM NoOneSecrets
             usingLoggerName "block-gen" $ mapM parseSecret bgoSecretFiles
 
-    let devBalanceDistr =
-            let nodesN :: Integral n => n
-                nodesN = fromIntegral $ length $
-                         allSecrets ^. asSecretKeys . to unInvSecretsMap
-            in FlatBalances nodesN $ mkCoin 10000 `unsafeMulCoin` (nodesN :: Int)
-    let genCtx
-            | isDevelopment = devGenesisContext devBalanceDistr
-            | otherwise = genesisContextProduction
+    let genCtx = genesisContext
 
     let bootStakeholders = genCtx ^. gtcWStakeholders
     let genUtxo = genCtx ^. gtcUtxo

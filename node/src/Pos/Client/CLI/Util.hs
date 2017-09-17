@@ -1,4 +1,3 @@
-
 -- | Module for command-line utilites, parsers and convenient handlers.
 
 module Pos.Client.CLI.Util
@@ -10,29 +9,36 @@ module Pos.Client.CLI.Util
        , readLoggerConfig
        , sscAlgoParser
        , stakeholderIdParser
+       , dumpGenesisData
        ) where
 
 import           Universum
 
-import           Control.Lens          (zoom, (?=))
-import           Data.Time.Clock.POSIX (getPOSIXTime)
-import           Data.Time.Units       (toMicroseconds)
-import           Serokell.Util         (sec)
-import           System.Wlog           (LoggerConfig (..), Severity (Info, Warning),
-                                        fromScratch, lcTree, ltSeverity,
-                                        parseLoggerConfig, zoomLogger)
-import           Text.Parsec           (try)
-import qualified Text.Parsec.Char      as P
-import qualified Text.Parsec.Text      as P
+import           Control.Exception.Safe (throwString)
+import           Control.Lens           (zoom, (?=))
+import qualified Crypto.Hash            as Hash
+import qualified Data.ByteString.Lazy   as BSL
+import           Data.Time.Clock.POSIX  (getPOSIXTime)
+import           Data.Time.Units        (toMicroseconds)
+import           Formatting             (sformat, shown, (%))
+import           Serokell.Util          (sec)
+import           System.Wlog            (LoggerConfig (..), Severity (Info, Warning),
+                                         fromScratch, lcTree, ltSeverity,
+                                         parseLoggerConfig, zoomLogger)
+import           Text.JSON.Canonical    (renderCanonicalJSON, toJSON)
+import           Text.Parsec            (try)
+import qualified Text.Parsec.Char       as P
+import qualified Text.Parsec.Text       as P
 
-import           Pos.Binary.Core       ()
-import           Pos.Constants         (isDevelopment)
-import           Pos.Core              (StakeholderId, Timestamp (..))
-import           Pos.Crypto            (decodeAbstractHash)
-import           Pos.Security.Params   (AttackTarget (..), AttackType (..))
-import           Pos.Ssc.SscAlgo       (SscAlgo (..))
-import           Pos.Util              (eitherToFail, inAssertMode)
-import           Pos.Util.TimeWarp     (addrParser)
+import           Pos.Binary.Core        ()
+import           Pos.Constants          (isDevelopment)
+import           Pos.Core               (StakeholderId, Timestamp (..))
+import           Pos.Core.Genesis       (mkGenesisData, staticSystemStart)
+import           Pos.Crypto             (decodeAbstractHash)
+import           Pos.Security.Params    (AttackTarget (..), AttackType (..))
+import           Pos.Ssc.SscAlgo        (SscAlgo (..))
+import           Pos.Util               (eitherToFail, inAssertMode)
+import           Pos.Util.TimeWarp      (addrParser)
 
 printFlags :: MonadIO m => m ()
 printFlags = do
@@ -81,8 +87,18 @@ readLoggerConfig = maybe (return defaultLoggerConfig) parseLoggerConfig
 
 -- | This function carries out special logic to convert given
 -- timestamp to the system start time.
-getNodeSystemStart :: MonadIO m => Timestamp -> m Timestamp
-getNodeSystemStart cliOrConfigSystemStart
+getNodeSystemStart :: MonadIO m => Maybe Timestamp -> m Timestamp
+getNodeSystemStart Nothing =
+    case staticSystemStart of
+        Nothing ->
+            liftIO $
+            throwString
+                "Can't get system start, it's not known from GenesisSpec and wasn't passed via CLI"
+        Just timestamp -> pure timestamp
+getNodeSystemStart (Just cliOrConfigSystemStart)
+  | isJust staticSystemStart =
+      liftIO $ throwString
+          "System start was passed via CLI, but it's also stored in 'GenesisSpec', can't choose"
   | cliOrConfigSystemStart >= 1400000000 =
     -- UNIX time 1400000000 is Tue, 13 May 2014 16:53:20 GMT.
     -- It was chosen arbitrarily as some date far enough in the past.
@@ -100,3 +116,15 @@ getNodeSystemStart cliOrConfigSystemStart
   where
     timestampToSeconds :: Timestamp -> Integer
     timestampToSeconds = (`div` 1000000) . toMicroseconds . getTimestamp
+
+-- | Dump our 'GenesisData' into a file.
+dumpGenesisData :: MonadIO m => Timestamp -> FilePath -> m ()
+dumpGenesisData systemStart path = do
+    putText $ sformat ("Writing JSON with hash "%shown%" to "%shown) jsonHash path
+    liftIO $ BSL.writeFile path canonicalJsonBytes
+  where
+    jsonHash :: Hash.Digest Hash.Blake2b_256
+    jsonHash = Hash.hash $ BSL.toStrict canonicalJsonBytes
+
+    canonicalJsonBytes = renderCanonicalJSON $ runIdentity $ toJSON genesisData
+    genesisData = mkGenesisData systemStart

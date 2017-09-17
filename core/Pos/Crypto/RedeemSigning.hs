@@ -6,20 +6,25 @@ module Pos.Crypto.RedeemSigning
        , redeemToPublic
        , redeemPkBuild
        , redeemPkB64F
+       , redeemPkB64UrlF
        , redeemPkB64ShortF
+       , fromAvvmPk
        , RedeemSignature (..)
        , redeemSign
        , redeemCheckSig
        ) where
 
+import           Universum
+
 import           Crypto.Random        (MonadRandom, getRandomBytes)
 import qualified Data.ByteString      as BS
 import           Data.Coerce          (coerce)
 import           Data.Hashable        (Hashable)
+import qualified Data.Text            as T
 import qualified Data.Text.Buildable  as B
 import           Formatting           (Format, bprint, fitLeft, later, (%), (%.))
 import           Serokell.Util.Base64 (formatBase64)
-import           Universum
+import qualified Serokell.Util.Base64 as B64
 
 import qualified Crypto.Sign.Ed25519  as Ed25519
 import           Pos.Binary.Class     (Bi, Raw)
@@ -55,6 +60,12 @@ redeemPkB64F :: Format r (RedeemPublicKey -> r)
 redeemPkB64F =
     later $ \(RedeemPublicKey pk) -> formatBase64 $ Ed25519.openPublicKey pk
 
+-- | Base64url Format for 'RedeemPublicKey'.
+redeemPkB64UrlF :: Format r (RedeemPublicKey -> r)
+redeemPkB64UrlF =
+    later $ \(RedeemPublicKey pk) ->
+        B.build $ B64.encodeUrl $ Ed25519.openPublicKey pk
+
 redeemPkB64ShortF :: Format r (RedeemPublicKey -> r)
 redeemPkB64ShortF = fitLeft 8 %. redeemPkB64F
 
@@ -63,6 +74,23 @@ instance B.Buildable RedeemPublicKey where
 
 instance B.Buildable RedeemSecretKey where
     build = bprint ("redeem_sec_of_pk:"%redeemPkB64F) . redeemToPublic
+
+-- | Read the text into a redeeming public key. The key should be in
+-- AVVM format which is base64(url). This function must be inverse of
+-- redeemPkB64UrlF formatter.
+--
+-- There's also a copy of this function in cardano-addr-convert.
+fromAvvmPk :: (MonadFail m) => Text -> m RedeemPublicKey
+fromAvvmPk addrText = do
+    let base64rify = T.replace "-" "+" . T.replace "_" "/"
+    let parsedM = B64.decode $ base64rify addrText
+    addrParsed <-
+        maybe (fail $ "Address " <> toString addrText <> " is not base64(url) format")
+        pure
+        (rightToMaybe parsedM)
+    unless (BS.length addrParsed == 32) $
+        fail "Address' length is not equal to 32, can't be redeeming pk"
+    pure $ redeemPkBuild addrParsed
 
 ----------------------------------------------------------------------------
 -- Conversion and keygens

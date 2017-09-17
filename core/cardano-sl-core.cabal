@@ -23,12 +23,6 @@ flag dev-mode
 
   description: Switch between Development and Production mode
 
-flag dev-custom-config
-  default:     False
-  manual:      True
-
-  description: Enable this to set CONFIG manually even in dev mode (via --ghc-options=-DCONFIG=benchmark); otherwise it'll be 'dev'. In other modes you always have to set CONFIG manually.
-
 library
   exposed-modules:
                        Pos.Arbitrary.Core
@@ -36,7 +30,10 @@ library
                        Pos.Arbitrary.Crypto
                        Pos.Arbitrary.Crypto.Unsafe
 
+                       Pos.Aeson.Core
                        Pos.Aeson.Crypto
+                       Pos.Aeson.Fee
+                       Pos.Aeson.Genesis
 
                        Pos.Core
                        Pos.Core.Address
@@ -47,16 +44,19 @@ library
                        Pos.Core.Constants
                        Pos.Core.Context
                        Pos.Core.Fee
-                       Pos.Core.Fee.Config
                        Pos.Core.Script
                        Pos.Core.SharedSeed
                        Pos.Core.Slotting
                        Pos.Core.Timestamp
                        Pos.Core.Types
                        Pos.Core.Version
+                       Pos.Core.Vss
 
                        Pos.Core.Genesis
+                       Pos.Core.Genesis.Canonical
+                       Pos.Core.Genesis.Constants
                        Pos.Core.Genesis.Parser
+                       Pos.Core.Genesis.Generate
                        Pos.Core.Genesis.Types
 
                        Pos.Crypto
@@ -124,6 +124,7 @@ library
                      , base58-bytestring
                      , binary
                      , bytestring
+                     , canonical-json
                      , cardano-crypto
                      , cborg
                      , cereal
@@ -214,5 +215,3 @@ library
     cpp-options: -DASSERTS_ON
   if flag(dev-mode)
     cpp-options: -DDEV_MODE
-    if !flag(dev-custom-config)
-      cpp-options: -DCONFIG=dev

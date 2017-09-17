@@ -5,11 +5,15 @@ module Pos.Aeson.Crypto
 import           Universum
 
 import           Crypto.Hash   (HashAlgorithm)
-import           Data.Aeson    (FromJSON (..), ToJSON (..))
+import           Data.Aeson    (FromJSON (..), FromJSONKey (..), FromJSONKeyFunction (..),
+                                ToJSON (..))
 import           Formatting    (sformat)
 
-import           Pos.Crypto    (AbstractHash, PublicKey, fullPublicKeyF, hashHexF)
-import           Pos.Util.Util (parseJSONWithRead)
+import           Pos.Crypto    (AbstractHash, ProxyCert, ProxySecretKey, PublicKey,
+                                Signature (..), decodeAbstractHash, fullPublicKeyF,
+                                hashHexF, parseFullProxyCert, parseFullPublicKey,
+                                parseFullSignature)
+import           Pos.Util.Util (eitherToFail, parseJSONWithRead)
 
 instance ToJSON (AbstractHash algo a) where
     toJSON = toJSON . sformat hashHexF
@@ -17,5 +21,26 @@ instance ToJSON (AbstractHash algo a) where
 instance HashAlgorithm algo => FromJSON (AbstractHash algo a) where
     parseJSON = parseJSONWithRead
 
+instance (HashAlgorithm algo, FromJSON (AbstractHash algo a))
+         => FromJSONKey (AbstractHash algo a) where
+    fromJSONKey = FromJSONKeyTextParser parser
+      where
+        parser = eitherToFail . decodeAbstractHash
+
 instance ToJSON PublicKey where
     toJSON = toJSON . sformat fullPublicKeyF
+
+eitherMsgFail :: (MonadFail m, ToString s) => String -> Either s a -> m a
+eitherMsgFail msg =
+    either (fail . (("Unable to parse json " <> msg <> " reason: ") <>) . toString) pure
+
+instance FromJSON PublicKey where
+    parseJSON v = parseJSON v >>= eitherMsgFail "PublicKey" . parseFullPublicKey
+
+instance FromJSON (Signature w) where
+    parseJSON v = parseJSON v >>= eitherMsgFail "Signature" . parseFullSignature
+
+instance FromJSON (ProxyCert w) where
+    parseJSON v = parseJSON v >>= eitherMsgFail "Signature" . parseFullProxyCert
+
+instance FromJSON w => FromJSON (ProxySecretKey w)

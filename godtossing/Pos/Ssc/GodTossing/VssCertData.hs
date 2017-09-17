@@ -18,16 +18,15 @@ module Pos.Ssc.GodTossing.VssCertData
        , filter
        ) where
 
-import qualified Data.HashMap.Strict     as HM
-import qualified Data.List               as List
-import qualified Data.Set                as S
-import           Formatting              (build, sformat, (%))
-import           Universum               hiding (empty, filter)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.List           as List
+import qualified Data.Set            as S
+import           Formatting          (build, sformat, (%))
+import           Universum           hiding (empty, filter)
 
-import           Pos.Core                (EpochIndex (..), EpochOrSlot (..), SlotId (..),
-                                          StakeholderId)
-import           Pos.Ssc.GodTossing.Core (VssCertificate (..), VssCertificatesMap,
-                                          getCertId)
+import           Pos.Core            (EpochIndex (..), EpochOrSlot (..), SlotId (..),
+                                      StakeholderId, VssCertificate (..),
+                                      VssCertificatesMap, getCertId)
 
 -- | Wrapper around 'VssCertificate' with TTL.
 -- Every 'VssCertificate' has own TTL.

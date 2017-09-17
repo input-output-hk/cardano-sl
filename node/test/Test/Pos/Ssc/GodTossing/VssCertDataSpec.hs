@@ -15,16 +15,16 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Arbitrary (..), Gen, Property, choose, conjoin,
                                         suchThat, vectorOf, (==>))
 
+import           Pos.Core              (EpochIndex (..), EpochOrSlot (..), SlotId,
+                                        SlotId (..), VssCertificate (..), getCertId,
+                                        mkVssCertificate)
 import           Pos.Core.Context      (HasCoreConstants, giveStaticConsts,
                                         slotSecurityParam)
 import           Pos.Core.Slotting     (flattenEpochOrSlot, unflattenSlotId)
-import           Pos.Ssc.GodTossing    (GtGlobalState (..), VssCertData (..),
-                                        VssCertificate (..), delete, empty, expiryEoS,
-                                        filter, getCertId, gsVssCertificates, insert,
-                                        keys, lookup, member, mkVssCertificate,
-                                        rollbackGT, runPureToss, setLastKnownSlot)
-import           Pos.Types             (EpochIndex (..), EpochOrSlot (..), SlotId,
-                                        SlotId (..))
+import           Pos.Ssc.GodTossing    (GtGlobalState (..), VssCertData (..), delete,
+                                        empty, expiryEoS, filter, gsVssCertificates,
+                                        insert, keys, lookup, member, rollbackGT,
+                                        runPureToss, setLastKnownSlot)
 import           Pos.Util.Chrono       (NewestFirst (..))
 
 spec :: Spec

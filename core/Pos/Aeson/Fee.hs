@@ -1,5 +1,7 @@
-module Pos.Core.Fee.Config
-       ( ConfigOf(..)
+-- | Aeson instances for 'TxFeePolicy' and its subtypes.
+
+module Pos.Aeson.Fee
+       (
        ) where
 
 import           Universum
@@ -11,13 +13,8 @@ import qualified Data.HashMap.Strict as HM.S
 
 import           Pos.Core.Fee        (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
 
--- | A newtype for 'JSON.FromJSON' instances used in a config file. We use
--- it because we don't want those instances to be defined for core types.
-newtype ConfigOf a = ConfigOf { getConfigOf :: a }
-    deriving (Show, Generic)
-
-instance JSON.FromJSON (ConfigOf Coeff) where
-    parseJSON = JSON.withScientific "Coeff" $ \sc -> ConfigOf <$> do
+instance JSON.FromJSON Coeff where
+    parseJSON = JSON.withScientific "Coeff" $ \sc -> do
         -- Code below is resistant to changes in precision of 'Coeff'.
         let
             rat = toRational sc * toRational res
@@ -28,14 +25,14 @@ instance JSON.FromJSON (ConfigOf Coeff) where
             fail "Fixed precision for coefficient exceeded"
         return $ Coeff fxd
 
-instance JSON.FromJSON (ConfigOf TxSizeLinear) where
-    parseJSON = JSON.withObject "TxSizeLinear" $ \o -> ConfigOf <$> do
+instance JSON.FromJSON TxSizeLinear where
+    parseJSON = JSON.withObject "TxSizeLinear" $ \o -> do
         TxSizeLinear
-            <$> (getConfigOf <$> o JSON..: "a")
-            <*> (getConfigOf <$> o JSON..: "b")
+            <$> (o JSON..: "a")
+            <*> (o JSON..: "b")
 
-instance JSON.FromJSON (ConfigOf TxFeePolicy) where
-    parseJSON = JSON.withObject "TxFeePolicy" $ \o -> ConfigOf <$> do
+instance JSON.FromJSON TxFeePolicy where
+    parseJSON = JSON.withObject "TxFeePolicy" $ \o -> do
         (policyName, policyBody) <- case HM.S.toList o of
             []  -> fail "TxFeePolicy: none provided"
             [a] -> pure a
@@ -45,7 +42,7 @@ instance JSON.FromJSON (ConfigOf TxFeePolicy) where
           policyParser = JSON.parseJSON policyBody
         case policyName of
             "txSizeLinear" ->
-                TxFeePolicyTxSizeLinear . getConfigOf <$> policyParser
+                TxFeePolicyTxSizeLinear <$> policyParser
             "unknown" ->
                 mkTxFeePolicyUnknown <$> policyParser
             _ ->

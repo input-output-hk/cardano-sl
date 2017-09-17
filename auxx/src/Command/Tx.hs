@@ -40,7 +40,7 @@ import           Pos.Core                      (Timestamp (..), mkCoin)
 import           Pos.Core.Context              (HasCoreConstants)
 import           Pos.Crypto                    (emptyPassphrase, encToPublic, fakeSigner,
                                                 safeToPublic, toPublic, withSafeSigner)
-import           Pos.Genesis                   (genesisDevSecretKeys)
+import           Pos.Genesis                   (genesisSecretKeys)
 import           Pos.Txp                       (TxAux, TxOut (..), TxOutAux (..), txaF)
 import           Pos.Wallet                    (getSecretKeys)
 
@@ -75,7 +75,7 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
     CmdCtx {ccPeers} <- getCmdCtx
     let nNeighbours = length ccPeers
     let slotDuration = fromIntegral (toMicroseconds genesisSlotDuration) `div` 1000000 :: Int
-        keysToSend = genesisDevSecretKeys
+        keysToSend  = fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
     tpsMVar <- newSharedAtomic $ TxCount 0 0 conc
     startTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
     Mockable.bracket (openFile tpsSentFile WriteMode) (liftIO . hClose) $ \h -> do

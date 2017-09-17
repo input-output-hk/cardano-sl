@@ -43,11 +43,14 @@ import           Pos.Communication.Specs               (createOutSpecs)
 import           Pos.Communication.Types.Relay         (InvOrData, InvOrDataTK)
 import           Pos.Core                              (EpochIndex, HasCoreConstants,
                                                         SlotId (..), StakeholderId,
-                                                        Timestamp (..), addressHash,
+                                                        Timestamp (..),
+                                                        VssCertificate (..),
+                                                        VssCertificatesMap, addressHash,
                                                         bvdMpcThd, getOurSecretKey,
                                                         getOurStakeholderId, getSlotIndex,
                                                         mkLocalSlotIndex,
-                                                        slotSecurityParam)
+                                                        mkVssCertificate,
+                                                        slotSecurityParam, vssMaxTTL)
 import           Pos.Core.Context                      (blkSecurityParam)
 import           Pos.Crypto                            (SecretKey, VssKeyPair,
                                                         VssPublicKey, randomNumber,
@@ -67,15 +70,12 @@ import           Pos.Ssc.GodTossing.Behavior           (GtBehavior (..),
                                                         GtOpeningParams (..),
                                                         GtSharesParams (..))
 import           Pos.Ssc.GodTossing.Constants          (mdNoCommitmentsEpochThreshold,
-                                                        mpcSendInterval, vssMaxTTL)
+                                                        mpcSendInterval)
 import           Pos.Ssc.GodTossing.Core               (Commitment (..), SignedCommitment,
-                                                        VssCertificate (..),
-                                                        VssCertificatesMap,
                                                         genCommitmentAndOpening,
                                                         getCommitmentsMap,
                                                         isCommitmentIdx, isOpeningIdx,
-                                                        isSharesIdx, mkSignedCommitment,
-                                                        mkVssCertificate)
+                                                        isSharesIdx, mkSignedCommitment)
 import           Pos.Ssc.GodTossing.Functions          (hasCommitment, hasOpening,
                                                         hasShares, vssThreshold)
 import           Pos.Ssc.GodTossing.GState             (getGlobalCerts, getStableCerts,

@@ -18,6 +18,7 @@ module Pos.Crypto.Signing
        , sign
        , checkSig
        , fullSignatureHexF
+       , parseFullSignature
 
        , Signed (..)
        , mkSigned
@@ -29,6 +30,8 @@ module Pos.Crypto.Signing
        -- * Proxy signature scheme
        , ProxyCert (..)
        , verifyProxyCert
+       , fullProxyCertHexF
+       , parseFullProxyCert
        , ProxySecretKey (..)
        , verifyPsk
        , isSelfSignedPsk
@@ -39,8 +42,6 @@ module Pos.Crypto.Signing
 
 import qualified Cardano.Crypto.Wallet  as CC
 import           Crypto.Random          (MonadRandom, getRandomBytes)
--- import qualified Cardano.Crypto.Wallet.Encrypted as CC
--- import qualified Crypto.ECC.Edwards25519         as Ed25519
 import           Data.ByteArray         (ScrubbedBytes)
 import qualified Data.ByteString        as BS
 import           Data.Coerce            (coerce)
@@ -125,10 +126,10 @@ shortPublicKeyHexF :: Format r (PublicKey -> r)
 shortPublicKeyHexF = fitLeft 8 %. fullPublicKeyHexF
 
 -- | Parse 'PublicKey' from base64 encoded string.
-parseFullPublicKey :: Text -> Maybe PublicKey
+parseFullPublicKey :: Text -> Either Text PublicKey
 parseFullPublicKey s = do
-    b <- rightToMaybe $ Base64.decode s
-    PublicKey <$> rightToMaybe (CC.xpub b)
+    b <- Base64.decode s
+    PublicKey <$> first fromString (CC.xpub b)
 
 emptyPass :: ScrubbedBytes
 emptyPass = mempty
@@ -169,6 +170,12 @@ instance B.Buildable (Signature a) where
 fullSignatureHexF :: Format r (Signature a -> r)
 fullSignatureHexF = later $ \(Signature x) ->
     B16.formatBase16 . CC.unXSignature $ x
+
+-- | Parse 'Signature' from base16 encoded string.
+parseFullSignature :: Text -> Either Text (Signature a)
+parseFullSignature s = do
+    b <- B16.decode s
+    Signature <$> first fromString (CC.xsignature b)
 
 -- | Encode something with 'Binary' and sign it.
 sign
@@ -231,6 +238,17 @@ verifyProxyCert issuerPk (PublicKey delegatePk) o (ProxyCert sig) =
     checkSig SignProxySK issuerPk
         (mconcat ["00", CC.unXPub delegatePk, Bi.serialize' o])
         (Signature sig)
+
+-- | Formatter for 'ProxyCert' to show it in hex.
+fullProxyCertHexF :: Format r (ProxyCert a -> r)
+fullProxyCertHexF = later $ \(ProxyCert x) ->
+    B16.formatBase16 . CC.unXSignature $ x
+
+-- | Parse 'ProxyCert' from base16 encoded string.
+parseFullProxyCert :: Text -> Either Text (ProxyCert a)
+parseFullProxyCert s = do
+    b <- B16.decode s
+    ProxyCert <$> first fromString (CC.xsignature b)
 
 -- | Convenient wrapper for secret key, that's basically ω plus
 -- certificate.

@@ -27,7 +27,7 @@ import           Pos.Core.Types         (AddrAttributes (..), AddrSpendingData (
 import           Pos.Crypto             (emptyPassphrase, encToPublic, fullPublicKeyHexF,
                                          hashHexF, noPassEncrypt, safeCreatePsk,
                                          withSafeSigner)
-import           Pos.Genesis            (genesisDevSecretKeys)
+import           Pos.Genesis            (genesisSecretKeys)
 import           Pos.Util.UserSecret    (readUserSecret, usKeys)
 import           Pos.Wallet             (addSecretKey, getBalance, getSecretKeys)
 
@@ -133,7 +133,8 @@ runCmd _ (AddKeyFromPool i) = do
     unless isDevelopment $
         throwString "AddKeyFromPool should be used only in dev mode"
     CmdCtx {..} <- getCmdCtx
-    let key = genesisDevSecretKeys !! i
+    let secrets = fromMaybe (error "Secret keys are unknown") genesisSecretKeys
+    let key = secrets !! i
     addSecretKey $ noPassEncrypt key
 runCmd _ (AddKeyFromFile f) = do
     secret <- readUserSecret f

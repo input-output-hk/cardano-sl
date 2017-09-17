@@ -23,8 +23,7 @@ import           Pos.Client.CLI.Secrets     (updateUserSecretVSS,
 import           Pos.Constants              (isDevelopment)
 import           Pos.Core.Types             (Timestamp (..))
 import           Pos.Crypto                 (VssKeyPair)
-import           Pos.Genesis                (devBalancesDistr, devGenesisContext,
-                                             genesisContextProduction)
+import           Pos.Genesis                (genesisContext)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..))
 import           Pos.Network.CLI            (intNetworkConfigOpts)
@@ -61,7 +60,13 @@ getKeyfilePath CommonNodeArgs {..}
 
 
 getNodeParams ::
-       (MonadIO m, WithLogger m, Mockable Fork m, Mockable Catch m, Mockable Throw m)
+       ( MonadIO m
+       , WithLogger m
+       , MonadThrow m
+       , Mockable Fork m
+       , Mockable Catch m
+       , Mockable Throw m
+       )
     => CommonNodeArgs
     -> NodeArgs
     -> Timestamp
@@ -75,14 +80,7 @@ getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} systemStart = do
     npBehaviorConfig <- case behaviorConfigPath of
         Nothing -> pure def
         Just fp -> either throw pure =<< liftIO (Yaml.decodeFileEither fp)
-    let devBalanceDistr =
-            devBalancesDistr
-                (flatDistr commonArgs)
-                (richPoorDistr commonArgs)
-                (expDistr commonArgs)
-    let npGenesisCtx
-            | isDevelopment = devGenesisContext devBalanceDistr
-            | otherwise = genesisContextProduction
+    let npGenesisCtx = genesisContext
     pure NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB

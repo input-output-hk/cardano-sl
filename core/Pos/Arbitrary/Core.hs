@@ -25,9 +25,9 @@ import qualified Data.Map                          as M
 import           Data.Time.Units                   (Microsecond, Millisecond,
                                                     TimeUnit (..))
 import           System.Random                     (Random)
-import           Test.QuickCheck                   (Arbitrary (..), Gen, NonNegative (..),
-                                                    choose, oneof, scale, shrinkIntegral,
-                                                    sized, suchThat, vector, vectorOf)
+import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, oneof,
+                                                    scale, shrinkIntegral, sized,
+                                                    suchThat)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 import           Test.QuickCheck.Instances         ()
 
@@ -36,14 +36,17 @@ import           Pos.Binary.Class                  (FixedSizeInt (..), SignedVar
                                                     TinyVarInt (..), UnsignedVarInt (..))
 import           Pos.Binary.Core                   ()
 import           Pos.Binary.Crypto                 ()
-import           Pos.Core.Address                  (makeAddress, makePubKeyAddressBoot)
+import           Pos.Core.Address                  (makeAddress)
 import           Pos.Core.Coin                     (coinToInteger, divCoin, unsafeSubCoin)
 import           Pos.Core.Constants                (sharedSeedLength)
 import           Pos.Core.Context                  (HasCoreConstants, epochSlots)
 import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
 import qualified Pos.Core.Slotting                 as Types
+import           Pos.Core.Types                    (BlockVersionData (..))
 import qualified Pos.Core.Types                    as Types
+import           Pos.Core.Vss                      (VssCertificate, mkVssCertificate,
+                                                    mkVssCertificatesMap)
 import           Pos.Crypto                        (createPsk, toPublic)
 import           Pos.Data.Attributes               (Attributes (..), UnparsedFields (..))
 import           Pos.Util.Arbitrary                (nonrepeating)
@@ -501,48 +504,6 @@ instance Arbitrary G.GenesisDelegation where
                     (delegate:issuers) ->
                         issuers <&> \sk -> createPsk sk (toPublic delegate) 0
 
-instance Arbitrary G.GenesisCoreData where
-    arbitrary = do
-        -- This number'll be the length of every address list in the first argument of
-        -- 'mkGenesisCoreData'.
-        innerLen <- getNonNegative <$> arbitrary `suchThat` (<= (NonNegative 7))
-        -- This number is the length of the first argument of 'mkGenesisCoreData'
-        -- Because of the way 'PublicKey's are generated, 'innerLen * outerLen' cannot be
-        -- greater than 50 if a list of unique adresses with that length is to be
-        -- generated.
-        -- '7 = (floor . sqrt) 50', and if 'a * b = 50', then at least one of 'a' or 'b'
-        -- must be less than or equalto '7'.
-        outerLen <- getNonNegative <$>
-            arbitrary `suchThat` (\(NonNegative n) -> n * innerLen <= 50)
-        let chop _ [] = []
-            chop n l = taken : chop n dropped
-              where (taken, dropped) = splitAt n l
-        allAddrs <- fmap makePubKeyAddressBoot <$>
-            nonrepeating (outerLen * innerLen)
-        let listOfAddrList = chop innerLen allAddrs
-        -- This may seem like boilerplate but it's necessary to pass the first check in
-        -- 'mkGenesisCoreData'. Certain parameters in the generated 'BalanceDistribution'
-        -- must be equal to the length of the first element of the tuple in
-        -- 'AddrDistribution'
-            wordILen = fromIntegral innerLen
-            distributionGen = oneof
-                [ G.FlatBalances wordILen <$> arbitrary
-                , do a <- choose (0, wordILen)
-                     G.RichPoorBalances a
-                         <$> arbitrary
-                         <*> pure (wordILen - a)
-                         <*> arbitrary
-                , pure $ G.safeExpBalances wordILen
-                , G.CustomBalances <$> vector innerLen
-                ]
-        stakeDistrs <- vectorOf outerLen distributionGen
-        hashmapOfHolders <- arbitrary :: Gen (Map Types.StakeholderId Word16)
-        delegation <- arbitrary
-        return $ leftToPanic "arbitrary@GenesisCoreData: " $
-            G.mkGenesisCoreData (zip listOfAddrList stakeDistrs)
-                                hashmapOfHolders
-                                delegation
-
 instance Arbitrary G.BalanceDistribution where
     arbitrary = oneof
       [ do stakeholders <- choose (1, 10000)
@@ -557,6 +518,30 @@ instance Arbitrary G.BalanceDistribution where
       , G.CustomBalances <$> arbitrary
       ]
     shrink = genericShrink
+
+instance Arbitrary G.GenesisWStakeholders where
+    arbitrary = G.GenesisWStakeholders <$> arbitrary
+
+instance Arbitrary G.GenesisAvvmBalances where
+    arbitrary = G.GenesisAvvmBalances <$> arbitrary
+
+instance Arbitrary G.ProtocolConstants where
+    arbitrary =
+        G.ProtocolConstants <$> choose (1, 20000) <*> arbitrary <*> arbitrary <*>
+        arbitrary
+
+instance Arbitrary G.GenesisData where
+    arbitrary = G.GenesisData
+        <$> arbitrary <*> arbitrary <*> arbitrary
+        <*> arbitraryVssCerts <*> arbitrary <*> arbitraryBVD
+        <*> arbitrary <*> arbitrary <*> arbitrary
+      where
+        -- Unknown tx fee policy in genesis is not ok.
+        arbitraryBVD = arbitrary `suchThat` hasKnownFeePolicy
+        hasKnownFeePolicy BlockVersionData {bvdTxFeePolicy = Fee.TxFeePolicyTxSizeLinear {}} =
+            True
+        hasKnownFeePolicy _ = False
+        arbitraryVssCerts = mkVssCertificatesMap <$> arbitrary
 
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types
@@ -577,3 +562,11 @@ deriving instance Arbitrary a => Arbitrary (UnsignedVarInt a)
 deriving instance Arbitrary a => Arbitrary (SignedVarInt a)
 deriving instance Arbitrary a => Arbitrary (FixedSizeInt a)
 deriving instance Arbitrary TinyVarInt
+
+----------------------------------------------------------------------------
+-- GodTossing
+----------------------------------------------------------------------------
+
+instance Arbitrary VssCertificate where
+    arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary <*> arbitrary
+    -- The 'shrink' method wasn't implement to avoid breaking the datatype's invariant.

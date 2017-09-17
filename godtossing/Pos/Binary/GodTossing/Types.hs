@@ -4,16 +4,15 @@ module Pos.Binary.GodTossing.Types () where
 
 import           Universum
 
-import           Pos.Binary.Class                 (Cons (..), Field (..), deriveSimpleBi, deriveSimpleBiCxt)
-import           Pos.Core.Context                 (HasCoreConstants)
-import           Pos.Core.Types                   (EpochIndex, EpochOrSlot, StakeholderId)
-import           Pos.Ssc.GodTossing.Core          (CommitmentsMap, Opening, OpeningsMap,
-                                                   SharesMap, SignedCommitment,
-                                                   VssCertificate, VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Genesis.Types (GenesisGtData (..))
-import           Pos.Ssc.GodTossing.Types         (GtGlobalState (..),
-                                                   GtSecretStorage (..))
-import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
+import           Pos.Binary.Class               (Cons (..), Field (..), deriveSimpleBi,
+                                                 deriveSimpleBiCxt)
+import           Pos.Core.Context               (HasCoreConstants)
+import           Pos.Core.Types                 (EpochIndex, EpochOrSlot, StakeholderId)
+import           Pos.Core.Vss                   (VssCertificate, VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Core        (CommitmentsMap, Opening, OpeningsMap,
+                                                 SharesMap, SignedCommitment)
+import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtSecretStorage (..))
+import           Pos.Ssc.GodTossing.VssCertData (VssCertData (..))
 
 deriveSimpleBiCxt [t|HasCoreConstants|] ''VssCertData [
     Cons 'VssCertData [
@@ -40,9 +39,4 @@ deriveSimpleBi ''GtSecretStorage [
         Field [| gssCommitment :: SignedCommitment |],
         Field [| gssOpening    :: Opening          |],
         Field [| gssEpoch      :: EpochIndex       |]
-    ]]
-
-deriveSimpleBi ''GenesisGtData [
-    Cons 'GenesisGtData [
-        Field [| ggdVssCertificates :: VssCertificatesMap |]
     ]]

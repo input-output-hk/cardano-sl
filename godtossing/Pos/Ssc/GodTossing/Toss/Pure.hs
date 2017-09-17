@@ -22,10 +22,10 @@ import           System.Wlog                    (CanLog, HasLoggerName (..), Log
 
 import           Pos.Core                       (BlockVersionData, EpochIndex,
                                                  HasCoreConstants, crucialSlot)
+import           Pos.Core.Genesis               (genesisCertificates)
 import           Pos.Lrc.Types                  (RichmenSet, RichmenStakes)
 import           Pos.Ssc.GodTossing.Core        (deleteSignedCommitment,
                                                  insertSignedCommitment)
-import           Pos.Ssc.GodTossing.Genesis     (genesisCertificates)
 import           Pos.Ssc.GodTossing.Toss.Class  (MonadToss (..), MonadTossEnv (..),
                                                  MonadTossRead (..))
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState, gsCommitments, gsOpenings,

@@ -9,15 +9,15 @@ import           Universum
 
 import           Pos.Arbitrary.Core    ()
 import           Pos.Arbitrary.Infra   ()
+import qualified Pos.Core              as T
 import           Pos.Core.Context      (giveStaticConsts)
 import qualified Pos.Core.Fee          as Fee
 import           Pos.Data.Attributes   (Attributes (..))
-import qualified Pos.Types             as T
 import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Util.Chrono       (NE, NewestFirst, OldestFirst)
 
 import           Test.Pos.CborSpec     (U)
-import           Test.Pos.Util         (binaryTest)
+import           Test.Pos.Util         (binaryTest, msgLenLimitedTest)
 
 spec :: Spec
 spec = giveStaticConsts $ describe "Types" $ do
@@ -51,6 +51,8 @@ spec = giveStaticConsts $ describe "Types" $ do
             binaryTest @Fee.TxFeePolicy
         describe "Core.Script" $ do
             binaryTest @T.Script
+        describe "Core.Vss" $ do
+            binaryTest @T.VssCertificate
         describe "Core.Version" $ do
             binaryTest @T.ApplicationName
             binaryTest @T.SoftwareVersion
@@ -59,3 +61,5 @@ spec = giveStaticConsts $ describe "Types" $ do
             binaryTest @BackupPhrase
             binaryTest @(NewestFirst NE U)
             binaryTest @(OldestFirst NE U)
+    describe "Message length limit" $ do
+        msgLenLimitedTest @T.VssCertificate

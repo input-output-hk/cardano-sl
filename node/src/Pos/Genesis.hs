@@ -8,7 +8,6 @@ module Pos.Genesis
        (
        -- * Reexports
          module Pos.Core.Genesis
-       , module Pos.Ssc.GodTossing.Genesis
        , GenesisUtxo(..)
 
        -- * Context
@@ -18,53 +17,38 @@ module Pos.Genesis
        , gtcDelegation
 
        -- * Static state/functions/common
-       , balanceDistribution
        , genesisLeaders
        , genesisContextImplicit
 
        -- * Prod mode genesis
-       , genesisContextProduction
-
-       -- * Dev mode genesis
-       , accountGenesisIndex
-       , wAddressGenesisIndex
-       , devBalancesDistr
-       , devGenesisContext
-       , concatAddrDistrs
-
+       , genesisContext
        ) where
 
 import           Universum
 
-import           Control.Lens               (at, makeLenses)
-import           Data.List                  (genericReplicate)
-import qualified Data.Map.Strict            as Map
-import qualified Data.Ratio                 as Ratio
-import           Formatting                 (build, sformat, (%))
-import           Serokell.Util              (mapJson)
+import           Control.Lens        (at, makeLenses)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Map.Strict     as Map
+import qualified Data.Ratio          as Ratio
+import           Formatting          (build, sformat, (%))
+import           Serokell.Util       (mapJson)
 
-import           Pos.AllSecrets             (InvAddrSpendingData (unInvAddrSpendingData),
-                                             mkInvAddrSpendingData)
-import qualified Pos.Constants              as Const
-import           Pos.Core                   (AddrSpendingData (PubKeyASD), Address (..),
-                                             Coin, HasCoreConstants,
-                                             IsBootstrapEraAddr (..), SlotLeaders,
-                                             StakeholderId, addressHash,
-                                             applyCoinPortionUp, coinToInteger,
-                                             deriveLvl2KeyPair, divCoin,
-                                             makePubKeyAddressBoot, mkCoin,
-                                             safeExpBalances, unsafeMulCoin)
-import           Pos.Crypto                 (EncryptedSecretKey, emptyPassphrase,
-                                             firstHardened, unsafeHash)
-import           Pos.Lrc.FtsPure            (followTheSatoshiUtxo)
-import           Pos.Lrc.Genesis            (genesisSeed)
-import           Pos.Txp.Core               (TxIn (..), TxOut (..), TxOutAux (..))
-import           Pos.Txp.Toil               (GenesisUtxo (..))
-import           Pos.Util.Util              (HasLens (..))
+import           Pos.AllSecrets      (InvAddrSpendingData (unInvAddrSpendingData))
+import qualified Pos.Constants       as Const
+import           Pos.Core            (AddrSpendingData (PubKeyASD), Address (..), Coin,
+                                      GeneratedGenesisData (..), HasCoreConstants,
+                                      SlotLeaders, StakeholderId, addressHash,
+                                      coinToInteger, generatedGenesisData,
+                                      makeRedeemAddress, safeExpBalances)
+import           Pos.Crypto          (unsafeHash)
+import           Pos.Lrc.FtsPure     (followTheSatoshiUtxo)
+import           Pos.Lrc.Genesis     (genesisSeed)
+import           Pos.Txp.Core        (TxIn (..), TxOut (..), TxOutAux (..))
+import           Pos.Txp.Toil        (GenesisUtxo (..))
+import           Pos.Util.Util       (HasLens (..))
 
 -- reexports
 import           Pos.Core.Genesis
-import           Pos.Ssc.GodTossing.Genesis
 
 ----------------------------------------------------------------------------
 -- Context
@@ -96,34 +80,6 @@ instance HasLens GenesisDelegation GenesisContext GenesisDelegation where
 ----------------------------------------------------------------------------
 -- Static state & funcitons
 ----------------------------------------------------------------------------
-
--- | Given 'BalanceDistribution', calculates a list containing amounts
--- of coins (balances) belonging to genesis addresses.
-balanceDistribution :: BalanceDistribution -> [Coin]
-balanceDistribution (FlatBalances stakeholders coins) =
-    genericReplicate stakeholders val
-  where
-    val = coins `divCoin` stakeholders
-balanceDistribution (ExponentialBalances n mc) =
-    reverse $ take (fromIntegral n) $
-    iterate (`unsafeMulCoin` (2::Integer)) mc
-balanceDistribution ts@RichPoorBalances {..} =
-    checkMpcThd (getTotalBalance ts) sdRichBalance basicDist
-  where
-    -- Node won't start if richmen cannot participate in MPC
-    checkMpcThd total richs =
-        if richs < applyCoinPortionUp Const.genesisMpcThd total
-        then error "Pos.Genesis: RichPoorBalances: richmen balance \
-                   \is less than MPC threshold"
-        else identity
-    basicDist = genericReplicate sdRichmen sdRichBalance ++
-                genericReplicate sdPoor sdPoorBalance
-balanceDistribution (CustomBalances coins) = coins
-
--- Converts list of addr distrs to pre-map (addr,coin)
-concatAddrDistrs :: [AddrDistribution] -> [(Address, Coin)]
-concatAddrDistrs addrDistrs =
-    concatMap (uncurry zip . second balanceDistribution) addrDistrs
 
 -- | Generates 'GenesisUtxo' given address distributions (which also
 -- include stake distributions as parts of addresses).
@@ -223,112 +179,17 @@ genesisLeaders GenesisContext { _gtcUtxo = (GenesisUtxo utxo)
 ----------------------------------------------------------------------------
 
 -- | 'GenesisContext' that uses all the data for prod.
-genesisContextProduction :: GenesisContext
-genesisContextProduction =
+genesisContext :: GenesisContext
+genesisContext = do
+    let GeneratedGenesisData{..} = generatedGenesisData
+    let addrCoins = HM.toList (getGenesisAvvmBalances genesisAvvmBalances)
+    let avvmAddrDistr =
+            ( map (makeRedeemAddress . fst) addrCoins
+            , CustomBalances (map snd addrCoins))
+    let genesisDistr = avvmAddrDistr : ggdNonAvvmDistr
+    let genesisUtxoProduction = genesisUtxo genesisDistr
     GenesisContext
-        genesisUtxoProduction
-        genesisProdBootStakeholders
-        genesisProdDelegation
-  where
-    -- 'GenesisUtxo' used in production.
-    genesisUtxoProduction :: GenesisUtxo
-    genesisUtxoProduction = genesisUtxo genesisProdAddrDistribution
-
-----------------------------------------------------------------------------
--- Development mode genesis
-----------------------------------------------------------------------------
-
--- | First index in derivation path for HD account, which is put to genesis utxo
-accountGenesisIndex :: Word32
-accountGenesisIndex = firstHardened
-
--- | Second index in derivation path for HD account, which is put to genesis
--- utxo
-wAddressGenesisIndex :: Word32
-wAddressGenesisIndex = firstHardened
-
--- | Chooses among common distributions for dev mode.
-devBalancesDistr
-    :: Maybe (Int, Int)                   -- flat distr
-    -> Maybe (Int, Int, Integer, Double)  -- rich/poor distr
-    -> Maybe Int                          -- exp distr
-    -> BalanceDistribution
-devBalancesDistr Nothing Nothing Nothing = genesisDevFlatDistr
-devBalancesDistr (Just (nodes, coins)) Nothing Nothing =
-    FlatBalances (fromIntegral nodes) (mkCoin (fromIntegral coins))
-devBalancesDistr Nothing (Just (richs, poors, coins, richShare)) Nothing =
-    checkConsistency $ RichPoorBalances {..}
-  where
-    sdRichmen = fromIntegral richs
-    sdPoor = fromIntegral poors
-
-    totalRichBalance = round $ richShare * fromIntegral coins
-    totalPoorBalance = coins - totalRichBalance
-    richBalance = totalRichBalance `div` fromIntegral richs
-    poorBalance = totalPoorBalance `div` fromIntegral poors
-    sdRichBalance = mkCoin $ fromIntegral richBalance
-    sdPoorBalance = mkCoin $ fromIntegral poorBalance
-
-    checkConsistency =
-        if poorBalance <= 0 || richBalance <= 0
-        then error "Impossible to make RichPoorBalances with given parameters."
-        else identity
-devBalancesDistr Nothing Nothing (Just n) = safeExpBalances n
-devBalancesDistr _ _ _ =
-    error "Conflicting distribution options were enabled. \
-          \Choose one at most or nothing."
-
--- | Addresses and secret keys of genesis HD wallets' /addresses/.
--- It's important to return 'Address' here, not 'PublicKey', since valid HD
--- wallet address keeps 'HDAddressPayload' attribute which value depends on
--- secret key.
-genesisDevHdwAccountKeyDatas :: [(Address, EncryptedSecretKey)]
-genesisDevHdwAccountKeyDatas =
-    genesisDevHdwSecretKeys <&> \key ->
-        fromMaybe (error "Passphrase doesn't match in Genesis") $
-        deriveLvl2KeyPair
-            (IsBootstrapEraAddr True)
-            emptyPassphrase
-            key
-            accountGenesisIndex
-            wAddressGenesisIndex
-
--- | 'GenesisContext' for dev mode. It's supposed that you pass the
--- distribution from 'devBalancesDistr' here. This function will add dev
--- genesis addresses and hd addrs/distr.
---
--- Related genesis stakeholders are computed using only related
--- distribution passed, hd keys have no stake in boot era.
---
--- Genesis delegation is empty. Non-empty one can be supported, but
--- probably will never be needed.
-devGenesisContext :: BalanceDistribution -> GenesisContext
-devGenesisContext distr =
-    GenesisContext (genesisUtxo aDistr) gws noGenesisDelegation
-  where
-    distrSize = length $ balanceDistribution distr
-    tailPks = map (fst . generateGenesisKeyPair) [Const.genesisKeysN ..]
-    mainPks = genesisDevPublicKeys <> tailPks
-    mainAddrs = take distrSize $ map makePubKeyAddressBoot mainPks
-    mainSpendingDataList = map PubKeyASD mainPks
-    invAddrSpendingData =
-        mkInvAddrSpendingData $ mainAddrs `zip` mainSpendingDataList
-
-    mainADistr = (mainAddrs, distr) -- Addresses from passed stake
-    aDistr = [ mainADistr
-             , (hdwAddresses, hdwDistr)  -- HDW addresses for testing
-             ]
-
-    -- Genesis stakeholders
-    gws :: GenesisWStakeholders
-    gws = generateWStakeholders invAddrSpendingData mainADistr
-
-    -- HD wallets
-    hdwSize = 2 -- should be positive
-    -- 20 ADA (20 millon coins) split among hdwSize users.
-    -- Shouldn't mess with LRC after CSL-1502
-    hdwDistr = FlatBalances (fromIntegral hdwSize) (mkCoin 20000000)
-    -- should be enough for testing.
-    hdwAddresses = take hdwSize genesisDevHdwAccountAddresses
-    genesisDevHdwAccountAddresses :: [Address]
-    genesisDevHdwAccountAddresses = map fst genesisDevHdwAccountKeyDatas
+        { _gtcUtxo = genesisUtxoProduction
+        , _gtcWStakeholders = ggdBootStakeholders
+        , _gtcDelegation = genesisDelegation
+        }

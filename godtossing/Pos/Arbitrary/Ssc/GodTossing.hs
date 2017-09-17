@@ -23,19 +23,17 @@ import           Pos.Binary.Class                  (asBinary)
 import           Pos.Binary.GodTossing             ()
 import           Pos.Communication.Types.Relay     (DataMsg (..))
 import           Pos.Core                          (EpochIndex, HasCoreConstants,
-                                                    SlotId (..), addressHash)
+                                                    SlotId (..), VssCertificate (..),
+                                                    addressHash, mkVssCertificate,
+                                                    vssMaxTTL, vssMinTTL)
 import           Pos.Crypto                        (SecretKey, toVssPublicKey, vssKeyGen)
-import           Pos.Ssc.GodTossing.Constants      (vssMaxTTL, vssMinTTL)
 import           Pos.Ssc.GodTossing.Core           (Commitment (..), CommitmentsMap,
                                                     GtPayload (..), GtProof (..),
                                                     Opening (..), SignedCommitment,
-                                                    VssCertificate (..),
                                                     genCommitmentAndOpening,
                                                     isCommitmentId, isOpeningId,
                                                     isSharesId, mkCommitmentsMap,
-                                                    mkCommitmentsMap, mkSignedCommitment,
-                                                    mkVssCertificate)
-import qualified Pos.Ssc.GodTossing.Genesis.Types  as G
+                                                    mkCommitmentsMap, mkSignedCommitment)
 import           Pos.Ssc.GodTossing.Toss.Types     (TossModifier (..))
 import           Pos.Ssc.GodTossing.Type           (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Message  (GtTag (..), MCCommitment (..),
@@ -127,10 +125,6 @@ commitmentMapEpochGen i = do
 
 instance Arbitrary Opening where
     arbitrary = coOpening <$> arbitrary
-
-instance Arbitrary VssCertificate where
-    arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary <*> arbitrary
-    -- The 'shrink' method wasn't implement to avoid breaking the datatype's invariant.
 
 -- | For given epoch @e@ enerates vss certificate having epoch in
 -- range @[e+vssMin,e+vssMax)@.
@@ -236,13 +230,5 @@ instance Arbitrary (DataMsg MCShares) where
     shrink = genericShrink
 
 instance Arbitrary (DataMsg MCVssCertificate) where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-----------------------------------------------------------------------------
--- Arbitrary types from 'Pos.Ssc.GodTossing.Genesis.Types'
-----------------------------------------------------------------------------
-
-instance Arbitrary G.GenesisGtData where
     arbitrary = genericArbitrary
     shrink = genericShrink

@@ -152,7 +152,6 @@ do
   elif [[ $var == "--bench-mode" ]]; then
     # We want:
     # • --flag cardano-sl-core:dev-mode (default)
-    # • --flag cardano-sl-core:dev-custom-config ($bench_mode)
     # • --ghc-options=-DCONFIG=benchmark ($bench_mode)
     # • --flag cardano-sl-core:-asserts ($asserts)
     # • compiler optimizations ($no_fast)
@@ -224,10 +223,6 @@ fi
 
 if [[ $asserts == false ]]; then
   commonargs="$commonargs --flag cardano-sl-core:-asserts"
-fi
-
-if [[ $bench_mode == true ]]; then
-  commonargs="$commonargs --flag cardano-sl-core:dev-custom-config"
 fi
 
 # CONFIG

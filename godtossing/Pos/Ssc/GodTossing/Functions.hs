@@ -23,12 +23,11 @@ import           Serokell.Util.Verify            (isVerSuccess)
 
 import           Pos.Binary.Crypto               ()
 import           Pos.Binary.GodTossing.Core      ()
-import           Pos.Core                        (EpochIndex (..), IsMainHeader,
-                                                  SlotId (..), StakeholderId,
-                                                  VssCertificatesMap, headerSlotL)
-import           Pos.Core                        (HasConfiguration, HasGenesisData,
-                                                  HasProtocolConstants, gdVssCerts,
-                                                  genesisData)
+import           Pos.Core                        (EpochIndex (..), HasConfiguration,
+                                                  HasGenesisData, HasProtocolConstants,
+                                                  IsMainHeader, SlotId (..),
+                                                  StakeholderId, VssCertificatesMap,
+                                                  gdVssCerts, genesisData, headerSlotL)
 import           Pos.Core.Slotting               (crucialSlot)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (getCommitmentsMap),
                                                   GtPayload (..), checkCertTTL,

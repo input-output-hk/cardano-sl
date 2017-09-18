@@ -34,7 +34,6 @@ import           Universum
 import           Control.Lens             (at)
 import           Control.Monad.Except     (MonadError (throwError))
 import qualified Data.HashMap.Strict      as HM
-import qualified Data.Text                as T
 import qualified Data.Text.Buildable      as Buildable
 import           Formatting               (bprint, (%))
 import           Serokell.Util            (allDistinct, mapJson)
@@ -221,7 +220,7 @@ convertNonAvvmDataToBalances balances = GenesisNonAvvmBalances <$> balances'
     balances' = HM.fromListWith unsafeAddCoin <$> traverse convert (HM.toList balances)
     convert :: (Text, Integer) -> m (Address, Coin)
     convert (txt, i) = case decodeTextAddress txt of
-        Left err   -> fail (T.unpack err)
+        Left err   -> fail (toString err)
         Right addr -> return (addr, unsafeIntegerToCoin i)
 
 -- | 'ProtocolConstants' are not really part of genesis global state,

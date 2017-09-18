@@ -80,10 +80,10 @@ localChainDifficultyWebWallet
     :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m
     => m ChainDifficulty
 localChainDifficultyWebWallet = do
-  -- Workaround: Make local chain difficulty monotonic
-  prevMaxDifficulty <- GS.getMaxSeenDifficulty
-  currDifficulty <- view difficultyL <$> getTipHeader @ssc
-  return $ max prevMaxDifficulty currDifficulty
+    -- Workaround: Make local chain difficulty monotonic
+    prevMaxDifficulty <- fromMaybe 0 <$> GS.getMaxSeenDifficultyMaybe
+    currDifficulty <- view difficultyL <$> getTipHeader @ssc
+    return $ max prevMaxDifficulty currDifficulty
 
 connectedPeersWebWallet
     :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m

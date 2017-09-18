@@ -36,6 +36,7 @@ import           Pos.Slotting              (MonadSlots (..), getNextEpochSlotDur
 import           Pos.Update.Context        (UpdateContext (ucDownloadedUpdate))
 import           Pos.Update.Poll.Types     (ConfirmedProposalState)
 import           Pos.Wallet.WalletMode     (MonadBlockchainInfo (..), MonadUpdates (..))
+import qualified Pos.GState                as GS
 
 ----------------------------------------------------------------------------
 -- BlockchainInfo
@@ -78,7 +79,11 @@ networkChainDifficultyWebWallet = getLastKnownHeader >>= \case
 localChainDifficultyWebWallet
     :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m
     => m ChainDifficulty
-localChainDifficultyWebWallet = view difficultyL <$> getTipHeader @ssc
+localChainDifficultyWebWallet = do
+  -- Workaround: Make local chain difficulty monotonic
+  prevMaxDifficulty <- GS.getMaxSeenDifficulty
+  currDifficulty <- view difficultyL <$> getTipHeader @ssc
+  return $ max prevMaxDifficulty currDifficulty
 
 connectedPeersWebWallet
     :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m

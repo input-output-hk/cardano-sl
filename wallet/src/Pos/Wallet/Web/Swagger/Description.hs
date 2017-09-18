@@ -143,6 +143,10 @@ instance HasCustomSwagger NextUpdate where
     swaggerModifier = modifyDescription
         "Get information about the next update."
 
+instance HasCustomSwagger PostponeUpdate where
+    swaggerModifier = modifyDescription
+        "Postpone last update."
+
 instance HasCustomSwagger ApplyUpdate where
     swaggerModifier = modifyDescription
         "Apply last update."

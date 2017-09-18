@@ -54,8 +54,7 @@ dev: &dev
           vssMinTTL: 2
           vssMaxTTL: 6
         ftsSeed: "c2tvdm9yb2RhIEdndXJkYSBib3JvZGEgcHJvdm9kYSA="
-        heavyDelegation:
-          genesisDelegation: {}
+        heavyDelegation: []
         avvmDistr:
           avvmData: []
 
@@ -173,8 +172,13 @@ bench: &bench
           vssMinTTL: 2
           vssMaxTTL: 6
         ftsSeed: "c2tvdm9yb2RhIEdndXJkYSBib3JvZGEgcHJvdm9kYSA="
-        heavyDelegation:
-          genesisDelegation: {}
+        heavyDelegation: []
+#        heavyDelegation:
+#          - pskDelegatePk: hecJCq/AX2Xn43dP7yqxK0wFQfFkNv3tM0cu/kG4xgzEvOO0coIh8epYeHdxCcoxmKIvmTJILqwJv1M+IsA4jA==
+#            pskOmega:
+#              getEpochIndex: 0
+#            pskCert: 1d2d94b625afcfaa127974e1c6b49734cca1056c37a2228fd737e16611ca6bb78f1c254b400c5b0c9aeb3a2c9454d72eda8246aed0bd3be0cacb6f69a6475c0a
+#            pskIssuerPk: LGPdjVPmSRMTG0uK33kwr/ZCgo9zTWTAa8d1hjqGjIcenTQoblqtlVFdbLOkDdKaOnDOs0XLpq1mhyNr5Mki+Q==
         avvmDistr:
           avvmData: []
 

@@ -56,7 +56,6 @@ import           Pos.DB.GState.Common         (gsGetBi, writeBatchGState)
 import           Pos.Txp.Core                 (TxIn (..), TxOutAux (toaOut),
                                                addrBelongsToSet, txOutStake)
 import           Pos.Txp.Toil.Types           (GenesisUtxo (..), Utxo)
-import           Pos.Util.Util                (HasLens', lensOf)
 
 ----------------------------------------------------------------------------
 -- Getters

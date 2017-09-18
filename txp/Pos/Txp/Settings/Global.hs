@@ -23,7 +23,7 @@ import           Pos.Slotting         (MonadSlots)
 import           Pos.Txp.Core         (TxPayload, TxpUndo)
 import           Pos.Txp.Toil.Failure (ToilVerFailure)
 import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
-import           Pos.Util.Util        (HasLens', Some)
+import           Pos.Util.Util        (Some)
 
 type TxpCommonMode m =
     ( WithLogger m
@@ -55,12 +55,12 @@ data TxpGlobalSettings = TxpGlobalSettings
       -- First argument determines whether it should be checked that
       -- all data from transactions is known (script versions,
       -- attributes, addresses, witnesses).
-      tgsVerifyBlocks :: forall ctx m. TxpGlobalVerifyMode m =>
+      tgsVerifyBlocks :: forall m. TxpGlobalVerifyMode m =>
                          Bool -> OldestFirst NE TxpBlock -> m (OldestFirst NE TxpUndo)
     , -- | Apply chain of /definitely/ valid blocks to Txp's GState.
       tgsApplyBlocks :: forall ctx m . TxpGlobalApplyMode ctx m =>
                         OldestFirst NE TxpBlund -> m SomeBatchOp
     , -- | Rollback chain of blocks.
-      tgsRollbackBlocks :: forall ctx m . TxpGlobalRollbackMode m =>
+      tgsRollbackBlocks :: forall m . TxpGlobalRollbackMode m =>
                            NewestFirst NE TxpBlund -> m SomeBatchOp
     }

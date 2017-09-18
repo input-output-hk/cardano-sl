@@ -7,6 +7,7 @@ module Pos.DB.GState.Common
          -- * Getters
          getTip
        , getMaxSeenDifficulty
+       , getMaxSeenDifficultyMaybe
        , getTipBlockGeneric
        , getTipHeaderGeneric
 

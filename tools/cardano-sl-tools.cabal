@@ -200,6 +200,7 @@ executable cardano-keygen
                      , ansi-wl-pprint
                      , base
                      , bytestring >= 0.10
+                     , canonical-json
                      , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-txp

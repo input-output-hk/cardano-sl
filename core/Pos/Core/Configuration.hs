@@ -99,12 +99,12 @@ withCoreConfigurations conf@CoreConfiguration{..} mSystemStart act = case ccGene
         -- mainnet.
 
         withCoreConfiguration conf $
-          withProtocolConstants (gdProtocolConsts theGenesisData) $
-          withGenesisBlockVersionData (gdBlockVersionData theGenesisData) $
-          withGenesisData theGenesisData $
-          withGenesisHash (AbstractHash theGenesisHash) $
-          withGeneratedSecrets Nothing $
-          act
+            withProtocolConstants (gdProtocolConsts theGenesisData) $
+            withGenesisBlockVersionData (gdBlockVersionData theGenesisData) $
+            withGenesisData theGenesisData $
+            withGenesisHash (AbstractHash theGenesisHash) $
+            withGeneratedSecrets Nothing $
+            act
 
     -- If a 'GenesisSpec' is given, we ensure we have a start time (needed if
     -- it's a testnet initializer) and then make a 'GenesisData' from it.

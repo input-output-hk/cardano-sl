@@ -9,6 +9,7 @@ module Pos.Wallet.Web.Methods.Misc
        , isValidAddress
 
        , nextUpdate
+       , postponeUpdate
        , applyUpdate
 
        , syncProgress
@@ -25,7 +26,7 @@ import           Pos.Util                   (maybeThrow)
 import           Pos.Wallet.KeyStorage      (deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.WalletMode      (applyLastUpdate, connectedPeers,
                                              localChainDifficulty, networkChainDifficulty)
-import           Pos.Wallet.Web.ClientTypes (CProfile, CProfile (..), CUpdateInfo (..),
+import           Pos.Wallet.Web.ClientTypes (CProfile (..), CUpdateInfo (..),
                                              SyncProgress (..))
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
@@ -61,6 +62,11 @@ nextUpdate :: MonadWalletWebMode m => m CUpdateInfo
 nextUpdate = getNextUpdate >>=
              maybeThrow (RequestError "No updates available")
 
+-- | Postpone next update after restart
+postponeUpdate :: MonadWalletWebMode m => m ()
+postponeUpdate = removeNextUpdate
+
+-- | Delete next update info and restart immediately
 applyUpdate :: MonadWalletWebMode m => m ()
 applyUpdate = removeNextUpdate >> applyLastUpdate
 

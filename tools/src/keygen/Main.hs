@@ -15,12 +15,14 @@ import           System.FilePath.Glob  (glob)
 import           System.Wlog           (Severity (Debug), WithLogger, consoleOutB,
                                         lcTermSeverity, logInfo, setupLogging,
                                         usingLoggerName)
+import qualified Text.JSON.Canonical   as CanonicalJSON
 
 import           Pos.Binary            (asBinary)
 import           Pos.Core              (CoreConfiguration (..), GenesisConfiguration (..),
                                         GenesisInitializer (..), addressHash, ccGenesis,
                                         coreConfiguration, generateFakeAvvm,
-                                        generateSecrets, generatedSecrets, gsInitializer)
+                                        generateSecrets, generatedSecrets, gsInitializer,
+                                        mkVssCertificate, vssMaxTTL)
 import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair,
                                         noPassEncrypt, redeemPkB64F, toVssPublicKey)
 import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
@@ -124,6 +126,22 @@ generateKeysByGenesis GenKeysOptions{..} = do
                                          (fromMaybe (error "No secrets for genesis") generatedSecrets)
                 logInfo (toText gkoOutDir <> " generated successfully")
 
+genVssCert
+    :: (HasConfigurations, WithLogger m, MonadIO m)
+    => FilePath -> m ()
+genVssCert path = do
+    us <- readUserSecret path
+    let primKey = fromMaybe (error "No primary key") (us ^. usPrimKey)
+        vssKey  = fromMaybe (error "No VSS key") (us ^. usVss)
+    let cert = mkVssCertificate
+                 primKey
+                 (asBinary (toVssPublicKey vssKey))
+                 (vssMaxTTL - 1)
+    putText . decodeUtf8 $
+      CanonicalJSON.renderCanonicalJSON $
+      runIdentity $
+      CanonicalJSON.toJSON cert
+
 ----------------------------------------------------------------------------
 -- Main
 ----------------------------------------------------------------------------
@@ -137,6 +155,7 @@ main = do
         case koCommand of
             RearrangeMask msk       -> rearrange msk
             GenerateKey path        -> genPrimaryKey path
+            GenerateVss path        -> genVssCert path
             ReadKey path            -> readKey path
             DumpAvvmSeeds opts      -> dumpAvvmSeeds opts
             GenerateKeysBySpec gkbg -> generateKeysByGenesis gkbg

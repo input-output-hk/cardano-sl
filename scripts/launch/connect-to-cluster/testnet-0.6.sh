@@ -41,4 +41,4 @@ stack exec -- cardano-node-simple                           \
     --keyfile secret-$CLUSTER.key                           \
     --system-start "${SYSTEM_START_TIME}"                   \
     --configuration-file node/configuration.mainnet.yaml    \
-    --configuration-key mainnet_base                   
+    --configuration-key testnet_public_full

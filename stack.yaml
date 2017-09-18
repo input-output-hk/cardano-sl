@@ -87,6 +87,13 @@ packages:
     commit: 6da3cd051bd6f6415c8ec3b53f1c0372a80a4376
   extra-dep: true
 
+# Forked version of "ekg-statsd" with full flushing support
+# https://issues.serokell.io/issue/CSL-1663
+- location:
+    git: https://github.com/input-output-hk/ekg-statsd.git
+    commit: 5e4596da88f280d1efb432fdaa0dbc7d8553948e
+  extra-dep: true
+
 nix:
   shell-file: shell.nix
 

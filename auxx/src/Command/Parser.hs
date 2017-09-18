@@ -86,7 +86,7 @@ base58PkParser = do
     eitherToFail (decodeFull bs)
 
 dumpFlag :: Parser Bool
-dumpFlag = (False <$ lexeme (try $ string "dump")) <|> pure True
+dumpFlag = (True <$ lexeme (try $ string "dump")) <|> pure False
 
 delegateL, delegateH :: Parser Command
 delegateL =

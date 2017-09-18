@@ -9,16 +9,18 @@ module Pos.Crypto.Signing.Types.Safe
        , encToPublic
        ) where
 
-import qualified Cardano.Crypto.Wallet as CC
-import           Data.ByteArray        (ByteArray, ByteArrayAccess, ScrubbedBytes)
-import           Data.Default          (Default (..))
-import           Data.Text.Buildable   (build)
-import qualified Data.Text.Buildable   as B
+import qualified Cardano.Crypto.Wallet            as CC
+import           Data.ByteArray                   (ByteArray, ByteArrayAccess,
+                                                   ScrubbedBytes)
+import           Data.Default                     (Default (..))
+import           Data.Text.Buildable              (build)
+import qualified Data.Text.Buildable              as B
 import qualified Prelude
 import           Universum
 
-import           Pos.Crypto.Hashing    (Hash)
-import           Pos.Crypto.Signing.Types.Signing (SecretKey (..), PublicKey (..))
+import           Pos.Binary.Class                 (Bi)
+import           Pos.Crypto.Hashing               (Hash, hash)
+import           Pos.Crypto.Signing.Types.Signing (PublicKey (..), SecretKey (..))
 
 data EncryptedSecretKey = EncryptedSecretKey
     { eskPayload :: !CC.XPrv
@@ -30,6 +32,10 @@ instance Show EncryptedSecretKey where
 
 instance B.Buildable EncryptedSecretKey where
     build _ = "<encrypted key>"
+
+-- | Direct comparison of secret keys is a security issue (cc @vincent)
+instance Bi EncryptedSecretKey => Eq EncryptedSecretKey where
+    a == b = hash a == hash b
 
 newtype PassPhrase = PassPhrase ScrubbedBytes
     deriving (Eq, Ord, Monoid, NFData, ByteArray, ByteArrayAccess)

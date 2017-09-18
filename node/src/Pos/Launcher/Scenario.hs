@@ -92,8 +92,8 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
     genesisStakeholders <- view (lensOf @GenesisWStakeholders)
     logInfo $ sformat ("Dust threshold: "%build)
         (bootDustThreshold genesisStakeholders)
-    logInfo $ sformat ("Genesis stakeholders: " %int)
-        (length $ getGenesisWStakeholders genesisStakeholders)
+    logInfo $ sformat ("Genesis stakeholders ("%int%" addresses): "%build)
+        (length $ getGenesisWStakeholders genesisStakeholders) genesisStakeholders
     firstGenesisHash <- GS.getFirstGenesisBlockHash
     logInfo $ sformat ("First genesis block hash: "%build) firstGenesisHash
 

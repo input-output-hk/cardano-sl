@@ -121,6 +121,7 @@ getNodeParams args@Args {..} systemStart = do
         , npUseNTP = not noNTP
         , npEnableMetrics = enableMetrics
         , npEkgParams = ekgParams
+        , npRoute53Params = Nothing -- We don't want health checking for Explorer
         , npStatsdParams = statsdParams
         , ..
         }

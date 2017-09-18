@@ -30,6 +30,7 @@ import           Pos.Security.Params         (SecurityParams)
 import           Pos.Ssc.GodTossing.Behavior (GtBehavior)
 import           Pos.Statistics              (EkgParams, StatsdParams)
 import           Pos.Update.Params           (UpdateParams)
+import           Pos.Util.TimeWarp           (NetworkAddress)
 import           Pos.Util.UserSecret         (UserSecret)
 import           Pos.Util.Util               (postfixLFields)
 
@@ -67,6 +68,7 @@ data NodeParams = NodeParams
     , npUpdateParams   :: !UpdateParams         -- ^ Params for update system
     , npUseNTP         :: !Bool                 -- ^ Whether to use synchronisation with NTP servers.
     , npTransport      :: !TransportParams      -- ^ (TCP) transport parameters.
+    , npRoute53Params  :: !(Maybe NetworkAddress) -- ^ Where to listen for the Route53 DNS health-check.
     , npEnableMetrics  :: !Bool                 -- ^ Gather runtime statistics.
     , npEkgParams      :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring.
     , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend.

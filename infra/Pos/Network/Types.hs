@@ -24,6 +24,7 @@ module Pos.Network.Types
     , topologyDequeuePolicy
     , topologyFailurePolicy
     , topologyMaxBucketSize
+    , topologyRoute53HealthCheckEnabled
       -- * Queue initialization
     , Bucket(..)
     , initQueue
@@ -294,6 +295,18 @@ topologyMaxBucketSize topology bucket =
           Nothing                               -> OQ.BucketSizeMax 0 -- subscription not allowed
       _otherBucket ->
         OQ.BucketSizeUnlimited
+
+-- | Whether or not we want to enable the health-check endpoint to be used by Route53
+-- in determining if a relay is healthy (i.e. it can accept more subscriptions or not)
+topologyRoute53HealthCheckEnabled :: Topology kademia -> Bool
+topologyRoute53HealthCheckEnabled = go
+  where
+    go TopologyCore{}        = False
+    go TopologyRelay{}       = True
+    go TopologyBehindNAT{..} = False
+    go TopologyP2P{}         = False
+    go TopologyTraditional{} = False
+    go TopologyLightWallet{} = False
 
 {-------------------------------------------------------------------------------
   Queue initialization

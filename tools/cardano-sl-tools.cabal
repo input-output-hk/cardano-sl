@@ -192,7 +192,6 @@ executable cardano-keygen
   hs-source-dirs:      src/keygen
   main-is:             Main.hs
   other-modules:       KeygenOptions
-                     , Avvm
                      , Dump
   if !flag(for-installer)
    build-depends:      Glob

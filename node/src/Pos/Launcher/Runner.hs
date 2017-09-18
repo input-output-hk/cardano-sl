@@ -138,6 +138,7 @@ runRealModeDo NodeResources {..} outSpecs action =
                                 { Monitoring.host = statsdHost
                                 , Monitoring.port = statsdPort
                                 , Monitoring.flushInterval = statsdInterval
+                                , Monitoring.fullFlushIterations = Just 1
                                 , Monitoring.debug = statsdDebug
                                 , Monitoring.prefix = statsdPrefix
                                 , Monitoring.suffix = statsdSuffix

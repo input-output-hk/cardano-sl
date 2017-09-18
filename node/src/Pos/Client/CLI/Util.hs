@@ -15,7 +15,6 @@ import           Universum
 
 import           Control.Exception.Safe (throwString)
 import           Control.Lens           (zoom, (?=))
-import qualified Crypto.Hash            as Hash
 import qualified Data.ByteString.Lazy   as BSL
 import           Data.Time.Clock.POSIX  (getPOSIXTime)
 import           Data.Time.Units        (toMicroseconds)
@@ -24,7 +23,6 @@ import           Serokell.Util          (sec)
 import           System.Wlog            (LoggerConfig (..), Severity (Info, Warning),
                                          fromScratch, lcTree, ltSeverity,
                                          parseLoggerConfig, zoomLogger)
-import           Text.JSON.Canonical    (renderCanonicalJSON, toJSON)
 import           Text.Parsec            (try)
 import qualified Text.Parsec.Char       as P
 import qualified Text.Parsec.Text       as P
@@ -32,7 +30,8 @@ import qualified Text.Parsec.Text       as P
 import           Pos.Binary.Core        ()
 import           Pos.Constants          (isDevelopment)
 import           Pos.Core               (StakeholderId)
-import           Pos.Core.Configuration (HasConfiguration, genesisData)
+import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson,
+                                         genesisData)
 import           Pos.Crypto             (decodeAbstractHash)
 import           Pos.Security.Params    (AttackTarget (..), AttackType (..))
 import           Pos.Ssc.SscAlgo        (SscAlgo (..))
@@ -91,10 +90,6 @@ readLoggerConfig = maybe (return defaultLoggerConfig) parseLoggerConfig
 -- the HasConfiguration constraint.
 dumpGenesisData :: (HasConfiguration, MonadIO m) => FilePath -> m ()
 dumpGenesisData path = do
+    let (canonicalJsonBytes, jsonHash) = canonicalGenesisJson genesisData
     putText $ sformat ("Writing JSON with hash "%shown%" to "%shown) jsonHash path
     liftIO $ BSL.writeFile path canonicalJsonBytes
-  where
-    jsonHash :: Hash.Digest Hash.Blake2b_256
-    jsonHash = Hash.hash $ BSL.toStrict canonicalJsonBytes
-
-    canonicalJsonBytes = renderCanonicalJSON $ runIdentity $ toJSON genesisData

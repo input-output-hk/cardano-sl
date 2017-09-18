@@ -32,8 +32,6 @@ module Pos.Core.Constants.Raw
        , criticalForkThreshold
        , fixedTimeCQ
        , fixedTimeCQSec
-
-       , webLoggingEnabled
        ) where
 
 import           Universum
@@ -145,12 +143,6 @@ data CoreConfig = CoreConfig
     , ccCriticalForkThreshold        :: !Int
       -- | Chain quality will be also calculated for this amount of seconds.
     , ccFixedTimeCQ                  :: !Int
-
-       -- Web settings
-
-      -- | Whether incoming requests logging should be performed by web
-      -- part
-    , ccWebLoggingEnabled            :: !Bool
     }
     deriving (Show, Generic)
 
@@ -262,7 +254,3 @@ fixedTimeCQ = sec . ccFixedTimeCQ $ coreConfig
 -- | 'fixedTimeCQ' expressed as seconds.
 fixedTimeCQSec :: Second
 fixedTimeCQSec = convertUnit fixedTimeCQ
-
--- | Web logging might be disabled for security concerns.
-webLoggingEnabled :: Bool
-webLoggingEnabled = ccWebLoggingEnabled coreConfig

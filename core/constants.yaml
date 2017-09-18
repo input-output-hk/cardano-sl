@@ -127,9 +127,6 @@ dev: &dev
 
   genesisBinSuffix: tn # it is set here arbitrarily, it won't be actually used
 
-  # Mode-sensitive logging options
-  webLoggingEnabled: true
-
 
 ##############################################################################
 ##                                                                          ##

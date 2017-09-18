@@ -33,6 +33,7 @@ data KeygenOptions = KeygenOptions
 data KeygenCommand
     = RearrangeMask FilePath
     | GenerateKey FilePath
+    | GenerateVss FilePath
     | ReadKey FilePath
     | DumpAvvmSeeds DumpAvvmSeedsOptions
     | GenerateKeysBySpec GenKeysOptions
@@ -57,6 +58,8 @@ keygenCommandParser =
       (infoH rearrangeMask (progDesc "Rearrange keyfiles."))
     , command "generate-key"
       (infoH generateKey (progDesc "Generate keyfile."))
+    , command "generate-vss"
+      (infoH generateVss (progDesc "Generate VSS certificate."))
     , command "read-key"
       (infoH readKey (progDesc "Dump keyfile contents."))
     , command "generate-avvm-seeds"
@@ -76,6 +79,10 @@ keygenCommandParser =
         long    "path" <>
         metavar "PATH" <>
         help    "Write the key to this path"
+    generateVss = fmap GenerateVss . strOption $
+        long    "path" <>
+        metavar "PATH" <>
+        help    "Generate a VSS certificate for this key"
     readKey = fmap ReadKey . strOption $
         long "path" <>
         metavar "PATH" <>

@@ -38,6 +38,7 @@ import           Universum
 
 import           Pos.Binary.Class      (Bi, Raw)
 import qualified Pos.Binary.Class      as Bi
+import           Pos.Crypto.Hashing    (Hash, hash)
 import qualified Pos.Crypto.Scrypt     as S
 import           Pos.Crypto.Signing    (ProxyCert (..), ProxySecretKey (..),
                                         PublicKey (..), SecretKey (..), Signature (..),
@@ -156,19 +157,22 @@ safeCreateKeypairFromSeed seed (PassPhrase pp) =
 -- "Pos.Crypto.Random" because the OpenSSL generator is probably safer than
 -- the default IO generator.
 safeKeyGen
-    :: (MonadRandom m, Bi PassPhrase)
+    :: (MonadRandom m, Bi PassPhrase, Bi (Hash ByteString))
     => PassPhrase -> m (PublicKey, EncryptedSecretKey)
 safeKeyGen pp = do
     seed <- getRandomBytes 32
     pure $ safeDeterministicKeyGen seed pp
 
 safeDeterministicKeyGen
-    :: Bi PassPhrase
+    :: (Bi PassPhrase, Bi (Hash ByteString))
     => BS.ByteString
     -> PassPhrase
     -> (PublicKey, EncryptedSecretKey)
 safeDeterministicKeyGen seed pp =
-    bimap PublicKey (mkEncSecretWithSalt (S.mkSalt seed) pp) (safeCreateKeypairFromSeed seed pp)
+    bimap
+        PublicKey
+        (mkEncSecretWithSalt (S.mkSalt (hash seed)) pp)
+        (safeCreateKeypairFromSeed seed pp)
 
 -- | SafeSigner datatype to encapsulate sensitive data
 data SafeSigner = SafeSigner EncryptedSecretKey PassPhrase

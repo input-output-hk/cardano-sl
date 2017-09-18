@@ -68,8 +68,8 @@ defaultEnqueuePolicyRelay = go
         EnqueueOne [NodeRelay, NodeCore] (MaxAhead 3) PHigh
       ]
     go (MsgTransaction _) = [
-        EnqueueAll NodeCore  (MaxAhead 20) PLow
-      , EnqueueAll NodeRelay (MaxAhead 20) PLow
+        EnqueueAll NodeCore  (MaxAhead 200) PLow
+      , EnqueueAll NodeRelay (MaxAhead 200) PLow
         -- transactions not forwarded to edge nodes
       ]
     go (MsgMPC _) = [
@@ -142,7 +142,7 @@ defaultDequeuePolicyRelay :: DequeuePolicy
 defaultDequeuePolicyRelay = go
   where
     go :: DequeuePolicy
-    go NodeCore  = Dequeue (MaxMsgPerSec 1) (MaxInFlight 2)
+    go NodeCore  = Dequeue (MaxMsgPerSec 3) (MaxInFlight 2)
     go NodeRelay = Dequeue (MaxMsgPerSec 3) (MaxInFlight 2)
     go NodeEdge  = Dequeue (MaxMsgPerSec 1) (MaxInFlight 2)
 

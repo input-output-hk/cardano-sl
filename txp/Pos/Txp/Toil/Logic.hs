@@ -44,7 +44,6 @@ import           Pos.Txp.Toil.Failure       (ToilVerFailure (..))
 import           Pos.Txp.Toil.Stakes        (applyTxsToStakes, rollbackTxsStakes)
 import           Pos.Txp.Toil.Types         (TxFee (..))
 import qualified Pos.Txp.Toil.Utxo          as Utxo
-import           Pos.Util.Util              (HasLens')
 
 ----------------------------------------------------------------------------
 -- Global
@@ -138,15 +137,14 @@ normalizeToil curEpoch txs = mapM_ normalize ordered
 ----------------------------------------------------------------------------
 
 verifyAndApplyTx
-    :: forall ctx m .
-       ( MonadUtxo m
+    :: ( MonadUtxo m
        , MonadGState m
        , MonadError ToilVerFailure m
        )
     => EpochIndex -> Bool -> (TxId, TxAux) -> m TxUndo
 verifyAndApplyTx curEpoch verifyVersions tx@(_, txAux) = do
     (txUndo, txFeeMB) <- Utxo.verifyTxUtxo ctx txAux
-    verifyGState @ctx curEpoch txAux txFeeMB
+    verifyGState curEpoch txAux txFeeMB
     applyTxToUtxo' tx
     pure txUndo
   where
@@ -159,8 +157,7 @@ isRedeemTx txAux = do
     return $ all isRedeemAddress inputAddresses
 
 verifyGState
-    :: forall ctx m .
-       ( MonadGState m
+    :: ( MonadGState m
        , MonadUtxoRead m
        , MonadError ToilVerFailure m
        )

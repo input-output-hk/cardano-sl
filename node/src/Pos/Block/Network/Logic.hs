@@ -528,7 +528,7 @@ applyWithRollback nodeId enqueue toApply lca toRollback = do
                 sformat reportF nodeId toRollbackHashes toApplyHashes
       where
         rollbackDepth = length toRollback
-        isCritical = rollbackDepth >= Constants.criticalForkThreshold
+        isCritical = rollbackDepth >= criticalForkThreshold
 
     panicBrokenLca = error "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =

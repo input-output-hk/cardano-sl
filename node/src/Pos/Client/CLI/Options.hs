@@ -10,7 +10,6 @@ module Pos.Client.CLI.Options
        , optionalJSONPath
        , optionalLogPrefix
        , portOption
-       , timeLordOption
        , webPortOption
        , walletPortOption
        , networkAddressOption

@@ -9,8 +9,7 @@ module Main where
 import           Universum
 
 import           Data.Maybe          (fromJust)
-import           Ether.Internal      (HasLens (..))
-import           Formatting          (build, sformat, shown, (%))
+import           Formatting          (sformat, shown, (%))
 import           Mockable            (Production, currentTime, runProduction)
 import           System.Wlog         (logInfo)
 

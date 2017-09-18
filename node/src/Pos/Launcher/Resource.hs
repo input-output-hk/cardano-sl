@@ -56,7 +56,6 @@ import           Pos.Delegation                   (DelegationVar, mkDelegationVa
 import           Pos.DHT.Real                     (KademliaDHTInstance,
                                                    KademliaParams (..), startDHTInstance,
                                                    stopDHTInstance)
-import qualified Pos.GState                       as GS
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.Launcher.Param               (BaseParams (..), LoggingParams (..),
                                                    NodeParams (..), TransportParams (..))

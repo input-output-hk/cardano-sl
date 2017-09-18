@@ -397,6 +397,7 @@ library
                       , reflection
                       , resourcet
                       , rocksdb-haskell >= 1.0.0
+                      , safe-exceptions
                       , safecopy
                       , serokell-util >= 0.1.3.4
                       , servant >= 0.8.1

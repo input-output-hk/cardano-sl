@@ -75,9 +75,9 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
         putText $ sformat ("System start time is " % shown) $ gdStartTime genesisData
         t <- currentTime
         putText $ sformat ("Current time is " % shown) (Timestamp t)
-        currentParams <- getNodeParams cArgs systemStart
+        currentParams <- getNodeParams cArgs
         putText $ "Wallet is enabled!"
-        putText $ sformat ("Using configs and genesis:\n"%build) configInfo
+        putText $ sformat ("Using configs and genesis:\n"%shown) conf
 
         let vssSK = fromJust $ npUserSecret currentParams ^. usVss
         let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)

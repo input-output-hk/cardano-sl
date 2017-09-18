@@ -27,7 +27,6 @@ import           Pos.Client.CLI.Secrets           (updateUserSecretVSS,
 import           Pos.Core.Configuration           (HasConfiguration)
 import           Pos.Core.Constants               (isDevelopment)
 import           Pos.Crypto                       (VssKeyPair)
-import           Pos.Genesis                      (genesisContext)
 import           Pos.Launcher                     (BaseParams (..), LoggingParams (..),
                                                    NodeParams (..), TransportParams (..))
 import           Pos.Network.CLI                  (intNetworkConfigOpts)

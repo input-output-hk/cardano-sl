@@ -24,18 +24,16 @@ import           Pos.Block.Slog           (mkSlogGState)
 import           Pos.Block.Types          (Undo)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Util      (TxCreateMode)
-import           Pos.Core                 (AddrSpendingData (..), HasCoreConstants,
+import           Pos.Core                 (AddrSpendingData (..), HasConfiguration,
                                            IsHeader, SlotId, Timestamp (..),
                                            makePubKeyAddressBoot)
+import           Pos.Core.Genesis         (GenesisWStakeholders)
 import           Pos.Crypto               (SecretKey, toPublic)
 import           Pos.DB                   (MonadGState (..))
 import qualified Pos.DB                   as DB
 import qualified Pos.DB.Block             as DB
 import           Pos.DB.DB                as DB
 import           Pos.DB.DB                (initNodeDBs)
-import           Pos.Genesis              (GenesisContext (..), GenesisUtxo,
-                                           GenesisWStakeholders, genesisContextImplicit,
-                                           gtcUtxo, gtcWStakeholders)
 import qualified Pos.GState               as GS
 import           Pos.Lrc                  (LrcContext (..), mkLrcSyncData)
 import           Pos.Slotting             (HasSlottingVar (..), MonadSlots (..),
@@ -45,6 +43,7 @@ import qualified Pos.Slotting             as Slot
 import           Pos.Ssc.Class            (SscBlock)
 import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
 import           Pos.Ssc.GodTossing       (SscGodTossing)
+import           Pos.Txp.Toil             (GenesisUtxo)
 import           Pos.Util.Util            (Some, postfixLFields)
 
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
@@ -91,7 +90,7 @@ runTestInitMode :: TxpTestInitContext -> TxpTestInitMode a -> IO a
 runTestInitMode ctx = runProduction . flip runReaderT ctx
 
 initTxpTestContext
-    :: (HasCoreConstants, MonadIO m)
+    :: (HasConfiguration, MonadIO m)
     => TxpTestParams
     -> m TxpTestContext
 initTxpTestContext tp@TxpTestParams {..} = do
@@ -114,7 +113,7 @@ initTxpTestContext tp@TxpTestParams {..} = do
         pure TxpTestContext {..}
 
 runTxpTestMode
-    :: HasCoreConstants
+    :: HasConfiguration
     => TxpTestParams
     -> TxpTestMode a
     -> IO a
@@ -128,15 +127,6 @@ runTxpTestMode tp action = do
 
 instance HasLens DB.DBPureVar TxpTestInitContext DB.DBPureVar where
     lensOf = tticDBPureVar_L
-
-instance HasLens GenesisContext TxpTestInitContext GenesisContext where
-    lensOf = tticGenesisContext_L
-
-instance HasLens GenesisUtxo TxpTestInitContext GenesisUtxo where
-    lensOf = tticGenesisContext_L . gtcUtxo
-
-instance HasLens GenesisWStakeholders TxpTestInitContext GenesisWStakeholders where
-    lensOf = tticGenesisContext_L . gtcWStakeholders
 
 ----------------------------------------------------------------------------
 -- Boilerplate TxpTestInitMode instances
@@ -152,19 +142,19 @@ instance DB.MonadDB TxpTestInitMode where
     dbDelete = DB.dbDeletePureDefault
 
 instance
-    (HasCoreConstants, SscHelpersClass ssc) =>
+    (HasConfiguration, SscHelpersClass ssc) =>
     DB.MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo TxpTestInitMode
   where
     dbGetBlock  = DB.dbGetBlockPureDefault @ssc
     dbGetUndo   = DB.dbGetUndoPureDefault @ssc
     dbGetHeader = DB.dbGetHeaderPureDefault @ssc
 
-instance (HasCoreConstants, SscHelpersClass ssc) =>
+instance (HasConfiguration, SscHelpersClass ssc) =>
          DB.MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo TxpTestInitMode where
     dbPutBlund = DB.dbPutBlundPureDefault
 
 instance
-    (HasCoreConstants, SscHelpersClass ssc) =>
+    (HasConfiguration, SscHelpersClass ssc) =>
     DB.MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () TxpTestInitMode
   where
     dbGetBlock  = DB.dbGetBlockSscPureDefault @ssc
@@ -202,7 +192,7 @@ instance HasLens DB.DBPureVar TxpTestContext DB.DBPureVar where
 instance MonadGState TxpTestMode where
     gsAdoptedBVData = DB.gsAdoptedBVDataDefault
 
-instance (HasCoreConstants, MonadSlotsData ctx TxpTestMode)
+instance (HasConfiguration, MonadSlotsData ctx TxpTestMode)
       => MonadSlots ctx TxpTestMode
   where
     getCurrentSlot = do

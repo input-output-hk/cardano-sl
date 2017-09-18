@@ -35,7 +35,6 @@ import qualified Network.Broadcast.OutboundQueue       as OQ
 import           Network.Broadcast.OutboundQueue.Types
 import qualified Network.DNS                           as DNS
 import           Pos.Network.Types                     (Fallbacks, NodeName (..), Valency)
-import           Pos.Util.Config
 import           Universum
 
 import           Pos.Network.DnsDomains                (DnsDomains (..), NodeAddr (..))

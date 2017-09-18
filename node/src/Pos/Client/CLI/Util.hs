@@ -13,13 +13,9 @@ module Pos.Client.CLI.Util
 
 import           Universum
 
-import           Control.Exception.Safe (throwString)
 import           Control.Lens           (zoom, (?=))
 import qualified Data.ByteString.Lazy   as BSL
-import           Data.Time.Clock.POSIX  (getPOSIXTime)
-import           Data.Time.Units        (toMicroseconds)
 import           Formatting             (sformat, shown, (%))
-import           Serokell.Util          (sec)
 import           System.Wlog            (LoggerConfig (..), Severity (Info, Warning),
                                          fromScratch, lcTree, ltSeverity,
                                          parseLoggerConfig, zoomLogger)

@@ -22,7 +22,6 @@ import           Pos.Communication                (OutSpecs, SendActions, Worker
 import           Pos.Configuration                (HasNodeConfiguration)
 import           Pos.Core                         (HasConfiguration)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
-import           Pos.Recovery                     ()
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)

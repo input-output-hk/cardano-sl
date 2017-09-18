@@ -4,15 +4,15 @@
 -- the running program, not for the lifetime of the executable binary itself.
 
 module Pos.Launcher.Configuration
-    ( Configuration (..)
-    , MultiConfiguration
-    , HasConfigurations
+       ( Configuration (..)
+       , MultiConfiguration
+       , HasConfigurations
 
-    , ConfigurationOptions (..)
-    , defaultConfigurationOptions
+       , ConfigurationOptions (..)
+       , defaultConfigurationOptions
 
-    , withConfigurations
-    ) where
+       , withConfigurations
+       ) where
 
 import           Universum
 

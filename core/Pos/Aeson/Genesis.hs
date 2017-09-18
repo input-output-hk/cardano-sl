@@ -6,38 +6,33 @@ module Pos.Aeson.Genesis
 
 import           Universum
 
-import           Data.Aeson              (FromJSON (..), withArray, withObject, (.:))
+import           Data.Aeson              (FromJSON (..), FromJSONKey (..),
+                                          FromJSONKeyFunction (..))
 import           Data.Aeson.TH           (deriveFromJSON)
 import           Serokell.Aeson.Options  (defaultOptions)
 
 import           Pos.Aeson.Core          ()
 import           Pos.Aeson.Crypto        ()
 import           Pos.Binary.Core.Address ()
-import           Pos.Core.Genesis.Types  (AvvmData, AvvmEntry (..), FakeAvvmOptions,
-                                          GenesisAvvmBalances, GenesisDelegation,
-                                          GenesisInitializer, GenesisNonAvvmBalances,
-                                          GenesisSpec, GenesisVssCertificatesMap (..),
-                                          GenesisWStakeholders, ProtocolConstants,
+import           Pos.Core.Genesis.Types  (FakeAvvmOptions, GenesisAvvmBalances (..),
+                                          GenesisDelegation, GenesisInitializer,
+                                          GenesisNonAvvmBalances, GenesisSpec,
+                                          GenesisVssCertificatesMap (..),
+                                          GenesisWStakeholders (..), ProtocolConstants,
                                           TestnetBalanceOptions, TestnetDistribution,
-                                          convertAvvmDataToBalances,
                                           convertNonAvvmDataToBalances,
                                           mkGenesisDelegation)
 import           Pos.Core.Types          (ProxySKHeavy, StakeholderId)
 import           Pos.Core.Vss            (validateVssCertificatesMap)
-import           Pos.Crypto              (fromAvvmPk)
+import           Pos.Crypto              (RedeemPublicKey, fromAvvmPk)
 import           Pos.Util.Util           (eitherToFail)
 
-instance FromJSON AvvmEntry where
-    parseJSON = withObject "avvmEntry" $ \o -> do
-        aeCoin <- (* (1000000 :: Integer)) <$> o .: "coin"
-        (addrText :: Text) <- o .: "address"
-        aePublicKey <- fromAvvmPk addrText
-        return AvvmEntry{..}
+instance FromJSONKey RedeemPublicKey where
+    fromJSONKey = FromJSONKeyTextParser fromAvvmPk
+    fromJSONKeyList = FromJSONKeyTextParser (fmap pure . fromAvvmPk)
 
-instance FromJSON AvvmData
-
-instance FromJSON GenesisAvvmBalances where
-    parseJSON v = convertAvvmDataToBalances <$> parseJSON v
+deriving instance FromJSON GenesisAvvmBalances
+deriving instance FromJSON GenesisWStakeholders
 
 instance FromJSON GenesisNonAvvmBalances where
     parseJSON = convertNonAvvmDataToBalances <=< parseJSON
@@ -51,7 +46,6 @@ instance FromJSON GenesisDelegation where
         (elems :: HashMap StakeholderId ProxySKHeavy) <- mapM parseJSON v
         eitherToFail $ mkGenesisDelegation elems
 
-deriveFromJSON defaultOptions ''GenesisWStakeholders
 deriveFromJSON defaultOptions ''TestnetDistribution
 deriveFromJSON defaultOptions ''FakeAvvmOptions
 deriveFromJSON defaultOptions ''TestnetBalanceOptions

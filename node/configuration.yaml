@@ -46,8 +46,7 @@ dev: &dev
             txSizeLinear:
               a: 155381 # absolute minimal fees per transaction
               b: 43.946 # additional minimal fees per byte of transaction size
-          unlockStakeEpoch: 
-            getEpochIndex: 18446744073709551615 # last epoch (maxBound @Word64)
+          unlockStakeEpoch: 18446744073709551615 # last epoch (maxBound @Word64)
         protocolConstants: &dev_core_genesis_spec_protocolConstants
           k: 2
           protocolMagic: 55550001
@@ -55,8 +54,7 @@ dev: &dev
           vssMaxTTL: 6
         ftsSeed: "c2tvdm9yb2RhIEdndXJkYSBib3JvZGEgcHJvdm9kYSA="
         heavyDelegation: {}
-        avvmDistr:
-          avvmData: []
+        avvmDistr: {}
 
     dbSerializeVersion: 0
     memPoolLimitRatio: 2 # mem pool will be limited by this value
@@ -157,8 +155,7 @@ bench: &bench
             txSizeLinear:
               a: 0 # absolute minimal fees per transaction
               b: 0 # additional minimal fees per byte of transaction size
-          unlockStakeEpoch: 
-            getEpochIndex: 0 # first epoch
+          unlockStakeEpoch: 0 # first epoch
         protocolConstants:
           <<: *dev_core_genesis_spec_protocolConstants
           k: 6

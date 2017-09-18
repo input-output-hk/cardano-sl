@@ -17,11 +17,8 @@ module Pos.Core.Genesis.Types
        , GenesisInitializer (..)
        , GenesisAvvmBalances (..)
        , GenesisNonAvvmBalances (..)
-       , AvvmData (..)
-       , AvvmEntry (..)
        , ProtocolConstants (..)
        , GenesisSpec (..)
-       , convertAvvmDataToBalances
        , convertNonAvvmDataToBalances
        , mkGenesisSpec
 
@@ -174,36 +171,10 @@ data GenesisInitializer
     , miNonAvvmBalances  :: !GenesisNonAvvmBalances
     } deriving (Show)
 
-data AvvmEntry = AvvmEntry
-    { aeCoin      :: !Integer         -- in lovelaces
-    , aePublicKey :: !RedeemPublicKey -- in base64(u), yep
-    } deriving (Show, Generic, Eq)
-
--- | AvvmData raw format of AVVM stored in a json file.
--- We parse AvvmData from a JSON and transform it to GenesisAvvmBalances.
-data AvvmData = AvvmData
-    { avvmData :: [AvvmEntry]
-    } deriving (Show, Generic)
-
 -- | Predefined balances of avvm entries.
 newtype GenesisAvvmBalances = GenesisAvvmBalances
     { getGenesisAvvmBalances :: HashMap RedeemPublicKey Coin
     } deriving (Show, Eq, Monoid)
-
--- | Generate genesis address distribution out of avvm
--- parameters. Txdistr of the utxo is all empty. Redelegate it in
--- calling funciton.
-convertAvvmDataToBalances
-    :: AvvmData
-    -> GenesisAvvmBalances
-convertAvvmDataToBalances AvvmData{..} = GenesisAvvmBalances balances
-  where
-    balances :: HashMap RedeemPublicKey Coin
-    balances =
-        HM.fromListWith unsafeAddCoin $ do
-            AvvmEntry {..} <- avvmData
-            let adaCoin = unsafeIntegerToCoin aeCoin
-            return (aePublicKey, adaCoin)
 
 -- | Predefined balances of non avvm entries.
 newtype GenesisVssCertificatesMap = GenesisVssCertificatesMap

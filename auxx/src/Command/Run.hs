@@ -117,11 +117,12 @@ runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM dry) = do
             let psk = safeCreatePsk ss delegatePk (startEpoch, fromMaybe 1000 lastEpochM)
             if dry
             then putStrLn $ Y.encode psk
-            else dataFlow
-                     "pskLight"
-                     (immediateConcurrentConversations sendActions ccPeers)
-                     (MsgTransaction OriginSender) psk
-    putText "Sent lightweight cert"
+            else do
+                dataFlow
+                    "pskLight"
+                    (immediateConcurrentConversations sendActions ccPeers)
+                    (MsgTransaction OriginSender) psk
+                putText "Sent lightweight cert"
 runCmd sendActions (DelegateHeavy i delegatePk curEpoch dry) = do
     CmdCtx {ccPeers} <- getCmdCtx
     issuerSk <- (!! i) <$> getSecretKeys
@@ -131,12 +132,13 @@ runCmd sendActions (DelegateHeavy i delegatePk curEpoch dry) = do
             let psk = safeCreatePsk ss delegatePk curEpoch
             if dry
             then putStrLn $ Y.encode psk
-            else dataFlow
-                     "pskHeavy"
-                     (immediateConcurrentConversations sendActions ccPeers)
-                     (MsgTransaction OriginSender)
-                     psk
-    putText "Sent heavyweight cert"
+            else do
+               dataFlow
+                   "pskHeavy"
+                   (immediateConcurrentConversations sendActions ccPeers)
+                   (MsgTransaction OriginSender)
+                   psk
+               putText "Sent heavyweight cert"
 runCmd _ (AddKeyFromPool i) = do
     unless isDevelopment $
         throwString "AddKeyFromPool should be used only in dev mode"

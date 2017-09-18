@@ -6,22 +6,24 @@ module Pos.Aeson.Genesis
 
 import           Universum
 
-import           Data.Aeson             (FromJSON (..), withObject, (.:))
-import           Data.Aeson.TH          (deriveFromJSON)
-import           Serokell.Aeson.Options (defaultOptions)
+import           Data.Aeson              (FromJSON (..), withArray, withObject, (.:))
+import           Data.Aeson.TH           (deriveFromJSON)
+import           Serokell.Aeson.Options  (defaultOptions)
 
+import           Pos.Aeson.Core          ()
+import           Pos.Aeson.Crypto        ()
 import           Pos.Binary.Core.Address ()
-import           Pos.Aeson.Core         ()
-import           Pos.Aeson.Crypto       ()
-import           Pos.Core.Genesis.Types (AvvmData, AvvmEntry (..), FakeAvvmOptions,
-                                         GenesisAvvmBalances,
-                                         GenesisNonAvvmBalances, GenesisDelegation,
-                                         GenesisInitializer, GenesisSpec,
-                                         GenesisWStakeholders, ProtocolConstants,
-                                         TestnetBalanceOptions, TestnetDistribution,
-                                         convertAvvmDataToBalances,
-                                         convertNonAvvmDataToBalances)
-import           Pos.Crypto             (fromAvvmPk)
+import           Pos.Core.Genesis.Types  (AvvmData, AvvmEntry (..), FakeAvvmOptions,
+                                          GenesisAvvmBalances, GenesisDelegation,
+                                          GenesisInitializer, GenesisNonAvvmBalances,
+                                          GenesisSpec, GenesisWStakeholders,
+                                          ProtocolConstants, TestnetBalanceOptions,
+                                          TestnetDistribution, convertAvvmDataToBalances,
+                                          convertNonAvvmDataToBalances,
+                                          mkGenesisDelegation)
+import           Pos.Core.Types          (ProxySKHeavy)
+import           Pos.Crypto              (fromAvvmPk)
+import           Pos.Util.Util           (eitherToFail)
 
 instance FromJSON AvvmEntry where
     parseJSON = withObject "avvmEntry" $ \o -> do
@@ -38,7 +40,11 @@ instance FromJSON GenesisAvvmBalances where
 instance FromJSON GenesisNonAvvmBalances where
     parseJSON = convertNonAvvmDataToBalances <=< parseJSON
 
-deriveFromJSON defaultOptions ''GenesisDelegation
+instance FromJSON GenesisDelegation where
+    parseJSON = withArray "GenesisDelegation" $ \v -> do
+        (elems :: [ProxySKHeavy]) <- mapM parseJSON $ toList v
+        eitherToFail $ (mkGenesisDelegation elems :: Either Text GenesisDelegation)
+
 deriveFromJSON defaultOptions ''GenesisWStakeholders
 deriveFromJSON defaultOptions ''TestnetDistribution
 deriveFromJSON defaultOptions ''FakeAvvmOptions

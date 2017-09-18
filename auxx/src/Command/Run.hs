@@ -10,9 +10,9 @@ module Command.Run
 import           Universum
 
 import           Control.Exception.Safe     (throwString)
+import qualified Data.Aeson                 as J
 import           Data.ByteString.Base58     (bitcoinAlphabet, encodeBase58)
 import           Data.List                  ((!!))
-import qualified Data.Yaml                  as Y
 import           Formatting                 (build, int, sformat, stext, (%))
 import           NeatInterpolation          (text)
 
@@ -21,8 +21,7 @@ import           Pos.Binary                 (serialize')
 import           Pos.Communication          (MsgType (..), Origin (..), SendActions,
                                              dataFlow, immediateConcurrentConversations)
 import           Pos.Constants              (isDevelopment)
-import           Pos.Core                   (addressHash, coinF)
-import           Pos.Core.Address           (makeAddress)
+import           Pos.Core                   (addressHash, coinF, makeAddress)
 import           Pos.Core.Configuration     (genesisSecretKeys)
 import           Pos.Core.Types             (AddrAttributes (..), AddrSpendingData (..))
 import           Pos.Crypto                 (emptyPassphrase, encToPublic,
@@ -116,7 +115,8 @@ runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM dry) = do
         Just ss -> do
             let psk = safeCreatePsk ss delegatePk (startEpoch, fromMaybe 1000 lastEpochM)
             if dry
-            then putStrLn $ Y.encode psk
+            then do
+                putStrLn $ J.encode psk
             else do
                 dataFlow
                     "pskLight"
@@ -131,7 +131,10 @@ runCmd sendActions (DelegateHeavy i delegatePk curEpoch dry) = do
         Just ss -> do
             let psk = safeCreatePsk ss delegatePk curEpoch
             if dry
-            then putStrLn $ Y.encode psk
+            then do
+                let issuerHash = addressHash $ encToPublic issuerSk
+                putStr $ show issuerHash <> (": " :: Text)
+                putStrLn $ J.encode psk
             else do
                dataFlow
                    "pskHeavy"

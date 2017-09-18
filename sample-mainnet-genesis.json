@@ -90,22 +90,6 @@
         "yUAtXs7LHVfUEDexSnDxmVt-th19El9BQJXrClLqlkE=": "411085000000",
         "zE56EfVAvv0XekVyBDGh2Iz1QT6X38YxlcBYO20hqa0=": "1773135000000"
     },
-    
-    "bootStakeholders": {
-        "0d916567f96b6a65d204966e6aab5fbd242e56c321833f8ba5d607da": 1,
-        "4bd1884f5ce2231be8623ecf5778a9112e26514205b39ff53529e735": 1,
-        "5f53e01e1366aeda8811c2a630f0e037077a7b651093d2bdc4ef7200": 1,
-        "ada3ab5c69b945c33c15ca110b444aa58906bf01fcfe55d8818d9c49": 1
-    },
-    "ftsSeed": "736b6f766f726f64612047677572646120626f726f64612070726f766f646120",
-    "heavyDelegation": {},
-    "nonAvvmBalances": {},
-    "protocolConsts": {
-        "k": 2160,
-        "protocolMagic": 60987900,
-        "vssMaxTTL": 6,
-        "vssMinTTL": 2
-    },
     "blockVersionData": {
         "heavyDelThd": "300000000000",
         "maxBlockSize": "2000000",
@@ -128,6 +112,28 @@
         "updateImplicit": "10000",
         "updateProposalThd": "100000000000000",
         "updateVoteThd": "1000000000000"
+    },
+    "bootStakeholders": {
+        "0d916567f96b6a65d204966e6aab5fbd242e56c321833f8ba5d607da": 1,
+        "4bd1884f5ce2231be8623ecf5778a9112e26514205b39ff53529e735": 1,
+        "5f53e01e1366aeda8811c2a630f0e037077a7b651093d2bdc4ef7200": 1,
+        "ada3ab5c69b945c33c15ca110b444aa58906bf01fcfe55d8818d9c49": 1
+    },
+    "ftsSeed": "736b6f766f726f64612047677572646120626f726f64612070726f766f646120",
+    "nonAvvmBalances": {},
+    "protocolConsts": {
+        "k": 2160,
+        "protocolMagic": 60987900,
+        "vssMaxTTL": 6,
+        "vssMinTTL": 2
+    },
+    "heavyDelegation": {
+        "c6c7fb227037a1719b9d871ea49b6039325aeb293915da7db9620e3f": {
+            "cert": "0f2ff9d1f071793dbd90fce8d47e96a09b594ee6dd00a4bac9664e4bd6af89830035ec921698b774c779eb1b6a2772d3d6ae37e630c06c75fbfecd02a6410a02",
+            "delegatePk": "I07+5HIUW0Lkq0poMMzGziuILwxSyTJ4lMSsoQz4HZunD5Xsx3MfBZWc4l+206lUOFaU+spdJg7MkmFKBoVV0g==",
+            "issuerPk": "AZzlT+pC5M4xG+GuRHJEXS+isikmVBorTqOyjRDGUQ+Lst9fn1zQn5OGKSXK29G2dn7R7JCugfcUebr0Dq7wPw==",
+            "omega": 1
+        }
     },
     "startTime": 1505621332,
     "vssCerts": {

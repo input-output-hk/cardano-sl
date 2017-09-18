@@ -69,11 +69,11 @@ configurationOptionsParser = do
         Opt.help    "Path to a yaml configuration file" <>
         Opt.value   (cfoFilePath def)
     keyParser :: Opt.Parser Text
-    keyParser = Opt.option Opt.auto $
+    keyParser = fmap toText $ Opt.strOption $
         Opt.long    "configuration-key" <>
         Opt.metavar "TEXT" <>
         Opt.help    "Key within the configuration file to use" <>
-        Opt.value   (cfoKey def)
+        Opt.value   (toString (cfoKey def))
     systemStartParser :: Opt.Parser (Maybe Timestamp)
     systemStartParser = Opt.option (Just . Timestamp . sec <$> Opt.auto) $
         Opt.long    "system-start" <>

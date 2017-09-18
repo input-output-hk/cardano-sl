@@ -55,8 +55,7 @@ healthCheckApi :: Proxy HealthCheckApi
 healthCheckApi = Proxy
 
 type HealthCheckApi =
-    "healthcheck"
-        :> Get '[PlainText] String
+    "healthcheck" :> "route53" :> Get '[PlainText] String
 
 -- | Helper Proxy.
 baseNodeApi :: Proxy (BaseNodeApi ssc)

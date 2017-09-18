@@ -10,7 +10,7 @@ module Pos.Web.Server
        , nat
        , serveWebBase
        , applicationBase
-       , healthCheckApplication
+       , route53HealthCheckApplication
        , serveWebGT
        , applicationGT
        ) where
@@ -79,8 +79,8 @@ applicationBase = do
     server <- servantServerBase
     return $ serve baseNodeApi server
 
-healthCheckApplication :: MyWorkMode ssc ctx m => Topology t -> OQ m -> m Application
-healthCheckApplication topology oq = do
+route53HealthCheckApplication :: MyWorkMode ssc ctx m => Topology t -> OQ m -> m Application
+route53HealthCheckApplication topology oq = do
     server <- servantServerHealthCheck topology oq
     return $ serve healthCheckApi server
 
@@ -193,10 +193,10 @@ getLocalTxsNum = fromIntegral . length <$> getLocalTxs
 
 healthCheckServantHandlers :: Topology t -> OQ m -> ServerT HealthCheckApi (WebMode ssc)
 healthCheckServantHandlers topology oq =
-    getHealthCheck topology oq
+    getRoute53HealthCheck topology oq
 
-getHealthCheck :: Topology t -> OQ m -> ServerT HealthCheckApi (WebMode ssc)
-getHealthCheck (topologyMaxBucketSize -> getSize) oq = do
+getRoute53HealthCheck :: Topology t -> OQ m -> ServerT HealthCheckApi (WebMode ssc)
+getRoute53HealthCheck (topologyMaxBucketSize -> getSize) oq = do
     let maxCapacityTxt = case getSize BucketSubscriptionListener of
                              OQ.BucketSizeUnlimited -> "unlimited"
                              (OQ.BucketSizeMax x)   -> fromString (show x)

@@ -14,10 +14,10 @@ base=$(dirname "$0")
 ensure_logs
 
 dht_conf=" --peer 127.0.0.1:3000 --peer 127.0.0.1:3001 --peer 127.0.0.1:3002 --peer 127.0.0.1:3003 "
-logs_conf=$(logs lwallet.log)
+logs_conf=$(logs auxx.log)
 binary=$(find_binary cardano-wallet)
 template="$binary $dht_conf $logs_conf \
-                 --db-path run/lwallet-db --rebuild-db \
+                 --db-path run/auxx-db --rebuild-db \
                  --system-start 100500"  # random value, not used, but mandatory
 
 if [[ $1 == "init-dev" ]]; then

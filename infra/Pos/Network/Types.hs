@@ -178,9 +178,9 @@ data Topology kademlia =
       , topologyMaxSubscrs :: !OQ.MaxBucketSize
       }
 
-    -- | Light wallets simulate "real" edge nodes, but are configured with
+    -- | Auxx simulates "real" edge nodes, but is configured with
     -- a static set of relays.
-  | TopologyLightWallet {
+  | TopologyAuxx {
         topologyRelays :: ![NodeId]
       }
   deriving (Show)
@@ -196,7 +196,7 @@ topologyNodeType TopologyRelay{}       = NodeRelay
 topologyNodeType TopologyBehindNAT{}   = NodeEdge
 topologyNodeType TopologyP2P{}         = NodeEdge
 topologyNodeType TopologyTraditional{} = NodeCore
-topologyNodeType TopologyLightWallet{} = NodeEdge
+topologyNodeType TopologyAuxx{}        = NodeEdge
 
 -- | Assumed type and maximum number of subscribers (if subscription is allowed)
 topologySubscribers :: Topology kademlia -> Maybe (NodeType, OQ.MaxBucketSize)
@@ -205,7 +205,7 @@ topologySubscribers TopologyRelay{..}       = Just (NodeEdge, topologyMaxSubscrs
 topologySubscribers TopologyBehindNAT{}     = Nothing
 topologySubscribers TopologyP2P{..}         = Just (NodeRelay, topologyMaxSubscrs)
 topologySubscribers TopologyTraditional{..} = Just (NodeCore, topologyMaxSubscrs)
-topologySubscribers TopologyLightWallet{}   = Nothing
+topologySubscribers TopologyAuxx{}          = Nothing
 
 -- | Assumed type for unknown nodes
 topologyUnknownNodeType :: Topology kademlia -> OQ.UnknownNodeType NodeId
@@ -217,7 +217,7 @@ topologyUnknownNodeType topology = OQ.UnknownNodeType $ go topology
     go TopologyTraditional{} = const NodeCore
     go TopologyP2P{}         = const NodeRelay  -- a fairly normal expected case
     go TopologyBehindNAT{}   = const NodeEdge   -- should never happen
-    go TopologyLightWallet{} = const NodeEdge   -- should never happen
+    go TopologyAuxx{}        = const NodeEdge   -- should never happen
 
 data SubscriptionWorker kademlia =
     SubscriptionWorkerBehindNAT (DnsDomains DNS.Domain) Valency Fallbacks
@@ -243,7 +243,7 @@ topologySubscriptionWorker = go
                                           NodeCore
                                           topologyValency
                                           topologyFallbacks
-    go TopologyLightWallet{}   = Nothing
+    go TopologyAuxx{}   = Nothing
 
 -- | Should we register to the Kademlia network? If so, is it essential that we
 -- successfully join it (contact at least one existing peer)? Second component
@@ -256,7 +256,7 @@ topologyRunKademlia = go
     go TopologyBehindNAT{}     = Nothing
     go TopologyP2P{..}         = Just (topologyKademlia, True)
     go TopologyTraditional{..} = Just (topologyKademlia, True)
-    go TopologyLightWallet{}   = Nothing
+    go TopologyAuxx{}          = Nothing
 
 -- | Enqueue policy for the given topology
 topologyEnqueuePolicy :: Topology kademia -> OQ.EnqueuePolicy NodeId
@@ -267,7 +267,7 @@ topologyEnqueuePolicy = go
     go TopologyBehindNAT{..} = Policy.defaultEnqueuePolicyEdgeBehindNat
     go TopologyP2P{}         = Policy.defaultEnqueuePolicyEdgeP2P
     go TopologyTraditional{} = Policy.defaultEnqueuePolicyCore
-    go TopologyLightWallet{} = Policy.defaultEnqueuePolicyEdgeBehindNat
+    go TopologyAuxx{}        = Policy.defaultEnqueuePolicyEdgeBehindNat
 
 -- | Dequeue policy for the given topology
 topologyDequeuePolicy :: Topology kademia -> OQ.DequeuePolicy
@@ -278,7 +278,7 @@ topologyDequeuePolicy = go
     go TopologyBehindNAT{..} = Policy.defaultDequeuePolicyEdgeBehindNat
     go TopologyP2P{}         = Policy.defaultDequeuePolicyEdgeP2P
     go TopologyTraditional{} = Policy.defaultDequeuePolicyCore
-    go TopologyLightWallet{} = Policy.defaultDequeuePolicyEdgeBehindNat
+    go TopologyAuxx{}        = Policy.defaultDequeuePolicyEdgeBehindNat
 
 -- | Failure policy for the given topology
 topologyFailurePolicy :: Topology kademia -> OQ.FailurePolicy NodeId
@@ -343,7 +343,7 @@ initQueue NetworkConfig{..} mStore = do
       Just store -> liftIO $ OQ.registerQueueMetrics (Just (toString cardanoNamespace)) oq store
 
     case ncTopology of
-      TopologyLightWallet peers -> do
+      TopologyAuxx peers -> do
         let peers' = simplePeers $ map (NodeRelay, ) peers
         void $ OQ.updatePeersBucket oq BucketStatic (\_ -> peers')
       TopologyBehindNAT{} ->

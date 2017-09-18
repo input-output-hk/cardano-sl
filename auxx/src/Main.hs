@@ -41,7 +41,6 @@ correctNodeParams AuxxOptions {..} np =
         , ncDequeuePolicy = topologyDequeuePolicy topology
         , ncFailurePolicy = topologyFailurePolicy topology
         , ncTopology = topology
-        , ncTcpAddr = TCP.Unaddressable
         }
 
 action :: AuxxOptions -> Production ()

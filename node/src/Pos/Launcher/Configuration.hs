@@ -67,8 +67,7 @@ data ConfigurationOptions = ConfigurationOptions
       -- | An optional system start time override. Required when using a
       -- testnet genesis configuration.
     , cfoSystemStart :: !(Maybe Timestamp)
-    }
-    deriving (Show)
+    } deriving (Show)
 
 defaultConfigurationOptions :: ConfigurationOptions
 defaultConfigurationOptions = ConfigurationOptions
@@ -87,10 +86,11 @@ withConfigurations
     => ConfigurationOptions
     -> (HasConfigurations => m r)
     -> m r
-withConfigurations ConfigurationOptions{..} act = do
+withConfigurations co@ConfigurationOptions{..} act = do
+    putText $ show co
     Configuration{..} <- parseYamlConfig cfoFilePath cfoKey
     withCoreConfigurations ccCore cfoSystemStart $
-      withInfraConfiguration ccInfra $
-      withUpdateConfiguration ccUpdate $
-      withGtConfiguration ccGt $
-      withNodeConfiguration ccNode $ act
+        withInfraConfiguration ccInfra $
+        withUpdateConfiguration ccUpdate $
+        withGtConfiguration ccGt $
+        withNodeConfiguration ccNode $ act

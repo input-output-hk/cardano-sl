@@ -1,46 +1,45 @@
 {-# LANGUAGE Rank2Types #-}
 
-{-| Configuration used by algorithm. See paper for more details.
--}
+-- | Configuration used by the algorithm. See the paper for more details.
 
 module Pos.Configuration
-    ( NodeConfiguration (..)
-    , HasNodeConfiguration
-    , nodeConfiguration
-    , withNodeConfiguration
+       ( NodeConfiguration (..)
+       , HasNodeConfiguration
+       , nodeConfiguration
+       , withNodeConfiguration
 
-    -- * Constants mentioned in paper
-    , networkDiameter
+       -- * Constants mentioned in paper
+       , networkDiameter
 
-    -- * Other constants
-    , networkConnectionTimeout
-    , blockRetrievalQueueSize
-    , propagationQueueSize
-    , defaultPeers
-    , recoveryHeadersMessage
-    , messageCacheTimeout
+       -- * Other constants
+       , networkConnectionTimeout
+       , blockRetrievalQueueSize
+       , propagationQueueSize
+       , defaultPeers
+       , recoveryHeadersMessage
+       , messageCacheTimeout
 
-    -- * Delegation
-    , lightDlgConfirmationTimeout
-    , dlgCacheParam
+       -- * Delegation
+       , lightDlgConfirmationTimeout
+       , dlgCacheParam
 
-    -- * Malicious activity detection constants
-    , mdNoBlocksSlotThreshold
+       -- * Malicious activity detection constants
+       , mdNoBlocksSlotThreshold
 
-    -- * Transaction resubmition constants
-    , pendingTxResubmitionPeriod
-    ) where
+       -- * Transaction resubmition constants
+       , pendingTxResubmitionPeriod
+       ) where
 
 import           Universum
 
-import           Data.Aeson                   (FromJSON (..), genericParseJSON)
-import           Data.Reflection              (Given (..), give)
-import           Data.Time.Units              (Microsecond, Second)
-import           Serokell.Aeson.Options       (defaultOptions)
-import           Serokell.Util                (ms, sec)
-import qualified Text.Parsec                  as P
+import           Data.Aeson             (FromJSON (..), genericParseJSON)
+import           Data.Reflection        (Given (..), give)
+import           Data.Time.Units        (Microsecond, Second)
+import           Serokell.Aeson.Options (defaultOptions)
+import           Serokell.Util          (ms, sec)
+import qualified Text.Parsec            as P
 
-import           Pos.Util.TimeWarp            (NetworkAddress, addrParser)
+import           Pos.Util.TimeWarp      (NetworkAddress, addrParser)
 
 type HasNodeConfiguration = Given NodeConfiguration
 

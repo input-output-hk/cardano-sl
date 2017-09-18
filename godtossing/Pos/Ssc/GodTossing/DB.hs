@@ -14,7 +14,7 @@ import qualified Database.RocksDB               as Rocks
 import           Formatting                     (bprint, build, (%))
 
 import           Pos.Binary.GodTossing          ()
-import           Pos.Core                       (HasConfiguration, gdVssCerts, genesisData)
+import           Pos.Core                       (HasConfiguration, genesisVssCerts)
 import           Pos.DB                         (MonadDB, MonadDBRead, RocksBatchOp (..))
 import           Pos.DB.Error                   (DBError (DBMalformed))
 import           Pos.DB.Functions               (dbSerializeValue)
@@ -34,7 +34,7 @@ gtGlobalStateToBatch = PutGlobalState
 initGtDB :: (HasConfiguration, MonadDB m) => m ()
 initGtDB = gsPutBi gtKey (def {_gsVssCertificates = vcd})
   where
-    vcd = VCD.fromList . toList $ gdVssCerts genesisData
+    vcd = VCD.fromList . toList $ genesisVssCerts
 
 ----------------------------------------------------------------------------
 -- Operation

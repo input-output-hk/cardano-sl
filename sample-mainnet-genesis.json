@@ -90,6 +90,22 @@
         "yUAtXs7LHVfUEDexSnDxmVt-th19El9BQJXrClLqlkE=": "411085000000",
         "zE56EfVAvv0XekVyBDGh2Iz1QT6X38YxlcBYO20hqa0=": "1773135000000"
     },
+    
+    "bootStakeholders": {
+        "0d916567f96b6a65d204966e6aab5fbd242e56c321833f8ba5d607da": 1,
+        "4bd1884f5ce2231be8623ecf5778a9112e26514205b39ff53529e735": 1,
+        "5f53e01e1366aeda8811c2a630f0e037077a7b651093d2bdc4ef7200": 1,
+        "ada3ab5c69b945c33c15ca110b444aa58906bf01fcfe55d8818d9c49": 1
+    },
+    "ftsSeed": "736b6f766f726f64612047677572646120626f726f64612070726f766f646120",
+    "heavyDelegation": {},
+    "nonAvvmBalances": {},
+    "protocolConsts": {
+        "k": 2160,
+        "protocolMagic": 60987900,
+        "vssMaxTTL": 6,
+        "vssMinTTL": 2
+    },
     "blockVersionData": {
         "heavyDelThd": "300000000000",
         "maxBlockSize": "2000000",
@@ -108,51 +124,36 @@
             "multiplier": "43946000000",
             "summand": "155381000000000"
         },
-        "unlockStakeEpoch": "0",
+        "unlockStakeEpoch": "18446744073709551615",
         "updateImplicit": "10000",
         "updateProposalThd": "100000000000000",
         "updateVoteThd": "1000000000000"
     },
-    "bootStakeholders": {
-        "0d916567f96b6a65d204966e6aab5fbd242e56c321833f8ba5d607da": 1,
-        "4bd1884f5ce2231be8623ecf5778a9112e26514205b39ff53529e735": 1,
-        "5f53e01e1366aeda8811c2a630f0e037077a7b651093d2bdc4ef7200": 1,
-        "ada3ab5c69b945c33c15ca110b444aa58906bf01fcfe55d8818d9c49": 1
-    },
-    "ftsSeed": "736b6f766f726f64612047677572646120626f726f64612070726f766f646120",
-    "heavyDelegation": [],
-    "nonAvvmBalances": {},
-    "protocolConsts": {
-        "k": 2160,
-        "protocolMagic": 60987900,
-        "vssMaxTTL": 6,
-        "vssMinTTL": 2
-    },
     "startTime": 1505621332,
-    "vssCerts": [
-        {
+    "vssCerts": {
+        "0d916567f96b6a65d204966e6aab5fbd242e56c321833f8ba5d607da": {
             "expiryEpoch": 1,
-            "signature": "fb4aed3ecb4fb180f222ab63572684af5e749be1bc8d0903e72753080baa6bc4fd97a9d18318c7f25c9153622352510500e4850dd3d145c35c4af897d86ba203",
+            "signature": "396fe505f4287f832fd26c1eba1843a49f3d23b64d664fb3c8a2f25c8de73ce6f2f4cf37ec7fa0fee7750d1d6c55e1b07e1018ce0c6443bacdb01fb8e15f1a0f",
             "signingKey": "ohsV3RtEFD1jeOzKwNulmMRhBG2RLdFxPbcSGbkmJ+xd/2cOALSDahPlydFRjd15sH0PkPE/zTvP4iN8wJr/hA==",
             "vssKey": "WCECtpe8B/5XPefEhgg7X5veUIYH/RRcvXbz6w7MIJBwWYU="
         },
-        {
-            "expiryEpoch": 1,
-            "signature": "5cabf2789a8f6830707a5f661e4b52ef8de46b6dff8ba8a164d85a870c5c945963f0a806a591133dbff9e61e0532db03a0434547447004fc618c6e3ad0750c0f",
+        "4bd1884f5ce2231be8623ecf5778a9112e26514205b39ff53529e735": {
+            "expiryEpoch": 2,
+            "signature": "773dcdf727d05720a76e7f88ef1c8a629399a30a98943eac761f9706a0e45def608765362202ce571b9394167c310a445a84745695d73e89086254a4c5be610c",
             "signingKey": "oUDzVUqwmXH4E3RlDrS4zhZ6kwv9rnNiwe8dI6lIg794+bWQBlULwvnwiIGgK4z0HT8+o+nru8F5xDy4ZL2/lA==",
             "vssKey": "WCEChSQx6z4OxYrHNYbu5GGztX4FBBxGMfzmO6C+xNTrDVw="
         },
-        {
+        "5f53e01e1366aeda8811c2a630f0e037077a7b651093d2bdc4ef7200": {
             "expiryEpoch": 1,
-            "signature": "4c9573885ecdbc3deff84b50e0160fbda1f1867d299ceeb51dc6e74effb3970d405296b31dd4f4b3e114ba783bf231900de5dbf874aeba57b0e83742adebf60e",
+            "signature": "61a1aae1f62e39bab95466d63b1e6c45c1416fd12ec3ee0d1964496531c9cc30a6987ea962ad0e24cc147f930d2dc500f7c86d3fb292121bc776ac6205f11506",
             "signingKey": "oyGcGsd/FX3Zl98PPt/jE/mo+6Mz/HxaVcHxhrtxh6MrBkBi2U4h0pwaPDhWUo+IgcGzl4xLOqkoB4suojuNUA==",
             "vssKey": "WCECjvlu5JR4+jdL44S/UIxpY1rcWaF75VeoGhhs8QQueiQ="
         },
-        {
-            "expiryEpoch": 1,
-            "signature": "41a59561f6bf0b402853b153b4f2762e5cbd19ba0159d0b08a6c4a8dcb01964fcdb8672320bf73db9aed1ea65b60d2bdc308d89cead3f0b35cead88463f18006",
+        "ada3ab5c69b945c33c15ca110b444aa58906bf01fcfe55d8818d9c49": {
+            "expiryEpoch": 4,
+            "signature": "c63013a9963579b0dd1cdd81a8807363fa88cea06164f83471d2cd8a74139bae1ea4e562d3f987c0aa4d162ac4c7fe6569380ab6eee2758dda0e3097cf83670d",
             "signingKey": "E8++WAjZOKIyoh4YEHNaV7cm3Ecut7G9N0AT36u+AoSMEvf/byG8fc/Ab4xSnjvdn5Ww8A+yPOyoZ3Jfb2yf+g==",
             "vssKey": "WCEDIRsfuDpNYMle1T396UpVmS/hEJgxVSQbCOynlK0zFEo="
         }
-    ]
+    }
 }

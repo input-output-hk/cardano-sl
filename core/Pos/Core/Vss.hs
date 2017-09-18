@@ -6,21 +6,24 @@ module Pos.Core.Vss
        , checkCertSign
        , getCertId
        , mkVssCertificatesMap
+       , validateVssCertificatesMap
 
        , module Pos.Core.Vss.Types
        ) where
 
 import           Universum
 
-import qualified Data.HashMap.Strict as HM
+import           Control.Monad.Except            (MonadError (throwError))
+import qualified Data.HashMap.Strict             as HM
 
-import           Pos.Binary.Class    (AsBinary (..), Bi)
+import           Pos.Binary.Class                (AsBinary (..), Bi)
+import           Pos.Core.Address                (addressHash)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
-import           Pos.Core.Address    (addressHash)
-import           Pos.Core.Types      (EpochIndex, StakeholderId)
-import           Pos.Crypto          (PublicKey, SecretKey, SignTag (SignVssCert),
-                                      Signature, VssPublicKey, checkSig, sign, toPublic)
+import           Pos.Core.Types                  (EpochIndex, StakeholderId)
 import           Pos.Core.Vss.Types
+import           Pos.Crypto                      (PublicKey, SecretKey,
+                                                  SignTag (SignVssCert), Signature,
+                                                  VssPublicKey, checkSig, sign, toPublic)
 
 -- | Make VssCertificate valid up to given epoch using 'SecretKey' to sign
 -- data.
@@ -72,3 +75,15 @@ mkVssCertificatesMap :: [VssCertificate] -> VssCertificatesMap
 mkVssCertificatesMap = HM.fromList . map toCertPair
   where
     toCertPair vc = (getCertId vc, vc)
+
+validateVssCertificatesMap ::
+       MonadError Text m
+    => VssCertificatesMap
+    -> m VssCertificatesMap
+-- | Safe constructor of 'VssCertificatesMap'
+validateVssCertificatesMap m = do
+    unless (all checkCertId $ HM.toList m) $
+        throwError "wrong issuerPk address hash set as key for delegation map"
+    pure m
+  where
+    checkCertId (k, v) = getCertId v == k

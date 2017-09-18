@@ -50,8 +50,7 @@ mainnet_base: &mainnet_base
           vssMinTTL: 2
           vssMaxTTL: 6
         ftsSeed: "c2tvdm9yb2RhIEdndXJkYSBib3JvZGEgcHJvdm9kYSA="
-        heavyDelegation:
-          genesisDelegation: {}
+        heavyDelegation: {}
         avvmDistr:
           avvmData: []
 
@@ -243,25 +242,5 @@ mainnet_generated: &mainnet_generated
                   4bd1884f5ce2231be8623ecf5778a9112e26514205b39ff53529e735: 1
                   5f53e01e1366aeda8811c2a630f0e037077a7b651093d2bdc4ef7200: 1
                   ada3ab5c69b945c33c15ca110b444aa58906bf01fcfe55d8818d9c49: 1
-            vssCerts: 
-              0d916567f96b6a65d204966e6aab5fbd242e56c321833f8ba5d607da:
-                expiryEpoch: {getEpochIndex: 1}
-                signature: "5cabf2789a8f6830707a5f661e4b52ef8de46b6dff8ba8a164d85a870c5c945963f0a806a591133dbff9e61e0532db03a0434547447004fc618c6e3ad0750c0f"
-                signingKey: "oUDzVUqwmXH4E3RlDrS4zhZ6kwv9rnNiwe8dI6lIg794+bWQBlULwvnwiIGgK4z0HT8+o+nru8F5xDy4ZL2/lA=="
-                vssKey: "WCEChSQx6z4OxYrHNYbu5GGztX4FBBxGMfzmO6C+xNTrDVw="
-              4bd1884f5ce2231be8623ecf5778a9112e26514205b39ff53529e735:
-                expiryEpoch: {getEpochIndex: 1}
-                signature: "fb4aed3ecb4fb180f222ab63572684af5e749be1bc8d0903e72753080baa6bc4fd97a9d18318c7f25c9153622352510500e4850dd3d145c35c4af897d86ba203"
-                signingKey: "ohsV3RtEFD1jeOzKwNulmMRhBG2RLdFxPbcSGbkmJ+xd/2cOALSDahPlydFRjd15sH0PkPE/zTvP4iN8wJr/hA=="
-                vssKey: "WCECtpe8B/5XPefEhgg7X5veUIYH/RRcvXbz6w7MIJBwWYU="
-              5f53e01e1366aeda8811c2a630f0e037077a7b651093d2bdc4ef7200:
-                expiryEpoch: {getEpochIndex: 1}
-                signature: "41a59561f6bf0b402853b153b4f2762e5cbd19ba0159d0b08a6c4a8dcb01964fcdb8672320bf73db9aed1ea65b60d2bdc308d89cead3f0b35cead88463f18006"
-                signingKey: "E8++WAjZOKIyoh4YEHNaV7cm3Ecut7G9N0AT36u+AoSMEvf/byG8fc/Ab4xSnjvdn5Ww8A+yPOyoZ3Jfb2yf+g=="
-                vssKey: "WCEDIRsfuDpNYMle1T396UpVmS/hEJgxVSQbCOynlK0zFEo="
-              ada3ab5c69b945c33c15ca110b444aa58906bf01fcfe55d8818d9c49:
-                expiryEpoch: {getEpochIndex: 1}
-                signature: "4c9573885ecdbc3deff84b50e0160fbda1f1867d299ceeb51dc6e74effb3970d405296b31dd4f4b3e114ba783bf231900de5dbf874aeba57b0e83742adebf60e"
-                signingKey: "oyGcGsd/FX3Zl98PPt/jE/mo+6Mz/HxaVcHxhrtxh6MrBkBi2U4h0pwaPDhWUo+IgcGzl4xLOqkoB4suojuNUA=="
-                vssKey: "WCECjvlu5JR4+jdL44S/UIxpY1rcWaF75VeoGhhs8QQueiQ="
+            vssCerts: {}
             nonAvvmBalances: {}

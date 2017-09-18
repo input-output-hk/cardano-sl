@@ -39,7 +39,7 @@ sharedSeedLength = 32
 genesisDataDigest :: Digest Blake2b_256
 Just genesisDataDigest = digestFromByteString @_ @BS.ByteString bytesDigest
   where
-    hexDigest = "1b570b6e6dd992889ba1e67a4bd802df19edb9e9a51fb0772ca2016bff979068"
+    hexDigest = "dd0b66286acbc312848b6a69fde806b3d2858bf2e5440ba27f45f06fe89f2d60"
     (bytesDigest, _) = B16.decode hexDigest
 
 {-# INLINE genesisDataDigest #-}

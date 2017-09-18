@@ -309,7 +309,7 @@ In the mainnet configuration for exchange nodes:
 Finally, there is a network configuration for test/development tools that
 are used to query or prod a running cluster (e.g. to submit transactions).
 
-The "light wallet" configuration:
+The "auxx" configuration:
 
   * Node is an edge node
   * Does not join the kademlia network

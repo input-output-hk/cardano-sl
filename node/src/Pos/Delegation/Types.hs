@@ -20,7 +20,7 @@ import           Serokell.Util        (listJson)
 
 import           Pos.Binary.Core      ()
 import           Pos.Core             (ProxySKHeavy, ProxySKLight, ProxySigLight,
-                                       StakeholderId)
+                                       StakeholderId, HasConfiguration)
 import           Pos.Crypto           (ProxySecretKey (..), PublicKey, verifyPsk)
 
 -- Consider making this a set.
@@ -43,7 +43,7 @@ instance Buildable DlgPayload where
             (length psks) psks
 
 -- | Constructor of 'DlgPaylod' which ensures absence of duplicates.
-mkDlgPayload :: MonadError Text m => [ProxySKHeavy] -> m DlgPayload
+mkDlgPayload :: (HasConfiguration, MonadError Text m) => [ProxySKHeavy] -> m DlgPayload
 mkDlgPayload proxySKs = do
     unless (null duplicates) $
         throwError "Some of block's PSKs have the same issuer, which is prohibited"

@@ -27,30 +27,9 @@ dev: &dev
   k: 2
 
   # Genesis constants
-  genesisN: 12
-  genesisSlotDurationSec: 7
-  genesisMaxBlockSize: 2000000
-  genesisMaxHeaderSize: 200000
-  genesisMaxTxSize: 4096 # 4 Kb
   maxReqSize: 102 # 102 bytes
   maxMempoolMsgSize: 100 # 100 bytes
   maxInvSize: 102 # 102 bytes
-  genesisMpcThd: 0.01 # 1% of stake
-  genesisHeavyDelThd: 0.005 # 0.5% of stake
-  genesisUpdateVoteThd: 0.001 # 0.1% of total stake
-  genesisMaxUpdateProposalSize: 700 # 700 bytes
-  genesisUpdateProposalThd: 0.1 # 10% of total stake
-  genesisUpdateImplicit: 10 # slots
-  genesisSoftforkInit: 0.9 # 90% of total stake
-  genesisSoftforkMin: 0.6 # 60% of total stake
-  genesisSoftforkDec: 0.05 # 5% of total stake
-  genesisTxFeePolicy:
-    # Note: these constants here are provided in lovelaces, not ADA
-    # (1 ADA is 1,000,000 lovelaces)
-    txSizeLinear:
-      a: 155381 # absolute minimal fees per transaction
-      b: 43.946 # additional minimal fees per byte of transaction size
-  genesisUnlockStakeEpoch: 18446744073709551615 # last epoch (maxBound @Word64)
 
 
   # P2P, networking
@@ -126,7 +105,7 @@ dev: &dev
   memPoolLimitRatio: 2 # mem pool will be limited by this value
                        # muliplied by block size limit
 
-  genesisBinSuffix: tn # it is set here arbitrarily, it won't be actually used
+  genesisBinSuffix: dn # it is set here arbitrarily, it won't be actually used
 
   # Mode-sensitive logging options
   webLoggingEnabled: true
@@ -143,7 +122,6 @@ mainnet: &mainnet
 
   # mainnet config is a modification of the development config,
   # so we merge it into the production config using YAML's << syntax
-  genesisN: 30000
   genesisMpcThd: 0.02                    # 2% of stake
   genesisHeavyDelThd: 0.0003             # 0.03% of stake
   genesisUpdateImplicit: 10000           # slots
@@ -235,7 +213,6 @@ devnet_shortep_wallet: &devnet_shortep_wallet
 benchmark: &benchmark
   <<: *testnet_public_full
 
-  genesisN: 50000
   k: 6
   fixedTimeCQ: 30 # 30 sec
 
@@ -249,7 +226,7 @@ benchmark: &benchmark
       b: 0 # additional minimal fees per byte of transaction size
 
   protocolMagic: 55550007
-  genesisBinSuffix: tn # it is set here arbitrarily, it won't be actually used
+  genesisBinSuffix: bn # it is set here arbitrarily, it won't be actually used
 
 ##############################################################################
 ##                                                                          ##

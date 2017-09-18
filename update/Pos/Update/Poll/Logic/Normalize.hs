@@ -16,7 +16,7 @@ import qualified Data.HashSet                as HS
 import           Formatting                  (build, sformat, (%))
 import           System.Wlog                 (logWarning)
 
-import           Pos.Core                    (Coin, EpochIndex, HasCoreConstants,
+import           Pos.Core                    (Coin, EpochIndex, HasConfiguration,
                                               SlotId (siEpoch), addressHash,
                                               applyCoinPortionUp, mkCoin, unsafeAddCoin)
 import           Pos.Crypto                  (PublicKey, hash)
@@ -37,7 +37,7 @@ import           Pos.Util.Util               (getKeys, sortWithMDesc)
 -- function doesn't consider threshold which determines whether a
 -- proposal can be put into a block.
 normalizePoll
-    :: (MonadPoll m, HasCoreConstants)
+    :: (MonadPoll m, HasConfiguration)
     => SlotId
     -> UpdateProposals
     -> LocalVotes
@@ -50,7 +50,7 @@ normalizePoll slot proposals votes =
 -- proposals and votes. It applies the most valuable data and discards
 -- everything else.
 refreshPoll
-    :: (MonadPoll m, HasCoreConstants)
+    :: (MonadPoll m, HasConfiguration)
     => SlotId
     -> UpdateProposals
     -> LocalVotes
@@ -102,7 +102,7 @@ refreshPoll slot proposals votes = do
 -- Apply proposals which can be applied and put them in result.
 -- Disregard other proposals.
 normalizeProposals
-    :: MonadPoll m
+    :: (MonadPoll m, HasConfiguration)
     => SlotId -> [UpdateProposal] -> m UpdateProposals
 normalizeProposals slotId (toList -> proposals) =
     HM.fromList . map ((\x->(hash x, x)) . fst) . catRights proposals <$>
@@ -114,7 +114,7 @@ normalizeProposals slotId (toList -> proposals) =
 -- Apply votes which can be applied and put them in result.
 -- Disregard other votes.
 normalizeVotes
-    :: forall m . (MonadPoll m, HasCoreConstants)
+    :: forall m . (MonadPoll m, HasConfiguration)
     => [(UpId, HashMap PublicKey UpdateVote)] -> m LocalVotes
 normalizeVotes votesGroups =
     HM.fromList . catMaybes <$> mapM verifyNApplyVotesGroup votesGroups

@@ -11,7 +11,7 @@ import           Universum
 
 import           Control.Lens                 ((%=), (+=), (+~), (<<*=), (<<.=))
 
-import           Pos.Core.Context             (HasCoreConstants)
+import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.Core.Slotting            (flatSlotId)
 import           Pos.Core.Types               (FlatSlotId, SlotId)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxSubmitTiming (..),
@@ -19,7 +19,7 @@ import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxSubmitTiming (
                                                ptxSubmitTiming)
 
 
-mkPtxSubmitTiming :: HasCoreConstants => SlotId -> PtxSubmitTiming
+mkPtxSubmitTiming :: HasConfiguration => SlotId -> PtxSubmitTiming
 mkPtxSubmitTiming creationSlot =
     PtxSubmitTiming
     { _pstNextSlot  = creationSlot & flatSlotId +~ initialSubmitDelay
@@ -29,7 +29,7 @@ mkPtxSubmitTiming creationSlot =
     initialSubmitDelay = 3 :: FlatSlotId
 
 incPtxSubmitTimingPure
-    :: HasCoreConstants
+    :: HasConfiguration
     => PtxSubmitTiming -> PtxSubmitTiming
 incPtxSubmitTimingPure = execState $ do
     curDelay <- pstNextDelay <<*= 2

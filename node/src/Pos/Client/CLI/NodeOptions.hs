@@ -29,12 +29,10 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Paths_cardano_sl             (version)
 
 import           Pos.Client.CLI.Options       (CommonArgs (..), commonArgsParser,
-                                               configInfoParser,
                                                externalNetworkAddressOption,
                                                listenNetworkAddressOption,
                                                optionalJSONPath, sscAlgoOption)
 import           Pos.Constants                (isDevelopment)
-import           Pos.Launcher.ConfigInfo      (ConfigInfo (..))
 import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
 import           Pos.Network.Types            (NodeId, NodeType (..))
 import           Pos.Ssc.SscAlgo              (SscAlgo (..))
@@ -45,32 +43,32 @@ import           Pos.Util.TimeWarp            (NetworkAddress, addrParser,
                                                addressToNodeId)
 
 data CommonNodeArgs = CommonNodeArgs
-    { dbPath              :: !FilePath
-    , rebuildDB           :: !Bool
+    { dbPath                 :: !FilePath
+    , rebuildDB              :: !Bool
     -- these two arguments are only used in development mode
-    , devSpendingGenesisI :: !(Maybe Int)
-    , devVssGenesisI      :: !(Maybe Int)
-    , keyfilePath         :: !FilePath
-    , backupPhrase        :: !(Maybe BackupPhrase)
-    , externalAddress     :: !(Maybe NetworkAddress)
+    , devSpendingGenesisI    :: !(Maybe Int)
+    , devVssGenesisI         :: !(Maybe Int)
+    , keyfilePath            :: !FilePath
+    , backupPhrase           :: !(Maybe BackupPhrase)
+    , externalAddress        :: !(Maybe NetworkAddress)
       -- ^ A node must be addressable on the network.
-    , bindAddress         :: !(Maybe NetworkAddress)
+    , bindAddress            :: !(Maybe NetworkAddress)
       -- ^ A node may have a bind address which differs from its external
       -- address.
-    , peers               :: ![(NodeId, NodeType)]
+    , peers                  :: ![(NodeId, NodeType)]
       -- ^ Known peers (addresses with classification).
-    , networkConfigOpts   :: !NetworkConfigOpts
+    , networkConfigOpts      :: !NetworkConfigOpts
       -- ^ Network configuration
-    , jlPath              :: !(Maybe FilePath)
-    , kademliaDumpPath    :: !FilePath
-    , commonArgs          :: !CommonArgs
-    , updateLatestPath    :: !FilePath
-    , updateWithPackage   :: !Bool
-    , noNTP               :: !Bool
-    , enableMetrics       :: !Bool
-    , ekgParams           :: !(Maybe EkgParams)
-    , statsdParams        :: !(Maybe StatsdParams)
-    , configInfo          :: !ConfigInfo
+    , jlPath                 :: !(Maybe FilePath)
+    , kademliaDumpPath       :: !FilePath
+    , commonArgs             :: !CommonArgs
+    , updateLatestPath       :: !FilePath
+    , updateWithPackage      :: !Bool
+    , noNTP                  :: !Bool
+    , enableMetrics          :: !Bool
+    , ekgParams              :: !(Maybe EkgParams)
+    , statsdParams           :: !(Maybe StatsdParams)
+    , cnaDumpGenesisDataPath :: !(Maybe FilePath)
     } deriving Show
 
 commonNodeArgsParser :: Parser CommonNodeArgs
@@ -141,7 +139,10 @@ commonNodeArgsParser = do
 
     ekgParams <- optional ekgParamsOption
     statsdParams <- optional statsdParamsOption
-    configInfo <- configInfoParser
+
+    cnaDumpGenesisDataPath <- optional $ strOption $
+        long "dump-genesis-data-to" <>
+        help "Dump genesis data in canonical JSON format to this file."
 
     pure CommonNodeArgs{..}
   where

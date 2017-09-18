@@ -38,6 +38,7 @@ import           Control.Monad.Trans.Control (MonadBaseControl)
 import qualified Database.RocksDB            as Rocks
 import           Ether.Internal              (HasLens (..))
 
+import           Pos.Core.Configuration      (HasConfiguration)
 import           Pos.DB.Class                (DBTag (..))
 import           Pos.Util.Concurrent.RWLock  (RWLock)
 
@@ -53,6 +54,7 @@ type MonadRealDB ctx m =
     , MonadIO m
     , MonadBaseControl IO m
     , MonadCatch m
+    , HasConfiguration
     )
 
 -- should we replace `rocks` prefix by other or remove it at all?

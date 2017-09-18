@@ -14,7 +14,7 @@ import           Data.Default         (Default (def))
 import           Ether.Internal       (HasLens (..))
 import           System.Wlog          (WithLogger, modifyLoggerName)
 
-import           Pos.Core             (ApplicationName, BlockVersion, HasCoreConstants,
+import           Pos.Core             (ApplicationName, BlockVersion, HasConfiguration,
                                        NumSoftwareVersion, SoftwareVersion (..),
                                        StakeholderId, addressHash, blockVersionL,
                                        epochIndexL, headerHashG, headerLeaderKeyL,
@@ -25,7 +25,7 @@ import           Pos.Exception        (reportFatalError)
 import           Pos.Lrc.Context      (LrcContext)
 import           Pos.Reporting        (MonadReporting)
 import           Pos.Slotting         (MonadSlotsData, SlottingData, slottingVar)
-import           Pos.Update.Constants (lastKnownBlockVersion)
+import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
 import           Pos.Update.Core      (BlockVersionData, UpId, UpdateBlock)
 import           Pos.Update.DB        (UpdateOp (..))
 import           Pos.Update.Poll      (BlockVersionState, ConfirmedProposalState,
@@ -45,7 +45,8 @@ type USGlobalVerifyMode ctx m =
     , DB.MonadDBRead m
     , MonadReader ctx m
     , HasLens LrcContext ctx LrcContext
-    , HasCoreConstants
+    , HasConfiguration
+    , HasUpdateConfiguration
     )
 
 type USGlobalApplyMode ctx m =
@@ -112,7 +113,7 @@ usRollbackBlocks blunds =
 -- blocks, updates in-memory slotting data and converts this modifier
 -- to '[SomeBatchOp]'.
 processModifier ::
-       forall ctx m. (HasCoreConstants, MonadSlotsData ctx m)
+       forall ctx m. (HasConfiguration, MonadSlotsData ctx m)
     => PollModifier
     -> m [DB.SomeBatchOp]
 processModifier pm@PollModifier {pmSlottingData = newSlottingData} =
@@ -173,7 +174,8 @@ usCanCreateBlock ::
        , DB.MonadDBRead m
        , MonadReader ctx m
        , HasLens LrcContext ctx LrcContext
-       , HasCoreConstants
+       , HasConfiguration
+       , HasUpdateConfiguration
        )
     => m Bool
 usCanCreateBlock =
@@ -183,7 +185,7 @@ usCanCreateBlock =
 -- Conversion to batch
 ----------------------------------------------------------------------------
 
-modifierToBatch :: HasCoreConstants => PollModifier -> [DB.SomeBatchOp]
+modifierToBatch :: HasConfiguration => PollModifier -> [DB.SomeBatchOp]
 modifierToBatch PollModifier {..} =
     concat $
     [ bvsModifierToBatch (MM.insertions pmBVs) (MM.deletions pmBVs)
@@ -202,7 +204,7 @@ modifierToBatch PollModifier {..} =
     ]
 
 bvsModifierToBatch
-    :: HasCoreConstants
+    :: HasConfiguration
     => [(BlockVersion, BlockVersionState)]
     -> [BlockVersion]
     -> [DB.SomeBatchOp]
@@ -211,12 +213,12 @@ bvsModifierToBatch added deleted = addOps ++ delOps
     addOps = map (DB.SomeBatchOp . uncurry SetBVState) added
     delOps = map (DB.SomeBatchOp . DelBV) deleted
 
-lastAdoptedModifierToBatch :: HasCoreConstants => Maybe (BlockVersion, BlockVersionData) -> [DB.SomeBatchOp]
+lastAdoptedModifierToBatch :: HasConfiguration => Maybe (BlockVersion, BlockVersionData) -> [DB.SomeBatchOp]
 lastAdoptedModifierToBatch Nothing          = []
 lastAdoptedModifierToBatch (Just (bv, bvd)) = [DB.SomeBatchOp $ SetAdopted bv bvd]
 
 confirmedVerModifierToBatch
-    :: HasCoreConstants
+    :: HasConfiguration
     => [(ApplicationName, NumSoftwareVersion)]
     -> [ApplicationName]
     -> [DB.SomeBatchOp]
@@ -227,7 +229,7 @@ confirmedVerModifierToBatch added deleted =
     delOps = map (DB.SomeBatchOp . DelConfirmedVersion) deleted
 
 confirmedPropModifierToBatch
-    :: HasCoreConstants
+    :: HasConfiguration
     => [(SoftwareVersion, ConfirmedProposalState)]
     -> [SoftwareVersion]
     -> [DB.SomeBatchOp]
@@ -238,7 +240,7 @@ confirmedPropModifierToBatch (map snd -> confAdded) confDeleted =
     confDelOps = map (DB.SomeBatchOp . DelConfirmedProposal) confDeleted
 
 upModifierToBatch
-    :: HasCoreConstants
+    :: HasConfiguration
     => [(UpId, ProposalState)]
     -> [UpId]
     -> [DB.SomeBatchOp]
@@ -248,10 +250,10 @@ upModifierToBatch (map snd -> added) deleted
     addOps = map (DB.SomeBatchOp . PutProposal) added
     delOps = map (DB.SomeBatchOp . DeleteProposal) deleted
 
-sdModifierToBatch :: HasCoreConstants => Maybe SlottingData -> [DB.SomeBatchOp]
+sdModifierToBatch :: HasConfiguration => Maybe SlottingData -> [DB.SomeBatchOp]
 sdModifierToBatch Nothing   = []
 sdModifierToBatch (Just sd) = [DB.SomeBatchOp $ PutSlottingData sd]
 
-epModifierToBatch :: HasCoreConstants => Maybe (HashSet StakeholderId) -> [DB.SomeBatchOp]
+epModifierToBatch :: HasConfiguration => Maybe (HashSet StakeholderId) -> [DB.SomeBatchOp]
 epModifierToBatch Nothing   = []
 epModifierToBatch (Just ep) = [DB.SomeBatchOp $ PutEpochProposers ep]

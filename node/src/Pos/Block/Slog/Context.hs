@@ -19,7 +19,7 @@ import qualified System.Metrics               as Ekg
 import           Pos.Block.Slog.Types         (HasSlogGState (..), LastBlkSlots,
                                                SlogContext (..), SlogGState (..),
                                                sgsLastBlkSlots)
-import           Pos.Core                     (HasCoreConstants, blkSecurityParam,
+import           Pos.Core                     (HasConfiguration, blkSecurityParam,
                                                fixedTimeCQSec)
 import           Pos.DB.Class                 (MonadDBRead)
 import           Pos.GState.BlockExtra        (getLastSlots)
@@ -34,7 +34,7 @@ mkSlogGState = do
 
 -- | Make new 'SlogContext' using data from DB.
 mkSlogContext ::
-       (MonadIO m, MonadDBRead m, HasCoreConstants)
+       (MonadIO m, MonadDBRead m, HasConfiguration)
     => Ekg.Store
     -> m SlogContext
 mkSlogContext store = do

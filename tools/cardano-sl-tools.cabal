@@ -192,8 +192,7 @@ executable cardano-keygen
   hs-source-dirs:      src/keygen
   main-is:             Main.hs
   other-modules:       KeygenOptions
-                     , Avvm
-                     , Testnet
+                     , Dump
   if !flag(for-installer)
    build-depends:      Glob
                      , QuickCheck >= 2.9
@@ -217,10 +216,12 @@ executable cardano-keygen
                      , optparse-applicative >= 0.12
                      , parsec
                      , random >= 1.1
+                     , safe-exceptions
                      , serokell-util >= 0.1
                      , text
                      , universum >= 0.1
                      , unordered-containers
+                     , yaml
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall

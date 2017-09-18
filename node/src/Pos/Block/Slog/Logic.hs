@@ -22,41 +22,39 @@ module Pos.Block.Slog.Logic
 
 import           Universum
 
-import           Control.Lens           (_Wrapped)
-import           Control.Monad.Except   (MonadError (throwError))
-import qualified Data.List.NonEmpty     as NE
-import           Formatting             (build, sformat, (%))
-import           Serokell.Util          (Color (Red), colorize)
-import           Serokell.Util.Verify   (formatAllErrors, verResToMonadError)
-import           System.Wlog            (WithLogger)
+import           Control.Lens             (_Wrapped)
+import           Control.Monad.Except     (MonadError (throwError))
+import qualified Data.List.NonEmpty       as NE
+import           Formatting               (build, sformat, (%))
+import           Serokell.Util            (Color (Red), colorize)
+import           Serokell.Util.Verify     (formatAllErrors, verResToMonadError)
+import           System.Wlog              (WithLogger)
 
-import           Pos.Binary.Core        ()
-import           Pos.Block.BListener    (MonadBListener (..))
-import           Pos.Block.Core         (Block, genBlockLeaders, mainBlockSlot)
-import           Pos.Block.Pure         (verifyBlocks)
-import           Pos.Block.Slog.Context (slogGetLastSlots, slogPutLastSlots)
-import           Pos.Block.Slog.Types   (HasSlogGState, LastBlkSlots, SlogUndo (..))
-import           Pos.Block.Types        (Blund, Undo (..))
-import           Pos.Constants          (lastKnownBlockVersion)
-import           Pos.Context            (lrcActionOnEpochReason)
-import           Pos.Core               (BlockVersion (..), FlatSlotId,
-                                         GenesisWStakeholders, HasCoreConstants,
-                                         blkSecurityParam, difficultyL, epochIndexL,
-                                         flattenSlotId, headerHash, headerHashG,
-                                         prevBlockL)
-import           Pos.DB                 (SomeBatchOp (..))
-import           Pos.DB.Block           (MonadBlockDBWrite, blkGetHeader)
-import           Pos.DB.Class           (MonadDBRead, dbPutBlund)
-import           Pos.Exception          (assertionFailed, reportFatalError)
-import qualified Pos.GState             as GS
-import           Pos.Lrc.Context        (LrcContext)
-import qualified Pos.Lrc.DB             as LrcDB
-import           Pos.Slotting           (MonadSlots (getCurrentSlot))
-import           Pos.Ssc.Class.Helpers  (SscHelpersClass (..))
-import           Pos.Util               (HasLens (..), HasLens', inAssertMode, _neHead,
-                                         _neLast)
-import           Pos.Util.Chrono        (NE, NewestFirst (getNewestFirst),
-                                         OldestFirst (..), toOldestFirst)
+import           Pos.Binary.Core          ()
+import           Pos.Block.BListener      (MonadBListener (..))
+import           Pos.Block.Core           (Block, genBlockLeaders, mainBlockSlot)
+import           Pos.Block.Pure           (verifyBlocks)
+import           Pos.Block.Slog.Context   (slogGetLastSlots, slogPutLastSlots)
+import           Pos.Block.Slog.Types     (HasSlogGState, LastBlkSlots, SlogUndo (..))
+import           Pos.Block.Types          (Blund, Undo (..))
+import           Pos.Context              (lrcActionOnEpochReason)
+import           Pos.Core                 (BlockVersion (..), FlatSlotId,
+                                           HasConfiguration, blkSecurityParam,
+                                           difficultyL, epochIndexL, flattenSlotId,
+                                           headerHash, headerHashG, prevBlockL)
+import           Pos.DB                   (SomeBatchOp (..))
+import           Pos.DB.Block             (MonadBlockDBWrite, blkGetHeader)
+import           Pos.DB.Class             (MonadDBRead, dbPutBlund)
+import           Pos.Exception            (assertionFailed, reportFatalError)
+import qualified Pos.GState               as GS
+import           Pos.Lrc.Context          (LrcContext)
+import qualified Pos.Lrc.DB               as LrcDB
+import           Pos.Slotting             (MonadSlots (getCurrentSlot))
+import           Pos.Ssc.Class.Helpers    (SscHelpersClass (..))
+import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
+import           Pos.Util                 (HasLens (..), inAssertMode, _neHead, _neLast)
+import           Pos.Util.Chrono          (NE, NewestFirst (getNewestFirst),
+                                           OldestFirst (..), toOldestFirst)
 
 
 
@@ -88,7 +86,7 @@ import           Pos.Util.Chrono        (NE, NewestFirst (getNewestFirst),
 -- done only if `alt` component is the same as adopted one. In
 -- other cases (i. e. when our `(major, minor)` is less than from
 -- adopted version) check is not done.
-mustDataBeKnown :: BlockVersion -> Bool
+mustDataBeKnown :: HasUpdateConfiguration => BlockVersion -> Bool
 mustDataBeKnown adoptedBV =
     lastKnownMajMin > adoptedMajMin || lastKnownBlockVersion == adoptedBV
   where
@@ -107,7 +105,8 @@ type MonadSlogBase ssc ctx m =
     , SscHelpersClass ssc
     , MonadDBRead m
     , WithLogger m
-    , HasCoreConstants
+    , HasConfiguration
+    , HasUpdateConfiguration
     )
 
 -- | Set of constraints needed for Slog verification.
@@ -187,7 +186,6 @@ type MonadSlogApply ssc ctx m =
     , MonadMask m
     , MonadReader ctx m
     , HasSlogGState ctx
-    , HasLens' ctx GenesisWStakeholders
     )
 
 -- {-# ANN slogApplyBlocks ("HLint: ignore Reduce duplication" :: Text) #-}

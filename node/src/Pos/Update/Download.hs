@@ -8,35 +8,35 @@ module Pos.Update.Download
 
 import           Universum
 
-import           Control.Lens            (views)
-import           Control.Monad.Except    (ExceptT (..), throwError)
-import qualified Data.ByteArray          as BA
-import qualified Data.ByteString.Lazy    as BSL
-import qualified Data.HashMap.Strict     as HM
-import           Ether.Internal          (HasLens (..))
-import           Formatting              (build, sformat, stext, (%))
-import           Network.HTTP.Client     (Manager, newManager)
-import           Network.HTTP.Client.TLS (tlsManagerSettings)
-import           Network.HTTP.Simple     (getResponseBody, getResponseStatus,
-                                          getResponseStatusCode, httpLBS, parseRequest,
-                                          setRequestManager)
-import qualified Serokell.Util.Base16    as B16
-import           Serokell.Util.Text      (listJsonIndent)
-import           System.Directory        (doesFileExist)
-import           System.Wlog             (logInfo, logWarning)
+import           Control.Lens             (views)
+import           Control.Monad.Except     (ExceptT (..), throwError)
+import qualified Data.ByteArray           as BA
+import qualified Data.ByteString.Lazy     as BSL
+import qualified Data.HashMap.Strict      as HM
+import           Ether.Internal           (HasLens (..))
+import           Formatting               (build, sformat, stext, (%))
+import           Network.HTTP.Client      (Manager, newManager)
+import           Network.HTTP.Client.TLS  (tlsManagerSettings)
+import           Network.HTTP.Simple      (getResponseBody, getResponseStatus,
+                                           getResponseStatusCode, httpLBS, parseRequest,
+                                           setRequestManager)
+import qualified Serokell.Util.Base16     as B16
+import           Serokell.Util.Text       (listJsonIndent)
+import           System.Directory         (doesFileExist)
+import           System.Wlog              (logInfo, logWarning)
 
-import           Pos.Binary.Update       ()
-import           Pos.Constants           (curSoftwareVersion, ourSystemTag)
-import           Pos.Core.Types          (SoftwareVersion (..))
-import           Pos.Crypto              (Hash, castHash, hash)
-import           Pos.Exception           (reportFatalError)
-import           Pos.Update.Context      (UpdateContext (..))
-import           Pos.Update.Core.Types   (UpdateData (..), UpdateProposal (..))
-import           Pos.Update.Mode         (UpdateMode)
-import           Pos.Update.Params       (UpdateParams (..))
-import           Pos.Update.Poll.Types   (ConfirmedProposalState (..))
-import           Pos.Util                ((<//>))
-import           Pos.Util.Concurrent     (withMVar)
+import           Pos.Binary.Update        ()
+import           Pos.Core.Types           (SoftwareVersion (..))
+import           Pos.Crypto               (Hash, castHash, hash)
+import           Pos.Exception            (reportFatalError)
+import           Pos.Update.Configuration (curSoftwareVersion, ourSystemTag)
+import           Pos.Update.Context       (UpdateContext (..))
+import           Pos.Update.Core.Types    (UpdateData (..), UpdateProposal (..))
+import           Pos.Update.Mode          (UpdateMode)
+import           Pos.Update.Params        (UpdateParams (..))
+import           Pos.Update.Poll.Types    (ConfirmedProposalState (..))
+import           Pos.Util                 ((<//>))
+import           Pos.Util.Concurrent      (withMVar)
 
 -- | Download a software update for given 'ConfirmedProposalState' and
 -- put it into a variable which holds 'ConfirmedProposalState' of

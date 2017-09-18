@@ -32,9 +32,10 @@ import           System.Wlog                        (WithLogger, logWarning)
 import           Pos.Binary.Class                   (biSize)
 import           Pos.Binary.GodTossing              ()
 import           Pos.Core                           (BlockVersionData (..), EpochIndex,
-                                                     HasCoreConstants, SlotId (..),
-                                                     StakeholderId)
-import           Pos.Core.Constants                 (memPoolLimitRatio)
+                                                     HasConfiguration, SlotId (..),
+                                                     StakeholderId, VssCertificate,
+                                                     mkVssCertificatesMap,
+                                                     memPoolLimitRatio)
 import           Pos.DB                             (MonadDBRead,
                                                      MonadGState (gsAdoptedBVData))
 import           Pos.Lrc.Types                      (RichmenStakes)
@@ -43,12 +44,11 @@ import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate,
                                                      SscLocalDataClass (..))
 import           Pos.Ssc.Extra                      (MonadSscMem, sscRunGlobalQuery,
                                                      sscRunLocalQuery, sscRunLocalSTM)
+import           Pos.Ssc.GodTossing.Configuration   (HasGtConfiguration)
 import           Pos.Ssc.GodTossing.Core            (GtPayload (..), InnerSharesMap,
                                                      Opening, SignedCommitment,
-                                                     VssCertificate, isCommitmentIdx,
-                                                     isOpeningIdx, isSharesIdx,
-                                                     mkCommitmentsMap,
-                                                     mkVssCertificatesMap)
+                                                     isCommitmentIdx, isOpeningIdx,
+                                                     isSharesIdx, mkCommitmentsMap)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData (..), ldEpoch,
                                                      ldModifier, ldSize)
 import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossT,
@@ -69,7 +69,7 @@ import           Pos.Ssc.RichmenComponent           (getRichmenSsc)
 -- Methods from type class
 ----------------------------------------------------------------------------
 
-instance HasCoreConstants => SscLocalDataClass SscGodTossing where
+instance (HasGtConfiguration, HasConfiguration) => SscLocalDataClass SscGodTossing where
     sscGetLocalPayloadQ = getLocalPayload
     sscNormalizeU = normalize
     sscNewLocalData =
@@ -78,7 +78,7 @@ instance HasCoreConstants => SscLocalDataClass SscGodTossing where
       where
         slot0 = SlotId 0 minBound
 
-getLocalPayload :: HasCoreConstants => SlotId -> LocalQuery SscGodTossing GtPayload
+getLocalPayload :: HasConfiguration => SlotId -> LocalQuery SscGodTossing GtPayload
 getLocalPayload SlotId {..} = do
     expectedEpoch <- view ldEpoch
     let warningMsg = sformat warningFmt siEpoch expectedEpoch
@@ -99,7 +99,7 @@ getLocalPayload SlotId {..} = do
         | otherwise = pure mempty
 
 normalize
-    :: HasCoreConstants
+    :: (HasGtConfiguration, HasConfiguration)
     => (EpochIndex, RichmenStakes)
     -> BlockVersionData
     -> GtGlobalState
@@ -130,7 +130,8 @@ sscIsDataUseful
        , MonadSlots ctx m
        , MonadSscMem SscGodTossing ctx m
        , Rand.MonadRandom m
-       , HasCoreConstants
+       , HasConfiguration
+       , HasGtConfiguration
        )
     => GtTag -> StakeholderId -> m Bool
 sscIsDataUseful tag id =
@@ -169,7 +170,8 @@ type GtDataProcessingMode ctx m =
     , MonadSlots ctx m
     , MonadSscMem SscGodTossing ctx m
     , MonadError TossVerFailure m
-    , HasCoreConstants
+    , HasConfiguration
+    , HasGtConfiguration
     )
 
 -- | Process 'SignedCommitment' received from network, checking it against
@@ -240,7 +242,7 @@ sscProcessData tag payload =
     executeMonadBaseRandom seed = hoist $ hoist (pure . fst . Rand.withDRG seed)
 
 sscProcessDataDo
-    :: (HasCoreConstants, MonadState GtLocalData m,
+    :: (HasGtConfiguration, HasConfiguration, MonadState GtLocalData m,
         WithLogger m, Rand.MonadRandom m)
     => (EpochIndex, RichmenStakes)
     -> BlockVersionData

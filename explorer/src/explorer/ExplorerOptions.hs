@@ -20,10 +20,10 @@ import           Serokell.Util.OptParse     (fromParsec)
 
 import           Paths_cardano_sl_explorer  (version)
 import qualified Pos.Client.CLI             as CLI
-import           Pos.Network.CLI            (NetworkConfigOpts, networkConfigOption)
 import           Pos.DHT.Model              (DHTKey)
 import           Pos.DHT.Real.CLI           (dhtExplicitInitialOption, dhtKeyOption,
                                              dhtNetworkAddressOption, dhtPeersFileOption)
+import           Pos.Network.CLI            (NetworkConfigOpts, networkConfigOption)
 import           Pos.Statistics             (EkgParams, StatsdParams, ekgParamsOption,
                                              statsdParamsOption)
 import           Pos.Util.BackupPhrase      (BackupPhrase, backupPhraseWordsNum)
@@ -49,7 +49,6 @@ data Args = Args
     , networkConfigOpts  :: !NetworkConfigOpts
       -- ^ Network configuration
       -- TODO: Does this obsolete 'peers' and 'peersFile'?
-    , timeLord           :: !Bool
     , jlPath             :: !(Maybe FilePath)
     , kademliaDumpPath   :: !FilePath
     , webPort            :: !Word16
@@ -98,8 +97,6 @@ argsParser = do
     dhtPeersFile <- optional dhtPeersFileOption
     networkConfigOpts <- networkConfigOption
     dhtKey <- optional dhtKeyOption
-
-    timeLord <- CLI.timeLordOption
 
     jlPath <- CLI.optionalJSONPath
 

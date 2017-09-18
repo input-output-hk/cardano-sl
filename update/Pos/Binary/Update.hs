@@ -11,7 +11,7 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Raw, deriveSimpleBi, enforceSize,
                                              encodeListLen, decodeListLen, deriveSimpleBiCxt)
 import           Pos.Binary.Infra           ()
-import           Pos.Core                   (ApplicationName, BlockVersion, HasCoreConstants,
+import           Pos.Core                   (ApplicationName, BlockVersion, HasConfiguration,
                                              ChainDifficulty, Coin, CoinPortion,
                                              EpochIndex, FlatSlotId, HeaderHash,
                                              NumSoftwareVersion, ScriptVersion, SlotId,
@@ -28,7 +28,7 @@ instance Bi U.SystemTag where
     Left e   -> fail e
     Right st -> pure st
 
-instance Bi U.UpdateVote where
+instance HasConfiguration => Bi U.UpdateVote where
   encode uv =  encodeListLen 4
             <> encode (U.uvKey uv)
             <> encode (U.uvProposalId uv)
@@ -70,7 +70,7 @@ deriveSimpleBi ''U.BlockVersionModifier [
         Field [| U.bvmUnlockStakeEpoch  :: Maybe EpochIndex  |]
     ]]
 
-instance Bi U.UpdateProposal where
+instance HasConfiguration => Bi U.UpdateProposal where
   encode up =  encodeListLen 7
             <> encode (U.upBlockVersion up)
             <> encode (U.upBlockVersionMod up)
@@ -101,7 +101,7 @@ deriveSimpleBi ''U.UpdateProposalToSign [
         Field [| U.upsAttr :: U.UpAttributes                   |]
     ]]
 
-deriveSimpleBi ''U.UpdatePayload [
+deriveSimpleBiCxt [t|HasConfiguration|] ''U.UpdatePayload [
     Cons 'U.UpdatePayload [
         Field [| U.upProposal :: Maybe U.UpdateProposal |],
         Field [| U.upVotes    :: [U.UpdateVote]         |]
@@ -123,7 +123,7 @@ instance Bi a => Bi (U.PrevValue a) where
       0 -> pure U.NoExist
       _ -> fail $ "decode@PrevValue: invalid len: " <> show len
 
-deriveSimpleBiCxt [t|HasCoreConstants|] ''U.USUndo [
+deriveSimpleBiCxt [t|HasConfiguration|] ''U.USUndo [
     Cons 'U.USUndo [
         Field [| U.unChangedBV :: HashMap BlockVersion (U.PrevValue U.BlockVersionState)                |],
         Field [| U.unLastAdoptedBV :: Maybe BlockVersion                                                |],
@@ -145,7 +145,7 @@ deriveSimpleBi ''U.DpsExtra [
         Field [| U.deImplicit   :: Bool       |]
     ]]
 
-deriveSimpleBiCxt [t|HasCoreConstants|] ''U.UndecidedProposalState [
+deriveSimpleBiCxt [t|HasConfiguration|] ''U.UndecidedProposalState [
     Cons 'U.UndecidedProposalState [
         Field [| U.upsVotes         :: U.StakeholderVotes |],
         Field [| U.upsProposal      :: U.UpdateProposal   |],
@@ -155,7 +155,7 @@ deriveSimpleBiCxt [t|HasCoreConstants|] ''U.UndecidedProposalState [
         Field [| U.upsExtra         :: Maybe U.UpsExtra   |]
     ]]
 
-deriveSimpleBiCxt [t|HasCoreConstants|] ''U.DecidedProposalState [
+deriveSimpleBiCxt [t|HasConfiguration|] ''U.DecidedProposalState [
     Cons 'U.DecidedProposalState [
         Field [| U.dpsDecision   :: Bool                     |],
         Field [| U.dpsUndecided  :: U.UndecidedProposalState |],
@@ -163,7 +163,7 @@ deriveSimpleBiCxt [t|HasCoreConstants|] ''U.DecidedProposalState [
         Field [| U.dpsExtra      :: Maybe U.DpsExtra         |]
     ]]
 
-deriveSimpleBiCxt [t|HasCoreConstants|] ''U.ProposalState [
+deriveSimpleBiCxt [t|HasConfiguration|] ''U.ProposalState [
     Cons 'U.PSUndecided [
         Field [| U.unPSUndecided :: U.UndecidedProposalState |]
     ],
@@ -171,7 +171,7 @@ deriveSimpleBiCxt [t|HasCoreConstants|] ''U.ProposalState [
         Field [| U.unPSDecided :: U.DecidedProposalState |]
     ]]
 
-deriveSimpleBi ''U.ConfirmedProposalState [
+deriveSimpleBiCxt [t|HasConfiguration|] ''U.ConfirmedProposalState [
     Cons 'U.ConfirmedProposalState [
         Field [| U.cpsUpdateProposal :: U.UpdateProposal   |],
         Field [| U.cpsImplicit       :: Bool               |],

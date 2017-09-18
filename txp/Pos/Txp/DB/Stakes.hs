@@ -35,7 +35,8 @@ import           System.Wlog                  (WithLogger, logError)
 
 import           Pos.Core                     (Coin, GenesisWStakeholders, StakeholderId,
                                                StakesMap, coinF, mkCoin, sumCoins,
-                                               unsafeAddCoin, unsafeIntegerToCoin)
+                                               unsafeAddCoin, unsafeIntegerToCoin,
+                                               HasConfiguration)
 import           Pos.Crypto                   (shortHashF)
 import           Pos.DB                       (DBError (..), DBTag (GStateDB), IterType,
                                                MonadDB, MonadDBRead, RocksBatchOp (..),
@@ -60,7 +61,7 @@ instance Buildable StakesOp where
     build (PutFtsStake ad c) =
         bprint ("PutFtsStake ("%shortHashF%", "%coinF%")") ad c
 
-instance RocksBatchOp StakesOp where
+instance HasConfiguration => RocksBatchOp StakesOp where
     toBatchOp (PutTotalStake c)  = [Rocks.Put ftsSumKey (dbSerializeValue c)]
     toBatchOp (PutFtsStake ad c) =
         if c == mkCoin 0 then [Rocks.Del (ftsStakeKey ad)]

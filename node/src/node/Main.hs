@@ -11,17 +11,17 @@ module Main
 import           Universum
 
 import           Data.Maybe          (fromJust)
-import           Formatting          (build, sformat, shown, (%))
+import           Formatting          (sformat, shown, (%))
 import           Mockable            (Production, currentTime, runProduction)
-import           System.Wlog         (logInfo)
 
 import           Pos.Binary          ()
 import           Pos.Client.CLI      (CommonNodeArgs (..), NodeArgs (..),
                                       SimpleNodeArgs (..))
 import qualified Pos.Client.CLI      as CLI
 import           Pos.Communication   (OutSpecs, WorkerSpec)
-import           Pos.Core            (HasCoreConstants, Timestamp (..), giveStaticConsts)
-import           Pos.Launcher        (NodeParams (..), applyConfigInfo, runNodeReal)
+import           Pos.Core            (Timestamp (..), gdStartTime, genesisData)
+import           Pos.Launcher        (HasConfigurations, NodeParams (..), runNodeReal,
+                                      withConfigurations)
 import           Pos.Ssc.Class       (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
 import           Pos.Ssc.NistBeacon  (SscNistBeacon)
@@ -33,7 +33,8 @@ import           Pos.WorkMode        (RealMode)
 actionWithoutWallet
     :: forall ssc.
        ( SscConstraint ssc
-       , HasCoreConstants)
+       , HasConfigurations
+       )
     => SscParams ssc
     -> NodeParams
     -> Production ()
@@ -43,30 +44,32 @@ actionWithoutWallet sscParams nodeParams =
     plugins :: ([WorkerSpec (RealMode ssc)], OutSpecs)
     plugins = updateTriggerWorker
 
-action :: SimpleNodeArgs -> Production ()
+action
+    :: ( HasConfigurations )
+    => SimpleNodeArgs
+    -> Production ()
 action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
-    liftIO $ applyConfigInfo configInfo
-    giveStaticConsts $ do
-        systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
-        logInfo $ sformat ("System start time is " % shown) systemStart
-        t <- currentTime
-        logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-        currentParams <- CLI.getNodeParams cArgs nArgs systemStart
-        putText $ "Running using " <> show sscAlgo
-        putText "Wallet is disabled, because software is built w/o it"
-        logInfo $ sformat ("Using configs and genesis:\n"%build) configInfo
+    whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData
+    putText $ sformat ("System start time is " % shown) $ gdStartTime genesisData
+    t <- currentTime
+    putText $ sformat ("Current time is " % shown) (Timestamp t)
+    currentParams <- CLI.getNodeParams cArgs nArgs
+    putText $ "Running using " <> show sscAlgo
+    putText "Wallet is disabled, because software is built w/o it"
+    putText $ sformat ("Using configs and genesis:\n"%shown) (CLI.configurationOptions (CLI.commonArgs cArgs))
 
-        let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-        let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
+    let vssSK = fromJust $ npUserSecret currentParams ^. usVss
+    let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-        case sscAlgo of
-            NistBeaconAlgo ->
-                actionWithoutWallet @SscNistBeacon () currentParams
-            GodTossingAlgo ->
-                actionWithoutWallet @SscGodTossing gtParams currentParams
+    case sscAlgo of
+        NistBeaconAlgo ->
+            actionWithoutWallet @SscNistBeacon () currentParams
+        GodTossingAlgo ->
+            actionWithoutWallet @SscGodTossing gtParams currentParams
 
 main :: IO ()
 main = do
-    args <- CLI.getSimpleNodeOptions
+    args@(CLI.SimpleNodeArgs commonNodeArgs _) <- CLI.getSimpleNodeOptions
     CLI.printFlags
-    runProduction (action args)
+    let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
+    runProduction $ withConfigurations conf (action args)

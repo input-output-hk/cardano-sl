@@ -28,13 +28,14 @@ import           Pos.Block.Core            (BlockHeader)
 import           Pos.Block.Logic.Util      (lcaWithMainChain)
 import           Pos.Block.Pure            (VerifyHeaderParams (..), verifyHeader,
                                             verifyHeaders)
-import           Pos.Constants             (genesisHash, recoveryHeadersMessage)
+import           Pos.Configuration         (HasNodeConfiguration, recoveryHeadersMessage)
 import           Pos.Core                  (BlockCount, EpochOrSlot (..),
-                                            HasCoreConstants, HeaderHash, SlotId (..),
+                                            HasConfiguration, HeaderHash, SlotId (..),
                                             blkSecurityParam, difficultyL, epochOrSlotG,
                                             getChainDifficulty, getEpochOrSlot,
                                             headerHash, headerHashG, headerSlotL,
                                             prevBlockL)
+import           Pos.Core.Configuration    (genesisHash)
 import           Pos.Crypto                (hash)
 import           Pos.DB                    (MonadDBRead)
 import qualified Pos.DB.Block              as DB
@@ -71,7 +72,7 @@ mkCHRinvalid = CHInvalid . T.intercalate "; "
 -- as ClassifyHeaderRes type.
 classifyNewHeader
     :: forall ctx ssc m.
-    ( HasCoreConstants
+    ( HasConfiguration
     , MonadSlots ctx m
     , DB.MonadBlockDB ssc m
     )
@@ -155,7 +156,7 @@ classifyHeaders ::
        , MonadSlots ctx m
        , MonadCatch m
        , WithLogger m
-       , HasCoreConstants
+       , HasConfiguration
        )
     => Bool -- recovery in progress?
     -> NewestFirst NE (BlockHeader ssc)
@@ -225,7 +226,7 @@ classifyHeaders inRecovery headers = do
 -- checkpoint that's in our main chain to the newest ones.
 getHeadersFromManyTo
     :: forall ssc m.
-       (DB.MonadBlockDB ssc m, WithLogger m, MonadError Text m, HasCoreConstants)
+       (DB.MonadBlockDB ssc m, WithLogger m, MonadError Text m, HasConfiguration, HasNodeConfiguration)
     => NonEmpty HeaderHash  -- ^ Checkpoints; not guaranteed to be
                             --   in any particular order
     -> Maybe HeaderHash
@@ -278,7 +279,7 @@ getHeadersFromManyTo checkpoints startM = do
 -- exponentially base 2 relatively to the depth in the blockchain.
 getHeadersOlderExp
     :: forall ssc m.
-       (HasCoreConstants, MonadDBRead m, SscHelpersClass ssc)
+       (HasConfiguration, MonadDBRead m, SscHelpersClass ssc)
     => Maybe HeaderHash -> m (OldestFirst NE HeaderHash)
 getHeadersOlderExp upto = do
     tip <- GS.getTip
@@ -333,7 +334,7 @@ getHeadersOlderExp upto = do
 -- range @[from..to]@ will be found.
 getHeadersFromToIncl
     :: forall ssc m .
-       (HasCoreConstants, MonadDBRead m, SscHelpersClass ssc)
+       (HasConfiguration, MonadDBRead m, SscHelpersClass ssc)
     => HeaderHash -> HeaderHash -> m (Maybe (OldestFirst NE HeaderHash))
 getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
     -- oldest and newest blocks do exist

@@ -12,14 +12,13 @@ import           Pos.Arbitrary.Block ()
 import qualified Pos.Block.Core      as BT
 import qualified Pos.Block.Network   as BT
 import qualified Pos.Communication   ()
-import           Pos.Core            (giveStaticConsts)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
 import           Pos.Ssc.NistBeacon  (SscNistBeacon)
 
-import           Test.Pos.Util       (binaryTest)
+import           Test.Pos.Util       (binaryTest, giveCoreConf)
 
 spec :: Spec
-spec = giveStaticConsts $ describe "Block types" $ do
+spec = giveCoreConf $ describe "Block types" $ do
     describe "Bi instances" $ do
         describe "Block network types" $ do
             describe "MsgGetHeaders" $

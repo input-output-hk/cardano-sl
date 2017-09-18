@@ -31,42 +31,36 @@ import           Pos.Core                   (AddrAttributes (..),
                                              BlockVersionData (..), EpochIndex,
                                              addrAttributesUnwrapped, isRedeemAddress)
 import           Pos.Core.Coin              (integerToCoin)
-import           Pos.Core.Constants         (memPoolLimitRatio)
+import           Pos.Core.Configuration     (HasConfiguration, memPoolLimitRatio)
 import qualified Pos.Core.Fee               as Fee
-import           Pos.Core.Genesis           (GenesisWStakeholders (..))
 import           Pos.Crypto                 (WithHash (..), hash)
 import           Pos.DB.Class               (MonadGState (..), gsIsBootstrapEra)
 import           Pos.Txp.Core               (Tx (..), TxAux (..), TxId, TxOut (..),
                                              TxUndo, TxpUndo, toaOut, topsortTxs,
                                              txInputs, txOutAddress)
-import           Pos.Txp.Toil.Stakes        (applyTxsToStakes, rollbackTxsStakes)
 import           Pos.Txp.Toil.Class         (MonadStakes (..), MonadTxPool (..),
                                              MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure       (ToilVerFailure (..))
+import           Pos.Txp.Toil.Stakes        (applyTxsToStakes, rollbackTxsStakes)
 import           Pos.Txp.Toil.Types         (TxFee (..))
 import qualified Pos.Txp.Toil.Utxo          as Utxo
-import           Pos.Util.Util              (HasLens')
 
 ----------------------------------------------------------------------------
 -- Global
 ----------------------------------------------------------------------------
 
-type GlobalApplyToilMode ctx m =
+type GlobalApplyToilMode m =
     ( MonadUtxo m
     , MonadStakes m
     , MonadGState m
     , WithLogger m
-    , MonadReader ctx m
-    , HasLens' ctx GenesisWStakeholders
     )
 
-type GlobalVerifyToilMode ctx m =
+type GlobalVerifyToilMode m =
     ( MonadUtxo m
     , MonadStakes m
     , MonadGState m
-    , WithLogger m
-    , HasLens' ctx GenesisWStakeholders
-    , MonadReader ctx m)
+    , WithLogger m)
 
 -- CHECK: @verifyToil
 -- | Verify transactions correctness with respect to Utxo applying
@@ -79,15 +73,15 @@ type GlobalVerifyToilMode ctx m =
 -- witnesses, addresses, attributes) must be known. Otherwise unknown
 -- data is just ignored.
 verifyToil
-    :: forall ctx m . (GlobalVerifyToilMode ctx m, MonadError ToilVerFailure m)
+    :: forall m . (GlobalVerifyToilMode m, MonadError ToilVerFailure m)
     => EpochIndex -> Bool -> [TxAux] -> m TxpUndo
 verifyToil curEpoch verifyAllIsKnown =
-    mapM (verifyAndApplyTx @ctx curEpoch verifyAllIsKnown . withTxId)
+    mapM (verifyAndApplyTx curEpoch verifyAllIsKnown . withTxId)
 
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
 applyToil
-    :: GlobalApplyToilMode ctx m
+    :: GlobalApplyToilMode m
     => [(TxAux, TxUndo)]
     -> m ()
 applyToil txun = do
@@ -95,7 +89,7 @@ applyToil txun = do
     mapM_ (applyTxToUtxo' . withTxId . fst) txun
 
 -- | Rollback transactions from one block.
-rollbackToil :: GlobalApplyToilMode ctx m => [(TxAux, TxUndo)] -> m ()
+rollbackToil :: GlobalApplyToilMode m => [(TxAux, TxUndo)] -> m ()
 rollbackToil txun = do
     rollbackTxsStakes txun
     mapM_ Utxo.rollbackTxUtxo $ reverse txun
@@ -104,20 +98,19 @@ rollbackToil txun = do
 -- Local
 ----------------------------------------------------------------------------
 
-type LocalToilMode ctx m =
+type LocalToilMode m =
     ( MonadUtxo m
     , MonadGState m
     , MonadTxPool m
-    , HasLens' ctx GenesisWStakeholders
-    , MonadReader ctx m
     -- The war which we lost.
+    , HasConfiguration
     )
 
 -- CHECK: @processTx
 -- | Verify one transaction and also add it to mem pool and apply to utxo
 -- if transaction is valid.
 processTx
-    :: forall ctx m . (LocalToilMode ctx m, MonadError ToilVerFailure m)
+    :: forall m . (LocalToilMode m, MonadError ToilVerFailure m)
     => EpochIndex -> (TxId, TxAux) -> m TxUndo
 processTx curEpoch tx@(id, aux) = do
     whenM (hasTx id) $ throwError ToilKnown
@@ -125,35 +118,33 @@ processTx curEpoch tx@(id, aux) = do
     let maxPoolSize = memPoolLimitRatio * maxBlockSize
     whenM ((>= maxPoolSize) <$> poolSize) $
         throwError (ToilOverwhelmed maxPoolSize)
-    undo <- verifyAndApplyTx @ctx curEpoch True tx
+    undo <- verifyAndApplyTx curEpoch True tx
     undo <$ putTxWithUndo id aux undo
 
 -- | Get rid of invalid transactions.
 -- All valid transactions will be added to mem pool and applied to utxo.
 normalizeToil
-    :: forall ctx m . LocalToilMode ctx m
+    :: forall m . LocalToilMode m
     => EpochIndex -> [(TxId, TxAux)] -> m ()
 normalizeToil curEpoch txs = mapM_ normalize ordered
   where
     ordered = fromMaybe txs $ topsortTxs wHash txs
     wHash (i, txAux) = WithHash (taTx txAux) i
-    normalize = runExceptT . processTx @ctx curEpoch
+    normalize = runExceptT . processTx curEpoch
 
 ----------------------------------------------------------------------------
 -- Verify and Apply logic
 ----------------------------------------------------------------------------
 
 verifyAndApplyTx
-    :: forall ctx m .
-       ( MonadUtxo m
+    :: ( MonadUtxo m
        , MonadGState m
        , MonadError ToilVerFailure m
-       , HasLens' ctx GenesisWStakeholders
-       , MonadReader ctx m)
+       )
     => EpochIndex -> Bool -> (TxId, TxAux) -> m TxUndo
 verifyAndApplyTx curEpoch verifyVersions tx@(_, txAux) = do
     (txUndo, txFeeMB) <- Utxo.verifyTxUtxo ctx txAux
-    verifyGState @ctx curEpoch txAux txFeeMB
+    verifyGState curEpoch txAux txFeeMB
     applyTxToUtxo' tx
     pure txUndo
   where
@@ -166,12 +157,10 @@ isRedeemTx txAux = do
     return $ all isRedeemAddress inputAddresses
 
 verifyGState
-    :: forall ctx m .
-       ( MonadGState m
+    :: ( MonadGState m
        , MonadUtxoRead m
        , MonadError ToilVerFailure m
-       , HasLens' ctx GenesisWStakeholders
-       , MonadReader ctx m)
+       )
     => EpochIndex -> TxAux -> Maybe TxFee -> m ()
 verifyGState curEpoch txAux txFeeMB = do
     BlockVersionData {..} <- gsAdoptedBVData

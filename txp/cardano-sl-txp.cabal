@@ -25,6 +25,7 @@ library
     Pos.Txp.DB.Stakes
     Pos.Txp.DB.Utxo
 
+    Pos.Txp.GenesisUtxo
     Pos.Txp.Toil
     Pos.Txp.Toil.Stakes
     Pos.Txp.Toil.Stakes.Functions

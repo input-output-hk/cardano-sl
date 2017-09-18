@@ -34,7 +34,7 @@ import           Pos.Block.Slog             (HasSlogGState (..))
 import           Pos.Context                (HasPrimaryKey, getOurSecretKey,
                                              lrcActionOnEpochReason)
 import           Pos.Core                   (Blockchain (..), EpochIndex,
-                                             EpochOrSlot (..), HasCoreConstants,
+                                             EpochOrSlot (..), HasConfiguration,
                                              HeaderHash, SlotId (..),
                                              chainQualityThreshold, epochIndexL,
                                              epochSlots, flattenSlotId, getEpochOrSlot,
@@ -60,6 +60,7 @@ import           Pos.Txp                    (MonadTxpMem, clearTxpMemPool, txGet
 import           Pos.Txp.Core               (TxAux (..), emptyTxPayload, mkTxPayload)
 import           Pos.Update                 (UpdateContext)
 import           Pos.Update.Core            (UpdatePayload (..))
+import           Pos.Update.Configuration   (HasUpdateConfiguration)
 import qualified Pos.Update.DB              as UDB
 import           Pos.Update.Logic           (clearUSMemPool, usCanCreateBlock,
                                              usPreparePayload)
@@ -69,7 +70,8 @@ import           Pos.WorkMode.Class         (TxpExtra_TMP)
 
 -- | A set of constraints necessary to create a block from mempool.
 type MonadCreateBlock ssc ctx m
-     = ( HasCoreConstants
+     = ( HasConfiguration
+       , HasUpdateConfiguration
        , MonadReader ctx m
        , HasPrimaryKey ctx
        , HasSlogGState ctx -- to check chain quality
@@ -271,7 +273,7 @@ canCreateBlock sId tipHeader =
 
 createMainBlockPure
     :: forall m ssc .
-       (MonadError Text m, SscHelpersClass ssc, HasCoreConstants)
+       (MonadError Text m, SscHelpersClass ssc, HasConfiguration, HasUpdateConfiguration)
     => Byte                   -- ^ Block size limit (real max.value)
     -> BlockHeader ssc
     -> ProxySKBlockInfo
@@ -391,7 +393,7 @@ getRawPayload tip slotId = do
 -- Given limit applies only to body, not to other data from block.
 createMainBody
     :: forall m ssc .
-       (MonadError Text m, SscHelpersClass ssc, HasCoreConstants)
+       (MonadError Text m, SscHelpersClass ssc, HasConfiguration)
     => Byte  -- ^ Body limit
     -> SlotId
     -> RawPayload ssc

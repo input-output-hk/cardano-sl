@@ -57,6 +57,7 @@ import           Pos.Communication.Types.Relay      (DataMsg (..), InvMsg (..), 
                                                      MempoolMsg (..), ReqMsg (..),
                                                      ReqOrRes, ResMsg (..))
 import           Pos.DB.Class                       (MonadGState)
+import           Pos.Infra.Configuration            (HasInfraConfiguration)
 import           Pos.Network.Types                  (Bucket)
 import           Pos.Util.TimeWarp                  (CanJsonLog (..))
 
@@ -65,6 +66,7 @@ type MinRelayWorkMode m =
     , CanJsonLog m
     , MonadMockable m
     , MonadIO m
+    , HasInfraConfiguration
     )
 
 type RelayWorkMode ctx m =
@@ -410,7 +412,7 @@ dataFlow what enqueue msg dt = handleAll handleE $ do
     -- all exceptions and log them instead of letting higher-level
     -- code to do it?
     -- FIXME: are we sure we don't want to propagate exception to caller???
-    -- Fortunatelly, it's used only in lwallet, so I don't care much.
+    -- Fortunatelly, it's used only in auxx, so I don't care much.
     -- @gromak
     handleE e =
         logWarning $

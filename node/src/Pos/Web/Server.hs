@@ -32,7 +32,7 @@ import           Servant.Server                       (Handler, ServantErr (errB
 import           Servant.Utils.Enter                  ((:~>) (NT), enter)
 
 import           Pos.Aeson.Types                      ()
-import           Pos.Constants                        (webLoggingEnabled)
+import           Pos.Core.Configuration               (HasConfiguration, webLoggingEnabled)
 import           Pos.Context                          (HasNodeContext (..),
                                                        HasSscContext (..), NodeContext,
                                                        getOurPublicKey)
@@ -79,7 +79,7 @@ applicationGT = do
     server <- servantServerGT
     return $ serve gtNodeApi server
 
-serveImplNoTLS :: MonadIO m => m Application -> String -> Word16 -> m ()
+serveImplNoTLS :: (HasConfiguration, MonadIO m) => m Application -> String -> Word16 -> m ()
 serveImplNoTLS application host port =
     liftIO . runSettings mySettings . webLogger =<< application
   where
@@ -87,7 +87,7 @@ serveImplNoTLS application host port =
                  setPort (fromIntegral port) defaultSettings
 
 serveImpl
-    :: MonadIO m
+    :: (HasConfiguration, MonadIO m)
     => m Application -> String -> Word16 -> Maybe TlsParams -> m ()
 serveImpl application host port walletTLSParams =
     liftIO . maybe runSettings runTLS mTlsConfig mySettings . webLogger
@@ -97,7 +97,7 @@ serveImpl application host port walletTLSParams =
                  setPort (fromIntegral port) defaultSettings
     mTlsConfig = tlsParamsToWai <$> walletTLSParams
 
-webLogger :: Middleware
+webLogger :: HasConfiguration => Middleware
 webLogger
     | webLoggingEnabled = logStdoutDev
     | otherwise         = identity
@@ -145,7 +145,7 @@ servantServerGT = flip enter (baseServantHandlers :<|> gtServantHandlers) <$>
 -- Base handlers
 ----------------------------------------------------------------------------
 
-baseServantHandlers :: ServerT (BaseNodeApi ssc) (WebMode ssc)
+baseServantHandlers :: HasConfiguration => ServerT (BaseNodeApi ssc) (WebMode ssc)
 baseServantHandlers =
     getLeaders
     :<|>
@@ -157,7 +157,7 @@ baseServantHandlers =
     :<|>
     getLocalTxsNum
 
-getLeaders :: Maybe EpochIndex -> WebMode ssc SlotLeaders
+getLeaders :: HasConfiguration => Maybe EpochIndex -> WebMode ssc SlotLeaders
 getLeaders maybeEpoch = do
     -- epoch <- maybe (siEpoch <$> getCurrentSlot) pure maybeEpoch
     epoch <- maybe (pure 0) pure maybeEpoch
@@ -165,7 +165,7 @@ getLeaders maybeEpoch = do
   where
     err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
 
-getUtxo :: WebMode ssc [TxOut]
+getUtxo :: HasConfiguration => WebMode ssc [TxOut]
 getUtxo = map toaOut . toList <$> GS.getAllPotentiallyHugeUtxo
 
 getLocalTxsNum :: WebMode ssc Word

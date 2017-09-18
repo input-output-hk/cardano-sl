@@ -55,7 +55,7 @@ import           Pos.Binary                 (Bi, biSize)
 import           Pos.Block.Core             (MainBlock, mainBlockSlot, mainBlockTxPayload,
                                              mcdSlot)
 import           Pos.Block.Types            (Undo (..))
-import           Pos.Core                   (HasCoreConstants, timestampToPosix)
+import           Pos.Core                   (HasConfiguration, timestampToPosix)
 import           Pos.Crypto                 (Hash, hash)
 import           Pos.DB.Block               (MonadBlockDB)
 import           Pos.DB.Class               (MonadDBRead)
@@ -66,6 +66,7 @@ import           Pos.Lrc                    (getLeaders)
 import           Pos.Merkle                 (getMerkleRoot, mtRoot)
 import           Pos.Slotting               (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                    (Tx (..), TxId, TxOut (..), TxOutAux (..),
                                              TxUndo, txpTxs, _txOutputs)
 import           Pos.Types                  (Address, AddressHash, Coin, EpochIndex,
@@ -190,7 +191,8 @@ toBlockEntry
     , MonadRealDB ctx m
     , MonadSlots ctx m
     , MonadThrow m
-    , HasCoreConstants
+    , HasConfiguration
+    , HasGtConfiguration
     )
     => (MainBlock SscGodTossing, Undo)
     -> m CBlockEntry
@@ -281,7 +283,8 @@ toBlockSummary
     , MonadRealDB ctx m
     , MonadSlots ctx m
     , MonadThrow m
-    , HasCoreConstants
+    , HasConfiguration
+    , HasGtConfiguration
     )
     => (MainBlock SscGodTossing, Undo)
     -> m CBlockSummary

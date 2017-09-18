@@ -11,10 +11,10 @@ mainnet_base: &mainnet_base
         initializer:
           testnetInitializer:
             testBalance:
-              poors:        1200
-              richmen:      4
+              poors:        24000
+              richmen:      7
               richmenShare: 0.94
-              totalBalance: 12887504355000000
+              totalBalance: 13887504355000000
               useHDAddresses: False
             fakeAvvmBalance: 
               count: 100
@@ -48,13 +48,8 @@ mainnet_base: &mainnet_base
           protocolMagic: 60987900
           vssMinTTL: 2
           vssMaxTTL: 6
-        ftsSeed: "c2tvdm9yb2RhIEdndXJkYSBib3JvZGEgcHJvdm9kYSA="
-        heavyDelegation: 
-          c6c7fb227037a1719b9d871ea49b6039325aeb293915da7db9620e3f: 
-              pskOmega:      1
-              pskIssuerPk:   "AZzlT+pC5M4xG+GuRHJEXS+isikmVBorTqOyjRDGUQ+Lst9fn1zQn5OGKSXK29G2dn7R7JCugfcUebr0Dq7wPw=="
-              pskDelegatePk: "I07+5HIUW0Lkq0poMMzGziuILwxSyTJ4lMSsoQz4HZunD5Xsx3MfBZWc4l+206lUOFaU+spdJg7MkmFKBoVV0g=="
-              pskCert:       "0f2ff9d1f071793dbd90fce8d47e96a09b594ee6dd00a4bac9664e4bd6af89830035ec921698b774c779eb1b6a2772d3d6ae37e630c06c75fbfecd02a6410a02"
+        ftsSeed: "dmFzYSBvcGFzYSBza292b3JvZGEgR2d1cmRhIGJvcm9kYSBwcm92b2Rh"
+        heavyDelegation: {}
         avvmDistr: {}
 
     dbSerializeVersion: 0

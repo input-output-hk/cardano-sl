@@ -81,6 +81,7 @@ werror=false
 for_installer=false
 asserts=true
 bench_mode=false
+no_fast=false
 
 if [ -e .no-nix ]; then
   no_nix=true
@@ -240,9 +241,10 @@ if [[ "$prodMode" != "" ]]; then
 fi
 ghc_opts="-DCONFIG=$dconfig -DGITREV=`git rev-parse HEAD`"
 
-if [[ $no_fast == true ]];
-  then fast=""
-  else fast="--fast"
+if [[ $no_fast == true ]]; then
+  fast=""
+else
+  fast="--fast"
 fi
 
 if [[ $werror == true ]];
@@ -323,6 +325,8 @@ echo "'explorer' flag: $explorer"
 for prj in $to_build; do
 
   echo -e "Building $prj\n"
+
+  # Building deps
   sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun --dependencies-only $args $prj"
   echo -e "$sbuild\n"
   eval $sbuild
@@ -333,13 +337,10 @@ for prj in $to_build; do
     ghc_opts_2="$ghc_opts"
   fi
 
-  stack build                               \
-      --ghc-options="$ghc_opts_2"           \
-      $commonargs $norun                    \
-      $fast                                 \
-      $args                                 \
-      $prj                                  \
-      2>&1                                  \
+  sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun $fast $args $prj"
+  echo -e "$sbuild\n"
+
+  eval $sbuild 2>&1                         \
     | perl -pe "$xperl"                     \
     | { grep -E --color "$xgrep" || true; }
 done

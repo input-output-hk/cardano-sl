@@ -84,8 +84,7 @@ generateGenesisData (TestnetInitializer{..}) maxTnBalance = deterministic (seria
             <*> replicateM (fromIntegral tboPoors)
                            (generateSecretsAndAddress Nothing tboUseHDAddresses)
 
-    let skVssCerts = map (\(sk, _, _, vc, _) -> (sk, vc)) $ richmenList ++ poorsList
-        richSkVssCerts = take (fromIntegral tboRichmen) skVssCerts
+    let richSkVssCerts = map (\(sk, _, _, vc, _) -> (sk, vc)) $ richmenList
         secretKeys = map (\(sk, hdwSk, vssSk, _, _) -> (sk, hdwSk, vssSk))
                          (richmenList ++ poorsList)
 

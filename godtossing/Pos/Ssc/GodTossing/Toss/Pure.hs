@@ -22,7 +22,7 @@ import           System.Wlog                    (CanLog, HasLoggerName (..), Log
 
 import           Pos.Core                       (BlockVersionData, EpochIndex,
                                                  HasGenesisData, HasProtocolConstants,
-                                                 crucialSlot, gdVssCerts, genesisData)
+                                                 crucialSlot, genesisVssCerts)
 import           Pos.Lrc.Types                  (RichmenSet, RichmenStakes)
 import           Pos.Ssc.GodTossing.Core        (deleteSignedCommitment,
                                                  insertSignedCommitment)
@@ -60,7 +60,7 @@ instance (HasGenesisData, HasProtocolConstants) => MonadTossRead PureToss where
     getShares = PureToss $ use gsShares
     getVssCertificates = PureToss $ VCD.certs <$> use gsVssCertificates
     getStableCertificates epoch
-        | epoch == 0 = pure $ gdVssCerts genesisData
+        | epoch == 0 = pure $ genesisVssCerts
         | otherwise =
             PureToss $
             VCD.certs . VCD.setLastKnownSlot (crucialSlot epoch) <$>

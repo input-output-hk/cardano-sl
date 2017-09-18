@@ -27,7 +27,7 @@ import           Pos.Core                        (EpochIndex (..), HasConfigurat
                                                   HasGenesisData, HasProtocolConstants,
                                                   IsMainHeader, SlotId (..),
                                                   StakeholderId, VssCertificatesMap,
-                                                  gdVssCerts, genesisData, headerSlotL)
+                                                  genesisVssCerts, headerSlotL)
 import           Pos.Core.Slotting               (crucialSlot)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (getCommitmentsMap),
                                                   GtPayload (..), checkCertTTL,
@@ -136,6 +136,6 @@ sanityChecksGtPayload eoh payload = case payload of
 
 getStableCertsPure :: (HasProtocolConstants, HasGenesisData) => EpochIndex -> VCD.VssCertData -> VssCertificatesMap
 getStableCertsPure epoch certs
-    | epoch == 0 = gdVssCerts genesisData
+    | epoch == 0 = genesisVssCerts
     | otherwise =
           VCD.certs $ VCD.setLastKnownSlot (crucialSlot epoch) certs

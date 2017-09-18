@@ -21,6 +21,7 @@ module Pos.Arbitrary.Core
 import           Universum
 
 import qualified Data.ByteString                   as BS (pack)
+import qualified Data.HashMap.Strict               as HM
 import qualified Data.Map                          as M
 import           Data.Time.Units                   (Microsecond, Millisecond,
                                                     TimeUnit (..))
@@ -37,7 +38,7 @@ import           Pos.Binary.Class                  (FixedSizeInt (..), SignedVar
                                                     TinyVarInt (..), UnsignedVarInt (..))
 import           Pos.Binary.Core                   ()
 import           Pos.Binary.Crypto                 ()
-import           Pos.Core.Address                  (makeAddress)
+import           Pos.Core.Address                  (addressHash, makeAddress)
 import           Pos.Core.Coin                     (coinToInteger, divCoin, unsafeSubCoin)
 import           Pos.Core.Configuration.Protocol   (HasProtocolConstants, epochSlots)
 import           Pos.Core.Constants                (sharedSeedLength)
@@ -494,16 +495,17 @@ instance Arbitrary Fee.TxFeePolicy where
 
 instance HasProtocolConstants => Arbitrary G.GenesisDelegation where
     arbitrary =
-        leftToPanic "arbitrary@GenesisDelegation" . G.mkGenesisDelegation <$> do
+        leftToPanic "arbitrary@GenesisDelegation" . G.mkGenesisDelegation . HM.fromList <$> do
             secretKeys <- sized (nonrepeating . min 10) -- we generate at most tens keys,
                                                         -- because 'nonrepeating' fails when
                                                         -- we want too many items, because
                                                         -- life is hard
             return $
                 case secretKeys of
-                    [] -> []
-                    (delegate:issuers) ->
-                        issuers <&> \sk -> createPsk sk (toPublic delegate) 0
+                    []                 -> []
+                    (delegate:issuers) -> mkCertPair (toPublic delegate) <$> issuers
+      where
+        mkCertPair delegatePk sk = (addressHash delegatePk, createPsk sk delegatePk 0)
 
 instance Arbitrary G.BalanceDistribution where
     arbitrary = do
@@ -545,7 +547,7 @@ instance HasProtocolConstants => Arbitrary G.GenesisData where
         hasKnownFeePolicy BlockVersionData {bvdTxFeePolicy = Fee.TxFeePolicyTxSizeLinear {}} =
             True
         hasKnownFeePolicy _ = False
-        arbitraryVssCerts = mkVssCertificatesMap <$> arbitrary
+        arbitraryVssCerts = G.GenesisVssCertificatesMap . mkVssCertificatesMap <$> arbitrary
 
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types

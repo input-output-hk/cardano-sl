@@ -28,10 +28,10 @@ import           Pos.Binary.Core.Address    ()
 import           Pos.Core.Address           (addressF, decodeTextAddress)
 import           Pos.Core.Fee               (Coeff (..), TxFeePolicy (..),
                                              TxSizeLinear (..))
-import           Pos.Core.Genesis.Types     (GenesisAvvmBalances (..),
-                                             GenesisNonAvvmBalances (..),
-                                             GenesisData (..),
+import           Pos.Core.Genesis.Types     (GenesisAvvmBalances (..), GenesisData (..),
                                              GenesisDelegation (..),
+                                             GenesisNonAvvmBalances (..),
+                                             GenesisVssCertificatesMap (..),
                                              GenesisWStakeholders (..),
                                              ProtocolConstants (..), mkGenesisDelegation)
 import           Pos.Core.Types             (Address, BlockVersionData (..), Coin,
@@ -40,7 +40,8 @@ import           Pos.Core.Types             (Address, BlockVersionData (..), Coi
                                              StakeholderId, Timestamp (..),
                                              getCoinPortion, mkCoin, mkCoinPortion,
                                              unsafeGetCoin)
-import           Pos.Core.Vss               (VssCertificate (..), mkVssCertificatesMap)
+import           Pos.Core.Vss               (VssCertificate (..), VssCertificatesMap,
+                                             validateVssCertificatesMap)
 import           Pos.Crypto                 (ProxyCert, ProxySecretKey (..), PublicKey,
                                              RedeemPublicKey, Signature,
                                              decodeAbstractHash, fromAvvmPk,
@@ -180,7 +181,7 @@ instance Monad m => ToJSON m GenesisWStakeholders where
     toJSON (GenesisWStakeholders stks) = toJSON stks
 
 instance Monad m => ToJSON m GenesisDelegation where
-    toJSON = toJSON . toList . unGenesisDelegation
+    toJSON = toJSON . unGenesisDelegation
 
 instance Monad m => ToJSON m ProtocolConstants where
     toJSON ProtocolConstants {..} =
@@ -194,6 +195,9 @@ instance Monad m => ToJSON m ProtocolConstants where
 
 instance Monad m => ToJSON m GenesisAvvmBalances where
     toJSON = toJSON . getGenesisAvvmBalances
+
+instance Monad m => ToJSON m GenesisVssCertificatesMap where
+    toJSON = toJSON . getGenesisVssCertificatesMap
 
 instance Monad m => ToJSON m GenesisNonAvvmBalances where
     toJSON = toJSON . getGenesisNonAvvmBalances
@@ -226,8 +230,7 @@ instance Monad m => ToJSON m GenesisData where
             [ ("bootStakeholders", toJSON gdBootStakeholders)
             , ("heavyDelegation", toJSON gdHeavyDelegation)
             , ("startTime", toJSON gdStartTime)
-            -- no need to encode keys from 'VssCertificatesMap'
-            , ("vssCerts", toJSON $ toList gdVssCerts)
+            , ("vssCerts", toJSON gdVssCerts)
             , ("nonAvvmBalances", toJSON gdNonAvvmBalances)
             , ("blockVersionData", toJSON gdBlockVersionData)
             , ("protocolConsts", toJSON gdProtocolConsts)
@@ -446,10 +449,13 @@ instance (ReportSchemaErrors m) => FromJSON m GenesisData where
         gdBootStakeholders <- fromJSField obj "bootStakeholders"
         gdHeavyDelegation <- fromJSField obj "heavyDelegation"
         gdStartTime <- fromJSField obj "startTime"
-        gdVssCerts <- mkVssCertificatesMap <$> fromJSField obj "vssCerts"
+        gdVssCerts <- fromJSField obj "vssCerts" >>= wrapConstructor . mkGenesisVssCertsMap
         gdNonAvvmBalances <- fromJSField obj "nonAvvmBalances"
         gdBlockVersionData <- fromJSField obj "blockVersionData"
         gdProtocolConsts <- fromJSField obj "protocolConsts"
         gdAvvmDistr <- fromJSField obj "avvmDistr"
         gdFtsSeed <- fromJSField obj "ftsSeed"
         return GenesisData {..}
+      where
+        mkGenesisVssCertsMap :: VssCertificatesMap -> Either Text GenesisVssCertificatesMap
+        mkGenesisVssCertsMap = fmap GenesisVssCertificatesMap . validateVssCertificatesMap

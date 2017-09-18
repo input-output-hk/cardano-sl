@@ -2993,7 +2993,7 @@ self: {
           description = "JSON encoding of ekg metrics";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      ekg-statsd = callPackage ({ base, bytestring, ekg-core, mkDerivation, network, stdenv, text, time, unordered-containers }:
+      ekg-statsd = callPackage ({ base, bytestring, ekg-core, fetchgit, mkDerivation, network, stdenv, text, time, unordered-containers }:
       mkDerivation {
           pname = "ekg-statsd";
           version = "0.2.1.1";

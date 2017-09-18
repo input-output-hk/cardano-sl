@@ -6,11 +6,8 @@ import           Universum
 
 import           Control.Lens          ((?~))
 import           Crypto.Random         (MonadRandom)
-import qualified Data.ByteString       as BS
-import           Data.Default          (def)
 import qualified Data.List             as L
 import qualified Data.Text             as T
-import           Data.Yaml             (decodeEither)
 import           Formatting            (build, sformat, (%))
 import           System.Directory      (createDirectoryIfMissing)
 import           System.FilePath       ((</>))
@@ -20,11 +17,10 @@ import           System.Wlog           (Severity (Debug), WithLogger, consoleOut
                                         usingLoggerName)
 
 import           Pos.Binary            (asBinary)
-import           Pos.Core              (Coin, GenesisInitializer (..), addressHash,
-                                        coinToInteger, generateFakeAvvm,
-                                        generateGenesisData, generateSecrets,
-                                        getGenesisAvvmBalances, gsAvvmDistr,
-                                        gsInitializer)
+import           Pos.Core              (CoreConfiguration (..), GenesisConfiguration (..),
+                                        GenesisInitializer (..), addressHash, ccGenesis,
+                                        coreConfiguration, generateFakeAvvm,
+                                        generateSecrets, generatedSecrets, gsInitializer)
 import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair,
                                         noPassEncrypt, redeemPkB64F, toVssPublicKey)
 import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
@@ -117,27 +113,15 @@ generateKeysByGenesis
     :: (HasConfigurations, MonadIO m, WithLogger m, MonadThrow m, MonadRandom m)
     => GenKeysOptions -> m ()
 generateKeysByGenesis GenKeysOptions{..} = do
-    yaml <- liftIO $ BS.readFile gkoGenesisJSON
-    case decodeEither yaml of
-        Left err ->
-            error $ "Failed to read genesis-spec from " <>
-                    toText gkoGenesisJSON <> ": " <> toText err
-        Right spec -> case gsInitializer spec of
+    case ccGenesis coreConfiguration of
+        GCSrc _ ->
+            error $ "Launched source file conf"
+        GCSpec spec -> case gsInitializer spec of
             MainnetInitializer{}   -> error "Can't generate keys for MainnetInitializer"
             TestnetInitializer{..} -> do
-                -- TODO This is awful copy-paste of 'withGenesisSpec'
-                -- code. Currently we do not store 'GeneratedGenesisData'
-                -- inside config as it is so constructing it back from
-                -- reflection is hard. Thus we re-generate it using same
-                -- parameters it was generated (hopefully lol).
-                let avvmSum = foldr' ((+) . coinToInteger) 0 $
-                                     getGenesisAvvmBalances $ gsAvvmDistr spec
-                    maxTnBalance = fromIntegral $! coinToInteger (maxBound @Coin) - avvmSum
-                    generated = generateGenesisData (gsInitializer spec) maxTnBalance
-
                 dumpGeneratedGenesisData (gkoOutDir, gkoKeyPattern)
                                          tiTestBalance
-                                         generated
+                                         (fromMaybe (error "No secrets for genesis") generatedSecrets)
                 logInfo (toText gkoOutDir <> " generated successfully")
 
 ----------------------------------------------------------------------------
@@ -148,7 +132,7 @@ main :: IO ()
 main = do
     KeygenOptions{..} <- getKeygenOptions
     setupLogging $ consoleOutB & lcTermSeverity ?~ Debug
-    usingLoggerName "keygen" $ withConfigurations def $ do
+    usingLoggerName "keygen" $ withConfigurations koConfigurationOptions $ do
         logInfo "Processing command"
         case koCommand of
             RearrangeMask msk       -> rearrange msk

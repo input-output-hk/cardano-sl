@@ -46,9 +46,8 @@ data DumpAvvmSeedsOptions = DumpAvvmSeedsOptions
     } deriving (Show)
 
 data GenKeysOptions = GenKeysOptions
-    { gkoGenesisJSON :: FilePath
-    , gkoOutDir      :: FilePath
-    , gkoKeyPattern  :: FilePath
+    { gkoOutDir     :: FilePath
+    , gkoKeyPattern :: FilePath
     } deriving (Show)
 
 keygenCommandParser :: Parser KeygenCommand
@@ -96,11 +95,6 @@ dumpAvvmSeedsParser = do
 
 keysBySpecParser  :: Parser GenKeysOptions
 keysBySpecParser = do
-    gkoGenesisJSON <- strOption $
-        long    "genesis-spec" <>
-        metavar "FILE" <>
-        value   "genesis-spec.yaml" <>
-        help    "Genesis file (.yaml)."
     gkoOutDir <- strOption $
         long    "genesis-out-dir" <>
         metavar "DIR" <>

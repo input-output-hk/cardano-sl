@@ -28,6 +28,7 @@ executable cardano-wallet
   build-depends:
                        QuickCheck
                      , acid-state
+                     , aeson
                      , ansi-wl-pprint
                      , base
                      , base58-bytestring

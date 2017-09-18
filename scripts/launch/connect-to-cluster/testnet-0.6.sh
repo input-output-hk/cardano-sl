@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-set -euo pipefail
 
-readonly CLUSTER=testnet-staging-0.6
-readonly DOMAIN=aws.iohkdev.io
-readonly SYSTEM_START_TIME=1504807319
+readonly CLUSTER=testnet-0.6
+readonly DOMAIN=aws.iohk.io
+readonly SYSTEM_START_TIME=1504820421
 
 if [[ "$1" == "-c" ]]; then
   shift
@@ -33,16 +32,13 @@ printf "wallet:
     valency: 1
     fallbacks: 7" > "${TMP_TOPOLOGY_YAML}"
 
-stack exec -- cardano-node                                  \
-    --tlscert ./scripts/tls-files/server.crt                \
-    --tlskey ./scripts/tls-files/server.key                 \
-    --tlsca ./scripts/tls-files/ca.crt                      \
+stack exec -- cardano-node-simple                           \
     --no-ntp                                                \
     --topology "${TMP_TOPOLOGY_YAML}"                       \
     --log-config scripts/log-templates/log-config-qa.yaml   \
     --logs-prefix "logs/${CLUSTER}"                         \
     --db-path db-${CLUSTER}                                 \
-    --wallet-db-path wdb-${CLUSTER}                         \
-    --keyfile secret-$CLUSTER.key \
+    --keyfile secret-$CLUSTER.key                           \
     --system-start "${SYSTEM_START_TIME}"                   \
-    --custom-config-name testnet_staging_full
+    --configuration-file node/configuration.mainnet.yaml    \
+    --configuration-key mainnet_base                   

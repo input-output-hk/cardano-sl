@@ -33,6 +33,7 @@ import           Pos.Core.Genesis.Types                  (FakeAvvmOptions (..),
                                                           GenesisAvvmBalances (..),
                                                           GenesisInitializer (..),
                                                           GenesisNonAvvmBalances (..),
+                                                          GenesisVssCertificatesMap (..),
                                                           GenesisWStakeholders (..),
                                                           TestnetBalanceOptions (..),
                                                           TestnetDistribution (..))
@@ -58,7 +59,7 @@ data GeneratedGenesisData = GeneratedGenesisData
     -- ^ Avvm balances
     , ggdBootStakeholders :: !GenesisWStakeholders
     -- ^ Set of boot stakeholders (richmen addresses or custom addresses)
-    , ggdVssCerts         :: !VssCertificatesMap
+    , ggdVssCerts         :: !GenesisVssCertificatesMap
     -- ^ Genesis vss data (vss certs of richmen)
     , ggdSecrets          :: !(Maybe GeneratedSecrets)
     }
@@ -109,10 +110,10 @@ generateGenesisData (TestnetInitializer{..}) maxTnBalance = deterministic (seria
     let toStakeholders = Map.fromList . map ((,1) . addressHash . toPublic . fst)
     let toVss = HM.fromList . map (_1 %~ addressHash . toPublic)
 
-    let (bootStakeholders, gtData) =
+    let (bootStakeholders, vssCerts) =
             case tiDistribution of
                 TestnetRichmenStakeDistr    ->
-                    (toStakeholders richSkVssCerts, toVss richSkVssCerts)
+                    (toStakeholders richSkVssCerts, GenesisVssCertificatesMap $ toVss richSkVssCerts)
                 TestnetCustomStakeDistr{..} ->
                     (getGenesisWStakeholders tcsdBootStakeholders, tcsdVssCerts)
 
@@ -120,7 +121,7 @@ generateGenesisData (TestnetInitializer{..}) maxTnBalance = deterministic (seria
         { ggdNonAvvm = GenesisNonAvvmBalances nonAvvmDistr
         , ggdAvvm = fakeAvvmDistr
         , ggdBootStakeholders = GenesisWStakeholders bootStakeholders
-        , ggdVssCerts = gtData
+        , ggdVssCerts = vssCerts
         , ggdSecrets = Just $ GeneratedSecrets
               { gsSecretKeys = secretKeys
               , gsFakeAvvmSeeds = seeds

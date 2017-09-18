@@ -54,7 +54,7 @@ dev: &dev
           vssMinTTL: 2
           vssMaxTTL: 6
         ftsSeed: "c2tvdm9yb2RhIEdndXJkYSBib3JvZGEgcHJvdm9kYSA="
-        heavyDelegation: []
+        heavyDelegation: {}
         avvmDistr:
           avvmData: []
 

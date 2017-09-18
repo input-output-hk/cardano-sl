@@ -5,6 +5,7 @@ module Pos.Core.Genesis.Types
 
        , GenesisWStakeholders (..)
        , GenesisDelegation (..)
+       , GenesisVssCertificatesMap (..)
        , noGenesisDelegation
        , mkGenesisDelegation
        , bootDustThreshold
@@ -87,9 +88,11 @@ noGenesisDelegation = UnsafeGenesisDelegation mempty
 -- | Safe constructor of 'GenesisDelegation'.
 mkGenesisDelegation ::
        MonadError Text m
-    => [ProxySKHeavy]
+    => HashMap StakeholderId ProxySKHeavy
     -> m GenesisDelegation
-mkGenesisDelegation psks = do
+mkGenesisDelegation pskM = do
+    unless (all checkAddrHash $ HM.toList pskM) $
+        throwError "wrong issuerPk address hash set as key for delegation map"
     unless (allDistinct $ pskIssuerPk <$> psks) $
         throwError "all issuers must be distinct"
     when (any isSelfSignedPsk psks) $
@@ -102,6 +105,9 @@ mkGenesisDelegation psks = do
     when (any isIssuer psks) $
         throwError "one of the delegates is also an issuer, don't do it"
     return $ UnsafeGenesisDelegation resMap
+  where
+    psks = toList pskM
+    checkAddrHash (k, ProxySecretKey {..}) = addressHash pskIssuerPk == k
 
 -- | Calculates a minimum amount of coins user can set as an output in
 -- boot era.
@@ -145,7 +151,7 @@ data TestnetDistribution
     | TestnetCustomStakeDistr
     { tcsdBootStakeholders :: !GenesisWStakeholders
     -- ^ Bootstrap stakeholders and their weights are provided explicitly.
-    , tcsdVssCerts         :: !VssCertificatesMap
+    , tcsdVssCerts         :: !GenesisVssCertificatesMap
     -- ^ Vss certificates are provided explicitly too, because they
     -- can't be generated automatically in this case.
     } deriving (Show)
@@ -164,7 +170,7 @@ data GenesisInitializer
     | MainnetInitializer {
       miStartTime        :: !Timestamp
     , miBootStakeholders :: !GenesisWStakeholders
-    , miVssCerts         :: !VssCertificatesMap
+    , miVssCerts         :: !GenesisVssCertificatesMap
     , miNonAvvmBalances  :: !GenesisNonAvvmBalances
     } deriving (Show)
 
@@ -198,6 +204,11 @@ convertAvvmDataToBalances AvvmData{..} = GenesisAvvmBalances balances
             AvvmEntry {..} <- avvmData
             let adaCoin = unsafeIntegerToCoin aeCoin
             return (aePublicKey, adaCoin)
+
+-- | Predefined balances of non avvm entries.
+newtype GenesisVssCertificatesMap = GenesisVssCertificatesMap
+    { getGenesisVssCertificatesMap :: VssCertificatesMap
+    } deriving (Show, Eq, Monoid)
 
 -- | Predefined balances of non avvm entries.
 newtype GenesisNonAvvmBalances = GenesisNonAvvmBalances
@@ -282,7 +293,7 @@ data GenesisData = GenesisData
     { gdBootStakeholders :: !GenesisWStakeholders
     , gdHeavyDelegation  :: !GenesisDelegation
     , gdStartTime        :: !Timestamp
-    , gdVssCerts         :: !VssCertificatesMap
+    , gdVssCerts         :: !GenesisVssCertificatesMap
     , gdNonAvvmBalances  :: !GenesisNonAvvmBalances
     , gdBlockVersionData :: !BlockVersionData
     , gdProtocolConsts   :: !ProtocolConstants

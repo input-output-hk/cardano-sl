@@ -45,4 +45,4 @@ stack exec -- cardano-node                                  \
     --wallet-db-path wdb-${CLUSTER}                         \
     --keyfile secret-$CLUSTER.key \
     --system-start "${SYSTEM_START_TIME}"                   \
-    --custom-config-name testnet_staging_full
+    --configuration-key testnet_staging_full

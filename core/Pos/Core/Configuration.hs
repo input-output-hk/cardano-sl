@@ -6,6 +6,8 @@ module Pos.Core.Configuration
        , withCoreConfigurations
        , withGenesisSpec
 
+       , canonicalGenesisJson
+
        , module E
        ) where
 
@@ -46,6 +48,12 @@ type HasConfiguration =
     , HasProtocolConstants
     )
 
+canonicalGenesisJson :: GenesisData -> (BSL.ByteString, Hash.Digest Hash.Blake2b_256)
+canonicalGenesisJson theGenesisData = (canonicalJsonBytes, jsonHash)
+  where
+    jsonHash = Hash.hash $ BSL.toStrict canonicalJsonBytes
+    canonicalJsonBytes = Canonical.renderCanonicalJSON $ runIdentity $ Canonical.toJSON theGenesisData
+
 -- | Come up with a HasConfiguration constraint using a Configuration.
 -- The Configuration record can be parsed from JSON or Yaml, and used to
 -- get a GenesisSpec, either from the file itself or from another file:
@@ -75,15 +83,6 @@ withCoreConfigurations conf@CoreConfiguration{..} mSystemStart act = case ccGene
     GCSrc fp -> do
         !bytes <- liftIO $ BS.readFile fp
 
-        let digest :: Hash.Digest Hash.Blake2b_256
-            digest = Hash.hash bytes
-        when (digest /= genesisDataDigest) $
-            throwM $ GenesisHashMismatch (show digest) (show genesisDataDigest)
-        -- See Pos.Core.Constants. The genesisHash is conceptually distinct
-        -- from the genesisDataDigest, they just happen to coincide for
-        -- mainnet.
-        let theGenesisHash = AbstractHash digest
-
         gdataJSON <- case Canonical.parseCanonicalJSON (BSL.fromStrict bytes) of
             Left str -> throwM $ GenesisDataParseFailure (fromString str)
             Right it -> return it
@@ -92,11 +91,18 @@ withCoreConfigurations conf@CoreConfiguration{..} mSystemStart act = case ccGene
             Left str -> throwM $ GenesisDataParseFailure (fromString str)
             Right it -> return it
 
+        let (_, theGenesisHash) = canonicalGenesisJson theGenesisData
+        when (theGenesisHash /= genesisDataDigest) $
+            throwM $ GenesisHashMismatch (show theGenesisHash) (show genesisDataDigest)
+        -- See Pos.Core.Constants. The genesisHash is conceptually distinct
+        -- from the genesisDataDigest, they just happen to coincide for
+        -- mainnet.
+
         withCoreConfiguration conf $
           withProtocolConstants (gdProtocolConsts theGenesisData) $
           withGenesisBlockVersionData (gdBlockVersionData theGenesisData) $
           withGenesisData theGenesisData $
-          withGenesisHash theGenesisHash $
+          withGenesisHash (AbstractHash theGenesisHash) $
           withGeneratedSecrets Nothing $
           act
 

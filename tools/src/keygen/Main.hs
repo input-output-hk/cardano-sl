@@ -6,9 +6,7 @@ import           Universum
 
 import           Control.Lens          ((?~))
 import           Crypto.Random         (MonadRandom)
-import           Data.Aeson            (eitherDecode)
 import qualified Data.ByteString       as BS
-import qualified Data.ByteString.Lazy  as BSL
 import           Data.Default          (def)
 import qualified Data.List             as L
 import qualified Data.Text             as T
@@ -22,10 +20,8 @@ import           System.Wlog           (Severity (Debug), WithLogger, consoleOut
                                         usingLoggerName)
 
 import           Pos.Binary            (asBinary)
-import           Pos.Core              (Coin, GenesisAvvmBalances,
-                                        GenesisInitializer (..), addressHash, aeCoin,
-                                        avvmData, coinToInteger,
-                                        convertAvvmDataToBalances, generateFakeAvvm,
+import           Pos.Core              (Coin, GenesisInitializer (..), addressHash,
+                                        coinToInteger, generateFakeAvvm,
                                         generateGenesisData, generateSecrets,
                                         getGenesisAvvmBalances, gsAvvmDistr,
                                         gsInitializer)
@@ -38,11 +34,9 @@ import           Pos.Util.UserSecret   (readUserSecret, takeUserSecret, usKeys, 
                                         usVss, usWalletSet, writeUserSecretRelease)
 import           Pos.Wallet.Web.Secret (wusRootKey)
 
-import           Avvm                  (applyBlacklisted)
 import           Dump                  (dumpFakeAvvmSeed, dumpGeneratedGenesisData,
                                         dumpKeyfile)
-import           KeygenOptions         (AvvmBalanceOptions (..),
-                                        DumpAvvmSeedsOptions (..), GenKeysOptions (..),
+import           KeygenOptions         (DumpAvvmSeedsOptions (..), GenKeysOptions (..),
                                         KeygenCommand (..), KeygenOptions (..),
                                         getKeygenOptions)
 
@@ -56,21 +50,6 @@ rearrangeKeyfile fp = do
     let sk = maybeToList $ us ^. usPrimKey
     writeUserSecretRelease $
         us & usKeys %~ (++ map noPassEncrypt sk)
-
--- Reads avvm json file and returns related 'GenesisAvvmBalances'
-_readAvvmGenesis
-    :: (MonadIO m, WithLogger m, MonadThrow m, MonadFail m)
-    => AvvmBalanceOptions -> m GenesisAvvmBalances
-_readAvvmGenesis AvvmBalanceOptions {..} = do
-    logInfo "Reading avvm data"
-    jsonfile <- liftIO $ BSL.readFile asoJsonPath
-    case eitherDecode jsonfile of
-        Left err       -> error $ toText err
-        Right avvmUtxo -> do
-            avvmDataFiltered <- applyBlacklisted asoBlacklisted avvmUtxo
-            let totalAvvmBalance = sum $ map aeCoin $ avvmData avvmDataFiltered
-            logInfo $ "Total avvm balance after applying blacklist: " <> show totalAvvmBalance
-            pure $ convertAvvmDataToBalances avvmDataFiltered
 
 ----------------------------------------------------------------------------
 -- Commands

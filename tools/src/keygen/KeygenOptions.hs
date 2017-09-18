@@ -5,7 +5,6 @@ module KeygenOptions
        ( KeygenOptions (..)
        , KeygenCommand (..)
        , DumpAvvmSeedsOptions (..)
-       , AvvmBalanceOptions (..)
        , TestnetBalanceOptions (..)
        , FakeAvvmOptions (..)
        , GenKeysOptions (..)
@@ -50,12 +49,6 @@ data GenKeysOptions = GenKeysOptions
     { gkoGenesisJSON :: FilePath
     , gkoOutDir      :: FilePath
     , gkoKeyPattern  :: FilePath
-    } deriving (Show)
-
-data AvvmBalanceOptions = AvvmBalanceOptions
-    { asoJsonPath      :: FilePath
-    , asoHolderKeyfile :: Maybe FilePath
-    , asoBlacklisted   :: Maybe FilePath
     } deriving (Show)
 
 keygenCommandParser :: Parser KeygenCommand

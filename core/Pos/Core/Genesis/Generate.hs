@@ -40,7 +40,6 @@ import           Pos.Core.Genesis.Types                  (FakeAvvmOptions (..),
 import           Pos.Core.Types                          (BlockVersionData (bvdMpcThd),
                                                           Coin)
 import           Pos.Core.Vss                            (VssCertificate,
-                                                          VssCertificatesMap,
                                                           mkVssCertificate)
 import           Pos.Crypto                              (EncryptedSecretKey,
                                                           RedeemPublicKey, SecretKey,

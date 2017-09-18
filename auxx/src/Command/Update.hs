@@ -5,10 +5,12 @@
 module Command.Update
        ( vote
        , propose
+       , proposeUnlockStakeEpoch
        ) where
 
 import           Universum
 
+import           Data.Default        (def)
 import qualified Data.ByteString     as BS
 import qualified Data.HashMap.Strict as HM
 import           Data.List           ((!!))
@@ -17,21 +19,21 @@ import           Formatting          (sformat, string, (%))
 import           Serokell.Util       (sec)
 import           System.Wlog         (logDebug)
 
+import           Pos.DB.Class        (gsAdoptedBVData)
 import           Pos.Binary          (Raw)
 import           Pos.Communication   (SendActions, immediateConcurrentConversations,
-                                      submitUpdateProposal, submitVote)
-import           Pos.Constants       (genesisBlockVersionData)
+                                      submitUpdateProposal, submitVote, NodeId)
 import           Pos.Core.Context    (HasCoreConstants)
 import           Pos.Crypto          (Hash, SignTag (SignUSVote), emptyPassphrase,
                                       encToPublic, hash, hashHexF, safeSign, unsafeHash,
-                                      withSafeSigner)
+                                      withSafeSigner, SafeSigner)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Update          (BlockVersionData (..), BlockVersionModifier (..),
                                       SystemTag, UpId, UpdateData (..), UpdateVote (..),
-                                      mkUpdateProposalWSign)
+                                      mkUpdateProposalWSign, UpdateProposal)
 import           Pos.Wallet          (getSecretKeys)
 
-import           Command.Types       (ProposeUpdateParams (..), ProposeUpdateSystem (..))
+import           Command.Types       (ProposeUpdateParams (..), ProposeUpdateSystem (..), ProposeUnlockStakeEpochParams(..))
 import           Mode                (CmdCtx (..), AuxxMode, getCmdCtx)
 
 ----------------------------------------------------------------------------
@@ -78,8 +80,8 @@ propose ::
 propose sendActions ProposeUpdateParams{..} = do
     CmdCtx{ccPeers} <- getCmdCtx
     logDebug "Proposing update..."
-    skey <- (!! puIdx) <$> getSecretKeys
-    let BlockVersionData {..} = genesisBlockVersionData
+    skey <- (!! puSecretKeyIdx) <$> getSecretKeys
+    BlockVersionData {..} <- gsAdoptedBVData
     let bvm =
             BlockVersionModifier
             { bvmScriptVersion     = puScriptVersion
@@ -111,13 +113,55 @@ propose sendActions ProposeUpdateParams{..} = do
                         udata
                         (mkAttributes ())
                         ss
-            if null ccPeers
-                then putText "Error: no addresses specified"
-                else do
-                    submitUpdateProposal (immediateConcurrentConversations sendActions ccPeers) ss updateProposal
-                    let id = hash updateProposal
-                    putText $
-                      sformat ("Update proposal submitted, upId: "%hashHexF) id
+            submitUpdateProposal' sendActions ccPeers ss updateProposal
+
+proposeUnlockStakeEpoch ::
+       HasCoreConstants
+    => SendActions AuxxMode
+    -> ProposeUnlockStakeEpochParams
+    -> AuxxMode ()
+proposeUnlockStakeEpoch sendActions ProposeUnlockStakeEpochParams{..} = do
+    CmdCtx{ccPeers} <- getCmdCtx
+    skey <- (!! puseSecretKeyIdx) <$> getSecretKeys
+    BlockVersionData{..} <- gsAdoptedBVData
+    let bvm =
+            BlockVersionModifier
+            { bvmScriptVersion     = bvdScriptVersion
+            , bvmSlotDuration      = bvdSlotDuration
+            , bvmMaxBlockSize      = bvdMaxBlockSize
+            , bvmMaxHeaderSize     = bvdMaxHeaderSize
+            , bvmMaxTxSize         = bvdMaxTxSize
+            , bvmMaxProposalSize   = bvdMaxProposalSize
+            , bvmMpcThd            = bvdMpcThd
+            , bvmHeavyDelThd       = bvdHeavyDelThd
+            , bvmUpdateVoteThd     = bvdUpdateVoteThd
+            , bvmUpdateProposalThd = bvdUpdateProposalThd
+            , bvmUpdateImplicit    = bvdUpdateImplicit
+            , bvmSoftforkRule      = Nothing
+            , bvmTxFeePolicy       = Nothing
+            , bvmUnlockStakeEpoch  = Just puseUnlockStakeEpoch
+            }
+    withSafeSigner skey (pure emptyPassphrase) $ \case
+        Nothing -> putText "Invalid passphrase"
+        Just ss -> do
+            updateProposal <- mkUpdateProposalWSign
+                puseBlockVersion bvm puseSoftwareVersion mempty def ss
+            submitUpdateProposal' sendActions ccPeers ss updateProposal
+
+submitUpdateProposal' ::
+       SendActions AuxxMode
+    -> [NodeId]
+    -> SafeSigner
+    -> UpdateProposal
+    -> AuxxMode ()
+submitUpdateProposal' sendActions ccPeers ss updateProposal =
+    if null ccPeers
+        then putText "Error: no addresses specified"
+        else do
+            submitUpdateProposal (immediateConcurrentConversations sendActions ccPeers) ss updateProposal
+            let id = hash updateProposal
+            putText $
+              sformat ("Update proposal submitted, upId: "%hashHexF) id
 
 updateDataElement :: MonadIO m => ProposeUpdateSystem -> m (SystemTag, UpdateData)
 updateDataElement ProposeUpdateSystem{..} = do

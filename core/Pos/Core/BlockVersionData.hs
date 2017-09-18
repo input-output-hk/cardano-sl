@@ -40,6 +40,7 @@ instance Buildable BlockVersionData where
               ", update implicit period: "%int%" slots"%
               ", softfork rule: "%softforkRuleF%
               ", tx fee policy: "%build%
+              ", unlock stake epoch: "%build%
               " }")
         bvdScriptVersion
         bvdSlotDuration
@@ -54,5 +55,6 @@ instance Buildable BlockVersionData where
         bvdUpdateImplicit
         bvdSoftforkRule
         bvdTxFeePolicy
+        bvdUnlockStakeEpoch
 
 instance NFData BlockVersionData where

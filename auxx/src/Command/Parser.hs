@@ -30,7 +30,7 @@ import           Pos.Types              (AddrStakeDistribution (..), Address, Co
 import           Pos.Update             (SystemTag, mkSystemTag)
 import           Pos.Util.Util          (eitherToFail)
 
-import           Command.Types          (Command (..), ProposeUpdateParams (..),
+import           Command.Types          (Command (..), ProposeUpdateParams (..), ProposeUnlockStakeEpochParams(..),
                                          ProposeUpdateSystem (..), SendMode (..),
                                          SendToAllGenesisParams (..))
 
@@ -125,6 +125,17 @@ proposeUpdateParams =
 proposeUpdate :: Parser Command
 proposeUpdate = ProposeUpdate <$> proposeUpdateParams
 
+proposeUnlockStakeEpochParams :: Parser ProposeUnlockStakeEpochParams
+proposeUnlockStakeEpochParams =
+    ProposeUnlockStakeEpochParams <$>
+    num <*>
+    lexeme parseBlockVersion <*>
+    lexeme parseSoftwareVersion <*>
+    num
+
+proposeUnlockStakeEpoch :: Parser Command
+proposeUnlockStakeEpoch = ProposeUnlockStakeEpoch <$> proposeUnlockStakeEpochParams
+
 coinPortionP :: Parser CoinPortion
 coinPortionP = do
     (token, modifier) <- anyText <&> \s -> case Text.stripSuffix "%" s of
@@ -172,11 +183,13 @@ parseSystemTag =
 
 command :: Parser Command
 command = try (text "balance") *> balance <|>
+          try (text "print-bvd") $> PrintBlockVersionData <|>
           try (text "send-to-all-genesis") *> sendToAllGenesis <|>
           try (text "send-from-file") *> sendTxsFromFileP <|>
           try (text "send") *> send <|>
           try (text "vote") *> vote <|>
           try (text "propose-update") *> proposeUpdate <|>
+          try (text "propose-unlock-stake-epoch") *> proposeUnlockStakeEpoch <|>
           try (text "delegate-light") *> delegateL <|>
           try (text "delegate-heavy") *> delegateH <|>
           try (text "add-key-pool") *> addKeyFromPool <|>

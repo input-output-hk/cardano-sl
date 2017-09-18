@@ -22,12 +22,15 @@ import           Pos.Wallet.Web.Account       (GenSeed (..), genUniqueAccountId)
 import           Pos.Wallet.Web.Backup        (AccountMetaBackup (..), TotalBackup (..),
                                                WalletBackup (..), WalletMetaBackup (..),
                                                getWalletBackup)
-import           Pos.Wallet.Web.ClientTypes   (CId, CWallet, Wal, encToCId)
+import           Pos.Wallet.Web.ClientTypes   (CId, CWallet, Wal, encToCId,
+                                               CAccountMeta (..), CAccountInit (..))
 import           Pos.Wallet.Web.Error         (WalletError (..))
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.State         (createAccount, getWalletMeta)
 import           Pos.Wallet.Web.Tracking      (syncWalletOnImport)
+
+import           Pos.Crypto                   (firstHardened, emptyPassphrase)
 
 restoreWalletFromBackup :: MonadWalletWebMode m => WalletBackup -> m CWallet
 restoreWalletFromBackup WalletBackup {..} = do
@@ -45,11 +48,20 @@ restoreWalletFromBackup WalletBackup {..} = do
                           & each . _2 %~ \(AccountMetaBackup am) -> am
 
             addSecretKey wbSecretKey
-            for_ accList $ \(idx, meta) -> do
-                let aIdx = fromInteger $ fromIntegral idx
-                    seedGen = DeterminedSeed aIdx
-                accId <- genUniqueAccountId seedGen wId
-                createAccount accId meta
+            if length accList > 0
+              then
+                for_ accList $ \(idx, meta) -> do
+                    let aIdx = fromInteger $ fromIntegral idx
+                        seedGen = DeterminedSeed aIdx
+                    accId <- genUniqueAccountId seedGen wId
+                    createAccount accId meta
+              -- If there are no existing accounts, then create one
+              else do
+                let idx = DeterminedSeed firstHardened
+                    accMeta = CAccountMeta { caName = "Initial account" }
+                    accInit = CAccountInit { caInitWId = wId, caInitMeta = accMeta }
+                () <$ L.newAccountIncludeUnready True idx emptyPassphrase accInit
+
             -- Restoring a wallet from backup may take a long time.
             -- Hence we mark the wallet as "not ready" until `syncWalletOnImport` completes.
             void $ L.createWalletSafe wId wMeta False

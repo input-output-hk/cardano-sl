@@ -214,8 +214,11 @@ getHistory tls walletId accountId addr skip limit =
 nextUpdate :: forall eff. TLSOptions -> Aff (http :: HTTP, exception :: EXCEPTION | eff) CUpdateInfo
 nextUpdate tls = getR tls $ noQueryParam ["update"]
 
+postponeUpdate :: forall eff. TLSOptions -> Aff (http :: HTTP, exception :: EXCEPTION | eff) Unit
+postponeUpdate tls = postR tls $ noQueryParam ["update", "postpone"]
+
 applyUpdate :: forall eff. TLSOptions -> Aff (http :: HTTP, exception :: EXCEPTION | eff) Unit
-applyUpdate tls = postR tls $ noQueryParam ["update"]
+applyUpdate tls = postR tls $ noQueryParam ["update", "apply"]
 
 --------------------------------------------------------------------------------
 -- Redemptions -----------------------------------------------------------------

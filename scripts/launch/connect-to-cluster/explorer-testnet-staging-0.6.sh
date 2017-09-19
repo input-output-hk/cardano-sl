@@ -2,7 +2,7 @@
 set -euo pipefail
 
 readonly CLUSTER=testnet-staging-0.6
-readonly DOMAIN=aws.iohkdev.io
+readonly DOMAIN=awstest.iohkdev.io
 readonly SYSTEM_START_TIME=1505689646
 
 # readonly LOG_CONFIG=/nix/store/wh6z2ksmb042vc5r8ar9m75ry7b2lcfy-csl-logging.yaml
@@ -36,14 +36,14 @@ stack exec -- cardano-explorer                                                  
     --address 192.168.1.1:3000                                                     \
     --listen 172.31.30.122:3000                                                    \
     --no-ntp                                                                       \
-    --json-log /var/lib/cardano-node//jsonLog.json                                 \
-    --metrics +RTS -T -RTS                                                         \
-    --statsd-server 127.0.0.1:8125                                                 \
-    --ekg-server 172.31.30.122:8080                                                \
+    # --json-log /var/lib/cardano-node//jsonLog.json                                 \
+    # --metrics +RTS -T -RTS                                                         \
+    # --statsd-server 127.0.0.1:8125                                                 \
+    # --ekg-server 172.31.30.122:8080                                                \
     --system-start 1505689646                                                      \
-    --log-config "${LOG_CONFIG}"                                                   \
-    --logs-prefix "${LOG_PREFIX}"                                                  \
-    --db-path /var/lib/cardano-node//node-db                                       \
+    # --log-config "${LOG_CONFIG}"                                                   \
+    # --logs-prefix "${LOG_PREFIX}"                                                  \
+    --db-path db-${CLUSTER}                                                        \
     --topology "${TMP_TOPOLOGY_YAML}"                                              \
     --node-id explorer                                                             \
     --custom-config-name testnet_staging_full

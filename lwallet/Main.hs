@@ -75,8 +75,7 @@ import           Pos.Network.Types                (MsgType (..), Origin (..))
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Txp                          (TxOut (..), TxOutAux (..), txaF,
                                                    unGenesisUtxo)
-import           Pos.Update                       (BlockVersionData (..),
-                                                   BlockVersionModifier (..),
+import           Pos.Update                       (BlockVersionModifier (..),
                                                    SystemTag (..), UpdateData (..),
                                                    UpdateVote (..), mkUpdateProposalWSign)
 import           Pos.Util.UserSecret              (readUserSecret, usKeys)
@@ -283,20 +282,19 @@ runCmd sendActions v@(Vote idx decision upid) CmdCtx{na} = do
 runCmd sendActions ProposeUpdate{..} CmdCtx{na} = do
     logDebug "Proposing update..."
     skey <- (!! puIdx) <$> getSecretKeys
-    let BlockVersionData {..} = genesisBlockVersionData
     let bvm =
             BlockVersionModifier
-            { bvmScriptVersion     = puScriptVersion
-            , bvmSlotDuration      = convertUnit (sec puSlotDurationSec)
-            , bvmMaxBlockSize      = puMaxBlockSize
-            , bvmMaxHeaderSize     = bvdMaxHeaderSize
-            , bvmMaxTxSize         = bvdMaxTxSize
-            , bvmMaxProposalSize   = bvdMaxProposalSize
-            , bvmMpcThd            = bvdMpcThd
-            , bvmHeavyDelThd       = bvdHeavyDelThd
-            , bvmUpdateVoteThd     = bvdUpdateVoteThd
-            , bvmUpdateProposalThd = bvdUpdateProposalThd
-            , bvmUpdateImplicit    = bvdUpdateImplicit
+            { bvmScriptVersion     = Just puScriptVersion
+            , bvmSlotDuration      = Just (convertUnit (sec puSlotDurationSec))
+            , bvmMaxBlockSize      = Just puMaxBlockSize
+            , bvmMaxHeaderSize     = Nothing
+            , bvmMaxTxSize         = Nothing
+            , bvmMaxProposalSize   = Nothing
+            , bvmMpcThd            = Nothing
+            , bvmHeavyDelThd       = Nothing
+            , bvmUpdateVoteThd     = Nothing
+            , bvmUpdateProposalThd = Nothing
+            , bvmUpdateImplicit    = Nothing
             , bvmSoftforkRule      = Nothing
             , bvmTxFeePolicy       = Nothing
             , bvmUnlockStakeEpoch  = Nothing

@@ -8,15 +8,17 @@ import           Universum
 import           Data.Time.Units            (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Raw, deriveSimpleBi, enforceSize,
-                                             encodeListLen, decodeListLen, deriveSimpleBiCxt)
+import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Raw,
+                                             decodeListLen, deriveSimpleBi,
+                                             deriveSimpleBiCxt, encodeListLen,
+                                             enforceSize)
 import           Pos.Binary.Infra           ()
-import           Pos.Core                   (ApplicationName, BlockVersion, HasCoreConstants,
+import           Pos.Core                   (ApplicationName, BlockVersion,
                                              ChainDifficulty, Coin, CoinPortion,
-                                             EpochIndex, FlatSlotId, HeaderHash,
-                                             NumSoftwareVersion, ScriptVersion, SlotId,
-                                             SoftforkRule, SoftwareVersion, StakeholderId,
-                                             TxFeePolicy)
+                                             EpochIndex, FlatSlotId, HasCoreConstants,
+                                             HeaderHash, NumSoftwareVersion,
+                                             ScriptVersion, SlotId, SoftforkRule,
+                                             SoftwareVersion, StakeholderId, TxFeePolicy)
 import           Pos.Crypto                 (Hash, SignTag (SignUSVote), checkSig)
 import           Pos.Slotting.Types         (SlottingData)
 import qualified Pos.Update.Core.Types      as U
@@ -54,20 +56,20 @@ deriveSimpleBi ''U.UpdateData [
 
 deriveSimpleBi ''U.BlockVersionModifier [
     Cons 'U.BlockVersionModifier [
-        Field [| U.bvmScriptVersion     :: ScriptVersion     |],
-        Field [| U.bvmSlotDuration      :: Millisecond       |],
-        Field [| U.bvmMaxBlockSize      :: Byte              |],
-        Field [| U.bvmMaxHeaderSize     :: Byte              |],
-        Field [| U.bvmMaxTxSize         :: Byte              |],
-        Field [| U.bvmMaxProposalSize   :: Byte              |],
-        Field [| U.bvmMpcThd            :: CoinPortion       |],
-        Field [| U.bvmHeavyDelThd       :: CoinPortion       |],
-        Field [| U.bvmUpdateVoteThd     :: CoinPortion       |],
-        Field [| U.bvmUpdateProposalThd :: CoinPortion       |],
-        Field [| U.bvmUpdateImplicit    :: FlatSlotId        |],
-        Field [| U.bvmSoftforkRule      :: Maybe SoftforkRule|],
-        Field [| U.bvmTxFeePolicy       :: Maybe TxFeePolicy |],
-        Field [| U.bvmUnlockStakeEpoch  :: Maybe EpochIndex  |]
+        Field [| U.bvmScriptVersion     :: Maybe ScriptVersion |],
+        Field [| U.bvmSlotDuration      :: Maybe Millisecond   |],
+        Field [| U.bvmMaxBlockSize      :: Maybe Byte          |],
+        Field [| U.bvmMaxHeaderSize     :: Maybe Byte          |],
+        Field [| U.bvmMaxTxSize         :: Maybe Byte          |],
+        Field [| U.bvmMaxProposalSize   :: Maybe Byte          |],
+        Field [| U.bvmMpcThd            :: Maybe CoinPortion   |],
+        Field [| U.bvmHeavyDelThd       :: Maybe CoinPortion   |],
+        Field [| U.bvmUpdateVoteThd     :: Maybe CoinPortion   |],
+        Field [| U.bvmUpdateProposalThd :: Maybe CoinPortion   |],
+        Field [| U.bvmUpdateImplicit    :: Maybe FlatSlotId    |],
+        Field [| U.bvmSoftforkRule      :: Maybe SoftforkRule  |],
+        Field [| U.bvmTxFeePolicy       :: Maybe TxFeePolicy   |],
+        Field [| U.bvmUnlockStakeEpoch  :: Maybe EpochIndex    |]
     ]]
 
 instance Bi U.UpdateProposal where

@@ -1,10 +1,10 @@
 rotation:
-    logLimit: 2097152 # 2MB
+    logLimit: 5242880 # 5MB
     keepFiles: 7
 severity: Debug
 node:
     severity: Debug
-    files: [node.log, node.log.pub]
+    files: [node.log, pub/node.log.pub]
     comm:
         severity: Debug
     dht:

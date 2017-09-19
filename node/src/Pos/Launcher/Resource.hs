@@ -37,9 +37,9 @@ import           System.IO                  (BufferMode (..), Handle, hClose,
                                              hSetBuffering)
 import qualified System.Metrics             as Metrics
 import           System.Wlog                (CanLog, LoggerConfig (..), WithLogger,
-                                             getLoggerName, logError, productionB,
-                                             releaseAllHandlers, setupLogging,
-                                             usingLoggerName)
+                                             getLoggerName, logError, prefixB,
+                                             productionB, releaseAllHandlers,
+                                             setupLogging, showTidB, usingLoggerName)
 
 import           Pos.Binary                 ()
 import           Pos.Block.Slog             (mkSlogContext)
@@ -215,9 +215,9 @@ bracketNodeResources np sp k = bracketTransport tcpAddr $ \transport ->
 
 getRealLoggerConfig :: MonadIO m => LoggingParams -> m LoggerConfig
 getRealLoggerConfig LoggingParams{..} = do
-    -- TODO: introduce Maybe FilePath builder for filePrefix
-    let cfgBuilder = productionB <>
-                     (mempty { _lcFilePrefix = lpHandlerPrefix })
+    let cfgBuilder = productionB
+                  <> showTidB
+                  <> maybe mempty prefixB lpHandlerPrefix
     cfg <- readLoggerConfig lpConfigPath
     pure $ cfg <> cfgBuilder
 

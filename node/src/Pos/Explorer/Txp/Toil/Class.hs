@@ -12,21 +12,24 @@ import           Universum
 import           Control.Lens                (at, (%=), (.=))
 import           Control.Monad.Trans.Class   (MonadTrans)
 
-import           Pos.Core                    (Address, Coin)
+import           Pos.Core                    (Address, Coin, unsafeAddCoin, unsafeSubCoin)
 import           Pos.DB.Class                (MonadDBRead)
 import           Pos.Explorer.Core           (AddrHistory, TxExtra)
 import qualified Pos.Explorer.DB             as DB
 import           Pos.Explorer.Txp.Toil.Types (ExplorerExtra, eeAddrBalances,
-                                              eeAddrHistories, eeLocalTxsExtra)
+                                              eeAddrHistories, eeLocalTxsExtra,
+                                              eeNewUtxoSum)
 import           Pos.Txp.Core                (TxId)
 import           Pos.Txp.Toil                (DBToil, ToilT, tmExtra)
 import           Pos.Util                    (ether)
 import qualified Pos.Util.Modifier           as MM
+import           Pos.Util.Util               (Sign (..))
 
 class Monad m => MonadTxExtraRead m where
     getTxExtra :: TxId -> m (Maybe TxExtra)
     getAddrHistory :: Address -> m AddrHistory
     getAddrBalance :: Address -> m (Maybe Coin)
+    getUtxoSum :: m Coin
 
 instance {-# OVERLAPPABLE #-}
     (MonadTxExtraRead m, MonadTrans t, Monad (t m)) =>
@@ -35,6 +38,7 @@ instance {-# OVERLAPPABLE #-}
     getTxExtra = lift . getTxExtra
     getAddrHistory = lift . getAddrHistory
     getAddrBalance = lift . getAddrBalance
+    getUtxoSum = lift getUtxoSum
 
 
 class MonadTxExtraRead m => MonadTxExtra m where
@@ -43,6 +47,7 @@ class MonadTxExtraRead m => MonadTxExtra m where
     updateAddrHistory :: Address -> AddrHistory -> m ()
     putAddrBalance :: Address -> Coin -> m ()
     delAddrBalance :: Address -> m ()
+    updateUtxoSum :: Sign -> Coin -> m ()
 
 instance {-# OVERLAPPABLE #-}
     (MonadTxExtra m, MonadTrans t, Monad (t m)) =>
@@ -53,6 +58,7 @@ instance {-# OVERLAPPABLE #-}
     updateAddrHistory addr = lift . updateAddrHistory addr
     putAddrBalance addr = lift . putAddrBalance addr
     delAddrBalance = lift . delAddrBalance
+    updateUtxoSum sign = lift . updateUtxoSum sign
 
 ----------------------------------------------------------------------------
 -- ToilT instances
@@ -65,6 +71,10 @@ instance MonadTxExtraRead m => MonadTxExtraRead (ToilT ExplorerExtra m) where
         maybe (getAddrHistory addr) pure =<< use (tmExtra . eeAddrHistories . at addr)
     getAddrBalance addr = ether $
         MM.lookupM getAddrBalance addr =<< use (tmExtra . eeAddrBalances)
+    getUtxoSum = ether $ do
+        valMonad <- getUtxoSum
+        valModifier <- use (tmExtra . eeNewUtxoSum)
+        pure $ fromMaybe valMonad valModifier
 
 instance MonadTxExtraRead m => MonadTxExtra (ToilT ExplorerExtra m) where
     putTxExtra id extra = ether $
@@ -77,6 +87,11 @@ instance MonadTxExtraRead m => MonadTxExtra (ToilT ExplorerExtra m) where
         tmExtra . eeAddrBalances %= MM.insert addr coin
     delAddrBalance addr = ether $
         tmExtra . eeAddrBalances %= MM.delete addr
+    updateUtxoSum sign coin = ether $ do
+        currentVal <- getUtxoSum
+        case sign of
+            Plus  -> tmExtra . eeNewUtxoSum .= Just (unsafeAddCoin currentVal coin)
+            Minus -> tmExtra . eeNewUtxoSum .= Just (unsafeSubCoin currentVal coin)
 
 ----------------------------------------------------------------------------
 -- DBToil instances
@@ -86,3 +101,4 @@ instance (MonadDBRead m) => MonadTxExtraRead (DBToil m) where
     getTxExtra = DB.getTxExtra
     getAddrHistory = DB.getAddrHistory
     getAddrBalance = DB.getAddrBalance
+    getUtxoSum = DB.getUtxoSum

@@ -6,6 +6,7 @@ module Pos.Explorer.Txp.Toil.Types
        , eeLocalTxsExtra
        , eeAddrHistories
        , eeAddrBalances
+       , eeNewUtxoSum
        , ExplorerExtraTxp (..)
        ) where
 
@@ -28,6 +29,7 @@ data ExplorerExtra = ExplorerExtra
     { _eeLocalTxsExtra :: !TxMapExtra
     , _eeAddrHistories :: !UpdatedAddrHistories
     , _eeAddrBalances  :: !TxMapBalances
+    , _eeNewUtxoSum    :: !(Maybe Coin)
     }
 
 makeLenses ''ExplorerExtra
@@ -38,6 +40,7 @@ instance Default ExplorerExtra where
         { _eeLocalTxsExtra = mempty
         , _eeAddrHistories = mempty
         , _eeAddrBalances  = mempty
+        , _eeNewUtxoSum    = Nothing
         }
 
 type EToilModifier = GenericToilModifier ExplorerExtra
@@ -46,4 +49,5 @@ data ExplorerExtraTxp = ExplorerExtraTxp
     { eetTxExtra       :: !(HashMap TxId TxExtra)
     , eetAddrHistories :: !(HashMap Address AddrHistory)
     , eetAddrBalances  :: !(HashMap Address Coin)
+    , eetUtxoSum       :: !Coin
     }

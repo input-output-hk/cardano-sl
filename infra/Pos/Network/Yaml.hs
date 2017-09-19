@@ -52,7 +52,7 @@ data Topology =
   | TopologyBehindNAT {
         topologyValency    :: !Valency
       , topologyFallbacks  :: !Fallbacks
-      , topologyDnsDomains :: !(DnsDomains (DNS.Domain))
+      , topologyDnsDomains :: !(DnsDomains DNS.Domain)
       }
 
   | TopologyP2P {
@@ -90,11 +90,22 @@ data NodeMetadata = NodeMetadata
       -- | Static peers of this node
     , nmRoutes     :: !NodeRoutes
 
+      -- | Dynamic peers: DNS names that give the peers to subscribe to.
+      -- Can use this as an alternative to static 'nmRoutes'.
+    , nmSubscribe  :: !(DnsDomains DNS.Domain)
+      -- | How many peers to subscribe to (with 'nmSubscribe')
+    , nmValency    :: !Valency
+      -- | How many fallback peers to use (with 'nmSubscribe')
+    , nmFallbacks  :: !Fallbacks
+
       -- | Address for this node
     , nmAddress    :: !(NodeAddr (Maybe DNS.Domain))
 
       -- | Should the node register itself with the Kademlia network?
     , nmKademlia   :: !RunKademlia
+
+      -- | Should the node br registered in the public DNS?
+    , nmPublicDNS  :: !InPublicDNS
 
       -- | Maximum number of subscribers (only relevant for relays)
     , nmMaxSubscrs :: !OQ.MaxBucketSize
@@ -102,6 +113,7 @@ data NodeMetadata = NodeMetadata
     deriving (Show)
 
 type RunKademlia = Bool
+type InPublicDNS = Bool
 
 -- | Parameters for Kademlia, in case P2P or traditional topology are used.
 data KademliaParams = KademliaParams
@@ -246,16 +258,31 @@ instance FromJSON NodeMetadata where
   parseJSON = A.withObject "NodeMetadata" $ \obj -> do
       nmType       <- obj .: "type"
       nmRegion     <- obj .: "region"
-      nmRoutes     <- obj .: "static-routes"
+      nmRoutes     <- obj .:? "static-routes"     .!= NodeRoutes []
+      nmSubscribe  <- obj .:? "dynamic-subscribe" .!= DnsDomains []
+      nmValency    <- obj .:? "valency"   .!= 1
+      nmFallbacks  <- obj .:? "fallbacks" .!= 1
       nmAddress    <- extractNodeAddr return obj
       nmKademlia   <- obj .:? "kademlia" .!= defaultRunKademlia nmType
+      nmPublicDNS  <- obj .:? "public"   .!= defaultInPublicDNS nmType
       nmMaxSubscrs <- maybeBucketSize <$> obj .:? "maxSubscrs"
+      case (nmRoutes, nmSubscribe) of
+        (NodeRoutes [], DnsDomains []) ->
+          fail "One of 'static-routes' or 'dynamic-subscribe' must be given"
+        (NodeRoutes (_:_), DnsDomains (_:_)) ->
+          fail "Only one of 'static-routes' or 'dynamic-subscribe' may be given"
+        _ -> return ()
       return NodeMetadata{..}
    where
      defaultRunKademlia :: NodeType -> RunKademlia
      defaultRunKademlia NodeCore  = False
      defaultRunKademlia NodeRelay = True
      defaultRunKademlia NodeEdge  = False
+
+     defaultInPublicDNS :: NodeType -> InPublicDNS
+     defaultInPublicDNS NodeCore  = False
+     defaultInPublicDNS NodeRelay = True
+     defaultInPublicDNS NodeEdge  = False
 
 instance FromJSON AllStaticallyKnownPeers where
   parseJSON = A.withObject "AllStaticallyKnownPeers" $ \obj ->

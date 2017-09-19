@@ -505,7 +505,9 @@ instance HasProtocolConstants => Arbitrary G.GenesisDelegation where
                     []                 -> []
                     (delegate:issuers) -> mkCertPair (toPublic delegate) <$> issuers
       where
-        mkCertPair delegatePk sk = (addressHash delegatePk, createPsk sk delegatePk 0)
+        mkCertPair delegatePk issuer =
+            ( addressHash (toPublic issuer)
+            , createPsk issuer delegatePk 0 )
 
 instance Arbitrary G.BalanceDistribution where
     arbitrary = do

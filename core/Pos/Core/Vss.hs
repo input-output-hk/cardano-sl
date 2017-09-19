@@ -15,6 +15,7 @@ import           Universum
 
 import           Control.Monad.Except            (MonadError (throwError))
 import qualified Data.HashMap.Strict             as HM
+import           Formatting                      (build, sformat, (%))
 
 import           Pos.Binary.Class                (AsBinary (..), Bi)
 import           Pos.Core.Address                (addressHash)
@@ -82,8 +83,12 @@ validateVssCertificatesMap ::
     -> m VssCertificatesMap
 -- | Safe constructor of 'VssCertificatesMap'
 validateVssCertificatesMap m = do
-    unless (all checkCertId $ HM.toList m) $
-        throwError "wrong issuerPk address hash set as key for delegation map"
+    forM (HM.toList m) $ \(k, v) ->
+        when (getCertId v /= k) $
+            throwError $ sformat
+                ("wrong issuerPk set as key for delegation map: "%
+                 "issuer id = "%build%", cert id = "%build)
+                k (getCertId v)
     pure m
   where
     checkCertId (k, v) = getCertId v == k

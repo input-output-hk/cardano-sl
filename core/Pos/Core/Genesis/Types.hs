@@ -33,7 +33,7 @@ import           Control.Lens             (at)
 import           Control.Monad.Except     (MonadError (throwError))
 import qualified Data.HashMap.Strict      as HM
 import qualified Data.Text.Buildable      as Buildable
-import           Formatting               (bprint, (%))
+import           Formatting               (bprint, build, sformat, (%))
 import           Serokell.Util            (allDistinct, mapJson)
 
 import           Pos.Binary.Class         (Bi)
@@ -88,8 +88,12 @@ mkGenesisDelegation ::
     => HashMap StakeholderId ProxySKHeavy
     -> m GenesisDelegation
 mkGenesisDelegation pskM = do
-    unless (all checkAddrHash $ HM.toList pskM) $
-        throwError "wrong issuerPk address hash set as key for delegation map"
+    forM (HM.toList pskM) $ \(k, ProxySecretKey{..}) ->
+        when (addressHash pskIssuerPk /= k) $
+            throwError $ sformat
+                ("wrong issuerPk set as key for delegation map: "%
+                 "issuer id = "%build%", cert id = "%build)
+                k (addressHash pskIssuerPk)
     unless (allDistinct $ pskIssuerPk <$> psks) $
         throwError "all issuers must be distinct"
     when (any isSelfSignedPsk psks) $
@@ -104,7 +108,6 @@ mkGenesisDelegation pskM = do
     return $ UnsafeGenesisDelegation resMap
   where
     psks = toList pskM
-    checkAddrHash (k, ProxySecretKey {..}) = addressHash pskIssuerPk == k
 
 -- | Calculates a minimum amount of coins user can set as an output in
 -- boot era.

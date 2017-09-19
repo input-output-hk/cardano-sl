@@ -6,7 +6,7 @@ import Data.Foldable (for_)
 import Data.Lens ((^.))
 import Data.String (take)
 import Explorer.I18n.Lang (Language, langCode, translate)
-import Explorer.I18n.Lenses (footer, fooCardanoLaunch, fooCardanoOpenSource, fooCardanoHub, fooCardanoSlack, fooDisclaimerPt1, fooDisclaimerPt2, fooCardanoFoundation, fooIohkSupportP, fooCardanoDocumentation, fooCardanoTestnet, fooCardanoSource, fooCardanoFoundationYoutube, fooCardanoFoundationTwitter, fooDaedalusPlatform, fooWhyCardano, fooCardanoRoadmap, fooCardanoReddit, fooCardanoCommunity, fooIOHK, fooIOHKBlog, fooIOHKYoutube) as I18nL
+import Explorer.I18n.Lenses (footer, fooCardanoLaunch, fooCardanoOpenSource, fooCardanoHub, fooCardanoSlack, fooDisclaimerPt1, fooDisclaimerPt2, fooCardanoFoundation, fooEmail, fooGithub, fooIohkSupportP, fooCardanoDocumentation, fooCardanoTestnet, fooCardanoSource, fooCardanoFoundationYoutube, fooCardanoFoundationTwitter, fooDaedalusPlatform, fooWhyCardano, fooCardanoRoadmap, fooCardanoReddit, fooCardanoCommunity, fooIOHK, fooIOHKBlog, fooIOHKYoutube, fooTwitter) as I18nL
 import Explorer.Lenses.State (lang)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
@@ -15,7 +15,7 @@ import Explorer.View.Common (langItems)
 import Pux.DOM.Events (onClick) as P
 import Pux.DOM.HTML (HTML) as P
 import Text.Smolder.HTML (div, nav, a, li, p, span, ul) as S
-import Text.Smolder.HTML.Attributes (className, href) as S
+import Text.Smolder.HTML.Attributes (className, href, title) as S
 import Text.Smolder.Markup ((!), (#!))
 import Text.Smolder.Markup (text) as S
 
@@ -28,18 +28,19 @@ footerView state =
                 S.div ! S.className "explorer-footer__top--content" $ do
                     S.div ! S.className "content__container content__container--left" $ do
                         langView
-                        S.p $
-                            S.a ! S.className ""
-                                ! S.href "https://opensource.org/licenses/MIT"
-                                $ S.text (translate (I18nL.footer <<< I18nL.fooCardanoOpenSource) lang')
-                        S.p ! S.className ""
+                        S.a ! S.className "nav__item--link link-open-source"
+                            ! S.href "https://opensource.org/licenses/MIT"
+                            $ S.text (translate (I18nL.footer <<< I18nL.fooCardanoOpenSource) lang')
+                        S.p ! S.className "disclaimer"
                             $ S.text (translate (I18nL.footer <<< I18nL.fooDisclaimerPt1) lang')
-                        S.p ! S.className ""
+                        S.p ! S.className "disclaimer"
                             $ S.text (translate (I18nL.footer <<< I18nL.fooDisclaimerPt2) lang')
-                    S.div ! S.className "content__container content__container--right"
-                          $ S.nav ! S.className "nav__container nav__container--left" $ do
-                                navListView $ navItemsLeft lang'
-                                navListView $ navItemsRight lang'
+                        navBottomListView $ navBottmItems lang'
+                    S.div ! S.className "content__container content__container--right" $ do
+                          socialListView $ socialItems lang'
+                          S.nav ! S.className "nav__container" $ do
+                              navListView $ navItemsLeft lang'
+                              navListView $ navItemsRight lang'
         S.div ! S.className "explorer-footer__bottom" $ do
             S.div ! S.className "explorer-footer__container" $ do
                 S.div ! S.className "logo__wrapper" $ do
@@ -65,6 +66,8 @@ footerView state =
 
 -- lang
 
+-- TODO(jk) move lagn views into Common.purs
+
 langView :: P.HTML Action
 langView =
     S.ul  ! S.className "lang-nav__container"
@@ -76,6 +79,45 @@ langItemView lang' =
     S.li ! S.className ("lang-nav__item " <> flagClazz )
         #! P.onClick (const $ SetLanguage lang')
         $ S.text (show lang')
+
+-- social
+
+type SocialItem =
+    { link :: String
+    , label :: String
+    , iconClazz :: String
+    }
+
+socialItems :: Language -> Array SocialItem
+socialItems lang =
+    [ { label: translate (I18nL.footer <<< I18nL.fooTwitter) lang
+      , link: "https://twitter.com/cardanostiftung"
+      , iconClazz: "bg-icon-twitter"
+      }
+    , { label: translate (I18nL.footer <<< I18nL.fooEmail) lang
+      , link: "mailto:info@cardanohub.org"
+      , iconClazz: "bg-icon-email"
+      }
+    , { label: translate (I18nL.footer <<< I18nL.fooGithub) lang
+      , link: "https://github.com/input-output-hk/cardano-sl/"
+      , iconClazz: "bg-icon-github"
+      }
+    ]
+
+socialListView :: Array SocialItem -> P.HTML Action
+socialListView items =
+    S.ul  ! S.className "social-nav__container"
+          $ for_ items socialItemView
+
+socialItemView :: SocialItem -> P.HTML Action
+socialItemView item =
+    S.li ! S.className "social-nav__item "
+         $ S.a  ! S.className "social-nav__item--link"
+                ! S.href item.link
+                ! S.title item.label
+                $ S.span  ! S.className ("icon "
+                              <> item.iconClazz)
+                          $ S.text ""
 
 -- nav
 
@@ -145,11 +187,42 @@ navItemsRight lang =
 
 navListView :: Array NavItem -> P.HTML Action
 navListView items =
-    S.ul  ! S.className "nav__container"
+    S.ul  ! S.className "nav__list"
           $ for_ items navItemView
 
 navItemView :: NavItem -> P.HTML Action
 navItemView item =
-    S.a ! S.className "nav__item"
-        ! S.href item.link
-        $ S.text item.label
+    S.li ! S.className "nav__item"
+         $ S.a  ! S.className "nav__item--link"
+                ! S.href item.link
+                $ S.text item.label
+
+
+
+navBottmItems :: Language -> Array NavItem
+navBottmItems lang =
+    [ { label: "The Project"
+      , link: "https://cardanofoundation.org/project/"
+      }
+    , { label: "The Protocol"
+      , link: "https://cardanofoundation.org/protocol/"
+      }
+    , { label: "The Foundation"
+      , link: "https://cardanofoundation.org/foundation/"
+      }
+    , { label: "Learn More"
+      , link: "https://cardanofoundation.org/learn-more/"
+      }
+    ]
+
+navBottomListView :: Array NavItem -> P.HTML Action
+navBottomListView items =
+    S.ul  ! S.className "nav-bottom__list"
+          $ for_ items navBottomItemView
+
+navBottomItemView :: NavItem -> P.HTML Action
+navBottomItemView item =
+    S.li ! S.className "nav-bottom__item"
+         $ S.a  ! S.className "nav-bottom__item--link"
+                ! S.href item.link
+                $ S.text item.label

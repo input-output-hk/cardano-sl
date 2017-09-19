@@ -165,7 +165,7 @@ type GenesisBlock =
 type Footer =
     { fooIohkSupportP :: String
     , fooGithub :: String
-    , fooLinkedin :: String
+    , fooEmail :: String
     , fooTwitter :: String
     , fooDaedalusPlatform :: String
     , fooWhyCardano :: String

@@ -128,7 +128,7 @@ translation =
     , footer:
         { fooIohkSupportP: "IOHK supported project"
         , fooGithub: "Github"
-        , fooLinkedin: "Linkedin"
+        , fooEmail: "Email"
         , fooTwitter: "Twitter"
         , fooDaedalusPlatform: "Daedalus Platform"
         , fooWhyCardano: "Why Cardano"

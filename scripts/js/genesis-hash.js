@@ -1,5 +1,4 @@
-#!/bin/sh 
-":" //# comment; if [[ ! -d node-modules ]]; then mkdir node-modules; npm install;  fi; exec /usr/bin/env node --noharmony "$0" "$@"
+#!/usr/bin/env node
 
 var blake = require('blakejs');
 var canonize = require('canonical-json')

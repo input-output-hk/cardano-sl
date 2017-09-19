@@ -26,6 +26,7 @@ import           Mockable                        (Mockable, MonadMockable,
                                                   Production (..), Throw, async, bracket,
                                                   cancel, killThread, throw)
 import qualified Network.Broadcast.OutboundQueue as OQ
+import qualified Network.Transport.TCP           as TCP
 import           Node                            (Node, NodeAction (..), NodeEndPoint,
                                                   ReceiveDelay, Statistics,
                                                   defaultNodeEnvironment, noReceiveDelay,
@@ -54,12 +55,15 @@ import           Pos.Core                        (HasCoreConstants)
 import           Pos.Launcher.Param              (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..))
 import           Pos.Launcher.Resource           (NodeResources (..), hoistNodeResources)
-import           Pos.Network.Types               (NetworkConfig (..), NodeId, initQueue)
+import           Pos.Network.Types               (NetworkConfig (..), NodeId, initQueue,
+                                                  topologyRoute53HealthCheckEnabled)
 import           Pos.Recovery.Instance           ()
 import           Pos.Ssc.Class                   (SscConstraint)
 import           Pos.Statistics                  (EkgParams (..), StatsdParams (..))
 import           Pos.Util.JsonLog                (JsonLogConfig (..),
                                                   jsonLogConfigFromHandle)
+import           Pos.Web.Server                  (route53HealthCheckApplication,
+                                                  serveImpl)
 import           Pos.WorkMode                    (EnqueuedConversation (..), OQ, RealMode,
                                                   RealModeContext (..), WorkMode)
 
@@ -112,7 +116,7 @@ runRealModeDo NodeResources {..} outSpecs action =
                     (const noReceiveDelay)
                     (allListeners oq ncTopology)
                     outSpecs
-                    (startMonitoring oq)
+                    (startMonitoring ncTopology oq)
                     stopMonitoring
                     oq
                     action
@@ -121,7 +125,19 @@ runRealModeDo NodeResources {..} outSpecs action =
     NetworkConfig {..} = ncNetworkConfig
     NodeParams {..} = ncNodeParams
     LoggingParams {..} = bpLoggingParams npBaseParams
-    startMonitoring oq node' =
+
+    -- Expose the health-check endpoint for DNS load-balancing
+    -- and optionally other services as EKG & statsd.
+    startMonitoring topology oq node' = do
+        -- Expose the health-check
+        let listeningPort = case ncTcpAddr of
+                TCP.Unaddressable                             -> ncDefaultPort
+                TCP.Addressable (TCP.tcpBindPort -> bindPort) -> fromMaybe ncDefaultPort (readMaybe bindPort)
+        mRoute53HealthCheck <- case topologyRoute53HealthCheckEnabled topology of
+            False -> return Nothing
+            True  -> let app = route53HealthCheckApplication topology oq
+                     in Just <$> async (serveImpl app "127.0.0.1" (listeningPort + 30) Nothing)
+        -- Run the optional tools.
         case npEnableMetrics of
             False -> return Nothing
             True  -> Just <$> do
@@ -143,12 +159,13 @@ runRealModeDo NodeResources {..} outSpecs action =
                                 , Monitoring.suffix = statsdSuffix
                                 }
                         liftIO $ Monitoring.forkStatsd statsdOptions nrEkgStore
-                return (mEkgServer, mStatsdServer)
+                return (mEkgServer, mStatsdServer, mRoute53HealthCheck)
 
     stopMonitoring Nothing = return ()
-    stopMonitoring (Just (mEkg, mStatsd)) = do
+    stopMonitoring (Just (mEkg, mStatsd, mRoute53HealthCheck)) = do
         whenJust mStatsd (killThread . Monitoring.statsdThreadId)
         whenJust mEkg stopMonitor
+        whenJust mRoute53HealthCheck cancel
 
     runToProd :: forall t .
                  JsonLogConfig

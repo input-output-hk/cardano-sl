@@ -51,8 +51,8 @@ walletServeImpl
     -> NetworkAddress    -- ^ IP and port to listen
     -> Maybe TlsParams
     -> m ()
-walletServeImpl app (ip, addr) =
-    serveImpl app (BS8.unpack ip) addr
+walletServeImpl app (ip, port) =
+    serveImpl app (BS8.unpack ip) port
 
 walletApplication
     :: MonadWalletWebMode m

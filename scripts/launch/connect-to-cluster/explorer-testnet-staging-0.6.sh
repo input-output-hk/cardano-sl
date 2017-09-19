@@ -2,11 +2,7 @@
 set -euo pipefail
 
 readonly CLUSTER=testnet-staging-0.6
-<<<<<<< HEAD
 readonly DOMAIN=awstest.iohkdev.io
-=======
-readonly DOMAIN=aws.iohkdev.io
->>>>>>> 8ea5b84a4b4047417f88d07e912b7a546ebf84b3
 readonly SYSTEM_START_TIME=1505689646
 
 # readonly LOG_CONFIG=/nix/store/wh6z2ksmb042vc5r8ar9m75ry7b2lcfy-csl-logging.yaml

@@ -4455,6 +4455,8 @@ self: {
           pname = "memory";
           version = "0.14.6";
           sha256 = "0q61zxdlgcw7wg244hb3c11qm5agrmnmln0h61sz2mj72xqc1pn7";
+          revision = "1";
+          editedCabalFile = "0pyzdy5ca1cbkjzy1scnz6mr9251ap4w8a5phzxp91wkxpc45538";
           libraryHaskellDepends = [
             base
             bytestring

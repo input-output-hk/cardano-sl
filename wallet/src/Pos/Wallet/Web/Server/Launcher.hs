@@ -24,8 +24,10 @@ import           Servant.Server                   (Handler, Server, serve)
 import           Servant.Swagger.UI               (swaggerSchemaUIServer)
 import           Servant.Utils.Enter              ((:~>) (..), enter)
 
+import qualified Data.ByteString.Char8            as BS8
 import           Pos.Communication                (OutSpecs, SendActions (..), sendTxOuts)
 import           Pos.Core.Context                 (HasCoreConstants)
+import           Pos.Util.TimeWarp                (NetworkAddress)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.Web.Account           (findKey, myRootAddresses)
 import           Pos.Wallet.Web.Api               (WalletSwaggerApi, swaggerWalletApi)
@@ -46,11 +48,11 @@ import           Pos.Web                          (TlsParams, serveImpl)
 walletServeImpl
     :: MonadWalletWebMode m
     => m Application     -- ^ Application getter
-    -> Word16            -- ^ Port to listen
+    -> NetworkAddress    -- ^ IP and port to listen
     -> Maybe TlsParams
     -> m ()
-walletServeImpl app =
-    serveImpl app "127.0.0.1"
+walletServeImpl app (ip, addr) =
+    serveImpl app (BS8.unpack ip) addr
 
 walletApplication
     :: MonadWalletWebMode m

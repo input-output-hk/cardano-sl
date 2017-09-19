@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly CLUSTER=testnet-staging-0.6
-readonly DOMAIN=aws.iohkdev.io
-readonly SYSTEM_START_TIME=1504807319
+readonly CLUSTER=testnet-0.6
+readonly DOMAIN=aws.iohk.io
+readonly SYSTEM_START_TIME=1504820421
 
 echo "Launch a single node and connect it to '${CLUSTER}' cluster..."
 

@@ -8,8 +8,12 @@ import           Universum
 
 import qualified Data.ByteArray                       as ByteArray
 import qualified Data.ByteString                      as BS
+import           Data.List                            (partition)
 import           Data.Text                            (splitOn)
-import           Formatting                           (build, int, sformat, (%))
+import qualified Data.Text.Buildable
+import           Formatting                           (bprint, build, int, sformat, shown,
+                                                       (%))
+import           Serokell.Util                        (listJson, listJsonIndent)
 import qualified Serokell.Util.Base16                 as Base16
 import           Servant.API                          (FromHttpApiData (..))
 import           Servant.Multipart                    (FromMultipart (..), lookupFile,
@@ -19,20 +23,174 @@ import           Pos.Core                             (Address, Coin, decodeText
                                                        mkCoin)
 import           Pos.Crypto                           (PassPhrase, passphraseLength)
 import           Pos.Txp.Core.Types                   (TxId)
-import           Pos.Util.Servant                     (FromCType (..), OriginType,
-                                                       ToCType (..))
+import           Pos.Util.Servant                     (FromCType (..),
+                                                       HasTruncateLogPolicy (..),
+                                                       OriginType, ToCType (..),
+                                                       WithTruncatedLog (..))
 import           Pos.Wallet.Web.ClientTypes.Functions (addressToCId, cIdToAddress,
                                                        mkCCoin, mkCTxId,
                                                        ptxCondToCPtxCond, txIdToCTxId)
-import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), CAccountId (..),
+import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), CAccount (..),
+                                                       CAccountId (..), CAccountInit (..),
+                                                       CAccountMeta (..), CAddress (..),
                                                        CCoin (..),
                                                        CElectronCrashReport (..),
-                                                       CId (..), CPassPhrase (..),
-                                                       CPtxCondition, CTxId)
+                                                       CId (..), CInitialized (..),
+                                                       CPaperVendWalletRedeem (..),
+                                                       CPassPhrase (..), CProfile (..),
+                                                       CPtxCondition, CTx (..),
+                                                       CTxId (..), CTxId, CTxMeta (..),
+                                                       CUpdateInfo (..), CWallet (..),
+                                                       CWallet, CWalletAssurance,
+                                                       CWalletInit (..), CWalletMeta (..),
+                                                       CWalletRedeem (..),
+                                                       SyncProgress (..))
 import           Pos.Wallet.Web.Pending.Types         (PtxCondition)
 
 -- TODO [CSM-407] Maybe revert dependency between Functions and Instances modules?
 -- This would allow to get tid of functions like 'ptxCondToCPtxCond' :/
+
+----------------------------------------------------------------------------
+-- Buildable
+----------------------------------------------------------------------------
+
+-- TODO [CSM-407] Move these instances to Types.hs module.
+-- I don't want to do it now because we have pending refactoring which reordered
+-- everything where
+
+instance Buildable CWalletAssurance where
+    build = bprint shown
+
+instance Buildable CWalletMeta where
+    build CWalletMeta{..} =
+        bprint ("'"%build%"' ("%build%"/"%build%")")
+               cwName cwAssurance cwUnit
+
+instance Buildable CWalletInit where
+    build CWalletInit{..} =
+        bprint (build%" / "%build)
+               cwBackupPhrase cwInitMeta
+
+instance Buildable CWallet where
+    build CWallet{..} =
+        bprint ("{ id="%build
+                %" meta="%build
+                %" accs="%build
+                %" amount="%build
+                %" pass="%build
+                %" passlu="%build
+                %" }")
+        cwId
+        cwMeta
+        cwAccountsNumber
+        cwAmount
+        cwHasPassphrase
+        cwPassphraseLU
+
+instance Buildable CAccountMeta where
+    build CAccountMeta{..} =
+        bprint ("'"%build%"'") caName
+
+instance Buildable CAccountInit where
+    build CAccountInit{..} =
+        bprint (build%" / "%build)
+               caInitWId caInitMeta
+
+instance Buildable CAccount where
+    build CAccount{..} =
+        bprint ("{ id="%build
+                %" meta="%build
+                %" amount="%build%"\n"
+                %" addrs="%listJsonIndent 4
+                %" }")
+        caId
+        caMeta
+        caAmount
+        caAddresses
+
+instance Buildable CAddress where
+    build CAddress{..} =
+        bprint ("{ id="%build%"\n"
+                %" amount="%build
+                %" used="%build
+                %" change="%build
+                %" }")
+        cadId
+        cadAmount
+        cadIsUsed
+        cadIsChange
+
+instance Buildable CTxMeta where
+    build CTxMeta{..} = bprint ("{ date="%build%" }") ctmDate
+
+instance Buildable CPtxCondition where
+    build = bprint shown
+
+instance Buildable CTx where
+    build CTx{..} =
+        bprint ("{ id="%build
+                %" amount="%build
+                %" confirms="%build
+                %" meta="%build%"\n"
+                %" inputs="%listJson%"\n"
+                %" outputs="%listJson%"\n"
+                %" local="%build
+                %" outgoing="%build
+                %" condition="%build
+                %" }")
+        ctId
+        ctAmount
+        ctConfirmations
+        ctMeta
+        ctInputAddrs
+        ctOutputAddrs
+        ctIsLocal
+        ctIsOutgoing
+        ctCondition
+
+instance Buildable CProfile where
+    build CProfile{..} =
+        bprint ("{ cpLocale="%build%" }") cpLocale
+
+instance Buildable CUpdateInfo where
+    build CUpdateInfo{..} =
+        bprint ("{ softver="%build
+                %" blockver="%build
+                %" scriptver="%build
+                %" implicit="%build
+                %" for="%build
+                %" against="%build
+                %" pos stake="%build
+                %" neg stake="%build
+                %" }")
+        cuiSoftwareVersion
+        cuiBlockVesion  -- TODO [CSM-407] lol what is it?
+        cuiScriptVersion
+        cuiImplicit
+        cuiVotesFor
+        cuiVotesAgainst
+        cuiPositiveStake
+        cuiNegativeStake
+
+instance Buildable SyncProgress where
+    build SyncProgress{..} =
+        bprint ("progress="%build%"/"%build%" peers="%build)
+               _spLocalCD _spNetworkCD _spPeers
+
+instance Buildable CWalletRedeem where
+    build CWalletRedeem{..} =
+        bprint (build%" <- "%build)
+               crWalletId crSeed
+
+instance Buildable CPaperVendWalletRedeem where
+    build CPaperVendWalletRedeem{..} =
+        bprint (build%" <- "%build%" / "%build)
+               pvWalletId pvSeed pvBackupPhrase
+
+instance Buildable CInitialized where
+    build CInitialized{..} =
+        bprint (build%"/"%build)
+               cPreInit cTotalTime
 
 ----------------------------------------------------------------------------
 -- Convertions
@@ -143,3 +301,49 @@ instance FromMultipart CElectronCrashReport where
           <*> look "prod"
           <*> look "_companyName"
           <*> lookupFile "upload_file_minidump" form
+
+----------------------------------------------------------------------------
+-- Truncated Buildable
+----------------------------------------------------------------------------
+
+instance HasTruncateLogPolicy CTx where
+    -- Related logs are printed often.
+    -- Tx history changes increamentally, order is newest first
+    truncateLogPolicy = take 5
+
+instance HasTruncateLogPolicy CWallet where
+    -- Related logs are printed seldom.
+    -- Contains constantly chaning info (balance)
+    truncateLogPolicy = identity
+
+instance HasTruncateLogPolicy CAccount where
+    -- Currently each wallet has single account, so same logic as for 'CWallet'
+    -- instance.
+    truncateLogPolicy = identity
+
+instance HasTruncateLogPolicy CAddress where
+    -- Their number has the same order as number of transactions made from
+    -- parent account. However, addresses with no money consistute the majority
+    -- and are not very interesting.
+    truncateLogPolicy addrs =
+        let (withoutMoney, withMoney) = partition ((== zeroMoney) . cadAmount) addrs
+        in take 5 (withMoney <> withoutMoney)
+      where
+        zeroMoney = encodeCType minBound
+
+instance Buildable (WithTruncatedLog CAccount) where
+    build (WithTruncatedLog CAccount{..}) =
+        bprint ("{ id="%build
+                %" meta="%build
+                %" amount="%build%"\n"
+                %" addrs="%build
+                %" }")
+        caId
+        caMeta
+        caAmount
+        (WithTruncatedLog caAddresses)
+
+instance Buildable (WithTruncatedLog ([CTx], Word)) where
+    build (WithTruncatedLog (ctxs, size)) =
+        bprint ("Num: "%build%", entries: \n"%build)
+            size (WithTruncatedLog ctxs)

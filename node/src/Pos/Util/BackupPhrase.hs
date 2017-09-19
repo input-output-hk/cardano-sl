@@ -55,10 +55,10 @@ mkBackupPhrase9 ls
     | otherwise = error "Invalid number of words in backup phrase! Expected 9 words."
 
 instance Show BackupPhrase where
-    show = toString . unwords . bpToList
+    show _ = "<backup phrase>"
 
 instance Buildable BackupPhrase where
-    build = build . unwords . bpToList
+    build _ = "<backup phrase>"
 
 instance Read BackupPhrase where
     readsPrec _ str = either fail (pure . (, mempty) .BackupPhrase . words) $ toMnemonic =<< fromMnemonic (toText str)

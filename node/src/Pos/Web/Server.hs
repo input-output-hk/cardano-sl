@@ -17,48 +17,42 @@ module Pos.Web.Server
 
 import           Universum
 
-import qualified Control.Monad.Catch                  as Catch
-import           Control.Monad.Except                 (MonadError (throwError))
-import qualified Control.Monad.Reader                 as Mtl
-import           Mockable                             (Production (runProduction))
-import qualified Network.Broadcast.OutboundQueue      as OQ
-import           Network.Wai                          (Application, Middleware)
-import           Network.Wai.Handler.Warp             (defaultSettings, runSettings,
-                                                       setHost, setPort)
-import           Network.Wai.Handler.WarpTLS          (TLSSettings, runTLS,
-                                                       tlsSettingsChain)
-import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
-import           Servant.API                          ((:<|>) ((:<|>)), FromHttpApiData)
-import           Servant.Server                       (Handler, ServantErr (errBody),
-                                                       Server, ServerT, err404, err503,
-                                                       serve)
-import           Servant.Utils.Enter                  ((:~>) (NT), enter)
+import qualified Control.Monad.Catch             as Catch
+import           Control.Monad.Except            (MonadError (throwError))
+import qualified Control.Monad.Reader            as Mtl
+import           Mockable                        (Production (runProduction))
+import qualified Network.Broadcast.OutboundQueue as OQ
+import           Network.Wai                     (Application)
+import           Network.Wai.Handler.Warp        (defaultSettings, runSettings, setHost,
+                                                  setPort)
+import           Network.Wai.Handler.WarpTLS     (TLSSettings, runTLS, tlsSettingsChain)
+import           Pos.Network.Types               (Bucket (BucketSubscriptionListener),
+                                                  Topology, topologyMaxBucketSize)
+import           Servant.API                     ((:<|>) ((:<|>)), FromHttpApiData)
+import           Servant.Server                  (Handler, ServantErr (errBody), Server,
+                                                  ServerT, err404, err503, serve)
+import           Servant.Utils.Enter             ((:~>) (NT), enter)
 
-import           Pos.Aeson.Types                      ()
-import           Pos.Constants                        (webLoggingEnabled)
-import           Pos.Context                          (HasNodeContext (..),
-                                                       HasSscContext (..), NodeContext,
-                                                       getOurPublicKey)
-import           Pos.Core                             (EpochIndex (..), SlotLeaders)
-import qualified Pos.DB                               as DB
-import qualified Pos.GState                           as GS
-import qualified Pos.Lrc.DB                           as LrcDB
-import           Pos.Network.Types                    (Bucket (BucketSubscriptionListener),
-                                                       Topology, topologyMaxBucketSize)
-import           Pos.Ssc.Class                        (SscConstraint)
-import           Pos.Ssc.GodTossing                   (SscGodTossing, gtcParticipateSsc)
-import           Pos.Txp                              (TxOut (..), toaOut)
-import           Pos.Txp.MemState                     (GenericTxpLocalData, askTxpMem,
-                                                       getLocalTxs)
-import           Pos.Web.Mode                         (WebMode, WebModeContext (..))
-import           Pos.WorkMode                         (OQ)
-import           Pos.WorkMode.Class                   (TxpExtra_TMP, WorkMode)
+import           Pos.Aeson.Types                 ()
+import           Pos.Context                     (HasNodeContext (..), HasSscContext (..),
+                                                  NodeContext, getOurPublicKey)
+import           Pos.Core                        (EpochIndex (..), SlotLeaders)
+import qualified Pos.DB                          as DB
+import qualified Pos.GState                      as GS
+import qualified Pos.Lrc.DB                      as LrcDB
+import           Pos.Ssc.Class                   (SscConstraint)
+import           Pos.Ssc.GodTossing              (SscGodTossing, gtcParticipateSsc)
+import           Pos.Txp                         (TxOut (..), toaOut)
+import           Pos.Txp.MemState                (GenericTxpLocalData, askTxpMem,
+                                                  getLocalTxs)
+import           Pos.Web.Mode                    (WebMode, WebModeContext (..))
+import           Pos.WorkMode                    (OQ)
+import           Pos.WorkMode.Class              (TxpExtra_TMP, WorkMode)
 
-import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
-                                                       GtNodeApi, HealthCheckApi,
-                                                       baseNodeApi, gtNodeApi,
-                                                       healthCheckApi)
-import           Pos.Web.Types                        (TlsParams (..))
+import           Pos.Web.Api                     (BaseNodeApi, GodTossingApi, GtNodeApi,
+                                                  HealthCheckApi, baseNodeApi, gtNodeApi,
+                                                  healthCheckApi)
+import           Pos.Web.Types                   (TlsParams (..))
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -94,7 +88,7 @@ applicationGT = do
 
 serveImplNoTLS :: MonadIO m => m Application -> String -> Word16 -> m ()
 serveImplNoTLS application host port =
-    liftIO . runSettings mySettings . webLogger =<< application
+    liftIO . runSettings mySettings =<< application
   where
     mySettings = setHost (fromString host) $
                  setPort (fromIntegral port) defaultSettings
@@ -103,17 +97,12 @@ serveImpl
     :: MonadIO m
     => m Application -> String -> Word16 -> Maybe TlsParams -> m ()
 serveImpl application host port walletTLSParams =
-    liftIO . maybe runSettings runTLS mTlsConfig mySettings . webLogger
+    liftIO . maybe runSettings runTLS mTlsConfig mySettings
         =<< application
   where
     mySettings = setHost (fromString host) $
                  setPort (fromIntegral port) defaultSettings
     mTlsConfig = tlsParamsToWai <$> walletTLSParams
-
-webLogger :: Middleware
-webLogger
-    | webLoggingEnabled = logStdoutDev
-    | otherwise         = identity
 
 tlsParamsToWai :: TlsParams -> TLSSettings
 tlsParamsToWai TlsParams{..} = tlsSettingsChain tpCertPath [tpCaPath] tpKeyPath

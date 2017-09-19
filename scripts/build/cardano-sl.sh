@@ -28,27 +28,6 @@ set -o pipefail
 #   sl                              cardano-sl
 #   sl+                             cardano-sl and everything dependent on it
 
-# MODES
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#
-# NOTE
-# You can try building any of these modes, but in some branches some of
-# these modes may be unavailable (no genesis).
-# See constants.yaml for more information on different compilation modes.
-#
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#   Mode                             Options
-#   :
-#   dev mode                            <nothing>
-#   Testnet public mode with wallet     --tnp
-#   Testnet public mode without wallet  --tnp --no-wallet
-#   Testnet staging mode with wallet    --tns
-#   Testnet staging mode without wallet --tns --no-wallet
-#   Dev long epoch mode with wallet     --dnl
-#   Dev long epoch mode without wallet  --dnl --no-wallet
-#   Dev short epoch mode with wallet    --dns
-#   Dev short epoch mode without wallet --dns --no-wallet
-
 # CUSTOMIZATIONS
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # * Pass --no-nix or do `touch .no-nix` if you want builds without Nix.
@@ -118,22 +97,6 @@ do
   # -Werror = compile with -Werror
   elif [[ $var == "-Werror" ]]; then
     werror=true
-  # Production modes
-  elif [[ $var == "--tnp" ]]; then
-    prodMode="testnet_public"
-    prodModesCounter=$((prodModesCounter+1))
-  elif [[ $var == "--tns" ]]; then
-    prodMode="testnet_staging"
-    prodModesCounter=$((prodModesCounter+1))
-  elif [[ $var == "--dnl" ]]; then
-    prodMode="devnet_longep"
-    prodModesCounter=$((prodModesCounter+1))
-  elif [[ $var == "--dns" ]]; then
-    prodMode="devnet_shortep"
-    prodModesCounter=$((prodModesCounter+1))
-  elif [[ $var == "--prod" ]]; then
-    echo "--prod flag is outdated, see this script documentation, section MODES" >&2
-    exit 12
   # --no-wallet = don't build in wallet mode
   elif [[ $var == "--no-wallet" ]]; then
     wallet=false
@@ -153,7 +116,6 @@ do
   elif [[ $var == "--bench-mode" ]]; then
     # We want:
     # • --flag cardano-sl-core:dev-mode (default)
-    # • --ghc-options=-DCONFIG=benchmark ($bench_mode)
     # • --flag cardano-sl-core:-asserts ($asserts)
     # • compiler optimizations ($no_fast)
     # • disable explorer ($explorer)
@@ -226,21 +188,7 @@ if [[ $asserts == false ]]; then
   commonargs="$commonargs --flag cardano-sl-core:-asserts"
 fi
 
-# CONFIG
-if [[ $bench_mode == true ]]; then
-  dconfig=benchmark
-else
-  dconfig=dev
-fi
-if [[ "$prodMode" != "" ]]; then
-  dconfig=$prodMode
-  if [[ $wallet == true ]]; then
-    dconfig="${dconfig}_wallet"
-  else
-    dconfig="${dconfig}_full"
-  fi
-fi
-ghc_opts="-DCONFIG=$dconfig -DGITREV=`git rev-parse HEAD`"
+ghc_opts=" -DGITREV=`git rev-parse HEAD`"
 
 if [[ $no_fast == true ]]; then
   fast=""

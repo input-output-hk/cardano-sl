@@ -44,7 +44,7 @@ walletArgsParser = do
     webPort <-
         CLI.webPortOption 8080 "Port for web API."
     walletTLSParams <- tlsParamsOption
-    walletAddress <- CLI.daedalusWalletAddressOption $ Just (localhost, 8090)
+    walletAddress <- CLI.walletAddressOption $ Just (localhost, 8090)
     walletDbPath <- strOption $
         long  "wallet-db-path" <>
         help  "Path to the wallet's database." <>

@@ -33,6 +33,7 @@ import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId, TxOut (
 import           Pos.Txp.Toil                (ToilVerFailure (..))
 import qualified Pos.Txp.Toil                as Txp
 import           Pos.Util.Chrono             (NewestFirst (..))
+import           Pos.Util.Util               (Sign (..))
 
 ----------------------------------------------------------------------------
 -- Global
@@ -68,6 +69,7 @@ eApplyToil mTxTimestamp txun hh = do
         putTxExtraWithHistory id extra $ getTxRelatedAddrs txAux txUndo
         let balanceUpdate = getBalanceUpdate txAux txUndo
         updateAddrBalances balanceUpdate
+        updateUtxoSumFromBalanceUpdate balanceUpdate
 
 -- | Rollback transactions from one block.
 eRollbackToil :: EGlobalApplyToilMode m => [(TxAux, TxUndo)] -> m ()
@@ -79,10 +81,12 @@ eRollbackToil txun = do
         delTxExtraWithHistory (hash (taTx txAux)) $
           getTxRelatedAddrs txAux txUndo
         let BalanceUpdate {..} = getBalanceUpdate txAux txUndo
-        updateAddrBalances BalanceUpdate {
+        let balanceUpdate = BalanceUpdate {
             plusBalance = minusBalance,
             minusBalance = plusBalance
         }
+        updateAddrBalances balanceUpdate
+        updateUtxoSumFromBalanceUpdate balanceUpdate
 
 ----------------------------------------------------------------------------
 -- Local
@@ -105,6 +109,7 @@ eProcessTx curEpoch tx@(id, aux) extra = do
     -- TODO: [CSM-245] do not discard logged errors
     fmap fst $ usingLoggerName "eProcessTx" $ runNamedPureLog $
         updateAddrBalances balanceUpdate
+    updateUtxoSumFromBalanceUpdate balanceUpdate
 
 -- | Get rid of invalid transactions.
 -- All valid transactions will be added to mem pool and applied to utxo.
@@ -128,8 +133,6 @@ data BalanceUpdate = BalanceUpdate
     { minusBalance :: [(Address, Coin)]
     , plusBalance  :: [(Address, Coin)]
     }
-
-data Sign = Plus | Minus
 
 modifyAddrHistory
     :: MonadTxExtra m
@@ -160,6 +163,17 @@ delTxExtraWithHistory id addrs = do
     for_ addrs $ modifyAddrHistory $
         NewestFirst . delete id . getNewestFirst
 
+updateUtxoSumFromBalanceUpdate :: MonadTxExtra m => BalanceUpdate -> m ()
+updateUtxoSumFromBalanceUpdate balanceUpdate = do
+    let plusChange  = foldr unsafeAddCoin (mkCoin 0) $ map snd $ plusBalance  balanceUpdate
+        minusChange = foldr unsafeAddCoin (mkCoin 0) $ map snd $ minusBalance balanceUpdate
+        utxoChange  =
+            if plusChange > minusChange then
+                (Plus, unsafeSubCoin plusChange minusChange)
+            else
+                (Minus, unsafeSubCoin minusChange plusChange)
+    uncurry updateUtxoSum utxoChange
+
 getTxRelatedAddrs :: TxAux -> TxUndo -> NonEmpty Address
 getTxRelatedAddrs TxAux {taTx = UnsafeTx {..}} (catMaybes . toList -> undo) =
     map txOutAddress _txOutputs `unionNEnList` map (txOutAddress . toaOut) undo
@@ -188,11 +202,11 @@ combineBalanceUpdates BalanceUpdate {..} =
             hm2' = HM.map (\x -> (Nothing, Just x)) hm2
         in HM.unionWith joiner hm1' hm2'
     joiner (Just plus, Nothing) (Nothing, Just minus) = (Just plus, Just minus)
-    joiner _ _ = error "combineBalanceUpdates: HashMap map() is broken"
+    joiner _ _ = error "combineBalanceUpdates: HashMap.map is broken"
     reducer (Just plus, Just minus)
         | plus > minus = Just (Plus,  unsafeSubCoin plus minus)
         | plus < minus = Just (Minus, unsafeSubCoin minus plus)
-    reducer (Nothing, Nothing) = error "combineBalanceUpdates: HashMap unionWith() is broken"
+    reducer (Nothing, Nothing) = error "combineBalanceUpdates: HashMap.unionWith is broken"
     reducer (Just plus, Nothing)  | plus /= mkCoin 0  = Just (Plus, plus)
     reducer (Nothing, Just minus) | minus /= mkCoin 0 = Just (Minus, minus)
     reducer _ = Nothing

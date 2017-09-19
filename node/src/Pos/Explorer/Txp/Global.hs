@@ -46,13 +46,14 @@ eApplyBlocksSettings =
     }
 
 extraOps :: HasConfiguration => ExplorerExtra -> SomeBatchOp
-extraOps (ExplorerExtra em (HM.toList -> histories) balances) =
+extraOps (ExplorerExtra em (HM.toList -> histories) balances utxoNewSum) =
     SomeBatchOp $
     map GS.DelTxExtra (MM.deletions em) ++
     map (uncurry GS.AddTxExtra) (MM.insertions em) ++
     map (uncurry GS.UpdateAddrHistory) histories ++
     map (uncurry GS.PutAddrBalance) (MM.insertions balances) ++
-    map GS.DelAddrBalance (MM.deletions balances)
+    map GS.DelAddrBalance (MM.deletions balances) ++
+    map GS.PutUtxoSum (maybeToList utxoNewSum)
 
 applyBlund
     :: (HasConfiguration, MonadSlots ctx m, EGlobalApplyToilMode m)
@@ -70,8 +71,8 @@ applyBlund txpBlund = do
 
     let txpBlock = txpBlund ^. _1
     let slotId   = case txpBlock of
-            Left gensisBlock -> SlotId
-                                  { siEpoch = gensisBlock ^. epochIndexL
+            Left genesisBlock -> SlotId
+                                  { siEpoch = genesisBlock ^. epochIndexL
                                   , siSlot  = minBound
                                   -- ^ Genesis block doesn't have a slot, set to minBound
                                   }

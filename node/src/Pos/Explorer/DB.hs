@@ -10,6 +10,7 @@ module Pos.Explorer.DB
        , getTxExtra
        , getAddrHistory
        , getAddrBalance
+       , getUtxoSum
        , getPageBlocks
        , getEpochBlocks
        , getLastTransactions
@@ -32,7 +33,7 @@ import           System.Wlog                  (WithLogger, logError)
 import           Pos.Binary.Class             (UnsignedVarInt (..), serialize')
 import           Pos.Context.Functions        (genesisUtxo)
 import           Pos.Core                     (Address, Coin, EpochIndex, HeaderHash,
-                                               unsafeAddCoin)
+                                               mkCoin, unsafeAddCoin)
 import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.DB                       (DBError (..), DBIteratorClass (..),
                                                DBTag (GStateDB), MonadDB,
@@ -76,6 +77,9 @@ getAddrHistory = fmap (NewestFirst . concat . maybeToList) .
 
 getAddrBalance :: MonadDBRead m => Address -> m (Maybe Coin)
 getAddrBalance = gsGetBi . addrBalanceKey
+
+getUtxoSum :: MonadDBRead m => m Coin
+getUtxoSum = fromMaybe (mkCoin 0) <$> gsGetBi utxoSumPrefix
 
 getPageBlocks :: MonadDBRead m => Page -> m (Maybe [HeaderHash])
 getPageBlocks = gsGetBi . blockPagePrefix
@@ -133,8 +137,9 @@ data ExplorerOp
     | PutAddrBalance !Address !Coin
     | DelAddrBalance !Address
 
-instance HasConfiguration => RocksBatchOp ExplorerOp where
+    | PutUtxoSum !Coin
 
+instance HasConfiguration => RocksBatchOp ExplorerOp where
     toBatchOp (AddTxExtra id extra) =
         [Rocks.Put (txExtraPrefix id) (dbSerializeValue extra)]
     toBatchOp (DelTxExtra id) =
@@ -159,6 +164,9 @@ instance HasConfiguration => RocksBatchOp ExplorerOp where
         [Rocks.Put (addrBalanceKey addr) (dbSerializeValue coin)]
     toBatchOp (DelAddrBalance addr) =
         [Rocks.Del $ addrBalanceKey addr]
+
+    toBatchOp (PutUtxoSum coin) =
+        [Rocks.Put utxoSumPrefix (dbSerializeValue coin)]
 
 ----------------------------------------------------------------------------
 -- Iteration
@@ -235,3 +243,6 @@ blockEpochPrefix epoch = "e/epoch/" <> serialize' epoch
 
 lastTxsPrefix :: ByteString
 lastTxsPrefix = "e/ltxs/"
+
+utxoSumPrefix :: ByteString
+utxoSumPrefix = "e/utxosum/"

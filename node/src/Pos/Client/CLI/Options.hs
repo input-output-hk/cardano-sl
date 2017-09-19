@@ -11,7 +11,7 @@ module Pos.Client.CLI.Options
        , portOption
        , timeLordOption
        , webPortOption
-       , walletPortOption
+       , daedalusWalletAddressOption
        , networkAddressOption
        , externalNetworkAddressOption
        , listenNetworkAddressOption
@@ -30,6 +30,7 @@ import           Serokell.Util                        (sec)
 import           Serokell.Util.OptParse               (fromParsec)
 
 import           Pos.Binary.Core                      ()
+import           Pos.Client.CLI.Util                  (sscAlgoParser)
 import           Pos.Communication                    (NodeId)
 import           Pos.Constants                        (isDevelopment, staticSysStart)
 import           Pos.Core                             (Timestamp (..))
@@ -37,7 +38,6 @@ import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
 import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
                                                        addrParserNoWildcard,
                                                        addressToNodeId)
-import           Pos.Client.CLI.Util                   (sscAlgoParser)
 
 data CommonArgs = CommonArgs
     { logConfig     :: !(Maybe FilePath)
@@ -188,12 +188,16 @@ webPortOption portNum help =
         <> Opt.value portNum
         <> Opt.showDefault
 
-walletPortOption :: Word16 -> String -> Opt.Parser Word16
-walletPortOption portNum help =
-    Opt.option Opt.auto $
-        templateParser "wallet-port" "PORT" help -- "Port for wallet"
-        <> Opt.value portNum
-        <> Opt.showDefault
+daedalusWalletAddressOption :: Maybe NetworkAddress -> Opt.Parser NetworkAddress
+daedalusWalletAddressOption na =
+    Opt.option (fromParsec addrParser) $
+            Opt.long "wallet-address"
+         <> Opt.metavar "IP:PORT"
+         <> Opt.help helpMsg
+         <> Opt.showDefault
+         <> maybe mempty Opt.value na
+  where
+    helpMsg = "IP and port for Daedalus wallet API."
 
 externalNetworkAddressOption :: Maybe NetworkAddress -> Opt.Parser NetworkAddress
 externalNetworkAddressOption na =

@@ -10,17 +10,18 @@ module NodeOptions
        , getWalletNodeOptions
        ) where
 
-import           Data.Version               (showVersion)
-import           Options.Applicative        (Parser, execParser, footerDoc, fullDesc,
-                                             header, help, helper, info, infoOption, long,
-                                             progDesc, strOption, switch, value)
-import qualified Options.Applicative        as Opt
-import           Universum                  hiding (show)
+import           Data.Version        (showVersion)
+import           Options.Applicative (Parser, execParser, footerDoc, fullDesc, header,
+                                      help, helper, info, infoOption, long, progDesc,
+                                      strOption, switch, value)
+import qualified Options.Applicative as Opt
+import           Universum           hiding (show)
 
-import           Paths_cardano_sl           (version)
-import           Pos.Client.CLI             (CommonNodeArgs (..))
-import qualified Pos.Client.CLI             as CLI
-import           Pos.Web.Types              (TlsParams (..))
+import           Paths_cardano_sl    (version)
+import           Pos.Client.CLI      (CommonNodeArgs (..))
+import qualified Pos.Client.CLI      as CLI
+import           Pos.Util.TimeWarp   (NetworkAddress, localhost)
+import           Pos.Web.Types       (TlsParams (..))
 
 data WalletNodeArgs = WalletNodeArgs CommonNodeArgs WalletArgs
 
@@ -28,7 +29,7 @@ data WalletArgs = WalletArgs
     { enableWeb       :: !Bool
     , webPort         :: !Word16
     , walletTLSParams :: !TlsParams
-    , walletPort      :: !Word16
+    , walletAddress   :: !NetworkAddress
     , walletDbPath    :: !FilePath
     , walletRebuildDb :: !Bool
     , walletDebug     :: !Bool
@@ -43,8 +44,7 @@ walletArgsParser = do
     webPort <-
         CLI.webPortOption 8080 "Port for web API."
     walletTLSParams <- tlsParamsOption
-    walletPort <-
-        CLI.walletPortOption 8090 "Port for Daedalus Wallet API."
+    walletAddress <- CLI.daedalusWalletAddressOption $ Just (localhost, 8090)
     walletDbPath <- strOption $
         long  "wallet-db-path" <>
         help  "Path to the wallet's database." <>
@@ -71,7 +71,6 @@ getWalletNodeOptions = execParser programInfo
     versionOption = infoOption
         ("cardano-node-" <> showVersion version)
         (long "version" <> help "Show version.")
-
 
 tlsParamsOption :: Opt.Parser TlsParams
 tlsParamsOption = do

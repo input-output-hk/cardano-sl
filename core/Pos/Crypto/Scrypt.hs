@@ -1,20 +1,20 @@
 -- | Wrapper over scrypt library
 
 module Pos.Crypto.Scrypt
-    ( S.ScryptParams
-    , S.Salt (..)
-    , S.Pass (..)
-    , S.EncryptedPass (..)
+       ( S.ScryptParams
+       , S.Salt (..)
+       , S.Pass (..)
+       , S.EncryptedPass (..)
 
-    , ScryptParamsBuilder (..)
-    , mkScryptParams
+       , ScryptParamsBuilder (..)
+       , mkScryptParams
 
-    , mkSalt
-    , genSalt
-    , encryptPass
-    , encryptPassWithSalt
-    , verifyPass
-    ) where
+       , mkSalt
+       , genSalt
+       , encryptPass
+       , encryptPassWithSalt
+       , verifyPass
+       ) where
 
 import           Universum
 
@@ -47,6 +47,10 @@ instance Default ScryptParamsBuilder where
 
 mkSalt :: Bi salt => salt -> S.Salt
 mkSalt = S.Salt . serialize'
+
+-- | Salt which can be used for hardcoded values.
+instance Default S.Salt where
+    def = mkSalt ("" :: Text)
 
 genSalt :: MonadRandom m => m S.Salt
 genSalt = S.Salt <$> getRandomBytes 32

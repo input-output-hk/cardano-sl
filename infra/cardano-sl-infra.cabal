@@ -105,11 +105,6 @@ library
                         Pos.Util.TimeLimit
                         Pos.Util.TimeWarp
 
-  if os(windows)
-    exposed-modules:    Pos.Network.Windows.DnsDomains
-    c-sources:          Pos/Network/Windows/defaultdns.c
-
-
   other-modules:        Paths_cardano_sl_infra
                         Pos.Infra.Constants
 

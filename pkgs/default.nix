@@ -2830,20 +2830,22 @@ self: {
           description = "Difference lists";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      dns = callPackage ({ attoparsec, base, binary, bytestring, conduit, conduit-extra, containers, fetchgit, iproute, mkDerivation, mtl, network, random, resourcet, safe, stdenv }:
+      dns = callPackage ({ attoparsec, base, base64-bytestring, binary, bytestring, bytestring-builder, conduit, conduit-extra, containers, fetchgit, iproute, mkDerivation, mtl, network, random, resourcet, safe, stdenv, text }:
       mkDerivation {
           pname = "dns";
-          version = "2.0.12";
+          version = "3.0.0";
           src = fetchgit {
-            url = "https://github.com/input-output-hk/dns.git";
-            sha256 = "13qknwpg9fxh99fzf03r3jpfmhgk7ahzm228aqf1pg1zdsh6nvy4";
-            rev = "6da3cd051bd6f6415c8ec3b53f1c0372a80a4376";
+            url = "https://github.com/kazu-yamamoto/dns.git";
+            sha256 = "1scbzbbykypcnjp9n5pdvlddgijijz834hwq49p4swvg9p1gypv2";
+            rev = "08df7fe6a9242f7d76aa5040221702e26ab610f6";
           };
           libraryHaskellDepends = [
             attoparsec
             base
+            base64-bytestring
             binary
             bytestring
+            bytestring-builder
             conduit
             conduit-extra
             containers
@@ -2853,6 +2855,7 @@ self: {
             random
             resourcet
             safe
+            text
           ];
           doHaddock = false;
           doCheck = false;
@@ -3707,6 +3710,7 @@ self: {
           description = "Convert strings into hexadecimal and back";
           license = stdenv.lib.licenses.bsd3;
         }) {};
+
       hinotify = callPackage ({ async, base, containers, directory, mkDerivation, stdenv, unix }:
       mkDerivation {
           pname = "hinotify";
@@ -4455,6 +4459,8 @@ self: {
           pname = "memory";
           version = "0.14.6";
           sha256 = "0q61zxdlgcw7wg244hb3c11qm5agrmnmln0h61sz2mj72xqc1pn7";
+          revision = "1";
+          editedCabalFile = "0pyzdy5ca1cbkjzy1scnz6mr9251ap4w8a5phzxp91wkxpc45538";
           libraryHaskellDepends = [
             base
             bytestring

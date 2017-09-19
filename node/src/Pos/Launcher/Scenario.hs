@@ -12,43 +12,41 @@ module Pos.Launcher.Scenario
 
 import           Universum
 
-import           Control.Lens          (views)
-import           Data.Time.Units       (Second)
-import           Ether.Internal        (HasLens (..))
-import           Formatting            (build, int, sformat, shown, (%))
-import           Mockable              (fork)
-import           Serokell.Util.Text    (listJson)
-import           System.Exit           (ExitCode (..))
-import           System.Wlog           (WithLogger, getLoggerName, logError, logInfo,
-                                        logWarning)
+import           Control.Lens             (views)
+import           Data.Time.Units          (Second)
+import           Ether.Internal           (HasLens (..))
+import           Formatting               (build, int, sformat, shown, (%))
+import           Mockable                 (fork)
+import           Serokell.Util.Text       (listJson)
+import           System.Exit              (ExitCode (..))
+import           System.Wlog              (WithLogger, getLoggerName, logError, logInfo,
+                                           logWarning)
 
-import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec,
-                                        wrapActionSpec)
-import           Pos.Context           (getOurPublicKey, ncNetworkConfig)
-import           Pos.Core              (GenesisData (gdBootStakeholders),
-                                        GenesisWStakeholders (..), addressHash,
-                                        bootDustThreshold, genesisData)
-import qualified Pos.DB.DB             as DB
-import           Pos.DHT.Real          (KademliaDHTInstance (..),
-                                        kademliaJoinNetworkNoThrow,
-                                        kademliaJoinNetworkRetry)
-import qualified Pos.GState            as GS
-import           Pos.Launcher.Resource (NodeResources (..))
-import           Pos.Lrc.DB            as LrcDB
-import           Pos.Network.Types     (NetworkConfig (..), topologyRunKademlia)
-import           Pos.Reporting         (reportError)
-import           Pos.Shutdown          (waitForWorkers)
-import           Pos.Slotting          (waitSystemStart)
-import           Pos.Ssc.Class         (SscConstraint)
-import           Pos.StateLock         (StateLock (..))
-import           Pos.Update.Configuration (HasUpdateConfiguration,
-                                           curSoftwareVersion,
-                                           lastKnownBlockVersion,
-                                           ourSystemTag)
-import           Pos.Util              (inAssertMode)
-import           Pos.Util.LogSafe      (logInfoS)
-import           Pos.Worker            (allWorkers)
-import           Pos.WorkMode.Class    (WorkMode)
+import           Pos.Communication        (ActionSpec (..), OutSpecs, WorkerSpec,
+                                           wrapActionSpec)
+import           Pos.Context              (getOurPublicKey, ncNetworkConfig)
+import           Pos.Core                 (GenesisData (gdBootStakeholders),
+                                           GenesisWStakeholders (..), addressHash,
+                                           bootDustThreshold, genesisData)
+import qualified Pos.DB.DB                as DB
+import           Pos.DHT.Real             (KademliaDHTInstance (..),
+                                           kademliaJoinNetworkNoThrow,
+                                           kademliaJoinNetworkRetry)
+import qualified Pos.GState               as GS
+import           Pos.Launcher.Resource    (NodeResources (..))
+import           Pos.Lrc.DB               as LrcDB
+import           Pos.Network.Types        (NetworkConfig (..), topologyRunKademlia)
+import           Pos.Reporting            (reportError)
+import           Pos.Shutdown             (waitForWorkers)
+import           Pos.Slotting             (waitSystemStart)
+import           Pos.Ssc.Class            (SscConstraint)
+import           Pos.StateLock            (StateLock (..))
+import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
+                                           lastKnownBlockVersion)
+import           Pos.Util                 (inAssertMode)
+import           Pos.Util.LogSafe         (logInfoS)
+import           Pos.Worker               (allWorkers)
+import           Pos.WorkMode.Class       (WorkMode)
 
 #define QUOTED(x) "/**/x/**/"
 

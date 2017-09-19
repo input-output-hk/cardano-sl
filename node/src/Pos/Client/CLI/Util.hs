@@ -13,27 +13,26 @@ module Pos.Client.CLI.Util
 
 import           Universum
 
-import           Control.Lens          (zoom, (?=))
-import qualified Data.ByteString.Lazy  as BSL
-import           Formatting            (sformat, shown, (%))
-import           System.Wlog           (LoggerConfig (..), Severity (Info, Warning),
-                                        fromScratch, lcTree, ltSeverity,
-                                        parseLoggerConfig, zoomLogger)
-import           Text.JSON.Canonical   (renderCanonicalJSON, toJSON)
-import           Text.Parsec           (try)
-import qualified Text.Parsec.Char      as P
-import qualified Text.Parsec.Text      as P
+import           Control.Lens           (zoom, (?=))
+import qualified Data.ByteString.Lazy   as BSL
+import           Formatting             (sformat, shown, (%))
+import           System.Wlog            (LoggerConfig (..), Severity (Info, Warning),
+                                         fromScratch, lcTree, ltSeverity,
+                                         parseLoggerConfig, zoomLogger)
+import           Text.Parsec            (try)
+import qualified Text.Parsec.Char       as P
+import qualified Text.Parsec.Text       as P
 
-import           Pos.Binary.Core       ()
-import           Pos.Constants         (isDevelopment)
-import           Pos.Core              (StakeholderId)
+import           Pos.Binary.Core        ()
+import           Pos.Constants          (isDevelopment)
+import           Pos.Core               (StakeholderId)
 import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson,
                                          genesisData)
-import           Pos.Crypto            (decodeAbstractHash)
-import           Pos.Security.Params   (AttackTarget (..), AttackType (..))
-import           Pos.Ssc.SscAlgo       (SscAlgo (..))
-import           Pos.Util              (eitherToFail, inAssertMode)
-import           Pos.Util.TimeWarp     (addrParser)
+import           Pos.Crypto             (decodeAbstractHash)
+import           Pos.Security.Params    (AttackTarget (..), AttackType (..))
+import           Pos.Ssc.SscAlgo        (SscAlgo (..))
+import           Pos.Util               (eitherToFail, inAssertMode)
+import           Pos.Util.TimeWarp      (addrParser)
 
 printFlags :: IO ()
 printFlags = do

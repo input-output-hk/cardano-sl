@@ -4,12 +4,12 @@
 --   For configurable constants, see Pos.Core.Configuration.
 
 module Pos.Core.Constants
-    ( sharedSeedLength
-    , genesisDataDigest
-    , isDevelopment
-    ) where
+       ( sharedSeedLength
+       , genesisDataDigest
+       , isDevelopment
+       ) where
 
-import           Crypto.Hash
+import           Crypto.Hash            (Blake2b_256, Digest, digestFromByteString)
 import qualified Data.ByteString        as BS
 import qualified Data.ByteString.Base16 as B16
 import           Universum

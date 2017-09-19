@@ -23,7 +23,7 @@ import           Pos.Communication        (ActionSpec (..), OutSpecs, WorkerSpec
 import           Pos.Context              (getOurPublicKey, ncNetworkConfig)
 import           Pos.Core                 (GenesisData (gdBootStakeholders),
                                            GenesisWStakeholders (..), addressHash,
-                                           bootDustThreshold, genesisData)
+                                           bootDustThreshold, gdFtsSeed, genesisData)
 import qualified Pos.DB.DB                as DB
 import           Pos.DHT.Real             (KademliaDHTInstance (..),
                                            kademliaJoinNetworkNoThrow,
@@ -42,6 +42,7 @@ import           Pos.Util                 (inAssertMode)
 import           Pos.Util.LogSafe         (logInfoS)
 import           Pos.Worker               (allWorkers)
 import           Pos.WorkMode.Class       (WorkMode)
+
 
 #define QUOTED(x) "/**/x/**/"
 
@@ -86,12 +87,16 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
         Nothing             -> return ()
 
     let genesisStakeholders = gdBootStakeholders genesisData
-    logInfo $ sformat ("Dust threshold: "%build)
+    logInfo $ sformat
+        ("Genesis stakeholders ("%int%" addresses, dust threshold "%build%"): "%build)
+        (length $ getGenesisWStakeholders genesisStakeholders)
         (bootDustThreshold genesisStakeholders)
-    logInfo $ sformat ("Genesis stakeholders ("%int%" addresses): "%build)
-        (length $ getGenesisWStakeholders genesisStakeholders) genesisStakeholders
+        genesisStakeholders
     firstGenesisHash <- GS.getFirstGenesisBlockHash
-    logInfo $ sformat ("First genesis block hash: "%build) firstGenesisHash
+    logInfo $ sformat
+        ("First genesis block hash: "%build%", genesis seed is "%build)
+        firstGenesisHash
+        (gdFtsSeed genesisData)
 
     lastKnownEpoch <- LrcDB.getEpoch
     let onNoLeaders = logWarning "Couldn't retrieve last known leaders list"

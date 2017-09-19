@@ -11,7 +11,7 @@ module Pos.Client.CLI.Options
        , portOption
        , timeLordOption
        , webPortOption
-       , daedalusWalletAddressOption
+       , walletAddressOption
        , networkAddressOption
        , externalNetworkAddressOption
        , listenNetworkAddressOption
@@ -191,8 +191,8 @@ webPortOption portNum help =
         <> Opt.value portNum
         <> Opt.showDefault
 
-daedalusWalletAddressOption :: Maybe NetworkAddress -> Opt.Parser NetworkAddress
-daedalusWalletAddressOption na =
+walletAddressOption :: Maybe NetworkAddress -> Opt.Parser NetworkAddress
+walletAddressOption na =
     Opt.option (fromParsec addrParser) $
             Opt.long "wallet-address"
          <> Opt.metavar "IP:PORT"
@@ -200,7 +200,7 @@ daedalusWalletAddressOption na =
          <> Opt.showDefault
          <> maybe mempty Opt.value na
   where
-    helpMsg = "IP and port for Daedalus wallet API."
+    helpMsg = "IP and port for backend wallet API."
 
 externalNetworkAddressOption :: Maybe NetworkAddress -> Opt.Parser NetworkAddress
 externalNetworkAddressOption na =

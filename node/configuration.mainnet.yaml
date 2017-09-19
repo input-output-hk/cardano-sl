@@ -43,7 +43,7 @@ mainnet_base: &mainnet_base
               a: 155381 # absolute minimal fees per transaction
               b: 43.946 # additional minimal fees per byte of transaction size
           unlockStakeEpoch: 18446744073709551615 # last epoch (maxBound @Word64)
-        protocolConstants:
+        protocolConstants: &mainnet_base_protocolConstants
           k: 2160
           protocolMagic: 60987900
           vssMinTTL: 2
@@ -14582,10 +14582,22 @@ meta:
 
 testnet_public_full: &testnet_public_full
   <<: *mainnet_base
-  core:
+  core: &testnet_public_full_core
     <<: *mainnet_base_core
-    genesis:
+    genesis: &testnet_public_full_genesis
       <<: *mainnet_base_genesis
-      spec: 
+      spec:  &testnet_public_full_spec
         <<: *mainnet_base_spec
         avvmDistr: *mainnet_avvmDistr
+
+testnet_staging_full: &testnet_staging_full
+  <<: *testnet_public_full
+  core:
+    <<: *testnet_public_full_core
+    genesis:
+      <<: *testnet_public_full_genesis
+      spec: 
+        <<: *testnet_public_full_spec
+        protocolConstants: 
+          <<: *mainnet_base_protocolConstants
+          k: 108

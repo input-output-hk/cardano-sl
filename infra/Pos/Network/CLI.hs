@@ -1,4 +1,6 @@
-{-# LANGUAGE CPP #-}
+{-# LANGUAGE ApplicativeDo  #-}
+{-# LANGUAGE CPP            #-}
+{-# LANGUAGE NamedFieldPuns #-}
 
 -- following Pos.Util.UserSecret
 #if !defined(mingw32_HOST_OS)
@@ -242,8 +244,15 @@ intNetworkConfigOpts cfg@NetworkConfigOpts{..} = do
                     Left err -> throw err
             else return Nothing
         case nmType of
-          T.NodeCore  -> return $ T.TopologyCore{..}
-          T.NodeRelay -> return $ T.TopologyRelay{topologyMaxSubscrs = nmMaxSubscrs, ..}
+          T.NodeCore  -> return T.TopologyCore{..}
+          T.NodeRelay -> return T.TopologyRelay {
+                           topologyStaticPeers,
+                           topologyDnsDomains = nmSubscribe,
+                           topologyValency    = nmValency,
+                           topologyFallbacks  = nmFallbacks,
+                           topologyOptKademlia,
+                           topologyMaxSubscrs = nmMaxSubscrs
+                         }
           T.NodeEdge  -> throw NetworkConfigSelfEdge
       Y.TopologyBehindNAT{..} ->
         return T.TopologyBehindNAT{..}

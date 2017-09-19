@@ -31,18 +31,9 @@ printf "wallet:
     valency: 3
     fallbacks: 2" > "${TMP_TOPOLOGY_YAML}"
 
-    # --address 18.194.66.181:3000
 stack exec -- cardano-explorer                                                     \
-    --address 192.168.1.1:3000                                                     \
-    --listen 172.31.30.122:3000                                                    \
     --no-ntp                                                                       \
-    # --json-log /var/lib/cardano-node//jsonLog.json                                 \
-    # --metrics +RTS -T -RTS                                                         \
-    # --statsd-server 127.0.0.1:8125                                                 \
-    # --ekg-server 172.31.30.122:8080                                                \
     --system-start 1505689646                                                      \
-    # --log-config "${LOG_CONFIG}"                                                   \
-    # --logs-prefix "${LOG_PREFIX}"                                                  \
     --db-path db-${CLUSTER}                                                        \
     --topology "${TMP_TOPOLOGY_YAML}"                                              \
     --node-id explorer                                                             \

@@ -43,40 +43,38 @@ import           Pos.Util.UserSecret (usVss)
 main :: IO ()
 main = do
     args <- getExplorerNodeOptions
-    applyConfigInfo $ CLI.configInfo $ getExplorerCommonNodeArgs args
-
     CLI.printFlags
     putText "[Attention] Software is built with explorer part"
+    runProduction (action args)
 
-    giveStaticConsts $ runProduction $ action args
-  where
-    getExplorerCommonNodeArgs :: ExplorerNodeArgs -> CommonNodeArgs
-    getExplorerCommonNodeArgs (ExplorerNodeArgs cArgs _) = cArgs
-
-action :: HasCoreConstants => ExplorerNodeArgs -> Production ()
+action :: ExplorerNodeArgs -> Production ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) = do
-    systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
-    logInfo $ sformat ("System start time is " % shown) systemStart
-    t <- currentTime
-    logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-    currentParams <- getNodeParams cArgs nodeArgs systemStart
-    putText $ "Explorer is enabled!"
-    logInfo $ sformat ("Using configs and genesis:\n"%build) configInfo
+    giveStaticConsts $ logInfo $ sformat ("Using configs and genesis:\n"%build) configInfo
+    liftIO $ putText "Before applyConfigInfo"
+    liftIO $ applyConfigInfo configInfo
+    giveStaticConsts $ do
+        systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
+        logInfo $ sformat ("System start time is " % shown) systemStart
+        t <- currentTime
+        logInfo $ sformat ("Current time is " % shown) (Timestamp t)
+        currentParams <- getNodeParams cArgs nodeArgs systemStart
+        putText $ "Explorer is enabled!"
+        logInfo $ sformat ("Using configs and genesis:\n"%build) configInfo
 
-    let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-    let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
+        let vssSK = fromJust $ npUserSecret currentParams ^. usVss
+        let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-    let plugins :: HasCoreConstants => ([WorkerSpec ExplorerProd], OutSpecs)
-        plugins = mconcatPair
-            [ explorerPlugin webPort
-            , notifierPlugin NotifierSettings{ nsPort = notifierPort }
-            , updateTriggerWorker
-            ]
+        let plugins :: HasCoreConstants => ([WorkerSpec ExplorerProd], OutSpecs)
+            plugins = mconcatPair
+                [ explorerPlugin webPort
+                , notifierPlugin NotifierSettings{ nsPort = notifierPort }
+                , updateTriggerWorker
+                ]
 
-    bracketNodeResources currentParams gtParams $ \nr@NodeResources {..} ->
-        runExplorerRealMode
-            (hoistNodeResources (lift . runExplorerBListener) nr)
-            (runNode @SscGodTossing nr plugins)
+        bracketNodeResources currentParams gtParams $ \nr@NodeResources {..} ->
+            runExplorerRealMode
+                (hoistNodeResources (lift . runExplorerBListener) nr)
+                (runNode @SscGodTossing nr plugins)
   where
     runExplorerRealMode
         :: HasCoreConstants

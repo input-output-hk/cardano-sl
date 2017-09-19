@@ -9,7 +9,7 @@ var avvmJson = JSON.parse(avvmFile.toString('ascii'))
 
 var avvmMap = {};
 avvmJson.utxo.forEach(function(v){
-  avvmMap[v.address] = v.coin;
+  avvmMap[v.address] = v.coin*1000000;
 })
 
 console.log(yaml.dump(avvmMap));

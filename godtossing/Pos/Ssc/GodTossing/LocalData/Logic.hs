@@ -34,7 +34,6 @@ import           Pos.Binary.GodTossing              ()
 import           Pos.Core                           (BlockVersionData (..), EpochIndex,
                                                      HasCoreConstants, SlotId (..),
                                                      StakeholderId)
-import           Pos.Core.Constants                 (memPoolLimitRatio)
 import           Pos.DB                             (MonadDBRead,
                                                      MonadGState (gsAdoptedBVData))
 import           Pos.Lrc.Types                      (RichmenStakes)
@@ -254,7 +253,8 @@ sscProcessDataDo richmenData bvd gs payload =
         let multiRichmen = HM.fromList [richmenData]
         unless (storedEpoch == givenEpoch) $
             throwError $ DifferentEpoches storedEpoch givenEpoch
-        let maxMemPoolSize = bvdMaxBlockSize bvd * memPoolLimitRatio
+        -- TODO: This is a rather arbitrary limit, we should revisit it (see CSL-1664)
+        let maxMemPoolSize = bvdMaxBlockSize bvd * 2
         curSize <- use ldSize
         let exhausted = curSize >= maxMemPoolSize
         -- If our mempool is exhausted we drop some data from it.

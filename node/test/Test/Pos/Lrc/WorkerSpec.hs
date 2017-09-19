@@ -117,7 +117,8 @@ lrcCorrectnessProp = do
     unless (expectedLeadersStakes /= leaders1) $
         stopProperty "expectedLeadersStakes /= leaders1"
     -- TODO: resurrect!
-    const (pure ()) checkRichmen  -- was just “checkRichmen”, but it's broken
+    --const (pure ()) checkRichmen  -- was just “checkRichmen”, but it's broken
+    return ()
 
 checkRichmen :: HasVarSpecConfigurations => BlockProperty ()
 -- Here we check richmen.  The order must be the same as the one

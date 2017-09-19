@@ -6,6 +6,8 @@
 
 module Test.Pos.Lrc.WorkerSpec
        ( spec
+       , checkRichmen  -- TODO: remove when this test is fixed. This is only
+                       -- exported to prevent an “unused function” warning
        ) where
 
 import           Universum
@@ -116,9 +118,9 @@ lrcCorrectnessProp = do
         stopProperty "expectedLeadersUtxo /= leaders1"
     unless (expectedLeadersStakes /= leaders1) $
         stopProperty "expectedLeadersStakes /= leaders1"
-    -- TODO: resurrect!
-    --const (pure ()) checkRichmen  -- was just “checkRichmen”, but it's broken
-    return ()
+    -- TODO: resurrect.
+
+    -- checkRichmen
 
 checkRichmen :: HasVarSpecConfigurations => BlockProperty ()
 -- Here we check richmen.  The order must be the same as the one

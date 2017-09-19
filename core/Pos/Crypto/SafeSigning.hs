@@ -46,8 +46,8 @@ import           Pos.Crypto.Signing    (ProxyCert (..), ProxySecretKey (..),
 import           Pos.Crypto.SignTag    (SignTag (SignProxySK), signTag)
 
 data EncryptedSecretKey = EncryptedSecretKey
-    { eskPayload :: !CC.XPrv
-    , eskHash    :: !S.EncryptedPass
+    { eskPayload :: !CC.XPrv          -- ^ Secret key itself
+    , eskHash    :: !S.EncryptedPass  -- ^ Hash of passphrase used for key creation
     }
 
 instance Show EncryptedSecretKey where
@@ -103,12 +103,13 @@ mkEncSecret pp payload =
 encToPublic :: EncryptedSecretKey -> PublicKey
 encToPublic (EncryptedSecretKey sk _) = PublicKey (CC.toXPub sk)
 
--- | Re-wrap unencrypted secret key as an encrypted one
+-- | Re-wrap unencrypted secret key as an encrypted one.
+-- NB: for testing purposes only
 noPassEncrypt
     :: Bi PassPhrase
     => SecretKey -> EncryptedSecretKey
 noPassEncrypt (SecretKey k) =
-    mkEncSecretWithSalt (S.mkSalt ("" :: Text)) emptyPassphrase k
+    mkEncSecretWithSalt def emptyPassphrase k
 
 checkPassMatches
     :: (Bi PassPhrase, Alternative f)

@@ -35,6 +35,7 @@ import           Pos.Genesis           (GenesisWStakeholders (..), bootDustThres
 import qualified Pos.GState            as GS
 import           Pos.Launcher.Resource (NodeResources (..))
 import           Pos.Lrc.DB            as LrcDB
+import           Pos.Lrc.Genesis       (genesisSeed)
 import           Pos.Network.Types     (NetworkConfig (..), topologyRunKademlia)
 import           Pos.Reporting         (reportError)
 import           Pos.Shutdown          (waitForWorkers)
@@ -90,12 +91,15 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
         Nothing             -> return ()
 
     genesisStakeholders <- view (lensOf @GenesisWStakeholders)
-    logInfo $ sformat ("Dust threshold: "%build)
+    logInfo $ sformat ("Genesis stakeholders ("%int%" addresses, dust threshold "%build%
+                       "): "%build)
+        (length $ getGenesisWStakeholders genesisStakeholders)
         (bootDustThreshold genesisStakeholders)
-    logInfo $ sformat ("Genesis stakeholders ("%int%" addresses): "%build)
-        (length $ getGenesisWStakeholders genesisStakeholders) genesisStakeholders
+        genesisStakeholders
     firstGenesisHash <- GS.getFirstGenesisBlockHash
-    logInfo $ sformat ("First genesis block hash: "%build) firstGenesisHash
+    logInfo $ sformat ("First genesis block hash: "%build%", genesis seed is "%build)
+                      firstGenesisHash
+                      genesisSeed
 
     lastKnownEpoch <- LrcDB.getEpoch
     let onNoLeaders = logWarning "Couldn't retrieve last known leaders list"

@@ -152,7 +152,6 @@ do
   elif [[ $var == "--bench-mode" ]]; then
     # We want:
     # • --flag cardano-sl-core:dev-mode (default)
-    # • --ghc-options=-DCONFIG=benchmark ($bench_mode)
     # • --flag cardano-sl-core:-asserts ($asserts)
     # • compiler optimizations ($no_fast)
     # • disable explorer ($explorer)
@@ -238,7 +237,7 @@ if [[ "$prodMode" != "" ]]; then
     dconfig="${dconfig}_full"
   fi
 fi
-ghc_opts="-DCONFIG=$dconfig -DGITREV=`git rev-parse HEAD`"
+ghc_opts="-DGITREV=`git rev-parse HEAD`"
 
 if [[ $no_fast == true ]];
   then fast=""

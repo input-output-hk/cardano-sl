@@ -2995,11 +2995,15 @@ self: {
           description = "JSON encoding of ekg metrics";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      ekg-statsd = callPackage ({ base, bytestring, ekg-core, mkDerivation, network, stdenv, text, time, unordered-containers }:
+      ekg-statsd = callPackage ({ base, bytestring, ekg-core, fetchgit, mkDerivation, network, stdenv, text, time, unordered-containers }:
       mkDerivation {
           pname = "ekg-statsd";
           version = "0.2.1.1";
-          sha256 = "1r0x26aqj0nbdl9nrj26xsb5np20bg6mihams394a0c41pv85j6k";
+          src = fetchgit {
+            url = "https://github.com/input-output-hk/ekg-statsd.git";
+            sha256 = "1nz0py671cg4dlyli1j6h63603lfmldi79w07i2prrvaivjdzfqc";
+            rev = "1869714a616b8092d8dc16af6e834e81f4c56bad";
+          };
           libraryHaskellDepends = [
             base
             bytestring

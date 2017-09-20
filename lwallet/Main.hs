@@ -20,7 +20,7 @@ import           Data.List                        ((!!))
 import qualified Data.Set                         as S (fromList)
 import qualified Data.Text                        as T
 import qualified Data.Text.IO                     as T
-import           Data.Time.Units                  (convertUnit, toMicroseconds)
+import           Data.Time.Units                  (convertUnit)
 import           Formatting                       (build, int, sformat, shown, stext,
                                                    string, (%))
 import           Mockable                         (Mockable, Production, SharedAtomic,
@@ -49,11 +49,11 @@ import           Pos.Communication                (NodeId, OutSpecs, SendActions
                                                    relayPropagateOut, submitTx,
                                                    submitTxRaw, submitUpdateProposal,
                                                    submitVote, txRelays, usRelays, worker)
-import           Pos.Constants                    (genesisBlockVersionData,
-                                                   genesisSlotDuration, isDevelopment)
-import           Pos.Core                         (addressHash, coinF)
+import           Pos.Core                         (addressHash, coinF, bvdSlotDuration)
+import           Pos.Core.Configuration           (genesisBlockVersionData,
+                                                   genesisSecretKeys)
+import           Pos.Core.Constants               (isDevelopment)
 import           Pos.Core.Address                 (makeAddress)
-import           Pos.Core.Context                 (HasCoreConstants, giveStaticConsts)
 import           Pos.Core.Types                   (AddrAttributes (..),
                                                    AddrSpendingData (..), Timestamp (..),
                                                    mkCoin)
@@ -64,17 +64,13 @@ import           Pos.Crypto                       (Hash, SecretKey, SignTag (Sig
                                                    safeSign, safeToPublic, toPublic,
                                                    unsafeHash, withSafeSigner)
 import           Pos.Data.Attributes              (mkAttributes)
-import           Pos.Genesis                      (BalanceDistribution (..),
-                                                   balanceDistribution, devBalancesDistr,
-                                                   devGenesisContext,
-                                                   genesisContextProduction,
-                                                   genesisDevSecretKeys, gtcUtxo)
 import           Pos.Launcher                     (BaseParams (..), LoggingParams (..),
-                                                   bracketTransport, loggerBracket)
+                                                   bracketTransport, loggerBracket,
+                                                   HasConfigurations, withConfigurations)
 import           Pos.Network.Types                (MsgType (..), Origin (..))
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Txp                          (TxOut (..), TxOutAux (..), txaF,
-                                                   unGenesisUtxo)
+                                                   genesisUtxo, unGenesisUtxo)
 import           Pos.Update                       (BlockVersionModifier (..),
                                                    SystemTag (..), UpdateData (..),
                                                    UpdateVote (..), mkUpdateProposalWSign)
@@ -103,7 +99,6 @@ import           System.Wlog.CanLog
 data CmdCtx = CmdCtx
     { skeys               :: [SecretKey]
     , na                  :: [NodeId]
-    , genesisBalanceDistr :: BalanceDistribution
     }
 
 helpMsg :: Text
@@ -161,7 +156,7 @@ addTxSubmit mvar = modifySharedAtomic mvar (\(TxCount submitted failed sending) 
 addTxFailed :: Mockable SharedAtomic m => SharedAtomicT m TxCount -> m ()
 addTxFailed mvar = modifySharedAtomic mvar (\(TxCount submitted failed sending) -> return (TxCount submitted (failed + 1) sending, ()))
 
-runCmd :: HasCoreConstants => SendActions LightWalletMode -> Command -> CmdCtx -> LightWalletMode ()
+runCmd :: HasConfigurations => SendActions LightWalletMode -> Command -> CmdCtx -> LightWalletMode ()
 runCmd _ (Balance addr) _ =
     getBalance addr >>=
     putText . sformat ("Current balance: "%coinF)
@@ -181,8 +176,8 @@ runCmd sendActions (Send idx outputs) CmdCtx{na} = do
         Right (tx, _) -> putText $ sformat ("Submitted transaction: "%txaF) tx
 runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) CmdCtx{..} = do
     let nNeighbours = length na
-    let slotDuration = fromIntegral (toMicroseconds genesisSlotDuration) `div` 1000000 :: Int
-        keysToSend = zip skeys (balanceDistribution genesisBalanceDistr)
+    let slotDuration = bvdSlotDuration genesisBlockVersionData
+        keysToSend = fromMaybe (error "Must have secret keys") genesisSecretKeys
     tpsMVar <- newSharedAtomic $ TxCount 0 0 conc
     startTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
     Mockable.bracket (openFile tpsSentFile WriteMode) (liftIO . hClose) $ \h -> do
@@ -198,7 +193,7 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) 
         logInfo $ sformat ("Found "%shown%" keys in the genesis block.") (length keysToSend)
         -- Light wallet doesn't know current slot, so let's assume
         -- it's 0-th epoch. It's enough for our current needs.
-        forM_ (zip keysToSend [0..]) $ \((key, _balance), n) -> do
+        forM_ (zip keysToSend [0..]) $ \(key, n) -> do
             outAddr <- makePubKeyAddressLWallet (toPublic key)
             let val1 = mkCoin 1
                 txOut1 = TxOut {
@@ -217,7 +212,7 @@ runCmd sendActions (SendToAllGenesis duration conc delay_ sendMode tpsSentFile) 
             -- every <slotDuration> seconds, write the number of sent and failed transactions to a CSV file.
         let writeTPS :: LightWalletMode ()
             writeTPS = do
-                delay (sec slotDuration)
+                delay slotDuration
                 currentTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
                 finished <- modifySharedAtomic tpsMVar $ \(TxCount submitted failed sending) -> do
                     -- CSV is formatted like this:
@@ -381,18 +376,18 @@ updateDataElement ProposeUpdateSystem{..} = do
     pure (pusSystemTag, UpdateData diffHash installerHash dummyHash dummyHash)
 
 -- This solution is hacky, but will work for now
-runCmdOuts :: HasCoreConstants => OutSpecs
+runCmdOuts :: HasConfigurations => OutSpecs
 runCmdOuts = relayPropagateOut $ mconcat
                 [ usRelays @(RealModeContext SscGodTossing) @(RealMode SscGodTossing)
                 , delegationRelays @SscGodTossing @(RealModeContext SscGodTossing) @(RealMode SscGodTossing)
                 , txRelays @SscGodTossing @(RealModeContext SscGodTossing) @(RealMode SscGodTossing)
                 ]
 
-evalCmd :: HasCoreConstants => SendActions LightWalletMode -> Command -> CmdCtx -> LightWalletMode ()
+evalCmd :: HasConfigurations => SendActions LightWalletMode -> Command -> CmdCtx -> LightWalletMode ()
 evalCmd _ Quit _      = pure ()
 evalCmd sa cmd cmdCtx = runCmd sa cmd cmdCtx >> evalCommands sa cmdCtx
 
-evalCommands :: HasCoreConstants => SendActions LightWalletMode -> CmdCtx -> LightWalletMode ()
+evalCommands :: HasConfigurations => SendActions LightWalletMode -> CmdCtx -> LightWalletMode ()
 evalCommands sa cmdCtx = do
     putStr @Text "> "
     liftIO $ hFlush stdout
@@ -402,12 +397,12 @@ evalCommands sa cmdCtx = do
         Left err   -> putStrLn err >> evalCommands sa cmdCtx
         Right cmd_ -> evalCmd sa cmd_ cmdCtx
 
-runWalletRepl :: HasCoreConstants => CmdCtx -> Worker LightWalletMode
+runWalletRepl :: HasConfigurations => CmdCtx -> Worker LightWalletMode
 runWalletRepl cmdCtx sa = do
     putText "Welcome to Wallet CLI Node"
     evalCmd sa Help cmdCtx
 
-runWalletCmd :: HasCoreConstants => CmdCtx -> Text -> Worker LightWalletMode
+runWalletCmd :: HasConfigurations => CmdCtx -> Text -> Worker LightWalletMode
 runWalletCmd cmdCtx str sa = do
     let strs = T.splitOn "," str
     for_ strs $ \scmd -> do
@@ -424,7 +419,7 @@ runWalletCmd cmdCtx str sa = do
 #endif
 
 main :: IO ()
-main = giveStaticConsts $ do
+main = do
     WalletOptions {..} <- getWalletOptions
     --filePeers <- maybe (return []) CLI.readPeersFile
     --                   (CLI.dhtPeersFile woCommonArgs)
@@ -439,33 +434,24 @@ main = giveStaticConsts $ do
 
     print logParams
 
-    let sysStart = CLI.sysStart woCommonArgs
-    let devBalanceDistr =
-            devBalancesDistr
-                (CLI.flatDistr woCommonArgs)
-                (CLI.richPoorDistr woCommonArgs)
-                (CLI.expDistr woCommonArgs)
-    let wpGenesisContext
-            | isDevelopment = devGenesisContext devBalanceDistr
-            | otherwise = genesisContextProduction
     let params =
             WalletParams
             { wpDbPath      = Just woDbPath
             , wpRebuildDb   = woRebuildDb
             , wpKeyFilePath = woKeyFilePath
-            , wpSystemStart = sysStart
             , wpGenesisKeys = woDebug
             , wpBaseParams  = baseParams
             , ..
             }
 
-    loggerBracket logParams $ runProduction $
+    let cOpts = CLI.configurationOptions woCommonArgs
+    loggerBracket logParams $ runProduction $ withConfigurations cOpts $
       bracketTransport TCP.Unaddressable $ \transport -> do
         logInfo $ if isDevelopment
             then "Development Mode"
             else "Production Mode"
         logInfo $ sformat ("Length of genesis utxo: "%shown)
-            (length $ unGenesisUtxo $ wpGenesisContext ^. gtcUtxo)
+            (length $ unGenesisUtxo genesisUtxo)
         let transport' :: Transport LightWalletMode
             transport' = hoistTransport
                 (powerLift :: forall t . Production t -> LightWalletMode t)
@@ -474,12 +460,11 @@ main = giveStaticConsts $ do
             worker' specs w = worker specs $ \sa -> w (addLogging sa)
 
             cmdCtx = CmdCtx
-                      { skeys = if isDevelopment then genesisDevSecretKeys else []
+                      { skeys = fromMaybe (error "Must have secret keys") genesisSecretKeys
                       , na = woPeers
-                      , genesisBalanceDistr = devBalanceDistr
                       }
 
-            plugins :: HasCoreConstants => ([WorkerSpec LightWalletMode], OutSpecs)
+            plugins :: ([WorkerSpec LightWalletMode], OutSpecs)
             plugins = first pure $ case woAction of
                 Repl    -> worker' runCmdOuts $ runWalletRepl cmdCtx
                 Cmd cmd -> worker' runCmdOuts $ runWalletCmd cmdCtx cmd

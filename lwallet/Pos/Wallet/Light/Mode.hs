@@ -14,7 +14,6 @@ import           Universum
 
 import           Control.Lens                     (makeLensesWith)
 import qualified Control.Monad.Reader             as Mtl
-import           Ether.Internal                   (HasLens (..))
 import           Mockable                         (Production)
 import           System.Wlog                      (HasLoggerName (..), LoggerName)
 
@@ -24,18 +23,19 @@ import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
 import           Pos.Client.Txp.Balances          (MonadBalances (..), getBalanceFromUtxo)
 import           Pos.Client.Txp.History           (MonadTxHistory (..))
 import           Pos.Communication.Types.Protocol (NodeId)
-import qualified Pos.Constants                    as Const
-import           Pos.Core                         (HasCoreConstants, SlotId (..))
+import           Pos.Core                         (HasConfiguration,
+                                                   HasGeneratedSecrets,
+                                                   SlotId (..),
+                                                   genesisBlockVersionData)
 import           Pos.Crypto                       (PublicKey)
 import           Pos.DB                           (MonadGState (..))
-import           Pos.Genesis                      (GenesisWStakeholders)
 import           Pos.Reporting.MemState           (ReportingContext)
 import           Pos.Slotting                     (HasSlottingVar (..), MonadSlots (..),
                                                    currentTimeSlottingSimple)
 import           Pos.Slotting.MemState            (MonadSlotsData)
 import           Pos.Ssc.GodTossing               (SscGodTossing)
-import           Pos.Txp                          (filterUtxoByAddrs)
-import           Pos.Txp.Toil                     (GenesisUtxo (..))
+import           Pos.Txp                          (GenesisUtxo (..), filterUtxoByAddrs,
+                                                   genesisUtxo)
 import           Pos.Util.JsonLog                 (HasJsonLogConfig (..), JsonLogConfig,
                                                    jsonLogDefault)
 import           Pos.Util.LoggerName              (HasLoggerName' (..),
@@ -57,8 +57,6 @@ data LightWalletContext = LightWalletContext
     , lwcDiscoveryPeers   :: !(Set NodeId)
     , lwcJsonLogConfig    :: !JsonLogConfig
     , lwcLoggerName       :: !LoggerName
-    , lwcGenStakeholders  :: !GenesisWStakeholders
-    , lwcGenesisUtxo      :: !GenesisUtxo
     }
 
 makeLensesWith postfixLFields ''LightWalletContext
@@ -67,9 +65,6 @@ type LightWalletMode = Mtl.ReaderT LightWalletContext Production
 
 instance HasUserSecret LightWalletContext where
     userSecret = lwcKeyData_L
-
-instance HasLens GenesisWStakeholders LightWalletContext GenesisWStakeholders where
-    lensOf = lwcGenStakeholders_L
 
 instance HasLoggerName' LightWalletContext where
     loggerName = lwcLoggerName_L
@@ -106,7 +101,7 @@ instance MonadUpdates LightWalletMode where
     applyLastUpdate = pure ()
 
 -- FIXME: Dummy instance for lite-wallet.
-instance (HasCoreConstants, MonadSlotsData ctx LightWalletMode)
+instance (HasConfiguration, MonadSlotsData ctx LightWalletMode)
       => MonadSlots ctx LightWalletMode
   where
     getCurrentSlot           = Just <$> getCurrentSlotInaccurate
@@ -114,18 +109,18 @@ instance (HasCoreConstants, MonadSlotsData ctx LightWalletMode)
     getCurrentSlotInaccurate = pure (SlotId 0 minBound)
     currentTimeSlotting      = currentTimeSlottingSimple
 
-instance MonadGState LightWalletMode where
-    gsAdoptedBVData = pure Const.genesisBlockVersionData
+instance HasConfiguration => MonadGState LightWalletMode where
+    gsAdoptedBVData = pure genesisBlockVersionData
 
-instance MonadBalances LightWalletMode where
-    getOwnUtxos addrs = filterUtxoByAddrs addrs <$> asks (unGenesisUtxo . lwcGenesisUtxo)
+instance HasConfiguration => MonadBalances LightWalletMode where
+    getOwnUtxos addrs = pure . filterUtxoByAddrs addrs . unGenesisUtxo $ genesisUtxo
     getBalance = getBalanceFromUtxo
 
-instance HasCoreConstants => MonadTxHistory LightWalletSscType LightWalletMode where
+instance HasConfiguration => MonadTxHistory LightWalletSscType LightWalletMode where
     getBlockHistory = error "getBlockHistory is not implemented for light wallet"
     getLocalHistory = error "getLocalHistory is not implemented for light wallet"
     saveTx _ = pass
 
-instance MonadAddresses LightWalletMode where
+instance (HasConfiguration, HasGeneratedSecrets) => MonadAddresses LightWalletMode where
     type AddrData LightWalletMode = PublicKey
     getNewAddress = makePubKeyAddressLWallet

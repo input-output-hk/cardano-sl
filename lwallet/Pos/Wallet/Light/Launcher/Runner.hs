@@ -16,10 +16,9 @@ import           System.Wlog                     (WithLogger, logDebug, logInfo)
 
 import           Pos.Communication               (ActionSpec (..), MkListeners, NodeId,
                                                   OutSpecs, WorkerSpec)
-import           Pos.Core                        (HasCoreConstants)
-import           Pos.Genesis                     (gtcUtxo, gtcWStakeholders)
 import           Pos.Launcher                    (BaseParams (..), LoggingParams (..), OQ,
-                                                  initQueue, runServer)
+                                                  initQueue, runServer,
+                                                  HasConfigurations)
 import           Pos.Network.Types               (NetworkConfig, Topology (..),
                                                   defaultNetworkConfig)
 import           Pos.Reporting.MemState          (emptyReportingContext)
@@ -38,7 +37,8 @@ allWorkers = mempty
 
 -- | WalletMode runner
 runLightWalletMode
-    :: NetworkConfig kademlia
+    :: HasConfigurations
+    => NetworkConfig kademlia
     -> Transport LightWalletMode
     -> Set NodeId
     -> WalletParams
@@ -48,7 +48,7 @@ runLightWalletMode networkConfig transport peers wp@WalletParams {..} =
     runRawStaticPeersWallet networkConfig transport peers wp mempty
 
 runWalletStaticPeers
-    :: HasCoreConstants
+    :: HasConfigurations
     => Transport LightWalletMode
     -> Set NodeId
     -> WalletParams
@@ -75,7 +75,8 @@ runWallet (plugins', pouts) = (,outs) . ActionSpec $ \vI sendActions -> do
     outs = wouts <> pouts
 
 runRawStaticPeersWallet
-    :: NetworkConfig kademlia
+    :: HasConfigurations
+    => NetworkConfig kademlia
     -> Transport LightWalletMode
     -> Set NodeId
     -> WalletParams
@@ -93,17 +94,14 @@ runRawStaticPeersWallet networkConfig transport peers WalletParams {..}
                 peers
                 JsonLogDisabled
                 lpRunnerTag
-                (wpGenesisContext ^. gtcWStakeholders)
-                wpGenesisUtxo
             ) .
             runServer_ transport listeners outs oq . ActionSpec $ \vI sa ->
             logInfo "Started wallet, joining network" >> action vI sa
   where
     LoggingParams {..} = bpLoggingParams wpBaseParams
-    wpGenesisUtxo = wpGenesisContext ^. gtcUtxo
 
 runServer_
-    :: (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
+    :: (HasConfigurations, MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
     => Transport m -> MkListeners m -> OutSpecs -> OQ m -> ActionSpec m b -> m b
 runServer_ transport mkl outSpecs oq =
     runServer (simpleNodeEndPoint transport) (const noReceiveDelay) (const mkl)

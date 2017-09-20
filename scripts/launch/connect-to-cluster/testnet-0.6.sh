@@ -32,12 +32,16 @@ printf "wallet:
     valency: 1
     fallbacks: 7" > "${TMP_TOPOLOGY_YAML}"
 
-stack exec -- cardano-node-simple                           \
+stack exec -- cardano-node                                  \
+    --tlscert ./scripts/tls-files/server.crt                \
+    --tlskey ./scripts/tls-files/server.key                 \
+    --tlsca ./scripts/tls-files/ca.crt                      \
     --no-ntp                                                \
     --topology "${TMP_TOPOLOGY_YAML}"                       \
     --log-config scripts/log-templates/log-config-qa.yaml   \
     --logs-prefix "logs/${CLUSTER}"                         \
     --db-path db-${CLUSTER}                                 \
+    --wallet-db-path wdb-${CLUSTER}                         \
     --keyfile secret-$CLUSTER.key                           \
     --system-start "${SYSTEM_START_TIME}"                   \
     --configuration-file node/configuration.mainnet.yaml    \

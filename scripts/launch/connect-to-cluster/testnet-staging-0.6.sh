@@ -2,8 +2,8 @@
 set -euo pipefail
 
 readonly CLUSTER=testnet-staging-0.6
-readonly DOMAIN=aws.iohkdev.io
-readonly SYSTEM_START_TIME=1504807319
+readonly DOMAIN=awstest.iohkdev.io
+readonly SYSTEM_START_TIME=1505865883
 
 if [[ "$1" == "-c" ]]; then
   shift
@@ -45,4 +45,5 @@ stack exec -- cardano-node                                  \
     --wallet-db-path wdb-${CLUSTER}                         \
     --keyfile secret-$CLUSTER.key \
     --system-start "${SYSTEM_START_TIME}"                   \
+    --configuration-file node/configuration.mainnet.yaml    \
     --configuration-key testnet_staging_full

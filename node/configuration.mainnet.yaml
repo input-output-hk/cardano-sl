@@ -14590,7 +14590,7 @@ mainnet_example_generated: &mainnet_example_generated
 ##                                                                          ##
 ##############################################################################
 
-mainnet: &mainnet
+mainnet_full: &mainnet_full
   <<: *mainnet_base
   core:
     <<: *mainnet_base_core
@@ -14599,6 +14599,19 @@ mainnet: &mainnet
         file: sample-mainnet-genesis.json
         hash: bcfbfcad6cf78f2363568e76af9d6e927f71c3683aafe5e289796579792dccdb # TODO: set proper hash
 
+mainnet_wallet_win64: &mainnet_wallet_win64
+  <<: *mainnet_full
+  update: 
+    <<: *mainnet_base_update
+    applicationName: csl-daedalus
+    systemTag: win64
+
+mainnet_wallet_macos64: &mainnet_wallet_macos64
+  <<: *mainnet_full
+  update: 
+    <<: *mainnet_base_update
+    applicationName: csl-daedalus
+    systemTag: macos64
 
 
 ##############################################################################

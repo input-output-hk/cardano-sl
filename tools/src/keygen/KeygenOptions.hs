@@ -5,8 +5,6 @@ module KeygenOptions
        ( KeygenOptions (..)
        , KeygenCommand (..)
        , DumpAvvmSeedsOptions (..)
-       , GenesisGenOptions (..)
-       , AvvmBalanceOptions (..)
        , TestnetBalanceOptions (..)
        , FakeAvvmOptions (..)
        , GenKeysOptions (..)
@@ -15,22 +13,21 @@ module KeygenOptions
 
 import           Universum
 
-import           Data.Version        (showVersion)
-import           Options.Applicative (Parser, auto, command, execParser, fullDesc, header,
-                                      help, helper, info, infoOption, long, metavar,
-                                      option, progDesc, short, strOption, subparser,
-                                      value)
+import           Data.Version           (showVersion)
+import           Options.Applicative    (Parser, auto, command, execParser, fullDesc,
+                                         header, help, helper, info, infoOption, long,
+                                         metavar, option, progDesc, short, strOption,
+                                         subparser, value)
 
-import           Pos.Client.CLI      (configInfoParser)
-import           Pos.Core            (StakeholderId)
-import           Pos.Genesis         (FakeAvvmOptions (..), TestnetBalanceOptions (..))
-import           Pos.Launcher        (ConfigInfo)
+import           Pos.Client.CLI         (configurationOptionsParser)
+import           Pos.Core.Genesis.Types (FakeAvvmOptions (..), TestnetBalanceOptions (..))
+import           Pos.Launcher           (ConfigurationOptions)
 
-import           Paths_cardano_sl    (version)
+import           Paths_cardano_sl       (version)
 
 data KeygenOptions = KeygenOptions
-    { koCommand    :: KeygenCommand
-    , koConfigInfo :: ConfigInfo
+    { koCommand              :: KeygenCommand
+    , koConfigurationOptions :: ConfigurationOptions
     } deriving (Show)
 
 data KeygenCommand
@@ -48,32 +45,9 @@ data DumpAvvmSeedsOptions = DumpAvvmSeedsOptions
       -- ^ Path to directory to generate seeds in.
     } deriving (Show)
 
-data GenesisGenOptions = GenesisGenOptions
-    { ggoGenesisDir       :: FilePath
-      -- ^ Output directory everything will be put into
-    , ggoTestBalance      :: Maybe TestnetBalanceOptions
-    , ggoAvvmBalance      :: Maybe AvvmBalanceOptions
-    , ggoFakeAvvmBalance  :: Maybe FakeAvvmOptions
-    , ggoBootStakeholders :: [(StakeholderId, Word16)]
-      -- ^ Explicit bootstrap era stakeholders, list of addresses with
-      -- weights (@[(A, 5), (B, 2), (C, 3)]@). Setting this
-      -- overrides default settings for boot stakeholders (e.g. rich
-      -- in testnet stakes).
-    , ggoSeed             :: Maybe Integer
-      -- ^ Seed to use (when no seed is provided, a secure random generator
-      -- is used)
-    } deriving (Show)
-
 data GenKeysOptions = GenKeysOptions
-    { gkoGenesisJSON :: FilePath
-    , gkoOutDir      :: FilePath
-    , gkoKeyPattern  :: FilePath
-    } deriving (Show)
-
-data AvvmBalanceOptions = AvvmBalanceOptions
-    { asoJsonPath      :: FilePath
-    , asoHolderKeyfile :: Maybe FilePath
-    , asoBlacklisted   :: Maybe FilePath
+    { gkoOutDir     :: FilePath
+    , gkoKeyPattern :: FilePath
     } deriving (Show)
 
 keygenCommandParser :: Parser KeygenCommand
@@ -121,11 +95,6 @@ dumpAvvmSeedsParser = do
 
 keysBySpecParser  :: Parser GenKeysOptions
 keysBySpecParser = do
-    gkoGenesisJSON <- strOption $
-        long    "genesis-spec" <>
-        metavar "FILE" <>
-        value   "genesis-spec.yaml" <>
-        help    "Genesis file (.yaml)."
     gkoOutDir <- strOption $
         long    "genesis-out-dir" <>
         metavar "DIR" <>
@@ -149,4 +118,4 @@ getKeygenOptions = execParser programInfo
         ("cardano-keygen-" <> showVersion version)
         (long "version" <> help "Show version.")
 
-    koParser = KeygenOptions <$> keygenCommandParser <*> configInfoParser
+    koParser = KeygenOptions <$> keygenCommandParser <*> configurationOptionsParser

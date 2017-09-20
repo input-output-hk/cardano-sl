@@ -9,14 +9,14 @@ module Dump
 import           Universum
 
 import           Control.Lens          ((?~))
+import           Crypto.Random         (MonadRandom)
 import qualified Data.Text             as T
 import qualified Serokell.Util.Base64  as B64
 import           System.Directory      (createDirectoryIfMissing)
 import           System.FilePath       ((</>))
 import           System.Wlog           (WithLogger, logInfo)
 
-import           Pos.Core.Genesis      (GeneratedGenesisData (..),
-                                        TestnetBalanceOptions (..))
+import           Pos.Core.Genesis      (GeneratedSecrets (..), TestnetBalanceOptions (..))
 import           Pos.Crypto            (EncryptedSecretKey, SecretKey, VssKeyPair,
                                         noPassEncrypt)
 import           Pos.Util.UserSecret   (initializeUserSecret, takeUserSecret, usKeys,
@@ -26,17 +26,17 @@ import           Pos.Wallet.Web.Secret (mkGenesisWalletUserSecret)
 
 
 dumpGeneratedGenesisData
-    :: (MonadIO m, WithLogger m, MonadThrow m)
+    :: (MonadIO m, WithLogger m, MonadThrow m, MonadRandom m)
     => (FilePath, FilePath)
     -> TestnetBalanceOptions
-    -> GeneratedGenesisData
+    -> GeneratedSecrets
     -> m ()
-dumpGeneratedGenesisData (dir, pat) tbo GeneratedGenesisData {..} = do
-    maybe (logInfo "Secret keys are unknown") (dumpKeyfiles (dir, pat) tbo) ggdSecretKeys
-    maybe (logInfo "Avvm seeds are unknown") (dumpFakeAvvmSeeds dir) ggdFakeAvvmSeeds
+dumpGeneratedGenesisData (dir, pat) tbo GeneratedSecrets {..} = do
+    dumpKeyfiles (dir, pat) tbo gsSecretKeys
+    dumpFakeAvvmSeeds dir gsFakeAvvmSeeds
 
 dumpKeyfiles
-    :: (MonadIO m, MonadThrow m, WithLogger m)
+    :: (MonadIO m, MonadThrow m, WithLogger m, MonadRandom m)
     => (FilePath, FilePath) -- directory and key-file pattern
     -> TestnetBalanceOptions
     -> [(SecretKey, EncryptedSecretKey, VssKeyPair)]
@@ -80,7 +80,7 @@ dumpFakeAvvmSeeds dir seeds = do
 ----------------------------------------------------------------------------
 
 dumpKeyfile
-    :: (MonadIO m, MonadThrow m, WithLogger m)
+    :: (MonadIO m, MonadThrow m, WithLogger m, MonadRandom m)
     => Bool
     -> FilePath
     -> (SecretKey, EncryptedSecretKey, VssKeyPair)

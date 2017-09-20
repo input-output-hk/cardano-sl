@@ -5,12 +5,9 @@ module Main
 import           Universum
 
 import           Control.Lens          ((?~))
-import           Data.Aeson            (eitherDecode)
-import qualified Data.ByteString       as BS
-import qualified Data.ByteString.Lazy  as BSL
+import           Crypto.Random         (MonadRandom)
 import qualified Data.List             as L
 import qualified Data.Text             as T
-import           Data.Yaml             (decodeEither)
 import           Formatting            (build, sformat, (%))
 import           System.Directory      (createDirectoryIfMissing)
 import           System.FilePath       ((</>))
@@ -20,25 +17,22 @@ import           System.Wlog           (Severity (Debug), WithLogger, consoleOut
                                         usingLoggerName)
 
 import           Pos.Binary            (asBinary)
-import           Pos.Core              (addressHash)
+import           Pos.Core              (CoreConfiguration (..), GenesisConfiguration (..),
+                                        GenesisInitializer (..), addressHash, ccGenesis,
+                                        coreConfiguration, generateFakeAvvm,
+                                        generateSecrets, generatedSecrets, gsInitializer)
 import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair,
                                         noPassEncrypt, redeemPkB64F, toVssPublicKey)
 import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
-import           Pos.Genesis           (GenesisAvvmBalances, GenesisInitializer (..),
-                                        aeCoin, avvmData, convertAvvmDataToBalances,
-                                        generateFakeAvvm, generateGenesisData,
-                                        generateSecrets, gsInitializer)
 
-import           Pos.Launcher          (applyConfigInfo)
+import           Pos.Launcher          (HasConfigurations, withConfigurations)
 import           Pos.Util.UserSecret   (readUserSecret, takeUserSecret, usKeys, usPrimKey,
                                         usVss, usWalletSet, writeUserSecretRelease)
 import           Pos.Wallet.Web.Secret (wusRootKey)
 
-import           Avvm                  (applyBlacklisted)
 import           Dump                  (dumpFakeAvvmSeed, dumpGeneratedGenesisData,
                                         dumpKeyfile)
-import           KeygenOptions         (AvvmBalanceOptions (..),
-                                        DumpAvvmSeedsOptions (..), GenKeysOptions (..),
+import           KeygenOptions         (DumpAvvmSeedsOptions (..), GenKeysOptions (..),
                                         KeygenCommand (..), KeygenOptions (..),
                                         getKeygenOptions)
 
@@ -53,21 +47,6 @@ rearrangeKeyfile fp = do
     writeUserSecretRelease $
         us & usKeys %~ (++ map noPassEncrypt sk)
 
--- Reads avvm json file and returns related 'GenesisAvvmBalances'
-_readAvvmGenesis
-    :: (MonadIO m, WithLogger m, MonadThrow m, MonadFail m)
-    => AvvmBalanceOptions -> m GenesisAvvmBalances
-_readAvvmGenesis AvvmBalanceOptions {..} = do
-    logInfo "Reading avvm data"
-    jsonfile <- liftIO $ BSL.readFile asoJsonPath
-    case eitherDecode jsonfile of
-        Left err       -> error $ toText err
-        Right avvmUtxo -> do
-            avvmDataFiltered <- applyBlacklisted asoBlacklisted avvmUtxo
-            let totalAvvmBalance = sum $ map aeCoin $ avvmData avvmDataFiltered
-            logInfo $ "Total avvm balance after applying blacklist: " <> show totalAvvmBalance
-            pure $ convertAvvmDataToBalances avvmDataFiltered
-
 ----------------------------------------------------------------------------
 -- Commands
 ----------------------------------------------------------------------------
@@ -75,7 +54,7 @@ _readAvvmGenesis AvvmBalanceOptions {..} = do
 rearrange :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
 rearrange msk = mapM_ rearrangeKeyfile =<< liftIO (glob msk)
 
-genPrimaryKey :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
+genPrimaryKey :: (HasConfigurations, MonadIO m, MonadThrow m, WithLogger m, MonadRandom m) => FilePath -> m ()
 genPrimaryKey path = do
     sk <- liftIO $ generateSecrets Nothing
     void $ dumpKeyfile True path sk
@@ -119,7 +98,8 @@ dumpAvvmSeeds DumpAvvmSeedsOptions{..} = do
     when (dasNumber <= 0) $ error $
         "number of seeds should be positive, but it's " <> show dasNumber
 
-    (fakeAvvmPubkeys, seeds) <- liftIO $ unzip <$> replicateM (fromIntegral dasNumber) generateFakeAvvm
+    (fakeAvvmPubkeys, seeds) <-
+        liftIO $ unzip <$> replicateM (fromIntegral dasNumber) generateFakeAvvm
 
     forM_ (zip seeds [1 .. dasNumber]) $ \(seed, i) ->
         dumpFakeAvvmSeed (dasPath </> ("key"<>show i<>".seed")) seed
@@ -130,19 +110,18 @@ dumpAvvmSeeds DumpAvvmSeedsOptions{..} = do
     logInfo $ "Seeds were generated"
 
 generateKeysByGenesis
-    :: (MonadIO m, WithLogger m, MonadThrow m)
+    :: (HasConfigurations, MonadIO m, WithLogger m, MonadThrow m, MonadRandom m)
     => GenKeysOptions -> m ()
 generateKeysByGenesis GenKeysOptions{..} = do
-    yaml <- liftIO $ BS.readFile gkoGenesisJSON
-    case decodeEither yaml of
-        Left err ->
-            error $ "Failed to read genesis-spec from " <>
-                    toText gkoGenesisJSON <> ": " <> toText err
-        Right spec -> case gsInitializer spec of
+    case ccGenesis coreConfiguration of
+        GCSrc {} ->
+            error $ "Launched source file conf"
+        GCSpec spec -> case gsInitializer spec of
             MainnetInitializer{}   -> error "Can't generate keys for MainnetInitializer"
-            init@TestnetInitializer{..} -> do
-                let generated = generateGenesisData init
-                dumpGeneratedGenesisData (gkoOutDir, gkoKeyPattern) tiTestBalance generated
+            TestnetInitializer{..} -> do
+                dumpGeneratedGenesisData (gkoOutDir, gkoKeyPattern)
+                                         tiTestBalance
+                                         (fromMaybe (error "No secrets for genesis") generatedSecrets)
                 logInfo (toText gkoOutDir <> " generated successfully")
 
 ----------------------------------------------------------------------------
@@ -152,9 +131,8 @@ generateKeysByGenesis GenKeysOptions{..} = do
 main :: IO ()
 main = do
     KeygenOptions{..} <- getKeygenOptions
-    applyConfigInfo koConfigInfo
     setupLogging $ consoleOutB & lcTermSeverity ?~ Debug
-    usingLoggerName "keygen" $ do
+    usingLoggerName "keygen" $ withConfigurations koConfigurationOptions $ do
         logInfo "Processing command"
         case koCommand of
             RearrangeMask msk       -> rearrange msk

@@ -9,19 +9,11 @@ mainnet_base: &mainnet_base
     genesis: &mainnet_base_genesis
       spec: &mainnet_base_spec
         initializer:
-          testnetInitializer:
-            testBalance:
-              poors:        24000
-              richmen:      7
-              richmenShare: 0.94
-              totalBalance: 13887504355000000
-              useHDAddresses: False
-            fakeAvvmBalance: 
-              count: 100
-              oneBalance: 15000000
-            distribution: 
-              testnetRichmenStakeDistr: []
-            seed: 0
+          mainnetInitializer:
+            startTime: 1500000000
+            bootStakeholders: {}
+            vssCerts: {}
+            nonAvvmBalances: {}
         blockVersionData:
           scriptVersion:     0
           slotDuration:      20000
@@ -84,7 +76,7 @@ mainnet_base: &mainnet_base
     maxInvSize: 102 # 102 bytes
     maxMempoolMsgSize: 100 # 100 bytes
 
-  update:
+  update: &mainnet_base_update
     applicationName: cardano-sl
     applicationVersion: 0
     lastKnownBlockVersion:
@@ -121,7 +113,7 @@ mainnet: &mainnet
     genesis:
       src: sample-mainnet-genesis.json
 
-mainnet_generated: &mainnet_generated
+mainnet_example_generated: &mainnet_example_generated
   <<: *mainnet_base
   core:
     <<: *mainnet_base_core
@@ -165,6 +157,7 @@ mainnet_generated: &mainnet_generated
                    signingKey: "E8++WAjZOKIyoh4YEHNaV7cm3Ecut7G9N0AT36u+AoSMEvf/byG8fc/Ab4xSnjvdn5Ww8A+yPOyoZ3Jfb2yf+g=="
                    vssKey: "WCEDIRsfuDpNYMle1T396UpVmS/hEJgxVSQbCOynlK0zFEo="
             nonAvvmBalances: {}
+
 meta:
   <<: *mainnet_base
   core:
@@ -14589,6 +14582,24 @@ testnet_public_full: &testnet_public_full
       spec:  &testnet_public_full_spec
         <<: *mainnet_base_spec
         avvmDistr: *mainnet_avvmDistr
+        initializer:
+          testnetInitializer:
+            testBalance:
+              poors:        24000
+              richmen:      7
+              richmenShare: 0.94
+              totalBalance: 13887504355000000
+              useHDAddresses: False
+            fakeAvvmBalance: 
+              count: 100
+              oneBalance: 15000000
+            distribution: 
+              testnetRichmenStakeDistr: []
+            seed: 0
+  update: 
+    <<: *mainnet_base_update
+    applicationName: cardano-sl
+    systemTag: none
 
 testnet_staging_full: &testnet_staging_full
   <<: *testnet_public_full
@@ -14601,4 +14612,39 @@ testnet_staging_full: &testnet_staging_full
         protocolConstants: 
           <<: *mainnet_base_protocolConstants
           k: 108
+  update: 
+    <<: *mainnet_base_update
+    applicationName: cardano-sl
+    systemTag: none
 
+#################
+## Wallet
+################
+
+testnet_public_wallet_win64: &testnet_public_wallet_win64
+  <<: *testnet_public_full
+  update: 
+    <<: *mainnet_base_update
+    applicationName: csl-daedalus
+    systemTag: win64
+
+testnet_public_wallet_macos64: &testnet_public_wallet_macos64
+  <<: *testnet_public_full
+  update: 
+    <<: *mainnet_base_update
+    applicationName: csl-daedalus
+    systemTag: macos64
+
+testnet_staging_wallet_win64: &testnet_staging_wallet_win64
+  <<: *testnet_staging_full
+  update: 
+    <<: *mainnet_base_update
+    applicationName: csl-daedalus
+    systemTag: win64
+
+testnet_staging_wallet_macos64: &testnet_staging_wallet_macos64
+  <<: *testnet_staging_full
+  update: 
+    <<: *mainnet_base_update
+    applicationName: csl-daedalus
+    systemTag: macos64

@@ -22,8 +22,8 @@ import           Pos.Core              (CoreConfiguration (..), GenesisConfigura
                                         GenesisInitializer (..), addressHash, ccGenesis,
                                         coreConfiguration, generateFakeAvvm,
                                         generateSecrets, generatedSecrets, gsInitializer,
-                                        mkVssCertificate, vssMaxTTL)
-import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair,
+                                        mkVssCertificate, vcSigningKey, vssMaxTTL)
+import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair, hashHexF,
                                         noPassEncrypt, redeemPkB64F, toVssPublicKey)
 import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
 
@@ -137,7 +137,9 @@ genVssCert path = do
                  primKey
                  (asBinary (toVssPublicKey vssKey))
                  (vssMaxTTL - 1)
-    putText . decodeUtf8 $
+    putText $ sformat ("Key in JSON: "%hashHexF)
+              (addressHash $ vcSigningKey cert)
+    putText . mappend "Value in JSON: " . decodeUtf8 $
       CanonicalJSON.renderCanonicalJSON $
       runIdentity $
       CanonicalJSON.toJSON cert

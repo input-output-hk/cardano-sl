@@ -16,6 +16,7 @@ import           Universum
 import qualified Data.ByteString                         as BS
 import qualified Data.ByteString.Lazy                    as BSL
 import           Formatting                              (sformat, shown, (%))
+import           System.FilePath                         ((</>))
 import           System.Wlog                             (WithLogger, logInfo)
 import qualified Text.JSON.Canonical                     as Canonical
 
@@ -70,17 +71,19 @@ withCoreConfigurations
        , Canonical.FromJSON (Either String) GenesisData
        )
     => CoreConfiguration
+    -> FilePath
+    -- ^ Directory where 'configuration.yaml' is stored.
     -> Maybe Timestamp
     -- ^ Optional system start time.
     --   It must be given when the genesis spec uses a testnet initializer.
     -> (HasConfiguration => m r)
     -> m r
-withCoreConfigurations conf@CoreConfiguration{..} mSystemStart act = case ccGenesis of
+withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart act = case ccGenesis of
     -- If a 'GenesisData' source file is given, we check its hash against the
     -- given expected hash, parse it, and use the GenesisData to fill in all of
     -- the obligations.
     GCSrc fp expectedHash -> do
-        !bytes <- liftIO $ BS.readFile fp
+        !bytes <- liftIO $ BS.readFile (confDir </> fp)
 
         gdataJSON <- case Canonical.parseCanonicalJSON (BSL.fromStrict bytes) of
             Left str -> throwM $ GenesisDataParseFailure (fromString str)

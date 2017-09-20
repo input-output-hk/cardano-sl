@@ -55,11 +55,12 @@ import           Pos.Wallet.Web.State       (AddressLookupMode (Existing),
                                              CustomAddressType (ChangeAddr, UsedAddr),
                                              addWAddress, createAccount, createWallet,
                                              getAccountIds, getAccountMeta,
-                                             getWalletAddresses, getWalletMetaIncludeUnready,
-                                             getWalletPassLU, isCustomAddress,
-                                             removeAccount, removeHistoryCache,
-                                             removeTxMetas, removeWallet, setAccountMeta,
-                                             setWalletMeta, setWalletPassLU, setWalletReady)
+                                             getWalletAddresses,
+                                             getWalletMetaIncludeUnready, getWalletPassLU,
+                                             isCustomAddress, removeAccount,
+                                             removeHistoryCache, removeTxMetas,
+                                             removeWallet, setAccountMeta, setWalletMeta,
+                                             setWalletPassLU, setWalletReady)
 import           Pos.Wallet.Web.Tracking    (CAccModifier (..), CachedCAccModifier,
                                              fixCachedAccModifierFor,
                                              fixingCachedAccModifier, sortedInsertions)
@@ -248,7 +249,7 @@ changeWalletPassphrase wid oldPass newPass = do
     oldSK <- getSKById wid
 
     unless (isJust $ checkPassMatches newPass oldSK) $ do
-        newSK <- maybeThrow badPass $ changeEncPassphrase oldPass newPass oldSK
+        newSK <- maybeThrow badPass =<< changeEncPassphrase oldPass newPass oldSK
         deleteSK oldPass
         addSecretKey newSK
         setWalletPassLU wid =<< liftIO getPOSIXTime

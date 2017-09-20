@@ -2,7 +2,11 @@
 {-# LANGUAGE RankNTypes          #-}
 
 module Test.Pos.Util
-       ( giveTestsConsts
+       ( giveCoreConf
+       , giveInfraConf
+       , giveNodeConf
+       , giveGtConf
+       , giveUpdateConf
 
        -- * From/to
        , binaryEncodeDecode
@@ -37,36 +41,58 @@ module Test.Pos.Util
 
 import           Universum
 
-import           Codec.CBOR.FlatTerm      (toFlatTerm, validFlatTerm)
-import qualified Data.ByteString          as BS
-import           Data.SafeCopy            (SafeCopy, safeGet, safePut)
-import qualified Data.Semigroup           as Semigroup
-import           Data.Serialize           (runGet, runPut)
-import           Data.Tagged              (Tagged (..))
-import           Data.Typeable            (typeRep)
-import           Formatting               (formatToString, int, (%))
-import           Prelude                  (read)
-import qualified Text.JSON.Canonical      as CanonicalJSON
+import           Codec.CBOR.FlatTerm              (toFlatTerm, validFlatTerm)
+import qualified Data.ByteString                  as BS
+import           Data.SafeCopy                    (SafeCopy, safeGet, safePut)
+import qualified Data.Semigroup                   as Semigroup
+import           Data.Serialize                   (runGet, runPut)
+import           Data.Tagged                      (Tagged (..))
+import           Data.Typeable                    (typeRep)
+import           Formatting                       (formatToString, int, (%))
+import           Prelude                          (read)
+import qualified Text.JSON.Canonical              as CanonicalJSON
 
-import           Pos.Binary               (AsBinaryClass (..), Bi (..), serialize,
-                                           serialize', unsafeDeserialize)
-import           Pos.Communication        (Limit (..), MessageLimitedPure (..))
-import           Pos.Core                 (CoreConstants (..), HasCoreConstants,
-                                           giveConsts)
+import           Pos.Binary                       (AsBinaryClass (..), Bi (..), serialize,
+                                                   serialize', unsafeDeserialize)
+import           Pos.Communication                (Limit (..), MessageLimitedPure (..))
+import           Pos.Configuration                (HasNodeConfiguration,
+                                                   withNodeConfiguration)
+import           Pos.Core                         (HasConfiguration, withGenesisSpec)
+import           Pos.Infra.Configuration          (HasInfraConfiguration,
+                                                   withInfraConfiguration)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration,
+                                                   withGtConfiguration)
+import           Pos.Update.Configuration         (HasUpdateConfiguration,
+                                                   withUpdateConfiguration)
 
-import           Test.Hspec               (Expectation, Selector, Spec, describe,
-                                           shouldThrow)
-import           Test.Hspec.QuickCheck    (modifyMaxSuccess, prop)
-import           Test.QuickCheck          (Arbitrary (arbitrary), Property, conjoin,
-                                           counterexample, forAll, property, resize,
-                                           suchThat, vectorOf, (.&&.), (===))
-import           Test.QuickCheck.Gen      (choose)
-import           Test.QuickCheck.Monadic  (PropertyM, pick, stop)
+import           Test.Hspec                       (Expectation, Selector, Spec, describe,
+                                                   shouldThrow)
+import           Test.Hspec.QuickCheck            (modifyMaxSuccess, prop)
+import           Test.QuickCheck                  (Arbitrary (arbitrary), Property,
+                                                   conjoin, counterexample, forAll,
+                                                   property, resize, suchThat, vectorOf,
+                                                   (.&&.), (===))
+import           Test.QuickCheck.Gen              (choose)
+import           Test.QuickCheck.Monadic          (PropertyM, pick, stop)
+import           Test.QuickCheck.Property         (Result (..), failed)
 
-import           Test.QuickCheck.Property (Result (..), failed)
+import           Pos.Launcher.Configuration       (Configuration (..))
+import           Test.Pos.Configuration           (testConf)
 
-giveTestsConsts :: (HasCoreConstants => r) -> r
-giveTestsConsts = giveConsts $ CoreConstants (fromIntegral @Word32 35)
+giveNodeConf :: (HasNodeConfiguration => r) -> r
+giveNodeConf = withNodeConfiguration (ccNode testConf)
+
+giveGtConf :: (HasGtConfiguration => r) -> r
+giveGtConf = withGtConfiguration (ccGt testConf)
+
+giveUpdateConf :: (HasUpdateConfiguration => r) -> r
+giveUpdateConf = withUpdateConfiguration (ccUpdate testConf)
+
+giveInfraConf :: (HasInfraConfiguration => r) -> r
+giveInfraConf = withInfraConfiguration (ccInfra testConf)
+
+giveCoreConf :: (HasConfiguration => r) -> r
+giveCoreConf = withGenesisSpec 0 (ccCore testConf)
 
 instance Arbitrary a => Arbitrary (Tagged s a) where
     arbitrary = Tagged <$> arbitrary
@@ -124,17 +150,13 @@ newtype CatchesCanonicalJsonParseErrors a = CatchesCanonicalJsonParseErrors
     { unCatchesCanonicalJsonParseErrors :: Either Text a
     } deriving (Functor, Applicative, Monad)
 
--- In tests 'error' is fine.
-instance CanonicalJSON.ReportSchemaErrors CatchesCanonicalJsonParseErrors where
-    expected expctd got =
-        CatchesCanonicalJsonParseErrors $
-        Left $
-        toText $ "expected: " <> expctd <> ", got: " <> fromMaybe "<unknown>" got
-
 type ToAndFromCanonicalJson a
      = ( CanonicalJSON.ToJSON Identity a
        , CanonicalJSON.FromJSON CatchesCanonicalJsonParseErrors a
        )
+
+instance MonadFail CatchesCanonicalJsonParseErrors where
+    fail s = CatchesCanonicalJsonParseErrors $ Left (toText s)
 
 canonicalJsonTest ::
        forall a. (IdTestingRequiredClassesAlmost a, ToAndFromCanonicalJson a)

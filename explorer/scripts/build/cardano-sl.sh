@@ -200,7 +200,6 @@ if [[ "$prodMode" != "" ]]; then
     dconfig="${dconfig}_wallet"
   fi
 fi
-ghc_opts="-DCONFIG=$dconfig"
 
 if [[ $no_fast == true ]];
   then fast=""

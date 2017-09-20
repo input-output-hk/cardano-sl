@@ -10,9 +10,7 @@ matrix:
       osx_image: xcode8.3
 
 before_install:
-- echo $TRAVIS_OS_NAME
 - mkdir -p s3
-- export DCONFIG=testnet_public_wallet
 - sudo mount -o remount,exec,size=4G,mode=755 /run/user || true
 - sudo mkdir -p /etc/nix/
 - sudo touch /etc/nix/nix.conf

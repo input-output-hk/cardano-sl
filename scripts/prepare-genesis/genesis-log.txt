@@ -1,0 +1,967 @@
++ REPO_URL=https://github.com/input-output-hk/cardano-sl.git
++ REPO_PATH=/home/jake/cardano-sl
++ BRANCH=avieth/csl1617_config
++ START_TIME=1505930400
++ AVVM_SEED_COUNT=3
++ IOHK_NODES=(0 1 2)
++ SGG_NODES=(3 4)
++ CF_NODES=(5 6)
++ ALL_NODES='0 1 2 3 4 5 6'
++ KEY_PATH=/home/jake/cardano-sl/keys
++ DELEGATE=/home/jake/cardano-sl/keys/delegate
++ STAKEHOLDER=/home/jake/cardano-sl/keys/stakeholder
++ pushd /home/jake/cardano-sl
+~/cardano-sl ~/tmp/devops-374
++ rm -rf keys
++ mkdir -p keys
++ for i in $ALL_NODES
++ stack exec --nix -- cardano-keygen generate-key --path /home/jake/cardano-sl/keys/delegate0.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mSuccessfully generated primary key /home/jake/cardano-sl/keys/delegate0.key
++ stack exec --nix -- cardano-keygen read-key --path /home/jake/cardano-sl/keys/delegate0.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mPrimary: bNjVDZy4R4nWoVW4iXPBGx5uoRzRUWf1HqXdywUVT35fj22BkLWi63tNXjyBDaWyw3DPZUSM5caSbrbsfpLXYM3Z2D; address hash: 3e4ff436
+[94m[keygen:INFO] [0mNo wallet set
+[94m[keygen:INFO] [0mKeys: 
+[94m[keygen:INFO] [0mVss PK: 582103180f62dd8a49bb3a11b07d7cc9d57c3242b41aa8248cfbe21c6834285758cefd; short = vsspub:99b58573
++ for i in $ALL_NODES
++ stack exec --nix -- cardano-keygen generate-key --path /home/jake/cardano-sl/keys/delegate1.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mSuccessfully generated primary key /home/jake/cardano-sl/keys/delegate1.key
++ stack exec --nix -- cardano-keygen read-key --path /home/jake/cardano-sl/keys/delegate1.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mPrimary: bNg1QUykwRvJJ3QfbCVBcrAjiwndENtpRwJTbE15zLmg6dQXRVgX67sA4onEto16bK2SLpjgLuxBV93vaVpbE5KYB2; address hash: b11ab8c5
+[94m[keygen:INFO] [0mNo wallet set
+[94m[keygen:INFO] [0mKeys: 
+[94m[keygen:INFO] [0mVss PK: 5821025747e730599bb075fb9276fc4033d8a6485e275f623fdbfc1c22ab6a9015f061; short = vsspub:4938a6ae
++ for i in $ALL_NODES
++ stack exec --nix -- cardano-keygen generate-key --path /home/jake/cardano-sl/keys/delegate2.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mSuccessfully generated primary key /home/jake/cardano-sl/keys/delegate2.key
++ stack exec --nix -- cardano-keygen read-key --path /home/jake/cardano-sl/keys/delegate2.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mPrimary: bNfJLr7ZLJ2TuU3G6JQXJY592wRSker884eNuLG4ghMRLjRymuWNtWt1wP71c9P4tNR8ryJx2b4qUWWUCDzNL8Ktpa; address hash: 14181ea0
+[94m[keygen:INFO] [0mNo wallet set
+[94m[keygen:INFO] [0mKeys: 
+[94m[keygen:INFO] [0mVss PK: 5821028c66877bb2ff878fdd4e7258b6a0195da2e9b37ab1a6b2279d96ba89b9331623; short = vsspub:612bb5b2
++ for i in $ALL_NODES
++ stack exec --nix -- cardano-keygen generate-key --path /home/jake/cardano-sl/keys/delegate3.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mSuccessfully generated primary key /home/jake/cardano-sl/keys/delegate3.key
++ stack exec --nix -- cardano-keygen read-key --path /home/jake/cardano-sl/keys/delegate3.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mPrimary: bNgSQHutZqJ8zzirbiCVtHZGDF1rfcmAKADezVCLdBvxgx4TY7uX8efzrJrZmwvPsFJvxpmCdFa8GrLdR23buEYuDB; address hash: c412116b
+[94m[keygen:INFO] [0mNo wallet set
+[94m[keygen:INFO] [0mKeys: 
+[94m[keygen:INFO] [0mVss PK: 582102a11e0ba3aee5e053d3f9215ada88b54797cb3f6418e8b9533dea40c8c928a873; short = vsspub:8688480b
++ for i in $ALL_NODES
++ stack exec --nix -- cardano-keygen generate-key --path /home/jake/cardano-sl/keys/delegate4.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mSuccessfully generated primary key /home/jake/cardano-sl/keys/delegate4.key
++ stack exec --nix -- cardano-keygen read-key --path /home/jake/cardano-sl/keys/delegate4.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mPrimary: bNf9QeUfqLiH78j9QEMW71i2BBp3o8ZZh1LZArzacMuWhqDihWeKFFXES5wbCoCyRB1btWzvaWoTrd91t5fZ6AMnCc; address hash: acc58456
+[94m[keygen:INFO] [0mNo wallet set
+[94m[keygen:INFO] [0mKeys: 
+[94m[keygen:INFO] [0mVss PK: 58210267696308d02a24c3ffcddf83590d0901c126910bf572f98e112eaf0b180b804b; short = vsspub:b7881472
++ for i in $ALL_NODES
++ stack exec --nix -- cardano-keygen generate-key --path /home/jake/cardano-sl/keys/delegate5.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mSuccessfully generated primary key /home/jake/cardano-sl/keys/delegate5.key
++ stack exec --nix -- cardano-keygen read-key --path /home/jake/cardano-sl/keys/delegate5.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mPrimary: bNgUJG2zKVDf6bnrrh3FBXxWfaFQoRC5Zc8Tu7NNnnsT7morsPZ5MJvAQhceKQ58ypGh51qcUgdg5jN1o2BA7oD3mp; address hash: e467ea63
+[94m[keygen:INFO] [0mNo wallet set
+[94m[keygen:INFO] [0mKeys: 
+[94m[keygen:INFO] [0mVss PK: 582103c0224989b805848c445912a6198b58c4a0448ddfa04f9f1fd671b6e7c3d5ba25; short = vsspub:cbacf9c1
++ for i in $ALL_NODES
++ stack exec --nix -- cardano-keygen generate-key --path /home/jake/cardano-sl/keys/delegate6.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mSuccessfully generated primary key /home/jake/cardano-sl/keys/delegate6.key
++ stack exec --nix -- cardano-keygen read-key --path /home/jake/cardano-sl/keys/delegate6.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mPrimary: bNhd63HjB4fwRpgbBXsuuCGoFJhfA3NA2nBjZRfLqebttBPLVnfAUoQpzPL3BJ9FaikvqjSCpBDNNBDKxeumXBMy58; address hash: 47d3560f
+[94m[keygen:INFO] [0mNo wallet set
+[94m[keygen:INFO] [0mKeys: 
+[94m[keygen:INFO] [0mVss PK: 5821020c5dbe41d1519364577b2618b97c7fca3accbe29d7a095b0112b56a8fbccd61a; short = vsspub:9ef697c9
+
+real	0m19.592s
+user	0m16.500s
+sys	0m2.089s
++ popd
+~/tmp/devops-374
++ REPO_URL=https://github.com/input-output-hk/cardano-sl.git
++ REPO_PATH=/home/jake/cardano-sl
++ BRANCH=avieth/csl1617_config
++ START_TIME=1505930400
++ AVVM_SEED_COUNT=3
++ IOHK_NODES=(0 1 2)
++ SGG_NODES=(3 4)
++ CF_NODES=(5 6)
++ ALL_NODES='0 1 2 3 4 5 6'
++ KEY_PATH=/home/jake/cardano-sl/keys
++ DELEGATE=/home/jake/cardano-sl/keys/delegate
++ STAKEHOLDER=/home/jake/cardano-sl/keys/stakeholder
++ NODES='0 1 2'
++ echo 'Generating stakeholder keys...'
+Generating stakeholder keys...
++ pushd /home/jake/cardano-sl
+~/cardano-sl ~/tmp/devops-374
++ for i in $NODES
++ stack exec --nix -- cardano-keygen generate-key --path /home/jake/cardano-sl/keys/stakeholder0.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mSuccessfully generated primary key /home/jake/cardano-sl/keys/stakeholder0.key
++ stack exec --nix -- cardano-keygen read-key --path /home/jake/cardano-sl/keys/stakeholder0.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mPrimary: bNgjZP1LQ3sdGjHMiEVfxFgFpdTPuFG1VJd1jXGqVvcGzLSAj2nEZbfgvB2Yq2X9k5SBVufx4ng9SKKQG4QyyEgFjj; address hash: f8e148e0
+[94m[keygen:INFO] [0mNo wallet set
+[94m[keygen:INFO] [0mKeys: 
+[94m[keygen:INFO] [0mVss PK: 582103e55bcad5c36523f63074af64d3a4465e7a277a76347456d4b961a7485b2595d1; short = vsspub:9872423a
++ for i in $NODES
++ stack exec --nix -- cardano-keygen generate-key --path /home/jake/cardano-sl/keys/stakeholder1.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mSuccessfully generated primary key /home/jake/cardano-sl/keys/stakeholder1.key
++ stack exec --nix -- cardano-keygen read-key --path /home/jake/cardano-sl/keys/stakeholder1.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mPrimary: bNjAvGPxjo8BM3x11yDMcUmHWQMaibDkQsw88Rbd6BfdbN6FYhFKzxa1GsXaTiM11ygeHqP3dhbXsxVadJT7W8aKYb; address hash: e5a34b79
+[94m[keygen:INFO] [0mNo wallet set
+[94m[keygen:INFO] [0mKeys: 
+[94m[keygen:INFO] [0mVss PK: 582102d379955187a1dfa687f9f0140084062af6b0b1399f99562bb72c77166b9ca16c; short = vsspub:9e7ccbcd
++ for i in $NODES
++ stack exec --nix -- cardano-keygen generate-key --path /home/jake/cardano-sl/keys/stakeholder2.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mSuccessfully generated primary key /home/jake/cardano-sl/keys/stakeholder2.key
++ stack exec --nix -- cardano-keygen read-key --path /home/jake/cardano-sl/keys/stakeholder2.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mPrimary: bNfXvR75bypxEaYF2wF1nj7MjEdnJ7pAyevr8yzKFRMv7pZi8pyyzEAynLZ3QHp8X2gikNRZDdJvmtxxZFii88kB2x; address hash: bcc5833e
+[94m[keygen:INFO] [0mNo wallet set
+[94m[keygen:INFO] [0mKeys: 
+[94m[keygen:INFO] [0mVss PK: 582102498f05da2e4ddef59ba6441b1a045e04c5b490cdba784e4948846fbb49fa062c; short = vsspub:fbc60dbf
++ popd
+~/tmp/devops-374
++ echo 'Generating delegation certificates...'
+Generating delegation certificates...
++ pushd /home/jake/cardano-sl
+~/cardano-sl ~/tmp/devops-374
++ for i in $NODES
++ stack exec --nix -- cardano-keygen --configuration-file node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 0 rearrange --mask /home/jake/cardano-sl/keys/stakeholder0.key
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 0}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 0
+[94m[keygen:INFO] [0mProcessing command
++ pushd auxx
+~/cardano-sl/auxx ~/cardano-sl ~/tmp/devops-374
++ stack exec --nix -- cardano-auxx --configuration-file ../node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 1505930400 cmd --commands 'add-key /home/jake/cardano-sl/keys/stakeholder0.key'
+trace: fetching nixpkgs
+Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+ConfigurationOptions {cfoFilePath = "../node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 1505930400000000}
+[Attention] We are in DEV mode
+Asserts are ON
+Found no VSS keypair in keyfile, generating random one...
+Found no signing keys in keyfile, generating random one...
+[92m[*production*:DEBUG] [0m[2017-09-20 01:00:30 PDT] Loading SSC global state
+[94m[*production*:INFO] [0m[2017-09-20 01:00:30 PDT] Loaded GodTossing state:   certificates from: [0dcacf87, 29eb7d3f, 19d6a49c, 57b05ad1, 87b923c1, d631d031, 9cd027be]
+
+[93m[*production*:WARNING] [0m[2017-09-20 01:00:30 PDT] Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+[93m[*production*:WARNING] [0m[2017-09-20 01:00:30 PDT] Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+[93m[*production*:WARNING] [0m[2017-09-20 01:00:30 PDT] notifyReady failed to notify systemd.
+[94m[node:INFO] [0m[2017-09-20 01:00:30 PDT] Our verInfo: VerInfo { magic=3a299fc, blockVersion=0.0.0, inSpecs={96: Conv 43, 49: Conv 5c, 97: Conv 3d, 34: Conv 5e, 98: Conv 37, 67: Conv 60, 83: Conv 0, 4: Conv 5, 5: Conv 4, 37: Conv 5e, 6: Conv 7, 55: Conv 62, 73: Conv 5f, 43: Conv 5d, 92: Conv 31, 61: Conv 61, 93: Conv 2b, 94: Conv 25, 95: Conv 49}, outSpecs={49: Conv 5c, 83: Conv 0, 37: Conv 5e, 43: Conv 5d}}
+[94m[node:INFO] [0m[2017-09-20 01:00:30 PDT] Length of genesis utxo: 38512
+Read secret file, adding
+Successfully added keyfile
+Command execution finished
+ 
++ popd
+~/cardano-sl ~/tmp/devops-374
++ for i in $NODES
++ stack exec --nix -- cardano-keygen --configuration-file node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 0 rearrange --mask /home/jake/cardano-sl/keys/stakeholder1.key
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 0}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 0
+[94m[keygen:INFO] [0mProcessing command
++ pushd auxx
+~/cardano-sl/auxx ~/cardano-sl ~/tmp/devops-374
++ stack exec --nix -- cardano-auxx --configuration-file ../node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 1505930400 cmd --commands 'add-key /home/jake/cardano-sl/keys/stakeholder1.key'
+trace: fetching nixpkgs
+Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+ConfigurationOptions {cfoFilePath = "../node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 1505930400000000}
+[Attention] We are in DEV mode
+Asserts are ON
+[92m[*production*:DEBUG] [0m[2017-09-20 01:00:39 PDT] Loading SSC global state
+[94m[*production*:INFO] [0m[2017-09-20 01:00:39 PDT] Loaded GodTossing state:   certificates from: [0dcacf87, 29eb7d3f, 19d6a49c, 57b05ad1, 87b923c1, d631d031, 9cd027be]
+
+[93m[*production*:WARNING] [0m[2017-09-20 01:00:39 PDT] Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+[93m[*production*:WARNING] [0m[2017-09-20 01:00:39 PDT] Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+[93m[*production*:WARNING] [0m[2017-09-20 01:00:39 PDT] notifyReady failed to notify systemd.
+[94m[node:INFO] [0m[2017-09-20 01:00:39 PDT] Our verInfo: VerInfo { magic=3a299fc, blockVersion=0.0.0, inSpecs={96: Conv 43, 49: Conv 5c, 97: Conv 3d, 34: Conv 5e, 98: Conv 37, 67: Conv 60, 83: Conv 0, 4: Conv 5, 5: Conv 4, 37: Conv 5e, 6: Conv 7, 55: Conv 62, 73: Conv 5f, 43: Conv 5d, 92: Conv 31, 61: Conv 61, 93: Conv 2b, 94: Conv 25, 95: Conv 49}, outSpecs={49: Conv 5c, 83: Conv 0, 37: Conv 5e, 43: Conv 5d}}
+[94m[node:INFO] [0m[2017-09-20 01:00:39 PDT] Length of genesis utxo: 38512
+Read secret file, adding
+Successfully added keyfile
+Command execution finished
+ 
++ popd
+~/cardano-sl ~/tmp/devops-374
++ for i in $NODES
++ stack exec --nix -- cardano-keygen --configuration-file node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 0 rearrange --mask /home/jake/cardano-sl/keys/stakeholder2.key
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 0}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 0
+[94m[keygen:INFO] [0mProcessing command
++ pushd auxx
+~/cardano-sl/auxx ~/cardano-sl ~/tmp/devops-374
++ stack exec --nix -- cardano-auxx --configuration-file ../node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 1505930400 cmd --commands 'add-key /home/jake/cardano-sl/keys/stakeholder2.key'
+trace: fetching nixpkgs
+Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+ConfigurationOptions {cfoFilePath = "../node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 1505930400000000}
+[Attention] We are in DEV mode
+Asserts are ON
+[92m[*production*:DEBUG] [0m[2017-09-20 01:00:48 PDT] Loading SSC global state
+[94m[*production*:INFO] [0m[2017-09-20 01:00:48 PDT] Loaded GodTossing state:   certificates from: [0dcacf87, 29eb7d3f, 19d6a49c, 57b05ad1, 87b923c1, d631d031, 9cd027be]
+
+[93m[*production*:WARNING] [0m[2017-09-20 01:00:48 PDT] Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+[93m[*production*:WARNING] [0m[2017-09-20 01:00:48 PDT] Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+[93m[*production*:WARNING] [0m[2017-09-20 01:00:48 PDT] notifyReady failed to notify systemd.
+[94m[node:INFO] [0m[2017-09-20 01:00:48 PDT] Our verInfo: VerInfo { magic=3a299fc, blockVersion=0.0.0, inSpecs={96: Conv 43, 49: Conv 5c, 97: Conv 3d, 34: Conv 5e, 98: Conv 37, 67: Conv 60, 83: Conv 0, 4: Conv 5, 5: Conv 4, 37: Conv 5e, 6: Conv 7, 55: Conv 62, 73: Conv 5f, 43: Conv 5d, 92: Conv 31, 61: Conv 61, 93: Conv 2b, 94: Conv 25, 95: Conv 49}, outSpecs={49: Conv 5c, 83: Conv 0, 37: Conv 5e, 43: Conv 5d}}
+[94m[node:INFO] [0m[2017-09-20 01:00:48 PDT] Length of genesis utxo: 38512
+Read secret file, adding
+Successfully added keyfile
+Command execution finished
+ 
++ popd
+~/cardano-sl ~/tmp/devops-374
++ pushd auxx
+~/cardano-sl/auxx ~/cardano-sl ~/tmp/devops-374
++ stack exec --nix -- cardano-auxx --configuration-file ../node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 1505930400 cmd --commands listaddr
+trace: fetching nixpkgs
+Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+ConfigurationOptions {cfoFilePath = "../node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 1505930400000000}
+[Attention] We are in DEV mode
+Asserts are ON
+[92m[*production*:DEBUG] [0m[2017-09-20 01:00:56 PDT] Loading SSC global state
+[94m[*production*:INFO] [0m[2017-09-20 01:00:56 PDT] Loaded GodTossing state:   certificates from: [0dcacf87, 29eb7d3f, 19d6a49c, 57b05ad1, 87b923c1, d631d031, 9cd027be]
+
+[93m[*production*:WARNING] [0m[2017-09-20 01:00:56 PDT] Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+[93m[*production*:WARNING] [0m[2017-09-20 01:00:56 PDT] Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+[93m[*production*:WARNING] [0m[2017-09-20 01:00:56 PDT] notifyReady failed to notify systemd.
+[94m[node:INFO] [0m[2017-09-20 01:00:56 PDT] Our verInfo: VerInfo { magic=3a299fc, blockVersion=0.0.0, inSpecs={96: Conv 43, 49: Conv 5c, 97: Conv 3d, 34: Conv 5e, 98: Conv 37, 67: Conv 60, 83: Conv 0, 4: Conv 5, 5: Conv 4, 37: Conv 5e, 6: Conv 7, 55: Conv 62, 73: Conv 5f, 43: Conv 5d, 92: Conv 31, 61: Conv 61, 93: Conv 2b, 94: Conv 25, 95: Conv 49}, outSpecs={49: Conv 5c, 83: Conv 0, 37: Conv 5e, 43: Conv 5d}}
+[94m[node:INFO] [0m[2017-09-20 01:00:56 PDT] Length of genesis utxo: 38512
+Available addresses:
+    #0:   addr:      Ae2tdPwUPEYxyE4mi3FzicoEHWEYVQPkzY8W1i4ZGM8RCw8xXFSiqEACpF4
+          pk base58: bNgjZP1LQ3sdGjHMiEVfxFgFpdTPuFG1VJd1jXGqVvcGzLSAj2nEZbfgvB2Yq2X9k5SBVufx4ng9SKKQG4QyyEgFjj
+          pk hex:    644654faa7400207d87d0173303c6d9b0af0a387be7d7d7d4dccdad0df2a6a04463fa17a288297affb21e5fde425f62ab92d4fa6ce0176c46502c6c2c762e70e
+          pk hash:   f8e148e0c06770f4ba4592924e5f3c619327892464012ebc2c4e8e04
+    #1:   addr:      Ae2tdPwUPEZHFS9sbKLLp6wn5rCsdhSbriaT7uywV7R9YsWHuAa4CZuhc1X
+          pk base58: bNjAvGPxjo8BM3x11yDMcUmHWQMaibDkQsw88Rbd6BfdbN6FYhFKzxa1GsXaTiM11ygeHqP3dhbXsxVadJT7W8aKYb
+          pk hex:    de2da683b6037839310be74328ed4c47267e7d76b51f1ef2481155f721b76ee0c47f913b395b7bb4e7507becbe91c66f6e35d95b70fa13c22f665e5f674bc4e8
+          pk hash:   e5a34b79a6f798c1ca4842b6b98e14fcd0a8adae38ad8465be2a55a3
+    #2:   addr:      Ae2tdPwUPEZJ8TMmLaEseGW7vs2X6Ny84vF2X19SMkqUhQusMjbBnUrtgCx
+          pk base58: bNfXvR75bypxEaYF2wF1nj7MjEdnJ7pAyevr8yzKFRMv7pZi8pyyzEAynLZ3QHp8X2gikNRZDdJvmtxxZFii88kB2x
+          pk hex:    2838dfbc2ae1aa93b22b6c41ddafdbe65587303d7f05e7fc709557afb485db489d712452c88a8d324cc51fb8e2546d487455593d1d596fdea0930277880e7c21
+          pk hash:   bcc5833e4f952a34277ba79f27a1987cd67c52d087cdc48329c8c840
+Command execution finished
+ 
++ popd
+~/cardano-sl ~/tmp/devops-374
++ skn=0
++ for i in $NODES
+++ grep Primary:
+++ cut '-d ' -f3
+++ sed 's/;//'
+++ stack exec --nix -- cardano-keygen read-key --path /home/jake/cardano-sl/keys/delegate0.key --system-start 1505930400
+trace: fetching nixpkgs
++ dpk=bNjVDZy4R4nWoVW4iXPBGx5uoRzRUWf1HqXdywUVT35fj22BkLWi63tNXjyBDaWyw3DPZUSM5caSbrbsfpLXYM3Z2D
++ echo 'Extracted delegate public key 0: '\''bNjVDZy4R4nWoVW4iXPBGx5uoRzRUWf1HqXdywUVT35fj22BkLWi63tNXjyBDaWyw3DPZUSM5caSbrbsfpLXYM3Z2D'\'''
+Extracted delegate public key 0: 'bNjVDZy4R4nWoVW4iXPBGx5uoRzRUWf1HqXdywUVT35fj22BkLWi63tNXjyBDaWyw3DPZUSM5caSbrbsfpLXYM3Z2D'
++ pushd auxx
+~/cardano-sl/auxx ~/cardano-sl ~/tmp/devops-374
++ stack exec --nix -- cardano-auxx --configuration-file ../node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 1505930400 cmd --commands 'delegate-heavy 0 bNjVDZy4R4nWoVW4iXPBGx5uoRzRUWf1HqXdywUVT35fj22BkLWi63tNXjyBDaWyw3DPZUSM5caSbrbsfpLXYM3Z2D 0 dump'
+trace: fetching nixpkgs
+Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+ConfigurationOptions {cfoFilePath = "../node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 1505930400000000}
+[Attention] We are in DEV mode
+Asserts are ON
+[92m[*production*:DEBUG] [0m[2017-09-20 01:01:05 PDT] Loading SSC global state
+[94m[*production*:INFO] [0m[2017-09-20 01:01:05 PDT] Loaded GodTossing state:   certificates from: [0dcacf87, 29eb7d3f, 19d6a49c, 57b05ad1, 87b923c1, d631d031, 9cd027be]
+
+[93m[*production*:WARNING] [0m[2017-09-20 01:01:05 PDT] Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+[93m[*production*:WARNING] [0m[2017-09-20 01:01:05 PDT] Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+[93m[*production*:WARNING] [0m[2017-09-20 01:01:05 PDT] notifyReady failed to notify systemd.
+[94m[node:INFO] [0m[2017-09-20 01:01:05 PDT] Our verInfo: VerInfo { magic=3a299fc, blockVersion=0.0.0, inSpecs={96: Conv 43, 49: Conv 5c, 97: Conv 3d, 34: Conv 5e, 98: Conv 37, 67: Conv 60, 83: Conv 0, 4: Conv 5, 5: Conv 4, 37: Conv 5e, 6: Conv 7, 55: Conv 62, 73: Conv 5f, 43: Conv 5d, 92: Conv 31, 61: Conv 61, 93: Conv 2b, 94: Conv 25, 95: Conv 49}, outSpecs={49: Conv 5c, 83: Conv 0, 37: Conv 5e, 43: Conv 5d}}
+[94m[node:INFO] [0m[2017-09-20 01:01:05 PDT] Length of genesis utxo: 38512
+AbstractHash f8e148e0c06770f4ba4592924e5f3c619327892464012ebc2c4e8e04: {"pskOmega":0,"pskIssuerPk":"ZEZU+qdAAgfYfQFzMDxtmwrwo4e+fX19Tcza0N8qagRGP6F6KIKXr/sh5f3kJfYquS1Pps4BdsRlAsbCx2LnDg==","pskDelegatePk":"7fVGU0DZ20XZy9/G18DaXr2sJE/NmqTyGOJTagY4kxINwXsQU/A61PAhbc9nwfWMnBhQbr26XPIcVYzjquPStg==","pskCert":"770d46bb7514848b07d9192aaca2d61942f642442a4384a1d8e70cf18f5cba4c041e2b6ae805f9140932cd5be6f65be7e7ace972dbfc09ebe0c80681218c790e"}
+Command execution finished
+ 
++ popd
+~/cardano-sl ~/tmp/devops-374
++ skn=1
++ for i in $NODES
+++ stack exec --nix -- cardano-keygen read-key --path /home/jake/cardano-sl/keys/delegate1.key --system-start 1505930400
+++ grep Primary:
+++ cut '-d ' -f3
+++ sed 's/;//'
+trace: fetching nixpkgs
++ dpk=bNg1QUykwRvJJ3QfbCVBcrAjiwndENtpRwJTbE15zLmg6dQXRVgX67sA4onEto16bK2SLpjgLuxBV93vaVpbE5KYB2
++ echo 'Extracted delegate public key 1: '\''bNg1QUykwRvJJ3QfbCVBcrAjiwndENtpRwJTbE15zLmg6dQXRVgX67sA4onEto16bK2SLpjgLuxBV93vaVpbE5KYB2'\'''
+Extracted delegate public key 1: 'bNg1QUykwRvJJ3QfbCVBcrAjiwndENtpRwJTbE15zLmg6dQXRVgX67sA4onEto16bK2SLpjgLuxBV93vaVpbE5KYB2'
++ pushd auxx
+~/cardano-sl/auxx ~/cardano-sl ~/tmp/devops-374
++ stack exec --nix -- cardano-auxx --configuration-file ../node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 1505930400 cmd --commands 'delegate-heavy 1 bNg1QUykwRvJJ3QfbCVBcrAjiwndENtpRwJTbE15zLmg6dQXRVgX67sA4onEto16bK2SLpjgLuxBV93vaVpbE5KYB2 0 dump'
+trace: fetching nixpkgs
+Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+ConfigurationOptions {cfoFilePath = "../node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 1505930400000000}
+[Attention] We are in DEV mode
+Asserts are ON
+[92m[*production*:DEBUG] [0m[2017-09-20 01:01:14 PDT] Loading SSC global state
+[94m[*production*:INFO] [0m[2017-09-20 01:01:14 PDT] Loaded GodTossing state:   certificates from: [0dcacf87, 29eb7d3f, 19d6a49c, 57b05ad1, 87b923c1, d631d031, 9cd027be]
+
+[93m[*production*:WARNING] [0m[2017-09-20 01:01:14 PDT] Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+[93m[*production*:WARNING] [0m[2017-09-20 01:01:14 PDT] Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+[93m[*production*:WARNING] [0m[2017-09-20 01:01:14 PDT] notifyReady failed to notify systemd.
+[94m[node:INFO] [0m[2017-09-20 01:01:14 PDT] Our verInfo: VerInfo { magic=3a299fc, blockVersion=0.0.0, inSpecs={96: Conv 43, 49: Conv 5c, 97: Conv 3d, 34: Conv 5e, 98: Conv 37, 67: Conv 60, 83: Conv 0, 4: Conv 5, 5: Conv 4, 37: Conv 5e, 6: Conv 7, 55: Conv 62, 73: Conv 5f, 43: Conv 5d, 92: Conv 31, 61: Conv 61, 93: Conv 2b, 94: Conv 25, 95: Conv 49}, outSpecs={49: Conv 5c, 83: Conv 0, 37: Conv 5e, 43: Conv 5d}}
+[94m[node:INFO] [0m[2017-09-20 01:01:14 PDT] Length of genesis utxo: 38512
+AbstractHash e5a34b79a6f798c1ca4842b6b98e14fcd0a8adae38ad8465be2a55a3: {"pskOmega":0,"pskIssuerPk":"3i2mg7YDeDkxC+dDKO1MRyZ+fXa1Hx7ySBFV9yG3buDEf5E7OVt7tOdQe+y+kcZvbjXZW3D6E8IvZl5fZ0vE6A==","pskDelegatePk":"P+xZxSsmP6Ror+rhWawihkSUWhOD3btkVoFr8FZ4BC1TRUmKjFs1QynFUNMNSWbj2c570iZhfCwEscxntKiZ0Q==","pskCert":"df7e5adf340c5e77d6ab8cb462be73d2af518f683ab8b7d8eaeb1c76f7a2b2ae46213a8bbed846acb315633bfe5f6273602aae9783a6b62677647860d84cfa08"}
+Command execution finished
+ 
++ popd
+~/cardano-sl ~/tmp/devops-374
++ skn=2
++ for i in $NODES
+++ stack exec --nix -- cardano-keygen read-key --path /home/jake/cardano-sl/keys/delegate2.key --system-start 1505930400
+++ grep Primary:
+++ sed 's/;//'
+++ cut '-d ' -f3
+trace: fetching nixpkgs
++ dpk=bNfJLr7ZLJ2TuU3G6JQXJY592wRSker884eNuLG4ghMRLjRymuWNtWt1wP71c9P4tNR8ryJx2b4qUWWUCDzNL8Ktpa
++ echo 'Extracted delegate public key 2: '\''bNfJLr7ZLJ2TuU3G6JQXJY592wRSker884eNuLG4ghMRLjRymuWNtWt1wP71c9P4tNR8ryJx2b4qUWWUCDzNL8Ktpa'\'''
+Extracted delegate public key 2: 'bNfJLr7ZLJ2TuU3G6JQXJY592wRSker884eNuLG4ghMRLjRymuWNtWt1wP71c9P4tNR8ryJx2b4qUWWUCDzNL8Ktpa'
++ pushd auxx
+~/cardano-sl/auxx ~/cardano-sl ~/tmp/devops-374
++ stack exec --nix -- cardano-auxx --configuration-file ../node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 1505930400 cmd --commands 'delegate-heavy 2 bNfJLr7ZLJ2TuU3G6JQXJY592wRSker884eNuLG4ghMRLjRymuWNtWt1wP71c9P4tNR8ryJx2b4qUWWUCDzNL8Ktpa 0 dump'
+trace: fetching nixpkgs
+Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+ConfigurationOptions {cfoFilePath = "../node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 1505930400000000}
+[Attention] We are in DEV mode
+Asserts are ON
+[92m[*production*:DEBUG] [0m[2017-09-20 01:01:22 PDT] Loading SSC global state
+[94m[*production*:INFO] [0m[2017-09-20 01:01:23 PDT] Loaded GodTossing state:   certificates from: [0dcacf87, 29eb7d3f, 19d6a49c, 57b05ad1, 87b923c1, d631d031, 9cd027be]
+
+[93m[*production*:WARNING] [0m[2017-09-20 01:01:23 PDT] Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+[93m[*production*:WARNING] [0m[2017-09-20 01:01:23 PDT] Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+[93m[*production*:WARNING] [0m[2017-09-20 01:01:23 PDT] notifyReady failed to notify systemd.
+[94m[node:INFO] [0m[2017-09-20 01:01:23 PDT] Our verInfo: VerInfo { magic=3a299fc, blockVersion=0.0.0, inSpecs={96: Conv 43, 49: Conv 5c, 97: Conv 3d, 34: Conv 5e, 98: Conv 37, 67: Conv 60, 83: Conv 0, 4: Conv 5, 5: Conv 4, 37: Conv 5e, 6: Conv 7, 55: Conv 62, 73: Conv 5f, 43: Conv 5d, 92: Conv 31, 61: Conv 61, 93: Conv 2b, 94: Conv 25, 95: Conv 49}, outSpecs={49: Conv 5c, 83: Conv 0, 37: Conv 5e, 43: Conv 5d}}
+[94m[node:INFO] [0m[2017-09-20 01:01:23 PDT] Length of genesis utxo: 38512
+AbstractHash bcc5833e4f952a34277ba79f27a1987cd67c52d087cdc48329c8c840: {"pskOmega":0,"pskIssuerPk":"KDjfvCrhqpOyK2xB3a/b5lWHMD1/Bef8cJVXr7SF20idcSRSyIqNMkzFH7jiVG1IdFVZPR1Zb96gkwJ3iA58IQ==","pskDelegatePk":"HIMpFjJrYiARN/fj6nw2LiTKEzcwDttYiDfLMJILCT7c48DeGQXugYiPPzODK1Z7Pm7J2q6m8u3qMnbNERfd0w==","pskCert":"e5084118e504ccbf20ef0939b7a0b2a25676e3ad90ecd6dc0ef27df706ad9fc677d594f27828d0cb2287570c150cef5019dc15b98da49fdcf0bee2528d875b0d"}
+Command execution finished
+ 
++ popd
+~/cardano-sl ~/tmp/devops-374
++ skn=3
++ popd
+~/tmp/devops-374
++ REPO_URL=https://github.com/input-output-hk/cardano-sl.git
++ REPO_PATH=/home/jake/cardano-sl
++ BRANCH=avieth/csl1617_config
++ START_TIME=1505930400
++ AVVM_SEED_COUNT=3
++ IOHK_NODES=(0 1 2)
++ SGG_NODES=(3 4)
++ CF_NODES=(5 6)
++ ALL_NODES='0 1 2 3 4 5 6'
++ KEY_PATH=/home/jake/cardano-sl/keys
++ DELEGATE=/home/jake/cardano-sl/keys/delegate
++ STAKEHOLDER=/home/jake/cardano-sl/keys/stakeholder
++ NODES='3 4'
++ echo 'Generating stakeholder keys...'
+Generating stakeholder keys...
++ pushd /home/jake/cardano-sl
+~/cardano-sl ~/tmp/devops-374
++ for i in $NODES
++ stack exec --nix -- cardano-keygen generate-key --path /home/jake/cardano-sl/keys/stakeholder3.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mSuccessfully generated primary key /home/jake/cardano-sl/keys/stakeholder3.key
++ stack exec --nix -- cardano-keygen read-key --path /home/jake/cardano-sl/keys/stakeholder3.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mPrimary: bNh7G18VuLoyFLX2CRC5im7uP6e38nUm6KtEyKQTHMYA4igaBRUNDUkMTEp6DEi28qJMbKodq2bdccN2JVzTtTjTwG; address hash: d57a7864
+[94m[keygen:INFO] [0mNo wallet set
+[94m[keygen:INFO] [0mKeys: 
+[94m[keygen:INFO] [0mVss PK: 5821021cf63475ffc97d41d009d3c72f940ef461cad3f91923f573df0c91493466e988; short = vsspub:01059aac
++ for i in $NODES
++ stack exec --nix -- cardano-keygen generate-key --path /home/jake/cardano-sl/keys/stakeholder4.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mSuccessfully generated primary key /home/jake/cardano-sl/keys/stakeholder4.key
++ stack exec --nix -- cardano-keygen read-key --path /home/jake/cardano-sl/keys/stakeholder4.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mPrimary: bNgyykYHpKWy7hLNkukH8RQnwHaJcfVdmzzzUx4QvNeGZyUa1yQd6pBWETo4HyxBEGCSuAe7Vfhxbct5hqro29utxm; address hash: 132ba29f
+[94m[keygen:INFO] [0mNo wallet set
+[94m[keygen:INFO] [0mKeys: 
+[94m[keygen:INFO] [0mVss PK: 58210326a35b2fad34b23c00478fa7d66e895b40a47c06aab65d32813206601869ea05; short = vsspub:9a8f1971
++ popd
+~/tmp/devops-374
++ echo 'Generating delegation certificates...'
+Generating delegation certificates...
++ pushd /home/jake/cardano-sl
+~/cardano-sl ~/tmp/devops-374
++ for i in $NODES
++ stack exec --nix -- cardano-keygen --configuration-file node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 0 rearrange --mask /home/jake/cardano-sl/keys/stakeholder3.key
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 0}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 0
+[94m[keygen:INFO] [0mProcessing command
++ pushd auxx
+~/cardano-sl/auxx ~/cardano-sl ~/tmp/devops-374
++ stack exec --nix -- cardano-auxx --configuration-file ../node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 1505930400 cmd --commands 'add-key /home/jake/cardano-sl/keys/stakeholder3.key'
+trace: fetching nixpkgs
+Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+ConfigurationOptions {cfoFilePath = "../node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 1505930400000000}
+[Attention] We are in DEV mode
+Asserts are ON
+[92m[*production*:DEBUG] [0m[2017-09-20 01:01:37 PDT] Loading SSC global state
+[94m[*production*:INFO] [0m[2017-09-20 01:01:37 PDT] Loaded GodTossing state:   certificates from: [0dcacf87, 29eb7d3f, 19d6a49c, 57b05ad1, 87b923c1, d631d031, 9cd027be]
+
+[93m[*production*:WARNING] [0m[2017-09-20 01:01:37 PDT] Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+[93m[*production*:WARNING] [0m[2017-09-20 01:01:37 PDT] Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+[93m[*production*:WARNING] [0m[2017-09-20 01:01:37 PDT] notifyReady failed to notify systemd.
+[94m[node:INFO] [0m[2017-09-20 01:01:37 PDT] Our verInfo: VerInfo { magic=3a299fc, blockVersion=0.0.0, inSpecs={96: Conv 43, 49: Conv 5c, 97: Conv 3d, 34: Conv 5e, 98: Conv 37, 67: Conv 60, 83: Conv 0, 4: Conv 5, 5: Conv 4, 37: Conv 5e, 6: Conv 7, 55: Conv 62, 73: Conv 5f, 43: Conv 5d, 92: Conv 31, 61: Conv 61, 93: Conv 2b, 94: Conv 25, 95: Conv 49}, outSpecs={49: Conv 5c, 83: Conv 0, 37: Conv 5e, 43: Conv 5d}}
+[94m[node:INFO] [0m[2017-09-20 01:01:37 PDT] Length of genesis utxo: 38512
+Read secret file, adding
+Successfully added keyfile
+Command execution finished
+ 
++ popd
+~/cardano-sl ~/tmp/devops-374
++ for i in $NODES
++ stack exec --nix -- cardano-keygen --configuration-file node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 0 rearrange --mask /home/jake/cardano-sl/keys/stakeholder4.key
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 0}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 0
+[94m[keygen:INFO] [0mProcessing command
++ pushd auxx
+~/cardano-sl/auxx ~/cardano-sl ~/tmp/devops-374
++ stack exec --nix -- cardano-auxx --configuration-file ../node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 1505930400 cmd --commands 'add-key /home/jake/cardano-sl/keys/stakeholder4.key'
+trace: fetching nixpkgs
+Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+ConfigurationOptions {cfoFilePath = "../node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 1505930400000000}
+[Attention] We are in DEV mode
+Asserts are ON
+[92m[*production*:DEBUG] [0m[2017-09-20 01:01:46 PDT] Loading SSC global state
+[94m[*production*:INFO] [0m[2017-09-20 01:01:46 PDT] Loaded GodTossing state:   certificates from: [0dcacf87, 29eb7d3f, 19d6a49c, 57b05ad1, 87b923c1, d631d031, 9cd027be]
+
+[93m[*production*:WARNING] [0m[2017-09-20 01:01:46 PDT] Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+[93m[*production*:WARNING] [0m[2017-09-20 01:01:46 PDT] Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+[93m[*production*:WARNING] [0m[2017-09-20 01:01:46 PDT] notifyReady failed to notify systemd.
+[94m[node:INFO] [0m[2017-09-20 01:01:46 PDT] Our verInfo: VerInfo { magic=3a299fc, blockVersion=0.0.0, inSpecs={96: Conv 43, 49: Conv 5c, 97: Conv 3d, 34: Conv 5e, 98: Conv 37, 67: Conv 60, 83: Conv 0, 4: Conv 5, 5: Conv 4, 37: Conv 5e, 6: Conv 7, 55: Conv 62, 73: Conv 5f, 43: Conv 5d, 92: Conv 31, 61: Conv 61, 93: Conv 2b, 94: Conv 25, 95: Conv 49}, outSpecs={49: Conv 5c, 83: Conv 0, 37: Conv 5e, 43: Conv 5d}}
+[94m[node:INFO] [0m[2017-09-20 01:01:46 PDT] Length of genesis utxo: 38512
+Read secret file, adding
+Successfully added keyfile
+Command execution finished
+ 
++ popd
+~/cardano-sl ~/tmp/devops-374
++ pushd auxx
+~/cardano-sl/auxx ~/cardano-sl ~/tmp/devops-374
++ stack exec --nix -- cardano-auxx --configuration-file ../node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 1505930400 cmd --commands listaddr
+trace: fetching nixpkgs
+Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+ConfigurationOptions {cfoFilePath = "../node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 1505930400000000}
+[Attention] We are in DEV mode
+Asserts are ON
+[92m[*production*:DEBUG] [0m[2017-09-20 01:01:54 PDT] Loading SSC global state
+[94m[*production*:INFO] [0m[2017-09-20 01:01:54 PDT] Loaded GodTossing state:   certificates from: [0dcacf87, 29eb7d3f, 19d6a49c, 57b05ad1, 87b923c1, d631d031, 9cd027be]
+
+[93m[*production*:WARNING] [0m[2017-09-20 01:01:54 PDT] Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+[93m[*production*:WARNING] [0m[2017-09-20 01:01:54 PDT] Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+[93m[*production*:WARNING] [0m[2017-09-20 01:01:54 PDT] notifyReady failed to notify systemd.
+[94m[node:INFO] [0m[2017-09-20 01:01:54 PDT] Our verInfo: VerInfo { magic=3a299fc, blockVersion=0.0.0, inSpecs={96: Conv 43, 49: Conv 5c, 97: Conv 3d, 34: Conv 5e, 98: Conv 37, 67: Conv 60, 83: Conv 0, 4: Conv 5, 5: Conv 4, 37: Conv 5e, 6: Conv 7, 55: Conv 62, 73: Conv 5f, 43: Conv 5d, 92: Conv 31, 61: Conv 61, 93: Conv 2b, 94: Conv 25, 95: Conv 49}, outSpecs={49: Conv 5c, 83: Conv 0, 37: Conv 5e, 43: Conv 5d}}
+[94m[node:INFO] [0m[2017-09-20 01:01:54 PDT] Length of genesis utxo: 38512
+Available addresses:
+    #0:   addr:      Ae2tdPwUPEYxyE4mi3FzicoEHWEYVQPkzY8W1i4ZGM8RCw8xXFSiqEACpF4
+          pk base58: bNgjZP1LQ3sdGjHMiEVfxFgFpdTPuFG1VJd1jXGqVvcGzLSAj2nEZbfgvB2Yq2X9k5SBVufx4ng9SKKQG4QyyEgFjj
+          pk hex:    644654faa7400207d87d0173303c6d9b0af0a387be7d7d7d4dccdad0df2a6a04463fa17a288297affb21e5fde425f62ab92d4fa6ce0176c46502c6c2c762e70e
+          pk hash:   f8e148e0c06770f4ba4592924e5f3c619327892464012ebc2c4e8e04
+    #1:   addr:      Ae2tdPwUPEZHFS9sbKLLp6wn5rCsdhSbriaT7uywV7R9YsWHuAa4CZuhc1X
+          pk base58: bNjAvGPxjo8BM3x11yDMcUmHWQMaibDkQsw88Rbd6BfdbN6FYhFKzxa1GsXaTiM11ygeHqP3dhbXsxVadJT7W8aKYb
+          pk hex:    de2da683b6037839310be74328ed4c47267e7d76b51f1ef2481155f721b76ee0c47f913b395b7bb4e7507becbe91c66f6e35d95b70fa13c22f665e5f674bc4e8
+          pk hash:   e5a34b79a6f798c1ca4842b6b98e14fcd0a8adae38ad8465be2a55a3
+    #2:   addr:      Ae2tdPwUPEZJ8TMmLaEseGW7vs2X6Ny84vF2X19SMkqUhQusMjbBnUrtgCx
+          pk base58: bNfXvR75bypxEaYF2wF1nj7MjEdnJ7pAyevr8yzKFRMv7pZi8pyyzEAynLZ3QHp8X2gikNRZDdJvmtxxZFii88kB2x
+          pk hex:    2838dfbc2ae1aa93b22b6c41ddafdbe65587303d7f05e7fc709557afb485db489d712452c88a8d324cc51fb8e2546d487455593d1d596fdea0930277880e7c21
+          pk hash:   bcc5833e4f952a34277ba79f27a1987cd67c52d087cdc48329c8c840
+    #3:   addr:      Ae2tdPwUPEZ2S5QGyMCAfPwcUwReAQhUedWrCt3QEHkTvo81m7sq4K5H9j3
+          pk base58: bNh7G18VuLoyFLX2CRC5im7uP6e38nUm6KtEyKQTHMYA4igaBRUNDUkMTEp6DEi28qJMbKodq2bdccN2JVzTtTjTwG
+          pk hex:    76fd032dc148df668ff61b512cb865bdce33056fc4d830860e0b86c74deabdbf4d66d8a383d8c8e646dd091baea09c807eeb8b72685dbad7c7e9fab8f4f83a03
+          pk hash:   d57a786424175fbb563cde1246d87d237e75a12a02482cadcb8dfeed
+    #4:   addr:      Ae2tdPwUPEZ7A981iARnt8DNEpt9Fxgq5PjTXY7qtrRcYB2ZNuuMgCHKsQd
+          pk base58: bNgyykYHpKWy7hLNkukH8RQnwHaJcfVdmzzzUx4QvNeGZyUa1yQd6pBWETo4HyxBEGCSuAe7Vfhxbct5hqro29utxm
+          pk hex:    70b5cd33d4823bfb1256c050c61049917f12c04b0df2b95f05a0454a142bbd22c94e489917dea850e51464cbe94ba2b2ed3396c67f98b6b9ee8f6135fc12930e
+          pk hash:   132ba29f8525cf20ac9b0f0b7285166a8c273643e66eb34df7b7ba6c
+Command execution finished
+ 
++ popd
+~/cardano-sl ~/tmp/devops-374
++ skn=0
++ for i in $NODES
+++ stack exec --nix -- cardano-keygen read-key --path /home/jake/cardano-sl/keys/delegate3.key --system-start 1505930400
+++ grep Primary:
+++ sed 's/;//'
+++ cut '-d ' -f3
+trace: fetching nixpkgs
++ dpk=bNgSQHutZqJ8zzirbiCVtHZGDF1rfcmAKADezVCLdBvxgx4TY7uX8efzrJrZmwvPsFJvxpmCdFa8GrLdR23buEYuDB
++ echo 'Extracted delegate public key 3: '\''bNgSQHutZqJ8zzirbiCVtHZGDF1rfcmAKADezVCLdBvxgx4TY7uX8efzrJrZmwvPsFJvxpmCdFa8GrLdR23buEYuDB'\'''
+Extracted delegate public key 3: 'bNgSQHutZqJ8zzirbiCVtHZGDF1rfcmAKADezVCLdBvxgx4TY7uX8efzrJrZmwvPsFJvxpmCdFa8GrLdR23buEYuDB'
++ pushd auxx
+~/cardano-sl/auxx ~/cardano-sl ~/tmp/devops-374
++ stack exec --nix -- cardano-auxx --configuration-file ../node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 1505930400 cmd --commands 'delegate-heavy 0 bNgSQHutZqJ8zzirbiCVtHZGDF1rfcmAKADezVCLdBvxgx4TY7uX8efzrJrZmwvPsFJvxpmCdFa8GrLdR23buEYuDB 0 dump'
+trace: fetching nixpkgs
+Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+ConfigurationOptions {cfoFilePath = "../node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 1505930400000000}
+[Attention] We are in DEV mode
+Asserts are ON
+[92m[*production*:DEBUG] [0m[2017-09-20 01:02:03 PDT] Loading SSC global state
+[94m[*production*:INFO] [0m[2017-09-20 01:02:03 PDT] Loaded GodTossing state:   certificates from: [0dcacf87, 29eb7d3f, 19d6a49c, 57b05ad1, 87b923c1, d631d031, 9cd027be]
+
+[93m[*production*:WARNING] [0m[2017-09-20 01:02:03 PDT] Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+[93m[*production*:WARNING] [0m[2017-09-20 01:02:03 PDT] Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+[93m[*production*:WARNING] [0m[2017-09-20 01:02:03 PDT] notifyReady failed to notify systemd.
+[94m[node:INFO] [0m[2017-09-20 01:02:03 PDT] Our verInfo: VerInfo { magic=3a299fc, blockVersion=0.0.0, inSpecs={96: Conv 43, 49: Conv 5c, 97: Conv 3d, 34: Conv 5e, 98: Conv 37, 67: Conv 60, 83: Conv 0, 4: Conv 5, 5: Conv 4, 37: Conv 5e, 6: Conv 7, 55: Conv 62, 73: Conv 5f, 43: Conv 5d, 92: Conv 31, 61: Conv 61, 93: Conv 2b, 94: Conv 25, 95: Conv 49}, outSpecs={49: Conv 5c, 83: Conv 0, 37: Conv 5e, 43: Conv 5d}}
+[94m[node:INFO] [0m[2017-09-20 01:02:03 PDT] Length of genesis utxo: 38512
+AbstractHash f8e148e0c06770f4ba4592924e5f3c619327892464012ebc2c4e8e04: {"pskOmega":0,"pskIssuerPk":"ZEZU+qdAAgfYfQFzMDxtmwrwo4e+fX19Tcza0N8qagRGP6F6KIKXr/sh5f3kJfYquS1Pps4BdsRlAsbCx2LnDg==","pskDelegatePk":"VXq90OKuyJJ4JpY4822T6Es/RvJ9wPaARULrGc+pEtDZHUqne2w4yDC5xlb70w71zCbGoX02mUaBhT7uWJDZug==","pskCert":"241cf460f56bde5c095772824f6dba5beb4a4f8f6b012ea75d78392786d376173e739be790bc153a62707060cf27e5658eee417e509ab433231b1c88235c4d05"}
+Command execution finished
+ 
++ popd
+~/cardano-sl ~/tmp/devops-374
++ skn=1
++ for i in $NODES
+++ stack exec --nix -- cardano-keygen read-key --path /home/jake/cardano-sl/keys/delegate4.key --system-start 1505930400
+++ grep Primary:
+++ cut '-d ' -f3
+++ sed 's/;//'
+trace: fetching nixpkgs
++ dpk=bNf9QeUfqLiH78j9QEMW71i2BBp3o8ZZh1LZArzacMuWhqDihWeKFFXES5wbCoCyRB1btWzvaWoTrd91t5fZ6AMnCc
++ echo 'Extracted delegate public key 4: '\''bNf9QeUfqLiH78j9QEMW71i2BBp3o8ZZh1LZArzacMuWhqDihWeKFFXES5wbCoCyRB1btWzvaWoTrd91t5fZ6AMnCc'\'''
+Extracted delegate public key 4: 'bNf9QeUfqLiH78j9QEMW71i2BBp3o8ZZh1LZArzacMuWhqDihWeKFFXES5wbCoCyRB1btWzvaWoTrd91t5fZ6AMnCc'
++ pushd auxx
+~/cardano-sl/auxx ~/cardano-sl ~/tmp/devops-374
++ stack exec --nix -- cardano-auxx --configuration-file ../node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 1505930400 cmd --commands 'delegate-heavy 1 bNf9QeUfqLiH78j9QEMW71i2BBp3o8ZZh1LZArzacMuWhqDihWeKFFXES5wbCoCyRB1btWzvaWoTrd91t5fZ6AMnCc 0 dump'
+trace: fetching nixpkgs
+Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+ConfigurationOptions {cfoFilePath = "../node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 1505930400000000}
+[Attention] We are in DEV mode
+Asserts are ON
+[92m[*production*:DEBUG] [0m[2017-09-20 01:02:12 PDT] Loading SSC global state
+[94m[*production*:INFO] [0m[2017-09-20 01:02:12 PDT] Loaded GodTossing state:   certificates from: [0dcacf87, 29eb7d3f, 19d6a49c, 57b05ad1, 87b923c1, d631d031, 9cd027be]
+
+[93m[*production*:WARNING] [0m[2017-09-20 01:02:12 PDT] Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+[93m[*production*:WARNING] [0m[2017-09-20 01:02:12 PDT] Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+[93m[*production*:WARNING] [0m[2017-09-20 01:02:12 PDT] notifyReady failed to notify systemd.
+[94m[node:INFO] [0m[2017-09-20 01:02:12 PDT] Our verInfo: VerInfo { magic=3a299fc, blockVersion=0.0.0, inSpecs={96: Conv 43, 49: Conv 5c, 97: Conv 3d, 34: Conv 5e, 98: Conv 37, 67: Conv 60, 83: Conv 0, 4: Conv 5, 5: Conv 4, 37: Conv 5e, 6: Conv 7, 55: Conv 62, 73: Conv 5f, 43: Conv 5d, 92: Conv 31, 61: Conv 61, 93: Conv 2b, 94: Conv 25, 95: Conv 49}, outSpecs={49: Conv 5c, 83: Conv 0, 37: Conv 5e, 43: Conv 5d}}
+[94m[node:INFO] [0m[2017-09-20 01:02:12 PDT] Length of genesis utxo: 38512
+AbstractHash e5a34b79a6f798c1ca4842b6b98e14fcd0a8adae38ad8465be2a55a3: {"pskOmega":0,"pskIssuerPk":"3i2mg7YDeDkxC+dDKO1MRyZ+fXa1Hx7ySBFV9yG3buDEf5E7OVt7tOdQe+y+kcZvbjXZW3D6E8IvZl5fZ0vE6A==","pskDelegatePk":"FM69aPXpbsRuXzn/OYuSw2Mo/IGtmeqdVRPzqom5Kh8nG+29h74oN1He5VgKtG2mK9m8Hp/ih0kDDxSvfYyHxQ==","pskCert":"65de1fe2afddff11e61ffa1c2be56c08283ed67399b7a4920f7e30e4293bfeae3f062bf2c4a7b64d84bec3e15fef5edeb10dd1207f5f98d34a60d3c8a4b3b80f"}
+Command execution finished
+ 
++ popd
+~/cardano-sl ~/tmp/devops-374
++ skn=2
++ popd
+~/tmp/devops-374
++ REPO_URL=https://github.com/input-output-hk/cardano-sl.git
++ REPO_PATH=/home/jake/cardano-sl
++ BRANCH=avieth/csl1617_config
++ START_TIME=1505930400
++ AVVM_SEED_COUNT=3
++ IOHK_NODES=(0 1 2)
++ SGG_NODES=(3 4)
++ CF_NODES=(5 6)
++ ALL_NODES='0 1 2 3 4 5 6'
++ KEY_PATH=/home/jake/cardano-sl/keys
++ DELEGATE=/home/jake/cardano-sl/keys/delegate
++ STAKEHOLDER=/home/jake/cardano-sl/keys/stakeholder
++ NODES='5 6'
++ echo 'Generating stakeholder keys...'
+Generating stakeholder keys...
++ pushd /home/jake/cardano-sl
+~/cardano-sl ~/tmp/devops-374
++ for i in $NODES
++ stack exec --nix -- cardano-keygen generate-key --path /home/jake/cardano-sl/keys/stakeholder5.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mSuccessfully generated primary key /home/jake/cardano-sl/keys/stakeholder5.key
++ stack exec --nix -- cardano-keygen read-key --path /home/jake/cardano-sl/keys/stakeholder5.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mPrimary: bNgqWN5CEhLsCc2bKetmt7oQphz4P3HNN5EWNVEocLtJB6ESQLewkxHkeS5ms3r8AEdVR4CKHxHMeHX6Jqe7n7hqXz; address hash: 769a17fe
+[94m[keygen:INFO] [0mNo wallet set
+[94m[keygen:INFO] [0mKeys: 
+[94m[keygen:INFO] [0mVss PK: 582102e63ddf519cb4f101a1ba314c8c5ce1ece4830a2b40991fcc58c1b8ffec3cb31e; short = vsspub:fdd050ad
++ for i in $NODES
++ stack exec --nix -- cardano-keygen generate-key --path /home/jake/cardano-sl/keys/stakeholder6.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mSuccessfully generated primary key /home/jake/cardano-sl/keys/stakeholder6.key
++ stack exec --nix -- cardano-keygen read-key --path /home/jake/cardano-sl/keys/stakeholder6.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mPrimary: bNfprPBRL3zeUx1gAsqEqUhZCiKcBXFnJ7rmKxTqHX4WV2kG7YH6rRBSEB4GJSa3fT4ke997fte1mPWR6x14bPK3cm; address hash: 09ad4441
+[94m[keygen:INFO] [0mNo wallet set
+[94m[keygen:INFO] [0mKeys: 
+[94m[keygen:INFO] [0mVss PK: 582102418fdadb69472d7864bc598b5586dcf9bb264626b1ef89d4c9d67869fb9f47ee; short = vsspub:50a5fece
++ popd
+~/tmp/devops-374
++ echo 'Generating delegation certificates...'
+Generating delegation certificates...
++ pushd /home/jake/cardano-sl
+~/cardano-sl ~/tmp/devops-374
++ for i in $NODES
++ stack exec --nix -- cardano-keygen --configuration-file node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 0 rearrange --mask /home/jake/cardano-sl/keys/stakeholder5.key
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 0}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 0
+[94m[keygen:INFO] [0mProcessing command
++ pushd auxx
+~/cardano-sl/auxx ~/cardano-sl ~/tmp/devops-374
++ stack exec --nix -- cardano-auxx --configuration-file ../node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 1505930400 cmd --commands 'add-key /home/jake/cardano-sl/keys/stakeholder5.key'
+trace: fetching nixpkgs
+Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+ConfigurationOptions {cfoFilePath = "../node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 1505930400000000}
+[Attention] We are in DEV mode
+Asserts are ON
+[92m[*production*:DEBUG] [0m[2017-09-20 01:02:27 PDT] Loading SSC global state
+[94m[*production*:INFO] [0m[2017-09-20 01:02:27 PDT] Loaded GodTossing state:   certificates from: [0dcacf87, 29eb7d3f, 19d6a49c, 57b05ad1, 87b923c1, d631d031, 9cd027be]
+
+[93m[*production*:WARNING] [0m[2017-09-20 01:02:27 PDT] Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+[93m[*production*:WARNING] [0m[2017-09-20 01:02:27 PDT] Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+[93m[*production*:WARNING] [0m[2017-09-20 01:02:27 PDT] notifyReady failed to notify systemd.
+[94m[node:INFO] [0m[2017-09-20 01:02:27 PDT] Our verInfo: VerInfo { magic=3a299fc, blockVersion=0.0.0, inSpecs={96: Conv 43, 49: Conv 5c, 97: Conv 3d, 34: Conv 5e, 98: Conv 37, 67: Conv 60, 83: Conv 0, 4: Conv 5, 5: Conv 4, 37: Conv 5e, 6: Conv 7, 55: Conv 62, 73: Conv 5f, 43: Conv 5d, 92: Conv 31, 61: Conv 61, 93: Conv 2b, 94: Conv 25, 95: Conv 49}, outSpecs={49: Conv 5c, 83: Conv 0, 37: Conv 5e, 43: Conv 5d}}
+[94m[node:INFO] [0m[2017-09-20 01:02:27 PDT] Length of genesis utxo: 38512
+Read secret file, adding
+Successfully added keyfile
+Command execution finished
+ 
++ popd
+~/cardano-sl ~/tmp/devops-374
++ for i in $NODES
++ stack exec --nix -- cardano-keygen --configuration-file node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 0 rearrange --mask /home/jake/cardano-sl/keys/stakeholder6.key
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 0}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 0
+[94m[keygen:INFO] [0mProcessing command
++ pushd auxx
+~/cardano-sl/auxx ~/cardano-sl ~/tmp/devops-374
++ stack exec --nix -- cardano-auxx --configuration-file ../node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 1505930400 cmd --commands 'add-key /home/jake/cardano-sl/keys/stakeholder6.key'
+trace: fetching nixpkgs
+Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+ConfigurationOptions {cfoFilePath = "../node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 1505930400000000}
+[Attention] We are in DEV mode
+Asserts are ON
+[92m[*production*:DEBUG] [0m[2017-09-20 01:02:36 PDT] Loading SSC global state
+[94m[*production*:INFO] [0m[2017-09-20 01:02:36 PDT] Loaded GodTossing state:   certificates from: [0dcacf87, 29eb7d3f, 19d6a49c, 57b05ad1, 87b923c1, d631d031, 9cd027be]
+
+[93m[*production*:WARNING] [0m[2017-09-20 01:02:36 PDT] Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+[93m[*production*:WARNING] [0m[2017-09-20 01:02:36 PDT] Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+[93m[*production*:WARNING] [0m[2017-09-20 01:02:36 PDT] notifyReady failed to notify systemd.
+[94m[node:INFO] [0m[2017-09-20 01:02:36 PDT] Our verInfo: VerInfo { magic=3a299fc, blockVersion=0.0.0, inSpecs={96: Conv 43, 49: Conv 5c, 97: Conv 3d, 34: Conv 5e, 98: Conv 37, 67: Conv 60, 83: Conv 0, 4: Conv 5, 5: Conv 4, 37: Conv 5e, 6: Conv 7, 55: Conv 62, 73: Conv 5f, 43: Conv 5d, 92: Conv 31, 61: Conv 61, 93: Conv 2b, 94: Conv 25, 95: Conv 49}, outSpecs={49: Conv 5c, 83: Conv 0, 37: Conv 5e, 43: Conv 5d}}
+[94m[node:INFO] [0m[2017-09-20 01:02:36 PDT] Length of genesis utxo: 38512
+Read secret file, adding
+Successfully added keyfile
+Command execution finished
+ 
++ popd
+~/cardano-sl ~/tmp/devops-374
++ pushd auxx
+~/cardano-sl/auxx ~/cardano-sl ~/tmp/devops-374
++ stack exec --nix -- cardano-auxx --configuration-file ../node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 1505930400 cmd --commands listaddr
+trace: fetching nixpkgs
+Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+ConfigurationOptions {cfoFilePath = "../node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 1505930400000000}
+[Attention] We are in DEV mode
+Asserts are ON
+[92m[*production*:DEBUG] [0m[2017-09-20 01:02:43 PDT] Loading SSC global state
+[94m[*production*:INFO] [0m[2017-09-20 01:02:43 PDT] Loaded GodTossing state:   certificates from: [0dcacf87, 29eb7d3f, 19d6a49c, 57b05ad1, 87b923c1, d631d031, 9cd027be]
+
+[93m[*production*:WARNING] [0m[2017-09-20 01:02:43 PDT] Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+[93m[*production*:WARNING] [0m[2017-09-20 01:02:43 PDT] Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+[93m[*production*:WARNING] [0m[2017-09-20 01:02:43 PDT] notifyReady failed to notify systemd.
+[94m[node:INFO] [0m[2017-09-20 01:02:43 PDT] Our verInfo: VerInfo { magic=3a299fc, blockVersion=0.0.0, inSpecs={96: Conv 43, 49: Conv 5c, 97: Conv 3d, 34: Conv 5e, 98: Conv 37, 67: Conv 60, 83: Conv 0, 4: Conv 5, 5: Conv 4, 37: Conv 5e, 6: Conv 7, 55: Conv 62, 73: Conv 5f, 43: Conv 5d, 92: Conv 31, 61: Conv 61, 93: Conv 2b, 94: Conv 25, 95: Conv 49}, outSpecs={49: Conv 5c, 83: Conv 0, 37: Conv 5e, 43: Conv 5d}}
+[94m[node:INFO] [0m[2017-09-20 01:02:43 PDT] Length of genesis utxo: 38512
+Available addresses:
+    #0:   addr:      Ae2tdPwUPEYxyE4mi3FzicoEHWEYVQPkzY8W1i4ZGM8RCw8xXFSiqEACpF4
+          pk base58: bNgjZP1LQ3sdGjHMiEVfxFgFpdTPuFG1VJd1jXGqVvcGzLSAj2nEZbfgvB2Yq2X9k5SBVufx4ng9SKKQG4QyyEgFjj
+          pk hex:    644654faa7400207d87d0173303c6d9b0af0a387be7d7d7d4dccdad0df2a6a04463fa17a288297affb21e5fde425f62ab92d4fa6ce0176c46502c6c2c762e70e
+          pk hash:   f8e148e0c06770f4ba4592924e5f3c619327892464012ebc2c4e8e04
+    #1:   addr:      Ae2tdPwUPEZHFS9sbKLLp6wn5rCsdhSbriaT7uywV7R9YsWHuAa4CZuhc1X
+          pk base58: bNjAvGPxjo8BM3x11yDMcUmHWQMaibDkQsw88Rbd6BfdbN6FYhFKzxa1GsXaTiM11ygeHqP3dhbXsxVadJT7W8aKYb
+          pk hex:    de2da683b6037839310be74328ed4c47267e7d76b51f1ef2481155f721b76ee0c47f913b395b7bb4e7507becbe91c66f6e35d95b70fa13c22f665e5f674bc4e8
+          pk hash:   e5a34b79a6f798c1ca4842b6b98e14fcd0a8adae38ad8465be2a55a3
+    #2:   addr:      Ae2tdPwUPEZJ8TMmLaEseGW7vs2X6Ny84vF2X19SMkqUhQusMjbBnUrtgCx
+          pk base58: bNfXvR75bypxEaYF2wF1nj7MjEdnJ7pAyevr8yzKFRMv7pZi8pyyzEAynLZ3QHp8X2gikNRZDdJvmtxxZFii88kB2x
+          pk hex:    2838dfbc2ae1aa93b22b6c41ddafdbe65587303d7f05e7fc709557afb485db489d712452c88a8d324cc51fb8e2546d487455593d1d596fdea0930277880e7c21
+          pk hash:   bcc5833e4f952a34277ba79f27a1987cd67c52d087cdc48329c8c840
+    #3:   addr:      Ae2tdPwUPEZ2S5QGyMCAfPwcUwReAQhUedWrCt3QEHkTvo81m7sq4K5H9j3
+          pk base58: bNh7G18VuLoyFLX2CRC5im7uP6e38nUm6KtEyKQTHMYA4igaBRUNDUkMTEp6DEi28qJMbKodq2bdccN2JVzTtTjTwG
+          pk hex:    76fd032dc148df668ff61b512cb865bdce33056fc4d830860e0b86c74deabdbf4d66d8a383d8c8e646dd091baea09c807eeb8b72685dbad7c7e9fab8f4f83a03
+          pk hash:   d57a786424175fbb563cde1246d87d237e75a12a02482cadcb8dfeed
+    #4:   addr:      Ae2tdPwUPEZ7A981iARnt8DNEpt9Fxgq5PjTXY7qtrRcYB2ZNuuMgCHKsQd
+          pk base58: bNgyykYHpKWy7hLNkukH8RQnwHaJcfVdmzzzUx4QvNeGZyUa1yQd6pBWETo4HyxBEGCSuAe7Vfhxbct5hqro29utxm
+          pk hex:    70b5cd33d4823bfb1256c050c61049917f12c04b0df2b95f05a0454a142bbd22c94e489917dea850e51464cbe94ba2b2ed3396c67f98b6b9ee8f6135fc12930e
+          pk hash:   132ba29f8525cf20ac9b0f0b7285166a8c273643e66eb34df7b7ba6c
+    #5:   addr:      Ae2tdPwUPEZAuMh9HqvkgBuGWNeHTp3jaMQUP8udBuPybBYTrGvp5EX6uCJ
+          pk base58: bNgqWN5CEhLsCc2bKetmt7oQphz4P3HNN5EWNVEocLtJB6ESQLewkxHkeS5ms3r8AEdVR4CKHxHMeHX6Jqe7n7hqXz
+          pk hex:    6967709eca5a9bd900c9d7f715493a7acdf628c3d5623c6b5d57e39483422e7f8a55fced9d0c444a3af21d361618427e04b6087ff837520026684b6ec723e785
+          pk hash:   769a17fe12e66f01f5ffe792e8483818b231513649503c40e187eeea
+    #6:   addr:      Ae2tdPwUPEYxcrsBr1X9QeMGwnQxgejepK5cHg8S12SsPDHeqguEV2ohJFV
+          pk base58: bNfprPBRL3zeUx1gAsqEqUhZCiKcBXFnJ7rmKxTqHX4WV2kG7YH6rRBSEB4GJSa3fT4ke997fte1mPWR6x14bPK3cm
+          pk hex:    36d285a6d1d00b8301556ac11908c9eb895bc3663143ca0421c439a2bae3fc6290d29dbba577f3e51a39a8ffd599c018e71a54b5a8f725a61007cbf09ba06b92
+          pk hash:   09ad4441c8fd988b29dffe9a4120eb4f0c8ca94386d2e47ef2a02584
+Command execution finished
+ 
++ popd
+~/cardano-sl ~/tmp/devops-374
++ skn=0
++ for i in $NODES
+++ stack exec --nix -- cardano-keygen read-key --path /home/jake/cardano-sl/keys/delegate5.key --system-start 1505930400
+++ grep Primary:
+++ sed 's/;//'
+++ cut '-d ' -f3
+trace: fetching nixpkgs
++ dpk=bNgUJG2zKVDf6bnrrh3FBXxWfaFQoRC5Zc8Tu7NNnnsT7morsPZ5MJvAQhceKQ58ypGh51qcUgdg5jN1o2BA7oD3mp
++ echo 'Extracted delegate public key 5: '\''bNgUJG2zKVDf6bnrrh3FBXxWfaFQoRC5Zc8Tu7NNnnsT7morsPZ5MJvAQhceKQ58ypGh51qcUgdg5jN1o2BA7oD3mp'\'''
+Extracted delegate public key 5: 'bNgUJG2zKVDf6bnrrh3FBXxWfaFQoRC5Zc8Tu7NNnnsT7morsPZ5MJvAQhceKQ58ypGh51qcUgdg5jN1o2BA7oD3mp'
++ pushd auxx
+~/cardano-sl/auxx ~/cardano-sl ~/tmp/devops-374
++ stack exec --nix -- cardano-auxx --configuration-file ../node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 1505930400 cmd --commands 'delegate-heavy 0 bNgUJG2zKVDf6bnrrh3FBXxWfaFQoRC5Zc8Tu7NNnnsT7morsPZ5MJvAQhceKQ58ypGh51qcUgdg5jN1o2BA7oD3mp 0 dump'
+trace: fetching nixpkgs
+Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+ConfigurationOptions {cfoFilePath = "../node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 1505930400000000}
+[Attention] We are in DEV mode
+Asserts are ON
+[92m[*production*:DEBUG] [0m[2017-09-20 01:02:52 PDT] Loading SSC global state
+[94m[*production*:INFO] [0m[2017-09-20 01:02:52 PDT] Loaded GodTossing state:   certificates from: [0dcacf87, 29eb7d3f, 19d6a49c, 57b05ad1, 87b923c1, d631d031, 9cd027be]
+
+[93m[*production*:WARNING] [0m[2017-09-20 01:02:52 PDT] Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+[93m[*production*:WARNING] [0m[2017-09-20 01:02:52 PDT] Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+[93m[*production*:WARNING] [0m[2017-09-20 01:02:52 PDT] notifyReady failed to notify systemd.
+[94m[node:INFO] [0m[2017-09-20 01:02:52 PDT] Our verInfo: VerInfo { magic=3a299fc, blockVersion=0.0.0, inSpecs={96: Conv 43, 49: Conv 5c, 97: Conv 3d, 34: Conv 5e, 98: Conv 37, 67: Conv 60, 83: Conv 0, 4: Conv 5, 5: Conv 4, 37: Conv 5e, 6: Conv 7, 55: Conv 62, 73: Conv 5f, 43: Conv 5d, 92: Conv 31, 61: Conv 61, 93: Conv 2b, 94: Conv 25, 95: Conv 49}, outSpecs={49: Conv 5c, 83: Conv 0, 37: Conv 5e, 43: Conv 5d}}
+[94m[node:INFO] [0m[2017-09-20 01:02:52 PDT] Length of genesis utxo: 38512
+AbstractHash f8e148e0c06770f4ba4592924e5f3c619327892464012ebc2c4e8e04: {"pskOmega":0,"pskIssuerPk":"ZEZU+qdAAgfYfQFzMDxtmwrwo4e+fX19Tcza0N8qagRGP6F6KIKXr/sh5f3kJfYquS1Pps4BdsRlAsbCx2LnDg==","pskDelegatePk":"Vx1PVOSm8ZQjh7d0Co/x45CcIcYbVasW+c0AbPMWlMqtPL2EoeVsOwvglJQ8urdUtWdNfonj4F8UPanPmuTvLw==","pskCert":"ee18bfdb2afaa15ae32f704de831e0d501d798a6257a968514aa991609f193f5e168352aee37a2ca2922e9640ac8e68eb95ccb911e885d956f66d36763d1120c"}
+Command execution finished
+ 
++ popd
+~/cardano-sl ~/tmp/devops-374
++ skn=1
++ for i in $NODES
+++ stack exec --nix -- cardano-keygen read-key --path /home/jake/cardano-sl/keys/delegate6.key --system-start 1505930400
+++ grep Primary:
+++ cut '-d ' -f3
+++ sed 's/;//'
+trace: fetching nixpkgs
++ dpk=bNhd63HjB4fwRpgbBXsuuCGoFJhfA3NA2nBjZRfLqebttBPLVnfAUoQpzPL3BJ9FaikvqjSCpBDNNBDKxeumXBMy58
++ echo 'Extracted delegate public key 6: '\''bNhd63HjB4fwRpgbBXsuuCGoFJhfA3NA2nBjZRfLqebttBPLVnfAUoQpzPL3BJ9FaikvqjSCpBDNNBDKxeumXBMy58'\'''
+Extracted delegate public key 6: 'bNhd63HjB4fwRpgbBXsuuCGoFJhfA3NA2nBjZRfLqebttBPLVnfAUoQpzPL3BJ9FaikvqjSCpBDNNBDKxeumXBMy58'
++ pushd auxx
+~/cardano-sl/auxx ~/cardano-sl ~/tmp/devops-374
++ stack exec --nix -- cardano-auxx --configuration-file ../node/configuration.mainnet.yaml --configuration-key testnet_public_full --system-start 1505930400 cmd --commands 'delegate-heavy 1 bNhd63HjB4fwRpgbBXsuuCGoFJhfA3NA2nBjZRfLqebttBPLVnfAUoQpzPL3BJ9FaikvqjSCpBDNNBDKxeumXBMy58 0 dump'
+trace: fetching nixpkgs
+Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+ConfigurationOptions {cfoFilePath = "../node/configuration.mainnet.yaml", cfoKey = "testnet_public_full", cfoSystemStart = Just 1505930400000000}
+[Attention] We are in DEV mode
+Asserts are ON
+[92m[*production*:DEBUG] [0m[2017-09-20 01:03:01 PDT] Loading SSC global state
+[94m[*production*:INFO] [0m[2017-09-20 01:03:01 PDT] Loaded GodTossing state:   certificates from: [0dcacf87, 29eb7d3f, 19d6a49c, 57b05ad1, 87b923c1, d631d031, 9cd027be]
+
+[93m[*production*:WARNING] [0m[2017-09-20 01:03:01 PDT] Can't get current slot, because slotting data is outdated. Last known current epoch = 0
+[93m[*production*:WARNING] [0m[2017-09-20 01:03:01 PDT] Slotting data: EpochSlottingData {esdSlotDuration = 20000ms, esdStartDiff = 0}
+[93m[*production*:WARNING] [0m[2017-09-20 01:03:01 PDT] notifyReady failed to notify systemd.
+[94m[node:INFO] [0m[2017-09-20 01:03:01 PDT] Our verInfo: VerInfo { magic=3a299fc, blockVersion=0.0.0, inSpecs={96: Conv 43, 49: Conv 5c, 97: Conv 3d, 34: Conv 5e, 98: Conv 37, 67: Conv 60, 83: Conv 0, 4: Conv 5, 5: Conv 4, 37: Conv 5e, 6: Conv 7, 55: Conv 62, 73: Conv 5f, 43: Conv 5d, 92: Conv 31, 61: Conv 61, 93: Conv 2b, 94: Conv 25, 95: Conv 49}, outSpecs={49: Conv 5c, 83: Conv 0, 37: Conv 5e, 43: Conv 5d}}
+[94m[node:INFO] [0m[2017-09-20 01:03:01 PDT] Length of genesis utxo: 38512
+AbstractHash e5a34b79a6f798c1ca4842b6b98e14fcd0a8adae38ad8465be2a55a3: {"pskOmega":0,"pskIssuerPk":"3i2mg7YDeDkxC+dDKO1MRyZ+fXa1Hx7ySBFV9yG3buDEf5E7OVt7tOdQe+y+kcZvbjXZW3D6E8IvZl5fZ0vE6A==","pskDelegatePk":"kLYIHiEV0VVijL5UngkpXgQwTnaN83dut3LiyKZDuh+3CrTsH7eC6DMccadsesqgD32SzoLMJLhnJqNmZ7OPTw==","pskCert":"1517f7f7333fa22bdede4535dc60919e7702a52753e321a0bd7d834f0de68cfb41b0be8b363258513db37e9268498268ec22114a14449e265757c75c0b7bb70b"}
+Command execution finished
+ 
++ popd
+~/cardano-sl ~/tmp/devops-374
++ skn=2
++ popd
+~/tmp/devops-374
++ REPO_URL=https://github.com/input-output-hk/cardano-sl.git
++ REPO_PATH=/home/jake/cardano-sl
++ BRANCH=avieth/csl1617_config
++ START_TIME=1505930400
++ AVVM_SEED_COUNT=3
++ IOHK_NODES=(0 1 2)
++ SGG_NODES=(3 4)
++ CF_NODES=(5 6)
++ ALL_NODES='0 1 2 3 4 5 6'
++ KEY_PATH=/home/jake/cardano-sl/keys
++ DELEGATE=/home/jake/cardano-sl/keys/delegate
++ STAKEHOLDER=/home/jake/cardano-sl/keys/stakeholder
++ pushd /home/jake/cardano-sl
+~/cardano-sl ~/tmp/devops-374
++ stack exec --nix -- cardano-keygen generate-avvm-seeds -n 3 -o keys/avvm --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+[94m[keygen:INFO] [0mGenerating fake avvm data into keys/avvm
+[94m[keygen:INFO] [0mSeeds were generated
++ popd
+~/tmp/devops-374
++ REPO_URL=https://github.com/input-output-hk/cardano-sl.git
++ REPO_PATH=/home/jake/cardano-sl
++ BRANCH=avieth/csl1617_config
++ START_TIME=1505930400
++ AVVM_SEED_COUNT=3
++ IOHK_NODES=(0 1 2)
++ SGG_NODES=(3 4)
++ CF_NODES=(5 6)
++ ALL_NODES='0 1 2 3 4 5 6'
++ KEY_PATH=/home/jake/cardano-sl/keys
++ DELEGATE=/home/jake/cardano-sl/keys/delegate
++ STAKEHOLDER=/home/jake/cardano-sl/keys/stakeholder
++ pushd /home/jake/cardano-sl
+~/cardano-sl ~/tmp/devops-374
++ for i in $ALL_NODES
++ stack exec --nix -- cardano-keygen generate-vss --path /home/jake/cardano-sl/keys/delegate0.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+{"expiryEpoch":5,"signature":"4a09d6f0f4f90b89a06d83c1060b05cb672104f14931f324ee6e9f829459eb82abca7ef9b326ed61d95cd326f022f2ac82b20a243a07c80bbf98ce91065d180a","signingKey":"7fVGU0DZ20XZy9/G18DaXr2sJE/NmqTyGOJTagY4kxINwXsQU/A61PAhbc9nwfWMnBhQbr26XPIcVYzjquPStg==","vssKey":"WCEDGA9i3YpJuzoRsH18ydV8MkK0GqgkjPviHGg0KFdYzv0="}
++ for i in $ALL_NODES
++ stack exec --nix -- cardano-keygen generate-vss --path /home/jake/cardano-sl/keys/delegate1.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+{"expiryEpoch":5,"signature":"8e7811176e7ec9b7f8f421f49c479a933abea5400f970b041d39f740d2b27a1dc42385e166de5dcc9ad5e5ad6d15a7de3678bcbb410aaba86e38c75cbe14bf0f","signingKey":"P+xZxSsmP6Ror+rhWawihkSUWhOD3btkVoFr8FZ4BC1TRUmKjFs1QynFUNMNSWbj2c570iZhfCwEscxntKiZ0Q==","vssKey":"WCECV0fnMFmbsHX7knb8QDPYpkheJ19iP9v8HCKrapAV8GE="}
++ for i in $ALL_NODES
++ stack exec --nix -- cardano-keygen generate-vss --path /home/jake/cardano-sl/keys/delegate2.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+{"expiryEpoch":5,"signature":"ecb2826b00141f268f5ddc1ff4d51a009a48320a6211a44b06fbd49a1e91a309fec7a15e04f699915b5b8ca19dd5b866892831a211d3d40feaffdd3af4b1d508","signingKey":"HIMpFjJrYiARN/fj6nw2LiTKEzcwDttYiDfLMJILCT7c48DeGQXugYiPPzODK1Z7Pm7J2q6m8u3qMnbNERfd0w==","vssKey":"WCECjGaHe7L/h4/dTnJYtqAZXaLps3qxprInnZa6ibkzFiM="}
++ for i in $ALL_NODES
++ stack exec --nix -- cardano-keygen generate-vss --path /home/jake/cardano-sl/keys/delegate3.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+{"expiryEpoch":5,"signature":"467c41aa6528fdf42bbcb25da1fd58ab7dc595c670da605c4389a07af38a151c0382525e918f48269b17dd8b69d21966a8d566a3a82ef07a50e1e36b3e12f60e","signingKey":"VXq90OKuyJJ4JpY4822T6Es/RvJ9wPaARULrGc+pEtDZHUqne2w4yDC5xlb70w71zCbGoX02mUaBhT7uWJDZug==","vssKey":"WCECoR4Lo67l4FPT+SFa2oi1R5fLP2QY6LlTPepAyMkoqHM="}
++ for i in $ALL_NODES
++ stack exec --nix -- cardano-keygen generate-vss --path /home/jake/cardano-sl/keys/delegate4.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+{"expiryEpoch":5,"signature":"62075250429dd467b9367188fae54de91566107a90c32ba0b44bf86b824ba0c577b831adba09a7c64955c8d9b30f88b8eeaed67860aaecdd02e08230dcc44b0a","signingKey":"FM69aPXpbsRuXzn/OYuSw2Mo/IGtmeqdVRPzqom5Kh8nG+29h74oN1He5VgKtG2mK9m8Hp/ih0kDDxSvfYyHxQ==","vssKey":"WCECZ2ljCNAqJMP/zd+DWQ0JAcEmkQv1cvmOES6vCxgLgEs="}
++ for i in $ALL_NODES
++ stack exec --nix -- cardano-keygen generate-vss --path /home/jake/cardano-sl/keys/delegate5.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+{"expiryEpoch":5,"signature":"8b06b21fc702e0c08725ac966a4fce01ab9d3c0bce1a0182cd1cef4eb59dbf48e0734d6411b761722889a16996b0c4e6f8b0eeea1ed1e1ac49e5ba97ab097106","signingKey":"Vx1PVOSm8ZQjh7d0Co/x45CcIcYbVasW+c0AbPMWlMqtPL2EoeVsOwvglJQ8urdUtWdNfonj4F8UPanPmuTvLw==","vssKey":"WCEDwCJJibgFhIxEWRKmGYtYxKBEjd+gT58f1nG258PVuiU="}
++ for i in $ALL_NODES
++ stack exec --nix -- cardano-keygen generate-vss --path /home/jake/cardano-sl/keys/delegate6.key --system-start 1505930400
+trace: fetching nixpkgs
+ConfigurationOptions {cfoFilePath = "node/configuration.yaml", cfoKey = "default", cfoSystemStart = Just 1505930400000000}
+[94m[keygen:INFO] [0mwithConfiguration using custom system start time 1505930400000000
+[94m[keygen:INFO] [0mProcessing command
+{"expiryEpoch":5,"signature":"1a0ed931e0adc402f220f48e59ce2798f7dd6df24c67e520fef1f5819ca4d71a8decf9a4434b386c543b012e4e2358db1af84a87d04271a2a1732d5b64766509","signingKey":"kLYIHiEV0VVijL5UngkpXgQwTnaN83dut3LiyKZDuh+3CrTsH7eC6DMccadsesqgD32SzoLMJLhnJqNmZ7OPTw==","vssKey":"WCECDF2+QdFRk2RXeyYYuXx/yjrMvinXoJWwEStWqPvM1ho="}
++ popd
+~/tmp/devops-374

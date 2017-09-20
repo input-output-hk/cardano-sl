@@ -87,6 +87,12 @@ packages:
     commit: 6da3cd051bd6f6415c8ec3b53f1c0372a80a4376
   extra-dep: true
 
+# Custom ekg-statsd version without the unnecessary diffing optimisation
+- location:
+    git: https://github.com/input-output-hk/ekg-statsd.git
+    commit: 1869714a616b8092d8dc16af6e834e81f4c56bad
+  extra-dep: true
+
 nix:
   shell-file: shell.nix
 

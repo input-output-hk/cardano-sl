@@ -82,6 +82,7 @@ library
                        Pos.Crypto.Signing.Types.Redeem
                        Pos.Crypto.Signing.Types.Safe
                        Pos.Crypto.Signing.Types.Signing
+                       Pos.Crypto.Scrypt
                        Pos.Crypto.SecretSharing
 
                        Pos.Merkle
@@ -172,6 +173,7 @@ library
                      , reflection
                      , resourcet
                      , safecopy
+                     , scrypt >= 0.5
                      , semigroups
                      , serokell-util
                      , stm

@@ -10,6 +10,7 @@ module Pos.Web.Server
        , nat
        , serveWebBase
        , applicationBase
+       , route53HealthCheckApplication
        , serveWebGT
        , applicationGT
        ) where
@@ -26,9 +27,10 @@ import           Network.Wai.Handler.Warp    (defaultSettings, runSettings, setH
 import           Network.Wai.Handler.WarpTLS (TLSSettings, runTLS, tlsSettingsChain)
 import           Servant.API                 ((:<|>) ((:<|>)), FromHttpApiData)
 import           Servant.Server              (Handler, ServantErr (errBody), Server,
-                                              ServerT, err404, serve)
+                                             ServerT, err404, err503, serve)
 import           Servant.Utils.Enter         ((:~>) (NT), enter)
 
+import qualified Network.Broadcast.OutboundQueue as OQ
 import           Pos.Aeson.Types             ()
 import           Pos.Core.Configuration      (HasConfiguration)
 import           Pos.Context                 (HasNodeContext (..), HasSscContext (..),
@@ -37,15 +39,19 @@ import           Pos.Core                    (EpochIndex (..), SlotLeaders)
 import qualified Pos.DB                      as DB
 import qualified Pos.GState                  as GS
 import qualified Pos.Lrc.DB                  as LrcDB
+import           Pos.Network.Types           (Bucket (BucketSubscriptionListener),
+                                              Topology, topologyMaxBucketSize)
 import           Pos.Ssc.Class               (SscConstraint)
 import           Pos.Ssc.GodTossing          (SscGodTossing, gtcParticipateSsc)
 import           Pos.Txp                     (TxOut (..), toaOut)
 import           Pos.Txp.MemState            (GenericTxpLocalData, askTxpMem, getLocalTxs)
 import           Pos.Web.Mode                (WebMode, WebModeContext (..))
+import           Pos.WorkMode                (OQ)
 import           Pos.WorkMode.Class          (TxpExtra_TMP, WorkMode)
 
 import           Pos.Web.Api                 (BaseNodeApi, GodTossingApi, GtNodeApi,
-                                              baseNodeApi, gtNodeApi)
+                                              baseNodeApi, gtNodeApi,
+                                              HealthCheckApi, healthCheckApi)
 import           Pos.Web.Types               (TlsParams (..))
 
 ----------------------------------------------------------------------------
@@ -66,6 +72,11 @@ applicationBase :: MyWorkMode ssc ctx m => m Application
 applicationBase = do
     server <- servantServerBase
     return $ serve baseNodeApi server
+
+route53HealthCheckApplication :: MyWorkMode ssc ctx m => Topology t -> OQ m -> m Application
+route53HealthCheckApplication topology oq = do
+    server <- servantServerHealthCheck topology oq
+    return $ serve healthCheckApi server
 
 serveWebGT :: MyWorkMode SscGodTossing ctx m => Word16 -> Maybe TlsParams -> m ()
 serveWebGT = serveImpl applicationGT "127.0.0.1"
@@ -128,6 +139,9 @@ nat = do
 servantServerBase :: forall ssc ctx m . MyWorkMode ssc ctx m => m (Server (BaseNodeApi ssc))
 servantServerBase = flip enter baseServantHandlers <$> (nat @ssc @ctx @m)
 
+servantServerHealthCheck :: forall ssc ctx t m . MyWorkMode ssc ctx m => Topology t -> OQ m -> m (Server HealthCheckApi)
+servantServerHealthCheck topology oq = flip enter (healthCheckServantHandlers topology oq) <$> (nat @ssc @ctx @m)
+
 servantServerGT :: forall ctx m . MyWorkMode SscGodTossing ctx m => m (Server GtNodeApi)
 servantServerGT = flip enter (baseServantHandlers :<|> gtServantHandlers) <$>
     (nat @SscGodTossing @ctx @m)
@@ -161,6 +175,28 @@ getUtxo = map toaOut . toList <$> GS.getAllPotentiallyHugeUtxo
 
 getLocalTxsNum :: WebMode ssc Word
 getLocalTxsNum = fromIntegral . length <$> getLocalTxs
+
+----------------------------------------------------------------------------
+-- HealthCheck handlers
+----------------------------------------------------------------------------
+
+healthCheckServantHandlers :: Topology t -> OQ m -> ServerT HealthCheckApi (WebMode ssc)
+healthCheckServantHandlers topology oq =
+    getRoute53HealthCheck topology oq
+
+getRoute53HealthCheck :: Topology t -> OQ m -> ServerT HealthCheckApi (WebMode ssc)
+getRoute53HealthCheck (topologyMaxBucketSize -> getSize) oq = do
+    let maxCapacityTxt = case getSize BucketSubscriptionListener of
+                             OQ.BucketSizeUnlimited -> "unlimited"
+                             (OQ.BucketSizeMax x)   -> fromString (show x)
+    -- If the node doesn't have any more subscription slots available,
+    -- mark the node as "unhealthy" by returning a 503 "Service Unavailable".
+    spareCapacity <- OQ.bucketSpareCapacity oq BucketSubscriptionListener
+    case spareCapacity of
+        OQ.UnlimitedCapacity          ->
+            return maxCapacityTxt -- yields "unlimited" as it means the `BucketMaxSize` was unlimited.
+        OQ.SpareCapacity sc | sc == 0 -> throwM $ err503 { errBody = encodeUtf8 ("0/" <> maxCapacityTxt) }
+        OQ.SpareCapacity sc           -> return $ show sc <> "/" <> maxCapacityTxt -- yields 200/OK
 
 ----------------------------------------------------------------------------
 -- GodTossing handlers

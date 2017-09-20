@@ -12,7 +12,7 @@ module Pos.Client.CLI.Options
        , portOption
        , timeLordOption
        , webPortOption
-       , walletPortOption
+       , walletAddressOption
        , networkAddressOption
        , externalNetworkAddressOption
        , listenNetworkAddressOption
@@ -162,12 +162,16 @@ webPortOption portNum help =
         <> Opt.value portNum
         <> Opt.showDefault
 
-walletPortOption :: Word16 -> String -> Opt.Parser Word16
-walletPortOption portNum help =
-    Opt.option Opt.auto $
-        templateParser "wallet-port" "PORT" help -- "Port for wallet"
-        <> Opt.value portNum
-        <> Opt.showDefault
+walletAddressOption :: Maybe NetworkAddress -> Opt.Parser NetworkAddress
+walletAddressOption na =
+    Opt.option (fromParsec addrParser) $
+            Opt.long "wallet-address"
+         <> Opt.metavar "IP:PORT"
+         <> Opt.help helpMsg
+         <> Opt.showDefault
+         <> maybe mempty Opt.value na
+  where
+    helpMsg = "IP and port for backend wallet API."
 
 externalNetworkAddressOption :: Maybe NetworkAddress -> Opt.Parser NetworkAddress
 externalNetworkAddressOption na =

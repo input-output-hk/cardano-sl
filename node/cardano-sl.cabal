@@ -287,6 +287,9 @@ library
                         -- SSC
                         Pos.Ssc.Util
 
+                        -- Health Checks
+                        Pos.HealthCheck.Route53
+
                         -- Statistics
                         Pos.Statistics.Ekg
                         Pos.Statistics.Statsd
@@ -582,7 +585,6 @@ test-suite cardano-test
                        Test.Pos.Explorer.Identity.BinarySpec
                        Test.Pos.Genesis.CanonicalSpec
                        Test.Pos.MerkleSpec
-                       Test.Pos.Network.Windows.DnsDomainsSpec
                        Test.Pos.Slotting.TypesSpec
                        Test.Pos.Slotting.BinarySpec
                        Test.Pos.Ssc.GodTossing.ComputeSharesSpec

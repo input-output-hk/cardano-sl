@@ -101,6 +101,7 @@ getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} = do
             , upUpdateServers = updateServers commonArgs
             }
         , npUseNTP = not noNTP
+        , npRoute53Params = route53Params
         , npEnableMetrics = enableMetrics
         , npEkgParams = ekgParams
         , npStatsdParams = statsdParams

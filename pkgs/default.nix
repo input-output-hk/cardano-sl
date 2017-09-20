@@ -1310,7 +1310,7 @@ self: {
           description = "Cardano SL main implementation";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-core = callPackage ({ QuickCheck, aeson, ansi-terminal, autoexporter, base, base16-bytestring, base58-bytestring, binary, bytestring, canonical-json, cardano-crypto, cborg, cereal, concurrent-extra, containers, contravariant, cpphs, cryptonite, cryptonite-openssl, data-default, deepseq, deriving-compat, digest, directory, ed25519, ether, exceptions, file-embed, filepath, formatting, generic-arbitrary, hashable, lens, log-warper, lrucache, memory, mkDerivation, mmorph, mtl, node-sketch, parsec, plutus-prototype, pvss, quickcheck-instances, random, reflection, resourcet, safecopy, semigroups, serokell-util, stdenv, stm, tagged, template-haskell, text, text-format, th-lift-instances, th-utilities, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector, yaml }:
+      cardano-sl-core = callPackage ({ QuickCheck, aeson, ansi-terminal, autoexporter, base, base16-bytestring, base58-bytestring, binary, bytestring, canonical-json, cardano-crypto, cborg, cereal, concurrent-extra, containers, contravariant, cpphs, cryptonite, cryptonite-openssl, data-default, deepseq, deriving-compat, digest, directory, ed25519, ether, exceptions, file-embed, filepath, formatting, generic-arbitrary, hashable, lens, log-warper, lrucache, memory, mkDerivation, mmorph, mtl, node-sketch, parsec, plutus-prototype, pvss, quickcheck-instances, random, reflection, resourcet, safecopy, scrypt, semigroups, serokell-util, stdenv, stm, tagged, template-haskell, text, text-format, th-lift-instances, th-utilities, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector, yaml }:
       mkDerivation {
           pname = "cardano-sl-core";
           version = "0.6.2";
@@ -1362,6 +1362,7 @@ self: {
             reflection
             resourcet
             safecopy
+            scrypt
             semigroups
             serokell-util
             stm
@@ -2864,20 +2865,22 @@ self: {
           description = "Difference lists";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      dns = callPackage ({ attoparsec, base, binary, bytestring, conduit, conduit-extra, containers, fetchgit, iproute, mkDerivation, mtl, network, random, resourcet, safe, stdenv }:
+      dns = callPackage ({ attoparsec, base, base64-bytestring, binary, bytestring, bytestring-builder, conduit, conduit-extra, containers, fetchgit, iproute, mkDerivation, mtl, network, random, resourcet, safe, stdenv, text }:
       mkDerivation {
           pname = "dns";
-          version = "2.0.12";
+          version = "3.0.0";
           src = fetchgit {
-            url = "https://github.com/input-output-hk/dns.git";
-            sha256 = "13qknwpg9fxh99fzf03r3jpfmhgk7ahzm228aqf1pg1zdsh6nvy4";
-            rev = "6da3cd051bd6f6415c8ec3b53f1c0372a80a4376";
+            url = "https://github.com/kazu-yamamoto/dns.git";
+            sha256 = "1scbzbbykypcnjp9n5pdvlddgijijz834hwq49p4swvg9p1gypv2";
+            rev = "08df7fe6a9242f7d76aa5040221702e26ab610f6";
           };
           libraryHaskellDepends = [
             attoparsec
             base
+            base64-bytestring
             binary
             bytestring
+            bytestring-builder
             conduit
             conduit-extra
             containers
@@ -2887,6 +2890,7 @@ self: {
             random
             resourcet
             safe
+            text
           ];
           doHaddock = false;
           doCheck = false;
@@ -3029,11 +3033,15 @@ self: {
           description = "JSON encoding of ekg metrics";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      ekg-statsd = callPackage ({ base, bytestring, ekg-core, mkDerivation, network, stdenv, text, time, unordered-containers }:
+      ekg-statsd = callPackage ({ base, bytestring, ekg-core, fetchgit, mkDerivation, network, stdenv, text, time, unordered-containers }:
       mkDerivation {
           pname = "ekg-statsd";
           version = "0.2.1.1";
-          sha256 = "1r0x26aqj0nbdl9nrj26xsb5np20bg6mihams394a0c41pv85j6k";
+          src = fetchgit {
+            url = "https://github.com/input-output-hk/ekg-statsd.git";
+            sha256 = "1nz0py671cg4dlyli1j6h63603lfmldi79w07i2prrvaivjdzfqc";
+            rev = "1869714a616b8092d8dc16af6e834e81f4c56bad";
+          };
           libraryHaskellDepends = [
             base
             bytestring
@@ -3741,6 +3749,7 @@ self: {
           description = "Convert strings into hexadecimal and back";
           license = stdenv.lib.licenses.bsd3;
         }) {};
+
       hinotify = callPackage ({ async, base, containers, directory, mkDerivation, stdenv, unix }:
       mkDerivation {
           pname = "hinotify";
@@ -5651,6 +5660,23 @@ self: {
           doCheck = false;
           homepage = "https://github.com/basvandijk/scientific";
           description = "Numbers represented using scientific notation";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
+      scrypt = callPackage ({ base, base64-bytestring, bytestring, entropy, mkDerivation, stdenv }:
+      mkDerivation {
+          pname = "scrypt";
+          version = "0.5.0";
+          sha256 = "1cnrjdq1ncv224dlk236a7w29na8r019d2acrsxlsaiy74iadh1y";
+          libraryHaskellDepends = [
+            base
+            base64-bytestring
+            bytestring
+            entropy
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "http://github.com/informatikr/scrypt";
+          description = "Stronger password hashing via sequential memory-hard functions";
           license = stdenv.lib.licenses.bsd3;
         }) {};
       semigroupoids = callPackage ({ Cabal, base, base-orphans, bifunctors, cabal-doctest, comonad, containers, contravariant, distributive, hashable, mkDerivation, semigroups, stdenv, tagged, transformers, transformers-compat, unordered-containers }:

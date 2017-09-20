@@ -56,7 +56,7 @@ walletProd WalletArgs {..} = first pure $ worker walletServerOuts $ \sendActions
     walletServeWebFull
         sendActions
         walletDebug
-        walletPort
+        walletAddress
         (Just walletTLSParams)
 
 pluginsGT ::

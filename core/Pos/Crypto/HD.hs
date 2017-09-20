@@ -28,9 +28,9 @@ import           Data.ByteString.Char8        as B
 import           Universum
 
 import           Pos.Binary.Class             (Bi, decodeFull, serialize')
-import           Pos.Crypto.Hashing           (hash)
+import           Pos.Crypto.Scrypt            (EncryptedPass)
 import           Pos.Crypto.Signing.Types     (PublicKey (..), EncryptedSecretKey (..),
-                                               PassPhrase)
+                                               PassPhrase, checkPassMatches)
 
 -- | Passphrase is a hash of root public key.
 --- We don't use root public key to store money, we use its hash instead.
@@ -90,11 +90,10 @@ deriveHDPublicKey (PublicKey xpub) childIndex
 
 -- | Derive secret key from secret key.
 deriveHDSecretKey
-    :: Bi PassPhrase
+    :: (Bi PassPhrase, Bi EncryptedPass)
     => PassPhrase -> EncryptedSecretKey -> Word32 -> Maybe EncryptedSecretKey
-deriveHDSecretKey passPhrase (EncryptedSecretKey xprv pph) childIndex
-    | hash passPhrase /= pph = Nothing
-    | otherwise = Just $
+deriveHDSecretKey passPhrase encSK@(EncryptedSecretKey xprv pph) childIndex =
+    checkPassMatches passPhrase encSK $>
         EncryptedSecretKey
             (deriveXPrv passPhrase xprv childIndex)
             pph

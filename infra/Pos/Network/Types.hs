@@ -1,9 +1,4 @@
-{-# LANGUAGE CPP                       #-}
 {-# LANGUAGE ExistentialQuantification #-}
-
-#if !defined(mingw32_HOST_OS)
-#define POSIX
-#endif
 
 module Pos.Network.Types
     ( -- * Network configuration
@@ -24,6 +19,7 @@ module Pos.Network.Types
     , topologyDequeuePolicy
     , topologyFailurePolicy
     , topologyMaxBucketSize
+    , topologyRoute53HealthCheckEnabled
       -- * Queue initialization
     , Bucket(..)
     , initQueue
@@ -62,10 +58,6 @@ import           Pos.Util.TimeWarp                     (addressToNodeId)
 import qualified System.Metrics                        as Monitoring
 import           System.Wlog.CanLog                    (WithLogger)
 import           Universum                             hiding (show)
-
-#if !defined(POSIX)
-import qualified Pos.Network.Windows.DnsDomains        as Win
-#endif
 
 {-------------------------------------------------------------------------------
   Network configuration
@@ -312,6 +304,18 @@ topologyMaxBucketSize topology bucket =
       _otherBucket ->
         OQ.BucketSizeUnlimited
 
+-- | Whether or not we want to enable the health-check endpoint to be used by Route53
+-- in determining if a relay is healthy (i.e. it can accept more subscriptions or not)
+topologyRoute53HealthCheckEnabled :: Topology kademia -> Bool
+topologyRoute53HealthCheckEnabled = go
+  where
+    go TopologyCore{}        = False
+    go TopologyRelay{}       = True
+    go TopologyBehindNAT{..} = False
+    go TopologyP2P{}         = False
+    go TopologyTraditional{} = False
+    go TopologyLightWallet{} = False
+
 {-------------------------------------------------------------------------------
   Queue initialization
 -------------------------------------------------------------------------------}
@@ -437,13 +441,6 @@ resolveDnsDomains NetworkConfig{..} dnsDomains =
 -- jumping through too many hoops.
 initDnsOnUse :: (Resolver -> IO a) -> IO a
 initDnsOnUse k = k $ \dom -> do
-#if POSIX
-    let conf = DNS.defaultResolvConf
-#else
-    let googlePublicDNS = "8.8.8.8"
-    dns <- fromMaybe googlePublicDNS <$> Win.getWindowsDefaultDnsServer
-    let conf = DNS.defaultResolvConf { DNS.resolvInfo = DNS.RCHostName dns }
-#endif
-    resolvSeed <- DNS.makeResolvSeed conf
+    resolvSeed <- DNS.makeResolvSeed DNS.defaultResolvConf
     DNS.withResolver resolvSeed $ \resolver ->
       DNS.lookupA resolver dom

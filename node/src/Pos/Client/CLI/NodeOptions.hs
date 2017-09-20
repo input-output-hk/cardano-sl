@@ -33,6 +33,7 @@ import           Pos.Client.CLI.Options       (CommonArgs (..), commonArgsParser
                                                listenNetworkAddressOption,
                                                optionalJSONPath, sscAlgoOption)
 import           Pos.Constants                (isDevelopment)
+import           Pos.HealthCheck.Route53      (route53HealthCheckOption)
 import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
 import           Pos.Network.Types            (NodeId, NodeType (..))
 import           Pos.Ssc.SscAlgo              (SscAlgo (..))
@@ -65,6 +66,7 @@ data CommonNodeArgs = CommonNodeArgs
     , updateLatestPath       :: !FilePath
     , updateWithPackage      :: !Bool
     , noNTP                  :: !Bool
+    , route53Params          :: !(Maybe NetworkAddress)
     , enableMetrics          :: !Bool
     , ekgParams              :: !(Maybe EkgParams)
     , statsdParams           :: !(Maybe StatsdParams)
@@ -132,6 +134,8 @@ commonNodeArgsParser = do
     noNTP <- switch $
         long "no-ntp" <>
         help "Whether to use real NTP servers to synchronise time or rely on local time"
+
+    route53Params <- optional route53HealthCheckOption
 
     enableMetrics <- switch $
         long "metrics" <>

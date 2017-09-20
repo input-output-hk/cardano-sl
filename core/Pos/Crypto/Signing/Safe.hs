@@ -4,6 +4,8 @@ module Pos.Crypto.Signing.Safe
        ( noPassEncrypt
        , checkPassMatches
        , changeEncPassphrase
+       , mkEncSecret
+       , mkEncSecretWithSalt
        , safeSign
        , safeToPublic
        , safeKeyGen
@@ -27,32 +29,27 @@ import           Universum
 import           Pos.Binary.Class      (Bi, Raw)
 import qualified Pos.Binary.Class      as Bi
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
-import           Pos.Crypto.Hashing    (hash)
+import           Pos.Crypto.Hashing    (Hash, hash)
+import qualified Pos.Crypto.Scrypt     as S
 import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..),
                                              PublicKey (..), SecretKey (..), Signature (..),
                                              sign, toPublic)
 import           Pos.Crypto.Signing.Tag (SignTag (SignProxySK), signTag)
 import           Pos.Crypto.Signing.Types.Safe
 
-mkEncSecret :: Bi PassPhrase => PassPhrase -> CC.XPrv -> EncryptedSecretKey
-mkEncSecret pp payload = EncryptedSecretKey payload (hash pp)
-
--- | Re-wrap unencrypted secret key as an encrypted one
-noPassEncrypt :: Bi PassPhrase => SecretKey -> EncryptedSecretKey
-noPassEncrypt (SecretKey k) = mkEncSecret emptyPassphrase k
-
-checkPassMatches :: (Bi PassPhrase, Alternative f) => PassPhrase -> EncryptedSecretKey -> f ()
-checkPassMatches pp (EncryptedSecretKey _ pph) = guard (hash pp == pph)
-
+-- | Regerates secret key with new passphrase.
+-- This operation remains corresponding public key unchanged.
+-- However, derived (child) keys change.
 changeEncPassphrase
-    :: Bi PassPhrase
+    :: (Bi PassPhrase, MonadRandom m)
     => PassPhrase
     -> PassPhrase
     -> EncryptedSecretKey
-    -> Maybe EncryptedSecretKey
-changeEncPassphrase oldPass newPass esk@(EncryptedSecretKey sk _) = do
-    checkPassMatches oldPass esk
-    return $ mkEncSecret newPass $ CC.xPrvChangePass oldPass newPass sk
+    -> m (Maybe EncryptedSecretKey)
+changeEncPassphrase oldPass newPass esk@(EncryptedSecretKey sk _)
+    | isJust $ checkPassMatches oldPass esk =
+        Just <$> mkEncSecret newPass (CC.xPrvChangePass oldPass newPass sk)
+    | otherwise = return Nothing
 
 signRaw' :: HasProtocolConstants
          => Maybe SignTag
@@ -82,19 +79,22 @@ safeCreateKeypairFromSeed seed (PassPhrase pp) =
 -- "Pos.Crypto.Random" because the OpenSSL generator is probably safer than
 -- the default IO generator.
 safeKeyGen
-    :: (MonadRandom m, Bi PassPhrase)
+    :: (MonadRandom m, Bi PassPhrase, Bi (Hash ByteString))
     => PassPhrase -> m (PublicKey, EncryptedSecretKey)
 safeKeyGen pp = do
     seed <- getRandomBytes 32
     pure $ safeDeterministicKeyGen seed pp
 
 safeDeterministicKeyGen
-    :: Bi PassPhrase
+    :: (Bi PassPhrase, Bi (Hash ByteString))
     => BS.ByteString
     -> PassPhrase
     -> (PublicKey, EncryptedSecretKey)
 safeDeterministicKeyGen seed pp =
-    bimap PublicKey (mkEncSecret pp) (safeCreateKeypairFromSeed seed pp)
+    bimap
+        PublicKey
+        (mkEncSecretWithSalt (S.mkSalt (hash seed)) pp)
+        (safeCreateKeypairFromSeed seed pp)
 
 safeSign :: (HasProtocolConstants, Bi a) => SignTag -> SafeSigner -> a -> Signature a
 safeSign t (SafeSigner sk pp) = sign' t pp sk

@@ -1,4 +1,3 @@
-
 -- | Arbitrary instances for Lrc types.
 
 module Pos.Arbitrary.Lrc
@@ -19,7 +18,9 @@ import           Pos.Core                          (Coin, CoinPortion, mkCoin,
                                                     unsafeAddCoin, unsafeGetCoin,
                                                     unsafeSubCoin)
 import           Pos.Core.Coin                     (coinPortionToDouble)
-import           Pos.Core.Genesis                  (genesisMpcThd)
+import           Pos.Core.Configuration            (HasGenesisBlockVersionData,
+                                                    genesisBlockVersionData)
+import           Pos.Core.Types                    (BlockVersionData (bvdMpcThd))
 import           Pos.Lrc.Types                     (RichmenStakes)
 
 -- | Wrapper over 'RichmenStakes'. Its 'Arbitrary' instance enforces that the
@@ -76,5 +77,5 @@ genRichmenStakes thd = do
 
 data GenesisMpcThd
 
-instance Reifies GenesisMpcThd CoinPortion where
-    reflect _ = genesisMpcThd
+instance HasGenesisBlockVersionData => Reifies GenesisMpcThd CoinPortion where
+    reflect _ = bvdMpcThd genesisBlockVersionData

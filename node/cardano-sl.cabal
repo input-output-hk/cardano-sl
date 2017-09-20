@@ -576,13 +576,13 @@ test-suite cardano-test
                        -- Everything else
                        Test.Pos.CborSpec
                        Test.Pos.Communication.Identity.BinarySpec
+                       Test.Pos.Configuration
                        Test.Pos.ConstantsSpec
                        Test.Pos.Core.AddressSpec
                        Test.Pos.CryptoSpec
                        Test.Pos.Delegation.Identity.BinarySpec
                        Test.Pos.DHT.Identity.BinarySpec
                        Test.Pos.Explorer.Identity.BinarySpec
-                       Test.Pos.Genesis.Identity.BinarySpec
                        Test.Pos.Genesis.CanonicalSpec
                        Test.Pos.MerkleSpec
                        Test.Pos.Slotting.TypesSpec
@@ -615,6 +615,7 @@ test-suite cardano-test
   type:                exitcode-stdio-1.0
   build-depends:       MonadRandom
                      , QuickCheck
+                     , aeson >= 0.11.2.1
                      , base
                      , bytestring
                      , canonical-json
@@ -710,8 +711,10 @@ benchmark cardano-bench-criterion
   main-is:             Local/Criterion.hs
   other-modules:       Bench.Pos.Criterion.FollowTheSatoshiBench
                        Bench.Pos.Criterion.TxSigningBench
+                       Bench.Configuration
   type:                exitcode-stdio-1.0
   build-depends:       QuickCheck
+                     , aeson
                      , base
                      , binary
                      , bytestring

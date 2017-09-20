@@ -48,18 +48,18 @@ restoreWalletFromBackup WalletBackup {..} = do
                           & each . _2 %~ \(AccountMetaBackup am) -> am
 
             addSecretKey wbSecretKey
-            if length accList > 0
-                then for_ accList $ \(idx, meta) -> do
-                    let aIdx = fromInteger $ fromIntegral idx
-                        seedGen = DeterminedSeed aIdx
-                    accId <- genUniqueAccountId seedGen wId
-                    createAccount accId meta
-                -- If there are no existing accounts, then create one
-                else do
+            -- If there are no existing accounts, then create one
+            if null accList
+                then do
                     let idx = DeterminedSeed firstHardened
                         accMeta = CAccountMeta { caName = "Initial account" }
                         accInit = CAccountInit { caInitWId = wId, caInitMeta = accMeta }
                     () <$ L.newAccountIncludeUnready True idx emptyPassphrase accInit
+                else for_ accList $ \(idx, meta) -> do
+                    let aIdx = fromInteger $ fromIntegral idx
+                        seedGen = DeterminedSeed aIdx
+                    accId <- genUniqueAccountId seedGen wId
+                    createAccount accId meta
 
             -- Restoring a wallet from backup may take a long time.
             -- Hence we mark the wallet as "not ready" until `syncWalletOnImport` completes.

@@ -18,7 +18,7 @@ dev: &dev
               poors:        12
               richmen:      4
               richmenShare: 0.99
-              useHDAddresses: False
+              useHDAddresses: True
               totalBalance: 600000000000000000
             fakeAvvmBalance: 
               count: 10

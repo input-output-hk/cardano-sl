@@ -148,9 +148,13 @@ translation =
         , fooIOHK: "IOHK"
         , fooIOHKBlog: "IOHK Blog"
         , fooIOHKYoutube: "IOHK YouTube"
-        , fooDisclaimerPt1: "Cardano ist lediglich eine Software-Plattform und ... TODO (jk): translate all ... DE - Cardano is a software platform ONLY and does not conduct any independent diligence on or substantive review of any blockchain asset, digital currency, cryptocurrency or associated funds. You are fully and solely responsible for evaluating your investments, for determining whether you will exchange blockchain assets based on your own, and for all your decisions as to whether to exchange blockchain assets with Cardano. In many cases, blockchain assets you exchange on the basis of your research may not increase in value, and may decrease in value. Similarly, blockchain assets you exchange on the basis of your research may increase in value after your exchange."
-        , fooDisclaimerPt2: "DE - Past performance is not indicative of future results. Any investment in blockchain assets involves the risk of loss of part or all of your investment. The value of the blockchain assets you exchange is subject to market and other investment risks."
-        }
+          , fooDisclaimerPt1: "Cardano is a software platform ONLY and does not conduct any independent diligence on or substantive review of any blockchain asset, digital currency, cryptocurrency or associated funds. You are fully and solely responsible for evaluating your investments, for determining whether you will exchange blockchain assets based on your own, and for all your decisions as to whether to exchange blockchain assets with Cardano. In many cases, blockchain assets you exchange on the basis of your research may not increase in value, and may decrease in value. Similarly, blockchain assets you exchange on the basis of your research may increase in value after your exchange."
+        , fooDisclaimerPt2: "Past performance is not indicative of future results. Any investment in blockchain assets involves the risk of loss of part or all of your investment. The value of the blockchain assets you exchange is subject to market and other investment risks."
+        , fooProject: "Das Projekt"
+        , fooProtocol: "Das Protokoll"
+        , fooFoundation: "Die Foundation"
+        , fooLearnMore: "Mehr erfahren"
+      }
     , notfound:
         { nfTitle: "404"
         , nfDescription: "Seite nicht gefunden"

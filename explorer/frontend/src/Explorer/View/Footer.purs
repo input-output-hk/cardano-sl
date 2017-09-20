@@ -6,7 +6,11 @@ import Data.Foldable (for_)
 import Data.Lens ((^.))
 import Data.String (take)
 import Explorer.I18n.Lang (Language, langCode, translate)
-import Explorer.I18n.Lenses (footer, fooCardanoLaunch, fooCardanoOpenSource, fooCardanoHub, fooCardanoSlack, fooDisclaimerPt1, fooDisclaimerPt2, fooCardanoFoundation, fooEmail, fooGithub, fooIohkSupportP, fooCardanoDocumentation, fooCardanoTestnet, fooCardanoSource, fooCardanoFoundationYoutube, fooCardanoFoundationTwitter, fooDaedalusPlatform, fooWhyCardano, fooCardanoRoadmap, fooCardanoReddit, fooCardanoCommunity, fooIOHK, fooIOHKBlog, fooIOHKYoutube, fooTwitter) as I18nL
+import Explorer.I18n.Lenses (footer, fooCardanoLaunch, fooCardanoOpenSource, fooCardanoHub, fooCardanoSlack
+  , fooDisclaimerPt1, fooDisclaimerPt2, fooCardanoFoundation, fooEmail, fooGithub, fooIohkSupportP, fooCardanoDocumentation
+  , fooCardanoTestnet, fooCardanoSource, fooCardanoFoundationYoutube, fooCardanoFoundationTwitter
+  , fooDaedalusPlatform, fooWhyCardano, fooCardanoRoadmap, fooCardanoReddit, fooCardanoCommunity
+  , fooIOHK, fooIOHKBlog, fooIOHKYoutube, fooTwitter, fooProject, fooFoundation, fooLearnMore, fooProtocol) as I18nL
 import Explorer.Lenses.State (lang)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (State)
@@ -169,7 +173,7 @@ navItemsRight lang =
       , link: "https://www.reddit.com/r/cardano/"
       }
     , { label: translate (I18nL.footer <<< I18nL.fooCardanoCommunity) lang
-      , link: "http://cardanohub.org"
+      , link: "https://cardanohub.org"
       }
     , { label: translate (I18nL.footer <<< I18nL.fooDaedalusPlatform) lang
       , link: "https://daedaluswallet.io"
@@ -197,20 +201,18 @@ navItemView item =
                 ! S.href item.link
                 $ S.text item.label
 
-
-
 navBottmItems :: Language -> Array NavItem
 navBottmItems lang =
-    [ { label: "The Project"
+    [ { label: translate (I18nL.footer <<< I18nL.fooProject) lang
       , link: "https://cardanofoundation.org/project/"
       }
-    , { label: "The Protocol"
+    , { label: translate (I18nL.footer <<< I18nL.fooProtocol) lang
       , link: "https://cardanofoundation.org/protocol/"
       }
-    , { label: "The Foundation"
+    , { label: translate (I18nL.footer <<< I18nL.fooFoundation) lang
       , link: "https://cardanofoundation.org/foundation/"
       }
-    , { label: "Learn More"
+    , { label: translate (I18nL.footer <<< I18nL.fooLearnMore) lang
       , link: "https://cardanofoundation.org/learn-more/"
       }
     ]

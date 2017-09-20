@@ -187,6 +187,10 @@ type Footer =
     , fooIOHKYoutube :: String
     , fooDisclaimerPt1 :: String
     , fooDisclaimerPt2 :: String
+    , fooProject :: String
+    , fooProtocol :: String
+    , fooFoundation :: String
+    , fooLearnMore :: String
     }
 
 -- translations of 404

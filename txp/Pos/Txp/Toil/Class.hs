@@ -21,7 +21,7 @@ import           Control.Monad.Trans.Class  (MonadTrans)
 import qualified Ether
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Core                   (Coin, StakeholderId)
+import           Pos.Core                   (Coin, StakeholderId, HasConfiguration)
 import           Pos.Txp.Core.Types         (TxAux, TxId, TxIn, TxOutAux, TxUndo)
 import           Pos.Txp.Toil.Types         (Utxo)
 import           Pos.Util.Util              (HasLens', ether, lensOf)
@@ -30,7 +30,7 @@ import           Pos.Util.Util              (HasLens', ether, lensOf)
 -- MonadUtxo
 ----------------------------------------------------------------------------
 
-class Monad m => MonadUtxoRead m where
+class (HasConfiguration, Monad m) => MonadUtxoRead m where
     utxoGet :: TxIn -> m (Maybe TxOutAux)
     default utxoGet :: (MonadTrans t, MonadUtxoRead m', t m' ~ m) => TxIn -> m (Maybe TxOutAux)
     utxoGet = lift . utxoGet
@@ -43,10 +43,10 @@ instance {-# OVERLAPPABLE #-}
 utxoGetReader :: (HasLens' ctx Utxo, MonadReader ctx m) => TxIn -> m (Maybe TxOutAux)
 utxoGetReader txIn = view $ lensOf @Utxo . at txIn
 
-instance MonadUtxoRead ((->) Utxo) where
+instance HasConfiguration => MonadUtxoRead ((->) Utxo) where
     utxoGet = utxoGetReader
 
-instance Monad m => MonadUtxoRead (Ether.StateT' Utxo m) where
+instance (HasConfiguration, Monad m) => MonadUtxoRead (Ether.StateT' Utxo m) where
     utxoGet id = ether $ use (at id)
 
 class MonadUtxoRead m => MonadUtxo m where
@@ -60,7 +60,7 @@ class MonadUtxoRead m => MonadUtxo m where
 instance {-# OVERLAPPABLE #-}
   (MonadUtxo m, MonadTrans t, Monad (t m)) => MonadUtxo (t m)
 
-instance Monad m => MonadUtxo (Ether.StateT' Utxo m) where
+instance (HasConfiguration, Monad m) => MonadUtxo (Ether.StateT' Utxo m) where
     utxoPut id v = ether $ at id .= Just v
     utxoDel id = ether $ at id .= Nothing
 

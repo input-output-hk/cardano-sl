@@ -30,13 +30,20 @@ import           Universum
 import           Data.Reflection        (Given (..), give)
 import           Data.Time.Units        (Microsecond, Second, convertUnit)
 
+import           Pos.Binary.Class       (Raw)
 import           Pos.Core.Genesis.Types (GenesisSpec (..))
+import           Pos.Crypto.Hashing     (Hash)
 
-data GenesisConfiguration =
+data GenesisConfiguration
       -- | Genesis from a 'GenesisSpec'.
-      GCSpec !GenesisSpec
-      -- | 'GenesisData' in canonical JSON at this location.
-    | GCSrc !FilePath
+    = GCSpec !GenesisSpec
+      -- | 'GenesisData' is stored in a file.
+    | GCSrc { gcsFile :: !FilePath
+            -- ^ Path to file where 'GenesisData' is stored. Must be
+            -- in JSON, not necessary canonical.
+            , gcsHash :: !(Hash Raw)
+            -- ^ Hash of canonically encoded 'GenesisData'.
+            }
     deriving (Show)
 
 data CoreConfiguration = CoreConfiguration

@@ -167,6 +167,7 @@ function node_cmd {
   local no_ntp=''
   local ssc_algo=''
   local web=''
+  local config_key=''
 
   ensure_run
 
@@ -198,6 +199,9 @@ function node_cmd {
   if [[ "$CSL_RTS" != "" ]] && [[ $i -eq 0 ]]; then
     rts_opts="+RTS -N -pa -A6G -qg -RTS"
   fi
+  if [[ "$CONFIG_KEY" != "" ]]; then
+    config_key=" --configuration-key $CONFIG_KEY "
+  fi
 
   local topology_file="$config_dir/topology$i.yaml"
   local kademlia_file="$config_dir/kademlia$i.yaml"
@@ -212,6 +216,9 @@ function node_cmd {
   if [[ "$topology_first_six_bytes" != "wallet" ]]; then
     echo -n " --address 127.0.0.1:"`get_port $i`
     echo -n " --listen 127.0.0.1:"`get_port $i`
+  fi
+  if [[ "$config_key" != "" ]]; then
+    echo -n " $config_key "
   fi
   echo -n " $(logs node$i.log) $time_lord $stats"
   echo -n " $ssc_algo "
@@ -249,6 +256,7 @@ function bench_cmd {
   echo -n " $(logs node_auxx.log)"
   echo -n " --system-start $system_start"
   echo -n " cmd --commands \"send-to-all-genesis $time $conc $delay $sendmode tps-sent.csv\""
+  echo -n " --configuration-key bench "
   echo -n " --rebuild-db "
 
   echo ''

@@ -9,12 +9,13 @@ import           Ether.Internal      (HasLens (..))
 import           Mockable            (MonadMockable)
 import           System.Wlog         (WithLogger)
 
-import           Pos.Core.Context    (HasCoreConstants)
+import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB.Class        (MonadDB, MonadGState)
 import           Pos.KnownPeers      (MonadFormatPeers)
 import           Pos.Lrc.Context     (LrcContext)
 import           Pos.Reporting       (HasReportingContext)
 import           Pos.StateLock       (StateLock)
+import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context  (UpdateContext)
 import           Pos.Update.Params   (UpdateParams)
 
@@ -30,7 +31,8 @@ type UpdateMode ctx m
       , HasLens LrcContext ctx LrcContext
       , HasLens UpdateParams ctx UpdateParams
       , HasLens StateLock ctx StateLock
-      , HasCoreConstants
+      , HasConfiguration
+      , HasUpdateConfiguration
       , HasReportingContext ctx
       , MonadFormatPeers m
       )

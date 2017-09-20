@@ -16,6 +16,8 @@ library
                        -- Arbitrary
                        Pos.Arbitrary.Update
 
+                       Pos.Aeson.Update
+
                        -- Core
                        Pos.Update.Core
                        Pos.Update.Core.BlockVersion
@@ -23,6 +25,7 @@ library
 
                        Pos.Update.Mode
                        Pos.Update.DB
+                       Pos.Update.Configuration
                        Pos.Update.Constants
                        Pos.Update.RichmenComponent
                        Pos.Update.Lrc
@@ -91,6 +94,7 @@ library
                      , mtl
                      , node-sketch
                      , parsec
+                     , reflection
                      , resourcet
                      , rocksdb-haskell >= 1.0.0
                      , safecopy

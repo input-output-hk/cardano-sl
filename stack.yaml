@@ -81,10 +81,10 @@ packages:
     - engine-io
     - engine-io-wai
 
-# Forked version of "dns" with proper Windows support
+# Forked version of "dns" with proper Windows & Unix multiple-nameservers support
 - location:
-    git: https://github.com/input-output-hk/dns.git
-    commit: 6da3cd051bd6f6415c8ec3b53f1c0372a80a4376
+    git: https://github.com/kazu-yamamoto/dns.git
+    commit: 08df7fe6a9242f7d76aa5040221702e26ab610f6
   extra-dep: true
 
 # Custom ekg-statsd version without the unnecessary diffing optimisation

@@ -726,6 +726,15 @@ nextUpdate = mkEffFn1 $ fromAff <<< map encodeJson <<< B.nextUpdate
 
 -- Example in nodejs:
 -- | ```js
+-- | > api.postponeUpdate().then(console.log).catch(console.log)
+-- | Promise { <pending> }
+-- | > {}
+-- | ```
+postponeUpdate :: forall eff. EffFn1 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions (Promise Unit)
+postponeUpdate = mkEffFn1 $ fromAff <<< B.postponeUpdate
+
+-- Example in nodejs:
+-- | ```js
 -- | > api.applyUpdate().then(console.log).catch(console.log)
 -- | Promise { <pending> }
 -- | > {}

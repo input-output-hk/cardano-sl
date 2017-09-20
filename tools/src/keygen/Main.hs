@@ -4,39 +4,41 @@ module Main
 
 import           Universum
 
-import           Control.Lens          ((?~))
-import           Crypto.Random         (MonadRandom)
-import qualified Data.List             as L
-import qualified Data.Text             as T
-import           Formatting            (build, sformat, (%))
-import           System.Directory      (createDirectoryIfMissing)
-import           System.FilePath       ((</>))
-import           System.FilePath.Glob  (glob)
-import           System.Wlog           (Severity (Debug), WithLogger, consoleOutB,
-                                        lcTermSeverity, logInfo, setupLogging,
-                                        usingLoggerName)
-import qualified Text.JSON.Canonical   as CanonicalJSON
+import           Control.Lens           ((?~))
+import           Crypto.Random          (MonadRandom)
+import           Data.ByteString.Base58 (bitcoinAlphabet, encodeBase58)
+import qualified Data.List              as L
+import qualified Data.Text              as T
+import           Formatting             (build, sformat, stext, (%))
+import           System.Directory       (createDirectoryIfMissing)
+import           System.FilePath        ((</>))
+import           System.FilePath.Glob   (glob)
+import           System.Wlog            (Severity (Debug), WithLogger, consoleOutB,
+                                         lcTermSeverity, logInfo, setupLogging,
+                                         usingLoggerName)
+import qualified Text.JSON.Canonical    as CanonicalJSON
 
-import           Pos.Binary            (asBinary)
-import           Pos.Core              (CoreConfiguration (..), GenesisConfiguration (..),
-                                        GenesisInitializer (..), addressHash, ccGenesis,
-                                        coreConfiguration, generateFakeAvvm,
-                                        generateSecrets, generatedSecrets, gsInitializer,
-                                        mkVssCertificate, vcSigningKey, vssMaxTTL)
-import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair, hashHexF,
-                                        noPassEncrypt, redeemPkB64F, toVssPublicKey)
-import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
+import           Pos.Binary             (asBinary, serialize')
+import           Pos.Core               (CoreConfiguration (..),
+                                         GenesisConfiguration (..),
+                                         GenesisInitializer (..), addressHash, ccGenesis,
+                                         coreConfiguration, generateFakeAvvm,
+                                         generateSecrets, generatedSecrets, gsInitializer,
+                                         mkVssCertificate, vcSigningKey, vssMaxTTL)
+import           Pos.Crypto             (EncryptedSecretKey (..), SecretKey (..),
+                                         VssKeyPair, hashHexF, noPassEncrypt,
+                                         redeemPkB64F, toPublic, toVssPublicKey)
+import           Pos.Launcher           (HasConfigurations, withConfigurations)
+import           Pos.Util.UserSecret    (readUserSecret, takeUserSecret, usKeys,
+                                         usPrimKey, usVss, usWalletSet,
+                                         writeUserSecretRelease)
+import           Pos.Wallet.Web.Secret  (wusRootKey)
 
-import           Pos.Launcher          (HasConfigurations, withConfigurations)
-import           Pos.Util.UserSecret   (readUserSecret, takeUserSecret, usKeys, usPrimKey,
-                                        usVss, usWalletSet, writeUserSecretRelease)
-import           Pos.Wallet.Web.Secret (wusRootKey)
-
-import           Dump                  (dumpFakeAvvmSeed, dumpGeneratedGenesisData,
-                                        dumpKeyfile)
-import           KeygenOptions         (DumpAvvmSeedsOptions (..), GenKeysOptions (..),
-                                        KeygenCommand (..), KeygenOptions (..),
-                                        getKeygenOptions)
+import           Dump                   (dumpFakeAvvmSeed, dumpGeneratedGenesisData,
+                                         dumpKeyfile)
+import           KeygenOptions          (DumpAvvmSeedsOptions (..), GenKeysOptions (..),
+                                         KeygenCommand (..), KeygenOptions (..),
+                                         getKeygenOptions)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -79,9 +81,11 @@ readKey path = do
                     view usVss us
 
 showKeyWithAddressHash :: SecretKey -> Text
-showKeyWithAddressHash sk = sformat (build%"; address hash: "%build) pk ah
+showKeyWithAddressHash sk =
+    sformat (stext%"; address hash: "%hashHexF) (toBase58Text pk) ah
   where
     pk = toPublic sk
+    toBase58Text = decodeUtf8 . encodeBase58 bitcoinAlphabet . serialize'
     ah = addressHash pk
 
 showPvssKey :: VssKeyPair -> Text

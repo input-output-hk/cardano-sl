@@ -1,3 +1,3 @@
--- | Light wallet launcher.
+-- | Auxx.
 
 {-# OPTIONS_GHC -F -pgmF autoexporter #-}

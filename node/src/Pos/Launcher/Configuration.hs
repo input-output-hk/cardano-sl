@@ -19,6 +19,7 @@ import           Universum
 import           Data.Aeson                       (FromJSON (..), genericParseJSON)
 import           Data.Default                     (Default (..))
 import           Serokell.Aeson.Options           (defaultOptions)
+import           System.FilePath                  (takeDirectory)
 import           System.Wlog                      (WithLogger)
 
 -- FIXME consistency on the locus of the JSON instances for configuration.
@@ -89,7 +90,8 @@ withConfigurations
 withConfigurations co@ConfigurationOptions{..} act = do
     putText $ show co
     Configuration{..} <- parseYamlConfig cfoFilePath cfoKey
-    withCoreConfigurations ccCore cfoSystemStart $
+    let configurationDir = takeDirectory cfoFilePath
+    withCoreConfigurations ccCore configurationDir cfoSystemStart $
         withInfraConfiguration ccInfra $
         withUpdateConfiguration ccUpdate $
         withGtConfiguration ccGt $

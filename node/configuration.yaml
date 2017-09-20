@@ -138,6 +138,7 @@ bench: &bench
               poors:        50000
               richmen:      4
               richmenShare: 0.99
+              useHDAddresses: False
               totalBalance: 6000000000
             fakeAvvmBalance: 
               count: 100

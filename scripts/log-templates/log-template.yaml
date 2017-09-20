@@ -9,7 +9,7 @@ smart-wallet:
 node:
     severity: Debug
     handlers:
-      - file: pub/{{file}}.pub
+      - file: {{file}}.pub
         round: 5
       - file: {{file}}
     comm:

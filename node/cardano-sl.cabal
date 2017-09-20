@@ -294,6 +294,9 @@ library
                         -- SSC
                         Pos.Ssc.Util
 
+                        -- Health Checks
+                        Pos.HealthCheck.Route53
+
                         -- Statistics
                         Pos.Statistics.Ekg
                         Pos.Statistics.Statsd

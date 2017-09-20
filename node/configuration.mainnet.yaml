@@ -10,8 +10,9 @@ mainnet_base: &mainnet_base
       spec: &mainnet_base_spec
         initializer:
           mainnetInitializer:
-            startTime: 1500000000
-            bootStakeholders: {}
+            startTime: 1505930400000000 # 18:00 UTC on 2017-09-20
+            bootStakeholders:
+              204779e68379f19ad88c3599c22015988febb4c0258f100a61346ce1: 1
             vssCerts: {}
             nonAvvmBalances: {}
         blockVersionData:
@@ -14526,12 +14527,12 @@ mainnet_base_avvmDistr:
           URVk8FxX6Ik9z-Cub09oOxMkp6FwNq27kJUXbjJnfsQ=: 2463071701000000
           ocEVzr7ctJ3NyCWj_356QsTyINKoJlwCCAgKFGPjvqg=: 2074165643000000
           5Y1_PK90x1jCNzzQwthIt0RGT7E3PAPwDI-tbHN39l8=: 648176763000000
-          PUrblzULxnlamRP03mPSZfl9YErEa_M0S7WgwgMtldU=: 1000000
-          qVQPYsxcaMRF0Pf2PGSqykP1ue4vLZtotB18vH5nGI8=: 1000000
-          7ts6x9xCkWNQxMSkTcp-MWYI0-Dyjr68QO-b6i5jS1o=: 1000000
-          GHY0VXxce395TD59OcZ7o0CdtSorGenH8RLzWHMpW1g=: 1000000
-          9yAAn54FkfO0xqkaKNr1YrTdYGqt75h-kEyf0tREKWU=: 1000000
-          rSQZKCMrGNQN7rg6X66KMI_EvnjJhVMHXRyXlvjNftA=: 1000000
+          PUrblzULxnlamRP03mPSZfl9YErEa_M0S7WgwgMtldU=: 1
+          qVQPYsxcaMRF0Pf2PGSqykP1ue4vLZtotB18vH5nGI8=: 1
+          7ts6x9xCkWNQxMSkTcp-MWYI0-Dyjr68QO-b6i5jS1o=: 1
+          GHY0VXxce395TD59OcZ7o0CdtSorGenH8RLzWHMpW1g=: 1
+          9yAAn54FkfO0xqkaKNr1YrTdYGqt75h-kEyf0tREKWU=: 1
+          rSQZKCMrGNQN7rg6X66KMI_EvnjJhVMHXRyXlvjNftA=: 1
 
 
 
@@ -14554,7 +14555,7 @@ mainnet_example_generated: &mainnet_example_generated
             uW5VMAr01En3VT0_CUP2JT7DmSvvy4tyXhBd7Bf7mvU=: 383030
         initializer:
           mainnetInitializer:
-            startTime: 1505621332 
+            startTime: 1505621332000000
             bootStakeholders: 
                 0d916567f96b6a65d204966e6aab5fbd242e56c321833f8ba5d607da: 1
                 4bd1884f5ce2231be8623ecf5778a9112e26514205b39ff53529e735: 1
@@ -14590,29 +14591,45 @@ mainnet_example_generated: &mainnet_example_generated
 ##                                                                          ##
 ##############################################################################
 
-mainnet_full: &mainnet_full
+mainnet: &mainnet
   <<: *mainnet_base
   core:
     <<: *mainnet_base_core
     genesis:
-      src:
-        file: sample-mainnet-genesis.json
-        hash: bcfbfcad6cf78f2363568e76af9d6e927f71c3683aafe5e289796579792dccdb # TODO: set proper hash
+      src: sample-mainnet-genesis.json
 
-mainnet_wallet_win64: &mainnet_wallet_win64
-  <<: *mainnet_full
-  update: 
-    <<: *mainnet_base_update
-    applicationName: csl-daedalus
-    systemTag: win64
 
-mainnet_wallet_macos64: &mainnet_wallet_macos64
-  <<: *mainnet_full
-  update: 
-    <<: *mainnet_base_update
-    applicationName: csl-daedalus
-    systemTag: macos64
+##############################################################################
+##                                                                          ##
+##   Configs for mainnet launch tooling                                     ##
+##                                                                          ##
+##############################################################################
 
+mainnet_dryrun_base: 
+  <<: *mainnet_base
+  core: 
+    <<: *mainnet_base_core
+    genesis:
+      <<: *mainnet_base_genesis
+      spec: 
+        <<: *mainnet_base_spec
+        protocolConstants: 
+          <<: *mainnet_base_protocolConstants
+          protocolMagic: 633343913 #dryrun protocolMagic
+        avvmDistr: *mainnet_avvmDistr
+
+mainnet_launch_base: 
+  <<: *mainnet_base
+  core: 
+    <<: *mainnet_base_core
+    genesis:
+      <<: *mainnet_base_genesis
+      spec: 
+        <<: *mainnet_base_spec
+        protocolConstants: 
+          <<: *mainnet_base_protocolConstants
+          protocolMagic: 722151751 #mainnet protocolMagic
+        avvmDistr: *mainnet_avvmDistr
 
 ##############################################################################
 ##                                                                          ##
@@ -14659,8 +14676,6 @@ testnet_staging_full: &testnet_staging_full
           <<: *mainnet_base_protocolConstants
           protocolMagic: 60987900 #testnet protocolMagic
           k: 108
-
-
 
 ##############################################################################
 ##                                                                          ##

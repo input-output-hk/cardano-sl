@@ -14596,7 +14596,7 @@ testnet_public_full: &testnet_public_full
             distribution: 
               testnetRichmenStakeDistr: []
             seed: 0
-  update: 
+  update: &testnet_public_full_update
     <<: *mainnet_base_update
     applicationName: cardano-sl
     systemTag: none
@@ -14612,10 +14612,6 @@ testnet_staging_full: &testnet_staging_full
         protocolConstants: 
           <<: *mainnet_base_protocolConstants
           k: 108
-  update: 
-    <<: *mainnet_base_update
-    applicationName: cardano-sl
-    systemTag: none
 
 #################
 ## Wallet
@@ -14624,27 +14620,27 @@ testnet_staging_full: &testnet_staging_full
 testnet_public_wallet_win64: &testnet_public_wallet_win64
   <<: *testnet_public_full
   update: 
-    <<: *mainnet_base_update
+    <<: *testnet_public_full_update
     applicationName: csl-daedalus
     systemTag: win64
 
 testnet_public_wallet_macos64: &testnet_public_wallet_macos64
   <<: *testnet_public_full
   update: 
-    <<: *mainnet_base_update
+    <<: *testnet_public_full_update
     applicationName: csl-daedalus
     systemTag: macos64
 
 testnet_staging_wallet_win64: &testnet_staging_wallet_win64
   <<: *testnet_staging_full
   update: 
-    <<: *mainnet_base_update
+    <<: *testnet_public_full_update
     applicationName: csl-daedalus
     systemTag: win64
 
 testnet_staging_wallet_macos64: &testnet_staging_wallet_macos64
   <<: *testnet_staging_full
   update: 
-    <<: *mainnet_base_update
+    <<: *testnet_public_full_update
     applicationName: csl-daedalus
     systemTag: macos64

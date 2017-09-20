@@ -6,18 +6,18 @@ module Params
 
 import           Universum
 
-import           Data.Default        (def)
-import           Mockable            (Catch, Fork, Mockable, Throw)
-import           System.Wlog         (WithLogger)
+import           Data.Default                     (def)
+import           Mockable                         (Catch, Fork, Mockable, Throw)
+import           System.Wlog                      (WithLogger)
 
-import           Pos.Client.CLI      (CommonNodeArgs (..))
-import qualified Pos.Client.CLI      as CLI
-import           Pos.Core.Types      (Timestamp (..))
-import           Pos.Genesis         (genesisContext)
-import           Pos.Launcher        (NodeParams (..))
-import           Pos.Network.CLI     (intNetworkConfigOpts)
-import           Pos.Update.Params   (UpdateParams (..))
-import           Pos.Util.UserSecret (peekUserSecret)
+import           Pos.Client.CLI                   (CommonNodeArgs (..))
+import qualified Pos.Client.CLI                   as CLI
+import           Pos.Core.Configuration           (HasConfiguration)
+import           Pos.Launcher                     (NodeParams (..))
+import           Pos.Network.CLI                  (intNetworkConfigOpts)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Update.Params                (UpdateParams (..))
+import           Pos.Util.UserSecret              (peekUserSecret)
 
 getNodeParams ::
        ( MonadIO m
@@ -27,25 +27,24 @@ getNodeParams ::
        , Mockable Fork m
        , Mockable Catch m
        , Mockable Throw m
+       , HasGtConfiguration
+       , HasConfiguration
        )
     => CommonNodeArgs
-    -> Timestamp
     -> m NodeParams
-getNodeParams args@CommonNodeArgs{..} systemStart = do
+getNodeParams args@CommonNodeArgs{..} = do
     (primarySK, userSecret) <-
         CLI.userSecretWithGenesisKey args =<<
             CLI.updateUserSecretVSS args =<<
                 peekUserSecret (CLI.getKeyfilePath args)
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
-
-    let npGenesisCtx = genesisContext
+    npTransport <- CLI.getTransportParams args npNetworkConfig
 
     pure NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB
         , npSecretKey = primarySK
         , npUserSecret = userSecret
-        , npSystemStart = systemStart
         , npBaseParams = CLI.getBaseParams "node" args
         , npJLFile = jlPath
         , npReportServers = CLI.reportServers commonArgs

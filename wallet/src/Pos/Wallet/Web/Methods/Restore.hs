@@ -23,7 +23,7 @@ import           Pos.Aeson.WalletBackup       ()
 import           Pos.Constants                (isDevelopment)
 import           Pos.Crypto                   (EncryptedSecretKey, PassPhrase,
                                                emptyPassphrase, firstHardened)
-import           Pos.Genesis                  (genesisHdwSecretKeys)
+import           Pos.Core.Configuration       (genesisHdwSecretKeys)
 import           Pos.StateLock                (Priority (..), withStateLockNoMetrics)
 import           Pos.Util                     (maybeThrow)
 import           Pos.Util.UserSecret          (UserSecretDecodingError (..),

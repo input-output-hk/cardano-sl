@@ -64,6 +64,7 @@ getNodeParams args@CommonNodeArgs{..} systemStart = do
             }
         , npBehaviorConfig = def
         , npUseNTP = not noNTP
+        , npRoute53Params = route53Params
         , npEnableMetrics = enableMetrics
         , npEkgParams = ekgParams
         , npStatsdParams = statsdParams

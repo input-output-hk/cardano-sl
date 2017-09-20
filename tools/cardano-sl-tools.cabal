@@ -199,6 +199,7 @@ executable cardano-keygen
                      , aeson
                      , ansi-wl-pprint
                      , base
+                     , base58-bytestring
                      , bytestring >= 0.10
                      , canonical-json
                      , cardano-sl

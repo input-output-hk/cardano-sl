@@ -233,10 +233,7 @@ removePeer toRemove peers =
     -- Removes the peer `toRemove` from the list of alternatives, skipping
     -- any empty list encountered, which is discarded as meaningless information.
     remove :: AllOf (Alts nid) -> AllOf (Alts nid)
-    remove [] = []
-    remove (x:xs) = case filter (/= toRemove) x of
-        [] -> remove xs
-        l  -> l : remove xs
+    remove = filter (not . null) . map (filter (/= toRemove))
 
 {-------------------------------------------------------------------------------
   Classification of messages and destinations

@@ -178,7 +178,6 @@ fi
 
 if [[ "$prodMode" != "" ]]; then
   commonargs="$commonargs --flag cardano-sl-core:-dev-mode"
-  export CSL_SYSTEM_TAG=linux64
 fi
 
 if [[ $explorer == true ]]; then
@@ -201,7 +200,6 @@ if [[ "$prodMode" != "" ]]; then
     dconfig="${dconfig}_wallet"
   fi
 fi
-ghc_opts="-DCONFIG=$dconfig"
 
 if [[ $no_fast == true ]];
   then fast=""

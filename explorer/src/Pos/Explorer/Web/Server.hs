@@ -44,7 +44,6 @@ import           Pos.Binary.Class               (biSize)
 import           Pos.Block.Core                 (MainBlock, mainBlockSlot,
                                                  mainBlockTxPayload, mcdSlot)
 import           Pos.Block.Types                (Blund, Undo)
-import           Pos.Context                    (genesisUtxoM, unGenesisUtxo)
 import           Pos.Core                       (AddrType (..), Address (..), Coin,
                                                  EpochIndex, HeaderHash, Timestamp,
                                                  difficultyL, gbHeader, gbhConsensus,
@@ -56,10 +55,12 @@ import           Pos.Core                       (AddrType (..), Address (..), Co
 import           Pos.DB.Class                   (MonadDBRead)
 import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing             (SscGodTossing)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                        (MonadTxpMem, Tx (..), TxAux, TxId, TxMap,
-                                                 TxOutAux (..), Utxo, getLocalTxs,
+                                                 TxOutAux (..), getLocalTxs,
                                                  getMemPool, mpLocalTxs, taTx, topsortTxs,
                                                  txOutValue, txpTxs,
+                                                 unGenesisUtxo, genesisUtxo,
                                                  utxoToAddressCoinPairs, _txOutputs)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (NewestFirst (..))
@@ -94,7 +95,10 @@ import           Pos.Explorer.Web.Error         (ExplorerError (..))
 ----------------------------------------------------------------
 type MainBlund ssc = (MainBlock ssc, Undo)
 
-type ExplorerMode ctx m = WorkMode SscGodTossing ctx m
+type ExplorerMode ctx m =
+    ( WorkMode SscGodTossing ctx m
+    , HasGtConfiguration
+    )
 
 explorerServeImpl
     :: ExplorerMode ctx m
@@ -507,10 +511,9 @@ getTxSummary cTxId = do
 
 getRedeemAddressCoinPairs :: ExplorerMode ctx m => m [(Address, Coin)]
 getRedeemAddressCoinPairs = do
-    genesisUtxo :: Utxo <- unGenesisUtxo <$> genesisUtxoM
 
     let addressCoinPairs :: [(Address, Coin)]
-        addressCoinPairs = utxoToAddressCoinPairs genesisUtxo
+        addressCoinPairs = utxoToAddressCoinPairs (unGenesisUtxo genesisUtxo)
 
         redeemOnly :: [(Address, Coin)]
         redeemOnly = filter (isRedeemAddress . fst) addressCoinPairs

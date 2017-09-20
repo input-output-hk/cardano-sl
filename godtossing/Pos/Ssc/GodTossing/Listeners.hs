@@ -25,7 +25,7 @@ import           Pos.Communication.Relay               (DataMsg, InvOrData,
                                                         MempoolParams (NoMempool),
                                                         Relay (..), ReqMsg, ReqOrRes)
 import           Pos.Communication.Types.Protocol      (MsgType (..))
-import           Pos.Core                              (HasCoreConstants, StakeholderId,
+import           Pos.Core                              (HasConfiguration, StakeholderId,
                                                         addressHash, getCertId)
 import           Pos.Security.Util                     (shouldIgnorePkAddress)
 import           Pos.Ssc.Class.Listeners               (SscListenersClass (..))
@@ -36,6 +36,7 @@ import           Pos.Ssc.GodTossing.LocalData          (ldModifier, sscIsDataUse
                                                         sscProcessCommitment,
                                                         sscProcessOpening,
                                                         sscProcessShares)
+import           Pos.Ssc.GodTossing.Configuration      (HasGtConfiguration)
 import           Pos.Ssc.GodTossing.Network.Constraint (GtMessageConstraints)
 import           Pos.Ssc.GodTossing.Toss               (GtTag (..), TossModifier,
                                                         tmCertificates, tmCommitments,
@@ -100,7 +101,8 @@ sscRelay
        , Message (InvOrData (Tagged contents StakeholderId) contents)
        , Message (ReqOrRes (Tagged contents StakeholderId))
        , Message (ReqMsg (Tagged contents StakeholderId))
-       , HasCoreConstants
+       , HasConfiguration
+       , HasGtConfiguration
        )
     => GtTag
     -> (contents -> StakeholderId)

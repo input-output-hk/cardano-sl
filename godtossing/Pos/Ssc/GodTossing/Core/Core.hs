@@ -57,8 +57,8 @@ import           Pos.Core                      (EpochIndex (..), LocalSlotIndex,
                                                 SharedSeed (..), SlotCount, SlotId (..),
                                                 StakeholderId, unsafeMkLocalSlotIndex)
 import           Pos.Core.Address              (addressHash)
-import           Pos.Core.Context              (HasCoreConstants, slotSecurityParam)
-import           Pos.Core.Genesis              (vssMaxTTL, vssMinTTL)
+import           Pos.Core.Configuration        (HasConfiguration, slotSecurityParam,
+                                                vssMaxTTL, vssMinTTL)
 import           Pos.Core.Vss                  (VssCertificate (vcExpiryEpoch),
                                                 VssCertificatesMap)
 import           Pos.Crypto                    (Secret, SecretKey, SecureRandom (..),
@@ -111,35 +111,35 @@ genCommitmentAndOpening t pks
 
 -- | Make signed commitment from commitment and epoch index using secret key.
 mkSignedCommitment
-    :: Bi Commitment
+    :: (HasConfiguration, Bi Commitment)
     => SecretKey -> EpochIndex -> Commitment -> SignedCommitment
 mkSignedCommitment sk i c = (toPublic sk, c, sign SignCommitment sk (i, c))
 
-toLocalSlotIndex :: HasCoreConstants => SlotCount -> LocalSlotIndex
+toLocalSlotIndex :: HasConfiguration => SlotCount -> LocalSlotIndex
 toLocalSlotIndex = unsafeMkLocalSlotIndex . fromIntegral
 
-isCommitmentIdx :: HasCoreConstants => LocalSlotIndex -> Bool
+isCommitmentIdx :: HasConfiguration => LocalSlotIndex -> Bool
 isCommitmentIdx =
     inRange (toLocalSlotIndex 0,
              toLocalSlotIndex (slotSecurityParam - 1))
 
-isOpeningIdx :: HasCoreConstants => LocalSlotIndex -> Bool
+isOpeningIdx :: HasConfiguration => LocalSlotIndex -> Bool
 isOpeningIdx =
     inRange (toLocalSlotIndex (2 * slotSecurityParam),
              toLocalSlotIndex (3 * slotSecurityParam - 1))
 
-isSharesIdx :: HasCoreConstants => LocalSlotIndex -> Bool
+isSharesIdx :: HasConfiguration => LocalSlotIndex -> Bool
 isSharesIdx =
     inRange (toLocalSlotIndex (4 * slotSecurityParam),
              toLocalSlotIndex (5 * slotSecurityParam - 1))
 
-isCommitmentId :: HasCoreConstants => SlotId -> Bool
+isCommitmentId :: HasConfiguration => SlotId -> Bool
 isCommitmentId = isCommitmentIdx . siSlot
 
-isOpeningId :: HasCoreConstants => SlotId -> Bool
+isOpeningId :: HasConfiguration => SlotId -> Bool
 isOpeningId = isOpeningIdx . siSlot
 
-isSharesId :: HasCoreConstants => SlotId -> Bool
+isSharesId :: HasConfiguration => SlotId -> Bool
 isSharesId = isSharesIdx . siSlot
 
 ----------------------------------------------------------------------------
@@ -200,7 +200,7 @@ verifyCommitment Commitment {..} = fromMaybe False $ do
 -- | Verify signature in SignedCommitment using epoch index.
 --
 -- #checkSig
-verifyCommitmentSignature :: Bi Commitment => EpochIndex -> SignedCommitment -> Bool
+verifyCommitmentSignature :: (HasConfiguration, Bi Commitment) => EpochIndex -> SignedCommitment -> Bool
 verifyCommitmentSignature epoch (pk, comm, commSig) =
     checkSig SignCommitment pk (epoch, comm) commSig
 
@@ -210,7 +210,7 @@ verifyCommitmentSignature epoch (pk, comm, commSig) =
 -- #verifyCommitmentSignature
 -- #verifyCommitment
 verifySignedCommitment
-    :: Bi Commitment
+    :: (HasConfiguration, Bi Commitment)
     => EpochIndex
     -> SignedCommitment
     -> VerificationRes
@@ -235,7 +235,7 @@ verifyOpening Commitment {..} (Opening secret) = fromMaybe False $
 -- CHECK: @checkCertTTL
 -- | Check that the VSS certificate has valid TTL: i. e. it is in
 -- '[vssMinTTL, vssMaxTTL]'.
-checkCertTTL :: EpochIndex -> VssCertificate -> Bool
+checkCertTTL :: HasConfiguration => EpochIndex -> VssCertificate -> Bool
 checkCertTTL curEpochIndex vc =
     expiryEpoch + 1 >= vssMinTTL + curEpochIndex &&
     expiryEpoch < vssMaxTTL + curEpochIndex
@@ -299,7 +299,7 @@ instance Buildable GtPayload where
             mconcat [formatter hm, formatCertificates certs]
 
 -- | Construct 'GtProof' from 'GtPayload'.
-mkGtProof :: GtPayload -> GtProof
+mkGtProof :: HasConfiguration => GtPayload -> GtProof
 mkGtProof payload =
     case payload of
         CommitmentsPayload comms certs ->
@@ -315,7 +315,7 @@ mkGtProof payload =
             constr (hash hm) (hash cert)
 
 -- | Transforms GtPayload to fit under size limit.
-stripGtPayload :: Byte -> GtPayload -> Maybe GtPayload
+stripGtPayload :: HasConfiguration => Byte -> GtPayload -> Maybe GtPayload
 stripGtPayload lim payload | biSize payload <= lim = Just payload
 stripGtPayload lim payload = case payload of
     (CertificatesPayload vssmap) -> CertificatesPayload <$> stripHashMap lim vssmap
@@ -336,7 +336,7 @@ stripGtPayload lim payload = case payload of
                            -- this is a random choice in fact
 
 -- | Default godtossing payload depending on local slot index.
-defaultGtPayload :: HasCoreConstants => LocalSlotIndex -> GtPayload
+defaultGtPayload :: HasConfiguration => LocalSlotIndex -> GtPayload
 defaultGtPayload lsi
     | isCommitmentIdx lsi = CommitmentsPayload mempty mempty
     | isOpeningIdx lsi = OpeningsPayload mempty mempty

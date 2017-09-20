@@ -7,34 +7,6 @@ if [[ ("$TRAVIS_OS_NAME" == "linux") && ("$TRAVIS_BRANCH" == "master") ]];
   else with_haddock=false
 fi
 
-if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
-    if [[ "$with_haddock" == "true" ]]; then
-
-      # We need to pass CONFIG=wallet to compile cardano-sl-core, but Stack doesn't
-      # support passing arguments to Haddock yet (this will be fixed in the next
-      # release after 1.4.0). For now, a workaround is to manually replace CONFIG
-      # with "wallet" in *.hs files.
-      #
-      # When new Stack is released, delete this and add an argument to Stack:
-      #    --haddock-arguments="--optghc=-DCONFIG=wallet"
-      find core/ -name '*.hs' -exec sed -i 's/defined(CONFIG)/1/g' {} +
-      find core/ -name '*.hs' -exec sed -i 's/QUOTED(CONFIG)/"'$DCONFIG'"/g' {} +
-    fi
-
-fi
-
-# We need to pass CONFIG=wallet to compile cardano-sl-core, but Stack doesn't
-# support passing arguments to Haddock yet (this will be fixed in the next
-# release after 1.4.0). For now, a workaround is to manually replace CONFIG
-# with "wallet" in *.hs files.
-#
-# When new Stack is released, delete this and add an argument to Stack:
-#    --haddock-arguments="--optghc=-DCONFIG=wallet"
-if [[ "$with_haddock" == "true" ]]; then
-  find core/ -name '*.hs' -exec sed -i 's/defined(CONFIG)/1/g' {} +
-  find core/ -name '*.hs' -exec sed -i 's/QUOTED(CONFIG)/"'$DCONFIG'"/g' {} +
-fi
-
 targets="cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-wallet"
 
 # There are no macOS explorer devs atm and it's only deployed on linux
@@ -53,11 +25,11 @@ fi
 
 for trgt in $targets; do
   echo building $trgt with nix
-  nix-build -A $trgt -o $trgt.root --argstr dconfig $DCONFIG --argstr gitrev $TRAVIS_COMMIT
+  nix-build -A $trgt -o $trgt.root --argstr gitrev $TRAVIS_COMMIT
 #    TODO: CSL-1133
 #    if [[ "$trgt" == "cardano-sl" ]]; then
 #      stack test --nix --fast --jobs=2 --coverage \
-#      --ghc-options="-j -DCONFIG=$DCONFIG +RTS -A128m -n2m -RTS";
+#      --ghc-options="-j +RTS -A128m -n2m -RTS";
 #      stack --nix hpc report $to_build
 #    fi
 

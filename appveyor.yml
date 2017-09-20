@@ -8,10 +8,8 @@ environment:
     # Avoid long paths on Windows
     STACK_ROOT: "c:\\s"
     STACK_WORK: ".w"
-    CSL_SYSTEM_TAG: "win64"
     CACHE_DIR: "c:\\c"
     WORK_DIR: "c:\\w"
-    DCONFIG: "testnet_public_wallet"
 
 init:
   - SET BRANCH_CACHE_DIR=%CACHE_DIR%\%APPVEYOR_REPO_BRANCH:/=_%
@@ -87,47 +85,13 @@ test_script:
 #   - stack hpc report cardano-sl cardano-sl-txp cardano-sl-core cardano-sl-db cardano-sl-update cardano-sl-godtossing cardano-sl-infra cardano-sl-lrc cardano-sl-ssc
 # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
   # We intentionally don't build lwallet here, because this build is for installer.
-  - scripts\ci\appveyor-retry call stack install cardano-sl
+  - scripts\ci\appveyor-retry call stack install cardano-sl cardano-sl-tools cardano-sl-wallet
       -j 2
       --no-terminal
       --local-bin-path daedalus
       --test
       --no-haddock-deps
       --work-dir %STACK_WORK%
-      --ghc-options="-DCONFIG=%DCONFIG%"
-      --ghc-options="-DGITREV=%APPVEYOR_REPO_COMMIT%"
-      --flag cardano-sl:with-wallet
-      --flag cardano-sl-core:-asserts
-      --flag cardano-sl-core:-dev-mode
-      --extra-include-dirs="C:\OpenSSL-Win64-v102\include"
-      --extra-lib-dirs="C:\OpenSSL-Win64-v102"
-      --extra-include-dirs="%WORK_DIR%\rocksdb\include"
-      --extra-lib-dirs="%WORK_DIR%"
-  - scripts\ci\appveyor-retry call stack install cardano-sl-tools
-      -j 2
-      --no-terminal
-      --local-bin-path daedalus
-      --test
-      --no-haddock-deps
-      --work-dir %STACK_WORK%
-      --ghc-options="-DCONFIG=%DCONFIG%"
-      --ghc-options="-DGITREV=%APPVEYOR_REPO_COMMIT%"
-      --flag cardano-sl:with-wallet
-      --flag cardano-sl-core:-asserts
-      --flag cardano-sl-core:-dev-mode
-      --flag cardano-sl-tools:for-installer
-      --extra-include-dirs="C:\OpenSSL-Win64-v102\include"
-      --extra-lib-dirs="C:\OpenSSL-Win64-v102"
-      --extra-include-dirs="%WORK_DIR%\rocksdb\include"
-      --extra-lib-dirs="%WORK_DIR%"
-  - scripts\ci\appveyor-retry call stack install cardano-sl-wallet
-      -j 2
-      --no-terminal
-      --local-bin-path daedalus
-      --test
-      --no-haddock-deps
-      --work-dir %STACK_WORK%
-      --ghc-options="-DCONFIG=%DCONFIG%"
       --ghc-options="-DGITREV=%APPVEYOR_REPO_COMMIT%"
       --flag cardano-sl:with-wallet
       --flag cardano-sl-core:-asserts

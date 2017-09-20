@@ -31,6 +31,7 @@ import           Pos.Crypto.RedeemSigning (RedeemPublicKey (..), RedeemSecretKey
                                            RedeemSignature (..))
 import           Pos.Crypto.SafeSigning   (EncryptedSecretKey (..), PassPhrase,
                                            passphraseLength)
+import           Pos.Crypto.Scrypt        (EncryptedPass (..))
 import qualified Pos.Crypto.SecretSharing as C
 import           Pos.Crypto.Signing       (ProxyCert (..), ProxySecretKey (..),
                                            ProxySignature (..), PublicKey (..),
@@ -214,6 +215,10 @@ instance Bi PassPhrase where
             else fail . toString $ sformat
                  ("put@PassPhrase: expected length 0 or "%int%", not "%int)
                  passphraseLength bl
+
+instance Bi EncryptedPass where
+    encode (EncryptedPass ep) = encode ep
+    decode = EncryptedPass <$> decode
 
 -------------------------------------------------------------------------------
 -- Hierarchical derivation

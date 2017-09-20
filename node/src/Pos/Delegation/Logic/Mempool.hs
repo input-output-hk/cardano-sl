@@ -37,7 +37,6 @@ import           Mockable                         (CurrentTime, Mockable, curren
 
 import           Pos.Binary.Class                 (biSize)
 import           Pos.Binary.Communication         ()
-import           Pos.Constants                    (memPoolLimitRatio)
 import           Pos.Context                      (lrcActionOnEpochReason)
 import           Pos.Core                         (HasCoreConstants, HasPrimaryKey (..),
                                                    ProxySKHeavy, ProxySKLight,
@@ -228,10 +227,8 @@ processProxySKHeavyInternal psk = do
         coherent <- uses dwTip $ (==) dbTipHash
         dwMessageCache %= LRU.insert msg curTime
         let doublePosted = alreadyPosted && not isRevoke
-        let maxMemPoolSize = memPoolLimitRatio * maxBlockSize
-            -- Here it would be good to add size of data we want to insert
-            -- but it's negligible.
-            exhausted = memPoolSize >= maxMemPoolSize
+        -- TODO: This is a rather arbitrary limit, we should revisit it (see CSL-1664)
+            exhausted = memPoolSize >= maxBlockSize * 2
         let res = if | not consistent -> PHBroken
                      | not coherent -> PHTipMismatch
                      | not omegaCorrect -> PHInvalid "PSK epoch is different from current"

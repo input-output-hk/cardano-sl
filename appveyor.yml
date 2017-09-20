@@ -8,7 +8,6 @@ environment:
     # Avoid long paths on Windows
     STACK_ROOT: "c:\\s"
     STACK_WORK: ".w"
-    CSL_SYSTEM_TAG: "win64"
     CACHE_DIR: "c:\\c"
     WORK_DIR: "c:\\w"
     DCONFIG: "testnet_public_wallet"

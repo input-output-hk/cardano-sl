@@ -178,7 +178,6 @@ fi
 
 if [[ "$prodMode" != "" ]]; then
   commonargs="$commonargs --flag cardano-sl-core:-dev-mode"
-  export CSL_SYSTEM_TAG=linux64
 fi
 
 if [[ $explorer == true ]]; then

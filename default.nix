@@ -45,11 +45,6 @@ let
           "--ghc-options=-DGITREV=${gitrev}"
         ];
       });
-      cardano-sl-update = overrideCabal super.cardano-sl-update (drv: {
-        patchPhase = ''
-          export CSL_SYSTEM_TAG=${if pkgs.stdenv.isDarwin then "macos64" else "linux64"}
-        '';
-      });
 
       cardano-sl-wallet = justStaticExecutables super.cardano-sl-wallet;
       cardano-sl-tools = justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {

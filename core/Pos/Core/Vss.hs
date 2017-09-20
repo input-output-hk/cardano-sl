@@ -83,12 +83,10 @@ validateVssCertificatesMap ::
     -> m VssCertificatesMap
 -- | Safe constructor of 'VssCertificatesMap'
 validateVssCertificatesMap m = do
-    forM (HM.toList m) $ \(k, v) ->
+    forM_ (HM.toList m) $ \(k, v) ->
         when (getCertId v /= k) $
             throwError $ sformat
                 ("wrong issuerPk set as key for delegation map: "%
                  "issuer id = "%build%", cert id = "%build)
                 k (getCertId v)
     pure m
-  where
-    checkCertId (k, v) = getCertId v == k

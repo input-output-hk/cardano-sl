@@ -88,7 +88,7 @@ mkGenesisDelegation ::
     => HashMap StakeholderId ProxySKHeavy
     -> m GenesisDelegation
 mkGenesisDelegation pskM = do
-    forM (HM.toList pskM) $ \(k, ProxySecretKey{..}) ->
+    forM_ (HM.toList pskM) $ \(k, ProxySecretKey{..}) ->
         when (addressHash pskIssuerPk /= k) $
             throwError $ sformat
                 ("wrong issuerPk set as key for delegation map: "%

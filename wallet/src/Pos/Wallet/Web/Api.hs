@@ -44,6 +44,7 @@ module Pos.Wallet.Web.Api
        , GetHistory
 
        , NextUpdate
+       , PostponeUpdate
        , ApplyUpdate
 
        , RedeemADA
@@ -274,8 +275,14 @@ type NextUpdate =
        "update"
     :> WRes Get CUpdateInfo
 
+type PostponeUpdate =
+       "update"
+    :> "postpone"
+    :> WRes Post ()
+
 type ApplyUpdate =
        "update"
+    :> "apply"
     :> WRes Post ()
 
 -------------------------------------------------------------------------
@@ -420,6 +427,8 @@ type WalletApi = ApiPrefix :> (
      -- Updates
      -------------------------------------------------------------------------
      NextUpdate
+    :<|>
+     PostponeUpdate
     :<|>
      ApplyUpdate
     :<|>

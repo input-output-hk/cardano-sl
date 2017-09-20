@@ -12,40 +12,42 @@ module Pos.Launcher.Scenario
 
 import           Universum
 
-import           Control.Lens          (views)
-import           Data.Time.Units       (Second)
-import           Ether.Internal        (HasLens (..))
-import           Formatting            (build, int, sformat, shown, (%))
-import           Mockable              (fork)
-import           Serokell.Util.Text    (listJson)
-import           System.Exit           (ExitCode (..))
-import           System.Wlog           (WithLogger, getLoggerName, logError, logInfo,
-                                        logWarning)
+import           Control.Lens             (views)
+import           Data.Time.Units          (Second)
+import           Ether.Internal           (HasLens (..))
+import           Formatting               (build, int, sformat, shown, (%))
+import           Mockable                 (fork)
+import           Serokell.Util.Text       (listJson)
+import           System.Exit              (ExitCode (..))
+import           System.Wlog              (WithLogger, getLoggerName, logError, logInfo,
+                                           logWarning)
 
-import           Pos.Communication     (ActionSpec (..), OutSpecs, WorkerSpec,
-                                        wrapActionSpec)
-import qualified Pos.Constants         as Const
-import           Pos.Context           (getOurPublicKey, ncNetworkConfig)
-import           Pos.Core              (addressHash)
-import qualified Pos.DB.DB             as DB
-import           Pos.DHT.Real          (KademliaDHTInstance (..),
-                                        kademliaJoinNetworkNoThrow,
-                                        kademliaJoinNetworkRetry)
-import           Pos.Genesis           (GenesisWStakeholders (..), bootDustThreshold)
-import qualified Pos.GState            as GS
-import           Pos.Launcher.Resource (NodeResources (..))
-import           Pos.Lrc.DB            as LrcDB
-import           Pos.Network.Types     (NetworkConfig (..), topologyRunKademlia)
-import           Pos.Reporting         (reportError)
-import           Pos.Shutdown          (waitForWorkers)
-import           Pos.Slotting          (waitSystemStart)
-import           Pos.Ssc.Class         (SscConstraint)
-import           Pos.StateLock         (StateLock (..))
-import           Pos.Util              (inAssertMode)
-import           Pos.Util.Config       (cslConfigName)
-import           Pos.Util.LogSafe      (logInfoS)
-import           Pos.Worker            (allWorkers)
-import           Pos.WorkMode.Class    (WorkMode)
+import           Pos.Communication        (ActionSpec (..), OutSpecs, WorkerSpec,
+                                           wrapActionSpec)
+import           Pos.Context              (getOurPublicKey, ncNetworkConfig)
+import           Pos.Core                 (GenesisData (gdBootStakeholders),
+                                           GenesisWStakeholders (..), addressHash,
+                                           bootDustThreshold, gdFtsSeed, genesisData)
+import qualified Pos.DB.DB                as DB
+import           Pos.DHT.Real             (KademliaDHTInstance (..),
+                                           kademliaJoinNetworkNoThrow,
+                                           kademliaJoinNetworkRetry)
+import qualified Pos.GState               as GS
+import           Pos.Launcher.Resource    (NodeResources (..))
+import           Pos.Lrc.DB               as LrcDB
+import           Pos.Network.Types        (NetworkConfig (..), topologyRunKademlia)
+import           Pos.Reporting            (reportError)
+import           Pos.Shutdown             (waitForWorkers)
+import           Pos.Slotting             (waitSystemStart)
+import           Pos.Ssc.Class            (SscConstraint)
+import           Pos.StateLock            (StateLock (..))
+import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
+                                           lastKnownBlockVersion)
+import           Pos.Util                 (inAssertMode)
+import           Pos.Util.LogSafe         (logInfoS)
+import           Pos.Worker               (allWorkers)
+import           Pos.WorkMode.Class       (WorkMode)
+
 
 #define QUOTED(x) "/**/x/**/"
 
@@ -68,8 +70,7 @@ runNode'
     -> WorkerSpec m
 runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> do
 
-    logInfo $ "cardano-sl: commit " <> gitRev <>
-                        ", cslConfigName: " <> cslConfigName
+    logInfo $ "cardano-sl: commit " <> gitRev
     nodeStartMsg
     inAssertMode $ logInfo "Assert mode on"
     pk <- getOurPublicKey
@@ -90,13 +91,17 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
         Just (kInst, False) -> kademliaJoinNetworkNoThrow kInst (kdiInitialPeers kInst)
         Nothing             -> return ()
 
-    genesisStakeholders <- view (lensOf @GenesisWStakeholders)
-    logInfo $ sformat ("Dust threshold: "%build)
-        (bootDustThreshold genesisStakeholders)
-    logInfo $ sformat ("Genesis stakeholders: " %int)
+    let genesisStakeholders = gdBootStakeholders genesisData
+    logInfo $ sformat
+        ("Genesis stakeholders ("%int%" addresses, dust threshold "%build%"): "%build)
         (length $ getGenesisWStakeholders genesisStakeholders)
+        (bootDustThreshold genesisStakeholders)
+        genesisStakeholders
     firstGenesisHash <- GS.getFirstGenesisBlockHash
-    logInfo $ sformat ("First genesis block hash: "%build) firstGenesisHash
+    logInfo $ sformat
+        ("First genesis block hash: "%build%", genesis seed is "%build)
+        firstGenesisHash
+        (gdFtsSeed genesisData)
 
     lastKnownEpoch <- LrcDB.getEpoch
     let onNoLeaders = logWarning "Couldn't retrieve last known leaders list"
@@ -146,11 +151,11 @@ runNode nr (plugins, plOuts) =
     plugins' = map (wrapActionSpec "plugin") plugins
 
 -- | This function prints a very useful message when node is started.
-nodeStartMsg :: WithLogger m => m ()
+nodeStartMsg :: (HasUpdateConfiguration, WithLogger m) => m ()
 nodeStartMsg = logInfo msg
   where
     msg = sformat ("Application: " %build% ", last known block version " %build)
-                   Const.curSoftwareVersion Const.lastKnownBlockVersion
+                   curSoftwareVersion lastKnownBlockVersion
 
 ----------------------------------------------------------------------------
 -- Details

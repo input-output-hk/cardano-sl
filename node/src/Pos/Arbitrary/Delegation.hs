@@ -13,13 +13,13 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Pos.Arbitrary.Core                ()
 import           Pos.Binary.Core                   ()
 import           Pos.Communication.Types.Relay     (DataMsg (..))
-import           Pos.Core                          (EpochIndex)
+import           Pos.Core                          (EpochIndex, HasConfiguration)
 import           Pos.Crypto                        (ProxySecretKey (..), createPsk)
 import           Pos.Delegation.Types              (DlgPayload, ProxySKLightConfirmation,
                                                     mkDlgPayload)
 import           Pos.Util.Util                     (leftToPanic)
 
-genDlgPayload :: EpochIndex -> Gen DlgPayload
+genDlgPayload :: HasConfiguration => EpochIndex -> Gen DlgPayload
 genDlgPayload epoch =
     leftToPanic "genDlgPayload: " .
     mkDlgPayload . toList . HM.fromList . map convert <$>
@@ -28,10 +28,10 @@ genDlgPayload epoch =
     convert psk = (pskIssuerPk psk, psk)
     genPSK = createPsk <$> arbitrary <*> arbitrary <*> pure epoch
 
-instance Arbitrary DlgPayload where
+instance HasConfiguration => Arbitrary DlgPayload where
     arbitrary = arbitrary >>= genDlgPayload
     shrink = genericShrink
 
-instance Arbitrary (DataMsg ProxySKLightConfirmation) where
+instance HasConfiguration => Arbitrary (DataMsg ProxySKLightConfirmation) where
     arbitrary = genericArbitrary
     shrink = genericShrink

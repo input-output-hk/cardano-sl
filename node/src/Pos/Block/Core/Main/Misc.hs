@@ -32,16 +32,16 @@ import           Pos.Block.Core.Main.Types   (BlockSignature (..), MainBlock,
                                               MainExtraHeaderData (..), MainToSign (..))
 import           Pos.Block.Core.Union.Types  (BiHeader, BiSsc, BlockHeader,
                                               blockHeaderHash)
-import qualified Pos.Constants               as Const
 import           Pos.Core                    (EpochOrSlot (..), GenericBlock (..),
                                               GenericBlockHeader (..),
-                                              HasBlockVersion (..), HasCoreConstants,
+                                              HasBlockVersion (..),
                                               HasDifficulty (..), HasEpochIndex (..),
                                               HasEpochOrSlot (..), HasHeaderHash (..),
                                               HasSoftwareVersion (..), HeaderHash,
                                               IsHeader, IsMainHeader (..), LocalSlotIndex,
                                               SlotId, mkGenericHeader,
                                               recreateGenericBlock, slotIdF)
+import           Pos.Core.Configuration      (HasConfiguration)
 import           Pos.Crypto                  (ProxySecretKey (..), SecretKey,
                                               SignTag (..), hash, hashHexF, proxySign,
                                               sign, toPublic)
@@ -49,6 +49,8 @@ import           Pos.Data.Attributes         (mkAttributes)
 import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
 import           Pos.Txp.Core                (emptyTxPayload)
+import           Pos.Update.Configuration    (HasUpdateConfiguration,
+                                              lastKnownBlockVersion, curSoftwareVersion)
 import           Pos.Util.Util               (leftToPanic)
 
 instance BiSsc ssc => Buildable (MainBlockHeader ssc) where
@@ -75,7 +77,7 @@ instance BiSsc ssc => Buildable (MainBlockHeader ssc) where
         gbhHeaderHash = blockHeaderHash $ Right gbh
         MainConsensusData {..} = _gbhConsensus
 
-instance BiSsc ssc => Buildable (MainBlock ssc) where
+instance (HasConfiguration, BiSsc ssc) => Buildable (MainBlock ssc) where
     build UnsafeGenericBlock {..} =
         bprint
             (stext%":\n"%
@@ -160,7 +162,7 @@ type SanityConstraint ssc
        , SscHelpersClass ssc
        , HasDifficulty $ BlockHeader ssc
        , HasHeaderHash $ BlockHeader ssc
-       , HasCoreConstants
+       , HasConfiguration
        )
 
 -- | Smart constructor for 'MainBlockHeader'.
@@ -203,7 +205,7 @@ mkMainHeader prevHeader slotId sk pske body extra =
 -- | Smart constructor for 'MainBlock'. Uses 'mkMainHeader'. It
 -- verifies consistency of given data and may fail.
 mkMainBlock
-    :: (SanityConstraint ssc, MonadError Text m)
+    :: (HasUpdateConfiguration, SanityConstraint ssc, MonadError Text m)
     => Maybe (BlockHeader ssc)
     -> SlotId
     -> SecretKey
@@ -221,8 +223,8 @@ mkMainBlock prevHeader slotId sk pske body =
     extraH :: MainExtraHeaderData
     extraH =
         MainExtraHeaderData
-            Const.lastKnownBlockVersion
-            Const.curSoftwareVersion
+            lastKnownBlockVersion
+            curSoftwareVersion
             (mkAttributes ())
             (hash extraB)
 

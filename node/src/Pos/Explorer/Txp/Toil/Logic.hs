@@ -38,20 +38,20 @@ import           Pos.Util.Chrono             (NewestFirst (..))
 -- Global
 ----------------------------------------------------------------------------
 
-type EGlobalApplyToilMode ctx m =
-    ( Txp.GlobalApplyToilMode ctx m
+type EGlobalApplyToilMode m =
+    ( Txp.GlobalApplyToilMode m
     , MonadTxExtra m
     )
 
-type EGlobalVerifyToilMode ctx m =
-    ( Txp.GlobalVerifyToilMode ctx m
+type EGlobalVerifyToilMode m =
+    ( Txp.GlobalVerifyToilMode m
     , MonadTxExtra m
     )
 
 -- | Apply transactions from one block. They must be valid (for
 -- example, it implies topological sort).
 eApplyToil
-    :: EGlobalApplyToilMode ctx m
+    :: EGlobalApplyToilMode m
     => Maybe Timestamp
     -> [(TxAux, TxUndo)]
     -> HeaderHash
@@ -70,7 +70,7 @@ eApplyToil mTxTimestamp txun hh = do
         updateAddrBalances balanceUpdate
 
 -- | Rollback transactions from one block.
-eRollbackToil :: EGlobalApplyToilMode ctx m => [(TxAux, TxUndo)] -> m ()
+eRollbackToil :: EGlobalApplyToilMode m => [(TxAux, TxUndo)] -> m ()
 eRollbackToil txun = do
     Txp.rollbackToil txun
     mapM_ extraRollback $ reverse txun
@@ -88,15 +88,15 @@ eRollbackToil txun = do
 -- Local
 ----------------------------------------------------------------------------
 
-type ELocalToilMode ctx m =
-    ( Txp.LocalToilMode ctx m
+type ELocalToilMode m =
+    ( Txp.LocalToilMode m
     , MonadTxExtra m
     )
 
 -- | Verify one transaction and also add it to mem pool and apply to utxo
 -- if transaction is valid.
 eProcessTx
-    :: (ELocalToilMode ctx m, MonadError ToilVerFailure m)
+    :: (ELocalToilMode m, MonadError ToilVerFailure m)
     => EpochIndex -> (TxId, TxAux) -> TxExtra -> m ()
 eProcessTx curEpoch tx@(id, aux) extra = do
     undo <- Txp.processTx curEpoch tx
@@ -109,7 +109,7 @@ eProcessTx curEpoch tx@(id, aux) extra = do
 -- | Get rid of invalid transactions.
 -- All valid transactions will be added to mem pool and applied to utxo.
 eNormalizeToil
-    :: ELocalToilMode ctx m
+    :: ELocalToilMode m
     => EpochIndex
     -> [(TxId, (TxAux, TxExtra))]
     -> m ()

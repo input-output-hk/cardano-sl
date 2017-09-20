@@ -8,16 +8,17 @@ module Pos.Client.CLI.Secrets
 import           Data.List                  ((!!))
 import           Universum
 
+import           Pos.Core.Configuration     (HasConfiguration, genesisSecretKeys,
+                                             genesisVssSecretKeys)
 import           Pos.Crypto                 (SecretKey, keyGen, runSecureRandom,
                                              vssKeyGen)
-import           Pos.Genesis                (genesisSecretKeys, genesisVssSecretKeys)
 import           Pos.Util.UserSecret        (UserSecret, usPrimKey, usVss,
                                              writeUserSecret)
 
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))
 
 userSecretWithGenesisKey
-    :: (MonadIO m) => CommonNodeArgs -> UserSecret -> m (SecretKey, UserSecret)
+    :: (HasConfiguration, MonadIO m) => CommonNodeArgs -> UserSecret -> m (SecretKey, UserSecret)
 userSecretWithGenesisKey CommonNodeArgs{..} userSecret
     | Just i <- devSpendingGenesisI,
       Just secretKeys <- genesisSecretKeys = do
@@ -31,7 +32,7 @@ userSecretWithGenesisKey CommonNodeArgs{..} userSecret
     | otherwise = fetchPrimaryKey userSecret
 
 updateUserSecretVSS
-    :: (MonadIO m) => CommonNodeArgs -> UserSecret -> m UserSecret
+    :: (HasConfiguration, MonadIO m) => CommonNodeArgs -> UserSecret -> m UserSecret
 updateUserSecretVSS CommonNodeArgs{..} us
     | Just i <- devVssGenesisI,
       Just secretKeys <- genesisVssSecretKeys =

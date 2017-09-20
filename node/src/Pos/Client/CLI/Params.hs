@@ -24,17 +24,17 @@ import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..))
 import           Pos.Client.CLI.Options     (CommonArgs (..))
 import           Pos.Client.CLI.Secrets     (updateUserSecretVSS,
                                              userSecretWithGenesisKey)
-import           Pos.Constants              (isDevelopment)
-import           Pos.Core.Types             (Timestamp (..))
+import           Pos.Core.Configuration     (HasConfiguration)
+import           Pos.Core.Constants         (isDevelopment)
 import           Pos.Crypto                 (VssKeyPair)
-import           Pos.Genesis                (genesisContext)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), TransportParams (..))
 import           Pos.Network.CLI            (intNetworkConfigOpts)
 import           Pos.Network.Types          (NetworkConfig (..), Topology (..))
 import           Pos.Ssc.GodTossing         (GtParams (..))
-import           Pos.Update.Params          (UpdateParams (..))
-import           Pos.Util.UserSecret        (peekUserSecret)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Update.Params                (UpdateParams (..))
+import           Pos.Util.UserSecret              (peekUserSecret)
 
 loggingParams :: LoggerName -> CommonNodeArgs -> LoggingParams
 loggingParams tag CommonNodeArgs{..} =
@@ -71,12 +71,13 @@ getNodeParams ::
        , Mockable Fork m
        , Mockable Catch m
        , Mockable Throw m
+       , HasConfiguration
+       , HasGtConfiguration
        )
     => CommonNodeArgs
     -> NodeArgs
-    -> Timestamp
     -> m NodeParams
-getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} systemStart = do
+getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} = do
     (primarySK, userSecret) <-
         userSecretWithGenesisKey cArgs =<<
             updateUserSecretVSS cArgs =<<
@@ -86,13 +87,11 @@ getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} systemStart = do
     npBehaviorConfig <- case behaviorConfigPath of
         Nothing -> pure def
         Just fp -> either throw pure =<< liftIO (Yaml.decodeFileEither fp)
-    let npGenesisCtx = genesisContext
     pure NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB
         , npSecretKey = primarySK
         , npUserSecret = userSecret
-        , npSystemStart = systemStart
         , npBaseParams = getBaseParams "node" cArgs
         , npJLFile = jlPath
         , npReportServers = reportServers commonArgs

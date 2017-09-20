@@ -14,7 +14,7 @@ import           System.Wlog                (logDebug, logInfo)
 
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker,
                                              worker)
-import           Pos.Constants              (curSoftwareVersion)
+import           Pos.Update.Configuration   (curSoftwareVersion)
 import           Pos.Context                (recoveryCommGuard)
 import           Pos.Core                   (SoftwareVersion (..))
 import           Pos.Shutdown               (triggerShutdown)

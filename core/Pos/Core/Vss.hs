@@ -1,77 +1,39 @@
 -- | Vss related types and constructors for VssCertificate and VssCertificatesMap
 
 module Pos.Core.Vss
-       ( -- * Vss certificates
-         VssCertificate (vcVssKey, vcExpiryEpoch, vcSignature, vcSigningKey)
-       , mkVssCertificate
+       ( mkVssCertificate
        , recreateVssCertificate
+       , checkCertSign
        , getCertId
-
-       , VssCertificatesMap
        , mkVssCertificatesMap
+       , validateVssCertificatesMap
+
+       , module Pos.Core.Vss.Types
        ) where
 
 import           Universum
 
-import           Data.Hashable       (Hashable (..))
-import qualified Data.HashMap.Strict as HM
-import qualified Data.Text.Buildable as Buildable
-import           Formatting          (bprint, build, int, (%))
+import           Control.Monad.Except            (MonadError (throwError))
+import qualified Data.HashMap.Strict             as HM
+import           Formatting                      (build, sformat, (%))
 
-import           Pos.Binary.Class    (AsBinary (..))
-import           Pos.Core.Address    (addressHash)
-import           Pos.Core.Types      (EpochIndex, StakeholderId)
-import           Pos.Crypto          (PublicKey, SecretKey, SignTag (SignVssCert),
-                                      Signature, VssPublicKey, checkSig, sign, toPublic)
-
-----------------------------------------------------------------------------
--- Vss certificates
-----------------------------------------------------------------------------
-
--- | VssCertificate allows VssPublicKey to participate in MPC. Each
--- stakeholder should create a Vss keypair, sign VSS public key with signing
--- key and send it into blockchain.
---
--- A public key of node is included in certificate in order to enable
--- validation of it using only node's P2PKH address. Expiry epoch is last
--- epoch when certificate is valid, expiry epoch is included in certificate
--- and signature.
---
--- Other nodes accept this certificate if it is valid and if node has enough
--- stake.
---
--- Invariant: 'checkSig vcSigningKey (vcVssKey, vcExpiryEpoch) vcSignature'.
-data VssCertificate = VssCertificate
-    { vcVssKey      :: !(AsBinary VssPublicKey)
-    , vcExpiryEpoch :: !EpochIndex
-    -- ^ Epoch up to which certificates is valid.
-    , vcSignature   :: !(Signature (AsBinary VssPublicKey, EpochIndex))
-    , vcSigningKey  :: !PublicKey
-    } deriving (Show, Eq, Generic)
-
-instance NFData VssCertificate
-
-instance Ord VssCertificate where
-    compare a b = toTuple a `compare` toTuple b
-      where
-        toTuple VssCertificate {..} =
-            (vcExpiryEpoch, vcVssKey, vcSigningKey, vcSignature)
-
-instance Buildable VssCertificate where
-    build VssCertificate {..} = bprint
-        ("vssCert:"%build%":"%int) vcSigningKey vcExpiryEpoch
-
-instance Hashable VssCertificate where
-    hashWithSalt s VssCertificate{..} =
-        hashWithSalt s (vcExpiryEpoch, vcVssKey, vcSigningKey, vcSignature)
-
--- | VssCertificatesMap contains all valid certificates collected
--- during some period of time.
-type VssCertificatesMap = HashMap StakeholderId VssCertificate
+import           Pos.Binary.Class                (AsBinary (..), Bi)
+import           Pos.Core.Address                (addressHash)
+import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
+import           Pos.Core.Types                  (EpochIndex, StakeholderId)
+import           Pos.Core.Vss.Types
+import           Pos.Crypto                      (PublicKey, SecretKey,
+                                                  SignTag (SignVssCert), Signature,
+                                                  VssPublicKey, checkSig, sign, toPublic)
 
 -- | Make VssCertificate valid up to given epoch using 'SecretKey' to sign
 -- data.
-mkVssCertificate :: SecretKey -> AsBinary VssPublicKey -> EpochIndex -> VssCertificate
+mkVssCertificate
+    :: (HasProtocolConstants, Bi EpochIndex)
+    => SecretKey
+    -> AsBinary VssPublicKey
+    -> EpochIndex
+    -> VssCertificate
 mkVssCertificate sk vk expiry =
     VssCertificate vk expiry signature (toPublic sk)
   where
@@ -80,7 +42,7 @@ mkVssCertificate sk vk expiry =
 -- | Recreate 'VssCertificate' from its contents. This function main
 -- 'fail' if data is invalid.
 recreateVssCertificate
-    :: MonadFail m
+    :: (HasProtocolConstants, Bi EpochIndex, MonadFail m)
     => AsBinary VssPublicKey
     -> EpochIndex
     -> Signature (AsBinary VssPublicKey, EpochIndex)
@@ -102,7 +64,7 @@ recreateVssCertificate vssKey epoch sig pk =
 -- | Check that the VSS certificate is signed properly
 -- #checkPubKeyAddress
 -- #checkSig
-checkCertSign :: VssCertificate -> Bool
+checkCertSign :: (HasProtocolConstants, Bi EpochIndex) => VssCertificate -> Bool
 checkCertSign VssCertificate {..} =
     checkSig SignVssCert vcSigningKey (vcVssKey, vcExpiryEpoch) vcSignature
 
@@ -114,3 +76,17 @@ mkVssCertificatesMap :: [VssCertificate] -> VssCertificatesMap
 mkVssCertificatesMap = HM.fromList . map toCertPair
   where
     toCertPair vc = (getCertId vc, vc)
+
+validateVssCertificatesMap ::
+       MonadError Text m
+    => VssCertificatesMap
+    -> m VssCertificatesMap
+-- | Safe constructor of 'VssCertificatesMap'
+validateVssCertificatesMap m = do
+    forM_ (HM.toList m) $ \(k, v) ->
+        when (getCertId v /= k) $
+            throwError $ sformat
+                ("wrong issuerPk set as key for delegation map: "%
+                 "issuer id = "%build%", cert id = "%build)
+                k (getCertId v)
+    pure m

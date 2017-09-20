@@ -1,25 +1,18 @@
-module Pos.Crypto.RedeemSigning
+module Pos.Crypto.Signing.Types.Redeem
        ( RedeemSecretKey (..)
        , RedeemPublicKey (..)
-       , redeemKeyGen
-       , redeemDeterministicKeyGen
-       , redeemToPublic
-       , redeemPkBuild
+       , RedeemSignature (..)
        , redeemPkB64F
        , redeemPkB64UrlF
        , redeemPkB64ShortF
        , fromAvvmPk
-       , RedeemSignature (..)
-       , redeemSign
-       , redeemCheckSig
+       , redeemPkBuild
+       , redeemToPublic
        ) where
 
 import           Universum
-
-import           Crypto.Random        (MonadRandom, getRandomBytes)
-import qualified Data.ByteString      as BS
-import           Data.Coerce          (coerce)
 import           Data.Hashable        (Hashable)
+import qualified Data.ByteString      as BS
 import qualified Data.Text            as T
 import qualified Data.Text.Buildable  as B
 import           Formatting           (Format, bprint, fitLeft, later, (%), (%.))
@@ -27,10 +20,6 @@ import           Serokell.Util.Base64 (formatBase64)
 import qualified Serokell.Util.Base64 as B64
 
 import qualified Crypto.Sign.Ed25519  as Ed25519
-import           Pos.Binary.Class     (Bi, Raw)
-import qualified Pos.Binary.Class     as Bi
-import           Pos.Crypto.SignTag   (SignTag, signTag)
-
 
 ----------------------------------------------------------------------------
 -- Underlying wrappers' instances
@@ -75,6 +64,21 @@ instance B.Buildable RedeemPublicKey where
 instance B.Buildable RedeemSecretKey where
     build = bprint ("redeem_sec_of_pk:"%redeemPkB64F) . redeemToPublic
 
+----------------------------------------------------------------------------
+-- Redeem signatures
+----------------------------------------------------------------------------
+
+-- | Wrapper around 'Ed25519.Signature'.
+newtype RedeemSignature a = RedeemSignature Ed25519.Signature
+    deriving (Eq, Ord, Show, Generic, NFData, Hashable, Typeable)
+
+instance B.Buildable (RedeemSignature a) where
+    build _ = "<redeem signature>"
+
+-- | Public key derivation function.
+redeemToPublic :: RedeemSecretKey -> RedeemPublicKey
+redeemToPublic (RedeemSecretKey k) = RedeemPublicKey (Ed25519.secretToPublicKey k)
+ 
 -- | Read the text into a redeeming public key. The key should be in
 -- AVVM format which is base64(url). This function must be inverse of
 -- redeemPkB64UrlF formatter.
@@ -92,31 +96,6 @@ fromAvvmPk addrText = do
         fail "Address' length is not equal to 32, can't be redeeming pk"
     pure $ redeemPkBuild addrParsed
 
-----------------------------------------------------------------------------
--- Conversion and keygens
-----------------------------------------------------------------------------
-
--- | Generate a key pair. It's recommended to run it with 'runSecureRandom'
--- from "Pos.Crypto.Random" because the OpenSSL generator is probably safer
--- than the default IO generator.
-redeemKeyGen :: MonadRandom m => m (RedeemPublicKey, RedeemSecretKey)
-redeemKeyGen =
-    getRandomBytes 32 >>=
-    maybe err pure . redeemDeterministicKeyGen
-  where
-    err = error "Pos.Crypto.RedeemSigning.redeemKeyGen: createKeypairFromSeed_ failed"
-
--- | Create key pair deterministically from 32 bytes.
-redeemDeterministicKeyGen
-    :: BS.ByteString
-    -> Maybe (RedeemPublicKey, RedeemSecretKey)
-redeemDeterministicKeyGen seed =
-    bimap RedeemPublicKey RedeemSecretKey <$> Ed25519.createKeypairFromSeed_ seed
-
--- | Public key derivation function
-redeemToPublic :: RedeemSecretKey -> RedeemPublicKey
-redeemToPublic (RedeemSecretKey k) = RedeemPublicKey (Ed25519.secretToPublicKey k)
-
 -- | Creates a public key from 32 byte bytestring, fails with 'error'
 -- otherwise.
 redeemPkBuild :: ByteString -> RedeemPublicKey
@@ -126,50 +105,3 @@ redeemPkBuild bs
         "consRedeemPk: failed to form pk, wrong bs length: " <> show (BS.length bs) <>
         ", when should be 32"
     | otherwise = RedeemPublicKey $ Ed25519.PublicKey $ bs
-
-----------------------------------------------------------------------------
--- Redeem signatures
-----------------------------------------------------------------------------
-
--- | Wrapper around 'Ed25519.Signature'.
-newtype RedeemSignature a = RedeemSignature Ed25519.Signature
-    deriving (Eq, Ord, Show, Generic, NFData, Hashable, Typeable)
-
-instance B.Buildable (RedeemSignature a) where
-    build _ = "<redeem signature>"
-
--- | Encode something with 'Binary' and sign it.
-redeemSign :: Bi a => SignTag -> RedeemSecretKey -> a -> RedeemSignature a
-redeemSign tag k = coerce . redeemSignRaw (Just tag) k . Bi.serialize'
-
--- | Alias for constructor.
-redeemSignRaw
-    :: Maybe SignTag
-    -> RedeemSecretKey
-    -> ByteString
-    -> RedeemSignature Raw
-redeemSignRaw mbTag (RedeemSecretKey k) x =
-    RedeemSignature (Ed25519.dsign k (tag <> x))
-  where
-    tag = maybe mempty signTag mbTag
-
--- CHECK: @redeemCheckSig
--- | Verify a signature.
-redeemCheckSig
-    :: Bi a
-    => SignTag -> RedeemPublicKey -> a -> RedeemSignature a -> Bool
-redeemCheckSig tag k x s =
-    redeemVerifyRaw (Just tag) k (Bi.serialize' x) (coerce s)
-
--- CHECK: @redeemVerifyRaw
--- | Verify raw 'ByteString'.
-redeemVerifyRaw
-    :: Maybe SignTag
-    -> RedeemPublicKey
-    -> ByteString
-    -> RedeemSignature Raw
-    -> Bool
-redeemVerifyRaw mbTag (RedeemPublicKey k) x (RedeemSignature s) =
-    Ed25519.dverify k (tag <> x) s
-  where
-    tag = maybe mempty signTag mbTag

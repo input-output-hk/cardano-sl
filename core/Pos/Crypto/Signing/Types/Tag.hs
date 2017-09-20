@@ -1,15 +1,11 @@
-module Pos.Crypto.SignTag
+module Pos.Crypto.Signing.Types.Tag
        ( SignTag(..)
-       , signTag
        ) where
 
 import           Universum
 
 import qualified Data.Text.Buildable
 import           Formatting             (bprint, shown)
-
-import qualified Pos.Binary.Class       as Bi
-import           Pos.Core.Constants.Raw (protocolMagic)
 
 -- | To protect agains replay attacks (i.e. when an attacker intercepts a
 -- signed piece of data and later sends it again), we add a tag to all data
@@ -39,21 +35,3 @@ data SignTag
 
 instance Buildable SignTag where
     build = bprint shown
-
--- | Get magic bytes corresponding to a 'SignTag'. Guaranteed to be different
--- (and begin with a different byte) for different tags.
-signTag :: SignTag -> ByteString
-signTag = \case
-    SignForTestingOnly -> "\x00"
-    SignTx             -> "\x01" <> network
-    SignRedeemTx       -> "\x02" <> network
-    SignVssCert        -> "\x03" <> network
-    SignUSProposal     -> "\x04" <> network
-    SignCommitment     -> "\x05" <> network
-    SignUSVote         -> "\x06" <> network
-    SignMainBlock      -> "\x07" <> network
-    SignMainBlockLight -> "\x08" <> network
-    SignMainBlockHeavy -> "\x09" <> network
-    SignProxySK        -> "\x0a" <> network
-  where
-    network = Bi.serialize' protocolMagic

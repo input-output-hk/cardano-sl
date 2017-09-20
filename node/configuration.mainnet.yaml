@@ -1,0 +1,265 @@
+##############################################################################
+##                                                                          ##
+##   Testnet configs                                                        ##
+##                                                                          ##
+##############################################################################
+
+mainnet_base: &mainnet_base
+  core: &mainnet_base_core
+    genesis: &mainnet_base_genesis
+      spec: &mainnet_base_spec
+        initializer:
+          testnetInitializer:
+            testBalance:
+              poors:        1200
+              richmen:      4
+              richmenShare: 0.94
+              totalBalance: 12887504355000000
+              useHDAddresses: False
+            fakeAvvmBalance: 
+              count: 100
+              oneBalance: 15000000
+            distribution: 
+              testnetRichmenStakeDistr: []
+            seed: 0
+        blockVersionData:
+          scriptVersion:     0
+          slotDuration:      20000
+          maxBlockSize:      2000000
+          maxHeaderSize:     2000000
+          maxTxSize:         4096 # 4 Kb
+          maxProposalSize:   700 # 700 bytes
+          mpcThd:            0.02 # 2% of stake
+          heavyDelThd:       0.0003 # 0.03% of stake
+          updateVoteThd:     0.001 # 0.1% of total stake
+          updateProposalThd: 0.1 # 10% of total stake
+          updateImplicit:    10000 # slots
+          softforkRule:
+            initThd:        0.9 # 90% of total stake
+            minThd:         0.6 # 60% of total stake
+            thdDecrement:   0.05 # 5% of total stake
+          txFeePolicy:
+            txSizeLinear:
+              a: 155381 # absolute minimal fees per transaction
+              b: 43.946 # additional minimal fees per byte of transaction size
+          unlockStakeEpoch: 18446744073709551615 # last epoch (maxBound @Word64)
+        protocolConstants:
+          k: 2160
+          protocolMagic: 60987900
+          vssMinTTL: 2
+          vssMaxTTL: 6
+        ftsSeed: "c2tvdm9yb2RhIEdndXJkYSBib3JvZGEgcHJvdm9kYSA="
+        heavyDelegation:
+          c6c7fb227037a1719b9d871ea49b6039325aeb293915da7db9620e3f:
+              pskOmega:      1
+              pskIssuerPk:   "AZzlT+pC5M4xG+GuRHJEXS+isikmVBorTqOyjRDGUQ+Lst9fn1zQn5OGKSXK29G2dn7R7JCugfcUebr0Dq7wPw=="
+              pskDelegatePk: "I07+5HIUW0Lkq0poMMzGziuILwxSyTJ4lMSsoQz4HZunD5Xsx3MfBZWc4l+206lUOFaU+spdJg7MkmFKBoVV0g=="
+              pskCert:       "0f2ff9d1f071793dbd90fce8d47e96a09b594ee6dd00a4bac9664e4bd6af89830035ec921698b774c779eb1b6a2772d3d6ae37e630c06c75fbfecd02a6410a02"
+        avvmDistr: {}
+
+    dbSerializeVersion: 0
+    memPoolLimitRatio: 2 # mem pool will be limited by this value
+                         # muliplied by block size limit
+    # Chain quality thresholds and other constants to detect suspicious things
+    nonCriticalCQBootstrap: 0.95
+    criticalCQBootstrap: 0.8888
+    nonCriticalCQ: 0.8
+    criticalCQ: 0.654321
+    criticalForkThreshold: 3 # number of blocks such that if so many blocks are
+                             # rolled back, it requires immediate response
+    fixedTimeCQ: 3600 # Chain quality will be also calculated for this amount
+                    # of seconds.
+    # Mode-sensitive logging options
+    webLoggingEnabled: true
+
+  infra:
+
+    # NTP
+    ntpResponseTimeout: 10000000           # 10 sec
+    ntpPollDelay: 60000000                 # 1 min
+    ntpMaxError: 120000000 # 2 mins
+
+    neighboursSendThreshold: 2
+    kademliaDumpInterval: 4
+    enhancedMessageTimeout: 360 # 6 mins
+    enhancedMessageBroadcast: 2
+    networkWaitLogInterval: 32 # 1s
+
+    maxReqSize: 102 # 102 bytes
+    maxInvSize: 102 # 102 bytes
+    maxMempoolMsgSize: 100 # 100 bytes
+
+  update:
+    applicationName: cardano-sl
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
+    systemTag: system
+
+  # GodTossing
+  gt:
+    mpcSendInterval: 100 # must be less than (2 * k * slotDuration - networkDiameter)
+    mdNoCommitmentsEpochThreshold: 3
+
+  node:
+    # FIXME avieth
+    # check which of these are not used and remove them.
+    networkDiameter: 18
+    defaultPeers: []
+    mdNoBlocksSlotThreshold: 18 # should be less than 2 * k
+    lightDlgConfirmationTimeout: 500
+    dlgCacheParam: 500
+    recoveryHeadersMessage: 2200 # should be greater than k
+    messageCacheTimeout: 30
+    networkConnectionTimeout: 2000
+    blockRetrievalQueueSize: 100
+    propagationQueueSize: 100
+    pendingTxResubmissionPeriod: 7 # seconds
+
+meta:
+  <<: *mainnet_base
+  core:
+    <<: *mainnet_base_core
+    genesis:
+      <<: *mainnet_base_genesis
+      spec: 
+        <<: *mainnet_base_spec
+        avvmDistr: &mainnet_avvmDistr
+          "0cAZzmtB2CUjlsMULb30YcBrocvK7VhQjUk--MyY2_Q=": 8333333000000
+          "2KUqLLAcBam6HT-cBsIbccrJ9RsPrjxNdEtNnK_doWg=": 4090909000000
+          "2g1y4AdNX20RNxY3NlrmM9q46fw-xALfIfu1ZxFGJnQ=": 4188555000000
+          "4FQyuUBGL-SN-iKog88vdLXwbAS-o8CS6VFWCxyP9ZA=": 4082823000000
+          "4_t2TrsmzNj_1u0M-Uh8w4ZEIx-0fQqwfhF9CF45sAc=": 355007000000
+          "4jaczUQ3yiYZJCoOlPwQGIEP1tRegtsde0sy-0ucRn8=": 384567000000
+          "4tw6-vDx_CN-zyjTX0UIrOw04V2-6OfPTniG2Kb-e5c=": 2185607000000
+          "5y9_F3I9d4QVIEbl714W5JvDlNsZkSP0v5zdNqE0N4k=": 411085000000
+          "6oPTzkaLessyL2UojRWGuBolkCRTXh0HaxFjoEtA_M0=": 458402000000
+          "7Hcjr9PP6E8bTnXm9Cxqm0xF12cIVrP-5rWRCg2TAM0=": 1542961000000
+          "7RYRDszwooGHt3mJOA7NYlC8cVfxLT6MFyAB1VYHY0U=": 502779000000
+          "7ZQr0WW6Fl1km1hj5qA6WUuAKFMo1fwDfgDiKaPj1ME=": 1252906000000
+          "7xgRrZD4d1zDQgTbDNujzSMxOuKa-EmV4brSPVzL4-A=": 602785000000
+          "8dc48d73Q5BBQ0ac8K9fTSEGebb9O7LZNcnhX9ThqYw=": 1233257000000
+          "8j6i5UZHcb3EcnlnTHtaoMmDdMt3FyEyLjS1KqNy66M=": 385510000000
+          "9gTyoEMpaO5-uXTcC26hEea8INaeawOvHr7sVDUq21c=": 381024000000
+          "CML31azQDGhg1-zG-pUCQzuzw7urhXTqMn8oyT4gV44=": 415629000000
+          "CoUnkM8F3qTh6yMdBmgGlCVEzEWGwNu4FxbrnPzRSO8=": 455860000000
+          "D9_BqUsLHoxCVv8-x_t0JCSp5bld1QJT8ULtDywukCY=": 839786000000
+          "DUaqzBKEGqN4gMNaoNmN0p2zn_TfahX2rfI5_uGepk0=": 2079182000000
+          "FWmJ0_1W-bj4VkEWXmt5rZ9Rcx0oKH5-5ZOZrxFtPdQ=": 473228000000
+          "FbjXXzvlbjAPQbmMe2Vpe-JMGA5vFP1H0ZbDOeVtFEk=": 542442000000
+          "H0aufDSDD5_1KbgB8jwEkt7TvAdty3LuG20V_IFPXYA=": 2365055000000
+          "HwvLBXZFFCUPqoslZAOxDe432bRDiUxu4AAaVoW_KBk=": 1126724000000
+          "Hy6D76MK15JGzIKpRCgC-JSxO-V3j3aY5kX5PGhnVyE=": 459512000000
+          "I-6IudnQPJOeMjlD3O9-Q3EU5D_UWkCo8o5pcNGlBHA=": 908730000000
+          "KTEkUlTC_u7JCfIYB4Hjt-tQkb0YpowA7tfEZtlCs48=": 384615000000
+          "LSxL3LjwnuSp6o-VmjccwjMeIa1UVgrrcgyPx5TdXug=": 4125716000000
+          "LWYl_wFwgT7_MdIOF-yet40Fa2oDGWyDJgasmPnaIT8=": 377468000000
+          "LcoE-FnAFHTuUFrTezU8g_twqRQ4LkPpTwhPYdOnyTA=": 5517798000000
+          "LnehWSU7azjKkCnHPu0oKuq_Kr1WaFDqAqe7j41sLhQ=": 383327000000
+          "MbNoWAfJz1kxPfxQKenxUc2UrvEU64SiS_iQPwkpblc=": 4166673000000
+          "NiVaK9EC3hEVdgtUU5Pwepps4xQfeekzc2dT3bQLHr0=": 417948000000
+          "NrfhKRH-CJn99vVsjMOSwF0pPRm9lvyE0WWerDdsKU0=": 1927483000000
+          "OjTxauCTmi8n23ZvlFu_xBO4C762v2-4HzdCh1lniT8=": 1153846000000
+          "Rb7DXtAbKHWgmim0tD-YFoF6FKMQo1N04KWd8_nFeZ8=": 384615000000
+          "SxstyLEeun2n1YZtUjpqzjV0RZ1BL2MDTo9upiTh_38=": 5206939000000
+          "TPSrjxo6_DDfpbSPivjzIO7JmUw0_QnRSJBXnGT_x5o=": 4678221000000
+          "TqYkqfYDjymw6xYZjGfUZdxMT4E_pKk4-TZNjPFlOyg=": 2606663000000
+          "V2HzKow0u9iygL8Xs7e_5vR1YuCm98t7c46U5uHX5kg=": 388356000000
+          "Vb9EK9J-8kOnjiXrdu56niFgdysOV87UhtWjEeimp0s=": 1153856000000
+          "WUVmGDUE7466I6kjstj1NK3CozLxWs9ozxDs0C78Vj4=": 800786000000
+          "W_rxpiElzvcUQvjaGeUlTcUveKHWz8_h6h4BGWKoAHI=": 466657000000
+          "YIcLPUPh_g5X4CDaMU_2XyIlwIDbuq4rKDJjLq9375Y=": 584874000000
+          "YTmm-vscsR_BoUICWMPTHgVjMxgO0vr2GfLHaM4qENk=": 473331000000
+          "YobJ3KDcRueyphVSgNG56PJ_tChMxwZLOdsSOehGmO8=": 384615000000
+          "YxElsSEyXk4JIbekebeJHuI1qEQfyvaPuovsLbuQiE8=": 385507000000
+          "ZdxSYu8o2sg3SGN5CWVoPu3GbXHVE0pWXdWuqqNKejo=": 426259000000
+          "ZisFK6CMMpcdvDGfJf7L_zEbEwv2AQGuDAvihXRKMN8=": 519045000000
+          "bB-pyVyPHBuBQQM0bQMjBw_S7kihB87NJe2Z2k-kuPU=": 689346000000
+          "bfBIoudbraZ4HVzIIIqQaa0RAp6Bx5cpHp1eRJyk_Uc=": 576688000000
+          "cKz_4p3JT77fHWfP7cwI0hzBHlh8KenTagQAy-FMc5U=": 391838000000
+          "cuz03qVirEEFKMeGEgYElpJWJDY_m3S7acGML9szudg=": 769230000000
+          "dMAl1ZvQ9x7lpU7E3R_PFfb9FHKg3yNq80iz82M2IBk=": 473771000000
+          "djzWPVvdMzesxKnkEgbMmcz_AGi3GqLA5gWM3-x4pkU=": 1249361000000
+          "e4Ed2RL9PnP8pav6lMAEMqDjqlh5H3tmNV4BkifQ86E=": 1382699000000
+          "eYnJhdgbZSFudt8hacC43PB791qGvIn36O5xHDHIFHo=": 385509000000
+          "el1OTg2Dacf5wd7g2F1NN0oqbQj7aOglGGQsBo21fDE=": 769764000000
+          "f84qTWaSjc6K2qi1NBDumYH5I34ZGF7hT2abxI9Lthk=": 391305000000
+          "gPdIsZ0D8DxdS2qM7tCycF94uGYDaSFL5sKaSMGY9wY=": 1233257000000
+          "ha0Wt3rzoGIh1gZ4_vAyHVIPii7HGY3VCA4X8KNR8Mw=": 550159000000
+          "ht33wNW5h8jUzSSzgz5QPv1dKYG4m1WZ1RGyk9dmNK4=": 378966000000
+          "iK8aHzl9mgtWEXEi393FOyqd8VsB_3Srj4pYhdzCfhQ=": 417321000000
+          "iZNtWQPUuo2Dx4HwezOscLntiZmmKIUjMr8HHjynOSg=": 2088168000000
+          "k7EFxAZRty8nVD7rscpP2z5hQUalA2XHp9LeogYnQQE=": 458901000000
+          "kDRCHCKvX79BAG82K271SMLTgI2vlEJgt_qvwiEWDH4=": 4654118000000
+          "l9AfCitT8Om-L-K_Fapz3YDFVwb4rZrU-MGIFXObJ7k=": 769230000000
+          "lvMXmGsZwLSxJtDv9SRYKYq3jiECUtN85dhLJiy8fpo=": 461997000000
+          "m2MIpUqWMTQJwK9F4LnaNstGh4BjMy2L2GDHpsuCAPA=": 3846153000000
+          "oGvvo0793rmOqMcJ8yolbnCT6lZpvhNuwPwvV5UwFIU=": 460976000000
+          "oeyEIHKNKHSIEtWFyfJUzh3Vu6ObhHiNC8lbUjhryO8=": 769230000000
+          "p3HIizxd6TgcVuthXERxpjPL_a_Fh058pulwgFYZJYg=": 386248000000
+          "pZte3cEQ98qdueGRGDLEjAhJ22kD_1QmKi02EFdsM2c=": 385614000000
+          "pgEEswff7AzBO6uQJFcWUm7FPxPDVRCdWHfoPrKYiPc=": 3700966000000
+          "pzpFgbhUwl-nIZyPb8NDAfeFVMSvYN3v92o1XGoh7u0=": 2344096000000
+          "r-xhv7T7Z2FLlk3tNFxJlPROXd4GYIAhkw6kCdmmuCM=": 6550435000000
+          "r6mogDtJ950dv8MqzxMoVQqBoDR11GBKXDtdPA3i4Rk=": 417632000000
+          "s1U-738Ktinbb6aAqiaLGuDASomJm4PsjCLNDzGMe4Y=": 416408000000
+          "sNzQ_LxmRMWEEXJCknRKdUOYgcljThjmI6oXWiHJSEw=": 384615000000
+          "ucOY5l7LuolidjvnCyj3zTp738sNHeYLNnCUSPlHQEw=": 384446000000
+          "uzqhfjutcyRNbXxAeHLFCvivChaZnU3PdV1osIfMGZs=": 384615000000
+          "v7C9SKh7MivNfbWn4zmcv-mcKQTDqg_B1VWlp0R8MN0=": 769230000000
+          "v86r37TE8jrPi3Mp1CwpfAZVqPSDWdXPqBMpGvANuyU=": 384313000000
+          "x72g7AK-9x8pdFJmDuD89oBmIpXObTOlZQ34sb1R_2I=": 3766933000000
+          "xxppattN3Jva0ovJ3GwEjHqV8U5QU8BwJvbm2cRM_-o=": 1997136000000
+          "yHPwxPwwvtqxS8t-U_i2rF3mbNL3yKc1UAhKTuADmbU=": 791457000000
+          "yTKNsrfHVZf3YbEmyBR6Pg6yIs85ksa57YUuui8rcuQ=": 501244000000
+          "yUAtXs7LHVfUEDexSnDxmVt-th19El9BQJXrClLqlkE=": 411085000000
+          "zE56EfVAvv0XekVyBDGh2Iz1QT6X38YxlcBYO20hqa0=": 1773135000000
+
+mainnet: &mainnet
+  <<: *mainnet_base
+  core:
+    <<: *mainnet_base_core
+    genesis:
+      src: sample-mainnet-genesis.json
+
+mainnet_generated: &mainnet_generated
+  <<: *mainnet_base
+  core:
+    <<: *mainnet_base_core
+    genesis:
+      <<: *mainnet_base_genesis
+      spec: 
+        <<: *mainnet_base_spec
+        avvmDistr: *mainnet_avvmDistr
+        initializer:
+          mainnetInitializer:
+            startTime: 1505621332 
+            bootStakeholders: 
+                0d916567f96b6a65d204966e6aab5fbd242e56c321833f8ba5d607da: 1
+                4bd1884f5ce2231be8623ecf5778a9112e26514205b39ff53529e735: 1
+                5f53e01e1366aeda8811c2a630f0e037077a7b651093d2bdc4ef7200: 1
+                ada3ab5c69b945c33c15ca110b444aa58906bf01fcfe55d8818d9c49: 1
+            vssCerts: 
+                0d916567f96b6a65d204966e6aab5fbd242e56c321833f8ba5d607da: 
+                   expiryEpoch: 1
+                   signature: "396fe505f4287f832fd26c1eba1843a49f3d23b64d664fb3c8a2f25c8de73ce6f2f4cf37ec7fa0fee7750d1d6c55e1b07e1018ce0c6443bacdb01fb8e15f1a0f"
+                   signingKey: "ohsV3RtEFD1jeOzKwNulmMRhBG2RLdFxPbcSGbkmJ+xd/2cOALSDahPlydFRjd15sH0PkPE/zTvP4iN8wJr/hA=="
+                   vssKey: "WCECtpe8B/5XPefEhgg7X5veUIYH/RRcvXbz6w7MIJBwWYU="
+                4bd1884f5ce2231be8623ecf5778a9112e26514205b39ff53529e735: 
+                   expiryEpoch: 2
+                   signature: "773dcdf727d05720a76e7f88ef1c8a629399a30a98943eac761f9706a0e45def608765362202ce571b9394167c310a445a84745695d73e89086254a4c5be610c"
+                   signingKey: "oUDzVUqwmXH4E3RlDrS4zhZ6kwv9rnNiwe8dI6lIg794+bWQBlULwvnwiIGgK4z0HT8+o+nru8F5xDy4ZL2/lA=="
+                   vssKey: "WCEChSQx6z4OxYrHNYbu5GGztX4FBBxGMfzmO6C+xNTrDVw="
+                5f53e01e1366aeda8811c2a630f0e037077a7b651093d2bdc4ef7200: 
+                   expiryEpoch: 1
+                   signature: "61a1aae1f62e39bab95466d63b1e6c45c1416fd12ec3ee0d1964496531c9cc30a6987ea962ad0e24cc147f930d2dc500f7c86d3fb292121bc776ac6205f11506"
+                   signingKey: "oyGcGsd/FX3Zl98PPt/jE/mo+6Mz/HxaVcHxhrtxh6MrBkBi2U4h0pwaPDhWUo+IgcGzl4xLOqkoB4suojuNUA=="
+                   vssKey: "WCECjvlu5JR4+jdL44S/UIxpY1rcWaF75VeoGhhs8QQueiQ="
+                ada3ab5c69b945c33c15ca110b444aa58906bf01fcfe55d8818d9c49: 
+                   expiryEpoch: 4
+                   signature: "c63013a9963579b0dd1cdd81a8807363fa88cea06164f83471d2cd8a74139bae1ea4e562d3f987c0aa4d162ac4c7fe6569380ab6eee2758dda0e3097cf83670d"
+                   signingKey: "E8++WAjZOKIyoh4YEHNaV7cm3Ecut7G9N0AT36u+AoSMEvf/byG8fc/Ab4xSnjvdn5Ww8A+yPOyoZ3Jfb2yf+g=="
+                   vssKey: "WCEDIRsfuDpNYMle1T396UpVmS/hEJgxVSQbCOynlK0zFEo="
+            nonAvvmBalances: {}

@@ -57,6 +57,7 @@ import           Pos.Communication.Types.Relay      (DataMsg (..), InvMsg (..), 
                                                      MempoolMsg (..), ReqMsg (..),
                                                      ReqOrRes, ResMsg (..))
 import           Pos.DB.Class                       (MonadGState)
+import           Pos.Infra.Configuration            (HasInfraConfiguration)
 import           Pos.Network.Types                  (Bucket)
 import           Pos.Util.TimeWarp                  (CanJsonLog (..))
 
@@ -65,6 +66,7 @@ type MinRelayWorkMode m =
     , CanJsonLog m
     , MonadMockable m
     , MonadIO m
+    , HasInfraConfiguration
     )
 
 type RelayWorkMode ctx m =

@@ -1,27 +1,18 @@
-module Pos.Infra.Constants
-       ( InfraConstants (..)
-       , infraConstants
-       , neighborsSendThreshold
+{-# LANGUAGE Rank2Types #-}
+module Pos.Infra.Configuration
+       ( InfraConfiguration (..)
+       , HasInfraConfiguration
+       , infraConfiguration
+       , withInfraConfiguration
        ) where
 
-import           Data.Aeson             (FromJSON (..), genericParseJSON)
-import           Data.Tagged            (Tagged (..))
-import           Serokell.Aeson.Options (defaultOptions)
 import           Universum
+import           Data.Aeson             (FromJSON (..), genericParseJSON)
+import           Data.Reflection        (Given, given, give)
+import           Serokell.Aeson.Options (defaultOptions)
 
-import           Pos.Util.Config        (IsConfig (..), configParser, parseFromCslConfig)
-import           Pos.Util.Util          ()
 
-----------------------------------------------------------------------------
--- Parsing
-----------------------------------------------------------------------------
-
-infraConstants :: InfraConstants
-infraConstants = case parseFromCslConfig configParser of
-    Left err -> error (toText ("Couldn't parse infra config: " ++ err))
-    Right x  -> x
-
-data InfraConstants = InfraConstants
+data InfraConfiguration = InfraConfiguration
     { ccNtpResponseTimeout       :: !Int
       -- ^ How often request to NTP server and response collection
     , ccNtpPollDelay             :: !Int
@@ -52,17 +43,13 @@ data InfraConstants = InfraConstants
       -- ^ Maximum `MempoolMsg` size in bytes
     } deriving (Show, Generic)
 
-instance FromJSON InfraConstants where
+instance FromJSON InfraConfiguration where
     parseJSON = genericParseJSON defaultOptions
 
-instance IsConfig InfraConstants where
-    configPrefix = Tagged Nothing
+type HasInfraConfiguration = Given InfraConfiguration
 
-----------------------------------------------------------------------------
--- Constants
-----------------------------------------------------------------------------
+withInfraConfiguration :: InfraConfiguration -> (HasInfraConfiguration => r) -> r
+withInfraConfiguration = give
 
--- | See 'Pos.CompileConfig.ccNeighboursSendThreshold'.
-neighborsSendThreshold :: Integral a => a
-neighborsSendThreshold =
-    fromIntegral . ccNeighboursSendThreshold $ infraConstants
+infraConfiguration :: HasInfraConfiguration => InfraConfiguration
+infraConfiguration = given

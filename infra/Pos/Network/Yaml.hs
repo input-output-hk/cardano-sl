@@ -35,7 +35,6 @@ import qualified Network.Broadcast.OutboundQueue       as OQ
 import           Network.Broadcast.OutboundQueue.Types
 import qualified Network.DNS                           as DNS
 import           Pos.Network.Types                     (Fallbacks, NodeName (..), Valency)
-import           Pos.Util.Config
 import           Universum
 
 import           Pos.Network.DnsDomains                (DnsDomains (..), NodeAddr (..))
@@ -293,9 +292,6 @@ instance FromJSON Topology where
 maybeBucketSize :: Maybe Int -> OQ.MaxBucketSize
 maybeBucketSize Nothing  = OQ.BucketSizeUnlimited
 maybeBucketSize (Just n) = OQ.BucketSizeMax n
-
-instance IsConfig Topology where
-  configPrefix = return Nothing
 
 {-------------------------------------------------------------------------------
   Policies described in JSON/YAML.

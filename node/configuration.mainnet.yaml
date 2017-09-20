@@ -14595,7 +14595,9 @@ mainnet: &mainnet
   core:
     <<: *mainnet_base_core
     genesis:
-      src: sample-mainnet-genesis.json
+      src:
+        file: sample-mainnet-genesis.json
+        hash: bcfbfcad6cf78f2363568e76af9d6e927f71c3683aafe5e289796579792dccdb # TODO: set proper hash
 
 
 

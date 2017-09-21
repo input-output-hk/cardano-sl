@@ -23,8 +23,8 @@ import           Universum
 import qualified Data.ByteString                   as BS (pack)
 import qualified Data.HashMap.Strict               as HM
 import qualified Data.Map                          as M
-import           Data.Time.Units                   (Microsecond, Millisecond,
-                                                    TimeUnit (..))
+import           Data.Time.Units                   (Microsecond, Millisecond, Second,
+                                                    TimeUnit (..), convertUnit)
 import           System.Random                     (Random)
 import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, oneof,
                                                     scale, shrinkIntegral, sized,
@@ -45,7 +45,7 @@ import           Pos.Core.Constants                (sharedSeedLength)
 import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
 import qualified Pos.Core.Slotting                 as Types
-import           Pos.Core.Types                    (BlockVersionData (..))
+import           Pos.Core.Types                    (BlockVersionData (..), Timestamp (..))
 import qualified Pos.Core.Types                    as Types
 import           Pos.Core.Vss                      (VssCertificate, mkVssCertificate,
                                                     mkVssCertificatesMap)
@@ -540,10 +540,12 @@ instance Arbitrary G.ProtocolConstants where
 
 instance HasProtocolConstants => Arbitrary G.GenesisData where
     arbitrary = G.GenesisData
-        <$> arbitrary <*> arbitrary <*> arbitrary
+        <$> arbitrary <*> arbitrary <*> arbitraryStartTime
         <*> arbitraryVssCerts <*> arbitrary <*> arbitraryBVD
         <*> arbitrary <*> arbitrary <*> arbitrary
       where
+        -- System start time should be multiple of a second.
+        arbitraryStartTime = Timestamp . convertUnit @Second <$> arbitrary
         -- Unknown tx fee policy in genesis is not ok.
         arbitraryBVD = arbitrary `suchThat` hasKnownFeePolicy
         hasKnownFeePolicy BlockVersionData {bvdTxFeePolicy = Fee.TxFeePolicyTxSizeLinear {}} =
@@ -561,6 +563,10 @@ instance Arbitrary Millisecond where
 
 instance Arbitrary Microsecond where
     arbitrary = fromMicroseconds <$> choose (0, 600 * 1000 * 1000)
+    shrink = shrinkIntegral
+
+instance Arbitrary Second where
+    arbitrary = convertUnit @Microsecond <$> arbitrary
     shrink = shrinkIntegral
 
 deriving instance Arbitrary Types.Timestamp

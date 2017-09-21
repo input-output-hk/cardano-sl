@@ -12,8 +12,8 @@ import           Universum
 
 import           Pos.Types                        (Address)
 
-import           Pos.Core                          (makePubKeyAddressBoot, unsafeIntegerToCoin)
-import           Pos.Crypto                        (SecretKey, toPublic)
+import           Pos.Core                         (makePubKeyAddressBoot, unsafeIntegerToCoin)
+import           Pos.Crypto                       (SecretKey, toPublic)
 import           Pos.Txp                          (TxOut(..))
 
 -- | Factory to create `TxOut`

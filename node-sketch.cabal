@@ -85,6 +85,7 @@ Library
                       , network-transport
                       , network-transport-tcp
                       , mtl >= 2.2.1
+                      , QuickCheck
                       , random
                       , resourcet
                       , transformers-lift

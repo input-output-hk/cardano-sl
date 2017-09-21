@@ -32,6 +32,7 @@ import Data.Set (Set)
 import qualified Data.Set as Set
 import Data.Maybe (mapMaybe)
 import Control.Lens
+import Test.QuickCheck as QC
 import Formatting
 
 -- | Node types
@@ -62,8 +63,10 @@ data NodeType =
     -- * never create currency transactions
     -- * can communicate with core nodes
   | NodeRelay
-  deriving (Show, Eq, Ord)
+  deriving (Show, Eq, Ord, Bounded, Enum)
 
+instance Arbitrary NodeType where
+    arbitrary = QC.elements [minBound .. maxBound]
 
 {-------------------------------------------------------------------------------
   Known peers
@@ -87,6 +90,9 @@ data Peers nid = Peers {
     }
     deriving (Show, Eq)
 
+instance (Ord nid, Arbitrary nid) => Arbitrary (Peers nid) where
+    arbitrary = Peers <$> arbitrary <*> arbitrary
+
 classifyNode :: Ord nid => Peers nid -> nid -> Maybe NodeType
 classifyNode Peers {..} nid = Map.lookup nid peersClassification
 
@@ -100,6 +106,11 @@ data Routes nid = Routes {
     , _routesEdge  :: AllOf (Alts nid)
     }
   deriving (Show, Eq)
+
+instance Arbitrary nid => Arbitrary (Routes nid) where
+    arbitrary = Routes <$> arbitrary
+                       <*> arbitrary
+                       <*> arbitrary
 
 -- | List of forwarding sets
 --
@@ -219,8 +230,10 @@ removePeer toRemove peers =
             , peersClassification = classification'
             }
   where
+    -- Removes the peer `toRemove` from the list of alternatives, skipping
+    -- any empty list encountered, which is discarded as meaningless information.
     remove :: AllOf (Alts nid) -> AllOf (Alts nid)
-    remove = map $ filter (/= toRemove)
+    remove = filter (not . null) . map (filter (/= toRemove))
 
 {-------------------------------------------------------------------------------
   Classification of messages and destinations

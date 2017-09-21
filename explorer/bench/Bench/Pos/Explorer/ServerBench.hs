@@ -1,5 +1,6 @@
-module Bench.Pos.Explorer.ServerCriterionBench
-    ( runBenchmark
+module Bench.Pos.Explorer.ServerBench
+    ( runTimeBenchmark
+    , runSpaceBenchmark
     ) where
 
 import           Universum
@@ -7,23 +8,25 @@ import           Universum
 import           Criterion.Main               (Benchmark, bench, defaultConfig,
                                                defaultMainWith, env, whnf)
 import           Criterion.Types              (Config (..))
-import           Test.QuickCheck              (Arbitrary, generate, arbitrary)
+import           Weigh                        (Weigh, io, mainWith)
+
+import           Test.QuickCheck              (Arbitrary, arbitrary, generate)
 
 import           Control.Lens                 (makeLenses)
 import           Data.Default                 (def)
 import           Pos.Arbitrary.Txp.Unsafe     ()
 import           Pos.Ssc.GodTossing           (SscGodTossing)
 
--- Required types, maybe we can re-export them?
-import           Pos.Core                     (HasCoreConstants, giveStaticConsts)
 import           Pos.Block.Core               (Block)
-import           Pos.Types                    (HeaderHash, SlotLeaders, Timestamp)
 import           Pos.Block.Types              (Blund)
+import           Pos.Core                     (HasCoreConstants, giveStaticConsts)
+import           Pos.Types                    (HeaderHash, SlotLeaders, Timestamp)
 
 import           Pos.Explorer.TestUtil        ()
-import           Test.Pos.Block.Logic.Mode    (TestParams, BlockTestMode, runBlockTestMode)
-import           Pos.Explorer.Web.ClientTypes (ExplorerMockMode (..), CBlockEntry)
+import           Pos.Explorer.Web.ClientTypes (CBlockEntry, ExplorerMockMode (..))
 import           Pos.Explorer.Web.Server      (getBlocksPageEMode)
+import           Test.Pos.Block.Logic.Mode    (BlockTestMode, TestParams,
+                                               runBlockTestMode)
 
 
 
@@ -32,10 +35,10 @@ import           Pos.Explorer.Web.Server      (getBlocksPageEMode)
 data GeneratedTestArguments = GeneratedTestArguments
     { _gtaPageNumber              :: Maybe Word
     , _gtaTipBlock                :: Block SscGodTossing
-    , _gtaBlockHeaderHashes       :: Maybe [HeaderHash]
-    , _gtaBlundsFromHeaderHashes  :: Maybe (Blund SscGodTossing)
-    , _gtaSlotStart               :: Maybe Timestamp
-    , _gtaSlotLeaders             :: Maybe SlotLeaders
+    , _gtaBlockHeaderHashes       :: {-Maybe -}[HeaderHash]
+    , _gtaBlundsFromHeaderHashes  :: {-Maybe -}(Blund SscGodTossing)
+    , _gtaSlotStart               :: {-Maybe -}Timestamp
+    , _gtaSlotLeaders             :: {-Maybe -}SlotLeaders
     } deriving (Generic)
 
 makeLenses ''GeneratedTestArguments
@@ -45,18 +48,13 @@ instance NFData GeneratedTestArguments
 -- TODO(ks): For now it's all arbitrary/random, I intend to remove this and make these
 -- tests deterministic with several different options. For example how does it perform
 -- when we have 100 leaders, 1000 leaders, and so on...
+-- We are also missing some other options, since this is testing pure values without
+-- their context - for example, we don't deserialize the database values which is
+-- something that has a high cost. We do have the flexibility to add that though.
 instance Arbitrary GeneratedTestArguments where
     arbitrary = do
-        --pageNumber  <- choose (0, 100) -- Let's simplify and say we have "just" 100 pages.
         pageNumber  <- arbitrary
-
-        -- header      <- arbitrary
-        -- sk          <- arbitrary
-        -- slotId      <- arbitrary
-
-        --tipBlock    <- basicBlockGenericUnsafe header sk slotId
         tipBlock    <- giveStaticConsts arbitrary
-
         blockHHs    <- arbitrary
         blundsFHHs  <- giveStaticConsts arbitrary
         slotStart   <- arbitrary
@@ -71,12 +69,13 @@ instance Arbitrary GeneratedTestArguments where
             , _gtaSlotLeaders             = slotLeaders
             }
 
+-- | The actual benched function.
 getBlocksPageMock
     :: (HasCoreConstants)
     => GeneratedTestArguments
     -> IO (Integer, [CBlockEntry])
 getBlocksPageMock genTestArgs = do
-    testParams <- testParamsGen
+    testParams <- testParamsGen -- TODO(ks): Temporary test params, will be removed.
     runBlockTestMode testParams $ getBlocksPageEMode mode pageNumber 10
   where
     -- TODO(ks): Temporary test params, will be removed.
@@ -94,22 +93,42 @@ getBlocksPageMock genTestArgs = do
     mode :: ExplorerMockMode BlockTestMode SscGodTossing
     mode = defaultInstance {
         emmGetTipBlock            = pure $ genTestArgs ^. gtaTipBlock,
-        emmGetPageBlocks          = \_ -> pure $ genTestArgs ^. gtaBlockHeaderHashes,
-        emmGetBlundFromHH         = \_ -> pure $ genTestArgs ^. gtaBlundsFromHeaderHashes,
-        emmGetSlotStart           = \_ -> pure $ genTestArgs ^. gtaSlotStart,
-        emmGetLeadersFromEpoch    = \_ -> pure $ genTestArgs ^. gtaSlotLeaders
+        emmGetPageBlocks          = \_ -> pure $ Just $ genTestArgs ^. gtaBlockHeaderHashes,
+        emmGetBlundFromHH         = \_ -> pure $ Just $ genTestArgs ^. gtaBlundsFromHeaderHashes,
+        emmGetSlotStart           = \_ -> pure $ Just $ genTestArgs ^. gtaSlotStart,
+        emmGetLeadersFromEpoch    = \_ -> pure $ Just $ genTestArgs ^. gtaSlotLeaders
     }
 
-getBlocksPageBench :: HasCoreConstants => Benchmark
-getBlocksPageBench = env genArgs $ bench "Get blocks page" . whnf getBlocksPageMock
+-- | Time @getBlocksPage@.
+runTimeBenchmark :: IO ()
+runTimeBenchmark = defaultMainWith getBlocksPageConfig [getBlocksPageBench]
   where
-    genArgs :: IO GeneratedTestArguments
-    genArgs = generate $ arbitrary
+    -- | Configuration.
+    getBlocksPageConfig :: Config
+    getBlocksPageConfig = defaultConfig
+        { reportFile = Just "bench/results/Server.html"
+        }
 
-getBlocksPageConfig :: Config
-getBlocksPageConfig = defaultConfig
-    { reportFile = Just "getBlocksPage.html"
-    }
+    -- | Benchmark.
+    getBlocksPageBench :: Benchmark
+    getBlocksPageBench = env genArgs $ bench "Get blocks page" . whnf getBlocksPageMockBench
+      where
+        getBlocksPageMockBench :: GeneratedTestArguments -> IO (Integer, [CBlockEntry])
+        getBlocksPageMockBench = giveStaticConsts getBlocksPageMock
 
-runBenchmark :: HasCoreConstants => IO ()
-runBenchmark = defaultMainWith getBlocksPageConfig [getBlocksPageBench]
+        genArgs :: IO GeneratedTestArguments
+        genArgs = generate $ arbitrary
+
+
+-- | Space @getBlocksPage@.
+runSpaceBenchmark :: IO ()
+runSpaceBenchmark = mainWith =<< getPageBlocksMemory
+  where
+    -- | Just counting integers.
+    getPageBlocksMemory :: IO (Weigh ())
+    getPageBlocksMemory =
+        io "getPageBlocksMemory" (giveStaticConsts getBlocksPageMock) <$> genArgs
+      where
+        genArgs :: IO GeneratedTestArguments
+        genArgs = generate $ arbitrary
+

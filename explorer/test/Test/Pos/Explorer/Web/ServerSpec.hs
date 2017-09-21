@@ -34,9 +34,8 @@ import           Pos.Core                          (HasCoreConstants, SlotId (..
 import           Pos.Crypto                        (SecretKey)
 import           Pos.DB.Block                      (MonadBlockDB)
 import           Pos.Delegation                    (DlgPayload, DlgUndo, ProxySKBlockInfo)
-import           Pos.Explorer.Web.ClientTypes      (CBlockEntry)
-import           Pos.Explorer.Web.Server           (ExplorerMockMode (..),
-                                                    getBlocksLastPageEMode,
+import           Pos.Explorer.Web.ClientTypes      (CBlockEntry, ExplorerMockMode (..))
+import           Pos.Explorer.Web.Server           (getBlocksLastPageEMode,
                                                     getBlocksPageEMode,
                                                     getBlocksPagesTotalEMode,
                                                     getBlocksTotal, getBlocksTotalEMode,

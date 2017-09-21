@@ -397,8 +397,7 @@ test-suite cardano-explorer-test
 benchmark cardano-explorer-bench
   hs-source-dirs:      bench
   main-is:             Main.hs
-  other-modules:       Bench.Pos.Explorer.ServerWeighBench
-                       Bench.Pos.Explorer.ServerCriterionBench
+  other-modules:       Bench.Pos.Explorer.ServerBench
   type:                exitcode-stdio-1.0
   build-depends:       QuickCheck
                      , base

@@ -8,7 +8,7 @@ import           Universum
 
 import           Data.Fixed                 (Fixed (..))
 import qualified Data.HashMap.Strict        as HM
-import           Data.Time.Units            (Millisecond)
+import           Data.Time.Units            (Millisecond, Second, convertUnit)
 import           Data.Typeable              (typeRep)
 import           Formatting                 (formatToString)
 import           Serokell.Data.Memory.Units (Byte)
@@ -137,10 +137,11 @@ instance Monad m => ToJSON m Coin where
 instance Monad m => ToJSON m CoinPortion where
     toJSON = toJSON @_ @Word64 . getCoinPortion  -- i. e. String
 
--- JSNum is ok here, current timestamp is almost 6x less than maximal
--- bound, so overflow will happen after we die.
+-- In genesis we don't need microseconds precision, we represent
+-- timestamps as seconds for convenience.
 instance Monad m => ToJSON m Timestamp where
-    toJSON = pure . JSNum . fromIntegral
+    toJSON (Timestamp microsec) =
+        pure $ JSNum $ fromIntegral @Second (convertUnit microsec)
 
 instance Monad m => ToObjectKey m Address where
     toObjectKey = pure . formatToString addressF
@@ -369,7 +370,9 @@ instance ReportSchemaErrors m => FromJSON m CoinPortion where
         wrapConstructor @String $ mkCoinPortion number
 
 instance ReportSchemaErrors m => FromJSON m Timestamp where
-    fromJSON = fmap fromIntegral . fromJSON @_ @Int54
+    fromJSON =
+        fmap (Timestamp . convertUnit @Second . fromIntegral) .
+        fromJSON @_ @Int54
 
 instance ReportSchemaErrors m => FromObjectKey m Address where
     fromObjectKey = fmap Just . tryParseString decodeTextAddress . JSString

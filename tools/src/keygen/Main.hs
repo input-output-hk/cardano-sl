@@ -141,12 +141,12 @@ genVssCert path = do
                  primKey
                  (asBinary (toVssPublicKey vssKey))
                  (vssMaxTTL - 1)
-    putText $ sformat ("Key in JSON: "%hashHexF)
+    putText $ sformat ("JSON: key "%hashHexF%", value "%stext)
               (addressHash $ vcSigningKey cert)
-    putText . mappend "Value in JSON: " . decodeUtf8 $
-      CanonicalJSON.renderCanonicalJSON $
-      runIdentity $
-      CanonicalJSON.toJSON cert
+              (decodeUtf8 $
+                    CanonicalJSON.renderCanonicalJSON $
+                    runIdentity $
+                    CanonicalJSON.toJSON cert)
 
 ----------------------------------------------------------------------------
 -- Main

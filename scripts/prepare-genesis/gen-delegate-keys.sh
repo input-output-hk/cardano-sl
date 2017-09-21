@@ -33,7 +33,12 @@ if [[ ! -d "$DELEGATE_PUBLIC" ]]; then
   exit 1
 fi
 
+vss_out="$DELEGATE_PUBLIC/vss.json"
+
+echo '{' > "$vss_out"
+
 pushd "$REPO_PATH"
+skn=0
 time for i in $ALL_NODES; do
     key_path="${DELEGATE_SECRET}/node${i}.key"
     stack exec --nix -- cardano-keygen $CONF_PARAMS generate-key --path "$key_path"
@@ -45,5 +50,22 @@ time for i in $ALL_NODES; do
     stack exec --nix -- cardano-keygen $CONF_PARAMS read-key --path "$key_path"
     stack exec --nix -- cardano-keygen $CONF_PARAMS read-key --path "$key_path" \
         | grep -oE 'Primary: \S+;' | sed 's/Primary: //g' | sed "s/;//" >> "$DELEGATE_PUBLIC/pubs.txt"
+
+    echo "Generating vss:"
+
+    if [[ $skn -gt 0 ]];then
+        echo ',' >> "$vss_out"
+    fi
+    dump_line=$(stack exec --nix -- cardano-keygen $CONF_PARAMS generate-vss --path "$key_path" | grep -E 'JSON: key \S+, value')
+    key=$(echo "$dump_line" | sed -r 's/^.*key (\S+),.*$/\1/')
+    value=$(echo "$dump_line" | sed -r 's/^.*value (.*)$/\1/')
+    if [[ "$key" == "" ]] || [[ "$value" == "" ]]; then 
+      echo "Failed to dump vss for node $i: key=\"$key\" value=\"$value\""
+      exit 1
+    fi
+    echo -n "\"$key\":$value" >> "$vss_out"
+    skn=$((skn+1))
 done
+echo ''  >> "$vss_out"
+echo '}' >> "$vss_out"
 popd

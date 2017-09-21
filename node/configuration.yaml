@@ -6,19 +6,19 @@
 
 dev: &dev
 
-  core:
+  core: &dev_core
 
-    genesis:
+    genesis: &dev_core_genesis
       # To use a canonical JSON genesis, use the 'src' key instead of 'spec'.
       # src: './genesis.json'
-      spec:
+      spec: &dev_core_genesis_spec
         initializer:
           testnetInitializer:
             testBalance:
               poors:        12
               richmen:      4
               richmenShare: 0.99
-              useHDAddresses: False
+              useHDAddresses: True
               totalBalance: 600000000000000000
             fakeAvvmBalance: 
               count: 10
@@ -138,6 +138,7 @@ bench: &bench
               poors:        50000
               richmen:      4
               richmenShare: 0.99
+              useHDAddresses: False
               totalBalance: 6000000000
             fakeAvvmBalance: 
               count: 100

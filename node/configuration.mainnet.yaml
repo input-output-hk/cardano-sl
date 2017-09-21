@@ -10,8 +10,9 @@ mainnet_base: &mainnet_base
       spec: &mainnet_base_spec
         initializer:
           mainnetInitializer:
-            startTime: 1500000000
-            bootStakeholders: {}
+            startTime: 1505930400000000 # 18:00 UTC on 2017-09-20
+            bootStakeholders:
+              204779e68379f19ad88c3599c22015988febb4c0258f100a61346ce1: 1
             vssCerts: {}
             nonAvvmBalances: {}
         blockVersionData:
@@ -14526,12 +14527,12 @@ mainnet_base_avvmDistr:
           URVk8FxX6Ik9z-Cub09oOxMkp6FwNq27kJUXbjJnfsQ=: 2463071701000000
           ocEVzr7ctJ3NyCWj_356QsTyINKoJlwCCAgKFGPjvqg=: 2074165643000000
           5Y1_PK90x1jCNzzQwthIt0RGT7E3PAPwDI-tbHN39l8=: 648176763000000
-          PUrblzULxnlamRP03mPSZfl9YErEa_M0S7WgwgMtldU=: 1000000
-          qVQPYsxcaMRF0Pf2PGSqykP1ue4vLZtotB18vH5nGI8=: 1000000
-          7ts6x9xCkWNQxMSkTcp-MWYI0-Dyjr68QO-b6i5jS1o=: 1000000
-          GHY0VXxce395TD59OcZ7o0CdtSorGenH8RLzWHMpW1g=: 1000000
-          9yAAn54FkfO0xqkaKNr1YrTdYGqt75h-kEyf0tREKWU=: 1000000
-          rSQZKCMrGNQN7rg6X66KMI_EvnjJhVMHXRyXlvjNftA=: 1000000
+          PUrblzULxnlamRP03mPSZfl9YErEa_M0S7WgwgMtldU=: 1
+          qVQPYsxcaMRF0Pf2PGSqykP1ue4vLZtotB18vH5nGI8=: 1
+          7ts6x9xCkWNQxMSkTcp-MWYI0-Dyjr68QO-b6i5jS1o=: 1
+          GHY0VXxce395TD59OcZ7o0CdtSorGenH8RLzWHMpW1g=: 1
+          9yAAn54FkfO0xqkaKNr1YrTdYGqt75h-kEyf0tREKWU=: 1
+          rSQZKCMrGNQN7rg6X66KMI_EvnjJhVMHXRyXlvjNftA=: 1
 
 
 
@@ -14554,7 +14555,7 @@ mainnet_example_generated: &mainnet_example_generated
             uW5VMAr01En3VT0_CUP2JT7DmSvvy4tyXhBd7Bf7mvU=: 383030
         initializer:
           mainnetInitializer:
-            startTime: 1505621332 
+            startTime: 1505621332000000
             bootStakeholders: 
                 0d916567f96b6a65d204966e6aab5fbd242e56c321833f8ba5d607da: 1
                 4bd1884f5ce2231be8623ecf5778a9112e26514205b39ff53529e735: 1
@@ -14590,7 +14591,7 @@ mainnet_example_generated: &mainnet_example_generated
 ##                                                                          ##
 ##############################################################################
 
-mainnet: &mainnet
+mainnet_full: &mainnet_full
   <<: *mainnet_base
   core:
     <<: *mainnet_base_core
@@ -14599,155 +14600,51 @@ mainnet: &mainnet
         file: sample-mainnet-genesis.json
         hash: bcfbfcad6cf78f2363568e76af9d6e927f71c3683aafe5e289796579792dccdb # TODO: set proper hash
 
+mainnet_wallet_win64: &mainnet_wallet_win64
+  <<: *mainnet_full
+  update: 
+    <<: *mainnet_base_update
+    applicationName: csl-daedalus
+    systemTag: win64
 
+mainnet_wallet_macos64: &mainnet_wallet_macos64
+  <<: *mainnet_full
+  update: 
+    <<: *mainnet_base_update
+    applicationName: csl-daedalus
+    systemTag: macos64
 
 ##############################################################################
 ##                                                                          ##
-##   Testnet configs (full)                                                 ##
+##   Configs for mainnet launch tooling                                     ##
 ##                                                                          ##
 ##############################################################################
 
-
-##############################################################################
-##                                                                          ##
-##   Generated mainnet sample                                               ##
-##                                                                          ##
-##############################################################################
-
-mainnet_example_generated: &mainnet_example_generated
+mainnet_dryrun_base: 
   <<: *mainnet_base
-  core:
+  core: 
     <<: *mainnet_base_core
     genesis:
       <<: *mainnet_base_genesis
       spec: 
         <<: *mainnet_base_spec
-        avvmDistr: 
-            acf611Gtde5MqKQU-65vYE9hCX9_II5NS5kgWAbtOS8=: 769230
-            uW5VMAr01En3VT0_CUP2JT7DmSvvy4tyXhBd7Bf7mvU=: 383030
-            eDTF/0q0bpCV7QhX54AcfFwpvdKSH1PnJBip3jFtFoo=: 2463071701
-            tf8Ia7G2Ycz09JBhFfOpNq0eRXyUTRLYF2wi3R5BKOU=: 2074165643
-            OkBHoa1uO1xs1+5SkJSpZrwkq0c4s4N+fah90jgNUuk=: 648176763
-        initializer:
-          mainnetInitializer:
-            startTime: 1505621332 
-            bootStakeholders: 
-                0d916567f96b6a65d204966e6aab5fbd242e56c321833f8ba5d607da: 1
-                4bd1884f5ce2231be8623ecf5778a9112e26514205b39ff53529e735: 1
-                5f53e01e1366aeda8811c2a630f0e037077a7b651093d2bdc4ef7200: 1
-                ada3ab5c69b945c33c15ca110b444aa58906bf01fcfe55d8818d9c49: 1
-            vssCerts: 
-                0d916567f96b6a65d204966e6aab5fbd242e56c321833f8ba5d607da: 
-                   expiryEpoch: 1
-                   signature: "396fe505f4287f832fd26c1eba1843a49f3d23b64d664fb3c8a2f25c8de73ce6f2f4cf37ec7fa0fee7750d1d6c55e1b07e1018ce0c6443bacdb01fb8e15f1a0f"
-                   signingKey: "ohsV3RtEFD1jeOzKwNulmMRhBG2RLdFxPbcSGbkmJ+xd/2cOALSDahPlydFRjd15sH0PkPE/zTvP4iN8wJr/hA=="
-                   vssKey: "WCECtpe8B/5XPefEhgg7X5veUIYH/RRcvXbz6w7MIJBwWYU="
-                4bd1884f5ce2231be8623ecf5778a9112e26514205b39ff53529e735: 
-                   expiryEpoch: 2
-                   signature: "773dcdf727d05720a76e7f88ef1c8a629399a30a98943eac761f9706a0e45def608765362202ce571b9394167c310a445a84745695d73e89086254a4c5be610c"
-                   signingKey: "oUDzVUqwmXH4E3RlDrS4zhZ6kwv9rnNiwe8dI6lIg794+bWQBlULwvnwiIGgK4z0HT8+o+nru8F5xDy4ZL2/lA=="
-                   vssKey: "WCEChSQx6z4OxYrHNYbu5GGztX4FBBxGMfzmO6C+xNTrDVw="
-                5f53e01e1366aeda8811c2a630f0e037077a7b651093d2bdc4ef7200: 
-                   expiryEpoch: 1
-                   signature: "61a1aae1f62e39bab95466d63b1e6c45c1416fd12ec3ee0d1964496531c9cc30a6987ea962ad0e24cc147f930d2dc500f7c86d3fb292121bc776ac6205f11506"
-                   signingKey: "oyGcGsd/FX3Zl98PPt/jE/mo+6Mz/HxaVcHxhrtxh6MrBkBi2U4h0pwaPDhWUo+IgcGzl4xLOqkoB4suojuNUA=="
-                   vssKey: "WCECjvlu5JR4+jdL44S/UIxpY1rcWaF75VeoGhhs8QQueiQ="
-                ada3ab5c69b945c33c15ca110b444aa58906bf01fcfe55d8818d9c49: 
-                   expiryEpoch: 4
-                   signature: "c63013a9963579b0dd1cdd81a8807363fa88cea06164f83471d2cd8a74139bae1ea4e562d3f987c0aa4d162ac4c7fe6569380ab6eee2758dda0e3097cf83670d"
-                   signingKey: "E8++WAjZOKIyoh4YEHNaV7cm3Ecut7G9N0AT36u+AoSMEvf/byG8fc/Ab4xSnjvdn5Ww8A+yPOyoZ3Jfb2yf+g=="
-                   vssKey: "WCEDIRsfuDpNYMle1T396UpVmS/hEJgxVSQbCOynlK0zFEo="
-            nonAvvmBalances: {}
+        protocolConstants: 
+          <<: *mainnet_base_protocolConstants
+          protocolMagic: 633343913 #dryrun protocolMagic
+        avvmDistr: *mainnet_avvmDistr
 
-
-##############################################################################
-##                                                                          ##
-##   Mainnet config sample                                                  ##
-##                                                                          ##
-##############################################################################
-
-mainnet: &mainnet
+mainnet_launch_base: 
   <<: *mainnet_base
-  core:
-    <<: *mainnet_base_core
-    genesis:
-      src: sample-mainnet-genesis.json
-
-
-
-##############################################################################
-##                                                                          ##
-##   Testnet configs (full)                                                 ##
-##                                                                          ##
-##############################################################################
-
-
-##############################################################################
-##                                                                          ##
-##   Generated mainnet sample                                               ##
-##                                                                          ##
-##############################################################################
-
-mainnet_example_generated: &mainnet_example_generated
-  <<: *mainnet_base
-  core:
+  core: 
     <<: *mainnet_base_core
     genesis:
       <<: *mainnet_base_genesis
       spec: 
         <<: *mainnet_base_spec
-        avvmDistr: 
-            acf611Gtde5MqKQU-65vYE9hCX9_II5NS5kgWAbtOS8=: 769230
-            uW5VMAr01En3VT0_CUP2JT7DmSvvy4tyXhBd7Bf7mvU=: 383030
-            eDTF/0q0bpCV7QhX54AcfFwpvdKSH1PnJBip3jFtFoo=: 2463071701
-            tf8Ia7G2Ycz09JBhFfOpNq0eRXyUTRLYF2wi3R5BKOU=: 2074165643
-            OkBHoa1uO1xs1+5SkJSpZrwkq0c4s4N+fah90jgNUuk=: 648176763
-        initializer:
-          mainnetInitializer:
-            startTime: 1505621332 
-            bootStakeholders: 
-                0d916567f96b6a65d204966e6aab5fbd242e56c321833f8ba5d607da: 1
-                4bd1884f5ce2231be8623ecf5778a9112e26514205b39ff53529e735: 1
-                5f53e01e1366aeda8811c2a630f0e037077a7b651093d2bdc4ef7200: 1
-                ada3ab5c69b945c33c15ca110b444aa58906bf01fcfe55d8818d9c49: 1
-            vssCerts: 
-                0d916567f96b6a65d204966e6aab5fbd242e56c321833f8ba5d607da: 
-                   expiryEpoch: 1
-                   signature: "396fe505f4287f832fd26c1eba1843a49f3d23b64d664fb3c8a2f25c8de73ce6f2f4cf37ec7fa0fee7750d1d6c55e1b07e1018ce0c6443bacdb01fb8e15f1a0f"
-                   signingKey: "ohsV3RtEFD1jeOzKwNulmMRhBG2RLdFxPbcSGbkmJ+xd/2cOALSDahPlydFRjd15sH0PkPE/zTvP4iN8wJr/hA=="
-                   vssKey: "WCECtpe8B/5XPefEhgg7X5veUIYH/RRcvXbz6w7MIJBwWYU="
-                4bd1884f5ce2231be8623ecf5778a9112e26514205b39ff53529e735: 
-                   expiryEpoch: 2
-                   signature: "773dcdf727d05720a76e7f88ef1c8a629399a30a98943eac761f9706a0e45def608765362202ce571b9394167c310a445a84745695d73e89086254a4c5be610c"
-                   signingKey: "oUDzVUqwmXH4E3RlDrS4zhZ6kwv9rnNiwe8dI6lIg794+bWQBlULwvnwiIGgK4z0HT8+o+nru8F5xDy4ZL2/lA=="
-                   vssKey: "WCEChSQx6z4OxYrHNYbu5GGztX4FBBxGMfzmO6C+xNTrDVw="
-                5f53e01e1366aeda8811c2a630f0e037077a7b651093d2bdc4ef7200: 
-                   expiryEpoch: 1
-                   signature: "61a1aae1f62e39bab95466d63b1e6c45c1416fd12ec3ee0d1964496531c9cc30a6987ea962ad0e24cc147f930d2dc500f7c86d3fb292121bc776ac6205f11506"
-                   signingKey: "oyGcGsd/FX3Zl98PPt/jE/mo+6Mz/HxaVcHxhrtxh6MrBkBi2U4h0pwaPDhWUo+IgcGzl4xLOqkoB4suojuNUA=="
-                   vssKey: "WCECjvlu5JR4+jdL44S/UIxpY1rcWaF75VeoGhhs8QQueiQ="
-                ada3ab5c69b945c33c15ca110b444aa58906bf01fcfe55d8818d9c49: 
-                   expiryEpoch: 4
-                   signature: "c63013a9963579b0dd1cdd81a8807363fa88cea06164f83471d2cd8a74139bae1ea4e562d3f987c0aa4d162ac4c7fe6569380ab6eee2758dda0e3097cf83670d"
-                   signingKey: "E8++WAjZOKIyoh4YEHNaV7cm3Ecut7G9N0AT36u+AoSMEvf/byG8fc/Ab4xSnjvdn5Ww8A+yPOyoZ3Jfb2yf+g=="
-                   vssKey: "WCEDIRsfuDpNYMle1T396UpVmS/hEJgxVSQbCOynlK0zFEo="
-            nonAvvmBalances: {}
-
-
-##############################################################################
-##                                                                          ##
-##   Mainnet config sample                                                  ##
-##                                                                          ##
-##############################################################################
-
-mainnet: &mainnet
-  <<: *mainnet_base
-  core:
-    <<: *mainnet_base_core
-    genesis:
-      src: sample-mainnet-genesis.json
-
-
+        protocolConstants: 
+          <<: *mainnet_base_protocolConstants
+          protocolMagic: 722151751 #mainnet protocolMagic
+        avvmDistr: *mainnet_avvmDistr
 
 ##############################################################################
 ##                                                                          ##
@@ -14794,8 +14691,6 @@ testnet_staging_full: &testnet_staging_full
           <<: *mainnet_base_protocolConstants
           protocolMagic: 60987900 #testnet protocolMagic
           k: 108
-
-
 
 ##############################################################################
 ##                                                                          ##

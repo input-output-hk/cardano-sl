@@ -116,6 +116,7 @@ translation =
         , blRoot: "ハッシュ根"
         , blEpochSlotNotFound: "エポック / スロットは存在していません。"
         , blSlotNotFound: "スロットは存在していません。"
+        , blSlotEmpty: "空のスロット"
         }
     , genesisBlock:
         { gblNotFound: "ジェネシス・ブロックは見つかりませんでした"

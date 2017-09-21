@@ -116,6 +116,7 @@ translation =
         , blRoot: "Oberer Slot"
         , blEpochSlotNotFound: "Epoche / Slot existiert nicht."
         , blSlotNotFound: "Slot existiert nicht."
+        , blSlotEmpty: "Leerer Slot"
         }
     , genesisBlock:
         { gblNotFound: "Genesis Block existiert nicht."

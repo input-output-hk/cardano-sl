@@ -14,7 +14,7 @@ import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (CBlockEntries, PageNumber(..), State)
 import Explorer.View.Blocks (blockRow, blocksHeaderView, maxBlockRows, minBlockRows)
-import Explorer.View.CSS (blocksBody, blocksBodyWrapper, blocksBodyCover, blocksBodyCoverLabel, blocksFooter, blocksWaiting, dashboardContainer, dashboardWrapper, dashBoardBlocksViewId) as CSS
+import Explorer.View.CSS as CSS
 import Explorer.View.Common (paginationView)
 import Explorer.View.Dashboard.Lenses (dashboardBlocksExpanded, dashboardViewState)
 import Explorer.View.Dashboard.Shared (headerView)
@@ -69,7 +69,7 @@ dashBoardBlocksView state =
 
 emptyBlocksView :: String -> P.HTML Action
 emptyBlocksView message =
-    S.div ! S.className CSS.blocksWaiting
+    S.div ! S.className CSS.blocksMessage
           $ S.text message
 
 currentBlocks :: State -> CBlockEntries

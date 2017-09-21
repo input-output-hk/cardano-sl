@@ -75,17 +75,18 @@ import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Txp                    (Tx (..), TxId, TxOut (..), TxOutAux (..),
                                              TxUndo, txpTxs, _txOutputs)
 import           Pos.Types                  (Address, Coin, EpochIndex, HeaderHash,
-                                             LocalSlotIndex, SlotId (..), StakeholderId,
-                                             Timestamp, addressF, coinToInteger,
-                                             decodeTextAddress, gbHeader, gbhConsensus,
-                                             getEpochIndex, getSlotIndex, headerHash,
-                                             mkCoin, prevBlockL, sumCoins, unsafeAddCoin,
-                                             unsafeGetCoin, unsafeIntegerToCoin,
-                                             unsafeSubCoin)
+                                             LocalSlotIndex, SlotId (..), SlotLeaders,
+                                             StakeholderId, Timestamp, addressF,
+                                             coinToInteger, decodeTextAddress, gbHeader,
+                                             gbhConsensus, getEpochIndex, getSlotIndex,
+                                             headerHash, mkCoin, prevBlockL, sumCoins,
+                                             unsafeAddCoin, unsafeGetCoin,
+                                             unsafeIntegerToCoin, unsafeSubCoin)
 import           Prelude                    ()
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Base16       as SB16
 import           Servant.API                (FromHttpApiData (..))
+
 
 
 -------------------------------------------------------------------------------------
@@ -114,11 +115,10 @@ data ExplorerMockMode m ssc = ExplorerMockMode
           :: forall ctx. MonadSlotsData ctx m
           => SlotId
           -> m (Maybe Timestamp)
-    , emmGetLeaderFromEpochSlot
-          :: (MonadBlockDB SscGodTossing m, MonadDBRead m)
+    , emmGetLeadersFromEpoch
+          :: MonadDBRead m
           => EpochIndex
-          -> LocalSlotIndex
-          -> m (Maybe StakeholderId)
+          -> m (Maybe SlotLeaders)
     }
 
 -- | This is what we use in production when we run Explorer.
@@ -128,7 +128,7 @@ prodMode = ExplorerMockMode {
       emmGetPageBlocks          = getPageBlocks,
       emmGetBlundFromHH         = blkGetBlund,
       emmGetSlotStart           = getSlotStart,
-      emmGetLeaderFromEpochSlot = getLeaderFromEpochSlot
+      emmGetLeadersFromEpoch    = getLeaders
     }
 
 -- | So we can just reuse the default instance and change individial functions.
@@ -142,7 +142,7 @@ instance Default (ExplorerMockMode m SscGodTossing) where
         emmGetPageBlocks          = errorImpl,
         emmGetBlundFromHH         = errorImpl,
         emmGetSlotStart           = errorImpl,
-        emmGetLeaderFromEpochSlot = errorImpl
+        emmGetLeadersFromEpoch    = errorImpl
       }
     where
       errorImpl = error "Cannot be used, please implement this function!"
@@ -267,7 +267,6 @@ toBlockEntry mode (blk, Undo{..}) = do
 
     -- The CSL interface functions which can be mocked.
     let getSlotStartE           = emmGetSlotStart mode
-    let getLeaderFromEpochSlotE = emmGetLeaderFromEpochSlot mode
 
     blkSlotStart      <- getSlotStartE $ blk ^. gbHeader . gbhConsensus . mcdSlot
 
@@ -277,7 +276,7 @@ toBlockEntry mode (blk, Undo{..}) = do
         slotIndex     = siSlot  blkHeaderSlot
 
     -- Find the epoch and slot leader
-    epochSlotLeader   <- getLeaderFromEpochSlotE epochIndex slotIndex
+    epochSlotLeader   <- getLeaderFromEpochSlotE mode epochIndex slotIndex
 
     -- Fill required fields for @CBlockEntry@
     let cbeEpoch      = getEpochIndex epochIndex
@@ -308,9 +307,21 @@ getLeaderFromEpochSlot
     => EpochIndex
     -> LocalSlotIndex
     -> m (Maybe StakeholderId)
-getLeaderFromEpochSlot epochIndex slotIndex = do
+getLeaderFromEpochSlot epochIndex slotIndex =
+    getLeaderFromEpochSlotE prodMode epochIndex slotIndex
+
+
+getLeaderFromEpochSlotE
+    :: (MonadBlockDB SscGodTossing m, MonadDBRead m)
+    => ExplorerMockMode m SscGodTossing
+    -> EpochIndex
+    -> LocalSlotIndex
+    -> m (Maybe StakeholderId)
+getLeaderFromEpochSlotE mode epochIndex slotIndex = do
+    -- Get the function from mode so we can mock the data.
+    let getLeadersFromEpochE = emmGetLeadersFromEpoch mode
     -- Get leaders from the database
-    leadersMaybe <- getLeaders epochIndex
+    leadersMaybe <- getLeadersFromEpochE epochIndex
     -- If we have leaders for the given epoch, find the leader that is leading
     -- the slot we are interested in. If we find it, return it, otherwise
     -- return @Nothing@.

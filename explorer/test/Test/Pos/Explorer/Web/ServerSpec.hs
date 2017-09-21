@@ -6,11 +6,12 @@ module Test.Pos.Explorer.Web.ServerSpec
        ( spec
        ) where
 
-import           Universum
 import qualified Prelude
+import           Universum
 
 import           Data.Default                      (def)
 import           Data.Text.Buildable               (build)
+import           Data.List.NonEmpty                (fromList)
 import           Serokell.Data.Memory.Units        (Byte, Gigabyte, convertUnit)
 import           Test.Hspec                        (Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck             (modifyMaxSuccess, prop)
@@ -28,6 +29,7 @@ import           Pos.Block.Logic                   (RawPayload (..), createMainB
 import           Pos.Block.Types                   (SlogUndo, Undo)
 import qualified Pos.Communication                 ()
 import           Pos.Core                          (HasCoreConstants, SlotId (..),
+                                                    EpochIndex (..), LocalSlotIndex (..),
                                                     giveStaticConsts)
 import           Pos.Crypto                        (SecretKey)
 import           Pos.DB.Block                      (MonadBlockDB)
@@ -44,6 +46,7 @@ import           Pos.Ssc.Class                     (Ssc (..), sscDefaultPayload)
 import           Pos.Ssc.GodTossing                (GtPayload (..), SscGodTossing)
 import           Pos.Txp.Core                      (TxAux)
 import           Pos.Update.Core                   (UpdatePayload (..))
+
 
 
 ----------------------------------------------------------------
@@ -161,13 +164,20 @@ blocksPageUnitSpec = giveStaticConsts
     $ describe "getBlocksPage"
     $ modifyMaxSuccess (const 200) $ do
         prop "count(block) > 0" $
-            forAll arbitrary $ \(testParams, prevHeader, sk, slotId) ->
+            forAll arbitrary $ \(testParams, prevHeader, sk) ->
             forAll arbitrary $ \(timestamp, blund, leader, hh) ->
                 monadicIO $ do
 
+                  -- A mock slot Id
+                  let mockSlotId :: SlotId
+                      mockSlotId = SlotId
+                          { siEpoch = EpochIndex 0
+                          , siSlot  = UnsafeLocalSlotIndex 1
+                          }
+
                   -- The created arbitrary block.
                   let testBlock :: MonadBlockDB SscGodTossing m => m (Block SscGodTossing)
-                      testBlock = pure $ basicBlockGenericUnsafe prevHeader sk slotId
+                      testBlock = pure $ basicBlockGenericUnsafe prevHeader sk mockSlotId
 
                   -- The default @ExplorerMockMode@ instance that has no implementation.
                   let defaultInstance :: ExplorerMockMode BlockTestMode SscGodTossing
@@ -180,7 +190,8 @@ blocksPageUnitSpec = giveStaticConsts
                           emmGetPageBlocks          = \_   -> pure $ Just hh,
                           emmGetBlundFromHH         = \_   -> pure $ Just blund,
                           emmGetSlotStart           = \_   -> pure $ Just timestamp,
-                          emmGetLeaderFromEpochSlot = \_ _ -> pure $ Just leader
+                          emmGetLeadersFromEpoch    = \_   ->
+                              pure . Just . fromList $ [leader]
                       }
 
                   -- We run the function in @BlockTestMode@ so we don't need to define
@@ -220,7 +231,7 @@ blocksLastPageUnitSpec = giveStaticConsts
                           emmGetPageBlocks          = \_   -> pure $ Just hh,
                           emmGetBlundFromHH         = \_   -> pure $ Just blund,
                           emmGetSlotStart           = \_   -> pure $ Just timestamp,
-                          emmGetLeaderFromEpochSlot = \_ _ -> pure $ Just leader
+                          emmGetLeadersFromEpoch    = \_   -> pure $ Just leader
                       }
 
                   -- We run the function in @BlockTestMode@ so we don't need to define

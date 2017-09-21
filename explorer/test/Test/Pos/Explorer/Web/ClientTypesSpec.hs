@@ -15,7 +15,9 @@ import           Prelude                      (id)
 import           Crypto.Hash                  (Blake2b_224, Blake2b_256)
 import           Pos.Binary                   (Bi)
 import           Pos.Crypto
-import           Pos.Explorer.Web.ClientTypes
+import           Pos.Explorer.Web.ClientTypes (decodeHashHex, encodeHashHex, fromCAddress,
+                                               fromCHash, fromCTxId, toCAddress, toCHash,
+                                               toCTxId)
 import           Pos.Txp                      (Tx, TxId)
 import           Pos.Types                    (Address)
 import           Test.Hspec                   (Spec, describe, it, shouldBe,
@@ -23,6 +25,7 @@ import           Test.Hspec                   (Spec, describe, it, shouldBe,
 import           Test.Hspec.QuickCheck        (modifyMaxSuccess, prop)
 import           Test.QuickCheck              (Arbitrary, Gen, Property, arbitrary,
                                                forAll, (===))
+
 
 
 ----------------------------------------------------------------------------
@@ -159,5 +162,5 @@ quickcheckTests =
         decodeEncodeHashHex :: Address -> Bool
         decodeEncodeHashHex hashA =
             case fromCAddress . toCAddress $ hashA of
-                Left _ -> False
+                Left _       -> False
                 Right hashA' -> hashA == hashA'

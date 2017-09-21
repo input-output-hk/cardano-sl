@@ -11,7 +11,6 @@
 
 module Pos.Explorer.Web.Server
        ( ExplorerMode
-       , ExplorerMockMode(..)
        , explorerServeImpl
        , explorerApp
        , explorerHandlers
@@ -192,9 +191,9 @@ explorerHandlers _sendActions =
     getStatsTxsDefault page =
         catchExplorerError $ getStatsTxs page
 
-    defaultPageSize size = (fromIntegral $ fromMaybe 10 size)
-    defaultLimit limit   = (fromIntegral $ fromMaybe 10 limit)
-    defaultSkip  skip    = (fromIntegral $ fromMaybe 0  skip)
+    defaultPageSize size  = (fromIntegral $ fromMaybe 10 size)
+    defaultLimit limit    = (fromIntegral $ fromMaybe 10 limit)
+    defaultSkip  skip     = (fromIntegral $ fromMaybe 0  skip)
 
 ----------------------------------------------------------------
 -- API Functions
@@ -238,8 +237,8 @@ getBlocksPage
     , MonadThrow m
     , HasCoreConstants
     )
-    => Maybe Word
-    -> Word
+    => Maybe Word -- ^ Page number
+    -> Word       -- ^ Page size
     -> m (Integer, [CBlockEntry])
 getBlocksPage mPageNumber pageSize = getBlocksPageEMode prodMode mPageNumber pageSize
 
@@ -253,8 +252,8 @@ getBlocksPageEMode
     , HasCoreConstants
     )
     => ExplorerMockMode m SscGodTossing
-    -> Maybe Word
-    -> Word
+    -> Maybe Word -- ^ Page number
+    -> Word       -- ^ Page size
     -> m (Integer, [CBlockEntry])
 getBlocksPageEMode mode mPageNumber pageSize = do
 

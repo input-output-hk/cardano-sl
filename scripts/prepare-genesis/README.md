@@ -16,12 +16,12 @@ Responsible are defined in the parentheses.
 
 Please note that **parties** for Mainnet are IOHK, SGG and CF.
 
-## Preparation
+## 0. Preparation
 
 First of all, we have to build Cardano SL using this script:
 
 ```
-./build-cardano.sh
+bash ./bootstrap-cardano.sh 2>&1 | tee bootstrap.log./build-cardano.sh
 ```
 
 It will install Nix package manager and build Cardano SL (using proper branch)
@@ -32,7 +32,7 @@ inside of the Nix environment.
 Then we have to generate keys for the cluster's nodes using this script:
 
 ```
-./gen-delegate-keys.sh
+bash ./gen-delegate-keys.sh 2>&1 | tee step1.log
 ```
 
 This script will generate 7 secret keys, for 7 nodes in the Mainnet cluster.
@@ -74,19 +74,19 @@ Please note that each of parties should generate its own stakeholders' secret ke
 certificates. Thus, IOHK nominated individuals should execute this script:
 
 ```
-./iohk-keys-and-certs.sh
+bash ./iohk-keys-and-certs.sh 2>&1 | tee step2-iohk.log
 ```
 
 SGG nominated individuals team should execute this one:
 
 ```
-./sgg-keys-and-certs.sh
+bash ./sgg-keys-and-certs.sh 2>&1 | tee step2-sgg.log
 ```
 
 And CF nominated individuals - this one:
 
 ```
-./cf-keys-and-certs.sh
+bash ./cf-keys-and-certs.sh 2>&1 | tee step2-cf.log
 ```
 
 Generated secret keys will be stored in `cardano-sl/keys/stakeholder/` directory.
@@ -108,7 +108,7 @@ Then we need wallet keys. The purpose of the wallet keys is an operations with m
 To generate these keys execute this script:
 
 ```
-./gen-avvm-seeds.sh
+bash ./gen-avvm-seeds.sh 2>&1 | tee step3.log
 ```
 
 Generated AVVM public keys and AVVM seeds will be stored in `cardano-sl/keys/avvm/`
@@ -126,7 +126,7 @@ certificates should be generated.
 To do it execute this script:
 
 ```
-./gen-vss-certs.sh
+bash ./gen-vss-certs.sh 2>&1 | tee step4.log
 ```
 
 As a result VSS certificate for each node will be shown. Example of such an information:

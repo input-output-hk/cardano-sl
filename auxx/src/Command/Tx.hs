@@ -39,8 +39,8 @@ import           Pos.Configuration                (HasNodeConfiguration)
 import           Pos.Core                         (BlockVersionData (bvdSlotDuration),
                                                    Timestamp (..), mkCoin)
 import           Pos.Core.Configuration           (HasConfiguration,
-                                                   genesisBlockVersionData)
-import           Pos.Core.Configuration           (genesisSecretKeys)
+                                                   genesisBlockVersionData,
+                                                   genesisSecretKeys)
 import           Pos.Core.Constants               (isDevelopment)
 import           Pos.Crypto                       (emptyPassphrase, encToPublic,
                                                    fakeSigner, safeToPublic, toPublic,

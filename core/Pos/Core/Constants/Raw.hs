@@ -21,7 +21,7 @@ module Pos.Core.Constants.Raw
        , protocolMagic
        , staticSysStartRaw
        , genesisKeysN
-       , memPoolLimitRatio
+       , memPoolLimit
 
        , genesisBinSuffix
 
@@ -32,8 +32,6 @@ module Pos.Core.Constants.Raw
        , criticalForkThreshold
        , fixedTimeCQ
        , fixedTimeCQSec
-
-       , webLoggingEnabled
        ) where
 
 import           Universum
@@ -84,9 +82,9 @@ data CoreConfig = CoreConfig
       ccProductionNetworkStartTime   :: !Int
     , -- | Number of pre-generated keys
       ccGenesisN                     :: !Int
-      -- | Size of mem pool will be limited by this value muliplied by block
-      -- size limit.
-    , ccMemPoolLimitRatio            :: !Word
+      -- | Limint on the number of transactions that can be stored in
+      -- the mem pool.
+    , ccMemPoolLimit                 :: !Int
       -- | Suffix for genesis.bin files
     , ccGenesisBinSuffix             :: ![Char]
 
@@ -145,12 +143,6 @@ data CoreConfig = CoreConfig
     , ccCriticalForkThreshold        :: !Int
       -- | Chain quality will be also calculated for this amount of seconds.
     , ccFixedTimeCQ                  :: !Int
-
-       -- Web settings
-
-      -- | Whether incoming requests logging should be performed by web
-      -- part
-    , ccWebLoggingEnabled            :: !Bool
     }
     deriving (Show, Generic)
 
@@ -226,10 +218,9 @@ protocolMagic = fromIntegral . ccProtocolMagic $ coreConfig
 genesisKeysN :: Integral i => i
 genesisKeysN = fromIntegral . ccGenesisN $ coreConfig
 
--- | Size of mem pool will be limited by this value muliplied by block
--- size limit.
-memPoolLimitRatio :: Integral i => i
-memPoolLimitRatio = fromIntegral . ccMemPoolLimitRatio $ coreConfig
+-- | Size of mem pool will be limited to this number of transactions.
+memPoolLimit :: Int
+memPoolLimit = ccMemPoolLimit coreConfig
 
 -- | If chain quality in bootstrap era is less than this value,
 -- non critical misbehavior will be reported.
@@ -263,7 +254,3 @@ fixedTimeCQ = sec . ccFixedTimeCQ $ coreConfig
 -- | 'fixedTimeCQ' expressed as seconds.
 fixedTimeCQSec :: Second
 fixedTimeCQSec = convertUnit fixedTimeCQ
-
--- | Web logging might be disabled for security concerns.
-webLoggingEnabled :: Bool
-webLoggingEnabled = ccWebLoggingEnabled coreConfig

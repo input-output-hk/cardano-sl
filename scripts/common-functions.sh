@@ -136,18 +136,10 @@ function gen_kademlia_topology {
       local routes="["
       for k in $(seq 0 $npred); do
         if [ $k -eq $j ]; then continue; fi
-        routes="$routes[\"node$k\"]"
-        # don't put comma after last element and after pre-last element of last list item
-        if ! ([ $k -eq $npred ] || [ $k -eq $(($npred-1)) -a $j -eq $npred ]); then
-          routes=$routes", "
-        fi
+        routes="$routes[\"node$k\"], "
       done
       # If we have explorer add it so that the other nodes converse with it.
-      if [[ $k -eq $npred ]]; then
-        routes="$routes, [\"explorer\"]]"
-      else
-        routes="$routes]"
-      fi
+      routes="$routes[\"explorer\"]]"
 
       echo "  \"node$j\":"              >> $tfile
       echo "    type: core"             >> $tfile

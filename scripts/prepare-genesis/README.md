@@ -32,7 +32,7 @@ inside of the Nix environment.
 Then we have to generate keys for the cluster's nodes using this script:
 
 ```
-DELEGATE_PUBS=<full path to where dump node public keys> REPO_PATH=<path to repo> DELEGATE_KEY_PATH=<full path to node secret keys> bash <path to repo>/scripts/prepare-genesis/gen-delegate-keys.sh 2>&1 | tee step1.log
+DELEGATE_PUBLIC=<pulic out path> REPO_PATH=<path to repo> DELEGATE_SECRET=<full path to node secret keys> bash <path to repo>/scripts/prepare-genesis/gen-delegate-keys.sh 2>&1 | tee step1.log
 ```
 
 This script will generate 7 secret keys, for 7 nodes in the Mainnet cluster.
@@ -74,19 +74,19 @@ Please note that each of parties should generate its own stakeholders' secret ke
 certificates. Thus, IOHK nominated individuals should execute this script:
 
 ```
-bash ./iohk-keys-and-certs.sh 2>&1 | tee step2-iohk.log
+STAKEHOLDER_NAME=iohk STAKEHOLDER_PUBLIC=<public ouput dir> STAKEHOLDER_SECRET=<iohk secret keys dir> DELEGATE_PUBS=<path to list of all dpks> REPO_PATH=<path-to-repo> bash <path-to-repo>/scripts/prepare-genesis/keys-and-certs.sh  2>&1 | tee step2-iohk.log
 ```
 
-SGG nominated individuals team should execute this one:
+CGG nominated individuals team should execute this one:
 
 ```
-bash ./sgg-keys-and-certs.sh 2>&1 | tee step2-sgg.log
+STAKEHOLDER_NAME=cgg STAKEHOLDER_PUBLIC=<public ouput dir> STAKEHOLDER_SECRET=<cgg secret keys dir> DELEGATE_PUBS=<path to list of all dpks> REPO_PATH=<path-to-repo> bash <path-to-repo>/scripts/prepare-genesis/cgg-keys-and-certs.sh  2>&1 | tee step2-cgg.log
 ```
 
 And CF nominated individuals - this one:
 
 ```
-bash ./cf-keys-and-certs.sh 2>&1 | tee step2-cf.log
+STAKEHOLDER_NAME=cf STAKEHOLDER_PUBLIC=<public ouput dir> STAKEHOLDER_SECRET=<cf secret keys dir> DELEGATE_PUBS=<path to list of all dpks> REPO_PATH=<path-to-repo> bash <path-to-repo>/scripts/prepare-genesis/cf-keys-and-certs.sh  2>&1 | tee step2-cf.log
 ```
 
 Generated secret keys will be stored in `cardano-sl/keys/stakeholder/` directory.

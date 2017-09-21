@@ -15,7 +15,7 @@
   }
   @media (--md) {
     &__container {
-      padding: 46px 0px 38px 0px;
+      padding: 46px 48px 38px 48px;
     }
   }
 

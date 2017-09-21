@@ -17,6 +17,7 @@ module Pos.Wallet.Web.ClientTypes.Functions
 import           Universum
 
 import           Control.Monad.Error.Class        (throwError)
+import qualified Data.List.NonEmpty               as NE
 import qualified Data.Set                         as S
 import           Data.Text                        (Text)
 import           Formatting                       (sformat)
@@ -31,7 +32,8 @@ import           Pos.Txp.Core.Types               (Tx (..), TxId, TxOut (..),
 import           Pos.Types                        (Address (..), ChainDifficulty, Coin,
                                                    decodeTextAddress,
                                                    makePubKeyAddressBoot, sumCoins,
-                                                   unsafeGetCoin, unsafeIntegerToCoin)
+                                                   unsafeAddCoin, unsafeGetCoin,
+                                                   unsafeIntegerToCoin)
 import           Pos.Update.Core                  (BlockVersionModifier (..),
                                                    StakeholderVotes, UpdateProposal (..),
                                                    isPositiveVote)
@@ -117,6 +119,11 @@ isTxLocalAddress wAddrMetas inputs = do
            let nonLocalAddrsSet = S.fromList $ cwamId <$> wAddrMetas
            not . flip S.member nonLocalAddrsSet
 
+mergeTxOuts :: [TxOut] -> [TxOut]
+mergeTxOuts = map stick . NE.groupWith txOutAddress
+  where stick outs@(TxOut{txOutAddress = addr} :| _) =
+            TxOut addr (foldl1 unsafeAddCoin $ fmap txOutValue outs)
+
 mkCTx
     :: ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
     -> TxHistoryEntry     -- ^ Tx history entry
@@ -153,7 +160,7 @@ mkCTx diff THEntry {..} meta pc wAddrMetas = do
     encodeTxOut TxOut{..} = (addressToCId txOutAddress, mkCCoin txOutValue)
     inputs = _thInputs
     outputs = toList $ _txOutputs _thTx
-    ctInputs = map encodeTxOut _thInputs
+    ctInputs = map encodeTxOut $ mergeTxOuts _thInputs
     ctOutputs = map encodeTxOut outputs
     ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
     ctMeta = meta

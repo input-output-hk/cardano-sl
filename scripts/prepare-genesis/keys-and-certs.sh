@@ -75,7 +75,7 @@ fi
 echo "Generating stakeholder keys..."
 
 pushd "$REPO_PATH"
-time for i in ${ALL_NODES[@]}; do
+time for i in ${NODES[@]}; do
     key_path="${STAKEHOLDER_SECRET}/secret${i}.key"
     stack exec --nix -- cardano-keygen $CONF_PARAMS generate-key --path "$key_path"
     if [[ ! -f "$key_path" ]]; then

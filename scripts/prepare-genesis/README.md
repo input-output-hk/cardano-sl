@@ -32,7 +32,7 @@ inside of the Nix environment.
 Then we have to generate keys for the cluster's nodes using this script:
 
 ```
-bash ./gen-delegate-keys.sh 2>&1 | tee step1.log
+DELEGATE_PUBS=<full path to where dump node public keys> REPO_PATH=<path to repo> DELEGATE_KEY_PATH=<full path to node secret keys> bash <path to repo>/scripts/prepare-genesis/gen-delegate-keys.sh 2>&1 | tee step1.log
 ```
 
 This script will generate 7 secret keys, for 7 nodes in the Mainnet cluster.

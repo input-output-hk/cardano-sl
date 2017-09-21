@@ -2,55 +2,48 @@
 set -ex
 
 IOHK_NODES=(0 1 2)
-SGG_NODES=(3 4)
+CGG_NODES=(3 4)
 CF_NODES=(5 6)
-ALL_NODES="${IOHK_NODES[*]} ${SGG_NODES[*]} ${CF_NODES[*]}"
+ALL_NODES="${IOHK_NODES[*]} ${CGG_NODES[*]} ${CF_NODES[*]}"
 
-if [[ "$DELEGATE_PUBS" == "" ]] || [[ "${DELEGATE_PUBS:0:1}" != "/" ]] || [[ -f "$DELEGATE_PUBS" ]]; then
-    echo "Wrong DELEGATE_PUBS passed: \"$DELEGATE_PUBS\" (empty or file exists or path not absolute)"
-    exit 2
-fi
+CONF_PARAMS="--configuration-file node/configuration.mainnet.yaml --configuration-key mainnet_dryrun_base"
 
 if [[ "$REPO_PATH" == "" ]]; then
     echo "No REPO_PATH passed"
     exit 2
 fi
 
-if [[ "${DELEGATE_KEY_PATH:0:1}" != "/" ]]; then
-    echo "Not absolute path DELEGATE_KEY_PATH passed: \"$DELEGATE_KEY_PATH\""
-    exit 2
-fi
-
-if [[ "$DELEGATE_KEY_PATH" == "" ]]; then
-    echo "No DELEGATE_KEY_PATH passed"
-    exit 2
-fi
-
-if [[ -d "$DELEGATE_KEY_PATH" ]]; then
-    echo "Folder DELEGATE_KEY_PATH=$DELEGATE_KEY_PATH already exists"
+if [[ "${DELEGATE_SECRET:0:1}" != "/" ]] || [[ "$DELEGATE_SECRET" == "" ]] || [[ -d "$DELEGATE_SECRET" ]]; then
+    echo "Folder DELEGATE_SECRET=\"$DELEGATE_SECRET\" already exists or not absolute path passed or no parameter passed"
     exit 1
 fi
+mkdir -p "$DELEGATE_SECRET"
+if [[ ! -d "$DELEGATE_SECRET" ]]; then
+  echo "Failed to create DELEGATE_SECRET=\"$DELEGATE_SECRET\""
+  exit 1
+fi
 
-mkdir -p "$DELEGATE_KEY_PATH"
-
-echo -n '' > "$DELEGATE_PUBS"
-
-if [[ ! -f "$DELEGATE_PUBS" ]]; then
-    echo "File $DELEGATE_PUBS not created"
+if [[ "${DELEGATE_PUBLIC:0:1}" != "/" ]] || [[ "$DELEGATE_PUBLIC" == "" ]] || [[ -d "$DELEGATE_PUBLIC" ]]; then
+    echo "Folder DELEGATE_PUBLIC=\"$DELEGATE_PUBLIC\" already exists or not absolute path passed or no parameter passed"
     exit 1
+fi
+mkdir -p "$DELEGATE_PUBLIC"
+if [[ ! -d "$DELEGATE_PUBLIC" ]]; then
+  echo "Failed to create DELEGATE_PUBLIC=\"$DELEGATE_PUBLIC\""
+  exit 1
 fi
 
 pushd "$REPO_PATH"
 time for i in $ALL_NODES; do
-    key_path="${DELEGATE_KEY_PATH}/node${i}.key"
-    stack exec --nix -- cardano-keygen --configuration-file node/configuration.mainnet.yaml --configuration-key mainnet_dryrun_base generate-key --path "$key_path"
+    key_path="${DELEGATE_SECRET}/node${i}.key"
+    stack exec --nix -- cardano-keygen $CONF_PARAMS generate-key --path "$key_path"
     if [[ ! -f "$key_path" ]]; then
         echo "File $key_path not created"
         exit 1
     fi
     echo "Created key: "
-    stack exec --nix -- cardano-keygen --configuration-file node/configuration.mainnet.yaml --configuration-key mainnet_dryrun_base read-key --path "$key_path"
-    stack exec --nix -- cardano-keygen --configuration-file node/configuration.mainnet.yaml --configuration-key mainnet_dryrun_base read-key --path "$key_path" \
-        | grep -oE 'address hash: \S+' | sed 's/address hash: //g' >> $DELEGATE_PUBS
+    stack exec --nix -- cardano-keygen $CONF_PARAMS read-key --path "$key_path"
+    stack exec --nix -- cardano-keygen $CONF_PARAMS read-key --path "$key_path" \
+        | grep -oE 'Primary: \S+;' | sed 's/Primary: //g' | sed "s/;//" >> "$DELEGATE_PUBLIC/pubs.txt"
 done
 popd

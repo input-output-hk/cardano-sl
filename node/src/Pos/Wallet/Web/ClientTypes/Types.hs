@@ -274,8 +274,8 @@ data CTx = CTx
     , ctAmount        :: CCoin
     , ctConfirmations :: Word
     , ctMeta          :: CTxMeta
-    , ctInputAddrs    :: [CId Addr]
-    , ctOutputAddrs   :: [CId Addr]
+    , ctInputs        :: [(CId Addr, CCoin)]
+    , ctOutputs       :: [(CId Addr, CCoin)]
     , ctIsLocal       :: Bool
     , ctIsOutgoing    :: Bool
     , ctCondition     :: CPtxCondition

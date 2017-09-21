@@ -23,11 +23,11 @@ import           Formatting                       (sformat)
 import qualified Formatting                       as F
 
 import           Pos.Aeson.Types                  ()
-import           Pos.Client.Txp.History           (TxHistoryEntry (..), _thInputAddrs)
+import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Crypto                       (EncryptedSecretKey, encToPublic,
                                                    hashHexF)
-import           Pos.Txp.Core.Types               (Tx (..), TxId, txOutAddress,
-                                                   txOutValue)
+import           Pos.Txp.Core.Types               (Tx (..), TxId, TxOut (..),
+                                                   txOutAddress, txOutValue)
 import           Pos.Types                        (Address (..), ChainDifficulty, Coin,
                                                    decodeTextAddress,
                                                    makePubKeyAddressBoot, sumCoins,
@@ -130,7 +130,7 @@ mkCTx
     -> CPtxCondition      -- ^ State of resubmission
     -> [CWAddressMeta]    -- ^ Addresses of wallet
     -> Either Text CTx
-mkCTx diff th@THEntry {..} meta pc wAddrMetas = do
+mkCTx diff THEntry {..} meta pc wAddrMetas = do
     let isOurTxAddress = flip S.member wAddrsSet . addressToCId . txOutAddress
 
         ownInputs = filter isOurTxAddress inputs
@@ -159,8 +159,6 @@ mkCTx diff th@THEntry {..} meta pc wAddrMetas = do
     encodeTxOut TxOut{..} = (addressToCId txOutAddress, mkCCoin txOutValue)
     inputs = _thInputs
     outputs = toList $ _txOutputs _thTx
-    ctInputAddrs = ordNub $ map addressToCId (_thInputAddrs th)
-    ctOutputAddrs = map addressToCId _thOutputAddrs
     ctInputs = map encodeTxOut $ mergeTxOuts _thInputs
     ctOutputs = map encodeTxOut outputs
     ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty

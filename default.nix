@@ -5,7 +5,10 @@ in
 , config ? {}
 , dconfig ? "testnet_staging_full"
 , gitrev ? "unknown"
-, pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; }) }:
+, pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; })
+# profiling slows down performance by 50% so we don't enable it by default
+, enableProfiling ? false
+}:
 
 with pkgs.lib;
 with pkgs.haskell.lib;
@@ -21,7 +24,6 @@ let
         configureFlags = [
           "-f-asserts"
           "-f-dev-mode"
-          "--ghc-option=-optl-lm"
         ];
         testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
         preCheck = ''
@@ -36,6 +38,10 @@ let
         '';
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
+        enableExecutableProfiling = enableProfiling;
+        passthru = {
+          inherit enableProfiling;
+        };
       });
       cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
         configureFlags = [
@@ -79,7 +85,7 @@ let
         else dontCheck super.fsnotify;
 
       mkDerivation = args: super.mkDerivation (args // {
-        #enableLibraryProfiling = true;
+        enableLibraryProfiling = enableProfiling;
       });
     };
   });

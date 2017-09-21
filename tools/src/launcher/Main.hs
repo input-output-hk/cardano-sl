@@ -12,10 +12,10 @@ import           Universum
 import           Control.Concurrent           (modifyMVar_)
 import           Control.Concurrent.Async     (Async, async, cancel, poll, wait, waitAny,
                                                withAsyncWithUnmask)
-import           Data.Default                 (def)
 import           Data.List                    (isSuffixOf)
 import qualified Data.Text.IO                 as T
 import qualified Data.Text.Lazy.IO            as TL
+import           Data.Time.Units              (Second, convertUnit)
 import           Data.Version                 (showVersion)
 import           Formatting                   (format, int, shown, stext, text, (%))
 import qualified NeatInterpolation            as Q (text)
@@ -42,8 +42,11 @@ import           Foreign.C.Error              (Errno (..), ePIPE)
 import           GHC.IO.Exception             (IOErrorType (..), IOException (..))
 
 import           Paths_cardano_sl             (version)
-import           Pos.Client.CLI               (readLoggerConfig)
+import           Pos.Client.CLI               (configurationOptionsParser,
+                                               readLoggerConfig)
+import           Pos.Core                     (Timestamp (..))
 import           Pos.Launcher                 (HasConfigurations, withConfigurations)
+import           Pos.Launcher.Configuration   (ConfigurationOptions (..))
 import           Pos.Reporting.Methods        (retrieveLogFiles, sendReport)
 import           Pos.ReportServer.Report      (ReportType (..))
 import           Pos.Util                     (directory, sleep)
@@ -61,6 +64,7 @@ data LauncherOptions = LO
     , loUpdateWindowsRunner :: !(Maybe FilePath)
     , loNodeTimeoutSec      :: !Int
     , loReportServer        :: !(Maybe String)
+    , loConfiguration       :: !ConfigurationOptions
     }
 
 optionsParser :: Parser LauncherOptions
@@ -125,6 +129,8 @@ optionsParser = do
         help    "Where to send logs in case of failure." <>
         metavar "URL"
 
+    loConfiguration <- configurationOptionsParser
+
     pure LO{..}
 
 getLauncherOptions :: IO LauncherOptions
@@ -172,12 +178,12 @@ Command example:
 main :: IO ()
 main = do
     LO {..} <- getLauncherOptions
-    let realNodeArgs =
+    let realNodeArgs = addConfigurationOptions loConfiguration $
             case loNodeLogConfig of
                 Nothing -> loNodeArgs
                 Just lc -> loNodeArgs ++ ["--log-config", toText lc]
     usingLoggerName "launcher" $
-        withConfigurations def $
+        withConfigurations loConfiguration $
         liftIO $
         case loWalletPath of
             Nothing -> do
@@ -202,6 +208,31 @@ main = do
                     , loUpdateArchive)
                     loNodeTimeoutSec
                     loReportServer
+  where
+    -- We propagate configuration options to the node executable,
+    -- because we almost certainly want to use the same configuration
+    -- and don't want to pass the same options twice.  However, if
+    -- user passes these options to the node explicitly, then we leave
+    -- their choice. It doesn't cover all cases
+    -- (e. g. `--system-start=10`), but it's better than nothing.
+    addConfigurationOptions :: ConfigurationOptions -> [Text] -> [Text]
+    addConfigurationOptions (ConfigurationOptions path key systemStart) =
+        addConfFileOption path .
+        addConfKeyOption key . addSystemStartOption systemStart
+
+    addConfFileOption filePath =
+        maybeAddOption "--configuration-file" (toText filePath)
+    addConfKeyOption key = maybeAddOption "--configuration-key" key
+    addSystemStartOption =
+        maybe identity (maybeAddOption "--system-start" . timestampToText)
+
+    maybeAddOption :: Text -> Text -> [Text] -> [Text]
+    maybeAddOption optionName optionValue options
+        | optionName `elem` options = options
+        | otherwise = optionName : optionValue : options
+
+    timestampToText (Timestamp ts) =
+        pretty @Integer $ fromIntegral $ convertUnit @_ @Second ts
 
 -- | If we are on server, we want the following algorithm:
 --

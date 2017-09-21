@@ -58,6 +58,8 @@ commonArgsParser = do
     configurationOptions <- configurationOptionsParser
     pure CommonArgs{..}
 
+-- Note: if you want to change names of these options, please also
+-- update cardano-launcher accordingly (grep for these names).
 configurationOptionsParser :: Opt.Parser ConfigurationOptions
 configurationOptionsParser = do
     cfoFilePath    <- filePathParser

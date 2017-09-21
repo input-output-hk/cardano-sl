@@ -80,6 +80,8 @@ Avaliable commands:
    quit                           -- shutdown node wallet
 |]
 
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+
 runCmd ::
        HasConfigurations
     => SendActions AuxxMode

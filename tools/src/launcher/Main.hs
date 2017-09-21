@@ -1,9 +1,9 @@
 {-# LANGUAGE ApplicativeDo     #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE FlexibleContexts  #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -33,7 +33,7 @@ import qualified System.IO                    as IO
 import           System.Process               (ProcessHandle, readProcessWithExitCode)
 import qualified System.Process               as Process
 import           System.Timeout               (timeout)
-import           System.Wlog                  (usingLoggerName, lcFilePrefix)
+import           System.Wlog                  (lcFilePrefix, usingLoggerName)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 -- Modules needed for system'
@@ -170,28 +170,38 @@ Command example:
     --update-archive updateDownloaded.tar|]
 
 main :: IO ()
-main = usingLoggerName "launcher" $ withConfigurations def $ liftIO $ do
+main = do
     LO {..} <- getLauncherOptions
-    let realNodeArgs = case loNodeLogConfig of
-            Nothing -> loNodeArgs
-            Just lc -> loNodeArgs ++ ["--log-config", toText lc]
-    case loWalletPath of
-        Nothing -> do
-            putText "Running in the server scenario"
-            serverScenario
-                loNodeLogConfig
-                (loNodePath, realNodeArgs, loNodeLogPath)
-                (loUpdaterPath, loUpdaterArgs, loUpdateWindowsRunner, loUpdateArchive)
-                loReportServer
-        Just wpath -> do
-            putText "Running in the client scenario"
-            clientScenario
-                loNodeLogConfig
-                (loNodePath, realNodeArgs, loNodeLogPath)
-                (wpath, loWalletArgs)
-                (loUpdaterPath, loUpdaterArgs, loUpdateWindowsRunner, loUpdateArchive)
-                loNodeTimeoutSec
-                loReportServer
+    let realNodeArgs =
+            case loNodeLogConfig of
+                Nothing -> loNodeArgs
+                Just lc -> loNodeArgs ++ ["--log-config", toText lc]
+    usingLoggerName "launcher" $
+        withConfigurations def $
+        liftIO $
+        case loWalletPath of
+            Nothing -> do
+                putText "Running in the server scenario"
+                serverScenario
+                    loNodeLogConfig
+                    (loNodePath, realNodeArgs, loNodeLogPath)
+                    ( loUpdaterPath
+                    , loUpdaterArgs
+                    , loUpdateWindowsRunner
+                    , loUpdateArchive)
+                    loReportServer
+            Just wpath -> do
+                putText "Running in the client scenario"
+                clientScenario
+                    loNodeLogConfig
+                    (loNodePath, realNodeArgs, loNodeLogPath)
+                    (wpath, loWalletArgs)
+                    ( loUpdaterPath
+                    , loUpdaterArgs
+                    , loUpdateWindowsRunner
+                    , loUpdateArchive)
+                    loNodeTimeoutSec
+                    loReportServer
 
 -- | If we are on server, we want the following algorithm:
 --

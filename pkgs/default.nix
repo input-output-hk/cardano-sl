@@ -3711,7 +3711,6 @@ self: {
           description = "Convert strings into hexadecimal and back";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-
       hinotify = callPackage ({ async, base, containers, directory, mkDerivation, stdenv, unix }:
       mkDerivation {
           pname = "hinotify";

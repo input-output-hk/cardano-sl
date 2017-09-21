@@ -72,7 +72,7 @@ data ConfigurationOptions = ConfigurationOptions
 
 defaultConfigurationOptions :: ConfigurationOptions
 defaultConfigurationOptions = ConfigurationOptions
-    { cfoFilePath    = "node/configuration.yaml"
+    { cfoFilePath    = "configuration.yaml"
     , cfoKey         = "default"
     , cfoSystemStart = Nothing
     }

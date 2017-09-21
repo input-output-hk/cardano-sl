@@ -3,7 +3,7 @@ set -ex
 
 REPO_URL="https://github.com/input-output-hk/cardano-sl.git"
 REPO_PATH="$HOME/cardano-sl"
-BRANCH="cardano-sl-1.0-launch-tools"
+BRANCH="cardano-sl-1.0-genesis-json2"
 
 AVVM_SEED_COUNT="3"
 

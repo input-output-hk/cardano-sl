@@ -10,11 +10,11 @@ module Command.Run
 import           Universum
 
 import           Control.Exception.Safe     (throwString)
-import qualified Data.Aeson                 as J
 import           Data.ByteString.Base58     (bitcoinAlphabet, encodeBase58)
 import           Data.List                  ((!!))
 import           Formatting                 (build, int, sformat, stext, (%))
 import           NeatInterpolation          (text)
+import qualified Text.JSON.Canonical        as CanonicalJSON
 
 import           Pos.Auxx                   (makePubKeyAddressAuxx)
 import           Pos.Binary                 (serialize')
@@ -117,9 +117,7 @@ runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM dry) = do
             let psk = safeCreatePsk ss delegatePk (startEpoch, fromMaybe 1000 lastEpochM)
             if dry
             then do
-                let issuerId = addressHash $ encToPublic issuerSk
-                putStr $ sformat (hashHexF%": ") issuerId
-                putStrLn $ J.encode psk
+                putText "Delegation light dry run not implemented"
             else do
                 dataFlow
                     "pskLight"
@@ -135,9 +133,12 @@ runCmd sendActions (DelegateHeavy i delegatePk curEpoch dry) = do
             let psk = safeCreatePsk ss delegatePk curEpoch
             if dry
             then do
-                let issuerId = addressHash $ encToPublic issuerSk
-                putStr $ sformat (hashHexF%": ") issuerId
-                putStrLn $ J.encode psk
+                putText $ sformat ("JSON: key "%hashHexF%", value "%stext)
+                          (addressHash $ encToPublic issuerSk)
+                          (decodeUtf8 $
+                                CanonicalJSON.renderCanonicalJSON $
+                                runIdentity $
+                                CanonicalJSON.toJSON psk)
             else do
                dataFlow
                    "pskHeavy"

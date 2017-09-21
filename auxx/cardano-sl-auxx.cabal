@@ -33,12 +33,12 @@ executable cardano-auxx
   build-depends:
                        QuickCheck
                      , acid-state
-                     , aeson
                      , ansi-wl-pprint
                      , base
                      , base58-bytestring
                      , binary
                      , bytestring
+                     , canonical-json
                      , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-db

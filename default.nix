@@ -5,8 +5,8 @@ in
 , config ? {}
 , gitrev ? "unknown"
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; })
-# profiling slows down performance by 50% so we don't enable it by default
-, enableProfiling ? false
+# profiling slows down performance at least 50% so we don't enable it by default
+, enableProfiling ? true
 }:
 
 with pkgs.lib;
@@ -37,7 +37,6 @@ let
         '';
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
-        enableExecutableProfiling = enableProfiling;
         passthru = {
           inherit enableProfiling;
         };
@@ -78,7 +77,9 @@ let
         else dontCheck super.fsnotify;
 
       mkDerivation = args: super.mkDerivation (args // {
+        enableExecutableProfiling = enableProfiling;
         enableLibraryProfiling = enableProfiling;
+        configureFlags = (args.configureFlags or []) ++ ["--profiling-detail=toplevel-functions"];
       });
     };
   });

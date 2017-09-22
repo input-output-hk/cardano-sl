@@ -25,7 +25,6 @@ import           Pos.Client.CLI.Options     (CommonArgs (..))
 import           Pos.Client.CLI.Secrets     (updateUserSecretVSS,
                                              userSecretWithGenesisKey)
 import           Pos.Core.Configuration     (HasConfiguration)
-import           Pos.Core.Constants         (isDevelopment)
 import           Pos.Crypto                 (VssKeyPair)
 import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
                                              NodeParams (..), TransportParams (..))
@@ -57,12 +56,9 @@ gtSscParams CommonNodeArgs {..} vssSK BehaviorConfig{..} =
     }
 
 getKeyfilePath :: CommonNodeArgs -> FilePath
-getKeyfilePath CommonNodeArgs {..}
-    | isDevelopment = case devSpendingGenesisI of
-          Nothing -> keyfilePath
-          Just i  -> "node-" ++ show i ++ "." ++ keyfilePath
-    | otherwise = keyfilePath
-
+getKeyfilePath CommonNodeArgs {..} = case devSpendingGenesisI of
+    Nothing -> keyfilePath
+    Just i  -> "node-" ++ show i ++ "." ++ keyfilePath
 
 getNodeParams ::
        ( MonadIO m

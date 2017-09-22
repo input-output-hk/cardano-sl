@@ -20,7 +20,6 @@ import           System.Wlog                  (logDebug)
 
 import           Pos.Aeson.ClientTypes        ()
 import           Pos.Aeson.WalletBackup       ()
-import           Pos.Constants                (isDevelopment)
 import           Pos.Crypto                   (EncryptedSecretKey, PassPhrase,
                                                emptyPassphrase, firstHardened)
 import           Pos.Core.Configuration       (genesisHdwSecretKeys)
@@ -140,7 +139,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
 -- For debug purposes
 addInitialRichAccount :: MonadWalletWebMode m => Int -> m ()
 addInitialRichAccount keyId =
-    when isDevelopment . E.handleAll wSetExistsHandler $ do
+    E.handleAll wSetExistsHandler $ do
         let hdwSecretKeys = fromMaybe (error "Hdw secrets keys are unknown") genesisHdwSecretKeys
         key <- maybeThrow noKey (hdwSecretKeys ^? ix keyId)
         void $ importWalletSecret emptyPassphrase $

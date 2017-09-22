@@ -19,13 +19,14 @@ import           Options.Applicative          (Parser, auto, execParser, footerD
                                                progDesc, strOption, switch, value)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
-import           Pos.Core                     (isDevelopment)
 import           Pos.Generator.Block          (TxGenParams (..))
 
 data BlockGenOptions = BlockGenOptions
     { bgoBlockN      :: !Word32
     -- ^ Number of blocks to generate.
-    , bgoNodes       :: !(Either Word32 [FilePath])
+    , bgoNodes       :: !(Maybe Word32)
+    -- ^ Number of nodes.
+    , bgoSecrets     :: ![FilePath]
     -- ^ Secret files.
     , bgoPath        :: !FilePath
     -- ^ Location of generated database.
@@ -44,9 +45,8 @@ optionsParser = do
         metavar "INT" <>
         help "Length of blockchain."
 
-    bgoNodes <-
-        if isDevelopment then Left <$> nodesCountParser
-        else Right <$> secretsParser
+    bgoNodes <- optional nodesCountParser
+    bgoSecrets <- secretsParser
 
     bgoPath <- strOption $
         long    "generated-db" <>

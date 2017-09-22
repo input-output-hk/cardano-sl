@@ -11,6 +11,7 @@ import           Formatting          (bprint, build, (%))
 
 data TBlockGenError
     = NoOneSecrets
+    | NodeCountAndSecrets
     | SecretNotFound !FilePath
     | AppendToNonexistDB
     | EmptyUtxo
@@ -20,6 +21,8 @@ instance Exception TBlockGenError
 
 instance Buildable TBlockGenError where
     build NoOneSecrets = bprint "You passed no one secrets"
+    build NodeCountAndSecrets = bprint "You passed a node count and secret files\
+                                       \  Please give one or the other but not both."
     build (SecretNotFound p) =
         bprint ("There is no secret at the path "%build) p
     build AppendToNonexistDB =

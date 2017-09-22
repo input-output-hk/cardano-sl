@@ -42,7 +42,6 @@ import           NTP.Example                 ()
 import           Serokell.Util               (sec)
 import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
 
-import qualified Pos.Core.Constants          as C
 import           Pos.Core.Configuration      (HasConfiguration)
 import           Pos.Core.Slotting           (unflattenSlotId)
 import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp (..))
@@ -114,7 +113,7 @@ mkNtpSlottingVar = do
     let settings = (ntpSettings res) { ntpResponseTimeout = 1 & sec }
     res <$ singleShot settings
   where
-    singleShot settings = unless C.isDevelopment $ do
+    singleShot settings = do
         logInfo $ "Waiting for response from NTP servers"
         ntpSingleShot settings
 

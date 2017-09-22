@@ -92,7 +92,7 @@ data Addr = Addr
 
 -- | Client transaction id
 newtype CTxId = CTxId CHash
-    deriving (Show, Eq, Generic, Hashable)
+    deriving (Show, Eq, Generic, Hashable, Buildable)
 
 newtype CPassPhrase = CPassPhrase Text
     deriving (Eq, Generic)
@@ -144,7 +144,7 @@ instance Hashable CWAddressMeta
 
 newtype CCoin = CCoin
     { getCCoin :: Text
-    } deriving (Show, Eq, Generic)
+    } deriving (Show, Eq, Generic, Buildable)
 
 -- | Passphrase last update time
 type PassPhraseLU = POSIXTime

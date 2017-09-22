@@ -7,12 +7,19 @@ in
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; })
 # profiling slows down performance by 50% so we don't enable it by default
 , enableProfiling ? false
+, enableDebugging ? true
 }:
 
 with pkgs.lib;
 with pkgs.haskell.lib;
 
 let
+  # TODO: DEVOPS-355
+  enableDWARFDebugging = drv: appendConfigureFlag (dontStrip drv) "--ghc-options=-g --disable-executable-stripping --disable-library-stripping";
+  dontStrip = drv: overrideCabal drv (drv: { dontStrip = true; });
+  
+  nop = args: args;
+
   addConfigureFlags = flags: drv: overrideCabal drv (drv: {
     configureFlags = flags;
   });
@@ -79,6 +86,10 @@ let
 
       mkDerivation = args: super.mkDerivation (args // {
         enableLibraryProfiling = enableProfiling;
+      } // optionalAttrs enableDebugging {
+        # TODO: DEVOPS-355
+        dontStrip = true;
+        configureFlags = (args.configureFlags or []) ++ [ "--ghc-options=-g --disable-executable-stripping --disable-library-stripping" ];
       });
     };
   });

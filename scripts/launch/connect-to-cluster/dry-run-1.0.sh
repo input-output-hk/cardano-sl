@@ -20,13 +20,9 @@ printf "wallet:
     relays:
         [
             [
-                { host: cardano-node-0.${DOMAIN}, port: 3000 },
-                { host: cardano-node-1.${DOMAIN}, port: 3000 },
-                { host: cardano-node-2.${DOMAIN}, port: 3000 },
-                { host: cardano-node-3.${DOMAIN}, port: 3000 },
-                { host: cardano-node-4.${DOMAIN}, port: 3000 },
-                { host: cardano-node-5.${DOMAIN}, port: 3000 },
-                { host: cardano-node-6.${DOMAIN}, port: 3000 }
+                { host: cardano-node-7.${DOMAIN}, port: 3000 },
+                { host: cardano-node-8.${DOMAIN}, port: 3000 },
+                { host: cardano-node-9.${DOMAIN}, port: 3000 }
             ]
         ]
     valency: 1

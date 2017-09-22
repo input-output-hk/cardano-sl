@@ -475,11 +475,12 @@ computeTxFee
     => Utxo
     -> TxOutputs
     -> TxCreator m TxFee
-computeTxFee utxo outputs = withLinearFeePolicy $ \linearPolicy -> do
-    TxRaw {..} <- stabilizeTxFee linearPolicy utxo outputs
+computeTxFee utxo outputs = do
+    TxRaw {..} <- prepareTxWithFee utxo outputs
     let outAmount = sumTxOutCoins trOutputs
         inAmount = sumCoins $ map (txOutValue . fst) trInputs
-    integerToFee $ inAmount - outAmount
+        remaining = coinToInteger trRemainingMoney
+    integerToFee $ inAmount - outAmount - remaining
 
 -- | Search such spendings that transaction's fee would be stable.
 --

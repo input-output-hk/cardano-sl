@@ -164,19 +164,34 @@ type GenesisBlock =
 -- translations of footer
 
 type Footer =
-    { fooResources :: String
-    , fooFollow :: String
-    , fooLinks :: String
-    , fooIohkSupportP :: String
-    , fooDocumentation :: String
+    { fooIohkSupportP :: String
     , fooGithub :: String
-    , fooLinkedin :: String
+    , fooEmail :: String
     , fooTwitter :: String
-    , fooDaedalusWallet :: String
+    , fooDaedalusPlatform :: String
     , fooWhyCardano :: String
     , fooCardanoRoadmap :: String
-    , fooCardanoADAFaucet :: String
-    , fooCardanoSLDocumentation :: String
+    , fooCardanoSource :: String
+    , fooCardanoLaunch :: String
+    , fooCardanoDocumentation :: String
+    , fooCardanoFoundation :: String
+    , fooCardanoFoundationYoutube :: String
+    , fooCardanoFoundationTwitter :: String
+    , fooCardanoHub :: String
+    , fooCardanoSlack :: String
+    , fooCardanoReddit :: String
+    , fooCardanoCommunity :: String
+    , fooCardanoTestnet :: String
+    , fooCardanoOpenSource :: String
+    , fooIOHK :: String
+    , fooIOHKBlog :: String
+    , fooIOHKYoutube :: String
+    , fooDisclaimerPt1 :: String
+    , fooDisclaimerPt2 :: String
+    , fooProject :: String
+    , fooProtocol :: String
+    , fooFoundation :: String
+    , fooLearnMore :: String
     }
 
 -- translations of 404

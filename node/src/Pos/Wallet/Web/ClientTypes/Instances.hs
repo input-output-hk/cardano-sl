@@ -8,12 +8,12 @@ import           Universum
 
 import qualified Data.ByteArray                       as ByteArray
 import qualified Data.ByteString                      as BS
-import           Data.List                            (partition)
+import           Data.List                            (intersperse, partition)
 import           Data.Text                            (splitOn)
 import qualified Data.Text.Buildable
-import           Formatting                           (bprint, build, int, sformat, shown,
-                                                       (%))
-import           Serokell.Util                        (listJson, listJsonIndent)
+import           Formatting                           (bprint, build, builder, int,
+                                                       sformat, shown, (%))
+import           Serokell.Util                        (listJsonIndent)
 import qualified Serokell.Util.Base16                 as Base16
 import           Servant.API                          (FromHttpApiData (..))
 import           Servant.Multipart                    (FromMultipart (..), lookupFile,
@@ -132,8 +132,8 @@ instance Buildable CTx where
                 %" amount="%build
                 %" confirms="%build
                 %" meta="%build%"\n"
-                %" inputs="%listJson%"\n"
-                %" outputs="%listJson%"\n"
+                %" inputs="%builder%"\n"
+                %" outputs="%builder%"\n"
                 %" local="%build
                 %" outgoing="%build
                 %" condition="%build
@@ -142,11 +142,15 @@ instance Buildable CTx where
         ctAmount
         ctConfirmations
         ctMeta
-        ctInputAddrs
-        ctOutputAddrs
+        (buildTxEnds ctInputs)
+        (buildTxEnds ctOutputs)
         ctIsLocal
         ctIsOutgoing
         ctCondition
+      where
+        buildTxEnds =
+            mconcat . intersperse ", " .
+            map (uncurry $ bprint (build%" - "%build))
 
 instance Buildable CProfile where
     build CProfile{..} =

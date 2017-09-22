@@ -7,7 +7,7 @@ in
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; })
 # profiling slows down performance by 50% so we don't enable it by default
 , enableProfiling ? false
-, enableDebugging ? true
+, enableDebugging ? false
 }:
 
 with pkgs.lib;

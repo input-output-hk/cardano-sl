@@ -27,7 +27,7 @@ let
     overrides = self: super: {
       cardano-sl = overrideCabal super.cardano-sl (drv: {
         # production full nodes shouldn't use wallet as it means different constants
-        configureFlags = [
+        configureFlags = (drv.configureFlags or []) ++ [
           "-f-asserts"
           "-f-dev-mode"
         ];
@@ -50,7 +50,7 @@ let
         };
       });
       cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
-        configureFlags = [
+        configureFlags = (drv.configureFlags or []) ++ [
           "-f-asserts"
           "-f-dev-mode"
           "--ghc-options=-DGITREV=${gitrev}"

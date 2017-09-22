@@ -48,7 +48,10 @@ done
 pushd daedalus
   nix-shell --run "npm install && npm run build:prod"
   echo $TRAVIS_BUILD_NUMBER > build-id
+  echo $TRAVIS_COMMIT > commit-id
   cp ../log-config-prod.yaml .
+  cp ../node/configuration.yaml .
+  cp ../node/*genesis*.json .
   cp ../cardano-sl-tools.root/bin/cardano-launcher .
   cp ../cardano-sl-wallet.root/bin/cardano-node .
   # check that binaries exit with 0

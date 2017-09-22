@@ -14845,7 +14845,7 @@ mainnet_launch_base:
         <<: *mainnet_base_spec
         protocolConstants: 
           <<: *mainnet_base_protocolConstants
-          protocolMagic: 722151751 #mainnet protocolMagic
+          protocolMagic: 764824073 #mainnet protocolMagic
         avvmDistr: *mainnet_avvmDistr
 
 ##############################################################################

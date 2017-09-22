@@ -43,5 +43,5 @@ stack exec -- cardano-node                                  \
     --db-path db-${CLUSTER}                                 \
     --wallet-db-path wdb-${CLUSTER}                         \
     --keyfile secret-$CLUSTER.key                           \
-    --configuration-file node/configuration.mainnet.yaml    \
+    --configuration-file node/configuration.yaml            \
     --configuration-key mainnet_wallet_macos64

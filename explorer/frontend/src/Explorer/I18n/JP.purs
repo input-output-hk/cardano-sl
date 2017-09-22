@@ -114,7 +114,7 @@ translation =
         , blPrevBlock: "前のスロット"
         , blNextBlock: "次のスロット"
         , blRoot: "ハッシュ根"
-        , blEpochSlotNotFound: "エポック / スロットは存在していません。"
+        , blEpochSlotNotFound: "エラーが発生しま した。エポック/スロットが見つかりませんでした"
         , blSlotNotFound: "スロットは存在していません。"
         , blSlotEmpty: "空のスロット"
         }

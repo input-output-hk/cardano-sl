@@ -32,7 +32,6 @@ import           Pos.Client.CLI.Options       (CommonArgs (..), commonArgsParser
                                                externalNetworkAddressOption,
                                                listenNetworkAddressOption,
                                                optionalJSONPath, sscAlgoOption)
-import           Pos.Constants                (isDevelopment)
 import           Pos.HealthCheck.Route53      (route53HealthCheckOption)
 import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
 import           Pos.Network.Types            (NodeId, NodeType (..))
@@ -85,18 +84,14 @@ commonNodeArgsParser = do
         long "rebuild-db" <>
         help "If node's database already exists, discard its contents \
              \and create a new one from scratch."
-    devSpendingGenesisI <- if isDevelopment
-        then (optional $ option auto $
-                  long    "spending-genesis" <>
-                  metavar "INT" <>
-                  help    "Used genesis secret key index.")
-        else pure Nothing
-    devVssGenesisI <- if isDevelopment
-        then (optional $ option auto $
-                  long    "vss-genesis" <>
-                  metavar "INT" <>
-                  help    "Index of using VSS key pair in genesis.")
-        else pure Nothing
+    devSpendingGenesisI <- optional $ option auto $
+        long    "spending-genesis" <>
+        metavar "INT" <>
+        help    "Used genesis secret key index."
+    devVssGenesisI <- optional $ option auto $
+        long    "vss-genesis" <>
+        metavar "INT" <>
+        help    "Index of using VSS key pair in genesis."
     keyfilePath <- strOption $
         long    "keyfile" <>
         metavar "FILEPATH" <>

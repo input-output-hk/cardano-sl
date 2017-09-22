@@ -9,7 +9,6 @@ module Command.Run
 
 import           Universum
 
-import           Control.Exception.Safe     (throwString)
 import           Data.ByteString.Base58     (bitcoinAlphabet, encodeBase58)
 import           Data.List                  ((!!))
 import           Formatting                 (build, int, sformat, stext, (%))
@@ -20,7 +19,6 @@ import           Pos.Auxx                   (makePubKeyAddressAuxx)
 import           Pos.Binary                 (serialize')
 import           Pos.Communication          (MsgType (..), Origin (..), SendActions,
                                              dataFlow, immediateConcurrentConversations)
-import           Pos.Constants              (isDevelopment)
 import           Pos.Core                   (addressHash, coinF)
 import           Pos.Core.Address           (makeAddress)
 import           Pos.Core.Configuration     (genesisSecretKeys)
@@ -149,8 +147,6 @@ runCmd sendActions (DelegateHeavy i delegatePk curEpoch dry) = do
                    psk
                putText "Sent heavyweight cert"
 runCmd _ (AddKeyFromPool i) = do
-    unless isDevelopment $
-        throwString "AddKeyFromPool should be used only in dev mode"
     CmdCtx {..} <- getCmdCtx
     let secrets = fromMaybe (error "Secret keys are unknown") genesisSecretKeys
     let key = secrets !! i

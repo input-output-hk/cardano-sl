@@ -13,7 +13,7 @@ import           System.Wlog                 (usingLoggerName)
 
 import           Pos.AllSecrets              (mkAllSecretsSimple)
 import           Pos.Core                    (gdBootStakeholders, genesisData,
-                                              genesisSecretKeys, isDevelopment)
+                                              genesisSecretKeys)
 import           Pos.DB                      (closeNodeDBs, openNodeDBs)
 import           Pos.Generator.Block         (BlockGenParams (..), genBlocks)
 import           Pos.Launcher                (withConfigurations)
@@ -29,19 +29,18 @@ main :: IO ()
 main = flip catch catchEx $ usingLoggerName "block-gen" $ withConfigurations def $ do
     BlockGenOptions{..} <- liftIO getBlockGenOptions
     seed <- liftIO $ maybe randomIO pure bgoSeed
-    let runMode = bool "PROD" "DEV" isDevelopment
-    putText $ "Generating in " <> runMode <> " mode with seed " <> show seed
+    putText $ "Generating with seed " <> show seed
 
     liftIO $ when bgoAppend $ checkExistence bgoPath
 
-    allSecrets <- mkAllSecretsSimple <$> case bgoNodes of
-        Left bgoNodesN -> do
+    allSecrets <- mkAllSecretsSimple <$> case (bgoNodes, bgoSecrets) of
+        (Just bgoNodesN, []) -> do
             unless (bgoNodesN > 0) $ throwM NoOneSecrets
             let secrets = fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
             pure $ take (fromIntegral bgoNodesN) secrets
-        Right bgoSecretFiles -> do
-            when (null bgoSecretFiles) $ throwM NoOneSecrets
-            mapM parseSecret bgoSecretFiles
+        (Nothing, _:_) -> mapM parseSecret bgoSecrets
+        (Nothing, []) -> throwM NoOneSecrets
+        (Just _, _:_) -> throwM NodeCountAndSecrets
 
     when (M.null $ unGenesisUtxo genesisUtxo) $ throwM EmptyUtxo
 
@@ -60,10 +59,7 @@ main = flip catch catchEx $ usingLoggerName "block-gen" $ withConfigurations def
         void $ evalRandT (genBlocks bgenParams) (mkStdGen seed)
     -- We print it twice because there can be a ton of logs and
     -- you don't notice the first message.
-    if isDevelopment then
-        putText $ "Generated in DEV mode with seed " <> show seed
-    else
-        putText $ "Generated in PROD mode with seed " <> show seed
+    putText $ "Generated with seed " <> show seed
   where
     catchEx :: TBlockGenError -> IO ()
     catchEx e = putText $ sformat ("Error: "%build) e

@@ -28,7 +28,7 @@ import           Pos.Crypto             (emptyPassphrase, encToPublic, fullPubli
                                          hashHexF, noPassEncrypt, safeCreatePsk,
                                          withSafeSigner)
 import           Pos.Genesis            (genesisDevSecretKeys)
-import           Pos.Util.UserSecret    (readUserSecret, usKeys)
+import           Pos.Util.UserSecret    (readUserSecret, usKeys, usPrimKey)
 import           Pos.Wallet             (addSecretKey, getBalance, getSecretKeys)
 
 import qualified Command.Rollback       as Rollback
@@ -137,7 +137,11 @@ runCmd _ (AddKeyFromPool i) = do
     addSecretKey $ noPassEncrypt key
 runCmd _ (AddKeyFromFile f) = do
     secret <- readUserSecret f
-    mapM_ addSecretKey $ secret ^. usKeys
+    let mKeys = nonEmpty (secret ^. usKeys) <|>
+                ((:| []) . noPassEncrypt) <$> (secret ^. usPrimKey)
+    case mKeys of
+        Nothing   -> putText "Provided key file contains no keys"
+        Just keys -> mapM_ addSecretKey keys
 runCmd _ (AddrDistr pk asd) = do
     putText $ pretty addr
   where

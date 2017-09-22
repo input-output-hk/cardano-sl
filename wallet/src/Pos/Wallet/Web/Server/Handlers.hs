@@ -77,6 +77,8 @@ servantHandlers sendActions =
 
      M.nextUpdate
     :<|>
+     M.postponeUpdate
+    :<|>
      M.applyUpdate
     :<|>
 

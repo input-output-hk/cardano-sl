@@ -68,6 +68,7 @@ library
                        Pos.Crypto.SafeSigning
                        Pos.Crypto.Signing
                        Pos.Crypto.SignTag
+                       Pos.Crypto.Scrypt
                        Pos.Crypto.SecretSharing
                        Pos.Crypto.RedeemSigning
 
@@ -119,6 +120,7 @@ library
 
   build-depends:       QuickCheck
                      , aeson
+                     , ansi-terminal
                      , autoexporter
                      , base
                      , base58-bytestring
@@ -160,6 +162,7 @@ library
                      , reflection
                      , resourcet
                      , safecopy
+                     , scrypt >= 0.5
                      , semigroups
                      , serokell-util
                      , stm

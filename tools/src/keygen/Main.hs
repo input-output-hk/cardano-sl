@@ -11,6 +11,7 @@ import qualified Data.List             as L
 import qualified Data.Map.Strict       as Map
 import qualified Data.Text             as T
 import           Formatting            (build, sformat, shown, (%))
+import           Serokell.Util.Base16  (base16F)
 import           Serokell.Util.Text    (listJson)
 import           System.Directory      (createDirectoryIfMissing)
 import           System.FilePath       (takeDirectory, (</>))
@@ -22,7 +23,8 @@ import           System.Wlog           (Severity (Debug), WithLogger, consoleOut
 import           Pos.Binary            (asBinary, decodeFull, serialize')
 import           Pos.Core              (StakeholderId, addressDetailedF, addressHash,
                                         makePubKeyAddressBoot, makeRedeemAddress, mkCoin)
-import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair, redeemPkB64F,
+import           Pos.Crypto            (EncryptedSecretKey (..), VssKeyPair,
+                                        fullPublicKeyHexF, hashHexF, redeemPkB64F,
                                         setGlobalRandomSeed, toVssPublicKey)
 import           Pos.Crypto.Signing    (SecretKey (..), toPublic)
 import           Pos.Genesis           (AddrDistribution, BalanceDistribution (..),
@@ -163,7 +165,7 @@ genPrimaryKey path = do
 readKey :: (MonadIO m, MonadFail m, WithLogger m) => FilePath -> m ()
 readKey path = do
     us <- readUserSecret path
-    logInfo $ maybe "No Pimary key"
+    logInfo $ maybe "No Primary key"
                     (("Primary: " <>) . showKeyWithAddressHash) $
                     view usPrimKey us
     logInfo $ maybe "No wallet set"
@@ -177,13 +179,17 @@ readKey path = do
                     view usVss us
 
 showKeyWithAddressHash :: SecretKey -> Text
-showKeyWithAddressHash sk = sformat (build%"; address hash: "%build) pk ah
+showKeyWithAddressHash sk =
+    sformat (fullPublicKeyHexF%"; address hash: "%hashHexF) pk ah
   where
     pk = toPublic sk
     ah = addressHash pk
 
 showPvssKey :: VssKeyPair -> Text
-showPvssKey = sformat build . asBinary . toVssPublicKey
+showPvssKey sk =
+    sformat (base16F%"; short = "%build) (serialize' pk) (asBinary pk)
+  where
+    pk = toVssPublicKey sk
 
 decryptESK :: EncryptedSecretKey -> SecretKey
 decryptESK (EncryptedSecretKey sk _) = SecretKey sk

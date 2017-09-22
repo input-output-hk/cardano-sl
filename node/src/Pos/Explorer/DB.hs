@@ -25,19 +25,19 @@ import           Data.Conduit                 (Sink, Source, mapOutput, runCondu
                                                (.|))
 import qualified Data.Conduit.List            as CL
 import qualified Database.RocksDB             as Rocks
-import           Ether.Internal               (HasLens (..))
 import           Formatting                   (sformat, (%))
 import           Serokell.Util                (Color (Red), colorize, mapJson)
 import           System.Wlog                  (WithLogger, logError)
 
 import           Pos.Binary.Class             (UnsignedVarInt (..), serialize')
-import           Pos.Context.Functions        (GenesisUtxo, genesisUtxoM)
+import           Pos.Context.Functions        (genesisUtxo)
 import           Pos.Core                     (Address, Coin, EpochIndex, HeaderHash,
                                                unsafeAddCoin)
+import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.DB                       (DBError (..), DBIteratorClass (..),
                                                DBTag (GStateDB), MonadDB,
                                                MonadDBRead (dbGet), RocksBatchOp (..),
-                                               dbSerializeValue, dbIterSource,
+                                               dbIterSource, dbSerializeValue,
                                                encodeWithKeyPrefix)
 import           Pos.DB.GState.Common         (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.Explorer.Core            (AddrHistory, TxExtra (..))
@@ -90,10 +90,9 @@ getLastTransactions = gsGetBi lastTxsPrefix
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareExplorerDB :: (MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo, MonadDB m) => m ()
+prepareExplorerDB :: (MonadReader ctx m, MonadDB m) => m ()
 prepareExplorerDB =
     unlessM areBalancesInitialized $ do
-        genesisUtxo <- genesisUtxoM
         putGenesisBalances genesisUtxo
         putInitFlag
 
@@ -107,13 +106,13 @@ putInitFlag :: MonadDB m => m ()
 putInitFlag = gsPutBi balancesInitFlag True
 
 putGenesisBalances :: MonadDB m => GenesisUtxo -> m ()
-putGenesisBalances (GenesisUtxo genesisUtxo) = writeBatchGState putAddrBalancesOp
+putGenesisBalances (GenesisUtxo utxo) = writeBatchGState putAddrBalancesOp
   where
     putAddrBalancesOp :: [ExplorerOp]
     putAddrBalancesOp = map (uncurry PutAddrBalance) addressCoinsPairs
 
     addressCoinsPairs :: [(Address, Coin)]
-    addressCoinsPairs = utxoToAddressCoinPairs genesisUtxo
+    addressCoinsPairs = utxoToAddressCoinPairs utxo
 
 ----------------------------------------------------------------------------
 -- Batch operations
@@ -134,7 +133,7 @@ data ExplorerOp
     | PutAddrBalance !Address !Coin
     | DelAddrBalance !Address
 
-instance RocksBatchOp ExplorerOp where
+instance HasConfiguration => RocksBatchOp ExplorerOp where
 
     toBatchOp (AddTxExtra id extra) =
         [Rocks.Put (txExtraPrefix id) (dbSerializeValue extra)]

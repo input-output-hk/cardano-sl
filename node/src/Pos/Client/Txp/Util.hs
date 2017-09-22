@@ -56,6 +56,7 @@ import           Pos.Core                 (TxFeePolicy (..), TxSizeLinear (..),
                                            coinToInteger, integerToCoin, isRedeemAddress,
                                            txSizeLinearMinValue, unsafeAddCoin,
                                            unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Core.Configuration   (HasConfiguration)
 import           Pos.Crypto               (RedeemSecretKey, SafeSigner,
                                            SignTag (SignRedeemTx, SignTx),
                                            deterministicKeyGen, fakeSigner, hash,
@@ -144,6 +145,7 @@ isCheckedTxError = \case
 -- | Mode for creating transactions. We need to know fee policy.
 type TxDistrMode m
      = ( MonadGState m
+       , HasConfiguration
        )
 
 type TxCreateMode m
@@ -189,7 +191,8 @@ runTxCreator action = runExceptT $ do
 
 -- | Like 'makePubKeyTx', but allows usage of different signers
 makeMPubKeyTx
-    :: (owner -> SafeSigner)
+    :: HasConfiguration
+    => (owner -> SafeSigner)
     -> TxOwnedInputs owner
     -> TxOutputs
     -> TxAux
@@ -203,7 +206,8 @@ makeMPubKeyTx getSs = makeAbstractTx mkWit
 
 -- | More specific version of 'makeMPubKeyTx' for convenience
 makeMPubKeyTxAddrs
-    :: NonEmpty (SafeSigner, Address)
+    :: HasConfiguration
+    => NonEmpty (SafeSigner, Address)
     -> TxOwnedInputs TxOut
     -> TxOutputs
     -> TxAux
@@ -216,18 +220,18 @@ makeMPubKeyTxAddrs hdwSigners = makeMPubKeyTx getSigner
         HM.lookup addr signers
 
 -- | Makes a transaction which use P2PKH addresses as a source
-makePubKeyTx :: SafeSigner -> TxInputs -> TxOutputs -> TxAux
+makePubKeyTx :: HasConfiguration => SafeSigner -> TxInputs -> TxOutputs -> TxAux
 makePubKeyTx ss txInputs =
     makeMPubKeyTx (const ss) (map ((), ) txInputs)
 
-makeMOfNTx :: Script -> [Maybe SafeSigner] -> TxInputs -> TxOutputs -> TxAux
+makeMOfNTx :: HasConfiguration => Script -> [Maybe SafeSigner] -> TxInputs -> TxOutputs -> TxAux
 makeMOfNTx validator sks txInputs = makeAbstractTx mkWit (map ((), ) txInputs)
   where mkWit _ sigData = ScriptWitness
             { twValidator = validator
             , twRedeemer = multisigRedeemer sigData sks
             }
 
-makeRedemptionTx :: RedeemSecretKey -> TxInputs -> TxOutputs -> TxAux
+makeRedemptionTx :: HasConfiguration => RedeemSecretKey -> TxInputs -> TxOutputs -> TxAux
 makeRedemptionTx rsk txInputs = makeAbstractTx mkWit (map ((), ) txInputs)
   where rpk = redeemToPublic rsk
         mkWit _ sigData = RedeemWitness
@@ -454,7 +458,7 @@ withLinearFeePolicy action = view tcdFeePolicy >>= \case
 
 -- | Prepare transaction considering fees
 prepareTxWithFee
-    :: Monad m
+    :: (HasConfiguration, Monad m)
     => Utxo
     -> TxOutputs
     -> TxCreator m TxRaw
@@ -464,7 +468,7 @@ prepareTxWithFee utxo outputs = withLinearFeePolicy $ \linearPolicy ->
 -- | Compute, how much fees we should pay to send money to given
 -- outputs
 computeTxFee
-    :: Monad m
+    :: (HasConfiguration, Monad m)
     => Utxo
     -> TxOutputs
     -> TxCreator m TxFee
@@ -518,7 +522,7 @@ computeTxFee utxo outputs = withLinearFeePolicy $ \linearPolicy -> do
 -- valid).
 -- To possibly find better solutions we iterate for several times more.
 stabilizeTxFee
-    :: forall m. Monad m
+    :: forall m. (HasConfiguration, Monad m)
     => TxSizeLinear
     -> Utxo
     -> TxOutputs
@@ -563,7 +567,7 @@ txToLinearFee linearPolicy =
 
 -- | Function is used to calculate intermediate fee amounts
 -- when forming a transaction
-createFakeTxFromRawTx :: TxRaw -> TxAux
+createFakeTxFromRawTx :: HasConfiguration => TxRaw -> TxAux
 createFakeTxFromRawTx TxRaw{..} =
     let fakeAddr = txOutAddress . toaOut . NE.head $ trOutputs
         fakeOutMB

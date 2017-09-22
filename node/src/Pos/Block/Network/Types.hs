@@ -62,13 +62,15 @@ instance Buildable MsgGetBlocks where
                mgbFrom mgbTo
 
 -- | 'Headers' message (see protocol specification).
-newtype MsgHeaders ssc =
-    MsgHeaders (NewestFirst NE (BlockHeader ssc))
+data MsgHeaders ssc
+    = MsgHeaders (NewestFirst NE (BlockHeader ssc))
+    | MsgNoHeaders Text
     deriving (Generic, Show, Eq)
 
 -- | 'Block' message (see protocol specification).
-newtype MsgBlock ssc =
-    MsgBlock (Block ssc)
+data MsgBlock ssc
+    = MsgBlock (Block ssc)
+    | MsgNoBlock Text
     deriving (Generic, Show)
 
 deriving instance (Ssc ssc, Eq (SscPayload ssc)) => Eq (MsgBlock ssc)

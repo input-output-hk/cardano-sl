@@ -55,8 +55,12 @@ data Command
     | ProposeUpdate !ProposeUpdateParams
     | Help
     | ListAddresses
-    | DelegateLight !Int !PublicKey !EpochIndex !(Maybe EpochIndex) -- first and last epoch of psk ttl
-    | DelegateHeavy !Int !PublicKey !EpochIndex -- last argument is current epoch
+    | DelegateLight !Int !PublicKey !EpochIndex !(Maybe EpochIndex) !Bool
+     -- ^ From whom, to whom, ttl start/end epochs, dry mode (off =
+     -- send cert, on = dump yaml)
+    | DelegateHeavy !Int !PublicKey !EpochIndex !Bool
+     -- ^ From whom, to whom, ttl epoch, last argument is current
+     -- epoch, dry mode
     | AddKeyFromPool !Int
     | AddKeyFromFile !FilePath
     | AddrDistr !PublicKey !AddrStakeDistribution

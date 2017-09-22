@@ -13,6 +13,7 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Pos.Arbitrary.Core                ()
 import           Pos.Arbitrary.Crypto              ()
 import           Pos.Binary.Update                 ()
+import           Pos.Core.Configuration            (HasConfiguration)
 import           Pos.Crypto                        (SignTag (SignUSVote), fakeSigner,
                                                     sign, toPublic)
 import           Pos.Data.Attributes               (mkAttributes)
@@ -35,7 +36,7 @@ instance Arbitrary SystemTag where
         onFail = error "instance Arbitrary SystemTag: disaster"
     shrink = genericShrink
 
-instance Arbitrary UpdateVote where
+instance HasConfiguration => Arbitrary UpdateVote where
     arbitrary = do
         sk <- arbitrary
         let uvKey = toPublic sk
@@ -45,7 +46,7 @@ instance Arbitrary UpdateVote where
         return UpdateVote {..}
     shrink = genericShrink
 
-instance Arbitrary UpdateProposal where
+instance HasConfiguration => Arbitrary UpdateProposal where
     arbitrary = do
         upBlockVersion <- arbitrary
         upBlockVersionMod <- arbitrary
@@ -76,6 +77,6 @@ instance Arbitrary UpdateData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary UpdatePayload where
+instance HasConfiguration => Arbitrary UpdatePayload where
     arbitrary = genericArbitrary
     shrink = genericShrink

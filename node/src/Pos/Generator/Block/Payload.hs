@@ -27,6 +27,7 @@ import           Pos.Client.Txp.Util        (createGenericTx, makeMPubKeyTxAddrs
 import           Pos.Core                   (AddrSpendingData (..), Address (..), Coin,
                                              SlotId (..), addressHash, coinToInteger,
                                              makePubKeyAddressBoot, unsafeIntegerToCoin)
+import           Pos.Core.Configuration     (HasConfiguration)
 import           Pos.Crypto                 (SecretKey, WithHash (..), fakeSigner, hash,
                                              toPublic)
 import           Pos.Generator.Block.Error  (BlockGenError (..))
@@ -115,10 +116,10 @@ data GenTxData = GenTxData
 
 makeLenses ''GenTxData
 
-instance (Monad m) => MonadUtxoRead (StateT GenTxData m) where
+instance (HasConfiguration, Monad m) => MonadUtxoRead (StateT GenTxData m) where
     utxoGet txIn = uses gtdUtxo $ M.lookup txIn
 
-instance (Monad m) => MonadUtxo (StateT GenTxData m) where
+instance (HasConfiguration, Monad m) => MonadUtxo (StateT GenTxData m) where
     utxoPut txIn txOutAux = gtdUtxo . at txIn ?= txOutAux
     utxoDel txIn = gtdUtxo . at txIn .= Nothing
 

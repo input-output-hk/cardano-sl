@@ -46,32 +46,33 @@ module Pos.Generator.BlockEvent
 
 import           Universum
 
-import           Control.Lens                (folded, makeLenses, makePrisms, to,
-                                              toListOf)
-import           Control.Monad.Random.Strict (RandT, Random (..), RandomGen, mapRandT,
-                                              weighted)
-import qualified Data.ByteString.Short       as SBS
-import qualified Data.List                   as List
-import qualified Data.List.NonEmpty          as NE
-import qualified Data.Map                    as Map
-import qualified Data.Sequence               as Seq
+import           Control.Lens                     (folded, makeLenses, makePrisms, to,
+                                                   toListOf)
+import           Control.Monad.Random.Strict      (RandT, Random (..), RandomGen,
+                                                   mapRandT, weighted)
+import qualified Data.ByteString.Short            as SBS
+import qualified Data.List                        as List
+import qualified Data.List.NonEmpty               as NE
+import qualified Data.Map                         as Map
+import qualified Data.Sequence                    as Seq
 import qualified Data.Text.Buildable
-import           Formatting                  (bprint, build, sformat, shown, (%))
+import           Formatting                       (bprint, build, sformat, shown, (%))
 import qualified Prelude
-import           Serokell.Util               (listJson)
+import           Serokell.Util                    (listJson)
 
-import           Pos.AllSecrets              (AllSecrets)
-import           Pos.Block.Types             (Blund)
-import           Pos.Core                    (HasCoreConstants, HeaderHash, headerHash,
-                                              prevBlockL)
-import           Pos.Crypto.Hashing          (hashHexF)
-import           Pos.Generator.Block         (BlockGenParams (..), MonadBlockGen,
-                                              TxGenParams (..), genBlocks)
-import           Pos.Genesis                 (GenesisWStakeholders)
-import           Pos.GState.Context          (withClonedGState)
-import           Pos.Ssc.GodTossing.Type     (SscGodTossing)
-import           Pos.Util.Chrono             (NE, NewestFirst (..), OldestFirst (..),
-                                              toNewestFirst, toOldestFirst, _OldestFirst)
+import           Pos.AllSecrets                   (AllSecrets)
+import           Pos.Block.Types                  (Blund)
+import           Pos.Core                         (GenesisWStakeholders, HasConfiguration,
+                                                   HeaderHash, headerHash, prevBlockL)
+import           Pos.Crypto.Hashing               (hashHexF)
+import           Pos.Generator.Block              (BlockGenParams (..), MonadBlockGen,
+                                                   TxGenParams (..), genBlocks)
+import           Pos.GState.Context               (withClonedGState)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
+import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..),
+                                                   toNewestFirst, toOldestFirst,
+                                                   _OldestFirst)
 
 type BlundDefault = Blund SscGodTossing
 
@@ -329,7 +330,7 @@ newtype CheckCount = CheckCount Word
     deriving (Eq, Ord, Show, Num)
 
 -- The tip after the block event. 'Nothing' when the event doesn't affect the tip.
-blkEvTip :: HasCoreConstants => BlockEvent -> Maybe HeaderHash
+blkEvTip :: (HasConfiguration, HasGtConfiguration) => BlockEvent -> Maybe HeaderHash
 blkEvTip = \case
     BlkEvApply bea -> Just $
         (headerHash . NE.head . getNewestFirst . toNewestFirst . view beaInput) bea
@@ -347,7 +348,7 @@ hhSnapshotId = SnapshotId . sformat hashHexF
 
 -- | Whenever the resulting tips of apply/rollback operations coincide,
 -- add a snapshot equivalence comparison.
-enrichWithSnapshotChecking :: HasCoreConstants => BlockScenario -> (BlockScenario, CheckCount)
+enrichWithSnapshotChecking :: (HasConfiguration, HasGtConfiguration) => BlockScenario -> (BlockScenario, CheckCount)
 enrichWithSnapshotChecking (BlockScenario bs) = (BlockScenario bs', checkCount)
   where
     checkCount = sum (hhStatusEnd :: HhStatusMap)

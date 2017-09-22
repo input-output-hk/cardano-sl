@@ -27,8 +27,10 @@ import           Pos.Ssc.GodTossing    (SharesDistribution, TossVerFailure,
                                         isDistrInaccuracyAcceptable,
                                         sharesDistrMaxSumDistr)
 
+import           Test.Pos.Util         (giveCoreConf)
+
 spec :: Spec
-spec = describe "computeSharesDistr" $ do
+spec = giveCoreConf $ describe "computeSharesDistr" $ do
     prop emptyRichmenStakesDesc emptyRichmenStakes
     modifyMaxSuccess (const 3) $
         prop invalidStakeErrorsDesc invalidStakeErrors
@@ -163,13 +165,19 @@ richmenStakesFromFractions fracts0 = do
 -- Tests on total amount of shares
 ----------------------------------------------------------------------------
 
+-- Note that 1 is the “most reasonable” distribution here but the algorithm
+-- will output 4 because distributions size less than 4 can't be generated
+-- by SCRAPE.
 oneRichRichman :: Bool
-oneRichRichman = isDistrReasonable 1 richmen $ computeShares' richmen
+oneRichRichman = isDistrReasonable 4 richmen $ computeShares' richmen
   where
     richmen = richmenStakesFromCoins [maxCoin]
 
+-- Note that 2 is the “most reasonable” distribution here but the algorithm
+-- will output 8 because distributions size less than 4 can't be generated
+-- by SCRAPE and we multiply everything by four. 2×4 = 8
 twoRichRichmen :: Bool
-twoRichRichmen = isDistrReasonable 2 richmen $ computeShares' richmen
+twoRichRichmen = isDistrReasonable 8 richmen $ computeShares' richmen
   where
     richmen = richmenStakesFromCoins [maxCoin </> 2 <-> 1, maxCoin </> 2]
 

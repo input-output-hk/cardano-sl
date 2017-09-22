@@ -6,11 +6,11 @@ module Pos.Binary.Core.Block
 
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..), encodeListLen, enforceSize)
-import qualified Pos.Core.Block     as T
-import           Pos.Core.Constants (protocolMagic)
-import qualified Pos.Core.Types     as T
-import           Pos.Util.Util      (eitherToFail)
+import           Pos.Binary.Class                (Bi (..), encodeListLen, enforceSize)
+import qualified Pos.Core.Block                  as T
+import           Pos.Core.Configuration.Protocol (HasProtocolConstants, protocolMagic)
+import qualified Pos.Core.Types                  as T
+import           Pos.Util.Util                   (eitherToFail)
 
 -- | This instance required only for Arbitrary instance of HeaderHash
 -- due to @instance Bi a => Hash a@.
@@ -24,10 +24,11 @@ instance ( Typeable b
          , Bi (T.ConsensusData b)
          , Bi (T.ExtraHeaderData b)
          , T.BlockchainHelpers b
+         , HasProtocolConstants
          ) =>
          Bi (T.GenericBlockHeader b) where
   encode bh =  encodeListLen 5
-            <> encode protocolMagic
+            <> encode (T.getProtocolMagic protocolMagic)
             <> encode (T._gbhPrevBlock bh)
             <> encode (T._gbhBodyProof bh)
             <> encode (T._gbhConsensus bh)
@@ -35,7 +36,7 @@ instance ( Typeable b
   decode = do
     enforceSize "GenericBlockHeader b" 5
     blockMagic <- decode
-    when (blockMagic /= protocolMagic) $
+    when (blockMagic /= T.getProtocolMagic protocolMagic) $
         fail $ "GenericBlockHeader failed with wrong magic: " <> show blockMagic
     prevBlock <- decode
     bodyProof <- decode
@@ -51,6 +52,7 @@ instance ( Typeable b
          , Bi (T.Body b)
          , Bi (T.ExtraBodyData b)
          , T.BlockchainHelpers b
+         , HasProtocolConstants
          ) =>
          Bi (T.GenericBlock b) where
   encode gb =  encodeListLen 3

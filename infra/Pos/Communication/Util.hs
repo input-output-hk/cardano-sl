@@ -12,14 +12,15 @@ import           Formatting                  (sformat, shown, hex, (%))
 import qualified Node                        as N
 import           System.Wlog                 (LoggerName, modifyLoggerName)
 
-import           Pos.Communication.Constants (networkWaitLogInterval)
+import           Pos.Communication.Configuration (networkWaitLogInterval)
 import           Pos.Communication.Protocol  (ActionSpec (..), Listener, Message (..),
                                               mapActionSpec,
                                               mapListener,
                                               SendActions (..), Conversation (..))
+import           Pos.Infra.Configuration     (HasInfraConfiguration)
 import           Pos.Util.TimeLimit          (CanLogInParallel, logWarningWaitLinear)
 
-sendActionsWithWaitLog :: ( CanLogInParallel m )
+sendActionsWithWaitLog :: ( HasInfraConfiguration, CanLogInParallel m )
             => SendActions m
             -> SendActions m
 sendActionsWithWaitLog sendActions = sendActions
@@ -32,7 +33,7 @@ sendActionsWithWaitLog sendActions = sendActions
         l $ convWithWaitLog nodeId cA
 
 convWithWaitLog
-    :: (CanLogInParallel m, Message snd)
+    :: (HasInfraConfiguration, CanLogInParallel m, Message snd)
     => N.NodeId
     -> N.ConversationActions snd rcv m
     -> N.ConversationActions snd rcv m
@@ -52,7 +53,7 @@ convWithWaitLog nodeId conv = conv { N.send = send', N.recv = recv' }
 
 -- TODO: Remove?
 _convWithWaitLogL
-    :: (CanLogInParallel m, Message rcv)
+    :: (HasInfraConfiguration, CanLogInParallel m, Message rcv)
     => N.NodeId
     -> N.ConversationActions snd rcv m
     -> N.ConversationActions snd rcv m
@@ -85,7 +86,7 @@ wrapActionSpec lname = modifyLogger lname
                                     (<> lname)
 
 wrapSendActions
-  :: ( CanLogInParallel m )
+  :: ( HasInfraConfiguration, CanLogInParallel m )
   => SendActions m
   -> SendActions m
 wrapSendActions =

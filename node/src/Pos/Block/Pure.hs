@@ -32,7 +32,7 @@ import           Pos.Block.Core             (BiSsc, Block, BlockHeader, gebAttri
                                              getBlockHeader, mainHeaderLeaderKey,
                                              mebAttributes, mehAttributes)
 import           Pos.Core                   (BlockVersionData (..), ChainDifficulty,
-                                             EpochOrSlot, HasCoreConstants,
+                                             EpochOrSlot, HasConfiguration,
                                              HasDifficulty (..), HasEpochIndex (..),
                                              HasEpochOrSlot (..), HasHeaderHash (..),
                                              HeaderHash, SlotId (..), SlotLeaders,
@@ -215,7 +215,7 @@ data VerifyBlockParams ssc = VerifyBlockParams
 -- | Check predicates defined by VerifyBlockParams.
 -- #verifyHeader
 verifyBlock
-    :: forall ssc. (SscHelpersClass ssc, BiSsc ssc, HasCoreConstants)
+    :: forall ssc. (SscHelpersClass ssc, BiSsc ssc, HasConfiguration)
     => VerifyBlockParams ssc -> Block ssc -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk =
     mconcat
@@ -260,7 +260,7 @@ verifyBlocks
        , BiSsc ssc
        , t ~ OldestFirst f (Block ssc)
        , NontrivialContainer t
-       , HasCoreConstants
+       , HasConfiguration
        )
     => Maybe SlotId
     -> Bool

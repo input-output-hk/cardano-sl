@@ -26,6 +26,7 @@ import           Data.Time.Clock            (UTCTime)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Core                   (HeaderHash, ProxySKHeavy, ProxySKLight)
+import           Pos.Core.Configuration     (HasConfiguration)
 import           Pos.Delegation.Types       (DlgMemPool)
 import           Pos.Util.Util              (HasLens (..))
 
@@ -68,7 +69,11 @@ type DelegationVar = TVar DelegationWrap
 -- | We're locking on the whole delegation wrap at once. Locking on
 -- independent components is better in performance, so there's a place
 -- for optimization here.
-type MonadDelegation ctx m = (MonadReader ctx m, HasLens DelegationVar ctx DelegationVar)
+type MonadDelegation ctx m = 
+    ( MonadReader ctx m
+    , HasLens DelegationVar ctx DelegationVar
+    , HasConfiguration
+    )
 
 askDelegationState :: MonadDelegation ctx m => m DelegationVar
 askDelegationState = view (lensOf @DelegationVar)

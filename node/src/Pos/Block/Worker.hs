@@ -36,12 +36,13 @@ import           Pos.Block.Slog              (scCQFixedMonitorState,
                                               scLocalSlotMonitorState, slogGetLastSlots)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions (..), Worker,
                                               WorkerSpec, onNewSlotWorker)
-import           Pos.Constants               (criticalCQ, criticalCQBootstrap,
-                                              networkDiameter, nonCriticalCQ,
-                                              nonCriticalCQBootstrap)
+import           Pos.Configuration           (networkDiameter)
+import           Pos.Core.Configuration      (criticalCQ, criticalCQBootstrap,
+                                              nonCriticalCQ, nonCriticalCQBootstrap,
+                                              HasConfiguration)
 import           Pos.Context                 (getOurPublicKey, recoveryCommGuard)
 import           Pos.Core                    (BlockVersionData (..), ChainDifficulty,
-                                              FlatSlotId, HasCoreConstants, SlotId (..),
+                                              FlatSlotId, SlotId (..),
                                               Timestamp (Timestamp), blkSecurityParam,
                                               difficultyL, epochSlots, fixedTimeCQSec,
                                               flattenSlotId, gbHeader, getSlotIndex,
@@ -333,7 +334,7 @@ chainQualityChecker curSlot kThSlot = do
 
 -- Monitor for chain quality for last k blocks.
 cqkMetricMonitor ::
-       HasCoreConstants
+       HasConfiguration
     => MetricMonitorState Double
     -> Bool
     -> MetricMonitor Double
@@ -373,7 +374,7 @@ cqOverallMetricMonitor = noReportMonitor convertCQ (Just debugFormat)
   where
     debugFormat = "Overall chain quality is " %cqF
 
-cqFixedMetricMonitor :: MetricMonitorState Double -> MetricMonitor Double
+cqFixedMetricMonitor :: HasConfiguration => MetricMonitorState Double -> MetricMonitor Double
 cqFixedMetricMonitor = noReportMonitor convertCQ (Just debugFormat)
   where
     debugFormat =

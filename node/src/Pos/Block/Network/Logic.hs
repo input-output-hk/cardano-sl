@@ -56,12 +56,12 @@ import           Pos.Communication.Limits   (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              EnqueueMsg, MsgType (..), NodeId, OutSpecs,
                                              convH, toOutSpecs, waitForConversations)
-import qualified Pos.Constants              as Constants
 import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHeaderTag,
                                              recoveryCommGuard, recoveryInProgress)
-import           Pos.Core                   (HasCoreConstants, HasHeaderHash (..),
+import           Pos.Core                   (HasConfiguration, HasHeaderHash (..),
                                              HeaderHash, gbHeader, headerHashG,
-                                             isMoreDifficult, prevBlockL)
+                                             isMoreDifficult, prevBlockL,
+                                             criticalForkThreshold)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.DB.Block               (blkGetHeader)
 import qualified Pos.DB.DB                  as DB
@@ -234,7 +234,7 @@ data MatchReqHeadersRes
 -- TODO This function is used ONLY in recovery mode, so passing the
 -- flag is redundant, it's always True.
 matchRequestedHeaders
-    :: (SscHelpersClass ssc, HasCoreConstants)
+    :: (SscHelpersClass ssc, HasConfiguration)
     => NewestFirst NE (BlockHeader ssc) -> MsgGetHeaders -> Bool -> MatchReqHeadersRes
 matchRequestedHeaders headers mgh@MsgGetHeaders {..} inRecovery =
     let newTip = headers ^. _Wrapped . _neHead
@@ -543,7 +543,7 @@ applyWithRollback nodeId enqueue toApply lca toRollback = do
                 sformat reportF nodeId toRollbackHashes toApplyHashes
       where
         rollbackDepth = length toRollback
-        isCritical = rollbackDepth >= Constants.criticalForkThreshold
+        isCritical = rollbackDepth >= criticalForkThreshold
 
     panicBrokenLca = error "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =

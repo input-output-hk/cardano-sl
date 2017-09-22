@@ -18,8 +18,12 @@ import           Servant.Server          (Handler)
 import           Servant.Utils.Enter     ((:~>) (..), enter)
 
 import           Pos.Communication       (OutSpecs, SendActions, WorkerSpec, worker)
-import           Pos.Core                (HasCoreConstants)
+import           Pos.Configuration       (HasNodeConfiguration)
+import           Pos.Core                (HasConfiguration)
+import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Ssc.GodTossing      (SscGodTossing)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.WorkMode            (RealMode, RealModeContext (..))
 
 import           Pos.Explorer            (ExplorerBListener, runExplorerBListener)
@@ -33,12 +37,25 @@ import           Pos.Explorer.Web.Server (explorerApp, explorerHandlers,
 
 type ExplorerProd = ExplorerBListener (RealMode SscGodTossing)
 
-notifierPlugin :: HasCoreConstants => NotifierSettings -> ([WorkerSpec ExplorerProd], OutSpecs)
+notifierPlugin
+    :: ( HasConfiguration
+       , HasNodeConfiguration
+       , HasInfraConfiguration
+       , HasUpdateConfiguration
+       , HasGtConfiguration
+       )
+    => NotifierSettings
+    -> ([WorkerSpec ExplorerProd], OutSpecs)
 notifierPlugin = first pure . worker mempty .
     \settings _sa -> notifierApp @SscGodTossing settings
 
 explorerPlugin
-    :: HasCoreConstants
+    :: ( HasConfiguration
+       , HasNodeConfiguration
+       , HasGtConfiguration
+       , HasInfraConfiguration
+       , HasUpdateConfiguration
+       )
     => Word16
     -> ([WorkerSpec ExplorerProd], OutSpecs)
 explorerPlugin port =
@@ -46,7 +63,12 @@ explorerPlugin port =
     (\sa -> explorerServeWebReal sa port)
 
 explorerServeWebReal
-    :: HasCoreConstants
+    :: ( HasConfiguration
+       , HasNodeConfiguration
+       , HasGtConfiguration
+       , HasInfraConfiguration
+       , HasUpdateConfiguration
+       )
     => SendActions ExplorerProd
     -> Word16
     -> ExplorerProd ()

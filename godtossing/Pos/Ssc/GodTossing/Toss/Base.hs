@@ -50,7 +50,7 @@ import           Pos.Binary.Class                (AsBinary, fromBinaryM)
 import           Pos.Core                        (CoinPortion, EpochIndex, StakeholderId,
                                                   addressHash, bvdMpcThd,
                                                   coinPortionDenominator, getCoinPortion,
-                                                  unsafeGetCoin)
+                                                  unsafeGetCoin, VssCertificatesMap, vcSigningKey, vcVssKey)
 import           Pos.Crypto                      (DecShare, verifyDecShare,
                                                   verifyEncShares)
 import           Pos.Lrc.Types                   (RichmenSet, RichmenStakes)
@@ -59,9 +59,8 @@ import           Pos.Ssc.GodTossing.Core         (Commitment (..),
                                                   GtPayload (..), InnerSharesMap,
                                                   Opening (..), OpeningsMap,
                                                   SharesDistribution, SharesMap,
-                                                  SignedCommitment, VssCertificatesMap,
-                                                  VssCertificatesMap, commShares,
-                                                  getCommShares, vcSigningKey, vcVssKey,
+                                                  SignedCommitment,
+                                                  commShares, getCommShares,
                                                   verifyOpening, vssThreshold,
                                                   _gpCertificates)
 import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossEnv (..),

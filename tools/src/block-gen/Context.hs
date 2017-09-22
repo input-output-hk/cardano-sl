@@ -10,39 +10,36 @@ module Context
 
 import           Universum
 
-import           Control.Lens         (makeLensesWith)
-import qualified Control.Monad.Reader as Mtl
-import           Ether.Internal       (HasLens (..))
-import           Mockable             (Production, currentTime)
+import           Control.Lens               (makeLensesWith)
+import qualified Control.Monad.Reader       as Mtl
+import           Ether.Internal             (HasLens (..))
+import           Mockable                   (Production, currentTime)
 
-import           Pos.Block.Core       (Block, BlockHeader)
-import           Pos.Block.Slog       (HasSlogGState (..), mkSlogGState)
-import           Pos.Block.Types      (Undo)
-import           Pos.Context          (GenesisUtxo (..))
-import           Pos.Core             (GenesisWStakeholders, HasCoreConstants,
-                                       Timestamp (..))
-import           Pos.DB               (MonadBlockDBGeneric (..),
-                                       MonadBlockDBGenericWrite (..), MonadDB (..),
-                                       MonadDBRead (..))
-import qualified Pos.DB               as DB
-import qualified Pos.DB.Block         as BDB
-import           Pos.DB.DB            (initNodeDBs)
-import           Pos.DB.Sum           (DBSum (..))
-import           Pos.Genesis          (GenesisContext (..), gtcUtxo, gtcWStakeholders)
-import           Pos.GState           (GStateContext (..))
-import qualified Pos.GState           as GS
-import           Pos.KnownPeers       (MonadFormatPeers (..))
-import           Pos.Lrc.Context      (LrcContext (..), mkLrcSyncData)
-import           Pos.Slotting         (HasSlottingVar (..))
-import           Pos.Ssc.GodTossing   (SscGodTossing)
-import           Pos.Util             (newInitFuture, postfixLFields)
+import           Pos.Block.Core             (Block, BlockHeader)
+import           Pos.Block.Slog             (HasSlogGState (..), mkSlogGState)
+import           Pos.Block.Types            (Undo)
+import           Pos.Core                   (Timestamp (..))
+import           Pos.DB                     (MonadBlockDBGeneric (..),
+                                             MonadBlockDBGenericWrite (..), MonadDB (..),
+                                             MonadDBRead (..))
+import qualified Pos.DB                     as DB
+import qualified Pos.DB.Block               as BDB
+import           Pos.DB.DB                  (initNodeDBs)
+import           Pos.DB.Sum                 (DBSum (..))
+import           Pos.GState                 (GStateContext (..))
+import qualified Pos.GState                 as GS
+import           Pos.KnownPeers             (MonadFormatPeers (..))
+import           Pos.Launcher.Configuration (HasConfigurations)
+import           Pos.Lrc.Context            (LrcContext (..), mkLrcSyncData)
+import           Pos.Slotting               (HasSlottingVar (..))
+import           Pos.Ssc.GodTossing         (SscGodTossing)
+import           Pos.Util                   (newInitFuture, postfixLFields)
 
 -- | Enough context for generation of blocks.
 -- "T" means tool
 data TBlockGenContext = TBlockGenContext
-    { tbgcGState         :: GStateContext
-    , tbgcGenesisContext :: GenesisContext
-    , tbgcSystemStart    :: Timestamp
+    { tbgcGState      :: GStateContext
+    , tbgcSystemStart :: Timestamp
     }
 
 makeLensesWith postfixLFields ''TBlockGenContext
@@ -53,12 +50,11 @@ runTBlockGenMode :: TBlockGenContext -> TBlockGenMode a -> Production a
 runTBlockGenMode = flip Mtl.runReaderT
 
 initTBlockGenMode ::
-       HasCoreConstants
+       HasConfigurations
     => DB.NodeDBs
-    -> GenesisContext
     -> TBlockGenMode a
     -> Production a
-initTBlockGenMode nodeDBs genesisCtx action = do
+initTBlockGenMode nodeDBs action = do
     let _gscDB = RealDB nodeDBs
     (_gscSlogGState, putSlogGState) <- newInitFuture "slogGState"
     (_gscLrcContext, putLrcCtx) <- newInitFuture "lrcCtx"
@@ -66,7 +62,6 @@ initTBlockGenMode nodeDBs genesisCtx action = do
     let tbgcGState = GStateContext {..}
 
     tbgcSystemStart <- Timestamp <$> currentTime
-    let tbgcGenesisContext = genesisCtx
     let tblockCtx = TBlockGenContext {..}
     runTBlockGenMode tblockCtx $ do
         initNodeDBs @SscGodTossing
@@ -98,31 +93,21 @@ instance HasSlogGState TBlockGenContext where
 instance HasLens LrcContext TBlockGenContext LrcContext where
     lensOf = tbgcGState_L . GS.gscLrcContext
 
-instance HasLens GenesisUtxo TBlockGenContext GenesisUtxo where
-    lensOf = tbgcGenesisContext_L . gtcUtxo
-
-instance HasLens GenesisWStakeholders TBlockGenContext GenesisWStakeholders where
-    lensOf = tbgcGenesisContext_L . gtcWStakeholders
-
-instance HasLens GenesisContext TBlockGenContext GenesisContext where
-    lensOf = tbgcGenesisContext_L
-
 instance HasSlottingVar TBlockGenContext where
     slottingTimestamp = tbgcSystemStart_L
     slottingVar = tbgcGState_L . GS.gscSlottingVar
 
-
-instance MonadDBRead TBlockGenMode where
+instance HasConfigurations => MonadDBRead TBlockGenMode where
     dbGet = DB.dbGetSumDefault
     dbIterSource = DB.dbIterSourceSumDefault
 
-instance MonadDB TBlockGenMode where
+instance HasConfigurations => MonadDB TBlockGenMode where
     dbPut = DB.dbPutSumDefault
     dbWriteBatch = DB.dbWriteBatchSumDefault
     dbDelete = DB.dbDeleteSumDefault
 
 instance
-    HasCoreConstants =>
+    HasConfigurations =>
     MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo TBlockGenMode
   where
     dbGetBlock = BDB.dbGetBlockSumDefault @SscGodTossing
@@ -130,7 +115,7 @@ instance
     dbGetHeader = BDB.dbGetHeaderSumDefault @SscGodTossing
 
 instance
-    HasCoreConstants =>
+    HasConfigurations =>
     MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo TBlockGenMode
   where
     dbPutBlund = BDB.dbPutBlundSumDefault

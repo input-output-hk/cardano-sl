@@ -48,9 +48,11 @@ import           Pos.Communication               (ActionSpec (..), EnqueueMsg,
                                                   SendActions, VerInfo (..), allListeners,
                                                   bipPacking, hoistSendActions,
                                                   makeEnqueueMsg, makeSendActions)
-import qualified Pos.Constants                   as Const
+import           Pos.Configuration               (HasNodeConfiguration)
 import           Pos.Context                     (NodeContext (..))
-import           Pos.Core                        (HasCoreConstants)
+import           Pos.Core.Types                  (ProtocolMagic (..))
+import           Pos.Core.Configuration          (HasConfiguration, protocolMagic)
+import           Pos.Infra.Configuration         (HasInfraConfiguration)
 import           Pos.Launcher.Param              (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..))
 import           Pos.Launcher.Resource           (NodeResources (..), hoistNodeResources)
@@ -59,6 +61,7 @@ import           Pos.Network.Types               (NetworkConfig (..), NodeId, in
 import           Pos.Recovery.Instance           ()
 import           Pos.Ssc.Class                   (SscConstraint)
 import           Pos.Statistics                  (EkgParams (..), StatsdParams (..))
+import           Pos.Update.Configuration        (HasUpdateConfiguration, lastKnownBlockVersion)
 import           Pos.Util.JsonLog                (JsonLogConfig (..),
                                                   jsonLogConfigFromHandle)
 import           Pos.Web.Server                  (route53HealthCheckApplication,
@@ -72,8 +75,8 @@ import           Pos.WorkMode                    (EnqueuedConversation (..), OQ,
 
 -- | Run activity in 'RealMode'.
 runRealMode
-    :: forall ssc a.
-       (HasCoreConstants, SscConstraint ssc)
+    :: forall ssc ctx a.
+       (SscConstraint ssc, WorkMode ssc ctx (RealMode ssc))
     => NodeResources ssc (RealMode ssc)
     -> (ActionSpec (RealMode ssc) a, OutSpecs)
     -> Production a
@@ -96,7 +99,12 @@ runRealBasedMode unwrap wrap nr@NodeResources {..} (ActionSpec action, outSpecs)
 -- | RealMode runner.
 runRealModeDo
     :: forall ssc a.
-       (HasCoreConstants, SscConstraint ssc)
+       ( HasConfiguration
+       , HasInfraConfiguration
+       , HasUpdateConfiguration
+       , HasNodeConfiguration
+       , SscConstraint ssc
+       )
     => NodeResources ssc (RealMode ssc)
     -> OutSpecs
     -> ActionSpec (RealMode ssc) a
@@ -212,7 +220,14 @@ oqDequeue oq converse = do
 
 runServer
     :: forall m t b .
-       (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
+       ( MonadIO m
+       , MonadMockable m
+       , MonadFix m
+       , WithLogger m
+       , HasConfiguration
+       , HasUpdateConfiguration
+       , HasNodeConfiguration
+       )
     => (m (Statistics m) -> NodeEndPoint m)
     -> (m (Statistics m) -> ReceiveDelay m)
     -> (EnqueueMsg m -> MkListeners m)
@@ -229,7 +244,7 @@ runServer mkTransport mkReceiveDelay mkL (OutSpecs wouts) withNode afterNode oq 
         InSpecs ins = inSpecs mkL'
         OutSpecs outs = outSpecs mkL'
         ourVerInfo =
-            VerInfo Const.protocolMagic Const.lastKnownBlockVersion ins $ outs <> wouts
+            VerInfo (getProtocolMagic protocolMagic) lastKnownBlockVersion ins $ outs <> wouts
         mkListeners' theirVerInfo =
             mkListeners mkL' ourVerInfo theirVerInfo
     stdGen <- liftIO newStdGen

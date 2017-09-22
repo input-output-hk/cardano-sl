@@ -19,6 +19,7 @@ import           Serokell.Data.Memory.Units      (Byte, fromBytes, toBytes)
 import           Pos.Binary.Class                (Bi)
 import qualified Pos.Binary.Class                as Bi
 import           Pos.Block.Core
+import           Pos.Core.Vss                    (VssCertificate (..))
 import           Pos.Core.Fee                    (Coeff (..), TxFeePolicy (..),
                                                   TxSizeLinear (..))
 import           Pos.Core.Types                  (AddrAttributes (..),
@@ -36,14 +37,14 @@ import           Pos.Core.Types                  (AddrAttributes (..),
                                                   SoftforkRule (..), SoftwareVersion (..))
 import           Pos.Crypto.Hashing              (AbstractHash (..))
 import           Pos.Crypto.HD                   (HDAddressPayload (..))
-import           Pos.Crypto.RedeemSigning        (RedeemPublicKey (..),
+import           Pos.Crypto.Signing.Redeem       (RedeemPublicKey (..),
                                                   RedeemSecretKey (..),
                                                   RedeemSignature (..))
-import           Pos.Crypto.SecretSharing        (SecretProof)
-import           Pos.Crypto.Signing              (ProxyCert (..), ProxySecretKey (..),
+import           Pos.Crypto.Signing.Signing      (ProxyCert (..), ProxySecretKey (..),
                                                   ProxySignature (..), PublicKey (..),
                                                   SecretKey (..), Signature (..),
                                                   Signed (..))
+import           Pos.Crypto.SecretSharing        (SecretProof)
 import           Pos.Data.Attributes             (Attributes (..), UnparsedFields)
 import           Pos.Delegation.Types            (DlgPayload (..))
 import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (..),
@@ -51,7 +52,7 @@ import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (.
 import           Pos.Ssc.Class.Types             (Ssc (..))
 import           Pos.Ssc.GodTossing.Core.Types   (Commitment (..), CommitmentsMap,
                                                   GtPayload (..), GtProof (..),
-                                                  Opening (..), VssCertificate (..))
+                                                  Opening (..))
 import           Pos.Txp.Core.Types              (Tx (..), TxIn (..), TxInWitness (..),
                                                   TxOut (..), TxOutAux (..),
                                                   TxPayload (..), TxProof (..))

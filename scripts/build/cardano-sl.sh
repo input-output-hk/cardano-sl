@@ -60,7 +60,7 @@ set -o pipefail
 # * Pass --no-asserts to disable asserts.
 # * Pass --bench-mode to use the configuration used by modern benchmarks.
 
-# We can't have lwallet, wallet or explorer here, because it depends on 'cardano-sl'.
+# We can't have auxx, wallet or explorer here, because it depends on 'cardano-sl'.
 projects="core db lrc infra update ssc godtossing txp"
 
 args=''
@@ -81,6 +81,7 @@ werror=false
 for_installer=false
 asserts=true
 bench_mode=false
+no_fast=false
 
 if [ -e .no-nix ]; then
   no_nix=true
@@ -152,8 +153,6 @@ do
   elif [[ $var == "--bench-mode" ]]; then
     # We want:
     # • --flag cardano-sl-core:dev-mode (default)
-    # • --flag cardano-sl-core:dev-custom-config ($bench_mode)
-    # • --ghc-options=-DCONFIG=benchmark ($bench_mode)
     # • --flag cardano-sl-core:-asserts ($asserts)
     # • compiler optimizations ($no_fast)
     # • disable explorer ($explorer)
@@ -169,8 +168,8 @@ do
     spec_prj="sl+"
   elif [[ $var == "gt" ]]; then
     spec_prj="godtossing"
-  elif [[ $var == "lwallet" ]]; then
-    spec_prj="lwallet"
+  elif [[ $var == "auxx" ]]; then
+    spec_prj="auxx"
   elif [[ $var == "wallet" ]]; then
     spec_prj="wallet"
   elif [[ $var == "explorer" ]]; then
@@ -225,10 +224,6 @@ if [[ $asserts == false ]]; then
   commonargs="$commonargs --flag cardano-sl-core:-asserts"
 fi
 
-if [[ $bench_mode == true ]]; then
-  commonargs="$commonargs --flag cardano-sl-core:dev-custom-config"
-fi
-
 # CONFIG
 if [[ $bench_mode == true ]]; then
   dconfig=benchmark
@@ -243,11 +238,12 @@ if [[ "$prodMode" != "" ]]; then
     dconfig="${dconfig}_full"
   fi
 fi
-ghc_opts="-DCONFIG=$dconfig -DGITREV=`git rev-parse HEAD`"
+ghc_opts="-DGITREV=`git rev-parse HEAD`"
 
-if [[ $no_fast == true ]];
-  then fast=""
-  else fast="--fast"
+if [[ $no_fast == true ]]; then
+  fast=""
+else
+  fast="--fast"
 fi
 
 if [[ $werror == true ]];
@@ -268,8 +264,8 @@ if [[ $clean == true ]]; then
   echo "Cleaning cardano-sl-tools"
   stack clean cardano-sl-tools
 
-  echo "Cleaning cardano-sl-lwallet"
-  stack clean cardano-sl-lwallet
+  echo "Cleaning cardano-sl-auxx"
+  stack clean cardano-sl-auxx
 
   echo "Cleaning cardano-sl-wallet"
   stack clean cardano-sl-wallet
@@ -293,18 +289,18 @@ if [[ $spec_prj == "" ]]; then
     to_build="$to_build cardano-sl-$prj"
   done
 
-  to_build="$to_build cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-wallet cardano-sl-explorer"
+  to_build="$to_build cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet cardano-sl-explorer"
 
 elif [[ $spec_prj == "sl" ]]; then
   to_build="cardano-sl"
-elif [[ $spec_prj == "lwallet" ]]; then
-  to_build="cardano-sl-lwallet"
+elif [[ $spec_prj == "auxx" ]]; then
+  to_build="cardano-sl-auxx"
 elif [[ $spec_prj == "wallet" ]]; then
   to_build="cardano-sl-wallet"
 elif [[ $spec_prj == "explorer" ]]; then
   to_build="cardano-sl-explorer"
 elif [[ $spec_prj == "sl+" ]]; then
-  to_build="cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-explorer cardano-sl-wallet "
+  to_build="cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-explorer cardano-sl-wallet "
 else
   to_build="cardano-sl-$spec_prj"
 fi
@@ -328,6 +324,8 @@ echo "'explorer' flag: $explorer"
 for prj in $to_build; do
 
   echo -e "Building $prj\n"
+
+  # Building deps
   sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun --dependencies-only $args $prj"
   echo -e "$sbuild\n"
   eval $sbuild
@@ -338,13 +336,10 @@ for prj in $to_build; do
     ghc_opts_2="$ghc_opts"
   fi
 
-  stack build                               \
-      --ghc-options="$ghc_opts_2"           \
-      $commonargs $norun                    \
-      $fast                                 \
-      $args                                 \
-      $prj                                  \
-      2>&1                                  \
+  sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun $fast $args $prj"
+  echo -e "$sbuild\n"
+
+  eval $sbuild 2>&1                         \
     | perl -pe "$xperl"                     \
     | { grep -E --color "$xgrep" || true; }
 done

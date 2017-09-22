@@ -3,7 +3,6 @@ let
 in
 { system ? builtins.currentSystem
 , config ? {}
-, dconfig ? "testnet_staging_full"
 , gitrev ? "unknown"
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; })
 # profiling slows down performance by 50% so we don't enable it by default
@@ -47,14 +46,8 @@ let
         configureFlags = [
           "-f-asserts"
           "-f-dev-mode"
-          "--ghc-options=-DCONFIG=${dconfig}"
           "--ghc-options=-DGITREV=${gitrev}"
         ];
-      });
-      cardano-sl-update = overrideCabal super.cardano-sl-update (drv: {
-        patchPhase = ''
-          export CSL_SYSTEM_TAG=${if pkgs.stdenv.isDarwin then "macos64" else "linux64"}
-        '';
       });
 
       cardano-sl-wallet = justStaticExecutables super.cardano-sl-wallet;
@@ -89,12 +82,13 @@ let
       });
     };
   });
-  other = {
+  upstream = {
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "input-output-hk";
       repo = "stack2nix";
       rev = "be52e67113332280911bcc4924d42f90e21f1144";
       sha256 = "13n7gjyzll3prvdsb6kjyxk9g0by5bv0q34ld7a2nbvdcl1q67fb";
     }) { inherit pkgs; };
+    inherit (pkgs) purescript;
   };
-in cardanoPkgs // other
+in cardanoPkgs // upstream

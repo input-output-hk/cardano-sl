@@ -26,7 +26,7 @@ import           Servant.Utils.Enter              ((:~>) (..), enter)
 
 import qualified Data.ByteString.Char8            as BS8
 import           Pos.Communication                (OutSpecs, SendActions (..), sendTxOuts)
-import           Pos.Core.Context                 (HasCoreConstants)
+import           Pos.Launcher.Configuration       (HasConfigurations)
 import           Pos.Util.TimeWarp                (NetworkAddress)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.Web.Account           (findKey, myRootAddresses)
@@ -83,7 +83,7 @@ walletServer sendActions natM = do
 bracketWalletWebDB
     :: ( MonadIO m
        , MonadMask m
-       , HasCoreConstants
+       , HasConfigurations
        )
     => FilePath  -- ^ Path to wallet acid-state
     -> Bool      -- ^ Rebuild flag for acid-state

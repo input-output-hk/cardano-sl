@@ -22,12 +22,16 @@ import           Pos.Client.Txp.Balances        (getOwnUtxos)
 import           Pos.Client.Txp.History         (TxHistoryEntry (..))
 import           Pos.Client.Txp.Util            (computeTxFee, runTxCreator)
 import           Pos.Communication              (SendActions (..), prepareMTx)
-import           Pos.Core                       (Coin, HasCoreConstants, addressF,
+import           Pos.Configuration              (HasNodeConfiguration)
+import           Pos.Core                       (Coin, HasConfiguration, addressF,
                                                  getCurrentTimestamp)
 import           Pos.Crypto                     (PassPhrase, hash, withSafeSigners)
+import           Pos.Infra.Configuration        (HasInfraConfiguration)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                        (TxFee (..), Utxo, _txOutputs)
 import           Pos.Txp.Core                   (TxAux (..), TxOut (..))
 import           Pos.Util                       (eitherToThrow, maybeThrow)
+import           Pos.Update.Configuration       (HasUpdateConfiguration)
 import           Pos.Wallet.Web.Account         (GenSeed (..), getSKByAccAddr)
 import           Pos.Wallet.Web.ClientTypes     (AccountId (..), Addr, CAddress (..),
                                                  CCoin, CId, CTx (..), CWAddressMeta (..),
@@ -111,7 +115,15 @@ getMoneySourceUtxo =
 -- [CSM-407] It should be moved to `Pos.Wallet.Web.Mode`, but
 -- to make it possible all this mess should be neatly separated
 -- to modules and refactored
-instance HasCoreConstants => MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode where
+instance
+    ( HasConfiguration
+    , HasNodeConfiguration
+    , HasInfraConfiguration
+    , HasGtConfiguration
+    , HasUpdateConfiguration
+    )
+    => MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode
+  where
     type AddrData Pos.Wallet.Web.Mode.WalletWebMode = (AccountId, PassPhrase)
     getNewAddress (accId, passphrase) = do
         clientAddress <- L.newAddress RandomSeed passphrase accId

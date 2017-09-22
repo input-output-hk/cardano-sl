@@ -30,7 +30,7 @@ import           Serokell.Util          (sec)
 import           System.Wlog            (WithLogger, logDebug, logInfo, logNotice,
                                          modifyLoggerName)
 
-import           Pos.Core               (FlatSlotId, HasCoreConstants, LocalSlotIndex,
+import           Pos.Core               (FlatSlotId, HasConfiguration, LocalSlotIndex,
                                          SlotId (..), Timestamp (..), flattenSlotId,
                                          slotIdF)
 import           Pos.KnownPeers         (MonadFormatPeers)
@@ -49,7 +49,7 @@ import           Pos.Util.Util          (maybeThrow)
 
 
 -- | Get flat id of current slot based on MonadSlots.
-getCurrentSlotFlat :: (MonadSlots ctx m, HasCoreConstants) => m (Maybe FlatSlotId)
+getCurrentSlotFlat :: (MonadSlots ctx m, HasConfiguration) => m (Maybe FlatSlotId)
 getCurrentSlotFlat = fmap flattenSlotId <$> getCurrentSlot
 
 -- | Get timestamp when given slot starts.
@@ -102,7 +102,7 @@ type OnNewSlot ctx m =
     , HasShutdownContext ctx
     , MonadRecoveryInfo m
     , MonadFormatPeers m
-    , HasCoreConstants
+    , HasConfiguration
     )
 
 -- | Run given action as soon as new slot starts, passing SlotId to

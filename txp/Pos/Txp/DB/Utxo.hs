@@ -42,7 +42,9 @@ import           Serokell.Util                (Color (Red), colorize)
 import           System.Wlog                  (WithLogger, logError)
 
 import           Pos.Binary.Core              ()
-import           Pos.Core                     (Address, Coin, GenesisWStakeholders, coinF,
+import           Pos.Core                     (Address, Coin,
+                                               GenesisData (gdBootStakeholders),
+                                               HasConfiguration, coinF, genesisData,
                                                mkCoin, sumCoins, unsafeAddCoin,
                                                unsafeIntegerToCoin)
 import           Pos.DB                       (DBError (..), DBIteratorClass (..),
@@ -54,7 +56,6 @@ import           Pos.DB.GState.Common         (gsGetBi, writeBatchGState)
 import           Pos.Txp.Core                 (TxIn (..), TxOutAux (toaOut),
                                                addrBelongsToSet, txOutStake)
 import           Pos.Txp.Toil.Types           (GenesisUtxo (..), Utxo)
-import           Pos.Util.Util                (HasLens', lensOf)
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -78,7 +79,7 @@ instance Buildable UtxoOp where
         bprint ("AddTxOut ("%build%", "%build%")")
         txIn txOutAux
 
-instance RocksBatchOp UtxoOp where
+instance HasConfiguration => RocksBatchOp UtxoOp where
     toBatchOp (AddTxOut txIn txOut) =
         [Rocks.Put (txInKey txIn) (dbSerializeValue txOut)]
     toBatchOp (DelTxIn txIn) = [Rocks.Del $ txInKey txIn]
@@ -133,10 +134,10 @@ getAllPotentiallyHugeUtxo = runConduitRes $ utxoSource .| utxoSink
 ----------------------------------------------------------------------------
 
 sanityCheckUtxo
-    :: (MonadDBRead m, WithLogger m, MonadReader ctx m, HasLens' ctx GenesisWStakeholders)
+    :: (MonadDBRead m, WithLogger m)
     => Coin -> m ()
 sanityCheckUtxo expectedTotalStake = do
-    gws <- view (lensOf @GenesisWStakeholders)
+    let gws = gdBootStakeholders genesisData
     let stakesSource =
             mapOutput (map snd . txOutStake gws . toaOut . snd) utxoSource
     calculatedTotalStake <-

@@ -517,8 +517,8 @@ getGenesisSummary
     => m CGenesisSummary
 getGenesisSummary = do
     grai <- getGenesisRedeemAddressInfo
-    cgsNumRedeemed <- V.length <$> V.filterM (uncurry isAddressRedeemed) grai
-    pure CGenesisSummary {cgsNumTotal = V.length grai, ..}
+    cgsNumRedeemed <- length <$> V.filterM (uncurry isAddressRedeemed) grai
+    pure CGenesisSummary {cgsNumTotal = length grai, ..}
 
 getGenesisAddressInfo
     :: (ExplorerMode ctx m)
@@ -550,7 +550,7 @@ getGenesisPagesTotal
     -> m Integer
 getGenesisPagesTotal (fromIntegral -> pageSize) = do
     grai <- getGenesisRedeemAddressInfo
-    pure $ fromIntegral $ (V.length grai + pageSize - 1) `div` pageSize
+    pure $ fromIntegral $ (length grai + pageSize - 1) `div` pageSize
 
 -- | Search the blocks by epoch and slot. Slot is optional.
 epochSlotSearch

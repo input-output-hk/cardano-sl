@@ -20,10 +20,11 @@ import           Universum
 
 import           Data.Proxy                   (Proxy (Proxy))
 
-import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockEntry,
-                                               CBlockSummary, CGenesisAddressInfo,
-                                               CGenesisSummary, CHash, CTxBrief, CTxEntry,
-                                               CTxId, CTxSummary, Byte)
+import           Pos.Explorer.Web.ClientTypes (Byte, CAddress, CAddressSummary,
+                                               CBlockEntry, CBlockSummary, CCoin,
+                                               CGenesisAddressInfo, CGenesisSummary,
+                                               CHash, CTxBrief, CTxEntry, CTxId,
+                                               CTxSummary)
 import           Pos.Explorer.Web.Error       (ExplorerError)
 import           Pos.Types                    (EpochIndex)
 import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON,
@@ -34,6 +35,10 @@ type PageNumber = Integer
 
 -- | Common prefix for all endpoints.
 type API = "api"
+
+type TotalAda = API
+    :> "totalada"
+    :> Get '[JSON] (Either ExplorerError CCoin)
 
 type BlocksPages = API
     :> "blocks"
@@ -116,7 +121,8 @@ type StatsTxs = API
 
 -- | Servant API which provides access to explorer
 type ExplorerApi =
-         BlocksPages
+         TotalAda
+    :<|> BlocksPages
     :<|> BlocksPagesTotal
     :<|> BlocksSummary
     :<|> BlocksTxs

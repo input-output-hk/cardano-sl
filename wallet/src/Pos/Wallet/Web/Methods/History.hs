@@ -10,31 +10,34 @@ module Pos.Wallet.Web.Methods.History
 
 import           Universum
 
-import qualified Data.DList                 as DL
-import qualified Data.Set                   as S
-import           Data.Time.Clock.POSIX      (getPOSIXTime)
-import           Formatting                 (build, sformat, stext, (%))
-import           Serokell.Util              (listJson)
-import           System.Wlog                (WithLogger, logError, logInfo, logWarning)
+import qualified Data.DList                   as DL
+import qualified Data.Set                     as S
+import           Data.Time.Clock.POSIX        (getPOSIXTime)
+import           Formatting                   (build, sformat, stext, (%))
+import           Serokell.Util                (listJson)
+import           System.Wlog                  (WithLogger, logError, logInfo, logWarning)
 
-import           Pos.Aeson.ClientTypes      ()
-import           Pos.Aeson.WalletBackup     ()
-import           Pos.Client.Txp.History     (TxHistoryEntry (..))
-import           Pos.Core                   (getTimestamp, timestampToPosix)
-import           Pos.Util.Servant           (encodeCType)
-import           Pos.Wallet.WalletMode      (getLocalHistory, localChainDifficulty,
-                                             networkChainDifficulty)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..), CTxId,
-                                             CTxMeta (..), CWAddressMeta (..), Wal, mkCTx)
-import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
-import           Pos.Wallet.Web.Pending     (PendingTx (..), ptxPoolInfo)
-import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), addOnlyNewTxMeta,
-                                             getHistoryCache, getPendingTx, getTxMeta,
-                                             getWalletPendingTxs, setWalletTxMeta)
-import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
-                                             getWalletAccountIds, getWalletAddrMetas,
-                                             getWalletAddrs, getWalletThTime)
+import           Pos.Aeson.ClientTypes        ()
+import           Pos.Aeson.WalletBackup       ()
+import           Pos.Client.Txp.History       (TxHistoryEntry (..))
+import           Pos.Core                     (getTimestamp, timestampToPosix)
+import           Pos.Util.Servant             (encodeCType)
+import           Pos.Wallet.WalletMode        (getLocalHistory, localChainDifficulty,
+                                               networkChainDifficulty)
+import           Pos.Wallet.Web.ClientTypes   (AccountId (..), Addr, CId, CTx (..), CTxId,
+                                               CTxMeta (..), CWAddressMeta (..), Wal,
+                                               mkCTx)
+import           Pos.Wallet.Web.Error         (WalletError (..))
+import           Pos.Wallet.Web.Methods.Logic (getActualAccountAddresses,
+                                               getActualWalletAddresses)
+import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
+import           Pos.Wallet.Web.Pending       (PendingTx (..), ptxPoolInfo)
+import           Pos.Wallet.Web.State         (AddressLookupMode (Ever), addOnlyNewTxMeta,
+                                               getHistoryCache, getPendingTx, getTxMeta,
+                                               getWalletPendingTxs, setWalletTxMeta)
+import           Pos.Wallet.Web.Tracking      (fixCachedAccModifierFor)
+import           Pos.Wallet.Web.Util          (decodeCTypeOrFail, getWalletAccountIds,
+                                               getWalletAddrs, getWalletThTime)
 
 
 getFullWalletHistory :: MonadWalletWebMode m => CId Wal -> m ([CTx], Word)
@@ -83,7 +86,15 @@ getHistory mCWalId mAccountId mAddrId = do
             accIds' <- getWalletAccountIds cWalId'
             pure (cWalId', accIds')
         (Nothing, Just accId)   -> pure (aiWId accId, [accId])
-    accAddrs <- map cwamId <$> concatMapM (getAccountAddrsOrThrow Ever) accIds
+
+    accAddrs <-
+        case accIds of
+            (someAccId:_) -> do
+                let getAddrs accId =
+                       fixCachedAccModifierFor someAccId $
+                       \cmod -> getActualAccountAddresses cmod Ever accId
+                map cwamId <$> concatMapM getAddrs accIds
+            [] -> pure []
     addrs <- case mAddrId of
         Nothing -> pure accAddrs
         Just addr ->
@@ -132,7 +143,9 @@ addHistoryTx cWalId wtx@THEntry{..} = do
     addOnlyNewTxMeta cWalId cId meta
     meta' <- fromMaybe meta <$> getTxMeta cWalId cId
     ptxCond <- encodeCType . fmap _ptxCond <$> getPendingTx cWalId _thTxId
-    walAddrMetas <- getWalletAddrMetas Ever cWalId
+    walAddrMetas <-
+        fixCachedAccModifierFor cWalId $
+        \cmod -> getActualWalletAddresses cmod Ever cWalId
     either (throwM . InternalError) pure $
         mkCTx diff wtx meta' ptxCond walAddrMetas
 

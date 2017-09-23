@@ -46,9 +46,9 @@ import           Pos.Block.Core                   (MainBlock, mainBlockSlot,
 import           Pos.Block.Types                  (Blund, Undo)
 import           Pos.Core                         (AddrType (..), Address (..), Coin,
                                                    EpochIndex, HeaderHash, Timestamp,
-                                                   difficultyL, gbHeader, gbhConsensus,
-                                                   getChainDifficulty, isRedeemAddress,
-                                                   isUnknownAddressType,
+                                                   coinToInteger, difficultyL, gbHeader,
+                                                   gbhConsensus, getChainDifficulty,
+                                                   isRedeemAddress, isUnknownAddressType,
                                                    makeRedeemAddress, mkCoin, siEpoch,
                                                    siSlot, sumCoins, timestampToPosix,
                                                    unsafeIntegerToCoin, unsafeSubCoin)
@@ -71,13 +71,13 @@ import           Pos.Explorer                     (TxExtra (..), getEpochBlocks,
                                                    getLastTransactions, getPageBlocks,
                                                    getTxExtra)
 import qualified Pos.Explorer                     as EX (getAddrBalance, getAddrHistory,
-                                                         getTxExtra)
+                                                         getTxExtra, getUtxoSum)
 import           Pos.Explorer.Aeson.ClientTypes   ()
 import           Pos.Explorer.Web.Api             (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes     (Byte, CAddress (..),
                                                    CAddressSummary (..),
                                                    CAddressType (..), CBlockEntry (..),
-                                                   CBlockSummary (..),
+                                                   CBlockSummary, CCoin,
                                                    CGenesisAddressInfo (..),
                                                    CGenesisSummary (..), CHash,
                                                    CTxBrief (..), CTxEntry (..),
@@ -118,6 +118,8 @@ explorerApp serv = serve explorerApi <$> serv
 
 explorerHandlers :: ExplorerMode ctx m => SendActions m -> ServerT ExplorerApi m
 explorerHandlers _sendActions =
+      apiTotalAda
+    :<|>
       apiBlocksPages
     :<|>
       apiBlocksPagesTotal
@@ -142,6 +144,7 @@ explorerHandlers _sendActions =
     :<|>
       apiStatsTxs
   where
+    apiTotalAda           = tryGetTotalAda
     apiBlocksPages        = getBlocksPagesDefault
     apiBlocksPagesTotal   = getBlocksPagesTotalDefault
     apiBlocksSummary      = catchExplorerError . getBlockSummary
@@ -156,6 +159,9 @@ explorerHandlers _sendActions =
     apiStatsTxs           = getStatsTxsDefault
 
     catchExplorerError    = try
+
+    tryGetTotalAda =
+        catchExplorerError getTotalAda
 
     getBlocksPagesDefault page size  =
         catchExplorerError $ getBlocksPage page (defaultPageSize size)
@@ -185,6 +191,19 @@ explorerHandlers _sendActions =
 ----------------------------------------------------------------
 -- API Functions
 ----------------------------------------------------------------
+
+getTotalAda :: ExplorerMode ctx m => m CCoin
+getTotalAda = do
+    utxoSum <- EX.getUtxoSum
+    -- getUtxoSum returns Integer, but for external consumers we want to provide Coin.
+    -- However, we don't want to return meaningless values to them, so we add truncation.
+    pure $ mkCCoin $ truncateIntegerToCoin utxoSum
+  where
+    truncateIntegerToCoin :: Integer -> Coin
+    truncateIntegerToCoin n
+        | n < 0 = mkCoin 0
+        | n > coinToInteger (maxBound :: Coin) = maxBound :: Coin
+        | otherwise = mkCoin (fromInteger n)
 
 -- | Get the total number of blocks/slots currently available.
 -- Total number of main blocks   = difficulty of the topmost (tip) header.

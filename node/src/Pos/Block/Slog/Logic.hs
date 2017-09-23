@@ -53,8 +53,7 @@ import           Pos.Lrc.Context        (LrcContext)
 import qualified Pos.Lrc.DB             as LrcDB
 import           Pos.Slotting           (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Class.Helpers  (SscHelpersClass (..))
-import           Pos.Util               (HasLens (..), HasLens', inAssertMode, _neHead,
-                                         _neLast)
+import           Pos.Util               (HasLens', inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono        (NE, NewestFirst (getNewestFirst),
                                          OldestFirst (..), toOldestFirst)
 
@@ -114,7 +113,7 @@ type MonadSlogBase ssc ctx m =
 type MonadSlogVerify ssc ctx m =
     ( MonadSlogBase ssc ctx m
     , MonadReader ctx m
-    , HasLens LrcContext ctx LrcContext
+    , HasLens' ctx LrcContext
     )
 
 -- | Verify everything from block that is not checked by other components.

@@ -4,7 +4,8 @@
 -- | Delegation-related verify/apply/rollback part.
 
 module Pos.Delegation.Logic.VAR
-       ( dlgVerifyBlocks
+       (
+         dlgVerifyBlocks
        , dlgApplyBlocks
        , dlgRollbackBlocks
        , dlgNormalizeOnRollback
@@ -12,9 +13,9 @@ module Pos.Delegation.Logic.VAR
 
 import           Universum
 
-import           Control.Lens                 (at, makeLenses, non, uses, (%=), (.=),
-                                               (?=), _Wrapped)
-import           Control.Monad.Except         (runExceptT, throwError)
+import           Control.Lens                 (at, non, to, uses, (.=), (?=), _Wrapped)
+import           Control.Monad.Except         (throwError)
+import           Control.Monad.Morph          (hoist)
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.HashSet                 as HS
 import           Data.List                    ((\\))
@@ -25,30 +26,26 @@ import           Serokell.Util                (listJson, mapJson)
 import           System.Wlog                  (WithLogger, logDebug)
 
 import           Pos.Binary.Communication     ()
-import           Pos.Block.Core               (Block, BlockSignature (..),
-                                               mainBlockDlgPayload, mainHeaderLeaderKey,
-                                               mcdSignature)
+import           Pos.Block.Core               (Block, mainBlockDlgPayload, mainBlockSlot)
 import           Pos.Block.Types              (Blund, Undo (undoDlg))
 import           Pos.Context                  (lrcActionOnEpochReason)
 import           Pos.Core                     (EpochIndex (..), HasCoreConstants,
                                                StakeholderId, addressHash, epochIndexL,
-                                               gbHeader, gbhConsensus, headerHash,
-                                               prevBlockL)
-import           Pos.Crypto                   (ProxySecretKey (..), ProxySignature (..),
-                                               psigPsk, shortHashF)
+                                               gbHeader, headerHash, prevBlockL, siEpoch)
+import           Pos.Crypto                   (ProxySecretKey (..), shortHashF)
 import           Pos.DB                       (DBError (DBMalformed), MonadDBRead,
                                                SomeBatchOp (..))
 import qualified Pos.DB                       as DB
 import qualified Pos.DB.Block                 as DB
 import qualified Pos.DB.DB                    as DB
-import           Pos.Delegation.Cede          (CedeModifier, DlgEdgeAction (..), MapCede,
-                                               MonadCedeRead (getPsk),
+import           Pos.Delegation.Cede          (CedeModifier (..), CheckForCycle (..),
+                                               DlgEdgeAction (..), MapCede,
+                                               MonadCede (..), MonadCedeRead (..),
                                                detectCycleOnAddition, dlgEdgeActionIssuer,
-                                               dlgReachesIssuance, evalMapCede,
-                                               getPskChain, getPskPk, modPsk,
+                                               dlgVerifyHeader, dlgVerifyPskHeavy,
+                                               evalMapCede, getPskChain, getPskPk, modPsk,
                                                pskToDlgEdgeAction, runDBCede)
 import           Pos.Delegation.Class         (MonadDelegation, dwProxySKPool, dwTip)
-import           Pos.Delegation.Helpers       (isRevokePsk)
 import           Pos.Delegation.Logic.Common  (DelegationError (..),
                                                runDelegationStateAction)
 import           Pos.Delegation.Logic.Mempool (clearDlgMemPoolAction,
@@ -58,6 +55,7 @@ import           Pos.Delegation.Types         (DlgPayload (getDlgPayload), DlgUn
 import qualified Pos.GState                   as GS
 import           Pos.Lrc.Context              (LrcContext)
 import qualified Pos.Lrc.DB                   as LrcDB
+import           Pos.Lrc.Types                (RichmenSet)
 import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
 import           Pos.Util                     (HasLens', getKeys, _neHead)
 import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..))
@@ -268,8 +266,10 @@ calculateTransCorrections eActions = do
 
             eActionsHM :: CedeModifier
             eActionsHM =
-                HM.fromList $ map (\x -> (dlgEdgeActionIssuer x, x)) $
-                HS.toList eActions
+                CedeModifier
+                    (HM.fromList $ map (\x -> (dlgEdgeActionIssuer x, x)) $
+                                      HS.toList eActions)
+                    mempty
 
         in void $ evalMapCede eActionsHM $ loop iSId
 
@@ -312,13 +312,6 @@ getNoLongerRichmen newEpoch =
         toList <$>
         lrcActionOnEpochReason e "getNoLongerRichmen" LrcDB.getRichmenDlg
 
--- State needed for 'delegationVerifyBlocks'.
-data DlgVerState = DlgVerState
-    { _dvCurEpoch   :: !(HashSet StakeholderId)
-      -- ^ Set of issuers that have already posted certificates this epoch
-    }
-
-makeLenses ''DlgVerState
 
 -- | Verifies if blocks are correct relatively to the delegation logic
 -- and returns a non-empty list of proxySKs needed for undoing
@@ -340,28 +333,25 @@ dlgVerifyBlocks ::
        , HasCoreConstants
        )
     => OldestFirst NE (Block ssc)
-    -> m (Either Text (OldestFirst NE DlgUndo))
+    -> ExceptT Text m (OldestFirst NE DlgUndo)
 dlgVerifyBlocks blocks = do
-    _dvCurEpoch <- GS.getThisEpochPostedKeys
-    let initState = DlgVerState _dvCurEpoch
-    (richmen :: HashSet StakeholderId) <-
+    (richmen :: RichmenSet) <-
         lrcActionOnEpochReason
         headEpoch
         "Delegation.Logic#delegationVerifyBlocks: there are no richmen for current epoch"
         LrcDB.getRichmenDlg
-    flip evalStateT initState . evalMapCede mempty . runExceptT $
-        mapM (verifyBlock richmen) blocks
+    hoist (evalMapCede mempty) $ mapM (verifyBlock richmen) blocks
   where
     headEpoch = blocks ^. _Wrapped . _neHead . epochIndexL
 
     verifyBlock ::
-        HashSet StakeholderId ->
+        RichmenSet ->
         Block ssc ->
-        ExceptT Text (MapCede (StateT DlgVerState m)) DlgUndo
+        ExceptT Text (MapCede m) DlgUndo
     verifyBlock _ (Left genesisBlk) = do
-        prevThisEpochPosted <- use dvCurEpoch
-        dvCurEpoch .= HS.empty
         let blkEpoch = genesisBlk ^. epochIndexL
+        prevThisEpochPosted <- getAllPostedThisEpoch
+        mapM_ delThisEpochPosted prevThisEpochPosted
         noLongerRichmen <- lift $ lift $ getNoLongerRichmen blkEpoch
         deletedPSKs <- catMaybes <$> mapM getPsk noLongerRichmen
         -- We should delete all certs for people who are not richmen.
@@ -374,93 +364,23 @@ dlgVerifyBlocks blocks = do
 
         ------------- [Header] -------------
 
-        -- Check 1: Issuer didn't delegate the right to issue to elseone.
-        let h = blk ^. gbHeader
-        let issuer = h ^. mainHeaderLeaderKey
-        let sig = h ^. gbhConsensus ^. mcdSignature
-        issuerPsk <- getPskPk issuer
-        whenJust issuerPsk $ \psk -> case sig of
-            (BlockSignature _) ->
-                throwError $
-                sformat ("issuer "%build%" has delegated issuance right, "%
-                         "so he can't issue the block, psk: "%build%", sig: "%build)
-                    issuer psk sig
-            _ -> pass
-
-        -- Check 2: Check that if proxy sig is used, delegate indeed
-        -- has right to issue the block. Signatures themselves are
-        -- checked in the constructor, here we only verify they are
-        -- related to slot leader. Self-signed proxySigs are forbidden
-        -- on block construction level.
-        case h ^. gbhConsensus ^. mcdSignature of
-            (BlockPSignatureHeavy pSig) -> do
-                let psk = psigPsk pSig
-                let delegate = pskDelegatePk psk
-                canIssue <- dlgReachesIssuance issuer delegate psk
-                unless canIssue $ throwError $
-                    sformat ("heavy proxy signature's "%build%" "%
-                             "related proxy cert can't be found/doesn't "%
-                             "match the one in current allowed heavy psks set")
-                            pSig
-            (BlockPSignatureLight pSig) -> do
-                let pskIPk = pskIssuerPk (psigPsk pSig)
-                unless (pskIPk == issuer) $ throwError $
-                    sformat ("light proxy signature's "%build%" issuer "%
-                             build%" doesn't match block slot leader "%build)
-                            pSig pskIPk issuer
-            _ -> pass
+        dlgVerifyHeader $ blk ^. gbHeader
 
         ------------- [Payload] -------------
 
         let proxySKs = getDlgPayload $ view mainBlockDlgPayload blk
             allIssuers = map pskIssuerPk proxySKs
 
-        forM_ proxySKs $ \psk -> do
-            let iPk = pskIssuerPk psk
-            let dPk = pskDelegatePk psk
-            let stakeholderId = addressHash iPk
-
-            -- Check 3: Issuers have enough money (though it's free to revoke).
-            when (not (isRevokePsk psk) &&
-                  not (stakeholderId `HS.member` richmen)) $
-                throwError $ sformat
-                    ("Block "%build%" contains psk issuers that "%
-                    "don't have enough stake: "%build)
-                    (headerHash blk) psk
-
-            -- Check 4: There are no psks that isomorphic to psks from
-            -- db. That is, if i delegated to d using psk1, we forbid
-            -- using psk2 (in the next epoch) if psk2 delegates i → d
-            -- as well.
-            prevPsk <- getPsk stakeholderId
-            let duplicate = do
-                    psk2@ProxySecretKey{..} <- prevPsk
-                    guard $ pskIssuerPk == iPk && pskDelegatePk == dPk
-                    pure psk2
-            whenJust duplicate $ \psk2 ->
-                throwError $ sformat
-                    ("Block "%build%" contains psk issuers that"%
-                    " effectively duplicate their previous psk: "%build%" with new "%build)
-                    (headerHash blk) psk2 psk
-
-            -- Check 5: No issuer has posted psk this epoch before (unless
-            -- processed psk is a revocation).
-            curEpoch <- use dvCurEpoch
-            when (not (isRevokePsk psk) && stakeholderId `HS.member` curEpoch) $
-                throwError $ sformat
-                    ("Block "%build%" contains psk "%build%
-                     " which is not revocation and issuer of which has"%
-                     " already published psk this epoch")
-                    (headerHash blk)
-                    psk
-
-            -- Check 6: Every revoking psk indeed revokes previous
-            -- non-revoking psk.
-            when (isRevokePsk psk && isNothing prevPsk) $
-                throwError $ sformat
-                    ("Block "%build%" contains revoke psk "%build%
-                    " that doesn't revoke anything.")
-                    (headerHash blk) psk
+        -- Collect rollback info (all certificates we'll
+        -- delete/override), apply new psks.
+        toRollback <- fmap catMaybes $ forM proxySKs $ \psk ->do
+            dlgVerifyPskHeavy
+                richmen
+                (CheckForCycle False)
+                (blk ^. mainBlockSlot . to siEpoch)
+                psk
+            modPsk $ pskToDlgEdgeAction psk
+            getPskPk $ pskIssuerPk psk
 
         -- Check 7: applying psks won't create a cycle.
         --
@@ -478,12 +398,6 @@ dlgVerifyBlocks blocks = do
         -- 'proxySKs' together. So it's alright to first apply 'proxySKs'
         -- to 'dvPskChanged' and then perform the check.
 
-        -- Collect rollback info (all certificates we'll
-        -- delete/override), apply new psks
-        toRollback <- catMaybes <$> mapM getPskPk allIssuers
-        mapM_ (modPsk . pskToDlgEdgeAction) proxySKs
-
-        -- Perform the last check
         cyclePoints <- catMaybes <$> mapM detectCycleOnAddition proxySKs
         unless (null cyclePoints) $
             throwError $
@@ -491,7 +405,7 @@ dlgVerifyBlocks blocks = do
                     (headerHash blk)
                     (take 5 $ cyclePoints) -- should be enough
 
-        dvCurEpoch %= HS.union (HS.fromList $ map addressHash allIssuers)
+        mapM_ (addThisEpochPosted . addressHash) allIssuers
         pure $ DlgUndo toRollback mempty
 
 -- | Applies a sequence of definitely valid blocks to memory state and

@@ -100,7 +100,7 @@ data Addr = Addr
 
 -- | Client transaction id
 newtype CTxId = CTxId CHash
-    deriving (Show, Eq, Generic, Hashable)
+    deriving (Show, Eq, Generic, Hashable, Buildable)
 
 mkCTxId :: Text -> CTxId
 mkCTxId = CTxId . CHash
@@ -116,7 +116,7 @@ newtype CAccountId = CAccountId Text
 
 newtype CCoin = CCoin
     { getCCoin :: Text
-    } deriving (Show, Eq, Generic)
+    } deriving (Show, Eq, Generic, Buildable)
 
 -- | Passphrase last update time
 type PassPhraseLU = POSIXTime
@@ -290,8 +290,8 @@ data CTx = CTx
     , ctAmount        :: CCoin
     , ctConfirmations :: Word
     , ctMeta          :: CTxMeta
-    , ctInputAddrs    :: [CId Addr]
-    , ctOutputAddrs   :: [CId Addr]
+    , ctInputs        :: [(CId Addr, CCoin)]
+    , ctOutputs       :: [(CId Addr, CCoin)]
     , ctIsLocal       :: Bool
     , ctIsOutgoing    :: Bool
     , ctCondition     :: CPtxCondition

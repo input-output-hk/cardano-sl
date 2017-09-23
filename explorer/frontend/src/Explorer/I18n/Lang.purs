@@ -26,11 +26,16 @@ translate lens = view lens <<< getTranslation
 readLanguage :: String -> Maybe Language
 readLanguage "en" = Just English
 readLanguage "English" = Just English
-readLanguage "jp" = Just Japanese
+readLanguage "ja" = Just Japanese
 readLanguage "日本語" = Just Japanese
 readLanguage "de" = Just German
 readLanguage "Deutsch" = Just German
 readLanguage _ = Nothing
+
+langCode :: Language -> String
+langCode English = "en"
+langCode Japanese = "ja"
+langCode German = "de"
 
 getTranslation :: Language -> Translation
 getTranslation English = EN.translation

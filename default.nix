@@ -14,12 +14,6 @@ with pkgs.lib;
 with pkgs.haskell.lib;
 
 let
-  # TODO: DEVOPS-355
-  enableDWARFDebugging = drv: appendConfigureFlag (dontStrip drv) "--ghc-options=-g --disable-executable-stripping --disable-library-stripping";
-  dontStrip = drv: overrideCabal drv (drv: { dontStrip = true; });
-  
-  nop = args: args;
-
   addConfigureFlags = flags: drv: overrideCabal drv (drv: {
     configureFlags = flags;
   });

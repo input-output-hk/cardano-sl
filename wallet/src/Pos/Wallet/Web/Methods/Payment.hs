@@ -165,6 +165,5 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
 
         addHistoryTx srcWallet th
   where
-     -- TODO eliminate copy-paste
      listF separator formatter =
          F.later $ fold . intersperse separator . fmap (F.bprint formatter)

@@ -5,6 +5,7 @@ in
 , config ? {}
 , dconfig ? "testnet_staging_full"
 , gitrev ? "unknown"
+, genesis ? null
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; }) }:
 
 with pkgs.lib;
@@ -44,6 +45,27 @@ let
           "--ghc-options=-DCONFIG=${dconfig}"
           "--ghc-options=-DGITREV=${gitrev}"
         ];
+      } // optionalAttrs (genesis != null) {
+        postUnpack = ''
+          echo dir is
+          pwd
+          echo root $sourceRoot
+          ls -ltrh $sourceRoot
+          rm -v $sourceRoot/genesis*bin
+          cp -vi ${genesis}/genesis-core.bin $sourceRoot/genesis-core-tn.bin
+        '';
+      });
+      cardano-sl-godtossing = overrideCabal super.cardano-sl-godtossing (drv:
+      optionalAttrs (genesis != null) {
+        postUnpack = ''
+          echo dir is
+          pwd
+          echo root $sourceRoot
+          echo todo
+          ls -ltrh $sourceRoot
+          rm -v $sourceRoot/genesis*.bin
+          cp -vi ${genesis}/genesis-godtossing.bin $sourceRoot/genesis-godtossing-tn.bin
+        '';
       });
       cardano-sl-update = overrideCabal super.cardano-sl-update (drv: {
         patchPhase = ''
@@ -83,12 +105,14 @@ let
       });
     };
   });
-  other = {
+  other = rec {
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "input-output-hk";
       repo = "stack2nix";
       rev = "be52e67113332280911bcc4924d42f90e21f1144";
       sha256 = "13n7gjyzll3prvdsb6kjyxk9g0by5bv0q34ld7a2nbvdcl1q67fb";
     }) { inherit pkgs; };
+    make-genesis = pkgs.callPackage ./tests/make-genesis.nix { inherit (cardanoPkgs) cardano-sl-tools; };
+    testjob = (import ./default.nix { inherit pkgs; genesis = make-genesis; }).cardano-sl-static;
   };
 in cardanoPkgs // other

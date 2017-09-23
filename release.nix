@@ -26,7 +26,13 @@ let
     cardano-sl-tools = supportedSystems;
     cardano-sl-explorer-static = [ "x86_64-linux" ];
     cardano-report-server-static = [ "x86_64-linux" ];
+    make-genesis = [ "x86_64-linux" ];
   };
+  pkgs = import fixedNixpkgs { config = {}; };
+  tests = import ./tests { inherit pkgs; supportedSystems = [ "x86_64-linux" ]; };
 in (mergeAttrsMap (dconfig: { ${dconfig } = (withDconfig dconfig).mapTestOn platforms; }) dconfigs)
    // ((withDconfig null).mapTestOn { stack2nix = supportedSystems; })
    // (rlib.mapTestOn { purescript = supportedSystems; })
+   // {
+     inherit tests;
+  }

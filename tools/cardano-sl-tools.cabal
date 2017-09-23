@@ -461,6 +461,7 @@ executable cardano-post-mortem
                      , Statistics.Focus
                      , Statistics.Graph
                      , Statistics.Histogram
+                     , Statistics.HydraMetrics
                      , Statistics.MemPool
                      , Statistics.Report
                      , Statistics.Throughput

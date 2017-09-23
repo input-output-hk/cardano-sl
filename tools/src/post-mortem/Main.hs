@@ -2,10 +2,13 @@ import qualified Data.Map.Strict as M
 import           Data.List       (last)
 import           System.FilePath
 import           System.IO       (hPutStrLn)
+import           System.Environment (getEnv)
 import           Text.Printf     (hPrintf)
+import           System.Directory
 
 import           Options
 import           Statistics
+import           Statistics.HydraMetrics
 import           Types
 import           Universum       hiding (head)
 
@@ -18,7 +21,7 @@ main = do
             err $ "sample probability: " ++ show sampleProb
             err ""
             xs <- forM logDirs $ flip processLogDirOverview sampleProb
-            chart xs "times.png"
+            chart xs "times.svg"
             err "wrote times chart"
         Focus txHash logDir         -> do
             err $ "transaction hash: " ++ show txHash
@@ -36,11 +39,43 @@ main = do
             err $ "wait window: " ++ show waitWindow
             err ""
             for_ logDirs $ processLogDirThroughput txWindow waitWindow
+        TestPostProcess logDir -> do
+            postProcessLogs logDir
+            err "done"
 
 showLogDirs :: [FilePath] -> IO ()
 showLogDirs logDirs = do
     err "log directories: "
     for_ logDirs $ \d -> err $ " - " ++ show d
+
+postProcessLogs :: FilePath -> IO ()
+postProcessLogs logDir = do
+  out <- getEnv "out"
+  let
+    nixSupport = out <> "/nix-support"
+  err $ "log directory: " <> logDir
+  chainState <- runJSONFold logDir $ findBlockChainState
+  exists <- doesDirectoryExist nixSupport
+  unless exists $ fail "$out/nix-support doesn't exist" -- FIXME, typed exception
+  let
+    missedBlocks = expectedLength chainState - totalBlocks
+    totalBlocks = chainLength chainState
+    printChain :: Maybe BlockWrapper -> IO ()
+    printChain (Just block) = do
+      printChain $ parent block
+      err $ show $ jlBlock block
+    printChain Nothing = do
+      return ()
+    content :: Text
+    content = unlines
+      [
+        "chain-length " <> show totalBlocks <> " blocks",
+        "missing-blocks " <> show missedBlocks <> " blocks"
+      ]
+  printChain (M.lookup (topMostBlock (internal chainState)) (blocks (internal chainState)))
+  err $ "metrics: " <> (toString content)
+  writeFile (nixSupport <> "/hydra-metrics") content
+  unless (missedBlocks == 0) $ writeFile (nixSupport <> "/failed") "1"
 
 processLogDirOverview :: FilePath -> Double -> IO (String, Map TxHash (Maybe Timestamp))
 processLogDirOverview logDir sampleProb = do

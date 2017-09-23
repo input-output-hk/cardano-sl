@@ -99,62 +99,16 @@ Then delegation certificate and stakeholder's (issuer's) public key should be pu
 public channel: GitHub Gist, website, etc. Later these delegation certificate and stakeholder's
 identifier (address hash) will be included in the `"heavyDelegation"` section in genesis JSON.
 
-## 3. Finalize AVVM utxo
-
-`utxo` should be refined with the last inclusions/exclusions of existing addresses.
-
-Then we need wallet keys. The purpose of the wallet keys is an operations with money.
-
-To generate these keys execute this script:
-
-```
-bash ./gen-avvm-seeds.sh 2>&1 | tee step3.log
-```
-
-Generated AVVM public keys and AVVM seeds will be stored in `cardano-sl/keys/avvm/`
-directory.
-
-AVVM public keys will be included in `"avvmDistr"` section of genesis JSON. AVVM seeds
-will be used to produce redemption certificates. Seeds should be put in the secret storage
-of IOHK.
-
-## 4. VSS Certificates
-
-Secret keys generated in step `1` contain VSS public key, in `Vss PK` line. Now VSS
-certificates should be generated.
-
-To do it execute this script:
-
-```
-bash ./gen-vss-certs.sh 2>&1 | tee step4.log
-```
-
-As a result VSS certificate for each node will be shown. Example of such an information:
-
-```
-{
-    "expiryEpoch": 5,
-    "signature": "77df374ea2026bc2ac5384f6e7a8cf0232e3d1619ef8bc9df6ad90b1e265f625b3ab50f5bcfb9fd0f11b7ebfcdea79a8a600cc31aeeb69e924f80e8da6ff6601",
-    "signingKey": "D8OBEo/Mp7lgAzCZ8MP4lVk3y959iOYNlse8ZzGDF+wLUnEBgbM/Y3bCb8AI9UenNspNCFab2NdxsZf+LT84cg==",
-    "vssKey": "WCEDlTUTEMKNX66koTvnfEl46SSrk8Kzm4CtxLiqG29GjlI="
-}
-```
-
-This information will be included in `"vssCerts"` section of genesis JSON.
-
-## 5. Genesis JSON: construction and validation
+## 3. Genesis JSON: construction and validation
 
 Now genesis JSON should be prepared. Eventually this JSON is required to build genesis block for Mainnet.
 And at this point IOHK DevOps team has all the data required for genesis JSON preparation.
 
-The file `genesis-data.json` contains detailed instructions how to generate genesis block.
-It contains balances, keys, certificates, etc. So the hash of `genesis-data.json` will be a
-genesis hash. File `genesis-data.json` is a part of Cardano SL repository.
+The file `genesis-mainnet.json` contains detailed instructions how to generate genesis block.
+It contains balances, keys, certificates, etc. So the hash of `genesis-mainnet.json` will be a
+genesis hash. File `genesis-mainnet.json` is a part of Cardano SL repository.
 
-For Mainnet launch we want to have a more control over genesis block creation, so we use `genesis-data.json`
-as a single input for `cardano-node`. Particularly, for Mainnet we'll use `genesis-mainnet.json`.
-
-### 5.1. Genesis JSON Format
+### 3.1. Genesis JSON Format
 
 Example of `genesis-mainnet.json`:
 
@@ -223,7 +177,7 @@ Example of `genesis-mainnet.json`:
 }
 ```
 
-### 5.2. Genesis JSON Format Explanation
+### 3.2. Genesis JSON Format Explanation
 
 Section `"avvmDistr"` contains AVVM keys with corresponding coins values.
 
@@ -279,7 +233,19 @@ Section "vssCerts" contains VSS certificates:
 *  `"signingKey"` - key used for signing,
 *  `"vssKey"` - VSS public key (can be read from node's secret key, as shown in step `1`).
 
-### 5.3. Genesis JSON Validation
+### 3.3. Genesis JSON formation
+
+After step 1 and step 2 are executed, public information (all data from directories `DELEGATE_PUBLIC` and `STAKEHOLDER_PUBLIC` should be gathered).
+
+* `${DELEGATE_PUBLIC}/vss.json` should be copied to `vssCerts`
+* `${STAKEHOLDER_PUBLIC}/dpks.json` from all stakeholders should be merged and merged JSON to be set as `heavyDelegation`
+* `${STAKEHOLDER_PUBLIC}/pubs.txt` from all stakeholders should be merged, assigned appropriate weights and set as `bootStakeholders`
+
+Also Devops should:
+* Set appropriate `startTime`
+* Set appropriate `protocolMagic`
+
+### 3.4. Genesis JSON Validation
 
 Please note that after `genesis-mainnet.json` will be prepared, it must be validated.
 

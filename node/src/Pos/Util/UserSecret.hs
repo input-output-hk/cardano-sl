@@ -27,37 +27,37 @@ module Pos.Util.UserSecret
        , ensureModeIs600
        ) where
 
-import           Control.Exception     (onException)
-import           Control.Lens          (makeLenses, to)
-import qualified Data.ByteString       as BS
-import           Data.Default          (Default (..))
+import           Control.Exception.Safe (onException, throwString)
+import           Control.Lens           (makeLenses, to)
+import qualified Data.ByteString        as BS
+import           Data.Default           (Default (..))
 import qualified Data.Text.Buildable
-import           Formatting            (bprint, build, formatToString, (%))
+import           Formatting             (bprint, build, formatToString, (%))
 import qualified Prelude
-import           Serokell.Util.Text    (listJson)
-import           System.Directory      (doesFileExist)
-import           System.FileLock       (FileLock, SharedExclusive (..), lockFile,
-                                        unlockFile, withFileLock)
+import           Serokell.Util.Text     (listJson)
+import           System.Directory       (doesFileExist)
+import           System.FileLock        (FileLock, SharedExclusive (..), lockFile,
+                                         unlockFile, withFileLock)
 import           Universum
 
-import           Pos.Binary.Class      (Bi (..), decodeFull, encodeListLen, enforceSize,
-                                        serialize')
-import           Pos.Binary.Crypto     ()
-import           Pos.Crypto            (EncryptedSecretKey, SecretKey, VssKeyPair)
+import           Pos.Binary.Class       (Bi (..), decodeFull, encodeListLen, enforceSize,
+                                         serialize')
+import           Pos.Binary.Crypto      ()
+import           Pos.Crypto             (EncryptedSecretKey, SecretKey, VssKeyPair)
 
-import           Pos.Types             (Address)
-import           System.Directory      (renameFile)
-import           System.FilePath       (takeDirectory, takeFileName)
-import           System.IO             (hClose, openBinaryTempFile)
-import           System.Wlog           (WithLogger)
+import           Pos.Types              (Address)
+import           System.Directory       (renameFile)
+import           System.FilePath        (takeDirectory, takeFileName)
+import           System.IO              (hClose, openBinaryTempFile)
+import           System.Wlog            (WithLogger)
 
-import           Pos.Wallet.Web.Secret (WalletUserSecret)
+import           Pos.Wallet.Web.Secret  (WalletUserSecret)
 
 #ifdef POSIX
-import           Formatting            (oct, sformat)
-import qualified System.Posix.Files    as PSX
-import qualified System.Posix.Types    as PSX (FileMode)
-import           System.Wlog           (logWarning)
+import           Formatting             (oct, sformat)
+import qualified System.Posix.Files     as PSX
+import qualified System.Posix.Types     as PSX (FileMode)
+import           System.Wlog            (logWarning)
 #endif
 
 -- Because of the Formatting import
@@ -229,9 +229,9 @@ writeUserSecret u
 
 -- | Writes user secret and releases the lock. UserSecret can't be
 -- used after this function call anymore.
-writeUserSecretRelease :: (MonadFail m, MonadIO m) => UserSecret -> m ()
+writeUserSecretRelease :: (MonadIO m, MonadThrow m) => UserSecret -> m ()
 writeUserSecretRelease u
-    | not (canWrite u) = fail "writeUserSecretRelease: UserSecret is not writable"
+    | not (canWrite u) = throwString "writeUserSecretRelease: UserSecret is not writable"
     | otherwise = liftIO $ do
           writeRaw u
           unlockFile

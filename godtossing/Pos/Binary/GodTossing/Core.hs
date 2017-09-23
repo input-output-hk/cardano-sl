@@ -10,13 +10,15 @@ import           Universum
 import           Pos.Binary.Class              (Bi (..), Decoder, Encoding, decodeListLen,
                                                 encodeListLen, enforceSize, matchSize)
 import           Pos.Binary.Crypto             ()
+import           Pos.Core.Configuration        (HasConfiguration)
+import           Pos.Core.Vss                  (VssCertificate (..), VssCertificatesMap,
+                                                mkVssCertificatesMap,
+                                                recreateVssCertificate)
 import           Pos.Crypto                    (PublicKey)
 import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), CommitmentsMap (..),
                                                 GtPayload (..), GtProof (..),
                                                 Opening (..), SignedCommitment,
-                                                VssCertificate (..), VssCertificatesMap,
-                                                mkCommitmentsMap, mkVssCertificatesMap,
-                                                recreateVssCertificate)
+                                                mkCommitmentsMap)
 import           Serokell.Util                 (allDistinct)
 
 instance Bi Commitment where
@@ -33,7 +35,7 @@ instance Bi CommitmentsMap where
   encode = encodeCommitments
   decode = decodeCommitments
 
-instance Bi VssCertificate where
+instance HasConfiguration => Bi VssCertificate where
   encode vssCert = encodeListLen 4 <> encode (vcVssKey vssCert)
                                    <> encode (vcExpiryEpoch vssCert)
                                    <> encode (vcSignature vssCert)
@@ -52,7 +54,7 @@ instance Bi Opening where
   encode = encode . getOpening
   decode = Opening <$> decode
 
-instance Bi GtPayload where
+instance HasConfiguration => Bi GtPayload where
   encode input = case input of
     CommitmentsPayload cmap vss ->
         encodeListLen 3
@@ -137,10 +139,10 @@ Instead, we serialize those maps as sets, and we make sure to check that
 there are no values with duplicate stakeholder ids.
 -}
 
-encodeVssCertificates :: VssCertificatesMap -> Encoding
+encodeVssCertificates :: HasConfiguration => VssCertificatesMap -> Encoding
 encodeVssCertificates = encode . HS.fromList . toList
 
-decodeVssCertificates :: Decoder s VssCertificatesMap
+decodeVssCertificates :: HasConfiguration => Decoder s VssCertificatesMap
 decodeVssCertificates = do
     certs <- toList <$> decode @(HashSet VssCertificate)
     -- if the attacker creates two certs that are different but have the same

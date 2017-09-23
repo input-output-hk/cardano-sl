@@ -1,4 +1,3 @@
-
 -- | Explorer's global Txp (expressed as settings).
 
 module Pos.Explorer.Txp.Global
@@ -9,7 +8,7 @@ import           Universum
 
 import qualified Data.HashMap.Strict   as HM
 
-import           Pos.Core              (HeaderHash, SlotId (..), HasCoreConstants,
+import           Pos.Core              (HasConfiguration, HeaderHash, SlotId (..),
                                         epochIndexL, headerHash, headerSlotL)
 import           Pos.DB                (SomeBatchOp (..))
 import           Pos.Slotting          (MonadSlots, getSlotStart)
@@ -29,7 +28,7 @@ import           Pos.Explorer.Txp.Toil (EGlobalApplyToilMode, ExplorerExtra (..)
 
 
 -- | Settings used for global transactions data processing used by explorer.
-explorerTxpGlobalSettings :: HasCoreConstants => TxpGlobalSettings
+explorerTxpGlobalSettings :: HasConfiguration => TxpGlobalSettings
 explorerTxpGlobalSettings =
     -- verification is same
     txpGlobalSettings
@@ -38,7 +37,7 @@ explorerTxpGlobalSettings =
     }
 
 eApplyBlocksSettings
-    :: (HasCoreConstants, EGlobalApplyToilMode ctx m, MonadSlots ctx m)
+    :: (HasConfiguration, EGlobalApplyToilMode m, MonadSlots ctx m)
     => ApplyBlocksSettings ExplorerExtra m
 eApplyBlocksSettings =
     ApplyBlocksSettings
@@ -46,7 +45,7 @@ eApplyBlocksSettings =
     , absExtraOperations = extraOps
     }
 
-extraOps :: ExplorerExtra -> SomeBatchOp
+extraOps :: HasConfiguration => ExplorerExtra -> SomeBatchOp
 extraOps (ExplorerExtra em (HM.toList -> histories) balances) =
     SomeBatchOp $
     map GS.DelTxExtra (MM.deletions em) ++
@@ -56,7 +55,7 @@ extraOps (ExplorerExtra em (HM.toList -> histories) balances) =
     map GS.DelAddrBalance (MM.deletions balances)
 
 applyBlund
-    :: (HasCoreConstants, MonadSlots ctx m, EGlobalApplyToilMode ctx m)
+    :: (HasConfiguration, MonadSlots ctx m, EGlobalApplyToilMode m)
     => TxpBlund
     -> m ()
 applyBlund txpBlund = do
@@ -84,7 +83,7 @@ applyBlund txpBlund = do
     uncurry (eApplyToil mTxTimestamp) $ blundToAuxNUndoWHash txpBlund
 
 rollbackBlocks
-    :: TxpGlobalRollbackMode ctx m
+    :: TxpGlobalRollbackMode m
     => NewestFirst NE TxpBlund -> m SomeBatchOp
 rollbackBlocks blunds =
     (genericToilModifierToBatch extraOps) . snd <$>

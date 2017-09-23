@@ -36,7 +36,7 @@ cd nodes2
 for i in {0..4}; do stack exec -- cardano-keygen rearrange --mask testnet$i.key; done
 ```
 
-### cardano-auxx
+### Cardano-auxx
 
 Launch `cardano-auxx` with CLI:
 

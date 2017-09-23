@@ -178,16 +178,16 @@ function gen_kademlia_topology {
 function node_cmd {
   local i=$1
   local is_stat=$2
-  local stake_distr=$3
-  local wallet_args=$4
-  local system_start=$5
-  local config_dir=$6
-  local exec_name=$7
+  local wallet_args=$3
+  local system_start=$4
+  local config_dir=$5
+  local exec_name=$6
   local st=''
   local reb=''
   local no_ntp=''
   local ssc_algo=''
   local web=''
+  local config_key=''
 
   ensure_run
 
@@ -219,6 +219,9 @@ function node_cmd {
   if [[ "$CSL_RTS" != "" ]] && [[ $i -eq 0 ]]; then
     rts_opts="+RTS -N -pa -A6G -qg -RTS"
   fi
+  if [[ "$CONFIG_KEY" != "" ]]; then
+    config_key=" --configuration-key $CONFIG_KEY "
+  fi
 
   local topology_file="$config_dir/topology$i.yaml"
   #local kademlia_file="$config_dir/kademlia$i.yaml"
@@ -234,8 +237,11 @@ function node_cmd {
     #echo -n " --address 127.0.0.1:"`get_port $i`
     echo -n " --listen 127.0.0.1:"`get_port $i`
   fi
+  if [[ "$config_key" != "" ]]; then
+    echo -n " $config_key "
+  fi
   echo -n " $(logs node$i.log) $time_lord $stats"
-  echo -n " $stake_distr $ssc_algo "
+  echo -n " $ssc_algo "
   echo -n " $web "
   echo -n " $report_server "
   echo -n " $wallet_args "
@@ -257,12 +263,11 @@ function node_cmd {
 
 function bench_cmd {
   local i=$1
-  local stake_distr=$2
-  local system_start=$3
-  local time=$4
-  local conc=$5
-  local delay=$6
-  local sendmode=$7
+  local system_start=$2
+  local time=$3
+  local conc=$4
+  local delay=$5
+  local sendmode=$6
   ensure_run
 
   echo -n "$(find_binary cardano-auxx)"
@@ -270,8 +275,9 @@ function bench_cmd {
   echo -n " --peer 127.0.0.1:"`get_port $((i-1))`
   echo -n " $(logs node_auxx.log)"
   echo -n " --system-start $system_start"
-  echo -n " $stake_distr"
   echo -n " cmd --commands \"send-to-all-genesis $time $conc $delay $sendmode tps-sent.csv\""
+  echo -n " --configuration-key bench "
+  echo -n " --rebuild-db "
 
   echo ''
 }

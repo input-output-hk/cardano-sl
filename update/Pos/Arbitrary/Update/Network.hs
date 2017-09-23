@@ -12,13 +12,14 @@ import           Pos.Arbitrary.Core        ()
 import           Pos.Arbitrary.Update.Core ()
 import           Pos.Binary.Update         ()
 import           Pos.Communication.Relay   (DataMsg (..))
+import           Pos.Core.Configuration    (HasConfiguration)
 import           Pos.Crypto                (SignTag (SignUSVote), hash, sign, toPublic)
 import           Pos.Update.Core.Types     (UpdateProposal (..), UpdateVote (..))
 
-instance Arbitrary (DataMsg UpdateVote) where
+instance HasConfiguration => Arbitrary (DataMsg UpdateVote) where
     arbitrary = DataMsg <$> arbitrary
 
-instance Arbitrary (DataMsg (UpdateProposal, [UpdateVote])) where
+instance HasConfiguration => Arbitrary (DataMsg (UpdateProposal, [UpdateVote])) where
     arbitrary = do
         up <- arbitrary
         let id = hash up

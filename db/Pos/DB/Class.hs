@@ -68,7 +68,8 @@ import           Serokell.Data.Memory.Units   (Byte)
 
 import           Pos.Binary.Class             (Bi)
 import           Pos.Core                     (BlockVersionData (..), EpochIndex,
-                                               HeaderHash, isBootstrapEra)
+                                               HeaderHash, isBootstrapEra,
+                                               HasConfiguration)
 
 ----------------------------------------------------------------------------
 -- Pure
@@ -92,7 +93,7 @@ class DBIteratorClass i where
 type IterType i = (IterKey i, IterValue i)
 
 -- | Pure read-only interface to the database.
-class (MonadBaseControl IO m, MonadThrow m) => MonadDBRead m where
+class (HasConfiguration, MonadBaseControl IO m, MonadThrow m) => MonadDBRead m where
     -- | This function takes tag and key and reads value associated
     -- with given key from DB corresponding to given tag.
     dbGet :: DBTag -> ByteString -> m (Maybe ByteString)

@@ -17,8 +17,7 @@ import qualified Prelude
 import           Serokell.Util       (pairF)
 
 import           Pos.AllSecrets      (AllSecrets, HasAllSecrets (..))
-import           Pos.Core            (BlockCount)
-import           Pos.Genesis         (GenesisWStakeholders)
+import           Pos.Core            (BlockCount, GenesisWStakeholders)
 
 -- | Parameters for transactions payload generation.
 data TxGenParams = TxGenParams

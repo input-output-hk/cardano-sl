@@ -23,16 +23,16 @@ import           Serokell.Util.Verify            (isVerSuccess)
 
 import           Pos.Binary.Crypto               ()
 import           Pos.Binary.GodTossing.Core      ()
-import           Pos.Core                        (EpochIndex (..), HasCoreConstants,
+import           Pos.Core                        (EpochIndex (..), HasConfiguration,
+                                                  HasGenesisData, HasProtocolConstants,
                                                   IsMainHeader, SlotId (..),
-                                                  StakeholderId, headerSlotL)
+                                                  StakeholderId, VssCertificatesMap,
+                                                  genesisVssCerts, headerSlotL)
 import           Pos.Core.Slotting               (crucialSlot)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (getCommitmentsMap),
-                                                  GtPayload (..), VssCertificatesMap,
-                                                  checkCertTTL, isCommitmentId,
-                                                  isOpeningId, isSharesId,
+                                                  GtPayload (..), checkCertTTL,
+                                                  isCommitmentId, isOpeningId, isSharesId,
                                                   verifySignedCommitment, vssThreshold)
-import           Pos.Ssc.GodTossing.Genesis      (genesisCertificates)
 import           Pos.Ssc.GodTossing.Toss.Base    (verifyEntriesGuardM)
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Types.Types  (GtGlobalState (..))
@@ -72,7 +72,7 @@ hasVssCertificate id = VCD.member id . _gsVssCertificates
 --
 -- We also do some general sanity checks.
 sanityChecksGtPayload
-    :: (HasCoreConstants, MonadError TossVerFailure m)
+    :: (HasConfiguration, MonadError TossVerFailure m)
     => Either EpochIndex (Some IsMainHeader) -> GtPayload -> m ()
 sanityChecksGtPayload eoh payload = case payload of
     CommitmentsPayload comms certs -> do
@@ -134,8 +134,8 @@ sanityChecksGtPayload eoh payload = case payload of
 -- Modern
 ----------------------------------------------------------------------------
 
-getStableCertsPure :: HasCoreConstants => EpochIndex -> VCD.VssCertData -> VssCertificatesMap
+getStableCertsPure :: (HasProtocolConstants, HasGenesisData) => EpochIndex -> VCD.VssCertData -> VssCertificatesMap
 getStableCertsPure epoch certs
-    | epoch == 0 = genesisCertificates
+    | epoch == 0 = genesisVssCerts
     | otherwise =
           VCD.certs $ VCD.setLastKnownSlot (crucialSlot epoch) certs

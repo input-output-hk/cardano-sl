@@ -17,19 +17,19 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 
 import           Pos.Core                          (ApplicationName, BlockVersion (..),
                                                     BlockVersionData (..),
-                                                    HasCoreConstants,
+                                                    HasConfiguration,
                                                     SoftwareVersion (..), StakeholderId,
-                                                    addressHash, giveStaticConsts)
+                                                    addressHash)
 import           Pos.Crypto                        (hash)
 import           Pos.Slotting.Types                (SlottingData)
 import           Pos.Update.Core                   (UpId, UpdateProposal (..), applyBVM)
 import qualified Pos.Update.Poll                   as Poll
 import qualified Pos.Util.Modifier                 as MM
 
-import           Test.Pos.Util                     (formsMonoid)
+import           Test.Pos.Util                     (formsMonoid, giveCoreConf)
 
 spec :: Spec
-spec = giveStaticConsts $ describe "Poll" $ do
+spec = giveCoreConf $ describe "Poll" $ do
     let smaller n = modifyMaxSuccess (const n)
     describe "modifyPollModifier" $ smaller 30 $ do
         prop
@@ -89,7 +89,7 @@ data PollAction
     | SetEpochProposers (HashSet StakeholderId)
     deriving (Show, Eq, Generic)
 
-instance HasCoreConstants => Arbitrary PollAction where
+instance HasConfiguration => Arbitrary PollAction where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -107,7 +107,8 @@ actionToMonad (SetSlottingData sd)       = Poll.setSlottingData sd
 actionToMonad (SetEpochProposers hs)     = Poll.setEpochProposers hs
 
 applyActionToModifier
-    :: PollAction
+    :: HasConfiguration
+    => PollAction
     -> Poll.PollState
     -> Poll.PollModifier
     -> Poll.PollModifier
@@ -152,7 +153,9 @@ applyActionToModifier (DeactivateProposal ui) pst = \p ->
 applyActionToModifier (SetSlottingData sd) _   = Poll.pmSlottingDataL .~ (Just sd)
 applyActionToModifier (SetEpochProposers hs) _ = Poll.pmEpochProposersL .~ (Just hs)
 
-applyActions :: Poll.PollState -> [PollAction] -> Property
+applyActions
+    :: HasConfiguration
+    => Poll.PollState -> [PollAction] -> Property
 applyActions ps actionList =
     let pollSts = fmap (actionToMonad @Poll.PurePoll) actionList
         -- 'resultModifiers' has a 'mempty' poll modifier up front, so 'newPollStates'
@@ -184,13 +187,13 @@ emptyPollSt bvInfo = Poll.PollState
     mempty
 
 -- | Apply a sequence of 'PollAction's from left to right.
-perform :: [PollAction] -> Poll.PurePoll ()
+perform :: HasConfiguration => [PollAction] -> Poll.PurePoll ()
 perform = foldl (>>) (return ()) . map actionToMonad
 
 -- | Operational equivalence operator in the 'PurePoll' monad. To be used when
 -- equivalence between two sequences of actions in 'PurePoll' is to be tested/proved.
 (==^)
-    :: HasCoreConstants
+    :: HasConfiguration
     => [PollAction]
     -> [PollAction]
     -> Gen PollAction
@@ -233,7 +236,7 @@ property will cause it to fail.
 -}
 
 putDelBVState
-    :: HasCoreConstants
+    :: HasConfiguration
     => BlockVersion
     -> Poll.BlockVersionState
     -> PollStateTestInfo
@@ -245,7 +248,7 @@ putDelBVState bv bvs =
     in ([PutBVState bv bvs, DelBVState bv] ==^ []) actionPrefixGen
 
 setDeleteConfirmedSV
-    :: HasCoreConstants
+    :: HasConfiguration
     => SoftwareVersion
     -> PollStateTestInfo
     -> Property
@@ -257,7 +260,7 @@ setDeleteConfirmedSV sv =
     in ([SetLastConfirmedSV sv, DelConfirmedSV appName] ==^ []) actionPrefixGen
 
 addDeleteConfirmedProposal
-    :: HasCoreConstants
+    :: HasConfiguration
     => Poll.ConfirmedProposalState
     -> PollStateTestInfo
     -> Property
@@ -270,7 +273,7 @@ addDeleteConfirmedProposal cps =
        []) actionPrefixGen
 
 insertDeleteProposal
-    :: HasCoreConstants
+    :: HasConfiguration
     => Poll.ProposalState
     -> PollStateTestInfo
     -> Property

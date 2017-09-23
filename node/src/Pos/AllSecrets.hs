@@ -23,6 +23,7 @@ import qualified Data.Text.Buildable
 import           Formatting          (bprint, int, (%))
 import           Serokell.Util       (listJson, mapJson)
 
+import           Pos.Binary.Core.Address ()
 import           Pos.Core            (AddrSpendingData (..), Address,
                                       IsBootstrapEraAddr (..), StakeholderId, addressHash,
                                       checkAddrSpendingData, makePubKeyAddress,

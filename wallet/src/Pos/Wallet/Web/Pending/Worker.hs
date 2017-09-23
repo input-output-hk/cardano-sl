@@ -19,10 +19,10 @@ import           System.Wlog                       (logInfo, modifyLoggerName)
 
 import           Pos.Client.Txp.Addresses          (MonadAddresses)
 import           Pos.Communication.Protocol        (SendActions (..))
-import           Pos.Constants                     (pendingTxResubmitionPeriod)
+import           Pos.Configuration                 (HasNodeConfiguration, pendingTxResubmitionPeriod)
 import           Pos.Core                          (ChainDifficulty (..), SlotId (..),
                                                     difficultyL)
-import           Pos.Core.Context                  (HasCoreConstants)
+import           Pos.Core.Configuration            (HasConfiguration)
 import           Pos.Crypto                        (WithHash (..))
 import           Pos.DB.DB                         (getTipHeader)
 import           Pos.Slotting                      (getNextEpochSlotDuration, onNewSlot)
@@ -42,7 +42,8 @@ import           Pos.Wallet.Web.Util               (getWalletAssuredDepth)
 type MonadPendings m =
     ( MonadWalletWebMode m
     , MonadAddresses m
-    , HasCoreConstants
+    , HasConfiguration
+    , HasNodeConfiguration
     )
 
 processPtxInNewestBlocks :: MonadPendings m => PendingTx -> m ()

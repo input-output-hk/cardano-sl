@@ -8,43 +8,43 @@ module Pos.Explorer.Txp.Local
 
 import           Universum
 
-import           Control.Lens          (makeLenses)
-import           Control.Monad.Except  (MonadError (..))
-import           Data.Default          (def)
-import qualified Data.HashMap.Strict   as HM
-import qualified Data.List.NonEmpty    as NE
-import qualified Data.Map              as M (fromList)
-import           Formatting            (build, sformat, (%))
-import           Mockable              (CurrentTime, Mockable)
-import           System.Wlog           (WithLogger, logDebug)
+import           Control.Lens           (makeLenses)
+import           Control.Monad.Except   (MonadError (..))
+import           Data.Default           (def)
+import qualified Data.HashMap.Strict    as HM
+import qualified Data.List.NonEmpty     as NE
+import qualified Data.Map               as M (fromList)
+import           Formatting             (build, sformat, (%))
+import           Mockable               (CurrentTime, Mockable)
+import           System.Wlog            (WithLogger, logDebug)
 
-import           Pos.Core              (BlockVersionData, EpochIndex,
-                                        GenesisWStakeholders, HeaderHash, Timestamp,
-                                        siEpoch)
-import           Pos.DB.Class          (MonadDBRead, MonadGState (..))
-import qualified Pos.Explorer.DB       as ExDB
-import qualified Pos.GState            as GS
-import           Pos.KnownPeers        (MonadFormatPeers)
-import           Pos.Reporting         (HasReportingContext, reportError)
-import           Pos.Slotting          (MonadSlots (getCurrentSlot), getSlotStart)
-import           Pos.StateLock         (Priority (..), StateLock, StateLockMetrics,
-                                        withStateLock)
-import           Pos.Txp.Core          (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
-import           Pos.Txp.MemState      (GenericTxpLocalDataPure, MonadTxpMem,
-                                        getLocalTxsMap, getTxpExtra, getUtxoModifier,
-                                        modifyTxpLocalData, setTxpLocalData)
-import           Pos.Txp.Toil          (GenericToilModifier (..), MonadUtxoRead (..),
-                                        ToilT, ToilVerFailure (..), Utxo, runDBToil,
-                                        runDBToil, runToilTLocalExtra, utxoGet,
-                                        utxoGetReader)
-import           Pos.Util.Chrono       (NewestFirst (..))
-import qualified Pos.Util.Modifier     as MM
-import           Pos.Util.Util         (HasLens (..), HasLens')
+import           Pos.Core               (BlockVersionData, EpochIndex, HeaderHash,
+                                         Timestamp, siEpoch)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.DB.Class           (MonadDBRead, MonadGState (..))
+import qualified Pos.Explorer.DB        as ExDB
+import qualified Pos.GState             as GS
+import           Pos.KnownPeers         (MonadFormatPeers)
+import           Pos.Reporting          (HasReportingContext, reportError)
+import           Pos.Slotting           (MonadSlots (getCurrentSlot), getSlotStart)
+import           Pos.StateLock          (Priority (..), StateLock, StateLockMetrics,
+                                         withStateLock)
+import           Pos.Txp.Core           (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
+import           Pos.Txp.MemState       (GenericTxpLocalDataPure, MonadTxpMem,
+                                         getLocalTxsMap, getTxpExtra, getUtxoModifier,
+                                         modifyTxpLocalData, setTxpLocalData)
+import           Pos.Txp.Toil           (GenericToilModifier (..), MonadUtxoRead (..),
+                                         ToilT, ToilVerFailure (..), Utxo, runDBToil,
+                                         runDBToil, runToilTLocalExtra, utxoGet,
+                                         utxoGetReader)
+import           Pos.Util.Chrono        (NewestFirst (..))
+import qualified Pos.Util.Modifier      as MM
+import           Pos.Util.Util          (HasLens (..), HasLens')
 
-import           Pos.Explorer.Core     (TxExtra (..))
-import           Pos.Explorer.Txp.Toil (ExplorerExtra, ExplorerExtraTxp (..),
-                                        MonadTxExtraRead (..), eNormalizeToil, eProcessTx,
-                                        eeLocalTxsExtra)
+import           Pos.Explorer.Core      (TxExtra (..))
+import           Pos.Explorer.Txp.Toil  (ExplorerExtra, ExplorerExtraTxp (..),
+                                         MonadTxExtraRead (..), eNormalizeToil,
+                                         eProcessTx, eeLocalTxsExtra)
 
 
 type ETxpLocalWorkMode ctx m =
@@ -54,7 +54,6 @@ type ETxpLocalWorkMode ctx m =
     , MonadTxpMem ExplorerExtra ctx m
     , WithLogger m
     , MonadSlots ctx m
-    , HasLens' ctx GenesisWStakeholders
     , Mockable CurrentTime m
     , MonadMask m
     , MonadFormatPeers m
@@ -65,16 +64,12 @@ type ETxpLocalDataPure = GenericTxpLocalDataPure ExplorerExtra
 
 -- Base context for tx processing in explorer.
 data EProcessTxContext = EProcessTxContext
-    { _eptcExtraBase       :: !ExplorerExtraTxp
-    , _eptcGenStakeholders :: !GenesisWStakeholders
-    , _eptcAdoptedBVData   :: !BlockVersionData
-    , _eptcUtxoBase        :: !Utxo
+    { _eptcExtraBase     :: !ExplorerExtraTxp
+    , _eptcAdoptedBVData :: !BlockVersionData
+    , _eptcUtxoBase      :: !Utxo
     }
 
 makeLenses ''EProcessTxContext
-
-instance HasLens GenesisWStakeholders EProcessTxContext GenesisWStakeholders where
-    lensOf = eptcGenStakeholders
 
 instance HasLens Utxo EProcessTxContext Utxo where
     lensOf = eptcUtxoBase
@@ -82,7 +77,7 @@ instance HasLens Utxo EProcessTxContext Utxo where
 -- Base monad for tx processing in explorer.
 type EProcessTxMode = Reader EProcessTxContext
 
-instance MonadUtxoRead EProcessTxMode where
+instance HasConfiguration => MonadUtxoRead EProcessTxMode where
     utxoGet = utxoGetReader
 
 instance MonadGState EProcessTxMode where
@@ -124,7 +119,6 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $
     -- 'StateLock' which we own inside this function.
     tipBefore <- GS.getTip
     localUM <- lift getUtxoModifier
-    genStks <- view (lensOf @GenesisWStakeholders)
     bvd <- gsAdoptedBVData
     (resolvedOuts, _) <- runDBToil $ runUM localUM $ mapM utxoGet _txInputs
     -- Resolved are unspent transaction outputs corresponding to input
@@ -156,7 +150,6 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $
             { _eptcExtraBase = eet
             , _eptcAdoptedBVData = bvd
             , _eptcUtxoBase = resolved
-            , _eptcGenStakeholders = genStks
             }
     pRes <-
         lift $

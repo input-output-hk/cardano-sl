@@ -12,17 +12,17 @@ import           Pos.Arbitrary.Infra     ()
 import           Pos.Binary              ()
 import           Pos.Communication.Relay ()
 import qualified Pos.Communication.Relay as R
-import           Pos.Core                (giveStaticConsts)
 import qualified Pos.Update              as U
 
 import           Test.Pos.CborSpec       (U)
-import           Test.Pos.Util           (binaryTest, msgLenLimitedTest)
+import           Test.Pos.Util           (binaryTest, giveInfraConf, giveCoreConf,
+                                          msgLenLimitedTest)
 
 type VoteId' = Tagged U.UpdateVote U.VoteId
 type UpId' = Tagged (U.UpdateProposal, [U.UpdateVote])U.UpId
 
 spec :: Spec
-spec = giveStaticConsts $
+spec = giveInfraConf $ giveCoreConf $
     describe "Update system" $ do
         describe "Bi instances" $ do
             describe "Core" $ do

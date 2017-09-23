@@ -18,7 +18,7 @@ import Data.String (take)
 import Data.Time.Duration (Milliseconds)
 
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (block, blEpochSlotNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cBlockLead, cSize) as I18nL
+import Explorer.I18n.Lenses (block, blEpochSlotNotFound, blSlotEmpty, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cBlockLead, cSize) as I18nL
 import Explorer.Lenses.State (_PageNumber, blocksViewState, blsViewPagination, blsViewPaginationEditable, currentBlocksResult, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
@@ -27,7 +27,7 @@ import Explorer.Types.State (CBlockEntries, CCurrency(..), PageNumber(..), State
 import Explorer.Util.Factory (mkEpochIndex)
 import Explorer.Util.String (formatADA)
 import Explorer.Util.Time (prettyDuration, nominalDiffTimeToDateTime)
-import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnLead, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
+import Explorer.View.CSS as CSS
 import Explorer.View.Common (currencyCSSClass, getMaxPaginationNumber, noData, paginationView)
 
 import Network.RemoteData (RemoteData(..), withDefault)
@@ -62,39 +62,42 @@ blocksView state =
                                           (translate (I18nL.common <<< I18nL.cSlot) lang')
                                         )
                         case state ^. currentBlocksResult of
-                            NotAsked  -> emptyBlocksView ""
-                            Loading   -> emptyBlocksView $ translate (I18nL.common <<< I18nL.cLoading) lang'
-                            Failure _ -> failureView lang'
+                            NotAsked  -> messageView ""
+                            Loading   -> messageView $ translate (I18nL.common <<< I18nL.cLoading) lang'
+                            Failure _ -> messageBackView lang' $ translate (I18nL.block <<< I18nL.blEpochSlotNotFound) lang'
                             Success blocks ->
-                                let paginationViewProps =
-                                        { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-                                        , currentPage: state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
-                                        , minPage: PageNumber minPagination
-                                        , maxPage: PageNumber $ getMaxPaginationNumber (length blocks) maxBlockRows
-                                        , changePageAction: BlocksPaginateBlocks
-                                        , editable: state ^. (viewStates <<< blocksViewState <<< blsViewPaginationEditable)
-                                        , editableAction: BlocksEditBlocksPageNumber
-                                        , invalidPageAction: BlocksInvalidBlocksPageNumber
-                                        , disabled: false
-                                        }
-                                in
-                                S.div do
-                                    blocksHeaderView blocks lang'
-                                    S.div ! S.className CSS.blocksBody
-                                          $ for_ (currentBlocks state) (blockRow state)
-                                    S.div ! S.className CSS.blocksFooter
-                                          $ paginationView paginationViewProps
+                                if null blocks then
+                                    messageBackView lang' $ translate (I18nL.block <<< I18nL.blSlotEmpty) lang'
+                                else
+                                    let paginationViewProps =
+                                            { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
+                                            , currentPage: state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
+                                            , minPage: PageNumber minPagination
+                                            , maxPage: PageNumber $ getMaxPaginationNumber (length blocks) maxBlockRows
+                                            , changePageAction: BlocksPaginateBlocks
+                                            , editable: state ^. (viewStates <<< blocksViewState <<< blsViewPaginationEditable)
+                                            , editableAction: BlocksEditBlocksPageNumber
+                                            , invalidPageAction: BlocksInvalidBlocksPageNumber
+                                            , disabled: false
+                                            }
+                                    in
+                                    S.div do
+                                        blocksHeaderView blocks lang'
+                                        S.div ! S.className CSS.blocksBody
+                                              $ for_ (currentBlocks state) (blockRow state)
+                                        S.div ! S.className CSS.blocksFooter
+                                              $ paginationView paginationViewProps
 
-emptyBlocksView :: String -> P.HTML Action
-emptyBlocksView message =
-    S.div ! S.className "blocks-message"
+messageView :: String -> P.HTML Action
+messageView message =
+    S.div ! S.className CSS.blocksMessage
           $ S.text message
 
-failureView :: Language -> P.HTML Action
-failureView lang =
+messageBackView :: Language -> String -> P.HTML Action
+messageBackView lang message =
     S.div do
-        S.p ! S.className CSS.blocksFailed
-            $ S.text (translate (I18nL.block <<< I18nL.blEpochSlotNotFound) lang)
+        S.p ! S.className CSS.blocksMessageBack
+            $ S.text message
         S.a ! S.href (toUrl Dashboard)
             #! P.onClick (Navigate $ toUrl Dashboard)
             ! S.className "btn-back"

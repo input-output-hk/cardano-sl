@@ -92,7 +92,7 @@ getHistory mCWalId mAccountId mAddrId = do
   where
     fits :: [CId Addr] -> CTx -> Bool
     fits addrs ctx = any (relatesToAddr ctx) addrs
-    relatesToAddr CTx {..} = (`elem` (ctInputAddrs ++ ctOutputAddrs))
+    relatesToAddr CTx {..} = (`elem` (map fst $ ctInputs ++ ctOutputs))
     errorSpecifySomething = RequestError $
         "Please specify either walletId or accountId"
     errorDontSpecifyBoth = RequestError $

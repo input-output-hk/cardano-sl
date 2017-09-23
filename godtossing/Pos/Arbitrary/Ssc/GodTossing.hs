@@ -12,19 +12,17 @@ import           Universum
 
 import qualified Data.HashMap.Strict               as HM
 import qualified Data.List.NonEmpty                as NE
-import qualified System.Random                     as R
-import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, elements,
-                                                    listOf, oneof)
+import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, listOf,
+                                                    oneof, scale, sized, vector)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Core.Unsafe         ()
 import           Pos.Arbitrary.Ssc                 (SscPayloadDependsOnSlot (..))
-import           Pos.Binary.Class                  (asBinary)
 import           Pos.Binary.GodTossing             ()
 import           Pos.Communication.Types.Relay     (DataMsg (..))
 import           Pos.Core                          (EpochIndex, HasCoreConstants,
                                                     SlotId (..), addressHash)
-import           Pos.Crypto                        (SecretKey, toVssPublicKey, vssKeyGen)
+import           Pos.Crypto                        (SecretKey)
 import           Pos.Ssc.GodTossing.Constants      (vssMaxTTL, vssMinTTL)
 import           Pos.Ssc.GodTossing.Core           (Commitment (..), CommitmentsMap,
                                                     GtPayload (..), GtProof (..),
@@ -34,7 +32,7 @@ import           Pos.Ssc.GodTossing.Core           (Commitment (..), Commitments
                                                     isCommitmentId, isOpeningId,
                                                     isSharesId, mkCommitmentsMap,
                                                     mkCommitmentsMap, mkSignedCommitment,
-                                                    mkVssCertificate)
+                                                    mkVssCertificate, vssThreshold)
 import qualified Pos.Ssc.GodTossing.Genesis.Types  as G
 import           Pos.Ssc.GodTossing.Toss.Types     (TossModifier (..))
 import           Pos.Ssc.GodTossing.Type           (SscGodTossing)
@@ -44,8 +42,7 @@ import           Pos.Ssc.GodTossing.Types.Message  (GtTag (..), MCCommitment (..
 import           Pos.Ssc.GodTossing.Types.Types    (GtGlobalState (..),
                                                     GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData    (VssCertData (..))
-import           Pos.Util.Arbitrary                (Nonrepeating (..), makeSmall,
-                                                    sublistN, unsafeMakePool)
+import           Pos.Util.Arbitrary                (makeSmall)
 
 ----------------------------------------------------------------------------
 -- Core
@@ -58,11 +55,7 @@ newtype BadSignedCommitment = BadSignedComm
     } deriving (Generic, Show, Eq)
 
 instance Arbitrary BadSignedCommitment where
-    arbitrary = BadSignedComm <$> do
-        pk <- arbitrary
-        sig <- arbitrary
-        comm <- Commitment <$> arbitrary <*> arbitrary
-        return (pk, comm, sig)
+    arbitrary = genericArbitrary
     shrink = genericShrink
 
 -- | Pair of 'Commitment' and 'Opening'.
@@ -78,31 +71,14 @@ data BadCommAndOpening = BadCommAndOpening
     } deriving (Generic, Show, Eq)
 
 instance Arbitrary BadCommAndOpening where
-    arbitrary = do
-        badComm <- Commitment <$> arbitrary <*> arbitrary
-        opening <- arbitrary
-        return $ BadCommAndOpening (badComm, opening)
+    arbitrary = genericArbitrary
     shrink = genericShrink
-
--- | Generate 50 commitment/opening pairs in advance
--- (see `Pos.Crypto.Arbitrary` for explanations)
-commitmentsAndOpenings :: [CommitmentOpening]
-commitmentsAndOpenings =
-    map (uncurry CommitmentOpening) $
-    unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $ do
-      t <- R.randomRIO (3, 10)
-      n <- R.randomRIO (t*2-1, t*2)
-      vssKeys <- replicateM n $ toVssPublicKey <$> vssKeyGen
-      genCommitmentAndOpening (fromIntegral t)
-          (NE.fromList (map asBinary vssKeys))
-{-# NOINLINE commitmentsAndOpenings #-}
 
 instance Arbitrary CommitmentOpening where
-    arbitrary = elements commitmentsAndOpenings
-    shrink = genericShrink
-
-instance Nonrepeating CommitmentOpening where
-    nonrepeating n = sublistN n commitmentsAndOpenings
+    arbitrary = do
+        vssPks <- NE.fromList <$> sized (vector . max 4 . min 50)
+        let thr = vssThreshold (length vssPks)
+        uncurry CommitmentOpening <$> genCommitmentAndOpening thr vssPks
 
 instance Arbitrary Commitment where
     arbitrary = coCommitment <$> arbitrary
@@ -115,7 +91,7 @@ instance Arbitrary Commitment where
                              ]
 
 instance Arbitrary CommitmentsMap where
-    arbitrary = mkCommitmentsMap <$> arbitrary
+    arbitrary = mkCommitmentsMap <$> scale (min 15) arbitrary
     shrink = genericShrink
 
 -- | Generates commitment map having commitments from given epoch.
@@ -216,7 +192,7 @@ instance Arbitrary MCOpening where
     shrink = genericShrink
 
 instance Arbitrary MCShares where
-    arbitrary = genericArbitrary
+    arbitrary = scale (min 15) genericArbitrary
     shrink = genericShrink
 
 instance Arbitrary MCVssCertificate where

@@ -46,7 +46,6 @@ import qualified Pos.Core.Slotting                 as Types
 import qualified Pos.Core.Types                    as Types
 import           Pos.Crypto                        (createPsk, toPublic)
 import           Pos.Data.Attributes               (Attributes (..), UnparsedFields (..))
-import           Pos.Util.Arbitrary                (nonrepeating)
 import           Pos.Util.Util                     (leftToPanic)
 
 {- NOTE: Deriving an 'Arbitrary' instance
@@ -491,10 +490,7 @@ instance Arbitrary Fee.TxFeePolicy where
 instance Arbitrary G.GenesisDelegation where
     arbitrary =
         leftToPanic "arbitrary@GenesisDelegation" . G.mkGenesisDelegation <$> do
-            secretKeys <- sized (nonrepeating . min 10) -- we generate at most tens keys,
-                                                        -- because 'nonrepeating' fails when
-                                                        -- we want too many items, because
-                                                        -- life is hard
+            secretKeys <- sized vector
             return $
                 case secretKeys of
                     [] -> []
@@ -518,7 +514,7 @@ instance Arbitrary G.GenesisCoreData where
             chop n l = taken : chop n dropped
               where (taken, dropped) = splitAt n l
         allAddrs <- fmap makePubKeyAddressBoot <$>
-            nonrepeating (outerLen * innerLen)
+            vector (outerLen * innerLen)
         let listOfAddrList = chop innerLen allAddrs
         -- This may seem like boilerplate but it's necessary to pass the first check in
         -- 'mkGenesisCoreData'. Certain parameters in the generated 'BalanceDistribution'

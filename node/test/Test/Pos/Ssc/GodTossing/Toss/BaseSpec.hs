@@ -13,8 +13,7 @@ import           System.Random         (mkStdGen, randomR)
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Arbitrary (..), Gen, NonEmptyList (..), Property,
-                                        elements, listOf, sublistOf, suchThat, vector,
-                                        (==>))
+                                        elements, listOf, sublistOf, vector, (==>))
 
 import           Pos.Arbitrary.Lrc     (GenesisMpcThd, ValidRichmenStakes (..))
 import           Pos.Binary            (AsBinary)
@@ -188,9 +187,8 @@ instance HasCoreConstants => Arbitrary GoodCommsPayload where
 
         gpPayload <- mkCommitmentsMapUnsafe . HM.fromList <$>
                 mapM (\k -> (,) <$> pure k <*> arbitrary) richmenWithComms
-        _gsCommitments <- mkCommitmentsMapUnsafe <$> customHashMapGen
-            (arbitrary `suchThat` (not . flip elem richmenWithComms))
-            arbitrary
+        _gsCommitments <- mkCommitmentsMapUnsafe <$>
+                          customHashMapGen arbitrary arbitrary
         let gpGlobalState = GtGlobalState {..}
 
         return GoodPayload {..}
@@ -290,12 +288,11 @@ instance HasCoreConstants => Arbitrary GoodOpeningPayload where
                 HM.fromList $ fmap (over _2 $ view _1) stakeHoldersAndCOs
         openingPldList <- sublistOf stakeHoldersAndCOs
 
-        -- For the test data to be correct, none of the stakeholders with an opening in
-        -- openings payload can have an opening in the global state i.e. be a key in
-        -- '_gsOpenings'.
-        _gsOpenings <- customHashMapGen
-            (arbitrary `suchThat` (not . flip elem (map fst openingPldList)))
-            (arbitrary :: Gen Opening)
+        -- For the test data to be correct, none of the stakeholders with an
+        -- opening in openings payload can have an opening in the global
+        -- state i.e. be a key in '_gsOpenings'. Since 'arbitrary' always
+        -- generates unique stakeholder ids, this is automatically true.
+        _gsOpenings <- customHashMapGen arbitrary (arbitrary :: Gen Opening)
         -- over _2 (view _2) (a,(b,c)) = (a,c)
         let opensPayload = HM.fromList $ fmap (over _2 $ view _2) openingPldList
 
@@ -394,11 +391,11 @@ instance HasCoreConstants => Arbitrary GoodSharesPayload where
                 mapM (\k -> (,) <$> pure k <*> arbitrary) necessaryKeys
             fillerMap <- arbitrary :: Gen (HashMap StakeholderId SignedCommitment)
             return $ HM.union necessaryMap fillerMap
-        -- The keys in the shares map with which 'checkSharesPayload' is ran must not
-        -- exist in '_gsShares' for the global data to be correct.
-        _gsShares <-
-            customHashMapGen (arbitrary `suchThat` (not . flip elem richmenWithShares))
-                             arbitrary
+        -- The keys in the shares map with which 'checkSharesPayload' is ran
+        -- must not exist in '_gsShares' for the global data to be correct.
+        -- Since 'arbitrary' always generates unique stakeholder ids, this
+        -- is automatically true.
+        _gsShares <- customHashMapGen arbitrary arbitrary
         let gpGlobalState = GtGlobalState {..}
 
         return GoodPayload {..}
@@ -519,11 +516,10 @@ instance HasCoreConstants => Arbitrary GoodCertsPayload where
 
         -- The 'VssCertificatesMap' field of this 'VssCertData' value satisfies:
         --   * None of its 'StakeholderId' keys is a richman
-        --    (i.e. is a  member of 'richmen')
+        --    (i.e. is a  member of 'richmen'). Since 'arbitrary' always
+        --    generates unique stakeholder ids, this is automatically true.
         _gsVssCertificates <- do
-            certs <- customHashMapGen
-                (arbitrary `suchThat` (not . flip HM.member richmen))
-                arbitrary
+            certs <- customHashMapGen arbitrary arbitrary
             vssData <- arbitrary
             return $ vssData {certs = certs}
         let gpGlobalState = GtGlobalState {..}

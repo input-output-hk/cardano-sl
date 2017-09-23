@@ -9,9 +9,8 @@ import           Universum
 import           Control.Monad                     (zipWithM)
 import qualified Data.ByteArray                    as ByteArray
 import           Data.List.NonEmpty                (fromList)
-import           System.IO.Unsafe                  (unsafePerformIO)
 import           Test.QuickCheck                   (Arbitrary (..), choose, elements,
-                                                    generate, oneof, vector)
+                                                    oneof, vector)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Crypto.Unsafe       ()
@@ -35,19 +34,7 @@ import           Pos.Crypto.Signing                (ProxyCert, ProxySecretKey,
                                                     Signature, Signed, keyGen, mkSigned,
                                                     proxySign, sign, toPublic)
 import           Pos.Crypto.SignTag                (SignTag (..))
-import           Pos.Util.Arbitrary                (Nonrepeating (..), arbitraryUnsafe,
-                                                    sublistN, unsafeMakePool)
-
-{- A note on 'Arbitrary' instances
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-We can't make an 'Arbitrary' instance for keys or seeds because generating
-them safely requires randomness which must come from IO (we could use an
-'arbitrary' randomness generator for an 'Arbitrary' instance, but then what's
-the point of testing key generation when we use different generators in
-production and in tests?). So, we just generate lots of keys and seeds with
-'unsafePerformIO' and use them for everything.
--}
+import           Pos.Util.Arbitrary                (arbitrarySizedS, arbitraryUnsafe)
 
 keysToGenerate :: Int
 keysToGenerate = 128
@@ -64,60 +51,28 @@ instance Arbitrary SignTag where
 -- Arbitrary signing keys
 ----------------------------------------------------------------------------
 
--- If you want an arbitrary keypair, just generate a secret key with
--- 'arbitrary' and then use 'Pos.Crypto.toPublic' to get the corresponding
--- public key.
-
-keys :: [(PublicKey, SecretKey)]
-keys = unsafeMakePool "[generating keys for tests...]" keysToGenerate keyGen
-{-# NOINLINE keys #-}
-
 instance Arbitrary PublicKey where
-    arbitrary = fst <$> elements keys
+    arbitrary = fst <$> keyGen
 instance Arbitrary SecretKey where
-    arbitrary = snd <$> elements keys
-
-instance Nonrepeating PublicKey where
-    nonrepeating n = map fst <$> sublistN n keys
-instance Nonrepeating SecretKey where
-    nonrepeating n = map snd <$> sublistN n keys
-
--- Repeat the same for ADA redemption keys
-redemptionKeys :: [(RedeemPublicKey, RedeemSecretKey)]
-redemptionKeys = unsafeMakePool "[generating redemption keys for tests..]" keysToGenerate redeemKeyGen
+    arbitrary = snd <$> keyGen
 
 instance Arbitrary RedeemPublicKey where
-    arbitrary = fst <$> elements redemptionKeys
+    arbitrary = fst <$> redeemKeyGen
 instance Arbitrary RedeemSecretKey where
-    arbitrary = snd <$> elements redemptionKeys
-
-instance Nonrepeating RedeemPublicKey where
-    nonrepeating n = map fst <$> sublistN n redemptionKeys
-instance Nonrepeating RedeemSecretKey where
-    nonrepeating n = map snd <$> sublistN n redemptionKeys
+    arbitrary = snd <$> redeemKeyGen
 
 ----------------------------------------------------------------------------
 -- Arbitrary VSS keys
 ----------------------------------------------------------------------------
 
-vssKeys :: [VssKeyPair]
-vssKeys = unsafeMakePool "[generating VSS keys for tests...]" keysToGenerate vssKeyGen
-{-# NOINLINE vssKeys #-}
-
 instance Arbitrary VssKeyPair where
-    arbitrary = elements vssKeys
+    arbitrary = vssKeyGen
 
 instance Arbitrary VssPublicKey where
     arbitrary = toVssPublicKey <$> arbitrary
 
 instance Arbitrary (AsBinary VssPublicKey) where
     arbitrary = asBinary @VssPublicKey <$> arbitrary
-
-instance Nonrepeating VssKeyPair where
-    nonrepeating n = sublistN n vssKeys
-
-instance Nonrepeating VssPublicKey where
-    nonrepeating n = map toVssPublicKey <$> nonrepeating n
 
 ----------------------------------------------------------------------------
 -- Arbitrary signatures
@@ -161,45 +116,39 @@ data SharedSecrets = SharedSecrets
                                     -- shares/keys lists.
     } deriving (Show, Eq)
 
-sharedSecrets :: [SharedSecrets]
-sharedSecrets =
-    unsafeMakePool "[generating shared secrets for tests...]" keysToGenerate $ do
-        parties <- generate $ choose (4, length vssKeys)
-        threshold <- generate $ choose (2, toInteger parties - 2)
-        vssKs <- sortWith toVssPublicKey <$>
-                 generate (sublistN parties vssKeys)
+instance Arbitrary SharedSecrets where
+    arbitrary = do
+        parties <- choose (6, 50)
+        threshold <- choose (3, toInteger parties - 2)
+        vssKeys <- sortWith toVssPublicKey <$> vector parties
         (s, sp, encryptedShares) <-
-            genSharedSecret threshold (map toVssPublicKey $ fromList vssKs)
+            genSharedSecret threshold (map toVssPublicKey $ fromList vssKeys)
         decryptedShares <- zipWithM decryptShare
-                             vssKs (map snd encryptedShares)
+                             vssKeys (map snd encryptedShares)
         let shares = zip (map snd encryptedShares) decryptedShares
-            vssPKs = map toVssPublicKey vssKs
-        return $ SharedSecrets s sp shares threshold vssPKs (parties - 1)
-{-# NOINLINE sharedSecrets #-}
+            vssPKs = map toVssPublicKey vssKeys
+        pure $ SharedSecrets s sp shares threshold vssPKs (parties - 1)
 
 instance Arbitrary Secret where
-    arbitrary = elements . fmap ssSecret $ sharedSecrets
+    arbitrary = ssSecret <$> arbitrary
 
 instance Arbitrary (AsBinary Secret) where
     arbitrary = asBinary @Secret <$> arbitrary
 
 instance Arbitrary SecretProof where
-    arbitrary = elements . fmap ssSecProof $ sharedSecrets
+    arbitrary = ssSecProof <$> arbitrary
 
 instance Arbitrary EncShare where
-    arbitrary = elements . concatMap (fmap fst . ssShares) $ sharedSecrets
+    arbitrary = elements . map fst . ssShares =<< arbitrary
 
 instance Arbitrary (AsBinary EncShare) where
     arbitrary = asBinary @EncShare <$> arbitrary
 
 instance Arbitrary DecShare where
-    arbitrary = unsafePerformIO <$> (decryptShare <$> arbitrary <*> arbitrary)
+    arbitrary = elements . map snd . ssShares =<< arbitrary
 
 instance Arbitrary (AsBinary DecShare) where
     arbitrary = asBinary @DecShare <$> arbitrary
-
-instance Arbitrary SharedSecrets where
-    arbitrary = elements sharedSecrets
 
 ----------------------------------------------------------------------------
 -- Arbitrary hashes
@@ -223,7 +172,7 @@ instance Arbitrary PassPhrase where
 ----------------------------------------------------------------------------
 
 instance Arbitrary HDPassphrase where
-    arbitrary = HDPassphrase . fromString <$> vector 32
+    arbitrary = HDPassphrase <$> arbitrarySizedS 32
 
 instance Arbitrary HDAddressPayload where
     arbitrary = genericArbitrary

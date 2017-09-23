@@ -1,29 +1,27 @@
 -- | Common things used in `Pos.Crypto.Arbitrary` and `Pos.Util.Arbitrary`
 
 module Pos.Util.Arbitrary
-       ( Nonrepeating (..)
-       , ArbitraryUnsafe (..)
+       ( ArbitraryUnsafe (..)
        , SmallGenerator (..)
        , makeSmall
        , sublistN
-       , unsafeMakeList
-       , unsafeMakePool
        , arbitrarySizedS
        , arbitrarySizedSL
        , runGen
        ) where
 
+import           Universum
+
 import           Data.ByteString        (pack)
 import qualified Data.ByteString.Lazy   as BL (ByteString, pack)
 import           Data.List.NonEmpty     (NonEmpty ((:|)))
 import           Formatting             (build, sformat, (%))
-import           Pos.Binary.Class       (Bi)
-import           System.IO.Unsafe       (unsafePerformIO)
 import           Test.QuickCheck        (Arbitrary (..), Gen, listOf, scale, shuffle,
                                          vector)
 import           Test.QuickCheck.Gen    (unGen)
 import           Test.QuickCheck.Random (mkQCGen)
-import           Universum
+
+import           Pos.Binary.Class       (Bi)
 
 makeSmall :: Gen a -> Gen a
 makeSmall = scale f
@@ -61,26 +59,6 @@ sublistN n xs =
             "but list only contains "%build) n len
     else
         take n <$> shuffle xs
-
--- | Type for generating list of unique (nonrepeating) elemets.
-class Nonrepeating a where
-    nonrepeating :: Int -> Gen [a]
-
--- | Unsafely create pool of `n` random values to be picked
--- (see note in `Pos.Crypto.Arbitrary` for explanation)
-unsafeMakePool :: Text -> Int -> IO a -> [a]
-unsafeMakePool msg n action = unsafePerformIO $ do
-    putText msg
-    replicateM n action
-
--- | Unsafely create list of `n` random values to be picked
--- (see note in `Pos.Crypto.Arbitrary` for explanation)
--- Used because genSharedSecret already returns a list
--- of EncShares, making the 'replicateM' unneeded.
-unsafeMakeList :: Text -> IO [a] -> [a]
-unsafeMakeList msg action = unsafePerformIO $ do
-    putText msg
-    action
 
 -- | Make arbitrary `ByteString` of given length.
 arbitrarySizedS :: Int -> Gen ByteString

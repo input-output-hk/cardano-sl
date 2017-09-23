@@ -1,7 +1,5 @@
-{-# LANGUAGE RankNTypes #-}
-
--- Don't complain about deprecated ErrorT
-{-# OPTIONS -Wno-deprecations #-}
+{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Instance of SscWorkersClass.
 
@@ -14,7 +12,6 @@ import           Universum
 
 import           Control.Concurrent.STM                (readTVar)
 import           Control.Lens                          (at, each, partsOf, to, views)
-import           Control.Monad.Error                   (runErrorT)
 import           Control.Monad.Except                  (runExceptT)
 import qualified Data.HashMap.Strict                   as HM
 import qualified Data.List.NonEmpty                    as NE
@@ -29,7 +26,8 @@ import           Serokell.Util.Text                    (listJson)
 import           System.Wlog                           (logDebug, logError, logInfo,
                                                         logWarning)
 
-import           Pos.Binary.Class                      (AsBinary, Bi, asBinary)
+import           Pos.Binary.Class                      (AsBinary, Bi, asBinary,
+                                                        fromBinaryM)
 import           Pos.Binary.GodTossing                 ()
 import           Pos.Binary.Infra                      ()
 import           Pos.Communication.Protocol            (EnqueueMsg, Message, MsgType (..),
@@ -261,13 +259,9 @@ onNewSlotOpening params SlotId {..} sendActions
             GtOpeningNone   -> pure Nothing
             GtOpeningNormal -> pure (Just open)
             GtOpeningWrong  -> do
-                keys <- NE.fromList . map (asBinary . toVssPublicKey) <$>
+                keys <- NE.fromList . map toVssPublicKey <$>
                         replicateM 6 vssKeyGen
-                runErrorT (genCommitmentAndOpening 3 keys) >>= \case
-                    Right (_, o) -> pure (Just o)
-                    Left (err :: String) ->
-                        logError ("onNewSlotOpening: " <> toText err)
-                        $> Nothing
+                Just . snd <$> genCommitmentAndOpening 3 keys
         whenJust mbOpen' $ \open' -> do
             let msg = MCOpening ourId open'
             sscProcessOurMessage (sscProcessOpening ourId open')
@@ -385,17 +379,14 @@ generateAndSetNewSecret sk SlotId {..} = do
                             NE.map (first $ flip (HM.lookupDefault 0) distr) ps
             case multiPSmb of
                 Nothing -> Nothing <$ logWarning (here "Couldn't compute participant's vss")
-                Just multiPS ->
-                    -- we use runErrorT and not runExceptT because we want
-                    -- to get errors produced by 'fail'. In the future we'll
-                    -- use MonadError everywhere and it won't be needed.
-                    runErrorT (genCommitmentAndOpening threshold multiPS) >>= \case
-                        Left (toText @String -> err) ->
-                            logError (here err) $> Nothing
-                        Right (comm, open) -> do
-                            let signedComm = mkSignedCommitment sk siEpoch comm
-                            SS.putOurSecret signedComm open siEpoch
-                            pure (Just signedComm)
+                Just multiPS -> case mapM fromBinaryM multiPS of
+                    Left err -> Nothing <$ logError (here ("Couldn't deserialize keys: " <> err))
+                    Right keys -> do
+                        (comm, open) <- liftIO $ runSecureRandom $
+                            genCommitmentAndOpening threshold keys
+                        let signedComm = mkSignedCommitment sk siEpoch comm
+                        SS.putOurSecret signedComm open siEpoch
+                        pure (Just signedComm)
 
 randomTimeInInterval
     :: SscMode SscGodTossing ctx m

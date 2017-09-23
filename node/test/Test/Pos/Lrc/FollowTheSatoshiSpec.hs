@@ -11,7 +11,7 @@ import           Data.List             (scanl1)
 import qualified Data.Set              as S (deleteFindMin, fromList)
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck       (Arbitrary (..), choose, infiniteListOf, suchThat)
+import           Test.QuickCheck       (Arbitrary (..), choose, infiniteListOf)
 
 import           Pos.Core              (Coin, HasCoreConstants, SharedSeed, StakeholderId,
                                         StakesList, addressHash, blkSecurityParam,
@@ -70,7 +70,7 @@ newtype StakeAndHolder = StakeAndHolder
 instance Arbitrary StakeAndHolder where
     arbitrary = StakeAndHolder <$> do
         pk1 <- arbitrary
-        pk2 <- arbitrary `suchThat` ((/=) pk1)
+        pk2 <- arbitrary
         listPks <- do
             n <- choose (2, 10)
             replicateM n arbitrary
@@ -112,7 +112,7 @@ ftsAllStake seed pk v =
 numberOfRuns :: HasCoreConstants => Int
 -- The higher is 'blkSecurityParam', the longer epochs will be and the more
 -- time FTS will take
-numberOfRuns = 300000 `div` fromIntegral blkSecurityParam
+numberOfRuns = 100000 `div` fromIntegral blkSecurityParam
 
 newtype FtsStream = Stream
     { getStream :: [SharedSeed]

@@ -211,9 +211,8 @@ instance ToJSON Byte where
 instance IsString s => MonadFail (Either s) where
     fail = Left . fromString
 
-instance Rand.DRG drg => HasLoggerName (Rand.MonadPseudoRandom drg) where
-    getLoggerName = pure mempty
-    modifyLoggerName = flip const
+instance Rand.MonadRandom m => Rand.MonadRandom (ReaderT r m) where
+    getRandomBytes = lift . Rand.getRandomBytes
 
 instance {-# OVERLAPPABLE #-}
          (MonadTrans t, Functor (t m), Monad (t m), Rand.MonadRandom m)
@@ -222,7 +221,7 @@ instance {-# OVERLAPPABLE #-}
 
 instance Rand.MonadRandom QC.Gen where
     getRandomBytes n = do
-        [a,b,c,d,e] <- replicateM 5 QC.arbitrary
+        [a,b,c,d,e] <- replicateM 5 (QC.choose (minBound, maxBound))
         pure $ fst $ Rand.randomBytesGenerate n (Rand.drgNewTest (a,b,c,d,e))
 
 instance Hashable Millisecond where
@@ -231,12 +230,15 @@ instance Hashable Millisecond where
 instance Hashable Microsecond where
     hashWithSalt i a = hashWithSalt i (toInteger a)
 
+instance Rand.DRG drg => HasLoggerName (Rand.MonadPseudoRandom drg) where
+    getLoggerName = pure mempty
+    modifyLoggerName = flip const
+
 instance NFData Millisecond where
     rnf ms = rnf (toInteger ms)
 
 instance NFData Microsecond where
     rnf ms = rnf (toInteger ms)
-
 
 ----------------------------------------------------------------------------
 -- Orphan Buildable instances for time-units

@@ -17,7 +17,7 @@ import           Serokell.Util            (listJson)
 import           Test.Hspec               (Spec, describe, pending)
 import           Test.Hspec.QuickCheck    (modifyMaxSize, modifyMaxSuccess, prop)
 import           Test.QuickCheck          (Property, choose, counterexample, generate,
-                                           ioProperty, property, sized, (===))
+                                           ioProperty, property, sized, vector, (===))
 import           Test.QuickCheck.Property (failed, succeeded)
 
 import           Pos.Binary
@@ -32,7 +32,7 @@ import           Pos.Ssc.GodTossing       (Commitment (..), CommitmentsMap, Open
                                            getCommitmentsMap, mkCommitmentsMap,
                                            secretToSharedSeed, vssThreshold)
 import           Pos.Types                (SharedSeed (..), StakeholderId, mkCoin)
-import           Pos.Util                 (nonrepeating, sublistN)
+import           Pos.Util                 (sublistN)
 
 getPubAddr :: SecretKey -> AddressHash PublicKey
 getPubAddr = addressHash . toPublic
@@ -207,11 +207,11 @@ generateKeysAndMpc
 -- genCommitmentAndOpening fails on 0
 generateKeysAndMpc _         0 = error "generateKeysAndMpc: 0 is passed"
 generateKeysAndMpc threshold n = do
-    keys           <- generate $ nonrepeating n
-    vssKeys        <- sortWith toVssPublicKey <$> generate (nonrepeating n)
-    let lvssPubKeys = NE.fromList $ map (asBinary . toVssPublicKey) vssKeys
+    keys           <- generate $ vector n
+    vssKeys        <- sortWith toVssPublicKey <$> generate (vector n)
+    let vssPubKeys = NE.fromList $ map toVssPublicKey vssKeys
     (comms, opens) <-
-        unzip <$> replicateM n (genCommitmentAndOpening threshold lvssPubKeys)
+        unzip <$> replicateM n (genCommitmentAndOpening threshold vssPubKeys)
     return (keys, NE.fromList vssKeys, comms, opens)
 
 mkCommitmentsMap' :: [SecretKey] -> [Commitment] -> CommitmentsMap

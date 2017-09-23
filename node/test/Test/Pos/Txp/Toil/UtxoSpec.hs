@@ -16,7 +16,7 @@ import           Test.Hspec            (Expectation, Spec, describe, expectation
                                         it)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, arbitrary, counterexample, property,
-                                        (==>))
+                                        vector, (==>))
 
 import           Pos.Arbitrary.Txp     (BadSigsTx (..), DoubleInputTx (..), GoodTx (..))
 import           Pos.Core              (addressHash, checkPubKeyAddress,
@@ -38,7 +38,7 @@ import           Pos.Txp               (MonadUtxoRead (utxoGet), ToilVerFailure 
                                         TxWitness, Utxo, VTxContext (..),
                                         WitnessVerFailure (..), applyTxToUtxoPure,
                                         isTxInUnknown, verifyTxUtxo, verifyTxUtxoPure)
-import           Pos.Util              (SmallGenerator (..), nonrepeating, runGen)
+import           Pos.Util              (SmallGenerator (..), runGen)
 
 ----------------------------------------------------------------------------
 -- Spec
@@ -291,7 +291,7 @@ scriptTxSpec = describe "script transactions" $ do
                     (\_ -> ScriptWitness intValidator badIntRedeemer)
             res `txShouldFailWithPlutus` PlutusReturnedFalse
 
-    let sks@[sk1, sk2, sk3,  sk4] = runGen $ nonrepeating 4
+    let sks@[sk1, sk2, sk3,  sk4] = runGen $ vector 4
     let     [pk1, pk2, pk3, _pk4] = map toPublic sks
 
     describe "multisig" $ do

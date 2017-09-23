@@ -21,7 +21,7 @@ import           Test.QuickCheck          (Property, choose, counterexample, gen
 import           Test.QuickCheck.Property (failed, succeeded)
 
 import           Pos.Binary
-import           Pos.Core.Address         (AddressHash, addressHash)
+import           Pos.Core                 (AddressHash, HasConfiguration, addressHash)
 import           Pos.Crypto               (DecShare, PublicKey, SecretKey,
                                            SignTag (SignCommitment), Threshold,
                                            VssKeyPair, VssPublicKey, decryptShare, sign,
@@ -34,11 +34,13 @@ import           Pos.Ssc.GodTossing       (Commitment (..), CommitmentsMap, Open
 import           Pos.Types                (SharedSeed (..), StakeholderId, mkCoin)
 import           Pos.Util                 (nonrepeating, sublistN)
 
+import           Test.Pos.Util            (giveCoreConf)
+
 getPubAddr :: SecretKey -> AddressHash PublicKey
 getPubAddr = addressHash . toPublic
 
 spec :: Spec
-spec = do
+spec = giveCoreConf $ do
     -- note that we can't make max size larger than 50 without changing it in
     -- Test.Pos.Util as well
     let smaller = modifyMaxSize (const 40) . modifyMaxSuccess (const 30)
@@ -87,7 +89,8 @@ spec = do
 -- * All nodes have sent -shares they have received- to the blockchain.
 --   'n' shares are required to recover a secret.
 recoverSecretsProp
-    :: Int         -- ^ Number of parties
+    :: HasConfiguration
+    => Int         -- ^ Number of parties
     -> Int         -- ^ How many have sent an opening
     -> Int         -- ^ How many have sent shares
     -> Int         -- ^ How many have sent both (the “overlap” parameter)
@@ -214,7 +217,7 @@ generateKeysAndMpc threshold n = do
         unzip <$> replicateM n (genCommitmentAndOpening threshold lvssPubKeys)
     return (keys, NE.fromList vssKeys, comms, opens)
 
-mkCommitmentsMap' :: [SecretKey] -> [Commitment] -> CommitmentsMap
+mkCommitmentsMap' :: HasConfiguration => [SecretKey] -> [Commitment] -> CommitmentsMap
 mkCommitmentsMap' keys comms =
     mkCommitmentsMap $ do
         (sk, comm) <- zip keys comms

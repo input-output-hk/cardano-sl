@@ -27,9 +27,9 @@ import           Pos.Binary.Class     (serialize')
 import           Pos.Block.Core       (Block, BlockHeader, blockHeader)
 import           Pos.Block.Slog.Types (LastBlkSlots, noLastBlkSlots)
 import           Pos.Block.Types      (Blund)
-import           Pos.Constants        (genesisHash)
-import           Pos.Core             (FlatSlotId, HasCoreConstants, HasHeaderHash,
-                                       HeaderHash, headerHash, slotIdF, unflattenSlotId)
+import           Pos.Core             (FlatSlotId, HasConfiguration, HasHeaderHash,
+                                       HeaderHash, headerHash, slotIdF, unflattenSlotId,
+                                       genesisHash)
 import           Pos.Crypto           (shortHashF)
 import           Pos.DB               (DBError (..), MonadDB, MonadDBRead,
                                        RocksBatchOp (..), dbSerializeValue)
@@ -85,7 +85,7 @@ data BlockExtraOp
       -- ^ Updates list of slots for last blocks.
     deriving (Show)
 
-instance HasCoreConstants => Buildable BlockExtraOp where
+instance HasConfiguration => Buildable BlockExtraOp where
     build (AddForwardLink from to) =
         bprint ("AddForwardLink from "%shortHashF%" to "%shortHashF) from to
     build (RemoveForwardLink from) =
@@ -96,7 +96,7 @@ instance HasCoreConstants => Buildable BlockExtraOp where
         bprint ("SetLastSlots: "%listJson)
         (map (bprint slotIdF . unflattenSlotId) slots)
 
-instance RocksBatchOp BlockExtraOp where
+instance HasConfiguration => RocksBatchOp BlockExtraOp where
     toBatchOp (AddForwardLink from to) =
         [Rocks.Put (forwardLinkKey from) (dbSerializeValue to)]
     toBatchOp (RemoveForwardLink from) =

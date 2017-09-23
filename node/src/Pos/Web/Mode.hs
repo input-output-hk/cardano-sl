@@ -15,6 +15,7 @@ import           Mockable             (Production)
 
 import           Pos.Context          (HasPrimaryKey (..), HasSscContext (..),
                                        NodeContext)
+import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB               (NodeDBs)
 import           Pos.DB.Class         (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks         (dbDeleteDefault, dbGetDefault, dbIterSourceDefault,
@@ -51,11 +52,11 @@ instance HasPrimaryKey (WebModeContext ssc) where
 
 type WebMode ssc = Mtl.ReaderT (WebModeContext ssc) Production
 
-instance MonadDBRead (WebMode ssc) where
+instance HasConfiguration => MonadDBRead (WebMode ssc) where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
 
-instance MonadDB (WebMode ssc) where
+instance HasConfiguration => MonadDB (WebMode ssc) where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault

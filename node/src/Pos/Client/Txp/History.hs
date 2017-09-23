@@ -49,15 +49,13 @@ import           System.Wlog                  (WithLogger)
 import           Pos.Block.Core               (Block, MainBlock, mainBlockSlot,
                                                mainBlockTxPayload)
 import           Pos.Block.Types              (Blund)
-import           Pos.Context                  (genesisBlock0M, genesisUtxoM)
-import           Pos.Core                     (Address, ChainDifficulty, HasCoreConstants,
+import           Pos.Context                  (genesisBlock0)
+import           Pos.Core                     (Address, ChainDifficulty, HasConfiguration,
                                                HeaderHash, Timestamp (..), difficultyL,
                                                headerHash)
 import           Pos.Crypto                   (WithHash (..), withHash)
 import           Pos.DB                       (MonadDBRead, MonadGState, MonadRealDB)
 import           Pos.DB.Block                 (MonadBlockDB)
-import           Pos.Genesis                  (GenesisContext, GenesisUtxo (..),
-                                               GenesisWStakeholders)
 import qualified Pos.GState                   as GS
 import           Pos.KnownPeers               (MonadFormatPeers)
 import           Pos.Reporting                (HasReportingContext)
@@ -65,7 +63,7 @@ import           Pos.Slotting                 (MonadSlots, getSlotStartPure,
                                                getSystemStartM)
 import           Pos.Ssc.Class                (SscHelpersClass)
 import           Pos.StateLock                (StateLock, StateLockMetrics)
-import           Pos.Util.Util                (HasLens (..), HasLens')
+import           Pos.Util.Util                (HasLens')
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Local       (eTxProcessTransaction)
 #else
@@ -75,8 +73,9 @@ import           Pos.Txp                      (MonadTxpMem, MonadUtxo, MonadUtxo
                                                ToilT, Tx (..), TxAux (..), TxId, TxOut,
                                                TxOutAux (..), TxWitness, TxpError (..),
                                                applyTxToUtxo, evalToilTEmpty,
-                                               flattenTxPayload, getLocalTxs, runDBToil,
-                                               topsortTxs, txOutAddress, utxoGet)
+                                               flattenTxPayload, genesisUtxo, getLocalTxs,
+                                               runDBToil, topsortTxs, txOutAddress,
+                                               unGenesisUtxo, utxoGet)
 import           Pos.Util                     (eitherToThrow, maybeThrow)
 import           Pos.WorkMode.Class           (TxpExtra_TMP)
 
@@ -194,9 +193,9 @@ type GenesisToil = Ether.TaggedTrans GenesisToilTag IdentityT
 runGenesisToil :: GenesisToil m a -> m a
 runGenesisToil = coerce
 
-instance (Monad m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo) =>
+instance (Monad m, HasConfiguration) =>
          MonadUtxoRead (GenesisToil m) where
-    utxoGet txIn = M.lookup txIn . unGenesisUtxo <$> genesisUtxoM
+    utxoGet txIn = pure . M.lookup txIn . unGenesisUtxo $ genesisUtxo
 
 ----------------------------------------------------------------------------
 -- MonadTxHistory
@@ -236,9 +235,6 @@ type TxHistoryEnv ctx m =
     , WithLogger m
     , MonadSlots ctx m
     , MonadReader ctx m
-    , HasLens GenesisUtxo ctx GenesisUtxo
-    , HasLens GenesisWStakeholders ctx GenesisWStakeholders
-    , HasLens' ctx GenesisContext
     , MonadTxpMem TxpExtra_TMP ctx m
     , HasLens' ctx StateLock
     , HasLens' ctx StateLockMetrics
@@ -256,10 +252,10 @@ type TxHistoryEnv' ssc ctx m =
 type GenesisHistoryFetcher m = ToilT () (GenesisToil m)
 
 getBlockHistoryDefault
-    :: forall ssc ctx m. (HasCoreConstants, SscHelpersClass ssc, TxHistoryEnv' ssc ctx m)
+    :: forall ssc ctx m. (HasConfiguration, SscHelpersClass ssc, TxHistoryEnv' ssc ctx m)
     => [Address] -> m (DList TxHistoryEntry)
 getBlockHistoryDefault addrs = do
-    bot         <- headerHash <$> genesisBlock0M @ssc
+    let bot      = headerHash (genesisBlock0 @ssc)
     sd          <- GS.getSlottingData
     systemStart <- getSystemStartM
 

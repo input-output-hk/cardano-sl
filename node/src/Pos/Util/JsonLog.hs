@@ -41,7 +41,7 @@ import           Pos.Block.Core                (BiSsc, Block, mainBlockTxPayload
 import           Pos.Block.Core.Genesis.Lens   (genBlockEpoch)
 import           Pos.Block.Core.Main.Lens      (mainBlockSlot)
 import           Pos.Communication.Relay.Logic (InvReqDataFlowLog)
-import           Pos.Core                      (HasCoreConstants, SlotId (..), gbHeader, gbhPrevBlock,
+import           Pos.Core                      (HasConfiguration, SlotId (..), gbHeader, gbhPrevBlock,
                                                 getSlotIndex, headerHash,
                                                 mkLocalSlotIndex)
 import           Pos.Crypto                    (hash, hashHexF)
@@ -76,11 +76,11 @@ data JLTxR = JLTxR
     } deriving Show
 
 -- | Get 'SlotId' from 'JLSlotId'.
-fromJLSlotId :: (HasCoreConstants, MonadError Text m) => JLSlotId -> m SlotId
+fromJLSlotId :: (HasConfiguration, MonadError Text m) => JLSlotId -> m SlotId
 fromJLSlotId (ep, sl) = SlotId (EpochIndex ep) <$> mkLocalSlotIndex sl
 
 -- | Get 'SlotId' from 'JLSlotId'.
-fromJLSlotIdUnsafe :: HasCoreConstants => JLSlotId -> SlotId
+fromJLSlotIdUnsafe :: HasConfiguration => JLSlotId -> SlotId
 fromJLSlotIdUnsafe x = case fromJLSlotId x of
     Right y -> y
     Left  _ -> error "illegal slot id"
@@ -127,7 +127,7 @@ $(deriveJSON defaultOptions ''JLTxR)
 $(deriveJSON defaultOptions ''JLMemPool)
 
 -- | Return event of created block.
-jlCreatedBlock :: (BiSsc ssc, HasCoreConstants) => Block ssc -> JLEvent
+jlCreatedBlock :: (BiSsc ssc, HasConfiguration) => Block ssc -> JLEvent
 jlCreatedBlock block = JLCreatedBlock $ JLBlock {..}
   where
     jlHash = showHeaderHash $ headerHash block
@@ -157,7 +157,7 @@ appendJL path ev = liftIO $ do
   LBS.appendFile path . encode $ JLTimedEvent (fromIntegral time) ev
 
 -- | Returns event of created 'Block'.
-jlAdoptedBlock :: (HasCoreConstants, SscHelpersClass ssc) => Block ssc -> JLEvent
+jlAdoptedBlock :: (HasConfiguration, SscHelpersClass ssc) => Block ssc -> JLEvent
 jlAdoptedBlock = JLAdoptedBlock . showHeaderHash . headerHash
 
 jsonLogConfigFromHandle :: MonadIO m => Handle -> m JsonLogConfig

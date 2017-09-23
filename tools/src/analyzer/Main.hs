@@ -17,11 +17,11 @@ import           Data.Time.Clock            (UTCTime)
 import           Data.Time.Clock.POSIX      (posixSecondsToUTCTime)
 import           Data.Time.Units            (Millisecond)
 import           Formatting                 (fixed, int, sformat, shown, string, (%))
+import           System.Wlog                (usingLoggerName)
 
 import           AnalyzerOptions            (Args (..), getAnalyzerOptions)
-import           Pos.Core                   (BlockCount, HasCoreConstants,
-                                             giveStaticConsts)
-import           Pos.Launcher               (applyConfigInfo)
+import           Pos.Core                   (BlockCount, HasConfiguration)
+import           Pos.Launcher               (withConfigurations)
 import           Pos.Types                  (flattenSlotId, unflattenSlotId)
 import           Pos.Util                   (mapEither)
 import           Pos.Util.JsonLog           (JLBlock (..), JLEvent (..),
@@ -32,24 +32,24 @@ type TxId = Text
 type BlockId = Text
 
 main :: IO ()
-main = (applyConfigInfo def >>) $ giveStaticConsts $ do
-    Args {..} <- getAnalyzerOptions
-    logs <- parseFiles files
+main = usingLoggerName "analyzer" $ withConfigurations def $ do
+    Args {..} <- liftIO $ getAnalyzerOptions
+    logs <- liftIO $ parseFiles files
 
     case txFile of
         Nothing   -> pure ()
-        Just file -> analyzeVerifyTimes file confirmationParam logs
+        Just file -> liftIO $ analyzeVerifyTimes file confirmationParam logs
 
     let tpsLogs :: HM.HashMap FilePath [(UTCTime, Double)]
         tpsLogs = getTpsLog <$> logs
 
-    for_ (HM.toList tpsLogs) $ \(file, ds) -> do
+    liftIO $ for_ (HM.toList tpsLogs) $ \(file, ds) -> do
         let csvFile = tpsCsvFilename file
         putText $ sformat ("Writing TPS stats to file: "%string) csvFile
         writeFile csvFile $ tpsToCsv ds
 
 analyzeVerifyTimes
-    :: HasCoreConstants
+    :: HasConfiguration
     => FilePath
     -> BlockCount
     -> HM.HashMap FilePath [JLTimed JLEvent]
@@ -73,7 +73,7 @@ analyzeVerifyTimes txFile cParam logs = do
     print averageMsec
 
 getTxAcceptTimeAvgs
-    :: HasCoreConstants
+    :: HasConfiguration
     => BlockCount
     -> HM.HashMap FilePath [JLTimed JLEvent]
     -> HM.HashMap TxId Integer

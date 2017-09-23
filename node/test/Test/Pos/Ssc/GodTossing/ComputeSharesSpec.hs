@@ -26,7 +26,8 @@ import           Pos.Ssc.GodTossing    (SharesDistribution, TossVerFailure,
                                         computeSharesDistrPure,
                                         isDistrInaccuracyAcceptable,
                                         sharesDistrMaxSumDistr)
-import           Pos.Util              (qcIsLeft)
+
+import           Test.Pos.Util         (qcIsLeft)
 
 spec :: Spec
 spec = describe "computeSharesDistr" $ do

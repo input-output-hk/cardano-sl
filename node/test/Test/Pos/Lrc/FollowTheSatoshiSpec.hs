@@ -20,7 +20,8 @@ import           Pos.Core              (Coin, HasCoreConstants, SharedSeed, Stak
                                         unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Crypto            (PublicKey)
 import           Pos.Lrc               (followTheSatoshi)
-import           Pos.Util              (qcNotElem)
+
+import           Test.Pos.Util         (qcNotElem)
 
 spec :: Spec
 spec = giveStaticConsts $ do

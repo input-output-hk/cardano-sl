@@ -28,7 +28,8 @@ import           Pos.Ssc.GodTossing    (GtGlobalState (..), VssCertData (..),
 import           Pos.Types             (EpochIndex (..), EpochOrSlot (..), SlotId,
                                         SlotId (..))
 import           Pos.Util.Chrono       (NewestFirst (..))
-import           Pos.Util.Util         (qcIsJust)
+
+import           Test.Pos.Util         (qcIsJust)
 
 spec :: Spec
 spec = giveStaticConsts $ describe "Ssc.GodTossing.VssCertData" $ do

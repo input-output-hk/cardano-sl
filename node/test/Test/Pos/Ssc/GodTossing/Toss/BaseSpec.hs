@@ -42,7 +42,8 @@ import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadSignedCommitm
                                         verifyCommitmentSignature, verifyOpening)
 import           Pos.Types             (Coin, EpochIndex, EpochOrSlot (..), StakeholderId,
                                         addressHash, crucialSlot, mkCoin)
-import           Pos.Util              (qcElem, qcFail, qcIsRight)
+
+import           Test.Pos.Util         (qcElem, qcFail, qcIsRight)
 
 spec :: Spec
 spec = giveStaticConsts $ describe "Ssc.GodTossing.Base" $ do

@@ -66,15 +66,6 @@ module Pos.Util.Util
        -- * Aeson
        , parseJSONWithRead
 
-       -- * QuickCheck
-       , qcIsJust
-       , qcIsNothing
-       , qcIsLeft
-       , qcIsRight
-       , qcElem
-       , qcNotElem
-       , qcFail
-
        -- * Instances
        -- ** Lift Byte
        -- ** Lift HashMap
@@ -626,41 +617,3 @@ parseJSONWithRead :: Read a => A.Value -> A.Parser a
 parseJSONWithRead =
     either (fail . toString) pure . readEither @String <=<
     parseJSON
-
-----------------------------------------------------------------------------
--- QuickCheck
-----------------------------------------------------------------------------
-
-qcIsJust :: Maybe a -> QC.Property
-qcIsJust (Just _) = QC.property True
-qcIsJust Nothing  = qcFail "expected Just, got Nothing"
-
-qcIsNothing :: Show a => Maybe a -> QC.Property
-qcIsNothing Nothing  = QC.property True
-qcIsNothing (Just x) = qcFail ("expected Nothing, got Just (" <> show x <> ")")
-
-qcIsLeft :: Show b => Either a b -> QC.Property
-qcIsLeft (Left _)  = QC.property True
-qcIsLeft (Right x) = qcFail ("expected Left, got Right (" <> show x <> ")")
-
-qcIsRight :: Show a => Either a b -> QC.Property
-qcIsRight (Right _) = QC.property True
-qcIsRight (Left x)  = qcFail ("expected Right, got Left (" <> show x <> ")")
-
-qcElem
-    :: (Eq a, Show a, Show t, NontrivialContainer t, Element t ~ a)
-    => a -> t -> QC.Property
-qcElem x xs =
-    QC.counterexample ("expected " <> show x <> " to be in " <> show xs) $
-    x `elem` xs
-
-qcNotElem
-    :: (Eq a, Show a, Show t, NontrivialContainer t, Element t ~ a)
-    => a -> t -> QC.Property
-qcNotElem x xs =
-    QC.counterexample ("expected " <> show x <> " not to be in " <> show xs) $
-    not (x `elem` xs)
-
--- | A property that is always false
-qcFail :: Text -> QC.Property
-qcFail s = QC.counterexample (toString s) False

@@ -37,8 +37,9 @@ import           Pos.Txp               (MonadUtxoRead (utxoGet), ToilVerFailure 
                                         TxWitness, Utxo, VTxContext (..),
                                         WitnessVerFailure (..), applyTxToUtxoPure,
                                         isTxInUnknown, verifyTxUtxo, verifyTxUtxoPure)
-import           Pos.Util              (SmallGenerator (..), nonrepeating, qcIsLeft,
-                                        qcIsRight, runGen)
+import           Pos.Util              (SmallGenerator (..), nonrepeating, runGen)
+
+import           Test.Pos.Util         (qcIsLeft, qcIsRight)
 
 ----------------------------------------------------------------------------
 -- Spec

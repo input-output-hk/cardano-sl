@@ -79,7 +79,9 @@ getAddrBalance :: MonadDBRead m => Address -> m (Maybe Coin)
 getAddrBalance = gsGetBi . addrBalanceKey
 
 getUtxoSum :: MonadDBRead m => m Integer
-getUtxoSum = fromMaybe 0 <$> gsGetBi utxoSumPrefix
+getUtxoSum = fromMaybe dbNotInitialized <$> gsGetBi utxoSumPrefix
+  where
+    dbNotInitialized = error "getUtxoSum: DB is not initialized"
 
 getPageBlocks :: MonadDBRead m => Page -> m (Maybe [HeaderHash])
 getPageBlocks = gsGetBi . blockPagePrefix

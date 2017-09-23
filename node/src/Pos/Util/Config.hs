@@ -1,11 +1,11 @@
 -- | Config helpers
 
 module Pos.Util.Config
-    ( embedYamlConfigCT
-    , embedYamlObject
-    , parseYamlConfig
-    , ConfigurationException (..)
-    ) where
+       ( embedYamlConfigCT
+       , embedYamlObject
+       , parseYamlConfig
+       , ConfigurationException (..)
+       ) where
 
 import           Universum
 
@@ -14,6 +14,8 @@ import qualified Data.Yaml                  as Y
 import qualified Language.Haskell.TH.Syntax as TH
 import           System.Directory           (canonicalizePath, getDirectoryContents)
 import           System.FilePath            (takeDirectory, takeFileName, (</>))
+
+import           Pos.Util.Util              (maybeThrow)
 
 embedYamlObject :: Y.FromJSON r => FilePath -> FilePath -> (r -> TH.Q TH.Exp) -> TH.Q TH.Exp
 embedYamlObject name marker parser = do
@@ -44,7 +46,8 @@ embedYamlObject name marker parser = do
 
 embedYamlConfigCT :: forall conf . (Y.FromJSON conf, TH.Lift conf)
                 => Proxy conf -> FilePath -> FilePath -> Text -> TH.Q TH.Exp
-embedYamlConfigCT _ name marker key = embedYamlObject @(Map Text conf) name marker $ \multiConfig ->
+embedYamlConfigCT _ name marker key =
+    embedYamlObject @(Map Text conf) name marker $ \multiConfig ->
     maybe (fail $ "Embedded file " <> name <> " contains no key " <> toString key)
           TH.lift (Map.lookup key multiConfig)
 
@@ -53,7 +56,8 @@ parseYamlConfig :: (MonadThrow m, MonadIO m, Y.FromJSON conf)
 parseYamlConfig cfoFilePath cfoKey = do
     decoded <- liftIO $ Y.decodeFileEither cfoFilePath
     multiConfig <- either (throwM . ConfigurationParseFailure cfoFilePath) return decoded
-    maybe (throwM (ConfigurationKeyNotFound cfoFilePath cfoKey)) return (Map.lookup cfoKey multiConfig)
+    maybeThrow (ConfigurationKeyNotFound cfoFilePath cfoKey)
+               (Map.lookup cfoKey multiConfig)
 
 data ConfigurationException =
 
@@ -66,4 +70,3 @@ data ConfigurationException =
     deriving (Show)
 
 instance Exception ConfigurationException
-

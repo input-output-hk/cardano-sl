@@ -85,7 +85,7 @@ if [ -z "$system_start" ]
     system_start=$((`date +%s` + 15))
 fi
 
-# This enables to select different wallet executables, since we have a 
+# This enables to select different wallet executables, since we have a
 # migration from the old to the new wallet.
 if [ -z "$WALLET_EXE_NAME" ]
   then
@@ -96,6 +96,14 @@ fi
 echo "Using system start time "$system_start
 
 echo "Number of panes: $panesCnt"
+
+function prefix_args {
+  local args="$1"
+  local prefix="$2"
+  echo "$args" | sed 's/+RTS.*-RTS//g' | tr " " "\n" | grep -vE '^$' | while read l; do
+    echo -n " $prefix $l"
+  done
+}
 
 i=0
 while [[ $i -lt $panesCnt ]]; do
@@ -113,24 +121,38 @@ while [[ $i -lt $panesCnt ]]; do
   echo "Launching node $i in tab $im of window $ir"
   tmux select-pane -t $im
 
+  conf_file=$CONFIG
   wallet_args=''
   exec_name='cardano-node-simple'
-  if [[ $WALLET_TEST != "" ]]; then
-      if (( $i == $n - 1 )); then
-          wallet_args=" --tlscert $base/../tls-files/server.crt --tlskey $base/../tls-files/server.key --tlsca $base/../tls-files/ca.crt $wallet_flush" # --wallet-rebuild-db'
-          # We are using the different wallet exe here, depending on what was passed when the script was called.
-          exec_name=$WALLET_EXE_NAME
-          echo "Using wallet $exec_name."
-          if [[ $WALLET_DEBUG != "" ]]; then
-              wallet_args="$wallet_args --wallet-debug"
-          fi
+  if [[ $WALLET_TEST != "" ]] && [[ $i == $((n-1)) ]]; then
+      if [[ $WALLET_CONFIG != "" ]]; then
+          conf_file=$WALLET_CONFIG
+      fi
+      wallet_args=" --tlscert $base/../tls-files/server.crt --tlskey $base/../tls-files/server.key --tlsca $base/../tls-files/ca.crt " # --wallet-rebuild-db'
+      exec_name='cardano-node'
+      if [[ $WALLET_DEBUG != "" ]]; then
+          wallet_args="$wallet_args --wallet-debug"
       fi
   fi
-
   if [[ $i -lt $n ]]; then
-    node_cmd="$(node_cmd $i "$stats" "$wallet_args" "$system_start" "$config_dir" $exec_name) --no-ntp"
-    echo "$node_cmd"
-    tmux send-keys "$node_cmd" C-m
+    node_args="$(node_cmd $i "$stats" "$wallet_args" "$system_start" "$config_dir" "$conf_file")"
+    node_=$(find_binary $exec_name)
+    if [[ $WALLET_TEST != "" ]] && [[ $i == $((n-1)) ]]; then
+        updater_file="$config_dir/updater$i.sh"
+        launcher_=$(find_binary cardano-launcher)
+        launcher_args="--node $node_ "
+        if [[ "$UI" != "" ]]; then
+          ui_args_="$(prefix_args "$UI_ARGS" "-w")"
+          launcher_args=" $launcher_args --wallet $UI $ui_args_"
+        fi
+        node_args_="$(prefix_args "$node_args" "-n")"
+        launcher_args=" $launcher_args --updater /usr/bin/env -u bash --update-archive $updater_file"
+        launcher_args=" $launcher_args --node-timeout 5 $node_args_ --system-start 0 "
+        tmux send-keys "$launcher_ $launcher_args" C-m
+    else
+        echo "$node_ $node_args"
+        tmux send-keys "$node_ $node_args" C-m
+    fi
   else
     # Number of transactions to send per-thread: 300
     # Concurrency (number of threads sending transactions); $CONC

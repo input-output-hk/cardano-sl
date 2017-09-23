@@ -103,6 +103,7 @@ library
                        Pos.System.Metrics.Constants
 
                        Pos.Util.Arbitrary
+                       Pos.Util.CompileInfo
                        Pos.Util.Concurrent
                        Pos.Util.Concurrent.LockedTVar
                        Pos.Util.Concurrent.PriorityLock

@@ -28,7 +28,8 @@ import           Pos.Crypto                     (PassPhrase, hash, withSafeSigne
 import           Pos.Txp                        (TxFee (..), Utxo, _txOutputs)
 import           Pos.Txp.Core                   (TxAux (..), TxOut (..))
 import           Pos.Util                       (eitherToThrow, maybeThrow)
-import           Pos.Wallet.Web.Account         (GenSeed (..), getSKByAccAddr)
+import           Pos.Wallet.Web.Account         (AccountMode, GenSeed (..),
+                                                 MonadKeySearch (..), getSKByAccAddr)
 import           Pos.Wallet.Web.ClientTypes     (AccountId (..), Addr, CAddress (..),
                                                  CCoin, CId, CTx (..), CWAddressMeta (..),
                                                  Wal, addrMetaToAccount, mkCCoin)
@@ -40,9 +41,8 @@ import           Pos.Wallet.Web.Methods.Txp     (coinDistrToOutputs, rewrapTxErr
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode, WalletWebMode)
 import           Pos.Wallet.Web.Pending         (mkPendingTx)
 import           Pos.Wallet.Web.State           (AddressLookupMode (Existing))
-import           Pos.Wallet.Web.Util            (decodeCTypeOrFail,
-                                                 getAccountAddrsOrThrow,
-                                                 getWalletAccountIds)
+import           Pos.Wallet.Web.Tracking        (CAccModifier, fixingCachedAccModifier)
+import           Pos.Wallet.Web.Util            (decodeCTypeOrFail, getWalletAccountIds)
 
 
 newPayment
@@ -67,7 +67,7 @@ getTxFee
      -> Coin
      -> m CCoin
 getTxFee srcAccount dstAccount coin = do
-    utxo <- getMoneySourceUtxo (AccountMoneySource srcAccount)
+    utxo <- fixingCachedAccModifier getMoneySourceUtxo (AccountMoneySource srcAccount)
     outputs <- coinDistrToOutputs $ one (dstAccount, coin)
     TxFee fee <- rewrapTxError "Cannot compute transaction fee" $
         eitherToThrow =<< runTxCreator (computeTxFee utxo outputs)
@@ -79,13 +79,21 @@ data MoneySource
     | AddressMoneySource CWAddressMeta
     deriving (Show, Eq)
 
-getMoneySourceAddresses :: MonadWalletWebMode m => MoneySource -> m [CWAddressMeta]
-getMoneySourceAddresses (AddressMoneySource addrId) = return $ one addrId
-getMoneySourceAddresses (AccountMoneySource accId) =
-    getAccountAddrsOrThrow Existing accId
-getMoneySourceAddresses (WalletMoneySource wid) =
+instance AccountMode ctx m =>
+         MonadKeySearch MoneySource m where
+    findKey (WalletMoneySource wid)  = findKey wid
+    findKey (AccountMoneySource aid) = findKey aid
+    findKey (AddressMoneySource aid) = findKey aid
+
+getMoneySourceAddresses
+    :: MonadWalletWebMode m
+    => CAccModifier -> MoneySource -> m [CWAddressMeta]
+getMoneySourceAddresses _ (AddressMoneySource addrId) = return $ one addrId
+getMoneySourceAddresses cmod (AccountMoneySource accId) =
+    L.getActualAccountAddresses cmod Existing accId
+getMoneySourceAddresses cmod (WalletMoneySource wid) =
     getWalletAccountIds wid >>=
-    concatMapM (getMoneySourceAddresses . AccountMoneySource)
+    concatMapM (getMoneySourceAddresses cmod . AccountMoneySource)
 
 getSomeMoneySourceAccount :: MonadWalletWebMode m => MoneySource -> m AccountId
 getSomeMoneySourceAccount (AddressMoneySource addrId) =
@@ -102,9 +110,11 @@ getMoneySourceWallet (AddressMoneySource addrId) = cwamWId addrId
 getMoneySourceWallet (AccountMoneySource accId)  = aiWId accId
 getMoneySourceWallet (WalletMoneySource wid)     = wid
 
-getMoneySourceUtxo :: MonadWalletWebMode m => MoneySource -> m Utxo
-getMoneySourceUtxo =
-    getMoneySourceAddresses >=>
+getMoneySourceUtxo
+    :: MonadWalletWebMode m
+    => CAccModifier -> MoneySource -> m Utxo
+getMoneySourceUtxo cmod =
+    getMoneySourceAddresses cmod >=>
     mapM (decodeCTypeOrFail . cwamId) >=>
     getOwnUtxos
 
@@ -125,7 +135,7 @@ sendMoney
     -> NonEmpty (CId Addr, Coin)
     -> m CTx
 sendMoney SendActions{..} passphrase moneySource dstDistr = do
-    addrMetas' <- getMoneySourceAddresses moneySource
+    addrMetas' <- fixingCachedAccModifier getMoneySourceAddresses moneySource
     addrMetas <- nonEmpty addrMetas' `whenNothing`
         throwM (RequestError "Given money source has no addresses!")
     sks <- forM addrMetas $ getSKByAccAddr passphrase

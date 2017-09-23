@@ -34,6 +34,8 @@ import           Pos.Wallet.Web.State       (AddressLookupMode, WebWalletModeDB,
 getWalletAccountIds :: WebWalletModeDB ctx m => CId Wal -> m [AccountId]
 getWalletAccountIds cWalId = filter ((== cWalId) . aiWId) <$> getAccountIds
 
+-- | Note: this function takes only db into account.
+-- Consider using 'Pos.Wallet.Web.Logic.getActualAccountAddresses'.
 getAccountAddrsOrThrow
     :: (WebWalletModeDB ctx m, MonadThrow m)
     => AddressLookupMode -> AccountId -> m [CWAddressMeta]
@@ -44,6 +46,8 @@ getAccountAddrsOrThrow mode accId =
         RequestError $
         sformat ("No account with id "%build%" found") accId
 
+-- | Note: this function takes only db into account.
+-- Consider using 'Pos.Wallet.Web.Logic.getActualWalletAddresses'.
 getWalletAddrMetas
     :: (WebWalletModeDB ctx m, MonadThrow m)
     => AddressLookupMode -> CId Wal -> m [CWAddressMeta]

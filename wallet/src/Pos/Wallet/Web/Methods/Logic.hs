@@ -9,6 +9,8 @@ module Pos.Wallet.Web.Methods.Logic
        , getAccounts
        , getWAddress
 
+       , getActualAccountAddresses
+       , getActualWalletAddresses
        , getWAddressBalance
 
        , createWalletSafe
@@ -28,7 +30,8 @@ module Pos.Wallet.Web.Methods.Logic
 import           Universum
 
 import qualified Data.HashMap.Strict        as HM
-import           Data.List                  (findIndex, notElem)
+import           Data.List                  (findIndex)
+import qualified Data.Set                   as S
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (build, sformat, (%))
 
@@ -92,11 +95,23 @@ getWAddress cachedAccModifier cAddr = do
     isChange <- getFlag ChangeAddr camChange
     return $ CAddress aId (mkCCoin balance) isUsed isChange
 
+-- | Gets addresses which belong to this account from all sources:
+-- db + related transactions in mempool
+getActualAccountAddresses
+    :: MonadWalletWebMode m
+    => CachedCAccModifier -> AddressLookupMode -> AccountId -> m [CWAddressMeta]
+getActualAccountAddresses accMod lookupMode accId = do
+    dbAddrs <- getAccountAddrsOrThrow lookupMode accId
+    let addrsModifier = camAddresses accMod
+    let dbAddrsSet = S.fromList dbAddrs
+        memAddrs = sortedInsertions addrsModifier
+        relatedMemAddrs = filter ((== accId) . addrMetaToAccount) memAddrs
+        unknownMemAddrs = filter (`S.notMember` dbAddrsSet) relatedMemAddrs
+    return $ dbAddrs <> unknownMemAddrs
+
 getAccount :: MonadWalletWebMode m => CachedCAccModifier -> AccountId -> m CAccount
 getAccount accMod accId = do
-    dbAddrs    <- getAccountAddrsOrThrow Existing accId
-    let modifier   = camAddresses accMod
-    let allAddrIds = gatherAddresses modifier dbAddrs
+    allAddrIds <- getActualAccountAddresses accMod Existing accId
     allAddrs <- mapM (getWAddress accMod) allAddrIds
     balance  <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
                 mapM getWAddressBalance allAddrIds
@@ -105,12 +120,13 @@ getAccount accMod accId = do
   where
     noWallet =
         RequestError $ sformat ("No account with id "%build%" found") accId
-    gatherAddresses modifier dbAddrs = do
-        let memAddrs = sortedInsertions modifier
-            relatedMemAddrs = filter ((== accId) . addrMetaToAccount) memAddrs
-            -- @|relatedMemAddrs|@ is O(1) while @dbAddrs@ is large
-            unknownMemAddrs = filter (`notElem` dbAddrs) relatedMemAddrs
-        dbAddrs <> unknownMemAddrs
+
+getActualWalletAddresses
+    :: (MonadWalletWebMode m)
+    => CAccModifier -> AddressLookupMode -> CId Wal -> m [CWAddressMeta]
+getActualWalletAddresses cmod lookupMode cWalId =
+    concatMapM (getActualAccountAddresses cmod lookupMode) =<<
+    getWalletAccountIds cWalId
 
 getWalletIncludeUnready :: MonadWalletWebMode m => Bool -> CId Wal -> m CWallet
 getWalletIncludeUnready includeUnready cAddr = do

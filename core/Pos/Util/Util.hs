@@ -109,11 +109,9 @@ import qualified Data.Aeson                     as A
 import qualified Data.Aeson.Types               as A
 import           Data.Char                      (isAlphaNum)
 import           Data.Hashable                  (Hashable (hashWithSalt))
-import           Data.HashMap.Strict            (HashMap)
 import qualified Data.HashMap.Strict            as HM
 import           Data.HashSet                   (fromMap)
 import           Data.List                      (last)
-import           Data.Map                       (Map)
 import qualified Data.Map                       as M
 import qualified Data.Semigroup                 as Smg
 import           Data.Tagged                    (Tagged (Tagged))

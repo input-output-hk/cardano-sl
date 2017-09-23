@@ -23,8 +23,8 @@ import           System.Wlog                 (WithLogger, logError, runNamedPure
                                               usingLoggerName)
 
 import           Pos.Core                    (Address, Coin, EpochIndex, HeaderHash,
-                                              Timestamp, mkCoin, unsafeAddCoin,
-                                              unsafeSubCoin)
+                                              Timestamp, coinToInteger, mkCoin,
+                                              unsafeAddCoin, unsafeSubCoin)
 import           Pos.Crypto                  (WithHash (..), hash)
 import           Pos.Explorer.Core           (AddrHistory, TxExtra (..))
 import           Pos.Explorer.Txp.Toil.Class (MonadTxExtra (..), MonadTxExtraRead (..))
@@ -165,14 +165,11 @@ delTxExtraWithHistory id addrs = do
 
 updateUtxoSumFromBalanceUpdate :: MonadTxExtra m => BalanceUpdate -> m ()
 updateUtxoSumFromBalanceUpdate balanceUpdate = do
-    let plusChange  = foldr unsafeAddCoin (mkCoin 0) $ map snd $ plusBalance  balanceUpdate
-        minusChange = foldr unsafeAddCoin (mkCoin 0) $ map snd $ minusBalance balanceUpdate
-        utxoChange  =
-            if plusChange > minusChange then
-                (Plus, unsafeSubCoin plusChange minusChange)
-            else
-                (Minus, unsafeSubCoin minusChange plusChange)
-    uncurry updateUtxoSum utxoChange
+    let plusChange  = sum $ map (coinToInteger . snd) $ plusBalance  balanceUpdate
+        minusChange = sum $ map (coinToInteger . snd) $ minusBalance balanceUpdate
+        utxoChange  = plusChange - minusChange
+    utxoSum <- getUtxoSum
+    putUtxoSum $ utxoSum + utxoChange
 
 getTxRelatedAddrs :: TxAux -> TxUndo -> NonEmpty Address
 getTxRelatedAddrs TxAux {taTx = UnsafeTx {..}} (catMaybes . toList -> undo) =

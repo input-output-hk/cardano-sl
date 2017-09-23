@@ -29,7 +29,7 @@ data ExplorerExtra = ExplorerExtra
     { _eeLocalTxsExtra :: !TxMapExtra
     , _eeAddrHistories :: !UpdatedAddrHistories
     , _eeAddrBalances  :: !TxMapBalances
-    , _eeNewUtxoSum    :: !(Maybe Coin)
+    , _eeNewUtxoSum    :: !(Maybe Integer)
     }
 
 makeLenses ''ExplorerExtra
@@ -49,5 +49,5 @@ data ExplorerExtraTxp = ExplorerExtraTxp
     { eetTxExtra       :: !(HashMap TxId TxExtra)
     , eetAddrHistories :: !(HashMap Address AddrHistory)
     , eetAddrBalances  :: !(HashMap Address Coin)
-    , eetUtxoSum       :: !Coin
+    , eetUtxoSum       :: !Integer
     }

@@ -5,6 +5,7 @@ module Command.Types
        , ProposeUpdateSystem (..)
        , SendMode (..)
        , SendToAllGenesisParams (..)
+       , GenBlocksParams (..)
        , ProposeUpdateParams (..)
        , PrintAction
        ) where
@@ -43,6 +44,13 @@ data ProposeUpdateParams = ProposeUpdateParams
     , puUpdates              :: ![ProposeUpdateSystem]
     } deriving (Show)
 
+data GenBlocksParams = GenBlocksParams
+    { bgoBlockN :: !Word32
+    -- ^ Number of blocks to generate.
+    , bgoSeed   :: !(Maybe Int)
+    -- ^ Generating seed.
+    } deriving (Show)
+
 data Command
     = Balance Address
     | Send Int (NonEmpty TxOut)
@@ -61,6 +69,7 @@ data Command
     | AddKeyFromFile !FilePath
     | AddrDistr !PublicKey !AddrStakeDistribution
     | Rollback !Word !FilePath
+    | GenBlocks !GenBlocksParams
     | SendTxsFromFile !FilePath
     | PrintBlockVersionData
     | Quit

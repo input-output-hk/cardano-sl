@@ -17,11 +17,12 @@ module Pos.Crypto.Signing.Safe
        , module Pos.Crypto.Signing.Types.Safe
        ) where
 
+import           Universum
+
 import qualified Cardano.Crypto.Wallet           as CC
 import           Crypto.Random                   (MonadRandom, getRandomBytes)
 import qualified Data.ByteString                 as BS
 import           Data.Coerce                     (coerce)
-import           Universum
 
 import           Pos.Binary.Class                (Bi, Raw)
 import qualified Pos.Binary.Class                as Bi

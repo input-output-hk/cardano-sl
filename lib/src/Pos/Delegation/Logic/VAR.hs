@@ -53,10 +53,10 @@ import           Pos.Delegation.Logic.Mempool (clearDlgMemPoolAction,
                                                processProxySKHeavyInternal)
 import           Pos.Delegation.Types         (DlgPayload (getDlgPayload), DlgUndo (..))
 import qualified Pos.GState                   as GS
-import           Pos.Lrc.Context              (LrcContext)
+import           Pos.Lrc.Context              (HasLrcContext)
 import qualified Pos.Lrc.DB                   as LrcDB
 import           Pos.Lrc.Types                (RichmenSet)
-import           Pos.Util                     (HasLens', getKeys, _neHead)
+import           Pos.Util                     (getKeys, _neHead)
 import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..))
 
 -- Copied from 'these' library.
@@ -298,7 +298,7 @@ getNoLongerRichmen ::
        , MonadIO m
        , MonadDBRead m
        , MonadReader ctx m
-       , HasLens' ctx LrcContext
+       , HasLrcContext ctx
        )
     => EpochIndex
     -> m [StakeholderId]
@@ -327,7 +327,7 @@ dlgVerifyBlocks ::
        ( DB.MonadBlockDB m
        , MonadIO m
        , MonadReader ctx m
-       , HasLens' ctx LrcContext
+       , HasLrcContext ctx
        , HasConfiguration
        )
     => OldestFirst NE Block
@@ -503,7 +503,7 @@ dlgNormalizeOnRollback ::
        , DB.MonadGState m
        , MonadIO m
        , MonadMask m
-       , HasLens' ctx LrcContext
+       , HasLrcContext ctx
        , Mockable CurrentTime m
        , HasConfiguration
        )

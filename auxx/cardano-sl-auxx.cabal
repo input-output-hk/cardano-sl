@@ -15,6 +15,8 @@ executable cardano-auxx
   hs-source-dirs:      src
   main-is:             Main.hs
   other-modules:
+                       AuxxOptions
+                       BlockGen
                        Command
                        Command.Help
                        Command.Parser
@@ -26,7 +28,6 @@ executable cardano-auxx
                        Repl
                        Mode
                        Plugin
-                       AuxxOptions
 
   build-depends:
                        QuickCheck
@@ -45,8 +46,10 @@ executable cardano-auxx
                      , cardano-sl-infra
                      , cardano-sl-ssc
                      , cardano-sl-txp
+                     , cardano-sl-lrc
                      , cardano-sl-update
                      , data-default
+                     , directory
                      , dlist
                      , ether
                      , exceptions
@@ -56,6 +59,7 @@ executable cardano-auxx
                      , lens
                      , log-warper
                      , mmorph
+                     , MonadRandom
                      , monad-control
                      , monad-loops
                      , mtl
@@ -74,6 +78,7 @@ executable cardano-auxx
                      , tagged
                      , temporary
                      , text
+                     , text-format
                      , time
                      , time-units
                      , transformers

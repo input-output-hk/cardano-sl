@@ -13,16 +13,15 @@ import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
 import qualified Data.HashMap.Strict          as HM
 import qualified Ether
-import           Ether.Internal               (HasLens (..))
 import           System.Wlog                  (WithLogger)
 
 import           Pos.Core                     (Coin, HasConfiguration)
 import           Pos.DB.Class                 (MonadDBRead)
-import           Pos.Lrc.Context              (LrcContext, lrcActionOnEpochReason)
+import           Pos.Lrc.Context              (HasLrcContext, lrcActionOnEpochReason)
 import           Pos.Lrc.DB.Issuers           (getIssuersStakes)
 import           Pos.Lrc.Types                (FullRichmenData)
-import qualified Pos.Update.DB                as GS
 import           Pos.Update.Configuration     (HasUpdateConfiguration)
+import qualified Pos.Update.DB                as GS
 import           Pos.Update.Poll.Class        (MonadPollRead (..))
 import           Pos.Update.RichmenComponent  (getRichmenUS)
 
@@ -41,7 +40,7 @@ instance ( MonadIO m
          , MonadDBRead m
          , WithLogger m
          , MonadReader ctx m
-         , HasLens LrcContext ctx LrcContext
+         , HasLrcContext ctx
          , HasConfiguration
          , HasUpdateConfiguration
          ) =>

@@ -7,6 +7,7 @@
 module Pos.Generator.Block.Mode
        ( MonadBlockGenBase
        , MonadBlockGen
+       , MonadBlockGenInit
        , BlockGenContext (..)
        , BlockGenMode
        , BlockGenRandMode
@@ -57,7 +58,7 @@ import           Pos.Generator.Block.Param        (BlockGenParams (..),
 import qualified Pos.GState                       as GS
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.KnownPeers                   (MonadFormatPeers)
-import           Pos.Lrc                          (LrcContext (..))
+import           Pos.Lrc                          (HasLrcContext, LrcContext (..))
 import           Pos.Network.Types                (HasNodeType (..), NodeType (..))
 import           Pos.Reporting                    (HasReportingContext (..),
                                                    ReportingContext,
@@ -70,8 +71,8 @@ import           Pos.Ssc.Extra                    (SscMemTag, SscState, mkSscSta
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                          (GenericTxpLocalData, MempoolExt,
-                                                   TxpGlobalSettings, TxpHolderTag,
-                                                   mkTxpLocalData)
+                                                   MonadTxpLocal (..), TxpGlobalSettings,
+                                                   TxpHolderTag, mkTxpLocalData)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Update.Context               (UpdateContext, mkUpdateContext)
 import           Pos.Util                         (HasLens (..), Some, newInitFuture,
@@ -119,10 +120,17 @@ type MonadBlockGenBase m
 type MonadBlockGen ctx m
      = ( MonadBlockGenBase m
        , MonadReader ctx m
-       , GS.HasGStateContext ctx
-       , HasSlottingVar ctx
-       -- 'MonadRandom' for crypto.
        , Rand.MonadRandom m
+
+       , HasSlottingVar ctx
+       , HasSlogGState ctx
+       , HasLrcContext ctx
+       )
+
+-- | MonadBlockGen extended with the specific GStateContext.
+type MonadBlockGenInit ctx m
+     = ( MonadBlockGen ctx m
+       , GS.HasGStateContext ctx
        )
 
 ----------------------------------------------------------------------------
@@ -176,7 +184,7 @@ instance MonadThrow m => MonadThrow (RandT g m) where
 -- recreated.
 mkBlockGenContext
     :: forall ext ctx m.
-       ( MonadBlockGen ctx m
+       ( MonadBlockGenInit ctx m
        , HasGtConfiguration
        , HasNodeConfiguration
        , Default ext
@@ -377,6 +385,10 @@ instance Monad m => MonadAddresses (BlockGenMode ext m) where
     getNewAddress = pure
 
 type instance MempoolExt (BlockGenMode ext m) = ext
+
+instance (MonadTxpLocal m) => MonadTxpLocal (BlockGenMode ext m) where
+    txpNormalize = lift $ txpNormalize
+    txpProcessTx = lift . txpProcessTx
 
 ----------------------------------------------------------------------------
 -- Utilities

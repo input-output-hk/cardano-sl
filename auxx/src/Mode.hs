@@ -21,7 +21,7 @@ module Mode
 
 import           Universum
 
-import           Control.Lens                     (makeLensesWith)
+import           Control.Lens                     (lens, makeLensesWith)
 import           Control.Monad.Morph              (hoist)
 import           Control.Monad.Reader             (withReaderT)
 import           Mockable                         (Production)
@@ -47,10 +47,13 @@ import           Pos.Core                         (Address, HasConfiguration,
                                                    makePubKeyAddress, siEpoch)
 import           Pos.Crypto                       (EncryptedSecretKey, PublicKey,
                                                    emptyPassphrase)
-import           Pos.DB                           (MonadGState (..), gsIsBootstrapEra)
+import           Pos.DB                           (DBSum (..), MonadGState (..), NodeDBs,
+                                                   gsIsBootstrapEra)
 import           Pos.DB.Class                     (MonadBlockDBGeneric (..),
                                                    MonadBlockDBGenericWrite (..),
                                                    MonadDB (..), MonadDBRead (..))
+import           Pos.GState                       (HasGStateContext (..),
+                                                   getGStateImplicit)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.KnownPeers                   (MonadFormatPeers (..),
                                                    MonadKnownPeers (..))
@@ -109,6 +112,17 @@ realModeToAuxx = withReaderT acRealModeContext
 ----------------------------------------------------------------------------
 -- Boilerplate instances
 ----------------------------------------------------------------------------
+
+-- hacky instance needed to make blockgen work
+instance HasLens DBSum AuxxContext DBSum where
+    lensOf =
+        let getter ctx = RealDB (ctx ^. (lensOf @NodeDBs))
+            setter ctx (RealDB db') = ctx & (lensOf @NodeDBs) .~ db'
+            setter _ (PureDB _) = error "Auxx: tried to set pure db insteaf of nodedb"
+        in lens getter setter
+
+instance HasGStateContext AuxxContext where
+    gStateContext = getGStateImplicit
 
 instance HasSscContext SscGodTossing AuxxContext where
     sscContext = acRealModeContext_L . sscContext

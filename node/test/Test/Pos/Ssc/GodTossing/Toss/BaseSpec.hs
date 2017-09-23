@@ -15,8 +15,8 @@ import           System.Random         (mkStdGen, randomR)
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Arbitrary (..), Gen, NonEmptyList (..), Property,
-                                        elements, listOf, sublistOf, suchThat, vector,
-                                        (.&&.), (===), (==>))
+                                        elements, listOf, property, sublistOf, suchThat,
+                                        vector, (.&&.), (===), (==>))
 
 import           Pos.Arbitrary.Lrc     (GenesisMpcThd, ValidRichmenStakes (..))
 import           Pos.Binary            (AsBinary)
@@ -598,11 +598,22 @@ checksBadCertsPayload (GoodPayload epoch gtgs certsMap mrs) pk cert =
             _ -> qcFail $ "expected " <> show certNoRichmen <>
                           " to be a Left (CertificateNotRichmen ...)"
 
+        certsMap4 = UnsafeVssCertificatesMap $
+                    map (\c -> c {vcVssKey = vcVssKey cert}) $
+                    getVssCertificatesMap certsMap
+        certDuplicateVss =
+            tossRunner mrs gtgs $ checkCertificatesPayload epoch certsMap4
+        res4 = length certsMap >= 2 ==>
+               case certDuplicateVss of
+                   Left (CertificateDuplicateVssKey _) -> property True
+                   _ -> qcFail $ "expected " <> show certDuplicateVss <>
+                                 " to be a Left (CertificateDuplicateVssKey ...)"
+
         allVssKeys = map vcVssKey (toList (getVssCertificatesMap certsMap))
 
     in (not (HM.member certSid $ mrs HM.! epoch) &&
         not (vcVssKey cert `elem` allVssKeys))
-       ==> res1 .&&. res2 .&&. res3
+       ==> res1 .&&. res2 .&&. res3 .&&. res4
 
 ----------------------------------------------------------------------------
 -- Utility functions for this module

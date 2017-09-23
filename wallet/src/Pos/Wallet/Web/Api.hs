@@ -109,15 +109,18 @@ instance ModifiesApiRes WalletVerbTag where
 instance ReportDecodeError (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) where
     reportDecodeError _ err = throwM (DecodeError err) ^. from serverHandlerL'
 
-instance ( HasServer (WalletVerb (Verb mt st ct a)) ctx
+instance ( HasServer (Verb mt st ct $ ApiModifiedRes WalletVerbTag a) ctx
          , Reifies config ApiLoggingConfig
          , ReflectMethod mt
          , Buildable (WithTruncatedLog a)
          ) =>
          HasLoggingServer config (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) ctx where
     routeWithLog =
-        inRouteServer @(WalletVerb (Verb mt st ct a)) route $
-        applyLoggingToHandler (Proxy @config) (Proxy @mt)
+        -- TODO [CSM-466] avoid manually rewriting rule for composite api modification
+        inRouteServer @(Verb mt st ct $ ApiModifiedRes WalletVerbTag a) route $
+        \(paramsInfo, handler) ->
+            handler & serverHandlerL' %~ modifyApiResult (Proxy @WalletVerbTag)
+                    & applyLoggingToHandler (Proxy @config) (Proxy @mt) . (paramsInfo, )
 
 -- | Specifes servant logging config.
 data WalletLoggingConfig

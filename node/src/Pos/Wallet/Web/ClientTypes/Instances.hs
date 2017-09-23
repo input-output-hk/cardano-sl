@@ -347,7 +347,16 @@ instance Buildable (WithTruncatedLog CAccount) where
         caAmount
         (WithTruncatedLog caAddresses)
 
+-- TODO [CSM-466] deal with this hack
 instance Buildable (WithTruncatedLog ([CTx], Word)) where
     build (WithTruncatedLog (ctxs, size)) =
         bprint ("Num: "%build%", entries: \n"%build)
             size (WithTruncatedLog ctxs)
+
+-- TODO [CSM-466] deal with this hack especially
+instance (Buildable e, Buildable (WithTruncatedLog a)) =>
+         Buildable (WithTruncatedLog (Either e a)) where
+    build (WithTruncatedLog x) =
+        case x of
+            Left e  -> bprint ("Failure: "%build) e
+            Right a -> bprint build (WithTruncatedLog a)

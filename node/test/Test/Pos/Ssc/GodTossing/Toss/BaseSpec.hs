@@ -32,12 +32,11 @@ import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadSignedCommitm
                                         MultiRichmenStakes, Opening, OpeningsMap,
                                         PureTossWithEnv, SharesMap, SignedCommitment,
                                         TossVerFailure (..), VssCertData (..),
-                                        VssCertificate (vcSigningKey),
-                                        VssCertificatesMap (..), checkCertificatesPayload,
-                                        checkCommitmentsPayload, checkOpeningsPayload,
-                                        checkSharesPayload, deleteSignedCommitment,
-                                        gsCommitments, gsOpenings, gsShares,
-                                        gsVssCertificates, insertVss,
+                                        VssCertificate (..), VssCertificatesMap (..),
+                                        checkCertificatesPayload, checkCommitmentsPayload,
+                                        checkOpeningsPayload, checkSharesPayload,
+                                        deleteSignedCommitment, gsCommitments, gsOpenings,
+                                        gsShares, gsVssCertificates, insertVss,
                                         mkCommitmentsMapUnsafe, runPureToss,
                                         supplyPureTossEnv, vcVssKey, verifyCommitment,
                                         verifyCommitmentSignature, verifyOpening)
@@ -363,7 +362,7 @@ type GoodSharesPayload = GoodPayload SharesMap
 
 instance HasCoreConstants => Arbitrary GoodSharesPayload where
     arbitrary = do
-      -- These openings won't be needed for anything, so they can be entirely arbitrary.
+        -- These openings won't be needed for anything, so they can be entirely arbitrary.
         _gsOpenings <- arbitrary
 
         -- The richmen for the epoch used in the tests is generated separately to make
@@ -467,11 +466,14 @@ checksBadSharesPayload (GoodPayload epoch g@GtGlobalState {..} sm mrs) pk ne cer
             _ -> qcFail $ "expected " <> show internalShareWithoutComm <>
                           " to be a Left (InternalShareWithoutCommitment ...)"
 
-        cert' = cert {vcSigningKey = pk}
+        -- The expiry epoch has to be big, otherwise the cert won't get
+        -- inserted. However, making it 'maxBound' doesn't work because then
+        -- it gets incremented internally and overflows
+        cert' = cert { vcSigningKey = pk, vcExpiryEpoch = pred maxBound }
         newestSharesMap = HM.insert sid mempty sharesMap
-        gtgs' = gtgs & (gsShares %~ HM.insert sid mempty) .
-                       (gsVssCertificates %~ \vcd@VssCertData{..} ->
-                           vcd { certs = insertVss cert' certs})
+        gtgs' = gtgs & gsShares %~ HM.insert sid mempty
+                     & gsVssCertificates %~ \vcd@VssCertData{..} ->
+                           vcd { certs = fst $ insertVss cert' certs}
         mrs' = HM.update (Just . HM.insert sid (mkCoin 0)) epoch mrs
         sharesAlreadySent =
             tossRunner mrs' gtgs' $ checkSharesPayload epoch newestSharesMap
@@ -480,7 +482,12 @@ checksBadSharesPayload (GoodPayload epoch g@GtGlobalState {..} sm mrs) pk ne cer
             _ -> qcFail $ "expected " <> show sharesAlreadySent <>
                           " to be a Left (SharesAlreadySent ...)"
 
-    in not (null sharesMap)
+        allCerts = toList . getVssCertificatesMap $
+                   certs (gtgs ^. gsVssCertificates)
+
+    in not (null sharesMap) &&
+       not (vcVssKey cert `elem` map vcVssKey allCerts) &&
+       not (pk `elem` map vcSigningKey allCerts)
        ==> res1 .&&. res2 .&&. res3 .&&. res4
 
 type GoodCertsPayload = GoodPayload VssCertificatesMap
@@ -567,10 +574,13 @@ checksBadCertsPayload (GoodPayload epoch gtgs certsMap mrs) pk cert =
             tossRunner mrsWithMissingEpoch gtgs $ checkCertificatesPayload epoch certsMap
         res1 = noRichmen === Left (NoRichmen epoch)
 
-        cert' = cert {vcSigningKey = pk}
-        certsMap2 = insertVss cert' certsMap
+        -- The expiry epoch has to be big, otherwise the cert won't get
+        -- inserted. However, making it 'maxBound' doesn't work because then
+        -- it gets incremented internally and overflows
+        cert' = cert { vcSigningKey = pk, vcExpiryEpoch = pred maxBound }
+        (certsMap2, _) = insertVss cert' certsMap
         newGtgs = gtgs & gsVssCertificates %~
-            \vcd -> vcd { certs = insertVss cert' (certs vcd) }
+            \vcd -> vcd { certs = fst $ insertVss cert' (certs vcd) }
         certAlreadySent =
             tossRunner mrs newGtgs $ checkCertificatesPayload epoch certsMap2
         res2 = case certAlreadySent of
@@ -579,8 +589,9 @@ checksBadCertsPayload (GoodPayload epoch gtgs certsMap mrs) pk cert =
                           " to be a Left (CertificateAlreadySent ...)"
 
         certSid = addressHash . vcSigningKey $ cert
-        certsMap3 = insertVss cert certsMap
-        certNoRichmen = tossRunner mrs gtgs $ checkCertificatesPayload epoch certsMap3
+        (certsMap3, _) = insertVss cert certsMap
+        certNoRichmen =
+            tossRunner mrs gtgs $ checkCertificatesPayload epoch certsMap3
         res3 = case certNoRichmen of
             Left (CertificateNotRichmen nes) -> certSid `qcElem` nes
             _ -> qcFail $ "expected " <> show certNoRichmen <>

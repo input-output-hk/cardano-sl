@@ -67,6 +67,8 @@ module Pos.Util.Util
        , parseJSONWithRead
 
        -- * QuickCheck
+       , qcIsJust
+       , qcIsNothing
        , qcIsLeft
        , qcIsRight
        , qcElem
@@ -628,6 +630,14 @@ parseJSONWithRead =
 ----------------------------------------------------------------------------
 -- QuickCheck
 ----------------------------------------------------------------------------
+
+qcIsJust :: Maybe a -> QC.Property
+qcIsJust (Just _) = QC.property True
+qcIsJust Nothing  = qcFail "expected Just, got Nothing"
+
+qcIsNothing :: Show a => Maybe a -> QC.Property
+qcIsNothing Nothing  = QC.property True
+qcIsNothing (Just x) = qcFail ("expected Nothing, got Just (" <> show x <> ")")
 
 qcIsLeft :: Show b => Either a b -> QC.Property
 qcIsLeft (Left _)  = QC.property True

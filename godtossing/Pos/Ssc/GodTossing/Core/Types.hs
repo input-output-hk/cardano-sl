@@ -268,9 +268,24 @@ memberVss id (UnsafeVssCertificatesMap m) = HM.member id m
 lookupVss :: StakeholderId -> VssCertificatesMap -> Maybe VssCertificate
 lookupVss id (UnsafeVssCertificatesMap m) = HM.lookup id m
 
-insertVss :: VssCertificate -> VssCertificatesMap -> VssCertificatesMap
+-- | Insert a certificate into the map.
+--
+-- In order to preserve invariants, this function removes certificates with
+-- our certificate's signing key / VSS key, if they exist. It also returns a
+-- list of deleted certificates' keys.
+insertVss :: VssCertificate
+          -> VssCertificatesMap
+          -> (VssCertificatesMap, [StakeholderId])
 insertVss c (UnsafeVssCertificatesMap m) =
-    UnsafeVssCertificatesMap (HM.insert (getCertId c) c m)
+    ( UnsafeVssCertificatesMap $
+      HM.insert (getCertId c) c $
+      HM.filter (not . willBeDeleted) m
+    , deleted
+    )
+  where
+    willBeDeleted c2 = vcVssKey     c2 == vcVssKey     c
+                    || vcSigningKey c2 == vcSigningKey c
+    deleted = HM.keys $ HM.filter willBeDeleted m
 
 deleteVss :: StakeholderId -> VssCertificatesMap -> VssCertificatesMap
 deleteVss id (UnsafeVssCertificatesMap m) = UnsafeVssCertificatesMap (HM.delete id m)

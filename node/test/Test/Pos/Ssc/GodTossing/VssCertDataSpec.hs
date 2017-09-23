@@ -8,12 +8,13 @@ import           Universum             hiding (empty, filter)
 
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.HashSet          as HS
+import           Data.List.Extra       (nubOrdOn)
 import qualified Data.Set              as S
 import           Data.Tuple            (swap)
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Arbitrary (..), Gen, Property, choose, conjoin,
-                                        counterexample, suchThat, vectorOf, (==>))
+                                        counterexample, suchThat, vectorOf, (.&&.), (==>))
 
 import           Pos.Core.Context      (HasCoreConstants, giveStaticConsts,
                                         slotSecurityParam)
@@ -27,6 +28,7 @@ import           Pos.Ssc.GodTossing    (GtGlobalState (..), VssCertData (..),
 import           Pos.Types             (EpochIndex (..), EpochOrSlot (..), SlotId,
                                         SlotId (..))
 import           Pos.Util.Chrono       (NewestFirst (..))
+import           Pos.Util.Util         (qcIsJust)
 
 spec :: Spec
 spec = giveStaticConsts $ describe "Ssc.GodTossing.VssCertData" $ do
@@ -79,8 +81,7 @@ newtype CorrectVssCertData = CorrectVssCertData
 
 instance HasCoreConstants => Arbitrary CorrectVssCertData where
     arbitrary = (CorrectVssCertData <$>) $ do
-        n <- choose (0, 100)
-        certificatesToAdd <- choose (0, n)
+        certificatesToAdd <- choose (0, 100)
         lkeos             <- arbitrary :: Gen EpochOrSlot
         let notExpiredGen  = arbitrary `suchThat` (`expiresAfter` lkeos)
         vssCertificates   <- vectorOf @VssCertificate certificatesToAdd notExpiredGen
@@ -184,7 +185,8 @@ instance HasCoreConstants => Arbitrary RollbackData where
                     siEpoch . unflattenSlotId <$>
                         choose (succ lastKEoSWord, rollbackFrom)
                 return $ mkVssCertificate sk binVssPK thisEpoch
-        certsToRollback <- vectorOf @VssCertificate certsToRollbackN rollbackGen
+        certsToRollback <- nubOrdOn vcVssKey <$>
+            vectorOf @VssCertificate certsToRollbackN rollbackGen
         return $ Rollback (GtGlobalState mempty mempty mempty goodVssCertData)
                           lastKnownEoS
                           certsToRollback
@@ -199,5 +201,12 @@ verifyRollback (Rollback oldGtGlobalState rollbackEoS vssCerts) = do
         runPureToss newGtGlobalState $
         rollbackGT rollbackEoS (NewestFirst [])
     pure $ conjoin $ vssCerts <&> \cert ->
-        isJust         (lookup (getCertId cert) newVssCertData) &&
-        (/= Just cert) (lookup (getCertId cert) rolledVssCertData)
+        let id = getCertId cert in
+        counterexample ("haven't found cert with id " <>
+                        show id <> " in newVssCertData")
+            (qcIsJust (lookup id newVssCertData))
+        .&&.
+        counterexample ("expected a " <> show (Just cert) <>
+                        ", got " <> show (lookup id rolledVssCertData) <>
+                        " in rolledVssCertData")
+            ((/= Just cert) (lookup id rolledVssCertData))

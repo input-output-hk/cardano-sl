@@ -18,6 +18,7 @@ module Pos.Ssc.GodTossing.VssCertData
        , filter
        ) where
 
+import           Control.Lens            (makeLensesFor)
 import qualified Data.HashMap.Strict     as HM
 import qualified Data.List               as List
 import qualified Data.Set                as S
@@ -58,12 +59,22 @@ data VssCertData = VssCertData
     , expiredCerts :: !(Set (EpochOrSlot, (StakeholderId, EpochOrSlot, VssCertificate)))
     } deriving (Generic, Show, Eq)
 
+flip makeLensesFor ''VssCertData
+  [ ("lastKnownEoS", "_lastKnownEoS")
+  , ("certs"       , "_certs")
+  , ("whenInsMap"  , "_whenInsMap")
+  , ("whenInsSet"  , "_whenInsSet")
+  , ("whenExpire"  , "_whenExpire")
+  , ("expiredCerts", "_expiredCerts")
+  ]
+
 -- | Create empty 'VssCertData'.
 empty :: VssCertData
 empty = VssCertData (EpochOrSlot $ Left $ EpochIndex 0) mempty mempty mempty mempty mempty
 
 -- | Remove old certificate corresponding to the specified 'StakeholderId'
--- and insert new certificate.
+-- and insert new certificate. Also deletes certificates with the same
+-- 'vcVssKey' as the inserted certificate, if they exist.
 insert :: VssCertificate -> VssCertData -> VssCertData
 insert cert mp@VssCertData{..}
     | expiryEoS cert <= lastKnownEoS = mp
@@ -82,19 +93,15 @@ lookupExpiryEpoch id mp = vcExpiryEpoch <$> lookup id mp
 -- This function is dangerous, because after using it you can't rollback
 -- deleted certificates. Use carefully.
 delete :: StakeholderId -> VssCertData -> VssCertData
-delete id mp@VssCertData{..} =
-    VssCertData
-        { lastKnownEoS = lastKnownEoS
-        , certs        = deleteVss id certs
-        , whenInsMap   = HM.delete id whenInsMap
-        , whenInsSet   = case mbIns of
-              Nothing  -> whenInsSet
-              Just ins -> S.delete (ins, id) whenInsSet
-        , whenExpire   = case mbExpiry of
-              Nothing     -> whenExpire
-              Just expiry -> S.delete (expiry, id) whenExpire
-        , expiredCerts = expiredCerts
-        }
+delete id mp =
+    mp & _certs %~ deleteVss id
+       & _whenInsMap %~ HM.delete id
+       & _whenInsSet %~ case mbIns of
+             Nothing  -> identity
+             Just ins -> S.delete (ins, id)
+       & _whenExpire %~ case mbExpiry of
+             Nothing     -> identity
+             Just expiry -> S.delete (expiry, id)
   where
     (mbIns, mbExpiry) = lookupEoSes id mp
 
@@ -146,13 +153,13 @@ addInt cert vcd =
     insertRaw $ expireById False id (addEpoch $ lastKnownEoS vcd) vcd
   where
     id = getCertId cert
-    insertRaw VssCertData{..} = VssCertData
-        lastKnownEoS
-        (insertVss cert certs)
-        (HM.insert id lastKnownEoS whenInsMap)
-        (S.insert (lastKnownEoS, id) whenInsSet)
-        (S.insert (expiryEoS cert, id) whenExpire)
-        expiredCerts
+    insertRaw mp@VssCertData{..} =
+        let (certs', delCerts) = insertVss cert certs
+        in foldl' (flip delete) mp delCerts
+               & _certs .~ certs'
+               & _whenInsMap %~ HM.insert id lastKnownEoS
+               & _whenInsSet %~ S.insert (lastKnownEoS, id)
+               & _whenExpire %~ S.insert (expiryEoS cert, id)
 
 -- | Expire certificate with specified id and EoS when it should be
 -- removed from expiredCerts.  If given id isn't found in
@@ -186,24 +193,22 @@ setBiggerLKS lks vcd@VssCertData{..}
 setSmallerLKS :: EpochOrSlot -> VssCertData -> VssCertData
 setSmallerLKS lks vcd@VssCertData{..}
     | Just ((sl, id), rest) <- S.maxView whenInsSet
-    , sl > lks = setSmallerLKS lks $ VssCertData
-          lastKnownEoS
-          (deleteVss id certs)
-          (HM.delete id whenInsMap)
-          rest
-          (S.delete
-             (fromMaybe (error "No such id in VCD")
-                        (expiryEoS <$> lookupVss id certs), id)
-             whenExpire)
-          expiredCerts
+    , sl > lks = setSmallerLKS lks $
+          vcd & _certs      %~ deleteVss id
+              & _whenInsMap %~ HM.delete id
+              & _whenInsSet .~ rest
+              & _whenExpire %~ S.delete
+                    (fromMaybe (error "No such id in VCD")
+                               (expiryEoS <$> lookupVss id certs), id)
     | Just ((sl, (id, insSlot, cert)), restExp) <- S.maxView expiredCerts
-    , sl > addEpoch lks = setSmallerLKS lks $ VssCertData
-          lastKnownEoS
-          (insertVss cert certs)
-          (HM.insert id insSlot whenInsMap)
-          (S.insert (insSlot, id) whenInsSet)
-          (S.insert (expiryEoS cert, id) whenExpire)
-          restExp
+    , sl > addEpoch lks = setSmallerLKS lks $
+        let (certs', delCerts) = insertVss cert certs
+        in foldl' (flip delete) vcd delCerts
+               & _certs      .~ certs'
+               & _whenInsMap %~ HM.insert id insSlot
+               & _whenInsSet %~ S.insert (insSlot, id)
+               & _whenExpire %~ S.insert (expiryEoS cert, id)
+               & _expiredCerts .~ restExp
     | otherwise = vcd { lastKnownEoS = lks }
 
 addEpoch :: EpochOrSlot -> EpochOrSlot

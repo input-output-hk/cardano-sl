@@ -14800,7 +14800,7 @@ mainnet_full: &mainnet_full
     genesis:
       src:
         file: mainnet-genesis.json
-        hash: 6cb2e16544f6a981dd97524c4c274202fa6f5434caa5e365d9123b3bff476633
+        hash: 14748d9276c8707b96cd6489d5c39ba6a48eb428bfe5b76049b5e6f2485bb643
 
 mainnet_wallet_win64: &mainnet_wallet_win64
   <<: *mainnet_full

@@ -33,7 +33,7 @@ import           System.Wlog                  (WithLogger, logError)
 import           Pos.Binary.Class             (UnsignedVarInt (..), serialize')
 import           Pos.Context.Functions        (genesisUtxo)
 import           Pos.Core                     (Address, Coin, EpochIndex, HeaderHash,
-                                               mkCoin, unsafeAddCoin)
+                                               coinToInteger, unsafeAddCoin)
 import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.DB                       (DBError (..), DBIteratorClass (..),
                                                DBTag (GStateDB), MonadDB,
@@ -78,8 +78,8 @@ getAddrHistory = fmap (NewestFirst . concat . maybeToList) .
 getAddrBalance :: MonadDBRead m => Address -> m (Maybe Coin)
 getAddrBalance = gsGetBi . addrBalanceKey
 
-getUtxoSum :: MonadDBRead m => m Coin
-getUtxoSum = fromMaybe (mkCoin 0) <$> gsGetBi utxoSumPrefix
+getUtxoSum :: MonadDBRead m => m Integer
+getUtxoSum = fromMaybe 0 <$> gsGetBi utxoSumPrefix
 
 getPageBlocks :: MonadDBRead m => Page -> m (Maybe [HeaderHash])
 getPageBlocks = gsGetBi . blockPagePrefix
@@ -97,7 +97,10 @@ getLastTransactions = gsGetBi lastTxsPrefix
 prepareExplorerDB :: (MonadReader ctx m, MonadDB m) => m ()
 prepareExplorerDB =
     unlessM areBalancesInitialized $ do
-        putGenesisBalances genesisUtxo
+        GenesisUtxo genesisUtxo <- genesisUtxoM
+        let addressCoinPairs = utxoToAddressCoinPairs genesisUtxo
+        putGenesisBalances addressCoinPairs
+        putGenesisUtxoSum addressCoinPairs
         putInitFlag
 
 balancesInitFlag :: ByteString
@@ -109,14 +112,16 @@ areBalancesInitialized = isJust <$> dbGet GStateDB balancesInitFlag
 putInitFlag :: MonadDB m => m ()
 putInitFlag = gsPutBi balancesInitFlag True
 
-putGenesisBalances :: MonadDB m => GenesisUtxo -> m ()
-putGenesisBalances (GenesisUtxo utxo) = writeBatchGState putAddrBalancesOp
+putGenesisBalances :: MonadDB m => [(Address, Coin)] -> m ()
+putGenesisBalances addressCoinPairs = writeBatchGState putAddrBalancesOp
   where
     putAddrBalancesOp :: [ExplorerOp]
-    putAddrBalancesOp = map (uncurry PutAddrBalance) addressCoinsPairs
+    putAddrBalancesOp = map (uncurry PutAddrBalance) addressCoinPairs
 
-    addressCoinsPairs :: [(Address, Coin)]
-    addressCoinsPairs = utxoToAddressCoinPairs utxo
+putGenesisUtxoSum :: MonadDB m => [(Address, Coin)] -> m ()
+putGenesisUtxoSum addressCoinPairs = do
+    let utxoSum = sum $ map (coinToInteger . snd) addressCoinPairs
+    writeBatchGState [PutUtxoSum utxoSum]
 
 ----------------------------------------------------------------------------
 -- Batch operations
@@ -137,7 +142,7 @@ data ExplorerOp
     | PutAddrBalance !Address !Coin
     | DelAddrBalance !Address
 
-    | PutUtxoSum !Coin
+    | PutUtxoSum !Integer
 
 instance HasConfiguration => RocksBatchOp ExplorerOp where
     toBatchOp (AddTxExtra id extra) =
@@ -165,8 +170,8 @@ instance HasConfiguration => RocksBatchOp ExplorerOp where
     toBatchOp (DelAddrBalance addr) =
         [Rocks.Del $ addrBalanceKey addr]
 
-    toBatchOp (PutUtxoSum coin) =
-        [Rocks.Put utxoSumPrefix (dbSerializeValue coin)]
+    toBatchOp (PutUtxoSum utxoSum) =
+        [Rocks.Put utxoSumPrefix (dbSerializeValue utxoSum)]
 
 ----------------------------------------------------------------------------
 -- Iteration

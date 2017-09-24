@@ -77,11 +77,12 @@ mkVssCertificatesMap = HM.fromList . map toCertPair
   where
     toCertPair vc = (getCertId vc, vc)
 
+-- | Return given 'VssCertificatesMap' if it's valid or an error if
+-- it's not.
 validateVssCertificatesMap ::
        MonadError Text m
     => VssCertificatesMap
     -> m VssCertificatesMap
--- | Safe constructor of 'VssCertificatesMap'
 validateVssCertificatesMap m = do
     forM_ (HM.toList m) $ \(k, v) ->
         when (getCertId v /= k) $

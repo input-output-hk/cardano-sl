@@ -1,6 +1,6 @@
 {-# LANGUAGE Rank2Types #-}
 
--- | Flobal constants, configurable via Data.Reflection.
+-- | Global constants, configurable via Data.Reflection.
 
 module Pos.Core.Configuration.Core
        (

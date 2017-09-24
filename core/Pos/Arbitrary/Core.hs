@@ -509,21 +509,6 @@ instance HasProtocolConstants => Arbitrary G.GenesisDelegation where
             ( addressHash (toPublic issuer)
             , createPsk issuer delegatePk 0 )
 
-instance Arbitrary G.BalanceDistribution where
-    arbitrary = do
-           sdRichmen <- choose (0, 20)
-           sdRichBalance <- Types.mkCoin <$> choose (100000, 5000000)
-           sdPoor <- choose (0, 20)
-           sdPoorBalance <- Types.mkCoin <$> choose (1000, 50000)
-           return G.RichPoorBalances{..}
-      --[ do stakeholders <- choose (1, 10000)
-      --     coins <- Types.mkCoin <$> choose (stakeholders, 20*1000*1000*1000)
-      --     return (G.FlatBalances (fromIntegral stakeholders) coins)
-      -- , G.safeExpBalances <$> choose (0::Integer, 20)
-      -- , G.CustomBalances <$> arbitrary
-      -- ]
-    shrink = genericShrink
-
 instance Arbitrary G.GenesisWStakeholders where
     arbitrary = G.GenesisWStakeholders <$> arbitrary
 

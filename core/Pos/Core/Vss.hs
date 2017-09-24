@@ -116,6 +116,8 @@ mkVssCertificatesMapSingleton :: VssCertificate -> VssCertificatesMap
 mkVssCertificatesMapSingleton =
     UnsafeVssCertificatesMap . uncurry HM.singleton . toCertPair
 
+-- | Return given 'VssCertificatesMap' if it's valid or an error if
+-- it's not.
 validateVssCertificatesMap ::
        MonadError Text m
     => VssCertificatesMap

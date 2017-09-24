@@ -6,7 +6,7 @@ CGG_NODES=(3 4)
 CF_NODES=(5 6)
 ALL_NODES=("${IOHK_NODES[@]}" "${CGG_NODES[@]}" "${CF_NODES[@]}")
 
-CONF_PARAMS="--configuration-file node/configuration.yaml --configuration-key mainnet_final_base"
+CONF_PARAMS="--configuration-file node/configuration.yaml --configuration-key mainnet_launch_base"
 
 case "$STAKEHOLDER_NAME" in
   iohk)
@@ -75,7 +75,7 @@ fi
 echo "Generating stakeholder keys..."
 
 pushd "$REPO_PATH"
-time for i in ${ALL_NODES[@]}; do
+time for i in ${NODES[@]}; do
     key_path="${STAKEHOLDER_SECRET}/secret${i}.key"
     stack exec --nix -- cardano-keygen $CONF_PARAMS generate-key --path "$key_path"
     if [[ ! -f "$key_path" ]]; then

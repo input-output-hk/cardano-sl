@@ -142,17 +142,6 @@ runTxpTestMode tp action = do
 instance HasLens DB.DBPureVar TxpTestInitContext DB.DBPureVar where
     lensOf = tticDBPureVar_L
 
-{-
-instance HasLens GenesisContext TxpTestInitContext GenesisContext where
-    lensOf = tticGenesisContext_L
-
-instance HasLens GenesisUtxo TxpTestInitContext GenesisUtxo where
-    lensOf = tticGenesisContext_L . gtcUtxo
-
-instance HasLens GenesisWStakeholders TxpTestInitContext GenesisWStakeholders where
-    lensOf = tticGenesisContext_L . gtcWStakeholders
--}
-
 ----------------------------------------------------------------------------
 -- Boilerplate TxpTestInitMode instances
 ----------------------------------------------------------------------------

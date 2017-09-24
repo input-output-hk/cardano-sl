@@ -102,7 +102,6 @@ type LocalToilMode m =
     ( MonadUtxo m
     , MonadGState m
     , MonadTxPool m
-    -- The war which we lost.
     , HasConfiguration
     )
 

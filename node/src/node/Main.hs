@@ -19,8 +19,7 @@ import           Pos.Client.CLI      (CommonNodeArgs (..), NodeArgs (..),
                                       SimpleNodeArgs (..))
 import qualified Pos.Client.CLI      as CLI
 import           Pos.Communication   (OutSpecs, WorkerSpec)
-import           Pos.Core            (GenesisData (..), Timestamp (..), genesisData,
-                                      getSharedSeed)
+import           Pos.Core            (GenesisData (..), Timestamp (..), genesisData)
 import           Pos.Launcher        (HasConfigurations, NodeParams (..), runNodeReal,
                                       withConfigurations)
 import           Pos.Ssc.Class       (SscConstraint, SscParams)
@@ -51,7 +50,6 @@ action
     -> Production ()
 action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
     whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData
-    putStrLn $ getSharedSeed $ gdFtsSeed genesisData
     putText $ sformat ("System start time is " % shown) $ gdStartTime genesisData
     t <- currentTime
     putText $ sformat ("Current time is " % shown) (Timestamp t)

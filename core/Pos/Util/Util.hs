@@ -15,6 +15,7 @@ module Pos.Util.Util
        , liftGetterSome
 
        -- * Something
+       , Sign (..)
        , maybeThrow
        , eitherToFail
        , eitherToThrow
@@ -348,6 +349,8 @@ type instance ChannelT (Ether.TaggedTrans tag t m) = ChannelT m
 ----------------------------------------------------------------------------
 -- Not instances
 ----------------------------------------------------------------------------
+
+data Sign = Plus | Minus
 
 maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
 maybeThrow e = maybe (throwM e) pure

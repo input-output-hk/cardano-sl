@@ -74,6 +74,10 @@ instance MonadToss m =>
         ether $ tmOpenings . at id .= Just op
     putShares id sh =
         ether $ tmShares . at id .= Just sh
+    -- NB. 'insertVss' might delete some certs from the map, but it
+    -- shouldn't actually happen in practice because
+    -- 'checkCertificatesPayload' ensures that there are no clashes between
+    -- the certificates in blocks and certificates in the map
     putCertificate cert =
         ether $ tmCertificates %= fst . insertVss cert
     delCommitment id =

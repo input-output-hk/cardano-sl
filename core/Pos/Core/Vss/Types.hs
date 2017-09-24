@@ -11,6 +11,8 @@ module Pos.Core.Vss.Types
 import           Universum
 
 import           Data.Hashable            (Hashable (..))
+import qualified Data.HashMap.Strict      as HM
+import qualified Data.HashSet             as HS
 import qualified Data.Text.Buildable      as Buildable
 import           Formatting               (bprint, build, int, (%))
 
@@ -68,6 +70,16 @@ instance Hashable VssCertificate where
 --   * no two certs have the same 'vcVssKey'
 newtype VssCertificatesMap = UnsafeVssCertificatesMap
     { getVssCertificatesMap :: HashMap StakeholderId VssCertificate }
-    deriving (Eq, Show, Generic, NFData, Monoid, Container, NontrivialContainer)
+    deriving (Eq, Show, Generic, NFData, Container, NontrivialContainer)
 
 type instance Element VssCertificatesMap = VssCertificate
+
+-- | A left-biased instance
+instance Monoid VssCertificatesMap where
+    mempty = UnsafeVssCertificatesMap mempty
+    mappend (UnsafeVssCertificatesMap a) (UnsafeVssCertificatesMap b) =
+        UnsafeVssCertificatesMap $
+        a <> HM.filter (not . (`HS.member` lVssKeys) . vcVssKey) b
+      where
+        lVssKeys = HS.fromList (map vcVssKey (toList a))
+

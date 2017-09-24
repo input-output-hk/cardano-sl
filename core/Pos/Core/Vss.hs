@@ -86,6 +86,10 @@ checkCertSign VssCertificate {..} =
 getCertId :: VssCertificate -> StakeholderId
 getCertId = addressHash . vcSigningKey
 
+-- Unexported but useful in the three functions below
+toCertPair :: VssCertificate -> (StakeholderId, VssCertificate)
+toCertPair vc = (getCertId vc, vc)
+
 -- | Safe constructor of 'VssCertificatesMap'. It doesn't allow certificates
 -- with duplicate signing keys or with duplicate 'vcVssKey's.
 mkVssCertificatesMap
@@ -97,8 +101,6 @@ mkVssCertificatesMap certs = do
     unless (allDistinct (map vcVssKey certs)) $
         fail "mkVssCertificatesMap: two certs have the same VSS key"
     pure $ UnsafeVssCertificatesMap (HM.fromList (map toCertPair certs))
-  where
-    toCertPair vc = (getCertId vc, vc)
 
 -- | A convenient constructor of 'VssCertificatesMap' that throws away
 -- certificates with duplicate signing keys or with duplicate 'vcVssKey's.
@@ -106,15 +108,13 @@ mkVssCertificatesMapLossy :: [VssCertificate] -> VssCertificatesMap
 mkVssCertificatesMapLossy =
     UnsafeVssCertificatesMap . HM.fromList .
     map toCertPair . nubOrdOn vcVssKey
-  where
-    toCertPair vc = (getCertId vc, vc)
 
 -- | A map with a single certificate is always valid so this function is
 -- safe to use in case you have one certificate and want to create a map
 -- from it.
 mkVssCertificatesMapSingleton :: VssCertificate -> VssCertificatesMap
-mkVssCertificatesMapSingleton vc =
-    UnsafeVssCertificatesMap $ HM.singleton (getCertId vc) vc
+mkVssCertificatesMapSingleton =
+    UnsafeVssCertificatesMap . uncurry HM.singleton . toCertPair
 
 validateVssCertificatesMap ::
        MonadError Text m

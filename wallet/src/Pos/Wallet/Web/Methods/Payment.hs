@@ -12,7 +12,7 @@ import           Universum
 
 import qualified Data.List.NonEmpty               as NE
 import           Formatting                       (sformat, (%))
-import qualified Formatting                       as F
+import           Serokell.Util                    (listJsonIndent)
 import           System.Wlog                      (logInfo)
 
 import           Pos.Aeson.ClientTypes            ()
@@ -23,7 +23,7 @@ import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Client.Txp.Util              (computeTxFee, runTxCreator)
 import           Pos.Communication                (SendActions (..), prepareMTx)
 import           Pos.Configuration                (HasNodeConfiguration)
-import           Pos.Core                         (Coin, HasConfiguration, addressF,
+import           Pos.Core                         (Coin, HasConfiguration,
                                                    getCurrentTimestamp)
 import           Pos.Crypto                       (PassPhrase, hash, withSafeSigners)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
@@ -170,13 +170,9 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
                 (th, dstAddrs) <$ submitAndSaveNewPtx enqueueMsg ptx
 
         logInfo $
-            sformat ("Successfully spent money from "%
-                     listF ", " addressF % " addresses on " %
-                     listF ", " addressF)
+            sformat ("Successfully spent money from candidate source addresses "%
+                     listJsonIndent 4%" on "%listJsonIndent 4)
             (toList srcAddrs)
             dstAddrs
 
         addHistoryTx srcWallet th
-  where
-     listF separator formatter =
-         F.later $ fold . intersperse separator . fmap (F.bprint formatter)

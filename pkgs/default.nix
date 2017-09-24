@@ -2729,6 +2729,8 @@ self: {
           pname = "diagrams-postscript";
           version = "1.4";
           sha256 = "1d4dbwd4qgrlwm0m9spwqklpg3plf0ghrnrah1k6yw900l0z0n7y";
+          revision = "1";
+          editedCabalFile = "0vmiv3b74nml0ahb7dicq0m0vz2lahzfapln9aby0jb2saa0sf58";
           libraryHaskellDepends = [
             base
             containers

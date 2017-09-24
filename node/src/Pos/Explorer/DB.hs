@@ -31,7 +31,6 @@ import           Serokell.Util                (Color (Red), colorize, mapJson)
 import           System.Wlog                  (WithLogger, logError)
 
 import           Pos.Binary.Class             (UnsignedVarInt (..), serialize')
-import           Pos.Context.Functions        (genesisUtxo)
 import           Pos.Core                     (Address, Coin, EpochIndex, HeaderHash,
                                                sumCoins, unsafeAddCoin)
 import           Pos.Core.Configuration       (HasConfiguration)
@@ -44,6 +43,7 @@ import           Pos.DB.GState.Common         (gsGetBi, gsPutBi, writeBatchGStat
 import           Pos.Explorer.Core            (AddrHistory, TxExtra (..))
 import           Pos.Txp.Core                 (Tx, TxId, TxOut (..), TxOutAux (..))
 import           Pos.Txp.DB                   (getAllPotentiallyHugeUtxo, utxoSource)
+import           Pos.Txp.GenesisUtxo          (genesisUtxo)
 import           Pos.Txp.Toil                 (GenesisUtxo (..), utxoF,
                                                utxoToAddressCoinPairs)
 import           Pos.Util.Chrono              (NewestFirst (..))
@@ -100,8 +100,8 @@ getLastTransactions = gsGetBi lastTxsPrefix
 prepareExplorerDB :: (MonadReader ctx m, MonadDB m) => m ()
 prepareExplorerDB =
     unlessM areBalancesInitialized $ do
-        GenesisUtxo genesisUtxo <- genesisUtxoM
-        let addressCoinPairs = utxoToAddressCoinPairs genesisUtxo
+        let GenesisUtxo utxo = genesisUtxo
+            addressCoinPairs = utxoToAddressCoinPairs utxo
         putGenesisBalances addressCoinPairs
         putGenesisUtxoSum addressCoinPairs
         putInitFlag

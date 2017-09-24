@@ -23,8 +23,8 @@ import           System.Wlog                 (WithLogger, logError, runNamedPure
                                               usingLoggerName)
 
 import           Pos.Core                    (Address, Coin, EpochIndex, HeaderHash,
-                                              Timestamp, coinToInteger, mkCoin,
-                                              unsafeAddCoin, unsafeSubCoin)
+                                              Timestamp, mkCoin, sumCoins, unsafeAddCoin,
+                                              unsafeSubCoin)
 import           Pos.Crypto                  (WithHash (..), hash)
 import           Pos.Explorer.Core           (AddrHistory, TxExtra (..))
 import           Pos.Explorer.Txp.Toil.Class (MonadTxExtra (..), MonadTxExtraRead (..))
@@ -165,8 +165,8 @@ delTxExtraWithHistory id addrs = do
 
 updateUtxoSumFromBalanceUpdate :: MonadTxExtra m => BalanceUpdate -> m ()
 updateUtxoSumFromBalanceUpdate balanceUpdate = do
-    let plusChange  = sum $ map (coinToInteger . snd) $ plusBalance  balanceUpdate
-        minusChange = sum $ map (coinToInteger . snd) $ minusBalance balanceUpdate
+    let plusChange  = sumCoins $ map snd $ plusBalance  balanceUpdate
+        minusChange = sumCoins $ map snd $ minusBalance balanceUpdate
         utxoChange  = plusChange - minusChange
     utxoSum <- getUtxoSum
     putUtxoSum $ utxoSum + utxoChange

@@ -6,7 +6,7 @@ module Test.Pos.Ssc.GodTossing.Toss.BaseSpec
 
 import           Universum
 
-import           Control.Lens          (ix)
+import           Control.Lens          (ix, _Wrapped)
 import qualified Crypto.Random         as Rand
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.HashSet          as HS
@@ -24,7 +24,7 @@ import           Pos.Core              (Coin, EpochIndex, EpochOrSlot (..),
                                         HasConfiguration, StakeholderId,
                                         VssCertificate (..), VssCertificatesMap (..),
                                         addressHash, crucialSlot, genesisBlockVersionData,
-                                        insertVss, mkCoin)
+                                        insertVss, mkCoin, _vcVssKey)
 import           Pos.Crypto            (DecShare, PublicKey, SecretKey,
                                         SignTag (SignCommitment), sign, toPublic)
 import           Pos.Lrc.Types         (RichmenStakes)
@@ -598,16 +598,21 @@ checksBadCertsPayload (GoodPayload epoch gtgs certsMap mrs) pk cert =
             _ -> qcFail $ "expected " <> show certNoRichmen <>
                           " to be a Left (CertificateNotRichmen ...)"
 
-        certsMap4 = UnsafeVssCertificatesMap $
-                    map (\c -> c {vcVssKey = vcVssKey cert}) $
-                    getVssCertificatesMap certsMap
-        certDuplicateVss =
-            tossRunner mrs gtgs $ checkCertificatesPayload epoch certsMap4
-        res4 = length certsMap >= 2 ==>
-               case certDuplicateVss of
-                   Left (CertificateDuplicateVssKey _) -> property True
-                   _ -> qcFail $ "expected " <> show certDuplicateVss <>
-                                 " to be a Left (CertificateDuplicateVssKey ...)"
+        -- We take the VSS key of some cert from 'gtgs' and replace a key of
+        -- some cert in 'certsMap' with it
+        res4 = fromMaybe (property True) $ do
+            c1 <- head (certs (gtgs ^. gsVssCertificates))
+            let c1id = addressHash . vcSigningKey $ c1
+            c2id <- head (HM.keys (getVssCertificatesMap certsMap))
+            let certsMap4 = certsMap
+                    & _Wrapped . ix c2id . _vcVssKey .~ vcVssKey c1
+                certDuplicateVss =
+                    tossRunner mrs gtgs $
+                    checkCertificatesPayload epoch certsMap4
+            pure $ c1id /= c2id ==> case certDuplicateVss of
+                Left (CertificateDuplicateVssKey nes) -> c2id `qcElem` nes
+                _ -> qcFail $ "expected " <> show certDuplicateVss <>
+                              " to be a Left (CertificateDuplicateVssKey ...)"
 
         allVssKeys = map vcVssKey (toList (getVssCertificatesMap certsMap))
 

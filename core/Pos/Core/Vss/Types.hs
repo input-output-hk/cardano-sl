@@ -5,11 +5,16 @@
 module Pos.Core.Vss.Types
        ( -- * Vss certificates
          VssCertificate (..)
+       , _vcVssKey
+       , _vcExpiryEpoch
+       , _vcSignature
+       , _vcSigningKey
        , VssCertificatesMap (..)
        ) where
 
 import           Universum
 
+import           Control.Lens             (makeLensesFor, makeWrapped)
 import           Data.Hashable            (Hashable (..))
 import qualified Data.HashMap.Strict      as HM
 import qualified Data.HashSet             as HS
@@ -46,6 +51,13 @@ data VssCertificate = VssCertificate
     , vcSigningKey  :: !PublicKey
     } deriving (Show, Eq, Generic)
 
+flip makeLensesFor ''VssCertificate
+  [ ("vcVssKey"     , "_vcVssKey")
+  , ("vcExpiryEpoch", "_vcExpiryEpoch")
+  , ("vcSignature"  , "_vcSignature")
+  , ("vcSigningKey" , "_vcSigningKey")
+  ]
+
 instance NFData VssCertificate
 
 instance Ord VssCertificate where
@@ -73,6 +85,8 @@ newtype VssCertificatesMap = UnsafeVssCertificatesMap
     deriving (Eq, Show, Generic, NFData, Container, NontrivialContainer)
 
 type instance Element VssCertificatesMap = VssCertificate
+
+makeWrapped ''VssCertificatesMap
 
 -- | A left-biased instance
 instance Monoid VssCertificatesMap where

@@ -110,22 +110,18 @@ runCmd _ ListAddresses = do
                     i addr (toBase58Text pk) pk (addressHash pk)
   where
     toBase58Text = decodeUtf8 . encodeBase58 bitcoinAlphabet . serialize'
-runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM dry) = do
+runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) = do
     CmdCtx{ccPeers} <- getCmdCtx
     issuerSk <- (!! i) <$> getSecretKeys
     withSafeSigner issuerSk (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
             let psk = safeCreatePsk ss delegatePk (startEpoch, fromMaybe 1000 lastEpochM)
-            if dry
-            then do
-                putText "Delegation light dry run not implemented"
-            else do
-                dataFlow
-                    "pskLight"
-                    (immediateConcurrentConversations sendActions ccPeers)
-                    (MsgTransaction OriginSender) psk
-                putText "Sent lightweight cert"
+            dataFlow
+                "pskLight"
+                (immediateConcurrentConversations sendActions ccPeers)
+                (MsgTransaction OriginSender) psk
+            putText "Sent lightweight cert"
 runCmd sendActions (DelegateHeavy i delegatePk curEpoch dry) = do
     CmdCtx {ccPeers} <- getCmdCtx
     issuerSk <- (!! i) <$> getSecretKeys

@@ -55,9 +55,8 @@ data Command
     | ProposeUpdate !ProposeUpdateParams
     | Help
     | ListAddresses
-    | DelegateLight !Int !PublicKey !EpochIndex !(Maybe EpochIndex) !Bool
-     -- ^ From whom, to whom, ttl start/end epochs, dry mode (off =
-     -- send cert, on = dump yaml)
+    | DelegateLight !Int !PublicKey !EpochIndex !(Maybe EpochIndex)
+     -- ^ From whom, to whom, ttl start/end epochs
     | DelegateHeavy !Int !PublicKey !EpochIndex !Bool
      -- ^ From whom, to whom, ttl epoch, last argument is current
      -- epoch, dry mode

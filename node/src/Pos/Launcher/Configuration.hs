@@ -5,7 +5,6 @@
 
 module Pos.Launcher.Configuration
        ( Configuration (..)
-       , MultiConfiguration
        , HasConfigurations
 
        , ConfigurationOptions (..)
@@ -45,11 +44,6 @@ data Configuration = Configuration
 
 instance FromJSON Configuration where
     parseJSON = genericParseJSON defaultOptions
-
--- | Complete configurations keyed on texts. You may want to parse this from a
--- file and then use some command-line argument text value to select an
--- appropriate configuration.
-type MultiConfiguration = Map Text Configuration
 
 type HasConfigurations =
     ( HasConfiguration

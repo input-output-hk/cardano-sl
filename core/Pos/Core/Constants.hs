@@ -1,5 +1,29 @@
--- | Constants that the rest of the code needs to know. They're
--- available from this module directly, instead of being passed as a
--- config. Also some constants aren't configurable.
+{-# LANGUAGE CPP #-}
 
-{-# OPTIONS_GHC -F -pgmF autoexporter #-}
+-- | Non-configurable constants
+--   For configurable constants, see Pos.Core.Configuration.
+
+module Pos.Core.Constants
+       ( sharedSeedLength
+       , isDevelopment
+       ) where
+
+import           Universum
+
+----------------------------------------------------------------------------
+-- Constants which are not configurable
+----------------------------------------------------------------------------
+
+-- | Length of shared seed.
+sharedSeedLength :: Integral a => a
+sharedSeedLength = 32
+
+-- | @True@ if current mode is 'Development'.
+--
+-- FIXME put it in Pos.Core.Configuration and don't use CPP.
+isDevelopment :: Bool
+#ifdef DEV_MODE
+isDevelopment = True
+#else
+isDevelopment = False
+#endif

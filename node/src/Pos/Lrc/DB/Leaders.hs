@@ -16,12 +16,10 @@ import           Universum
 
 import           Pos.Binary.Class      (serialize')
 import           Pos.Binary.Core       ()
-import           Pos.Context.Functions (genesisLeadersM)
-import           Pos.Core              (EpochIndex, HasCoreConstants, SlotLeaders)
+import           Pos.Context.Functions (genesisLeaders)
+import           Pos.Core              (EpochIndex, HasConfiguration, SlotLeaders)
 import           Pos.DB.Class          (MonadDB, MonadDBRead)
-import           Pos.Genesis           (GenesisContext)
 import           Pos.Lrc.DB.Common     (getBi, putBi)
-import           Pos.Util.Util         (HasLens')
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -42,15 +40,13 @@ putLeaders epoch = putBi (leadersKey epoch)
 ----------------------------------------------------------------------------
 
 prepareLrcLeaders ::
-       ( MonadReader ctx m
-       , HasLens' ctx GenesisContext
-       , MonadDB m
-       , HasCoreConstants
+       ( MonadDB m
+       , HasConfiguration
        )
     => m ()
 prepareLrcLeaders =
     whenNothingM_ (getLeaders 0) $
-        putLeaders 0 =<< genesisLeadersM
+        putLeaders 0 genesisLeaders
 
 ----------------------------------------------------------------------------
 -- Keys

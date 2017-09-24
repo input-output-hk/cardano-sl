@@ -49,9 +49,10 @@ import           System.Wlog                     (logWarning)
 
 import           Pos.Binary.Class                (AsBinary, fromBinaryM)
 import           Pos.Core                        (CoinPortion, EpochIndex, StakeholderId,
-                                                  addressHash, bvdMpcThd,
-                                                  coinPortionDenominator, getCoinPortion,
-                                                  unsafeGetCoin)
+                                                  VssCertificatesMap (..), addressHash,
+                                                  bvdMpcThd, coinPortionDenominator,
+                                                  getCoinPortion, lookupVss, memberVss,
+                                                  unsafeGetCoin, vcSigningKey, vcVssKey)
 import           Pos.Crypto                      (DecShare, verifyDecShare,
                                                   verifyEncShares)
 import           Pos.Lrc.Types                   (RichmenSet, RichmenStakes)
@@ -60,11 +61,9 @@ import           Pos.Ssc.GodTossing.Core         (Commitment (..),
                                                   GtPayload (..), InnerSharesMap,
                                                   Opening (..), OpeningsMap,
                                                   SharesDistribution, SharesMap,
-                                                  SignedCommitment,
-                                                  VssCertificatesMap (..), commShares,
-                                                  getCommShares, gpVss, lookupVss,
-                                                  memberVss, vcSigningKey, vcVssKey,
-                                                  verifyOpening, vssThreshold)
+                                                  SignedCommitment, commShares,
+                                                  getCommShares, gpVss, verifyOpening,
+                                                  vssThreshold)
 import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossEnv (..),
                                                   MonadTossRead (..))
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
@@ -246,9 +245,14 @@ computeSharesDistrPure richmen threshold
         let fromX = ceiling $ 1 / minimum portions
         let toX = sharesDistrMaxSumDistr mpcThreshold
 
-        -- If we didn't find an appropriate distribution
-        -- we use distribution [1, 1, ... 1] as fallback.
-        pure $ HM.fromList $ zip keys $ fromMaybe (repeat 1) (compute fromX toX 0)
+        -- If we didn't find an appropriate distribution we use distribution
+        -- [1, 1, ... 1] as fallback. Also, if there are less than 4 shares
+        -- in total, we multiply the number of shares by 4 because
+        -- 'genSharedSecret' can't break the secret into less than 4 shares.
+        pure $
+            HM.fromList $ zip keys $
+            (\xs -> if sum xs < 4 then map (*4) xs else xs) $
+            fromMaybe (repeat 1) (compute fromX toX 0)
   where
     keys :: [StakeholderId]
     keys = map fst $ HM.toList richmen

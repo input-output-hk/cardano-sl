@@ -8,17 +8,20 @@ import qualified Data.HashSet                  as HS
 import           Universum
 
 import           Pos.Binary.Class              (Bi (..), Cons (..), Decoder, Encoding,
-                                                Field (..), deriveSimpleBi, encodeListLen,
+                                                Field (..), deriveSimpleBi,
+                                                deriveSimpleBiCxt, encodeListLen,
                                                 enforceSize)
 import           Pos.Binary.Crypto             ()
+import           Pos.Core.Configuration        (HasConfiguration)
+import           Pos.Core.Vss                  (VssCertificate (..),
+                                                VssCertificatesMap (..),
+                                                mkVssCertificatesMap,
+                                                recreateVssCertificate)
 import           Pos.Crypto                    (Hash, PublicKey)
 import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), CommitmentsMap (..),
                                                 GtPayload (..), GtProof (..),
                                                 Opening (..), OpeningsMap, SharesMap,
-                                                SignedCommitment, VssCertificate (..),
-                                                VssCertificatesMap (..), mkCommitmentsMap,
-                                                mkVssCertificatesMap,
-                                                recreateVssCertificate)
+                                                SignedCommitment, mkCommitmentsMap)
 import           Serokell.Util                 (allDistinct)
 
 instance Bi Commitment where
@@ -35,7 +38,7 @@ instance Bi CommitmentsMap where
   encode = encodeCommitments
   decode = decodeCommitments
 
-instance Bi VssCertificate where
+instance HasConfiguration => Bi VssCertificate where
   encode vssCert = encodeListLen 4 <> encode (vcVssKey vssCert)
                                    <> encode (vcExpiryEpoch vssCert)
                                    <> encode (vcSignature vssCert)
@@ -50,7 +53,7 @@ instance Bi VssCertificate where
       Left e  -> fail e
       Right v -> pure v
 
-instance Bi VssCertificatesMap where
+instance HasConfiguration => Bi VssCertificatesMap where
   encode = encodeVssCertificates
   decode = decodeVssCertificates
 
@@ -76,10 +79,10 @@ Instead, we serialize those maps as sets, and we make sure to check that
 there are no values with duplicate stakeholder ids.
 -}
 
-encodeVssCertificates :: VssCertificatesMap -> Encoding
+encodeVssCertificates :: HasConfiguration => VssCertificatesMap -> Encoding
 encodeVssCertificates = encode . HS.fromList . toList
 
-decodeVssCertificates :: Decoder s VssCertificatesMap
+decodeVssCertificates :: HasConfiguration => Decoder s VssCertificatesMap
 decodeVssCertificates = do
     certs <- toList <$> decode @(HashSet VssCertificate)
     -- If the attacker creates two certs that are different but have the
@@ -103,7 +106,7 @@ decodeCommitments = do
 -- TH-generated instances go to the end of the file
 ----------------------------------------------------------------------------
 
-deriveSimpleBi ''GtPayload [
+deriveSimpleBiCxt [t|HasConfiguration|] ''GtPayload [
     Cons 'CommitmentsPayload [
         Field [| gpComms    :: CommitmentsMap     |],
         Field [| gpVss      :: VssCertificatesMap |] ],

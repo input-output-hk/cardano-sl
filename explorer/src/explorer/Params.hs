@@ -9,27 +9,24 @@ module Params
 
 import           Universum
 
-import           Data.Default        (def)
-import           Mockable            (Catch, Fork, Mockable, Throw)
-import           System.Wlog         (LoggerName, WithLogger)
+import           Data.Default                     (def)
+import           Mockable                         (Catch, Fork, Mockable, Throw)
+import           System.Wlog                      (LoggerName, WithLogger)
 
-import qualified Pos.Client.CLI      as CLI
-import           Pos.Constants       (isDevelopment)
-import           Pos.Core.Types      (Timestamp (..))
-import           Pos.Crypto          (VssKeyPair)
-import           Pos.Genesis         (devBalancesDistr, devGenesisContext,
-                                      genesisContextProduction)
-import           Pos.Launcher        (BaseParams (..), LoggingParams (..),
-                                      NodeParams (..))
-import           Pos.Network.CLI     (intNetworkConfigOpts)
-import           Pos.Ssc.GodTossing  (GtParams (..))
-import           Pos.Update.Params   (UpdateParams (..))
-import           Pos.Util.UserSecret (peekUserSecret)
+import qualified Pos.Client.CLI                   as CLI
+import           Pos.Core.Configuration           (HasConfiguration)
+import           Pos.Crypto                       (VssKeyPair)
+import           Pos.Launcher                     (BaseParams (..), LoggingParams (..),
+                                                   NodeParams (..))
+import           Pos.Network.CLI                  (intNetworkConfigOpts)
+import           Pos.Ssc.GodTossing               (GtParams (..))
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Update.Params                (UpdateParams (..))
+import           Pos.Util.UserSecret              (peekUserSecret)
 
-import           ExplorerOptions     (Args (..))
-import           Secrets             (updateUserSecretVSS, userSecretWithGenesisKey)
-
-
+import           ExplorerOptions                  (Args (..))
+import           Secrets                          (updateUserSecretVSS,
+                                                   userSecretWithGenesisKey)
 
 gtSscParams :: Args -> VssKeyPair -> GtParams
 gtSscParams Args {..} vssSK =
@@ -59,9 +56,11 @@ getNodeParams
        , Mockable Fork  m
        , Mockable Catch m
        , Mockable Throw m
+       , HasConfiguration
+       , HasGtConfiguration
        )
-    => Args -> Timestamp -> m NodeParams
-getNodeParams args@Args {..} systemStart = do
+    => Args -> m NodeParams
+getNodeParams args@Args {..} = do
     (primarySK, userSecret) <-
         userSecretWithGenesisKey args =<<
         updateUserSecretVSS args =<<
@@ -69,22 +68,11 @@ getNodeParams args@Args {..} systemStart = do
 
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
 
-    let devBalanceDistr =
-            devBalancesDistr
-                (CLI.flatDistr commonArgs)
-                (CLI.richPoorDistr commonArgs)
-                (CLI.expDistr commonArgs)
-
-    let npGenesisCtx
-            | isDevelopment = devGenesisContext devBalanceDistr
-            | otherwise = genesisContextProduction
-
     return NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB
         , npSecretKey = primarySK
         , npUserSecret = userSecret
-        , npSystemStart = systemStart
         , npBaseParams = getBaseParams "node" args
         , npJLFile = jlPath
         , npUpdateParams = UpdateParams
@@ -97,6 +85,7 @@ getNodeParams args@Args {..} systemStart = do
         , npUseNTP = not noNTP
         , npEnableMetrics = enableMetrics
         , npEkgParams = ekgParams
+        , npRoute53Params = Nothing -- We don't want health checking for Explorer
         , npStatsdParams = statsdParams
         , ..
         }

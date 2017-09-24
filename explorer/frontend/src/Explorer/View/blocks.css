@@ -104,27 +104,18 @@
   }
 }
 
-
-.blocks-waiting {
-  padding: 10px 24px;
-
-  font-size: 10px;
-  font-family: var(--fontFamily0-Regular);
-  color: var(--color13);
-}
-
-.blocks-failed {
-  padding: 0 24px 30px 24px;
-  font-size: 10px;
-  font-family: var(--fontFamily0-Regular);
-  color: var(--color1);
-}
-
 .blocks-message {
-  padding: 0 18px;
+  padding: 10px 24px;
   font-size: 10px;
   font-family: var(--fontFamily0-Regular);
   color: var(--color13);
+}
+
+.blocks-message-back {
+    padding: 0 24px 30px 24px;
+    font-size: 10px;
+    font-family: var(--fontFamily0-Regular);
+    color: var(--color1);
 }
 
 .blocks-body {

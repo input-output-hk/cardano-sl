@@ -16,18 +16,16 @@ import           Ether.Internal              (HasLens (..))
 import           System.Wlog                 (LoggerName)
 
 import           Pos.Behavior                (BehaviorConfig (..))
-import           Pos.Core                    (HasPrimaryKey (..), Timestamp)
+import           Pos.Core                    (HasPrimaryKey (..))
 import           Pos.Crypto                  (SecretKey)
 import           Pos.DHT.Real.Param          (KademliaParams)
-import           Pos.Genesis                 (GenesisContext, GenesisUtxo,
-                                              GenesisWStakeholders, gtcUtxo,
-                                              gtcWStakeholders)
 import           Pos.Network.Types           (NetworkConfig)
 import           Pos.Reporting.MemState      (HasReportServers (..))
 import           Pos.Security.Params         (SecurityParams)
 import           Pos.Ssc.GodTossing.Behavior (GtBehavior)
 import           Pos.Statistics              (EkgParams, StatsdParams)
 import           Pos.Update.Params           (UpdateParams)
+import           Pos.Util.TimeWarp           (NetworkAddress)
 import           Pos.Util.UserSecret         (UserSecret)
 import           Pos.Util.Util               (postfixLFields)
 
@@ -48,15 +46,14 @@ data BaseParams = BaseParams
 data NodeParams = NodeParams
     { npDbPathM        :: !FilePath             -- ^ Path to node's database
     , npRebuildDb      :: !Bool                 -- ^ @True@ if data-base should be rebuilt
-    , npSystemStart    :: !Timestamp            -- ^ System start
     , npSecretKey      :: !SecretKey            -- ^ Primary secret key of node
     , npUserSecret     :: !UserSecret           -- ^ All node secret keys
     , npBaseParams     :: !BaseParams           -- ^ See 'BaseParams'
-    , npGenesisCtx     :: !GenesisContext       -- ^ Predefined genesis context
     , npJLFile         :: !(Maybe FilePath)     -- TODO COMMENT
     , npReportServers  :: ![Text]               -- ^ List of report server URLs
     , npUpdateParams   :: !UpdateParams         -- ^ Params for update system
     , npUseNTP         :: !Bool                 -- ^ Whether to use synchronisation with NTP servers.
+    , npRoute53Params  :: !(Maybe NetworkAddress) -- ^ Where to listen for the Route53 DNS health-check.
     , npEnableMetrics  :: !Bool                 -- ^ Gather runtime statistics.
     , npEkgParams      :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring.
     , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend.
@@ -76,15 +73,6 @@ instance HasLens SecurityParams NodeParams SecurityParams where
     lensOf = npBehaviorConfig_L . bcSecurityParams_L
 instance HasLens GtBehavior NodeParams GtBehavior where
     lensOf = npBehaviorConfig_L . bcGtBehavior_L
-
-instance HasLens GenesisContext NodeParams GenesisContext where
-    lensOf = npGenesisCtx_L
-
-instance HasLens GenesisUtxo NodeParams GenesisUtxo where
-    lensOf = npGenesisCtx_L . gtcUtxo
-
-instance HasLens GenesisWStakeholders NodeParams GenesisWStakeholders where
-    lensOf = npGenesisCtx_L . gtcWStakeholders
 
 instance HasLens (NetworkConfig KademliaParams) NodeParams (NetworkConfig KademliaParams) where
     lensOf = npNetworkConfig_L

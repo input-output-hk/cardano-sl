@@ -2,17 +2,20 @@ module Bench.Pos.Criterion.FollowTheSatoshiBench
     ( runBenchmark
     ) where
 
-import           Criterion.Main  (Benchmark, bench, defaultConfig, defaultMainWith, env,
-                                  whnf)
-import           Criterion.Types (Config (..))
-import           Data.Map        (fromList)
-import           Formatting      (int, sformat, (%))
-import           Test.QuickCheck (Arbitrary (..), Gen, generate, infiniteListOf)
+import           Criterion.Main      (Benchmark, bench, defaultConfig, defaultMainWith,
+                                      env, whnf)
+import           Criterion.Types     (Config (..))
+import           Data.Map            (fromList)
+import           Formatting          (int, sformat, (%))
+import           Test.QuickCheck     (Arbitrary (..), Gen, generate, infiniteListOf)
 import           Universum
 
-import           Pos.Lrc         (followTheSatoshi)
-import           Pos.Types       (Utxo)
-import           Pos.Util        (arbitraryUnsafe)
+import           Pos.Core            (HasConfiguration)
+import           Pos.Lrc             (followTheSatoshi)
+import           Pos.Types           (Utxo)
+import           Pos.Util            (arbitraryUnsafe)
+
+import           Bench.Configuration (giveCoreConf)
 
 type UtxoSize = Int
 
@@ -21,7 +24,7 @@ type UtxoSize = Int
 arbitraryUtxoOfSize :: UtxoSize -> Gen Utxo
 arbitraryUtxoOfSize n = fromList . take n <$> infiniteListOf arbitraryUnsafe
 
-ftsBench :: UtxoSize -> Benchmark
+ftsBench :: HasConfiguration => UtxoSize -> Benchmark
 ftsBench n = env genArgs $ bench msg . whnf (uncurry followTheSatoshi)
     where genArgs = generate $ (,) <$> arbitrary <*> arbitraryUtxoOfSize n
           msg = toString $ sformat ("followTheSatoshi: Utxo of size "%int) n
@@ -32,4 +35,4 @@ ftsConfig = defaultConfig
     }
 
 runBenchmark :: IO ()
-runBenchmark = defaultMainWith ftsConfig $ map ftsBench [1000, 10000, 100000]
+runBenchmark = giveCoreConf $ defaultMainWith ftsConfig $ map ftsBench [1000, 10000, 100000]

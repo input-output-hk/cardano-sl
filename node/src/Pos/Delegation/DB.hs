@@ -55,7 +55,8 @@ import qualified Data.HashSet                 as HS
 import qualified Database.RocksDB             as Rocks
 
 import           Pos.Binary.Class             (serialize')
-import           Pos.Core                     (ProxySKHeavy, StakeholderId, addressHash)
+import           Pos.Core                     (ProxySKHeavy, StakeholderId, addressHash,
+                                               HasConfiguration)
 import           Pos.Core.Genesis             (GenesisDelegation (..))
 import           Pos.Crypto                   (ProxySecretKey (..), PublicKey, verifyPsk)
 import           Pos.DB                       (RocksBatchOp (..), dbSerializeValue,
@@ -149,7 +150,7 @@ data DelegationOp
     -- ^ Remove stakeholderId from postedThisEpoch map.
     deriving (Show)
 
-instance RocksBatchOp DelegationOp where
+instance HasConfiguration => RocksBatchOp DelegationOp where
     toBatchOp (PskFromEdgeAction (DlgEdgeAdd psk))
         | isRevokePsk psk =
           error $ "RocksBatchOp DelegationOp: malformed " <>

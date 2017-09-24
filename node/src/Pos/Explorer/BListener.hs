@@ -24,7 +24,7 @@ import           System.Wlog                  (WithLogger)
 import           Pos.Block.BListener          (MonadBListener (..))
 import           Pos.Block.Core               (Block, MainBlock, mainBlockTxPayload)
 import           Pos.Block.Types              (Blund)
-import           Pos.Core                     (HasCoreConstants, HeaderHash, difficultyL,
+import           Pos.Core                     (HasConfiguration, HeaderHash, difficultyL,
                                                epochIndexL, getChainDifficulty,
                                                headerHash)
 import           Pos.Crypto                   (withHash)
@@ -56,14 +56,14 @@ type MonadBListenerT m ssc =
     , WithLogger m
     , MonadCatch m
     , MonadDBRead m
-    , HasCoreConstants
+    , HasConfiguration
     )
 
 -- Explorer implementation for usual node. Combines the operations.
 instance ( MonadDBRead m
          , MonadCatch m
          , WithLogger m
-         , HasCoreConstants
+         , HasConfiguration
          )
          => MonadBListener (ExplorerBListener m) where
     onApplyBlocks     blunds = onApplyCallGeneral blunds
@@ -192,7 +192,7 @@ onRollbackLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
 
 -- Return a map from @Epoch@ to @HeaderHash@es for all non-empty blocks.
 epochBlocksMap
-    :: forall ssc. (HasCoreConstants, SscHelpersClass ssc)
+    :: forall ssc. (HasConfiguration, SscHelpersClass ssc)
     => NE (Block ssc)
     -> M.Map Epoch [HeaderHash]
 epochBlocksMap neBlocks = blocksEpochs
@@ -219,7 +219,7 @@ epochBlocksMap neBlocks = blocksEpochs
 
 -- Return a map from @Page@ to @HeaderHash@es for all non-empty blocks.
 pageBlocksMap
-    :: forall ssc. (HasCoreConstants, SscHelpersClass ssc)
+    :: forall ssc. (HasConfiguration, SscHelpersClass ssc)
     => NE (Block ssc)
     -> M.Map Page [HeaderHash]
 pageBlocksMap neBlocks = blocksPages

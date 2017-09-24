@@ -20,6 +20,7 @@ import           Formatting              (build, sformat, (%))
 import           Universum
 
 import           Pos.Core.Class          (epochIndexL)
+import           Pos.Core.Configuration  (HasConfiguration)
 import           Pos.DB                  (MonadDBRead, SomeBatchOp (..))
 import           Pos.Exception           (assertionFailed)
 import           Pos.Txp.Core            (TxAux, TxUndo, TxpUndo, flattenTxPayload)
@@ -46,8 +47,8 @@ txpGlobalSettings =
     }
 
 verifyBlocks
-    :: forall ctx m.
-       TxpGlobalVerifyMode ctx m
+    :: forall m.
+       TxpGlobalVerifyMode m
     => Bool -> OldestFirst NE TxpBlock -> m (OldestFirst NE TxpUndo)
 verifyBlocks verifyAllIsKnown newChain = do
     let epoch = NE.last (getOldestFirst newChain) ^. choosing epochIndexL (_1 . epochIndexL)
@@ -64,7 +65,7 @@ data ApplyBlocksSettings extra m = ApplyBlocksSettings
     }
 
 applyBlocksSettings
-    :: GlobalApplyToilMode ctx m
+    :: GlobalApplyToilMode m
     => ApplyBlocksSettings () m
 applyBlocksSettings =
     ApplyBlocksSettings
@@ -88,7 +89,7 @@ applyBlocksWith ApplyBlocksSettings {..} blunds = do
         runToilAction (mapM absApplySingle blunds)
 
 rollbackBlocks
-    :: TxpGlobalRollbackMode ctx m
+    :: TxpGlobalRollbackMode m
     => NewestFirst NE TxpBlund -> m SomeBatchOp
 rollbackBlocks blunds =
     toilModifierToBatch . snd <$>
@@ -99,7 +100,8 @@ rollbackBlocks blunds =
 ----------------------------------------------------------------------------
 
 -- | Convert 'GenericToilModifier' to batch of database operations.
-genericToilModifierToBatch :: (e -> SomeBatchOp)
+genericToilModifierToBatch :: HasConfiguration
+                           => (e -> SomeBatchOp)
                            -> GenericToilModifier e
                            -> SomeBatchOp
 genericToilModifierToBatch convertExtra modifier =
@@ -121,7 +123,7 @@ genericToilModifierToBatch convertExtra modifier =
     extraOp = convertExtra extra
 
 -- | Convert simple 'ToilModifier' to batch of database operations.
-toilModifierToBatch :: ToilModifier -> SomeBatchOp
+toilModifierToBatch :: HasConfiguration => ToilModifier -> SomeBatchOp
 toilModifierToBatch = genericToilModifierToBatch (const mempty)
 
 -- | Run action which requires toil interfaces.

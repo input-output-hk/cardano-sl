@@ -20,6 +20,7 @@ import           System.Wlog                       (logDebug)
 
 import           Pos.Aeson.ClientTypes             ()
 import           Pos.Aeson.WalletBackup            ()
+import           Pos.DB                            (MonadGState (..))
 import           Pos.Wallet.WalletMode             (connectedPeers, localChainDifficulty,
                                                     networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.ClientTypes        (spLocalCD, spNetworkCD, spPeers,
@@ -77,7 +78,8 @@ launchNotifier nat =
 
     updateNotifier = do
         cps <- waitForUpdate
-        addUpdate $ toCUpdateInfo cps
+        bvd <- gsAdoptedBVData
+        addUpdate $ toCUpdateInfo bvd cps
         logDebug "Added update to wallet storage"
         notifyAll UpdateAvailable
 

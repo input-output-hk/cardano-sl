@@ -1,5 +1,5 @@
 rotation:
-    logLimit: 2097152 # 2MB
+    logLimit: 5242880 # 5MB
     keepFiles: 20
 severity: Debug
 file: explorer-node.log

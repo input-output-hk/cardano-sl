@@ -42,7 +42,7 @@ import           Serokell.Util.Text               (listJson)
 import           System.Wlog                      (WithLogger, logWarning)
 
 import           Pos.Communication.Types.Protocol
-import           Pos.Core.Context                 (HasCoreConstants)
+import           Pos.Core.Configuration           (HasConfiguration)
 import           Pos.Core.Types                   (SlotId)
 import           Pos.KnownPeers                   (MonadFormatPeers)
 import           Pos.Recovery.Info                (MonadRecoveryInfo)
@@ -231,14 +231,14 @@ type LocalOnNewSlotComm ctx m =
     , HasShutdownContext ctx
     , MonadRecoveryInfo m
     , MonadFormatPeers m
-    , HasCoreConstants
+    , HasConfiguration
     )
 
 type OnNewSlotComm ctx m =
     ( LocalOnNewSlotComm ctx m
     , Mockable Throw m
     , Mockable SharedAtomic m
-    , HasCoreConstants
+    , HasConfiguration
     )
 
 onNewSlot'

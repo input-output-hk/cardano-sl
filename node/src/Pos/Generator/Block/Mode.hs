@@ -35,8 +35,9 @@ import           Pos.Block.Core              (Block, BlockHeader)
 import           Pos.Block.Slog              (HasSlogGState (..))
 import           Pos.Block.Types             (Undo)
 import           Pos.Client.Txp.Addresses    (MonadAddresses (..))
+import           Pos.Configuration           (HasNodeConfiguration)
 import           Pos.Core                    (Address, GenesisWStakeholders (..),
-                                              HasCoreConstants, HasPrimaryKey (..),
+                                              HasConfiguration, HasPrimaryKey (..),
                                               IsHeader, SlotId (..), Timestamp,
                                               epochOrSlotToSlot, getEpochOrSlot)
 import           Pos.Crypto                  (SecretKey)
@@ -51,6 +52,7 @@ import           Pos.Exception               (reportFatalError)
 import           Pos.Generator.Block.Param   (BlockGenParams (..), HasBlockGenParams (..),
                                               HasTxGenParams (..))
 import qualified Pos.GState                  as GS
+import           Pos.Infra.Configuration     (HasInfraConfiguration)
 import           Pos.KnownPeers              (MonadFormatPeers)
 import           Pos.Lrc                     (LrcContext (..))
 import           Pos.Reporting               (HasReportingContext (..), ReportingContext,
@@ -61,8 +63,10 @@ import           Pos.Slotting                (HasSlottingVar (..), MonadSlots (.
 import           Pos.Ssc.Class               (SscBlock)
 import           Pos.Ssc.Extra               (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing          (SscGodTossing)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                     (GenericTxpLocalData, TxpGlobalSettings,
                                               TxpHolderTag, mkTxpLocalData)
+import           Pos.Update.Configuration    (HasUpdateConfiguration)
 import           Pos.Update.Context          (UpdateContext, mkUpdateContext)
 import           Pos.Util                    (HasLens (..), Some, newInitFuture,
                                               postfixLFields)
@@ -98,7 +102,11 @@ type MonadBlockGenBase m
            , Concurrently
            ]
        , Eq (Promise m (Maybe ())) -- are you cereal boyz??1?
-       , HasCoreConstants
+       , HasConfiguration
+       , HasUpdateConfiguration
+       , HasInfraConfiguration
+       , HasGtConfiguration
+       , HasNodeConfiguration
        )
 
 -- | A set of constraints necessary for blockchain generation. All
@@ -163,7 +171,7 @@ instance MonadThrow m => MonadThrow (RandT g m) where
 -- recreated.
 mkBlockGenContext
     :: forall ctx m.
-    MonadBlockGen ctx m
+       (MonadBlockGen ctx m, HasGtConfiguration, HasNodeConfiguration)
     => BlockGenParams
     -> m BlockGenContext
 mkBlockGenContext bgcParams@BlockGenParams{..} = do
@@ -230,7 +238,7 @@ instance MonadBlockGenBase m => MonadDB (InitBlockGenMode m) where
     dbWriteBatch = DB.dbWriteBatchSumDefault
     dbDelete = DB.dbDeleteSumDefault
 
-instance MonadBlockGenBase m =>
+instance (HasGtConfiguration, MonadBlockGenBase m) =>
     MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo (InitBlockGenMode m)
   where
     dbGetBlock = BDB.dbGetBlockSumDefault @SscGodTossing
@@ -309,21 +317,21 @@ instance MonadBlockGenBase m => MonadDB (BlockGenMode m) where
     dbWriteBatch = DB.dbWriteBatchSumDefault
     dbDelete = DB.dbDeleteSumDefault
 
-instance MonadBlockGenBase m =>
+instance (HasGtConfiguration, MonadBlockGenBase m) =>
     MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo (BlockGenMode m)
   where
     dbGetBlock = BDB.dbGetBlockSumDefault @SscGodTossing
     dbGetUndo = BDB.dbGetUndoSumDefault @SscGodTossing
     dbGetHeader = BDB.dbGetHeaderSumDefault @SscGodTossing
 
-instance MonadBlockGenBase m =>
+instance (HasGtConfiguration, MonadBlockGenBase m) =>
     MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () (BlockGenMode m)
   where
     dbGetBlock = BDB.dbGetBlockSscSumDefault @SscGodTossing
     dbGetUndo = BDB.dbGetUndoSscSumDefault @SscGodTossing
     dbGetHeader = BDB.dbGetHeaderSscSumDefault @SscGodTossing
 
-instance MonadBlockGenBase m =>
+instance (HasGtConfiguration, MonadBlockGenBase m) =>
          MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo (BlockGenMode m) where
     dbPutBlund = BDB.dbPutBlundSumDefault
 

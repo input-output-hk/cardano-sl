@@ -18,7 +18,7 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, arbitrary, (==>))
 
 import           Pos.Arbitrary.Txp     (BadSigsTx (..), DoubleInputTx (..), GoodTx (..))
-import           Pos.Core              (addressHash, checkPubKeyAddress,
+import           Pos.Core              (HasConfiguration, addressHash, checkPubKeyAddress,
                                         makePubKeyAddressBoot, makeScriptAddress, mkCoin,
                                         sumCoins)
 import           Pos.Crypto            (SignTag (SignTx), checkSig, fakeSigner, hash,
@@ -39,14 +39,14 @@ import           Pos.Txp               (MonadUtxoRead (utxoGet), ToilVerFailure 
                                         isTxInUnknown, verifyTxUtxo, verifyTxUtxoPure)
 import           Pos.Util              (SmallGenerator (..), nonrepeating, runGen)
 
-import           Test.Pos.Util         (qcIsLeft, qcIsRight)
+import           Test.Pos.Util         (giveCoreConf, qcIsLeft, qcIsRight)
 
 ----------------------------------------------------------------------------
 -- Spec
 ----------------------------------------------------------------------------
 
 spec :: Spec
-spec = describe "Txp.Toil.Utxo" $ do
+spec = giveCoreConf $ describe "Txp.Toil.Utxo" $ do
     describe "utxoGet @((->) Utxo)" $ do
         it "returns Nothing when given empty Utxo" $
             isNothing (utxoGet myTx (mempty @Utxo))
@@ -82,13 +82,13 @@ spec = describe "Txp.Toil.Utxo" $ do
 -- Properties
 ----------------------------------------------------------------------------
 
-findTxInUtxo :: TxIn -> TxOutAux -> Utxo -> Bool
+findTxInUtxo :: HasConfiguration => TxIn -> TxOutAux -> Utxo -> Bool
 findTxInUtxo key txO utxo =
     let utxo' = M.delete key utxo
         newUtxo = M.insert key txO utxo
     in (isJust $ utxoGet key newUtxo) && (isNothing $ utxoGet key utxo')
 
-verifyTxInUtxo :: SmallGenerator GoodTx -> Property
+verifyTxInUtxo :: HasConfiguration => SmallGenerator GoodTx -> Property
 verifyTxInUtxo (SmallGenerator (GoodTx ls)) =
     let txs = fmap (view _1) ls
         witness = V.fromList $ toList $ fmap (view _4) ls
@@ -99,7 +99,7 @@ verifyTxInUtxo (SmallGenerator (GoodTx ls)) =
         txAux = TxAux newTx witness
     in qcIsRight $ verifyTxUtxoPure vtxContext utxo txAux
 
-badSigsTx :: SmallGenerator BadSigsTx -> Property
+badSigsTx :: HasConfiguration => SmallGenerator BadSigsTx -> Property
 badSigsTx (SmallGenerator (getBadSigsTx -> ls)) =
     let (tx@UnsafeTx {..}, utxo, extendedInputs, txWits) =
             getTxFromGoodTx ls
@@ -112,7 +112,7 @@ badSigsTx (SmallGenerator (getBadSigsTx -> ls)) =
                         (map (fmap snd) extendedInputs))
     in notAllSignaturesAreValid ==> qcIsLeft transactionVerRes
 
-doubleInputTx :: SmallGenerator DoubleInputTx -> Property
+doubleInputTx :: HasConfiguration => SmallGenerator DoubleInputTx -> Property
 doubleInputTx (SmallGenerator (getDoubleInputTx -> ls)) =
     let ((tx@UnsafeTx {..}), utxo, _extendedInputs, txWits) =
             getTxFromGoodTx ls
@@ -123,7 +123,7 @@ doubleInputTx (SmallGenerator (getDoubleInputTx -> ls)) =
             not $ allDistinct (toList _txInputs)
     in someInputsAreDuplicated ==> qcIsLeft transactionVerRes
 
-validateGoodTx :: SmallGenerator GoodTx -> Property
+validateGoodTx :: HasConfiguration => SmallGenerator GoodTx -> Property
 validateGoodTx (SmallGenerator (getGoodTx -> ls)) =
     let quadruple@(tx, utxo, _, txWits) = getTxFromGoodTx ls
         ctx = VTxContext False
@@ -171,7 +171,7 @@ getTxFromGoodTx ls =
 -- * every input is signed properly;
 -- * every input is a known unspent output.
 -- It also checks that it has good structure w.r.t. 'verifyTxAlone'.
-individualTxPropertyVerifier :: TxVerifyingTools -> Bool
+individualTxPropertyVerifier :: HasConfiguration => TxVerifyingTools -> Bool
 individualTxPropertyVerifier (tx@UnsafeTx{..}, _, extendedInputs, txWits) =
     let hasGoodSum = txChecksum extendedInputs _txOutputs
         hasGoodInputs =
@@ -181,7 +181,8 @@ individualTxPropertyVerifier (tx@UnsafeTx{..}, _, extendedInputs, txWits) =
     in hasGoodSum && hasGoodInputs
 
 signatureIsValid
-    :: Tx
+    :: HasConfiguration
+    => Tx
     -> (TxInWitness, Maybe TxOutAux) -- ^ input witness +
                                      --    output spent by the input
     -> Bool
@@ -193,7 +194,8 @@ signatureIsValid tx (PkWitness{..}, Just TxOutAux{..}) =
 signatureIsValid _ _ = False
 
 signatureIsNotValid
-    :: Tx
+    :: HasConfiguration
+    => Tx
     -> (TxInWitness, Maybe TxOutAux)
     -> Bool
 signatureIsNotValid = not ... signatureIsValid
@@ -208,7 +210,8 @@ txChecksum extendedInputs txOuts =
         outSum = sumCoins $ map txOutValue txOuts
     in inpSum >= outSum
 
-applyTxToUtxoGood :: (TxIn, TxOutAux)
+applyTxToUtxoGood :: HasConfiguration
+                  => (TxIn, TxOutAux)
                   -> M.Map TxIn TxOutAux
                   -> NonEmpty TxOutAux
                   -> Bool
@@ -234,7 +237,7 @@ applyTxToUtxoGood (txIn0, txOut0) txMap txOuts =
 ----------------------------------------------------------------------------
 
 scriptTxSpec :: Spec
-scriptTxSpec = describe "script transactions" $ do
+scriptTxSpec = giveCoreConf $ describe "script transactions" $ do
     describe "good cases" $ do
         it "goodIntRedeemer + intValidator" $ do
             txShouldSucceed $ checkScriptTx
@@ -250,7 +253,8 @@ scriptTxSpec = describe "script transactions" $ do
         it "a P2PK tx spending a P2SH tx" $ do
             txShouldFailWithWitnessMismatch $ checkScriptTx
                 alwaysSuccessValidator
-                (\_ -> randomPkWitness)
+                (\_ -> runGen $ -- random pk witness
+                      PkWitness <$> arbitrary <*> arbitrary)
 
         it "validator script provided in witness doesn't match \
            \the validator for which the address was created" $ do
@@ -391,8 +395,6 @@ scriptTxSpec = describe "script transactions" $ do
     randomPkOutput = runGen $ do
         key <- arbitrary
         return (TxOut (makePubKeyAddressBoot key) (mkCoin 1))
-    randomPkWitness = runGen $
-        PkWitness <$> arbitrary <*> arbitrary
     -- Make utxo with a single output; return utxo, the output, and an
     -- input that can be used to spend that output
     mkUtxo :: TxOut -> (TxIn, TxOut, Utxo)
@@ -405,13 +407,14 @@ scriptTxSpec = describe "script transactions" $ do
 
     -- Try to apply a transaction (with given utxo as context) and say
     -- whether it applied successfully
-    tryApplyTx :: Utxo -> TxAux -> Either ToilVerFailure ()
+    tryApplyTx :: HasConfiguration => Utxo -> TxAux -> Either ToilVerFailure ()
     tryApplyTx utxo txa = runExceptT (() <$ verifyTxUtxo vtxContext txa) utxo
 
     -- Test tx1 against tx0. Tx0 will be a script transaction with given
     -- validator. Tx1 will be a P2PK transaction spending tx0 (with given
     -- input witness).
-    checkScriptTx :: Script
+    checkScriptTx :: HasConfiguration
+                  => Script
                   -> (TxSigData -> TxInWitness)
                   -> Either ToilVerFailure ()
     checkScriptTx val mkWit =

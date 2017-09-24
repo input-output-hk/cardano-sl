@@ -6,9 +6,12 @@ module Pos.Delegation.Cede.Types
        , pskToDlgEdgeAction
        , dlgEdgeActionIssuer
 
-       , CedeModifier
+       , CedeModifier (..)
+       , cmPskMods
+       , cmHasPostedThisEpoch
        ) where
 
+import           Control.Lens           (makeLenses)
 import qualified Data.Text.Buildable
 import           Formatting             (bprint, build, (%))
 import           Universum
@@ -42,5 +45,19 @@ dlgEdgeActionIssuer = \case
     (DlgEdgeDel sId) -> sId
     (DlgEdgeAdd psk) -> addressHash (pskIssuerPk psk)
 
--- | A set of modifications for PSK storage.
-type CedeModifier = HashMap StakeholderId DlgEdgeAction
+-- TODO should it use Pos.Util.Modifier ?
+-- | A set of modifications for dlg-related component to implement
+-- Cede-related typeclasses.
+data CedeModifier = CedeModifier
+    { _cmPskMods            :: !(HashMap StakeholderId DlgEdgeAction)
+      -- ^ PSK modifications (added/overwritten or deleted)
+    , _cmHasPostedThisEpoch :: !(HashMap StakeholderId Bool)
+      -- ^ 'True' means user has posted psk, 'False' means he didn't.
+    }
+
+makeLenses ''CedeModifier
+
+instance Monoid CedeModifier where
+    mempty = CedeModifier mempty mempty
+    mappend (CedeModifier a b) (CedeModifier c e) =
+        CedeModifier (a <> c) (b <> e)

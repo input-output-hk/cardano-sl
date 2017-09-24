@@ -14,17 +14,17 @@ import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck       (Arbitrary (..), Property, choose, infiniteListOf,
                                         suchThat, (===))
 
-import           Pos.Core              (Coin, HasCoreConstants, SharedSeed, StakeholderId,
+import           Pos.Core              (Coin, HasConfiguration, SharedSeed, StakeholderId,
                                         StakesList, addressHash, blkSecurityParam,
-                                        epochSlots, giveStaticConsts, mkCoin, sumCoins,
-                                        unsafeAddCoin, unsafeIntegerToCoin)
+                                        epochSlots, mkCoin, sumCoins, unsafeAddCoin,
+                                        unsafeIntegerToCoin)
 import           Pos.Crypto            (PublicKey)
 import           Pos.Lrc               (followTheSatoshi)
 
-import           Test.Pos.Util         (qcNotElem)
+import           Test.Pos.Util         (giveCoreConf, qcNotElem)
 
 spec :: Spec
-spec = giveStaticConsts $ do
+spec = giveCoreConf $ do
     let smaller = modifyMaxSuccess (const 1)
     describe "Pos.Lrc.FtsPure" $ do
         describe "followTheSatoshi" $ do
@@ -86,12 +86,12 @@ instance Arbitrary StakeAndHolder where
             stakesList = map addressHash (toList restPks) `zip` values
         return (myPk, stakesList)
 
-ftsListLength :: HasCoreConstants => SharedSeed -> StakeAndHolder -> Property
+ftsListLength :: HasConfiguration => SharedSeed -> StakeAndHolder -> Property
 ftsListLength seed (getNoStake -> (_, stakes)) =
     length (followTheSatoshi seed stakes) === fromIntegral epochSlots
 
 ftsNoStake
-    :: HasCoreConstants
+    :: HasConfiguration
     => SharedSeed
     -> StakeAndHolder
     -> Property
@@ -101,7 +101,7 @@ ftsNoStake seed (getNoStake -> (addressHash -> sId, stakes)) =
 -- It will be broken if 'Coin' is 0, but 'arbitrary' can't generate 0
 -- for unknown reason.
 ftsAllStake
-    :: HasCoreConstants
+    :: HasConfiguration
     => SharedSeed
     -> PublicKey
     -> Coin
@@ -112,7 +112,7 @@ ftsAllStake seed pk v =
 
 -- | Constant specifying the number of times 'ftsReasonableStake' will be
 -- run.
-numberOfRuns :: HasCoreConstants => Int
+numberOfRuns :: HasConfiguration => Int
 -- The higher is 'blkSecurityParam', the longer epochs will be and the more
 -- time FTS will take
 numberOfRuns = 300000 `div` fromIntegral blkSecurityParam
@@ -121,14 +121,14 @@ newtype FtsStream = Stream
     { getStream :: [SharedSeed]
     } deriving Show
 
-instance HasCoreConstants => Arbitrary FtsStream where
+instance HasConfiguration => Arbitrary FtsStream where
     arbitrary = Stream . take numberOfRuns <$> infiniteListOf arbitrary
 
 newtype StakesStream = StakesStream
     { getStakesStream :: [StakeAndHolder]
     } deriving Show
 
-instance HasCoreConstants => Arbitrary StakesStream where
+instance HasConfiguration => Arbitrary StakesStream where
     arbitrary = StakesStream . take numberOfRuns <$> infiniteListOf arbitrary
 
 -- | This test is a sanity check to verify that 'followTheSatoshi' does not
@@ -144,7 +144,7 @@ instance HasCoreConstants => Arbitrary StakesStream where
 -- For a low/high stake, the test succeeds if this comparison is below/above the
 -- threshold, respectively.
 ftsReasonableStake
-    :: HasCoreConstants
+    :: HasConfiguration
     => Double
     -> ((Int, Double, Double) -> Bool)
     -> FtsStream

@@ -138,10 +138,10 @@ p2p:
 Behind-NAT is not (explicitly) supported in traditional mode (though
 workarounds using SSH tunnelling or similar are of course possible).
 
-## Light wallet
+## Auxx
 
-The light wallet uses a specialized topology, in which it is given a specific
-set of nodes to connect to. This is hardcoded in the light wallet itself, there
+The auxx uses a specialized topology, in which it is given a specific
+set of nodes to connect to. This is hardcoded in the auxx itself, there
 is no yaml format for this mode.
 
 # Kademlia configuration

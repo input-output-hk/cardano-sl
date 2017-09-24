@@ -39,9 +39,8 @@ import           Pos.Block.Slog          (BypassSecurityCheck (..), MonadSlogApp
                                           MonadSlogBase, slogApplyBlocks,
                                           slogRollbackBlocks)
 import           Pos.Block.Types         (Blund, Undo (undoTx, undoUS))
-import           Pos.Core                (GenesisWStakeholders, HasCoreConstants,
-                                          IsGenesisHeader, IsMainHeader, epochIndexL,
-                                          gbBody, gbHeader, headerHash)
+import           Pos.Core                (HasConfiguration, IsGenesisHeader, IsMainHeader,
+                                          epochIndexL, gbBody, gbHeader, headerHash)
 import           Pos.DB                  (MonadDB, MonadGState, SomeBatchOp (..))
 import           Pos.DB.Block            (MonadBlockDB, MonadSscBlockDB)
 import           Pos.DB.DB               (sanityCheckDB)
@@ -88,7 +87,6 @@ type MonadBlockBase ssc ctx m
        , HasLens LrcContext ctx LrcContext
        , HasLens TxpGlobalSettings ctx TxpGlobalSettings
        , SscGStateClass ssc
-       , HasLens GenesisWStakeholders ctx GenesisWStakeholders
        , MonadDelegation ctx m
        -- 'MonadRandom' for crypto.
        , Rand.MonadRandom m
@@ -121,7 +119,6 @@ type MonadMempoolNormalization ssc ctx m
       , MonadSscMem ssc ctx m
       , HasLens LrcContext ctx LrcContext
       , HasLens UpdateContext ctx UpdateContext
-      , HasLens GenesisWStakeholders ctx GenesisWStakeholders
       -- Needed to load useful information from db
       , MonadBlockDB ssc m
       , MonadSscBlockDB ssc m
@@ -245,7 +242,7 @@ rollbackBlocksUnsafe bsc toRollback = do
 -- [CSL-1156] Need something more elegant.
 toTxpBlock
     :: forall ssc.
-       (HasCoreConstants, SscHelpersClass ssc)
+       (HasConfiguration, SscHelpersClass ssc)
     => Block ssc -> TxpBlock
 toTxpBlock = bimap convertGenesis convertMain
   where
@@ -257,14 +254,14 @@ toTxpBlock = bimap convertGenesis convertMain
 -- [CSL-1156] Yes, definitely need something more elegant.
 toTxpBlund
     :: forall ssc.
-       (HasCoreConstants, SscHelpersClass ssc)
+       (HasConfiguration, SscHelpersClass ssc)
     => Blund ssc -> TxpBlund
 toTxpBlund = bimap toTxpBlock undoTx
 
 -- [CSL-1156] Sure, totally need something more elegant
 toUpdateBlock
     :: forall ssc.
-       (HasCoreConstants, SscHelpersClass ssc)
+       (HasConfiguration, SscHelpersClass ssc)
     => Block ssc -> UpdateBlock
 toUpdateBlock = bimap convertGenesis convertMain
   where

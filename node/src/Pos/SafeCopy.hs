@@ -34,13 +34,14 @@ import           Pos.Core.Types                  (AddrAttributes (..),
                                                   Script (..), SharedSeed (..),
                                                   SlotCount (..), SlotId (..),
                                                   SoftforkRule (..), SoftwareVersion (..))
+import           Pos.Core.Vss                    (VssCertificate (..), VssCertificatesMap)
 import           Pos.Crypto.Hashing              (AbstractHash (..))
 import           Pos.Crypto.HD                   (HDAddressPayload (..))
-import           Pos.Crypto.RedeemSigning        (RedeemPublicKey (..),
+import           Pos.Crypto.SecretSharing        (SecretProof)
+import           Pos.Crypto.Signing.Redeem       (RedeemPublicKey (..),
                                                   RedeemSecretKey (..),
                                                   RedeemSignature (..))
-import           Pos.Crypto.SecretSharing        (SecretProof)
-import           Pos.Crypto.Signing              (ProxyCert (..), ProxySecretKey (..),
+import           Pos.Crypto.Signing.Signing      (ProxyCert (..), ProxySecretKey (..),
                                                   ProxySignature (..), PublicKey (..),
                                                   SecretKey (..), Signature (..),
                                                   Signed (..))
@@ -51,8 +52,7 @@ import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (.
 import           Pos.Ssc.Class.Types             (Ssc (..))
 import           Pos.Ssc.GodTossing.Core.Types   (Commitment (..), CommitmentsMap,
                                                   GtPayload (..), GtProof (..),
-                                                  Opening (..), VssCertificate (..),
-                                                  VssCertificatesMap)
+                                                  Opening (..))
 import           Pos.Txp.Core.Types              (Tx (..), TxIn (..), TxInWitness (..),
                                                   TxOut (..), TxOutAux (..),
                                                   TxPayload (..), TxProof (..))

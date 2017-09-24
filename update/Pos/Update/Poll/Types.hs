@@ -202,13 +202,13 @@ data BlockVersionState = BlockVersionState
 bvsIsConfirmed :: BlockVersionState -> Bool
 bvsIsConfirmed = isJust . bvsConfirmedEpoch
 
-bvsScriptVersion :: BlockVersionState -> ScriptVersion
+bvsScriptVersion :: BlockVersionState -> Maybe ScriptVersion
 bvsScriptVersion = bvmScriptVersion . bvsModifier
 
-bvsSlotDuration :: BlockVersionState -> Millisecond
+bvsSlotDuration :: BlockVersionState -> Maybe Millisecond
 bvsSlotDuration = bvmSlotDuration . bvsModifier
 
-bvsMaxBlockSize :: BlockVersionState -> Byte
+bvsMaxBlockSize :: BlockVersionState -> Maybe Byte
 bvsMaxBlockSize = bvmMaxBlockSize . bvsModifier
 
 ----------------------------------------------------------------------------

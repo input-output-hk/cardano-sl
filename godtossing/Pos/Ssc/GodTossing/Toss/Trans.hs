@@ -9,14 +9,16 @@ module Pos.Ssc.GodTossing.Toss.Trans
        , execTossT
        ) where
 
+import           Universum
+
 import           Control.Lens                  (at, (%=), (.=))
 import qualified Ether
 import           Mockable                      (ChannelT, Promise, SharedAtomicT,
                                                 ThreadId)
-import           Universum
 
+import           Pos.Core.Vss                  (insertVss)
 import           Pos.Ssc.GodTossing.Core       (deleteSignedCommitment,
-                                                insertSignedCommitment, insertVss)
+                                                insertSignedCommitment)
 import           Pos.Ssc.GodTossing.Toss.Class (MonadToss (..), MonadTossEnv (..),
                                                 MonadTossRead (..))
 import           Pos.Ssc.GodTossing.Toss.Types (TossModifier (..), tmCertificates,

@@ -25,9 +25,10 @@ import           System.Wlog                    (logInfo)
 
 import           Pos.Communication              (ActionSpec (..), OutSpecs)
 import           Pos.Communication.Protocol     (SendActions)
-import           Pos.Core                       (HasCoreConstants)
+import           Pos.Launcher.Configuration     (HasConfigurations)
 import           Pos.Launcher.Resource          (NodeResources)
 import           Pos.Launcher.Runner            (runRealBasedMode)
+import           Pos.Util.TimeWarp              (NetworkAddress)
 import           Pos.Wallet.SscType             (WalletSscType)
 import           Pos.Wallet.Web.Methods         (addInitialRichAccount)
 import           Pos.Wallet.Web.Mode            (WalletWebMode, WalletWebModeContext (..),
@@ -40,7 +41,7 @@ import           Pos.Web                        (TlsParams)
 
 -- | 'WalletWebMode' runner.
 runWRealMode
-    :: HasCoreConstants
+    :: HasConfigurations
     => WalletState
     -> ConnectionsVar
     -> NodeResources WalletSscType WalletWebMode
@@ -52,10 +53,10 @@ runWRealMode db conn =
         (Mtl.withReaderT (\(WalletWebModeContext _ _ rmc) -> rmc))
 
 walletServeWebFull
-    :: HasCoreConstants
+    :: HasConfigurations
     => SendActions WalletWebMode
-    -> Bool      -- whether to include genesis keys
-    -> Word16    -- ^ Port to listen
+    -> Bool              -- whether to include genesis keys
+    -> NetworkAddress    -- ^ IP and Port to listen
     -> Maybe TlsParams
     -> WalletWebMode ()
 walletServeWebFull sendActions debug = walletServeImpl action

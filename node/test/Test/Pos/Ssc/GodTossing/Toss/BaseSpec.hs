@@ -20,8 +20,11 @@ import           Test.QuickCheck       (Arbitrary (..), Gen, NonEmptyList (..), 
 
 import           Pos.Arbitrary.Lrc     (GenesisMpcThd, ValidRichmenStakes (..))
 import           Pos.Binary            (AsBinary)
-import           Pos.Constants         (genesisBlockVersionData)
-import           Pos.Core              (HasCoreConstants, giveStaticConsts)
+import           Pos.Core              (Coin, EpochIndex, EpochOrSlot (..),
+                                        HasConfiguration, StakeholderId,
+                                        VssCertificate (..), VssCertificatesMap (..),
+                                        addressHash, crucialSlot, genesisBlockVersionData,
+                                        insertVss, mkCoin)
 import           Pos.Crypto            (DecShare, PublicKey, SecretKey,
                                         SignTag (SignCommitment), sign, toPublic)
 import           Pos.Lrc.Types         (RichmenStakes)
@@ -32,21 +35,18 @@ import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadSignedCommitm
                                         MultiRichmenStakes, Opening, OpeningsMap,
                                         PureTossWithEnv, SharesMap, SignedCommitment,
                                         TossVerFailure (..), VssCertData (..),
-                                        VssCertificate (..), VssCertificatesMap (..),
                                         checkCertificatesPayload, checkCommitmentsPayload,
                                         checkOpeningsPayload, checkSharesPayload,
                                         deleteSignedCommitment, gsCommitments, gsOpenings,
-                                        gsShares, gsVssCertificates, insertVss,
+                                        gsShares, gsVssCertificates,
                                         mkCommitmentsMapUnsafe, runPureToss,
-                                        supplyPureTossEnv, vcVssKey, verifyCommitment,
+                                        supplyPureTossEnv, verifyCommitment,
                                         verifyCommitmentSignature, verifyOpening)
-import           Pos.Types             (Coin, EpochIndex, EpochOrSlot (..), StakeholderId,
-                                        addressHash, crucialSlot, mkCoin)
 
-import           Test.Pos.Util         (qcElem, qcFail, qcIsRight)
+import           Test.Pos.Util         (giveCoreConf, qcElem, qcFail, qcIsRight)
 
 spec :: Spec
-spec = giveStaticConsts $ describe "Ssc.GodTossing.Base" $ do
+spec = giveCoreConf $ describe "Ssc.GodTossing.Base" $ do
     describe "verifyCommitment" $ do
         prop description_verifiesOkComm verifiesOkComm
     describe "verifyCommitmentSignature" $ do
@@ -112,12 +112,12 @@ verifiesOkComm :: CommitmentOpening -> Bool
 verifiesOkComm CommitmentOpening{..} =
     verifyCommitment coCommitment
 
-verifiesOkCommSig :: SecretKey -> Commitment -> EpochIndex -> Bool
+verifiesOkCommSig :: HasConfiguration => SecretKey -> Commitment -> EpochIndex -> Bool
 verifiesOkCommSig sk comm epoch =
     let commSig = (toPublic sk, comm, sign SignCommitment sk (epoch, comm))
     in verifyCommitmentSignature epoch commSig
 
-notVerifiesBadCommSig :: BadSignedCommitment -> EpochIndex -> Bool
+notVerifiesBadCommSig :: HasConfiguration => BadSignedCommitment -> EpochIndex -> Bool
 notVerifiesBadCommSig (getBadSignedC -> badSignedComm) epoch =
     not $ verifyCommitmentSignature epoch badSignedComm
 
@@ -130,7 +130,7 @@ notVerifiesBadOpening (getBadCAndO -> badCommsAndOp) =
     not . uncurry verifyOpening $ badCommsAndOp
 
 emptyPayload
-    :: (Monoid container, Show e)
+    :: (HasConfiguration, Monoid container, Show e)
     => (container -> ExceptT e PureTossWithEnv a)
     -> MultiRichmenStakes
     -> GtGlobalState
@@ -139,7 +139,7 @@ emptyPayload pureToss mrs gtgs =
     qcIsRight $ tossRunner mrs gtgs $ pureToss mempty
 
 emptyPayloadComms
-    :: HasCoreConstants
+    :: HasConfiguration
     => GoodCommsPayload
     -> GtGlobalState
     -> Property
@@ -162,7 +162,7 @@ data GoodPayload p = GoodPayload
 
 type GoodCommsPayload = GoodPayload CommitmentsMap
 
-instance HasCoreConstants => Arbitrary GoodCommsPayload where
+instance HasConfiguration => Arbitrary GoodCommsPayload where
     arbitrary = do
         -- These fields won't be needed for anything, so they can be entirely arbitrary.
         _gsOpenings <- arbitrary
@@ -207,7 +207,7 @@ instance HasCoreConstants => Arbitrary GoodCommsPayload where
         return GoodPayload {..}
 
 -- TODO: Account for 'CommSharesOnWrongParticipants' failure
-checksGoodCommsPayload :: HasCoreConstants => GoodCommsPayload -> Bool
+checksGoodCommsPayload :: HasConfiguration => GoodCommsPayload -> Bool
 checksGoodCommsPayload (GoodPayload epoch gtgs commsMap mrs) =
     case tossRunner mrs gtgs $ checkCommitmentsPayload epoch commsMap of
         Left (CommSharesOnWrongParticipants _) -> True
@@ -216,7 +216,7 @@ checksGoodCommsPayload (GoodPayload epoch gtgs commsMap mrs) =
 
 -- TODO: Account for 'CommSharesOnWrongParticipants' failure
 checksBadCommsPayload
-    :: HasCoreConstants
+    :: HasConfiguration
     => GoodCommsPayload
     -> StakeholderId
     -> SignedCommitment
@@ -272,7 +272,7 @@ newtype GoodOpeningPayload = GoodOpens
     { getGoodOpens :: (GtGlobalState, OpeningsMap)
     } deriving (Show, Eq)
 
-instance HasCoreConstants => Arbitrary GoodOpeningPayload where
+instance HasConfiguration => Arbitrary GoodOpeningPayload where
     arbitrary = GoodOpens <$> do
 
       -- These fields won't be used, so they can be entirely arbitrary
@@ -313,13 +313,13 @@ instance HasCoreConstants => Arbitrary GoodOpeningPayload where
         return (GtGlobalState {..}, opensPayload)
 
 checksGoodOpeningsPayload
-    :: HasCoreConstants
+    :: HasConfiguration
     => MultiRichmenStakes -> GoodOpeningPayload -> Property
 checksGoodOpeningsPayload mrs (getGoodOpens -> (gtgs, openPayload)) =
     qcIsRight . tossRunner mrs gtgs $ checkOpeningsPayload openPayload
 
 checksBadOpeningsPayload
-    :: HasCoreConstants
+    :: HasConfiguration
     => StakeholderId
     -> Opening
     -> SignedCommitment
@@ -361,7 +361,7 @@ checksBadOpeningsPayload
 
 type GoodSharesPayload = GoodPayload SharesMap
 
-instance HasCoreConstants => Arbitrary GoodSharesPayload where
+instance HasConfiguration => Arbitrary GoodSharesPayload where
     arbitrary = do
         -- These openings won't be needed for anything, so they can be entirely arbitrary.
         _gsOpenings <- arbitrary
@@ -418,7 +418,7 @@ instance HasCoreConstants => Arbitrary GoodSharesPayload where
 
 -- NOTE: this test does not care for 'DecrSharesNotMatchCommitment' failure. This would
 --make the already non-trivial arbitrary instance for 'GoodSharesPayload' unmanageable.
-checksGoodSharesPayload :: HasCoreConstants => GoodSharesPayload -> Bool
+checksGoodSharesPayload :: HasConfiguration => GoodSharesPayload -> Bool
 checksGoodSharesPayload (GoodPayload epoch gtgs sharesMap mrs) =
     case tossRunner mrs gtgs $ checkSharesPayload epoch sharesMap of
         Left (DecrSharesNotMatchCommitment _) -> True
@@ -430,7 +430,7 @@ checksGoodSharesPayload (GoodPayload epoch gtgs sharesMap mrs) =
 -- NOTE: does not check for 'DecrSharesNotMatchCommitment' failure. This would make the
 -- already non-trivial arbitrary instance for 'GoodSharesPayload' unmanageable.
 checksBadSharesPayload
-    :: HasCoreConstants
+    :: HasConfiguration
     => GoodSharesPayload
     -> PublicKey
     -> NonEmpty (AsBinary DecShare)
@@ -493,7 +493,7 @@ checksBadSharesPayload (GoodPayload epoch g@GtGlobalState {..} sm mrs) pk ne cer
 
 type GoodCertsPayload = GoodPayload VssCertificatesMap
 
-instance HasCoreConstants => Arbitrary GoodCertsPayload where
+instance HasConfiguration => Arbitrary GoodCertsPayload where
     arbitrary = do
 
         -- These fields of 'GtGlobalState' are irrelevant for the
@@ -562,11 +562,11 @@ instance HasCoreConstants => Arbitrary GoodCertsPayload where
 
         return GoodPayload {..}
 
-checksGoodCertsPayload :: HasCoreConstants => GoodCertsPayload -> Property
+checksGoodCertsPayload :: HasConfiguration => GoodCertsPayload -> Property
 checksGoodCertsPayload (GoodPayload epoch gtgs certsMap mrs) =
     qcIsRight . tossRunner mrs gtgs $ checkCertificatesPayload epoch certsMap
 
-checksBadCertsPayload :: HasCoreConstants => GoodCertsPayload -> PublicKey -> VssCertificate -> Property
+checksBadCertsPayload :: HasConfiguration => GoodCertsPayload -> PublicKey -> VssCertificate -> Property
 checksBadCertsPayload (GoodPayload epoch gtgs certsMap mrs) pk cert =
     let sid = addressHash pk
 
@@ -621,7 +621,8 @@ checksBadCertsPayload (GoodPayload epoch gtgs certsMap mrs) pk cert =
 
 -- Going to use fake randomness here because threading MonadRandom through
 -- everything is annoying
-tossRunner :: MultiRichmenStakes
+tossRunner :: HasConfiguration
+           => MultiRichmenStakes
            -> GtGlobalState
            -> ExceptT e PureTossWithEnv a
            -> Either e a

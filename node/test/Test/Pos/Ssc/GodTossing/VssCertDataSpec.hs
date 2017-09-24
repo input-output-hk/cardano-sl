@@ -16,23 +16,22 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Arbitrary (..), Gen, Property, choose, conjoin,
                                         counterexample, suchThat, vectorOf, (.&&.), (==>))
 
-import           Pos.Core.Context      (HasCoreConstants, giveStaticConsts,
+import           Pos.Core              (EpochIndex (..), EpochOrSlot (..),
+                                        HasConfiguration, SlotId (..),
+                                        VssCertificate (..), getCertId,
+                                        getVssCertificatesMap, mkVssCertificate,
                                         slotSecurityParam)
 import           Pos.Core.Slotting     (flattenEpochOrSlot, unflattenSlotId)
-import           Pos.Ssc.GodTossing    (GtGlobalState (..), VssCertData (..),
-                                        VssCertificate (..), delete, empty, expiryEoS,
-                                        filter, getCertId, getVssCertificatesMap,
-                                        gsVssCertificates, insert, keys, lookup, member,
-                                        mkVssCertificate, rollbackGT, runPureToss,
-                                        setLastKnownSlot)
-import           Pos.Types             (EpochIndex (..), EpochOrSlot (..), SlotId,
-                                        SlotId (..))
+import           Pos.Ssc.GodTossing    (GtGlobalState (..), VssCertData (..), delete,
+                                        empty, expiryEoS, filter, gsVssCertificates,
+                                        insert, keys, lookup, member, rollbackGT,
+                                        runPureToss, setLastKnownSlot)
 import           Pos.Util.Chrono       (NewestFirst (..))
 
-import           Test.Pos.Util         (qcIsJust)
+import           Test.Pos.Util         (giveCoreConf, qcIsJust)
 
 spec :: Spec
-spec = giveStaticConsts $ describe "Ssc.GodTossing.VssCertData" $ do
+spec = giveCoreConf $ describe "Ssc.GodTossing.VssCertData" $ do
     describe "verifyInsertVssCertData" $
         prop description_verifyInsertVssCertData verifyInsertVssCertData
     describe "verifyDeleteVssCertData" $
@@ -80,7 +79,7 @@ newtype CorrectVssCertData = CorrectVssCertData
     { getVssCertData :: VssCertData
     } deriving (Show)
 
-instance HasCoreConstants => Arbitrary CorrectVssCertData where
+instance HasConfiguration => Arbitrary CorrectVssCertData where
     arbitrary = (CorrectVssCertData <$>) $ do
         certificatesToAdd <- choose (0, 100)
         lkeos             <- arbitrary :: Gen EpochOrSlot
@@ -172,7 +171,7 @@ verifyDeleteAndFilter (getVssCertData -> vcd@VssCertData{..}) =
 data RollbackData = Rollback GtGlobalState EpochOrSlot [VssCertificate]
     deriving (Show, Eq)
 
-instance HasCoreConstants => Arbitrary RollbackData where
+instance HasConfiguration => Arbitrary RollbackData where
     arbitrary = do
         goodVssCertData@(VssCertData {..}) <- getVssCertData <$> arbitrary
         certsToRollbackN <- choose (0, 100) >>= choose . (0,)
@@ -193,7 +192,7 @@ instance HasCoreConstants => Arbitrary RollbackData where
                           certsToRollback
 
 verifyRollback
-    :: HasCoreConstants => RollbackData -> Gen Property
+    :: HasConfiguration => RollbackData -> Gen Property
 verifyRollback (Rollback oldGtGlobalState rollbackEoS vssCerts) = do
     let certAdder vcd = foldl' (flip insert) vcd vssCerts
         newGtGlobalState@(GtGlobalState _ _ _ newVssCertData) =

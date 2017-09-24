@@ -3,7 +3,11 @@
 {-# LANGUAGE RankNTypes          #-}
 
 module Test.Pos.Util
-       ( giveTestsConsts
+       ( giveCoreConf
+       , giveInfraConf
+       , giveNodeConf
+       , giveGtConf
+       , giveUpdateConf
 
        -- * From/to
        , binaryEncodeDecode
@@ -14,6 +18,7 @@ module Test.Pos.Util
        , serDeserTest
        , showReadId
        , showReadTest
+       , canonicalJsonTest
 
        -- * Message length
        , msgLenLimitedTest
@@ -46,35 +51,58 @@ module Test.Pos.Util
 
 import           Universum
 
-import           Codec.CBOR.FlatTerm      (toFlatTerm, validFlatTerm)
-import qualified Data.ByteString          as BS
-import           Data.SafeCopy            (SafeCopy, safeGet, safePut)
-import qualified Data.Semigroup           as Semigroup
-import           Data.Serialize           (runGet, runPut)
-import           Data.Tagged              (Tagged (..))
-import           Data.Typeable            (typeRep)
-import           Formatting               (formatToString, int, (%))
-import           Prelude                  (read)
+import           Codec.CBOR.FlatTerm              (toFlatTerm, validFlatTerm)
+import qualified Data.ByteString                  as BS
+import           Data.SafeCopy                    (SafeCopy, safeGet, safePut)
+import qualified Data.Semigroup                   as Semigroup
+import           Data.Serialize                   (runGet, runPut)
+import           Data.Tagged                      (Tagged (..))
+import           Data.Typeable                    (typeRep)
+import           Formatting                       (formatToString, int, (%))
+import           Prelude                          (read)
+import qualified Text.JSON.Canonical              as CanonicalJSON
 
-import           Pos.Binary               (AsBinaryClass (..), Bi (..), serialize,
-                                           serialize', unsafeDeserialize)
-import           Pos.Communication        (Limit (..), MessageLimitedPure (..))
-import           Pos.Core                 (CoreConstants (..), HasCoreConstants,
-                                           giveConsts)
+import           Pos.Binary                       (AsBinaryClass (..), Bi (..), serialize,
+                                                   serialize', unsafeDeserialize)
+import           Pos.Communication                (Limit (..), MessageLimitedPure (..))
+import           Pos.Configuration                (HasNodeConfiguration,
+                                                   withNodeConfiguration)
+import           Pos.Core                         (HasConfiguration, withGenesisSpec)
+import           Pos.Infra.Configuration          (HasInfraConfiguration,
+                                                   withInfraConfiguration)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration,
+                                                   withGtConfiguration)
+import           Pos.Update.Configuration         (HasUpdateConfiguration,
+                                                   withUpdateConfiguration)
 
-import           Test.Hspec               (Expectation, Selector, Spec, describe,
-                                           shouldThrow)
-import           Test.Hspec.QuickCheck    (modifyMaxSuccess, prop)
-import           Test.QuickCheck          (Arbitrary (arbitrary), Property, conjoin,
-                                           counterexample, forAll, property, resize,
-                                           suchThat, vectorOf, (.&&.), (===))
-import           Test.QuickCheck.Gen      (choose)
-import           Test.QuickCheck.Monadic  (PropertyM, pick, stop)
+import           Test.Hspec                       (Expectation, Selector, Spec, describe,
+                                                   shouldThrow)
+import           Test.Hspec.QuickCheck            (modifyMaxSuccess, prop)
+import           Test.QuickCheck                  (Arbitrary (arbitrary), Property,
+                                                   conjoin, counterexample, forAll,
+                                                   property, resize, suchThat, vectorOf,
+                                                   (.&&.), (===))
+import           Test.QuickCheck.Gen              (choose)
+import           Test.QuickCheck.Monadic          (PropertyM, pick, stop)
+import           Test.QuickCheck.Property         (Result (..), failed)
 
-import           Test.QuickCheck.Property (Result (..), failed)
+import           Pos.Launcher.Configuration       (Configuration (..))
+import           Test.Pos.Configuration           (testConf)
 
-giveTestsConsts :: (HasCoreConstants => r) -> r
-giveTestsConsts = giveConsts $ CoreConstants (fromIntegral @Word32 35)
+giveNodeConf :: (HasNodeConfiguration => r) -> r
+giveNodeConf = withNodeConfiguration (ccNode testConf)
+
+giveGtConf :: (HasGtConfiguration => r) -> r
+giveGtConf = withGtConfiguration (ccGt testConf)
+
+giveUpdateConf :: (HasUpdateConfiguration => r) -> r
+giveUpdateConf = withUpdateConfiguration (ccUpdate testConf)
+
+giveInfraConf :: (HasInfraConfiguration => r) -> r
+giveInfraConf = withInfraConfiguration (ccInfra testConf)
+
+giveCoreConf :: (HasConfiguration => r) -> r
+giveCoreConf = withGenesisSpec 0 (ccCore testConf)
 
 instance Arbitrary a => Arbitrary (Tagged s a) where
     arbitrary = Tagged <$> arbitrary
@@ -104,9 +132,11 @@ serDeserId a =
 showReadId :: (Show a, Eq a, Read a) => a -> Property
 showReadId a = read (show a) === a
 
+type IdTestingRequiredClassesAlmost a = (Eq a, Show a, Arbitrary a, Typeable a)
+
 type IdTestingRequiredClasses f a = (Eq a, Show a, Arbitrary a, Typeable a, f a)
 
-identityTest :: forall f a. (IdTestingRequiredClasses f a) => (a -> Property) -> Spec
+identityTest :: forall a. (IdTestingRequiredClassesAlmost a) => (a -> Property) -> Spec
 identityTest fun = prop (typeName @a) fun
   where
     typeName :: forall x. Typeable x => String
@@ -114,16 +144,62 @@ identityTest fun = prop (typeName @a) fun
 
 binaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
 binaryTest =
-    identityTest @Bi @a $ \x -> binaryEncodeDecode x .&&. cborFlatTermValid x
+    identityTest @a $ \x -> binaryEncodeDecode x .&&. cborFlatTermValid x
 
 safeCopyTest :: forall a. IdTestingRequiredClasses SafeCopy a => Spec
-safeCopyTest = identityTest @SafeCopy @a safeCopyEncodeDecode
+safeCopyTest = identityTest @a safeCopyEncodeDecode
 
 serDeserTest :: forall a. IdTestingRequiredClasses AsBinaryClass a => Spec
-serDeserTest = identityTest @AsBinaryClass @a serDeserId
+serDeserTest = identityTest @a serDeserId
 
 showReadTest :: forall a. IdTestingRequiredClasses Read a => Spec
-showReadTest = identityTest @Read @a showReadId
+showReadTest = identityTest @a showReadId
+
+
+newtype CatchesCanonicalJsonParseErrors a = CatchesCanonicalJsonParseErrors
+    { unCatchesCanonicalJsonParseErrors :: Either Text a
+    } deriving (Functor, Applicative, Monad)
+
+type ToAndFromCanonicalJson a
+     = ( CanonicalJSON.ToJSON Identity a
+       , CanonicalJSON.FromJSON CatchesCanonicalJsonParseErrors a
+       )
+
+instance MonadFail CatchesCanonicalJsonParseErrors where
+    fail s = CatchesCanonicalJsonParseErrors $ Left (toText s)
+
+canonicalJsonTest ::
+       forall a. (IdTestingRequiredClassesAlmost a, ToAndFromCanonicalJson a)
+    => Spec
+canonicalJsonTest =
+    identityTest @a $ \x ->
+        canonicalJsonRenderAndDecode x .&&. canonicalJsonPrettyAndDecode x
+  where
+    canonicalJsonRenderAndDecode x =
+        let encodedX =
+                CanonicalJSON.renderCanonicalJSON $
+                runIdentity $ CanonicalJSON.toJSON x
+        in canonicalJsonDecodeAndCompare x encodedX
+    canonicalJsonPrettyAndDecode x =
+        let encodedX =
+                encodeUtf8 $
+                CanonicalJSON.prettyCanonicalJSON $
+                runIdentity $ CanonicalJSON.toJSON x
+        in canonicalJsonDecodeAndCompare x encodedX
+    canonicalJsonDecodeAndCompare ::
+           CanonicalJSON.FromJSON CatchesCanonicalJsonParseErrors a
+        => a
+        -> LByteString
+        -> Property
+    canonicalJsonDecodeAndCompare x encodedX =
+        let decodedValue =
+                either (error . toText) identity $
+                CanonicalJSON.parseCanonicalJSON encodedX
+            decodedX =
+                either error identity $
+                unCatchesCanonicalJsonParseErrors $
+                CanonicalJSON.fromJSON decodedValue
+        in decodedX === x
 
 ----------------------------------------------------------------------------
 -- Message length
@@ -148,7 +224,7 @@ msgLenLimitedTest' limit desc whetherTest =
     -- correct limit on the spot, if needed.
     addDesc $
         modifyMaxSuccess (const 1) $
-            identityTest @Bi @a $ \_ -> findLargestCheck .&&. listsCheck
+            identityTest @a $ \_ -> findLargestCheck .&&. listsCheck
   where
     addDesc act = if null desc then act else describe desc act
 

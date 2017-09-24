@@ -9,7 +9,7 @@ module Pos.Wallet.Web.Server.Handlers
 import           Universum
 
 import           Pos.Communication       (SendActions (..))
-import           Pos.Constants           (curSoftwareVersion)
+import           Pos.Update.Configuration (curSoftwareVersion)
 import           Pos.Wallet.WalletMode   (blockchainSlotDuration)
 import           Pos.Wallet.Web.Account  (GenSeed (RandomSeed))
 import           Pos.Wallet.Web.Api      (WalletApi)

@@ -33,7 +33,7 @@ import           System.Wlog                  (WithLogger, logError)
 import           Pos.Binary.Class             (UnsignedVarInt (..), serialize')
 import           Pos.Context.Functions        (genesisUtxo)
 import           Pos.Core                     (Address, Coin, EpochIndex, HeaderHash,
-                                               coinToInteger, unsafeAddCoin)
+                                               sumCoins, unsafeAddCoin)
 import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.DB                       (DBError (..), DBIteratorClass (..),
                                                DBTag (GStateDB), MonadDB,
@@ -47,6 +47,7 @@ import           Pos.Txp.DB                   (getAllPotentiallyHugeUtxo, utxoSo
 import           Pos.Txp.Toil                 (GenesisUtxo (..), utxoF,
                                                utxoToAddressCoinPairs)
 import           Pos.Util.Chrono              (NewestFirst (..))
+import           Pos.Util.Util                (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Types
@@ -79,9 +80,9 @@ getAddrBalance :: MonadDBRead m => Address -> m (Maybe Coin)
 getAddrBalance = gsGetBi . addrBalanceKey
 
 getUtxoSum :: MonadDBRead m => m Integer
-getUtxoSum = fromMaybe dbNotInitialized <$> gsGetBi utxoSumPrefix
+getUtxoSum = maybeThrow dbNotInitialized =<< gsGetBi utxoSumPrefix
   where
-    dbNotInitialized = error "getUtxoSum: DB is not initialized"
+    dbNotInitialized = DBMalformed "getUtxoSum: DB is not initialized"
 
 getPageBlocks :: MonadDBRead m => Page -> m (Maybe [HeaderHash])
 getPageBlocks = gsGetBi . blockPagePrefix
@@ -122,7 +123,7 @@ putGenesisBalances addressCoinPairs = writeBatchGState putAddrBalancesOp
 
 putGenesisUtxoSum :: MonadDB m => [(Address, Coin)] -> m ()
 putGenesisUtxoSum addressCoinPairs = do
-    let utxoSum = sum $ map (coinToInteger . snd) addressCoinPairs
+    let utxoSum = sumCoins $ map snd addressCoinPairs
     writeBatchGState [PutUtxoSum utxoSum]
 
 ----------------------------------------------------------------------------

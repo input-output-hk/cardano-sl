@@ -13,7 +13,10 @@ module Pos.Util.CompileInfo
 import           Universum
 
 import           Data.Reflection     (Given (..), give)
-import           Language.Haskell.TH (Q)
+import           Language.Haskell.TH (Q, runIO)
+import           System.Environment  (lookupEnv)
+import           System.Exit         (ExitCode (..))
+import           System.Process      (readProcessWithExitCode)
 
 
 -- | Data about the system that we want to retrieve in compile time.
@@ -27,4 +30,17 @@ withCompileInfo :: CompileTimeInfo -> (HasCompileInfo => r) -> r
 withCompileInfo = give
 
 retrieveCompileTimeInfo :: Q CompileTimeInfo
-retrieveCompileTimeInfo = undefined
+retrieveCompileTimeInfo = runIO $ do
+    gtiGitRevision <- fromString <$> retrieveGit
+    pure $ CompileTimeInfo {..}
+  where
+    retrieveGit :: IO String
+    retrieveGit =
+        lookupEnv "TH_ENV" >>= maybe retrieveFromGitExecutable pure
+    retrieveFromGitExecutable :: IO String
+    retrieveFromGitExecutable = do
+        (exitCode,output,_) <-
+            readProcessWithExitCode "git" ["rev-parse", "--verify", "--short", "HEAD"] ""
+        pure $ case exitCode of
+            ExitSuccess -> output
+            _           -> "Couldn't fetch git revision"

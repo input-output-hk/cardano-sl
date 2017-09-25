@@ -162,6 +162,7 @@ library
                      , node-sketch
                      , parsec
                      , plutus-prototype
+                     , process
                      , pvss
                      , quickcheck-instances
                      , random

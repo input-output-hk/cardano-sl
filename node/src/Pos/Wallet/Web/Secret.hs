@@ -6,6 +6,8 @@ module Pos.Wallet.Web.Secret
     , wusWalletName
     , wusAccounts
     , wusAddrs
+    , accountGenesisIndex
+    , wAddressGenesisIndex
 
     , mkGenesisWalletUserSecret
     ) where
@@ -17,9 +19,9 @@ import qualified Data.Text.Buildable
 import           Formatting          (Format, bprint, build, later, (%))
 
 import           Pos.Binary.Class    (Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Core            (addressF, makeRootPubKeyAddress)
+import           Pos.Core            (accountGenesisIndex, addressF,
+                                      makeRootPubKeyAddress, wAddressGenesisIndex)
 import           Pos.Crypto          (EncryptedSecretKey, encToPublic)
-import           Pos.Genesis         (accountGenesisIndex, wAddressGenesisIndex)
 
 --- | Describes HD wallets keyfile content
 data WalletUserSecret = WalletUserSecret

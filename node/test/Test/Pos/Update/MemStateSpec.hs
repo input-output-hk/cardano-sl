@@ -4,9 +4,12 @@ module Test.Pos.Update.MemStateSpec
        ( spec
        ) where
 
+import           Universum
+
 import qualified Data.HashMap.Strict   as HM
 
 import           Pos.Arbitrary.Update  ()
+import           Pos.Core              (HasConfiguration)
 import           Pos.Crypto            (PublicKey, hash)
 import qualified Pos.Update.Core       as Upd
 import qualified Pos.Update.MemState   as Upd
@@ -14,10 +17,11 @@ import qualified Pos.Update.MemState   as Upd
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, (.&&.), (==>))
-import           Universum
+
+import           Test.Pos.Util         (giveCoreConf)
 
 spec :: Spec
-spec = describe "MemState" $ do
+spec = giveCoreConf $ describe "MemState" $ do
     describe "addToMemPool" $ do
         prop
             "applying an update payload to the mempool means all update votes are\
@@ -33,7 +37,7 @@ spec = describe "MemState" $ do
             \ proposal, then no votes by that key will be present in the mempool"
             keysWithoutVoteRemainSo
 
-payloadIsAddedToMemPool :: Upd.UpdatePayload -> Upd.MemPool -> Property
+payloadIsAddedToMemPool :: HasConfiguration => Upd.UpdatePayload -> Upd.MemPool -> Property
 payloadIsAddedToMemPool up@Upd.UpdatePayload {..} mp =
     proposalWasAdded .&&. votesWereAdded
   where
@@ -45,7 +49,7 @@ payloadIsAddedToMemPool up@Upd.UpdatePayload {..} mp =
         (== Just vote) (HM.lookup uvKey <=< HM.lookup uvProposalId $ mpLocalVotes)
     Upd.MemPool {..} = Upd.addToMemPool up mp
 
-badVoteIsNotAdded :: Upd.UpdateVote -> Upd.UpdatePayload -> Upd.MemPool -> Property
+badVoteIsNotAdded :: HasConfiguration => Upd.UpdateVote -> Upd.UpdatePayload -> Upd.MemPool -> Property
 badVoteIsNotAdded uv@Upd.UpdateVote {..} up@Upd.UpdatePayload {..} mp =
     (not $ elem uv upVotes) ==> voteIsNotPresent
   where
@@ -53,7 +57,7 @@ badVoteIsNotAdded uv@Upd.UpdateVote {..} up@Upd.UpdatePayload {..} mp =
     voteIsNotPresent =
         (/= Just uv) (HM.lookup uvKey <=< HM.lookup uvProposalId $ mpLocalVotes)
 
-keysWithoutVoteRemainSo :: PublicKey -> Upd.UpdatePayload -> Upd.MemPool -> Property
+keysWithoutVoteRemainSo :: HasConfiguration => PublicKey -> Upd.UpdatePayload -> Upd.MemPool -> Property
 keysWithoutVoteRemainSo pk up@Upd.UpdatePayload {..} mp@(Upd.MemPool _ lv _) =
     keyHasNotVoted ==> keyHasNoNewVotes
   where

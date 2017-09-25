@@ -43,10 +43,11 @@ import           Serokell.Util               (sec)
 import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
 
 import qualified Pos.Core.Constants          as C
-import           Pos.Core.Context            (HasCoreConstants)
+import           Pos.Core.Configuration      (HasConfiguration)
 import           Pos.Core.Slotting           (unflattenSlotId)
 import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp (..))
-import qualified Pos.Slotting.Constants      as C
+import           Pos.Infra.Configuration     (HasInfraConfiguration)
+import qualified Pos.Slotting.Configuration  as C
 import           Pos.Slotting.Impl.Util      (approxSlotUsingOutdated, slotFromTimestamp)
 import           Pos.Slotting.MemState       (MonadSlotsData, getCurrentNextEpochIndexM,
                                               getCurrentNextEpochSlottingDataM,
@@ -98,7 +99,8 @@ mkNtpSlottingVar
            [ CurrentTime
            , Delay
            ]
-       , HasCoreConstants
+       , HasConfiguration
+       , HasInfraConfiguration
        )
     => m NtpSlottingVar
 mkNtpSlottingVar = do
@@ -129,10 +131,11 @@ type NtpMode ctx m =
         [ CurrentTime
         , Delay
         ]
-    , HasCoreConstants
+    , HasConfiguration
+    , HasInfraConfiguration
     )
 
-type NtpWorkerMode m = NtpMonad m
+type NtpWorkerMode m = (HasInfraConfiguration, NtpMonad m)
 
 ----------------------------------------------------------------------------
 -- MonadSlots implementation
@@ -254,7 +257,7 @@ ntpHandlerDo var (newMargin, transmitTime) = do
                                     . set nssLastLocalTime realTime)
 
 ntpSettings
-    :: (MonadIO m, WithLogger m)
+    :: (HasInfraConfiguration, MonadIO m, WithLogger m)
     => NtpSlottingVar -> NtpClientSettings m
 ntpSettings var = NtpClientSettings
     { -- list of servers addresses

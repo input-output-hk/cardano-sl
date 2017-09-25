@@ -1,5 +1,5 @@
 name:                cardano-sl-tools
-version:             0.6.0
+version:             0.6.2
 synopsis:            Cardano SL - Tools
 description:         Cardano SL - Tools
 license:             MIT
@@ -192,15 +192,16 @@ executable cardano-keygen
   hs-source-dirs:      src/keygen
   main-is:             Main.hs
   other-modules:       KeygenOptions
-                     , Avvm
-                     , Testnet
+                     , Dump
   if !flag(for-installer)
    build-depends:      Glob
                      , QuickCheck >= 2.9
                      , aeson
                      , ansi-wl-pprint
                      , base
+                     , base58-bytestring
                      , bytestring >= 0.10
+                     , canonical-json
                      , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-txp
@@ -217,10 +218,12 @@ executable cardano-keygen
                      , optparse-applicative >= 0.12
                      , parsec
                      , random >= 1.1
+                     , safe-exceptions
                      , serokell-util >= 0.1
                      , text
                      , universum >= 0.1
                      , unordered-containers
+                     , yaml
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -266,20 +269,22 @@ executable cardano-launcher
                      , async
                      , base
                      , cardano-report-server >= 0.2.1
-                     , log-warper
                      , cardano-sl
+                     , cardano-sl-core
                      , cardano-sl-infra
                      , data-default
                      , directory
                      , filepath
+                     , lens
+                     , log-warper
                      , neat-interpolation
                      , optparse-applicative
                      , formatting
                      , process
                      , system-filepath
                      , text
+                     , time-units
                      , universum
-                     , lens
   default-language:    Haskell2010
   ghc-options:         -threaded
                        -Wall

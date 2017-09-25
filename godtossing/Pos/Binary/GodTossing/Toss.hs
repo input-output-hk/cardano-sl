@@ -4,10 +4,12 @@ module Pos.Binary.GodTossing.Toss
        (
        ) where
 
-import           Pos.Binary.Class              (Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Ssc.GodTossing.Core       (CommitmentsMap, OpeningsMap, SharesMap,
-                                                VssCertificatesMap)
+import           Pos.Binary.Class              (Cons (..), Field (..), deriveSimpleBi,
+                                                deriveSimpleBiCxt)
+import           Pos.Ssc.GodTossing.Core       (CommitmentsMap, OpeningsMap, SharesMap)
 import           Pos.Ssc.GodTossing.Toss.Types (GtTag (..), TossModifier (..))
+import           Pos.Core.Configuration        (HasConfiguration)
+import           Pos.Core.Vss                  (VssCertificatesMap)
 
 deriveSimpleBi ''GtTag [
     Cons 'CommitmentMsg [],
@@ -15,7 +17,7 @@ deriveSimpleBi ''GtTag [
     Cons 'SharesMsg [],
     Cons 'VssCertificateMsg []]
 
-deriveSimpleBi ''TossModifier [
+deriveSimpleBiCxt [t|HasConfiguration|] ''TossModifier [
     Cons 'TossModifier [
         Field [| _tmCommitments  :: CommitmentsMap     |],
         Field [| _tmOpenings     :: OpeningsMap        |],

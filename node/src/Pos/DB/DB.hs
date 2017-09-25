@@ -20,31 +20,31 @@ module Pos.DB.DB
 
 import           Universum
 
-import           Control.Monad.Catch   (MonadMask)
-import           System.Wlog           (WithLogger)
+import           Control.Monad.Catch              (MonadMask)
+import           System.Wlog                      (WithLogger)
 
-import           Pos.Block.Core        (Block, BlockHeader)
-import           Pos.Block.Types       (Blund)
-import           Pos.Context.Functions (genesisBlock0M)
-import           Pos.Core              (BlockCount, BlockVersionData,
-                                        GenesisWStakeholders, HasCoreConstants,
-                                        headerHash)
-import           Pos.DB.Block          (MonadBlockDB, MonadBlockDBWrite,
-                                        loadBlundsByDepth, loadBlundsWhile,
-                                        prepareBlockDB)
-import           Pos.DB.Class          (MonadDB, MonadDBRead (..))
-import           Pos.DB.GState.Common  (getTip, getTipBlockGeneric, getTipHeaderGeneric)
-import           Pos.DB.Misc           (prepareMiscDB)
-import           Pos.Genesis           (GenesisContext, GenesisUtxo)
-import           Pos.GState.GState     (prepareGStateDB, sanityCheckGStateDB)
-import           Pos.Lrc.DB            (prepareLrcDB)
-import           Pos.Ssc.Class.Helpers (SscHelpersClass)
-import           Pos.Update.DB         (getAdoptedBVData)
-import           Pos.Util              (HasLens', inAssertMode)
-import           Pos.Util.Chrono       (NewestFirst)
+import           Pos.Block.Core                   (Block, BlockHeader)
+import           Pos.Block.Types                  (Blund)
+import           Pos.Context.Functions            (genesisBlock0)
+import           Pos.Core                         (BlockCount, BlockVersionData,
+                                                   HasConfiguration, headerHash)
+import           Pos.DB.Block                     (MonadBlockDB, MonadBlockDBWrite,
+                                                   loadBlundsByDepth, loadBlundsWhile,
+                                                   prepareBlockDB)
+import           Pos.DB.Class                     (MonadDB, MonadDBRead (..))
+import           Pos.DB.GState.Common             (getTip, getTipBlockGeneric,
+                                                   getTipHeaderGeneric)
+import           Pos.DB.Misc                      (prepareMiscDB)
+import           Pos.GState.GState                (prepareGStateDB, sanityCheckGStateDB)
+import           Pos.Lrc.DB                       (prepareLrcDB)
+import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Update.DB                    (getAdoptedBVData)
+import           Pos.Util                         (inAssertMode)
+import           Pos.Util.Chrono                  (NewestFirst)
 
 #ifdef WITH_EXPLORER
-import           Pos.Explorer.DB       (prepareExplorerDB)
+import           Pos.Explorer.DB                  (prepareExplorerDB)
 #endif
 
 
@@ -52,19 +52,16 @@ import           Pos.Explorer.DB       (prepareExplorerDB)
 initNodeDBs
     :: forall ssc ctx m.
        ( MonadReader ctx m
-       , HasLens' ctx GenesisUtxo
-       , HasLens' ctx GenesisWStakeholders
-       , HasLens' ctx GenesisContext
        , MonadBlockDBWrite ssc m
        , SscHelpersClass ssc
        , MonadDB m
-       , HasCoreConstants
+       , HasConfiguration
+       , HasGtConfiguration
        )
     => m ()
 initNodeDBs = do
-    genesisBlock0 <- genesisBlock0M @ssc
-    let initialTip = headerHash genesisBlock0
-    prepareBlockDB genesisBlock0
+    let initialTip = headerHash (genesisBlock0 @ssc)
+    prepareBlockDB (genesisBlock0 @ssc)
     prepareGStateDB initialTip
     prepareLrcDB
     prepareMiscDB
@@ -92,7 +89,6 @@ sanityCheckDB ::
        , WithLogger m
        , MonadDBRead m
        , MonadReader ctx m
-       , HasLens' ctx GenesisWStakeholders
        )
     => m ()
 sanityCheckDB = inAssertMode sanityCheckGStateDB

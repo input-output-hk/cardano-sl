@@ -30,10 +30,10 @@ import           Universum
 import qualified Data.HashMap.Strict         as HM
 
 import           Pos.Binary.Core             ()
-import           Pos.Constants               (genesisHeavyDelThd)
-import           Pos.Context                 (GenesisUtxo, genesisStakesM)
-import           Pos.Core                    (Coin, EpochIndex, GenesisWStakeholders,
-                                              StakeholderId)
+import           Pos.Context                 (genesisStakes)
+import           Pos.Core                    (BlockVersionData (bvdHeavyDelThd), Coin,
+                                              EpochIndex, HasConfiguration, StakeholderId,
+                                              genesisBlockVersionData)
 import           Pos.DB.Class                (MonadDB, MonadDBRead)
 import           Pos.Lrc.Class               (RichmenComponent (..),
                                               SomeRichmenComponent (..),
@@ -43,21 +43,19 @@ import           Pos.Lrc.Logic               (RichmenType (..), findRichmenPure)
 import           Pos.Lrc.Types               (FullRichmenData, RichmenSet)
 import           Pos.Ssc.RichmenComponent    (RCSsc, getRichmenSsc)
 import           Pos.Update.RichmenComponent (RCUs, getRichmenUS)
-import           Pos.Util.Util               (HasLens', getKeys)
+import           Pos.Util.Util               (getKeys)
 
 ----------------------------------------------------------------------------
 -- Initialization
 ----------------------------------------------------------------------------
 
 prepareLrcRichmen ::
-       ( MonadReader ctx m
-       , HasLens' ctx GenesisUtxo
-       , HasLens' ctx GenesisWStakeholders
+       ( HasConfiguration
        , MonadDB m
        )
     => m ()
 prepareLrcRichmen = do
-    genesisDistribution <- HM.toList <$> genesisStakesM
+    let genesisDistribution = HM.toList genesisStakes
     mapM_ (prepareLrcRichmenDo genesisDistribution) richmenComponents
   where
     prepareLrcRichmenDo distr (SomeRichmenComponent proxy) =
@@ -81,7 +79,7 @@ computeInitial initialDistr proxy =
 -- Instances. They are here, because we want to have a DB schema in Pos.DB
 ----------------------------------------------------------------------------
 
-richmenComponents :: [SomeRichmenComponent]
+richmenComponents :: HasConfiguration => [SomeRichmenComponent]
 richmenComponents =
     [ someRichmenComponent @RCSsc
     , someRichmenComponent @RCUs
@@ -94,11 +92,11 @@ richmenComponents =
 
 data RCDlg
 
-instance RichmenComponent RCDlg where
+instance HasConfiguration => RichmenComponent RCDlg where
     type RichmenData RCDlg = RichmenSet
     rcToData = getKeys . snd
     rcTag Proxy = "dlg"
-    rcInitialThreshold Proxy = genesisHeavyDelThd
+    rcInitialThreshold Proxy = bvdHeavyDelThd genesisBlockVersionData
     rcConsiderDelegated Proxy = False
 
 getRichmenDlg :: MonadDBRead m => EpochIndex -> m (Maybe RichmenSet)

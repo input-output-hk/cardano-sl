@@ -18,6 +18,7 @@ import qualified Ether
 import           Universum
 
 import           Pos.Binary.Core             ()
+import           Pos.Core.Configuration      (HasConfiguration)
 import           Pos.Crypto                  (WithHash (..))
 import           Pos.Txp.Core                (Tx, TxAux, TxUndo)
 import           Pos.Txp.Toil.Failure        (ToilVerFailure)
@@ -45,10 +46,10 @@ execUtxoStateT = Ether.execStateT
 
 -- | Pure version of verifyTxUtxo.
 verifyTxUtxoPure
-    :: MonadError ToilVerFailure m
+    :: (HasConfiguration, MonadError ToilVerFailure m)
     => VTxContext -> Utxo -> TxAux -> m (TxUndo, Maybe TxFee)
 verifyTxUtxoPure ctx utxo txAux = evalUtxoStateT (verifyTxUtxo ctx txAux) utxo
 
 -- | Pure version of applyTxToUtxo.
-applyTxToUtxoPure :: WithHash Tx -> Utxo -> Utxo
+applyTxToUtxoPure :: HasConfiguration => WithHash Tx -> Utxo -> Utxo
 applyTxToUtxoPure tx u = runIdentity $ execUtxoStateT (applyTxToUtxo tx) u

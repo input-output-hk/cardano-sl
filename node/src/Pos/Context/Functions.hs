@@ -4,10 +4,10 @@ module Pos.Context.Functions
        (
          -- * Genesis
          GenesisUtxo(..)
-       , genesisUtxoM
-       , genesisStakesM
-       , genesisLeadersM
-       , genesisBlock0M
+       , genesisUtxo
+       , genesisStakes
+       , genesisLeaders
+       , genesisBlock0
 
          -- * LRC synchronization
        , waitLrc
@@ -26,51 +26,31 @@ import           Data.Time.Units     (Microsecond, fromMicroseconds)
 
 import           Pos.Block.Core      (GenesisBlock, mkGenesisBlock)
 import           Pos.Context.Context (StartTime (..))
-import           Pos.Core            (GenesisWStakeholders, HasCoreConstants, SlotLeaders,
-                                      StakesMap)
-import           Pos.Genesis         (GenesisContext (..), GenesisUtxo (..),
-                                      genesisLeaders)
+import           Pos.Core            (GenesisData (..), HasConfiguration, SlotLeaders,
+                                      genesisData)
 import           Pos.Lrc.Context     (lrcActionOnEpoch, lrcActionOnEpochReason, waitLrc)
+import           Pos.Lrc.FtsPure     (followTheSatoshiUtxo)
 import           Pos.Ssc.Class       (SscHelpersClass)
-import           Pos.Txp.Toil        (utxoToStakes)
-import           Pos.Util.Util       (HasLens (lensOf), HasLens', lensOf')
+import           Pos.Txp.GenesisUtxo (genesisStakes, genesisUtxo)
+import           Pos.Txp.Toil        (GenesisUtxo (..))
+import           Pos.Util.Util       (HasLens (lensOf))
 
 ----------------------------------------------------------------------------
 -- Genesis
 ----------------------------------------------------------------------------
 
-genesisUtxoM ::
-       (Functor m, MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo)
-    => m GenesisUtxo
-genesisUtxoM = view (lensOf @GenesisUtxo)
+-- | Compute leaders of the 0-th epoch from stake distribution.
+genesisLeaders :: HasConfiguration => SlotLeaders
+genesisLeaders = followTheSatoshiUtxo
+                    (gdBootStakeholders genesisData)
+                    (gdFtsSeed genesisData)
+                    utxo
+  where
+    GenesisUtxo utxo = genesisUtxo
 
-genesisStakesM ::
-       ( Functor m
-       , MonadReader ctx m
-       , HasLens' ctx GenesisUtxo
-       , HasLens' ctx GenesisWStakeholders
-       )
-    => m StakesMap
-genesisStakesM = do
-    gws <- view (lensOf @GenesisWStakeholders)
-    views (lensOf @GenesisUtxo) $ utxoToStakes gws . unGenesisUtxo
-
-genesisLeadersM ::
-       ( Functor m
-       , MonadReader ctx m
-       , HasLens' ctx GenesisContext
-       , HasCoreConstants
-       )
-    => m SlotLeaders
-genesisLeadersM =
-    genesisLeaders <$> view lensOf'
-
-genesisBlock0M ::
-    forall ssc ctx m. ( Functor m, MonadReader ctx m
-                      , HasLens' ctx GenesisContext
-                      , HasCoreConstants, SscHelpersClass ssc)
-    => m (GenesisBlock ssc)
-genesisBlock0M = mkGenesisBlock @ssc Nothing 0 <$> genesisLeadersM
+genesisBlock0 :: forall ssc . (HasConfiguration, SscHelpersClass ssc)
+    => GenesisBlock ssc
+genesisBlock0 = mkGenesisBlock @ssc Nothing 0 genesisLeaders
 
 ----------------------------------------------------------------------------
 -- Misc

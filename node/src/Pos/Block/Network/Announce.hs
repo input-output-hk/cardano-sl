@@ -14,7 +14,7 @@ import           Control.Monad.Except       (runExceptT)
 import           Ether.Internal             (HasLens (..))
 import           Formatting                 (build, sformat, (%))
 import           Mockable                   (throw)
-import           System.Wlog                (logDebug)
+import           System.Wlog                (logDebug, logWarning)
 
 import           Pos.Block.Core             (Block, BlockHeader, MainBlockHeader,
                                              blockHeader)
@@ -91,12 +91,12 @@ handleHeadersCommunication conv = do
             Right _ -> pure tipHeader
     handleSuccess h = do
         send conv (MsgHeaders h)
-        onSuccess
-        handleHeadersCommunication conv
-    onSuccess =
         logDebug "handleGetHeaders: responded successfully"
-    onRecovery =
+        handleHeadersCommunication conv
+    onNoHeaders reason = do
+        let err = "getheadersFromManyTo returned Nothing, reason: " <> reason
+        logWarning err
+        send conv (MsgNoHeaders err)
+    onRecovery = do
         logDebug "handleGetHeaders: not responding, we're in recovery mode"
-    onNoHeaders reason =
-        logDebug $ "getheadersFromManyTo returned Nothing, " <>
-                   "not replying to node, reason: " <> reason
+        send conv (MsgNoHeaders "server node is in recovery mode")

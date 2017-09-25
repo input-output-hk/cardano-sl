@@ -77,7 +77,7 @@ import           Data.SafeCopy                  (base, deriveSafeCopySimple)
 import           Data.Time.Clock.POSIX          (POSIXTime)
 
 import           Pos.Client.Txp.History         (TxHistoryEntry)
-import           Pos.Core.Context               (HasCoreConstants)
+import           Pos.Core.Configuration         (HasConfiguration)
 import           Pos.Core.Types                 (SlotId, Timestamp)
 import           Pos.Txp                        (TxAux, TxId, Utxo)
 import           Pos.Types                      (HeaderHash)
@@ -164,7 +164,7 @@ instance Default WalletStorage where
         }
 
 type Query a = forall m. (MonadReader WalletStorage m) => m a
-type Update a = forall m. (HasCoreConstants, MonadState WalletStorage m) => m a
+type Update a = forall m. (HasConfiguration, MonadState WalletStorage m) => m a
 
 -- | How to lookup addresses of account
 data AddressLookupMode

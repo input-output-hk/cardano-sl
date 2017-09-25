@@ -9,13 +9,14 @@ import           Test.QuickCheck.Instances ()
 
 import           Pos.Binary.Class          (Bi)
 import qualified Pos.Binary.Class          as Bi
+import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
 import           Pos.Crypto.Hashing        (AbstractHash, HashAlgorithm,
                                             unsafeAbstractHash)
 import           Pos.Crypto.SecretSharing  (VssKeyPair, VssPublicKey,
                                             deterministicVssKeyGen, toVssPublicKey)
 import           Pos.Crypto.Signing        (PublicKey, SecretKey, Signature, Signed,
                                             mkSigned)
-import           Pos.Crypto.SignTag        (SignTag)
+import           Pos.Crypto.Signing.Types.Tag (SignTag)
 import           Pos.Util.Arbitrary        (ArbitraryUnsafe (..), arbitrarySizedS)
 
 instance Bi PublicKey => ArbitraryUnsafe PublicKey where
@@ -29,7 +30,7 @@ instance Bi (Signature a) => ArbitraryUnsafe (Signature a) where
 
 -- Generating invalid `Signed` objects doesn't make sense even in
 -- benchmarks
-instance (Bi a, Bi SecretKey, ArbitraryUnsafe a, Arbitrary SignTag) =>
+instance (HasProtocolConstants, Bi a, Bi SecretKey, ArbitraryUnsafe a, Arbitrary SignTag) =>
          ArbitraryUnsafe (Signed a) where
     arbitraryUnsafe = mkSigned <$> arbitrary
                                <*> arbitraryUnsafe

@@ -11,9 +11,7 @@ instance Bi V.ApplicationName where
   encode appName = encode (V.getApplicationName appName)
   decode = do
     appName <- decode
-    case V.mkApplicationName appName of
-      Left e  -> fail e
-      Right a -> pure a
+    V.mkApplicationName appName
 
 deriveSimpleBi ''V.SoftwareVersion [
     Cons 'V.SoftwareVersion [

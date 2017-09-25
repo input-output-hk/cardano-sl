@@ -17,22 +17,25 @@ module Pos.Wallet.Web.ClientTypes.Functions
 import           Universum
 
 import           Control.Monad.Error.Class        (throwError)
+import qualified Data.List.NonEmpty               as NE
 import qualified Data.Set                         as S
 import           Data.Text                        (Text)
 import           Formatting                       (sformat)
 import qualified Formatting                       as F
 
 import           Pos.Aeson.Types                  ()
-import           Pos.Client.Txp.History           (TxHistoryEntry (..), _thInputAddrs)
+import           Pos.Client.Txp.History           (TxHistoryEntry (..))
 import           Pos.Crypto                       (EncryptedSecretKey, encToPublic,
                                                    hashHexF)
-import           Pos.Txp.Core.Types               (Tx (..), TxId, txOutAddress,
-                                                   txOutValue)
+import           Pos.Txp.Core.Types               (Tx (..), TxId, TxOut (..),
+                                                   txOutAddress, txOutValue)
 import           Pos.Types                        (Address (..), ChainDifficulty, Coin,
                                                    decodeTextAddress,
                                                    makePubKeyAddressBoot, sumCoins,
-                                                   unsafeGetCoin, unsafeIntegerToCoin)
-import           Pos.Update.Core                  (BlockVersionModifier (..),
+                                                   unsafeAddCoin, unsafeGetCoin,
+                                                   unsafeIntegerToCoin)
+import           Pos.Update.Core                  (BlockVersionData (..),
+                                                   BlockVersionModifier (..),
                                                    StakeholderVotes, UpdateProposal (..),
                                                    isPositiveVote)
 import           Pos.Update.Poll                  (ConfirmedProposalState (..))
@@ -117,6 +120,11 @@ isTxLocalAddress wAddrMetas inputs = do
            let nonLocalAddrsSet = S.fromList $ cwamId <$> wAddrMetas
            not . flip S.member nonLocalAddrsSet
 
+mergeTxOuts :: [TxOut] -> [TxOut]
+mergeTxOuts = map stick . NE.groupWith txOutAddress
+  where stick outs@(TxOut{txOutAddress = addr} :| _) =
+            TxOut addr (foldl1 unsafeAddCoin $ fmap txOutValue outs)
+
 mkCTx
     :: ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
     -> TxHistoryEntry     -- ^ Tx history entry
@@ -124,7 +132,7 @@ mkCTx
     -> CPtxCondition      -- ^ State of resubmission
     -> [CWAddressMeta]    -- ^ Addresses of wallet
     -> Either Text CTx
-mkCTx diff th@THEntry {..} meta pc wAddrMetas = do
+mkCTx diff THEntry {..} meta pc wAddrMetas = do
     let isOurTxAddress = flip S.member wAddrsSet . addressToCId . txOutAddress
 
         ownInputs = filter isOurTxAddress inputs
@@ -149,10 +157,12 @@ mkCTx diff th@THEntry {..} meta pc wAddrMetas = do
     return CTx {..}
   where
     ctId = txIdToCTxId _thTxId
+    encodeTxOut :: TxOut -> (CId Addr, CCoin)
+    encodeTxOut TxOut{..} = (addressToCId txOutAddress, mkCCoin txOutValue)
     inputs = _thInputs
     outputs = toList $ _txOutputs _thTx
-    ctInputAddrs = ordNub $ map addressToCId (_thInputAddrs th)
-    ctOutputAddrs = map addressToCId _thOutputAddrs
+    ctInputs = map encodeTxOut $ mergeTxOuts _thInputs
+    ctOutputs = map encodeTxOut outputs
     ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
     ctMeta = meta
     ctCondition = pc
@@ -175,12 +185,13 @@ countVotes = foldl' counter (0, 0)
                               else (n, m + 1)
 
 -- | Creates 'CTUpdateInfo' from 'ConfirmedProposalState'
-toCUpdateInfo :: ConfirmedProposalState -> CUpdateInfo
-toCUpdateInfo ConfirmedProposalState {..} =
+toCUpdateInfo :: BlockVersionData -> ConfirmedProposalState -> CUpdateInfo
+toCUpdateInfo bvd ConfirmedProposalState {..} =
     let UnsafeUpdateProposal {..} = cpsUpdateProposal
         cuiSoftwareVersion  = upSoftwareVersion
         cuiBlockVesion      = upBlockVersion
-        cuiScriptVersion    = bvmScriptVersion upBlockVersionMod
+        cuiScriptVersion    = fromMaybe (bvdScriptVersion bvd)
+                                        (bvmScriptVersion upBlockVersionMod)
         cuiImplicit         = cpsImplicit
 --        cuiProposed         = cpsProposed
 --        cuiDecided          = cpsDecided

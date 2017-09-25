@@ -17,7 +17,7 @@ import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (
                                                    MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
                                                    MsgSubscribe (..), VerInfo (..))
-import           Pos.Core                         (BlockVersion, HasCoreConstants,
+import           Pos.Core                         (BlockVersion, HasConfiguration,
                                                    HeaderHash)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 
@@ -39,13 +39,29 @@ deriveSimpleBi ''MsgGetBlocks [
         Field [| mgbTo   :: HeaderHash |]
     ]]
 
-instance (HasCoreConstants, SscHelpersClass ssc) => Bi (MsgHeaders ssc) where
-  encode (MsgHeaders b) = encode b
-  decode = MsgHeaders <$> decode
+instance (HasConfiguration, SscHelpersClass ssc) => Bi (MsgHeaders ssc) where
+    encode = \case
+        (MsgHeaders b) -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
+        (MsgNoHeaders t) -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
+    decode = do
+        enforceSize "MsgHeaders" 2
+        tag <- decode @Word8
+        case tag of
+            0 -> MsgHeaders <$> decode
+            1 -> MsgNoHeaders <$> decode
+            t -> fail $ "MsgHeaders wrong tag: " <> show t
 
-instance (HasCoreConstants, SscHelpersClass ssc) => Bi (MsgBlock ssc) where
-  encode (MsgBlock b) = encode b
-  decode = MsgBlock <$> decode
+instance (HasConfiguration, SscHelpersClass ssc) => Bi (MsgBlock ssc) where
+    encode = \case
+        (MsgBlock b) -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
+        (MsgNoBlock t) -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
+    decode = do
+        enforceSize "MsgBlock" 2
+        tag <- decode @Word8
+        case tag of
+            0 -> MsgBlock <$> decode
+            1 -> MsgNoBlock <$> decode
+            t -> fail $ "MsgBlock wrong tag: " <> show t
 
 -- deriveSimpleBi is not happy with constructors without arguments
 -- "fake" deriving as per `MempoolMsg`.

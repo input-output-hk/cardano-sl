@@ -1,4 +1,3 @@
-
 -- | Module for command-line utilites, parsers and convenient handlers.
 
 module Pos.Client.CLI.Util
@@ -6,33 +5,34 @@ module Pos.Client.CLI.Util
        , attackTypeParser
        , attackTargetParser
        , defaultLoggerConfig
-       , getNodeSystemStart
        , readLoggerConfig
        , sscAlgoParser
        , stakeholderIdParser
+       , dumpGenesisData
        ) where
 
 import           Universum
 
-import           Control.Lens          (zoom, (?=))
-import           Data.Time.Clock.POSIX (getPOSIXTime)
-import           Data.Time.Units       (toMicroseconds)
-import           Serokell.Util         (sec)
-import           System.Wlog           (LoggerConfig (..), Severity (Info, Warning),
-                                        fromScratch, lcTree, ltSeverity,
-                                        parseLoggerConfig, zoomLogger)
-import           Text.Parsec           (try)
-import qualified Text.Parsec.Char      as P
-import qualified Text.Parsec.Text      as P
+import           Control.Lens           (zoom, (?=))
+import qualified Data.ByteString.Lazy   as BSL
+import           Formatting             (sformat, shown, (%))
+import           System.Wlog            (LoggerConfig (..), Severity (Info, Warning),
+                                         fromScratch, lcTree, ltSeverity,
+                                         parseLoggerConfig, zoomLogger)
+import           Text.Parsec            (try)
+import qualified Text.Parsec.Char       as P
+import qualified Text.Parsec.Text       as P
 
-import           Pos.Binary.Core       ()
-import           Pos.Constants         (isDevelopment)
-import           Pos.Core              (StakeholderId, Timestamp (..))
-import           Pos.Crypto            (decodeAbstractHash)
-import           Pos.Security.Params   (AttackTarget (..), AttackType (..))
-import           Pos.Ssc.SscAlgo       (SscAlgo (..))
-import           Pos.Util              (eitherToFail, inAssertMode)
-import           Pos.Util.TimeWarp     (addrParser)
+import           Pos.Binary.Core        ()
+import           Pos.Constants          (isDevelopment)
+import           Pos.Core               (StakeholderId)
+import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson,
+                                         genesisData)
+import           Pos.Crypto             (decodeAbstractHash)
+import           Pos.Security.Params    (AttackTarget (..), AttackType (..))
+import           Pos.Ssc.SscAlgo        (SscAlgo (..))
+import           Pos.Util               (eitherToFail, inAssertMode)
+import           Pos.Util.TimeWarp      (addrParser)
 
 printFlags :: MonadIO m => m ()
 printFlags = do
@@ -79,24 +79,9 @@ defaultLoggerConfig = fromScratch $ zoom lcTree $ zoomLogger "node" $ do
 readLoggerConfig :: MonadIO m => Maybe FilePath -> m LoggerConfig
 readLoggerConfig = maybe (return defaultLoggerConfig) parseLoggerConfig
 
--- | This function carries out special logic to convert given
--- timestamp to the system start time.
-getNodeSystemStart :: MonadIO m => Timestamp -> m Timestamp
-getNodeSystemStart cliOrConfigSystemStart
-  | cliOrConfigSystemStart >= 1400000000 =
-    -- UNIX time 1400000000 is Tue, 13 May 2014 16:53:20 GMT.
-    -- It was chosen arbitrarily as some date far enough in the past.
-    -- See CSL-983 for more information.
-    pure cliOrConfigSystemStart
-  | otherwise = do
-    let frameLength = timestampToSeconds cliOrConfigSystemStart
-    currentPOSIXTime <- liftIO $ round <$> getPOSIXTime
-    -- The whole timeline is split into frames, with the first frame starting
-    -- at UNIX epoch start. We're looking for a time `t` which would be in the
-    -- middle of the same frame as the current UNIX time.
-    let currentFrame = currentPOSIXTime `div` frameLength
-        t = currentFrame * frameLength + (frameLength `div` 2)
-    pure $ Timestamp $ sec $ fromIntegral t
-  where
-    timestampToSeconds :: Timestamp -> Integer
-    timestampToSeconds = (`div` 1000000) . toMicroseconds . getTimestamp
+-- | Dump our 'GenesisData' into a file.
+dumpGenesisData :: (HasConfiguration, MonadIO m) => FilePath -> m ()
+dumpGenesisData path = do
+    let (canonicalJsonBytes, jsonHash) = canonicalGenesisJson genesisData
+    putText $ sformat ("Writing JSON with hash "%shown%" to "%shown) jsonHash path
+    liftIO $ BSL.writeFile path canonicalJsonBytes

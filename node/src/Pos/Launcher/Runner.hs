@@ -48,18 +48,25 @@ import           Pos.Communication               (ActionSpec (..), EnqueueMsg,
                                                   SendActions, VerInfo (..), allListeners,
                                                   bipPacking, hoistSendActions,
                                                   makeEnqueueMsg, makeSendActions)
-import qualified Pos.Constants                   as Const
+import           Pos.Configuration               (HasNodeConfiguration)
 import           Pos.Context                     (NodeContext (..))
-import           Pos.Core                        (HasCoreConstants)
+import           Pos.Core.Configuration          (HasConfiguration, protocolMagic)
+import           Pos.Core.Types                  (ProtocolMagic (..))
+import           Pos.Infra.Configuration         (HasInfraConfiguration)
 import           Pos.Launcher.Param              (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..))
 import           Pos.Launcher.Resource           (NodeResources (..), hoistNodeResources)
-import           Pos.Network.Types               (NetworkConfig (..), NodeId, initQueue)
+import           Pos.Network.Types               (NetworkConfig (..), NodeId, initQueue,
+                                                  topologyRoute53HealthCheckEnabled)
 import           Pos.Recovery.Instance           ()
 import           Pos.Ssc.Class                   (SscConstraint)
 import           Pos.Statistics                  (EkgParams (..), StatsdParams (..))
+import           Pos.Update.Configuration        (HasUpdateConfiguration,
+                                                  lastKnownBlockVersion)
 import           Pos.Util.JsonLog                (JsonLogConfig (..),
                                                   jsonLogConfigFromHandle)
+import           Pos.Web.Server                  (route53HealthCheckApplication,
+                                                  serveImpl)
 import           Pos.WorkMode                    (EnqueuedConversation (..), OQ, RealMode,
                                                   RealModeContext (..), WorkMode)
 
@@ -69,8 +76,8 @@ import           Pos.WorkMode                    (EnqueuedConversation (..), OQ,
 
 -- | Run activity in 'RealMode'.
 runRealMode
-    :: forall ssc a.
-       (HasCoreConstants, SscConstraint ssc)
+    :: forall ssc ctx a.
+       (SscConstraint ssc, WorkMode ssc ctx (RealMode ssc))
     => NodeResources ssc (RealMode ssc)
     -> (ActionSpec (RealMode ssc) a, OutSpecs)
     -> Production a
@@ -93,7 +100,12 @@ runRealBasedMode unwrap wrap nr@NodeResources {..} (ActionSpec action, outSpecs)
 -- | RealMode runner.
 runRealModeDo
     :: forall ssc a.
-       (HasCoreConstants, SscConstraint ssc)
+       ( HasConfiguration
+       , HasInfraConfiguration
+       , HasUpdateConfiguration
+       , HasNodeConfiguration
+       , SscConstraint ssc
+       )
     => NodeResources ssc (RealMode ssc)
     -> OutSpecs
     -> ActionSpec (RealMode ssc) a
@@ -112,7 +124,7 @@ runRealModeDo NodeResources {..} outSpecs action =
                     (const noReceiveDelay)
                     (allListeners oq ncTopology)
                     outSpecs
-                    (startMonitoring oq)
+                    (startMonitoring ncTopology oq)
                     stopMonitoring
                     oq
                     action
@@ -121,7 +133,18 @@ runRealModeDo NodeResources {..} outSpecs action =
     NetworkConfig {..} = ncNetworkConfig
     NodeParams {..} = ncNodeParams
     LoggingParams {..} = bpLoggingParams npBaseParams
-    startMonitoring oq node' =
+    -- Expose the health-check endpoint for DNS load-balancing
+    -- and optionally other services as EKG & statsd.
+    startMonitoring topology oq node' = do
+        -- Expose the health-check
+        let (hcHost, hcPort) = case npRoute53Params of
+                Nothing         -> ("127.0.0.1", 3030)
+                Just (hst, prt) -> (decodeUtf8 hst, fromIntegral prt)
+        mRoute53HealthCheck <- case topologyRoute53HealthCheckEnabled topology of
+            False -> return Nothing
+            True  -> let app = route53HealthCheckApplication topology oq
+                     in Just <$> async (serveImpl app hcHost hcPort Nothing)
+        -- Run the optional tools.
         case npEnableMetrics of
             False -> return Nothing
             True  -> Just <$> do
@@ -143,12 +166,13 @@ runRealModeDo NodeResources {..} outSpecs action =
                                 , Monitoring.suffix = statsdSuffix
                                 }
                         liftIO $ Monitoring.forkStatsd statsdOptions nrEkgStore
-                return (mEkgServer, mStatsdServer)
+                return (mEkgServer, mStatsdServer, mRoute53HealthCheck)
 
     stopMonitoring Nothing = return ()
-    stopMonitoring (Just (mEkg, mStatsd)) = do
+    stopMonitoring (Just (mEkg, mStatsd, mRoute53HealthCheck)) = do
         whenJust mStatsd (killThread . Monitoring.statsdThreadId)
         whenJust mEkg stopMonitor
+        whenJust mRoute53HealthCheck cancel
 
     runToProd :: forall t .
                  JsonLogConfig
@@ -197,7 +221,14 @@ oqDequeue oq converse = do
 
 runServer
     :: forall m t b .
-       (MonadIO m, MonadMockable m, MonadFix m, WithLogger m)
+       ( MonadIO m
+       , MonadMockable m
+       , MonadFix m
+       , WithLogger m
+       , HasConfiguration
+       , HasUpdateConfiguration
+       , HasNodeConfiguration
+       )
     => (m (Statistics m) -> NodeEndPoint m)
     -> (m (Statistics m) -> ReceiveDelay m)
     -> (EnqueueMsg m -> MkListeners m)
@@ -214,7 +245,7 @@ runServer mkTransport mkReceiveDelay mkL (OutSpecs wouts) withNode afterNode oq 
         InSpecs ins = inSpecs mkL'
         OutSpecs outs = outSpecs mkL'
         ourVerInfo =
-            VerInfo Const.protocolMagic Const.lastKnownBlockVersion ins $ outs <> wouts
+            VerInfo (getProtocolMagic protocolMagic) lastKnownBlockVersion ins $ outs <> wouts
         mkListeners' theirVerInfo =
             mkListeners mkL' ourVerInfo theirVerInfo
     stdGen <- liftIO newStdGen

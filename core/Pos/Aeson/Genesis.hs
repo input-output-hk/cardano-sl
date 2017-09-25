@@ -23,7 +23,8 @@ import           Pos.Core.Genesis.Types  (FakeAvvmOptions, GenesisAvvmBalances (
                                           convertNonAvvmDataToBalances,
                                           mkGenesisDelegation)
 import           Pos.Core.Types          (ProxySKHeavy, StakeholderId)
-import           Pos.Core.Vss            (validateVssCertificatesMap)
+import           Pos.Core.Vss            (VssCertificatesMap (..),
+                                          validateVssCertificatesMap)
 import           Pos.Crypto              (RedeemPublicKey, fromAvvmPk)
 import           Pos.Util.Util           (eitherToFail)
 
@@ -37,9 +38,13 @@ deriving instance FromJSON GenesisWStakeholders
 instance FromJSON GenesisNonAvvmBalances where
     parseJSON = convertNonAvvmDataToBalances <=< parseJSON
 
-instance FromJSON GenesisVssCertificatesMap where
+instance FromJSON VssCertificatesMap where
     parseJSON = parseJSON >=> \mE ->
-        eitherToFail $ GenesisVssCertificatesMap <$> validateVssCertificatesMap mE
+        eitherToFail $
+        validateVssCertificatesMap (UnsafeVssCertificatesMap mE)
+
+instance FromJSON GenesisVssCertificatesMap where
+    parseJSON val = GenesisVssCertificatesMap <$> parseJSON val
 
 instance FromJSON GenesisDelegation where
     parseJSON = parseJSON >=> \v -> do

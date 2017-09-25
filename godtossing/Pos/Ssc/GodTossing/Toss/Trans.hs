@@ -12,12 +12,11 @@ module Pos.Ssc.GodTossing.Toss.Trans
 import           Universum
 
 import           Control.Lens                  (at, (%=), (.=))
-import qualified Data.HashMap.Strict           as HM
 import qualified Ether
 import           Mockable                      (ChannelT, Promise, SharedAtomicT,
                                                 ThreadId)
 
-import           Pos.Core.Vss                  (getCertId)
+import           Pos.Core.Vss                  (insertVss)
 import           Pos.Ssc.GodTossing.Core       (deleteSignedCommitment,
                                                 insertSignedCommitment)
 import           Pos.Ssc.GodTossing.Toss.Class (MonadToss (..), MonadTossEnv (..),
@@ -75,8 +74,12 @@ instance MonadToss m =>
         ether $ tmOpenings . at id .= Just op
     putShares id sh =
         ether $ tmShares . at id .= Just sh
+    -- NB. 'insertVss' might delete some certs from the map, but it
+    -- shouldn't actually happen in practice because
+    -- 'checkCertificatesPayload' ensures that there are no clashes between
+    -- the certificates in blocks and certificates in the map
     putCertificate cert =
-        ether $ tmCertificates %= HM.insert (getCertId cert) cert
+        ether $ tmCertificates %= fst . insertVss cert
     delCommitment id =
         ether $ tmCommitments %= deleteSignedCommitment id
     delOpening id =

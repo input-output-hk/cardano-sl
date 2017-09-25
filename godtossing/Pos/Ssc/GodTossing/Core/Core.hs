@@ -31,7 +31,6 @@ module Pos.Ssc.GodTossing.Core.Core
        , verifyOpening
 
        -- * Payload and proof
-       , _gpCertificates
        , mkGtProof
        , stripGtPayload
        , defaultGtPayload
@@ -60,7 +59,7 @@ import           Pos.Core.Address              (addressHash)
 import           Pos.Core.Configuration        (HasConfiguration, slotSecurityParam,
                                                 vssMaxTTL, vssMinTTL)
 import           Pos.Core.Vss                  (VssCertificate (vcExpiryEpoch),
-                                                VssCertificatesMap)
+                                                VssCertificatesMap (..))
 import           Pos.Crypto                    (Secret, SecretKey, SecureRandom (..),
                                                 SignTag (SignCommitment), Threshold,
                                                 VssPublicKey, checkSig, genSharedSecret,
@@ -246,12 +245,6 @@ checkCertTTL curEpochIndex vc =
 -- Payload and proof
 ----------------------------------------------------------------------------
 
-_gpCertificates :: GtPayload -> VssCertificatesMap
-_gpCertificates (CommitmentsPayload _ certs) = certs
-_gpCertificates (OpeningsPayload _ certs)    = certs
-_gpCertificates (SharesPayload _ certs)      = certs
-_gpCertificates (CertificatesPayload certs)  = certs
-
 isEmptyGtPayload :: GtPayload -> Bool
 isEmptyGtPayload (CommitmentsPayload comms certs) = null comms && null certs
 isEmptyGtPayload (OpeningsPayload opens certs)    = null opens && null certs
@@ -277,10 +270,10 @@ instance Buildable GtPayload where
         formatIfNotNull formatter l
             | null l = mempty
             | otherwise = bprint formatter l
-        formatCommitments comms =
+        formatCommitments (getCommitmentsMap -> comms) =
             formatIfNotNull
                 ("  commitments from: " %listJson % "\n")
-                (HM.keys $ getCommitmentsMap comms)
+                (HM.keys comms)
         formatOpenings openings =
             formatIfNotNull
                 ("  openings from: " %listJson % "\n")
@@ -289,7 +282,7 @@ instance Buildable GtPayload where
             formatIfNotNull
                 ("  shares from: " %listJson % "\n")
                 (HM.keys shares)
-        formatCertificates certs =
+        formatCertificates (getVssCertificatesMap -> certs) =
             formatIfNotNull
                 ("  certificates from: " %listJson % "\n")
                 (map formatVssCert $ HM.toList certs)
@@ -318,22 +311,28 @@ mkGtProof payload =
 stripGtPayload :: HasConfiguration => Byte -> GtPayload -> Maybe GtPayload
 stripGtPayload lim payload | biSize payload <= lim = Just payload
 stripGtPayload lim payload = case payload of
-    (CertificatesPayload vssmap) -> CertificatesPayload <$> stripHashMap lim vssmap
+    (CertificatesPayload vssmap) ->
+        CertificatesPayload <$> stripVss lim vssmap
     (CommitmentsPayload (getCommitmentsMap -> comms0) certs0) -> do
-        let certs = stripHashMap limCerts certs0
+        let certs = stripVss limCerts certs0
         let comms = stripHashMap (lim - biSize certs) comms0
         CommitmentsPayload <$> (mkCommitmentsMapUnsafe <$> comms) <*> certs
     (OpeningsPayload openings0 certs0) -> do
-        let certs = stripHashMap limCerts certs0
+        let certs = stripVss limCerts certs0
         let openings = stripHashMap (lim - biSize certs) openings0
         OpeningsPayload <$> openings <*> certs
     (SharesPayload shares0 certs0) -> do
-        let certs = stripHashMap limCerts certs0
+        let certs = stripVss limCerts certs0
         let shares = stripHashMap (lim - biSize certs) shares0
         SharesPayload <$> shares <*> certs
   where
     limCerts = lim `div` 3 -- certificates are 1/3 less important than everything else
                            -- this is a random choice in fact
+    -- Using 'UnsafeVssCertificatesMap' is safe here because if the original
+    -- map is okay, a subset of the original map is okay too.
+    stripVss l = fmap UnsafeVssCertificatesMap .
+                 stripHashMap l .
+                 getVssCertificatesMap
 
 -- | Default godtossing payload depending on local slot index.
 defaultGtPayload :: HasConfiguration => LocalSlotIndex -> GtPayload

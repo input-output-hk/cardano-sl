@@ -48,7 +48,7 @@ import qualified Pos.Core.Slotting                 as Types
 import           Pos.Core.Types                    (BlockVersionData (..), Timestamp (..))
 import qualified Pos.Core.Types                    as Types
 import           Pos.Core.Vss                      (VssCertificate, mkVssCertificate,
-                                                    mkVssCertificatesMap)
+                                                    mkVssCertificatesMapLossy)
 import           Pos.Crypto                        (createPsk, toPublic)
 import           Pos.Data.Attributes               (Attributes (..), UnparsedFields (..))
 import           Pos.Util.Arbitrary                (nonrepeating)
@@ -536,7 +536,7 @@ instance HasProtocolConstants => Arbitrary G.GenesisData where
         hasKnownFeePolicy BlockVersionData {bvdTxFeePolicy = Fee.TxFeePolicyTxSizeLinear {}} =
             True
         hasKnownFeePolicy _ = False
-        arbitraryVssCerts = G.GenesisVssCertificatesMap . mkVssCertificatesMap <$> arbitrary
+        arbitraryVssCerts = G.GenesisVssCertificatesMap . mkVssCertificatesMapLossy <$> arbitrary
 
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types

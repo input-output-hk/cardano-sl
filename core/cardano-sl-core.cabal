@@ -153,6 +153,7 @@ library
                      , ed25519
                      , ether >= 0.5
                      , exceptions
+                     , extra
                      , file-embed
                      , filepath
                      , formatting

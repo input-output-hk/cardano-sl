@@ -10,30 +10,33 @@ module Main
 
 import           Universum
 
-import           Data.Maybe          (fromJust)
-import           Formatting          (sformat, shown, (%))
-import           Mockable            (Production, currentTime, runProduction)
+import           Data.Maybe           (fromJust)
+import           Formatting           (sformat, shown, (%))
+import           Mockable             (Production, currentTime, runProduction)
 
-import           Pos.Binary          ()
-import           Pos.Client.CLI      (CommonNodeArgs (..), NodeArgs (..),
-                                      SimpleNodeArgs (..))
-import qualified Pos.Client.CLI      as CLI
-import           Pos.Communication   (OutSpecs, WorkerSpec)
-import           Pos.Core            (GenesisData (..), Timestamp (..), genesisData)
-import           Pos.Launcher        (HasConfigurations, NodeParams (..), runNodeReal,
-                                      withConfigurations)
-import           Pos.Ssc.Class       (SscConstraint, SscParams)
-import           Pos.Ssc.GodTossing  (SscGodTossing)
-import           Pos.Ssc.NistBeacon  (SscNistBeacon)
-import           Pos.Ssc.SscAlgo     (SscAlgo (..))
-import           Pos.Update          (updateTriggerWorker)
-import           Pos.Util.UserSecret (usVss)
-import           Pos.WorkMode        (RealMode)
+import           Pos.Binary           ()
+import           Pos.Client.CLI       (CommonNodeArgs (..), NodeArgs (..),
+                                       SimpleNodeArgs (..))
+import qualified Pos.Client.CLI       as CLI
+import           Pos.Communication    (OutSpecs, WorkerSpec)
+import           Pos.Core             (GenesisData (..), Timestamp (..), genesisData)
+import           Pos.Launcher         (HasConfigurations, NodeParams (..), runNodeReal,
+                                       withConfigurations)
+import           Pos.Ssc.Class        (SscConstraint, SscParams)
+import           Pos.Ssc.GodTossing   (SscGodTossing)
+import           Pos.Ssc.NistBeacon   (SscNistBeacon)
+import           Pos.Ssc.SscAlgo      (SscAlgo (..))
+import           Pos.Update           (updateTriggerWorker)
+import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,
+                                       withCompileInfo)
+import           Pos.Util.UserSecret  (usVss)
+import           Pos.WorkMode         (RealMode)
 
 actionWithoutWallet
     :: forall ssc.
        ( SscConstraint ssc
        , HasConfigurations
+       , HasCompileInfo
        )
     => SscParams ssc
     -> NodeParams
@@ -45,7 +48,9 @@ actionWithoutWallet sscParams nodeParams =
     plugins = updateTriggerWorker
 
 action
-    :: ( HasConfigurations )
+    :: ( HasConfigurations
+       , HasCompileInfo
+       )
     => SimpleNodeArgs
     -> Production ()
 action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
@@ -72,4 +77,7 @@ main = do
     args@(CLI.SimpleNodeArgs commonNodeArgs _) <- CLI.getSimpleNodeOptions
     CLI.printFlags
     let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
-    runProduction $ withConfigurations conf (action args)
+    runProduction $
+        withCompileInfo $(retrieveCompileTimeInfo) $
+        withConfigurations conf $
+        action args

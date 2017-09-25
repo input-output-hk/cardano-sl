@@ -32,6 +32,7 @@ import           Pos.Txp                          (TxFee (..), Utxo, _txOutputs)
 import           Pos.Txp.Core                     (TxAux (..), TxOut (..))
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util                         (eitherToThrow, maybeThrow)
+import           Pos.Util.CompileInfo             (HasCompileInfo)
 import           Pos.Util.Servant                 (encodeCType)
 import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAccAddr)
 import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAddress (..),
@@ -123,6 +124,7 @@ instance
     , HasInfraConfiguration
     , HasGtConfiguration
     , HasUpdateConfiguration
+    , HasCompileInfo
     )
     => MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode
   where

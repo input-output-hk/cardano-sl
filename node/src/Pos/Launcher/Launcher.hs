@@ -5,21 +5,23 @@ module Pos.Launcher.Launcher
          runNodeReal
        ) where
 
-import           Mockable                   (Production)
+import           Mockable                         (Production)
 
-import           Pos.Communication.Protocol (OutSpecs, WorkerSpec)
-import           Pos.Configuration          (HasNodeConfiguration)
-import           Pos.Core                   (HasConfiguration)
-import           Pos.Infra.Configuration    (HasInfraConfiguration)
-import           Pos.Launcher.Param         (NodeParams (..))
-import           Pos.Launcher.Resource      (NodeResources (..), bracketNodeResources)
-import           Pos.Launcher.Runner        (runRealMode)
-import           Pos.Launcher.Scenario      (runNode)
-import           Pos.Ssc.Class              (SscConstraint)
-import           Pos.Ssc.Class.Types        (SscParams)
+import           Pos.Communication.Protocol       (OutSpecs, WorkerSpec)
+import           Pos.Configuration                (HasNodeConfiguration)
+import           Pos.Core                         (HasConfiguration)
+import           Pos.Infra.Configuration          (HasInfraConfiguration)
+import           Pos.Launcher.Param               (NodeParams (..))
+import           Pos.Launcher.Resource            (NodeResources (..),
+                                                   bracketNodeResources)
+import           Pos.Launcher.Runner              (runRealMode)
+import           Pos.Launcher.Scenario            (runNode)
+import           Pos.Ssc.Class                    (SscConstraint)
+import           Pos.Ssc.Class.Types              (SscParams)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Update.Configuration   (HasUpdateConfiguration)
-import           Pos.WorkMode               (RealMode)
+import           Pos.Update.Configuration         (HasUpdateConfiguration)
+import           Pos.Util.CompileInfo             (HasCompileInfo)
+import           Pos.WorkMode                     (RealMode)
 
 -----------------------------------------------------------------------------
 -- Main launchers
@@ -40,6 +42,7 @@ runNodeReal
        -- See 'prepareGStateDB'.
        , HasGtConfiguration
        , HasNodeConfiguration
+       , HasCompileInfo
        )
     => NodeParams
     -> SscParams ssc

@@ -64,6 +64,7 @@ import           Pos.Ssc.Class                   (SscConstraint)
 import           Pos.Statistics                  (EkgParams (..), StatsdParams (..))
 import           Pos.Update.Configuration        (HasUpdateConfiguration,
                                                   lastKnownBlockVersion)
+import           Pos.Util.CompileInfo            (HasCompileInfo)
 import           Pos.Util.JsonLog                (JsonLogConfig (..),
                                                   jsonLogConfigFromHandle)
 import           Pos.Web.Server                  (route53HealthCheckApplication,
@@ -105,6 +106,7 @@ runRealModeDo
        , HasInfraConfiguration
        , HasUpdateConfiguration
        , HasNodeConfiguration
+       , HasCompileInfo
        , SscConstraint ssc
        )
     => NodeResources ssc (RealMode ssc)

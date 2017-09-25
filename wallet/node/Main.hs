@@ -9,39 +9,48 @@ module Main
        ( main
        ) where
 
-import           Universum           hiding (over)
+import           Universum            hiding (over)
 
-import           Data.Maybe          (fromJust)
-import           Formatting          (sformat, shown, (%))
-import           Mockable            (Production, currentTime, runProduction)
+import           Data.Maybe           (fromJust)
+import           Formatting           (sformat, shown, (%))
+import           Mockable             (Production, currentTime, runProduction)
 
-import           Pos.Binary          ()
-import           Pos.Client.CLI      (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
-import qualified Pos.Client.CLI      as CLI
-import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec, worker)
-import           Pos.Context         (HasNodeContext)
-import           Pos.Core            (Timestamp (..), gdStartTime, genesisData)
-import           Pos.Launcher        (ConfigurationOptions (..), HasConfigurations,
-                                      NodeParams (..), NodeResources (..),
-                                      bracketNodeResources, runNode, withConfigurations)
-import           Pos.Ssc.Class       (SscParams)
-import           Pos.Ssc.GodTossing  (SscGodTossing)
-import           Pos.Ssc.SscAlgo     (SscAlgo (..))
-import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.Web      (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
-                                      runWRealMode, walletServeWebFull, walletServerOuts)
-import           Pos.Web             (serveWebGT)
-import           Pos.WorkMode        (WorkMode)
+import           Pos.Binary           ()
+import           Pos.Client.CLI       (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
+import qualified Pos.Client.CLI       as CLI
+import           Pos.Communication    (ActionSpec (..), OutSpecs, WorkerSpec, worker)
+import           Pos.Context          (HasNodeContext)
+import           Pos.Core             (Timestamp (..), gdStartTime, genesisData)
+import           Pos.Launcher         (ConfigurationOptions (..), HasConfigurations,
+                                       NodeParams (..), NodeResources (..),
+                                       bracketNodeResources, runNode, withConfigurations)
+import           Pos.Ssc.Class        (SscParams)
+import           Pos.Ssc.GodTossing   (SscGodTossing)
+import           Pos.Ssc.SscAlgo      (SscAlgo (..))
+import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,
+                                       withCompileInfo)
+import           Pos.Util.UserSecret  (usVss)
+import           Pos.Wallet.Web       (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
+                                       runWRealMode, walletServeWebFull, walletServerOuts)
+import           Pos.Web              (serveWebGT)
+import           Pos.WorkMode         (WorkMode)
 
-import           NodeOptions         (WalletArgs (..), WalletNodeArgs (..),
-                                      getWalletNodeOptions)
+import           NodeOptions          (WalletArgs (..), WalletNodeArgs (..),
+                                       getWalletNodeOptions)
 
 
 ----------------------------------------------------------------------------
 -- Main action
 ----------------------------------------------------------------------------
 
-actionWithWallet :: HasConfigurations => SscParams SscGodTossing -> NodeParams -> WalletArgs -> Production ()
+actionWithWallet ::
+       ( HasConfigurations
+       , HasCompileInfo
+       )
+    => SscParams SscGodTossing
+    -> NodeParams
+    -> WalletArgs
+    -> Production ()
 actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
     bracketWalletWebDB walletDbPath walletRebuildDb $ \db ->
         bracketWalletWS $ \conn ->
@@ -56,7 +65,12 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
     plugins :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
     plugins = convPlugins (pluginsGT wArgs) <> walletProd wArgs
 
-walletProd :: HasConfigurations => WalletArgs -> ([WorkerSpec WalletWebMode], OutSpecs)
+walletProd ::
+       ( HasConfigurations
+       , HasCompileInfo
+       )
+    => WalletArgs
+    -> ([WorkerSpec WalletWebMode], OutSpecs)
 walletProd WalletArgs {..} = first pure $ worker walletServerOuts $ \sendActions ->
     walletServeWebFull
         sendActions
@@ -68,6 +82,7 @@ pluginsGT ::
     ( WorkMode SscGodTossing ctx m
     , HasNodeContext SscGodTossing ctx
     , HasConfigurations
+    , HasCompileInfo
     ) => WalletArgs -> [m ()]
 pluginsGT WalletArgs {..}
     | enableWeb = [serveWebGT webPort (Just walletTLSParams)]
@@ -75,7 +90,8 @@ pluginsGT WalletArgs {..}
 
 action :: WalletNodeArgs -> Production ()
 action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
-    withConfigurations conf $ do
+    withConfigurations conf $
+    withCompileInfo $(retrieveCompileTimeInfo) $ do
         whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData
         putText $ sformat ("System start time is " % shown) $ gdStartTime genesisData
         t <- currentTime

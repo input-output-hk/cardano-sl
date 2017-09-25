@@ -2,6 +2,7 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TupleSections       #-}
 
 module Main
@@ -10,31 +11,33 @@ module Main
 
 import           Universum
 
-import           Data.Maybe          (fromJust)
-import           Formatting          (sformat, shown, (%))
-import           Mockable            (Production, currentTime, runProduction)
-import           System.Wlog         (logInfo)
+import           Data.Maybe           (fromJust)
+import           Formatting           (sformat, shown, (%))
+import           Mockable             (Production, currentTime, runProduction)
+import           System.Wlog          (logInfo)
 
-import           NodeOptions         (ExplorerArgs (..), ExplorerNodeArgs (..),
-                                      getExplorerNodeOptions)
-import           Pos.Binary          ()
-import           Pos.Client.CLI      (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
-import qualified Pos.Client.CLI      as CLI
-import           Pos.Communication   (OutSpecs, WorkerSpec)
-import           Pos.Core            (gdStartTime, genesisData)
-import           Pos.Explorer        (runExplorerBListener)
-import           Pos.Explorer.Socket (NotifierSettings (..))
-import           Pos.Explorer.Web    (ExplorerProd, explorerPlugin, notifierPlugin)
-import           Pos.Launcher        (ConfigurationOptions (..), HasConfigurations,
-                                      NodeParams (..), NodeResources (..),
-                                      bracketNodeResources, hoistNodeResources, runNode,
-                                      runRealBasedMode, withConfigurations)
-import           Pos.Ssc.GodTossing  (SscGodTossing)
-import           Pos.Ssc.SscAlgo     (SscAlgo (..))
-import           Pos.Types           (Timestamp (Timestamp))
-import           Pos.Update          (updateTriggerWorker)
-import           Pos.Util            (mconcatPair)
-import           Pos.Util.UserSecret (usVss)
+import           NodeOptions          (ExplorerArgs (..), ExplorerNodeArgs (..),
+                                       getExplorerNodeOptions)
+import           Pos.Binary           ()
+import           Pos.Client.CLI       (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
+import qualified Pos.Client.CLI       as CLI
+import           Pos.Communication    (OutSpecs, WorkerSpec)
+import           Pos.Core             (gdStartTime, genesisData)
+import           Pos.Explorer         (runExplorerBListener)
+import           Pos.Explorer.Socket  (NotifierSettings (..))
+import           Pos.Explorer.Web     (ExplorerProd, explorerPlugin, notifierPlugin)
+import           Pos.Launcher         (ConfigurationOptions (..), HasConfigurations,
+                                       NodeParams (..), NodeResources (..),
+                                       bracketNodeResources, hoistNodeResources, runNode,
+                                       runRealBasedMode, withConfigurations)
+import           Pos.Ssc.GodTossing   (SscGodTossing)
+import           Pos.Ssc.SscAlgo      (SscAlgo (..))
+import           Pos.Types            (Timestamp (Timestamp))
+import           Pos.Update           (updateTriggerWorker)
+import           Pos.Util             (mconcatPair)
+import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,
+                                       withCompileInfo)
+import           Pos.Util.UserSecret  (usVss)
 
 ----------------------------------------------------------------------------
 -- Main action
@@ -49,7 +52,8 @@ main = do
 
 action :: ExplorerNodeArgs -> Production ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
-    withConfigurations conf $ do
+    withConfigurations conf $
+    withCompileInfo $(retrieveCompileTimeInfo) $ do
         let systemStart = gdStartTime genesisData
         logInfo $ sformat ("System start time is " % shown) systemStart
         t <- currentTime
@@ -78,7 +82,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
     conf = CLI.configurationOptions $ CLI.commonArgs cArgs
 
     runExplorerRealMode
-        :: HasConfigurations
+        :: (HasConfigurations,HasCompileInfo)
         => NodeResources SscGodTossing ExplorerProd
         -> (WorkerSpec ExplorerProd, OutSpecs)
         -> Production ()

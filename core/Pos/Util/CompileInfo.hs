@@ -1,4 +1,6 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE DeriveLift  #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RankNTypes  #-}
 
 -- | Compile time information manipulations. Was introduced as
 -- CSL-1563 to avoid extra library recompilations when git revision
@@ -6,33 +8,38 @@
 
 module Pos.Util.CompileInfo
        ( CompileTimeInfo (..)
+       , HasCompileInfo
        , withCompileInfo
        , retrieveCompileTimeInfo
        ) where
 
 import           Universum
 
-import           Data.Reflection     (Given (..), give)
-import           Language.Haskell.TH (Q, runIO)
-import           System.Environment  (lookupEnv)
-import           System.Exit         (ExitCode (..))
-import           System.Process      (readProcessWithExitCode)
+import           Data.Reflection            (Given (..), give)
+import           Instances.TH.Lift          ()
+import qualified Language.Haskell.TH        as TH
+import qualified Language.Haskell.TH.Syntax as TH
+import           System.Environment         (lookupEnv)
+import           System.Exit                (ExitCode (..))
+import           System.Process             (readProcessWithExitCode)
 
 
 -- | Data about the system that we want to retrieve in compile time.
 data CompileTimeInfo = CompileTimeInfo
-    { gtiGitRevision :: Text
-    } deriving (Show)
+    { ctiGitRevision :: Text
+    } deriving (Show,TH.Lift)
 
 type HasCompileInfo = Given CompileTimeInfo
 
 withCompileInfo :: CompileTimeInfo -> (HasCompileInfo => r) -> r
 withCompileInfo = give
 
-retrieveCompileTimeInfo :: Q CompileTimeInfo
-retrieveCompileTimeInfo = runIO $ do
-    gtiGitRevision <- fromString <$> retrieveGit
-    pure $ CompileTimeInfo {..}
+retrieveCompileTimeInfo :: TH.Q TH.Exp
+retrieveCompileTimeInfo = do
+    cti <- TH.runIO $ do
+      ctiGitRevision <- fromString <$> retrieveGit
+      pure $ CompileTimeInfo {..}
+    TH.lift cti
   where
     retrieveGit :: IO String
     retrieveGit =

@@ -3,8 +3,10 @@ module Bench.Pos.Explorer.ServerBench
     , runSpaceBenchmark
     ) where
 
+import qualified Prelude
 import           Universum
 
+-- import           Formatting                        (bprint)  --(bprint, build, int, stext, (%))
 import           Criterion.Main               (Benchmark, bench, defaultConfig,
                                                defaultMainWith, env, whnf)
 import           Criterion.Types              (Config (..))
@@ -22,11 +24,13 @@ import           Pos.Block.Types              (Blund)
 import           Pos.Core                     (HasCoreConstants, giveStaticConsts)
 import           Pos.Types                    (HeaderHash, SlotLeaders, Timestamp)
 
-import           Pos.Explorer.TestUtil        ()
+import           Pos.Explorer.TestUtil        (produceBlocksByBlockNumberAndSlots,
+                                               produceSecretKeys, produceSlotLeaders)
 import           Pos.Explorer.Web.ClientTypes (CBlockEntry, ExplorerMockMode (..))
-import           Pos.Explorer.Web.Server      (getBlocksPageEMode)
+import           Pos.Explorer.Web.Server      (pureGetBlocksTotal, getBlocksPageEMode)
 import           Test.Pos.Block.Logic.Mode    (BlockTestMode, TestParams,
                                                runBlockTestMode)
+
 
 
 
@@ -116,9 +120,43 @@ runTimeBenchmark = defaultMainWith getBlocksPageConfig [getBlocksPageBench]
         getBlocksPageMockBench :: GeneratedTestArguments -> IO (Integer, [CBlockEntry])
         getBlocksPageMockBench = giveStaticConsts getBlocksPageMock
 
-        genArgs :: IO GeneratedTestArguments
-        genArgs = generate $ arbitrary
+-- | Pass a page number and return a function that creates a block after we pass it
+-- the previous block header, secret key and slot id.
+{-
+createTipBlock
+    :: (HasCoreConstants)
+    => Word
+    -> BlockHeader SscGodTossing
+    -> SecretKey
+    -> SlotId
+    -> Block SscGodTossing
+createTipBlock pageNumber = undefined
 
+basicBlockGenericUnsafe
+    :: (HasCoreConstants)
+    => BlockHeader SscGodTossing
+    -> SecretKey
+    -> SlotId
+    -> Block SscGodTossing
+basicBlockGenericUnsafe prevHeader sk slotId = case (basicBlock prevHeader sk slotId) of
+    Left e      -> error e
+    Right block -> Right block
+
+basicBlock
+    :: (HasCoreConstants)
+    => BlockHeader SscGodTossing
+    -> SecretKey
+    -> SlotId
+    -> Either Text (MainBlock SscGodTossing)
+basicBlock prevHeader sk slotId =
+    producePureBlock infLimit prevHeader [] Nothing slotId def (defGTP slotId) def sk
+  where
+    defGTP :: HasCoreConstants => SlotId -> GtPayload
+    defGTP sId = sscDefaultPayload @SscGodTossing $ siSlot sId
+
+    infLimit :: Byte
+    infLimit = convertUnit @Gigabyte @Byte 1
+-}
 
 -- | Space @getBlocksPage@.
 runSpaceBenchmark :: IO ()
@@ -128,7 +166,40 @@ runSpaceBenchmark = mainWith =<< getPageBlocksMemory
     getPageBlocksMemory :: IO (Weigh ())
     getPageBlocksMemory =
         io "getPageBlocksMemory" (giveStaticConsts getBlocksPageMock) <$> genArgs
-      where
-        genArgs :: IO GeneratedTestArguments
-        genArgs = generate $ arbitrary
 
+-- | More predictable genereted arguments.
+genArgs :: IO GeneratedTestArguments
+genArgs = do
+    let blocksNumber  = 3000
+    let pageNumber    = 15
+    let slotsPerEpoch = 1000
+
+    slotStart     <- liftIO $ generate $ arbitrary
+
+    blockHHs      <- liftIO $ generate $ arbitrary
+    blundsFHHs    <- liftIO $ generate $ giveStaticConsts arbitrary
+
+    slotLeaders   <- produceSlotLeaders blocksNumber
+    secretKeys    <- produceSecretKeys blocksNumber
+
+    blocks <-
+        giveStaticConsts $ produceBlocksByBlockNumberAndSlots blocksNumber slotsPerEpoch slotLeaders secretKeys
+
+    let tipBlock = Prelude.last blocks
+    -- let tipBlock = case  of
+    --                     Nothing    -> error "Cannot find last block."
+    --                     Just block -> block
+
+    -- liftIO $ putStrLn $ bprint tipBlock
+
+    liftIO $ putStrLn $ (show $ length blocks :: String)
+    liftIO $ putStrLn $ (show (pureGetBlocksTotal tipBlock :: Integer) :: String)
+
+    pure $ GeneratedTestArguments
+        { _gtaPageNumber              = Just pageNumber
+        , _gtaTipBlock                = tipBlock
+        , _gtaBlockHeaderHashes       = blockHHs
+        , _gtaBlundsFromHeaderHashes  = blundsFHHs
+        , _gtaSlotStart               = slotStart
+        , _gtaSlotLeaders             = slotLeaders
+        }

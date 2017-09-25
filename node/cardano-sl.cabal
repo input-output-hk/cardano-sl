@@ -179,8 +179,10 @@ library
 
                         -- Needed for testing
                         Pos.Arbitrary.Explorer
-
                         Pos.Util.Servant
+
+                        -- Needed for testing / genesis creation
+                        Pos.Block.Core.Genesis.Misc
 
   other-modules:        Pos.Aeson.CompileConfig
                         Pos.Aeson.Types
@@ -199,7 +201,6 @@ library
                         Pos.Block.Core.Genesis
                         Pos.Block.Core.Genesis.Chain
                         Pos.Block.Core.Genesis.Lens
-                        Pos.Block.Core.Genesis.Misc
                         Pos.Block.Core.Genesis.Types
                         Pos.Block.Core.Main
                         Pos.Block.Core.Main.Chain

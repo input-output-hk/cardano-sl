@@ -19,5 +19,5 @@ main = do
     putText $ pretty configInfo
     hSetEncoding stdout utf8
 
-    SB.runTimeBenchmark
-    -- SB.runSpaceBenchmark
+    -- SB.runTimeBenchmark
+    SB.runSpaceBenchmark

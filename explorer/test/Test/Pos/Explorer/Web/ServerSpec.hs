@@ -6,46 +6,32 @@ module Test.Pos.Explorer.Web.ServerSpec
        ( spec
        ) where
 
-import qualified Prelude
 import           Universum
 
-import           Data.Default                      (def)
-import           Data.Text.Buildable               (build)
-import           Data.List.NonEmpty                (fromList)
-import           Serokell.Data.Memory.Units        (Byte, Gigabyte, convertUnit)
-import           Test.Hspec                        (Spec, describe, shouldBe)
-import           Test.Hspec.QuickCheck             (modifyMaxSuccess, prop)
-import           Test.QuickCheck                   (Arbitrary, Property, Testable,
-                                                    arbitrary, counterexample, forAll,
-                                                    property, (==>))
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary)
-import           Test.QuickCheck.Monadic           (assert, monadicIO, run)
+import           Data.Default                 (def)
+import           Data.List.NonEmpty           (fromList)
+import           Test.Hspec                   (Spec, describe, shouldBe)
+import           Test.Hspec.QuickCheck        (modifyMaxSuccess, prop)
+import           Test.QuickCheck              (arbitrary, counterexample, forAll, (==>))
+import           Test.QuickCheck.Monadic      (assert, monadicIO, run)
 
-import           Test.Pos.Block.Logic.Mode         (BlockTestMode, runBlockTestMode)
+import           Test.Pos.Block.Logic.Mode    (BlockTestMode, runBlockTestMode)
 
-import           Pos.Arbitrary.Block               ()
-import           Pos.Block.Core                    (Block, BlockHeader, MainBlock)
-import           Pos.Block.Logic                   (RawPayload (..), createMainBlockPure)
-import           Pos.Block.Types                   (SlogUndo, Undo)
-import qualified Pos.Communication                 ()
-import           Pos.Core                          (HasCoreConstants, SlotId (..),
-                                                    EpochIndex (..), LocalSlotIndex (..),
-                                                    giveStaticConsts)
-import           Pos.Crypto                        (SecretKey)
-import           Pos.DB.Block                      (MonadBlockDB)
-import           Pos.Delegation                    (DlgPayload, DlgUndo, ProxySKBlockInfo)
-import           Pos.Explorer.Web.ClientTypes      (CBlockEntry, ExplorerMockMode (..))
-import           Pos.Explorer.Web.Server           (getBlocksLastPageEMode,
-                                                    getBlocksPageEMode,
-                                                    getBlocksPagesTotalEMode,
-                                                    getBlocksTotal, getBlocksTotalEMode,
-                                                    pureGetBlocksPagesTotal,
-                                                    pureGetBlocksTotal)
-import           Pos.Ssc.Class                     (Ssc (..), sscDefaultPayload)
-import           Pos.Ssc.GodTossing                (GtPayload (..), SscGodTossing)
-import           Pos.Txp.Core                      (TxAux)
-import           Pos.Update.Core                   (UpdatePayload (..))
-
+import           Pos.Arbitrary.Block          ()
+import           Pos.Block.Core               (Block)
+import qualified Pos.Communication            ()
+import           Pos.Core                     (EpochIndex (..), LocalSlotIndex (..),
+                                               SlotId (..), giveStaticConsts)
+import           Pos.DB.Block                 (MonadBlockDB)
+import           Pos.Explorer.TestUtil        (basicBlockGenericUnsafe, emptyBlk,
+                                               leftToCounter)
+import           Pos.Explorer.Web.ClientTypes (CBlockEntry, ExplorerMockMode (..))
+import           Pos.Explorer.Web.Server      (getBlocksLastPageEMode, getBlocksPageEMode,
+                                               getBlocksPagesTotalEMode, getBlocksTotal,
+                                               getBlocksTotalEMode,
+                                               pureGetBlocksPagesTotal,
+                                               pureGetBlocksTotal)
+import           Pos.Ssc.GodTossing           (SscGodTossing)
 
 
 ----------------------------------------------------------------
@@ -263,86 +249,3 @@ blocksTotalFunctionalSpec = giveStaticConsts
                   -- We finally run it as @PropertyM@ and check if it holds.
                   blocksTotal <- run blockExecution
                   assert $ blocksTotal >= 0
-
-----------------------------------------------------------------
--- Arbitrary and Show instances
-----------------------------------------------------------------
-
--- I used the build function since I suspect that it's safe (even in tests).
-instance HasCoreConstants => Prelude.Show SlogUndo where
-    show = show . build
-
-instance Prelude.Show DlgUndo where
-    show = show . build
-
-instance HasCoreConstants => Prelude.Show Undo where
-    show = show . build
-
-instance Arbitrary SlogUndo where
-    arbitrary = genericArbitrary
-
-instance Arbitrary DlgUndo where
-    arbitrary = genericArbitrary
-
-instance HasCoreConstants => Arbitrary Undo where
-    arbitrary = genericArbitrary
-
-----------------------------------------------------------------
--- Utility
--- TODO(ks): Extract this in some common PureBlockTest module in src/?
-----------------------------------------------------------------
-
-basicBlockGenericUnsafe
-    :: (HasCoreConstants)
-    => BlockHeader SscGodTossing
-    -> SecretKey
-    -> SlotId
-    -> Block SscGodTossing
-basicBlockGenericUnsafe prevHeader sk slotId = case (basicBlock prevHeader sk slotId) of
-    Left e      -> error e
-    Right block -> Right block
-
-basicBlock
-    :: (HasCoreConstants)
-    => BlockHeader SscGodTossing
-    -> SecretKey
-    -> SlotId
-    -> Either Text (MainBlock SscGodTossing)
-basicBlock prevHeader sk slotId =
-    producePureBlock infLimit prevHeader [] Nothing slotId def (defGTP slotId) def sk
-  where
-    defGTP :: HasCoreConstants => SlotId -> GtPayload
-    defGTP sId = sscDefaultPayload @SscGodTossing $ siSlot sId
-
-    infLimit = convertUnit @Gigabyte @Byte 1
-
-emptyBlk :: (HasCoreConstants, Testable p) => (Either Text (MainBlock SscGodTossing) -> p) -> Property
-emptyBlk testableBlock =
-    forAll arbitrary $ \(sk, prevHeader, slotId) ->
-    testableBlock
-        $ producePureBlock infLimit prevHeader [] Nothing slotId def (defGTP slotId) def sk
-  where
-    defGTP :: HasCoreConstants => SlotId -> GtPayload
-    defGTP sId = sscDefaultPayload @SscGodTossing $ siSlot sId
-
-    infLimit = convertUnit @Gigabyte @Byte 1
-
-producePureBlock
-    :: HasCoreConstants
-    => Byte
-    -> BlockHeader SscGodTossing
-    -> [TxAux]
-    -> ProxySKBlockInfo
-    -> SlotId
-    -> DlgPayload
-    -> SscPayload SscGodTossing
-    -> UpdatePayload
-    -> SecretKey
-    -> Either Text (MainBlock SscGodTossing)
-producePureBlock limit prev txs psk slot dlgPay sscPay usPay sk =
-    createMainBlockPure limit prev psk slot sk $
-    RawPayload txs sscPay dlgPay usPay
-
-leftToCounter :: (ToString s, Testable p) => Either s a -> (a -> p) -> Property
-leftToCounter x c = either (\t -> counterexample (toString t) False) (property . c) x
-

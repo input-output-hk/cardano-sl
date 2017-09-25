@@ -103,7 +103,7 @@ verifyTxInUtxo (SmallGenerator (GoodTx ls)) =
             pure ((TxInUtxo id idx), TxOutAux out)
         vtxContext = VTxContext False
         txAux = TxAux newTx witness
-    in counterexample ("\n"+|nameF "txs" (blockListF' genericF txs)|+""
+    in counterexample ("\n"+|nameF "txs" (blockListF' "-" genericF txs)|+""
                            +|nameF "transaction" (B.build txAux)|+"") $
        qcIsRight $ verifyTxUtxoPure vtxContext utxo txAux
 

@@ -23,9 +23,7 @@ import           Pos.Crypto                     (PassPhrase, aesDecrypt, deriveA
 import           Pos.Txp.Core                   (TxAux (..), TxOut (..))
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.BackupPhrase          (toSeed)
-import           Pos.Wallet.Web.Account         (GenSeed (..))
 import           Pos.Wallet.Web.ClientTypes     (AccountId (..), CAccountId (..),
-                                                 CAddress (..),
                                                  CPaperVendWalletRedeem (..), CTx (..),
                                                  CWalletRedeem (..))
 import           Pos.Wallet.Web.Error           (WalletError (..))

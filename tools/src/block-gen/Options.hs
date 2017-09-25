@@ -38,6 +38,7 @@ data BlockGenOptions = BlockGenOptions
     -- ^ Transaction generator parameters
     , bgoConfigurationOptions :: ConfigurationOptions
     -- ^ Configuration to run with
+    , bgoUseGenesisSecrets    :: !Bool
     }
 
 optionsParser :: Parser BlockGenOptions
@@ -79,6 +80,11 @@ optionsParser = do
             help "Max number of outputs in tx")
 
     bgoConfigurationOptions <- configurationOptionsParser
+
+    bgoUseGenesisSecrets <- switch $
+        long "use-genesis-secrets" <>
+        help ("If genesis secret keys are known, they can be used " <>
+              "to create a block or something else (tx).")
 
     return BlockGenOptions{..}
   where

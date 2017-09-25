@@ -8,10 +8,12 @@ import           Formatting                  (build, sformat, (%))
 import           Mockable                    (runProduction)
 import           System.Directory            (doesDirectoryExist)
 import           System.Random               (mkStdGen, randomIO)
-import           System.Wlog                 (usingLoggerName)
+import           System.Wlog                 (WithLogger, usingLoggerName)
 
 import           Pos.AllSecrets              (mkAllSecretsSimple)
-import           Pos.Core                    (gdBootStakeholders, genesisData)
+import           Pos.Core                    (gdBootStakeholders, genesisData,
+                                              genesisSecretKeys)
+import           Pos.Crypto                  (SecretKey)
 import           Pos.DB                      (closeNodeDBs, openNodeDBs)
 import           Pos.Generator.Block         (BlockGenParams (..), genBlocks)
 import           Pos.Launcher                (withConfigurations)
@@ -31,12 +33,17 @@ main = getBlockGenOptions >>= \(BlockGenOptions {..}) ->
 
     liftIO $ when bgoAppend $ checkExistence bgoPath
 
-    allSecrets <- mkAllSecretsSimple <$> do
-            when (null bgoSecrets) $ throwM NoOneSecrets
-            mapM parseSecret bgoSecrets
+    let addGenesisSecrets
+            | bgoUseGenesisSecrets
+            , Just keys <- genesisSecretKeys = mappend keys
+            | otherwise = identity
+    allSecretKeys <- addGenesisSecrets <$> mapM parseSecret bgoSecrets
+
+    when (null allSecretKeys) $ throwM NoOneSecrets
 
     when (M.null $ unGenesisUtxo genesisUtxo) $ throwM EmptyUtxo
 
+    let allSecrets = mkAllSecretsSimple allSecretKeys
     let bgenParams =
             BlockGenParams
                 { _bgpSecrets         = allSecrets
@@ -57,6 +64,8 @@ main = getBlockGenOptions >>= \(BlockGenOptions {..}) ->
     catchEx :: TBlockGenError -> IO ()
     catchEx e = putText $ sformat ("Error: "%build) e
 
+    parseSecret ::
+        (MonadThrow m, WithLogger m, MonadIO m) => FilePath -> m SecretKey
     parseSecret p = (^. usPrimKey) <$> peekUserSecret p >>= \case
         Nothing -> throwM $ SecretNotFound p
         Just sk -> pure sk

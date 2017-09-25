@@ -9,6 +9,8 @@ module Pos.Txp.Toil.Class
        ( MonadUtxoRead (..)
        , utxoGetReader
        , MonadUtxo (..)
+       , utxoPut
+       , utxoDel
        , MonadStakesRead (..)
        , MonadStakes (..)
        , MonadTxPool (..)
@@ -50,27 +52,36 @@ instance (HasConfiguration, Monad m) => MonadUtxoRead (Ether.StateT' Utxo m) whe
     utxoGet id = ether $ use (at id)
 
 class MonadUtxoRead m => MonadUtxo m where
-    -- | Add an unspent output to UTXO. If it's already in the UTXO, throw
-    -- an error.
-    utxoPut :: TxIn -> TxOutAux -> m ()
-    default utxoPut :: (MonadTrans t, MonadUtxo m', t m' ~ m) => TxIn -> TxOutAux -> m ()
-    utxoPut a = lift . utxoPut a
-    -- | Delete an unspent input from UTXO. If it's not in the UTXO, throw
-    -- an error.
-    utxoDel :: TxIn -> m ()
-    default utxoDel :: (MonadTrans t, MonadUtxo m', t m' ~ m) => TxIn -> m ()
-    utxoDel = lift . utxoDel
+    -- | Add an unspent output to UTXO.
+    utxoPutUnchecked :: TxIn -> TxOutAux -> m ()
+    default utxoPutUnchecked
+        :: (MonadTrans t, MonadUtxo m', t m' ~ m) => TxIn -> TxOutAux -> m ()
+    utxoPutUnchecked a = lift . utxoPutUnchecked a
+
+    -- | Delete an unspent input from UTXO.
+    utxoDelUnchecked :: TxIn -> m ()
+    default utxoDelUnchecked
+        :: (MonadTrans t, MonadUtxo m', t m' ~ m) => TxIn -> m ()
+    utxoDelUnchecked = lift . utxoDelUnchecked
 
 instance {-# OVERLAPPABLE #-}
   (MonadUtxo m, MonadTrans t, Monad (t m)) => MonadUtxo (t m)
 
 instance (HasConfiguration, Monad m) => MonadUtxo (Ether.StateT' Utxo m) where
-    utxoPut id aux = ether $ use (at id) >>= \case
-        Nothing -> at id .= Just aux
-        Just _  -> error ("utxoPut@(StateT Utxo): "+|id|+" is already in utxo")
-    utxoDel id = ether $ use (at id) >>= \case
-        Just _  -> at id .= Nothing
-        Nothing -> error ("utxoDel@(StateT Utxo): "+|id|+" is not in the utxo")
+    utxoPutUnchecked id aux = ether $ at id .= Just aux
+    utxoDelUnchecked id     = ether $ at id .= Nothing
+
+-- | Add an unspent output to UTXO. If it's already there, throw an 'error'.
+utxoPut :: MonadUtxo m => TxIn -> TxOutAux -> m ()
+utxoPut id aux = utxoGet id >>= \case
+    Nothing -> utxoPutUnchecked id aux
+    Just _  -> error ("utxoPut: "+|id|+" is already in utxo")
+
+-- | Delete an unspent input from UTXO. If it's not there, throw an 'error'.
+utxoDel :: MonadUtxo m => TxIn -> m ()
+utxoDel id = utxoGet id >>= \case
+    Just _  -> utxoDelUnchecked id
+    Nothing -> error ("utxoDel: "+|id|+" is not in the utxo")
 
 ----------------------------------------------------------------------------
 -- MonadStakes

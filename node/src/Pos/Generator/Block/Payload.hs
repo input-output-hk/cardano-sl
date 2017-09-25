@@ -18,7 +18,6 @@ import           Data.List                  (notElem, (!!))
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Map                   as M
 import qualified Data.Vector                as V
-import           Fmt                        ((+|), (|+))
 import           Formatting                 (build, sformat, (%))
 import           System.Random              (RandomGen (..))
 
@@ -121,14 +120,8 @@ instance (HasConfiguration, Monad m) => MonadUtxoRead (StateT GenTxData m) where
     utxoGet txIn = uses gtdUtxo $ M.lookup txIn
 
 instance (HasConfiguration, Monad m) => MonadUtxo (StateT GenTxData m) where
-    utxoPut id aux = use (gtdUtxo . at id) >>= \case
-        Nothing -> gtdUtxo . at id .= Just aux
-        Just _  -> error ("utxoPut@(StateT GenTxData): "+|id|+
-                          " is already in utxo")
-    utxoDel id = use (gtdUtxo . at id) >>= \case
-        Just _  -> gtdUtxo . at id .= Nothing
-        Nothing -> error ("utxoDel@(StateT GenTxData): "+|id|+
-                          " is not in the utxo")
+    utxoPutUnchecked id aux = gtdUtxo . at id .= Just aux
+    utxoDelUnchecked id     = gtdUtxo . at id .= Nothing
 
 -- TODO: move to txp, think how to unite it with 'Pos.Arbitrary.Txp'.
 -- | Generate valid 'TxPayload' using current global state.

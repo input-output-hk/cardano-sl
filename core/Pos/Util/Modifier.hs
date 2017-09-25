@@ -33,7 +33,6 @@ import qualified Universum
 
 import           Data.Hashable             (Hashable)
 import qualified Data.HashMap.Strict       as HM
-import qualified Data.HashSet              as HS
 import qualified Data.Map                  as M
 import qualified Data.Text.Buildable
 import           Formatting                (bprint, (%))
@@ -151,7 +150,7 @@ deletionsSet = getKeys . HM.filter isNothing . getMapModifier
 
 -- | Get all deletions from 'MapModifier'.
 deletions :: MapModifier k v -> [k]
-deletions = HS.toList . deletionsSet
+deletions = HM.keys . HM.filter isNothing . getMapModifier
 
 -- | Insert something into 'MapModifier'. Effect of it is like
 -- inserting something into underlying container (which replaces

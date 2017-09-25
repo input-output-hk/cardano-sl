@@ -55,12 +55,12 @@ servantHandlers sendActions =
     :<|>
      M.updateAccount
     :<|>
-     M.newAccount RandomSeed
+     M.newAccountHandler RandomSeed
     :<|>
      M.deleteAccount
     :<|>
 
-     M.newAddress RandomSeed
+     M.newAddressHandler RandomSeed
     :<|>
 
      M.isValidAddress

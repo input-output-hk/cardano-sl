@@ -342,8 +342,9 @@ data CTxSummary = CTxSummary
     } deriving (Show, Generic)
 
 data CGenesisSummary = CGenesisSummary
-    { cgsNumTotal    :: !Int
-    , cgsNumRedeemed :: !Int
+    { cgsNumTotal       :: !Int
+    , cgsNumRedeemed    :: !Int
+    , cgsNumNotRedeemed :: !Int
     } deriving (Show, Generic)
 
 data CGenesisAddressInfo = CGenesisAddressInfo

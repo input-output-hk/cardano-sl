@@ -24,15 +24,16 @@ import qualified Pos.Crypto              as Crypto
 import           Pos.Ssc.GodTossing      ()
 
 import           Test.Pos.CborSpec       (U)
-import           Test.Pos.Util           (binaryEncodeDecode, binaryTest, giveCoreConf,
-                                          giveInfraConf, msgLenLimitedTest, qcIsLeft,
+import           Test.Pos.Util           (binaryEncodeDecode, binaryTest,
+                                          msgLenLimitedTest, qcIsLeft,
                                           safeCopyEncodeDecode, safeCopyTest, serDeserId,
+                                          withDefConfiguration, withDefInfraConfiguration,
                                           (.=.))
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 spec :: Spec
-spec = giveInfraConf $ giveCoreConf $ describe "Crypto" $ do
+spec = withDefInfraConfiguration $ withDefConfiguration $ describe "Crypto" $ do
     describe "Random" $ do
         -- Let's protect ourselves against *accidental* random gen changes
         -- (e.g. if binary or cryptonite or some other package decide to

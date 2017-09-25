@@ -15,14 +15,14 @@ import qualified Pos.Communication.Relay as R
 import qualified Pos.Update              as U
 
 import           Test.Pos.CborSpec       (U)
-import           Test.Pos.Util           (binaryTest, giveInfraConf, giveCoreConf,
-                                          msgLenLimitedTest)
+import           Test.Pos.Util           (binaryTest, msgLenLimitedTest,
+                                          withDefConfiguration, withDefInfraConfiguration)
 
 type VoteId' = Tagged U.UpdateVote U.VoteId
 type UpId' = Tagged (U.UpdateProposal, [U.UpdateVote])U.UpId
 
 spec :: Spec
-spec = giveInfraConf $ giveCoreConf $
+spec = withDefInfraConfiguration $ withDefConfiguration $
     describe "Update system" $ do
         describe "Bi instances" $ do
             describe "Core" $ do

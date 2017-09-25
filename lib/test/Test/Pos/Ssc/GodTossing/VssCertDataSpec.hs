@@ -28,10 +28,10 @@ import           Pos.Ssc.GodTossing    (GtGlobalState (..), VssCertData (..), de
                                         runPureToss, setLastKnownSlot)
 import           Pos.Util.Chrono       (NewestFirst (..))
 
-import           Test.Pos.Util         (giveCoreConf, qcIsJust)
+import           Test.Pos.Util         (qcIsJust, withDefConfiguration)
 
 spec :: Spec
-spec = giveCoreConf $ describe "Ssc.GodTossing.VssCertData" $ do
+spec = withDefConfiguration $ describe "Ssc.GodTossing.VssCertData" $ do
     describe "verifyInsertVssCertData" $
         prop description_verifyInsertVssCertData verifyInsertVssCertData
     describe "verifyDeleteVssCertData" $

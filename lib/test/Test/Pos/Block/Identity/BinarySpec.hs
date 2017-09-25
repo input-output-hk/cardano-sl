@@ -15,10 +15,10 @@ import qualified Pos.Communication   ()
 import           Pos.Ssc.GodTossing  (SscGodTossing)
 import           Pos.Ssc.NistBeacon  (SscNistBeacon)
 
-import           Test.Pos.Util       (binaryTest, giveCoreConf)
+import           Test.Pos.Util       (binaryTest, withDefConfiguration)
 
 spec :: Spec
-spec = giveCoreConf $ describe "Block types" $ do
+spec = withDefConfiguration $ describe "Block types" $ do
     describe "Bi instances" $ do
         describe "Block network types" $ do
             describe "MsgGetHeaders" $

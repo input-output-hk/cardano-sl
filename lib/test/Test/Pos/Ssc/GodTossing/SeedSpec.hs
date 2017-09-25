@@ -34,13 +34,13 @@ import           Pos.Ssc.GodTossing       (Commitment (..), CommitmentsMap, Open
 import           Pos.Types                (SharedSeed (..), StakeholderId, mkCoin)
 import           Pos.Util                 (nonrepeating, sublistN)
 
-import           Test.Pos.Util            (giveCoreConf)
+import           Test.Pos.Util            (withDefConfiguration)
 
 getPubAddr :: SecretKey -> AddressHash PublicKey
 getPubAddr = addressHash . toPublic
 
 spec :: Spec
-spec = giveCoreConf $ do
+spec = withDefConfiguration $ do
     -- note that we can't make max size larger than 50 without changing it in
     -- Test.Pos.Util as well
     let smaller = modifyMaxSize (const 40) . modifyMaxSuccess (const 30)

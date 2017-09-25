@@ -133,7 +133,7 @@ runTxpTestMode
     -> IO a
 runTxpTestMode tp action = do
     ctx <- initTxpTestContext tp
-    runEmulation (_tpStartTime tp) $ runReaderT action ctx
+    runEmulation (getTimestamp $ _tpStartTime tp) $ runReaderT action ctx
 
 ----------------------------------------------------------------------------
 -- Boilerplate TxpTestInitContext instances

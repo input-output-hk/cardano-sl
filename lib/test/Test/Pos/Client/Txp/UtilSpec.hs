@@ -33,8 +33,7 @@ import           Pos.Txp                  (Tx (..), TxAux (..), TxId, TxIn (..),
 import           Pos.Types                (Address)
 import qualified Pos.Update.DB            as DB
 import           Pos.Util.Util            (leftToPanic)
-import           Test.Pos.Util            (giveCoreConf, giveGtConf, giveInfraConf,
-                                           giveNodeConf, giveUpdateConf, stopProperty)
+import           Test.Pos.Util            (stopProperty, withDefConfigurations)
 
 import           Test.Pos.Client.Txp.Mode (HasTxpConfigurations, TxpTestMode,
                                            TxpTestProperty)
@@ -46,7 +45,7 @@ import           Test.Pos.Client.Txp.Util (generateAddressWithKey,
 ----------------------------------------------------------------------------
 
 spec :: Spec
-spec = giveGtConf $ giveNodeConf $ giveInfraConf $ giveUpdateConf $ giveCoreConf $
+spec = withDefConfigurations $
     describe "Client.Txp.Util" $ do
         describe "createMTx" $ createMTxSpec
 

@@ -26,10 +26,10 @@ import           Pos.Update.Core                   (UpId, UpdateProposal (..), a
 import qualified Pos.Update.Poll                   as Poll
 import qualified Pos.Util.Modifier                 as MM
 
-import           Test.Pos.Util                     (formsMonoid, giveCoreConf)
+import           Test.Pos.Util                     (formsMonoid, withDefConfiguration)
 
 spec :: Spec
-spec = giveCoreConf $ describe "Poll" $ do
+spec = withDefConfiguration $ describe "Poll" $ do
     let smaller n = modifyMaxSuccess (const n)
     describe "modifyPollModifier" $ smaller 30 $ do
         prop

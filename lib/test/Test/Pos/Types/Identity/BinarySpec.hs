@@ -16,11 +16,11 @@ import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Util.Chrono       (NE, NewestFirst, OldestFirst)
 
 import           Test.Pos.CborSpec     (U)
-import           Test.Pos.Util         (binaryTest, giveInfraConf, giveCoreConf,
-                                        msgLenLimitedTest)
+import           Test.Pos.Util         (binaryTest, msgLenLimitedTest,
+                                        withDefConfiguration, withDefInfraConfiguration)
 
 spec :: Spec
-spec = giveInfraConf $ giveCoreConf $ describe "Types" $ do
+spec = withDefInfraConfiguration $ withDefConfiguration $ describe "Types" $ do
     -- 100 is not enough to catch some bugs (e.g. there was a bug with
     -- addresses that only manifested when address's CRC started with 0x00)
     describe "Bi instances" $ do

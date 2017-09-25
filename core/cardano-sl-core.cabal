@@ -150,6 +150,7 @@ library
                      , extra
                      , file-embed
                      , filepath
+                     , fmt
                      , formatting
                      , generic-arbitrary
                      , hashable

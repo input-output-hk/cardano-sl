@@ -12,10 +12,10 @@ import qualified Pos.Block.Core      as BT
 import           Pos.Ssc.GodTossing  (SscGodTossing)
 import           Pos.Ssc.NistBeacon  (SscNistBeacon)
 
-import           Test.Pos.Util       (giveCoreConf, safeCopyTest)
+import           Test.Pos.Util       (safeCopyTest, withDefConfiguration)
 
 spec :: Spec
-spec = giveCoreConf $ describe "Block types" $ do
+spec = withDefConfiguration $ describe "Block types" $ do
     describe "SafeCopy instances" $ do
         describe "GenericBlockHeader" $ do
             describe "GenesisBlockHeader" $ do

@@ -43,10 +43,10 @@ import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadSignedCommitm
                                         supplyPureTossEnv, verifyCommitment,
                                         verifyCommitmentSignature, verifyOpening)
 
-import           Test.Pos.Util         (giveCoreConf, qcElem, qcFail, qcIsRight)
+import           Test.Pos.Util         (qcElem, qcFail, qcIsRight, withDefConfiguration)
 
 spec :: Spec
-spec = giveCoreConf $ describe "Ssc.GodTossing.Base" $ do
+spec = withDefConfiguration $ describe "Ssc.GodTossing.Base" $ do
     describe "verifyCommitment" $ do
         prop description_verifiesOkComm verifiesOkComm
     describe "verifyCommitmentSignature" $ do

@@ -18,7 +18,7 @@ import qualified Data.HashMap.Strict       as HM
 import           Formatting                (build, sformat, (%))
 import           Serokell.Util             (subList)
 import           Test.Hspec                (Spec, describe)
-import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
+import           Test.Hspec.QuickCheck     (modifyMaxSuccess)
 import           Test.QuickCheck           (choose)
 import           Test.QuickCheck.Monadic   (pick)
 
@@ -30,29 +30,29 @@ import           Pos.Core                  (Coin, EpochIndex, GenesisData (..),
                                             coinF, genesisData)
 import           Pos.Crypto                (toPublic)
 import qualified Pos.GState                as GS
+import           Pos.Launcher              (HasConfigurations)
 import qualified Pos.Lrc                   as Lrc
 import           Pos.Txp                   (TxAux, mkTxPayload)
 import           Pos.Util.Util             (getKeys)
 
-import           Test.Pos.Block.Logic.Mode (BlockProperty, HasVarSpecConfigurations)
+import           Test.Pos.Block.Logic.Mode (BlockProperty, blockPropertySpec)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..),
                                             bpGenBlock, bpGenBlocks)
-import           Test.Pos.Util             (giveCoreConf, giveGtConf, giveInfraConf,
-                                            giveNodeConf, giveUpdateConf,
-                                            maybeStopProperty, stopProperty)
+import           Test.Pos.Util             (maybeStopProperty, stopProperty,
+                                            withStaticConfigurations)
 
 spec :: Spec
 -- Currently we want to run it only 4 times, because there is no
 -- much randomization (its effect is likely negligible) and
 -- performance matters (but not very much, so we can run more than once).
-spec = giveGtConf $ giveNodeConf $ giveInfraConf $ giveUpdateConf $ giveCoreConf $
+spec = withStaticConfigurations $
     describe "Lrc.Worker" $ modifyMaxSuccess (const 4) $ do
         -- [CSL-1669] We had a rather complicated test here but it got
         -- broken after the genesis refactoring. See
         -- https://github.com/input-output-hk/cardano-sl/blob/68d829ea3f225a02a831ae941aa210df399f4063/node/test/Test/Pos/Lrc/WorkerSpec.hs#L83-L154
         -- for the original test
         describe "lrcSingleShotNoLock (abridged; see comments!)" $ do
-            prop lrcCorrectnessDesc lrcCorrectnessProp
+            blockPropertySpec lrcCorrectnessDesc lrcCorrectnessProp
   where
     lrcCorrectnessDesc =
         "Computes richmen correctly according to the stake distribution " <>
@@ -76,7 +76,7 @@ allRichmenComponents =
 
 -}
 
-lrcCorrectnessProp :: HasVarSpecConfigurations => BlockProperty ()
+lrcCorrectnessProp :: HasConfigurations => BlockProperty ()
 lrcCorrectnessProp = do
     let k = blkSecurityParam
     -- This value is how many blocks we need to generate first. We
@@ -122,7 +122,7 @@ lrcCorrectnessProp = do
 
     -- checkRichmen
 
-checkRichmen :: HasVarSpecConfigurations => BlockProperty ()
+checkRichmen :: HasConfigurations => BlockProperty ()
 -- Here we check richmen.  The order must be the same as the one
 -- in 'allRichmenComponents'. Unfortunately, I don't know how to
 -- do it better without spending too much time on it (@gromak).
@@ -142,7 +142,7 @@ checkRichmen = do
         -> BlockProperty richmen
     getRichmen getter = maybeStopProperty "No richmen for epoch#1!" =<< getter 1
 
-    checkRichmenFull :: HasVarSpecConfigurations => GroupId -> Lrc.FullRichmenData -> BlockProperty ()
+    checkRichmenFull :: HasConfigurations => GroupId -> Lrc.FullRichmenData -> BlockProperty ()
     checkRichmenFull i (totalStake, richmenStakes) = do
         realTotalStake <- lift GS.getRealTotalStake
         unless (totalStake == realTotalStake) $
@@ -152,7 +152,7 @@ checkRichmen = do
              totalStake realTotalStake
         checkRichmenStakes i richmenStakes
 
-    checkRichmenStakes :: HasVarSpecConfigurations => GroupId -> Lrc.RichmenStakes -> BlockProperty ()
+    checkRichmenStakes :: HasConfigurations => GroupId -> Lrc.RichmenStakes -> BlockProperty ()
     checkRichmenStakes i richmenStakes = do
         checkRichmenSet i (getKeys richmenStakes)
         let checkRich (id, realStake)
@@ -165,7 +165,7 @@ checkRichmen = do
                 | otherwise = pass
         mapM_ checkRich =<< expectedRichmenStakes i
 
-    checkRichmenSet :: HasVarSpecConfigurations => GroupId -> Lrc.RichmenSet -> BlockProperty ()
+    checkRichmenSet :: HasConfigurations => GroupId -> Lrc.RichmenSet -> BlockProperty ()
     checkRichmenSet i richmenSet = do
         checkPoor i richmenSet
         let checkRich (id, realStake) =
@@ -175,7 +175,7 @@ checkRichmen = do
                  id realStake
         mapM_ checkRich =<< expectedRichmenStakes i
 
-    expectedRichmenStakes :: HasVarSpecConfigurations => GroupId -> BlockProperty [(StakeholderId, Coin)]
+    expectedRichmenStakes :: HasConfigurations => GroupId -> BlockProperty [(StakeholderId, Coin)]
     expectedRichmenStakes i = do
         richmen <- unsafeTail <$> relevantStakeholders i
         let resolve id = (id, ) . fromMaybe minBound <$> GS.getRealStake id
@@ -195,7 +195,7 @@ checkRichmen = do
                  %coinF%", real total stake is "%coinF)
                 poorGuyStake totalStake
 
-genAndApplyBlockFixedTxs :: HasVarSpecConfigurations => [TxAux] -> BlockProperty ()
+genAndApplyBlockFixedTxs :: HasConfigurations => [TxAux] -> BlockProperty ()
 genAndApplyBlockFixedTxs txs = do
     let txPayload = mkTxPayload txs
     emptyBlund <- bpGenBlock (EnableTxPayload False) (InplaceDB False)

@@ -29,10 +29,10 @@ import qualified Pos.Types             as T
 import           Pos.Util.Chrono       (NewestFirst (..))
 import           Pos.Util.Util         (leftToPanic)
 
-import           Test.Pos.Util         (giveCoreConf)
+import           Test.Pos.Util         (withDefConfiguration)
 
 spec :: Spec
-spec = giveCoreConf $ describe "Block properties" $ do
+spec = withDefConfiguration $ describe "Block properties" $ do
     describe "mkMainHeader" $ do
         prop mainHeaderFormationDesc (mainHeaderFormation @SscNistBeacon)
         prop mainHeaderFormationDesc (mainHeaderFormation @SscGodTossing)
@@ -57,7 +57,11 @@ spec = giveCoreConf $ describe "Block properties" $ do
     verifyHeaderDesc = "Successfully verifies a correct main block header"
     verifyHeadersDesc = "Successfully verifies a correct chain of block headers"
     verifyEmptyHsDesc = "Successfully validates an empty header chain"
-    emptyHeaderChain l = giveCoreConf $ -- WHAT THE HECK? WHY IS IT NEEDED?
+    emptyHeaderChain ::
+           (HasConfiguration, SscHelpersClass ssc)
+        => NewestFirst [] (T.BlockHeader ssc)
+        -> Spec
+    emptyHeaderChain l =
         it verifyEmptyHsDesc $ isVerSuccess $ T.verifyHeaders Nothing l
 
 -- | Both of the following tests are boilerplate - they use `mkGenericHeader` to create

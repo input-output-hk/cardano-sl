@@ -14,7 +14,7 @@ import Data.Foldable (for_)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..))
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (cGenesis, cAddress, cAddresses, cOf, common, cLoading, cNo, cSummary, cYes, gblAddressesError, gblAddressesNotFound, gblAddressRedeemAmount, gblAddressIsRedeemed, gblNotFound, gblNumberRedeemedAddresses, genesisBlock) as I18nL
+import Explorer.I18n.Lenses (cGenesis, cAddress, cAddresses, cOf, common, cLoading, cNo, cSummary, cYes, gblAddressesError, gblAddressesNotFound, gblAddressRedeemAmount, gblAddressIsRedeemed, gblNotFound, gblNumberAddressesToRedeem, gblNumberRedeemedAddresses, gblNumberNotRedeemedAddresses, genesisBlock) as I18nL
 import Explorer.Lenses.State (currentCGenesisAddressInfos, currentCGenesisSummary, gblLoadingAddressInfosPagination, gblAddressInfosPagination, gblAddressInfosPaginationEditable, gblMaxAddressInfosPagination, genesisBlockViewState, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
@@ -24,7 +24,7 @@ import Explorer.Util.String (formatADA)
 import Explorer.View.Common (currencyCSSClass, paginationView)
 import Network.RemoteData (RemoteData(..), withDefault)
 import Pos.Explorer.Web.ClientTypes (CGenesisAddressInfo(..), CGenesisSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, cgaiCardanoAddress, cgaiGenesisAmount, cgaiIsRedeemed, cgsNumRedeemed)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, cgaiCardanoAddress, cgaiGenesisAmount, cgaiIsRedeemed, cgsNumRedeemed, cgsNumNotRedeemed, cgsNumTotal)
 import Pux.DOM.Events (onClick) as P
 import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.HTML.Attributes (key) as P
@@ -65,7 +65,7 @@ emptyView message =
           $ S.text message
 
 type SummaryRowItem =
-    { id :: String
+    { key :: String
     , label :: String
     , amount :: String
     }
@@ -74,9 +74,17 @@ type SummaryItems = Array SummaryRowItem
 
 mkSummaryItems :: Language -> CGenesisSummary -> SummaryItems
 mkSummaryItems lang (CGenesisSummary summary) =
-    [ { id: "0"
+    [ { key: "0"
+      , label: translate (I18nL.genesisBlock <<< I18nL.gblNumberAddressesToRedeem) lang
+      , amount: show $ summary ^. cgsNumTotal
+      }
+    , { key: "1"
       , label: translate (I18nL.genesisBlock <<< I18nL.gblNumberRedeemedAddresses) lang
       , amount: show $ summary ^. cgsNumRedeemed
+      }
+    , { key: "2"
+      , label: translate (I18nL.genesisBlock <<< I18nL.gblNumberNotRedeemedAddresses) lang
+      , amount: show $ summary ^. cgsNumNotRedeemed
       }
     ]
 
@@ -84,7 +92,7 @@ summaryRow :: SummaryRowItem -> P.HTML Action
 summaryRow item =
     S.div
         ! S.className "row row__summary"
-        ! P.key item.id
+        ! P.key item.key
         $ do
             S.div ! S.className "column column__label"
                   $ S.text item.label

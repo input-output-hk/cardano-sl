@@ -9,13 +9,16 @@
 module Pos.Util.CompileInfo
        ( CompileTimeInfo (..)
        , HasCompileInfo
+       , compileInfo
        , withCompileInfo
        , retrieveCompileTimeInfo
        ) where
 
 import           Universum
 
-import           Data.Reflection            (Given (..), give)
+import           Data.Reflection            (Given (..), give, given)
+import qualified Data.Text.Buildable
+import           Formatting                 (bprint, stext, (%))
 import           Instances.TH.Lift          ()
 import qualified Language.Haskell.TH        as TH
 import qualified Language.Haskell.TH.Syntax as TH
@@ -29,7 +32,14 @@ data CompileTimeInfo = CompileTimeInfo
     { ctiGitRevision :: Text
     } deriving (Show,TH.Lift)
 
+instance Buildable CompileTimeInfo where
+    build CompileTimeInfo{..} =
+        bprint ("Compile time info: git revision '"%stext%"'") ctiGitRevision
+
 type HasCompileInfo = Given CompileTimeInfo
+
+compileInfo :: HasCompileInfo => CompileTimeInfo
+compileInfo = given
 
 withCompileInfo :: CompileTimeInfo -> (HasCompileInfo => r) -> r
 withCompileInfo = give

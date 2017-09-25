@@ -67,7 +67,7 @@ genPrimaryKey path = do
 readKey :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
 readKey path = do
     us <- readUserSecret path
-    logInfo $ maybe "No Pimary key"
+    logInfo $ maybe "No Primary key"
                     (("Primary: " <>) . showKeyWithAddressHash) $
                     view usPrimKey us
     logInfo $ maybe "No wallet set"

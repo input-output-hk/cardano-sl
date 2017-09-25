@@ -8,20 +8,29 @@ module Pos.Delegation.Cede.Logic
        , getPskChainInternal
        , detectCycleOnAddition
        , dlgReachesIssuance
+       , dlgVerifyHeader
+       , CheckForCycle(..)
+       , dlgVerifyPskHeavy
        ) where
 
 import           Universum
 
 import           Control.Lens              (uses, (%=))
+import           Control.Monad.Except      (throwError)
 import qualified Data.HashMap.Strict       as HM
 import qualified Data.HashSet              as HS
+import           Formatting                (build, sformat, (%))
 
-import           Pos.Core                  (ProxySKHeavy, StakeholderId, addressHash)
-import           Pos.Crypto                (ProxySecretKey (..), PublicKey)
+import           Pos.Block.Core            (BlockSignature (..), MainBlockHeader,
+                                            mainHeaderLeaderKey, mcdSignature)
+import           Pos.Core                  (EpochIndex, ProxySKHeavy, StakeholderId,
+                                            addressHash, gbhConsensus)
+import           Pos.Crypto                (ProxySecretKey (..), PublicKey, psigPsk)
 import           Pos.DB                    (DBError (DBMalformed))
-import           Pos.Delegation.Cede.Class (MonadCedeRead (..))
+import           Pos.Delegation.Cede.Class (MonadCedeRead (..), getPskPk)
 import           Pos.Delegation.Helpers    (isRevokePsk)
 import           Pos.Delegation.Types      (DlgMemPool)
+import           Pos.Lrc.Types             (RichmenSet)
 
 -- | Given an issuer, retrieves all certificate chains starting in
 -- issuer. This function performs a series of sequential db reads so
@@ -103,3 +112,115 @@ dlgReachesIssuance i d psk = reach i
         Just psk'@ProxySecretKey{..}
             | pskDelegatePk == d -> pure $ psk' == psk
             | otherwise          -> reach pskDelegatePk
+
+
+-- | Verifies a header from delegation perspective (signature checks).
+dlgVerifyHeader ::
+       (MonadCedeRead m)
+    => MainBlockHeader ssc
+    -> ExceptT Text m ()
+dlgVerifyHeader h = do
+    -- Issuer didn't delegate the right to issue to elseone.
+    let issuer = h ^. mainHeaderLeaderKey
+    let sig = h ^. gbhConsensus . mcdSignature
+    issuerPsk <- getPskPk issuer
+    whenJust issuerPsk $ \psk -> case sig of
+        (BlockSignature _) ->
+            throwError $
+            sformat ("issuer "%build%" has delegated issuance right, "%
+                     "so he can't issue the block, psk: "%build%", sig: "%build)
+                issuer psk sig
+        _ -> pass
+
+    -- Check that if proxy sig is used, delegate indeed has right to
+    -- issue the block. Signatures themselves are checked in the
+    -- constructor, here we only verify they are related to slot
+    -- leader. Self-signed proxySigs are forbidden on block
+    -- construction level.
+    case h ^. gbhConsensus ^. mcdSignature of
+        (BlockPSignatureHeavy pSig) -> do
+            let psk = psigPsk pSig
+            let delegate = pskDelegatePk psk
+            canIssue <- dlgReachesIssuance issuer delegate psk
+            unless canIssue $ throwError $
+                sformat ("heavy proxy signature's "%build%" "%
+                         "related proxy cert can't be found/doesn't "%
+                         "match the one in current allowed heavy psks set")
+                        pSig
+        (BlockPSignatureLight pSig) -> do
+            let pskIPk = pskIssuerPk (psigPsk pSig)
+            unless (pskIPk == issuer) $ throwError $
+                sformat ("light proxy signature's "%build%" issuer "%
+                         build%" doesn't match block slot leader "%build)
+                        pSig pskIPk issuer
+        _ -> pass
+
+-- | Wrapper that turns on/off check of cycle creation in psk
+-- verification.
+newtype CheckForCycle = CheckForCycle Bool
+
+-- | Verify consistent heavy PSK.
+dlgVerifyPskHeavy ::
+       (MonadCedeRead m)
+    => RichmenSet
+    -> CheckForCycle
+    -> EpochIndex
+    -> ProxySKHeavy
+    -> ExceptT Text m ()
+dlgVerifyPskHeavy richmen (CheckForCycle checkCycle) tipEpoch psk = do
+    let iPk = pskIssuerPk psk
+    let dPk = pskDelegatePk psk
+    let stakeholderId = addressHash iPk
+
+    -- Issuers have enough money (though it's free to revoke).
+    when (not (isRevokePsk psk) &&
+          not (stakeholderId `HS.member` richmen)) $
+        throwError $ sformat
+            ("PSK can't be accepted: issuer doesn't have enough stake: "%build)
+            psk
+
+    -- There are no psks that are isomorphic to ones from
+    -- db. That is, if i delegated to d using psk1, we forbid
+    -- using psk2 (in the next epoch) if psk2 delegates i → d
+    -- as well.
+    prevPsk <- getPsk stakeholderId
+    let duplicate = do
+            psk2@ProxySecretKey{..} <- prevPsk
+            guard $ pskIssuerPk == iPk && pskDelegatePk == dPk
+            pure psk2
+    whenJust duplicate $ \psk2 ->
+        throwError $ sformat
+            ("User effectively duplicates his previous PSK: "%
+             build%" with new one "%build)
+            psk2 psk
+
+    -- No issuer has posted psk this epoch before (unless
+    -- processed psk is a revocation).
+    alreadyPostedThisEpoch <- hasPostedThisEpoch stakeholderId
+    when (not (isRevokePsk psk) && alreadyPostedThisEpoch) $
+        throwError $ sformat
+            ("PSK "%build%" is not a revocation and his issuer "%
+             " has already published psk this epoch")
+            psk
+
+    -- Every revoking psk indeed revokes previous non-revoking
+    -- psk.
+    when (isRevokePsk psk && isNothing prevPsk) $
+        throwError $ sformat
+            ("Revoke PSK "%build%" doesn't revoke anything")
+            psk
+
+    -- Internal PSK epoch should match current tip epoch.
+    unless (tipEpoch == pskOmega psk) $
+        throwError $ sformat
+            ("PSK "%build%" has epoch which is different from tip epoch "%build)
+            psk tipEpoch
+
+    -- No cycle is created. This check is optional because when
+    -- applying blocks we want to check for cycles after bulk
+    -- application.
+    when checkCycle $
+        whenJustM (detectCycleOnAddition psk) $ \cyclePoint ->
+            throwError $ sformat
+                ("Adding PSK "%build%" leads to cycle at point "%build)
+                psk cyclePoint

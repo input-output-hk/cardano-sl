@@ -38,3 +38,4 @@ generateRedeemAddressWithKey seed =
     else
         let (pk, sk) = unsafeFromJust $ redeemDeterministicKeyGen seed
         in (sk, makeRedeemAddress pk)
+

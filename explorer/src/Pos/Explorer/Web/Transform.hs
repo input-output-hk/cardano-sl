@@ -10,26 +10,29 @@ module Pos.Explorer.Web.Transform
 
 import           Universum
 
-import qualified Control.Monad.Catch     as Catch (Handler (..), catches)
-import           Control.Monad.Except    (MonadError (throwError))
-import qualified Control.Monad.Reader    as Mtl
-import           Mockable                (runProduction)
-import           Servant.Server          (Handler)
-import           Servant.Utils.Enter     ((:~>) (..), enter)
+import qualified Control.Monad.Catch              as Catch (Handler (..), catches)
+import           Control.Monad.Except             (MonadError (throwError))
+import qualified Control.Monad.Reader             as Mtl
+import           Mockable                         (runProduction)
+import           Servant.Server                   (Handler)
+import           Servant.Utils.Enter              ((:~>) (..), enter)
 
-import           Pos.Communication       (OutSpecs, SendActions, WorkerSpec, worker)
-import           Pos.Configuration       (HasNodeConfiguration)
-import           Pos.Core                (HasConfiguration)
-import           Pos.Infra.Configuration (HasInfraConfiguration)
-import           Pos.Ssc.GodTossing      (SscGodTossing)
+import           Pos.Communication                (OutSpecs, SendActions, WorkerSpec,
+                                                   worker)
+import           Pos.Configuration                (HasNodeConfiguration)
+import           Pos.Core                         (HasConfiguration)
+import           Pos.Infra.Configuration          (HasInfraConfiguration)
+import           Pos.Recovery                     ()
+import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Pos.WorkMode            (RealMode, RealModeContext (..))
+import           Pos.Update.Configuration         (HasUpdateConfiguration)
+import           Pos.WorkMode                     (RealMode, RealModeContext (..))
 
-import           Pos.Explorer            (ExplorerBListener, runExplorerBListener)
-import           Pos.Explorer.Socket.App (NotifierSettings, notifierApp)
-import           Pos.Explorer.Web.Server (explorerApp, explorerHandlers,
-                                          explorerServeImpl)
+import           Pos.Explorer                     (ExplorerBListener,
+                                                   runExplorerBListener)
+import           Pos.Explorer.Socket.App          (NotifierSettings, notifierApp)
+import           Pos.Explorer.Web.Server          (explorerApp, explorerHandlers,
+                                                   explorerServeImpl)
 
 -----------------------------------------------------------------
 -- Transformation to `Handler`

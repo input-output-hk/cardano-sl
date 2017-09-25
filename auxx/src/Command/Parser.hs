@@ -90,7 +90,7 @@ dumpFlag = (True <$ lexeme (try $ string "dump")) <|> pure False
 
 delegateL, delegateH :: Parser Command
 delegateL =
-    DelegateLight <$> num <*> base58PkParser <*> num <*> optional num <*> dumpFlag
+    DelegateLight <$> num <*> base58PkParser <*> num <*> optional num
 delegateH =
     DelegateHeavy <$> num <*> base58PkParser <*> num <*> dumpFlag
 

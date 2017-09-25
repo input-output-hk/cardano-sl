@@ -32,7 +32,6 @@ import           Universum
 import           Control.Lens                     (at, uses, (%=), (+=), (-=), (.=))
 import qualified Data.Cache.LRU                   as LRU
 import qualified Data.HashMap.Strict              as HM
-import qualified Data.HashSet                     as HS
 import           Mockable                         (CurrentTime, Mockable, currentTime)
 
 import           Pos.Binary.Class                 (biSize)
@@ -42,8 +41,7 @@ import           Pos.Core                         (HasConfiguration, HasPrimaryK
                                                    ProxySKHeavy, ProxySKLight,
                                                    ProxySigLight, addressHash,
                                                    bvdMaxBlockSize, epochIndexL,
-                                                   getOurPublicKey, headerHash,
-                                                   memPoolLimitRatio)
+                                                   getOurPublicKey, headerHash)
 import           Pos.Crypto                       (ProxySecretKey (..), PublicKey,
                                                    SignTag (SignProxySK), proxyVerify,
                                                    verifyPsk)
@@ -53,7 +51,8 @@ import qualified Pos.DB                           as DB
 import           Pos.DB.Block                     (MonadBlockDB)
 import qualified Pos.DB.DB                        as DB
 import qualified Pos.DB.Misc                      as Misc
-import           Pos.Delegation.Cede              (detectCycleOnAddition, evalMapCede,
+import           Pos.Delegation.Cede              (CedeModifier (..), CheckForCycle (..),
+                                                   dlgVerifyPskHeavy, evalMapCede,
                                                    pskToDlgEdgeAction)
 import           Pos.Delegation.Class             (DlgMemPool, MonadDelegation,
                                                    dwConfirmationCache, dwMessageCache,
@@ -62,7 +61,6 @@ import           Pos.Delegation.Helpers           (isRevokePsk)
 import           Pos.Delegation.Logic.Common      (DelegationStateAction,
                                                    runDelegationStateAction)
 import           Pos.Delegation.Types             (DlgPayload, mkDlgPayload)
-import qualified Pos.GState                       as GS
 import           Pos.Lrc.Context                  (LrcContext)
 import qualified Pos.Lrc.DB                       as LrcDB
 import           Pos.StateLock                    (StateLock, withStateLockNoMetrics)
@@ -189,54 +187,48 @@ processProxySKHeavyInternal psk = do
     let msg = Right psk
         consistent = verifyPsk psk
         iPk = pskIssuerPk psk
-        -- We don't check stake for revoking certs. You can revoke
-        -- even if you don't have money anymore.
-        enoughStake = isRevokePsk psk || addressHash iPk `HS.member` richmen
-        omegaCorrect = headEpoch == pskOmega psk
-
-    -- DB related checks
-    alreadyPosted <- GS.isIssuerPostedThisEpoch $ addressHash iPk
-    hasPskInDB <- isJust <$> GS.getPskByIssuer (Left $ pskIssuerPk psk)
 
     -- Retrieve psk pool and perform another db check. It's
     -- guaranteed that pool is not changed when we're under
     -- 'withStateLock' lock.
     cyclePool <- runDelegationStateAction $ use dwProxySKPool
-    producesCycle <-
-        -- This is inefficient. Consider supporting this map
-        -- in-memory or changing mempool key to stakeholderId.
-        let cedeModifier =
-                HM.fromList $
-                map (bimap addressHash pskToDlgEdgeAction) $
-                HM.toList cyclePool
-        in evalMapCede cedeModifier $ detectCycleOnAddition psk
+
+    -- This is inefficient. Consider supporting this map
+    -- in-memory or changing mempool key to stakeholderId.
+    let _cmPskMods = HM.fromList $
+            map (bimap addressHash pskToDlgEdgeAction) $
+            HM.toList cyclePool
+        -- Not used since we can't have more than one psk per issuer
+        -- in mempool and "has posted this epoch" is fully backed up
+        -- by the database.
+    let _cmHasPostedThisEpoch = mempty
+    let cedeModifier = CedeModifier {..}
+    (verificationError, pskValid) <-
+        fmap (either (,False)
+                     (const (error "processProxySKHeavyInternal:can't happen",True))) $
+        evalMapCede cedeModifier $
+        runExceptT $
+        dlgVerifyPskHeavy richmen (CheckForCycle True) headEpoch psk
 
     -- Here the memory state is the same.
     runDelegationStateAction $ do
         memPoolSize <- use dwPoolSize
         posted <- uses dwProxySKPool (\m -> isJust $ HM.lookup iPk m)
-        existsSame <- uses dwProxySKPool (\m -> HM.lookup iPk m == Just psk)
+        existsSameMempool <- uses dwProxySKPool $ \m -> HM.lookup iPk m == Just psk
         cached <- isJust . snd . LRU.lookup msg <$> use dwMessageCache
         let isRevoke = isRevokePsk psk
-        let rerevoke = isRevoke && not hasPskInDB
         coherent <- uses dwTip $ (==) dbTipHash
         dwMessageCache %= LRU.insert msg curTime
-        let maxMemPoolSize = memPoolLimitRatio * maxBlockSize
-            -- Here it would be good to add size of data we want to insert
-            -- but it's negligible.
-            exhausted = memPoolSize >= maxMemPoolSize
-        let res = if | not consistent -> PHBroken
+
+        let -- TODO: This is a rather arbitrary limit, we should
+            -- revisit it (see CSL-1664)
+            exhausted = memPoolSize >= maxBlockSize * 2
+
+        let res = if | cached -> PHCached
                      | not coherent -> PHTipMismatch
-                     | not omegaCorrect -> PHInvalid "PSK epoch is different from current"
-                     | alreadyPosted -> PHInvalid "issuer has already posted PSK this epoch"
-                     | rerevoke ->
-                         PHInvalid $ "can't accept revoke cert, user doesn't " <>
-                                     "have any psk in db"
-                     | isJust producesCycle ->
-                         PHInvalid $ "adding psk causes cycle at: " <> pretty producesCycle
-                     | not enoughStake -> PHInvalid "issuer doesn't have enough stake"
-                     | cached -> PHCached
-                     | existsSame -> PHExists
+                     | not consistent -> PHBroken
+                     | existsSameMempool -> PHExists
+                     | not pskValid -> PHInvalid verificationError
                      | exhausted -> PHExhausted
                      | posted && isRevoke -> PHRemoved
                      | otherwise -> PHAdded

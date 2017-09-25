@@ -33,10 +33,10 @@ import           Formatting                   (bprint, sformat, (%))
 import           Serokell.Util                (Color (Red), colorize)
 import           System.Wlog                  (WithLogger, logError)
 
-import           Pos.Core                     (Coin, GenesisWStakeholders, StakeholderId,
-                                               StakesMap, coinF, mkCoin, sumCoins,
-                                               unsafeAddCoin, unsafeIntegerToCoin,
-                                               HasConfiguration)
+import           Pos.Core                     (Coin, GenesisWStakeholders,
+                                               HasConfiguration, StakeholderId, StakesMap,
+                                               coinF, mkCoin, sumCoins, unsafeAddCoin,
+                                               unsafeIntegerToCoin)
 import           Pos.Crypto                   (shortHashF)
 import           Pos.DB                       (DBError (..), DBTag (GStateDB), IterType,
                                                MonadDB, MonadDBRead, RocksBatchOp (..),

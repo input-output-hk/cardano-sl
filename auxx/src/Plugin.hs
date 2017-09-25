@@ -39,8 +39,8 @@ import           Mode                       (AuxxMode)
 -- Plugin implementation
 ----------------------------------------------------------------------------
 
-auxxPlugin ::
-       HasConfigurations
+auxxPlugin
+    :: HasConfigurations
     => AuxxOptions
     -> (WorkerSpec AuxxMode, OutSpecs)
 auxxPlugin AuxxOptions {..} =
@@ -54,16 +54,15 @@ auxxPlugin AuxxOptions {..} =
                               (length $ unGenesisUtxo genesisUtxo)
             w (addLogging sa)
 
-evalCmd ::
-       HasConfigurations
+evalCmd
+    :: HasConfigurations
     => SendActions AuxxMode
     -> Command
     -> AuxxMode ()
 evalCmd _ Quit = pure ()
 evalCmd sa cmd = runCmd sa cmd >> evalCommands sa
 
-evalCommands ::
-       HasConfigurations => SendActions AuxxMode -> AuxxMode ()
+evalCommands :: HasConfigurations => SendActions AuxxMode -> AuxxMode ()
 evalCommands sa = do
     putStr @Text "> "
     liftIO $ hFlush stdout

@@ -1,9 +1,8 @@
 -- | Types related to genesis core data.
 
 module Pos.Core.Genesis.Types
-       ( BalanceDistribution (..)
-
-       , GenesisWStakeholders (..)
+       (
+         GenesisWStakeholders (..)
        , GenesisDelegation (..)
        , GenesisVssCertificatesMap (..)
        , noGenesisDelegation
@@ -45,17 +44,6 @@ import           Pos.Core.Vss.Types       (VssCertificatesMap)
 import           Pos.Crypto.Signing.Types (ProxySecretKey (..), RedeemPublicKey,
                                            isSelfSignedPsk)
 
--- | Balances distribution in genesis block.
-data BalanceDistribution =
-    -- | Rich/poor distribution, for testnet mostly.
-    RichPoorBalances
-        { sdRichmen     :: !Word
-        , sdRichBalance :: !Coin
-        , sdPoor        :: !Word
-        , sdPoorBalance :: !Coin
-        }
-    deriving (Show, Eq, Generic)
-
 -- | Wrapper around weighted stakeholders map to be used in genesis
 -- core data.
 newtype GenesisWStakeholders = GenesisWStakeholders
@@ -76,7 +64,7 @@ instance Buildable GenesisWStakeholders where
 --    It's not needed in genesis, it can always be reduced.
 newtype GenesisDelegation = UnsafeGenesisDelegation
     { unGenesisDelegation :: HashMap StakeholderId ProxySKHeavy
-    } deriving (Show, Eq, Monoid)
+    } deriving (Show, Eq)
 
 -- | Empty 'GenesisDelegation'.
 noGenesisDelegation :: GenesisDelegation

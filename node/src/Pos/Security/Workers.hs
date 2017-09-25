@@ -27,7 +27,6 @@ import           Pos.DB                     (DBError (DBMalformed))
 import           Pos.DB.Block               (MonadBlockDB, blkGetHeader)
 import           Pos.DB.DB                  (getTipHeader)
 import           Pos.Reporting              (reportMisbehaviour, reportOrLogE)
-import           Pos.Shutdown               (runIfNotShutdown)
 import           Pos.Slotting               (getCurrentSlot, getNextEpochSlotDuration)
 import           Pos.WorkMode.Class         (WorkMode)
 
@@ -85,9 +84,10 @@ checkForReceivedBlocksWorkerImpl
        (WorkMode ssc ctx m)
     => SendActions m -> m ()
 checkForReceivedBlocksWorkerImpl SendActions {..} = afterDelay $ do
-    repeatOnInterval (const (sec' 4)) . recoveryCommGuard $
+    repeatOnInterval (const (sec' 4)) . recoveryCommGuard "security worker" $
         whenM (needRecovery @ctx @ssc) $ triggerRecovery enqueueMsg
-    repeatOnInterval (min (sec' 20)) . recoveryCommGuard $ do
+    -- FIXME: 'repeatOnInterval' is looped, will the code below ever be called?
+    repeatOnInterval (min (sec' 20)) . recoveryCommGuard "security worker" $ do
         ourPk <- getOurPublicKey
         let onSlotDefault slotId = do
                 header <- getTipHeader @ssc
@@ -104,7 +104,7 @@ checkForReceivedBlocksWorkerImpl SendActions {..} = afterDelay $ do
             "than 'mdNoBlocksSlotThreshold' that we didn't generate " <>
             "by ourselves"
         reportEclipse
-    repeatOnInterval delF action = runIfNotShutdown $ do
+    repeatOnInterval delF action = () <$ do
         -- REPORT:ERROR 'reportOrLogE' in block retrieval worker.
         () <$ action `catchAny` \e -> reportOrLogE "Security worker" e
         getNextEpochSlotDuration >>= delay . delF
@@ -116,5 +116,5 @@ checkForReceivedBlocksWorkerImpl SendActions {..} = afterDelay $ do
                 "Eclipse attack was discovered, mdNoBlocksSlotThreshold: " <>
                 show (mdNoBlocksSlotThreshold :: Int)
         -- REPORT:MISBEHAVIOUR(F) Possible eclipse attack was detected: new blocks are not propagated to us from other nodes
-        when nonTrivialUptime $ recoveryCommGuard $
+        when nonTrivialUptime $ recoveryCommGuard "security worker" $
             reportMisbehaviour True reason

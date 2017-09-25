@@ -36,6 +36,7 @@ import           Pos.DB.DB                      (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks                   (dbDeleteDefault, dbGetDefault,
                                                  dbIterSourceDefault, dbPutDefault,
                                                  dbWriteBatchDefault)
+import           Pos.Recovery                   ()
 
 import           Pos.Client.Txp.Balances        (MonadBalances (..), getBalanceDefault,
                                                  getOwnUtxosDefault)

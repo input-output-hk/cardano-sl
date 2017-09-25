@@ -16,7 +16,7 @@ import           Pos.Delegation.Class       (MonadDelegation)
 import           Pos.Delegation.Logic       (invalidateProxyCaches,
                                              runDelegationStateAction)
 import           Pos.Reporting              (MonadReporting, reportOrLogE)
-import           Pos.Shutdown               (HasShutdownContext, runIfNotShutdown)
+import           Pos.Shutdown               (HasShutdownContext)
 import           Pos.Util                   (microsecondsToUTC)
 import           Pos.WorkMode.Class         (WorkMode)
 
@@ -38,7 +38,7 @@ dlgInvalidateCaches
        , HasNodeConfiguration
        )
     => m ()
-dlgInvalidateCaches = runIfNotShutdown $ do
+dlgInvalidateCaches = do
     -- REPORT:ERROR 'reportOrLogE' in delegation worker.
     invalidate `catchAny` reportOrLogE "Delegation worker, error occurred: "
     delay (sec 1)

@@ -24,7 +24,8 @@ import qualified Pos.Communication          ()
 import           Pos.Core                   (BlockVersionData (bvdMaxBlockSize),
                                              HasConfiguration, SlotId (..),
                                              blkSecurityParam, genesisBlockVersionData,
-                                             mkVssCertificatesMap, unsafeMkLocalSlotIndex)
+                                             mkVssCertificatesMapLossy,
+                                             unsafeMkLocalSlotIndex)
 import           Pos.Crypto                 (SecretKey)
 import           Pos.Delegation             (DlgPayload, ProxySKBlockInfo)
 import           Pos.Ssc.Class              (Ssc (..), sscDefaultPayload)
@@ -152,7 +153,7 @@ spec = giveUpdateConf $ giveCoreConf $ describe "Block.Logic.Creation" $ do
 
 validGtPayloadGen :: HasConfiguration => Gen (GtPayload, SlotId)
 validGtPayloadGen = do
-    vssCerts <- makeSmall $ fmap mkVssCertificatesMap $ listOf $ vssCertificateEpochGen 0
+    vssCerts <- makeSmall $ fmap mkVssCertificatesMapLossy $ listOf $ vssCertificateEpochGen 0
     let mkSlot i = SlotId 0 (unsafeMkLocalSlotIndex (fromIntegral i))
     oneof [ do commMap <- makeSmall $ commitmentMapEpochGen 0
                pure (CommitmentsPayload commMap vssCerts, SlotId 0 minBound)

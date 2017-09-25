@@ -1,6 +1,6 @@
 {-# LANGUAGE Rank2Types #-}
 
--- | Flobal constants, configurable via Data.Reflection.
+-- | Global constants, configurable via Data.Reflection.
 
 module Pos.Core.Configuration.Core
        (
@@ -13,7 +13,7 @@ module Pos.Core.Configuration.Core
 
        , coreConfiguration
        , dbSerializeVersion
-       , memPoolLimitRatio
+       , memPoolLimitTx
        , nonCriticalCQBootstrap
        , criticalCQBootstrap
        , nonCriticalCQ
@@ -53,9 +53,9 @@ data CoreConfiguration = CoreConfiguration
 
     , -- | Versioning for values in node's DB
       ccDbSerializeVersion     :: !Word8
-      -- | Size of mem pool will be limited by this value muliplied by block
-      -- size limit.
-    , ccMemPoolLimitRatio      :: !Word
+      -- | Limint on the number of transactions that can be stored in
+      -- the mem pool.
+    , ccMemPoolLimitTx         :: !Int
 
       -- Chain quality thresholds and other constants to detect
       -- suspicious things.
@@ -99,10 +99,10 @@ coreConfiguration = given
 dbSerializeVersion :: HasCoreConfiguration => Word8
 dbSerializeVersion = fromIntegral . ccDbSerializeVersion $ coreConfiguration
 
--- | Size of mem pool will be limited by this value muliplied by block
--- size limit.
-memPoolLimitRatio :: (HasCoreConfiguration, Integral i) => i
-memPoolLimitRatio = fromIntegral . ccMemPoolLimitRatio $ coreConfiguration
+-- | Limint on the number of transactions that can be stored in
+-- the mem pool.
+memPoolLimitTx :: (HasCoreConfiguration, Integral i) => i
+memPoolLimitTx = fromIntegral . ccMemPoolLimitTx $ coreConfiguration
 
 -- | If chain quality in bootstrap era is less than this value,
 -- non critical misbehavior will be reported.

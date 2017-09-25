@@ -5,22 +5,18 @@
 
 module Pos.Launcher.Scenario
        ( runNode
-       , initSemaphore
        , runNode'
        , nodeStartMsg
        ) where
 
 import           Universum
 
-import           Control.Lens             (views)
 import           Data.Time.Units          (Second)
-import           Ether.Internal           (HasLens (..))
 import           Formatting               (build, int, sformat, shown, (%))
-import           Mockable                 (fork)
+import           Mockable                 (mapConcurrently, race)
 import           Serokell.Util.Text       (listJson)
 import           System.Exit              (ExitCode (..))
-import           System.Wlog              (WithLogger, getLoggerName, logError, logInfo,
-                                           logWarning)
+import           System.Wlog              (WithLogger, getLoggerName, logInfo, logWarning)
 
 import           Pos.Communication        (ActionSpec (..), OutSpecs, WorkerSpec,
                                            wrapActionSpec)
@@ -37,17 +33,15 @@ import           Pos.Launcher.Resource    (NodeResources (..))
 import           Pos.Lrc.DB               as LrcDB
 import           Pos.Network.Types        (NetworkConfig (..), topologyRunKademlia)
 import           Pos.Reporting            (reportError)
-import           Pos.Shutdown             (waitForWorkers)
+import           Pos.Shutdown             (waitForShutdown)
 import           Pos.Slotting             (waitSystemStart)
 import           Pos.Ssc.Class            (SscConstraint)
-import           Pos.StateLock            (StateLock (..))
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
-                                           lastKnownBlockVersion)
+                                           lastKnownBlockVersion, ourSystemTag)
 import           Pos.Util                 (inAssertMode)
 import           Pos.Util.LogSafe         (logInfoS)
 import           Pos.Worker               (allWorkers)
 import           Pos.WorkMode.Class       (WorkMode)
-
 
 #define QUOTED(x) "/**/x/**/"
 
@@ -69,7 +63,6 @@ runNode'
     -> [WorkerSpec m]
     -> WorkerSpec m
 runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> do
-
     logInfo $ "cardano-sl: commit " <> gitRev
     nodeStartMsg
     inAssertMode $ logInfo "Assert mode on"
@@ -113,16 +106,18 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
     tipHeader <- DB.getTipHeader @ssc
     logInfo $ sformat ("Current tip header: "%build) tipHeader
 
-    initSemaphore
     waitSystemStart
     let unpackPlugin (ActionSpec action) =
             action vI sendActions `catch` reportHandler
-    mapM_ (fork . unpackPlugin) workers'
-    mapM_ (fork . unpackPlugin) plugins'
 
-    -- Instead of sleeping forever, we wait until graceful shutdown
-    -- TBD why don't we also wait for the plugins?
-    waitForWorkers (length workers')
+    -- Either all the plugins are cancelled in the case one of them
+    -- throws an error, or otherwise when the shutdown signal comes,
+    -- they are killed automatically.
+    void
+      (race
+           (void (mapConcurrently (unpackPlugin) $ workers' ++ plugins'))
+           waitForShutdown)
+
     exitWith (ExitFailure 20)
   where
     -- FIXME shouldn't this kill the whole program?
@@ -154,8 +149,11 @@ runNode nr (plugins, plOuts) =
 nodeStartMsg :: (HasUpdateConfiguration, WithLogger m) => m ()
 nodeStartMsg = logInfo msg
   where
-    msg = sformat ("Application: " %build% ", last known block version " %build)
-                   curSoftwareVersion lastKnownBlockVersion
+    msg = sformat ("Application: " %build% ", last known block version "
+                    %build% ", systemTag: " %build)
+                   curSoftwareVersion
+                   lastKnownBlockVersion
+                   ourSystemTag
 
 ----------------------------------------------------------------------------
 -- Details
@@ -183,11 +181,3 @@ nodeStartMsg = logInfo msg
 --             flip (createPsk secretKey) eternity . encToPublic
 --         ownPSKs = uSecret ^.. usKeys . _tail . each . to makeOwnPSK
 --     for_ ownPSKs addProxySecretKey
-
-initSemaphore :: (WorkMode ssc ctx m) => m ()
-initSemaphore = do
-    semaphore <- views (lensOf @StateLock) slTip
-    whenJustM (tryReadMVar semaphore) $ const $
-        logError "ncStateLock is not empty at the very beginning"
-    tip <- GS.getTip
-    putMVar semaphore tip

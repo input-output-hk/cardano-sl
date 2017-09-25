@@ -58,7 +58,7 @@ spec = giveCoreConf $ describe "Block properties" $ do
     verifyHeadersDesc = "Successfully verifies a correct chain of block headers"
     verifyEmptyHsDesc = "Successfully validates an empty header chain"
     emptyHeaderChain l = giveCoreConf $ -- WHAT THE HECK? WHY IS IT NEEDED?
-        it verifyEmptyHsDesc $ isVerSuccess $ T.verifyHeaders l
+        it verifyEmptyHsDesc $ isVerSuccess $ T.verifyHeaders Nothing l
 
 -- | Both of the following tests are boilerplate - they use `mkGenericHeader` to create
 -- headers and then compare these with manually built headers.
@@ -160,4 +160,4 @@ validateGoodHeaderChain
     :: forall ssc . (HasConfiguration, SscHelpersClass ssc)
     => T.BlockHeaderList ssc -> Bool
 validateGoodHeaderChain (T.BHL (l, _)) =
-    isVerSuccess $ T.verifyHeaders (NewestFirst l)
+    isVerSuccess $ T.verifyHeaders Nothing (NewestFirst l)

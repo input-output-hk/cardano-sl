@@ -554,7 +554,8 @@ getGenesisSummary
 getGenesisSummary = do
     redeemAddressCoinPairs <- getRedeemAddressCoinPairs
     cgsNumRedeemed <- length <$> filterM (uncurry isAddressRedeemed) redeemAddressCoinPairs
-    pure CGenesisSummary {cgsNumTotal = length redeemAddressCoinPairs, ..}
+    let cgsNumTotal = length redeemAddressCoinPairs
+    pure CGenesisSummary {cgsNumNotRedeemed = cgsNumTotal - cgsNumRedeemed, ..}
 
 getGenesisAddressInfo
     :: (ExplorerMode ctx m)

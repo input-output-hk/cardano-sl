@@ -110,8 +110,9 @@ mkCtbOutputs indexes =
 
 mkCGenesisSummary :: CGenesisSummary
 mkCGenesisSummary = CGenesisSummary
-    { cgsNumTotal    : 2
-    , cgsNumRedeemed : 1
+    { cgsNumTotal    : 4
+    , cgsNumRedeemed : 3
+    , cgsNumNotRedeemed: 1
     }
 
 mkCGenesisAddressInfo :: CGenesisAddressInfo

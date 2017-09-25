@@ -1,9 +1,9 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE PolyKinds           #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE CPP             #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE GADTs           #-}
+{-# LANGUAGE PolyKinds       #-}
+{-# LANGUAGE RankNTypes      #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 module Pos.Util.Util
        (
@@ -14,12 +14,17 @@ module Pos.Util.Util
        , liftLensSome
        , liftGetterSome
 
+       -- * Something
+       , Sign (..)
        , maybeThrow
        , eitherToFail
        , eitherToThrow
        , getKeys
        , sortWithMDesc
        , leftToPanic
+       , dumpSplices
+       , histogram
+       , (<//>)
 
        -- * Lenses
        , _neHead
@@ -47,28 +52,6 @@ module Pos.Util.Util
        -- * Asserts
        , inAssertMode
 
-       -- * Instances
-       -- ** Lift Byte
-       -- ** FromJSON Byte
-       -- ** ToJSON Byte
-       -- ** MonadFail (Either s), assuming IsString s
-       -- ** NFData Millisecond
-       -- ** NFData Microsecond
-       -- ** Buildable Attosecond
-       -- ** Buildable Femtosecond
-       -- ** Buildable Picosecond
-       -- ** Buildable Nanosecond
-       -- ** Buildable Millisecond
-       -- ** Buildable Microsecond
-       -- ** Buildable Second
-       -- ** Buildable Minute
-       -- ** Buildable Hour
-       -- ** Buildable Day
-       -- ** Buildable Week
-       -- ** Buildable Fortnight
-
-       , dumpSplices
-
        -- * Filesystem & process utilities
        , ls
        , lstree
@@ -78,6 +61,32 @@ module Pos.Util.Util
        , withTempFile
        , withSystemTempFile
 
+       -- * Coloring
+       , colorizeDull
+
+       -- * Aeson
+       , parseJSONWithRead
+
+       -- * Instances
+       -- ** Lift Byte
+       -- ** Lift HashMap
+       -- ** FromJSON Byte, ToJSON Byte
+       -- ** Hashable Byte
+       -- ** MonadFail (Either s), assuming IsString s
+       -- ** HasLoggerName (MonadPseudoRandom drg)
+
+       -- ** Hashable
+       -- *** Millisecond, Microsecond
+
+       -- ** NFData
+       -- *** Millisecond, Microsecond
+
+       -- ** MonadRandom
+       -- *** monad transformers
+       -- *** Gen (from QuickCheck)
+
+       -- ** Buildable
+       -- *** "Data.Time.Units" types
        ) where
 
 import           Universum
@@ -95,10 +104,16 @@ import           Control.Monad.Trans.Identity   (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
 import           Control.Monad.Trans.Resource   (MonadResource (..), ResourceT,
                                                  transResourceT)
+import qualified Crypto.Random                  as Rand
 import           Data.Aeson                     (FromJSON (..), ToJSON (..))
+import qualified Data.Aeson                     as A
+import qualified Data.Aeson.Types               as A
 import           Data.Char                      (isAlphaNum)
+import           Data.Hashable                  (Hashable (hashWithSalt))
+import qualified Data.HashMap.Strict            as HM
 import           Data.HashSet                   (fromMap)
 import           Data.List                      (last)
+import qualified Data.Map                       as M
 import qualified Data.Semigroup                 as Smg
 import           Data.Tagged                    (Tagged (Tagged))
 import           Data.Text.Buildable            (build)
@@ -120,6 +135,7 @@ import           Mockable                       (ChannelT, Counter, Distribution
                                                  ThreadId)
 import qualified Prelude
 import           Serokell.Data.Memory.Units     (Byte, fromBytes, toBytes)
+import qualified System.Console.ANSI            as ANSI
 import           System.Directory               (canonicalizePath, createDirectory,
                                                  doesDirectoryExist,
                                                  getTemporaryDirectory, listDirectory,
@@ -129,6 +145,7 @@ import           System.FilePath                (normalise, pathSeparator, takeD
 import           System.IO                      (hClose, openTempFile)
 import           System.Wlog                    (CanLog, HasLoggerName (..),
                                                  LoggerNameBox (..))
+import qualified Test.QuickCheck                as QC
 import           Test.QuickCheck.Monadic        (PropertyM (..))
 
 ----------------------------------------------------------------------------
@@ -178,6 +195,12 @@ instance MonadReader r m => MonadReader r (PropertyM m) where
     local f (MkPropertyM propertyM) =
         MkPropertyM $ \hole -> local f <$> propertyM hole
 
+instance (TH.Lift k, TH.Lift v) => TH.Lift (HashMap k v) where
+    lift x = let l = HM.toList x in [|HM.fromList l|]
+
+instance Hashable Byte where
+    hashWithSalt i = hashWithSalt i . toInteger
+
 instance TH.Lift Byte where
     lift x = let b = toBytes x in [|fromBytes b :: Byte|]
 
@@ -190,11 +213,32 @@ instance ToJSON Byte where
 instance IsString s => MonadFail (Either s) where
     fail = Left . fromString
 
+instance Rand.DRG drg => HasLoggerName (Rand.MonadPseudoRandom drg) where
+    getLoggerName = pure mempty
+    modifyLoggerName = flip const
+
+instance {-# OVERLAPPABLE #-}
+         (MonadTrans t, Functor (t m), Monad (t m), Rand.MonadRandom m)
+         => Rand.MonadRandom (t m) where
+    getRandomBytes = lift . Rand.getRandomBytes
+
+instance Rand.MonadRandom QC.Gen where
+    getRandomBytes n = do
+        [a,b,c,d,e] <- replicateM 5 QC.arbitrary
+        pure $ fst $ Rand.randomBytesGenerate n (Rand.drgNewTest (a,b,c,d,e))
+
+instance Hashable Millisecond where
+    hashWithSalt i a = hashWithSalt i (toInteger a)
+
+instance Hashable Microsecond where
+    hashWithSalt i a = hashWithSalt i (toInteger a)
+
 instance NFData Millisecond where
     rnf ms = rnf (toInteger ms)
 
 instance NFData Microsecond where
     rnf ms = rnf (toInteger ms)
+
 
 ----------------------------------------------------------------------------
 -- Orphan Buildable instances for time-units
@@ -306,6 +350,8 @@ type instance ChannelT (Ether.TaggedTrans tag t m) = ChannelT m
 -- Not instances
 ----------------------------------------------------------------------------
 
+data Sign = Plus | Minus
+
 maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
 maybeThrow e = maybe (throwM e) pure
 
@@ -381,6 +427,15 @@ inAssertMode _ = pure ()
 #endif
 {-# INLINE inAssertMode #-}
 
+-- | Concatenates two url parts using regular slash '/'.
+-- E.g. @"./dir/" <//> "/file" = "./dir/file"@.
+(<//>) :: String -> String -> String
+(<//>) lhs rhs = lhs' ++ "/" ++ rhs'
+  where
+    isSlash = (== '/')
+    lhs' = reverse $ dropWhile isSlash $ reverse lhs
+    rhs' = dropWhile isSlash rhs
+
 ----------------------------------------------------------------------------
 -- Lenses
 ----------------------------------------------------------------------------
@@ -419,6 +474,13 @@ dumpSplices x = do
 
 postfixLFields :: LensRules
 postfixLFields = lensRules & lensField .~ mappingNamer (\s -> [s++"_L"])
+
+-- | Count elements in a list.
+histogram :: forall a. Ord a => [a] -> Map a Int
+histogram = foldl' step M.empty
+  where
+    step :: Map a Int -> a -> Map a Int
+    step m x = M.insertWith (+) x 1 m
 
 -- MinMax
 
@@ -534,3 +596,25 @@ withTempFile tmpDir template action =
   where
      ignoringIOErrors :: MC.MonadCatch m => m () -> m ()
      ignoringIOErrors ioe = ioe `MC.catch` (\e -> const (return ()) (e :: Prelude.IOError))
+
+----------------------------------------------------------------------------
+-- Coloring
+----------------------------------------------------------------------------
+
+-- | Colorize text using 'ANSI.Dull' palete
+-- (in contrast to 'Serokell.Util.colorize' which uses 'ANSI.Vivid' palete)
+colorizeDull :: ANSI.Color -> Text -> Text
+colorizeDull color msg =
+    toText (ANSI.setSGRCode [ANSI.SetColor ANSI.Foreground ANSI.Dull color]) <>
+    msg <>
+    toText (ANSI.setSGRCode [ANSI.Reset])
+
+----------------------------------------------------------------------------
+-- Aeson
+----------------------------------------------------------------------------
+
+-- | Parse a value represented as a 'show'-ed string in JSON.
+parseJSONWithRead :: Read a => A.Value -> A.Parser a
+parseJSONWithRead =
+    either (fail . toString) pure . readEither @String <=<
+    parseJSON

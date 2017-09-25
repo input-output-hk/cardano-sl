@@ -1,5 +1,4 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
 
 module Pos.DHT.Workers
        ( DhtWorkMode
@@ -17,11 +16,13 @@ import           System.Wlog                (WithLogger, logNotice)
 import           Pos.Binary.Class           (serialize)
 import           Pos.Binary.Infra.DHTModel  ()
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker)
+import           Pos.Core.Configuration     (HasConfiguration)
 import           Pos.Core.Slotting          (flattenSlotId)
 import           Pos.Core.Types             (slotIdF)
-import           Pos.DHT.Constants          (kademliaDumpInterval)
+import           Pos.DHT.Configuration      (kademliaDumpInterval)
 import           Pos.DHT.Real.Types         (KademliaDHTInstance (..))
 import           Pos.KnownPeers             (MonadFormatPeers, MonadKnownPeers)
+import           Pos.Infra.Configuration    (HasInfraConfiguration)
 import           Pos.Recovery.Info          (MonadRecoveryInfo, recoveryCommGuard)
 import           Pos.Reporting              (HasReportingContext)
 import           Pos.Shutdown               (HasShutdownContext)
@@ -29,7 +30,7 @@ import           Pos.Slotting.Class         (MonadSlots)
 
 type DhtWorkMode ctx m =
     ( WithLogger m
-    , MonadSlots m
+    , MonadSlots ctx m
     , MonadIO m
     , MonadMask m
     , Mockable Async m
@@ -42,6 +43,8 @@ type DhtWorkMode ctx m =
     , MonadFormatPeers m
     , HasReportingContext ctx
     , HasShutdownContext ctx
+    , HasConfiguration
+    , HasInfraConfiguration
     )
 
 dhtWorkers
@@ -57,7 +60,7 @@ dumpKademliaStateWorker
     => KademliaDHTInstance
     -> (WorkerSpec m, OutSpecs)
 dumpKademliaStateWorker kademliaInst = localOnNewSlotWorker True $ \slotId ->
-    when (isTimeToDump slotId) $ recoveryCommGuard $ do
+    when (isTimeToDump slotId) $ recoveryCommGuard "dump kademlia state" $ do
         let dumpFile = kdiDumpPath kademliaInst
         logNotice $ sformat ("Dumping kademlia snapshot on slot: "%slotIdF) slotId
         let inst = kdiHandle kademliaInst

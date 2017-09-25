@@ -1,0 +1,12 @@
+{
+  "name": "csl-scripts",
+  "version": "0.0.1",
+  "description": "",
+  "author": "Serokell",
+  "license": "ISC",
+  "dependencies": {
+    "blakejs": "latest",
+    "canonical-json": "latest",
+    "js-yaml": "latest"
+  }
+}

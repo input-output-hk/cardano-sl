@@ -202,13 +202,13 @@ data BlockVersionState = BlockVersionState
 bvsIsConfirmed :: BlockVersionState -> Bool
 bvsIsConfirmed = isJust . bvsConfirmedEpoch
 
-bvsScriptVersion :: BlockVersionState -> ScriptVersion
+bvsScriptVersion :: BlockVersionState -> Maybe ScriptVersion
 bvsScriptVersion = bvmScriptVersion . bvsModifier
 
-bvsSlotDuration :: BlockVersionState -> Millisecond
+bvsSlotDuration :: BlockVersionState -> Maybe Millisecond
 bvsSlotDuration = bvmSlotDuration . bvsModifier
 
-bvsMaxBlockSize :: BlockVersionState -> Byte
+bvsMaxBlockSize :: BlockVersionState -> Maybe Byte
 bvsMaxBlockSize = bvmMaxBlockSize . bvsModifier
 
 ----------------------------------------------------------------------------
@@ -260,9 +260,7 @@ data USUndo = USUndo
     , unChangedConfProps :: !(HashMap SoftwareVersion (PrevValue ConfirmedProposalState))
     , unPrevProposers    :: !(Maybe (HashSet StakeholderId))
     , unSlottingData     :: !(Maybe SlottingData)
-    -- ^ Previous slotting data, i. e. data which should be in GState
-    -- if this 'USUndo' is applied (i. e. corresponding block is
-    -- rolled back).
+    -- ^ 'SlottingData' which should be modified as the result of this rollback
     } deriving (Generic, Show, Eq)
 
 

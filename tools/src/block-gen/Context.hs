@@ -10,37 +10,35 @@ module Context
 
 import           Universum
 
-import           Control.Lens         (makeLensesWith)
-import qualified Control.Monad.Reader as Mtl
-import           Ether.Internal       (HasLens (..))
-import           Mockable             (Production, currentTime)
+import           Control.Lens               (makeLensesWith)
+import qualified Control.Monad.Reader       as Mtl
+import           Ether.Internal             (HasLens (..))
+import           Mockable                   (Production, currentTime)
 
-import           Pos.Block.Core       (Block, BlockHeader)
-import           Pos.Block.Slog       (SlogContext, mkSlogContext)
-import           Pos.Block.Types      (Undo)
-import           Pos.Context          (GenesisUtxo (..))
-import           Pos.Core             (Timestamp (..))
-import           Pos.DB               (MonadBlockDBGeneric (..),
-                                       MonadBlockDBGenericWrite (..), MonadDB (..),
-                                       MonadDBRead (..))
-import qualified Pos.DB               as DB
-import qualified Pos.DB.Block         as BDB
-import           Pos.DB.DB            (initNodeDBs)
-import           Pos.DB.Sum           (DBSum (..))
-import           Pos.GState           (GStateContext (..))
-import qualified Pos.GState           as GS
-import           Pos.KnownPeers       (MonadFormatPeers (..))
-import           Pos.Launcher         (newInitFuture)
-import           Pos.Lrc.Context      (LrcContext (..), mkLrcSyncData)
-import           Pos.Slotting         (HasSlottingVar (..))
-import           Pos.Ssc.GodTossing   (SscGodTossing)
-import           Pos.Util.Util        (postfixLFields)
+import           Pos.Block.Core             (Block, BlockHeader)
+import           Pos.Block.Slog             (HasSlogGState (..), mkSlogGState)
+import           Pos.Block.Types            (Undo)
+import           Pos.Core                   (Timestamp (..))
+import           Pos.DB                     (MonadBlockDBGeneric (..),
+                                             MonadBlockDBGenericWrite (..), MonadDB (..),
+                                             MonadDBRead (..))
+import qualified Pos.DB                     as DB
+import qualified Pos.DB.Block               as BDB
+import           Pos.DB.DB                  (initNodeDBs)
+import           Pos.DB.Sum                 (DBSum (..))
+import           Pos.GState                 (GStateContext (..))
+import qualified Pos.GState                 as GS
+import           Pos.KnownPeers             (MonadFormatPeers (..))
+import           Pos.Launcher.Configuration (HasConfigurations)
+import           Pos.Lrc.Context            (LrcContext (..), mkLrcSyncData)
+import           Pos.Slotting               (HasSlottingVar (..))
+import           Pos.Ssc.GodTossing         (SscGodTossing)
+import           Pos.Util                   (newInitFuture, postfixLFields)
 
 -- | Enough context for generation of blocks.
--- "T" means tool
+-- "T" stands for tool
 data TBlockGenContext = TBlockGenContext
     { tbgcGState      :: GStateContext
-    , tbgcGenesisUtxo :: GenesisUtxo
     , tbgcSystemStart :: Timestamp
     }
 
@@ -51,16 +49,19 @@ type TBlockGenMode = ReaderT TBlockGenContext Production
 runTBlockGenMode :: TBlockGenContext -> TBlockGenMode a -> Production a
 runTBlockGenMode = flip Mtl.runReaderT
 
-initTBlockGenMode :: DB.NodeDBs -> GenesisUtxo -> TBlockGenMode a -> Production a
-initTBlockGenMode nodeDBs genUtxo action = do
+initTBlockGenMode ::
+       HasConfigurations
+    => DB.NodeDBs
+    -> TBlockGenMode a
+    -> Production a
+initTBlockGenMode nodeDBs action = do
     let _gscDB = RealDB nodeDBs
-    (_gscSlogContext, putSlogContext) <- newInitFuture
-    (_gscLrcContext, putLrcCtx) <- newInitFuture
-    (_gscSlottingVar, putSlottingVar) <- newInitFuture
+    (_gscSlogGState, putSlogGState) <- newInitFuture "slogGState"
+    (_gscLrcContext, putLrcCtx) <- newInitFuture "lrcCtx"
+    (_gscSlottingVar, putSlottingVar) <- newInitFuture "slottingVar"
     let tbgcGState = GStateContext {..}
 
     tbgcSystemStart <- Timestamp <$> currentTime
-    let tbgcGenesisUtxo = genUtxo
     let tblockCtx = TBlockGenContext {..}
     runTBlockGenMode tblockCtx $ do
         initNodeDBs @SscGodTossing
@@ -70,8 +71,8 @@ initTBlockGenMode nodeDBs genUtxo action = do
         lcLrcSync <- mkLrcSyncData >>= newTVarIO
         putLrcCtx $ LrcContext {..}
 
-        slogContext <- mkSlogContext
-        putSlogContext slogContext
+        slogGS <- mkSlogGState
+        putSlogGState slogGS
         action
 
 ----------------------------------------------------------------------------
@@ -86,30 +87,27 @@ instance GS.HasGStateContext TBlockGenContext where
 instance HasLens DBSum TBlockGenContext DBSum where
     lensOf = tbgcGState_L . GS.gscDB
 
-instance HasLens SlogContext TBlockGenContext SlogContext where
-    lensOf = tbgcGState_L . GS.gscSlogContext
+instance HasSlogGState TBlockGenContext where
+    slogGState = tbgcGState_L . slogGState
 
 instance HasLens LrcContext TBlockGenContext LrcContext where
     lensOf = tbgcGState_L . GS.gscLrcContext
-
-instance HasLens GenesisUtxo TBlockGenContext GenesisUtxo where
-    lensOf = tbgcGenesisUtxo_L
 
 instance HasSlottingVar TBlockGenContext where
     slottingTimestamp = tbgcSystemStart_L
     slottingVar = tbgcGState_L . GS.gscSlottingVar
 
-
-instance MonadDBRead TBlockGenMode where
+instance HasConfigurations => MonadDBRead TBlockGenMode where
     dbGet = DB.dbGetSumDefault
     dbIterSource = DB.dbIterSourceSumDefault
 
-instance MonadDB TBlockGenMode where
+instance HasConfigurations => MonadDB TBlockGenMode where
     dbPut = DB.dbPutSumDefault
     dbWriteBatch = DB.dbWriteBatchSumDefault
     dbDelete = DB.dbDeleteSumDefault
 
 instance
+    HasConfigurations =>
     MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo TBlockGenMode
   where
     dbGetBlock = BDB.dbGetBlockSumDefault @SscGodTossing
@@ -117,6 +115,7 @@ instance
     dbGetHeader = BDB.dbGetHeaderSumDefault @SscGodTossing
 
 instance
+    HasConfigurations =>
     MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo TBlockGenMode
   where
     dbPutBlund = BDB.dbPutBlundSumDefault

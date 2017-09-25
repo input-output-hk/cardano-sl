@@ -1,17 +1,23 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
--- | Core types. TODO: we need to have a meeting, come up with project
--- structure and follow it.
+-- | Core types.
 
 module Pos.Core.Types
        (
-       -- * Address
-         Address (..)
-       , _RedeemAddress
-       , AddrPkAttrs (..)
+         ProtocolMagic (..)
+
+       -- * Address and StakeholderId
        , AddressHash
+       , AddrSpendingData (..)
+       , AddrType (..)
+       , Address' (..)
+       , AddrAttributes (..)
+       , AddrStakeDistribution (..)
+       , mkMultiKeyDistr
+       , Address (..)
+
+       -- * Stakeholders
        , StakeholderId
        , StakesMap
+       , StakesList
 
        , Timestamp (..)
        , TimeDiff (..)
@@ -60,9 +66,7 @@ module Pos.Core.Types
        -- * Slotting
        , EpochIndex (..)
        , FlatSlotId
-       , LocalSlotIndex (getSlotIndex)
-       , mkLocalSlotIndex
-       , addLocalSlotIndex
+       , LocalSlotIndex (..)
        , SlotId (..)
        , siEpochL
        , siSlotL
@@ -87,8 +91,7 @@ import           Control.Monad.Except       (MonadError (throwError))
 import           Crypto.Hash                (Blake2b_224)
 import           Data.Char                  (isAscii)
 import           Data.Data                  (Data)
-import           Data.Default               (Default (..))
-import           Data.Hashable              (Hashable)
+import           Data.Hashable              (Hashable (..))
 import           Data.Ix                    (Ix)
 import qualified Data.Text                  as T
 import qualified Data.Text.Buildable        as Buildable
@@ -102,16 +105,19 @@ import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Base16       (formatBase16)
 import           System.Random              (Random (..))
 
-import           Pos.Core.Constants.Raw     (epochSlotsRaw)
 import           Pos.Core.Fee               (TxFeePolicy)
 import           Pos.Core.Timestamp         (TimeDiff (..), Timestamp (..))
-import           Pos.Crypto                 (AbstractHash, HDAddressPayload, Hash,
-                                             ProxySecretKey, ProxySignature, PublicKey,
+import           Pos.Crypto.Hashing         (AbstractHash, Hash)
+import           Pos.Crypto.HD              (HDAddressPayload)
+import           Pos.Crypto.Signing.Types   (ProxySecretKey, ProxySignature, PublicKey,
                                              RedeemPublicKey)
 import           Pos.Data.Attributes        (Attributes)
 
+newtype ProtocolMagic = ProtocolMagic { getProtocolMagic :: Int32 }
+    deriving (Show)
+
 ----------------------------------------------------------------------------
--- Address
+-- Address, StakeholderId
 ----------------------------------------------------------------------------
 
 -- | Hash used to identify address.
@@ -120,29 +126,104 @@ type AddressHash = AbstractHash Blake2b_224
 -- | Stakeholder identifier (stakeholders are identified by their public keys)
 type StakeholderId = AddressHash PublicKey
 
--- | Address is where you can send coins.
-data Address
-    = PubKeyAddress
-          { addrKeyHash      :: !(AddressHash PublicKey)
-          , addrPkAttributes :: !(Attributes AddrPkAttrs) }
-    | ScriptAddress
-          { addrScriptHash :: !(AddressHash Script) }
-    | RedeemAddress
-          { addrRedeemKeyHash :: !(AddressHash RedeemPublicKey) }
-    | UnknownAddressType !Word8 !ByteString
-    deriving (Eq, Ord, Generic, Typeable, Show)
-
-instance NFData Address
-
-newtype AddrPkAttrs = AddrPkAttrs
-    { addrPkDerivationPath :: Maybe HDAddressPayload
-    } deriving (Eq, Ord, Show, Generic, Typeable, NFData)
-
-instance Default AddrPkAttrs where
-    def = AddrPkAttrs Nothing
-
 -- | A mapping between stakeholders and they stakes.
 type StakesMap = HashMap StakeholderId Coin
+
+-- | Stakeholders and their stakes.
+type StakesList = [(StakeholderId, Coin)]
+
+-- | Data which is bound to an address and must be revealed in order
+-- to spend coins belonging to this address.
+data AddrSpendingData
+    = PubKeyASD !PublicKey
+    -- ^ Funds can be spent by revealing a 'PublicKey' and providing a
+    -- valid signature.
+    | ScriptASD !Script
+    -- ^ Funds can be spent by revealing a 'Script' and providing a
+    -- redeemer 'Script'.
+    | RedeemASD !RedeemPublicKey
+    -- ^ Funds can be spent by revealing a 'RedeemScript' and providing a
+    -- valid signature.
+    | UnknownASD !Word8 !ByteString
+    -- ^ Unknown type of spending data. It consists of a tag and
+    -- arbitrary 'ByteString'. It allows us to introduce a new type of
+    -- spending data via softfork.
+    deriving (Eq, Generic, Typeable, Show)
+
+-- | Type of an address. It corresponds to constructors of
+-- 'AddrSpendingData'. It's separated, because 'Address' doesn't store
+-- 'AddrSpendingData', but we want to know its type.
+data AddrType
+    = ATPubKey
+    | ATScript
+    | ATRedeem
+    | ATUnknown !Word8
+    deriving (Eq, Ord, Generic, Typeable, Show)
+
+-- | Stake distribution associated with an address.
+data AddrStakeDistribution
+    = BootstrapEraDistr
+    -- ^ Stake distribution for bootstrap era.
+    | SingleKeyDistr !StakeholderId
+    -- ^ Stake distribution stating that all stake should go to the given stakeholder.
+    | UnsafeMultiKeyDistr !(Map StakeholderId CoinPortion)
+    -- ^ Stake distribution which gives stake to multiple
+    -- stakeholders. 'CoinPortion' is a portion of an output (output
+    -- has a value, portion of this value is stake). The constructor
+    -- is unsafe because there are some predicates which must hold:
+    --
+    -- • the sum of portions must be @maxBound@ (basically 1);
+    -- • all portions must be positive;
+    -- • there must be at least 2 items, because if there is only one item,
+    -- 'SingleKeyDistr' can be used instead (which is smaller).
+    deriving (Eq, Ord, Show, Generic, Typeable)
+
+-- | Safe constructor of multi-key distribution. It checks invariants
+-- of this distribution and returns an error if something is violated.
+mkMultiKeyDistr :: MonadError Text m => Map StakeholderId CoinPortion -> m AddrStakeDistribution
+mkMultiKeyDistr distrMap = UnsafeMultiKeyDistr distrMap <$ check
+  where
+    check = do
+        when (null distrMap) $ throwError "mkMultiKeyDistr: map is empty"
+        when (length distrMap == 1) $
+            throwError "mkMultiKeyDistr: map's size is 1, use SingleKeyDistr"
+        unless (all ((> 0) . getCoinPortion) distrMap) $
+            throwError "mkMultiKeyDistr: all portions must be positive"
+        let distrSum = sum $ map getCoinPortion distrMap
+        unless (distrSum == coinPortionDenominator) $
+            throwError "mkMultiKeyDistr: distributions' sum must be equal to 1"
+
+-- | Additional information stored along with address. It's intended
+-- to be put into 'Attributes' data type to make it extensible with
+-- softfork.
+data AddrAttributes = AddrAttributes
+    { aaPkDerivationPath  :: !(Maybe HDAddressPayload)
+    , aaStakeDistribution :: !AddrStakeDistribution
+    } deriving (Eq, Ord, Show, Generic, Typeable)
+
+-- | Hash of this data is stored in 'Address'. This type exists mostly
+-- for internal usage.
+newtype Address' = Address'
+    { unAddress' :: (AddrType, AddrSpendingData, Attributes AddrAttributes)
+    } deriving (Eq, Show, Generic, Typeable)
+
+-- | 'Address' is where you can send coins.
+data Address = Address
+    { addrRoot       :: !(AddressHash Address')
+    -- ^ Root of imaginary pseudo Merkle tree stored in this address.
+    , addrAttributes :: !(Attributes AddrAttributes)
+    -- ^ Attributes associated with this address.
+    , addrType       :: !AddrType
+    -- ^ The type of this address. Should correspond to
+    -- 'AddrSpendingData', but it can't be checked statically, because
+    -- spending data is hashed.
+    } deriving (Eq, Ord, Generic, Typeable, Show)
+
+instance NFData AddrType
+instance NFData AddrSpendingData
+instance NFData AddrAttributes
+instance NFData AddrStakeDistribution
+instance NFData Address
 
 ----------------------------------------------------------------------------
 -- ChainDifficulty
@@ -231,6 +312,8 @@ data SoftforkRule = SoftforkRule
     , srThdDecrement :: !CoinPortion
     -- ^ Theshold will be decreased by this value after each epoch.
     } deriving (Show, Eq, Generic)
+
+instance Hashable SoftforkRule
 
 -- | Data which is associated with 'BlockVersion'.
 data BlockVersionData = BlockVersionData
@@ -349,11 +432,15 @@ unsafeGetCoin = getCoin
 -- threshold).
 newtype CoinPortion = CoinPortion
     { getCoinPortion :: Word64
-    } deriving (Show, Ord, Eq, Generic, Typeable, NFData)
+    } deriving (Show, Ord, Eq, Generic, Typeable, NFData, Hashable)
 
 -- | Denominator used by 'CoinPortion'.
 coinPortionDenominator :: Word64
 coinPortionDenominator = (10 :: Word64) ^ (15 :: Word64)
+
+instance Bounded CoinPortion where
+    minBound = CoinPortion 0
+    maxBound = CoinPortion coinPortionDenominator
 
 -- | Make 'CoinPortion' from 'Word64' checking whether it is not greater
 -- than 'coinPortionDenominator'.
@@ -397,46 +484,14 @@ instance Buildable EpochIndex where
 --     build = bprint ("epochIndices: "%pairF)
 
 -- | Index of slot inside a concrete epoch.
-newtype LocalSlotIndex = LocalSlotIndex
+newtype LocalSlotIndex = UnsafeLocalSlotIndex
     { getSlotIndex :: Word16
     } deriving (Show, Eq, Ord, Ix, Generic, Hashable, Buildable, Typeable, NFData)
 
-instance Bounded LocalSlotIndex where
-    minBound = LocalSlotIndex 0
-    maxBound = LocalSlotIndex (epochSlotsRaw - 1)
 
-instance Enum LocalSlotIndex where
-    toEnum i | i >= epochSlotsRaw = error "toEnum @LocalSlotIndex: greater than maxBound"
-             | i < 0 = error "toEnum @LocalSlotIndex: less than minBound"
-             | otherwise = LocalSlotIndex (fromIntegral i)
-    fromEnum = fromIntegral . getSlotIndex
-
-instance Random LocalSlotIndex where
-    random = randomR (minBound, maxBound)
-    randomR (LocalSlotIndex lo, LocalSlotIndex hi) g =
-        let (r, g') = randomR (lo, hi) g
-        in  (LocalSlotIndex r, g')
-
-mkLocalSlotIndex :: MonadError Text m => Word16 -> m LocalSlotIndex
-mkLocalSlotIndex idx
-    | idx < epochSlotsRaw = pure (LocalSlotIndex idx)
-    | otherwise =
-        throwError $
-        "local slot is greater than or equal to the number of slots in epoch: " <>
-        show idx
-
--- | Shift slot index by given amount, and return 'Nothing' if it has
--- overflowed past 'epochSlots'.
-addLocalSlotIndex :: SlotCount -> LocalSlotIndex -> Maybe LocalSlotIndex
-addLocalSlotIndex x (LocalSlotIndex i)
-    | s < epochSlotsRaw = Just (LocalSlotIndex (fromIntegral s))
-    | otherwise         = Nothing
-  where
-    s :: Word64
-    s = fromIntegral x + fromIntegral i
-
--- | Slot is identified by index of epoch and local index of slot in
--- this epoch. This is a global index
+-- | Slot is identified by index of epoch and index of slot in
+-- this epoch. This is a global index, an index to a global
+-- slot position.
 data SlotId = SlotId
     { siEpoch :: !EpochIndex
     , siSlot  :: !LocalSlotIndex

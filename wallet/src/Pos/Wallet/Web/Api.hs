@@ -21,7 +21,6 @@ module Pos.Wallet.Web.Api
        , NewWallet
        , UpdateWallet
        , RestoreWallet
-       , RenameWallet
        , DeleteWallet
        , ImportWallet
        , ChangeWalletPassphrase
@@ -45,13 +44,13 @@ module Pos.Wallet.Web.Api
        , GetHistory
 
        , NextUpdate
+       , PostponeUpdate
        , ApplyUpdate
 
        , RedeemADA
        , RedeemADAPaperVend
 
        , ReportingInitialized
-       , ReportingElectroncrash
 
        , GetSlotsDuration
        , GetVersion
@@ -59,27 +58,37 @@ module Pos.Wallet.Web.Api
 
        , ImportBackupJSON
        , ExportBackupJSON
+
+       , WalletSwaggerApi
+       , swaggerWalletApi
        ) where
 
 
+import           Control.Lens               (from)
 import           Control.Monad.Catch        (try)
+import           Data.Reflection            (Reifies (..))
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
-                                             Post, Put, QueryParam, ReqBody, Verb)
-import           Servant.Multipart          (MultipartForm)
-import           Servant.Server             (Handler (..))
+                                             Post, Put, QueryParam, ReflectMethod (..),
+                                             ReqBody, Verb)
+import           Servant.Server             (HasServer (..))
+import           Servant.Swagger.UI         (SwaggerSchemaUI)
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Util.Servant           (CCapture, CQueryParam, CReqBody,
-                                             DCQueryParam, ModifiesApiRes (..),
-                                             ReportDecodeError (..), VerbMod)
+import           Pos.Util.Servant           (ApiLoggingConfig, CCapture, CQueryParam,
+                                             CReqBody, DCQueryParam,
+                                             HasLoggingServer (..), LoggingApi,
+                                             ModifiesApiRes (..), ReportDecodeError (..),
+                                             VerbMod, WithTruncatedLog (..),
+                                             applyLoggingToHandler, inRouteServer,
+                                             serverHandlerL')
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
-                                             CAccountMeta, CAddress, CCoin,
-                                             CElectronCrashReport, CId, CInitialized,
-                                             CPaperVendWalletRedeem, CPassPhrase,
-                                             CProfile, CTx, CTxId, CTxMeta, CUpdateInfo,
-                                             CWallet, CWalletInit, CWalletMeta,
-                                             CWalletRedeem, SyncProgress, Wal)
+                                             CAccountMeta, CAddress, CCoin, CId,
+                                             CInitialized, CPaperVendWalletRedeem,
+                                             CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
+                                             CUpdateInfo, CWallet, CWalletInit,
+                                             CWalletMeta, CWalletRedeem, SyncProgress,
+                                             Wal)
 import           Pos.Wallet.Web.Error       (WalletError (DecodeError),
                                              catchEndpointErrors)
 
@@ -98,7 +107,25 @@ instance ModifiesApiRes WalletVerbTag where
     modifyApiResult _ = try . catchEndpointErrors . (either throwM pure =<<)
 
 instance ReportDecodeError (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) where
-    reportDecodeError _ err = Handler . ExceptT . throwM $ DecodeError err
+    reportDecodeError _ err = throwM (DecodeError err) ^. from serverHandlerL'
+
+instance ( HasServer (WalletVerb (Verb mt st ct a)) ctx
+         , Reifies config ApiLoggingConfig
+         , ReflectMethod mt
+         , Buildable (WithTruncatedLog a)
+         ) =>
+         HasLoggingServer config (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) ctx where
+    routeWithLog =
+        inRouteServer @(WalletVerb (Verb mt st ct a)) route $
+        applyLoggingToHandler (Proxy @config) (Proxy @mt)
+
+-- | Specifes servant logging config.
+data WalletLoggingConfig
+
+-- If logger config will ever be determined in runtime, 'Data.Reflection.reify'
+-- can be used.
+instance Reifies WalletLoggingConfig ApiLoggingConfig where
+    reflect _ = "node" <> "wallet" <> "servant"
 
 -- | Shortcut for common api result types.
 type WRes verbType a = WalletVerb (verbType '[JSON] a)
@@ -141,13 +168,6 @@ type RestoreWallet =
     :> "restore"
     :> DCQueryParam "passphrase" CPassPhrase
     :> ReqBody '[JSON] CWalletInit
-    :> WRes Post CWallet
-
-type RenameWallet =
-       "wallets"
-    :> "rename"
-    :> Capture "walletId" (CId Wal)
-    :> Capture "name" Text
     :> WRes Post CWallet
 
 type DeleteWallet =
@@ -280,8 +300,14 @@ type NextUpdate =
        "update"
     :> WRes Get CUpdateInfo
 
+type PostponeUpdate =
+       "update"
+    :> "postpone"
+    :> WRes Post ()
+
 type ApplyUpdate =
        "update"
+    :> "apply"
     :> WRes Post ()
 
 -------------------------------------------------------------------------
@@ -313,12 +339,6 @@ type ReportingInitialized =
     :> ReqBody '[JSON] CInitialized
     :> WRes Post ()
 
-type ReportingElectroncrash =
-       "reporting"
-    :> "electroncrash"
-    :> MultipartForm CElectronCrashReport
-    :> WRes Post ()
-
 -------------------------------------------------------------------------
 -- Settings
 -------------------------------------------------------------------------
@@ -348,11 +368,12 @@ type ImportBackupJSON =
        "backup"
     :> "import"
     :> ReqBody '[JSON] Text
-    :> WRes Post [CWallet]
+    :> WRes Post CWallet
 
 type ExportBackupJSON =
        "backup"
     :> "export"
+    :> Capture "walletId" (CId Wal)
     :> ReqBody '[JSON] Text
     :> WRes Post ()
 
@@ -374,8 +395,6 @@ type WalletApi = ApiPrefix :> (
      UpdateWallet
     :<|>
      RestoreWallet
-    :<|>
-     RenameWallet
     :<|>
      DeleteWallet
     :<|>
@@ -434,6 +453,8 @@ type WalletApi = ApiPrefix :> (
      -------------------------------------------------------------------------
      NextUpdate
     :<|>
+     PostponeUpdate
+    :<|>
      ApplyUpdate
     :<|>
      -------------------------------------------------------------------------
@@ -447,8 +468,6 @@ type WalletApi = ApiPrefix :> (
      -- Reporting
      -------------------------------------------------------------------------
      ReportingInitialized
-    :<|>
-     ReportingElectroncrash
     :<|>
      -------------------------------------------------------------------------
      -- Settings
@@ -470,3 +489,19 @@ type WalletApi = ApiPrefix :> (
 -- | Helper Proxy.
 walletApi :: Proxy WalletApi
 walletApi = Proxy
+
+-------------------------------------------------------------------------
+-- Swagger
+-------------------------------------------------------------------------
+type SwaggerApi =
+    -- this serves both: swagger.json and swagger-ui
+    SwaggerSchemaUI "docs" "swagger.json"
+
+type WalletSwaggerApi =
+     LoggingApi WalletLoggingConfig WalletApi
+    :<|>
+     SwaggerApi
+
+-- | Helper Proxy.
+swaggerWalletApi :: Proxy WalletSwaggerApi
+swaggerWalletApi = Proxy

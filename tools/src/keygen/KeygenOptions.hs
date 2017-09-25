@@ -5,37 +5,38 @@ module KeygenOptions
        ( KeygenOptions (..)
        , KeygenCommand (..)
        , DumpAvvmSeedsOptions (..)
-       , GenesisGenOptions (..)
-       , AvvmStakeOptions (..)
-       , TestStakeOptions (..)
+       , TestnetBalanceOptions (..)
        , FakeAvvmOptions (..)
+       , GenKeysOptions (..)
        , getKeygenOptions
        ) where
+
+import           Universum
 
 import           Data.Version           (showVersion)
 import           Options.Applicative    (Parser, auto, command, execParser, fullDesc,
                                          header, help, helper, info, infoOption, long,
                                          metavar, option, progDesc, short, strOption,
                                          subparser, value)
-import           Serokell.Util.OptParse (fromParsec)
-import qualified Text.Parsec            as P
-import qualified Text.Parsec.String     as P
-import           Universum
 
-import           Pos.Core.Types         (Address (..), StakeholderId)
-import           Pos.Types              (decodeTextAddress)
+import           Pos.Client.CLI         (configurationOptionsParser)
+import           Pos.Core.Genesis.Types (FakeAvvmOptions (..), TestnetBalanceOptions (..))
+import           Pos.Launcher           (ConfigurationOptions)
 
 import           Paths_cardano_sl       (version)
 
 data KeygenOptions = KeygenOptions
-    { koCommand :: KeygenCommand
+    { koCommand              :: KeygenCommand
+    , koConfigurationOptions :: ConfigurationOptions
     } deriving (Show)
 
 data KeygenCommand
     = RearrangeMask FilePath
-    | DumpDevGenKeys FilePath
+    | GenerateKey FilePath
+    | GenerateVss FilePath
+    | ReadKey FilePath
     | DumpAvvmSeeds DumpAvvmSeedsOptions
-    | GenerateGenesis GenesisGenOptions
+    | GenerateKeysBySpec GenKeysOptions
     deriving (Show)
 
 data DumpAvvmSeedsOptions = DumpAvvmSeedsOptions
@@ -45,36 +46,9 @@ data DumpAvvmSeedsOptions = DumpAvvmSeedsOptions
       -- ^ Path to directory to generate seeds in.
     } deriving (Show)
 
-data GenesisGenOptions = GenesisGenOptions
-    { ggoGenesisDir       :: FilePath
-      -- ^ Output directory everything will be put into
-    , ggoTestStake        :: Maybe TestStakeOptions
-    , ggoAvvmStake        :: Maybe AvvmStakeOptions
-    , ggoFakeAvvmStake    :: Maybe FakeAvvmOptions
-    , ggoBootStakeholders :: [(StakeholderId, Word16)]
-      -- ^ Explicit bootstrap era stakeholders, list of addresses with
-      -- weights (@[(A, 5), (B, 2), (C, 3)]@). Setting this
-      -- overrides default settings for boot stakeholders (e.g. rich
-      -- in testnet stakes).
-    } deriving (Show)
-
-data TestStakeOptions = TestStakeOptions
-    { tsoPattern      :: FilePath
-    , tsoPoors        :: Word
-    , tsoRichmen      :: Word
-    , tsoRichmenShare :: Double
-    , tsoTotalStake   :: Word64
-    } deriving (Show)
-
-data AvvmStakeOptions = AvvmStakeOptions
-    { asoJsonPath      :: FilePath
-    , asoHolderKeyfile :: Maybe FilePath
-    , asoBlacklisted   :: Maybe FilePath
-    } deriving (Show)
-
-data FakeAvvmOptions = FakeAvvmOptions
-    { faoCount    :: Word
-    , faoOneStake :: Word64
+data GenKeysOptions = GenKeysOptions
+    { gkoOutDir     :: FilePath
+    , gkoKeyPattern :: FilePath
     } deriving (Show)
 
 keygenCommandParser :: Parser KeygenCommand
@@ -82,14 +56,18 @@ keygenCommandParser =
     subparser $ mconcat $
     [ command "rearrange"
       (infoH rearrangeMask (progDesc "Rearrange keyfiles."))
-    , command "dump-dev-keys"
-      (infoH dumpKeys (progDesc "Dump CSL dev-mode keys."))
+    , command "generate-key"
+      (infoH generateKey (progDesc "Generate keyfile."))
+    , command "generate-vss"
+      (infoH generateVss (progDesc "Generate VSS certificate."))
+    , command "read-key"
+      (infoH readKey (progDesc "Dump keyfile contents."))
     , command "generate-avvm-seeds"
       (infoH (fmap DumpAvvmSeeds dumpAvvmSeedsParser)
             (progDesc "Generate avvm seeds with public keys."))
-    , command "generate-genesis"
-      (infoH (fmap GenerateGenesis genesisGenParser)
-            (progDesc "Generate CSL genesis files."))
+    , command "generate-keys-by-spec"
+      (infoH (GenerateKeysBySpec <$> keysBySpecParser)
+            (progDesc "Generate secret keys and avvm seed by genesis-spec.yaml"))
     ]
   where
     infoH a b = info (helper <*> a) b
@@ -97,11 +75,18 @@ keygenCommandParser =
         long    "mask" <>
         metavar "PATTERN" <>
         help    "Secret keyfiles to rearrange."
-    dumpKeys = fmap DumpDevGenKeys . strOption $
-        long    "pattern" <>
-        metavar "PATTERN" <>
-        help    "Dump keys from genesisDevSecretKeys to files \
-                \named according to this pattern."
+    generateKey = fmap GenerateKey . strOption $
+        long    "path" <>
+        metavar "PATH" <>
+        help    "Write the key to this path"
+    generateVss = fmap GenerateVss . strOption $
+        long    "path" <>
+        metavar "PATH" <>
+        help    "Generate a VSS certificate for this key"
+    readKey = fmap ReadKey . strOption $
+        long "path" <>
+        metavar "PATH" <>
+        help "Dump the contents of this keyfile"
 
 dumpAvvmSeedsParser :: Parser DumpAvvmSeedsOptions
 dumpAvvmSeedsParser = do
@@ -115,119 +100,29 @@ dumpAvvmSeedsParser = do
         help "Path to dump generated seeds to."
     pure $ DumpAvvmSeedsOptions {..}
 
-genesisGenParser :: Parser GenesisGenOptions
-genesisGenParser = do
-    ggoGenesisDir <- strOption $
-        long    "genesis-dir" <>
+keysBySpecParser  :: Parser GenKeysOptions
+keysBySpecParser = do
+    gkoOutDir <- strOption $
+        long    "genesis-out-dir" <>
         metavar "DIR" <>
         value   "." <>
-        help    "Directory to dump genesis data into."
-    ggoTestStake <- optional testStakeParser
-    ggoAvvmStake <- optional avvmStakeParser
-    ggoFakeAvvmStake <- optional fakeAvvmParser
-    ggoBootStakeholders <- many bootStakeholderParser
-    pure $ GenesisGenOptions{..}
-
-testStakeParser :: Parser TestStakeOptions
-testStakeParser = do
-    tsoPattern <- strOption $
+        help    "Directory to dump keys and avvm seeds into."
+    gkoKeyPattern <- strOption $
         long    "file-pattern" <>
-        short   'f' <>
         metavar "PATTERN" <>
-        value   "testnet{}.key" <>
+        value   "key{}.sk" <>
         help    "Filename pattern for generated keyfiles \
-                \(`{}` is a place for number). E.g. key{}.kek"
-    tsoPoors <- option auto $
-        long    "testnet-keys" <>
-        short   'n' <>
-        metavar "INT" <>
-        help    "Number of testnet stakeholders to generate."
-    tsoRichmen <- option auto $
-        long    "richmen" <>
-        short   'm' <>
-        metavar "INT" <>
-        help    "Number of rich stakeholders to generate."
-    tsoRichmenShare <- option auto $
-        long    "richmen-share" <>
-        metavar "FLOAT" <>
-        help    "Percent of stake dedicated to richmen (between 0 and 1)."
-    tsoTotalStake <- option auto $
-        long    "testnet-stake" <>
-        metavar "INT" <>
-        help    "Total coins in genesis stake, excluding RSCoin ledger."
-    pure TestStakeOptions{..}
-
-avvmStakeParser :: Parser AvvmStakeOptions
-avvmStakeParser = do
-    asoJsonPath <- strOption $
-        long    "utxo-file" <>
-        metavar "FILE" <>
-        help    "JSON file with AVVM stakes data."
-    asoHolderKeyfile <- optional $ strOption $
-        long    "fileholder" <>
-        metavar "FILE" <>
-        help    "A keyfile from which to read public key of stakeholder \
-                \to which AVVM stakes are delegated."
-    asoBlacklisted <- optional $ strOption $
-        long    "blacklisted" <>
-        metavar "FILE" <>
-        help    "Path to the file containing blacklisted addresses \
-                \(an address per line)."
-    pure AvvmStakeOptions{..}
-
-fakeAvvmParser :: Parser FakeAvvmOptions
-fakeAvvmParser = do
-    faoCount <- option auto $
-        long    "fake-avvm-entries" <>
-        metavar "INT" <>
-        help    "Number of fake AVVM stakeholders."
-    faoOneStake <- option auto $
-        long    "fake-avvm-stake" <>
-        metavar "INT" <>
-        value   15000000 <>
-        help    "A stake assigned to each of fake AVVM stakeholders."
-    return FakeAvvmOptions{..}
-
-bootStakeholderParser :: Parser (StakeholderId, Word16)
-bootStakeholderParser =
-    option (fromParsec pairParser) $
-        long "bootstakeholder" <>
-        metavar "ADDRESS,INTEGER" <>
-        help "Explicit boot stakeholder with his stake weight for the boot era."
-  where
-    pairParser :: P.Parser (StakeholderId, Word16)
-    pairParser = do
-        st <- stakeholderId
-        void $ P.char ','
-        d <- word16
-        pure (st,d)
-
-    lexeme :: P.Parser a -> P.Parser a
-    lexeme p = P.spaces *> p >>= \x -> P.spaces $> x
-
-    word16 :: P.Parser Word16
-    word16 = lexeme $ do
-        val <- readMaybe <$> P.many1 P.digit
-        maybe (fail $ show val <> " is not a valid word16")
-              (pure . fromInteger)
-              val
-
-    stakeholderId :: P.Parser StakeholderId
-    stakeholderId = lexeme $ do
-        str <- P.many1 P.alphaNum
-        case decodeTextAddress (toText str) of
-            Left err                  -> fail (toString err)
-            Right (PubKeyAddress{..}) -> pure addrKeyHash
-            Right p                   ->
-                fail $ "Expected public key address, but it's " ++
-                       toString (pretty p)
+                \(`{}` is a place for number). E.g. key{}.sk"
+    pure $ GenKeysOptions {..}
 
 getKeygenOptions :: IO KeygenOptions
 getKeygenOptions = execParser programInfo
   where
-    programInfo = info (helper <*> versionOption <*> (KeygenOptions <$> keygenCommandParser)) $
+    programInfo = info (helper <*> versionOption <*> koParser) $
         fullDesc <> header "Tool to generate keyfiles-related data"
 
     versionOption = infoOption
         ("cardano-keygen-" <> showVersion version)
         (long "version" <> help "Show version.")
+
+    koParser = KeygenOptions <$> keygenCommandParser <*> configurationOptionsParser

@@ -1,5 +1,5 @@
 name:                cardano-sl-ssc
-version:             0.5.1
+version:             0.6.2
 synopsis:            Cardano SL - the SSC class
 description:         Cardano SL - the SSC class
 license:             MIT
@@ -36,12 +36,15 @@ library
     Pos.Security.Params
     Pos.Security.Util
 
-  build-depends:       base
+  build-depends:       QuickCheck
+                     , aeson
+                     , base
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-lrc
                      , cryptonite
+                     , data-default
                      , ether
                      , exceptions
                      , formatting
@@ -51,7 +54,7 @@ library
                      , mmorph
                      , mtl
                      , node-sketch
-                     , QuickCheck
+                     , parsec
                      , serokell-util
                      , stm
                      , tagged
@@ -81,6 +84,7 @@ library
                        UndecidableInstances
                        BangPatterns
                        TemplateHaskell
+                       ScopedTypeVariables
 
   ghc-options:         -Wall
                        -fno-warn-orphans

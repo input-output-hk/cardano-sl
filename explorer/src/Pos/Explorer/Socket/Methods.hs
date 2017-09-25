@@ -265,7 +265,7 @@ broadcast event args recipients = do
             Nothing   -> logWarning $
                 sformat ("No socket with SocketId="%shown%" registered") sockid
             Just sock -> emitTo sock event args
-                `catchAll` handler sockid
+                `catchAny` handler sockid
   where
     handler sockid = logWarning .
         sformat ("Failed to send to SocketId="%shown%": "%shown) sockid

@@ -14,11 +14,11 @@ import           System.Wlog             (WithLogger)
 import           Universum
 
 import           Pos.Core                (BlockVersionData, EpochIndex, EpochOrSlot,
-                                          StakeholderId)
+                                          StakeholderId, VssCertificate,
+                                          VssCertificatesMap)
 import           Pos.Lrc.Types           (RichmenStakes)
 import           Pos.Ssc.GodTossing.Core (CommitmentsMap, InnerSharesMap, Opening,
-                                          OpeningsMap, SharesMap, SignedCommitment,
-                                          VssCertificate, VssCertificatesMap)
+                                          OpeningsMap, SharesMap, SignedCommitment)
 
 ----------------------------------------------------------------------------
 -- Read-only
@@ -103,7 +103,7 @@ class MonadTossRead m =>
     putCommitment :: SignedCommitment -> m ()
 
     -- | Put 'Opening' from given stakeholder into state.
-    putOpening :: StakeholderId -> Opening  -> m ()
+    putOpening :: StakeholderId -> Opening -> m ()
 
     -- | Put 'InnerShares' from given stakeholder into state.
     putShares :: StakeholderId -> InnerSharesMap -> m ()

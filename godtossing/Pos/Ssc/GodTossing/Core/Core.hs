@@ -14,6 +14,7 @@ module Pos.Ssc.GodTossing.Core.Core
        , isSharesIdx
        , mkSignedCommitment
        , secretToSharedSeed
+       , vssThreshold
 
        -- * CommitmentsMap
        , insertSignedCommitment
@@ -30,7 +31,6 @@ module Pos.Ssc.GodTossing.Core.Core
        , verifyOpening
 
        -- * Payload and proof
-       , _gpCertificates
        , mkGtProof
        , stripGtPayload
        , defaultGtPayload
@@ -39,12 +39,12 @@ module Pos.Ssc.GodTossing.Core.Core
 import           Universum
 
 import qualified Data.HashMap.Strict           as HM
-import qualified Data.HashSet                  as HS
 import           Data.Ix                       (inRange)
 import qualified Data.List.NonEmpty            as NE
 import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder        (Builder)
-import           Formatting                    (Format, bprint, int, (%))
+import           Formatting                    (Format, bprint, build, formatToString,
+                                                int, (%))
 import           Serokell.Data.Memory.Units    (Byte)
 import           Serokell.Util                 (VerificationRes, listJson, verifyGeneric)
 
@@ -56,22 +56,19 @@ import           Pos.Core                      (EpochIndex (..), LocalSlotIndex,
                                                 SharedSeed (..), SlotCount, SlotId (..),
                                                 StakeholderId, unsafeMkLocalSlotIndex)
 import           Pos.Core.Address              (addressHash)
-import           Pos.Core.Constants            (slotSecurityParam)
-import           Pos.Crypto                    (EncShare, Secret, SecretKey,
-                                                SecureRandom (..),
+import           Pos.Core.Configuration        (HasConfiguration, slotSecurityParam,
+                                                vssMaxTTL, vssMinTTL)
+import           Pos.Core.Vss                  (VssCertificate (vcExpiryEpoch),
+                                                VssCertificatesMap (..))
+import           Pos.Crypto                    (Secret, SecretKey, SecureRandom (..),
                                                 SignTag (SignCommitment), Threshold,
-                                                VssPublicKey, checkSig, encShareId,
-                                                genSharedSecret, getDhSecret, hash,
-                                                secretToDhSecret, shortHashF, sign,
-                                                toPublic, verifyEncShare,
-                                                verifySecretProof)
-import           Pos.Ssc.GodTossing.Constants  (vssMaxTTL, vssMinTTL)
+                                                VssPublicKey, checkSig, genSharedSecret,
+                                                getDhSecret, hash, secretToDhSecret,
+                                                shortHashF, sign, toPublic, verifySecret)
 import           Pos.Ssc.GodTossing.Core.Types (Commitment (..),
                                                 CommitmentsMap (getCommitmentsMap),
                                                 GtPayload (..), GtProof (..),
                                                 Opening (..), SignedCommitment,
-                                                VssCertificate (vcExpiryEpoch),
-                                                VssCertificatesMap,
                                                 mkCommitmentsMapUnsafe)
 import           Pos.Util.Limits               (stripHashMap)
 
@@ -79,56 +76,69 @@ import           Pos.Util.Limits               (stripHashMap)
 secretToSharedSeed :: Secret -> SharedSeed
 secretToSharedSeed = SharedSeed . getDhSecret . secretToDhSecret
 
+-- | Figure out the threshold (i.e. how many secret shares would be required
+-- to recover each node's secret) from the total number of shares.
+--
+-- We use this function to find out what threshold to use when creating
+-- shares, when verifying shares, and when recovering the secret.
+vssThreshold :: Integral a => a -> Threshold
+vssThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
+
 -- | Generate securely random SharedSeed.
 genCommitmentAndOpening
     :: (MonadFail m, MonadIO m)
     => Threshold -> NonEmpty (AsBinary VssPublicKey) -> m (Commitment, Opening)
-genCommitmentAndOpening n pks
-    | n <= 0 = fail "genCommitmentAndOpening: threshold must be positive"
-    | otherwise = do
+genCommitmentAndOpening t pks
+    | t <= 1 = fail $ formatToString
+        ("genCommitmentAndOpening: threshold ("%build%") must be > 1") t
+    | t >= n - 1 = fail $ formatToString
+        ("genCommitmentAndOpening: threshold ("%build%") must be < n-1"%
+         " (n = "%build%")") t n
+    | otherwise  = do
         pks' <- traverse fromBinaryM pks
-        liftIO . runSecureRandom . fmap (convertRes pks) . genSharedSecret n $ pks'
+        liftIO . runSecureRandom $
+            convertRes <$> genSharedSecret t pks'
   where
-    convertRes (toList -> ps) (extra, secret, proof, shares) =
+    n = fromIntegral (length pks)
+    convertRes (secret, proof, shares) =
         ( Commitment
-          { commExtra = asBinary extra
-          , commProof = asBinary proof
-          , commShares = HM.fromList $ map toPair $ NE.groupWith fst $ zip ps shares
+          { commProof = proof
+          , commShares = HM.fromList $ map toPair $ NE.groupWith fst shares
           }
         , Opening $ asBinary secret)
-    toPair ne@(x:|_) = (fst x, NE.map (asBinary . snd) ne)
+    toPair ne@(x:|_) = (asBinary (fst x), NE.map (asBinary . snd) ne)
 
 -- | Make signed commitment from commitment and epoch index using secret key.
 mkSignedCommitment
-    :: Bi Commitment
+    :: (HasConfiguration, Bi Commitment)
     => SecretKey -> EpochIndex -> Commitment -> SignedCommitment
 mkSignedCommitment sk i c = (toPublic sk, c, sign SignCommitment sk (i, c))
 
-toLocalSlotIndex :: SlotCount -> LocalSlotIndex
+toLocalSlotIndex :: HasConfiguration => SlotCount -> LocalSlotIndex
 toLocalSlotIndex = unsafeMkLocalSlotIndex . fromIntegral
 
-isCommitmentIdx :: LocalSlotIndex -> Bool
+isCommitmentIdx :: HasConfiguration => LocalSlotIndex -> Bool
 isCommitmentIdx =
     inRange (toLocalSlotIndex 0,
              toLocalSlotIndex (slotSecurityParam - 1))
 
-isOpeningIdx :: LocalSlotIndex -> Bool
+isOpeningIdx :: HasConfiguration => LocalSlotIndex -> Bool
 isOpeningIdx =
     inRange (toLocalSlotIndex (2 * slotSecurityParam),
              toLocalSlotIndex (3 * slotSecurityParam - 1))
 
-isSharesIdx :: LocalSlotIndex -> Bool
+isSharesIdx :: HasConfiguration => LocalSlotIndex -> Bool
 isSharesIdx =
     inRange (toLocalSlotIndex (4 * slotSecurityParam),
              toLocalSlotIndex (5 * slotSecurityParam - 1))
 
-isCommitmentId :: SlotId -> Bool
+isCommitmentId :: HasConfiguration => SlotId -> Bool
 isCommitmentId = isCommitmentIdx . siSlot
 
-isOpeningId :: SlotId -> Bool
+isOpeningId :: HasConfiguration => SlotId -> Bool
 isOpeningId = isOpeningIdx . siSlot
 
-isSharesId :: SlotId -> Bool
+isSharesId :: HasConfiguration => SlotId -> Bool
 isSharesId = isSharesIdx . siSlot
 
 ----------------------------------------------------------------------------
@@ -168,30 +178,28 @@ intersectCommMapWith f (getCommitmentsMap -> a) (f -> b) =
 ----------------------------------------------------------------------------
 
 -- CHECK: @verifyCommitment
--- | Verify that Commitment is correct.
+-- | Verify some /basic/ things about 'Commitment' (like “whether it contains
+-- any shares”).
 --
--- #verifyEncShare
+-- * We don't check that the commitment is generated for proper set of
+--   participants. This is done in 'checkCommitmentShares'.
+--
+-- * We also don't verify the shares, because that requires 'MonadRandom' and
+--   we want to keep this check pure because it's performed in the 'Bi'
+--   instance for blocks.
 verifyCommitment :: Commitment -> Bool
 verifyCommitment Commitment {..} = fromMaybe False $ do
-    extra <- fromBinaryM commExtra
-    comms <- traverse tupleFromBinaryM (HM.toList commShares)
-    let encShares = concatMap (map encShareId . toList . snd) comms
-    return $ (not . null) commShares &&
-        all (verifyCommitmentDo extra) comms &&
-        (length encShares) == (HS.size $ HS.fromList encShares)
-  where
-    verifyCommitmentDo extra (pk, ne) = all (verifyEncShare extra pk) ne
-    tupleFromBinaryM
-        :: (AsBinary VssPublicKey, NonEmpty (AsBinary EncShare))
-        -> Maybe (VssPublicKey, NonEmpty EncShare)
-    tupleFromBinaryM =
-        uncurry (liftA2 (,)) . bimap fromBinaryM (traverse fromBinaryM)
+    -- The shares can be deserialized
+    mapM_ fromBinaryM (HM.keys commShares)
+    mapM_ (mapM_ fromBinaryM) (HM.elems commShares)
+    -- The commitment contains shares
+    pure $ not (null commShares)
 
 -- CHECK: @verifyCommitmentSignature
 -- | Verify signature in SignedCommitment using epoch index.
 --
 -- #checkSig
-verifyCommitmentSignature :: Bi Commitment => EpochIndex -> SignedCommitment -> Bool
+verifyCommitmentSignature :: (HasConfiguration, Bi Commitment) => EpochIndex -> SignedCommitment -> Bool
 verifyCommitmentSignature epoch (pk, comm, commSig) =
     checkSig SignCommitment pk (epoch, comm) commSig
 
@@ -201,16 +209,16 @@ verifyCommitmentSignature epoch (pk, comm, commSig) =
 -- #verifyCommitmentSignature
 -- #verifyCommitment
 verifySignedCommitment
-    :: Bi Commitment
+    :: (HasConfiguration, Bi Commitment)
     => EpochIndex
     -> SignedCommitment
     -> VerificationRes
-verifySignedCommitment epoch sc@(_, comm, _) =
+verifySignedCommitment epoch sc@(_, comm, _) = do
     verifyGeneric
         [ ( verifyCommitmentSignature epoch sc
           , "commitment has bad signature (e. g. for wrong epoch)")
         , ( verifyCommitment comm
-          , "commitment itself is bad (e. g. bad shares")
+          , "commitment itself is bad (e. g. no shares")
         ]
 
 -- CHECK: @verifyOpening
@@ -219,15 +227,14 @@ verifySignedCommitment epoch sc@(_, comm, _) =
 -- #verifySecretProof
 verifyOpening :: Commitment -> Opening -> Bool
 verifyOpening Commitment {..} (Opening secret) = fromMaybe False $
-    verifySecretProof
-      <$> fromBinaryM commExtra
-      <*> fromBinaryM secret
-      <*> fromBinaryM commProof
+    verifySecret thr commProof <$> fromBinaryM secret
+  where
+    thr = vssThreshold $ sum (HM.map length commShares)
 
 -- CHECK: @checkCertTTL
 -- | Check that the VSS certificate has valid TTL: i. e. it is in
 -- '[vssMinTTL, vssMaxTTL]'.
-checkCertTTL :: EpochIndex -> VssCertificate -> Bool
+checkCertTTL :: HasConfiguration => EpochIndex -> VssCertificate -> Bool
 checkCertTTL curEpochIndex vc =
     expiryEpoch + 1 >= vssMinTTL + curEpochIndex &&
     expiryEpoch < vssMaxTTL + curEpochIndex
@@ -237,12 +244,6 @@ checkCertTTL curEpochIndex vc =
 ----------------------------------------------------------------------------
 -- Payload and proof
 ----------------------------------------------------------------------------
-
-_gpCertificates :: GtPayload -> VssCertificatesMap
-_gpCertificates (CommitmentsPayload _ certs) = certs
-_gpCertificates (OpeningsPayload _ certs)    = certs
-_gpCertificates (SharesPayload _ certs)      = certs
-_gpCertificates (CertificatesPayload certs)  = certs
 
 isEmptyGtPayload :: GtPayload -> Bool
 isEmptyGtPayload (CommitmentsPayload comms certs) = null comms && null certs
@@ -269,10 +270,10 @@ instance Buildable GtPayload where
         formatIfNotNull formatter l
             | null l = mempty
             | otherwise = bprint formatter l
-        formatCommitments comms =
+        formatCommitments (getCommitmentsMap -> comms) =
             formatIfNotNull
                 ("  commitments from: " %listJson % "\n")
-                (HM.keys $ getCommitmentsMap comms)
+                (HM.keys comms)
         formatOpenings openings =
             formatIfNotNull
                 ("  openings from: " %listJson % "\n")
@@ -281,7 +282,7 @@ instance Buildable GtPayload where
             formatIfNotNull
                 ("  shares from: " %listJson % "\n")
                 (HM.keys shares)
-        formatCertificates certs =
+        formatCertificates (getVssCertificatesMap -> certs) =
             formatIfNotNull
                 ("  certificates from: " %listJson % "\n")
                 (map formatVssCert $ HM.toList certs)
@@ -291,7 +292,7 @@ instance Buildable GtPayload where
             mconcat [formatter hm, formatCertificates certs]
 
 -- | Construct 'GtProof' from 'GtPayload'.
-mkGtProof :: GtPayload -> GtProof
+mkGtProof :: HasConfiguration => GtPayload -> GtProof
 mkGtProof payload =
     case payload of
         CommitmentsPayload comms certs ->
@@ -307,28 +308,34 @@ mkGtProof payload =
             constr (hash hm) (hash cert)
 
 -- | Transforms GtPayload to fit under size limit.
-stripGtPayload :: Byte -> GtPayload -> Maybe GtPayload
+stripGtPayload :: HasConfiguration => Byte -> GtPayload -> Maybe GtPayload
 stripGtPayload lim payload | biSize payload <= lim = Just payload
 stripGtPayload lim payload = case payload of
-    (CertificatesPayload vssmap) -> CertificatesPayload <$> stripHashMap lim vssmap
+    (CertificatesPayload vssmap) ->
+        CertificatesPayload <$> stripVss lim vssmap
     (CommitmentsPayload (getCommitmentsMap -> comms0) certs0) -> do
-        let certs = stripHashMap limCerts certs0
+        let certs = stripVss limCerts certs0
         let comms = stripHashMap (lim - biSize certs) comms0
         CommitmentsPayload <$> (mkCommitmentsMapUnsafe <$> comms) <*> certs
     (OpeningsPayload openings0 certs0) -> do
-        let certs = stripHashMap limCerts certs0
+        let certs = stripVss limCerts certs0
         let openings = stripHashMap (lim - biSize certs) openings0
         OpeningsPayload <$> openings <*> certs
     (SharesPayload shares0 certs0) -> do
-        let certs = stripHashMap limCerts certs0
+        let certs = stripVss limCerts certs0
         let shares = stripHashMap (lim - biSize certs) shares0
         SharesPayload <$> shares <*> certs
   where
     limCerts = lim `div` 3 -- certificates are 1/3 less important than everything else
                            -- this is a random choice in fact
+    -- Using 'UnsafeVssCertificatesMap' is safe here because if the original
+    -- map is okay, a subset of the original map is okay too.
+    stripVss l = fmap UnsafeVssCertificatesMap .
+                 stripHashMap l .
+                 getVssCertificatesMap
 
 -- | Default godtossing payload depending on local slot index.
-defaultGtPayload :: LocalSlotIndex -> GtPayload
+defaultGtPayload :: HasConfiguration => LocalSlotIndex -> GtPayload
 defaultGtPayload lsi
     | isCommitmentIdx lsi = CommitmentsPayload mempty mempty
     | isOpeningIdx lsi = OpeningsPayload mempty mempty

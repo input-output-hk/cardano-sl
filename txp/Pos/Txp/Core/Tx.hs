@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 -- | Transaction related functions.
 
 module Pos.Txp.Core.Tx
@@ -43,6 +41,10 @@ topsortTxs toTx input =
     dup a = (a,a)
     txHashes :: HashMap (Hash Tx) a
     txHashes = HM.fromList $ map (over _1 (whHash . toTx) . dup) input
+    txByInput :: TxIn -> Maybe a
+    txByInput TxInUtxo{..} = HM.lookup txInHash txHashes
+    txByInput _            = Nothing
+
     initState = TopsortState HS.empty input [] False
     -- Searches next unprocessed vertix and calls dfs2 for it. Wipes
     -- visited vertices.
@@ -68,7 +70,7 @@ topsortTxs toTx input =
             tsVisited %= HS.insert txHash
             let visitedNew = HS.insert txHash visitedThis
                 dependsUnfiltered =
-                    nub $ mapMaybe (\x -> HM.lookup (txInHash x) txHashes)
+                    nub $ mapMaybe txByInput
                                    (tx ^. txInputs . to toList)
             depends <- filterM
                 (\x -> not . HS.member (whHash (toTx x)) <$> use tsVisited)

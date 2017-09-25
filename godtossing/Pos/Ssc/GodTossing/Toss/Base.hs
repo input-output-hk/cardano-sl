@@ -35,6 +35,7 @@ import           Universum
 
 import           Control.Monad.Except            (MonadError (throwError))
 import           Control.Monad.ST                (ST, runST)
+import           Crypto.Random                   (MonadRandom)
 import           Data.Array.MArray               (newArray, readArray, writeArray)
 import           Data.Array.ST                   (STUArray)
 import           Data.Containers                 (ContainerKey, SetContainer (notMember))
@@ -47,20 +48,21 @@ import           System.Wlog                     (logWarning)
 
 import           Pos.Binary.Class                (AsBinary, fromBinaryM)
 import           Pos.Core                        (CoinPortion, EpochIndex, StakeholderId,
-                                                  addressHash, bvdMpcThd,
-                                                  coinPortionDenominator, getCoinPortion,
-                                                  unsafeGetCoin)
-import           Pos.Crypto                      (Share, verifyShare)
+                                                  VssCertificatesMap (..), addressHash,
+                                                  bvdMpcThd, coinPortionDenominator,
+                                                  getCoinPortion, lookupVss, memberVss,
+                                                  unsafeGetCoin, vcSigningKey, vcVssKey)
+import           Pos.Crypto                      (DecShare, verifyDecShare,
+                                                  verifyEncShares)
 import           Pos.Lrc.Types                   (RichmenSet, RichmenStakes)
 import           Pos.Ssc.GodTossing.Core         (Commitment (..),
                                                   CommitmentsMap (getCommitmentsMap),
                                                   GtPayload (..), InnerSharesMap,
                                                   Opening (..), OpeningsMap,
                                                   SharesDistribution, SharesMap,
-                                                  SignedCommitment, VssCertificatesMap,
-                                                  VssCertificatesMap, commShares,
-                                                  vcSigningKey, vcVssKey, verifyOpening,
-                                                  verifyOpening, _gpCertificates)
+                                                  SignedCommitment, commShares,
+                                                  getCommShares, gpVss, verifyOpening,
+                                                  vssThreshold)
 import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossEnv (..),
                                                   MonadTossRead (..))
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
@@ -88,7 +90,7 @@ hasSharesToss id = HM.member id <$> getShares
 
 -- | Check whether there is 'VssCertificate' from given stakeholder.
 hasCertificateToss :: MonadTossRead m => StakeholderId -> m Bool
-hasCertificateToss id = HM.member id <$> getVssCertificates
+hasCertificateToss id = memberVss id <$> getVssCertificates
 
 ----------------------------------------------------------------------------
 -- Non-trivial getters
@@ -136,7 +138,10 @@ checkShares epoch (id, sh) = do
 -- | Compute 'VssCertificate's of GodTossing participants using set of
 -- richmen and stable certificates.
 computeParticipants :: RichmenSet -> VssCertificatesMap -> VssCertificatesMap
-computeParticipants (HS.toMap -> richmen) = flip HM.intersection richmen
+computeParticipants (HS.toMap -> richmen) (UnsafeVssCertificatesMap certs) =
+    -- Using 'UnsafeVssCertificatesMap' is safe here because if the original
+    -- 'certs' map is okay, a subset of the original 'certs' map is okay too.
+    UnsafeVssCertificatesMap (HM.intersection certs richmen)
 
 -- | We accept inaccuracy in computation not greater than 0.05,
 -- so stakeholders must have at least 55% of stake to reveal secret
@@ -239,9 +244,14 @@ computeSharesDistrPure richmen threshold
         let fromX = ceiling $ 1 / minimum portions
         let toX = sharesDistrMaxSumDistr mpcThreshold
 
-        -- If we didn't find an appropriate distribution
-        -- we use distribution [1, 1, ... 1] as fallback.
-        pure $ HM.fromList $ zip keys $ fromMaybe (repeat 1) (compute fromX toX 0)
+        -- If we didn't find an appropriate distribution we use distribution
+        -- [1, 1, ... 1] as fallback. Also, if there are less than 4 shares
+        -- in total, we multiply the number of shares by 4 because
+        -- 'genSharedSecret' can't break the secret into less than 4 shares.
+        pure $
+            HM.fromList $ zip keys $
+            (\xs -> if sum xs < 4 then map (*4) xs else xs) $
+            fromMaybe (repeat 1) (compute fromX toX 0)
   where
     keys :: [StakeholderId]
     keys = map fst $ HM.toList richmen
@@ -295,12 +305,12 @@ matchCommitmentPure (getCommitmentsMap -> globalCommitments) (id, op) =
 -- | Check that the decrypted share matches the encrypted share in the
 -- commitment
 --
--- #verifyShare
+-- #verifyDecShare
 checkSharePure :: (SetContainer set, ContainerKey set ~ StakeholderId)
            => CommitmentsMap
            -> set --set of opening's identifiers
            -> VssCertificatesMap
-           -> (StakeholderId, StakeholderId, NonEmpty (AsBinary Share))
+           -> (StakeholderId, StakeholderId, NonEmpty (AsBinary DecShare))
            -> Bool
 checkSharePure globalCommitments globalOpeningsPK globalCertificates (idTo, idFrom, multiShare) =
     fromMaybe False checks
@@ -312,7 +322,7 @@ checkSharePure globalCommitments globalOpeningsPK globalCertificates (idTo, idFr
         -- CHECK: Check that idFrom really sent its commitment
         (_, Commitment{..}, _) <- HM.lookup idFrom $ getCommitmentsMap globalCommitments
         -- Get idTo's vss certificate
-        vssKey <- vcVssKey <$> HM.lookup idTo globalCertificates
+        vssKey <- vcVssKey <$> lookupVss idTo globalCertificates
         idToCommShares <- HM.lookup vssKey commShares
         -- CHECK: Check that commitment's shares and multishare have same length
         guard $ length multiShare == length idToCommShares
@@ -321,10 +331,10 @@ checkSharePure globalCommitments globalOpeningsPK globalCertificates (idTo, idFr
         -- Get encrypted share, which was sent from idFrom to idTo in
         -- commitment phase
         pure $ all (checkShare vssKey) $ NE.zip idToCommShares multiShare
-    checkShare vssKey (encShare, share) = fromMaybe False $
-        verifyShare <$> fromBinaryM encShare
-                    <*> fromBinaryM vssKey
-                    <*> fromBinaryM share
+    checkShare vssKey (encShare, decShare) = fromMaybe False $
+        verifyDecShare <$> fromBinaryM vssKey
+                       <*> fromBinaryM encShare
+                       <*> fromBinaryM decShare
 
 -- CHECK: @checkSharesPure
 -- Apply checkShare to all shares in map.
@@ -339,7 +349,7 @@ checkSharesPure
     -> InnerSharesMap
     -> Bool
 checkSharesPure globalCommitments globalOpeningsPK globalCertificates addrTo shares =
-    let listShares :: [(StakeholderId, StakeholderId, NonEmpty (AsBinary Share))]
+    let listShares :: [(StakeholderId, StakeholderId, NonEmpty (AsBinary DecShare))]
         listShares = map convert $ HM.toList shares
         convert (addrFrom, share) = (addrTo, addrFrom, share)
     in all
@@ -347,16 +357,24 @@ checkSharesPure globalCommitments globalOpeningsPK globalCertificates addrTo sha
            listShares
 
 -- | Check that commitment is generated for proper set of participants.
-checkCommitmentShares :: SharesDistribution -> VssCertificatesMap -> SignedCommitment -> Bool
-checkCommitmentShares distr participants  (_, Commitment{..}, _) =
+checkCommitmentShareDistr :: SharesDistribution -> VssCertificatesMap -> SignedCommitment -> Bool
+checkCommitmentShareDistr distr participants (_, Commitment{..}, _) =
     let vssPublicKeys = map vcVssKey $ toList participants
-        idVss = map (second vcVssKey) $ HM.toList participants in
-    (HS.fromList vssPublicKeys == getKeys commShares) && (all checkPK idVss)
+        idVss = map (second vcVssKey) $ HM.toList (getVssCertificatesMap participants)
+    in (HS.fromList vssPublicKeys == getKeys commShares) && (all checkPK idVss)
   where
     checkPK (id, pk) = case HM.lookup pk commShares of
         Nothing -> False
         Just ne ->
             length ne == fromIntegral (HM.lookupDefault 0 id distr)
+
+-- | Check that commitment shares are cryptographically valid
+checkCommitmentShares :: MonadRandom m => SignedCommitment -> m Bool
+checkCommitmentShares (_, comm, _) = fromMaybe (pure False) $ do
+    shares <- getCommShares comm
+    let flatShares = [(k, s) | (k, ss) <- shares, s <- toList ss]
+    let threshold = vssThreshold (length flatShares)
+    pure $ verifyEncShares (commProof comm) threshold flatShares
 
 ----------------------------------------------------------------------------
 -- Impure versions
@@ -380,21 +398,29 @@ computeSharesDistr richmen =
 --     in some different block
 --   * commitment is generated exactly for all participants with correct
 --     proportions (according to 'computeSharesDistr')
+--   * shares in the commitment are valid
 checkCommitmentsPayload
-    :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m)
+    :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m,
+        MonadRandom m)
     => EpochIndex
     -> CommitmentsMap
     -> m ()
-checkCommitmentsPayload epoch (getCommitmentsMap -> comms) = do
-    richmen <- note (NoRichmen epoch) =<< getRichmen epoch
-    participants <- getParticipants epoch
-    distr <- computeSharesDistr richmen
-    exceptGuard CommitingNoParticipants
-        (`HM.member` participants) (HM.keys comms)
-    exceptGuardM CommitmentAlreadySent
-        (notM hasCommitmentToss) (HM.keys comms)
-    exceptGuardSnd CommSharesOnWrongParticipants
-        (checkCommitmentShares distr participants) (HM.toList comms)
+checkCommitmentsPayload epoch (getCommitmentsMap -> comms) =
+    -- We don't verify an empty commitments map, because an empty commitments
+    -- map is always valid. Moreover, the commitments check requires us to
+    -- compute 'SharesDistribution', which might be expensive.
+    unless (null comms) $ do
+        richmen <- note (NoRichmen epoch) =<< getRichmen epoch
+        participants <- getParticipants epoch
+        distr <- computeSharesDistr richmen
+        exceptGuard CommittingNoParticipants
+            (`memberVss` participants) (HM.keys comms)
+        exceptGuardM CommitmentAlreadySent
+            (notM hasCommitmentToss) (HM.keys comms)
+        exceptGuardSnd CommSharesOnWrongParticipants
+            (checkCommitmentShareDistr distr participants) (HM.toList comms)
+        exceptGuardSndM CommInvalidShares
+            checkCommitmentShares (HM.toList comms)
 
 -- For openings, we check that
 --   * the opening isn't present in previous blocks
@@ -430,7 +456,7 @@ checkSharesPayload epoch shares = do
     -- useful for us, despite that it didn't send its commitment.
     part <- getParticipants epoch
     exceptGuard SharesNotRichmen
-        (`HM.member` part) (HM.keys shares)
+        (`memberVss` part) (HM.keys shares)
     exceptGuardM InternalShareWithoutCommitment
         hasCommitmentToss (concatMap HM.keys $ toList shares)
     exceptGuardM SharesAlreadySent
@@ -441,6 +467,11 @@ checkSharesPayload epoch shares = do
 -- For certificates we check that
 --   * certificate hasn't been sent already
 --   * certificate is generated by richman
+--   * there is no existing certificate with the same VSS key in
+--     MonadToss's state
+-- Note that we don't need to check whether there are certificates with
+-- duplicate VSS keys in payload itself, because this is detected at
+-- deserialization stage.
 checkCertificatesPayload
     :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m)
     => EpochIndex
@@ -449,29 +480,29 @@ checkCertificatesPayload
 checkCertificatesPayload epoch certs = do
     richmenSet <- getKeys <$> (note (NoRichmen epoch) =<< getRichmen epoch)
     exceptGuardM CertificateAlreadySent
-        (notM hasCertificateToss) (HM.keys certs)
+        (notM hasCertificateToss) (HM.keys (getVssCertificatesMap certs))
     exceptGuardSnd CertificateNotRichmen
         ((`HS.member` richmenSet) . addressHash . vcSigningKey)
-        (HM.toList certs)
+        (HM.toList (getVssCertificatesMap certs))
+    existingVssKeys <-
+        HS.fromList . map vcVssKey . toList <$> getVssCertificates
+    exceptGuardSnd CertificateDuplicateVssKey
+        (not . (`HS.member` existingVssKeys) . vcVssKey)
+        (HM.toList (getVssCertificatesMap certs))
 
 checkPayload
-    :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m)
+    :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m,
+        MonadRandom m)
     => EpochIndex
     -> GtPayload
     -> m ()
 checkPayload epoch payload = do
-    let payloadCerts = _gpCertificates payload
-    -- We explicitly don't check commitments if they are empty.
-    -- It's ok, because empty commitments are always valid.
-    -- And it certainly makes sense, because commitments check requires us to
-    -- compute 'SharesDistribution' which might expensive.
+    let payloadCerts = gpVss payload
     case payload of
-        CommitmentsPayload comms _
-            | null comms -> pass
-            | otherwise -> checkCommitmentsPayload epoch comms
-        OpeningsPayload opens _ -> checkOpeningsPayload opens
-        SharesPayload shares _ -> checkSharesPayload epoch shares
-        CertificatesPayload _ -> pass
+        CommitmentsPayload comms _ -> checkCommitmentsPayload epoch comms
+        OpeningsPayload opens _    -> checkOpeningsPayload opens
+        SharesPayload shares _     -> checkSharesPayload epoch shares
+        CertificatesPayload _      -> pass
     checkCertificatesPayload epoch payloadCerts
 
 ----------------------------------------------------------------------------
@@ -519,6 +550,12 @@ exceptGuardSnd
     => (NonEmpty key -> TossVerFailure) -> (val -> Bool) -> [(key, val)] -> m ()
 exceptGuardSnd onFail f =
     verifyEntriesGuardM fst snd onFail (pure . f)
+
+exceptGuardSndM
+    :: MonadError TossVerFailure m
+    => (NonEmpty key -> TossVerFailure) -> (val -> m Bool) -> [(key, val)] -> m ()
+exceptGuardSndM =
+    verifyEntriesGuardM fst snd
 
 exceptGuardEntryM
     :: MonadError TossVerFailure m

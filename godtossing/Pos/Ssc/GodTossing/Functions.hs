@@ -14,24 +14,25 @@ module Pos.Ssc.GodTossing.Functions
        , getStableCertsPure
        ) where
 
+import           Universum
+
 import           Control.Lens                    (to)
 import           Control.Monad.Except            (MonadError (throwError))
 import qualified Data.HashMap.Strict             as HM
 import           Serokell.Util.Verify            (isVerSuccess)
-import           Universum
 
 import           Pos.Binary.Crypto               ()
 import           Pos.Binary.GodTossing.Core      ()
-import           Pos.Core                        (EpochIndex (..), IsMainHeader,
-                                                  SlotId (..), StakeholderId, headerSlotL)
+import           Pos.Core                        (EpochIndex (..), HasConfiguration,
+                                                  HasGenesisData, HasProtocolConstants,
+                                                  IsMainHeader, SlotId (..),
+                                                  StakeholderId, VssCertificatesMap,
+                                                  genesisVssCerts, headerSlotL)
 import           Pos.Core.Slotting               (crucialSlot)
-import           Pos.Crypto                      (Threshold)
 import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (getCommitmentsMap),
-                                                  GtPayload (..), VssCertificatesMap,
-                                                  checkCertTTL, isCommitmentId,
-                                                  isOpeningId, isSharesId,
-                                                  verifySignedCommitment)
-import           Pos.Ssc.GodTossing.Genesis      (genesisCertificates)
+                                                  GtPayload (..), checkCertTTL,
+                                                  isCommitmentId, isOpeningId, isSharesId,
+                                                  verifySignedCommitment, vssThreshold)
 import           Pos.Ssc.GodTossing.Toss.Base    (verifyEntriesGuardM)
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Types.Types  (GtGlobalState (..))
@@ -63,15 +64,15 @@ hasVssCertificate id = VCD.member id . _gsVssCertificates
 --
 -- For each DS datum we check:
 --
---   1. Whether it's stored in the correct block (e.g. commitments have to be in
---      first 2 * blkSecurityParam blocks, etc.)
+--   1. Whether it's stored in the correct block (e.g. commitments have to be
+--      in first 2 * blkSecurityParam blocks, etc.)
 --
 --   2. Whether the message itself is correct (e.g. commitment signature is
 --      valid, etc.)
 --
 -- We also do some general sanity checks.
 sanityChecksGtPayload
-    :: MonadError TossVerFailure m
+    :: (HasConfiguration, MonadError TossVerFailure m)
     => Either EpochIndex (Some IsMainHeader) -> GtPayload -> m ()
 sanityChecksGtPayload eoh payload = case payload of
     CommitmentsPayload comms certs -> do
@@ -113,9 +114,7 @@ sanityChecksGtPayload eoh payload = case payload of
     --
     -- #verifySignedCommitment
     commChecks commitments = do
-        let checkComm =
-                 isVerSuccess .
-                 (verifySignedCommitment epochId)
+        let checkComm = isVerSuccess . verifySignedCommitment epochId
         verifyEntriesGuardM fst snd CommitmentInvalid
                             (pure . checkComm)
                             (HM.toList . getCommitmentsMap $ commitments)
@@ -135,13 +134,8 @@ sanityChecksGtPayload eoh payload = case payload of
 -- Modern
 ----------------------------------------------------------------------------
 
--- | Figure out the threshold (i.e. how many secret shares would be required
--- to recover each node's secret) using number of participants.
-vssThreshold :: Integral a => a -> Threshold
-vssThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
-
-getStableCertsPure :: EpochIndex -> VCD.VssCertData -> VssCertificatesMap
+getStableCertsPure :: (HasProtocolConstants, HasGenesisData) => EpochIndex -> VCD.VssCertData -> VssCertificatesMap
 getStableCertsPure epoch certs
-    | epoch == 0 = genesisCertificates
+    | epoch == 0 = genesisVssCerts
     | otherwise =
           VCD.certs $ VCD.setLastKnownSlot (crucialSlot epoch) certs

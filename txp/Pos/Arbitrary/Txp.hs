@@ -22,15 +22,16 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Pos.Arbitrary.Core                ()
 import           Pos.Binary.Class                  (Raw)
 import           Pos.Binary.Txp.Core               ()
-import           Pos.Core.Address                  (makePubKeyAddress)
+import           Pos.Core.Configuration            (HasConfiguration)
+import           Pos.Core.Address                  (IsBootstrapEraAddr (..),
+                                                    makePubKeyAddress)
 import           Pos.Core.Types                    (Coin)
 import           Pos.Crypto                        (Hash, SecretKey, SignTag (SignTx),
                                                     hash, sign, toPublic)
 import           Pos.Data.Attributes               (mkAttributes)
 import           Pos.Merkle                        (MerkleNode (..), MerkleRoot (..),
                                                     MerkleTree, mkMerkleTree)
-import           Pos.Txp.Core.Types                (Tx (..), TxAux (..),
-                                                    TxDistribution (..), TxIn (..),
+import           Pos.Txp.Core.Types                (Tx (..), TxAux (..), TxIn (..),
                                                     TxInWitness (..), TxOut (..),
                                                     TxOutAux (..), TxPayload (..),
                                                     TxProof (..), TxSigData (..), mkTx,
@@ -53,7 +54,7 @@ instance Arbitrary TxSigData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary TxInWitness where
+instance HasConfiguration => Arbitrary TxInWitness where
     arbitrary = oneof [
         PkWitness <$> arbitrary <*> arbitrary,
         -- this can generate a redeemer script where a validator script is
@@ -66,14 +67,11 @@ instance Arbitrary TxInWitness where
         ScriptWitness a b -> uncurry ScriptWitness <$> shrink (a, b)
         _ -> []
 
-instance Arbitrary TxDistribution where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
 instance Arbitrary TxIn where
-    arbitrary = genericArbitrary
+    arbitrary = oneof [
+        TxInUtxo <$> arbitrary <*> arbitrary,
+        TxInUnknown <$> choose (1, 255) <*> scale (min 150) arbitrary]
     shrink = genericShrink
-
 
 -- | Arbitrary transactions generated from this instance will only be valid
 -- with regards to 'mxTx'
@@ -102,14 +100,15 @@ instance Arbitrary Tx where
 -- signatures in the transaction's inputs have been replaced with a bogus one.
 
 buildProperTx
-    :: NonEmpty (Tx, SecretKey, SecretKey, Coin)
+    :: HasConfiguration
+    => NonEmpty (Tx, SecretKey, SecretKey, Coin)
     -> (Coin -> Coin, Coin -> Coin)
-    -> NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
+    -> NonEmpty (Tx, TxIn, TxOutAux, TxInWitness)
 buildProperTx inputList (inCoin, outCoin) =
     txList <&> \(tx, txIn, fromSk, txOutput) ->
-        ( (tx, makeNullDistribution tx)
+        ( tx
         , txIn
-        , TxOutAux txOutput []
+        , TxOutAux txOutput
         , mkWitness fromSk
         )
   where
@@ -122,13 +121,11 @@ buildProperTx inputList (inCoin, outCoin) =
                     ((makeTxOutput fromSk inC) <| txOut)
                     (mkAttributes ())
         in ( txToBeSpent
-           , TxIn (hash txToBeSpent) 0
+           , TxInUtxo (hash txToBeSpent) 0
            , fromSk
            , makeTxOutput toSk outC )
     -- why is it called txList? I've no idea what's going on here (@neongreen)
     txList = fmap fun inputList
-    newDistr = TxDistribution (NE.fromList $ replicate (length txList) [])
-    newDistrHash = hash newDistr
     newTx = fromMaybe (error "buildProperTx: can't create tx") $
             mkTx ins outs def
     newTxHash = hash newTx
@@ -137,28 +134,25 @@ buildProperTx inputList (inCoin, outCoin) =
     mkWitness fromSk = PkWitness
         { twKey = toPublic fromSk
         , twSig = sign SignTx fromSk TxSigData {
-                      txSigTxHash = newTxHash,
-                      txSigTxDistrHash = newDistrHash } }
-    makeNullDistribution tx =
-        TxDistribution (NE.fromList $ replicate (length (_txOutputs tx)) [])
-    makeTxOutput s c = TxOut (makePubKeyAddress $ toPublic s) c
+                      txSigTxHash = newTxHash } }
+    makeTxOutput s c =
+        TxOut (makePubKeyAddress (IsBootstrapEraAddr True) $ toPublic s) c
 
 -- | Well-formed transaction 'Tx'.
 --
 -- TODO: this type is hard to use and should be rewritten as a record
 newtype GoodTx = GoodTx
-    { getGoodTx :: NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
+    { getGoodTx :: NonEmpty (Tx, TxIn, TxOutAux, TxInWitness)
     } deriving (Generic, Show)
 
 goodTxToTxAux :: GoodTx -> TxAux
-goodTxToTxAux (GoodTx l) = TxAux tx witness distr
+goodTxToTxAux (GoodTx l) = TxAux tx witness
   where
     tx = fromMaybe (error "goodTxToTxAux created malformed tx") $
          mkTx (map (view _2) l) (map (toaOut . view _3) l) def
     witness = V.fromList $ NE.toList $ map (view _4) l
-    distr = TxDistribution $ map (toaDistr . view _3) l
 
-instance Arbitrary GoodTx where
+instance HasConfiguration => Arbitrary GoodTx where
     arbitrary =
         GoodTx <$> (buildProperTx <$> arbitrary <*> pure (identity, identity))
     shrink = const []  -- used to be “genericShrink”, but shrinking is broken
@@ -168,22 +162,22 @@ instance Arbitrary GoodTx where
 
 -- | Ill-formed 'Tx' with bad signatures.
 newtype BadSigsTx = BadSigsTx
-    { getBadSigsTx :: NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
+    { getBadSigsTx :: NonEmpty (Tx, TxIn, TxOutAux, TxInWitness)
     } deriving (Generic, Show)
 
 -- | Ill-formed 'Tx' that spends an input twice.
 newtype DoubleInputTx = DoubleInputTx
-    { getDoubleInputTx :: NonEmpty ((Tx, TxDistribution), TxIn, TxOutAux, TxInWitness)
+    { getDoubleInputTx :: NonEmpty (Tx, TxIn, TxOutAux, TxInWitness)
     } deriving (Generic, Show)
 
-instance Arbitrary BadSigsTx where
+instance HasConfiguration => Arbitrary BadSigsTx where
     arbitrary = BadSigsTx <$> do
         goodTxList <- getGoodTx <$> arbitrary
         badSig <- arbitrary
         return $ map (set _4 badSig) goodTxList
     shrink = genericShrink
 
-instance Arbitrary DoubleInputTx where
+instance HasConfiguration => Arbitrary DoubleInputTx where
     arbitrary = DoubleInputTx <$> do
         inputs <- arbitrary
         pure $ buildProperTx (NE.cons (NE.head inputs) inputs)
@@ -206,7 +200,7 @@ instance Arbitrary TxProof where
     arbitrary = makeSmall genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary TxAux where
+instance HasConfiguration => Arbitrary TxAux where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -214,22 +208,19 @@ instance Arbitrary TxAux where
 -- Utilities used in 'Pos.Block.Arbitrary'
 ----------------------------------------------------------------------------
 
-txOutDistGen :: Gen [TxAux]
+txOutDistGen :: HasConfiguration => Gen [TxAux]
 txOutDistGen =
     listOf $ do
         txInW <- arbitrary
         txIns <- arbitrary
-        (txOuts, txDist) <- second TxDistribution . NE.unzip <$> arbitrary
+        txOuts <- arbitrary
         let tx =
                 either
                     (error . mappend "failed to create tx in txOutDistGen: ")
                     identity $
                 mkTx txIns txOuts (mkAttributes ())
-        return $ TxAux tx (txInW) txDist
+        return $ TxAux tx (txInW)
 
-instance Arbitrary TxPayload where
-    arbitrary =
-        fromMaybe (error "arbitrary@TxPayload: mkTxPayload failed") .
-        mkTxPayload <$>
-        txOutDistGen
+instance HasConfiguration => Arbitrary TxPayload where
+    arbitrary = mkTxPayload <$> txOutDistGen
     shrink = genericShrink

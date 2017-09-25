@@ -17,7 +17,7 @@ if [[ ! -d "$base/../../.stack-work" ]]; then
 fi
 
 # Define the default amount of nodes to run
-DEFAULT_NODES_N=3
+DEFAULT_NODES_N=4
 
 # Detect node number or use default
 n=$1
@@ -25,18 +25,18 @@ if [[ "$n" == "" ]]; then
   n=$DEFAULT_NODES_N
 fi
 
-config_dir=$2
-
-if [[ $config_dir == "" ]]
-  then
-    config_dir="./run"
+# RICH_NODES specifies how many nodes should be core nodes, i.e., have non-negligible stake in the rich_poor_distr
+if [[ "$RICH_NODES" == "" ]]; then
+  RICH_NODES=$n
 fi
 
-# The stake distribution.
-# Use "flat" for flat_distr. Anything else will use rich_poor_distr
-stake_distr_param=$3
-flat_distr=" --flat-distr \"($n, 100000)\" "
-rich_poor_distr=" --rich-poor-distr \"($n,50000,6000000000,0.99)\" "
+config_dir=$2
+
+if [[ $config_dir == "" ]]; then
+  config_dir="./run"
+  echo $(pwd)
+  gen_kademlia_topology $n
+fi
 
 # Stats are not mandatory either
 stats=$4
@@ -47,12 +47,16 @@ if [[ "$CONC" != "" ]]; then
   panesCnt=$((n+1))
 fi
 
+if [[ "$NUM_TXS" == "" ]]; then
+  NUM_TXS=3000
+fi
+
 # System start time in seconds (time since epoch).
 # An extra second is added so that the nodes have extra time to start up
 # and start processing the first slot.
 if [ -z "$system_start" ]
   then
-    system_start=$((`date +%s` + 1))
+    system_start=$((`date +%s` + 45))
 fi
 
 echo "Using system start time "$system_start
@@ -87,25 +91,15 @@ while [[ $i -lt $panesCnt ]]; do
       fi
   fi
 
-  if [[ $stake_distr_param == "rich_poor" ]]; then
-    stake_distr=$rich_poor_distr
-  else
-    stake_distr=$flat_distr
-  fi
-
-  if [[ "$CSL_PRODUCTION" != "" ]]; then
-      stake_distr=""
-  fi
-
-  pane="${window}.$i"
-
   if [[ $i -lt $n ]]; then
-    tmux send-keys "$(node_cmd $i "$stats" "$stake_distr" "$wallet_args" "$system_start" "$config_dir" $exec_name) --no-ntp" C-m
+    node_cmd="$(node_cmd $i "$stats" "$wallet_args" "$system_start" "$config_dir" $exec_name) --no-ntp"
+    echo "$node_cmd"
+    tmux send-keys "$node_cmd" C-m
   else
     # Number of transactions to send per-thread: 300
     # Concurrency (number of threads sending transactions); $CONC
     # Delay between sends on each thread: 500 milliseconds
-    tmux send-keys -t ${pane} "sleep 40s && $(bench_cmd $i "$stake_distr" "$system_start" 300 $CONC 500 neighbours)" C-m
+    tmux send-keys "sleep 40s && $(bench_cmd $i "$system_start" $NUM_TXS $CONC 500 neighbours)" C-m
   fi
   i=$((i+1))
 done

@@ -1,6 +1,5 @@
 -- | Common definitions for peer discovery and subscription workers.
 
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Subscription.Common
     ( SubscriptionMode
@@ -11,26 +10,30 @@ module Pos.Subscription.Common
     , subscriptionWorker
     ) where
 
-import           Universum                  hiding (bracket_)
-import           Network.Broadcast.OutboundQueue.Types (simplePeers, removePeer)
+import qualified Network.Broadcast.OutboundQueue       as OQ
+import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
+import           Universum                             hiding (bracket)
 
-import           Formatting                 (sformat, shown, (%))
-import           System.Wlog                (WithLogger, logNotice)
-import           Mockable                   (Mockable, Throw, Catch, Bracket,
-                                             try, bracket_)
-import           Node.Message.Class         (Message)
+import           Formatting                            (sformat, shown, (%))
+import           Mockable                              (Bracket, Catch, Mockable, Throw,
+                                                        bracket, try)
+import           Node.Message.Class                    (Message)
+import           System.Wlog                           (WithLogger, logNotice)
 
-import           Pos.Binary.Class           (Bi)
-import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, MsgSubscribe (..),
-                                             Conversation (..), ConversationActions (..),
-                                             convH, toOutSpecs, Worker, worker,
-                                             ListenerSpec, NodeId, withConnectionTo,
-                                             SendActions, MkListeners, constantListeners)
-import           Pos.Communication.Listener (listenerConv)
-import           Pos.Communication.Limits.Types (MessageLimited, recvLimited)
-import           Pos.DB.Class               (MonadGState)
-import           Pos.KnownPeers             (MonadKnownPeers(..))
-import           Pos.Network.Types          (NodeType, Bucket(..))
+import           Pos.Binary.Class                      (Bi)
+import           Pos.Communication.Limits.Types        (MessageLimited, recvLimited)
+import           Pos.Communication.Listener            (listenerConv)
+import           Pos.Communication.Protocol            (Conversation (..),
+                                                        ConversationActions (..),
+                                                        ListenerSpec, MkListeners,
+                                                        MsgSubscribe (..), NodeId,
+                                                        OutSpecs, SendActions, Worker,
+                                                        WorkerSpec, constantListeners,
+                                                        convH, toOutSpecs,
+                                                        withConnectionTo, worker)
+import           Pos.DB.Class                          (MonadGState)
+import           Pos.KnownPeers                        (MonadKnownPeers (..))
+import           Pos.Network.Types                     (Bucket (..), NodeType)
 
 type SubscriptionMode m =
     ( MonadIO m
@@ -78,24 +81,29 @@ subscribeTo sendActions peer = do
 -- peers, annotating it with a given NodeType. Remove that peer from the set
 -- of known peers when the connection is dropped.
 subscriptionListener
-    :: forall m.
+    :: forall pack m.
        (SubscriptionMode m)
-    => NodeType
+    => OQ.OutboundQ pack NodeId Bucket
+    -> NodeType
     -> (ListenerSpec m, OutSpecs)
-subscriptionListener nodeType = listenerConv @Void $ \__ourVerInfo nodeId conv -> do
+subscriptionListener oq nodeType = listenerConv @Void oq $ \__ourVerInfo nodeId conv -> do
     mbMsg <- recvLimited conv
     whenJust mbMsg $ \MsgSubscribe -> do
       let peers = simplePeers [(nodeType, nodeId)]
-      bracket_ (updatePeersBucket BucketSubscriptionListener (<> peers))
-               (updatePeersBucket BucketSubscriptionListener (removePeer nodeId))
-               (void $ recvLimited conv)
+      bracket
+        (updatePeersBucket BucketSubscriptionListener (<> peers))
+        (\added -> when added $
+          void $ updatePeersBucket BucketSubscriptionListener (removePeer nodeId))
+        (\added -> when added $
+          void $ recvLimited conv) -- if not added, close the conversation
 
 subscriptionListeners
-    :: forall m.
+    :: forall pack m.
        (SubscriptionMode m)
-    => NodeType
+    => OQ.OutboundQ pack NodeId Bucket
+    -> NodeType
     -> MkListeners m
-subscriptionListeners nodeType = constantListeners [subscriptionListener nodeType]
+subscriptionListeners oq nodeType = constantListeners [subscriptionListener oq nodeType]
 
 -- | Throw the standard subscription worker OutSpecs onto a given
 -- implementation of a single subscription worker.

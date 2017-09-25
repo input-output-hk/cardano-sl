@@ -37,8 +37,8 @@ import           Universum
 import           Control.Lens         (makeLenses)
 import           Control.Monad.Except (MonadError (throwError))
 
+import           Pos.Core.Configuration.GenesisHash (HasGenesisHash, genesisHash)
 import           Pos.Core.Class       (HasHeaderHash (..), HasPrevBlock (..))
-import           Pos.Core.Constants   (genesisHash)
 import           Pos.Core.Types       (HeaderHash)
 
 ----------------------------------------------------------------------------
@@ -174,6 +174,7 @@ mkGenericHeader
        , BlockchainHelpers b
        , BHeaderHash b ~ HeaderHash
        , MonadError Text m
+       , HasGenesisHash
        )
     => Maybe (BBlockHeader b)
     -> Body b
@@ -210,6 +211,7 @@ mkGenericBlock
        , BlockchainHelpers b
        , BHeaderHash b ~ HeaderHash
        , MonadError Text m
+       , HasGenesisHash
        )
     => Maybe (BBlockHeader b)
     -> Body b

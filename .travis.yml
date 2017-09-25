@@ -10,9 +10,6 @@ matrix:
       osx_image: xcode8.3
 
 before_install:
-- echo $TRAVIS_OS_NAME
-- export CSL_SYSTEM_TAG=$TRAVIS_OS_NAME
-- export DCONFIG=travis
 - mkdir -p s3
 - sudo mount -o remount,exec,size=4G,mode=755 /run/user || true
 - sudo mkdir -p /etc/nix/
@@ -27,7 +24,7 @@ install:
 
 script:
 - if [[ "$MODE" == "hlint" ]]; then
-    nix-shell -p hlint moreutils --run "scripts/haskell/lint.sh --nix | ts";
+    nix-shell -p hlint moreutils --run "scripts/haskell/lint.sh | ts";
   elif [[ "$MODE" == "stack2nix" ]]; then
     nix-shell -p cabal2nix stack cabal-install ghc moreutils -Q -j 4 --run "scripts/check-stack2nix.sh | ts";
   else

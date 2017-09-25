@@ -1,7 +1,5 @@
 -- | Main Toss logic.
 
-{-# LANGUAGE ScopedTypeVariables #-}
-
 module Pos.Ssc.GodTossing.Toss.Logic
        ( verifyAndApplyGtPayload
        , applyGenesisBlock
@@ -10,37 +8,42 @@ module Pos.Ssc.GodTossing.Toss.Logic
        , refreshToss
        ) where
 
-import           Control.Lens                    (at)
-import           Control.Monad.Except            (MonadError, runExceptT)
-import qualified Data.HashMap.Strict             as HM
-import           System.Wlog                     (logError)
+import           Control.Lens                     (at)
+import           Control.Monad.Except             (MonadError, runExceptT)
+import           Crypto.Random                    (MonadRandom)
+import qualified Data.HashMap.Strict              as HM
+import           System.Wlog                      (logError)
 import           Universum
 
-import           Pos.Core                        (EpochIndex, EpochOrSlot (..),
-                                                  IsMainHeader, LocalSlotIndex, SlotCount,
-                                                  SlotId (siSlot), StakeholderId,
-                                                  epochIndexL, epochOrSlot,
-                                                  getEpochOrSlot, headerSlotL, mkCoin)
-import           Pos.Core.Constants              (slotSecurityParam)
-import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (..), GtPayload (..),
-                                                  InnerSharesMap, Opening,
-                                                  SignedCommitment, VssCertificate,
-                                                  getCommitmentsMap,
-                                                  mkCommitmentsMapUnsafe, _gpCertificates)
-import           Pos.Ssc.GodTossing.Functions    (sanityChecksGtPayload)
-import           Pos.Ssc.GodTossing.Toss.Base    (checkPayload)
-import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossEnv (..))
-import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
-import           Pos.Ssc.GodTossing.Toss.Types   (TossModifier (..))
-import           Pos.Ssc.GodTossing.Type         ()
-import           Pos.Util.Chrono                 (NewestFirst (..))
-import           Pos.Util.Util                   (Some, inAssertMode, sortWithMDesc)
+import           Pos.Core                         (EpochIndex, EpochOrSlot (..),
+                                                   HasConfiguration, IsMainHeader,
+                                                   LocalSlotIndex, SlotCount,
+                                                   SlotId (siSlot), StakeholderId,
+                                                   VssCertificate, epochIndexL,
+                                                   epochOrSlot, getEpochOrSlot,
+                                                   getVssCertificatesMap, headerSlotL,
+                                                   mkCoin, mkVssCertificatesMapSingleton,
+                                                   slotSecurityParam)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.GodTossing.Core          (CommitmentsMap (..), GtPayload (..),
+                                                   InnerSharesMap, Opening,
+                                                   SignedCommitment, getCommitmentsMap,
+                                                   gpVss, mkCommitmentsMapUnsafe)
+import           Pos.Ssc.GodTossing.Functions     (sanityChecksGtPayload)
+import           Pos.Ssc.GodTossing.Toss.Base     (checkPayload)
+import           Pos.Ssc.GodTossing.Toss.Class    (MonadToss (..), MonadTossEnv (..))
+import           Pos.Ssc.GodTossing.Toss.Failure  (TossVerFailure (..))
+import           Pos.Ssc.GodTossing.Toss.Types    (TossModifier (..))
+import           Pos.Ssc.GodTossing.Type          ()
+import           Pos.Util.Chrono                  (NewestFirst (..))
+import           Pos.Util.Util                    (Some, inAssertMode, sortWithMDesc)
 
 -- | Verify 'GtPayload' with respect to data provided by
 -- MonadToss. If data is valid it is also applied.  Otherwise
 -- TossVerFailure is thrown using 'MonadError' type class.
 verifyAndApplyGtPayload
-    :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m)
+    :: (HasGtConfiguration, HasConfiguration, MonadToss m, MonadTossEnv m,
+        MonadError TossVerFailure m, MonadRandom m)
     => Either EpochIndex (Some IsMainHeader) -> GtPayload -> m ()
 verifyAndApplyGtPayload eoh payload = do
     -- We can't trust payload from mempool, so we must call
@@ -50,7 +53,7 @@ verifyAndApplyGtPayload eoh payload = do
     -- (in the 'recreateGenericBlock').  So this check is just in case.
     inAssertMode $
         whenRight eoh $ const $ sanityChecksGtPayload eoh payload
-    let blockCerts = _gpCertificates payload
+    let blockCerts = gpVss payload
     let curEpoch = either identity (^. epochIndexL) eoh
     checkPayload curEpoch payload
 
@@ -92,7 +95,7 @@ applyGenesisBlock epoch = do
 
 -- | Rollback application of 'GtPayload's in 'Toss'. First argument is
 -- 'EpochOrSlot' of oldest block which is subject to rollback.
-rollbackGT :: MonadToss m => EpochOrSlot -> NewestFirst [] GtPayload -> m ()
+rollbackGT :: (HasConfiguration, MonadToss m) => EpochOrSlot -> NewestFirst [] GtPayload -> m ()
 rollbackGT oldestEOS (NewestFirst payloads)
     | oldestEOS == toEnum 0 = do
         logError "rollbackGT: most genesis block is passed to rollback"
@@ -111,7 +114,7 @@ rollbackGT oldestEOS (NewestFirst payloads)
 
 -- | Apply as much data from given 'TossModifier' as possible.
 normalizeToss
-    :: forall m . (MonadToss m, MonadTossEnv m)
+    :: (HasGtConfiguration, HasConfiguration, MonadToss m, MonadTossEnv m, MonadRandom m)
     => EpochIndex -> TossModifier -> m ()
 normalizeToss epoch TossModifier {..} =
     normalizeTossDo
@@ -119,19 +122,19 @@ normalizeToss epoch TossModifier {..} =
         ( HM.toList (getCommitmentsMap _tmCommitments)
         , HM.toList _tmOpenings
         , HM.toList _tmShares
-        , HM.toList _tmCertificates)
+        , HM.toList (getVssCertificatesMap _tmCertificates))
 
 -- | Apply the most valuable from given 'TossModifier' and drop the
 -- rest. This function can be used if mempool is exhausted.
 refreshToss
-    :: forall m . (MonadToss m, MonadTossEnv m)
+    :: (HasGtConfiguration, HasConfiguration, MonadToss m, MonadTossEnv m, MonadRandom m)
     => EpochIndex -> TossModifier -> m ()
 refreshToss epoch TossModifier {..} = do
     comms <-
         takeMostValuable epoch (HM.toList (getCommitmentsMap _tmCommitments))
     opens <- takeMostValuable epoch (HM.toList _tmOpenings)
     shares <- takeMostValuable epoch (HM.toList _tmShares)
-    certs <- takeMostValuable epoch (HM.toList _tmCertificates)
+    certs <- takeMostValuable epoch (HM.toList (getVssCertificatesMap _tmCertificates))
     normalizeTossDo epoch (comms, opens, shares, certs)
 
 takeMostValuable
@@ -153,7 +156,8 @@ type TossModifierLists
        , [(StakeholderId, VssCertificate)])
 
 normalizeTossDo
-    :: forall m . (MonadToss m, MonadTossEnv m)
+    :: forall m.
+       (HasGtConfiguration, HasConfiguration, MonadToss m, MonadTossEnv m, MonadRandom m)
     => EpochIndex -> TossModifierLists -> m ()
 normalizeTossDo epoch (comms, opens, shares, certs) = do
     putsUseful $
@@ -161,7 +165,7 @@ normalizeTossDo epoch (comms, opens, shares, certs) = do
         comms
     putsUseful $ map (flip OpeningsPayload mempty . one) opens
     putsUseful $ map (flip SharesPayload mempty . one) shares
-    putsUseful $ map (CertificatesPayload . one) certs
+    putsUseful $ map (CertificatesPayload . mkVssCertificatesMapSingleton . snd) certs
   where
     putsUseful :: [GtPayload] -> m ()
     putsUseful entries = do

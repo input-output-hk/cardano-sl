@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Subscription.Dht
     ( dhtSubscriptionWorker
@@ -8,7 +7,7 @@ import qualified Control.Concurrent.STM                as STM
 import           Universum
 
 import           Formatting                            (sformat, shown, (%))
-import           Network.Broadcast.OutboundQueue.Types (Peers, peersFromList)
+import           Network.Broadcast.OutboundQueue.Types (Peers)
 import           System.Wlog                           (logNotice)
 
 import           Pos.Communication.Protocol            (NodeId, Worker)
@@ -16,7 +15,8 @@ import           Pos.DHT.Real.Real                     (kademliaGetKnownPeers)
 import           Pos.DHT.Real.Types                    (KademliaDHTInstance (..))
 import           Pos.DHT.Workers                       (DhtWorkMode)
 import           Pos.KnownPeers                        (MonadKnownPeers (..))
-import           Pos.Network.Types                     (NodeType, Bucket(..))
+import           Pos.Network.Types                     (NodeType, Bucket(..),
+                                                       choosePeers)
 import           Pos.Util.TimeWarp                     (addressToNodeId)
 
 
@@ -170,7 +170,7 @@ dhtSubscriptionWorker kademliaInst peerType valency fallbacks _sendActions = do
         peers' <- atomically $ updateFromKademliaNoSubscribe peers
         logNotice $
             sformat ("Kademlia peer set changed to "%shown) peers'
-        updatePeersBucket BucketKademliaWorker (const peers')
+        void $ updatePeersBucket BucketKademliaWorker (const peers')
         updateForeverNoSubscribe peers'
 
     updateFromKademliaNoSubscribe
@@ -181,14 +181,6 @@ dhtSubscriptionWorker kademliaInst peerType valency fallbacks _sendActions = do
         -- retry.
         addrList <- kademliaGetKnownPeers kademliaInst
         let peersList = fmap addressToNodeId addrList
-            newPeers = mkPeers peersList
+            newPeers = choosePeers valency fallbacks peerType peersList
         when (newPeers == oldPeers) STM.retry
         return newPeers
-
-    mkPeers :: [NodeId] -> Peers NodeId
-    mkPeers = peersFromList . fmap ((,) peerType) . transpose . take (1 + fallbacks) . mkGroupsOf valency
-
-    mkGroupsOf :: Int -> [a] -> [[a]]
-    mkGroupsOf _ [] = []
-    mkGroupsOf n lst = case splitAt n lst of
-        (these, those) -> these : mkGroupsOf n those

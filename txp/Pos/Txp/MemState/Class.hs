@@ -1,5 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Type class necessary for Transaction processing (Txp)
 -- and some useful getters and setters.
@@ -7,7 +6,6 @@
 module Pos.Txp.MemState.Class
        ( MonadTxpMem
        , askTxpMem
-       , askTxpMemAndMetrics
        , TxpHolderTag
        , getUtxoModifier
        , getLocalTxsNUndo
@@ -22,35 +20,26 @@ module Pos.Txp.MemState.Class
 
 import           Universum
 
-import qualified Control.Concurrent.STM      as STM
-import qualified Control.Exception.Lifted    as L
-import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Data.Default                (Default (def))
-import qualified Data.HashMap.Strict         as HM
-import           Ether.Internal              (HasLens (..))
-import           Mockable                    (CurrentTime, Mockable, currentTime)
-import           System.IO.Unsafe            (unsafePerformIO)
-import           System.Wlog                 (WithLogger, getLoggerName, usingLoggerName)
+import qualified Control.Concurrent.STM as STM
+import           Data.Default           (Default (def))
+import qualified Data.HashMap.Strict    as HM
+import           Ether.Internal         (HasLens (..))
 
-import           Pos.Txp.Core.Types          (TxAux, TxId, TxUndo)
-import           Pos.Txp.MemState.Types      (GenericTxpLocalData (..),
-                                              GenericTxpLocalDataPure, TxpMetrics (..))
-import           Pos.Txp.Toil.Types          (MemPool (..), UtxoModifier)
+import           Pos.Txp.Core.Types     (TxAux, TxId, TxUndo)
+import           Pos.Txp.MemState.Types (GenericTxpLocalData (..),
+                                         GenericTxpLocalDataPure)
+import           Pos.Txp.Toil.Types     (MemPool (..), UtxoModifier)
 
 data TxpHolderTag
 
--- | More general version of @MonadReader (GenericTxpLocalData mw, TxpMetrics) m@.
+-- | More general version of @MonadReader (GenericTxpLocalData mw) m@.
 type MonadTxpMem ext ctx m
      = ( MonadReader ctx m
-       , HasLens TxpHolderTag ctx (GenericTxpLocalData ext, TxpMetrics)
-       , Mockable CurrentTime m
+       , HasLens TxpHolderTag ctx (GenericTxpLocalData ext)
        )
 
 askTxpMem :: MonadTxpMem ext ctx m => m (GenericTxpLocalData ext)
-askTxpMem = fst <$> view (lensOf @TxpHolderTag)
-
-askTxpMemAndMetrics :: MonadTxpMem ext ctx m => m (GenericTxpLocalData ext, TxpMetrics)
-askTxpMemAndMetrics = view (lensOf @TxpHolderTag)
+askTxpMem = view (lensOf @TxpHolderTag)
 
 getTxpLocalData
     :: (MonadIO m, MonadTxpMem e ctx m)
@@ -87,64 +76,38 @@ getMemPool = getTxpLocalData (STM.readTVar . txpMemPool)
 getTxpExtra :: (MonadIO m, MonadTxpMem e ctx m) => m e
 getTxpExtra = getTxpLocalData (STM.readTVar . txpExtra)
 
-txpLocalDataLock :: MVar ()
-txpLocalDataLock = unsafePerformIO $ newMVar ()
-{-# NOINLINE txpLocalDataLock #-}
-
 modifyTxpLocalData
-    :: (WithLogger m, MonadIO m, MonadBaseControl IO m, MonadTxpMem ext ctx m)
-    => String
-    -> (GenericTxpLocalDataPure ext -> (a, GenericTxpLocalDataPure ext))
+    :: (MonadIO m, MonadTxpMem ext ctx m)
+    => (GenericTxpLocalDataPure ext -> (a, GenericTxpLocalDataPure ext))
     -> m a
-modifyTxpLocalData reason f =
-    askTxpMemAndMetrics >>= \(TxpLocalData{..}, TxpMetrics{..}) -> do
-        lname <- getLoggerName
-        liftIO . usingLoggerName lname $ txpMetricsWait reason
-        timeBeginWait <- currentTime
-        (res, logMetricsRelease) <- withLock $ do
-            timeEndWait <- currentTime
-            liftIO . usingLoggerName lname $
-                txpMetricsAcquire (timeEndWait - timeBeginWait)
-            timeBeginModify <- currentTime
-            (res, newSize) <- atomically $ do
-                curUM  <- STM.readTVar txpUtxoModifier
-                curMP  <- STM.readTVar txpMemPool
-                curUndos <- STM.readTVar txpUndos
-                curTip <- STM.readTVar txpTip
-                curExtra <- STM.readTVar txpExtra
-                let (res, (newUM, newMP, newUndos, newTip, newExtra))
-                      = f (curUM, curMP, curUndos, curTip, curExtra)
-                STM.writeTVar txpUtxoModifier newUM
-                STM.writeTVar txpMemPool newMP
-                STM.writeTVar txpUndos newUndos
-                STM.writeTVar txpTip newTip
-                STM.writeTVar txpExtra newExtra
-                pure (res, _mpSize newMP)
-            timeEndModify <- currentTime
-            let logMetricsRelease = liftIO . usingLoggerName lname $ do
-                    txpMetricsRelease (timeEndModify - timeBeginModify) newSize
-            pure (res, logMetricsRelease)
-        logMetricsRelease
+modifyTxpLocalData f =
+    askTxpMem >>= \TxpLocalData{..} -> atomically $ do
+        curUM <- STM.readTVar txpUtxoModifier
+        curMP <- STM.readTVar txpMemPool
+        curUndos <- STM.readTVar txpUndos
+        curTip <- STM.readTVar txpTip
+        curExtra <- STM.readTVar txpExtra
+        let (res,(newUM,newMP,newUndos,newTip,newExtra)) =
+                f (curUM, curMP, curUndos, curTip, curExtra)
+        STM.writeTVar txpUtxoModifier newUM
+        STM.writeTVar txpMemPool newMP
+        STM.writeTVar txpUndos newUndos
+        STM.writeTVar txpTip newTip
+        STM.writeTVar txpExtra newExtra
         pure res
- where
-   withLock = L.bracket_ (takeMVar txpLocalDataLock) (putMVar txpLocalDataLock ())
 
 setTxpLocalData ::
-       (WithLogger m, MonadIO m, MonadBaseControl IO m, MonadTxpMem ext ctx m)
-    => String
-    -> GenericTxpLocalDataPure ext
+       (MonadIO m, MonadTxpMem ext ctx m)
+    => GenericTxpLocalDataPure ext
     -> m ()
-setTxpLocalData reason x = modifyTxpLocalData reason (const ((), x))
+setTxpLocalData x = modifyTxpLocalData (const ((), x))
 
 clearTxpMemPool ::
-       ( WithLogger m
-       , MonadIO m
-       , MonadBaseControl IO m
+       ( MonadIO m
        , MonadTxpMem ext ctx m
        , Default ext
        )
-    => String
-    -> m ()
-clearTxpMemPool reason = modifyTxpLocalData reason clearF
+    => m ()
+clearTxpMemPool = modifyTxpLocalData clearF
   where
     clearF (_, _, _, tip, _) = ((), (mempty, def, mempty, tip, def))

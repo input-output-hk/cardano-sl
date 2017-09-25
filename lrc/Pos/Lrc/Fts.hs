@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Base part of /follow-the-satoshi/ procedure.
 
@@ -12,7 +11,8 @@ import           Data.List.NonEmpty (fromList)
 import           Universum
 
 import           Pos.Core.Coin      (coinToInteger, unsafeGetCoin)
-import           Pos.Core.Constants (epochSlots)
+import           Pos.Core.Configuration (HasConfiguration, epochSlots)
+import           Pos.Core.Slotting  ()
 import           Pos.Core.Types     (Coin, LocalSlotIndex (..), SharedSeed (..),
                                      SlotLeaders, StakeholderId, mkCoin)
 import           Pos.Crypto         (deterministic, randomNumber)
@@ -41,7 +41,7 @@ coinIndexOffset c = over _CoinIndex (+ unsafeGetCoin c)
 
 -- | Assign a local slot index to each value in a list, starting with
 -- @LocalSlotIndex 0@.
-assignToSlots :: [a] -> [(LocalSlotIndex, a)]
+assignToSlots :: HasConfiguration => [a] -> [(LocalSlotIndex, a)]
 assignToSlots = zip [minBound..]
 
 -- | Sort values by their local slot indices, then strip the indices.
@@ -77,17 +77,17 @@ stake. The same stakeholder can be chosen for multiple slots within an epoch.
 As input, the /follow-the-satoshi/ procedure requires:
 
 * a source of randomness (PRNG seed).
-* the list of balances, i.e. (StakeholderId, Coin) pairs, ordered by
+* the list of stakes, i.e. (StakeholderId, Coin) pairs, ordered by
   stakeholder identifiers. Since the list can be quite large, we access it
-  using 'MonadIterator' to achieve streaming.
+  using 'conduit' to achieve streaming.
 * the total amount of coins in the system. We could compute it as the sum of
-  balances (indeed, it is assumed to be equal to that value), but computing it
+  stakes (indeed, it is assumed to be equal to that value), but computing it
   here would break streaming, so we take it as a separate input.
 
 As an output, we have one slot leader per slot: a list of stakeholder
 identifiers of length 'epochSlots'.
 
-The algorithm here is a bit tricky to ensure that it runs in O(balances) time.
+The algorithm here is a bit tricky to ensure that it runs in O(stakes) time.
 First we generate a random coin index for each slot, so we get a list like
 this:
 
@@ -109,7 +109,7 @@ In the example above, the stakeholder that owns the 5th coin will be the leader
 of the 0th slot in the epoch, the owner of the 327th coin will be the leader
 of the 1st slot, and so on.
 
-Recall that we have a sorted list of balances. We could use it to compute a
+Recall that we have a sorted list of stakes. We could use it to compute a
 table of coin indices, for example:
 
 @
@@ -122,7 +122,7 @@ table of coin indices, for example:
             zzz | 500           | [totalCoins - 1 - 500 .. totalCoins - 1]
 @
 
-A solution with complexity O(slots * balances) would be straightforward: just
+A solution with complexity O(slots * stakes) would be straightforward: just
 lookup a leader for each slot in the table - whenever the selected coin is in
 the coin index range, we have a match.
 
@@ -143,7 +143,7 @@ original ordering later (using 'arrangeBySlots').
 Now that selected coin indices and stakeholder coin index ranges are both
 sorted, we can walk through them in one pass! To do that, we 'traverse' the
 list of selected coin indices. As we do that, we monadically iterate through
-the table of balances, storing current stakeholder identifier and coin index
+the table of stakes, storing current stakeholder identifier and coin index
 range in a state (see 'FtsState').
 
 Let's take a look at the intermediate states during execution:
@@ -184,9 +184,9 @@ Eventually, we end up with a list of slot leaders:
 @
 
 and we're done. One thing to notice is that 'MonadIterator' provides us with a
-balance - the amount of coins a stakeholder has - but not with a coin index
+stakes - the amount of coins a stakeholder has - but not with a coin index
 range. So in order to have access to coin range, we have to accumulate (by
-summation) those balances - this way we get upper bounds. There's no need to
+summation) those stakes - this way we get upper bounds. There's no need to
 calculate lower bounds, since every lower bound is equal to the upper bound of
 the previous stakeholder plus 1, and we transition to next coin only when the
 current coin index exceeds the upper bound.  Since coin indices are sorted,
@@ -195,7 +195,7 @@ previous upper bound (and thus it's more or equal to the current lower bound).
 
 -}
 followTheSatoshiM
-    :: forall m . (Monad m)
+    :: forall m . (Monad m, HasConfiguration)
     => SharedSeed
     -> Coin
     -> Sink (StakeholderId, Coin) m SlotLeaders

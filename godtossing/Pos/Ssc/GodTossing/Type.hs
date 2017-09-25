@@ -11,6 +11,7 @@ import           Universum
 
 import           Pos.Binary.Core                    ()
 import           Pos.Binary.GodTossing              ()
+import           Pos.Core                           (HasConfiguration)
 import           Pos.Ssc.Class.Helpers              (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types                (Ssc (..))
 import           Pos.Ssc.GodTossing.Core            (GtPayload, GtProof, defaultGtPayload,
@@ -18,7 +19,7 @@ import           Pos.Ssc.GodTossing.Core            (GtPayload, GtProof, default
 import           Pos.Ssc.GodTossing.Error           (SeedError)
 import           Pos.Ssc.GodTossing.Functions       (sanityChecksGtPayload)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData)
-import           Pos.Ssc.GodTossing.Toss.Failure    (TossVerFailure)
+import           Pos.Ssc.GodTossing.Toss.Failure    (TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Types.Types     (GtContext, GtGlobalState, GtParams,
                                                      createGtContext)
 
@@ -30,7 +31,7 @@ data SscGodTossing
 deriving instance Show SscGodTossing
 deriving instance Eq SscGodTossing
 
-instance Ssc SscGodTossing where
+instance (HasConfiguration) => Ssc SscGodTossing where
     type SscLocalData   SscGodTossing = GtLocalData
     type SscPayload     SscGodTossing = GtPayload
     type SscGlobalState SscGodTossing = GtGlobalState
@@ -42,7 +43,11 @@ instance Ssc SscGodTossing where
     mkSscProof = Tagged mkGtProof
     sscCreateNodeContext = Tagged createGtContext
 
-instance SscHelpersClass SscGodTossing where
+instance (HasConfiguration) => SscHelpersClass SscGodTossing where
     sscVerifyPayload = sanityChecksGtPayload
     sscStripPayload = stripGtPayload
     sscDefaultPayload = defaultGtPayload
+    sscIsCriticalError =
+        \case
+            TossInternallError {} -> True
+            _ -> False

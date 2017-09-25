@@ -1,5 +1,5 @@
 name:                cardano-sl-txp
-version:             0.5.1
+version:             0.6.2
 synopsis:            Cardano SL - transaction processing
 description:         Cardano SL - transaction processing
 license:             MIT
@@ -22,13 +22,14 @@ library
     Pos.Txp.Core.Types
 
     Pos.Txp.DB
-    Pos.Txp.DB.Balances
+    Pos.Txp.DB.Stakes
     Pos.Txp.DB.Utxo
 
+    Pos.Txp.GenesisUtxo
     Pos.Txp.Toil
-    Pos.Txp.Toil.Balances
-    Pos.Txp.Toil.Balances.Functions
-    Pos.Txp.Toil.Balances.Pure
+    Pos.Txp.Toil.Stakes
+    Pos.Txp.Toil.Stakes.Functions
+    Pos.Txp.Toil.Stakes.Pure
     Pos.Txp.Toil.Class
     Pos.Txp.Toil.DBToil
     Pos.Txp.Toil.Failure
@@ -72,6 +73,7 @@ library
                      , data-default
                      , ekg-core
                      , ether
+                     , exceptions
                      , fmt >= 0.4
                      , formatting
                      , generic-arbitrary
@@ -122,6 +124,7 @@ library
                        UndecidableInstances
                        BangPatterns
                        TemplateHaskell
+                       ScopedTypeVariables
 
   ghc-options:         -Wall
                        -fno-warn-orphans

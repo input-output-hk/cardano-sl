@@ -4,17 +4,17 @@ module Pos.Binary.GodTossing.Types () where
 
 import           Universum
 
-import           Pos.Binary.Class                 (Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Core.Types                   (EpochIndex, EpochOrSlot, StakeholderId)
-import           Pos.Ssc.GodTossing.Core          (CommitmentsMap, Opening, OpeningsMap,
-                                                   SharesMap, SignedCommitment,
-                                                   VssCertificate, VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Genesis.Types (GenesisGtData (..))
-import           Pos.Ssc.GodTossing.Types         (GtGlobalState (..),
-                                                   GtSecretStorage (..))
-import           Pos.Ssc.GodTossing.VssCertData   (VssCertData (..))
+import           Pos.Binary.Class               (Cons (..), Field (..), deriveSimpleBi,
+                                                 deriveSimpleBiCxt)
+import           Pos.Core.Configuration         (HasConfiguration)
+import           Pos.Core.Types                 (EpochIndex, EpochOrSlot, StakeholderId)
+import           Pos.Core.Vss                   (VssCertificate, VssCertificatesMap)
+import           Pos.Ssc.GodTossing.Core        (CommitmentsMap, Opening, OpeningsMap,
+                                                 SharesMap, SignedCommitment)
+import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtSecretStorage (..))
+import           Pos.Ssc.GodTossing.VssCertData (VssCertData (..))
 
-deriveSimpleBi ''VssCertData [
+deriveSimpleBiCxt [t|HasConfiguration|] ''VssCertData [
     Cons 'VssCertData [
         Field [| lastKnownEoS :: EpochOrSlot                       |],
         Field [| certs        :: VssCertificatesMap                |],
@@ -26,7 +26,7 @@ deriveSimpleBi ''VssCertData [
                                                       VssCertificate)) |]
     ]]
 
-deriveSimpleBi ''GtGlobalState [
+deriveSimpleBiCxt [t|HasConfiguration|] ''GtGlobalState [
     Cons 'GtGlobalState [
         Field [| _gsCommitments     :: CommitmentsMap |],
         Field [| _gsOpenings        :: OpeningsMap    |],
@@ -39,9 +39,4 @@ deriveSimpleBi ''GtSecretStorage [
         Field [| gssCommitment :: SignedCommitment |],
         Field [| gssOpening    :: Opening          |],
         Field [| gssEpoch      :: EpochIndex       |]
-    ]]
-
-deriveSimpleBi ''GenesisGtData [
-    Cons 'GenesisGtData [
-        Field [| ggdVssCertificates :: VssCertificatesMap |]
     ]]

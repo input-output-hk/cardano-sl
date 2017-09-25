@@ -54,14 +54,15 @@ unionBlocks blocksA blocksB =
 
 
 
--- | Sort a list of `CTxEntries` by time in an ascending (up) order
+-- | Sort a list of `CTxEntries` by time in an ascending (up) order.
+-- | Txs that have no time (the time couldn't be calculated) will come first.
 sortTxsByTime :: CTxEntries -> CTxEntries
 sortTxsByTime txs =
     sortBy (comparing time) txs
     where
         time :: CTxEntry -> Number
         time (CTxEntry entry) =
-            unwrapSeconds $ entry ^. cteTimeIssued
+            unwrapSeconds <<< fromMaybe (mkTime 0.0) $ entry ^. cteTimeIssued
 
 -- | Sort a list of `CTxEntry` by time in a descending (down) order
 sortTxsByTime' :: CTxEntries -> CTxEntries

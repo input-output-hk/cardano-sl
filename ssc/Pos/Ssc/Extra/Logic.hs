@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Higher-level logic of SSC independent of concrete SSC.
 
@@ -27,9 +26,10 @@ module Pos.Ssc.Extra.Logic
 import           Universum
 
 import           Control.Lens             (_Wrapped)
-import           Control.Monad.Except     (MonadError, runExceptT)
-import           Control.Monad.Morph      (generalize, hoist)
+import           Control.Monad.Except     (runExceptT)
+import           Control.Monad.Morph      (hoist)
 import           Control.Monad.State      (get, put)
+import qualified Crypto.Random            as Rand
 import           Data.Tagged              (untag)
 import           Ether.Internal           (HasLens (..))
 import           Formatting               (build, int, sformat, (%))
@@ -45,8 +45,9 @@ import           Pos.DB.GState.Common     (getTipHeaderGeneric)
 import           Pos.Exception            (assertionFailed)
 import           Pos.Lrc.Context          (LrcContext, lrcActionOnEpochReason)
 import           Pos.Lrc.Types            (RichmenStakes)
+import           Pos.Reporting            (MonadReporting, reportError)
 import           Pos.Slotting.Class       (MonadSlots)
-import           Pos.Ssc.Class.Helpers    (SscHelpersClass)
+import           Pos.Ssc.Class.Helpers    (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData  (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Storage    (SscGStateClass (..))
 import           Pos.Ssc.Class.Types      (Ssc (..), SscBlock)
@@ -152,6 +153,7 @@ sscNormalize
        , SscHelpersClass ssc
        , WithLogger m
        , MonadIO m
+       , Rand.MonadRandom m
        )
     => m ()
 sscNormalize = do
@@ -161,10 +163,15 @@ sscNormalize = do
     globalVar <- sscGlobal <$> askSscMem
     localVar <- sscLocal <$> askSscMem
     gs <- atomically $ readTVar globalVar
+    seed <- Rand.drgNew
 
     launchNamedPureLog atomically $
         syncingStateWith localVar $
+        executeMonadBaseRandom seed $
         sscNormalizeU @ssc (tipEpoch, richmenData) bvd gs
+  where
+    -- (... MonadPseudoRandom) a -> (... n) a
+    executeMonadBaseRandom seed = hoist $ hoist (pure . fst . Rand.withDRG seed)
 
 -- | Reset local data to empty state.  This function can be used when
 -- we detect that something is really bad. In this case it makes sense
@@ -174,7 +181,7 @@ sscResetLocal ::
        ( MonadDBRead m
        , MonadSscMem ssc ctx m
        , SscLocalDataClass ssc
-       , MonadSlots m
+       , MonadSlots ctx m
        , MonadIO m
        )
     => m ()
@@ -187,29 +194,31 @@ sscResetLocal = do
 -- GState
 ----------------------------------------------------------------------------
 
--- 'MonadIO' is needed only for 'TVar' (I hope).
-type SscGlobalApplyMode ssc ctx m =
-    (MonadSscMem ssc ctx m, SscHelpersClass ssc, SscGStateClass ssc,
-     MonadReader ctx m, HasLens LrcContext ctx LrcContext,
-     MonadDBRead m, MonadGState m, MonadIO m, WithLogger m)
-
+-- 'MonadIO' is needed only for 'TVar' (@gromak hopes).
+-- 'MonadRandom' is needed for crypto (@neongreen hopes).
 type SscGlobalVerifyMode ssc ctx m =
     (MonadSscMem ssc ctx m, SscHelpersClass ssc, SscGStateClass ssc,
      MonadReader ctx m, HasLens LrcContext ctx LrcContext,
-     MonadDBRead m, MonadGState m, MonadIO m, WithLogger m,
-     MonadError (SscVerifyError ssc) m)
+     MonadDBRead m, MonadGState m, WithLogger m, MonadReporting ctx m,
+     MonadIO m, Rand.MonadRandom m)
+
+type SscGlobalApplyMode ssc ctx m = SscGlobalVerifyMode ssc ctx m
 
 sscRunGlobalUpdate
     :: forall ssc ctx m a.
        SscGlobalApplyMode ssc ctx m
-    => StateT (SscGlobalState ssc) (NamedPureLogger Identity) a -> m a
+    => StateT (SscGlobalState ssc)
+       (NamedPureLogger (Rand.MonadPseudoRandom Rand.ChaChaDRG)) a
+    -> m a
 sscRunGlobalUpdate action = do
     globalVar <- sscGlobal <$> askSscMem
+    seed <- Rand.drgNew
     launchNamedPureLog atomically $
         syncingStateWith globalVar $
-        switchMonadBaseIdentityToSTM action
+        executeMonadBaseRandom seed action
   where
-    switchMonadBaseIdentityToSTM = hoist $ hoist generalize
+    -- (... MonadPseudoRandom) a -> (... n) a
+    executeMonadBaseRandom seed = hoist $ hoist (pure . fst . Rand.withDRG seed)
 
 -- | Apply sequence of definitely valid blocks. Global state which is
 -- result of application of these blocks can be optionally passed as
@@ -245,7 +254,7 @@ sscVerifyValidBlocks
        SscGlobalApplyMode ssc ctx m
     => OldestFirst NE (SscBlock ssc) -> m (SscGlobalState ssc)
 sscVerifyValidBlocks blocks =
-    runExceptT (sscVerifyBlocks @ssc blocks) >>= \case
+    sscVerifyBlocks @ssc blocks >>= \case
         Left e -> onVerifyFailedInApply @ssc hashes e
         Right newState -> return newState
   where
@@ -284,12 +293,12 @@ sscRollbackBlocks blocks = sscRunGlobalUpdate $ do
 
 -- | Verify sequence of blocks and return global state which
 -- corresponds to application of given blocks. If blocks are invalid,
--- this function will return it using 'MonadError' type class.
+-- this function will return 'Left' with appropriate error.
 -- All blocks must be from the same epoch.
-sscVerifyBlocks
-    :: forall ssc ctx m.
-       SscGlobalVerifyMode ssc ctx m
-    => OldestFirst NE (SscBlock ssc) -> m (SscGlobalState ssc)
+sscVerifyBlocks ::
+       forall ssc ctx m. SscGlobalVerifyMode ssc ctx m
+    => OldestFirst NE (SscBlock ssc)
+    -> m (Either (SscVerifyError ssc) (SscGlobalState ssc))
 sscVerifyBlocks blocks = do
     let epoch = blocks ^. _Wrapped . _neHead . epochIndexL
     let lastEpoch = blocks ^. _Wrapped . _neLast . epochIndexL
@@ -304,7 +313,15 @@ sscVerifyBlocks blocks = do
     bvd <- gsAdoptedBVData
     globalVar <- sscGlobal <$> askSscMem
     gs <- atomically $ readTVar globalVar
-    execStateT (sscVerifyAndApplyBlocks @ssc richmenSet bvd blocks) gs
+    res <-
+        runExceptT
+            (execStateT (sscVerifyAndApplyBlocks @ssc richmenSet bvd blocks) gs)
+    case res of
+        Left e
+            | sscIsCriticalError @ssc e ->
+                reportError $ sformat ("Critical error in ssc: "%build) e
+        _ -> pass
+    return res
 
 ----------------------------------------------------------------------------
 -- Utils

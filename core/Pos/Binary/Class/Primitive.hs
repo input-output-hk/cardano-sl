@@ -1,12 +1,16 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Useful functions for serialization/deserialization.
 
 module Pos.Binary.Class.Primitive
        ( serialize
        , serialize'
+       -- * Deserialize inside the Decoder monad
        , deserialize
        , deserialize'
+       -- * Unsafe deserialization
+       , unsafeDeserialize
+       , unsafeDeserialize'
+       , CBOR.Write.toStrictByteString
        , putCopyBi
        , getCopyBi
        , Raw(..)
@@ -21,8 +25,18 @@ module Pos.Binary.Class.Primitive
        -- * Low-level, fine-grained functions
        , deserializeOrFail
        , deserializeOrFail'
+       -- * CBOR in CBOR
+       , encodeKnownCborDataItem
+       , encodeUnknownCborDataItem
+       , decodeKnownCborDataItem
+       , decodeUnknownCborDataItem
+       -- * Cyclic redundancy check
+       , encodeCrcProtected
+       , decodeCrcProtected
        ) where
 
+import qualified Codec.CBOR.Decoding           as D
+import qualified Codec.CBOR.Encoding           as E
 import qualified Codec.CBOR.Read               as CBOR.Read
 import qualified Codec.CBOR.Write              as CBOR.Write
 import           Control.Exception             (throw)
@@ -33,8 +47,11 @@ import qualified Data.ByteString.Lazy.Internal as BSL
 import           Data.SafeCopy                 (Contained, SafeCopy (..), contain,
                                                 safeGet, safePut)
 import qualified Data.Serialize                as Cereal (Get, Put)
+import           Data.Typeable                 (typeOf)
 
-import           Pos.Binary.Class.Core         (Bi (..))
+import           Data.Digest.CRC32             (CRC32 (..))
+import           Formatting                    (formatToString, shown, (%))
+import           Pos.Binary.Class.Core         (Bi (..), enforceSize)
 import           Serokell.Data.Memory.Units    (Byte)
 import           Universum
 
@@ -57,11 +74,23 @@ serialize' = BSL.toStrict . serialize
 -- /Throws/: @'CBOR.Read.DeserialiseFailure'@ if the given external
 -- representation is invalid or does not correspond to a value of the
 -- expected type.
-deserialize :: Bi a => BSL.ByteString -> a
-deserialize = either throw identity . bimap fst fst . deserializeOrFail
+unsafeDeserialize :: Bi a => BSL.ByteString -> a
+unsafeDeserialize = either throw identity . bimap fst fst . deserializeOrFail
 
 -- | Strict variant of 'deserialize'.
-deserialize' :: Bi a => BS.ByteString -> a
+unsafeDeserialize' :: Bi a => BS.ByteString -> a
+unsafeDeserialize' = unsafeDeserialize . BSL.fromStrict
+
+-- | Run `decodeFull` in the `Decoder` monad, failing (using Decoder.fail) in
+-- case the process failed or not the whole input was consumed.
+-- We are not generalising this function to any monad as doing so would allow
+-- us to cheat, as not all the monads have a sensible `fail` implementation.
+-- Expect the whole input to be consumed.
+deserialize :: Bi a => BSL.ByteString -> D.Decoder s a
+deserialize = either (fail . toString) return . decodeFull . BSL.toStrict
+
+-- | Strict version of `deserialize`.
+deserialize' :: Bi a => BS.ByteString -> D.Decoder s a
 deserialize' = deserialize . BSL.fromStrict
 
 -- | Deserialize a Haskell value from the external binary representation,
@@ -169,3 +198,72 @@ fromBinaryM = either (fail . toString) return . fromBinary
 biSize :: Bi a => a -> Byte
 biSize = fromIntegral . BS.length . serialize'
 {-# INLINE biSize #-}
+
+----------------------------------------------------------------------------
+-- CBORDataItem
+-- https://tools.ietf.org/html/rfc7049#section-2.4.4.1
+----------------------------------------------------------------------------
+
+-- | Encode and serialise the given `a` and sorrounds it with the semantic tag 24.
+-- In CBOR diagnostic notation:
+-- >>> 24(h'DEADBEEF')
+encodeKnownCborDataItem :: Bi a => a -> E.Encoding
+encodeKnownCborDataItem = encodeUnknownCborDataItem . serialize'
+
+-- | Like `encodeKnownCborDataItem`, but assumes nothing about the shape of
+-- input object, so that it must be passed as a binary `ByteString` blob.
+-- It's the caller responsibility to ensure the input `ByteString` correspond
+-- indeed to valid, previously-serialised CBOR data.
+encodeUnknownCborDataItem :: ByteString -> E.Encoding
+encodeUnknownCborDataItem x = E.encodeTag 24 <> encode x
+
+-- | Remove the the semantic tag 24 from the enclosed CBOR data item,
+-- failing if the tag cannot be found.
+decodeCborDataItemTag :: D.Decoder s ()
+decodeCborDataItemTag = do
+    t <- D.decodeTag
+    when (t /= 24) $ fail $
+        "decodeCborDataItem: expected a bytestring with \
+        \CBOR (marked by tag 24), found tag: " <> show t
+
+-- | Remove the the semantic tag 24 from the enclosed CBOR data item,
+-- decoding back the inner `ByteString` as a proper Haskell type.
+-- Consume its input in full.
+decodeKnownCborDataItem :: Bi a => D.Decoder s a
+decodeKnownCborDataItem = do
+    bs <- decodeUnknownCborDataItem
+    case decodeFull bs of
+        Left e  -> fail (toString e)
+        Right v -> pure v
+
+-- | Like `decodeKnownCborDataItem`, but assumes nothing about the Haskell
+-- type we want to deserialise back, therefore it yields the `ByteString`
+-- Tag 24 sorrounded (stripping such tag away).
+-- In CBOR notation, if the data was serialised as:
+-- >>> 24(h'DEADBEEF')
+-- then `decodeUnknownCborDataItem` yields the inner 'DEADBEEF', unchanged.
+decodeUnknownCborDataItem :: D.Decoder s ByteString
+decodeUnknownCborDataItem = do
+    decodeCborDataItemTag
+    D.decodeBytes
+
+-- | Encodes a type `a` , protecting it from tampering/network-transport-alteration by
+-- protecting it with a CRC.
+encodeCrcProtected :: Bi a => a -> E.Encoding
+encodeCrcProtected x = E.encodeListLen 2 <> encodeUnknownCborDataItem body <> encode (crc32 body)
+  where
+    body = serialize' x
+
+-- | Decodes a CBOR blob into a type `a`, checking the serialised CRC corresponds to the computed one.
+decodeCrcProtected :: forall s a. Bi a => D.Decoder s a
+decodeCrcProtected = do
+    enforceSize ("decodeCrcProtected: " <> show (typeOf (Proxy @a))) 2
+    body <- decodeUnknownCborDataItem
+    expectedCrc  <- decode
+    let actualCrc :: Word32
+        actualCrc = crc32 body
+    let crcErrorFmt = "decodeCrcProtected, expected CRC " % shown % " was not the computed one, which was " % shown
+    when (actualCrc /= expectedCrc) $ fail (formatToString crcErrorFmt expectedCrc actualCrc)
+    case decodeFull body of
+      Left e  -> fail (toString e)
+      Right x -> pure x

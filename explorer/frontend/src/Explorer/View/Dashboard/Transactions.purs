@@ -91,7 +91,7 @@ transactionRow :: State -> CTxEntry -> P.HTML Action
 transactionRow state (CTxEntry entry) =
     let lang' = state ^. lang
         format = translate (I18nL.common <<< I18nL.cDateFormat) lang'
-        dateValue = fromMaybe noData <<< prettyDate format $ entry ^. cteTimeIssued
+        dateValue = fromMaybe noData $ prettyDate format =<< entry ^. cteTimeIssued
         txRoute = Tx $ entry ^. cteId
     in
     S.div ! S.className "transactions__row" $ do

@@ -17,9 +17,6 @@ module Pos.Update.Core.Types
        , mkUpdateProposalWSign
        , mkSystemTag
        , systemTagMaxLength
-       , upScriptVersion
-       , upSlotDuration
-       , upMaxBlockSize
        , formatVoteShort
        , shortVoteF
 
@@ -51,6 +48,7 @@ import           Universum
 
 import           Data.Char                  (isAscii)
 import           Data.Default               (Default (def))
+import           Data.Hashable              (Hashable)
 import qualified Data.HashMap.Strict        as HM
 import qualified Data.Text                  as T
 import qualified Data.Text.Buildable        as Buildable
@@ -69,7 +67,7 @@ import           Pos.Core                   (BlockVersion, BlockVersionData (..)
                                              CoinPortion, EpochIndex, FlatSlotId,
                                              IsGenesisHeader, IsMainHeader, ScriptVersion,
                                              SoftforkRule, SoftwareVersion, TxFeePolicy,
-                                             addressHash)
+                                             addressHash, HasConfiguration)
 import           Pos.Crypto                 (Hash, PublicKey, SafeSigner,
                                              SignTag (SignUSProposal), Signature,
                                              checkSig, hash, safeSign, safeToPublic,
@@ -84,40 +82,41 @@ import           Pos.Util.Util              (Some)
 
 -- | Data which represents modifications of block (aka protocol) version.
 data BlockVersionModifier = BlockVersionModifier
-    { bvmScriptVersion     :: !ScriptVersion
-    , bvmSlotDuration      :: !Millisecond
-    , bvmMaxBlockSize      :: !Byte
-    , bvmMaxHeaderSize     :: !Byte
-    , bvmMaxTxSize         :: !Byte
-    , bvmMaxProposalSize   :: !Byte
-    , bvmMpcThd            :: !CoinPortion
-    , bvmHeavyDelThd       :: !CoinPortion
-    , bvmUpdateVoteThd     :: !CoinPortion
-    , bvmUpdateProposalThd :: !CoinPortion
-    , bvmUpdateImplicit    :: !FlatSlotId
+    { bvmScriptVersion     :: !(Maybe ScriptVersion)
+    , bvmSlotDuration      :: !(Maybe Millisecond)
+    , bvmMaxBlockSize      :: !(Maybe Byte)
+    , bvmMaxHeaderSize     :: !(Maybe Byte)
+    , bvmMaxTxSize         :: !(Maybe Byte)
+    , bvmMaxProposalSize   :: !(Maybe Byte)
+    , bvmMpcThd            :: !(Maybe CoinPortion)
+    , bvmHeavyDelThd       :: !(Maybe CoinPortion)
+    , bvmUpdateVoteThd     :: !(Maybe CoinPortion)
+    , bvmUpdateProposalThd :: !(Maybe CoinPortion)
+    , bvmUpdateImplicit    :: !(Maybe FlatSlotId)
     , bvmSoftforkRule      :: !(Maybe SoftforkRule)
     , bvmTxFeePolicy       :: !(Maybe TxFeePolicy)
     , bvmUnlockStakeEpoch  :: !(Maybe EpochIndex)
     } deriving (Show, Eq, Generic, Typeable)
 
 instance NFData BlockVersionModifier
+instance Hashable BlockVersionModifier
 
 instance Buildable BlockVersionModifier where
     build BlockVersionModifier {..} =
-      bprint ("{ scripts v"%build%
-              ", slot duration: "%int%" mcs"%
-              ", block size limit: "%memory%
-              ", header size limit: "%memory%
-              ", tx size limit: "%memory%
-              ", proposal size limit: "%memory%
-              ", mpc threshold: "%build%
-              ", heavyweight delegation threshold: "%build%
-              ", update vote threshold: "%build%
-              ", update proposal threshold: "%build%
-              ", update implicit period: "%int%" slots"%
-              ", "%builder%
-              ", "%builder%
-              ", unlock stake epoch: "%build%
+      bprint ("{ scripts v"%bmodifier build%
+              ", slot duration (mcs): "%bmodifier int%
+              ", block size limit: "%bmodifier memory%
+              ", header size limit: "%bmodifier memory%
+              ", tx size limit: "%bmodifier memory%
+              ", proposal size limit: "%bmodifier memory%
+              ", mpc threshold: "%bmodifier build%
+              ", heavyweight delegation threshold: "%bmodifier build%
+              ", update vote threshold: "%bmodifier build%
+              ", update proposal threshold: "%bmodifier build%
+              ", update implicit period (slots): "%bmodifier int%
+              ", softfork rule: "%bmodifier build%
+              ", tx fee policy: "%bmodifier build%
+              ", unlock stake epoch: "%bmodifier build%
               " }")
         bvmScriptVersion
         bvmSlotDuration
@@ -130,15 +129,12 @@ instance Buildable BlockVersionModifier where
         bvmUpdateVoteThd
         bvmUpdateProposalThd
         bvmUpdateImplicit
-        softforkRuleBuilder
-        feePolicyBuilder
+        bvmSoftforkRule
+        bvmTxFeePolicy
         bvmUnlockStakeEpoch
       where
-        feePolicyBuilder =
-            maybe "no tx fee policy" (bprint build) bvmTxFeePolicy
-        softforkRuleBuilder =
-            maybe "no softfork rule" (mappend "softfork rule: " . bprint build)
-                  bvmSoftforkRule
+        bmodifier :: Format Builder (a -> Builder) -> Format r (Maybe a -> r)
+        bmodifier b = later $ maybe "no change" (bprint b)
 
 -- | Tag of system for which update data is purposed, e.g. win64, mac32
 newtype SystemTag = SystemTag { getSystemTag :: Text }
@@ -185,8 +181,10 @@ data UpdateProposal = UnsafeUpdateProposal
     , upSignature       :: !(Signature UpdateProposalToSign)
     } deriving (Eq, Show, Generic, Typeable)
 
+instance Hashable UpdateProposal
+
 mkUpdateProposal
-    :: (MonadFail m, Bi UpdateProposalToSign)
+    :: (HasConfiguration, MonadFail m, Bi UpdateProposalToSign)
     => BlockVersion
     -> BlockVersionModifier
     -> SoftwareVersion
@@ -203,8 +201,6 @@ mkUpdateProposal
     upAttributes
     upFrom
     upSignature = do
-        when (HM.null upData) $ -- Check if proposal data is non-empty
-            fail "UpdateProposal: empty proposal data"
         let toSign =
                 UpdateProposalToSign
                     upBlockVersion
@@ -217,7 +213,7 @@ mkUpdateProposal
         pure UnsafeUpdateProposal{..}
 
 mkUpdateProposalWSign
-    :: (MonadFail m, Bi UpdateProposalToSign)
+    :: (HasConfiguration, MonadFail m, Bi UpdateProposalToSign)
     => BlockVersion
     -> BlockVersionModifier
     -> SoftwareVersion
@@ -232,8 +228,6 @@ mkUpdateProposalWSign
     upData
     upAttributes
     ss = do
-        when (HM.null upData) $ -- Check if proposal data is non-empty
-            fail "UpdateProposal: empty proposal data"
         let toSign =
                 UpdateProposalToSign
                     upBlockVersion
@@ -274,15 +268,6 @@ instance (Bi UpdateProposal) =>
             up
             (map formatVoteShort votes)
 
-upScriptVersion :: UpdateProposal -> ScriptVersion
-upScriptVersion = bvmScriptVersion . upBlockVersionMod
-
-upSlotDuration :: UpdateProposal -> Millisecond
-upSlotDuration = bvmSlotDuration . upBlockVersionMod
-
-upMaxBlockSize :: UpdateProposal -> Byte
-upMaxBlockSize = bvmMaxBlockSize . upBlockVersionMod
-
 -- | Data which describes update. It is specific for each system.
 data UpdateData = UpdateData
     { udAppDiffHash  :: !(Hash Raw)
@@ -307,6 +292,20 @@ instance NFData UpdateProposal
 -- Proper NFData Millisecond instance should be defined in
 -- time-units. I'm sorry for this. volhovm.
 instance NFData UpdateData
+
+instance Hashable UpdateData
+
+instance Buildable UpdateData where
+    build UpdateData {..} =
+      bprint ("{ appDiff: "%build%
+              ", pkg: "%build%
+              ", updater: "%build%
+              ", metadata: "%build%
+              " }")
+        udAppDiffHash
+        udPkgHash
+        udUpdaterHash
+        udMetadataHash
 
 ----------------------------------------------------------------------------
 -- UpdateVote and related

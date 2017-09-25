@@ -9,14 +9,15 @@ module Pos.Ssc.GodTossing.Toss.Trans
        , execTossT
        ) where
 
+import           Universum
+
 import           Control.Lens                  (at, (%=), (.=))
-import qualified Data.HashMap.Strict           as HM
 import qualified Ether
 import           Mockable                      (ChannelT, Promise, SharedAtomicT,
                                                 ThreadId)
-import           Universum
 
-import           Pos.Ssc.GodTossing.Core       (deleteSignedCommitment, getCertId,
+import           Pos.Core.Vss                  (insertVss)
+import           Pos.Ssc.GodTossing.Core       (deleteSignedCommitment,
                                                 insertSignedCommitment)
 import           Pos.Ssc.GodTossing.Toss.Class (MonadToss (..), MonadTossEnv (..),
                                                 MonadTossRead (..))
@@ -33,20 +34,20 @@ import           Pos.Util.Util                 (ether)
 --
 -- [WARNING] This transformer uses StateT and is intended for
 -- single-threaded usage only.
-type TossT = Ether.LazyStateT' TossModifier
+type TossT = Ether.StateT' TossModifier
 
 ----------------------------------------------------------------------------
 -- Runners
 ----------------------------------------------------------------------------
 
 runTossT :: TossModifier -> TossT m a -> m (a, TossModifier)
-runTossT = flip Ether.runLazyStateT
+runTossT = flip Ether.runStateT
 
 evalTossT :: Monad m => TossModifier -> TossT m a -> m a
-evalTossT = flip Ether.evalLazyStateT
+evalTossT = flip Ether.evalStateT
 
 execTossT :: Monad m => TossModifier -> TossT m a -> m TossModifier
-execTossT = flip Ether.execLazyStateT
+execTossT = flip Ether.execStateT
 
 ----------------------------------------------------------------------------
 -- MonadToss
@@ -73,8 +74,12 @@ instance MonadToss m =>
         ether $ tmOpenings . at id .= Just op
     putShares id sh =
         ether $ tmShares . at id .= Just sh
+    -- NB. 'insertVss' might delete some certs from the map, but it
+    -- shouldn't actually happen in practice because
+    -- 'checkCertificatesPayload' ensures that there are no clashes between
+    -- the certificates in blocks and certificates in the map
     putCertificate cert =
-        ether $ tmCertificates %= HM.insert (getCertId cert) cert
+        ether $ tmCertificates %= fst . insertVss cert
     delCommitment id =
         ether $ tmCommitments %= deleteSignedCommitment id
     delOpening id =

@@ -34,7 +34,7 @@ import Prelude
 import Data.Types as DT
 import Pos.Core.Types as C
 import Pos.Util.BackupPhrase as BP
-import Pos.Wallet.Web.ClientTypes as CT
+import Pos.Wallet.Web.ClientTypes.Types as CT
 import Pos.Wallet.Web.Error.Types as E
 import Control.Monad.Eff (Eff)
 import Control.Monad.Eff.Exception (EXCEPTION, Error, error, throw)
@@ -44,14 +44,13 @@ import Data.Argonaut.Core (fromString)
 import Data.Argonaut.Generic.Aeson (decodeJson)
 import Data.Array (length, filter)
 import Data.Either (either, Either(..))
-import Data.Foreign (F, Foreign, isNull, readString)
-import Data.Foreign.Null (readNull, unNull, Null)
+import Data.Foreign (F, Foreign, isNull, readString, readNull)
 import Data.Int53 (fromInt)
-import Data.Maybe (Maybe(Nothing))
+import Data.Maybe (Maybe(..))
 import Data.String (split, null, trim, joinWith, Pattern(..))
 import Data.Types (mkTime)
 import Pos.Util.BackupPhrase (BackupPhrase(..))
-import Pos.Wallet.Web.ClientTypes (CId(..), CHash(..), CPassPhrase(..), CCoin(..), Wal(..), CAccountId(..), CWalletMeta(..))
+import Pos.Wallet.Web.ClientTypes.Types (CId(..), CHash(..), CPassPhrase(..), CCoin(..), Wal(..), CAccountId(..), CWalletMeta(..))
 
 space :: Pattern
 space = Pattern " "
@@ -105,7 +104,7 @@ emptyCPassPhrase = CPassPhrase ""
 
 -- | Create/Make password from foreign javascript code. Return errors if you
 -- find them.
-mkCPassPhrase :: forall eff. Foreign -> Eff (err :: EXCEPTION | eff) (Maybe CPassPhrase)
+mkCPassPhrase :: forall eff. Foreign -> Eff (exception :: EXCEPTION | eff) (Maybe CPassPhrase)
 mkCPassPhrase pass = do
   optionalPass <- optionalString pass "password"
   pure $ CPassPhrase <<< bytesToB16 <<< blake2b <$> optionalPass
@@ -113,16 +112,16 @@ mkCPassPhrase pass = do
 -- | We take a @Foreign@ parameter and if it's null, we return it as @Nothing@,
 -- and if it's not null, we try to parse it as a @String@, and return errors
 -- associated with converting.
-optionalString :: forall eff. Foreign -> String -> Eff (err :: EXCEPTION | eff) (Maybe String)
+optionalString :: forall eff. Foreign -> String -> Eff (exception :: EXCEPTION | eff) (Maybe String)
 optionalString string paramName =
     if (isNull string)
     then pure Nothing
-    else either (const raiseError) pure runForeignRead
+    else either (const raiseError) pure $ runExcept theReadString
   where
-    runForeignRead = runExcept $ unNull <$> theReadString
-    -- type F (Maybe String) = ExceptT (NonEmptyList ForeignError) Identity (Maybe String)
-    theReadString :: F (Null String)
-    theReadString = readNull readString string
+    theReadString :: F (Maybe String)
+    theReadString
+        | isNull string = pure Nothing
+        | otherwise = map Just $ readString string
 
     raiseError = throw ("Error with converting parameter '" <> paramName <> "' to string.")
 

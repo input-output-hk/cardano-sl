@@ -36,7 +36,7 @@ import           Serokell.Util.Base16 (base16F)
 import           Universum
 
 import           Pos.Binary.Core      ()
-import           Pos.Core             (StakeholderId)
+import           Pos.Core             (HasConfiguration, StakeholderId)
 import           Pos.Crypto           (SafeSigner, SignTag (SignTx), deterministicKeyGen,
                                        fullPublicKeyHexF, fullSignatureHexF, hashHexF,
                                        safeSign, safeToPublic, signRaw, signTag)
@@ -124,17 +124,16 @@ goodStdlibRedeemer = fromE $ parseRedeemer [text|
 --   -> Comp Unit
 
 
--- #82 is prefix for encoded constructor
--- #5820 is prefix for encoded bytestrings
-multisigValidator :: Int -> [StakeholderId] -> Script
+-- #5820 is prefix for encoded bytestrings (of length 32)
+multisigValidator :: HasConfiguration => Int -> [StakeholderId] -> Script
 multisigValidator n ids = fromE $ parseValidator [text|
     validator : List (Maybe (Pair ByteString ByteString)) -> Comp Unit {
         validator sigs = verifyMultiSig
             ${shownN} ${shownIds}
             (!concatenate ${shownTag}
-                (!concatenate
-                    (!concatenate #825820 (txhash))
-                    (!concatenate #5820 (txdistrhash))))
+                (!concatenate #5820 (txhash)
+                )
+            )
             sigs }
     |]
   where
@@ -143,7 +142,7 @@ multisigValidator n ids = fromE $ parseValidator [text|
     shownIds = foldr mkCons "Nil" ids
     shownTag = sformat ("#"%base16F) (signTag SignTx)
 
-multisigRedeemer :: TxSigData -> [Maybe SafeSigner] -> Script
+multisigRedeemer :: HasConfiguration => TxSigData -> [Maybe SafeSigner] -> Script
 multisigRedeemer txSigData sks = fromE $ parseRedeemer [text|
     redeemer : Comp (List (Maybe (Pair ByteString ByteString))) {
         redeemer = success ${shownSigs} }
@@ -211,7 +210,7 @@ shaStressRedeemer n = fromE $ parseRedeemer [text|
     ns = show (n `div` 10)
 
 -- | Checks a signature N times. Should be used with 'idValidator'.
-sigStressRedeemer :: Int -> Script
+sigStressRedeemer :: HasConfiguration => Int -> Script
 sigStressRedeemer n = fromE $ parseRedeemer [text|
     sigLoop : Int -> Bool {
       sigLoop i = case !equalsInt i 0 of {

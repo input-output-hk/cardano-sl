@@ -34,21 +34,20 @@ set -o pipefail
 # NOTE
 # You can try building any of these modes, but in some branches some of
 # these modes may be unavailable (no genesis).
-# For example, if there is no testnet compatible with this version, it doesn't
-# make sense to support `--tn' mode.
+# See constants.yaml for more information on different compilation modes.
+#
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #   Mode                             Options
 #   :
 #   dev mode                            <nothing>
+#   Testnet public mode with wallet     --tnp
+#   Testnet public mode without wallet  --tnp --no-wallet
 #   Testnet staging mode with wallet    --tns
 #   Testnet staging mode without wallet --tns --no-wallet
-#   Testnet mode with wallet            --tn
-#   Testnet mode without wallet         --tn --no-wallet
-#   Qanet mode with wallet              --qa
-#   Qanet mode with wallet              --qa
-#   US testing mode without wallet      --qa-upd --no-wallet
-#   US testing mode without wallet      --qa-upd --no-wallet
-#   Mode used by Travis CI              --travis
+#   Dev long epoch mode with wallet     --dnl
+#   Dev long epoch mode without wallet  --dnl --no-wallet
+#   Dev short epoch mode with wallet    --dns
+#   Dev short epoch mode without wallet --dns --no-wallet
 
 # CUSTOMIZATIONS
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -58,8 +57,10 @@ set -o pipefail
 # * Pass -Werror or do `touch .Werror` if you want to compile with -Werror.
 # * Pass --for-installer to enable 'for-installer' flag (which means that most
 #   of executables won't be built).
+# * Pass --no-asserts to disable asserts.
+# * Pass --bench-mode to use the configuration used by modern benchmarks.
 
-# We can't have lwallet, wallet or explorer here, because it depends on 'cardano-sl'.
+# We can't have auxx, wallet or explorer here, because it depends on 'cardano-sl'.
 projects="core db lrc infra update ssc godtossing txp"
 
 args=''
@@ -78,6 +79,9 @@ explorer=true
 no_code=false
 werror=false
 for_installer=false
+asserts=true
+bench_mode=false
+no_fast=false
 
 if [ -e .no-nix ]; then
   no_nix=true
@@ -115,23 +119,20 @@ do
   elif [[ $var == "-Werror" ]]; then
     werror=true
   # Production modes
+  elif [[ $var == "--tnp" ]]; then
+    prodMode="testnet_public"
+    prodModesCounter=$((prodModesCounter+1))
   elif [[ $var == "--tns" ]]; then
     prodMode="testnet_staging"
     prodModesCounter=$((prodModesCounter+1))
-  elif [[ $var == "--tn" ]]; then
-    prodMode="testnet"
+  elif [[ $var == "--dnl" ]]; then
+    prodMode="devnet_longep"
     prodModesCounter=$((prodModesCounter+1))
-  elif [[ $var == "--qa" ]]; then
-    prodMode="qanet_tns"
-    prodModesCounter=$((prodModesCounter+1))
-  elif [[ $var == "--qa-upd" ]]; then
-    prodMode="qanet_upd"
-    prodModesCounter=$((prodModesCounter+1))
-  elif [[ $var == "--travis" ]]; then
-    prodMode="travis"
+  elif [[ $var == "--dns" ]]; then
+    prodMode="devnet_shortep"
     prodModesCounter=$((prodModesCounter+1))
   elif [[ $var == "--prod" ]]; then
-    echo "--prod flag is outdated, use one of --qa, --tn, --tns, --qa-upd, --travis" >&2
+    echo "--prod flag is outdated, see this script documentation, section MODES" >&2
     exit 12
   # --no-wallet = don't build in wallet mode
   elif [[ $var == "--no-wallet" ]]; then
@@ -145,6 +146,20 @@ do
   # disabling --fast
   elif [[ $var == "-O2" ]]; then
     no_fast=true
+  # disabling asserts
+  elif [[ $var == "--no-asserts" ]]; then
+    asserts=false
+  # benchmarks config
+  elif [[ $var == "--bench-mode" ]]; then
+    # We want:
+    # • --flag cardano-sl-core:dev-mode (default)
+    # • --flag cardano-sl-core:-asserts ($asserts)
+    # • compiler optimizations ($no_fast)
+    # • disable explorer ($explorer)
+    bench_mode=true
+    no_fast=true
+    asserts=false
+    explorer=false
   # project name = build only the project
   # (for “godtossing” we allow “gt” as an alias)
   elif [[ $var == "sl" ]]; then
@@ -153,8 +168,8 @@ do
     spec_prj="sl+"
   elif [[ $var == "gt" ]]; then
     spec_prj="godtossing"
-  elif [[ $var == "lwallet" ]]; then
-    spec_prj="lwallet"
+  elif [[ $var == "auxx" ]]; then
+    spec_prj="auxx"
   elif [[ $var == "wallet" ]]; then
     spec_prj="wallet"
   elif [[ $var == "explorer" ]]; then
@@ -170,8 +185,15 @@ do
 done
 
 if [[ $prodModesCounter -gt 1 ]]; then
-  echo "More than one of --tns --tn --qa specified" >&2
+  echo "More than one build mode specified" >&2
   exit 23
+fi
+
+if [[ $prodModesCounter -gt 0 ]]; then
+  if [[ $bench_mode == true ]]; then
+    echo "Prod mode can't be used with bench mode" >&2
+    exit 26
+  fi
 fi
 
 commonargs='--test --no-haddock-deps --bench --jobs=4'
@@ -181,9 +203,10 @@ if [[ $no_nix == true ]]; then
   commonargs="$commonargs --no-nix"
 fi
 
+export CSL_SYSTEM_TAG=linux64
+
 if [[ "$prodMode" != "" ]]; then
   commonargs="$commonargs --flag cardano-sl-core:-dev-mode"
-  export CSL_SYSTEM_TAG=linux64
 fi
 
 if [[ $explorer == false ]]; then
@@ -198,19 +221,30 @@ if [[ $for_installer == true ]]; then
   commonargs="$commonargs --flag cardano-sl-tools:for-installer"
 fi
 
-# CONFIG = dev, prod, or wallet
-dconfig=dev
+if [[ $asserts == false ]]; then
+  commonargs="$commonargs --flag cardano-sl-core:-asserts"
+fi
+
+# CONFIG
+if [[ $bench_mode == true ]]; then
+  dconfig=benchmark
+else
+  dconfig=dev
+fi
 if [[ "$prodMode" != "" ]]; then
   dconfig=$prodMode
   if [[ $wallet == true ]]; then
     dconfig="${dconfig}_wallet"
+  else
+    dconfig="${dconfig}_full"
   fi
 fi
-ghc_opts="-DCONFIG=$dconfig"
+ghc_opts="-DGITREV=`git rev-parse HEAD`"
 
-if [[ $no_fast == true ]];
-  then fast=""
-  else fast="--fast"
+if [[ $no_fast == true ]]; then
+  fast=""
+else
+  fast="--fast"
 fi
 
 if [[ $werror == true ]];
@@ -231,8 +265,8 @@ if [[ $clean == true ]]; then
   echo "Cleaning cardano-sl-tools"
   stack clean cardano-sl-tools
 
-  echo "Cleaning cardano-sl-lwallet"
-  stack clean cardano-sl-lwallet
+  echo "Cleaning cardano-sl-auxx"
+  stack clean cardano-sl-auxx
 
   echo "Cleaning cardano-sl-wallet"
   stack clean cardano-sl-wallet
@@ -256,18 +290,18 @@ if [[ $spec_prj == "" ]]; then
     to_build="$to_build cardano-sl-$prj"
   done
 
-  to_build="$to_build cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-wallet cardano-sl-explorer"
+  to_build="$to_build cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet cardano-sl-explorer"
 
 elif [[ $spec_prj == "sl" ]]; then
   to_build="cardano-sl"
-elif [[ $spec_prj == "lwallet" ]]; then
-  to_build="cardano-sl-lwallet"
+elif [[ $spec_prj == "auxx" ]]; then
+  to_build="cardano-sl-auxx"
 elif [[ $spec_prj == "wallet" ]]; then
   to_build="cardano-sl-wallet"
 elif [[ $spec_prj == "explorer" ]]; then
   to_build="cardano-sl-explorer"
 elif [[ $spec_prj == "sl+" ]]; then
-  to_build="cardano-sl cardano-sl-lwallet cardano-sl-tools cardano-sl-explorer cardano-sl-wallet "
+  to_build="cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-explorer cardano-sl-wallet "
 else
   to_build="cardano-sl-$spec_prj"
 fi
@@ -291,6 +325,8 @@ echo "'explorer' flag: $explorer"
 for prj in $to_build; do
 
   echo -e "Building $prj\n"
+
+  # Building deps
   sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun --dependencies-only $args $prj"
   echo -e "$sbuild\n"
   eval $sbuild
@@ -301,13 +337,10 @@ for prj in $to_build; do
     ghc_opts_2="$ghc_opts"
   fi
 
-  stack build                               \
-      --ghc-options="$ghc_opts_2"           \
-      $commonargs $norun                    \
-      $fast                                 \
-      $args                                 \
-      $prj                                  \
-      2>&1                                  \
+  sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun $fast $args $prj"
+  echo -e "$sbuild\n"
+
+  eval $sbuild 2>&1                         \
     | perl -pe "$xperl"                     \
     | { grep -E --color "$xgrep" || true; }
 done

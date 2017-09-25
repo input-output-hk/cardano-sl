@@ -1,5 +1,5 @@
 name:                cardano-sl-core
-version:             0.5.1
+version:             0.6.2
 synopsis:            Cardano SL - core
 description:         Cardano SL - core
 license:             MIT
@@ -10,8 +10,6 @@ copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
-data-files:
-  constants.yaml
 
 flag asserts
   default:     True
@@ -23,18 +21,6 @@ flag dev-mode
 
   description: Switch between Development and Production mode
 
-flag dev-custom-config
-  default:     False
-  manual:      True
-
-  description: Enable this to allow setting CONFIG manually, as in --ghc-options=-DCONFIG=benchmark
-
-flag embed-config
-  default:     False
-  manual:      True
-
-  description: Embed the config even if Development mode is enabled
-
 library
   exposed-modules:
                        Pos.Arbitrary.Core
@@ -42,25 +28,42 @@ library
                        Pos.Arbitrary.Crypto
                        Pos.Arbitrary.Crypto.Unsafe
 
+                       Pos.Aeson.Core
+                       Pos.Aeson.Core.Configuration
+                       Pos.Aeson.Crypto
+                       Pos.Aeson.Fee
+                       Pos.Aeson.Genesis
+
+
                        Pos.Core
                        Pos.Core.Address
                        Pos.Core.Block
                        Pos.Core.BlockVersionData
                        Pos.Core.Class
-                       Pos.Core.Coin
+                       Pos.Core.Configuration
+                       Pos.Core.Configuration.BlockVersionData
+                       Pos.Core.Configuration.Core
+                       Pos.Core.Configuration.GeneratedSecrets
+                       Pos.Core.Configuration.GenesisData
+                       Pos.Core.Configuration.GenesisHash
+                       Pos.Core.Configuration.Protocol
                        Pos.Core.Constants
+                       Pos.Core.Coin
                        Pos.Core.Context
                        Pos.Core.Fee
-                       Pos.Core.Fee.Config
                        Pos.Core.Script
                        Pos.Core.SharedSeed
                        Pos.Core.Slotting
                        Pos.Core.Timestamp
                        Pos.Core.Types
                        Pos.Core.Version
+                       Pos.Core.Vss
+                       Pos.Core.Vss.Types
 
                        Pos.Core.Genesis
-                       Pos.Core.Genesis.Parser
+                       Pos.Core.Genesis.Canonical
+                       Pos.Core.Genesis.Constants
+                       Pos.Core.Genesis.Generate
                        Pos.Core.Genesis.Types
 
                        Pos.Crypto
@@ -69,11 +72,18 @@ library
                        Pos.Crypto.HD
                        Pos.Crypto.Random
                        Pos.Crypto.Hashing
-                       Pos.Crypto.SafeSigning
                        Pos.Crypto.Signing
-                       Pos.Crypto.SignTag
+                       Pos.Crypto.Signing.Tag
+                       Pos.Crypto.Signing.Redeem
+                       Pos.Crypto.Signing.Safe
+                       Pos.Crypto.Signing.Signing
+                       Pos.Crypto.Signing.Types
+                       Pos.Crypto.Signing.Types.Tag
+                       Pos.Crypto.Signing.Types.Redeem
+                       Pos.Crypto.Signing.Types.Safe
+                       Pos.Crypto.Signing.Types.Signing
+                       Pos.Crypto.Scrypt
                        Pos.Crypto.SecretSharing
-                       Pos.Crypto.RedeemSigning
 
                        Pos.Merkle
                        Pos.Data.Attributes
@@ -96,46 +106,39 @@ library
                        Pos.Binary.Core.Version
                        Pos.Binary.Core.Genesis
 
+                       Pos.System.Metrics.Constants
+
                        Pos.Util.Arbitrary
                        Pos.Util.Concurrent
+                       Pos.Util.Concurrent.LockedTVar
+                       Pos.Util.Concurrent.PriorityLock
                        Pos.Util.Concurrent.RWLock
                        Pos.Util.Concurrent.RWVar
                        Pos.Util.Chrono
-                       Pos.Util.Config
                        Pos.Util.HVect
                        Pos.Util.Limits
                        Pos.Util.LRU
                        Pos.Util.Mnemonics
                        Pos.Util.Modifier
+                       Pos.Util.Future
+                       Pos.Util.Queue
                        Pos.Util.Util
 
   other-modules:
-                       Pos.Core.Constants.Raw
-                       Pos.Core.Constants.Typed
-                       Pos.Util.Config.Path
-                       Pos.Util.Config.Contents
-                       Pos.Util.Config.Get
+                       Pos.Core.Context.PrimaryKey
 
   build-depends:       QuickCheck
                      , aeson
+                     , ansi-terminal
                      , autoexporter
                      , base
+                     , base16-bytestring
                      , base58-bytestring
-                     , cborg
-                     , concurrent-extra
-                     , ether >= 0.5
-                     , exceptions
-                     , log-warper >= 1.0.3
-                     , mmorph
-                     , reflection
-                     , resourcet
-                     , stm
-                     , transformers
-                     , transformers-base
-                     , transformers-lift
                      , binary
                      , bytestring
+                     , canonical-json
                      , cardano-crypto
+                     , cborg
                      , cereal
                      , concurrent-extra
                      , containers
@@ -148,14 +151,19 @@ library
                      , digest
                      , directory
                      , ed25519
+                     , ether >= 0.5
+                     , exceptions
+                     , extra
                      , file-embed
                      , filepath
                      , formatting
                      , generic-arbitrary
                      , hashable
                      , lens
+                     , log-warper >= 1.0.3
                      , lrucache
                      , memory
+                     , mmorph
                      , mtl
                      , node-sketch
                      , parsec
@@ -163,7 +171,10 @@ library
                      , pvss
                      , quickcheck-instances
                      , random
+                     , reflection
+                     , resourcet
                      , safecopy
+                     , scrypt >= 0.5
                      , semigroups
                      , serokell-util
                      , stm
@@ -171,9 +182,13 @@ library
                      , template-haskell
                      , text
                      , text-format
+                     , th-lift-instances
                      , th-utilities
                      , time
                      , time-units
+                     , transformers
+                     , transformers-base
+                     , transformers-lift
                      , universum
                      , unordered-containers
                      , vector
@@ -202,6 +217,7 @@ library
                        UndecidableInstances
                        BangPatterns
                        TemplateHaskell
+                       ScopedTypeVariables
 
   ghc-options:         -Wall
                        -fno-warn-orphans
@@ -213,7 +229,3 @@ library
     cpp-options: -DASSERTS_ON
   if flag(dev-mode)
     cpp-options: -DDEV_MODE
-    if !flag(dev-custom-config)
-      cpp-options: -DCONFIG=dev
-  if flag(embed-config) || !flag(dev-mode)
-    cpp-options: -DEMBED_CONFIG

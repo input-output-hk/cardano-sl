@@ -14,35 +14,32 @@ import           Universum           hiding (over)
 import           Data.Maybe          (fromJust)
 import           Formatting          (sformat, shown, (%))
 import           Mockable            (Production, currentTime, runProduction)
-import           System.Wlog         (logError, logInfo)
 
 import           Pos.Binary          ()
-import qualified Pos.CLI             as CLI
+import           Pos.Client.CLI      (CommonNodeArgs (..))
+import qualified Pos.Client.CLI      as CLI
 import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec, worker)
 import           Pos.Context         (HasNodeContext)
-import           Pos.Core.Types      (Timestamp (..))
-import           Pos.Launcher        (NodeParams (..), NodeResources (..),
-                                      bracketNodeResources, runNode)
+import           Pos.Core            (Timestamp (..), gdStartTime, genesisData)
+import           Pos.Launcher        (HasConfigurations, NodeParams (..),
+                                      NodeResources (..), bracketNodeResources, runNode,
+                                      withConfigurations)
 import           Pos.Ssc.Class       (SscParams)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
-import           Pos.Ssc.NistBeacon  (SscNistBeacon)
-import           Pos.Ssc.SscAlgo     (SscAlgo (..))
 import           Pos.Util.UserSecret (usVss)
-import           Pos.WorkMode        (WorkMode)
-import           Pos.Web             (serveWebGT)
 import           Pos.Wallet.Web      (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
                                       runWRealMode, walletServeWebFull, walletServerOuts)
+import           Pos.Web             (serveWebGT)
+import           Pos.WorkMode        (WorkMode)
 
-import           Pos.Client.CLI.NodeOptions (SimpleNodeArgs (..))
-import           Pos.Client.CLI.Params (getSimpleNodeParams, gtSscParams)
-import           Pos.Client.CLI.Util (printFlags)
+import           NodeOptions         (WalletArgs (..), WalletNodeArgs (..),
+                                      getWalletNodeOptions)
+import           Params              (getNodeParams)
 
-import           NodeOptions (WalletNodeArgs(..), WalletArgs(..), getWalletNodeOptions)
-
-actionWithWallet :: SscParams SscGodTossing -> NodeParams -> WalletArgs -> Production ()
+actionWithWallet :: HasConfigurations => SscParams SscGodTossing -> NodeParams -> WalletArgs -> Production ()
 actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
     bracketWalletWebDB walletDbPath walletRebuildDb $ \db ->
-        bracketWalletWS $ \conn -> do
+        bracketWalletWS $ \conn ->
             bracketNodeResources nodeParams sscParams $ \nr@NodeResources {..} ->
                 runWRealMode
                     db
@@ -51,47 +48,47 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
                     (runNode @SscGodTossing nr plugins)
   where
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
-    plugins :: ([WorkerSpec WalletWebMode], OutSpecs)
+    plugins :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
     plugins = convPlugins (pluginsGT wArgs) <> walletProd wArgs
 
-walletProd :: WalletArgs -> ([WorkerSpec WalletWebMode], OutSpecs)
+walletProd :: HasConfigurations => WalletArgs -> ([WorkerSpec WalletWebMode], OutSpecs)
 walletProd WalletArgs {..} = first pure $ worker walletServerOuts $ \sendActions ->
     walletServeWebFull
         sendActions
         walletDebug
-        walletPort
+        walletAddress
         (Just walletTLSParams)
 
 pluginsGT ::
     ( WorkMode SscGodTossing ctx m
     , HasNodeContext SscGodTossing ctx
+    , HasConfigurations
     ) => WalletArgs -> [m ()]
 pluginsGT WalletArgs {..}
     | enableWeb = [serveWebGT webPort (Just walletTLSParams)]
     | otherwise = []
 
 action :: WalletNodeArgs -> Production ()
-action (WalletNodeArgs (snArgs@SimpleNodeArgs {..}) (wArgs@WalletArgs {..})) = do
-    systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
-    logInfo $ sformat ("System start time is " % shown) systemStart
-    t <- currentTime
-    logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-    currentParams <- getSimpleNodeParams snArgs systemStart
-    putText $ "Running using " <> show (CLI.sscAlgo commonArgs)
-    putText $ "Wallet is enabled!"
+action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
+    withConfigurations conf $ do
+        whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData
+        putText $ sformat ("System start time is " % shown) $ gdStartTime genesisData
+        t <- currentTime
+        putText $ sformat ("Current time is " % shown) (Timestamp t)
+        currentParams <- getNodeParams cArgs
+        putText $ "Wallet is enabled!"
+        putText $ sformat ("Using configs and genesis:\n"%shown) conf
 
-    let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-    let gtParams = gtSscParams snArgs vssSK
+        let vssSK = fromJust $ npUserSecret currentParams ^. usVss
+        let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-    let sscParams :: Either (SscParams SscNistBeacon) (SscParams SscGodTossing)
-        sscParams = bool (Left ()) (Right gtParams) (CLI.sscAlgo commonArgs == GodTossingAlgo)
-    case sscParams of
-        (Left _)     -> logError "Wallet does not support NIST beacon!"
-        (Right par)  -> actionWithWallet par currentParams wArgs
+        actionWithWallet gtParams currentParams wArgs
+  where
+    conf = CLI.configurationOptions (CLI.commonArgs cArgs)
 
 main :: IO ()
 main = do
     args <- getWalletNodeOptions
-    printFlags
+    CLI.printFlags
     putText "[Attention] Software is built with wallet part"
-    runProduction (action args)
+    runProduction $ action args

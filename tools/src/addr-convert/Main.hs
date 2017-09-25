@@ -4,8 +4,6 @@ module Main (main) where
 
 import           Universum
 
-import qualified Data.ByteString              as BS
-import qualified Data.Text                    as T
 import           Data.Version                 (showVersion)
 import           NeatInterpolation            (text)
 import           Options.Applicative          (Parser, execParser, footerDoc, fullDesc,
@@ -13,11 +11,10 @@ import           Options.Applicative          (Parser, execParser, footerDoc, fu
                                                long, metavar, option, optional, progDesc,
                                                short)
 import           Options.Applicative.Types    (readerAsk)
-import qualified Serokell.Util.Base64         as B64
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl             (version)
-import           Pos.Crypto                   (RedeemPublicKey (..), redeemPkBuild)
+import           Pos.Aeson.Genesis            (fromAvvmPk)
 import           Pos.Types                    (makeRedeemAddress)
 
 data AddrConvertOptions = AddrConvertOptions
@@ -66,21 +63,6 @@ main = do
     case address of
         Just addr -> convertAddr addr >>= putText
         Nothing   -> forever (getLine >>= convertAddr >>= putText)
-
--- | Read the text into a redeeming public key.
---
--- Copied from keygen/Avvm.hs.
-fromAvvmPk :: (MonadFail m, Monad m) => Text -> m RedeemPublicKey
-fromAvvmPk addrText = do
-    let base64rify = T.replace "-" "+" . T.replace "_" "/"
-    let parsedM = B64.decode $ base64rify addrText
-    addrParsed <-
-        maybe (fail $ "Address " <> toString addrText <> " is not base64(url) format")
-        pure
-        (rightToMaybe parsedM)
-    unless (BS.length addrParsed == 32) $
-        fail "Address' length is not equal to 32, can't be redeeming pk"
-    pure $ redeemPkBuild addrParsed
 
 convertAddr :: Text -> IO Text
 convertAddr addr = pretty . makeRedeemAddress <$> fromAvvmPk (toText addr)

@@ -18,15 +18,13 @@ nix:
   enable: true
 ```
 
-Also, we need to have `cardano-sl` project (cloned) locally. If you use the same folder to place the two - `cardano-sl` and `cardano-sl-explorer`, things will be easier. The `cardano-sl` branch is defined in `cardano-sl-explorer` `stack.yaml`.
-
 
 ## Short version of installation
 
 #### Build in `development` mode
 
 ```bash
-cd ./frontend
+cd {path/to}/cardano-sl/explorer/frontend
 ./scripts/build.sh server:dev
 ```
 
@@ -34,7 +32,7 @@ cd ./frontend
 #### Build in `production` mode
 
 ```bash
-cd ./frontend
+cd {path/to}/cardano-sl/explorer/frontend
 ./scripts/build.sh
 ```
 
@@ -54,9 +52,9 @@ To match all needed backend types of `cardano-sl-explorer` you do need to genera
 Use latest executable of `cardano-sl-explorer`:
 
 ```bash
-git clone https://github.com/input-output-hk/cardano-sl-explorer
-cd {path/to/}cardano-sl-explorer
-stack build
+git clone https://github.com/input-output-hk/cardano-sl
+cd cardano-sl
+scripts/build/cardano-sl.sh explorer
 ```
 
 #### 1.2. Generate types
@@ -94,18 +92,11 @@ which purescript-derive-lenses
 ```
 
 
-#### 2.2. Generate backend lenses
+#### 2.2. Generate lenses
 
 ```bash
 cd ./frontend
-./scripts/generate-backend-lenses.sh
-```
-
-#### 2.3. Generate front end lenses
-
-```bash
-cd ./frontend
-./scripts/generate-frontend-lenses.sh
+./scripts/generate-explorer-lenses.sh
 ```
 
 
@@ -153,13 +144,13 @@ tmux
 
 - Generate keys
 ```bash
-cd {path/to/}cardano-sl
+cd {path/to}/cardano-sl
 stack exec cardano-keygen -- --dump-dev-genesis-keys keys/{}.key
 ```
 - Add key as follow:
 
   ```bash
-  cd {path/to/}cardano-sl
+  cd {path/to}/cardano-sl
   # build backend types
   stack exec -- cardano-wallet-hs2purs
   # build daedalus bridge
@@ -169,27 +160,23 @@ stack exec cardano-keygen -- --dump-dev-genesis-keys keys/{}.key
   # use node REPL to import key
   node
   > var api = require('../output/Daedalus.ClientApi')
-  # TODO: Add information about how to get `ca.crt`
-  > var tls = api.tlsInit('/home/jk/Wrk/iohk/repos/cardano-sl/ca.crt')
-  > api.importKey(tls, '{/path/to/cardano-sl/keys/{number}.key').then(console.log).catch(console.log)
+  undefined
+  > var js = require('../src/tls_workaround.js')
+  undefined
+  > var ca = js.readCA('{path/to}/cardano-sl/scripts/tls-files/ca.crt')
+  undefined
+  > var tls = api.tlsInit(ca)
+  undefined
+  > api.importWallet(tls, '{path/to}/cardano-sl/keys/2.key', null).then(console.log).catch(console.log)
   ```
   For recent API of `daedalus-bridge` check documentation of [`CARDANO SL WALLET FRONTEND`](https://cardanodocs.com/technical/wallet-frontend/)
 
 *2. Run `cardano-sl-explorer` (in another terminal window)*
 
-This is for the *DEV* version.
-If you have `cardano-sl-explorer` and `cardano-sl` in the same folder:
-
 ```bash
-cd {path/to/}cardano-sl-explorer
-./start-dev.sh
-```
-
-If you have `cardano-sl-explorer` and `cardano-sl` in different folders:
-
-```bash
-cd {path/to/}cardano-sl-explorer
-./start-dev.sh {path/to/}cardano-sl
+cd {path/to}/cardano-sl
+tmux
+./scripts/launch/explorer-with-nodes.sh
 ```
 
 *2.1 Solving issues*
@@ -201,7 +188,7 @@ cardano-explorer: Internal "Key file access mode is incorrect. Set it to 600 and
 
 - Solution:
 ```
-cd {path/to/}cardano-sl-explorer
+cd {path/to}/cardano-sl/explorer
 rm secret.key secret.key.lock
 ```
 

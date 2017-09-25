@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Main
   ( main
@@ -12,14 +11,17 @@ import qualified Data.Aeson                 as A
 import           Data.Attoparsec.ByteString (eitherResult, many', parseWith)
 import qualified Data.ByteString            as BS
 import qualified Data.ByteString.Lazy       as LBS
+import           Data.Default               (def)
 import qualified Data.HashMap.Strict        as HM
 import           Data.Time.Clock            (UTCTime)
 import           Data.Time.Clock.POSIX      (posixSecondsToUTCTime)
 import           Data.Time.Units            (Millisecond)
 import           Formatting                 (fixed, int, sformat, shown, string, (%))
+import           System.Wlog                (usingLoggerName)
 
 import           AnalyzerOptions            (Args (..), getAnalyzerOptions)
-import           Pos.Core                   (BlockCount)
+import           Pos.Core                   (BlockCount, HasConfiguration)
+import           Pos.Launcher               (withConfigurations)
 import           Pos.Types                  (flattenSlotId, unflattenSlotId)
 import           Pos.Util                   (mapEither)
 import           Pos.Util.JsonLog           (JLBlock (..), JLEvent (..),
@@ -30,26 +32,28 @@ type TxId = Text
 type BlockId = Text
 
 main :: IO ()
-main = do
-    Args {..} <- getAnalyzerOptions
-    logs <- parseFiles files
+main = usingLoggerName "analyzer" $ withConfigurations def $ do
+    Args {..} <- liftIO $ getAnalyzerOptions
+    logs <- liftIO $ parseFiles files
 
     case txFile of
         Nothing   -> pure ()
-        Just file -> analyzeVerifyTimes file confirmationParam logs
+        Just file -> liftIO $ analyzeVerifyTimes file confirmationParam logs
 
     let tpsLogs :: HM.HashMap FilePath [(UTCTime, Double)]
         tpsLogs = getTpsLog <$> logs
 
-    for_ (HM.toList tpsLogs) $ \(file, ds) -> do
+    liftIO $ for_ (HM.toList tpsLogs) $ \(file, ds) -> do
         let csvFile = tpsCsvFilename file
         putText $ sformat ("Writing TPS stats to file: "%string) csvFile
         writeFile csvFile $ tpsToCsv ds
 
-analyzeVerifyTimes :: FilePath
-                   -> BlockCount
-                   -> HM.HashMap FilePath [JLTimed JLEvent]
-                   -> IO ()
+analyzeVerifyTimes
+    :: HasConfiguration
+    => FilePath
+    -> BlockCount
+    -> HM.HashMap FilePath [JLTimed JLEvent]
+    -> IO ()
 analyzeVerifyTimes txFile cParam logs = do
     (txSenderMap :: HashMap TxId Integer) <-
         HM.fromList . fromMaybe (error "failed to read txSenderMap") . decode <$>
@@ -68,9 +72,11 @@ analyzeVerifyTimes txFile cParam logs = do
         length common
     print averageMsec
 
-getTxAcceptTimeAvgs :: BlockCount
-                    -> HM.HashMap FilePath [JLTimed JLEvent]
-                    -> HM.HashMap TxId Integer
+getTxAcceptTimeAvgs
+    :: HasConfiguration
+    => BlockCount
+    -> HM.HashMap FilePath [JLTimed JLEvent]
+    -> HM.HashMap TxId Integer
 getTxAcceptTimeAvgs confirmations fileEvsMap = result
   where
     n = HM.size fileEvsMap

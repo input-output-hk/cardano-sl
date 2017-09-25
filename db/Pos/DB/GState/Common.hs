@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Common functions used by different parts of GState DB.
 
@@ -7,11 +6,10 @@ module Pos.DB.GState.Common
        (
          -- * Getters
          getTip
-       , getBot
        , getMaxSeenDifficulty
+       , getMaxSeenDifficultyMaybe
        , getTipBlockGeneric
        , getTipHeaderGeneric
-       , getTipSomething
 
          -- * Initialization
        , isInitialized
@@ -33,8 +31,10 @@ import qualified Database.RocksDB    as Rocks
 import           Formatting          (bprint, int, sformat, stext, (%))
 import           Universum
 
-import           Pos.Binary.Class    (Bi, serialize')
+import           Pos.Binary.Class    (Bi)
 import           Pos.Binary.Crypto   ()
+import           Pos.Binary.Core.Types ()
+import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Types      (ChainDifficulty, HeaderHash)
 import           Pos.Crypto          (shortHashF)
 import           Pos.DB.BatchOp      (RocksBatchOp (..), dbWriteBatch')
@@ -42,7 +42,7 @@ import           Pos.DB.Class        (DBTag (GStateDB),
                                       MonadBlockDBGeneric (dbGetBlock, dbGetHeader),
                                       MonadDB (dbDelete), MonadDBRead)
 import           Pos.DB.Error        (DBError (DBMalformed))
-import           Pos.DB.Functions    (dbGetBi, dbPutBi)
+import           Pos.DB.Functions    (dbGetBi, dbPutBi, dbSerializeValue)
 import           Pos.Util.Util       (maybeThrow)
 
 ----------------------------------------------------------------------------
@@ -72,10 +72,6 @@ writeBatchGState = dbWriteBatch' GStateDB
 -- | Get current tip from GState DB.
 getTip :: MonadDBRead m => m HeaderHash
 getTip = maybeThrow (DBMalformed "no tip in GState DB") =<< getTipMaybe
-
--- | Get the hash of the first genesis block from GState DB.
-getBot :: MonadDBRead m => m HeaderHash
-getBot = maybeThrow (DBMalformed "no bot in GState DB") =<< getBotMaybe
 
 -- | Get maximum seen chain difficulty (used to prevent improper rollbacks).
 getMaxSeenDifficulty :: MonadDBRead m => m ChainDifficulty
@@ -119,11 +115,11 @@ instance Buildable CommonOp where
     build (PutMaxSeenDifficulty d) =
         bprint ("PutMaxSeenDifficulty ("%int%")") d
 
-instance RocksBatchOp CommonOp where
+instance HasConfiguration => RocksBatchOp CommonOp where
     toBatchOp (PutTip h) =
-        [Rocks.Put tipKey (serialize' h)]
+        [Rocks.Put tipKey (dbSerializeValue h)]
     toBatchOp (PutMaxSeenDifficulty h) =
-        [Rocks.Put maxSeenDifficultyKey (serialize' h)]
+        [Rocks.Put maxSeenDifficultyKey (dbSerializeValue h)]
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -133,7 +129,6 @@ instance RocksBatchOp CommonOp where
 initGStateCommon :: (MonadDB m) => HeaderHash -> m ()
 initGStateCommon initialTip = do
     putTip initialTip
-    putBot initialTip
     putMaxSeenDifficulty 0
 
 -- | Checks if gstate is initialized.
@@ -156,9 +151,6 @@ initKey = "init/gstate"
 tipKey :: ByteString
 tipKey = "c/tip"
 
-botKey :: ByteString
-botKey = "c/bot"
-
 maxSeenDifficultyKey :: ByteString
 maxSeenDifficultyKey = "c/maxsd"
 
@@ -169,17 +161,11 @@ maxSeenDifficultyKey = "c/maxsd"
 getTipMaybe :: MonadDBRead m => m (Maybe HeaderHash)
 getTipMaybe = gsGetBi tipKey
 
-getBotMaybe :: MonadDBRead m => m (Maybe HeaderHash)
-getBotMaybe = gsGetBi botKey
-
 getMaxSeenDifficultyMaybe :: MonadDBRead m => m (Maybe ChainDifficulty)
 getMaxSeenDifficultyMaybe = gsGetBi maxSeenDifficultyKey
 
 putTip :: MonadDB m => HeaderHash -> m ()
 putTip = gsPutBi tipKey
-
-putBot :: MonadDB m => HeaderHash -> m ()
-putBot = gsPutBi botKey
 
 putMaxSeenDifficulty :: MonadDB m => ChainDifficulty -> m ()
 putMaxSeenDifficulty = gsPutBi maxSeenDifficultyKey

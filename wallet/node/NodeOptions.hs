@@ -10,26 +10,26 @@ module NodeOptions
        , getWalletNodeOptions
        ) where
 
-import           Data.Version               (showVersion)
-import           Options.Applicative        (Parser, execParser, footerDoc, fullDesc,
-                                             header, help, helper, info, infoOption, long,
-                                             progDesc, strOption, switch, value)
-import qualified Options.Applicative        as Opt
-import           Universum                  hiding (show)
+import           Data.Version        (showVersion)
+import           Options.Applicative (Parser, execParser, footerDoc, fullDesc, header,
+                                      help, helper, info, infoOption, long, progDesc,
+                                      strOption, switch, value)
+import qualified Options.Applicative as Opt
+import           Universum           hiding (show)
 
-import           Paths_cardano_sl           (version)
-import qualified Pos.CLI                    as CLI
-import           Pos.Client.CLI.NodeOptions (SimpleNodeArgs (..), simpleNodeArgsParser,
-                                             usageExample)
-import           Pos.Web.Types              (TlsParams (..))
+import           Paths_cardano_sl    (version)
+import           Pos.Client.CLI      (CommonNodeArgs (..))
+import qualified Pos.Client.CLI      as CLI
+import           Pos.Util.TimeWarp   (NetworkAddress, localhost)
+import           Pos.Web.Types       (TlsParams (..))
 
-data WalletNodeArgs = WalletNodeArgs SimpleNodeArgs WalletArgs
+data WalletNodeArgs = WalletNodeArgs CommonNodeArgs WalletArgs
 
 data WalletArgs = WalletArgs
     { enableWeb       :: !Bool
     , webPort         :: !Word16
     , walletTLSParams :: !TlsParams
-    , walletPort      :: !Word16
+    , walletAddress   :: !NetworkAddress
     , walletDbPath    :: !FilePath
     , walletRebuildDb :: !Bool
     , walletDebug     :: !Bool
@@ -37,15 +37,14 @@ data WalletArgs = WalletArgs
 
 walletArgsParser :: Parser WalletNodeArgs
 walletArgsParser = do
-    simpleNodeArgs <- simpleNodeArgsParser
+    commonNodeArgs <- CLI.commonNodeArgsParser
     enableWeb <- switch $
         long "web" <>
         help "Activate web API (it’s not linked with a wallet web API)."
     webPort <-
         CLI.webPortOption 8080 "Port for web API."
     walletTLSParams <- tlsParamsOption
-    walletPort <-
-        CLI.walletPortOption 8090 "Port for Daedalus Wallet API."
+    walletAddress <- CLI.walletAddressOption $ Just (localhost, 8090)
     walletDbPath <- strOption $
         long  "wallet-db-path" <>
         help  "Path to the wallet's database." <>
@@ -59,7 +58,7 @@ walletArgsParser = do
         help "Run wallet with debug params (e.g. include \
              \all the genesis keys in the set of secret keys)."
 
-    pure $ WalletNodeArgs simpleNodeArgs WalletArgs{..}
+    pure $ WalletNodeArgs commonNodeArgs WalletArgs{..}
 
 getWalletNodeOptions :: IO WalletNodeArgs
 getWalletNodeOptions = execParser programInfo
@@ -67,12 +66,11 @@ getWalletNodeOptions = execParser programInfo
     programInfo = info (helper <*> versionOption <*> walletArgsParser) $
         fullDesc <> progDesc "Cardano SL main server node w/ wallet."
                  <> header "Cardano SL node."
-                 <> footerDoc usageExample
+                 <> footerDoc CLI.usageExample
 
     versionOption = infoOption
         ("cardano-node-" <> showVersion version)
         (long "version" <> help "Show version.")
-
 
 tlsParamsOption :: Opt.Parser TlsParams
 tlsParamsOption = do

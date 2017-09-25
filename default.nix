@@ -3,89 +3,92 @@ let
 in
 { system ? builtins.currentSystem
 , config ? {}
-, dconfig ? "testnet_staging"
-, pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; }) }:
+, gitrev ? "unknown"
+, pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; })
+# profiling slows down performance by 50% so we don't enable it by default
+, enableProfiling ? false
+}:
 
 with pkgs.lib;
-with (import <nixpkgs/pkgs/development/haskell-modules/lib.nix> { inherit pkgs; });
+with pkgs.haskell.lib;
 
 let
   addConfigureFlags = flags: drv: overrideCabal drv (drv: {
     configureFlags = flags;
   });
-  cleanSource2 = builtins.filterSource (name: type: let
-      f1 = cleanSourceFilter name type;
-      baseName = baseNameOf (toString name);
-      f2 = ! (type == "symlink" && hasSuffix ".root" baseName);
-      f3 = ! (hasSuffix ".root" baseName);
-      f4 = ! (baseName == ".stack-work");
-      f5 = ! (hasSuffix ".nix" baseName);
-      f6 = ! (hasSuffix ".swp" baseName);
-    in f1 && f2 && f3 && f4 && f5 && f6);
-in ((import ./pkgs { inherit pkgs; }).override {
-  overrides = self: super: {
-    cardano-sl = overrideCabal super.cardano-sl (drv: {
-      src = cleanSource2 drv.src;
-      testTarget = "--test-option='--skip=Block.Logic.Var'";
-      patchPhase = ''
-       export CSL_SYSTEM_TAG=${if pkgs.stdenv.isDarwin then "macos" else "linux64"}
-      '';
-      # production full nodes shouldn't use wallet as it means different constants
-      configureFlags = [
-        "-f-asserts"
-        "-f-dev-mode"
-        "--ghc-option=-optl-lm"
-      ];
-      # waiting on load-command size fix in dyld
-      doCheck = ! pkgs.stdenv.isDarwin;
-    });
-    cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
-      src = cleanSource2 drv.src;
-      configureFlags = [
-        "-f-embed-config"
-        "-f-asserts"
-        "-f-dev-mode"
-        "--ghc-options=-DCONFIG=${dconfig}"
-      ];
-    });
-    cardano-sl-tools = overrideCabal super.cardano-sl-tools (drv: {
-      src = cleanSource2 drv.src;
-      # waiting on load-command size fix in dyld
-      doCheck = ! pkgs.stdenv.isDarwin;
-    });
-    # TODO: patch cabal2nix to allow this
-    cardano-sl-db = overrideCabal super.cardano-sl-db (drv: { src = cleanSource2 drv.src; });
-    cardano-sl-infra = overrideCabal super.cardano-sl-infra (drv: { src = cleanSource2 drv.src; });
-    cardano-sl-lrc = overrideCabal super.cardano-sl-lrc (drv: { src = cleanSource2 drv.src; });
-    cardano-sl-ssc = overrideCabal super.cardano-sl-ssc (drv: { src = cleanSource2 drv.src; });
-    cardano-sl-txp = overrideCabal super.cardano-sl-txp (drv: { src = cleanSource2 drv.src; });
-    cardano-sl-update = overrideCabal super.cardano-sl-update (drv: { src = cleanSource2 drv.src; });
-    cardano-sl-godtossing = overrideCabal super.cardano-sl-godtossing (drv: { src = cleanSource2 drv.src; });
-    cardano-sl-lwallet = overrideCabal super.cardano-sl-lwallet (drv: { src = cleanSource2 drv.src; });
+  cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
+    overrides = self: super: {
+      cardano-sl = overrideCabal super.cardano-sl (drv: {
+        # production full nodes shouldn't use wallet as it means different constants
+        configureFlags = [
+          "-f-asserts"
+          "-f-dev-mode"
+        ];
+        testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
+        preCheck = ''
+          mkdir -p dist/test
+          touch dist/test/test.log
+          tail -F dist/test/test.log &
+          export TAILPID=$!
+        '';
+        postCheck = ''
+          sleep 10
+          kill $TAILPID
+        '';
+        # waiting on load-command size fix in dyld
+        doCheck = ! pkgs.stdenv.isDarwin;
+        enableExecutableProfiling = enableProfiling;
+        passthru = {
+          inherit enableProfiling;
+        };
+      });
+      cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
+        configureFlags = [
+          "-f-asserts"
+          "-f-dev-mode"
+          "--ghc-options=-DGITREV=${gitrev}"
+        ];
+      });
 
-    cardano-sl-static = justStaticExecutables self.cardano-sl;
-    cardano-sl-explorer-static = justStaticExecutables self.cardano-sl-explorer;
+      cardano-sl-wallet = justStaticExecutables super.cardano-sl-wallet;
+      cardano-sl-tools = justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
+        # waiting on load-command size fix in dyld
+        doCheck = ! pkgs.stdenv.isDarwin;
+      }));
 
-    # Gold linker fixes
-    cryptonite = addConfigureFlags ["--ghc-option=-optl-pthread"] super.cryptonite;
+      cardano-sl-static = justStaticExecutables self.cardano-sl;
+      cardano-sl-explorer-static = justStaticExecutables self.cardano-sl-explorer;
+      cardano-report-server-static = justStaticExecutables self.cardano-report-server;
 
-    # Darwin fixes upstreamed in nixpkgs commit 71bebd52547f4486816fd320bb3dc6314f139e67
-    hinotify = if pkgs.stdenv.isDarwin then self.hfsevents else super.hinotify;
-    hfsevents = self.callPackage ./pkgs/hfsevents.nix { inherit (pkgs.darwin.apple_sdk.frameworks) Cocoa CoreServices; };
-    fsnotify = if pkgs.stdenv.isDarwin
-      then addBuildDepend (dontCheck super.fsnotify) pkgs.darwin.apple_sdk.frameworks.Cocoa
-      else dontCheck super.fsnotify;
+      # Undo configuration-nix.nix change to hardcode security binary on darwin
+      # This is needed for macOS binary not to fail during update system (using http-client-tls)
+      # Instead, now the binary is just looked up in $PATH as it should be installed on any macOS
+      x509-system = overrideDerivation super.x509-system (drv: {
+        postPatch = ":";
+      });
 
+      # Gold linker fixes
+      cryptonite = addConfigureFlags ["--ghc-option=-optl-pthread"] super.cryptonite;
 
-    mkDerivation = args: super.mkDerivation (args // {
-      #enableLibraryProfiling = true;
-    });
+      # Darwin fixes upstreamed in nixpkgs commit 71bebd52547f4486816fd320bb3dc6314f139e67
+      hinotify = if pkgs.stdenv.isDarwin then self.hfsevents else super.hinotify;
+      hfsevents = self.callPackage ./pkgs/hfsevents.nix { inherit (pkgs.darwin.apple_sdk.frameworks) Cocoa CoreServices; };
+      fsnotify = if pkgs.stdenv.isDarwin
+        then addBuildDepend (dontCheck super.fsnotify) pkgs.darwin.apple_sdk.frameworks.Cocoa
+        else dontCheck super.fsnotify;
+
+      mkDerivation = args: super.mkDerivation (args // {
+        enableLibraryProfiling = enableProfiling;
+      });
+    };
+  });
+  upstream = {
+    stack2nix = import (pkgs.fetchFromGitHub {
+      owner = "input-output-hk";
+      repo = "stack2nix";
+      rev = "be52e67113332280911bcc4924d42f90e21f1144";
+      sha256 = "13n7gjyzll3prvdsb6kjyxk9g0by5bv0q34ld7a2nbvdcl1q67fb";
+    }) { inherit pkgs; };
+    inherit (pkgs) purescript;
   };
-}) // {
-  stack2nix = import (pkgs.fetchFromGitHub {
-    owner = "input-output-hk";
-    repo = "stack2nix";
-    rev = "9e9676b919cc38df203fbfc1316891815e27c37b";
-    sha256 = "0rsfwxrhrq72y2rai4sidpihlnxfjvnaaa7qk94179ghjqs47hvv";
-  }) { inherit pkgs; };
-}
+in cardanoPkgs // upstream

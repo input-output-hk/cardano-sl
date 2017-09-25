@@ -1,9 +1,10 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 -- | A wrapper over Plutus (the scripting language used in transactions).
+
 module Pos.Script
        ( Script(..)
-       , TxScriptError
+       , PlutusError(..)
 
        , txScriptCheck
 
@@ -19,9 +20,12 @@ import           Control.Exception          (ArithException (..), ArrayException
                                              ErrorCall (..), Handler (..),
                                              PatternMatchFail (..), SomeException (..),
                                              catches, displayException, throwIO)
+import           Control.Lens               (_Left)
+import           Control.Monad.Error.Class  (MonadError, throwError)
 import qualified Data.ByteArray             as BA
 import qualified Data.ByteString.Lazy       as BSL
 import qualified Data.Set                   as S
+import qualified Data.Text.Buildable        as Buildable
 import qualified Elaboration.Contexts       as PL
 import qualified Interface.Integration      as PL
 import qualified Interface.Prelude          as PL
@@ -79,58 +83,67 @@ parseRedeemer t = do
         scrScript = Bi.serialize' scr,
         scrVersion = 0 }
 
-{-
-
 -- | The type for errors that can appear when validating a script-protected
 -- transaction.
-data TxScriptError
-      -- | The validator doesn't provide a @validator@ function.
-    = InvalidValidator
-      -- | The redeemer doesn't provide a @redeemer@ function.
-    | InvalidRedeemer
-      -- | The validator and the redeemer have incompatible types and can't
-      -- be combined.
-    | TypeMismatch
-      -- | Some error (like an 'error' being thrown by script evaluator)
-    | Exception
-      -- | Everything typechecks but the result of evaluation isn't @success@
-      -- and so the transaction is invalid.
-    | ValidationFail
+data PlutusError
+    -- | A script has a version that we don't know how to execute.
+    = PlutusUnknownVersion ScriptVersion
+    -- | A script couldn't be deserialized.
+    | PlutusDecodingFailure Text
+    -- | The script evaluator refused to execute the program (e.g. it
+    -- doesn't typecheck, or the evaluator has run out of petrol).
+    | PlutusExecutionFailure Text
+    -- | The script evaluator threw an __exception__ (e.g. with 'error').
+    | PlutusException Text
+    -- | Everything typechecks and executes just fine but the result of
+    -- evaluation is @failure@ and so the transaction is invalid.
+    | PlutusReturnedFalse
+    deriving (Eq, Show, Generic, NFData)
 
--}
-
-type TxScriptError = String
+instance Buildable PlutusError where
+    build (PlutusUnknownVersion v) =
+        "unknown script version: " <> Buildable.build v
+    build (PlutusDecodingFailure s) =
+        "script decoding failure: " <> Buildable.build s
+    build (PlutusExecutionFailure s) =
+        "script execution failure: " <> Buildable.build s
+    build (PlutusException s) =
+        "Plutus threw an exception: " <> Buildable.build s
+    build PlutusReturnedFalse =
+        "script execution resulted in 'failure'"
 
 -- | Validate a transaction, given a validator and a redeemer.
 txScriptCheck
-    :: Bi Script_v0
+    :: (MonadError PlutusError m, Bi Script_v0)
     => TxSigData
     -> Script                     -- ^ Validator
     -> Script                     -- ^ Redeemer
-    -> Either TxScriptError ()
+    -> m ()
 txScriptCheck sigData validator redeemer = case spoon result of
-    Left x              -> Left ("exception when evaluating a script: " ++ x)
-    Right (Left x)      -> Left x
-    Right (Right False) -> Left "result of evaluation is 'failure'"
-    Right (Right True)  -> Right ()
+    Left err            -> throwError (PlutusException (toText err))
+    Right (Left err)    -> throwError err
+    Right (Right False) -> throwError PlutusReturnedFalse
+    Right (Right True)  -> pass
   where
-    result :: Either String Bool
+    result :: Either PlutusError Bool
     result = do
         -- TODO: when we support more than one version, complain if versions
         -- don't match
         valScr <- case scrVersion validator of
-            0 -> first toString $ Bi.decodeFull $ scrScript validator
-            v -> Left ("unknown script version of validator: " ++ show v)
+            0 -> over _Left PlutusDecodingFailure $
+                     Bi.decodeFull (scrScript validator)
+            v -> Left (PlutusUnknownVersion v)
         redScr <- case scrVersion redeemer of
-            0 -> first toString $ Bi.decodeFull $ scrScript redeemer
-            v -> Left ("unknown script version of redeemer: " ++ show v)
-        (script, env) <- PL.buildValidationScript stdlib valScr redScr
+            0 -> over _Left PlutusDecodingFailure $
+                     Bi.decodeFull (scrScript redeemer)
+            v -> Left (PlutusUnknownVersion v)
+        (script, env) <- over _Left (PlutusExecutionFailure . toText) $
+            PL.buildValidationScript stdlib valScr redScr
         let txInfo = PLCore.TransactionInfo
                 { txHash      = BSL.fromStrict . BA.convert $
-                                txSigTxHash sigData
-                , txDistrHash = BSL.fromStrict . BA.convert $
-                                txSigTxDistrHash sigData }
-        PL.checkValidationResult txInfo (script, env)
+                                txSigTxHash sigData }
+        over _Left (PlutusExecutionFailure . toText) $
+            PL.checkValidationResult txInfo (script, env)
 
 stdlib :: PL.DeclContext
 stdlib = case PL.loadLibrary PL.emptyDeclContext prelude of

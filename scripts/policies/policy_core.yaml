@@ -1,0 +1,101 @@
+enqueue:
+
+  announceBlockHeader:
+    - all:
+        nodeType: 'core'
+        maxAhead: 0
+        precedence: 'highest'
+    - all:
+        nodeType: 'relay'
+        maxAhead: 0
+        precedence: 'high'
+
+  requestBlockHeaders:
+    - all:
+        nodeType: 'core'
+        maxAhead: 2
+        precedence: 'high'
+    - all:
+        nodeType: 'relay'
+        maxAhead: 2
+        precedence: 'high'
+
+  requestBlocks:
+    - one:
+        nodeTypes: ['core', 'relay']
+        maxAhead: 3
+        precedence: 'high'
+
+  mpc:
+    send:
+      - all:
+          nodeType: 'core'
+          maxAhead: 2
+          precedence: 'medium'
+    forward:
+      - all:
+          nodeType: 'core'
+          maxAhead: 2
+          precedence: 'medium'
+
+  transaction:
+    send:
+      - all:
+          nodeType: 'core'
+          maxAhead: 20
+          precedence: 'low'
+    forward:
+      - all:
+          nodeType: 'core'
+          maxAhead: 20
+          precedence: 'low'
+
+dequeue:
+
+  core:
+    maxInFlight: 3
+
+  relay:
+    maxInFlight: 2
+
+  # Core never dequeues to edge.
+  # Safe to use 0 for both of these? At most 0 per second and at most 0 in
+  # flight? Hopefully the outbound queue handles that gracefully.
+  edge:
+    rateLimit: 0
+    maxInFlight: 0
+
+failure:
+
+  core:
+    announceBlockHeader: 200
+    requestBlockHeaders: 200
+    requestBlocks: 200
+    transaction:
+      send: 200
+      forward: 200
+    mpc:
+      send: 200
+      forward: 200
+
+  relay:
+    announceBlockHeader: 200
+    requestBlockHeaders: 200
+    requestBlocks: 200
+    transaction:
+      send: 200
+      forward: 200
+    mpc:
+      send: 200
+      forward: 200
+
+  edge:
+    announceBlockHeader: 200
+    requestBlockHeaders: 200
+    requestBlocks: 200
+    transaction:
+      send: 200
+      forward: 200
+    mpc:
+      send: 200
+      forward: 200

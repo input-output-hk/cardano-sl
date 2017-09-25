@@ -6,12 +6,14 @@ import           Data.Time.Units            (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..),
-                                             deriveSimpleBi)
+                                             deriveSimpleBi, deriveSimpleBiCxt)
 import           Pos.Binary.Core.Coin       ()
 import           Pos.Binary.Core.Fee        ()
 import           Pos.Binary.Core.Script     ()
 import           Pos.Binary.Core.Version    ()
+import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
 import qualified Pos.Core.Fee               as T
+import qualified Pos.Core.Slotting          as T
 import qualified Pos.Core.Types             as T
 import qualified Pos.Data.Attributes        as A
 
@@ -32,7 +34,7 @@ instance Bi T.EpochIndex where
 
 instance Bi (A.Attributes ()) where
   encode = A.encodeAttributes []
-  decode = A.decodeAttributes () $ \_ _ _ -> Nothing
+  decode = A.decodeAttributes () $ \_ _ _ -> pure Nothing
 
 instance Bi T.CoinPortion where
   encode = encode . T.getCoinPortion
@@ -42,21 +44,21 @@ instance Bi T.CoinPortion where
       Left err          -> fail err
       Right coinPortion -> return coinPortion
 
-instance Bi T.LocalSlotIndex where
-  encode = encode . T.getSlotIndex
-  decode = do
-    word16 <- decode @Word16
-    case T.mkLocalSlotIndex word16 of
-      Left err        -> fail ("decode@LocalSlotIndex: " <> toString err)
-      Right slotIndex -> return slotIndex
+instance HasProtocolConstants => Bi T.LocalSlotIndex where
+    encode = encode . T.getSlotIndex
+    decode = do
+        word16 <- decode @Word16
+        case T.mkLocalSlotIndex word16 of
+            Left err        -> fail ("decode@LocalSlotIndex: " <> toString err)
+            Right slotIndex -> return slotIndex
 
-deriveSimpleBi ''T.SlotId [
+deriveSimpleBiCxt [t| HasProtocolConstants |] ''T.SlotId [
     Cons 'T.SlotId [
         Field [| T.siEpoch :: T.EpochIndex     |],
         Field [| T.siSlot  :: T.LocalSlotIndex |]
     ]]
 
-instance Bi T.EpochOrSlot where
+instance HasProtocolConstants => Bi T.EpochOrSlot where
   encode (T.EpochOrSlot e) = encode e
   decode = T.EpochOrSlot <$> decode @(Either T.EpochIndex T.SlotId)
 

@@ -1,6 +1,5 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DataKinds  #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Protocol/versioning related communication helpers.
 
@@ -19,14 +18,17 @@ module Pos.Communication.Protocol
        , toAction
        , unpackLSpecs
        , hoistMkListeners
-       , onNewSlotWorker
-       , localOnNewSlotWorker
-       , onNewSlotWithLoggingWorker
        , makeSendActions
        , makeEnqueueMsg
        , checkingInSpecs
        , constantListeners
+
+       -- * OnNewSlot workers
+       , onNewSlotWorker
+       , localOnNewSlotWorker
        ) where
+
+import           Universum
 
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.List.NonEmpty               as NE
@@ -38,16 +40,16 @@ import qualified Node                             as N
 import           Node.Message.Class               (Message (..), MessageCode, messageCode)
 import           Serokell.Util.Text               (listJson)
 import           System.Wlog                      (WithLogger, logWarning)
-import           Universum
 
 import           Pos.Communication.Types.Protocol
+import           Pos.Core.Configuration           (HasConfiguration)
 import           Pos.Core.Types                   (SlotId)
 import           Pos.KnownPeers                   (MonadFormatPeers)
 import           Pos.Recovery.Info                (MonadRecoveryInfo)
 import           Pos.Reporting                    (HasReportingContext)
 import           Pos.Shutdown                     (HasShutdownContext)
 import           Pos.Slotting                     (MonadSlots)
-import           Pos.Slotting.Util                (onNewSlot, onNewSlotImpl)
+import           Pos.Slotting.Util                (onNewSlot)
 
 mapListener
     :: (forall t. m t -> m t) -> Listener m -> Listener m
@@ -154,7 +156,7 @@ alternativeConversations nid ourVerInfo theirVerInfo convs =
     fstArg _ = Proxy
 
     logOSNR (Right e@(OutSpecNotReported _ _)) = logWarning $ sformat build e
-    logOSNR _                                = pure ()
+    logOSNR _                                  = pure ()
 
     checkingOutSpecs' nodeId peerInSpecs conv@(Conversation h) =
         checkingOutSpecs (sndMsgCode, ConvHandler rcvMsgCode) nodeId peerInSpecs conv
@@ -221,7 +223,7 @@ worker' outSpecs h =
 type LocalOnNewSlotComm ctx m =
     ( MonadIO m
     , MonadReader ctx m
-    , MonadSlots m
+    , MonadSlots ctx m
     , MonadMask m
     , WithLogger m
     , Mockables m [Fork, Delay]
@@ -229,31 +231,28 @@ type LocalOnNewSlotComm ctx m =
     , HasShutdownContext ctx
     , MonadRecoveryInfo m
     , MonadFormatPeers m
+    , HasConfiguration
     )
 
 type OnNewSlotComm ctx m =
     ( LocalOnNewSlotComm ctx m
     , Mockable Throw m
     , Mockable SharedAtomic m
+    , HasConfiguration
     )
 
 onNewSlot'
     :: OnNewSlotComm ctx m
-    => Bool -> Bool -> (SlotId -> WorkerSpec m, outSpecs) -> (WorkerSpec m, outSpecs)
-onNewSlot' withLog startImmediately (h, outs) =
+    => Bool -> (SlotId -> WorkerSpec m, outSpecs) -> (WorkerSpec m, outSpecs)
+onNewSlot' startImmediately (h, outs) =
     (,outs) . ActionSpec $ \vI sA ->
-        onNewSlotImpl withLog startImmediately $
+        onNewSlot startImmediately $
             \slotId -> let ActionSpec h' = h slotId
                         in h' vI sA
 onNewSlotWorker
     :: OnNewSlotComm ctx m
     => Bool -> OutSpecs -> (SlotId -> Worker m) -> (WorkerSpec m, OutSpecs)
-onNewSlotWorker b outs = onNewSlot' False b . workerHelper outs
-
-onNewSlotWithLoggingWorker
-    :: OnNewSlotComm ctx m
-    => Bool -> OutSpecs -> (SlotId -> Worker m) -> (WorkerSpec m, OutSpecs)
-onNewSlotWithLoggingWorker b outs = onNewSlot' True b . workerHelper outs
+onNewSlotWorker b outs = onNewSlot' b . workerHelper outs
 
 localOnNewSlotWorker
     :: LocalOnNewSlotComm ctx m

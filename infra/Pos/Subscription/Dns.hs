@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Subscription.Dns
     ( dnsSubscriptionWorker
@@ -18,12 +17,12 @@ import           Network.Broadcast.OutboundQueue.Types (peersFromList)
 
 import           Pos.Communication.Protocol            (Worker)
 import           Pos.KnownPeers                        (MonadKnownPeers (..))
-import           Pos.Network.Types                     (DnsDomains (..), Bucket(..),
-                                                        NetworkConfig (..), NodeId (..),
-                                                        NodeType (..), resolveDnsDomains,
-                                                        Valency, Fallbacks)
+import           Pos.Network.Types                     (Bucket (..), DnsDomains (..),
+                                                        Fallbacks, NetworkConfig (..),
+                                                        NodeId (..), NodeType (..),
+                                                        Valency, resolveDnsDomains)
 import           Pos.Slotting                          (MonadSlotsData,
-                                                        getLastKnownSlotDuration)
+                                                        getNextEpochSlotDuration)
 import           Pos.Subscription.Common
 
 data KnownRelay = Relay {
@@ -47,7 +46,8 @@ activeRelays = map fst . filter (relayActive . snd) . M.toList
 
 -- TODO: Use valency and fallbacks
 dnsSubscriptionWorker
-    :: forall kademlia m. (SubscriptionMode m, Mockable Delay m, MonadSlotsData m)
+    :: forall kademlia ctx m.
+     ( SubscriptionMode m, Mockable Delay m, MonadSlotsData ctx m)
     => NetworkConfig kademlia
     -> DnsDomains DNS.Domain
     -> Valency
@@ -58,7 +58,7 @@ dnsSubscriptionWorker networkCfg dnsDomains _valency _fallbacks sendActions =
   where
     loop :: KnownRelays -> m ()
     loop oldRelays = do
-      slotDur <- getLastKnownSlotDuration
+      slotDur <- getNextEpochSlotDuration
       now     <- liftIO $ getCurrentTime
       peers   <- findRelays
 
@@ -69,8 +69,8 @@ dnsSubscriptionWorker networkCfg dnsDomains _valency _fallbacks sendActions =
           updatedRelays = updateKnownRelays now peers oldRelays
 
       -- Declare all active relays as a single list of alternative relays
-      updatePeersBucket BucketBehindNatWorker $ \_ ->
-        peersFromList [(NodeRelay, activeRelays updatedRelays)]
+      void $ updatePeersBucket BucketBehindNatWorker $ \_ ->
+        peersFromList mempty [(NodeRelay, activeRelays updatedRelays)]
 
       -- Subscribe only to a single relay (if we found one)
       --

@@ -1,10 +1,9 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE KindSignatures      #-}
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE CPP            #-}
+{-# LANGUAGE DataKinds      #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE RankNTypes     #-}
+{-# LANGUAGE TypeFamilies   #-}
+{-# LANGUAGE TypeOperators  #-}
 
 module Pos.Util.Config
        (
@@ -30,30 +29,37 @@ module Pos.Util.Config
        , unsafeReadConfigSet
 
        -- * Cardano SL config
+       -- ** default/embedded values
+       , defaultFullCslConfig
+       , defaultCslConfigName
+       -- ** global vars
+       , fullCslConfig
+       , setFullCslConfig
+       , cslConfigName
+       , setCslConfigName
+       -- ** cut-out config
        , cslConfig
        , parseFromCslConfig
-       -- ** Internal functions
-       , cslConfigFilePath
-       , getCslConfig
        ) where
+
+import           Universum
 
 import           Control.Lens               (Getting, _Left)
 import qualified Data.Aeson                 as Y (withObject)
+import qualified Data.HashMap.Strict        as HM
 import           Data.Tagged                (Tagged, untag)
 import           Data.Yaml                  (FromJSON)
 import qualified Data.Yaml                  as Y
-import           Universum
-
-#if EMBED_CONFIG
+import           Instances.TH.Lift          ()
 import qualified Language.Haskell.TH.Syntax as TH
-#else
+import           System.Directory           (canonicalizePath, getDirectoryContents)
+import           System.FilePath            (takeDirectory, takeFileName, (</>))
 import           System.IO.Unsafe           (unsafePerformIO)
-#endif
 
-import           Pos.Util.Config.Get        (getCslConfig)
-import           Pos.Util.Config.Path       (cslConfigFilePath)
+import           Pos.Util.Future            (newInitFuture)
 import           Pos.Util.HVect             (HVect)
 import qualified Pos.Util.HVect             as HVect
+import           Pos.Util.Util              ()
 
 ----------------------------------------------------------------------------
 -- Small configs
@@ -232,24 +238,91 @@ instance FromJSON (ConfigSet '[]) where
 -- Cardano SL config
 ----------------------------------------------------------------------------
 
--- | The config as a YAML value. In development mode it's read at the start
--- of the program, in production mode it's embedded into the file.
---
--- The config (constants.yaml) is actually three configs in one: depending on
--- the value of @CONFIG@ (a variable passed via CPP), 'cslConfig' will either
--- be a @dev@, @prod@ or @wallet@ config.
---
--- TODO: allow overriding config values via an env var?
-cslConfig :: Y.Value
-#ifdef EMBED_CONFIG
-cslConfig = $(do
-    TH.qAddDependentFile cslConfigFilePath
-    either fail TH.lift =<< TH.runIO getCslConfig
+{- Note: CSL config
+~~~~~~~~~~~~~~~~~~~
+
+We have a config in @constants.yaml@. That config consists of several
+sections, only one of which will be used by CSL. By default @constants.yaml@
+is embedded into the node and the name of the section to be used is passed
+as the @CONFIG@ CPP definition, but both the config and the section name can
+be overridden by passing a CLI option.
+
+We have:
+  * 'defaultFullCslConfig', 'defaultCslConfigName' – default values
+  * 'fullCslConfig', 'cslConfigName' – global vars (futures)
+  * 'setFullCslConfig', 'setCslConfigName' – setters for the global vars
+-}
+
+-- embedded values ---------------------------------------------------
+
+-- | Full embedded config.
+defaultFullCslConfig :: Y.Object
+defaultFullCslConfig = $(do
+    let name = "constants.yaml"
+    -- This code was stolen from file-embed ('makeRelativeToProject'). We
+    -- don't use file-embed because the config-finding logic has already been
+    -- changed several times and switching from file-embed to custom logic
+    -- and back is annoying.
+    let marker = "cardano-sl-core.cabal"
+        findConfigDir x = do
+            let dir = takeDirectory x
+            contents <- getDirectoryContents dir
+            let isRoot = any ((== marker) . takeFileName) contents
+            if | dir == x  -> return Nothing
+               | isRoot    -> return (Just dir)
+               | otherwise -> findConfigDir dir
+    loc <- TH.qLocation
+    path <- TH.runIO $ do
+        srcFP <- canonicalizePath $ TH.loc_filename loc
+        mdir <- findConfigDir srcFP
+        case mdir of
+            Just dir -> return (dir </> name)
+            Nothing  -> error $ toText $
+                "Could not find " ++ marker ++ " for path: " ++ srcFP
+    TH.qAddDependentFile path
+    TH.runIO (Y.decodeFileEither @Y.Object path) >>= \case
+        Right x  -> TH.lift x
+        Left err -> fail $ "Couldn't parse " ++ path ++ ": " ++
+                           Y.prettyPrintParseException err
   )
+
+#if defined(CONFIG)
+
+#define QUOTED(x) "/**/x/**/"
+
+-- | Section name passed via CPP.
+defaultCslConfigName :: Text
+defaultCslConfigName = QUOTED(CONFIG)
+
 #else
-cslConfig = unsafePerformIO $ either fail pure =<< getCslConfig
-{-# NOINLINE cslConfig #-}
+
+# error CPP variable CONFIG isn't defined. If you're building with Stack, pass --ghc-options=-DCONFIG=..., or consider using scripts/build/cardano-sl.sh instead because it sets CONFIG automatically.
+
 #endif
+
+-- global vars -------------------------------------------------------
+
+fullCslConfig :: Y.Object
+setFullCslConfig :: Y.Object -> IO ()
+(fullCslConfig, setFullCslConfig) =
+    unsafePerformIO (newInitFuture "fullCslConfig")
+{-# NOINLINE fullCslConfig #-}
+{-# NOINLINE setFullCslConfig #-}
+
+cslConfigName :: Text
+setCslConfigName :: Text -> IO ()
+(cslConfigName, setCslConfigName) =
+    unsafePerformIO (newInitFuture "cslConfigName")
+{-# NOINLINE cslConfigName #-}
+{-# NOINLINE setCslConfigName #-}
+
+-- the part of the config that CSL will be using ---------------------
+
+cslConfig :: Y.Value
+cslConfig = case HM.lookup cslConfigName fullCslConfig of
+    Just x  -> x
+    Nothing -> error $ "Couldn't find config " <> show cslConfigName <>
+                       " in the full config ('fullCslConfig')"
 
 -- | Read a value from 'cslConfig'.
 --

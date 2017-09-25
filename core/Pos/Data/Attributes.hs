@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 -- | Helper data type for block, tx attributes.
 --
 -- Map with integer 1-byte keys, arbitrary-type polymorph values.
@@ -167,16 +166,18 @@ encodeAttributes encs Attributes{..} =
 
 decodeAttributes
     :: forall t s. t
-    -> (Word8 -> BS.ByteString -> t -> Maybe t)
+    -> (Word8 -> BS.ByteString -> t -> Decoder s (Maybe t))
     -> Decoder s (Attributes t)
 decodeAttributes initval updater = do
     raw <- decode @(Map Word8 BS.ByteString)
-    pure . foldr go (Attributes initval $ UnparsedFields raw) $ M.toList raw
+    foldrM go (Attributes initval $ UnparsedFields raw) $ M.toList raw
   where
-    go :: (Word8, BS.ByteString) -> Attributes t -> Attributes t
-    go (k, v) attr@Attributes{..} = case updater k v attrData of
-        Nothing      -> attr
-        Just newData -> Attributes
-            { attrData   = newData
-            , attrRemain = UnparsedFields . M.delete k $ fromUnparsedFields attrRemain
-            }
+    go :: (Word8, BS.ByteString) -> Attributes t -> Decoder s (Attributes t)
+    go (k, v) attr@Attributes{..} = do
+        updaterData <- updater k v attrData
+        pure $ case updaterData of
+            Nothing      -> attr
+            Just newData -> Attributes
+                { attrData   = newData
+                , attrRemain = UnparsedFields . M.delete k $ fromUnparsedFields attrRemain
+                }

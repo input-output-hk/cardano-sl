@@ -1,4 +1,4 @@
-version: 0.4.{build}
+version: 0.6.{build}
 image: Visual Studio 2015
 
 build: off
@@ -8,10 +8,8 @@ environment:
     # Avoid long paths on Windows
     STACK_ROOT: "c:\\s"
     STACK_WORK: ".w"
-    CSL_SYSTEM_TAG: "win64"
     CACHE_DIR: "c:\\c"
     WORK_DIR: "c:\\w"
-    DCONFIG: "qanet_tns_wallet"
 
 init:
   - SET BRANCH_CACHE_DIR=%CACHE_DIR%\%APPVEYOR_REPO_BRANCH:/=_%
@@ -65,11 +63,15 @@ before_test:
 - ps: Start-FileDownload 'https://ci.appveyor.com/api/buildjobs/kbpteb8j55p6sa2m/artifacts/rocksdb%2Fbuild%2FRocksdb.zip' -FileName rocksdb.zip
 - 7z x rocksdb.zip
 
+# CSL-1509: After moving the 'cardano-sl' project itself into a separate folder ('node/'), the 'cardano-text.exe' executable fails on AppVeyor CI.
+# After some investigation, it was discovered that this was because 'rocksdb.dll' has to be located in this folder as well, or else the test executable doesn't work.
+- copy rocksdb.dll node
+
 test_script:
   - cd "%WORK_DIR%"
-  - stack setup --no-reinstall
+  - stack --verbosity warn setup --no-reinstall > nul
   # Install happy separately: https://github.com/commercialhaskell/stack/issues/3151#issuecomment-310642487. Also install cpphs because it's a build-tool and Stack can't figure out by itself that it should be installed
-  - stack install happy cpphs
+  - stack --verbosity warn install happy cpphs
       -j 2
       --no-terminal
       --local-bin-path %SYSTEMROOT%\system32
@@ -82,47 +84,15 @@ test_script:
 #   - stack test --coverage
 #   - stack hpc report cardano-sl cardano-sl-txp cardano-sl-core cardano-sl-db cardano-sl-update cardano-sl-godtossing cardano-sl-infra cardano-sl-lrc cardano-sl-ssc
 # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
-  # We intentionally don't build lwallet here, because this build is for installer.
-  - scripts\ci\appveyor-retry call stack install cardano-sl
+  # We intentionally don't build auxx here, because this build is for installer.
+  - scripts\ci\appveyor-retry call stack install cardano-sl cardano-sl-tools cardano-sl-wallet
       -j 2
       --no-terminal
       --local-bin-path daedalus
       --test
       --no-haddock-deps
       --work-dir %STACK_WORK%
-      --ghc-options="-DCONFIG=%DCONFIG%"
-      --flag cardano-sl:with-wallet
-      --flag cardano-sl-core:-asserts
-      --flag cardano-sl-core:-dev-mode
-      --extra-include-dirs="C:\OpenSSL-Win64-v102\include"
-      --extra-lib-dirs="C:\OpenSSL-Win64-v102"
-      --extra-include-dirs="%WORK_DIR%\rocksdb\include"
-      --extra-lib-dirs="%WORK_DIR%"
-      --test-arguments "--skip Block.Logic.Var --skip Lrc.Worker"
-  - scripts\ci\appveyor-retry call stack install cardano-sl-tools
-      -j 2
-      --no-terminal
-      --local-bin-path daedalus
-      --test
-      --no-haddock-deps
-      --work-dir %STACK_WORK%
-      --ghc-options="-DCONFIG=%DCONFIG%"
-      --flag cardano-sl:with-wallet
-      --flag cardano-sl-core:-asserts
-      --flag cardano-sl-core:-dev-mode
-      --flag cardano-sl-tools:for-installer
-      --extra-include-dirs="C:\OpenSSL-Win64-v102\include"
-      --extra-lib-dirs="C:\OpenSSL-Win64-v102"
-      --extra-include-dirs="%WORK_DIR%\rocksdb\include"
-      --extra-lib-dirs="%WORK_DIR%"
-  - scripts\ci\appveyor-retry call stack install cardano-sl-wallet
-      -j 2
-      --no-terminal
-      --local-bin-path daedalus
-      --test
-      --no-haddock-deps
-      --work-dir %STACK_WORK%
-      --ghc-options="-DCONFIG=%DCONFIG%"
+      --ghc-options="-DGITREV=%APPVEYOR_REPO_COMMIT%"
       --flag cardano-sl:with-wallet
       --flag cardano-sl-core:-asserts
       --flag cardano-sl-core:-dev-mode

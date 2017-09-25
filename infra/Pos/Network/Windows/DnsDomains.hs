@@ -1,8 +1,8 @@
 {-# LANGUAGE ForeignFunctionInterface #-}
 
-module Pos.Network.Windows.DnsDomains (
-    getWindowsDefaultDnsServer
-    ) where
+module Pos.Network.Windows.DnsDomains
+       ( getWindowsDefaultDnsServer
+       ) where
 
 import           Universum
 

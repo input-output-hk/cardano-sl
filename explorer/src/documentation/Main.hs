@@ -14,7 +14,9 @@
 -- version of wallet web API description at cardanodocs.com website
 -- (please see 'update_explorer_web_api_docs.sh' for technical details).
 
-module Main where
+module Main
+    ( main
+    ) where
 
 import           Universum
 
@@ -28,6 +30,9 @@ import           Data.Swagger                 (Operation, Swagger, ToParamSchema
                                                name, title, version)
 import           Data.Typeable                (Typeable, typeRep)
 import           Data.Version                 (showVersion)
+import           Options.Applicative          (execParser, footer, fullDesc, header, help,
+                                               helper, infoOption, long, progDesc)
+import qualified Options.Applicative          as Opt
 import           Servant                      ((:>))
 import           Servant.Multipart            (MultipartForm)
 import           Servant.Swagger              (HasSwagger (toSwagger), subOperations)
@@ -37,14 +42,32 @@ import qualified Pos.Explorer.Web.Api         as A
 import qualified Pos.Explorer.Web.ClientTypes as C
 import           Pos.Explorer.Web.Error       (ExplorerError)
 
+
+
 import qualified Description                  as D
 
 main :: IO ()
 main = do
+    showProgramInfoIfRequired jsonFile
     BSL8.writeFile jsonFile $ encode swaggerSpecForExplorerApi
     putStrLn $ "Done. See " <> jsonFile <> "."
   where
     jsonFile = "explorer-web-api-swagger.json"
+
+    -- | Showing info for the program.
+    showProgramInfoIfRequired :: FilePath -> IO ()
+    showProgramInfoIfRequired generatedJSON = void $ execParser programInfo
+      where
+        programInfo = Opt.info (helper <*> versionOption) $
+            fullDesc <> progDesc "Generate Swagger specification for Explorer web API."
+                     <> header   "Cardano SL Explorer web API docs generator."
+                     <> footer   ("This program runs during 'cardano-sl' building on Travis CI. " <>
+                                  "Generated file '" <> generatedJSON <> "' will be used to produce HTML documentation. " <>
+                                  "This documentation will be published at cardanodocs.com using 'update-explorer-web-api-docs.sh'.")
+
+        versionOption = infoOption
+            ("cardano-swagger-" <> showVersion CSLE.version)
+            (long "version" <> help "Show version.")
 
 instance HasSwagger api => HasSwagger (MultipartForm a :> api) where
     toSwagger Proxy = toSwagger $ Proxy @api
@@ -70,6 +93,7 @@ instance ToSchema      C.CCoin
 instance ToSchema      C.CNetworkAddress
 instance ToSchema      C.CGenesisSummary
 instance ToSchema      C.CGenesisAddressInfo
+instance ToSchema      C.Byte
 instance ToSchema      ExplorerError
 
 -- | Instance for Either-based types (types we return as 'Right') in responses.

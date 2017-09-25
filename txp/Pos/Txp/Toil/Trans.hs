@@ -18,14 +18,12 @@ import qualified Data.HashSet        as HS
 import qualified Ether
 import           Fmt                 ((+|), (|+))
 
-import           Pos.Binary.Class    (biSize)
-import           Pos.Txp.Toil.Class  (MonadBalances (..), MonadBalancesRead (..),
+import           Pos.Txp.Toil.Class  (MonadStakes (..), MonadStakesRead (..),
                                       MonadTxPool (..), MonadUtxo (..),
                                       MonadUtxoRead (..))
 import           Pos.Txp.Toil.Types  (GenericToilModifier (..), MemPool, ToilModifier,
-                                      UndoMap, UtxoModifier, bvStakes, bvTotal,
-                                      mpLocalTxs, mpSize, tmBalances, tmMemPool, tmUndos,
-                                      tmUtxo)
+                                      UndoMap, UtxoModifier, mpLocalTxs, mpSize, svStakes,
+                                      svTotal, tmMemPool, tmStakes, tmUndos, tmUtxo)
 import qualified Pos.Util.Modifier   as MM
 import           Pos.Util.Util       (ether)
 
@@ -56,16 +54,16 @@ instance MonadUtxoRead m => MonadUtxo (ToilT __ m) where
             error ("utxoDel@ToilT: "+|id|+" is already deleted from utxo")
         tmUtxo %= MM.delete id
 
-instance MonadBalancesRead m => MonadBalancesRead (ToilT __ m) where
+instance MonadStakesRead m => MonadStakesRead (ToilT __ m) where
     getStake id =
-        ether $ (<|>) <$> use (tmBalances . bvStakes . at id) <*> getStake id
+        ether $ (<|>) <$> use (tmStakes . svStakes . at id) <*> getStake id
     getTotalStake =
-        ether $ maybe getTotalStake pure =<< use (tmBalances . bvTotal)
+        ether $ maybe getTotalStake pure =<< use (tmStakes . svTotal)
 
-instance MonadBalancesRead m => MonadBalances (ToilT __ m) where
-    setStake id c = ether $ tmBalances . bvStakes . at id .= Just c
+instance MonadStakesRead m => MonadStakes (ToilT __ m) where
+    setStake id c = ether $ tmStakes . svStakes . at id .= Just c
 
-    setTotalStake c = ether $ tmBalances . bvTotal .= Just c
+    setTotalStake c = ether $ tmStakes . svTotal .= Just c
 
 instance Monad m => MonadTxPool (ToilT __ m) where
     hasTx id = ether $ use $ tmMemPool . mpLocalTxs . to (HM.member id)
@@ -74,7 +72,7 @@ instance Monad m => MonadTxPool (ToilT __ m) where
         has <- use $ tmMemPool . mpLocalTxs . to (HM.member id)
         unless has $ do
             tmMemPool . mpLocalTxs . at id .= Just tx
-            tmMemPool . mpSize += biSize tx + biSize id
+            tmMemPool . mpSize += 1
             tmUndos . at id .= Just undo
 
     poolSize = ether $ use $ tmMemPool . mpSize
@@ -90,7 +88,7 @@ runToilTGlobal
     => ToilT ext m a -> m (a, GenericToilModifier ext)
 runToilTGlobal txpt = Ether.runStateT' txpt def
 
--- | Run ToilT using empty balances modifier. Should be used for local
+-- | Run ToilT using empty stakes modifier. Should be used for local
 -- transaction processing.
 runToilTLocal
     :: (Functor m)
@@ -108,7 +106,7 @@ evalToilTEmpty
     -> m a
 evalToilTEmpty txpt = Ether.evalStateT txpt def
 
--- | Execute ToilT using empty balances modifier. Should be used for
+-- | Execute ToilT using empty stakes modifier. Should be used for
 -- local transaction processing.
 execToilTLocal
     :: (Functor m)
@@ -132,7 +130,7 @@ runToilTLocalExtra um mp undo e =
     flip Ether.runStateT' $
         ToilModifier
         { _tmUtxo = um
-        , _tmBalances = def
+        , _tmStakes = def
         , _tmMemPool = mp
         , _tmUndos = undo
         , _tmExtra = e

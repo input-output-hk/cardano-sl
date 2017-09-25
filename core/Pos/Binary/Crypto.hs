@@ -1,6 +1,5 @@
-{-# LANGUAGE CPP                 #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE ViewPatterns        #-}
+{-# LANGUAGE CPP          #-}
+{-# LANGUAGE ViewPatterns #-}
 
 -- | Serializable instances for Pos.Crypto.*
 
@@ -8,34 +7,38 @@ module Pos.Binary.Crypto () where
 
 import           Universum
 
-import qualified Cardano.Crypto.Wallet    as CC
-import qualified Crypto.ECC.Edwards25519  as Ed25519
-import           Crypto.Hash              (digestFromByteString)
-import qualified Crypto.PVSS              as Pvss
-import qualified Crypto.Sign.Ed25519      as EdStandard
-import qualified Data.ByteArray           as ByteArray
-import qualified Data.ByteString          as BS
-import           Data.SafeCopy            (SafeCopy (..))
-import           Formatting               (int, sformat, (%))
-import           Pos.Crypto.AsBinary      (encShareBytes, secretBytes, secretProofBytes,
-                                           shareBytes, vssPublicKeyBytes)
+import qualified Cardano.Crypto.Wallet           as CC
+import qualified Crypto.ECC.Edwards25519         as Ed25519
+import           Crypto.Hash                     (digestFromByteString)
+import qualified Crypto.PVSS                     as Pvss
+import qualified Crypto.SCRAPE                   as Scrape
+import qualified Crypto.Sign.Ed25519             as EdStandard
+import qualified Data.ByteArray                  as ByteArray
+import qualified Data.ByteString                 as BS
+import           Data.SafeCopy                   (SafeCopy (..))
+import           Formatting                      (int, sformat, (%))
+import           Pos.Crypto.AsBinary             (decShareBytes, encShareBytes,
+                                                  secretBytes, vssPublicKeyBytes)
 
-import           Pos.Binary.Class         (AsBinary (..), Bi (..), decodeBinary,
-                                           encodeBinary, encodeListLen, enforceSize,
-                                           getCopyBi, putCopyBi)
-import           Pos.Crypto.Hashing       (AbstractHash (..), HashAlgorithm,
-                                           WithHash (..), withHash)
-import           Pos.Crypto.HD            (HDAddressPayload (..))
-import           Pos.Crypto.RedeemSigning (RedeemPublicKey (..), RedeemSecretKey (..),
-                                           RedeemSignature (..))
-import           Pos.Crypto.SafeSigning   (EncryptedSecretKey (..), PassPhrase,
-                                           passphraseLength)
-import           Pos.Crypto.SecretSharing (EncShare (..), Secret (..), SecretProof (..),
-                                           SecretSharingExtra (..), Share (..),
-                                           VssKeyPair (..), VssPublicKey (..))
-import           Pos.Crypto.Signing       (ProxyCert (..), ProxySecretKey (..),
-                                           ProxySignature (..), PublicKey (..),
-                                           SecretKey (..), Signature (..), Signed (..))
+import           Pos.Binary.Class                (AsBinary (..), Bi (..), Cons (..),
+                                                  Field (..), decodeBinary,
+                                                  deriveSimpleBi, encodeBinary,
+                                                  encodeListLen, enforceSize, getCopyBi,
+                                                  putCopyBi)
+import           Pos.Crypto.Hashing              (AbstractHash (..), HashAlgorithm,
+                                                  WithHash (..), withHash)
+import           Pos.Crypto.HD                   (HDAddressPayload (..))
+import           Pos.Crypto.Scrypt               (EncryptedPass (..))
+import qualified Pos.Crypto.SecretSharing        as C
+import           Pos.Crypto.Signing.Types        (ProxyCert (..), ProxySecretKey (..),
+                                                  ProxySignature (..), PublicKey (..),
+                                                  SecretKey (..), Signature (..),
+                                                  Signed (..))
+import           Pos.Crypto.Signing.Types.Redeem (RedeemPublicKey (..),
+                                                  RedeemSecretKey (..),
+                                                  RedeemSignature (..))
+import           Pos.Crypto.Signing.Types.Safe   (EncryptedSecretKey (..), PassPhrase,
+                                                  passphraseLength)
 
 instance Bi a => Bi (WithHash a) where
     encode = encode . whData
@@ -67,29 +70,36 @@ instance (Typeable algo, Typeable a, HashAlgorithm algo) => Bi (AbstractHash alg
     decode = decodeBinary };\
   deriving instance Bi PT ;\
 
-BiPvss (Pvss.PublicKey, VssPublicKey)
-BiPvss (Pvss.KeyPair, VssKeyPair)
-BiPvss (Pvss.Secret, Secret)
-BiPvss (Pvss.DecryptedShare, Share)
-BiPvss (Pvss.EncryptedShare, EncShare)
-BiPvss (Pvss.Proof, SecretProof)
+BiPvss (Scrape.PublicKey, C.VssPublicKey)
+BiPvss (Scrape.KeyPair, C.VssKeyPair)
+BiPvss (Scrape.Secret, C.Secret)
+BiPvss (Scrape.DecryptedShare, C.DecShare)
+BiPvss (Scrape.EncryptedSi, C.EncShare)
 
-instance Bi Pvss.ExtraGen where
+instance Bi Scrape.ExtraGen where
     encode = encodeBinary
     decode = decodeBinary
 
-instance Bi Pvss.Commitment where
+instance Bi Scrape.Commitment where
     encode = encodeBinary
     decode = decodeBinary
 
-instance Bi SecretSharingExtra where
-    encode (SecretSharingExtra eg comms) = encodeListLen 2
-                                        <> encode eg
-                                        <> encode comms
-    decode = SecretSharingExtra
-          <$  enforceSize "SecretSharingExtra" 2
-          <*> decode
-          <*> decode
+instance Bi Scrape.Proof where
+    encode = encodeBinary
+    decode = decodeBinary
+
+instance Bi Scrape.ParallelProofs where
+    encode = encodeBinary
+    decode = decodeBinary
+
+deriveSimpleBi ''C.SecretProof [
+    Cons 'C.SecretProof [
+        Field [| C.spExtraGen       :: Scrape.ExtraGen       |],
+        Field [| C.spProof          :: Scrape.Proof          |],
+        Field [| C.spParallelProofs :: Scrape.ParallelProofs |],
+        Field [| C.spCommitments    :: [Scrape.Commitment]   |]
+    ]
+  ]
 
 ----------------------------------------------------------------------------
 -- SecretSharing AsBinary
@@ -114,29 +124,26 @@ instance Bi SecretSharingExtra where
                 ; when (BYTES /= length bs) (fail $ "AsBinary B: length mismatch!") \
                 ; return (AsBinary bs) } }; \
 
-BiMacro(VssPublicKey, vssPublicKeyBytes)
-BiMacro(Secret, secretBytes)
-BiMacro(Share, shareBytes)
-BiMacro(EncShare, encShareBytes)
-BiMacro(SecretProof, secretProofBytes)
-
-deriving instance Bi (AsBinary SecretSharingExtra)
+BiMacro(C.VssPublicKey, vssPublicKeyBytes)
+BiMacro(C.Secret, secretBytes)
+BiMacro(C.DecShare, decShareBytes)
+BiMacro(C.EncShare, encShareBytes)
 
 ----------------------------------------------------------------------------
 -- Signing
 ----------------------------------------------------------------------------
 
 instance Bi Ed25519.PointCompressed where
-  encode (Ed25519.unPointCompressed -> k) = encode k
-  decode = Ed25519.pointCompressed <$> decode
+    encode (Ed25519.unPointCompressed -> k) = encode k
+    decode = Ed25519.pointCompressed <$> decode
 
 instance Bi Ed25519.Scalar where
-  encode (Ed25519.unScalar -> k) = encode k
-  decode = Ed25519.scalar <$> decode
+    encode (Ed25519.unScalar -> k) = encode k
+    decode = Ed25519.scalar <$> decode
 
 instance Bi Ed25519.Signature where
-  encode (Ed25519.Signature s) = encode s
-  decode = Ed25519.Signature <$> decode
+    encode (Ed25519.Signature s) = encode s
+    decode = Ed25519.Signature <$> decode
 
 instance Bi CC.ChainCode where
     encode (CC.ChainCode c) = encode c
@@ -211,6 +218,10 @@ instance Bi PassPhrase where
             else fail . toString $ sformat
                  ("put@PassPhrase: expected length 0 or "%int%", not "%int)
                  passphraseLength bl
+
+instance Bi EncryptedPass where
+    encode (EncryptedPass ep) = encode ep
+    decode = EncryptedPass <$> decode
 
 -------------------------------------------------------------------------------
 -- Hierarchical derivation

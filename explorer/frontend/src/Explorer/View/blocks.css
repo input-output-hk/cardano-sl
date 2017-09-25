@@ -39,21 +39,17 @@
 .blocks-column {
 
   &__epoch {
-    lost-column: 1/2;
-    /* TODO change it ^ to 3/12 if `since` (age) column will be back */
+    lost-column: 3/12;
     button: standard-button;
     button-color: var(--color8) var(--color5) var(--color5);
   }
   &__slot {
-    lost-column: 1/2;
-    /* TODO change it ^ to 3/12 if `since` (age) column will be back */
+    lost-column: 3/12;
     button: standard-button;
     button-color: var(--color8) var(--color5) var(--color5);
   }
   &__age {
-    @extend .hide;
-    /*lost-column: 6/12 3;*/
-    /* TODO set it ^ back if `since` (age) column will be back */
+    lost-column: 6/12 3;
   }
   &__txs {
     @extend .hide;
@@ -87,9 +83,7 @@
       lost-column: 1/12;
     }
     &__age {
-      @extend .hide;
-      /*lost-column: 3/12;*/
-      /* TODO set it ^ back if `since` (age) column will be back */
+      lost-column: 3/12;
     }
     &__txs {
       @extend .show;
@@ -97,43 +91,31 @@
     }
     &__totalSend {
       @extend .show;
-      lost-column: 3/12;
-      /* TODO change it ^ to 2/12 if `since` column will be back */
+      lost-column: 2/12;
     }
     &__lead {
       @extend .show;
-      lost-column: 3/12;
-      /* TODO change it ^ to 2/12 if `since` column will be back */
+      lost-column: 2/12;
     }
     &__size {
       @extend .show;
-      lost-column: 2/12;
-      /* TODO change it ^ to 1/12 if `since` column will be back */
+      lost-column: 1/12;
     }
   }
 }
 
-
-.blocks-waiting {
-  padding: 10px 24px;
-
-  font-size: 10px;
-  font-family: var(--fontFamily0-Regular);
-  color: var(--color13);
-}
-
-.blocks-failed {
-  padding: 0 24px 30px 24px;
-  font-size: 10px;
-  font-family: var(--fontFamily0-Regular);
-  color: var(--color1);
-}
-
 .blocks-message {
-  padding: 0 18px;
+  padding: 10px 24px;
   font-size: 10px;
   font-family: var(--fontFamily0-Regular);
   color: var(--color13);
+}
+
+.blocks-message-back {
+    padding: 0 24px 30px 24px;
+    font-size: 10px;
+    font-family: var(--fontFamily0-Regular);
+    color: var(--color1);
 }
 
 .blocks-body {

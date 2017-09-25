@@ -7,11 +7,12 @@ module Pos.Ssc.Mode
 import           Universum
 
 import           Control.Monad.Catch (MonadMask)
+import qualified Crypto.Random       as Rand
 import           Ether.Internal      (HasLens (..))
 import           Mockable            (MonadMockable)
 import           System.Wlog         (WithLogger)
 
-import           Pos.Core            (HasPrimaryKey)
+import           Pos.Core            (HasConfiguration, HasPrimaryKey)
 import           Pos.DB.Class        (MonadDB, MonadGState)
 import           Pos.KnownPeers      (MonadFormatPeers)
 import           Pos.Lrc.Context     (LrcContext)
@@ -29,9 +30,10 @@ type SscMode ssc ctx m
     = ( WithLogger m
       , CanJsonLog m
       , MonadIO m
+      , Rand.MonadRandom m
       , MonadMask m
       , MonadMockable m
-      , MonadSlots m
+      , MonadSlots ctx m
       , MonadGState m
       , MonadDB m
       , MonadFormatPeers m
@@ -44,4 +46,5 @@ type SscMode ssc ctx m
       , HasPrimaryKey ctx
       , HasLens SecurityParams ctx SecurityParams
       , HasLens LrcContext ctx LrcContext
+      , HasConfiguration
       )

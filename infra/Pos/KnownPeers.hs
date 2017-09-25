@@ -13,7 +13,7 @@ import Pos.Network.Types (Bucket)
 import Network.Broadcast.OutboundQueue (Peers)
 
 class MonadKnownPeers m where
-  updatePeersBucket :: Bucket -> (Peers NodeId -> Peers NodeId) -> m ()
+  updatePeersBucket :: Bucket -> (Peers NodeId -> Peers NodeId) -> m Bool
 
 instance {-# OVERLAPPABLE #-}
     ( Monad m, MonadTrans f, MonadKnownPeers m ) =>

@@ -15,7 +15,7 @@ newtype TxHeaderViewProps = TxHeaderViewProps
 
 
 newtype TxBodyViewProps = TxBodyViewProps
-  { txbInputs :: Array (Tuple CAddress CCoin)
+  { txbInputs :: Array (Maybe (Tuple CAddress CCoin))
   , txbOutputs :: Array (Tuple CAddress CCoin)
   , txbAmount :: CCoin
   }

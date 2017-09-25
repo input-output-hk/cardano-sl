@@ -19,6 +19,7 @@ import qualified Pos.Types                                 as PT
 import qualified Pos.Util.BackupPhrase                     as BP
 import qualified Pos.Wallet.Web.ClientTypes                as CT
 import qualified Pos.Wallet.Web.Error.Types                as ET
+import qualified Pos.Wallet.Web.Sockets                    as WS
 
 import           PSTypes                                   (psInt53, psPosixTime)
 
@@ -59,8 +60,9 @@ main = do
       , mkSumType (Proxy @(CT.CId A))
       , mkSumType (Proxy @CT.CHash)
       , mkSumType (Proxy @CT.CTxId)
+      , mkSumType (Proxy @CT.CPtxCondition)
       , mkSumType (Proxy @CT.CTx)
-      , mkSumType (Proxy @CT.NotifyEvent)
+      , mkSumType (Proxy @WS.NotifyEvent)
       , mkSumType (Proxy @CT.SyncProgress)
       , mkSumType (Proxy @CT.CUpdateInfo)
       , mkSumType (Proxy @CT.CWalletRedeem)

@@ -1,15 +1,15 @@
-{-# LANGUAGE ScopedTypeVariables #-}
+module Pos.Network.DnsDomains
+       ( DnsDomains(..)
+       , NodeAddr(..)
+       , resolveDnsDomains
+       ) where
 
-module Pos.Network.DnsDomains (
-    DnsDomains(..)
-  , NodeAddr(..)
-  , resolveDnsDomains
-  ) where
 
 import           Universum
-import qualified Data.ByteString.Char8 as BS.C8
-import           Data.IP               (IPv4)
-import           Network.Broadcast.OutboundQueue.Types (Alts, AllOf)
+
+import qualified Data.ByteString.Char8                 as BS.C8
+import           Data.IP                               (IP, IPv4)
+import           Network.Broadcast.OutboundQueue.Types (AllOf, Alts)
 
 -- | DNS domains for relay discovery
 --
@@ -30,7 +30,7 @@ data NodeAddr a =
     -- | We specify the exact address of this node
     --
     -- If port unspecified, use the default.
-    NodeAddrExact ByteString (Maybe Word16)
+    NodeAddrExact IP (Maybe Word16)
 
     -- | Do a DNS lookup to find the node's address
     --
@@ -80,4 +80,5 @@ resolveDnsDomains resolve defaultPort (DnsDomains{..}) =
             Right ips -> go (reverse (map toAddr ips) ++ acc) addrs
         go acc (NodeAddrExact ip mPort:addrs) = do
           let port = fromMaybe defaultPort mPort
-          go ((ip, port):acc) addrs
+              ipBS = encodeUtf8 @String . show $ ip
+          go ((ipBS, port):acc) addrs

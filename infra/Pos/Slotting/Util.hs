@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 -- | Slotting utilities.
 
 module Pos.Slotting.Util
@@ -9,11 +7,11 @@ module Pos.Slotting.Util
        , getSlotStart
        , getSlotStartPure
        , getSlotStartEmpatically
-       , getLastKnownSlotDuration
+       , getNextEpochSlotDuration
+       , slotFromTimestamp
 
          -- * Worker which ticks when slot starts
        , onNewSlot
-       , onNewSlotImpl
 
          -- * Worker which logs beginning of new slot
        , logNewSlotWorker
@@ -22,91 +20,87 @@ module Pos.Slotting.Util
        , waitSystemStart
        ) where
 
-import           Data.Time.Units        (Millisecond, convertUnit)
-import           Formatting             (build, int, sformat, shown, (%))
-import           Mockable               (Delay, Fork, Mockable, delay, fork)
-import           Serokell.Util          (sec)
-import           System.Wlog            (WithLogger, logDebug, logError, logInfo,
-                                         logNotice, modifyLoggerName)
 import           Universum
 
-import           Pos.Core               (FlatSlotId, SlotId (..), Timestamp (..),
-                                         addTimeDiffToTimestamp, flattenSlotId,
-                                         getSlotIndex, slotIdF, subTimeDiffSafe)
-import           Pos.Exception          (CardanoException)
+import           Data.Time.Units        (Millisecond)
+import           Formatting             (int, sformat, shown, (%))
+import           Mockable               (Delay, Mockable, delay)
+import           Serokell.Util          (sec)
+import           System.Wlog            (WithLogger, logDebug, logInfo, logNotice,
+                                         modifyLoggerName)
+
+import           Pos.Core               (FlatSlotId, HasConfiguration, LocalSlotIndex,
+                                         SlotId (..), Timestamp (..), flattenSlotId,
+                                         slotIdF)
 import           Pos.KnownPeers         (MonadFormatPeers)
-import           Pos.Recovery.Info      (MonadRecoveryInfo (recoveryInProgress))
+import           Pos.Recovery.Info      (MonadRecoveryInfo, recoveryInProgress)
 import           Pos.Reporting.MemState (HasReportingContext)
-import           Pos.Reporting.Methods  (reportMisbehaviourSilent, reportingFatal)
-import           Pos.Shutdown           (HasShutdownContext, runIfNotShutdown)
+import           Pos.Reporting.Methods  (reportOrLogE)
+import           Pos.Shutdown           (HasShutdownContext)
 import           Pos.Slotting.Class     (MonadSlots (..))
 import           Pos.Slotting.Error     (SlottingError (..))
-import           Pos.Slotting.MemState  (MonadSlotsData (..))
-import           Pos.Slotting.Types     (EpochSlottingData (..), SlottingData (..))
+import           Pos.Slotting.Impl.Util (slotFromTimestamp)
+import           Pos.Slotting.MemState  (MonadSlotsData, getCurrentNextEpochSlottingDataM,
+                                         getEpochSlottingDataM, getSystemStartM)
+import           Pos.Slotting.Types     (EpochSlottingData (..), SlottingData,
+                                         computeSlotStart, lookupEpochSlottingData)
 import           Pos.Util.Util          (maybeThrow)
 
+
 -- | Get flat id of current slot based on MonadSlots.
-getCurrentSlotFlat :: MonadSlots m => m (Maybe FlatSlotId)
+getCurrentSlotFlat :: (MonadSlots ctx m, HasConfiguration) => m (Maybe FlatSlotId)
 getCurrentSlotFlat = fmap flattenSlotId <$> getCurrentSlot
 
 -- | Get timestamp when given slot starts.
-getSlotStart :: MonadSlotsData m => SlotId -> m (Maybe Timestamp)
-getSlotStart sid = do
-    systemStart <- getSystemStart
-    getSlotStartPure systemStart False sid <$> getSlottingData
+getSlotStart :: MonadSlotsData ctx m => SlotId -> m (Maybe Timestamp)
+getSlotStart (SlotId {..}) = do
+    systemStart        <- getSystemStartM
+    mEpochSlottingData <- getEpochSlottingDataM siEpoch
+    -- Maybe epoch slotting data.
+    pure $ do
+      epochSlottingData <- mEpochSlottingData
+      pure $ computeSlotStart systemStart siSlot epochSlottingData
 
 -- | Pure timestamp calculation for a given slot.
--- If `imprecise` is true, then we assume that the slot duration doesn't change.
--- That allows us to compute a timestamp for slots earlier the penultimate epoch.
-getSlotStartPure :: Timestamp -> Bool -> SlotId -> SlottingData -> Maybe Timestamp
-getSlotStartPure systemStart imprecise SlotId{..} SlottingData{..} = do
-    if | imprecise && siEpoch < sdPenultEpoch ->
-         Just $ slotTimestamp siSlot $ extrapolateSlottingData siEpoch
-       | siEpoch == sdPenultEpoch -> Just $ slotTimestamp siSlot sdPenult
-       | siEpoch == sdPenultEpoch + 1 -> Just $ slotTimestamp siSlot sdLast
-       | otherwise -> Nothing
+getSlotStartPure :: Timestamp -> SlotId -> SlottingData -> Maybe Timestamp
+getSlotStartPure systemStart slotId slottingData =
+    computeSlotStart systemStart localSlotIndex <$> epochSlottingData
   where
-    -- Extrapolate slotting data for arbitrary epochs
-    extrapolateSlottingData desiredEpoch =
-      let
-        -- Assuming these durations stay constant
-        epochDuration = esdStartDiff sdLast `subTimeDiffSafe` esdStartDiff sdPenult
-        slotDuration = esdSlotDuration sdPenult
-        msDiff = fromIntegral (toInteger epochDuration * (toInteger desiredEpoch - toInteger sdPenultEpoch))
-      in
-        EpochSlottingData { esdSlotDuration = slotDuration
-                          , esdStartDiff = msDiff + (esdStartDiff sdPenult)
-                          }
-    -- Calculate timestamp normally
-    slotTimestamp (getSlotIndex -> locSlot) EpochSlottingData{..} =
-        esdStartDiff `addTimeDiffToTimestamp`
-        (systemStart + Timestamp (fromIntegral locSlot * convertUnit esdSlotDuration))
+    epochSlottingData :: Maybe EpochSlottingData
+    epochSlottingData = lookupEpochSlottingData (siEpoch slotId) slottingData
+
+    localSlotIndex :: LocalSlotIndex
+    localSlotIndex = siSlot slotId
 
 -- | Get timestamp when given slot starts empatically, which means
 -- that function throws exception when slot start is unknown.
 getSlotStartEmpatically
-    :: (MonadSlotsData m, MonadThrow m)
-    => SlotId -> m Timestamp
+    :: (MonadSlotsData ctx m, MonadThrow m)
+    => SlotId
+    -> m Timestamp
 getSlotStartEmpatically slot =
     getSlotStart slot >>= maybeThrow (SEUnknownSlotStart slot)
 
 -- | Get last known slot duration.
-getLastKnownSlotDuration :: MonadSlotsData m => m Millisecond
-getLastKnownSlotDuration = esdSlotDuration . sdLast <$> getSlottingData
+getNextEpochSlotDuration
+    :: (MonadSlotsData ctx m)
+    => m Millisecond
+getNextEpochSlotDuration =
+    esdSlotDuration . snd <$> getCurrentNextEpochSlottingDataM
 
 -- | Type constraint for `onNewSlot*` workers
 type OnNewSlot ctx m =
     ( MonadIO m
     , MonadReader ctx m
-    , MonadSlots m
+    , MonadSlots ctx m
     , MonadMask m
     , WithLogger m
-    , Mockable Fork m
     , Mockable Delay m
     , HasReportingContext ctx
     , HasShutdownContext ctx
     , MonadRecoveryInfo m
     , MonadFormatPeers m
+    , HasConfiguration
     )
 
 -- | Run given action as soon as new slot starts, passing SlotId to
@@ -127,43 +121,53 @@ onNewSlotImpl
     :: forall ctx m. OnNewSlot ctx m
     => Bool -> Bool -> (SlotId -> m ()) -> m ()
 onNewSlotImpl withLogging startImmediately action =
-    reportingFatal impl `catch` workerHandler
+    impl `catch` workerHandler
   where
     impl = onNewSlotDo withLogging Nothing startImmediately actionWithCatch
+    -- [CSL-1578] TODO: consider removing it.
     actionWithCatch s = action s `catch` actionHandler
-    actionHandler
-        :: forall ma.
-           WithLogger ma
-        => SomeException -> ma ()
-    actionHandler = logError . sformat ("Error occurred: " %build)
-    workerHandler :: CardanoException -> m ()
+    actionHandler :: SomeException -> m ()
+    -- REPORT:ERROR 'reportOrLogE' in exception passed to 'onNewSlotImpl'.
+    actionHandler = reportOrLogE "onNewSlotImpl: "
+    workerHandler :: SomeException -> m ()
     workerHandler e = do
-        let msg = sformat ("Error occurred in 'onNewSlot' worker itself: " %build) e
-        logError $ msg
-        -- [CSL-1340] FIXME: it's not misbehavior, it should be reported as 'RError'.
-        reportMisbehaviourSilent False msg
-        delay =<< getLastKnownSlotDuration
+        -- REPORT:ERROR 'reportOrLogE' in 'onNewSlotImpl'
+        reportOrLogE "Error occurred in 'onNewSlot' worker itself: " e
+        delay =<< getNextEpochSlotDuration
         onNewSlotImpl withLogging startImmediately action
 
 onNewSlotDo
     :: OnNewSlot ctx m
     => Bool -> Maybe SlotId -> Bool -> (SlotId -> m ()) -> m ()
-onNewSlotDo withLogging expectedSlotId startImmediately action = runIfNotShutdown $ do
+onNewSlotDo withLogging expectedSlotId startImmediately action = do
     curSlot <- waitUntilExpectedSlot
 
-    -- Fork is necessary because action can take more time than duration of slot.
-    when startImmediately $ void $ fork $ action curSlot
+    -- Note that the action can take more time than the slot
+    -- duration. In this case action for the next slot won't start
+    -- until the ongoing action finishes.
+    -- The caller should decide how to deal with long-running actions.
+    -- They can do whatever they want with 'action', the simplest thing is
+    -- 'void . fork' (which is likely not the best idea, for the reasons why
+    -- 'async' package should be used instead of 'fork'-ing threads manually.
+    --
+    -- There are few things to consider when one wants to run this action in a
+    -- separate thread every time:
+    -- 1. If more than one action is launched, they may use same resources
+    -- concurrently, so the code must account for it.
+    -- 2. If action hangs for some reason, there can be infinitely growing pool
+    -- of hanging actions with probably bad consequences.
+    --
+    -- See also: CSL-1606.
+    when startImmediately $ action curSlot
 
-    -- check for shutdown flag again to not wait a whole slot
-    runIfNotShutdown $ do
-        let nextSlot = succ curSlot
-        Timestamp curTime <- currentTimeSlotting
-        Timestamp nextSlotStart <- getSlotStartEmpatically nextSlot
-        let timeToWait = nextSlotStart - curTime
-        when (timeToWait > 0) $ do
-            when withLogging $ logTTW timeToWait
-            delay timeToWait
-        onNewSlotDo withLogging (Just nextSlot) True action
+    let nextSlot = succ curSlot
+    Timestamp curTime <- currentTimeSlotting
+    Timestamp nextSlotStart <- getSlotStartEmpatically nextSlot
+    let timeToWait = nextSlotStart - curTime
+    when (timeToWait > 0) $ do
+        when withLogging $ logTTW timeToWait
+        delay timeToWait
+    onNewSlotDo withLogging (Just nextSlot) True action
   where
     waitUntilExpectedSlot = do
         -- onNewSlotWorker doesn't make sense in recovery phase. Most
@@ -194,13 +198,13 @@ logNewSlotWorker =
 -- | Wait until system starts. This function is useful if node is
 -- launched before 0-th epoch starts.
 waitSystemStart
-    :: ( MonadSlotsData m
+    :: ( MonadSlotsData ctx m
        , Mockable Delay m
        , WithLogger m
-       , MonadSlots m)
+       , MonadSlots ctx m)
     => m ()
 waitSystemStart = do
-    start <- getSystemStart
+    start <- getSystemStartM
     cur <- currentTimeSlotting
     let Timestamp waitPeriod = start - cur
     when (cur < start) $ do

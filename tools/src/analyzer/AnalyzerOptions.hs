@@ -18,7 +18,7 @@ import           Options.Applicative          (Parser, auto, execParser, footerD
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl             (version)
-import           Pos.Constants                (blkSecurityParam)
+import           Pos.Core.Configuration       (HasConfiguration, blkSecurityParam)
 import           Pos.Core                     (BlockCount)
 
 data Args = Args
@@ -29,7 +29,7 @@ data Args = Args
   deriving Show
 
 -- TODO: introduce subcommands (can be done if new commands appear)
-argsParser :: Parser Args
+argsParser :: HasConfiguration => Parser Args
 argsParser = Args
     <$> many (strOption $
               long "file"
@@ -44,7 +44,7 @@ argsParser = Args
                   <> value blkSecurityParam
                   <> help "Amount of blocks needed for confirmation.")
 
-getAnalyzerOptions :: IO Args
+getAnalyzerOptions :: HasConfiguration => IO Args
 getAnalyzerOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> argsParser) $

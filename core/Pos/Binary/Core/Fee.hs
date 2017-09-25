@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 
 -- | Binary instances for transaction fee data.
 
@@ -8,8 +7,10 @@ import           Universum
 
 import           Data.Fixed       (Nano)
 
-import           Pos.Binary.Class (Bi (..), encode, decode, encodeListLen, deserialize', serialize'
-                                  , enforceSize)
+import           Pos.Binary.Class (Bi (..), decode, decodeKnownCborDataItem,
+                                   decodeUnknownCborDataItem, encode,
+                                   encodeKnownCborDataItem, encodeListLen,
+                                   encodeUnknownCborDataItem, enforceSize)
 import           Pos.Core.Fee     (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
 
 instance Bi Coeff where
@@ -27,12 +28,12 @@ instance Bi TxSizeLinear where
 instance Bi TxFeePolicy where
   encode policy = case policy of
     TxFeePolicyTxSizeLinear txSizeLinear -> encodeListLen 2 <> encode (0 :: Word8)
-                                                            <> encode (serialize' txSizeLinear)
+                                                            <> encodeKnownCborDataItem txSizeLinear
     TxFeePolicyUnknown word8 bs          -> encodeListLen 2 <> encode word8
-                                                            <> encode bs
+                                                            <> encodeUnknownCborDataItem bs
   decode = do
     enforceSize "TxFeePolicy" 2
     tag <- decode @Word8
     case tag of
-      0 -> TxFeePolicyTxSizeLinear . deserialize' <$> decode
-      _ -> TxFeePolicyUnknown tag                 <$> decode
+      0 -> TxFeePolicyTxSizeLinear <$> decodeKnownCborDataItem
+      _ -> TxFeePolicyUnknown tag  <$> decodeUnknownCborDataItem

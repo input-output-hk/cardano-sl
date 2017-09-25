@@ -1,5 +1,4 @@
-{-# LANGUAGE RankNTypes          #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Functions related to rocksdb implementation of database
 -- interface.
@@ -48,10 +47,11 @@ import           System.Directory             (createDirectoryIfMissing,
                                                removeDirectoryRecursive)
 import           System.FilePath              ((</>))
 
-import           Pos.Binary.Class             (Bi, serialize')
+import           Pos.Binary.Class             (Bi)
+import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.DB.BatchOp               (rocksWriteBatch)
 import           Pos.DB.Class                 (DBIteratorClass (..), DBTag (..), IterType)
-import           Pos.DB.Functions             (processIterEntry)
+import           Pos.DB.Functions             (dbSerializeValue, processIterEntry)
 import           Pos.DB.Rocks.Types           (DB (..), MonadRealDB, NodeDBs (..),
                                                getDBByTag)
 import qualified Pos.Util.Concurrent.RWLock   as RWL
@@ -145,8 +145,8 @@ rocksDelete k DB {..} = Rocks.delete rocksDB rocksWriteOpts k
 -- garbage, should be abstracted and hidden
 
 -- | Write serializable value to RocksDb for given key.
-rocksPutBi :: (Bi v, MonadIO m) => ByteString -> v -> DB -> m ()
-rocksPutBi k v = rocksPutBytes k (serialize' v)
+rocksPutBi :: (HasConfiguration, Bi v, MonadIO m) => ByteString -> v -> DB -> m ()
+rocksPutBi k v = rocksPutBytes k (dbSerializeValue v)
 
 ----------------------------------------------------------------------------
 -- Snapshot

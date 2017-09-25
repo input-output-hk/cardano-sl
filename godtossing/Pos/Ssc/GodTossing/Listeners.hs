@@ -19,17 +19,19 @@ import           Pos.Binary.Class                      (Bi)
 import           Pos.Binary.Crypto                     ()
 import           Pos.Binary.GodTossing                 ()
 import           Pos.Binary.Infra                      ()
-import           Pos.Communication.Types.Protocol      (MsgType (..))
 import           Pos.Communication.Limits.Types        (MessageLimited)
 import           Pos.Communication.Relay               (DataMsg, InvOrData,
                                                         InvReqDataParams (..),
                                                         MempoolParams (NoMempool),
                                                         Relay (..), ReqMsg, ReqOrRes)
-import           Pos.Core                              (StakeholderId, addressHash)
+import           Pos.Communication.Types.Protocol      (MsgType (..))
+import           Pos.Core                              (HasConfiguration, StakeholderId,
+                                                        addressHash, getCertId, lookupVss)
 import           Pos.Security.Util                     (shouldIgnorePkAddress)
 import           Pos.Ssc.Class.Listeners               (SscListenersClass (..))
 import           Pos.Ssc.Extra                         (sscRunLocalQuery)
-import           Pos.Ssc.GodTossing.Core               (getCertId, getCommitmentsMap)
+import           Pos.Ssc.GodTossing.Configuration      (HasGtConfiguration)
+import           Pos.Ssc.GodTossing.Core               (getCommitmentsMap)
 import           Pos.Ssc.GodTossing.LocalData          (ldModifier, sscIsDataUseful,
                                                         sscProcessCertificate,
                                                         sscProcessCommitment,
@@ -86,7 +88,7 @@ vssCertRelay
 vssCertRelay =
     sscRelay VssCertificateMsg
              (\(MCVssCertificate vc) -> getCertId vc)
-             (\id tm -> MCVssCertificate <$> tm ^. tmCertificates . at id)
+             (\id tm -> MCVssCertificate <$> lookupVss id (tm ^. tmCertificates))
              (\(MCVssCertificate cert) -> sscProcessCertificate cert)
 
 sscRelay
@@ -99,6 +101,8 @@ sscRelay
        , Message (InvOrData (Tagged contents StakeholderId) contents)
        , Message (ReqOrRes (Tagged contents StakeholderId))
        , Message (ReqMsg (Tagged contents StakeholderId))
+       , HasConfiguration
+       , HasGtConfiguration
        )
     => GtTag
     -> (contents -> StakeholderId)

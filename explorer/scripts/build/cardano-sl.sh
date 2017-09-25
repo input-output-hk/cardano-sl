@@ -58,7 +58,7 @@ set -o pipefail
 # * Pass --for-installer to enable 'for-installer' flag (which means that most
 #   of executables won't be built).
 
-# We can't have lwallet here, because it depends on 'cardano-sl'.
+# We can't have auxx here, because it depends on 'cardano-sl'.
 projects="core db lrc infra update ssc godtossing txp"
 
 args=''
@@ -152,8 +152,8 @@ do
     spec_prj="sl+"
   elif [[ $var == "gt" ]]; then
     spec_prj="godtossing"
-  elif [[ $var == "lwallet" ]]; then
-    spec_prj="lwallet"
+  elif [[ $var == "auxx" ]]; then
+    spec_prj="auxx"
   elif [[ $var == "tools" ]]; then
     spec_prj="tools"
   elif [[ " $projects " =~ " $var " ]]; then
@@ -178,7 +178,6 @@ fi
 
 if [[ "$prodMode" != "" ]]; then
   commonargs="$commonargs --flag cardano-sl-core:-dev-mode"
-  export CSL_SYSTEM_TAG=linux64
 fi
 
 if [[ $explorer == true ]]; then
@@ -201,7 +200,6 @@ if [[ "$prodMode" != "" ]]; then
     dconfig="${dconfig}_wallet"
   fi
 fi
-ghc_opts="-DCONFIG=$dconfig"
 
 if [[ $no_fast == true ]];
   then fast=""
@@ -224,8 +222,8 @@ xgrep="((^.*warning.*$|^.*error.*$|^    .*$|^.*can't find source.*$|^Module impo
 if [[ $clean == true ]]; then
   echo "Cleaning cardano-sl-tools"
   stack clean cardano-sl-tools
-  echo "Cleaning cardano-sl-lwallet"
-  stack clean cardano-sl-lwallet
+  echo "Cleaning cardano-sl-auxx"
+  stack clean cardano-sl-auxx
   echo "Cleaning cardano-sl"
   stack clean cardano-sl
   for prj in $projects; do
@@ -243,10 +241,10 @@ if [[ $spec_prj == "" ]]; then
   to_build="$to_build cardano-sl cardano-sl-explorer"
 elif [[ $spec_prj == "sl" ]]; then
   to_build="cardano-sl"
-elif [[ $spec_prj == "lwallet" ]]; then
-  to_build="cardano-sl-lwallet"
+elif [[ $spec_prj == "auxx" ]]; then
+  to_build="cardano-sl-auxx"
 elif [[ $spec_prj == "sl+" ]]; then
-  to_build="cardano-sl cardano-sl-lwallet cardano-sl-tools"
+  to_build="cardano-sl cardano-sl-auxx cardano-sl-tools"
 else
   to_build="cardano-sl-$spec_prj"
 fi

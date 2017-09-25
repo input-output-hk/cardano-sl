@@ -1,5 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-
 -- | Settings used for global transactions data processing.
 
 module Pos.Txp.Logic.Global
@@ -22,6 +20,7 @@ import           Formatting              (build, sformat, (%))
 import           Universum
 
 import           Pos.Core.Class          (epochIndexL)
+import           Pos.Core.Configuration  (HasConfiguration)
 import           Pos.DB                  (MonadDBRead, SomeBatchOp (..))
 import           Pos.Exception           (assertionFailed)
 import           Pos.Txp.Core            (TxAux, TxUndo, TxpUndo, flattenTxPayload)
@@ -29,8 +28,8 @@ import qualified Pos.Txp.DB              as DB
 import           Pos.Txp.Settings.Global (TxpBlock, TxpBlund, TxpGlobalApplyMode,
                                           TxpGlobalRollbackMode, TxpGlobalSettings (..),
                                           TxpGlobalVerifyMode)
-import           Pos.Txp.Toil            (BalancesView (..), BalancesView (..), DBToil,
-                                          GenericToilModifier (..), GlobalApplyToilMode,
+import           Pos.Txp.Toil            (DBToil, GenericToilModifier (..),
+                                          GlobalApplyToilMode, StakesView (..),
                                           ToilModifier, ToilT, applyToil, rollbackToil,
                                           runDBToil, runToilTGlobal, verifyToil)
 import           Pos.Util.Chrono         (NE, NewestFirst (..), OldestFirst (..))
@@ -48,8 +47,8 @@ txpGlobalSettings =
     }
 
 verifyBlocks
-    :: forall ctx m.
-       TxpGlobalVerifyMode ctx m
+    :: forall m.
+       TxpGlobalVerifyMode m
     => Bool -> OldestFirst NE TxpBlock -> m (OldestFirst NE TxpUndo)
 verifyBlocks verifyAllIsKnown newChain = do
     let epoch = NE.last (getOldestFirst newChain) ^. choosing epochIndexL (_1 . epochIndexL)
@@ -90,7 +89,7 @@ applyBlocksWith ApplyBlocksSettings {..} blunds = do
         runToilAction (mapM absApplySingle blunds)
 
 rollbackBlocks
-    :: TxpGlobalRollbackMode ctx m
+    :: TxpGlobalRollbackMode m
     => NewestFirst NE TxpBlund -> m SomeBatchOp
 rollbackBlocks blunds =
     toilModifierToBatch . snd <$>
@@ -101,29 +100,30 @@ rollbackBlocks blunds =
 ----------------------------------------------------------------------------
 
 -- | Convert 'GenericToilModifier' to batch of database operations.
-genericToilModifierToBatch :: (e -> SomeBatchOp)
+genericToilModifierToBatch :: HasConfiguration
+                           => (e -> SomeBatchOp)
                            -> GenericToilModifier e
                            -> SomeBatchOp
 genericToilModifierToBatch convertExtra modifier =
-    SomeBatchOp (extraOp : [SomeBatchOp utxoOps, SomeBatchOp balancesOps])
+    SomeBatchOp (extraOp : [SomeBatchOp utxoOps, SomeBatchOp stakesOps])
   where
     ToilModifier
         { _tmUtxo = um
-        , _tmBalances = (BalancesView (HM.toList -> stakes) total)
+        , _tmStakes = (StakesView (HM.toList -> stakes) total)
         , _tmExtra = extra
         } = modifier
     utxoOps =
         map DB.DelTxIn (MM.deletions um) ++
         map (uncurry DB.AddTxOut) (MM.insertions um)
-    balancesOpsAlmost = map (uncurry DB.PutFtsStake) stakes
-    balancesOps =
+    stakesOpsAlmost = map (uncurry DB.PutFtsStake) stakes
+    stakesOps =
         case total of
-            Nothing -> balancesOpsAlmost
-            Just x  -> DB.PutFtsSum x : balancesOpsAlmost
+            Nothing -> stakesOpsAlmost
+            Just x  -> DB.PutTotalStake x : stakesOpsAlmost
     extraOp = convertExtra extra
 
 -- | Convert simple 'ToilModifier' to batch of database operations.
-toilModifierToBatch :: ToilModifier -> SomeBatchOp
+toilModifierToBatch :: HasConfiguration => ToilModifier -> SomeBatchOp
 toilModifierToBatch = genericToilModifierToBatch (const mempty)
 
 -- | Run action which requires toil interfaces.

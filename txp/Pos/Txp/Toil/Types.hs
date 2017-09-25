@@ -16,16 +16,16 @@ module Pos.Txp.Toil.Types
        , mpLocalTxs
        , mpSize
        , TxMap
-       , BalancesView (..)
-       , bvStakes
-       , bvTotal
+       , StakesView (..)
+       , svStakes
+       , svTotal
        , UndoMap
        , UtxoModifier
        , fromUtxo
        , GenericToilModifier (..)
        , ToilModifier
        , tmUtxo
-       , tmBalances
+       , tmStakes
        , tmMemPool
        , tmUndos
        , tmExtra
@@ -39,12 +39,11 @@ import qualified Data.HashMap.Strict        as HM
 import qualified Data.Map                   as M (toList)
 import           Data.Text.Lazy.Builder     (Builder)
 import           Formatting                 (Format, later)
-import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Text         (mapBuilderJson)
 
-import           Pos.Core                   (Coin, StakeholderId, StakesMap,
-                                             unsafeAddCoin)
-import           Pos.Txp.Core               (TxAux, TxId, TxIn, TxOutAux, TxUndo,
+import           Pos.Core                   (Coin, GenesisWStakeholders, StakeholderId,
+                                             StakesMap, unsafeAddCoin)
+import           Pos.Txp.Core               (TxAux, TxId, TxIn, TxOutAux (..), TxUndo,
                                              txOutStake)
 import qualified Pos.Util.Modifier          as MM
 
@@ -59,11 +58,11 @@ import qualified Pos.Util.Modifier          as MM
 type Utxo = Map TxIn TxOutAux
 
 -- | Convert 'Utxo' to 'StakesMap'.
-utxoToStakes :: Utxo -> StakesMap
-utxoToStakes = foldl' putDistr mempty . M.toList
+utxoToStakes :: GenesisWStakeholders -> Utxo -> StakesMap
+utxoToStakes gws = foldl' putDistr mempty . M.toList
   where
     plusAt hm (key, val) = HM.insertWith unsafeAddCoin key val hm
-    putDistr hm (_, toaux) = foldl' plusAt hm (txOutStake toaux)
+    putDistr hm (_, TxOutAux txOut) = foldl' plusAt hm (txOutStake gws txOut)
 
 -- | Format 'Utxo' map for showing
 formatUtxo :: Utxo -> Builder
@@ -87,21 +86,21 @@ makeWrapped ''GenesisUtxo
 
 -- | tx.fee = sum(tx.in) - sum (tx.out)
 newtype TxFee = TxFee Coin
-    deriving (Show, Eq, Generic, Buildable)
+    deriving (Show, Eq, Ord, Generic, Buildable)
 
 ----------------------------------------------------------------------------
--- BalancesView
+-- StakesView
 ----------------------------------------------------------------------------
 
-data BalancesView = BalancesView
-    { _bvStakes :: !(HashMap StakeholderId Coin)
-    , _bvTotal  :: !(Maybe Coin)
+data StakesView = StakesView
+    { _svStakes :: !(HashMap StakeholderId Coin)
+    , _svTotal  :: !(Maybe Coin)
     }
 
-makeLenses ''BalancesView
+makeLenses ''StakesView
 
-instance Default BalancesView where
-    def = BalancesView mempty Nothing
+instance Default StakesView where
+    def = StakesView mempty Nothing
 
 ----------------------------------------------------------------------------
 -- MemPool
@@ -111,8 +110,8 @@ type TxMap = HashMap TxId TxAux
 
 data MemPool = MemPool
     { _mpLocalTxs :: !TxMap
-      -- | Approximate size of encoded memory pool.
-    , _mpSize     :: !Byte
+      -- | Number of transactions in the memory pool.
+    , _mpSize     :: !Int
     }
 
 makeLenses ''MemPool
@@ -121,7 +120,7 @@ instance Default MemPool where
     def =
         MemPool
         { _mpLocalTxs = mempty
-        , _mpSize     = 1
+        , _mpSize     = 0
         }
 
 ----------------------------------------------------------------------------
@@ -138,11 +137,11 @@ instance Default UndoMap where
     def = mempty
 
 data GenericToilModifier extension = ToilModifier
-    { _tmUtxo     :: !UtxoModifier
-    , _tmBalances :: !BalancesView
-    , _tmMemPool  :: !MemPool
-    , _tmUndos    :: !UndoMap
-    , _tmExtra    :: !extension
+    { _tmUtxo    :: !UtxoModifier
+    , _tmStakes  :: !StakesView
+    , _tmMemPool :: !MemPool
+    , _tmUndos   :: !UndoMap
+    , _tmExtra   :: !extension
     }
 
 type ToilModifier = GenericToilModifier ()

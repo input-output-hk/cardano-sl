@@ -2,6 +2,7 @@
 
 module Pos.Update.Poll.Failure
        ( PollVerFailure (..)
+       , reportUnexpectedError
        ) where
 
 import           Universum
@@ -10,12 +11,12 @@ import qualified Data.Text.Buildable
 import           Formatting                 (bprint, build, int, sformat, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 
-import           Pos.Core.Coin              (coinF)
-import           Pos.Core.Types             (ApplicationName, BlockVersion,
+import           Pos.Core                   (ApplicationName, BlockVersion,
                                              BlockVersionData, Coin, EpochIndex,
-                                             NumSoftwareVersion, ScriptVersion,
-                                             StakeholderId)
+                                             HeaderHash, NumSoftwareVersion,
+                                             ScriptVersion, StakeholderId, coinF)
 import           Pos.Crypto                 (shortHashF)
+import           Pos.Reporting              (MonadReporting, reportError)
 import           Pos.Update.Core            (BlockVersionModifier, UpAttributes, UpId)
 
 -- | PollVerFailure represents all possible errors which can
@@ -83,6 +84,9 @@ data PollVerFailure
     | PollUnknownAttributesInProposal { puapUpId  :: !UpId
                                       , puapAttrs :: !UpAttributes
                                       }
+    | PollTipMismatch { ptmTipDB     :: !HeaderHash
+                      , ptmTipMemory :: !HeaderHash
+                      }
     | PollInternalError !Text
 
 instance Buildable PollVerFailure where
@@ -166,5 +170,29 @@ instance Buildable PollVerFailure where
     build (PollUnknownAttributesInProposal {..}) =
         bprint ("proposal "%shortHashF%" has unknown attributes "%build)
         puapUpId puapAttrs
+    build (PollTipMismatch {..}) =
+        bprint ("tip we store in US mem-state ("%shortHashF%
+                ") differs from the tip we store in DB ("%build%")")
+        ptmTipMemory ptmTipDB
     build (PollInternalError msg) =
         bprint ("internal error: "%stext) msg
+
+-- | Report an error if it's unexpected.
+--
+-- If tips are different, we report error, because it's suspicious and
+-- we want to review logs. If it's internal error, we definitely want
+-- to investigate it.
+reportUnexpectedError ::
+       (MonadReporting ctx m)
+    => m (Either PollVerFailure a)
+    -> m (Either PollVerFailure a)
+reportUnexpectedError action = do
+    res <- action
+    -- REPORT:ERROR Internal error in update system or tips mismatch.
+    res <$
+        case res of
+            Left (PollInternalError msg) ->
+                reportError $
+                "Internal error occurred in update system: " <> msg
+            Left (err@(PollTipMismatch {})) -> reportError (pretty err)
+            _ -> pass

@@ -9,6 +9,7 @@ module Pos.Ssc.Class.LocalData
        , SscLocalDataClass (..)
        ) where
 
+import qualified Crypto.Random       as Rand
 import           System.Wlog         (WithLogger)
 import           Universum
 
@@ -23,7 +24,7 @@ import           Pos.Ssc.Class.Types (Ssc (..))
 ----------------------------------------------------------------------------
 
 type LocalQuery ssc a = forall m . (MonadReader (SscLocalData ssc) m, WithLogger m) => m a
-type LocalUpdate ssc a = forall m . (MonadState (SscLocalData ssc) m, WithLogger m) => m a
+type LocalUpdate ssc a = forall m . (MonadState (SscLocalData ssc) m, WithLogger m, Rand.MonadRandom m) => m a
 
 -- | This type class abstracts local data used for SSC. Local means
 -- that it is not stored in blocks.
@@ -41,4 +42,4 @@ class Ssc ssc => SscLocalDataClass ssc where
     -- | Create new (empty) local data. We are using this function instead of
     -- 'Default' class, because it gives more flexibility. For instance, one
     -- can read something from DB or get current slot.
-    sscNewLocalData :: (MonadSlots m, MonadDBRead m) => m (SscLocalData ssc)
+    sscNewLocalData :: (MonadSlots ctx m, MonadDBRead m) => m (SscLocalData ssc)

@@ -1,4 +1,3 @@
-{-# LANGUAGE ScopedTypeVariables #-}
 module Pos.Binary.Core.Coin () where
 
 import           Universum
@@ -23,4 +22,11 @@ import           Pos.Core.Types   (Coin, mkCoin, unsafeGetCoin)
 
 instance Bi Coin where
     encode = encode . unsafeGetCoin
-    decode = mkCoin <$> decode
+    decode =
+        decode >>= \case
+            number
+                | number > unsafeGetCoin maxBound ->
+                    fail $
+                    "decode@Coin: number is greater than limit: " <>
+                    show number
+                | otherwise -> pure (mkCoin number)

@@ -65,7 +65,7 @@ emptyView message =
           $ S.text message
 
 type SummaryRowProps =
-    { key :: String
+    { key :: Int
     , label :: String
     , amount :: String
     , mCurrency :: Maybe CCurrency
@@ -73,28 +73,28 @@ type SummaryRowProps =
 
 mkPropsForSummaryRows :: Language -> CGenesisSummary -> Array SummaryRowProps
 mkPropsForSummaryRows lang (CGenesisSummary summary) =
-    [ { key: "0"
+    [ { key: 0
       , label: translate (I18nL.genesisBlock <<< I18nL.gblNumberAddressesToRedeem) lang
       , amount: show $ summary ^. cgsNumTotal
       , mCurrency: Nothing
       }
-    , { key: "1"
+    , { key: 1
       , label: translate (I18nL.genesisBlock <<< I18nL.gblNumberRedeemedAddresses) lang
       , amount: show $ summary ^. cgsNumRedeemed
       , mCurrency: Nothing
       }
-    , { key: "2"
+    , { key: 2
       , label: translate (I18nL.genesisBlock <<< I18nL.gblNumberNotRedeemedAddresses) lang
       , amount: show $ summary ^. cgsNumNotRedeemed
       , mCurrency: Nothing
       }
     -- TODO (jk): Uncomment following lines if backend is ready
-    -- , { key: "3"
+    -- , { key: 3
     --   , label: translate (I18nL.genesisBlock <<< I18nL.gblRedeemedAmountTotal) lang
     --   , amount: show $ summary ^. cgsRedeemedAmountTotal
     --   , mCurrency: Just ADA
     --   }
-    -- , { key: "4"
+    -- , { key: 4
     --   , label: translate (I18nL.genesisBlock <<< I18nL.gblNonRedeemedAmountTotal) lang
     --   , amount: show $ summary ^. cgsNonRedeemedAmountTotal
     --   , mCurrency: Just ADA
@@ -105,7 +105,7 @@ summaryRow :: SummaryRowProps -> P.HTML Action
 summaryRow props =
     S.div
         ! S.className "row row__summary"
-        ! P.key props.key
+        ! P.key (show props.key)
         $ do
             S.div ! S.className "column column__label"
                   $ S.text props.label
@@ -124,19 +124,23 @@ summaryView summary lang =
             S.div $ for_ (mkPropsForSummaryRows lang summary) summaryRow
 
 type AddressInfosHeaderProps =
-    { label :: String
+    { key :: Int
+    , label :: String
     , clazz :: String
     }
 
-mkAddressInfosHeaderProps :: Language -> Array AddressInfosHeaderProps
-mkAddressInfosHeaderProps lang =
-    [ { label: translate (I18nL.common <<< I18nL.cAddress) lang
+mkPropsForAddressHeaderView :: Language -> Array AddressInfosHeaderProps
+mkPropsForAddressHeaderView lang =
+    [ { key: 0
+      , label: translate (I18nL.common <<< I18nL.cAddress) lang
       , clazz: "hash"
       }
-    , { label: translate (I18nL.genesisBlock <<< I18nL.gblAddressRedeemAmount) lang
+    , { key: 1
+      , label: translate (I18nL.genesisBlock <<< I18nL.gblAddressRedeemAmount) lang
       , clazz: "amount"
       }
-    , { label: translate (I18nL.genesisBlock <<< I18nL.gblAddressIsRedeemed) lang
+    , { key: 2
+      , label: translate (I18nL.genesisBlock <<< I18nL.gblAddressIsRedeemed) lang
       , clazz: "redeemed"
       }
     ]
@@ -144,23 +148,27 @@ mkAddressInfosHeaderProps lang =
 addressesHeaderView :: Language -> P.HTML Action
 addressesHeaderView lang =
     S.div ! S.className "address-infos__header"
-          $ for_ (mkAddressInfosHeaderProps lang) addressesHeaderItemView
+          $ for_ (mkPropsForAddressHeaderView lang) addressesHeaderItemView
 
 addressesHeaderItemView :: AddressInfosHeaderProps -> P.HTML Action
 addressesHeaderItemView props =
     S.div ! S.className props.clazz
+          ! P.key (show props.key)
           $ S.text props.label
 
 addressInfosBodyView :: Language -> CGenesisAddressInfo -> P.HTML Action
 addressInfosBodyView lang (CGenesisAddressInfo info) =
-    let addrLink = toUrl $ Address (info ^. cgaiCardanoAddress) in
+    let addrLink = toUrl $ Address (info ^. cgaiCardanoAddress)
+        addrString = info ^. (cgaiCardanoAddress <<< _CAddress)
+    in
     S.div ! S.className "address-infos__body--row"
+          ! P.key addrString
           $ do
           -- hash
           S.a ! S.className "address-infos__body--column hash"
               ! S.href addrLink
               #! P.onClick (Navigate addrLink)
-              $ S.text (info ^. (cgaiCardanoAddress <<< _CAddress))
+              $ S.text addrString
           -- amount
           S.div ! S.className "address-infos__body--column amount"
                 $ S.span ! S.className (currencyCSSClass $ Just ADA)

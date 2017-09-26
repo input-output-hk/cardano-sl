@@ -23,7 +23,7 @@ import Explorer.Types.State (AddressesFilter(..), CCurrency(..), CGenesisAddress
 import Explorer.Util.String (formatADA)
 import Explorer.View.Common (currencyCSSClass, paginationView)
 import Network.RemoteData (RemoteData(..), withDefault)
-import Pos.Explorer.Web.ClientTypes (CGenesisAddressInfo(..), CGenesisSummary(..))
+import Pos.Explorer.Web.ClientTypes (CAddressesFilter(..), CGenesisAddressInfo(..), CGenesisSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, cgaiCardanoAddress, cgaiGenesisAmount, cgaiIsRedeemed, cgsNumRedeemed, cgsNumNotRedeemed, cgsNumTotal)
 import Pux.DOM.Events (DOMEvent, onClick) as P
 import Pux.DOM.HTML (HTML) as P
@@ -190,15 +190,15 @@ mkPropsForAddressFilterNavItem :: Language -> Array AddressFilterNavItemProps
 mkPropsForAddressFilterNavItem lang =
     [ { key: 0
       , label: translate (I18nL.genesisBlock <<< I18nL.gblFilterAll) lang
-      , filter: AllAddresses
+      , filter: AddressesFilter AllAddresses
       }
     , { key: 1
       , label: translate (I18nL.genesisBlock <<< I18nL.gblFilterRedeemed) lang
-      , filter: RedeemedAddresses
+      , filter: AddressesFilter RedeemedAddresses
       }
     , { key: 2
       , label: translate (I18nL.genesisBlock <<< I18nL.gblFilterNonRedeemed) lang
-      , filter: NonRedeemedAddresses
+      , filter: AddressesFilter NonRedeemedAddresses
       }
     ]
 

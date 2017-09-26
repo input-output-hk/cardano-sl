@@ -95,6 +95,7 @@ instance ToSchema      C.CGenesisSummary
 instance ToSchema      C.CGenesisAddressInfo
 instance ToSchema      C.Byte
 instance ToSchema      ExplorerError
+instance ToParamSchema C.CAddressesFilter
 
 -- | Instance for Either-based types (types we return as 'Right') in responses.
 -- Due 'typeOf' these types must be 'Typeable'.

@@ -17,13 +17,14 @@ import           Servant.Server                 (Handler, Server, serve)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
-                                                 CAddressType (..), CBlockEntry (..),
+import           Pos.Explorer.Web.ClientTypes   (Byte, CAddress (..),
+                                                 CAddressSummary (..), CAddressType (..),
+                                                 CAddressesFilter, CBlockEntry (..),
                                                  CBlockSummary (..),
                                                  CGenesisAddressInfo (..),
                                                  CGenesisSummary (..), CHash (..),
                                                  CTxBrief (..), CTxEntry (..), CTxId (..),
-                                                 CTxSummary (..), Byte, mkCCoin)
+                                                 CTxSummary (..), mkCCoin)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 import           Pos.Types                      (EpochIndex (..), mkCoin)
 import           Pos.Web                        ()
@@ -231,6 +232,8 @@ testGenesisSummary = pure . pure $ CGenesisSummary
     { cgsNumTotal       = 4
     , cgsNumRedeemed    = 3
     , cgsNumNotRedeemed = 1
+    , cgsRedeemedAmountTotal    = mkCCoin $ mkCoin 300000000
+    , cgsNonRedeemedAmountTotal = mkCCoin $ mkCoin 100000000
     }
 
 testGenesisPagesTotal
@@ -241,8 +244,9 @@ testGenesisPagesTotal _ = pure $ pure 2
 testGenesisAddressInfo
     :: Maybe Word
     -> Maybe Word
+    -> Maybe CAddressesFilter
     -> Handler (Either ExplorerError [CGenesisAddressInfo])
-testGenesisAddressInfo _ _ = pure . pure $ [
+testGenesisAddressInfo _ _ _ = pure . pure $ [
     -- Commenting out RSCoin addresses until they can actually be displayed.
     -- See comment in src/Pos/Explorer/Web/ClientTypes.hs for more information.
     CGenesisAddressInfo

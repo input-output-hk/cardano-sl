@@ -12,9 +12,9 @@ import Prelude
 import Data.Array (null)
 import Data.Foldable (for_)
 import Data.Lens ((^.))
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), isJust)
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (cGenesis, cAddress, cAddresses, cOf, common, cLoading, cNo, cSummary, cYes, gblAddressesError, gblAddressesNotFound, gblAddressRedeemAmount, gblAddressIsRedeemed, gblNotFound, gblNumberAddressesToRedeem, gblNumberRedeemedAddresses, gblNumberNotRedeemedAddresses, genesisBlock) as I18nL
+import Explorer.I18n.Lenses (cGenesis, cAddress, cAddresses, cOf, common, cLoading, cNo, cSummary, cYes, gblAddressesError, gblAddressesNotFound, gblAddressRedeemAmount, gblAddressIsRedeemed, gblNonRedeemedAmountTotal, gblNotFound, gblNumberAddressesToRedeem, gblNumberRedeemedAddresses, gblNumberNotRedeemedAddresses, gblRedeemedAmountTotal, genesisBlock) as I18nL
 import Explorer.Lenses.State (currentCGenesisAddressInfos, currentCGenesisSummary, gblLoadingAddressInfosPagination, gblAddressInfosPagination, gblAddressInfosPaginationEditable, gblMaxAddressInfosPagination, genesisBlockViewState, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
@@ -64,40 +64,56 @@ emptyView message =
     S.div ! S.className "summary-empty__container"
           $ S.text message
 
-type SummaryRowItem =
+type SummaryRowProps =
     { key :: String
     , label :: String
     , amount :: String
+    , mCurrency :: Maybe CCurrency
     }
 
-type SummaryItems = Array SummaryRowItem
-
-mkSummaryItems :: Language -> CGenesisSummary -> SummaryItems
-mkSummaryItems lang (CGenesisSummary summary) =
+mkPropsForSummaryRows :: Language -> CGenesisSummary -> Array SummaryRowProps
+mkPropsForSummaryRows lang (CGenesisSummary summary) =
     [ { key: "0"
       , label: translate (I18nL.genesisBlock <<< I18nL.gblNumberAddressesToRedeem) lang
       , amount: show $ summary ^. cgsNumTotal
+      , mCurrency: Nothing
       }
     , { key: "1"
       , label: translate (I18nL.genesisBlock <<< I18nL.gblNumberRedeemedAddresses) lang
       , amount: show $ summary ^. cgsNumRedeemed
+      , mCurrency: Nothing
       }
     , { key: "2"
       , label: translate (I18nL.genesisBlock <<< I18nL.gblNumberNotRedeemedAddresses) lang
       , amount: show $ summary ^. cgsNumNotRedeemed
+      , mCurrency: Nothing
       }
+    -- TODO (jk): Uncomment following lines if backend is ready
+    -- , { key: "3"
+    --   , label: translate (I18nL.genesisBlock <<< I18nL.gblRedeemedAmountTotal) lang
+    --   , amount: show $ summary ^. cgsRedeemedAmountTotal
+    --   , mCurrency: Just ADA
+    --   }
+    -- , { key: "4"
+    --   , label: translate (I18nL.genesisBlock <<< I18nL.gblNonRedeemedAmountTotal) lang
+    --   , amount: show $ summary ^. cgsNonRedeemedAmountTotal
+    --   , mCurrency: Just ADA
+    --   }
     ]
 
-summaryRow :: SummaryRowItem -> P.HTML Action
-summaryRow item =
+summaryRow :: SummaryRowProps -> P.HTML Action
+summaryRow props =
     S.div
         ! S.className "row row__summary"
-        ! P.key item.key
+        ! P.key props.key
         $ do
             S.div ! S.className "column column__label"
-                  $ S.text item.label
+                  $ S.text props.label
             S.div ! S.className "column column__amount"
-                  $ S.text item.amount
+                  $ if isJust props.mCurrency
+                        then S.span ! S.className (currencyCSSClass props.mCurrency)
+                                    $ S.text props.amount
+                        else S.text props.amount
 
 summaryView :: CGenesisSummary -> Language -> P.HTML Action
 summaryView summary lang =
@@ -105,7 +121,7 @@ summaryView summary lang =
         S.div ! S.className "summary-container" $ do
             S.h3  ! S.className "subheadline"
                   $ S.text (translate (I18nL.common <<< I18nL.cSummary) lang)
-            S.div $ for_ (mkSummaryItems lang summary) summaryRow
+            S.div $ for_ (mkPropsForSummaryRows lang summary) summaryRow
 
 type AddressInfosHeaderProps =
     { label :: String

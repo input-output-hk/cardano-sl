@@ -82,6 +82,7 @@ import           Pos.Util.Chrono                  (getNewestFirst)
 import qualified Pos.Util.Modifier                as MM
 
 import           Pos.Ssc.Class                    (SscHelpersClass)
+import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
 import           Pos.Util.Servant                 (encodeCType)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.Web.Account           (MonadKeySearch (..))
@@ -163,7 +164,7 @@ syncWalletsWithGState
 syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) $ do
     let wAddr = encToCId encSK
     WS.getWalletSyncTip wAddr >>= \case
-        Nothing                -> logWarning $ sformat ("There is no syncTip corresponding to wallet #"%build) wAddr
+        Nothing                -> logWarningS $ sformat ("There is no syncTip corresponding to wallet #"%build) wAddr
         Just NotSynced         -> syncDo encSK Nothing
         Just (SyncedWith wTip) -> DB.blkGetHeader wTip >>= \case
             Nothing ->
@@ -172,7 +173,7 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) 
                                 %" by last synced hh: "%build) wAddr wTip
             Just wHeader -> syncDo encSK (Just wHeader)
   where
-    onErr encSK = logWarning . sformat fmt (encToCId encSK)
+    onErr encSK = logWarningS . sformat fmt (encToCId encSK)
     fmt = "Sync of wallet "%build%" failed: "%build
     syncDo :: EncryptedSecretKey -> Maybe (BlockHeader ssc) -> m ()
     syncDo encSK wTipH = do
@@ -253,7 +254,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
         computeAccModifier :: BlockHeader ssc -> m CAccModifier
         computeAccModifier wHeader = do
             allAddresses <- getWalletAddrMetas Ever wAddr
-            logInfo $
+            logInfoS $
                 sformat ("Wallet "%build%" header: "%build%", current tip header: "%build)
                 wAddr wHeader gstateH
             if | diff gstateH > diff wHeader -> do
@@ -273,7 +274,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
                      blunds <- getNewestFirst <$>
                          DB.loadBlundsWhile (\b -> getBlockHeader b /= gstateH) (headerHash wHeader)
                      pure $ foldl' (\r b -> r <> rollbackBlock allAddresses b) mempty blunds
-               | otherwise -> mempty <$ logInfo (sformat ("Wallet "%build%" is already synced") wAddr)
+               | otherwise -> mempty <$ logInfoS (sformat ("Wallet "%build%" is already synced") wAddr)
 
     whenNothing_ wTipHeader $ do
         let encInfo = getEncInfo encSK
@@ -290,8 +291,9 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
     applyModifierToWallet wAddr gstateHHash mapModifier
     -- Mark the wallet as ready, so it will be available from api endpoints.
     WS.setWalletReady wAddr True
-    logInfo $ sformat ("Wallet "%build%" has been synced with tip "
-                    %shortHashF%", "%build)
+    logInfoS $
+        sformat ("Wallet "%build%" has been synced with tip "
+                %shortHashF%", "%build)
                 wAddr (maybe genesisHash headerHash wTipHeader) mapModifier
   where
     firstGenesisHeader :: m (BlockHeader ssc)

@@ -20,7 +20,7 @@ import           Control.Monad.Except       (MonadError (throwError), runExceptT
 import           Data.Default               (Default (def))
 import           Formatting                 (build, fixed, ords, sformat, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
-import           System.Wlog                (WithLogger, logDebug, logInfo)
+import           System.Wlog                (WithLogger, logDebug)
 
 import           Pos.Binary.Class           (biSize)
 import           Pos.Block.Core             (BlockHeader, GenesisBlock, MainBlock,
@@ -58,12 +58,13 @@ import           Pos.StateLock              (Priority (..), StateLock, StateLock
 import           Pos.Txp                    (MonadTxpMem, clearTxpMemPool, txGetPayload)
 import           Pos.Txp.Core               (TxAux (..), emptyTxPayload, mkTxPayload)
 import           Pos.Update                 (UpdateContext)
-import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Update.Configuration   (HasUpdateConfiguration)
+import           Pos.Update.Core            (UpdatePayload (..))
 import qualified Pos.Update.DB              as UDB
 import           Pos.Update.Logic           (clearUSMemPool, usCanCreateBlock,
                                              usPreparePayload)
 import           Pos.Util                   (_neHead)
+import           Pos.Util.LogSafe           (logInfoS)
 import           Pos.Util.Util              (HasLens (..), HasLens', leftToPanic)
 import           Pos.WorkMode.Class         (TxpExtra_TMP)
 
@@ -237,7 +238,7 @@ createMainBlockInternal ::
     -> m (Either Text (MainBlock ssc))
 createMainBlockInternal sId pske = do
     tipHeader <- DB.getTipHeader @ssc
-    logInfo $ sformat msgFmt tipHeader
+    logInfoS $ sformat msgFmt tipHeader
     canCreateBlock sId tipHeader >>= \case
         Left reason -> pure (Left reason)
         Right () -> runExceptT (createMainBlockFinish tipHeader)
@@ -252,7 +253,7 @@ createMainBlockInternal sId pske = do
         -- than limit. So i guess it's fine in general.
         sizeLimit <- (\x -> bool 0 (x - 100) (x > 100)) <$> UDB.getMaxBlockSize
         block <- createMainBlockPure sizeLimit prevHeader pske sId sk rawPay
-        logInfo $
+        logInfoS $
             "Created main block of size: " <> sformat memory (biSize block)
         block <$ evaluateNF_ block
 

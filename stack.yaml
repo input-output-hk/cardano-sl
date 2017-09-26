@@ -22,6 +22,10 @@ packages:
 - explorer
 
 - location:
+    git: https://github.com/serokell/log-warper.git
+    # master, but we should switch to stackage when 1.2.2 will be on it
+    commit: e9934b7c4c0ca496c73a7344389e0f3d6a42fcf7 
+- location:
     git: https://github.com/serokell/time-units.git
     commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
   extra-dep: true
@@ -100,7 +104,6 @@ extra-deps:
 - serokell-util-0.5.0
 - pvss-0.2.0
 - base58-bytestring-0.1.0
-- log-warper-1.2.1
 - concurrent-extra-0.7.0.10       # not yet on Stackage
 # - purescript-bridge-0.8.0.1
 - directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8

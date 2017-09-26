@@ -207,12 +207,11 @@ generateKeysAndMpc
     :: Threshold
     -> Int
     -> IO ([SecretKey], NonEmpty VssKeyPair, [Commitment], [Opening])
--- genCommitmentAndOpening fails on 0
 generateKeysAndMpc _         0 = error "generateKeysAndMpc: 0 is passed"
 generateKeysAndMpc threshold n = do
     keys           <- generate $ nonrepeating n
     vssKeys        <- sortWith toVssPublicKey <$> generate (nonrepeating n)
-    let lvssPubKeys = NE.fromList $ map (asBinary . toVssPublicKey) vssKeys
+    let lvssPubKeys = NE.fromList $ map toVssPublicKey vssKeys
     (comms, opens) <-
         unzip <$> replicateM n (genCommitmentAndOpening threshold lvssPubKeys)
     return (keys, NE.fromList vssKeys, comms, opens)

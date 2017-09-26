@@ -18,7 +18,6 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 
 import           Pos.Arbitrary.Core.Unsafe         ()
 import           Pos.Arbitrary.Ssc                 (SscPayloadDependsOnSlot (..))
-import           Pos.Binary.Class                  (asBinary)
 import           Pos.Binary.GodTossing             ()
 import           Pos.Communication.Types.Relay     (DataMsg (..))
 import           Pos.Core                          (EpochIndex, HasConfiguration,
@@ -91,8 +90,7 @@ commitmentsAndOpenings =
       t <- R.randomRIO (3, 10)
       n <- R.randomRIO (t*2-1, t*2)
       vssKeys <- replicateM n $ toVssPublicKey <$> vssKeyGen
-      genCommitmentAndOpening (fromIntegral t)
-          (NE.fromList (map asBinary vssKeys))
+      genCommitmentAndOpening (fromIntegral t) (NE.fromList vssKeys)
 {-# NOINLINE commitmentsAndOpenings #-}
 
 instance Arbitrary CommitmentOpening where

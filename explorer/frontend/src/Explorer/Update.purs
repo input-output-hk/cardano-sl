@@ -346,14 +346,9 @@ update (GenesisBlockInvalidAddressesPageNumber event) state =
 
 update (GenesisBlockFilterAddresses addrFilter) state =
     { state:
-          set (viewStates <<< genesisBlockViewState <<< gblAddressFilter) addrFilter $
-          set (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination) (PageNumber minPagination) state
-          -- ^ reset `PageNumber` while switching `AddressesFilter`
-          -- because we don't know the maximum page of the next and new filtered page result
+          set (viewStates <<< genesisBlockViewState <<< gblAddressFilter) addrFilter state
       , effects:
-          [ pure <<< Just $ RequestPaginatedAddressInfo
-                (PageNumber minPagination) (PageSize maxAddressInfoRows) addrFilter
-                -- ^ we start w/ `minPagination` - see comment above
+          [ pure <<< Just $ RequestGenesisAddressInfoTotalPages addrFilter
           ]
     }
 
@@ -788,12 +783,12 @@ update (ReceiveGenesisSummary (Left error)) state =
     over errors (\errors' -> (show error) : errors') state
 
 
-update RequestGenesisAddressInfoTotalPages state =
+update (RequestGenesisAddressInfoTotalPages addrFilter) state =
     { state:
           set loading true $
           set (viewStates <<< genesisBlockViewState <<< gblMaxAddressInfosPagination) Loading
           state
-    , effects: [ attempt (fetchGenesisAddressInfoTotalPages (PageSize maxAddressInfoRows))
+    , effects: [ attempt (fetchGenesisAddressInfoTotalPages (PageSize maxAddressInfoRows) addrFilter)
                     >>= pure <<< Just <<< ReceiveGenesisAddressInfoTotalPages
                ]
     }
@@ -802,7 +797,11 @@ update (ReceiveGenesisAddressInfoTotalPages (Right totalPages)) state =
     { state:
           set loading false $
           set (viewStates <<< genesisBlockViewState <<< gblMaxAddressInfosPagination)
-              (Success $ PageNumber totalPages) state
+              (Success $ PageNumber totalPages) $
+          over (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination)
+              (\pn@(PageNumber n) -> if n > totalPages then (PageNumber totalPages) else pn) state
+          -- ^ Make sure that current page number isn't greater than number of total pages
+          -- which could be happened while switching filter of genesis addresses
     , effects:
         [ pure <<< Just $ GenesisBlockPaginateAddresses
                               Nothing
@@ -974,17 +973,11 @@ update (UpdateView r@(GenesisBlock)) state =
         , pure $ Just ClearWaypoints
         , pure $ Just SocketClearSubscriptions
         , pure $ Just RequestGenesisSummary
-        , pure $ (  if isNotAsked $ state ^. (viewStates <<< genesisBlockViewState <<< gblMaxAddressInfosPagination)
-                        -- ^ Before we can get data of `CGenesisAddressInfos`,
-                        -- we have to check if we do need
-                        -- to load data of `gblMaxAddressInfosPagination` before
-                        then Just RequestGenesisAddressInfoTotalPages
-                        else Just $ GenesisBlockPaginateAddresses
-                                        Nothing
-                                        (state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination))
-                  )
+        , pure <<< Just $ RequestGenesisAddressInfoTotalPages addrFilter
         ]
     }
+    where
+        addrFilter = state ^. (viewStates <<< genesisBlockViewState <<< gblAddressFilter)
 
 update (UpdateView r@(Playground)) state =
     { state: set route r state

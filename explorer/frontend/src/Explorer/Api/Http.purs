@@ -94,5 +94,7 @@ fetchGenesisAddressInfo (PageNumber pNumber) (PageSize pSize) _ =
     -- TODO (jk): Handle `AddressesFilter` if backend is ready
     get $ "genesis/address/?page=" <> show pNumber <> "&pageSize=" <> show pSize
 
-fetchGenesisAddressInfoTotalPages :: forall eff. PageSize -> Aff (ajax::AJAX | eff) Int
-fetchGenesisAddressInfoTotalPages (PageSize pSize)= get $ "genesis/address/pages/total?pageSize=" <> show pSize
+fetchGenesisAddressInfoTotalPages :: forall eff. PageSize -> AddressesFilter -> Aff (ajax::AJAX | eff) Int
+fetchGenesisAddressInfoTotalPages (PageSize pSize) _ =
+    -- TODO (jk): Handle `AddressesFilter` if backend is ready
+    get $ "genesis/address/pages/total?pageSize=" <> show pSize

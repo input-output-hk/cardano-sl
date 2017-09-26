@@ -13,6 +13,7 @@ module Pos.Util.Arbitrary
        , runGen
        ) where
 
+import qualified Crypto.Random          as Rand
 import           Data.ByteString        (pack)
 import qualified Data.ByteString.Lazy   as BL (ByteString, pack)
 import           Data.List.NonEmpty     (NonEmpty ((:|)))
@@ -24,6 +25,8 @@ import           Test.QuickCheck        (Arbitrary (..), Gen, listOf, scale, shu
 import           Test.QuickCheck.Gen    (unGen)
 import           Test.QuickCheck.Random (mkQCGen)
 import           Universum
+
+import           Pos.Crypto.Random      (GlobalRandom (..), randomNumberInRange)
 
 makeSmall :: Gen a -> Gen a
 makeSmall = scale f
@@ -53,14 +56,16 @@ deriving instance Bi a => Bi (SmallGenerator a)
 
 -- | Choose a random (shuffled) subset of length n. Throws an error if
 -- there's not enough elements.
-sublistN :: Int -> [a] -> Gen [a]
-sublistN n xs =
-    let len = length xs in
+sublistN :: Rand.MonadRandom m => Int -> [a] -> m [a]
+sublistN n xs = do
+    let len = length xs
     if len < n then
         error $ sformat ("sublistN: requested "%build%" elements, "%
             "but list only contains "%build) n len
-    else
-        take n <$> shuffle xs
+    else do
+        seed <- randomNumberInRange 0 (toInteger (maxBound @Int))
+        let shuffled = unGen (shuffle xs) (mkQCGen (fromInteger seed)) 30
+        pure $ take n shuffled
 
 -- | Type for generating list of unique (nonrepeating) elemets.
 class Nonrepeating a where
@@ -68,19 +73,19 @@ class Nonrepeating a where
 
 -- | Unsafely create pool of `n` random values to be picked
 -- (see note in `Pos.Crypto.Arbitrary` for explanation)
-unsafeMakePool :: Text -> Int -> IO a -> [a]
+unsafeMakePool :: Text -> Int -> GlobalRandom a -> [a]
 unsafeMakePool msg n action = unsafePerformIO $ do
     putText msg
-    replicateM n action
+    runGlobalRandom $ replicateM n action
 
 -- | Unsafely create list of `n` random values to be picked
 -- (see note in `Pos.Crypto.Arbitrary` for explanation)
 -- Used because genSharedSecret already returns a list
 -- of EncShares, making the 'replicateM' unneeded.
-unsafeMakeList :: Text -> IO [a] -> [a]
+unsafeMakeList :: Text -> GlobalRandom [a] -> [a]
 unsafeMakeList msg action = unsafePerformIO $ do
     putText msg
-    action
+    runGlobalRandom action
 
 -- | Make arbitrary `ByteString` of given length.
 arbitrarySizedS :: Int -> Gen ByteString

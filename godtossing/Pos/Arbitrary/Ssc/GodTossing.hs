@@ -11,7 +11,6 @@ module Pos.Arbitrary.Ssc.GodTossing
 import           Universum
 
 import qualified Data.List.NonEmpty                as NE
-import qualified System.Random                     as R
 import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, elements,
                                                     listOf, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
@@ -25,7 +24,8 @@ import           Pos.Core                          (EpochIndex, HasConfiguration
                                                     VssCertificatesMap, mkVssCertificate,
                                                     mkVssCertificatesMapLossy, vssMaxTTL,
                                                     vssMinTTL)
-import           Pos.Crypto                        (SecretKey, toVssPublicKey, vssKeyGen)
+import           Pos.Crypto                        (SecretKey, randomNumberInRange,
+                                                    toVssPublicKey, vssKeyGen)
 import           Pos.Ssc.GodTossing.Core           (Commitment (..), CommitmentsMap,
                                                     GtPayload (..), GtProof (..),
                                                     Opening (..), SignedCommitment,
@@ -87,9 +87,9 @@ commitmentsAndOpenings :: [CommitmentOpening]
 commitmentsAndOpenings =
     map (uncurry CommitmentOpening) $
     unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $ do
-      t <- R.randomRIO (3, 10)
-      n <- R.randomRIO (t*2-1, t*2)
-      vssKeys <- replicateM n $ toVssPublicKey <$> vssKeyGen
+      t <- randomNumberInRange 3 10
+      n <- randomNumberInRange (t*2-1) (t*2)
+      vssKeys <- replicateM (fromInteger n) $ toVssPublicKey <$> vssKeyGen
       genCommitmentAndOpening (fromIntegral t) (NE.fromList vssKeys)
 {-# NOINLINE commitmentsAndOpenings #-}
 

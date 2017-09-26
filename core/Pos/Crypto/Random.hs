@@ -92,6 +92,7 @@ randomNumber n
         x <- os2ip @ByteString <$> getRandomBytes size
         if x < rangeMod then gen else return (x `rem` n)
 
+-- | Generate a random number in range [a, b].
 randomNumberInRange :: MonadRandom m => Integer -> Integer -> m Integer
 randomNumberInRange a b
     | a > b     = error "randomNumberInRange: a > b"

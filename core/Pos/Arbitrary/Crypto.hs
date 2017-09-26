@@ -10,17 +10,18 @@ import           Control.Monad                     (zipWithM)
 import qualified Data.ByteArray                    as ByteArray
 import           Data.List.NonEmpty                (fromList)
 import           System.IO.Unsafe                  (unsafePerformIO)
-import           Test.QuickCheck                   (Arbitrary (..), choose, elements,
-                                                    generate, oneof, vector)
+import           Test.QuickCheck                   (Arbitrary (..), elements, oneof,
+                                                    vector)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Crypto.Unsafe       ()
 import           Pos.Binary.Class                  (AsBinary (..), AsBinaryClass (..), Bi)
 import           Pos.Binary.Crypto                 ()
-import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
+import           Pos.Core.Configuration.Protocol   (HasProtocolConstants)
 import           Pos.Crypto.AsBinary               ()
 import           Pos.Crypto.Hashing                (AbstractHash, HashAlgorithm)
 import           Pos.Crypto.HD                     (HDAddressPayload, HDPassphrase (..))
+import           Pos.Crypto.Random                 (randomNumberInRange)
 import           Pos.Crypto.SecretSharing          (DecShare, EncShare, Secret,
                                                     SecretProof, Threshold, VssKeyPair,
                                                     VssPublicKey, decryptShare,
@@ -165,17 +166,17 @@ data SharedSecrets = SharedSecrets
 sharedSecrets :: [SharedSecrets]
 sharedSecrets =
     unsafeMakePool "[generating shared secrets for tests...]" keysToGenerate $ do
-        parties <- generate $ choose (4, length vssKeys)
-        threshold <- generate $ choose (2, toInteger parties - 2)
+        parties <- randomNumberInRange 4 (toInteger (length vssKeys))
+        threshold <- randomNumberInRange 2 (parties - 2)
         vssKs <- sortWith toVssPublicKey <$>
-                 generate (sublistN parties vssKeys)
+                 sublistN (fromInteger parties) vssKeys
         (s, sp, encryptedShares) <-
             genSharedSecret threshold (map toVssPublicKey $ fromList vssKs)
         decryptedShares <- zipWithM decryptShare
                              vssKs (map snd encryptedShares)
         let shares = zip (map snd encryptedShares) decryptedShares
             vssPKs = map toVssPublicKey vssKs
-        return $ SharedSecrets s sp shares threshold vssPKs (parties - 1)
+        return $ SharedSecrets s sp shares threshold vssPKs (fromInteger parties - 1)
 {-# NOINLINE sharedSecrets #-}
 
 instance Arbitrary Secret where

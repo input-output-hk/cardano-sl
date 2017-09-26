@@ -38,8 +38,6 @@ getNodeParams args@CommonNodeArgs{..} = do
             CLI.updateUserSecretVSS args =<<
                 peekUserSecret (CLI.getKeyfilePath args)
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
-    npTransport <- CLI.getTransportParams args npNetworkConfig
-
     pure NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB

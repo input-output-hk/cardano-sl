@@ -40,7 +40,8 @@ import           Pos.Core.Genesis.Types                  (FakeAvvmOptions (..),
 import           Pos.Core.Types                          (BlockVersionData (bvdMpcThd),
                                                           Coin)
 import           Pos.Core.Vss                            (VssCertificate,
-                                                          mkVssCertificate)
+                                                          mkVssCertificate,
+                                                          mkVssCertificatesMap)
 import           Pos.Crypto                              (EncryptedSecretKey,
                                                           RedeemPublicKey, SecretKey,
                                                           VssKeyPair, deterministic,
@@ -106,7 +107,7 @@ generateGenesisData (TestnetInitializer{..}) maxTnBalance = deterministic (seria
         nonAvvmDistr = HM.fromList $ safeZip "rich" richAs richBs ++ safeZip "poor" poorAs poorBs
 
     let toStakeholders = Map.fromList . map ((,1) . addressHash . toPublic . fst)
-    let toVss = HM.fromList . map (_1 %~ addressHash . toPublic)
+    let toVss = either error identity . mkVssCertificatesMap . map snd
 
     let (bootStakeholders, vssCerts) =
             case tiDistribution of

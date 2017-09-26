@@ -80,10 +80,6 @@ readLoggerConfig :: MonadIO m => Maybe FilePath -> m LoggerConfig
 readLoggerConfig = maybe (return defaultLoggerConfig) parseLoggerConfig
 
 -- | Dump our 'GenesisData' into a file.
---
--- FIXME avieth
--- system start parameter isn't needed. The genesis data can be derived from
--- the HasConfiguration constraint.
 dumpGenesisData :: (HasConfiguration, MonadIO m) => FilePath -> m ()
 dumpGenesisData path = do
     let (canonicalJsonBytes, jsonHash) = canonicalGenesisJson genesisData

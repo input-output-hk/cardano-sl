@@ -42,8 +42,8 @@ import           Mode                     (AuxxMode, CmdCtx (..), getCmdCtx)
 -- Vote
 ----------------------------------------------------------------------------
 
-vote ::
-       ( HasConfiguration
+vote
+    :: ( HasConfiguration
        , HasInfraConfiguration
        , HasUpdateConfiguration
        , HasNodeConfiguration
@@ -78,8 +78,8 @@ vote sendActions idx decision upid = do
 -- Propose
 ----------------------------------------------------------------------------
 
-propose ::
-       ( HasConfiguration
+propose
+    :: ( HasConfiguration
        , HasInfraConfiguration
        , HasUpdateConfiguration
        , HasNodeConfiguration

@@ -20,52 +20,55 @@ module Pos.Launcher.Resource
        , bracketTransport
        ) where
 
-import           Universum                  hiding (bracket, finally)
+import           Universum                        hiding (bracket)
 
-import           Control.Concurrent.STM     (newEmptyTMVarIO, newTBQueueIO)
-import           Data.Tagged                (untag)
-import qualified Data.Time                  as Time
-import           Formatting                 (sformat, shown, (%))
-import           Mockable                   (Bracket, Catch, Mockable, Production (..),
-                                             Throw, bracket, throw)
-import           Network.QDisc.Fair         (fairQDisc)
-import qualified Network.Transport          as NT (closeTransport)
-import           Network.Transport.Abstract (Transport, hoistTransport)
-import           Network.Transport.Concrete (concrete)
-import qualified Network.Transport.TCP      as TCP
-import           System.IO                  (BufferMode (..), Handle, hClose,
-                                             hSetBuffering)
-import qualified System.Metrics             as Metrics
-import           System.Wlog                (CanLog, LoggerConfig (..), WithLogger,
-                                             getLoggerName, logError, prefixB,
-                                             productionB, releaseAllHandlers,
-                                             setupLogging, showTidB, usingLoggerName)
+import           Control.Concurrent.STM           (newEmptyTMVarIO, newTBQueueIO)
+import           Data.Tagged                      (untag)
+import qualified Data.Time                        as Time
+import           Formatting                       (sformat, shown, (%))
+import           Mockable                         (Bracket, Catch, Mockable,
+                                                   Production (..), Throw, bracket, throw)
+import           Network.QDisc.Fair               (fairQDisc)
+import qualified Network.Transport                as NT (closeTransport)
+import           Network.Transport.Abstract       (Transport, hoistTransport)
+import           Network.Transport.Concrete       (concrete)
+import qualified Network.Transport.TCP            as TCP
+import           System.IO                        (BufferMode (..), Handle, hClose,
+                                                   hSetBuffering)
+import qualified System.Metrics                   as Metrics
+import           System.Wlog                      (CanLog, LoggerConfig (..), WithLogger,
+                                                   getLoggerName, logError, prefixB,
+                                                   productionB, releaseAllHandlers,
+                                                   setupLogging, showTidB,
+                                                   usingLoggerName)
 
-import           Pos.Binary                 ()
-import           Pos.Block.Slog             (mkSlogContext)
-import           Pos.Client.CLI.Util        (readLoggerConfig)
+import           Pos.Binary                       ()
+import           Pos.Block.Slog                   (mkSlogContext)
+import           Pos.Client.CLI.Util              (readLoggerConfig)
 import           Pos.Configuration
-import           Pos.Context                (ConnectedPeers (..), NodeContext (..),
-                                             StartTime (..))
-import           Pos.Core                   (HasConfiguration, Timestamp,
-                                             gdStartTime, genesisData)
-import           Pos.DB                     (MonadDBRead, NodeDBs)
-import           Pos.DB.DB                  (initNodeDBs)
-import           Pos.DB.Rocks               (closeNodeDBs, openNodeDBs)
-import           Pos.Delegation             (DelegationVar, mkDelegationVar)
-import           Pos.DHT.Real               (KademliaDHTInstance, KademliaParams (..),
-                                             startDHTInstance, stopDHTInstance)
-import           Pos.Infra.Configuration    (HasInfraConfiguration)
-import           Pos.Launcher.Param         (BaseParams (..), LoggingParams (..),
-                                             NodeParams (..), TransportParams (..))
-import           Pos.Lrc.Context            (LrcContext (..), mkLrcSyncData)
-import           Pos.Network.Types          (NetworkConfig (..), Topology (..))
-import           Pos.Shutdown.Types         (ShutdownContext (..))
-import           Pos.Slotting               (SlottingContextSum (..), SlottingData,
-                                             mkNtpSlottingVar, mkSimpleSlottingVar)
-import           Pos.Ssc.Class              (SscConstraint, SscParams,
-                                             sscCreateNodeContext)
-import           Pos.Ssc.Extra              (SscState, mkSscState)
+import           Pos.Context                      (ConnectedPeers (..), NodeContext (..),
+                                                   StartTime (..))
+import           Pos.Core                         (HasConfiguration, Timestamp,
+                                                   gdStartTime, genesisData)
+import           Pos.DB                           (MonadDBRead, NodeDBs)
+import           Pos.DB.DB                        (initNodeDBs)
+import           Pos.DB.Rocks                     (closeNodeDBs, openNodeDBs)
+import           Pos.Delegation                   (DelegationVar, mkDelegationVar)
+import           Pos.DHT.Real                     (KademliaDHTInstance,
+                                                   KademliaParams (..), startDHTInstance,
+                                                   stopDHTInstance)
+import qualified Pos.GState                       as GS
+import           Pos.Infra.Configuration          (HasInfraConfiguration)
+import           Pos.Launcher.Param               (BaseParams (..), LoggingParams (..),
+                                                   NodeParams (..))
+import           Pos.Lrc.Context                  (LrcContext (..), mkLrcSyncData)
+import           Pos.Network.Types                (NetworkConfig (..), Topology (..))
+import           Pos.Shutdown.Types               (ShutdownContext (..))
+import           Pos.Slotting                     (SlottingContextSum (..), SlottingData,
+                                                   mkNtpSlottingVar, mkSimpleSlottingVar)
+import           Pos.Ssc.Class                    (SscConstraint, SscParams,
+                                                   sscCreateNodeContext)
+import           Pos.Ssc.Extra                    (SscState, mkSscState)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.StateLock                    (newStateLock)
 import           Pos.Txp                          (GenericTxpLocalData (..),
@@ -218,14 +221,14 @@ bracketNodeResources :: forall ssc m a.
     -> SscParams ssc
     -> (HasConfiguration => NodeResources ssc m -> Production a)
     -> Production a
-bracketNodeResources np sp k = bracketTransport tcpAddr $ \transport ->
-    bracketKademlia (npBaseParams np) (npNetworkConfig np) $ \networkConfig ->
-        bracket (allocateNodeResources transport networkConfig np sp) releaseNodeResources $ \nodeRes ->do
-            -- Notify systemd we are fully operative
-            notifyReady
-            k nodeRes
-  where
-    tcpAddr = tpTcpAddr (npTransport np)
+bracketNodeResources np sp k =
+    bracketTransport (ncTcpAddr (npNetworkConfig np)) $ \transport ->
+        bracketKademlia (npBaseParams np) (npNetworkConfig np) $ \networkConfig ->
+            bracket (allocateNodeResources transport networkConfig np sp)
+                    releaseNodeResources $ \nodeRes ->do
+                -- Notify systemd we are fully operative
+                notifyReady
+                k nodeRes
 
 ----------------------------------------------------------------------------
 -- Logging
@@ -273,7 +276,7 @@ allocateNodeContext ancd = do
                                 , ancdTxpMemState = TxpLocalData {..}
                                 } = ancd
     ncLoggerConfig <- getRealLoggerConfig $ bpLoggingParams npBaseParams
-    ncStateLock <- newStateLock
+    ncStateLock <- newStateLock =<< GS.getTip
     ncStateLockMetrics <- liftIO $ recordTxpMetrics store txpMemPool
     lcLrcSync <- mkLrcSyncData >>= newTVarIO
     ncSlottingVar <- (gdStartTime genesisData,) <$> mkSlottingVar
@@ -295,11 +298,11 @@ allocateNodeContext ancd = do
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.
     peersVar <- newTVarIO mempty
-    let ctx shutdownQueue =
+    let ctx =
             NodeContext
             { ncConnectedPeers = ConnectedPeers peersVar
             , ncLrcContext = LrcContext {..}
-            , ncShutdownContext = ShutdownContext ncShutdownFlag shutdownQueue
+            , ncShutdownContext = ShutdownContext ncShutdownFlag
             , ncNodeParams = np
 #ifdef WITH_EXPLORER
             , ncTxpGlobalSettings = explorerTxpGlobalSettings
@@ -309,8 +312,7 @@ allocateNodeContext ancd = do
             , ncNetworkConfig = networkConfig
             , ..
             }
-    -- TODO bounded queue not necessary.
-    ctx <$> liftIO (newTBQueueIO maxBound)
+    return ctx
 
 releaseNodeContext :: forall ssc m . MonadIO m => NodeContext ssc -> m ()
 releaseNodeContext _ = return ()

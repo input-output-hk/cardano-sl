@@ -7,13 +7,13 @@ flags:
 extra-package-dbs: []
 
 packages:
-- auxx
 - node
 - core
 - update
 - infra
 - db
 - lrc
+- auxx
 - ssc
 - godtossing
 - tools
@@ -87,12 +87,6 @@ packages:
     commit: 08df7fe6a9242f7d76aa5040221702e26ab610f6
   extra-dep: true
 
-# Custom ekg-statsd version without the unnecessary diffing optimisation
-- location:
-    git: https://github.com/input-output-hk/ekg-statsd.git
-    commit: 1869714a616b8092d8dc16af6e834e81f4c56bad
-  extra-dep: true
-
 - location:
     git: https://github.com/well-typed/canonical-json.git
     commit: 2d261bb971bada1893753b503452d9e6e217bc4a
@@ -121,13 +115,15 @@ extra-deps:
 - entropy-0.3.7                   # https://github.com/commercialhaskell/stack/issues/3151
 - cborg-0.1.1.0
 - systemd-1.1.2
+- tabl-1.0.3
+# ekg-statsd version without the unnecessary diffing optimisation
+- ekg-statsd-0.2.2.0
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything
 
 # If you find it too restrictive, you can use `scripts/build/cardano-sl.sh' script
 ghc-options:
-  cardano-sl-auxx:    -Werror
   cardano-sl-core:       -Werror
   cardano-sl-db:         -Werror
   cardano-sl-ssc:        -Werror
@@ -138,5 +134,6 @@ ghc-options:
   cardano-sl-txp:        -Werror
   cardano-sl:            -Werror
   cardano-sl-tools:      -Werror
+  cardano-sl-auxx:       -Werror
   cardano-sl-wallet:     -Werror
   cardano-sl-explorer:   -Werror

@@ -91,6 +91,9 @@ library
                         -- Statistics
                         Pos.Statistics
 
+                        -- Recovery
+                        Pos.Recovery
+
                         -- Client
                         Pos.Client.Txp.Addresses
                         Pos.Client.Txp.Balances
@@ -570,8 +573,8 @@ test-suite cardano-test
 
                        -- Txp
                        Test.Pos.Client.Txp.Mode
-                       Test.Pos.Client.Txp.UtilSpec
                        Test.Pos.Client.Txp.Util
+                       Test.Pos.Client.Txp.UtilSpec
 
                        -- Everything else
                        Test.Pos.CborSpec
@@ -635,6 +638,7 @@ test-suite cardano-test
                      , data-default
                      , ether
                      , exceptions
+                     , extra
                      , formatting
                      , generic-arbitrary
                      , hspec

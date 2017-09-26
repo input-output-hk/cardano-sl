@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
-system_start=$((`date +%s` + 1))
+system_start=$((`date +%s` + 15))
 
-WALLET_TEST=1 ./scripts/launch/demo-with-wallet-api.sh & PIDNODE=$!
-./scripts/launch/explorer.sh ./scripts/common-functions.sh & PIDEX=$!
+WALLET_TEST=1 system_start=$system_start ./scripts/launch/demo-with-wallet-api.sh & PIDNODE=$!
+system_start=$system_start ./scripts/launch/explorer.sh & PIDEX=$!
 
 wait $PIDEX
 wait $PIDNODE

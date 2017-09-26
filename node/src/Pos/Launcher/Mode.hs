@@ -56,7 +56,6 @@ import           Pos.Ssc.Class.Types     (SscBlock)
 import           Pos.Util                (Some (..))
 import           Pos.Util.Util           (postfixLFields)
 
-
 -- The fields are lazy on purpose: this allows using them with
 -- futures.
 data InitModeContext ssc = InitModeContext

@@ -50,8 +50,8 @@ import           Pos.Communication               (ActionSpec (..), EnqueueMsg,
                                                   makeEnqueueMsg, makeSendActions)
 import           Pos.Configuration               (HasNodeConfiguration)
 import           Pos.Context                     (NodeContext (..))
-import           Pos.Core.Types                  (ProtocolMagic (..))
 import           Pos.Core.Configuration          (HasConfiguration, protocolMagic)
+import           Pos.Core.Types                  (ProtocolMagic (..))
 import           Pos.Infra.Configuration         (HasInfraConfiguration)
 import           Pos.Launcher.Param              (BaseParams (..), LoggingParams (..),
                                                   NodeParams (..))
@@ -61,7 +61,8 @@ import           Pos.Network.Types               (NetworkConfig (..), NodeId, in
 import           Pos.Recovery.Instance           ()
 import           Pos.Ssc.Class                   (SscConstraint)
 import           Pos.Statistics                  (EkgParams (..), StatsdParams (..))
-import           Pos.Update.Configuration        (HasUpdateConfiguration, lastKnownBlockVersion)
+import           Pos.Update.Configuration        (HasUpdateConfiguration,
+                                                  lastKnownBlockVersion)
 import           Pos.Util.JsonLog                (JsonLogConfig (..),
                                                   jsonLogConfigFromHandle)
 import           Pos.Web.Server                  (route53HealthCheckApplication,

@@ -18,14 +18,17 @@ module Pos.Communication.Protocol
        , toAction
        , unpackLSpecs
        , hoistMkListeners
-       , onNewSlotWorker
-       , localOnNewSlotWorker
-       , onNewSlotWithLoggingWorker
        , makeSendActions
        , makeEnqueueMsg
        , checkingInSpecs
        , constantListeners
+
+       -- * OnNewSlot workers
+       , onNewSlotWorker
+       , localOnNewSlotWorker
        ) where
+
+import           Universum
 
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.List.NonEmpty               as NE
@@ -37,7 +40,6 @@ import qualified Node                             as N
 import           Node.Message.Class               (Message (..), MessageCode, messageCode)
 import           Serokell.Util.Text               (listJson)
 import           System.Wlog                      (WithLogger, logWarning)
-import           Universum
 
 import           Pos.Communication.Types.Protocol
 import           Pos.Core.Configuration           (HasConfiguration)
@@ -47,7 +49,7 @@ import           Pos.Recovery.Info                (MonadRecoveryInfo)
 import           Pos.Reporting                    (HasReportingContext)
 import           Pos.Shutdown                     (HasShutdownContext)
 import           Pos.Slotting                     (MonadSlots)
-import           Pos.Slotting.Util                (onNewSlot, onNewSlotImpl)
+import           Pos.Slotting.Util                (onNewSlot)
 
 mapListener
     :: (forall t. m t -> m t) -> Listener m -> Listener m
@@ -241,21 +243,16 @@ type OnNewSlotComm ctx m =
 
 onNewSlot'
     :: OnNewSlotComm ctx m
-    => Bool -> Bool -> (SlotId -> WorkerSpec m, outSpecs) -> (WorkerSpec m, outSpecs)
-onNewSlot' withLog startImmediately (h, outs) =
+    => Bool -> (SlotId -> WorkerSpec m, outSpecs) -> (WorkerSpec m, outSpecs)
+onNewSlot' startImmediately (h, outs) =
     (,outs) . ActionSpec $ \vI sA ->
-        onNewSlotImpl withLog startImmediately $
+        onNewSlot startImmediately $
             \slotId -> let ActionSpec h' = h slotId
                         in h' vI sA
 onNewSlotWorker
     :: OnNewSlotComm ctx m
     => Bool -> OutSpecs -> (SlotId -> Worker m) -> (WorkerSpec m, OutSpecs)
-onNewSlotWorker b outs = onNewSlot' False b . workerHelper outs
-
-onNewSlotWithLoggingWorker
-    :: OnNewSlotComm ctx m
-    => Bool -> OutSpecs -> (SlotId -> Worker m) -> (WorkerSpec m, OutSpecs)
-onNewSlotWithLoggingWorker b outs = onNewSlot' True b . workerHelper outs
+onNewSlotWorker b outs = onNewSlot' b . workerHelper outs
 
 localOnNewSlotWorker
     :: LocalOnNewSlotComm ctx m

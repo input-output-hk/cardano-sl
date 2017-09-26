@@ -19,7 +19,6 @@ import           Universum
 import           Control.Lens               (at, (.=))
 import           Control.Monad.Trans.Class  (MonadTrans)
 import qualified Ether
-import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Core                   (Coin, StakeholderId, HasConfiguration)
 import           Pos.Txp.Core.Types         (TxAux, TxId, TxIn, TxOutAux, TxUndo)
@@ -97,8 +96,8 @@ instance {-# OVERLAPPABLE #-}
 class Monad m => MonadTxPool m where
     -- | Check whether Tx with given identifier is stored in the pool.
     hasTx :: TxId -> m Bool
-    -- | Return size of the pool's binary representation (approximate).
-    poolSize :: m Byte
+    -- | Return the number of transactions contained in the pool.
+    poolSize :: m Int
     -- | Put a transaction with corresponding Undo into MemPool.
     -- Transaction must not be in MemPool.
     putTxWithUndo :: TxId -> TxAux -> TxUndo -> m ()
@@ -108,7 +107,7 @@ class Monad m => MonadTxPool m where
     hasTx = lift . hasTx
 
     default poolSize
-        :: (MonadTrans t, MonadTxPool m', t m' ~ m) => m Byte
+        :: (MonadTrans t, MonadTxPool m', t m' ~ m) => m Int
     poolSize = lift poolSize
 
     default putTxWithUndo

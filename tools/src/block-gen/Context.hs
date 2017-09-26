@@ -36,7 +36,7 @@ import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Util                   (newInitFuture, postfixLFields)
 
 -- | Enough context for generation of blocks.
--- "T" means tool
+-- "T" stands for tool
 data TBlockGenContext = TBlockGenContext
     { tbgcGState      :: GStateContext
     , tbgcSystemStart :: Timestamp

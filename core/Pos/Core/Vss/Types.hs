@@ -1,21 +1,30 @@
+{-# LANGUAGE TypeFamilies #-}
+
 -- | Vss related types and constructors for VssCertificate and VssCertificatesMap
 
 module Pos.Core.Vss.Types
        ( -- * Vss certificates
          VssCertificate (..)
-       , VssCertificatesMap
+       , _vcVssKey
+       , _vcExpiryEpoch
+       , _vcSignature
+       , _vcSigningKey
+       , VssCertificatesMap (..)
        ) where
 
 import           Universum
 
-import           Data.Hashable       (Hashable (..))
-import qualified Data.Text.Buildable as Buildable
-import           Formatting          (bprint, build, int, (%))
+import           Control.Lens             (makeLensesFor, makeWrapped)
+import           Data.Hashable            (Hashable (..))
+import qualified Data.HashMap.Strict      as HM
+import qualified Data.HashSet             as HS
+import qualified Data.Text.Buildable      as Buildable
+import           Formatting               (bprint, build, int, (%))
 
-import           Pos.Binary.Class    (AsBinary (..), Bi)
-import           Pos.Core.Types      (EpochIndex, StakeholderId)
-import           Pos.Crypto.Signing.Types (PublicKey, Signature)
+import           Pos.Binary.Class         (AsBinary (..), Bi)
+import           Pos.Core.Types           (EpochIndex, StakeholderId)
 import           Pos.Crypto.SecretSharing (VssPublicKey)
+import           Pos.Crypto.Signing.Types (PublicKey, Signature)
 
 ----------------------------------------------------------------------------
 -- Vss certificates
@@ -42,6 +51,13 @@ data VssCertificate = VssCertificate
     , vcSigningKey  :: !PublicKey
     } deriving (Show, Eq, Generic)
 
+flip makeLensesFor ''VssCertificate
+  [ ("vcVssKey"     , "_vcVssKey")
+  , ("vcExpiryEpoch", "_vcExpiryEpoch")
+  , ("vcSignature"  , "_vcSignature")
+  , ("vcSigningKey" , "_vcSigningKey")
+  ]
+
 instance NFData VssCertificate
 
 instance Ord VssCertificate where
@@ -60,4 +76,24 @@ instance Hashable VssCertificate where
 
 -- | VssCertificatesMap contains all valid certificates collected
 -- during some period of time.
-type VssCertificatesMap = HashMap StakeholderId VssCertificate
+--
+-- Invariants:
+--   * stakeholder ids correspond to 'vcSigningKey's of associated certs
+--   * no two certs have the same 'vcVssKey'
+newtype VssCertificatesMap = UnsafeVssCertificatesMap
+    { getVssCertificatesMap :: HashMap StakeholderId VssCertificate }
+    deriving (Eq, Show, Generic, NFData, Container, NontrivialContainer)
+
+type instance Element VssCertificatesMap = VssCertificate
+
+makeWrapped ''VssCertificatesMap
+
+-- | A left-biased instance
+instance Monoid VssCertificatesMap where
+    mempty = UnsafeVssCertificatesMap mempty
+    mappend (UnsafeVssCertificatesMap a) (UnsafeVssCertificatesMap b) =
+        UnsafeVssCertificatesMap $
+        a <> HM.filter (not . (`HS.member` lVssKeys) . vcVssKey) b
+      where
+        lVssKeys = HS.fromList (map vcVssKey (toList a))
+

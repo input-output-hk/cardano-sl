@@ -25,7 +25,7 @@ import           Universum
 import           Control.Concurrent.STM     (isFullTBQueue, readTVar, writeTBQueue,
                                              writeTVar)
 import           Control.Exception          (Exception (..))
-import           Control.Lens               (to, _Wrapped)
+import           Control.Lens               (to)
 import qualified Data.List.NonEmpty         as NE
 import qualified Data.Text.Buildable        as B
 import           Ether.Internal             (HasLens (..))
@@ -33,7 +33,6 @@ import           Formatting                 (bprint, build, builder, int, sforma
                                              stext, (%))
 import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util.Text         (listJson)
-import           Serokell.Util.Verify       (VerificationRes (..), formatFirstError)
 import           System.Wlog                (logDebug, logInfo, logWarning)
 
 import           Pos.Binary.Class           (biSize)
@@ -49,7 +48,6 @@ import qualified Pos.Block.Logic            as L
 import           Pos.Block.Network.Announce (announceBlock)
 import           Pos.Block.Network.Types    (MsgGetBlocks (..), MsgGetHeaders (..),
                                              MsgHeaders (..))
-import           Pos.Block.Pure             (verifyHeaders)
 import           Pos.Block.RetrievalQueue   (BlockRetrievalQueue, BlockRetrievalTask (..))
 import           Pos.Block.Types            (Blund)
 import           Pos.Communication.Limits   (recvLimited)
@@ -57,21 +55,26 @@ import           Pos.Communication.Protocol (Conversation (..), ConversationActi
                                              EnqueueMsg, MsgType (..), NodeId, OutSpecs,
                                              convH, toOutSpecs, waitForConversations)
 import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHeaderTag,
-                                             recoveryCommGuard, recoveryInProgress)
-import           Pos.Core                   (HasConfiguration, HasHeaderHash (..),
-                                             HeaderHash, gbHeader, headerHashG,
-                                             isMoreDifficult, prevBlockL,
-                                             criticalForkThreshold)
+                                             recoveryInProgress)
+import           Pos.Core                   (EpochOrSlot (..), HasConfiguration,
+                                             HasHeaderHash (..), HeaderHash, SlotId (..),
+                                             criticalForkThreshold, crucialSlot,
+                                             epochIndexL, epochOrSlotG, gbHeader,
+                                             headerHashG, isMoreDifficult, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.DB.Block               (blkGetHeader)
 import qualified Pos.DB.DB                  as DB
 import           Pos.Exception              (cardanoExceptionFromException,
                                              cardanoExceptionToException)
+import           Pos.Lrc.Error              (LrcError (UnknownBlocksForLrc))
+import           Pos.Lrc.Worker             (lrcSingleShot)
 import           Pos.Reporting.Methods      (reportMisbehaviour)
 import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
-import           Pos.StateLock              (Priority (..), modifyStateLock)
+import           Pos.StateLock              (Priority (..), modifyStateLock,
+                                             withStateLockNoMetrics)
 import           Pos.Util                   (inAssertMode, _neHead, _neLast)
-import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..),
+                                             _NewestFirst, _OldestFirst)
 import           Pos.Util.JsonLog           (jlAdoptedBlock)
 import           Pos.Util.TimeWarp          (CanJsonLog (..))
 import           Pos.WorkMode.Class         (WorkMode)
@@ -237,8 +240,8 @@ matchRequestedHeaders
     :: (SscHelpersClass ssc, HasConfiguration)
     => NewestFirst NE (BlockHeader ssc) -> MsgGetHeaders -> Bool -> MatchReqHeadersRes
 matchRequestedHeaders headers mgh@MsgGetHeaders {..} inRecovery =
-    let newTip = headers ^. _Wrapped . _neHead
-        startHeader = headers ^. _Wrapped . _neLast
+    let newTip = headers ^. _NewestFirst . _neHead
+        startHeader = headers ^. _NewestFirst . _neLast
         startMatches =
             or [ (startHeader ^. headerHashG) `elem` mghFrom
                , (startHeader ^. prevBlockL) `elem` mghFrom
@@ -247,7 +250,6 @@ matchRequestedHeaders headers mgh@MsgGetHeaders {..} inRecovery =
             | inRecovery = True
             | isNothing mghTo = True
             | otherwise = Just (headerHash newTip) == mghTo
-        verRes = verifyHeaders (headers & _Wrapped %~ toList)
     in if | not startMatches ->
             MRUnexpected $ sformat ("start (from) header "%build%
                                     " doesn't match request "%build)
@@ -257,8 +259,6 @@ matchRequestedHeaders headers mgh@MsgGetHeaders {..} inRecovery =
                                     " doesn't match request "%build%
                                     ", recovery: "%shown%", newTip:"%build)
                                    mghTo mgh inRecovery newTip
-          | VerFailure errs <- verRes ->
-              MRUnexpected $ "headers are bad: " <> formatFirstError errs
           | otherwise -> MRGood
 
 requestHeaders
@@ -293,7 +293,7 @@ requestHeaders cont mgh nodeId conv = do
             logDebug $ sformat
                 ("requestHeaders: received "%int%" headers of total size "%builder%
                  " from nodeId "%build%": "%listJson)
-                (headers ^. _Wrapped . to NE.length)
+                (headers ^. _NewestFirst . to NE.length)
                 (unitBuilder $ biSize headers)
                 nodeId
                 (map headerHash headers)
@@ -314,7 +314,6 @@ requestHeaders cont mgh nodeId conv = do
         throwM $ DialogUnexpected $
             sformat ("requestHeaders: received unexpected headers from "%build) nodeId
 
--- First case of 'handleBlockheaders'
 handleRequestedHeaders
     :: forall ssc ctx m.
        WorkMode ssc ctx m
@@ -323,10 +322,13 @@ handleRequestedHeaders
     -> NewestFirst NE (BlockHeader ssc)
     -> m ()
 handleRequestedHeaders cont inRecovery headers = do
+    -- Try to calculate LRC for the oldest header epoch. If we're in
+    -- recovery and oldest header is from the next epoch, no lrc will
+    -- be automatically calculated as all workers are locked in
+    -- recovery mode. So we should try to do it manually.
+    tryCalculateLrc
+
     classificationRes <- classifyHeaders inRecovery headers
-    let newestHeader = headers ^. _Wrapped . _neHead
-        newestHash = headerHash newestHeader
-        oldestHash = headerHash $ headers ^. _Wrapped . _neLast
     case classificationRes of
         CHsValid lcaChild -> do
             let lcaHash = lcaChild ^. prevBlockL
@@ -350,6 +352,41 @@ handleRequestedHeaders cont inRecovery headers = do
             logDebug msg
             throwM $ DialogUnexpected msg
   where
+    newestHeader = headers ^. _NewestFirst . _neHead
+    oldestHeader = headers ^. _NewestFirst . _neLast
+    newestHash = headerHash newestHeader
+    oldestHash = headerHash oldestHeader
+    oldestEpoch = oldestHeader ^. epochIndexL
+
+    tryCalculateLrc = do
+        tip <- DB.getTipHeader @ssc
+        let tipEpochOrSlot = tip ^. epochOrSlotG
+        let tipEpoch = tip ^. epochIndexL
+        let differentEpochs = oldestEpoch == tipEpoch + 1
+        -- CSL-1660 We should also check that there's k blocks after
+        -- crucial slot.
+        let tipAfterCrucial = case unEpochOrSlot tipEpochOrSlot of
+                -- we assume differentEpochs is true, so this is
+                -- before zero's slot of epoch e, while new header has
+                -- epoch e+1.
+                Left _   -> False
+                Right si -> siSlot si > siSlot (crucialSlot $ siEpoch si)
+        let shouldExecute = differentEpochs && tipAfterCrucial
+
+        if shouldExecute then do
+            logDebug "handleRequesteHeaders: LRC started"
+            let handler UnknownBlocksForLrc =
+                    logWarning $
+                    "handleRequestedHeaders: tried lrcSingleShot, " <>
+                    "got UnknownBlocksForLrc"
+                handler e                   = throwM e
+            withStateLockNoMetrics HighPriority $ const $
+                lrcSingleShot oldestEpoch `catch` handler
+            logDebug "handleRequesteHeaders: LRC ended"
+        else logDebug $ sformat ("handleRequestHeaders: not calculating LRC: "%
+                                 "oldest header epoch "%build%", tip epoch "%build)
+                                oldestEpoch tipEpoch
+
     validFormat =
         "Received valid headers, can request blocks from "%shortHashF%
         " to "%shortHashF
@@ -371,7 +408,7 @@ addHeaderToBlockRequestQueue
        (WorkMode ssc ctx m)
     => NodeId
     -> BlockHeader ssc
-    -> Bool -- Continues?
+    -> Bool -- brtContinues flag
     -> m ()
 addHeaderToBlockRequestQueue nodeId header continues = do
     logDebug $ sformat ("addToBlockRequestQueue, : "%build) header
@@ -457,7 +494,7 @@ handleBlocksWithLca nodeId enqueue blocks lcaHash = do
     toRollback <- DB.loadBlundsFromTipWhile $ \blk -> headerHash blk /= lcaHash
     maybe (applyWithoutRollback enqueue blocks)
           (applyWithRollback nodeId enqueue blocks lcaHash)
-          (_Wrapped nonEmpty toRollback)
+          (_NewestFirst nonEmpty toRollback)
   where
     lcaFmt = "Handling block w/ LCA, which is "%shortHashF
 
@@ -483,7 +520,7 @@ applyWithoutRollback enqueue blocks = do
                     fromMaybe (error "Listeners#applyWithoutRollback is broken") $
                     find (\b -> headerHash b == newTip) blocks
                 prefix = blocks
-                    & _Wrapped %~ NE.takeWhile ((/= newTip) . headerHash)
+                    & _OldestFirst %~ NE.takeWhile ((/= newTip) . headerHash)
                     & map (view blockHeader)
                 applied = NE.fromList $
                     getOldestFirst prefix <> one (toRelay ^. blockHeader)
@@ -491,7 +528,7 @@ applyWithoutRollback enqueue blocks = do
             logInfo $ blocksAppliedMsg applied
             for_ blocks $ jsonLog . jlAdoptedBlock
   where
-    newestTip = blocks ^. _Wrapped . _neLast . headerHashG
+    newestTip = blocks ^. _OldestFirst . _neLast . headerHashG
     applyWithoutRollbackDo
         :: HeaderHash -> m (HeaderHash, Either ApplyBlocksException HeaderHash)
     applyWithoutRollbackDo curTip = do
@@ -528,7 +565,7 @@ applyWithRollback nodeId enqueue toApply lca toRollback = do
             logInfo $ blocksRolledBackMsg (getNewestFirst toRollback)
             logInfo $ blocksAppliedMsg (getOldestFirst toApply)
             for_ (getOldestFirst toApply) $ jsonLog . jlAdoptedBlock
-            relayBlock enqueue $ toApply ^. _Wrapped . _neLast
+            relayBlock enqueue $ toApply ^. _OldestFirst . _neLast
   where
     toRollbackHashes = fmap headerHash toRollback
     toApplyHashes = fmap headerHash toApply
@@ -536,14 +573,12 @@ applyWithRollback nodeId enqueue toApply lca toRollback = do
         "Fork happened, data received from "%build%
         ". Blocks rolled back: "%listJson%
         ", blocks applied: "%listJson
-    reportRollback =
-        recoveryCommGuard $
-            -- REPORT:MISBEHAVIOUR(F/T) Blockchain fork occurred (depends on depth).
-            reportMisbehaviour isCritical $
-                sformat reportF nodeId toRollbackHashes toApplyHashes
-      where
-        rollbackDepth = length toRollback
-        isCritical = rollbackDepth >= criticalForkThreshold
+    reportRollback = do
+        let rollbackDepth = length toRollback
+        let isCritical = rollbackDepth >= criticalForkThreshold
+        -- REPORT:MISBEHAVIOUR(F/T) Blockchain fork occurred (depends on depth).
+        reportMisbehaviour isCritical $
+            sformat reportF nodeId toRollbackHashes toApplyHashes
 
     panicBrokenLca = error "applyWithRollback: nothing after LCA :<"
     toApplyAfterLca =

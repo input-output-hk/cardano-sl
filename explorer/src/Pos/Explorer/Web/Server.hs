@@ -24,6 +24,7 @@ import           Universum
 import           Control.Lens                     (at)
 import           Control.Monad.Catch              (try)
 import qualified Data.ByteString                  as BS
+import           Data.Fixed                       (Micro)
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.List.NonEmpty               as NE
 import           Data.Maybe                       (fromMaybe)
@@ -78,7 +79,7 @@ import           Pos.Explorer.Web.Api             (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes     (Byte, CAddress (..),
                                                    CAddressSummary (..),
                                                    CAddressType (..), CBlockEntry (..),
-                                                   CBlockSummary, CCoin,
+                                                   CBlockSummary,
                                                    CGenesisAddressInfo (..),
                                                    CGenesisSummary (..), CHash,
                                                    CTxBrief (..), CTxEntry (..),
@@ -193,18 +194,19 @@ explorerHandlers _sendActions =
 -- API Functions
 ----------------------------------------------------------------
 
-getTotalAda :: ExplorerMode ctx m => m CCoin
+getTotalAda :: ExplorerMode ctx m => m Micro
 getTotalAda = do
     utxoSum <- EX.getUtxoSum
-    -- getUtxoSum returns Integer, but for external consumers we want to provide Coin.
-    -- However, we don't want to return meaningless values to them, so we add truncation.
-    pure $ mkCCoin $ truncateIntegerToCoin utxoSum
+    validateUtxoSum utxoSum
+    pure $ fromInteger utxoSum / 1e6
   where
-    truncateIntegerToCoin :: Integer -> Coin
-    truncateIntegerToCoin n
-        | n < 0 = mkCoin 0
-        | n > coinToInteger (maxBound :: Coin) = maxBound :: Coin
-        | otherwise = mkCoin (fromInteger n)
+    validateUtxoSum :: ExplorerMode ctx m => Integer -> m ()
+    validateUtxoSum n
+        | n < 0 = throwM $ Internal $
+            sformat ("Internal tracker of utxo sum has a negative value: "%build) n
+        | n > coinToInteger (maxBound :: Coin) = throwM $ Internal $
+            sformat ("Internal tracker of utxo sum overflows: "%build) n
+        | otherwise = pure ()
 
 -- | Get the total number of blocks/slots currently available.
 -- Total number of main blocks   = difficulty of the topmost (tip) header.

@@ -18,10 +18,11 @@ module Pos.Explorer.Web.Api
 
 import           Universum
 
+import           Data.Fixed                   (Micro)
 import           Data.Proxy                   (Proxy (Proxy))
 
 import           Pos.Explorer.Web.ClientTypes (Byte, CAddress, CAddressSummary,
-                                               CBlockEntry, CBlockSummary, CCoin,
+                                               CBlockEntry, CBlockSummary,
                                                CGenesisAddressInfo, CGenesisSummary,
                                                CHash, CTxBrief, CTxEntry, CTxId,
                                                CTxSummary)
@@ -37,8 +38,9 @@ type PageNumber = Integer
 type API = "api"
 
 type TotalAda = API
-    :> "totalada"
-    :> Get '[JSON] (Either ExplorerError CCoin)
+    :> "supply"
+    :> "ada"
+    :> Get '[JSON] (Either ExplorerError Micro)
 
 type BlocksPages = API
     :> "blocks"

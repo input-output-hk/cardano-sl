@@ -3039,15 +3039,11 @@ self: {
           description = "JSON encoding of ekg metrics";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      ekg-statsd = callPackage ({ base, bytestring, ekg-core, fetchgit, mkDerivation, network, stdenv, text, time, unordered-containers }:
+      ekg-statsd = callPackage ({ base, bytestring, ekg-core, mkDerivation, network, stdenv, text, time, unordered-containers }:
       mkDerivation {
           pname = "ekg-statsd";
-          version = "0.2.1.1";
-          src = fetchgit {
-            url = "https://github.com/input-output-hk/ekg-statsd.git";
-            sha256 = "1nz0py671cg4dlyli1j6h63603lfmldi79w07i2prrvaivjdzfqc";
-            rev = "1869714a616b8092d8dc16af6e834e81f4c56bad";
-          };
+          version = "0.2.2.0";
+          sha256 = "1z1si5zglmwq0qxhd4s8zmp8rps8z4xqnk4l8wlal79f1qkz9862";
           libraryHaskellDepends = [
             base
             bytestring
@@ -3677,6 +3673,8 @@ self: {
           pname = "happy";
           version = "1.19.7";
           sha256 = "16vg292pp12wnkny7znsv7bichh9ghny7swl7v55qafmcfg2lcdv";
+          revision = "1";
+          editedCabalFile = "1w0sm3qn1icxiiif6355pr6cwd9bqfh56g8qc5hycagcnms8hip1";
           isLibrary = false;
           isExecutable = true;
           setupHaskellDepends = [

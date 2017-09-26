@@ -34,6 +34,8 @@ import           Pos.Ssc.SscAlgo              (SscAlgo (..))
 import           Pos.Statistics               (EkgParams, StatsdParams, ekgParamsOption,
                                                statsdParamsOption)
 import           Pos.Util.BackupPhrase        (BackupPhrase, backupPhraseWordsNum)
+import           Pos.Util.CompileInfo         (CompileTimeInfo (..), HasCompileInfo,
+                                               compileInfo)
 import           Pos.Util.TimeWarp            (NetworkAddress)
 
 data CommonNodeArgs = CommonNodeArgs
@@ -137,7 +139,7 @@ behaviorConfigOption =
         metavar "FILE" <>
         help "Path to the behavior config"
 
-getSimpleNodeOptions :: IO SimpleNodeArgs
+getSimpleNodeOptions :: HasCompileInfo => IO SimpleNodeArgs
 getSimpleNodeOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> simpleNodeArgsParser) $
@@ -146,7 +148,8 @@ getSimpleNodeOptions = execParser programInfo
                  <> footerDoc usageExample
 
     versionOption = infoOption
-        ("cardano-node-" <> showVersion version)
+        ("cardano-node-" <> showVersion version <>
+         ", git revision " <> toString (ctiGitRevision compileInfo))
         (long "version" <> help "Show version.")
 
 usageExample :: Maybe Doc

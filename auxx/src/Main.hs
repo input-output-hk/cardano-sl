@@ -18,7 +18,8 @@ import           Pos.Network.Types     (NetworkConfig (..), Topology (..),
                                         topologyDequeuePolicy, topologyEnqueuePolicy,
                                         topologyFailurePolicy)
 import           Pos.Ssc.SscAlgo       (SscAlgo (GodTossingAlgo))
-import           Pos.Util.CompileInfo  (retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.CompileInfo  (HasCompileInfo, retrieveCompileTimeInfo,
+                                        withCompileInfo)
 import           Pos.Util.UserSecret   (usVss)
 import           Pos.WorkMode          (RealMode)
 
@@ -45,20 +46,18 @@ correctNodeParams AuxxOptions {..} np =
         , ncTcpAddr = TCP.Unaddressable
         }
 
-action :: AuxxOptions -> Production ()
-action opts@AuxxOptions {..} =
-    withConfigurations conf $
-    withCompileInfo $(retrieveCompileTimeInfo) $ do
-        CLI.printFlags
-        logInfo $ sformat ("System start time is "%shown) $ gdStartTime genesisData
-        t <- currentTime
-        logInfo $ sformat ("Current time is "%shown) (Timestamp t)
-        nodeParams <-
-            correctNodeParams opts <$> CLI.getNodeParams cArgs nArgs
-        let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
-        let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
-        bracketNodeResources @AuxxSscType nodeParams gtParams $ \nr ->
-            runRealBasedMode toRealMode realModeToAuxx nr (auxxPlugin opts)
+action :: HasCompileInfo => AuxxOptions -> Production ()
+action opts@AuxxOptions {..} = withConfigurations conf $ do
+    CLI.printFlags
+    logInfo $ sformat ("System start time is "%shown) $ gdStartTime genesisData
+    t <- currentTime
+    logInfo $ sformat ("Current time is "%shown) (Timestamp t)
+    nodeParams <-
+        correctNodeParams opts <$> CLI.getNodeParams cArgs nArgs
+    let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
+    let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
+    bracketNodeResources @AuxxSscType nodeParams gtParams $ \nr ->
+        runRealBasedMode toRealMode realModeToAuxx nr (auxxPlugin opts)
   where
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)
@@ -74,4 +73,6 @@ action opts@AuxxOptions {..} =
         lift $ runReaderT auxxAction auxxContext
 
 main :: IO ()
-main = getAuxxOptions >>= runProduction . action
+main =
+    withCompileInfo $(retrieveCompileTimeInfo) $
+    getAuxxOptions >>= runProduction . action

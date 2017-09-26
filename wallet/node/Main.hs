@@ -88,10 +88,9 @@ pluginsGT WalletArgs {..}
     | enableWeb = [serveWebGT webPort (Just walletTLSParams)]
     | otherwise = []
 
-action :: WalletNodeArgs -> Production ()
+action :: HasCompileInfo => WalletNodeArgs -> Production ()
 action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
-    withConfigurations conf $
-    withCompileInfo $(retrieveCompileTimeInfo) $ do
+    withConfigurations conf $ do
         whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData
         putText $ sformat ("System start time is " % shown) $ gdStartTime genesisData
         t <- currentTime
@@ -112,7 +111,7 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
     conf = CLI.configurationOptions $ CLI.commonArgs cArgs
 
 main :: IO ()
-main = do
+main = withCompileInfo $(retrieveCompileTimeInfo) $ do
     args <- getWalletNodeOptions
     CLI.printFlags
     putText "[Attention] Software is built with wallet part"

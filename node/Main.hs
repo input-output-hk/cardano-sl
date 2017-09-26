@@ -73,11 +73,10 @@ action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
             actionWithoutWallet @SscGodTossing gtParams currentParams
 
 main :: IO ()
-main = do
+main = withCompileInfo $(retrieveCompileTimeInfo) $ do
     args@(CLI.SimpleNodeArgs commonNodeArgs _) <- CLI.getSimpleNodeOptions
     CLI.printFlags
     let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
     runProduction $
-        withCompileInfo $(retrieveCompileTimeInfo) $
         withConfigurations conf $
         action args

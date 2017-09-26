@@ -3043,15 +3043,11 @@ self: {
           description = "JSON encoding of ekg metrics";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      ekg-statsd = callPackage ({ base, bytestring, ekg-core, fetchgit, mkDerivation, network, stdenv, text, time, unordered-containers }:
+      ekg-statsd = callPackage ({ base, bytestring, ekg-core, mkDerivation, network, stdenv, text, time, unordered-containers }:
       mkDerivation {
           pname = "ekg-statsd";
-          version = "0.2.1.1";
-          src = fetchgit {
-            url = "https://github.com/input-output-hk/ekg-statsd.git";
-            sha256 = "1nz0py671cg4dlyli1j6h63603lfmldi79w07i2prrvaivjdzfqc";
-            rev = "1869714a616b8092d8dc16af6e834e81f4c56bad";
-          };
+          version = "0.2.2.0";
+          sha256 = "1z1si5zglmwq0qxhd4s8zmp8rps8z4xqnk4l8wlal79f1qkz9862";
           libraryHaskellDepends = [
             base
             bytestring
@@ -3681,6 +3677,8 @@ self: {
           pname = "happy";
           version = "1.19.7";
           sha256 = "16vg292pp12wnkny7znsv7bichh9ghny7swl7v55qafmcfg2lcdv";
+          revision = "1";
+          editedCabalFile = "1w0sm3qn1icxiiif6355pr6cwd9bqfh56g8qc5hycagcnms8hip1";
           isLibrary = false;
           isExecutable = true;
           setupHaskellDepends = [
@@ -4884,14 +4882,14 @@ self: {
           description = "A typeclass and set of functions for working with newtypes, with generics support";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      node-sketch = callPackage ({ aeson, async, attoparsec, base, binary, bytestring, containers, cryptonite, data-default, deepseq, ekg-core, exceptions, fetchgit, formatting, hashable, kademlia, lens, lifted-base, log-warper, mkDerivation, mmorph, monad-control, mtl, mwc-random, network, network-transport, network-transport-tcp, random, resourcet, semigroups, serokell-util, statistics, stdenv, stm, tagged, text, text-format, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector }:
+      node-sketch = callPackage ({ QuickCheck, aeson, async, attoparsec, base, binary, bytestring, containers, cryptonite, data-default, deepseq, ekg-core, exceptions, fetchgit, formatting, hashable, kademlia, lens, lifted-base, log-warper, mkDerivation, mmorph, monad-control, mtl, mwc-random, network, network-transport, network-transport-tcp, random, resourcet, semigroups, serokell-util, statistics, stdenv, stm, tagged, text, text-format, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector }:
       mkDerivation {
           pname = "node-sketch";
           version = "0.2.0.0";
           src = fetchgit {
             url = "https://github.com/serokell/time-warp-nt.git";
-            sha256 = "126gzaljqqb08dh3wlal7wbqydafgzc5zhq063frrcld8b7ayjzm";
-            rev = "e4df104bc68e019422034568cae476f28d145c40";
+            sha256 = "0yi9aj9kxc9p2gdkhq5lxmjvrl9jyrwq3c4x0fvykp9m3lzqjppz";
+            rev = "438854c998f0c14b6d76d545a52ef501c74585fc";
           };
           isLibrary = true;
           isExecutable = true;
@@ -4921,6 +4919,7 @@ self: {
             network
             network-transport
             network-transport-tcp
+            QuickCheck
             random
             resourcet
             semigroups

@@ -14,21 +14,21 @@ import Data.Foldable (for_)
 import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), isJust)
 import Explorer.I18n.Lang (Language, translate)
-import Explorer.I18n.Lenses (cGenesis, cAddress, cAddresses, cOf, common, cLoading, cNo, cSummary, cYes, gblAddressesError, gblAddressesNotFound, gblAddressRedeemAmount, gblAddressIsRedeemed, gblNonRedeemedAmountTotal, gblNotFound, gblNumberAddressesToRedeem, gblNumberRedeemedAddresses, gblNumberNotRedeemedAddresses, gblRedeemedAmountTotal, genesisBlock) as I18nL
-import Explorer.Lenses.State (currentCGenesisAddressInfos, currentCGenesisSummary, gblLoadingAddressInfosPagination, gblAddressInfosPagination, gblAddressInfosPaginationEditable, gblMaxAddressInfosPagination, genesisBlockViewState, lang, viewStates)
+import Explorer.I18n.Lenses (cGenesis, cAddress, cAddresses, cOf, common, cLoading, cNo, cSummary, cYes, gblAddressesError, gblAddressesNotFound, gblAddressRedeemAmount, gblAddressIsRedeemed, gblFilterAll, gblFilterRedeemed, gblFilterNonRedeemed, gblNonRedeemedAmountTotal, gblNotFound, gblNumberAddressesToRedeem, gblNumberRedeemedAddresses, gblNumberNotRedeemedAddresses, gblRedeemedAmountTotal, genesisBlock) as I18nL
+import Explorer.Lenses.State (currentCGenesisAddressInfos, currentCGenesisSummary, gblAddressFilter, gblLoadingAddressInfosPagination, gblAddressInfosPagination, gblAddressInfosPaginationEditable, gblMaxAddressInfosPagination, genesisBlockViewState, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
-import Explorer.Types.State (CCurrency(..), CGenesisAddressInfos, PageNumber(..), State)
+import Explorer.Types.State (AddressesFilter(..), CCurrency(..), CGenesisAddressInfos, PageNumber(..), State)
 import Explorer.Util.String (formatADA)
 import Explorer.View.Common (currencyCSSClass, paginationView)
 import Network.RemoteData (RemoteData(..), withDefault)
 import Pos.Explorer.Web.ClientTypes (CGenesisAddressInfo(..), CGenesisSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, cgaiCardanoAddress, cgaiGenesisAmount, cgaiIsRedeemed, cgsNumRedeemed, cgsNumNotRedeemed, cgsNumTotal)
-import Pux.DOM.Events (onClick) as P
+import Pux.DOM.Events (DOMEvent, onClick) as P
 import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.HTML.Attributes (key) as P
-import Text.Smolder.HTML (a, div, h3, p, span) as S
+import Text.Smolder.HTML (a, div, h3, li, p, span, ul) as S
 import Text.Smolder.HTML.Attributes (className, href) as S
 import Text.Smolder.Markup ((!), (#!))
 import Text.Smolder.Markup (text) as S
@@ -179,6 +179,48 @@ addressInfosBodyView lang (CGenesisAddressInfo info) =
                               then translate (I18nL.common <<< I18nL.cYes) lang
                               else translate (I18nL.common <<< I18nL.cNo) lang)
 
+
+type AddressFilterNavItemProps =
+    { key :: Int
+    , label :: String
+    , filter :: AddressesFilter
+    }
+
+mkPropsForAddressFilterNavItem :: Language -> Array AddressFilterNavItemProps
+mkPropsForAddressFilterNavItem lang =
+    [ { key: 0
+      , label: translate (I18nL.genesisBlock <<< I18nL.gblFilterAll) lang
+      , filter: AllAddresses
+      }
+    , { key: 1
+      , label: translate (I18nL.genesisBlock <<< I18nL.gblFilterRedeemed) lang
+      , filter: RedeemedAddresses
+      }
+    , { key: 2
+      , label: translate (I18nL.genesisBlock <<< I18nL.gblFilterNonRedeemed) lang
+      , filter: NonRedeemedAddresses
+      }
+    ]
+
+addressFilterNav :: AddressesFilter -> Language -> P.HTML Action
+addressFilterNav selectedFilter lang =
+    S.ul ! S.className "address-filter__nav jk"
+          $ for_ (mkPropsForAddressFilterNavItem lang) (addressFilterNavItem selectedFilter)
+
+addressFilterNavItem :: AddressesFilter -> AddressFilterNavItemProps -> P.HTML Action
+addressFilterNavItem selectedFilter props =
+    let selected = props.filter == selectedFilter
+        selectedClazz = if selected then "disabled" else ""
+        clickHandler :: P.DOMEvent -> Action
+        clickHandler _ =
+            if not selected
+            then GenesisBlockFilterAddresses props.filter
+            else NoOp
+    in
+    S.li  ! S.className ("address-filter__nav--item " <>  selectedClazz)
+          #! P.onClick clickHandler
+          $ S.text props.label
+
 maxAddressInfoRows :: Int
 maxAddressInfoRows = 5
 
@@ -189,11 +231,13 @@ addressInfosView infos state =
     else
         let lang' = state ^. lang
             isLoading = state ^. (viewStates <<< genesisBlockViewState <<< gblLoadingAddressInfosPagination)
+            addrFilter = state ^. (viewStates <<< genesisBlockViewState <<< gblAddressFilter)
         in
         do
             S.div
                 ! S.className "address-infos__wrapper"
                 $ do
+                    addressFilterNav addrFilter lang'
                     addressesHeaderView lang'
                     S.div ! S.className "address-infos__body--wrapper"
                           $ do

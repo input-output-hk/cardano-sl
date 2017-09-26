@@ -14,7 +14,7 @@ import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple)
 import Explorer.Api.Helper (decodeResult)
 import Explorer.Api.Types (Endpoint, EndpointError(..))
-import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, PageNumber(..), PageSize(..), CGenesisAddressInfos)
+import Explorer.Types.State (AddressesFilter, CBlockEntries, CGenesisAddressInfos, CTxBriefs, CTxEntries, PageNumber(..), PageSize(..))
 import Global (encodeURIComponent)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
@@ -89,8 +89,9 @@ searchEpoch epoch mSlot = get $ "search/epoch/" <> show epochIndex <> slotQuery 
 fetchGenesisSummary :: forall eff. Aff (ajax::AJAX | eff) CGenesisSummary
 fetchGenesisSummary = get "genesis/summary/"
 
-fetchGenesisAddressInfo :: forall eff. PageNumber -> PageSize -> Aff (ajax::AJAX | eff) CGenesisAddressInfos
-fetchGenesisAddressInfo (PageNumber pNumber) (PageSize pSize) =
+fetchGenesisAddressInfo :: forall eff. PageNumber -> PageSize -> AddressesFilter -> Aff (ajax::AJAX | eff) CGenesisAddressInfos
+fetchGenesisAddressInfo (PageNumber pNumber) (PageSize pSize) _ =
+    -- TODO (jk): Handle `AddressesFilter` if backend is ready
     get $ "genesis/address/?page=" <> show pNumber <> "&pageSize=" <> show pSize
 
 fetchGenesisAddressInfoTotalPages :: forall eff. PageSize -> Aff (ajax::AJAX | eff) Int

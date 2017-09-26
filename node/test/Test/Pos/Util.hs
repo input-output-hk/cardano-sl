@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE GADTs               #-}
 {-# LANGUAGE RankNTypes          #-}
 
 module Test.Pos.Util
@@ -37,6 +38,15 @@ module Test.Pos.Util
        , stopProperty
        , maybeStopProperty
        , splitIntoChunks
+
+       -- * Various properties and predicates
+       , qcIsJust
+       , qcIsNothing
+       , qcIsLeft
+       , qcIsRight
+       , qcElem
+       , qcNotElem
+       , qcFail
        ) where
 
 import           Universum
@@ -339,3 +349,41 @@ splitIntoChunks maxSize items = do
     case nonEmpty chunk of
         Nothing      -> return []
         Just chunkNE -> (chunkNE :) <$> splitIntoChunks maxSize rest
+
+----------------------------------------------------------------------------
+-- Various properties and predicates
+----------------------------------------------------------------------------
+
+qcIsJust :: Maybe a -> Property
+qcIsJust (Just _) = property True
+qcIsJust Nothing  = qcFail "expected Just, got Nothing"
+
+qcIsNothing :: Show a => Maybe a -> Property
+qcIsNothing Nothing  = property True
+qcIsNothing (Just x) = qcFail ("expected Nothing, got Just (" <> show x <> ")")
+
+qcIsLeft :: Show b => Either a b -> Property
+qcIsLeft (Left _)  = property True
+qcIsLeft (Right x) = qcFail ("expected Left, got Right (" <> show x <> ")")
+
+qcIsRight :: Show a => Either a b -> Property
+qcIsRight (Right _) = property True
+qcIsRight (Left x)  = qcFail ("expected Right, got Left (" <> show x <> ")")
+
+qcElem
+    :: (Eq a, Show a, Show t, NontrivialContainer t, Element t ~ a)
+    => a -> t -> Property
+qcElem x xs =
+    counterexample ("expected " <> show x <> " to be in " <> show xs) $
+    x `elem` xs
+
+qcNotElem
+    :: (Eq a, Show a, Show t, NontrivialContainer t, Element t ~ a)
+    => a -> t -> Property
+qcNotElem x xs =
+    counterexample ("expected " <> show x <> " not to be in " <> show xs) $
+    not (x `elem` xs)
+
+-- | A property that is always false
+qcFail :: Text -> Property
+qcFail s = counterexample (toString s) False

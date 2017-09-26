@@ -26,17 +26,17 @@ import           Pos.Communication.Relay               (DataMsg, InvOrData,
                                                         Relay (..), ReqMsg, ReqOrRes)
 import           Pos.Communication.Types.Protocol      (MsgType (..))
 import           Pos.Core                              (HasConfiguration, StakeholderId,
-                                                        addressHash, getCertId)
+                                                        addressHash, getCertId, lookupVss)
 import           Pos.Security.Util                     (shouldIgnorePkAddress)
 import           Pos.Ssc.Class.Listeners               (SscListenersClass (..))
 import           Pos.Ssc.Extra                         (sscRunLocalQuery)
+import           Pos.Ssc.GodTossing.Configuration      (HasGtConfiguration)
 import           Pos.Ssc.GodTossing.Core               (getCommitmentsMap)
 import           Pos.Ssc.GodTossing.LocalData          (ldModifier, sscIsDataUseful,
                                                         sscProcessCertificate,
                                                         sscProcessCommitment,
                                                         sscProcessOpening,
                                                         sscProcessShares)
-import           Pos.Ssc.GodTossing.Configuration      (HasGtConfiguration)
 import           Pos.Ssc.GodTossing.Network.Constraint (GtMessageConstraints)
 import           Pos.Ssc.GodTossing.Toss               (GtTag (..), TossModifier,
                                                         tmCertificates, tmCommitments,
@@ -88,7 +88,7 @@ vssCertRelay
 vssCertRelay =
     sscRelay VssCertificateMsg
              (\(MCVssCertificate vc) -> getCertId vc)
-             (\id tm -> MCVssCertificate <$> tm ^. tmCertificates . at id)
+             (\id tm -> MCVssCertificate <$> lookupVss id (tm ^. tmCertificates))
              (\(MCVssCertificate cert) -> sscProcessCertificate cert)
 
 sscRelay

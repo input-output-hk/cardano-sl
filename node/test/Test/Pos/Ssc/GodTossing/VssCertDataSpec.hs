@@ -8,16 +8,18 @@ import           Universum             hiding (empty, filter)
 
 import qualified Data.HashMap.Strict   as HM
 import qualified Data.HashSet          as HS
+import           Data.List.Extra       (nubOrdOn)
 import qualified Data.Set              as S
 import           Data.Tuple            (swap)
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Arbitrary (..), Gen, Property, choose, conjoin,
-                                        suchThat, vectorOf, (==>))
+                                        counterexample, suchThat, vectorOf, (.&&.), (==>))
 
 import           Pos.Core              (EpochIndex (..), EpochOrSlot (..),
-                                        HasConfiguration, SlotId, SlotId (..),
-                                        VssCertificate (..), getCertId, mkVssCertificate,
+                                        HasConfiguration, SlotId (..),
+                                        VssCertificate (..), getCertId,
+                                        getVssCertificatesMap, mkVssCertificate,
                                         slotSecurityParam)
 import           Pos.Core.Slotting     (flattenEpochOrSlot, unflattenSlotId)
 import           Pos.Ssc.GodTossing    (GtGlobalState (..), VssCertData (..), delete,
@@ -26,7 +28,7 @@ import           Pos.Ssc.GodTossing    (GtGlobalState (..), VssCertData (..), de
                                         runPureToss, setLastKnownSlot)
 import           Pos.Util.Chrono       (NewestFirst (..))
 
-import           Test.Pos.Util         (giveCoreConf)
+import           Test.Pos.Util         (giveCoreConf, qcIsJust)
 
 spec :: Spec
 spec = giveCoreConf $ describe "Ssc.GodTossing.VssCertData" $ do
@@ -79,31 +81,36 @@ newtype CorrectVssCertData = CorrectVssCertData
 
 instance HasConfiguration => Arbitrary CorrectVssCertData where
     arbitrary = (CorrectVssCertData <$>) $ do
-        n <- choose (0, 100)
-        certificatesToAdd <- choose (0, n)
+        certificatesToAdd <- choose (0, 100)
         lkeos             <- arbitrary :: Gen EpochOrSlot
         let notExpiredGen  = arbitrary `suchThat` (`expiresAfter` lkeos)
         vssCertificates   <- vectorOf @VssCertificate certificatesToAdd notExpiredGen
         let dataUpdaters   = map insert vssCertificates
         pure $ foldl' (&) (empty {lastKnownEoS = lkeos}) dataUpdaters
+
 ----------------------------------------------------------------------------
 -- Properties for VssCertData
 ----------------------------------------------------------------------------
 
 verifyInsertVssCertData :: VssCertificate -> VssCertData -> Property
 verifyInsertVssCertData certificate certData =
-    certificate `canBeIn` certData ==> member shid (insert certificate certData)
+    certificate `canBeIn` certData ==>
+    counterexample
+        ("expected " <> show shid <> " to be in certdata")
+        (shid `member` insert certificate certData)
   where
     shid = getCertId certificate
 
-verifyDeleteVssCertData :: VssCertificate -> VssCertData -> Bool
+verifyDeleteVssCertData :: VssCertificate -> VssCertData -> Property
 verifyDeleteVssCertData certificate certData =
     let shid = getCertId certificate
         certWithShid    = insert certificate certData
         certWithoutShid = delete shid certWithShid
-    in not $ member shid certWithoutShid
+    in  counterexample
+            ("expected " <> show shid <> " not to be in certdata")
+            (not (shid `member` certWithoutShid))
 
--- | This function checks all imaginable properties for correctly created 'VssCertdata'.
+-- | This function checks all imaginable properties for correctly created 'VssCertData'.
 -- TODO: some checks are not assimptotically efficient but nobody cares untill time is reasonable
 isConsistent :: CorrectVssCertData -> Bool
 isConsistent (getVssCertData -> VssCertData{..}) =
@@ -129,12 +136,12 @@ isConsistent (getVssCertData -> VssCertData{..}) =
     expirySlotSetPairs        = S.toList whenExpire
     insertedSlots             = map fst insSlotSetPairs
     expiredSlots              = map fst expirySlotSetPairs
-    certsStakeholders         = S.fromList $ HM.keys certs
+    certsStakeholders         = S.fromList $ HM.keys $ getVssCertificatesMap certs
     certsInsStakeholders      = S.fromList $ HM.keys whenInsMap
     slotsFromCertsIns         = S.fromList $ map swap $ HM.toList whenInsMap
     insSlotSetStakeholders    = S.fromList $ map snd insSlotSetPairs
     expirySlotSetStakeholders = S.fromList $ map snd expirySlotSetPairs
-    notExpiredCertificates    = S.fromList $ HM.elems certs
+    notExpiredCertificates    = S.fromList $ toList certs
     expiredCertificatesData   = S.toList expiredCerts
     expiredCertificatesSlots  = map fst expiredCertificatesData
     expiredCertificates       = S.fromList $ map (view _3 . snd) expiredCertificatesData
@@ -178,7 +185,8 @@ instance HasConfiguration => Arbitrary RollbackData where
                     siEpoch . unflattenSlotId <$>
                         choose (succ lastKEoSWord, rollbackFrom)
                 return $ mkVssCertificate sk binVssPK thisEpoch
-        certsToRollback <- vectorOf @VssCertificate certsToRollbackN rollbackGen
+        certsToRollback <- nubOrdOn vcVssKey <$>
+            vectorOf @VssCertificate certsToRollbackN rollbackGen
         return $ Rollback (GtGlobalState mempty mempty mempty goodVssCertData)
                           lastKnownEoS
                           certsToRollback
@@ -193,5 +201,12 @@ verifyRollback (Rollback oldGtGlobalState rollbackEoS vssCerts) = do
         runPureToss newGtGlobalState $
         rollbackGT rollbackEoS (NewestFirst [])
     pure $ conjoin $ vssCerts <&> \cert ->
-        isJust         (lookup (getCertId cert) newVssCertData) &&
-        (/= Just cert) (lookup (getCertId cert) rolledVssCertData)
+        let id = getCertId cert in
+        counterexample ("haven't found cert with id " <>
+                        show id <> " in newVssCertData")
+            (qcIsJust (lookup id newVssCertData))
+        .&&.
+        counterexample ("expected a " <> show (Just cert) <>
+                        ", got " <> show (lookup id rolledVssCertData) <>
+                        " in rolledVssCertData")
+            ((/= Just cert) (lookup id rolledVssCertData))

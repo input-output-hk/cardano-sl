@@ -24,8 +24,8 @@ import qualified Pos.Crypto              as Crypto
 import           Pos.Ssc.GodTossing      ()
 
 import           Test.Pos.CborSpec       (U)
-import           Test.Pos.Util           (binaryEncodeDecode, binaryTest, giveInfraConf,
-                                          giveCoreConf, msgLenLimitedTest,
+import           Test.Pos.Util           (binaryEncodeDecode, binaryTest, giveCoreConf,
+                                          giveInfraConf, msgLenLimitedTest, qcIsLeft,
                                           safeCopyEncodeDecode, safeCopyTest, serDeserId,
                                           (.=.))
 
@@ -405,7 +405,7 @@ encrypyDecryptChaChaDifferentKey
     header
     plaintext =
     (key1 /= key2) ==>
-    isLeft (decrypt =<< (Crypto.toEither . encrypt $ plaintext))
+    qcIsLeft (decrypt =<< (Crypto.toEither . encrypt $ plaintext))
   where
     encrypt = Crypto.encryptChaChaPoly nonce key1 header
     decrypt = Crypto.decryptChaChaPoly nonce key2 header
@@ -424,7 +424,7 @@ encrypyDecryptChaChaDifferentHeader
     header2
     plaintext =
     (header1 /= header2) ==>
-    isLeft (decrypt =<< (Crypto.toEither . encrypt $ plaintext))
+    qcIsLeft (decrypt =<< (Crypto.toEither . encrypt $ plaintext))
   where
     encrypt = Crypto.encryptChaChaPoly nonce key header1
     decrypt = Crypto.decryptChaChaPoly nonce key header2
@@ -443,7 +443,7 @@ encrypyDecryptChaChaDifferentNonce
     header
     plaintext =
     (nonce1 /= nonce2) ==>
-    isLeft (decrypt =<< (Crypto.toEither . encrypt $ plaintext))
+    qcIsLeft (decrypt =<< (Crypto.toEither . encrypt $ plaintext))
   where
     encrypt = Crypto.encryptChaChaPoly nonce1 key header
     decrypt = Crypto.decryptChaChaPoly nonce2 key header

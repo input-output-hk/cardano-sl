@@ -171,12 +171,13 @@ explorerHandlers _sendActions =
     tryEpochSlotSearch epoch maybeSlot =
         catchExplorerError $ epochSlotSearch epoch maybeSlot
 
-    getGenesisPagesTotalDefault size =
-        catchExplorerError $ getGenesisPagesTotal (defaultPageSize size)
-
-    getGenesisAddressInfoDefault page size addrfilt =
+    getGenesisPagesTotalDefault size addrFilt =
         catchExplorerError $
-            getGenesisAddressInfo page (defaultPageSize size) (defaultAddressesFilter addrfilt)
+            getGenesisPagesTotal (defaultPageSize size) (defaultAddressesFilter addrFilt)
+
+    getGenesisAddressInfoDefault page size addrFilt =
+        catchExplorerError $
+            getGenesisAddressInfo page (defaultPageSize size) (defaultAddressesFilter addrFilt)
 
     getStatsTxsDefault page =
         catchExplorerError $ getStatsTxs page
@@ -565,30 +566,35 @@ getGenesisSummary = do
             , nonRedeemedAmountTotal `unsafeAddCoin` amountLeft
             )
 
-getGenesisAddressInfo
-    :: (ExplorerMode ctx m)
-    => Maybe Word  -- ^ pageNumber
-    -> Word        -- ^ pageSize
-    -> CAddressesFilter
-    -> m [CGenesisAddressInfo]
-getGenesisAddressInfo (fmap fromIntegral -> mPage) (fromIntegral -> pageSize) addrfilt = do
+isAddressRedeemed :: MonadDBRead m => Address -> m Bool
+isAddressRedeemed address = do
+    currentBalance <- fromMaybe (mkCoin 0) <$> EX.getAddrBalance address
+    pure $ currentBalance == mkCoin 0
+
+getFilteredPairs :: ExplorerMode ctx m => CAddressesFilter -> m [(Address, Coin)]
+getFilteredPairs addrFilt = do
     redeemAddressCoinPairs <- getRedeemAddressCoinPairs
-    filteredPairs <- case addrfilt of
+    case addrFilt of
             AllAddresses         ->
                 pure redeemAddressCoinPairs
             RedeemedAddresses    ->
                 filterM (isAddressRedeemed . fst) redeemAddressCoinPairs
             NonRedeemedAddresses ->
                 filterM (fmap not . isAddressRedeemed . fst) redeemAddressCoinPairs
+
+getGenesisAddressInfo
+    :: (ExplorerMode ctx m)
+    => Maybe Word  -- ^ pageNumber
+    -> Word        -- ^ pageSize
+    -> CAddressesFilter
+    -> m [CGenesisAddressInfo]
+getGenesisAddressInfo (fmap fromIntegral -> mPage) (fromIntegral -> pageSize) addrFilt = do
+    filteredPairs <- getFilteredPairs addrFilt
     let pageNumber    = fromMaybe 1 mPage
         skipItems     = (pageNumber - 1) * pageSize
         requestedPage = take pageSize $ drop skipItems filteredPairs
     mapM toGenesisAddressInfo requestedPage
   where
-    isAddressRedeemed :: MonadDBRead m => Address -> m Bool
-    isAddressRedeemed address = do
-        currentBalance <- fromMaybe (mkCoin 0) <$> EX.getAddrBalance address
-        pure $ currentBalance == mkCoin 0
     toGenesisAddressInfo :: ExplorerMode ctx m => (Address, Coin) -> m CGenesisAddressInfo
     toGenesisAddressInfo (address, coin) = do
         cgaiIsRedeemed <- isAddressRedeemed address
@@ -604,10 +610,11 @@ getGenesisAddressInfo (fmap fromIntegral -> mPage) (fromIntegral -> pageSize) ad
 getGenesisPagesTotal
     :: ExplorerMode ctx m
     => Word
+    -> CAddressesFilter
     -> m Integer
-getGenesisPagesTotal (fromIntegral -> pageSize) = do
-    redeemAddressCoinPairs <- getRedeemAddressCoinPairs
-    pure $ fromIntegral $ (length redeemAddressCoinPairs + pageSize - 1) `div` pageSize
+getGenesisPagesTotal (fromIntegral -> pageSize) addrFilt = do
+    filteredPairs <- getFilteredPairs addrFilt
+    pure $ fromIntegral $ (length filteredPairs + pageSize - 1) `div` pageSize
 
 -- | Search the blocks by epoch and slot. Slot is optional.
 epochSlotSearch

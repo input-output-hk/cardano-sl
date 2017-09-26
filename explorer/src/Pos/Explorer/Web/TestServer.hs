@@ -238,8 +238,9 @@ testGenesisSummary = pure . pure $ CGenesisSummary
 
 testGenesisPagesTotal
     :: Maybe Word
+    -> Maybe CAddressesFilter
     -> Handler (Either ExplorerError Integer)
-testGenesisPagesTotal _ = pure $ pure 2
+testGenesisPagesTotal _ _ = pure $ pure 2
 
 testGenesisAddressInfo
     :: Maybe Word

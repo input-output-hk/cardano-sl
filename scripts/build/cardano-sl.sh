@@ -181,7 +181,6 @@ if [[ $asserts == false ]]; then
   commonargs="$commonargs --flag cardano-sl-core:-asserts"
 fi
 
-ghc_opts="-DGITREV=`git rev-parse HEAD`"
 
 if [[ $no_fast == true ]]; then
   fast=""

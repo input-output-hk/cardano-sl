@@ -92,7 +92,6 @@ test_script:
       --test
       --no-haddock-deps
       --work-dir %STACK_WORK%
-      --ghc-options="-DGITREV=%APPVEYOR_REPO_COMMIT%"
       --flag cardano-sl:with-wallet
       --flag cardano-sl-core:-asserts
       --flag cardano-sl-tools:for-installer

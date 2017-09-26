@@ -53,7 +53,7 @@ retrieveCompileTimeInfo = do
   where
     retrieveGit :: IO String
     retrieveGit =
-        lookupEnv "TH_ENV" >>= maybe retrieveFromGitExecutable pure
+        lookupEnv "GITREV" >>= maybe retrieveFromGitExecutable pure
     retrieveFromGitExecutable :: IO String
     retrieveFromGitExecutable = do
         (exitCode,output,_) <-

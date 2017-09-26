@@ -18,7 +18,14 @@ let
   });
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
     overrides = self: super: {
-      cardano-sl = overrideCabal super.cardano-sl (drv: {
+      cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
+        configureFlags = [
+          "-f-asserts"
+        ];
+      });
+
+
+      cardano-sl = (overrideCabal super.cardano-sl (drv: {
         # production full nodes shouldn't use wallet as it means different constants
         configureFlags = [
           "-f-asserts"
@@ -40,13 +47,8 @@ let
         passthru = {
           inherit enableProfiling;
         };
-      });
-      cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
-        configureFlags = [
-          "-f-asserts"
-          "--ghc-options=-DGITREV=${gitrev}"
-        ];
-      });
+      })).overrideAttrs (drv: { GITREV = gitrev; });
+
 
       cardano-sl-wallet = justStaticExecutables super.cardano-sl-wallet;
       cardano-sl-tools = justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {

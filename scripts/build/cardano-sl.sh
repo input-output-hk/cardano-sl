@@ -136,6 +136,8 @@ do
     spec_prj="wallet"
   elif [[ $var == "explorer" ]]; then
     spec_prj="explorer"
+  elif [[ $var == "node" ]]; then
+    spec_prj="node"
   elif [[ $var == "tools" ]]; then
     spec_prj="tools"
   elif [[ " $projects " =~ " $var " ]]; then
@@ -214,6 +216,9 @@ if [[ $clean == true ]]; then
 
   echo "Cleaning cardano-sl-explorer"
   stack clean cardano-sl-explorer
+
+  echo "Cleaning cardano-sl-node"
+  stack clean cardano-sl-node
 
   echo "Cleaning cardano-sl"
   stack clean cardano-sl

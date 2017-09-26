@@ -16,8 +16,9 @@ packages:
 - auxx
 - ssc
 - godtossing
-- tools
 - txp
+- node
+- tools
 - wallet
 - explorer
 

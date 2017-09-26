@@ -58,7 +58,7 @@ data Action
     | ReceiveSearchBlocks (Either Error CBlockEntries)
     | RequestGenesisSummary
     | ReceiveGenesisSummary (Either Error CGenesisSummary)
-    | RequestGenesisAddressInfoTotalPages
+    | RequestGenesisAddressInfoTotalPages AddressesFilter
     | ReceiveGenesisAddressInfoTotalPages (Either Error Int)
     | RequestPaginatedAddressInfo PageNumber PageSize AddressesFilter
     | ReceivePaginatedAddressInfo (Either Error CGenesisAddressInfos)

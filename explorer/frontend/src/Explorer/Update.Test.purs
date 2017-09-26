@@ -15,7 +15,7 @@ import Data.Time.NominalDiffTime (mkTime)
 import Data.Tuple (Tuple(..))
 import Explorer.Api.Types (SocketSubscription(..), SocketSubscriptionData(..))
 import Explorer.I18n.Lang (Language(..))
-import Explorer.Lenses.State (connected, currentAddressSummary, dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, lang, latestBlocks, latestTransactions, loading, socket, subscriptions)
+import Explorer.Lenses.State (connected, currentAddressSummary, dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, gblAddressInfosPagination, gblMaxAddressInfosPagination, genesisBlockViewState, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, viewStates)
 import Explorer.State (initialState, mkSocketSubscriptionItem)
 import Explorer.Test.MockFactory (mkCBlockEntry, mkCTxBrief, mkEmptyCAddressSummary, mkEmptyCTxEntry, mkCTxBriefs, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfTx, setTxOfAddressSummary)
 import Explorer.Types.Actions (Action(..))
@@ -245,6 +245,39 @@ testUpdate =
                         , txA
                         ]
                 in (gShow result) `shouldEqual` (gShow expected)
+
+        describe "handles ReceiveGenesisAddressInfoTotalPages action" do
+            it "to update gblMaxAddressInfosPagination w/ number of total pages"
+                let totalPages = 5
+                    effModel = update (ReceiveGenesisAddressInfoTotalPages $ Right totalPages) initialState
+                    state = _.state effModel
+                    result = unwrap <<< withDefault (PageNumber 0) $
+                                state ^. (viewStates <<< genesisBlockViewState <<< gblMaxAddressInfosPagination)
+                in result `shouldEqual` totalPages
+            it "to leave gblMaxAddressInfosPagination untouched"
+                let totalPages = 20
+                    currentPage = 10
+                    -- set current page to simulate that we have paginated before
+                    initialState' =
+                        set (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination)
+                            (PageNumber currentPage)
+                            initialState
+                    effModel = update (ReceiveGenesisAddressInfoTotalPages $ Right totalPages) initialState'
+                    state = _.state effModel
+                    currentPageResult = unwrap $ state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination)
+                in currentPageResult `shouldEqual` currentPage
+            it "to update gblMaxAddressInfosPagination untouched"
+                let totalPages = 10
+                    currentPage = 20
+                    -- set current page to simulate that we have paginated before
+                    initialState' =
+                        set (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination)
+                            (PageNumber currentPage)
+                            initialState
+                    effModel = update (ReceiveGenesisAddressInfoTotalPages $ Right totalPages) initialState'
+                    state = _.state effModel
+                    currentPageResult = unwrap $ state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination)
+                in currentPageResult `shouldEqual` totalPages
 
         describe "uses action SocketConnected" do
             it "to update connection to connected"

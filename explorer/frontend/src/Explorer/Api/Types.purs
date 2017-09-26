@@ -6,7 +6,7 @@ import Data.Generic (class Generic, gEq, gShow)
 import Data.Newtype (class Newtype)
 import Network.HTTP.Affjax (AffjaxResponse)
 import Pos.Explorer.Socket.Methods (Subscription)
-import Pos.Explorer.Web.ClientTypes (CAddress(..))
+import Pos.Explorer.Web.ClientTypes (CAddress)
 import Pos.Explorer.Web.Error (ExplorerError)
 
 type Endpoint = String

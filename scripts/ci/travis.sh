@@ -7,7 +7,7 @@ if [[ ("$TRAVIS_OS_NAME" == "linux") && ("$TRAVIS_BRANCH" == "master") ]];
   else with_haddock=false
 fi
 
-targets="cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet"
+targets="cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet cardano-sl-node"
 
 # There are no macOS explorer devs atm and it's only deployed on linux
 if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then

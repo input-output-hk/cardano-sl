@@ -16,6 +16,7 @@ let
   addConfigureFlags = flags: drv: overrideCabal drv (drv: {
     configureFlags = flags;
   });
+  addGitRev = subject: subject.overrideAttrs (drv: { GITREV = gitrev; });
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
     overrides = self: super: {
       cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
@@ -24,8 +25,7 @@ let
         ];
       });
 
-
-      cardano-sl = (overrideCabal super.cardano-sl (drv: {
+      cardano-sl = overrideCabal super.cardano-sl (drv: {
         # production full nodes shouldn't use wallet as it means different constants
         configureFlags = [
           "-f-asserts"
@@ -47,17 +47,18 @@ let
         passthru = {
           inherit enableProfiling;
         };
-      })).overrideAttrs (drv: { GITREV = gitrev; });
+      });
 
-
-      cardano-sl-wallet = justStaticExecutables super.cardano-sl-wallet;
+      cardano-sl-auxx = addGitRev super.cardano-sl-auxx;
+      cardano-sl-node = addGitRev super.cardano-sl-node;
+      cardano-sl-wallet = addGitRev (justStaticExecutables super.cardano-sl-wallet);
       cardano-sl-tools = justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
       }));
 
       cardano-sl-static = justStaticExecutables self.cardano-sl;
-      cardano-sl-explorer-static = justStaticExecutables self.cardano-sl-explorer;
+      cardano-sl-explorer-static = addGitRev (justStaticExecutables self.cardano-sl-explorer);
       cardano-report-server-static = justStaticExecutables self.cardano-report-server;
 
       # Undo configuration-nix.nix change to hardcode security binary on darwin

@@ -16,7 +16,7 @@ import           Control.Lens                     (to)
 import qualified Data.List.NonEmpty               as NE
 import           Formatting                       (build, sformat, (%))
 import           System.Wlog                      (HasLoggerName (modifyLoggerName),
-                                                   WithLogger, logInfo, logWarning)
+                                                   WithLogger)
 
 import           Pos.Block.BListener              (MonadBListener (..))
 import           Pos.Block.Core                   (BlockHeader, blockHeader,
@@ -35,6 +35,7 @@ import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Txp.Core                     (TxAux (..), TxUndo, flattenTxPayload)
 import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..))
 
+import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
 import           Pos.Wallet.Web.Account           (AccountMode, getSKById)
 import           Pos.Wallet.Web.ClientTypes       (CId, Wal)
 import qualified Pos.Wallet.Web.State             as WS
@@ -52,11 +53,11 @@ walletGuard ::
     -> m ()
     -> m ()
 walletGuard curTip wAddr action = WS.getWalletSyncTip wAddr >>= \case
-    Nothing -> logWarning $ sformat ("There is no syncTip corresponding to wallet #"%build) wAddr
-    Just WS.NotSynced    -> logInfo $ sformat ("Wallet #"%build%" hasn't been synced yet") wAddr
+    Nothing -> logWarningS $ sformat ("There is no syncTip corresponding to wallet #"%build) wAddr
+    Just WS.NotSynced    -> logInfoS $ sformat ("Wallet #"%build%" hasn't been synced yet") wAddr
     Just (WS.SyncedWith wTip)
         | wTip /= curTip ->
-            logWarning $
+            logWarningS $
                 sformat ("Skip wallet #"%build%", because of wallet's tip "%build
                          %" mismatched with current tip") wAddr wTip
         | otherwise -> action
@@ -168,14 +169,14 @@ setLogger :: HasLoggerName m => m a -> m a
 setLogger = modifyLoggerName (<> "wallet" <> "blistener")
 
 logMsg
-    :: WithLogger m
+    :: (MonadIO m, WithLogger m)
     => Text
     -> NonEmpty (Blund ssc)
     -> CId Wal
     -> CAccModifier
     -> m ()
 logMsg action (NE.length -> bNums) wid accModifier =
-    logInfo $
+    logInfoS $
         sformat (build%" "%build%" block(s) to wallet "%build%", "%build)
              action bNums wid accModifier
 

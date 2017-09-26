@@ -266,11 +266,14 @@ groupUtxo utxo =
                 map snd ugUtxo
         in UtxoGroup {..}
 
-fixedToFee :: (MonadError TxError m, HasResolution a) => Fixed a -> m TxFee
-fixedToFee = either (throwError . invalidFee) (pure . TxFee)
-           . integerToCoin . ceiling
+integerToFee :: MonadError TxError m => Integer -> m TxFee
+integerToFee =
+    either (throwError . invalidFee) (pure . TxFee) . integerToCoin
   where
     invalidFee reason = GeneralTxError ("Invalid fee: " <> reason)
+
+fixedToFee :: (MonadError TxError m, HasResolution a) => Fixed a -> m TxFee
+fixedToFee = integerToFee . ceiling
 
 data InputPickerState = InputPickerState
     { _ipsMoneyLeft             :: !Coin
@@ -472,10 +475,12 @@ computeTxFee
     => Utxo
     -> TxOutputs
     -> TxCreator m TxFee
-computeTxFee utxo outputs = withLinearFeePolicy $ \linearPolicy -> do
-    txAux <- createFakeTxFromRawTx <$>
-             stabilizeTxFee linearPolicy utxo outputs
-    txToLinearFee linearPolicy txAux
+computeTxFee utxo outputs = do
+    TxRaw {..} <- prepareTxWithFee utxo outputs
+    let outAmount = sumTxOutCoins trOutputs
+        inAmount = sumCoins $ map (txOutValue . fst) trInputs
+        remaining = coinToInteger trRemainingMoney
+    integerToFee $ inAmount - outAmount - remaining
 
 -- | Search such spendings that transaction's fee would be stable.
 --

@@ -6,8 +6,6 @@ module Pos.Util.Arbitrary
        , SmallGenerator (..)
        , makeSmall
        , sublistN
-       , unsafeMakeList
-       , unsafeMakePool
        , arbitrarySizedS
        , arbitrarySizedSL
        , runGen
@@ -19,14 +17,13 @@ import qualified Data.ByteString.Lazy   as BL (ByteString, pack)
 import           Data.List.NonEmpty     (NonEmpty ((:|)))
 import           Formatting             (build, sformat, (%))
 import           Pos.Binary.Class       (Bi)
-import           System.IO.Unsafe       (unsafePerformIO)
 import           Test.QuickCheck        (Arbitrary (..), Gen, listOf, scale, shuffle,
                                          vector)
 import           Test.QuickCheck.Gen    (unGen)
 import           Test.QuickCheck.Random (mkQCGen)
 import           Universum
 
-import           Pos.Crypto.Random      (GlobalRandom (..), randomNumberInRange)
+import           Pos.Crypto.Random      (randomNumberInRange)
 
 makeSmall :: Gen a -> Gen a
 makeSmall = scale f
@@ -70,22 +67,6 @@ sublistN n xs = do
 -- | Type for generating list of unique (nonrepeating) elemets.
 class Nonrepeating a where
     nonrepeating :: Int -> Gen [a]
-
--- | Unsafely create pool of `n` random values to be picked
--- (see note in `Pos.Crypto.Arbitrary` for explanation)
-unsafeMakePool :: Text -> Int -> GlobalRandom a -> [a]
-unsafeMakePool msg n action = unsafePerformIO $ do
-    putText msg
-    runGlobalRandom $ replicateM n action
-
--- | Unsafely create list of `n` random values to be picked
--- (see note in `Pos.Crypto.Arbitrary` for explanation)
--- Used because genSharedSecret already returns a list
--- of EncShares, making the 'replicateM' unneeded.
-unsafeMakeList :: Text -> GlobalRandom [a] -> [a]
-unsafeMakeList msg action = unsafePerformIO $ do
-    putText msg
-    runGlobalRandom action
 
 -- | Make arbitrary `ByteString` of given length.
 arbitrarySizedS :: Int -> Gen ByteString

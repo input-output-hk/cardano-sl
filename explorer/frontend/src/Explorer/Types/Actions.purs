@@ -10,7 +10,7 @@ import Data.Maybe (Maybe)
 import Data.Tuple (Tuple)
 import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
-import Explorer.Types.State (CBlockEntries, CTxBriefs, CTxEntries, DashboardAPICode, PageNumber, PageSize, Search, SocketSubscriptionItem, WaypointItem, CGenesisAddressInfos)
+import Explorer.Types.State (AddressesFilter, CBlockEntries, CGenesisAddressInfos, CTxBriefs, CTxEntries, DashboardAPICode, PageNumber, PageSize, Search, SocketSubscriptionItem, WaypointItem)
 import Pos.Core.Types (EpochIndex, LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, CGenesisSummary, CHash, CTxId, CTxSummary)
 import Pux.DOM.Events (DOMEvent)
@@ -60,7 +60,7 @@ data Action
     | ReceiveGenesisSummary (Either Error CGenesisSummary)
     | RequestGenesisAddressInfoTotalPages
     | ReceiveGenesisAddressInfoTotalPages (Either Error Int)
-    | RequestPaginatedAddressInfo PageNumber PageSize
+    | RequestPaginatedAddressInfo PageNumber PageSize AddressesFilter
     | ReceivePaginatedAddressInfo (Either Error CGenesisAddressInfos)
     -- global view states
     | GlobalToggleMobileMenu Boolean
@@ -97,6 +97,7 @@ data Action
     | GenesisBlockPaginateAddresses (Maybe DOMEvent) PageNumber  -- current pagination of blocks
     | GenesisBlockEditAddressesPageNumber DOMEvent Boolean       -- toggle editable state of page numbers
     | GenesisBlockInvalidAddressesPageNumber DOMEvent            -- invalid page number
+    | GenesisBlockFilterAddresses AddressesFilter                -- filter addresses
     -- clock
     | SetClock DateTime
     | UpdateClock

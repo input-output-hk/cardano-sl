@@ -17,6 +17,7 @@ module Pos.Explorer.Web.ClientTypes
        , CTxSummary (..)
        , CGenesisSummary (..)
        , CGenesisAddressInfo (..)
+       , CAddressesFilter (..)
        , TxInternal (..)
        , CCoin
        , CAda (..)
@@ -49,11 +50,12 @@ import           Universum
 
 import           Control.Arrow                    ((&&&))
 import           Control.Lens                     (ix, _Left)
+import           Control.Monad.Error.Class        (throwError)
 import qualified Data.ByteArray                   as BA
 import           Data.Fixed                       (Micro, showFixed)
 import qualified Data.List.NonEmpty               as NE
 import           Data.Time.Clock.POSIX            (POSIXTime)
-import           Formatting                       (sformat)
+import           Formatting                       (build, sformat, (%))
 import           Pos.Binary                       (Bi, biSize)
 import           Pos.Block.Core                   (MainBlock, mainBlockSlot,
                                                    mainBlockTxPayload, mcdSlot)
@@ -355,9 +357,11 @@ data CTxSummary = CTxSummary
     } deriving (Show, Generic)
 
 data CGenesisSummary = CGenesisSummary
-    { cgsNumTotal       :: !Int
-    , cgsNumRedeemed    :: !Int
-    , cgsNumNotRedeemed :: !Int
+    { cgsNumTotal               :: !Int
+    , cgsNumRedeemed            :: !Int
+    , cgsNumNotRedeemed         :: !Int
+    , cgsRedeemedAmountTotal    :: !CCoin
+    , cgsNonRedeemedAmountTotal :: !CCoin
     } deriving (Show, Generic)
 
 data CGenesisAddressInfo = CGenesisAddressInfo
@@ -370,6 +374,12 @@ data CGenesisAddressInfo = CGenesisAddressInfo
     , cgaiGenesisAmount  :: !CCoin
     , cgaiIsRedeemed     :: !Bool
     } deriving (Show, Generic)
+
+data CAddressesFilter =
+      RedeemedAddresses
+    | NonRedeemedAddresses
+    | AllAddresses
+    deriving (Show, Generic)
 
 --------------------------------------------------------------------------------
 -- FromHttpApiData instances
@@ -385,6 +395,14 @@ instance FromHttpApiData CAddress where
 
 instance FromHttpApiData CTxId where
     parseUrlPiece = pure . CTxId . CHash
+
+instance FromHttpApiData CAddressesFilter where
+    parseUrlPiece "all" = pure AllAddresses
+    parseUrlPiece "redeemed" = pure RedeemedAddresses
+    parseUrlPiece "notredeemed" = pure NonRedeemedAddresses
+    parseUrlPiece other = throwError $
+        sformat ("Unknown option '"%build%"'. "%
+            "Valid options are 'all', 'redeemed' and 'notredeemed'.") other
 
 -- TODO: When we have a generic enough `readEither`
 -- instance FromHttpApiData LocalSlotIndex where

@@ -104,6 +104,7 @@ type GenesisPagesTotal = API
     :> "pages"
     :> "total"
     :> QueryParam "pageSize" Word
+    :> QueryParam "filter" CAddressesFilter
     :> Get '[JSON] (Either ExplorerError PageNumber)
 
 type GenesisAddressInfo = API

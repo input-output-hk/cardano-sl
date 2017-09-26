@@ -15,6 +15,7 @@ import Explorer.Util.Config (SyncAction(..))
 import Explorer.Util.Factory (mkCAddress)
 import Network.RemoteData (RemoteData(..))
 import Partial.Unsafe (unsafePartial)
+import Pos.Explorer.Web.ClientTypes (CAddressesFilter(..))
 
 initialState :: State
 initialState =
@@ -62,7 +63,7 @@ initialState =
             , gblMaxAddressInfosPagination: NotAsked
             , gblAddressInfosPaginationEditable: false
             , gblLoadingAddressInfosPagination: false
-            , gblAddressFilter: AllAddresses
+            , gblAddressFilter: AddressesFilter AllAddresses
             }
         }
     , latestBlocks: NotAsked

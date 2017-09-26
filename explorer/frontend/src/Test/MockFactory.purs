@@ -113,6 +113,8 @@ mkCGenesisSummary = CGenesisSummary
     { cgsNumTotal    : 4
     , cgsNumRedeemed : 3
     , cgsNumNotRedeemed: 1
+    , cgsRedeemedAmountTotal: mkCoin "100"
+    , cgsNonRedeemedAmountTotal: mkCoin "10"
     }
 
 mkCGenesisAddressInfo :: CGenesisAddressInfo

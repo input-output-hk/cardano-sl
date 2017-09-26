@@ -28,7 +28,7 @@ newtype RequestLimit = RequestLimit Int
 newtype RequestOffset = RequestOffset Int
 
 -- Wrapper of 'Subscription' built by 'purescript bridge'
--- needed to derive generice instances of it
+-- needed to derive generic instances from it
 newtype SocketSubscription = SocketSubscription Subscription
 derive instance gSocketSubscription :: Generic SocketSubscription
 derive instance newtypeSocketSubscription :: Newtype SocketSubscription _

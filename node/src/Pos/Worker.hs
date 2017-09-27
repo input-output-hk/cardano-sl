@@ -14,7 +14,7 @@ import           Data.Tagged             (untag)
 import           Pos.Block.Worker        (blkWorkers)
 import           Pos.Communication       (OutSpecs, Relay, WorkerSpec, localWorker,
                                           relayPropagateOut, wrapActionSpec)
-import           Pos.Context             (NodeContext (..), recoveryCommGuard)
+import           Pos.Context             (NodeContext (..))
 import           Pos.Delegation          (delegationRelays, dlgWorkers)
 import           Pos.DHT.Workers         (dhtWorkers)
 import           Pos.Launcher.Resource   (NodeResources (..))
@@ -80,6 +80,6 @@ allWorkers NodeResources {..} = mconcatPair
   where
     NodeContext {..} = nrContext
     properSlottingWorkers =
-       fst (localWorker (recoveryCommGuard "logNewSlot" logNewSlotWorker)) :
+       fst (localWorker logNewSlotWorker) :
        map (fst . localWorker) (slottingWorkers ncSlottingContext)
     wrap' lname = first (map $ wrapActionSpec $ "worker" <> lname)

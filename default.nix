@@ -22,7 +22,6 @@ let
         # production full nodes shouldn't use wallet as it means different constants
         configureFlags = [
           "-f-asserts"
-          "-f-dev-mode"
         ];
         testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
         preCheck = ''
@@ -45,7 +44,6 @@ let
       cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
         configureFlags = [
           "-f-asserts"
-          "-f-dev-mode"
           "--ghc-options=-DGITREV=${gitrev}"
         ];
       });

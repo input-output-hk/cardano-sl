@@ -15,7 +15,7 @@ module Pos.Wallet.KeyStorage
        ) where
 
 import qualified Control.Concurrent.STM as STM
-import           Control.Lens           ((<>~))
+import           Control.Lens           ((<%=), (<>~))
 import           Control.Monad.Catch    (MonadThrow)
 import           Serokell.Util          (modifyTVarS)
 import           System.Wlog            (WithLogger)
@@ -76,8 +76,7 @@ modifySecret
     => (UserSecret -> UserSecret) -> m ()
 modifySecret f = do
     us <- view userSecret
-    let modifier = state $ join (,) . f
-    new <- atomically $ modifyTVarS us modifier
+    new <- atomically $ modifyTVarS us (identity <%= f)
     writeUserSecret new
 
 deleteAt :: Int -> [a] -> [a]

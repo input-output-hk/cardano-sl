@@ -136,7 +136,7 @@ library
                         Pos.Wallet.Web.Error.Types
                         Pos.Wallet.Web.Error.Util
                         Pos.Wallet.Web.Pending.Types
-                        Pos.Wallet.Web.Pending.Updates
+                        Pos.Wallet.Web.Pending.Util
                         Pos.Wallet.Web.State
                         Pos.Wallet.Web.State.Acidic
                         Pos.Wallet.Web.State.State

@@ -11,7 +11,7 @@ module Command.Tx
 import           Universum
 
 import           Control.Concurrent.STM.TQueue    (newTQueue, tryReadTQueue, writeTQueue)
-import           Control.Exception.Safe           (Exception (..), throwString, try)
+import           Control.Exception.Safe           (Exception (..), try)
 import           Control.Monad.Except             (runExceptT, throwError)
 import qualified Data.ByteString                  as BS
 import           Data.List                        ((!!))
@@ -41,7 +41,6 @@ import           Pos.Core                         (BlockVersionData (bvdSlotDura
 import           Pos.Core.Configuration           (HasConfiguration,
                                                    genesisBlockVersionData,
                                                    genesisSecretKeys)
-import           Pos.Core.Constants               (isDevelopment)
 import           Pos.Crypto                       (emptyPassphrase, encToPublic,
                                                    fakeSigner, safeToPublic, toPublic,
                                                    withSafeSigner)
@@ -86,8 +85,6 @@ sendToAllGenesis
     -> SendToAllGenesisParams
     -> AuxxMode ()
 sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMode tpsSentFile) = do
-    unless (isDevelopment) $
-        throwString "sendToAllGenesis works only in development mode"
     CmdCtx {ccPeers} <- getCmdCtx
     let nNeighbours = length ccPeers
     let genesisSlotDuration = fromIntegral (toMicroseconds $ bvdSlotDuration genesisBlockVersionData) `div` 1000000 :: Int

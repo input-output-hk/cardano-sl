@@ -28,8 +28,8 @@ echo "Generating $DIR_GENERATED_WEB lenses."
 purescript-derive-lenses \
     < $DIR_GENERATED_WEB/../ClientTypes.purs \
     --moduleName Pos.Explorer.Web.Lenses.ClientTypes \
-    --moduleImports "import Data.Maybe(Maybe)" \
-    --moduleImports "import Data.Tuple(Tuple)" \
+    --moduleImports "import Data.Maybe (Maybe)" \
+    --moduleImports "import Data.Tuple (Tuple)" \
     --moduleImports "import Data.Time.NominalDiffTime (NominalDiffTime(..))" \
     > $DIR_GENERATED_WEB/ClientTypes.purs
 

@@ -381,7 +381,7 @@ library
                       , kademlia
                       , lens
                       , list-t
-                      , log-warper >= 1.1.1
+                      , log-warper >= 1.2.2
                       , lrucache
                       , memory
                       , mmorph

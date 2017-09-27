@@ -3,10 +3,11 @@ let
 in
 { system ? builtins.currentSystem
 , config ? {}
-, gitrev ? "unknown"
+, gitrev ? localLib.commitIdFromGitRepo ./.git
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; })
 # profiling slows down performance by 50% so we don't enable it by default
 , enableProfiling ? false
+, enableDebugging ? false
 }:
 
 with pkgs.lib;
@@ -20,7 +21,7 @@ let
     overrides = self: super: {
       cardano-sl = overrideCabal super.cardano-sl (drv: {
         # production full nodes shouldn't use wallet as it means different constants
-        configureFlags = [
+        configureFlags = (drv.configureFlags or []) ++ [
           "-f-asserts"
           "-f-dev-mode"
         ];
@@ -43,7 +44,7 @@ let
         };
       });
       cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
-        configureFlags = [
+        configureFlags = (drv.configureFlags or []) ++ [
           "-f-asserts"
           "-f-dev-mode"
           "--ghc-options=-DGITREV=${gitrev}"
@@ -79,6 +80,10 @@ let
 
       mkDerivation = args: super.mkDerivation (args // {
         enableLibraryProfiling = enableProfiling;
+      } // optionalAttrs enableDebugging {
+        # TODO: DEVOPS-355
+        dontStrip = true;
+        configureFlags = (args.configureFlags or []) ++ [ "--ghc-options=-g --disable-executable-stripping --disable-library-stripping" ];
       });
     };
   });

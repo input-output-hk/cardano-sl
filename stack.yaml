@@ -48,7 +48,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: e4df104bc68e019422034568cae476f28d145c40 # master
+    commit: 630b23847ea39778f5616134a4f416b473639a15 # master
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -87,12 +87,6 @@ packages:
     commit: 08df7fe6a9242f7d76aa5040221702e26ab610f6
   extra-dep: true
 
-# Custom ekg-statsd version without the unnecessary diffing optimisation
-- location:
-    git: https://github.com/input-output-hk/ekg-statsd.git
-    commit: 1869714a616b8092d8dc16af6e834e81f4c56bad
-  extra-dep: true
-
 - location:
     git: https://github.com/well-typed/canonical-json.git
     commit: 2d261bb971bada1893753b503452d9e6e217bc4a
@@ -121,6 +115,8 @@ extra-deps:
 - entropy-0.3.7                   # https://github.com/commercialhaskell/stack/issues/3151
 - cborg-0.1.1.0
 - systemd-1.1.2
+# ekg-statsd version without the unnecessary diffing optimisation
+- ekg-statsd-0.2.2.0
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

@@ -7,6 +7,7 @@ module Pos.DB.GState.Common
          -- * Getters
          getTip
        , getMaxSeenDifficulty
+       , getMaxSeenDifficultyMaybe
        , getTipBlockGeneric
        , getTipHeaderGeneric
 
@@ -32,6 +33,8 @@ import           Universum
 
 import           Pos.Binary.Class    (Bi)
 import           Pos.Binary.Crypto   ()
+import           Pos.Binary.Core.Types ()
+import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Types      (ChainDifficulty, HeaderHash)
 import           Pos.Crypto          (shortHashF)
 import           Pos.DB.BatchOp      (RocksBatchOp (..), dbWriteBatch')
@@ -112,7 +115,7 @@ instance Buildable CommonOp where
     build (PutMaxSeenDifficulty d) =
         bprint ("PutMaxSeenDifficulty ("%int%")") d
 
-instance RocksBatchOp CommonOp where
+instance HasConfiguration => RocksBatchOp CommonOp where
     toBatchOp (PutTip h) =
         [Rocks.Put tipKey (dbSerializeValue h)]
     toBatchOp (PutMaxSeenDifficulty h) =

@@ -7,6 +7,9 @@ module Pos.Web.Api
        ( BaseNodeApi
        , baseNodeApi
 
+       , HealthCheckApi
+       , healthCheckApi
+
        , GodTossingApi
        , godTossingApi
 
@@ -14,7 +17,8 @@ module Pos.Web.Api
        , gtNodeApi
        ) where
 
-import           Servant.API        ((:<|>), (:>), Capture, Get, JSON, Post, QueryParam)
+import           Servant.API        ((:<|>), (:>), Capture, Get, JSON, PlainText, Post,
+                                     QueryParam)
 import           Universum
 
 import           Pos.Crypto         (PublicKey)
@@ -45,6 +49,13 @@ type BaseNodeApi ssc =
     :<|>
     "local_txs_num"
         :> Get '[JSON] Word
+
+-- | Helper Proxy.
+healthCheckApi :: Proxy HealthCheckApi
+healthCheckApi = Proxy
+
+type HealthCheckApi =
+    "healthcheck" :> "route53" :> Get '[PlainText] String
 
 -- | Helper Proxy.
 baseNodeApi :: Proxy (BaseNodeApi ssc)

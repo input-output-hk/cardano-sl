@@ -20,10 +20,9 @@ import           System.Wlog                  (logDebug)
 
 import           Pos.Aeson.ClientTypes        ()
 import           Pos.Aeson.WalletBackup       ()
-import           Pos.Constants                (isDevelopment)
+import           Pos.Core.Configuration       (genesisHdwSecretKeys)
 import           Pos.Crypto                   (EncryptedSecretKey, PassPhrase,
                                                emptyPassphrase, firstHardened)
-import           Pos.Genesis                  (genesisDevHdwSecretKeys)
 import           Pos.StateLock                (Priority (..), withStateLockNoMetrics)
 import           Pos.Util                     (maybeThrow)
 import           Pos.Util.UserSecret          (UserSecretDecodingError (..),
@@ -53,25 +52,26 @@ initialAccAddrIdxs = firstHardened
 
 newWalletFromBackupPhrase
     :: MonadWalletWebMode m
-    => PassPhrase -> CWalletInit -> m (EncryptedSecretKey, CId Wal)
-newWalletFromBackupPhrase passphrase CWalletInit {..} = do
+    => PassPhrase -> CWalletInit -> Bool -> m (EncryptedSecretKey, CId Wal)
+newWalletFromBackupPhrase passphrase CWalletInit {..} isReady = do
     let CWalletMeta {..} = cwInitMeta
 
     skey <- genSaveRootKey passphrase cwBackupPhrase
     let cAddr = encToCId skey
 
-    CWallet{..} <- L.createWalletSafe cAddr cwInitMeta
+    CWallet{..} <- L.createWalletSafe cAddr cwInitMeta isReady
     -- can't return this result, since balances can change
 
     let accMeta = CAccountMeta { caName = "Initial account" }
         accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
-    () <$ L.newAccount (DeterminedSeed initialAccAddrIdxs) passphrase accInit
+    () <$ L.newAccountIncludeUnready True (DeterminedSeed initialAccAddrIdxs) passphrase accInit
 
     return (skey, cAddr)
 
 newWallet :: MonadWalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 newWallet passphrase cwInit = do
-    (_, wId) <- newWalletFromBackupPhrase passphrase cwInit
+    -- A brand new wallet doesn't need any syncing, so we mark isReady=True
+    (_, wId) <- newWalletFromBackupPhrase passphrase cwInit True
     updateHistoryCache wId []
     -- BListener checks current syncTip before applying update,
     -- thus setting it up to date manually here
@@ -80,7 +80,10 @@ newWallet passphrase cwInit = do
 
 restoreWallet :: MonadWalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 restoreWallet passphrase cwInit = do
-    (sk, wId) <- newWalletFromBackupPhrase passphrase cwInit
+    -- Restoring a wallet may take a long time.
+    -- Hence we mark the wallet as "not ready" until `syncWalletOnImport` completes.
+    (sk, wId) <- newWalletFromBackupPhrase passphrase cwInit False
+    -- `syncWalletOnImport` automatically marks a wallet as "ready".
     syncWalletOnImport sk
     L.getWallet wId
 
@@ -113,7 +116,9 @@ importWalletSecret passphrase WalletUserSecret{..} = do
         wid    = encToCId key
         wMeta  = def { cwName = _wusWalletName }
     addSecretKey key
-    importedWallet <- L.createWalletSafe wid wMeta
+    -- Importing a wallet may take a long time.
+    -- Hence we mark the wallet as "not ready" until `syncWalletOnImport` completes.
+    importedWallet <- L.createWalletSafe wid wMeta False
 
     for_ _wusAccounts $ \(walletIndex, walletName) -> do
         let accMeta = def{ caName = walletName }
@@ -125,6 +130,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
         let accId = AccountId wid walletIndex
         L.newAddress (DeterminedSeed accountIndex) passphrase accId
 
+    -- `syncWalletOnImport` automatically marks a wallet as "ready".
     void $ syncWalletOnImport key
 
     return importedWallet
@@ -133,8 +139,9 @@ importWalletSecret passphrase WalletUserSecret{..} = do
 -- For debug purposes
 addInitialRichAccount :: MonadWalletWebMode m => Int -> m ()
 addInitialRichAccount keyId =
-    when isDevelopment . E.handleAll wSetExistsHandler $ do
-        key <- maybeThrow noKey (genesisDevHdwSecretKeys ^? ix keyId)
+    E.handleAll wSetExistsHandler $ do
+        let hdwSecretKeys = fromMaybe (error "Hdw secrets keys are unknown") genesisHdwSecretKeys
+        key <- maybeThrow noKey (hdwSecretKeys ^? ix keyId)
         void $ importWalletSecret emptyPassphrase $
             mkGenesisWalletUserSecret key
                 & wusWalletName .~ "Precreated wallet full of money"

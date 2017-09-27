@@ -9,38 +9,38 @@ module Plugin
 
 import           Universum
 
-import qualified Data.Text            as T
+import qualified Data.Text                  as T
 #if !(defined(mingw32_HOST_OS))
-import           System.Exit          (ExitCode (ExitSuccess))
-import           System.Posix.Process (exitImmediately)
+import           System.Exit                (ExitCode (ExitSuccess))
+import           System.Posix.Process       (exitImmediately)
 #endif
-import           Formatting           (int, sformat, stext, (%))
-import           Mockable             (delay)
-import           Node.Conversation    (ConversationActions (..))
-import           Node.Message.Class   (Message (..))
-import           Serokell.Util        (sec)
-import           System.IO            (hFlush, stdout)
-import           System.Wlog          (WithLogger, logDebug, logInfo)
+import           Formatting                 (int, sformat, stext, (%))
+import           Mockable                   (delay)
+import           Node.Conversation          (ConversationActions (..))
+import           Node.Message.Class         (Message (..))
+import           Serokell.Util              (sec)
+import           System.IO                  (hFlush, stdout)
+import           System.Wlog                (WithLogger, logDebug, logInfo)
 
-import           Pos.Communication    (Conversation (..), OutSpecs (..), SendActions (..),
-                                       Worker, WorkerSpec, delegationRelays,
-                                       relayPropagateOut, txRelays, usRelays, worker)
-import           Pos.Core.Context     (HasCoreConstants)
-import           Pos.Ssc.GodTossing   (SscGodTossing)
-import           Pos.Txp              (unGenesisUtxo)
-import           Pos.Util.Util        (lensOf')
-import           Pos.WorkMode         (RealMode, RealModeContext)
+import           Pos.Communication          (Conversation (..), OutSpecs (..),
+                                             SendActions (..), Worker, WorkerSpec,
+                                             delegationRelays, relayPropagateOut,
+                                             txRelays, usRelays, worker)
+import           Pos.Launcher.Configuration (HasConfigurations)
+import           Pos.Ssc.GodTossing         (SscGodTossing)
+import           Pos.Txp                    (genesisUtxo, unGenesisUtxo)
+import           Pos.WorkMode               (RealMode, RealModeContext)
 
-import           AuxxOptions          (AuxxAction (..), AuxxOptions (..))
-import           Command              (Command (..), parseCommand, runCmd)
-import           Mode                 (AuxxMode)
+import           AuxxOptions                (AuxxAction (..), AuxxOptions (..))
+import           Command                    (Command (..), parseCommand, runCmd)
+import           Mode                       (AuxxMode)
 
 ----------------------------------------------------------------------------
 -- Plugin implementation
 ----------------------------------------------------------------------------
 
-auxxPlugin ::
-       HasCoreConstants
+auxxPlugin
+    :: HasConfigurations
     => AuxxOptions
     -> (WorkerSpec AuxxMode, OutSpecs)
 auxxPlugin AuxxOptions {..} =
@@ -50,23 +50,19 @@ auxxPlugin AuxxOptions {..} =
   where
     worker' specs w =
         worker specs $ \sa -> do
-            genesisUtxo <- view lensOf'
-            logInfo $
-                sformat
-                    ("Length of genesis utxo: " %int)
-                    (length $ unGenesisUtxo genesisUtxo)
+            logInfo $ sformat ("Length of genesis utxo: " %int)
+                              (length $ unGenesisUtxo genesisUtxo)
             w (addLogging sa)
 
-evalCmd ::
-       HasCoreConstants
+evalCmd
+    :: HasConfigurations
     => SendActions AuxxMode
     -> Command
     -> AuxxMode ()
 evalCmd _ Quit = pure ()
 evalCmd sa cmd = runCmd sa cmd >> evalCommands sa
 
-evalCommands ::
-       HasCoreConstants => SendActions AuxxMode -> AuxxMode ()
+evalCommands :: HasConfigurations => SendActions AuxxMode -> AuxxMode ()
 evalCommands sa = do
     putStr @Text "> "
     liftIO $ hFlush stdout
@@ -76,12 +72,12 @@ evalCommands sa = do
         Left err   -> putStrLn err >> evalCommands sa
         Right cmd_ -> evalCmd sa cmd_
 
-runWalletRepl :: HasCoreConstants => Worker AuxxMode
+runWalletRepl :: HasConfigurations => Worker AuxxMode
 runWalletRepl sa = do
     putText "Welcome to Wallet CLI Node"
     evalCmd sa Help
 
-runWalletCmd :: HasCoreConstants => Text -> Worker AuxxMode
+runWalletCmd :: HasConfigurations => Text -> Worker AuxxMode
 runWalletCmd str sa = do
     let strs = T.splitOn "," str
     for_ strs $ \scmd -> do
@@ -102,7 +98,7 @@ runWalletCmd str sa = do
 ----------------------------------------------------------------------------
 
 -- This solution is hacky, but will work for now
-runCmdOuts :: HasCoreConstants => OutSpecs
+runCmdOuts :: HasConfigurations => OutSpecs
 runCmdOuts =
     relayPropagateOut $
     mconcat

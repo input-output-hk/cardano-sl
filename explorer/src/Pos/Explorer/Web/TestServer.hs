@@ -25,7 +25,7 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary 
                                                  CTxBrief (..), CTxEntry (..), CTxId (..),
                                                  CTxSummary (..), Byte, mkCCoin)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
-import           Pos.Types                      (EpochIndex, mkCoin)
+import           Pos.Types                      (EpochIndex (..), mkCoin)
 import           Pos.Web                        ()
 
 
@@ -206,6 +206,13 @@ testEpochSlotSearch
     :: EpochIndex
     -> Maybe Word16
     -> Handler (Either ExplorerError [CBlockEntry])
+-- `?epoch=1&slot=1` returns an empty list
+testEpochSlotSearch (EpochIndex 1) (Just 1) =
+    pure . pure $ []
+-- `?epoch=1&slot=2` returns an error
+testEpochSlotSearch (EpochIndex 1) (Just 2) =
+    throwM $ Internal "Error while searching epoch/slot"
+-- all others returns a simple result
 testEpochSlotSearch _ _ = pure . pure $ [CBlockEntry
     { cbeEpoch      = 37294
     , cbeSlot       = 10
@@ -254,4 +261,3 @@ testStatsTxs
     :: Maybe Word
     -> Handler (Either ExplorerError (Integer, [(CTxId, Byte)]))
 testStatsTxs _ = pure . pure $ (1, [(cTxId, 200)])
-

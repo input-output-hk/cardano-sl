@@ -22,6 +22,7 @@
 	--color13: #aaa;
 	--color14: #f9f9f9;
 	--color15: #9a1805;
+	--color16: #49484c;
 
   /* fonts */
   --fontFamily0-Light: 'fontFamily0-Light';
@@ -235,6 +236,34 @@ select::-ms-expand {
   &:hover {
     background-image: svg-inline(icon-cross-hover);
   }
+}
+
+/* lang icons */
+@svg-load icon-lang-en url('../static/images/icon-lang-en.svg');
+.bg-icon-lang-en {
+  background-image: svg-inline(icon-lang-en);
+}
+@svg-load icon-lang-de url('../static/images/icon-lang-de.svg');
+.bg-icon-lang-de {
+  background-image: svg-inline(icon-lang-de);
+}
+@svg-load icon-lang-ja url('../static/images/icon-lang-ja.svg');
+.bg-icon-lang-ja {
+  background-image: svg-inline(icon-lang-ja);
+}
+
+/* social icons */
+@svg-load icon-twitter url('../static/images/icon-twitter.svg');
+.bg-icon-twitter {
+  background-image: svg-inline(icon-twitter);
+}
+@svg-load icon-email url('../static/images/icon-email.svg');
+.bg-icon-email {
+  background-image: svg-inline(icon-email);
+}
+@svg-load icon-github url('../static/images/icon-github.svg');
+.bg-icon-github {
+  background-image: svg-inline(icon-github);
 }
 
 /* ---------------------------

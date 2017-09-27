@@ -12,14 +12,11 @@ module Pos.Explorer.ExtraContext
 
 import           Universum
 
-import qualified Data.Vector   as V
+import qualified Data.Vector as V
 import qualified Ether
 
-import           Pos.Context   (NodeContext)
-import           Pos.Core      (Address, Coin, isRedeemAddress)
-import           Pos.Genesis   (GenesisUtxo (..))
-import           Pos.Txp       (utxoToAddressCoinPairs)
-import           Pos.Util.Util (lensOf)
+import           Pos.Core    (Address, Coin, HasConfiguration, isRedeemAddress)
+import           Pos.Txp     (GenesisUtxo (..), genesisUtxo, utxoToAddressCoinPairs)
 
 type ExtraContextT m = Ether.ReaderT' ExtraContext m
 
@@ -40,9 +37,8 @@ instance Monad m => HasGenesisRedeemAddressInfo (ExtraContextT m) where
         extraCtx <- Ether.ask @ExtraContext
         pure $ ecAddressCoinPairs extraCtx
 
-makeExtraCtx :: NodeContext ssc -> ExtraContext
-makeExtraCtx ctx =
-    let genesisUtxo = view (lensOf @GenesisUtxo) ctx
-        addressCoinPairs = utxoToAddressCoinPairs $ unGenesisUtxo genesisUtxo
+makeExtraCtx :: HasConfiguration => ExtraContext
+makeExtraCtx =
+    let addressCoinPairs = utxoToAddressCoinPairs $ unGenesisUtxo genesisUtxo
         redeemOnly = filter (isRedeemAddress . fst) addressCoinPairs
     in ExtraContext $ V.fromList redeemOnly

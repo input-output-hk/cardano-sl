@@ -15,7 +15,7 @@ import qualified Pos.Block.Core.Genesis.Chain as BC
 import qualified Pos.Block.Core.Genesis.Types as BC
 import qualified Pos.Block.Core.Main.Chain    as BC
 import qualified Pos.Block.Core.Main.Types    as BC
-import           Pos.Core                     (BlockVersion, SoftwareVersion, HasCoreConstants)
+import           Pos.Core                     (BlockVersion, SoftwareVersion, HasConfiguration)
 import qualified Pos.Core.Block               as Core
 import           Pos.Crypto                   (Hash)
 import           Pos.Ssc.Class.Types          (Ssc (..))
@@ -51,7 +51,7 @@ instance Typeable ssc => Bi (BC.BlockSignature ssc) where
       2 -> BC.BlockPSignatureHeavy <$> decode
       _ -> fail $ "decode@BlockSignature: unknown tag: " <> show tag
 
-instance (Typeable ssc, HasCoreConstants) => Bi (BC.ConsensusData (BC.MainBlockchain ssc)) where
+instance (Typeable ssc, HasConfiguration) => Bi (BC.ConsensusData (BC.MainBlockchain ssc)) where
   encode cd =  encodeListLen 4
             <> encode (BC._mcdSlot cd)
             <> encode (BC._mcdLeaderKey cd)
@@ -64,7 +64,7 @@ instance (Typeable ssc, HasCoreConstants) => Bi (BC.ConsensusData (BC.MainBlockc
                              decode <*>
                              decode
 
-instance (Typeable ssc, Ssc ssc) => Bi (BC.Body (BC.MainBlockchain ssc)) where
+instance (HasConfiguration, Typeable ssc, Ssc ssc) => Bi (BC.Body (BC.MainBlockchain ssc)) where
   encode bc =  encodeListLen 4
             <> encode (BC._mbTxPayload  bc)
             <> encode (BC._mbSscPayload bc)
@@ -90,7 +90,7 @@ deriveSimpleBi ''BC.MainExtraBodyData [
         Field [| BC._mebAttributes :: BC.BlockBodyAttributes |]
     ]]
 
-instance (HasCoreConstants, Ssc ssc) => Bi (BC.MainToSign ssc) where
+instance (HasConfiguration, Ssc ssc) => Bi (BC.MainToSign ssc) where
   encode mts = encodeListLen 5
              <> encode (BC._msHeaderHash mts)
              <> encode (BC._msBodyProof mts)

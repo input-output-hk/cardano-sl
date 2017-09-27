@@ -60,7 +60,7 @@ execPollT = flip Ether.execLazyStateT
 -- MonadPoll
 ----------------------------------------------------------------------------
 
-instance MonadPollRead m =>
+instance (MonadPollRead m) =>
          MonadPollRead (PollT m) where
     getBVState pv = ether $
         MM.lookupM getBVState pv =<< use pmBVsL

@@ -38,9 +38,11 @@ executable cardano-auxx
                      , base58-bytestring
                      , binary
                      , bytestring
+                     , canonical-json
                      , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-db
+                     , cardano-sl-godtossing
                      , cardano-sl-infra
                      , cardano-sl-ssc
                      , cardano-sl-txp

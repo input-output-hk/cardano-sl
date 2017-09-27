@@ -10,47 +10,50 @@ module Pos.Web.Server
        , nat
        , serveWebBase
        , applicationBase
+       , route53HealthCheckApplication
        , serveWebGT
        , applicationGT
        ) where
 
 import           Universum
 
-import qualified Control.Monad.Catch                  as Catch
-import           Control.Monad.Except                 (MonadError (throwError))
-import qualified Control.Monad.Reader                 as Mtl
-import           Mockable                             (Production (runProduction))
-import           Network.Wai                          (Application, Middleware)
-import           Network.Wai.Handler.Warp             (defaultSettings, runSettings,
-                                                       setHost, setPort)
-import           Network.Wai.Handler.WarpTLS          (TLSSettings, runTLS,
-                                                       tlsSettingsChain)
-import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
-import           Servant.API                          ((:<|>) ((:<|>)), FromHttpApiData)
-import           Servant.Server                       (Handler, ServantErr (errBody),
-                                                       Server, ServerT, err404, serve)
-import           Servant.Utils.Enter                  ((:~>) (NT), enter)
+import qualified Control.Monad.Catch             as Catch
+import           Control.Monad.Except            (MonadError (throwError))
+import qualified Control.Monad.Reader            as Mtl
+import           Mockable                        (Production (runProduction))
+import           Network.Wai                     (Application)
+import           Network.Wai.Handler.Warp        (defaultSettings, runSettings, setHost,
+                                                  setPort)
+import           Network.Wai.Handler.WarpTLS     (TLSSettings, runTLS, tlsSettingsChain)
+import           Servant.API                     ((:<|>) ((:<|>)), FromHttpApiData)
+import           Servant.Server                  (Handler, ServantErr (errBody), Server,
+                                                  ServerT, err404, err503, serve)
+import           Servant.Utils.Enter             ((:~>) (NT), enter)
 
-import           Pos.Aeson.Types                      ()
-import           Pos.Constants                        (webLoggingEnabled)
-import           Pos.Context                          (HasNodeContext (..),
-                                                       HasSscContext (..), NodeContext,
-                                                       getOurPublicKey)
-import           Pos.Core                             (EpochIndex (..), SlotLeaders)
-import qualified Pos.DB                               as DB
-import qualified Pos.GState                           as GS
-import qualified Pos.Lrc.DB                           as LrcDB
-import           Pos.Ssc.Class                        (SscConstraint)
-import           Pos.Ssc.GodTossing                   (SscGodTossing, gtcParticipateSsc)
-import           Pos.Txp                              (TxOut (..), toaOut)
-import           Pos.Txp.MemState                     (GenericTxpLocalData, askTxpMem,
-                                                       getLocalTxs)
-import           Pos.Web.Mode                         (WebMode, WebModeContext (..))
-import           Pos.WorkMode.Class                   (TxpExtra_TMP, WorkMode)
+import qualified Network.Broadcast.OutboundQueue as OQ
+import           Pos.Aeson.Types                 ()
+import           Pos.Context                     (HasNodeContext (..), HasSscContext (..),
+                                                  NodeContext, getOurPublicKey)
+import           Pos.Core                        (EpochIndex (..), SlotLeaders)
+import           Pos.Core.Configuration          (HasConfiguration)
+import qualified Pos.DB                          as DB
+import qualified Pos.GState                      as GS
+import qualified Pos.Lrc.DB                      as LrcDB
+import           Pos.Network.Types               (Bucket (BucketSubscriptionListener),
+                                                  Topology, topologyMaxBucketSize)
+import           Pos.Ssc.Class                   (SscConstraint)
+import           Pos.Ssc.GodTossing              (SscGodTossing, gtcParticipateSsc)
+import           Pos.Txp                         (TxOut (..), toaOut)
+import           Pos.Txp.MemState                (GenericTxpLocalData, askTxpMem,
+                                                  getLocalTxs)
+import           Pos.Web.Mode                    (WebMode, WebModeContext (..))
+import           Pos.WorkMode                    (OQ)
+import           Pos.WorkMode.Class              (TxpExtra_TMP, WorkMode)
 
-import           Pos.Web.Api                          (BaseNodeApi, GodTossingApi,
-                                                       GtNodeApi, baseNodeApi, gtNodeApi)
-import           Pos.Web.Types                        (TlsParams (..))
+import           Pos.Web.Api                     (BaseNodeApi, GodTossingApi, GtNodeApi,
+                                                  HealthCheckApi, baseNodeApi, gtNodeApi,
+                                                  healthCheckApi)
+import           Pos.Web.Types                   (TlsParams (..))
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -71,6 +74,11 @@ applicationBase = do
     server <- servantServerBase
     return $ serve baseNodeApi server
 
+route53HealthCheckApplication :: MyWorkMode ssc ctx m => Topology t -> OQ m -> m Application
+route53HealthCheckApplication topology oq = do
+    server <- servantServerHealthCheck topology oq
+    return $ serve healthCheckApi server
+
 serveWebGT :: MyWorkMode SscGodTossing ctx m => Word16 -> Maybe TlsParams -> m ()
 serveWebGT = serveImpl applicationGT "127.0.0.1"
 
@@ -79,28 +87,23 @@ applicationGT = do
     server <- servantServerGT
     return $ serve gtNodeApi server
 
-serveImplNoTLS :: MonadIO m => m Application -> String -> Word16 -> m ()
+serveImplNoTLS :: (HasConfiguration, MonadIO m) => m Application -> String -> Word16 -> m ()
 serveImplNoTLS application host port =
-    liftIO . runSettings mySettings . webLogger =<< application
+    liftIO . runSettings mySettings =<< application
   where
     mySettings = setHost (fromString host) $
                  setPort (fromIntegral port) defaultSettings
 
 serveImpl
-    :: MonadIO m
+    :: (HasConfiguration, MonadIO m)
     => m Application -> String -> Word16 -> Maybe TlsParams -> m ()
 serveImpl application host port walletTLSParams =
-    liftIO . maybe runSettings runTLS mTlsConfig mySettings . webLogger
+    liftIO . maybe runSettings runTLS mTlsConfig mySettings
         =<< application
   where
     mySettings = setHost (fromString host) $
                  setPort (fromIntegral port) defaultSettings
     mTlsConfig = tlsParamsToWai <$> walletTLSParams
-
-webLogger :: Middleware
-webLogger
-    | webLoggingEnabled = logStdoutDev
-    | otherwise         = identity
 
 tlsParamsToWai :: TlsParams -> TLSSettings
 tlsParamsToWai TlsParams{..} = tlsSettingsChain tpCertPath [tpCaPath] tpKeyPath
@@ -137,6 +140,9 @@ nat = do
 servantServerBase :: forall ssc ctx m . MyWorkMode ssc ctx m => m (Server (BaseNodeApi ssc))
 servantServerBase = flip enter baseServantHandlers <$> (nat @ssc @ctx @m)
 
+servantServerHealthCheck :: forall ssc ctx t m . MyWorkMode ssc ctx m => Topology t -> OQ m -> m (Server HealthCheckApi)
+servantServerHealthCheck topology oq = flip enter (healthCheckServantHandlers topology oq) <$> (nat @ssc @ctx @m)
+
 servantServerGT :: forall ctx m . MyWorkMode SscGodTossing ctx m => m (Server GtNodeApi)
 servantServerGT = flip enter (baseServantHandlers :<|> gtServantHandlers) <$>
     (nat @SscGodTossing @ctx @m)
@@ -145,7 +151,7 @@ servantServerGT = flip enter (baseServantHandlers :<|> gtServantHandlers) <$>
 -- Base handlers
 ----------------------------------------------------------------------------
 
-baseServantHandlers :: ServerT (BaseNodeApi ssc) (WebMode ssc)
+baseServantHandlers :: HasConfiguration => ServerT (BaseNodeApi ssc) (WebMode ssc)
 baseServantHandlers =
     getLeaders
     :<|>
@@ -157,7 +163,7 @@ baseServantHandlers =
     :<|>
     getLocalTxsNum
 
-getLeaders :: Maybe EpochIndex -> WebMode ssc SlotLeaders
+getLeaders :: HasConfiguration => Maybe EpochIndex -> WebMode ssc SlotLeaders
 getLeaders maybeEpoch = do
     -- epoch <- maybe (siEpoch <$> getCurrentSlot) pure maybeEpoch
     epoch <- maybe (pure 0) pure maybeEpoch
@@ -165,11 +171,33 @@ getLeaders maybeEpoch = do
   where
     err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
 
-getUtxo :: WebMode ssc [TxOut]
+getUtxo :: HasConfiguration => WebMode ssc [TxOut]
 getUtxo = map toaOut . toList <$> GS.getAllPotentiallyHugeUtxo
 
 getLocalTxsNum :: WebMode ssc Word
 getLocalTxsNum = fromIntegral . length <$> getLocalTxs
+
+----------------------------------------------------------------------------
+-- HealthCheck handlers
+----------------------------------------------------------------------------
+
+healthCheckServantHandlers :: Topology t -> OQ m -> ServerT HealthCheckApi (WebMode ssc)
+healthCheckServantHandlers topology oq =
+    getRoute53HealthCheck topology oq
+
+getRoute53HealthCheck :: Topology t -> OQ m -> ServerT HealthCheckApi (WebMode ssc)
+getRoute53HealthCheck (topologyMaxBucketSize -> getSize) oq = do
+    let maxCapacityTxt = case getSize BucketSubscriptionListener of
+                             OQ.BucketSizeUnlimited -> "unlimited"
+                             (OQ.BucketSizeMax x)   -> fromString (show x)
+    -- If the node doesn't have any more subscription slots available,
+    -- mark the node as "unhealthy" by returning a 503 "Service Unavailable".
+    spareCapacity <- OQ.bucketSpareCapacity oq BucketSubscriptionListener
+    case spareCapacity of
+        OQ.UnlimitedCapacity          ->
+            return maxCapacityTxt -- yields "unlimited" as it means the `BucketMaxSize` was unlimited.
+        OQ.SpareCapacity sc | sc == 0 -> throwM $ err503 { errBody = encodeUtf8 ("0/" <> maxCapacityTxt) }
+        OQ.SpareCapacity sc           -> return $ show sc <> "/" <> maxCapacityTxt -- yields 200/OK
 
 ----------------------------------------------------------------------------
 -- GodTossing handlers

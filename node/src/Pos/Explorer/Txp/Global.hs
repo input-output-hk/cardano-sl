@@ -1,4 +1,3 @@
-
 -- | Explorer's global Txp (expressed as settings).
 
 module Pos.Explorer.Txp.Global
@@ -9,7 +8,7 @@ import           Universum
 
 import qualified Data.HashMap.Strict   as HM
 
-import           Pos.Core              (HeaderHash, SlotId (..), HasCoreConstants,
+import           Pos.Core              (HasConfiguration, HeaderHash, SlotId (..),
                                         epochIndexL, headerHash, headerSlotL)
 import           Pos.DB                (SomeBatchOp (..))
 import           Pos.Slotting          (MonadSlots, getSlotStart)
@@ -29,7 +28,7 @@ import           Pos.Explorer.Txp.Toil (EGlobalApplyToilMode, ExplorerExtra (..)
 
 
 -- | Settings used for global transactions data processing used by explorer.
-explorerTxpGlobalSettings :: HasCoreConstants => TxpGlobalSettings
+explorerTxpGlobalSettings :: HasConfiguration => TxpGlobalSettings
 explorerTxpGlobalSettings =
     -- verification is same
     txpGlobalSettings
@@ -38,7 +37,7 @@ explorerTxpGlobalSettings =
     }
 
 eApplyBlocksSettings
-    :: (HasCoreConstants, EGlobalApplyToilMode ctx m, MonadSlots ctx m)
+    :: (HasConfiguration, EGlobalApplyToilMode m, MonadSlots ctx m)
     => ApplyBlocksSettings ExplorerExtra m
 eApplyBlocksSettings =
     ApplyBlocksSettings
@@ -46,17 +45,18 @@ eApplyBlocksSettings =
     , absExtraOperations = extraOps
     }
 
-extraOps :: ExplorerExtra -> SomeBatchOp
-extraOps (ExplorerExtra em (HM.toList -> histories) balances) =
+extraOps :: HasConfiguration => ExplorerExtra -> SomeBatchOp
+extraOps (ExplorerExtra em (HM.toList -> histories) balances utxoNewSum) =
     SomeBatchOp $
     map GS.DelTxExtra (MM.deletions em) ++
     map (uncurry GS.AddTxExtra) (MM.insertions em) ++
     map (uncurry GS.UpdateAddrHistory) histories ++
     map (uncurry GS.PutAddrBalance) (MM.insertions balances) ++
-    map GS.DelAddrBalance (MM.deletions balances)
+    map GS.DelAddrBalance (MM.deletions balances) ++
+    map GS.PutUtxoSum (maybeToList utxoNewSum)
 
 applyBlund
-    :: (HasCoreConstants, MonadSlots ctx m, EGlobalApplyToilMode ctx m)
+    :: (HasConfiguration, MonadSlots ctx m, EGlobalApplyToilMode m)
     => TxpBlund
     -> m ()
 applyBlund txpBlund = do
@@ -71,8 +71,8 @@ applyBlund txpBlund = do
 
     let txpBlock = txpBlund ^. _1
     let slotId   = case txpBlock of
-            Left gensisBlock -> SlotId
-                                  { siEpoch = gensisBlock ^. epochIndexL
+            Left genesisBlock -> SlotId
+                                  { siEpoch = genesisBlock ^. epochIndexL
                                   , siSlot  = minBound
                                   -- ^ Genesis block doesn't have a slot, set to minBound
                                   }
@@ -84,7 +84,7 @@ applyBlund txpBlund = do
     uncurry (eApplyToil mTxTimestamp) $ blundToAuxNUndoWHash txpBlund
 
 rollbackBlocks
-    :: TxpGlobalRollbackMode ctx m
+    :: TxpGlobalRollbackMode m
     => NewestFirst NE TxpBlund -> m SomeBatchOp
 rollbackBlocks blunds =
     (genericToilModifierToBatch extraOps) . snd <$>

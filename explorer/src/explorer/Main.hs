@@ -4,44 +4,40 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections       #-}
 
-module Main where
+module Main
+       ( main
+       ) where
 
 import           Universum
 
-import           Data.Default              (def)
 import           Data.Maybe                (fromJust)
-import           Formatting                (build, sformat, shown, (%))
+import           Formatting                (sformat, shown, (%))
 import           Mockable                  (Production, currentTime, runProduction)
 import           System.Wlog               (logInfo)
 
+import           NodeOptions               (ExplorerArgs (..), ExplorerNodeArgs (..),
+                                            getExplorerNodeOptions)
 import           Pos.Binary                ()
+import           Pos.Client.CLI            (CommonNodeArgs (..), NodeArgs (..),
+                                            getNodeParams)
 import qualified Pos.Client.CLI            as CLI
 import           Pos.Communication         (OutSpecs, WorkerSpec)
-import           Pos.Constants             (isDevelopment)
-import           Pos.Core                  (HasCoreConstants, giveStaticConsts)
+import           Pos.Core                  (gdStartTime, genesisData)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
 import           Pos.Explorer.Socket       (NotifierSettings (..))
 import           Pos.Explorer.Web          (ExplorerProd, explorerPlugin,
                                             liftToExplorerProd, notifierPlugin,
                                             runExplorerProd)
-import           Pos.Launcher              (NodeParams (..), NodeResources (..),
-                                            applyConfigInfo, bracketNodeResources,
-                                            hoistNodeResources, runNode, runRealBasedMode)
+import           Pos.Launcher              (ConfigurationOptions (..), HasConfigurations,
+                                            NodeParams (..), NodeResources (..),
+                                            bracketNodeResources, hoistNodeResources,
+                                            runNode, runRealBasedMode, withConfigurations)
 import           Pos.Ssc.GodTossing        (SscGodTossing)
+import           Pos.Ssc.SscAlgo           (SscAlgo (..))
 import           Pos.Types                 (Timestamp (Timestamp))
 import           Pos.Update                (updateTriggerWorker)
-import           Pos.Util                  (inAssertMode, mconcatPair)
+import           Pos.Util                  (mconcatPair)
 import           Pos.Util.UserSecret       (usVss)
-
-import           ExplorerOptions           (Args (..), getExplorerOptions)
-import           Params                    (getNodeParams, gtSscParams)
-
-printFlags :: IO ()
-printFlags = do
-    if isDevelopment
-        then putText "[Attention] We are in DEV mode"
-        else putText "[Attention] We are in PRODUCTION mode"
-    inAssertMode $ putText "Asserts are ON"
 
 ----------------------------------------------------------------------------
 -- Main action
@@ -49,44 +45,50 @@ printFlags = do
 
 main :: IO ()
 main = do
-    args <- getExplorerOptions
-    printFlags
-    runProduction (action args)
+    args <- getExplorerNodeOptions
+    CLI.printFlags
+    putText "[Attention] Software is built with explorer part"
+    runProduction $ action args
 
-action :: Args -> Production ()
-action args@Args {..} = do
-    let configInfo = def
-    liftIO $ applyConfigInfo configInfo
-    giveStaticConsts $ do
-        systemStart <- CLI.getNodeSystemStart $ CLI.sysStart commonArgs
+action :: ExplorerNodeArgs -> Production ()
+action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
+    withConfigurations conf $ do
+        let systemStart = gdStartTime genesisData
         logInfo $ sformat ("System start time is " % shown) systemStart
         t <- currentTime
         logInfo $ sformat ("Current time is " % shown) (Timestamp t)
-        nodeParams <- getNodeParams args systemStart
-        putText $ "Static peers is on: " <> show staticPeers
-        logInfo $ sformat ("Using configs and genesis:\n"%build) configInfo
+        currentParams <- getNodeParams cArgs nodeArgs
+        putText $ "Explorer is enabled!"
+        logInfo $ sformat ("Using configs and genesis:\n"%shown) conf
 
-        let vssSK = fromJust $ npUserSecret nodeParams ^. usVss
-        let sscParams = gtSscParams args vssSK
+        let vssSK = fromJust $ npUserSecret currentParams ^. usVss
+        let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-        let plugins :: HasCoreConstants => ([WorkerSpec ExplorerProd], OutSpecs)
+        let plugins :: HasConfigurations => ([WorkerSpec ExplorerProd], OutSpecs)
             plugins = mconcatPair
                 [ explorerPlugin webPort
                 , notifierPlugin NotifierSettings{ nsPort = notifierPort }
                 , updateTriggerWorker
                 ]
 
-        bracketNodeResources nodeParams sscParams $ \nr@NodeResources {..} ->
-            let extraCtx = makeExtraCtx nrContext
+        bracketNodeResources currentParams gtParams $ \nr@NodeResources {..} ->
+            let extraCtx = makeExtraCtx
             in runExplorerRealMode
                 (hoistNodeResources (liftToExplorerProd . runExplorerProd extraCtx) nr)
                 (runNode @SscGodTossing nr plugins)
   where
+
+    conf :: ConfigurationOptions
+    conf = CLI.configurationOptions $ CLI.commonArgs cArgs
+
     runExplorerRealMode
-        :: HasCoreConstants
+        :: HasConfigurations
         => NodeResources SscGodTossing ExplorerProd
         -> (WorkerSpec ExplorerProd, OutSpecs)
         -> Production ()
     runExplorerRealMode nr@NodeResources{..} =
-        let extraCtx = makeExtraCtx nrContext
+        let extraCtx = makeExtraCtx
         in runRealBasedMode (runExplorerProd extraCtx) liftToExplorerProd nr
+
+    nodeArgs :: NodeArgs
+    nodeArgs = NodeArgs { sscAlgo = GodTossingAlgo, behaviorConfigPath = Nothing }

@@ -4,8 +4,7 @@
 -- | Block processing related workers.
 
 module Pos.Block.Worker
-       ( blkOnNewSlot
-       , blkWorkers
+       ( blkWorkers
        ) where
 
 import           Universum
@@ -15,7 +14,7 @@ import qualified Data.List.NonEmpty          as NE
 import           Data.Time.Units             (Microsecond)
 import           Formatting                  (Format, bprint, build, fixed, int, now,
                                               sformat, shown, (%))
-import           Mockable                    (concurrently, delay, fork)
+import           Mockable                    (delay, fork)
 import           Serokell.Util               (listJson, pairF, sec)
 import qualified System.Metrics.Label        as Label
 import           System.Wlog                 (logDebug, logInfo, logWarning)
@@ -36,12 +35,13 @@ import           Pos.Block.Slog              (scCQFixedMonitorState,
                                               scLocalSlotMonitorState, slogGetLastSlots)
 import           Pos.Communication.Protocol  (OutSpecs, SendActions (..), Worker,
                                               WorkerSpec, onNewSlotWorker)
-import           Pos.Constants               (criticalCQ, criticalCQBootstrap,
-                                              networkDiameter, nonCriticalCQ,
-                                              nonCriticalCQBootstrap)
+import           Pos.Configuration           (networkDiameter)
+import           Pos.Core.Configuration      (criticalCQ, criticalCQBootstrap,
+                                              nonCriticalCQ, nonCriticalCQBootstrap,
+                                              HasConfiguration)
 import           Pos.Context                 (getOurPublicKey, recoveryCommGuard)
 import           Pos.Core                    (BlockVersionData (..), ChainDifficulty,
-                                              FlatSlotId, HasCoreConstants, SlotId (..),
+                                              FlatSlotId, SlotId (..),
                                               Timestamp (Timestamp), blkSecurityParam,
                                               difficultyL, epochSlots, fixedTimeCQSec,
                                               flattenSlotId, gbHeader, getSlotIndex,
@@ -77,29 +77,33 @@ blkWorkers
     :: (SscWorkersClass ssc, WorkMode ssc ctx m)
     => ([WorkerSpec m], OutSpecs)
 blkWorkers =
-    merge $ [ blkOnNewSlot
+    merge $ [ blkCreatorWorker
+            , blkMetricCheckerWorker
             , retrievalWorker
             ]
   where
     merge = mconcatPair . map (first pure)
 
--- FIXME [CSL-1576] Metric worker should be independent of block creator.
--- TODO [CSL-1606] Using 'fork' here is quite bad, it's a temporary solution.
-blkOnNewSlot :: WorkMode ssc ctx m => (WorkerSpec m, OutSpecs)
-blkOnNewSlot =
-    onNewSlotWorker True announceBlockOuts $ \slotId sendActions ->
-        recoveryCommGuard "onNewSlot worker in block processing" $
-        () <$
-        metricWorker slotId `concurrently`
-        void
-            (fork $
-             blockCreator slotId sendActions `catchAny` onBlockCreatorException)
-  where
-    onBlockCreatorException = reportOrLogE "blockCreator failed: "
+blkMetricCheckerWorker :: WorkMode ssc ctx m => (WorkerSpec m, OutSpecs)
+blkMetricCheckerWorker =
+    onNewSlotWorker True announceBlockOuts $ \slotId _ ->
+        recoveryCommGuard "onNewSlot worker, blkMetricCheckerWorker" $
+             metricWorker slotId
 
 ----------------------------------------------------------------------------
 -- Block creation worker
 ----------------------------------------------------------------------------
+
+-- TODO [CSL-1606] Using 'fork' here is quite bad, it's a temporary solution.
+blkCreatorWorker :: WorkMode ssc ctx m => (WorkerSpec m, OutSpecs)
+blkCreatorWorker =
+    onNewSlotWorker True announceBlockOuts $ \slotId sendActions ->
+        recoveryCommGuard "onNewSlot worker, blkCreatorWorker" $
+            void $ fork $
+            blockCreator slotId sendActions `catchAny` onBlockCreatorException
+  where
+    onBlockCreatorException = reportOrLogE "blockCreator failed: "
+
 
 blockCreator
     :: WorkMode ssc ctx m
@@ -338,7 +342,7 @@ chainQualityChecker curSlot kThSlot = do
 
 -- Monitor for chain quality for last k blocks.
 cqkMetricMonitor ::
-       HasCoreConstants
+       HasConfiguration
     => MetricMonitorState Double
     -> Bool
     -> MetricMonitor Double
@@ -378,7 +382,7 @@ cqOverallMetricMonitor = noReportMonitor convertCQ (Just debugFormat)
   where
     debugFormat = "Overall chain quality is " %cqF
 
-cqFixedMetricMonitor :: MetricMonitorState Double -> MetricMonitor Double
+cqFixedMetricMonitor :: HasConfiguration => MetricMonitorState Double -> MetricMonitor Double
 cqFixedMetricMonitor = noReportMonitor convertCQ (Just debugFormat)
   where
     debugFormat =

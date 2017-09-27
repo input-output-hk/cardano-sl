@@ -3,7 +3,7 @@ module Pos.Aeson.ClientTypes
        ) where
 
 import           Data.Aeson.TH                (defaultOptions, deriveJSON, deriveToJSON)
-import           Pos.Core.Types               (BlockVersion (..), SoftwareVersion (..))
+import           Pos.Core.Types               (SoftwareVersion (..))
 import           Pos.Util.BackupPhrase        (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes   (Addr, CAccount, CAccountId, CAccountInit,
                                                CAccountMeta, CAddress, CCoin, CHash, CId,
@@ -47,5 +47,4 @@ deriveToJSON defaultOptions ''CPtxCondition
 deriveToJSON defaultOptions ''CTx
 deriveToJSON defaultOptions ''CTExMeta
 deriveToJSON defaultOptions ''SoftwareVersion
-deriveToJSON defaultOptions ''BlockVersion
 deriveToJSON defaultOptions ''CUpdateInfo

@@ -1,5 +1,5 @@
 name:                cardano-sl-explorer
-version:             0.6.0
+version:             0.6.2
 synopsis:            Cardano explorer
 description:         Please see README.md
 license:             MIT
@@ -59,9 +59,11 @@ library
                       -- cardano sl
                       , cardano-sl
                       , cardano-sl-core
+                      , cardano-sl-godtossing
                       , cardano-sl-infra
                       , cardano-sl-db
                       , cardano-sl-ssc
+                      , cardano-sl-update
 
                       -- mtl ++
                       , mtl
@@ -117,9 +119,7 @@ library
 executable cardano-explorer
   hs-source-dirs:      src/explorer
   main-is:             Main.hs
-  other-modules:       ExplorerOptions
-                     , Params
-                     , Secrets
+  other-modules:       NodeOptions
   build-depends:       base
                      , bytestring
                      , ether
@@ -127,6 +127,7 @@ executable cardano-explorer
                      , cardano-sl-core
                      , cardano-sl-infra
                      , cardano-sl-explorer
+                     , cardano-sl-godtossing
                      , cardano-sl-ssc
                      , cardano-sl-update
                      , containers
@@ -137,7 +138,7 @@ executable cardano-explorer
                      , mtl
                      , network-transport-tcp
                      , node-sketch
-                     , optparse-simple
+                     , optparse-applicative
                      , universum
                      , serokell-util
                      , time

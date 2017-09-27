@@ -1,18 +1,13 @@
-{-# LANGUAGE CPP                       #-}
 {-# LANGUAGE ExistentialQuantification #-}
-
-#if !defined(mingw32_HOST_OS)
-#define POSIX
-#endif
 
 module Pos.Network.Types
        ( -- * Network configuration
          NetworkConfig (..)
        , NodeName (..)
-         -- * Topology
+       -- * Topology
        , StaticPeers(..)
        , Topology(..)
-         -- ** Derived information
+       -- ** Derived information
        , SubscriptionWorker(..)
        , topologyNodeType
        , topologySubscribers
@@ -23,28 +18,28 @@ module Pos.Network.Types
        , topologyDequeuePolicy
        , topologyFailurePolicy
        , topologyMaxBucketSize
-         -- * Queue initialization
+       , topologyRoute53HealthCheckEnabled
+       -- * Queue initialization
        , Bucket(..)
        , initQueue
-         -- * Constructing peers
+       -- * Constructing peers
        , Valency
        , Fallbacks
        , choosePeers
-         -- * DNS support
+       -- * DNS support
        , Resolver
        , resolveDnsDomains
        , initDnsOnUse
-         -- * Re-exports
-         -- ** from .DnsDomains
+       -- * Re-exports
+       -- ** from .DnsDomains
        , DnsDomains(..)
-         -- ** from time-warp
+       -- ** from time-warp
        , NodeType (..)
        , MsgType (..)
        , Origin (..)
-         -- ** other
+       -- ** other
        , NodeId (..)
        ) where
-
 import           Universum                             hiding (show)
 
 import           Data.IP                               (IPv4)
@@ -65,13 +60,9 @@ import qualified Pos.Network.Policy                    as Policy
 import           Pos.System.Metrics.Constants          (cardanoNamespace)
 import           Pos.Util.TimeWarp                     (addressToNodeId)
 
-#if !defined(POSIX)
-import qualified Pos.Network.Windows.DnsDomains        as Win
-#endif
-
-----------------------------------------------------------------------------
--- Network configuration
-----------------------------------------------------------------------------
+{-------------------------------------------------------------------------------
+  Network configuration
+-------------------------------------------------------------------------------}
 
 newtype NodeName = NodeName Text
     deriving (Show, Ord, Eq, IsString)
@@ -141,7 +132,12 @@ data Topology kademlia =
       }
 
   | TopologyRelay {
+        -- We can use static peers or dynamic subscriptions.
+        -- We typically use on or the other but not both.
         topologyStaticPeers :: !StaticPeers
+      , topologyDnsDomains  :: !(DnsDomains DNS.Domain)
+      , topologyValency     :: !Valency
+      , topologyFallbacks   :: !Fallbacks
       , topologyOptKademlia :: !(Maybe kademlia)
       , topologyMaxSubscrs  :: !OQ.MaxBucketSize
       }
@@ -183,6 +179,9 @@ data Topology kademlia =
 -- Information derived from the topology
 ----------------------------------------------------------------------------
 
+-- See the networking policy document for background to understand this
+-- docs/network/policy.md
+
 -- | Derive node type from its topology
 topologyNodeType :: Topology kademlia -> NodeType
 topologyNodeType TopologyCore{}        = NodeCore
@@ -193,6 +192,10 @@ topologyNodeType TopologyTraditional{} = NodeCore
 topologyNodeType TopologyAuxx{}        = NodeEdge
 
 -- | Assumed type and maximum number of subscribers (if subscription is allowed)
+--
+-- Note that the 'TopologyRelay' case covers /both/ priviledged and
+-- unpriviledged relays. See the networking policy document for full details of
+-- why this makes sense or works.
 topologySubscribers :: Topology kademlia -> Maybe (NodeType, OQ.MaxBucketSize)
 topologySubscribers TopologyCore{}          = Nothing
 topologySubscribers TopologyRelay{..}       = Just (NodeEdge, topologyMaxSubscrs)
@@ -222,7 +225,12 @@ topologySubscriptionWorker :: Topology kademlia -> Maybe (SubscriptionWorker kad
 topologySubscriptionWorker = go
   where
     go TopologyCore{}          = Nothing
-    go TopologyRelay{}         = Nothing
+    go TopologyRelay{topologyDnsDomains = DnsDomains []}
+                               = Nothing
+    go TopologyRelay{..}       = Just $ SubscriptionWorkerBehindNAT
+                                          topologyDnsDomains
+                                          topologyValency
+                                          topologyFallbacks
     go TopologyBehindNAT{..}   = Just $ SubscriptionWorkerBehindNAT
                                           topologyDnsDomains
                                           topologyValency
@@ -289,9 +297,21 @@ topologyMaxBucketSize topology bucket =
       _otherBucket ->
         OQ.BucketSizeUnlimited
 
-----------------------------------------------------------------------------
--- Queue initialization
-----------------------------------------------------------------------------
+-- | Whether or not we want to enable the health-check endpoint to be used by Route53
+-- in determining if a relay is healthy (i.e. it can accept more subscriptions or not)
+topologyRoute53HealthCheckEnabled :: Topology kademia -> Bool
+topologyRoute53HealthCheckEnabled = go
+  where
+    go TopologyCore{}        = False
+    go TopologyRelay{}       = True
+    go TopologyBehindNAT{..} = False
+    go TopologyP2P{}         = False
+    go TopologyTraditional{} = False
+    go TopologyAuxx{}        = False
+
+{-------------------------------------------------------------------------------
+  Queue initialization
+-------------------------------------------------------------------------------}
 
 -- | The various buckets we use for the outbound queue
 data Bucket =
@@ -312,9 +332,9 @@ data Bucket =
 --
 -- We add all statically known peers to the queue, so that we know to send
 -- messages to those peers. This is relevant only for core nodes and
--- Auxx. In the former case, those core nodes will in turn add this
+-- auxx. In the former case, those core nodes will in turn add this
 -- core node to /their/ outbound queue because this node would equally be
--- a statically known peer; in the latter case, Auxx is not expected
+-- a statically known peer; in the latter case, auxx is not expected
 -- to receive any messages so messages in the reverse direction don't matter.
 --
 -- For behind NAT nodes and Kademlia nodes (P2P or traditional) we start
@@ -414,13 +434,6 @@ resolveDnsDomains NetworkConfig{..} dnsDomains =
 -- jumping through too many hoops.
 initDnsOnUse :: (Resolver -> IO a) -> IO a
 initDnsOnUse k = k $ \dom -> do
-#if POSIX
-    let conf = DNS.defaultResolvConf
-#else
-    let googlePublicDNS = "8.8.8.8"
-    dns <- fromMaybe googlePublicDNS <$> Win.getWindowsDefaultDnsServer
-    let conf = DNS.defaultResolvConf { DNS.resolvInfo = DNS.RCHostName dns }
-#endif
-    resolvSeed <- DNS.makeResolvSeed conf
+    resolvSeed <- DNS.makeResolvSeed DNS.defaultResolvConf
     DNS.withResolver resolvSeed $ \resolver ->
       DNS.lookupA resolver dom

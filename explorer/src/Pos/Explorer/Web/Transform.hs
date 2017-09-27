@@ -12,27 +12,31 @@ module Pos.Explorer.Web.Transform
 
 import           Universum
 
-import qualified Control.Monad.Catch       as Catch (Handler (..), catches)
-import           Control.Monad.Except      (MonadError (throwError))
-import qualified Control.Monad.Reader      as Mtl
-import           Mockable                  (runProduction)
-import           Servant.Server            (Handler)
-import           Servant.Utils.Enter       ((:~>) (..), enter)
+import qualified Control.Monad.Catch              as Catch (Handler (..), catches)
+import           Control.Monad.Except             (MonadError (throwError))
+import qualified Control.Monad.Reader             as Mtl
+import           Mockable                         (runProduction)
+import           Servant.Server                   (Handler)
+import           Servant.Utils.Enter              ((:~>) (..), enter)
 
-import           Pos.Communication         (OutSpecs, SendActions, WorkerSpec, worker)
-import           Pos.Context               (NodeContext)
-import           Pos.Core                  (HasCoreConstants)
-import           Pos.Recovery              ()
-import           Pos.Ssc.GodTossing        (SscGodTossing)
-import           Pos.Util.Util             (lensOf)
-import           Pos.WorkMode              (RealMode, RealModeContext (..))
+import           Pos.Communication                (OutSpecs, SendActions, WorkerSpec,
+                                                   worker)
+import           Pos.Configuration                (HasNodeConfiguration)
+import           Pos.Core                         (HasConfiguration)
+import           Pos.Infra.Configuration          (HasInfraConfiguration)
+import           Pos.Recovery                     ()
+import           Pos.Ssc.GodTossing               (SscGodTossing)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Update.Configuration         (HasUpdateConfiguration)
+import           Pos.WorkMode                     (RealMode, RealModeContext (..))
 
-import           Pos.Explorer              (ExplorerBListener, runExplorerBListener)
-import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, makeExtraCtx,
-                                            runExtraContextT)
-import           Pos.Explorer.Socket.App   (NotifierSettings, notifierApp)
-import           Pos.Explorer.Web.Server   (explorerApp, explorerHandlers,
-                                            explorerServeImpl)
+import           Pos.Explorer                     (ExplorerBListener,
+                                                   runExplorerBListener)
+import           Pos.Explorer.ExtraContext        (ExtraContext, ExtraContextT,
+                                                   makeExtraCtx, runExtraContextT)
+import           Pos.Explorer.Socket.App          (NotifierSettings, notifierApp)
+import           Pos.Explorer.Web.Server          (explorerApp, explorerHandlers,
+                                                   explorerServeImpl)
 
 -----------------------------------------------------------------
 -- Transformation to `Handler`
@@ -46,12 +50,25 @@ runExplorerProd extraCtx = runExplorerBListener . runExtraContextT extraCtx
 liftToExplorerProd :: RealMode SscGodTossing a -> ExplorerProd a
 liftToExplorerProd = lift . lift
 
-notifierPlugin :: HasCoreConstants => NotifierSettings -> ([WorkerSpec ExplorerProd], OutSpecs)
+notifierPlugin
+    :: ( HasConfiguration
+       , HasNodeConfiguration
+       , HasInfraConfiguration
+       , HasUpdateConfiguration
+       , HasGtConfiguration
+       )
+    => NotifierSettings
+    -> ([WorkerSpec ExplorerProd], OutSpecs)
 notifierPlugin = first pure . worker mempty .
     \settings _sa -> notifierApp @SscGodTossing settings
 
 explorerPlugin
-    :: HasCoreConstants
+    :: ( HasConfiguration
+       , HasNodeConfiguration
+       , HasGtConfiguration
+       , HasInfraConfiguration
+       , HasUpdateConfiguration
+       )
     => Word16
     -> ([WorkerSpec ExplorerProd], OutSpecs)
 explorerPlugin port =
@@ -59,30 +76,35 @@ explorerPlugin port =
     (\sa -> explorerServeWebReal sa port)
 
 explorerServeWebReal
-    :: HasCoreConstants
+    :: ( HasConfiguration
+       , HasNodeConfiguration
+       , HasGtConfiguration
+       , HasInfraConfiguration
+       , HasUpdateConfiguration
+       )
     => SendActions ExplorerProd
     -> Word16
     -> ExplorerProd ()
 explorerServeWebReal sendActions = explorerServeImpl
     (explorerApp $ flip enter (explorerHandlers sendActions) <$> nat)
 
-nat :: ExplorerProd (ExplorerProd :~> Handler)
+nat :: HasConfiguration => ExplorerProd (ExplorerProd :~> Handler)
 nat = do
     rctx <- ask
     pure $ NT (convertHandler rctx)
 
 convertHandler
-    :: RealModeContext SscGodTossing
+    :: HasConfiguration
+    => RealModeContext SscGodTossing
     -> ExplorerProd a
     -> Handler a
 convertHandler rctx handler =
-    let extraCtx = makeExtraCtx $ view (lensOf @NodeContext) rctx
+    let extraCtx = makeExtraCtx
         ioAction = realRunner $
                    runExplorerProd extraCtx
                    handler
     in liftIO ioAction `Catch.catches` excHandlers
   where
-
     realRunner :: forall t . RealMode SscGodTossing t -> IO t
     realRunner act = runProduction $ Mtl.runReaderT act rctx
 

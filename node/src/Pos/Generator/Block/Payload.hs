@@ -10,7 +10,7 @@ module Pos.Generator.Block.Payload
 
 import           Universum
 
-import           Control.Lens               (at, uses, (%=), (.=), (?=))
+import           Control.Lens               (at, uses, (%=), (.=))
 import           Control.Lens.TH            (makeLenses)
 import           Control.Monad.Random.Class (MonadRandom (..))
 import qualified Data.HashMap.Strict        as HM
@@ -27,6 +27,7 @@ import           Pos.Client.Txp.Util        (createGenericTx, makeMPubKeyTxAddrs
 import           Pos.Core                   (AddrSpendingData (..), Address (..), Coin,
                                              SlotId (..), addressHash, coinToInteger,
                                              makePubKeyAddressBoot, unsafeIntegerToCoin)
+import           Pos.Core.Configuration     (HasConfiguration)
 import           Pos.Crypto                 (SecretKey, WithHash (..), fakeSigner, hash,
                                              toPublic)
 import           Pos.Generator.Block.Error  (BlockGenError (..))
@@ -115,12 +116,12 @@ data GenTxData = GenTxData
 
 makeLenses ''GenTxData
 
-instance (Monad m) => MonadUtxoRead (StateT GenTxData m) where
+instance (HasConfiguration, Monad m) => MonadUtxoRead (StateT GenTxData m) where
     utxoGet txIn = uses gtdUtxo $ M.lookup txIn
 
-instance (Monad m) => MonadUtxo (StateT GenTxData m) where
-    utxoPut txIn txOutAux = gtdUtxo . at txIn ?= txOutAux
-    utxoDel txIn = gtdUtxo . at txIn .= Nothing
+instance (HasConfiguration, Monad m) => MonadUtxo (StateT GenTxData m) where
+    utxoPutUnchecked id aux = gtdUtxo . at id .= Just aux
+    utxoDelUnchecked id     = gtdUtxo . at id .= Nothing
 
 -- TODO: move to txp, think how to unite it with 'Pos.Arbitrary.Txp'.
 -- | Generate valid 'TxPayload' using current global state.

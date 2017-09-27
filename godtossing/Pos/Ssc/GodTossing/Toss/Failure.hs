@@ -5,12 +5,11 @@ module Pos.Ssc.GodTossing.Toss.Failure
        ) where
 
 import qualified Data.Text.Buildable
-import           Formatting              (bprint, build, ords, stext, (%))
-import           Serokell.Util           (listJson)
+import           Formatting          (bprint, build, ords, stext, (%))
+import           Serokell.Util       (listJson)
 import           Universum
 
-import           Pos.Core                (EpochIndex, SlotId, StakeholderId)
-import           Pos.Ssc.GodTossing.Core (VssCertificate)
+import           Pos.Core            (EpochIndex, SlotId, StakeholderId, VssCertificate)
 
 instance Buildable (StakeholderId, VssCertificate) where
     build (a, b) = bprint ("(id: "%build%" , cert: "%build%")") a b
@@ -41,7 +40,8 @@ data TossVerFailure
     | SharesAlreadySent !NEStIds
     | DecrSharesNotMatchCommitment !NEStIds
     | CertificateAlreadySent !NEStIds
-    | CertificateNotRichmen  !NEStIds
+    | CertificateNotRichmen !NEStIds
+    | CertificateDuplicateVssKey !NEStIds
     | CertificateInvalidSign !(NonEmpty (StakeholderId, VssCertificate))
     | CertificateInvalidTTL !(NonEmpty VssCertificate)
 
@@ -100,5 +100,7 @@ instance Buildable TossVerFailure where
         bprint ("some VSS certificates have been already sent: "%listJson) stks
     build (CertificateNotRichmen stks) =
         bprint ("some VSS certificates users are not passing stake threshold: "%listJson) stks
+    build (CertificateDuplicateVssKey stks) =
+        bprint ("some VSS certificates have VSS keys that already belong to other certificates: "%listJson) stks
     build (TossInternallError msg) =
         bprint ("internal error: "%stext) msg

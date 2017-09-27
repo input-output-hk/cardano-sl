@@ -44,6 +44,7 @@ module Pos.Wallet.Web.Api
        , GetHistory
 
        , NextUpdate
+       , PostponeUpdate
        , ApplyUpdate
 
        , RedeemADA
@@ -63,24 +64,31 @@ module Pos.Wallet.Web.Api
        ) where
 
 
+import           Control.Lens               (from)
 import           Control.Monad.Catch        (try)
+import           Data.Reflection            (Reifies (..))
 import           Servant.API                ((:<|>), (:>), Capture, Delete, Get, JSON,
-                                             Post, Put, QueryParam, ReqBody, Verb)
-import           Servant.Server             (Handler (..))
+                                             Post, Put, QueryParam, ReflectMethod (..),
+                                             ReqBody, Verb)
+import           Servant.Server             (HasServer (..))
 import           Servant.Swagger.UI         (SwaggerSchemaUI)
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
-import           Pos.Util.Servant           (CCapture, CQueryParam, CReqBody,
-                                             DCQueryParam, ModifiesApiRes (..),
-                                             ReportDecodeError (..), VerbMod)
+import           Pos.Util.Servant           (ApiLoggingConfig, CCapture, CQueryParam,
+                                             CReqBody, DCQueryParam,
+                                             HasLoggingServer (..), LoggingApi,
+                                             ModifiesApiRes (..), ReportDecodeError (..),
+                                             VerbMod, WithTruncatedLog (..),
+                                             applyLoggingToHandler, inRouteServer,
+                                             serverHandlerL')
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
-                                             CAccountMeta, CAddress, CCoin,
-                                             CId, CInitialized,
-                                             CPaperVendWalletRedeem, CPassPhrase,
-                                             CProfile, CTx, CTxId, CTxMeta, CUpdateInfo,
-                                             CWallet, CWalletInit, CWalletMeta,
-                                             CWalletRedeem, SyncProgress, Wal)
+                                             CAccountMeta, CAddress, CCoin, CId,
+                                             CInitialized, CPaperVendWalletRedeem,
+                                             CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
+                                             CUpdateInfo, CWallet, CWalletInit,
+                                             CWalletMeta, CWalletRedeem, SyncProgress,
+                                             Wal)
 import           Pos.Wallet.Web.Error       (WalletError (DecodeError),
                                              catchEndpointErrors)
 
@@ -99,7 +107,25 @@ instance ModifiesApiRes WalletVerbTag where
     modifyApiResult _ = try . catchEndpointErrors . (either throwM pure =<<)
 
 instance ReportDecodeError (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) where
-    reportDecodeError _ err = Handler . ExceptT . throwM $ DecodeError err
+    reportDecodeError _ err = throwM (DecodeError err) ^. from serverHandlerL'
+
+instance ( HasServer (WalletVerb (Verb mt st ct a)) ctx
+         , Reifies config ApiLoggingConfig
+         , ReflectMethod mt
+         , Buildable (WithTruncatedLog a)
+         ) =>
+         HasLoggingServer config (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) ctx where
+    routeWithLog =
+        inRouteServer @(WalletVerb (Verb mt st ct a)) route $
+        applyLoggingToHandler (Proxy @config) (Proxy @mt)
+
+-- | Specifes servant logging config.
+data WalletLoggingConfig
+
+-- If logger config will ever be determined in runtime, 'Data.Reflection.reify'
+-- can be used.
+instance Reifies WalletLoggingConfig ApiLoggingConfig where
+    reflect _ = "node" <> "wallet" <> "servant"
 
 -- | Shortcut for common api result types.
 type WRes verbType a = WalletVerb (verbType '[JSON] a)
@@ -274,8 +300,14 @@ type NextUpdate =
        "update"
     :> WRes Get CUpdateInfo
 
+type PostponeUpdate =
+       "update"
+    :> "postpone"
+    :> WRes Post ()
+
 type ApplyUpdate =
        "update"
+    :> "apply"
     :> WRes Post ()
 
 -------------------------------------------------------------------------
@@ -346,7 +378,6 @@ type ExportBackupJSON =
     :> WRes Post ()
 
 -- | Servant API which provides access to wallet.
--- TODO: Should be composed depending on the resource - wallets, txs, ... http://haskell-servant.github.io/tutorial/0.4/server.html#nested-apis
 type WalletApi = ApiPrefix :> (
      -- NOTE: enabled in prod mode https://issues.serokell.io/issue/CSM-333
      TestReset
@@ -396,8 +427,6 @@ type WalletApi = ApiPrefix :> (
      -------------------------------------------------------------------------
      -- Profile(s)
      -------------------------------------------------------------------------
-     -- TODO: A single profile? Should be possible in the future to have
-     -- multiple profiles?
      GetProfile
     :<|>
      UpdateProfile
@@ -405,13 +434,10 @@ type WalletApi = ApiPrefix :> (
      -------------------------------------------------------------------------
      -- Transactons
      -------------------------------------------------------------------------
-    -- TODO: for now we only support one2one sending. We should extend this
-    -- to support many2many
      NewPayment
     :<|>
      TxFee
     :<|>
-      -- FIXME: Should capture the URL parameters in the payload.
      UpdateTx
     :<|>
      GetHistory
@@ -420,6 +446,8 @@ type WalletApi = ApiPrefix :> (
      -- Updates
      -------------------------------------------------------------------------
      NextUpdate
+    :<|>
+     PostponeUpdate
     :<|>
      ApplyUpdate
     :<|>
@@ -464,7 +492,7 @@ type SwaggerApi =
     SwaggerSchemaUI "docs" "swagger.json"
 
 type WalletSwaggerApi =
-     WalletApi
+     LoggingApi WalletLoggingConfig WalletApi
     :<|>
      SwaggerApi
 

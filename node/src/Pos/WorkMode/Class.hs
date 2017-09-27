@@ -31,12 +31,13 @@ import           Pos.DB.Class                (MonadDB, MonadGState)
 import           Pos.DB.Rocks                (MonadRealDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.DHT.Real.Types          (KademliaDHTInstance)
-import           Pos.Genesis                 (GenesisUtxo, GenesisWStakeholders)
 import           Pos.Lrc.Context             (LrcContext)
 #ifdef WITH_EXPLORER
 import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
 #endif
-import           Pos.Core                    (HasCoreConstants, HasPrimaryKey)
+import           Pos.Configuration           (HasNodeConfiguration)
+import           Pos.Core                    (HasConfiguration, HasPrimaryKey)
+import           Pos.Infra.Configuration     (HasInfraConfiguration)
 import           Pos.KnownPeers              (MonadFormatPeers, MonadKnownPeers)
 import           Pos.Network.Types           (NetworkConfig)
 import           Pos.Recovery.Info           (MonadRecoveryInfo)
@@ -51,6 +52,7 @@ import           Pos.Ssc.Class.Workers       (SscWorkersClass)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.StateLock               (StateLock, StateLockMetrics)
 import           Pos.Txp.MemState            (MonadTxpMem)
+import           Pos.Update.Configuration    (HasUpdateConfiguration)
 import           Pos.Update.Context          (UpdateContext)
 import           Pos.Update.Params           (UpdateParams)
 import           Pos.Util.TimeWarp           (CanJsonLog)
@@ -91,7 +93,7 @@ type WorkMode ssc ctx m
       , MonadReader ctx m
       , MonadKnownPeers m
       , MonadFormatPeers m
-      , HasLens StartTime ctx StartTime
+      , HasLens' ctx StartTime
       , HasLens' ctx StateLock
       , HasLens' ctx StateLockMetrics
       , HasLens LrcContext ctx LrcContext
@@ -99,17 +101,14 @@ type WorkMode ssc ctx m
       , HasLens UpdateParams ctx UpdateParams
       , HasLens SecurityParams ctx SecurityParams
       , HasLens TxpGlobalSettings ctx TxpGlobalSettings
-      , HasLens GenesisUtxo ctx GenesisUtxo
-      , HasLens GenesisWStakeholders ctx GenesisWStakeholders
       , HasLens BlockRetrievalQueueTag ctx (BlockRetrievalQueue ssc)
-      , HasLens (NetworkConfig KademliaDHTInstance) ctx (NetworkConfig KademliaDHTInstance)
+      , HasLens' ctx (NetworkConfig KademliaDHTInstance)
       , HasSscContext ssc ctx
       , HasReportingContext ctx
       , HasPrimaryKey ctx
       , HasShutdownContext ctx
       , HasSlogContext ctx
       , HasSlogGState ctx
-      , HasCoreConstants
       )
 
 -- | More relaxed version of 'WorkMode'.
@@ -118,4 +117,8 @@ type MinWorkMode m
       , CanJsonLog m
       , MonadMockable m
       , MonadIO m
+      , HasConfiguration
+      , HasInfraConfiguration
+      , HasUpdateConfiguration
+      , HasNodeConfiguration
       )

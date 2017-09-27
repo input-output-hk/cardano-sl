@@ -25,7 +25,7 @@ import           System.Wlog               (WithLogger)
 
 import           Pos.Block.Core            (BlockHeader)
 import qualified Pos.Context               as PC
-import           Pos.Core                  (ChainDifficulty, HasCoreConstants,
+import           Pos.Core                  (ChainDifficulty, HasConfiguration,
                                             difficultyL, flattenEpochOrSlot,
                                             flattenSlotId, slotSecurityParam)
 import           Pos.DB                    (MonadRealDB)
@@ -36,6 +36,7 @@ import           Pos.Slotting              (MonadSlots (..), getNextEpochSlotDur
 import           Pos.Update.Context        (UpdateContext (ucDownloadedUpdate))
 import           Pos.Update.Poll.Types     (ConfirmedProposalState)
 import           Pos.Wallet.WalletMode     (MonadBlockchainInfo (..), MonadUpdates (..))
+import qualified Pos.GState                as GS
 
 ----------------------------------------------------------------------------
 -- BlockchainInfo
@@ -56,7 +57,7 @@ type BlockchainInfoEnv ssc ctx m =
     , MonadIO m
     , MonadRealDB ctx m
     , MonadSlots ctx m
-    , HasCoreConstants
+    , HasConfiguration
     )
 
 networkChainDifficultyWebWallet
@@ -78,7 +79,11 @@ networkChainDifficultyWebWallet = getLastKnownHeader >>= \case
 localChainDifficultyWebWallet
     :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m
     => m ChainDifficulty
-localChainDifficultyWebWallet = view difficultyL <$> getTipHeader @ssc
+localChainDifficultyWebWallet = do
+    -- Workaround: Make local chain difficulty monotonic
+    prevMaxDifficulty <- fromMaybe 0 <$> GS.getMaxSeenDifficultyMaybe
+    currDifficulty <- view difficultyL <$> getTipHeader @ssc
+    return $ max prevMaxDifficulty currDifficulty
 
 connectedPeersWebWallet
     :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m

@@ -10,32 +10,30 @@ module Pos.Arbitrary.Ssc.GodTossing
 
 import           Universum
 
-import qualified Data.HashMap.Strict               as HM
 import qualified Data.List.NonEmpty                as NE
-import qualified System.Random                     as R
 import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, elements,
                                                     listOf, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Core.Unsafe         ()
 import           Pos.Arbitrary.Ssc                 (SscPayloadDependsOnSlot (..))
-import           Pos.Binary.Class                  (asBinary)
 import           Pos.Binary.GodTossing             ()
 import           Pos.Communication.Types.Relay     (DataMsg (..))
-import           Pos.Core                          (EpochIndex, HasCoreConstants,
-                                                    SlotId (..), addressHash)
-import           Pos.Crypto                        (SecretKey, toVssPublicKey, vssKeyGen)
-import           Pos.Ssc.GodTossing.Constants      (vssMaxTTL, vssMinTTL)
+import           Pos.Core                          (EpochIndex, HasConfiguration,
+                                                    SlotId (..), VssCertificate (..),
+                                                    VssCertificatesMap, mkVssCertificate,
+                                                    mkVssCertificatesMapLossy, vssMaxTTL,
+                                                    vssMinTTL)
+import           Pos.Crypto                        (SecretKey, deterministic,
+                                                    randomNumberInRange, toVssPublicKey,
+                                                    vssKeyGen)
 import           Pos.Ssc.GodTossing.Core           (Commitment (..), CommitmentsMap,
                                                     GtPayload (..), GtProof (..),
                                                     Opening (..), SignedCommitment,
-                                                    VssCertificate (..),
                                                     genCommitmentAndOpening,
                                                     isCommitmentId, isOpeningId,
                                                     isSharesId, mkCommitmentsMap,
-                                                    mkCommitmentsMap, mkSignedCommitment,
-                                                    mkVssCertificate)
-import qualified Pos.Ssc.GodTossing.Genesis.Types  as G
+                                                    mkCommitmentsMap, mkSignedCommitment)
 import           Pos.Ssc.GodTossing.Toss.Types     (TossModifier (..))
 import           Pos.Ssc.GodTossing.Type           (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Message  (GtTag (..), MCCommitment (..),
@@ -45,7 +43,7 @@ import           Pos.Ssc.GodTossing.Types.Types    (GtGlobalState (..),
                                                     GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData    (VssCertData (..))
 import           Pos.Util.Arbitrary                (Nonrepeating (..), makeSmall,
-                                                    sublistN, unsafeMakePool)
+                                                    sublistN)
 
 ----------------------------------------------------------------------------
 -- Core
@@ -57,7 +55,7 @@ newtype BadSignedCommitment = BadSignedComm
     { getBadSignedC :: SignedCommitment
     } deriving (Generic, Show, Eq)
 
-instance Arbitrary BadSignedCommitment where
+instance HasConfiguration => Arbitrary BadSignedCommitment where
     arbitrary = BadSignedComm <$> do
         pk <- arbitrary
         sig <- arbitrary
@@ -84,18 +82,15 @@ instance Arbitrary BadCommAndOpening where
         return $ BadCommAndOpening (badComm, opening)
     shrink = genericShrink
 
--- | Generate 50 commitment/opening pairs in advance
--- (see `Pos.Crypto.Arbitrary` for explanations)
+-- | Generate 50 commitment/opening pairs for tests.
 commitmentsAndOpenings :: [CommitmentOpening]
 commitmentsAndOpenings =
     map (uncurry CommitmentOpening) $
-    unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $ do
-      t <- R.randomRIO (3, 10)
-      n <- R.randomRIO (t*2-1, t*2)
-      vssKeys <- replicateM n $ toVssPublicKey <$> vssKeyGen
-      genCommitmentAndOpening (fromIntegral t)
-          (NE.fromList (map asBinary vssKeys))
-{-# NOINLINE commitmentsAndOpenings #-}
+    deterministic "commitmentsAndOpenings" $ replicateM 50 $ do
+      t <- randomNumberInRange 3 10
+      n <- randomNumberInRange (t*2-1) (t*2)
+      vssKeys <- replicateM (fromInteger n) $ toVssPublicKey <$> vssKeyGen
+      genCommitmentAndOpening (fromIntegral t) (NE.fromList vssKeys)
 
 instance Arbitrary CommitmentOpening where
     arbitrary = elements commitmentsAndOpenings
@@ -114,12 +109,12 @@ instance Arbitrary Commitment where
                              | shrunkShares <- filter (not . null) $ shrink commShares
                              ]
 
-instance Arbitrary CommitmentsMap where
+instance HasConfiguration => Arbitrary CommitmentsMap where
     arbitrary = mkCommitmentsMap <$> arbitrary
     shrink = genericShrink
 
 -- | Generates commitment map having commitments from given epoch.
-commitmentMapEpochGen :: EpochIndex -> Gen CommitmentsMap
+commitmentMapEpochGen :: HasConfiguration => EpochIndex -> Gen CommitmentsMap
 commitmentMapEpochGen i = do
     (coms :: [(SecretKey, Commitment)]) <- listOf $ (,) <$> arbitrary <*> arbitrary
     pure $ mkCommitmentsMap $
@@ -128,13 +123,9 @@ commitmentMapEpochGen i = do
 instance Arbitrary Opening where
     arbitrary = coOpening <$> arbitrary
 
-instance Arbitrary VssCertificate where
-    arbitrary = mkVssCertificate <$> arbitrary <*> arbitrary <*> arbitrary
-    -- The 'shrink' method wasn't implement to avoid breaking the datatype's invariant.
-
 -- | For given epoch @e@ enerates vss certificate having epoch in
 -- range @[e+vssMin,e+vssMax)@.
-vssCertificateEpochGen :: EpochIndex -> Gen VssCertificate
+vssCertificateEpochGen :: (HasConfiguration) => EpochIndex -> Gen VssCertificate
 vssCertificateEpochGen x = do
     e <- choose (vssMinTTL, vssMaxTTL-1)
     mkVssCertificate <$> arbitrary <*> arbitrary <*> pure (e + x)
@@ -143,25 +134,22 @@ vssCertificateEpochGen x = do
 -- Gt (God Tossing) types
 ----------------------------------------------------------------------------
 
-instance Arbitrary GtProof where
+instance HasConfiguration => Arbitrary GtProof where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary GtPayload where
+instance HasConfiguration => Arbitrary GtPayload where
     arbitrary =
         makeSmall $
         oneof
-            [ CommitmentsPayload <$> arbitrary <*> genVssCerts
-            , OpeningsPayload <$> arbitrary <*> genVssCerts
-            , SharesPayload <$> arbitrary <*> genVssCerts
-            , CertificatesPayload <$> genVssCerts
+            [ CommitmentsPayload <$> arbitrary <*> arbitrary
+            , OpeningsPayload <$> arbitrary <*> arbitrary
+            , SharesPayload <$> arbitrary <*> arbitrary
+            , CertificatesPayload <$> arbitrary
             ]
-      where
-        genVssCerts = HM.fromList . map toCertPair <$> arbitrary
-        toCertPair vc = (addressHash $ vcSigningKey vc, vc)
     shrink = genericShrink
 
-instance HasCoreConstants => Arbitrary (SscPayloadDependsOnSlot SscGodTossing) where
+instance HasConfiguration => Arbitrary (SscPayloadDependsOnSlot SscGodTossing) where
     arbitrary = pure $ SscPayloadDependsOnSlot payloadGen
       where
         payloadGen slot
@@ -179,23 +167,31 @@ instance HasCoreConstants => Arbitrary (SscPayloadDependsOnSlot SscGodTossing) w
             arbitrary
         genValidComm SlotId{..} (sk, c) = mkSignedCommitment sk siEpoch c
 
-        genVssCerts slot = HM.fromList . map (toCertPair . genValidCert slot) <$> arbitrary
-        toCertPair vc = (addressHash $ vcSigningKey vc, vc)
+        genVssCerts slot =
+            mkVssCertificatesMapLossy .
+            map (genValidCert slot) <$>
+            arbitrary
         genValidCert SlotId{..} (sk, pk) = mkVssCertificate sk pk $ siEpoch + 5
 
-instance HasCoreConstants => Arbitrary VssCertData where
+instance HasConfiguration => Arbitrary VssCertificatesMap where
+    arbitrary = do
+        certs <- arbitrary
+        pure $ mkVssCertificatesMapLossy certs
+    shrink = genericShrink
+
+instance HasConfiguration => Arbitrary VssCertData where
     arbitrary = makeSmall genericArbitrary
     shrink = genericShrink
 
-instance HasCoreConstants => Arbitrary GtGlobalState where
+instance HasConfiguration => Arbitrary GtGlobalState where
     arbitrary = makeSmall genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary GtSecretStorage where
+instance HasConfiguration => Arbitrary GtSecretStorage where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary TossModifier where
+instance HasConfiguration => Arbitrary TossModifier where
     arbitrary = makeSmall genericArbitrary
     shrink = genericShrink
 
@@ -207,7 +203,7 @@ instance Arbitrary GtTag where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary MCCommitment where
+instance HasConfiguration => Arbitrary MCCommitment where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -219,11 +215,11 @@ instance Arbitrary MCShares where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary MCVssCertificate where
+instance HasConfiguration => Arbitrary MCVssCertificate where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary (DataMsg MCCommitment) where
+instance HasConfiguration => Arbitrary (DataMsg MCCommitment) where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -235,14 +231,6 @@ instance Arbitrary (DataMsg MCShares) where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary (DataMsg MCVssCertificate) where
-    arbitrary = genericArbitrary
-    shrink = genericShrink
-
-----------------------------------------------------------------------------
--- Arbitrary types from 'Pos.Ssc.GodTossing.Genesis.Types'
-----------------------------------------------------------------------------
-
-instance Arbitrary G.GenesisGtData where
+instance HasConfiguration => Arbitrary (DataMsg MCVssCertificate) where
     arbitrary = genericArbitrary
     shrink = genericShrink

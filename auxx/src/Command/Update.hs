@@ -9,37 +9,45 @@ module Command.Update
 
 import           Universum
 
-import qualified Data.ByteString     as BS
-import qualified Data.HashMap.Strict as HM
-import           Data.List           ((!!))
-import           Data.Time.Units     (convertUnit)
-import           Formatting          (sformat, string, (%))
-import           Serokell.Util       (sec)
-import           System.Wlog         (logDebug)
+import qualified Data.ByteString          as BS
+import qualified Data.HashMap.Strict      as HM
+import           Data.List                ((!!))
+import           Data.Time.Units          (convertUnit)
+import           Formatting               (sformat, string, (%))
+import           Serokell.Util            (sec)
+import           System.Wlog              (logDebug)
 
-import           Pos.Binary          (Raw)
-import           Pos.Communication   (SendActions, immediateConcurrentConversations,
-                                      submitUpdateProposal, submitVote)
-import           Pos.Constants       (genesisBlockVersionData)
-import           Pos.Core.Context    (HasCoreConstants)
-import           Pos.Crypto          (Hash, SignTag (SignUSVote), emptyPassphrase,
-                                      encToPublic, hash, hashHexF, safeSign, unsafeHash,
-                                      withSafeSigner)
-import           Pos.Data.Attributes (mkAttributes)
-import           Pos.Update          (BlockVersionData (..), BlockVersionModifier (..),
-                                      SystemTag, UpId, UpdateData (..), UpdateVote (..),
-                                      mkUpdateProposalWSign)
-import           Pos.Wallet          (getSecretKeys)
+import           Pos.Binary               (Raw)
+import           Pos.Communication        (SendActions, immediateConcurrentConversations,
+                                           submitUpdateProposal, submitVote)
+import           Pos.Configuration        (HasNodeConfiguration)
+import           Pos.Core.Configuration   (HasConfiguration, genesisBlockVersionData)
+import           Pos.Crypto               (Hash, SignTag (SignUSVote), emptyPassphrase,
+                                           encToPublic, hash, hashHexF, safeSign,
+                                           unsafeHash, withSafeSigner)
+import           Pos.Data.Attributes      (mkAttributes)
+import           Pos.Infra.Configuration  (HasInfraConfiguration)
+import           Pos.Update               (BlockVersionData (..),
+                                           BlockVersionModifier (..), SystemTag, UpId,
+                                           UpdateData (..), UpdateVote (..),
+                                           mkUpdateProposalWSign)
+import           Pos.Update.Configuration (HasUpdateConfiguration)
+import           Pos.Wallet               (getSecretKeys)
 
-import           Command.Types       (ProposeUpdateParams (..), ProposeUpdateSystem (..))
-import           Mode                (CmdCtx (..), AuxxMode, getCmdCtx)
+import           Command.Types            (ProposeUpdateParams (..),
+                                           ProposeUpdateSystem (..))
+import           Mode                     (AuxxMode, CmdCtx (..), getCmdCtx)
 
 ----------------------------------------------------------------------------
 -- Vote
 ----------------------------------------------------------------------------
 
-vote ::
-       HasCoreConstants
+vote
+    :: ( HasConfiguration
+       , HasInfraConfiguration
+       , HasUpdateConfiguration
+       , HasNodeConfiguration
+       )
     => SendActions AuxxMode
     -> Int
     -> Bool
@@ -70,8 +78,12 @@ vote sendActions idx decision upid = do
 -- Propose
 ----------------------------------------------------------------------------
 
-propose ::
-       HasCoreConstants
+propose
+    :: ( HasConfiguration
+       , HasInfraConfiguration
+       , HasUpdateConfiguration
+       , HasNodeConfiguration
+       )
     => SendActions AuxxMode
     -> ProposeUpdateParams
     -> AuxxMode ()
@@ -82,17 +94,17 @@ propose sendActions ProposeUpdateParams{..} = do
     let BlockVersionData {..} = genesisBlockVersionData
     let bvm =
             BlockVersionModifier
-            { bvmScriptVersion     = puScriptVersion
-            , bvmSlotDuration      = convertUnit (sec puSlotDurationSec)
-            , bvmMaxBlockSize      = puMaxBlockSize
-            , bvmMaxHeaderSize     = bvdMaxHeaderSize
-            , bvmMaxTxSize         = bvdMaxTxSize
-            , bvmMaxProposalSize   = bvdMaxProposalSize
-            , bvmMpcThd            = bvdMpcThd
-            , bvmHeavyDelThd       = bvdHeavyDelThd
-            , bvmUpdateVoteThd     = bvdUpdateVoteThd
-            , bvmUpdateProposalThd = bvdUpdateProposalThd
-            , bvmUpdateImplicit    = bvdUpdateImplicit
+            { bvmScriptVersion     = Just puScriptVersion
+            , bvmSlotDuration      = Just $ convertUnit (sec puSlotDurationSec)
+            , bvmMaxBlockSize      = Just puMaxBlockSize
+            , bvmMaxHeaderSize     = Just bvdMaxHeaderSize
+            , bvmMaxTxSize         = Just bvdMaxTxSize
+            , bvmMaxProposalSize   = Just bvdMaxProposalSize
+            , bvmMpcThd            = Just bvdMpcThd
+            , bvmHeavyDelThd       = Just bvdHeavyDelThd
+            , bvmUpdateVoteThd     = Just bvdUpdateVoteThd
+            , bvmUpdateProposalThd = Just bvdUpdateProposalThd
+            , bvmUpdateImplicit    = Just bvdUpdateImplicit
             , bvmSoftforkRule      = Nothing
             , bvmTxFeePolicy       = Nothing
             , bvmUnlockStakeEpoch  = Nothing

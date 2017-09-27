@@ -3,9 +3,11 @@ let
 in
 { system ? builtins.currentSystem
 , config ? {}
-, dconfig ? "testnet_staging_full"
 , gitrev ? "unknown"
-, pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; }) }:
+, pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; })
+# profiling slows down performance by 50% so we don't enable it by default
+, enableProfiling ? false
+}:
 
 with pkgs.lib;
 with pkgs.haskell.lib;
@@ -20,8 +22,6 @@ let
         # production full nodes shouldn't use wallet as it means different constants
         configureFlags = [
           "-f-asserts"
-          "-f-dev-mode"
-          "--ghc-option=-optl-lm"
         ];
         testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
         preCheck = ''
@@ -36,19 +36,16 @@ let
         '';
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
+        enableExecutableProfiling = enableProfiling;
+        passthru = {
+          inherit enableProfiling;
+        };
       });
       cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
         configureFlags = [
           "-f-asserts"
-          "-f-dev-mode"
-          "--ghc-options=-DCONFIG=${dconfig}"
           "--ghc-options=-DGITREV=${gitrev}"
         ];
-      });
-      cardano-sl-update = overrideCabal super.cardano-sl-update (drv: {
-        patchPhase = ''
-          export CSL_SYSTEM_TAG=${if pkgs.stdenv.isDarwin then "macos64" else "linux64"}
-        '';
       });
 
       cardano-sl-wallet = justStaticExecutables super.cardano-sl-wallet;
@@ -79,16 +76,17 @@ let
         else dontCheck super.fsnotify;
 
       mkDerivation = args: super.mkDerivation (args // {
-        #enableLibraryProfiling = true;
+        enableLibraryProfiling = enableProfiling;
       });
     };
   });
-  other = {
+  upstream = {
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "input-output-hk";
       repo = "stack2nix";
       rev = "be52e67113332280911bcc4924d42f90e21f1144";
       sha256 = "13n7gjyzll3prvdsb6kjyxk9g0by5bv0q34ld7a2nbvdcl1q67fb";
     }) { inherit pkgs; };
+    inherit (pkgs) purescript;
   };
-in cardanoPkgs // other
+in cardanoPkgs // upstream

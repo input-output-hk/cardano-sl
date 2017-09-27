@@ -55,7 +55,8 @@ import           System.Wlog                           (LoggerConfig (..), Sever
                                                         retrieveLogContent)
 
 import           Paths_cardano_sl_infra                (version)
-import           Pos.Core.Constants                    (protocolMagic)
+import           Pos.Core.Configuration                (HasConfiguration, protocolMagic)
+import           Pos.Core.Types                        (ProtocolMagic (..))
 import           Pos.Exception                         (CardanoFatalError)
 import           Pos.KnownPeers                        (MonadFormatPeers (..))
 import           Pos.Reporting.Exceptions              (ReportingError (..))
@@ -72,6 +73,7 @@ type MonadReporting ctx m =
        , MonadFormatPeers m
        , HasReportingContext ctx
        , WithLogger m
+       , HasConfiguration
        )
 
 ----------------------------------------------------------------------------
@@ -230,7 +232,7 @@ reportError = reportNode True True . RError
 -- same file, see 'System.IO' documentation on handles. Use second
 -- parameter for that.
 sendReport
-    :: (MonadIO m, MonadMask m)
+    :: (HasConfiguration, MonadIO m, MonadMask m)
     => [FilePath]                 -- ^ Log files to read from
     -> [Text]                     -- ^ Raw log text (optional)
     -> ReportType
@@ -276,7 +278,7 @@ sendReport logFiles rawLogs reportType appName reportServerUri = do
         , rBuild = 0 -- what should be put here?
         , rOS = toText (os <> "-" <> arch)
         , rLogs = map toFileName files
-        , rMagic = protocolMagic
+        , rMagic = getProtocolMagic protocolMagic
         , rDate = curTime
         , rReportType = reportType
         }

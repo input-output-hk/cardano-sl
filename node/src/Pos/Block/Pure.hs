@@ -3,14 +3,13 @@
 -- | Pure functions related to blocks and headers.
 
 module Pos.Block.Pure
-       ( headerDifficultyIncrement
-
-       -- * Header
-       , VerifyHeaderParams (..)
+       (
+         -- * Header
+         VerifyHeaderParams (..)
        , verifyHeader
        , verifyHeaders
 
-       -- * Block
+         -- * Block
        , VerifyBlockParams (..)
        , verifyBlocks
        ) where
@@ -27,12 +26,12 @@ import           Pos.Binary.Block.Core      ()
 import qualified Pos.Binary.Class           as Bi
 import           Pos.Binary.Core            ()
 import           Pos.Binary.Update          ()
-import           Pos.Block.Core             (BiSsc, Block, BlockHeader, gebAttributes,
+import           Pos.Block.Core             (Block, BlockHeader, gebAttributes,
                                              gehAttributes, genBlockLeaders,
                                              getBlockHeader, mainHeaderLeaderKey,
                                              mebAttributes, mehAttributes)
 import           Pos.Core                   (BlockVersionData (..), ChainDifficulty,
-                                             EpochOrSlot, HasCoreConstants,
+                                             EpochOrSlot, HasConfiguration,
                                              HasDifficulty (..), HasEpochIndex (..),
                                              HasEpochOrSlot (..), HasHeaderHash (..),
                                              HeaderHash, SlotId (..), SlotLeaders,
@@ -47,7 +46,7 @@ import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
 -- Header
 ----------------------------------------------------------------------------
 
--- | Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
+-- Difficulty of the BlockHeader. 0 for genesis block, 1 for main block.
 headerDifficultyIncrement :: BlockHeader ssc -> ChainDifficulty
 headerDifficultyIncrement (Left _)  = 0
 headerDifficultyIncrement (Right _) = 1
@@ -73,7 +72,7 @@ maybeMempty = maybe mempty
 -- | Check some predicates (determined by 'VerifyHeaderParams') about
 -- 'BlockHeader'.
 verifyHeader
-    :: forall ssc . BiSsc ssc
+    :: forall ssc . (SscHelpersClass ssc, HasConfiguration)
     => VerifyHeaderParams ssc -> BlockHeader ssc -> VerificationRes
 verifyHeader VerifyHeaderParams {..} h =
     verifyGeneric checks
@@ -172,23 +171,28 @@ verifyHeader VerifyHeaderParams {..} h =
 
 -- | Verifies a set of block headers. Only basic consensus check and
 -- linking checks are performed!
-verifyHeaders
-    :: BiSsc ssc
-    => NewestFirst [] (BlockHeader ssc) -> VerificationRes
-verifyHeaders (NewestFirst []) = mempty
-verifyHeaders (NewestFirst (headers@(_:xh))) = mconcat verified
+verifyHeaders ::
+       (SscHelpersClass ssc, HasConfiguration)
+    => Maybe SlotLeaders
+    -> NewestFirst [] (BlockHeader ssc)
+    -> VerificationRes
+verifyHeaders _ (NewestFirst []) = mempty
+verifyHeaders leaders (NewestFirst (headers@(_:xh))) =
+    snd $
+    foldr foldFoo (leaders,mempty) $ headers `zip` (map Just xh ++ [Nothing])
   where
-    verified =
-        zipWith
-            (\cur prev -> verifyHeader (toVHP prev) cur)
-            headers
-            (map Just xh ++ [Nothing])
-    -- [CSL-1052] Consider doing more checks here.
-    toVHP p =
+    foldFoo (cur,prev) (prevLeaders,res) =
+        let curLeaders = case cur of
+                             -- we don't know leaders for the next epoch
+                             (Left _) -> Nothing
+                             _        -> prevLeaders
+
+        in (curLeaders, verifyHeader (toVHP curLeaders prev) cur <> res)
+    toVHP l p =
         VerifyHeaderParams
         { vhpPrevHeader = p
         , vhpCurrentSlot = Nothing
-        , vhpLeaders = Nothing
+        , vhpLeaders = l
         , vhpMaxSize = Nothing
         , vhpVerifyNoUnknown = False
         }
@@ -215,7 +219,7 @@ data VerifyBlockParams ssc = VerifyBlockParams
 -- | Check predicates defined by VerifyBlockParams.
 -- #verifyHeader
 verifyBlock
-    :: forall ssc. (SscHelpersClass ssc, BiSsc ssc, HasCoreConstants)
+    :: forall ssc. (SscHelpersClass ssc, HasConfiguration)
     => VerifyBlockParams ssc -> Block ssc -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk =
     mconcat
@@ -257,10 +261,9 @@ type VerifyBlocksIter ssc = (SlotLeaders, Maybe (BlockHeader ssc), VerificationR
 verifyBlocks
     :: forall ssc f t.
        ( SscHelpersClass ssc
-       , BiSsc ssc
        , t ~ OldestFirst f (Block ssc)
        , NontrivialContainer t
-       , HasCoreConstants
+       , HasConfiguration
        )
     => Maybe SlotId
     -> Bool

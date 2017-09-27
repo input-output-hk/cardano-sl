@@ -10,27 +10,25 @@ module Pos.Client.CLI.Params
 
 import           Universum
 
-import           Data.Default               (def)
-import qualified Data.Yaml                  as Yaml
-import           Mockable                   (Catch, Fork, Mockable, Throw, throw)
-import           System.Wlog                (LoggerName, WithLogger)
+import           Data.Default                     (def)
+import qualified Data.Yaml                        as Yaml
+import           Mockable                         (Catch, Fork, Mockable, Throw, throw)
+import           System.Wlog                      (LoggerName, WithLogger)
 
-import           Pos.Behavior               (BehaviorConfig (..))
-import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..))
-import           Pos.Client.CLI.Options     (CommonArgs (..))
-import           Pos.Client.CLI.Secrets     (updateUserSecretVSS,
-                                             userSecretWithGenesisKey)
-import           Pos.Constants              (isDevelopment)
-import           Pos.Core.Types             (Timestamp (..))
-import           Pos.Crypto                 (VssKeyPair)
-import           Pos.Genesis                (devBalancesDistr, devGenesisContext,
-                                             genesisContextProduction)
-import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
-                                             NodeParams (..))
-import           Pos.Network.CLI            (intNetworkConfigOpts)
-import           Pos.Ssc.GodTossing         (GtParams (..))
-import           Pos.Update.Params          (UpdateParams (..))
-import           Pos.Util.UserSecret        (peekUserSecret)
+import           Pos.Behavior                     (BehaviorConfig (..))
+import           Pos.Client.CLI.NodeOptions       (CommonNodeArgs (..), NodeArgs (..))
+import           Pos.Client.CLI.Options           (CommonArgs (..))
+import           Pos.Client.CLI.Secrets           (updateUserSecretVSS,
+                                                   userSecretWithGenesisKey)
+import           Pos.Core.Configuration           (HasConfiguration)
+import           Pos.Crypto                       (VssKeyPair)
+import           Pos.Launcher                     (BaseParams (..), LoggingParams (..),
+                                                   NodeParams (..))
+import           Pos.Network.CLI                  (intNetworkConfigOpts)
+import           Pos.Ssc.GodTossing               (GtParams (..))
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Update.Params                (UpdateParams (..))
+import           Pos.Util.UserSecret              (peekUserSecret)
 
 loggingParams :: LoggerName -> CommonNodeArgs -> LoggingParams
 loggingParams tag CommonNodeArgs{..} =
@@ -54,19 +52,24 @@ gtSscParams CommonNodeArgs {..} vssSK BehaviorConfig{..} =
 
 getKeyfilePath :: CommonNodeArgs -> FilePath
 getKeyfilePath CommonNodeArgs {..}
-    | isDevelopment = case devSpendingGenesisI of
+    = case devGenesisSecretI of
           Nothing -> keyfilePath
           Just i  -> "node-" ++ show i ++ "." ++ keyfilePath
-    | otherwise = keyfilePath
-
 
 getNodeParams ::
-       (MonadIO m, WithLogger m, Mockable Fork m, Mockable Catch m, Mockable Throw m)
+       ( MonadIO m
+       , WithLogger m
+       , MonadThrow m
+       , Mockable Fork m
+       , Mockable Catch m
+       , Mockable Throw m
+       , HasConfiguration
+       , HasGtConfiguration
+       )
     => CommonNodeArgs
     -> NodeArgs
-    -> Timestamp
     -> m NodeParams
-getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} systemStart = do
+getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} = do
     (primarySK, userSecret) <-
         userSecretWithGenesisKey cArgs =<<
             updateUserSecretVSS cArgs =<<
@@ -75,20 +78,11 @@ getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} systemStart = do
     npBehaviorConfig <- case behaviorConfigPath of
         Nothing -> pure def
         Just fp -> either throw pure =<< liftIO (Yaml.decodeFileEither fp)
-    let devBalanceDistr =
-            devBalancesDistr
-                (flatDistr commonArgs)
-                (richPoorDistr commonArgs)
-                (expDistr commonArgs)
-    let npGenesisCtx
-            | isDevelopment = devGenesisContext devBalanceDistr
-            | otherwise = genesisContextProduction
     pure NodeParams
         { npDbPathM = dbPath
         , npRebuildDb = rebuildDB
         , npSecretKey = primarySK
         , npUserSecret = userSecret
-        , npSystemStart = systemStart
         , npBaseParams = getBaseParams "node" cArgs
         , npJLFile = jlPath
         , npReportServers = reportServers commonArgs
@@ -98,6 +92,7 @@ getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} systemStart = do
             , upUpdateServers = updateServers commonArgs
             }
         , npUseNTP = not noNTP
+        , npRoute53Params = route53Params
         , npEnableMetrics = enableMetrics
         , npEkgParams = ekgParams
         , npStatsdParams = statsdParams

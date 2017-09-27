@@ -38,18 +38,17 @@ module Pos.Ssc.GodTossing.Core.Core
 
 import           Universum
 
+import qualified Crypto.Random                 as Rand
 import qualified Data.HashMap.Strict           as HM
 import           Data.Ix                       (inRange)
 import qualified Data.List.NonEmpty            as NE
 import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder        (Builder)
-import           Formatting                    (Format, bprint, build, formatToString,
-                                                int, (%))
+import           Formatting                    (Format, bprint, build, int, sformat, (%))
 import           Serokell.Data.Memory.Units    (Byte)
 import           Serokell.Util                 (VerificationRes, listJson, verifyGeneric)
 
-import           Pos.Binary.Class              (AsBinary, Bi, asBinary, biSize,
-                                                fromBinaryM)
+import           Pos.Binary.Class              (Bi, asBinary, biSize, fromBinaryM)
 import           Pos.Binary.Crypto             ()
 import           Pos.Binary.GodTossing.Core    ()
 import           Pos.Core                      (EpochIndex (..), LocalSlotIndex,
@@ -60,7 +59,7 @@ import           Pos.Core.Configuration        (HasConfiguration, slotSecurityPa
                                                 vssMaxTTL, vssMinTTL)
 import           Pos.Core.Vss                  (VssCertificate (vcExpiryEpoch),
                                                 VssCertificatesMap (..))
-import           Pos.Crypto                    (Secret, SecretKey, SecureRandom (..),
+import           Pos.Crypto                    (Secret, SecretKey,
                                                 SignTag (SignCommitment), Threshold,
                                                 VssPublicKey, checkSig, genSharedSecret,
                                                 getDhSecret, hash, secretToDhSecret,
@@ -84,20 +83,17 @@ secretToSharedSeed = SharedSeed . getDhSecret . secretToDhSecret
 vssThreshold :: Integral a => a -> Threshold
 vssThreshold len = fromIntegral $ len `div` 2 + len `mod` 2
 
--- | Generate securely random SharedSeed.
+-- | Generate random SharedSeed.
 genCommitmentAndOpening
-    :: (MonadFail m, MonadIO m)
-    => Threshold -> NonEmpty (AsBinary VssPublicKey) -> m (Commitment, Opening)
+    :: Rand.MonadRandom m
+    => Threshold -> NonEmpty VssPublicKey -> m (Commitment, Opening)
 genCommitmentAndOpening t pks
-    | t <= 1 = fail $ formatToString
+    | t <= 1 = error $ sformat
         ("genCommitmentAndOpening: threshold ("%build%") must be > 1") t
-    | t >= n - 1 = fail $ formatToString
+    | t >= n - 1 = error $ sformat
         ("genCommitmentAndOpening: threshold ("%build%") must be < n-1"%
          " (n = "%build%")") t n
-    | otherwise  = do
-        pks' <- traverse fromBinaryM pks
-        liftIO . runSecureRandom $
-            convertRes <$> genSharedSecret t pks'
+    | otherwise = convertRes <$> genSharedSecret t pks
   where
     n = fromIntegral (length pks)
     convertRes (secret, proof, shares) =

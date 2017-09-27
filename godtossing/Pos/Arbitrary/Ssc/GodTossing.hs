@@ -11,14 +11,12 @@ module Pos.Arbitrary.Ssc.GodTossing
 import           Universum
 
 import qualified Data.List.NonEmpty                as NE
-import qualified System.Random                     as R
 import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, elements,
                                                     listOf, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Core.Unsafe         ()
 import           Pos.Arbitrary.Ssc                 (SscPayloadDependsOnSlot (..))
-import           Pos.Binary.Class                  (asBinary)
 import           Pos.Binary.GodTossing             ()
 import           Pos.Communication.Types.Relay     (DataMsg (..))
 import           Pos.Core                          (EpochIndex, HasConfiguration,
@@ -26,7 +24,9 @@ import           Pos.Core                          (EpochIndex, HasConfiguration
                                                     VssCertificatesMap, mkVssCertificate,
                                                     mkVssCertificatesMapLossy, vssMaxTTL,
                                                     vssMinTTL)
-import           Pos.Crypto                        (SecretKey, toVssPublicKey, vssKeyGen)
+import           Pos.Crypto                        (SecretKey, deterministic,
+                                                    randomNumberInRange, toVssPublicKey,
+                                                    vssKeyGen)
 import           Pos.Ssc.GodTossing.Core           (Commitment (..), CommitmentsMap,
                                                     GtPayload (..), GtProof (..),
                                                     Opening (..), SignedCommitment,
@@ -43,7 +43,7 @@ import           Pos.Ssc.GodTossing.Types.Types    (GtGlobalState (..),
                                                     GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData    (VssCertData (..))
 import           Pos.Util.Arbitrary                (Nonrepeating (..), makeSmall,
-                                                    sublistN, unsafeMakePool)
+                                                    sublistN)
 
 ----------------------------------------------------------------------------
 -- Core
@@ -82,18 +82,15 @@ instance Arbitrary BadCommAndOpening where
         return $ BadCommAndOpening (badComm, opening)
     shrink = genericShrink
 
--- | Generate 50 commitment/opening pairs in advance
--- (see `Pos.Crypto.Arbitrary` for explanations)
+-- | Generate 50 commitment/opening pairs for tests.
 commitmentsAndOpenings :: [CommitmentOpening]
 commitmentsAndOpenings =
     map (uncurry CommitmentOpening) $
-    unsafeMakePool "[generating Commitments and Openings for tests...]" 50 $ do
-      t <- R.randomRIO (3, 10)
-      n <- R.randomRIO (t*2-1, t*2)
-      vssKeys <- replicateM n $ toVssPublicKey <$> vssKeyGen
-      genCommitmentAndOpening (fromIntegral t)
-          (NE.fromList (map asBinary vssKeys))
-{-# NOINLINE commitmentsAndOpenings #-}
+    deterministic "commitmentsAndOpenings" $ replicateM 50 $ do
+      t <- randomNumberInRange 3 10
+      n <- randomNumberInRange (t*2-1) (t*2)
+      vssKeys <- replicateM (fromInteger n) $ toVssPublicKey <$> vssKeyGen
+      genCommitmentAndOpening (fromIntegral t) (NE.fromList vssKeys)
 
 instance Arbitrary CommitmentOpening where
     arbitrary = elements commitmentsAndOpenings

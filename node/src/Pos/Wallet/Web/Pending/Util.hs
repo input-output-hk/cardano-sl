@@ -1,7 +1,6 @@
 -- | Pending tx utils which db depends on
--- TODO [CSM-407] merge with Utilshs
 
-module Pos.Wallet.Web.Pending.Updates
+module Pos.Wallet.Web.Pending.Util
     ( mkPtxSubmitTiming
     , incPtxSubmitTimingPure
     , ptxMarkAcknowledgedPure
@@ -9,7 +8,7 @@ module Pos.Wallet.Web.Pending.Updates
 
 import           Universum
 
-import           Control.Lens                 ((%=), (+=), (+~), (<<*=), (<<.=))
+import           Control.Lens                 ((*=), (+=), (+~), (<<*=), (<<.=))
 
 import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.Core.Slotting            (flatSlotId)
@@ -38,4 +37,4 @@ incPtxSubmitTimingPure = execState $ do
 ptxMarkAcknowledgedPure :: PendingTx -> PendingTx
 ptxMarkAcknowledgedPure = execState $ do
     wasAcked <- ptxPeerAck <<.= True
-    unless wasAcked $ ptxSubmitTiming . pstNextDelay %= (* 8)
+    unless wasAcked $ ptxSubmitTiming . pstNextDelay *= 8

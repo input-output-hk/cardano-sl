@@ -24,7 +24,6 @@ import qualified Text.Parsec.Char       as P
 import qualified Text.Parsec.Text       as P
 
 import           Pos.Binary.Core        ()
-import           Pos.Constants          (isDevelopment)
 import           Pos.Core               (StakeholderId)
 import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson,
                                          genesisData)
@@ -36,9 +35,6 @@ import           Pos.Util.TimeWarp      (addrParser)
 
 printFlags :: MonadIO m => m ()
 printFlags = do
-    if isDevelopment
-        then putText "[Attention] We are in DEV mode"
-        else putText "[Attention] We are in PRODUCTION mode"
     inAssertMode $ putText "Asserts are ON"
 
 -- | Decides which secret-sharing algorithm to use.

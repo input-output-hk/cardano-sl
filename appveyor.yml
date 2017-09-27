@@ -95,7 +95,6 @@ test_script:
       --ghc-options="-DGITREV=%APPVEYOR_REPO_COMMIT%"
       --flag cardano-sl:with-wallet
       --flag cardano-sl-core:-asserts
-      --flag cardano-sl-core:-dev-mode
       --flag cardano-sl-tools:for-installer
       --flag cardano-sl-wallet:for-installer
       --extra-include-dirs="C:\OpenSSL-Win64-v102\include"

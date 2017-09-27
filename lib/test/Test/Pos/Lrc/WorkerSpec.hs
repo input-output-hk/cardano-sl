@@ -6,38 +6,40 @@
 
 module Test.Pos.Lrc.WorkerSpec
        ( spec
-       , checkRichmen  -- TODO: remove when this test is fixed. This is only
-                       -- exported to prevent an “unused function” warning
        ) where
 
 import           Universum
-import           Unsafe                    (unsafeHead, unsafeTail)
 
 import           Control.Lens              (At (at), Index, _Right)
 import qualified Data.HashMap.Strict       as HM
 import           Formatting                (build, sformat, (%))
-import           Serokell.Util             (subList)
+import           Serokell.Util             (listJson)
 import           Test.Hspec                (Spec, describe)
-import           Test.Hspec.QuickCheck     (modifyMaxSuccess)
-import           Test.QuickCheck           (choose)
+import           Test.Hspec.QuickCheck     (modifyMaxSuccess, prop)
+import           Test.QuickCheck           (Gen, arbitrary, choose)
 import           Test.QuickCheck.Monadic   (pick)
 
-import           Pos.AllSecrets            (HasAllSecrets (..))
+import           Pos.Binary.Class          (serialize')
 import           Pos.Block.Core            (mainBlockTxPayload)
 import           Pos.Block.Logic           (applyBlocksUnsafe)
 import           Pos.Core                  (Coin, EpochIndex, GenesisData (..),
-                                            StakeholderId, addressHash, blkSecurityParam,
-                                            coinF, genesisData)
-import           Pos.Crypto                (toPublic)
+                                            GenesisInitializer (..), StakeholderId,
+                                            TestnetBalanceOptions (..),
+                                            TestnetDistribution (..), addressHash,
+                                            blkSecurityParam, coinF, genesisData,
+                                            genesisSecretKeysPoor, genesisSecretKeysRich)
+import           Pos.Crypto                (SecretKey, toPublic)
 import qualified Pos.GState                as GS
 import           Pos.Launcher              (HasConfigurations)
 import qualified Pos.Lrc                   as Lrc
 import           Pos.Txp                   (TxAux, mkTxPayload)
 import           Pos.Util.Util             (getKeys)
 
-import           Test.Pos.Block.Logic.Mode (BlockProperty, blockPropertySpec)
+import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..),
+                                            blockPropertyToProperty)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..),
                                             bpGenBlock, bpGenBlocks)
+import           Test.Pos.Configuration    (defaultTestBlockVersionData)
 import           Test.Pos.Util             (maybeStopProperty, stopProperty,
                                             withStaticConfigurations)
 
@@ -47,34 +49,63 @@ spec :: Spec
 -- performance matters (but not very much, so we can run more than once).
 spec = withStaticConfigurations $
     describe "Lrc.Worker" $ modifyMaxSuccess (const 4) $ do
-        -- [CSL-1669] We had a rather complicated test here but it got
-        -- broken after the genesis refactoring. See
-        -- https://github.com/input-output-hk/cardano-sl/blob/68d829ea3f225a02a831ae941aa210df399f4063/node/test/Test/Pos/Lrc/WorkerSpec.hs#L83-L154
-        -- for the original test
-        describe "lrcSingleShotNoLock (abridged; see comments!)" $ do
-            blockPropertySpec lrcCorrectnessDesc lrcCorrectnessProp
+        describe "lrcSingleShot" $ do
+            prop lrcCorrectnessDesc $
+                blockPropertyToProperty genTestParams lrcCorrectnessProp
   where
     lrcCorrectnessDesc =
         "Computes richmen correctly according to the stake distribution " <>
         "right before the '8 * k'-th slot.\n" <>
         "Computes leaders using follow-the-satoshi algorithm using stake " <>
-        "distribution or utxo right before the '8 * k'-th slot."
+        "distribution right before the '8 * k'-th slot."
 
--- We split everything into groups corresponding to different richmen
--- components.
-type GroupId = Int
+----------------------------------------------------------------------------
+-- Parameters generation
+----------------------------------------------------------------------------
 
-{-
+genTestParams :: Gen TestParams
+genTestParams = do
+    let _tpStartTime = 0
+    let _tpBlockVersionData = defaultTestBlockVersionData
+    _tpGenesisInitializer <- genGenesisInitializer
+    return TestParams {..}
 
--- It's copy-pasted here because we rely on the order.
-allRichmenComponents :: HasVarSpecConfigurations => [Lrc.SomeRichmenComponent]
-allRichmenComponents =
-    [ Lrc.someRichmenComponent @Lrc.RCSsc
-    , Lrc.someRichmenComponent @Lrc.RCUs
-    , Lrc.someRichmenComponent @Lrc.RCDlg
-    ]
+genGenesisInitializer :: Gen GenesisInitializer
+genGenesisInitializer = do
+    tiTestBalance <- genTestnetBalanceOptions
+    tiFakeAvvmBalance <- arbitrary
+    -- It's important to use 'TestnetRichmenStakeDistr' because later
+    -- we assert that all richmen according to 'TestnetBalanceOptions'
+    -- are indeed richmen according to LRC.
+    let tiDistribution = TestnetRichmenStakeDistr
+    tiSeed <- arbitrary
+    return TestnetInitializer {..}
+  where
+    -- We want to be sure that richmen are indeed richmen according to
+    -- genesis thresholds from all components and that poor guys are
+    -- not richmen.
+    genTestnetBalanceOptions :: Gen TestnetBalanceOptions
+    genTestnetBalanceOptions = do
+        tboPoors <- choose (101, 201)
+        -- ↓ should be relatively small so that they are really richmen
+        tboRichmen <- choose (1, 5)
+        tboTotalBalance <- choose (1000, 10000000)
+        -- Here ↓ we simply assume that the lowest threshold (recall
+        -- that there are 3 richmen components in the system with
+        -- different thresholds) is at least 1e-5 (as there are at
+        -- least 101 poors). It's a bit dumb, but simple and sufficient.
+        --
+        -- Clarification: richmenShare = 0.999 means that poor stakeholders
+        -- own 1e-3 stake together. There are more than 100 poor stakeholders.
+        -- So each of them owns less than 1e-5. So if a threshold is at least
+        -- 1e-5, poor nodes will be poor with respect to this threshold.
+        let tboRichmenShare = 0.999
+        let tboUseHDAddresses = False
+        return TestnetBalanceOptions {..}
 
--}
+----------------------------------------------------------------------------
+-- Actual test
+----------------------------------------------------------------------------
 
 lrcCorrectnessProp :: HasConfigurations => BlockProperty ()
 lrcCorrectnessProp = do
@@ -90,7 +121,6 @@ lrcCorrectnessProp = do
     genAndApplyBlockFixedTxs =<< txsBeforeBoundary
     -- At this point we have applied '8 * k' blocks. The current state
     -- will be used in LRC.
-    stableUtxo <- lift GS.getAllPotentiallyHugeUtxo
     stableStakes <- lift GS.getAllPotentiallyHugeStakesMap
     -- All further blocks will not be considered by LRC for the 1-st
     -- epoch. So we include some transactions to make sure they are
@@ -109,51 +139,51 @@ lrcCorrectnessProp = do
     -- payload the previous seed must be reused (which is the case in
     -- this test).
     let genesisSeed = gdFtsSeed genesisData
-    let expectedLeadersUtxo =
-            Lrc.followTheSatoshiUtxo genesisSeed stableUtxo
+    -- It's important to sort stakes and iterate in the same order as
+    -- DB iteration.
+    let sortedStakes = sortOn (serialize' . fst) (HM.toList stableStakes)
     let expectedLeadersStakes =
-            Lrc.followTheSatoshi genesisSeed (HM.toList stableStakes)
-    unless (expectedLeadersUtxo /= leaders1) $
-        stopProperty "expectedLeadersUtxo /= leaders1"
-    unless (expectedLeadersStakes /= leaders1) $
-        stopProperty "expectedLeadersStakes /= leaders1"
-    -- TODO: resurrect.
+            Lrc.followTheSatoshi genesisSeed sortedStakes
+    when (expectedLeadersStakes /= leaders1) $
+        stopProperty $ sformat ("expectedLeadersStakes /= leaders1\n"%
+                                "Stakes version: "%listJson%
+                                ", computed leaders: "%listJson)
+           expectedLeadersStakes leaders1
 
-    -- checkRichmen
+    checkRichmen
 
 checkRichmen :: HasConfigurations => BlockProperty ()
--- Here we check richmen.  The order must be the same as the one
--- in 'allRichmenComponents'. Unfortunately, I don't know how to
--- do it better without spending too much time on it (@gromak).
 checkRichmen = do
-    checkRichmenStakes 0 =<< getRichmen (lift . Lrc.getRichmenSsc)
-    checkRichmenFull 1 =<< getRichmen (lift . Lrc.getRichmenUS)
-    checkRichmenSet 2 =<< getRichmen (lift . Lrc.getRichmenDlg)
+    checkRichmenStakes =<< getRichmen (lift . Lrc.getRichmenSsc)
+    checkRichmenFull =<< getRichmen (lift . Lrc.getRichmenUS)
+    checkRichmenSet =<< getRichmen (lift . Lrc.getRichmenDlg)
   where
-    relevantStakeholders :: GroupId -> BlockProperty [StakeholderId]
-    -- The order is important, so we don't use `keys`.
-    relevantStakeholders i =
-        map (addressHash . toPublic) . subList (4 * i, 4 * (i + 1)) . toList <$>
-        view asSecretKeys
+    toStakeholders :: Maybe [SecretKey] -> [StakeholderId]
+    toStakeholders = map (addressHash . toPublic) . fromMaybe
+        (error "genesis secrets are unknown in tests")
+    poorStakeholders :: HasConfigurations => [StakeholderId]
+    poorStakeholders = toStakeholders genesisSecretKeysPoor
+    richStakeholders :: HasConfigurations => [StakeholderId]
+    richStakeholders = toStakeholders genesisSecretKeysRich
 
     getRichmen ::
            (EpochIndex -> BlockProperty (Maybe richmen))
         -> BlockProperty richmen
     getRichmen getter = maybeStopProperty "No richmen for epoch#1!" =<< getter 1
 
-    checkRichmenFull :: HasConfigurations => GroupId -> Lrc.FullRichmenData -> BlockProperty ()
-    checkRichmenFull i (totalStake, richmenStakes) = do
+    checkRichmenFull :: HasConfigurations => Lrc.FullRichmenData -> BlockProperty ()
+    checkRichmenFull (totalStake, richmenStakes) = do
         realTotalStake <- lift GS.getRealTotalStake
         unless (totalStake == realTotalStake) $
             stopProperty $ sformat
             ("Total stake returned by LRC differs from the real one: (LRC = "
              %coinF% ", real = " %coinF%")")
              totalStake realTotalStake
-        checkRichmenStakes i richmenStakes
+        checkRichmenStakes richmenStakes
 
-    checkRichmenStakes :: HasConfigurations => GroupId -> Lrc.RichmenStakes -> BlockProperty ()
-    checkRichmenStakes i richmenStakes = do
-        checkRichmenSet i (getKeys richmenStakes)
+    checkRichmenStakes :: HasConfigurations => Lrc.RichmenStakes -> BlockProperty ()
+    checkRichmenStakes richmenStakes = do
+        checkRichmenSet (getKeys richmenStakes)
         let checkRich (id, realStake)
                 | Just lrcStake <- richmenStakes ^. at id
                 , lrcStake /= realStake =
@@ -162,36 +192,32 @@ checkRichmen = do
                      %coinF%", the real one is "%coinF%")")
                      lrcStake realStake
                 | otherwise = pass
-        mapM_ checkRich =<< expectedRichmenStakes i
+        mapM_ checkRich =<< expectedRichmenStakes
 
-    checkRichmenSet :: HasConfigurations => GroupId -> Lrc.RichmenSet -> BlockProperty ()
-    checkRichmenSet i richmenSet = do
-        checkPoor i richmenSet
+    checkRichmenSet :: HasConfigurations => Lrc.RichmenSet -> BlockProperty ()
+    checkRichmenSet richmenSet = do
+        mapM_ (checkPoor richmenSet) poorStakeholders
         let checkRich (id, realStake) =
                 when (isNothing (richmenSet ^. at id)) $
                 stopProperty $ sformat
                 (build%" has stake "%coinF%", but wasn't considered richman")
                  id realStake
-        mapM_ checkRich =<< expectedRichmenStakes i
+        mapM_ checkRich =<< expectedRichmenStakes
 
-    expectedRichmenStakes :: HasConfigurations => GroupId -> BlockProperty [(StakeholderId, Coin)]
-    expectedRichmenStakes i = do
-        richmen <- unsafeTail <$> relevantStakeholders i
+    expectedRichmenStakes :: HasConfigurations => BlockProperty [(StakeholderId, Coin)]
+    expectedRichmenStakes = do
         let resolve id = (id, ) . fromMaybe minBound <$> GS.getRealStake id
-        lift $ mapM resolve richmen
+        lift $ mapM resolve richStakeholders
 
     checkPoor ::
-           (Index m ~ StakeholderId, At m) => GroupId -> m -> BlockProperty ()
-    checkPoor i richmen = do
-        let __unit = () -- workaround for hindent
-        -- It's safe because there must be 4 stakeholders by construction.
-        poorGuy <- unsafeHead <$> relevantStakeholders i
+           (Index m ~ StakeholderId, At m) => m -> StakeholderId -> BlockProperty ()
+    checkPoor richmen poorGuy = do
         poorGuyStake <- lift $ fromMaybe minBound <$> GS.getRealStake poorGuy
         unless (isNothing $ richmen ^. at poorGuy) $ do
             totalStake <- lift GS.getRealTotalStake
             stopProperty $ sformat
-                ("Poor guy was considered rich by LRC! His real stake is "
-                 %coinF%", real total stake is "%coinF)
+                ("Poor guy was considered rich by LRC! His stake is "
+                 %coinF%", total stake is "%coinF)
                 poorGuyStake totalStake
 
 genAndApplyBlockFixedTxs :: HasConfigurations => [TxAux] -> BlockProperty ()

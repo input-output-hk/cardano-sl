@@ -65,9 +65,11 @@ data GeneratedGenesisData = GeneratedGenesisData
     }
 
 data GeneratedSecrets = GeneratedSecrets
-    { gsSecretKeys    :: ![(SecretKey, EncryptedSecretKey, VssKeyPair)]
-    -- ^ Secret keys for non avvm addresses
-    , gsFakeAvvmSeeds :: ![ByteString]
+    { gsSecretKeysRich :: ![(SecretKey, EncryptedSecretKey, VssKeyPair)]
+    -- ^ Secret keys for rich non avvm addresses
+    , gsSecretKeysPoor :: ![(SecretKey, EncryptedSecretKey, VssKeyPair)]
+    -- ^ Secret keys for poor non avvm addresses
+    , gsFakeAvvmSeeds  :: ![ByteString]
     -- ^ Fake avvm seeds (needed only for testnet)
     }
 
@@ -86,8 +88,9 @@ generateGenesisData (TestnetInitializer{..}) maxTnBalance = deterministic (seria
                            (generateSecretsAndAddress Nothing tboUseHDAddresses)
 
     let richSkVssCerts = map (\(sk, _, _, vc, _) -> (sk, vc)) $ richmenList
-        secretKeys = map (\(sk, hdwSk, vssSk, _, _) -> (sk, hdwSk, vssSk))
-                         (richmenList ++ poorsList)
+        toSecretKeys (sk, hdwSk, vssSk, _, _) = (sk, hdwSk, vssSk)
+        secretKeysRich = map toSecretKeys richmenList
+        secretKeysPoor = map toSecretKeys poorsList
 
         safeZip s a b =
             if length a /= length b
@@ -122,7 +125,8 @@ generateGenesisData (TestnetInitializer{..}) maxTnBalance = deterministic (seria
         , ggdBootStakeholders = GenesisWStakeholders bootStakeholders
         , ggdVssCerts = vssCerts
         , ggdSecrets = Just $ GeneratedSecrets
-              { gsSecretKeys = secretKeys
+              { gsSecretKeysRich = secretKeysRich
+              , gsSecretKeysPoor = secretKeysPoor
               , gsFakeAvvmSeeds = seeds
               }
         }

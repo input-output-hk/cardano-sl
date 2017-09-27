@@ -14,14 +14,14 @@ import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple)
 import Explorer.Api.Helper (decodeResult)
 import Explorer.Api.Types (Endpoint, EndpointError(..))
-import Explorer.Types.State (AddressesFilter, CBlockEntries, CGenesisAddressInfos, CTxBriefs, CTxEntries, PageNumber(..), PageSize(..))
+import Explorer.Types.State (AddressesFilter(..), CBlockEntries, CGenesisAddressInfos, CTxBriefs, CTxEntries, PageNumber(..), PageSize(..))
 import Global (encodeURIComponent)
 import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))
 import Pos.Core.Lenses.Types (_EpochIndex, _UnsafeLocalSlotIndex, getEpochIndex, getSlotIndex)
 import Pos.Core.Types (EpochIndex, LocalSlotIndex)
-import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary, CBlockSummary, CGenesisSummary, CHash(..), CTxId, CTxSummary)
+import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary, CAddressesFilter(..), CBlockSummary, CGenesisSummary, CHash(..), CTxId, CTxSummary)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId)
 
 endpointPrefix :: String
@@ -90,11 +90,22 @@ fetchGenesisSummary :: forall eff. Aff (ajax::AJAX | eff) CGenesisSummary
 fetchGenesisSummary = get "genesis/summary/"
 
 fetchGenesisAddressInfo :: forall eff. PageNumber -> PageSize -> AddressesFilter -> Aff (ajax::AJAX | eff) CGenesisAddressInfos
-fetchGenesisAddressInfo (PageNumber pNumber) (PageSize pSize) _ =
-    -- TODO (jk): Handle `AddressesFilter` if backend is ready
-    get $ "genesis/address/?page=" <> show pNumber <> "&pageSize=" <> show pSize
+fetchGenesisAddressInfo (PageNumber pNumber) (PageSize pSize) (AddressesFilter cAddrFilter) =
+    get $ "genesis/address/?page="
+              <> show pNumber
+              <> "&pageSize="
+              <> show pSize
+              <> "&filter="
+              <> filterGenesisAddressesValue cAddrFilter
 
 fetchGenesisAddressInfoTotalPages :: forall eff. PageSize -> AddressesFilter -> Aff (ajax::AJAX | eff) Int
-fetchGenesisAddressInfoTotalPages (PageSize pSize) _ =
-    -- TODO (jk): Handle `AddressesFilter` if backend is ready
-    get $ "genesis/address/pages/total?pageSize=" <> show pSize
+fetchGenesisAddressInfoTotalPages (PageSize pSize) (AddressesFilter cAddrFilter) =
+    get $ "genesis/address/pages/total?pageSize="
+              <> show pSize
+              <> "&filter="
+              <> filterGenesisAddressesValue cAddrFilter
+
+filterGenesisAddressesValue :: CAddressesFilter -> String
+filterGenesisAddressesValue AllAddresses = "all"
+filterGenesisAddressesValue RedeemedAddresses = "redeemed"
+filterGenesisAddressesValue NonRedeemedAddresses = "notredeemed"

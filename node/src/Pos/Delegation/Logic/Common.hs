@@ -27,8 +27,8 @@ import qualified Data.Text.Buildable  as B
 import           Data.Time.Clock      (UTCTime, addUTCTime)
 import           Formatting           (bprint, build, sformat, stext, (%))
 
-import           Pos.Configuration    (dlgCacheParam, lightDlgConfirmationTimeout,
-                                       messageCacheTimeout, HasNodeConfiguration)
+import           Pos.Configuration    (HasNodeConfiguration, dlgCacheParam,
+                                       lightDlgConfirmationTimeout, messageCacheTimeout)
 import           Pos.Core             (HasConfiguration, ProxySKHeavy, StakeholderId,
                                        addressHash, headerHash)
 import           Pos.Crypto           (ProxySecretKey (..), PublicKey)
@@ -78,7 +78,13 @@ runDelegationStateAction action = do
     atomically $ do
         v0 <- readTVar var
         let (r,v1) = runState action v0
-        writeTVar var v1
+        -- The `$!` is necessary here, otherwise `runDelegationStateAction` will
+        -- leak memory due to the fact `writeTVar` could end up accumulating thunks (if its
+        -- content is never demanded). Note that using a strict State is not enough,
+        -- as that ensure that only the sequencing of actions is strict, but the state
+        -- `s` is still lazy, so is using `Control.Lens.%=`, which calls `modify` and
+        -- not `modify'` under the hood.
+        writeTVar var $! v1
         pure r
 
 -- | Invalidates proxy caches using built-in constants.

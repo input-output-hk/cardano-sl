@@ -23,8 +23,8 @@ import Explorer.Types.State (AddressesFilter(..), CCurrency(..), CGenesisAddress
 import Explorer.Util.String (formatADA)
 import Explorer.View.Common (currencyCSSClass, paginationView)
 import Network.RemoteData (RemoteData(..), withDefault)
-import Pos.Explorer.Web.ClientTypes (CAddressesFilter(..), CGenesisAddressInfo(..), CGenesisSummary(..))
-import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, cgaiCardanoAddress, cgaiGenesisAmount, cgaiIsRedeemed, cgsNumRedeemed, cgsNumNotRedeemed, cgsNumTotal)
+import Pos.Explorer.Web.ClientTypes (CAddressesFilter(..), CGenesisAddressInfo(..), CGenesisSummary(..), _CCoin)
+import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, cgaiCardanoAddress, cgaiGenesisAmount, cgaiIsRedeemed, cgsNonRedeemedAmountTotal, cgsNumNotRedeemed, cgsNumRedeemed, cgsNumTotal, cgsRedeemedAmountTotal, getCoin)
 import Pux.DOM.Events (DOMEvent, onClick) as P
 import Pux.DOM.HTML (HTML) as P
 import Pux.DOM.HTML.Attributes (key) as P
@@ -88,17 +88,16 @@ mkPropsForSummaryRows lang (CGenesisSummary summary) =
       , amount: show $ summary ^. cgsNumNotRedeemed
       , mCurrency: Nothing
       }
-    -- TODO (jk): Uncomment following lines if backend is ready
-    -- , { key: 3
-    --   , label: translate (I18nL.genesisBlock <<< I18nL.gblRedeemedAmountTotal) lang
-    --   , amount: show $ summary ^. cgsRedeemedAmountTotal
-    --   , mCurrency: Just ADA
-    --   }
-    -- , { key: 4
-    --   , label: translate (I18nL.genesisBlock <<< I18nL.gblNonRedeemedAmountTotal) lang
-    --   , amount: show $ summary ^. cgsNonRedeemedAmountTotal
-    --   , mCurrency: Just ADA
-    --   }
+    , { key: 3
+      , label: translate (I18nL.genesisBlock <<< I18nL.gblRedeemedAmountTotal) lang
+      , amount: formatADA (summary ^. cgsRedeemedAmountTotal) lang
+      , mCurrency: Just ADA
+      }
+    , { key: 4
+      , label: translate (I18nL.genesisBlock <<< I18nL.gblNonRedeemedAmountTotal) lang
+      , amount: formatADA (summary ^. cgsNonRedeemedAmountTotal) lang
+      , mCurrency: Just ADA
+      }
     ]
 
 summaryRow :: SummaryRowProps -> P.HTML Action

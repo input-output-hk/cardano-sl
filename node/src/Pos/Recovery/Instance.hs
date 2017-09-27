@@ -35,6 +35,10 @@ instance ( Monad m
             curSlot <- note SSUnknownSlot =<< getCurrentSlot
             tipHeader <- getTipHeader @ssc
             let tipSlot = epochOrSlotToSlot (tipHeader ^. epochOrSlotG)
+            unless (tipSlot <= curSlot) $
+                throwError
+                    SSInFuture
+                    {sslbCurrentSlot = curSlot, sslbTipSlot = tipSlot}
             let slotDiff = flattenSlotId curSlot - flattenSlotId tipSlot
             unless (slotDiff < fromIntegral lagBehindParam) $
                 throwError

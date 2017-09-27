@@ -32,6 +32,11 @@ data SyncStatus
                   , sslbCurrentSlot :: !SlotId }
     -- ^ We know current slot, but our tip's slot lags behind current
     -- slot too much.
+    | SSInFuture { sslbTipSlot     :: !SlotId
+                 , sslbCurrentSlot :: !SlotId }
+    -- ^ We know current slot and our tip's slot is greater than the
+    -- current one. Most likely we are misconfigured or we are
+    -- cheating somehow (e. g. creating blocks using block-gen).
     | SSKindaSynced
     -- ^ We are kinda synchronized, i. e. all previously described
     -- statuses are not about us.
@@ -45,6 +50,12 @@ instance Buildable SyncStatus where
                 bprint
                     ("we lag behind too much, our tip's slot is: " %slotIdF %
                      ", but current slot is " %slotIdF)
+                    sslbTipSlot
+                    sslbCurrentSlot
+            SSInFuture {..} ->
+                bprint
+                    ("we invented time machine, our tip's slot is: " %slotIdF %
+                     " and it's greater than current slot: " %slotIdF)
                     sslbTipSlot
                     sslbCurrentSlot
             SSKindaSynced -> "we are moderately synchronized"

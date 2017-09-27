@@ -9,7 +9,7 @@ import           Universum
 import           Data.Aeson             (FromJSON (..), ToJSON (toJSON))
 import           Data.Aeson.TH          (defaultOptions, deriveFromJSON, deriveJSON,
                                          deriveToJSON)
-import           Data.Time.Units        (Microsecond, Millisecond)
+import           Data.Time.Units        (Microsecond, Millisecond, Second)
 import qualified Serokell.Aeson.Options as S (defaultOptions)
 import           Serokell.Util.Base64   (JsonByteString (..))
 
@@ -42,6 +42,7 @@ instance FromJSON CoinPortion where
 deriveFromJSON S.defaultOptions ''VssCertificate
 deriveFromJSON S.defaultOptions ''Millisecond
 deriveFromJSON S.defaultOptions ''Microsecond
+deriveFromJSON S.defaultOptions ''Second
 deriveFromJSON S.defaultOptions ''SoftforkRule
 deriveFromJSON S.defaultOptions ''BlockVersionData
 

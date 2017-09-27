@@ -34,7 +34,7 @@ import           Pos.Binary.GodTossing              ()
 import           Pos.Core                           (BlockVersionData (..), EpochIndex,
                                                      HasConfiguration, SlotId (..),
                                                      StakeholderId, VssCertificate,
-                                                     mkVssCertificatesMap)
+                                                     mkVssCertificatesMapSingleton)
 import           Pos.DB                             (MonadDBRead,
                                                      MonadGState (gsAdoptedBVData))
 import           Pos.Lrc.Types                      (RichmenStakes)
@@ -207,7 +207,7 @@ sscProcessCertificate
     => VssCertificate -> m ()
 sscProcessCertificate cert =
     sscProcessData VssCertificateMsg $
-    CertificatesPayload (mkVssCertificatesMap [cert])
+    CertificatesPayload (mkVssCertificatesMapSingleton cert)
 
 sscProcessData
     :: forall ctx m.

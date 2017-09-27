@@ -19,7 +19,6 @@ import           Serokell.Data.Memory.Units      (Byte, fromBytes, toBytes)
 import           Pos.Binary.Class                (Bi)
 import qualified Pos.Binary.Class                as Bi
 import           Pos.Block.Core
-import           Pos.Core.Vss                    (VssCertificate (..))
 import           Pos.Core.Fee                    (Coeff (..), TxFeePolicy (..),
                                                   TxSizeLinear (..))
 import           Pos.Core.Types                  (AddrAttributes (..),
@@ -35,8 +34,10 @@ import           Pos.Core.Types                  (AddrAttributes (..),
                                                   Script (..), SharedSeed (..),
                                                   SlotCount (..), SlotId (..),
                                                   SoftforkRule (..), SoftwareVersion (..))
+import           Pos.Core.Vss                    (VssCertificate (..), VssCertificatesMap)
 import           Pos.Crypto.Hashing              (AbstractHash (..))
 import           Pos.Crypto.HD                   (HDAddressPayload (..))
+import           Pos.Crypto.SecretSharing        (SecretProof)
 import           Pos.Crypto.Signing.Redeem       (RedeemPublicKey (..),
                                                   RedeemSecretKey (..),
                                                   RedeemSignature (..))
@@ -44,7 +45,6 @@ import           Pos.Crypto.Signing.Signing      (ProxyCert (..), ProxySecretKey
                                                   ProxySignature (..), PublicKey (..),
                                                   SecretKey (..), Signature (..),
                                                   Signed (..))
-import           Pos.Crypto.SecretSharing        (SecretProof)
 import           Pos.Data.Attributes             (Attributes (..), UnparsedFields)
 import           Pos.Delegation.Types            (DlgPayload (..))
 import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (..),
@@ -105,6 +105,7 @@ deriveSafeCopySimple 0 'base ''VssCertificate
 deriveSafeCopySimple 0 'base ''Opening
 deriveSafeCopySimple 0 'base ''Commitment
 deriveSafeCopySimple 0 'base ''CommitmentsMap
+deriveSafeCopySimple 0 'base ''VssCertificatesMap
 
 deriveSafeCopySimple 0 'base ''GtPayload
 deriveSafeCopySimple 0 'base ''GtProof

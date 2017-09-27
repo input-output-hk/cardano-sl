@@ -136,7 +136,7 @@ library
                         Pos.Wallet.Web.Error.Types
                         Pos.Wallet.Web.Error.Util
                         Pos.Wallet.Web.Pending.Types
-                        Pos.Wallet.Web.Pending.Updates
+                        Pos.Wallet.Web.Pending.Util
                         Pos.Wallet.Web.State
                         Pos.Wallet.Web.State.Acidic
                         Pos.Wallet.Web.State.State
@@ -323,8 +323,8 @@ library
                         Pos.Explorer.DB
                         Pos.Explorer.BListener
 
-  build-depends:        QuickCheck
-                      , MonadRandom
+  build-depends:        MonadRandom
+                      , QuickCheck
                       , acid-state
                       , aeson >= 0.11.2.1
                       , ansi-terminal
@@ -368,6 +368,7 @@ library
                       , file-embed >= 0.0.10
                       , filelock >= 0.1.0.1
                       , filepath
+                      , fmt
                       , focus
                       , formatting
                       , generic-arbitrary
@@ -386,7 +387,6 @@ library
                       , mmorph
                       , monad-control
                       , monad-loops
-                      , MonadRandom
                       , mono-traversable
                       , mtl
                       , neat-interpolation
@@ -622,15 +622,15 @@ test-suite cardano-test
                      , base
                      , bytestring
                      , canonical-json
+                     , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-godtossing
                      , cardano-sl-infra
                      , cardano-sl-lrc
+                     , cardano-sl-ssc
                      , cardano-sl-txp
                      , cardano-sl-update
-                     , cardano-sl-ssc
-                     , cardano-sl
                      , cborg
                      , cereal
                      , containers
@@ -638,17 +638,18 @@ test-suite cardano-test
                      , data-default
                      , ether
                      , exceptions
+                     , extra
+                     , fmt
                      , formatting
                      , generic-arbitrary
                      , hspec
                      , kademlia
                      , lens
                      , log-warper
-                     , MonadRandom
                      , memory
+                     , mmorph
                      , monad-control
                      , mtl
-                     , mmorph
                      , network-uri
                      , node-sketch
                      , pvss

@@ -10,13 +10,14 @@ import           Control.Monad.Except  (runExceptT)
 import           Data.List.NonEmpty    (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty    as NE
 import qualified Data.Map              as M
+import qualified Data.Text.Buildable   as B
 import qualified Data.Vector           as V (fromList)
+import           Fmt                   (blockListF', genericF, nameF, (+|), (|+))
 import           Serokell.Util         (allDistinct)
 import           Test.Hspec            (Expectation, Spec, describe, expectationFailure,
                                         it)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Property, arbitrary, counterexample, property,
-                                        (==>))
+import           Test.QuickCheck       (Property, arbitrary, counterexample, (==>))
 
 import           Pos.Arbitrary.Txp     (BadSigsTx (..), DoubleInputTx (..), GoodTx (..))
 import           Pos.Core              (HasConfiguration, addressHash, checkPubKeyAddress,
@@ -40,7 +41,7 @@ import           Pos.Txp               (MonadUtxoRead (utxoGet), ToilVerFailure 
                                         isTxInUnknown, verifyTxUtxo, verifyTxUtxoPure)
 import           Pos.Util              (SmallGenerator (..), nonrepeating, runGen)
 
-import           Test.Pos.Util         (giveCoreConf)
+import           Test.Pos.Util         (giveCoreConf, qcIsLeft, qcIsRight)
 
 ----------------------------------------------------------------------------
 -- Spec
@@ -95,10 +96,16 @@ verifyTxInUtxo (SmallGenerator (GoodTx ls)) =
         witness = V.fromList $ toList $ fmap (view _4) ls
         (ins, outs) = NE.unzip $ map (\(_, tIs, tOs, _) -> (tIs, tOs)) ls
         newTx = UnsafeTx ins (map toaOut outs) (mkAttributes ())
-        utxo = foldr (\tx -> applyTxToUtxoPure (withHash tx)) mempty txs
+        utxo = M.fromList $ do
+            tx@UnsafeTx{..} <- toList txs
+            let id = hash tx
+            (idx, out) <- zip [0..] (toList _txOutputs)
+            pure ((TxInUtxo id idx), TxOutAux out)
         vtxContext = VTxContext False
         txAux = TxAux newTx witness
-    in qcIsRight $ verifyTxUtxoPure vtxContext utxo txAux
+    in counterexample ("\n"+|nameF "txs" (blockListF' "-" genericF txs)|+""
+                           +|nameF "transaction" (B.build txAux)|+"") $
+       qcIsRight $ verifyTxUtxoPure vtxContext utxo txAux
 
 badSigsTx :: HasConfiguration => SmallGenerator BadSigsTx -> Property
 badSigsTx (SmallGenerator (getBadSigsTx -> ls)) =
@@ -454,17 +461,3 @@ txShouldFailWithPlutus res err = case res of
     other -> expectationFailure $
         "expected: Left ...: " <> show (WitnessScriptError err) <> "\n" <>
         " but got: " <> show other
-
-----------------------------------------------------------------------------
--- General-purpose utilities
-----------------------------------------------------------------------------
-
-qcIsLeft :: Show b => Either a b -> Property
-qcIsLeft (Left _) = property True
-qcIsLeft (Right x) =
-    counterexample ("expected Left, got Right (" ++ show x ++ ")") False
-
-qcIsRight :: Show a => Either a b -> Property
-qcIsRight (Right _) = property True
-qcIsRight (Left x) =
-    counterexample ("expected Right, got Left (" ++ show x ++ ")") False

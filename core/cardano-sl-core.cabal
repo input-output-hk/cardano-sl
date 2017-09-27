@@ -15,12 +15,6 @@ flag asserts
   default:     True
   manual:      True
 
-flag dev-mode
-  default:     True
-  manual:      True
-
-  description: Switch between Development and Production mode
-
 library
   exposed-modules:
                        Pos.Arbitrary.Core
@@ -115,7 +109,6 @@ library
                        Pos.Util.Concurrent.RWLock
                        Pos.Util.Concurrent.RWVar
                        Pos.Util.Chrono
-                       Pos.Util.HVect
                        Pos.Util.Limits
                        Pos.Util.LRU
                        Pos.Util.Mnemonics
@@ -153,6 +146,7 @@ library
                      , ed25519
                      , ether >= 0.5
                      , exceptions
+                     , extra
                      , file-embed
                      , filepath
                      , formatting
@@ -226,5 +220,3 @@ library
   ghc-options: -pgmP cpphs -optP --cpp
   if flag(asserts)
     cpp-options: -DASSERTS_ON
-  if flag(dev-mode)
-    cpp-options: -DDEV_MODE

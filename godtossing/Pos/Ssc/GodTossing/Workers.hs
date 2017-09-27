@@ -45,14 +45,14 @@ import           Pos.Core                              (EpochIndex, HasConfigura
                                                         SlotId (..), StakeholderId,
                                                         Timestamp (..),
                                                         VssCertificate (..),
-                                                        VssCertificatesMap, addressHash,
-                                                        bvdMpcThd, getOurSecretKey,
+                                                        VssCertificatesMap (..),
+                                                        blkSecurityParam, bvdMpcThd,
+                                                        getOurSecretKey,
                                                         getOurStakeholderId, getSlotIndex,
+                                                        lookupVss, memberVss,
                                                         mkLocalSlotIndex,
                                                         mkVssCertificate,
-                                                        slotSecurityParam,
-                                                        blkSecurityParam,
-                                                        vssMaxTTL)
+                                                        slotSecurityParam, vssMaxTTL)
 import           Pos.Crypto                            (SecretKey, VssKeyPair,
                                                         VssPublicKey, randomNumber,
                                                         runSecureRandom, vssKeyGen)
@@ -173,7 +173,7 @@ checkNSendOurCert sendActions = do
         Nothing -> pass
         Just sl -> do
             globalCerts <- getGlobalCerts sl
-            let ourCertMB = HM.lookup ourId globalCerts
+            let ourCertMB = lookupVss ourId globalCerts
             case ourCertMB of
                 Just ourCert
                     | vcExpiryEpoch ourCert >= siEpoch sl ->
@@ -190,7 +190,7 @@ checkNSendOurCert sendActions = do
     getOurVssCertificateDo :: SlotId -> VssCertificatesMap -> m VssCertificate
     getOurVssCertificateDo slot certs = do
         ourId <- getOurStakeholderId
-        case HM.lookup ourId certs of
+        case lookupVss ourId certs of
             Just c -> return c
             Nothing -> do
                 ourSk <- getOurSecretKey
@@ -214,7 +214,7 @@ onNewSlotCommitment slotId@SlotId {..} sendActions
         ourId <- getOurStakeholderId
         shouldSendCommitment <- andM
             [ not . hasCommitment ourId <$> gtGetGlobalState
-            , HM.member ourId <$> getStableCerts siEpoch]
+            , memberVss ourId <$> getStableCerts siEpoch]
         logDebug $ sformat ("shouldSendCommitment: "%shown) shouldSendCommitment
         when shouldSendCommitment $ do
             ourCommitment <- SS.getOurCommitment siEpoch
@@ -360,13 +360,13 @@ generateAndSetNewSecret sk SlotId {..} = do
     certs <- getStableCerts siEpoch
     inAssertMode $ do
         let participantIds =
-                map (addressHash . vcSigningKey) $
+                HM.keys . getVssCertificatesMap $
                 computeParticipants (getKeys richmen) certs
         logDebug $
             sformat ("generating secret for: " %listJson) $ participantIds
     let participants = nonEmpty $
                        map (second vcVssKey) $
-                       HM.toList $
+                       HM.toList . getVssCertificatesMap $
                        computeParticipants (getKeys richmen) certs
     maybe (Nothing <$ warnNoPs) (generateAndSetNewSecretDo richmen) participants
   where

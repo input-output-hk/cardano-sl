@@ -74,6 +74,7 @@ library
                      , data-default
                      , directory
                      , ether
+                     , extra
                      , file-embed
                      , filepath
                      , formatting

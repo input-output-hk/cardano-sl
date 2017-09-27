@@ -10,7 +10,6 @@ module Pos.Arbitrary.Ssc.GodTossing
 
 import           Universum
 
-import qualified Data.HashMap.Strict               as HM
 import qualified Data.List.NonEmpty                as NE
 import qualified System.Random                     as R
 import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, elements,
@@ -24,8 +23,9 @@ import           Pos.Binary.GodTossing             ()
 import           Pos.Communication.Types.Relay     (DataMsg (..))
 import           Pos.Core                          (EpochIndex, HasConfiguration,
                                                     SlotId (..), VssCertificate (..),
-                                                    addressHash, mkVssCertificate,
-                                                    vssMaxTTL, vssMinTTL)
+                                                    VssCertificatesMap, mkVssCertificate,
+                                                    mkVssCertificatesMapLossy, vssMaxTTL,
+                                                    vssMinTTL)
 import           Pos.Crypto                        (SecretKey, toVssPublicKey, vssKeyGen)
 import           Pos.Ssc.GodTossing.Core           (Commitment (..), CommitmentsMap,
                                                     GtPayload (..), GtProof (..),
@@ -145,14 +145,11 @@ instance HasConfiguration => Arbitrary GtPayload where
     arbitrary =
         makeSmall $
         oneof
-            [ CommitmentsPayload <$> arbitrary <*> genVssCerts
-            , OpeningsPayload <$> arbitrary <*> genVssCerts
-            , SharesPayload <$> arbitrary <*> genVssCerts
-            , CertificatesPayload <$> genVssCerts
+            [ CommitmentsPayload <$> arbitrary <*> arbitrary
+            , OpeningsPayload <$> arbitrary <*> arbitrary
+            , SharesPayload <$> arbitrary <*> arbitrary
+            , CertificatesPayload <$> arbitrary
             ]
-      where
-        genVssCerts = HM.fromList . map toCertPair <$> arbitrary
-        toCertPair vc = (addressHash $ vcSigningKey vc, vc)
     shrink = genericShrink
 
 instance HasConfiguration => Arbitrary (SscPayloadDependsOnSlot SscGodTossing) where
@@ -173,9 +170,17 @@ instance HasConfiguration => Arbitrary (SscPayloadDependsOnSlot SscGodTossing) w
             arbitrary
         genValidComm SlotId{..} (sk, c) = mkSignedCommitment sk siEpoch c
 
-        genVssCerts slot = HM.fromList . map (toCertPair . genValidCert slot) <$> arbitrary
-        toCertPair vc = (addressHash $ vcSigningKey vc, vc)
+        genVssCerts slot =
+            mkVssCertificatesMapLossy .
+            map (genValidCert slot) <$>
+            arbitrary
         genValidCert SlotId{..} (sk, pk) = mkVssCertificate sk pk $ siEpoch + 5
+
+instance HasConfiguration => Arbitrary VssCertificatesMap where
+    arbitrary = do
+        certs <- arbitrary
+        pure $ mkVssCertificatesMapLossy certs
+    shrink = genericShrink
 
 instance HasConfiguration => Arbitrary VssCertData where
     arbitrary = makeSmall genericArbitrary

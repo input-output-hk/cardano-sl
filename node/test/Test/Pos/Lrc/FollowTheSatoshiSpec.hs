@@ -11,7 +11,8 @@ import           Data.List             (scanl1)
 import qualified Data.Set              as S (deleteFindMin, fromList)
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck       (Arbitrary (..), choose, infiniteListOf, suchThat)
+import           Test.QuickCheck       (Arbitrary (..), Property, choose, infiniteListOf,
+                                        suchThat, (===))
 
 import           Pos.Core              (Coin, HasConfiguration, SharedSeed, StakeholderId,
                                         StakesList, addressHash, blkSecurityParam,
@@ -20,7 +21,7 @@ import           Pos.Core              (Coin, HasConfiguration, SharedSeed, Stak
 import           Pos.Crypto            (PublicKey)
 import           Pos.Lrc               (followTheSatoshi)
 
-import           Test.Pos.Util         (giveCoreConf)
+import           Test.Pos.Util         (giveCoreConf, qcNotElem)
 
 spec :: Spec
 spec = giveCoreConf $ do
@@ -85,17 +86,17 @@ instance Arbitrary StakeAndHolder where
             stakesList = map addressHash (toList restPks) `zip` values
         return (myPk, stakesList)
 
-ftsListLength :: HasConfiguration => SharedSeed -> StakeAndHolder -> Bool
+ftsListLength :: HasConfiguration => SharedSeed -> StakeAndHolder -> Property
 ftsListLength seed (getNoStake -> (_, stakes)) =
-    length (followTheSatoshi seed stakes) == fromIntegral epochSlots
+    length (followTheSatoshi seed stakes) === fromIntegral epochSlots
 
 ftsNoStake
     :: HasConfiguration
     => SharedSeed
     -> StakeAndHolder
-    -> Bool
+    -> Property
 ftsNoStake seed (getNoStake -> (addressHash -> sId, stakes)) =
-    not (sId `elem` followTheSatoshi seed stakes)
+    sId `qcNotElem` followTheSatoshi seed stakes
 
 -- It will be broken if 'Coin' is 0, but 'arbitrary' can't generate 0
 -- for unknown reason.

@@ -1,5 +1,5 @@
-import qualified Data.Map.Strict as M
 import           Data.List       (last)
+import qualified Data.Map.Strict as M
 import           System.FilePath
 import           System.IO       (hPutStrLn)
 import           Text.Printf     (hPrintf)
@@ -8,6 +8,8 @@ import           Options
 import           Statistics
 import           Types
 import           Universum       hiding (head)
+
+import           Pos.Util.Util   (histogram)
 
 main :: IO ()
 main = do

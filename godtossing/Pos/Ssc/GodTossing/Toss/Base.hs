@@ -48,9 +48,10 @@ import           System.Wlog                     (logWarning)
 
 import           Pos.Binary.Class                (AsBinary, fromBinaryM)
 import           Pos.Core                        (CoinPortion, EpochIndex, StakeholderId,
-                                                  addressHash, bvdMpcThd,
-                                                  coinPortionDenominator, getCoinPortion,
-                                                  unsafeGetCoin, VssCertificatesMap, vcSigningKey, vcVssKey)
+                                                  VssCertificatesMap (..), addressHash,
+                                                  bvdMpcThd, coinPortionDenominator,
+                                                  getCoinPortion, lookupVss, memberVss,
+                                                  unsafeGetCoin, vcSigningKey, vcVssKey)
 import           Pos.Crypto                      (DecShare, verifyDecShare,
                                                   verifyEncShares)
 import           Pos.Lrc.Types                   (RichmenSet, RichmenStakes)
@@ -59,10 +60,9 @@ import           Pos.Ssc.GodTossing.Core         (Commitment (..),
                                                   GtPayload (..), InnerSharesMap,
                                                   Opening (..), OpeningsMap,
                                                   SharesDistribution, SharesMap,
-                                                  SignedCommitment,
-                                                  commShares, getCommShares,
-                                                  verifyOpening, vssThreshold,
-                                                  _gpCertificates)
+                                                  SignedCommitment, commShares,
+                                                  getCommShares, gpVss, verifyOpening,
+                                                  vssThreshold)
 import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossEnv (..),
                                                   MonadTossRead (..))
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
@@ -90,7 +90,7 @@ hasSharesToss id = HM.member id <$> getShares
 
 -- | Check whether there is 'VssCertificate' from given stakeholder.
 hasCertificateToss :: MonadTossRead m => StakeholderId -> m Bool
-hasCertificateToss id = HM.member id <$> getVssCertificates
+hasCertificateToss id = memberVss id <$> getVssCertificates
 
 ----------------------------------------------------------------------------
 -- Non-trivial getters
@@ -138,7 +138,10 @@ checkShares epoch (id, sh) = do
 -- | Compute 'VssCertificate's of GodTossing participants using set of
 -- richmen and stable certificates.
 computeParticipants :: RichmenSet -> VssCertificatesMap -> VssCertificatesMap
-computeParticipants (HS.toMap -> richmen) = flip HM.intersection richmen
+computeParticipants (HS.toMap -> richmen) (UnsafeVssCertificatesMap certs) =
+    -- Using 'UnsafeVssCertificatesMap' is safe here because if the original
+    -- 'certs' map is okay, a subset of the original 'certs' map is okay too.
+    UnsafeVssCertificatesMap (HM.intersection certs richmen)
 
 -- | We accept inaccuracy in computation not greater than 0.05,
 -- so stakeholders must have at least 55% of stake to reveal secret
@@ -319,7 +322,7 @@ checkSharePure globalCommitments globalOpeningsPK globalCertificates (idTo, idFr
         -- CHECK: Check that idFrom really sent its commitment
         (_, Commitment{..}, _) <- HM.lookup idFrom $ getCommitmentsMap globalCommitments
         -- Get idTo's vss certificate
-        vssKey <- vcVssKey <$> HM.lookup idTo globalCertificates
+        vssKey <- vcVssKey <$> lookupVss idTo globalCertificates
         idToCommShares <- HM.lookup vssKey commShares
         -- CHECK: Check that commitment's shares and multishare have same length
         guard $ length multiShare == length idToCommShares
@@ -357,8 +360,8 @@ checkSharesPure globalCommitments globalOpeningsPK globalCertificates addrTo sha
 checkCommitmentShareDistr :: SharesDistribution -> VssCertificatesMap -> SignedCommitment -> Bool
 checkCommitmentShareDistr distr participants (_, Commitment{..}, _) =
     let vssPublicKeys = map vcVssKey $ toList participants
-        idVss = map (second vcVssKey) $ HM.toList participants in
-    (HS.fromList vssPublicKeys == getKeys commShares) && (all checkPK idVss)
+        idVss = map (second vcVssKey) $ HM.toList (getVssCertificatesMap participants)
+    in (HS.fromList vssPublicKeys == getKeys commShares) && (all checkPK idVss)
   where
     checkPK (id, pk) = case HM.lookup pk commShares of
         Nothing -> False
@@ -411,7 +414,7 @@ checkCommitmentsPayload epoch (getCommitmentsMap -> comms) =
         participants <- getParticipants epoch
         distr <- computeSharesDistr richmen
         exceptGuard CommittingNoParticipants
-            (`HM.member` participants) (HM.keys comms)
+            (`memberVss` participants) (HM.keys comms)
         exceptGuardM CommitmentAlreadySent
             (notM hasCommitmentToss) (HM.keys comms)
         exceptGuardSnd CommSharesOnWrongParticipants
@@ -453,7 +456,7 @@ checkSharesPayload epoch shares = do
     -- useful for us, despite that it didn't send its commitment.
     part <- getParticipants epoch
     exceptGuard SharesNotRichmen
-        (`HM.member` part) (HM.keys shares)
+        (`memberVss` part) (HM.keys shares)
     exceptGuardM InternalShareWithoutCommitment
         hasCommitmentToss (concatMap HM.keys $ toList shares)
     exceptGuardM SharesAlreadySent
@@ -464,6 +467,11 @@ checkSharesPayload epoch shares = do
 -- For certificates we check that
 --   * certificate hasn't been sent already
 --   * certificate is generated by richman
+--   * there is no existing certificate with the same VSS key in
+--     MonadToss's state
+-- Note that we don't need to check whether there are certificates with
+-- duplicate VSS keys in payload itself, because this is detected at
+-- deserialization stage.
 checkCertificatesPayload
     :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m)
     => EpochIndex
@@ -472,10 +480,15 @@ checkCertificatesPayload
 checkCertificatesPayload epoch certs = do
     richmenSet <- getKeys <$> (note (NoRichmen epoch) =<< getRichmen epoch)
     exceptGuardM CertificateAlreadySent
-        (notM hasCertificateToss) (HM.keys certs)
+        (notM hasCertificateToss) (HM.keys (getVssCertificatesMap certs))
     exceptGuardSnd CertificateNotRichmen
         ((`HS.member` richmenSet) . addressHash . vcSigningKey)
-        (HM.toList certs)
+        (HM.toList (getVssCertificatesMap certs))
+    existingVssKeys <-
+        HS.fromList . map vcVssKey . toList <$> getVssCertificates
+    exceptGuardSnd CertificateDuplicateVssKey
+        (not . (`HS.member` existingVssKeys) . vcVssKey)
+        (HM.toList (getVssCertificatesMap certs))
 
 checkPayload
     :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m,
@@ -484,7 +497,7 @@ checkPayload
     -> GtPayload
     -> m ()
 checkPayload epoch payload = do
-    let payloadCerts = _gpCertificates payload
+    let payloadCerts = gpVss payload
     case payload of
         CommitmentsPayload comms _ -> checkCommitmentsPayload epoch comms
         OpeningsPayload opens _    -> checkOpeningsPayload opens

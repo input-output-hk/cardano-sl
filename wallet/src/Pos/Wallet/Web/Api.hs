@@ -378,7 +378,6 @@ type ExportBackupJSON =
     :> WRes Post ()
 
 -- | Servant API which provides access to wallet.
--- TODO: Should be composed depending on the resource - wallets, txs, ... http://haskell-servant.github.io/tutorial/0.4/server.html#nested-apis
 type WalletApi = ApiPrefix :> (
      -- NOTE: enabled in prod mode https://issues.serokell.io/issue/CSM-333
      TestReset
@@ -428,8 +427,6 @@ type WalletApi = ApiPrefix :> (
      -------------------------------------------------------------------------
      -- Profile(s)
      -------------------------------------------------------------------------
-     -- TODO: A single profile? Should be possible in the future to have
-     -- multiple profiles?
      GetProfile
     :<|>
      UpdateProfile
@@ -437,13 +434,10 @@ type WalletApi = ApiPrefix :> (
      -------------------------------------------------------------------------
      -- Transactons
      -------------------------------------------------------------------------
-    -- TODO: for now we only support one2one sending. We should extend this
-    -- to support many2many
      NewPayment
     :<|>
      TxFee
     :<|>
-      -- FIXME: Should capture the URL parameters in the payload.
      UpdateTx
     :<|>
      GetHistory

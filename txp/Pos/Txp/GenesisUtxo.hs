@@ -19,7 +19,7 @@ import           Pos.Txp.Toil        (GenesisUtxo (..), utxoToStakes)
 
 
 genesisStakes :: HasConfiguration => StakesMap
-genesisStakes = utxoToStakes (gdBootStakeholders genesisData) . unGenesisUtxo $ genesisUtxo
+genesisStakes = utxoToStakes . unGenesisUtxo $ genesisUtxo
 
 genesisUtxo :: HasConfiguration => GenesisUtxo
 genesisUtxo =

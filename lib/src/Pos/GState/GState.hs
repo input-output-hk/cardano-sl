@@ -49,7 +49,7 @@ prepareGStateDB initialTip = unlessM isInitialized $ do
     initGStateCommon initialTip
     initGStateUtxo genesisUtxo
     initGtDB
-    initGStateStakes genesisUtxo $ gdBootStakeholders genesisData
+    initGStateStakes genesisUtxo
     initGStateUS
     initGStateDlg $ gdHeavyDelegation genesisData
     initGStateBlockExtra initialTip

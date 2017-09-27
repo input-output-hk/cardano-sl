@@ -7,7 +7,6 @@ module Pos.Core.Genesis.Types
        , GenesisVssCertificatesMap (..)
        , noGenesisDelegation
        , mkGenesisDelegation
-       , bootDustThreshold
 
          -- * GenesisSpec
        , TestnetBalanceOptions (..)
@@ -106,15 +105,6 @@ mkGenesisDelegation pskM = do
     return $ UnsafeGenesisDelegation resMap
   where
     psks = toList pskM
-
--- | Calculates a minimum amount of coins user can set as an output in
--- boot era.
-bootDustThreshold :: GenesisWStakeholders -> Coin
-bootDustThreshold (GenesisWStakeholders bootHolders) =
-    -- it's safe to use it here because weights are word16 and should
-    -- be really low in production, so this sum is not going to be
-    -- even more than 10-15 coins.
-    unsafeIntegerToCoin . sum $ map fromIntegral $ toList bootHolders
 
 ----------------------------------------------------------------------------
 -- Genesis Spec

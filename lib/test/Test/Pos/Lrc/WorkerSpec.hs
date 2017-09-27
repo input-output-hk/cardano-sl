@@ -104,14 +104,13 @@ lrcCorrectnessProp = do
     lift $ Lrc.lrcSingleShot 1
     leaders1 <-
         maybeStopProperty "No leaders for epoch#1!" =<< lift (Lrc.getLeaders 1)
-    let gws = gdBootStakeholders genesisData
     -- Here we use 'genesisSeed' (which is the seed for the 0-th
     -- epoch) because we have a contract that if there is no ssc
     -- payload the previous seed must be reused (which is the case in
     -- this test).
     let genesisSeed = gdFtsSeed genesisData
     let expectedLeadersUtxo =
-            Lrc.followTheSatoshiUtxo gws genesisSeed stableUtxo
+            Lrc.followTheSatoshiUtxo genesisSeed stableUtxo
     let expectedLeadersStakes =
             Lrc.followTheSatoshi genesisSeed (HM.toList stableStakes)
     unless (expectedLeadersUtxo /= leaders1) $

@@ -41,10 +41,7 @@ import           Pos.Util.Util       (HasLens (lensOf))
 
 -- | Compute leaders of the 0-th epoch from stake distribution.
 genesisLeaders :: HasConfiguration => SlotLeaders
-genesisLeaders = followTheSatoshiUtxo
-                    (gdBootStakeholders genesisData)
-                    (gdFtsSeed genesisData)
-                    utxo
+genesisLeaders = followTheSatoshiUtxo (gdFtsSeed genesisData) utxo
   where
     GenesisUtxo utxo = genesisUtxo
 

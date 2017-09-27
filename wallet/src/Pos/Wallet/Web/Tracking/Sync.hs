@@ -169,8 +169,7 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) 
         Just (SyncedWith wTip) -> DB.blkGetHeader wTip >>= \case
             Nothing ->
                 throwM $ InternalError $
-                    sformat ("Couldn't get block header of wallet "%build
-                                %" by last synced hh: "%build) wAddr wTip
+                    sformat ("Couldn't get block header of wallet by last synced hh: "%build) wTip
             Just wHeader -> syncDo encSK (Just wHeader)
   where
     onErr encSK = logWarningS . sformat fmt (encToCId encSK)

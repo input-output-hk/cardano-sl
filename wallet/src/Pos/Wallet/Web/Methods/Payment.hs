@@ -37,18 +37,18 @@ import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAccAddr)
 import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAddress (..),
                                                    CCoin, CId, CTx (..),
                                                    CWAddressMeta (..), Wal,
-                                                 Wal, addrMetaToAccount, mkCCoin)
-import           Pos.Wallet.Web.Error           (WalletError (..))
-import           Pos.Wallet.Web.Methods.History (addHistoryTx)
-import qualified Pos.Wallet.Web.Methods.Logic   as L
-import           Pos.Wallet.Web.Methods.Txp     (coinDistrToOutputs, rewrapTxError,
-                                                 submitAndSaveNewPtx)
-import           Pos.Wallet.Web.Mode            (MonadWalletWebMode, WalletWebMode, getIsBootstrapEra)
-import           Pos.Wallet.Web.Pending         (mkPendingTx)
-import           Pos.Wallet.Web.State           (AddressLookupMode (Existing))
-import           Pos.Wallet.Web.Util            (decodeCTypeOrFail,
-                                                 getAccountAddrsOrThrow,
-                                                 getWalletAccountIds)
+                                                   addrMetaToAccount)
+import           Pos.Wallet.Web.Error             (WalletError (..))
+import           Pos.Wallet.Web.Methods.History   (addHistoryTx)
+import qualified Pos.Wallet.Web.Methods.Logic     as L
+import           Pos.Wallet.Web.Methods.Txp       (coinDistrToOutputs, rewrapTxError,
+                                                   submitAndSaveNewPtx)
+import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode, getIsBootstrapEra)
+import           Pos.Wallet.Web.Pending           (mkPendingTx)
+import           Pos.Wallet.Web.State             (AddressLookupMode (Existing))
+import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
+                                                   getAccountAddrsOrThrow,
+                                                   getWalletAccountIds)
 
 
 newPayment

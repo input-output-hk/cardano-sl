@@ -63,7 +63,7 @@ data CAccModifier = CAccModifier
     , camChange               :: !(VoidModifier (CId Addr, HeaderHash))
     , camUtxo                 :: !UtxoModifier
     , camAddedHistory         :: !(DList TxHistoryEntry)
-    , camDeletedHistory       :: !(DList TxId)
+    , camDeletedHistory       :: !(DList TxHistoryEntry)
     , camAddedPtxCandidates   :: !(DList (TxId, PtxBlockInfo))
     , camDeletedPtxCandidates :: !(DList (TxId, TxHistoryEntry))
     }

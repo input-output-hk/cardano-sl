@@ -58,8 +58,8 @@ import           Pos.StateLock              (Priority (..), StateLock, StateLock
 import           Pos.Txp                    (MonadTxpMem, clearTxpMemPool, txGetPayload)
 import           Pos.Txp.Core               (TxAux (..), emptyTxPayload, mkTxPayload)
 import           Pos.Update                 (UpdateContext)
-import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Update.Configuration   (HasUpdateConfiguration)
+import           Pos.Update.Core            (UpdatePayload (..))
 import qualified Pos.Update.DB              as UDB
 import           Pos.Update.Logic           (clearUSMemPool, usCanCreateBlock,
                                              usPreparePayload)
@@ -183,9 +183,13 @@ needCreateGenesisBlock epoch tipHeader = do
         -- 'slotSecurityParam' slots from 'epoch' - 1.
         Right mb ->
             if mb ^. epochIndexL /= epoch - 1
-            then pure False
-            else (chainQualityThreshold @Double <=) <$>
-                 calcChainQualityM (flattenSlotId $ SlotId epoch minBound)
+                then pure False
+                else calcChainQualityM (flattenSlotId $ SlotId epoch minBound) <&> \case
+                         Nothing -> False -- if we can't compute chain
+                                          -- quality, we probably
+                                          -- shouldn't try to create
+                                          -- blocks
+                         Just cq -> chainQualityThreshold @Double <= cq
 
 ----------------------------------------------------------------------------
 -- MainBlock
@@ -275,10 +279,17 @@ canCreateBlock sId tipHeader =
         -- weird things can happen (we just launched the system) and
         -- usually we monitor it manually anyway.
         unless (flatSId <= fromIntegral (epochSlots `div` 4)) $ do
-            chainQuality <- calcChainQualityM flatSId
+            chainQualityMaybe <- calcChainQualityM flatSId
+            chainQuality <-
+                maybe
+                    (throwError "can't compute chain quality")
+                    pure
+                    chainQualityMaybe
             unless (chainQuality >= chainQualityThreshold @Double) $
                 throwError $
-                sformat ("chain quality is below threshold: "%fixed 3) chainQuality
+                sformat
+                    ("chain quality is below threshold: "%fixed 3)
+                    chainQuality
   where
     tipEOS :: EpochOrSlot
     tipEOS = getEpochOrSlot tipHeader

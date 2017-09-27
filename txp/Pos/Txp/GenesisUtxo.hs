@@ -10,8 +10,8 @@ import           Universum
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Map.Strict     as Map
 
-import           Pos.Core            (GenesisData (..), HasConfiguration, StakesMap,
-                                      genesisData, getGenesisAvvmBalances,
+import           Pos.Core            (Address, Coin, GenesisData (..), HasConfiguration,
+                                      StakesMap, genesisData, getGenesisAvvmBalances,
                                       getGenesisNonAvvmBalances, makeRedeemAddress)
 import           Pos.Crypto          (unsafeHash)
 import           Pos.Txp.Core        (TxIn (..), TxOut (..), TxOutAux (..))
@@ -26,10 +26,15 @@ genesisUtxo =
     let GenesisData{ gdNonAvvmBalances
                    , gdAvvmDistr
                    } = genesisData
+
+        preUtxo :: [(Address, Coin)]
         preUtxo = (first makeRedeemAddress <$> HM.toList (getGenesisAvvmBalances gdAvvmDistr))
                                   <> (HM.toList $ getGenesisNonAvvmBalances gdNonAvvmBalances)
+
+        utxoEntry :: (Address, Coin) -> (TxIn, TxOutAux)
         utxoEntry (addr, coin) =
                  ( TxInUtxo (unsafeHash addr) 0
                  , TxOutAux (TxOut addr coin)
                  )
+
      in GenesisUtxo . Map.fromList $ utxoEntry <$> preUtxo

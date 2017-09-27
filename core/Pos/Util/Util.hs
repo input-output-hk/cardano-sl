@@ -224,7 +224,7 @@ instance {-# OVERLAPPABLE #-}
 
 instance Rand.MonadRandom QC.Gen where
     getRandomBytes n = do
-        [a,b,c,d,e] <- replicateM 5 QC.arbitrary
+        [a,b,c,d,e] <- replicateM 5 (QC.choose (minBound, maxBound))
         pure $ fst $ Rand.randomBytesGenerate n (Rand.drgNewTest (a,b,c,d,e))
 
 instance Hashable Millisecond where

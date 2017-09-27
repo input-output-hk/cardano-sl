@@ -19,22 +19,26 @@ import           Options.Applicative          (Parser, auto, execParser, footerD
                                                progDesc, strOption, switch, value)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
-import           Pos.Core                     (isDevelopment)
+import           Pos.Client.CLI               (configurationOptionsParser)
 import           Pos.Generator.Block          (TxGenParams (..))
+import           Pos.Launcher                 (ConfigurationOptions)
 
 data BlockGenOptions = BlockGenOptions
-    { bgoBlockN      :: !Word32
+    { bgoBlockN               :: !Word32
     -- ^ Number of blocks to generate.
-    , bgoNodes       :: !(Either Word32 [FilePath])
+    , bgoSecrets              :: ![FilePath]
     -- ^ Secret files.
-    , bgoPath        :: !FilePath
+    , bgoPath                 :: !FilePath
     -- ^ Location of generated database.
-    , bgoAppend      :: !Bool
+    , bgoAppend               :: !Bool
     -- ^ Whether to append to existing db.
-    , bgoSeed        :: !(Maybe Int)
+    , bgoSeed                 :: !(Maybe Int)
     -- ^ Generating seed
-    , bgoTxGenParams :: !TxGenParams
+    , bgoTxGenParams          :: !TxGenParams
     -- ^ Transaction generator parameters
+    , bgoConfigurationOptions :: ConfigurationOptions
+    -- ^ Configuration to run with
+    , bgoUseGenesisSecrets    :: !Bool
     }
 
 optionsParser :: Parser BlockGenOptions
@@ -44,9 +48,11 @@ optionsParser = do
         metavar "INT" <>
         help "Length of blockchain."
 
-    bgoNodes <-
-        if isDevelopment then Left <$> nodesCountParser
-        else Right <$> secretsParser
+    bgoSecrets <- many $ strOption $
+        long    "secret" <>
+        metavar "FILEPATH" <>
+        help    "Path to secret"
+
 
     bgoPath <- strOption $
         long    "generated-db" <>
@@ -73,21 +79,18 @@ optionsParser = do
             metavar "INT" <>
             help "Max number of outputs in tx")
 
+    bgoConfigurationOptions <- configurationOptionsParser
+
+    bgoUseGenesisSecrets <- switch $
+        long "use-genesis-secrets" <>
+        help ("If genesis secret keys are known, they can be used " <>
+              "to create a block or something else (tx).")
 
     return BlockGenOptions{..}
   where
     getTxGenParams mTC mMO =
         TxGenParams (fromMaybe (_tgpTxCountRange def) mTC)
                     (fromMaybe (_tgpMaxOutputs def) mMO)
-    secretsParser = many $ strOption $
-        long    "secret" <>
-        metavar "FILEPATH" <>
-        help    "Path to secret"
-
-    nodesCountParser = option auto $
-        long    "nodes" <>
-        metavar "INT" <>
-        help "Number of nodes."
 
 getBlockGenOptions :: IO BlockGenOptions
 getBlockGenOptions = execParser programInfo

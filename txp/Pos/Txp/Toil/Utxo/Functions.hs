@@ -18,10 +18,9 @@ import           Serokell.Util             (VerificationRes, allDistinct, enumer
                                             verifyGeneric)
 
 import           Pos.Binary.Txp.Core       ()
-import           Pos.Core                  (AddrType (..), Address (..), addressF,
-                                            integerToCoin, isRedeemAddress,
-                                            isUnknownAddressType, sumCoins,
-                                            HasConfiguration)
+import           Pos.Core                  (AddrType (..), Address (..), HasConfiguration,
+                                            addressF, integerToCoin, isRedeemAddress,
+                                            isUnknownAddressType, sumCoins)
 import           Pos.Core.Address          (checkPubKeyAddress, checkRedeemAddress,
                                             checkScriptAddress)
 import           Pos.Crypto                (SignTag (SignRedeemTx, SignTx), WithHash (..),
@@ -33,7 +32,8 @@ import           Pos.Txp.Core              (Tx (..), TxAttributes, TxAux (..), T
                                             TxInWitness (..), TxOut (..), TxOutAux (..),
                                             TxSigData (..), TxUndo, TxWitness,
                                             isTxInUnknown)
-import           Pos.Txp.Toil.Class        (MonadUtxo (..), MonadUtxoRead (..))
+import           Pos.Txp.Toil.Class        (MonadUtxo (..), MonadUtxoRead (..), utxoDel,
+                                            utxoPut)
 import           Pos.Txp.Toil.Failure      (ToilVerFailure (..), WitnessVerFailure (..))
 import           Pos.Txp.Toil.Types        (TxFee (..))
 

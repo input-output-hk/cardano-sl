@@ -16,16 +16,17 @@ import           Formatting          (sformat, shown, (%))
 import           Mockable            (Production, currentTime, runProduction)
 
 import           Pos.Binary          ()
-import           Pos.Client.CLI      (CommonNodeArgs (..))
+import           Pos.Client.CLI      (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI      as CLI
 import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec, worker)
 import           Pos.Context         (HasNodeContext)
 import           Pos.Core            (Timestamp (..), gdStartTime, genesisData)
-import           Pos.Launcher        (HasConfigurations, NodeParams (..),
-                                      NodeResources (..), bracketNodeResources, runNode,
-                                      withConfigurations)
+import           Pos.Launcher        (ConfigurationOptions (..), HasConfigurations,
+                                      NodeParams (..), NodeResources (..),
+                                      bracketNodeResources, runNode, withConfigurations)
 import           Pos.Ssc.Class       (SscParams)
 import           Pos.Ssc.GodTossing  (SscGodTossing)
+import           Pos.Ssc.SscAlgo     (SscAlgo (..))
 import           Pos.Util.UserSecret (usVss)
 import           Pos.Wallet.Web      (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
                                       runWRealMode, walletServeWebFull, walletServerOuts)
@@ -34,7 +35,11 @@ import           Pos.WorkMode        (WorkMode)
 
 import           NodeOptions         (WalletArgs (..), WalletNodeArgs (..),
                                       getWalletNodeOptions)
-import           Params              (getNodeParams)
+
+
+----------------------------------------------------------------------------
+-- Main action
+----------------------------------------------------------------------------
 
 actionWithWallet :: HasConfigurations => SscParams SscGodTossing -> NodeParams -> WalletArgs -> Production ()
 actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
@@ -75,7 +80,7 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
         putText $ sformat ("System start time is " % shown) $ gdStartTime genesisData
         t <- currentTime
         putText $ sformat ("Current time is " % shown) (Timestamp t)
-        currentParams <- getNodeParams cArgs
+        currentParams <- getNodeParams cArgs nodeArgs
         putText $ "Wallet is enabled!"
         putText $ sformat ("Using configs and genesis:\n"%shown) conf
 
@@ -84,7 +89,11 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
 
         actionWithWallet gtParams currentParams wArgs
   where
-    conf = CLI.configurationOptions (CLI.commonArgs cArgs)
+    nodeArgs :: NodeArgs
+    nodeArgs = NodeArgs { sscAlgo = GodTossingAlgo, behaviorConfigPath = Nothing }
+
+    conf :: ConfigurationOptions
+    conf = CLI.configurationOptions $ CLI.commonArgs cArgs
 
 main :: IO ()
 main = do

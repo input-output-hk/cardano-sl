@@ -1107,7 +1107,7 @@ self: {
           description = "Reporting server for CSL";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      cardano-sl = callPackage ({ MonadRandom, QuickCheck, acid-state, aeson, ansi-terminal, ansi-wl-pprint, async, base, base58-bytestring, base64-bytestring, binary, bytestring, canonical-json, cardano-crypto, cardano-report-server, cardano-sl-core, cardano-sl-db, cardano-sl-godtossing, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cborg, cereal, conduit, containers, cpphs, cryptonite, cryptonite-openssl, data-default, deepseq, deriving-compat, digest, directory, dlist, dns, ed25519, ekg-core, ekg-statsd, ekg-wai, ether, exceptions, extra, file-embed, filelock, filepath, focus, formatting, generic-arbitrary, hashable, hspec, http-client, http-client-tls, http-conduit, http-types, iproute, kademlia, lens, list-t, log-warper, lrucache, memory, mkDerivation, mmorph, monad-control, monad-loops, mono-traversable, mtl, neat-interpolation, network-info, network-transport, network-transport-tcp, network-uri, node-sketch, optparse-applicative, parsec, plutus-prototype, pvss, quickcheck-instances, random, reflection, regex-tdfa, regex-tdfa-text, resourcet, rocksdb-haskell, safe-exceptions, safecopy, serokell-util, servant, servant-multipart, servant-server, stdenv, stm, stm-containers, string-qq, systemd, tagged, template-haskell, text, text-format, th-lift-instances, time, time-units, transformers, transformers-base, transformers-lift, universum, unix, unordered-containers, vector, wai, wai-extra, warp, warp-tls, yaml }:
+      cardano-sl = callPackage ({ MonadRandom, QuickCheck, acid-state, aeson, ansi-terminal, ansi-wl-pprint, async, base, base58-bytestring, base64-bytestring, binary, bytestring, canonical-json, cardano-crypto, cardano-report-server, cardano-sl-core, cardano-sl-db, cardano-sl-godtossing, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cborg, cereal, conduit, containers, cpphs, cryptonite, cryptonite-openssl, data-default, deepseq, deriving-compat, digest, directory, dlist, dns, ed25519, ekg-core, ekg-statsd, ekg-wai, ether, exceptions, extra, file-embed, filelock, filepath, fmt, focus, formatting, generic-arbitrary, hashable, hspec, http-client, http-client-tls, http-conduit, http-types, iproute, kademlia, lens, list-t, log-warper, lrucache, memory, mkDerivation, mmorph, monad-control, monad-loops, mono-traversable, mtl, neat-interpolation, network-info, network-transport, network-transport-tcp, network-uri, node-sketch, optparse-applicative, parsec, plutus-prototype, pvss, quickcheck-instances, random, reflection, regex-tdfa, regex-tdfa-text, resourcet, rocksdb-haskell, safe-exceptions, safecopy, serokell-util, servant, servant-multipart, servant-server, stdenv, stm, stm-containers, string-qq, systemd, tagged, template-haskell, text, text-format, th-lift-instances, time, time-units, transformers, transformers-base, transformers-lift, universum, unix, unordered-containers, vector, wai, wai-extra, warp, warp-tls, yaml }:
       mkDerivation {
           pname = "cardano-sl";
           version = "0.6.2";
@@ -1158,6 +1158,7 @@ self: {
             file-embed
             filelock
             filepath
+            fmt
             focus
             formatting
             generic-arbitrary
@@ -1275,6 +1276,7 @@ self: {
             ether
             exceptions
             extra
+            fmt
             formatting
             generic-arbitrary
             hspec
@@ -1897,7 +1899,7 @@ self: {
           description = "Cardano SL - Tools";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-txp = callPackage ({ QuickCheck, aeson, base, bytestring, cardano-sl-core, cardano-sl-db, cardano-sl-infra, conduit, containers, cpphs, data-default, ekg-core, ether, exceptions, formatting, generic-arbitrary, hashable, lens, lifted-base, log-warper, memory, mkDerivation, monad-control, mtl, neat-interpolation, node-sketch, plutus-prototype, resourcet, rocksdb-haskell, serokell-util, stdenv, stm, tagged, template-haskell, text, text-format, time-units, transformers, universum, unordered-containers, vector }:
+      cardano-sl-txp = callPackage ({ QuickCheck, aeson, base, bytestring, cardano-sl-core, cardano-sl-db, cardano-sl-infra, conduit, containers, cpphs, data-default, ekg-core, ether, exceptions, fmt, formatting, generic-arbitrary, hashable, lens, lifted-base, log-warper, memory, mkDerivation, monad-control, mtl, neat-interpolation, node-sketch, plutus-prototype, resourcet, rocksdb-haskell, serokell-util, stdenv, stm, tagged, template-haskell, text, text-format, time-units, transformers, universum, unordered-containers, vector }:
       mkDerivation {
           pname = "cardano-sl-txp";
           version = "0.6.2";
@@ -1915,6 +1917,7 @@ self: {
             ekg-core
             ether
             exceptions
+            fmt
             formatting
             generic-arbitrary
             hashable
@@ -3402,6 +3405,29 @@ self: {
           doHaddock = false;
           doCheck = false;
           description = "Generic finger-tree structure, with example instances";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
+      fmt = callPackage ({ base, base16-bytestring, base64-bytestring, bytestring, containers, microlens, mkDerivation, stdenv, text, text-format, time, time-locale-compat }:
+      mkDerivation {
+          pname = "fmt";
+          version = "0.5.0.0";
+          sha256 = "156iv5c5aqlc6mmc5qcnsa4plhp99n4mzmm8rspxrc84gkl1agnf";
+          libraryHaskellDepends = [
+            base
+            base16-bytestring
+            base64-bytestring
+            bytestring
+            containers
+            microlens
+            text
+            text-format
+            time
+            time-locale-compat
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "http://github.com/aelve/fmt";
+          description = "A new formatting library";
           license = stdenv.lib.licenses.bsd3;
         }) {};
       focus = callPackage ({ base, mkDerivation, stdenv }:

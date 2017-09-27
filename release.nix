@@ -3,7 +3,7 @@ let
 in
   { supportedSystems ? [ "x86_64-linux" "x86_64-darwin" ]
   , scrubJobs ? false
-  , dconfigs ? [ "testnet_staging_full" "testnet_staging_wallet" ]
+  , dconfigs ? [ "testnet_staging_full" "testnet_staging_wallet" "testnet_public_wallet" ]
   , cardano ? { outPath = ./.; rev = "abcdef"; }
   }:
 
@@ -26,6 +26,7 @@ let
     cardano-sl-tools = supportedSystems;
     cardano-sl-explorer-static = [ "x86_64-linux" ];
     cardano-report-server-static = [ "x86_64-linux" ];
+    dockerImage = [ "x86_64-linux" ];
   };
 in (mergeAttrsMap (dconfig: { ${dconfig } = (withDconfig dconfig).mapTestOn platforms; }) dconfigs)
    // ((withDconfig null).mapTestOn { stack2nix = supportedSystems; })

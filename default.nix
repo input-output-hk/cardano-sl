@@ -84,7 +84,67 @@ let
       });
     };
   });
+  rawDockerImage = let
+    DOMAIN = "aws.iohk.io";
+    topologyFile = pkgs.writeText "topology.yaml" ''
+      wallet:
+        relays:
+          [
+            [
+              { host: cardano-node-0.${DOMAIN}, port: 3000 },
+              { host: cardano-node-1.${DOMAIN}, port: 3000 },
+              { host: cardano-node-2.${DOMAIN}, port: 3000 },
+              { host: cardano-node-3.${DOMAIN}, port: 3000 },
+              { host: cardano-node-4.${DOMAIN}, port: 3000 },
+              { host: cardano-node-5.${DOMAIN}, port: 3000 },
+              { host: cardano-node-6.${DOMAIN}, port: 3000 }
+            ]
+          ]
+        valency: 1
+        fallbacks: 7
+    '';
+    CLUSTER = "testnet-0.6";
+    SYSTEM_START_TIME = 1504820421;
+    debugDeps = pkgs.buildEnv {
+      name = "debug-deps";
+      paths = with pkgs; [ bashInteractive coreutils utillinux iproute iputils ];
+    };
+    saneShell = pkgs.writeScript "sane-shell.sh" ''
+      #! ${pkgs.stdenv.shell}
+      export PATH=${debugDeps}/bin/
+      bash
+    '';
+  in pkgs.dockerTools.buildImage {
+    name = "cardano-container-${CLUSTER}";
+    contents = [ cardanoPkgs.cardano-sl-static pkgs.iana-etc ];
+    config = {
+      Cmd2 = [ saneShell ];
+      Cmd = [
+        "${cardanoPkgs.cardano-sl-wallet}/bin/cardano-node"
+        "--tlscert" "${cardanoPkgs.cardano-sl.src + "/../scripts/tls-files/server.crt"}"
+        "--tlskey" "${cardanoPkgs.cardano-sl.src + "/../scripts/tls-files/server.key"}"
+        "--tlsca" "${cardanoPkgs.cardano-sl.src + "/../scripts/tls-files/ca.crt"}"
+        "--no-ntp"
+        "--topology" "${topologyFile}"
+        "--log-config" "${cardanoPkgs.cardano-sl.src + "/../scripts/log-templates/log-config-qa.yaml"}"
+        "--logs-prefix" "logs/${CLUSTER}"
+        "--db-path" "db-${CLUSTER}"
+        "--wallet-db-path" "wdb-${CLUSTER}"
+        "--system-start" (toString SYSTEM_START_TIME)
+      ];
+      ExposedPorts = {
+        "3000/tcp" = {};
+      };
+    };
+  };
+  dockerImage = pkgs.runCommand "cardano-container-hydra" {} ''
+    mkdir -pv $out/nix-support/
+    cat <<EOF > $out/nix-support/hydra-build-products
+    file dockerimage ${rawDockerImage}
+    EOF
+  '';
   other = {
+    inherit rawDockerImage dockerImage;
     stack2nix = import (pkgs.fetchFromGitHub {
       owner = "input-output-hk";
       repo = "stack2nix";

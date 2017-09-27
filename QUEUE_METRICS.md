@@ -13,10 +13,10 @@ peers (aka numbers of messages in-flight).
 
 ### Failures (e.g., `queue.node0.Failures`)
 
-Records the total number nodes that had a recent failure (the conversion
-threw an exception). We will not attempt to enqueue messages to such nodes.
-What exactly constitutes a "recent" failure depends on the failure policy;
-currently it defaults to 10 slots (200 seconds).
+Records the total number of nodes to which a recent conversation failed; we will
+not attempt to enqueue messages to such nodes. What exactly constitutes a
+"recent" failure depends on the failure policy; currently it defaults to 10
+slots (200 seconds). The recent failures statistics are cleared on SIGHUP.
 
 ### Scheduled (e.g., `queue.node0.Scheduled`)
 

@@ -1,5 +1,5 @@
 name:                cardano-sl-core
-version:             0.6.0
+version:             0.6.2
 synopsis:            Cardano SL - core
 description:         Cardano SL - core
 license:             MIT
@@ -10,8 +10,6 @@ copyright:           2016 IOHK
 category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
-data-files:
-  constants.yaml
 
 flag asserts
   default:     True
@@ -23,12 +21,6 @@ flag dev-mode
 
   description: Switch between Development and Production mode
 
-flag dev-custom-config
-  default:     False
-  manual:      True
-
-  description: Enable this to set CONFIG manually even in dev mode (via --ghc-options=-DCONFIG=benchmark); otherwise it'll be 'dev'. In other modes you always have to set CONFIG manually.
-
 library
   exposed-modules:
                        Pos.Arbitrary.Core
@@ -36,27 +28,42 @@ library
                        Pos.Arbitrary.Crypto
                        Pos.Arbitrary.Crypto.Unsafe
 
+                       Pos.Aeson.Core
+                       Pos.Aeson.Core.Configuration
                        Pos.Aeson.Crypto
+                       Pos.Aeson.Fee
+                       Pos.Aeson.Genesis
+
 
                        Pos.Core
                        Pos.Core.Address
                        Pos.Core.Block
                        Pos.Core.BlockVersionData
                        Pos.Core.Class
-                       Pos.Core.Coin
+                       Pos.Core.Configuration
+                       Pos.Core.Configuration.BlockVersionData
+                       Pos.Core.Configuration.Core
+                       Pos.Core.Configuration.GeneratedSecrets
+                       Pos.Core.Configuration.GenesisData
+                       Pos.Core.Configuration.GenesisHash
+                       Pos.Core.Configuration.Protocol
                        Pos.Core.Constants
+                       Pos.Core.Coin
                        Pos.Core.Context
                        Pos.Core.Fee
-                       Pos.Core.Fee.Config
                        Pos.Core.Script
                        Pos.Core.SharedSeed
                        Pos.Core.Slotting
                        Pos.Core.Timestamp
                        Pos.Core.Types
                        Pos.Core.Version
+                       Pos.Core.Vss
+                       Pos.Core.Vss.Types
 
                        Pos.Core.Genesis
-                       Pos.Core.Genesis.Parser
+                       Pos.Core.Genesis.Canonical
+                       Pos.Core.Genesis.Constants
+                       Pos.Core.Genesis.Generate
                        Pos.Core.Genesis.Types
 
                        Pos.Crypto
@@ -65,12 +72,18 @@ library
                        Pos.Crypto.HD
                        Pos.Crypto.Random
                        Pos.Crypto.Hashing
-                       Pos.Crypto.SafeSigning
                        Pos.Crypto.Signing
-                       Pos.Crypto.SignTag
+                       Pos.Crypto.Signing.Tag
+                       Pos.Crypto.Signing.Redeem
+                       Pos.Crypto.Signing.Safe
+                       Pos.Crypto.Signing.Signing
+                       Pos.Crypto.Signing.Types
+                       Pos.Crypto.Signing.Types.Tag
+                       Pos.Crypto.Signing.Types.Redeem
+                       Pos.Crypto.Signing.Types.Safe
+                       Pos.Crypto.Signing.Types.Signing
                        Pos.Crypto.Scrypt
                        Pos.Crypto.SecretSharing
-                       Pos.Crypto.RedeemSigning
 
                        Pos.Merkle
                        Pos.Data.Attributes
@@ -102,7 +115,6 @@ library
                        Pos.Util.Concurrent.RWLock
                        Pos.Util.Concurrent.RWVar
                        Pos.Util.Chrono
-                       Pos.Util.Config
                        Pos.Util.HVect
                        Pos.Util.Limits
                        Pos.Util.LRU
@@ -113,9 +125,6 @@ library
                        Pos.Util.Util
 
   other-modules:
-                       Pos.Core.Constants.Raw
-                       Pos.Core.Constants.Typed
-                       Pos.Core.Context.Const
                        Pos.Core.Context.PrimaryKey
 
   build-depends:       QuickCheck
@@ -123,9 +132,11 @@ library
                      , ansi-terminal
                      , autoexporter
                      , base
+                     , base16-bytestring
                      , base58-bytestring
                      , binary
                      , bytestring
+                     , canonical-json
                      , cardano-crypto
                      , cborg
                      , cereal
@@ -142,6 +153,7 @@ library
                      , ed25519
                      , ether >= 0.5
                      , exceptions
+                     , extra
                      , file-embed
                      , filepath
                      , formatting
@@ -217,5 +229,3 @@ library
     cpp-options: -DASSERTS_ON
   if flag(dev-mode)
     cpp-options: -DDEV_MODE
-    if !flag(dev-custom-config)
-      cpp-options: -DCONFIG=dev

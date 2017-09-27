@@ -12,16 +12,16 @@ import           Test.Hspec              (Spec, describe)
 import           Pos.Arbitrary.Infra     ()
 import           Pos.Binary              ()
 import qualified Pos.Communication.Relay as R
-import           Pos.Core                (StakeholderId, giveStaticConsts)
+import           Pos.Core                (StakeholderId)
 import qualified Pos.Ssc.GodTossing      as GT
-import           Test.Pos.Util           (binaryTest, msgLenLimitedTest)
+import           Test.Pos.Util           (binaryTest, giveInfraConf, giveCoreConf,
+                                          msgLenLimitedTest)
 
 spec :: Spec
-spec = giveStaticConsts $ describe "GodTossing" $ do
+spec = giveInfraConf $ giveCoreConf $ describe "GodTossing" $ do
     describe "Bi instances" $ do
         binaryTest @GT.Commitment
         binaryTest @GT.CommitmentsMap
-        binaryTest @GT.VssCertificate
         binaryTest @GT.Opening
         binaryTest @GT.GtPayload
         binaryTest @GT.GtProof
@@ -39,7 +39,6 @@ spec = giveStaticConsts $ describe "GodTossing" $ do
         binaryTest @GT.GtSecretStorage
     describe "Message length limit" $ do
         msgLenLimitedTest @GT.Opening
-        msgLenLimitedTest @GT.VssCertificate
         msgLenLimitedTest @(R.InvMsg (Tagged GT.MCCommitment StakeholderId))
         msgLenLimitedTest @(R.ReqMsg (Tagged GT.MCCommitment StakeholderId))
         msgLenLimitedTest @(R.MempoolMsg GT.MCCommitment)

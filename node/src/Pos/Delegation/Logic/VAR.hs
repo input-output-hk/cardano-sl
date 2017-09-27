@@ -29,7 +29,7 @@ import           Pos.Binary.Communication     ()
 import           Pos.Block.Core               (Block, mainBlockDlgPayload, mainBlockSlot)
 import           Pos.Block.Types              (Blund, Undo (undoDlg))
 import           Pos.Context                  (lrcActionOnEpochReason)
-import           Pos.Core                     (EpochIndex (..), HasCoreConstants,
+import           Pos.Core                     (EpochIndex (..), HasConfiguration,
                                                StakeholderId, addressHash, epochIndexL,
                                                gbHeader, headerHash, prevBlockL, siEpoch)
 import           Pos.Crypto                   (ProxySecretKey (..), shortHashF)
@@ -330,7 +330,7 @@ dlgVerifyBlocks ::
        , MonadIO m
        , MonadReader ctx m
        , HasLens' ctx LrcContext
-       , HasCoreConstants
+       , HasConfiguration
        )
     => OldestFirst NE (Block ssc)
     -> ExceptT Text m (OldestFirst NE DlgUndo)
@@ -418,7 +418,7 @@ dlgApplyBlocks ::
        , MonadDBRead m
        , WithLogger m
        , MonadMask m
-       , HasCoreConstants
+       , HasConfiguration
        , SscHelpersClass ssc
        )
     => OldestFirst NE (Blund ssc)
@@ -508,7 +508,7 @@ dlgNormalizeOnRollback ::
        , MonadMask m
        , HasLens' ctx LrcContext
        , Mockable CurrentTime m
-       , HasCoreConstants
+       , HasConfiguration
        , SscHelpersClass ssc
        )
     => m ()

@@ -16,6 +16,8 @@ import           Options.Applicative          (Parser, eitherReader, execParser,
                                                progDesc, short, strOption, switch)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
+import qualified Pos.Client.CLI               as CLI
+
 
 data PrintMode =
       Human
@@ -42,6 +44,7 @@ data CLIOptions = CLIOptions
     , incremental :: !Bool
     -- ^ Wether or not render the report
     -- incrementally (i.e. one row at time).
+    , commonArgs  :: !CLI.CommonArgs
     }
 
 optionsParser :: Parser CLIOptions
@@ -49,6 +52,7 @@ optionsParser = CLIOptions <$> parseDbPath
                            <*> parseUOM
                            <*> (fromMaybe AsciiTable <$> parsePrintMode)
                            <*> parseIncremental
+                           <*> CLI.commonArgsParser
 
 parseDbPath :: Parser FilePath
 parseDbPath = strOption (long "db" <> metavar "FILEPATH"

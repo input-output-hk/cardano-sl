@@ -37,7 +37,7 @@ import           Mockable                         (CurrentTime, Mockable, curren
 import           Pos.Binary.Class                 (biSize)
 import           Pos.Binary.Communication         ()
 import           Pos.Context                      (lrcActionOnEpochReason)
-import           Pos.Core                         (HasCoreConstants, HasPrimaryKey (..),
+import           Pos.Core                         (HasConfiguration, HasPrimaryKey (..),
                                                    ProxySKHeavy, ProxySKLight,
                                                    ProxySigLight, addressHash,
                                                    bvdMaxBlockSize, epochIndexL,
@@ -149,7 +149,7 @@ processProxySKHeavy
        , HasLens' ctx LrcContext
        , HasLens' ctx StateLock
        , Mockable CurrentTime m
-       , HasCoreConstants
+       , HasConfiguration
        )
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavy psk =
@@ -170,7 +170,7 @@ processProxySKHeavyInternal
        , MonadReader ctx m
        , HasLens' ctx LrcContext
        , Mockable CurrentTime m
-       , HasCoreConstants
+       , HasConfiguration
        )
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavyInternal psk = do

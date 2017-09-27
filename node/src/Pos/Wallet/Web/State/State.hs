@@ -80,7 +80,7 @@ import           Mockable                     (MonadMockable)
 import           Universum
 
 import           Pos.Client.Txp.History       (TxHistoryEntry)
-import           Pos.Core.Context             (HasCoreConstants)
+import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.Txp                      (TxId, Utxo)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CId,
@@ -99,7 +99,7 @@ import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..),
 type MonadWalletWebDB ctx m =
     ( MonadReader ctx m
     , HasLens WalletState ctx WalletState
-    , HasCoreConstants
+    , HasConfiguration
     )
 
 getWalletWebState :: MonadWalletWebDB ctx m => m WalletState

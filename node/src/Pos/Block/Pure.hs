@@ -31,7 +31,7 @@ import           Pos.Block.Core             (Block, BlockHeader, gebAttributes,
                                              getBlockHeader, mainHeaderLeaderKey,
                                              mebAttributes, mehAttributes)
 import           Pos.Core                   (BlockVersionData (..), ChainDifficulty,
-                                             EpochOrSlot, HasCoreConstants,
+                                             EpochOrSlot, HasConfiguration,
                                              HasDifficulty (..), HasEpochIndex (..),
                                              HasEpochOrSlot (..), HasHeaderHash (..),
                                              HeaderHash, SlotId (..), SlotLeaders,
@@ -72,7 +72,7 @@ maybeMempty = maybe mempty
 -- | Check some predicates (determined by 'VerifyHeaderParams') about
 -- 'BlockHeader'.
 verifyHeader
-    :: forall ssc . (SscHelpersClass ssc, HasCoreConstants)
+    :: forall ssc . (SscHelpersClass ssc, HasConfiguration)
     => VerifyHeaderParams ssc -> BlockHeader ssc -> VerificationRes
 verifyHeader VerifyHeaderParams {..} h =
     verifyGeneric checks
@@ -172,7 +172,7 @@ verifyHeader VerifyHeaderParams {..} h =
 -- | Verifies a set of block headers. Only basic consensus check and
 -- linking checks are performed!
 verifyHeaders ::
-       (SscHelpersClass ssc, HasCoreConstants)
+       (SscHelpersClass ssc, HasConfiguration)
     => Maybe SlotLeaders
     -> NewestFirst [] (BlockHeader ssc)
     -> VerificationRes
@@ -219,7 +219,7 @@ data VerifyBlockParams ssc = VerifyBlockParams
 -- | Check predicates defined by VerifyBlockParams.
 -- #verifyHeader
 verifyBlock
-    :: forall ssc. (SscHelpersClass ssc, HasCoreConstants)
+    :: forall ssc. (SscHelpersClass ssc, HasConfiguration)
     => VerifyBlockParams ssc -> Block ssc -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk =
     mconcat
@@ -263,7 +263,7 @@ verifyBlocks
        ( SscHelpersClass ssc
        , t ~ OldestFirst f (Block ssc)
        , NontrivialContainer t
-       , HasCoreConstants
+       , HasConfiguration
        )
     => Maybe SlotId
     -> Bool

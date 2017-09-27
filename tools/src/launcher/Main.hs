@@ -1,4 +1,5 @@
 {-# LANGUAGE ApplicativeDo     #-}
+{-# LANGUAGE FlexibleContexts  #-}
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE QuasiQuotes       #-}
@@ -11,10 +12,10 @@ import           Universum
 import           Control.Concurrent           (modifyMVar_)
 import           Control.Concurrent.Async     (Async, async, cancel, poll, wait, waitAny,
                                                withAsyncWithUnmask)
-import           Data.Default                 (def)
 import           Data.List                    (isSuffixOf)
 import qualified Data.Text.IO                 as T
 import qualified Data.Text.Lazy.IO            as TL
+import           Data.Time.Units              (Second, convertUnit)
 import           Data.Version                 (showVersion)
 import           Formatting                   (format, int, shown, stext, text, (%))
 import qualified NeatInterpolation            as Q (text)
@@ -32,7 +33,7 @@ import qualified System.IO                    as IO
 import           System.Process               (ProcessHandle, readProcessWithExitCode)
 import qualified System.Process               as Process
 import           System.Timeout               (timeout)
-import           System.Wlog                  (lcFilePrefix)
+import           System.Wlog                  (lcFilePrefix, usingLoggerName)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 -- Modules needed for system'
@@ -41,8 +42,11 @@ import           Foreign.C.Error              (Errno (..), ePIPE)
 import           GHC.IO.Exception             (IOErrorType (..), IOException (..))
 
 import           Paths_cardano_sl             (version)
-import           Pos.Client.CLI               (readLoggerConfig)
-import           Pos.Launcher                 (applyConfigInfo)
+import           Pos.Client.CLI               (configurationOptionsParser,
+                                               readLoggerConfig)
+import           Pos.Core                     (Timestamp (..))
+import           Pos.Launcher                 (HasConfigurations, withConfigurations)
+import           Pos.Launcher.Configuration   (ConfigurationOptions (..))
 import           Pos.Reporting.Methods        (retrieveLogFiles, sendReport)
 import           Pos.ReportServer.Report      (ReportType (..))
 import           Pos.Util                     (directory, sleep)
@@ -60,6 +64,7 @@ data LauncherOptions = LO
     , loUpdateWindowsRunner :: !(Maybe FilePath)
     , loNodeTimeoutSec      :: !Int
     , loReportServer        :: !(Maybe String)
+    , loConfiguration       :: !ConfigurationOptions
     }
 
 optionsParser :: Parser LauncherOptions
@@ -124,6 +129,8 @@ optionsParser = do
         help    "Where to send logs in case of failure." <>
         metavar "URL"
 
+    loConfiguration <- configurationOptionsParser
+
     pure LO{..}
 
 getLauncherOptions :: IO LauncherOptions
@@ -170,28 +177,62 @@ Command example:
 
 main :: IO ()
 main = do
-    applyConfigInfo def
     LO {..} <- getLauncherOptions
-    let realNodeArgs = case loNodeLogConfig of
-            Nothing -> loNodeArgs
-            Just lc -> loNodeArgs ++ ["--log-config", toText lc]
-    case loWalletPath of
-        Nothing -> do
-            putText "Running in the server scenario"
-            serverScenario
-                loNodeLogConfig
-                (loNodePath, realNodeArgs, loNodeLogPath)
-                (loUpdaterPath, loUpdaterArgs, loUpdateWindowsRunner, loUpdateArchive)
-                loReportServer
-        Just wpath -> do
-            putText "Running in the client scenario"
-            clientScenario
-                loNodeLogConfig
-                (loNodePath, realNodeArgs, loNodeLogPath)
-                (wpath, loWalletArgs)
-                (loUpdaterPath, loUpdaterArgs, loUpdateWindowsRunner, loUpdateArchive)
-                loNodeTimeoutSec
-                loReportServer
+    let realNodeArgs = addConfigurationOptions loConfiguration $
+            case loNodeLogConfig of
+                Nothing -> loNodeArgs
+                Just lc -> loNodeArgs ++ ["--log-config", toText lc]
+    usingLoggerName "launcher" $
+        withConfigurations loConfiguration $
+        liftIO $
+        case loWalletPath of
+            Nothing -> do
+                putText "Running in the server scenario"
+                serverScenario
+                    loNodeLogConfig
+                    (loNodePath, realNodeArgs, loNodeLogPath)
+                    ( loUpdaterPath
+                    , loUpdaterArgs
+                    , loUpdateWindowsRunner
+                    , loUpdateArchive)
+                    loReportServer
+            Just wpath -> do
+                putText "Running in the client scenario"
+                clientScenario
+                    loNodeLogConfig
+                    (loNodePath, realNodeArgs, loNodeLogPath)
+                    (wpath, loWalletArgs)
+                    ( loUpdaterPath
+                    , loUpdaterArgs
+                    , loUpdateWindowsRunner
+                    , loUpdateArchive)
+                    loNodeTimeoutSec
+                    loReportServer
+  where
+    -- We propagate configuration options to the node executable,
+    -- because we almost certainly want to use the same configuration
+    -- and don't want to pass the same options twice.  However, if
+    -- user passes these options to the node explicitly, then we leave
+    -- their choice. It doesn't cover all cases
+    -- (e. g. `--system-start=10`), but it's better than nothing.
+    addConfigurationOptions :: ConfigurationOptions -> [Text] -> [Text]
+    addConfigurationOptions (ConfigurationOptions path key systemStart) =
+        addConfFileOption path .
+        addConfKeyOption key . addSystemStartOption systemStart
+
+    addConfFileOption filePath =
+        maybeAddOption "--configuration-file" (toText filePath)
+    addConfKeyOption key = maybeAddOption "--configuration-key" key
+    addSystemStartOption =
+        maybe identity (maybeAddOption "--system-start" . timestampToText)
+
+    maybeAddOption :: Text -> Text -> [Text] -> [Text]
+    maybeAddOption optionName optionValue options
+        | optionName `elem` options = options
+        | otherwise = optionName : optionValue : options
+
+    timestampToText (Timestamp ts) =
+        pretty @Integer $ fromIntegral $ convertUnit @_ @Second ts
 
 -- | If we are on server, we want the following algorithm:
 --
@@ -199,7 +240,8 @@ main = do
 -- * Launch the node.
 -- * If it exits with code 20, then update and restart, else quit.
 serverScenario
-    :: Maybe FilePath                      -- ^ Logger config
+    :: HasConfigurations
+    => Maybe FilePath                      -- ^ Logger config
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
     -- ^ Updater, args, updater runner, the update .tar
@@ -223,7 +265,8 @@ serverScenario logConf node updater report = do
 -- * Launch the node and the wallet.
 -- * If the wallet exits with code 20, then update and restart, else quit.
 clientScenario
-    :: Maybe FilePath                      -- ^ Logger config
+    :: HasConfigurations
+    => Maybe FilePath                      -- ^ Logger config
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text])                  -- ^ Wallet, args
     -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
@@ -262,7 +305,7 @@ clientScenario logConf node wallet updater nodeTimeout report = do
 
 -- | We run the updater and delete the update file if the update was
 -- successful.
-runUpdater :: (FilePath, [Text], Maybe FilePath, Maybe FilePath) -> IO ()
+runUpdater :: HasConfigurations => (FilePath, [Text], Maybe FilePath, Maybe FilePath) -> IO ()
 runUpdater (path, args, runnerPath, updateArchive) = do
     whenM (doesFileExist path) $ do
         putText "Running the updater"
@@ -280,7 +323,7 @@ runUpdater (path, args, runnerPath, updateArchive) = do
             -- hopefully if the updater has succeeded it *does* exist
             whenJust updateArchive removeFile
 
-runUpdaterProc :: FilePath -> [Text] -> IO ExitCode
+runUpdaterProc :: HasConfigurations => FilePath -> [Text] -> IO ExitCode
 runUpdaterProc path args = do
     let cr = (Process.proc (toString path) (map toString args))
                  { Process.std_in  = Process.CreatePipe
@@ -313,7 +356,8 @@ writeWindowsUpdaterRunner runnerPath = do
 ----------------------------------------------------------------------------
 
 spawnNode
-    :: (FilePath, [Text], Maybe FilePath)
+    :: HasConfigurations
+    => (FilePath, [Text], Maybe FilePath)
     -> IO (ProcessHandle, Async ExitCode, FilePath)
 spawnNode (path, args, mbLogPath) = do
     putText "Starting the node"
@@ -371,7 +415,7 @@ runWallet (path, args) = do
 -- ...Or maybe we don't care because we don't restart anything after sending
 -- logs (and so the user never actually sees the process or waits for it).
 reportNodeCrash
-    :: MonadIO m
+    :: (HasConfigurations, MonadIO m)
     => ExitCode        -- ^ Exit code of the node
     -> Maybe FilePath  -- ^ Path to the logger config
     -> String          -- ^ URL of the server
@@ -389,7 +433,7 @@ reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
     sendReport (normalise logPath:logFiles) [] (RCrash ec) "cardano-node" reportServ
 
 system'
-    :: MonadIO io
+    :: (HasConfigurations, MonadIO io)
     => MVar ProcessHandle
     -- ^ Where to put process handle
     -> Process.CreateProcess

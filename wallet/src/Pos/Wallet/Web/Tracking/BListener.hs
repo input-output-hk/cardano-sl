@@ -22,7 +22,7 @@ import           Pos.Block.BListener              (MonadBListener (..))
 import           Pos.Block.Core                   (BlockHeader, blockHeader,
                                                    getBlockHeader, mainBlockTxPayload)
 import           Pos.Block.Types                  (Blund, undoTx)
-import           Pos.Core                         (HasCoreConstants, HeaderHash,
+import           Pos.Core                         (HasConfiguration, HeaderHash,
                                                    Timestamp, difficultyL, headerHash,
                                                    headerSlotL, prevBlockL)
 import           Pos.DB.BatchOp                   (SomeBatchOp)
@@ -69,7 +69,7 @@ onApplyTracking
     , MonadSlotsData ctx m
     , MonadDBRead m
     , MonadReporting ctx m
-    , HasCoreConstants
+    , HasConfiguration
     )
     => OldestFirst NE (Blund ssc) -> m SomeBatchOp
 onApplyTracking blunds = setLogger $ do
@@ -111,7 +111,7 @@ onRollbackTracking
     , MonadSlots ctx m
     , SscHelpersClass ssc
     , MonadReporting ctx m
-    , HasCoreConstants
+    , HasConfiguration
     )
     => NewestFirst NE (Blund ssc) -> m SomeBatchOp
 onRollbackTracking blunds = setLogger $ do
@@ -147,7 +147,7 @@ blkHeaderTsGetter
     :: ( MonadSlotsData ctx m
        , MonadDBRead m
        , SscHelpersClass ssc
-       , HasCoreConstants
+       , HasConfiguration
        )
     => m (BlockHeader ssc -> Maybe Timestamp)
 blkHeaderTsGetter = do

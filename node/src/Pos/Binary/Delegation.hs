@@ -9,12 +9,12 @@ import           Universum
 import           Pos.Binary.Class     (Bi (..), Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Binary.Core      ()
 import           Pos.Binary.Crypto    ()
-import           Pos.Core             (ProxySKHeavy, StakeholderId)
+import           Pos.Core             (ProxySKHeavy, StakeholderId, HasConfiguration)
 import           Pos.Delegation.Types (DlgPayload (getDlgPayload), DlgUndo (..),
                                        mkDlgPayload)
 import           Pos.Util.Util        (eitherToFail)
 
-instance Bi DlgPayload where
+instance HasConfiguration => Bi DlgPayload where
     encode = encode . getDlgPayload
     decode = decode >>= eitherToFail . mkDlgPayload
 

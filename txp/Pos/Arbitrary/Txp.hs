@@ -22,6 +22,7 @@ import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShr
 import           Pos.Arbitrary.Core                ()
 import           Pos.Binary.Class                  (Raw)
 import           Pos.Binary.Txp.Core               ()
+import           Pos.Core.Configuration            (HasConfiguration)
 import           Pos.Core.Address                  (IsBootstrapEraAddr (..),
                                                     makePubKeyAddress)
 import           Pos.Core.Types                    (Coin)
@@ -53,7 +54,7 @@ instance Arbitrary TxSigData where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary TxInWitness where
+instance HasConfiguration => Arbitrary TxInWitness where
     arbitrary = oneof [
         PkWitness <$> arbitrary <*> arbitrary,
         -- this can generate a redeemer script where a validator script is
@@ -99,7 +100,8 @@ instance Arbitrary Tx where
 -- signatures in the transaction's inputs have been replaced with a bogus one.
 
 buildProperTx
-    :: NonEmpty (Tx, SecretKey, SecretKey, Coin)
+    :: HasConfiguration
+    => NonEmpty (Tx, SecretKey, SecretKey, Coin)
     -> (Coin -> Coin, Coin -> Coin)
     -> NonEmpty (Tx, TxIn, TxOutAux, TxInWitness)
 buildProperTx inputList (inCoin, outCoin) =
@@ -150,7 +152,7 @@ goodTxToTxAux (GoodTx l) = TxAux tx witness
          mkTx (map (view _2) l) (map (toaOut . view _3) l) def
     witness = V.fromList $ NE.toList $ map (view _4) l
 
-instance Arbitrary GoodTx where
+instance HasConfiguration => Arbitrary GoodTx where
     arbitrary =
         GoodTx <$> (buildProperTx <$> arbitrary <*> pure (identity, identity))
     shrink = const []  -- used to be “genericShrink”, but shrinking is broken
@@ -168,14 +170,14 @@ newtype DoubleInputTx = DoubleInputTx
     { getDoubleInputTx :: NonEmpty (Tx, TxIn, TxOutAux, TxInWitness)
     } deriving (Generic, Show)
 
-instance Arbitrary BadSigsTx where
+instance HasConfiguration => Arbitrary BadSigsTx where
     arbitrary = BadSigsTx <$> do
         goodTxList <- getGoodTx <$> arbitrary
         badSig <- arbitrary
         return $ map (set _4 badSig) goodTxList
     shrink = genericShrink
 
-instance Arbitrary DoubleInputTx where
+instance HasConfiguration => Arbitrary DoubleInputTx where
     arbitrary = DoubleInputTx <$> do
         inputs <- arbitrary
         pure $ buildProperTx (NE.cons (NE.head inputs) inputs)
@@ -198,7 +200,7 @@ instance Arbitrary TxProof where
     arbitrary = makeSmall genericArbitrary
     shrink = genericShrink
 
-instance Arbitrary TxAux where
+instance HasConfiguration => Arbitrary TxAux where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
@@ -206,7 +208,7 @@ instance Arbitrary TxAux where
 -- Utilities used in 'Pos.Block.Arbitrary'
 ----------------------------------------------------------------------------
 
-txOutDistGen :: Gen [TxAux]
+txOutDistGen :: HasConfiguration => Gen [TxAux]
 txOutDistGen =
     listOf $ do
         txInW <- arbitrary
@@ -219,6 +221,6 @@ txOutDistGen =
                 mkTx txIns txOuts (mkAttributes ())
         return $ TxAux tx (txInW)
 
-instance Arbitrary TxPayload where
+instance HasConfiguration => Arbitrary TxPayload where
     arbitrary = mkTxPayload <$> txOutDistGen
     shrink = genericShrink

@@ -7,10 +7,11 @@ import           Universum
 import           Pos.Arbitrary.Core          ()
 import           Pos.Arbitrary.Crypto.Unsafe ()
 import           Pos.Binary.Crypto           ()
+import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
 import           Pos.Core                    (AddrAttributes (..),
                                               AddrStakeDistribution (..), AddrType (..),
                                               Address (..), Coin, EpochIndex (..),
-                                              HasCoreConstants, LocalSlotIndex,
+                                              LocalSlotIndex,
                                               SharedSeed (..), SlotId (..), mkCoin)
 import           Pos.Data.Attributes         (mkAttributes)
 import           Pos.Util.Arbitrary          (ArbitraryUnsafe (..))
@@ -18,7 +19,7 @@ import           Pos.Util.Arbitrary          (ArbitraryUnsafe (..))
 deriving instance ArbitraryUnsafe SharedSeed
 deriving instance ArbitraryUnsafe EpochIndex
 
-instance HasCoreConstants => ArbitraryUnsafe LocalSlotIndex where
+instance HasProtocolConstants => ArbitraryUnsafe LocalSlotIndex where
 
 instance ArbitraryUnsafe Coin where
     arbitraryUnsafe = mkCoin <$> arbitraryUnsafe
@@ -35,5 +36,5 @@ instance ArbitraryUnsafe Address where
         let addrType = ATPubKey
         return Address {..}
 
-instance HasCoreConstants => ArbitraryUnsafe SlotId where
+instance HasProtocolConstants => ArbitraryUnsafe SlotId where
     arbitraryUnsafe = SlotId <$> arbitraryUnsafe <*> arbitraryUnsafe

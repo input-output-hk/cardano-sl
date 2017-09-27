@@ -10,6 +10,7 @@ module Pos.Explorer.DB
        , getTxExtra
        , getAddrHistory
        , getAddrBalance
+       , getUtxoSum
        , getPageBlocks
        , getEpochBlocks
        , getLastTransactions
@@ -25,27 +26,28 @@ import           Data.Conduit                 (Sink, Source, mapOutput, runCondu
                                                (.|))
 import qualified Data.Conduit.List            as CL
 import qualified Database.RocksDB             as Rocks
-import           Ether.Internal               (HasLens (..))
 import           Formatting                   (sformat, (%))
 import           Serokell.Util                (Color (Red), colorize, mapJson)
 import           System.Wlog                  (WithLogger, logError)
 
 import           Pos.Binary.Class             (UnsignedVarInt (..), serialize')
-import           Pos.Context.Functions        (GenesisUtxo, genesisUtxoM)
 import           Pos.Core                     (Address, Coin, EpochIndex, HeaderHash,
-                                               unsafeAddCoin)
+                                               sumCoins, unsafeAddCoin)
+import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.DB                       (DBError (..), DBIteratorClass (..),
                                                DBTag (GStateDB), MonadDB,
                                                MonadDBRead (dbGet), RocksBatchOp (..),
-                                               dbSerializeValue, dbIterSource,
+                                               dbIterSource, dbSerializeValue,
                                                encodeWithKeyPrefix)
 import           Pos.DB.GState.Common         (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.Explorer.Core            (AddrHistory, TxExtra (..))
 import           Pos.Txp.Core                 (Tx, TxId, TxOut (..), TxOutAux (..))
 import           Pos.Txp.DB                   (getAllPotentiallyHugeUtxo, utxoSource)
+import           Pos.Txp.GenesisUtxo          (genesisUtxo)
 import           Pos.Txp.Toil                 (GenesisUtxo (..), utxoF,
                                                utxoToAddressCoinPairs)
 import           Pos.Util.Chrono              (NewestFirst (..))
+import           Pos.Util.Util                (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Types
@@ -77,6 +79,11 @@ getAddrHistory = fmap (NewestFirst . concat . maybeToList) .
 getAddrBalance :: MonadDBRead m => Address -> m (Maybe Coin)
 getAddrBalance = gsGetBi . addrBalanceKey
 
+getUtxoSum :: MonadDBRead m => m Integer
+getUtxoSum = maybeThrow dbNotInitialized =<< gsGetBi utxoSumPrefix
+  where
+    dbNotInitialized = DBMalformed "getUtxoSum: DB is not initialized"
+
 getPageBlocks :: MonadDBRead m => Page -> m (Maybe [HeaderHash])
 getPageBlocks = gsGetBi . blockPagePrefix
 
@@ -90,11 +97,13 @@ getLastTransactions = gsGetBi lastTxsPrefix
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareExplorerDB :: (MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo, MonadDB m) => m ()
+prepareExplorerDB :: (MonadReader ctx m, MonadDB m) => m ()
 prepareExplorerDB =
     unlessM areBalancesInitialized $ do
-        genesisUtxo <- genesisUtxoM
-        putGenesisBalances genesisUtxo
+        let GenesisUtxo utxo = genesisUtxo
+            addressCoinPairs = utxoToAddressCoinPairs utxo
+        putGenesisBalances addressCoinPairs
+        putGenesisUtxoSum addressCoinPairs
         putInitFlag
 
 balancesInitFlag :: ByteString
@@ -106,14 +115,16 @@ areBalancesInitialized = isJust <$> dbGet GStateDB balancesInitFlag
 putInitFlag :: MonadDB m => m ()
 putInitFlag = gsPutBi balancesInitFlag True
 
-putGenesisBalances :: MonadDB m => GenesisUtxo -> m ()
-putGenesisBalances (GenesisUtxo genesisUtxo) = writeBatchGState putAddrBalancesOp
+putGenesisBalances :: MonadDB m => [(Address, Coin)] -> m ()
+putGenesisBalances addressCoinPairs = writeBatchGState putAddrBalancesOp
   where
     putAddrBalancesOp :: [ExplorerOp]
-    putAddrBalancesOp = map (uncurry PutAddrBalance) addressCoinsPairs
+    putAddrBalancesOp = map (uncurry PutAddrBalance) addressCoinPairs
 
-    addressCoinsPairs :: [(Address, Coin)]
-    addressCoinsPairs = utxoToAddressCoinPairs genesisUtxo
+putGenesisUtxoSum :: MonadDB m => [(Address, Coin)] -> m ()
+putGenesisUtxoSum addressCoinPairs = do
+    let utxoSum = sumCoins $ map snd addressCoinPairs
+    writeBatchGState [PutUtxoSum utxoSum]
 
 ----------------------------------------------------------------------------
 -- Batch operations
@@ -134,8 +145,9 @@ data ExplorerOp
     | PutAddrBalance !Address !Coin
     | DelAddrBalance !Address
 
-instance RocksBatchOp ExplorerOp where
+    | PutUtxoSum !Integer
 
+instance HasConfiguration => RocksBatchOp ExplorerOp where
     toBatchOp (AddTxExtra id extra) =
         [Rocks.Put (txExtraPrefix id) (dbSerializeValue extra)]
     toBatchOp (DelTxExtra id) =
@@ -160,6 +172,9 @@ instance RocksBatchOp ExplorerOp where
         [Rocks.Put (addrBalanceKey addr) (dbSerializeValue coin)]
     toBatchOp (DelAddrBalance addr) =
         [Rocks.Del $ addrBalanceKey addr]
+
+    toBatchOp (PutUtxoSum utxoSum) =
+        [Rocks.Put utxoSumPrefix (dbSerializeValue utxoSum)]
 
 ----------------------------------------------------------------------------
 -- Iteration
@@ -236,3 +251,6 @@ blockEpochPrefix epoch = "e/epoch/" <> serialize' epoch
 
 lastTxsPrefix :: ByteString
 lastTxsPrefix = "e/ltxs/"
+
+utxoSumPrefix :: ByteString
+utxoSumPrefix = "e/utxosum/"

@@ -12,13 +12,13 @@ import           Test.QuickCheck       (NonNegative (..), Positive (..), Propert
                                         (==>))
 
 import           Pos.Arbitrary.Core    (EoSToIntOverflow (..), UnreasonableEoS (..))
-import           Pos.Core              (HasCoreConstants, giveStaticConsts)
+import           Pos.Core              (HasConfiguration)
 import           Pos.Types             (EpochOrSlot, SlotId (..), flattenSlotId,
                                         unflattenSlotId)
-import           Test.Pos.Util         (shouldThrowException, (.=.))
+import           Test.Pos.Util         (giveCoreConf, shouldThrowException, (.=.))
 
 spec :: Spec
-spec = giveStaticConsts $ describe "Slotting" $ do
+spec = giveCoreConf $ describe "Slotting" $ do
     describe "SlotId" $ do
         describe "Ord" $ do
             prop "is consistent with flatten/unflatten"
@@ -44,40 +44,40 @@ spec = giveStaticConsts $ describe "Slotting" $ do
         prop "calling 'toEnum' with a negative number will raise an exception"
             toEnumNegative
 
-flattenOrdConsistency :: HasCoreConstants => SlotId -> SlotId -> Property
+flattenOrdConsistency :: HasConfiguration => SlotId -> SlotId -> Property
 flattenOrdConsistency a b = a `compare` b === flattenSlotId a `compare` flattenSlotId b
 
-flattenThenUnflatten :: HasCoreConstants => SlotId -> Property
+flattenThenUnflatten :: HasConfiguration => SlotId -> Property
 flattenThenUnflatten si = si === unflattenSlotId (flattenSlotId si)
 
-predThenSucc :: HasCoreConstants => EpochOrSlot -> Property
+predThenSucc :: HasConfiguration => EpochOrSlot -> Property
 predThenSucc eos = eos > minBound ==> succ (pred eos) === eos
 
-predToMinBound :: HasCoreConstants => Expectation
+predToMinBound :: HasConfiguration => Expectation
 predToMinBound =
     shouldThrowException pred anyErrorCall (minBound :: EpochOrSlot)
 
-succThenPred :: HasCoreConstants => EpochOrSlot -> Property
+succThenPred :: HasConfiguration => EpochOrSlot -> Property
 succThenPred eos = eos < maxBound ==> pred (succ eos) === eos
 
-succToMaxBound :: HasCoreConstants => Expectation
+succToMaxBound :: HasConfiguration => Expectation
 succToMaxBound = shouldThrowException succ anyErrorCall (maxBound :: EpochOrSlot)
 
 -- It is not necessary to check that 'int < fromEnum (maxBound :: EpochOrSlot)' because
 -- this is not possible with the current implementation of the type.
-toFromEnum :: HasCoreConstants => NonNegative Int -> Property
+toFromEnum :: HasConfiguration => NonNegative Int -> Property
 toFromEnum (getNonNegative -> int) = fromEnum (toEnum @EpochOrSlot int) === int
 
-fromToEnum :: HasCoreConstants => EpochOrSlot -> Property
+fromToEnum :: HasConfiguration => EpochOrSlot -> Property
 fromToEnum = toEnum . fromEnum .=. identity
 
-fromToEnumLargeEpoch :: HasCoreConstants => UnreasonableEoS -> Property
+fromToEnumLargeEpoch :: HasConfiguration => UnreasonableEoS -> Property
 fromToEnumLargeEpoch (getUnreasonable -> eos) = toEnum (fromEnum eos) === eos
 
-fromEnumOverflow :: HasCoreConstants => EoSToIntOverflow-> Expectation
+fromEnumOverflow :: HasConfiguration => EoSToIntOverflow-> Expectation
 fromEnumOverflow (getEoS -> eos) =
     shouldThrowException (fromEnum @EpochOrSlot) anyErrorCall eos
 
-toEnumNegative :: HasCoreConstants => Positive Int -> Expectation
+toEnumNegative :: HasConfiguration => Positive Int -> Expectation
 toEnumNegative (negate . getPositive -> int) =
     shouldThrowException (toEnum @EpochOrSlot) anyErrorCall int

@@ -8,7 +8,7 @@ import qualified Data.Map.Strict                       as M
 import           Data.Time.Units                       (Millisecond, Second, convertUnit)
 import           Formatting                            (sformat, shown, int, (%))
 import qualified Network.DNS                           as DNS
-import           System.Wlog                           (logError, logNotice)
+import           System.Wlog                           (logError, logNotice, logWarning)
 import           Universum
 
 import           Mockable                              (Delay, Mockable, delay,
@@ -59,6 +59,7 @@ dnsSubscriptionWorker networkCfg DnsDomains{..} sendActions = do
     -- list (disjuncts).
     logNotice $ sformat ("dnsSubscriptionWorker: valency "%int) (length allOf)
     void $ forConcurrently allOf (subscribeAlts dnsPeersVar)
+    logNotice $ sformat ("dnsSubscriptionWorker: all "%int%" threads finished") (length allOf)
   where
 
     allOf :: [(Int, Alts (NodeAddr DNS.Domain))]
@@ -73,6 +74,8 @@ dnsSubscriptionWorker networkCfg DnsDomains{..} sendActions = do
         :: SharedAtomicT m (Map Int (Alts NodeId))
         -> (Int, Alts (NodeAddr DNS.Domain))
         -> m ()
+    subscribeAlts _ (index, []) =
+        logWarning $ sformat ("dnsSubscriptionWorker: no alternatives given for index "%int) index
     subscribeAlts dnsPeersVar (index, alts) = do
         -- Resolve all of the names and update the known peers in the queue.
         dnsPeersList <- findDnsPeers index alts
@@ -115,7 +118,7 @@ dnsSubscriptionWorker networkCfg DnsDomains{..} sendActions = do
         pure $ max (slotDur `div` 4) (convertUnit (5 :: Second))
 
     msgDnsFailure :: Int -> [DNS.DNSError] -> Text
-    msgDnsFailure = sformat ("subscriptionWorker: DNS failure for index "%int%": "%shown)
+    msgDnsFailure = sformat ("dnsSubscriptionWorker: DNS failure for index "%int%": "%shown)
 
     msgNoRelays :: Int -> Text
-    msgNoRelays = sformat ("subscriptionWorker: no relays found for index "%int)
+    msgNoRelays = sformat ("dnsSubscriptionWorker: no relays found for index "%int)

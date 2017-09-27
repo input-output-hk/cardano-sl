@@ -16,7 +16,6 @@ import           System.Wlog         (logInfo)
 import           Pos.Binary          ()
 import           Pos.Client.CLI      (configurationOptions)
 import           Pos.Communication   (OutSpecs, WorkerSpec)
-import           Pos.Constants       (isDevelopment)
 import           Pos.Core            (gdStartTime, genesisData)
 import           Pos.Explorer        (runExplorerBListener)
 import           Pos.Explorer.Socket (NotifierSettings (..))
@@ -36,9 +35,6 @@ import           Params              (getNodeParams, gtSscParams)
 
 printFlags :: IO ()
 printFlags = do
-    if isDevelopment
-        then putText "[Attention] We are in DEV mode"
-        else putText "[Attention] We are in PRODUCTION mode"
     inAssertMode $ putText "Asserts are ON"
 
 ----------------------------------------------------------------------------

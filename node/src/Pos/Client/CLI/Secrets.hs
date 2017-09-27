@@ -8,8 +8,8 @@ module Pos.Client.CLI.Secrets
 import           Data.List                  ((!!))
 import           Universum
 
-import           Pos.Core.Configuration     (HasConfiguration, genesisSecretKeys,
-                                             genesisVssSecretKeys)
+import           Pos.Core                   (HasConfiguration, generatedSecrets,
+                                             gsSecretKeys)
 import           Pos.Crypto                 (SecretKey, keyGen, runSecureRandom,
                                              vssKeyGen)
 import           Pos.Util.UserSecret        (UserSecret, usPrimKey, usVss,
@@ -20,25 +20,25 @@ import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))
 userSecretWithGenesisKey
     :: (HasConfiguration, MonadIO m) => CommonNodeArgs -> UserSecret -> m (SecretKey, UserSecret)
 userSecretWithGenesisKey CommonNodeArgs{..} userSecret
-    | Just i <- devSpendingGenesisI,
-      Just secretKeys <- genesisSecretKeys = do
-        let sk = secretKeys !! i
+    | Just i <- devGenesisSecretI,
+      Just secretKeys <- gsSecretKeys <$> generatedSecrets = do
+        let sk = view _1 (secretKeys !! i)
             us = userSecret & usPrimKey .~ Just sk
         writeUserSecret us
         pure (sk, us)
-    | Just _ <- devSpendingGenesisI, Nothing <- genesisSecretKeys =
-        error "devSpendingGenesisI is specified, but secret keys are unknown.\n\
+    | Just _ <- devGenesisSecretI, Nothing <- generatedSecrets =
+        error "devGenesisSecretI is specified, but no generatedSecrets is present.\n\
               \Try to change initializer in genesis spec"
     | otherwise = fetchPrimaryKey userSecret
 
 updateUserSecretVSS
     :: (HasConfiguration, MonadIO m) => CommonNodeArgs -> UserSecret -> m UserSecret
 updateUserSecretVSS CommonNodeArgs{..} us
-    | Just i <- devVssGenesisI,
-      Just secretKeys <- genesisVssSecretKeys =
-        pure $ us & usVss .~ Just (secretKeys !! i)
-    | Just _ <- devVssGenesisI, Nothing <- genesisVssSecretKeys =
-        error "devSpendingGenesisI is specified, but secret keys are unknown.\n\
+    | Just i <- devGenesisSecretI,
+      Just secretKeys <- gsSecretKeys <$> generatedSecrets =
+        pure $ us & usVss .~ Just (view _3 $ secretKeys !! i)
+    | Just _ <- devGenesisSecretI, Nothing <- generatedSecrets =
+        error "devGenesisSecretI is specified, but secret keys are unknown.\n\
               \Try to change initializer in genesis spec"
     | otherwise = fillUserSecretVSS us
 

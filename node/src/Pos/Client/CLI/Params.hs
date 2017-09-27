@@ -10,23 +10,22 @@ module Pos.Client.CLI.Params
 
 import           Universum
 
-import           Data.Default               (def)
-import qualified Data.Yaml                  as Yaml
-import           Mockable                   (Catch, Fork, Mockable, Throw, throw)
-import           System.Wlog                (LoggerName, WithLogger)
+import           Data.Default                     (def)
+import qualified Data.Yaml                        as Yaml
+import           Mockable                         (Catch, Fork, Mockable, Throw, throw)
+import           System.Wlog                      (LoggerName, WithLogger)
 
-import           Pos.Behavior               (BehaviorConfig (..))
-import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..))
-import           Pos.Client.CLI.Options     (CommonArgs (..))
-import           Pos.Client.CLI.Secrets     (updateUserSecretVSS,
-                                             userSecretWithGenesisKey)
-import           Pos.Core.Configuration     (HasConfiguration)
-import           Pos.Core.Constants         (isDevelopment)
-import           Pos.Crypto                 (VssKeyPair)
-import           Pos.Launcher               (BaseParams (..), LoggingParams (..),
-                                             NodeParams (..))
-import           Pos.Network.CLI            (intNetworkConfigOpts)
-import           Pos.Ssc.GodTossing         (GtParams (..))
+import           Pos.Behavior                     (BehaviorConfig (..))
+import           Pos.Client.CLI.NodeOptions       (CommonNodeArgs (..), NodeArgs (..))
+import           Pos.Client.CLI.Options           (CommonArgs (..))
+import           Pos.Client.CLI.Secrets           (updateUserSecretVSS,
+                                                   userSecretWithGenesisKey)
+import           Pos.Core.Configuration           (HasConfiguration)
+import           Pos.Crypto                       (VssKeyPair)
+import           Pos.Launcher                     (BaseParams (..), LoggingParams (..),
+                                                   NodeParams (..))
+import           Pos.Network.CLI                  (intNetworkConfigOpts)
+import           Pos.Ssc.GodTossing               (GtParams (..))
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Update.Params                (UpdateParams (..))
 import           Pos.Util.UserSecret              (peekUserSecret)
@@ -53,11 +52,9 @@ gtSscParams CommonNodeArgs {..} vssSK BehaviorConfig{..} =
 
 getKeyfilePath :: CommonNodeArgs -> FilePath
 getKeyfilePath CommonNodeArgs {..}
-    | isDevelopment = case devSpendingGenesisI of
+    = case devGenesisSecretI of
           Nothing -> keyfilePath
           Just i  -> "node-" ++ show i ++ "." ++ keyfilePath
-    | otherwise = keyfilePath
-
 
 getNodeParams ::
        ( MonadIO m

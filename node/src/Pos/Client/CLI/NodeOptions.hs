@@ -28,7 +28,6 @@ import           Paths_cardano_sl             (version)
 
 import           Pos.Client.CLI.Options       (CommonArgs (..), commonArgsParser,
                                                optionalJSONPath, sscAlgoOption)
-import           Pos.Constants                (isDevelopment)
 import           Pos.HealthCheck.Route53      (route53HealthCheckOption)
 import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
 import           Pos.Ssc.SscAlgo              (SscAlgo (..))
@@ -41,8 +40,7 @@ data CommonNodeArgs = CommonNodeArgs
     { dbPath                 :: !FilePath
     , rebuildDB              :: !Bool
     -- these two arguments are only used in development mode
-    , devSpendingGenesisI    :: !(Maybe Int)
-    , devVssGenesisI         :: !(Maybe Int)
+    , devGenesisSecretI      :: !(Maybe Int)
     , keyfilePath            :: !FilePath
     , backupPhrase           :: !(Maybe BackupPhrase)
     , networkConfigOpts      :: !NetworkConfigOpts
@@ -71,18 +69,11 @@ commonNodeArgsParser = do
         long "rebuild-db" <>
         help "If node's database already exists, discard its contents \
              \and create a new one from scratch."
-    devSpendingGenesisI <- if isDevelopment
-        then (optional $ option auto $
-                  long    "spending-genesis" <>
+    devGenesisSecretI <-
+        optional $ option auto $
+                  long    "genesis-secret" <>
                   metavar "INT" <>
-                  help    "Used genesis secret key index.")
-        else pure Nothing
-    devVssGenesisI <- if isDevelopment
-        then (optional $ option auto $
-                  long    "vss-genesis" <>
-                  metavar "INT" <>
-                  help    "Index of using VSS key pair in genesis.")
-        else pure Nothing
+                  help    "Used genesis secret key index."
     keyfilePath <- strOption $
         long    "keyfile" <>
         metavar "FILEPATH" <>

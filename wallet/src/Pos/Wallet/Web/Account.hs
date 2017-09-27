@@ -28,9 +28,10 @@ import           Pos.Core                   (Address (..), IsBootstrapEraAddr (.
 import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase, isHardened)
 import           Pos.Util                   (maybeThrow)
 import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
+import           Pos.Util.Servant           (encodeCType)
 import           Pos.Wallet.KeyStorage      (MonadKeys, addSecretKey, getSecretKeys)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWAddressMeta (..), Wal,
-                                             addrMetaToAccount, addressToCId, encToCId)
+                                             addrMetaToAccount, encToCId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), WebWalletModeDB,
                                              doesWAddressExist, getAccountMeta)
@@ -68,7 +69,7 @@ getSKByAccAddr
 getSKByAccAddr passphrase addrMeta@CWAddressMeta {..} = do
     (addr, accKey) <-
         deriveAccountSK passphrase (addrMetaToAccount addrMeta) cwamAccountIndex
-    let accCAddr = addressToCId addr
+    let accCAddr = encodeCType addr
     if accCAddr /= cwamId
              -- if you see this error, maybe you generated public key address with
              -- no hd wallet attribute (if so, address would be ~half shorter than
@@ -177,7 +178,7 @@ deriveAccountAddress passphrase accId@AccountId{..} cwamAccountIndex = do
     (addr, _) <- deriveAccountSK passphrase accId cwamAccountIndex
     let cwamWId         = aiWId
         cwamWalletIndex = aiIndex
-        cwamId          = addressToCId addr
+        cwamId          = encodeCType addr
     return CWAddressMeta{..}
 
 -- | Allows to find a key related to given @id@ item.

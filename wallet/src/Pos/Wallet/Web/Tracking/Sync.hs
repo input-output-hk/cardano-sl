@@ -73,11 +73,12 @@ import           Pos.Slotting                     (MonadSlots (..), MonadSlotsDa
                                                    getSlotStartPure, getSystemStartM)
 import           Pos.StateLock                    (Priority (..), StateLock,
                                                    withStateLockNoMetrics)
-import           Pos.Txp                          (GenesisUtxo (..), Tx (..), TxAux (..),
-                                                   TxId, TxIn (..), TxOutAux (..), TxUndo,
-                                                   flattenTxPayload, genesisUtxo, toaOut,
-                                                   topsortTxs, txOutAddress)
-import           Pos.Txp.MemState.Class           (MonadTxpMem, getLocalTxsNUndo)
+import           Pos.Txp                          (MonadTxpMem, genesisUtxo,
+                                                   getLocalTxsNUndo, unGenesisUtxo)
+import           Pos.Txp.Core                     (Tx (..), TxAux (..), TxId, TxIn (..),
+                                                   TxOutAux (..), TxUndo,
+                                                   flattenTxPayload, toaOut, topsortTxs,
+                                                   txOutAddress)
 import           Pos.Util.Chrono                  (getNewestFirst)
 import qualified Pos.Util.Modifier                as MM
 
@@ -86,8 +87,7 @@ import           Pos.Util.Servant                 (encodeCType)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.Web.Account           (MonadKeySearch (..))
 import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CWAddressMeta (..), Wal,
-                                                   addressToCId, ctmDate, encToCId,
-                                                   isTxLocalAddress)
+                                                   ctmDate, encToCId, isTxLocalAddress)
 import           Pos.Wallet.Web.Error.Types       (WalletError (..))
 import           Pos.Wallet.Web.Pending.Types     (PtxBlockInfo, PtxCondition (PtxApplying, PtxInNewestBlocks))
 import           Pos.Wallet.Web.State             (AddressLookupMode (..),
@@ -505,7 +505,7 @@ getEncInfo :: EncryptedSecretKey -> (HDPassphrase, CId Wal)
 getEncInfo encSK = do
     let pubKey = encToPublic encSK
     let hdPass = deriveHDPassphrase pubKey
-    let wCId = addressToCId $ makeRootPubKeyAddress pubKey
+    let wCId = encodeCType $ makeRootPubKeyAddress pubKey
     (hdPass, wCId)
 
 selectOwnAccounts
@@ -524,7 +524,7 @@ decryptAccount (hdPass, wCId) addr = do
     hdPayload <- aaPkDerivationPath $ addrAttributesUnwrapped addr
     derPath <- unpackHDAddressAttr hdPass hdPayload
     guard $ length derPath == 2
-    pure $ CWAddressMeta wCId (derPath !! 0) (derPath !! 1) (addressToCId addr)
+    pure $ CWAddressMeta wCId (derPath !! 0) (derPath !! 1) (encodeCType addr)
 
 ----------------------------------------------------------------------------
 -- Cached modifier

@@ -13,7 +13,7 @@ dev: &dev
       # e. g.
       # src:
       #   file: genesis.json
-      #   hash: bcfbfcad6cf78f2363568e76af9d6e927f71c3683aafe5e289796579792dccdb 
+      #   hash: bcfbfcad6cf78f2363568e76af9d6e927f71c3683aafe5e289796579792dccdb
       spec: &dev_core_genesis_spec
         initializer:
           testnetInitializer:
@@ -144,10 +144,10 @@ bench: &bench
               richmenShare: 0.99
               useHDAddresses: False
               totalBalance: 6000000000
-            fakeAvvmBalance: 
+            fakeAvvmBalance:
               count: 100
               oneBalance: 15000000
-            distribution: 
+            distribution:
               testnetRichmenStakeDistr: []
             seed: 0
         blockVersionData:
@@ -321,7 +321,7 @@ mainnet_base_avvmDistr:
     <<: *mainnet_base_core
     genesis:
       <<: *mainnet_base_genesis
-      spec: 
+      spec:
         <<: *mainnet_base_spec
         avvmDistr: &mainnet_avvmDistr
           m2MIpUqWMTQJwK9F4LnaNstGh4BjMy2L2GDHpsuCAPA=: 3846153000000
@@ -14750,36 +14750,36 @@ mainnet_example_generated: &mainnet_example_generated
     <<: *mainnet_base_core
     genesis:
       <<: *mainnet_base_genesis
-      spec: 
+      spec:
         <<: *mainnet_base_spec
-        avvmDistr: 
+        avvmDistr:
             acf611Gtde5MqKQU-65vYE9hCX9_II5NS5kgWAbtOS8=: 769230
             uW5VMAr01En3VT0_CUP2JT7DmSvvy4tyXhBd7Bf7mvU=: 383030
         initializer:
           mainnetInitializer:
             startTime: 1505621332000000
-            bootStakeholders: 
+            bootStakeholders:
                 0d916567f96b6a65d204966e6aab5fbd242e56c321833f8ba5d607da: 1
                 4bd1884f5ce2231be8623ecf5778a9112e26514205b39ff53529e735: 1
                 5f53e01e1366aeda8811c2a630f0e037077a7b651093d2bdc4ef7200: 1
                 ada3ab5c69b945c33c15ca110b444aa58906bf01fcfe55d8818d9c49: 1
-            vssCerts: 
-                0d916567f96b6a65d204966e6aab5fbd242e56c321833f8ba5d607da: 
+            vssCerts:
+                0d916567f96b6a65d204966e6aab5fbd242e56c321833f8ba5d607da:
                    expiryEpoch: 1
                    signature: "396fe505f4287f832fd26c1eba1843a49f3d23b64d664fb3c8a2f25c8de73ce6f2f4cf37ec7fa0fee7750d1d6c55e1b07e1018ce0c6443bacdb01fb8e15f1a0f"
                    signingKey: "ohsV3RtEFD1jeOzKwNulmMRhBG2RLdFxPbcSGbkmJ+xd/2cOALSDahPlydFRjd15sH0PkPE/zTvP4iN8wJr/hA=="
                    vssKey: "WCECtpe8B/5XPefEhgg7X5veUIYH/RRcvXbz6w7MIJBwWYU="
-                4bd1884f5ce2231be8623ecf5778a9112e26514205b39ff53529e735: 
+                4bd1884f5ce2231be8623ecf5778a9112e26514205b39ff53529e735:
                    expiryEpoch: 2
                    signature: "773dcdf727d05720a76e7f88ef1c8a629399a30a98943eac761f9706a0e45def608765362202ce571b9394167c310a445a84745695d73e89086254a4c5be610c"
                    signingKey: "oUDzVUqwmXH4E3RlDrS4zhZ6kwv9rnNiwe8dI6lIg794+bWQBlULwvnwiIGgK4z0HT8+o+nru8F5xDy4ZL2/lA=="
                    vssKey: "WCEChSQx6z4OxYrHNYbu5GGztX4FBBxGMfzmO6C+xNTrDVw="
-                5f53e01e1366aeda8811c2a630f0e037077a7b651093d2bdc4ef7200: 
+                5f53e01e1366aeda8811c2a630f0e037077a7b651093d2bdc4ef7200:
                    expiryEpoch: 1
                    signature: "61a1aae1f62e39bab95466d63b1e6c45c1416fd12ec3ee0d1964496531c9cc30a6987ea962ad0e24cc147f930d2dc500f7c86d3fb292121bc776ac6205f11506"
                    signingKey: "oyGcGsd/FX3Zl98PPt/jE/mo+6Mz/HxaVcHxhrtxh6MrBkBi2U4h0pwaPDhWUo+IgcGzl4xLOqkoB4suojuNUA=="
                    vssKey: "WCECjvlu5JR4+jdL44S/UIxpY1rcWaF75VeoGhhs8QQueiQ="
-                ada3ab5c69b945c33c15ca110b444aa58906bf01fcfe55d8818d9c49: 
+                ada3ab5c69b945c33c15ca110b444aa58906bf01fcfe55d8818d9c49:
                    expiryEpoch: 4
                    signature: "c63013a9963579b0dd1cdd81a8807363fa88cea06164f83471d2cd8a74139bae1ea4e562d3f987c0aa4d162ac4c7fe6569380ab6eee2758dda0e3097cf83670d"
                    signingKey: "E8++WAjZOKIyoh4YEHNaV7cm3Ecut7G9N0AT36u+AoSMEvf/byG8fc/Ab4xSnjvdn5Ww8A+yPOyoZ3Jfb2yf+g=="
@@ -14804,14 +14804,14 @@ mainnet_full: &mainnet_full
 
 mainnet_wallet_win64: &mainnet_wallet_win64
   <<: *mainnet_full
-  update: 
+  update:
     <<: *mainnet_base_update
     applicationName: csl-daedalus
     systemTag: win64
 
 mainnet_wallet_macos64: &mainnet_wallet_macos64
   <<: *mainnet_full
-  update: 
+  update:
     <<: *mainnet_base_update
     applicationName: csl-daedalus
     systemTag: macos64
@@ -14833,14 +14833,14 @@ mainnet_dryrun_full: &mainnet_dryrun_full
 
 mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
   <<: *mainnet_dryrun_full
-  update: 
+  update:
     <<: *mainnet_base_update
     applicationName: csl-daedalus
     systemTag: win64
 
 mainnet_dryrun_wallet_macos64: &mainnet_dryrun_wallet_macos64
   <<: *mainnet_dryrun_full
-  update: 
+  update:
     <<: *mainnet_base_update
     applicationName: csl-daedalus
     systemTag: macos64
@@ -14851,28 +14851,28 @@ mainnet_dryrun_wallet_macos64: &mainnet_dryrun_wallet_macos64
 ##                                                                          ##
 ##############################################################################
 
-mainnet_dryrun_base: 
+mainnet_dryrun_base:
   <<: *mainnet_base
-  core: 
+  core:
     <<: *mainnet_base_core
     genesis:
       <<: *mainnet_base_genesis
-      spec: 
+      spec:
         <<: *mainnet_base_spec
-        protocolConstants: 
+        protocolConstants:
           <<: *mainnet_base_protocolConstants
           protocolMagic: 633343913 #dryrun protocolMagic
         avvmDistr: *mainnet_avvmDistr
 
-mainnet_launch_base: 
+mainnet_launch_base:
   <<: *mainnet_base
-  core: 
+  core:
     <<: *mainnet_base_core
     genesis:
       <<: *mainnet_base_genesis
-      spec: 
+      spec:
         <<: *mainnet_base_spec
-        protocolConstants: 
+        protocolConstants:
           <<: *mainnet_base_protocolConstants
           protocolMagic: 764824073 #mainnet protocolMagic
         avvmDistr: *mainnet_avvmDistr
@@ -14891,7 +14891,7 @@ testnet_public_full: &testnet_public_full
       <<: *mainnet_base_genesis
       spec:  &testnet_public_full_spec
         <<: *mainnet_base_spec
-        protocolConstants: 
+        protocolConstants:
           <<: *mainnet_base_protocolConstants
           protocolMagic: 60987900 #testnet protocolMagic
         avvmDistr: *mainnet_avvmDistr
@@ -14903,10 +14903,10 @@ testnet_public_full: &testnet_public_full
               richmenShare: 0.94
               totalBalance: 13887504355000000
               useHDAddresses: False
-            fakeAvvmBalance: 
+            fakeAvvmBalance:
               count: 100
               oneBalance: 15000000
-            distribution: 
+            distribution:
               testnetRichmenStakeDistr: []
             seed: 0
 
@@ -14916,9 +14916,9 @@ testnet_staging_full: &testnet_staging_full
     <<: *testnet_public_full_core
     genesis:
       <<: *testnet_public_full_genesis
-      spec: 
+      spec:
         <<: *testnet_public_full_spec
-        protocolConstants: 
+        protocolConstants:
           <<: *mainnet_base_protocolConstants
           protocolMagic: 60987900 #testnet protocolMagic
           k: 108
@@ -14932,28 +14932,28 @@ testnet_staging_full: &testnet_staging_full
 
 testnet_public_wallet_win64: &testnet_public_wallet_win64
   <<: *testnet_public_full
-  update: 
+  update:
     <<: *mainnet_base_update
     applicationName: csl-daedalus
     systemTag: win64
 
 testnet_public_wallet_macos64: &testnet_public_wallet_macos64
   <<: *testnet_public_full
-  update: 
+  update:
     <<: *mainnet_base_update
     applicationName: csl-daedalus
     systemTag: macos64
 
 testnet_staging_wallet_win64: &testnet_staging_wallet_win64
   <<: *testnet_staging_full
-  update: 
+  update:
     <<: *mainnet_base_update
     applicationName: csl-daedalus
     systemTag: win64
 
 testnet_staging_wallet_macos64: &testnet_staging_wallet_macos64
   <<: *testnet_staging_full
-  update: 
+  update:
     <<: *mainnet_base_update
     applicationName: csl-daedalus
     systemTag: macos64

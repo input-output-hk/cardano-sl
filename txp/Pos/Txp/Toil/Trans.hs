@@ -9,11 +9,12 @@ module Pos.Txp.Toil.Trans
        , evalToilTEmpty
        ) where
 
+import           Universum
+
 import           Control.Lens        (at, to, (%=), (+=), (.=))
 import           Data.Default        (Default (def))
 import qualified Data.HashMap.Strict as HM
 import qualified Ether
-import           Universum
 
 import           Pos.Txp.Toil.Class  (MonadStakes (..), MonadStakesRead (..),
                                       MonadTxPool (..), MonadUtxo (..),
@@ -40,8 +41,8 @@ instance MonadUtxoRead m => MonadUtxoRead (ToilT __ m) where
     utxoGet id = ether $ MM.lookupM utxoGet id =<< use tmUtxo
 
 instance MonadUtxoRead m => MonadUtxo (ToilT __ m) where
-    utxoPut id aux = ether $ tmUtxo %= MM.insert id aux
-    utxoDel id = ether $ tmUtxo %= MM.delete id
+    utxoPutUnchecked id aux = ether $ tmUtxo %= MM.insert id aux
+    utxoDelUnchecked id     = ether $ tmUtxo %= MM.delete id
 
 instance MonadStakesRead m => MonadStakesRead (ToilT __ m) where
     getStake id =

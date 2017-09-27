@@ -2,40 +2,57 @@
 
 -- | Types representing client (wallet) requests on wallet API.
 module Pos.Wallet.Web.ClientTypes.Types
-      ( SyncProgress (..)
+      ( -- * Identifiers & primitives
+        CId (..)
+      , CHash (..)
+      , CPassPhrase (..)
+      , CTxId (..)
+      , CAccountId (..)
+      , CCoin (..)
+      , Wal (..)
+      , Addr (..)
+      , PassPhraseLU
+
+        -- * Wallets
+        -- ** Structure & metas
+      , CWalletAssurance (..)
+      , CWalletMeta (..)
+      , AccountId (..)
+      , CAccountMeta (..)
+      , CWAddressMeta (..)
+
+        -- ** Requests
+      , CWalletInit (..)
+      , CWalletRedeem (..)
+      , CPaperVendWalletRedeem (..)
+      , CAccountInit (..)
+
+        -- ** Responses
+      , CWallet (..)
+      , CAccount (..)
+      , CAddress (..)
+
+        -- * Transactions
+      , CPtxCondition (..)
+      , CTxMeta (..)
+      , CTx (..)
+      , CTExMeta (..)
+      , CUpdateInfo (..)
+      , mkCTxId
+
+        -- * Profile
+      , CProfile (..)
+      , CPwHash
+
+        -- * Reporting
+      , CInitialized (..)
+      , CElectronCrashReport (..)
+
+        -- * Misc
+      , SyncProgress (..)
       , spLocalCD
       , spNetworkCD
       , spPeers
-      , CId (..)
-      , CHash (..)
-      , CPassPhrase (..)
-      , CProfile (..)
-      , CPwHash
-      , CTx (..)
-      , CTxId (..)
-      , CTxMeta (..)
-      , CTExMeta (..)
-      , CPtxCondition (..)
-      , CInitialized (..)
-      , AccountId (..)
-      , CAccountId (..)
-      , CWAddressMeta (..)
-      , CAddress (..)
-      , CAccount (..)
-      , CWalletAssurance (..)
-      , CAccountMeta (..)
-      , CAccountInit (..)
-      , CWallet (..)
-      , CWalletMeta (..)
-      , CWalletInit (..)
-      , CUpdateInfo (..)
-      , CWalletRedeem (..)
-      , CPaperVendWalletRedeem (..)
-      , CCoin (..)
-      , PassPhraseLU
-      , CElectronCrashReport (..)
-      , Wal (..)
-      , Addr (..)
       ) where
 
 import           Universum
@@ -44,31 +61,23 @@ import           Control.Lens          (makeLenses)
 import           Data.Default          (Default, def)
 import           Data.Hashable         (Hashable (..))
 import           Data.Text             (Text)
-import           Data.Text.Buildable   (build)
+import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable         (Typeable)
-import           Formatting            (bprint, (%))
-import qualified Formatting            as F
+import           Formatting            (bprint, build, builder, shown, (%))
 import qualified Prelude
+import           Serokell.Util         (listJsonIndent)
 import           Servant.Multipart     (FileData)
 
 import           Pos.Aeson.Types       ()
 import           Pos.Core.Types        (ScriptVersion)
 import           Pos.Types             (BlockVersion, ChainDifficulty, SoftwareVersion)
 import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Util.Servant      (HasTruncateLogPolicy, WithTruncatedLog (..))
 
--- TODO [CSM-407] Structurize this mess
-
-data SyncProgress = SyncProgress
-    { _spLocalCD   :: ChainDifficulty
-    , _spNetworkCD :: Maybe ChainDifficulty
-    , _spPeers     :: Word
-    } deriving (Show, Generic, Typeable)
-
-makeLenses ''SyncProgress
-
-instance Default SyncProgress where
-    def = SyncProgress 0 mzero 0
+----------------------------------------------------------------------------
+-- Identifiers & primitives
+----------------------------------------------------------------------------
 
 -- | Client hash
 newtype CHash = CHash Text
@@ -78,7 +87,7 @@ instance Hashable CHash where
     hashWithSalt s (CHash h) = hashWithSalt s h
 
 -- | Client address
--- @w@ is phantom type and stands for type of item this address belongs to.
+-- @w@ is phantom type and stands for type of item this id belongs to.
 newtype CId w = CId CHash
     deriving (Show, Eq, Ord, Generic, Hashable, Buildable)
 
@@ -94,21 +103,33 @@ data Addr = Addr
 newtype CTxId = CTxId CHash
     deriving (Show, Eq, Generic, Hashable, Buildable)
 
+mkCTxId :: Text -> CTxId
+mkCTxId = CTxId . CHash
+
 newtype CPassPhrase = CPassPhrase Text
     deriving (Eq, Generic)
 
 instance Show CPassPhrase where
     show _ = "<pass phrase>"
 
+newtype CAccountId = CAccountId Text
+    deriving (Eq, Show, Generic, Buildable)
+
+newtype CCoin = CCoin
+    { getCCoin :: Text
+    } deriving (Show, Eq, Generic, Buildable)
+
+-- | Passphrase last update time
+type PassPhraseLU = POSIXTime
+
 ----------------------------------------------------------------------------
--- Wallet
+-- Wallet structure & metas
 ----------------------------------------------------------------------------
 
--- | Wallet identifier
 data AccountId = AccountId
-    { -- | Address of wallet this wallet belongs to
+    { -- | Address of wallet this account belongs to
       aiWId   :: CId Wal
-    , -- | Derivation index of this wallet key
+    , -- | Derivation index of this account key
       aiIndex :: Word32
     } deriving (Eq, Show, Generic, Typeable)
 
@@ -116,13 +137,8 @@ instance Hashable AccountId
 
 instance Buildable AccountId where
     build AccountId{..} =
-        bprint (F.build%"@"%F.build) aiWId aiIndex
+        bprint (build%"@"%build) aiWId aiIndex
 
-newtype CAccountId = CAccountId Text
-    deriving (Eq, Show, Generic, Buildable)
-
--- TODO: extract first three fields as @Coordinates@ and use only it where
--- required (maybe nowhere)
 -- | Account identifier
 data CWAddressMeta = CWAddressMeta
     { -- | Address of wallet this account belongs to
@@ -137,17 +153,10 @@ data CWAddressMeta = CWAddressMeta
 
 instance Buildable CWAddressMeta where
     build CWAddressMeta{..} =
-        bprint (F.build%"@"%F.build%"@"%F.build%" ("%F.build%")")
+        bprint (build%"@"%build%"@"%build%" ("%build%")")
         cwamWId cwamWalletIndex cwamAccountIndex cwamId
 
 instance Hashable CWAddressMeta
-
-newtype CCoin = CCoin
-    { getCCoin :: Text
-    } deriving (Show, Eq, Generic, Buildable)
-
--- | Passphrase last update time
-type PassPhraseLU = POSIXTime
 
 -- | A level of assurance for the wallet "meta type"
 data CWalletAssurance
@@ -155,42 +164,8 @@ data CWalletAssurance
     | CWANormal
     deriving (Show, Eq, Generic)
 
--- | Single address in a account
-data CAddress = CAddress
-    { cadId       :: !(CId Addr)
-    , cadAmount   :: !CCoin
-    , cadIsUsed   :: !Bool
-    , cadIsChange :: !Bool -- ^ Is this a change address
-    } deriving (Show, Generic)
-
--- Includes data which are not provided by Cardano
-data CAccountMeta = CAccountMeta
-    { caName      :: !Text
-    } deriving (Show, Generic)
-
-instance Default CAccountMeta where
-    def = CAccountMeta "Personal Wallet"
-
--- | Client Account (CA)
--- (Flow type: accountType)
-data CAccount = CAccount
-    { caId        :: !CAccountId
-    , caMeta      :: !CAccountMeta
-    , caAddresses :: ![CAddress]
-    , caAmount    :: !CCoin
-    } deriving (Show, Generic, Typeable)
-
--- | Query data for account creation
-data CAccountInit = CAccountInit
-    { caInitMeta :: !CAccountMeta
-    , caInitWId  :: !(CId Wal)
-    } deriving (Show, Generic)
-
--- | Query data for redeem
-data CWalletRedeem = CWalletRedeem
-    { crWalletId :: !CAccountId
-    , crSeed     :: !Text -- TODO: newtype!
-    } deriving (Show, Generic)
+instance Buildable CWalletAssurance where
+    build = bprint shown
 
 -- | Meta data of 'CWallet'
 data CWalletMeta = CWalletMeta
@@ -199,8 +174,78 @@ data CWalletMeta = CWalletMeta
     , cwUnit      :: !Int -- ^ https://issues.serokell.io/issue/CSM-163#comment=96-2480
     } deriving (Show, Eq, Generic)
 
+instance Buildable CWalletMeta where
+    build CWalletMeta{..} =
+        bprint ("'"%build%"' ("%build%"/"%build%")")
+               cwName cwAssurance cwUnit
+
 instance Default CWalletMeta where
     def = CWalletMeta "Personal Wallet Set" CWANormal 0
+
+-- Includes data which are not provided by Cardano
+data CAccountMeta = CAccountMeta
+    { caName      :: !Text
+    } deriving (Show, Generic)
+
+instance Buildable CAccountMeta where
+    build CAccountMeta{..} =
+        bprint ("'"%build%"'") caName
+
+instance Default CAccountMeta where
+    def = CAccountMeta "Personal Wallet"
+
+----------------------------------------------------------------------------
+-- Wallet structure - requests
+----------------------------------------------------------------------------
+
+-- | Query data for wallet creation
+data CWalletInit = CWalletInit
+    { cwInitMeta     :: !CWalletMeta
+    , cwBackupPhrase :: !BackupPhrase
+    } deriving (Eq, Show, Generic)
+
+instance Buildable CWalletInit where
+    build CWalletInit{..} =
+        bprint (build%" / "%build)
+               cwBackupPhrase cwInitMeta
+
+-- | Query data for redeem
+data CWalletRedeem = CWalletRedeem
+    { crWalletId :: !CAccountId
+    , crSeed     :: !Text -- TODO: newtype!
+    } deriving (Show, Generic)
+
+instance Buildable CWalletRedeem where
+    build CWalletRedeem{..} =
+        bprint (build%" <- "%build)
+               crWalletId crSeed
+
+-- | Query data for redeem
+data CPaperVendWalletRedeem = CPaperVendWalletRedeem
+    { pvWalletId     :: !CAccountId
+    , pvSeed         :: !Text -- TODO: newtype!
+    , pvBackupPhrase :: !BackupPhrase
+    } deriving (Show, Generic)
+
+instance Buildable CPaperVendWalletRedeem where
+    build CPaperVendWalletRedeem{..} =
+        bprint (build%" <- "%build%" / "%build)
+               pvWalletId pvSeed pvBackupPhrase
+
+-- | Query data for account creation
+data CAccountInit = CAccountInit
+    { caInitMeta :: !CAccountMeta
+    , caInitWId  :: !(CId Wal)
+    } deriving (Show, Generic)
+
+instance Buildable CAccountInit where
+    build CAccountInit{..} =
+        bprint (build%" / "%build)
+               caInitWId caInitMeta
+
+----------------------------------------------------------------------------
+-- Wallet struture - responses
+----------------------------------------------------------------------------
 
 -- | Client Wallet (CW)
 data CWallet = CWallet
@@ -212,18 +257,74 @@ data CWallet = CWallet
     , cwPassphraseLU   :: !PassPhraseLU  -- last update time
     } deriving (Eq, Show, Generic)
 
--- | Query data for wallet creation
-data CWalletInit = CWalletInit
-    { cwInitMeta     :: !CWalletMeta
-    , cwBackupPhrase :: !BackupPhrase
-    } deriving (Eq, Show, Generic)
+instance Buildable CWallet where
+    build CWallet{..} =
+        bprint ("{ id="%build
+                %" meta="%build
+                %" accs="%build
+                %" amount="%build
+                %" pass="%build
+                %" passlu="%build
+                %" }")
+        cwId
+        cwMeta
+        cwAccountsNumber
+        cwAmount
+        cwHasPassphrase
+        cwPassphraseLU
 
--- | Query data for redeem
-data CPaperVendWalletRedeem = CPaperVendWalletRedeem
-    { pvWalletId     :: !CAccountId
-    , pvSeed         :: !Text -- TODO: newtype!
-    , pvBackupPhrase :: !BackupPhrase
+-- | Client Account (CA)
+-- (Flow type: accountType)
+data CAccount = CAccount
+    { caId        :: !CAccountId
+    , caMeta      :: !CAccountMeta
+    , caAddresses :: ![CAddress]
+    , caAmount    :: !CCoin
+    } deriving (Show, Generic, Typeable)
+
+instance Buildable CAccount where
+    build CAccount{..} =
+        bprint ("{ id="%build
+                %" meta="%build
+                %" amount="%build%"\n"
+                %" addrs="%listJsonIndent 4
+                %" }")
+        caId
+        caMeta
+        caAmount
+        caAddresses
+
+instance HasTruncateLogPolicy CAddress =>
+         Buildable (WithTruncatedLog CAccount) where
+    build (WithTruncatedLog CAccount {..}) =
+        bprint
+            ("{ id=" %build % " meta=" %build % " amount=" %build % "\n" %
+             " addrs=" %build %
+             " }")
+            caId
+            caMeta
+            caAmount
+            (WithTruncatedLog caAddresses)
+
+-- | Single address in a account
+data CAddress = CAddress
+    { cadId       :: !(CId Addr)
+    , cadAmount   :: !CCoin
+    , cadIsUsed   :: !Bool
+    , cadIsChange :: !Bool -- ^ Is this a change address
     } deriving (Show, Generic)
+
+instance Buildable CAddress where
+    build CAddress{..} =
+        bprint ("{ id="%build%"\n"
+                %" amount="%build
+                %" used="%build
+                %" change="%build
+                %" }")
+        cadId
+        cadAmount
+        cadIsUsed
+        cadIsChange
 
 ----------------------------------------------------------------------------
 -- Profile
@@ -240,6 +341,10 @@ data CProfile = CProfile
     { cpLocale      :: Text
     } deriving (Show, Generic, Typeable)
 
+instance Buildable CProfile where
+    build CProfile{..} =
+        bprint ("{ cpLocale="%build%" }") cpLocale
+
 -- | Added default instance for `testReset`, we need an inital state for
 -- @CProfile@
 instance Default CProfile where
@@ -254,6 +359,9 @@ data CTxMeta = CTxMeta
     { ctmDate        :: POSIXTime
     } deriving (Show, Generic)
 
+instance Buildable CTxMeta where
+    build CTxMeta{..} = bprint ("{ date="%build%" }") ctmDate
+
 -- | State of transaction, corresponding to
 -- 'Pos.Wallet.Web.Pending.Types.PtxCondition'.
 -- @PtxInNewestBlocks@ and @PtxPersisted@ states are merged into one
@@ -264,6 +372,9 @@ data CPtxCondition
     | CPtxWontApply
     | CPtxNotTracked  -- ^ tx was made not in this life
     deriving (Show, Eq, Generic, Typeable)
+
+instance Buildable CPtxCondition where
+    build = bprint shown
 
 -- | Client transaction (CTx)
 -- Provides all Data about a transaction needed by client.
@@ -280,6 +391,32 @@ data CTx = CTx
     , ctIsOutgoing    :: Bool
     , ctCondition     :: CPtxCondition
     } deriving (Show, Generic, Typeable)
+
+instance Buildable CTx where
+    build CTx{..} =
+        bprint ("{ id="%build
+                %" amount="%build
+                %" confirms="%build
+                %" meta="%build%"\n"
+                %" inputs="%builder%"\n"
+                %" outputs="%builder%"\n"
+                %" local="%build
+                %" outgoing="%build
+                %" condition="%build
+                %" }")
+        ctId
+        ctAmount
+        ctConfirmations
+        ctMeta
+        (buildTxEnds ctInputs)
+        (buildTxEnds ctOutputs)
+        ctIsLocal
+        ctIsOutgoing
+        ctCondition
+      where
+        buildTxEnds =
+            mconcat . intersperse ", " .
+            map (uncurry $ bprint (build%" - "%build))
 
 -- | meta data of exchanges
 data CTExMeta = CTExMeta
@@ -307,6 +444,26 @@ data CUpdateInfo = CUpdateInfo
     , cuiNegativeStake   :: !CCoin
     } deriving (Show, Generic, Typeable)
 
+instance Buildable CUpdateInfo where
+    build CUpdateInfo{..} =
+        bprint ("{ softver="%build
+                %" blockver="%build
+                %" scriptver="%build
+                %" implicit="%build
+                %" for="%build
+                %" against="%build
+                %" pos stake="%build
+                %" neg stake="%build
+                %" }")
+        cuiSoftwareVersion
+        cuiBlockVesion  -- TODO [CSM-407] lol what is it?
+        cuiScriptVersion
+        cuiImplicit
+        cuiVotesFor
+        cuiVotesAgainst
+        cuiPositiveStake
+        cuiNegativeStake
+
 ----------------------------------------------------------------------------
 -- Reporting
 ----------------------------------------------------------------------------
@@ -320,6 +477,10 @@ data CInitialized = CInitialized
                             -- connection with peers established.
     } deriving (Show, Generic)
 
+instance Buildable CInitialized where
+    build CInitialized{..} =
+        bprint (build%"/"%build)
+               cPreInit cTotalTime
 
 data CElectronCrashReport = CElectronCrashReport
     { cecVersion     :: Text
@@ -332,3 +493,24 @@ data CElectronCrashReport = CElectronCrashReport
     , cecCompanyName :: Text
     , cecUploadDump  :: FileData
     } deriving (Show, Generic)
+
+----------------------------------------------------------------------------
+-- Misc
+----------------------------------------------------------------------------
+
+data SyncProgress = SyncProgress
+    { _spLocalCD   :: ChainDifficulty
+    , _spNetworkCD :: Maybe ChainDifficulty
+    , _spPeers     :: Word
+    } deriving (Show, Generic, Typeable)
+
+makeLenses ''SyncProgress
+
+instance Buildable SyncProgress where
+    build SyncProgress{..} =
+        bprint ("progress="%build%"/"%build%" peers="%build)
+               _spLocalCD _spNetworkCD _spPeers
+
+instance Default SyncProgress where
+    def = SyncProgress 0 mzero 0
+

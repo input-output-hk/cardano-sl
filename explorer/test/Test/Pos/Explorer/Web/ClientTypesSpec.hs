@@ -14,7 +14,6 @@ import           Prelude                      (id)
 import           Pos.Binary                   (Bi)
 import           Pos.Crypto
 import           Pos.Explorer.Web.ClientTypes
--- import           Pos.Explorer.Web.Server      (cAddrToAddr)
 import           Pos.Txp                      (TxId)
 import           Pos.Types                    (Address)
 import           Test.Hspec                   (Spec, describe, it, shouldBe,
@@ -99,14 +98,6 @@ unitTests = do
 
             decodedCAddressTextNew `shouldSatisfy` isRight
             (toCAddress <$> decodedCAddressTextNew) `shouldSatisfy` isRight
-
-            -- TODO(ks): Uncomment this to see how it fails.
-            -- let decodedCAddressRaw :: Address
-            --     decodedCAddressRaw = case decodedCAddressTextNew of
-            --         Left _     -> error "Invalid address"
-            --         Right addr -> addr
-
-            -- (cAddrToAddr cAddress) `shouldBe` decodedCAddressRaw
 
 ----------------------------------------------------------------------------
 -- Quickcheck tests

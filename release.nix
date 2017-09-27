@@ -19,6 +19,7 @@ let
   platforms = {
     cardano-sl = supportedSystems;
     cardano-sl-static = supportedSystems;
+    cardano-sl-wallet = supportedSystems;
     cardano-sl-tools = supportedSystems;
     cardano-sl-explorer-static = [ "x86_64-linux" ];
     cardano-report-server-static = [ "x86_64-linux" ];

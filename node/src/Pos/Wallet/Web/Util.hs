@@ -10,6 +10,7 @@ module Pos.Wallet.Web.Util
     , decodeCTypeOrFail
     , getWalletAssuredDepth
     , getWalletThTime
+    , sortWalletThByTime
     ) where
 
 import           Universum
@@ -19,6 +20,7 @@ import           Formatting                 (build, sformat, (%))
 
 import           Pos.Client.Txp.History     (TxHistoryEntry (..))
 import           Pos.Core                   (BlockCount, timestampToPosix)
+import           Pos.Util.Chrono            (NewestFirst (..))
 import           Pos.Util.Servant           (FromCType (..), OriginType, encodeCType)
 import           Pos.Util.Util              (maybeThrow)
 import           Pos.Wallet.Web.Assurance   (AssuranceLevel (HighAssurance),
@@ -73,3 +75,10 @@ getWalletThTime wid th = do
     metaTime <- ctmDate <<$>> getTxMeta wid (encodeCType $ _thTxId th)
     let thTime = timestampToPosix <$> _thTimestamp th
     return $ metaTime <|> thTime
+
+sortWalletThByTime :: (WebWalletModeDB ctx m)
+    => CId Wal -> [TxHistoryEntry] -> m (NewestFirst [] TxHistoryEntry)
+sortWalletThByTime wid ths = do
+    thsWTime <- forM ths $ \th -> (th, ) <$> getWalletThTime wid th
+    let sortedThs = map fst $ sortOn (fmap Down . snd) thsWTime
+    return $ NewestFirst sortedThs

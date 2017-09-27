@@ -16,12 +16,7 @@ echo "Launch a single node and connect it to '${CLUSTER}' cluster..."
 
 readonly TMP_TOPOLOGY_YAML=/tmp/topology.yaml
 printf "wallet:
-    relays:
-        [
-            [
-                { host: relays.cardano-mainnet.iohk.io }
-            ]
-        ]
+    relays: [[{ host: relays.cardano-mainnet.iohk.io }]]
     valency: 1
     fallbacks: 7" > "${TMP_TOPOLOGY_YAML}"
 

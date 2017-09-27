@@ -191,7 +191,7 @@ function node_cmd {
 
   ensure_run
 
-  keys_args="--vss-genesis $i --spending-genesis $i"
+  keys_args="--genesis-secret $i"
   if [[ "$CSL_PRODUCTION" != "" ]]; then
       keys_args="--keyfile \"secrets/secret-$((i+1)).key\""
   fi

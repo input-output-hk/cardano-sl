@@ -36,8 +36,6 @@ import           Pos.Update          (updateTriggerWorker)
 import           Pos.Util            (mconcatPair)
 import           Pos.Util.UserSecret (usVss)
 
-
-
 ----------------------------------------------------------------------------
 -- Main action
 ----------------------------------------------------------------------------

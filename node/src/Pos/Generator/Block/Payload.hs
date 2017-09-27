@@ -10,7 +10,7 @@ module Pos.Generator.Block.Payload
 
 import           Universum
 
-import           Control.Lens               (at, uses, (%=), (.=), (?=))
+import           Control.Lens               (at, uses, (%=), (.=))
 import           Control.Lens.TH            (makeLenses)
 import           Control.Monad.Random.Class (MonadRandom (..))
 import qualified Data.HashMap.Strict        as HM
@@ -120,8 +120,8 @@ instance (HasConfiguration, Monad m) => MonadUtxoRead (StateT GenTxData m) where
     utxoGet txIn = uses gtdUtxo $ M.lookup txIn
 
 instance (HasConfiguration, Monad m) => MonadUtxo (StateT GenTxData m) where
-    utxoPut txIn txOutAux = gtdUtxo . at txIn ?= txOutAux
-    utxoDel txIn = gtdUtxo . at txIn .= Nothing
+    utxoPutUnchecked id aux = gtdUtxo . at id .= Just aux
+    utxoDelUnchecked id     = gtdUtxo . at id .= Nothing
 
 -- TODO: move to txp, think how to unite it with 'Pos.Arbitrary.Txp'.
 -- | Generate valid 'TxPayload' using current global state.

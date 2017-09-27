@@ -681,10 +681,9 @@ registerQueueMetrics namespaceMb OutQ{..} store = do
         -- correctly namespaced.
         -- E.g.
         -- let namespaceMb = Just "mynamespace"
-        -- let qSelf       = "test"
         -- metric ["InFlight"]
-        -- >>> mynamespace.queue.test.InFlight
-        let prefix = maybeToList namespaceMb ++ ["queue", qSelf]
+        -- >>> mynamespace.test.InFlight
+        let prefix = maybeToList namespaceMb ++ ["queue"]
         in T.pack . intercalate "." . (prefix ++)
 
 countInFlight :: InFlight nid -> Int

@@ -14789,7 +14789,7 @@ mainnet_example_generated: &mainnet_example_generated
 
 ##############################################################################
 ##                                                                          ##
-##   Mainnet config sample                                                  ##
+##   Mainnet final launch config sample                                     ##
 ##                                                                          ##
 ##############################################################################
 
@@ -14799,8 +14799,8 @@ mainnet_full: &mainnet_full
     <<: *mainnet_base_core
     genesis:
       src:
-        file: mainnet-genesis-internal-dryrun.json
-        hash: 5012c5d7dba0fc03db686816cff38453025299fdce12a7d587e1256a1053f135
+        file: mainnet-genesis.json
+        hash: 5f20df933584822601f9e3f8c024eb5eb252fe8cefb24d1317dc3d432e940ebb
 
 mainnet_wallet_win64: &mainnet_wallet_win64
   <<: *mainnet_full
@@ -14811,6 +14811,35 @@ mainnet_wallet_win64: &mainnet_wallet_win64
 
 mainnet_wallet_macos64: &mainnet_wallet_macos64
   <<: *mainnet_full
+  update: 
+    <<: *mainnet_base_update
+    applicationName: csl-daedalus
+    systemTag: macos64
+
+##############################################################################
+##                                                                          ##
+##   Mainnet dryrun config sample                                           ##
+##                                                                          ##
+##############################################################################
+
+mainnet_dryrun_full: &mainnet_dryrun_full
+  <<: *mainnet_base
+  core:
+    <<: *mainnet_base_core
+    genesis:
+      src:
+        file: mainnet-genesis-dryrun-with-stakeholders.json
+        hash: ce1ea8da674f07c699c7ac49ea894b0f03a30f38d26fabb93a163fff04e8f360
+
+mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
+  <<: *mainnet_dryrun_full
+  update: 
+    <<: *mainnet_base_update
+    applicationName: csl-daedalus
+    systemTag: win64
+
+mainnet_dryrun_wallet_macos64: &mainnet_dryrun_wallet_macos64
+  <<: *mainnet_dryrun_full
   update: 
     <<: *mainnet_base_update
     applicationName: csl-daedalus

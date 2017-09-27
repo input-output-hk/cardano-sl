@@ -76,7 +76,7 @@ data CoreConfiguration = CoreConfiguration
       -- back, it requires immediate reaction.
     , ccCriticalForkThreshold  :: !Int
       -- | Chain quality will be also calculated for this amount of seconds.
-    , ccFixedTimeCQ            :: !Microsecond
+    , ccFixedTimeCQ            :: !Second
 
       -- Web settings
 
@@ -131,11 +131,11 @@ criticalForkThreshold = fromIntegral . ccCriticalForkThreshold $ coreConfigurati
 
 -- | Chain quality will be also calculated for this amount of time.
 fixedTimeCQ :: HasCoreConfiguration => Microsecond
-fixedTimeCQ = ccFixedTimeCQ coreConfiguration
+fixedTimeCQ = convertUnit fixedTimeCQSec
 
 -- | 'fixedTimeCQ' expressed as seconds.
 fixedTimeCQSec :: HasCoreConfiguration => Second
-fixedTimeCQSec = convertUnit fixedTimeCQ
+fixedTimeCQSec = ccFixedTimeCQ coreConfiguration
 
 -- | Web logging might be disabled for security concerns.
 webLoggingEnabled :: HasCoreConfiguration => Bool

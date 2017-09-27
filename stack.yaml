@@ -22,10 +22,6 @@ packages:
 - explorer
 
 - location:
-    git: https://github.com/serokell/log-warper.git
-    # master, but we should switch to stackage when 1.2.2 will be on it
-    commit: e9934b7c4c0ca496c73a7344389e0f3d6a42fcf7 
-- location:
     git: https://github.com/serokell/time-units.git
     commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
   extra-dep: true
@@ -102,6 +98,7 @@ nix:
 extra-deps:
 - universum-0.6.1
 - serokell-util-0.5.0
+- log-warper-1.2.2
 - pvss-0.2.0
 - base58-bytestring-0.1.0
 - concurrent-extra-0.7.0.10       # not yet on Stackage

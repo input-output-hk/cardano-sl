@@ -93,6 +93,7 @@ instance ToSchema      C.CBlockEntry
 instance ToSchema      C.CAddressType
 instance ToSchema      C.CAddressSummary
 instance ToSchema      C.CCoin
+instance ToSchema      C.CAda
 instance ToSchema      C.CNetworkAddress
 instance ToSchema      C.CGenesisSummary
 instance ToSchema      C.CGenesisAddressInfo

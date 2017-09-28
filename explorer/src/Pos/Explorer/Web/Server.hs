@@ -24,7 +24,6 @@ import           Universum
 import           Control.Lens                     (at)
 import           Control.Monad.Catch              (try)
 import qualified Data.ByteString                  as BS
-import           Data.Fixed                       (Micro)
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.List.NonEmpty               as NE
 import           Data.Maybe                       (fromMaybe)
@@ -76,7 +75,7 @@ import qualified Pos.Explorer                     as EX (getAddrBalance, getAddr
                                                          getTxExtra, getUtxoSum)
 import           Pos.Explorer.Aeson.ClientTypes   ()
 import           Pos.Explorer.Web.Api             (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes     (Byte, CAddress (..),
+import           Pos.Explorer.Web.ClientTypes     (Byte, CAda (..), CAddress (..),
                                                    CAddressSummary (..),
                                                    CAddressType (..), CBlockEntry (..),
                                                    CBlockSummary,
@@ -194,11 +193,11 @@ explorerHandlers _sendActions =
 -- API Functions
 ----------------------------------------------------------------
 
-getTotalAda :: ExplorerMode ctx m => m Micro
+getTotalAda :: ExplorerMode ctx m => m CAda
 getTotalAda = do
     utxoSum <- EX.getUtxoSum
     validateUtxoSum utxoSum
-    pure $ fromInteger utxoSum / 1e6
+    pure $ CAda $ fromInteger utxoSum / 1e6
   where
     validateUtxoSum :: ExplorerMode ctx m => Integer -> m ()
     validateUtxoSum n

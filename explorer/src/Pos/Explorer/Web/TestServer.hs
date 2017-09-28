@@ -8,7 +8,6 @@ module Pos.Explorer.Web.TestServer
 
 import           Universum
 
-import           Data.Fixed                     (Micro)
 import           Data.Time                      (defaultTimeLocale, parseTimeOrError)
 import           Data.Time.Clock.POSIX          (POSIXTime, utcTimeToPOSIXSeconds)
 import           Network.Wai                    (Application)
@@ -18,7 +17,7 @@ import           Servant.Server                 (Handler, Server, serve)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (Byte, CAddress (..),
+import           Pos.Explorer.Web.ClientTypes   (Byte, CAda (..), CAddress (..),
                                                  CAddressSummary (..), CAddressType (..),
                                                  CBlockEntry (..), CBlockSummary (..),
                                                  CGenesisAddressInfo (..),
@@ -126,8 +125,8 @@ cTxBrief = CTxBrief
 -- Test handlers
 ----------------------------------------------------------------
 
-testTotalAda :: Handler (Either ExplorerError Micro)
-testTotalAda = pure $ pure $ 123.456789
+testTotalAda :: Handler (Either ExplorerError CAda)
+testTotalAda = pure $ pure $ CAda 123.456789
 
 testBlocksPagesTotal
     :: Maybe Word

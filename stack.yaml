@@ -71,15 +71,15 @@ packages:
     commit: 6693ff91be2f0b015c2ab043292587c1cc9449cf
   extra-dep: true
 
-# Required for explorer
-- location:
-    git: https://github.com/serokell/engine.io.git
-    commit: a594e402fd450f11ad60d09ddbd93db500000632
-  extra-dep: true
-  subdirs:
-    - socket-io
-    - engine-io
-    - engine-io-wai
+# # Required for explorer
+# - location:
+#     git: https://github.com/serokell/engine.io.git
+#     commit: a594e402fd450f11ad60d09ddbd93db500000632
+#   extra-dep: true
+#   subdirs:
+#     - socket-io
+#     - engine-io
+#     - engine-io-wai
 
 # Forked version of "dns" with proper Windows & Unix multiple-nameservers support
 - location:

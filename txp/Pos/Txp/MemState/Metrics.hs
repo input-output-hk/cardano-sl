@@ -7,7 +7,6 @@ module Pos.Txp.MemState.Metrics
 import           Universum
 
 import           Formatting                   (sformat, shown, (%))
-import           Serokell.Data.Memory.Units   (memory)
 import qualified System.Metrics               as Metrics
 import qualified System.Metrics.Gauge         as Metrics.Gauge
 import           System.Wlog                  (logDebug)
@@ -61,6 +60,6 @@ recordTxpMetrics ekgStore memPoolVar = do
                         then fromIntegral timeElapsed
                         else round $ alpha * fromIntegral timeElapsed + (1 - alpha) * fromIntegral timeElapsed'
               liftIO $ Metrics.Gauge.set ekgMemPoolModifyTime new_
-              logDebug $ sformat ("MemPool metrics release: modify time was "%shown%" size is "%memory)
+              logDebug $ sformat ("MemPool metrics release: modify time was "%shown%" size is "%shown)
                          timeElapsed newMemPoolSize
         }

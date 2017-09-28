@@ -20,12 +20,12 @@ module Pos.Wallet.Web.Methods.Misc
 
 import           Universum
 
+import           Pos.Client.KeyStorage      (MonadKeys, deleteSecretKey, getSecretKeys)
 import           Pos.Core                   (SoftwareVersion (..), decodeTextAddress)
 import           Pos.NtpCheck               (NtpStatus (..), mkNtpStatusVar)
 import           Pos.Update.Configuration   (curSoftwareVersion)
 import           Pos.Util                   (maybeThrow)
 
-import           Pos.Client.KeyStorage      (deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.WalletMode      (applyLastUpdate, connectedPeers,
                                              localChainDifficulty, networkChainDifficulty)
 import           Pos.Wallet.Web.ClientTypes (CProfile (..), CUpdateInfo (..),
@@ -113,6 +113,7 @@ localTimeDifference =
 testResetAll :: MonadWalletWebMode ctx m => m ()
 testResetAll = deleteAllKeys >> testReset
   where
+    deleteAllKeys :: MonadKeys m => m ()
     deleteAllKeys = do
         keyNum <- length <$> getSecretKeys
         replicateM_ keyNum $ deleteSecretKey 0

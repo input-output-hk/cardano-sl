@@ -71,7 +71,7 @@ data NodeConfiguration = NodeConfiguration
       -- support caching
     , ccNetworkConnectionTimeout     :: !Int
       -- ^ Network connection timeout in milliseconds
-    , ccConversationEstablishTimeout :: !(Maybe Int)
+    , ccConversationEstablishTimeout :: !Int
       -- ^ Conversation acknowledgement timeout in milliseconds.
       -- Default 30 seconds.
     , ccBlockRetrievalQueueSize      :: !Int
@@ -103,8 +103,7 @@ networkConnectionTimeout = ms . fromIntegral . ccNetworkConnectionTimeout $ node
 
 -- | Default is 30 seconds.
 conversationEstablishTimeout :: HasNodeConfiguration => Microsecond
-conversationEstablishTimeout =
-    ms . fromIntegral . fromMaybe 30000 . ccConversationEstablishTimeout $ nodeConfiguration
+conversationEstablishTimeout = ms . fromIntegral . ccConversationEstablishTimeout $ nodeConfiguration
 
 blockRetrievalQueueSize :: (HasNodeConfiguration, Integral a) => a
 blockRetrievalQueueSize =

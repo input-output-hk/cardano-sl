@@ -26,11 +26,12 @@ import           System.Wlog            (WithLogger)
 import           Pos.Block.Core         (BlockHeader)
 import           Pos.Block.Slog.Context (slogGetLastSlots)
 import           Pos.Block.Slog.Types   (HasSlogGState)
-import           Pos.Core               (BlockCount, FlatSlotId,
-                                         HeaderHash, Timestamp (..), diffEpochOrSlot,
-                                         difficultyL, fixedTimeCQ, flattenSlotId,
-                                         getEpochOrSlot, headerHash, prevBlockL)
-import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam, slotSecurityParam)
+import           Pos.Core               (BlockCount, FlatSlotId, HeaderHash,
+                                         Timestamp (..), diffEpochOrSlot, difficultyL,
+                                         fixedTimeCQ, flattenSlotId, getEpochOrSlot,
+                                         headerHash, prevBlockL)
+import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam,
+                                         slotSecurityParam)
 import           Pos.DB                 (MonadDBRead)
 import           Pos.DB.Block           (MonadBlockDB)
 import qualified Pos.DB.DB              as DB
@@ -102,10 +103,10 @@ needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
 -- See documentation of 'chainQualityThreshold' to see why this
 -- function returns any 'Fractional'.
 calcChainQuality ::
-       Fractional res => BlockCount -> FlatSlotId -> FlatSlotId -> res
+       Fractional res => BlockCount -> FlatSlotId -> FlatSlotId -> Maybe res
 calcChainQuality blockCount deepSlot newSlot
-    | deepSlot == newSlot = error "calcChainQuality: newSlot = deepSlot"
-    | otherwise = realToFrac blockCount / realToFrac (newSlot - deepSlot)
+    | deepSlot == newSlot = Nothing
+    | otherwise = Just $ realToFrac blockCount / realToFrac (newSlot - deepSlot)
 
 -- | Version of 'calcChainQuality' which takes last blocks' slots from
 -- the monadic context. It computes chain quality for last
@@ -120,16 +121,17 @@ calcChainQualityM ::
        , HasConfiguration
        )
     => FlatSlotId
-    -> m res
+    -> m (Maybe res)
 calcChainQualityM newSlot = do
     OldestFirst lastSlots <- slogGetLastSlots
     let len = length lastSlots
     case nonEmpty lastSlots of
-        Nothing -> return 0
+        Nothing -> return Nothing
         Just slotsNE
             | len > fromIntegral blkSecurityParam ->
                 reportFatalError $
                 sformat ("number of last slots is greater than 'k': "%int) len
+
             | otherwise ->
                 return
                     (calcChainQuality
@@ -153,7 +155,6 @@ calcOverallChainQuality =
     calcOverallChainQualityDo curFlatSlot tipHeader
         | curFlatSlot == 0 = Nothing
         | otherwise =
-            Just $
             calcChainQuality
                 (fromIntegral $ tipHeader ^. difficultyL)
                 0
@@ -192,7 +193,6 @@ calcChainQualityFixedTime = do
             Just firstNew
                 | firstNew > 0 || head lastSlots == Just olderSlotId ->
                     let blockCount = fromIntegral (length lastSlots - firstNew)
-                    in Just $
-                       calcChainQuality blockCount olderSlotId currentSlotId
+                    in calcChainQuality blockCount olderSlotId currentSlotId
             -- All slots are less than 'olderSlotId', something is bad.
             _ -> Nothing

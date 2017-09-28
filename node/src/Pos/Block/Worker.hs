@@ -36,9 +36,6 @@ import           Pos.Block.Slog              (scCQFixedMonitorState,
 import           Pos.Communication.Protocol  (OutSpecs, SendActions (..), Worker,
                                               WorkerSpec, onNewSlotWorker)
 import           Pos.Configuration           (networkDiameter)
-import           Pos.Core.Configuration      (criticalCQ, criticalCQBootstrap,
-                                              nonCriticalCQ, nonCriticalCQBootstrap,
-                                              HasConfiguration)
 import           Pos.Context                 (getOurPublicKey, recoveryCommGuard)
 import           Pos.Core                    (BlockVersionData (..), ChainDifficulty,
                                               FlatSlotId, SlotId (..),
@@ -47,6 +44,9 @@ import           Pos.Core                    (BlockVersionData (..), ChainDiffic
                                               flattenSlotId, gbHeader, getSlotIndex,
                                               slotIdF, unflattenSlotId)
 import           Pos.Core.Address            (addressHash)
+import           Pos.Core.Configuration      (HasConfiguration, criticalCQ,
+                                              criticalCQBootstrap, nonCriticalCQ,
+                                              nonCriticalCQBootstrap)
 import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
 import           Pos.DB                      (gsIsBootstrapEra)
 import qualified Pos.DB.DB                   as DB
@@ -327,16 +327,12 @@ chainQualityChecker curSlot kThSlot = do
                         ") was created during slot "%slotIdF)
         blkSecurityParam (unflattenSlotId kThSlot)
     let curFlatSlot = flattenSlotId curSlot
-    -- We use monadic version here, because it also does sanity
-    -- check and we don't want to copy-paste it and it's easier
-    -- and cheap.
-    chainQualityK :: Double <- calcChainQualityM curFlatSlot
     isBootstrapEra <- gsIsBootstrapEra (siEpoch curSlot)
     monitorStateK <- view scCQkMonitorState
     let monitorK = cqkMetricMonitor monitorStateK isBootstrapEra
     monitorOverall <- cqOverallMetricMonitor <$> view scCQOverallMonitorState
     monitorFixed <- cqFixedMetricMonitor <$> view scCQFixedMonitorState
-    recordValue monitorK chainQualityK
+    whenJustM (calcChainQualityM curFlatSlot) (recordValue monitorK)
     whenJustM (calcOverallChainQuality @ssc) $ recordValue monitorOverall
     whenJustM calcChainQualityFixedTime $ recordValue monitorFixed
 

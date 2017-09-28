@@ -138,7 +138,7 @@ bench: &bench
           testnetInitializer:
             testBalance:
               poors:        50000
-              richmen:      4
+              richmen:      3
               richmenShare: 0.99
               useHDAddresses: False
               totalBalance: 6000000000

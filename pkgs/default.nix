@@ -2680,6 +2680,8 @@ self: {
           pname = "diagrams-postscript";
           version = "1.4";
           sha256 = "1d4dbwd4qgrlwm0m9spwqklpg3plf0ghrnrah1k6yw900l0z0n7y";
+          revision = "1";
+          editedCabalFile = "0vmiv3b74nml0ahb7dicq0m0vz2lahzfapln9aby0jb2saa0sf58";
           libraryHaskellDepends = [
             base
             containers
@@ -3619,6 +3621,8 @@ self: {
           pname = "happy";
           version = "1.19.7";
           sha256 = "16vg292pp12wnkny7znsv7bichh9ghny7swl7v55qafmcfg2lcdv";
+          revision = "1";
+          editedCabalFile = "1w0sm3qn1icxiiif6355pr6cwd9bqfh56g8qc5hycagcnms8hip1";
           isLibrary = false;
           isExecutable = true;
           setupHaskellDepends = [

@@ -428,6 +428,8 @@ resolveDnsDomains NetworkConfig{..} dnsDomains =
         DnsDomains.resolveDnsDomains resolve
                                      ncDefaultPort
                                      dnsDomains
+{-# ANN resolveDnsDomains ("HLint: ignore Use <$>" :: String) #-}
+
 
 -- | Initialize the DNS library whenever it's used
 --

@@ -122,3 +122,5 @@ dnsSubscriptionWorker networkCfg DnsDomains{..} sendActions = do
 
     msgNoRelays :: Int -> Text
     msgNoRelays = sformat ("dnsSubscriptionWorker: no relays found for index "%int)
+
+{-# ANN dnsSubscriptionWorker ("HLint: ignore Use unless" :: String) #-}

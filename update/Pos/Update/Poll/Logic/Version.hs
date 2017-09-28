@@ -144,20 +144,20 @@ bvmMatchesBVD
     bvdUnlockStakeEpoch
           ) =
           and [
-      bvmScriptVersion == bvdScriptVersion
-    , bvmSlotDuration == bvdSlotDuration
-    , bvmMaxBlockSize == bvdMaxBlockSize
-    , bvmMaxHeaderSize == bvdMaxHeaderSize
-    , bvmMaxTxSize == bvdMaxTxSize
-    , bvmMaxProposalSize == bvdMaxProposalSize
-    , bvmMpcThd == bvdMpcThd
-    , bvmHeavyDelThd == bvdHeavyDelThd
-    , bvmUpdateVoteThd == bvdUpdateVoteThd
-    , bvmUpdateProposalThd == bvdUpdateProposalThd
-    , bvmUpdateImplicit == bvdUpdateImplicit
-    , maybe True (== bvdSoftforkRule) bvmSoftforkRule
-    , maybe True (== bvdTxFeePolicy) bvmTxFeePolicy
-    , maybe True (== bvdUnlockStakeEpoch) bvmUnlockStakeEpoch
+      maybe True (== bvdScriptVersion)     bvmScriptVersion
+    , maybe True (== bvdSlotDuration)      bvmSlotDuration
+    , maybe True (== bvdMaxBlockSize)      bvmMaxBlockSize
+    , maybe True (== bvdMaxHeaderSize)     bvmMaxHeaderSize
+    , maybe True (== bvdMaxTxSize)         bvmMaxTxSize
+    , maybe True (== bvdMaxProposalSize)   bvmMaxProposalSize
+    , maybe True (== bvdMpcThd)            bvmMpcThd
+    , maybe True (== bvdHeavyDelThd)       bvmHeavyDelThd
+    , maybe True (== bvdUpdateVoteThd)     bvmUpdateVoteThd
+    , maybe True (== bvdUpdateProposalThd) bvmUpdateProposalThd
+    , maybe True (== bvdUpdateImplicit)    bvmUpdateImplicit
+    , maybe True (== bvdSoftforkRule)      bvmSoftforkRule
+    , maybe True (== bvdTxFeePolicy)       bvmTxFeePolicy
+    , maybe True (== bvdUnlockStakeEpoch)  bvmUnlockStakeEpoch
     ]
 
 -- Here we verify that proposed protocol version could be proposed.

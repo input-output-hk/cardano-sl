@@ -9,33 +9,32 @@ module Command.Run
 
 import           Universum
 
-import           Control.Exception.Safe (throwString)
-import           Data.ByteString.Base58 (bitcoinAlphabet, encodeBase58)
-import           Data.List              ((!!))
-import           Formatting             (build, int, sformat, stext, (%))
-import           NeatInterpolation      (text)
+import           Data.ByteString.Base58     (bitcoinAlphabet, encodeBase58)
+import           Data.List                  ((!!))
+import           Formatting                 (build, int, sformat, stext, (%))
+import           NeatInterpolation          (text)
+import qualified Text.JSON.Canonical        as CanonicalJSON
 
-import           Pos.Auxx               (makePubKeyAddressAuxx)
-import           Pos.Binary             (serialize')
-import           Pos.Communication      (MsgType (..), Origin (..), SendActions, dataFlow,
-                                         immediateConcurrentConversations)
-import           Pos.Constants          (isDevelopment)
-import           Pos.Core               (addressHash, coinF)
-import           Pos.Core.Address       (makeAddress)
-import           Pos.Core.Context       (HasCoreConstants)
-import           Pos.Core.Types         (AddrAttributes (..), AddrSpendingData (..))
-import           Pos.Crypto             (emptyPassphrase, encToPublic, fullPublicKeyHexF,
-                                         hashHexF, noPassEncrypt, safeCreatePsk,
-                                         withSafeSigner)
-import           Pos.Genesis            (genesisDevSecretKeys)
-import           Pos.Util.UserSecret    (readUserSecret, usKeys, usPrimKey)
-import           Pos.Wallet             (addSecretKey, getBalance, getSecretKeys)
+import           Pos.Auxx                   (makePubKeyAddressAuxx)
+import           Pos.Binary                 (serialize')
+import           Pos.Communication          (MsgType (..), Origin (..), SendActions,
+                                             dataFlow, immediateConcurrentConversations)
+import           Pos.Core                   (addressHash, coinF)
+import           Pos.Core.Address           (makeAddress)
+import           Pos.Core.Configuration     (genesisSecretKeys)
+import           Pos.Core.Types             (AddrAttributes (..), AddrSpendingData (..))
+import           Pos.Crypto                 (emptyPassphrase, encToPublic,
+                                             fullPublicKeyHexF, hashHexF, noPassEncrypt,
+                                             safeCreatePsk, withSafeSigner)
+import           Pos.Launcher.Configuration (HasConfigurations)
+import           Pos.Util.UserSecret        (readUserSecret, usKeys)
+import           Pos.Wallet                 (addSecretKey, getBalance, getSecretKeys)
 
-import qualified Command.Rollback       as Rollback
-import qualified Command.Tx             as Tx
-import           Command.Types          (Command (..))
-import qualified Command.Update         as Update
-import           Mode                   (AuxxMode, CmdCtx (..), getCmdCtx)
+import qualified Command.Rollback           as Rollback
+import qualified Command.Tx                 as Tx
+import           Command.Types              (Command (..))
+import qualified Command.Update             as Update
+import           Mode                       (AuxxMode, CmdCtx (..), getCmdCtx)
 
 
 helpMsg :: Text
@@ -79,8 +78,10 @@ Avaliable commands:
    quit                           -- shutdown node wallet
 |]
 
-runCmd ::
-       HasCoreConstants
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+
+runCmd
+    :: HasConfigurations
     => SendActions AuxxMode
     -> Command
     -> AuxxMode ()
@@ -114,34 +115,41 @@ runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) = do
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
             let psk = safeCreatePsk ss delegatePk (startEpoch, fromMaybe 1000 lastEpochM)
-            dataFlow "pskLight" (immediateConcurrentConversations sendActions ccPeers) (MsgTransaction OriginSender) psk
-    putText "Sent lightweight cert"
-runCmd sendActions (DelegateHeavy i delegatePk curEpoch) = do
+            dataFlow
+                "pskLight"
+                (immediateConcurrentConversations sendActions ccPeers)
+                (MsgTransaction OriginSender) psk
+            putText "Sent lightweight cert"
+runCmd sendActions (DelegateHeavy i delegatePk curEpoch dry) = do
     CmdCtx {ccPeers} <- getCmdCtx
     issuerSk <- (!! i) <$> getSecretKeys
     withSafeSigner issuerSk (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
             let psk = safeCreatePsk ss delegatePk curEpoch
-            dataFlow
-                "pskHeavy"
-                (immediateConcurrentConversations sendActions ccPeers)
-                (MsgTransaction OriginSender)
-                psk
-    putText "Sent heavyweight cert"
+            if dry
+            then do
+                putText $ sformat ("JSON: key "%hashHexF%", value "%stext)
+                          (addressHash $ encToPublic issuerSk)
+                          (decodeUtf8 $
+                                CanonicalJSON.renderCanonicalJSON $
+                                runIdentity $
+                                CanonicalJSON.toJSON psk)
+            else do
+               dataFlow
+                   "pskHeavy"
+                   (immediateConcurrentConversations sendActions ccPeers)
+                   (MsgTransaction OriginSender)
+                   psk
+               putText "Sent heavyweight cert"
 runCmd _ (AddKeyFromPool i) = do
-    unless isDevelopment $
-        throwString "AddKeyFromPool should be used only in dev mode"
     CmdCtx {..} <- getCmdCtx
-    let key = genesisDevSecretKeys !! i
+    let secrets = fromMaybe (error "Secret keys are unknown") genesisSecretKeys
+    let key = secrets !! i
     addSecretKey $ noPassEncrypt key
 runCmd _ (AddKeyFromFile f) = do
     secret <- readUserSecret f
-    let mKeys = nonEmpty (secret ^. usKeys) <|>
-                ((:| []) . noPassEncrypt) <$> (secret ^. usPrimKey)
-    case mKeys of
-        Nothing   -> putText "Provided key file contains no keys"
-        Just keys -> mapM_ addSecretKey keys
+    mapM_ addSecretKey $ secret ^. usKeys
 runCmd _ (AddrDistr pk asd) = do
     putText $ pretty addr
   where

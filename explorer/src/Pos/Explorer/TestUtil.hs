@@ -1,5 +1,5 @@
+{-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.Explorer.TestUtil where
 
@@ -7,8 +7,8 @@ import qualified Prelude
 import           Universum
 
 import           Data.Default                      (def)
+import qualified Data.List.NonEmpty                as NE
 import           Data.Text.Buildable               (build)
-import qualified Data.List.NonEmpty             as NE
 import           Serokell.Data.Memory.Units        (Byte, Gigabyte, convertUnit)
 import           Test.QuickCheck                   (Arbitrary (..), Property, Testable,
                                                     counterexample, forAll, generate,
@@ -22,17 +22,16 @@ import           Pos.Block.Core.Genesis.Misc       (mkGenesisBlock)
 import           Pos.Block.Logic                   (RawPayload (..), createMainBlockPure)
 import           Pos.Block.Types                   (SlogUndo, Undo)
 import qualified Pos.Communication                 ()
-import           Pos.Core                          (EpochIndex (..), HasCoreConstants,
+import           Pos.Core                          (EpochIndex (..), HasConfiguration,
                                                     LocalSlotIndex (..), SlotId (..),
-                                                    SlotLeaders, StakeholderId, giveStaticConsts)
+                                                    SlotLeaders, StakeholderId)
 import           Pos.Crypto                        (SecretKey)
 import           Pos.Delegation                    (DlgPayload, DlgUndo, ProxySKBlockInfo)
 import           Pos.Ssc.Class                     (Ssc (..), sscDefaultPayload)
 import           Pos.Ssc.GodTossing                (GtPayload (..), SscGodTossing)
 import           Pos.Txp.Core                      (TxAux)
+import           Pos.Update.Configuration          (HasUpdateConfiguration)
 import           Pos.Update.Core                   (UpdatePayload (..))
-
-
 
 
 ----------------------------------------------------------------
@@ -40,23 +39,23 @@ import           Pos.Update.Core                   (UpdatePayload (..))
 ----------------------------------------------------------------
 
 -- I used the build function since I suspect that it's safe (even in tests).
-instance Prelude.Show SlogUndo where
-    show = giveStaticConsts $ show . build
+instance HasConfiguration => Prelude.Show SlogUndo where
+    show = show . build
 
 instance Prelude.Show DlgUndo where
     show = show . build
 
-instance Prelude.Show Undo where
-    show = giveStaticConsts $ show . build
+instance HasConfiguration => Prelude.Show Undo where
+    show = show . build
 
 instance Arbitrary SlogUndo where
     arbitrary = genericArbitrary
 
-instance Arbitrary DlgUndo where
+instance HasConfiguration => Arbitrary DlgUndo where
     arbitrary = genericArbitrary
 
-instance Arbitrary Undo where
-    arbitrary = giveStaticConsts $ genericArbitrary
+instance HasConfiguration => Arbitrary Undo where
+    arbitrary = genericArbitrary
 
 ----------------------------------------------------------------
 -- Utility
@@ -64,7 +63,7 @@ instance Arbitrary Undo where
 ----------------------------------------------------------------
 
 basicBlockGenericUnsafe
-    :: (HasCoreConstants)
+    :: (HasConfiguration, HasUpdateConfiguration)
     => BlockHeader SscGodTossing
     -> SecretKey
     -> SlotId
@@ -74,7 +73,7 @@ basicBlockGenericUnsafe prevHeader sk slotId = case (basicBlock prevHeader sk sl
     Right block -> Right block
 
 basicBlock
-    :: (HasCoreConstants)
+    :: (HasConfiguration, HasUpdateConfiguration)
     => BlockHeader SscGodTossing
     -> SecretKey
     -> SlotId
@@ -82,26 +81,29 @@ basicBlock
 basicBlock prevHeader sk slotId =
     producePureBlock infLimit prevHeader [] Nothing slotId def (defGTP slotId) def sk
   where
-    defGTP :: HasCoreConstants => SlotId -> GtPayload
+    defGTP :: HasConfiguration => SlotId -> GtPayload
     defGTP sId = sscDefaultPayload @SscGodTossing $ siSlot sId
 
     infLimit :: Byte
     infLimit = convertUnit @Gigabyte @Byte 1
 
-emptyBlk :: (HasCoreConstants, Testable p) => (Either Text (MainBlock SscGodTossing) -> p) -> Property
+emptyBlk
+    :: (HasConfiguration, HasUpdateConfiguration, Testable p)
+    => (Either Text (MainBlock SscGodTossing) -> p)
+    -> Property
 emptyBlk testableBlock =
     forAll arbitrary $ \(sk, prevHeader, slotId) ->
     testableBlock
         $ producePureBlock infLimit prevHeader [] Nothing slotId def (defGTP slotId) def sk
   where
-    defGTP :: HasCoreConstants => SlotId -> GtPayload
+    defGTP :: HasConfiguration => SlotId -> GtPayload
     defGTP sId = sscDefaultPayload @SscGodTossing $ siSlot sId
 
     infLimit :: Byte
     infLimit = convertUnit @Gigabyte @Byte 1
 
 producePureBlock
-    :: HasCoreConstants
+    :: (HasConfiguration, HasUpdateConfiguration)
     => Byte
     -> BlockHeader SscGodTossing
     -> [TxAux]
@@ -125,7 +127,7 @@ type TotalEpochs   = Word
 
 -- | Function that should generate arbitrary blocks that we can use in tests.
 produceBlocksByBlockNumberAndSlots
-    :: forall m. (HasCoreConstants, MonadIO m, Monad m)
+    :: forall m. (HasConfiguration, HasUpdateConfiguration, MonadIO m, Monad m)
     => BlockNumber
     -> SlotsPerEpoch
     -> SlotLeaders
@@ -193,7 +195,7 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
             getPrevBlockHeader = getBlockHeader . Left $ epochGenesisBlock
 
             generateBlocks
-                :: (HasCoreConstants)
+                :: (HasConfiguration)
                 => BlockHeader SscGodTossing
                 -> BlockNumber
                 -> MainBlock SscGodTossing

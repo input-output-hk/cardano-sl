@@ -19,25 +19,24 @@ import           Universum
 
 import           Network.Wai                      (Application)
 import           Serokell.AcidState.ExtendedState (ExtendedState)
-import           Servant.API                      ((:<|>) (..))
 import           Servant.Server                   (Handler, Server, serve)
-import           Servant.Swagger.UI               (swaggerSchemaUIServer)
-import           Servant.Utils.Enter              ((:~>) (..), enter)
+import           Servant.Utils.Enter              ((:~>) (..))
 
+import qualified Data.ByteString.Char8            as BS8
 import           Pos.Communication                (OutSpecs, SendActions (..), sendTxOuts)
-import           Pos.Core.Context                 (HasCoreConstants)
+import           Pos.Launcher.Configuration       (HasConfigurations)
+import           Pos.Util.TimeWarp                (NetworkAddress)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.Web.Account           (findKey, myRootAddresses)
 import           Pos.Wallet.Web.Api               (WalletSwaggerApi, swaggerWalletApi)
 import           Pos.Wallet.Web.Mode              (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending           (startPendingTxsResubmitter)
-import           Pos.Wallet.Web.Server.Handlers   (servantHandlers)
+import           Pos.Wallet.Web.Server.Handlers   (servantHandlersWithSwagger)
 import           Pos.Wallet.Web.Sockets           (ConnectionsVar, closeWSConnections,
                                                    getWalletWebSockets, initWSConnections,
                                                    launchNotifier, upgradeApplicationWS)
 import           Pos.Wallet.Web.State             (closeState, openState)
 import           Pos.Wallet.Web.State.Storage     (WalletStorage)
-import           Pos.Wallet.Web.Swagger.Spec      (swaggerSpecForWalletApi)
 import           Pos.Wallet.Web.Tracking          (syncWalletsWithGState)
 import           Pos.Web                          (TlsParams, serveImpl)
 
@@ -46,11 +45,11 @@ import           Pos.Web                          (TlsParams, serveImpl)
 walletServeImpl
     :: MonadWalletWebMode m
     => m Application     -- ^ Application getter
-    -> Word16            -- ^ Port to listen
+    -> NetworkAddress    -- ^ IP and port to listen
     -> Maybe TlsParams
     -> m ()
-walletServeImpl app =
-    serveImpl app "127.0.0.1"
+walletServeImpl app (ip, port) =
+    serveImpl app (BS8.unpack ip) port
 
 walletApplication
     :: MonadWalletWebMode m
@@ -71,17 +70,12 @@ walletServer sendActions natM = do
     syncWalletsWithGState @WalletSscType =<< mapM findKey =<< myRootAddresses
     startPendingTxsResubmitter sendActions
     launchNotifier nat
-    return (walletSwaggerHandlers nat)
-  where
-    walletSwaggerHandlers nat =
-        nat `enter` servantHandlers sendActions
-       :<|>
-        swaggerSchemaUIServer swaggerSpecForWalletApi
+    return $ servantHandlersWithSwagger sendActions nat
 
 bracketWalletWebDB
     :: ( MonadIO m
        , MonadMask m
-       , HasCoreConstants
+       , HasConfigurations
        )
     => FilePath  -- ^ Path to wallet acid-state
     -> Bool      -- ^ Rebuild flag for acid-state

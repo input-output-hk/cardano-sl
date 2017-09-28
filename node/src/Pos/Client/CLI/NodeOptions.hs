@@ -27,35 +27,34 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Paths_cardano_sl             (version)
 
 import           Pos.Client.CLI.Options       (CommonArgs (..), commonArgsParser,
-                                               configInfoParser, optionalJSONPath,
-                                               sscAlgoOption)
-import           Pos.Constants                (isDevelopment)
-import           Pos.Launcher.ConfigInfo      (ConfigInfo (..))
+                                               optionalJSONPath, sscAlgoOption)
+import           Pos.HealthCheck.Route53      (route53HealthCheckOption)
 import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
 import           Pos.Ssc.SscAlgo              (SscAlgo (..))
 import           Pos.Statistics               (EkgParams, StatsdParams, ekgParamsOption,
                                                statsdParamsOption)
 import           Pos.Util.BackupPhrase        (BackupPhrase, backupPhraseWordsNum)
+import           Pos.Util.TimeWarp            (NetworkAddress)
 
 data CommonNodeArgs = CommonNodeArgs
-    { dbPath              :: !FilePath
-    , rebuildDB           :: !Bool
+    { dbPath                 :: !FilePath
+    , rebuildDB              :: !Bool
     -- these two arguments are only used in development mode
-    , devSpendingGenesisI :: !(Maybe Int)
-    , devVssGenesisI      :: !(Maybe Int)
-    , keyfilePath         :: !FilePath
-    , backupPhrase        :: !(Maybe BackupPhrase)
-    , networkConfigOpts   :: !NetworkConfigOpts
+    , devGenesisSecretI      :: !(Maybe Int)
+    , keyfilePath            :: !FilePath
+    , backupPhrase           :: !(Maybe BackupPhrase)
+    , networkConfigOpts      :: !NetworkConfigOpts
       -- ^ Network configuration
-    , jlPath              :: !(Maybe FilePath)
-    , commonArgs          :: !CommonArgs
-    , updateLatestPath    :: !FilePath
-    , updateWithPackage   :: !Bool
-    , noNTP               :: !Bool
-    , enableMetrics       :: !Bool
-    , ekgParams           :: !(Maybe EkgParams)
-    , statsdParams        :: !(Maybe StatsdParams)
-    , configInfo          :: !ConfigInfo
+    , jlPath                 :: !(Maybe FilePath)
+    , commonArgs             :: !CommonArgs
+    , updateLatestPath       :: !FilePath
+    , updateWithPackage      :: !Bool
+    , noNTP                  :: !Bool
+    , route53Params          :: !(Maybe NetworkAddress)
+    , enableMetrics          :: !Bool
+    , ekgParams              :: !(Maybe EkgParams)
+    , statsdParams           :: !(Maybe StatsdParams)
+    , cnaDumpGenesisDataPath :: !(Maybe FilePath)
     } deriving Show
 
 commonNodeArgsParser :: Parser CommonNodeArgs
@@ -70,18 +69,11 @@ commonNodeArgsParser = do
         long "rebuild-db" <>
         help "If node's database already exists, discard its contents \
              \and create a new one from scratch."
-    devSpendingGenesisI <- if isDevelopment
-        then (optional $ option auto $
-                  long    "spending-genesis" <>
+    devGenesisSecretI <-
+        optional $ option auto $
+                  long    "genesis-secret" <>
                   metavar "INT" <>
-                  help    "Used genesis secret key index.")
-        else pure Nothing
-    devVssGenesisI <- if isDevelopment
-        then (optional $ option auto $
-                  long    "vss-genesis" <>
-                  metavar "INT" <>
-                  help    "Index of using VSS key pair in genesis.")
-        else pure Nothing
+                  help    "Used genesis secret key index."
     keyfilePath <- strOption $
         long    "keyfile" <>
         metavar "FILEPATH" <>
@@ -109,13 +101,18 @@ commonNodeArgsParser = do
         long "no-ntp" <>
         help "Whether to use real NTP servers to synchronise time or rely on local time"
 
+    route53Params <- optional route53HealthCheckOption
+
     enableMetrics <- switch $
         long "metrics" <>
         help "Enable metrics (EKG, statsd)"
 
     ekgParams <- optional ekgParamsOption
     statsdParams <- optional statsdParamsOption
-    configInfo <- configInfoParser
+
+    cnaDumpGenesisDataPath <- optional $ strOption $
+        long "dump-genesis-data-to" <>
+        help "Dump genesis data in canonical JSON format to this file."
 
     pure CommonNodeArgs{..}
 

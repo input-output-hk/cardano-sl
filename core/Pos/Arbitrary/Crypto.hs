@@ -9,22 +9,18 @@ import           Universum
 import           Control.Monad                     (zipWithM)
 import qualified Data.ByteArray                    as ByteArray
 import           Data.List.NonEmpty                (fromList)
-import           System.IO.Unsafe                  (unsafePerformIO)
-import           Test.QuickCheck                   (Arbitrary (..), choose, elements,
-                                                    generate, oneof, vector)
+import           Test.QuickCheck                   (Arbitrary (..), elements, oneof,
+                                                    vector)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Crypto.Unsafe       ()
 import           Pos.Binary.Class                  (AsBinary (..), AsBinaryClass (..), Bi)
 import           Pos.Binary.Crypto                 ()
+import           Pos.Core.Configuration.Protocol   (HasProtocolConstants)
 import           Pos.Crypto.AsBinary               ()
 import           Pos.Crypto.Hashing                (AbstractHash, HashAlgorithm)
 import           Pos.Crypto.HD                     (HDAddressPayload, HDPassphrase (..))
-import           Pos.Crypto.RedeemSigning          (RedeemPublicKey, RedeemSecretKey,
-                                                    RedeemSignature, redeemKeyGen,
-                                                    redeemSign)
-import           Pos.Crypto.SafeSigning            (PassPhrase, createProxyCert,
-                                                    createPsk)
+import           Pos.Crypto.Random                 (deterministic, randomNumberInRange)
 import           Pos.Crypto.SecretSharing          (DecShare, EncShare, Secret,
                                                     SecretProof, Threshold, VssKeyPair,
                                                     VssPublicKey, decryptShare,
@@ -34,19 +30,20 @@ import           Pos.Crypto.Signing                (ProxyCert, ProxySecretKey,
                                                     ProxySignature, PublicKey, SecretKey,
                                                     Signature, Signed, keyGen, mkSigned,
                                                     proxySign, sign, toPublic)
-import           Pos.Crypto.SignTag                (SignTag (..))
+import           Pos.Crypto.Signing.Redeem         (RedeemPublicKey, RedeemSecretKey,
+                                                    RedeemSignature, redeemKeyGen,
+                                                    redeemSign)
+import           Pos.Crypto.Signing.Safe           (PassPhrase, createProxyCert,
+                                                    createPsk)
+import           Pos.Crypto.Signing.Types.Tag      (SignTag (..))
 import           Pos.Util.Arbitrary                (Nonrepeating (..), arbitraryUnsafe,
-                                                    sublistN, unsafeMakePool)
+                                                    sublistN)
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We can't make an 'Arbitrary' instance for keys or seeds because generating
-them safely requires randomness which must come from IO (we could use an
-'arbitrary' randomness generator for an 'Arbitrary' instance, but then what's
-the point of testing key generation when we use different generators in
-production and in tests?). So, we just generate lots of keys and seeds with
-'unsafePerformIO' and use them for everything.
+Generating keys takes time, so we just pregenerate lots of keys in advance
+and use them in 'Arbitrary' instances.
 -}
 
 keysToGenerate :: Int
@@ -69,8 +66,8 @@ instance Arbitrary SignTag where
 -- public key.
 
 keys :: [(PublicKey, SecretKey)]
-keys = unsafeMakePool "[generating keys for tests...]" keysToGenerate keyGen
-{-# NOINLINE keys #-}
+keys = deterministic "keys" $
+    replicateM keysToGenerate keyGen
 
 instance Arbitrary PublicKey where
     arbitrary = fst <$> elements keys
@@ -84,7 +81,8 @@ instance Nonrepeating SecretKey where
 
 -- Repeat the same for ADA redemption keys
 redemptionKeys :: [(RedeemPublicKey, RedeemSecretKey)]
-redemptionKeys = unsafeMakePool "[generating redemption keys for tests..]" keysToGenerate redeemKeyGen
+redemptionKeys = deterministic "redemptionKeys" $
+    replicateM keysToGenerate redeemKeyGen
 
 instance Arbitrary RedeemPublicKey where
     arbitrary = fst <$> elements redemptionKeys
@@ -101,8 +99,8 @@ instance Nonrepeating RedeemSecretKey where
 ----------------------------------------------------------------------------
 
 vssKeys :: [VssKeyPair]
-vssKeys = unsafeMakePool "[generating VSS keys for tests...]" keysToGenerate vssKeyGen
-{-# NOINLINE vssKeys #-}
+vssKeys = deterministic "vssKeys" $
+    replicateM keysToGenerate vssKeyGen
 
 instance Arbitrary VssKeyPair where
     arbitrary = elements vssKeys
@@ -123,22 +121,22 @@ instance Nonrepeating VssPublicKey where
 -- Arbitrary signatures
 ----------------------------------------------------------------------------
 
-instance (Bi a, Arbitrary a) => Arbitrary (Signature a) where
+instance (HasProtocolConstants, Bi a, Arbitrary a) => Arbitrary (Signature a) where
     arbitrary = sign <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance (Bi a, Arbitrary a) => Arbitrary (RedeemSignature a) where
+instance (HasProtocolConstants, Bi a, Arbitrary a) => Arbitrary (RedeemSignature a) where
     arbitrary = redeemSign <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance (Bi a, Arbitrary a) => Arbitrary (Signed a) where
+instance (HasProtocolConstants, Bi a, Arbitrary a) => Arbitrary (Signed a) where
     arbitrary = mkSigned <$> arbitrary <*> arbitrary <*> arbitrary
 
-instance (Bi w, Arbitrary w) => Arbitrary (ProxyCert w) where
+instance (HasProtocolConstants, Bi w, Arbitrary w) => Arbitrary (ProxyCert w) where
     arbitrary = liftA3 createProxyCert arbitrary arbitrary arbitrary
 
-instance (Bi w, Arbitrary w) => Arbitrary (ProxySecretKey w) where
+instance (HasProtocolConstants, Bi w, Arbitrary w) => Arbitrary (ProxySecretKey w) where
     arbitrary = liftA3 createPsk arbitrary arbitrary arbitrary
 
-instance (Bi w, Arbitrary w, Bi a, Arbitrary a) =>
+instance (HasProtocolConstants, Bi w, Arbitrary w, Bi a, Arbitrary a) =>
          Arbitrary (ProxySignature w a) where
     arbitrary = do
         delegateSk <- arbitrary
@@ -163,19 +161,18 @@ data SharedSecrets = SharedSecrets
 
 sharedSecrets :: [SharedSecrets]
 sharedSecrets =
-    unsafeMakePool "[generating shared secrets for tests...]" keysToGenerate $ do
-        parties <- generate $ choose (4, length vssKeys)
-        threshold <- generate $ choose (2, toInteger parties - 2)
+    deterministic "sharedSecrets" $ replicateM keysToGenerate $ do
+        parties <- randomNumberInRange 4 (toInteger (length vssKeys))
+        threshold <- randomNumberInRange 2 (parties - 2)
         vssKs <- sortWith toVssPublicKey <$>
-                 generate (sublistN parties vssKeys)
+                 sublistN (fromInteger parties) vssKeys
         (s, sp, encryptedShares) <-
             genSharedSecret threshold (map toVssPublicKey $ fromList vssKs)
         decryptedShares <- zipWithM decryptShare
                              vssKs (map snd encryptedShares)
         let shares = zip (map snd encryptedShares) decryptedShares
             vssPKs = map toVssPublicKey vssKs
-        return $ SharedSecrets s sp shares threshold vssPKs (parties - 1)
-{-# NOINLINE sharedSecrets #-}
+        return $ SharedSecrets s sp shares threshold vssPKs (fromInteger parties - 1)
 
 instance Arbitrary Secret where
     arbitrary = elements . fmap ssSecret $ sharedSecrets
@@ -193,7 +190,7 @@ instance Arbitrary (AsBinary EncShare) where
     arbitrary = asBinary @EncShare <$> arbitrary
 
 instance Arbitrary DecShare where
-    arbitrary = unsafePerformIO <$> (decryptShare <$> arbitrary <*> arbitrary)
+    arbitrary = join (decryptShare <$> arbitrary <*> arbitrary)
 
 instance Arbitrary (AsBinary DecShare) where
     arbitrary = asBinary @DecShare <$> arbitrary

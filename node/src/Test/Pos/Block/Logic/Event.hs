@@ -14,28 +14,32 @@ module Test.Pos.Block.Logic.Event
 
 import           Universum
 
-import           Control.Monad.Catch       (fromException)
-import qualified Data.Map                  as Map
-import qualified Data.Text                 as T
+import           Control.Monad.Catch              (fromException)
+import qualified Data.Map                         as Map
+import qualified Data.Text                        as T
 
-import           Pos.Block.Logic.VAR       (BlockLrcMode, rollbackBlocks,
-                                            verifyAndApplyBlocks)
-import           Pos.Block.Types           (Blund)
-import           Pos.Core                  (HeaderHash)
-import           Pos.DB.Pure               (DBPureDiff, MonadPureDB, dbPureDiff,
-                                            dbPureDump, dbPureReset)
-import           Pos.Exception             (CardanoFatalError (..))
-import           Pos.Generator.BlockEvent  (BlockApplyResult (..), BlockEvent,
-                                            BlockEvent' (..), BlockRollbackFailure (..),
-                                            BlockRollbackResult (..), BlockScenario,
-                                            BlockScenario' (..), SnapshotId,
-                                            SnapshotOperation (..), beaInput, beaOutValid,
-                                            berInput, berOutValid)
-import           Pos.Ssc.GodTossing.Type   (SscGodTossing)
-import           Pos.Util.Chrono           (NE, OldestFirst)
-import           Pos.Util.Util             (eitherToThrow, lensOf)
-import           Test.Pos.Block.Logic.Mode (BlockTestContext, PureDBSnapshotsVar (..))
-import           Test.Pos.Block.Logic.Util (satisfySlotCheck)
+import           Pos.Block.Logic.VAR              (BlockLrcMode, rollbackBlocks,
+                                                   verifyAndApplyBlocks)
+import           Pos.Block.Types                  (Blund)
+import           Pos.Core                         (HasConfiguration, HeaderHash)
+import           Pos.DB.Pure                      (DBPureDiff, MonadPureDB, dbPureDiff,
+                                                   dbPureDump, dbPureReset)
+import           Pos.Exception                    (CardanoFatalError (..))
+import           Pos.Generator.BlockEvent         (BlockApplyResult (..), BlockEvent,
+                                                   BlockEvent' (..),
+                                                   BlockRollbackFailure (..),
+                                                   BlockRollbackResult (..),
+                                                   BlockScenario, BlockScenario' (..),
+                                                   SnapshotId, SnapshotOperation (..),
+                                                   beaInput, beaOutValid, berInput,
+                                                   berOutValid)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
+import           Pos.Util.Chrono                  (NE, OldestFirst)
+import           Pos.Util.Util                    (eitherToThrow, lensOf)
+import           Test.Pos.Block.Logic.Mode        (BlockTestContext,
+                                                   PureDBSnapshotsVar (..))
+import           Test.Pos.Block.Logic.Util        (satisfySlotCheck)
 
 data SnapshotMissingEx = SnapshotMissingEx SnapshotId
     deriving (Show)
@@ -55,7 +59,10 @@ data BlockEventResult
     | BlockEventDbChanged DbNotEquivalentToSnapshot
 
 verifyAndApplyBlocks' ::
-       BlockLrcMode SscGodTossing BlockTestContext m
+       ( HasGtConfiguration
+       , HasConfiguration
+       , BlockLrcMode SscGodTossing BlockTestContext m
+       )
     => OldestFirst NE (Blund SscGodTossing)
     -> m ()
 verifyAndApplyBlocks' blunds = do
@@ -68,7 +75,10 @@ verifyAndApplyBlocks' blunds = do
 
 -- | Execute a single block event.
 runBlockEvent ::
-       BlockLrcMode SscGodTossing BlockTestContext m
+       ( HasGtConfiguration
+       , HasConfiguration
+       , BlockLrcMode SscGodTossing BlockTestContext m
+       )
     => BlockEvent
     -> m BlockEventResult
 
@@ -146,7 +156,12 @@ data BlockScenarioResult
 -- | Execute a block scenario: a sequence of block events that either ends with
 -- an expected failure or with a rollback to the initial state.
 runBlockScenario ::
-       (BlockLrcMode SscGodTossing ctx m, MonadPureDB ctx m, ctx ~ BlockTestContext)
+       ( MonadPureDB ctx m
+       , ctx ~ BlockTestContext
+       , HasGtConfiguration
+       , HasConfiguration
+       , BlockLrcMode SscGodTossing BlockTestContext m
+       )
     => BlockScenario
     -> m BlockScenarioResult
 runBlockScenario (BlockScenario []) =

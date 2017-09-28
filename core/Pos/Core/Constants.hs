@@ -1,5 +1,18 @@
--- | Constants that the rest of the code needs to know. They're
--- available from this module directly, instead of being passed as a
--- config. Also some constants aren't configurable.
+{-# LANGUAGE CPP #-}
 
-{-# OPTIONS_GHC -F -pgmF autoexporter #-}
+-- | Non-configurable constants
+--   For configurable constants, see Pos.Core.Configuration.
+
+module Pos.Core.Constants
+       ( sharedSeedLength
+       ) where
+
+import           Universum
+
+----------------------------------------------------------------------------
+-- Constants which are not configurable
+----------------------------------------------------------------------------
+
+-- | Length of shared seed.
+sharedSeedLength :: Integral a => a
+sharedSeedLength = 32

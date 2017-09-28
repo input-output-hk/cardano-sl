@@ -24,6 +24,7 @@ import           Ether.Internal               (HasLens (..))
 
 import qualified Database.RocksDB             as Rocks
 import           Pos.Binary.Class             (Bi)
+import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.DB.Class                 (DBIteratorClass (..), DBTag, IterType)
 import           Pos.DB.Pure                  (DBPureVar)
 import qualified Pos.DB.Pure                  as DB
@@ -38,6 +39,7 @@ type MonadDBSum ctx m =
     , MonadMask m
     , MonadBaseControl IO m
     , MonadIO m
+    , HasConfiguration
     )
 
 eitherDB

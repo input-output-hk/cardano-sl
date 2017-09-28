@@ -24,14 +24,15 @@ import           Pos.Block.Core.Union.Types (BiHeader, Block, BlockHeader,
                                              BlockSignature (..))
 import           Pos.Core                   (Blockchain (..), ChainDifficulty,
                                              GenericBlockHeader (..), IsMainHeader (..),
-                                             SlotId (..))
+                                             SlotId (..), HasConfiguration)
 import           Pos.Crypto                 (Hash, PublicKey, hash)
 import           Pos.Delegation.Types       (DlgPayload)
 import           Pos.Ssc.Class.Types        (Ssc (..))
 import           Pos.Txp.Core               (TxPayload, TxProof, mkTxProof)
 import           Pos.Update.Core.Types      (UpdatePayload, UpdateProof, mkUpdateProof)
 
-instance ( BiHeader ssc
+instance ( HasConfiguration
+         , BiHeader ssc
          , Ssc ssc
          , Bi $ BodyProof $ MainBlockchain ssc
          , IsMainHeader (GenericBlockHeader $ MainBlockchain ssc)) =>

@@ -1,5 +1,5 @@
 name:                cardano-sl
-version:             0.6.0
+version:             0.6.2
 synopsis:            Cardano SL main implementation
 description:         Please see README.md
 license:             MIT
@@ -45,8 +45,8 @@ library
                         Pos.Block.Slog
                         Pos.Block.Types
                         Pos.Context
-                        Pos.CompileConfig
                         Pos.Communication
+                        Pos.Configuration
                         Pos.Constants
 
                         Pos.DB.DB
@@ -59,9 +59,6 @@ library
                         Pos.Generator.Block
                         Pos.Generator.BlockEvent
                         Pos.Generator.BlockEvent.DSL
-
-                        -- Genesis data
-                        Pos.Genesis
 
                         -- GState
                         Pos.GState
@@ -76,6 +73,7 @@ library
 
                         -- Something
                         Pos.Launcher
+                        Pos.Launcher.Configuration
                         Pos.Launcher.Resource
                         Pos.Launcher.Runner
 
@@ -115,6 +113,7 @@ library
 
                         -- Utilities/helpers
                         Pos.Util
+                        Pos.Util.Config
                         Pos.Util.LoggerName
                         Pos.Util.Monitor
                         Pos.Util.Undefined
@@ -137,7 +136,7 @@ library
                         Pos.Wallet.Web.Error.Types
                         Pos.Wallet.Web.Error.Util
                         Pos.Wallet.Web.Pending.Types
-                        Pos.Wallet.Web.Pending.Updates
+                        Pos.Wallet.Web.Pending.Util
                         Pos.Wallet.Web.State
                         Pos.Wallet.Web.State.Acidic
                         Pos.Wallet.Web.State.State
@@ -184,8 +183,7 @@ library
                         -- Needed for testing / genesis creation
                         Pos.Block.Core.Genesis.Misc
 
-  other-modules:        Pos.Aeson.CompileConfig
-                        Pos.Aeson.Types
+  other-modules:        Pos.Aeson.Types
 
                         -- Binary serialization
                         Pos.Binary.Block
@@ -233,10 +231,6 @@ library
                         Pos.Client.CLI.Secrets
                         Pos.Client.CLI.Util
 
-                        -- Compile config
-                        Pos.CompileConfig.Parser
-                        Pos.CompileConfig.Type
-
                         -- NodeContext
                         Pos.Context.Context
                         Pos.Context.Functions
@@ -279,7 +273,6 @@ library
                         Pos.Launcher.Mode
                         Pos.Launcher.Param
                         Pos.Launcher.Scenario
-                        Pos.Launcher.ConfigInfo
 
                         -- Network
                         Pos.Communication.Types
@@ -303,6 +296,9 @@ library
 
                         -- SSC
                         Pos.Ssc.Util
+
+                        -- Health Checks
+                        Pos.HealthCheck.Route53
 
                         -- Statistics
                         Pos.Statistics.Ekg
@@ -334,8 +330,8 @@ library
                         Pos.Explorer.DB
                         Pos.Explorer.BListener
 
-  build-depends:        QuickCheck
-                      , MonadRandom
+  build-depends:        MonadRandom
+                      , QuickCheck
                       , acid-state
                       , aeson >= 0.11.2.1
                       , ansi-terminal
@@ -346,6 +342,7 @@ library
                       , base64-bytestring
                       , binary
                       , bytestring
+                      , canonical-json
                       , cardano-crypto
                       , cardano-report-server >= 0.2.1
                       , cardano-sl-core
@@ -378,6 +375,7 @@ library
                       , file-embed >= 0.0.10
                       , filelock >= 0.1.0.1
                       , filepath
+                      , fmt
                       , focus
                       , formatting
                       , generic-arbitrary
@@ -396,7 +394,6 @@ library
                       , mmorph
                       , monad-control
                       , monad-loops
-                      , MonadRandom
                       , mono-traversable
                       , mtl
                       , neat-interpolation
@@ -579,20 +576,21 @@ test-suite cardano-test
 
                        -- Txp
                        Test.Pos.Client.Txp.Mode
+                       Test.Pos.Client.Txp.Util
                        Test.Pos.Client.Txp.UtilSpec
 
                        -- Everything else
                        Test.Pos.CborSpec
                        Test.Pos.Communication.Identity.BinarySpec
+                       Test.Pos.Configuration
                        Test.Pos.ConstantsSpec
                        Test.Pos.Core.AddressSpec
                        Test.Pos.CryptoSpec
                        Test.Pos.Delegation.Identity.BinarySpec
                        Test.Pos.DHT.Identity.BinarySpec
                        Test.Pos.Explorer.Identity.BinarySpec
-                       Test.Pos.Genesis.Identity.BinarySpec
+                       Test.Pos.Genesis.CanonicalSpec
                        Test.Pos.MerkleSpec
-                       Test.Pos.Network.Windows.DnsDomainsSpec
                        Test.Pos.Slotting.TypesSpec
                        Test.Pos.Slotting.BinarySpec
                        Test.Pos.Ssc.GodTossing.ComputeSharesSpec
@@ -623,17 +621,19 @@ test-suite cardano-test
   type:                exitcode-stdio-1.0
   build-depends:       MonadRandom
                      , QuickCheck
+                     , aeson >= 0.11.2.1
                      , base
                      , bytestring
+                     , canonical-json
+                     , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-godtossing
                      , cardano-sl-infra
                      , cardano-sl-lrc
+                     , cardano-sl-ssc
                      , cardano-sl-txp
                      , cardano-sl-update
-                     , cardano-sl-ssc
-                     , cardano-sl
                      , cborg
                      , cereal
                      , containers
@@ -641,17 +641,18 @@ test-suite cardano-test
                      , data-default
                      , ether
                      , exceptions
+                     , extra
+                     , fmt
                      , formatting
                      , generic-arbitrary
                      , hspec
                      , kademlia
                      , lens
                      , log-warper
-                     , MonadRandom
                      , memory
+                     , mmorph
                      , monad-control
                      , mtl
-                     , mmorph
                      , network-uri
                      , node-sketch
                      , pvss
@@ -717,8 +718,10 @@ benchmark cardano-bench-criterion
   main-is:             Local/Criterion.hs
   other-modules:       Bench.Pos.Criterion.FollowTheSatoshiBench
                        Bench.Pos.Criterion.TxSigningBench
+                       Bench.Configuration
   type:                exitcode-stdio-1.0
   build-depends:       QuickCheck
+                     , aeson
                      , base
                      , binary
                      , bytestring

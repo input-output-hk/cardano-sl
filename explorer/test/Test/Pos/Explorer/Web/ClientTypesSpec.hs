@@ -27,7 +27,6 @@ import           Test.QuickCheck              (Arbitrary, Gen, Property, arbitra
                                                forAll, (===))
 
 
-
 ----------------------------------------------------------------------------
 -- Utility functions
 ----------------------------------------------------------------------------
@@ -83,6 +82,25 @@ unitTests = do
                 decodedResult = decodeHashHex result
 
             decodedResult `shouldBe` decodedCTxId
+
+    describe "CAddress serialization" $ do
+        it "should encode old Text into CAddress and back" $ do
+            let cAddressTextOld = "Sfpj3GbcsazoxEFvidt6rfedaX6PiXnYpYXTfj8hEgXfUFzk1kPWCFEFrecC9iWs7QP7yktEih4YuygF1JitxKze4z3bUFs9J"
+
+            let decodedCAddressTextOld :: Either Text Address
+                decodedCAddressTextOld = fromCAddress $ CAddress cAddressTextOld
+
+            decodedCAddressTextOld `shouldSatisfy` isLeft -- shouldn't work
+
+        it "should encode new Text into CAddress and back" $ do
+            let cAddressTextNew = "DdzFFzCqrht8wAQiwNCromuPxNjQoK2Cs2vMiVFwFYYAQCcA1nPs7BMXFYhZZVBYhAKexYhaiA8xCUW8EEnc4Wdn6X5zD7R9xcabHip8"
+            let cAddress = CAddress cAddressTextNew
+
+            let decodedCAddressTextNew :: Either Text Address
+                decodedCAddressTextNew = fromCAddress cAddress
+
+            decodedCAddressTextNew `shouldSatisfy` isRight
+            (toCAddress <$> decodedCAddressTextNew) `shouldSatisfy` isRight
 
 ----------------------------------------------------------------------------
 -- Quickcheck tests

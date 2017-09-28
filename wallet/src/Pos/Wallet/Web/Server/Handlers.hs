@@ -4,20 +4,25 @@
 
 module Pos.Wallet.Web.Server.Handlers
        ( servantHandlers
+       , servantHandlersWithSwagger
        ) where
 
 import           Universum
 
-import           Pos.Communication       (SendActions (..))
-import           Pos.Constants           (curSoftwareVersion)
-import           Pos.Wallet.WalletMode   (blockchainSlotDuration)
-import           Pos.Wallet.Web.Account  (GenSeed (RandomSeed))
-import           Pos.Wallet.Web.Api      (WalletApi)
-import qualified Pos.Wallet.Web.Methods  as M
-import           Pos.Wallet.Web.Mode     (MonadWalletWebMode)
-import           Pos.Wallet.Web.Tracking (fixingCachedAccModifier)
-import           Servant.API             ((:<|>) ((:<|>)))
-import           Servant.Server          (ServerT)
+import           Pos.Wallet.Web.Swagger.Spec (swaggerSpecForWalletApi)
+import           Servant.API                 ((:<|>) ((:<|>)))
+import           Servant.Server              (Handler, Server, ServerT)
+import           Servant.Swagger.UI          (swaggerSchemaUIServer)
+import           Servant.Utils.Enter         ((:~>) (..), enter)
+
+import           Pos.Communication           (SendActions (..))
+import           Pos.Update.Configuration    (curSoftwareVersion)
+import           Pos.Wallet.WalletMode       (blockchainSlotDuration)
+import           Pos.Wallet.Web.Account      (GenSeed (RandomSeed))
+import           Pos.Wallet.Web.Api          (WalletApi, WalletSwaggerApi)
+import qualified Pos.Wallet.Web.Methods      as M
+import           Pos.Wallet.Web.Mode         (MonadWalletWebMode)
+import           Pos.Wallet.Web.Tracking     (fixingCachedAccModifier)
 
 servantHandlers
     :: MonadWalletWebMode m
@@ -99,3 +104,15 @@ servantHandlers sendActions =
      M.importWalletJSON
     :<|>
      M.exportWalletJSON
+
+servantHandlersWithSwagger
+    :: MonadWalletWebMode m
+    => SendActions m
+    -> (m :~> Handler)
+    -> Server WalletSwaggerApi
+servantHandlersWithSwagger sendActions nat =
+    nat `enter` servantHandlers sendActions
+   :<|>
+    -- doesn't work for arbitrary monad, so we have to 'enter' above
+    swaggerSchemaUIServer swaggerSpecForWalletApi
+

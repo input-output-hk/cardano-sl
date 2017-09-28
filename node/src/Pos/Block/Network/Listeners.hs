@@ -69,11 +69,15 @@ handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
             Just hashes -> do
                 logDebug $ sformat
                     ("handleGetBlocks: started sending "%int%
-                     "blocks to "%build%" one-by-one: "%listJson)
+                     " blocks to "%build%" one-by-one: "%listJson)
                     (length hashes) nodeId hashes
-                for_ hashes $ \hHash -> do
-                    block <- maybe failMalformed pure =<< DB.blkGetBlock @ssc hHash
-                    send conv (MsgBlock block)
+                for_ hashes $ \hHash ->
+                    DB.blkGetBlock @ssc hHash >>= \case
+                        Nothing -> do
+                            send conv (MsgNoBlock $
+                                       "Couldn't retrieve block with hash " <> pretty hHash)
+                            failMalformed
+                        Just b -> send conv (MsgBlock b)
                 logDebug "handleGetBlocks: blocks sending done"
             _ -> logWarning $ "getBlocksByHeaders@retrieveHeaders returned Nothing"
   where
@@ -98,5 +102,7 @@ handleBlockHeaders oq = listenerConv @MsgGetHeaders oq $ \__ourVerInfo nodeId co
     -- we don't really send any messages.
     logDebug "handleBlockHeaders: got some unsolicited block header(s)"
     mHeaders <- recvLimited conv
-    whenJust mHeaders $ \(MsgHeaders headers) ->
-        handleUnsolicitedHeaders (getNewestFirst headers) nodeId
+    whenJust mHeaders $ \case
+        (MsgHeaders headers) ->
+            handleUnsolicitedHeaders (getNewestFirst headers) nodeId
+        _ -> pass -- Why would somebody propagate 'MsgNoHeaders'? We don't care.

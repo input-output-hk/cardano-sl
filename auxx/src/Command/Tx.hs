@@ -10,44 +10,50 @@ module Command.Tx
 
 import           Universum
 
-import           Control.Concurrent.STM.TQueue (newTQueue, tryReadTQueue, writeTQueue)
-import           Control.Exception.Safe        (Exception (..), throwString, try)
-import           Control.Monad.Except          (runExceptT, throwError)
-import qualified Data.ByteString               as BS
-import           Data.List                     ((!!))
-import qualified Data.Text                     as T
-import qualified Data.Text.IO                  as T
-import           Data.Time.Units               (toMicroseconds)
-import           Formatting                    (build, int, sformat, shown, stext, (%))
-import           Mockable                      (Mockable, SharedAtomic, SharedAtomicT,
-                                                bracket, concurrently, currentTime, delay,
-                                                forConcurrently, modifySharedAtomic,
-                                                newSharedAtomic)
-import           Serokell.Util                 (ms, sec)
-import           System.IO                     (BufferMode (LineBuffering), hClose,
-                                                hSetBuffering)
-import           System.Random                 (randomRIO)
-import           System.Wlog                   (logError, logInfo)
+import           Control.Concurrent.STM.TQueue    (newTQueue, tryReadTQueue, writeTQueue)
+import           Control.Exception.Safe           (Exception (..), try)
+import           Control.Monad.Except             (runExceptT, throwError)
+import qualified Data.ByteString                  as BS
+import           Data.List                        ((!!))
+import qualified Data.Text                        as T
+import qualified Data.Text.IO                     as T
+import           Data.Time.Units                  (toMicroseconds)
+import           Formatting                       (build, int, sformat, shown, stext, (%))
+import           Mockable                         (Mockable, SharedAtomic, SharedAtomicT,
+                                                   bracket, concurrently, currentTime,
+                                                   delay, forConcurrently,
+                                                   modifySharedAtomic, newSharedAtomic)
+import           Serokell.Util                    (ms, sec)
+import           System.IO                        (BufferMode (LineBuffering), hClose,
+                                                   hSetBuffering)
+import           System.Random                    (randomRIO)
+import           System.Wlog                      (logError, logInfo)
 
-import           Pos.Binary                    (decodeFull)
-import           Pos.Client.Txp.Balances       (getOwnUtxoForPk)
-import           Pos.Client.Txp.Util           (createTx)
-import           Pos.Communication             (SendActions,
-                                                immediateConcurrentConversations,
-                                                submitTx, submitTxRaw)
-import           Pos.Constants                 (genesisSlotDuration, isDevelopment)
-import           Pos.Core                      (Timestamp (..), mkCoin)
-import           Pos.Core.Context              (HasCoreConstants)
-import           Pos.Crypto                    (emptyPassphrase, encToPublic, fakeSigner,
-                                                safeToPublic, toPublic, withSafeSigner)
-import           Pos.Genesis                   (genesisDevSecretKeys)
-import           Pos.Txp                       (TxAux, TxOut (..), TxOutAux (..), txaF)
-import           Pos.Wallet                    (getSecretKeys)
+import           Pos.Binary                       (decodeFull)
+import           Pos.Client.Txp.Balances          (getOwnUtxoForPk)
+import           Pos.Client.Txp.Util              (createTx)
+import           Pos.Communication                (SendActions,
+                                                   immediateConcurrentConversations,
+                                                   submitTx, submitTxRaw)
+import           Pos.Configuration                (HasNodeConfiguration)
+import           Pos.Core                         (BlockVersionData (bvdSlotDuration),
+                                                   Timestamp (..), mkCoin)
+import           Pos.Core.Configuration           (HasConfiguration,
+                                                   genesisBlockVersionData,
+                                                   genesisSecretKeys)
+import           Pos.Crypto                       (emptyPassphrase, encToPublic,
+                                                   fakeSigner, safeToPublic, toPublic,
+                                                   withSafeSigner)
+import           Pos.Infra.Configuration          (HasInfraConfiguration)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Txp                          (TxAux, TxOut (..), TxOutAux (..), txaF)
+import           Pos.Update.Configuration         (HasUpdateConfiguration)
+import           Pos.Wallet                       (getSecretKeys)
 
-import           Command.Types                 (SendMode (..),
-                                                SendToAllGenesisParams (..))
-import           Mode                          (AuxxMode, CmdCtx (..), getCmdCtx)
-import           Pos.Auxx                      (makePubKeyAddressAuxx)
+import           Command.Types                    (SendMode (..),
+                                                   SendToAllGenesisParams (..))
+import           Mode                             (AuxxMode, CmdCtx (..), getCmdCtx)
+import           Pos.Auxx                         (makePubKeyAddressAuxx)
 
 ----------------------------------------------------------------------------
 -- Send to all genesis
@@ -68,19 +74,26 @@ addTxSubmit mvar = modifySharedAtomic mvar (\(TxCount submitted failed sending) 
 addTxFailed :: Mockable SharedAtomic m => SharedAtomicT m TxCount -> m ()
 addTxFailed mvar = modifySharedAtomic mvar (\(TxCount submitted failed sending) -> return (TxCount submitted (failed + 1) sending, ()))
 
-sendToAllGenesis :: HasCoreConstants => SendActions AuxxMode -> SendToAllGenesisParams -> AuxxMode ()
+sendToAllGenesis
+    :: ( HasConfiguration
+       , HasNodeConfiguration
+       , HasInfraConfiguration
+       , HasUpdateConfiguration
+       , HasGtConfiguration
+       )
+    => SendActions AuxxMode
+    -> SendToAllGenesisParams
+    -> AuxxMode ()
 sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMode tpsSentFile) = do
-    unless (isDevelopment) $
-        throwString "sendToAllGenesis works only in development mode"
     CmdCtx {ccPeers} <- getCmdCtx
     let nNeighbours = length ccPeers
-    let slotDuration = fromIntegral (toMicroseconds genesisSlotDuration) `div` 1000000 :: Int
-        keysToSend = genesisDevSecretKeys
+    let genesisSlotDuration = fromIntegral (toMicroseconds $ bvdSlotDuration genesisBlockVersionData) `div` 1000000 :: Int
+        keysToSend  = fromMaybe (error "Genesis secret keys are unknown") genesisSecretKeys
     tpsMVar <- newSharedAtomic $ TxCount 0 0 conc
     startTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
     Mockable.bracket (openFile tpsSentFile WriteMode) (liftIO . hClose) $ \h -> do
         liftIO $ hSetBuffering h LineBuffering
-        liftIO . T.hPutStrLn h $ T.intercalate "," [ "slotDuration=" <> show slotDuration
+        liftIO . T.hPutStrLn h $ T.intercalate "," [ "slotDuration=" <> show genesisSlotDuration
                                                    , "sendMode=" <> show sendMode
                                                    , "conc=" <> show conc
                                                    , "startTime=" <> startTime
@@ -108,7 +121,7 @@ sendToAllGenesis sendActions (SendToAllGenesisParams duration conc delay_ sendMo
             -- every <slotDuration> seconds, write the number of sent and failed transactions to a CSV file.
         let writeTPS :: AuxxMode ()
             writeTPS = do
-                delay (sec slotDuration)
+                delay (sec genesisSlotDuration)
                 curTime <- show . toInteger . getTimestamp . Timestamp <$> currentTime
                 finished <- modifySharedAtomic tpsMVar $ \(TxCount submitted failed sending) -> do
                     -- CSV is formatted like this:
@@ -161,8 +174,13 @@ newtype AuxxException = AuxxException Text
 
 instance Exception AuxxException
 
-send ::
-       HasCoreConstants
+send
+    :: ( HasConfiguration
+       , HasNodeConfiguration
+       , HasInfraConfiguration
+       , HasUpdateConfiguration
+       , HasGtConfiguration
+       )
     => SendActions AuxxMode
     -> Int
     -> NonEmpty TxOut
@@ -189,8 +207,16 @@ send sendActions idx outputs = do
 
 -- | Read transactions from the given file (ideally generated by
 -- 'rollbackAndDump') and submit them to the network.
-sendTxsFromFile ::
-       HasCoreConstants => SendActions AuxxMode -> FilePath -> AuxxMode ()
+sendTxsFromFile
+    :: ( HasConfiguration
+       , HasInfraConfiguration
+       , HasUpdateConfiguration
+       , HasNodeConfiguration
+       , HasGtConfiguration
+       )
+    => SendActions AuxxMode
+    -> FilePath
+    -> AuxxMode ()
 sendTxsFromFile sendActions txsFile = do
     liftIO (BS.readFile txsFile) <&> decodeFull >>= \case
         Left err -> throwM (AuxxException err)

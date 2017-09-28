@@ -8,34 +8,38 @@ module Pos.Client.CLI.Secrets
 import           Data.List                  ((!!))
 import           Universum
 
-import           Pos.Constants              (isDevelopment)
+import           Pos.Core                   (HasConfiguration, generatedSecrets,
+                                             gsSecretKeys)
 import           Pos.Crypto                 (SecretKey, keyGen, runSecureRandom,
                                              vssKeyGen)
-import           Pos.Genesis                (genesisDevSecretKeys)
-import           Pos.Ssc.GodTossing         (genesisDevVssKeyPairs)
 import           Pos.Util.UserSecret        (UserSecret, usPrimKey, usVss,
                                              writeUserSecret)
 
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))
 
 userSecretWithGenesisKey
-    :: (MonadIO m) => CommonNodeArgs -> UserSecret -> m (SecretKey, UserSecret)
+    :: (HasConfiguration, MonadIO m) => CommonNodeArgs -> UserSecret -> m (SecretKey, UserSecret)
 userSecretWithGenesisKey CommonNodeArgs{..} userSecret
-    | isDevelopment = case devSpendingGenesisI of
-          Nothing -> fetchPrimaryKey userSecret
-          Just i -> do
-              let sk = genesisDevSecretKeys !! i
-                  us = userSecret & usPrimKey .~ Just sk
-              writeUserSecret us
-              return (sk, us)
+    | Just i <- devGenesisSecretI,
+      Just secretKeys <- gsSecretKeys <$> generatedSecrets = do
+        let sk = view _1 (secretKeys !! i)
+            us = userSecret & usPrimKey .~ Just sk
+        writeUserSecret us
+        pure (sk, us)
+    | Just _ <- devGenesisSecretI, Nothing <- generatedSecrets =
+        error "devGenesisSecretI is specified, but no generatedSecrets is present.\n\
+              \Try to change initializer in genesis spec"
     | otherwise = fetchPrimaryKey userSecret
 
 updateUserSecretVSS
-    :: (MonadIO m) => CommonNodeArgs -> UserSecret -> m UserSecret
+    :: (HasConfiguration, MonadIO m) => CommonNodeArgs -> UserSecret -> m UserSecret
 updateUserSecretVSS CommonNodeArgs{..} us
-    | isDevelopment = case devVssGenesisI of
-          Nothing -> fillUserSecretVSS us
-          Just i  -> return $ us & usVss .~ Just (genesisDevVssKeyPairs !! i)
+    | Just i <- devGenesisSecretI,
+      Just secretKeys <- gsSecretKeys <$> generatedSecrets =
+        pure $ us & usVss .~ Just (view _3 $ secretKeys !! i)
+    | Just _ <- devGenesisSecretI, Nothing <- generatedSecrets =
+        error "devGenesisSecretI is specified, but secret keys are unknown.\n\
+              \Try to change initializer in genesis spec"
     | otherwise = fillUserSecretVSS us
 
 fetchPrimaryKey :: (MonadIO m) => UserSecret -> m (SecretKey, UserSecret)
@@ -57,16 +61,3 @@ fillUserSecretVSS userSecret = case userSecret ^. usVss of
         let us = userSecret & usVss .~ Just vss
         writeUserSecret us
         return us
-
--- processUserSecret
---     :: (MonadIO m, MonadFail m)
---     => Args -> UserSecret -> m (SecretKey, UserSecret)
--- processUserSecret args@Args {..} userSecret = case backupPhrase of
---     Nothing -> updateUserSecretVSS args userSecret >>= userSecretWithGenesisKey args
---     Just ph -> do
---         (sk, vss) <- either keyFromPhraseFailed pure $ keysFromPhrase ph
---         let us = userSecret & usPrimKey .~ Just sk & usVss .~ Just vss
---         writeUserSecret us
---         return (sk, us)
---   where
---     keyFromPhraseFailed msg = fail $ "Key creation from phrase failed: " <> show msg

@@ -1,14 +1,9 @@
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Functions on client types
 module Pos.Wallet.Web.ClientTypes.Functions
-      ( mkCCoin
-      , addressToCId
-      , cIdToAddress
-      , encToCId
+      ( encToCId
       , mkCTx
-      , mkCTxId
-      , ptxCondToCPtxCond
-      , txIdToCTxId
       , toCUpdateInfo
       , addrMetaToAccount
       , isTxLocalAddress
@@ -16,65 +11,39 @@ module Pos.Wallet.Web.ClientTypes.Functions
 
 import           Universum
 
-import           Control.Monad.Error.Class        (throwError)
-import qualified Data.Set                         as S
-import           Data.Text                        (Text)
-import           Formatting                       (sformat)
-import qualified Formatting                       as F
+import           Control.Monad.Error.Class            (throwError)
+import qualified Data.List.NonEmpty                   as NE
+import qualified Data.Set                             as S
+import           Data.Text                            (Text)
 
-import           Pos.Aeson.Types                  ()
-import           Pos.Client.Txp.History           (TxHistoryEntry (..), _thInputAddrs)
-import           Pos.Crypto                       (EncryptedSecretKey, encToPublic,
-                                                   hashHexF)
-import           Pos.Txp.Core.Types               (Tx (..), TxId, txOutAddress,
-                                                   txOutValue)
-import           Pos.Types                        (Address (..), ChainDifficulty, Coin,
-                                                   decodeTextAddress,
-                                                   makePubKeyAddressBoot, sumCoins,
-                                                   unsafeGetCoin, unsafeIntegerToCoin)
-import           Pos.Update.Core                  (BlockVersionModifier (..),
-                                                   StakeholderVotes, UpdateProposal (..),
-                                                   isPositiveVote)
-import           Pos.Update.Poll                  (ConfirmedProposalState (..))
-import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), Addr, CCoin (..),
-                                                   CHash (..), CId (..),
-                                                   CPtxCondition (..), CTx (..),
-                                                   CTxId (..), CTxMeta, CUpdateInfo (..),
-                                                   CWAddressMeta (..))
-import           Pos.Wallet.Web.Pending.Types     (PtxCondition (..))
+import           Pos.Aeson.Types                      ()
+import           Pos.Client.Txp.History               (TxHistoryEntry (..))
+import           Pos.Crypto                           (EncryptedSecretKey, encToPublic)
+import           Pos.Txp.Core.Types                   (Tx (..), TxOut (..), txOutAddress,
+                                                       txOutValue)
+import           Pos.Types                            (ChainDifficulty,
+                                                       makePubKeyAddressBoot, sumCoins,
+                                                       unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Update.Core                      (BlockVersionData (..),
+                                                       BlockVersionModifier (..),
+                                                       StakeholderVotes,
+                                                       UpdateProposal (..),
+                                                       isPositiveVote)
+import           Pos.Update.Poll                      (ConfirmedProposalState (..))
+import           Pos.Util.Servant
+import           Pos.Wallet.Web.ClientTypes.Instances ()
+import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), Addr, CCoin,
+                                                       CId (..), CPtxCondition (..),
+                                                       CTx (..), CTxMeta,
+                                                       CUpdateInfo (..),
+                                                       CWAddressMeta (..))
 
-
--- TODO: this is not completely safe. If someone changes
--- implementation of Buildable Address. It should be probably more
--- safe to introduce `class PSSimplified` that would have the same
--- implementation has it is with Buildable Address but then person
--- will know it will probably change something for purescript.
--- | Transform Address into CId
-addressToCId :: Address -> CId w
-addressToCId = CId . CHash . sformat F.build
-
-cIdToAddress :: CId w -> Either Text Address
-cIdToAddress (CId (CHash h)) = decodeTextAddress h
 
 -- TODO: pass extra information to this function and choose
 -- distribution based on this information. Currently it's always
 -- bootstrap era distribution.
 encToCId :: EncryptedSecretKey -> CId w
-encToCId = addressToCId . makePubKeyAddressBoot . encToPublic
-
-mkCTxId :: Text -> CTxId
-mkCTxId = CTxId . CHash
-
--- | transform TxId into CTxId
-txIdToCTxId :: TxId -> CTxId
-txIdToCTxId = mkCTxId . sformat hashHexF
-
-ptxCondToCPtxCond :: Maybe PtxCondition -> CPtxCondition
-ptxCondToCPtxCond = maybe CPtxNotTracked $ \case
-    PtxApplying{}       -> CPtxApplying
-    PtxInNewestBlocks{} -> CPtxInBlocks
-    PtxPersisted{}      -> CPtxInBlocks
-    PtxWontApply{}      -> CPtxWontApply
+encToCId = encodeCType . makePubKeyAddressBoot . encToPublic
 
 -- [CSM-309] This may work until transaction have multiple source accounts
 -- | Get all addresses of source account of given transaction.
@@ -117,6 +86,11 @@ isTxLocalAddress wAddrMetas inputs = do
            let nonLocalAddrsSet = S.fromList $ cwamId <$> wAddrMetas
            not . flip S.member nonLocalAddrsSet
 
+mergeTxOuts :: [TxOut] -> [TxOut]
+mergeTxOuts = map stick . NE.groupWith txOutAddress
+  where stick outs@(TxOut{txOutAddress = addr} :| _) =
+            TxOut addr (foldl1 unsafeAddCoin $ fmap txOutValue outs)
+
 mkCTx
     :: ChainDifficulty    -- ^ Current chain difficulty (to get confirmations)
     -> TxHistoryEntry     -- ^ Tx history entry
@@ -124,8 +98,8 @@ mkCTx
     -> CPtxCondition      -- ^ State of resubmission
     -> [CWAddressMeta]    -- ^ Addresses of wallet
     -> Either Text CTx
-mkCTx diff th@THEntry {..} meta pc wAddrMetas = do
-    let isOurTxAddress = flip S.member wAddrsSet . addressToCId . txOutAddress
+mkCTx diff THEntry {..} meta pc wAddrMetas = do
+    let isOurTxAddress = flip S.member wAddrsSet . encodeCType . txOutAddress
 
         ownInputs = filter isOurTxAddress inputs
         ownOutputs = filter isOurTxAddress outputs
@@ -141,18 +115,20 @@ mkCTx diff th@THEntry {..} meta pc wAddrMetas = do
         ctIsLocal = length ownInputs == length inputs
                  && length ownOutputs == length outputs
 
-        ctAmount = mkCCoin . unsafeIntegerToCoin $
+        ctAmount = encodeCType . unsafeIntegerToCoin $
             if | ctIsLocal -> outgoingMoney
                | isOutgoing -> outgoingMoney - incomingMoney
                | otherwise -> incomingMoney - outgoingMoney
 
     return CTx {..}
   where
-    ctId = txIdToCTxId _thTxId
+    ctId = encodeCType _thTxId
+    encodeTxOut :: TxOut -> (CId Addr, CCoin)
+    encodeTxOut TxOut{..} = (encodeCType txOutAddress, encodeCType txOutValue)
     inputs = _thInputs
     outputs = toList $ _txOutputs _thTx
-    ctInputAddrs = ordNub $ map addressToCId (_thInputAddrs th)
-    ctOutputAddrs = map addressToCId _thOutputAddrs
+    ctInputs = map encodeTxOut $ mergeTxOuts _thInputs
+    ctOutputs = map encodeTxOut outputs
     ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
     ctMeta = meta
     ctCondition = pc
@@ -164,9 +140,6 @@ addrMetaToAccount CWAddressMeta{..} = AccountId
     , aiIndex = cwamWalletIndex
     }
 
-mkCCoin :: Coin -> CCoin
-mkCCoin = CCoin . show . unsafeGetCoin
-
 -- | Return counts of negative and positive votes
 countVotes :: StakeholderVotes -> (Int, Int)
 countVotes = foldl' counter (0, 0)
@@ -175,18 +148,19 @@ countVotes = foldl' counter (0, 0)
                               else (n, m + 1)
 
 -- | Creates 'CTUpdateInfo' from 'ConfirmedProposalState'
-toCUpdateInfo :: ConfirmedProposalState -> CUpdateInfo
-toCUpdateInfo ConfirmedProposalState {..} =
+toCUpdateInfo :: BlockVersionData -> ConfirmedProposalState -> CUpdateInfo
+toCUpdateInfo bvd ConfirmedProposalState {..} =
     let UnsafeUpdateProposal {..} = cpsUpdateProposal
         cuiSoftwareVersion  = upSoftwareVersion
         cuiBlockVesion      = upBlockVersion
-        cuiScriptVersion    = bvmScriptVersion upBlockVersionMod
+        cuiScriptVersion    = fromMaybe (bvdScriptVersion bvd)
+                                        (bvmScriptVersion upBlockVersionMod)
         cuiImplicit         = cpsImplicit
 --        cuiProposed         = cpsProposed
 --        cuiDecided          = cpsDecided
 --        cuiConfirmed        = cpsConfirmed
 --        cuiAdopted          = cpsAdopted
         (cuiVotesFor, cuiVotesAgainst) = countVotes cpsVotes
-        cuiPositiveStake    = mkCCoin cpsPositiveStake
-        cuiNegativeStake    = mkCCoin cpsNegativeStake
+        cuiPositiveStake    = encodeCType cpsPositiveStake
+        cuiNegativeStake    = encodeCType cpsNegativeStake
     in CUpdateInfo {..}

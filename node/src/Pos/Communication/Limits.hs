@@ -26,10 +26,10 @@ import           Pos.Block.Network.Types            (MsgBlock (..), MsgGetBlocks
                                                      MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Protocol   (MsgSubscribe (..))
 import           Pos.Communication.Types.Relay      (DataMsg (..))
-import qualified Pos.Constants                      as Const
+import           Pos.Configuration                  (HasNodeConfiguration, recoveryHeadersMessage)
 import           Pos.Core                           (BlockVersionData (..),
-                                                     coinPortionToDouble)
-import           Pos.Core.Context                   (HasCoreConstants, blkSecurityParam)
+                                                     VssCertificate, coinPortionToDouble)
+import           Pos.Core.Configuration             (HasConfiguration, blkSecurityParam)
 import           Pos.Crypto                         (AbstractHash, DecShare, EncShare,
                                                      ProxyCert (..), ProxySecretKey (..),
                                                      ProxySignature (..), PublicKey,
@@ -38,8 +38,7 @@ import           Pos.Crypto                         (AbstractHash, DecShare, Enc
 import qualified Pos.DB.Class                       as DB
 import           Pos.Delegation.Types               (ProxySKLightConfirmation)
 import           Pos.Ssc.GodTossing.Core.Types      (Commitment (..), InnerSharesMap,
-                                                     Opening (..), SignedCommitment,
-                                                     VssCertificate)
+                                                     Opening (..), SignedCommitment)
 import           Pos.Ssc.GodTossing.Types.Message   (MCCommitment (..), MCOpening (..),
                                                      MCShares (..), MCVssCertificate (..))
 import           Pos.Txp.Core                       (TxAux)
@@ -284,19 +283,19 @@ instance MessageLimited (MsgBlock ssc) where
         blkLimit <- getMsgLenLimit (Proxy @(Block ssc))
         return $ MsgBlock <$> blkLimit
 
-instance HasCoreConstants => MessageLimitedPure MsgGetHeaders where
+instance HasConfiguration => MessageLimitedPure MsgGetHeaders where
     msgLenLimit = MsgGetHeaders <$> vector maxGetHeadersNum <+> msgLenLimit
       where
         maxGetHeadersNum = ceiling $
             log (fromIntegral blkSecurityParam) + (5 :: Double)
 
-instance HasCoreConstants => MessageLimited MsgGetHeaders
+instance HasConfiguration => MessageLimited MsgGetHeaders
 
-instance MessageLimited (MsgHeaders ssc) where
+instance HasNodeConfiguration => MessageLimited (MsgHeaders ssc) where
     getMsgLenLimit _ = do
         headerLimit <- getMsgLenLimit (Proxy @(BlockHeader ssc))
         return $
-            MsgHeaders <$> vectorOf Const.recoveryHeadersMessage headerLimit
+            MsgHeaders <$> vectorOf recoveryHeadersMessage headerLimit
 
 -- TODO: Update once we move to CBOR.
 instance MessageLimitedPure MsgSubscribe where

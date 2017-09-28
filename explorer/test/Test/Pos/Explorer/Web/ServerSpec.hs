@@ -21,7 +21,7 @@ import           Pos.Arbitrary.Block          ()
 import           Pos.Block.Core               (Block)
 import qualified Pos.Communication            ()
 import           Pos.Core                     (EpochIndex (..), LocalSlotIndex (..),
-                                               SlotId (..), giveStaticConsts)
+                                               SlotId (..), HasConfiguration)
 import           Pos.DB.Block                 (MonadBlockDB)
 import           Pos.Explorer.TestUtil        (basicBlockGenericUnsafe, emptyBlk,
                                                leftToCounter)
@@ -39,7 +39,7 @@ import           Pos.Ssc.GodTossing           (SscGodTossing)
 ----------------------------------------------------------------
 
 -- stack test cardano-sl-explorer --fast --test-arguments "-m Test.Pos.Explorer.Web.ServerSpec"
-spec :: Spec
+spec :: HasConfiguration => Spec
 spec = do
     blocksPureTotalSpec
     blocksPagesPureTotalSpec
@@ -53,9 +53,9 @@ spec = do
 
 -- | A spec with the following test invariant. If a block is generated, there is no way
 -- that blocksTotal could be less than 1.
-blocksPureTotalSpec :: Spec
-blocksPureTotalSpec = giveStaticConsts
-    $ describe "pureGetBlocksTotal"
+blocksPureTotalSpec :: HasConfiguration => Spec
+blocksPureTotalSpec =
+    describe "pureGetBlocksTotal"
     $ modifyMaxSuccess (const 200) $ do
         prop "created blocks means block size > 0" $ emptyBlk $ \blk0 -> leftToCounter blk0 $ \blk ->
             let mainBlock   = Right blk
@@ -65,9 +65,9 @@ blocksPureTotalSpec = giveStaticConsts
                  blocksTotal > 0
 
 -- | A spec with the simple test that two equal algorithms should work the same.
-blocksPagesPureTotalSpec :: Spec
-blocksPagesPureTotalSpec = giveStaticConsts
-    $ describe "pureGetBlocksPagesTotal"
+blocksPagesPureTotalSpec :: HasConfiguration => Spec
+blocksPagesPureTotalSpec =
+    describe "pureGetBlocksPagesTotal"
     $ modifyMaxSuccess (const 10000) $ do
         prop "valid page number holds" $
             forAll arbitrary $ \(blocksTotal, pageSizeInt) ->
@@ -81,9 +81,9 @@ blocksPagesPureTotalSpec = giveStaticConsts
 -- that blocksTotal could be less than 1.
 -- I originally thought that this is going to be faster then emulation, but seems the
 -- real issue of performance here is the block creation speed.
-blocksTotalUnitSpec :: Spec
-blocksTotalUnitSpec = giveStaticConsts
-    $ describe "getBlocksTotalUnit"
+blocksTotalUnitSpec :: HasConfiguration => Spec
+blocksTotalUnitSpec =
+    describe "getBlocksTotalUnit"
     $ modifyMaxSuccess (const 200) $ do
         prop "created blocks means block size > 0" $
             forAll arbitrary $ \(testParams, prevHeader, sk, slotId) ->
@@ -112,9 +112,9 @@ blocksTotalUnitSpec = giveStaticConsts
 
 -- | A spec with the following test invariant. If a block is generated, there is no way
 -- that blocks pages could be < 1.
-blocksPagesTotalUnitSpec :: Spec
-blocksPagesTotalUnitSpec = giveStaticConsts
-    $ describe "getBlocksPagesTotal"
+blocksPagesTotalUnitSpec :: HasConfiguration => Spec
+blocksPagesTotalUnitSpec =
+    describe "getBlocksPagesTotal"
     $ modifyMaxSuccess (const 200) $ do
         prop "block pages = 1" $
             forAll arbitrary $ \(testParams, prevHeader, sk, slotId) ->
@@ -144,9 +144,9 @@ blocksPagesTotalUnitSpec = giveStaticConsts
 -- | A spec with the following test invariant. If a block is generated, there is no way
 -- that the client block is not. Also, we can check for specific properties on the
 -- client block and they should be relational as to the block.
-blocksPageUnitSpec :: Spec
-blocksPageUnitSpec = giveStaticConsts
-    $ describe "getBlocksPage"
+blocksPageUnitSpec :: HasConfiguration => Spec
+blocksPageUnitSpec =
+    describe "getBlocksPage"
     $ modifyMaxSuccess (const 200) $ do
         prop "count(block) > 0" $
             forAll arbitrary $ \(testParams, prevHeader, sk) ->
@@ -192,9 +192,9 @@ blocksPageUnitSpec = giveStaticConsts
 -- | A spec with the following test invariant. If a block is generated, there is no way
 -- that the client block is not. Also, we can check for specific properties on the
 -- client block and they should be relational as to the block.
-blocksLastPageUnitSpec :: Spec
-blocksLastPageUnitSpec = giveStaticConsts
-    $ describe "getBlocksLastPage"
+blocksLastPageUnitSpec :: HasConfiguration => Spec
+blocksLastPageUnitSpec =
+    describe "getBlocksLastPage"
     $ modifyMaxSuccess (const 200) $ do
         prop "count(block) > 0" $
             forAll arbitrary $ \(testParams, prevHeader, sk, slotId) ->
@@ -233,9 +233,9 @@ blocksLastPageUnitSpec = giveStaticConsts
 -- | A spec with the following test invariant. If a block is generated, there is no way
 -- that blocksTotal could be less than 0.
 -- We don't have control over this block generation, so it really can be 0.
-blocksTotalFunctionalSpec :: Spec
-blocksTotalFunctionalSpec = giveStaticConsts
-    $ describe "getBlocksTotalFunctional"
+blocksTotalFunctionalSpec :: HasConfiguration => Spec
+blocksTotalFunctionalSpec =
+    describe "getBlocksTotalFunctional"
     $ modifyMaxSuccess (const 200) $ do
         prop "created blocks means block size >= 0" $
             forAll arbitrary $ \testParams ->

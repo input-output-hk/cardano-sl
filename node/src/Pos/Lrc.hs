@@ -14,7 +14,6 @@ module Pos.Lrc
        , module Pos.Lrc.Error
        , module Pos.Lrc.Fts
        , module Pos.Lrc.FtsPure
-       , module Pos.Lrc.Genesis
        , module Pos.Lrc.Logic
        , module Pos.Lrc.Mode
        , module Pos.Lrc.Types
@@ -31,7 +30,6 @@ import           Pos.Lrc.DB
 import           Pos.Lrc.Error
 import           Pos.Lrc.Fts
 import           Pos.Lrc.FtsPure
-import           Pos.Lrc.Genesis
 import           Pos.Lrc.Logic
 import           Pos.Lrc.Mode
 import           Pos.Lrc.Types

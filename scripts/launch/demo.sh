@@ -38,12 +38,6 @@ if [[ $config_dir == "" ]]; then
   gen_kademlia_topology $n
 fi
 
-# The stake distribution.
-# Use "flat" for flat_distr. Anything else will use rich_poor_distr
-stake_distr_param=$3
-flat_distr=" --flat-distr \"($n, 100000000)\" " # 100 ADA
-rich_poor_distr=" --rich-poor-distr \"($RICH_NODES,50000,6000000000,0.99)\" "
-
 # Stats are not mandatory either
 stats=$4
 
@@ -97,25 +91,15 @@ while [[ $i -lt $panesCnt ]]; do
       fi
   fi
 
-  if [[ $stake_distr_param == "rich_poor" ]]; then
-    stake_distr=$rich_poor_distr
-  else
-    stake_distr=$flat_distr
-  fi
-
-  if [[ "$CSL_PRODUCTION" != "" ]]; then
-      stake_distr=""
-  fi
-
   if [[ $i -lt $n ]]; then
-    node_cmd="$(node_cmd $i "$stats" "$stake_distr" "$wallet_args" "$system_start" "$config_dir" $exec_name) --no-ntp"
+    node_cmd="$(node_cmd $i "$stats" "$wallet_args" "$system_start" "$config_dir" $exec_name) --no-ntp"
     echo "$node_cmd"
     tmux send-keys "$node_cmd" C-m
   else
     # Number of transactions to send per-thread: 300
     # Concurrency (number of threads sending transactions); $CONC
     # Delay between sends on each thread: 500 milliseconds
-    tmux send-keys "sleep 40s && $(bench_cmd $i "$stake_distr" "$system_start" $NUM_TXS $CONC 500 neighbours)" C-m
+    tmux send-keys "sleep 40s && $(bench_cmd $i "$system_start" $NUM_TXS $CONC 500 neighbours)" C-m
   fi
   i=$((i+1))
 done

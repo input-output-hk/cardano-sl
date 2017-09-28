@@ -11,41 +11,43 @@ module Pos.Ssc.GodTossing.GState
        , getStableCerts
        ) where
 
-import           Control.Lens                   ((.=), _Wrapped)
-import           Control.Monad.Except           (MonadError (throwError), runExceptT)
-import           Control.Monad.Morph            (hoist)
-import qualified Crypto.Random                  as Rand
-import qualified Data.HashMap.Strict            as HM
-import           Data.Tagged                    (Tagged (..))
-import           Formatting                     (build, sformat, (%))
-import           System.Wlog                    (WithLogger, logDebug, logInfo)
+import           Control.Lens                     ((.=), _Wrapped)
+import           Control.Monad.Except             (MonadError (throwError), runExceptT)
+import           Control.Monad.Morph              (hoist)
+import qualified Crypto.Random                    as Rand
+import qualified Data.HashMap.Strict              as HM
+import           Data.Tagged                      (Tagged (..))
+import           Formatting                       (build, sformat, (%))
+import           System.Wlog                      (WithLogger, logDebug, logInfo)
 import           Universum
 
-import           Pos.Binary.GodTossing          ()
-import           Pos.Core                       (BlockVersionData, EpochIndex (..),
-                                                 HasCoreConstants, SlotId (..),
-                                                 epochIndexL, epochOrSlotG)
-import           Pos.DB                         (MonadDBRead, SomeBatchOp (..))
-import           Pos.Lrc.Types                  (RichmenStakes)
-import           Pos.Ssc.Class.Storage          (SscGStateClass (..), SscVerifier)
-import           Pos.Ssc.Class.Types            (SscBlock, getSscBlock)
-import           Pos.Ssc.Extra                  (MonadSscMem, sscRunGlobalQuery)
-import           Pos.Ssc.GodTossing.Core        (GtPayload (..), VssCertificatesMap,
-                                                 vcVssKey)
-import qualified Pos.Ssc.GodTossing.DB          as DB
-import           Pos.Ssc.GodTossing.Functions   (getStableCertsPure)
-import           Pos.Ssc.GodTossing.Seed        (calculateSeed)
-import           Pos.Ssc.GodTossing.Toss        (MultiRichmenStakes, PureToss,
-                                                 TossVerFailure (..), applyGenesisBlock,
-                                                 rollbackGT, runPureTossWithLogger,
-                                                 supplyPureTossEnv,
-                                                 verifyAndApplyGtPayload)
-import           Pos.Ssc.GodTossing.Type        (SscGodTossing)
-import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), gsCommitments,
-                                                 gsOpenings, gsShares, gsVssCertificates)
-import qualified Pos.Ssc.GodTossing.VssCertData as VCD
-import           Pos.Util.Chrono                (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.Util.Util                  (_neHead, _neLast)
+import           Pos.Binary.GodTossing            ()
+import           Pos.Core                         (BlockVersionData, EpochIndex (..),
+                                                   HasConfiguration, SlotId (..),
+                                                   VssCertificatesMap (..), epochIndexL,
+                                                   epochOrSlotG, vcVssKey)
+import           Pos.DB                           (MonadDBRead, SomeBatchOp (..))
+import           Pos.Lrc.Types                    (RichmenStakes)
+import           Pos.Ssc.Class.Storage            (SscGStateClass (..), SscVerifier)
+import           Pos.Ssc.Class.Types              (SscBlock, getSscBlock)
+import           Pos.Ssc.Extra                    (MonadSscMem, sscRunGlobalQuery)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.GodTossing.Core          (GtPayload (..))
+import qualified Pos.Ssc.GodTossing.DB            as DB
+import           Pos.Ssc.GodTossing.Functions     (getStableCertsPure)
+import           Pos.Ssc.GodTossing.Seed          (calculateSeed)
+import           Pos.Ssc.GodTossing.Toss          (MultiRichmenStakes, PureToss,
+                                                   TossVerFailure (..), applyGenesisBlock,
+                                                   rollbackGT, runPureTossWithLogger,
+                                                   supplyPureTossEnv,
+                                                   verifyAndApplyGtPayload)
+import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
+import           Pos.Ssc.GodTossing.Types         (GtGlobalState (..), gsCommitments,
+                                                   gsOpenings, gsShares,
+                                                   gsVssCertificates)
+import qualified Pos.Ssc.GodTossing.VssCertData   as VCD
+import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.Util                    (_neHead, _neLast)
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -67,7 +69,7 @@ getGlobalCerts sl =
 
 -- | Get stable VSS certificates for given epoch.
 getStableCerts
-    :: (HasCoreConstants, MonadSscMem SscGodTossing ctx m, MonadIO m)
+    :: (HasGtConfiguration, HasConfiguration, MonadSscMem SscGodTossing ctx m, MonadIO m)
     => EpochIndex -> m VssCertificatesMap
 getStableCerts epoch =
     getStableCertsPure epoch <$> sscRunGlobalQuery (view gsVssCertificates)
@@ -76,7 +78,7 @@ getStableCerts epoch =
 -- Methods from class
 ----------------------------------------------------------------------------
 
-instance HasCoreConstants => SscGStateClass SscGodTossing where
+instance (HasGtConfiguration, HasConfiguration) => SscGStateClass SscGodTossing where
     sscLoadGlobalState = loadGlobalState
     sscGlobalStateToBatch = Tagged . dumpGlobalState
     sscRollbackU = rollbackBlocks
@@ -84,24 +86,25 @@ instance HasCoreConstants => SscGStateClass SscGodTossing where
     sscCalculateSeedQ _epoch richmen =
         calculateSeed
         <$> view gsCommitments
-        <*> (map vcVssKey . VCD.certs <$> view gsVssCertificates)
+        <*> (map vcVssKey . getVssCertificatesMap . VCD.certs <$>
+             view gsVssCertificates)
         <*> view gsOpenings
         <*> view gsShares
         <*> pure richmen
 
-loadGlobalState :: (HasCoreConstants, MonadDBRead m, WithLogger m) => m GtGlobalState
+loadGlobalState :: (HasConfiguration, MonadDBRead m, WithLogger m) => m GtGlobalState
 loadGlobalState = do
     logDebug "Loading SSC global state"
     gs <- DB.getGtGlobalState
     gs <$ logInfo (sformat ("Loaded GodTossing state: " %build) gs)
 
-dumpGlobalState :: HasCoreConstants => GtGlobalState -> [SomeBatchOp]
+dumpGlobalState :: HasConfiguration => GtGlobalState -> [SomeBatchOp]
 dumpGlobalState = one . SomeBatchOp . DB.gtGlobalStateToBatch
 
 -- randomness needed for crypto :(
 type GSUpdate a = forall m . (MonadState GtGlobalState m, WithLogger m, Rand.MonadRandom m) => m a
 
-rollbackBlocks :: HasCoreConstants => NewestFirst NE (SscBlock SscGodTossing) -> GSUpdate ()
+rollbackBlocks :: (HasGtConfiguration, HasConfiguration) => NewestFirst NE (SscBlock SscGodTossing) -> GSUpdate ()
 rollbackBlocks blocks = tossToUpdate $ rollbackGT oldestEOS payloads
   where
     oldestEOS = blocks ^. _Wrapped . _neLast . epochOrSlotG
@@ -109,7 +112,7 @@ rollbackBlocks blocks = tossToUpdate $ rollbackGT oldestEOS payloads
                    blocks
 
 verifyAndApply
-    :: HasCoreConstants
+    :: (HasGtConfiguration, HasConfiguration)
     => RichmenStakes
     -> BlockVersionData
     -> OldestFirst NE (SscBlock SscGodTossing)
@@ -121,7 +124,7 @@ verifyAndApply richmenStake bvd blocks =
     richmenData = HM.fromList [(epoch, richmenStake)]
 
 verifyAndApplyMultiRichmen
-    :: HasCoreConstants
+    :: (HasGtConfiguration, HasConfiguration)
     => Bool
     -> (MultiRichmenStakes, BlockVersionData)
     -> OldestFirst NE (SscBlock SscGodTossing)

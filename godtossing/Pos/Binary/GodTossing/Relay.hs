@@ -5,6 +5,7 @@ module Pos.Binary.GodTossing.Relay
 import           Universum
 
 import           Pos.Binary.Class              (Bi (..), enforceSize, encodeListLen)
+import           Pos.Core.Configuration        (HasConfiguration)
 import           Pos.Communication.Types.Relay (DataMsg (..))
 import qualified Pos.Ssc.GodTossing.Types      as T
 
@@ -24,6 +25,6 @@ instance Bi (DataMsg T.MCShares) where
     enforceSize "DataMsg T.MCShares" 2
     DataMsg <$> (T.MCShares <$> decode <*> decode)
 
-instance Bi (DataMsg T.MCVssCertificate) where
+instance HasConfiguration => Bi (DataMsg T.MCVssCertificate) where
   encode (DataMsg (T.MCVssCertificate vss)) = encode vss
   decode = DataMsg . T.MCVssCertificate <$> decode

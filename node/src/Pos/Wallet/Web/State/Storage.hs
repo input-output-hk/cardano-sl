@@ -67,32 +67,30 @@ module Pos.Wallet.Web.State.Storage
 
 import           Universum
 
-import           Control.Lens                   (at, ix, makeClassy, makeLenses, non', to,
-                                                 toListOf, traversed, (%=), (+=), (.=),
-                                                 (<<.=), (?=), _Empty, _head)
-import           Control.Monad.State.Class      (put)
-import           Data.Default                   (Default, def)
-import qualified Data.HashMap.Strict            as HM
-import           Data.SafeCopy                  (base, deriveSafeCopySimple)
-import           Data.Time.Clock.POSIX          (POSIXTime)
+import           Control.Lens                 (at, ix, makeClassy, makeLenses, non', to,
+                                               toListOf, traversed, (%=), (+=), (.=),
+                                               (<<.=), (?=), _Empty, _head)
+import           Control.Monad.State.Class    (put)
+import           Data.Default                 (Default, def)
+import qualified Data.HashMap.Strict          as HM
+import           Data.SafeCopy                (base, deriveSafeCopySimple)
+import           Data.Time.Clock.POSIX        (POSIXTime)
 
-import           Pos.Client.Txp.History         (TxHistoryEntry)
-import           Pos.Core.Context               (HasCoreConstants)
-import           Pos.Core.Types                 (SlotId, Timestamp)
-import           Pos.Txp                        (TxAux, TxId, Utxo)
-import           Pos.Types                      (HeaderHash)
-import           Pos.Util.BackupPhrase          (BackupPhrase)
-import           Pos.Wallet.Web.ClientTypes     (AccountId, Addr, CAccountMeta, CCoin,
-                                                 CHash, CId, CProfile, CTxId, CTxMeta,
-                                                 CUpdateInfo, CWAddressMeta (..),
-                                                 CWalletAssurance, CWalletMeta,
-                                                 PassPhraseLU, Wal, addrMetaToAccount)
-import           Pos.Wallet.Web.Pending.Types   (PendingTx (..), PtxCondition,
-                                                 PtxSubmitTiming (..), ptxCond,
-                                                 ptxSubmitTiming)
-import           Pos.Wallet.Web.Pending.Updates (incPtxSubmitTimingPure,
-                                                 mkPtxSubmitTiming,
-                                                 ptxMarkAcknowledgedPure)
+import           Pos.Client.Txp.History       (TxHistoryEntry)
+import           Pos.Core                     (HasConfiguration, SlotId, Timestamp)
+import           Pos.Txp                      (TxAux, TxId, Utxo)
+import           Pos.Types                    (HeaderHash)
+import           Pos.Util.BackupPhrase        (BackupPhrase)
+import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CCoin,
+                                               CHash, CId, CProfile, CTxId, CTxMeta,
+                                               CUpdateInfo, CWAddressMeta (..),
+                                               CWalletAssurance, CWalletMeta,
+                                               PassPhraseLU, Wal, addrMetaToAccount)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition,
+                                               PtxSubmitTiming (..), ptxCond,
+                                               ptxSubmitTiming)
+import           Pos.Wallet.Web.Pending.Util  (incPtxSubmitTimingPure, mkPtxSubmitTiming,
+                                               ptxMarkAcknowledgedPure)
 
 type AddressSortingKey = Int
 
@@ -117,15 +115,15 @@ data WalletTip
     | SyncedWith !HeaderHash
 
 data WalletInfo = WalletInfo
-    { _wiMeta          :: !CWalletMeta
-    , _wiPassphraseLU  :: !PassPhraseLU
-    , _wiCreationTime  :: !POSIXTime
-    , _wiSyncTip       :: !WalletTip
-    , _wsPendingTxs    :: !(HashMap TxId PendingTx)
+    { _wiMeta         :: !CWalletMeta
+    , _wiPassphraseLU :: !PassPhraseLU
+    , _wiCreationTime :: !POSIXTime
+    , _wiSyncTip      :: !WalletTip
+    , _wsPendingTxs   :: !(HashMap TxId PendingTx)
     -- Wallets that are being synced are marked as not ready, and
     -- are excluded from api endpoints. This info should not be leaked
     -- into a client facing data structure (for example `CWalletMeta`)
-    , _wiIsReady :: !Bool
+    , _wiIsReady      :: !Bool
     }
 
 makeLenses ''WalletInfo
@@ -164,7 +162,7 @@ instance Default WalletStorage where
         }
 
 type Query a = forall m. (MonadReader WalletStorage m) => m a
-type Update a = forall m. (HasCoreConstants, MonadState WalletStorage m) => m a
+type Update a = forall m. (HasConfiguration, MonadState WalletStorage m) => m a
 
 -- | How to lookup addresses of account
 data AddressLookupMode

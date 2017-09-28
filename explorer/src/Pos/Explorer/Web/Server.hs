@@ -33,79 +33,81 @@ module Pos.Explorer.Web.Server
        , topsortTxsOrFail
        , getMempoolTxs
        , getBlocksLastPage
+       , cAddrToAddr
        ) where
 
 import           Universum
 
-import           Control.Lens                   (at)
-import           Control.Monad.Catch            (try)
+import           Control.Lens                     (at)
+import           Control.Monad.Catch              (try)
 
-import qualified Data.ByteString                as BS
-import qualified Data.HashMap.Strict            as HM
-import qualified Data.List.NonEmpty             as NE
-import           Data.Maybe                     (fromMaybe)
+import qualified Data.ByteString                  as BS
+import qualified Data.HashMap.Strict              as HM
+import qualified Data.List.NonEmpty               as NE
+import           Data.Maybe                       (fromMaybe)
 
-import           Formatting                     (build, int, sformat, (%))
-import           Network.Wai                    (Application)
-import qualified Serokell.Util.Base64           as B64
-import           Servant.API                    ((:<|>) ((:<|>)))
-import           Servant.Server                 (Server, ServerT, serve)
-import           System.Wlog                    (logDebug)
+import           Formatting                       (build, int, sformat, (%))
+import           Network.Wai                      (Application)
+import qualified Serokell.Util.Base64             as B64
+import           Servant.API                      ((:<|>) ((:<|>)))
+import           Servant.Server                   (Server, ServerT, serve)
+import           System.Wlog                      (logDebug)
 
-import           Pos.Communication              (SendActions)
-import           Pos.Crypto                     (WithHash (..), hash, redeemPkBuild,
-                                                 withHash)
-import           Pos.DB.Block                   (MonadBlockDB, blkGetBlund)
-import           Pos.Binary.Class               (biSize)
-import           Pos.Block.Core                 (Block, MainBlock, mainBlockSlot,
-                                                 mainBlockTxPayload, mcdSlot)
-import           Pos.Block.Types                (Blund, Undo)
-import           Pos.Context                    (HasCoreConstants, genesisUtxoM,
-                                                 unGenesisUtxo)
-import           Pos.Core                       (AddrType (..), Address (..), Coin,
-                                                 EpochIndex, HeaderHash, Timestamp,
-                                                 difficultyL, gbHeader, gbhConsensus,
-                                                 getChainDifficulty, isRedeemAddress,
-                                                 isUnknownAddressType, makeRedeemAddress,
-                                                 mkCoin, siEpoch, siSlot, sumCoins,
-                                                 timestampToPosix, unsafeIntegerToCoin,
-                                                 unsafeSubCoin)
-import           Pos.DB.Class                   (MonadDBRead)
-import           Pos.Slotting                   (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.GodTossing             (SscGodTossing)
-import           Pos.Txp                        (MonadTxpMem, Tx (..), TxAux, TxId, TxMap,
-                                                 TxOutAux (..), Utxo, getLocalTxs,
-                                                 getMemPool, mpLocalTxs, taTx, topsortTxs,
-                                                 txOutValue, txpTxs,
-                                                 utxoToAddressCoinPairs, _txOutputs)
-import           Pos.Util                       (maybeThrow)
-import           Pos.Util.Chrono                (NewestFirst (..))
-import           Pos.Web                        (serveImplNoTLS)
-import           Pos.WorkMode                   (WorkMode)
+import           Pos.Binary.Class                 (biSize)
+import           Pos.Block.Core                   (Block, MainBlock, mainBlockSlot,
+                                                   mainBlockTxPayload, mcdSlot)
+import           Pos.Block.Types                  (Blund, Undo)
+import           Pos.Communication                (SendActions)
+import           Pos.Context                      (genesisUtxo, unGenesisUtxo)
+import           Pos.Core                         (AddrType (..), Address (..), Coin,
+                                                   EpochIndex, HasConfiguration,
+                                                   HeaderHash, Timestamp, difficultyL,
+                                                   gbHeader, gbhConsensus,
+                                                   getChainDifficulty, isRedeemAddress,
+                                                   isUnknownAddressType,
+                                                   makeRedeemAddress, mkCoin, siEpoch,
+                                                   siSlot, sumCoins, timestampToPosix,
+                                                   unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Crypto                       (WithHash (..), hash, redeemPkBuild,
+                                                   withHash)
+import           Pos.DB.Block                     (MonadBlockDB, blkGetBlund)
+import           Pos.DB.Class                     (MonadDBRead)
+import           Pos.Slotting                     (MonadSlots (..), getSlotStart)
+import           Pos.Ssc.GodTossing               (SscGodTossing)
+import           Pos.Txp                          (MonadTxpMem, Tx (..), TxAux, TxId,
+                                                   TxMap, TxOutAux (..), getLocalTxs,
+                                                   getMemPool, mpLocalTxs, taTx,
+                                                   topsortTxs, txOutValue, txpTxs,
+                                                   utxoToAddressCoinPairs, _txOutputs)
+import           Pos.Util                         (maybeThrow)
+import           Pos.Util.Chrono                  (NewestFirst (..))
+import           Pos.Web                          (serveImplNoTLS)
+import           Pos.WorkMode                     (WorkMode)
 
-import           Pos.Explorer                   (TxExtra (..), getEpochBlocks,
-                                                 getLastTransactions, getTxExtra)
-import qualified Pos.Explorer                   as EX (getAddrBalance, getAddrHistory,
-                                                       getTxExtra)
-import           Pos.Explorer.Aeson.ClientTypes ()
-import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (Byte, CAddress (..),
-                                                 CAddressSummary (..), CAddressType (..),
-                                                 CBlockEntry (..), CBlockSummary (..),
-                                                 CGenesisAddressInfo (..),
-                                                 CGenesisSummary (..), CHash,
-                                                 CTxBrief (..), CTxEntry (..), CTxId (..),
-                                                 CTxSummary (..), ExplorerMockMode (..),
-                                                 TxInternal (..), convertTxOutputs,
-                                                 convertTxOutputsMB, fromCAddress,
-                                                 fromCHash, fromCTxId, getEpochIndex,
-                                                 getSlotIndex, mkCCoin, mkCCoinMB,
-                                                 prodMode, tiToTxEntry, toBlockEntry,
-                                                 toBlockSummary, toCAddress, toCHash,
-                                                 toCTxId, toTxBrief)
-import           Pos.Explorer.Web.Error         (ExplorerError (..))
-
-
+import           Pos.Explorer                     (TxExtra (..), getEpochBlocks,
+                                                   getLastTransactions, getTxExtra)
+import qualified Pos.Explorer                     as EX (getAddrBalance, getAddrHistory,
+                                                         getTxExtra)
+import           Pos.Explorer.Aeson.ClientTypes   ()
+import           Pos.Explorer.Web.Api             (ExplorerApi, explorerApi)
+import           Pos.Explorer.Web.ClientTypes     (Byte, CAddress (..),
+                                                   CAddressSummary (..),
+                                                   CAddressType (..), CBlockEntry (..),
+                                                   CBlockSummary (..),
+                                                   CGenesisAddressInfo (..),
+                                                   CGenesisSummary (..), CHash,
+                                                   CTxBrief (..), CTxEntry (..),
+                                                   CTxId (..), CTxSummary (..),
+                                                   ExplorerMockMode (..), TxInternal (..),
+                                                   convertTxOutputs, convertTxOutputsMB,
+                                                   fromCAddress, fromCHash, fromCTxId,
+                                                   getEpochIndex, getSlotIndex, mkCCoin,
+                                                   mkCCoinMB, prodMode, tiToTxEntry,
+                                                   toBlockEntry, toBlockSummary,
+                                                   toCAddress, toCHash, toCTxId,
+                                                   toTxBrief)
+import           Pos.Explorer.Web.Error           (ExplorerError (..))
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 
 
 ----------------------------------------------------------------
@@ -113,7 +115,10 @@ import           Pos.Explorer.Web.Error         (ExplorerError (..))
 ----------------------------------------------------------------
 type MainBlund ssc = (MainBlock ssc, Undo)
 
-type ExplorerMode ctx m = WorkMode SscGodTossing ctx m
+type ExplorerMode ctx m =
+    ( WorkMode SscGodTossing ctx m
+    , HasGtConfiguration
+    )
 
 explorerServeImpl
     :: ExplorerMode ctx m
@@ -203,13 +208,13 @@ explorerHandlers _sendActions =
 -- Total number of main blocks   = difficulty of the topmost (tip) header.
 -- Total number of anchor blocks = current epoch + 1
 getBlocksTotal
-    :: forall m. (HasCoreConstants, MonadBlockDB SscGodTossing m)
+    :: forall m. (HasConfiguration, MonadBlockDB SscGodTossing m)
     => m Integer
 getBlocksTotal = getBlocksTotalEMode prodMode
 
 -- | getBlocksTotal configurable function.
 getBlocksTotalEMode
-    :: (HasCoreConstants,  MonadBlockDB SscGodTossing m)
+    :: (HasConfiguration,  MonadBlockDB SscGodTossing m)
     => ExplorerMockMode m SscGodTossing
     -> m Integer
 getBlocksTotalEMode mode = do
@@ -235,7 +240,7 @@ getBlocksPage
     , MonadDBRead m
     , MonadSlots ctx m
     , MonadThrow m
-    , HasCoreConstants
+    , HasConfiguration
     )
     => Maybe Word -- ^ Page number
     -> Word       -- ^ Page size
@@ -249,7 +254,7 @@ getBlocksPageEMode
     , MonadDBRead m
     , MonadSlots ctx m
     , MonadThrow m
-    , HasCoreConstants
+    , HasConfiguration
     )
     => ExplorerMockMode m SscGodTossing
     -> Maybe Word -- ^ Page number
@@ -308,14 +313,14 @@ getBlocksPageEMode mode mPageNumber pageSize = do
 -- | Get total pages from blocks. Calculated from
 -- pageSize we pass to it.
 getBlocksPagesTotal
-    :: (HasCoreConstants,  MonadBlockDB SscGodTossing m)
+    :: (HasConfiguration,  MonadBlockDB SscGodTossing m)
     => Word
     -> m Integer
 getBlocksPagesTotal pageSize = getBlocksPagesTotalEMode prodMode pageSize
 
 -- | getBlocksPagesTotal configurable function.
 getBlocksPagesTotalEMode
-    :: (HasCoreConstants,  MonadBlockDB SscGodTossing m)
+    :: (HasConfiguration,  MonadBlockDB SscGodTossing m)
     => ExplorerMockMode m SscGodTossing
     -> Word
     -> m Integer
@@ -361,7 +366,7 @@ getBlocksLastPage
     , MonadDBRead m
     , MonadSlots ctx m
     , MonadThrow m
-    , HasCoreConstants
+    , HasConfiguration
     )
     => m (Integer, [CBlockEntry])
 getBlocksLastPage = getBlocksLastPageEMode prodMode
@@ -373,7 +378,7 @@ getBlocksLastPageEMode
     , MonadDBRead m
     , MonadSlots ctx m
     , MonadThrow m
-    , HasCoreConstants
+    , HasConfiguration
     )
     => ExplorerMockMode m SscGodTossing
     -> m (Integer, [CBlockEntry])
@@ -610,10 +615,9 @@ getTxSummary cTxId = do
 
 getRedeemAddressCoinPairs :: ExplorerMode ctx m => m [(Address, Coin)]
 getRedeemAddressCoinPairs = do
-    genesisUtxo :: Utxo <- unGenesisUtxo <$> genesisUtxoM
 
     let addressCoinPairs :: [(Address, Coin)]
-        addressCoinPairs = utxoToAddressCoinPairs genesisUtxo
+        addressCoinPairs = utxoToAddressCoinPairs (unGenesisUtxo genesisUtxo)
 
         redeemOnly :: [(Address, Coin)]
         redeemOnly = filter (isRedeemAddress . fst) addressCoinPairs
@@ -832,20 +836,20 @@ cAddrToAddr cAddr@(CAddress rawAddrText) =
     let mDecodedBase64 =
             rightToMaybe (B64.decode rawAddrText) <|>
             rightToMaybe (B64.decodeUrl rawAddrText)
+
     in case mDecodedBase64 of
         Just addr -> do
-            -- cAddr is in RSCoin address format, converting to equivalent Cardano address
-            -- Originally taken from:
-            -- * cardano-sl/tools/src/keygen/Avvm.hs
-            -- * cardano-sl/tools/src/addr-convert/Main.hs
-            unless (BS.length addr == 32) $
-                throwM badAddressLength
-            pure $ makeRedeemAddress $ redeemPkBuild addr
+            -- the decoded address can be both the RSCoin address and the Cardano address.
+            -- * RSCoin address == 32 bytes
+            -- * Cardano address >= 34 bytes
+            if (BS.length addr == 32)
+                then pure $ makeRedeemAddress $ redeemPkBuild addr
+                else either badCardanoAddress pure (fromCAddress cAddr)
         Nothing ->
-            -- cAddr is in Cardano address format
+            -- cAddr is in Cardano address format or it's not valid
             either badCardanoAddress pure (fromCAddress cAddr)
   where
-    badAddressLength = Internal "Address length is not equal to 32, can't be redeeming pk"
+
     badCardanoAddress = const $ throwM $ Internal "Invalid Cardano address!"
 
 -- | Deserialize transaction ID.

@@ -47,46 +47,50 @@ module Pos.Explorer.Web.ClientTypes
 
 import           Universum
 
-import           Control.Lens               (ix, _Left)
-import qualified Data.ByteArray             as BA
-import           Data.Default               (Default (..), def)
-import qualified Data.List.NonEmpty         as NE
-import           Data.Time.Clock.POSIX      (POSIXTime)
-import           Formatting                 (sformat)
-import           Pos.Binary                 (Bi, biSize)
-import           Pos.Block.Core             (Block, MainBlock, mainBlockSlot,
-                                             mainBlockTxPayload, mcdSlot)
-import           Pos.Block.Types            (Blund, Undo (..))
-import           Pos.Core                   (HasCoreConstants, timestampToPosix)
-import           Pos.Crypto                 (AbstractHash, Hash, HashAlgorithm, hash)
+import           Control.Lens                     (ix, _Left)
+import qualified Data.ByteArray                   as BA
+import           Data.Default                     (Default (..), def)
+import qualified Data.List.NonEmpty               as NE
+import           Data.Time.Clock.POSIX            (POSIXTime)
+import           Formatting                       (sformat)
+import           Pos.Binary                       (Bi, biSize)
+import           Pos.Block.Core                   (Block, MainBlock, mainBlockSlot,
+                                                   mainBlockTxPayload, mcdSlot)
+import           Pos.Block.Types                  (Blund, Undo (..))
+import           Pos.Core                         (HasConfiguration, timestampToPosix)
+import           Pos.Crypto                       (AbstractHash, Hash, HashAlgorithm,
+                                                   hash)
 
-import           Pos.DB                     (MonadRealDB)
-import           Pos.DB.Block               (MonadBlockDB, blkGetBlund)
-import           Pos.DB.Class               (MonadDBRead)
-import           Pos.DB.DB                  (getTipBlock)
+import           Pos.DB                           (MonadRealDB)
+import           Pos.DB.Block                     (MonadBlockDB, blkGetBlund)
+import           Pos.DB.Class                     (MonadDBRead)
+import           Pos.DB.DB                        (getTipBlock)
 
-import           Pos.Explorer               (Page, TxExtra (..), getPageBlocks)
-import qualified Pos.GState                 as GS
-import           Pos.Lrc                    (getLeaders)
-import           Pos.Merkle                 (getMerkleRoot, mtRoot)
-import           Pos.Slotting               (MonadSlots (..), MonadSlotsData,
-                                             getSlotStart)
-import           Pos.Ssc.GodTossing         (SscGodTossing)
-import           Pos.Txp                    (Tx (..), TxId, TxOut (..), TxOutAux (..),
-                                             TxUndo, txpTxs, _txOutputs)
-import           Pos.Types                  (Address, Coin, EpochIndex, HeaderHash,
-                                             LocalSlotIndex, SlotId (..), SlotLeaders,
-                                             StakeholderId, Timestamp, addressF,
-                                             coinToInteger, decodeTextAddress, gbHeader,
-                                             gbhConsensus, getEpochIndex, getSlotIndex,
-                                             headerHash, mkCoin, prevBlockL, sumCoins,
-                                             unsafeAddCoin, unsafeGetCoin,
-                                             unsafeIntegerToCoin, unsafeSubCoin)
-import           Prelude                    ()
-import           Serokell.Data.Memory.Units (Byte)
-import           Serokell.Util.Base16       as SB16
-import           Servant.API                (FromHttpApiData (..))
-
+import           Pos.Explorer                     (Page, TxExtra (..), getPageBlocks)
+import qualified Pos.GState                       as GS
+import           Pos.Lrc                          (getLeaders)
+import           Pos.Merkle                       (getMerkleRoot, mtRoot)
+import           Pos.Slotting                     (MonadSlots (..), MonadSlotsData,
+                                                   getSlotStart)
+import           Pos.Ssc.GodTossing               (SscGodTossing)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Txp                          (Tx (..), TxId, TxOut (..),
+                                                   TxOutAux (..), TxUndo, txpTxs,
+                                                   _txOutputs)
+import           Pos.Types                        (Address, Coin, EpochIndex, HeaderHash,
+                                                   LocalSlotIndex, SlotId (..),
+                                                   SlotLeaders, StakeholderId, Timestamp,
+                                                   addressF, coinToInteger,
+                                                   decodeTextAddress, gbHeader,
+                                                   gbhConsensus, getEpochIndex,
+                                                   getSlotIndex, headerHash, mkCoin,
+                                                   prevBlockL, sumCoins, unsafeAddCoin,
+                                                   unsafeGetCoin, unsafeIntegerToCoin,
+                                                   unsafeSubCoin)
+import           Prelude                          ()
+import           Serokell.Data.Memory.Units       (Byte)
+import           Serokell.Util.Base16             as SB16
+import           Servant.API                      (FromHttpApiData (..))
 
 
 -------------------------------------------------------------------------------------
@@ -258,7 +262,7 @@ toBlockEntry
     , MonadDBRead m
     , MonadSlots ctx m
     , MonadThrow m
-    , HasCoreConstants
+    , HasConfiguration
     )
     => ExplorerMockMode m SscGodTossing
     -> (MainBlock SscGodTossing, Undo)
@@ -367,7 +371,8 @@ toBlockSummary
     , MonadRealDB ctx m
     , MonadSlots ctx m
     , MonadThrow m
-    , HasCoreConstants
+    , HasConfiguration
+    , HasGtConfiguration
     )
     => ExplorerMockMode m SscGodTossing
     -> (MainBlock SscGodTossing, Undo)

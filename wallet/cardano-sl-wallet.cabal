@@ -1,5 +1,5 @@
 name:                cardano-sl-wallet
-version:             0.6.0
+version:             0.6.2
 synopsis:            Cardano SL - wallet
 description:         Cardano SL - wallet
 license:             MIT
@@ -42,7 +42,7 @@ library
                       Pos.Wallet.Web.Methods.Txp
                       Pos.Wallet.Web.Pending
                       Pos.Wallet.Web.Pending.Submission
-                      Pos.Wallet.Web.Pending.Util
+                      Pos.Wallet.Web.Pending.Functions
                       Pos.Wallet.Web.Pending.Worker
                       Pos.Wallet.Web.Server
                       Pos.Wallet.Web.Server.Handlers
@@ -74,6 +74,7 @@ library
                       , cardano-sl-core
                       , cardano-sl-db
                       , cardano-sl-infra
+                      , cardano-sl-godtossing
                       , cardano-sl-ssc
                       , cardano-sl-txp
                       , cardano-sl-update
@@ -159,8 +160,6 @@ executable cardano-node
   hs-source-dirs:     node
   main-is:            Main.hs
   other-modules:      NodeOptions
-                      Params
-
   build-depends:        aeson >= 0.11.2.1
                       , ansi-wl-pprint
                       , base
@@ -171,6 +170,7 @@ executable cardano-node
                       , cardano-sl-db
                       , cardano-sl-infra
                       , cardano-sl-ssc
+                      , cardano-sl-godtossing
                       , cardano-sl-txp
                       , cardano-sl-update
                       , cardano-sl

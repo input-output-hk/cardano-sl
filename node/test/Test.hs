@@ -1,14 +1,11 @@
 import           Universum
 
-import           Data.Default (def)
-import           Spec         (spec)
-import           Test.Hspec   (hspec)
+import           Test.Hspec             (hspec)
 
-import           Pos.Launcher (applyConfigInfo)
+import           Spec                   (spec)
+import           Test.Pos.Configuration (testConf)
 
 main :: IO ()
 main = do
-    let configInfo = def
-    applyConfigInfo configInfo
-    putText (pretty configInfo)
+    putText (show testConf)
     hspec spec

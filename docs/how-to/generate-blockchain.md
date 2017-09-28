@@ -8,9 +8,11 @@ In this case we should generate it. Use `cardano-block-gen` command for it.
 The simplest example of the command:
 
 ```
-$ stack exec -- cardano-block-gen   \
-    --system-start 0                \
-    --blocks 1000                   \
+$ stack exec -- cardano-block-gen                \
+    --system-start 0                             \
+    --configuration-file node/configuration.yaml \
+    --configuration-key mainnet_full             \
+    --blocks 1000                                \
     --generated-db new-db
 ```
 

@@ -60,8 +60,7 @@ dev: &dev
         avvmDistr: {}
 
     dbSerializeVersion: 0
-    memPoolLimitRatio: 2 # mem pool will be limited by this value
-                         # muliplied by block size limit
+    memPoolLimit: 200 # mem pool will be limited to this many transactions
     # Chain quality thresholds and other constants to detect suspicious things
     nonCriticalCQBootstrap: 0.95
     criticalCQBootstrap: 0.8888
@@ -248,8 +247,7 @@ mainnet_base: &mainnet_base
         avvmDistr: {}
 
     dbSerializeVersion: 0
-    memPoolLimitRatio: 2 # mem pool will be limited by this value
-                         # muliplied by block size limit
+    memPoolLimit: 200 # mem pool will be limited to this many transactions
     # Chain quality thresholds and other constants to detect suspicious things
     nonCriticalCQBootstrap: 0.95
     criticalCQBootstrap: 0.8888

@@ -39,7 +39,6 @@ import qualified Data.HashMap.Strict        as HM
 import qualified Data.Map                   as M (toList)
 import           Data.Text.Lazy.Builder     (Builder)
 import           Formatting                 (Format, later)
-import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Text         (mapBuilderJson)
 
 import           Pos.Core                   (Coin, GenesisWStakeholders, StakeholderId,
@@ -111,8 +110,8 @@ type TxMap = HashMap TxId TxAux
 
 data MemPool = MemPool
     { _mpLocalTxs :: !TxMap
-      -- | Approximate size of encoded memory pool.
-    , _mpSize     :: !Byte
+      -- | Number of transactions in the memory pool.
+    , _mpSize     :: !Int
     }
 
 makeLenses ''MemPool
@@ -121,7 +120,7 @@ instance Default MemPool where
     def =
         MemPool
         { _mpLocalTxs = mempty
-        , _mpSize     = 1
+        , _mpSize     = 0
         }
 
 ----------------------------------------------------------------------------

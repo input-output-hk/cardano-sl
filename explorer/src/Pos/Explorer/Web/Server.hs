@@ -576,6 +576,11 @@ epochSlotSearch
     -> m [CBlockEntry]
 epochSlotSearch epochIndex slotIndex = do
 
+    -- [CSE-236] Disable search for epoch only
+    -- TODO: Remove restriction if epoch search will be optimized
+    when (isNothing slotIndex) $
+        throwM $ Internal "We currently do not support searching for epochs only."
+
     -- Get pages from the database
     -- TODO: Fix this Int / Integer thing once we merge repositories
     epochBlocksHH   <- getPageHHsOrThrow epochIndex

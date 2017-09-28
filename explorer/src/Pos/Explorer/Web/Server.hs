@@ -16,6 +16,7 @@ module Pos.Explorer.Web.Server
        , topsortTxsOrFail
        , getMempoolTxs
        , getBlocksLastPage
+       , cAddrToAddr
        ) where
 
 import           Universum
@@ -718,20 +719,20 @@ cAddrToAddr cAddr@(CAddress rawAddrText) =
     let mDecodedBase64 =
             rightToMaybe (B64.decode rawAddrText) <|>
             rightToMaybe (B64.decodeUrl rawAddrText)
+
     in case mDecodedBase64 of
         Just addr -> do
-            -- cAddr is in RSCoin address format, converting to equivalent Cardano address
-            -- Originally taken from:
-            -- * cardano-sl/tools/src/keygen/Avvm.hs
-            -- * cardano-sl/tools/src/addr-convert/Main.hs
-            unless (BS.length addr == 32) $
-                throwM badAddressLength
-            pure $ makeRedeemAddress $ redeemPkBuild addr
+            -- the decoded address can be both the RSCoin address and the Cardano address.
+            -- * RSCoin address == 32 bytes
+            -- * Cardano address >= 34 bytes
+            if (BS.length addr == 32)
+                then pure $ makeRedeemAddress $ redeemPkBuild addr
+                else either badCardanoAddress pure (fromCAddress cAddr)
         Nothing ->
-            -- cAddr is in Cardano address format
+            -- cAddr is in Cardano address format or it's not valid
             either badCardanoAddress pure (fromCAddress cAddr)
   where
-    badAddressLength = Internal "Address length is not equal to 32, can't be redeeming pk"
+
     badCardanoAddress = const $ throwM $ Internal "Invalid Cardano address!"
 
 -- | Deserialize transaction ID.

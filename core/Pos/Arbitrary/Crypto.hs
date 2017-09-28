@@ -150,29 +150,29 @@ instance (HasProtocolConstants, Bi w, Arbitrary w, Bi a, Arbitrary a) =>
 ----------------------------------------------------------------------------
 
 data SharedSecrets = SharedSecrets
-    { ssSecret    :: Secret
-    , ssSecProof  :: SecretProof
-    , ssShares    :: [(EncShare, DecShare)]
-    , ssThreshold :: Threshold
-    , ssVSSPKs    :: [VssPublicKey]
-    , ssPos       :: Int            -- This field is a valid, zero-based index in the
-                                    -- shares/keys lists.
+    { ssSecret    :: !Secret
+    , ssSecProof  :: !SecretProof
+    , ssEncShares :: ![EncShare]
+    , ssDecShares :: ![DecShare]
+    , ssThreshold :: !Threshold
+    , ssVssKeys   :: ![VssPublicKey]
+    , ssPos       :: !Int            -- This field is a valid, zero-based index in the
+                                     -- shares/keys lists.
     } deriving (Show, Eq)
 
 sharedSecrets :: [SharedSecrets]
 sharedSecrets =
     deterministic "sharedSecrets" $ replicateM keysToGenerate $ do
         parties <- randomNumberInRange 4 (toInteger (length vssKeys))
-        threshold <- randomNumberInRange 2 (parties - 2)
+        ssThreshold <- randomNumberInRange 2 (parties - 2)
         vssKs <- sortWith toVssPublicKey <$>
                  sublistN (fromInteger parties) vssKeys
-        (s, sp, encryptedShares) <-
-            genSharedSecret threshold (map toVssPublicKey $ fromList vssKs)
-        decryptedShares <- zipWithM decryptShare
-                             vssKs (map snd encryptedShares)
-        let shares = zip (map snd encryptedShares) decryptedShares
-            vssPKs = map toVssPublicKey vssKs
-        return $ SharedSecrets s sp shares threshold vssPKs (fromInteger parties - 1)
+        let ssVssKeys = map toVssPublicKey vssKs
+        (ssSecret, ssSecProof, map snd -> ssEncShares) <-
+            genSharedSecret ssThreshold (fromList ssVssKeys)
+        ssDecShares <- zipWithM decryptShare vssKs ssEncShares
+        let ssPos = fromInteger parties - 1
+        return SharedSecrets{..}
 
 instance Arbitrary Secret where
     arbitrary = elements . fmap ssSecret $ sharedSecrets
@@ -184,13 +184,13 @@ instance Arbitrary SecretProof where
     arbitrary = elements . fmap ssSecProof $ sharedSecrets
 
 instance Arbitrary EncShare where
-    arbitrary = elements . concatMap (fmap fst . ssShares) $ sharedSecrets
+    arbitrary = elements . concatMap ssEncShares $ sharedSecrets
 
 instance Arbitrary (AsBinary EncShare) where
     arbitrary = asBinary @EncShare <$> arbitrary
 
 instance Arbitrary DecShare where
-    arbitrary = join (decryptShare <$> arbitrary <*> arbitrary)
+    arbitrary = elements . concatMap ssDecShares $ sharedSecrets
 
 instance Arbitrary (AsBinary DecShare) where
     arbitrary = asBinary @DecShare <$> arbitrary

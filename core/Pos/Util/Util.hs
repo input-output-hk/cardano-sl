@@ -214,7 +214,7 @@ instance IsString s => MonadFail (Either s) where
     fail = Left . fromString
 
 instance Rand.DRG drg => HasLoggerName (Rand.MonadPseudoRandom drg) where
-    getLoggerName = pure mempty
+    getLoggerName = pure "MonadPseudoRandom"
     modifyLoggerName = flip const
 
 instance {-# OVERLAPPABLE #-}

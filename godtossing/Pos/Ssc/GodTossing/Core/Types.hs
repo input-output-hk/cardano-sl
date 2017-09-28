@@ -130,16 +130,16 @@ type InnerSharesMap = HashMap StakeholderId (NonEmpty (AsBinary DecShare))
 --   * Inner key = who created the share
 --
 -- Let's say that there are participants {A, B, C}. If A has generated a
--- secret and shared it, A's shares will be denoted as Ab and Ac (sent
--- correspondingly to B and C). Then node B will decrypt the share and get
--- Ab_dec; same for other nodes and participants. In the end, after the
--- second phase of the protocol completes and we gather everyone's shares,
--- we'll get the following map:
+-- secret and shared it, A's shares will be denoted as Aa, Ab and Ac (sent
+-- correspondingly to A itself, B and C). Then node B will decrypt its share
+-- and get Ab_dec; same for other nodes and participants. In the end, after
+-- the second phase of the protocol completes and we gather everyone's
+-- shares, we'll get the following map:
 --
 -- @
--- { A: {B: Ba_dec, C: Ca_dec}
--- , B: {A: Ab_dec, C: Cb_dec}
--- , C: {A: Ac_dec, B: Bc_dec}
+-- { A: {A: Aa_dec, B: Ba_dec, C: Ca_dec}
+-- , B: {A: Ab_dec, B: Bb_dec, C: Cb_dec}
+-- , C: {A: Ac_dec, B: Bc_dec, C: Cc_dec}
 -- }
 -- @
 --

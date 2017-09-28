@@ -26,7 +26,8 @@ import           Pos.Block.Network.Types            (MsgBlock (..), MsgGetBlocks
                                                      MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Protocol   (MsgSubscribe (..))
 import           Pos.Communication.Types.Relay      (DataMsg (..))
-import           Pos.Configuration                  (HasNodeConfiguration, recoveryHeadersMessage)
+import           Pos.Configuration                  (HasNodeConfiguration,
+                                                     recoveryHeadersMessage)
 import           Pos.Core                           (BlockVersionData (..),
                                                      VssCertificate, coinPortionToDouble)
 import           Pos.Core.Configuration             (HasConfiguration, blkSecurityParam)

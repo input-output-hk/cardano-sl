@@ -12,8 +12,8 @@ import           Prelude                 ((!!))
 import           Test.Hspec              (Expectation, Spec, describe, it, shouldBe,
                                           specify)
 import           Test.Hspec.QuickCheck   (prop)
-import           Test.QuickCheck         (Arbitrary (..), Property, ioProperty, property,
-                                          vector, (===), (==>))
+import           Test.QuickCheck         (Arbitrary (..), Gen, Property, ioProperty,
+                                          property, vector, (===), (==>))
 import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 import           Universum
 
@@ -223,20 +223,15 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ describe "Crypto" $ do
             prop
                 "successfully verifies correct decryption of an encrypted share"
                 goodShareIsDecrypted
-            {- we can't verify shares one-by-one after switching to SCRAPE
-            --------------------
             prop
-                "verifying an encrypted share with a valid VSS public key and valid extra\
-                \ secret information works"
-                verifyEncShareGoodData
+                "verifying encrypted shares works"
+                verifyEncSharesGoodData
             prop
-                "verifying an encrypted share with a valid VSS public key and invalid\
-                \ extra secret information fails"
-                verifyEncShareBadSecShare
+                "verifying encrypted shares with invalid secret proof fails"
+                verifyEncSharesBadSecProof
             prop
-                "verifying an encrypted share with a mismatching VSS public key fails"
-                verifyEncShareMismatchShareKey
-            -}
+                "verifying encrypted shares with mismatching VSS keys fails"
+                verifyEncSharesWrongKeys
             prop
                 "successfully verifies a properly decrypted share"
                 verifyShareGoodData
@@ -473,34 +468,31 @@ goodShareIsDecrypted vssKP encShare = monadicIO $ do
     decShare <- run $ Crypto.decryptShare vssKP encShare
     assert $ Crypto.verifyDecShare (Crypto.toVssPublicKey vssKP) encShare decShare
 
-{-
-verifyEncShareGoodData :: SharedSecrets -> Bool
-verifyEncShareGoodData SharedSecrets {..} =
-    Crypto.verifyEncShare ssSecShare
-                          (ssVSSPKs !! ssPos)
-                          (fst $ ssShares !! ssPos)
+verifyEncSharesGoodData :: SharedSecrets -> Property
+verifyEncSharesGoodData SharedSecrets {..} =
+    property $
+    Crypto.verifyEncShares @Gen ssSecProof ssThreshold
+        (zip ssVssKeys ssEncShares)
 
-verifyEncShareBadSecShare :: SharedSecrets -> Crypto.SecretProof -> Property
-verifyEncShareBadSecShare SharedSecrets {..} secProof =
+verifyEncSharesBadSecProof :: SharedSecrets -> Crypto.SecretProof -> Property
+verifyEncSharesBadSecProof SharedSecrets {..} secProof =
     (ssSecProof /= secProof) ==>
-    not $ Crypto.verifyEncShare secProof (ssVSSPKs !! ssPos) (fst $ ssShares !! ssPos)
+    not <$> Crypto.verifyEncShares @Gen secProof ssThreshold
+                (zip ssVssKeys ssEncShares)
 
-verifyEncShareMismatchShareKey :: SharedSecrets -> Int -> Property
-verifyEncShareMismatchShareKey SharedSecrets {..} p =
-    (ssPos /= pos) ==>
-    not (Crypto.verifyEncShare ssSecShare (ssVSSPKs !! ssPos) (fst $ ssShares !! pos)) &&
-    not (Crypto.verifyEncShare ssSecShare (ssVSSPKs !! pos) (fst $ ssShares !! ssPos))
-  where
-    len = length ssVSSPKs
-    pos = abs $ p `mod` len
--}
+verifyEncSharesWrongKeys :: SharedSecrets -> Property
+verifyEncSharesWrongKeys SharedSecrets {..} =
+    (headMay ssVssKeys /= lastMay ssVssKeys) ==>
+    not <$> Crypto.verifyEncShares @Gen ssSecProof ssThreshold
+               (zip (reverse ssVssKeys) ssEncShares)
 
 verifyShareGoodData :: SharedSecrets -> Bool
 verifyShareGoodData SharedSecrets {..} =
     Crypto.verifyDecShare vssPK encShare decShare
   where
-    (encShare, decShare) = ssShares !! ssPos
-    vssPK = ssVSSPKs !! ssPos
+    encShare = ssEncShares !! ssPos
+    decShare = ssDecShares !! ssPos
+    vssPK = ssVssKeys !! ssPos
 
 verifyShareBadShare :: SharedSecrets -> Int -> Property
 verifyShareBadShare SharedSecrets {..} p =
@@ -508,24 +500,24 @@ verifyShareBadShare SharedSecrets {..} p =
     not (Crypto.verifyDecShare vssPK1 encShare1 decShare1) &&
     not (Crypto.verifyDecShare vssPK2 encShare2 decShare2)
   where
-    len = length ssVSSPKs
+    len = length ssVssKeys
     pos = abs $ p `mod` len
-    s1@(encShare1, decShare1) = ssShares !! ssPos
-    s2@(encShare2, decShare2) = ssShares !! pos
-    vssPK1 = ssVSSPKs !! pos
-    vssPK2 = ssVSSPKs !! ssPos
+    s1@(encShare1, decShare1) = zip ssEncShares ssDecShares !! ssPos
+    s2@(encShare2, decShare2) = zip ssEncShares ssDecShares !! pos
+    vssPK1 = ssVssKeys !! pos
+    vssPK2 = ssVssKeys !! ssPos
 
 verifyShareMismatchingShares :: SharedSecrets -> Int -> Property
 verifyShareMismatchingShares SharedSecrets {..} p =
     (vssPK1 /= vssPK2) ==>
     not (Crypto.verifyDecShare vssPK1 encShare1 decShare2)
   where
-    len = length ssVSSPKs
+    len = length ssVssKeys
     pos = abs $ p `mod` len
-    (encShare1, _) = ssShares !! ssPos
-    (_, decShare2) = ssShares !! pos
-    vssPK1 = ssVSSPKs !! pos
-    vssPK2 = ssVSSPKs !! ssPos
+    encShare1 = ssEncShares !! ssPos
+    decShare2 = ssDecShares !! pos
+    vssPK1 = ssVssKeys !! pos
+    vssPK2 = ssVssKeys !! ssPos
 
 verifyProofGoodData :: SharedSecrets -> Bool
 verifyProofGoodData SharedSecrets {..} =
@@ -545,19 +537,19 @@ recoverSecretSuccessfully :: SharedSecrets -> Property
 recoverSecretSuccessfully SharedSecrets {..} =
     Crypto.recoverSecret ssThreshold keys shares === Just ssSecret
   where
-    keys = map (,1) ssVSSPKs
-    shares = HM.fromList $ zip ssVSSPKs (map (one . snd) ssShares)
+    keys = map (,1) ssVssKeys
+    shares = HM.fromList $ zip ssVssKeys (map one ssDecShares)
 
 recoverSecBadThreshold :: SharedSecrets -> Integer -> Property
 recoverSecBadThreshold SharedSecrets {..} rnd =
     (badThreshold > ssThreshold) ==>
     isNothing (Crypto.recoverSecret badThreshold keys shares)
   where
-    maxThreshold = genericLength ssShares
+    maxThreshold = genericLength ssEncShares
     -- badThreshold is in ]actualThreshold, actualThreshold * 2]
     badThreshold = maxThreshold + (succ . abs $ rnd `mod` maxThreshold)
-    keys = map (,1) ssVSSPKs
-    shares = HM.fromList $ zip ssVSSPKs (map (one . snd) ssShares)
+    keys = map (,1) ssVssKeys
+    shares = HM.fromList $ zip ssVssKeys (map one ssDecShares)
 
 matchingPassphraseWorks :: Crypto.PassPhrase -> Property
 matchingPassphraseWorks passphrase = ioProperty $ do

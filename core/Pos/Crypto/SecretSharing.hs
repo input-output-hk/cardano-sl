@@ -135,7 +135,7 @@ secretToDhSecret :: Secret -> Scrape.DhSecret
 secretToDhSecret = Scrape.secretToDhSecret . getSecret
 
 -- | Decrypt share using secret key. Doesn't verify if an encrypted
--- share is valid, for this you need to use verifyEncShare.
+-- share is valid, for this you need to use 'verifyEncShares'.
 decryptShare
     :: MonadRandom m
     => VssKeyPair -> EncShare -> m DecShare
@@ -190,8 +190,35 @@ recoverSecret (fromIntegral -> thr) (sortWith fst -> participants) shares = do
 -- shares were created for a single key.
 --
 -- TODO: move to pvss-haskell, maybe
+--
+-- __Description of the algorithm__
+--
+-- We know:
+--   * the /original/ order of participants
+--   * how many shares were generated for each participant
+--   * a list of decrypted shares for each participant,
+--     though some participants might be missing
+--
+-- /Note:/ we assume that if a participant isn't missing then their shares
+-- are present in the right order and no shares are skipped. This is a valid
+-- assumption to make because
+--   * first we verify encrypted shares with 'verifyEncShares'
+--     (this takes care of the order and count of shares)
+--   * then we verify each decrypted share with 'verifyDecShare' against
+--     the corresponding encrypted share
+--   * and we don't forget to check that the counts of encrypted and
+--     decrypted shares match.
+--
+-- After this is done, we 'go' through the list of participants and try to
+-- recover a share with index 'i' for each 'i', starting from 1 (not 0). If
+-- we have 'n' shares for some participant 'k', we can recover shares with
+-- indices @[i..i+n-1]@, so we add them to the list and continue from index
+-- @i+n@. If we don't have the shares for the participant, we just skip 'n'
+-- shares and move to the next participant and try to find the @i+n@'th
+-- share.
 reorderDecryptedShares
-    :: [(VssPublicKey, Int)]            -- ^ Participants
+    :: [(VssPublicKey, Int)]            -- ^ Participants + how many shares
+                                        --    were sent to each
     -> HashMap VssPublicKey [DecShare]  -- ^ Decrypted shares
     -> [(Scrape.ShareId, DecShare)]
 reorderDecryptedShares participants shares =

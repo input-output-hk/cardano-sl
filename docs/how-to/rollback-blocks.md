@@ -14,6 +14,7 @@ $ stack exec -- cardano-auxx                      \
     --logs-prefix "logs/mainnet-1.0"              \
     --db-path db-mainnet-1.0                      \
     cmd --commands="rollback 5 /tmp/cardano-sl-rollback-txs-dump"
+```
 
 This command will rollback 5 last blocks from the DB and dump transactions from these
 blocks in `/tmp/cardano-sl-rollback-txs-dump` binary file.

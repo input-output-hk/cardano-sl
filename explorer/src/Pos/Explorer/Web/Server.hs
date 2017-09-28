@@ -368,10 +368,7 @@ getAddressSummary
     => CAddress
     -> m CAddressSummary
 getAddressSummary cAddr = do
-    -- let addr = cAddrToAddr cAddr
-    addr <- case fromCAddress cAddr of
-        Left err      -> throwM $ Internal $ "Invalid address format: " <> err
-        Right address -> pure address
+    addr <- cAddrToAddr cAddr
 
     when (isUnknownAddressType addr) $
         throwM $ Internal "Unknown address type"
@@ -713,29 +710,30 @@ topsortTxsOrFail f =
     maybeThrow (Internal "Dependency loop in txs set") .
     topsortTxs f
 
--- | This is not being used! It's here to run the test and show how it fails.
--- Deserialize Cardano or RSCoin address and convert it to Cardano address.
-cAddrToAddr :: CAddress -> Address
-cAddrToAddr (CAddress rawAddrText) =
+-- | Deserialize Cardano or RSCoin address and convert it to Cardano address.
+-- Throw exception on failure.
+cAddrToAddr :: MonadThrow m => CAddress -> m Address
+cAddrToAddr cAddr@(CAddress rawAddrText) =
     -- Try decoding address as base64. If both decoders succeed,
     -- the output of the first one is returned
     let mDecodedBase64 =
             rightToMaybe (B64.decode rawAddrText) <|>
             rightToMaybe (B64.decodeUrl rawAddrText)
+
     in case mDecodedBase64 of
         Just addr -> do
-            -- cAddr is in RSCoin address format, converting to equivalent Cardano address
-            -- Originally taken from:
-            -- * cardano-sl/tools/src/keygen/Avvm.hs
-            -- * cardano-sl/tools/src/addr-convert/Main.hs
-            if (BS.length addr /= 32)
-                then badAddressLength
-                else makeRedeemAddress $ redeemPkBuild addr
+            -- the decoded address can be both the RSCoin address and the Cardano address.
+            -- * RSCoin address == 32 bytes
+            -- * Cardano address >= 34 bytes
+            if (BS.length addr == 32)
+                then pure $ makeRedeemAddress $ redeemPkBuild addr
+                else either badCardanoAddress pure (fromCAddress cAddr)
         Nothing ->
-            -- cAddr is in Cardano address format
-            error "Undecoded address"
+            -- cAddr is in Cardano address format or it's not valid
+            either badCardanoAddress pure (fromCAddress cAddr)
   where
-    badAddressLength  = error "Address length is not equal to 32, can't be redeeming pk"
+
+    badCardanoAddress = const $ throwM $ Internal "Invalid Cardano address!"
 
 -- | Deserialize transaction ID.
 -- Throw exception on failure.

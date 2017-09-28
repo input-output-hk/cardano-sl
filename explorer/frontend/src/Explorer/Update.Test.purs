@@ -9,13 +9,13 @@ import Data.Either (Either(..))
 import Data.Generic (gShow)
 import Data.Identity (Identity)
 import Data.Lens ((^.), set)
-import Data.Maybe (fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (unwrap)
 import Data.Time.NominalDiffTime (mkTime)
 import Data.Tuple (Tuple(..))
 import Explorer.Api.Types (SocketSubscription(..), SocketSubscriptionData(..))
 import Explorer.I18n.Lang (Language(..))
-import Explorer.Lenses.State (connected, currentAddressSummary, dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, gblAddressInfosPagination, gblMaxAddressInfosPagination, genesisBlockViewState, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, viewStates)
+import Explorer.Lenses.State (connected, currentAddressSummary, dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, gblAddressInfosPagination, gblAddressInfosPaginationEditable, gblMaxAddressInfosPagination, genesisBlockViewState, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, viewStates)
 import Explorer.State (initialState, mkSocketSubscriptionItem)
 import Explorer.Test.MockFactory (mkCBlockEntry, mkCTxBrief, mkEmptyCAddressSummary, mkEmptyCTxEntry, mkCTxBriefs, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfTx, setTxOfAddressSummary)
 import Explorer.Types.Actions (Action(..))
@@ -254,30 +254,32 @@ testUpdate =
                     result = unwrap <<< withDefault (PageNumber 0) $
                                 state ^. (viewStates <<< genesisBlockViewState <<< gblMaxAddressInfosPagination)
                 in result `shouldEqual` totalPages
-            it "to leave gblMaxAddressInfosPagination untouched"
-                let totalPages = 20
+
+        describe "handles GenesisBlockPaginateAddresses action" do
+            it "to update gblAddressInfosPagination"
+                let nextPage = 20
                     currentPage = 10
                     -- set current page to simulate that we have paginated before
                     initialState' =
                         set (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination)
                             (PageNumber currentPage)
                             initialState
-                    effModel = update (ReceiveGenesisAddressInfoTotalPages $ Right totalPages) initialState'
+                    effModel = update (GenesisBlockPaginateAddresses Nothing (PageNumber nextPage)) initialState'
                     state = _.state effModel
                     currentPageResult = unwrap $ state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination)
-                in currentPageResult `shouldEqual` currentPage
-            it "to update gblMaxAddressInfosPagination untouched"
-                let totalPages = 10
-                    currentPage = 20
+                in currentPageResult `shouldEqual` nextPage
+            it "to set gblAddressInfosPaginationEditable to false"
+                let nextPage = 20
+                    currentPage = 10
                     -- set current page to simulate that we have paginated before
                     initialState' =
-                        set (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination)
-                            (PageNumber currentPage)
+                        set (viewStates <<< genesisBlockViewState <<< gblAddressInfosPaginationEditable)
+                            true
                             initialState
-                    effModel = update (ReceiveGenesisAddressInfoTotalPages $ Right totalPages) initialState'
+                    effModel = update (GenesisBlockPaginateAddresses Nothing (PageNumber nextPage)) initialState'
                     state = _.state effModel
-                    currentPageResult = unwrap $ state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination)
-                in currentPageResult `shouldEqual` totalPages
+                    editable = state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPaginationEditable)
+                in editable `shouldEqual` false
 
         describe "uses action SocketConnected" do
             it "to update connection to connected"

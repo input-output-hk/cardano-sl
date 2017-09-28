@@ -26,6 +26,7 @@ import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..), maybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
+import Debug.Trace (trace, traceAny)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchGenesisAddressInfo, fetchGenesisAddressInfoTotalPages, fetchGenesisSummary, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
@@ -795,17 +796,19 @@ update (ReceiveGenesisAddressInfoTotalPages (Right totalPages)) state =
     { state:
           set loading false $
           set (viewStates <<< genesisBlockViewState <<< gblMaxAddressInfosPagination)
-              (Success $ PageNumber totalPages) $
-          over (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination)
-              (\pn@(PageNumber n) -> if n > totalPages then (PageNumber totalPages) else pn) state
-          -- ^ Make sure that current page number isn't greater than number of total pages
-          -- which could be happened while switching filter of genesis addresses
+              (Success $ PageNumber totalPages) state
     , effects:
-        [ pure <<< Just $ GenesisBlockPaginateAddresses
-                              Nothing
-                              (state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination))
+        [ pure <<< Just $ GenesisBlockPaginateAddresses Nothing nextPageNumber
         ]
     }
+    where
+        currentPageNumber = state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination)
+        totalPageNumber = PageNumber totalPages
+        nextPageNumber = if currentPageNumber > totalPageNumber
+                            then totalPageNumber
+                            else currentPageNumber
+                            -- ^ Make sure that current page number isn't greater than number of total pages
+                            -- which could be happened while switching filter of genesis addresses
 
 update (ReceiveGenesisAddressInfoTotalPages (Left error)) state =
     noEffects $

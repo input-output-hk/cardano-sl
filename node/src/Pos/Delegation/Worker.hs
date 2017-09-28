@@ -38,11 +38,18 @@ dlgInvalidateCaches
        , HasNodeConfiguration
        )
     => m ()
-dlgInvalidateCaches = runIfNotShutdown $ do
+dlgInvalidateCaches =
+    -- When dlgInvalidateCaches calls itself directly, it leaks memory. The
+    -- reason for that is that reference to dlgInvalidateCaches is kept in
+    -- memory (by usage of dlgWorkers) and as it is executed it expands
+    -- indefinitely, hence more and more space is needed to store it. Using fix
+    -- fixes the problem as it makes dlgInvalidateCaches itself finite in
+    -- size. Relevant GHC ticket: https://ghc.haskell.org/trac/ghc/ticket/13080
+    fix $ \loop -> runIfNotShutdown $ do
     -- REPORT:ERROR 'reportOrLogE' in delegation worker.
     invalidate `catchAny` reportOrLogE "Delegation worker, error occurred: "
     delay (sec 1)
-    dlgInvalidateCaches
+    loop
   where
     invalidate = do
         curTime <- microsecondsToUTC <$> currentTime

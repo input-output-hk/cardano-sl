@@ -65,7 +65,7 @@ before_test:
 
 # CSL-1509: After moving the 'cardano-sl' project itself into a separate folder ('lib/'), the 'cardano-text.exe' executable fails on AppVeyor CI.
 # After some investigation, it was discovered that this was because 'rocksdb.dll' has to be located in this folder as well, or else the test executable doesn't work.
-- copy rocksdb.dll node
+- copy rocksdb.dll lib
 
 test_script:
   - cd "%WORK_DIR%"

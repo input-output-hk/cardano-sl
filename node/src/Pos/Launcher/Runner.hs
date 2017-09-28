@@ -29,7 +29,8 @@ import qualified Network.Broadcast.OutboundQueue as OQ
 import           Node                            (Node, NodeAction (..), NodeEndPoint,
                                                   ReceiveDelay, Statistics,
                                                   defaultNodeEnvironment, noReceiveDelay,
-                                                  node, simpleNodeEndPoint)
+                                                  node, simpleNodeEndPoint,
+                                                  nodeAckTimeout)
 import qualified Node.Conversation               as N (Conversation, Converse,
                                                        converseWith)
 import           Node.Util.Monitor               (registerMetrics)
@@ -48,7 +49,7 @@ import           Pos.Communication               (ActionSpec (..), EnqueueMsg,
                                                   SendActions, VerInfo (..), allListeners,
                                                   bipPacking, hoistSendActions,
                                                   makeEnqueueMsg, makeSendActions)
-import           Pos.Configuration               (HasNodeConfiguration)
+import           Pos.Configuration               (HasNodeConfiguration, conversationEstablishTimeout)
 import           Pos.Context                     (NodeContext (..))
 import           Pos.Core.Configuration          (HasConfiguration, protocolMagic)
 import           Pos.Core.Types                  (ProtocolMagic (..))
@@ -248,9 +249,10 @@ runServer mkTransport mkReceiveDelay mkL (OutSpecs wouts) withNode afterNode oq 
             VerInfo (getProtocolMagic protocolMagic) lastKnownBlockVersion ins $ outs <> wouts
         mkListeners' theirVerInfo =
             mkListeners mkL' ourVerInfo theirVerInfo
+        nodeEnv = defaultNodeEnvironment { nodeAckTimeout = conversationEstablishTimeout }
     stdGen <- liftIO newStdGen
     logInfo $ sformat ("Our verInfo: "%build) ourVerInfo
-    node mkTransport mkReceiveDelay mkConnectDelay stdGen bipPacking ourVerInfo defaultNodeEnvironment $ \__node ->
+    node mkTransport mkReceiveDelay mkConnectDelay stdGen bipPacking ourVerInfo nodeEnv $ \__node ->
         NodeAction mkListeners' $ \converse ->
             let sendActions :: SendActions m
                 sendActions = makeSendActions ourVerInfo (oqEnqueue oq) converse

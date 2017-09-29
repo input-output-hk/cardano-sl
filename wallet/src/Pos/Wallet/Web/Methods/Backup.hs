@@ -13,7 +13,7 @@ import           Control.Lens                 (each)
 import qualified Data.Aeson                   as A
 import qualified Data.ByteString.Lazy         as BSL
 import qualified Data.HashMap.Strict          as HM
-import           Formatting                   (build, sformat, stext, (%))
+import           Formatting                   (sformat, stext, (%))
 
 import           Pos.Aeson.ClientTypes        ()
 import           Pos.Aeson.WalletBackup       ()
@@ -36,8 +36,7 @@ restoreWalletFromBackup WalletBackup {..} = do
 
     if wExists
         then do
-            throwM . RequestError $
-                sformat ("Wallet with id "%build%" already exists") wId
+            throwM $ RequestError "Wallet with id already exists"
 
         else do
             let (WalletMetaBackup wMeta) = wbMeta

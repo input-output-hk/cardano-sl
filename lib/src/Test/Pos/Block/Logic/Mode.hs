@@ -12,18 +12,34 @@ module Test.Pos.Block.Logic.Mode
        , BlockTestContextTag
        , PureDBSnapshotsVar(..)
        , BlockTestContext(..)
-       , btcSlotId_L
        , BlockTestMode
        , runBlockTestMode
 
        , BlockProperty
        , blockPropertyToProperty
        , blockPropertyTestable
+
+       -- Lens
+       , btcGStateL
+       , btcSystemStartL
+       , btcLoggerNameL
+       , btcSSlottingVarL
+       , btcUpdateContextL
+       , btcSscStateL
+       , btcTxpMemL
+       , btcTxpGlobalSettingsL
+       , btcSlotIdL
+       , btcParamsL
+       , btcReportingContextL
+       , btcDelegationL
+       , btcPureDBSnapshotsL
+       , btcAllSecretsL
        ) where
 
 import           Universum
 
-import           Control.Lens                   (lens, makeClassy, makeLensesWith)
+import           Control.Lens                   (lens, makeClassy, makeLensesFor,
+                                                 makeLensesWith)
 import           Data.Default                   (def)
 import qualified Data.Map                       as Map
 import qualified Data.Text.Buildable
@@ -83,7 +99,7 @@ import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots
 import           Pos.Slotting.MemState          (MonadSlotsData)
 import           Pos.Ssc.Class                  (SscBlock)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState)
-import           Pos.Ssc.GodTossing             (HasGtConfiguration,)
+import           Pos.Ssc.GodTossing             (HasGtConfiguration)
 import           Pos.Txp                        (GenericTxpLocalData, MempoolExt,
                                                  MonadTxpLocal (..), TxpGlobalSettings,
                                                  TxpHolderTag, mkTxpLocalData,
@@ -211,13 +227,28 @@ data BlockTestContext = BlockTestContext
     , btcAllSecrets        :: !AllSecrets
     }
 
-makeLensesWith postfixLFields ''BlockTestContext
+flip makeLensesFor ''BlockTestContext
+    [ ("btcGState", "btcGStateL")
+    , ("btcSystemStart", "btcSystemStartL")
+    , ("btcLoggerName", "btcLoggerNameL")
+    , ("btcSSlottingVar", "btcSSlottingVarL")
+    , ("btcUpdateContext", "btcUpdateContextL")
+    , ("btcSscState", "btcSscStateL")
+    , ("btcTxpMem", "btcTxpMemL")
+    , ("btcTxpGlobalSettings", "btcTxpGlobalSettingsL")
+    , ("btcSlotId", "btcSlotIdL")
+    , ("btcParams", "btcParamsL")
+    , ("btcReportingContext", "btcReportingContextL")
+    , ("btcDelegation", "btcDelegationL")
+    , ("btcPureDBSnapshots", "btcPureDBSnapshotsL")
+    , ("btcAllSecrets", "btcAllSecretsL")
+    ]
 
 instance HasTestParams BlockTestContext where
-    testParams = btcParams_L
+    testParams = btcParamsL
 
 instance HasAllSecrets BlockTestContext where
-    allSecrets = btcAllSecrets_L
+    allSecrets = btcAllSecretsL
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -382,7 +413,7 @@ instance (HasConfiguration, MonadSlotsData ctx TestInitMode)
 ----------------------------------------------------------------------------
 
 instance GS.HasGStateContext BlockTestContext where
-    gStateContext = btcGState_L
+    gStateContext = btcGStateL
 
 instance HasLens DBPureVar BlockTestContext DBPureVar where
     lensOf = GS.gStateContext . GS.gscDB . pureDBLens
@@ -396,44 +427,44 @@ instance HasLens DBPureVar BlockTestContext DBPureVar where
         realDBInTestsError = error "You are using real db in tests"
 
 instance HasLens PureDBSnapshotsVar BlockTestContext PureDBSnapshotsVar where
-    lensOf = btcPureDBSnapshots_L
+    lensOf = btcPureDBSnapshotsL
 
 instance HasLens LoggerName BlockTestContext LoggerName where
-      lensOf = btcLoggerName_L
+      lensOf = btcLoggerNameL
 
 instance HasLens LrcContext BlockTestContext LrcContext where
     lensOf = GS.gStateContext . GS.gscLrcContext
 
 instance HasLens UpdateContext BlockTestContext UpdateContext where
-      lensOf = btcUpdateContext_L
+      lensOf = btcUpdateContextL
 
 instance HasLens SscMemTag BlockTestContext SscState where
-      lensOf = btcSscState_L
+      lensOf = btcSscStateL
 
 instance HasLens TxpGlobalSettings BlockTestContext TxpGlobalSettings where
-      lensOf = btcTxpGlobalSettings_L
+      lensOf = btcTxpGlobalSettingsL
 
 instance HasLens TestParams BlockTestContext TestParams where
-      lensOf = btcParams_L
+      lensOf = btcParamsL
 
 instance HasLens SimpleSlottingVar BlockTestContext SimpleSlottingVar where
-      lensOf = btcSSlottingVar_L
+      lensOf = btcSSlottingVarL
 
 instance HasReportingContext BlockTestContext where
-    reportingContext = btcReportingContext_L
+    reportingContext = btcReportingContextL
 
 instance HasSlottingVar BlockTestContext where
-    slottingTimestamp = btcSystemStart_L
+    slottingTimestamp = btcSystemStartL
     slottingVar = GS.gStateContext . GS.gscSlottingVar
 
 instance HasSlogGState BlockTestContext where
     slogGState = GS.gStateContext . GS.gscSlogGState
 
 instance HasLens DelegationVar BlockTestContext DelegationVar where
-    lensOf = btcDelegation_L
+    lensOf = btcDelegationL
 
 instance HasLens TxpHolderTag BlockTestContext (GenericTxpLocalData EmptyMempoolExt) where
-    lensOf = btcTxpMem_L
+    lensOf = btcTxpMemL
 
 instance HasLoggerName' BlockTestContext where
     loggerName = lensOf @LoggerName
@@ -449,16 +480,16 @@ instance (HasConfiguration, MonadSlotsData ctx BlockTestMode)
       => MonadSlots ctx BlockTestMode
   where
     getCurrentSlot = do
-        view btcSlotId_L >>= \case
-            Nothing -> getCurrentSlotSimple =<< view btcSSlottingVar_L
+        view btcSlotIdL >>= \case
+            Nothing -> getCurrentSlotSimple =<< view btcSSlottingVarL
             Just slot -> pure (Just slot)
     getCurrentSlotBlocking =
-        view btcSlotId_L >>= \case
-            Nothing -> getCurrentSlotBlockingSimple =<< view btcSSlottingVar_L
+        view btcSlotIdL >>= \case
+            Nothing -> getCurrentSlotBlockingSimple =<< view btcSSlottingVarL
             Just slot -> pure slot
     getCurrentSlotInaccurate =
-        view btcSlotId_L >>= \case
-            Nothing -> getCurrentSlotInaccurateSimple =<< view btcSSlottingVar_L
+        view btcSlotIdL >>= \case
+            Nothing -> getCurrentSlotInaccurateSimple =<< view btcSSlottingVarL
             Just slot -> pure slot
     currentTimeSlotting = currentTimeSlottingSimple
 

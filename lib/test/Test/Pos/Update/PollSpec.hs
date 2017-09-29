@@ -26,7 +26,8 @@ import           Pos.Update.Core                   (UpId, UpdateProposal (..), a
 import qualified Pos.Update.Poll                   as Poll
 import qualified Pos.Util.Modifier                 as MM
 
-import           Test.Pos.Util                     (formsMonoid, withDefConfiguration)
+import           Test.Pos.Helpers                  (formsMonoid)
+import           Test.Pos.Util                     (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Poll" $ do

@@ -7,10 +7,10 @@ module Test.Pos.DHT.Identity.BinarySpec
 import           Test.Hspec          (Spec, describe)
 import           Universum
 
-import qualified Pos.DHT.Model       as DHT
 import           Pos.Arbitrary.Infra ()
+import qualified Pos.DHT.Model       as DHT
 
-import           Test.Pos.Util            (binaryTest)
+import           Test.Pos.Helpers    (binaryTest)
 
 spec :: Spec
 spec = describe "DHT.Model" $ do

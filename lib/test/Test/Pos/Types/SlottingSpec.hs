@@ -15,7 +15,9 @@ import           Pos.Arbitrary.Core    (EoSToIntOverflow (..), UnreasonableEoS (
 import           Pos.Core              (HasConfiguration)
 import           Pos.Types             (EpochOrSlot, SlotId (..), flattenSlotId,
                                         unflattenSlotId)
-import           Test.Pos.Util         (shouldThrowException, withDefConfiguration, (.=.))
+
+import           Test.Pos.Helpers      (shouldThrowException, (.=.))
+import           Test.Pos.Util         (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Slotting" $ do

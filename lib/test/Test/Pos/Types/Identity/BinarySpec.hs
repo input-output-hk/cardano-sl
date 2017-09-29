@@ -16,8 +16,8 @@ import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Util.Chrono       (NE, NewestFirst, OldestFirst)
 
 import           Test.Pos.CborSpec     (U)
-import           Test.Pos.Util         (binaryTest, msgLenLimitedTest,
-                                        withDefConfiguration, withDefInfraConfiguration)
+import           Test.Pos.Helpers      (binaryTest, msgLenLimitedTest)
+import           Test.Pos.Util         (withDefConfiguration, withDefInfraConfiguration)
 
 spec :: Spec
 spec = withDefInfraConfiguration $ withDefConfiguration $ describe "Types" $ do

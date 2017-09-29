@@ -6,10 +6,10 @@ module Test.Pos.Types.Identity.ShowReadSpec
 
 import           Universum
 
-import qualified Pos.Types     as T (Timestamp)
-import           Test.Hspec         (Spec, describe)
+import qualified Pos.Types        as T (Timestamp)
+import           Test.Hspec       (Spec, describe)
 
-import           Test.Pos.Util (showReadTest)
+import           Test.Pos.Helpers (showReadTest)
 
 spec :: Spec
 spec = describe "Types" $ do

@@ -9,7 +9,8 @@ import           Universum
 
 import qualified Pos.Ssc.GodTossing as GT
 
-import           Test.Pos.Util      (safeCopyTest, withDefConfiguration)
+import           Test.Pos.Helpers   (safeCopyTest)
+import           Test.Pos.Util      (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "GodTossing" $ do

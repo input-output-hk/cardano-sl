@@ -12,7 +12,7 @@ import           Universum
 
 import           Pos.Binary            (Bi)
 import           Pos.Merkle            (mkMerkleTree)
-import           Test.Pos.Util         (binaryEncodeDecode, safeCopyEncodeDecode)
+import           Test.Pos.Helpers      (binaryEncodeDecode, safeCopyEncodeDecode)
 
 spec :: Spec
 spec = describe "Merkle" $ do

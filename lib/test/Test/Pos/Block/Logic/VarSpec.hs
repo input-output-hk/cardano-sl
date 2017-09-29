@@ -51,9 +51,9 @@ import           Test.Pos.Block.Logic.Util    (EnableTxPayload (..), InplaceDB (
                                                bpGenBlock, bpGenBlocks,
                                                bpGoToArbitraryState, getAllSecrets,
                                                satisfySlotCheck)
-import           Test.Pos.Util                (HasStaticConfigurations, blockPropertySpec,
-                                               splitIntoChunks, stopProperty,
-                                               withStaticConfigurations)
+import           Test.Pos.Helpers             (blockPropertySpec)
+import           Test.Pos.Util                (HasStaticConfigurations, splitIntoChunks,
+                                               stopProperty, withStaticConfigurations)
 
 spec :: Spec
 -- Unfortunatelly, blocks generation is quite slow nowdays.

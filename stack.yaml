@@ -7,7 +7,7 @@ flags:
 extra-package-dbs: []
 
 packages:
-- node
+- lib
 - core
 - update
 - infra
@@ -16,8 +16,9 @@ packages:
 - auxx
 - ssc
 - godtossing
-- tools
 - txp
+- node
+- tools
 - wallet
 - explorer
 

@@ -39,18 +39,10 @@ import           Pos.Ssc.Class            (SscConstraint)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
                                            lastKnownBlockVersion, ourSystemTag)
 import           Pos.Util                 (inAssertMode)
+import           Pos.Util.CompileInfo     (compileInfo)
 import           Pos.Util.LogSafe         (logInfoS)
 import           Pos.Worker               (allWorkers)
 import           Pos.WorkMode.Class       (WorkMode)
-
-#define QUOTED(x) "/**/x/**/"
-
-gitRev :: Text
-#if !defined(GITREV)
-gitRev = "unknown"
-#else
-gitRev = QUOTED(GITREV)
-#endif
 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
@@ -63,7 +55,7 @@ runNode'
     -> [WorkerSpec m]
     -> WorkerSpec m
 runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> do
-    logInfo $ "cardano-sl: commit " <> gitRev
+    logInfo $ "Built with: " <> pretty compileInfo
     nodeStartMsg
     inAssertMode $ logInfo "Assert mode on"
     pk <- getOurPublicKey

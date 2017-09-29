@@ -124,10 +124,10 @@ do
     explorer=false
   # project name = build only the project
   # (for “godtossing” we allow “gt” as an alias)
-  elif [[ $var == "sl" ]]; then
-    spec_prj="sl"
-  elif [[ $var == "sl+" ]]; then
-    spec_prj="sl+"
+  elif [[ $var == "sl" ]] || [[ $var == "sl+" ]] || [[ $var == "all" ]]; then
+    spec_prj="all"
+  elif [[ $var == "lib" ]]; then
+    spec_prj="lib"
   elif [[ $var == "gt" ]]; then
     spec_prj="godtossing"
   elif [[ $var == "auxx" ]]; then
@@ -136,6 +136,8 @@ do
     spec_prj="wallet"
   elif [[ $var == "explorer" ]]; then
     spec_prj="explorer"
+  elif [[ $var == "node" ]]; then
+    spec_prj="node"
   elif [[ $var == "tools" ]]; then
     spec_prj="tools"
   elif [[ " $projects " =~ " $var " ]]; then
@@ -181,7 +183,6 @@ if [[ $asserts == false ]]; then
   commonargs="$commonargs --flag cardano-sl-core:-asserts"
 fi
 
-ghc_opts="-DGITREV=`git rev-parse HEAD`"
 
 if [[ $no_fast == true ]]; then
   fast=""
@@ -216,6 +217,9 @@ if [[ $clean == true ]]; then
   echo "Cleaning cardano-sl-explorer"
   stack clean cardano-sl-explorer
 
+  echo "Cleaning cardano-sl-node"
+  stack clean cardano-sl-node
+
   echo "Cleaning cardano-sl"
   stack clean cardano-sl
 
@@ -232,18 +236,20 @@ if [[ $spec_prj == "" ]]; then
     to_build="$to_build cardano-sl-$prj"
   done
 
-  to_build="$to_build cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet cardano-sl-explorer"
+  to_build="$to_build cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet cardano-sl-explorer cardano-sl-node"
 
-elif [[ $spec_prj == "sl" ]]; then
+elif [[ $spec_prj == "lib" ]]; then
   to_build="cardano-sl"
+elif [[ $spec_prj == "node" ]]; then
+  to_build="cardano-sl-node"
 elif [[ $spec_prj == "auxx" ]]; then
   to_build="cardano-sl-auxx"
 elif [[ $spec_prj == "wallet" ]]; then
   to_build="cardano-sl-wallet"
 elif [[ $spec_prj == "explorer" ]]; then
   to_build="cardano-sl-explorer"
-elif [[ $spec_prj == "sl+" ]]; then
-  to_build="cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-explorer cardano-sl-wallet "
+elif [[ $spec_prj == "all" ]]; then
+  to_build="" # build everything concurrently
 else
   to_build="cardano-sl-$spec_prj"
 fi
@@ -260,7 +266,11 @@ if [[ $to_build == *"explorer"* && $explorer == false ]]; then
   exit
 fi
 
-echo "Going to build: $to_build"
+if [[ $to_build == "" ]]; then
+  echo "Going to build: everything, concurrently"
+else
+  echo "Going to build: $to_build"
+fi
 echo "'wallet' flag: $wallet"
 echo "'explorer' flag: $explorer"
 
@@ -286,6 +296,14 @@ for prj in $to_build; do
     | perl -pe "$xperl"                     \
     | { grep -E --color "$xgrep" || true; }
 done
+
+if [[ $to_build == "" ]]; then
+  sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun $fast $args"
+  echo -e "$sbuild\n"
+  eval $sbuild 2>&1                         \
+    | perl -pe "$xperl"                     \
+    | { grep -E --color "$xgrep" || true; }
+fi
 
 if [[ $test == true ]]; then
   stack build                               \

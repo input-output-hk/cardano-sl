@@ -103,6 +103,7 @@ library
                        Pos.System.Metrics.Constants
 
                        Pos.Util.Arbitrary
+                       Pos.Util.CompileInfo
                        Pos.Util.Concurrent
                        Pos.Util.Concurrent.LockedTVar
                        Pos.Util.Concurrent.PriorityLock
@@ -161,6 +162,7 @@ library
                      , node-sketch
                      , parsec
                      , plutus-prototype
+                     , process
                      , pvss
                      , quickcheck-instances
                      , random

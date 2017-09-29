@@ -17,13 +17,13 @@ import           Servant.Server                 (Handler, Server, serve)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
-                                                 CAddressType (..), CBlockEntry (..),
-                                                 CBlockSummary (..),
+import           Pos.Explorer.Web.ClientTypes   (Byte, CAda (..), CAddress (..),
+                                                 CAddressSummary (..), CAddressType (..),
+                                                 CBlockEntry (..), CBlockSummary (..),
                                                  CGenesisAddressInfo (..),
                                                  CGenesisSummary (..), CHash (..),
                                                  CTxBrief (..), CTxEntry (..), CTxId (..),
-                                                 CTxSummary (..), Byte, mkCCoin)
+                                                 CTxSummary (..), mkCCoin)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 import           Pos.Types                      (EpochIndex, mkCoin)
 import           Pos.Web                        ()
@@ -46,6 +46,8 @@ explorerApp = serve explorerApi explorerHandlers
 
 explorerHandlers :: Server ExplorerApi
 explorerHandlers =
+      apiTotalAda
+    :<|>
       apiBlocksPages
     :<|>
       apiBlocksPagesTotal
@@ -70,6 +72,7 @@ explorerHandlers =
     :<|>
       apiStatsTxs
   where
+    apiTotalAda           = testTotalAda
     apiBlocksPages        = testBlocksPages
     apiBlocksPagesTotal   = testBlocksPagesTotal
     apiBlocksSummary      = testBlocksSummary
@@ -121,6 +124,9 @@ cTxBrief = CTxBrief
 ----------------------------------------------------------------
 -- Test handlers
 ----------------------------------------------------------------
+
+testTotalAda :: Handler (Either ExplorerError CAda)
+testTotalAda = pure $ pure $ CAda 123.456789
 
 testBlocksPagesTotal
     :: Maybe Word

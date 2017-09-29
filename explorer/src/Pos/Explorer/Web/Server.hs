@@ -135,6 +135,8 @@ explorerHandlers _sendActions =
     :<|>
       apiAddressSummary
     :<|>
+      apiEpochPageSearch
+    :<|>
       apiEpochSlotSearch
     :<|>
       apiGenesisSummary
@@ -153,6 +155,7 @@ explorerHandlers _sendActions =
     apiTxsLast            = catchExplorerError getLastTxs
     apiTxsSummary         = catchExplorerError . getTxSummary
     apiAddressSummary     = catchExplorerError . getAddressSummary
+    apiEpochPageSearch    = tryEpochPageSearch
     apiEpochSlotSearch    = tryEpochSlotSearch
     apiGenesisSummary     = catchExplorerError getGenesisSummary
     apiGenesisPagesTotal  = getGenesisPagesTotalDefault
@@ -173,8 +176,11 @@ explorerHandlers _sendActions =
     getBlockTxsDefault hash' limit skip =
         catchExplorerError $ getBlockTxs hash' (defaultLimit limit) (defaultSkip skip)
 
-    tryEpochSlotSearch epoch maybeSlot =
-        catchExplorerError $ epochSlotSearch epoch maybeSlot
+    tryEpochPageSearch epoch maybePage =
+        catchExplorerError $ epochPageSearch epoch maybePage
+
+    tryEpochSlotSearch epoch slot =
+        catchExplorerError $ epochSlotSearch epoch slot
 
     getGenesisPagesTotalDefault size =
         catchExplorerError $ getGenesisPagesTotal (defaultPageSize size)
@@ -185,9 +191,9 @@ explorerHandlers _sendActions =
     getStatsTxsDefault page =
         catchExplorerError $ getStatsTxs page
 
-    defaultPageSize size = (fromIntegral $ fromMaybe 10 size)
-    defaultLimit limit   = (fromIntegral $ fromMaybe 10 limit)
-    defaultSkip  skip    = (fromIntegral $ fromMaybe 0  skip)
+    defaultPageSize size  = (fromIntegral $ fromMaybe 10 size)
+    defaultLimit limit    = (fromIntegral $ fromMaybe 10 limit)
+    defaultSkip  skip     = (fromIntegral $ fromMaybe 0  skip)
 
 ----------------------------------------------------------------
 -- API Functions
@@ -592,18 +598,14 @@ getGenesisPagesTotal (fromIntegral -> pageSize) = do
 epochSlotSearch
     :: ExplorerMode ctx m
     => EpochIndex
-    -> Maybe Word16
+    -> Word16
     -> m [CBlockEntry]
 epochSlotSearch epochIndex slotIndex = do
 
-    -- [CSE-236] Disable search for epoch only
-    -- TODO: Remove restriction if epoch search will be optimized
-    when (isNothing slotIndex) $
-        throwM $ Internal "We currently do not support searching for epochs only."
-
+    let page = fromIntegral $ (slotIndex + 10 - 1) `div` 10
     -- Get pages from the database
     -- TODO: Fix this Int / Integer thing once we merge repositories
-    epochBlocksHH   <- getPageHHsOrThrow epochIndex
+    epochBlocksHH   <- getPageHHsOrThrow epochIndex page
     blunds          <- forM epochBlocksHH getBlundOrThrow
     cBlocksEntry    <- forM (getEpochSlots slotIndex (rights' blunds)) toBlockEntry
 
@@ -613,11 +615,10 @@ epochSlotSearch epochIndex slotIndex = do
     -- Get epoch slot block that's being searched or return all epochs if
     -- the slot is @Nothing@.
     getEpochSlots
-        :: Maybe Word16
+        :: Word16
         -> [MainBlund SscGodTossing]
         -> [MainBlund SscGodTossing]
-    getEpochSlots Nothing           blunds = blunds
-    getEpochSlots (Just slotIndex') blunds = filter filterBlundsBySlotIndex blunds
+    getEpochSlots slotIndex' blunds = filter filterBlundsBySlotIndex blunds
       where
         getBlundSlotIndex
             :: MainBlund SscGodTossing
@@ -633,13 +634,47 @@ epochSlotSearch epochIndex slotIndex = do
     getPageHHsOrThrow
         :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
         => EpochIndex
+        -> Int
         -> m [HeaderHash]
-    getPageHHsOrThrow epoch = getEpochBlocks epoch >>=
-        maybeThrow (Internal errMsg)
+    getPageHHsOrThrow epoch page =
+        getEpochBlocks epoch page >>= maybeThrow (Internal errMsg)
       where
         errMsg :: Text
         errMsg = sformat ("No blocks on epoch "%build%" found!") epoch
 
+-- | Search the blocks by epoch and epoch page number.
+epochPageSearch
+    :: ExplorerMode ctx m
+    => EpochIndex
+    -> Maybe Int
+    -> m [CBlockEntry]
+epochPageSearch epochIndex mPage = do
+
+    -- If the user doesn't define the page, the default page is the first one.
+    let page :: Int
+        page = fromMaybe 1 mPage
+
+    -- Get pages from the database
+    -- TODO: Fix this Int / Integer thing once we merge repositories
+    epochBlocksHH   <- getPageHHsOrThrow epochIndex page
+    blunds          <- forM epochBlocksHH getBlundOrThrow
+    cBlocksEntry    <- forM (rights' blunds) toBlockEntry
+
+    pure cBlocksEntry
+  where
+    rights' x = [(mb, u) | (Right mb, u) <- x]
+
+    -- Either get the @HeaderHash@es from the @Epoch@ or throw an exception.
+    getPageHHsOrThrow
+        :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
+        => EpochIndex
+        -> Int
+        -> m [HeaderHash]
+    getPageHHsOrThrow epoch page =
+        getEpochBlocks epoch page >>= maybeThrow (Internal errMsg)
+      where
+        errMsg :: Text
+        errMsg = sformat ("No blocks on epoch "%build%" found!") epoch
 
 getStatsTxs
     :: forall ctx m. ExplorerMode ctx m

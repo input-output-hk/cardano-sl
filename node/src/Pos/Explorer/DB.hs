@@ -87,8 +87,8 @@ getUtxoSum = maybeThrow dbNotInitialized =<< gsGetBi utxoSumPrefix
 getPageBlocks :: MonadDBRead m => Page -> m (Maybe [HeaderHash])
 getPageBlocks = gsGetBi . blockPagePrefix
 
-getEpochBlocks :: MonadDBRead m => Epoch -> m (Maybe [HeaderHash])
-getEpochBlocks = gsGetBi . blockEpochPrefix
+getEpochBlocks :: MonadDBRead m => Epoch -> Page -> m (Maybe [HeaderHash])
+getEpochBlocks epoch page = gsGetBi $ blockEpochPrefix epoch page
 
 getLastTransactions :: MonadDBRead m => m (Maybe [Tx])
 getLastTransactions = gsGetBi lastTxsPrefix
@@ -147,7 +147,7 @@ data ExplorerOp
 
     | PutPageBlocks !Page ![HeaderHash]
 
-    | PutEpochBlocks !Epoch ![HeaderHash]
+    | PutEpochBlocks !Epoch !Page ![HeaderHash]
 
     | PutLastTxs ![Tx]
 
@@ -167,8 +167,8 @@ instance HasConfiguration => RocksBatchOp ExplorerOp where
     toBatchOp (PutPageBlocks page pageBlocks) =
         [Rocks.Put (blockPagePrefix page) (dbSerializeValue pageBlocks)]
 
-    toBatchOp (PutEpochBlocks epoch pageBlocks) =
-        [Rocks.Put (blockEpochPrefix epoch) (dbSerializeValue pageBlocks)]
+    toBatchOp (PutEpochBlocks epoch page pageBlocks) =
+        [Rocks.Put (blockEpochPrefix epoch page) (dbSerializeValue pageBlocks)]
 
     toBatchOp (PutLastTxs lastTxs) =
         [Rocks.Put lastTxsPrefix (dbSerializeValue lastTxs)]
@@ -257,8 +257,8 @@ blockPagePrefix page = "e/page/" <> encodedPage
   where
     encodedPage = serialize' $ UnsignedVarInt page
 
-blockEpochPrefix :: Epoch -> ByteString
-blockEpochPrefix epoch = "e/epoch/" <> serialize' epoch
+blockEpochPrefix :: Epoch -> Page -> ByteString
+blockEpochPrefix epoch page = "e/epoch/" <> serialize' epoch <> "/" <> serialize' page
 
 lastTxsPrefix :: ByteString
 lastTxsPrefix = "e/ltxs/"

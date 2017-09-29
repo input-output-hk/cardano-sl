@@ -76,9 +76,10 @@ instance ( MonadDBRead m
 
 
 onApplyCallGeneral
-    :: forall ssc m .
+    :: forall ssc m.
     MonadBListenerT m ssc
-    => OldestFirst NE (Blund ssc) -> m SomeBatchOp
+    => OldestFirst NE (Blund ssc)
+    -> m SomeBatchOp
 onApplyCallGeneral    blunds = do
     epochBlocks <- onApplyEpochBlocksExplorer blunds
     pageBlocks  <- onApplyPageBlocksExplorer blunds
@@ -87,9 +88,10 @@ onApplyCallGeneral    blunds = do
 
 
 onRollbackCallGeneral
-    :: forall ssc m .
+    :: forall ssc m.
     MonadBListenerT m ssc
-    => NewestFirst NE (Blund ssc) -> m SomeBatchOp
+    => NewestFirst NE (Blund ssc)
+    -> m SomeBatchOp
 onRollbackCallGeneral blunds = do
     epochBlocks <- onRollbackEpochBlocksExplorer blunds
     pageBlocks  <- onRollbackPageBlocksExplorer blunds
@@ -108,12 +110,12 @@ onApplyEpochBlocksExplorer
     MonadBListenerT m ssc
     => OldestFirst NE (Blund ssc)
     -> m SomeBatchOp
-onApplyEpochBlocksExplorer blunds = onApplyKeyBlocksGeneral blunds epochBlocksMap
+onApplyEpochBlocksExplorer blunds = onApplyKeyBlocksGeneral blunds epochPagedBlocksMap
 
 
 -- For @PageBlocks@
 onApplyPageBlocksExplorer
-    :: forall ssc m .
+    :: forall ssc m.
     MonadBListenerT m ssc
     => OldestFirst NE (Blund ssc)
     -> m SomeBatchOp
@@ -122,7 +124,7 @@ onApplyPageBlocksExplorer blunds = onApplyKeyBlocksGeneral blunds pageBlocksMap
 
 -- For last transactions, @Tx@
 onApplyLastTxsExplorer
-    :: forall ssc m .
+    :: forall ssc m.
     MonadBListenerT m ssc
     => OldestFirst NE (Blund ssc)
     -> m SomeBatchOp
@@ -151,25 +153,28 @@ onApplyLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
 
 -- For @EpochBlocks@
 onRollbackEpochBlocksExplorer
-    :: forall ssc m .
+    :: forall ssc m.
     MonadBListenerT m ssc
-    => NewestFirst NE (Blund ssc) -> m SomeBatchOp
-onRollbackEpochBlocksExplorer blunds = onRollbackGeneralBlocks blunds epochBlocksMap
+    => NewestFirst NE (Blund ssc)
+    -> m SomeBatchOp
+onRollbackEpochBlocksExplorer blunds = onRollbackGeneralBlocks blunds epochPagedBlocksMap
 
 
 -- For @PageBlocks@
 onRollbackPageBlocksExplorer
-    :: forall ssc m .
+    :: forall ssc m.
     MonadBListenerT m ssc
-    => NewestFirst NE (Blund ssc) -> m SomeBatchOp
+    => NewestFirst NE (Blund ssc)
+    -> m SomeBatchOp
 onRollbackPageBlocksExplorer blunds = onRollbackGeneralBlocks blunds pageBlocksMap
 
 
 -- For last transactions, @Tx@
 onRollbackLastTxsExplorer
-    :: forall ssc m .
+    :: forall ssc m.
     MonadBListenerT m ssc
-    => NewestFirst NE (Blund ssc) -> m SomeBatchOp
+    => NewestFirst NE (Blund ssc)
+    -> m SomeBatchOp
 onRollbackLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
   where
     -- Get the top transactions by pulling the old top transactions and removing
@@ -189,30 +194,61 @@ onRollbackLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
 -- Common
 ----------------------------------------------------------------------------
 
-
 -- Return a map from @Epoch@ to @HeaderHash@es for all non-empty blocks.
-epochBlocksMap
+epochPagedBlocksMap
     :: forall ssc. (HasConfiguration, SscHelpersClass ssc)
     => NE (Block ssc)
-    -> M.Map Epoch [HeaderHash]
-epochBlocksMap neBlocks = blocksEpochs
+    -> M.Map (Epoch, Page) [HeaderHash]
+epochPagedBlocksMap neBlocks = getPagedEpochHeaderHashesMap
   where
-
-    blocksEpochs :: M.Map Epoch [HeaderHash]
-    blocksEpochs = M.fromListWith (++) [ (k, [v]) | (k, v) <- blockEpochBlocks]
-
-    blockEpochBlocks :: [(Epoch, HeaderHash)]
-    blockEpochBlocks = blockEpochs `zip` blocksHHs
+    -- | Get a map from the "composite key" of @Epoch@ and @Page@ that return a list of
+    -- @HeaderHash@es on that @Page@ in that @Epoch@.
+    getPagedEpochHeaderHashesMap :: M.Map (Epoch, Page) [HeaderHash]
+    getPagedEpochHeaderHashesMap =
+        M.fromListWith (++) [ (k, [v]) | (k, v) <- epochPagedHeaderHashes]
       where
-        blocksHHs :: [HeaderHash]
-        blocksHHs = headerHash <$> blocks
 
-        blockEpochs :: [Epoch]
+        epochPagedHeaderHashes :: [((Epoch, Page), HeaderHash)]
+        epochPagedHeaderHashes = concat $ createEpochPagedHeaderHashes <$> getAllEpochs
+          where
+            getAllEpochs :: [Epoch]
+            getAllEpochs = M.keys blocksEpochs
+
+        createEpochPagedHeaderHashes :: Epoch -> [((Epoch, Page), HeaderHash)]
+        createEpochPagedHeaderHashes epoch = createEpochPageHHAssoc epoch <$> pageBlocks
+          where
+            -- | Get @HeaderHash@es grouped by @Page@ inside an @Epoch@.
+            pageBlocks :: [(Page, HeaderHash)]
+            pageBlocks = createPagedHeaderHashesPair $ getEpochHeaderHashes epoch
+              where
+                getEpochHeaderHashes
+                    :: Epoch
+                    -> [Block ssc]
+                getEpochHeaderHashes epochKey = case blocksEpochs ^. at epochKey of
+                    Nothing      -> []
+                    Just blocks' -> blocks'
+
+            -- | Just add @Epoch@ to the @(Page, HeaderHash)@ pair, so we can group
+            -- @Epoch@ and @Page@ and reuse it like a composite key.
+            createEpochPageHHAssoc
+                :: Epoch
+                -> (Page, HeaderHash)
+                -> ((Epoch, Page), HeaderHash)
+            createEpochPageHHAssoc epoch' pageBlock =
+                ((epoch', pageBlock ^. _1), pageBlock ^. _2)
+
+    -- | Finally, create a map from @Epoch@ to a list of @HeaderHash@. In other words,
+    -- group all blocks @HeaderHash@ to corresponding @Epoch@.
+    blocksEpochs :: M.Map Epoch [Block ssc]
+    blocksEpochs = M.fromListWith (++) [ (k, [v]) | (k, v) <- blockEpochs]
+      where
+        blockEpochs :: [(Epoch, Block ssc)]
         blockEpochs = getBlockEpoch <$> blocks
+          where
+            getBlockEpoch :: (Block ssc) -> (Epoch, Block ssc)
+            getBlockEpoch block = (block ^. epochIndexL, block)
 
-    getBlockEpoch :: (Block ssc) -> Epoch
-    getBlockEpoch block = block ^. epochIndexL
-
+    -- | Get blocks as list.
     blocks :: [Block ssc]
     blocks = NE.toList neBlocks
 
@@ -224,33 +260,49 @@ pageBlocksMap
     -> M.Map Page [HeaderHash]
 pageBlocksMap neBlocks = blocksPages
   where
-
+    -- | Finally, create a map from @Page@ to a list of @HeaderHash@. In other words,
+    -- group all blocks @HeaderHash@ to corresponding @Page@.
     blocksPages :: M.Map Page [HeaderHash]
-    blocksPages = M.fromListWith (++) [ (k, [v]) | (k, v) <- blockIndexBlock]
+    blocksPages =
+        M.fromListWith (++) [ (k, [v]) | (k, v) <- createPagedHeaderHashesPair blocks]
+      where
+        -- | Get blocks as list.
+        blocks :: [Block ssc]
+        blocks = NE.toList neBlocks
 
+-- | Creates paged @HeaderHash@es pair.
+createPagedHeaderHashesPair
+    :: forall ssc. (HasConfiguration, SscHelpersClass ssc)
+    => [Block ssc]
+    -> [(Page, HeaderHash)]
+createPagedHeaderHashesPair blocks = blockIndexBlock
+  where
+      -- Zip the @Page@ number with the @HeaderHash@ we can use to retrieve block.
     blockIndexBlock :: [(Page, HeaderHash)]
     blockIndexBlock = blockPages `zip` blocksHHs
       where
         blocksHHs :: [HeaderHash]
         blocksHHs = headerHash <$> blocks
 
+        -- | Calculate which block index goes into which page
         blockPages :: [Page]
         blockPages = getCurrentPage <$> blockIndexes
+          where
+            -- | Get the page the index belongs to.
+            getCurrentPage :: Int -> Page
+            getCurrentPage blockIndex = ((blockIndex - 1) `div` pageSize) + 1
+              where
+                pageSize :: Int
+                pageSize = 10
 
-        getCurrentPage :: Int -> Page
-        getCurrentPage blockIndex = ((blockIndex - 1) `div` pageSize) + 1
-
-        pageSize :: Int
-        pageSize = 10
-
-    blockIndexes :: [Int]
-    blockIndexes = getBlockIndex <$> blocks
-
-    getBlockIndex :: (Block ssc) -> Int
-    getBlockIndex block = fromIntegral $ getChainDifficulty $ block ^. difficultyL
-
-    blocks :: [Block ssc]
-    blocks = NE.toList neBlocks
+            -- | Get the blocks index numbers.
+            blockIndexes :: [Int]
+            blockIndexes = getBlockIndex <$> blocks
+              where
+                -- | Get the block index number.
+                getBlockIndex :: (Block ssc) -> Int
+                getBlockIndex block =
+                    fromIntegral $ getChainDifficulty $ block ^. difficultyL
 
 
 -- So the parameters can be type checked.
@@ -297,9 +349,9 @@ class (Ord k) => KeyBlocksOperation k where
     putKeyBlocksF :: (k -> [HeaderHash] -> DB.ExplorerOp)
     getKeyBlocksF :: (MonadDBRead m) => (k -> m (Maybe [HeaderHash]))
 
-instance KeyBlocksOperation Epoch where
-    putKeyBlocksF = DB.PutEpochBlocks
-    getKeyBlocksF = DB.getEpochBlocks
+instance KeyBlocksOperation (Epoch, Page) where
+    putKeyBlocksF (epoch, page) = DB.PutEpochBlocks epoch page
+    getKeyBlocksF (epoch, page) = DB.getEpochBlocks epoch page
 
 instance KeyBlocksOperation Page where
     putKeyBlocksF = DB.PutPageBlocks

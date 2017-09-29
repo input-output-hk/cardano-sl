@@ -13,6 +13,7 @@ module Pos.Explorer.Web.Api
        , TxsLast
        , TxsSummary
        , AddressSummary
+       , EpochPageSearch
        , EpochSlotSearch
        ) where
 
@@ -86,11 +87,18 @@ type AddressSummary = API
     :> Capture "address" CAddress
     :> Get '[JSON] (Either ExplorerError CAddressSummary)
 
+type EpochPageSearch = API
+    :> "search"
+    :> "epoch"
+    :> Capture "epoch" EpochIndex
+    :> QueryParam "page" Int
+    :> Get '[JSON] (Either ExplorerError [CBlockEntry])
+
 type EpochSlotSearch = API
     :> "search"
     :> "epoch"
     :> Capture "epoch" EpochIndex
-    :> QueryParam "slot" Word16
+    :> Capture "slot" Word16
     :> Get '[JSON] (Either ExplorerError [CBlockEntry])
 
 type GenesisSummary = API
@@ -130,6 +138,7 @@ type ExplorerApi =
     :<|> TxsLast
     :<|> TxsSummary
     :<|> AddressSummary
+    :<|> EpochPageSearch
     :<|> EpochSlotSearch
     :<|> GenesisSummary
     :<|> GenesisPagesTotal

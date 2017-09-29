@@ -10,6 +10,7 @@ module Pos.Crypto.Scrypt
        , mkScryptParams
 
        , mkSalt
+       , emptySalt
        , genSalt
        , encryptPass
        , encryptPassWithSalt
@@ -49,8 +50,8 @@ mkSalt :: Bi salt => salt -> S.Salt
 mkSalt = S.Salt . serialize'
 
 -- | Salt which can be used for hardcoded values.
-instance Default S.Salt where
-    def = mkSalt ("" :: Text)
+emptySalt :: S.Salt
+emptySalt = mkSalt ("" :: Text)
 
 genSalt :: MonadRandom m => m S.Salt
 genSalt = S.Salt <$> getRandomBytes 32

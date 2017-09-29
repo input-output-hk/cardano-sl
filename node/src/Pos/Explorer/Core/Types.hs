@@ -16,7 +16,6 @@ type AddrHistory = NewestFirst [] TxId
 data TxExtra = TxExtra
     { teBlockchainPlace :: !(Maybe (HeaderHash, Word32))
     , teReceivedTime    :: !(Maybe Timestamp)
-    -- non-strict on purpose, see `makeExtra` in Pos.Txp.Logic.Local
-    -- TODO(thatguy): The comment above is obsolete, need to update it.
+    -- non-strict on purpose, see comment in `processTxDo` in Pos.Explorer.Txp.Local
     , teInputOutputs    :: TxUndo
     } deriving (Show, Generic, Eq)

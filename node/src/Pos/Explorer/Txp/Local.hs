@@ -90,6 +90,8 @@ instance MonadTxExtraRead EProcessTxMode where
         view eptcExtraBase
     getAddrBalance addr =
         HM.lookup addr . eetAddrBalances <$> view eptcExtraBase
+    getUtxoSum =
+        eetUtxoSum <$> view eptcExtraBase
 
 eTxProcessTransaction
     :: (ETxpLocalWorkMode ctx m, MonadMask m,
@@ -140,11 +142,12 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $
     hmHistories <-
         buildMap allAddrs <$> mapM (fmap Just . ExDB.getAddrHistory) allAddrs
     hmBalances <- buildMap allAddrs <$> mapM ExDB.getAddrBalance allAddrs
+    utxoSum <- ExDB.getUtxoSum
     -- `eet` is passed to `processTxDo` where it is used in a ReaderT environment
     -- to provide underlying functions (`modifyAddrHistory` and `modifyAddrBalance`)
     -- with data to update. In case of `TxExtra` data is only added, but never updated,
     -- hence `mempty` here.
-    let eet = ExplorerExtraTxp mempty hmHistories hmBalances
+    let eet = ExplorerExtraTxp mempty hmHistories hmBalances utxoSum
     let ctx =
             EProcessTxContext
             { _eptcExtraBase = eet

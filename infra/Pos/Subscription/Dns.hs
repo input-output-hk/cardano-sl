@@ -3,147 +3,124 @@ module Pos.Subscription.Dns
     ( dnsSubscriptionWorker
     ) where
 
+import           Data.Either                           (partitionEithers)
 import qualified Data.Map.Strict                       as M
-import           Data.Time                             (NominalDiffTime, UTCTime,
-                                                        diffUTCTime, getCurrentTime)
 import           Data.Time.Units                       (Millisecond, Second, convertUnit)
-import           Formatting                            (sformat, shown, (%))
+import           Formatting                            (sformat, shown, int, (%))
 import qualified Network.DNS                           as DNS
-import           System.Wlog                           (logError)
+import           System.Wlog                           (logError, logNotice, logWarning)
 import           Universum
 
-import           Mockable                              (Delay, Mockable, delay)
-import           Network.Broadcast.OutboundQueue.Types (peersFromList)
+import           Mockable                              (Delay, Mockable, delay,
+                                                        Concurrently,
+                                                        forConcurrently,
+                                                        SharedAtomic,
+                                                        SharedAtomicT,
+                                                        newSharedAtomic,
+                                                        modifySharedAtomic)
+import           Network.Broadcast.OutboundQueue.Types (peersFromList, Alts)
 
 import           Pos.Communication.Protocol            (Worker)
 import           Pos.KnownPeers                        (MonadKnownPeers (..))
+import           Pos.Network.DnsDomains                (NodeAddr)
 import           Pos.Network.Types                     (Bucket (..), DnsDomains (..),
-                                                        Fallbacks, NetworkConfig (..),
+                                                        NetworkConfig (..),
                                                         NodeId (..), NodeType (..),
-                                                        Valency, resolveDnsDomains)
+                                                        resolveDnsDomains)
 import           Pos.Slotting                          (MonadSlotsData,
                                                         getNextEpochSlotDuration)
 import           Pos.Subscription.Common
 
-data KnownRelay = Relay {
-      -- | When did we find out about this relay?
-      relayDiscovered :: UTCTime
-
-      -- | Was this relay reported last call to findRelays?
-    , relayActive     :: Bool
-
-      -- | When was the last time it _was_ reported by findRelays?
-    , relayLastSeen   :: UTCTime
-
-      -- | When did we last experience an error communicating with this relay?
-    , relayException  :: Maybe (UTCTime, SubscriptionTerminationReason)
-    }
-
-type KnownRelays = Map NodeId KnownRelay
-
-activeRelays :: KnownRelays -> [NodeId]
-activeRelays = map fst . filter (relayActive . snd) . M.toList
-
--- TODO: Use valency and fallbacks
 dnsSubscriptionWorker
     :: forall kademlia ctx m.
-     ( SubscriptionMode m, Mockable Delay m, MonadSlotsData ctx m)
+     ( SubscriptionMode m
+     , MonadSlotsData ctx m
+     , Mockable Delay m
+     , Mockable SharedAtomic m
+     , Mockable Concurrently m
+     )
     => NetworkConfig kademlia
     -> DnsDomains DNS.Domain
-    -> Valency
-    -> Fallbacks
     -> Worker m
-dnsSubscriptionWorker networkCfg dnsDomains _valency _fallbacks sendActions =
-    loop M.empty
+dnsSubscriptionWorker networkCfg DnsDomains{..} sendActions = do
+    -- Shared state between the threads which do subscriptions.
+    -- It's a 'Map Int (Alts NodeId)' used to determine the current
+    -- peers set for our bucket 'BucketBehindNatWorker'. Each thread takes
+    -- care of its own index and updates the peers while holding the lock, so
+    -- that the threads don't erase each-others' work.
+    let initialDnsPeers :: Map Int (Alts NodeId)
+        initialDnsPeers = M.fromList $ map (\(i, _) -> (i, [])) allOf
+    dnsPeersVar <- newSharedAtomic initialDnsPeers
+    -- There's a thread for each conjunct which attempts to subscribe to one of
+    -- the alternatives.
+    -- This gives valency and fallbacks implicitly, just as for static
+    -- routes. Valency is the length of the outer list (conjuncts) and
+    -- fallbacks (for a given outer list element) is the length of the inner
+    -- list (disjuncts).
+    logNotice $ sformat ("dnsSubscriptionWorker: valency "%int) (length allOf)
+    void $ forConcurrently allOf (subscribeAlts dnsPeersVar)
+    logNotice $ sformat ("dnsSubscriptionWorker: all "%int%" threads finished") (length allOf)
   where
-    loop :: KnownRelays -> m ()
-    loop oldRelays = do
-      slotDur <- getNextEpochSlotDuration
-      now     <- liftIO $ getCurrentTime
-      peers   <- findRelays
 
-      let delayInterval :: Millisecond
-          delayInterval = max (slotDur `div` 4) (convertUnit (5 :: Second))
+    allOf :: [(Int, Alts (NodeAddr DNS.Domain))]
+    allOf = zip [1..] dnsDomains
 
-          updatedRelays :: KnownRelays
-          updatedRelays = updateKnownRelays now peers oldRelays
+    -- Resolve all of the names and try to subscribe to one.
+    -- If a subscription goes down, try later names.
+    -- When the list is exhausted (either because it's empty to begin with, or
+    -- because all subscriptions to have failed), wait a while before retrying
+    -- (see 'retryInterval').
+    subscribeAlts
+        :: SharedAtomicT m (Map Int (Alts NodeId))
+        -> (Int, Alts (NodeAddr DNS.Domain))
+        -> m ()
+    subscribeAlts _ (index, []) =
+        logWarning $ sformat ("dnsSubscriptionWorker: no alternatives given for index "%int) index
+    subscribeAlts dnsPeersVar (index, alts) = do
+        -- Resolve all of the names and update the known peers in the queue.
+        dnsPeersList <- findDnsPeers index alts
+        modifySharedAtomic dnsPeersVar $ \dnsPeers -> do
+            let dnsPeers' = M.insert index dnsPeersList dnsPeers
+            void $ updatePeersBucket BucketBehindNatWorker $ \_ ->
+                peersFromList mempty ((,) NodeRelay <$> M.elems dnsPeers')
+            pure (dnsPeers', ())
+        -- Try to subscribe to some peer.
+        -- If they all fail, wait a while before trying again.
+        subscribeToOne dnsPeersList
+        retryInterval >>= delay
+        subscribeAlts dnsPeersVar (index, alts)
 
-      -- Declare all active relays as a single list of alternative relays
-      void $ updatePeersBucket BucketBehindNatWorker $ \_ ->
-        peersFromList mempty [(NodeRelay, activeRelays updatedRelays)]
+    subscribeToOne :: Alts NodeId -> m ()
+    subscribeToOne dnsPeers = case dnsPeers of
+        [] -> return ()
+        (peer:peers) -> do
+            void $ subscribeTo sendActions peer
+            subscribeToOne peers
 
-      -- Subscribe only to a single relay (if we found one)
-      --
-      -- TODO: Make it configurable how many relays we subscribe to (should
-      -- probably share logic with the Kademlia worker).
-      case preferredRelays now updatedRelays of
-        [] -> do
-          logError msgNoRelays
-          delay delayInterval
-          loop updatedRelays
-        (relay:_) -> do
-          terminationReason <- subscribeTo sendActions relay
-          timeOfEx <- liftIO $ getCurrentTime
-          loop $ M.adjust (\r -> r { relayException = Just (timeOfEx, terminationReason) })
-                          relay
-                          updatedRelays
+    -- Find peers via DNS, preserving order.
+    -- In case multiple addresses are returned for one name, they're flattened
+    -- and we forget the boundaries, but all of the addresses for a given name
+    -- are adjacent.
+    findDnsPeers :: Int -> Alts (NodeAddr DNS.Domain) -> m (Alts NodeId)
+    findDnsPeers index alts = do
+        mNodeIds <- liftIO $ resolveDnsDomains networkCfg alts
+        let (errs, nids_) = partitionEithers mNodeIds
+            nids = mconcat nids_
+        when (null nids)       $ logError (msgNoRelays index)
+        when (not (null errs)) $ logError (msgDnsFailure index errs)
+        return nids
 
-    -- Find relays
-    findRelays :: m [NodeId]
-    findRelays = do
-        mNodeIds <- liftIO $ resolveDnsDomains networkCfg dnsDomains
-        case mNodeIds of
-          Left errs -> logError (msgDnsFailure errs) >> return []
-          Right ids -> return ids
+    -- How long to wait before retrying in case no alternative can be
+    -- subscribed to.
+    retryInterval :: m Millisecond
+    retryInterval = do
+        slotDur <- getNextEpochSlotDuration
+        pure $ max (slotDur `div` 4) (convertUnit (5 :: Second))
 
-    -- Suitable relays in order of preference
-    --
-    -- We prefer older relays over newer ones
-    preferredRelays :: UTCTime -> KnownRelays -> [NodeId]
-    preferredRelays now =
-          map fst
-        . sortOn (relayDiscovered . snd)
-        . filter (relaySuitable now . snd)
-        . M.toList
+    msgDnsFailure :: Int -> [DNS.DNSError] -> Text
+    msgDnsFailure = sformat ("dnsSubscriptionWorker: DNS failure for index "%int%": "%shown)
 
-    -- Suitable relay (one that we might try to connect to)
-    relaySuitable :: UTCTime -> KnownRelay -> Bool
-    relaySuitable now Relay{..} = and [
-          relayActive
-        , case relayException of
-            Nothing -> True
-            Just (timeOfErr, _err) ->
-              now `diffUTCTime` timeOfErr > errorExpiry
-        ]
+    msgNoRelays :: Int -> Text
+    msgNoRelays = sformat ("dnsSubscriptionWorker: no relays found for index "%int)
 
-    -- Time after an error after which we reconsider a relay (in sec.)
-    errorExpiry :: NominalDiffTime
-    errorExpiry = 60
-
-    updateKnownRelays :: UTCTime -> [NodeId] -> KnownRelays -> KnownRelays
-    updateKnownRelays now =
-        M.mergeWithKey
-          -- Relays we already knew about
-          (\_nodeId () relay -> Just $ relay { relayLastSeen = now
-                                             , relayActive   = True
-                                             })
-          -- Newly discovered delays
-          (M.map $ \() -> initKnownRelay now)
-          -- Relays that seem to have disappeared
-          (M.map $ \relay -> relay { relayActive = False })
-      . M.fromList
-      . map (, ())
-
-    initKnownRelay :: UTCTime -> KnownRelay
-    initKnownRelay now = Relay {
-          relayDiscovered = now
-        , relayActive     = True
-        , relayLastSeen   = now
-        , relayException  = Nothing
-        }
-
-    msgDnsFailure :: [DNS.DNSError] -> Text
-    msgDnsFailure = sformat $ "subscriptionWorker: DNS failure: " % shown
-
-    msgNoRelays :: Text
-    msgNoRelays = sformat $ "subscriptionWorker: no relays found"
+{-# ANN dnsSubscriptionWorker ("HLint: ignore Use unless" :: String) #-}

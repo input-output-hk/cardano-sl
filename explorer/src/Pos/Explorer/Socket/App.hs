@@ -132,6 +132,7 @@ notifierServer notifierSettings connVar = do
                                     -- Add more resources to the following list if needed.
                                     { corsOrigins = Just ([ "https://cardanoexplorer.com"
                                                           , "https://explorer.iohkdev.io"
+                                                          , "http://cardano-explorer.cardano-mainnet.iohk.io"
                                                           , "http://localhost:3100"
                                                           ], True)
                                     }

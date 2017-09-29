@@ -31,7 +31,7 @@ import           Pos.Core                   (AddrAttributes (..),
                                              BlockVersionData (..), EpochIndex,
                                              addrAttributesUnwrapped, isRedeemAddress)
 import           Pos.Core.Coin              (integerToCoin)
-import           Pos.Core.Configuration     (HasConfiguration, memPoolLimitRatio)
+import           Pos.Core.Configuration     (HasConfiguration, memPoolLimit)
 import qualified Pos.Core.Fee               as Fee
 import           Pos.Crypto                 (WithHash (..), hash)
 import           Pos.DB.Class               (MonadGState (..), gsIsBootstrapEra)
@@ -114,10 +114,8 @@ processTx
     => EpochIndex -> (TxId, TxAux) -> m TxUndo
 processTx curEpoch tx@(id, aux) = do
     whenM (hasTx id) $ throwError ToilKnown
-    maxBlockSize <- bvdMaxBlockSize <$> gsAdoptedBVData
-    let maxPoolSize = memPoolLimitRatio * maxBlockSize
-    whenM ((>= maxPoolSize) <$> poolSize) $
-        throwError (ToilOverwhelmed maxPoolSize)
+    whenM ((>= memPoolLimit) <$> poolSize) $
+        throwError (ToilOverwhelmed memPoolLimit)
     undo <- verifyAndApplyTx curEpoch True tx
     undo <$ putTxWithUndo id aux undo
 

@@ -31,7 +31,7 @@ data ToilVerFailure
     | ToilTipsMismatch { ttmOldTip :: !HeaderHash
                        , ttmNewTip :: !HeaderHash}
     | ToilSlotUnknown
-    | ToilOverwhelmed !Byte -- ^ Local transaction storage is full --
+    | ToilOverwhelmed !Int -- ^ Local transaction storage is full --
                             -- can't accept more txs. Current limit is attached.
     | ToilNotUnspent !TxIn -- ^ Tx input is not a known unspent input.
     | ToilOutGTIn { tInputSum  :: !Integer
@@ -82,7 +82,7 @@ instance Buildable ToilVerFailure where
     build ToilSlotUnknown =
         "can't process, current slot is unknown"
     build (ToilOverwhelmed limit) =
-        bprint ("max size of the mem pool is reached which is "%memory) limit
+        bprint ("max size of the mem pool is reached which is "%shown) limit
     build (ToilNotUnspent txId) =
         bprint ("input is not a known unspent input: "%build) txId
     build (ToilOutGTIn {..}) =

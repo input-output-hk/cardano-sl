@@ -42,8 +42,7 @@ import           Pos.Core                         (HasConfiguration, HasPrimaryK
                                                    ProxySKHeavy, ProxySKLight,
                                                    ProxySigLight, addressHash,
                                                    bvdMaxBlockSize, epochIndexL,
-                                                   getOurPublicKey, headerHash,
-                                                   memPoolLimitRatio)
+                                                   getOurPublicKey, headerHash)
 import           Pos.Crypto                       (ProxySecretKey (..), PublicKey,
                                                    SignTag (SignProxySK), proxyVerify,
                                                    verifyPsk)
@@ -221,10 +220,8 @@ processProxySKHeavyInternal psk = do
         let rerevoke = isRevoke && not hasPskInDB
         coherent <- uses dwTip $ (==) dbTipHash
         dwMessageCache %= LRU.insert msg curTime
-        let maxMemPoolSize = memPoolLimitRatio * maxBlockSize
-            -- Here it would be good to add size of data we want to insert
-            -- but it's negligible.
-            exhausted = memPoolSize >= maxMemPoolSize
+        -- TODO: This is a rather arbitrary limit, we should revisit it (see CSL-1664)
+        let exhausted = memPoolSize >= maxBlockSize * 2
         let res = if | not consistent -> PHBroken
                      | not coherent -> PHTipMismatch
                      | not omegaCorrect -> PHInvalid "PSK epoch is different from current"

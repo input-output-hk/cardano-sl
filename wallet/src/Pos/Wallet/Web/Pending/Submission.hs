@@ -15,10 +15,11 @@ import           Universum
 
 import           Control.Monad.Catch          (Handler (..), catches)
 import           Formatting                   (build, sformat, shown, stext, (%))
-import           System.Wlog                  (WithLogger, logInfo, logWarning)
+import           System.Wlog                  (WithLogger, logInfo)
 
 import           Pos.Client.Txp.History       (saveTx)
 import           Pos.Communication            (EnqueueMsg, submitTxRaw)
+import           Pos.Util.LogSafe             (logInfoS, logWarningS)
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
                                                PtxPoolInfo)
@@ -84,25 +85,24 @@ ptxResubmissionHandler PendingTx{..} =
         reportCanceled
 
     reportPeerAppliedEarlier =
-        logInfo $
+        logInfoS $
         sformat ("Some peer applied tx #"%build%" earlier - continuing \
             \tracking")
             _ptxTxId
     reportPeerApplied =
-        logInfo $
+        logInfoS $
         sformat ("Peer applied tx #"%build%", while we didn't - continuing \
             \tracking")
             _ptxTxId
     reportCanceled =
-        logInfo $
+        logInfoS $
         sformat ("Pending transaction #"%build%" was canceled")
             _ptxTxId
     reportBadCondition =
-        logWarning $
+        logWarningS $
         sformat ("Processing failure of "%build%" resubmission, but \
             \this transaction has unexpected condition "%build)
             _ptxTxId _ptxCond
-
 
 -- | Like 'Pos.Communication.Tx.submitAndSaveTx',
 -- but treats tx as future /pending/ transaction.
@@ -135,6 +135,6 @@ submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
         pshOnNonReclaimable accepted e
 
     reportError desc e outcome =
-        logInfo $
+        logInfoS $
         sformat ("Transaction #"%build%" application failed ("%shown%" - "
                 %stext%")"%stext) _ptxTxId e desc outcome

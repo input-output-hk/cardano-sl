@@ -15,7 +15,6 @@ import qualified Data.HashMap.Strict as HM
 import qualified Ether
 import           Universum
 
-import           Pos.Binary.Class    (biSize)
 import           Pos.Txp.Toil.Class  (MonadStakes (..), MonadStakesRead (..),
                                       MonadTxPool (..), MonadUtxo (..),
                                       MonadUtxoRead (..))
@@ -62,7 +61,7 @@ instance Monad m => MonadTxPool (ToilT __ m) where
         has <- use $ tmMemPool . mpLocalTxs . to (HM.member id)
         unless has $ do
             tmMemPool . mpLocalTxs . at id .= Just tx
-            tmMemPool . mpSize += biSize tx + biSize id
+            tmMemPool . mpSize += 1
             tmUndos . at id .= Just undo
 
     poolSize = ether $ use $ tmMemPool . mpSize

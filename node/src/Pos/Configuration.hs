@@ -13,6 +13,7 @@ module Pos.Configuration
 
        -- * Other constants
        , networkConnectionTimeout
+       , conversationEstablishTimeout
        , blockRetrievalQueueSize
        , propagationQueueSize
        , defaultPeers
@@ -52,29 +53,32 @@ withNodeConfiguration = give
 -- | Compile time configuration. See example in /constants.yaml/ file.
 data NodeConfiguration = NodeConfiguration
     {
-      ccNetworkDiameter             :: !Int
+      ccNetworkDiameter              :: !Int
       -- ^ Estimated time for broadcasting messages
-    , ccDefaultPeers                :: ![Text]
+    , ccDefaultPeers                 :: ![Text]
       -- ^ List of default peers
-    , ccMdNoBlocksSlotThreshold     :: !Int
+    , ccMdNoBlocksSlotThreshold      :: !Int
       -- ^ Threshold of slots for malicious activity detection
-    , ccLightDlgConfirmationTimeout :: !Int
+    , ccLightDlgConfirmationTimeout  :: !Int
       -- ^ Timeout for holding light psks confirmations
-    , ccDlgCacheParam               :: !Int
+    , ccDlgCacheParam                :: !Int
       -- ^ This value parameterizes size of cache used in Delegation.
       -- Not bytes, but number of elements.
-    , ccRecoveryHeadersMessage      :: !Int
+    , ccRecoveryHeadersMessage       :: !Int
       -- ^ Numbers of headers put in message in recovery mode.
-    , ccMessageCacheTimeout         :: !Int
+    , ccMessageCacheTimeout          :: !Int
       -- ^ Interval we ignore cached messages in components that
       -- support caching
-    , ccNetworkConnectionTimeout    :: !Int
+    , ccNetworkConnectionTimeout     :: !Int
       -- ^ Network connection timeout in milliseconds
-    , ccBlockRetrievalQueueSize     :: !Int
+    , ccConversationEstablishTimeout :: !Int
+      -- ^ Conversation acknowledgement timeout in milliseconds.
+      -- Default 30 seconds.
+    , ccBlockRetrievalQueueSize      :: !Int
       -- ^ Block retrieval queue capacity
-    , ccPropagationQueueSize        :: !Int
+    , ccPropagationQueueSize         :: !Int
       -- ^ InvMsg propagation queue capacity
-    , ccPendingTxResubmissionPeriod :: !Int
+    , ccPendingTxResubmissionPeriod  :: !Int
       -- ^ Minimal delay between pending transactions resubmission
     } deriving (Show, Generic)
 
@@ -96,6 +100,10 @@ networkDiameter = sec . ccNetworkDiameter $ nodeConfiguration
 
 networkConnectionTimeout :: HasNodeConfiguration => Microsecond
 networkConnectionTimeout = ms . fromIntegral . ccNetworkConnectionTimeout $ nodeConfiguration
+
+-- | Default is 30 seconds.
+conversationEstablishTimeout :: HasNodeConfiguration => Microsecond
+conversationEstablishTimeout = ms . fromIntegral . ccConversationEstablishTimeout $ nodeConfiguration
 
 blockRetrievalQueueSize :: (HasNodeConfiguration, Integral a) => a
 blockRetrievalQueueSize =

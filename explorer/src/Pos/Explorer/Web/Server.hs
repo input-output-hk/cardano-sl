@@ -182,9 +182,9 @@ explorerHandlers _sendActions =
     getStatsTxsDefault page =
         catchExplorerError $ getStatsTxs page
 
-    defaultPageSize size = (fromIntegral $ fromMaybe 10 size)
-    defaultLimit limit   = (fromIntegral $ fromMaybe 10 limit)
-    defaultSkip  skip    = (fromIntegral $ fromMaybe 0  skip)
+    defaultPageSize size   = (fromIntegral $ fromMaybe 10 size)
+    defaultLimit limit     = (fromIntegral $ fromMaybe 10 limit)
+    defaultSkip  skip      = (fromIntegral $ fromMaybe 0  skip)
     defaultAddressesFilter = fromMaybe AllAddresses
 
 ----------------------------------------------------------------
@@ -557,11 +557,14 @@ getGenesisSummary = do
                 redeemedAmount = initialBalance `unsafeSubCoin` currentBalance
                 amountLeft = currentBalance
             in pure $ (isRedeemed, redeemedAmount, amountLeft)
-    folder :: (Bool, Coin, Coin) -> (Int, Coin, Coin) -> (Int, Coin, Coin)
+    folder
+        :: (Bool, Coin, Coin)
+        -> (Int, Coin, Coin)
+        -> (Int, Coin, Coin)
     folder
         (isRedeemed, redeemedAmount, amountLeft)
         (numRedeemed, redeemedAmountTotal, nonRedeemedAmountTotal) = (
-              numRedeemed + (if isRedeemed then 0 else 1)
+              numRedeemed + (if isRedeemed then 1 else 0)
             , redeemedAmountTotal `unsafeAddCoin` redeemedAmount
             , nonRedeemedAmountTotal `unsafeAddCoin` amountLeft
             )
@@ -580,7 +583,10 @@ getFilteredPairs addrFilt = do
             RedeemedAddresses    ->
                 filterM (isAddressRedeemed . fst) redeemAddressCoinPairs
             NonRedeemedAddresses ->
-                filterM (fmap not . isAddressRedeemed . fst) redeemAddressCoinPairs
+                filterM (isAddressNotRedeemed . fst) redeemAddressCoinPairs
+  where
+    isAddressNotRedeemed :: MonadDBRead m => Address -> m Bool
+    isAddressNotRedeemed = fmap not . isAddressRedeemed
 
 getGenesisAddressInfo
     :: (ExplorerMode ctx m)

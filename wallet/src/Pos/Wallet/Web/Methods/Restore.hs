@@ -36,7 +36,7 @@ import           Pos.Wallet.Web.ClientTypes   (AccountId (..), CAccountInit (..)
                                                encToCId)
 import           Pos.Wallet.Web.Error         (WalletError (..), rewrapToWalletError)
 import qualified Pos.Wallet.Web.Methods.Logic as L
-import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
+import           Pos.Wallet.Web.Mode          (MonadWalletWebMode, getIsBootstrapEra)
 import           Pos.Wallet.Web.Secret        (WalletUserSecret (..),
                                                mkGenesisWalletUserSecret, wusAccounts,
                                                wusWalletName)
@@ -64,7 +64,8 @@ newWalletFromBackupPhrase passphrase CWalletInit {..} isReady = do
 
     let accMeta = CAccountMeta { caName = "Initial account" }
         accInit = CAccountInit { caInitWId = cwId, caInitMeta = accMeta }
-    () <$ L.newAccountIncludeUnready True (DeterminedSeed initialAccAddrIdxs) passphrase accInit
+    ibe <- getIsBootstrapEra
+    () <$ L.newAccountIncludeUnready True ibe (DeterminedSeed initialAccAddrIdxs) passphrase accInit
 
     return (skey, cAddr)
 
@@ -115,6 +116,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
     let key    = _wusRootKey
         wid    = encToCId key
         wMeta  = def { cwName = _wusWalletName }
+    ibe <- getIsBootstrapEra
     addSecretKey key
     -- Importing a wallet may take a long time.
     -- Hence we mark the wallet as "not ready" until `syncWalletOnImport` completes.
@@ -128,7 +130,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
 
     for_ _wusAddrs $ \(walletIndex, accountIndex) -> do
         let accId = AccountId wid walletIndex
-        L.newAddress (DeterminedSeed accountIndex) passphrase accId
+        L.newAddress ibe (DeterminedSeed accountIndex) passphrase accId
 
     -- `syncWalletOnImport` automatically marks a wallet as "ready".
     void $ syncWalletOnImport key

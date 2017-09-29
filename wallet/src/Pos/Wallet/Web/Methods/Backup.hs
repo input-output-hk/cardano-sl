@@ -26,7 +26,7 @@ import           Pos.Wallet.Web.ClientTypes   (CId, CWallet, Wal, encToCId,
                                                CAccountMeta (..), CAccountInit (..))
 import           Pos.Wallet.Web.Error         (WalletError (..))
 import qualified Pos.Wallet.Web.Methods.Logic as L
-import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
+import           Pos.Wallet.Web.Mode          (MonadWalletWebMode, getIsBootstrapEra)
 import           Pos.Wallet.Web.State         (createAccount, getWalletMeta)
 import           Pos.Wallet.Web.Tracking      (syncWalletOnImport)
 
@@ -36,6 +36,7 @@ restoreWalletFromBackup :: MonadWalletWebMode m => WalletBackup -> m CWallet
 restoreWalletFromBackup WalletBackup {..} = do
     let wId = encToCId wbSecretKey
     wExists <- isJust <$> getWalletMeta wId
+    ibe <- getIsBootstrapEra
 
     if wExists
         then do
@@ -54,7 +55,7 @@ restoreWalletFromBackup WalletBackup {..} = do
                     let idx = DeterminedSeed firstHardened
                         accMeta = CAccountMeta { caName = "Initial account" }
                         accInit = CAccountInit { caInitWId = wId, caInitMeta = accMeta }
-                    () <$ L.newAccountIncludeUnready True idx emptyPassphrase accInit
+                    () <$ L.newAccountIncludeUnready True ibe idx emptyPassphrase accInit
                 else for_ accList $ \(idx, meta) -> do
                     let aIdx = fromInteger $ fromIntegral idx
                         seedGen = DeterminedSeed aIdx

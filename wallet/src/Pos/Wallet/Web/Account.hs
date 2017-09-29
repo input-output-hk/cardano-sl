@@ -63,12 +63,13 @@ getSKById wid = do
 
 getSKByAccAddr
     :: AccountMode ctx m
-    => PassPhrase
+    => IsBootstrapEraAddr
+    -> PassPhrase
     -> CWAddressMeta
     -> m EncryptedSecretKey
-getSKByAccAddr passphrase addrMeta@CWAddressMeta {..} = do
+getSKByAccAddr ibe passphrase addrMeta@CWAddressMeta {..} = do
     (addr, accKey) <-
-        deriveAccountSK passphrase (addrMetaToAccount addrMeta) cwamAccountIndex
+        deriveAccountSK ibe passphrase (addrMetaToAccount addrMeta) cwamAccountIndex
     let accCAddr = encodeCType addr
     if accCAddr /= cwamId
              -- if you see this error, maybe you generated public key address with
@@ -139,28 +140,30 @@ genUniqueAccountId genSeed wsCAddr =
 
 genUniqueAccountAddress
     :: AccountMode ctx m
-    => AddrGenSeed
+    => IsBootstrapEraAddr
+    -> AddrGenSeed
     -> PassPhrase
     -> AccountId
     -> m CWAddressMeta
-genUniqueAccountAddress genSeed passphrase wCAddr@AccountId{..} =
+genUniqueAccountAddress ibe genSeed passphrase wCAddr@AccountId{..} =
     generateUnique "address generation" genSeed mkAccount notFit
   where
     mkAccount cwamAccountIndex =
-        deriveAccountAddress passphrase wCAddr cwamAccountIndex
+        deriveAccountAddress ibe passphrase wCAddr cwamAccountIndex
     notFit _idx addr = doesWAddressExist Ever addr
 
 deriveAccountSK
-    :: AccountMode ctx m
-    => PassPhrase
+    :: (AccountMode ctx m)
+    => IsBootstrapEraAddr
+    -> PassPhrase
     -> AccountId
     -> Word32
     -> m (Address, EncryptedSecretKey)
-deriveAccountSK passphrase AccountId {..} accIndex = do
+deriveAccountSK ibe passphrase AccountId {..} accIndex = do
     key <- getSKById aiWId
     maybeThrow badPass $
         deriveLvl2KeyPair
-            (IsBootstrapEraAddr True) -- TODO: make it context-dependent!
+            ibe
             passphrase
             key
             aiIndex
@@ -170,12 +173,13 @@ deriveAccountSK passphrase AccountId {..} accIndex = do
 
 deriveAccountAddress
     :: AccountMode ctx m
-    => PassPhrase
+    => IsBootstrapEraAddr
+    -> PassPhrase
     -> AccountId
     -> Word32
     -> m CWAddressMeta
-deriveAccountAddress passphrase accId@AccountId{..} cwamAccountIndex = do
-    (addr, _) <- deriveAccountSK passphrase accId cwamAccountIndex
+deriveAccountAddress ibe passphrase accId@AccountId{..} cwamAccountIndex = do
+    (addr, _) <- deriveAccountSK ibe passphrase accId cwamAccountIndex
     let cwamWId         = aiWId
         cwamWalletIndex = aiIndex
         cwamId          = encodeCType addr

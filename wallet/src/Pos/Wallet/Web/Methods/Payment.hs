@@ -43,7 +43,7 @@ import           Pos.Wallet.Web.Methods.History   (addHistoryTx)
 import qualified Pos.Wallet.Web.Methods.Logic     as L
 import           Pos.Wallet.Web.Methods.Txp       (coinDistrToOutputs, rewrapTxError,
                                                    submitAndSaveNewPtx)
-import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode)
+import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode, getIsBootstrapEra)
 import           Pos.Wallet.Web.Pending           (mkPendingTx)
 import           Pos.Wallet.Web.State             (AddressLookupMode (Existing))
 import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
@@ -128,7 +128,8 @@ instance
   where
     type AddrData Pos.Wallet.Web.Mode.WalletWebMode = (AccountId, PassPhrase)
     getNewAddress (accId, passphrase) = do
-        clientAddress <- L.newAddress RandomSeed passphrase accId
+        ibe <- getIsBootstrapEra
+        clientAddress <- L.newAddress ibe RandomSeed passphrase accId
         decodeCTypeOrFail (cadId clientAddress)
 
 sendMoney
@@ -142,7 +143,8 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
     addrMetas' <- getMoneySourceAddresses moneySource
     addrMetas <- nonEmpty addrMetas' `whenNothing`
         throwM (RequestError "Given money source has no addresses!")
-    sks <- forM addrMetas $ getSKByAccAddr passphrase
+    ibe <- getIsBootstrapEra
+    sks <- forM addrMetas $ getSKByAccAddr ibe passphrase
     srcAddrs <- forM addrMetas $ decodeCTypeOrFail . cwamId
 
     withSafeSigners sks (pure passphrase) $ \mss -> do

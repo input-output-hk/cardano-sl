@@ -13,8 +13,10 @@ module Pos.Wallet.Web.Methods.Logic
 
        , createWalletSafe
        , newAccount
+       , newAccountHandler
        , newAccountIncludeUnready
        , newAddress
+       , newAddressHandler
        , markWalletReady
 
        , deleteWallet
@@ -34,7 +36,8 @@ import           Formatting                 (build, sformat, (%))
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()
-import           Pos.Core                   (Coin, sumCoins, unsafeIntegerToCoin)
+import           Pos.Core                   (Coin, sumCoins, unsafeIntegerToCoin,
+                                             IsBootstrapEraAddr(..))
 import           Pos.Crypto                 (PassPhrase, changeEncPassphrase,
                                              checkPassMatches, emptyPassphrase)
 import           Pos.Util                   (maybeThrow)
@@ -157,36 +160,52 @@ getWallets = getWalletAddresses >>= mapM getWallet
 
 newAddress
     :: MonadWalletWebMode m
-    => AddrGenSeed
+    => IsBootstrapEraAddr
+    -> AddrGenSeed
     -> PassPhrase
     -> AccountId
     -> m CAddress
-newAddress addGenSeed passphrase accId =
+newAddress ibe addGenSeed passphrase accId =
     fixCachedAccModifierFor accId $ \accMod -> do
         -- check whether account exists
         _ <- getAccount accMod accId
 
-        cAccAddr <- genUniqueAccountAddress addGenSeed passphrase accId
+        cAccAddr <- genUniqueAccountAddress ibe addGenSeed passphrase accId
         addWAddress cAccAddr
         getWAddress accMod cAccAddr
 
+newAddressHandler
+    :: MonadWalletWebMode m
+    => AddrGenSeed
+    -> PassPhrase
+    -> AccountId
+    -> m CAddress
+-- TODO: AJ: Hard coding isBootstrapEra as True for API calls. Check if that's okay.
+newAddressHandler = newAddress (IsBootstrapEraAddr True)
+
 newAccountIncludeUnready
     :: MonadWalletWebMode m
-    => Bool -> AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
-newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} =
+    => Bool -> IsBootstrapEraAddr -> AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
+newAccountIncludeUnready includeUnready ibe addGenSeed passphrase CAccountInit {..} =
     fixCachedAccModifierFor caInitWId $ \accMod -> do
         -- check wallet exists
         _ <- getWalletIncludeUnready includeUnready caInitWId
 
         cAddr <- genUniqueAccountId addGenSeed caInitWId
         createAccount cAddr caInitMeta
-        () <$ newAddress addGenSeed passphrase cAddr
+        () <$ newAddress ibe addGenSeed passphrase cAddr
         getAccount accMod cAddr
 
 newAccount
     :: MonadWalletWebMode m
-    => AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
+    => IsBootstrapEraAddr -> AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
 newAccount = newAccountIncludeUnready False
+
+newAccountHandler
+    :: MonadWalletWebMode m
+    => AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
+-- TODO: AJ: Hard coding isBootstrapEra as True for API calls. Check if that's okay.
+newAccountHandler = newAccount (IsBootstrapEraAddr True)
 
 createWalletSafe
     :: MonadWalletWebMode m

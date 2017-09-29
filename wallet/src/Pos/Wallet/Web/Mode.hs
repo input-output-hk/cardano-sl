@@ -7,6 +7,7 @@ module Pos.Wallet.Web.Mode
        , WalletWebModeContextTag
        , WalletWebModeContext(..)
        , MonadWalletWebMode
+       , getIsBootstrapEra
        ) where
 
 import           Universum
@@ -23,8 +24,8 @@ import           Pos.Block.Types                (Undo)
 import           Pos.Configuration              (HasNodeConfiguration)
 import           Pos.Context                    (HasNodeContext (..))
 import           Pos.Core                       (HasConfiguration, HasPrimaryKey (..),
-                                                 IsHeader)
-import           Pos.DB                         (MonadGState (..))
+                                                 IsHeader, IsBootstrapEraAddr (..), siEpoch)
+import           Pos.DB                         (MonadGState (..), gsIsBootstrapEra)
 import           Pos.DB.Block                   (dbGetBlockDefault, dbGetBlockSscDefault,
                                                  dbGetHeaderDefault,
                                                  dbGetHeaderSscDefault, dbGetUndoDefault,
@@ -155,6 +156,16 @@ type MonadWalletWebMode m =
     , HasUpdateConfiguration
     , m ~ WalletWebMode
     )
+
+-- AJ: Need to use unblocking getCurrentSlot? Also using 0 as default??
+getIsBootstrapEra ::
+    ( MonadSlots ctx m
+    , MonadGState m
+    )
+    => m IsBootstrapEraAddr
+getIsBootstrapEra = do
+    e <- maybe 0 siEpoch <$> getCurrentSlot
+    IsBootstrapEraAddr <$> gsIsBootstrapEra e
 
 instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx WalletWebMode)
       => MonadSlots ctx WalletWebMode

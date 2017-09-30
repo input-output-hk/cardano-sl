@@ -25,17 +25,20 @@ import           Pos.Communication              (SendActions (..), prepareMTx)
 import           Pos.Configuration              (HasNodeConfiguration)
 import           Pos.Core                       (Coin, HasConfiguration, addressF,
                                                  getCurrentTimestamp)
-import           Pos.Crypto                     (PassPhrase, hash, withSafeSigners)
+import           Pos.Crypto                     (PassPhrase, checkPassMatches, hash,
+                                                 withSafeSigners)
 import           Pos.Infra.Configuration        (HasInfraConfiguration)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                        (TxFee (..), Utxo, _txOutputs)
 import           Pos.Txp.Core                   (TxAux (..), TxOut (..))
 import           Pos.Util                       (eitherToThrow, maybeThrow)
 import           Pos.Update.Configuration       (HasUpdateConfiguration)
-import           Pos.Wallet.Web.Account         (GenSeed (..), getSKByAccAddr)
+import           Pos.Wallet.Web.Account         (GenSeed (..), getSKByAccAddr,
+                                                 getSKById)
 import           Pos.Wallet.Web.ClientTypes     (AccountId (..), Addr, CAddress (..),
-                                                 CCoin, CId, CTx (..), CWAddressMeta (..),
-                                                 Wal, addrMetaToAccount, mkCCoin)
+                                                 CCoin, CId, CTx (..),
+                                                 CWAddressMeta (..), Wal,
+                                                 addrMetaToAccount, mkCCoin)
 import           Pos.Wallet.Web.Error           (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTx)
 import qualified Pos.Wallet.Web.Methods.Logic   as L
@@ -47,7 +50,6 @@ import           Pos.Wallet.Web.State           (AddressLookupMode (Existing))
 import           Pos.Wallet.Web.Util            (decodeCTypeOrFail,
                                                  getAccountAddrsOrThrow,
                                                  getWalletAccountIds)
-
 
 newPayment
     :: MonadWalletWebMode m
@@ -137,17 +139,20 @@ sendMoney
     -> NonEmpty (CId Addr, Coin)
     -> m CTx
 sendMoney SendActions{..} passphrase moneySource dstDistr = do
+    let srcWallet = getMoneySourceWallet moneySource
+    rootSk <- getSKById srcWallet
+    checkPassMatches passphrase rootSk `whenNothing`
+        throwM (RequestError "Passphrase doesn't match")
+
     addrMetas' <- getMoneySourceAddresses moneySource
     addrMetas <- nonEmpty addrMetas' `whenNothing`
         throwM (RequestError "Given money source has no addresses!")
+
     sks <- forM addrMetas $ getSKByAccAddr passphrase
     srcAddrs <- forM addrMetas $ decodeCTypeOrFail . cwamId
 
-    withSafeSigners sks (pure passphrase) $ \mss -> do
-        ss <- maybeThrow (RequestError "Passphrase doesn't match") mss
-
+    withSafeSigners sks (pure passphrase) $ \ss -> do
         let hdwSigner = NE.zip ss srcAddrs
-            srcWallet = getMoneySourceWallet moneySource
 
         relatedAccount <- getSomeMoneySourceAccount moneySource
         outputs <- coinDistrToOutputs dstDistr

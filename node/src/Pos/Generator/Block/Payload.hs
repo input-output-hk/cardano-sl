@@ -210,8 +210,10 @@ genTxPayload = do
 
         -- Form a transaction
         let inputSKs = map addrToSk inputAddrs
-            hdwSigners = NE.fromList $ zip (map fakeSigner inputSKs) inputAddrs
-            makeTestTx = makeMPubKeyTxAddrs hdwSigners
+            signers = HM.fromList $ zip inputAddrs (map fakeSigner inputSKs)
+            getSigner addr =
+                fromMaybe (error "Requested signer for unknown address") $ HM.lookup addr signers
+            makeTestTx = makeMPubKeyTxAddrs (pure . getSigner)
 
         eTx <- lift . lift $
             createGenericTx makeTestTx ownUtxo txOutAuxs changeAddrData

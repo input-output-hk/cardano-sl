@@ -11,7 +11,6 @@ module Pos.Wallet.Web.Methods.Payment
 import           Universum
 
 import qualified Data.HashSet                     as HS
-import qualified Data.List.NonEmpty               as NE
 import           Formatting                       (sformat, (%))
 import qualified Formatting                       as F
 
@@ -26,7 +25,7 @@ import           Pos.Configuration                (HasNodeConfiguration)
 import           Pos.Core                         (Coin, HasConfiguration, addressF,
                                                    getCurrentTimestamp)
 import           Pos.Crypto                       (PassPhrase, checkPassMatches, hash,
-                                                   withSafeSigners)
+                                                   withSafeSigner)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                          (TxFee (..), Utxo, getUtxoModifier,
@@ -160,38 +159,44 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
     addrMetas <- nonEmpty addrMetas' `whenNothing`
         throwM (RequestError "Given money source has no addresses!")
 
-    sks <- forM addrMetas $ getSKByAddress passphrase
     srcAddrs <- forM addrMetas $ decodeCTypeOrFail . cwamId
+    let metasAndAdrresses = zip (toList addrMetas) (toList srcAddrs)
 
-    withSafeSigners sks (pure passphrase) $ \ss -> do
-        let hdwSigner = NE.zip ss srcAddrs
+    let getSinger addr = do
+          let addrMeta =
+                  fromMaybe (error "Corresponding adress meta not found")
+                            (fst <$> find ((== addr) . snd) metasAndAdrresses)
+          sk <- getSKByAddress passphrase addrMeta
 
-        relatedAccount <- getSomeMoneySourceAccount moneySource
-        outputs <- coinDistrToOutputs dstDistr
-        (th, dstAddrs) <-
-            rewrapTxError "Cannot send transaction" $ do
-                (txAux, inpTxOuts') <-
-                    prepareMTx hdwSigner outputs (relatedAccount, passphrase)
+          ss <- withSafeSigner sk (pure passphrase) pure
+          pure $ fromMaybe (error "Coudln't get safe signer") ss
 
-                ts <- Just <$> getCurrentTimestamp
-                let tx = taTx txAux
-                    txHash = hash tx
-                    inpTxOuts = toList inpTxOuts'
-                    dstAddrs  = map txOutAddress . toList $
-                                _txOutputs tx
-                    th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
-                ptx <- mkPendingTx srcWallet txHash txAux th
+    relatedAccount <- getSomeMoneySourceAccount moneySource
+    outputs <- coinDistrToOutputs dstDistr
+    (th, dstAddrs) <-
+        rewrapTxError "Cannot send transaction" $ do
+            (txAux, inpTxOuts') <-
+                prepareMTx getSinger srcAddrs outputs (relatedAccount, passphrase)
 
-                (th, dstAddrs) <$ submitAndSaveNewPtx enqueueMsg ptx
+            ts <- Just <$> getCurrentTimestamp
+            let tx = taTx txAux
+                txHash = hash tx
+                inpTxOuts = toList inpTxOuts'
+                dstAddrs  = map txOutAddress . toList $
+                            _txOutputs tx
+                th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
+            ptx <- mkPendingTx srcWallet txHash txAux th
 
-        logInfoS $
-            sformat ("Successfully spent money from "%
-                     listF ", " addressF % " addresses on " %
-                     listF ", " addressF)
-            (toList srcAddrs)
-            dstAddrs
+            (th, dstAddrs) <$ submitAndSaveNewPtx enqueueMsg ptx
 
-        addHistoryTx srcWallet th
+    logInfoS $
+        sformat ("Successfully spent money from "%
+                    listF ", " addressF % " addresses on " %
+                    listF ", " addressF)
+        (toList srcAddrs)
+        dstAddrs
+
+    addHistoryTx srcWallet th
   where
      -- TODO eliminate copy-paste
      listF separator formatter =

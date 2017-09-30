@@ -17,11 +17,12 @@ import qualified Pos.Txp                 as T
 import           Pos.Util                (SmallGenerator)
 
 import           Test.Pos.CborSpec       (extensionProperty)
-import           Test.Pos.Util           (binaryTest, giveInfraConf, giveCoreConf,
-                                          msgLenLimitedTest)
+import           Test.Pos.Util           (binaryTest, msgLenLimitedTest,
+                                          withDefConfiguration, withDefInfraConfiguration)
 
 spec :: Spec
-spec = giveInfraConf $ giveCoreConf $ describe "Txp (transaction processing) system" $ do
+spec = withDefInfraConfiguration $ withDefConfiguration $
+  describe "Txp (transaction processing) system" $ do
     describe "Bi instances" $ do
         describe "Core" $ do
             binaryTest @T.TxIn

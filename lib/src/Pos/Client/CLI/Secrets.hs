@@ -9,7 +9,7 @@ import           Data.List                  ((!!))
 import           Universum
 
 import           Pos.Core                   (HasConfiguration, generatedSecrets,
-                                             gsSecretKeys)
+                                             genesisSecrets)
 import           Pos.Crypto                 (SecretKey, keyGen, runSecureRandom,
                                              vssKeyGen)
 import           Pos.Util.UserSecret        (UserSecret, usPrimKey, usVss,
@@ -21,7 +21,7 @@ userSecretWithGenesisKey
     :: (HasConfiguration, MonadIO m) => CommonNodeArgs -> UserSecret -> m (SecretKey, UserSecret)
 userSecretWithGenesisKey CommonNodeArgs{..} userSecret
     | Just i <- devGenesisSecretI,
-      Just secretKeys <- gsSecretKeys <$> generatedSecrets = do
+      Just secretKeys <- genesisSecrets = do
         let sk = view _1 (secretKeys !! i)
             us = userSecret & usPrimKey .~ Just sk
         writeUserSecret us
@@ -35,7 +35,7 @@ updateUserSecretVSS
     :: (HasConfiguration, MonadIO m) => CommonNodeArgs -> UserSecret -> m UserSecret
 updateUserSecretVSS CommonNodeArgs{..} us
     | Just i <- devGenesisSecretI,
-      Just secretKeys <- gsSecretKeys <$> generatedSecrets =
+      Just secretKeys <- genesisSecrets =
         pure $ us & usVss .~ Just (view _3 $ secretKeys !! i)
     | Just _ <- devGenesisSecretI, Nothing <- generatedSecrets =
         error "devGenesisSecretI is specified, but secret keys are unknown.\n\

@@ -14,11 +14,12 @@ import           Pos.Binary              ()
 import qualified Pos.Communication.Relay as R
 import           Pos.Core                (StakeholderId)
 import qualified Pos.Ssc.GodTossing      as GT
-import           Test.Pos.Util           (binaryTest, giveInfraConf, giveCoreConf,
-                                          msgLenLimitedTest)
+import           Test.Pos.Util           (binaryTest, msgLenLimitedTest,
+                                          withDefConfiguration, withDefInfraConfiguration)
 
 spec :: Spec
-spec = giveInfraConf $ giveCoreConf $ describe "GodTossing" $ do
+spec = withDefInfraConfiguration $ withDefConfiguration $
+  describe "GodTossing" $ do
     describe "Bi instances" $ do
         binaryTest @GT.Commitment
         binaryTest @GT.CommitmentsMap

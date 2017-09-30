@@ -21,10 +21,10 @@ import           Pos.Core              (Coin, HasConfiguration, SharedSeed, Stak
 import           Pos.Crypto            (PublicKey)
 import           Pos.Lrc               (followTheSatoshi)
 
-import           Test.Pos.Util         (giveCoreConf, qcNotElem)
+import           Test.Pos.Util         (qcNotElem, withDefConfiguration)
 
 spec :: Spec
-spec = giveCoreConf $ do
+spec = withDefConfiguration $ do
     let smaller = modifyMaxSuccess (const 1)
     describe "Pos.Lrc.FtsPure" $ do
         describe "followTheSatoshi" $ do

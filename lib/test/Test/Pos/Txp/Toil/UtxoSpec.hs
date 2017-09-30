@@ -41,14 +41,14 @@ import           Pos.Txp               (MonadUtxoRead (utxoGet), ToilVerFailure 
                                         isTxInUnknown, verifyTxUtxo, verifyTxUtxoPure)
 import           Pos.Util              (SmallGenerator (..), nonrepeating, runGen)
 
-import           Test.Pos.Util         (giveCoreConf, qcIsLeft, qcIsRight)
+import           Test.Pos.Util         (qcIsLeft, qcIsRight, withDefConfiguration)
 
 ----------------------------------------------------------------------------
 -- Spec
 ----------------------------------------------------------------------------
 
 spec :: Spec
-spec = giveCoreConf $ describe "Txp.Toil.Utxo" $ do
+spec = withDefConfiguration $ describe "Txp.Toil.Utxo" $ do
     describe "utxoGet @((->) Utxo)" $ do
         it "returns Nothing when given empty Utxo" $
             isNothing (utxoGet myTx (mempty @Utxo))
@@ -244,8 +244,8 @@ applyTxToUtxoGood (txIn0, txOut0) txMap txOuts =
 -- Script Txs spec
 ----------------------------------------------------------------------------
 
-scriptTxSpec :: Spec
-scriptTxSpec = giveCoreConf $ describe "script transactions" $ do
+scriptTxSpec :: HasConfiguration => Spec
+scriptTxSpec = describe "script transactions" $ do
     describe "good cases" $ do
         it "goodIntRedeemer + intValidator" $ do
             txShouldSucceed $ checkScriptTx

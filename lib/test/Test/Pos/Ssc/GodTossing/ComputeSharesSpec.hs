@@ -27,10 +27,10 @@ import           Pos.Ssc.GodTossing    (SharesDistribution, TossVerFailure,
                                         isDistrInaccuracyAcceptable,
                                         sharesDistrMaxSumDistr)
 
-import           Test.Pos.Util         (giveCoreConf, qcIsLeft)
+import           Test.Pos.Util         (qcIsLeft, withDefConfiguration)
 
 spec :: Spec
-spec = giveCoreConf $ describe "computeSharesDistr" $ do
+spec = withDefConfiguration $ describe "computeSharesDistr" $ do
     prop emptyRichmenStakesDesc emptyRichmenStakes
     modifyMaxSuccess (const 3) $
         prop invalidStakeErrorsDesc invalidStakeErrors

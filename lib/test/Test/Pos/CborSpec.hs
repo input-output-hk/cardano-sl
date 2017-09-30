@@ -43,7 +43,7 @@ import           Pos.Core.Types                    (ScriptVersion)
 import           Pos.Data.Attributes               (Attributes (..), decodeAttributes,
                                                     encodeAttributes)
 
-import           Test.Pos.Util                     (binaryTest, giveCoreConf)
+import           Test.Pos.Util                     (binaryTest, withDefConfiguration)
 
 ----------------------------------------
 
@@ -306,7 +306,7 @@ testAgainstFile name x expected =
               Right actual -> x `shouldBe` actual
 
 spec :: Spec
-spec = giveCoreConf $ describe "Cbor.Bi instances" $ do
+spec = withDefConfiguration $ describe "Cbor.Bi instances" $ do
     modifyMaxSuccess (const 1000) $ do
         describe "Test instances" $ do
             prop "User" (let u1 = Login "asd" 34 in (unsafeDeserialize $ serialize u1) === u1)

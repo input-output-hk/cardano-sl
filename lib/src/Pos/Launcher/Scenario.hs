@@ -23,7 +23,7 @@ import           Pos.Communication        (ActionSpec (..), OutSpecs, WorkerSpec
 import           Pos.Context              (getOurPublicKey, ncNetworkConfig)
 import           Pos.Core                 (GenesisData (gdBootStakeholders),
                                            GenesisWStakeholders (..), addressHash,
-                                           bootDustThreshold, gdFtsSeed, genesisData)
+                                           gdFtsSeed, genesisData)
 import qualified Pos.DB.DB                as DB
 import           Pos.DHT.Real             (KademliaDHTInstance (..),
                                            kademliaJoinNetworkNoThrow,
@@ -36,6 +36,7 @@ import           Pos.Reporting            (reportError)
 import           Pos.Shutdown             (waitForShutdown)
 import           Pos.Slotting             (waitSystemStart)
 import           Pos.Ssc.Class            (SscConstraint)
+import           Pos.Txp                  (bootDustThreshold)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
                                            lastKnownBlockVersion, ourSystemTag)
 import           Pos.Util                 (inAssertMode)
@@ -80,7 +81,7 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
     logInfo $ sformat
         ("Genesis stakeholders ("%int%" addresses, dust threshold "%build%"): "%build)
         (length $ getGenesisWStakeholders genesisStakeholders)
-        (bootDustThreshold genesisStakeholders)
+        bootDustThreshold
         genesisStakeholders
     firstGenesisHash <- GS.getFirstGenesisBlockHash
     logInfo $ sformat

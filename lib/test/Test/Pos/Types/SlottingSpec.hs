@@ -15,10 +15,10 @@ import           Pos.Arbitrary.Core    (EoSToIntOverflow (..), UnreasonableEoS (
 import           Pos.Core              (HasConfiguration)
 import           Pos.Types             (EpochOrSlot, SlotId (..), flattenSlotId,
                                         unflattenSlotId)
-import           Test.Pos.Util         (giveCoreConf, shouldThrowException, (.=.))
+import           Test.Pos.Util         (shouldThrowException, withDefConfiguration, (.=.))
 
 spec :: Spec
-spec = giveCoreConf $ describe "Slotting" $ do
+spec = withDefConfiguration $ describe "Slotting" $ do
     describe "SlotId" $ do
         describe "Ord" $ do
             prop "is consistent with flatten/unflatten"

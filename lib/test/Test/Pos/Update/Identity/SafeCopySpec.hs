@@ -9,10 +9,10 @@ import           Universum
 
 import qualified Pos.Update    as U
 
-import           Test.Pos.Util (giveCoreConf, safeCopyTest)
+import           Test.Pos.Util (safeCopyTest, withDefConfiguration)
 
 spec :: Spec
-spec = giveCoreConf $ describe "Update system" $ do
+spec = withDefConfiguration $ describe "Update system" $ do
     describe "SafeCopy instances" $ do
         safeCopyTest @U.UpdateProposal
         safeCopyTest @U.UpdateVote

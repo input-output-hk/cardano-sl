@@ -3,11 +3,14 @@
 {-# LANGUAGE RankNTypes          #-}
 
 module Test.Pos.Util
-       ( giveCoreConf
-       , giveInfraConf
-       , giveNodeConf
-       , giveGtConf
-       , giveUpdateConf
+       ( HasStaticConfigurations
+       , withDefConfiguration
+       , withDefInfraConfiguration
+       , withDefNodeConfiguration
+       , withDefGtConfiguration
+       , withDefUpdateConfiguration
+       , withDefConfigurations
+       , withStaticConfigurations
 
        -- * From/to
        , binaryEncodeDecode
@@ -60,6 +63,16 @@ import           Data.Tagged                      (Tagged (..))
 import           Data.Typeable                    (typeRep)
 import           Formatting                       (formatToString, int, (%))
 import           Prelude                          (read)
+import           Test.Hspec                       (Expectation, Selector, Spec, describe,
+                                                   shouldThrow)
+import           Test.Hspec.QuickCheck            (modifyMaxSuccess, prop)
+import           Test.QuickCheck                  (Arbitrary (arbitrary), Property,
+                                                   conjoin, counterexample, forAll,
+                                                   property, resize, suchThat, vectorOf,
+                                                   (.&&.), (===))
+import           Test.QuickCheck.Gen              (choose)
+import           Test.QuickCheck.Monadic          (PropertyM, pick, stop)
+import           Test.QuickCheck.Property         (Result (..), failed)
 import qualified Text.JSON.Canonical              as CanonicalJSON
 
 import           Pos.Binary                       (AsBinaryClass (..), Bi (..), serialize,
@@ -75,34 +88,44 @@ import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration,
 import           Pos.Update.Configuration         (HasUpdateConfiguration,
                                                    withUpdateConfiguration)
 
-import           Test.Hspec                       (Expectation, Selector, Spec, describe,
-                                                   shouldThrow)
-import           Test.Hspec.QuickCheck            (modifyMaxSuccess, prop)
-import           Test.QuickCheck                  (Arbitrary (arbitrary), Property,
-                                                   conjoin, counterexample, forAll,
-                                                   property, resize, suchThat, vectorOf,
-                                                   (.&&.), (===))
-import           Test.QuickCheck.Gen              (choose)
-import           Test.QuickCheck.Monadic          (PropertyM, pick, stop)
-import           Test.QuickCheck.Property         (Result (..), failed)
+import           Pos.Launcher.Configuration       (Configuration (..), HasConfigurations)
 
-import           Pos.Launcher.Configuration       (Configuration (..))
-import           Test.Pos.Configuration           (testConf)
+import           Test.Pos.Configuration           (defaultTestConf)
 
-giveNodeConf :: (HasNodeConfiguration => r) -> r
-giveNodeConf = withNodeConfiguration (ccNode testConf)
+-- | This constraint requires all configurations which are not
+-- always hardcoded in tests (currently).
+type HasStaticConfigurations =
+    ( HasInfraConfiguration
+    , HasUpdateConfiguration
+    , HasGtConfiguration
+    , HasNodeConfiguration
+    )
 
-giveGtConf :: (HasGtConfiguration => r) -> r
-giveGtConf = withGtConfiguration (ccGt testConf)
+withDefNodeConfiguration :: (HasNodeConfiguration => r) -> r
+withDefNodeConfiguration = withNodeConfiguration (ccNode defaultTestConf)
 
-giveUpdateConf :: (HasUpdateConfiguration => r) -> r
-giveUpdateConf = withUpdateConfiguration (ccUpdate testConf)
+withDefGtConfiguration :: (HasGtConfiguration => r) -> r
+withDefGtConfiguration = withGtConfiguration (ccGt defaultTestConf)
 
-giveInfraConf :: (HasInfraConfiguration => r) -> r
-giveInfraConf = withInfraConfiguration (ccInfra testConf)
+withDefUpdateConfiguration :: (HasUpdateConfiguration => r) -> r
+withDefUpdateConfiguration = withUpdateConfiguration (ccUpdate defaultTestConf)
 
-giveCoreConf :: (HasConfiguration => r) -> r
-giveCoreConf = withGenesisSpec 0 (ccCore testConf)
+withDefInfraConfiguration :: (HasInfraConfiguration => r) -> r
+withDefInfraConfiguration = withInfraConfiguration (ccInfra defaultTestConf)
+
+withDefConfiguration :: (HasConfiguration => r) -> r
+withDefConfiguration = withGenesisSpec 0 (ccCore defaultTestConf)
+
+withStaticConfigurations :: (HasStaticConfigurations => r) -> r
+withStaticConfigurations patak =
+    withDefNodeConfiguration $
+    withDefGtConfiguration $
+    withDefUpdateConfiguration $
+    withDefInfraConfiguration patak
+
+withDefConfigurations :: (HasConfigurations => r) -> r
+withDefConfigurations bardaq =
+    withDefConfiguration $ withStaticConfigurations bardaq
 
 instance Arbitrary a => Arbitrary (Tagged s a) where
     arbitrary = Tagged <$> arbitrary

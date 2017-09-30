@@ -7,7 +7,6 @@ module Pos.Core.Genesis.Types
        , GenesisVssCertificatesMap (..)
        , noGenesisDelegation
        , mkGenesisDelegation
-       , bootDustThreshold
 
          -- * GenesisSpec
        , TestnetBalanceOptions (..)
@@ -32,7 +31,8 @@ import           Control.Lens             (at)
 import           Control.Monad.Except     (MonadError (throwError))
 import qualified Data.HashMap.Strict      as HM
 import qualified Data.Text.Buildable      as Buildable
-import           Formatting               (bprint, build, sformat, (%))
+import           Fmt                      (genericF)
+import           Formatting               (bprint, build, fixed, int, sformat, (%))
 import           Serokell.Util            (allDistinct, mapJson)
 
 import           Pos.Binary.Class         (Bi)
@@ -40,7 +40,7 @@ import           Pos.Core.Address         (addressHash, decodeTextAddress)
 import           Pos.Core.Coin            (unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Core.Types           (Address, BlockVersionData, Coin, ProxySKHeavy,
                                            SharedSeed, StakeholderId, Timestamp)
-import           Pos.Core.Vss.Types       (VssCertificatesMap)
+import           Pos.Core.Vss.Types       (VssCertificatesMap, getVssCertificatesMap)
 import           Pos.Crypto.Signing.Types (ProxySecretKey (..), RedeemPublicKey,
                                            isSelfSignedPsk)
 
@@ -53,6 +53,15 @@ newtype GenesisWStakeholders = GenesisWStakeholders
 instance Buildable GenesisWStakeholders where
     build (GenesisWStakeholders m) =
         bprint ("GenesisWStakeholders: "%mapJson) m
+
+-- | Predefined balances of non avvm entries.
+newtype GenesisVssCertificatesMap = GenesisVssCertificatesMap
+    { getGenesisVssCertificatesMap :: VssCertificatesMap
+    } deriving (Show, Eq, Monoid)
+
+instance Buildable GenesisVssCertificatesMap where
+    build (GenesisVssCertificatesMap m) =
+        bprint ("GenesisVssCertificatesMap: "%mapJson) (getVssCertificatesMap m)
 
 -- | This type contains genesis state of heavyweight delegation. It
 -- wraps a map where keys are issuers (i. e. stakeholders who
@@ -97,15 +106,6 @@ mkGenesisDelegation pskM = do
   where
     psks = toList pskM
 
--- | Calculates a minimum amount of coins user can set as an output in
--- boot era.
-bootDustThreshold :: GenesisWStakeholders -> Coin
-bootDustThreshold (GenesisWStakeholders bootHolders) =
-    -- it's safe to use it here because weights are word16 and should
-    -- be really low in production, so this sum is not going to be
-    -- even more than 10-15 coins.
-    unsafeIntegerToCoin . sum $ map fromIntegral $ toList bootHolders
-
 ----------------------------------------------------------------------------
 -- Genesis Spec
 ----------------------------------------------------------------------------
@@ -124,12 +124,30 @@ data TestnetBalanceOptions = TestnetBalanceOptions
     -- ^ Whether generate plain addresses or with hd payload.
     } deriving (Show)
 
+instance Buildable TestnetBalanceOptions where
+    build TestnetBalanceOptions {..} =
+        bprint
+            (int%" poor guys, "%
+             int%" rich guys , "%
+             "total balance is "%int%
+             ", richmen share is "%fixed 3%
+             " and useHDAddresses flag is " %build)
+
+            tboPoors
+            tboRichmen
+            tboTotalBalance
+            tboRichmenShare
+            tboUseHDAddresses
+
 -- | These options determines balances of fake AVVM nodes which didn't
 -- really go through vending, but pretend they did.
 data FakeAvvmOptions = FakeAvvmOptions
     { faoCount      :: !Word
     , faoOneBalance :: !Word64
-    } deriving (Show)
+    } deriving (Show, Generic)
+
+instance Buildable FakeAvvmOptions where
+    build = genericF
 
 -- | This data type determines how to generate bootstrap stakeholders
 -- in testnet.
@@ -142,7 +160,10 @@ data TestnetDistribution
     , tcsdVssCerts         :: !GenesisVssCertificatesMap
     -- ^ Vss certificates are provided explicitly too, because they
     -- can't be generated automatically in this case.
-    } deriving (Show)
+    } deriving (Show, Generic)
+
+instance Buildable TestnetDistribution where
+    build = genericF
 
 -- | This data type contains various options presense of which depends
 -- on whether we want genesis for mainnet or testnet.
@@ -162,20 +183,50 @@ data GenesisInitializer
     , miNonAvvmBalances  :: !GenesisNonAvvmBalances
     } deriving (Show)
 
+instance Bi Address => Buildable GenesisInitializer where
+    build =
+        \case
+            TestnetInitializer {..} ->
+                bprint
+                    ("TestnetInitializer {\n"%
+                     "  "%build%"\n"%
+                     "  "%build%"\n"%
+                     "  "%build%"\n"%
+                     "  seed: "%int%"\n"%
+                     "}\n"
+                    )
+
+                    tiTestBalance
+                    tiFakeAvvmBalance
+                    tiDistribution
+                    tiSeed
+            MainnetInitializer {..} ->
+                bprint
+                    ("MainnetInitializer {\n"%
+                     "  system start: "%build%"\n" %
+                     "  bootstrap stakeholders: "%build%"\n"%
+                     "  vss certificates: "%build%"\n"%
+                     "  non-avvm balances: "%build%"\n"%
+                     "}\n"
+                    )
+                    miStartTime
+                    miBootStakeholders
+                    miVssCerts
+                    miNonAvvmBalances
+
 -- | Predefined balances of avvm entries.
 newtype GenesisAvvmBalances = GenesisAvvmBalances
     { getGenesisAvvmBalances :: HashMap RedeemPublicKey Coin
     } deriving (Show, Eq, Monoid)
 
 -- | Predefined balances of non avvm entries.
-newtype GenesisVssCertificatesMap = GenesisVssCertificatesMap
-    { getGenesisVssCertificatesMap :: VssCertificatesMap
-    } deriving (Show, Eq, Monoid)
-
--- | Predefined balances of non avvm entries.
 newtype GenesisNonAvvmBalances = GenesisNonAvvmBalances
     { getGenesisNonAvvmBalances :: HashMap Address Coin
     } deriving (Show, Eq)
+
+instance Bi Address => Buildable GenesisNonAvvmBalances where
+    build (GenesisNonAvvmBalances m) =
+        bprint ("GenesisNonAvvmBalances: "%mapJson) m
 
 deriving instance Bi Address => Monoid GenesisNonAvvmBalances
 

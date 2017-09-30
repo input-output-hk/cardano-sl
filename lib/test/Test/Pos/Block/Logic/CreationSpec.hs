@@ -37,10 +37,12 @@ import           Pos.Update.Configuration   (HasUpdateConfiguration)
 import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Util                   (SmallGenerator (..), makeSmall)
 
-import           Test.Pos.Util              (giveCoreConf, giveUpdateConf)
+import           Test.Pos.Util              (withDefConfiguration,
+                                             withDefUpdateConfiguration)
 
 spec :: Spec
-spec = giveUpdateConf $ giveCoreConf $ describe "Block.Logic.Creation" $ do
+spec = withDefConfiguration $ withDefUpdateConfiguration $
+  describe "Block.Logic.Creation" $ do
 
     -- Sampling the minimum empty block size
     (sk0,prevHeader0) <- runIO $ generate arbitrary

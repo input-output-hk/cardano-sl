@@ -11,10 +11,10 @@ import           Test.Hspec    (Spec, describe)
 import qualified Pos.Core      as Core
 import qualified Pos.Txp       as Txp
 
-import           Test.Pos.Util (giveCoreConf, safeCopyTest)
+import           Test.Pos.Util (safeCopyTest, withDefConfiguration)
 
 spec :: Spec
-spec = giveCoreConf $ describe "Types" $ do
+spec = withDefConfiguration $ describe "Types" $ do
     describe "SafeCopy instances" $ do
         safeCopyTest @Core.EpochIndex
         safeCopyTest @Core.LocalSlotIndex

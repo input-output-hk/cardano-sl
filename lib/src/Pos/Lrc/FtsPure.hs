@@ -14,9 +14,9 @@ import qualified Data.Conduit.List   as CL
 import qualified Data.HashMap.Strict as HM
 import           Formatting          (int, sformat, (%))
 
-import           Pos.Core            (Coin, GenesisWStakeholders, HasConfiguration,
-                                      SharedSeed (..), SlotLeaders, StakeholderId,
-                                      coinToInteger, mkCoin, sumCoins)
+import           Pos.Core            (Coin, HasConfiguration, SharedSeed (..),
+                                      SlotLeaders, StakeholderId, coinToInteger, mkCoin,
+                                      sumCoins)
 import           Pos.Lrc.Fts         (followTheSatoshiM)
 import           Pos.Txp.Toil        (Utxo, utxoToStakes)
 
@@ -54,9 +54,8 @@ followTheSatoshi seed stakes
 
 followTheSatoshiUtxo ::
        HasConfiguration
-    => GenesisWStakeholders
-    -> SharedSeed
+    => SharedSeed
     -> Utxo
     -> SlotLeaders
-followTheSatoshiUtxo gws seed utxo =
-    followTheSatoshi seed $ HM.toList $ utxoToStakes gws utxo
+followTheSatoshiUtxo seed utxo =
+    followTheSatoshi seed $ HM.toList $ utxoToStakes utxo

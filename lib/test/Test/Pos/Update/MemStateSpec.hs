@@ -18,10 +18,10 @@ import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck       (Property, (.&&.), (==>))
 
-import           Test.Pos.Util         (giveCoreConf)
+import           Test.Pos.Util         (withDefConfiguration)
 
 spec :: Spec
-spec = giveCoreConf $ describe "MemState" $ do
+spec = withDefConfiguration $ describe "MemState" $ do
     describe "addToMemPool" $ do
         prop
             "applying an update payload to the mempool means all update votes are\

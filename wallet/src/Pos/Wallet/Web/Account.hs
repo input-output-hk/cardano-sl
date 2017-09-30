@@ -27,7 +27,8 @@ import           Universum
 
 import           Pos.Core                   (Address (..), IsBootstrapEraAddr (..),
                                              deriveLvl2KeyPair)
-import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase, isHardened)
+import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase,
+                                             ShouldCheckPassphrase (..), isHardened)
 import           Pos.Util                   (eitherToThrow, maybeThrow)
 import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Wallet.KeyStorage      (AllUserSecrets (..), MonadKeys, addSecretKey,
@@ -75,22 +76,24 @@ getSKByIdPure (AllUserSecrets secrets) wid =
 
 getSKByAddress
     :: AccountMode ctx m
-    => PassPhrase
+    => ShouldCheckPassphrase
+    -> PassPhrase
     -> CWAddressMeta
     -> m EncryptedSecretKey
-getSKByAddress passphrase addrMeta = do
+getSKByAddress scp passphrase addrMeta = do
     secrets <- getSecretKeys
-    runExceptT (getSKByAddressPure secrets passphrase addrMeta) >>= eitherToThrow
+    runExceptT (getSKByAddressPure secrets scp passphrase addrMeta) >>= eitherToThrow
 
 getSKByAddressPure
     :: MonadError WalletError m
     => AllUserSecrets
+    -> ShouldCheckPassphrase
     -> PassPhrase
     -> CWAddressMeta
     -> m EncryptedSecretKey
-getSKByAddressPure secrets passphrase addrMeta@CWAddressMeta {..} = do
+getSKByAddressPure secrets scp passphrase addrMeta@CWAddressMeta {..} = do
     (addr, addressKey) <-
-            deriveAddressSKPure secrets passphrase (addrMetaToAccount addrMeta) cwamAddressIndex
+            deriveAddressSKPure secrets scp passphrase (addrMetaToAccount addrMeta) cwamAddressIndex
     let accCAddr = addressToCId addr
     if accCAddr /= cwamId
              -- if you see this error, maybe you generated public key address with
@@ -174,26 +177,29 @@ genUniqueAddress genSeed passphrase wCAddr@AccountId{..} =
 
 deriveAddressSK
     :: AccountMode ctx m
-    => PassPhrase
-    -> AccountId
-    -> Word32
-    -> m (Address, EncryptedSecretKey)
-deriveAddressSK passphrase accId addressIndex = do
-    secrets <- getSecretKeys
-    runExceptT (deriveAddressSKPure secrets passphrase accId addressIndex) >>= eitherToThrow
-
-deriveAddressSKPure
-    :: MonadError WalletError m
-    => AllUserSecrets
+    => ShouldCheckPassphrase
     -> PassPhrase
     -> AccountId
     -> Word32
     -> m (Address, EncryptedSecretKey)
-deriveAddressSKPure secrets passphrase AccountId {..} addressIndex = do
+deriveAddressSK scp passphrase accId addressIndex = do
+    secrets <- getSecretKeys
+    runExceptT (deriveAddressSKPure secrets scp passphrase accId addressIndex) >>= eitherToThrow
+
+deriveAddressSKPure
+    :: MonadError WalletError m
+    => AllUserSecrets
+    -> ShouldCheckPassphrase
+    -> PassPhrase
+    -> AccountId
+    -> Word32
+    -> m (Address, EncryptedSecretKey)
+deriveAddressSKPure secrets scp passphrase AccountId {..} addressIndex = do
     key <- getSKByIdPure secrets aiWId
     maybe (throwError badPass) pure $
         deriveLvl2KeyPair
             (IsBootstrapEraAddr True) -- TODO: make it context-dependent!
+            scp
             passphrase
             key
             aiIndex
@@ -208,7 +214,7 @@ deriveAddress
     -> Word32
     -> m CWAddressMeta
 deriveAddress passphrase accId@AccountId{..} cwamAddressIndex = do
-    (addr, _) <- deriveAddressSK passphrase accId cwamAddressIndex
+    (addr, _) <- deriveAddressSK (ShouldCheckPassphrase True) passphrase accId cwamAddressIndex
     let cwamWId         = aiWId
         cwamAccountIndex = aiIndex
         cwamId          = addressToCId addr

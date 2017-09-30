@@ -25,7 +25,8 @@ import           Pos.Communication              (SendActions (..), prepareMTx)
 import           Pos.Configuration              (HasNodeConfiguration)
 import           Pos.Core                       (Coin, HasConfiguration, addressF,
                                                  getCurrentTimestamp)
-import           Pos.Crypto                     (PassPhrase, checkPassMatches, hash,
+import           Pos.Crypto                     (PassPhrase, ShouldCheckPassphrase (..),
+                                                 checkPassMatches, hash,
                                                  withSafeSignerUnsafe)
 import           Pos.Infra.Configuration        (HasInfraConfiguration)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
@@ -157,7 +158,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
           let addrMeta =
                   fromMaybe (error "Corresponding adress meta not found")
                             (fst <$> find ((== addr) . snd) metasAndAdrresses)
-          case runExcept $ getSKByAddressPure allSecrets passphrase addrMeta of
+          case runExcept $ getSKByAddressPure allSecrets (ShouldCheckPassphrase False) passphrase addrMeta of
               Left err -> error $ "Couldn't generate safe signer for address: " <> show err
               Right sk -> withSafeSignerUnsafe sk (pure passphrase) pure
 

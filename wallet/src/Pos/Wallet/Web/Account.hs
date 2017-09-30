@@ -25,7 +25,8 @@ import           Universum
 
 import           Pos.Core                   (Address (..), IsBootstrapEraAddr (..),
                                              deriveLvl2KeyPair)
-import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase, isHardened)
+import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase,
+                                             ShouldCheckPassphrase (..), isHardened)
 import           Pos.Util                   (maybeThrow)
 import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Wallet.KeyStorage      (MonadKeys, addSecretKey, getSecretKeys)
@@ -63,12 +64,13 @@ getSKById wid = do
 
 getSKByAddress
     :: AccountMode ctx m
-    => PassPhrase
+    => ShouldCheckPassphrase
+    -> PassPhrase
     -> CWAddressMeta
     -> m EncryptedSecretKey
-getSKByAddress passphrase addrMeta@CWAddressMeta {..} = do
+getSKByAddress scp passphrase addrMeta@CWAddressMeta {..} = do
     (addr, addressKey) <-
-        deriveAddressSK passphrase (addrMetaToAccount addrMeta) cwamAddressIndex
+        deriveAddressSK scp passphrase (addrMetaToAccount addrMeta) cwamAddressIndex
     let accCAddr = addressToCId addr
     if accCAddr /= cwamId
              -- if you see this error, maybe you generated public key address with
@@ -152,15 +154,17 @@ genUniqueAddress genSeed passphrase wCAddr@AccountId{..} =
 
 deriveAddressSK
     :: AccountMode ctx m
-    => PassPhrase
+    => ShouldCheckPassphrase
+    -> PassPhrase
     -> AccountId
     -> Word32
     -> m (Address, EncryptedSecretKey)
-deriveAddressSK passphrase AccountId {..} addressIndex = do
+deriveAddressSK scp passphrase AccountId {..} addressIndex = do
     key <- getSKById aiWId
     maybeThrow badPass $
         deriveLvl2KeyPair
             (IsBootstrapEraAddr True) -- TODO: make it context-dependent!
+            scp
             passphrase
             key
             aiIndex
@@ -175,7 +179,7 @@ deriveAddress
     -> Word32
     -> m CWAddressMeta
 deriveAddress passphrase accId@AccountId{..} cwamAddressIndex = do
-    (addr, _) <- deriveAddressSK passphrase accId cwamAddressIndex
+    (addr, _) <- deriveAddressSK (ShouldCheckPassphrase True) passphrase accId cwamAddressIndex
     let cwamWId         = aiWId
         cwamAccountIndex = aiIndex
         cwamId          = addressToCId addr

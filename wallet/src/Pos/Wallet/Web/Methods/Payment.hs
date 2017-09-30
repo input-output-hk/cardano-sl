@@ -24,7 +24,8 @@ import           Pos.Communication                (SendActions (..), prepareMTx)
 import           Pos.Configuration                (HasNodeConfiguration)
 import           Pos.Core                         (Coin, HasConfiguration, addressF,
                                                    getCurrentTimestamp)
-import           Pos.Crypto                       (PassPhrase, checkPassMatches, hash,
+import           Pos.Crypto                       (PassPhrase, ShouldCheckPassphrase (..),
+                                                   checkPassMatches, hash,
                                                    withSafeSignerUnsafe)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
@@ -166,7 +167,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
           let addrMeta =
                   fromMaybe (error "Corresponding adress meta not found")
                             (fst <$> find ((== addr) . snd) metasAndAdrresses)
-          sk <- getSKByAddress passphrase addrMeta
+          sk <- getSKByAddress (ShouldCheckPassphrase False) passphrase addrMeta
           withSafeSignerUnsafe sk (pure passphrase) pure
 
     relatedAccount <- getSomeMoneySourceAccount moneySource

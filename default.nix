@@ -15,7 +15,7 @@ with pkgs.haskell.lib;
 
 let
   addConfigureFlags = flags: drv: overrideCabal drv (drv: {
-    configureFlags = flags;
+    configureFlags = (drv.configureFlags or []) ++ flags;
   });
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
     overrides = self: super: {

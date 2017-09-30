@@ -99,14 +99,12 @@ getLastTransactions = gsGetBi lastTxsPrefix
 
 prepareExplorerDB :: (MonadReader ctx m, MonadDB m) => m ()
 prepareExplorerDB = do
-    explorerDBInitialized <- explorerDBInitializedM
-    if not explorerDBInitialized then do
+    unlessM balancesInitializedM $ do
         let GenesisUtxo utxo = genesisUtxo
             addressCoinPairs = utxoToAddressCoinPairs utxo
         putGenesisBalances addressCoinPairs
-        putGenesisUtxoSum addressCoinPairs
         putInitFlag
-    else do
+    unlessM utxoSumInitializedM $ do
         -- Smooth migration for CSE-228.
         unlessM utxoSumInitializedM $ do
             putCurrentUtxoSum
@@ -114,8 +112,8 @@ prepareExplorerDB = do
 balancesInitFlag :: ByteString
 balancesInitFlag = "e/init/"
 
-explorerDBInitializedM :: MonadDBRead m => m Bool
-explorerDBInitializedM = isJust <$> dbGet GStateDB balancesInitFlag
+balancesInitializedM :: MonadDBRead m => m Bool
+balancesInitializedM = isJust <$> dbGet GStateDB balancesInitFlag
 
 putInitFlag :: MonadDB m => m ()
 putInitFlag = gsPutBi balancesInitFlag True
@@ -125,11 +123,6 @@ putGenesisBalances addressCoinPairs = writeBatchGState putAddrBalancesOp
   where
     putAddrBalancesOp :: [ExplorerOp]
     putAddrBalancesOp = map (uncurry PutAddrBalance) addressCoinPairs
-
-putGenesisUtxoSum :: MonadDB m => [(Address, Coin)] -> m ()
-putGenesisUtxoSum addressCoinPairs = do
-    let utxoSum = sumCoins $ map snd addressCoinPairs
-    writeBatchGState [PutUtxoSum utxoSum]
 
 utxoSumInitializedM :: MonadDBRead m => m Bool
 utxoSumInitializedM = isJust <$> dbGet GStateDB utxoSumPrefix

@@ -4924,14 +4924,14 @@ self: {
           description = "A typeclass and set of functions for working with newtypes, with generics support";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      node-sketch = callPackage ({ aeson, async, attoparsec, base, binary, bytestring, containers, cryptonite, data-default, deepseq, ekg-core, exceptions, fetchgit, formatting, hashable, kademlia, lens, lifted-base, log-warper, mkDerivation, mmorph, monad-control, mtl, mwc-random, network, network-transport, network-transport-tcp, random, resourcet, semigroups, serokell-util, statistics, stdenv, stm, tagged, text, text-format, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector }:
+      node-sketch = callPackage ({ QuickCheck, aeson, async, attoparsec, base, binary, bytestring, containers, cryptonite, data-default, deepseq, ekg-core, exceptions, fetchgit, formatting, hashable, kademlia, lens, lifted-base, log-warper, mkDerivation, mmorph, monad-control, mtl, mwc-random, network, network-transport, network-transport-tcp, random, resourcet, semigroups, serokell-util, statistics, stdenv, stm, tagged, text, text-format, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector }:
       mkDerivation {
           pname = "node-sketch";
           version = "0.2.0.0";
           src = fetchgit {
             url = "https://github.com/serokell/time-warp-nt.git";
-            sha256 = "126gzaljqqb08dh3wlal7wbqydafgzc5zhq063frrcld8b7ayjzm";
-            rev = "e4df104bc68e019422034568cae476f28d145c40";
+            sha256 = "0yi9aj9kxc9p2gdkhq5lxmjvrl9jyrwq3c4x0fvykp9m3lzqjppz";
+            rev = "438854c998f0c14b6d76d545a52ef501c74585fc";
           };
           isLibrary = true;
           isExecutable = true;
@@ -4961,6 +4961,7 @@ self: {
             network
             network-transport
             network-transport-tcp
+            QuickCheck
             random
             resourcet
             semigroups

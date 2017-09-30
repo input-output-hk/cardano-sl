@@ -25,7 +25,7 @@ import           Pos.Configuration                (HasNodeConfiguration)
 import           Pos.Core                         (Coin, HasConfiguration, addressF,
                                                    getCurrentTimestamp)
 import           Pos.Crypto                       (PassPhrase, checkPassMatches, hash,
-                                                   withSafeSigner)
+                                                   withSafeSignerUnsafe)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                          (TxFee (..), Utxo, getUtxoModifier,
@@ -167,9 +167,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
                   fromMaybe (error "Corresponding adress meta not found")
                             (fst <$> find ((== addr) . snd) metasAndAdrresses)
           sk <- getSKByAddress passphrase addrMeta
-
-          ss <- withSafeSigner sk (pure passphrase) pure
-          pure $ fromMaybe (error "Coudln't get safe signer") ss
+          withSafeSignerUnsafe sk (pure passphrase) pure
 
     relatedAccount <- getSomeMoneySourceAccount moneySource
     outputs <- coinDistrToOutputs dstDistr

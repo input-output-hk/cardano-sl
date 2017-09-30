@@ -42,8 +42,8 @@ import qualified Pos.Util.Modifier          as MM
 import           Pos.Util.Servant           (encodeCType)
 import           Pos.Wallet.KeyStorage      (addSecretKey, deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.WalletMode      (getBalance)
-import           Pos.Wallet.Web.Account     (AddrGenSeed, genUniqueAccountAddress,
-                                             genUniqueAccountId, getAddrIdx, getSKById)
+import           Pos.Wallet.Web.Account     (AddrGenSeed, genUniqueAccountId,
+                                             genUniqueAddress, getAddrIdx, getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..),
                                              CAccountInit (..), CAccountMeta (..),
                                              CAddress (..), CId, CWAddressMeta (..),
@@ -166,7 +166,7 @@ newAddress addGenSeed passphrase accId =
         -- check whether account exists
         _ <- getAccount accMod accId
 
-        cAccAddr <- genUniqueAccountAddress addGenSeed passphrase accId
+        cAccAddr <- genUniqueAddress addGenSeed passphrase accId
         addWAddress cAccAddr
         getWAddress accMod cAccAddr
 

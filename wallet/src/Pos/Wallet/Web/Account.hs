@@ -4,12 +4,12 @@ module Pos.Wallet.Web.Account
        ( myRootAddresses
        , getAddrIdx
        , getSKById
-       , getSKByAccAddr
+       , getSKByAddress
        , genSaveRootKey
        , genUniqueAccountId
-       , genUniqueAccountAddress
-       , deriveAccountSK
-       , deriveAccountAddress
+       , genUniqueAddress
+       , deriveAddressSK
+       , deriveAddress
        , AccountMode
        , GenSeed (..)
        , AddrGenSeed
@@ -47,8 +47,9 @@ myRootAddresses = encToCId <<$>> getSecretKeys
 
 getAddrIdx :: AccountMode ctx m => CId Wal -> m Int
 getAddrIdx addr = elemIndex addr <$> myRootAddresses >>= maybeThrow notFound
-  where notFound =
-          RequestError $ sformat ("No wallet with address "%build%" found") addr
+  where
+    notFound =
+        RequestError $ sformat ("No wallet with address "%build%" found") addr
 
 getSKById
     :: AccountMode ctx m
@@ -60,21 +61,21 @@ getSKById wid = do
   where notFound =
           RequestError $ sformat ("No wallet with address "%build%" found") wid
 
-getSKByAccAddr
+getSKByAddress
     :: AccountMode ctx m
     => PassPhrase
     -> CWAddressMeta
     -> m EncryptedSecretKey
-getSKByAccAddr passphrase addrMeta@CWAddressMeta {..} = do
-    (addr, accKey) <-
-        deriveAccountSK passphrase (addrMetaToAccount addrMeta) cwamAccountIndex
+getSKByAddress passphrase addrMeta@CWAddressMeta {..} = do
+    (addr, addressKey) <-
+        deriveAddressSK passphrase (addrMetaToAccount addrMeta) cwamAddressIndex
     let accCAddr = addressToCId addr
     if accCAddr /= cwamId
              -- if you see this error, maybe you generated public key address with
              -- no hd wallet attribute (if so, address would be ~half shorter than
              -- others)
         then throwM . InternalError $ "Account is contradictory!"
-        else return accKey
+        else pure addressKey
 
 genSaveRootKey
     :: AccountMode ctx m
@@ -136,26 +137,26 @@ genUniqueAccountId genSeed wsCAddr =
   where
     notFit _idx addr = isJust <$> getAccountMeta addr
 
-genUniqueAccountAddress
+genUniqueAddress
     :: AccountMode ctx m
     => AddrGenSeed
     -> PassPhrase
     -> AccountId
     -> m CWAddressMeta
-genUniqueAccountAddress genSeed passphrase wCAddr@AccountId{..} =
-    generateUnique "address generation" genSeed mkAccount notFit
+genUniqueAddress genSeed passphrase wCAddr@AccountId{..} =
+    generateUnique "address generation" genSeed mkAddress notFit
   where
-    mkAccount cwamAccountIndex =
-        deriveAccountAddress passphrase wCAddr cwamAccountIndex
+    mkAddress cwamAddressIndex =
+        deriveAddress passphrase wCAddr cwamAddressIndex
     notFit _idx addr = doesWAddressExist Ever addr
 
-deriveAccountSK
+deriveAddressSK
     :: AccountMode ctx m
     => PassPhrase
     -> AccountId
     -> Word32
     -> m (Address, EncryptedSecretKey)
-deriveAccountSK passphrase AccountId {..} accIndex = do
+deriveAddressSK passphrase AccountId {..} addressIndex = do
     key <- getSKById aiWId
     maybeThrow badPass $
         deriveLvl2KeyPair
@@ -163,20 +164,20 @@ deriveAccountSK passphrase AccountId {..} accIndex = do
             passphrase
             key
             aiIndex
-            accIndex
+            addressIndex
   where
     badPass = RequestError "Passphrase doesn't match"
 
-deriveAccountAddress
+deriveAddress
     :: AccountMode ctx m
     => PassPhrase
     -> AccountId
     -> Word32
     -> m CWAddressMeta
-deriveAccountAddress passphrase accId@AccountId{..} cwamAccountIndex = do
-    (addr, _) <- deriveAccountSK passphrase accId cwamAccountIndex
+deriveAddress passphrase accId@AccountId{..} cwamAddressIndex = do
+    (addr, _) <- deriveAddressSK passphrase accId cwamAddressIndex
     let cwamWId         = aiWId
-        cwamWalletIndex = aiIndex
+        cwamAccountIndex = aiIndex
         cwamId          = addressToCId addr
     return CWAddressMeta{..}
 

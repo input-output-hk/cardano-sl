@@ -171,7 +171,7 @@ mkCTx diff THEntry {..} meta pc wAddrMetas = do
 addrMetaToAccount :: CWAddressMeta -> AccountId
 addrMetaToAccount CWAddressMeta{..} = AccountId
     { aiWId  = cwamWId
-    , aiIndex = cwamWalletIndex
+    , aiIndex = cwamAccountIndex
     }
 
 mkCCoin :: Coin -> CCoin

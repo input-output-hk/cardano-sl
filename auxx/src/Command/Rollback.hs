@@ -16,6 +16,7 @@ import           Pos.Binary                       (serialize)
 import           Pos.Block.Core                   (mainBlockTxPayload)
 import           Pos.Block.Logic                  (BypassSecurityCheck (..),
                                                    rollbackBlocksUnsafe)
+import           Pos.Block.Slog                   (ShouldCallBListener (..))
 import           Pos.Block.Types                  (Blund)
 import           Pos.Core                         (HasConfiguration, difficultyL,
                                                    epochIndexL)
@@ -57,7 +58,7 @@ rollbackAndDump numToRollback outFile = do
             liftIO $ BSL.writeFile outFile (serialize allTxs)
             logInfo $ sformat ("Dumped "%int%" transactions to "%string)
                       (length allTxs) (outFile)
-            rollbackBlocksUnsafe (BypassSecurityCheck True) blunds
+            rollbackBlocksUnsafe (BypassSecurityCheck True) (ShouldCallBListener True) blunds
             logInfo $ sformat ("Rolled back "%int%" blocks") (length blunds)
             printTipDifficulty
   where

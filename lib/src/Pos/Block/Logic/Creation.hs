@@ -30,7 +30,7 @@ import           Pos.Block.Logic.Internal   (MonadBlockApply, applyBlocksUnsafe,
                                              normalizeMempool)
 import           Pos.Block.Logic.Util       (calcChainQualityM)
 import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
-import           Pos.Block.Slog             (HasSlogGState (..))
+import           Pos.Block.Slog             (HasSlogGState (..), ShouldCallBListener (..))
 import           Pos.Context                (HasPrimaryKey, getOurSecretKey,
                                              lrcActionOnEpochReason)
 import           Pos.Core                   (Blockchain (..), EpochIndex,
@@ -158,7 +158,7 @@ createGenesisBlockDo epoch = do
             Left err -> reportFatalError $ pretty err
             Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
-                applyBlocksUnsafe (one (Left blk, undo)) (Just pollModifier)
+                applyBlocksUnsafe (ShouldCallBListener True) (one (Left blk, undo)) (Just pollModifier)
                 normalizeMempool
                 pure (newTip, Just blk)
     logShouldNot =
@@ -351,6 +351,7 @@ applyCreatedBlock pske createdBlock = applyCreatedBlockDo False createdBlock
             Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
                 applyBlocksUnsafe
+                    (ShouldCallBListener True)
                     (one (Right blockToApply, undo))
                     (Just pollModifier)
                 normalizeMempool

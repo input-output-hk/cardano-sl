@@ -158,7 +158,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
         addrMetas' = filter (flip HS.member addrsWithMoney . cwamId) addrMetas''
 
     addrMetas <- nonEmpty addrMetas' `whenNothing`
-        throwM (RequestError "Given money source has no addresses with money!")
+        throwM (RequestError "Given money source has no addresses!")
 
     sks <- forM addrMetas $ getSKByAccAddr passphrase
     srcAddrs <- forM addrMetas $ decodeCTypeOrFail . cwamId

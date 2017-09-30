@@ -7,6 +7,7 @@ module Pos.Crypto.Signing.Safe
        , safeKeyGen
        , safeDeterministicKeyGen
        , withSafeSigner
+       , withSafeSignerUnsafe
        , withSafeSigners
        , fakeSigner
        , safeCreateProxyCert
@@ -123,6 +124,17 @@ withSafeSigner sk ppGetter action = do
     pp <- ppGetter
     withSafeSigners (Identity sk) (pure pp) $
         action . (checkPassMatches pp sk $>) . runIdentity
+
+-- This function is like @withSafeSigner@ but doesn't check @checkPassMatches@
+withSafeSignerUnsafe
+    :: (Monad m, Bi PassPhrase)
+    => EncryptedSecretKey
+    -> m PassPhrase
+    -> (SafeSigner -> m a)
+    -> m a
+withSafeSignerUnsafe sk ppGetter action = do
+    pp <- ppGetter
+    withSafeSigners (Identity sk) (pure pp) $ action . runIdentity
 
 -- | We need this to be able to perform signing with unencrypted `SecretKey`s,
 -- where `SafeSigner` is required

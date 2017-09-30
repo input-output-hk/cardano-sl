@@ -33,7 +33,7 @@ import           Pos.Txp                        (TxFee (..), Utxo, _txOutputs)
 import           Pos.Txp.Core                   (TxAux (..), TxOut (..))
 import           Pos.Util                       (eitherToThrow, maybeThrow)
 import           Pos.Update.Configuration       (HasUpdateConfiguration)
-import           Pos.Wallet.Web.Account         (GenSeed (..), getSKByAccAddr,
+import           Pos.Wallet.Web.Account         (GenSeed (..), getSKByAddress,
                                                  getSKById)
 import           Pos.Wallet.Web.ClientTypes     (AccountId (..), Addr, CAddress (..),
                                                  CCoin, CId, CTx (..),
@@ -148,7 +148,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
     addrMetas <- nonEmpty addrMetas' `whenNothing`
         throwM (RequestError "Given money source has no addresses!")
 
-    sks <- forM addrMetas $ getSKByAccAddr passphrase
+    sks <- forM addrMetas $ getSKByAddress passphrase
     srcAddrs <- forM addrMetas $ decodeCTypeOrFail . cwamId
 
     withSafeSigners sks (pure passphrase) $ \ss -> do

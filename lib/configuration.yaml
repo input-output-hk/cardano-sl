@@ -293,6 +293,7 @@ mainnet_base: &mainnet_base
     recoveryHeadersMessage: 2200 # should be greater than k
     messageCacheTimeout: 30
     networkConnectionTimeout: 2000
+    conversationEstablishTimeout: 30000
     blockRetrievalQueueSize: 100
     propagationQueueSize: 100
     pendingTxResubmissionPeriod: 7 # seconds

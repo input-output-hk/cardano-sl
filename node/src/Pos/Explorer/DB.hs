@@ -32,7 +32,7 @@ import           System.Wlog                  (WithLogger, logError)
 
 import           Pos.Binary.Class             (UnsignedVarInt (..), serialize')
 import           Pos.Core                     (Address, Coin, EpochIndex, HeaderHash,
-                                               coinToInteger, sumCoins, unsafeAddCoin)
+                                               coinToInteger, unsafeAddCoin)
 import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.DB                       (DBError (..), DBIteratorClass (..),
                                                DBTag (GStateDB), MonadDB,
@@ -104,10 +104,9 @@ prepareExplorerDB = do
             addressCoinPairs = utxoToAddressCoinPairs utxo
         putGenesisBalances addressCoinPairs
         putInitFlag
+    -- Smooth migration for CSE-228.
     unlessM utxoSumInitializedM $ do
-        -- Smooth migration for CSE-228.
-        unlessM utxoSumInitializedM $ do
-            putCurrentUtxoSum
+        putCurrentUtxoSum
 
 balancesInitFlag :: ByteString
 balancesInitFlag = "e/init/"

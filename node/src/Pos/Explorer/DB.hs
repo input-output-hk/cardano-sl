@@ -258,7 +258,9 @@ blockPagePrefix page = "e/page/" <> encodedPage
     encodedPage = serialize' $ UnsignedVarInt page
 
 blockEpochPrefix :: Epoch -> Page -> ByteString
-blockEpochPrefix epoch page = "e/epoch/" <> serialize' epoch <> "/" <> serialize' page
+blockEpochPrefix epoch page = "e/epoch/" <> serialize' epoch <> "/" <> encodedPage
+  where
+    encodedPage = serialize' $ UnsignedVarInt page
 
 lastTxsPrefix :: ByteString
 lastTxsPrefix = "e/ltxs/"

@@ -660,7 +660,7 @@ epochPageSearch epochIndex mPage = do
     blunds          <- forM epochBlocksHH getBlundOrThrow
     cBlocksEntry    <- forM (rights' blunds) toBlockEntry
 
-    pure (1, cBlocksEntry)
+    pure (2160, cBlocksEntry)
   where
     rights' x = [(mb, u) | (Right mb, u) <- x]
 

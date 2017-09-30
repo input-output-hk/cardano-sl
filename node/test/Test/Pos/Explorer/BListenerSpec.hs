@@ -56,20 +56,18 @@ verifyEmptyMainBlockExplorer = do
 verifyValidBlocksExplorer
     :: HasVarSpecConfigurations => BlockProperty ()
 verifyValidBlocksExplorer = do
+
     let blockCount :: Int
         blockCount = 100
+
     bpGoToArbitraryState
+
     blocks <-
         map fst . toList <$>
         bpGenBlocks (Just $ BlockCount $ fromIntegral blockCount) (EnableTxPayload False) (InplaceDB False)
     pre (not $ null blocks)
-    -- let findMaxEpoch block maxEpoch = if block ^. epochIndexL > maxEpoch
-    --     then block ^. epochIndexL
-    --     else maxEpoch
-    -- let (EpochIndex maxEpoch) = foldr findMaxEpoch (EpochIndex 0) blocks
 
-    let epochBlocksMap = epochPagedBlocksMap $ NE.fromList blocks
+    let epochBlocksMap   = epochPagedBlocksMap $ NE.fromList blocks
+
     assert $ (length $ fst <$> keys epochBlocksMap) == 10
     assert $ (length $ snd <$> keys epochBlocksMap) == 10
-
-    assert $ (length $ elems epochBlocksMap) == 100

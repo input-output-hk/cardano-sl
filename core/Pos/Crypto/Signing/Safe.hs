@@ -104,7 +104,7 @@ safeToPublic (FakeSigner sk)   = toPublic sk
 -- we can manually cleanup all IO buffers we use to store passphrase
 -- (when we'll actually use them)
 withSafeSigners
-    :: (MonadIO m, Bi PassPhrase, Traversable t)
+    :: (Monad m, Bi PassPhrase, Traversable t)
     => t EncryptedSecretKey
     -> m PassPhrase
     -> (t SafeSigner -> m a) -> m a
@@ -114,7 +114,7 @@ withSafeSigners sks ppGetter action = do
     action mss
 
 withSafeSigner
-    :: (MonadIO m, Bi PassPhrase)
+    :: (Monad m, Bi PassPhrase)
     => EncryptedSecretKey
     -> m PassPhrase
     -> (Maybe SafeSigner -> m a)

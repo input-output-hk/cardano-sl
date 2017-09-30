@@ -10,7 +10,7 @@ module Pos.Wallet.Web.Methods.Payment
 
 import           Universum
 
-import qualified Data.List.NonEmpty             as NE
+import           Control.Monad.Except           (runExcept)
 import           Formatting                     (sformat, (%))
 import qualified Formatting                     as F
 import           System.Wlog                    (logInfo)
@@ -26,14 +26,15 @@ import           Pos.Configuration              (HasNodeConfiguration)
 import           Pos.Core                       (Coin, HasConfiguration, addressF,
                                                  getCurrentTimestamp)
 import           Pos.Crypto                     (PassPhrase, checkPassMatches, hash,
-                                                 withSafeSigners)
+                                                 withSafeSigner)
 import           Pos.Infra.Configuration        (HasInfraConfiguration)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                        (TxFee (..), Utxo, _txOutputs)
 import           Pos.Txp.Core                   (TxAux (..), TxOut (..))
 import           Pos.Util                       (eitherToThrow, maybeThrow)
 import           Pos.Update.Configuration       (HasUpdateConfiguration)
-import           Pos.Wallet.Web.Account         (GenSeed (..), getSKByAddress,
+import           Pos.Wallet.KeyStorage          (getSecretKeys)
+import           Pos.Wallet.Web.Account         (GenSeed (..), getSKByAddressPure,
                                                  getSKById)
 import           Pos.Wallet.Web.ClientTypes     (AccountId (..), Addr, CAddress (..),
                                                  CCoin, CId, CTx (..),
@@ -148,38 +149,44 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
     addrMetas <- nonEmpty addrMetas' `whenNothing`
         throwM (RequestError "Given money source has no addresses!")
 
-    sks <- forM addrMetas $ getSKByAddress passphrase
     srcAddrs <- forM addrMetas $ decodeCTypeOrFail . cwamId
+    let metasAndAdrresses = zip (toList addrMetas) (toList srcAddrs)
+    allSecrets <- getSecretKeys
 
-    withSafeSigners sks (pure passphrase) $ \ss -> do
-        let hdwSigner = NE.zip ss srcAddrs
+    let getSinger addr = runIdentity $ do
+          let addrMeta =
+                  fromMaybe (error "Corresponding adress meta not found")
+                            (fst <$> find ((== addr) . snd) metasAndAdrresses)
+          case runExcept $ getSKByAddressPure allSecrets passphrase addrMeta of
+              Left err -> error $ "Couldn't generate safe signer for address: " <> show err
+              Right sk -> withSafeSigner sk (pure passphrase) (pure . fromMaybe (error "Coudln't get safe signer"))
 
-        relatedAccount <- getSomeMoneySourceAccount moneySource
-        outputs <- coinDistrToOutputs dstDistr
-        (th, dstAddrs) <-
-            rewrapTxError "Cannot send transaction" $ do
-                (txAux, inpTxOuts') <-
-                    prepareMTx hdwSigner outputs (relatedAccount, passphrase)
+    relatedAccount <- getSomeMoneySourceAccount moneySource
+    outputs <- coinDistrToOutputs dstDistr
+    (th, dstAddrs) <-
+        rewrapTxError "Cannot send transaction" $ do
+            (txAux, inpTxOuts') <-
+                prepareMTx getSinger srcAddrs outputs (relatedAccount, passphrase)
 
-                ts <- Just <$> getCurrentTimestamp
-                let tx = taTx txAux
-                    txHash = hash tx
-                    inpTxOuts = toList inpTxOuts'
-                    dstAddrs  = map txOutAddress . toList $
-                                _txOutputs tx
-                    th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
-                ptx <- mkPendingTx srcWallet txHash txAux th
+            ts <- Just <$> getCurrentTimestamp
+            let tx = taTx txAux
+                txHash = hash tx
+                inpTxOuts = toList inpTxOuts'
+                dstAddrs  = map txOutAddress . toList $
+                            _txOutputs tx
+                th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
+            ptx <- mkPendingTx srcWallet txHash txAux th
 
-                (th, dstAddrs) <$ submitAndSaveNewPtx enqueueMsg ptx
+            (th, dstAddrs) <$ submitAndSaveNewPtx enqueueMsg ptx
 
-        logInfo $
-            sformat ("Successfully spent money from "%
-                     listF ", " addressF % " addresses on " %
-                     listF ", " addressF)
-            (toList srcAddrs)
-            dstAddrs
+    logInfo $
+        sformat ("Successfully spent money from "%
+                    listF ", " addressF % " addresses on " %
+                    listF ", " addressF)
+        (toList srcAddrs)
+        dstAddrs
 
-        addHistoryTx srcWallet th
+    addHistoryTx srcWallet th
   where
      -- TODO eliminate copy-paste
      listF separator formatter =

@@ -40,7 +40,8 @@ import           Pos.Crypto                 (PassPhrase, changeEncPassphrase,
 import           Pos.Util                   (maybeThrow)
 import qualified Pos.Util.Modifier          as MM
 import           Pos.Util.Servant           (encodeCType)
-import           Pos.Wallet.KeyStorage      (addSecretKey, deleteSecretKey, getSecretKeys)
+import           Pos.Wallet.KeyStorage      (addSecretKey, deleteSecretKey,
+                                             getSecretKeysPlain)
 import           Pos.Wallet.WalletMode      (getBalance)
 import           Pos.Wallet.Web.Account     (AddrGenSeed, genUniqueAccountId,
                                              genUniqueAddress, getAddrIdx, getSKById)
@@ -257,7 +258,7 @@ changeWalletPassphrase wid oldPass newPass = do
     badPass = RequestError "Invalid old passphrase given"
     deleteSK passphrase = do
         let nice k = encToCId k == wid && isJust (checkPassMatches passphrase k)
-        midx <- findIndex nice <$> getSecretKeys
+        midx <- findIndex nice <$> getSecretKeysPlain
         idx  <- RequestError "No key with such address and pass found"
                 `maybeThrow` midx
         deleteSecretKey (fromIntegral idx)

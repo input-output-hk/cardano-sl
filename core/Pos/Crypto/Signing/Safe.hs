@@ -107,10 +107,10 @@ withSafeSigners
     :: (MonadIO m, Bi PassPhrase, Traversable t)
     => t EncryptedSecretKey
     -> m PassPhrase
-    -> (Maybe (t SafeSigner) -> m a) -> m a
+    -> (t SafeSigner -> m a) -> m a
 withSafeSigners sks ppGetter action = do
     pp <- ppGetter
-    let mss = forM sks $ \sk -> checkPassMatches pp sk $> SafeSigner sk pp
+    let mss = map (\sk -> SafeSigner sk pp) sks
     action mss
 
 withSafeSigner
@@ -119,8 +119,10 @@ withSafeSigner
     -> m PassPhrase
     -> (Maybe SafeSigner -> m a)
     -> m a
-withSafeSigner sk ppGetter action =
-    withSafeSigners (Identity sk) ppGetter (action . fmap runIdentity)
+withSafeSigner sk ppGetter action = do
+    pp <- ppGetter
+    withSafeSigners (Identity sk) (pure pp) $
+        action . (checkPassMatches pp sk $>) . runIdentity
 
 -- | We need this to be able to perform signing with unencrypted `SecretKey`s,
 -- where `SafeSigner` is required

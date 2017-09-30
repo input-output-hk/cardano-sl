@@ -89,9 +89,9 @@ createMTxSpec = do
         "Fee evaluation succeedes when many addresses are used"
 
 
-getSignerFromList :: Monad m => NonEmpty (SafeSigner, Address) -> (Address -> m SafeSigner)
+getSignerFromList :: NonEmpty (SafeSigner, Address) -> (Address -> SafeSigner)
 getSignerFromList (HM.fromList . map swap . toList -> hm) =
-    \addr -> pure $ fromMaybe (error "Requested signer for unknown address") $ HM.lookup addr hm
+    \addr -> fromMaybe (error "Requested signer for unknown address") $ HM.lookup addr hm
 
 createMTxWorksWhenWeAreRichSpec :: HasTxpConfigurations => TxpTestProperty ()
 createMTxWorksWhenWeAreRichSpec = do

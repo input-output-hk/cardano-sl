@@ -10,6 +10,7 @@ module Pos.Wallet.Web.Methods.Payment
 
 import           Universum
 
+import           Control.Monad.Except             (runExcept)
 import qualified Data.HashSet                     as HS
 import           Formatting                       (sformat, (%))
 import qualified Formatting                       as F
@@ -37,7 +38,8 @@ import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util                         (eitherToThrow, maybeThrow)
 import           Pos.Util.LogSafe                 (logInfoS)
 import qualified Pos.Util.Modifier                as MM
-import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAddress,
+import           Pos.Wallet.KeyStorage            (getSecretKeys)
+import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAddressPure,
                                                    getSKById)
 import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAddress (..),
                                                    CCoin, CId, CTx (..),
@@ -162,13 +164,15 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
 
     srcAddrs <- forM addrMetas $ decodeCTypeOrFail . cwamId
     let metasAndAdrresses = zip (toList addrMetas) (toList srcAddrs)
+    allSecrets <- getSecretKeys
 
-    let getSinger addr = do
+    let getSinger addr = runIdentity $ do
           let addrMeta =
                   fromMaybe (error "Corresponding adress meta not found")
                             (fst <$> find ((== addr) . snd) metasAndAdrresses)
-          sk <- getSKByAddress (ShouldCheckPassphrase False) passphrase addrMeta
-          withSafeSignerUnsafe sk (pure passphrase) pure
+          case runExcept $ getSKByAddressPure allSecrets (ShouldCheckPassphrase False) passphrase addrMeta of
+              Left err -> error $ "Couldn't generate safe signer for address: " <> show err
+              Right sk -> withSafeSignerUnsafe sk (pure passphrase) pure
 
     relatedAccount <- getSomeMoneySourceAccount moneySource
     outputs <- coinDistrToOutputs dstDistr

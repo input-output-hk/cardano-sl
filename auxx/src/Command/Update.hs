@@ -32,7 +32,7 @@ import           Pos.Update               (BlockVersionData (..),
                                            UpdateData (..), UpdateVote (..),
                                            mkUpdateProposalWSign)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Pos.Wallet               (getSecretKeys)
+import           Pos.Wallet               (getSecretKeysPlain)
 
 import           Command.Types            (ProposeUpdateParams (..),
                                            ProposeUpdateSystem (..))
@@ -56,7 +56,7 @@ vote ::
 vote sendActions idx decision upid = do
     CmdCtx{ccPeers} <- getCmdCtx
     logDebug $ "Submitting a vote :" <> show (idx, decision, upid)
-    skey <- (!! idx) <$> getSecretKeys
+    skey <- (!! idx) <$> getSecretKeysPlain
     msignature <- withSafeSigner skey (pure emptyPassphrase) $ mapM $
                         \ss -> pure $ safeSign SignUSVote ss (upid, decision)
     case msignature of
@@ -90,7 +90,7 @@ propose ::
 propose sendActions ProposeUpdateParams{..} = do
     CmdCtx{ccPeers} <- getCmdCtx
     logDebug "Proposing update..."
-    skey <- (!! puIdx) <$> getSecretKeys
+    skey <- (!! puIdx) <$> getSecretKeysPlain
     let BlockVersionData {..} = genesisBlockVersionData
     let bvm =
             BlockVersionModifier

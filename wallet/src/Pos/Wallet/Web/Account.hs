@@ -5,6 +5,7 @@ module Pos.Wallet.Web.Account
        , getAddrIdx
        , getSKById
        , getSKByAddress
+       , getSKByAddressPure
        , genSaveRootKey
        , genUniqueAccountId
        , genUniqueAddress
@@ -17,6 +18,7 @@ module Pos.Wallet.Web.Account
        , MonadKeySearch (..)
        ) where
 
+import           Control.Monad.Except       (MonadError (throwError), runExceptT)
 import           Data.List                  (elemIndex)
 import           Formatting                 (build, sformat, (%))
 import           System.Random              (randomIO)
@@ -27,9 +29,10 @@ import           Pos.Core                   (Address (..), IsBootstrapEraAddr (.
                                              deriveLvl2KeyPair)
 import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase,
                                              ShouldCheckPassphrase (..), isHardened)
-import           Pos.Util                   (maybeThrow)
+import           Pos.Util                   (eitherToThrow, maybeThrow)
 import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
-import           Pos.Wallet.KeyStorage      (MonadKeys, addSecretKey, getSecretKeys)
+import           Pos.Wallet.KeyStorage      (AllUserSecrets (..), MonadKeys, addSecretKey,
+                                             getSecretKeys, getSecretKeysPlain)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWAddressMeta (..), Wal,
                                              addrMetaToAccount, addressToCId, encToCId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
@@ -44,7 +47,7 @@ type AccountMode ctx m =
     )
 
 myRootAddresses :: MonadKeys ctx m => m [CId Wal]
-myRootAddresses = encToCId <<$>> getSecretKeys
+myRootAddresses = encToCId <<$>> getSecretKeysPlain
 
 getAddrIdx :: AccountMode ctx m => CId Wal -> m Int
 getAddrIdx addr = elemIndex addr <$> myRootAddresses >>= maybeThrow notFound
@@ -57,10 +60,19 @@ getSKById
     => CId Wal
     -> m EncryptedSecretKey
 getSKById wid = do
-    msk <- find (\k -> encToCId k == wid) <$> getSecretKeys
-    maybeThrow notFound msk
-  where notFound =
-          RequestError $ sformat ("No wallet with address "%build%" found") wid
+    secrets <- getSecretKeys
+    runExceptT (getSKByIdPure secrets wid) >>= eitherToThrow
+
+getSKByIdPure
+    :: MonadError WalletError m
+    => AllUserSecrets
+    -> CId Wal
+    -> m EncryptedSecretKey
+getSKByIdPure (AllUserSecrets secrets) wid =
+    maybe (throwError notFound) pure (find (\k -> encToCId k == wid) secrets)
+  where
+    notFound =
+        RequestError $ sformat ("No wallet with address "%build%" found") wid
 
 getSKByAddress
     :: AccountMode ctx m
@@ -68,15 +80,26 @@ getSKByAddress
     -> PassPhrase
     -> CWAddressMeta
     -> m EncryptedSecretKey
-getSKByAddress scp passphrase addrMeta@CWAddressMeta {..} = do
+getSKByAddress scp passphrase addrMeta = do
+    secrets <- getSecretKeys
+    runExceptT (getSKByAddressPure secrets scp passphrase addrMeta) >>= eitherToThrow
+
+getSKByAddressPure
+    :: MonadError WalletError m
+    => AllUserSecrets
+    -> ShouldCheckPassphrase
+    -> PassPhrase
+    -> CWAddressMeta
+    -> m EncryptedSecretKey
+getSKByAddressPure secrets scp passphrase addrMeta@CWAddressMeta {..} = do
     (addr, addressKey) <-
-        deriveAddressSK scp passphrase (addrMetaToAccount addrMeta) cwamAddressIndex
+            deriveAddressSKPure secrets scp passphrase (addrMetaToAccount addrMeta) cwamAddressIndex
     let accCAddr = addressToCId addr
     if accCAddr /= cwamId
              -- if you see this error, maybe you generated public key address with
              -- no hd wallet attribute (if so, address would be ~half shorter than
              -- others)
-        then throwM . InternalError $ "Account is contradictory!"
+        then throwError . InternalError $ "Account is contradictory!"
         else pure addressKey
 
 genSaveRootKey
@@ -159,9 +182,21 @@ deriveAddressSK
     -> AccountId
     -> Word32
     -> m (Address, EncryptedSecretKey)
-deriveAddressSK scp passphrase AccountId {..} addressIndex = do
-    key <- getSKById aiWId
-    maybeThrow badPass $
+deriveAddressSK scp passphrase accId addressIndex = do
+    secrets <- getSecretKeys
+    runExceptT (deriveAddressSKPure secrets scp passphrase accId addressIndex) >>= eitherToThrow
+
+deriveAddressSKPure
+    :: MonadError WalletError m
+    => AllUserSecrets
+    -> ShouldCheckPassphrase
+    -> PassPhrase
+    -> AccountId
+    -> Word32
+    -> m (Address, EncryptedSecretKey)
+deriveAddressSKPure secrets scp passphrase AccountId {..} addressIndex = do
+    key <- getSKByIdPure secrets aiWId
+    maybe (throwError badPass) pure $
         deriveLvl2KeyPair
             (IsBootstrapEraAddr True) -- TODO: make it context-dependent!
             scp

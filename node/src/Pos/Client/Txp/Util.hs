@@ -154,21 +154,20 @@ type TxCreateMode m
 
 -- | Generic function to create a transaction, given desired inputs,
 -- outputs and a way to construct witness from signature data
-makeAbstractTx
-    :: Monad m
-    => (owner -> TxSigData -> m TxInWitness)
-    -> TxOwnedInputs owner
-    -> TxOutputs
-    -> m TxAux
-makeAbstractTx mkWit txInputs outputs = do
-    let txOutputs = map toaOut outputs
-    let txAttributes = mkAttributes ()
-    let tx = UnsafeTx (map snd txInputs) txOutputs txAttributes
-    let txSigData = TxSigData
-            { txSigTxHash = hash tx
-            }
-    txWitness <- V.fromList . toList <$> mapM (\(addr, _) -> mkWit addr txSigData) txInputs
-    pure $ TxAux tx txWitness
+makeAbstractTx :: (owner -> TxSigData -> TxInWitness)
+               -> TxOwnedInputs owner
+               -> TxOutputs
+               -> TxAux
+makeAbstractTx mkWit txInputs outputs = TxAux tx txWitness
+  where
+    tx = UnsafeTx (map snd txInputs) txOutputs txAttributes
+    txOutputs = map toaOut outputs
+    txAttributes = mkAttributes ()
+    txWitness = V.fromList $ toList $ txInputs <&>
+        \(addr, _) -> mkWit addr txSigData
+    txSigData = TxSigData
+        { txSigTxHash = hash tx
+        }
 
 -- | Datatype which contains all data from DB which is necessary
 -- to create transactions
@@ -191,51 +190,50 @@ runTxCreator action = runExceptT $ do
 
 -- | Like 'makePubKeyTx', but allows usage of different signers
 makeMPubKeyTx
-    :: (Monad m, HasConfiguration)
-    => (owner -> m SafeSigner)
+    :: HasConfiguration
+    => (owner -> SafeSigner)
     -> TxOwnedInputs owner
     -> TxOutputs
-    -> m TxAux
+    -> TxAux
 makeMPubKeyTx getSs = makeAbstractTx mkWit
-  where
-    mkWit addr sigData = do
-          ss <- getSs addr
-          pure $ PkWitness
+  where mkWit addr sigData =
+          let ss = getSs addr
+          in PkWitness
               { twKey = safeToPublic ss
               , twSig = safeSign SignTx ss sigData
               }
 
 -- | More specific version of 'makeMPubKeyTx' for convenience
 makeMPubKeyTxAddrs
-    :: (Monad m, HasConfiguration)
-    => (Address -> m SafeSigner)
+    :: HasConfiguration
+    => (Address -> SafeSigner)
     -> TxOwnedInputs TxOut
     -> TxOutputs
-    -> m TxAux
+    -> TxAux
 makeMPubKeyTxAddrs hdwSigners = makeMPubKeyTx getSigner
   where
     getSigner (TxOut addr _) = hdwSigners addr
 
 -- | Makes a transaction which use P2PKH addresses as a source
 makePubKeyTx :: HasConfiguration => SafeSigner -> TxInputs -> TxOutputs -> TxAux
-makePubKeyTx ss txInputs =
-    runIdentity .
-    makeMPubKeyTx (pure . const ss) (map ((), ) txInputs)
+makePubKeyTx ss txInputs = makeMPubKeyTx (const ss) (map ((), ) txInputs)
 
 makeMOfNTx :: HasConfiguration => Script -> [Maybe SafeSigner] -> TxInputs -> TxOutputs -> TxAux
-makeMOfNTx validator sks txInputs = runIdentity . makeAbstractTx mkWit (map ((), ) txInputs)
-  where mkWit _ sigData = pure $ ScriptWitness
-            { twValidator = validator
-            , twRedeemer = multisigRedeemer sigData sks
-            }
+makeMOfNTx validator sks txInputs = makeAbstractTx mkWit (map ((), ) txInputs)
+  where
+    mkWit _ sigData = ScriptWitness
+        { twValidator = validator
+        , twRedeemer = multisigRedeemer sigData sks
+        }
 
 makeRedemptionTx :: HasConfiguration => RedeemSecretKey -> TxInputs -> TxOutputs -> TxAux
-makeRedemptionTx rsk txInputs = runIdentity . makeAbstractTx mkWit (map ((), ) txInputs)
-  where rpk = redeemToPublic rsk
-        mkWit _ sigData = pure $ RedeemWitness
-            { twRedeemKey = rpk
-            , twRedeemSig = redeemSign SignRedeemTx rsk sigData
-            }
+makeRedemptionTx rsk txInputs = makeAbstractTx mkWit (map ((), ) txInputs)
+  where
+    rpk = redeemToPublic rsk
+    mkWit _ sigData = RedeemWitness
+        { twRedeemKey = rpk
+        , twRedeemSig = redeemSign SignRedeemTx rsk sigData
+        }
 
 type FlatUtxo = [(TxIn, TxOutAux)]
 
@@ -369,18 +367,18 @@ prepareInpsOuts utxo outputs addrData = do
 
 createGenericTx
     :: TxCreateMode m
-    => (TxOwnedInputs TxOut -> TxOutputs -> m TxAux)
+    => (TxOwnedInputs TxOut -> TxOutputs -> TxAux)
     -> Utxo
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
 createGenericTx creator utxo outputs addrData = runTxCreator $ do
     (inps, outs) <- prepareInpsOuts utxo outputs addrData
-    (, map fst inps) <$> (lift $ lift $ creator inps outs)
+    pure (creator inps outs, map fst inps)
 
 createGenericTxSingle
     :: TxCreateMode m
-    => (TxInputs -> TxOutputs -> m TxAux)
+    => (TxInputs -> TxOutputs -> TxAux)
     -> Utxo
     -> TxOutputs
     -> AddrData m
@@ -392,7 +390,7 @@ createGenericTxSingle creator = createGenericTx (creator . map snd)
 createMTx
     :: TxCreateMode m
     => Utxo
-    -> (Address -> m SafeSigner)
+    -> (Address -> SafeSigner)
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
@@ -414,7 +412,7 @@ createTx
     -> m (Either TxError TxWithSpendings)
 createTx utxo ss outputs addrData =
     createGenericTxSingle
-        (pure ... makePubKeyTx ss)
+        (makePubKeyTx ss)
         utxo
         outputs
         addrData
@@ -428,7 +426,7 @@ createMOfNTx
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
 createMOfNTx utxo keys outputs addrData =
-    createGenericTxSingle (pure ... makeMOfNTx validator sks)
+    createGenericTxSingle (makeMOfNTx validator sks)
     utxo outputs addrData
   where
     ids = map fst keys
@@ -592,4 +590,4 @@ createFakeTxFromRawTx TxRaw{..} =
         -- Fee depends on size of tx in bytes, sign of a tx has the fixed size
         -- so we can use arbitrary signer.
         (_, fakeSK) = deterministicKeyGen "patakbardaqskovoroda228pva1488kk"
-    in runIdentity $ makeMPubKeyTxAddrs (pure . const (fakeSigner fakeSK)) trInputs txOutsWithRem
+    in makeMPubKeyTxAddrs (const (fakeSigner fakeSK)) trInputs txOutsWithRem

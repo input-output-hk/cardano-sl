@@ -60,7 +60,7 @@ submitAndSave enqueue txAux@TxAux {..} = do
 -- | Construct Tx using multiple secret keys and given list of desired outputs.
 prepareMTx
     :: TxMode ssc m
-    => (Address -> m SafeSigner)
+    => (Address -> SafeSigner)
     -> NonEmpty Address
     -> NonEmpty TxOutAux
     -> AddrData m

@@ -213,7 +213,7 @@ genTxPayload = do
             signers = HM.fromList $ zip inputAddrs (map fakeSigner inputSKs)
             getSigner addr =
                 fromMaybe (error "Requested signer for unknown address") $ HM.lookup addr signers
-            makeTestTx = makeMPubKeyTxAddrs (pure . getSigner)
+            makeTestTx = makeMPubKeyTxAddrs getSigner
 
         eTx <- lift . lift $
             createGenericTx makeTestTx ownUtxo txOutAuxs changeAddrData

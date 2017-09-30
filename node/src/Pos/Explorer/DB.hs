@@ -32,7 +32,7 @@ import           System.Wlog                  (WithLogger, logError)
 
 import           Pos.Binary.Class             (UnsignedVarInt (..), serialize')
 import           Pos.Core                     (Address, Coin, EpochIndex, HeaderHash,
-                                               sumCoins, unsafeAddCoin)
+                                               coinToInteger, sumCoins, unsafeAddCoin)
 import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.DB                       (DBError (..), DBIteratorClass (..),
                                                DBTag (GStateDB), MonadDB,
@@ -98,19 +98,24 @@ getLastTransactions = gsGetBi lastTxsPrefix
 ----------------------------------------------------------------------------
 
 prepareExplorerDB :: (MonadReader ctx m, MonadDB m) => m ()
-prepareExplorerDB =
-    unlessM areBalancesInitialized $ do
+prepareExplorerDB = do
+    explorerDBInitialized <- explorerDBInitializedM
+    if not explorerDBInitialized then do
         let GenesisUtxo utxo = genesisUtxo
             addressCoinPairs = utxoToAddressCoinPairs utxo
         putGenesisBalances addressCoinPairs
         putGenesisUtxoSum addressCoinPairs
         putInitFlag
+    else do
+        -- Smooth migration for CSE-228.
+        unlessM utxoSumInitializedM $ do
+            putCurrentUtxoSum
 
 balancesInitFlag :: ByteString
 balancesInitFlag = "e/init/"
 
-areBalancesInitialized :: MonadDBRead m => m Bool
-areBalancesInitialized = isJust <$> dbGet GStateDB balancesInitFlag
+explorerDBInitializedM :: MonadDBRead m => m Bool
+explorerDBInitializedM = isJust <$> dbGet GStateDB balancesInitFlag
 
 putInitFlag :: MonadDB m => m ()
 putInitFlag = gsPutBi balancesInitFlag True
@@ -125,6 +130,20 @@ putGenesisUtxoSum :: MonadDB m => [(Address, Coin)] -> m ()
 putGenesisUtxoSum addressCoinPairs = do
     let utxoSum = sumCoins $ map snd addressCoinPairs
     writeBatchGState [PutUtxoSum utxoSum]
+
+utxoSumInitializedM :: MonadDBRead m => m Bool
+utxoSumInitializedM = isJust <$> dbGet GStateDB utxoSumPrefix
+
+putCurrentUtxoSum :: MonadDB m => m ()
+putCurrentUtxoSum = do
+    utxoSum <- computeUtxoSum
+    writeBatchGState [PutUtxoSum utxoSum]
+  where
+    computeUtxoSum :: MonadDBRead m => m Integer
+    computeUtxoSum = do
+        let txOutValueSource =
+                mapOutput (coinToInteger . txOutValue . toaOut . snd) utxoSource
+        runConduitRes $ txOutValueSource .| CL.fold (+) 0
 
 ----------------------------------------------------------------------------
 -- Batch operations

@@ -23,6 +23,8 @@ import           Pos.Core                             (Address, Coin, decodeText
                                                        mkCoin)
 import           Pos.Crypto                           (PassPhrase, passphraseLength)
 import           Pos.Txp.Core.Types                   (TxId)
+import           Pos.Util.LogSafe                     (NonSensitive (..),
+                                                       buildNonSensitiveUnsafe)
 import           Pos.Util.Servant                     (FromCType (..),
                                                        HasTruncateLogPolicy (..),
                                                        OriginType, ToCType (..),
@@ -35,6 +37,7 @@ import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), CAccount 
                                                        CAccountMeta (..), CAddress (..),
                                                        CCoin (..),
                                                        CElectronCrashReport (..),
+                                                       CFilePath (..), CHash (..),
                                                        CId (..), CInitialized (..),
                                                        CPaperVendWalletRedeem (..),
                                                        CPassPhrase (..), CProfile (..),
@@ -44,6 +47,8 @@ import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), CAccount 
                                                        CWallet, CWalletAssurance,
                                                        CWalletInit (..), CWalletMeta (..),
                                                        CWalletRedeem (..),
+                                                       ScrollLimit (..),
+                                                       ScrollOffset (..),
                                                        SyncProgress (..))
 import           Pos.Wallet.Web.Pending.Types         (PtxCondition)
 
@@ -58,6 +63,15 @@ import           Pos.Wallet.Web.Pending.Types         (PtxCondition)
 -- I don't want to do it now because we have pending refactoring which reordered
 -- everything where
 
+instance Buildable (NonSensitive (CId __)) where
+    build _ = "<id>"
+
+instance Buildable (NonSensitive CAccountId) where
+    build _ = "<account id>"
+
+instance Buildable (NonSensitive CTxId) where
+    build _ = "<tx id>"
+
 instance Buildable CWalletAssurance where
     build = bprint shown
 
@@ -66,10 +80,11 @@ instance Buildable CWalletMeta where
         bprint ("("%build%"/"%build%")")
                cwAssurance cwUnit
 
-instance Buildable CWalletInit where
-    build CWalletInit{..} =
-        bprint (build%" / "%build)
-               cwBackupPhrase cwInitMeta
+instance Buildable (NonSensitive CWalletMeta) where
+    build = buildNonSensitiveUnsafe
+
+instance Buildable (NonSensitive CWalletInit) where
+    build (NonSensitive CWalletInit{..}) = "<wallet init>"
 
 instance Buildable CWallet where
     build CWallet{..} =
@@ -90,10 +105,19 @@ instance Buildable CWallet where
 instance Buildable CAccountMeta where
     build CAccountMeta{..} = "<meta>"
 
+instance Buildable (NonSensitive CAccountMeta) where
+    build = buildNonSensitiveUnsafe
+
 instance Buildable CAccountInit where
     build CAccountInit{..} =
-        bprint (build%" / "%build)
-               caInitWId caInitMeta
+        bprint ("{ id="%build
+                %" meta="%build
+                %" }")
+        caInitWId
+        caInitMeta
+
+instance Buildable (NonSensitive CAccountInit) where
+    build _ = "<account init>"
 
 instance Buildable CAccount where
     build CAccount{..} =
@@ -121,6 +145,9 @@ instance Buildable CAddress where
 
 instance Buildable CTxMeta where
     build CTxMeta{..} = bprint ("{ date="%build%" }") ctmDate
+
+instance Buildable (NonSensitive CTxMeta) where
+    build _ = "<tx meta>"
 
 instance Buildable CPtxCondition where
     build = bprint shown
@@ -155,6 +182,9 @@ instance Buildable CProfile where
     build CProfile{..} =
         bprint ("{ cpLocale="%build%" }") cpLocale
 
+instance Buildable (NonSensitive CProfile) where
+    build = buildNonSensitiveUnsafe
+
 instance Buildable CUpdateInfo where
     build CUpdateInfo{..} =
         bprint ("{ softver="%build
@@ -180,20 +210,29 @@ instance Buildable SyncProgress where
         bprint ("progress="%build%"/"%build%" peers="%build)
                _spLocalCD _spNetworkCD _spPeers
 
-instance Buildable CWalletRedeem where
-    build CWalletRedeem{..} =
-        bprint (build%" <- "%build)
-               crWalletId crSeed
+instance Buildable (NonSensitive CWalletRedeem) where
+    build (NonSensitive CWalletRedeem{..}) = "<wallet redeem info>"
 
-instance Buildable CPaperVendWalletRedeem where
-    build CPaperVendWalletRedeem{..} =
-        bprint (build%" <- "%build%" / "%build)
-               pvWalletId pvSeed pvBackupPhrase
+instance Buildable (NonSensitive CPaperVendWalletRedeem) where
+    build (NonSensitive CPaperVendWalletRedeem{..}) =
+        "<papervend wallet redeem info>"
 
 instance Buildable CInitialized where
     build CInitialized{..} =
         bprint (build%"/"%build)
                cPreInit cTotalTime
+
+instance Buildable (NonSensitive CInitialized) where
+    build = buildNonSensitiveUnsafe
+
+instance Buildable (NonSensitive ScrollOffset) where
+    build = buildNonSensitiveUnsafe
+
+instance Buildable (NonSensitive ScrollLimit) where
+    build = buildNonSensitiveUnsafe
+
+instance Buildable (NonSensitive CFilePath) where
+    build _ = "<filepath>"
 
 ----------------------------------------------------------------------------
 -- Convertions
@@ -277,7 +316,7 @@ instance FromHttpApiData Address where
     parseUrlPiece = decodeTextAddress
 
 instance FromHttpApiData (CId w) where
-    parseUrlPiece = fmap addressToCId . decodeTextAddress
+    parseUrlPiece = pure . CId . CHash
 
 instance FromHttpApiData CAccountId where
     parseUrlPiece = fmap CAccountId . parseUrlPiece
@@ -290,6 +329,11 @@ instance FromHttpApiData CTxId where
 instance FromHttpApiData CPassPhrase where
     parseUrlPiece = pure . CPassPhrase
 
+instance FromHttpApiData ScrollOffset where
+    parseUrlPiece = fmap ScrollOffset . parseUrlPiece
+
+instance FromHttpApiData ScrollLimit where
+    parseUrlPiece = fmap ScrollLimit . parseUrlPiece
 
 instance FromMultipart CElectronCrashReport where
     fromMultipart form = do

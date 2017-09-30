@@ -36,6 +36,9 @@ module Pos.Wallet.Web.ClientTypes.Types
       , CElectronCrashReport (..)
       , Wal (..)
       , Addr (..)
+      , ScrollOffset (..)
+      , ScrollLimit (..)
+      , CFilePath (..)
       ) where
 
 import           Universum
@@ -56,6 +59,7 @@ import           Pos.Aeson.Types       ()
 import           Pos.Core.Types        (ScriptVersion)
 import           Pos.Types             (BlockVersion, ChainDifficulty, SoftwareVersion)
 import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Util.LogSafe      (NonSensitive (..), buildNonSensitiveMaybe)
 
 -- TODO [CSM-407] Structurize this mess
 
@@ -117,6 +121,12 @@ instance Hashable AccountId
 instance Buildable AccountId where
     build AccountId{..} =
         bprint (F.build%"@"%F.build) aiWId aiIndex
+
+instance Buildable (NonSensitive AccountId) where
+    build _ = "<account id>"
+
+instance Buildable (NonSensitive (Maybe AccountId)) where
+    build = buildNonSensitiveMaybe
 
 newtype CAccountId = CAccountId Text
     deriving (Eq, Show, Generic, Buildable)
@@ -332,3 +342,18 @@ data CElectronCrashReport = CElectronCrashReport
     , cecCompanyName :: Text
     , cecUploadDump  :: FileData
     } deriving (Show, Generic)
+
+----------------------------------------------------------------------------
+-- Misc
+----------------------------------------------------------------------------
+
+newtype ScrollOffset = ScrollOffset Word
+    deriving (Eq, Ord, Show, Enum, Num, Real, Integral, Generic, Typeable,
+              Buildable)
+
+newtype ScrollLimit = ScrollLimit Word
+    deriving (Eq, Ord, Show, Enum, Num, Real, Integral, Generic, Typeable,
+              Buildable)
+
+newtype CFilePath = CFilePath Text
+    deriving (Eq, Ord, Generic, Typeable, Buildable)

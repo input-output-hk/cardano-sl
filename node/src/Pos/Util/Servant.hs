@@ -57,10 +57,11 @@ import           Servant.API             ((:<|>) (..), (:>), Capture, QueryParam
 import           Servant.Server          (Handler (..), HasServer (..), ServantErr (..),
                                           Server)
 import qualified Servant.Server.Internal as SI
+import           System.Wlog             (logInfo)
 import           System.Wlog             (LoggerName, usingLoggerName)
 
+import           Pos.Util.LogSafe        (NonSensitive (..), logInfoS)
 import           Pos.Util.Util           (colorizeDull)
-import           Pos.Util.LogSafe        (logInfoS)
 
 -------------------------------------------------------------------------
 -- Utility functions
@@ -350,18 +351,18 @@ class ApiHasArgClass apiType a =>
     type ApiArgToLog apiType a = ApiArg apiType a
 
     toLogParamInfo
-        :: Buildable (ApiArgToLog apiType a)
+        :: Buildable (NonSensitive $ ApiArgToLog apiType a)
         => Proxy (apiType a) -> ApiArg apiType a -> Text
     default toLogParamInfo
-        :: Buildable (ApiArgToLog apiType a)
+        :: Buildable (NonSensitive $ ApiArgToLog apiType a)
         => Proxy (apiType a) -> ApiArgToLog apiType a -> Text
-    toLogParamInfo _ = pretty
+    toLogParamInfo _ = pretty . NonSensitive
 
 instance KnownSymbol s => ApiCanLogArg (Capture s) a
 instance ApiCanLogArg (ReqBody ct) a
 instance KnownSymbol cs => ApiCanLogArg (QueryParam cs) a where
     type ApiArgToLog (QueryParam cs) a = a
-    toLogParamInfo _ = maybe noEntry pretty
+    toLogParamInfo _ = maybe noEntry (pretty . NonSensitive)
       where
         noEntry = colorizeDull White "-"
 
@@ -378,7 +379,7 @@ instance ( HasServer (apiType a :> LoggingApiRec config res) ctx
          , ApiHasArg apiType a res
          , ApiHasArg apiType a (LoggingApiRec config res)
          , ApiCanLogArg apiType a
-         , Buildable (ApiArgToLog apiType a)
+         , Buildable (NonSensitive $ ApiArgToLog apiType a)
          ) =>
          HasLoggingServer config (apiType a :> res) ctx where
     routeWithLog =
@@ -427,50 +428,57 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
         return $ do
             endTime <- liftIO getPOSIXTime
             return $ sformat shown (endTime - startTime)
-    performLogging msg = do
+    inLogCtx logAction = do
         let loggerName = reflect configP
-        liftIO . usingLoggerName loggerName $ logInfoS msg
+        liftIO $ usingLoggerName loggerName logAction
     eParamLogs = case paramsInfo of
         ApiParamsLogInfo info -> do
             let params = mconcat $ reverse info <&>
                   bprint ("    "%stext%" "%stext%"\n") (colorizeDull White ":>")
             Right $ sformat ("\n"%stext%"\n"%build) cmethod params
         ApiNoParamsLogInfo why -> Left why
-    logWithParamInfo msg =
+    logWithParamInfo (publicMsg, mSecretExtra) =
         case eParamLogs of
             Left e ->
-                performLogging $ sformat ("\n"%stext%" "%stext)
-                        (colorizeDull Red "Unexecuted request due to error") e
-            Right paramLogs ->
-                performLogging $ paramLogs <> msg
+                inLogCtx . logInfoS $
+                sformat ("\n"%stext%" "%stext)
+                    (colorizeDull Red "Unexecuted request due to error") e
+            Right paramLogs -> do
+                inLogCtx $ logInfo (paramLogs <> publicMsg)
+                whenJust mSecretExtra $ inLogCtx . logInfoS
     reportResponse timer resp = do
         durationText <- timer
-        logWithParamInfo $
-            sformat ("  "%stext%" "%stext%" "%stext%" "%stext%" "%stext)
+        logWithParamInfo
+            ( sformat ("  "%stext%" "%stext%" "%stext)
                 (colorizeDull White "Status:")
                 (colorizeDull Green "OK")
                 durationText
-                (colorizeDull White ">")
-                (showResponse resp)
+            , Just (colorizeDull White "Response: "
+                 <> showResponse resp)
+            )
     catchErrors st =
         flip catchError (servantErrHandler st) .
         handleAll (exceptionsHandler st)
     servantErrHandler timer err@ServantErr{..} = do
         durationText <- timer
         let errMsg = sformat (build%" "%string) errHTTPCode errReasonPhrase
-        logWithParamInfo $
-            sformat ("  "%stext%" "%stext%" "%stext)
+        logWithParamInfo
+            ( sformat ("  "%stext%" "%stext%" "%stext)
                 (colorizeDull White "Status: ")
                 (colorizeDull Red errMsg)
                 durationText
+            , Nothing
+            )
         throwError err
     exceptionsHandler timer e = do
         durationText <- timer
-        logWithParamInfo $
-            sformat ("  "%stext%" "%shown%" "%stext)
+        logWithParamInfo
+            ( sformat ("  "%stext%" "%shown%" "%stext)
                 (colorizeDull Red "Error")
                 e
                 durationText
+            , Nothing
+            )
         throwM e
 
 applyLoggingToHandler

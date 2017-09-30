@@ -88,15 +88,13 @@ type AddressSummary = API
     :> Get '[JSON] (Either ExplorerError CAddressSummary)
 
 type EpochPageSearch = API
-    :> "search"
-    :> "epoch"
+    :> "epochs"
     :> Capture "epoch" EpochIndex
     :> QueryParam "page" Int
-    :> Get '[JSON] (Either ExplorerError [CBlockEntry])
+    :> Get '[JSON] (Either ExplorerError (PageNumber, [CBlockEntry]))
 
 type EpochSlotSearch = API
-    :> "search"
-    :> "epoch"
+    :> "epochs"
     :> Capture "epoch" EpochIndex
     :> Capture "slot" Word16
     :> Get '[JSON] (Either ExplorerError [CBlockEntry])

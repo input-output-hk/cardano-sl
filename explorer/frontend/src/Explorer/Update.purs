@@ -26,7 +26,7 @@ import Data.Lens ((^.), over, set)
 import Data.Maybe (Maybe(..), maybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
-import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchGenesisAddressInfo, fetchGenesisAddressInfoTotalPages, fetchGenesisSummary, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, searchEpoch)
+import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchGenesisAddressInfo, fetchGenesisAddressInfoTotalPages, fetchGenesisSummary, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, epochPageSearch, epochSlotSearch)
 import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
 import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentCGenesisAddressInfos, currentCGenesisSummary, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gWaypoints, gblAddressInfosPagination, gblAddressInfosPaginationEditable, gblLoadingAddressInfosPagination, gblMaxAddressInfosPagination, genesisBlockViewState, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
@@ -633,12 +633,19 @@ update (ReceiveBlockSummary (Left error)) state =
 
 -- Epoch, slot
 
-update (RequestSearchBlocks epoch slot) state =
+update (RequestEpochPageSearch epoch mPage) state =
     { state:
           set loading true $
           set currentBlocksResult Loading
           state
-    , effects: [ attempt (searchEpoch epoch slot) >>= pure <<< Just <<< ReceiveSearchBlocks ]
+    , effects: [ attempt (epochPageSearch epoch mPage) >>= pure <<< Just <<< ReceiveSearchBlocks ]
+    }
+update (RequestEpochSlotSearch epoch slot) state =
+    { state:
+          set loading true $
+          set currentBlocksResult Loading
+          state
+    , effects: [ attempt (epochSlotSearch epoch slot) >>= pure <<< Just <<< ReceiveSearchBlocks ]
     }
 update (ReceiveSearchBlocks (Right blocks)) state =
     noEffects $
@@ -911,9 +918,7 @@ update (UpdateView r@(Epoch epochIndex)) state =
     , effects:
         [ pure $ Just ScrollTop
         , pure $ Just ClearWaypoints
-        -- [CSE-236] Disable epoch search and redirect to 404 page
-        -- , pure <<< Just $ RequestSearchBlocks epochIndex Nothing
-        , pure <<< Just $ UpdateView NotFound
+        , pure <<< Just $ RequestEpochPageSearch epochIndex Nothing
         ]
     }
 
@@ -926,7 +931,7 @@ update (UpdateView r@(EpochSlot epochIndex slotIndex)) state =
     , effects:
         [ pure $ Just ScrollTop
         , pure $ Just ClearWaypoints
-        , pure <<< Just $ RequestSearchBlocks epochIndex (Just slotIndex)
+        , pure <<< Just $ RequestEpochSlotSearch epochIndex slotIndex
         ]
     }
 

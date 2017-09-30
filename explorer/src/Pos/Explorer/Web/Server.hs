@@ -640,14 +640,14 @@ epochSlotSearch epochIndex slotIndex = do
         getEpochBlocks epoch page >>= maybeThrow (Internal errMsg)
       where
         errMsg :: Text
-        errMsg = sformat ("No blocks on epoch "%build%" found!") epoch
+        errMsg = sformat ("No blocks on epoch "%build%" page "%build%" found!") epoch page
 
 -- | Search the blocks by epoch and epoch page number.
 epochPageSearch
     :: ExplorerMode ctx m
     => EpochIndex
     -> Maybe Int
-    -> m [CBlockEntry]
+    -> m (Integer, [CBlockEntry])
 epochPageSearch epochIndex mPage = do
 
     -- If the user doesn't define the page, the default page is the first one.
@@ -660,7 +660,7 @@ epochPageSearch epochIndex mPage = do
     blunds          <- forM epochBlocksHH getBlundOrThrow
     cBlocksEntry    <- forM (rights' blunds) toBlockEntry
 
-    pure cBlocksEntry
+    pure (1, cBlocksEntry)
   where
     rights' x = [(mb, u) | (Right mb, u) <- x]
 
@@ -674,7 +674,7 @@ epochPageSearch epochIndex mPage = do
         getEpochBlocks epoch page >>= maybeThrow (Internal errMsg)
       where
         errMsg :: Text
-        errMsg = sformat ("No blocks on epoch "%build%" found!") epoch
+        errMsg = sformat ("No blocks on epoch "%build%" page "%build%" found!") epoch page
 
 getStatsTxs
     :: forall ctx m. ExplorerMode ctx m

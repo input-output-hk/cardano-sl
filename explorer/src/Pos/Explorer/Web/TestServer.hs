@@ -237,8 +237,8 @@ testEpochSlotSearch _ _ = pure . pure $ [CBlockEntry
 testEpochPageSearch
     :: EpochIndex
     -> Maybe Int
-    -> Handler (Either ExplorerError [CBlockEntry])
-testEpochPageSearch _ _ = pure . pure $ [CBlockEntry
+    -> Handler (Either ExplorerError (Integer, [CBlockEntry]))
+testEpochPageSearch _ _ = pure . pure $ (1, [CBlockEntry
     { cbeEpoch      = 37294
     , cbeSlot       = 10
     , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
@@ -248,7 +248,7 @@ testEpochPageSearch _ _ = pure . pure $ [CBlockEntry
     , cbeSize       = 390
     , cbeBlockLead  = Nothing
     , cbeFees       = mkCCoin $ mkCoin 0
-    }]
+    }])
 
 testGenesisSummary
     :: Handler (Either ExplorerError CGenesisSummary)

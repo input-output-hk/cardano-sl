@@ -54,6 +54,8 @@ import           Test.Pos.Util                (giveCoreConf, giveGtConf, giveInf
                                                giveNodeConf, giveUpdateConf,
                                                splitIntoChunks, stopProperty)
 
+
+-- stack test cardano-sl --fast --test-arguments "-m Test.Pos.Block.Logic.Var"
 spec :: Spec
 -- Unfortunatelly, blocks generation is quite slow nowdays.
 -- See CSL-1382.

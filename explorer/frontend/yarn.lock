@@ -932,7 +932,7 @@ babel-plugin-transform-strict-mode@^6.24.1:
     babel-runtime "^6.22.0"
     babel-types "^6.24.1"
 
-babel-polyfill@^6.26.0, babel-polyfill@^6.7.4:
+babel-polyfill@^6.26.0:
   version "6.26.0"
   resolved "https://registry.yarnpkg.com/babel-polyfill/-/babel-polyfill-6.26.0.tgz#379937abc67d7895970adc621f284cd966cf2153"
   dependencies:
@@ -4825,13 +4825,6 @@ postcss-modules-values@^1.1.0:
   dependencies:
     icss-replace-symbols "^1.1.0"
     postcss "^6.0.1"
-
-postcss-neat@2.5.2:
-  version "2.5.2"
-  resolved "https://registry.yarnpkg.com/postcss-neat/-/postcss-neat-2.5.2.tgz#3943f2dcf5f4182d2fcb33fd6be2fcbee8e6e158"
-  dependencies:
-    babel-polyfill "^6.7.4"
-    postcss "^5.0.19"
 
 postcss-nested@^2.1.2:
   version "2.1.2"

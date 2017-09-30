@@ -76,12 +76,20 @@ fetchTxSummary id = get $ "txs/summary/" <> id ^. (_CTxId <<< _CHash)
 fetchAddressSummary :: forall eff. CAddress -> Aff (ajax::AJAX | eff) CAddressSummary
 fetchAddressSummary (CAddress address) = get $ "addresses/summary/" <> (encodeURIComponent address)
 
--- search by epoch / slot
-searchEpoch :: forall eff. EpochIndex -> Maybe LocalSlotIndex -> Aff (ajax::AJAX | eff) CBlockEntries
-searchEpoch epoch mSlot = get $ "search/epoch/" <> show epochIndex <> slotQuery mSlot
+-- search by epoch / page
+epochPageSearch :: forall eff. EpochIndex -> Maybe Int -> Aff (ajax::AJAX | eff) CBlockEntries
+epochPageSearch epoch mPageNumber = get $ "epochs/" <> show epochIndex <> pageQuery mPageNumber
   where
-      slotQuery Nothing = ""
-      slotQuery (Just slot) = "?slot=" <> show (slot ^. (_UnsafeLocalSlotIndex <<< getSlotIndex))
+      pageQuery Nothing = ""
+      pageQuery (Just pageNumber) = "?page=" <> show pageNumber
+
+      epochIndex = epoch ^. (_EpochIndex <<< getEpochIndex)
+
+-- search by epoch and slot
+epochSlotSearch :: forall eff. EpochIndex -> LocalSlotIndex -> Aff (ajax::AJAX | eff) CBlockEntries
+epochSlotSearch epoch slot = get $ "epochs/" <> show epochIndex <> slotQuery
+  where
+      slotQuery = "/" <> show (slot ^. (_UnsafeLocalSlotIndex <<< getSlotIndex))
 
       epochIndex = epoch ^. (_EpochIndex <<< getEpochIndex)
 

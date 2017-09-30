@@ -16,6 +16,8 @@ import Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockSummary, C
 import Pux.DOM.Events (DOMEvent)
 import Signal.Channel (Channel)
 
+type Page = Int
+
 data Action
     = SetLanguage Language
     -- routing
@@ -54,7 +56,8 @@ data Action
     | ReceiveTxSummary (Either Error CTxSummary)
     | RequestAddressSummary CAddress
     | ReceiveAddressSummary (Either Error CAddressSummary)
-    | RequestSearchBlocks EpochIndex (Maybe LocalSlotIndex)
+    | RequestEpochPageSearch EpochIndex (Maybe Page)
+    | RequestEpochSlotSearch EpochIndex LocalSlotIndex
     | ReceiveSearchBlocks (Either Error CBlockEntries)
     | RequestGenesisSummary
     | ReceiveGenesisSummary (Either Error CGenesisSummary)

@@ -8,6 +8,8 @@ module Pos.Explorer.BListener
        , ExplorerBListener
        -- * Instances
        -- ** MonadBListener (ExplorerBListener m)
+       -- * Required for tests
+       , epochPagedBlocksMap
        ) where
 
 import           Universum

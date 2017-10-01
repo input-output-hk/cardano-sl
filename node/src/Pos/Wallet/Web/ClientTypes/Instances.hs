@@ -63,8 +63,8 @@ instance Buildable CWalletAssurance where
 
 instance Buildable CWalletMeta where
     build CWalletMeta{..} =
-        bprint ("'"%build%"' ("%build%"/"%build%")")
-               cwName cwAssurance cwUnit
+        bprint ("("%build%"/"%build%")")
+               cwAssurance cwUnit
 
 instance Buildable CWalletInit where
     build CWalletInit{..} =
@@ -88,8 +88,7 @@ instance Buildable CWallet where
         cwPassphraseLU
 
 instance Buildable CAccountMeta where
-    build CAccountMeta{..} =
-        bprint ("'"%build%"'") caName
+    build CAccountMeta{..} = "<meta>"
 
 instance Buildable CAccountInit where
     build CAccountInit{..} =

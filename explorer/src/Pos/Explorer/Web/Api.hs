@@ -91,7 +91,7 @@ type EpochPageSearch = API
     :> "epochs"
     :> Capture "epoch" EpochIndex
     :> QueryParam "page" Int
-    :> Get '[JSON] (Either ExplorerError (PageNumber, [CBlockEntry]))
+    :> Get '[JSON] (Either ExplorerError (Int, [CBlockEntry]))
 
 type EpochSlotSearch = API
     :> "epochs"

@@ -17,18 +17,19 @@ import           Universum
 import           Control.Lens                 (at, non)
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
-import           Data.List                    ((\\))
+import           Data.List                    (groupBy, (\\))
 import qualified Data.List.NonEmpty           as NE
 import qualified Data.Map                     as M
 import qualified Ether
 import           System.Wlog                  (WithLogger)
 
 import           Pos.Block.BListener          (MonadBListener (..))
-import           Pos.Block.Core               (Block, MainBlock, mainBlockTxPayload, mainBlockSlot)
+import           Pos.Block.Core               (Block, MainBlock, mainBlockSlot,
+                                               mainBlockTxPayload)
 import           Pos.Block.Types              (Blund)
 import           Pos.Core                     (HasConfiguration, HeaderHash, difficultyL,
                                                epochIndexL, getChainDifficulty,
-                                               headerHash, getSlotIndex, siSlot)
+                                               getSlotIndex, headerHash, siSlot)
 import           Pos.Crypto                   (withHash)
 import           Pos.DB.BatchOp               (SomeBatchOp (..))
 import           Pos.DB.Class                 (MonadDBRead)
@@ -38,6 +39,7 @@ import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
 import           Pos.Txp                      (Tx, topsortTxs, txpTxs)
 import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..),
                                                toNewestFirst)
+
 
 ----------------------------------------------------------------------------
 -- Declarations
@@ -575,12 +577,16 @@ onApplyEpochPagedBlocks blunds = do
     -- Merge the new and the old
     let mergedBlocksMap = M.unionWith (<>) existingBlocks newBlocks
 
+    -- Find the maximum page number for each @Epoch@.
+    let maxPagesEpochBlocks = findEpochMaxPages mergedBlocksMap
+    let epochMaxPages = [ DB.PutEpochPages epoch maxPageNumber | (epoch, maxPageNumber) <- maxPagesEpochBlocks]
+
     -- Create database operation
     let mergedBlocks = putKeysBlocks mergedBlocksMap
 
     -- In the end make sure we place this under @SomeBatchOp@ in order to
     -- preserve atomicity.
-    pure $ SomeBatchOp mergedBlocks
+    pure $ SomeBatchOp [mergedBlocks, epochMaxPages]
   where
 
     keys :: [EpochPagedBlocksKey]
@@ -630,9 +636,13 @@ onRollbackEpochPagedBlocks blunds = do
     blocksNE :: NE (Block ssc)
     blocksNE = fst <$> getNewestFirst blunds
 
--- TODO(ks): Add pages count.
--- findEpochMaxPages :: M.Map EpochPagedBlocksKey [HeaderHash] -> [EpochPagedBlocksKey]
--- findEpochMaxPages epochPagedBlocksMap = maximumBy (comparing snd) epochPagedBlocksMapKeys
---   where
---     epochPagedBlocksMapKeys :: EpochPagedBlocksKey
---     epochPagedBlocksMapKeys = keys epochPagedBlocksMap
+-- Find max pages for each epoch.
+findEpochMaxPages :: M.Map EpochPagedBlocksKey [HeaderHash] -> [EpochPagedBlocksKey]
+findEpochMaxPages epochPagedBlocksMap' = maximumBy (comparing snd) <$> groupedEpochPagedBlocks
+  where
+    groupedEpochPagedBlocks :: [[EpochPagedBlocksKey]]
+    groupedEpochPagedBlocks =
+        groupBy (\(epoch1,_) (epoch2,_) -> epoch1 == epoch2) epochPagedBlocksMapKeys
+
+    epochPagedBlocksMapKeys :: [EpochPagedBlocksKey]
+    epochPagedBlocksMapKeys = M.keys epochPagedBlocksMap'

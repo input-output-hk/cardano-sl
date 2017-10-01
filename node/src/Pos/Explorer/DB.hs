@@ -13,6 +13,7 @@ module Pos.Explorer.DB
        , getUtxoSum
        , getPageBlocks
        , getEpochBlocks
+       , getEpochPages
        , getLastTransactions
        , prepareExplorerDB
        , sanityCheckBalances
@@ -88,7 +89,10 @@ getPageBlocks :: MonadDBRead m => Page -> m (Maybe [HeaderHash])
 getPageBlocks = gsGetBi . blockPagePrefix
 
 getEpochBlocks :: MonadDBRead m => Epoch -> Page -> m (Maybe [HeaderHash])
-getEpochBlocks epoch page = gsGetBi $ blockEpochPrefix epoch page
+getEpochBlocks epoch page = gsGetBi $ blockEpochPagePrefix epoch page
+
+getEpochPages :: MonadDBRead m => Epoch -> m (Maybe Page)
+getEpochPages = gsGetBi . blockEpochMaxPagePrefix
 
 getLastTransactions :: MonadDBRead m => m (Maybe [Tx])
 getLastTransactions = gsGetBi lastTxsPrefix
@@ -148,6 +152,7 @@ data ExplorerOp
     | PutPageBlocks !Page ![HeaderHash]
 
     | PutEpochBlocks !Epoch !Page ![HeaderHash]
+    | PutEpochPages !Epoch !Page
 
     | PutLastTxs ![Tx]
 
@@ -168,7 +173,9 @@ instance HasConfiguration => RocksBatchOp ExplorerOp where
         [Rocks.Put (blockPagePrefix page) (dbSerializeValue pageBlocks)]
 
     toBatchOp (PutEpochBlocks epoch page pageBlocks) =
-        [Rocks.Put (blockEpochPrefix epoch page) (dbSerializeValue pageBlocks)]
+        [Rocks.Put (blockEpochPagePrefix epoch page) (dbSerializeValue pageBlocks)]
+    toBatchOp (PutEpochPages epoch page) =
+        [Rocks.Put (blockEpochMaxPagePrefix epoch) (dbSerializeValue page)]
 
     toBatchOp (PutLastTxs lastTxs) =
         [Rocks.Put lastTxsPrefix (dbSerializeValue lastTxs)]
@@ -257,10 +264,13 @@ blockPagePrefix page = "e/page/" <> encodedPage
   where
     encodedPage = serialize' $ UnsignedVarInt page
 
-blockEpochPrefix :: Epoch -> Page -> ByteString
-blockEpochPrefix epoch page = "e/epoch/" <> serialize' epoch <> "/" <> encodedPage
+blockEpochPagePrefix :: Epoch -> Page -> ByteString
+blockEpochPagePrefix epoch page = "e/epoch/" <> serialize' epoch <> "/" <> encodedPage
   where
     encodedPage = serialize' $ UnsignedVarInt page
+
+blockEpochMaxPagePrefix :: Epoch -> ByteString
+blockEpochMaxPagePrefix epoch = "e/epochPages/" <> serialize' epoch
 
 lastTxsPrefix :: ByteString
 lastTxsPrefix = "e/ltxs/"

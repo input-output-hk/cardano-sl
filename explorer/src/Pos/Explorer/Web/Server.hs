@@ -42,7 +42,7 @@ import qualified Pos.DB.Block                     as DB
 import qualified Pos.DB.DB                        as DB
 
 import           Pos.Binary.Class                 (biSize)
-import           Pos.Block.Core                   (MainBlock, mainBlockSlot,
+import           Pos.Block.Core                   (Block, MainBlock, mainBlockSlot,
                                                    mainBlockTxPayload, mcdSlot)
 import           Pos.Block.Types                  (Blund, Undo)
 import           Pos.Core                         (AddrType (..), Address (..), Coin,
@@ -70,7 +70,7 @@ import           Pos.WorkMode                     (WorkMode)
 
 import           Pos.Explorer                     (TxExtra (..), getEpochBlocks,
                                                    getLastTransactions, getPageBlocks,
-                                                   getTxExtra)
+                                                   getTxExtra, getEpochPages)
 import qualified Pos.Explorer                     as EX (getAddrBalance, getAddrHistory,
                                                          getTxExtra, getUtxoSum)
 import           Pos.Explorer.Aeson.ClientTypes   ()
@@ -262,12 +262,13 @@ getBlocksPage mPageNumber pageSize = do
     -- TODO: Fix this Int / Integer thing once we merge repositories
     pageBlocksHH    <- getPageHHsOrThrow $ fromIntegral pageNumber
     blunds          <- forM pageBlocksHH getBlundOrThrow
-    cBlocksEntry    <- forM (rights' blunds) toBlockEntry
+    cBlocksEntry    <- forM (blundToMainBlockUndo blunds) toBlockEntry
 
     -- Return total pages and the blocks. We start from page 1.
     pure (totalPages, reverse cBlocksEntry)
   where
-    rights' x = [(mb, u) | (Right mb, u) <- x]
+    blundToMainBlockUndo :: [Blund SscGodTossing] -> [(MainBlock SscGodTossing, Undo)]
+    blundToMainBlockUndo blund = [(mainBlock, undo) | (Right mainBlock, undo) <- blund]
 
     -- Either get the @HeaderHash@es from the @Page@ or throw an exception.
     getPageHHsOrThrow
@@ -594,7 +595,7 @@ getGenesisPagesTotal (fromIntegral -> pageSize) = do
     redeemAddressCoinPairs <- getRedeemAddressCoinPairs
     pure $ fromIntegral $ (length redeemAddressCoinPairs + pageSize - 1) `div` pageSize
 
--- | Search the blocks by epoch and slot. Slot is optional.
+-- | Search the blocks by epoch and slot.
 epochSlotSearch
     :: ExplorerMode ctx m
     => EpochIndex
@@ -602,16 +603,18 @@ epochSlotSearch
     -> m [CBlockEntry]
 epochSlotSearch epochIndex slotIndex = do
 
-    let page = fromIntegral $ (slotIndex + 10 - 1) `div` 10
+    -- The slots start from 0 so we need to modify the calculation of the index.
+    let page = fromIntegral $ (slotIndex + 10) `div` 10
     -- Get pages from the database
     -- TODO: Fix this Int / Integer thing once we merge repositories
     epochBlocksHH   <- getPageHHsOrThrow epochIndex page
     blunds          <- forM epochBlocksHH getBlundOrThrow
-    cBlocksEntry    <- forM (getEpochSlots slotIndex (rights' blunds)) toBlockEntry
+    cBlocksEntry    <- forM (getEpochSlots slotIndex (blundToMainBlockUndo blunds)) toBlockEntry
 
     pure cBlocksEntry
   where
-    rights' x = [(mb, u) | (Right mb, u) <- x]
+    blundToMainBlockUndo :: [Blund SscGodTossing] -> [(MainBlock SscGodTossing, Undo)]
+    blundToMainBlockUndo blund = [(mainBlock, undo) | (Right mainBlock, undo) <- blund]
     -- Get epoch slot block that's being searched or return all epochs if
     -- the slot is @Nothing@.
     getEpochSlots
@@ -647,22 +650,30 @@ epochPageSearch
     :: ExplorerMode ctx m
     => EpochIndex
     -> Maybe Int
-    -> m (Integer, [CBlockEntry])
+    -> m (Int, [CBlockEntry])
 epochPageSearch epochIndex mPage = do
 
     -- If the user doesn't define the page, the default page is the first one.
     let page :: Int
         page = fromMaybe 1 mPage
 
+    -- We want to fetch how many pages do we have in this @Epoch@.
+    epochPagesNumber <- getEpochPages epochIndex >>= maybeThrow (Internal "No epoch pages.")
+
     -- Get pages from the database
     -- TODO: Fix this Int / Integer thing once we merge repositories
-    epochBlocksHH   <- getPageHHsOrThrow epochIndex page
-    blunds          <- forM epochBlocksHH getBlundOrThrow
-    cBlocksEntry    <- forM (rights' blunds) toBlockEntry
+    epochBlocksHH       <- getPageHHsOrThrow epochIndex page
+    blunds              <- forM epochBlocksHH getBlundOrThrow
 
-    pure (2160, cBlocksEntry)
+    let sortedBlunds     = sortBlocksByEpochSlots blunds
+    let sortedMainBlocks = blundToMainBlockUndo sortedBlunds
+
+    cBlocksEntry        <- forM sortedMainBlocks toBlockEntry
+
+    pure (epochPagesNumber, cBlocksEntry)
   where
-    rights' x = [(mb, u) | (Right mb, u) <- x]
+    blundToMainBlockUndo :: [Blund SscGodTossing] -> [(MainBlock SscGodTossing, Undo)]
+    blundToMainBlockUndo blund = [(mainBlock, undo) | (Right mainBlock, undo) <- blund]
 
     -- Either get the @HeaderHash@es from the @Epoch@ or throw an exception.
     getPageHHsOrThrow
@@ -675,6 +686,32 @@ epochPageSearch epochIndex mPage = do
       where
         errMsg :: Text
         errMsg = sformat ("No blocks on epoch "%build%" page "%build%" found!") epoch page
+
+    -- | Sorting.
+    sortBlocksByEpochSlots
+        :: [(Block SscGodTossing, Undo)]
+        -> [(Block SscGodTossing, Undo)]
+    sortBlocksByEpochSlots blocks = sortBy blockIndexCompareFunction blocks
+      where
+        blockIndexCompareFunction
+            :: (Block SscGodTossing, Undo)
+            -> (Block SscGodTossing, Undo)
+            -> Ordering
+        blockIndexCompareFunction blund1 blund2 =
+            let block1 = fst blund1
+                block2 = fst blund2
+            in
+            if getBlockIndex block1 < getBlockIndex block2
+                then GT
+                else LT
+          where
+            -- | Get the block index number. We start with the the index 1 for the
+            -- gensis block and add 1 for the main blocks since they start with 1
+            -- as well.
+            getBlockIndex :: (Block ssc) -> Int
+            getBlockIndex (Left _)      = 1
+            getBlockIndex (Right block) =
+                fromIntegral $ (+1) $ getSlotIndex $ siSlot $ block ^. mainBlockSlot
 
 getStatsTxs
     :: forall ctx m. ExplorerMode ctx m

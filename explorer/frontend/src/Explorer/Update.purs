@@ -518,10 +518,12 @@ update (GlobalSearchTime event) state =
                     in
                     pure <<< Just $ Navigate (toUrl epochSlotUrl) event
                 Tuple (Just epoch) Nothing ->
-                    let epochIndex = mkEpochIndex epoch
-                        epochUrl   = Epoch $ epochIndex
-                    in
-                    pure <<< Just $ Navigate (toUrl epochUrl) event
+                    -- [CSE-236] Disable epoch search
+                    -- let epochIndex = mkEpochIndex epoch
+                    --     epochUrl   = Epoch $ epochIndex
+                    -- in
+                    -- pure <<< Just $ Navigate (toUrl epochUrl) event
+                    pure Nothing
 
                 _ -> pure Nothing -- TODO (ks) maybe put up a message?
         ]
@@ -909,7 +911,9 @@ update (UpdateView r@(Epoch epochIndex)) state =
     , effects:
         [ pure $ Just ScrollTop
         , pure $ Just ClearWaypoints
-        , pure <<< Just $ RequestSearchBlocks epochIndex Nothing
+        -- [CSE-236] Disable epoch search and redirect to 404 page
+        -- , pure <<< Just $ RequestSearchBlocks epochIndex Nothing
+        , pure <<< Just $ UpdateView NotFound
         ]
     }
 

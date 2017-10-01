@@ -9,32 +9,34 @@ module Main
        ( main
        ) where
 
-import           Universum           hiding (over)
+import           Universum            hiding (over)
 
-import           Data.Maybe          (fromJust)
-import           Formatting          (sformat, shown, (%))
-import           Mockable            (Production, currentTime, runProduction)
+import           Data.Maybe           (fromJust)
+import           Formatting           (sformat, shown, (%))
+import           Mockable             (Production, currentTime, runProduction)
+import           System.Wlog          (modifyLoggerName)
 
-import           Pos.Binary          ()
-import           Pos.Client.CLI      (CommonNodeArgs (..))
-import qualified Pos.Client.CLI      as CLI
-import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec, worker)
-import           Pos.Context         (HasNodeContext)
-import           Pos.Core            (Timestamp (..), gdStartTime, genesisData)
-import           Pos.Launcher        (HasConfigurations, NodeParams (..),
-                                      NodeResources (..), bracketNodeResources, runNode,
-                                      withConfigurations)
-import           Pos.Ssc.Class       (SscParams)
-import           Pos.Ssc.GodTossing  (SscGodTossing)
-import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.Web      (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
-                                      runWRealMode, walletServeWebFull, walletServerOuts)
-import           Pos.Web             (serveWebGT)
-import           Pos.WorkMode        (WorkMode)
+import           Pos.Binary           ()
+import           Pos.Client.CLI       (CommonNodeArgs (..))
+import qualified Pos.Client.CLI       as CLI
+import           Pos.Communication    (ActionSpec (..), OutSpecs, WorkerSpec, worker)
+import           Pos.Context          (HasNodeContext)
+import           Pos.Core             (Timestamp (..), gdStartTime, genesisData)
+import           Pos.Launcher         (HasConfigurations, NodeParams (..),
+                                       NodeResources (..), bracketNodeResources, runNode,
+                                       withConfigurations)
+import           Pos.Ssc.Class        (SscParams)
+import           Pos.Ssc.GodTossing   (SscGodTossing)
+import           Pos.Util.UserSecret  (usVss)
+import           Pos.Wallet.Web       (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
+                                       runWRealMode, walletServeWebFull, walletServerOuts)
+import           Pos.Wallet.Web.State (cleanupAcidStatePeriodically)
+import           Pos.Web              (serveWebGT)
+import           Pos.WorkMode         (WorkMode)
 
-import           NodeOptions         (WalletArgs (..), WalletNodeArgs (..),
-                                      getWalletNodeOptions)
-import           Params              (getNodeParams)
+import           NodeOptions          (WalletArgs (..), WalletNodeArgs (..),
+                                       getWalletNodeOptions)
+import           Params               (getNodeParams)
 
 actionWithWallet :: HasConfigurations => SscParams SscGodTossing -> NodeParams -> WalletArgs -> Production ()
 actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
@@ -49,10 +51,18 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
   where
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
     plugins :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
-    plugins = convPlugins (pluginsGT wArgs) <> walletProd wArgs
+    plugins = mconcat [ convPlugins (pluginsGT wArgs)
+                      , walletProd wArgs
+                      , acidCleanupWorker wArgs ]
+
+acidCleanupWorker :: HasConfigurations => WalletArgs -> ([WorkerSpec WalletWebMode], OutSpecs)
+acidCleanupWorker WalletArgs{..} =
+    first one $ worker mempty $ const $
+    modifyLoggerName (const "acidcleanup") $
+    cleanupAcidStatePeriodically walletAcidInterval
 
 walletProd :: HasConfigurations => WalletArgs -> ([WorkerSpec WalletWebMode], OutSpecs)
-walletProd WalletArgs {..} = first pure $ worker walletServerOuts $ \sendActions ->
+walletProd WalletArgs {..} = first one $ worker walletServerOuts $ \sendActions ->
     walletServeWebFull
         sendActions
         walletDebug

@@ -7,7 +7,6 @@ module Pos.Wallet.Web.State.Util
 import           Universum                  hiding (over)
 
 import           Data.Acid                  (createArchive, createCheckpoint)
-import           Data.Time.Clock            (NominalDiffTime, addUTCTime, getCurrentTime)
 import           Data.Time.Units            (TimeUnit)
 import           Formatting                 (sformat, shown, (%))
 import           Mockable                   (Delay, Mockable, delay)
@@ -78,7 +77,7 @@ cleanupAcidStatePeriodically interval = perform
         archiveCheckpoints <- map (archiveDir </>) <$> listDirectory archiveDir
         -- same files, but newest first
         newestFirst <-
-            map fst . reverse . sortOn snd <$>
+            map fst . reverse . sortWith snd <$>
             mapM (\f -> (f,) <$> liftIO (getModificationTime f)) archiveCheckpoints
         let oldFiles = drop 10 newestFirst
         forM_ oldFiles removeFile

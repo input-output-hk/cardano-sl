@@ -4461,8 +4461,8 @@ self: {
       log-warper = callPackage ({ aeson, ansi-terminal, base, containers, directory, dlist, errors, exceptions, extra, filepath, formatting, hashable, lens, mkDerivation, mmorph, monad-control, monad-loops, mtl, network, safecopy, stdenv, text, text-format, time, transformers, transformers-base, universum, unix, unordered-containers, yaml }:
       mkDerivation {
           pname = "log-warper";
-          version = "1.2.1";
-          sha256 = "0qy1i40ypjcsvqy63jgn824a8iclvw49bhnkxab4k5vjhypd78ga";
+          version = "1.2.2";
+          sha256 = "0hxw0j3zp6vs4si1v8ziy0g2a06smny6fmjqhd9v5hvdcfnqnm9b";
           isLibrary = true;
           isExecutable = true;
           libraryHaskellDepends = [
@@ -4924,14 +4924,14 @@ self: {
           description = "A typeclass and set of functions for working with newtypes, with generics support";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      node-sketch = callPackage ({ aeson, async, attoparsec, base, binary, bytestring, containers, cryptonite, data-default, deepseq, ekg-core, exceptions, fetchgit, formatting, hashable, kademlia, lens, lifted-base, log-warper, mkDerivation, mmorph, monad-control, mtl, mwc-random, network, network-transport, network-transport-tcp, random, resourcet, semigroups, serokell-util, statistics, stdenv, stm, tagged, text, text-format, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector }:
+      node-sketch = callPackage ({ QuickCheck, aeson, async, attoparsec, base, binary, bytestring, containers, cryptonite, data-default, deepseq, ekg-core, exceptions, fetchgit, formatting, hashable, kademlia, lens, lifted-base, log-warper, mkDerivation, mmorph, monad-control, mtl, mwc-random, network, network-transport, network-transport-tcp, random, resourcet, semigroups, serokell-util, statistics, stdenv, stm, tagged, text, text-format, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector }:
       mkDerivation {
           pname = "node-sketch";
           version = "0.2.0.0";
           src = fetchgit {
             url = "https://github.com/serokell/time-warp-nt.git";
-            sha256 = "126gzaljqqb08dh3wlal7wbqydafgzc5zhq063frrcld8b7ayjzm";
-            rev = "e4df104bc68e019422034568cae476f28d145c40";
+            sha256 = "13avvcni90crjrq10xdpz8d6v5gawm1nw5rvj8lg6vkmcsy44zni";
+            rev = "630b23847ea39778f5616134a4f416b473639a15";
           };
           isLibrary = true;
           isExecutable = true;
@@ -4961,6 +4961,7 @@ self: {
             network
             network-transport
             network-transport-tcp
+            QuickCheck
             random
             resourcet
             semigroups

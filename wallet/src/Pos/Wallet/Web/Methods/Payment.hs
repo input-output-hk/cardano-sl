@@ -13,7 +13,6 @@ import           Universum
 import qualified Data.List.NonEmpty               as NE
 import           Formatting                       (sformat, (%))
 import           Serokell.Util                    (listJsonIndent)
-import           System.Wlog                      (logInfo)
 
 import           Pos.Aeson.ClientTypes            ()
 import           Pos.Aeson.WalletBackup           ()
@@ -33,6 +32,7 @@ import           Pos.Txp.Core                     (TxAux (..), TxOut (..))
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util                         (eitherToThrow, maybeThrow)
 import           Pos.Util.CompileInfo             (HasCompileInfo)
+import           Pos.Util.LogSafe                 (logInfoS)
 import           Pos.Util.Servant                 (encodeCType)
 import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAccAddr)
 import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAddress (..),
@@ -50,7 +50,6 @@ import           Pos.Wallet.Web.State             (AddressLookupMode (Existing))
 import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
                                                    getAccountAddrsOrThrow,
                                                    getWalletAccountIds)
-
 
 newPayment
     :: MonadWalletWebMode m
@@ -171,7 +170,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
 
                 (th, dstAddrs) <$ submitAndSaveNewPtx enqueueMsg ptx
 
-        logInfo $
+        logInfoS $
             sformat ("Successfully spent money from candidate source addresses "%
                      listJsonIndent 4%" on "%listJsonIndent 4)
             (toList srcAddrs)

@@ -36,7 +36,6 @@ module Pos.Util.Servant
     , serverHandlerL'
     , inRouteServer
 
-    , applyServantLogging
     , applyLoggingToHandler
     ) where
 
@@ -58,9 +57,10 @@ import           Servant.API             ((:<|>) (..), (:>), Capture, QueryParam
 import           Servant.Server          (Handler (..), HasServer (..), ServantErr (..),
                                           Server)
 import qualified Servant.Server.Internal as SI
-import           System.Wlog             (LoggerName, logInfo, usingLoggerName)
+import           System.Wlog             (LoggerName, usingLoggerName)
 
 import           Pos.Util.Util           (colorizeDull)
+import           Pos.Util.LogSafe        (logInfoS)
 
 -------------------------------------------------------------------------
 -- Utility functions
@@ -429,7 +429,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
             return $ sformat shown (endTime - startTime)
     performLogging msg = do
         let loggerName = reflect configP
-        liftIO . usingLoggerName loggerName $ logInfo msg
+        liftIO . usingLoggerName loggerName $ logInfoS msg
     eParamLogs = case paramsInfo of
         ApiParamsLogInfo info -> do
             let params = mconcat $ reverse info <&>
@@ -468,7 +468,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
         durationText <- timer
         logWithParamInfo $
             sformat ("  "%stext%" "%shown%" "%stext)
-                (colorizeDull Red "Exception")
+                (colorizeDull Red "Error")
                 e
                 durationText
         throwM e

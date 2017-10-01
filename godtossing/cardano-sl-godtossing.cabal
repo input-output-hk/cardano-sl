@@ -1,5 +1,5 @@
 name:                cardano-sl-godtossing
-version:             0.6.2
+version:             1.0.1
 synopsis:            Cardano SL - GodTossing implementation of SSC
 description:         Cardano SL - GodTossing implementation of SSC
 license:             MIT

@@ -176,8 +176,8 @@ data CWalletMeta = CWalletMeta
 
 instance Buildable CWalletMeta where
     build CWalletMeta{..} =
-        bprint ("'"%build%"' ("%build%"/"%build%")")
-               cwName cwAssurance cwUnit
+        bprint ("("%build%"/"%build%")")
+               cwAssurance cwUnit
 
 instance Default CWalletMeta where
     def = CWalletMeta "Personal Wallet Set" CWANormal 0
@@ -188,8 +188,7 @@ data CAccountMeta = CAccountMeta
     } deriving (Show, Generic)
 
 instance Buildable CAccountMeta where
-    build CAccountMeta{..} =
-        bprint ("'"%build%"'") caName
+    build CAccountMeta{..} = "<meta>"
 
 instance Default CAccountMeta where
     def = CAccountMeta "Personal Wallet"
@@ -513,4 +512,3 @@ instance Buildable SyncProgress where
 
 instance Default SyncProgress where
     def = SyncProgress 0 mzero 0
-

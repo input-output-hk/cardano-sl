@@ -28,9 +28,8 @@ import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), CAccount (..)
                                                    CAccountId (..), CAddress (..),
                                                    CCoin (..), CElectronCrashReport (..),
                                                    CHash (..), CId (..), CPassPhrase (..),
-                                                   CPtxCondition, CPtxCondition (..),
-                                                   CTx (..), CTxId (..), CTxId,
-                                                   CWallet (..), CWallet, mkCTxId)
+                                                   CPtxCondition (..), CTx (..),
+                                                   CTxId (..), CWallet (..), mkCTxId)
 import           Pos.Wallet.Web.Pending.Types     (PtxCondition (..))
 
 ----------------------------------------------------------------------------
@@ -181,7 +180,16 @@ instance HasTruncateLogPolicy CAddress where
       where
         zeroMoney = encodeCType minBound
 
+-- TODO [CSM-466] deal with this hack
 instance Buildable (WithTruncatedLog ([CTx], Word)) where
     build (WithTruncatedLog (ctxs, size)) =
         bprint ("Num: "%build%", entries: \n"%build)
             size (WithTruncatedLog ctxs)
+
+-- TODO [CSM-466] deal with this hack especially
+instance (Buildable e, Buildable (WithTruncatedLog a)) =>
+         Buildable (WithTruncatedLog (Either e a)) where
+    build (WithTruncatedLog x) =
+        case x of
+            Left e  -> bprint ("Failure: "%build) e
+            Right a -> bprint build (WithTruncatedLog a)

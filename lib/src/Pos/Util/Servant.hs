@@ -36,7 +36,6 @@ module Pos.Util.Servant
     , serverHandlerL'
     , inRouteServer
 
-    , applyServantLogging
     , applyLoggingToHandler
     ) where
 
@@ -468,7 +467,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
         durationText <- timer
         logWithParamInfo $
             sformat ("  "%stext%" "%shown%" "%stext)
-                (colorizeDull Red "Exception")
+                (colorizeDull Red "Error")
                 e
                 durationText
         throwM e

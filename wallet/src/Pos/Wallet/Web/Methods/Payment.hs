@@ -11,6 +11,7 @@ module Pos.Wallet.Web.Methods.Payment
 import           Universum
 
 import           Control.Monad.Except           (runExcept)
+import           Control.Exception              (throw)
 import           Formatting                     (sformat, (%))
 import qualified Formatting                     as F
 import           System.Wlog                    (logInfo)
@@ -159,7 +160,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
                   fromMaybe (error "Corresponding adress meta not found")
                             (fst <$> find ((== addr) . snd) metasAndAdrresses)
           case runExcept $ getSKByAddressPure allSecrets (ShouldCheckPassphrase False) passphrase addrMeta of
-              Left err -> error $ "Couldn't generate safe signer for address: " <> show err
+              Left err -> throw err
               Right sk -> withSafeSignerUnsafe sk (pure passphrase) pure
 
     relatedAccount <- getSomeMoneySourceAccount moneySource

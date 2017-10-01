@@ -56,9 +56,10 @@ data Action
     | ReceiveTxSummary (Either Error CTxSummary)
     | RequestAddressSummary CAddress
     | ReceiveAddressSummary (Either Error CAddressSummary)
-    | RequestEpochPageSearch EpochIndex (Maybe Page)
+    | RequestEpochPageSearch EpochIndex PageNumber
+    | ReceiveEpochPageSearch (Either Error (Tuple Int CBlockEntries))
     | RequestEpochSlotSearch EpochIndex LocalSlotIndex
-    | ReceiveSearchBlocks (Either Error CBlockEntries)
+    | ReceiveEpochSlotSearch (Either Error CBlockEntries)
     | RequestGenesisSummary
     | ReceiveGenesisSummary (Either Error CGenesisSummary)
     | RequestGenesisAddressInfoTotalPages

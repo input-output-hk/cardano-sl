@@ -29,7 +29,7 @@ import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchGenesisAddressInfo, fetchGenesisAddressInfoTotalPages, fetchGenesisSummary, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, epochPageSearch, epochSlotSearch)
 import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
-import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentCGenesisAddressInfos, currentCGenesisSummary, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gWaypoints, gblAddressInfosPagination, gblAddressInfosPaginationEditable, gblLoadingAddressInfosPagination, gblMaxAddressInfosPagination, genesisBlockViewState, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewEpochIndex, blsViewMaxPagination, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentCGenesisAddressInfos, currentCGenesisSummary, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gWaypoints, gblAddressInfosPagination, gblAddressInfosPaginationEditable, gblLoadingAddressInfosPagination, gblMaxAddressInfosPagination, genesisBlockViewState, globalViewState, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
 import Explorer.Routes (Route(..), match, toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, headerSearchContainerId, heroSearchContainerId, minPagination, mkSocketSubscriptionItem, mobileMenuSearchContainerId)
 import Explorer.Types.Actions (Action(..))
@@ -290,6 +290,9 @@ update (BlocksPaginateBlocks mEvent pageNumber) state =
     , effects:
         [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
         -- ^ blur element - needed by iOS to close native keyboard
+        , case state ^. (viewStates <<< blocksViewState <<< blsViewEpochIndex) of
+              Just epochIndex -> pure <<< Just $ RequestEpochPageSearch epochIndex pageNumber
+              Nothing -> pure Nothing
         ]
     }
 
@@ -631,30 +634,42 @@ update (ReceiveBlockSummary (Left error)) state =
 
 -- Epoch, slot
 
-update (RequestEpochPageSearch epoch mPage) state =
+update (RequestEpochPageSearch epochIndex pNumber) state =
     { state:
           set loading true $
           set currentBlocksResult Loading
           state
-    , effects: [ attempt (epochPageSearch epoch mPage) >>= pure <<< Just <<< ReceiveSearchBlocks ]
+    , effects: [ attempt (epochPageSearch epochIndex pNumber) >>= pure <<< Just <<< ReceiveEpochPageSearch ]
     }
+update (ReceiveEpochPageSearch (Right (Tuple totalPages blocks))) state =
+    noEffects $
+        set loading false $
+        set currentBlocksResult (Success blocks) $
+        set (viewStates <<< blocksViewState <<< blsViewMaxPagination) (PageNumber totalPages) state
+
+update (ReceiveEpochPageSearch (Left error)) state =
+    noEffects $
+        set loading false <<<
+        set currentBlocksResult (Failure error) $
+        over errors (\errors' -> (show error) : errors') state
+
 update (RequestEpochSlotSearch epoch slot) state =
     { state:
           set loading true $
           set currentBlocksResult Loading
           state
-    , effects: [ attempt (epochSlotSearch epoch slot) >>= pure <<< Just <<< ReceiveSearchBlocks ]
+    , effects: [ attempt (epochSlotSearch epoch slot) >>= pure <<< Just <<< ReceiveEpochSlotSearch ]
     }
-update (ReceiveSearchBlocks (Right blocks)) state =
+update (ReceiveEpochSlotSearch (Right blocks)) state =
     noEffects $
-    set loading false $
-    set currentBlocksResult (Success blocks) state
+        set loading false $
+        set currentBlocksResult (Success blocks) state
 
-update (ReceiveSearchBlocks (Left error)) state =
+update (ReceiveEpochSlotSearch (Left error)) state =
     noEffects $
-    set loading false <<<
-    set currentBlocksResult (Failure error) $
-    over errors (\errors' -> (show error) : errors') state
+        set loading false <<<
+        set currentBlocksResult (Failure error) $
+        over errors (\errors' -> (show error) : errors') state
 
 update (RequestBlockTxs hash) state =
     { state:
@@ -910,21 +925,26 @@ update (UpdateView r@(Address cAddress)) state =
 
 update (UpdateView r@(Epoch epochIndex)) state =
     { state:
-        set (viewStates <<< blocksViewState <<< blsViewPagination)
-            (PageNumber minPagination) $
+        set (viewStates <<< blocksViewState <<< blsViewPagination) (PageNumber minPagination) $
+        -- ^ reset current page number of blocks
+        set (viewStates <<< blocksViewState <<< blsViewMaxPagination) (PageNumber minPagination) $
+        -- ^ reset max page number of blocks
+        set (viewStates <<< blocksViewState <<< blsViewEpochIndex) (Just epochIndex) $
+        -- ^ store current EpochIndex
         set route r state
     , effects:
         [ pure $ Just ScrollTop
         , pure $ Just ClearWaypoints
-        , pure <<< Just $ RequestEpochPageSearch epochIndex Nothing
+        , pure <<< Just $ RequestEpochPageSearch epochIndex (PageNumber minPagination)
         ]
     }
 
 update (UpdateView r@(EpochSlot epochIndex slotIndex)) state =
-    let lang' = state ^. lang
-
-    in
     { state:
+        set (viewStates <<< blocksViewState <<< blsViewPagination) (PageNumber minPagination) $
+        -- ^ reset current page number of blocks
+        set (viewStates <<< blocksViewState <<< blsViewMaxPagination) (PageNumber minPagination) $
+        -- ^ reset max page number of blocks
         set route r state
     , effects:
         [ pure $ Just ScrollTop

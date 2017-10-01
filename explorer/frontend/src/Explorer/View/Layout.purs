@@ -15,7 +15,7 @@ import Explorer.Types.Actions (Action)
 import Explorer.Types.State (State)
 import Explorer.View.Address (addressView)
 import Explorer.View.Block (blockView)
-import Explorer.View.Blocks (blocksView)
+import Explorer.View.Blocks (epochBlocksView)
 import Explorer.View.CSS (route) as CSS
 import Explorer.View.Calculator (calculatorView)
 import Explorer.View.Dashboard.Dashboard (dashboardView)
@@ -41,8 +41,8 @@ view state =
                                 Dashboard -> dashboardView state
                                 (Tx id) -> transactionView state
                                 (Address address) -> addressView state
-                                (Epoch epoch) -> blocksView state
-                                (EpochSlot epoch slot) -> blocksView state
+                                (Epoch epoch) -> epochBlocksView state
+                                (EpochSlot epoch slot) -> epochBlocksView state
                                 Calculator -> calculatorView state
                                 (Block hash) -> blockView state
                                 GenesisBlock -> genesisBlockView state

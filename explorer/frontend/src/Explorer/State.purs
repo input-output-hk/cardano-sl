@@ -55,7 +55,9 @@ initialState =
             }
         , blocksViewState:
             { blsViewPagination: PageNumber minPagination
+            , blsViewMaxPagination: PageNumber minPagination
             , blsViewPaginationEditable: false
+            , blsViewEpochIndex: Nothing
             }
         , genesisBlockViewState:
             { gblAddressInfosPagination: PageNumber minPagination

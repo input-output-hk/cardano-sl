@@ -20,7 +20,7 @@ import Network.HTTP.Affjax (AJAX, AffjaxRequest, affjax, defaultRequest)
 import Network.HTTP.Affjax.Request (class Requestable)
 import Network.HTTP.StatusCode (StatusCode(..))
 import Pos.Core.Lenses.Types (_EpochIndex, _UnsafeLocalSlotIndex, getEpochIndex, getSlotIndex)
-import Pos.Core.Types (EpochIndex, LocalSlotIndex)
+import Pos.Core.Types (EpochIndex(..), LocalSlotIndex)
 import Pos.Explorer.Web.ClientTypes (CAddress(..), CAddressSummary, CBlockSummary, CGenesisSummary, CHash(..), CTxId, CTxSummary)
 import Pos.Explorer.Web.Lenses.ClientTypes (_CHash, _CTxId)
 
@@ -77,21 +77,16 @@ fetchAddressSummary :: forall eff. CAddress -> Aff (ajax::AJAX | eff) CAddressSu
 fetchAddressSummary (CAddress address) = get $ "addresses/summary/" <> (encodeURIComponent address)
 
 -- search by epoch / page
-epochPageSearch :: forall eff. EpochIndex -> Maybe Int -> Aff (ajax::AJAX | eff) CBlockEntries
-epochPageSearch epoch mPageNumber = get $ "epochs/" <> show epochIndex <> pageQuery mPageNumber
-  where
-      pageQuery Nothing = ""
-      pageQuery (Just pageNumber) = "?page=" <> show pageNumber
-
-      epochIndex = epoch ^. (_EpochIndex <<< getEpochIndex)
+epochPageSearch :: forall eff. EpochIndex -> PageNumber -> Aff (ajax::AJAX | eff) (Tuple Int CBlockEntries)
+epochPageSearch (EpochIndex epochIndex) (PageNumber pNumber) = get $ "epochs/"
+    <> show (epochIndex ^. getEpochIndex) <> "?page=" <> show pNumber
 
 -- search by epoch and slot
 epochSlotSearch :: forall eff. EpochIndex -> LocalSlotIndex -> Aff (ajax::AJAX | eff) CBlockEntries
 epochSlotSearch epoch slot = get $ "epochs/" <> show epochIndex <> slotQuery
-  where
-      slotQuery = "/" <> show (slot ^. (_UnsafeLocalSlotIndex <<< getSlotIndex))
-
-      epochIndex = epoch ^. (_EpochIndex <<< getEpochIndex)
+    where
+        slotQuery = "/" <> show (slot ^. (_UnsafeLocalSlotIndex <<< getSlotIndex))
+        epochIndex = epoch ^. (_EpochIndex <<< getEpochIndex)
 
 -- genesis block
 fetchGenesisSummary :: forall eff. Aff (ajax::AJAX | eff) CGenesisSummary

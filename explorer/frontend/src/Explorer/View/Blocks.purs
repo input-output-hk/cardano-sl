@@ -1,8 +1,8 @@
 module Explorer.View.Blocks
-    ( blocksView
-    , blockRow
+    ( blockRow
     , blocksHeaderView
     , blockHeaderItemView
+    , epochBlocksView
     , maxBlockRows
     , minBlockRows
     ) where
@@ -19,7 +19,7 @@ import Data.Time.Duration (Milliseconds)
 
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (block, blEpochSlotNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cBlockLead, cSize) as I18nL
-import Explorer.Lenses.State (_PageNumber, blocksViewState, blsViewPagination, blsViewPaginationEditable, currentBlocksResult, lang, viewStates)
+import Explorer.Lenses.State (_PageNumber, blocksViewState, blsViewMaxPagination, blsViewPagination, blsViewPaginationEditable, currentBlocksResult, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
@@ -28,7 +28,7 @@ import Explorer.Util.Factory (mkEpochIndex)
 import Explorer.Util.String (formatADA)
 import Explorer.Util.Time (prettyDuration, nominalDiffTimeToDateTime)
 import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnLead, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
-import Explorer.View.Common (currencyCSSClass, getMaxPaginationNumber, noData, paginationView)
+import Explorer.View.Common (currencyCSSClass, noData, paginationView)
 
 import Network.RemoteData (RemoteData(..), withDefault)
 
@@ -50,8 +50,9 @@ maxBlockRows = 10
 minBlockRows :: Int
 minBlockRows = 3
 
-blocksView :: State -> P.HTML Action
-blocksView state =
+-- Blocks view used by epoch and epoch/slot pages
+epochBlocksView :: State -> P.HTML Action
+epochBlocksView state =
     let lang' = state ^. lang in
     S.div ! S.className "explorer-blocks"
           $ S.div ! S.className "explorer-blocks__wrapper"
@@ -70,7 +71,7 @@ blocksView state =
                                         { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
                                         , currentPage: state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
                                         , minPage: PageNumber minPagination
-                                        , maxPage: PageNumber $ getMaxPaginationNumber (length blocks) maxBlockRows
+                                        , maxPage: state ^. (viewStates <<< blocksViewState <<< blsViewMaxPagination)
                                         , changePageAction: BlocksPaginateBlocks
                                         , editable: state ^. (viewStates <<< blocksViewState <<< blsViewPaginationEditable)
                                         , editableAction: BlocksEditBlocksPageNumber
@@ -81,7 +82,7 @@ blocksView state =
                                 S.div do
                                     blocksHeaderView blocks lang'
                                     S.div ! S.className CSS.blocksBody
-                                          $ for_ (currentBlocks state) (blockRow state)
+                                          $ for_ blocks (blockRow state)
                                     S.div ! S.className CSS.blocksFooter
                                           $ paginationView paginationViewProps
 
@@ -99,14 +100,6 @@ failureView lang =
             #! P.onClick (Navigate $ toUrl Dashboard)
             ! S.className "btn-back"
             $ S.text (translate (I18nL.common <<< I18nL.cBack2Dashboard) lang)
-
-currentBlocks :: State -> CBlockEntries
-currentBlocks state =
-    slice minBlockIndex (minBlockIndex + maxBlockRows) blocks
-    where
-        blocks = withDefault [] $ state ^. currentBlocksResult
-        currentBlockPage = state ^. (viewStates <<< blocksViewState <<< blsViewPagination <<< _PageNumber)
-        minBlockIndex = (currentBlockPage - 1) * maxBlockRows
 
 blockRow :: State -> CBlockEntry -> P.HTML Action
 blockRow state (CBlockEntry entry) =

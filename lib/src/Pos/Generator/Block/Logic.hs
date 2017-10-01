@@ -70,7 +70,7 @@ genBlock eos = do
     unlessM ((epoch ==) <$> lift LrcDB.getEpoch) $
         lift $ lrcSingleShot epoch
     -- We need to know leaders to create any block.
-    leaders <- lift $ lrcActionOnEpochReason epoch "genBlock" LrcDB.getLeaders
+    leaders <- lift $ lrcActionOnEpochReason epoch "genBlock" LrcDB.getLeadersForEpoch
     case eos of
         EpochOrSlot (Left _) -> do
             tipHeader <- lift $ getTipHeader @SscGodTossing

@@ -12,6 +12,7 @@ module Pos.Lrc.DB.Common
        -- * Helpers
        , getBi
        , putBi
+       , putBatchBi
        , delete
 
        -- * Operations
@@ -20,10 +21,14 @@ module Pos.Lrc.DB.Common
 
 import           Universum
 
+import qualified Database.RocksDB as Rocks
+
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core  ()
 import           Pos.Core.Types   (EpochIndex)
-import           Pos.DB.Class     (DBTag (LrcDB), MonadDB (dbDelete), MonadDBRead)
+import           Pos.DB           (dbSerializeValue)
+import           Pos.DB.Class     (DBTag (LrcDB), MonadDB (dbDelete, dbWriteBatch),
+                                   MonadDBRead)
 import           Pos.DB.Error     (DBError (DBMalformed))
 import           Pos.DB.Functions (dbGetBi, dbPutBi)
 import           Pos.Util.Util    (maybeThrow)
@@ -41,6 +46,14 @@ putBi
     :: (MonadDB m, Bi v)
     => ByteString -> v -> m ()
 putBi = dbPutBi LrcDB
+
+putBatchBi
+    :: (MonadDB m, Bi v)
+    => [(ByteString, v)] -> m ()
+putBatchBi ops = dbWriteBatch LrcDB rocksOps
+  where
+    rocksOps :: [Rocks.BatchOp]
+    rocksOps = [Rocks.Put key (dbSerializeValue value) | (key, value) <- ops]
 
 delete :: (MonadDB m) => ByteString -> m ()
 delete = dbDelete LrcDB

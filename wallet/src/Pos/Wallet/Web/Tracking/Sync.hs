@@ -81,7 +81,6 @@ import           Pos.Util.Chrono                  (getNewestFirst)
 import qualified Pos.Util.Modifier                as MM
 
 import           Pos.Ssc.Class                    (SscHelpersClass)
-import           Pos.Util.Servant                 (encodeCType)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.Web.Account           (MonadKeySearch (..))
 import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CWAddressMeta (..), Wal,

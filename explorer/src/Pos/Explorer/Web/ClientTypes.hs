@@ -19,6 +19,7 @@ module Pos.Explorer.Web.ClientTypes
        , CGenesisAddressInfo (..)
        , TxInternal (..)
        , CCoin
+       , CAda (..)
        , EpochIndex (..)
        , LocalSlotIndex (..)
        , StakeholderId
@@ -43,43 +44,48 @@ module Pos.Explorer.Web.ClientTypes
        , decodeHashHex
        ) where
 
+import qualified Prelude
 import           Universum
 
-import           Control.Lens               (ix, _Left)
-import qualified Data.ByteArray             as BA
-import qualified Data.List.NonEmpty         as NE
-import           Data.Time.Clock.POSIX      (POSIXTime)
-import           Formatting                 (sformat)
-import           Pos.Binary                 (Bi, biSize)
-import           Pos.Block.Core             (MainBlock, mainBlockSlot, mainBlockTxPayload,
-                                             mcdSlot)
-import           Pos.Block.Types            (Undo (..))
-import           Pos.Core                   (HasConfiguration, timestampToPosix)
-import           Pos.Crypto                 (Hash, hash)
-import           Pos.DB.Block               (MonadBlockDB)
-import           Pos.DB.Class               (MonadDBRead)
-import           Pos.DB.Rocks               (MonadRealDB)
-import           Pos.Explorer               (TxExtra (..))
-import qualified Pos.GState                 as GS
-import           Pos.Lrc                    (getLeaders)
-import           Pos.Merkle                 (getMerkleRoot, mtRoot)
-import           Pos.Slotting               (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.GodTossing         (SscGodTossing)
+import           Control.Arrow                    ((&&&))
+import           Control.Lens                     (ix, _Left)
+import qualified Data.ByteArray                   as BA
+import           Data.Fixed                       (Micro, showFixed)
+import qualified Data.List.NonEmpty               as NE
+import           Data.Time.Clock.POSIX            (POSIXTime)
+import           Formatting                       (sformat)
+import           Serokell.Data.Memory.Units       (Byte)
+import           Serokell.Util.Base16             as SB16
+import           Servant.API                      (FromHttpApiData (..))
+
+import           Pos.Binary                       (Bi, biSize)
+import           Pos.Block.Core                   (MainBlock, mainBlockSlot,
+                                                   mainBlockTxPayload, mcdSlot)
+import           Pos.Block.Types                  (Undo (..))
+import           Pos.Core                         (HasConfiguration, timestampToPosix)
+import           Pos.Crypto                       (Hash, hash)
+import           Pos.DB.Block                     (MonadBlockDB)
+import           Pos.DB.Class                     (MonadDBRead)
+import           Pos.DB.Rocks                     (MonadRealDB)
+import           Pos.Explorer                     (TxExtra (..))
+import qualified Pos.GState                       as GS
+import           Pos.Lrc                          (getLeaders)
+import           Pos.Merkle                       (getMerkleRoot, mtRoot)
+import           Pos.Slotting                     (MonadSlots (..), getSlotStart)
+import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Txp                    (Tx (..), TxId, TxOut (..), TxOutAux (..),
-                                             TxUndo, txpTxs, _txOutputs)
-import           Pos.Types                  (Address, AddressHash, Coin, EpochIndex,
-                                             LocalSlotIndex, SlotId (..), StakeholderId,
-                                             Timestamp, addressF, coinToInteger,
-                                             decodeTextAddress, gbHeader, gbhConsensus,
-                                             getEpochIndex, getSlotIndex, headerHash,
-                                             mkCoin, prevBlockL, sumCoins, unsafeAddCoin,
-                                             unsafeGetCoin, unsafeIntegerToCoin,
-                                             unsafeSubCoin)
-import           Prelude                    ()
-import           Serokell.Data.Memory.Units (Byte)
-import           Serokell.Util.Base16       as SB16
-import           Servant.API                (FromHttpApiData (..))
+import           Pos.Txp                          (Tx (..), TxId, TxOut (..),
+                                                   TxOutAux (..), TxUndo, txpTxs,
+                                                   _txOutputs)
+import           Pos.Types                        (Address, AddressHash, Coin, EpochIndex,
+                                                   LocalSlotIndex, SlotId (..),
+                                                   StakeholderId, Timestamp, addressF,
+                                                   coinToInteger, decodeTextAddress,
+                                                   gbHeader, gbhConsensus, getEpochIndex,
+                                                   getSlotIndex, headerHash, mkCoin,
+                                                   prevBlockL, sumCoins, unsafeAddCoin,
+                                                   unsafeGetCoin, unsafeIntegerToCoin,
+                                                   unsafeSubCoin)
 
 
 -------------------------------------------------------------------------------------
@@ -169,6 +175,13 @@ mkCCoin = CCoin . show . unsafeGetCoin
 
 mkCCoinMB :: Maybe Coin -> CCoin
 mkCCoinMB = maybe (CCoin "N/A") mkCCoin
+
+newtype CAda = CAda
+    { getAda :: Micro
+    } deriving (Generic)
+
+instance Show CAda where
+    show (CAda ada) = showFixed True ada
 
 -- | List of block entries is returned from "get latest N blocks" endpoint
 data CBlockEntry = CBlockEntry

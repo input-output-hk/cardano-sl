@@ -518,12 +518,10 @@ update (GlobalSearchTime event) state =
                     in
                     pure <<< Just $ Navigate (toUrl epochSlotUrl) event
                 Tuple (Just epoch) Nothing ->
-                    -- [CSE-236] Disable epoch search
-                    -- let epochIndex = mkEpochIndex epoch
-                    --     epochUrl   = Epoch $ epochIndex
-                    -- in
-                    -- pure <<< Just $ Navigate (toUrl epochUrl) event
-                    pure Nothing
+                    let epochIndex = mkEpochIndex epoch
+                        epochUrl   = Epoch $ epochIndex
+                    in
+                    pure <<< Just $ Navigate (toUrl epochUrl) event
 
                 _ -> pure Nothing -- TODO (ks) maybe put up a message?
         ]

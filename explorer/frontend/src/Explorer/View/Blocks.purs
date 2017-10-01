@@ -113,9 +113,7 @@ blockRow state (CBlockEntry entry) =
     S.div ! S.className CSS.blocksBodyRow
           ! P.key ((show $ entry ^. cbeEpoch) <> "-" <> (show $ entry ^. cbeSlot)) $ do
           blockColumn { label: show $ entry ^. cbeEpoch
-                      -- [CSE-236] Disable epoch search
-                      -- , mRoute: Just <<< Epoch <<< mkEpochIndex $ entry ^. cbeEpoch
-                      , mRoute: Nothing
+                      , mRoute: Just <<< Epoch <<< mkEpochIndex $ entry ^. cbeEpoch
                       , clazz: CSS.blocksColumnEpoch
                       , mCurrency: Nothing
                       }

@@ -1755,7 +1755,7 @@ self: {
       cardano-sl-node = callPackage ({ base, binary, bytestring, cardano-sl, cardano-sl-core, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-update, containers, cpphs, data-default, directory, ether, filepath, formatting, lens, log-warper, mkDerivation, mtl, neat-interpolation, network-transport, network-transport-tcp, node-sketch, optparse-applicative, parsec, serokell-util, stdenv, stm-containers, time, time-units, universum }:
       mkDerivation {
           pname = "cardano-sl-node";
-          version = "0.6.2";
+          version = "1.0.1";
           src = ./../node;
           isLibrary = false;
           isExecutable = true;
@@ -7753,3 +7753,4 @@ compiler.override {
   initialPackages = stackPackages;
   configurationCommon = { ... }: self: super: {};
 }
+

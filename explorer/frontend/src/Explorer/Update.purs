@@ -29,7 +29,7 @@ import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchGenesisAddressInfo, fetchGenesisAddressInfoTotalPages, fetchGenesisSummary, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, epochPageSearch, epochSlotSearch)
 import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
-import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewEpochIndex, blsViewMaxPagination, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentCGenesisAddressInfos, currentCGenesisSummary, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gWaypoints, gblAddressInfosPagination, gblAddressInfosPaginationEditable, gblLoadingAddressInfosPagination, gblMaxAddressInfosPagination, genesisBlockViewState, globalViewState, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewEpochIndex, blsViewMaxPagination, blsViewLoadingPagination, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentCGenesisAddressInfos, currentCGenesisSummary, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gWaypoints, gblAddressInfosPagination, gblAddressInfosPaginationEditable, gblLoadingAddressInfosPagination, gblMaxAddressInfosPagination, genesisBlockViewState, globalViewState, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
 import Explorer.Routes (Route(..), match, toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, headerSearchContainerId, heroSearchContainerId, minPagination, mkSocketSubscriptionItem, mobileMenuSearchContainerId)
 import Explorer.Types.Actions (Action(..))
@@ -637,19 +637,24 @@ update (ReceiveBlockSummary (Left error)) state =
 update (RequestEpochPageSearch epochIndex pNumber) state =
     { state:
           set loading true $
-          set currentBlocksResult Loading
+          -- Important note: Don't use `set currentBlocksResult Loading` here,
+          -- because we will lost all previous data of `currentBlocksResult` while pagenating
+          -- We are updating `blsViewLoadingPagination` instead this ^
+          set (viewStates <<< blocksViewState <<< blsViewLoadingPagination) true
           state
     , effects: [ attempt (epochPageSearch epochIndex pNumber) >>= pure <<< Just <<< ReceiveEpochPageSearch ]
     }
 update (ReceiveEpochPageSearch (Right (Tuple totalPages blocks))) state =
     noEffects $
         set loading false $
+        set (viewStates <<< blocksViewState <<< blsViewLoadingPagination) false $
         set currentBlocksResult (Success blocks) $
         set (viewStates <<< blocksViewState <<< blsViewMaxPagination) (PageNumber totalPages) state
 
 update (ReceiveEpochPageSearch (Left error)) state =
     noEffects $
-        set loading false <<<
+        set loading false $
+        set (viewStates <<< blocksViewState <<< blsViewLoadingPagination) false $
         set currentBlocksResult (Failure error) $
         over errors (\errors' -> (show error) : errors') state
 

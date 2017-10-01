@@ -19,7 +19,7 @@ import Data.Time.Duration (Milliseconds)
 
 import Explorer.I18n.Lang (Language, translate)
 import Explorer.I18n.Lenses (block, blEpochSlotNotFound, cBack2Dashboard, cLoading, cOf, common, cUnknown, cEpoch, cSlot, cAge, cTransactions, cTotalSent, cBlockLead, cSize) as I18nL
-import Explorer.Lenses.State (_PageNumber, blocksViewState, blsViewMaxPagination, blsViewPagination, blsViewPaginationEditable, currentBlocksResult, lang, viewStates)
+import Explorer.Lenses.State (_PageNumber, blocksViewState, blsViewMaxPagination, blsViewLoadingPagination, blsViewPagination, blsViewPaginationEditable, currentBlocksResult, lang, viewStates)
 import Explorer.Routes (Route(..), toUrl)
 import Explorer.State (minPagination)
 import Explorer.Types.Actions (Action(..))
@@ -27,7 +27,7 @@ import Explorer.Types.State (CBlockEntries, CCurrency(..), PageNumber(..), State
 import Explorer.Util.Factory (mkEpochIndex)
 import Explorer.Util.String (formatADA)
 import Explorer.Util.Time (prettyDuration, nominalDiffTimeToDateTime)
-import Explorer.View.CSS (blocksBody, blocksBodyRow, blocksColumnAge, blocksColumnEpoch, blocksColumnLead, blocksColumnSize, blocksColumnSlot, blocksColumnTotalSent, blocksColumnTxs, blocksFailed, blocksFooter, blocksHeader) as CSS
+import Explorer.View.CSS as CSS
 import Explorer.View.Common (currencyCSSClass, noData, paginationView)
 
 import Network.RemoteData (RemoteData(..), withDefault)
@@ -64,27 +64,40 @@ epochBlocksView state =
                                         )
                         case state ^. currentBlocksResult of
                             NotAsked  -> emptyBlocksView ""
-                            Loading   -> emptyBlocksView $ translate (I18nL.common <<< I18nL.cLoading) lang'
+                            Loading   -> if not null $ withDefault [] $ state ^. currentBlocksResult
+                                              then blocksView state
+                                              else emptyBlocksView $
+                                                  translate (I18nL.common <<< I18nL.cLoading) lang'
                             Failure _ -> failureView lang'
-                            Success blocks ->
-                                let paginationViewProps =
-                                        { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
-                                        , currentPage: state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
-                                        , minPage: PageNumber minPagination
-                                        , maxPage: state ^. (viewStates <<< blocksViewState <<< blsViewMaxPagination)
-                                        , changePageAction: BlocksPaginateBlocks
-                                        , editable: state ^. (viewStates <<< blocksViewState <<< blsViewPaginationEditable)
-                                        , editableAction: BlocksEditBlocksPageNumber
-                                        , invalidPageAction: BlocksInvalidBlocksPageNumber
-                                        , disabled: false
-                                        }
-                                in
-                                S.div do
-                                    blocksHeaderView blocks lang'
-                                    S.div ! S.className CSS.blocksBody
-                                          $ for_ blocks (blockRow state)
-                                    S.div ! S.className CSS.blocksFooter
-                                          $ paginationView paginationViewProps
+                            Success blocks -> blocksView state
+
+blocksView :: State -> P.HTML Action
+blocksView state =
+    S.div do
+        blocksHeaderView blocks lang'
+        S.div ! S.className CSS.blocksBodyWrapper $ do
+            S.div ! S.className CSS.blocksBody
+                  $ for_ blocks (blockRow state)
+            S.div ! S.className (CSS.blocksBodyCover <>  if  loadingBlocks then " show" else "")
+                  $ S.p ! S.className CSS.blocksBodyCoverLabel
+                        $ S.text (translate (I18nL.common <<< I18nL.cLoading) lang')
+        S.div ! S.className CSS.blocksFooter
+              $ paginationView paginationViewProps
+    where
+        lang' = state ^. lang
+        loadingBlocks = state ^. (viewStates <<< blocksViewState <<< blsViewLoadingPagination)
+        blocks = withDefault [] $ state ^. currentBlocksResult
+        paginationViewProps =
+            { label: translate (I18nL.common <<< I18nL.cOf) $ lang'
+            , currentPage: state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
+            , minPage: PageNumber minPagination
+            , maxPage: state ^. (viewStates <<< blocksViewState <<< blsViewMaxPagination)
+            , changePageAction: BlocksPaginateBlocks
+            , editable: state ^. (viewStates <<< blocksViewState <<< blsViewPaginationEditable)
+            , editableAction: BlocksEditBlocksPageNumber
+            , invalidPageAction: BlocksInvalidBlocksPageNumber
+            , disabled: false
+            }
 
 emptyBlocksView :: String -> P.HTML Action
 emptyBlocksView message =

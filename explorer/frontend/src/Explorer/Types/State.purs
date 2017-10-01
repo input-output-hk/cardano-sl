@@ -133,6 +133,7 @@ type BlocksViewState =
     , blsViewMaxPagination :: PageNumber
     , blsViewPaginationEditable :: Boolean
     , blsViewEpochIndex :: Maybe EpochIndex
+    , blsViewLoadingPagination :: Boolean
     }
 
 type GenesisBlockViewState =

@@ -28,6 +28,7 @@ import           Pos.Communication.Protocol     (SendActions)
 import           Pos.Launcher.Configuration     (HasConfigurations)
 import           Pos.Launcher.Resource          (NodeResources)
 import           Pos.Launcher.Runner            (runRealBasedMode)
+import           Pos.Util.CompileInfo           (HasCompileInfo)
 import           Pos.Util.TimeWarp              (NetworkAddress)
 import           Pos.Wallet.SscType             (WalletSscType)
 import           Pos.Wallet.Web.Methods         (addInitialRichAccount)
@@ -41,7 +42,9 @@ import           Pos.Web                        (TlsParams)
 
 -- | 'WalletWebMode' runner.
 runWRealMode
-    :: HasConfigurations
+    :: ( HasConfigurations
+       , HasCompileInfo
+       )
     => WalletState
     -> ConnectionsVar
     -> NodeResources WalletSscType WalletWebMode
@@ -53,7 +56,9 @@ runWRealMode db conn =
         (Mtl.withReaderT (\(WalletWebModeContext _ _ rmc) -> rmc))
 
 walletServeWebFull
-    :: HasConfigurations
+    :: ( HasConfigurations
+       , HasCompileInfo
+       )
     => SendActions WalletWebMode
     -> Bool              -- whether to include genesis keys
     -> NetworkAddress    -- ^ IP and Port to listen

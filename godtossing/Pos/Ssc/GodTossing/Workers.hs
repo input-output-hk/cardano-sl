@@ -1,8 +1,5 @@
 {-# LANGUAGE RankNTypes #-}
 
--- Don't complain about deprecated ErrorT
-{-# OPTIONS -Wno-deprecations #-}
-
 -- | Instance of SscWorkersClass.
 
 module Pos.Ssc.GodTossing.Workers
@@ -14,7 +11,6 @@ import           Universum
 
 import           Control.Concurrent.STM                (readTVar)
 import           Control.Lens                          (at, each, partsOf, to, views)
-import           Control.Monad.Error                   (runErrorT)
 import           Control.Monad.Except                  (runExceptT)
 import qualified Data.HashMap.Strict                   as HM
 import qualified Data.List.NonEmpty                    as NE
@@ -26,10 +22,9 @@ import           Formatting                            (build, int, ords, sforma
 import           Mockable                              (currentTime, delay)
 import           Serokell.Util.Exceptions              ()
 import           Serokell.Util.Text                    (listJson)
-import           System.Wlog                           (logDebug, logError, logInfo,
-                                                        logWarning)
 
-import           Pos.Binary.Class                      (AsBinary, Bi, asBinary)
+import           Pos.Binary.Class                      (AsBinary, Bi, asBinary,
+                                                        fromBinaryM)
 import           Pos.Binary.GodTossing                 ()
 import           Pos.Binary.Infra                      ()
 import           Pos.Communication.Protocol            (EnqueueMsg, Message, MsgType (..),
@@ -102,6 +97,8 @@ import           Pos.Ssc.GodTossing.Types.Message      (GtTag (..), MCCommitment
                                                         MCVssCertificate (..))
 import           Pos.Ssc.Mode                          (SscMode)
 import           Pos.Ssc.RichmenComponent              (getRichmenSsc)
+import           Pos.Util.LogSafe                      (logDebugS, logErrorS, logInfoS,
+                                                        logWarningS)
 import           Pos.Util.Util                         (getKeys, inAssertMode,
                                                         leftToPanic)
 
@@ -121,7 +118,7 @@ shouldParticipate epoch = do
     ourId <- getOurStakeholderId
     let enoughStake = ourId `HM.member` richmen
     when (participationEnabled && not enoughStake) $
-        logDebug "Not enough stake to participate in MPC"
+        logDebugS "Not enough stake to participate in MPC"
     return (participationEnabled && enoughStake)
 
 -- CHECK: @onNewSlotSsc
@@ -157,16 +154,16 @@ checkNSendOurCert sendActions = do
     ourId <- getOurStakeholderId
     let sendCert resend slot = do
             if resend then
-                logError "Our VSS certificate is in global state, but it has already expired, \
+                logErrorS "Our VSS certificate is in global state, but it has already expired, \
                          \apparently it's a bug, but we are announcing it just in case."
-                else logInfo
+                else logInfoS
                          "Our VssCertificate hasn't been announced yet or TTL has expired, \
                          \we will announce it now."
             ourVssCertificate <- getOurVssCertificate slot
             let contents = MCVssCertificate ourVssCertificate
             sscProcessOurMessage (sscProcessCertificate ourVssCertificate)
             _ <- invReqDataFlowTK "ssc" (enqueueMsg sendActions) (MsgMPC OriginSender) ourId contents
-            logDebug "Announced our VssCertificate."
+            logDebugS "Announced our VssCertificate."
 
     slMaybe <- getCurrentSlot
     case slMaybe of
@@ -177,7 +174,7 @@ checkNSendOurCert sendActions = do
             case ourCertMB of
                 Just ourCert
                     | vcExpiryEpoch ourCert >= siEpoch sl ->
-                        logDebug
+                        logDebugS
                             "Our VssCertificate has been already announced."
                     | otherwise -> sendCert True sl
                 Nothing -> sendCert False sl
@@ -215,22 +212,25 @@ onNewSlotCommitment slotId@SlotId {..} sendActions
         shouldSendCommitment <- andM
             [ not . hasCommitment ourId <$> gtGetGlobalState
             , memberVss ourId <$> getStableCerts siEpoch]
-        logDebug $ sformat ("shouldSendCommitment: "%shown) shouldSendCommitment
+        if shouldSendCommitment then
+            logDebugS "We should send commitment"
+        else
+            logDebugS "We shouldn't send commitment"
         when shouldSendCommitment $ do
             ourCommitment <- SS.getOurCommitment siEpoch
             let stillValidMsg = "We shouldn't generate secret, because we have already generated it"
             case ourCommitment of
-                Just comm -> logDebug stillValidMsg >> sendOurCommitment comm ourId
+                Just comm -> logDebugS stillValidMsg >> sendOurCommitment comm ourId
                 Nothing   -> onNewSlotCommDo ourId
   where
     onNewSlotCommDo ourId = do
         ourSk <- getOurSecretKey
-        logDebug $ sformat ("Generating secret for "%ords%" epoch") siEpoch
+        logDebugS $ sformat ("Generating secret for "%ords%" epoch") siEpoch
         generated <- generateAndSetNewSecret ourSk slotId
         case generated of
-            Nothing -> logWarning "I failed to generate secret for GodTossing"
+            Nothing -> logWarningS "I failed to generate secret for GodTossing"
             Just comm -> do
-              logInfo (sformat ("Generated secret for "%ords%" epoch") siEpoch)
+              logInfoS (sformat ("Generated secret for "%ords%" epoch") siEpoch)
               sendOurCommitment comm ourId
 
     sendOurCommitment comm ourId = do
@@ -249,9 +249,9 @@ onNewSlotOpening params SlotId {..} sendActions
         globalData <- gtGetGlobalState
         unless (hasOpening ourId globalData) $
             case globalData ^. gsCommitments . to getCommitmentsMap . at ourId of
-                Nothing -> logDebug noCommMsg
+                Nothing -> logDebugS noCommMsg
                 Just _  -> SS.getOurOpening siEpoch >>= \case
-                    Nothing   -> logWarning noOpenMsg
+                    Nothing   -> logWarningS noOpenMsg
                     Just open -> sendOpening ourId open
   where
     noCommMsg =
@@ -264,13 +264,9 @@ onNewSlotOpening params SlotId {..} sendActions
             GtOpeningNone   -> pure Nothing
             GtOpeningNormal -> pure (Just open)
             GtOpeningWrong  -> do
-                keys <- NE.fromList . map (asBinary . toVssPublicKey) <$>
+                keys <- NE.fromList . map toVssPublicKey <$>
                         replicateM 6 vssKeyGen
-                runErrorT (genCommitmentAndOpening 3 keys) >>= \case
-                    Right (_, o) -> pure (Just o)
-                    Left (err :: String) ->
-                        logError ("onNewSlotOpening: " <> toText err)
-                        $> Nothing
+                Just . snd <$> genCommitmentAndOpening 3 keys
         whenJust mbOpen' $ \open' -> do
             let msg = MCOpening ourId open'
             sscProcessOurMessage (sscProcessOpening ourId open')
@@ -312,9 +308,9 @@ sscProcessOurMessage
 sscProcessOurMessage action =
     runExceptT action >>= logResult
   where
-    logResult (Right _) = logDebug "We have accepted our message"
+    logResult (Right _) = logDebugS "We have accepted our message"
     logResult (Left er) =
-        logWarning $
+        logWarningS $
         sformat ("We have rejected our message, reason: "%build) er
 
 sendOurData ::
@@ -338,9 +334,9 @@ sendOurData enqueue msgTag ourId dt epoch slMultiplier = do
     -- in one invocation of onNewSlot we can't process more than one
     -- type of message.
     waitUntilSend msgTag epoch slMultiplier
-    logInfo $ sformat ("Announcing our "%build) msgTag
+    logInfoS $ sformat ("Announcing our "%build) msgTag
     _ <- invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) ourId dt
-    logDebug $ sformat ("Sent our " %build%" to neighbors") msgTag
+    logDebugS $ sformat ("Sent our " %build%" to neighbors") msgTag
 
 -- Generate new commitment and opening and use them for the current
 -- epoch. It is also saved in persistent storage.
@@ -362,7 +358,7 @@ generateAndSetNewSecret sk SlotId {..} = do
         let participantIds =
                 HM.keys . getVssCertificatesMap $
                 computeParticipants (getKeys richmen) certs
-        logDebug $
+        logDebugS $
             sformat ("generating secret for: " %listJson) $ participantIds
     let participants = nonEmpty $
                        map (second vcVssKey) $
@@ -371,36 +367,35 @@ generateAndSetNewSecret sk SlotId {..} = do
     maybe (Nothing <$ warnNoPs) (generateAndSetNewSecretDo richmen) participants
   where
     here s = "generateAndSetNewSecret: " <> s
-    warnNoPs = logWarning (here "can't generate, no participants")
+    warnNoPs = logWarningS (here "can't generate, no participants")
     generateAndSetNewSecretDo :: RichmenStakes
                               -> NonEmpty (StakeholderId, AsBinary VssPublicKey)
                               -> m (Maybe SignedCommitment)
     generateAndSetNewSecretDo richmen ps = do
         let onLeft er =
                 Nothing <$
-                logWarning
+                logWarningS
                 (here $ sformat ("Couldn't compute shares distribution, reason: "%build) er)
         mpcThreshold <- bvdMpcThd <$> gsAdoptedBVData
         distrET <- runExceptT (computeSharesDistrPure richmen mpcThreshold)
         flip (either onLeft) distrET $ \distr -> do
-            logDebug $ here $ sformat ("Computed shares distribution: "%listJson) (HM.toList distr)
+            logDebugS $ here $ sformat ("Computed shares distribution: "%listJson) (HM.toList distr)
             let threshold = vssThreshold $ sum $ toList distr
             let multiPSmb = nonEmpty $
                             concatMap (\(c, x) -> replicate (fromIntegral c) x) $
                             NE.map (first $ flip (HM.lookupDefault 0) distr) ps
             case multiPSmb of
-                Nothing -> Nothing <$ logWarning (here "Couldn't compute participant's vss")
-                Just multiPS ->
-                    -- we use runErrorT and not runExceptT because we want
-                    -- to get errors produced by 'fail'. In the future we'll
-                    -- use MonadError everywhere and it won't be needed.
-                    runErrorT (genCommitmentAndOpening threshold multiPS) >>= \case
-                        Left (toText @String -> err) ->
-                            logError (here err) $> Nothing
-                        Right (comm, open) -> do
-                            let signedComm = mkSignedCommitment sk siEpoch comm
-                            SS.putOurSecret signedComm open siEpoch
-                            pure (Just signedComm)
+                Nothing -> Nothing <$
+                    logWarningS (here "Couldn't compute participant's vss")
+                Just multiPS -> case mapM fromBinaryM multiPS of
+                    Left err -> Nothing <$
+                        logErrorS (here ("Couldn't deserialize keys: " <> err))
+                    Right keys -> do
+                        (comm, open) <- liftIO $ runSecureRandom $
+                            genCommitmentAndOpening threshold keys
+                        let signedComm = mkSignedCommitment sk siEpoch comm
+                        SS.putOurSecret signedComm open siEpoch
+                        pure (Just signedComm)
 
 randomTimeInInterval
     :: SscMode SscGodTossing ctx m
@@ -430,7 +425,7 @@ waitUntilSend msgTag epoch slMultiplier = do
         timeToWait <- randomTimeInInterval delta
         let ttwMillisecond :: Millisecond
             ttwMillisecond = convertUnit timeToWait
-        logDebug $
+        logDebugS $
             sformat
                 ("Waiting for " %shown % " before sending " %build)
                 ttwMillisecond

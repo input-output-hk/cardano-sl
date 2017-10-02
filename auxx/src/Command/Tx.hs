@@ -46,8 +46,11 @@ import           Pos.Crypto                       (emptyPassphrase, encToPublic,
                                                    withSafeSigner)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Txp                          (TxAux, TxOut (..), TxOutAux (..), txaF)
+import           Pos.Txp                          (TxAux, TxOut (..), TxOutAux (..),
+                                                   topsortTxAuxes, txaF)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
+import           Pos.Util.CompileInfo             (HasCompileInfo)
+import           Pos.Util.Util                    (maybeThrow)
 import           Pos.Wallet                       (getSecretKeys)
 
 import           Command.Types                    (SendMode (..),
@@ -80,6 +83,7 @@ sendToAllGenesis
        , HasInfraConfiguration
        , HasUpdateConfiguration
        , HasGtConfiguration
+       , HasCompileInfo
        )
     => SendActions AuxxMode
     -> SendToAllGenesisParams
@@ -180,6 +184,7 @@ send
        , HasInfraConfiguration
        , HasUpdateConfiguration
        , HasGtConfiguration
+       , HasCompileInfo
        )
     => SendActions AuxxMode
     -> Int
@@ -213,6 +218,7 @@ sendTxsFromFile
        , HasUpdateConfiguration
        , HasNodeConfiguration
        , HasGtConfiguration
+       , HasCompileInfo
        )
     => SendActions AuxxMode
     -> FilePath
@@ -228,8 +234,12 @@ sendTxsFromFile sendActions txsFile = do
             sformat
                 ("Going to send "%int%" transactions one-by-one")
                 (length txAuxes)
+        sortedTxAuxes <-
+            maybeThrow
+                (AuxxException "txs form a cycle")
+                (topsortTxAuxes txAuxes)
         CmdCtx {ccPeers} <- getCmdCtx
         let submitOne =
                 submitTxRaw
                     (immediateConcurrentConversations sendActions ccPeers)
-        mapM_ submitOne txAuxes
+        mapM_ submitOne sortedTxAuxes

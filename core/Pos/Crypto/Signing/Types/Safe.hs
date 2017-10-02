@@ -100,7 +100,7 @@ noPassEncrypt
     :: Bi PassPhrase
     => SecretKey -> EncryptedSecretKey
 noPassEncrypt (SecretKey k) =
-    mkEncSecretWithSalt def emptyPassphrase k
+    mkEncSecretWithSalt S.emptySalt emptyPassphrase k
 
 -- Here with types to avoid module import cycles:
 checkPassMatches

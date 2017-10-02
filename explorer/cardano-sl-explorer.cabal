@@ -302,7 +302,6 @@ test-suite cardano-explorer-test
                        -- Standard module with some magic
                        Spec
                        -- Utils
-                       Test.Pos.Arbitrary.Explorer
                        Test.Pos.Explorer.MockFactory
                        -- Tests
                        Test.Pos.Explorer.Socket.AppSpec

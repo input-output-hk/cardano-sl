@@ -112,6 +112,6 @@ regroupBySnd
     :: forall a b l. (Ord b, Container l, Element l ~ b)
     => [(a, l)] -> M.Map b [a]
 regroupBySnd info =
-    let entries = fmap swap $ concatMap sequence
-                $ toList <<$>> info :: [(b, a)]
+    let entries :: [(b, a)]
+        entries = fmap swap $ concatMap sequence $ toList <<$>> info
     in  fmap ($ []) $ M.fromListWith (.) $ fmap (second $ (++) . pure) entries

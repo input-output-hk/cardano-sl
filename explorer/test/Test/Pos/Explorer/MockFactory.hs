@@ -6,9 +6,12 @@
 module Test.Pos.Explorer.MockFactory
        ( mkTxOut
        , secretKeyToAddress
+       , testLoggerName
        ) where
 
 import           Universum
+
+import           System.Wlog                      (LoggerName)
 
 import           Pos.Types                        (Address)
 
@@ -27,3 +30,7 @@ mkTxOut amount addr =
 -- | Friendly borrowed from `Test.Pos.Client.Txp.UtilSpec`
 secretKeyToAddress :: SecretKey -> Address
 secretKeyToAddress = makePubKeyAddressBoot . toPublic
+
+-- | Logger name for testing
+testLoggerName :: LoggerName
+testLoggerName = "test"

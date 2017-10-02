@@ -8,12 +8,10 @@ module Test.Pos.Explorer.Socket.AppSpec
 import           Universum
 
 import           Network.Wai.Handler.Warp       (Settings, getPort)
-import           System.Wlog                    (LoggerName)
-import           Test.Hspec                     (Spec, describe)
-import           Test.Hspec.QuickCheck          (modifyMaxSize, prop)
+import           Test.Hspec                     (Spec, describe, it, shouldBe)
 
 import           Pos.Explorer.Socket.App        (NotifierSettings(..), toConfig)
-import           Test.Pos.Arbitrary.Explorer    ()
+import           Test.Pos.Explorer.MockFactory  (testLoggerName)
 
 ----------------------------------------------------------------------------
 -- Spec
@@ -25,18 +23,11 @@ spec :: Spec
 spec =
     describe "App" $
         describe "toConfig" $
-            modifyMaxSize (const 1000) $
-                prop "maps config into warp settings"
-                    notifierSettingsAreMappedIntoSettings
-
--- | It tests if `NotifierSettings` is mapped into `Settings` properly
-notifierSettingsAreMappedIntoSettings :: NotifierSettings -> LoggerName -> Bool
-notifierSettingsAreMappedIntoSettings ns ln =
-    let p :: Word16
-        p = nsPort ns
-        s :: Settings
-        s = toConfig ns ln
-    in
-    -- currently we test port only,
-    -- which is the only mapped property so far
-    getPort s == fromIntegral p
+            it "maps config into warp settings" $ do
+                let p = 8080
+                    ns = NotifierSettings { nsPort = p }
+                    s :: Settings
+                    s = toConfig ns testLoggerName
+                -- currently we test port only,
+                -- which is the only mapped property so far
+                getPort s `shouldBe` fromIntegral p

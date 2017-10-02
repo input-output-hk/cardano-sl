@@ -12,14 +12,16 @@ module Pos.Explorer.Socket.Methods
        , ServerEvent (..)
        , SubscriptionParam (..)
 
-       , addressSetByTxs
+       -- * Creating `SubscriptionParam`s
        , addrSubParam
        , blockPageSubParam
        , txsSubParam
 
+       -- Sessions
        , startSession
        , finishSession
-       , fromCAddressOrThrow
+
+       -- Un-/Subscriptions
        , subscribeAddr
        , subscribeBlocksLastPage
        , subscribeTxs
@@ -27,13 +29,20 @@ module Pos.Explorer.Socket.Methods
        , unsubscribeBlocksLastPage
        , unsubscribeTxs
 
+       -- * Notifications
        , notifyAddrSubscribers
        , notifyBlocksLastPageSubscribers
        , notifyTxsSubscribers
+
+      -- * DB data
        , getBlundsFromTo
-       , addrsTouchedByTx
        , getBlockTxs
        , getTxInfo
+
+       -- * Helper
+       , addressSetByTxs
+       , addrsTouchedByTx
+       , fromCAddressOrThrow
        ) where
 
 import           Control.Lens                   (at, ix, lens, non, (.=), _Just)
@@ -318,11 +327,12 @@ addrsTouchedByTx tx = do
       inTxs <- forM (_txInputs tx) $ DB.getTxOut >=> \case
       -- ^ inTxs :: NonEmpty [TxOut]
           -- TODO [CSM-153]: lookup mempool as well
-          Nothing    -> mempty <$ return () -- logError "Can't find input of transaction!"
+          Nothing       -> return mempty
           Just txOutAux -> return . one $ toaOut txOutAux
 
-      return $ addressSetByTxs (_txOutputs tx) inTxs
+      pure $ addressSetByTxs (_txOutputs tx) inTxs
 
+-- | Helper to filter addresses by a given tx from a list of txs 
 addressSetByTxs :: NonEmpty TxOut -> NonEmpty [TxOut] -> (S.Set Address)
 addressSetByTxs tx txs =
     let txs' = (toList tx) <> (concat txs) in

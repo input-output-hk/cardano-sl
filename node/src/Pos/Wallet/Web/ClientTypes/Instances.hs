@@ -23,8 +23,8 @@ import           Pos.Core                             (Address, Coin, decodeText
                                                        mkCoin)
 import           Pos.Crypto                           (PassPhrase, passphraseLength)
 import           Pos.Txp.Core.Types                   (TxId)
-import           Pos.Util.LogSafe                     (NonSensitive (..),
-                                                       buildNonSensitiveUnsafe)
+import           Pos.Util.LogSafe                     (PublicLog, SecureLog (..),
+                                                       buildUnsecure)
 import           Pos.Util.Servant                     (FromCType (..),
                                                        HasTruncateLogPolicy (..),
                                                        OriginType, ToCType (..),
@@ -63,13 +63,13 @@ import           Pos.Wallet.Web.Pending.Types         (PtxCondition)
 -- I don't want to do it now because we have pending refactoring which reordered
 -- everything where
 
-instance Buildable (NonSensitive (CId __)) where
+instance Buildable (PublicLog (CId __)) where
     build _ = "<id>"
 
-instance Buildable (NonSensitive CAccountId) where
+instance Buildable (PublicLog CAccountId) where
     build _ = "<account id>"
 
-instance Buildable (NonSensitive CTxId) where
+instance Buildable (PublicLog CTxId) where
     build _ = "<tx id>"
 
 instance Buildable CWalletAssurance where
@@ -80,11 +80,14 @@ instance Buildable CWalletMeta where
         bprint ("("%build%"/"%build%")")
                cwAssurance cwUnit
 
-instance Buildable (NonSensitive CWalletMeta) where
-    build = buildNonSensitiveUnsafe
+instance Buildable (PublicLog CWalletMeta) where
+    build = buildUnsecure
 
-instance Buildable (NonSensitive CWalletInit) where
-    build (NonSensitive CWalletInit{..}) = "<wallet init>"
+instance Buildable (CWalletInit) where
+    build CWalletInit{..} = "<wallet init>"
+
+instance Buildable (PublicLog CWalletInit) where
+    build _ = "<wallet init>"
 
 instance Buildable CWallet where
     build CWallet{..} =
@@ -105,8 +108,8 @@ instance Buildable CWallet where
 instance Buildable CAccountMeta where
     build CAccountMeta{..} = "<meta>"
 
-instance Buildable (NonSensitive CAccountMeta) where
-    build = buildNonSensitiveUnsafe
+instance Buildable (PublicLog CAccountMeta) where
+    build _ = "<meta>"
 
 instance Buildable CAccountInit where
     build CAccountInit{..} =
@@ -116,7 +119,7 @@ instance Buildable CAccountInit where
         caInitWId
         caInitMeta
 
-instance Buildable (NonSensitive CAccountInit) where
+instance Buildable (PublicLog CAccountInit) where
     build _ = "<account init>"
 
 instance Buildable CAccount where
@@ -146,7 +149,7 @@ instance Buildable CAddress where
 instance Buildable CTxMeta where
     build CTxMeta{..} = bprint ("{ date="%build%" }") ctmDate
 
-instance Buildable (NonSensitive CTxMeta) where
+instance Buildable (PublicLog CTxMeta) where
     build _ = "<tx meta>"
 
 instance Buildable CPtxCondition where
@@ -182,8 +185,8 @@ instance Buildable CProfile where
     build CProfile{..} =
         bprint ("{ cpLocale="%build%" }") cpLocale
 
-instance Buildable (NonSensitive CProfile) where
-    build = buildNonSensitiveUnsafe
+instance Buildable (PublicLog CProfile) where
+    build = buildUnsecure
 
 instance Buildable CUpdateInfo where
     build CUpdateInfo{..} =
@@ -210,11 +213,19 @@ instance Buildable SyncProgress where
         bprint ("progress="%build%"/"%build%" peers="%build)
                _spLocalCD _spNetworkCD _spPeers
 
-instance Buildable (NonSensitive CWalletRedeem) where
-    build (NonSensitive CWalletRedeem{..}) = "<wallet redeem info>"
+instance Buildable CWalletRedeem where
+    build CWalletRedeem{..} =
+        bprint (build%" -> "%build) crSeed crWalletId
 
-instance Buildable (NonSensitive CPaperVendWalletRedeem) where
-    build (NonSensitive CPaperVendWalletRedeem{..}) =
+instance Buildable (PublicLog CWalletRedeem) where
+    build _ = "<wallet redeem info>"
+
+instance Buildable CPaperVendWalletRedeem where
+    build CPaperVendWalletRedeem{..} =
+        bprint (build%" -> "%build) pvSeed pvWalletId
+
+instance Buildable (PublicLog CPaperVendWalletRedeem) where
+    build (SecureLog CPaperVendWalletRedeem{..}) =
         "<papervend wallet redeem info>"
 
 instance Buildable CInitialized where
@@ -222,16 +233,16 @@ instance Buildable CInitialized where
         bprint (build%"/"%build)
                cPreInit cTotalTime
 
-instance Buildable (NonSensitive CInitialized) where
-    build = buildNonSensitiveUnsafe
+instance Buildable (PublicLog CInitialized) where
+    build = buildUnsecure
 
-instance Buildable (NonSensitive ScrollOffset) where
-    build = buildNonSensitiveUnsafe
+instance Buildable (PublicLog ScrollOffset) where
+    build = buildUnsecure
 
-instance Buildable (NonSensitive ScrollLimit) where
-    build = buildNonSensitiveUnsafe
+instance Buildable (PublicLog ScrollLimit) where
+    build = buildUnsecure
 
-instance Buildable (NonSensitive CFilePath) where
+instance Buildable (PublicLog CFilePath) where
     build _ = "<filepath>"
 
 ----------------------------------------------------------------------------

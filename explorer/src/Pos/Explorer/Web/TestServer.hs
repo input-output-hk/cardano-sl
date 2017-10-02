@@ -17,7 +17,7 @@ import           Servant.Server                 (Handler, Server, serve)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (Byte, CAddress (..),
+import           Pos.Explorer.Web.ClientTypes   (Byte, CAda (..), CAddress (..),
                                                  CAddressSummary (..), CAddressType (..),
                                                  CAddressesFilter (..), CBlockEntry (..),
                                                  CBlockSummary (..),
@@ -47,6 +47,8 @@ explorerApp = serve explorerApi explorerHandlers
 
 explorerHandlers :: Server ExplorerApi
 explorerHandlers =
+      apiTotalAda
+    :<|>
       apiBlocksPages
     :<|>
       apiBlocksPagesTotal
@@ -71,6 +73,7 @@ explorerHandlers =
     :<|>
       apiStatsTxs
   where
+    apiTotalAda           = testTotalAda
     apiBlocksPages        = testBlocksPages
     apiBlocksPagesTotal   = testBlocksPagesTotal
     apiBlocksSummary      = testBlocksSummary
@@ -122,6 +125,9 @@ cTxBrief = CTxBrief
 ----------------------------------------------------------------
 -- Test handlers
 ----------------------------------------------------------------
+
+testTotalAda :: Handler (Either ExplorerError CAda)
+testTotalAda = pure $ pure $ CAda 123.456789
 
 testBlocksPagesTotal
     :: Maybe Word

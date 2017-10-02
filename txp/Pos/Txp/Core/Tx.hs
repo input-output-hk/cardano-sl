@@ -2,16 +2,19 @@
 
 module Pos.Txp.Core.Tx
        ( topsortTxs
+       , topsortTxAuxes
        ) where
+
+import           Universum
 
 import           Control.Lens        (makeLenses, to, uses, (%=), (.=))
 import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet        as HS
 import           Data.List           (nub, tail)
-import           Universum
 
-import           Pos.Crypto          (Hash, WithHash (..))
-import           Pos.Txp.Core.Types  (Tx (..), TxIn (..), txInputs)
+import           Pos.Binary.Txp.Core ()
+import           Pos.Crypto          (Hash, WithHash (..), withHash)
+import           Pos.Txp.Core.Types  (Tx (..), TxAux (..), TxIn (..), txInputs)
 
 ----------------------------------------------------------------------------
 -- Topsorting
@@ -77,3 +80,9 @@ topsortTxs toTx input =
                 dependsUnfiltered
             for_ depends $ \a' -> dfs2 visitedNew a'
             tsResult %= (a:)
+
+-- | Specialied version of 'topsortTxs'.
+topsortTxAuxes :: [TxAux] -> Maybe [TxAux]
+topsortTxAuxes = topsortTxs converter
+  where
+    converter TxAux {..} = withHash taTx

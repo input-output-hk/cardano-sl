@@ -26,6 +26,7 @@ import           Pos.Recovery                     ()
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
+import           Pos.Util.CompileInfo             (HasCompileInfo)
 import           Pos.WorkMode                     (RealMode, RealModeContext (..))
 
 import           Pos.Explorer                     (ExplorerBListener,
@@ -46,6 +47,7 @@ notifierPlugin
        , HasInfraConfiguration
        , HasUpdateConfiguration
        , HasGtConfiguration
+       , HasCompileInfo
        )
     => NotifierSettings
     -> ([WorkerSpec ExplorerProd], OutSpecs)
@@ -58,6 +60,7 @@ explorerPlugin
        , HasGtConfiguration
        , HasInfraConfiguration
        , HasUpdateConfiguration
+       , HasCompileInfo
        )
     => Word16
     -> ([WorkerSpec ExplorerProd], OutSpecs)
@@ -71,6 +74,7 @@ explorerServeWebReal
        , HasGtConfiguration
        , HasInfraConfiguration
        , HasUpdateConfiguration
+       , HasCompileInfo
        )
     => SendActions ExplorerProd
     -> Word16

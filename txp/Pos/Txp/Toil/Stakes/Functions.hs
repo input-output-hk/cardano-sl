@@ -15,9 +15,8 @@ import           Formatting          (sformat, (%))
 import           Serokell.Util.Text  (listJson)
 import           System.Wlog         (WithLogger, logDebug)
 
-import           Pos.Core            (GenesisWStakeholders (..), HasGenesisData,
-                                      StakesList, coinToInteger, gdBootStakeholders,
-                                      genesisData, mkCoin, sumCoins, unsafeIntegerToCoin)
+import           Pos.Core            (HasGenesisData, StakesList, coinToInteger, mkCoin,
+                                      sumCoins, unsafeIntegerToCoin)
 import           Pos.Txp.Core        (Tx (..), TxAux (..), TxOutAux (..), TxUndo,
                                       txOutStake)
 import           Pos.Txp.Toil.Class  (MonadStakes (..), MonadStakesRead (..))
@@ -31,15 +30,13 @@ type StakesMode m
 -- | Apply transactions to stakes.
 applyTxsToStakes :: StakesMode m => [(TxAux, TxUndo)] -> m ()
 applyTxsToStakes txun = do
-    let gws = gdBootStakeholders genesisData
-    let (txOutPlus, txInMinus) = concatStakes gws txun
+    let (txOutPlus, txInMinus) = concatStakes txun
     recomputeStakes txOutPlus txInMinus
 
 -- | Rollback application of transactions to stakes.
 rollbackTxsStakes :: StakesMode m => [(TxAux, TxUndo)] -> m ()
 rollbackTxsStakes txun = do
-    let gws = gdBootStakeholders genesisData
-    let (txOutMinus, txInPlus) = concatStakes gws txun
+    let (txOutMinus, txInPlus) = concatStakes txun
     recomputeStakes txInPlus txOutMinus
 
 ----------------------------------------------------------------------------
@@ -93,14 +90,11 @@ recomputeStakes plusDistr minusDistr = do
         err = error ("recomputeStakes: no stake for " <> show key)
 
 -- Concatenate stakes of the all passed transactions and undos.
-concatStakes ::
-       GenesisWStakeholders
-    -> [(TxAux, TxUndo)]
-    -> (StakesList, StakesList)
-concatStakes gws (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
+concatStakes :: HasGenesisData => [(TxAux, TxUndo)] -> (StakesList, StakesList)
+concatStakes (unzip -> (txas, undo)) = (txasTxOutDistr, undoTxInDistr)
   where
     onlyKnownUndos = catMaybes . toList
     txasTxOutDistr = concatMap concatDistr txas
-    undoTxInDistr = concatMap (txOutStake gws . toaOut) (foldMap onlyKnownUndos undo)
+    undoTxInDistr = concatMap (txOutStake . toaOut) (foldMap onlyKnownUndos undo)
     concatDistr (TxAux UnsafeTx {..} _) =
-        concatMap (txOutStake gws . toaOut) $ toList (map TxOutAux _txOutputs)
+        concatMap (txOutStake . toaOut) $ toList (map TxOutAux _txOutputs)

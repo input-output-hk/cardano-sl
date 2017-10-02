@@ -32,7 +32,7 @@ dumpGeneratedGenesisData
     -> GeneratedSecrets
     -> m ()
 dumpGeneratedGenesisData (dir, pat) tbo GeneratedSecrets {..} = do
-    dumpKeyfiles (dir, pat) tbo gsSecretKeys
+    dumpKeyfiles (dir, pat) tbo (gsSecretKeysRich <> gsSecretKeysPoor)
     dumpFakeAvvmSeeds dir gsFakeAvvmSeeds
 
 dumpKeyfiles

@@ -16,6 +16,7 @@ module Pos.Explorer.Web.Server
        , topsortTxsOrFail
        , getMempoolTxs
        , getBlocksLastPage
+       , cAddrToAddr
        ) where
 
 import           Universum
@@ -46,9 +47,9 @@ import           Pos.Block.Core                   (MainBlock, mainBlockSlot,
 import           Pos.Block.Types                  (Blund, Undo)
 import           Pos.Core                         (AddrType (..), Address (..), Coin,
                                                    EpochIndex, HeaderHash, Timestamp,
-                                                   difficultyL, gbHeader, gbhConsensus,
-                                                   getChainDifficulty, isRedeemAddress,
-                                                   isUnknownAddressType,
+                                                   coinToInteger, difficultyL, gbHeader,
+                                                   gbhConsensus, getChainDifficulty,
+                                                   isRedeemAddress, isUnknownAddressType,
                                                    makeRedeemAddress, mkCoin, siEpoch,
                                                    siSlot, sumCoins, timestampToPosix,
                                                    unsafeAddCoin, unsafeIntegerToCoin,
@@ -72,10 +73,10 @@ import           Pos.Explorer                     (TxExtra (..), getEpochBlocks,
                                                    getLastTransactions, getPageBlocks,
                                                    getTxExtra)
 import qualified Pos.Explorer                     as EX (getAddrBalance, getAddrHistory,
-                                                         getTxExtra)
+                                                         getTxExtra, getUtxoSum)
 import           Pos.Explorer.Aeson.ClientTypes   ()
 import           Pos.Explorer.Web.Api             (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes     (Byte, CAddress (..),
+import           Pos.Explorer.Web.ClientTypes     (Byte, CAda (..), CAddress (..),
                                                    CAddressSummary (..),
                                                    CAddressType (..),
                                                    CAddressesFilter (..),
@@ -120,6 +121,8 @@ explorerApp serv = serve explorerApi <$> serv
 
 explorerHandlers :: ExplorerMode ctx m => SendActions m -> ServerT ExplorerApi m
 explorerHandlers _sendActions =
+      apiTotalAda
+    :<|>
       apiBlocksPages
     :<|>
       apiBlocksPagesTotal
@@ -144,6 +147,7 @@ explorerHandlers _sendActions =
     :<|>
       apiStatsTxs
   where
+    apiTotalAda           = tryGetTotalAda
     apiBlocksPages        = getBlocksPagesDefault
     apiBlocksPagesTotal   = getBlocksPagesTotalDefault
     apiBlocksSummary      = catchExplorerError . getBlockSummary
@@ -158,6 +162,9 @@ explorerHandlers _sendActions =
     apiStatsTxs           = getStatsTxsDefault
 
     catchExplorerError    = try
+
+    tryGetTotalAda =
+        catchExplorerError getTotalAda
 
     getBlocksPagesDefault page size  =
         catchExplorerError $ getBlocksPage page (defaultPageSize size)
@@ -190,6 +197,20 @@ explorerHandlers _sendActions =
 ----------------------------------------------------------------
 -- API Functions
 ----------------------------------------------------------------
+
+getTotalAda :: ExplorerMode ctx m => m CAda
+getTotalAda = do
+    utxoSum <- EX.getUtxoSum
+    validateUtxoSum utxoSum
+    pure $ CAda $ fromInteger utxoSum / 1e6
+  where
+    validateUtxoSum :: ExplorerMode ctx m => Integer -> m ()
+    validateUtxoSum n
+        | n < 0 = throwM $ Internal $
+            sformat ("Internal tracker of utxo sum has a negative value: "%build) n
+        | n > coinToInteger (maxBound :: Coin) = throwM $ Internal $
+            sformat ("Internal tracker of utxo sum overflows: "%build) n
+        | otherwise = pure ()
 
 -- | Get the total number of blocks/slots currently available.
 -- Total number of main blocks   = difficulty of the topmost (tip) header.
@@ -630,6 +651,11 @@ epochSlotSearch
     -> m [CBlockEntry]
 epochSlotSearch epochIndex slotIndex = do
 
+    -- [CSE-236] Disable search for epoch only
+    -- TODO: Remove restriction if epoch search will be optimized
+    when (isNothing slotIndex) $
+        throwM $ Internal "We currently do not support searching for epochs only."
+
     -- Get pages from the database
     -- TODO: Fix this Int / Integer thing once we merge repositories
     epochBlocksHH   <- getPageHHsOrThrow epochIndex
@@ -773,20 +799,20 @@ cAddrToAddr cAddr@(CAddress rawAddrText) =
     let mDecodedBase64 =
             rightToMaybe (B64.decode rawAddrText) <|>
             rightToMaybe (B64.decodeUrl rawAddrText)
+
     in case mDecodedBase64 of
         Just addr -> do
-            -- cAddr is in RSCoin address format, converting to equivalent Cardano address
-            -- Originally taken from:
-            -- * cardano-sl/tools/src/keygen/Avvm.hs
-            -- * cardano-sl/tools/src/addr-convert/Main.hs
-            unless (BS.length addr == 32) $
-                throwM badAddressLength
-            pure $ makeRedeemAddress $ redeemPkBuild addr
+            -- the decoded address can be both the RSCoin address and the Cardano address.
+            -- * RSCoin address == 32 bytes
+            -- * Cardano address >= 34 bytes
+            if (BS.length addr == 32)
+                then pure $ makeRedeemAddress $ redeemPkBuild addr
+                else either badCardanoAddress pure (fromCAddress cAddr)
         Nothing ->
-            -- cAddr is in Cardano address format
+            -- cAddr is in Cardano address format or it's not valid
             either badCardanoAddress pure (fromCAddress cAddr)
   where
-    badAddressLength = Internal "Address length is not equal to 32, can't be redeeming pk"
+
     badCardanoAddress = const $ throwM $ Internal "Invalid Cardano address!"
 
 -- | Deserialize transaction ID.

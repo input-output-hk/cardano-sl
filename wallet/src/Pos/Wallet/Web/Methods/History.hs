@@ -15,12 +15,13 @@ import qualified Data.Set                   as S
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (build, sformat, stext, (%))
 import           Serokell.Util              (listJson)
-import           System.Wlog                (WithLogger, logError, logInfo, logWarning)
+import           System.Wlog                (WithLogger, logError, logWarning)
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()
 import           Pos.Client.Txp.History     (TxHistoryEntry (..))
 import           Pos.Core                   (getTimestamp, timestampToPosix)
+import           Pos.Util.LogSafe           (logInfoS)
 import           Pos.Util.Servant           (encodeCType)
 import           Pos.Wallet.WalletMode      (getLocalHistory, localChainDifficulty,
                                              networkChainDifficulty)
@@ -173,9 +174,9 @@ addRecentPtxHistory wid currentHistory = do
 
 
 logTxHistory
-    :: (Container t, Element t ~ TxHistoryEntry, WithLogger m)
+    :: (Container t, Element t ~ TxHistoryEntry, WithLogger m, MonadIO m)
     => Text -> t -> m ()
 logTxHistory desc =
-    logInfo .
+    logInfoS .
     sformat (stext%" transactions history: "%listJson) desc .
     map _thTxId . toList

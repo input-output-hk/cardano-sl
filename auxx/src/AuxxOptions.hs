@@ -23,6 +23,8 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl             (version)
 import qualified Pos.Client.CLI               as CLI
+import           Pos.Util.CompileInfo         (CompileTimeInfo (..), HasCompileInfo,
+                                               compileInfo)
 
 ----------------------------------------------------------------------------
 -- Types
@@ -69,7 +71,7 @@ auxxOptionsParser = do
     aoPeers <- many $ CLI.nodeIdOption "peer" "Address of a peer."
     pure AuxxOptions {..}
 
-getAuxxOptions :: IO AuxxOptions
+getAuxxOptions :: HasCompileInfo => IO AuxxOptions
 getAuxxOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> auxxOptionsParser) $
@@ -78,7 +80,8 @@ getAuxxOptions = execParser programInfo
                  <> footerDoc usageExample
 
     versionOption = infoOption
-        ("cardano-auxx-" <> showVersion version)
+        ("cardano-auxx-" <> showVersion version <>
+         ", git revision " <> toString (ctiGitRevision compileInfo))
         (long "version" <> help "Show version.")
 
 usageExample :: Maybe Doc

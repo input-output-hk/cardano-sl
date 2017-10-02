@@ -20,6 +20,7 @@ module Pos.Explorer.Web.ClientTypes
        , CAddressesFilter (..)
        , TxInternal (..)
        , CCoin
+       , CAda (..)
        , EpochIndex (..)
        , LocalSlotIndex (..)
        , StakeholderId
@@ -44,11 +45,14 @@ module Pos.Explorer.Web.ClientTypes
        , decodeHashHex
        ) where
 
+import qualified Prelude
 import           Universum
 
+import           Control.Arrow                    ((&&&))
 import           Control.Lens                     (ix, _Left)
 import           Control.Monad.Error.Class        (throwError)
 import qualified Data.ByteArray                   as BA
+import           Data.Fixed                       (Micro, showFixed)
 import qualified Data.List.NonEmpty               as NE
 import           Data.Time.Clock.POSIX            (POSIXTime)
 import           Formatting                       (build, sformat, (%))
@@ -80,7 +84,6 @@ import           Pos.Types                        (Address, AddressHash, Coin, E
                                                    prevBlockL, sumCoins, unsafeAddCoin,
                                                    unsafeGetCoin, unsafeIntegerToCoin,
                                                    unsafeSubCoin)
-import           Prelude                          ()
 import           Serokell.Data.Memory.Units       (Byte)
 import           Serokell.Util.Base16             as SB16
 import           Servant.API                      (FromHttpApiData (..))
@@ -173,6 +176,13 @@ mkCCoin = CCoin . show . unsafeGetCoin
 
 mkCCoinMB :: Maybe Coin -> CCoin
 mkCCoinMB = maybe (CCoin "N/A") mkCCoin
+
+newtype CAda = CAda
+    { getAda :: Micro
+    } deriving (Generic)
+
+instance Show CAda where
+    show (CAda ada) = showFixed True ada
 
 -- | List of block entries is returned from "get latest N blocks" endpoint
 data CBlockEntry = CBlockEntry

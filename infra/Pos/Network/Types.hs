@@ -54,7 +54,7 @@ import           Node.Internal                         (NodeId (..))
 import qualified System.Metrics                        as Monitoring
 import           System.Wlog.CanLog                    (WithLogger)
 
-import           Pos.Network.DnsDomains                (DnsDomains (..))
+import           Pos.Network.DnsDomains                (DnsDomains (..), NodeAddr)
 import qualified Pos.Network.DnsDomains                as DnsDomains
 import qualified Pos.Network.Policy                    as Policy
 import           Pos.System.Metrics.Constants          (cardanoNamespace)
@@ -217,7 +217,7 @@ topologyUnknownNodeType topology = OQ.UnknownNodeType $ go topology
     go TopologyAuxx{}        = const NodeEdge   -- should never happen
 
 data SubscriptionWorker kademlia =
-    SubscriptionWorkerBehindNAT (DnsDomains DNS.Domain) Valency Fallbacks
+    SubscriptionWorkerBehindNAT (DnsDomains DNS.Domain)
   | SubscriptionWorkerKademlia kademlia NodeType Valency Fallbacks
 
 -- | What kind of subscription worker do we run?
@@ -229,12 +229,8 @@ topologySubscriptionWorker = go
                                = Nothing
     go TopologyRelay{..}       = Just $ SubscriptionWorkerBehindNAT
                                           topologyDnsDomains
-                                          topologyValency
-                                          topologyFallbacks
     go TopologyBehindNAT{..}   = Just $ SubscriptionWorkerBehindNAT
                                           topologyDnsDomains
-                                          topologyValency
-                                          topologyFallbacks
     go TopologyP2P{..}         = Just $ SubscriptionWorkerKademlia
                                           topologyKademlia
                                           NodeRelay
@@ -418,14 +414,15 @@ type Resolver = DNS.Domain -> IO (Either DNSError [IPv4])
 
 -- | Variation on resolveDnsDomains that returns node IDs
 resolveDnsDomains :: NetworkConfig kademlia
-                  -> DnsDomains DNS.Domain
-                  -> IO (Either [DNSError] [NodeId])
+                  -> [NodeAddr DNS.Domain]
+                  -> IO [Either DNSError [NodeId]]
 resolveDnsDomains NetworkConfig{..} dnsDomains =
-    initDnsOnUse $ \resolve ->
-      fmap (fmap addressToNodeId) <$> DnsDomains.resolveDnsDomains
-                                        resolve
-                                        ncDefaultPort
-                                        dnsDomains
+    initDnsOnUse $ \resolve -> (fmap . fmap . fmap . fmap) addressToNodeId $
+        DnsDomains.resolveDnsDomains resolve
+                                     ncDefaultPort
+                                     dnsDomains
+{-# ANN resolveDnsDomains ("HLint: ignore Use <$>" :: String) #-}
+
 
 -- | Initialize the DNS library whenever it's used
 --

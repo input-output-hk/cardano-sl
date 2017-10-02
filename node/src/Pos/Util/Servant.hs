@@ -60,7 +60,7 @@ import qualified Servant.Server.Internal as SI
 import           System.Wlog             (logInfo)
 import           System.Wlog             (LoggerName, usingLoggerName)
 
-import           Pos.Util.LogSafe        (NonSensitive (..), logInfoS)
+import           Pos.Util.LogSafe        (NonSensitive (..), logInfoP, logInfoS)
 import           Pos.Util.Util           (colorizeDull)
 
 -------------------------------------------------------------------------
@@ -444,8 +444,9 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
                 sformat ("\n"%stext%" "%stext)
                     (colorizeDull Red "Unexecuted request due to error") e
             Right paramLogs -> do
-                inLogCtx $ logInfo (paramLogs <> publicMsg)
-                whenJust mSecretExtra $ inLogCtx . logInfoS
+                inLogCtx $ logInfoP (paramLogs <> publicMsg)
+                whenJust mSecretExtra $ \secretExtra ->
+                    inLogCtx $ logInfoS (paramLogs <> publicMsg <> secretExtra)
     reportResponse timer resp = do
         durationText <- timer
         logWithParamInfo
@@ -453,7 +454,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
                 (colorizeDull White "Status:")
                 (colorizeDull Green "OK")
                 durationText
-            , Just (colorizeDull White "Response: "
+            , Just (colorizeDull White " > "
                  <> showResponse resp)
             )
     catchErrors st =

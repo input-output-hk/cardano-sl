@@ -1,12 +1,17 @@
 -- | Safe/secure logging
 
 module Pos.Util.LogSafe
-       ( SecureLogWrapped(..)
+       ( SelectiveLogWrapped(..)
        , logDebugS
        , logInfoS
        , logNoticeS
        , logWarningS
        , logErrorS
+       , logDebugP
+       , logInfoP
+       , logNoticeP
+       , logWarningP
+       , logErrorP
 
        , NonSensitive (..)
        , buildNonSensitiveUnsafe
@@ -17,6 +22,7 @@ import           Universum
 
 import           Control.Monad.Trans    (MonadTrans)
 import           Data.List              (isSuffixOf)
+import           Data.Reflection        (Reifies (..), reify)
 import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder (Builder)
 import           Formatting             (bprint, build)
@@ -32,29 +38,35 @@ import           Pos.Crypto             (PassPhrase)
 -- Logging
 ----------------------------------------------------------------------------
 
-newtype SecureLogWrapped m a = SecureLogWrapped
+newtype SelectiveLogWrapped s m a = SelectiveLogWrapped
     { getSecureLogWrapped :: m a
     } deriving (Functor, Applicative, Monad, MonadIO)
 
-instance MonadTrans SecureLogWrapped where
-    lift = SecureLogWrapped
+instance MonadTrans (SelectiveLogWrapped s) where
+    lift = SelectiveLogWrapped
 
-instance (MonadIO m) => CanLog (SecureLogWrapped m) where
-    dispatchMessage
-        (loggerName      -> name)
-        severity
-        msg =
-      let acceptable (HandlerFilelike p) = not $ ".pub" `isSuffixOf` p
-          acceptable _                   = True
-      in liftIO $ logMCond name severity msg acceptable
+type SelectionMode = LogHandlerTag -> Bool
 
-instance (HasLoggerName m) => HasLoggerName (SecureLogWrapped m) where
-    getLoggerName = SecureLogWrapped getLoggerName
-    modifyLoggerName foo (SecureLogWrapped m) =
-        SecureLogWrapped (modifyLoggerName foo m)
+selectPublicLogs :: SelectionMode
+selectPublicLogs = \case
+    HandlerFilelike p -> ".pub" `isSuffixOf` p
+    _ -> False
 
-execSecureLogWrapped :: SecureLogWrapped m a -> m a
-execSecureLogWrapped (SecureLogWrapped act) = act
+selectSecretLogs :: SelectionMode
+selectSecretLogs = not . selectPublicLogs
+
+instance (MonadIO m, Reifies s SelectionMode) =>
+         CanLog (SelectiveLogWrapped s m) where
+    dispatchMessage (loggerName -> name) severity msg =
+        liftIO $ logMCond name severity msg (reflect (Proxy @s))
+
+instance (HasLoggerName m) => HasLoggerName (SelectiveLogWrapped s m) where
+    getLoggerName = SelectiveLogWrapped getLoggerName
+    modifyLoggerName foo (SelectiveLogWrapped m) =
+        SelectiveLogWrapped (modifyLoggerName foo m)
+
+execSecureLogWrapped :: Proxy s -> SelectiveLogWrapped s m a -> m a
+execSecureLogWrapped _ (SelectiveLogWrapped act) = act
 
 -- | Shortcut for 'logMessage' to use according severity.
 logDebugS, logInfoS, logNoticeS, logWarningS, logErrorS
@@ -73,9 +85,34 @@ logMessageS
     => Severity
     -> Text
     -> m ()
-logMessageS severity t = execSecureLogWrapped $ do
-    name <- getLoggerName
-    dispatchMessage name severity t
+logMessageS severity t =
+    reify selectSecretLogs $ \s ->
+    execSecureLogWrapped s $ do
+        name <- getLoggerName
+        dispatchMessage name severity t
+
+-- | Shortcut for 'logMessage' to use according severity.
+logDebugP, logInfoP, logNoticeP, logWarningP, logErrorP
+    :: (HasLoggerName m, MonadIO m)
+    => Text -> m ()
+logDebugP   = logMessageP Debug
+logInfoP    = logMessageP Info
+logNoticeP  = logMessageP Notice
+logWarningP = logMessageP Warning
+logErrorP   = logMessageP Error
+
+-- | Same as 'logMesssage', but log to two loggers, put only secure
+-- version to memmode.
+logMessageP
+    :: (HasLoggerName m, MonadIO m)
+    => Severity
+    -> Text
+    -> m ()
+logMessageP severity t =
+    reify selectPublicLogs $ \s ->
+    execSecureLogWrapped s $ do
+        name <- getLoggerName
+        dispatchMessage name severity t
 
 
 ----------------------------------------------------------------------------

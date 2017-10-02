@@ -23,7 +23,7 @@ import Explorer.Types.State (AddressesFilter(..), CCurrency(..), CGenesisAddress
 import Explorer.Util.String (formatADA)
 import Explorer.View.Common (currencyCSSClass, paginationView)
 import Network.RemoteData (RemoteData(..), withDefault)
-import Pos.Explorer.Web.ClientTypes (CAddressesFilter(..), CGenesisAddressInfo(..), CGenesisSummary(..), _CCoin)
+import Pos.Explorer.Web.ClientTypes (CAddressesFilter(..), CGenesisAddressInfo(..), CGenesisSummary(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, cgaiCardanoAddress, cgaiGenesisAmount, cgaiIsRedeemed, cgsNonRedeemedAmountTotal, cgsNumNotRedeemed, cgsNumRedeemed, cgsNumTotal, cgsRedeemedAmountTotal, getCoin)
 import Pux.DOM.Events (DOMEvent, onClick) as P
 import Pux.DOM.HTML (HTML) as P

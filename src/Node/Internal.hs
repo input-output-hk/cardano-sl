@@ -37,7 +37,6 @@ module Node.Internal (
     nodeStatistics,
     ChannelIn(..),
     ChannelOut(..),
-    closeChannel,
     startNode,
     stopNode,
     withInOutChannel,
@@ -242,9 +241,6 @@ newtype ChannelIn m = ChannelIn (Channel.ChannelT m (Maybe BS.ByteString))
 
 -- | Output to the wire.
 newtype ChannelOut m = ChannelOut (NT.Connection m)
-
-closeChannel :: ChannelOut m -> m ()
-closeChannel (ChannelOut conn) = NT.close conn
 
 -- | Do multiple sends on a 'ChannelOut'.
 writeMany

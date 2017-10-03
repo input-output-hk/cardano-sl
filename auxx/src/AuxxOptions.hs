@@ -16,7 +16,7 @@ import           NeatInterpolation            (text)
 import           Options.Applicative          (CommandFields, Mod, Parser, command,
                                                execParser, footerDoc, fullDesc, header,
                                                help, helper, info, infoOption, long,
-                                               metavar, progDesc, subparser)
+                                               metavar, progDesc, subparser, switch)
 import           Pos.Communication            (NodeId)
 import           Serokell.Util.OptParse       (strOption)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
@@ -36,6 +36,7 @@ data AuxxOptions = AuxxOptions
     , aoPeers          :: ![NodeId]
     -- ^ Peers with which we want to communicate
     --   TODO: we also have topology, so it can be redundant.
+    , aoNodeEnabled    :: !Bool
     }
 
 data AuxxAction
@@ -64,11 +65,18 @@ cmdParser = command "cmd" $ info opts desc
 -- Parse everything
 ----------------------------------------------------------------------------
 
+nodeEnabledParser :: Parser Bool
+nodeEnabledParser = switch $
+    long "node-enabled" <>
+    help "Run auxx as a plugin for the node, as opposed to \
+            \running it standalone (default: standalone)."
+
 auxxOptionsParser :: Parser AuxxOptions
 auxxOptionsParser = do
     aoAction <- actionParser
     aoCommonNodeArgs <- CLI.commonNodeArgsParser
     aoPeers <- many $ CLI.nodeIdOption "peer" "Address of a peer."
+    aoNodeEnabled <- nodeEnabledParser
     pure AuxxOptions {..}
 
 getAuxxOptions :: HasCompileInfo => IO AuxxOptions

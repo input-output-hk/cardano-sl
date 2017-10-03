@@ -11,9 +11,11 @@ import qualified Network.Transport.TCP as TCP (TCPAddr (..))
 import           System.Wlog           (logInfo)
 
 import qualified Pos.Client.CLI        as CLI
+import           Pos.Communication     (OutSpecs, WorkerSpec)
 import           Pos.Core              (Timestamp (..), gdStartTime, genesisData)
-import           Pos.Launcher          (NodeParams (..), bracketNodeResources,
-                                        runRealBasedMode, withConfigurations)
+import           Pos.Launcher          (HasConfigurations, NodeParams (..), NodeResources,
+                                        bracketNodeResources, runNode, runRealBasedMode,
+                                        withConfigurations)
 import           Pos.Network.Types     (NetworkConfig (..), Topology (..),
                                         topologyDequeuePolicy, topologyEnqueuePolicy,
                                         topologyFailurePolicy)
@@ -29,7 +31,7 @@ import           Mode                  (AuxxContext (..), AuxxMode, AuxxSscType,
 import           Plugin                (auxxPlugin)
 
 -- 'NodeParams' obtained using 'CLI.getNodeParams' are not perfect for
--- Auxx, so we need to adopt them slightly.
+-- Auxx, so we need to adapt them slightly.
 correctNodeParams :: AuxxOptions -> NodeParams -> NodeParams
 correctNodeParams AuxxOptions {..} np =
     np {npNetworkConfig = networkConfig}
@@ -46,6 +48,14 @@ correctNodeParams AuxxOptions {..} np =
         , ncTcpAddr = TCP.Unaddressable
         }
 
+runNodeWithSinglePlugin ::
+       (HasConfigurations, HasCompileInfo)
+    => NodeResources AuxxSscType AuxxMode
+    -> (WorkerSpec AuxxMode, OutSpecs)
+    -> (WorkerSpec AuxxMode, OutSpecs)
+runNodeWithSinglePlugin nr (plugin, plOuts) =
+    runNode nr ([plugin], plOuts)
+
 action :: HasCompileInfo => AuxxOptions -> Production ()
 action opts@AuxxOptions {..} = withConfigurations conf $ do
     CLI.printFlags
@@ -57,7 +67,9 @@ action opts@AuxxOptions {..} = withConfigurations conf $ do
     let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
     let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
     bracketNodeResources @AuxxSscType nodeParams gtParams $ \nr ->
-        runRealBasedMode toRealMode realModeToAuxx nr (auxxPlugin opts)
+        runRealBasedMode toRealMode realModeToAuxx nr $
+            (if aoNodeEnabled then runNodeWithSinglePlugin nr else identity)
+            (auxxPlugin opts)
   where
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)

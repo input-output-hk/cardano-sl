@@ -36,6 +36,7 @@ module Pos.Wallet.Web.ClientTypes.Types
       , CElectronCrashReport (..)
       , Wal (..)
       , Addr (..)
+      , AddrTxFilter (..)
       ) where
 
 import           Universum
@@ -53,7 +54,7 @@ import qualified Prelude
 import           Servant.Multipart     (FileData)
 
 import           Pos.Aeson.Types       ()
-import           Pos.Core.Types        (ScriptVersion)
+import           Pos.Core.Types        (Address, ScriptVersion)
 import           Pos.Types             (BlockVersion, ChainDifficulty, SoftwareVersion)
 import           Pos.Util.BackupPhrase (BackupPhrase)
 
@@ -332,3 +333,6 @@ data CElectronCrashReport = CElectronCrashReport
     , cecCompanyName :: Text
     , cecUploadDump  :: FileData
     } deriving (Show, Generic)
+
+
+data AddrTxFilter = AddrTxFilter [Address]

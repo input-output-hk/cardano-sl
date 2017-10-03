@@ -5,6 +5,7 @@ module Pos.Wallet.Web.State.State
        , MonadWalletWebDB
        , WalletTip (..)
        , PtxMetaUpdate (..)
+       , HistoryCacheUpdate (..)
        , getWalletWebState
        , WebWalletModeDB
        , openState
@@ -97,8 +98,10 @@ import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemS
                                                openState)
 import           Pos.Wallet.Web.State.Acidic  as A
 import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..),
-                                               CustomAddressType (..), PtxMetaUpdate (..),
-                                               WalletStorage, WalletTip (..))
+                                               CustomAddressType (..),
+                                               HistoryCacheUpdate (..),
+                                               PtxMetaUpdate (..), WalletStorage,
+                                               WalletTip (..))
 
 -- | MonadWalletWebDB stands for monad which is able to get web wallet state
 type MonadWalletWebDB ctx m =
@@ -284,8 +287,8 @@ removeNextUpdate = updateDisk A.RemoveNextUpdate
 testReset :: WebWalletModeDB ctx m => m ()
 testReset = updateDisk A.TestReset
 
-updateHistoryCache :: WebWalletModeDB ctx m => CId Wal -> Map TxId TxHistoryEntry -> m ()
-updateHistoryCache cWalId = updateDisk . A.UpdateHistoryCache2 cWalId
+updateHistoryCache :: WebWalletModeDB ctx m => CId Wal -> HistoryCacheUpdate -> m ()
+updateHistoryCache = updateDisk ... A.UpdateHistoryCache2
 
 setPtxCondition
     :: WebWalletModeDB ctx m

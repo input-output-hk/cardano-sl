@@ -444,13 +444,12 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     mapM_ (WS.addCustomAddress UsedAddr . fst) (MM.insertions camUsed)
     mapM_ (WS.addCustomAddress ChangeAddr . fst) (MM.insertions camChange)
     WS.getWalletUtxo >>= WS.setWalletUtxo . MM.modifyMap camUtxo
-    oldCachedHist <- fromMaybe mempty <$> WS.getHistoryCache wid
     let cMetas = M.fromList
                $ mapMaybe (\THEntry {..} -> (\mts -> (_thTxId, CTxMeta . timestampToPosix $ mts)) <$> _thTimestamp)
                $ DL.toList camAddedHistory
     WS.addOnlyNewTxMetas wid cMetas
     let addedHistory = txHistoryListToMap $ DL.toList camAddedHistory
-    WS.updateHistoryCache wid $ addedHistory <> oldCachedHist -- TODO: check that there are no intersections
+    WS.insertIntoHistoryCache wid addedHistory
     -- resubmitting worker can change ptx in db nonatomically, but
     -- tracker has priority over the resubmiter, thus do not use CAS here
     forM_ camAddedPtxCandidates $ \(txid, ptxBlkInfo) ->
@@ -473,13 +472,9 @@ rollbackModifierFromWallet wid newTip CAccModifier{..} = do
         curSlot <- getCurrentSlotInaccurate
         WS.ptxUpdateMeta wid txid (WS.PtxResetSubmitTiming curSlot)
         WS.setPtxCondition wid txid (PtxApplying poolInfo)
-    WS.getHistoryCache wid >>= \case
-        Nothing -> pure ()
-        Just oldCachedHist -> do
-            let deletedHistory = txHistoryListToMap (DL.toList camDeletedHistory)
-            WS.updateHistoryCache wid $
-                oldCachedHist `M.difference` deletedHistory
-            WS.removeWalletTxMetas wid (map encodeCType $ M.keys deletedHistory)
+        let deletedHistory = txHistoryListToMap (DL.toList camDeletedHistory)
+        WS.removeFromHistoryCache wid deletedHistory
+        WS.removeWalletTxMetas wid (map encodeCType $ M.keys deletedHistory)
     WS.setWalletSyncTip wid newTip
 
 evalChange

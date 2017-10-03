@@ -42,7 +42,7 @@ import           Pos.Wallet.Web.Secret        (WalletUserSecret (..),
                                                mkGenesisWalletUserSecret, wusAccounts,
                                                wusWalletName)
 import           Pos.Wallet.Web.State         (createAccount, setWalletSyncTip,
-                                               updateHistoryCache)
+                                               removeHistoryCache)
 import           Pos.Wallet.Web.Tracking      (syncWalletOnImport)
 
 
@@ -73,7 +73,7 @@ newWallet :: MonadWalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 newWallet passphrase cwInit = do
     -- A brand new wallet doesn't need any syncing, so we mark isReady=True
     (_, wId) <- newWalletFromBackupPhrase passphrase cwInit True
-    updateHistoryCache wId mempty
+    removeHistoryCache wId
     -- BListener checks current syncTip before applying update,
     -- thus setting it up to date manually here
     withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip wId tip

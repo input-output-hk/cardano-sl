@@ -67,7 +67,8 @@ module Pos.Wallet.Web.State.State
        , totallyRemoveWAddress
        , addUpdate
        , removeNextUpdate
-       , updateHistoryCache
+       , insertIntoHistoryCache
+       , removeFromHistoryCache
        , setWalletUtxo
        , setPtxCondition
        , casPtxCondition
@@ -284,8 +285,18 @@ removeNextUpdate = updateDisk A.RemoveNextUpdate
 testReset :: WebWalletModeDB ctx m => m ()
 testReset = updateDisk A.TestReset
 
-updateHistoryCache :: WebWalletModeDB ctx m => CId Wal -> Map TxId TxHistoryEntry -> m ()
-updateHistoryCache cWalId = updateDisk . A.UpdateHistoryCache2 cWalId
+insertIntoHistoryCache :: WebWalletModeDB ctx m => CId Wal -> Map TxId TxHistoryEntry -> m ()
+insertIntoHistoryCache cWalId cTxs
+  | Map.null cTxs = return ()
+  | otherwise     = updateDisk (A.InsertIntoHistoryCache cWalId cTxs)
+
+removeFromHistoryCache :: WebWalletModeDB ctx m => CId Wal -> Map TxId a -> m ()
+removeFromHistoryCache cWalId cTxs
+  | Map.null cTxs = return ()
+  | otherwise     = updateDisk (A.RemoveFromHistoryCache cWalId cTxs')
+  where
+    cTxs' :: Map TxId ()
+    cTxs' = Map.map (const ()) cTxs
 
 setPtxCondition
     :: WebWalletModeDB ctx m

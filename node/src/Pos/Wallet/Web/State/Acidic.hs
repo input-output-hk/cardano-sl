@@ -61,7 +61,8 @@ module Pos.Wallet.Web.State.Acidic
        , TotallyRemoveWAddress (..)
        , AddUpdate (..)
        , RemoveNextUpdate (..)
-       , UpdateHistoryCache2 (..)
+       , InsertIntoHistoryCache (..)
+       , RemoveFromHistoryCache (..)
        , SetPtxCondition (..)
        , CasPtxCondition (..)
        , PtxUpdateMeta (..)
@@ -162,7 +163,8 @@ makeAcidic ''WalletStorage
     , 'WS.addUpdate
     , 'WS.removeNextUpdate
     , 'WS.updateHistoryCache
-    , 'WS.updateHistoryCache2
+    , 'WS.insertIntoHistoryCache
+    , 'WS.removeFromHistoryCache
     , 'WS.setPtxCondition
     , 'WS.casPtxCondition
     , 'WS.ptxUpdateMeta

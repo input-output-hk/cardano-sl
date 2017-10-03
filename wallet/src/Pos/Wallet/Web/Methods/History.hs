@@ -88,11 +88,12 @@ getHistory mCWalId mAccountId mAddrId = do
         Nothing -> pure accAddrs
         Just addr ->
             if addr `elem` accAddrs then pure [addr] else throwM errorBadAddress
-    first (filter (fits addrs)) <$> getFullWalletHistory cWalId
+    first (filter (fits $ S.fromList addrs)) <$> getFullWalletHistory cWalId
   where
-    fits :: [CId Addr] -> CTx -> Bool
-    fits addrs ctx = any (relatesToAddr ctx) addrs
-    relatesToAddr CTx {..} = (`elem` (map fst $ ctInputs ++ ctOutputs))
+    fits :: S.Set (CId Addr) -> CTx -> Bool
+    fits addrs CTx{..} =
+        let inpsNOuts = map fst (ctInputs ++ ctOutputs)
+        in  any (`S.member` addrs) inpsNOuts
     errorSpecifySomething = RequestError $
         "Please specify either walletId or accountId"
     errorDontSpecifyBoth = RequestError $

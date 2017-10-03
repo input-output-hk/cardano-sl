@@ -1,5 +1,5 @@
+{-# LANGUAGE Rank2Types   #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE Rank2Types #-}
 
 -- @jens: this document is inspired by https://github.com/input-output-hk/rscoin-haskell/blob/master/src/RSCoin/Explorer/Storage.hs
 module Pos.Wallet.Web.State.Storage
@@ -9,6 +9,7 @@ module Pos.Wallet.Web.State.Storage
        , CustomAddressType (..)
        , WalletTip (..)
        , PtxMetaUpdate (..)
+       , HistoryCacheUpdate (..)
        , Query
        , Update
        , flushWalletStorage
@@ -79,10 +80,11 @@ import           Control.Monad.State.Class      (put)
 import           Data.Default                   (Default, def)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.Map                       as M
-import           Data.SafeCopy                  (Migrate (..), extension, base, deriveSafeCopySimple)
+import           Data.SafeCopy                  (Migrate (..), base, deriveSafeCopySimple,
+                                                 extension)
 import           Data.Time.Clock.POSIX          (POSIXTime)
 
-import           Pos.Client.Txp.History         (TxHistoryEntry, txHistoryListToMap)
+import           Pos.Client.Txp.History         (TxHistoryEntry (..), txHistoryListToMap)
 import           Pos.Core.Configuration         (HasConfiguration)
 import           Pos.Core.Types                 (SlotId, Timestamp)
 import           Pos.Txp                        (TxAux, TxId, Utxo)
@@ -411,11 +413,20 @@ testReset :: Update ()
 testReset = put def
 
 updateHistoryCache :: CId Wal -> [TxHistoryEntry] -> Update ()
-updateHistoryCache cWalId = updateHistoryCache2 cWalId . txHistoryListToMap
+updateHistoryCache cWalId cTxs = wsHistoryCache . at cWalId ?= txHistoryListToMap cTxs
 
-updateHistoryCache2 :: CId Wal -> Map TxId TxHistoryEntry -> Update ()
-updateHistoryCache2 cWalId cTxs =
-    wsHistoryCache . at cWalId ?= cTxs
+data HistoryCacheUpdate
+    = InitHistoryCache
+    | InsertToHistoryCache (Map TxId TxHistoryEntry)
+    | RemoveFromHistoryCache (Map TxId TxHistoryEntry)
+
+updateHistoryCache2 :: CId Wal -> HistoryCacheUpdate -> Update ()
+updateHistoryCache2 cWalId modifier =
+    wsHistoryCache . at cWalId . non' _Empty %=
+        case modifier of
+            InitHistoryCache           -> const mempty
+            InsertToHistoryCache ths   -> (ths <>)
+            RemoveFromHistoryCache ths -> (`M.difference` ths)
 
 -- This shouldn't be able to create new transaction.
 -- NOTE: If you're going to use this function, make sure 'casPtxCondition'
@@ -496,6 +507,7 @@ deriveSafeCopySimple 0 'base ''PtxCondition
 deriveSafeCopySimple 0 'base ''PtxSubmitTiming
 deriveSafeCopySimple 0 'base ''PtxMetaUpdate
 deriveSafeCopySimple 0 'base ''PendingTx
+deriveSafeCopySimple 0 'base ''HistoryCacheUpdate
 deriveSafeCopySimple 0 'base ''AddressInfo
 deriveSafeCopySimple 0 'base ''AccountInfo
 deriveSafeCopySimple 0 'base ''WalletTip

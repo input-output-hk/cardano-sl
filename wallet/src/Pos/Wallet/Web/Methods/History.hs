@@ -20,9 +20,9 @@ import           System.Wlog                (WithLogger, logInfo, logWarning)
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()
-import           Pos.Client.Txp.History     (txHistoryListToMap, TxHistoryEntry (..))
-import           Pos.Txp.Core.Types         (TxId)
+import           Pos.Client.Txp.History     (TxHistoryEntry (..), txHistoryListToMap)
 import           Pos.Core                   (timestampToPosix)
+import           Pos.Txp.Core.Types         (TxId)
 import           Pos.Util.Servant           (encodeCType)
 import           Pos.Wallet.WalletMode      (getLocalHistory, localChainDifficulty,
                                              networkChainDifficulty)

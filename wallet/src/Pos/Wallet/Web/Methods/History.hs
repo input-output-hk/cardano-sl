@@ -15,7 +15,7 @@ import qualified Data.Set                   as S
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (build, sformat, stext, (%))
 import           Serokell.Util              (listJson)
-import           System.Wlog                (WithLogger, logError, logInfo, logWarning)
+import           System.Wlog                (WithLogger, logError, logInfo)
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()
@@ -24,42 +24,41 @@ import           Pos.Core                   (getTimestamp, timestampToPosix)
 import           Pos.Util.Servant           (encodeCType)
 import           Pos.Wallet.WalletMode      (getLocalHistory, localChainDifficulty,
                                              networkChainDifficulty)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..), CTxId,
-                                             CTxMeta (..), CWAddressMeta (..), Wal, mkCTx)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, AddrTxFilter (..), CId,
+                                             CTx (..), CTxId, CTxMeta (..),
+                                             CWAddressMeta (..), Wal, applyAddrTxFilter,
+                                             mkCTx)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending     (PendingTx (..), ptxPoolInfo)
 import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), addOnlyNewTxMeta,
-                                             getHistoryCache, getPendingTx, getTxMeta,
+                                             getHistoryCachePart, getPendingTx, getTxMeta,
                                              getWalletPendingTxs, setWalletTxMeta)
 import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
                                              getWalletAccountIds, getWalletAddrMetas,
                                              getWalletAddrs, getWalletThTime)
 
 
-getFullWalletHistory :: MonadWalletWebMode m => CId Wal -> m ([CTx], Word)
-getFullWalletHistory cWalId = do
+-- | Gather history from all sources: db, mempool txs, pending txs.
+-- Note that @minNum@ is just a prompt about minimal number of
+-- transactions to return.
+getFullWalletHistory
+    :: MonadWalletWebMode m
+    => CId Wal -> AddrTxFilter -> Int -> m ([CTx], Word)
+getFullWalletHistory cWalId filtering minNum = do
     addrs <- mapM decodeCTypeOrFail =<< getWalletAddrs Ever cWalId
 
-    unfilteredLocalHistory <- getLocalHistory addrs
+    unfilteredLocalHistory <-
+        applyAddrTxFilter filtering . DL.toList <$> getLocalHistory addrs
 
-    blockHistory <- getHistoryCache cWalId >>= \case
-        Just hist -> pure $ DL.fromList hist
-        Nothing -> do
-            logWarning $
-                sformat ("getFullWalletHistory: history cache is empty for wallet #"%build)
-                cWalId
-            pure mempty
+    blockHistory <- getHistoryCachePart filtering minNum cWalId
 
-    let localHistory =
-            DL.fromList $ filterLocalTh
-                (DL.toList blockHistory)
-                (DL.toList unfilteredLocalHistory)
+    let localHistory = filterLocalTh blockHistory unfilteredLocalHistory
 
     logTxHistory "Block" blockHistory
     logTxHistory "Mempool" localHistory
 
-    fullHistory <- addRecentPtxHistory cWalId $ DL.toList $ localHistory <> blockHistory
+    fullHistory <- addRecentPtxHistory cWalId $ localHistory <> blockHistory
     cHistory <- forM fullHistory $ addHistoryTx cWalId
     pure (cHistory, fromIntegral $ length cHistory)
   where
@@ -73,8 +72,9 @@ getHistory
     => Maybe (CId Wal)
     -> Maybe AccountId
     -> Maybe (CId Addr)
+    -> Int
     -> m ([CTx], Word)
-getHistory mCWalId mAccountId mAddrId = do
+getHistory mCWalId mAccountId mAddrId minNum = do
     -- FIXME: searching when only AddrId is provided is not supported yet.
     (cWalId, accIds) <- case (mCWalId, mAccountId) of
         (Nothing, Nothing)      -> throwM errorSpecifySomething
@@ -84,16 +84,13 @@ getHistory mCWalId mAccountId mAddrId = do
             pure (cWalId', accIds')
         (Nothing, Just accId)   -> pure (aiWId accId, [accId])
     accAddrs <- map cwamId <$> concatMapM (getAccountAddrsOrThrow Ever) accIds
-    addrs <- case mAddrId of
+    cids <- case mAddrId of
         Nothing -> pure accAddrs
         Just addr ->
             if addr `elem` accAddrs then pure [addr] else throwM errorBadAddress
-    first (filter (fits $ S.fromList addrs)) <$> getFullWalletHistory cWalId
+    addrs <- mapM decodeCTypeOrFail cids
+    getFullWalletHistory cWalId (AddrTxFilter addrs) minNum
   where
-    fits :: S.Set (CId Addr) -> CTx -> Bool
-    fits addrs CTx{..} =
-        let inpsNOuts = map fst (ctInputs ++ ctOutputs)
-        in  any (`S.member` addrs) inpsNOuts
     errorSpecifySomething = RequestError $
         "Please specify either walletId or accountId"
     errorDontSpecifyBoth = RequestError $
@@ -110,7 +107,7 @@ getHistoryLimited
     -> Maybe Word
     -> m ([CTx], Word)
 getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit =
-    first applySkipLimit <$> getHistory mCWalId mAccId mAddrId
+    first applySkipLimit <$> getHistory mCWalId mAccId mAddrId (skip + limit)
   where
     applySkipLimit = take limit . drop skip
     limit = (fromIntegral $ fromMaybe defaultLimit mLimit)

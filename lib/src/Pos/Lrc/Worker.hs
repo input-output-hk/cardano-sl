@@ -29,8 +29,9 @@ import           Pos.Binary.Communication ()
 import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
                                            applyBlocksUnsafe, rollbackBlocksUnsafe)
 import           Pos.Core                 (Coin, EpochIndex, EpochOrSlot (..),
-                                           EpochOrSlot (..), SharedSeed, StakeholderId,
-                                           crucialSlot, epochIndexL, getEpochOrSlot)
+                                           EpochOrSlot (..), SharedSeed, SlotId (..),
+                                           StakeholderId, crucialSlot, epochIndexL,
+                                           getEpochOrSlot)
 import qualified Pos.DB.DB                as DB
 import qualified Pos.GState               as GS
 import           Pos.Lrc.Consumer         (LrcConsumer (..))
@@ -38,7 +39,7 @@ import           Pos.Lrc.Consumers        (allLrcConsumers)
 import           Pos.Lrc.Context          (LrcContext (lcLrcSync), LrcSyncData (..))
 import           Pos.Lrc.DB               (IssuersStakes, getSeed, putEpoch,
                                            putIssuersStakes, putSeed)
-import qualified Pos.Lrc.DB               as LrcDB (getLeadersForEpoch,
+import qualified Pos.Lrc.DB               as LrcDB (getLeader, getLeadersForEpoch,
                                                     putLeadersForEpoch)
 import           Pos.Lrc.Error            (LrcError (..))
 import           Pos.Lrc.Fts              (followTheSatoshiM)
@@ -198,7 +199,7 @@ issuersComputationDo epochId = do
 
 leadersComputationDo :: LrcMode ssc ctx m => EpochIndex -> SharedSeed -> m ()
 leadersComputationDo epochId seed =
-    unlessM (isJust <$> LrcDB.getLeadersForEpoch epochId) $ do
+    unlessM (isJust <$> LrcDB.getLeader (SlotId epochId minBound)) $ do
         totalStake <- GS.getRealTotalStake
         leaders <- runConduitRes $ GS.stakeSource .| followTheSatoshiM seed totalStake
         LrcDB.putLeadersForEpoch epochId leaders

@@ -74,6 +74,7 @@ import           Control.Lens                   (at, ix, makeClassy, makeLenses,
 import           Control.Monad.State.Class      (put)
 import           Data.Default                   (Default, def)
 import qualified Data.HashMap.Strict            as HM
+import qualified Data.Map                       as M
 import           Data.SafeCopy                  (base, deriveSafeCopySimple)
 import           Data.Time.Clock.POSIX          (POSIXTime)
 

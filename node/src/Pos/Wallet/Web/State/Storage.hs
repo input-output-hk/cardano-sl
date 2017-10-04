@@ -446,11 +446,12 @@ addOnlyNewPendingTx ptx =
 flushWalletStorage :: Update ()
 flushWalletStorage = modify flushDo
   where
-    flushDo ws = def
+    flushDo ws = ws
         { _wsWalletInfos = flushWalletInfo <$> _wsWalletInfos ws
-        , _wsAccountInfos = _wsAccountInfos ws
-        , _wsProfile = _wsProfile ws
-        , _wsTxHistory = _wsTxHistory ws
+        , _wsHistoryCache = HM.empty
+        , _wsUtxo = M.empty
+        , _wsUsedAddresses = HM.empty
+        , _wsChangeAddresses = HM.empty
         }
     flushWalletInfo wi = wi { _wiSyncTip = NotSynced
                             , _wiIsReady = False

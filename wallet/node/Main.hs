@@ -28,9 +28,12 @@ import           Pos.Launcher         (HasConfigurations, NodeParams (..),
 import           Pos.Ssc.Class        (SscParams)
 import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Util.UserSecret  (usVss)
+import           Pos.Wallet.SscType   (WalletSscType)
 import           Pos.Wallet.Web       (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
-                                       runWRealMode, walletServeWebFull, walletServerOuts)
-import           Pos.Wallet.Web.State (cleanupAcidStatePeriodically, flushWalletStorage)
+                                       getSKById, runWRealMode, syncWalletsWithGState,
+                                       walletServeWebFull, walletServerOuts)
+import           Pos.Wallet.Web.State (cleanupAcidStatePeriodically, flushWalletStorage,
+                                       getWalletAddresses)
 import           Pos.Web              (serveWebGT)
 import           Pos.WorkMode         (WorkMode)
 
@@ -53,10 +56,16 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
         when (walletFlushDb) $ do
             putText "Flushing wallet db..."
             flushWalletStorage
+            putText "Resyncing wallets with blockchain..."
+            syncWallets
     runNodeWithInit init nr =
         let (ActionSpec f, outs) = runNode @SscGodTossing nr plugins
          in (ActionSpec $ \v s -> init >> f v s, outs)
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
+    syncWallets :: WalletWebMode ()
+    syncWallets = do
+        sks <- getWalletAddresses >>= mapM getSKById
+        syncWalletsWithGState @WalletSscType sks
     plugins :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
     plugins = mconcat [ convPlugins (pluginsGT wArgs)
                       , walletProd wArgs

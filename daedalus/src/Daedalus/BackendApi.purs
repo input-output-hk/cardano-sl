@@ -19,6 +19,7 @@ import Data.HTTP.Method (Method(GET, POST, PUT, DELETE))
 import Data.Maybe (Maybe)
 import Data.Monoid (mempty)
 import Data.String (joinWith)
+import Data.List.Lazy (cons, nil, reverse, toUnfoldable)
 import Data.Tuple (Tuple (..))
 import Data.StrMap (fromFoldable)
 import Daedalus.TLS (TLSOptions)
@@ -76,11 +77,12 @@ responseToString :: forall eff. Response -> Aff (http :: HTTP, exception :: EXCE
 responseToString res = makeAff $ \withError withSuccess -> do
     let stream = responseAsStream res
     onError stream withError
-    buf <- unsafeRunRef $ newRef ""
+    buf <- unsafeRunRef $ newRef nil
     onDataString stream UTF8 $ \strChunk -> do
-        void $ unsafeRunRef $ modifyRef buf (\s -> s <> strChunk)
+        void $ unsafeRunRef $ modifyRef buf (cons strChunk)
     onEnd stream $ do
-        s <- unsafeRunRef $ readRef buf
+        strChunksReversed <- unsafeRunRef $ readRef buf
+        let s = (joinWith "" <<< toUnfoldable <<< reverse) strChunksReversed
         withSuccess s
 
 makeRequest :: forall eff a. Generic a => (Request -> Eff (http :: HTTP, exception :: EXCEPTION | eff) Unit)

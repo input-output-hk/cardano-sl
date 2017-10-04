@@ -4,12 +4,15 @@ import Prelude
 import Control.Monad.Eff (Eff)
 import Control.Monad.Aff (Aff, makeAff)
 import Control.Monad.Eff.Exception (error, Error, EXCEPTION)
+import Control.Monad.Eff.Ref.Unsafe (unsafeRunRef)
+import Control.Monad.Eff.Ref (modifyRef, newRef, readRef)
 import Control.Monad.Error.Class (throwError)
 import Daedalus.Types (CId, _address, _ccoin, CAccount, CTx, CAccountMeta, CTxId, CTxMeta, _ctxIdValue, WalletError, CProfile, CAccountInit, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress, CInitialized, CPassPhrase, _passPhrase, CCoin, CPaperVendWalletRedeem, Wal, CWallet, CWalletInit, walletAddressToUrl, CAccountId, CAddress, Addr, CWalletMeta)
 import Data.Argonaut.Parser (jsonParser)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
 import Data.Bifunctor (lmap)
 import Data.Either (either, Either(Left))
+import Data.Functor (void)
 import Data.FormURLEncoded (fromArray, encode)
 import Data.Generic (class Generic, gShow)
 import Data.HTTP.Method (Method(GET, POST, PUT, DELETE))
@@ -22,7 +25,7 @@ import Daedalus.TLS (TLSOptions)
 import Node.HTTP.Client (method, path, request, statusCode, statusMessage, Response, responseAsStream, headers, RequestHeaders (..), Request, requestAsStream)
 import Data.Options ((:=))
 import Node.Encoding (Encoding (UTF8))
-import Node.Stream (onDataString, writeString, end)
+import Node.Stream (onDataString, onEnd, onError, writeString, end)
 import Node.HTTP (HTTP)
 
 -- HELPERS
@@ -69,6 +72,17 @@ decodeResult = either (Left <<< mkJSONError) (lmap mkServerError) <<< decodeJson
     mkJSONError = error <<< show <<< JSONDecodingError
     mkServerError = error <<< show <<< ServerError
 
+responseToString :: forall eff. Response -> Aff (http :: HTTP, exception :: EXCEPTION | eff) String
+responseToString res = makeAff $ \withError withSuccess -> do
+    let stream = responseAsStream res
+    onError stream withError
+    buf <- unsafeRunRef $ newRef ""
+    onDataString stream UTF8 $ \strChunk -> do
+        void $ unsafeRunRef $ modifyRef buf (\s -> s <> strChunk)
+    onEnd stream $ do
+        s <- unsafeRunRef $ readRef buf
+        withSuccess s
+
 makeRequest :: forall eff a. Generic a => (Request -> Eff (http :: HTTP, exception :: EXCEPTION | eff) Unit)
     -> TLSOptions -> URLPath -> Aff (http :: HTTP, exception :: EXCEPTION | eff) a
 makeRequest withReq tls urlPath = do
@@ -76,7 +90,7 @@ makeRequest withReq tls urlPath = do
     res <- makeAff $ const $ withReq <=< request (tls <> path := backendApi urlPath)
     when (isHttpError res) $
         throwError <<< error <<< show $ HTTPStatusError res
-    rawData <- makeAff $ const $ onDataString (responseAsStream res) UTF8
+    rawData <- responseToString res
     either throwError pure $ decodeResult rawData
   where
     isHttpError res = statusCode res >= 400

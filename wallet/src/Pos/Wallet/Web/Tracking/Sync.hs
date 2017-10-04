@@ -38,7 +38,7 @@ import           Control.Lens                     (to)
 import           Control.Monad.Catch              (handleAll)
 import qualified Data.DList                       as DL
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (deleteBy, (!!))
+import           Data.List                        ((!!))
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as M
 import           Ether.Internal                   (HasLens (..))
@@ -442,18 +442,20 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     mapM_ (WS.addCustomAddress UsedAddr . fst) (MM.insertions camUsed)
     mapM_ (WS.addCustomAddress ChangeAddr . fst) (MM.insertions camChange)
     WS.getWalletUtxo >>= WS.setWalletUtxo . MM.modifyMap camUtxo
-    oldCachedHist <- fromMaybe [] <$> WS.getHistoryCache wid
-    sortedAddedHistory <-
-        getNewestFirst <$> sortWalletThByTime wid (DL.toList camAddedHistory)
-    WS.updateHistoryCache wid $ sortedAddedHistory <> oldCachedHist
+    modifyTxHistory
     -- resubmitting worker can change ptx in db nonatomically, but
     -- tracker has priority over the resubmiter, thus do not use CAS here
     forM_ camAddedPtxCandidates $ \(txid, ptxBlkInfo) ->
         WS.setPtxCondition wid txid (PtxInNewestBlocks ptxBlkInfo)
     WS.setWalletSyncTip wid newTip
+  where
+    modifyTxHistory = do
+        sortedAddedHistory <-
+            getNewestFirst <$> sortWalletThByTime wid (DL.toList camAddedHistory)
+        WS.updateHistoryCache wid $ WS.InsertToHistoryCache sortedAddedHistory
 
 rollbackModifierFromWallet
-    :: (WebWalletModeDB ctx m, MonadSlots ctx m)
+    :: (WebWalletModeDB ctx m, MonadSlots ctx m, WithLogger m)
     => CId Wal
     -> HeaderHash
     -> CAccModifier
@@ -468,20 +470,13 @@ rollbackModifierFromWallet wid newTip CAccModifier{..} = do
         curSlot <- getCurrentSlotInaccurate
         WS.ptxUpdateMeta wid txid (WS.PtxResetSubmitTiming curSlot)
         WS.setPtxCondition wid txid (PtxApplying poolInfo)
-    WS.getHistoryCache wid >>= \case
-        Nothing -> pure ()
-        Just oldCachedHist -> do
-            sortedDeletedHistory <-
-                getNewestFirst <$> sortWalletThByTime wid (DL.toList camDeletedHistory)
-            WS.updateHistoryCache wid $
-                removeFromHead sortedDeletedHistory oldCachedHist
+    modifyTxHistory
     WS.setWalletSyncTip wid newTip
   where
-    removeFromHead :: [TxHistoryEntry] -> [TxHistoryEntry] -> [TxHistoryEntry]
-    removeFromHead [] ths = ths
-    removeFromHead _ [] = []
-    removeFromHead (dTh : dThes) thes =
-        removeFromHead dThes $! deleteBy ((==) `on` _thTxId) dTh thes
+    modifyTxHistory = do
+        sortedDeletedHistory <-
+            getNewestFirst <$> sortWalletThByTime wid (DL.toList camDeletedHistory)
+        WS.updateHistoryCache wid $ WS.RemoveFromHistoryCache sortedDeletedHistory
 
 evalChange
     :: [CWAddressMeta] -- ^ All adresses

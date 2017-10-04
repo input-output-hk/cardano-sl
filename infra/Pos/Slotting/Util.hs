@@ -7,6 +7,7 @@ module Pos.Slotting.Util
        , getSlotStart
        , getSlotStartPure
        , getSlotStartEmpatically
+       , getCurrentEpochSlotDuration
        , getNextEpochSlotDuration
        , slotFromTimestamp
 
@@ -81,6 +82,13 @@ getSlotStartEmpatically
     -> m Timestamp
 getSlotStartEmpatically slot =
     getSlotStart slot >>= maybeThrow (SEUnknownSlotStart slot)
+
+-- | Get the previous before last known slot duration.
+getCurrentEpochSlotDuration
+    :: (MonadSlotsData ctx m)
+    => m Millisecond
+getCurrentEpochSlotDuration =
+    esdSlotDuration . fst <$> getCurrentNextEpochSlottingDataM
 
 -- | Get last known slot duration.
 getNextEpochSlotDuration

@@ -12,6 +12,7 @@ module Pos.Wallet.Web.ClientTypes.Functions
       , toCUpdateInfo
       , addrMetaToAccount
       , isTxLocalAddress
+      , applyAddrTxFilter
       ) where
 
 import           Universum
@@ -39,7 +40,8 @@ import           Pos.Update.Core                  (BlockVersionData (..),
                                                    StakeholderVotes, UpdateProposal (..),
                                                    isPositiveVote)
 import           Pos.Update.Poll                  (ConfirmedProposalState (..))
-import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), Addr, CCoin (..),
+import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), Addr,
+                                                   AddrTxFilter (..), CCoin (..),
                                                    CHash (..), CId (..),
                                                    CPtxCondition (..), CTx (..),
                                                    CTxId (..), CTxMeta, CUpdateInfo (..),
@@ -201,3 +203,12 @@ toCUpdateInfo bvd ConfirmedProposalState {..} =
         cuiPositiveStake    = mkCCoin cpsPositiveStake
         cuiNegativeStake    = mkCCoin cpsNegativeStake
     in CUpdateInfo {..}
+
+applyAddrTxFilter :: AddrTxFilter -> [TxHistoryEntry] -> [TxHistoryEntry]
+applyAddrTxFilter (AddrTxFilter addrs) =
+    filter $ \THEntry{..} ->
+        let inps = map txOutAddress _thInputs
+            inpsNOuts = inps ++ _thOutputAddrs
+        in  any (`S.member` addrsSet) inpsNOuts
+  where
+    addrsSet = S.fromList addrs

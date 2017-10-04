@@ -30,6 +30,7 @@ module Pos.Wallet.Web.State.Acidic
        , GetNextUpdate (..)
        , TestReset (..)
        , GetHistoryCache (..)
+       , GetHistoryCachePart (..)
        , GetCustomAddresses (..)
        , GetCustomAddress (..)
        , GetPendingTxs (..)
@@ -126,6 +127,7 @@ makeAcidic ''WalletStorage
     , 'WS.getUpdates
     , 'WS.getNextUpdate
     , 'WS.getHistoryCache
+    , 'WS.getHistoryCachePart
     , 'WS.getCustomAddresses
     , 'WS.getCustomAddress
     , 'WS.getPendingTxs

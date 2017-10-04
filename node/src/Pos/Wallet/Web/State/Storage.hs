@@ -8,6 +8,7 @@ module Pos.Wallet.Web.State.Storage
        , CustomAddressType (..)
        , WalletTip (..)
        , PtxMetaUpdate (..)
+       , HistoryCacheUpdate (..)
        , Query
        , Update
        , flushWalletStorage
@@ -28,6 +29,7 @@ module Pos.Wallet.Web.State.Storage
        , getUpdates
        , getNextUpdate
        , getHistoryCache
+       , getHistoryCachePart
        , getCustomAddresses
        , getCustomAddress
        , getPendingTxs
@@ -74,21 +76,23 @@ import           Control.Lens                   (at, ix, makeClassy, makeLenses,
 import           Control.Monad.State.Class      (put)
 import           Data.Default                   (Default, def)
 import qualified Data.HashMap.Strict            as HM
+import           Data.List                      (deleteBy)
 import qualified Data.Map                       as M
 import           Data.SafeCopy                  (base, deriveSafeCopySimple)
 import           Data.Time.Clock.POSIX          (POSIXTime)
 
-import           Pos.Client.Txp.History         (TxHistoryEntry)
+import           Pos.Client.Txp.History         (TxHistoryEntry (..))
 import           Pos.Core.Configuration         (HasConfiguration)
 import           Pos.Core.Types                 (SlotId, Timestamp)
 import           Pos.Txp                        (TxAux, TxId, Utxo)
 import           Pos.Types                      (HeaderHash)
 import           Pos.Util.BackupPhrase          (BackupPhrase)
-import           Pos.Wallet.Web.ClientTypes     (AccountId, Addr, CAccountMeta, CCoin,
-                                                 CHash, CId, CProfile, CTxId, CTxMeta,
-                                                 CUpdateInfo, CWAddressMeta (..),
-                                                 CWalletAssurance, CWalletMeta,
-                                                 PassPhraseLU, Wal, addrMetaToAccount)
+import           Pos.Wallet.Web.ClientTypes     (AccountId, Addr, AddrTxFilter,
+                                                 CAccountMeta, CCoin, CHash, CId,
+                                                 CProfile, CTxId, CTxMeta, CUpdateInfo,
+                                                 CWAddressMeta (..), CWalletAssurance,
+                                                 CWalletMeta, PassPhraseLU, Wal,
+                                                 addrMetaToAccount, applyAddrTxFilter)
 import           Pos.Wallet.Web.Pending.Types   (PendingTx (..), PtxCondition,
                                                  PtxSubmitTiming (..), ptxCond,
                                                  ptxSubmitTiming)
@@ -267,8 +271,15 @@ getUpdates = view wsReadyUpdates
 getNextUpdate :: Query (Maybe CUpdateInfo)
 getNextUpdate = preview (wsReadyUpdates . _head)
 
-getHistoryCache :: CId Wal -> Query (Maybe [TxHistoryEntry])
-getHistoryCache cWalId = view $ wsHistoryCache . at cWalId
+getHistoryCache :: CId Wal -> Query [TxHistoryEntry]
+getHistoryCache cWalId = view $ wsHistoryCache . at cWalId . non' _Empty
+
+getHistoryCachePart :: AddrTxFilter
+                    -> Int
+                    -> CId Wal
+                    -> Query [TxHistoryEntry]
+getHistoryCachePart fits num wid =
+    take num . applyAddrTxFilter fits <$> getHistoryCache wid
 
 getCustomAddresses :: CustomAddressType -> Query [CId Addr]
 getCustomAddresses t = HM.keys <$> view (customAddressL t)
@@ -399,9 +410,24 @@ removeNextUpdate = wsReadyUpdates %= drop 1
 testReset :: Update ()
 testReset = put def
 
-updateHistoryCache :: CId Wal -> [TxHistoryEntry] -> Update ()
-updateHistoryCache cWalId cTxs =
-    wsHistoryCache . at cWalId ?= cTxs
+data HistoryCacheUpdate
+    = InitHistoryCache
+    | InsertToHistoryCache [TxHistoryEntry]
+    | RemoveFromHistoryCache [TxHistoryEntry]
+
+-- | Modifies cached history, returns whether call succeeded.
+updateHistoryCache :: CId Wal -> HistoryCacheUpdate -> Update ()
+updateHistoryCache cWalId modifier =
+    wsHistoryCache . at cWalId . non' _Empty %=
+    case modifier of
+        InitHistoryCache           -> const mempty
+        InsertToHistoryCache ths   -> (ths <>)
+        RemoveFromHistoryCache ths -> removeFromHead ths
+  where
+    removeFromHead :: [TxHistoryEntry] -> [TxHistoryEntry] -> [TxHistoryEntry]
+    removeFromHead [] ths = ths
+    removeFromHead (dTh : dThes) thes =
+        removeFromHead dThes $! deleteBy ((==) `on` _thTxId) dTh thes
 
 -- This shouldn't be able to create new transaction.
 -- NOTE: If you're going to use this function, make sure 'casPtxCondition'
@@ -482,6 +508,8 @@ deriveSafeCopySimple 0 'base ''PtxCondition
 deriveSafeCopySimple 0 'base ''PtxSubmitTiming
 deriveSafeCopySimple 0 'base ''PtxMetaUpdate
 deriveSafeCopySimple 0 'base ''PendingTx
+deriveSafeCopySimple 0 'base ''HistoryCacheUpdate
+deriveSafeCopySimple 0 'base ''AddrTxFilter
 deriveSafeCopySimple 0 'base ''AddressInfo
 deriveSafeCopySimple 0 'base ''AccountInfo
 deriveSafeCopySimple 0 'base ''WalletTip

@@ -54,13 +54,13 @@ import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
 import           Pos.Wallet.Web.State       (AddressLookupMode (Existing),
                                              CustomAddressType (ChangeAddr, UsedAddr),
-                                             addWAddress, createAccount, createWallet,
-                                             getAccountIds, getAccountMeta,
-                                             getWalletAddresses,
+                                             addWAddress, clearWalletTxMetas,
+                                             createAccount, createWallet, getAccountIds,
+                                             getAccountMeta, getWalletAddresses,
                                              getWalletMetaIncludeUnready, getWalletPassLU,
                                              isCustomAddress, removeAccount,
-                                             removeHistoryCache, removeTxMetas,
-                                             removeWallet, setAccountMeta, setWalletMeta,
+                                             removeHistoryCache, removeWallet,
+                                             setAccountMeta, setWalletMeta,
                                              setWalletPassLU, setWalletReady)
 import           Pos.Wallet.Web.Tracking    (CAccModifier (..), CachedCAccModifier,
                                              fixCachedAccModifierFor,
@@ -222,7 +222,7 @@ deleteWallet wid = do
     accounts <- getAccounts (Just wid)
     mapM_ (deleteAccount <=< decodeCTypeOrFail . caId) accounts
     removeWallet wid
-    removeTxMetas wid
+    clearWalletTxMetas wid
     removeHistoryCache wid
     deleteSecretKey . fromIntegral =<< getAddrIdx wid
 

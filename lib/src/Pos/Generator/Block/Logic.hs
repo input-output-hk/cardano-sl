@@ -19,9 +19,11 @@ import           Pos.Block.Core              (mkGenesisBlock)
 import           Pos.Block.Logic             (applyBlocksUnsafe, createMainBlockInternal,
                                               normalizeMempool, verifyBlocksPrefix)
 import           Pos.Block.Types             (Blund)
-import           Pos.Core                    (EpochOrSlot (..), SlotId (..), epochIndexL,
-                                              getEpochOrSlot, getSlotIndex)
+import           Pos.Core                    (EpochOrSlot (..), SlotId (..), addressHash,
+                                              epochIndexL, getEpochOrSlot, getSlotIndex)
+import           Pos.Crypto                  (pskDelegatePk)
 import           Pos.DB.DB                   (getTipHeader)
+import           Pos.Delegation.Logic        (getDlgTransPsk)
 import           Pos.Generator.Block.Error   (BlockGenError (..))
 import           Pos.Generator.Block.Mode    (BlockGenRandMode, MonadBlockGen,
                                               mkBlockGenContext, usingPrimaryKey,
@@ -79,14 +81,15 @@ genBlock eos = do
             fmap Just $ withCurrentSlot slot0 $ lift $ verifyAndApply (Left genesisBlock)
         EpochOrSlot (Right slot@SlotId {..}) -> withCurrentSlot slot $ do
             genPayload slot
-            -- We need to know leader's secret key to create a block.
             leader <-
                 lift $ maybeThrow
                     (BGInternal "no leader")
                     (leaders ^? ix (fromIntegral $ getSlotIndex siSlot))
             secrets <-
                 unInvSecretsMap . view asSecretKeys <$> view blockGenParams
-            let maybeLeader = secrets ^. at leader
+            transCert <- lift $ getDlgTransPsk leader
+            let creator = maybe leader (addressHash . pskDelegatePk . snd) transCert
+            let maybeLeader = secrets ^. at creator
             canSkip <- view bgpSkipNoKey
             case (maybeLeader, canSkip) of
                 (Nothing,True)     -> do
@@ -99,10 +102,10 @@ genBlock eos = do
                     throwM $ BGUnknownSecret leader
                 (Just leaderSK, _) ->
                     -- When we know the secret key we can proceed to the actual creation.
-                    Just <$> usingPrimaryKey leaderSK (genMainBlock slot)
+                    Just <$> usingPrimaryKey leaderSK (genMainBlock slot (Right . swap <$> transCert))
   where
-    genMainBlock slot =
-        lift $ createMainBlockInternal @SscGodTossing slot Nothing >>= \case
+    genMainBlock slot proxySkInfo =
+        lift $ createMainBlockInternal @SscGodTossing slot proxySkInfo >>= \case
             Left err -> throwM (BGFailedToCreate err)
             Right mainBlock -> verifyAndApply $ Right mainBlock
     verifyAndApply block =

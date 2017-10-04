@@ -50,8 +50,10 @@ module Pos.Wallet.Web.State.Storage
        , setWalletUtxo
        , addOnlyNewTxMeta
        , setWalletTxMeta
+       , addOnlyNewTxMetas
        , removeWallet
-       , removeTxMetas
+       , removeWalletTxMetas
+       , clearWalletTxMetas
        , removeHistoryCache
        , removeAccount
        , removeWAddress
@@ -361,11 +363,18 @@ setWalletTxMeta :: CId Wal -> CTxId -> CTxMeta -> Update ()
 setWalletTxMeta cWalId cTxId cTxMeta =
     wsTxHistory . ix cWalId . at cTxId %= ($> cTxMeta)
 
+clearWalletTxMetas :: CId Wal -> Update ()
+clearWalletTxMetas cWalId = wsTxHistory . at cWalId .= Nothing
+
+addOnlyNewTxMetas :: CId Wal -> [(CTxId, CTxMeta)] -> Update ()
+addOnlyNewTxMetas = mapM_ . uncurry . addOnlyNewTxMeta
+
+removeWalletTxMetas :: CId Wal -> [CTxId] -> Update ()
+removeWalletTxMetas cWalId cTxs =
+    wsTxHistory . at cWalId . non' _Empty %= flip (foldr HM.delete) cTxs
+
 removeWallet :: CId Wal -> Update ()
 removeWallet cWalId = wsWalletInfos . at cWalId .= Nothing
-
-removeTxMetas :: CId Wal -> Update ()
-removeTxMetas cWalId = wsTxHistory . at cWalId .= Nothing
 
 removeHistoryCache :: CId Wal -> Update ()
 removeHistoryCache cWalId = wsHistoryCache . at cWalId .= Nothing

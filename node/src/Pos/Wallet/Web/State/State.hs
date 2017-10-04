@@ -54,10 +54,12 @@ module Pos.Wallet.Web.State.State
        , setWalletPassLU
        , setWalletSyncTip
        , setWalletTxMeta
+       , addOnlyNewTxMetas
        , setWalletTxHistory
        , addOnlyNewTxMeta
        , removeWallet
-       , removeTxMetas
+       , removeWalletTxMetas
+       , clearWalletTxMetas
        , removeHistoryCache
        , removeAccount
        , removeWAddress
@@ -228,6 +230,9 @@ setProfile = updateDisk . A.SetProfile
 setWalletTxMeta :: WebWalletModeDB ctx m => CId Wal -> CTxId -> CTxMeta -> m ()
 setWalletTxMeta cWalId cTxId = updateDisk . A.SetWalletTxMeta cWalId cTxId
 
+addOnlyNewTxMetas :: WebWalletModeDB ctx m => CId Wal -> [(CTxId, CTxMeta)] -> m ()
+addOnlyNewTxMetas = updateDisk ... A.AddOnlyNewTxMetas
+
 setWalletTxHistory :: WebWalletModeDB ctx m => CId Wal -> [(CTxId, CTxMeta)] -> m ()
 setWalletTxHistory cWalId = updateDisk . A.SetWalletTxHistory cWalId
 
@@ -243,8 +248,11 @@ addOnlyNewTxMeta cWalId cTxId = updateDisk . A.AddOnlyNewTxMeta cWalId cTxId
 removeWallet :: WebWalletModeDB ctx m => CId Wal -> m ()
 removeWallet = updateDisk . A.RemoveWallet
 
-removeTxMetas :: WebWalletModeDB ctx m => CId Wal -> m ()
-removeTxMetas = updateDisk . A.RemoveTxMetas
+clearWalletTxMetas :: WebWalletModeDB ctx m => CId Wal -> m ()
+clearWalletTxMetas = updateDisk . A.ClearWalletTxMetas
+
+removeWalletTxMetas :: WebWalletModeDB ctx m => CId Wal -> [CTxId] -> m ()
+removeWalletTxMetas = updateDisk ... A.RemoveWalletTxMetas
 
 removeHistoryCache :: WebWalletModeDB ctx m => CId Wal -> m ()
 removeHistoryCache = updateDisk . A.RemoveHistoryCache

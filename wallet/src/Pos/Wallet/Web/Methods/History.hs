@@ -21,7 +21,7 @@ import           System.Wlog                (WithLogger, logError, logInfo, logW
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()
 import           Pos.Client.Txp.History     (TxHistoryEntry (..))
-import           Pos.Core                   (getTimestamp, timestampToPosix)
+import           Pos.Core                   (timestampToPosix)
 import           Pos.Util.Servant           (encodeCType)
 import           Pos.Wallet.WalletMode      (getLocalHistory, localChainDifficulty,
                                              networkChainDifficulty)
@@ -62,7 +62,11 @@ getFullWalletHistory cWalId = do
 
     fullHistory <- addRecentPtxHistory cWalId $ DL.toList $ localHistory <> blockHistory
     walAddrMetas <- getWalletAddrMetas Ever cWalId
-    forM_ fullHistory (addHistoryTx cWalId)
+    -- TODO when we introduce some mechanism to react on new tx in mempool,
+    -- we will set timestamp tx as current time and remove call of @addHistoryTx@
+    -- We call addHistoryTx only for mempool transactions because for
+    -- transactions from block and resubmitting timestamp is already known.
+    forM_ localHistory (addHistoryTx cWalId)
     cHistory <- forM fullHistory (constructCTx (cWalId, Just walAddrMetas))
     pure (cHistory, fromIntegral $ length cHistory)
   where
@@ -129,7 +133,7 @@ addHistoryTx
 addHistoryTx cWalId THEntry{..} = do
     meta <- CTxMeta <$> case _thTimestamp of
         Nothing -> liftIO getPOSIXTime
-        Just ts -> pure (fromIntegral (getTimestamp ts) / 1000000)
+        Just ts -> pure $ timestampToPosix ts
     let cId = encodeCType _thTxId
     addOnlyNewTxMeta cWalId cId meta
 

@@ -30,7 +30,7 @@ import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Util.UserSecret  (usVss)
 import           Pos.Wallet.Web       (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
                                        runWRealMode, walletServeWebFull, walletServerOuts)
-import           Pos.Wallet.Web.State (cleanupAcidStatePeriodically)
+import           Pos.Wallet.Web.State (cleanupAcidStatePeriodically, flushWalletStorage)
 import           Pos.Web              (serveWebGT)
 import           Pos.WorkMode         (WorkMode)
 
@@ -47,8 +47,15 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
                     db
                     conn
                     nr
-                    (runNode @SscGodTossing nr plugins)
+                    (mainAction nr)
   where
+    mainAction = runNodeWithInit $ do
+        when (walletFlushDb) $ do
+            putText "Flushing wallet db..."
+            flushWalletStorage
+    runNodeWithInit init nr =
+        let (ActionSpec f, outs) = runNode @SscGodTossing nr plugins
+         in (ActionSpec $ \v s -> init >> f v s, outs)
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
     plugins :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
     plugins = mconcat [ convPlugins (pluginsGT wArgs)

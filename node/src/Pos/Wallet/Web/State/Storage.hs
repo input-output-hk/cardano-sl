@@ -10,6 +10,7 @@ module Pos.Wallet.Web.State.Storage
        , PtxMetaUpdate (..)
        , Query
        , Update
+       , flushWalletStorage
        , getProfile
        , setProfile
        , getAccountIds
@@ -117,20 +118,18 @@ data WalletTip
     | SyncedWith !HeaderHash
 
 data WalletInfo = WalletInfo
-    { _wiMeta          :: !CWalletMeta
-    , _wiPassphraseLU  :: !PassPhraseLU
-    , _wiCreationTime  :: !POSIXTime
-    , _wiSyncTip       :: !WalletTip
-    , _wsPendingTxs    :: !(HashMap TxId PendingTx)
+    { _wiMeta         :: !CWalletMeta
+    , _wiPassphraseLU :: !PassPhraseLU
+    , _wiCreationTime :: !POSIXTime
+    , _wiSyncTip      :: !WalletTip
+    , _wsPendingTxs   :: !(HashMap TxId PendingTx)
     -- Wallets that are being synced are marked as not ready, and
     -- are excluded from api endpoints. This info should not be leaked
     -- into a client facing data structure (for example `CWalletMeta`)
-    , _wiIsReady :: !Bool
+    , _wiIsReady      :: !Bool
     }
 
 makeLenses ''WalletInfo
-
-type TransactionHistory = HashMap CTxId CTxMeta
 
 -- | Maps addresses to their first occurrence in the blockchain
 type CustomAddresses = HashMap (CId Addr) HeaderHash
@@ -140,7 +139,7 @@ data WalletStorage = WalletStorage
     , _wsAccountInfos    :: !(HashMap AccountId AccountInfo)
     , _wsProfile         :: !CProfile
     , _wsReadyUpdates    :: [CUpdateInfo]
-    , _wsTxHistory       :: !(HashMap (CId Wal) TransactionHistory)
+    , _wsTxHistory       :: !(HashMap (CId Wal) (HashMap CTxId CTxMeta))
     , _wsHistoryCache    :: !(HashMap (CId Wal) [TxHistoryEntry])
     , _wsUtxo            :: !Utxo
     , _wsUsedAddresses   :: !CustomAddresses
@@ -437,6 +436,22 @@ addOnlyNewPendingTx :: PendingTx -> Update ()
 addOnlyNewPendingTx ptx =
     wsWalletInfos . ix (_ptxWallet ptx) .
     wsPendingTxs . at (_ptxTxId ptx) %= (<|> Just ptx)
+
+-- | Flushes data in wallet storage
+-- Preserves all metadata, wallets, accounts and addresses
+-- Flushes all data that can be rebuild from blockchain (tx history and etc.)
+flushWalletStorage :: Update ()
+flushWalletStorage = modify flushDo
+  where
+    flushDo ws = def
+        { _wsWalletInfos = flushWalletInfo <$> _wsWalletInfos ws
+        , _wsAccountInfos = _wsAccountInfos ws
+        , _wsProfile = _wsProfile ws
+        , _wsTxHistory = _wsTxHistory ws
+        }
+    flushWalletInfo wi = wi { _wiSyncTip = NotSynced
+                            , _wiIsReady = False
+                            }
 
 deriveSafeCopySimple 0 'base ''CCoin
 deriveSafeCopySimple 0 'base ''CProfile

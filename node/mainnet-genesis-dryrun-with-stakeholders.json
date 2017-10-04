@@ -14415,9 +14415,9 @@
     "blockVersionData": {
         "heavyDelThd": "300000000000",
         "maxBlockSize": "2000000",
-        "maxHeaderSize": "2000000",
-        "maxProposalSize": "700",
-        "maxTxSize": "4096",
+        "maxHeaderSize": "2000",
+        "maxProposalSize": "70000",
+        "maxTxSize": "65536",
         "mpcThd": "20000000000000",
         "scriptVersion": 0,
         "slotDuration": "20000",

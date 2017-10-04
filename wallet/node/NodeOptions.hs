@@ -35,6 +35,7 @@ data WalletArgs = WalletArgs
     , walletRebuildDb    :: !Bool
     , walletAcidInterval :: !Minute
     , walletDebug        :: !Bool
+    , walletFlushDb      :: !Bool
     } deriving Show
 
 walletArgsParser :: Parser WalletNodeArgs
@@ -65,6 +66,10 @@ walletArgsParser = do
         long "wallet-debug" <>
         help "Run wallet with debug params (e.g. include \
              \all the genesis keys in the set of secret keys)."
+    walletFlushDb <- switch $
+        long "flush-wallet-db" <>
+        help "Flushes all blockchain-recoverable data from DB \
+              \(everything excluding wallets/accounts/addresses, metadata)"
 
     pure $ WalletNodeArgs commonNodeArgs WalletArgs{..}
 

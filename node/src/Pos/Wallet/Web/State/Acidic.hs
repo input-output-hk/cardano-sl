@@ -64,6 +64,7 @@ module Pos.Wallet.Web.State.Acidic
        , CasPtxCondition (..)
        , PtxUpdateMeta (..)
        , AddOnlyNewPendingTx (..)
+       , FlushWalletStorage (..)
        ) where
 
 import           Universum
@@ -159,4 +160,5 @@ makeAcidic ''WalletStorage
     , 'WS.casPtxCondition
     , 'WS.ptxUpdateMeta
     , 'WS.addOnlyNewPendingTx
+    , 'WS.flushWalletStorage
     ]

@@ -310,9 +310,12 @@ addWAddress :: CWAddressMeta -> Update ()
 addWAddress addrMeta@CWAddressMeta{..} = do
     let accInfo :: Traversal' WalletStorage AccountInfo
         accInfo = wsAccountInfos . ix (addrMetaToAccount addrMeta)
-    whenJustM (preuse (accInfo . aiUnusedKey)) $ \key -> do
-        accInfo . aiUnusedKey += 1
-        accInfo . aiAddresses . at cwamId ?= AddressInfo addrMeta key
+    whenJustM (preuse accInfo) $ \info -> do
+        let mAddr = info ^. aiAddresses . at cwamId
+        when (isNothing mAddr) $ do
+            accInfo . aiUnusedKey += 1
+            let key = info ^. aiUnusedKey
+            accInfo . aiAddresses . at cwamId ?= AddressInfo addrMeta key
 
 -- see also 'removeWAddress'
 addRemovedAccount :: CWAddressMeta -> Update ()

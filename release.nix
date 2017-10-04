@@ -24,5 +24,6 @@ let
     cardano-report-server-static = [ "x86_64-linux" ];
     stack2nix = supportedSystems;
     purescript = supportedSystems;
+    dockerImage = [ "x86_64-linux" ];
   };
 in mapTestOn platforms

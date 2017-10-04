@@ -38,7 +38,7 @@ import           Control.Lens                     (to)
 import           Control.Monad.Catch              (handleAll)
 import qualified Data.DList                       as DL
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        ((!!))
+import           Data.List                        (deleteBy, (!!))
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as M
 import           Ether.Internal                   (HasLens (..))
@@ -480,11 +480,8 @@ rollbackModifierFromWallet wid newTip CAccModifier{..} = do
     removeFromHead :: [TxHistoryEntry] -> [TxHistoryEntry] -> [TxHistoryEntry]
     removeFromHead [] ths = ths
     removeFromHead _ [] = []
-    removeFromHead (dTh : dThes) (th : thes) =
-        if _thTxId dTh == _thTxId th
-        then removeFromHead dThes thes
-        else error "rollbackModifierFromWallet: removeFromHead: \
-                   \rollbacked tx ID is not present in history cache!"
+    removeFromHead (dTh : dThes) thes =
+        removeFromHead dThes $! deleteBy ((==) `on` _thTxId) dTh thes
 
 evalChange
     :: [CWAddressMeta] -- ^ All adresses

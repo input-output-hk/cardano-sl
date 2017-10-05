@@ -58,18 +58,25 @@ Electron-based wallet called “Daedalus”.
 The source code for both Cardano SL and Daedalus Bridge can be obtained
 from the [official repository](https://github.com/input-output-hk/cardano-sl).
 
-The [Haskell Tool Stack](https://haskellstack.org) is required to build Cardano SL. Furthermore, we strongly suggest using [Nix package manager](https://nixos.org/nix/download.html) to get the correct dependencies for building Cardano SL. It will fetch the correct `openssl` version, but won't override the system-installed version. The following commands assume that you already has `stack` and `nix-*` programs.
+The [Haskell Tool Stack](https://haskellstack.org) is required to build Cardano SL.
+Furthermore, we strongly suggest using [Nix package manager](https://nixos.org/nix/download.html)
+to get the correct dependencies for building Cardano SL. It will fetch the correct `openssl`
+version, but won't override the system-installed version. The following commands assume that
+you already has `stack` and `nix-*` programs.
 
 ### Binaries
 
-As a result of building Cardano SL, you will get a set of components (binary files). This set includes the main node for Cardano SL network and various helper tools. Please read [this page of the documentation](https://cardanodocs.com/technical/cli-options/) for technical details.
+As a result of building Cardano SL, you will get a set of components (binary files). This set
+includes the main node for Cardano SL network and various helper tools. Please read [this page of the documentation](https://cardanodocs.com/technical/cli-options/) for technical details.
 <!-- CARDANO_SL_README_END_4 -->
 <!-- CARDANO_SL_README_BEGIN_5 -->
 ## For Contributors
 
-Thank you for considering to help out with the source code! We welcome contributions from anyone, and are grateful for even the smallest of fixes!
+Thank you for considering to help out with the source code! We welcome contributions from anyone,
+and are grateful for even the smallest of fixes!
 
-If you'd like to contribute to Cardano SL, please fork this repository, fix, commit and send a pull request for the maintainers to review and merge into the main code base.
+If you'd like to contribute to Cardano SL, please fork this repository, fix, commit and send a
+pull request for the maintainers to review and merge into the main code base.
 
 Please make sure your contributions adhere to our coding guidelines:
 
@@ -77,7 +84,8 @@ Please make sure your contributions adhere to our coding guidelines:
 * Code must be documented with [Haddock](https://www.haskell.org/haddock/doc/html/index.html).
 * Pull requests need to be based on and opened against the `master` branch.
 
-Please note that this project uses a custom prelude [Universum](https://github.com/serokell/universum) instead of the default one.
+Please note that this project uses a custom prelude [Universum](https://github.com/serokell/universum)
+instead of the default one.
 
 ## License
 

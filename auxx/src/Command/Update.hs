@@ -5,11 +5,12 @@
 module Command.Update
        ( vote
        , propose
+       , hashInstaller
        ) where
 
 import           Universum
 
-import qualified Data.ByteString          as BS
+import qualified Data.ByteString.Lazy     as BSL
 import qualified Data.HashMap.Strict      as HM
 import           Data.List                ((!!))
 import           Data.Time.Units          (convertUnit)
@@ -30,7 +31,7 @@ import           Pos.Infra.Configuration  (HasInfraConfiguration)
 import           Pos.Update               (BlockVersionData (..),
                                            BlockVersionModifier (..), SystemTag, UpId,
                                            UpdateData (..), UpdateVote (..),
-                                           mkUpdateProposalWSign)
+                                           installerHash, mkUpdateProposalWSign)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Wallet               (getSecretKeysPlain)
 
@@ -75,7 +76,7 @@ vote sendActions idx decision upid = do
                     putText "Submitted vote"
 
 ----------------------------------------------------------------------------
--- Propose
+-- Propose, hash installer
 ----------------------------------------------------------------------------
 
 propose ::
@@ -134,8 +135,8 @@ propose sendActions ProposeUpdateParams{..} = do
 updateDataElement :: MonadIO m => ProposeUpdateSystem -> m (SystemTag, UpdateData)
 updateDataElement ProposeUpdateSystem{..} = do
     diffHash <- hashFile pusBinDiffPath
-    installerHash <- hashFile pusInstallerPath
-    pure (pusSystemTag, UpdateData diffHash installerHash dummyHash dummyHash)
+    pkgHash <- hashFile pusInstallerPath
+    pure (pusSystemTag, UpdateData diffHash pkgHash dummyHash dummyHash)
 
 dummyHash :: Hash Raw
 dummyHash = unsafeHash (0 :: Integer)
@@ -143,7 +144,12 @@ dummyHash = unsafeHash (0 :: Integer)
 hashFile :: MonadIO m => Maybe FilePath -> m (Hash Raw)
 hashFile Nothing  = pure dummyHash
 hashFile (Just filename) = do
-    fileData <- liftIO $ BS.readFile filename
-    let h = unsafeHash fileData
+    fileData <- liftIO $ BSL.readFile filename
+    let h = installerHash fileData
     putText $ sformat ("Read file "%string%" succesfuly, its hash: "%hashHexF) filename h
     pure h
+
+hashInstaller :: FilePath -> AuxxMode ()
+hashInstaller path = do
+    h <- installerHash <$> liftIO (BSL.readFile path)
+    putText $ sformat ("Hash of installer '"%string%"' is "%hashHexF) path h

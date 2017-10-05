@@ -130,6 +130,9 @@ proposeUpdateParams =
 proposeUpdate :: Parser Command
 proposeUpdate = ProposeUpdate <$> proposeUpdateParams
 
+hashInstaller :: Parser Command
+hashInstaller = HashInstaller <$> filePath
+
 coinPortionP :: Parser CoinPortion
 coinPortionP = do
     (token, modifier) <- anyText <&> \s -> case Text.stripSuffix "%" s of
@@ -182,6 +185,7 @@ command = try (text "balance") *> balance <|>
           try (text "send") *> send <|>
           try (text "vote") *> vote <|>
           try (text "propose-update") *> proposeUpdate <|>
+          try (text "hash-installer") *> hashInstaller <|>
           try (text "delegate-light") *> delegateL <|>
           try (text "delegate-heavy") *> delegateH <|>
           try (text "add-key-pool") *> addKeyFromPool <|>

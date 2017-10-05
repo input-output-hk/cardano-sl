@@ -3,7 +3,8 @@
 -- | Logic related to downloading update.
 
 module Pos.Update.Download
-       ( downloadUpdate
+       ( installerHash
+       , downloadUpdate
        ) where
 
 import           Universum
@@ -26,6 +27,7 @@ import           System.Directory        (doesFileExist)
 import           System.Wlog             (logInfo, logWarning)
 
 import           Pos.Binary.Update       ()
+import           Pos.Binary.Class        (Raw)
 import           Pos.Core.Types          (SoftwareVersion (..))
 import           Pos.Crypto              (Hash, castHash, hash)
 import           Pos.Exception           (reportFatalError)
@@ -37,6 +39,14 @@ import           Pos.Update.Params       (UpdateParams (..))
 import           Pos.Update.Poll.Types   (ConfirmedProposalState (..))
 import           Pos.Util                ((<//>))
 import           Pos.Util.Concurrent     (withMVar)
+
+-- | Compute hash of installer, this is hash is 'udPkgHash' from 'UpdateData'.
+--
+-- NB: we compute it by first CBOR-encoding it and then applying hash
+-- function, which is a bit strange, but it's done for historical
+-- reasons.
+installerHash :: LByteString -> Hash Raw
+installerHash = castHash . hash
 
 -- | Download a software update for given 'ConfirmedProposalState' and
 -- put it into a variable which holds 'ConfirmedProposalState' of
@@ -76,7 +86,7 @@ downloadUpdateDo cps@ConfirmedProposalState {..} = do
     updateServers <- views (lensOf @UpdateParams) upUpdateServers
 
     let dataHash = if useInstaller then udPkgHash else udAppDiffHash
-        mupdHash = castHash . dataHash <$>
+        mupdHash = dataHash <$>
                    HM.lookup ourSystemTag (upData cpsUpdateProposal)
 
     logInfo $ sformat ("We are going to start downloading an update for "%build)
@@ -128,7 +138,7 @@ downloadUpdateDo cps@ConfirmedProposalState {..} = do
 -- Download a file by its hash.
 --
 -- Tries all servers in turn, fails if none of them work.
-downloadHash :: [Text] -> Hash LByteString -> IO (Either Text LByteString)
+downloadHash :: [Text] -> Hash Raw -> IO (Either Text LByteString)
 downloadHash updateServers h = do
     manager <- newManager tlsManagerSettings
 
@@ -155,13 +165,13 @@ downloadHash updateServers h = do
 -- Download a file and check its hash.
 downloadUri :: Manager
             -> String
-            -> Hash LByteString
+            -> Hash Raw
             -> IO (Either Text LByteString)
 downloadUri manager uri h = do
     request <- setRequestManager manager <$> parseRequest uri
     resp <- httpLBS request
     let (st, stc) = (getResponseStatus resp, getResponseStatusCode resp)
-        h' = hash (getResponseBody resp)
+        h' = installerHash (getResponseBody resp)
     return $ if | stc /= 200 -> Left ("error, " <> show st)
                 | h /= h'    -> Left "hash mismatch"
                 | otherwise  -> Right (getResponseBody resp)

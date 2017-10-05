@@ -6,6 +6,7 @@ module Pos.Explorer.DB
        ( ExplorerOp (..)
        , Page
        , Epoch
+       , EpochPagedBlocksKey
        , numOfLastTxs
        , getTxExtra
        , getAddrHistory
@@ -23,16 +24,18 @@ import           Universum
 
 import           Control.Lens                 (at, non)
 import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Conduit                 (Sink, Source, mapOutput, runConduitRes,
-                                               (.|))
+import           Data.Conduit                 (Conduit, Sink, Source, mapOutput,
+                                               runConduitRes, (.|))
 import qualified Data.Conduit.List            as CL
+import           Data.Map                     (fromListWith)
+import qualified Data.Map                     as M
 import qualified Database.RocksDB             as Rocks
 import           Formatting                   (sformat, (%))
 import           Serokell.Util                (Color (Red), colorize, mapJson)
 import           System.Wlog                  (WithLogger, logError)
 
 import           Pos.Binary.Class             (UnsignedVarInt (..), serialize')
-import           Pos.Core                     (Address, Coin, EpochIndex, HeaderHash,
+import           Pos.Core                     (Address, Coin, EpochIndex (..), HeaderHash,
                                                coinToInteger, unsafeAddCoin)
 import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.DB                       (DBError (..), DBIteratorClass (..),
@@ -50,6 +53,7 @@ import           Pos.Txp.Toil                 (GenesisUtxo (..), utxoF,
 import           Pos.Util.Chrono              (NewestFirst (..))
 import           Pos.Util.Util                (maybeThrow)
 
+
 ----------------------------------------------------------------------------
 -- Types
 ----------------------------------------------------------------------------
@@ -57,6 +61,8 @@ import           Pos.Util.Util                (maybeThrow)
 -- Left like type aliases in order to remain flexible.
 type Page = Int
 type Epoch = EpochIndex
+
+type EpochPagedBlocksKey = (Epoch, Page)
 
 -- type PageBlocks = [Block SscGodTossing]
 -- ^ this is much simpler but we are trading time for space
@@ -108,9 +114,24 @@ prepareExplorerDB = do
             addressCoinPairs = utxoToAddressCoinPairs utxo
         putGenesisBalances addressCoinPairs
         putInitFlag
+
     -- Smooth migration for CSE-228.
     unlessM utxoSumInitializedM $ do
         putCurrentUtxoSum
+
+    -- Smooth migration for CSE-236.
+    unlessM blockEpochPagesInitializedM $ do
+        convertOldEpochBlocksFormat
+  where
+    -- | If we have persisted the 0 @Epoch@ with the old format, we need to migrate it.
+    -- Since we start syncing from the start, this will detect if the user has the old
+    -- or the new format.
+    -- Returns @True@ when the old format doesn't exist.
+    blockEpochPagesInitializedM :: MonadDBRead m => m Bool
+    blockEpochPagesInitializedM = isNothing <$> dbGet GStateDB existingOldEpochBlocks
+      where
+        existingOldEpochBlocks :: ByteString
+        existingOldEpochBlocks = previousEpochBlocksPrefix $ EpochIndex minBound
 
 balancesInitFlag :: ByteString
 balancesInitFlag = "e/init/"
@@ -140,6 +161,73 @@ putCurrentUtxoSum = do
         let txOutValueSource =
                 mapOutput (coinToInteger . txOutValue . toaOut . snd) utxoSource
         runConduitRes $ txOutValueSource .| CL.fold (+) 0
+
+convertOldEpochBlocksFormat :: (MonadDBRead m, MonadDB m) => m ()
+convertOldEpochBlocksFormat =
+    runConduitRes $  epochsSource
+                  .| epochPagesConduit
+                  .| epochPagesExplorerOpConduit
+                  .| persistExplorerOpSink
+  where
+    -- 'Source' corresponding to the old @Epoch@ format that contained all
+    -- 21600 @[HeaderHash]@ in a single @Epoch@ (in production).
+    epochsSource :: (MonadDBRead m) => Source (ResourceT m) (Epoch, [HeaderHash])
+    epochsSource = dbIterSource GStateDB (Proxy @EpochsIter)
+
+    -- 'Conduit' to turn the old @Epoch@ format that contained all 21600 @[HeaderHash]@ in a
+    -- single @Epoch@ to a new format that contains @Epoch@ *and* @Page@ as a key since
+    -- there are too many @[HeaderHash]@ to load - performance reasons.
+    -- Currently takes all @[HeaderHash]@ in memory, maybe run a conduit there too, so the
+    -- memory stays at minimum, persisting only `(Epoch,Page)` at a time?
+    epochPagesConduit
+        :: (MonadDBRead m)
+        => Conduit (Epoch, [HeaderHash]) m (Map EpochPagedBlocksKey [HeaderHash])
+    epochPagesConduit = CL.map convertToPagedMap
+      where
+        convertToPagedMap :: (Epoch, [HeaderHash]) -> Map EpochPagedBlocksKey [HeaderHash]
+        convertToPagedMap ehh = fromListWith (++) (convertToPaged ehh)
+
+        convertToPaged :: (Epoch, [HeaderHash]) -> [((Epoch, Page), [HeaderHash])]
+        convertToPaged (epoch, headerHashes) = convertHHsToEpochPages <$> convertHHsToPages
+          where
+            convertHHsToEpochPages :: (Page, [HeaderHash]) -> ((Epoch, Page), [HeaderHash])
+            convertHHsToEpochPages (page, headerHashes') = ((epoch, page), headerHashes')
+
+            convertHHsToPages :: [(Page, [HeaderHash])]
+            convertHHsToPages = zip [1..] $ splitEvery pageSize headerHashes
+              where
+                -- | TODO (ks): It's getting repeated all over the place. Needs extraction.
+                pageSize :: Int
+                pageSize = 10
+
+                splitEvery :: Int -> [a] -> [[a]]
+                splitEvery _ [] = []
+                splitEvery n xs = as : splitEvery n bs
+                  where
+                    (as,bs) = splitAt n xs
+
+    -- | Finally, we persist the map with the new format.
+    epochPagesExplorerOpConduit
+        :: (Monad m)
+        => Conduit (Map EpochPagedBlocksKey [HeaderHash]) m [ExplorerOp]
+    epochPagesExplorerOpConduit = CL.map persistEpochBlocks
+      where
+        persistEpochBlocks :: Map EpochPagedBlocksKey [HeaderHash] -> [ExplorerOp]
+        persistEpochBlocks mapEpochPagedHHs = putKeyBlocks <$> M.toList mapEpochPagedHHs
+          where
+            putKeyBlocks
+                :: (EpochPagedBlocksKey, [HeaderHash])
+                -> ExplorerOp
+            putKeyBlocks keyBlocks = PutEpochBlocks epoch page blocks
+              where
+                key           = keyBlocks ^. _1
+                epoch         = key ^. _1
+                page          = key ^. _2
+
+                blocks        = keyBlocks ^. _2
+
+    persistExplorerOpSink :: (MonadDB m) => Sink ([ExplorerOp]) m ()
+    persistExplorerOpSink = CL.mapM_ writeBatchGState
 
 ----------------------------------------------------------------------------
 -- Batch operations
@@ -198,6 +286,10 @@ instance HasConfiguration => RocksBatchOp ExplorerOp where
 -- Iteration
 ----------------------------------------------------------------------------
 
+----------------------------------------------------------------------------
+--- Balances
+----------------------------------------------------------------------------
+
 data BalancesIter
 
 instance DBIteratorClass BalancesIter where
@@ -215,6 +307,17 @@ balancesSink =
     CL.fold
         (\res (addr, coin) -> res & at addr . non minBound %~ unsafeAddCoin coin)
         mempty
+
+----------------------------------------------------------------------------
+--- Epochs
+----------------------------------------------------------------------------
+
+data EpochsIter
+
+instance DBIteratorClass EpochsIter where
+    type IterKey EpochsIter = Epoch
+    type IterValue EpochsIter = [HeaderHash]
+    iterKeyPrefix = "e/epoch/"
 
 ----------------------------------------------------------------------------
 -- Sanity check
@@ -264,8 +367,13 @@ blockPagePrefix page = "e/page/" <> encodedPage
   where
     encodedPage = serialize' $ UnsignedVarInt page
 
+-- | TODO(ks): To remove in the next version.
+previousEpochBlocksPrefix :: Epoch -> ByteString
+previousEpochBlocksPrefix epoch = "e/epoch/" <> serialize' epoch
+
+-- | Before we had - @previousEpochBlocksPrefix@.
 blockEpochPagePrefix :: Epoch -> Page -> ByteString
-blockEpochPagePrefix epoch page = "e/epoch/" <> serialize' epoch <> "/" <> encodedPage
+blockEpochPagePrefix epoch page = "e/epochs/" <> serialize' epoch <> "/" <> encodedPage
   where
     encodedPage = serialize' $ UnsignedVarInt page
 

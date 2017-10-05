@@ -33,12 +33,14 @@ import           Pos.Core                     (HasConfiguration, HeaderHash, dif
 import           Pos.Crypto                   (withHash)
 import           Pos.DB.BatchOp               (SomeBatchOp (..))
 import           Pos.DB.Class                 (MonadDBRead)
-import           Pos.Explorer.DB              (Epoch, Page, numOfLastTxs)
+import           Pos.Explorer.DB              (Epoch, EpochPagedBlocksKey, Page,
+                                               numOfLastTxs)
 import qualified Pos.Explorer.DB              as DB
 import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
 import           Pos.Txp                      (Tx, topsortTxs, txpTxs)
 import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..),
                                                toNewestFirst)
+
 
 
 ----------------------------------------------------------------------------
@@ -501,8 +503,6 @@ generalLastTxsExplorer blocksNE getTopTxsDiff = do
 -- TODO(ks): I know, I know, it could be more general, but let's worry about
 -- that when we have more time.
 ----------------------------------------------------------------------------
-
-type EpochPagedBlocksKey = (Epoch, Page)
 
 -- Return a map from @Epoch@ to @HeaderHash@es for all non-empty blocks.
 epochPagedBlocksMap

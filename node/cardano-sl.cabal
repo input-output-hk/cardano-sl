@@ -197,6 +197,7 @@ library
                         Pos.Block.Core.Main.Misc
                         Pos.Block.Core.Main.Types
                         Pos.Block.Core.Union
+                        Pos.Block.Core.Union.Lens
                         Pos.Block.Core.Union.Misc
                         Pos.Block.Core.Union.Types
                         Pos.Block.Error

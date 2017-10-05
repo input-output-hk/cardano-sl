@@ -691,27 +691,15 @@ epochPageSearch epochIndex mPage = do
     sortBlocksByEpochSlots
         :: [(Block SscGodTossing, Undo)]
         -> [(Block SscGodTossing, Undo)]
-    sortBlocksByEpochSlots blocks = sortBy blockIndexCompareFunction blocks
+    sortBlocksByEpochSlots blocks = sortBy (comparing $ Down . getBlockIndex . fst) blocks
       where
-        blockIndexCompareFunction
-            :: (Block SscGodTossing, Undo)
-            -> (Block SscGodTossing, Undo)
-            -> Ordering
-        blockIndexCompareFunction blund1 blund2 =
-            let block1 = fst blund1
-                block2 = fst blund2
-            in
-            if getBlockIndex block1 < getBlockIndex block2
-                then GT
-                else LT
-          where
-            -- | Get the block index number. We start with the the index 1 for the
-            -- gensis block and add 1 for the main blocks since they start with 1
-            -- as well.
-            getBlockIndex :: (Block ssc) -> Int
-            getBlockIndex (Left _)      = 1
-            getBlockIndex (Right block) =
-                fromIntegral $ (+1) $ getSlotIndex $ siSlot $ block ^. mainBlockSlot
+        -- | Get the block index number. We start with the the index 1 for the
+        -- gensis block and add 1 for the main blocks since they start with 1
+        -- as well.
+        getBlockIndex :: (Block ssc) -> Int
+        getBlockIndex (Left _)      = 1
+        getBlockIndex (Right block) =
+            fromIntegral $ (+1) $ getSlotIndex $ siSlot $ block ^. mainBlockSlot
 
 getStatsTxs
     :: forall ctx m. ExplorerMode ctx m

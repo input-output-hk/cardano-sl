@@ -91,7 +91,7 @@ let
         relays:
           [
             [
-              { host: relays.cardano-mainnet.iohk.io }
+              { host: nodes.awstest.iohkdev.io }
             ]
           ]
         valency: 1
@@ -125,7 +125,7 @@ let
         "--system-start" (toString SYSTEM_START_TIME)
         "--keyfile" "secret-$CLUSTER.key"
         "--configuration-file" "${configFiles}/configuration.yaml"
-        "--configuration-key" "mainnet_full"
+        "--configuration-key" "mainnet_dryrun_full"
       ];
       ExposedPorts = {
         "3000/tcp" = {};

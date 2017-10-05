@@ -15,11 +15,11 @@ module Pos.Util.LogSafe
        , logNoticeS
        , logWarningS
        , logErrorS
-       , logDebugP
-       , logInfoP
-       , logNoticeP
-       , logWarningP
-       , logErrorP
+       , logDebugUnsafeP
+       , logInfoUnsafeP
+       , logNoticeUnsafeP
+       , logWarningUnsafeP
+       , logErrorUnsafeP
        , logDebugSP
        , logInfoSP
        , logNoticeSP
@@ -145,11 +145,11 @@ logMessageS severity t =
 -- this function prints value to secret logs as is, while for public logs it uses
 -- @instance Buildable (SecureLog Rough)@.
 --
--- By analogy, 'logInfoP' will log to public logs only, requiring
--- @instance Buildable (SecureLog ...)@. It also provides security level @sl@
--- parameter which is redundant, but allows to quickly switch
--- between 'logInfoSP' and 'logInfoP' and protects you from forgetting to use
--- secure 'Buildable'.
+-- Logging to public logs only is marked as unsafe, because nothing prevents its
+-- user from writting unsecure logs to public.
+-- For this reason, if you don't use "security level parameter" on 'logInfoSP' call,
+-- remain it as @logInfoSP $ \__sl -> ...@ in order to remember that secured text
+-- should be provided inside.
 
 -- Modifies 'instance Buildable' so that it doesn't contain sensitive info
 newtype SecureLog a = SecureLog
@@ -192,26 +192,26 @@ secretOnlyF2 sl fmt = plainOrSecureF sl fmt (fconst ""%fconst "")
 -- | Same as 'logMesssage', put to public logs only (these logs don't go
 -- to terminal). Use it along with 'logMessageS' when want to specify
 -- secret and public log alternatives manually.
-logMessageP
+logMessageUnsafeP
     :: (HasLoggerName m, MonadIO m)
     => Severity
     -> Text
     -> m ()
-logMessageP severity t =
+logMessageUnsafeP severity t =
     reify selectPublicLogs $ \s ->
     execSecureLogWrapped s $ do
         name <- getLoggerName
         dispatchMessage name severity t
 
--- | Shortcut for 'logMessageP' to use according severity.
-logDebugP, logInfoP, logNoticeP, logWarningP, logErrorP
+-- | Shortcut for 'logMessageUnsafeP' to use according severity.
+logDebugUnsafeP, logInfoUnsafeP, logNoticeUnsafeP, logWarningUnsafeP, logErrorUnsafeP
     :: (HasLoggerName m, MonadIO m)
     => Text -> m ()
-logDebugP   = logMessageP Debug
-logInfoP    = logMessageP Info
-logNoticeP  = logMessageP Notice
-logWarningP = logMessageP Warning
-logErrorP   = logMessageP Error
+logDebugUnsafeP   = logMessageUnsafeP Debug
+logInfoUnsafeP    = logMessageUnsafeP Info
+logNoticeUnsafeP  = logMessageUnsafeP Notice
+logWarningUnsafeP = logMessageUnsafeP Warning
+logErrorUnsafeP   = logMessageUnsafeP Error
 
 
 type SecuredText = LogSecurityLevel -> Text
@@ -225,7 +225,7 @@ logMessageSP
     => Severity -> SecuredText -> m ()
 logMessageSP severity securedText = do
     logMessageS severity $ securedText SecretLogLevel
-    logMessageP severity $ securedText PublicLogLevel
+    logMessageUnsafeP severity $ securedText PublicLogLevel
 
 -- | Shortcut for 'logMessage' to use according severity.
 logDebugSP, logInfoSP, logNoticeSP, logWarningSP, logErrorSP

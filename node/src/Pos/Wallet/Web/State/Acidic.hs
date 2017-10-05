@@ -52,7 +52,7 @@ module Pos.Wallet.Web.State.Acidic
        , GetWalletTxHistory (..)
        , AddOnlyNewTxMeta (..)
        , RemoveWallet (..)
-       , ClearWalletTxMetas (..)
+       , RemoveTxMetas (..)
        , RemoveWalletTxMetas (..)
        , RemoveHistoryCache (..)
        , RemoveAccount (..)
@@ -151,7 +151,7 @@ makeAcidic ''WalletStorage
     , 'WS.getWalletTxHistory
     , 'WS.addOnlyNewTxMeta
     , 'WS.removeWallet
-    , 'WS.clearWalletTxMetas
+    , 'WS.removeTxMetas
     , 'WS.removeWalletTxMetas
     , 'WS.removeHistoryCache
     , 'WS.removeAccount

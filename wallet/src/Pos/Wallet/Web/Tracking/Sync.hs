@@ -446,8 +446,7 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     WS.getWalletUtxo >>= WS.setWalletUtxo . MM.modifyMap camUtxo
     oldCachedHist <- fromMaybe [] <$> WS.getHistoryCache wid
     let cMetas = map (bimap encodeCType (CTxMeta . timestampToPosix)) $
-                 catMaybes $
-                 map (\THEntry {..} -> (_thTxId, ) <$> _thTimestamp) $
+                 mapMaybe (\THEntry {..} -> (_thTxId, ) <$> _thTimestamp) $
                  DL.toList camAddedHistory
     WS.addOnlyNewTxMetas wid cMetas
     sortedAddedHistory <-

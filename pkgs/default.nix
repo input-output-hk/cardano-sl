@@ -6760,8 +6760,8 @@ self: {
       transformers = callPackage ({ base, mkDerivation, stdenv }:
       mkDerivation {
           pname = "transformers";
-          version = "0.5.2.0";
-          sha256 = "1qkhi8ssf8c4jnmrw9dzym3igqbzq7h48iisaykdfzdsm09qfh3c";
+          version = "0.5.5.0";
+          sha256 = "198ric8gr1y58scckr468d11y2g45mzc5pkaa40shj7xgj1bh7mi";
           libraryHaskellDepends = [
             base
           ];

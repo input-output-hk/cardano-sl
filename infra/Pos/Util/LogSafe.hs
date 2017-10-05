@@ -28,28 +28,25 @@ module Pos.Util.LogSafe
 
          -- * Secure 'Buildable's
        , SecureLog (..)
-       , PublicLog
-       , secureLog
 
          -- ** Secure formatters
        , secureF
-       , secAndPubF
+       , plainOrSecureF
        , secretOnlyF
        , secretOnlyF2
 
+       , buildSafe
+
          -- ** Secure log utils
-       , BuildableSecure
+       , BuildableSafe
        , SecuredText
-       , SecuredTextBox (..)
        , buildUnsecure
        , getSecuredText
-       , securedTextBox
        ) where
 
 import           Universum
 
 import           Control.Monad.Trans    (MonadTrans)
-import           Data.Default           (Default (..))
 import           Data.List              (isSuffixOf)
 import           Data.Reflection        (Reifies (..), reify)
 import qualified Data.Text.Buildable
@@ -130,117 +127,66 @@ logMessageS severity t =
 
 -- * Secutity log levels
 
--- Stuff below provides way to use different 'instance Buildable' for writing
+-- Stuff below provides way to use different @instance Buildable@ for writing
 -- to secret and public logs.
 --
 -- Example:
 --
 -- @
--- logInfoSP $ \sl -> ("Nyan: "%secureF sl build) Nyan
+-- logInfo $ sformat ("Nyan: "%secureF build) Nyan
+-- @
+--
+-- this function uses @instance Buildable (SecureLog Nyan)@ to display the item.
+--
+-- @
+-- logInfoSP $ \sl -> sformat ("A diamond on the "%buildSafe sl) Rough
 -- @
 --
 -- this function prints value to secret logs as is, while for public logs it uses
--- 'instance Buildable (PublicLog Nyan)'.
+-- @instance Buildable (SecureLog Rough)@.
 --
 -- By analogy, 'logInfoP' will log to public logs only, requiring
--- 'instance Buildable (PublicLog ...)'. It also provides security level @sl@
+-- @instance Buildable (SecureLog ...)@. It also provides security level @sl@
 -- parameter which is redundant, but allows to quickly switch
 -- between 'logInfoSP' and 'logInfoP' and protects you from forgetting to use
 -- secure 'Buildable'.
 
--- | This security level is used when we known a priori that the text is builded
--- for secret logs, and we can use exact `instance Buildable`.
-data SecLogLevel
-
--- | Similar to 'SecLogLevel', requires special secure `instance Buildable`.
-data PubLogLevel
-
--- | Needed to define "closed type instance" below.
--- It's used when exact logging security level it to be defined later,
--- and we have to "be ready" to provide ways to build text for both secret and
--- public logs.
-data AltLogLevel s where
-    AltSecLogLevel :: AltLogLevel SecLogLevel
-    AltPubLogLevel :: AltLogLevel PubLogLevel
-
--- | Promotes 'AltLogLevel' constructors to type.
-data ReflectedAltLogLevel rs
-
-
--- Modifies 'instance Buildable' to correspond given security level @ s @.
-data SecureLog s a = SecureLog
+-- Modifies 'instance Buildable' so that it doesn't contain sensitive info
+newtype SecureLog a = SecureLog
     { getSecureLog :: a
     } deriving (Eq, Ord)
 
-secureLog :: Proxy s -> a -> SecureLog s a
-secureLog _ = SecureLog
+data LogSecurityLevel
+    = SecretLogLevel
+    | PublicLogLevel
+    deriving (Eq)
 
-coerce :: forall s2 s1 a. SecureLog s1 a -> SecureLog s2 a
-coerce = SecureLog . getSecureLog
-
-buildUnsecure :: Buildable a => (SecureLog __ a) -> Builder
+buildUnsecure :: Buildable a => SecureLog a -> Builder
 buildUnsecure (SecureLog a) = bprint build a
 
-type SecretLog = SecureLog SecLogLevel
-type PublicLog = SecureLog PubLogLevel
+type BuildableSafe a = (Buildable a, Buildable (SecureLog a))
 
--- | We can log as-is to secret logs.
-instance Buildable a => Buildable (SecretLog a) where
-    build = buildUnsecure
+-- | Modifies single-parameter formatter to make it use public logging.
+secureF :: Format r (SecureLog a -> r) -> Format r (a -> r)
+secureF = mapf SecureLog
 
-instance Buildable (PublicLog String) where
-    build = buildUnsecure
+-- | Takes one of given items (usually formatters, nonsecure goes first),
+-- depending on security level.
+plainOrSecureF :: LogSecurityLevel -> a -> a -> a
+plainOrSecureF SecretLogLevel fmt _ = fmt
+plainOrSecureF PublicLogLevel _ fmt = fmt
 
-instance Buildable (PublicLog Text) where
-    build = buildUnsecure
-
-type BuildableSecure a = (Buildable a, Buildable (PublicLog a))
-
-instance ( BuildableSecure a
-         , Reifies rs (AltLogLevel s)
-         ) =>
-         Buildable (SecureLog (ReflectedAltLogLevel rs) a) where
-    build = case reflect (Proxy @rs) of
-        AltSecLogLevel -> bprint build . coerce @SecLogLevel
-        AltPubLogLevel -> bprint build . coerce @PubLogLevel
-
--- | Facilitates secure formatters usage.
-instance IsString s => IsString (SecureLog __ s) where
-    fromString = SecureLog . fromString
-
--- | Modifies single-parameter formatter to make it use secure logging.
-secureF :: Proxy s -> Format r (SecureLog s a -> r) -> Format r (a -> r)
-secureF _ = mapf SecureLog
-
-class LogLevelUtils s where
-    -- | Uses one of given formatters, first one for secret logs, second one for
-    -- public logs.
-    secAndPubF :: Proxy s -> Format a b -> Format a b -> Format a b
-
-instance LogLevelUtils SecLogLevel where
-    secAndPubF _ sec _ = sec
-
-instance LogLevelUtils PubLogLevel where
-    secAndPubF _ _ pub = pub
-
-instance Reifies rs (AltLogLevel s) =>
-         LogLevelUtils (ReflectedAltLogLevel rs) where
-    secAndPubF _ =
-        case reflect (Proxy @rs) of
-            AltSecLogLevel -> secAndPubF (Proxy @SecLogLevel)
-            AltPubLogLevel -> secAndPubF (Proxy @PubLogLevel)
+buildSafe :: BuildableSafe a => LogSecurityLevel -> Format r (a -> r)
+buildSafe sl = plainOrSecureF sl build (secureF build)
 
 -- | Negates single-parameter formatter for public logs.
-secretOnlyF
-    :: LogLevelUtils s
-    => Proxy s -> Format r (a -> r) -> Format r (a -> r)
-secretOnlyF p fmt = secAndPubF p fmt (fconst "")
+secretOnlyF :: LogSecurityLevel -> Format r (a -> r) -> Format r (a -> r)
+secretOnlyF sl fmt = plainOrSecureF sl fmt (fconst "")
 
 -- | Negates 2-parameters formatter for public logs.
 secretOnlyF2
-    :: LogLevelUtils s
-    => Proxy s -> Format r (a -> b -> r) -> Format r (a -> b -> r)
-secretOnlyF2 p fmt = secAndPubF p fmt (fconst ""%fconst "")
+    :: LogSecurityLevel -> Format r (a -> b -> r) -> Format r (a -> b -> r)
+secretOnlyF2 sl fmt = plainOrSecureF sl fmt (fconst ""%fconst "")
 
 
 -- | Same as 'logMesssage', put to public logs only (these logs don't go
@@ -249,49 +195,42 @@ secretOnlyF2 p fmt = secAndPubF p fmt (fconst ""%fconst "")
 logMessageP
     :: (HasLoggerName m, MonadIO m)
     => Severity
-    -> (Proxy PubLogLevel -> Text)
+    -> Text
     -> m ()
 logMessageP severity t =
     reify selectPublicLogs $ \s ->
     execSecureLogWrapped s $ do
         name <- getLoggerName
-        dispatchMessage name severity (t Proxy)
+        dispatchMessage name severity t
 
 -- | Shortcut for 'logMessageP' to use according severity.
 logDebugP, logInfoP, logNoticeP, logWarningP, logErrorP
     :: (HasLoggerName m, MonadIO m)
-    => (Proxy PubLogLevel -> Text) -> m ()
+    => Text -> m ()
 logDebugP   = logMessageP Debug
 logInfoP    = logMessageP Info
 logNoticeP  = logMessageP Notice
 logWarningP = logMessageP Warning
 logErrorP   = logMessageP Error
 
--- | Text for either secret or public logs
-type SecuredText =
-    forall rs s.
-    Reifies rs (AltLogLevel s) =>
-    Proxy (ReflectedAltLogLevel rs) -> Text
 
-getSecuredText :: AltLogLevel s -> SecuredText -> Text
-getSecuredText sl securedText =
-    reify sl $ \(Proxy :: Proxy sl) ->
-        securedText (Proxy @(ReflectedAltLogLevel sl))
+type SecuredText = LogSecurityLevel -> Text
+
+getSecuredText :: LogSecurityLevel -> SecuredText -> Text
+getSecuredText = (&)
 
 -- | Same as 'logMesssageSP', put to public and secret logs securely.
 logMessageSP
     :: (HasLoggerName m, MonadIO m)
     => Severity -> SecuredText -> m ()
-logMessageSP severity t = do
-    logMessageS severity $ getSecuredText AltSecLogLevel t
-    logMessageP severity $ \_ -> getSecuredText AltPubLogLevel t
+logMessageSP severity securedText = do
+    logMessageS severity $ securedText SecretLogLevel
+    logMessageP severity $ securedText PublicLogLevel
 
 -- | Shortcut for 'logMessage' to use according severity.
 logDebugSP, logInfoSP, logNoticeSP, logWarningSP, logErrorSP
     :: (HasLoggerName m, MonadIO m)
-    => (forall rs s. Reifies rs (AltLogLevel s) =>
-                       Proxy (ReflectedAltLogLevel rs) -> Text)
-    -> m ()
+    => SecuredText -> m ()
 logDebugSP   = logMessageSP Debug
 logInfoSP    = logMessageSP Info
 logNoticeSP  = logMessageSP Notice
@@ -299,19 +238,9 @@ logWarningSP = logMessageSP Warning
 logErrorSP   = logMessageSP Error
 
 
--- | Wrapper over quantificated 'SecuredText'.
-data SecuredTextBox = SecuredTextBox SecuredText
-
-securedTextBox :: BuildableSecure a => a -> SecuredTextBox
-securedTextBox a = SecuredTextBox $ \sl -> pretty $ secureLog sl a
-
-instance Default SecuredTextBox where
-    def = securedTextBox @Text ""
-
-
-instance Buildable (PublicLog PassPhrase) where
+instance Buildable (SecureLog PassPhrase) where
     build _ = "<passphrase>"
 
 -- maybe I'm wrong here, but currently masking it important for wallet servant logs
-instance Buildable (PublicLog Coin) where
+instance Buildable (SecureLog Coin) where
     build _ = "? coin(s)"

@@ -60,9 +60,8 @@ import           Servant.Server          (Handler (..), HasServer (..), ServantE
 import qualified Servant.Server.Internal as SI
 import           System.Wlog             (LoggerName, LoggerNameBox, usingLoggerName)
 
-import           Pos.Util.LogSafe        (BuildableSecure, SecuredText,
-                                          SecuredTextBox (..), logInfoSP, secretOnlyF,
-                                          secretOnlyF2, securedTextBox)
+import           Pos.Util.LogSafe        (BuildableSafe, SecuredText, buildSafe,
+                                          logInfoSP, secretOnlyF, secretOnlyF2)
 import           Pos.Util.Util           (colorizeDull)
 
 -------------------------------------------------------------------------
@@ -264,7 +263,7 @@ type ApiLoggingConfig = LoggerName
 -- | Used to incrementally collect info about passed parameters.
 data ApiParamsLogInfo
       -- | Parameters gathered at current stage
-    = ApiParamsLogInfo [SecuredTextBox]
+    = ApiParamsLogInfo [SecuredText]
       -- | Parameters collection failed with reason
       --   (e.g. decoding error)
     | ApiNoParamsLogInfo Text
@@ -345,7 +344,7 @@ instance ( KnownSymbol path
         first updateParamsInfo
       where
         updateParamsInfo = do
-            let path = securedTextBox . symbolVal $ Proxy @path
+            let path = const . toText . symbolVal $ Proxy @path
             _ApiParamsLogInfo %~ (path :)
 
 -- | Describes a way to log a single parameter.
@@ -355,18 +354,19 @@ class ApiHasArgClass apiType a =>
     type ApiArgToLog apiType a = ApiArg apiType a
 
     toLogParamInfo
-        :: BuildableSecure (ApiArgToLog apiType a)
-        => Proxy (apiType a) -> ApiArg apiType a -> SecuredTextBox
+        :: BuildableSafe (ApiArgToLog apiType a)
+        => Proxy (apiType a) -> ApiArg apiType a -> SecuredText
     default toLogParamInfo
-        :: BuildableSecure (ApiArgToLog apiType a)
-        => Proxy (apiType a) -> ApiArgToLog apiType a -> SecuredTextBox
-    toLogParamInfo _ = securedTextBox
+        :: BuildableSafe (ApiArgToLog apiType a)
+        => Proxy (apiType a) -> ApiArgToLog apiType a -> SecuredText
+    toLogParamInfo _ param = \sl -> sformat (buildSafe sl) param
 
 instance KnownSymbol s => ApiCanLogArg (Capture s) a
 instance ApiCanLogArg (ReqBody ct) a
 instance KnownSymbol cs => ApiCanLogArg (QueryParam cs) a where
     type ApiArgToLog (QueryParam cs) a = a
-    toLogParamInfo _ = maybe (securedTextBox noEntry) securedTextBox
+    toLogParamInfo _ mparam =
+        \sl -> maybe noEntry (sformat $ buildSafe sl) mparam
       where
         noEntry = colorizeDull White "-"
 
@@ -383,7 +383,7 @@ instance ( HasServer (apiType a :> LoggingApiRec config res) ctx
          , ApiHasArg apiType a res
          , ApiHasArg apiType a (LoggingApiRec config res)
          , ApiCanLogArg apiType a
-         , BuildableSecure (ApiArgToLog apiType a)
+         , BuildableSafe (ApiArgToLog apiType a)
          ) =>
          HasLoggingServer config (apiType a :> res) ctx where
     routeWithLog =
@@ -391,10 +391,10 @@ instance ( HasServer (apiType a :> LoggingApiRec config res) ctx
         \(paramsInfo, f) a -> (a `updateParamsInfo` paramsInfo, f a)
       where
         updateParamsInfo a = do
-            let SecuredTextBox paramVal = toLogParamInfo (Proxy @(apiType a)) a
+            let paramVal = toLogParamInfo (Proxy @(apiType a)) a
                 paramName = apiArgName $ Proxy @(apiType a)
-                paramInfo = SecuredTextBox $ \sl ->
-                            sformat (string%": "%stext) paramName (paramVal sl)
+                paramInfo =
+                    \sl -> sformat (string%": "%stext) paramName (paramVal sl)
             _ApiParamsLogInfo %~ (paramInfo :)
 
 -- | Modify an action so that it performs all the required logging.
@@ -437,14 +437,14 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
     inLogCtx logAction = do
         let loggerName = reflect configP
         usingLoggerName loggerName logAction
-    eParamLogs :: Either Text SecuredTextBox
+    eParamLogs :: Either Text SecuredText
     eParamLogs = case paramsInfo of
-        ApiParamsLogInfo info -> Right $ SecuredTextBox $ \sl ->
+        ApiParamsLogInfo info -> Right $ \sl ->
             let params =
-                  mconcat $ reverse info <&> \(SecuredTextBox p) ->
+                  mconcat $ reverse info <&> \securedParamsInfo ->
                       sformat ("    "%stext%" "%stext%"\n")
                           (colorizeDull White ":>")
-                          (p sl)
+                          (securedParamsInfo sl)
             in  sformat ("\n"%stext%"\n"%build) cmethod params
         ApiNoParamsLogInfo why -> Left why
     logWithParamInfo :: MonadIO m => SecuredText -> m ()
@@ -454,7 +454,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
                 inLogCtx $ logInfoSP $ \sl ->
                     sformat ("\n"%stext%secretOnlyF sl (" "%stext))
                         (colorizeDull Red "Unexecuted request due to error") e
-            Right (SecuredTextBox paramLogs) -> do
+            Right paramLogs -> do
                 inLogCtx $ logInfoSP $ \sl ->
                     sformat (build%" "%build) (paramLogs sl) (securedText sl)
     reportResponse timer resp = do

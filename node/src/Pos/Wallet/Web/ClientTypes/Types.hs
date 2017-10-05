@@ -59,7 +59,7 @@ import           Pos.Aeson.Types       ()
 import           Pos.Core.Types        (ScriptVersion)
 import           Pos.Types             (BlockVersion, ChainDifficulty, SoftwareVersion)
 import           Pos.Util.BackupPhrase (BackupPhrase)
-import           Pos.Util.LogSafe      (PublicLog, buildUnsecure)
+import           Pos.Util.LogSafe      (SecureLog, buildUnsecure)
 
 -- TODO [CSM-407] Structurize this mess
 
@@ -122,10 +122,10 @@ instance Buildable AccountId where
     build AccountId{..} =
         bprint (F.build%"@"%F.build) aiWId aiIndex
 
-instance Buildable (PublicLog AccountId) where
+instance Buildable (SecureLog AccountId) where
     build _ = "<account id>"
 
-instance Buildable (PublicLog (Maybe AccountId)) where
+instance Buildable (SecureLog (Maybe AccountId)) where
     build = buildUnsecure
 
 newtype CAccountId = CAccountId Text

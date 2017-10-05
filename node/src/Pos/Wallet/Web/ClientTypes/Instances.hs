@@ -23,7 +23,7 @@ import           Pos.Core                             (Address, Coin, decodeText
                                                        mkCoin)
 import           Pos.Crypto                           (PassPhrase, passphraseLength)
 import           Pos.Txp.Core.Types                   (TxId)
-import           Pos.Util.LogSafe                     (PublicLog, SecureLog (..),
+import           Pos.Util.LogSafe                     (SecureLog, SecureLog (..),
                                                        buildUnsecure)
 import           Pos.Util.Servant                     (FromCType (..),
                                                        HasTruncateLogPolicy (..),
@@ -63,13 +63,13 @@ import           Pos.Wallet.Web.Pending.Types         (PtxCondition)
 -- I don't want to do it now because we have pending refactoring which reordered
 -- everything where
 
-instance Buildable (PublicLog (CId __)) where
+instance Buildable (SecureLog (CId __)) where
     build _ = "<id>"
 
-instance Buildable (PublicLog CAccountId) where
+instance Buildable (SecureLog CAccountId) where
     build _ = "<account id>"
 
-instance Buildable (PublicLog CTxId) where
+instance Buildable (SecureLog CTxId) where
     build _ = "<tx id>"
 
 instance Buildable CWalletAssurance where
@@ -80,13 +80,13 @@ instance Buildable CWalletMeta where
         bprint ("("%build%"/"%build%")")
                cwAssurance cwUnit
 
-instance Buildable (PublicLog CWalletMeta) where
+instance Buildable (SecureLog CWalletMeta) where
     build = buildUnsecure
 
 instance Buildable (CWalletInit) where
     build CWalletInit{..} = "<wallet init>"
 
-instance Buildable (PublicLog CWalletInit) where
+instance Buildable (SecureLog CWalletInit) where
     build _ = "<wallet init>"
 
 instance Buildable CWallet where
@@ -108,7 +108,7 @@ instance Buildable CWallet where
 instance Buildable CAccountMeta where
     build CAccountMeta{..} = "<meta>"
 
-instance Buildable (PublicLog CAccountMeta) where
+instance Buildable (SecureLog CAccountMeta) where
     build _ = "<meta>"
 
 instance Buildable CAccountInit where
@@ -119,7 +119,7 @@ instance Buildable CAccountInit where
         caInitWId
         caInitMeta
 
-instance Buildable (PublicLog CAccountInit) where
+instance Buildable (SecureLog CAccountInit) where
     build _ = "<account init>"
 
 instance Buildable CAccount where
@@ -149,7 +149,7 @@ instance Buildable CAddress where
 instance Buildable CTxMeta where
     build CTxMeta{..} = bprint ("{ date="%build%" }") ctmDate
 
-instance Buildable (PublicLog CTxMeta) where
+instance Buildable (SecureLog CTxMeta) where
     build _ = "<tx meta>"
 
 instance Buildable CPtxCondition where
@@ -185,7 +185,7 @@ instance Buildable CProfile where
     build CProfile{..} =
         bprint ("{ cpLocale="%build%" }") cpLocale
 
-instance Buildable (PublicLog CProfile) where
+instance Buildable (SecureLog CProfile) where
     build = buildUnsecure
 
 instance Buildable CUpdateInfo where
@@ -217,14 +217,14 @@ instance Buildable CWalletRedeem where
     build CWalletRedeem{..} =
         bprint (build%" -> "%build) crSeed crWalletId
 
-instance Buildable (PublicLog CWalletRedeem) where
+instance Buildable (SecureLog CWalletRedeem) where
     build _ = "<wallet redeem info>"
 
 instance Buildable CPaperVendWalletRedeem where
     build CPaperVendWalletRedeem{..} =
         bprint (build%" -> "%build) pvSeed pvWalletId
 
-instance Buildable (PublicLog CPaperVendWalletRedeem) where
+instance Buildable (SecureLog CPaperVendWalletRedeem) where
     build (SecureLog CPaperVendWalletRedeem{..}) =
         "<papervend wallet redeem info>"
 
@@ -233,16 +233,16 @@ instance Buildable CInitialized where
         bprint (build%"/"%build)
                cPreInit cTotalTime
 
-instance Buildable (PublicLog CInitialized) where
+instance Buildable (SecureLog CInitialized) where
     build = buildUnsecure
 
-instance Buildable (PublicLog ScrollOffset) where
+instance Buildable (SecureLog ScrollOffset) where
     build = buildUnsecure
 
-instance Buildable (PublicLog ScrollLimit) where
+instance Buildable (SecureLog ScrollLimit) where
     build = buildUnsecure
 
-instance Buildable (PublicLog CFilePath) where
+instance Buildable (SecureLog CFilePath) where
     build _ = "<filepath>"
 
 ----------------------------------------------------------------------------

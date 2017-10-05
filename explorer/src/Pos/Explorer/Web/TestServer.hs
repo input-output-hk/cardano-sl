@@ -19,7 +19,8 @@ import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes   (Byte, CAda (..), CAddress (..),
                                                  CAddressSummary (..), CAddressType (..),
-                                                 CBlockEntry (..), CBlockSummary (..),
+                                                 CAddressesFilter (..), CBlockEntry (..),
+                                                 CBlockSummary (..),
                                                  CGenesisAddressInfo (..),
                                                  CGenesisSummary (..), CHash (..),
                                                  CTxBrief (..), CTxEntry (..), CTxId (..),
@@ -234,34 +235,77 @@ testEpochSlotSearch _ _ = pure . pure $ [CBlockEntry
 testGenesisSummary
     :: Handler (Either ExplorerError CGenesisSummary)
 testGenesisSummary = pure . pure $ CGenesisSummary
-    { cgsNumTotal    = 2
-    , cgsNumRedeemed = 1
+    { cgsNumTotal       = 4
+    , cgsNumRedeemed    = 3
+    , cgsNumNotRedeemed = 1
+    , cgsRedeemedAmountTotal    = mkCCoin $ mkCoin 300000000
+    , cgsNonRedeemedAmountTotal = mkCCoin $ mkCoin 100000000
+    }
+
+-- mock CGenesisAddressInfo
+gAddressInfoA :: CGenesisAddressInfo
+gAddressInfoA = CGenesisAddressInfo
+    -- Commenting out RSCoin addresses until they can actually be displayed.
+    -- See comment in src/Pos/Explorer/Web/ClientTypes.hs for more information.
+    { cgaiCardanoAddress   = CAddress "3mfaPhQ8ewtmyi7tvcxo1TXhGh5piePbjkqgz49Jo2wpV9"
+    -- , cgaiRSCoinAddress = CAddress "l-47iKlYk1xlyCaxoPiCHNhPQ9PTsHWnXKl6Nk9dwac="
+    , cgaiGenesisAmount    = mkCCoin $ mkCoin 2225295000000
+    , cgaiIsRedeemed       = True
+    }
+
+-- mock another CGenesisAddressInfo
+gAddressInfoB :: CGenesisAddressInfo
+gAddressInfoB = CGenesisAddressInfo
+    -- Commenting out RSCoin addresses until they can actually be displayed.
+    -- See comment in src/Pos/Explorer/Web/ClientTypes.hs for more information.
+    { cgaiCardanoAddress   = CAddress "3meLwrCDE4C7RofEdkZbUuR75ep3EcTmZv9ebcdjfMtv5H"
+    -- , cgaiRSCoinAddress = CAddress "JwvXUQ31cvrFpqqtx6fB-NOp0Q-eGQs74yXMGa-72Ak="
+    , cgaiGenesisAmount    = mkCCoin $ mkCoin 15000000
+    , cgaiIsRedeemed       = False
+    }
+
+-- mock another CGenesisAddressInfo
+gAddressInfoC :: CGenesisAddressInfo
+gAddressInfoC = CGenesisAddressInfo
+    -- Commenting out RSCoin addresses until they can actually be displayed.
+    -- See comment in src/Pos/Explorer/Web/ClientTypes.hs for more information.
+    { cgaiCardanoAddress   = CAddress "LaVWbkFegK1TUNHMc3Fads2cG6ivPb2gJUxXBxNtumLtbG"
+    -- , cgaiRSCoinAddress = CAddress "JwvXUQ31cvrFpqqtx6fB-NOp0Q-eGQs74yXMGa-LtbG="
+    , cgaiGenesisAmount    = mkCCoin $ mkCoin 333000000
+    , cgaiIsRedeemed       = False
     }
 
 testGenesisPagesTotal
     :: Maybe Word
+    -> Maybe CAddressesFilter
     -> Handler (Either ExplorerError Integer)
-testGenesisPagesTotal _ = pure $ pure 2
+-- number of redeemed addresses pages
+testGenesisPagesTotal _ (Just RedeemedAddresses) = pure $ pure 1
+-- number of non redeemed addresses pages
+testGenesisPagesTotal _ (Just NonRedeemedAddresses) = pure $ pure 1
+-- number of all redeem addresses pages
+testGenesisPagesTotal _ _ = pure $ pure 2
 
 testGenesisAddressInfo
     :: Maybe Word
     -> Maybe Word
+    -> Maybe CAddressesFilter
     -> Handler (Either ExplorerError [CGenesisAddressInfo])
-testGenesisAddressInfo _ _ = pure . pure $ [
-    -- Commenting out RSCoin addresses until they can actually be displayed.
-    -- See comment in src/Pos/Explorer/Web/ClientTypes.hs for more information.
-    CGenesisAddressInfo
-    { cgaiCardanoAddress = CAddress "3meLwrCDE4C7RofEdkZbUuR75ep3EcTmZv9ebcdjfMtv5H"
-    -- , cgaiRSCoinAddress  = CAddress "JwvXUQ31cvrFpqqtx6fB-NOp0Q-eGQs74yXMGa-72Ak="
-    , cgaiGenesisAmount  = mkCCoin $ mkCoin 15000000
-    , cgaiIsRedeemed     = False
-    },
-    CGenesisAddressInfo
-    { cgaiCardanoAddress = CAddress "3mfaPhQ8ewtmyi7tvcxo1TXhGh5piePbjkqgz49Jo2wpV9"
-    -- , cgaiRSCoinAddress  = CAddress "l-47iKlYk1xlyCaxoPiCHNhPQ9PTsHWnXKl6Nk9dwac="
-    , cgaiGenesisAmount  = mkCCoin $ mkCoin 2225295000000
-    , cgaiIsRedeemed     = True
-    }]
+-- filter redeemed addresses
+testGenesisAddressInfo _ _ (Just RedeemedAddresses) =
+    pure $ pure [ gAddressInfoA ]
+-- filter non-redeemed addresses
+testGenesisAddressInfo _ _ (Just NonRedeemedAddresses) =
+    pure $ pure [ gAddressInfoB, gAddressInfoC ]
+-- all addresses (w/o filtering) - page 1
+testGenesisAddressInfo (Just 1) _ (Just AllAddresses) =
+    pure $ pure [ gAddressInfoA, gAddressInfoB ]
+-- all addresses (w/o filtering) - page 2
+testGenesisAddressInfo (Just 2) _ (Just AllAddresses) =
+    pure $ pure [ gAddressInfoC ]
+-- all others requests will ended up with an error
+testGenesisAddressInfo _ _ _ =
+    throwM $ Internal "Error while pagening genesis addresses"
 
 testStatsTxs
     :: Maybe Word

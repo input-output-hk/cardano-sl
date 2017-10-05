@@ -118,6 +118,7 @@ genesisBlockLit = "genesis"
 genesisBlockUrl :: String
 genesisBlockUrl = "/" <> genesisBlockLit
 
+playgroundLit :: String
 playgroundLit = "playground"
 
 playgroundUrl :: String

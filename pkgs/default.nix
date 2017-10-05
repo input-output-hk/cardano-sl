@@ -1597,6 +1597,7 @@ self: {
             universum
             unordered-containers
             vector
+            warp
           ];
           testToolDepends = [ cpphs ];
           doHaddock = false;

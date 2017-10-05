@@ -30,7 +30,7 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending     (PendingTx (..), ptxPoolInfo)
-import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), addOnlyNewTxMeta,
+import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), addOnlyNewTxMetas,
                                              getHistoryCache, getPendingTx, getTxMeta,
                                              getWalletPendingTxs, setWalletTxMeta)
 import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
@@ -63,10 +63,10 @@ getFullWalletHistory cWalId = do
     fullHistory <- addRecentPtxHistory cWalId $ DL.toList $ localHistory <> blockHistory
     walAddrMetas <- getWalletAddrMetas Ever cWalId
     -- TODO when we introduce some mechanism to react on new tx in mempool,
-    -- we will set timestamp tx as current time and remove call of @addHistoryTx@
-    -- We call addHistoryTx only for mempool transactions because for
+    -- we will set timestamp tx as current time and remove call of @addHistoryTxs@
+    -- We call @addHistoryTxs@ only for mempool transactions because for
     -- transactions from block and resubmitting timestamp is already known.
-    forM_ localHistory (addHistoryTx cWalId)
+    addHistoryTxs cWalId (DL.toList localHistory)
     cHistory <- forM fullHistory (constructCTx (cWalId, Just walAddrMetas))
     pure (cHistory, fromIntegral $ length cHistory)
   where
@@ -130,12 +130,23 @@ addHistoryTx
     => CId Wal
     -> TxHistoryEntry
     -> m ()
-addHistoryTx cWalId THEntry{..} = do
-    meta <- CTxMeta <$> case _thTimestamp of
+addHistoryTx cWalId = addHistoryTxs cWalId . one
+
+-- This functions is helper to do @addHistoryTx@ for
+-- all txs from mempool as one Acidic transaction.
+addHistoryTxs
+    :: MonadWalletWebMode m
+    => CId Wal
+    -> [TxHistoryEntry]
+    -> m ()
+addHistoryTxs cWalId historyEntries = do
+    metas <- mapM toMeta historyEntries
+    let cIds = map (encodeCType . _thTxId) historyEntries
+    addOnlyNewTxMetas cWalId (zip cIds metas)
+  where
+    toMeta THEntry {..} = CTxMeta <$> case _thTimestamp of
         Nothing -> liftIO getPOSIXTime
         Just ts -> pure $ timestampToPosix ts
-    let cId = encodeCType _thTxId
-    addOnlyNewTxMeta cWalId cId meta
 
 constructCTx
     :: MonadWalletWebMode m

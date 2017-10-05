@@ -171,7 +171,7 @@ getUpdates = queryDisk A.GetUpdates
 getNextUpdate :: WebWalletModeDB ctx m => m (Maybe CUpdateInfo)
 getNextUpdate = queryDisk A.GetNextUpdate
 
-getHistoryCache :: WebWalletModeDB ctx m => CId Wal -> m (Maybe [TxHistoryEntry])
+getHistoryCache :: WebWalletModeDB ctx m => CId Wal -> m (Maybe (Map TxId TxHistoryEntry))
 getHistoryCache = queryDisk . A.GetHistoryCache
 
 getCustomAddresses :: WebWalletModeDB ctx m => CustomAddressType -> m [CId Addr]
@@ -272,7 +272,7 @@ removeNextUpdate = updateDisk A.RemoveNextUpdate
 testReset :: WebWalletModeDB ctx m => m ()
 testReset = updateDisk A.TestReset
 
-updateHistoryCache :: WebWalletModeDB ctx m => CId Wal -> [TxHistoryEntry] -> m ()
+updateHistoryCache :: WebWalletModeDB ctx m => CId Wal -> Map TxId TxHistoryEntry -> m ()
 updateHistoryCache cWalId = updateDisk . A.UpdateHistoryCache cWalId
 
 setPtxCondition

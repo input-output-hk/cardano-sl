@@ -141,7 +141,7 @@ data WalletStorage = WalletStorage
     , _wsProfile         :: !CProfile
     , _wsReadyUpdates    :: [CUpdateInfo]
     , _wsTxHistory       :: !(HashMap (CId Wal) (HashMap CTxId CTxMeta))
-    , _wsHistoryCache    :: !(HashMap (CId Wal) [TxHistoryEntry])
+    , _wsHistoryCache    :: !(HashMap (CId Wal) (Map TxId TxHistoryEntry))
     , _wsUtxo            :: !Utxo
     , _wsUsedAddresses   :: !CustomAddresses
     , _wsChangeAddresses :: !CustomAddresses
@@ -267,7 +267,7 @@ getUpdates = view wsReadyUpdates
 getNextUpdate :: Query (Maybe CUpdateInfo)
 getNextUpdate = preview (wsReadyUpdates . _head)
 
-getHistoryCache :: CId Wal -> Query (Maybe [TxHistoryEntry])
+getHistoryCache :: CId Wal -> Query (Maybe (Map TxId TxHistoryEntry))
 getHistoryCache cWalId = view $ wsHistoryCache . at cWalId
 
 getCustomAddresses :: CustomAddressType -> Query [CId Addr]
@@ -399,7 +399,7 @@ removeNextUpdate = wsReadyUpdates %= drop 1
 testReset :: Update ()
 testReset = put def
 
-updateHistoryCache :: CId Wal -> [TxHistoryEntry] -> Update ()
+updateHistoryCache :: CId Wal -> Map TxId TxHistoryEntry -> Update ()
 updateHistoryCache cWalId cTxs =
     wsHistoryCache . at cWalId ?= cTxs
 

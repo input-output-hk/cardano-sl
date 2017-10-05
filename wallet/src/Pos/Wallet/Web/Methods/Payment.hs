@@ -188,7 +188,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
         (toList srcAddrs)
         dstAddrs
 
-    addHistoryTx srcWallet th
+    fst <$> addHistoryTx srcWallet th
   where
      -- TODO eliminate copy-paste
      listF separator formatter =

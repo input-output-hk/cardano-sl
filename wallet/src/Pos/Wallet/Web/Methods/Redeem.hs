@@ -106,4 +106,4 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
         th <$ submitAndSaveNewPtx enqueueMsg ptx
 
     -- add redemption transaction to the history of new wallet
-    addHistoryTx (aiWId accId) th
+    fst <$> addHistoryTx (aiWId accId) th

@@ -22,10 +22,8 @@ import           Pos.Core.Address                        (Address,
                                                           IsBootstrapEraAddr (..),
                                                           addressHash, deriveLvl2KeyPair,
                                                           makePubKeyAddressBoot)
-import           Pos.Core.Coin                           (coinPortionToDouble, mkCoin,
-                                                          unsafeIntegerToCoin)
-import           Pos.Core.Configuration.BlockVersionData (HasGenesisBlockVersionData,
-                                                          genesisBlockVersionData)
+import           Pos.Core.Coin                           (mkCoin, unsafeIntegerToCoin)
+import           Pos.Core.Configuration.BlockVersionData (HasGenesisBlockVersionData)
 import           Pos.Core.Configuration.Protocol         (HasProtocolConstants, vssMaxTTL,
                                                           vssMinTTL)
 import qualified Pos.Core.Genesis.Constants              as Const
@@ -37,8 +35,7 @@ import           Pos.Core.Genesis.Types                  (FakeAvvmOptions (..),
                                                           GenesisWStakeholders (..),
                                                           TestnetBalanceOptions (..),
                                                           TestnetDistribution (..))
-import           Pos.Core.Types                          (BlockVersionData (bvdMpcThd),
-                                                          Coin)
+import           Pos.Core.Types                          (Coin)
 import           Pos.Core.Vss                            (VssCertificate,
                                                           mkVssCertificate,
                                                           mkVssCertificatesMap)
@@ -216,8 +213,6 @@ genTestnetDistribution TestnetBalanceOptions{..} testBalance =
     onePoorBalance = if poors == 0 then 0 else poorsBalance `div` poors
     realPoorBalance = onePoorBalance * poors
 
-    mpcBalance = getShare (coinPortionToDouble $ bvdMpcThd genesisBlockVersionData) testBalance
-
     richBalances = replicate (fromInteger richs) (unsafeIntegerToCoin oneRichmanBalance)
     poorBalances = replicate (fromInteger poors) (unsafeIntegerToCoin onePoorBalance)
 
@@ -226,12 +221,6 @@ genTestnetDistribution TestnetBalanceOptions{..} testBalance =
     everythingIsConsistent =
         [ ( realRichBalance + realPoorBalance <= testBalance
           , "Real rich + poor balance is more than desired."
-          )
-        , ( oneRichmanBalance >= mpcBalance
-          , "Richman's balance is less than MPC threshold"
-          )
-        , ( onePoorBalance < mpcBalance
-          , "Poor's balance is more than MPC threshold"
           )
         ]
 

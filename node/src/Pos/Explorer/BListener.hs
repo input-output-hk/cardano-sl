@@ -10,6 +10,8 @@ module Pos.Explorer.BListener
        -- ** MonadBListener (ExplorerBListener m)
        -- * Required for tests
        , epochPagedBlocksMap
+       -- * Required for migration
+       , findEpochMaxPages
        ) where
 
 import           Universum
@@ -17,7 +19,7 @@ import           Universum
 import           Control.Lens                 (at, non)
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
-import           Data.List                    (groupBy, (\\))
+import           Data.List                    ((\\))
 import qualified Data.List.NonEmpty           as NE
 import qualified Data.Map                     as M
 import qualified Ether
@@ -34,7 +36,7 @@ import           Pos.Crypto                   (withHash)
 import           Pos.DB.BatchOp               (SomeBatchOp (..))
 import           Pos.DB.Class                 (MonadDBRead)
 import           Pos.Explorer.DB              (Epoch, EpochPagedBlocksKey, Page,
-                                               numOfLastTxs)
+                                               findEpochMaxPages, numOfLastTxs)
 import qualified Pos.Explorer.DB              as DB
 import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
 import           Pos.Txp                      (Tx, topsortTxs, txpTxs)
@@ -635,14 +637,3 @@ onRollbackEpochPagedBlocks blunds = do
 
     blocksNE :: NE (Block ssc)
     blocksNE = fst <$> getNewestFirst blunds
-
--- Find max pages for each epoch.
-findEpochMaxPages :: M.Map EpochPagedBlocksKey [HeaderHash] -> [EpochPagedBlocksKey]
-findEpochMaxPages epochPagedBlocksMap' = maximumBy (comparing snd) <$> groupedEpochPagedBlocks
-  where
-    groupedEpochPagedBlocks :: [[EpochPagedBlocksKey]]
-    groupedEpochPagedBlocks =
-        groupBy (\(epoch1,_) (epoch2,_) -> epoch1 == epoch2) epochPagedBlocksMapKeys
-
-    epochPagedBlocksMapKeys :: [EpochPagedBlocksKey]
-    epochPagedBlocksMapKeys = M.keys epochPagedBlocksMap'

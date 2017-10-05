@@ -7,6 +7,7 @@ module Pos.Explorer.DB
        , Page
        , Epoch
        , EpochPagedBlocksKey
+       , findEpochMaxPages
        , numOfLastTxs
        , getTxExtra
        , getAddrHistory
@@ -27,6 +28,7 @@ import           Control.Monad.Trans.Resource (ResourceT)
 import           Data.Conduit                 (Conduit, Sink, Source, mapOutput,
                                                runConduitRes, (.|))
 import qualified Data.Conduit.List            as CL
+import           Data.List                    (groupBy)
 import           Data.Map                     (fromListWith)
 import qualified Data.Map                     as M
 import qualified Database.RocksDB             as Rocks
@@ -71,6 +73,23 @@ type EpochPagedBlocksKey = (Epoch, Page)
 -- TODO: In time if we have enough constants, maybe add to explorer Constants?
 numOfLastTxs :: Int
 numOfLastTxs = 20
+
+----------------------------------------------------------------------------
+-- Util
+----------------------------------------------------------------------------
+
+-- Find max pages for each epoch.
+findEpochMaxPages :: M.Map EpochPagedBlocksKey [HeaderHash] -> [EpochPagedBlocksKey]
+findEpochMaxPages epochPagedBlocksMap' =
+    maximumBy (comparing snd) <$> groupedEpochPagedBlocks
+  where
+    groupedEpochPagedBlocks :: [[EpochPagedBlocksKey]]
+    groupedEpochPagedBlocks =
+        groupBy (\(epoch1,_) (epoch2,_) -> epoch1 == epoch2) epochPagedBlocksMapKeys
+
+    epochPagedBlocksMapKeys :: [EpochPagedBlocksKey]
+    epochPagedBlocksMapKeys = M.keys epochPagedBlocksMap'
+
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -213,18 +232,31 @@ convertOldEpochBlocksFormat =
     epochPagesExplorerOpConduit = CL.map persistEpochBlocks
       where
         persistEpochBlocks :: Map EpochPagedBlocksKey [HeaderHash] -> [ExplorerOp]
-        persistEpochBlocks mapEpochPagedHHs = putKeyBlocks <$> M.toList mapEpochPagedHHs
+        persistEpochBlocks mapEpochPagedHHs =
+            persistEpochPageBlocks ++ persistMaxPageNumbers
           where
-            putKeyBlocks
-                :: (EpochPagedBlocksKey, [HeaderHash])
-                -> ExplorerOp
-            putKeyBlocks keyBlocks = PutEpochBlocks epoch page blocks
+            -- | Persist @Epoch@ @Page@ blocks.
+            persistEpochPageBlocks :: [ExplorerOp]
+            persistEpochPageBlocks = putKeyBlocks <$> M.toList mapEpochPagedHHs
               where
-                key           = keyBlocks ^. _1
-                epoch         = key ^. _1
-                page          = key ^. _2
+                putKeyBlocks
+                    :: (EpochPagedBlocksKey, [HeaderHash])
+                    -> ExplorerOp
+                putKeyBlocks keyBlocks = PutEpochBlocks epoch page blocks
+                  where
+                    key           = keyBlocks ^. _1
+                    epoch         = key ^. _1
+                    page          = key ^. _2
 
-                blocks        = keyBlocks ^. _2
+                    blocks        = keyBlocks ^. _2
+
+            -- | Persist @Epoch@ max @Page@.
+            persistMaxPageNumbers :: [ExplorerOp]
+            persistMaxPageNumbers =
+                [ PutEpochPages epoch maxPageNumber | (epoch, maxPageNumber) <- emp]
+              where
+                emp :: [EpochPagedBlocksKey]
+                emp = findEpochMaxPages mapEpochPagedHHs
 
     persistExplorerOpSink :: (MonadDB m) => Sink ([ExplorerOp]) m ()
     persistExplorerOpSink = CL.mapM_ writeBatchGState

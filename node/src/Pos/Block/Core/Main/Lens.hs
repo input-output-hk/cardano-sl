@@ -183,13 +183,6 @@ mainBlockProof = gbHeader . mainHeaderProof
 mainBlockSlot :: Lens' (MainBlock ssc) SlotId
 mainBlockSlot = gbHeader . mainHeaderSlot
 
--- epochIndexFromSlotId :: Lens' SlotId EpochIndex
--- epochIndexFromSlotId = siEpoch
-
--- -- | Lens from 'MainBlock' to 'EpochIndex'.
--- mainBlockEpochIndex :: Lens' (MainBlock ssc) EpochIndex
--- mainBlockEpochIndex = epochIndexFromSlotId . mainBlockSlot
-
 -- | Lens from 'MainBlock' to 'PublicKey'.
 mainBlockLeaderKey :: Lens' (MainBlock ssc) PublicKey
 mainBlockLeaderKey = gbHeader . mainHeaderLeaderKey

@@ -21,5 +21,7 @@ import           Pos.Block.Core.Union.Types  (Block)
 
 -- | General block @EpochIndex@. You give me a general @Block@, which is either
 -- @GenesisBlock@ or @MainBlock@ and I'll return you the @EpochIndex@.
-generalBlockEpochIndex :: forall ssc. Lens' (Block ssc) EpochIndex
+generalBlockEpochIndex :: Lens' (Block ssc) EpochIndex
 generalBlockEpochIndex = choosing genBlockEpoch (mainBlockSlot . siEpochL)
+
+-- TODO(ks): generalBlockSlotId :: Lens' (Block ssc) SlotId

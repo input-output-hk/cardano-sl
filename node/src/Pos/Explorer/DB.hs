@@ -152,6 +152,97 @@ prepareExplorerDB = do
         existingOldEpochBlocks :: ByteString
         existingOldEpochBlocks = previousEpochBlocksPrefix $ EpochIndex minBound
 
+    -- | This is where we convert the old format of @Epoch@ which has 21600 blocks to the
+    -- new and shiny one with @Page@s added.
+    convertOldEpochBlocksFormat :: (MonadDBRead m, MonadDB m) => m ()
+    convertOldEpochBlocksFormat =
+        runConduitRes $  epochsSource
+                      .| epochPagesConduit
+                      .| epochPagesExplorerOpConduit
+                      .| persistExplorerOpSink
+      where
+        -- 'Source' corresponding to the old @Epoch@ format that contained all
+        -- 21600 @[HeaderHash]@ in a single @Epoch@ (in production).
+        epochsSource :: (MonadDBRead m) => Source (ResourceT m) (Epoch, [HeaderHash])
+        epochsSource = dbIterSource GStateDB (Proxy @EpochsIter)
+
+        -- 'Conduit' to turn the old @Epoch@ format that contained all
+        -- 21600 @[HeaderHash]@ in a single @Epoch@ to a new format that contains
+        -- @Epoch@ *and* @Page@ as a key since there are too many @[HeaderHash]@ to
+        -- load - performance reasons.
+        epochPagesConduit
+            :: (MonadDBRead m)
+            => Conduit (Epoch, [HeaderHash]) m (Map EpochPagedBlocksKey [HeaderHash])
+        epochPagesConduit = CL.map convertToPagedMap
+          where
+            convertToPagedMap
+                :: (Epoch, [HeaderHash])
+                -> Map EpochPagedBlocksKey [HeaderHash]
+            convertToPagedMap ehh = fromListWith (++) (convertToPaged ehh)
+
+            convertToPaged :: (Epoch, [HeaderHash]) -> [((Epoch, Page), [HeaderHash])]
+            convertToPaged (epoch, headerHashes) =
+                convertHHsToEpochPages <$> convertHHsToPages
+              where
+                convertHHsToEpochPages
+                    :: (Page, [HeaderHash])
+                    -> ((Epoch, Page), [HeaderHash])
+                convertHHsToEpochPages (page, headerHashes') =
+                    ((epoch, page), headerHashes')
+
+                -- | Take that huge chunk of @HeaderHash@es and page it.
+                convertHHsToPages :: [(Page, [HeaderHash])]
+                convertHHsToPages = zip [1..] $ splitEvery pageSize headerHashes
+                  where
+                    -- | TODO (ks): It's getting repeated all over the place.
+                    pageSize :: Int
+                    pageSize = 10
+
+                    splitEvery :: Int -> [a] -> [[a]]
+                    splitEvery _ [] = []
+                    splitEvery n xs = as : splitEvery n bs
+                      where
+                        (as,bs) = splitAt n xs
+
+        -- | Finally, we persist the map with the new format.
+        epochPagesExplorerOpConduit
+            :: (Monad m)
+            => Conduit (Map EpochPagedBlocksKey [HeaderHash]) m [ExplorerOp]
+        epochPagesExplorerOpConduit = CL.map persistEpochBlocks
+          where
+            -- | Persist atomically, all the operations together.
+            persistEpochBlocks :: Map EpochPagedBlocksKey [HeaderHash] -> [ExplorerOp]
+            persistEpochBlocks mapEpochPagedHHs =
+                persistEpochPageBlocks ++ persistMaxPageNumbers
+              where
+                -- | Persist @Epoch@ @Page@ blocks.
+                persistEpochPageBlocks :: [ExplorerOp]
+                persistEpochPageBlocks = putKeyBlocks <$> M.toList mapEpochPagedHHs
+                  where
+                    putKeyBlocks
+                        :: (EpochPagedBlocksKey, [HeaderHash])
+                        -> ExplorerOp
+                    putKeyBlocks keyBlocks = PutEpochBlocks epoch page blocks
+                      where
+                        key           = keyBlocks ^. _1
+                        epoch         = key ^. _1
+                        page          = key ^. _2
+
+                        blocks        = keyBlocks ^. _2
+
+                -- | Persist @Epoch@ max @Page@.
+                persistMaxPageNumbers :: [ExplorerOp]
+                persistMaxPageNumbers =
+                    [ PutEpochPages epoch maxPageNumber | (epoch, maxPageNumber) <- emp]
+                  where
+                    emp :: [EpochPagedBlocksKey]
+                    emp = findEpochMaxPages mapEpochPagedHHs
+
+        -- | Finally, just persist all the operations atomically.
+        persistExplorerOpSink :: (MonadDB m) => Sink ([ExplorerOp]) m ()
+        persistExplorerOpSink = CL.mapM_ writeBatchGState
+
+
 balancesInitFlag :: ByteString
 balancesInitFlag = "e/init/"
 
@@ -180,86 +271,6 @@ putCurrentUtxoSum = do
         let txOutValueSource =
                 mapOutput (coinToInteger . txOutValue . toaOut . snd) utxoSource
         runConduitRes $ txOutValueSource .| CL.fold (+) 0
-
-convertOldEpochBlocksFormat :: (MonadDBRead m, MonadDB m) => m ()
-convertOldEpochBlocksFormat =
-    runConduitRes $  epochsSource
-                  .| epochPagesConduit
-                  .| epochPagesExplorerOpConduit
-                  .| persistExplorerOpSink
-  where
-    -- 'Source' corresponding to the old @Epoch@ format that contained all
-    -- 21600 @[HeaderHash]@ in a single @Epoch@ (in production).
-    epochsSource :: (MonadDBRead m) => Source (ResourceT m) (Epoch, [HeaderHash])
-    epochsSource = dbIterSource GStateDB (Proxy @EpochsIter)
-
-    -- 'Conduit' to turn the old @Epoch@ format that contained all 21600 @[HeaderHash]@ in a
-    -- single @Epoch@ to a new format that contains @Epoch@ *and* @Page@ as a key since
-    -- there are too many @[HeaderHash]@ to load - performance reasons.
-    -- Currently takes all @[HeaderHash]@ in memory, maybe run a conduit there too, so the
-    -- memory stays at minimum, persisting only `(Epoch,Page)` at a time?
-    epochPagesConduit
-        :: (MonadDBRead m)
-        => Conduit (Epoch, [HeaderHash]) m (Map EpochPagedBlocksKey [HeaderHash])
-    epochPagesConduit = CL.map convertToPagedMap
-      where
-        convertToPagedMap :: (Epoch, [HeaderHash]) -> Map EpochPagedBlocksKey [HeaderHash]
-        convertToPagedMap ehh = fromListWith (++) (convertToPaged ehh)
-
-        convertToPaged :: (Epoch, [HeaderHash]) -> [((Epoch, Page), [HeaderHash])]
-        convertToPaged (epoch, headerHashes) = convertHHsToEpochPages <$> convertHHsToPages
-          where
-            convertHHsToEpochPages :: (Page, [HeaderHash]) -> ((Epoch, Page), [HeaderHash])
-            convertHHsToEpochPages (page, headerHashes') = ((epoch, page), headerHashes')
-
-            convertHHsToPages :: [(Page, [HeaderHash])]
-            convertHHsToPages = zip [1..] $ splitEvery pageSize headerHashes
-              where
-                -- | TODO (ks): It's getting repeated all over the place. Needs extraction.
-                pageSize :: Int
-                pageSize = 10
-
-                splitEvery :: Int -> [a] -> [[a]]
-                splitEvery _ [] = []
-                splitEvery n xs = as : splitEvery n bs
-                  where
-                    (as,bs) = splitAt n xs
-
-    -- | Finally, we persist the map with the new format.
-    epochPagesExplorerOpConduit
-        :: (Monad m)
-        => Conduit (Map EpochPagedBlocksKey [HeaderHash]) m [ExplorerOp]
-    epochPagesExplorerOpConduit = CL.map persistEpochBlocks
-      where
-        persistEpochBlocks :: Map EpochPagedBlocksKey [HeaderHash] -> [ExplorerOp]
-        persistEpochBlocks mapEpochPagedHHs =
-            persistEpochPageBlocks ++ persistMaxPageNumbers
-          where
-            -- | Persist @Epoch@ @Page@ blocks.
-            persistEpochPageBlocks :: [ExplorerOp]
-            persistEpochPageBlocks = putKeyBlocks <$> M.toList mapEpochPagedHHs
-              where
-                putKeyBlocks
-                    :: (EpochPagedBlocksKey, [HeaderHash])
-                    -> ExplorerOp
-                putKeyBlocks keyBlocks = PutEpochBlocks epoch page blocks
-                  where
-                    key           = keyBlocks ^. _1
-                    epoch         = key ^. _1
-                    page          = key ^. _2
-
-                    blocks        = keyBlocks ^. _2
-
-            -- | Persist @Epoch@ max @Page@.
-            persistMaxPageNumbers :: [ExplorerOp]
-            persistMaxPageNumbers =
-                [ PutEpochPages epoch maxPageNumber | (epoch, maxPageNumber) <- emp]
-              where
-                emp :: [EpochPagedBlocksKey]
-                emp = findEpochMaxPages mapEpochPagedHHs
-
-    persistExplorerOpSink :: (MonadDB m) => Sink ([ExplorerOp]) m ()
-    persistExplorerOpSink = CL.mapM_ writeBatchGState
 
 ----------------------------------------------------------------------------
 -- Batch operations

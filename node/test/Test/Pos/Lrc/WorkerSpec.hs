@@ -103,7 +103,7 @@ lrcCorrectnessProp = do
     () <$ bpGenBlocks (Just blkCount1) (EnableTxPayload False) (InplaceDB True)
     lift $ Lrc.lrcSingleShot 1
     leaders1 <-
-        maybeStopProperty "No leaders for epoch#1!" =<< lift (Lrc.getLeaders 1)
+        maybeStopProperty "No leaders for epoch#1!" =<< lift (Lrc.getLeadersForEpoch 1)
     let gws = gdBootStakeholders genesisData
     -- Here we use 'genesisSeed' (which is the seed for the 0-th
     -- epoch) because we have a contract that if there is no ssc

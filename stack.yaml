@@ -96,6 +96,7 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
+- transformers-0.5.5.0
 - universum-0.6.1
 - serokell-util-0.5.0
 - pvss-0.2.0

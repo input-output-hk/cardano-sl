@@ -9,29 +9,26 @@ module Pos.Wallet.Web.Util
     , getWalletAddrs
     , decodeCTypeOrFail
     , getWalletAssuredDepth
-    , getWalletThTime
-    , sortWalletThByTime
     ) where
 
 import           Universum
 
-import           Data.Time.Clock.POSIX      (POSIXTime)
 import           Formatting                 (build, sformat, (%))
 
-import           Pos.Client.Txp.History     (TxHistoryEntry (..))
-import           Pos.Core                   (BlockCount, timestampToPosix)
-import           Pos.Util.Chrono            (NewestFirst (..))
-import           Pos.Util.Servant           (FromCType (..), OriginType, encodeCType)
+import           Pos.Core                   (BlockCount)
+import           Pos.Util.Servant           (FromCType (..), OriginType)
 import           Pos.Util.Util              (maybeThrow)
 import           Pos.Wallet.Web.Assurance   (AssuranceLevel (HighAssurance),
                                              assuredBlockDepth)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
-                                             CWAddressMeta (..), Wal, ctmDate,
+                                             CWAddressMeta (..), Wal,
                                              cwAssurance)
+
+
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode, WebWalletModeDB,
                                              getAccountIds, getAccountWAddresses,
-                                             getTxMeta, getWalletMeta)
+                                             getWalletMeta)
 
 getWalletAccountIds :: WebWalletModeDB ctx m => CId Wal -> m [AccountId]
 getWalletAccountIds cWalId = filter ((== cWalId) . aiWId) <$> getAccountIds
@@ -67,18 +64,3 @@ getWalletAssuredDepth
 getWalletAssuredDepth wid =
     assuredBlockDepth HighAssurance . cwAssurance <<$>>
     getWalletMeta wid
-
-getWalletThTime
-    :: (WebWalletModeDB ctx m)
-    => CId Wal -> TxHistoryEntry -> m (Maybe POSIXTime)
-getWalletThTime wid th = do
-    metaTime <- ctmDate <<$>> getTxMeta wid (encodeCType $ _thTxId th)
-    let thTime = timestampToPosix <$> _thTimestamp th
-    return $ metaTime <|> thTime
-
-sortWalletThByTime :: (WebWalletModeDB ctx m)
-    => CId Wal -> [TxHistoryEntry] -> m (NewestFirst [] TxHistoryEntry)
-sortWalletThByTime wid ths = do
-    thsWTime <- forM ths $ \th -> (th, ) <$> getWalletThTime wid th
-    let sortedThs = map fst $ sortOn (fmap Down . snd) thsWTime
-    return $ NewestFirst sortedThs

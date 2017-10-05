@@ -39,11 +39,9 @@ import           Pos.Binary.Class                  (FixedSizeInt (..), SignedVar
 import           Pos.Binary.Core                   ()
 import           Pos.Binary.Crypto                 ()
 import           Pos.Core.Address                  (addressHash, makeAddress)
-import           Pos.Core.Coin                     (coinPortionToDouble, coinToInteger,
-                                                    divCoin, unsafeSubCoin)
+import           Pos.Core.Coin                     (coinToInteger, divCoin, unsafeSubCoin)
 import           Pos.Core.Configuration            (HasGenesisBlockVersionData,
-                                                    HasProtocolConstants, epochSlots,
-                                                    genesisBlockVersionData)
+                                                    HasProtocolConstants, epochSlots)
 import           Pos.Core.Constants                (sharedSeedLength)
 import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
@@ -502,13 +500,7 @@ instance HasGenesisBlockVersionData => Arbitrary G.TestnetBalanceOptions where
         tboPoors <- choose (0, 100)
         tboRichmen <- choose (1, 12)
         tboTotalBalance <- choose (1000, maxCoinVal)
-        -- This threshold is considered by genesis generation
-        -- function. It fails if a poor stakeholder has stake greater
-        -- than this value.
-        let genesisThd =
-                coinPortionToDouble $ bvdMpcThd genesisBlockVersionData
-        let minRichmenShare = min 1 (1.01 - genesisThd * fromIntegral tboPoors)
-        tboRichmenShare <- choose (minRichmenShare, 0.996)
+        tboRichmenShare <- choose (0.55, 0.996)
         let tboUseHDAddresses = False
         return G.TestnetBalanceOptions {..}
 

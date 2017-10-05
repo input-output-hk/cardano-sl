@@ -14,6 +14,9 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:      Pos.Explorer.Socket
+                        Pos.Explorer.Socket.App
+                        Pos.Explorer.Socket.Methods
+                        Pos.Explorer.Socket.Util
                         Pos.Explorer.Web
                         Pos.Explorer.Web.Api
                         Pos.Explorer.Web.ClientTypes
@@ -23,10 +26,7 @@ library
 
   other-modules:        Pos.Explorer.Aeson.ClientTypes
 
-                        Pos.Explorer.Socket.App
                         Pos.Explorer.Socket.Holder
-                        Pos.Explorer.Socket.Methods
-                        Pos.Explorer.Socket.Util
 
                         Pos.Explorer.Web.Transform
   build-depends:        aeson
@@ -301,8 +301,12 @@ test-suite cardano-explorer-test
   other-modules:
                        -- Standard module with some magic
                        Spec
-
+                       -- Utils
+                       Test.Pos.Explorer.MockFactory
                        -- Tests
+                       Test.Pos.Explorer.Socket.AppSpec
+                       Test.Pos.Explorer.Socket.MethodsSpec
+                       Test.Pos.Explorer.Socket.UtilSpec
                        Test.Pos.Explorer.Web.ServerSpec
                        Test.Pos.Explorer.Web.ClientTypesSpec
 
@@ -348,6 +352,7 @@ test-suite cardano-explorer-test
                      , universum >= 0.1.11
                      , unordered-containers
                      , vector
+                     , warp
   hs-source-dirs:      test
   default-language:    Haskell2010
   ghc-options:         -threaded
@@ -385,4 +390,3 @@ test-suite cardano-explorer-test
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-

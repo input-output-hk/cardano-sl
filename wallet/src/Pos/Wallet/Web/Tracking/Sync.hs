@@ -445,15 +445,14 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     mapM_ (WS.addCustomAddress ChangeAddr . fst) (MM.insertions camChange)
     WS.getWalletUtxo >>= WS.setWalletUtxo . MM.modifyMap camUtxo
     oldCachedHist <- fromMaybe [] <$> WS.getHistoryCache wid
+    let cMetas = map (bimap encodeCType (CTxMeta . timestampToPosix)) $
+                 catMaybes $
+                 map (\THEntry {..} -> (_thTxId, ) <$> _thTimestamp) $
+                 DL.toList camAddedHistory
+    WS.addOnlyNewTxMetas wid cMetas
     sortedAddedHistory <-
         getNewestFirst <$> sortWalletThByTime wid (DL.toList camAddedHistory)
     WS.updateHistoryCache wid $ sortedAddedHistory <> oldCachedHist
-    let cMetas = map (bimap encodeCType (CTxMeta . timestampToPosix)) $
-                 catMaybes $
-                    zipWith (\a b -> (a,) <$> b)
-                            (map _thTxId sortedAddedHistory)
-                            (map _thTimestamp sortedAddedHistory)
-    WS.addOnlyNewTxMetas wid cMetas
     -- resubmitting worker can change ptx in db nonatomically, but
     -- tracker has priority over the resubmiter, thus do not use CAS here
     forM_ camAddedPtxCandidates $ \(txid, ptxBlkInfo) ->

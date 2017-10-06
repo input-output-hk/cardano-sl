@@ -12,6 +12,7 @@ module Pos.Wallet.Web.Methods.History
 import           Universum
 
 import qualified Data.Map.Strict            as Map
+import qualified Data.HashSet               as HS
 import qualified Data.Set                   as S
 import           Data.Time.Clock.POSIX      (POSIXTime, getPOSIXTime)
 import           Formatting                 (build, sformat, stext, (%))
@@ -79,12 +80,12 @@ getHistory cWalId accIds mAddrId = do
     allAccIds <- getWalletAccountIds cWalId
 
     let getAccAddrs = map cwamId <$> concatMapM (getAccountAddrsOrThrow Ever) accIds
-        noAccFiltering = accIds == allAccIds
+        noAccFiltering = HS.fromList accIds == HS.fromList allAccIds
 
     filterFunction <- case mAddrId of
         Nothing -> if noAccFiltering
             then pure identity
-            else getAccAddrs >>= pure . filterByAddrs
+            else filterByAddrs <$> getAccAddrs
         Just addr -> do
             accAddrs <- getAccAddrs
             if addr `elem` accAddrs

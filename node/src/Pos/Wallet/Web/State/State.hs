@@ -54,9 +54,11 @@ module Pos.Wallet.Web.State.State
        , setWalletPassLU
        , setWalletSyncTip
        , setWalletTxMeta
+       , addOnlyNewTxMetas
        , setWalletTxHistory
        , addOnlyNewTxMeta
        , removeWallet
+       , removeWalletTxMetas
        , removeTxMetas
        , removeHistoryCache
        , removeAccount
@@ -228,6 +230,9 @@ setProfile = updateDisk . A.SetProfile
 setWalletTxMeta :: WebWalletModeDB ctx m => CId Wal -> CTxId -> CTxMeta -> m ()
 setWalletTxMeta cWalId cTxId = updateDisk . A.SetWalletTxMeta cWalId cTxId
 
+addOnlyNewTxMetas :: WebWalletModeDB ctx m => CId Wal -> Map TxId CTxMeta -> m ()
+addOnlyNewTxMetas = updateDisk ... A.AddOnlyNewTxMetas
+
 setWalletTxHistory :: WebWalletModeDB ctx m => CId Wal -> [(CTxId, CTxMeta)] -> m ()
 setWalletTxHistory cWalId = updateDisk . A.SetWalletTxHistory cWalId
 
@@ -245,6 +250,9 @@ removeWallet = updateDisk . A.RemoveWallet
 
 removeTxMetas :: WebWalletModeDB ctx m => CId Wal -> m ()
 removeTxMetas = updateDisk . A.RemoveTxMetas
+
+removeWalletTxMetas :: WebWalletModeDB ctx m => CId Wal -> [CTxId] -> m ()
+removeWalletTxMetas = updateDisk ... A.RemoveWalletTxMetas
 
 removeHistoryCache :: WebWalletModeDB ctx m => CId Wal -> m ()
 removeHistoryCache = updateDisk . A.RemoveHistoryCache

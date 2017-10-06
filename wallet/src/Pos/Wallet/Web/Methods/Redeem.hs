@@ -29,7 +29,7 @@ import           Pos.Wallet.Web.ClientTypes     (AccountId (..), CAccountId (..)
                                                  CPaperVendWalletRedeem (..), CTx (..),
                                                  CWalletRedeem (..))
 import           Pos.Wallet.Web.Error           (WalletError (..))
-import           Pos.Wallet.Web.Methods.History (addHistoryTx)
+import           Pos.Wallet.Web.Methods.History (addHistoryTx, constructCTx)
 import qualified Pos.Wallet.Web.Methods.Logic   as L
 import           Pos.Wallet.Web.Methods.Txp     (rewrapTxError, submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode)
@@ -106,4 +106,5 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
         th <$ submitAndSaveNewPtx enqueueMsg ptx
 
     -- add redemption transaction to the history of new wallet
-    fst <$> addHistoryTx (aiWId accId) th
+    addHistoryTx (aiWId accId) th
+    fst <$> constructCTx (aiWId accId, Nothing) th

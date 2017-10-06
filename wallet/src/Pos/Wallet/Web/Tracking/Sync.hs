@@ -58,7 +58,8 @@ import           Pos.Core                         (Address (..), BlockHeaderStub
                                                    addrAttributesUnwrapped,
                                                    blkSecurityParam, genesisHash,
                                                    headerHash, headerSlotL,
-                                                   makeRootPubKeyAddress)
+                                                   makeRootPubKeyAddress,
+                                                   timestampToPosix)
 import           Pos.Crypto                       (EncryptedSecretKey, HDPassphrase,
                                                    WithHash (..), deriveHDPassphrase,
                                                    encToPublic, hash, shortHashF,
@@ -79,13 +80,14 @@ import           Pos.Txp                          (GenesisUtxo (..), Tx (..), Tx
 import           Pos.Txp.MemState.Class           (MonadTxpMem, getLocalTxsNUndo)
 import           Pos.Util.Chrono                  (getNewestFirst)
 import qualified Pos.Util.Modifier                as MM
+import           Pos.Util.Servant                 (encodeCType)
 
 import           Pos.Ssc.Class                    (SscHelpersClass)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.Web.Account           (MonadKeySearch (..))
-import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CWAddressMeta (..), Wal,
-                                                   addressToCId, encToCId,
-                                                   isTxLocalAddress)
+import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CTxMeta (..),
+                                                   CWAddressMeta (..), Wal, addressToCId,
+                                                   encToCId, isTxLocalAddress)
 import           Pos.Wallet.Web.Error.Types       (WalletError (..))
 import           Pos.Wallet.Web.Pending.Types     (PtxBlockInfo, PtxCondition (PtxApplying, PtxInNewestBlocks))
 import           Pos.Wallet.Web.State             (AddressLookupMode (..),
@@ -443,6 +445,10 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     mapM_ (WS.addCustomAddress ChangeAddr . fst) (MM.insertions camChange)
     WS.getWalletUtxo >>= WS.setWalletUtxo . MM.modifyMap camUtxo
     oldCachedHist <- fromMaybe mempty <$> WS.getHistoryCache wid
+    let cMetas = M.fromList
+               $ mapMaybe (\THEntry {..} -> (\mts -> (_thTxId, CTxMeta . timestampToPosix $ mts)) <$> _thTimestamp)
+               $ DL.toList camAddedHistory
+    WS.addOnlyNewTxMetas wid cMetas
     let addedHistory = txHistoryListToMap $ DL.toList camAddedHistory
     WS.updateHistoryCache wid $ addedHistory <> oldCachedHist -- TODO: check that there are no intersections
     -- resubmitting worker can change ptx in db nonatomically, but
@@ -473,6 +479,7 @@ rollbackModifierFromWallet wid newTip CAccModifier{..} = do
             let deletedHistory = txHistoryListToMap (DL.toList camDeletedHistory)
             WS.updateHistoryCache wid $
                 oldCachedHist `M.difference` deletedHistory
+            WS.removeWalletTxMetas wid (map encodeCType $ M.keys deletedHistory)
     WS.setWalletSyncTip wid newTip
 
 evalChange

@@ -51,7 +51,9 @@ module Pos.Wallet.Web.State.Storage
        , setWalletUtxo
        , addOnlyNewTxMeta
        , setWalletTxMeta
+       , addOnlyNewTxMetas
        , removeWallet
+       , removeWalletTxMetas
        , removeTxMetas
        , removeHistoryCache
        , removeAccount
@@ -85,6 +87,7 @@ import           Pos.Core.Types                 (SlotId, Timestamp)
 import           Pos.Txp                        (TxAux, TxId, Utxo)
 import           Pos.Types                      (HeaderHash)
 import           Pos.Util.BackupPhrase          (BackupPhrase)
+import           Pos.Util.Servant               (encodeCType)
 import           Pos.Wallet.Web.ClientTypes     (AccountId, Addr, CAccountMeta, CCoin,
                                                  CHash, CId, CProfile, CTxId, CTxMeta,
                                                  CUpdateInfo, CWAddressMeta (..),
@@ -367,6 +370,16 @@ removeWallet cWalId = wsWalletInfos . at cWalId .= Nothing
 
 removeTxMetas :: CId Wal -> Update ()
 removeTxMetas cWalId = wsTxHistory . at cWalId .= Nothing
+
+addOnlyNewTxMetas :: CId Wal -> Map TxId CTxMeta -> Update ()
+addOnlyNewTxMetas cWalId cTxMetas =
+    mapM_
+        (\(txId, cTxMeta) -> addOnlyNewTxMeta cWalId (encodeCType txId) cTxMeta)
+        (M.toList cTxMetas)
+
+removeWalletTxMetas :: CId Wal -> [CTxId] -> Update ()
+removeWalletTxMetas cWalId cTxs =
+    wsTxHistory . at cWalId . non' _Empty %= flip (foldr HM.delete) cTxs
 
 removeHistoryCache :: CId Wal -> Update ()
 removeHistoryCache cWalId = wsHistoryCache . at cWalId .= Nothing

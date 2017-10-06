@@ -59,9 +59,9 @@ getOwnUtxosDefault addrs = do
 
     updates <- getUtxoModifier
     commonUtxo <- if null commonAddrs then pure mempty
-                    else WS.getWalletUtxo
+                  else WS.getWalletUtxo
     redeemUtxo <- if null redeemAddrs then pure mempty
-                    else DB.getFilteredUtxo redeemAddrs
+                  else DB.getFilteredUtxo redeemAddrs
 
     let allUtxo = MM.modifyMap updates $ commonUtxo <> redeemUtxo
         addrsSet = HS.fromList addrs

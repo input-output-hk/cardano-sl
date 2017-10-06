@@ -12,6 +12,7 @@ module Pos.Wallet.Web.Methods.History
 
 import           Universum
 
+import           Control.Exception          (throw)
 import qualified Data.Map.Strict            as Map
 import qualified Data.Set                   as S
 import           Data.Time.Clock.POSIX      (POSIXTime, getPOSIXTime)
@@ -78,13 +79,28 @@ getHistory
     -> m (Map TxId (CTx, POSIXTime), Word)
 getHistory cWalId accIds mAddrId = do
     -- FIXME: searching when only AddrId is provided is not supported yet.
-    accAddrs <- map cwamId <$> concatMapM (getAccountAddrsOrThrow Ever) accIds
-    addrs <- case mAddrId of
-        Nothing -> pure accAddrs
-        Just addr ->
-            if addr `elem` accAddrs then pure [addr] else throwM errorBadAddress
-    first (Map.filter (fits (S.fromList addrs) . fst)) <$> getFullWalletHistory cWalId
+    accAddrs <- S.fromList . map cwamId <$> concatMapM (getAccountAddrsOrThrow Ever) accIds
+    allAccIds <- getWalletAccountIds cWalId
+
+    let filterFn :: Map TxId (CTx, POSIXTime) -> Map TxId (CTx, POSIXTime)
+        !filterFn = case mAddrId of
+          Nothing
+            | S.fromList accIds == S.fromList allAccIds
+              -- can avoid doing any expensive filtering in this case
+                        -> identity
+            | otherwise -> filterByAddrs accAddrs
+
+          Just addr
+            | addr `S.member` accAddrs -> filterByAddrs (S.singleton addr)
+            | otherwise                -> throw errorBadAddress
+
+    first filterFn <$> getFullWalletHistory cWalId
   where
+    filterByAddrs :: S.Set (CId Addr)
+                  -> Map TxId (CTx, POSIXTime)
+                  -> Map TxId (CTx, POSIXTime)
+    filterByAddrs addrs = Map.filter (fits addrs . fst)
+
     fits :: S.Set (CId Addr) -> CTx -> Bool
     fits addrs CTx{..} =
         let inpsNOuts = map fst (ctInputs ++ ctOutputs)

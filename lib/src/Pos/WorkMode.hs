@@ -41,6 +41,8 @@ import           Pos.DB.Block           (dbGetBlockDefault, dbGetBlockSscDefault
 import           Pos.DB.Class           (MonadBlockDBGeneric (..),
                                          MonadBlockDBGenericWrite (..), MonadDB (..),
                                          MonadDBRead (..))
+import           Pos.DHT.Real.Types     (KademliaDHTInstance)
+import           Pos.Network.Types      (HasNodeType (..), getNodeTypeDefault)
 import           Pos.DB.DB              (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks           (dbDeleteDefault, dbGetDefault,
                                          dbIterSourceDefault, dbPutDefault,
@@ -98,6 +100,9 @@ instance HasLens TxpHolderTag (RealModeContext ssc) (GenericTxpLocalData TxpExtr
 
 instance HasLens DelegationVar (RealModeContext ssc) DelegationVar where
     lensOf = rmcDelegationVar_L
+
+instance HasNodeType (RealModeContext ssc) where
+    getNodeType = getNodeTypeDefault @KademliaDHTInstance
 
 instance {-# OVERLAPPABLE #-}
     HasLens tag (NodeContext ssc) r =>

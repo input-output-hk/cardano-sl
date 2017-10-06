@@ -49,6 +49,7 @@ import           Pos.Client.Txp.History           (MonadTxHistory (..),
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.KnownPeers                   (MonadFormatPeers (..),
                                                    MonadKnownPeers (..))
+import           Pos.Network.Types                (HasNodeType (..))
 import           Pos.Reporting                    (HasReportingContext (..))
 import           Pos.Shutdown                     (HasShutdownContext (..))
 import           Pos.Slotting.Class               (MonadSlots (..))
@@ -139,6 +140,9 @@ instance HasSlogGState WalletWebModeContext where
 
 instance HasJsonLogConfig WalletWebModeContext where
     jsonLogConfig = wwmcRealModeContext_L . jsonLogConfig
+
+instance HasNodeType WalletWebModeContext where
+    getNodeType = getNodeType . wwmcRealModeContext
 
 data WalletWebModeContextTag
 

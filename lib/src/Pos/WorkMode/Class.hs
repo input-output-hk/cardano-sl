@@ -39,7 +39,7 @@ import           Pos.Configuration           (HasNodeConfiguration)
 import           Pos.Core                    (HasConfiguration, HasPrimaryKey)
 import           Pos.Infra.Configuration     (HasInfraConfiguration)
 import           Pos.KnownPeers              (MonadFormatPeers, MonadKnownPeers)
-import           Pos.Network.Types           (NetworkConfig)
+import           Pos.Network.Types           (HasNodeType, NetworkConfig)
 import           Pos.Recovery.Info           (MonadRecoveryInfo)
 import           Pos.Reporting               (HasReportingContext)
 import           Pos.Security.Params         (SecurityParams)
@@ -110,6 +110,7 @@ type WorkMode ssc ctx m
       , HasShutdownContext ctx
       , HasSlogContext ctx
       , HasSlogGState ctx
+      , HasNodeType ctx
       )
 
 -- | More relaxed version of 'WorkMode'.

@@ -43,7 +43,8 @@ import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAddres
                                                    CWAddressMeta (..), Wal,
                                                    addrMetaToAccount, mkCCoin)
 import           Pos.Wallet.Web.Error             (WalletError (..))
-import           Pos.Wallet.Web.Methods.History   (addHistoryTx, constructCTx)
+import           Pos.Wallet.Web.Methods.History   (addHistoryTx, constructCTx,
+                                                   getCurChainDifficulty)
 import qualified Pos.Wallet.Web.Methods.Logic     as L
 import           Pos.Wallet.Web.Methods.Txp       (coinDistrToOutputs, rewrapTxError,
                                                    submitAndSaveNewPtx)
@@ -191,7 +192,8 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
 
     addHistoryTx srcWallet th
     srcWalletAddrs <- getWalletAddrsSet Ever srcWallet
-    fst <$> constructCTx srcWallet srcWalletAddrs th
+    diff <- getCurChainDifficulty
+    fst <$> constructCTx srcWallet srcWalletAddrs diff th
   where
      -- TODO eliminate copy-paste
      listF separator formatter =

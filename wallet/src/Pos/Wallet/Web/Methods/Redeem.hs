@@ -29,7 +29,8 @@ import           Pos.Wallet.Web.ClientTypes     (AccountId (..), CAccountId (..)
                                                  CPaperVendWalletRedeem (..), CTx (..),
                                                  CWalletRedeem (..))
 import           Pos.Wallet.Web.Error           (WalletError (..))
-import           Pos.Wallet.Web.Methods.History (addHistoryTx, constructCTx)
+import           Pos.Wallet.Web.Methods.History (addHistoryTx, constructCTx,
+                                                 getCurChainDifficulty)
 import qualified Pos.Wallet.Web.Methods.Logic   as L
 import           Pos.Wallet.Web.Methods.Txp     (rewrapTxError, submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode)
@@ -110,4 +111,5 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
     let cWalId = aiWId accId
     addHistoryTx cWalId th
     cWalAddrs <- getWalletAddrsSet Ever cWalId
-    fst <$> constructCTx cWalId cWalAddrs th
+    diff <- getCurChainDifficulty
+    fst <$> constructCTx cWalId cWalAddrs diff th

@@ -63,7 +63,7 @@ prepareLrcLeaders ::
        , HasConfiguration
        )
     => m ()
-prepareLrcLeaders = do
+prepareLrcLeaders =
     -- Initialization flag was added with CSE-240.
     unlessM isLrcDbInitialized $ do
         hasLeadersForEpoch0 <- isJust <$> getLeadersForEpoch 0
@@ -75,6 +75,7 @@ prepareLrcLeaders = do
             -- The node was initialized before CSE-240.
             -- Need to migrate data for all epochs.
             initLeaders 0
+        putInitFlag
   where
     initLeaders :: MonadDB m => EpochIndex -> m ()
     initLeaders i = do
@@ -87,10 +88,10 @@ prepareLrcLeaders = do
                 Nothing -> pure ()
 
 isLrcDbInitialized :: MonadDB m => m Bool
-isLrcDbInitialized = dbHasKey lrcDbInitFlag
+isLrcDbInitialized = dbHasKey lrcDbLeadersInitFlag
 
 putInitFlag :: MonadDB m => m ()
-putInitFlag = putBi lrcDbInitFlag ()
+putInitFlag = putBi lrcDbLeadersInitFlag ()
 
 ----------------------------------------------------------------------------
 -- Keys
@@ -102,8 +103,8 @@ leadersForEpochKey = mappend "l/" . serialize'
 leaderKey :: HasProtocolConstants => SlotId -> ByteString
 leaderKey = mappend "ls/" . serialize' . flattenSlotId
 
-lrcDbInitFlag :: ByteString
-lrcDbInitFlag = "linit/"
+lrcDbLeadersInitFlag :: ByteString
+lrcDbLeadersInitFlag = "linit/"
 
 ----------------------------------------------------------------------------
 -- Helpers

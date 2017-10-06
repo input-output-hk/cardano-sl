@@ -26,8 +26,7 @@ import           Pos.Core              (EpochIndex, HasConfiguration,
                                         SlotLeaders, StakeholderId, flattenSlotId,
                                         unsafeMkLocalSlotIndex)
 import           Pos.DB.Class          (MonadDB, MonadDBRead)
-import           Pos.Lrc.DB.Common     (dbHasKey, getBi, putBatch, putBatchBi,
-                                        toRocksOps)
+import           Pos.Lrc.DB.Common     (dbHasKey, getBi, putBatch, putBatchBi, toRocksOps)
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -74,6 +73,7 @@ prepareLrcLeaders =
             -- The node was initialized before CSE-240.
             -- Need to migrate data for all epochs.
             initLeaders 0
+        putInitFlag
   where
     initLeaders :: MonadDB m => EpochIndex -> m ()
     initLeaders i =
@@ -87,6 +87,9 @@ prepareLrcLeaders =
 
 isLrcDbInitialized :: MonadDB m => m Bool
 isLrcDbInitialized = dbHasKey lrcDbLeadersInitFlag
+
+putInitFlag :: MonadDB m => m ()
+putInitFlag = putBi lrcDbLeadersInitFlag ()
 
 ----------------------------------------------------------------------------
 -- Keys

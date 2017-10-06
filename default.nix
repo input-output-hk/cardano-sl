@@ -103,6 +103,7 @@ let
       mkdir -pv $out
       cd $out
       cp -vi ${cardanoPkgs.cardano-sl.src + "/configuration.yaml"} configuration.yaml
+      cp -vi ${cardanoPkgs.cardano-sl.src + "/mainnet-genesis-dryrun-with-stakeholders.json"} mainnet-genesis-dryrun-with-stakeholders.json
       cp -vi ${cardanoPkgs.cardano-sl.src + "/mainnet-genesis.json"} mainnet-genesis.json
       cp -vi ${cardanoPkgs.cardano-sl.src + "/../scripts/log-templates/log-config-qa.yaml"} log-config-qa.yaml
       cp -vi ${topologyFile} topology.yaml
@@ -119,13 +120,14 @@ let
         "--no-ntp"
         "--topology" "${configFiles}/topology.yaml"
         "--log-config" "${configFiles}/log-config-qa.yaml"
-        "--logs-prefix" "logs/${CLUSTER}"
-        "--db-path" "db-${CLUSTER}"
-        "--wallet-db-path" "wdb-${CLUSTER}"
+        "--logs-prefix" "/wallet/logs/${CLUSTER}"
+        "--db-path" "/wallet/db-${CLUSTER}"
+        "--wallet-db-path" "/wallet/wdb-${CLUSTER}"
         "--system-start" (toString SYSTEM_START_TIME)
-        "--keyfile" "secret-$CLUSTER.key"
+        "--keyfile" "/wallet/secret-${CLUSTER}.key"
         "--configuration-file" "${configFiles}/configuration.yaml"
         "--configuration-key" "mainnet_dryrun_full"
+        "--wallet-address" "0.0.0.0:8090"
       ];
       ExposedPorts = {
         "3000/tcp" = {};

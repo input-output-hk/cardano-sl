@@ -8,16 +8,16 @@ module Pos.Wallet.Web.Server.Handlers
 
 import           Universum
 
-import           Pos.Communication       (SendActions (..))
+import           Pos.Communication        (SendActions (..))
 import           Pos.Update.Configuration (curSoftwareVersion)
-import           Pos.Wallet.WalletMode   (blockchainSlotDuration)
-import           Pos.Wallet.Web.Account  (GenSeed (RandomSeed))
-import           Pos.Wallet.Web.Api      (WalletApi)
-import qualified Pos.Wallet.Web.Methods  as M
-import           Pos.Wallet.Web.Mode     (MonadWalletWebMode)
-import           Pos.Wallet.Web.Tracking (fixingCachedAccModifier)
-import           Servant.API             ((:<|>) ((:<|>)))
-import           Servant.Server          (ServerT)
+import           Pos.Wallet.WalletMode    (blockchainSlotDuration)
+import           Pos.Wallet.Web.Account   (GenSeed (RandomSeed))
+import           Pos.Wallet.Web.Api       (WalletApi)
+import qualified Pos.Wallet.Web.Methods   as M
+import           Pos.Wallet.Web.Mode      (MonadWalletWebMode)
+import           Pos.Wallet.Web.Tracking  (fixingCachedAccModifier)
+import           Servant.API              ((:<|>) ((:<|>)))
+import           Servant.Server           (ServerT)
 
 servantHandlers
     :: MonadWalletWebMode m

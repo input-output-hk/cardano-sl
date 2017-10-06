@@ -142,7 +142,7 @@ txMempoolToModifier encSK = do
     tipH <- DB.getTipHeader @WalletSscType
     allAddresses <- getWalletAddrMetas Ever wId
     case topsortTxs wHash txsWUndo of
-        Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
+        Nothing      -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
         Just ordered -> pure $
             trackingApplyTxs @WalletSscType encSK allAddresses getDiff getTs getPtxBlkInfo $
             map (\(_, tx, undo) -> (tx, undo, tipH)) ordered
@@ -278,7 +278,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
     whenNothing_ wTipHeader $ do
         let encInfo = getEncInfo encSK
             ownGenesisData =
-                selectOwnAccounts encInfo (txOutAddress . toaOut . snd) $
+                selectOwnAddresses encInfo (txOutAddress . toaOut . snd) $
                 M.toList $ unGenesisUtxo genesisUtxo
             ownGenesisUtxo = M.fromList $ map fst ownGenesisData
             ownGenesisAddrs = map snd ownGenesisData
@@ -298,15 +298,6 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
     firstGenesisHeader = resolveForwardLink (genesisHash @BlockHeaderStub) >>=
         maybe (error "Unexpected state: genesisHash doesn't have forward link")
             (maybe (error "No genesis block corresponding to header hash") pure <=< DB.blkGetHeader)
-
--- TODO: @pva701: maybe it would be needed, dunno
--- runWithWalletUtxo
---     :: (MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo, WebWalletModeDB ctx m)
---     => ToilT () (DBToil m) a
---     -> m a
--- runWithWalletUtxo action = do
---     walletUtxo <- WS.getWalletUtxo
---     runDBToil $ fst <$> runToilTLocal (fromUtxo walletUtxo) def mempty action
 
 -- Process transactions on block application,
 -- decrypt our addresses, and add/delete them to/from wallet-db.
@@ -339,9 +330,8 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs getPtxBlkInf
             txOutgoings = map txOutAddress outs
             txInputs = map (toaOut . snd) resolvedInputs
 
-            ownInputs = selectOwnAccounts encInfo (txOutAddress . toaOut . snd) resolvedInputs
-            ownOutputs = selectOwnAccounts encInfo (txOutAddress . snd) $
-                enumerate outs
+            ownInputs = selectOwnAddresses encInfo (txOutAddress . toaOut . snd) resolvedInputs
+            ownOutputs = selectOwnAddresses encInfo (txOutAddress . snd) $ enumerate outs
             ownInpAddrMetas = map snd ownInputs
             ownOutAddrMetas = map snd ownOutputs
             ownTxIns = map (fst . fst) ownInputs
@@ -373,7 +363,7 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs getPtxBlkInf
             camDeletedPtxCandidates
 
 -- Process transactions on block rollback.
--- Like @trackingApplyTx@, but vise versa.
+-- Like @trackingApplyTxs@, but vise versa.
 trackingRollbackTxs
     :: forall ssc . (HasConfiguration, SscHelpersClass ssc)
     => EncryptedSecretKey -- ^ Wallet's secret key
@@ -398,8 +388,8 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress getDiff getTs txs =
             txOutgoings = map txOutAddress outs
             txInputs = map (toaOut . snd) resolvedInputs
 
-            ownInputs = selectOwnAccounts encInfo (txOutAddress . toaOut) undoL'
-            ownOutputs = selectOwnAccounts encInfo txOutAddress $ outs
+            ownInputs = selectOwnAddresses encInfo (txOutAddress . toaOut) undoL'
+            ownOutputs = selectOwnAddresses encInfo txOutAddress $ outs
             ownInputMetas = map snd ownInputs
             ownOutputMetas = map snd ownOutputs
             ownInputAddrs = map cwamId ownInputMetas
@@ -493,19 +483,19 @@ getEncInfo encSK = do
     let wCId = addressToCId $ makeRootPubKeyAddress pubKey
     (hdPass, wCId)
 
-selectOwnAccounts
+selectOwnAddresses
     :: (HDPassphrase, CId Wal)
     -> (a -> Address)
     -> [a]
     -> [(a, CWAddressMeta)]
-selectOwnAccounts encInfo getAddr =
-    mapMaybe (\a -> (a,) <$> decryptAccount encInfo (getAddr a))
+selectOwnAddresses encInfo getAddr =
+    mapMaybe (\a -> (a,) <$> decryptAddress encInfo (getAddr a))
 
 setLogger :: HasLoggerName m => m a -> m a
 setLogger = modifyLoggerName (<> "wallet" <> "sync")
 
-decryptAccount :: (HDPassphrase, CId Wal) -> Address -> Maybe CWAddressMeta
-decryptAccount (hdPass, wCId) addr = do
+decryptAddress :: (HDPassphrase, CId Wal) -> Address -> Maybe CWAddressMeta
+decryptAddress (hdPass, wCId) addr = do
     hdPayload <- aaPkDerivationPath $ addrAttributesUnwrapped addr
     derPath <- unpackHDAddressAttr hdPass hdPayload
     guard $ length derPath == 2

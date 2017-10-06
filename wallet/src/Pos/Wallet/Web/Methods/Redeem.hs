@@ -107,4 +107,4 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
 
     -- add redemption transaction to the history of new wallet
     addHistoryTx (aiWId accId) th
-    fst <$> constructCTx (aiWId accId, Nothing) th
+    fst <$> constructCTx (aiWId accId, Nothing, Nothing) th

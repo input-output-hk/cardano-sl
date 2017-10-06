@@ -189,7 +189,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
         dstAddrs
 
     addHistoryTx srcWallet th
-    fst <$> constructCTx (srcWallet, Nothing) th
+    fst <$> constructCTx (srcWallet, Nothing, Nothing) th
   where
      -- TODO eliminate copy-paste
      listF separator formatter =

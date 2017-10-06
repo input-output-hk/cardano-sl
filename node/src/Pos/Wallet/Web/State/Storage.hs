@@ -1,3 +1,4 @@
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE Rank2Types #-}
 
 -- @jens: this document is inspired by https://github.com/input-output-hk/rscoin-haskell/blob/master/src/RSCoin/Explorer/Storage.hs
@@ -75,10 +76,10 @@ import           Control.Monad.State.Class      (put)
 import           Data.Default                   (Default, def)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.Map                       as M
-import           Data.SafeCopy                  (base, deriveSafeCopySimple)
+import           Data.SafeCopy                  (Migrate (..), extension, base, deriveSafeCopySimple)
 import           Data.Time.Clock.POSIX          (POSIXTime)
 
-import           Pos.Client.Txp.History         (TxHistoryEntry)
+import           Pos.Client.Txp.History         (TxHistoryEntry, txHistoryListToMap)
 import           Pos.Core.Configuration         (HasConfiguration)
 import           Pos.Core.Types                 (SlotId, Timestamp)
 import           Pos.Txp                        (TxAux, TxId, Utxo)
@@ -486,4 +487,35 @@ deriveSafeCopySimple 0 'base ''AddressInfo
 deriveSafeCopySimple 0 'base ''AccountInfo
 deriveSafeCopySimple 0 'base ''WalletTip
 deriveSafeCopySimple 0 'base ''WalletInfo
-deriveSafeCopySimple 0 'base ''WalletStorage
+
+
+-- Legacy versions, for migrations
+
+data WalletStorage_v0 = WalletStorage_v0
+    { _v0_wsWalletInfos     :: !(HashMap (CId Wal) WalletInfo)
+    , _v0_wsAccountInfos    :: !(HashMap AccountId AccountInfo)
+    , _v0_wsProfile         :: !CProfile
+    , _v0_wsReadyUpdates    :: [CUpdateInfo]
+    , _v0_wsTxHistory       :: !(HashMap (CId Wal) (HashMap CTxId CTxMeta))
+    , _v0_wsHistoryCache    :: !(HashMap (CId Wal) [TxHistoryEntry])
+    , _v0_wsUtxo            :: !Utxo
+    , _v0_wsUsedAddresses   :: !CustomAddresses
+    , _v0_wsChangeAddresses :: !CustomAddresses
+    }
+
+deriveSafeCopySimple 0 'base ''WalletStorage_v0
+deriveSafeCopySimple 1 'extension ''WalletStorage
+
+instance Migrate WalletStorage where
+    type MigrateFrom WalletStorage = WalletStorage_v0
+    migrate WalletStorage_v0{..} = WalletStorage
+        { _wsWalletInfos     = _v0_wsWalletInfos
+        , _wsAccountInfos    = _v0_wsAccountInfos
+        , _wsProfile         = _v0_wsProfile
+        , _wsReadyUpdates    = _v0_wsReadyUpdates
+        , _wsTxHistory       = _v0_wsTxHistory
+        , _wsHistoryCache    = HM.map txHistoryListToMap _v0_wsHistoryCache
+        , _wsUtxo            = _v0_wsUtxo
+        , _wsUsedAddresses   = _v0_wsUsedAddresses
+        , _wsChangeAddresses = _v0_wsChangeAddresses
+        }

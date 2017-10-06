@@ -1,10 +1,12 @@
 {-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE OverloadedLists     #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving  #-}
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeOperators       #-}
 
@@ -23,6 +25,7 @@ import           Universum
 import           Control.Lens                 (mapped, (?~))
 import           Data.Aeson                   (encode)
 import qualified Data.ByteString.Lazy.Char8   as BSL8
+import           Data.Fixed                   (Fixed (..), Micro)
 import           Data.Swagger                 (Operation, Swagger, ToParamSchema (..),
                                                ToSchema (..), declareNamedSchema,
                                                defaultSchemaOptions, description,
@@ -90,11 +93,15 @@ instance ToSchema      C.CBlockEntry
 instance ToSchema      C.CAddressType
 instance ToSchema      C.CAddressSummary
 instance ToSchema      C.CCoin
+instance ToSchema      C.CAda
 instance ToSchema      C.CNetworkAddress
 instance ToSchema      C.CGenesisSummary
 instance ToSchema      C.CGenesisAddressInfo
 instance ToSchema      C.Byte
 instance ToSchema      ExplorerError
+
+deriving instance Generic Micro
+instance ToSchema      Micro
 
 -- | Instance for Either-based types (types we return as 'Right') in responses.
 -- Due 'typeOf' these types must be 'Typeable'.

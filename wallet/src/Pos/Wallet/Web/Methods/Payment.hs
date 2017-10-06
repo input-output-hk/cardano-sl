@@ -10,49 +10,49 @@ module Pos.Wallet.Web.Methods.Payment
 
 import           Universum
 
-import           Control.Monad.Except           (runExcept)
-import           Control.Exception              (throw)
-import           Formatting                     (sformat, (%))
-import qualified Formatting                     as F
-import           System.Wlog                    (logInfo)
+import           Control.Monad.Except             (runExcept)
+import           Control.Exception                (throw)
+import           Formatting                       (sformat, (%))
+import qualified Formatting                       as F
 
-import           Pos.Aeson.ClientTypes          ()
-import           Pos.Aeson.WalletBackup         ()
-import           Pos.Client.Txp.Addresses       (MonadAddresses (..))
-import           Pos.Client.Txp.Balances        (getOwnUtxos)
-import           Pos.Client.Txp.History         (TxHistoryEntry (..))
-import           Pos.Client.Txp.Util            (computeTxFee, runTxCreator)
-import           Pos.Communication              (SendActions (..), prepareMTx)
-import           Pos.Configuration              (HasNodeConfiguration)
-import           Pos.Core                       (Coin, HasConfiguration, addressF,
-                                                 getCurrentTimestamp)
-import           Pos.Crypto                     (PassPhrase, ShouldCheckPassphrase (..),
-                                                 checkPassMatches, hash,
-                                                 withSafeSignerUnsafe)
-import           Pos.Infra.Configuration        (HasInfraConfiguration)
+import           Pos.Aeson.ClientTypes            ()
+import           Pos.Aeson.WalletBackup           ()
+import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
+import           Pos.Client.Txp.Balances          (getOwnUtxos)
+import           Pos.Client.Txp.History           (TxHistoryEntry (..))
+import           Pos.Client.Txp.Util              (computeTxFee, runTxCreator)
+import           Pos.Communication                (SendActions (..), prepareMTx)
+import           Pos.Configuration                (HasNodeConfiguration)
+import           Pos.Core                         (Coin, HasConfiguration, addressF,
+                                                   getCurrentTimestamp)
+import           Pos.Crypto                       (PassPhrase, ShouldCheckPassphrase (..),
+                                                   checkPassMatches, hash,
+                                                   withSafeSignerUnsafe)
+import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Txp                        (TxFee (..), Utxo, _txOutputs)
-import           Pos.Txp.Core                   (TxAux (..), TxOut (..))
-import           Pos.Util                       (eitherToThrow, maybeThrow)
-import           Pos.Update.Configuration       (HasUpdateConfiguration)
-import           Pos.Wallet.KeyStorage          (getSecretKeys)
-import           Pos.Wallet.Web.Account         (GenSeed (..), getSKByAddressPure,
-                                                 getSKById)
-import           Pos.Wallet.Web.ClientTypes     (AccountId (..), Addr, CAddress (..),
-                                                 CCoin, CId, CTx (..),
-                                                 CWAddressMeta (..), Wal,
-                                                 addrMetaToAccount, mkCCoin)
-import           Pos.Wallet.Web.Error           (WalletError (..))
-import           Pos.Wallet.Web.Methods.History (addHistoryTx)
-import qualified Pos.Wallet.Web.Methods.Logic   as L
-import           Pos.Wallet.Web.Methods.Txp     (coinDistrToOutputs, rewrapTxError,
-                                                 submitAndSaveNewPtx)
-import           Pos.Wallet.Web.Mode            (MonadWalletWebMode, WalletWebMode)
-import           Pos.Wallet.Web.Pending         (mkPendingTx)
-import           Pos.Wallet.Web.State           (AddressLookupMode (Existing))
-import           Pos.Wallet.Web.Util            (decodeCTypeOrFail,
-                                                 getAccountAddrsOrThrow,
-                                                 getWalletAccountIds)
+import           Pos.Txp                          (TxFee (..), Utxo, _txOutputs)
+import           Pos.Txp.Core                     (TxAux (..), TxOut (..))
+import           Pos.Update.Configuration         (HasUpdateConfiguration)
+import           Pos.Util                         (eitherToThrow, maybeThrow)
+import           Pos.Util.LogSafe                 (logInfoS)
+import           Pos.Wallet.KeyStorage            (getSecretKeys)
+import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAddressPure,
+                                                   getSKById)
+import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAddress (..),
+                                                   CCoin, CId, CTx (..),
+                                                   CWAddressMeta (..), Wal,
+                                                   addrMetaToAccount, mkCCoin)
+import           Pos.Wallet.Web.Error             (WalletError (..))
+import           Pos.Wallet.Web.Methods.History   (addHistoryTx)
+import qualified Pos.Wallet.Web.Methods.Logic     as L
+import           Pos.Wallet.Web.Methods.Txp       (coinDistrToOutputs, rewrapTxError,
+                                                   submitAndSaveNewPtx)
+import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode)
+import           Pos.Wallet.Web.Pending           (mkPendingTx)
+import           Pos.Wallet.Web.State             (AddressLookupMode (Existing))
+import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
+                                                   getAccountAddrsOrThrow,
+                                                   getWalletAccountIds)
 
 newPayment
     :: MonadWalletWebMode m
@@ -181,7 +181,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
 
             (th, dstAddrs) <$ submitAndSaveNewPtx enqueueMsg ptx
 
-    logInfo $
+    logInfoS $
         sformat ("Successfully spent money from "%
                     listF ", " addressF % " addresses on " %
                     listF ", " addressF)

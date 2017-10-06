@@ -14,9 +14,6 @@ with pkgs.lib;
 with pkgs.haskell.lib;
 
 let
-  addConfigureFlags = flags: drv: overrideCabal drv (drv: {
-    configureFlags = flags;
-  });
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
     overrides = self: super: {
       cardano-sl = overrideCabal super.cardano-sl (drv: {
@@ -68,8 +65,9 @@ let
         postPatch = ":";
       });
 
-      # Gold linker fixes
-      cryptonite = addConfigureFlags ["--ghc-option=-optl-pthread"] super.cryptonite;
+      # TODO: get rid of pthreads option once cryptonite 0.25 is released
+      # DEVOPS-393: https://github.com/haskell-crypto/cryptonite/issues/193
+      cryptonite = appendPatch (appendConfigureFlag super.cryptonite "--ghc-option=-optl-pthread") ./pkgs/cryptonite-segfault-blake.patch;
 
       # Darwin fixes upstreamed in nixpkgs commit 71bebd52547f4486816fd320bb3dc6314f139e67
       hinotify = if pkgs.stdenv.isDarwin then self.hfsevents else super.hinotify;

@@ -59,14 +59,13 @@ getFullWalletHistory cWalId = do
     logTxHistory "Mempool" localHistory
 
     fullHistory <- addRecentPtxHistory cWalId $ localHistory `Map.union` blockHistory
-    walAddrMetas <- getWalletAddrMetas Ever cWalId
-    diff <- getCurChainDifficulty
+    txCData <- getCurTxConstructionData cWalId
     -- TODO when we introduce some mechanism to react on new tx in mempool,
     -- we will set timestamp tx as current time and remove call of @addHistoryTxs@
     -- We call @addHistoryTxs@ only for mempool transactions because for
     -- transactions from block and resubmitting timestamp is already known.
     addHistoryTxs cWalId localHistory
-    cHistory <- forM fullHistory (constructCTx (cWalId, Just walAddrMetas, Just diff))
+    cHistory <- forM fullHistory (constructCTx (cWalId, Just txCData))
     pure (cHistory, fromIntegral $ Map.size cHistory)
 
 getHistory
@@ -159,23 +158,36 @@ addHistoryTxs cWalId historyEntries = do
         Nothing -> liftIO getPOSIXTime
         Just ts -> pure $ timestampToPosix ts
 
+-- | A datatype containing data which is needed
+-- to create a tx history entry but can be computed
+-- only once for all entries
+data TxConstructionData = TxConstructionData
+    { tcdWAddrsSet :: !(Set (CId Addr))
+    , tcdChainDiff :: !ChainDifficulty
+    }
+
+getCurTxConstructionData
+    :: MonadWalletWebMode m
+    => CId Wal
+    -> m TxConstructionData
+getCurTxConstructionData cWalId = do
+    tcdWAddrsSet <- S.fromList . map cwamId <$> getWalletAddrMetas Ever cWalId
+    tcdChainDiff <- maybe localChainDifficulty pure =<< networkChainDifficulty
+    pure TxConstructionData {..}
+
 constructCTx
     :: MonadWalletWebMode m
-    => (CId Wal, Maybe [CWAddressMeta], Maybe ChainDifficulty)
+    => (CId Wal, Maybe TxConstructionData)
     -> TxHistoryEntry
     -> m (CTx, POSIXTime)
-constructCTx (cWalId, walAddrMetasMB, mDiff) wtx@THEntry{..} = do
-    walAddrMetas <- maybe (getWalletAddrMetas Ever cWalId) pure walAddrMetasMB
+constructCTx (cWalId, mTxData) wtx@THEntry{..} = do
+    TxConstructionData {..} <- maybe (getCurTxConstructionData cWalId) pure mTxData
     let cId = encodeCType _thTxId
-    diff <- maybe getCurChainDifficulty pure mDiff
     meta <- maybe (CTxMeta <$> liftIO getPOSIXTime) -- It's impossible case but just in case
             pure =<< getTxMeta cWalId cId
     ptxCond <- encodeCType . fmap _ptxCond <$> getPendingTx cWalId _thTxId
     either (throwM . InternalError) (pure . (, ctmDate meta)) $
-        mkCTx diff wtx meta ptxCond walAddrMetas
-
-getCurChainDifficulty :: MonadWalletWebMode m => m ChainDifficulty
-getCurChainDifficulty = maybe localChainDifficulty pure =<< networkChainDifficulty
+        mkCTx tcdChainDiff wtx meta ptxCond tcdWAddrsSet
 
 updateTransaction :: MonadWalletWebMode m => AccountId -> CTxId -> CTxMeta -> m ()
 updateTransaction accId txId txMeta = do

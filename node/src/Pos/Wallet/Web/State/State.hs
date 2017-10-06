@@ -36,6 +36,7 @@ module Pos.Wallet.Web.State.State
        , getCustomAddress
        , isCustomAddress
        , getWalletUtxo
+       , getWalletBalancesAndUtxo
        , getPendingTxs
        , getWalletPendingTxs
        , getPendingTx
@@ -99,7 +100,8 @@ import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemS
 import           Pos.Wallet.Web.State.Acidic  as A
 import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..),
                                                CustomAddressType (..), PtxMetaUpdate (..),
-                                               WalletStorage, WalletTip (..))
+                                               WalletBalances, WalletStorage,
+                                               WalletTip (..))
 
 -- | MonadWalletWebDB stands for monad which is able to get web wallet state
 type MonadWalletWebDB ctx m =
@@ -243,6 +245,9 @@ setWalletTxHistory cWalId = updateDisk . A.SetWalletTxHistory cWalId
 
 getWalletUtxo :: WebWalletModeDB ctx m => m Utxo
 getWalletUtxo = queryDisk A.GetWalletUtxo
+
+getWalletBalancesAndUtxo :: WebWalletModeDB ctx m => m (WalletBalances, Utxo)
+getWalletBalancesAndUtxo = queryDisk A.GetWalletBalancesAndUtxo
 
 setWalletUtxo :: WebWalletModeDB ctx m => Utxo -> m ()
 setWalletUtxo = updateDisk . A.SetWalletUtxo

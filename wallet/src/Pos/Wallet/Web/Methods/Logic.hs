@@ -73,6 +73,7 @@ import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsO
 getWAddressBalance :: MonadWalletWebMode m => CWAddressMeta -> m Coin
 getWAddressBalance addr = getBalance <=< decodeCTypeOrFail $ cwamId addr
 
+-- BE CAREFUL: this function works for O(number of used and change addresses)
 getWAddress
     :: MonadWalletWebMode m
     => CachedCAccModifier -> CWAddressMeta -> m CAddress
@@ -94,8 +95,8 @@ getAccount accMod accId = do
     dbAddrs    <- getAccountAddrsOrThrow Existing accId
     let allAddrIds = gatherAddresses (camAddresses accMod) dbAddrs
     allAddrs <- mapM (getWAddress accMod) allAddrIds
-    balance  <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
-                mapM getWAddressBalance allAddrIds
+    balance <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
+               mapM (decodeCTypeOrFail . cadAmount) allAddrs
     meta <- getAccountMeta accId >>= maybeThrow noAccount
     pure $ CAccount (encodeCType accId) meta allAddrs balance
   where

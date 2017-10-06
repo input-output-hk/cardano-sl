@@ -12,16 +12,17 @@ module Pos.Client.Txp.Balances
 import           Universum
 
 import           Control.Monad.Trans  (MonadTrans)
+import qualified Data.HashMap.Strict  as HM
 import qualified Data.HashSet         as HS
 import           Data.List            (partition)
 import qualified Data.Map             as M
 
 import           Pos.Core             (Address (..), Coin, IsBootstrapEraAddr (..),
-                                       isRedeemAddress, makePubKeyAddress)
+                                       isRedeemAddress, makePubKeyAddress, mkCoin)
 import           Pos.Crypto           (PublicKey)
 import           Pos.DB               (MonadDBRead, MonadGState, MonadRealDB)
 import           Pos.Txp              (MonadTxpMem, Utxo, addrBelongsToSet,
-                                       getUtxoModifier)
+                                       applyUtxoModToAddrCoinMap, getUtxoModifier)
 import qualified Pos.Txp.DB           as DB
 import           Pos.Txp.Toil.Utxo    (getTotalCoinsInUtxo)
 import qualified Pos.Util.Modifier    as MM
@@ -71,8 +72,12 @@ getOwnUtxosDefault addrs = do
 -- 1) It doesn't represent actual balances of addresses, but it represents _stakes_
 -- 2) Local utxo is now cached, and deriving balances from it is not
 --    so bad for performance now
-getBalanceDefault :: (MonadBalances m) => Address -> m Coin
-getBalanceDefault addr = getBalanceFromUtxo addr
+getBalanceDefault :: BalancesEnv ext ctx m => Address -> m Coin
+getBalanceDefault addr = do
+    balancesAndUtxo <- WS.getWalletBalancesAndUtxo
+    fromMaybe (mkCoin 0) .
+        HM.lookup addr .
+        flip applyUtxoModToAddrCoinMap balancesAndUtxo <$> getUtxoModifier
 
 getOwnUtxo :: MonadBalances m => Address -> m Utxo
 getOwnUtxo = getOwnUtxos . one

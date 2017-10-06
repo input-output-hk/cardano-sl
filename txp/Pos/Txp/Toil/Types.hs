@@ -5,7 +5,6 @@
 
 module Pos.Txp.Toil.Types
        ( Utxo
-       , utxoToStakes
        , formatUtxo
        , utxoF
        , GenesisUtxo (..)
@@ -33,19 +32,16 @@ module Pos.Txp.Toil.Types
 
 import           Universum
 
-import           Control.Lens               (makeLenses, makePrisms, makeWrapped)
-import           Data.Default               (Default, def)
-import qualified Data.HashMap.Strict        as HM
-import qualified Data.Map                   as M (toList)
-import           Data.Text.Lazy.Builder     (Builder)
-import           Formatting                 (Format, later)
-import           Serokell.Util.Text         (mapBuilderJson)
+import           Control.Lens           (makeLenses, makePrisms, makeWrapped)
+import           Data.Default           (Default, def)
+import qualified Data.Map               as M (toList)
+import           Data.Text.Lazy.Builder (Builder)
+import           Formatting             (Format, later)
+import           Serokell.Util.Text     (mapBuilderJson)
 
-import           Pos.Core                   (Coin, GenesisWStakeholders, StakeholderId,
-                                             StakesMap, unsafeAddCoin)
-import           Pos.Txp.Core               (TxAux, TxId, TxIn, TxOutAux (..), TxUndo,
-                                             txOutStake)
-import qualified Pos.Util.Modifier          as MM
+import           Pos.Core               (Coin, StakeholderId)
+import           Pos.Txp.Core           (TxAux, TxId, TxIn, TxOutAux (..), TxUndo)
+import qualified Pos.Util.Modifier      as MM
 
 ----------------------------------------------------------------------------
 -- UTXO
@@ -56,13 +52,6 @@ import qualified Pos.Util.Modifier          as MM
 -- Transaction inputs are identified by (transaction ID, index in list of
 -- output) pairs.
 type Utxo = Map TxIn TxOutAux
-
--- | Convert 'Utxo' to 'StakesMap'.
-utxoToStakes :: GenesisWStakeholders -> Utxo -> StakesMap
-utxoToStakes gws = foldl' putDistr mempty . M.toList
-  where
-    plusAt hm (key, val) = HM.insertWith unsafeAddCoin key val hm
-    putDistr hm (_, TxOutAux txOut) = foldl' plusAt hm (txOutStake gws txOut)
 
 -- | Format 'Utxo' map for showing
 formatUtxo :: Utxo -> Builder

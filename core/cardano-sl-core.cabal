@@ -1,5 +1,5 @@
 name:                cardano-sl-core
-version:             0.6.2
+version:             1.0.1
 synopsis:            Cardano SL - core
 description:         Cardano SL - core
 license:             MIT
@@ -103,6 +103,7 @@ library
                        Pos.System.Metrics.Constants
 
                        Pos.Util.Arbitrary
+                       Pos.Util.CompileInfo
                        Pos.Util.Concurrent
                        Pos.Util.Concurrent.LockedTVar
                        Pos.Util.Concurrent.PriorityLock
@@ -149,6 +150,7 @@ library
                      , extra
                      , file-embed
                      , filepath
+                     , fmt
                      , formatting
                      , generic-arbitrary
                      , hashable
@@ -161,6 +163,7 @@ library
                      , node-sketch
                      , parsec
                      , plutus-prototype
+                     , process
                      , pvss
                      , quickcheck-instances
                      , random

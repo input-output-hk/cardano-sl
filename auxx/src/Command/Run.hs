@@ -27,6 +27,7 @@ import           Pos.Crypto                 (emptyPassphrase, encToPublic,
                                              fullPublicKeyHexF, hashHexF, noPassEncrypt,
                                              safeCreatePsk, withSafeSigner)
 import           Pos.Launcher.Configuration (HasConfigurations)
+import           Pos.Util.CompileInfo       (HasCompileInfo)
 import           Pos.Util.UserSecret        (readUserSecret, usKeys)
 import           Pos.Wallet                 (addSecretKey, getBalance, getSecretKeys)
 
@@ -81,7 +82,9 @@ Avaliable commands:
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 runCmd
-    :: HasConfigurations
+    :: ( HasConfigurations
+       , HasCompileInfo
+       )
     => SendActions AuxxMode
     -> Command
     -> AuxxMode ()

@@ -22,10 +22,8 @@ import           Pos.Core.Address                        (Address,
                                                           IsBootstrapEraAddr (..),
                                                           addressHash, deriveLvl2KeyPair,
                                                           makePubKeyAddressBoot)
-import           Pos.Core.Coin                           (coinPortionToDouble, mkCoin,
-                                                          unsafeIntegerToCoin)
-import           Pos.Core.Configuration.BlockVersionData (HasGenesisBlockVersionData,
-                                                          genesisBlockVersionData)
+import           Pos.Core.Coin                           (mkCoin, unsafeIntegerToCoin)
+import           Pos.Core.Configuration.BlockVersionData (HasGenesisBlockVersionData)
 import           Pos.Core.Configuration.Protocol         (HasProtocolConstants, vssMaxTTL,
                                                           vssMinTTL)
 import qualified Pos.Core.Genesis.Constants              as Const
@@ -37,8 +35,7 @@ import           Pos.Core.Genesis.Types                  (FakeAvvmOptions (..),
                                                           GenesisWStakeholders (..),
                                                           TestnetBalanceOptions (..),
                                                           TestnetDistribution (..))
-import           Pos.Core.Types                          (BlockVersionData (bvdMpcThd),
-                                                          Coin)
+import           Pos.Core.Types                          (Coin)
 import           Pos.Core.Vss                            (VssCertificate,
                                                           mkVssCertificate,
                                                           mkVssCertificatesMap)
@@ -65,9 +62,11 @@ data GeneratedGenesisData = GeneratedGenesisData
     }
 
 data GeneratedSecrets = GeneratedSecrets
-    { gsSecretKeys    :: ![(SecretKey, EncryptedSecretKey, VssKeyPair)]
-    -- ^ Secret keys for non avvm addresses
-    , gsFakeAvvmSeeds :: ![ByteString]
+    { gsSecretKeysRich :: ![(SecretKey, EncryptedSecretKey, VssKeyPair)]
+    -- ^ Secret keys for rich non avvm addresses
+    , gsSecretKeysPoor :: ![(SecretKey, EncryptedSecretKey, VssKeyPair)]
+    -- ^ Secret keys for poor non avvm addresses
+    , gsFakeAvvmSeeds  :: ![ByteString]
     -- ^ Fake avvm seeds (needed only for testnet)
     }
 
@@ -86,8 +85,9 @@ generateGenesisData (TestnetInitializer{..}) maxTnBalance = deterministic (seria
                            (generateSecretsAndAddress Nothing tboUseHDAddresses)
 
     let richSkVssCerts = map (\(sk, _, _, vc, _) -> (sk, vc)) $ richmenList
-        secretKeys = map (\(sk, hdwSk, vssSk, _, _) -> (sk, hdwSk, vssSk))
-                         (richmenList ++ poorsList)
+        toSecretKeys (sk, hdwSk, vssSk, _, _) = (sk, hdwSk, vssSk)
+        secretKeysRich = map toSecretKeys richmenList
+        secretKeysPoor = map toSecretKeys poorsList
 
         safeZip s a b =
             if length a /= length b
@@ -122,7 +122,8 @@ generateGenesisData (TestnetInitializer{..}) maxTnBalance = deterministic (seria
         , ggdBootStakeholders = GenesisWStakeholders bootStakeholders
         , ggdVssCerts = vssCerts
         , ggdSecrets = Just $ GeneratedSecrets
-              { gsSecretKeys = secretKeys
+              { gsSecretKeysRich = secretKeysRich
+              , gsSecretKeysPoor = secretKeysPoor
               , gsFakeAvvmSeeds = seeds
               }
         }
@@ -212,8 +213,6 @@ genTestnetDistribution TestnetBalanceOptions{..} testBalance =
     onePoorBalance = if poors == 0 then 0 else poorsBalance `div` poors
     realPoorBalance = onePoorBalance * poors
 
-    mpcBalance = getShare (coinPortionToDouble $ bvdMpcThd genesisBlockVersionData) testBalance
-
     richBalances = replicate (fromInteger richs) (unsafeIntegerToCoin oneRichmanBalance)
     poorBalances = replicate (fromInteger poors) (unsafeIntegerToCoin onePoorBalance)
 
@@ -222,12 +221,6 @@ genTestnetDistribution TestnetBalanceOptions{..} testBalance =
     everythingIsConsistent =
         [ ( realRichBalance + realPoorBalance <= testBalance
           , "Real rich + poor balance is more than desired."
-          )
-        , ( oneRichmanBalance >= mpcBalance
-          , "Richman's balance is less than MPC threshold"
-          )
-        , ( onePoorBalance < mpcBalance
-          , "Poor's balance is more than MPC threshold"
           )
         ]
 

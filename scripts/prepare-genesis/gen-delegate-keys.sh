@@ -6,7 +6,7 @@ CGG_NODES=(3 4)
 CF_NODES=(5 6)
 ALL_NODES="${IOHK_NODES[*]} ${CGG_NODES[*]} ${CF_NODES[*]}"
 
-CONF_PARAMS="--configuration-file node/configuration.yaml --configuration-key mainnet_launch_base"
+CONF_PARAMS="--configuration-file lib/configuration.yaml --configuration-key mainnet_launch_base"
 
 if [[ "$REPO_PATH" == "" ]]; then
     echo "No REPO_PATH passed"

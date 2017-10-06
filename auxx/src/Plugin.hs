@@ -29,6 +29,7 @@ import           Pos.Communication          (Conversation (..), OutSpecs (..),
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Txp                    (genesisUtxo, unGenesisUtxo)
+import           Pos.Util.CompileInfo       (HasCompileInfo)
 import           Pos.WorkMode               (RealMode, RealModeContext)
 
 import           AuxxOptions                (AuxxAction (..), AuxxOptions (..))
@@ -39,8 +40,8 @@ import           Mode                       (AuxxMode)
 -- Plugin implementation
 ----------------------------------------------------------------------------
 
-auxxPlugin
-    :: HasConfigurations
+auxxPlugin ::
+       (HasConfigurations, HasCompileInfo)
     => AuxxOptions
     -> (WorkerSpec AuxxMode, OutSpecs)
 auxxPlugin AuxxOptions {..} =
@@ -54,15 +55,18 @@ auxxPlugin AuxxOptions {..} =
                               (length $ unGenesisUtxo genesisUtxo)
             w (addLogging sa)
 
-evalCmd
-    :: HasConfigurations
+evalCmd ::
+       (HasConfigurations, HasCompileInfo)
     => SendActions AuxxMode
     -> Command
     -> AuxxMode ()
 evalCmd _ Quit = pure ()
 evalCmd sa cmd = runCmd sa cmd >> evalCommands sa
 
-evalCommands :: HasConfigurations => SendActions AuxxMode -> AuxxMode ()
+evalCommands ::
+       (HasConfigurations, HasCompileInfo)
+    => SendActions AuxxMode
+    -> AuxxMode ()
 evalCommands sa = do
     putStr @Text "> "
     liftIO $ hFlush stdout
@@ -72,12 +76,12 @@ evalCommands sa = do
         Left err   -> putStrLn err >> evalCommands sa
         Right cmd_ -> evalCmd sa cmd_
 
-runWalletRepl :: HasConfigurations => Worker AuxxMode
+runWalletRepl :: (HasConfigurations, HasCompileInfo) => Worker AuxxMode
 runWalletRepl sa = do
     putText "Welcome to Wallet CLI Node"
     evalCmd sa Help
 
-runWalletCmd :: HasConfigurations => Text -> Worker AuxxMode
+runWalletCmd :: (HasConfigurations, HasCompileInfo) => Text -> Worker AuxxMode
 runWalletCmd str sa = do
     let strs = T.splitOn "," str
     for_ strs $ \scmd -> do
@@ -98,7 +102,7 @@ runWalletCmd str sa = do
 ----------------------------------------------------------------------------
 
 -- This solution is hacky, but will work for now
-runCmdOuts :: HasConfigurations => OutSpecs
+runCmdOuts :: (HasConfigurations,HasCompileInfo) => OutSpecs
 runCmdOuts =
     relayPropagateOut $
     mconcat

@@ -10,9 +10,18 @@ module Pos.Explorer.Socket.Methods
        ( Subscription (..)
        , ClientEvent (..)
        , ServerEvent (..)
+       , SubscriptionParam (..)
 
+       -- * Creating `SubscriptionParam`s
+       , addrSubParam
+       , blockPageSubParam
+       , txsSubParam
+
+       -- Sessions
        , startSession
        , finishSession
+
+       -- Un-/Subscriptions
        , subscribeAddr
        , subscribeBlocksLastPage
        , subscribeTxs
@@ -20,13 +29,20 @@ module Pos.Explorer.Socket.Methods
        , unsubscribeBlocksLastPage
        , unsubscribeTxs
 
+       -- * Notifications
        , notifyAddrSubscribers
        , notifyBlocksLastPageSubscribers
        , notifyTxsSubscribers
+
+      -- * DB data
        , getBlundsFromTo
-       , addrsTouchedByTx
        , getBlockTxs
        , getTxInfo
+
+       -- * Helper
+       , addressSetByTxs
+       , addrsTouchedByTx
+       , fromCAddressOrThrow
        ) where
 
 import           Control.Lens                   (at, ix, lens, non, (.=), _Just)
@@ -306,15 +322,21 @@ addrsTouchedByTx
     :: (MonadDBRead m, WithLogger m)
     => Tx -> m (S.Set Address)
 addrsTouchedByTx tx = do
-    -- for each transaction, get its OutTx
-    -- and transactions from InTx
-    inTxs <- forM (_txInputs tx) $ DB.getTxOut >=> \case
-        -- TODO [CSM-153]: lookup mempool as well
-        Nothing    -> mempty <$ return () -- logError "Can't find input of transaction!"
-        Just txOut -> return . one $ toaOut txOut
+      -- for each transaction, get its OutTx
+      -- and transactions from InTx
+      inTxs <- forM (_txInputs tx) $ DB.getTxOut >=> \case
+      -- ^ inTxs :: NonEmpty [TxOut]
+          -- TODO [CSM-153]: lookup mempool as well
+          Nothing       -> return mempty
+          Just txOutAux -> return . one $ toaOut txOutAux
 
-    let relatedTxs = toList (_txOutputs tx) <> concat (toList inTxs)
-    return . S.fromList $ txOutAddress <$> relatedTxs
+      pure $ addressSetByTxs (_txOutputs tx) inTxs
+
+-- | Helper to filter addresses by a given tx from a list of txs 
+addressSetByTxs :: NonEmpty TxOut -> NonEmpty [TxOut] -> (S.Set Address)
+addressSetByTxs tx txs =
+    let txs' = (toList tx) <> (concat txs) in
+    S.fromList $ txOutAddress <$> txs'
 
 getBlockTxs
     :: forall ssc ctx m . ExplorerMode ctx m

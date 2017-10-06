@@ -121,6 +121,13 @@ translation =
     , genesisBlock:
         { gblNotFound: "ジェネシス・ブロックは見つかりませんでした"
         , gblNumberRedeemedAddresses: "還元済みアドレス"
+        , gblNumberNotRedeemedAddresses: "還元可能なアドレス数"
+        , gblNumberAddressesToRedeem: "還元アドレス数"
+        , gblRedeemedAmountTotal: "還元済み"
+        , gblNonRedeemedAmountTotal: "未還元数"
+        , gblFilterAll: "全て"
+        , gblFilterRedeemed: "還元済み"
+        , gblFilterNonRedeemed: "未還元"
         , gblAddressesNotFound: "そのアドレスは存在しません"
         , gblAddressesError: "アドレス読み込み中にエラーが発生しました."
         , gblAddressRedeemAmount: "還元される額"

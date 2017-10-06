@@ -32,6 +32,7 @@ import           Pos.Update               (BlockVersionData (..),
                                            UpdateData (..), UpdateVote (..),
                                            mkUpdateProposalWSign)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
+import           Pos.Util.CompileInfo     (HasCompileInfo)
 import           Pos.Wallet               (getSecretKeys)
 
 import           Command.Types            (ProposeUpdateParams (..),
@@ -47,6 +48,7 @@ vote
        , HasInfraConfiguration
        , HasUpdateConfiguration
        , HasNodeConfiguration
+       , HasCompileInfo
        )
     => SendActions AuxxMode
     -> Int
@@ -83,6 +85,7 @@ propose
        , HasInfraConfiguration
        , HasUpdateConfiguration
        , HasNodeConfiguration
+       , HasCompileInfo
        )
     => SendActions AuxxMode
     -> ProposeUpdateParams

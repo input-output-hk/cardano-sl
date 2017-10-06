@@ -2,6 +2,7 @@
 {-# LANGUAGE CPP                 #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TupleSections       #-}
 
 module Main
@@ -37,6 +38,8 @@ import           Pos.Ssc.SscAlgo           (SscAlgo (..))
 import           Pos.Types                 (Timestamp (Timestamp))
 import           Pos.Update                (updateTriggerWorker)
 import           Pos.Util                  (mconcatPair)
+import           Pos.Util.CompileInfo      (HasCompileInfo, retrieveCompileTimeInfo,
+                                            withCompileInfo)
 import           Pos.Util.UserSecret       (usVss)
 
 ----------------------------------------------------------------------------
@@ -52,7 +55,8 @@ main = do
 
 action :: ExplorerNodeArgs -> Production ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
-    withConfigurations conf $ do
+    withConfigurations conf $
+    withCompileInfo $(retrieveCompileTimeInfo) $ do
         let systemStart = gdStartTime genesisData
         logInfo $ sformat ("System start time is " % shown) systemStart
         t <- currentTime
@@ -82,7 +86,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
     conf = CLI.configurationOptions $ CLI.commonArgs cArgs
 
     runExplorerRealMode
-        :: HasConfigurations
+        :: (HasConfigurations,HasCompileInfo)
         => NodeResources SscGodTossing ExplorerProd
         -> (WorkerSpec ExplorerProd, OutSpecs)
         -> Production ()

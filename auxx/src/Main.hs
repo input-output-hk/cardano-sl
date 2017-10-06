@@ -18,6 +18,8 @@ import           Pos.Network.Types     (NetworkConfig (..), Topology (..),
                                         topologyDequeuePolicy, topologyEnqueuePolicy,
                                         topologyFailurePolicy)
 import           Pos.Ssc.SscAlgo       (SscAlgo (GodTossingAlgo))
+import           Pos.Util.CompileInfo  (HasCompileInfo, retrieveCompileTimeInfo,
+                                        withCompileInfo)
 import           Pos.Util.UserSecret   (usVss)
 import           Pos.WorkMode          (RealMode)
 
@@ -44,7 +46,7 @@ correctNodeParams AuxxOptions {..} np =
         , ncTcpAddr = TCP.Unaddressable
         }
 
-action :: AuxxOptions -> Production ()
+action :: HasCompileInfo => AuxxOptions -> Production ()
 action opts@AuxxOptions {..} = withConfigurations conf $ do
     CLI.printFlags
     logInfo $ sformat ("System start time is "%shown) $ gdStartTime genesisData
@@ -71,4 +73,6 @@ action opts@AuxxOptions {..} = withConfigurations conf $ do
         lift $ runReaderT auxxAction auxxContext
 
 main :: IO ()
-main = getAuxxOptions >>= runProduction . action
+main =
+    withCompileInfo $(retrieveCompileTimeInfo) $
+    getAuxxOptions >>= runProduction . action

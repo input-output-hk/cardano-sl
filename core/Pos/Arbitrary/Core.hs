@@ -40,12 +40,14 @@ import           Pos.Binary.Core                   ()
 import           Pos.Binary.Crypto                 ()
 import           Pos.Core.Address                  (addressHash, makeAddress)
 import           Pos.Core.Coin                     (coinToInteger, divCoin, unsafeSubCoin)
-import           Pos.Core.Configuration.Protocol   (HasProtocolConstants, epochSlots)
+import           Pos.Core.Configuration            (HasGenesisBlockVersionData,
+                                                    HasProtocolConstants, epochSlots)
 import           Pos.Core.Constants                (sharedSeedLength)
 import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
 import qualified Pos.Core.Slotting                 as Types
-import           Pos.Core.Types                    (BlockVersionData (..), Timestamp (..))
+import           Pos.Core.Types                    (BlockVersionData (..), Timestamp (..),
+                                                    maxCoinVal)
 import qualified Pos.Core.Types                    as Types
 import           Pos.Core.Vss                      (VssCertificate, mkVssCertificate,
                                                     mkVssCertificatesMapLossy)
@@ -492,6 +494,21 @@ instance Arbitrary Fee.TxFeePolicy where
 ----------------------------------------------------------------------------
 -- Arbitrary types from 'Pos.Core.Genesis'
 ----------------------------------------------------------------------------
+
+instance HasGenesisBlockVersionData => Arbitrary G.TestnetBalanceOptions where
+    arbitrary = do
+        tboPoors <- choose (0, 100)
+        tboRichmen <- choose (1, 12)
+        tboTotalBalance <- choose (1000, maxCoinVal)
+        tboRichmenShare <- choose (0.55, 0.996)
+        let tboUseHDAddresses = False
+        return G.TestnetBalanceOptions {..}
+
+instance Arbitrary G.FakeAvvmOptions where
+    arbitrary = do
+        faoCount <- choose (0, 10)
+        faoOneBalance <- choose (5, 30)
+        return G.FakeAvvmOptions {..}
 
 instance HasProtocolConstants => Arbitrary G.GenesisDelegation where
     arbitrary =

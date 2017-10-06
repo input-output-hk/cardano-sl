@@ -130,9 +130,9 @@ mkCTx
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
     -> CPtxCondition      -- ^ State of resubmission
-    -> [CWAddressMeta]    -- ^ Addresses of wallet
+    -> Set (CId Addr)     -- ^ Addresses of wallet
     -> Either Text CTx
-mkCTx diff THEntry {..} meta pc wAddrMetas = do
+mkCTx diff THEntry {..} meta pc wAddrsSet = do
     let isOurTxAddress = flip S.member wAddrsSet . addressToCId . txOutAddress
 
         ownInputs = filter isOurTxAddress inputs
@@ -166,7 +166,6 @@ mkCTx diff THEntry {..} meta pc wAddrMetas = do
     ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
     ctMeta = meta
     ctCondition = pc
-    wAddrsSet = S.fromList $ map cwamId wAddrMetas
 
 addrMetaToAccount :: CWAddressMeta -> AccountId
 addrMetaToAccount CWAddressMeta{..} = AccountId

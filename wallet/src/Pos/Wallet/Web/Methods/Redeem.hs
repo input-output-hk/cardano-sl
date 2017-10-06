@@ -36,7 +36,7 @@ import           Pos.Wallet.Web.Mode            (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending         (mkPendingTx)
 import           Pos.Wallet.Web.State           (AddressLookupMode (Ever))
 import           Pos.Wallet.Web.Tracking        (fixingCachedAccModifier)
-import           Pos.Wallet.Web.Util            (decodeCTypeOrFail, getWalletAddrMetas)
+import           Pos.Wallet.Web.Util            (decodeCTypeOrFail, getWalletAddrsSet)
 
 
 redeemAda
@@ -109,5 +109,5 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
     -- add redemption transaction to the history of new wallet
     let cWalId = aiWId accId
     addHistoryTx cWalId th
-    cWalAddrMetas <- getWalletAddrMetas Ever cWalId
-    fst <$> constructCTx cWalId cWalAddrMetas th
+    cWalAddrs <- getWalletAddrsSet Ever cWalId
+    fst <$> constructCTx cWalId cWalAddrs th

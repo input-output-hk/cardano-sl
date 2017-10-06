@@ -7,12 +7,14 @@ module Pos.Wallet.Web.Util
     , getAccountAddrsOrThrow
     , getWalletAddrMetas
     , getWalletAddrs
+    , getWalletAddrsSet
     , decodeCTypeOrFail
     , getWalletAssuredDepth
     ) where
 
 import           Universum
 
+import qualified Data.Set                   as S
 import           Formatting                 (build, sformat, (%))
 
 import           Pos.Core                   (BlockCount)
@@ -54,6 +56,12 @@ getWalletAddrs
     :: (WebWalletModeDB ctx m, MonadThrow m)
     => AddressLookupMode -> CId Wal -> m [CId Addr]
 getWalletAddrs = (cwamId <<$>>) ... getWalletAddrMetas
+
+getWalletAddrsSet
+    :: (WebWalletModeDB ctx m, MonadThrow m)
+    => AddressLookupMode -> CId Wal -> m (Set (CId Addr))
+getWalletAddrsSet lookupMode cWalId =
+    S.fromList . map cwamId <$> getWalletAddrMetas lookupMode cWalId
 
 decodeCTypeOrFail :: (MonadThrow m, FromCType c) => c -> m (OriginType c)
 decodeCTypeOrFail = either (throwM . DecodeError) pure . decodeCType

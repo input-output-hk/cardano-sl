@@ -35,7 +35,7 @@ import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), addOnlyNe
                                              getHistoryCache, getPendingTx, getTxMeta,
                                              getWalletPendingTxs, setWalletTxMeta)
 import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
-                                             getWalletAccountIds, getWalletAddrMetas,
+                                             getWalletAccountIds, getWalletAddrsSet,
                                              getWalletAddrs)
 
 
@@ -59,13 +59,13 @@ getFullWalletHistory cWalId = do
     logTxHistory "Mempool" localHistory
 
     fullHistory <- addRecentPtxHistory cWalId $ localHistory `Map.union` blockHistory
-    walAddrMetas <- getWalletAddrMetas Ever cWalId
+    walAddrs    <- getWalletAddrsSet Ever cWalId
     -- TODO when we introduce some mechanism to react on new tx in mempool,
     -- we will set timestamp tx as current time and remove call of @addHistoryTxs@
     -- We call @addHistoryTxs@ only for mempool transactions because for
     -- transactions from block and resubmitting timestamp is already known.
     addHistoryTxs cWalId localHistory
-    cHistory <- forM fullHistory (constructCTx cWalId walAddrMetas)
+    cHistory <- forM fullHistory (constructCTx cWalId walAddrs)
     pure (cHistory, fromIntegral $ Map.size cHistory)
 
 getHistory
@@ -150,17 +150,17 @@ addHistoryTxs cWalId historyEntries = do
 constructCTx
     :: MonadWalletWebMode m
     => CId Wal
-    -> [CWAddressMeta]
+    -> Set (CId Addr)
     -> TxHistoryEntry
     -> m (CTx, POSIXTime)
-constructCTx cWalId walAddrMetas wtx@THEntry{..} = do
+constructCTx cWalId walAddrsSet wtx@THEntry{..} = do
     let cId = encodeCType _thTxId
     diff <- maybe localChainDifficulty pure =<< networkChainDifficulty
     meta <- maybe (CTxMeta <$> liftIO getPOSIXTime) -- It's impossible case but just in case
             pure =<< getTxMeta cWalId cId
     ptxCond <- encodeCType . fmap _ptxCond <$> getPendingTx cWalId _thTxId
     either (throwM . InternalError) (pure . (, ctmDate meta)) $
-        mkCTx diff wtx meta ptxCond walAddrMetas
+        mkCTx diff wtx meta ptxCond walAddrsSet
 
 updateTransaction :: MonadWalletWebMode m => AccountId -> CTxId -> CTxMeta -> m ()
 updateTransaction accId txId txMeta = do

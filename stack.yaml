@@ -117,6 +117,8 @@ extra-deps:
 - systemd-1.1.2
 # ekg-statsd version without the unnecessary diffing optimisation
 - ekg-statsd-0.2.2.0
+# https://github.com/fpco/lts-haskell/issues/70
+- fgl-5.5.3.1
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

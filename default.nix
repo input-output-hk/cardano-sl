@@ -69,12 +69,8 @@ let
       # DEVOPS-393: https://github.com/haskell-crypto/cryptonite/issues/193
       cryptonite = appendPatch (appendConfigureFlag super.cryptonite "--ghc-option=-optl-pthread") ./pkgs/cryptonite-segfault-blake.patch;
 
-      # Darwin fixes upstreamed in nixpkgs commit 71bebd52547f4486816fd320bb3dc6314f139e67
-      hinotify = if pkgs.stdenv.isDarwin then self.hfsevents else super.hinotify;
+      # Due to https://github.com/input-output-hk/stack2nix/issues/56
       hfsevents = self.callPackage ./pkgs/hfsevents.nix { inherit (pkgs.darwin.apple_sdk.frameworks) Cocoa CoreServices; };
-      fsnotify = if pkgs.stdenv.isDarwin
-        then addBuildDepend (dontCheck super.fsnotify) pkgs.darwin.apple_sdk.frameworks.Cocoa
-        else dontCheck super.fsnotify;
 
       mkDerivation = args: super.mkDerivation (args // {
         enableLibraryProfiling = enableProfiling;

@@ -216,7 +216,7 @@ mainnet_base: &mainnet_base
               204779e68379f19ad88c3599c22015988febb4c0258f100a61346ce1: 1
             vssCerts: {}
             nonAvvmBalances: {}
-        blockVersionData:
+        blockVersionData: &mainnet_base_blockVersionData
           scriptVersion:     0
           slotDuration:      20000
           maxBlockSize:      2000000
@@ -291,7 +291,7 @@ mainnet_base: &mainnet_base
     mpcSendInterval: 100 # must be less than (2 * k * slotDuration - networkDiameter)
     mdNoCommitmentsEpochThreshold: 3
 
-  node:
+  node: &mainnet_base_node
     # FIXME avieth
     # check which of these are not used and remove them.
     networkDiameter: 18
@@ -14942,6 +14942,52 @@ mainnet_launch_base:
           <<: *mainnet_base_protocolConstants
           protocolMagic: 764824073 #mainnet protocolMagic
         avvmDistr: *mainnet_avvmDistr
+
+##############################################################################
+##                                                                          ##
+##   Devnet config                                                          ##
+##                                                                          ##
+##############################################################################
+
+devnet: &devnet
+  <<: *mainnet_base
+  core:
+    <<: *mainnet_base_core
+    genesis:
+      <<: *mainnet_base_genesis
+      spec:
+        <<: *mainnet_base_spec
+        blockVersionData:
+          <<: *mainnet_base_blockVersionData
+          slotDuration:      20000 # set to desired value
+        protocolConstants:
+          <<: *mainnet_base_protocolConstants
+          protocolMagic: 170987650
+          k: 6 # set to desired value
+        avvmDistr: *mainnet_avvmDistr
+        initializer:
+          testnetInitializer:
+            testBalance:
+              poors:        200 # should be enough for developers
+              richmen:      3   # this is the number of core nodes,
+                                # set to desired value
+              richmenShare: 0.96
+              totalBalance: 13887504355000000
+              # We need to use HD addresses, because Daedalus can import
+              # only them and some developers may want to test Daedalus.
+              useHDAddresses: True
+            fakeAvvmBalance:
+              count: 100
+              oneBalance: 15000000
+            distribution:
+              testnetRichmenStakeDistr: []
+            seed: 0
+
+  node:
+    <<: *mainnet_base_node
+    networkDiameter: 18 # should be slightly less than slot duration
+    mdNoBlocksSlotThreshold: 5 # should be less than 2 * k
+    recoveryHeadersMessage: 200 # should be greater than k
 
 ##############################################################################
 ##                                                                          ##

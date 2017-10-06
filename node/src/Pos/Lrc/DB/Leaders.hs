@@ -8,10 +8,12 @@ module Pos.Lrc.DB.Leaders
 
        -- * Operations
        , putLeadersForEpoch
-       , putLeader
 
        -- * Initialization
        , prepareLrcLeaders
+
+       -- * Helpers
+       , hasLeaders
        ) where
 
 import           Universum
@@ -24,7 +26,7 @@ import           Pos.Core              (EpochIndex, HasConfiguration,
                                         SlotLeaders, StakeholderId, flattenSlotId,
                                         unsafeMkLocalSlotIndex)
 import           Pos.DB.Class          (MonadDB, MonadDBRead)
-import           Pos.Lrc.DB.Common     (dbHasKey, getBi, putBatch, putBatchBi, putBi,
+import           Pos.Lrc.DB.Common     (dbHasKey, getBi, putBatch, putBatchBi,
                                         toRocksOps)
 
 ----------------------------------------------------------------------------
@@ -51,9 +53,6 @@ putLeadersForEpoch epoch leaders = do
         opsSeparately = toRocksOps $ putLeadersForEpochSeparatelyOps epoch leaders
     putBatch $ opsAllAtOnce <> opsSeparately
 
-putLeader :: MonadDB m => SlotId -> StakeholderId -> m ()
-putLeader slot = putBi (leaderKey slot)
-
 ----------------------------------------------------------------------------
 -- Initialization
 ----------------------------------------------------------------------------
@@ -63,10 +62,10 @@ prepareLrcLeaders ::
        , HasConfiguration
        )
     => m ()
-prepareLrcLeaders = do
+prepareLrcLeaders =
     -- Initialization flag was added with CSE-240.
     unlessM isLrcDbInitialized $ do
-        hasLeadersForEpoch0 <- isJust <$> getLeadersForEpoch 0
+        hasLeadersForEpoch0 <- hasLeaders 0
         if not hasLeadersForEpoch0 then
             -- The node is not initialized at all. Only need to put leaders
             -- for the first epoch.
@@ -77,7 +76,7 @@ prepareLrcLeaders = do
             initLeaders 0
   where
     initLeaders :: MonadDB m => EpochIndex -> m ()
-    initLeaders i = do
+    initLeaders i =
         whenNothingM_ (getLeader $ SlotId i minBound) $ do
             maybeLeaders <- getLeadersForEpoch i
             case maybeLeaders of
@@ -87,10 +86,7 @@ prepareLrcLeaders = do
                 Nothing -> pure ()
 
 isLrcDbInitialized :: MonadDB m => m Bool
-isLrcDbInitialized = dbHasKey lrcDbInitFlag
-
-putInitFlag :: MonadDB m => m ()
-putInitFlag = putBi lrcDbInitFlag ()
+isLrcDbInitialized = dbHasKey lrcDbLeadersInitFlag
 
 ----------------------------------------------------------------------------
 -- Keys
@@ -102,12 +98,15 @@ leadersForEpochKey = mappend "l/" . serialize'
 leaderKey :: HasProtocolConstants => SlotId -> ByteString
 leaderKey = mappend "ls/" . serialize' . flattenSlotId
 
-lrcDbInitFlag :: ByteString
-lrcDbInitFlag = "linit/"
+lrcDbLeadersInitFlag :: ByteString
+lrcDbLeadersInitFlag = "linit/"
 
 ----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
+
+hasLeaders :: MonadDBRead m => EpochIndex -> m Bool
+hasLeaders = dbHasKey . leadersForEpochKey
 
 putLeadersForEpochAllAtOnceOps
     :: EpochIndex

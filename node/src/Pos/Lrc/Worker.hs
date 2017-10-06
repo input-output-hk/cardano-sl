@@ -38,7 +38,7 @@ import           Pos.Lrc.Consumers        (allLrcConsumers)
 import           Pos.Lrc.Context          (LrcContext (lcLrcSync), LrcSyncData (..))
 import           Pos.Lrc.DB               (IssuersStakes, getSeed, putEpoch,
                                            putIssuersStakes, putSeed)
-import qualified Pos.Lrc.DB               as LrcDB (getLeader, getLeadersForEpoch,
+import qualified Pos.Lrc.DB               as LrcDB (getLeader, hasLeaders,
                                                     putLeadersForEpoch)
 import           Pos.Lrc.Error            (LrcError (..))
 import           Pos.Lrc.Fts              (followTheSatoshiM)
@@ -84,7 +84,7 @@ lrcSingleShot epoch = do
             logWarningWaitLinear 5 "determining whether LRC is needed" $ do
                 expectedRichmenComp <-
                     filterM (flip lcIfNeedCompute epoch) consumers
-                needComputeLeaders <- isNothing <$> LrcDB.getLeadersForEpoch epoch
+                needComputeLeaders <- not <$> LrcDB.hasLeaders epoch
                 let needComputeRichmen = not . null $ expectedRichmenComp
                 when needComputeLeaders $ logInfo "Need to compute leaders"
                 when needComputeRichmen $ logInfo "Need to compute richmen"

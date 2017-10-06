@@ -78,6 +78,7 @@ module Pos.Wallet.Web.State.State
 
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
                                                UpdateEvent)
+import qualified Data.Map                     as Map
 import           Ether.Internal               (HasLens (..))
 import           Mockable                     (MonadMockable)
 import           Universum
@@ -86,6 +87,7 @@ import           Pos.Client.Txp.History       (TxHistoryEntry)
 import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.Txp                      (TxId, Utxo)
 import           Pos.Types                    (HeaderHash)
+import           Pos.Util.Servant             (encodeCType)
 import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CId,
                                                CProfile, CTxId, CTxMeta, CUpdateInfo,
                                                CWAddressMeta, CWalletMeta, PassPhraseLU,
@@ -173,7 +175,7 @@ getUpdates = queryDisk A.GetUpdates
 getNextUpdate :: WebWalletModeDB ctx m => m (Maybe CUpdateInfo)
 getNextUpdate = queryDisk A.GetNextUpdate
 
-getHistoryCache :: WebWalletModeDB ctx m => CId Wal -> m (Maybe [TxHistoryEntry])
+getHistoryCache :: WebWalletModeDB ctx m => CId Wal -> m (Maybe (Map TxId TxHistoryEntry))
 getHistoryCache = queryDisk . A.GetHistoryCache
 
 getCustomAddresses :: WebWalletModeDB ctx m => CustomAddressType -> m [CId Addr]
@@ -230,8 +232,10 @@ setProfile = updateDisk . A.SetProfile
 setWalletTxMeta :: WebWalletModeDB ctx m => CId Wal -> CTxId -> CTxMeta -> m ()
 setWalletTxMeta cWalId cTxId = updateDisk . A.SetWalletTxMeta cWalId cTxId
 
-addOnlyNewTxMetas :: WebWalletModeDB ctx m => CId Wal -> [(CTxId, CTxMeta)] -> m ()
-addOnlyNewTxMetas = updateDisk ... A.AddOnlyNewTxMetas
+addOnlyNewTxMetas :: WebWalletModeDB ctx m => CId Wal -> Map TxId CTxMeta -> m ()
+addOnlyNewTxMetas cWalId cTxMetas = updateDisk (A.AddOnlyNewTxMetas cWalId cTxMetaList)
+    where
+      cTxMetaList = [ (encodeCType txId, cTxMeta) | (txId, cTxMeta) <- Map.toList cTxMetas ]
 
 setWalletTxHistory :: WebWalletModeDB ctx m => CId Wal -> [(CTxId, CTxMeta)] -> m ()
 setWalletTxHistory cWalId = updateDisk . A.SetWalletTxHistory cWalId
@@ -280,8 +284,8 @@ removeNextUpdate = updateDisk A.RemoveNextUpdate
 testReset :: WebWalletModeDB ctx m => m ()
 testReset = updateDisk A.TestReset
 
-updateHistoryCache :: WebWalletModeDB ctx m => CId Wal -> [TxHistoryEntry] -> m ()
-updateHistoryCache cWalId = updateDisk . A.UpdateHistoryCache cWalId
+updateHistoryCache :: WebWalletModeDB ctx m => CId Wal -> Map TxId TxHistoryEntry -> m ()
+updateHistoryCache cWalId = updateDisk . A.UpdateHistoryCache2 cWalId
 
 setPtxCondition
     :: WebWalletModeDB ctx m

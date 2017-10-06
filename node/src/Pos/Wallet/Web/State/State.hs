@@ -37,6 +37,7 @@ module Pos.Wallet.Web.State.State
        , isCustomAddress
        , getWalletUtxo
        , getWalletBalancesAndUtxo
+       , updateWalletBalancesAndUtxo
        , getPendingTxs
        , getWalletPendingTxs
        , getPendingTx
@@ -87,7 +88,7 @@ import           Universum
 
 import           Pos.Client.Txp.History       (TxHistoryEntry)
 import           Pos.Core.Configuration       (HasConfiguration)
-import           Pos.Txp                      (TxId, Utxo)
+import           Pos.Txp                      (TxId, Utxo, UtxoModifier)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Util.Servant             (encodeCType)
 import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CId,
@@ -248,6 +249,9 @@ getWalletUtxo = queryDisk A.GetWalletUtxo
 
 getWalletBalancesAndUtxo :: WebWalletModeDB ctx m => m (WalletBalances, Utxo)
 getWalletBalancesAndUtxo = queryDisk A.GetWalletBalancesAndUtxo
+
+updateWalletBalancesAndUtxo :: WebWalletModeDB ctx m => UtxoModifier -> m ()
+updateWalletBalancesAndUtxo = updateDisk . A.UpdateWalletBalancesAndUtxo
 
 setWalletUtxo :: WebWalletModeDB ctx m => Utxo -> m ()
 setWalletUtxo = updateDisk . A.SetWalletUtxo

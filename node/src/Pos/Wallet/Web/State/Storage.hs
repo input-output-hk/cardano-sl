@@ -50,6 +50,7 @@ module Pos.Wallet.Web.State.Storage
        , getWalletTxHistory
        , getWalletUtxo
        , getWalletBalancesAndUtxo
+       , updateWalletBalancesAndUtxo
        , setWalletUtxo
        , addOnlyNewTxMeta
        , setWalletTxMeta
@@ -90,9 +91,11 @@ import           Pos.Client.Txp.History         (TxHistoryEntry, txHistoryListTo
 import           Pos.Core.Configuration         (HasConfiguration)
 import           Pos.Core.Types                 (SlotId, Timestamp)
 import           Pos.Txp                        (AddrCoinMap, TxAux, TxId, Utxo,
+                                                 UtxoModifier, applyUtxoModToAddrCoinMap,
                                                  utxoToAddressCoinMap)
 import           Pos.Types                      (HeaderHash)
 import           Pos.Util.BackupPhrase          (BackupPhrase)
+import qualified Pos.Util.Modifier              as MM
 import           Pos.Wallet.Web.ClientTypes     (AccountId, Addr, CAccountMeta, CCoin,
                                                  CHash, CId, CProfile, CTxId, CTxMeta,
                                                  CUpdateInfo, CWAddressMeta (..),
@@ -274,6 +277,12 @@ getWalletUtxo = view wsUtxo
 
 getWalletBalancesAndUtxo :: Query (WalletBalances, Utxo)
 getWalletBalancesAndUtxo = (,) <$> view wsBalances <*> view wsUtxo
+
+updateWalletBalancesAndUtxo :: UtxoModifier -> Update ()
+updateWalletBalancesAndUtxo modifier = do
+    balAndUtxo <- (,) <$> use wsBalances <*> use wsUtxo
+    wsBalances .= applyUtxoModToAddrCoinMap modifier balAndUtxo
+    wsUtxo %= MM.modifyMap modifier
 
 setWalletUtxo :: Utxo -> Update ()
 setWalletUtxo utxo = do

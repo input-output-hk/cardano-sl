@@ -6,6 +6,7 @@ module Pos.Txp.Toil.Utxo.Util
        , getTotalCoinsInUtxo
        , utxoToStakes
        , utxoToAddressCoinPairs
+       , utxoToAddressCoinMap
        ) where
 
 import qualified Data.HashMap.Strict as HM
@@ -44,9 +45,12 @@ utxoToAddressCoinPairs utxo = combineWith unsafeAddCoin txOuts
 
     txOuts :: [(Address, Coin)]
     txOuts = map processTxOutAux utxoElems
-      where
-        processTxOutAux :: TxOutAux -> (Address, Coin)
-        processTxOutAux txOutAux = view _TxOut . toaOut $ txOutAux
 
-        utxoElems :: [TxOutAux]
-        utxoElems = M.elems utxo
+    utxoElems :: [TxOutAux]
+    utxoElems = M.elems utxo
+
+    processTxOutAux :: TxOutAux -> (Address, Coin)
+    processTxOutAux = view _TxOut . toaOut
+
+utxoToAddressCoinMap :: Utxo -> HashMap Address Coin
+utxoToAddressCoinMap = HM.fromList . utxoToAddressCoinPairs

@@ -21,7 +21,9 @@ module Pos.Txp.Toil.Types
        , svTotal
        , UndoMap
        , UtxoModifier
-       , fromUtxo
+       , AddrCoinMap
+       , utxoToModifier
+       , applyUtxoModToAddrCoinMap
        , GenericToilModifier (..)
        , ToilModifier
        , tmUtxo
@@ -33,19 +35,20 @@ module Pos.Txp.Toil.Types
 
 import           Universum
 
-import           Control.Lens               (makeLenses, makePrisms, makeWrapped)
-import           Data.Default               (Default, def)
-import qualified Data.HashMap.Strict        as HM
-import qualified Data.Map                   as M (toList)
-import           Data.Text.Lazy.Builder     (Builder)
-import           Formatting                 (Format, later)
-import           Serokell.Util.Text         (mapBuilderJson)
+import           Control.Lens           (makeLenses, makePrisms, makeWrapped)
+import           Data.Default           (Default, def)
+import qualified Data.HashMap.Strict    as HM
+import qualified Data.Map               as M (lookup, member, toList)
+import           Data.Text.Lazy.Builder (Builder)
+import           Formatting             (Format, later)
+import           Serokell.Util.Text     (mapBuilderJson)
 
-import           Pos.Core                   (Coin, GenesisWStakeholders, StakeholderId,
-                                             StakesMap, unsafeAddCoin)
-import           Pos.Txp.Core               (TxAux, TxId, TxIn, TxOutAux (..), TxUndo,
-                                             txOutStake)
-import qualified Pos.Util.Modifier          as MM
+import           Pos.Core               (Address, Coin, GenesisWStakeholders,
+                                         StakeholderId, StakesMap, unsafeAddCoin,
+                                         unsafeSubCoin)
+import           Pos.Txp.Core           (TxAux, TxId, TxIn, TxOutAux (..), TxUndo,
+                                         txOutStake, _TxOut)
+import qualified Pos.Util.Modifier      as MM
 
 ----------------------------------------------------------------------------
 -- UTXO
@@ -124,17 +127,42 @@ instance Default MemPool where
         }
 
 ----------------------------------------------------------------------------
--- ToilModifier
+-- UtxoModifier, UndoMap and AddrCoinsMap
 ----------------------------------------------------------------------------
 
 type UtxoModifier = MM.MapModifier TxIn TxOutAux
 type UndoMap = HashMap TxId TxUndo
+type AddrCoinMap = HashMap Address Coin
 
-fromUtxo :: Utxo -> UtxoModifier
-fromUtxo = foldr (uncurry MM.insert) mempty . M.toList
+utxoToModifier :: Utxo -> UtxoModifier
+utxoToModifier = foldr (uncurry MM.insert) mempty . M.toList
+
+-- | Takes utxo modifier and address-coin map with correspodning utxo
+-- and applies utxo modifier to map.
+-- Works for O(size of modifier * log (size of map)).
+applyUtxoModToAddrCoinMap
+    :: UtxoModifier
+    -> (AddrCoinMap, Utxo)
+    -> AddrCoinMap
+applyUtxoModToAddrCoinMap modifier (addrCoins, utxo) =
+    let outToPair = view _TxOut . toaOut in
+    let resolvedAddrs =
+          mapMaybe (fmap outToPair . flip M.lookup utxo)
+                   (MM.deletions modifier) in
+    let subAddress r c = if r < c then Just (c `unsafeSubCoin` r) else Nothing in
+    let updateHM (ad, coins) = HM.update (subAddress coins) ad in
+    let addrCoinsRest = foldr updateHM addrCoins resolvedAddrs in
+    -- We remove such TxIn which are already in wallet utxo.
+    let insertionsNotInUtxo = filter (not . flip M.member utxo . fst) (MM.insertions modifier) in
+    let modAddrCoins = map (outToPair . snd) insertionsNotInUtxo in
+    foldr (uncurry $ HM.insertWith unsafeAddCoin) addrCoinsRest modAddrCoins
 
 instance Default UndoMap where
     def = mempty
+
+----------------------------------------------------------------------------
+-- ToilModifier
+----------------------------------------------------------------------------
 
 data GenericToilModifier extension = ToilModifier
     { _tmUtxo    :: !UtxoModifier

@@ -90,17 +90,28 @@ getHistory mCWalId mAccountId mAddrId = do
             accIds' <- getWalletAccountIds cWalId'
             pure (cWalId', accIds')
         (Nothing, Just accId)   -> pure (aiWId accId, [accId])
-    accAddrs <- map cwamId <$> concatMapM (getAccountAddrsOrThrow Ever) accIds
-    addrs <- case mAddrId of
-        Nothing -> pure accAddrs
-        Just addr ->
-            if addr `elem` accAddrs then pure [addr] else throwM errorBadAddress
-    first (filter (fits $ S.fromList addrs)) <$> getFullWalletHistory cWalId
+    allAccIds <- getWalletAccountIds cWalId
+
+    let getAccAddrs = map cwamId <$> concatMapM (getAccountAddrsOrThrow Ever) accIds
+        noAccFiltering = accIds == allAccIds
+
+    filterFunction <- case mAddrId of
+        Nothing -> if noAccFiltering
+            then pure identity
+            else getAccAddrs >>= pure . filterByAddrs
+        Just addr -> do
+            accAddrs <- getAccAddrs
+            if addr `elem` accAddrs
+                then pure $ filterByAddrs [addr]
+                else throwM errorBadAddress
+
+    first filterFunction <$> getFullWalletHistory cWalId
   where
     fits :: S.Set (CId Addr) -> CTx -> Bool
     fits addrs CTx{..} =
         let inpsNOuts = map fst (ctInputs ++ ctOutputs)
         in  any (`S.member` addrs) inpsNOuts
+    filterByAddrs = filter . fits . S.fromList
     errorSpecifySomething = RequestError $
         "Please specify either walletId or accountId"
     errorDontSpecifyBoth = RequestError $

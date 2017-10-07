@@ -18,6 +18,7 @@ import           Pos.AllSecrets              (HasAllSecrets (..), unInvSecretsMa
 import           Pos.Block.Core              (mkGenesisBlock)
 import           Pos.Block.Logic             (applyBlocksUnsafe, createMainBlockInternal,
                                               normalizeMempool, verifyBlocksPrefix)
+import           Pos.Block.Slog              (ShouldCallBListener (..))
 import           Pos.Block.Types             (Blund)
 import           Pos.Core                    (EpochOrSlot (..), SlotId (..), addressHash,
                                               epochIndexL, getEpochOrSlot, getSlotIndex)
@@ -114,6 +115,6 @@ genBlock eos = do
             Right (undos, pollModifier) -> do
                 let undo = undos ^. _Wrapped . _neHead
                     blund = (block, undo)
-                applyBlocksUnsafe (one blund) (Just pollModifier)
+                applyBlocksUnsafe (ShouldCallBListener True) (one blund) (Just pollModifier)
                 normalizeMempool
                 pure blund

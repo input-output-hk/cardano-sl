@@ -38,7 +38,7 @@ import           Control.Lens                     (to)
 import           Control.Monad.Catch              (handleAll)
 import qualified Data.DList                       as DL
 import qualified Data.HashMap.Strict              as HM
-import           Data.List                        (deleteBy, (!!))
+import           Data.List                        ((!!))
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as M
 import           Ether.Internal                   (HasLens (..))
@@ -50,7 +50,8 @@ import           System.Wlog                      (HasLoggerName, WithLogger, lo
 import           Pos.Block.Core                   (BlockHeader, getBlockHeader,
                                                    mainBlockTxPayload)
 import           Pos.Block.Types                  (Blund, undoTx)
-import           Pos.Client.Txp.History           (TxHistoryEntry (..))
+import           Pos.Client.Txp.History           (TxHistoryEntry (..),
+                                                   txHistoryListToMap)
 import           Pos.Core                         (Address (..), BlockHeaderStub,
                                                    ChainDifficulty, HasConfiguration,
                                                    HasDifficulty (..), HeaderHash,
@@ -98,7 +99,7 @@ import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..), CachedCAcc
                                                    deleteAndInsertIMM, deleteAndInsertMM,
                                                    deleteAndInsertVM, indexedDeletions,
                                                    sortedInsertions)
-import           Pos.Wallet.Web.Util              (getWalletAddrMetas, sortWalletThByTime)
+import           Pos.Wallet.Web.Util              (getWalletAddrMetas)
 
 
 type BlockLockMode ssc ctx m =
@@ -444,22 +445,28 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     mapM_ (WS.addCustomAddress UsedAddr . fst) (MM.insertions camUsed)
     mapM_ (WS.addCustomAddress ChangeAddr . fst) (MM.insertions camChange)
     WS.getWalletUtxo >>= WS.setWalletUtxo . MM.modifyMap camUtxo
-    oldCachedHist <- fromMaybe [] <$> WS.getHistoryCache wid
-    let cMetas = map (bimap encodeCType (CTxMeta . timestampToPosix)) $
-                 mapMaybe (\THEntry {..} -> (_thTxId, ) <$> _thTimestamp) $
-                 DL.toList camAddedHistory
-    WS.addOnlyNewTxMetas wid cMetas
-    sortedAddedHistory <-
-        getNewestFirst <$> sortWalletThByTime wid (DL.toList camAddedHistory)
-    WS.updateHistoryCache wid $ sortedAddedHistory <> oldCachedHist
+    addTxMetas
+    modifyTxHistory
     -- resubmitting worker can change ptx in db nonatomically, but
     -- tracker has priority over the resubmiter, thus do not use CAS here
     forM_ camAddedPtxCandidates $ \(txid, ptxBlkInfo) ->
         WS.setPtxCondition wid txid (PtxInNewestBlocks ptxBlkInfo)
     WS.setWalletSyncTip wid newTip
+  where
+    camAddedHistory' = DL.toList camAddedHistory
+    modifyTxHistory = unless (null camAddedHistory') $
+        WS.updateHistoryCache wid (WS.InsertToHistoryCache $ txHistoryListToMap camAddedHistory')
+    addTxMetas = do
+        let cMetas =
+              M.fromList $
+              map (second (CTxMeta . timestampToPosix)) $
+              mapMaybe (\THEntry {..} -> (_thTxId, ) <$> _thTimestamp) $
+              camAddedHistory'
+        WS.addOnlyNewTxMetas wid cMetas
+
 
 rollbackModifierFromWallet
-    :: (WebWalletModeDB ctx m, MonadSlots ctx m)
+    :: (WebWalletModeDB ctx m, MonadSlots ctx m, WithLogger m)
     => CId Wal
     -> HeaderHash
     -> CAccModifier
@@ -474,21 +481,13 @@ rollbackModifierFromWallet wid newTip CAccModifier{..} = do
         curSlot <- getCurrentSlotInaccurate
         WS.ptxUpdateMeta wid txid (WS.PtxResetSubmitTiming curSlot)
         WS.setPtxCondition wid txid (PtxApplying poolInfo)
-    WS.getHistoryCache wid >>= \case
-        Nothing -> pure ()
-        Just oldCachedHist -> do
-            sortedDeletedHistory <-
-                getNewestFirst <$> sortWalletThByTime wid (DL.toList camDeletedHistory)
-            WS.updateHistoryCache wid $
-                removeFromHead sortedDeletedHistory oldCachedHist
-            WS.removeWalletTxMetas wid (map (encodeCType . _thTxId) sortedDeletedHistory)
+    modifyTxHistory
+    WS.removeWalletTxMetas wid (map encodeCType $ M.keys camDeletedHistory')
     WS.setWalletSyncTip wid newTip
   where
-    removeFromHead :: [TxHistoryEntry] -> [TxHistoryEntry] -> [TxHistoryEntry]
-    removeFromHead [] ths = ths
-    removeFromHead _ [] = []
-    removeFromHead (dTh : dThes) thes =
-        removeFromHead dThes $! deleteBy ((==) `on` _thTxId) dTh thes
+    camDeletedHistory' = txHistoryListToMap (DL.toList camDeletedHistory)
+    modifyTxHistory = unless (M.null camDeletedHistory') $
+        WS.updateHistoryCache wid $ WS.RemoveFromHistoryCache camDeletedHistory'
 
 evalChange
     :: [CWAddressMeta] -- ^ All adresses

@@ -21,9 +21,9 @@ import           System.Wlog                  (logDebug)
 import           Pos.Aeson.ClientTypes        ()
 import           Pos.Aeson.WalletBackup       ()
 import           Pos.Constants                (isDevelopment)
+import           Pos.Core.Configuration       (genesisHdwSecretKeys)
 import           Pos.Crypto                   (EncryptedSecretKey, PassPhrase,
                                                emptyPassphrase, firstHardened)
-import           Pos.Core.Configuration       (genesisHdwSecretKeys)
 import           Pos.StateLock                (Priority (..), withStateLockNoMetrics)
 import           Pos.Util                     (maybeThrow)
 import           Pos.Util.UserSecret          (UserSecretDecodingError (..),
@@ -41,7 +41,8 @@ import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.Secret        (WalletUserSecret (..),
                                                mkGenesisWalletUserSecret, wusAccounts,
                                                wusWalletName)
-import           Pos.Wallet.Web.State         (createAccount, setWalletSyncTip,
+import           Pos.Wallet.Web.State         (HistoryCacheUpdate (InitHistoryCache),
+                                               createAccount, setWalletSyncTip,
                                                updateHistoryCache)
 import           Pos.Wallet.Web.Tracking      (syncWalletOnImport)
 
@@ -73,7 +74,7 @@ newWallet :: MonadWalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 newWallet passphrase cwInit = do
     -- A brand new wallet doesn't need any syncing, so we mark isReady=True
     (_, wId) <- newWalletFromBackupPhrase passphrase cwInit True
-    updateHistoryCache wId []
+    updateHistoryCache wId InitHistoryCache
     -- BListener checks current syncTip before applying update,
     -- thus setting it up to date manually here
     withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip wId tip

@@ -61,12 +61,14 @@ module Pos.Wallet.Web.State.Acidic
        , TotallyRemoveWAddress (..)
        , AddUpdate (..)
        , RemoveNextUpdate (..)
-       , UpdateHistoryCache (..)
+       , UpdateHistoryCache2 (..)
        , SetPtxCondition (..)
        , CasPtxCondition (..)
        , PtxUpdateMeta (..)
        , AddOnlyNewPendingTx (..)
        , FlushWalletStorage (..)
+       -- * No longer used, just here for migrations and backwards compatibility
+       , UpdateHistoryCache (..)
        ) where
 
 import           Universum
@@ -160,6 +162,7 @@ makeAcidic ''WalletStorage
     , 'WS.addUpdate
     , 'WS.removeNextUpdate
     , 'WS.updateHistoryCache
+    , 'WS.updateHistoryCache2
     , 'WS.setPtxCondition
     , 'WS.casPtxCondition
     , 'WS.ptxUpdateMeta

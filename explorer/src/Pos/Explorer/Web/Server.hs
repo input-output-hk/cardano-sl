@@ -400,7 +400,7 @@ getAddressSummary cAddr = do
     when (isUnknownAddressType addr) $
         throwM $ Internal "Unknown address type"
 
-    balance <- mkCCoin . fromMaybe (mkCoin 0) <$> EX.getAddrBalance addr
+    balance <- mkCCoin . fromMaybe minBound <$> EX.getAddrBalance addr
     txIds <- getNewestFirst <$> EX.getAddrHistory addr
     transactions <- forM txIds $ \id -> do
         extra <- getTxExtraOrFail id
@@ -552,7 +552,7 @@ getGenesisSummary = do
     grai <- getGenesisRedeemAddressInfo
     redeemAddressInfo <- V.mapM (uncurry getRedeemAddressInfo) grai
     let GenesisSummaryInternal {..} =
-            V.foldr folder (GenesisSummaryInternal 0 (mkCoin 0) (mkCoin 0))
+            V.foldr folder (GenesisSummaryInternal 0 minBound minBound)
             redeemAddressInfo
     let numTotal = length grai
     pure CGenesisSummary
@@ -567,13 +567,16 @@ getGenesisSummary = do
         :: (MonadDBRead m, MonadThrow m)
         => Address -> Coin -> m GenesisSummaryInternal
     getRedeemAddressInfo address initialBalance = do
-        currentBalance <- fromMaybe (mkCoin 0) <$> EX.getAddrBalance address
+        currentBalance <- fromMaybe minBound <$> EX.getAddrBalance address
         if currentBalance > initialBalance then
             throwM $ Internal $ sformat
                 ("Redeem address "%build%" had "%build%" at genesis, but now has "%build)
                 address initialBalance currentBalance
         else
-            let isRedeemed = if currentBalance == mkCoin 0 then 1 else 0
+            -- Abusing gsiNumRedeemed here. We'd like to keep
+            -- only one wrapper datatype, so we're storing an Int
+            -- with a 0/1 value in a field that we call isRedeemed.
+            let isRedeemed = if currentBalance == minBound then 1 else 0
                 redeemedAmount = initialBalance `unsafeSubCoin` currentBalance
                 amountLeft = currentBalance
             in pure $ GenesisSummaryInternal isRedeemed redeemedAmount amountLeft
@@ -592,8 +595,8 @@ getGenesisSummary = do
 
 isAddressRedeemed :: MonadDBRead m => Address -> m Bool
 isAddressRedeemed address = do
-    currentBalance <- fromMaybe (mkCoin 0) <$> EX.getAddrBalance address
-    pure $ currentBalance == mkCoin 0
+    currentBalance <- fromMaybe minBound <$> EX.getAddrBalance address
+    pure $ currentBalance == minBound
 
 getFilteredGrai :: ExplorerMode ctx m => CAddressesFilter -> m (V.Vector (Address, Coin))
 getFilteredGrai addrFilt = do

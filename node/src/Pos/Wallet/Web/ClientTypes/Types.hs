@@ -110,7 +110,7 @@ data AccountId = AccountId
       aiWId   :: CId Wal
     , -- | Derivation index of this wallet key
       aiIndex :: Word32
-    } deriving (Eq, Show, Generic, Typeable)
+    } deriving (Eq, Ord, Show, Generic, Typeable)
 
 instance Hashable AccountId
 

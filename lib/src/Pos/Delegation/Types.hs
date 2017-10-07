@@ -19,8 +19,8 @@ import           Formatting           (bprint, int, sformat, (%))
 import           Serokell.Util        (listJson)
 
 import           Pos.Binary.Core      ()
-import           Pos.Core             (ProxySKHeavy, ProxySKLight, ProxySigLight,
-                                       StakeholderId, HasConfiguration)
+import           Pos.Core             (HasConfiguration, ProxySKHeavy, ProxySKLight,
+                                       ProxySigLight, StakeholderId)
 import           Pos.Crypto           (ProxySecretKey (..), PublicKey, verifyPsk)
 
 -- Consider making this a set.
@@ -61,7 +61,7 @@ mkDlgPayload proxySKs = do
 
 -- | Undo for the delegation component.
 data DlgUndo = DlgUndo
-    { duPsks            :: !([ProxySKHeavy])
+    { duPsks            :: ![ProxySKHeavy]
       -- ^ PSKs we've modified when applying the block (by deleting or
       -- overwriting).
     , duPrevEpochPosted :: !(HashSet StakeholderId)

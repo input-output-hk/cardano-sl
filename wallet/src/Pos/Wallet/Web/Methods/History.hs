@@ -65,7 +65,7 @@ getFullWalletHistory cWalId = do
     -- We call @addHistoryTxs@ only for mempool transactions because for
     -- transactions from block and resubmitting timestamp is already known.
     addHistoryTxs cWalId localHistory
-    cHistory <- forM fullHistory (constructCTx (cWalId, Just walAddrMetas))
+    cHistory <- forM fullHistory (constructCTx cWalId walAddrMetas)
     pure (cHistory, fromIntegral $ Map.size cHistory)
 
 getHistory
@@ -149,11 +149,11 @@ addHistoryTxs cWalId historyEntries = do
 
 constructCTx
     :: MonadWalletWebMode m
-    => (CId Wal, Maybe [CWAddressMeta])
+    => CId Wal
+    -> [CWAddressMeta]
     -> TxHistoryEntry
     -> m (CTx, POSIXTime)
-constructCTx (cWalId, walAddrMetasMB) wtx@THEntry{..} = do
-    walAddrMetas <- maybe (getWalletAddrMetas Ever cWalId) pure walAddrMetasMB
+constructCTx cWalId walAddrMetas wtx@THEntry{..} = do
     let cId = encodeCType _thTxId
     diff <- maybe localChainDifficulty pure =<< networkChainDifficulty
     meta <- maybe (CTxMeta <$> liftIO getPOSIXTime) -- It's impossible case but just in case

@@ -49,10 +49,11 @@ import           Pos.Wallet.Web.Methods.Txp       (coinDistrToOutputs, rewrapTxE
                                                    submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode)
 import           Pos.Wallet.Web.Pending           (mkPendingTx)
-import           Pos.Wallet.Web.State             (AddressLookupMode (Existing))
+import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing))
 import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
                                                    getAccountAddrsOrThrow,
-                                                   getWalletAccountIds)
+                                                   getWalletAccountIds,
+                                                   getWalletAddrMetas)
 
 newPayment
     :: MonadWalletWebMode m
@@ -189,7 +190,8 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
         dstAddrs
 
     addHistoryTx srcWallet th
-    fst <$> constructCTx (srcWallet, Nothing) th
+    srcWalletAddrMetas <- getWalletAddrMetas Ever srcWallet
+    fst <$> constructCTx srcWallet srcWalletAddrMetas th
   where
      -- TODO eliminate copy-paste
      listF separator formatter =

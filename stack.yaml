@@ -97,6 +97,7 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
+- transformers-0.5.5.0            # https://hub.darcs.net/ross/transformers/issue/33#comment-20171004T152940
 - universum-0.6.1
 - serokell-util-0.5.0
 - pvss-0.2.0
@@ -120,6 +121,8 @@ extra-deps:
 - tabl-1.0.3
 # ekg-statsd version without the unnecessary diffing optimisation
 - ekg-statsd-0.2.2.0
+# https://github.com/fpco/lts-haskell/issues/70
+- fgl-5.5.3.1
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

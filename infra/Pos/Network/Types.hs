@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes       #-}
 {-# LANGUAGE ExistentialQuantification #-}
 
 module Pos.Network.Types
@@ -30,6 +31,9 @@ module Pos.Network.Types
        , Resolver
        , resolveDnsDomains
        , initDnsOnUse
+       -- * Helpers
+       , HasNodeType (..)
+       , getNodeTypeDefault
        -- * Re-exports
        -- ** from .DnsDomains
        , DnsDomains(..)
@@ -40,6 +44,7 @@ module Pos.Network.Types
        -- ** other
        , NodeId (..)
        ) where
+
 import           Universum                             hiding (show)
 
 import           Data.IP                               (IPv4)
@@ -59,6 +64,7 @@ import qualified Pos.Network.DnsDomains                as DnsDomains
 import qualified Pos.Network.Policy                    as Policy
 import           Pos.System.Metrics.Constants          (cardanoNamespace)
 import           Pos.Util.TimeWarp                     (addressToNodeId)
+import           Pos.Util.Util                         (HasLens', lensOf)
 
 {-------------------------------------------------------------------------------
   Network configuration
@@ -190,6 +196,22 @@ topologyNodeType TopologyBehindNAT{}   = NodeEdge
 topologyNodeType TopologyP2P{}         = NodeEdge
 topologyNodeType TopologyTraditional{} = NodeCore
 topologyNodeType TopologyAuxx{}        = NodeEdge
+
+-- | Type class which encapsulates something that has 'NodeType'.
+class HasNodeType ctx where
+    -- | Extract 'NodeType' from a context. It's not a 'Lens', because
+    -- the intended usage is that context has topology and it's not
+    -- possible to 'set' node type in topology.
+    getNodeType :: ctx -> NodeType
+
+-- | Implementation of 'getNodeType' for something that has
+-- 'NetworkConfig' inside.
+getNodeTypeDefault ::
+       forall kademlia ctx. HasLens' ctx (NetworkConfig kademlia)
+    => ctx
+    -> NodeType
+getNodeTypeDefault =
+    topologyNodeType . ncTopology <$> view (lensOf @(NetworkConfig kademlia))
 
 -- | Assumed type and maximum number of subscribers (if subscription is allowed)
 --

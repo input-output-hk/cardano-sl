@@ -72,6 +72,7 @@ import qualified Pos.GState                     as GS
 import           Pos.KnownPeers                 (MonadFormatPeers (..))
 import           Pos.Launcher.Configuration     (Configuration (..))
 import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
+import           Pos.Network.Types              (HasNodeType (..), NodeType (..))
 import           Pos.Reporting                  (HasReportingContext (..),
                                                  ReportingContext, emptyReportingContext)
 import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots (..),
@@ -455,6 +456,9 @@ instance HasLens TxpHolderTag BlockTestContext (GenericTxpLocalData TxpExtra_TMP
 
 instance HasLoggerName' BlockTestContext where
     loggerName = lensOf @LoggerName
+
+instance HasNodeType BlockTestContext where
+    getNodeType _ = NodeCore -- doesn't really matter, it's for reporting
 
 instance {-# OVERLAPPING #-} HasLoggerName BlockTestMode where
     getLoggerName = getLoggerNameDefault

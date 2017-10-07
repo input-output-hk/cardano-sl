@@ -112,7 +112,7 @@ classifyNewHeader (Right header) = fmap (either identity identity) <$> runExcept
     if | tip == header ^. prevBlockL -> do
             leaders <-
                 maybe (throwError $ CHUseless "Can't get leaders") pure =<<
-                lift (LrcDB.getLeaders newHeaderEpoch)
+                lift (LrcDB.getLeadersForEpoch newHeaderEpoch)
             let vhp =
                     VerifyHeaderParams
                     { vhpPrevHeader = Just tipHeader
@@ -179,7 +179,7 @@ classifyHeaders inRecovery headers = do
     tipHeader <- DB.getTipHeader @ssc
     let tip = headerHash tipHeader
     haveOldestParent <- isJust <$> DB.blkGetHeader @ssc oldestParentHash
-    leaders <- LrcDB.getLeaders oldestHeaderEpoch
+    leaders <- LrcDB.getLeadersForEpoch oldestHeaderEpoch
     let headersValid =
             isVerSuccess $
             verifyHeaders leaders (headers & _NewestFirst %~ toList)

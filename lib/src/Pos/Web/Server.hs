@@ -167,7 +167,7 @@ getLeaders :: HasConfiguration => Maybe EpochIndex -> WebMode ssc SlotLeaders
 getLeaders maybeEpoch = do
     -- epoch <- maybe (siEpoch <$> getCurrentSlot) pure maybeEpoch
     epoch <- maybe (pure 0) pure maybeEpoch
-    maybe (throwM err) pure =<< LrcDB.getLeaders epoch
+    maybe (throwM err) pure =<< LrcDB.getLeadersForEpoch epoch
   where
     err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
 

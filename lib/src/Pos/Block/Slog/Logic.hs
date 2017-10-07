@@ -136,7 +136,7 @@ slogVerifyBlocks blocks = do
             (sformat
                  ("slogVerifyBlocks: there are no leaders for epoch " %build)
                  headEpoch)
-            LrcDB.getLeaders
+            LrcDB.getLeadersForEpoch
     -- We take head here, because blocks are in oldest first order and
     -- we know that all of them are from the same epoch. So if there
     -- is a genesis block, it must be head and only head.

@@ -10,9 +10,13 @@ module Pos.Lrc.DB.Common
        , prepareLrcCommon
 
        -- * Helpers
+       , dbHasKey
        , getBi
        , putBi
+       , putBatch
+       , putBatchBi
        , delete
+       , toRocksOps
 
        -- * Operations
        , putEpoch
@@ -20,17 +24,25 @@ module Pos.Lrc.DB.Common
 
 import           Universum
 
-import           Pos.Binary.Class (Bi)
-import           Pos.Binary.Core  ()
-import           Pos.Core.Types   (EpochIndex)
-import           Pos.DB.Class     (DBTag (LrcDB), MonadDB (dbDelete), MonadDBRead)
-import           Pos.DB.Error     (DBError (DBMalformed))
-import           Pos.DB.Functions (dbGetBi, dbPutBi)
-import           Pos.Util.Util    (maybeThrow)
+import qualified Database.RocksDB       as Rocks
+
+import           Pos.Binary.Class       (Bi)
+import           Pos.Binary.Core        ()
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Types         (EpochIndex)
+import           Pos.DB                 (dbSerializeValue)
+import           Pos.DB.Class           (DBTag (LrcDB), MonadDB (dbDelete, dbWriteBatch),
+                                         MonadDBRead (dbGet))
+import           Pos.DB.Error           (DBError (DBMalformed))
+import           Pos.DB.Functions       (dbGetBi, dbPutBi)
+import           Pos.Util.Util          (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Common Helpers
 ----------------------------------------------------------------------------
+
+dbHasKey :: MonadDBRead m => ByteString -> m Bool
+dbHasKey key = isJust <$> dbGet LrcDB key
 
 getBi
     :: (MonadDBRead m, Bi v)
@@ -42,8 +54,20 @@ putBi
     => ByteString -> v -> m ()
 putBi = dbPutBi LrcDB
 
+putBatch :: MonadDB m => [Rocks.BatchOp] -> m ()
+putBatch = dbWriteBatch LrcDB
+
+putBatchBi
+    :: (MonadDB m, Bi v)
+    => [(ByteString, v)] -> m ()
+putBatchBi = putBatch . toRocksOps
+
 delete :: (MonadDB m) => ByteString -> m ()
 delete = dbDelete LrcDB
+
+toRocksOps :: (HasConfiguration, Bi v) => [(ByteString, v)] -> [Rocks.BatchOp]
+toRocksOps ops =
+    [Rocks.Put key (dbSerializeValue value) | (key, value) <- ops]
 
 ----------------------------------------------------------------------------
 -- Common getters

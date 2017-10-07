@@ -95,7 +95,7 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
             logInfo $
             sformat ("Last known leaders for epoch "%build%" are: "%listJson)
                     lastKnownEpoch leaders
-    LrcDB.getLeaders lastKnownEpoch >>= maybe onNoLeaders onLeaders
+    LrcDB.getLeadersForEpoch lastKnownEpoch >>= maybe onNoLeaders onLeaders
     tipHeader <- DB.getTipHeader @ssc
     logInfo $ sformat ("Current tip header: "%build) tipHeader
 

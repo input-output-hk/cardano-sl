@@ -26,7 +26,8 @@ import           Pos.Core              (EpochIndex, HasConfiguration,
                                         SlotLeaders, StakeholderId, flattenSlotId,
                                         unsafeMkLocalSlotIndex)
 import           Pos.DB.Class          (MonadDB, MonadDBRead)
-import           Pos.Lrc.DB.Common     (dbHasKey, getBi, putBatch, putBatchBi, toRocksOps)
+import           Pos.Lrc.DB.Common     (dbHasKey, getBi, putBatch, putBatchBi, putBi,
+                                        toRocksOps)
 
 ----------------------------------------------------------------------------
 -- Getters

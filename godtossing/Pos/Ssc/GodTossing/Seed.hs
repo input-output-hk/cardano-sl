@@ -28,6 +28,15 @@ import           Pos.Util.Util            (getKeys)
 
 -- | Calculate SharedSeed. SharedSeed is a random bytestring that all
 -- nodes generate together and agree on.
+--
+-- A story of why we pass nodes' VSS keys here: SCRAPE needs to know the
+-- order of shares (i.e. you can't give it shares 4, 1 and 3, you must
+-- necessarily give it 1,3,4). It also can't deduce the order of shares
+-- because the shares don't carry any IDs or anything. Thus we need to
+-- impose some arbitrary order on them. I chose to order the shares by
+-- stakeholder's VSS key, which means that we need to know stakeholders' VSS
+-- keys in addition to a `Stakeholder->[Share]` map if we want to recover
+-- the secret.
 calculateSeed
     :: CommitmentsMap                         -- ^ All participating nodes
     -> HashMap StakeholderId (AsBinary VssPublicKey) -- ^ Nodes' VSS keys
@@ -40,8 +49,8 @@ calculateSeed commitments' binVssKeys openings lShares richmen = do
         commitments = getCommitmentsMap commitments' -- just unwrapping
     let participants :: HashSet StakeholderId
         participants = getKeys commitments
-    -- vssKeys :: HashMap StakeholderId VssPublicKey
-    vssKeys <- over _Left BrokenVssKey $ mapFailing fromBinaryM binVssKeys
+    vssKeys :: HashMap StakeholderId VssPublicKey <-
+        over _Left BrokenVssKey $ mapFailing fromBinaryM binVssKeys
 
     -- First let's do some sanity checks.
     let nonRichmen :: HashSet StakeholderId

@@ -110,12 +110,13 @@ deriveSimpleBi ''C.SecretProof [
 -- For most of the secret sharing types the only check we do during
 -- deserialization is length check. As long as length matches our
 -- expectations, the decoding succeeds (look at 'Binary' instances in
--- 'pvss') which in turn means that we can use 'fromBinary' and be
--- quite sure it will succeed. That's why it's important to check
--- length here (this check is cheap, so it's good to do it as soon as
--- possible). The only exception is 'SecretSharingExtra' (because we
--- don't know its length in advance). Currently we check that
--- 'SecretSharingExtra' can be parsed in 'verifyCommitment' function.
+-- 'pvss') which in turn means that we can use 'fromBinary' and be quite
+-- sure it will succeed. That's why it's important to check length here
+-- (this check is cheap, so it's good to do it as soon as possible).
+-- 'SecretProof' used to be an exception, but currently we don't use
+-- 'AsBinary' for 'SecretProof' (we might in the future); this said, it's
+-- alright to use 'AsBinary' for variable-length things as long as you're
+-- careful.
 --
 #define BiMacro(B, BYTES) \
   instance Bi (AsBinary B) where {\

@@ -55,8 +55,8 @@ checkLenImpl action name expectedLen len
 vssPublicKeyBytes, secretBytes, decShareBytes, encShareBytes :: Int
 vssPublicKeyBytes = 35   -- 33 data + 2 of CBOR overhead
 secretBytes       = 35   -- 33 data + 2 of CBOR overhead
-decShareBytes     = 99
-encShareBytes     = 35
+decShareBytes     = 99   -- Point (33) + DLEQ.Proof (64) + CBOR overhead (2)
+encShareBytes     = 35   -- 33 data + 2 of CBOR overhead
 
 Ser(VssPublicKey, vssPublicKeyBytes, "VssPublicKey")
 Ser(Secret, secretBytes, "Secret")

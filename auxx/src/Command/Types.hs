@@ -10,14 +10,11 @@ module Command.Types
 
 import           Universum
 
-import           Serokell.Data.Memory.Units (Byte)
-
-import           Pos.Core.Types             (ScriptVersion)
-import           Pos.Crypto                 (PublicKey)
-import           Pos.Txp                    (TxOut)
-import           Pos.Types                  (AddrStakeDistribution, Address, BlockVersion,
-                                             EpochIndex, SoftwareVersion)
-import           Pos.Update                 (SystemTag, UpId)
+import           Pos.Crypto (PublicKey)
+import           Pos.Txp    (TxOut)
+import           Pos.Types  (AddrStakeDistribution, Address, BlockVersion, EpochIndex,
+                             SoftwareVersion)
+import           Pos.Update (BlockVersionModifier, SystemTag, UpId)
 
 -- | Specify how transactions are sent to the network during
 -- benchmarks using 'SendToAllGenesis'.
@@ -38,13 +35,11 @@ data SendToAllGenesisParams = SendToAllGenesisParams
 
 -- | Parameters for 'ProposeUpdate' command.
 data ProposeUpdateParams = ProposeUpdateParams
-    { puIdx             :: Int -- TODO: what is this? rename
-    , puBlockVersion    :: BlockVersion
-    , puScriptVersion   :: ScriptVersion
-    , puSlotDurationSec :: Int
-    , puMaxBlockSize    :: Byte
-    , puSoftwareVersion :: SoftwareVersion
-    , puUpdates         :: [ProposeUpdateSystem]
+    { puSecretKeyIdx         :: !Int -- the node that creates/signs the proposal
+    , puBlockVersion         :: !BlockVersion
+    , puSoftwareVersion      :: !SoftwareVersion
+    , puBlockVersionModifier :: !BlockVersionModifier
+    , puUpdates              :: ![ProposeUpdateSystem]
     } deriving (Show)
 
 data Command
@@ -65,6 +60,7 @@ data Command
     | AddrDistr !PublicKey !AddrStakeDistribution
     | Rollback !Word !FilePath
     | SendTxsFromFile !FilePath
+    | PrintBlockVersionData
     | Quit
     deriving Show
 

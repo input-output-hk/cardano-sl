@@ -92,6 +92,9 @@ makeLensesWith postfixLFields ''RealModeContext
 instance HasLens NodeDBs (RealModeContext ssc) NodeDBs where
     lensOf = rmcNodeDBs_L
 
+instance HasLens NodeContext (RealModeContext ssc) (NodeContext ssc) where
+    lensOf = rmcNodeContext_L
+
 instance HasLens SscMemTag (RealModeContext ssc) (SscState ssc) where
     lensOf = rmcSscState_L
 

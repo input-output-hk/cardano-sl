@@ -3,6 +3,8 @@
 
 module Pos.Explorer.Web.Transform
        ( ExplorerProd
+       , runExplorerProd
+       , liftToExplorerProd
        , explorerServeWebReal
        , explorerPlugin
        , notifierPlugin
@@ -31,6 +33,8 @@ import           Pos.WorkMode                     (RealMode, RealModeContext (..
 
 import           Pos.Explorer                     (ExplorerBListener,
                                                    runExplorerBListener)
+import           Pos.Explorer.ExtraContext        (ExtraContext, ExtraContextT,
+                                                   makeExtraCtx, runExtraContextT)
 import           Pos.Explorer.Socket.App          (NotifierSettings, notifierApp)
 import           Pos.Explorer.Web.Server          (explorerApp, explorerHandlers,
                                                    explorerServeImpl)
@@ -39,7 +43,13 @@ import           Pos.Explorer.Web.Server          (explorerApp, explorerHandlers
 -- Transformation to `Handler`
 -----------------------------------------------------------------
 
-type ExplorerProd = ExplorerBListener (RealMode SscGodTossing)
+type ExplorerProd = ExtraContextT (ExplorerBListener (RealMode SscGodTossing))
+
+runExplorerProd :: ExtraContext -> ExplorerProd a -> RealMode SscGodTossing a
+runExplorerProd extraCtx = runExplorerBListener . runExtraContextT extraCtx
+
+liftToExplorerProd :: RealMode SscGodTossing a -> ExplorerProd a
+liftToExplorerProd = lift . lift
 
 notifierPlugin
     :: ( HasConfiguration
@@ -82,19 +92,23 @@ explorerServeWebReal
 explorerServeWebReal sendActions = explorerServeImpl
     (explorerApp $ flip enter (explorerHandlers sendActions) <$> nat)
 
-nat :: ExplorerProd (ExplorerProd :~> Handler)
+nat :: HasConfiguration => ExplorerProd (ExplorerProd :~> Handler)
 nat = do
     rctx <- ask
     pure $ NT (convertHandler rctx)
 
 convertHandler
-    :: RealModeContext SscGodTossing
+    :: HasConfiguration
+    => RealModeContext SscGodTossing
     -> ExplorerProd a
     -> Handler a
 convertHandler rctx handler =
-    liftIO (realRunner $ runExplorerBListener $ handler) `Catch.catches` excHandlers
+    let extraCtx = makeExtraCtx
+        ioAction = realRunner $
+                   runExplorerProd extraCtx
+                   handler
+    in liftIO ioAction `Catch.catches` excHandlers
   where
-
     realRunner :: forall t . RealMode SscGodTossing t -> IO t
     realRunner act = runProduction $ Mtl.runReaderT act rctx
 

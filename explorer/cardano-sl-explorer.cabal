@@ -13,7 +13,8 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:      Pos.Explorer.Socket
+  exposed-modules:      Pos.Explorer.ExtraContext
+                        Pos.Explorer.Socket
                         Pos.Explorer.Socket.App
                         Pos.Explorer.Socket.Methods
                         Pos.Explorer.Socket.Util
@@ -25,10 +26,9 @@ library
                         Pos.Explorer.Web.Server
 
   other-modules:        Pos.Explorer.Aeson.ClientTypes
-
                         Pos.Explorer.Socket.Holder
-
                         Pos.Explorer.Web.Transform
+
   build-depends:        aeson
                       , base
                       , base16-bytestring
@@ -53,6 +53,7 @@ library
                       , transformers
                       , universum
                       , unordered-containers
+                      , vector
 
                       -- cardano sl
                       , cardano-sl

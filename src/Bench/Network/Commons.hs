@@ -99,7 +99,7 @@ loadLogConfig :: MonadIO m => Maybe FilePath -> Maybe FilePath -> m ()
 loadLogConfig logsPrefix configFile = do
     let cfgBuilder = productionB <> (mempty { _lcFilePrefix = logsPrefix })
     loggerConfig <- maybe (return defaultLogConfig) parseLoggerConfig configFile
-    setupLogging $ loggerConfig <> cfgBuilder
+    setupLogging Nothing $ loggerConfig <> cfgBuilder
 
 
 -- * Logging & parsing

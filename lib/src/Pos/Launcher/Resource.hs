@@ -123,6 +123,11 @@ hoistNodeResources nat nr =
 -- Allocation/release/bracket
 ----------------------------------------------------------------------------
 
+data DbPathMissing = DbPathMissing
+  deriving (Eq, Show)
+
+instance Exception DbPathMissing
+
 -- | Allocate all resources used by node. They must be released eventually.
 allocateNodeResources
     :: forall ssc m.
@@ -147,7 +152,12 @@ allocateNodeResources
     -> SscParams ssc
     -> Production (NodeResources ssc m)
 allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
-    db <- openNodeDBs npRebuildDb npDbPathM
+    npDbPath <- case npDbPathM of
+        Nothing -> do
+            Logger.logError "DB path required for regular node execution"
+            throw DbPathMissing
+        Just a -> return a
+    db <- openNodeDBs npRebuildDb npDbPath
     (futureLrcContext, putLrcContext) <- newInitFuture "lrcContext"
     (futureSlottingVar, putSlottingVar) <- newInitFuture "slottingVar"
     (futureSlottingContext, putSlottingContext) <- newInitFuture "slottingContext"

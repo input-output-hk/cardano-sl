@@ -14,6 +14,7 @@ module Mode
 
        -- * Helpers
        , getCmdCtx
+       , isTempDbUsed
        , realModeToAuxx
        ) where
 
@@ -80,6 +81,7 @@ type AuxxMode = ReaderT AuxxContext Production
 data AuxxContext = AuxxContext
     { acRealModeContext :: !(RealModeContext AuxxSscType)
     , acCmdCtx          :: !CmdCtx
+    , acTempDbUsed      :: !Bool
     }
 
 makeLensesWith postfixLFields ''AuxxContext
@@ -91,6 +93,9 @@ makeLensesWith postfixLFields ''AuxxContext
 -- | Get 'CmdCtx' in 'AuxxMode'.
 getCmdCtx :: AuxxMode CmdCtx
 getCmdCtx = view acCmdCtx_L
+
+isTempDbUsed :: AuxxMode Bool
+isTempDbUsed = view acTempDbUsed_L
 
 -- | Turn 'RealMode' action into 'AuxxMode' action.
 realModeToAuxx :: RealMode AuxxSscType a -> AuxxMode a
@@ -154,9 +159,9 @@ instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx AuxxMode)
 instance {-# OVERLAPPING #-} HasLoggerName AuxxMode where
     getLoggerName = realModeToAuxx getLoggerName
     modifyLoggerName f action = do
-        cmdCtx <- getCmdCtx
+        auxxCtx <- ask
         let auxxToRealMode :: AuxxMode a -> RealMode AuxxSscType a
-            auxxToRealMode = withReaderT (flip AuxxContext cmdCtx)
+            auxxToRealMode = withReaderT (\realCtx -> set acRealModeContext_L realCtx auxxCtx)
         realModeToAuxx $ modifyLoggerName f $ auxxToRealMode action
 
 instance {-# OVERLAPPING #-} CanJsonLog AuxxMode where
@@ -197,7 +202,7 @@ instance HasConfiguration => MonadBListener AuxxMode where
     onRollbackBlocks = realModeToAuxx ... onRollbackBlocks
 
 instance HasConfiguration => MonadBalances AuxxMode where
-    getOwnUtxos addrs = ifM (pure True) (getFilteredUtxo addrs) (getOwnUtxosGenesis addrs)
+    getOwnUtxos addrs = ifM isTempDbUsed (getOwnUtxosGenesis addrs) (getFilteredUtxo addrs)
     getBalance = getBalanceFromUtxo
 
 instance (HasConfiguration, HasInfraConfiguration, HasGtConfiguration) =>

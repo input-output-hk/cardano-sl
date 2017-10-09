@@ -44,7 +44,7 @@ data BaseParams = BaseParams
 -- | This data type contains all data necessary to launch node and
 -- known in advance (from CLI, configs, etc.)
 data NodeParams = NodeParams
-    { npDbPathM        :: !FilePath             -- ^ Path to node's database
+    { npDbPathM        :: !(Maybe FilePath)     -- ^ Path to node's database
     , npRebuildDb      :: !Bool                 -- ^ @True@ if data-base should be rebuilt
     , npSecretKey      :: !SecretKey            -- ^ Primary secret key of node
     , npUserSecret     :: !UserSecret           -- ^ All node secret keys

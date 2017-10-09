@@ -72,6 +72,7 @@ executable cardano-auxx
                      , stm
                      , stm-containers
                      , tagged
+                     , temporary
                      , text
                      , time
                      , time-units

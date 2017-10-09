@@ -207,13 +207,13 @@ prepareExplorerDB = do
         -- | Finally, we persist the map with the new format.
         epochPagesExplorerOpConduit
             :: (Monad m)
-            => Conduit (Map EpochPagedBlocksKey [HeaderHash]) m Rocks.BatchOp
+            => Conduit (Map EpochPagedBlocksKey [HeaderHash]) m [ExplorerOp]
         epochPagesExplorerOpConduit = CL.map persistEpochBlocks
           where
             -- | Persist atomically, all the operations together.
-            persistEpochBlocks :: Map EpochPagedBlocksKey [HeaderHash] -> Rocks.BatchOp
+            persistEpochBlocks :: Map EpochPagedBlocksKey [HeaderHash] -> [ExplorerOp]
             persistEpochBlocks mapEpochPagedHHs =
-                toBatchOp $ persistEpochPageBlocks ++ persistMaxPageNumbers
+                persistEpochPageBlocks ++ persistMaxPageNumbers
               where
                 -- | Persist @Epoch@ @Page@ blocks.
                 persistEpochPageBlocks :: [ExplorerOp]
@@ -239,7 +239,9 @@ prepareExplorerDB = do
                     emp = findEpochMaxPages mapEpochPagedHHs
 
         -- | Finally, just persist all the operations atomically.
-        persistExplorerOpSink :: (MonadDB m) => Sink Rocks.BatchOp m ()
+        -- "Apart from its atomicity benefits, WriteBatch may also be used to speed up
+        -- bulk updates by placing lots of individual mutations into the same batch."
+        persistExplorerOpSink :: (MonadDB m) => Sink ([ExplorerOp]) m ()
         persistExplorerOpSink = CL.mapM_ writeBatchGState
 
 

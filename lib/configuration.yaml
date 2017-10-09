@@ -284,7 +284,7 @@ mainnet_base: &mainnet_base
     mpcSendInterval: 100 # must be less than (2 * k * slotDuration - networkDiameter)
     mdNoCommitmentsEpochThreshold: 3
 
-  node:
+  node: &mainnet_base_node
     networkDiameter: 18
     defaultPeers: []
     mdNoBlocksSlotThreshold: 18 # should be less than 2 * k
@@ -14908,6 +14908,7 @@ devnet: &devnet
             seed: 0
 
   node:
+    <<: *mainnet_base_node
     networkDiameter: 18 # should be slightly less than slot duration
     mdNoBlocksSlotThreshold: 5 # should be less than 2 * k
     recoveryHeadersMessage: 200 # should be greater than k

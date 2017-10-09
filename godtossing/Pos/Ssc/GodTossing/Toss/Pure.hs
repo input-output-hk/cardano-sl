@@ -14,11 +14,11 @@ module Pos.Ssc.GodTossing.Toss.Pure
 
 import           Universum
 
-import           Control.Lens                   (at, sequenceAOf, (%=), (.=))
+import           Control.Lens                   (at, (%=), (.=))
 import qualified Crypto.Random                  as Rand
 import           System.Wlog                    (CanLog, HasLoggerName (..), LogEvent,
                                                  NamedPureLogger (..), WithLogger,
-                                                 launchNamedPureLog, runNamedPureLog)
+                                                 runNamedPureLog)
 
 import           Pos.Core                       (BlockVersionData, EpochIndex,
                                                  HasGenesisData, HasProtocolConstants,
@@ -39,11 +39,8 @@ type MultiRichmenSet   = HashMap EpochIndex RichmenSet
 -- require randomness even though they are deterministic. Note that running
 -- them with the same seed every time is insecure and must not be done.
 newtype PureToss a = PureToss
-    { getPureToss :: NamedPureLogger (
-                     StateT GtGlobalState (
-                     Rand.MonadPseudoRandom Rand.ChaChaDRG)) a
-    } deriving (Functor, Applicative, Monad,
-                CanLog, HasLoggerName, Rand.MonadRandom)
+    { getPureToss :: StateT GtGlobalState (NamedPureLogger (Rand.MonadPseudoRandom Rand.ChaChaDRG)) a
+    } deriving (Functor, Applicative, Monad, MonadState GtGlobalState, CanLog, HasLoggerName, Rand.MonadRandom)
 
 newtype PureTossWithEnv a = PureTossWithEnv
     { getPureTossWithEnv ::
@@ -94,10 +91,10 @@ runPureToss
     -> m (a, GtGlobalState, [LogEvent])
 runPureToss gs (PureToss act) = do
     seed <- Rand.drgNew
-    let ((res, events), newGS) =
+    let ((res, newGS), events) =
             fst . Rand.withDRG seed $    -- run MonadRandom
-            (`runStateT` gs) $           -- run State
-            runNamedPureLog act          -- run NamedPureLogger
+            runNamedPureLog  $           -- run NamedPureLogger
+            (flip runStateT gs) act      -- run State
     pure (res, newGS, events)
 
 runPureTossWithLogger
@@ -105,12 +102,8 @@ runPureTossWithLogger
     => GtGlobalState
     -> PureToss a
     -> m (a, GtGlobalState)
-runPureTossWithLogger gs (PureToss act) = do
-    seed <- Rand.drgNew
-    let unwrapLower a = pure $ sequenceAOf _1 $     -- (f a, b) -> f (a, b)
-                        fst $ Rand.withDRG seed $   -- run MonadRandom
-                        runStateT a gs              -- run State
-    (res, newGS) <- launchNamedPureLog unwrapLower act
+runPureTossWithLogger gs pt = do
+    (res, newGS, _) <- runPureToss gs pt
     return (res, newGS)
 
 evalPureTossWithLogger

@@ -4463,11 +4463,11 @@ self: {
           description = "ListT done right";
           license = stdenv.lib.licenses.mit;
         }) {};
-      log-warper = callPackage ({ aeson, ansi-terminal, base, containers, directory, dlist, errors, exceptions, extra, filepath, formatting, hashable, lens, mkDerivation, mmorph, monad-control, monad-loops, mtl, network, safecopy, stdenv, text, text-format, time, transformers, transformers-base, universum, unix, unordered-containers, yaml }:
+      log-warper = callPackage ({ aeson, ansi-terminal, base, containers, deepseq, directory, dlist, errors, exceptions, extra, filepath, formatting, hashable, lens, mkDerivation, mmorph, monad-control, monad-loops, mtl, network, safecopy, stdenv, text, text-format, time, transformers, transformers-base, universum, unix, unordered-containers, yaml }:
       mkDerivation {
           pname = "log-warper";
-          version = "1.2.2";
-          sha256 = "2b558bad636dc3b25383585667bcadda00251ef0f1a31da2267a9bfb8704bc43";
+          version = "1.2.3.1";
+          sha256 = "0fqn1a0zz8k281mbvqpifvcxrj0sg8k2khylv4khaa8969d0mpa7";
           isLibrary = true;
           isExecutable = true;
           libraryHaskellDepends = [
@@ -4475,6 +4475,7 @@ self: {
             ansi-terminal
             base
             containers
+            deepseq
             directory
             dlist
             errors

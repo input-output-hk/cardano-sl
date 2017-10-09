@@ -154,12 +154,11 @@ prepareExplorerDB = do
 
     -- | This is where we convert the old format of @Epoch@ which has 21600 blocks to the
     -- new and shiny one with @Page@s added.
-    convertOldEpochBlocksFormat :: (MonadDBRead m, MonadDB m) => m ()
+    convertOldEpochBlocksFormat :: (MonadDB m) => m ()
     convertOldEpochBlocksFormat =
-        runConduitRes $  epochsSource
+        runConduitRes  $ epochsSource
                       .| epochPagesConduit
-                      .| epochPagesExplorerOpConduit
-                      .| persistExplorerOpSink
+                      .| epochPagesExplorerOpSink
       where
         -- 'Source' corresponding to the old @Epoch@ format that contained all
         -- 21600 @[HeaderHash]@ in a single @Epoch@ (in production).
@@ -205,15 +204,19 @@ prepareExplorerDB = do
                         (as,bs) = splitAt n xs
 
         -- | Finally, we persist the map with the new format.
-        epochPagesExplorerOpConduit
-            :: (Monad m)
-            => Conduit (Map EpochPagedBlocksKey [HeaderHash]) m [ExplorerOp]
-        epochPagesExplorerOpConduit = CL.map persistEpochBlocks
+        epochPagesExplorerOpSink
+            :: (MonadDB m)
+            => Sink (Map EpochPagedBlocksKey [HeaderHash]) m ()
+        epochPagesExplorerOpSink = CL.mapM_ persistEpochBlocks
           where
             -- | Persist atomically, all the operations together.
-            persistEpochBlocks :: Map EpochPagedBlocksKey [HeaderHash] -> [ExplorerOp]
+            persistEpochBlocks
+                :: (MonadDB m)
+                => Map EpochPagedBlocksKey [HeaderHash]
+                -> m ()
             persistEpochBlocks mapEpochPagedHHs =
-                persistEpochPageBlocks ++ persistMaxPageNumbers
+                -- Here we persist all the changes atomically.
+                writeBatchGState $ persistEpochPageBlocks ++ persistMaxPageNumbers
               where
                 -- | Persist @Epoch@ @Page@ blocks.
                 persistEpochPageBlocks :: [ExplorerOp]
@@ -237,12 +240,6 @@ prepareExplorerDB = do
                   where
                     emp :: [EpochPagedBlocksKey]
                     emp = findEpochMaxPages mapEpochPagedHHs
-
-        -- | Finally, just persist all the operations atomically.
-        -- "Apart from its atomicity benefits, WriteBatch may also be used to speed up
-        -- bulk updates by placing lots of individual mutations into the same batch."
-        persistExplorerOpSink :: (MonadDB m) => Sink ([ExplorerOp]) m ()
-        persistExplorerOpSink = CL.mapM_ writeBatchGState
 
 
 balancesInitFlag :: ByteString

@@ -41,6 +41,14 @@ module Pos.Core.Address
        , createHDAddressNH
        , createHDAddressH
 
+       -- * Maximal sizes (needed for tx creation)
+       , largestPubKeyAddressBoot
+       , maxPubKeyAddressSizeBoot
+       , largestPubKeyAddressSingleKey
+       , maxPubKeyAddressSizeSingleKey
+       , largestHDAddressBoot
+       , maxHDAddressSizeBoot
+
          -- * Internals
        , AddressHash
        , addressHash
@@ -49,34 +57,38 @@ module Pos.Core.Address
 
 import           Universum
 
-import           Crypto.Hash              (Blake2b_224, Digest, SHA3_256)
-import qualified Crypto.Hash              as CryptoHash
-import           Data.ByteString.Base58   (Alphabet (..), bitcoinAlphabet, decodeBase58,
-                                           encodeBase58)
-import           Data.Hashable            (Hashable (..))
-import qualified Data.Text.Buildable      as Buildable
-import           Formatting               (Format, bprint, build, builder, int, later,
-                                           (%))
-import           Serokell.Util            (mapJson)
+import           Crypto.Hash                (Blake2b_224, Digest, SHA3_256)
+import qualified Crypto.Hash                as CryptoHash
+import qualified Data.ByteString            as BS
+import           Data.ByteString.Base58     (Alphabet (..), bitcoinAlphabet, decodeBase58,
+                                             encodeBase58)
+import           Data.Hashable              (Hashable (..))
+import qualified Data.Text.Buildable        as Buildable
+import           Formatting                 (Format, bprint, build, builder, int, later,
+                                             (%))
+import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util              (mapJson)
 
-import           Pos.Binary.Class         (Bi)
-import qualified Pos.Binary.Class         as Bi
-import           Pos.Binary.Crypto        ()
-import           Pos.Core.Coin            ()
-import           Pos.Core.Constants       (accountGenesisIndex, wAddressGenesisIndex)
-import           Pos.Core.Types           (AddrAttributes (..), AddrSpendingData (..),
-                                           AddrStakeDistribution (..), AddrType (..),
-                                           Address (..), Address' (..), AddressHash,
-                                           Script, StakeholderId)
-import           Pos.Crypto.Hashing       (AbstractHash (AbstractHash), hashHexF,
-                                           shortHashF)
-import           Pos.Crypto.HD            (HDAddressPayload, HDPassphrase,
-                                           ShouldCheckPassphrase (..), deriveHDPassphrase,
-                                           deriveHDPublicKey, deriveHDSecretKey,
-                                           packHDAddressAttr)
-import           Pos.Crypto.Signing.Types (EncryptedSecretKey, PassPhrase, PublicKey,
-                                           RedeemPublicKey, encToPublic)
-import           Pos.Data.Attributes      (attrData, mkAttributes)
+import           Pos.Binary.Class           (Bi, biSize)
+import qualified Pos.Binary.Class           as Bi
+import           Pos.Binary.Crypto          ()
+import           Pos.Core.Coin              ()
+import           Pos.Core.Constants         (accountGenesisIndex, wAddressGenesisIndex)
+import           Pos.Core.Types             (AddrAttributes (..), AddrSpendingData (..),
+                                             AddrStakeDistribution (..), AddrType (..),
+                                             Address (..), Address' (..), AddressHash,
+                                             Script, StakeholderId)
+import           Pos.Crypto.Hashing         (AbstractHash (AbstractHash), hashHexF,
+                                             shortHashF)
+import           Pos.Crypto.HD              (HDAddressPayload, HDPassphrase,
+                                             ShouldCheckPassphrase (..),
+                                             deriveHDPassphrase, deriveHDPublicKey,
+                                             deriveHDSecretKey, packHDAddressAttr)
+import           Pos.Crypto.Signing         (EncryptedSecretKey, PassPhrase, PublicKey,
+                                             RedeemPublicKey, SecretKey,
+                                             deterministicKeyGen, emptyPassphrase,
+                                             encToPublic, noPassEncrypt)
+import           Pos.Data.Attributes        (attrData, mkAttributes)
 
 instance Bi Address => Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.serialize'
@@ -372,3 +384,64 @@ isBootstrapEraDistrAddress (addrAttributesUnwrapped -> AddrAttributes {..}) =
     case aaStakeDistribution of
         BootstrapEraDistr -> True
         _                 -> False
+
+----------------------------------------------------------------------------
+-- Maximal size
+----------------------------------------------------------------------------
+
+-- | Largest (considering size of serialized data) PubKey address with
+-- BootstrapEra distribution. Actual size depends on CRC32 value which
+-- is serialized using var-length encoding.
+largestPubKeyAddressBoot :: Bi Address' => Address
+largestPubKeyAddressBoot = makePubKeyAddressBoot goodPk
+
+-- | Maximal size of PubKey address with BootstrapEra
+-- distribution (43).
+maxPubKeyAddressSizeBoot :: (Bi Address, Bi Address') => Byte
+maxPubKeyAddressSizeBoot = biSize largestPubKeyAddressBoot
+
+-- | Largest (considering size of serialized data) PubKey address with
+-- SingleKey distribution. Actual size depends on CRC32 value which
+-- is serialized using var-length encoding.
+largestPubKeyAddressSingleKey :: Bi Address' => Address
+largestPubKeyAddressSingleKey =
+    makePubKeyAddress (IsBootstrapEraAddr False) goodPk
+
+-- | Maximal size of PubKey address with SingleKey
+-- distribution (78).
+maxPubKeyAddressSizeSingleKey :: (Bi Address, Bi Address') => Byte
+maxPubKeyAddressSizeSingleKey = biSize largestPubKeyAddressSingleKey
+
+-- | Largest (considering size of serialized data) HD address with
+-- BootstrapEra distribution. Actual size depends on CRC32 value which
+-- is serialized using var-length encoding.
+largestHDAddressBoot :: Bi Address' => Address
+largestHDAddressBoot =
+    case deriveLvl2KeyPair
+             (IsBootstrapEraAddr True)
+             (ShouldCheckPassphrase False)
+             emptyPassphrase
+             encSK
+             maxBound
+             maxBound of
+        Nothing        -> error "largestHDAddressBoot failed"
+        Just (addr, _) -> addr
+  where
+    encSK = noPassEncrypt goodSk
+
+-- | Maximal size of HD address with BootstrapEra
+-- distribution (76).
+maxHDAddressSizeBoot :: (Bi Address, Bi Address') => Byte
+maxHDAddressSizeBoot = biSize largestHDAddressBoot
+
+-- Public key and secret key for which we know that they produce
+-- largest addresses in all cases we are interested in. It was checked
+-- manually.
+goodSkAndPk :: (PublicKey, SecretKey)
+goodSkAndPk = deterministicKeyGen $ BS.replicate 32 0
+
+goodPk :: PublicKey
+goodPk = fst goodSkAndPk
+
+goodSk :: SecretKey
+goodSk = snd goodSkAndPk

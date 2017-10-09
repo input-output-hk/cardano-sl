@@ -15,3 +15,8 @@ class Monad m => MonadAddresses m where
     -- | Generate new address using given 'AddrData' (e.g. password +
     -- account id).
     getNewAddress :: AddrData m -> m Address
+
+    -- | Generate a “fake” change address. Its size must be greater
+    -- than or equal to the maximal possible size of address generated
+    -- by 'getNewAddress'.
+    getFakeChangeAddress :: m Address

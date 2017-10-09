@@ -28,12 +28,13 @@ import           Pos.Binary.Core.Address    ()
 import           Pos.Core.Address           (addressF, decodeTextAddress)
 import           Pos.Core.Fee               (Coeff (..), TxFeePolicy (..),
                                              TxSizeLinear (..))
+import           Pos.Core.Genesis.Helpers   (mkGenesisDelegation)
 import           Pos.Core.Genesis.Types     (GenesisAvvmBalances (..), GenesisData (..),
                                              GenesisDelegation (..),
                                              GenesisNonAvvmBalances (..),
                                              GenesisVssCertificatesMap (..),
                                              GenesisWStakeholders (..),
-                                             ProtocolConstants (..), mkGenesisDelegation)
+                                             ProtocolConstants (..))
 import           Pos.Core.Types             (Address, BlockVersionData (..), Coin,
                                              CoinPortion, EpochIndex (..),
                                              SharedSeed (..), SoftforkRule (..),

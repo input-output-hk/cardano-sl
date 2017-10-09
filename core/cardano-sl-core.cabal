@@ -57,6 +57,7 @@ library
                        Pos.Core.Genesis
                        Pos.Core.Genesis.Canonical
                        Pos.Core.Genesis.Generate
+                       Pos.Core.Genesis.Helpers
                        Pos.Core.Genesis.Types
 
                        Pos.Crypto

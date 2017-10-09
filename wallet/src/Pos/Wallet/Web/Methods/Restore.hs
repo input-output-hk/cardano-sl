@@ -26,7 +26,7 @@ import           Pos.Crypto                   (EncryptedSecretKey, PassPhrase,
 import           Pos.StateLock                (Priority (..), withStateLockNoMetrics)
 import           Pos.Util                     (maybeThrow)
 import           Pos.Util.UserSecret          (UserSecretDecodingError (..),
-                                               readUserSecret, usWalletSet)
+                                               readUserSecret, usWallet)
 import           Pos.Wallet.KeyStorage        (addSecretKey)
 import           Pos.Wallet.Web.Account       (GenSeed (..), genSaveRootKey,
                                                genUniqueAccountId)
@@ -97,7 +97,7 @@ importWallet passphrase (toString -> fp) = do
         rewrapToWalletError isDoesNotExistError noFile $
         rewrapToWalletError (\UserSecretDecodingError{} -> True) decodeFailed $
         readUserSecret fp
-    wSecret <- maybeThrow noWalletSecret (secret ^. usWalletSet)
+    wSecret <- maybeThrow noWalletSecret (secret ^. usWallet)
     wId <- cwId <$> importWalletSecret emptyPassphrase wSecret
     L.changeWalletPassphrase wId emptyPassphrase passphrase
     L.getWallet wId

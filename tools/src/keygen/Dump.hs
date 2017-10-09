@@ -20,7 +20,7 @@ import           Pos.Core.Genesis      (GeneratedSecrets (..), TestnetBalanceOpt
 import           Pos.Crypto            (EncryptedSecretKey, SecretKey, VssKeyPair,
                                         noPassEncrypt)
 import           Pos.Util.UserSecret   (initializeUserSecret, takeUserSecret, usKeys,
-                                        usPrimKey, usVss, usWalletSet,
+                                        usPrimKey, usVss, usWallet,
                                         writeUserSecretRelease)
 import           Pos.Wallet.Web.Secret (mkGenesisWalletUserSecret)
 
@@ -93,7 +93,7 @@ dumpKeyfile isPrim fp (sk, hdwSk, vss) = do
         us & (if isPrim
             then usPrimKey .~ Just sk
             else (usKeys %~ (noPassEncrypt sk :))
-                . (usWalletSet ?~ mkGenesisWalletUserSecret hdwSk))
+                . (usWallet ?~ mkGenesisWalletUserSecret hdwSk))
         & usVss .~ Just vss
 
 dumpFakeAvvmSeed :: MonadIO m => FilePath -> ByteString -> m ()

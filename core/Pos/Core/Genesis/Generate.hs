@@ -164,7 +164,7 @@ generateSecretsAndAddress mbSk hasHDPayload= do
         hdwAccountPk =
             if not hasHDPayload then makePubKeyAddressBoot (toPublic sk)
             else
-                fst $ fromMaybe (error "generateKeyfile: pass mismatch") $
+                fst $ fromMaybe (error "generateSecretsAndAddress: pass mismatch") $
                 deriveLvl2KeyPair (IsBootstrapEraAddr True) emptyPassphrase hdwSk
                     Const.accountGenesisIndex Const.wAddressGenesisIndex
     pure (sk, hdwSk, vss, vssCert, hdwAccountPk)

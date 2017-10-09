@@ -3029,8 +3029,8 @@ self: {
       ekg-core = callPackage ({ base, containers, ghc-prim, mkDerivation, stdenv, text, unordered-containers }:
       mkDerivation {
           pname = "ekg-core";
-          version = "0.1.1.2";
-          sha256 = "35eb78e4cdabab2562ddf477bf55fa2cf1c0489984c6adb360ef187b6979f805";
+          version = "0.1.1.3";
+          sha256 = "ac56e2d0f6bf0b76aa3b69beddbb7d0811e8991c98a379bc24ec808049fb89e3";
           libraryHaskellDepends = [
             base
             containers
@@ -3704,10 +3704,8 @@ self: {
       happy = callPackage ({ Cabal, array, base, containers, directory, filepath, mkDerivation, mtl, stdenv }:
       mkDerivation {
           pname = "happy";
-          version = "1.19.7";
-          sha256 = "bb312a9e63d5295cca3e94ebe32d7c094216d7d9dafee3edb45c847b45126f9b";
-          revision = "1";
-          editedCabalFile = "1w0sm3qn1icxiiif6355pr6cwd9bqfh56g8qc5hycagcnms8hip1";
+          version = "1.19.8";
+          sha256 = "4df739965d559e48a9b0044fa6140241c07e8f3c794c6c0a6323024fd7f0d3a0";
           isLibrary = false;
           isExecutable = true;
           setupHaskellDepends = [

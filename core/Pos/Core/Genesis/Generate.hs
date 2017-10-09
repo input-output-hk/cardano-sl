@@ -20,13 +20,13 @@ import           Pos.Binary.Class                        (asBinary, serialize')
 import           Pos.Binary.Core.Address                 ()
 import           Pos.Core.Address                        (Address,
                                                           IsBootstrapEraAddr (..),
-                                                          addressHash, deriveLvl2KeyPair,
+                                                          addressHash,
+                                                          deriveFirstHDAddress,
                                                           makePubKeyAddressBoot)
 import           Pos.Core.Coin                           (mkCoin, unsafeIntegerToCoin)
 import           Pos.Core.Configuration.BlockVersionData (HasGenesisBlockVersionData)
 import           Pos.Core.Configuration.Protocol         (HasProtocolConstants, vssMaxTTL,
                                                           vssMinTTL)
-import qualified Pos.Core.Genesis.Constants              as Const
 import           Pos.Core.Genesis.Types                  (FakeAvvmOptions (..),
                                                           GenesisAvvmBalances (..),
                                                           GenesisInitializer (..),
@@ -165,8 +165,7 @@ generateSecretsAndAddress mbSk hasHDPayload= do
             if not hasHDPayload then makePubKeyAddressBoot (toPublic sk)
             else
                 fst $ fromMaybe (error "generateSecretsAndAddress: pass mismatch") $
-                deriveLvl2KeyPair (IsBootstrapEraAddr True) emptyPassphrase hdwSk
-                    Const.accountGenesisIndex Const.wAddressGenesisIndex
+                deriveFirstHDAddress (IsBootstrapEraAddr True) emptyPassphrase hdwSk
     pure (sk, hdwSk, vss, vssCert, hdwAccountPk)
 
 generateFakeAvvm :: MonadRandom m => m (RedeemPublicKey, ByteString)

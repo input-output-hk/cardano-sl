@@ -66,6 +66,9 @@ address = lexeme $ do
 num :: Num a => Parser a
 num = lexeme $ fromInteger . read <$> many1 digit
 
+numOrN1 :: Num a => Parser a
+numOrN1 = lexeme $ fromInteger . read <$> (string "-1" <|> many1 digit)
+
 coin :: Parser Coin
 coin = mkCoin <$> num
 
@@ -106,7 +109,7 @@ addKeyFromPool = AddKeyFromPool <$> num
 addKeyFromFile = AddKeyFromFile <$> filePath
 
 send :: Parser Command
-send = Send <$> num <*> (NE.fromList <$> many1 txout)
+send = Send <$> numOrN1 <*> (NE.fromList <$> many1 txout)
 
 sendMode :: Parser SendMode
 sendMode = lexeme $ text "neighbours" $> SendNeighbours

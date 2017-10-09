@@ -638,8 +638,8 @@ update (RequestEpochPageSearch epochIndex pNumber) state =
     { state:
           set loading true $
           -- Important note: Don't use `set currentBlocksResult Loading` here,
-          -- because we will lost all previous data of `currentBlocksResult` while pagenating
-          -- We are updating `blsViewLoadingPagination` instead this ^
+          -- because we will lose all previous data of `currentBlocksResult` while paginating
+          -- We are updating `blsViewLoadingPagination` instead of this ^
           set (viewStates <<< blocksViewState <<< blsViewLoadingPagination) true
           state
     , effects: [ attempt (epochPageSearch epochIndex pNumber) >>= pure <<< Just <<< ReceiveEpochPageSearch ]

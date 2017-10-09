@@ -13,8 +13,8 @@ module Pos.Explorer.Web.Api
        , TxsLast
        , TxsSummary
        , AddressSummary
-       , EpochPageSearch
-       , EpochSlotSearch
+       , EpochPages
+       , EpochSlots
        ) where
 
 import           Universum
@@ -87,13 +87,13 @@ type AddressSummary = API
     :> Capture "address" CAddress
     :> Get '[JSON] (Either ExplorerError CAddressSummary)
 
-type EpochPageSearch = API
+type EpochPages = API
     :> "epochs"
     :> Capture "epoch" EpochIndex
     :> QueryParam "page" Int
     :> Get '[JSON] (Either ExplorerError (Int, [CBlockEntry]))
 
-type EpochSlotSearch = API
+type EpochSlots = API
     :> "epochs"
     :> Capture "epoch" EpochIndex
     :> Capture "slot" Word16
@@ -136,8 +136,8 @@ type ExplorerApi =
     :<|> TxsLast
     :<|> TxsSummary
     :<|> AddressSummary
-    :<|> EpochPageSearch
-    :<|> EpochSlotSearch
+    :<|> EpochPages
+    :<|> EpochSlots
     :<|> GenesisSummary
     :<|> GenesisPagesTotal
     :<|> GenesisAddressInfo

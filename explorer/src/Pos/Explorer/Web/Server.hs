@@ -177,7 +177,7 @@ explorerHandlers _sendActions =
         catchExplorerError $ getBlockTxs hash' (defaultLimit limit) (defaultSkip skip)
 
     tryEpochPageSearch epoch maybePage =
-        catchExplorerError $ epochPageSearch epoch maybePage
+        catchExplorerError $ epochPageSearch epoch (defaultPage maybePage)
 
     tryEpochSlotSearch epoch slot =
         catchExplorerError $ epochSlotSearch epoch slot
@@ -193,7 +193,8 @@ explorerHandlers _sendActions =
 
     defaultPageSize size  = (fromIntegral $ fromMaybe 10 size)
     defaultLimit limit    = (fromIntegral $ fromMaybe 10 limit)
-    defaultSkip  skip     = (fromIntegral $ fromMaybe 0  skip)
+    defaultSkip skip      = (fromIntegral $ fromMaybe 0  skip)
+    defaultPage page      = (fromIntegral $ fromMaybe 1  page)
 
 ----------------------------------------------------------------
 -- API Functions
@@ -649,15 +650,11 @@ epochSlotSearch epochIndex slotIndex = do
 epochPageSearch
     :: ExplorerMode ctx m
     => EpochIndex
-    -> Maybe Int
+    -> Int
     -> m (Int, [CBlockEntry])
-epochPageSearch epochIndex mPage = do
+epochPageSearch epochIndex page = do
 
-    -- If the user doesn't define the page, the default page is the first one.
-    let page :: Int
-        page = fromMaybe 1 mPage
-
-    -- We want to fetch how many pages do we have in this @Epoch@.
+    -- We want to fetch as many pages as we have in this @Epoch@.
     epochPagesNumber <- getEpochPages epochIndex >>= maybeThrow (Internal "No epoch pages.")
 
     -- Get pages from the database
@@ -681,11 +678,11 @@ epochPageSearch epochIndex mPage = do
         => EpochIndex
         -> Int
         -> m [HeaderHash]
-    getPageHHsOrThrow epoch page =
-        getEpochBlocks epoch page >>= maybeThrow (Internal errMsg)
+    getPageHHsOrThrow epoch page' =
+        getEpochBlocks epoch page' >>= maybeThrow (Internal errMsg)
       where
         errMsg :: Text
-        errMsg = sformat ("No blocks on epoch "%build%" page "%build%" found!") epoch page
+        errMsg = sformat ("No blocks on epoch "%build%" page "%build%" found!") epoch page'
 
     -- | Sorting.
     sortBlocksByEpochSlots

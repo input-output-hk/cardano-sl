@@ -182,7 +182,7 @@ prepareExplorerDB = do
 
             convertToPaged :: (Epoch, [HeaderHash]) -> [((Epoch, Page), [HeaderHash])]
             convertToPaged (epoch, headerHashes) =
-                convertHHsToEpochPages <$> convertHHsToPages
+                map convertHHsToEpochPages convertHHsToPages
               where
                 convertHHsToEpochPages
                     :: (Page, [HeaderHash])
@@ -239,6 +239,8 @@ prepareExplorerDB = do
                     emp = findEpochMaxPages mapEpochPagedHHs
 
         -- | Finally, just persist all the operations atomically.
+        -- "Apart from its atomicity benefits, WriteBatch may also be used to speed up
+        -- bulk updates by placing lots of individual mutations into the same batch."
         persistExplorerOpSink :: (MonadDB m) => Sink ([ExplorerOp]) m ()
         persistExplorerOpSink = CL.mapM_ writeBatchGState
 

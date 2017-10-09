@@ -97,7 +97,6 @@ let
         valency: 1
         fallbacks: 7
     '';
-    CLUSTER = "mainnet-1.0";
     SYSTEM_START_TIME = 1504820421;
     configFiles = pkgs.runCommand "cardano-config" {} ''
       mkdir -pv $out
@@ -128,17 +127,17 @@ let
         "--no-ntp" \
         "--topology" "${configFiles}/topology.yaml" \
         "--log-config" "${configFiles}/log-config-qa.yaml" \
-        "--logs-prefix" "/wallet/logs/${CLUSTER}" \
-        "--db-path" "/wallet/db-${CLUSTER}" \
-        "--wallet-db-path" "/wallet/wdb-${CLUSTER}" \
+        "--logs-prefix" "/wallet/logs/" \
+        "--db-path" "/wallet/db" \
+        "--wallet-db-path" "/wallet/wdb" \
         "--system-start" ${toString SYSTEM_START_TIME} \
-        "--keyfile" "/wallet/secret-${CLUSTER}.key" \
+        "--keyfile" "/wallet/secret.key" \
         "--configuration-file" "${configFiles}/configuration.yaml" \
         "--configuration-key" "mainnet_dryrun_full" \
         "--wallet-address" "0.0.0.0:8090"
     '';
   in pkgs.dockerTools.buildImage {
-    name = "cardano-container-${CLUSTER}";
+    name = "cardano-container-staging-1.0";
     contents = [ cardanoPkgs.cardano-sl-wallet pkgs.iana-etc startScript pkgs.openssl ] ++ optional true (with pkgs; [ bashInteractive coreutils utillinux iproute iputils curl socat ]);
     config = {
       Cmd = [

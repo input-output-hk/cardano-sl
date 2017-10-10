@@ -31,16 +31,13 @@ import           Pos.Core.Configuration     (HasConfiguration)
 import           Pos.Crypto                 (SecretKey, WithHash (..), fakeSigner, hash,
                                              toPublic)
 import           Pos.Generator.Block.Error  (BlockGenError (..))
-import           Pos.Generator.Block.Mode   (BlockGenRandMode, MonadBlockGenBase)
+import           Pos.Generator.Block.Mode   (BlockGenMode, BlockGenRandMode,
+                                             MonadBlockGenBase)
 import           Pos.Generator.Block.Param  (HasBlockGenParams (..), HasTxGenParams (..))
 import qualified Pos.GState                 as DB
 import           Pos.Txp.Core               (Tx (..), TxAux (..), TxIn (..), TxOut (..),
                                              TxOutAux (..))
-#ifdef WITH_EXPLORER
-import           Pos.Explorer.Txp.Local     (eTxProcessTransactionNoLock)
-#else
-import           Pos.Txp.Logic              (txProcessTransactionNoLock)
-#endif
+import           Pos.Txp.MemState.Class     (MonadTxpLocal (..))
 import           Pos.Txp.Toil.Class         (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Types         (Utxo)
 import qualified Pos.Txp.Toil.Utxo          as Utxo
@@ -126,8 +123,11 @@ instance (HasConfiguration, Monad m) => MonadUtxo (StateT GenTxData m) where
 -- TODO: move to txp, think how to unite it with 'Pos.Arbitrary.Txp'.
 -- | Generate valid 'TxPayload' using current global state.
 genTxPayload ::
-       forall g m. (RandomGen g, MonadBlockGenBase m)
-    => BlockGenRandMode g m ()
+       forall ext g m.
+    ( RandomGen g
+    , MonadBlockGenBase m
+    , MonadTxpLocal (BlockGenMode ext m))
+    => BlockGenRandMode ext g m ()
 genTxPayload = do
     invAddrSpendingData <-
         unInvAddrSpendingData <$> view (blockGenParams . asSpendingData)
@@ -143,7 +143,7 @@ genTxPayload = do
         txsN <- fromIntegral <$> getRandomR (a, a + d)
         void $ replicateM txsN genTransaction
   where
-    genTransaction :: StateT GenTxData (BlockGenRandMode g m) ()
+    genTransaction :: StateT GenTxData (BlockGenRandMode ext g m) ()
     genTransaction = do
         utxo <- use gtdUtxo
         utxoSize <- uses gtdUtxoKeys V.length
@@ -220,11 +220,9 @@ genTxPayload = do
         let tx = taTx txAux
         let txId = hash tx
         let txIns = _txInputs tx
-#ifdef WITH_EXPLORER
-        res <- lift . lift $ eTxProcessTransactionNoLock (txId, txAux)
-#else
-        res <- lift . lift $ txProcessTransactionNoLock (txId, txAux)
-#endif
+        --res <- lift . lift $ txProcessTransactionNoLock (txId, txAux)
+        -- TODO [CSL-920] no lock
+        res <- lift . lift $ txpProcessTx (txId, txAux)
         case res of
             Left e  -> error $ "genTransaction@txProcessTransaction: got left: " <> pretty e
             Right _ -> do
@@ -243,8 +241,10 @@ genTxPayload = do
 -- global state and mempool and add it to mempool.  Currently we are
 -- concerned only about tx payload, later we can add more stuff.
 genPayload ::
-       forall g m.
-       (RandomGen g, MonadBlockGenBase m)
+       forall ext g m.
+       ( RandomGen g
+       , MonadBlockGenBase m
+       , MonadTxpLocal (BlockGenMode ext m))
     => SlotId
-    -> BlockGenRandMode g m ()
+    -> BlockGenRandMode ext g m ()
 genPayload _ = genTxPayload

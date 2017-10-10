@@ -23,6 +23,7 @@ module Pos.Launcher.Resource
 import           Universum                        hiding (bracket)
 
 import           Control.Concurrent.STM           (newEmptyTMVarIO, newTBQueueIO)
+import           Data.Default                     (Default)
 import           Data.Tagged                      (untag)
 import qualified Data.Time                        as Time
 import           Formatting                       (sformat, shown, (%))
@@ -84,7 +85,6 @@ import           Pos.Launcher.Mode                (InitMode, InitModeContext (..
 import           Pos.Update.Context               (mkUpdateContext)
 import qualified Pos.Update.DB                    as GState
 import           Pos.Util                         (newInitFuture)
-import           Pos.WorkMode                     (TxpExtra_TMP)
 
 #ifdef linux_HOST_OS
 import qualified System.Systemd.Daemon            as Systemd
@@ -99,11 +99,11 @@ import qualified System.Wlog                      as Logger
 ----------------------------------------------------------------------------
 
 -- | This data type contains all resources used by node.
-data NodeResources ssc m = NodeResources
+data NodeResources ssc ext m = NodeResources
     { nrContext    :: !(NodeContext ssc)
     , nrDBs        :: !NodeDBs
     , nrSscState   :: !(SscState ssc)
-    , nrTxpState   :: !(GenericTxpLocalData TxpExtra_TMP)
+    , nrTxpState   :: !(GenericTxpLocalData ext)
     , nrDlgState   :: !DelegationVar
     , nrTransport  :: !(Transport m)
     , nrJLogHandle :: !(Maybe Handle)
@@ -112,10 +112,10 @@ data NodeResources ssc m = NodeResources
     }
 
 hoistNodeResources ::
-       forall ssc n m. Functor m
+       forall ssc ext n m. Functor m
     => (forall a. n a -> m a)
-    -> NodeResources ssc n
-    -> NodeResources ssc m
+    -> NodeResources ssc ext n
+    -> NodeResources ssc ext m
 hoistNodeResources nat nr =
     nr {nrTransport = hoistTransport nat (nrTransport nr)}
 
@@ -125,8 +125,9 @@ hoistNodeResources nat nr =
 
 -- | Allocate all resources used by node. They must be released eventually.
 allocateNodeResources
-    :: forall ssc m.
+    :: forall ssc ext m.
        ( SscConstraint ssc
+       , Default ext
        , HasConfiguration
        , HasNodeConfiguration
        , HasInfraConfiguration
@@ -145,7 +146,7 @@ allocateNodeResources
     -> NetworkConfig KademliaDHTInstance
     -> NodeParams
     -> SscParams ssc
-    -> Production (NodeResources ssc m)
+    -> Production (NodeResources ssc ext m)
 allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
     db <- openNodeDBs npRebuildDb npDbPathM
     (futureLrcContext, putLrcContext) <- newInitFuture "lrcContext"
@@ -199,8 +200,8 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
 
 -- | Release all resources used by node. They must be released eventually.
 releaseNodeResources ::
-       forall ssc m. ( )
-    => NodeResources ssc m -> Production ()
+       forall ssc ext m. ( )
+    => NodeResources ssc ext m -> Production ()
 releaseNodeResources NodeResources {..} = do
     releaseAllHandlers
     whenJust nrJLogHandle (liftIO . hClose)
@@ -209,8 +210,9 @@ releaseNodeResources NodeResources {..} = do
 
 -- | Run computation which requires 'NodeResources' ensuring that
 -- resources will be released eventually.
-bracketNodeResources :: forall ssc m a.
+bracketNodeResources :: forall ssc ext m a.
       ( SscConstraint ssc
+      , Default ext
       , MonadIO m
       , HasConfiguration
       , HasNodeConfiguration
@@ -219,7 +221,7 @@ bracketNodeResources :: forall ssc m a.
       )
     => NodeParams
     -> SscParams ssc
-    -> (HasConfiguration => NodeResources ssc m -> Production a)
+    -> (HasConfiguration => NodeResources ssc ext m -> Production a)
     -> Production a
 bracketNodeResources np sp k =
     bracketTransport (ncTcpAddr (npNetworkConfig np)) $ \transport ->
@@ -253,19 +255,19 @@ loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 -- NodeContext
 ----------------------------------------------------------------------------
 
-data AllocateNodeContextData ssc = AllocateNodeContextData
+data AllocateNodeContextData ssc ext = AllocateNodeContextData
     { ancdNodeParams :: !NodeParams
     , ancdSscParams :: !(SscParams ssc)
     , ancdPutSlotting :: (Timestamp, TVar SlottingData) -> SlottingContextSum -> InitMode ssc ()
     , ancdNetworkCfg :: NetworkConfig KademliaDHTInstance
     , ancdEkgStore :: !Metrics.Store
-    , ancdTxpMemState :: !(GenericTxpLocalData TxpExtra_TMP)
+    , ancdTxpMemState :: !(GenericTxpLocalData ext)
     }
 
 allocateNodeContext
-    :: forall ssc .
+    :: forall ssc ext .
       (HasConfiguration, HasNodeConfiguration, HasInfraConfiguration, SscConstraint ssc)
-    => AllocateNodeContextData ssc
+    => AllocateNodeContextData ssc ext
     -> InitMode ssc (NodeContext ssc)
 allocateNodeContext ancd = do
     let AllocateNodeContextData { ancdNodeParams = np@NodeParams {..}

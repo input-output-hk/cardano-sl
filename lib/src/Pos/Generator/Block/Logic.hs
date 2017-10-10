@@ -1,15 +1,18 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE RankNTypes          #-}
 
 -- | Blockchain generation logic.
 
 module Pos.Generator.Block.Logic
-       ( genBlocks
+       ( BlockTxpGenMode
+       , genBlocks
        ) where
 
 import           Universum
 
 import           Control.Lens                (at, ix, _Wrapped)
 import           Control.Monad.Random.Strict (RandT, mapRandT)
+import           Data.Default                (Default)
 import           Formatting                  (build, sformat, (%))
 import           System.Random               (RandomGen (..))
 import           System.Wlog                 (logWarning)
@@ -26,15 +29,16 @@ import           Pos.Crypto                  (pskDelegatePk)
 import           Pos.DB.DB                   (getTipHeader)
 import           Pos.Delegation.Logic        (getDlgTransPsk)
 import           Pos.Generator.Block.Error   (BlockGenError (..))
-import           Pos.Generator.Block.Mode    (BlockGenRandMode, MonadBlockGen,
-                                              mkBlockGenContext, usingPrimaryKey,
-                                              withCurrentSlot)
+import           Pos.Generator.Block.Mode    (BlockGenMode, BlockGenRandMode,
+                                              MonadBlockGen, mkBlockGenContext,
+                                              usingPrimaryKey, withCurrentSlot)
 import           Pos.Generator.Block.Param   (BlockGenParams, HasBlockGenParams (..))
 import           Pos.Generator.Block.Payload (genPayload)
 import           Pos.Lrc                     (lrcSingleShot)
 import           Pos.Lrc.Context             (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.Ssc.GodTossing          (SscGodTossing)
+import           Pos.Txp                     (MempoolExt, MonadTxpLocal)
 import           Pos.Util.Chrono             (OldestFirst (..))
 import           Pos.Util.Util               (maybeThrow, _neHead)
 
@@ -42,15 +46,22 @@ import           Pos.Util.Util               (maybeThrow, _neHead)
 -- Block generation
 ----------------------------------------------------------------------------
 
+type BlockTxpGenMode g ctx m =
+    ( RandomGen g
+    , MonadBlockGen ctx m
+    , Default (MempoolExt m)
+    , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
+    )
+
 -- | Generate an arbitrary sequence of valid blocks. The blocks are
 -- valid with respect to the global state right before this function
 -- call.
 genBlocks ::
-       (MonadBlockGen ctx m, RandomGen g)
+       forall g ctx m . BlockTxpGenMode g ctx m
     => BlockGenParams
     -> RandT g m (OldestFirst [] (Blund SscGodTossing))
 genBlocks params = do
-    ctx <- lift $ mkBlockGenContext params
+    ctx <- lift $ mkBlockGenContext @(MempoolExt m) params
     mapRandT (`runReaderT` ctx) genBlocksDo
   where
     genBlocksDo =
@@ -65,9 +76,9 @@ genBlocks params = do
 -- Generate a valid 'Block' for the given epoch or slot (genesis block
 -- in the former case and main block the latter case) and apply it.
 genBlock ::
-       forall ctx m g. (RandomGen g, MonadBlockGen ctx m)
+       forall g ctx m . BlockTxpGenMode g ctx m
     => EpochOrSlot
-    -> BlockGenRandMode g m (Maybe (Blund SscGodTossing))
+    -> BlockGenRandMode (MempoolExt m) g m (Maybe (Blund SscGodTossing))
 genBlock eos = do
     let epoch = eos ^. epochIndexL
     unlessM ((epoch ==) <$> lift LrcDB.getEpoch) $

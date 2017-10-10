@@ -55,7 +55,8 @@ import           Pos.Ssc.Extra              (MonadSscMem, sscGetLocalPayload,
                                              sscResetLocal)
 import           Pos.StateLock              (Priority (..), StateLock, StateLockMetrics,
                                              modifyStateLock)
-import           Pos.Txp                    (MonadTxpMem, clearTxpMemPool, txGetPayload)
+import           Pos.Txp                    (MempoolExt, MonadTxpLocal (..), MonadTxpMem,
+                                             clearTxpMemPool, txGetPayload)
 import           Pos.Txp.Core               (TxAux (..), emptyTxPayload, mkTxPayload)
 import           Pos.Update                 (UpdateContext)
 import           Pos.Update.Configuration   (HasUpdateConfiguration)
@@ -66,7 +67,6 @@ import           Pos.Update.Logic           (clearUSMemPool, usCanCreateBlock,
 import           Pos.Util                   (_neHead)
 import           Pos.Util.LogSafe           (logInfoS)
 import           Pos.Util.Util              (HasLens (..), HasLens', leftToPanic)
-import           Pos.WorkMode.Class         (TxpExtra_TMP)
 
 -- | A set of constraints necessary to create a block from mempool.
 type MonadCreateBlock ssc ctx m
@@ -84,7 +84,8 @@ type MonadCreateBlock ssc ctx m
 
        -- Mempools
        , HasLens DelegationVar ctx DelegationVar
-       , MonadTxpMem TxpExtra_TMP ctx m
+       , MonadTxpMem (MempoolExt m) ctx m
+       , MonadTxpLocal m
        , HasLens UpdateContext ctx UpdateContext
        , MonadSscMem ssc ctx m
        , SscLocalDataClass ssc
@@ -335,8 +336,10 @@ createMainBlockPure limit prevHeader pske sId sk rawPayload = do
 -- the block we applied (usually it's the same as the argument, but
 -- can differ if verification fails).
 applyCreatedBlock ::
-       forall ssc ctx m. ( MonadBlockApply ssc ctx m
-                         , MonadCreateBlock ssc ctx m)
+      forall ssc ctx m.
+    ( MonadBlockApply ssc ctx m
+    , MonadCreateBlock ssc ctx m
+    )
     => ProxySKBlockInfo
     -> MainBlock ssc
     -> m (MainBlock ssc)

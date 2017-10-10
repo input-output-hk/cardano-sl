@@ -88,7 +88,7 @@ test_script:
   - scripts\ci\appveyor-retry call stack install cardano-sl cardano-sl-tools cardano-sl-wallet
       -j 2
       --no-terminal
-      --local-bin-path daedalus
+      --local-bin-path %WORK_DIR%
       --test
       --no-haddock-deps
       --work-dir %STACK_WORK%
@@ -101,14 +101,20 @@ test_script:
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
   - stack exec --work-dir %STACK_WORK% -- cardano-wallet-hs2purs
-  - copy log-config-prod.yaml daedalus\log-config-prod.yaml
+  # Prepare files for frontend build
+  - copy log-config-prod.yaml daedalus\
+  - copy lib\configuration.yaml daedalus\
+  - copy lib\*genesis*.json daedalus\
+  - copy cardano-launcher.exe daedalus\
+  - copy cardano-node.exe daedalus\
+  # Build the bridge
   - cd daedalus
   - Echo %APPVEYOR_BUILD_VERSION% > build-id
   - ps: Install-Product node 7
   - ..\scripts\ci\appveyor-retry call npm install
   - npm run build:prod
   - dir "%WORK_DIR%\daedalus\"
-  - ps: foreach ($x in @("cardano-addr-convert.exe", "cardano-genupdate.exe", "cardano-launcher.exe", "cardano-node.exe", "cardano-wallet-hs2purs.exe")) { if (-NOT (Test-Path "$($env:WORK_DIR)\daedalus\$x")) { throw "ERROR... Missing $x" }}
+  - ps: foreach ($x in @("cardano-launcher.exe", "cardano-node.exe")) { if (-NOT (Test-Path "$($env:WORK_DIR)\daedalus\$x")) { throw "ERROR... Missing $x" }}
 
 after_test:
  - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_ROOT% xcopy /q /s /e /r /k /i /v /h /y %STACK_ROOT% %CACHED_STACK_ROOT%

@@ -5,19 +5,16 @@
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE RankNTypes        #-}
 
-{-# OPTIONS_GHC -fno-warn-orphans #-}
-
 import           Universum
 
 import           Control.Concurrent           (modifyMVar_)
-import           Control.Concurrent.Async     (Async, async, cancel, poll, wait, waitAny,
-                                               withAsyncWithUnmask)
+import           Control.Concurrent.Async.Lifted.Safe
+    (Async, async, cancel, poll, wait, waitAny, withAsyncWithUnmask)
 import           Data.List                    (isSuffixOf)
 import qualified Data.Text.IO                 as T
-import qualified Data.Text.Lazy.IO            as TL
 import           Data.Time.Units              (Second, convertUnit)
 import           Data.Version                 (showVersion)
-import           Formatting                   (format, int, shown, stext, text, (%))
+import           Formatting                   (int, sformat, shown, stext, (%))
 import qualified NeatInterpolation            as Q (text)
 import           Options.Applicative          (Mod, OptionFields, Parser, auto,
                                                execParser, footerDoc, fullDesc, header,
@@ -33,7 +30,9 @@ import qualified System.IO                    as IO
 import           System.Process               (ProcessHandle, readProcessWithExitCode)
 import qualified System.Process               as Process
 import           System.Timeout               (timeout)
-import           System.Wlog                  (lcFilePrefix, usingLoggerName)
+import           System.Wlog                  (LoggerNameBox, lcFilePrefix, logError,
+                                               logInfo, logNotice, logWarning,
+                                               usingLoggerName)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 -- Modules needed for system'
@@ -66,6 +65,9 @@ data LauncherOptions = LO
     , loReportServer        :: !(Maybe String)
     , loConfiguration       :: !ConfigurationOptions
     }
+
+-- | The concrete monad where everything happens
+type M a = HasConfigurations => LoggerNameBox IO a
 
 optionsParser :: Parser LauncherOptions
 optionsParser = do
@@ -184,10 +186,9 @@ main = do
                 Just lc -> loNodeArgs ++ ["--log-config", toText lc]
     usingLoggerName "launcher" $
         withConfigurations loConfiguration $
-        liftIO $
         case loWalletPath of
             Nothing -> do
-                putText "Running in the server scenario"
+                logNotice "Running in the server scenario"
                 serverScenario
                     loNodeLogConfig
                     (loNodePath, realNodeArgs, loNodeLogPath)
@@ -197,7 +198,7 @@ main = do
                     , loUpdateArchive)
                     loReportServer
             Just wpath -> do
-                putText "Running in the client scenario"
+                logNotice "Running in the client scenario"
                 clientScenario
                     loNodeLogConfig
                     (loNodePath, realNodeArgs, loNodeLogPath)
@@ -240,24 +241,25 @@ main = do
 -- * Launch the node.
 -- * If it exits with code 20, then update and restart, else quit.
 serverScenario
-    :: HasConfigurations
-    => Maybe FilePath                      -- ^ Logger config
+    :: Maybe FilePath                      -- ^ Logger config
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
     -- ^ Updater, args, updater runner, the update .tar
     -> Maybe String                        -- ^ Report server
-    -> IO ()
+    -> M ()
 serverScenario logConf node updater report = do
     runUpdater updater
     -- TODO: the updater, too, should create a log if it fails
     (_, nodeAsync, nodeLog) <- spawnNode node
     exitCode <- wait nodeAsync
-    putStrLn $ format ("The node has exited with "%shown) exitCode
-    if exitCode == ExitFailure 20
-        then serverScenario logConf node updater report
-        else whenJust report $ \repServ -> do
-                 TL.putStrLn $ format ("Sending logs to "%stext) (toText repServ)
-                 reportNodeCrash exitCode logConf repServ nodeLog
+    if exitCode == ExitFailure 20 then do
+        logNotice $ sformat ("The node has exited with "%shown) exitCode
+        serverScenario logConf node updater report
+    else do
+        logWarning $ sformat ("The node has exited with "%shown) exitCode
+        whenJust report $ \repServ -> do
+            logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
+            reportNodeCrash exitCode logConf repServ nodeLog
 
 -- | If we are on desktop, we want the following algorithm:
 --
@@ -265,66 +267,67 @@ serverScenario logConf node updater report = do
 -- * Launch the node and the wallet.
 -- * If the wallet exits with code 20, then update and restart, else quit.
 clientScenario
-    :: HasConfigurations
-    => Maybe FilePath                      -- ^ Logger config
+    :: Maybe FilePath                      -- ^ Logger config
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text])                  -- ^ Wallet, args
     -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
     -- ^ Updater, args, updater runner, the update .tar
     -> Int                                 -- ^ Node timeout, in seconds
     -> Maybe String                        -- ^ Report server
-    -> IO ()
+    -> M ()
 clientScenario logConf node wallet updater nodeTimeout report = do
     runUpdater updater
     (nodeHandle, nodeAsync, nodeLog) <- spawnNode node
     walletAsync <- async (runWallet wallet)
-    (someAsync, exitCode) <- liftIO $ waitAny [nodeAsync, walletAsync]
+    (someAsync, exitCode) <- waitAny [nodeAsync, walletAsync]
     if | someAsync == nodeAsync -> do
-             TL.putStrLn $ format ("The node has exited with "%shown) exitCode
+             logWarning $ sformat ("The node has exited with "%shown) exitCode
              whenJust report $ \repServ -> do
-                 TL.putStrLn $ format ("Sending logs to "%stext) (toText repServ)
+                 logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
                  reportNodeCrash exitCode logConf repServ nodeLog
-             putText "Waiting for the wallet to die"
+             logInfo "Waiting for the wallet to die"
              void $ wait walletAsync
        | exitCode == ExitFailure 20 -> do
-             putText "The wallet has exited with code 20"
-             TL.putStrLn $ format ("Killing the node in "%int%" seconds") nodeTimeout
+             logNotice "The wallet has exited with code 20"
+             logInfo $ sformat ("Killing the node in "%int%" seconds") nodeTimeout
              sleep (fromIntegral nodeTimeout)
-             putText "Killing the node now"
-             liftIO $ do
-                 Process.terminateProcess nodeHandle
-                 cancel nodeAsync
+             logInfo "Killing the node now"
+             liftIO $ Process.terminateProcess nodeHandle
+             cancel nodeAsync
              clientScenario logConf node wallet updater nodeTimeout report
        | otherwise -> do
-             TL.putStrLn $ format ("The wallet has exited with "%shown) exitCode
+             logWarning $ sformat ("The wallet has exited with "%shown) exitCode
              -- TODO: does the wallet have some kind of log?
-             putText "Killing the node"
-             liftIO $ do
-                 Process.terminateProcess nodeHandle
-                 cancel nodeAsync
+             logInfo "Killing the node"
+             liftIO $ Process.terminateProcess nodeHandle
+             cancel nodeAsync
 
 -- | We run the updater and delete the update file if the update was
 -- successful.
-runUpdater :: HasConfigurations => (FilePath, [Text], Maybe FilePath, Maybe FilePath) -> IO ()
+runUpdater :: (FilePath, [Text], Maybe FilePath, Maybe FilePath) -> M ()
 runUpdater (path, args, runnerPath, updateArchive) = do
-    whenM (doesFileExist path) $ do
-        putText "Running the updater"
+    whenM (liftIO (doesFileExist path)) $ do
+        logNotice "Running the updater"
         let args' = args ++ maybe [] (one . toText) updateArchive
         exitCode <- case runnerPath of
             Nothing -> runUpdaterProc path args'
             Just rp -> do
                 -- Write the bat script and pass it the updater with all args
-                liftIO $ writeWindowsUpdaterRunner $ rp
+                writeWindowsUpdaterRunner rp
                 -- The script will terminate this updater so this function shouldn't return
                 runUpdaterProc rp ((toText path):args')
-        TL.putStr $ format ("The updater has exited with "%text%"\n") (show exitCode)
-        when (exitCode == ExitSuccess) $ do
-            -- this will throw an exception if the file doesn't exist but
-            -- hopefully if the updater has succeeded it *does* exist
-            whenJust updateArchive removeFile
+        case exitCode of
+            ExitSuccess -> do
+                logInfo "The updater has exited successfully"
+                -- this will throw an exception if the file doesn't exist but
+                -- hopefully if the updater has succeeded it *does* exist
+                whenJust updateArchive $ \fp ->
+                    liftIO (removeFile fp)
+            ExitFailure code ->
+                logWarning $ sformat ("The updater has failed (exit code "%int%")") code
 
-runUpdaterProc :: HasConfigurations => FilePath -> [Text] -> IO ExitCode
-runUpdaterProc path args = do
+runUpdaterProc :: HasConfigurations => FilePath -> [Text] -> M ExitCode
+runUpdaterProc path args = liftIO $ do
     let cr = (Process.proc (toString path) (map toString args))
                  { Process.std_in  = Process.CreatePipe
                  , Process.std_out = Process.CreatePipe
@@ -333,8 +336,8 @@ runUpdaterProc path args = do
     phvar <- newEmptyMVar
     system' phvar cr mempty
 
-writeWindowsUpdaterRunner :: FilePath -> IO ()
-writeWindowsUpdaterRunner runnerPath = do
+writeWindowsUpdaterRunner :: FilePath -> M ()
+writeWindowsUpdaterRunner runnerPath = liftIO $ do
     exePath <- getExecutablePath
     launcherArgs <- getArgs
     writeFile (toString runnerPath) $ unlines
@@ -356,21 +359,20 @@ writeWindowsUpdaterRunner runnerPath = do
 ----------------------------------------------------------------------------
 
 spawnNode
-    :: HasConfigurations
-    => (FilePath, [Text], Maybe FilePath)
-    -> IO (ProcessHandle, Async ExitCode, FilePath)
+    :: (FilePath, [Text], Maybe FilePath)
+    -> M (ProcessHandle, Async ExitCode, FilePath)
 spawnNode (path, args, mbLogPath) = do
-    putText "Starting the node"
+    logNotice "Starting the node"
     -- We don't explicitly close the `logHandle` here,
     -- but this will be done when we run the `CreateProcess` built
     -- by proc later is `system'`:
     -- http://hackage.haskell.org/package/process-1.6.1.0/docs/System-Process.html#v:createProcess
-    (logPath, logHandle) <- case mbLogPath of
+    (logPath, logHandle) <- liftIO $ case mbLogPath of
         Just lp -> do
             createDirectoryIfMissing True (directory lp)
             (lp,) <$> openFile lp AppendMode
         Nothing -> do
-            tempdir <- liftIO (fromString <$> getTemporaryDirectory)
+            tempdir <- fromString <$> getTemporaryDirectory
             -- FIXME (adinapoli): `Shell` from `turtle` was giving us no-resource-leak guarantees
             -- via the `Managed` monad, which is something we have lost here, and we are back to manual
             -- resource control. In this case, however, shall we really want to nuke the file? It seems
@@ -392,15 +394,18 @@ spawnNode (path, args, mbLogPath) = do
     asc <- async (system' phvar cr mempty)
     mbPh <- liftIO $ timeout 10000000 (takeMVar phvar)
     case mbPh of
-        Nothing -> error "couldn't run the node (it didn't start after 10s)"
+        Nothing -> do
+            logError "Couldn't run the node (it didn't start after 10s)"
+            exitFailure
         Just ph -> do
-            putText "Node started"
+            logInfo "Node has started"
             return (ph, asc, logPath)
 
-runWallet :: (FilePath, [Text]) -> IO ExitCode
+runWallet :: (FilePath, [Text]) -> M ExitCode
 runWallet (path, args) = do
-    putText "Starting the wallet"
-    view _1 <$> readProcessWithExitCode path (map toString args) mempty
+    logNotice "Starting the wallet"
+    view _1 <$>
+        liftIO (readProcessWithExitCode path (map toString args) mempty)
 
 ----------------------------------------------------------------------------
 -- Working with the report server
@@ -415,12 +420,11 @@ runWallet (path, args) = do
 -- ...Or maybe we don't care because we don't restart anything after sending
 -- logs (and so the user never actually sees the process or waits for it).
 reportNodeCrash
-    :: (HasConfigurations, MonadIO m)
-    => ExitCode        -- ^ Exit code of the node
+    :: ExitCode        -- ^ Exit code of the node
     -> Maybe FilePath  -- ^ Path to the logger config
     -> String          -- ^ URL of the server
     -> FilePath        -- ^ Path to the stdout log
-    -> m ()
+    -> M ()
 reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
     logConfig <- readLoggerConfig (toString <$> logConfPath)
     let logFileNames =
@@ -432,6 +436,7 @@ reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
             ExitFailure n -> n
     sendReport (normalise logPath:logFiles) [] (RCrash ec) "cardano-node" reportServ
 
+-- Taken from the 'turtle' library and modified
 system'
     :: (HasConfigurations, MonadIO io)
     => MVar ProcessHandle

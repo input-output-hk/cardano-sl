@@ -275,11 +275,12 @@ executable cardano-launcher
                      , data-default
                      , directory
                      , filepath
+                     , formatting
                      , lens
+                     , lifted-async
                      , log-warper
                      , neat-interpolation
                      , optparse-applicative
-                     , formatting
                      , process
                      , system-filepath
                      , text

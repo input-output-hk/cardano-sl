@@ -4467,7 +4467,7 @@ self: {
       mkDerivation {
           pname = "log-warper";
           version = "1.2.3.1";
-          sha256 = "0fqn1a0zz8k281mbvqpifvcxrj0sg8k2khylv4khaa8969d0mpa7";
+          sha256 = "47dd0a5a3209290527d9d4c329267a1ac8dcd976f1e2bd6a4062a2ff810a163b";
           isLibrary = true;
           isExecutable = true;
           libraryHaskellDepends = [

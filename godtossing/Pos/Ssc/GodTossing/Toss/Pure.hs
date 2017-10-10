@@ -18,7 +18,7 @@ import           Control.Lens                   (at, (%=), (.=))
 import qualified Crypto.Random                  as Rand
 import           System.Wlog                    (CanLog, HasLoggerName (..), LogEvent,
                                                  NamedPureLogger (..), WithLogger,
-                                                 runNamedPureLog)
+                                                 launchNamedPureLog, runNamedPureLog)
 
 import           Pos.Core                       (BlockVersionData, EpochIndex,
                                                  HasGenesisData, HasProtocolConstants,
@@ -102,8 +102,10 @@ runPureTossWithLogger
     => GtGlobalState
     -> PureToss a
     -> m (a, GtGlobalState)
-runPureTossWithLogger gs pt = do
-    (res, newGS, _) <- runPureToss gs pt
+runPureTossWithLogger gs (PureToss act) = do
+    seed <- Rand.drgNew
+    let unwrapLower inner = pure $ fst $ Rand.withDRG seed inner
+    (res, newGS) <- launchNamedPureLog unwrapLower (runStateT act gs)
     return (res, newGS)
 
 evalPureTossWithLogger

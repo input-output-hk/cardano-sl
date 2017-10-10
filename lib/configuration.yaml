@@ -14819,7 +14819,7 @@ mainnet_dryrun_full: &mainnet_dryrun_full
     genesis:
       src:
         file: mainnet-genesis-dryrun-with-stakeholders.json
-        hash: ce1ea8da674f07c699c7ac49ea894b0f03a30f38d26fabb93a163fff04e8f360
+        hash: c6a004d3d178f600cd8caa10abbebe1549bef878f0665aea2903472d5abf7323
 
 mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
   <<: *mainnet_dryrun_full

@@ -10,6 +10,7 @@ module Pos.Wallet.Web.Methods.Payment
 
 import           Universum
 
+import qualified Data.HashSet                     as HS
 import qualified Data.List.NonEmpty               as NE
 import           Formatting                       (sformat, (%))
 import qualified Formatting                       as F
@@ -24,19 +25,25 @@ import           Pos.Communication                (SendActions (..), prepareMTx)
 import           Pos.Configuration                (HasNodeConfiguration)
 import           Pos.Core                         (Coin, HasConfiguration, addressF,
                                                    getCurrentTimestamp)
-import           Pos.Crypto                       (PassPhrase, hash, withSafeSigners)
+import           Pos.Crypto                       (PassPhrase, checkPassMatches, hash,
+                                                   withSafeSigners)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Txp                          (TxFee (..), Utxo, _txOutputs)
-import           Pos.Txp.Core                     (TxAux (..), TxOut (..))
+import           Pos.Txp                          (TxFee (..), Utxo, getUtxoModifier,
+                                                   _txOutputs)
+import           Pos.Txp.Core                     (TxAux (..), TxOut (..),
+                                                   TxOutAux (toaOut))
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util                         (eitherToThrow, maybeThrow)
 import           Pos.Util.LogSafe                 (logInfoS)
-import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAccAddr)
+import qualified Pos.Util.Modifier                as MM
+import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAccAddr,
+                                                   getSKById)
 import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAddress (..),
                                                    CCoin, CId, CTx (..),
                                                    CWAddressMeta (..), Wal,
-                                                   addrMetaToAccount, mkCCoin)
+                                                   addrMetaToAccount, addressToCId,
+                                                   mkCCoin)
 import           Pos.Wallet.Web.Error             (WalletError (..))
 import           Pos.Wallet.Web.Methods.History   (addHistoryTx)
 import qualified Pos.Wallet.Web.Methods.Logic     as L
@@ -44,7 +51,8 @@ import           Pos.Wallet.Web.Methods.Txp       (coinDistrToOutputs, rewrapTxE
                                                    submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode)
 import           Pos.Wallet.Web.Pending           (mkPendingTx)
-import           Pos.Wallet.Web.State             (AddressLookupMode (Existing))
+import           Pos.Wallet.Web.State             (AddressLookupMode (Existing),
+                                                   getWalletUtxo)
 import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
                                                    getAccountAddrsOrThrow,
                                                    getWalletAccountIds)
@@ -137,17 +145,26 @@ sendMoney
     -> NonEmpty (CId Addr, Coin)
     -> m CTx
 sendMoney SendActions{..} passphrase moneySource dstDistr = do
-    addrMetas' <- getMoneySourceAddresses moneySource
+    let srcWallet = getMoneySourceWallet moneySource
+    rootSk <- getSKById srcWallet
+    checkPassMatches passphrase rootSk `whenNothing`
+        throwM (RequestError "Passphrase doesn't match")
+
+    addrMetas'' <- getMoneySourceAddresses moneySource
+    utxo <- getCachedUtxo
+    let addrsWithMoney =
+            HS.fromList . map (addressToCId . txOutAddress . toaOut) $
+            toList utxo
+        addrMetas' = filter (flip HS.member addrsWithMoney . cwamId) addrMetas''
+
     addrMetas <- nonEmpty addrMetas' `whenNothing`
         throwM (RequestError "Given money source has no addresses!")
+
     sks <- forM addrMetas $ getSKByAccAddr passphrase
     srcAddrs <- forM addrMetas $ decodeCTypeOrFail . cwamId
 
-    withSafeSigners sks (pure passphrase) $ \mss -> do
-        ss <- maybeThrow (RequestError "Passphrase doesn't match") mss
-
+    withSafeSigners sks (pure passphrase) $ \ss -> do
         let hdwSigner = NE.zip ss srcAddrs
-            srcWallet = getMoneySourceWallet moneySource
 
         relatedAccount <- getSomeMoneySourceAccount moneySource
         outputs <- coinDistrToOutputs dstDistr
@@ -179,3 +196,6 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
      -- TODO eliminate copy-paste
      listF separator formatter =
          F.later $ fold . intersperse separator . fmap (F.bprint formatter)
+     getCachedUtxo = do
+         modifier <- getUtxoModifier
+         MM.modifyMap modifier <$> getWalletUtxo

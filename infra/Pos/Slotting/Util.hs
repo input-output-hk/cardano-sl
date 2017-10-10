@@ -33,10 +33,8 @@ import           System.Wlog            (WithLogger, logDebug, logInfo, logNotic
 import           Pos.Core               (FlatSlotId, HasConfiguration, LocalSlotIndex,
                                          SlotId (..), Timestamp (..), flattenSlotId,
                                          slotIdF)
-import           Pos.KnownPeers         (MonadFormatPeers)
 import           Pos.Recovery.Info      (MonadRecoveryInfo (recoveryInProgress))
-import           Pos.Reporting.MemState (HasReportingContext)
-import           Pos.Reporting.Methods  (reportOrLogE)
+import           Pos.Reporting.Methods  (MonadReporting, reportOrLogE)
 import           Pos.Shutdown           (HasShutdownContext, runIfNotShutdown)
 import           Pos.Slotting.Class     (MonadSlots (..))
 import           Pos.Slotting.Error     (SlottingError (..))
@@ -98,10 +96,9 @@ type OnNewSlot ctx m =
     , WithLogger m
     , Mockable Fork m
     , Mockable Delay m
-    , HasReportingContext ctx
+    , MonadReporting ctx m
     , HasShutdownContext ctx
     , MonadRecoveryInfo m
-    , MonadFormatPeers m
     , HasConfiguration
     )
 

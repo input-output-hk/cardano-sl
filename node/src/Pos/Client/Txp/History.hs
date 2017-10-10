@@ -57,8 +57,7 @@ import           Pos.Crypto                   (WithHash (..), withHash)
 import           Pos.DB                       (MonadDBRead, MonadGState, MonadRealDB)
 import           Pos.DB.Block                 (MonadBlockDB)
 import qualified Pos.GState                   as GS
-import           Pos.KnownPeers               (MonadFormatPeers)
-import           Pos.Reporting                (HasReportingContext)
+import           Pos.Reporting                (MonadReporting)
 import           Pos.Slotting                 (MonadSlots, getSlotStartPure,
                                                getSystemStartM)
 import           Pos.Ssc.Class                (SscHelpersClass)
@@ -240,8 +239,7 @@ type TxHistoryEnv ctx m =
     , HasLens' ctx StateLockMetrics
     , MonadBaseControl IO m
     , Mockable CurrentTime m
-    , MonadFormatPeers m
-    , HasReportingContext ctx
+    , MonadReporting ctx m
     )
 
 type TxHistoryEnv' ssc ctx m =

@@ -47,6 +47,7 @@ import           Pos.DB.Class                     (MonadBlockDBGeneric (..),
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.KnownPeers                   (MonadFormatPeers (..),
                                                    MonadKnownPeers (..))
+import           Pos.Network.Types                (HasNodeType (..), NodeType (..))
 import           Pos.Reporting                    (HasReportingContext (..))
 import           Pos.Shutdown                     (HasShutdownContext (..))
 import           Pos.Slotting.Class               (MonadSlots (..))
@@ -119,6 +120,9 @@ instance HasNodeContext AuxxSscType AuxxContext where
 instance HasSlottingVar AuxxContext where
     slottingTimestamp = acRealModeContext_L . slottingTimestamp
     slottingVar = acRealModeContext_L . slottingVar
+
+instance HasNodeType AuxxContext where
+    getNodeType _ = NodeEdge
 
 instance {-# OVERLAPPABLE #-}
     HasLens tag (RealModeContext AuxxSscType) r =>

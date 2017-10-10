@@ -18,7 +18,7 @@ import qualified Data.Set                   as S
 import           Data.Time.Clock.POSIX      (POSIXTime, getPOSIXTime)
 import           Formatting                 (build, sformat, stext, (%))
 import           Serokell.Util              (listJson)
-import           System.Wlog                (WithLogger, logError, logWarning)
+import           System.Wlog                (WithLogger, logWarning)
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()

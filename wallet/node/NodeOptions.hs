@@ -10,10 +10,11 @@ module NodeOptions
        , getWalletNodeOptions
        ) where
 
+import           Data.Time.Units     (Minute)
 import           Data.Version        (showVersion)
-import           Options.Applicative (Parser, execParser, footerDoc, fullDesc, header,
-                                      help, helper, info, infoOption, long, progDesc,
-                                      strOption, switch, value)
+import           Options.Applicative (Parser, auto, execParser, footerDoc, fullDesc,
+                                      header, help, helper, info, infoOption, long,
+                                      metavar, option, progDesc, strOption, switch, value)
 import qualified Options.Applicative as Opt
 import           Universum           hiding (show)
 
@@ -26,13 +27,14 @@ import           Pos.Web.Types       (TlsParams (..))
 data WalletNodeArgs = WalletNodeArgs CommonNodeArgs WalletArgs
 
 data WalletArgs = WalletArgs
-    { enableWeb       :: !Bool
-    , webPort         :: !Word16
-    , walletTLSParams :: !TlsParams
-    , walletAddress   :: !NetworkAddress
-    , walletDbPath    :: !FilePath
-    , walletRebuildDb :: !Bool
-    , walletDebug     :: !Bool
+    { enableWeb          :: !Bool
+    , webPort            :: !Word16
+    , walletTLSParams    :: !TlsParams
+    , walletAddress      :: !NetworkAddress
+    , walletDbPath       :: !FilePath
+    , walletRebuildDb    :: !Bool
+    , walletAcidInterval :: !Minute
+    , walletDebug        :: !Bool
     } deriving Show
 
 walletArgsParser :: Parser WalletNodeArgs
@@ -53,6 +55,12 @@ walletArgsParser = do
         long "wallet-rebuild-db" <>
         help "If wallet's database already exists, discard its contents \
              \and create a new one from scratch."
+    walletAcidInterval <- fmap fromInteger $ option auto $
+        long "wallet-acid-cleanup-interval" <>
+        help "Interval on which to execute wallet cleanup action (create checkpoint \
+             \and archive and cleanup archive partially)" <>
+        metavar "MINUTES" <>
+        value (12 * 60)
     walletDebug <- switch $
         long "wallet-debug" <>
         help "Run wallet with debug params (e.g. include \

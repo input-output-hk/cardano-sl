@@ -163,6 +163,7 @@ executable cardano-node
                       Params
 
   build-depends:        aeson >= 0.11.2.1
+                      , acid-state
                       , ansi-wl-pprint
                       , base
                       , base58-bytestring
@@ -194,6 +195,7 @@ executable cardano-node
                       , optparse-applicative
                       , parsec
                       , random
+                      , safe-exceptions
                       , serokell-util >= 0.1.3.4
                       , servant >= 0.8.1
                       , servant-multipart >= 0.10

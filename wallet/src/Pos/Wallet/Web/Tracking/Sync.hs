@@ -50,7 +50,7 @@ import           System.Wlog                      (HasLoggerName, WithLogger, lo
 import           Pos.Block.Core                   (BlockHeader, getBlockHeader,
                                                    mainBlockTxPayload)
 import           Pos.Block.Types                  (Blund, undoTx)
-import           Pos.Client.Txp.History           (TxHistoryEntry (..))
+import           Pos.Client.Txp.History           (TxHistoryEntry (..), txHistoryListToMap)
 import           Pos.Core                         (Address (..), BlockHeaderStub,
                                                    ChainDifficulty, HasConfiguration,
                                                    HasDifficulty (..), HeaderHash,
@@ -58,7 +58,8 @@ import           Pos.Core                         (Address (..), BlockHeaderStub
                                                    addrAttributesUnwrapped,
                                                    blkSecurityParam, genesisHash,
                                                    headerHash, headerSlotL,
-                                                   makeRootPubKeyAddress)
+                                                   makeRootPubKeyAddress,
+                                                   timestampToPosix)
 import           Pos.Crypto                       (EncryptedSecretKey, HDPassphrase,
                                                    WithHash (..), deriveHDPassphrase,
                                                    encToPublic, hash, shortHashF,
@@ -79,14 +80,15 @@ import           Pos.Txp                          (GenesisUtxo (..), Tx (..), Tx
 import           Pos.Txp.MemState.Class           (MonadTxpMem, getLocalTxsNUndo)
 import           Pos.Util.Chrono                  (getNewestFirst)
 import qualified Pos.Util.Modifier                as MM
+import           Pos.Util.Servant                 (encodeCType)
 
 import           Pos.Ssc.Class                    (SscHelpersClass)
 import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
 import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.Web.Account           (MonadKeySearch (..))
-import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CWAddressMeta (..), Wal,
-                                                   addressToCId, encToCId,
-                                                   isTxLocalAddress)
+import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CTxMeta (..),
+                                                   CWAddressMeta (..), Wal, addressToCId,
+                                                   encToCId, isTxLocalAddress)
 import           Pos.Wallet.Web.Error.Types       (WalletError (..))
 import           Pos.Wallet.Web.Pending.Types     (PtxBlockInfo, PtxCondition (PtxApplying, PtxInNewestBlocks))
 import           Pos.Wallet.Web.State             (AddressLookupMode (..),
@@ -97,7 +99,7 @@ import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..), CachedCAcc
                                                    deleteAndInsertIMM, deleteAndInsertMM,
                                                    deleteAndInsertVM, indexedDeletions,
                                                    sortedInsertions)
-import           Pos.Wallet.Web.Util              (getWalletAddrMetas, sortWalletThByTime)
+import           Pos.Wallet.Web.Util              (getWalletAddrMetas)
 
 
 type BlockLockMode ssc ctx m =
@@ -443,10 +445,12 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     mapM_ (WS.addCustomAddress UsedAddr . fst) (MM.insertions camUsed)
     mapM_ (WS.addCustomAddress ChangeAddr . fst) (MM.insertions camChange)
     WS.getWalletUtxo >>= WS.setWalletUtxo . MM.modifyMap camUtxo
-    oldCachedHist <- fromMaybe [] <$> WS.getHistoryCache wid
-    sortedAddedHistory <-
-        getNewestFirst <$> sortWalletThByTime wid (DL.toList camAddedHistory)
-    WS.updateHistoryCache wid $ sortedAddedHistory <> oldCachedHist
+    let cMetas = M.fromList
+               $ mapMaybe (\THEntry {..} -> (\mts -> (_thTxId, CTxMeta . timestampToPosix $ mts)) <$> _thTimestamp)
+               $ DL.toList camAddedHistory
+    WS.addOnlyNewTxMetas wid cMetas
+    let addedHistory = txHistoryListToMap $ DL.toList camAddedHistory
+    WS.insertIntoHistoryCache wid addedHistory
     -- resubmitting worker can change ptx in db nonatomically, but
     -- tracker has priority over the resubmiter, thus do not use CAS here
     forM_ camAddedPtxCandidates $ \(txid, ptxBlkInfo) ->
@@ -469,23 +473,10 @@ rollbackModifierFromWallet wid newTip CAccModifier{..} = do
         curSlot <- getCurrentSlotInaccurate
         WS.ptxUpdateMeta wid txid (WS.PtxResetSubmitTiming curSlot)
         WS.setPtxCondition wid txid (PtxApplying poolInfo)
-    WS.getHistoryCache wid >>= \case
-        Nothing -> pure ()
-        Just oldCachedHist -> do
-            sortedDeletedHistory <-
-                getNewestFirst <$> sortWalletThByTime wid (DL.toList camDeletedHistory)
-            WS.updateHistoryCache wid $
-                removeFromHead sortedDeletedHistory oldCachedHist
+        let deletedHistory = txHistoryListToMap (DL.toList camDeletedHistory)
+        WS.removeFromHistoryCache wid deletedHistory
+        WS.removeWalletTxMetas wid (map encodeCType $ M.keys deletedHistory)
     WS.setWalletSyncTip wid newTip
-  where
-    removeFromHead :: [TxHistoryEntry] -> [TxHistoryEntry] -> [TxHistoryEntry]
-    removeFromHead [] ths = ths
-    removeFromHead _ [] = []
-    removeFromHead (dTh : dThes) (th : thes) =
-        if _thTxId dTh == _thTxId th
-        then removeFromHead dThes thes
-        else error "rollbackModifierFromWallet: removeFromHead: \
-                   \rollbacked tx ID is not present in history cache!"
 
 evalChange
     :: [CWAddressMeta] -- ^ All adresses

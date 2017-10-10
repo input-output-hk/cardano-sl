@@ -10,8 +10,8 @@ module Pos.Wallet.Web.Methods.Payment
 
 import           Universum
 
-import           Control.Monad.Except             (runExcept)
 import           Control.Exception                (throw)
+import           Control.Monad.Except             (runExcept)
 import           Formatting                       (sformat, (%))
 import qualified Formatting                       as F
 
@@ -43,16 +43,18 @@ import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAddres
                                                    CWAddressMeta (..), Wal,
                                                    addrMetaToAccount, mkCCoin)
 import           Pos.Wallet.Web.Error             (WalletError (..))
-import           Pos.Wallet.Web.Methods.History   (addHistoryTx)
+import           Pos.Wallet.Web.Methods.History   (addHistoryTx, constructCTx,
+                                                   getCurChainDifficulty)
 import qualified Pos.Wallet.Web.Methods.Logic     as L
 import           Pos.Wallet.Web.Methods.Txp       (coinDistrToOutputs, rewrapTxError,
                                                    submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode)
 import           Pos.Wallet.Web.Pending           (mkPendingTx)
-import           Pos.Wallet.Web.State             (AddressLookupMode (Existing))
+import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing))
 import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
                                                    getAccountAddrsOrThrow,
-                                                   getWalletAccountIds)
+                                                   getWalletAccountIds,
+                                                   getWalletAddrsSet)
 
 newPayment
     :: MonadWalletWebMode m
@@ -189,6 +191,9 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
         dstAddrs
 
     addHistoryTx srcWallet th
+    srcWalletAddrs <- getWalletAddrsSet Ever srcWallet
+    diff <- getCurChainDifficulty
+    fst <$> constructCTx srcWallet srcWalletAddrs diff th
   where
      -- TODO eliminate copy-paste
      listF separator formatter =

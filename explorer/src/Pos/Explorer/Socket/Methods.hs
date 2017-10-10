@@ -88,7 +88,8 @@ import           Pos.Explorer.Web.Server        (ExplorerMode, getBlocksLastPage
 
 data Subscription
     = SubAddr
-    | SubBlockLastPage  -- ^ subscribe on blocks last page (newest blocks)
+    | SubBlockLastPage  -- ^ subscribe on blocks last page (latest blocks)
+    | SubEpochsLastPage -- ^ subscribe on epochs last page (latest epoch)
     | SubTx
     deriving (Show, Generic)
 
@@ -104,6 +105,7 @@ instance EventName ClientEvent where
 data ServerEvent
     = AddrUpdated
     | BlocksLastPageUpdated
+    | EpochsLastPageUpdated
     | TxsUpdated
     | CallYou
     deriving (Show, Generic)

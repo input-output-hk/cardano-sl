@@ -62,13 +62,13 @@ import           Pos.Slotting                 (MonadSlots, getSlotStartPure,
                                                getSystemStartM)
 import           Pos.Ssc.Class                (SscHelpersClass)
 import           Pos.StateLock                (StateLock, StateLockMetrics)
-import           Pos.Txp                      (MempoolExt, MonadTxpLocal (..),
-                                               MonadTxpMem, MonadUtxo, MonadUtxoRead,
-                                               ToilT, Tx (..), TxAux (..), TxId, TxOut,
-                                               TxOutAux (..), TxWitness, TxpError (..),
-                                               applyTxToUtxo, evalToilTEmpty,
-                                               flattenTxPayload, genesisUtxo, getLocalTxs,
-                                               runDBToil, topsortTxs, txOutAddress,
+import           Pos.Txp                      (MempoolExt, MonadTxpLocal, MonadTxpMem,
+                                               MonadUtxo, MonadUtxoRead, ToilT, Tx (..),
+                                               TxAux (..), TxId, TxOut, TxOutAux (..),
+                                               TxWitness, TxpError (..), applyTxToUtxo,
+                                               evalToilTEmpty, flattenTxPayload,
+                                               genesisUtxo, getLocalTxs, runDBToil,
+                                               topsortTxs, txOutAddress, txpProcessTx,
                                                unGenesisUtxo, utxoGet)
 import           Pos.Util                     (eitherToThrow, maybeThrow)
 import           Pos.Util.Util                (HasLens')
@@ -280,5 +280,6 @@ getLocalHistoryDefault addrs = runDBToil . evalToilTEmpty $ do
 
 saveTxDefault :: TxHistoryEnv ctx m => (TxId, TxAux) -> m ()
 saveTxDefault txw = do
+    -- pva701: do we really need here processing a transaction WITH lock?
     res <- txpProcessTx txw
     eitherToThrow res

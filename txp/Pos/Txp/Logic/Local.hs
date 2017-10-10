@@ -67,6 +67,7 @@ instance MonadGState ProcessTxMode where
 -- only.
 txProcessTransaction
     :: ( TxpLocalWorkMode ctx m
+       , MonadReader ctx m
        , HasLens' ctx StateLock
        , HasLens' ctx StateLockMetrics
        , MonadMask m
@@ -130,8 +131,8 @@ txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ 
             logDebug
                 (sformat ("Transaction is processed successfully: " %build) txId)
   where
-    processTxDo ::
-           EpochIndex
+    processTxDo
+        :: EpochIndex
         -> ProcessTxContext
         -> HeaderHash
         -> (TxId, TxAux)

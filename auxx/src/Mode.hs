@@ -55,7 +55,9 @@ import           Pos.Slotting.MemState            (HasSlottingVar (..), MonadSlo
 import           Pos.Ssc.Class                    (HasSscContext (..), SscBlock)
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Txp                          (filterUtxoByAddrs, genesisUtxo)
+import           Pos.Txp                          (MempoolExt, MonadTxpLocal (..),
+                                                   filterUtxoByAddrs, genesisUtxo,
+                                                   txNormalize, txProcessTransaction)
 import           Pos.Util                         (Some (..))
 import           Pos.Util.JsonLog                 (HasJsonLogConfig (..))
 import           Pos.Util.LoggerName              (HasLoggerName' (..))
@@ -63,7 +65,8 @@ import qualified Pos.Util.OutboundQueue           as OQ.Reader
 import           Pos.Util.TimeWarp                (CanJsonLog (..))
 import           Pos.Util.UserSecret              (HasUserSecret (..))
 import           Pos.Util.Util                    (HasLens (..), postfixLFields)
-import           Pos.WorkMode                     (RealMode, RealModeContext (..))
+import           Pos.WorkMode                     (EmptyMempoolExt, RealMode,
+                                                   RealModeContext (..))
 
 import           Pos.Auxx.Hacks                   (makePubKeyAddressAuxx)
 
@@ -77,7 +80,7 @@ type AuxxSscType = SscGodTossing
 type AuxxMode = ReaderT AuxxContext Production
 
 data AuxxContext = AuxxContext
-    { acRealModeContext :: !(RealModeContext AuxxSscType)
+    { acRealModeContext :: !(RealModeContext AuxxSscType EmptyMempoolExt)
     , acCmdCtx          :: !CmdCtx
     }
 
@@ -92,7 +95,7 @@ getCmdCtx :: AuxxMode CmdCtx
 getCmdCtx = view acCmdCtx_L
 
 -- | Turn 'RealMode' action into 'AuxxMode' action.
-realModeToAuxx :: RealMode AuxxSscType a -> AuxxMode a
+realModeToAuxx :: RealMode AuxxSscType EmptyMempoolExt a -> AuxxMode a
 realModeToAuxx = withReaderT acRealModeContext
 
 ----------------------------------------------------------------------------
@@ -125,7 +128,7 @@ instance HasNodeType AuxxContext where
     getNodeType _ = NodeEdge
 
 instance {-# OVERLAPPABLE #-}
-    HasLens tag (RealModeContext AuxxSscType) r =>
+    HasLens tag (RealModeContext AuxxSscType EmptyMempoolExt) r =>
     HasLens tag AuxxContext r
   where
     lensOf = acRealModeContext_L . lensOf @tag
@@ -154,7 +157,7 @@ instance {-# OVERLAPPING #-} HasLoggerName AuxxMode where
     getLoggerName = realModeToAuxx getLoggerName
     modifyLoggerName f action = do
         cmdCtx <- getCmdCtx
-        let auxxToRealMode :: AuxxMode a -> RealMode AuxxSscType a
+        let auxxToRealMode :: AuxxMode a -> RealMode AuxxSscType EmptyMempoolExt a
             auxxToRealMode = withReaderT (flip AuxxContext cmdCtx)
         realModeToAuxx $ modifyLoggerName f $ auxxToRealMode action
 
@@ -216,3 +219,9 @@ instance MonadFormatPeers AuxxMode where
 instance HasConfiguration => MonadAddresses AuxxMode where
     type AddrData AuxxMode = PublicKey
     getNewAddress = makePubKeyAddressAuxx
+
+type instance MempoolExt AuxxMode = EmptyMempoolExt
+
+instance (HasConfiguration, HasInfraConfiguration) => MonadTxpLocal AuxxMode where
+    txpNormalize = txNormalize
+    txpProcessTx = txProcessTransaction

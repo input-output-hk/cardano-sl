@@ -220,8 +220,7 @@ genTxPayload = do
         let tx = taTx txAux
         let txId = hash tx
         let txIns = _txInputs tx
-        --res <- lift . lift $ txProcessTransactionNoLock (txId, txAux)
-        -- TODO [CSL-920] no lock
+        -- @txpProcessTx@ for BlockGenMode should be non-blocking
         res <- lift . lift $ txpProcessTx (txId, txAux)
         case res of
             Left e  -> error $ "genTransaction@txProcessTransaction: got left: " <> pretty e

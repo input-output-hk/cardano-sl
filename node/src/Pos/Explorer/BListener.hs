@@ -35,7 +35,7 @@ import           Pos.Core                     (HasConfiguration, HeaderHash, dif
 import           Pos.Crypto                   (withHash)
 import           Pos.DB.BatchOp               (SomeBatchOp (..))
 import           Pos.DB.Class                 (MonadDBRead)
-import           Pos.Explorer.DB              (Epoch, EpochPagedBlocksKey, Page,
+import           Pos.Explorer.DB              (Epoch, EpochPagedBlocksKey, Page, pageSize,
                                                findEpochMaxPages, numOfLastTxs)
 import qualified Pos.Explorer.DB              as DB
 import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
@@ -240,9 +240,6 @@ createPagedHeaderHashesSlotIdPair blocks = blockIndexBlock
             -- | Get the page the index belongs to.
             getCurrentPage :: Int -> Page
             getCurrentPage blockIndex = ((blockIndex - 1) `div` pageSize) + 1
-              where
-                pageSize :: Int
-                pageSize = 10
 
             -- | Get the blocks index numbers.
             blockIndexes :: [Int]
@@ -278,9 +275,6 @@ createPagedHeaderHashesPair blocks = blockIndexBlock
             -- | Get the page the index belongs to.
             getCurrentPage :: Int -> Page
             getCurrentPage blockIndex = ((blockIndex - 1) `div` pageSize) + 1
-              where
-                pageSize :: Int
-                pageSize = 10
 
             -- | Get the blocks index numbers.
             blockIndexes :: [Int]

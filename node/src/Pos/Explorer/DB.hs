@@ -7,8 +7,8 @@ module Pos.Explorer.DB
        , Page
        , Epoch
        , EpochPagedBlocksKey
-       , findEpochMaxPages
        , numOfLastTxs
+       , pageSize
        , getTxExtra
        , getAddrHistory
        , getAddrBalance
@@ -19,6 +19,9 @@ module Pos.Explorer.DB
        , getLastTransactions
        , prepareExplorerDB
        , sanityCheckBalances
+       -- * For testing
+       , convertToPagedMap
+       , findEpochMaxPages
        ) where
 
 import           Universum
@@ -29,7 +32,7 @@ import           Data.Conduit                 (Conduit, Sink, Source, mapOutput,
                                                runConduitRes, (.|))
 import qualified Data.Conduit.List            as CL
 import           Data.List                    (groupBy)
-import           Data.Map                     (fromListWith)
+import           Data.Map                     (fromList)
 import qualified Data.Map                     as M
 import qualified Database.RocksDB             as Rocks
 import           Formatting                   (sformat, (%))
@@ -74,6 +77,10 @@ type EpochPagedBlocksKey = (Epoch, Page)
 numOfLastTxs :: Int
 numOfLastTxs = 20
 
+-- | The default page size.
+pageSize :: Int
+pageSize = 10
+
 ----------------------------------------------------------------------------
 -- Util
 ----------------------------------------------------------------------------
@@ -90,6 +97,33 @@ findEpochMaxPages epochPagedBlocksMap' =
     epochPagedBlocksMapKeys :: [EpochPagedBlocksKey]
     epochPagedBlocksMapKeys = M.keys epochPagedBlocksMap'
 
+-- | Convert a pair of @Epoch@ and a list of @HeaderHash@ to a paged @Map@ containing
+-- @(Epoch, Page)@ as a key and a list of @HeaderHash@ as values.
+convertToPagedMap
+    :: (Epoch, [HeaderHash])
+    -> Map EpochPagedBlocksKey [HeaderHash]
+convertToPagedMap ehh = fromList $ convertToPaged ehh
+  where
+    convertToPaged :: (Epoch, [HeaderHash]) -> [((Epoch, Page), [HeaderHash])]
+    convertToPaged (epoch, headerHashes) =
+        map convertHHsToEpochPages convertHHsToPages
+      where
+        convertHHsToEpochPages
+            :: (Page, [HeaderHash])
+            -> ((Epoch, Page), [HeaderHash])
+        convertHHsToEpochPages (page, headerHashes') =
+            ((epoch, page), headerHashes')
+
+        -- | Take that huge chunk of @HeaderHash@es and page it.
+        convertHHsToPages :: [(Page, [HeaderHash])]
+        convertHHsToPages = zip [1..] $ splitEvery pageSize headerHashes
+          where
+            -- | Split the list every N elements.
+            splitEvery :: Int -> [a] -> [[a]]
+            splitEvery _ [] = []
+            splitEvery n xs = as : splitEvery n bs
+              where
+                (as,bs) = splitAt n xs
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -173,35 +207,6 @@ prepareExplorerDB = do
             :: (MonadDBRead m)
             => Conduit (Epoch, [HeaderHash]) m (Map EpochPagedBlocksKey [HeaderHash])
         epochPagesConduit = CL.map convertToPagedMap
-          where
-            convertToPagedMap
-                :: (Epoch, [HeaderHash])
-                -> Map EpochPagedBlocksKey [HeaderHash]
-            convertToPagedMap ehh = fromListWith (++) (convertToPaged ehh)
-
-            convertToPaged :: (Epoch, [HeaderHash]) -> [((Epoch, Page), [HeaderHash])]
-            convertToPaged (epoch, headerHashes) =
-                map convertHHsToEpochPages convertHHsToPages
-              where
-                convertHHsToEpochPages
-                    :: (Page, [HeaderHash])
-                    -> ((Epoch, Page), [HeaderHash])
-                convertHHsToEpochPages (page, headerHashes') =
-                    ((epoch, page), headerHashes')
-
-                -- | Take that huge chunk of @HeaderHash@es and page it.
-                convertHHsToPages :: [(Page, [HeaderHash])]
-                convertHHsToPages = zip [1..] $ splitEvery pageSize headerHashes
-                  where
-                    -- | TODO (ks): It's getting repeated all over the place.
-                    pageSize :: Int
-                    pageSize = 10
-
-                    splitEvery :: Int -> [a] -> [[a]]
-                    splitEvery _ [] = []
-                    splitEvery n xs = as : splitEvery n bs
-                      where
-                        (as,bs) = splitAt n xs
 
         -- | Finally, we persist the map with the new format.
         epochPagesExplorerOpSink

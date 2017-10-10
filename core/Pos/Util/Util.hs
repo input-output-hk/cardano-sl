@@ -24,6 +24,7 @@ module Pos.Util.Util
        , leftToPanic
        , dumpSplices
        , (<//>)
+       , divRoundUp
 
        -- * Lenses
        , _neHead
@@ -434,6 +435,14 @@ inAssertMode _ = pure ()
     isSlash = (== '/')
     lhs' = reverse $ dropWhile isSlash $ reverse lhs
     rhs' = dropWhile isSlash rhs
+
+-- | Suggested by @dnikulin. To be used with paging of any kind.
+-- The pages should be inclusive(bounded) and contain N elements (we use 10 by default):
+-- - 1  - 10
+-- - 11 - 20
+-- - 21 - 30
+divRoundUp :: Integral a => a -> a -> a
+divRoundUp a b = (a + b - 1) `div` b
 
 ----------------------------------------------------------------------------
 -- Lenses

@@ -4,11 +4,14 @@ import Prelude
 
 import DOM.Node.Types (ElementId(..))
 import Data.DateTime.Instant (instant, toDateTime)
+import Data.Foldable (elem)
+import Data.Lens ((^.))
 import Data.Maybe (Maybe(..), fromJust)
 import Data.Time.Duration (Milliseconds(..))
 import Data.Tuple (Tuple(..))
 import Explorer.Api.Types (SocketSubscription, SocketSubscriptionData)
 import Explorer.I18n.Lang (Language(..))
+import Explorer.Lenses.State (socket, subscriptions)
 import Explorer.Routes (Route(..))
 import Explorer.Types.State (AddressesFilter(..), DashboardAPICode(..), PageNumber(..), Search(..), SearchEpochSlotQuery, SocketSubscriptionItem(..), State)
 import Explorer.Util.Config (SyncAction(..))
@@ -116,3 +119,8 @@ mkSocketSubscriptionItem socketSub socketSubData = SocketSubscriptionItem
     { socketSub
     , socketSubData
     }
+
+-- | Check if a subscription has been already stored
+hasSubscription :: SocketSubscriptionItem -> State -> Boolean
+hasSubscription subItem state =
+    elem subItem $ state ^. (socket <<< subscriptions)

@@ -34,7 +34,7 @@ newtype PurePoll a = PurePoll
 
 runPurePollWithLogger :: Poll.PollState -> PurePoll a -> (a, Poll.PollState, [LogEvent])
 runPurePollWithLogger ps pp =
-    let innerMonad = flip runStateT ps . getPurePoll $ pp
+    let innerMonad = usingStateT ps . getPurePoll $ pp
     in  (\((a, finalState), logs) -> (a, finalState, logs)) . runIdentity . runNamedPureLog $ innerMonad
 
 evalPurePollWithLogger :: Poll.PollState -> PurePoll a -> a

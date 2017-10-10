@@ -92,9 +92,9 @@ runPureToss
 runPureToss gs (PureToss act) = do
     seed <- Rand.drgNew
     let ((res, newGS), events) =
-            fst . Rand.withDRG seed $    -- run MonadRandom
-            runNamedPureLog  $           -- run NamedPureLogger
-            (flip runStateT gs) act      -- run State
+            fst . Rand.withDRG seed $ -- run MonadRandom
+            runNamedPureLog  $        -- run NamedPureLogger
+            (usingStateT gs) act      -- run State
     pure (res, newGS, events)
 
 runPureTossWithLogger

@@ -97,7 +97,7 @@ usageExample = (Just . fromString @Doc . toString @Text) [text|
 Command example:
 
   stack exec -- cardano-auxx                                     \
-    --db-path node-db0                                           \
+    --db-path run/auxx-db                                        \
     --rebuild-db                                                 \
     --json-log=/tmp/logs/2017-05-22_181224/node0.json            \
     --logs-prefix /tmp/logs/2017-05-22_181224                    \

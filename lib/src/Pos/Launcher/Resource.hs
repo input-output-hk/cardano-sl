@@ -37,10 +37,10 @@ import           System.IO                        (BufferMode (..), Handle, hClo
                                                    hSetBuffering)
 import qualified System.Metrics                   as Metrics
 import           System.Wlog                      (CanLog, LoggerConfig (..), WithLogger,
-                                                   getLoggerName, logError, prefixB,
-                                                   productionB, releaseAllHandlers,
-                                                   setupLogging, showTidB,
-                                                   usingLoggerName)
+                                                   getLoggerName, logError, logInfo,
+                                                   prefixB, productionB,
+                                                   releaseAllHandlers, setupLogging,
+                                                   showTidB, usingLoggerName)
 
 import           Pos.Binary                       ()
 import           Pos.Block.Slog                   (mkSlogContext)
@@ -150,8 +150,8 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
     npDbPath <- case npDbPathM of
         Nothing -> do
             let dbPath = "node-db" :: FilePath
-            Logger.logInfo $
-                sformat ("DB path not specified, defaulting to "%shown) dbPath
+            logInfo $ sformat ("DB path not specified, defaulting to "%
+                               shown) dbPath
             return dbPath
         Just dbPath -> return dbPath
     db <- openNodeDBs npRebuildDb npDbPath

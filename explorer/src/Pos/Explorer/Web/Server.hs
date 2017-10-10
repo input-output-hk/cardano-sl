@@ -51,8 +51,8 @@ import           Pos.Core                         (AddrType (..), Address (..), 
                                                    coinToInteger, difficultyL, gbHeader,
                                                    gbhConsensus, getChainDifficulty,
                                                    isUnknownAddressType,
-                                                   makeRedeemAddress, mkCoin, siEpoch,
-                                                   siSlot, sumCoins, timestampToPosix,
+                                                   makeRedeemAddress, siEpoch, siSlot,
+                                                   sumCoins, timestampToPosix,
                                                    unsafeAddCoin, unsafeIntegerToCoin,
                                                    unsafeSubCoin)
 import           Pos.DB.Class                     (MonadDBRead)

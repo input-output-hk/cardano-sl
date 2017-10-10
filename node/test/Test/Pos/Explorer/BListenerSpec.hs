@@ -109,9 +109,7 @@ newtype EpochHeaderHashes = EpochHeaderHashes
 instance Arbitrary EpochHeaderHashes where
     arbitrary = do
         epochIndex   <- arbitrary
-        -- The invariant is that an epoch can't have empty header hashes, which is
-        -- reasonable.
-        headerHashes <- suchThat arbitrary (\(hhs) -> length hhs > 0)
+        headerHashes <- nonEmptyHeaderHashes
         pure $ EpochHeaderHashes (epochIndex, headerHashes)
 
 -- | Multiple epochs.
@@ -128,9 +126,9 @@ instance Arbitrary EpochsHeaderHashes where
         firstEpochIndex = minBound
 
         listOfGeneratedHeaderHashes :: Gen [[HeaderHash]]
-        listOfGeneratedHeaderHashes = listOf generatedHeaderHashes
+        listOfGeneratedHeaderHashes = listOf nonEmptyHeaderHashes
 
-        -- | The invariant is that an epoch can't have empty header hashes, which is
-        -- reasonable.
-        generatedHeaderHashes :: Gen [HeaderHash]
-        generatedHeaderHashes = suchThat arbitrary (\(hhs) -> length hhs > 0)
+-- | The invariant is that an epoch can't have empty header hashes, which is
+-- reasonable.
+nonEmptyHeaderHashes :: Gen [HeaderHash]
+nonEmptyHeaderHashes = suchThat arbitrary (not . null)

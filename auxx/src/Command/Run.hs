@@ -15,7 +15,6 @@ import           Formatting                 (build, int, sformat, stext, (%))
 import           NeatInterpolation          (text)
 import qualified Text.JSON.Canonical        as CanonicalJSON
 
-import           Pos.Auxx                   (makePubKeyAddressAuxx)
 import           Pos.Binary                 (serialize')
 import           Pos.Communication          (MsgType (..), Origin (..), SendActions,
                                              dataFlow, immediateConcurrentConversations)
@@ -36,7 +35,8 @@ import qualified Command.Rollback           as Rollback
 import qualified Command.Tx                 as Tx
 import           Command.Types              (Command (..))
 import qualified Command.Update             as Update
-import           Mode                       (AuxxMode, CmdCtx (..), getCmdCtx)
+import           Mode                       (AuxxMode, CmdCtx (..), getCmdCtx,
+                                             makePubKeyAddressAuxx)
 
 
 helpMsg :: Text

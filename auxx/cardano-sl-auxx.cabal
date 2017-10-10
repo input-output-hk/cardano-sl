@@ -26,10 +26,6 @@ executable cardano-auxx
                        Plugin
                        AuxxOptions
 
-                       -- TODO: delete these
-                       Pos.Auxx
-                       Pos.Auxx.Hacks
-
   build-depends:
                        QuickCheck
                      , acid-state

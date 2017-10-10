@@ -30,7 +30,7 @@ import           Pos.Crypto                 (emptyPassphrase, encToPublic,
                                              safeCreatePsk, withSafeSigner)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.UserSecret        (readUserSecret, usKeys)
-import           Pos.Wallet                 (addSecretKey, getBalance, getSecretKeys)
+import           Pos.Wallet                 (addSecretKey, getBalance, getSecretKeysPlain)
 
 import qualified Command.Rollback           as Rollback
 import qualified Command.Tx                 as Tx
@@ -99,7 +99,7 @@ runCmd sendActions (ProposeUpdate params) =
     Update.propose sendActions params
 runCmd _ Help = putText helpMsg
 runCmd _ ListAddresses = do
-   addrs <- map encToPublic <$> getSecretKeys
+   addrs <- map encToPublic <$> getSecretKeysPlain
    putText "Available addresses:"
    for_ (zip [0 :: Int ..] addrs) $ \(i, pk) -> do
        addr <- makePubKeyAddressAuxx pk
@@ -112,7 +112,7 @@ runCmd _ ListAddresses = do
     toBase58Text = decodeUtf8 . encodeBase58 bitcoinAlphabet . serialize'
 runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM dry) = do
     CmdCtx{ccPeers} <- getCmdCtx
-    issuerSk <- (!! i) <$> getSecretKeys
+    issuerSk <- (!! i) <$> getSecretKeysPlain
     withSafeSigner issuerSk (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
@@ -128,7 +128,7 @@ runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM dry) = do
                 putText "Sent lightweight cert"
 runCmd sendActions (DelegateHeavy i delegatePk curEpoch dry) = do
     CmdCtx {ccPeers} <- getCmdCtx
-    issuerSk <- (!! i) <$> getSecretKeys
+    issuerSk <- (!! i) <$> getSecretKeysPlain
     withSafeSigner issuerSk (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
         Just ss -> do

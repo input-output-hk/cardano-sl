@@ -38,7 +38,6 @@ import           Universum
 import           Control.Lens             (makeLenses, (%=), (.=))
 import           Control.Monad.Except     (ExceptT, MonadError (throwError), runExceptT)
 import           Data.Fixed               (Fixed, HasResolution)
-import qualified Data.HashMap.Strict      as HM
 import qualified Data.HashSet             as HS
 import           Data.List                (tail)
 import qualified Data.List.NonEmpty       as NE
@@ -207,37 +206,34 @@ makeMPubKeyTx getSs = makeAbstractTx mkWit
 -- | More specific version of 'makeMPubKeyTx' for convenience
 makeMPubKeyTxAddrs
     :: HasConfiguration
-    => NonEmpty (SafeSigner, Address)
+    => (Address -> SafeSigner)
     -> TxOwnedInputs TxOut
     -> TxOutputs
     -> TxAux
 makeMPubKeyTxAddrs hdwSigners = makeMPubKeyTx getSigner
   where
-    signers = HM.fromList . toList $
-        map swap hdwSigners
-    getSigner (TxOut addr _) =
-        fromMaybe (error "Requested signer for unknown address") $
-        HM.lookup addr signers
+    getSigner (TxOut addr _) = hdwSigners addr
 
 -- | Makes a transaction which use P2PKH addresses as a source
 makePubKeyTx :: HasConfiguration => SafeSigner -> TxInputs -> TxOutputs -> TxAux
-makePubKeyTx ss txInputs =
-    makeMPubKeyTx (const ss) (map ((), ) txInputs)
+makePubKeyTx ss txInputs = makeMPubKeyTx (const ss) (map ((), ) txInputs)
 
 makeMOfNTx :: HasConfiguration => Script -> [Maybe SafeSigner] -> TxInputs -> TxOutputs -> TxAux
 makeMOfNTx validator sks txInputs = makeAbstractTx mkWit (map ((), ) txInputs)
-  where mkWit _ sigData = ScriptWitness
-            { twValidator = validator
-            , twRedeemer = multisigRedeemer sigData sks
-            }
+  where
+    mkWit _ sigData = ScriptWitness
+        { twValidator = validator
+        , twRedeemer = multisigRedeemer sigData sks
+        }
 
 makeRedemptionTx :: HasConfiguration => RedeemSecretKey -> TxInputs -> TxOutputs -> TxAux
 makeRedemptionTx rsk txInputs = makeAbstractTx mkWit (map ((), ) txInputs)
-  where rpk = redeemToPublic rsk
-        mkWit _ sigData = RedeemWitness
-            { twRedeemKey = rpk
-            , twRedeemSig = redeemSign SignRedeemTx rsk sigData
-            }
+  where
+    rpk = redeemToPublic rsk
+    mkWit _ sigData = RedeemWitness
+        { twRedeemKey = rpk
+        , twRedeemSig = redeemSign SignRedeemTx rsk sigData
+        }
 
 type FlatUtxo = [(TxIn, TxOutAux)]
 
@@ -394,13 +390,16 @@ createGenericTxSingle creator = createGenericTx (creator . map snd)
 createMTx
     :: TxCreateMode m
     => Utxo
-    -> NonEmpty (SafeSigner, Address)
+    -> (Address -> SafeSigner)
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
 createMTx utxo hdwSigners outputs addrData =
-    createGenericTx (makeMPubKeyTxAddrs hdwSigners)
-    utxo outputs addrData
+    createGenericTx
+        (makeMPubKeyTxAddrs hdwSigners)
+        utxo
+        outputs
+        addrData
 
 -- | Make a multi-transaction using given secret key and info for
 -- outputs.
@@ -412,8 +411,11 @@ createTx
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
 createTx utxo ss outputs addrData =
-    createGenericTxSingle (makePubKeyTx ss)
-    utxo outputs addrData
+    createGenericTxSingle
+        (makePubKeyTx ss)
+        utxo
+        outputs
+        addrData
 
 -- | Make a transaction, using M-of-N script as a source
 createMOfNTx
@@ -587,7 +589,5 @@ createFakeTxFromRawTx TxRaw{..} =
         -- but we don't want to reveal our passphrase to compute fee.
         -- Fee depends on size of tx in bytes, sign of a tx has the fixed size
         -- so we can use arbitrary signer.
-        srcAddrs = NE.map (txOutAddress . fst) trInputs
         (_, fakeSK) = deterministicKeyGen "patakbardaqskovoroda228pva1488kk"
-        hdwSigners = NE.zip (NE.repeat $ fakeSigner fakeSK) srcAddrs
-    in makeMPubKeyTxAddrs hdwSigners trInputs txOutsWithRem
+    in makeMPubKeyTxAddrs (const (fakeSigner fakeSK)) trInputs txOutsWithRem

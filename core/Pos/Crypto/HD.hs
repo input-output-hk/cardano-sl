@@ -3,6 +3,7 @@
 module Pos.Crypto.HD
        ( HDPassphrase (..)
        , HDAddressPayload (..)
+       , ShouldCheckPassphrase (..)
        , packHDAddressAttr
        , unpackHDAddressAttr
        , deriveHDPublicKey
@@ -29,8 +30,8 @@ import           Universum
 
 import           Pos.Binary.Class             (Bi, decodeFull, serialize')
 import           Pos.Crypto.Scrypt            (EncryptedPass)
-import           Pos.Crypto.Signing.Types     (PublicKey (..), EncryptedSecretKey (..),
-                                               PassPhrase, checkPassMatches)
+import           Pos.Crypto.Signing.Types     (EncryptedSecretKey (..), PassPhrase,
+                                               PublicKey (..), checkPassMatches)
 
 -- | Passphrase is a hash of root public key.
 --- We don't use root public key to store money, we use its hash instead.
@@ -88,12 +89,20 @@ deriveHDPublicKey (PublicKey xpub) childIndex
         maybe (error "deriveHDPublicKey: deriveXPub failed") PublicKey $
           deriveXPub xpub (childIndex - 1)
 
+-- | Whether to call @checkPassMatches@
+newtype ShouldCheckPassphrase = ShouldCheckPassphrase Bool
+
 -- | Derive secret key from secret key.
 deriveHDSecretKey
     :: (Bi PassPhrase, Bi EncryptedPass)
-    => PassPhrase -> EncryptedSecretKey -> Word32 -> Maybe EncryptedSecretKey
-deriveHDSecretKey passPhrase encSK@(EncryptedSecretKey xprv pph) childIndex =
-    checkPassMatches passPhrase encSK $>
+    => ShouldCheckPassphrase
+    -> PassPhrase
+    -> EncryptedSecretKey
+    -> Word32
+    -> Maybe EncryptedSecretKey
+deriveHDSecretKey (ShouldCheckPassphrase checkPass) passPhrase encSK@(EncryptedSecretKey xprv pph) childIndex = do
+    when checkPass $ checkPassMatches passPhrase encSK
+    pure $
         EncryptedSecretKey
             (deriveXPrv passPhrase xprv childIndex)
             pph

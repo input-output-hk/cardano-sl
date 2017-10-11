@@ -9,7 +9,6 @@
 module Pos.WorkMode.Class
        ( WorkMode
        , MinWorkMode
-       , TxpExtra_TMP
        ) where
 
 import           Universum
@@ -22,23 +21,20 @@ import           System.Wlog                 (WithLogger)
 
 import           Pos.Block.BListener         (MonadBListener)
 import           Pos.Block.Slog.Types        (HasSlogContext, HasSlogGState)
+import           Pos.Configuration           (HasNodeConfiguration)
 import           Pos.Context                 (BlockRetrievalQueue, BlockRetrievalQueueTag,
                                               HasSscContext, MonadLastKnownHeader,
                                               MonadProgressHeader, MonadRecoveryHeader,
                                               StartTime, TxpGlobalSettings)
+import           Pos.Core                    (HasConfiguration, HasPrimaryKey)
 import           Pos.DB.Block                (MonadBlockDBWrite, MonadSscBlockDB)
 import           Pos.DB.Class                (MonadDB, MonadGState)
 import           Pos.DB.Rocks                (MonadRealDB)
 import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.DHT.Real.Types          (KademliaDHTInstance)
-import           Pos.Lrc.Context             (LrcContext)
-#ifdef WITH_EXPLORER
-import           Pos.Explorer.Txp.Toil       (ExplorerExtra)
-#endif
-import           Pos.Configuration           (HasNodeConfiguration)
-import           Pos.Core                    (HasConfiguration, HasPrimaryKey)
 import           Pos.Infra.Configuration     (HasInfraConfiguration)
 import           Pos.KnownPeers              (MonadFormatPeers, MonadKnownPeers)
+import           Pos.Lrc.Context             (LrcContext)
 import           Pos.Network.Types           (HasNodeType, NetworkConfig)
 import           Pos.Recovery.Info           (MonadRecoveryInfo)
 import           Pos.Reporting               (HasReportingContext)
@@ -51,21 +47,13 @@ import           Pos.Ssc.Class.Storage       (SscGStateClass)
 import           Pos.Ssc.Class.Workers       (SscWorkersClass)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.StateLock               (StateLock, StateLockMetrics)
-import           Pos.Txp.MemState            (MonadTxpMem)
+import           Pos.Txp.MemState            (MempoolExt, MonadTxpLocal, MonadTxpMem)
 import           Pos.Update.Configuration    (HasUpdateConfiguration)
 import           Pos.Update.Context          (UpdateContext)
 import           Pos.Update.Params           (UpdateParams)
 import           Pos.Util.CompileInfo        (HasCompileInfo)
 import           Pos.Util.TimeWarp           (CanJsonLog)
 import           Pos.Util.Util               (HasLens, HasLens')
-
--- Something extremely unpleasant.
--- TODO: get rid of it after CSL-777 is done.
-#ifdef WITH_EXPLORER
-type TxpExtra_TMP = ExplorerExtra
-#else
-type TxpExtra_TMP = ()
-#endif
 
 -- | Bunch of constraints to perform work for real world distributed system.
 type WorkMode ssc ctx m
@@ -77,9 +65,10 @@ type WorkMode ssc ctx m
       , MonadDB m
       , MonadRealDB ctx m
       , MonadGState m
+      , MonadTxpLocal m
       , MonadSscBlockDB ssc m
       , MonadBlockDBWrite ssc m
-      , MonadTxpMem TxpExtra_TMP ctx m
+      , MonadTxpMem (MempoolExt m) ctx m
       , MonadDelegation ctx m
       , MonadSscMem ssc ctx m
       , SscGStateClass ssc

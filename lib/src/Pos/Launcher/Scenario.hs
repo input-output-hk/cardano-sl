@@ -48,10 +48,10 @@ import           Pos.WorkMode.Class       (WorkMode)
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
 runNode'
-    :: forall ssc ctx m.
+    :: forall ssc ext ctx m.
        ( WorkMode ssc ctx m
        )
-    => NodeResources ssc m
+    => NodeResources ssc ext m
     -> [WorkerSpec m]
     -> [WorkerSpec m]
     -> WorkerSpec m
@@ -129,7 +129,7 @@ runNode ::
        ( SscConstraint ssc
        , WorkMode ssc ctx m
        )
-    => NodeResources ssc m
+    => NodeResources ssc ext m
     -> ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
 runNode nr (plugins, plOuts) =

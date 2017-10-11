@@ -30,7 +30,8 @@ import           Pos.Update           (updateTriggerWorker)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,
                                        withCompileInfo)
 import           Pos.Util.UserSecret  (usVss)
-import           Pos.WorkMode         (RealMode)
+import           Pos.WorkMode         (EmptyMempoolExt, RealMode)
+
 
 actionWithoutWallet
     :: forall ssc.
@@ -44,7 +45,7 @@ actionWithoutWallet
 actionWithoutWallet sscParams nodeParams =
     runNodeReal @ssc nodeParams sscParams plugins
   where
-    plugins :: ([WorkerSpec (RealMode ssc)], OutSpecs)
+    plugins :: ([WorkerSpec (RealMode ssc EmptyMempoolExt)], OutSpecs)
     plugins = updateTriggerWorker
 
 action

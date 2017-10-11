@@ -35,6 +35,7 @@ import           Pos.Generator.BlockEvent         (BlockApplyResult (..), BlockE
                                                    berOutValid)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
+import           Pos.Txp                          (MonadTxpLocal)
 import           Pos.Util.Chrono                  (NE, OldestFirst)
 import           Pos.Util.Util                    (eitherToThrow, lensOf)
 import           Test.Pos.Block.Logic.Mode        (BlockTestContext,
@@ -62,6 +63,7 @@ verifyAndApplyBlocks' ::
        ( HasGtConfiguration
        , HasConfiguration
        , BlockLrcMode SscGodTossing BlockTestContext m
+       , MonadTxpLocal m
        )
     => OldestFirst NE (Blund SscGodTossing)
     -> m ()
@@ -78,6 +80,7 @@ runBlockEvent ::
        ( HasGtConfiguration
        , HasConfiguration
        , BlockLrcMode SscGodTossing BlockTestContext m
+       , MonadTxpLocal m
        )
     => BlockEvent
     -> m BlockEventResult
@@ -161,6 +164,7 @@ runBlockScenario ::
        , HasGtConfiguration
        , HasConfiguration
        , BlockLrcMode SscGodTossing BlockTestContext m
+       , MonadTxpLocal m
        )
     => BlockScenario
     -> m BlockScenarioResult

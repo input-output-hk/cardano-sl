@@ -16,6 +16,7 @@ module Mode
        , getCmdCtx
        , isTempDbUsed
        , realModeToAuxx
+       , makePubKeyAddressAuxx
        ) where
 
 import           Universum
@@ -39,10 +40,12 @@ import           Pos.Client.Txp.History           (MonadTxHistory (..),
                                                    getLocalHistoryDefault, saveTxDefault)
 import           Pos.Communication                (NodeId)
 import           Pos.Context                      (HasNodeContext (..))
-import           Pos.Core                         (HasConfiguration, HasPrimaryKey (..),
-                                                   IsHeader)
+import           Pos.Core                         (Address, HasConfiguration,
+                                                   HasPrimaryKey (..),
+                                                   IsBootstrapEraAddr (..), IsHeader,
+                                                   makePubKeyAddress, siEpoch)
 import           Pos.Crypto                       (PublicKey)
-import           Pos.DB                           (MonadGState (..))
+import           Pos.DB                           (MonadGState (..), gsIsBootstrapEra)
 import           Pos.DB.Class                     (MonadBlockDBGeneric (..),
                                                    MonadBlockDBGenericWrite (..),
                                                    MonadDB (..), MonadDBRead (..))
@@ -66,8 +69,6 @@ import           Pos.Util.TimeWarp                (CanJsonLog (..))
 import           Pos.Util.UserSecret              (HasUserSecret (..))
 import           Pos.Util.Util                    (HasLens (..), postfixLFields)
 import           Pos.WorkMode                     (RealMode, RealModeContext (..))
-
-import           Pos.Auxx.Hacks                   (makePubKeyAddressAuxx)
 
 -- | Command execution context.
 data CmdCtx = CmdCtx
@@ -217,6 +218,15 @@ instance MonadKnownPeers AuxxMode where
 instance MonadFormatPeers AuxxMode where
     formatKnownPeers = OQ.Reader.formatKnownPeersReader (rmcOutboundQ . acRealModeContext)
 
-instance HasConfiguration => MonadAddresses AuxxMode where
+instance (HasConfiguration, HasInfraConfiguration) => MonadAddresses AuxxMode where
     type AddrData AuxxMode = PublicKey
     getNewAddress = makePubKeyAddressAuxx
+
+-- | In order to create an 'Address' from a 'PublicKey' we need to
+-- choose suitable stake distribution. We want to pick it based on
+-- whether we are currently in bootstrap era.
+makePubKeyAddressAuxx :: (HasConfiguration, HasInfraConfiguration) => PublicKey -> AuxxMode Address
+makePubKeyAddressAuxx pk = do
+    epochIndex <- siEpoch <$> getCurrentSlotInaccurate
+    ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra epochIndex
+    return $ makePubKeyAddress ibea pk

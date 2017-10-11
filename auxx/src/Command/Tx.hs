@@ -55,8 +55,8 @@ import           Pos.Wallet                       (getSecretKeysPlain)
 
 import           Command.Types                    (SendMode (..),
                                                    SendToAllGenesisParams (..))
-import           Mode                             (AuxxMode, CmdCtx (..), getCmdCtx)
-import           Pos.Auxx                         (makePubKeyAddressAuxx)
+import           Mode                             (AuxxMode, CmdCtx (..), getCmdCtx,
+                                                   makePubKeyAddressAuxx)
 
 ----------------------------------------------------------------------------
 -- Send to all genesis

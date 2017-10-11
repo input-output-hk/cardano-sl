@@ -1,5 +1,7 @@
 {-# LANGUAGE ApplicativeDo     #-}
+{-# LANGUAGE CPP               #-}
 {-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE LambdaCase        #-}
 {-# LANGUAGE MultiWayIf        #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE QuasiQuotes       #-}
@@ -36,6 +38,11 @@ import           System.Wlog                  (HandlerWrap (..), LoggerNameBox,
                                                logNotice, logWarning, ltFiles,
                                                productionB, setupLogging, usingLoggerName)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
+
+#ifndef mingw32_HOST_OS
+import           System.Posix.Signals         (sigKILL, signalProcess)
+import qualified System.Process.Internals     as Process
+#endif
 
 -- Modules needed for system'
 import           Control.Exception            (handle, mask_, throwIO)
@@ -93,8 +100,8 @@ optionsParser = do
         metavar "PATH"
     loNodeLogPath <- optional $ textOption $
         long    "node-log-path" <>
-        help    "File where node stdout/err will be redirected\
-                \ (def: temp file)." <>
+        help    ("File where node stdout/err will be redirected " <>
+                 "(def: temp file).") <>
         metavar "PATH"
 
     -- Wallet-related args
@@ -128,8 +135,8 @@ optionsParser = do
     -- Other args
     loNodeTimeoutSec <- option auto $
         long    "node-timeout" <>
-        help    "How much to wait for the node to exit before killing it \
-                \(and then how much to wait after that)."<>
+        help    ("How much to wait for the node to exit before killing it " <>
+                 "(and then how much to wait after that).") <>
         metavar "SEC"
     loReportServer <- optional $ strOption $
         long    "report-server" <>
@@ -326,6 +333,7 @@ clientScenario logConf node wallet updater nodeTimeout report = do
             Process.waitForProcess nodeHandle
         whenNothing_ nodeExitCode $ do
             logWarning "The node didn't die after 'terminateProcess'"
+            maybeTrySIGKILL nodeHandle
 
 -- | We run the updater and delete the update file if the update was
 -- successful.
@@ -521,3 +529,19 @@ ignoreSIGPIPE = handle (\ex -> case ex of
         , ioe_errno = Just ioe }
         | Errno ioe == ePIPE -> return ()
     _ -> throwIO ex )
+
+----------------------------------------------------------------------------
+-- SIGKILL
+----------------------------------------------------------------------------
+
+-- | If we're on Linux or macOS, send a SIGKILL to a process.
+maybeTrySIGKILL :: ProcessHandle -> M ()
+maybeTrySIGKILL _h = do
+#ifdef mingw32_HOST_OS
+    logInfo "Not trying to send a SIGKILL because we're on Windows"
+#else
+    logInfo "Sending SIGKILL"
+    liftIO $ Process.withProcessHandle _h $ \case
+        Process.OpenHandle pid -> signalProcess sigKILL pid
+        _                      -> pass
+#endif

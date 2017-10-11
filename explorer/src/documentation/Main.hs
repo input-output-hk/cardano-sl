@@ -44,6 +44,7 @@ import qualified Paths_cardano_sl_explorer    as CSLE
 import qualified Pos.Explorer.Web.Api         as A
 import qualified Pos.Explorer.Web.ClientTypes as C
 import           Pos.Explorer.Web.Error       (ExplorerError)
+import           Pos.Util.Servant             (VerbMod)
 
 
 
@@ -74,6 +75,9 @@ main = do
 
 instance HasSwagger api => HasSwagger (MultipartForm a :> api) where
     toSwagger Proxy = toSwagger $ Proxy @api
+
+instance HasSwagger v => HasSwagger (VerbMod mod v) where
+    toSwagger _ = toSwagger $ Proxy @v
 
 -- | Instances we need to build Swagger-specification for 'explorerApi':
 -- 'ToParamSchema' - for types in parameters ('Capture', etc.),

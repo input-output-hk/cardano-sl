@@ -226,6 +226,7 @@ executable cardano-explorer-swagger
   build-depends:       aeson
                      , base
                      , bytestring
+                     , cardano-sl
                      , cardano-sl-explorer
                      , lens
                      , swagger2

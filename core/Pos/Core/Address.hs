@@ -48,31 +48,33 @@ module Pos.Core.Address
 
 import           Universum
 
-import           Crypto.Hash             (Blake2b_224, Digest, SHA3_256)
-import qualified Crypto.Hash             as CryptoHash
-import           Data.ByteString.Base58  (Alphabet (..), bitcoinAlphabet, decodeBase58,
-                                          encodeBase58)
-import           Data.Hashable           (Hashable (..))
-import qualified Data.Text.Buildable     as Buildable
-import           Formatting              (Format, bprint, build, builder, int, later, (%))
-import           Serokell.Util           (mapJson)
+import           Crypto.Hash              (Blake2b_224, Digest, SHA3_256)
+import qualified Crypto.Hash              as CryptoHash
+import           Data.ByteString.Base58   (Alphabet (..), bitcoinAlphabet, decodeBase58,
+                                           encodeBase58)
+import           Data.Hashable            (Hashable (..))
+import qualified Data.Text.Buildable      as Buildable
+import           Formatting               (Format, bprint, build, builder, int, later,
+                                           (%))
+import           Serokell.Util            (mapJson)
 
-import           Pos.Binary.Class        (Bi)
-import qualified Pos.Binary.Class        as Bi
-import           Pos.Binary.Crypto       ()
-import           Pos.Core.Coin           ()
-import           Pos.Core.Types          (AddrAttributes (..), AddrSpendingData (..),
-                                          AddrStakeDistribution (..), AddrType (..),
-                                          Address (..), Address' (..), AddressHash,
-                                          Script, StakeholderId)
-import           Pos.Crypto.Hashing      (AbstractHash (AbstractHash), hashHexF,
-                                          shortHashF)
-import           Pos.Crypto.HD           (HDAddressPayload, HDPassphrase,
-                                          deriveHDPassphrase, deriveHDPublicKey,
-                                          deriveHDSecretKey, packHDAddressAttr)
-import           Pos.Crypto.Signing.Types (PassPhrase, EncryptedSecretKey,
-                                           PublicKey, RedeemPublicKey, encToPublic)
-import           Pos.Data.Attributes     (attrData, mkAttributes)
+import           Pos.Binary.Class         (Bi)
+import qualified Pos.Binary.Class         as Bi
+import           Pos.Binary.Crypto        ()
+import           Pos.Core.Coin            ()
+import           Pos.Core.Types           (AddrAttributes (..), AddrSpendingData (..),
+                                           AddrStakeDistribution (..), AddrType (..),
+                                           Address (..), Address' (..), AddressHash,
+                                           Script, StakeholderId)
+import           Pos.Crypto.Hashing       (AbstractHash (AbstractHash), hashHexF,
+                                           shortHashF)
+import           Pos.Crypto.HD            (HDAddressPayload, HDPassphrase,
+                                           ShouldCheckPassphrase (..), deriveHDPassphrase,
+                                           deriveHDPublicKey, deriveHDSecretKey,
+                                           packHDAddressAttr)
+import           Pos.Crypto.Signing.Types (EncryptedSecretKey, PassPhrase, PublicKey,
+                                           RedeemPublicKey, encToPublic)
+import           Pos.Data.Attributes      (attrData, mkAttributes)
 
 instance Bi Address => Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.serialize'
@@ -237,14 +239,15 @@ makeRedeemAddress key = makeAddress spendingData attrs
 createHDAddressH
     :: Bi Address'
     => IsBootstrapEraAddr
+    -> ShouldCheckPassphrase
     -> PassPhrase
     -> HDPassphrase
     -> EncryptedSecretKey
     -> [Word32]
     -> Word32
     -> Maybe (Address, EncryptedSecretKey)
-createHDAddressH ibea passphrase walletPassphrase parent parentPath childIndex = do
-    derivedSK <- deriveHDSecretKey passphrase parent childIndex
+createHDAddressH ibea scp passphrase walletPassphrase parent parentPath childIndex = do
+    derivedSK <- deriveHDSecretKey scp passphrase parent childIndex
     let addressPayload = packHDAddressAttr walletPassphrase $ parentPath ++ [childIndex]
     let pk = encToPublic derivedSK
     return (makePubKeyHdwAddress ibea addressPayload pk, derivedSK)
@@ -323,15 +326,17 @@ addrAttributesUnwrapped = attrData . addrAttributes
 deriveLvl2KeyPair
     :: Bi Address'
     => IsBootstrapEraAddr
+    -> ShouldCheckPassphrase
     -> PassPhrase
-    -> EncryptedSecretKey -- ^ key of wallet set
-    -> Word32 -- ^ wallet derivation index
+    -> EncryptedSecretKey -- ^ key of wallet
     -> Word32 -- ^ account derivation index
+    -> Word32 -- ^ address derivation index
     -> Maybe (Address, EncryptedSecretKey)
-deriveLvl2KeyPair ibea passphrase wsKey walletIndex accIndex = do
-    wKey <- deriveHDSecretKey passphrase wsKey walletIndex
+deriveLvl2KeyPair ibea scp passphrase wsKey accountIndex addressIndex = do
+    wKey <- deriveHDSecretKey scp passphrase wsKey accountIndex
     let hdPass = deriveHDPassphrase $ encToPublic wsKey
-    createHDAddressH ibea passphrase hdPass wKey [walletIndex] accIndex
+    -- We don't need to check passphrase twice
+    createHDAddressH ibea (ShouldCheckPassphrase False) passphrase hdPass wKey [accountIndex] addressIndex
 
 ----------------------------------------------------------------------------
 -- Pattern-matching helpers

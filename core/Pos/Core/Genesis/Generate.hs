@@ -41,6 +41,7 @@ import           Pos.Core.Vss                            (VssCertificate,
                                                           mkVssCertificatesMap)
 import           Pos.Crypto                              (EncryptedSecretKey,
                                                           RedeemPublicKey, SecretKey,
+                                                          ShouldCheckPassphrase (..),
                                                           VssKeyPair, deterministic,
                                                           emptyPassphrase, keyGen,
                                                           randomNumberInRange,
@@ -165,7 +166,7 @@ generateSecretsAndAddress mbSk hasHDPayload= do
             if not hasHDPayload then makePubKeyAddressBoot (toPublic sk)
             else
                 fst $ fromMaybe (error "generateKeyfile: pass mismatch") $
-                deriveLvl2KeyPair (IsBootstrapEraAddr True) emptyPassphrase hdwSk
+                deriveLvl2KeyPair (IsBootstrapEraAddr True) (ShouldCheckPassphrase False) emptyPassphrase hdwSk
                     Const.accountGenesisIndex Const.wAddressGenesisIndex
     pure (sk, hdwSk, vss, vssCert, hdwAccountPk)
 

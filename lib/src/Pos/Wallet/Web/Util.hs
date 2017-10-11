@@ -7,31 +7,30 @@ module Pos.Wallet.Web.Util
     , getAccountAddrsOrThrow
     , getWalletAddrMetas
     , getWalletAddrs
+    , getWalletAddrsSet
     , decodeCTypeOrFail
     , getWalletAssuredDepth
-    , getWalletThTime
-    , sortWalletThByTime
     ) where
 
 import           Universum
 
-import           Data.Time.Clock.POSIX      (POSIXTime)
+import qualified Data.Set                   as S
 import           Formatting                 (build, sformat, (%))
 
-import           Pos.Client.Txp.History     (TxHistoryEntry (..))
-import           Pos.Core                   (BlockCount, timestampToPosix)
-import           Pos.Util.Chrono            (NewestFirst (..))
-import           Pos.Util.Servant           (FromCType (..), OriginType, encodeCType)
+import           Pos.Core                   (BlockCount)
+import           Pos.Util.Servant           (FromCType (..), OriginType)
 import           Pos.Util.Util              (maybeThrow)
 import           Pos.Wallet.Web.Assurance   (AssuranceLevel (HighAssurance),
                                              assuredBlockDepth)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
-                                             CWAddressMeta (..), Wal, ctmDate,
+                                             CWAddressMeta (..), Wal,
                                              cwAssurance)
+
+
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode, WebWalletModeDB,
                                              getAccountIds, getAccountWAddresses,
-                                             getTxMeta, getWalletMeta)
+                                             getWalletMeta)
 
 getWalletAccountIds :: WebWalletModeDB ctx m => CId Wal -> m [AccountId]
 getWalletAccountIds cWalId = filter ((== cWalId) . aiWId) <$> getAccountIds
@@ -58,6 +57,12 @@ getWalletAddrs
     => AddressLookupMode -> CId Wal -> m [CId Addr]
 getWalletAddrs = (cwamId <<$>>) ... getWalletAddrMetas
 
+getWalletAddrsSet
+    :: (WebWalletModeDB ctx m, MonadThrow m)
+    => AddressLookupMode -> CId Wal -> m (Set (CId Addr))
+getWalletAddrsSet lookupMode cWalId =
+    S.fromList . map cwamId <$> getWalletAddrMetas lookupMode cWalId
+
 decodeCTypeOrFail :: (MonadThrow m, FromCType c) => c -> m (OriginType c)
 decodeCTypeOrFail = either (throwM . DecodeError) pure . decodeCType
 
@@ -67,18 +72,3 @@ getWalletAssuredDepth
 getWalletAssuredDepth wid =
     assuredBlockDepth HighAssurance . cwAssurance <<$>>
     getWalletMeta wid
-
-getWalletThTime
-    :: (WebWalletModeDB ctx m)
-    => CId Wal -> TxHistoryEntry -> m (Maybe POSIXTime)
-getWalletThTime wid th = do
-    metaTime <- ctmDate <<$>> getTxMeta wid (encodeCType $ _thTxId th)
-    let thTime = timestampToPosix <$> _thTimestamp th
-    return $ metaTime <|> thTime
-
-sortWalletThByTime :: (WebWalletModeDB ctx m)
-    => CId Wal -> [TxHistoryEntry] -> m (NewestFirst [] TxHistoryEntry)
-sortWalletThByTime wid ths = do
-    thsWTime <- forM ths $ \th -> (th, ) <$> getWalletThTime wid th
-    let sortedThs = map fst $ sortOn (fmap Down . snd) thsWTime
-    return $ NewestFirst sortedThs

@@ -55,8 +55,7 @@ import           Network.SocketIO               (Socket, socketId)
 import           Pos.Block.Core                 (Block, mainBlockTxPayload)
 import qualified Pos.Block.Logic                as DB
 import           Pos.Block.Types                (Blund)
-import           Pos.Crypto                     (withHash)
-import           Pos.Crypto                     (hash)
+import           Pos.Crypto                     (withHash, hash)
 import qualified Pos.DB.Block                   as DB
 import           Pos.DB.Class                   (MonadDBRead)
 import           Pos.Explorer                   (TxExtra (..))
@@ -316,7 +315,7 @@ getBlundsFromTo
 getBlundsFromTo recentBlock oldBlock = do
     mheaders <- DB.getHeadersFromToIncl @SscGodTossing oldBlock recentBlock
     forM (getOldestFirst <$> mheaders) $ \(_ :| headers) ->
-        fmap catMaybes $ forM headers (DB.blkGetBlund @SscGodTossing)
+        catMaybes <$> forM headers (DB.blkGetBlund @SscGodTossing)
 
 addrsTouchedByTx
     :: (MonadDBRead m, WithLogger m)
@@ -332,7 +331,7 @@ addrsTouchedByTx tx = do
 
       pure $ addressSetByTxs (_txOutputs tx) inTxs
 
--- | Helper to filter addresses by a given tx from a list of txs 
+-- | Helper to filter addresses by a given tx from a list of txs
 addressSetByTxs :: NonEmpty TxOut -> NonEmpty [TxOut] -> (S.Set Address)
 addressSetByTxs tx txs =
     let txs' = (toList tx) <> (concat txs) in

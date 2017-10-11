@@ -183,7 +183,6 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
                 }
         ctx@NodeContext {..} <- allocateNodeContext ancd
         putLrcContext ncLrcContext
-        setupLoggers $ bpLoggingParams npBaseParams
         dlgVar <- mkDelegationVar @ssc
         sscState <- mkSscState @ssc
         let nrTransport = transport
@@ -209,7 +208,6 @@ releaseNodeResources ::
        forall ssc m. ( )
     => NodeResources ssc m -> Production ()
 releaseNodeResources NodeResources {..} = do
-    releaseAllHandlers
     whenJust nrJLogHandle (liftIO . hClose)
     closeNodeDBs nrDBs
     releaseNodeContext nrContext

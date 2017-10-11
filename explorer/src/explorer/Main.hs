@@ -32,7 +32,8 @@ import           Pos.Explorer.Web          (ExplorerProd, explorerPlugin,
 import           Pos.Launcher              (ConfigurationOptions (..), HasConfigurations,
                                             NodeParams (..), NodeResources (..),
                                             bracketNodeResources, hoistNodeResources,
-                                            runNode, runRealBasedMode, withConfigurations)
+                                            loggerBracket, runNode, runRealBasedMode,
+                                            withConfigurations)
 import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Ssc.SscAlgo           (SscAlgo (..))
 import           Pos.Types                 (Timestamp (Timestamp))
@@ -49,9 +50,12 @@ import           Pos.Util.UserSecret       (usVss)
 main :: IO ()
 main = do
     args <- getExplorerNodeOptions
-    CLI.printFlags
-    putText "[Attention] Software is built with explorer part"
-    runProduction $ action args
+    let loggingParams = CLI.loggingParams "node" (enaCommonNodeArgs args)
+    loggerBracket loggingParams $ do
+        CLI.printFlags
+        runProduction $ do
+            logInfo $ "[Attention] Software is built with explorer part"
+            action args
 
 action :: ExplorerNodeArgs -> Production ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =

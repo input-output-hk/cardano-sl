@@ -26,7 +26,10 @@ import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo, com
 import           Pos.Util.TimeWarp    (NetworkAddress, localhost)
 import           Pos.Web.Types        (TlsParams (..))
 
-data WalletNodeArgs = WalletNodeArgs CommonNodeArgs WalletArgs
+data WalletNodeArgs = WalletNodeArgs
+    { wnaCommonNodeArgs :: !CommonNodeArgs
+    , wnaWalletArgs     :: !WalletArgs
+    } deriving Show
 
 data WalletArgs = WalletArgs
     { enableWeb          :: !Bool

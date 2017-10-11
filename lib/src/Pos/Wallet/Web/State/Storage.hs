@@ -1,4 +1,5 @@
-{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE Rank2Types   #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- @jens: this document is inspired by https://github.com/input-output-hk/rscoin-haskell/blob/master/src/RSCoin/Explorer/Storage.hs
 module Pos.Wallet.Web.State.Storage
@@ -10,6 +11,7 @@ module Pos.Wallet.Web.State.Storage
        , PtxMetaUpdate (..)
        , Query
        , Update
+       , flushWalletStorage
        , getProfile
        , setProfile
        , getAccountIds
@@ -49,7 +51,9 @@ module Pos.Wallet.Web.State.Storage
        , setWalletUtxo
        , addOnlyNewTxMeta
        , setWalletTxMeta
+       , addOnlyNewTxMetas
        , removeWallet
+       , removeWalletTxMetas
        , removeTxMetas
        , removeHistoryCache
        , removeAccount
@@ -59,6 +63,8 @@ module Pos.Wallet.Web.State.Storage
        , removeNextUpdate
        , testReset
        , updateHistoryCache
+       , insertIntoHistoryCache
+       , removeFromHistoryCache
        , setPtxCondition
        , casPtxCondition
        , ptxUpdateMeta
@@ -73,11 +79,14 @@ import           Control.Lens                 (at, ix, makeClassy, makeLenses, n
 import           Control.Monad.State.Class    (put)
 import           Data.Default                 (Default, def)
 import qualified Data.HashMap.Strict          as HM
-import           Data.SafeCopy                (base, deriveSafeCopySimple)
+import qualified Data.Map                     as M
+import           Data.SafeCopy                (Migrate (..), base, deriveSafeCopySimple,
+                                               extension)
 import           Data.Time.Clock.POSIX        (POSIXTime)
 
-import           Pos.Client.Txp.History       (TxHistoryEntry)
-import           Pos.Core                     (HasConfiguration, SlotId, Timestamp)
+import           Pos.Client.Txp.History       (TxHistoryEntry, txHistoryListToMap)
+import           Pos.Core.Configuration       (HasConfiguration)
+import           Pos.Core.Types               (SlotId, Timestamp)
 import           Pos.Txp                      (TxAux, TxId, Utxo)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Util.BackupPhrase        (BackupPhrase)
@@ -128,8 +137,6 @@ data WalletInfo = WalletInfo
 
 makeLenses ''WalletInfo
 
-type TransactionHistory = HashMap CTxId CTxMeta
-
 -- | Maps addresses to their first occurrence in the blockchain
 type CustomAddresses = HashMap (CId Addr) HeaderHash
 
@@ -138,8 +145,8 @@ data WalletStorage = WalletStorage
     , _wsAccountInfos    :: !(HashMap AccountId AccountInfo)
     , _wsProfile         :: !CProfile
     , _wsReadyUpdates    :: [CUpdateInfo]
-    , _wsTxHistory       :: !(HashMap (CId Wal) TransactionHistory)
-    , _wsHistoryCache    :: !(HashMap (CId Wal) [TxHistoryEntry])
+    , _wsTxHistory       :: !(HashMap (CId Wal) (HashMap CTxId CTxMeta))
+    , _wsHistoryCache    :: !(HashMap (CId Wal) (Map TxId TxHistoryEntry))
     , _wsUtxo            :: !Utxo
     , _wsUsedAddresses   :: !CustomAddresses
     , _wsChangeAddresses :: !CustomAddresses
@@ -265,7 +272,7 @@ getUpdates = view wsReadyUpdates
 getNextUpdate :: Query (Maybe CUpdateInfo)
 getNextUpdate = preview (wsReadyUpdates . _head)
 
-getHistoryCache :: CId Wal -> Query (Maybe [TxHistoryEntry])
+getHistoryCache :: CId Wal -> Query (Maybe (Map TxId TxHistoryEntry))
 getHistoryCache cWalId = view $ wsHistoryCache . at cWalId
 
 getCustomAddresses :: CustomAddressType -> Query [CId Addr]
@@ -309,9 +316,12 @@ addWAddress :: CWAddressMeta -> Update ()
 addWAddress addrMeta@CWAddressMeta{..} = do
     let accInfo :: Traversal' WalletStorage AccountInfo
         accInfo = wsAccountInfos . ix (addrMetaToAccount addrMeta)
-    whenJustM (preuse (accInfo . aiUnusedKey)) $ \key -> do
-        accInfo . aiUnusedKey += 1
-        accInfo . aiAddresses . at cwamId ?= AddressInfo addrMeta key
+    whenJustM (preuse accInfo) $ \info -> do
+        let mAddr = info ^. aiAddresses . at cwamId
+        when (isNothing mAddr) $ do
+            accInfo . aiUnusedKey += 1
+            let key = info ^. aiUnusedKey
+            accInfo . aiAddresses . at cwamId ?= AddressInfo addrMeta key
 
 -- see also 'removeWAddress'
 addRemovedAccount :: CWAddressMeta -> Update ()
@@ -356,11 +366,18 @@ setWalletTxMeta :: CId Wal -> CTxId -> CTxMeta -> Update ()
 setWalletTxMeta cWalId cTxId cTxMeta =
     wsTxHistory . ix cWalId . at cTxId %= ($> cTxMeta)
 
-removeWallet :: CId Wal -> Update ()
-removeWallet cWalId = wsWalletInfos . at cWalId .= Nothing
-
 removeTxMetas :: CId Wal -> Update ()
 removeTxMetas cWalId = wsTxHistory . at cWalId .= Nothing
+
+addOnlyNewTxMetas :: CId Wal -> [(CTxId, CTxMeta)] -> Update ()
+addOnlyNewTxMetas = mapM_ . uncurry . addOnlyNewTxMeta
+
+removeWalletTxMetas :: CId Wal -> [CTxId] -> Update ()
+removeWalletTxMetas cWalId cTxs =
+    wsTxHistory . at cWalId . non' _Empty %= flip (foldr HM.delete) cTxs
+
+removeWallet :: CId Wal -> Update ()
+removeWallet cWalId = wsWalletInfos . at cWalId .= Nothing
 
 removeHistoryCache :: CId Wal -> Update ()
 removeHistoryCache cWalId = wsHistoryCache . at cWalId .= Nothing
@@ -394,9 +411,19 @@ removeNextUpdate = wsReadyUpdates %= drop 1
 testReset :: Update ()
 testReset = put def
 
+-- Legacy transaction, no longer used. For existing Db tx logs only. Now use
+-- 'removeHistoryCache', 'insertIntoHistoryCache' or 'removeFromHistoryCache'
 updateHistoryCache :: CId Wal -> [TxHistoryEntry] -> Update ()
 updateHistoryCache cWalId cTxs =
-    wsHistoryCache . at cWalId ?= cTxs
+    wsHistoryCache . at cWalId ?= txHistoryListToMap cTxs
+
+insertIntoHistoryCache :: CId Wal -> Map TxId TxHistoryEntry -> Update ()
+insertIntoHistoryCache cWalId cTxs =
+    wsHistoryCache . at cWalId . non' _Empty %= (cTxs `M.union`)
+
+removeFromHistoryCache :: CId Wal -> Map TxId () -> Update ()
+removeFromHistoryCache cWalId cTxs =
+    wsHistoryCache . at cWalId . non' _Empty %= (`M.difference` cTxs)
 
 -- This shouldn't be able to create new transaction.
 -- NOTE: If you're going to use this function, make sure 'casPtxCondition'
@@ -436,6 +463,23 @@ addOnlyNewPendingTx ptx =
     wsWalletInfos . ix (_ptxWallet ptx) .
     wsPendingTxs . at (_ptxTxId ptx) %= (<|> Just ptx)
 
+-- | Flushes data in wallet storage
+-- Preserves all metadata, wallets, accounts and addresses
+-- Flushes all data that can be rebuild from blockchain (tx history and etc.)
+flushWalletStorage :: Update ()
+flushWalletStorage = modify flushDo
+  where
+    flushDo ws = ws
+        { _wsWalletInfos = flushWalletInfo <$> _wsWalletInfos ws
+        , _wsHistoryCache = HM.empty
+        , _wsUtxo = M.empty
+        , _wsUsedAddresses = HM.empty
+        , _wsChangeAddresses = HM.empty
+        }
+    flushWalletInfo wi = wi { _wiSyncTip = NotSynced
+                            , _wiIsReady = False
+                            }
+
 deriveSafeCopySimple 0 'base ''CCoin
 deriveSafeCopySimple 0 'base ''CProfile
 deriveSafeCopySimple 0 'base ''CHash
@@ -464,4 +508,35 @@ deriveSafeCopySimple 0 'base ''AddressInfo
 deriveSafeCopySimple 0 'base ''AccountInfo
 deriveSafeCopySimple 0 'base ''WalletTip
 deriveSafeCopySimple 0 'base ''WalletInfo
-deriveSafeCopySimple 0 'base ''WalletStorage
+
+
+-- Legacy versions, for migrations
+
+data WalletStorage_v0 = WalletStorage_v0
+    { _v0_wsWalletInfos     :: !(HashMap (CId Wal) WalletInfo)
+    , _v0_wsAccountInfos    :: !(HashMap AccountId AccountInfo)
+    , _v0_wsProfile         :: !CProfile
+    , _v0_wsReadyUpdates    :: [CUpdateInfo]
+    , _v0_wsTxHistory       :: !(HashMap (CId Wal) (HashMap CTxId CTxMeta))
+    , _v0_wsHistoryCache    :: !(HashMap (CId Wal) [TxHistoryEntry])
+    , _v0_wsUtxo            :: !Utxo
+    , _v0_wsUsedAddresses   :: !CustomAddresses
+    , _v0_wsChangeAddresses :: !CustomAddresses
+    }
+
+deriveSafeCopySimple 0 'base ''WalletStorage_v0
+deriveSafeCopySimple 1 'extension ''WalletStorage
+
+instance Migrate WalletStorage where
+    type MigrateFrom WalletStorage = WalletStorage_v0
+    migrate WalletStorage_v0{..} = WalletStorage
+        { _wsWalletInfos     = _v0_wsWalletInfos
+        , _wsAccountInfos    = _v0_wsAccountInfos
+        , _wsProfile         = _v0_wsProfile
+        , _wsReadyUpdates    = _v0_wsReadyUpdates
+        , _wsTxHistory       = _v0_wsTxHistory
+        , _wsHistoryCache    = HM.map txHistoryListToMap _v0_wsHistoryCache
+        , _wsUtxo            = _v0_wsUtxo
+        , _wsUsedAddresses   = _v0_wsUsedAddresses
+        , _wsChangeAddresses = _v0_wsChangeAddresses
+        }

@@ -51,7 +51,7 @@ import           Pos.Txp                          (TxAux, TxOut (..), TxOutAux (
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo             (HasCompileInfo)
 import           Pos.Util.Util                    (maybeThrow)
-import           Pos.Wallet                       (getSecretKeys)
+import           Pos.Wallet                       (getSecretKeysPlain)
 
 import           Command.Types                    (SendMode (..),
                                                    SendToAllGenesisParams (..))
@@ -192,7 +192,7 @@ send
     -> AuxxMode ()
 send sendActions idx outputs = do
     CmdCtx{ccPeers} <- getCmdCtx
-    skeys <- getSecretKeys
+    skeys <- getSecretKeysPlain
     let skey = skeys !! idx
         curPk = encToPublic skey
     etx <- withSafeSigner skey (pure emptyPassphrase) $ \mss -> runExceptT $ do

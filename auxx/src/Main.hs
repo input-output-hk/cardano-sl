@@ -15,8 +15,8 @@ import qualified Pos.Client.CLI        as CLI
 import           Pos.Communication     (OutSpecs, WorkerSpec)
 import           Pos.Core              (Timestamp (..), gdStartTime, genesisData)
 import           Pos.Launcher          (HasConfigurations, NodeParams (..), NodeResources,
-                                        bracketNodeResources, runNode, runRealBasedMode,
-                                        withConfigurations)
+                                        bracketNodeResources, loggerBracket, runNode,
+                                        runRealBasedMode, withConfigurations)
 import           Pos.Network.Types     (NetworkConfig (..), Topology (..),
                                         topologyDequeuePolicy, topologyEnqueuePolicy,
                                         topologyFailurePolicy)
@@ -39,12 +39,10 @@ correctNodeParams AuxxOptions {..} np = do
         Nothing -> do
             tempDir <- liftIO $ Temp.getCanonicalTemporaryDirectory
             dbPath <- liftIO $ Temp.createTempDirectory tempDir "nodedb"
-            putStrLn $ -- TODO: use logInfo after CSL-1693
-                sformat ("Temporary db created: "%shown) dbPath
+            logInfo $ sformat ("Temporary db created: "%shown) dbPath
             return (dbPath, True)
         Just dbPath -> do
-            putStrLn $ -- TODO: use logInfo after CSL-1693
-                sformat ("Supplied db used: "%shown) dbPath
+            logInfo $ sformat ("Supplied db used: "%shown) dbPath
             return (dbPath, False)
     let np' = np
             { npNetworkConfig = networkConfig
@@ -104,6 +102,7 @@ action opts@AuxxOptions {..} = withConfigurations conf $ do
     cmdCtx = CmdCtx {ccPeers = aoPeers}
 
 main :: IO ()
-main =
-    withCompileInfo $(retrieveCompileTimeInfo) $
-    getAuxxOptions >>= runProduction . action
+main = withCompileInfo $(retrieveCompileTimeInfo) $ do
+    opts <- getAuxxOptions
+    let loggingParams = CLI.loggingParams "auxx" (aoCommonNodeArgs opts)
+    loggerBracket loggingParams $ runProduction $ action opts

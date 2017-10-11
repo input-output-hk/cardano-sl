@@ -15,20 +15,23 @@ import           Universum                 hiding (show)
 import           Data.Version              (showVersion)
 import           Options.Applicative       (Parser, auto, execParser, footerDoc, fullDesc,
                                             header, help, helper, info, infoOption, long,
-                                            metavar, option, progDesc, value, showDefault)
+                                            metavar, option, progDesc, showDefault, value)
 
 import           Paths_cardano_sl_explorer (version)
 import           Pos.Client.CLI            (CommonNodeArgs (..))
 import qualified Pos.Client.CLI            as CLI
 
 
-data ExplorerNodeArgs = ExplorerNodeArgs CommonNodeArgs ExplorerArgs
+data ExplorerNodeArgs = ExplorerNodeArgs
+    { enaCommonNodeArgs :: !CommonNodeArgs
+    , enaExplorerArgs   :: !ExplorerArgs
+    } deriving Show
 
 -- | Explorer specific arguments.
 data ExplorerArgs = ExplorerArgs
-    { webPort           :: !Word16
+    { webPort      :: !Word16
     -- ^ The port for the explorer backend
-    , notifierPort      :: !Word16
+    , notifierPort :: !Word16
     -- ^ The port for the socket.io backend
     } deriving Show
 

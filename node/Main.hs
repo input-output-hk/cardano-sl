@@ -13,6 +13,7 @@ import           Universum
 import           Data.Maybe           (fromJust)
 import           Formatting           (sformat, shown, (%))
 import           Mockable             (Production, currentTime, runProduction)
+import           System.Wlog          (logInfo)
 
 import           Pos.Binary           ()
 import           Pos.Client.CLI       (CommonNodeArgs (..), NodeArgs (..),
@@ -20,8 +21,8 @@ import           Pos.Client.CLI       (CommonNodeArgs (..), NodeArgs (..),
 import qualified Pos.Client.CLI       as CLI
 import           Pos.Communication    (OutSpecs, WorkerSpec)
 import           Pos.Core             (GenesisData (..), Timestamp (..), genesisData)
-import           Pos.Launcher         (HasConfigurations, NodeParams (..), runNodeReal,
-                                       withConfigurations)
+import           Pos.Launcher         (HasConfigurations, NodeParams (..), loggerBracket,
+                                       runNodeReal, withConfigurations)
 import           Pos.Ssc.Class        (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)
@@ -56,13 +57,13 @@ action
     -> Production ()
 action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
     whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData
-    putText $ sformat ("System start time is " % shown) $ gdStartTime genesisData
+    logInfo $ sformat ("System start time is " % shown) $ gdStartTime genesisData
     t <- currentTime
-    putText $ sformat ("Current time is " % shown) (Timestamp t)
+    logInfo $ sformat ("Current time is " % shown) (Timestamp t)
     currentParams <- CLI.getNodeParams cArgs nArgs
-    putText $ "Running using " <> show sscAlgo
-    putText "Wallet is disabled, because software is built w/o it"
-    putText $ sformat ("Using configs and genesis:\n"%shown) (CLI.configurationOptions (CLI.commonArgs cArgs))
+    logInfo $ "Running using " <> show sscAlgo
+    logInfo "Wallet is disabled, because software is built w/o it"
+    logInfo $ sformat ("Using configs and genesis:\n"%shown) (CLI.configurationOptions (CLI.commonArgs cArgs))
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
     let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
@@ -76,8 +77,10 @@ action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
 main :: IO ()
 main = withCompileInfo $(retrieveCompileTimeInfo) $ do
     args@(CLI.SimpleNodeArgs commonNodeArgs _) <- CLI.getSimpleNodeOptions
-    CLI.printFlags
-    let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
-    runProduction $
-        withConfigurations conf $
-        action args
+    let loggingParams = CLI.loggingParams "node" commonNodeArgs
+    loggerBracket loggingParams $ do
+        CLI.printFlags
+        let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
+        runProduction $
+            withConfigurations conf $
+            action args

@@ -203,8 +203,8 @@ send sendActions idx outputs = do
             (map TxOutAux outputs)
             curPk
     case etx of
-        Left err      -> putText $ sformat ("Error: "%stext) (toText $ displayException err)
-        Right (tx, _) -> putText $ sformat ("Submitted transaction: "%txaF) tx
+        Left err      -> logError $ sformat ("Error: "%stext) (toText $ displayException err)
+        Right (tx, _) -> logInfo $ sformat ("Submitted transaction: "%txaF) tx
 
 ----------------------------------------------------------------------------
 -- Send from file

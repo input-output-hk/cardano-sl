@@ -21,6 +21,7 @@ module Test.Pos.Util
        , qcFail
 
        -- * Monadic properties
+       , assertProperty
        , stopProperty
        , maybeStopProperty
        , splitIntoChunks
@@ -127,6 +128,10 @@ qcFail s = counterexample (toString s) False
 ----------------------------------------------------------------------------
 -- Monadic testing
 ----------------------------------------------------------------------------
+
+-- | Call stopProperty if boolean value is false.
+assertProperty :: Monad m => Bool -> Text -> PropertyM m ()
+assertProperty st text = unless st $ stopProperty text
 
 -- Note, 'fail' does the same thing, but:
 -- • it's quite trivial, almost no copy-paste;

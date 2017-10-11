@@ -394,6 +394,7 @@ test-suite cardano-wallet-test
                        
                        -- Test scenarios
                        Test.Pos.Wallet.Web.Methods.LogicSpec
+                       Test.Pos.Wallet.Web.Methods.PaymentSpec
   type:                exitcode-stdio-1.0
   build-depends:       MonadRandom
                      , QuickCheck

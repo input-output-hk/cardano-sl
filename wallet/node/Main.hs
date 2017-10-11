@@ -69,9 +69,9 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
   where
     mainAction = runNodeWithInit $ do
         when (walletFlushDb) $ do
-            putText "Flushing wallet db..."
+            logInfo "Flushing wallet db..."
             flushWalletStorage
-            putText "Resyncing wallets with blockchain..."
+            logInfo "Resyncing wallets with blockchain..."
             syncWallets
     runNodeWithInit init nr =
         let (ActionSpec f, outs) = runNode @SscGodTossing nr plugins
@@ -119,12 +119,12 @@ action :: HasCompileInfo => WalletNodeArgs -> Production ()
 action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
     withConfigurations conf $ do
         whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData
-        putText $ sformat ("System start time is " % shown) $ gdStartTime genesisData
+        logInfo $ sformat ("System start time is " % shown) $ gdStartTime genesisData
         t <- currentTime
-        putText $ sformat ("Current time is " % shown) (Timestamp t)
+        logInfo $ sformat ("Current time is " % shown) (Timestamp t)
         currentParams <- getNodeParams cArgs nodeArgs
-        putText $ "Wallet is enabled!"
-        putText $ sformat ("Using configs and genesis:\n"%shown) conf
+        logInfo $ "Wallet is enabled!"
+        logInfo $ sformat ("Using configs and genesis:\n"%shown) conf
 
         let vssSK = fromJust $ npUserSecret currentParams ^. usVss
         let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)

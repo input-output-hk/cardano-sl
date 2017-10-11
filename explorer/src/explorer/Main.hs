@@ -66,7 +66,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
         t <- currentTime
         logInfo $ sformat ("Current time is " % shown) (Timestamp t)
         currentParams <- getNodeParams cArgs nodeArgs
-        putText $ "Explorer is enabled!"
+        logInfo $ "Explorer is enabled!"
         logInfo $ sformat ("Using configs and genesis:\n"%shown) conf
 
         let vssSK = fromJust $ npUserSecret currentParams ^. usVss

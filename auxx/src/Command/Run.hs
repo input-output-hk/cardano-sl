@@ -13,6 +13,7 @@ import           Data.ByteString.Base58     (bitcoinAlphabet, encodeBase58)
 import           Data.List                  ((!!))
 import           Formatting                 (build, int, sformat, stext, (%))
 import           NeatInterpolation          (text)
+import           System.Wlog                (logError, logInfo)
 import qualified Text.JSON.Canonical        as CanonicalJSON
 
 import           Pos.Binary                 (serialize')
@@ -122,19 +123,19 @@ runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) = do
     CmdCtx{ccPeers} <- getCmdCtx
     issuerSk <- (!! i) <$> getSecretKeysPlain
     withSafeSigner issuerSk (pure emptyPassphrase) $ \case
-        Nothing -> putText "Invalid passphrase"
+        Nothing -> logError "Invalid passphrase"
         Just ss -> do
             let psk = safeCreatePsk ss delegatePk (startEpoch, fromMaybe 1000 lastEpochM)
             dataFlow
                 "pskLight"
                 (immediateConcurrentConversations sendActions ccPeers)
                 (MsgTransaction OriginSender) psk
-            putText "Sent lightweight cert"
+            logInfo "Sent lightweight cert"
 runCmd sendActions (DelegateHeavy i delegatePk curEpoch dry) = do
     CmdCtx {ccPeers} <- getCmdCtx
     issuerSk <- (!! i) <$> getSecretKeysPlain
     withSafeSigner issuerSk (pure emptyPassphrase) $ \case
-        Nothing -> putText "Invalid passphrase"
+        Nothing -> logError "Invalid passphrase"
         Just ss -> do
             let psk = safeCreatePsk ss delegatePk curEpoch
             if dry
@@ -151,7 +152,7 @@ runCmd sendActions (DelegateHeavy i delegatePk curEpoch dry) = do
                    (immediateConcurrentConversations sendActions ccPeers)
                    (MsgTransaction OriginSender)
                    psk
-               putText "Sent heavyweight cert"
+               logInfo "Sent heavyweight cert"
 runCmd _ (AddKeyFromPool i) = do
     CmdCtx {..} <- getCmdCtx
     let secrets = fromMaybe (error "Secret keys are unknown") genesisSecretKeys

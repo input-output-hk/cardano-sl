@@ -38,10 +38,10 @@ import           System.IO                        (BufferMode (..), Handle, hClo
                                                    hSetBuffering)
 import qualified System.Metrics                   as Metrics
 import           System.Wlog                      (CanLog, LoggerConfig (..), WithLogger,
-                                                   getLoggerName, logError, prefixB,
-                                                   productionB, releaseAllHandlers,
-                                                   setupLogging, showTidB,
-                                                   usingLoggerName)
+                                                   getLoggerName, logError, logInfo,
+                                                   prefixB, productionB,
+                                                   releaseAllHandlers, setupLogging,
+                                                   showTidB, usingLoggerName)
 
 import           Pos.Binary                       ()
 import           Pos.Block.Slog                   (mkSlogContext)
@@ -148,7 +148,14 @@ allocateNodeResources
     -> SscParams ssc
     -> Production (NodeResources ssc ext m)
 allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
-    db <- openNodeDBs npRebuildDb npDbPathM
+    npDbPath <- case npDbPathM of
+        Nothing -> do
+            let dbPath = "node-db" :: FilePath
+            logInfo $ sformat ("DB path not specified, defaulting to "%
+                               shown) dbPath
+            return dbPath
+        Just dbPath -> return dbPath
+    db <- openNodeDBs npRebuildDb npDbPath
     (futureLrcContext, putLrcContext) <- newInitFuture "lrcContext"
     (futureSlottingVar, putSlottingVar) <- newInitFuture "slottingVar"
     (futureSlottingContext, putSlottingContext) <- newInitFuture "slottingContext"

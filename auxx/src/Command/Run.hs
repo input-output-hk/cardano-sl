@@ -15,7 +15,6 @@ import           Formatting                 (build, int, sformat, stext, (%))
 import           NeatInterpolation          (text)
 import qualified Text.JSON.Canonical        as CanonicalJSON
 
-import           Pos.Auxx                   (makePubKeyAddressAuxx)
 import           Pos.Binary                 (serialize')
 import           Pos.Communication          (MsgType (..), Origin (..), SendActions,
                                              dataFlow, immediateConcurrentConversations)
@@ -30,13 +29,14 @@ import           Pos.DB.Class               (MonadGState (..))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo       (HasCompileInfo)
 import           Pos.Util.UserSecret        (readUserSecret, usKeys)
-import           Pos.Wallet                 (addSecretKey, getBalance, getSecretKeys)
+import           Pos.Wallet                 (addSecretKey, getBalance, getSecretKeysPlain)
 
 import qualified Command.Rollback           as Rollback
 import qualified Command.Tx                 as Tx
 import           Command.Types              (Command (..))
 import qualified Command.Update             as Update
-import           Mode                       (AuxxMode, CmdCtx (..), getCmdCtx)
+import           Mode                       (AuxxMode, CmdCtx (..), getCmdCtx,
+                                             makePubKeyAddressAuxx)
 
 
 helpMsg :: Text
@@ -107,7 +107,7 @@ runCmd sendActions (ProposeUpdate params) =
     Update.propose sendActions params
 runCmd _ Help = putText helpMsg
 runCmd _ ListAddresses = do
-   addrs <- map encToPublic <$> getSecretKeys
+   addrs <- map encToPublic <$> getSecretKeysPlain
    putText "Available addresses:"
    for_ (zip [0 :: Int ..] addrs) $ \(i, pk) -> do
        addr <- makePubKeyAddressAuxx pk
@@ -120,7 +120,7 @@ runCmd _ ListAddresses = do
     toBase58Text = decodeUtf8 . encodeBase58 bitcoinAlphabet . serialize'
 runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) = do
     CmdCtx{ccPeers} <- getCmdCtx
-    issuerSk <- (!! i) <$> getSecretKeys
+    issuerSk <- (!! i) <$> getSecretKeysPlain
     withSafeSigner issuerSk (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
@@ -132,7 +132,7 @@ runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) = do
             putText "Sent lightweight cert"
 runCmd sendActions (DelegateHeavy i delegatePk curEpoch dry) = do
     CmdCtx {ccPeers} <- getCmdCtx
-    issuerSk <- (!! i) <$> getSecretKeys
+    issuerSk <- (!! i) <$> getSecretKeysPlain
     withSafeSigner issuerSk (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
         Just ss -> do

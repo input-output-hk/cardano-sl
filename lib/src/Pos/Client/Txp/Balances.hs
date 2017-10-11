@@ -5,6 +5,7 @@ module Pos.Client.Txp.Balances
        , getOwnUtxo
        , getBalanceFromUtxo
        , getOwnUtxosDefault
+       , getOwnUtxosGenesis
        , getBalanceDefault
        , getOwnUtxoForPk
        ) where
@@ -16,12 +17,14 @@ import qualified Data.HashSet         as HS
 import           Data.List            (partition)
 import qualified Data.Map             as M
 
-import           Pos.Core             (Address (..), Coin, IsBootstrapEraAddr (..),
-                                       isRedeemAddress, makePubKeyAddress)
+import           Pos.Core             (Address (..), Coin, HasConfiguration,
+                                       IsBootstrapEraAddr (..), isRedeemAddress,
+                                       makePubKeyAddress)
 import           Pos.Crypto           (PublicKey)
 import           Pos.DB               (MonadDBRead, MonadGState, MonadRealDB)
 import           Pos.Txp              (MonadTxpMem, Utxo, addrBelongsToSet,
-                                       getUtxoModifier)
+                                       filterUtxoByAddrs, genesisUtxo, getUtxoModifier,
+                                       unGenesisUtxo)
 import qualified Pos.Txp.DB           as DB
 import           Pos.Txp.Toil.Utxo    (getTotalCoinsInUtxo)
 import qualified Pos.Util.Modifier    as MM
@@ -66,6 +69,9 @@ getOwnUtxosDefault addrs = do
     let allUtxo = MM.modifyMap updates $ commonUtxo <> redeemUtxo
         addrsSet = HS.fromList addrs
     pure $ M.filter (`addrBelongsToSet` addrsSet) allUtxo
+
+getOwnUtxosGenesis :: (HasConfiguration, Applicative m) => [Address] -> m Utxo
+getOwnUtxosGenesis addrs = pure $ filterUtxoByAddrs addrs (unGenesisUtxo genesisUtxo)
 
 -- | `BalanceDB` isn't used here anymore, because
 -- 1) It doesn't represent actual balances of addresses, but it represents _stakes_

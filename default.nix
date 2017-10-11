@@ -41,7 +41,6 @@ let
         '';
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
-        enableExecutableProfiling = enableProfiling;
         passthru = {
           inherit enableProfiling;
         };
@@ -75,10 +74,11 @@ let
 
       mkDerivation = args: super.mkDerivation (args // {
         enableLibraryProfiling = enableProfiling;
+        enableExecutableProfiling = enableProfiling;
       } // optionalAttrs enableDebugging {
         # TODO: DEVOPS-355
         dontStrip = true;
-        configureFlags = (args.configureFlags or []) ++ [ "--ghc-options=-g --disable-executable-stripping --disable-library-stripping" ];
+        configureFlags = (args.configureFlags or []) ++ [ "--ghc-options=-g --disable-executable-stripping --disable-library-stripping" "--profiling-detail=toplevel-functions"];
       });
     };
   });

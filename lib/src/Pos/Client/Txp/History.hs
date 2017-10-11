@@ -26,6 +26,8 @@ module Pos.Client.Txp.History
        , getBlockHistoryDefault
        , getLocalHistoryDefault
        , saveTxDefault
+
+       , txHistoryListToMap
        ) where
 
 import           Universum
@@ -35,9 +37,7 @@ import           Control.Monad.Trans          (MonadTrans)
 import           Control.Monad.Trans.Control  (MonadBaseControl)
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
-import           Data.DList                   (DList)
-import qualified Data.DList                   as DL
-import qualified Data.Map.Strict              as M (lookup)
+import qualified Data.Map.Strict              as M (lookup, insert, fromList)
 import qualified Data.Text.Buildable
 import qualified Ether
 import           Formatting                   (bprint, build, (%))
@@ -90,7 +90,7 @@ data TxHistoryEntry = THEntry
     , _thInputs      :: ![TxOut]
     , _thOutputAddrs :: ![Address]
     , _thTimestamp   :: !(Maybe Timestamp)
-    } deriving (Show, Eq, Generic)
+    } deriving (Show, Eq, Generic, Ord)
 
 -- | Remained for compatibility
 _thInputAddrs :: TxHistoryEntry -> [Address]
@@ -116,11 +116,11 @@ getTxsByPredicate
     -> Maybe ChainDifficulty
     -> Maybe Timestamp
     -> [(WithHash Tx, TxWitness)]
-    -> m [TxHistoryEntry]
-getTxsByPredicate pr mDiff mTs txs = go txs []
+    -> m (Map TxId TxHistoryEntry)
+getTxsByPredicate pr mDiff mTs txs = go txs mempty
   where
-    go [] acc = return acc
-    go ((wh@(WithHash tx txId), _wit) : rest) acc = do
+    go [] !acc = return acc
+    go ((wh@(WithHash tx txId), _wit) : rest) !acc = do
         inputs <- getSenders tx
         let outgoings = toList $ txOutAddress <$> _txOutputs tx
         let incomings = map txOutAddress inputs
@@ -128,7 +128,7 @@ getTxsByPredicate pr mDiff mTs txs = go txs []
         applyTxToUtxo wh
 
         let acc' = if pr (incomings ++ outgoings)
-                   then (THEntry txId tx mDiff inputs outgoings mTs : acc)
+                   then M.insert txId (THEntry txId tx mDiff inputs outgoings mTs) acc
                    else acc
         go rest acc'
 
@@ -139,7 +139,7 @@ getRelatedTxsByAddrs
     -> Maybe ChainDifficulty
     -> Maybe Timestamp
     -> [(WithHash Tx, TxWitness)]
-    -> m [TxHistoryEntry]
+    -> m (Map TxId TxHistoryEntry)
 getRelatedTxsByAddrs addrs = getTxsByPredicate $ any (`elem` addrs)
 
 -- | Given a full blockchain, derive address history and Utxo
@@ -148,17 +148,17 @@ getRelatedTxsByAddrs addrs = getTxsByPredicate $ any (`elem` addrs)
 -- Tx will be required.
 deriveAddrHistory
     :: MonadUtxo m
-    => [Address] -> [Block ssc] -> m [TxHistoryEntry]
+    => [Address] -> [Block ssc] -> m (Map TxId TxHistoryEntry)
 deriveAddrHistory addrs chain =
-    DL.toList <$> foldrM (flip $ deriveAddrHistoryBlk addrs $ const Nothing) mempty chain
+    foldrM (flip $ deriveAddrHistoryBlk addrs $ const Nothing) mempty chain
 
 deriveAddrHistoryBlk
     :: MonadUtxo m
     => [Address]
     -> (MainBlock ssc -> Maybe Timestamp)
-    -> DList TxHistoryEntry
+    -> Map TxId TxHistoryEntry
     -> Block ssc
-    -> m (DList TxHistoryEntry)
+    -> m (Map TxId TxHistoryEntry)
 deriveAddrHistoryBlk _ _ hist (Left _) = pure hist
 deriveAddrHistoryBlk addrs getTs hist (Right blk) = do
     let mapper TxAux {..} = (withHash taTx, taWitness)
@@ -167,7 +167,7 @@ deriveAddrHistoryBlk addrs getTs hist (Right blk) = do
     txs <- getRelatedTxsByAddrs addrs (Just difficulty) mTimestamp $
            map mapper . flattenTxPayload $
            blk ^. mainBlockTxPayload
-    return $ DL.fromList txs <> hist
+    return $ txs <> hist -- TODO: Are we sure there is no intersection? OTherwise, the order might matter
 
 ----------------------------------------------------------------------------
 -- GenesisToil
@@ -195,19 +195,19 @@ instance (Monad m, HasConfiguration) =>
 class (Monad m, SscHelpersClass ssc) => MonadTxHistory ssc m | m -> ssc where
     getBlockHistory
         :: SscHelpersClass ssc
-        => [Address] -> m (DList TxHistoryEntry)
+        => [Address] -> m (Map TxId TxHistoryEntry)
     getLocalHistory
-        :: [Address] -> m (DList TxHistoryEntry)
+        :: [Address] -> m (Map TxId TxHistoryEntry)
     saveTx :: (TxId, TxAux) -> m ()
 
     default getBlockHistory
         :: (MonadTrans t, MonadTxHistory ssc m', t m' ~ m)
-        => [Address] -> m (DList TxHistoryEntry)
+        => [Address] -> m (Map TxId TxHistoryEntry)
     getBlockHistory = lift . getBlockHistory
 
     default getLocalHistory
         :: (MonadTrans t, MonadTxHistory ssc m', t m' ~ m)
-        => [Address] -> m (DList TxHistoryEntry)
+        => [Address] -> m (Map TxId TxHistoryEntry)
     getLocalHistory = lift . getLocalHistory
 
     default saveTx :: (MonadTrans t, MonadTxHistory ssc m', t m' ~ m) => (TxId, TxAux) -> m ()
@@ -243,7 +243,7 @@ type GenesisHistoryFetcher m = ToilT () (GenesisToil m)
 
 getBlockHistoryDefault
     :: forall ssc ctx m. (HasConfiguration, SscHelpersClass ssc, TxHistoryEnv' ssc ctx m)
-    => [Address] -> m (DList TxHistoryEntry)
+    => [Address] -> m (Map TxId TxHistoryEntry)
 getBlockHistoryDefault addrs = do
     let bot      = headerHash (genesisBlock0 @ssc)
     sd          <- GS.getSlottingData
@@ -255,7 +255,7 @@ getBlockHistoryDefault addrs = do
         getBlockTimestamp :: MainBlock ssc -> Maybe Timestamp
         getBlockTimestamp blk = getSlotStartPure systemStart (blk ^. mainBlockSlot) sd
 
-        blockFetcher :: HeaderHash -> GenesisHistoryFetcher m (DList TxHistoryEntry)
+        blockFetcher :: HeaderHash -> GenesisHistoryFetcher m (Map TxId TxHistoryEntry)
         blockFetcher start = GS.foldlUpWhileM fromBlund start (const $ const True)
             (deriveAddrHistoryBlk addrs getBlockTimestamp) mempty
 
@@ -263,7 +263,7 @@ getBlockHistoryDefault addrs = do
 
 getLocalHistoryDefault
     :: forall ctx m. TxHistoryEnv ctx m
-    => [Address] -> m (DList TxHistoryEntry)
+    => [Address] -> m (Map TxId TxHistoryEntry)
 getLocalHistoryDefault addrs = runDBToil . evalToilTEmpty $ do
     let mapper (txid, TxAux {..}) =
             (WithHash taTx txid, taWitness)
@@ -272,9 +272,12 @@ getLocalHistoryDefault addrs = runDBToil . evalToilTEmpty $ do
     ltxs <- lift $ map mapper <$> getLocalTxs
     txs <- getRelatedTxsByAddrs addrs Nothing Nothing =<<
            maybeThrow topsortErr (topsortTxs (view _1) ltxs)
-    return $ DL.fromList txs
+    return $ txs
 
 saveTxDefault :: TxHistoryEnv ctx m => (TxId, TxAux) -> m ()
 saveTxDefault txw = do
     res <- txpProcessTx txw
     eitherToThrow res
+
+txHistoryListToMap :: [TxHistoryEntry] -> Map TxId TxHistoryEntry
+txHistoryListToMap = M.fromList . map (\tx -> (_thTxId tx, tx))

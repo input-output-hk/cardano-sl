@@ -1,5 +1,5 @@
 name:                cardano-sl
-version:             1.0.1
+version:             1.0.2
 synopsis:            Cardano SL main implementation
 description:         Please see README.md
 license:             MIT
@@ -141,6 +141,7 @@ library
                         Pos.Wallet.Web.State.Acidic
                         Pos.Wallet.Web.State.State
                         Pos.Wallet.Web.State.Storage
+                        Pos.Wallet.Web.State.Util
                         Pos.Wallet.Web.Secret
                         Pos.Wallet.Web.Util
 

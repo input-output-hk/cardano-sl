@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP             #-}
 {-# LANGUAGE RankNTypes      #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies    #-}
@@ -103,9 +102,6 @@ import           Pos.Util.LoggerName            (HasLoggerName' (..),
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, sudoLiftIO)
 import           Test.Pos.Configuration         (defaultTestBlockVersionData,
                                                  defaultTestConf, defaultTestGenesisSpec)
-
--- Remove this once there's no #ifdef-ed Pos.Txp import
-{-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
 
 ----------------------------------------------------------------------------
 -- Parameters

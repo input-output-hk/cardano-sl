@@ -223,5 +223,5 @@ instance HasConfiguration => MonadAddresses AuxxMode where
 type instance MempoolExt AuxxMode = EmptyMempoolExt
 
 instance (HasConfiguration, HasInfraConfiguration) => MonadTxpLocal AuxxMode where
-    txpNormalize = txNormalize
-    txpProcessTx = txProcessTransaction
+    txpNormalize = withReaderT acRealModeContext txNormalize
+    txpProcessTx = withReaderT acRealModeContext . txProcessTransaction

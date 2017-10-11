@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE InstanceSigs        #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE TemplateHaskell     #-}
@@ -72,9 +71,6 @@ import           Pos.Txp                      (MempoolExt, MonadTxpLocal, MonadT
                                                unGenesisUtxo, utxoGet)
 import           Pos.Util                     (eitherToThrow, maybeThrow)
 import           Pos.Util.Util                (HasLens')
-
--- Remove this once there's no #ifdef-ed Pos.Txp import
-{-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
 
 ----------------------------------------------------------------------
 -- Deduction of history
@@ -280,6 +276,5 @@ getLocalHistoryDefault addrs = runDBToil . evalToilTEmpty $ do
 
 saveTxDefault :: TxHistoryEnv ctx m => (TxId, TxAux) -> m ()
 saveTxDefault txw = do
-    -- pva701: do we really need here processing a transaction WITH lock?
     res <- txpProcessTx txw
     eitherToThrow res

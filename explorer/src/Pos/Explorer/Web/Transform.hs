@@ -33,10 +33,9 @@ import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo             (HasCompileInfo)
 import           Pos.WorkMode                     (RealMode, RealModeContext (..))
 
-import           Pos.Explorer                     (ExplorerBListener,
+import           Pos.Explorer                     (ExplorerBListener, ExplorerExtra,
+                                                   eTxNormalize, eTxProcessTransaction,
                                                    runExplorerBListener)
-import           Pos.Explorer                     (ExplorerExtra, eTxNormalize,
-                                                   eTxProcessTransaction)
 import           Pos.Explorer.ExtraContext        (ExtraContext, ExtraContextT,
                                                    makeExtraCtx, runExtraContextT)
 import           Pos.Explorer.Socket.App          (NotifierSettings, notifierApp)

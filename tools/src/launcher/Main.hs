@@ -30,9 +30,11 @@ import qualified System.IO                    as IO
 import           System.Process               (ProcessHandle, readProcessWithExitCode)
 import qualified System.Process               as Process
 import           System.Timeout               (timeout)
-import           System.Wlog                  (LoggerNameBox, lcFilePrefix, logError,
-                                               logInfo, logNotice, logWarning,
-                                               usingLoggerName)
+import           System.Wlog                  (HandlerWrap (..), LoggerNameBox,
+                                               Severity (Debug), lcFilePrefix,
+                                               lcTermSeverity, lcTree, logError, logInfo,
+                                               logNotice, logWarning, ltFiles,
+                                               productionB, setupLogging, usingLoggerName)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 -- Modules needed for system'
@@ -64,6 +66,8 @@ data LauncherOptions = LO
     , loNodeTimeoutSec      :: !Int
     , loReportServer        :: !(Maybe String)
     , loConfiguration       :: !ConfigurationOptions
+    -- | Launcher logs will be written into this directory
+    , loLauncherLogsPrefix  :: !(Maybe FilePath)
     }
 
 -- | The concrete monad where everything happens
@@ -130,6 +134,10 @@ optionsParser = do
         long    "report-server" <>
         help    "Where to send logs in case of failure." <>
         metavar "URL"
+    loLauncherLogsPrefix <- optional $ strOption $
+        long    "launcher-logs-prefix" <>
+        help    "Where to put launcher logs (def: console only)." <>
+        metavar "DIR"
 
     loConfiguration <- configurationOptionsParser
 
@@ -184,11 +192,19 @@ main = do
             case loNodeLogConfig of
                 Nothing -> loNodeArgs
                 Just lc -> loNodeArgs ++ ["--log-config", toText lc]
+    setupLogging $
+        productionB
+            & lcTermSeverity .~ Just Debug
+            & lcFilePrefix .~ loLauncherLogsPrefix
+            & lcTree %~ case loLauncherLogsPrefix of
+                  Nothing -> identity
+                  Just _  -> ltFiles .~ [HandlerWrap "launcher" Nothing]
     usingLoggerName "launcher" $
         withConfigurations loConfiguration $
         case loWalletPath of
             Nothing -> do
-                logNotice "Running in the server scenario"
+                logNotice "LAUNCHER STARTED"
+                logInfo "Running in the server scenario"
                 serverScenario
                     loNodeLogConfig
                     (loNodePath, realNodeArgs, loNodeLogPath)
@@ -198,7 +214,8 @@ main = do
                     , loUpdateArchive)
                     loReportServer
             Just wpath -> do
-                logNotice "Running in the client scenario"
+                logNotice "LAUNCHER STARTED"
+                logInfo "Running in the client scenario"
                 clientScenario
                     loNodeLogConfig
                     (loNodePath, realNodeArgs, loNodeLogPath)

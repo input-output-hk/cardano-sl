@@ -128,7 +128,8 @@ optionsParser = do
     -- Other args
     loNodeTimeoutSec <- option auto $
         long    "node-timeout" <>
-        help    "How much to wait for the node to exit before killing it." <>
+        help    "How much to wait for the node to exit before killing it \
+                \(and then how much to wait after that)."<>
         metavar "SEC"
     loReportServer <- optional $ strOption $
         long    "report-server" <>
@@ -308,16 +309,23 @@ clientScenario logConf node wallet updater nodeTimeout report = do
              logNotice "The wallet has exited with code 20"
              logInfo $ sformat ("Killing the node in "%int%" seconds") nodeTimeout
              sleep (fromIntegral nodeTimeout)
-             logInfo "Killing the node now"
-             liftIO $ Process.terminateProcess nodeHandle
-             cancel nodeAsync
+             killNode nodeHandle nodeAsync
              clientScenario logConf node wallet updater nodeTimeout report
        | otherwise -> do
              logWarning $ sformat ("The wallet has exited with "%shown) exitCode
              -- TODO: does the wallet have some kind of log?
-             logInfo "Killing the node"
-             liftIO $ Process.terminateProcess nodeHandle
-             cancel nodeAsync
+             killNode nodeHandle nodeAsync
+  where
+    killNode nodeHandle nodeAsync = do
+        logInfo "Killing the node"
+        liftIO $ Process.terminateProcess nodeHandle
+        cancel nodeAsync
+        -- Give the node some time to die, then complain if it hasn't
+        nodeExitCode <- liftIO $
+            timeout (fromIntegral nodeTimeout) $
+            Process.waitForProcess nodeHandle
+        whenNothing_ nodeExitCode $ do
+            logWarning "The node didn't die after 'terminateProcess'"
 
 -- | We run the updater and delete the update file if the update was
 -- successful.

@@ -9,7 +9,7 @@ import           Crypto.Random (MonadRandom)
 import           Data.ByteString.Base58 (bitcoinAlphabet, encodeBase58)
 import qualified Data.List as L
 import qualified Data.Text as T
-import           Formatting (build, sformat, stext, (%))
+import           Formatting (build, sformat, stext, string, (%))
 import           System.Directory (createDirectoryIfMissing)
 import           System.FilePath ((</>))
 import           System.FilePath.Glob (glob)
@@ -20,11 +20,11 @@ import qualified Text.JSON.Canonical as CanonicalJSON
 import           Pos.Binary (asBinary, serialize')
 import qualified Pos.Client.CLI as CLI
 import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..),
-                           GenesisInitializer (..), addressHash, ccGenesis, coreConfiguration,
-                           generateFakeAvvm, generateRichSecrets, gsInitializer, mkVssCertificate,
-                           vcSigningKey, vssMaxTTL)
-import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..), VssKeyPair, hashHexF,
-                             noPassEncrypt, redeemPkB64F, toPublic, toVssPublicKey)
+                           GenesisInitializer (..), RichSecrets (..), addressHash, ccGenesis,
+                           coreConfiguration, generateFakeAvvm, generateRichSecrets, gsInitializer,
+                           mkVssCertificate, vcSigningKey, vssMaxTTL)
+import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..), VssKeyPair, fullPublicKeyF,
+                             hashHexF, noPassEncrypt, redeemPkB64F, toPublic, toVssPublicKey)
 import           Pos.Launcher (HasConfigurations, withConfigurations)
 import           Pos.Util.UserSecret (readUserSecret, takeUserSecret, usKeys, usPrimKey, usVss,
                                       usWallet, writeUserSecretRelease, wusRootKey)
@@ -55,7 +55,15 @@ genPrimaryKey :: (HasConfigurations, MonadIO m, MonadThrow m, WithLogger m, Mona
 genPrimaryKey path = do
     rs <- liftIO generateRichSecrets
     dumpRichSecrets path rs
-    logInfo $ "Successfully generated primary key " <> (toText path)
+    let pk = toPublic (rsPrimaryKey rs)
+    logInfo $
+        sformat
+            ("Successfully generated primary key and dumped to "%string%
+             ", stakeholder id: "%hashHexF%
+             ", PK (base64): "%fullPublicKeyF)
+            path
+            (addressHash pk)
+            pk
 
 readKey :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
 readKey path = do

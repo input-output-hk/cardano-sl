@@ -282,6 +282,7 @@ executable cardano-launcher
                      , neat-interpolation
                      , optparse-applicative
                      , process
+                     , safe-exceptions
                      , system-filepath
                      , text
                      , time-units

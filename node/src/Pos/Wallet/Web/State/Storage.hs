@@ -4,7 +4,7 @@
 -- @jens: this document is inspired by https://github.com/input-output-hk/rscoin-haskell/blob/master/src/RSCoin/Explorer/Storage.hs
 module Pos.Wallet.Web.State.Storage
        (
-         WalletStorage (..)
+         WalletStorage
        , AddressLookupMode (..)
        , CustomAddressType (..)
        , WalletBalances

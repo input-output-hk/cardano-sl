@@ -3755,10 +3755,8 @@ self: {
       happy = callPackage ({ Cabal, array, base, containers, directory, filepath, mkDerivation, mtl, stdenv }:
       mkDerivation {
           pname = "happy";
-          version = "1.19.7";
-          sha256 = "bb312a9e63d5295cca3e94ebe32d7c094216d7d9dafee3edb45c847b45126f9b";
-          revision = "1";
-          editedCabalFile = "1w0sm3qn1icxiiif6355pr6cwd9bqfh56g8qc5hycagcnms8hip1";
+          version = "1.19.8";
+          sha256 = "4df739965d559e48a9b0044fa6140241c07e8f3c794c6c0a6323024fd7f0d3a0";
           isLibrary = false;
           isExecutable = true;
           setupHaskellDepends = [

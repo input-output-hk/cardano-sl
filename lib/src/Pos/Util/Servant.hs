@@ -514,12 +514,6 @@ instance ReportDecodeError api =>
         (ApiNoParamsLogInfo msg, reportDecodeError (Proxy @api) msg)
 
 -------------------------------------------------------------------------
--- Swagger instances
--------------------------------------------------------------------------
-
-
-
--------------------------------------------------------------------------
 -- API construction Helpers
 -------------------------------------------------------------------------
 
@@ -530,5 +524,3 @@ type CReqBody c a    = CDecodeApiArg (ReqBody c) a
 type DCQueryParam s a = WithDefaultApiArg (CDecodeApiArg $ QueryParam s) a
 
 type DQueryParam s a = WithDefaultApiArg (QueryParam s) a
-
--- data WithDefaultApiArg (argType :: * -> *) a

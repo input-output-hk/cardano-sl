@@ -175,7 +175,6 @@ getBlocksTotal
 getBlocksTotal = do
     -- Get the tip block.
     tipBlock <- DB.getTipBlock @SscGodTossing
-
     pure $ maxBlocks tipBlock
   where
     maxBlocks tipBlock = fromIntegral $ getChainDifficulty $ tipBlock ^. difficultyL
@@ -190,7 +189,7 @@ getBlocksPage
     -> Maybe Word
     -> m (Integer, [CBlockEntry])
 getBlocksPage mPageNumber mPageSize = do
-    let pageSize = defaultPageSize mPageSize
+    let pageSize = toPageSize mPageSize
     -- Get total pages from the blocks.
     totalPages <- getBlocksPagesTotal mPageSize
 
@@ -205,7 +204,7 @@ getBlocksPage mPageNumber mPageSize = do
         throwM $ Internal "Number of pages exceeds total pages number."
 
     -- TODO: Fix in the future.
-    when (pageSize /= 10) $
+    when (pageSize /= fromIntegral defaultPageSize) $
         throwM $ Internal "We currently support only page size of 10."
 
     when (pageSize > 1000) $
@@ -248,7 +247,7 @@ getBlocksPagesTotal
     => Maybe Word
     -> m Integer
 getBlocksPagesTotal mPageSize = do
-    let pageSize = defaultPageSize mPageSize
+    let pageSize = toPageSize mPageSize
     -- Get total blocks in the blockchain.
     blocksTotal <- toInteger <$> getBlocksTotal
 
@@ -256,7 +255,7 @@ getBlocksPagesTotal mPageSize = do
     -- with the example, the page size 10,
     -- to start with 10 + 1 == 11, not with 10 since with
     -- 10 we'll have an empty page.
-    let totalPages = (blocksTotal - 1) `div` (toInteger pageSize)
+    let totalPages = (blocksTotal - 1) `div` pageSize
 
     -- We start from page 1.
     pure (totalPages + 1)
@@ -267,7 +266,7 @@ getBlocksPagesTotal mPageSize = do
 getBlocksLastPage
     :: ExplorerMode ctx m
     => m (Integer, [CBlockEntry])
-getBlocksLastPage = getBlocksPage Nothing (Just 10)
+getBlocksLastPage = getBlocksPage Nothing (Just defaultPageSize)
 
 -- | Get last transactions from the blockchain.
 getLastTxs
@@ -323,8 +322,8 @@ getBlockTxs
     -> Maybe Word
     -> m [CTxBrief]
 getBlockTxs cHash mLimit mSkip = do
-    let limit = fromIntegral $ defaultLimit mLimit
-    let skip = fromIntegral $ defaultSkip mSkip
+    let limit = fromIntegral $ fromMaybe defaultPageSize mLimit
+    let skip = fromIntegral $ fromMaybe 0 mSkip
     h   <- unwrapOrThrow $ fromCHash cHash
     blk <- getMainBlock h
     txs <- topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs
@@ -568,9 +567,9 @@ getGenesisAddressInfo
     -> Maybe CAddressesFilter
     -> m [CGenesisAddressInfo]
 getGenesisAddressInfo (fmap fromIntegral -> mPage) mPageSize mAddrFilt = do
-    filteredGrai <- getFilteredGrai $ defaultAddressesFilter mAddrFilt
+    filteredGrai <- getFilteredGrai $ toAddressesFilter mAddrFilt
     let pageNumber    = fromMaybe 1 mPage
-        pageSize      = fromIntegral $ defaultPageSize mPageSize
+        pageSize      = fromIntegral $ toPageSize mPageSize
         skipItems     = (pageNumber - 1) * pageSize
         requestedPage = V.slice skipItems pageSize filteredGrai
     V.toList <$> V.mapM toGenesisAddressInfo requestedPage
@@ -596,8 +595,8 @@ getGenesisPagesTotal mPageSize mAddrFilt = do
     filteredGrai <- getFilteredGrai addrFilt
     pure $ fromIntegral $ (length filteredGrai + pageSize - 1) `div` pageSize
     where
-        pageSize = fromIntegral $ defaultPageSize mPageSize
-        addrFilt = defaultAddressesFilter mAddrFilt
+        pageSize = fromIntegral $ toPageSize mPageSize
+        addrFilt = toAddressesFilter mAddrFilt
 
 
 -- | Search the blocks by epoch and slot. Slot is optional.
@@ -659,7 +658,7 @@ getStatsTxs
     -> m (Integer, [(CTxId, Byte)])
 getStatsTxs mPageNumber = do
     -- Get blocks from the requested page
-    blocksPage <- getBlocksPage mPageNumber (Just 10)
+    blocksPage <- getBlocksPage mPageNumber (Just defaultPageSize)
 
     blockPageTxsInfo <- getBlockPageTxsInfo blocksPage
     pure blockPageTxsInfo
@@ -697,17 +696,14 @@ getStatsTxs mPageNumber = do
 -- Helpers
 --------------------------------------------------------------------------------
 
-defaultPageSize :: (Num b, Integral a) => Maybe a -> b
-defaultPageSize mSize = fromIntegral $ fromMaybe 10 mSize
+defaultPageSize :: Word
+defaultPageSize = 10
 
-defaultLimit :: (Num b, Integral a) => Maybe a -> b
-defaultLimit mLimit = fromIntegral $ fromMaybe 10 mLimit
+toPageSize :: Maybe Word -> Integer
+toPageSize = fromIntegral . fromMaybe defaultPageSize
 
-defaultSkip :: (Num b, Integral a) => Maybe a -> b
-defaultSkip mSkip = fromIntegral $ fromMaybe 0 mSkip
-
-defaultAddressesFilter :: Maybe CAddressesFilter -> CAddressesFilter
-defaultAddressesFilter = fromMaybe AllAddresses
+toAddressesFilter :: Maybe CAddressesFilter -> CAddressesFilter
+toAddressesFilter = fromMaybe AllAddresses
 
 makeTxBrief :: Tx -> TxExtra -> CTxBrief
 makeTxBrief tx extra = toTxBrief (TxInternal extra tx)

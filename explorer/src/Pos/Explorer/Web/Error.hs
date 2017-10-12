@@ -1,5 +1,3 @@
-{-# LANGUAGE TemplateHaskell #-}
-
 -- | Types describing runtime errors related to Explorer
 
 module Pos.Explorer.Web.Error

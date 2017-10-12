@@ -12,8 +12,9 @@ import           Universum
 
 import           Control.Concurrent.STM.TQueue    (newTQueue, tryReadTQueue, writeTQueue)
 import           Control.Exception.Safe           (Exception (..), try)
-import           Control.Monad.Except             (runExceptT, throwError)
+import           Control.Monad.Except             (runExceptT)
 import qualified Data.ByteString                  as BS
+import qualified Data.HashMap.Strict              as HM
 import           Data.List                        ((!!))
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Text                        as T
@@ -55,13 +56,13 @@ import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo             (HasCompileInfo)
 import           Pos.Util.UserSecret              (usWallet, userSecret)
 import           Pos.Util.Util                    (maybeThrow)
-import           Pos.Wallet                       (getSecretKeys)
+import           Pos.Wallet                       (getSecretKeysPlain)
 import           Pos.Wallet.Web.Secret            (wusRootKey)
 
 import           Command.Types                    (SendMode (..),
                                                    SendToAllGenesisParams (..))
-import           Mode                             (AuxxMode, CmdCtx (..), getCmdCtx)
-import           Pos.Auxx                         (makePubKeyAddressAuxx)
+import           Mode                             (AuxxMode, CmdCtx (..), getCmdCtx,
+                                                   makePubKeyAddressAuxx)
 
 ----------------------------------------------------------------------------
 -- Send to all genesis
@@ -211,11 +212,11 @@ send sendActions idx outputs = do
                     deriveFirstHDAddress (IsBootstrapEraAddr ibea) emptyPassphrase skey) [False, True]
     let allAddresses = hdAddresses ++ plainAddresses
     let allSecrets = hdSecrets ++ [skey, skey]
-    etx <- withSafeSigners allSecrets (pure emptyPassphrase) $ \signersMB -> runExceptT $ do
-        signers <- signersMB `whenNothing` throwError (toException $ AuxxException "Invalid passphrase")
-        let sigAddr = NE.fromList $ zip signers allAddresses
-        -- BE CAREFUL: We create remain address using our pk, wallent doesn't show such addresses
-        (txAux,_) <- lift $ prepareMTx sigAddr (map TxOutAux outputs) curPk
+    etx <- withSafeSigners allSecrets (pure emptyPassphrase) $ \signers -> runExceptT @AuxxException $ do
+        let addrSig = HM.fromList $ zip allAddresses signers
+        let getSigner = fromMaybe (error "Couldn't get SafeSigner") . flip HM.lookup addrSig
+        -- BE CAREFUL: We create remain address using our pk, wallet doesn't show such addresses
+        (txAux,_) <- lift $ prepareMTx getSigner (NE.fromList allAddresses) (map TxOutAux outputs) curPk
         txAux <$ (ExceptT $ try $ submitTxRaw (immediateConcurrentConversations sendActions ccPeers) txAux)
     case etx of
         Left err -> putText $ sformat ("Error: "%stext) (toText $ displayException err)
@@ -226,7 +227,7 @@ send sendActions idx outputs = do
         | idx == -1 = do
             _userSecret <- view userSecret >>= atomically . readTVar
             pure $ maybe (error "Unknown wallet address") (^. wusRootKey) (_userSecret ^. usWallet)
-        | otherwise = (!! idx) <$> getSecretKeys
+        | otherwise = (!! idx) <$> getSecretKeysPlain
 
 ----------------------------------------------------------------------------
 -- Send from file

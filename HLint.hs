@@ -133,10 +133,11 @@ warn = sortOn (Down . snd) ==> Universum.sortWith (Down . snd)
 warn = fmap concat (mapM f s) ==> Universum.concatMapM f s
 warn = concat <$> mapM f s ==> Universum.concatMapM f s
 
-warn = fmap concat (forM f s) ==> Universum.concatForM s f
-warn = fmap concat (for f s) ==> Universum.concatForM s f
-warn = concat <$> forM f s ==> Universum.concatForM s f
-warn = concat <$> for f s ==> Universum.concatForM s f
+-- Removed for now since we don't want to make people use (some of) our ad-hoc stuff.
+-- warn = fmap concat (forM f s) ==> Universum.concatForM s f
+-- warn = fmap concat (for f s) ==> Universum.concatForM s f
+-- warn = concat <$> forM f s ==> Universum.concatForM s f
+-- warn = concat <$> for f s ==> Universum.concatForM s f
 
 suggest = fmap and (sequence s) ==> Universum.andM s
   where note = "Applying this hint would mean that some actions\n\

@@ -16,6 +16,10 @@ module Pos.Txp.MemState.Class
        , modifyTxpLocalData
        , setTxpLocalData
        , clearTxpMemPool
+
+       , MonadTxpLocal (..)
+       , TxpLocalWorkMode
+       , MempoolExt
        ) where
 
 import           Universum
@@ -24,10 +28,18 @@ import qualified Control.Concurrent.STM as STM
 import           Data.Default           (Default (def))
 import qualified Data.HashMap.Strict    as HM
 import           Ether.Internal         (HasLens (..))
+import           Mockable               (CurrentTime, Mockable)
+import           System.Wlog            (WithLogger)
+
+import           Pos.Core               (HasConfiguration)
+import           Pos.DB.Class           (MonadDBRead, MonadGState (..))
+import           Pos.Reporting          (MonadReporting)
+import           Pos.Slotting           (MonadSlots (..))
 
 import           Pos.Txp.Core.Types     (TxAux, TxId, TxUndo)
 import           Pos.Txp.MemState.Types (GenericTxpLocalData (..),
                                          GenericTxpLocalDataPure)
+import           Pos.Txp.Toil.Failure   (ToilVerFailure)
 import           Pos.Txp.Toil.Types     (MemPool (..), UtxoModifier)
 
 data TxpHolderTag
@@ -36,6 +48,7 @@ data TxpHolderTag
 type MonadTxpMem ext ctx m
      = ( MonadReader ctx m
        , HasLens TxpHolderTag ctx (GenericTxpLocalData ext)
+       , Default ext
        )
 
 askTxpMem :: MonadTxpMem ext ctx m => m (GenericTxpLocalData ext)
@@ -111,3 +124,26 @@ clearTxpMemPool ::
 clearTxpMemPool = modifyTxpLocalData clearF
   where
     clearF (_, _, _, tip, _) = ((), (mempty, def, mempty, tip, def))
+
+----------------------------------------------------------------------------
+-- Abstract txNormalize and processTx
+----------------------------------------------------------------------------
+
+type family MempoolExt (m :: * -> *) :: *
+
+class Monad m => MonadTxpLocal m where
+    txpNormalize :: m ()
+    txpProcessTx :: (TxId, TxAux) -> m (Either ToilVerFailure ())
+
+type TxpLocalWorkMode ctx m =
+    ( MonadIO m
+    , MonadDBRead m
+    , MonadGState m
+    , MonadSlots ctx m
+    , MonadTxpMem (MempoolExt m) ctx m
+    , WithLogger m
+    , Mockable CurrentTime m
+    , MonadMask m
+    , MonadReporting ctx m
+    , HasConfiguration
+    )

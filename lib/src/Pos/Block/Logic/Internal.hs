@@ -58,7 +58,7 @@ import           Pos.Ssc.Extra           (MonadSscMem, sscApplyBlocks, sscNormal
                                           sscRollbackBlocks)
 import           Pos.Ssc.Util            (toSscBlock)
 import           Pos.Txp.Core            (TxPayload)
-import           Pos.Txp.MemState        (MonadTxpMem)
+import           Pos.Txp.MemState        (MonadTxpLocal (..))
 import           Pos.Txp.Settings        (TxpBlock, TxpBlund, TxpGlobalSettings (..))
 import           Pos.Update.Context      (UpdateContext)
 import           Pos.Update.Core         (UpdateBlock, UpdatePayload)
@@ -66,12 +66,6 @@ import           Pos.Update.Logic        (usApplyBlocks, usNormalize, usRollback
 import           Pos.Update.Poll         (PollModifier)
 import           Pos.Util                (Some (..), spanSafe)
 import           Pos.Util.Chrono         (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.WorkMode.Class      (TxpExtra_TMP)
-#ifdef WITH_EXPLORER
-import           Pos.Explorer.Txp        (eTxNormalize)
-#else
-import           Pos.Txp.Logic           (txNormalize)
-#endif
 
 -- | Set of basic constraints used by high-level block processing.
 type MonadBlockBase ssc ctx m
@@ -114,7 +108,7 @@ type MonadBlockApply ssc ctx m
 
 type MonadMempoolNormalization ssc ctx m
     = ( MonadSlogBase ssc ctx m
-      , MonadTxpMem TxpExtra_TMP ctx m
+      , MonadTxpLocal m
       , SscLocalDataClass ssc
       , MonadSscMem ssc ctx m
       , HasLens LrcContext ctx LrcContext
@@ -139,11 +133,7 @@ normalizeMempool = do
     -- That's because delegation mempool normalization is harder and is done
     -- within block application.
     sscNormalize @ssc
-#ifdef WITH_EXPLORER
-    eTxNormalize
-#else
-    txNormalize
-#endif
+    txpNormalize
     usNormalize
 
 -- | Applies a definitely valid prefix of blocks. This function is unsafe,

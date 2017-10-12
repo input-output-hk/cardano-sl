@@ -60,14 +60,14 @@ submitAndSave enqueue txAux@TxAux {..} = do
 -- | Construct Tx using multiple secret keys and given list of desired outputs.
 prepareMTx
     :: TxMode ssc m
-    => NonEmpty (SafeSigner, Address)
+    => (Address -> SafeSigner)
+    -> NonEmpty Address
     -> NonEmpty TxOutAux
     -> AddrData m
     -> m (TxAux, NonEmpty TxOut)
-prepareMTx hdwSigner outputs addrData = do
-    let addrs = map snd $ toList hdwSigner
-    utxo <- getOwnUtxos addrs
-    eitherToThrow =<< createMTx utxo hdwSigner outputs addrData
+prepareMTx hdwSigners addrs outputs addrData = do
+    utxo <- getOwnUtxos (toList addrs)
+    eitherToThrow =<< createMTx utxo hdwSigners outputs addrData
 
 -- | Construct redemption Tx using redemption secret key and a output address
 prepareRedemptionTx

@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell      #-}
 {-# LANGUAGE TypeApplications     #-}
+{-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 
 -- | Initial context satisfying MonadBlockGen.
@@ -24,8 +25,9 @@ import           Pos.DB                     (MonadBlockDBGeneric (..),
                                              MonadDBRead (..))
 import qualified Pos.DB                     as DB
 import qualified Pos.DB.Block               as BDB
-import           Pos.DB.DB                  (initNodeDBs)
+import           Pos.DB.DB                  (gsAdoptedBVDataDefault, initNodeDBs)
 import           Pos.DB.Sum                 (DBSum (..))
+import           Pos.Generator.Block        (BlockGenMode)
 import           Pos.GState                 (GStateContext (..))
 import qualified Pos.GState                 as GS
 import           Pos.KnownPeers             (MonadFormatPeers (..))
@@ -33,7 +35,10 @@ import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Lrc.Context            (LrcContext (..), mkLrcSyncData)
 import           Pos.Slotting               (HasSlottingVar (..))
 import           Pos.Ssc.GodTossing         (SscGodTossing)
+import           Pos.Txp                    (MempoolExt, MonadTxpLocal (..), txNormalize,
+                                             txProcessTransactionNoLock)
 import           Pos.Util                   (newInitFuture, postfixLFields)
+import           Pos.WorkMode               (EmptyMempoolExt)
 
 -- | Enough context for generation of blocks.
 -- "T" stands for tool
@@ -123,3 +128,12 @@ instance
 -- | In TBlockGenMode we don't have a queue available (we do no comms)
 instance MonadFormatPeers TBlockGenMode where
     formatKnownPeers _ = return Nothing
+
+instance HasConfigurations => DB.MonadGState TBlockGenMode where
+    gsAdoptedBVData = gsAdoptedBVDataDefault
+
+type instance MempoolExt TBlockGenMode = EmptyMempoolExt
+
+instance HasConfigurations => MonadTxpLocal (BlockGenMode EmptyMempoolExt TBlockGenMode) where
+    txpNormalize = txNormalize
+    txpProcessTx = txProcessTransactionNoLock

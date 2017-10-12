@@ -38,7 +38,6 @@ import           Universum
 import           Control.Lens             (makeLenses, (%=), (.=))
 import           Control.Monad.Except     (ExceptT, MonadError (throwError), runExceptT)
 import           Data.Fixed               (Fixed, HasResolution)
-import qualified Data.HashMap.Strict      as HM
 import qualified Data.HashSet             as HS
 import           Data.List                (tail)
 import qualified Data.List.NonEmpty       as NE
@@ -207,17 +206,13 @@ makeMPubKeyTx getSs = makeAbstractTx mkWit
 -- | More specific version of 'makeMPubKeyTx' for convenience
 makeMPubKeyTxAddrs
     :: HasConfiguration
-    => NonEmpty (SafeSigner, Address)
+    => (Address -> SafeSigner)
     -> TxOwnedInputs TxOut
     -> TxOutputs
     -> TxAux
 makeMPubKeyTxAddrs hdwSigners = makeMPubKeyTx getSigner
   where
-    signers = HM.fromList . toList $
-        map swap hdwSigners
-    getSigner (TxOut addr _) =
-        fromMaybe (error "Requested signer for unknown address") $
-        HM.lookup addr signers
+    getSigner (TxOut addr _) = hdwSigners addr
 
 -- | Makes a transaction which use P2PKH addresses as a source
 makePubKeyTx :: HasConfiguration => SafeSigner -> TxInputs -> TxOutputs -> TxAux
@@ -394,7 +389,7 @@ createGenericTxSingle creator = createGenericTx (creator . map snd)
 createMTx
     :: TxCreateMode m
     => Utxo
-    -> NonEmpty (SafeSigner, Address)
+    -> (Address -> SafeSigner)
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
@@ -585,7 +580,5 @@ createFakeTxFromRawTx TxRaw{..} =
         -- but we don't want to reveal our passphrase to compute fee.
         -- Fee depends on size of tx in bytes, sign of a tx has the fixed size
         -- so we can use arbitrary signer.
-        srcAddrs = NE.map (txOutAddress . fst) trInputs
         (_, fakeSK) = deterministicKeyGen "patakbardaqskovoroda228pva1488kk"
-        hdwSigners = NE.zip (NE.repeat $ fakeSigner fakeSK) srcAddrs
-    in makeMPubKeyTxAddrs hdwSigners trInputs txOutsWithRem
+    in makeMPubKeyTxAddrs (const (fakeSigner fakeSK)) trInputs txOutsWithRem

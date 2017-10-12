@@ -51,8 +51,8 @@ import           Pos.Core                         (AddrType (..), Address (..), 
                                                    coinToInteger, difficultyL, gbHeader,
                                                    gbhConsensus, getChainDifficulty,
                                                    isUnknownAddressType,
-                                                   makeRedeemAddress, mkCoin, siEpoch,
-                                                   siSlot, sumCoins, timestampToPosix,
+                                                   makeRedeemAddress, siEpoch, siSlot,
+                                                   sumCoins, timestampToPosix,
                                                    unsafeAddCoin, unsafeIntegerToCoin,
                                                    unsafeSubCoin)
 import           Pos.DB.Class                     (MonadDBRead)
@@ -376,9 +376,7 @@ getBlockTxs
     -> Word
     -> m [CTxBrief]
 getBlockTxs cHash (fromIntegral -> lim) (fromIntegral -> off) = do
-    h   <- unwrapOrThrow $ fromCHash cHash
-    blk <- getMainBlock h
-    txs <- topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs
+    txs <- getMainBlockTxs cHash
 
     forM (take lim . drop off $ txs) $ \tx -> do
         extra <- EX.getTxExtra (hash tx) >>=
@@ -721,18 +719,13 @@ getStatsTxs mPageNumber = do
         cHashes = cbeBlkHash <$> cBlockEntries
 
         blockPageTxsInfo :: m [(CTxId, Byte)]
-        blockPageTxsInfo = concat <$> forM cHashes getBlockTxsInfo
+        blockPageTxsInfo = concatForM cHashes getBlockTxsInfo
 
         getBlockTxsInfo
             :: CHash
             -> m [(CTxId, Byte)]
         getBlockTxsInfo cHash = do
-            h   <- unwrapOrThrow $ fromCHash cHash
-            blk <- getMainBlock h
-            txs <- topsortTxsOrFail withHash
-                $ toList
-                $ blk ^. mainBlockTxPayload . txpTxs
-
+            txs <- getMainBlockTxs cHash
             pure $ txToTxIdSize <$> txs
           where
             txToTxIdSize :: Tx -> (CTxId, Byte)
@@ -743,6 +736,13 @@ getStatsTxs mPageNumber = do
 -- Helpers
 --------------------------------------------------------------------------------
 
+getMainBlockTxs :: ExplorerMode ctx m => CHash -> m [Tx]
+getMainBlockTxs cHash = do
+    hash' <- unwrapOrThrow $ fromCHash cHash
+    blk   <- getMainBlock hash'
+    txs   <- topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs
+
+    pure txs
 
 makeTxBrief :: Tx -> TxExtra -> CTxBrief
 makeTxBrief tx extra = toTxBrief (TxInternal extra tx)

@@ -71,8 +71,9 @@ import           Pos.Core.Types           (AddrAttributes (..), AddrSpendingData
 import           Pos.Crypto.Hashing       (AbstractHash (AbstractHash), hashHexF,
                                            shortHashF)
 import           Pos.Crypto.HD            (HDAddressPayload, HDPassphrase,
-                                           deriveHDPassphrase, deriveHDPublicKey,
-                                           deriveHDSecretKey, packHDAddressAttr)
+                                           ShouldCheckPassphrase (..), deriveHDPassphrase,
+                                           deriveHDPublicKey, deriveHDSecretKey,
+                                           packHDAddressAttr)
 import           Pos.Crypto.Signing.Types (EncryptedSecretKey, PassPhrase, PublicKey,
                                            RedeemPublicKey, encToPublic)
 import           Pos.Data.Attributes      (attrData, mkAttributes)
@@ -240,14 +241,15 @@ makeRedeemAddress key = makeAddress spendingData attrs
 createHDAddressH
     :: Bi Address'
     => IsBootstrapEraAddr
+    -> ShouldCheckPassphrase
     -> PassPhrase
     -> HDPassphrase
     -> EncryptedSecretKey
     -> [Word32]
     -> Word32
     -> Maybe (Address, EncryptedSecretKey)
-createHDAddressH ibea passphrase walletPassphrase parent parentPath childIndex = do
-    derivedSK <- deriveHDSecretKey passphrase parent childIndex
+createHDAddressH ibea scp passphrase walletPassphrase parent parentPath childIndex = do
+    derivedSK <- deriveHDSecretKey scp passphrase parent childIndex
     let addressPayload = packHDAddressAttr walletPassphrase $ parentPath ++ [childIndex]
     let pk = encToPublic derivedSK
     return (makePubKeyHdwAddress ibea addressPayload pk, derivedSK)
@@ -326,15 +328,17 @@ addrAttributesUnwrapped = attrData . addrAttributes
 deriveLvl2KeyPair
     :: Bi Address'
     => IsBootstrapEraAddr
+    -> ShouldCheckPassphrase
     -> PassPhrase
-    -> EncryptedSecretKey -- ^ key of wallet set
-    -> Word32 -- ^ wallet derivation index
+    -> EncryptedSecretKey -- ^ key of wallet
     -> Word32 -- ^ account derivation index
+    -> Word32 -- ^ address derivation index
     -> Maybe (Address, EncryptedSecretKey)
-deriveLvl2KeyPair ibea passphrase wsKey walletIndex accIndex = do
-    wKey <- deriveHDSecretKey passphrase wsKey walletIndex
+deriveLvl2KeyPair ibea scp passphrase wsKey accountIndex addressIndex = do
+    wKey <- deriveHDSecretKey scp passphrase wsKey accountIndex
     let hdPass = deriveHDPassphrase $ encToPublic wsKey
-    createHDAddressH ibea passphrase hdPass wKey [walletIndex] accIndex
+    -- We don't need to check passphrase twice
+    createHDAddressH ibea (ShouldCheckPassphrase False) passphrase hdPass wKey [accountIndex] addressIndex
 
 deriveFirstHDAddress
     :: Bi Address'
@@ -343,7 +347,7 @@ deriveFirstHDAddress
     -> EncryptedSecretKey -- ^ key of wallet set
     -> Maybe (Address, EncryptedSecretKey)
 deriveFirstHDAddress ibea passphrase wsKey =
-    deriveLvl2KeyPair ibea passphrase wsKey accountGenesisIndex wAddressGenesisIndex
+    deriveLvl2KeyPair ibea (ShouldCheckPassphrase False) passphrase wsKey accountGenesisIndex wAddressGenesisIndex
 
 ----------------------------------------------------------------------------
 -- Pattern-matching helpers

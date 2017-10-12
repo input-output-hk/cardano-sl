@@ -47,11 +47,13 @@ module Pos.Wallet.Web.State.Acidic
        , SetWalletPassLU (..)
        , SetWalletSyncTip (..)
        , SetWalletTxMeta (..)
+       , AddOnlyNewTxMetas (..)
        , SetWalletTxHistory (..)
        , GetWalletTxHistory (..)
        , AddOnlyNewTxMeta (..)
        , RemoveWallet (..)
        , RemoveTxMetas (..)
+       , RemoveWalletTxMetas (..)
        , RemoveHistoryCache (..)
        , RemoveAccount (..)
        , RemoveWAddress (..)
@@ -59,11 +61,15 @@ module Pos.Wallet.Web.State.Acidic
        , TotallyRemoveWAddress (..)
        , AddUpdate (..)
        , RemoveNextUpdate (..)
-       , UpdateHistoryCache (..)
+       , InsertIntoHistoryCache (..)
+       , RemoveFromHistoryCache (..)
        , SetPtxCondition (..)
        , CasPtxCondition (..)
        , PtxUpdateMeta (..)
        , AddOnlyNewPendingTx (..)
+       , FlushWalletStorage (..)
+       -- * No longer used, just here for migrations and backwards compatibility
+       , UpdateHistoryCache (..)
        ) where
 
 import           Universum
@@ -143,11 +149,13 @@ makeAcidic ''WalletStorage
     , 'WS.setWalletPassLU
     , 'WS.setWalletSyncTip
     , 'WS.setWalletTxMeta
+    , 'WS.addOnlyNewTxMetas
     , 'WS.setWalletTxHistory
     , 'WS.getWalletTxHistory
     , 'WS.addOnlyNewTxMeta
     , 'WS.removeWallet
     , 'WS.removeTxMetas
+    , 'WS.removeWalletTxMetas
     , 'WS.removeHistoryCache
     , 'WS.removeAccount
     , 'WS.removeWAddress
@@ -155,8 +163,11 @@ makeAcidic ''WalletStorage
     , 'WS.addUpdate
     , 'WS.removeNextUpdate
     , 'WS.updateHistoryCache
+    , 'WS.insertIntoHistoryCache
+    , 'WS.removeFromHistoryCache
     , 'WS.setPtxCondition
     , 'WS.casPtxCondition
     , 'WS.ptxUpdateMeta
     , 'WS.addOnlyNewPendingTx
+    , 'WS.flushWalletStorage
     ]

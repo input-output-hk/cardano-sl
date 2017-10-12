@@ -21,7 +21,7 @@ import           Pos.Ssc.Class.Types              (SscParams)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo             (HasCompileInfo)
-import           Pos.WorkMode                     (RealMode)
+import           Pos.WorkMode                     (EmptyMempoolExt, RealMode)
 
 -----------------------------------------------------------------------------
 -- Main launchers
@@ -46,11 +46,11 @@ runNodeReal
        )
     => NodeParams
     -> SscParams ssc
-    -> ([WorkerSpec (RealMode ssc)], OutSpecs)
+    -> ([WorkerSpec (RealMode ssc EmptyMempoolExt)], OutSpecs)
     -> Production ()
 runNodeReal np sscnp plugins = bracketNodeResources np sscnp action
   where
-    action :: HasConfiguration => NodeResources ssc (RealMode ssc) -> Production ()
+    action :: HasConfiguration => NodeResources ssc EmptyMempoolExt (RealMode ssc EmptyMempoolExt) -> Production ()
     action nr@NodeResources {..} =
         runRealMode
             nr

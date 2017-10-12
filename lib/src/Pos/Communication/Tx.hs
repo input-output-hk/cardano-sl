@@ -69,20 +69,6 @@ prepareMTx hdwSigners addrs outputs addrData = do
     utxo <- getOwnUtxos (toList addrs)
     eitherToThrow =<< createMTx utxo hdwSigners outputs addrData
 
--- | Construct Tx using secret key and given list of desired outputs
-submitTx
-    :: TxMode ssc m
-    => EnqueueMsg m
-    -> SafeSigner
-    -> NonEmpty TxOutAux
-    -> AddrData m
-    -> m (TxAux, NonEmpty TxOut)
-submitTx enqueue ss outputs addrData = do
-    let ourPk = safeToPublic ss
-    utxo <- getOwnUtxoForPk ourPk
-    txWSpendings <- eitherToThrow =<< createTx utxo ss outputs addrData
-    txWSpendings <$ submitAndSave enqueue (fst txWSpendings)
-
 -- | Construct redemption Tx using redemption secret key and a output address
 prepareRedemptionTx
     :: TxMode ssc m
@@ -112,3 +98,18 @@ submitTxRaw enqueue txAux@TxAux {..} = do
 
 sendTxOuts :: OutSpecs
 sendTxOuts = createOutSpecs (Proxy :: Proxy (InvOrDataTK TxId TxMsgContents))
+
+-- | Construct Tx using secret key and given list of desired outputs
+-- BE CAREFUL! Doesn't consider HD wallet addresses
+submitTx
+    :: TxMode ssc m
+    => EnqueueMsg m
+    -> SafeSigner
+    -> NonEmpty TxOutAux
+    -> AddrData m
+    -> m (TxAux, NonEmpty TxOut)
+submitTx enqueue ss outputs addrData = do
+    let ourPk = safeToPublic ss
+    utxo <- getOwnUtxoForPk ourPk
+    txWSpendings <- eitherToThrow =<< createTx utxo ss outputs addrData
+    txWSpendings <$ submitAndSave enqueue (fst txWSpendings)

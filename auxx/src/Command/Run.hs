@@ -29,15 +29,16 @@ import           Pos.Crypto                 (emptyPassphrase, encToPublic,
 import           Pos.DB.Class               (MonadGState (..))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo       (HasCompileInfo)
-import           Pos.Util.UserSecret        (readUserSecret, usKeys)
+import           Pos.Util.UserSecret        (readUserSecret, usKeys, usWallet, userSecret)
 import           Pos.Wallet                 (addSecretKey, getBalance, getSecretKeysPlain)
+import           Pos.Wallet.Web.Secret      (WalletUserSecret (..))
 
 import qualified Command.Rollback           as Rollback
 import qualified Command.Tx                 as Tx
 import           Command.Types              (Command (..))
 import qualified Command.Update             as Update
-import           Mode                       (AuxxMode, CmdCtx (..), getCmdCtx,
-                                             makePubKeyAddressAuxx)
+import           Mode                       (AuxxMode, CmdCtx (..), deriveHDAddressAuxx,
+                                             getCmdCtx, makePubKeyAddressAuxx)
 
 
 helpMsg :: Text
@@ -108,15 +109,24 @@ runCmd sendActions (ProposeUpdate params) =
     Update.propose sendActions params
 runCmd _ Help = putText helpMsg
 runCmd _ ListAddresses = do
-   addrs <- map encToPublic <$> getSecretKeysPlain
+   sks <- getSecretKeysPlain
    putText "Available addresses:"
-   for_ (zip [0 :: Int ..] addrs) $ \(i, pk) -> do
+   for_ (zip [0 :: Int ..] sks) $ \(i, sk) -> do
+       let pk = encToPublic sk
        addr <- makePubKeyAddressAuxx pk
+       addrHD <- deriveHDAddressAuxx sk
        putText $ sformat ("    #"%int%":   addr:      "%build%"\n"%
                           "          pk base58: "%stext%"\n"%
                           "          pk hex:    "%fullPublicKeyHexF%"\n"%
-                          "          pk hash:   "%hashHexF)
-                    i addr (toBase58Text pk) pk (addressHash pk)
+                          "          pk hash:   "%hashHexF%"\n"%
+                          "          HD addr:   "%build)
+                    i addr (toBase58Text pk) pk (addressHash pk) addrHD
+   walletMB <- (^. usWallet) <$> (view userSecret >>= atomically . readTVar)
+   whenJust walletMB $ \wallet -> do
+       addrHD <- deriveHDAddressAuxx (_wusRootKey wallet)
+       putText $ sformat ("    Wallet address:\n"%
+                          "          HD addr:   "%build)
+                         addrHD
   where
     toBase58Text = decodeUtf8 . encodeBase58 bitcoinAlphabet . serialize'
 runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM) = do

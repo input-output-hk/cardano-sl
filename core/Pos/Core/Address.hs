@@ -21,6 +21,7 @@ module Pos.Core.Address
        , addrSpendingDataToType
        , addrAttributesUnwrapped
        , deriveLvl2KeyPair
+       , deriveFirstHDAddress
 
        -- * Pattern-matching helpers
        , isRedeemAddress
@@ -62,6 +63,7 @@ import           Pos.Binary.Class         (Bi)
 import qualified Pos.Binary.Class         as Bi
 import           Pos.Binary.Crypto        ()
 import           Pos.Core.Coin            ()
+import           Pos.Core.Constants       (accountGenesisIndex, wAddressGenesisIndex)
 import           Pos.Core.Types           (AddrAttributes (..), AddrSpendingData (..),
                                            AddrStakeDistribution (..), AddrType (..),
                                            Address (..), Address' (..), AddressHash,
@@ -337,6 +339,15 @@ deriveLvl2KeyPair ibea scp passphrase wsKey accountIndex addressIndex = do
     let hdPass = deriveHDPassphrase $ encToPublic wsKey
     -- We don't need to check passphrase twice
     createHDAddressH ibea (ShouldCheckPassphrase False) passphrase hdPass wKey [accountIndex] addressIndex
+
+deriveFirstHDAddress
+    :: Bi Address'
+    => IsBootstrapEraAddr
+    -> PassPhrase
+    -> EncryptedSecretKey -- ^ key of wallet set
+    -> Maybe (Address, EncryptedSecretKey)
+deriveFirstHDAddress ibea passphrase wsKey =
+    deriveLvl2KeyPair ibea (ShouldCheckPassphrase False) passphrase wsKey accountGenesisIndex wAddressGenesisIndex
 
 ----------------------------------------------------------------------------
 -- Pattern-matching helpers

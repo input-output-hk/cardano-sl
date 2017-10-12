@@ -17,6 +17,7 @@ module Mode
        , isTempDbUsed
        , realModeToAuxx
        , makePubKeyAddressAuxx
+       , deriveHDAddressAuxx
        ) where
 
 import           Universum
@@ -43,8 +44,10 @@ import           Pos.Context                      (HasNodeContext (..))
 import           Pos.Core                         (Address, HasConfiguration,
                                                    HasPrimaryKey (..),
                                                    IsBootstrapEraAddr (..), IsHeader,
+                                                   deriveFirstHDAddress,
                                                    makePubKeyAddress, siEpoch)
-import           Pos.Crypto                       (PublicKey)
+import           Pos.Crypto                       (EncryptedSecretKey, PublicKey,
+                                                   emptyPassphrase)
 import           Pos.DB                           (MonadGState (..), gsIsBootstrapEra)
 import           Pos.DB.Class                     (MonadBlockDBGeneric (..),
                                                    MonadBlockDBGenericWrite (..),
@@ -238,4 +241,12 @@ makePubKeyAddressAuxx :: (HasConfiguration, HasInfraConfiguration) => PublicKey 
 makePubKeyAddressAuxx pk = do
     epochIndex <- siEpoch <$> getCurrentSlotInaccurate
     ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra epochIndex
-    return $ makePubKeyAddress ibea pk
+    pure $ makePubKeyAddress ibea pk
+
+-- | Similar to @makePubKeyAddressAuxx@ but create HD address.
+deriveHDAddressAuxx :: (HasConfiguration, HasInfraConfiguration) => EncryptedSecretKey -> AuxxMode Address
+deriveHDAddressAuxx hdwSk = do
+    epochIndex <- siEpoch <$> getCurrentSlotInaccurate
+    ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra epochIndex
+    pure $ fst $ fromMaybe (error "makePubKeyHDAddressAuxx: pass mismatch") $
+        deriveFirstHDAddress ibea emptyPassphrase hdwSk

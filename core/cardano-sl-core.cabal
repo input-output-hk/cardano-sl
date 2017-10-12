@@ -56,7 +56,6 @@ library
 
                        Pos.Core.Genesis
                        Pos.Core.Genesis.Canonical
-                       Pos.Core.Genesis.Constants
                        Pos.Core.Genesis.Generate
                        Pos.Core.Genesis.Types
 

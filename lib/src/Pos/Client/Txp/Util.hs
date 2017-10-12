@@ -394,8 +394,7 @@ createMTx
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
 createMTx utxo hdwSigners outputs addrData =
-    createGenericTx (makeMPubKeyTxAddrs hdwSigners)
-    utxo outputs addrData
+    createGenericTx (makeMPubKeyTxAddrs hdwSigners) utxo outputs addrData
 
 -- | Make a multi-transaction using given secret key and info for
 -- outputs.
@@ -407,8 +406,7 @@ createTx
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
 createTx utxo ss outputs addrData =
-    createGenericTxSingle (makePubKeyTx ss)
-    utxo outputs addrData
+    createGenericTxSingle (makePubKeyTx ss) utxo outputs addrData
 
 -- | Make a transaction, using M-of-N script as a source
 createMOfNTx

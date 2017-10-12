@@ -52,6 +52,7 @@ import           Control.Arrow                    ((&&&))
 import           Control.Lens                     (ix, _Left)
 import           Control.Monad.Error.Class        (throwError)
 import qualified Data.ByteArray                   as BA
+import           Data.Default                     (Default (..))
 import           Data.Fixed                       (Micro, showFixed)
 import qualified Data.List.NonEmpty               as NE
 import           Data.Time.Clock.POSIX            (POSIXTime)
@@ -379,6 +380,9 @@ data CAddressesFilter =
     | NonRedeemedAddresses
     | AllAddresses
     deriving (Show, Generic)
+
+instance Default CAddressesFilter where
+    def = AllAddresses
 
 --------------------------------------------------------------------------------
 -- FromHttpApiData instances

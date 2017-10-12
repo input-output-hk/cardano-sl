@@ -562,10 +562,10 @@ getGenesisAddressInfo
     :: (ExplorerMode ctx m)
     => Maybe Word  -- ^ pageNumber
     -> Maybe Word  -- ^ pageSize
-    -> Maybe CAddressesFilter
+    -> CAddressesFilter
     -> m [CGenesisAddressInfo]
-getGenesisAddressInfo (fmap fromIntegral -> mPage) mPageSize mAddrFilt = do
-    filteredGrai <- getFilteredGrai $ toAddressesFilter mAddrFilt
+getGenesisAddressInfo (fmap fromIntegral -> mPage) mPageSize addrFilt = do
+    filteredGrai <- getFilteredGrai addrFilt
     let pageNumber    = fromMaybe 1 mPage
         pageSize      = fromIntegral $ toPageSize mPageSize
         skipItems     = (pageNumber - 1) * pageSize
@@ -587,14 +587,13 @@ getGenesisAddressInfo (fmap fromIntegral -> mPage) mPageSize mAddrFilt = do
 getGenesisPagesTotal
     :: ExplorerMode ctx m
     => Maybe Word
-    -> Maybe CAddressesFilter
+    -> CAddressesFilter
     -> m Integer
-getGenesisPagesTotal mPageSize mAddrFilt = do
+getGenesisPagesTotal mPageSize addrFilt = do
     filteredGrai <- getFilteredGrai addrFilt
     pure $ fromIntegral $ (length filteredGrai + pageSize - 1) `div` pageSize
-    where
-        pageSize = fromIntegral $ toPageSize mPageSize
-        addrFilt = toAddressesFilter mAddrFilt
+  where
+    pageSize = fromIntegral $ toPageSize mPageSize
 
 
 -- | Search the blocks by epoch and slot. Slot is optional.
@@ -694,9 +693,6 @@ defaultPageSize = 10
 
 toPageSize :: Maybe Word -> Integer
 toPageSize = fromIntegral . fromMaybe defaultPageSize
-
-toAddressesFilter :: Maybe CAddressesFilter -> CAddressesFilter
-toAddressesFilter = fromMaybe AllAddresses
 
 getMainBlockTxs :: ExplorerMode ctx m => CHash -> m [Tx]
 getMainBlockTxs cHash = do

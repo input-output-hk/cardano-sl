@@ -1,7 +1,6 @@
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE FlexibleInstances   #-}
-{-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE OverloadedLists     #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
@@ -44,7 +43,6 @@ import qualified Paths_cardano_sl_explorer    as CSLE
 import qualified Pos.Explorer.Web.Api         as A
 import qualified Pos.Explorer.Web.ClientTypes as C
 import           Pos.Explorer.Web.Error       (ExplorerError)
-import           Pos.Util.Servant             (VerbMod)
 
 
 
@@ -75,9 +73,6 @@ main = do
 
 instance HasSwagger api => HasSwagger (MultipartForm a :> api) where
     toSwagger Proxy = toSwagger $ Proxy @api
-
-instance HasSwagger v => HasSwagger (VerbMod mod v) where
-    toSwagger _ = toSwagger $ Proxy @v
 
 -- | Instances we need to build Swagger-specification for 'explorerApi':
 -- 'ToParamSchema' - for types in parameters ('Capture', etc.),
@@ -122,7 +117,7 @@ type Op = Traversal' Swagger Operation
 swaggerSpecForExplorerApi :: Swagger
 swaggerSpecForExplorerApi = toSwagger A.explorerApi
     & info . title       .~ "Cardano SL Explorer Web API"
-    & info . version     .~ (toText $ showVersion CSLE.version)
+    & info . version     .~ toText (showVersion CSLE.version)
     & info . description ?~ "This is an API for Cardano SL Explorer."
     & host               ?~ "cardanoexplorer.com"
     -- Descriptions for all endpoints.

@@ -35,6 +35,7 @@ library
                       , binary
                       , bytestring
                       , containers
+                      , data-default
                       , either
                       , ether >= 0.5.1
                       , exceptions

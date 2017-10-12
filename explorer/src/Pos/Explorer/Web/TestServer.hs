@@ -277,31 +277,31 @@ gAddressInfoC = CGenesisAddressInfo
 
 testGenesisPagesTotal
     :: Maybe Word
-    -> Maybe CAddressesFilter
+    -> CAddressesFilter
     -> Handler Integer
 -- number of redeemed addresses pages
-testGenesisPagesTotal _ (Just RedeemedAddresses) = pure 1
+testGenesisPagesTotal _ RedeemedAddresses = pure 1
 -- number of non redeemed addresses pages
-testGenesisPagesTotal _ (Just NonRedeemedAddresses) = pure 1
+testGenesisPagesTotal _ NonRedeemedAddresses = pure 1
 -- number of all redeem addresses pages
 testGenesisPagesTotal _ _ = pure 2
 
 testGenesisAddressInfo
     :: Maybe Word
     -> Maybe Word
-    -> Maybe CAddressesFilter
+    -> CAddressesFilter
     -> Handler [CGenesisAddressInfo]
 -- filter redeemed addresses
-testGenesisAddressInfo _ _ (Just RedeemedAddresses) =
+testGenesisAddressInfo _ _ RedeemedAddresses =
     pure [ gAddressInfoA ]
 -- filter non-redeemed addresses
-testGenesisAddressInfo _ _ (Just NonRedeemedAddresses) =
+testGenesisAddressInfo _ _ NonRedeemedAddresses =
     pure [ gAddressInfoB, gAddressInfoC ]
 -- all addresses (w/o filtering) - page 1
-testGenesisAddressInfo (Just 1) _ (Just AllAddresses) =
+testGenesisAddressInfo (Just 1) _ AllAddresses =
     pure [ gAddressInfoA, gAddressInfoB ]
 -- all addresses (w/o filtering) - page 2
-testGenesisAddressInfo (Just 2) _ (Just AllAddresses) =
+testGenesisAddressInfo (Just 2) _ AllAddresses =
     pure [ gAddressInfoC ]
 -- all others requests will ended up with an error
 testGenesisAddressInfo _ _ _ =

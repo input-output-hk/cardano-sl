@@ -31,6 +31,7 @@ module Pos.Util.Servant
     , CCapture
     , CReqBody
     , DCQueryParam
+    , DQueryParam
 
     , serverHandlerL
     , serverHandlerL'
@@ -57,6 +58,7 @@ import           Servant.API             ((:<|>) (..), (:>), Capture, QueryParam
 import           Servant.Server          (Handler (..), HasServer (..), ServantErr (..),
                                           Server)
 import qualified Servant.Server.Internal as SI
+import           Servant.Swagger         (HasSwagger (toSwagger))
 import           System.Wlog             (LoggerName, usingLoggerName)
 
 import           Pos.Util.Util           (colorizeDull)
@@ -137,6 +139,9 @@ instance (HasServer (Verb mt st ct $ ApiModifiedRes mod a) ctx,
     route = inRouteServer @(Verb mt st ct $ ApiModifiedRes mod a) route $
             serverHandlerL' %~ modifyApiResult (Proxy @mod)
 
+instance HasSwagger v => HasSwagger (VerbMod mod v) where
+    toSwagger _ = toSwagger $ Proxy @v
+
 -------------------------------------------------------------------------
 -- Mapping API arguments: client types decoding
 -------------------------------------------------------------------------
@@ -201,6 +206,9 @@ instance ( HasServer (apiType a :> res) ctx
                 (apiArgName $ Proxy @(apiType a))
                 err
 
+instance HasSwagger (apiType a :> res) =>
+         HasSwagger (CDecodeApiArg apiType a :> res) where
+    toSwagger _ = toSwagger (Proxy @(apiType a :> res))
 -------------------------------------------------------------------------
 -- Mapping API arguments: defaults
 -------------------------------------------------------------------------
@@ -228,6 +236,10 @@ instance ( HasServer (apiType a :> res) ctx
     route =
         inRouteServer @(apiType a :> res) route $
         \f a -> f $ fromMaybe def a
+
+instance HasSwagger (apiType a :> res) =>
+    HasSwagger (WithDefaultApiArg apiType a :> res) where
+    toSwagger _ = toSwagger (Proxy @(apiType a :> res))
 
 -------------------------------------------------------------------------
 -- Logging
@@ -502,6 +514,12 @@ instance ReportDecodeError api =>
         (ApiNoParamsLogInfo msg, reportDecodeError (Proxy @api) msg)
 
 -------------------------------------------------------------------------
+-- Swagger instances
+-------------------------------------------------------------------------
+
+
+
+-------------------------------------------------------------------------
 -- API construction Helpers
 -------------------------------------------------------------------------
 
@@ -510,3 +528,7 @@ type CCapture s a    = CDecodeApiArg (Capture s) a
 type CReqBody c a    = CDecodeApiArg (ReqBody c) a
 
 type DCQueryParam s a = WithDefaultApiArg (CDecodeApiArg $ QueryParam s) a
+
+type DQueryParam s a = WithDefaultApiArg (QueryParam s) a
+
+-- data WithDefaultApiArg (argType :: * -> *) a

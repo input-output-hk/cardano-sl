@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds     #-}
+{-# LANGUAGE InstanceSigs  #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies  #-}
 
@@ -19,7 +20,7 @@ module Pos.Explorer.Web.Api
 
 import           Universum
 
-import           Control.Monad.Catch          (try, tryJust)
+import           Control.Monad.Catch          (try)
 import           Data.Proxy                   (Proxy (Proxy))
 
 import           Pos.Explorer.Web.ClientTypes (Byte, CAda, CAddress, CAddressesFilter,
@@ -27,11 +28,13 @@ import           Pos.Explorer.Web.ClientTypes (Byte, CAda, CAddress, CAddressesF
                                                CGenesisAddressInfo, CGenesisSummary,
                                                CHash, CTxBrief, CTxEntry, CTxId,
                                                CTxSummary)
-import           Pos.Explorer.Web.Error       (ExplorerError, _Internal)
+import           Pos.Explorer.Web.Error       (ExplorerError)
 import           Pos.Types                    (EpochIndex)
-import           Pos.Util.Servant             (ModifiesApiRes (..), VerbMod)
+import           Pos.Util.Servant             (ModifiesApiRes (..), VerbMod, DQueryParam)
 import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON,
                                                QueryParam)
+import           Servant.Server               (ServantErr (..))
+
 
 type PageNumber = Integer
 
@@ -47,11 +50,11 @@ type ExRes verbMethod a = ExplorerVerb (verbMethod '[JSON] a)
 
 instance ModifiesApiRes ExplorerVerbTag where
     type ApiModifiedRes ExplorerVerbTag a = Either ExplorerError a
-    modifyApiResult _ =
-        try . catchEndpointErrors . (either throwM pure =<<)
-        where
-            catchEndpointErrors :: (MonadCatch m) => m a -> m (Either ExplorerError a)
-            catchEndpointErrors = tryJust $ \e -> (e ^? _Internal) $> e
+    modifyApiResult
+        :: Proxy ExplorerVerbTag
+        -> IO (Either ServantErr a)
+        -> IO (Either ServantErr (ApiModifiedRes ExplorerVerbTag a))
+    modifyApiResult _ = try . try . (either throwM pure =<<)
 
 -- | Common prefix for all endpoints.
 type API = "api"
@@ -124,7 +127,7 @@ type GenesisPagesTotal = API
     :> "pages"
     :> "total"
     :> QueryParam "pageSize" Word
-    :> QueryParam "filter" CAddressesFilter
+    :> DQueryParam "filter" CAddressesFilter
     :> ExRes Get PageNumber
 
 type GenesisAddressInfo = API
@@ -132,7 +135,7 @@ type GenesisAddressInfo = API
     :> "address"
     :> QueryParam "page" Word
     :> QueryParam "pageSize" Word
-    :> QueryParam "filter" CAddressesFilter
+    :> DQueryParam "filter" CAddressesFilter
     :> ExRes Get [CGenesisAddressInfo]
 
 type TxsStats = (PageNumber, [(CTxId, Byte)])

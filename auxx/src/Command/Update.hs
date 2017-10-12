@@ -10,29 +10,26 @@ module Command.Update
 import           Universum
 
 import qualified Data.ByteString          as BS
+import           Data.Default             (def)
 import qualified Data.HashMap.Strict      as HM
 import           Data.List                ((!!))
-import           Data.Time.Units          (convertUnit)
 import           Formatting               (sformat, string, (%))
-import           Serokell.Util            (sec)
 import           System.Wlog              (logDebug)
 
 import           Pos.Binary               (Raw)
 import           Pos.Communication        (SendActions, immediateConcurrentConversations,
                                            submitUpdateProposal, submitVote)
 import           Pos.Configuration        (HasNodeConfiguration)
-import           Pos.Core.Configuration   (HasConfiguration, genesisBlockVersionData)
+import           Pos.Core.Configuration   (HasConfiguration)
 import           Pos.Crypto               (Hash, SignTag (SignUSVote), emptyPassphrase,
                                            encToPublic, hash, hashHexF, safeSign,
                                            unsafeHash, withSafeSigner)
-import           Pos.Data.Attributes      (mkAttributes)
 import           Pos.Infra.Configuration  (HasInfraConfiguration)
-import           Pos.Update               (BlockVersionData (..),
-                                           BlockVersionModifier (..), SystemTag, UpId,
-                                           UpdateData (..), UpdateVote (..),
-                                           mkUpdateProposalWSign)
+import           Pos.Update               (SystemTag, UpId, UpdateData (..),
+                                           UpdateVote (..), mkUpdateProposalWSign)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Pos.Wallet               (getSecretKeys)
+import           Pos.Util.CompileInfo     (HasCompileInfo)
+import           Pos.Wallet               (getSecretKeysPlain)
 
 import           Command.Types            (ProposeUpdateParams (..),
                                            ProposeUpdateSystem (..))
@@ -47,6 +44,7 @@ vote
        , HasInfraConfiguration
        , HasUpdateConfiguration
        , HasNodeConfiguration
+       , HasCompileInfo
        )
     => SendActions AuxxMode
     -> Int
@@ -56,7 +54,7 @@ vote
 vote sendActions idx decision upid = do
     CmdCtx{ccPeers} <- getCmdCtx
     logDebug $ "Submitting a vote :" <> show (idx, decision, upid)
-    skey <- (!! idx) <$> getSecretKeys
+    skey <- (!! idx) <$> getSecretKeysPlain
     msignature <- withSafeSigner skey (pure emptyPassphrase) $ mapM $
                         \ss -> pure $ safeSign SignUSVote ss (upid, decision)
     case msignature of
@@ -83,6 +81,7 @@ propose
        , HasInfraConfiguration
        , HasUpdateConfiguration
        , HasNodeConfiguration
+       , HasCompileInfo
        )
     => SendActions AuxxMode
     -> ProposeUpdateParams
@@ -90,25 +89,7 @@ propose
 propose sendActions ProposeUpdateParams{..} = do
     CmdCtx{ccPeers} <- getCmdCtx
     logDebug "Proposing update..."
-    skey <- (!! puIdx) <$> getSecretKeys
-    let BlockVersionData {..} = genesisBlockVersionData
-    let bvm =
-            BlockVersionModifier
-            { bvmScriptVersion     = Just puScriptVersion
-            , bvmSlotDuration      = Just $ convertUnit (sec puSlotDurationSec)
-            , bvmMaxBlockSize      = Just puMaxBlockSize
-            , bvmMaxHeaderSize     = Just bvdMaxHeaderSize
-            , bvmMaxTxSize         = Just bvdMaxTxSize
-            , bvmMaxProposalSize   = Just bvdMaxProposalSize
-            , bvmMpcThd            = Just bvdMpcThd
-            , bvmHeavyDelThd       = Just bvdHeavyDelThd
-            , bvmUpdateVoteThd     = Just bvdUpdateVoteThd
-            , bvmUpdateProposalThd = Just bvdUpdateProposalThd
-            , bvmUpdateImplicit    = Just bvdUpdateImplicit
-            , bvmSoftforkRule      = Nothing
-            , bvmTxFeePolicy       = Nothing
-            , bvmUnlockStakeEpoch  = Nothing
-            }
+    skey <- (!! puSecretKeyIdx) <$> getSecretKeysPlain
     updateData <- mapM updateDataElement puUpdates
     let udata = HM.fromList updateData
     let whenCantCreate = error . mappend "Failed to create update proposal: "
@@ -118,18 +99,17 @@ propose sendActions ProposeUpdateParams{..} = do
             let updateProposal = either whenCantCreate identity $
                     mkUpdateProposalWSign
                         puBlockVersion
-                        bvm
+                        puBlockVersionModifier
                         puSoftwareVersion
                         udata
-                        (mkAttributes ())
+                        def
                         ss
             if null ccPeers
                 then putText "Error: no addresses specified"
                 else do
                     submitUpdateProposal (immediateConcurrentConversations sendActions ccPeers) ss updateProposal
                     let id = hash updateProposal
-                    putText $
-                      sformat ("Update proposal submitted, upId: "%hashHexF) id
+                    putText $ sformat ("Update proposal submitted, upId: "%hashHexF) id
 
 updateDataElement :: MonadIO m => ProposeUpdateSystem -> m (SystemTag, UpdateData)
 updateDataElement ProposeUpdateSystem{..} = do

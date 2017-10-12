@@ -17,26 +17,23 @@ module Pos.Wallet.Redirect
 
 import           Universum
 
-import           Control.Lens              (views)
-import           Control.Monad.Trans.Maybe (MaybeT (..))
-import           Data.Time.Units           (Millisecond)
-import           Ether.Internal            (HasLens (..))
-import           System.Wlog               (WithLogger)
+import           Control.Lens          (views)
+import           Data.Time.Units       (Millisecond)
+import           Ether.Internal        (HasLens (..))
+import           System.Wlog           (WithLogger)
 
-import           Pos.Block.Core            (BlockHeader)
-import qualified Pos.Context               as PC
-import           Pos.Core                  (ChainDifficulty, HasConfiguration,
-                                            difficultyL, flattenEpochOrSlot,
-                                            flattenSlotId, slotSecurityParam)
-import           Pos.DB                    (MonadRealDB)
-import           Pos.DB.Block              (MonadBlockDB)
-import           Pos.DB.DB                 (getTipHeader)
-import           Pos.Shutdown              (HasShutdownContext, triggerShutdown)
-import           Pos.Slotting              (MonadSlots (..), getNextEpochSlotDuration)
-import           Pos.Update.Context        (UpdateContext (ucDownloadedUpdate))
-import           Pos.Update.Poll.Types     (ConfirmedProposalState)
-import           Pos.Wallet.WalletMode     (MonadBlockchainInfo (..), MonadUpdates (..))
-import qualified Pos.GState                as GS
+import           Pos.Block.Core        (BlockHeader)
+import qualified Pos.Context           as PC
+import           Pos.Core              (ChainDifficulty, HasConfiguration, difficultyL)
+import           Pos.DB                (MonadRealDB)
+import           Pos.DB.Block          (MonadBlockDB)
+import           Pos.DB.DB             (getTipHeader)
+import qualified Pos.GState            as GS
+import           Pos.Shutdown          (HasShutdownContext, triggerShutdown)
+import           Pos.Slotting          (MonadSlots (..), getNextEpochSlotDuration)
+import           Pos.Update.Context    (UpdateContext (ucDownloadedUpdate))
+import           Pos.Update.Poll.Types (ConfirmedProposalState)
+import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (..))
 
 ----------------------------------------------------------------------------
 -- BlockchainInfo
@@ -68,13 +65,7 @@ networkChainDifficultyWebWallet = getLastKnownHeader >>= \case
         thDiff <- view difficultyL <$> getTipHeader @ssc
         let lhDiff = lh ^. difficultyL
         return . Just $ max thDiff lhDiff
-    Nothing -> runMaybeT $ do
-        cSlot <- flattenSlotId <$> MaybeT getCurrentSlot
-        th <- lift (getTipHeader @ssc)
-        let hSlot = flattenEpochOrSlot th
-        when (hSlot + fromIntegral slotSecurityParam <= cSlot) $
-            fail "Local tip is outdated"
-        return $ th ^. difficultyL
+    Nothing -> pure Nothing
 
 localChainDifficultyWebWallet
     :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m

@@ -3,6 +3,8 @@
 
 module Pos.Explorer.Web.Transform
        ( ExplorerProd
+       , runExplorerProd
+       , liftToExplorerProd
        , explorerServeWebReal
        , explorerPlugin
        , notifierPlugin
@@ -26,10 +28,13 @@ import           Pos.Recovery                     ()
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
+import           Pos.Util.CompileInfo             (HasCompileInfo)
 import           Pos.WorkMode                     (RealMode, RealModeContext (..))
 
 import           Pos.Explorer                     (ExplorerBListener,
                                                    runExplorerBListener)
+import           Pos.Explorer.ExtraContext        (ExtraContext, ExtraContextT,
+                                                   makeExtraCtx, runExtraContextT)
 import           Pos.Explorer.Socket.App          (NotifierSettings, notifierApp)
 import           Pos.Explorer.Web.Server          (explorerApp, explorerHandlers,
                                                    explorerServeImpl)
@@ -38,7 +43,13 @@ import           Pos.Explorer.Web.Server          (explorerApp, explorerHandlers
 -- Transformation to `Handler`
 -----------------------------------------------------------------
 
-type ExplorerProd = ExplorerBListener (RealMode SscGodTossing)
+type ExplorerProd = ExtraContextT (ExplorerBListener (RealMode SscGodTossing))
+
+runExplorerProd :: ExtraContext -> ExplorerProd a -> RealMode SscGodTossing a
+runExplorerProd extraCtx = runExplorerBListener . runExtraContextT extraCtx
+
+liftToExplorerProd :: RealMode SscGodTossing a -> ExplorerProd a
+liftToExplorerProd = lift . lift
 
 notifierPlugin
     :: ( HasConfiguration
@@ -46,6 +57,7 @@ notifierPlugin
        , HasInfraConfiguration
        , HasUpdateConfiguration
        , HasGtConfiguration
+       , HasCompileInfo
        )
     => NotifierSettings
     -> ([WorkerSpec ExplorerProd], OutSpecs)
@@ -58,6 +70,7 @@ explorerPlugin
        , HasGtConfiguration
        , HasInfraConfiguration
        , HasUpdateConfiguration
+       , HasCompileInfo
        )
     => Word16
     -> ([WorkerSpec ExplorerProd], OutSpecs)
@@ -71,6 +84,7 @@ explorerServeWebReal
        , HasGtConfiguration
        , HasInfraConfiguration
        , HasUpdateConfiguration
+       , HasCompileInfo
        )
     => SendActions ExplorerProd
     -> Word16
@@ -78,19 +92,23 @@ explorerServeWebReal
 explorerServeWebReal sendActions = explorerServeImpl
     (explorerApp $ flip enter (explorerHandlers sendActions) <$> nat)
 
-nat :: ExplorerProd (ExplorerProd :~> Handler)
+nat :: HasConfiguration => ExplorerProd (ExplorerProd :~> Handler)
 nat = do
     rctx <- ask
     pure $ NT (convertHandler rctx)
 
 convertHandler
-    :: RealModeContext SscGodTossing
+    :: HasConfiguration
+    => RealModeContext SscGodTossing
     -> ExplorerProd a
     -> Handler a
 convertHandler rctx handler =
-    liftIO (realRunner $ runExplorerBListener $ handler) `Catch.catches` excHandlers
+    let extraCtx = makeExtraCtx
+        ioAction = realRunner $
+                   runExplorerProd extraCtx
+                   handler
+    in liftIO ioAction `Catch.catches` excHandlers
   where
-
     realRunner :: forall t . RealMode SscGodTossing t -> IO t
     realRunner act = runProduction $ Mtl.runReaderT act rctx
 

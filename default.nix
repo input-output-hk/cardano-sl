@@ -3,24 +3,29 @@ let
 in
 { system ? builtins.currentSystem
 , config ? {}
-, gitrev ? "unknown"
+, gitrev ? localLib.commitIdFromGitRepo ./.git
 , pkgs ? (import (localLib.fetchNixPkgs) { inherit system config; })
 # profiling slows down performance by 50% so we don't enable it by default
 , enableProfiling ? false
+, enableDebugging ? false
 }:
 
 with pkgs.lib;
 with pkgs.haskell.lib;
 
 let
-  addConfigureFlags = flags: drv: overrideCabal drv (drv: {
-    configureFlags = flags;
-  });
+  addGitRev = subject: subject.overrideAttrs (drv: { GITREV = gitrev; });
   cardanoPkgs = ((import ./pkgs { inherit pkgs; }).override {
     overrides = self: super: {
+      cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
+        configureFlags = (drv.configureFlags or []) ++ [
+          "-f-asserts"
+        ];
+      });
+
       cardano-sl = overrideCabal super.cardano-sl (drv: {
         # production full nodes shouldn't use wallet as it means different constants
-        configureFlags = [
+        configureFlags = (drv.configureFlags or []) ++ [
           "-f-asserts"
         ];
         testTarget = "--log=test.log || (sleep 10 && kill $TAILPID && false)";
@@ -36,26 +41,21 @@ let
         '';
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
-        enableExecutableProfiling = enableProfiling;
         passthru = {
           inherit enableProfiling;
         };
       });
-      cardano-sl-core = overrideCabal super.cardano-sl-core (drv: {
-        configureFlags = [
-          "-f-asserts"
-          "--ghc-options=-DGITREV=${gitrev}"
-        ];
-      });
 
-      cardano-sl-wallet = justStaticExecutables super.cardano-sl-wallet;
+      cardano-sl-auxx = addGitRev super.cardano-sl-auxx;
+      cardano-sl-node = addGitRev super.cardano-sl-node;
+      cardano-sl-wallet = addGitRev (justStaticExecutables super.cardano-sl-wallet);
       cardano-sl-tools = justStaticExecutables (overrideCabal super.cardano-sl-tools (drv: {
         # waiting on load-command size fix in dyld
         doCheck = ! pkgs.stdenv.isDarwin;
       }));
 
       cardano-sl-static = justStaticExecutables self.cardano-sl;
-      cardano-sl-explorer-static = justStaticExecutables self.cardano-sl-explorer;
+      cardano-sl-explorer-static = addGitRev (justStaticExecutables self.cardano-sl-explorer);
       cardano-report-server-static = justStaticExecutables self.cardano-report-server;
 
       # Undo configuration-nix.nix change to hardcode security binary on darwin
@@ -65,18 +65,20 @@ let
         postPatch = ":";
       });
 
-      # Gold linker fixes
-      cryptonite = addConfigureFlags ["--ghc-option=-optl-pthread"] super.cryptonite;
+      # TODO: get rid of pthreads option once cryptonite 0.25 is released
+      # DEVOPS-393: https://github.com/haskell-crypto/cryptonite/issues/193
+      cryptonite = appendPatch (appendConfigureFlag super.cryptonite "--ghc-option=-optl-pthread") ./pkgs/cryptonite-segfault-blake.patch;
 
-      # Darwin fixes upstreamed in nixpkgs commit 71bebd52547f4486816fd320bb3dc6314f139e67
-      hinotify = if pkgs.stdenv.isDarwin then self.hfsevents else super.hinotify;
+      # Due to https://github.com/input-output-hk/stack2nix/issues/56
       hfsevents = self.callPackage ./pkgs/hfsevents.nix { inherit (pkgs.darwin.apple_sdk.frameworks) Cocoa CoreServices; };
-      fsnotify = if pkgs.stdenv.isDarwin
-        then addBuildDepend (dontCheck super.fsnotify) pkgs.darwin.apple_sdk.frameworks.Cocoa
-        else dontCheck super.fsnotify;
 
       mkDerivation = args: super.mkDerivation (args // {
         enableLibraryProfiling = enableProfiling;
+        enableExecutableProfiling = enableProfiling;
+      } // optionalAttrs enableDebugging {
+        # TODO: DEVOPS-355
+        dontStrip = true;
+        configureFlags = (args.configureFlags or []) ++ [ "--ghc-options=-g --disable-executable-stripping --disable-library-stripping" "--profiling-detail=toplevel-functions"];
       });
     };
   });

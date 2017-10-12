@@ -163,7 +163,6 @@ hashHexF = later $ \(AbstractHash x) -> Buildable.build (show x :: Text)
 shortHashF :: Format r (AbstractHash algo a -> r)
 shortHashF = fitLeft 8 %. hashHexF
 
-
 -- | Type class for unsafe cast between hashes.
 -- You must ensure that types have identical Bi instances.
 class CastHash a b where

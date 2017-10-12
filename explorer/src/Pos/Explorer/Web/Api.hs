@@ -22,10 +22,11 @@ import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON,
                                                QueryParam)
 import           Data.Proxy                   (Proxy (Proxy))
 
-import           Pos.Explorer.Web.ClientTypes (CAddress, CAddressSummary, CBlockEntry,
-                                               CBlockSummary, CGenesisAddressInfo,
-                                               CGenesisSummary, CHash, CTxBrief, CTxEntry,
-                                               CTxId, CTxSummary, Byte)
+import           Pos.Explorer.Web.ClientTypes (Byte, CAda, CAddress, CAddressesFilter,
+                                               CAddressSummary, CBlockEntry, CBlockSummary,
+                                               CGenesisAddressInfo, CGenesisSummary,
+                                               CHash, CTxBrief, CTxEntry, CTxId,
+                                               CTxSummary)
 import           Pos.Explorer.Web.Error       (ExplorerError)
 import           Pos.Types                    (EpochIndex)
 
@@ -34,6 +35,11 @@ type PageNumber = Integer
 
 -- | Common prefix for all endpoints.
 type API = "api"
+
+type TotalAda = API
+    :> "supply"
+    :> "ada"
+    :> Get '[JSON] (Either ExplorerError CAda)
 
 type BlocksPages = API
     :> "blocks"
@@ -98,6 +104,7 @@ type GenesisPagesTotal = API
     :> "pages"
     :> "total"
     :> QueryParam "pageSize" Word
+    :> QueryParam "filter" CAddressesFilter
     :> Get '[JSON] (Either ExplorerError PageNumber)
 
 type GenesisAddressInfo = API
@@ -105,6 +112,7 @@ type GenesisAddressInfo = API
     :> "address"
     :> QueryParam "page" Word
     :> QueryParam "pageSize" Word
+    :> QueryParam "filter" CAddressesFilter
     :> Get '[JSON] (Either ExplorerError [CGenesisAddressInfo])
 
 type TxsStats = (PageNumber, [(CTxId, Byte)])
@@ -116,7 +124,8 @@ type StatsTxs = API
 
 -- | Servant API which provides access to explorer
 type ExplorerApi =
-         BlocksPages
+         TotalAda
+    :<|> BlocksPages
     :<|> BlocksPagesTotal
     :<|> BlocksSummary
     :<|> BlocksTxs

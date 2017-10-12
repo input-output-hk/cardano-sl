@@ -9,14 +9,14 @@ module Pos.Util.LogSafe
        , logErrorS
        ) where
 
+import           Universum
+
 import           Control.Monad.Trans (MonadTrans)
 import           Data.List           (isSuffixOf)
 import           System.Wlog         (CanLog (..), HasLoggerName (..), Severity (..),
                                       loggerName)
 import           System.Wlog.Handler (LogHandlerTag (HandlerFilelike))
 import           System.Wlog.Logger  (logMCond)
-import           Universum
-
 
 newtype SecureLogWrapped m a = SecureLogWrapped
     { getSecureLogWrapped :: m a

@@ -45,7 +45,7 @@ import qualified Data.ByteString                  as BS
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.List.NonEmpty               as NE
 import           Data.Maybe                       (fromMaybe)
-
+import qualified Data.Vector                      as V
 import           Formatting                       (build, int, sformat, (%))
 import           Network.Wai                      (Application)
 import qualified Serokell.Util.Base64             as B64
@@ -58,27 +58,29 @@ import           Pos.Block.Core                   (Block, MainBlock, mainBlockSl
                                                    mainBlockTxPayload, mcdSlot)
 import           Pos.Block.Types                  (Blund, Undo)
 import           Pos.Communication                (SendActions)
-import           Pos.Context                      (genesisUtxo, unGenesisUtxo)
 import           Pos.Core                         (AddrType (..), Address (..), Coin,
                                                    EpochIndex, HasConfiguration,
-                                                   HeaderHash, Timestamp, difficultyL,
-                                                   gbHeader, gbhConsensus,
-                                                   getChainDifficulty, isRedeemAddress,
+                                                   HeaderHash, Timestamp, coinToInteger,
+                                                   difficultyL, gbHeader, gbhConsensus,
+                                                   getChainDifficulty,
                                                    isUnknownAddressType,
-                                                   makeRedeemAddress, mkCoin, siEpoch,
-                                                   siSlot, sumCoins, timestampToPosix,
-                                                   unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Crypto                       (WithHash (..), hash, redeemPkBuild,
-                                                   withHash)
+                                                   makeRedeemAddress, siEpoch, siSlot,
+                                                   sumCoins, timestampToPosix,
+                                                   unsafeAddCoin, unsafeIntegerToCoin,
+                                                   unsafeSubCoin)
+
 import           Pos.DB.Block                     (MonadBlockDB, blkGetBlund)
 import           Pos.DB.Class                     (MonadDBRead)
+
+import           Pos.Crypto                       (WithHash (..), hash, redeemPkBuild,
+                                                   withHash)
 import           Pos.Slotting                     (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Txp                          (MonadTxpMem, Tx (..), TxAux, TxId,
                                                    TxMap, TxOutAux (..), getLocalTxs,
                                                    getMemPool, mpLocalTxs, taTx,
                                                    topsortTxs, txOutValue, txpTxs,
-                                                   utxoToAddressCoinPairs, _txOutputs)
+                                                   _txOutputs)
 import           Pos.Util                         (maybeThrow)
 import           Pos.Util.Chrono                  (NewestFirst (..))
 import           Pos.Web                          (serveImplNoTLS)
@@ -87,13 +89,15 @@ import           Pos.WorkMode                     (WorkMode)
 import           Pos.Explorer                     (TxExtra (..), getEpochBlocks,
                                                    getLastTransactions, getTxExtra)
 import qualified Pos.Explorer                     as EX (getAddrBalance, getAddrHistory,
-                                                         getTxExtra)
+                                                         getTxExtra, getUtxoSum)
 import           Pos.Explorer.Aeson.ClientTypes   ()
+import           Pos.Explorer.ExtraContext        (HasGenesisRedeemAddressInfo (..))
 import           Pos.Explorer.Web.Api             (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes     (Byte, CAddress (..),
+import           Pos.Explorer.Web.ClientTypes     (Byte, CAda (..), CAddress (..),
                                                    CAddressSummary (..),
-                                                   CAddressType (..), CBlockEntry (..),
-                                                   CBlockSummary (..),
+                                                   CAddressType (..),
+                                                   CAddressesFilter (..),
+                                                   CBlockEntry (..), CBlockSummary (..),
                                                    CGenesisAddressInfo (..),
                                                    CGenesisSummary (..), CHash,
                                                    CTxBrief (..), CTxEntry (..),
@@ -110,6 +114,7 @@ import           Pos.Explorer.Web.Error           (ExplorerError (..))
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 
 
+
 ----------------------------------------------------------------
 -- Top level functionality
 ----------------------------------------------------------------
@@ -117,6 +122,7 @@ type MainBlund ssc = (MainBlock ssc, Undo)
 
 type ExplorerMode ctx m =
     ( WorkMode SscGodTossing ctx m
+    , HasGenesisRedeemAddressInfo m
     , HasGtConfiguration
     )
 
@@ -136,6 +142,8 @@ explorerApp serv = serve explorerApi <$> serv
 
 explorerHandlers :: ExplorerMode ctx m => SendActions m -> ServerT ExplorerApi m
 explorerHandlers _sendActions =
+      apiTotalAda
+    :<|>
       apiBlocksPages
     :<|>
       apiBlocksPagesTotal
@@ -160,6 +168,7 @@ explorerHandlers _sendActions =
     :<|>
       apiStatsTxs
   where
+    apiTotalAda           = tryGetTotalAda
     apiBlocksPages        = getBlocksPagesDefault
     apiBlocksPagesTotal   = getBlocksPagesTotalDefault
     apiBlocksSummary      = catchExplorerError . getBlockSummary
@@ -175,6 +184,9 @@ explorerHandlers _sendActions =
 
     catchExplorerError    = try
 
+    tryGetTotalAda =
+        catchExplorerError getTotalAda
+
     getBlocksPagesDefault page size  =
         catchExplorerError $ getBlocksPage page (defaultPageSize size)
 
@@ -187,22 +199,39 @@ explorerHandlers _sendActions =
     tryEpochSlotSearch epoch maybeSlot =
         catchExplorerError $ epochSlotSearch epoch maybeSlot
 
-    getGenesisPagesTotalDefault size =
-        catchExplorerError $ getGenesisPagesTotal (defaultPageSize size)
+    getGenesisPagesTotalDefault size addrFilt =
+        catchExplorerError $
+            getGenesisPagesTotal (defaultPageSize size) (defaultAddressesFilter addrFilt)
 
-    getGenesisAddressInfoDefault page size =
-        catchExplorerError $ getGenesisAddressInfo page (defaultPageSize size)
+    getGenesisAddressInfoDefault page size addrFilt =
+        catchExplorerError $
+            getGenesisAddressInfo page (defaultPageSize size) (defaultAddressesFilter addrFilt)
 
     getStatsTxsDefault page =
         catchExplorerError $ getStatsTxs page
 
-    defaultPageSize size  = (fromIntegral $ fromMaybe 10 size)
-    defaultLimit limit    = (fromIntegral $ fromMaybe 10 limit)
-    defaultSkip  skip     = (fromIntegral $ fromMaybe 0  skip)
+    defaultPageSize size   = (fromIntegral $ fromMaybe 10 size)
+    defaultLimit limit     = (fromIntegral $ fromMaybe 10 limit)
+    defaultSkip  skip      = (fromIntegral $ fromMaybe 0  skip)
+    defaultAddressesFilter = fromMaybe AllAddresses
 
 ----------------------------------------------------------------
 -- API Functions
 ----------------------------------------------------------------
+
+getTotalAda :: ExplorerMode ctx m => m CAda
+getTotalAda = do
+    utxoSum <- EX.getUtxoSum
+    validateUtxoSum utxoSum
+    pure $ CAda $ fromInteger utxoSum / 1e6
+  where
+    validateUtxoSum :: ExplorerMode ctx m => Integer -> m ()
+    validateUtxoSum n
+        | n < 0 = throwM $ Internal $
+            sformat ("Internal tracker of utxo sum has a negative value: "%build) n
+        | n > coinToInteger (maxBound :: Coin) = throwM $ Internal $
+            sformat ("Internal tracker of utxo sum overflows: "%build) n
+        | otherwise = pure ()
 
 -- | Get the total number of blocks/slots currently available.
 -- Total number of main blocks   = difficulty of the topmost (tip) header.
@@ -472,7 +501,7 @@ getAddressSummary cAddr = do
     when (isUnknownAddressType addr) $
         throwM $ Internal "Unknown address type"
 
-    balance <- mkCCoin . fromMaybe (mkCoin 0) <$> EX.getAddrBalance addr
+    balance <- mkCCoin . fromMaybe minBound <$> EX.getAddrBalance addr
     txIds <- getNewestFirst <$> EX.getAddrHistory addr
 
     transactions <- forM txIds $ \id -> do
@@ -613,45 +642,95 @@ getTxSummary cTxId = do
             , ctsOutputs         = map (second mkCCoin) txOutputs
             }
 
-getRedeemAddressCoinPairs :: ExplorerMode ctx m => m [(Address, Coin)]
-getRedeemAddressCoinPairs = do
-
-    let addressCoinPairs :: [(Address, Coin)]
-        addressCoinPairs = utxoToAddressCoinPairs (unGenesisUtxo genesisUtxo)
-
-        redeemOnly :: [(Address, Coin)]
-        redeemOnly = filter (isRedeemAddress . fst) addressCoinPairs
-
-    pure redeemOnly
-
-isAddressRedeemed :: MonadDBRead m => Address -> Coin -> m Bool
-isAddressRedeemed address initialBalance = do
-  currentBalance <- fromMaybe (mkCoin 0) <$> EX.getAddrBalance address
-  pure $ currentBalance /= initialBalance
+data GenesisSummaryInternal = GenesisSummaryInternal
+    { gsiNumRedeemed            :: !Int
+    , gsiRedeemedAmountTotal    :: !Coin
+    , gsiNonRedeemedAmountTotal :: !Coin
+    }
 
 getGenesisSummary
     :: ExplorerMode ctx m
     => m CGenesisSummary
 getGenesisSummary = do
-    redeemAddressCoinPairs <- getRedeemAddressCoinPairs
-    cgsNumRedeemed <- length <$> filterM (uncurry isAddressRedeemed) redeemAddressCoinPairs
-    pure CGenesisSummary {cgsNumTotal = length redeemAddressCoinPairs, ..}
+    grai <- getGenesisRedeemAddressInfo
+    redeemAddressInfo <- V.mapM (uncurry getRedeemAddressInfo) grai
+    let GenesisSummaryInternal {..} =
+            V.foldr folder (GenesisSummaryInternal 0 minBound minBound)
+            redeemAddressInfo
+    let numTotal = length grai
+    pure CGenesisSummary
+        { cgsNumTotal = numTotal
+        , cgsNumRedeemed = gsiNumRedeemed
+        , cgsNumNotRedeemed = numTotal - gsiNumRedeemed
+        , cgsRedeemedAmountTotal = mkCCoin gsiRedeemedAmountTotal
+        , cgsNonRedeemedAmountTotal = mkCCoin gsiNonRedeemedAmountTotal
+        }
+  where
+    getRedeemAddressInfo
+        :: (MonadDBRead m, MonadThrow m)
+        => Address -> Coin -> m GenesisSummaryInternal
+    getRedeemAddressInfo address initialBalance = do
+        currentBalance <- fromMaybe minBound <$> EX.getAddrBalance address
+        if currentBalance > initialBalance then
+            throwM $ Internal $ sformat
+                ("Redeem address "%build%" had "%build%" at genesis, but now has "%build)
+                address initialBalance currentBalance
+        else
+            -- Abusing gsiNumRedeemed here. We'd like to keep
+            -- only one wrapper datatype, so we're storing an Int
+            -- with a 0/1 value in a field that we call isRedeemed.
+            let isRedeemed = if currentBalance == minBound then 1 else 0
+                redeemedAmount = initialBalance `unsafeSubCoin` currentBalance
+                amountLeft = currentBalance
+            in pure $ GenesisSummaryInternal isRedeemed redeemedAmount amountLeft
+    folder
+        :: GenesisSummaryInternal
+        -> GenesisSummaryInternal
+        -> GenesisSummaryInternal
+    folder
+        (GenesisSummaryInternal isRedeemed redeemedAmount amountLeft)
+        (GenesisSummaryInternal numRedeemed redeemedAmountTotal nonRedeemedAmountTotal) =
+        GenesisSummaryInternal
+            { gsiNumRedeemed = numRedeemed + isRedeemed
+            , gsiRedeemedAmountTotal = redeemedAmountTotal `unsafeAddCoin` redeemedAmount
+            , gsiNonRedeemedAmountTotal = nonRedeemedAmountTotal `unsafeAddCoin` amountLeft
+            }
+
+isAddressRedeemed :: MonadDBRead m => Address -> m Bool
+isAddressRedeemed address = do
+    currentBalance <- fromMaybe minBound <$> EX.getAddrBalance address
+    pure $ currentBalance == minBound
+
+getFilteredGrai :: ExplorerMode ctx m => CAddressesFilter -> m (V.Vector (Address, Coin))
+getFilteredGrai addrFilt = do
+    grai <- getGenesisRedeemAddressInfo
+    case addrFilt of
+            AllAddresses         ->
+                pure grai
+            RedeemedAddresses    ->
+                V.filterM (isAddressRedeemed . fst) grai
+            NonRedeemedAddresses ->
+                V.filterM (isAddressNotRedeemed . fst) grai
+  where
+    isAddressNotRedeemed :: MonadDBRead m => Address -> m Bool
+    isAddressNotRedeemed = fmap not . isAddressRedeemed
 
 getGenesisAddressInfo
     :: (ExplorerMode ctx m)
     => Maybe Word  -- ^ pageNumber
     -> Word        -- ^ pageSize
+    -> CAddressesFilter
     -> m [CGenesisAddressInfo]
-getGenesisAddressInfo (fmap fromIntegral -> mPage) (fromIntegral -> pageSize) = do
-    redeemAddressCoinPairs <- getRedeemAddressCoinPairs
+getGenesisAddressInfo (fmap fromIntegral -> mPage) (fromIntegral -> pageSize) addrFilt = do
+    filteredGrai <- getFilteredGrai addrFilt
     let pageNumber    = fromMaybe 1 mPage
         skipItems     = (pageNumber - 1) * pageSize
-        requestedPage = take pageSize $ drop skipItems redeemAddressCoinPairs
-    mapM toGenesisAddressInfo requestedPage
+        requestedPage = V.slice skipItems pageSize filteredGrai
+    V.toList <$> V.mapM toGenesisAddressInfo requestedPage
   where
     toGenesisAddressInfo :: ExplorerMode ctx m => (Address, Coin) -> m CGenesisAddressInfo
     toGenesisAddressInfo (address, coin) = do
-        cgaiIsRedeemed <- isAddressRedeemed address coin
+        cgaiIsRedeemed <- isAddressRedeemed address
         -- Commenting out RSCoin address until it can actually be displayed.
         -- See comment in src/Pos/Explorer/Web/ClientTypes.hs for more information.
         pure CGenesisAddressInfo
@@ -664,10 +743,11 @@ getGenesisAddressInfo (fmap fromIntegral -> mPage) (fromIntegral -> pageSize) = 
 getGenesisPagesTotal
     :: ExplorerMode ctx m
     => Word
+    -> CAddressesFilter
     -> m Integer
-getGenesisPagesTotal (fromIntegral -> pageSize) = do
-    redeemAddressCoinPairs <- getRedeemAddressCoinPairs
-    pure $ fromIntegral $ (length redeemAddressCoinPairs + pageSize - 1) `div` pageSize
+getGenesisPagesTotal (fromIntegral -> pageSize) addrFilt = do
+    filteredGrai <- getFilteredGrai addrFilt
+    pure $ fromIntegral $ (length filteredGrai + pageSize - 1) `div` pageSize
 
 -- | Search the blocks by epoch and slot. Slot is optional.
 epochSlotSearch
@@ -676,6 +756,11 @@ epochSlotSearch
     -> Maybe Word16
     -> m [CBlockEntry]
 epochSlotSearch epochIndex slotIndex = do
+
+    -- [CSE-236] Disable search for epoch only
+    -- TODO: Remove restriction if epoch search will be optimized
+    when (isNothing slotIndex) $
+        throwM $ Internal "We currently do not support searching for epochs only."
 
     -- Get pages from the database
     -- TODO: Fix this Int / Integer thing once we merge repositories

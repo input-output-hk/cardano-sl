@@ -7,7 +7,7 @@ flags:
 extra-package-dbs: []
 
 packages:
-- node
+- lib
 - core
 - update
 - infra
@@ -16,8 +16,9 @@ packages:
 - auxx
 - ssc
 - godtossing
-- tools
 - txp
+- node
+- tools
 - wallet
 - explorer
 
@@ -48,7 +49,7 @@ packages:
   extra-dep: true
 - location:
     git: https://github.com/serokell/time-warp-nt.git
-    commit: e4df104bc68e019422034568cae476f28d145c40 # master
+    commit: 630b23847ea39778f5616134a4f416b473639a15 # master
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -96,11 +97,12 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
+- transformers-0.5.5.0            # https://hub.darcs.net/ross/transformers/issue/33#comment-20171004T152940
 - universum-0.6.1
 - serokell-util-0.5.0
 - pvss-0.2.0
 - base58-bytestring-0.1.0
-- log-warper-1.2.1
+- log-warper-1.2.3
 - concurrent-extra-0.7.0.10       # not yet on Stackage
 # - purescript-bridge-0.8.0.1
 - directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
@@ -119,6 +121,8 @@ extra-deps:
 - tabl-1.0.3
 # ekg-statsd version without the unnecessary diffing optimisation
 - ekg-statsd-0.2.2.0
+# https://github.com/fpco/lts-haskell/issues/70
+- fgl-5.5.3.1
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

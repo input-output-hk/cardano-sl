@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes       #-}
 {-# LANGUAGE ExistentialQuantification #-}
 
 module Pos.Network.Types
@@ -30,6 +31,9 @@ module Pos.Network.Types
        , Resolver
        , resolveDnsDomains
        , initDnsOnUse
+       -- * Helpers
+       , HasNodeType (..)
+       , getNodeTypeDefault
        -- * Re-exports
        -- ** from .DnsDomains
        , DnsDomains(..)
@@ -40,6 +44,7 @@ module Pos.Network.Types
        -- ** other
        , NodeId (..)
        ) where
+
 import           Universum                             hiding (show)
 
 import           Data.IP                               (IPv4)
@@ -54,11 +59,12 @@ import           Node.Internal                         (NodeId (..))
 import qualified System.Metrics                        as Monitoring
 import           System.Wlog.CanLog                    (WithLogger)
 
-import           Pos.Network.DnsDomains                (DnsDomains (..))
+import           Pos.Network.DnsDomains                (DnsDomains (..), NodeAddr)
 import qualified Pos.Network.DnsDomains                as DnsDomains
 import qualified Pos.Network.Policy                    as Policy
 import           Pos.System.Metrics.Constants          (cardanoNamespace)
 import           Pos.Util.TimeWarp                     (addressToNodeId)
+import           Pos.Util.Util                         (HasLens', lensOf)
 
 {-------------------------------------------------------------------------------
   Network configuration
@@ -191,6 +197,22 @@ topologyNodeType TopologyP2P{}         = NodeEdge
 topologyNodeType TopologyTraditional{} = NodeCore
 topologyNodeType TopologyAuxx{}        = NodeEdge
 
+-- | Type class which encapsulates something that has 'NodeType'.
+class HasNodeType ctx where
+    -- | Extract 'NodeType' from a context. It's not a 'Lens', because
+    -- the intended usage is that context has topology and it's not
+    -- possible to 'set' node type in topology.
+    getNodeType :: ctx -> NodeType
+
+-- | Implementation of 'getNodeType' for something that has
+-- 'NetworkConfig' inside.
+getNodeTypeDefault ::
+       forall kademlia ctx. HasLens' ctx (NetworkConfig kademlia)
+    => ctx
+    -> NodeType
+getNodeTypeDefault =
+    topologyNodeType . ncTopology <$> view (lensOf @(NetworkConfig kademlia))
+
 -- | Assumed type and maximum number of subscribers (if subscription is allowed)
 --
 -- Note that the 'TopologyRelay' case covers /both/ priviledged and
@@ -217,7 +239,7 @@ topologyUnknownNodeType topology = OQ.UnknownNodeType $ go topology
     go TopologyAuxx{}        = const NodeEdge   -- should never happen
 
 data SubscriptionWorker kademlia =
-    SubscriptionWorkerBehindNAT (DnsDomains DNS.Domain) Valency Fallbacks
+    SubscriptionWorkerBehindNAT (DnsDomains DNS.Domain)
   | SubscriptionWorkerKademlia kademlia NodeType Valency Fallbacks
 
 -- | What kind of subscription worker do we run?
@@ -229,12 +251,8 @@ topologySubscriptionWorker = go
                                = Nothing
     go TopologyRelay{..}       = Just $ SubscriptionWorkerBehindNAT
                                           topologyDnsDomains
-                                          topologyValency
-                                          topologyFallbacks
     go TopologyBehindNAT{..}   = Just $ SubscriptionWorkerBehindNAT
                                           topologyDnsDomains
-                                          topologyValency
-                                          topologyFallbacks
     go TopologyP2P{..}         = Just $ SubscriptionWorkerKademlia
                                           topologyKademlia
                                           NodeRelay
@@ -418,14 +436,15 @@ type Resolver = DNS.Domain -> IO (Either DNSError [IPv4])
 
 -- | Variation on resolveDnsDomains that returns node IDs
 resolveDnsDomains :: NetworkConfig kademlia
-                  -> DnsDomains DNS.Domain
-                  -> IO (Either [DNSError] [NodeId])
+                  -> [NodeAddr DNS.Domain]
+                  -> IO [Either DNSError [NodeId]]
 resolveDnsDomains NetworkConfig{..} dnsDomains =
-    initDnsOnUse $ \resolve ->
-      fmap (fmap addressToNodeId) <$> DnsDomains.resolveDnsDomains
-                                        resolve
-                                        ncDefaultPort
-                                        dnsDomains
+    initDnsOnUse $ \resolve -> (fmap . fmap . fmap . fmap) addressToNodeId $
+        DnsDomains.resolveDnsDomains resolve
+                                     ncDefaultPort
+                                     dnsDomains
+{-# ANN resolveDnsDomains ("HLint: ignore Use <$>" :: String) #-}
+
 
 -- | Initialize the DNS library whenever it's used
 --

@@ -11,7 +11,7 @@ function updateVersion() {
   sed -E -i -e "s/^(version\:\s+)(.+)/\1$newVersion/" $1
 }
 
-updateVersion node/cardano-sl.cabal
+updateVersion lib/cardano-sl.cabal
 updateVersion core/cardano-sl-core.cabal
 updateVersion infra/cardano-sl-infra.cabal
 updateVersion db/cardano-sl-db.cabal

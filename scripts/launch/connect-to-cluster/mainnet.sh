@@ -5,9 +5,9 @@ readonly CLUSTER=mainnet
 
 if [[ "$1" == "-c" ]]; then
   shift
-  rm -Rf \
-    db-${CLUSTER}                                 \
-    wdb-${CLUSTER}                         \
+  rm -Rf                \
+    db-${CLUSTER}       \
+    wdb-${CLUSTER}      \
     secret-$CLUSTER.key \
     logs/$CLUSTER
 fi
@@ -31,5 +31,5 @@ stack exec -- cardano-node                                  \
     --db-path db-${CLUSTER}                                 \
     --wallet-db-path wdb-${CLUSTER}                         \
     --keyfile secret-$CLUSTER.key                           \
-    --configuration-file node/configuration.yaml            \
-    --configuration-key mainnet_wallet_macos64
+    --configuration-file lib/configuration.yaml             \
+    --configuration-key mainnet_full

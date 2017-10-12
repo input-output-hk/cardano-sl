@@ -16,13 +16,15 @@ import           NeatInterpolation            (text)
 import           Options.Applicative          (CommandFields, Mod, Parser, command,
                                                execParser, footerDoc, fullDesc, header,
                                                help, helper, info, infoOption, long,
-                                               metavar, progDesc, subparser)
+                                               metavar, progDesc, subparser, switch)
 import           Pos.Communication            (NodeId)
 import           Serokell.Util.OptParse       (strOption)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl             (version)
 import qualified Pos.Client.CLI               as CLI
+import           Pos.Util.CompileInfo         (CompileTimeInfo (..), HasCompileInfo,
+                                               compileInfo)
 
 ----------------------------------------------------------------------------
 -- Types
@@ -34,6 +36,7 @@ data AuxxOptions = AuxxOptions
     , aoPeers          :: ![NodeId]
     -- ^ Peers with which we want to communicate
     --   TODO: we also have topology, so it can be redundant.
+    , aoNodeEnabled    :: !Bool
     }
 
 data AuxxAction
@@ -62,14 +65,21 @@ cmdParser = command "cmd" $ info opts desc
 -- Parse everything
 ----------------------------------------------------------------------------
 
+nodeEnabledParser :: Parser Bool
+nodeEnabledParser = switch $
+    long "node-enabled" <>
+    help "Run auxx as a plugin for the node, as opposed to \
+            \running it standalone (default: standalone)."
+
 auxxOptionsParser :: Parser AuxxOptions
 auxxOptionsParser = do
     aoAction <- actionParser
     aoCommonNodeArgs <- CLI.commonNodeArgsParser
     aoPeers <- many $ CLI.nodeIdOption "peer" "Address of a peer."
+    aoNodeEnabled <- nodeEnabledParser
     pure AuxxOptions {..}
 
-getAuxxOptions :: IO AuxxOptions
+getAuxxOptions :: HasCompileInfo => IO AuxxOptions
 getAuxxOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> auxxOptionsParser) $
@@ -78,7 +88,8 @@ getAuxxOptions = execParser programInfo
                  <> footerDoc usageExample
 
     versionOption = infoOption
-        ("cardano-auxx-" <> showVersion version)
+        ("cardano-auxx-" <> showVersion version <>
+         ", git revision " <> toString (ctiGitRevision compileInfo))
         (long "version" <> help "Show version.")
 
 usageExample :: Maybe Doc
@@ -86,7 +97,7 @@ usageExample = (Just . fromString @Doc . toString @Text) [text|
 Command example:
 
   stack exec -- cardano-auxx                                     \
-    --db-path node-db0                                           \
+    --db-path run/auxx-db                                        \
     --rebuild-db                                                 \
     --json-log=/tmp/logs/2017-05-22_181224/node0.json            \
     --logs-prefix /tmp/logs/2017-05-22_181224                    \

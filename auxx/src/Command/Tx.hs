@@ -46,14 +46,17 @@ import           Pos.Crypto                       (emptyPassphrase, encToPublic,
                                                    withSafeSigner)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Txp                          (TxAux, TxOut (..), TxOutAux (..), txaF)
+import           Pos.Txp                          (TxAux, TxOut (..), TxOutAux (..),
+                                                   topsortTxAuxes, txaF)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
-import           Pos.Wallet                       (getSecretKeys)
+import           Pos.Util.CompileInfo             (HasCompileInfo)
+import           Pos.Util.Util                    (maybeThrow)
+import           Pos.Wallet                       (getSecretKeysPlain)
 
 import           Command.Types                    (SendMode (..),
                                                    SendToAllGenesisParams (..))
-import           Mode                             (AuxxMode, CmdCtx (..), getCmdCtx)
-import           Pos.Auxx                         (makePubKeyAddressAuxx)
+import           Mode                             (AuxxMode, CmdCtx (..), getCmdCtx,
+                                                   makePubKeyAddressAuxx)
 
 ----------------------------------------------------------------------------
 -- Send to all genesis
@@ -80,6 +83,7 @@ sendToAllGenesis
        , HasInfraConfiguration
        , HasUpdateConfiguration
        , HasGtConfiguration
+       , HasCompileInfo
        )
     => SendActions AuxxMode
     -> SendToAllGenesisParams
@@ -180,6 +184,7 @@ send
        , HasInfraConfiguration
        , HasUpdateConfiguration
        , HasGtConfiguration
+       , HasCompileInfo
        )
     => SendActions AuxxMode
     -> Int
@@ -187,7 +192,7 @@ send
     -> AuxxMode ()
 send sendActions idx outputs = do
     CmdCtx{ccPeers} <- getCmdCtx
-    skeys <- getSecretKeys
+    skeys <- getSecretKeysPlain
     let skey = skeys !! idx
         curPk = encToPublic skey
     etx <- withSafeSigner skey (pure emptyPassphrase) $ \mss -> runExceptT $ do
@@ -213,6 +218,7 @@ sendTxsFromFile
        , HasUpdateConfiguration
        , HasNodeConfiguration
        , HasGtConfiguration
+       , HasCompileInfo
        )
     => SendActions AuxxMode
     -> FilePath
@@ -228,8 +234,12 @@ sendTxsFromFile sendActions txsFile = do
             sformat
                 ("Going to send "%int%" transactions one-by-one")
                 (length txAuxes)
+        sortedTxAuxes <-
+            maybeThrow
+                (AuxxException "txs form a cycle")
+                (topsortTxAuxes txAuxes)
         CmdCtx {ccPeers} <- getCmdCtx
         let submitOne =
                 submitTxRaw
                     (immediateConcurrentConversations sendActions ccPeers)
-        mapM_ submitOne txAuxes
+        mapM_ submitOne sortedTxAuxes

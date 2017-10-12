@@ -9,6 +9,7 @@
 module Pos.Explorer.Socket.App
        ( NotifierSettings (..)
        , notifierApp
+       , toConfig
        ) where
 
 import           Universum                      hiding (on)
@@ -67,7 +68,7 @@ import           Pos.Explorer.Web.Server        (ExplorerMode, getMempoolTxs)
 
 data NotifierSettings = NotifierSettings
     { nsPort :: Word16
-    }
+    } deriving (Show)
 
 -- TODO(ks): Add logging, currently it's missing.
 toConfig :: NotifierSettings -> LoggerName -> Settings
@@ -132,6 +133,7 @@ notifierServer notifierSettings connVar = do
                                     -- Add more resources to the following list if needed.
                                     { corsOrigins = Just ([ "https://cardanoexplorer.com"
                                                           , "https://explorer.iohkdev.io"
+                                                          , "http://cardano-explorer.cardano-mainnet.iohk.io"
                                                           , "http://localhost:3100"
                                                           ], True)
                                     }

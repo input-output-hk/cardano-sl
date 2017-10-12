@@ -4,6 +4,9 @@ module Pos.Core.Configuration.GeneratedSecrets
        ( HasGeneratedSecrets
        , withGeneratedSecrets
        , generatedSecrets
+       , genesisSecrets
+       , genesisSecretKeysPoor
+       , genesisSecretKeysRich
        , genesisSecretKeys
        , genesisHdwSecretKeys
        , genesisVssSecretKeys
@@ -29,11 +32,32 @@ withGeneratedSecrets = give
 generatedSecrets :: HasGeneratedSecrets => Maybe GeneratedSecrets
 generatedSecrets = given
 
+genesisSecretsPoor ::
+       HasGeneratedSecrets
+    => Maybe [(SecretKey, EncryptedSecretKey, VssKeyPair)]
+genesisSecretsPoor = gsSecretKeysPoor <$> generatedSecrets
+
+genesisSecretsRich ::
+       HasGeneratedSecrets
+    => Maybe [(SecretKey, EncryptedSecretKey, VssKeyPair)]
+genesisSecretsRich = gsSecretKeysRich <$> generatedSecrets
+
+genesisSecrets ::
+       HasGeneratedSecrets
+    => Maybe [(SecretKey, EncryptedSecretKey, VssKeyPair)]
+genesisSecrets = mappend <$> genesisSecretsRich <*> genesisSecretsPoor
+
+genesisSecretKeysPoor :: HasGeneratedSecrets => Maybe [SecretKey]
+genesisSecretKeysPoor = map (view _1) <$> genesisSecretsPoor
+
+genesisSecretKeysRich :: HasGeneratedSecrets => Maybe [SecretKey]
+genesisSecretKeysRich = map (view _1) <$> genesisSecretsRich
+
 genesisSecretKeys :: HasGeneratedSecrets => Maybe [SecretKey]
-genesisSecretKeys = map (view _1) . gsSecretKeys <$> generatedSecrets
+genesisSecretKeys = map (view _1) <$> genesisSecrets
 
 genesisHdwSecretKeys :: HasGeneratedSecrets => Maybe [EncryptedSecretKey]
-genesisHdwSecretKeys = map (view _2) . gsSecretKeys <$> generatedSecrets
+genesisHdwSecretKeys = map (view _2) <$> genesisSecrets
 
 genesisVssSecretKeys :: HasGeneratedSecrets => Maybe [VssKeyPair]
-genesisVssSecretKeys = map (view _3) . gsSecretKeys <$> generatedSecrets
+genesisVssSecretKeys = map (view _3) <$> genesisSecrets

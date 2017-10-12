@@ -19,9 +19,9 @@ import           Formatting                       (build, sformat, shown, stext,
 import           System.Wlog                      (WithLogger, logInfo)
 
 import           Pos.Client.Txp.History           (saveTx)
-import           Pos.Communication                (EnqueueMsg, submitTxRaw)
 import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
 import           Pos.Wallet.Web.Mode              (MonadWalletWebMode)
+import           Pos.Wallet.Web.Networking        (MonadWalletSendActions (..))
 import           Pos.Wallet.Web.Pending.Functions (isReclaimableFailure)
 import           Pos.Wallet.Web.Pending.Types     (PendingTx (..), PtxCondition (..),
                                                    PtxPoolInfo)
@@ -108,10 +108,10 @@ ptxResubmissionHandler PendingTx{..} =
 -- | Like 'Pos.Communication.Tx.submitAndSaveTx',
 -- but treats tx as future /pending/ transaction.
 submitAndSavePtx
-    :: MonadWalletWebMode ctx m
-    => PtxSubmissionHandlers m -> EnqueueMsg m -> PendingTx -> m ()
-submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
-    ack <- submitTxRaw enqueue _ptxTxAux
+    :: (MonadWalletWebMode ctx m, MonadWalletSendActions m)
+    => PtxSubmissionHandlers m -> PendingTx -> m ()
+submitAndSavePtx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
+    ack <- sendTxToNetwork _ptxTxAux
     saveTx (_ptxTxId, _ptxTxAux) `catches` handlers ack
     addOnlyNewPendingTx ptx
     when ack $ ptxUpdateMeta _ptxWallet _ptxTxId PtxMarkAcknowledged

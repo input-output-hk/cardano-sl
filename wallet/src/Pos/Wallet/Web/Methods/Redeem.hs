@@ -14,7 +14,7 @@ import qualified Serokell.Util.Base64           as B64
 
 import           Pos.Client.Txp.Addresses       (MonadAddresses)
 import           Pos.Client.Txp.History         (TxHistoryEntry (..))
-import           Pos.Communication              (SendActions (..), prepareRedemptionTx)
+import           Pos.Communication              (prepareRedemptionTx)
 import           Pos.Core                       (getCurrentTimestamp)
 import           Pos.Crypto                     (PassPhrase, aesDecrypt, deriveAesKeyBS,
                                                  hash, redeemDeterministicKeyGen)
@@ -32,6 +32,7 @@ import           Pos.Wallet.Web.Methods.History (addHistoryTx, constructCTx,
 import qualified Pos.Wallet.Web.Methods.Logic   as L
 import           Pos.Wallet.Web.Methods.Txp     (rewrapTxError, submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Mode            (MonadWalletWebMode)
+import           Pos.Wallet.Web.Networking      (MonadWalletSendActions)
 import           Pos.Wallet.Web.Pending         (mkPendingTx)
 import           Pos.Wallet.Web.State           (AddressLookupMode (Ever))
 import           Pos.Wallet.Web.Tracking        (fixingCachedAccModifier)
@@ -39,13 +40,13 @@ import           Pos.Wallet.Web.Util            (decodeCTypeOrFail, getWalletAdd
 
 
 redeemAda
-    :: (MonadWalletWebMode ctx m, MonadAddresses m)
-    => SendActions m -> PassPhrase -> CWalletRedeem -> m CTx
-redeemAda sendActions passphrase CWalletRedeem {..} = do
+    :: (MonadWalletWebMode ctx m, MonadAddresses m, MonadWalletSendActions m)
+    => PassPhrase -> CWalletRedeem -> m CTx
+redeemAda passphrase CWalletRedeem {..} = do
     seedBs <- maybe invalidBase64 pure
         -- NOTE: this is just safety measure
         $ rightToMaybe (B64.decode crSeed) <|> rightToMaybe (B64.decodeUrl crSeed)
-    redeemAdaInternal sendActions passphrase crWalletId seedBs
+    redeemAdaInternal passphrase crWalletId seedBs
   where
     invalidBase64 =
         throwM . RequestError $ "Seed is invalid base64(url) string: " <> crSeed
@@ -54,19 +55,18 @@ redeemAda sendActions passphrase CWalletRedeem {..} = do
 --  * https://github.com/input-output-hk/postvend-app/blob/master/src/CertGen.hs#L205
 --  * https://github.com/input-output-hk/postvend-app/blob/master/src/CertGen.hs#L160
 redeemAdaPaperVend
-    :: (MonadWalletWebMode ctx m, MonadAddresses m)
-    => SendActions m
-    -> PassPhrase
+    :: (MonadWalletWebMode ctx m, MonadAddresses m, MonadWalletSendActions m)
+    => PassPhrase
     -> CPaperVendWalletRedeem
     -> m CTx
-redeemAdaPaperVend sendActions passphrase CPaperVendWalletRedeem {..} = do
+redeemAdaPaperVend passphrase CPaperVendWalletRedeem {..} = do
     seedEncBs <- maybe invalidBase58 pure
         $ decodeBase58 bitcoinAlphabet $ encodeUtf8 pvSeed
     aesKey <- either invalidMnemonic pure
         $ deriveAesKeyBS <$> toSeed pvBackupPhrase
     seedDecBs <- either decryptionFailed pure
         $ aesDecrypt seedEncBs aesKey
-    redeemAdaInternal sendActions passphrase pvWalletId seedDecBs
+    redeemAdaInternal passphrase pvWalletId seedDecBs
   where
     invalidBase58 =
         throwM . RequestError $ "Seed is invalid base58 string: " <> pvSeed
@@ -76,13 +76,12 @@ redeemAdaPaperVend sendActions passphrase CPaperVendWalletRedeem {..} = do
         throwM . RequestError $ "Decryption failed: " <> show e
 
 redeemAdaInternal
-    :: (MonadWalletWebMode ctx m, MonadAddresses m)
-    => SendActions m
-    -> PassPhrase
+    :: (MonadWalletWebMode ctx m, MonadAddresses m, MonadWalletSendActions m)
+    => PassPhrase
     -> CAccountId
     -> ByteString
     -> m CTx
-redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
+redeemAdaInternal passphrase cAccId seedBs = do
     (_, redeemSK) <- maybeThrow (RequestError "Seed is not 32-byte long") $
                      redeemDeterministicKeyGen seedBs
     accId <- decodeCTypeOrFail cAccId
@@ -103,7 +102,7 @@ redeemAdaInternal SendActions {..} passphrase cAccId seedBs = do
             dstWallet = aiWId accId
         ptx <- mkPendingTx dstWallet txHash txAux th
 
-        th <$ submitAndSaveNewPtx enqueueMsg ptx
+        th <$ submitAndSaveNewPtx ptx
 
     -- add redemption transaction to the history of new wallet
     let cWalId = aiWId accId

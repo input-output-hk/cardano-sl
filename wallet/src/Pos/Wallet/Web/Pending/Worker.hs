@@ -18,7 +18,6 @@ import           Serokell.Util.Text                (listJson)
 import           System.Wlog                       (logInfo, modifyLoggerName)
 
 import           Pos.Client.Txp.Addresses          (MonadAddresses)
-import           Pos.Communication.Protocol        (SendActions (..))
 import           Pos.Configuration                 (HasNodeConfiguration,
                                                     pendingTxResubmitionPeriod)
 import           Pos.Core                          (ChainDifficulty (..), SlotId (..),
@@ -30,6 +29,7 @@ import           Pos.Slotting                      (getNextEpochSlotDuration, on
 import           Pos.Txp                           (TxAux (..), topsortTxs)
 import           Pos.Util.LogSafe                  (logInfoS)
 import           Pos.Wallet.Web.Mode               (MonadWalletWebMode)
+import           Pos.Wallet.Web.Networking         (MonadWalletSendActions)
 import           Pos.Wallet.Web.Pending.Functions  (usingPtxCoords)
 import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler,
                                                     submitAndSavePtx)
@@ -43,6 +43,7 @@ import           Pos.Wallet.Web.Util               (getWalletAssuredDepth)
 type MonadPendings ctx m =
     ( MonadWalletWebMode ctx m
     , MonadAddresses m
+    , MonadWalletSendActions m
     , HasConfiguration
     , HasNodeConfiguration
     )
@@ -61,12 +62,12 @@ processPtxInNewestBlocks PendingTx{..} = do
      longAgo depth (ChainDifficulty ptxDiff) (ChainDifficulty tipDiff) =
          ptxDiff + depth <= tipDiff
 
-resubmitTx :: MonadPendings ctx m => SendActions m -> PendingTx -> m ()
-resubmitTx SendActions{..} ptx =
+resubmitTx :: MonadPendings ctx m => PendingTx -> m ()
+resubmitTx ptx =
     handleAll (\_ -> pass) $ do
         logInfoS $ sformat ("Resubmitting tx "%build) (_ptxTxId ptx)
         let submissionH = ptxResubmissionHandler ptx
-        submitAndSavePtx submissionH enqueueMsg ptx
+        submitAndSavePtx submissionH ptx
         updateTiming
   where
     reportNextCheckTime =
@@ -82,12 +83,12 @@ resubmitTx SendActions{..} ptx =
 -- | Distributes pending txs submition over current slot ~evenly
 resubmitPtxsDuringSlot
     :: MonadPendings ctx m
-    => SendActions m -> [PendingTx] -> m ()
-resubmitPtxsDuringSlot sendActions ptxs = do
+    => [PendingTx] -> m ()
+resubmitPtxsDuringSlot ptxs = do
     interval <- evalSubmitDelay (length ptxs)
     forM_ ptxs $ \ptx -> do
         delay interval
-        fork $ resubmitTx sendActions ptx
+        fork $ resubmitTx ptx
   where
     submitionEta = 5 :: Second
     evalSubmitDelay toResubmitNum = do
@@ -98,8 +99,8 @@ resubmitPtxsDuringSlot sendActions ptxs = do
 
 processPtxsToResubmit
     :: MonadPendings ctx m
-    => SendActions m -> SlotId -> [PendingTx] -> m ()
-processPtxsToResubmit sendActions curSlot ptxs = do
+    => SlotId -> [PendingTx] -> m ()
+processPtxsToResubmit curSlot ptxs = do
     ptxsPerSlotLimit <- evalPtxsPerSlotLimit
     let toResubmit =
             take ptxsPerSlotLimit $
@@ -109,7 +110,7 @@ processPtxsToResubmit sendActions curSlot ptxs = do
     unless (null toResubmit) $
         logInfo $ "We are going to resubmit some transactions"
     logInfoS $ sformat fmt (map _ptxTxId toResubmit)
-    resubmitPtxsDuringSlot sendActions toResubmit
+    resubmitPtxsDuringSlot toResubmit
   where
     fmt = "Transactions to resubmit on current slot: "%listJson
     evalPtxsPerSlotLimit = do
@@ -125,22 +126,22 @@ processPtxsToResubmit sendActions curSlot ptxs = do
 -- if needed.
 processPtxs
     :: MonadPendings ctx m
-    => SendActions m -> SlotId -> [PendingTx] -> m ()
-processPtxs sendActions curSlot ptxs = do
+    => SlotId -> [PendingTx] -> m ()
+processPtxs curSlot ptxs = do
     mapM_ processPtxInNewestBlocks ptxs
-    processPtxsToResubmit sendActions curSlot ptxs
+    processPtxsToResubmit curSlot ptxs
 
 processPtxsOnSlot
     :: MonadPendings ctx m
-    => SendActions m -> SlotId -> m ()
-processPtxsOnSlot sendActions curSlot = do
+    => SlotId -> m ()
+processPtxsOnSlot curSlot = do
     ptxs <- getPendingTxs
     let sortedPtxs =
             sortWith _ptxCreationSlot $
             flip fromMaybe =<< topsortTxs wHash $
             ptxs
 
-    processPtxs sendActions curSlot sortedPtxs
+    processPtxs curSlot sortedPtxs
   where
     wHash PendingTx{..} = WithHash (taTx _ptxTxAux) _ptxTxId
 
@@ -148,9 +149,9 @@ processPtxsOnSlot sendActions curSlot = do
 -- needed and possible.
 startPendingTxsResubmitter
     :: MonadPendings ctx m
-    => SendActions m -> m ()
-startPendingTxsResubmitter sa =
+    => m ()
+startPendingTxsResubmitter =
     void . fork . setLogger $
-    onNewSlot False (processPtxsOnSlot sa)
+    onNewSlot False processPtxsOnSlot
   where
     setLogger = modifyLoggerName (<> "tx" <> "resubmitter")

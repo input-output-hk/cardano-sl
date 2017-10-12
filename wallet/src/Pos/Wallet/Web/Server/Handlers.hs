@@ -15,20 +15,19 @@ import           Servant.Server              (Handler, Server, ServerT)
 import           Servant.Swagger.UI          (swaggerSchemaUIServer)
 import           Servant.Utils.Enter         ((:~>) (..), enter)
 
-import           Pos.Communication           (SendActions (..))
 import           Pos.Update.Configuration    (curSoftwareVersion)
 import           Pos.Wallet.WalletMode       (blockchainSlotDuration)
 import           Pos.Wallet.Web.Account      (GenSeed (RandomSeed))
 import           Pos.Wallet.Web.Api          (WalletApi, WalletSwaggerApi)
 import qualified Pos.Wallet.Web.Methods      as M
 import           Pos.Wallet.Web.Mode         (MonadWalletWebMode)
+import           Pos.Wallet.Web.Networking   (MonadWalletSendActions)
 import           Pos.Wallet.Web.Tracking     (fixingCachedAccModifier)
 
 servantHandlers
-    :: MonadWalletWebMode ctx m
-    => SendActions m
-    -> ServerT WalletApi m
-servantHandlers sendActions =
+    :: (MonadWalletWebMode ctx m, MonadWalletSendActions m)
+    => ServerT WalletApi m
+servantHandlers =
      M.testResetAll
     :<|>
 
@@ -71,7 +70,7 @@ servantHandlers sendActions =
      M.updateUserProfile
     :<|>
 
-     M.newPayment sendActions
+     M.newPayment
     :<|>
      M.getTxFee
     :<|>
@@ -87,9 +86,9 @@ servantHandlers sendActions =
      M.applyUpdate
     :<|>
 
-     M.redeemAda sendActions
+     M.redeemAda
     :<|>
-     M.redeemAdaPaperVend sendActions
+     M.redeemAdaPaperVend
     :<|>
 
      M.reportingInitialized
@@ -108,12 +107,11 @@ servantHandlers sendActions =
      M.exportWalletJSON
 
 servantHandlersWithSwagger
-    :: MonadWalletWebMode ctx m
-    => SendActions m
-    -> (m :~> Handler)
+    :: (MonadWalletWebMode ctx m, MonadWalletSendActions m)
+    => (m :~> Handler)
     -> Server WalletSwaggerApi
-servantHandlersWithSwagger sendActions nat =
-    nat `enter` servantHandlers sendActions
+servantHandlersWithSwagger nat =
+    nat `enter` servantHandlers
    :<|>
     -- doesn't work for arbitrary monad, so we have to 'enter' above
     swaggerSchemaUIServer swaggerSpecForWalletApi

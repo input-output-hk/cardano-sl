@@ -23,13 +23,13 @@ import           Servant.Server                   (Handler, Server, serve)
 import           Servant.Utils.Enter              ((:~>) (..))
 
 import qualified Data.ByteString.Char8            as BS8
-import           Pos.Communication                (OutSpecs, SendActions (..), sendTxOuts)
+import           Pos.Communication                (OutSpecs, sendTxOuts)
 import           Pos.Launcher.Configuration       (HasConfigurations)
 import           Pos.Util.TimeWarp                (NetworkAddress)
 import           Pos.Wallet.Web.Account           (findKey, myRootAddresses)
 import           Pos.Wallet.Web.Api               (WalletSwaggerApi, swaggerWalletApi)
 import           Pos.Wallet.Web.Mode              (MonadFullWalletWebMode,
-                                                   MonadWalletWebMode)
+                                                   MonadWalletWebMode, MonadWebSockets)
 import           Pos.Wallet.Web.Pending           (startPendingTxsResubmitter)
 import           Pos.Wallet.Web.Server.Handlers   (servantHandlersWithSwagger)
 import           Pos.Wallet.Web.Sockets           (ConnectionsVar, closeWSConnections,
@@ -48,11 +48,10 @@ walletServeImpl
     -> NetworkAddress    -- ^ IP and port to listen
     -> Maybe TlsParams
     -> m ()
-walletServeImpl app (ip, port) =
-    serveImpl app (BS8.unpack ip) port
+walletServeImpl app (ip, port) = serveImpl app (BS8.unpack ip) port
 
 walletApplication
-    :: MonadFullWalletWebMode ctx m
+    :: (MonadWalletWebMode ctx m, MonadWebSockets ctx)
     => m (Server WalletSwaggerApi)
     -> m Application
 walletApplication serv = do
@@ -62,15 +61,14 @@ walletApplication serv = do
 walletServer
     :: forall ctx m.
        ( MonadFullWalletWebMode ctx m )
-    => SendActions m
-    -> m (m :~> Handler)
+    => m (m :~> Handler)
     -> m (Server WalletSwaggerApi)
-walletServer sendActions natM = do
+walletServer natM = do
     nat <- natM
     syncWalletsWithGState =<< mapM findKey =<< myRootAddresses
-    startPendingTxsResubmitter sendActions
+    startPendingTxsResubmitter
     launchNotifier nat
-    return $ servantHandlersWithSwagger sendActions nat
+    return $ servantHandlersWithSwagger nat
 
 bracketWalletWebDB
     :: ( MonadIO m

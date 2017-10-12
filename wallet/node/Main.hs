@@ -100,7 +100,7 @@ walletProd ::
        )
     => WalletArgs
     -> ([WorkerSpec WalletWebMode], OutSpecs)
-walletProd WalletArgs {..} = first pure $ worker walletServerOuts $ \sendActions ->
+walletProd WalletArgs {..} = first one $ worker walletServerOuts $ \sendActions ->
     walletServeWebFull
         sendActions
         walletDebug

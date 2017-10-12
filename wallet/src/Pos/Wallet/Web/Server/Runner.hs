@@ -13,6 +13,7 @@ module Pos.Wallet.Web.Server.Runner
 
 import           Universum                      hiding (over)
 
+import qualified Control.Concurrent.STM         as STM
 import qualified Control.Monad.Catch            as Catch
 import           Control.Monad.Except           (MonadError (throwError))
 import qualified Control.Monad.Reader           as Mtl
@@ -50,10 +51,13 @@ runWRealMode
     -> NodeResources EmptyMempoolExt WalletWebMode
     -> (ActionSpec WalletWebMode a, OutSpecs)
     -> Production a
-runWRealMode db conn =
+runWRealMode db conn res spec = do
+    saVar <- atomically STM.newEmptyTMVar
     runRealBasedMode
-        (Mtl.withReaderT (WalletWebModeContext db conn))
-        (Mtl.withReaderT (\(WalletWebModeContext _ _ rmc) -> rmc))
+        (Mtl.withReaderT (WalletWebModeContext db conn saVar))
+        (Mtl.withReaderT (\(WalletWebModeContext _ _ _ rmc) -> rmc))
+        res
+        spec
 
 walletServeWebFull
     :: ( HasConfigurations
@@ -69,9 +73,11 @@ walletServeWebFull sendActions debug = walletServeImpl action
     action :: WalletWebMode Application
     action = do
         logInfo "DAEDALUS has STARTED!"
+        saVar <- asks wwmcSendActions
+        atomically $ STM.putTMVar saVar sendActions
         when debug $ addInitialRichAccount 0
         walletApplication $
-            walletServer @WalletWebModeContext @WalletWebMode sendActions nat
+            walletServer @WalletWebModeContext @WalletWebMode nat
 
 nat :: WalletWebMode (WalletWebMode :~> Handler)
 nat = do

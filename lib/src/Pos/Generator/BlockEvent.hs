@@ -189,9 +189,7 @@ genBlocksInTree secrets bootStakeholders blockchainTree = do
             , _bgpSkipNoKey       = False
             , _bgpTxpGlobalSettings = txpSettings
             }
-    -- Partial pattern-matching is safe because we specify
-    -- blockCount = 1 in the generation parameters.
-    OldestFirst [block] <- genBlocks blockGenParams
+    [block] <- genBlocks blockGenParams maybeToList
     forestBlocks <- genBlocksInForest secrets bootStakeholders blockchainForest
     return $ BlockchainTree block forestBlocks
 

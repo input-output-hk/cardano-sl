@@ -92,7 +92,7 @@ bpGenBlocks
 bpGenBlocks blkCnt enableTxPayload inplaceDB = do
     params <- genBlockGenParams blkCnt enableTxPayload inplaceDB
     g <- pick $ MkGen $ \qc _ -> qc
-    lift $ evalRandT (genBlocks params) g
+    lift $ OldestFirst <$> evalRandT (genBlocks params maybeToList) g
 
 -- | A version of 'bpGenBlocks' which generates exactly one
 -- block. Allows one to avoid unsafe functions sometimes.

@@ -7,6 +7,7 @@ module Pos.Wallet.Web.Mode
        , WalletWebModeContextTag
        , WalletWebModeContext(..)
        , MonadWalletWebMode
+       , EmptyMempoolExt
        ) where
 
 import           Universum
@@ -60,6 +61,8 @@ import           Pos.Slotting.Impl.Sum            (currentTimeSlottingSum,
 import           Pos.Slotting.MemState            (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Ssc.Class.Types              (HasSscContext (..), SscBlock)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Txp                          (MempoolExt, MonadTxpLocal (..),
+                                                   txNormalize, txProcessTransaction)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util                         (Some (..))
 import           Pos.Util.CompileInfo             (HasCompileInfo)
@@ -84,13 +87,12 @@ import           Pos.Wallet.Web.Sockets.ConnSet   (ConnectionsVar)
 import           Pos.Wallet.Web.State.State       (WalletState)
 import           Pos.Wallet.Web.Tracking          (MonadBListener (..), onApplyTracking,
                                                    onRollbackTracking)
-import           Pos.WorkMode                     (RealModeContext (..))
-
+import           Pos.WorkMode                     (EmptyMempoolExt, RealModeContext (..))
 
 data WalletWebModeContext = WalletWebModeContext
     { wwmcWalletState     :: !WalletState
     , wwmcConnectionsVar  :: !ConnectionsVar
-    , wwmcRealModeContext :: !(RealModeContext WalletSscType)
+    , wwmcRealModeContext :: !(RealModeContext WalletSscType EmptyMempoolExt)
     }
 
 makeLensesWith postfixLFields ''WalletWebModeContext
@@ -124,7 +126,7 @@ instance HasLens ConnectionsVar WalletWebModeContext ConnectionsVar where
     lensOf = wwmcConnectionsVar_L
 
 instance {-# OVERLAPPABLE #-}
-    HasLens tag (RealModeContext WalletSscType) r =>
+    HasLens tag (RealModeContext WalletSscType EmptyMempoolExt) r =>
     HasLens tag WalletWebModeContext r
   where
     lensOf = wwmcRealModeContext_L . lensOf @tag
@@ -236,3 +238,9 @@ instance MonadKnownPeers WalletWebMode where
 
 instance MonadFormatPeers WalletWebMode where
     formatKnownPeers = OQ.Reader.formatKnownPeersReader (rmcOutboundQ . wwmcRealModeContext)
+
+type instance MempoolExt WalletWebMode = EmptyMempoolExt
+
+instance (HasConfiguration, HasInfraConfiguration) => MonadTxpLocal WalletWebMode where
+    txpNormalize = txNormalize
+    txpProcessTx = txProcessTransaction

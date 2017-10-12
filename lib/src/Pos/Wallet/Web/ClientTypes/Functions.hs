@@ -3,6 +3,8 @@
 -- | Functions on client types
 module Pos.Wallet.Web.ClientTypes.Functions
       ( encToCId
+      , addressToCId
+      , cIdToAddress
       , mkCTx
       , toCUpdateInfo
       , addrMetaToAccount
@@ -15,13 +17,15 @@ import           Control.Monad.Error.Class            (throwError)
 import qualified Data.List.NonEmpty                   as NE
 import qualified Data.Set                             as S
 import           Data.Text                            (Text)
+import           Formatting                           (build, sformat)
 
 import           Pos.Aeson.Types                      ()
 import           Pos.Client.Txp.History               (TxHistoryEntry (..))
 import           Pos.Crypto                           (EncryptedSecretKey, encToPublic)
 import           Pos.Txp.Core.Types                   (Tx (..), TxOut (..), txOutAddress,
                                                        txOutValue)
-import           Pos.Types                            (ChainDifficulty,
+import           Pos.Types                            (Address, ChainDifficulty,
+                                                       decodeTextAddress,
                                                        makePubKeyAddressBoot, sumCoins,
                                                        unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Update.Core                      (BlockVersionData (..),
@@ -33,11 +37,22 @@ import           Pos.Update.Poll                      (ConfirmedProposalState (.
 import           Pos.Util.Servant
 import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), Addr, CCoin,
-                                                       CId (..), CPtxCondition (..),
-                                                       CTx (..), CTxMeta,
-                                                       CUpdateInfo (..),
+                                                       CHash (..), CId (..),
+                                                       CPtxCondition (..), CTx (..),
+                                                       CTxMeta, CUpdateInfo (..),
                                                        CWAddressMeta (..))
 
+-- TODO: this is not completely safe. If someone changes
+-- implementation of Buildable Address. It should be probably more
+-- safe to introduce `class PSSimplified` that would have the same
+-- implementation has it is with Buildable Address but then person
+-- will know it will probably change something for purescript.
+-- | Transform Address into CId
+addressToCId :: Address -> CId w
+addressToCId = CId . CHash . sformat build
+
+cIdToAddress :: CId w -> Either Text Address
+cIdToAddress (CId (CHash h)) = decodeTextAddress h
 
 -- TODO: pass extra information to this function and choose
 -- distribution based on this information. Currently it's always
@@ -96,10 +111,10 @@ mkCTx
     -> TxHistoryEntry     -- ^ Tx history entry
     -> CTxMeta            -- ^ Transaction metadata
     -> CPtxCondition      -- ^ State of resubmission
-    -> [CWAddressMeta]    -- ^ Addresses of wallet
+    -> Set (CId Addr)     -- ^ Addresses of wallet
     -> Either Text CTx
-mkCTx diff THEntry {..} meta pc wAddrMetas = do
-    let isOurTxAddress = flip S.member wAddrsSet . encodeCType . txOutAddress
+mkCTx diff THEntry {..} meta pc wAddrsSet = do
+    let isOurTxAddress = flip S.member wAddrsSet . addressToCId . txOutAddress
 
         ownInputs = filter isOurTxAddress inputs
         ownOutputs = filter isOurTxAddress outputs
@@ -132,12 +147,11 @@ mkCTx diff THEntry {..} meta pc wAddrMetas = do
     ctConfirmations = maybe 0 fromIntegral $ (diff -) <$> _thDifficulty
     ctMeta = meta
     ctCondition = pc
-    wAddrsSet = S.fromList $ map cwamId wAddrMetas
 
 addrMetaToAccount :: CWAddressMeta -> AccountId
 addrMetaToAccount CWAddressMeta{..} = AccountId
     { aiWId  = cwamWId
-    , aiIndex = cwamWalletIndex
+    , aiIndex = cwamAccountIndex
     }
 
 -- | Return counts of negative and positive votes

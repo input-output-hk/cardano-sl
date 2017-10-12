@@ -35,7 +35,7 @@ import qualified Data.Map                    as Map
 
 import           Pos.AllSecrets              (AllSecrets)
 import           Pos.Core                    (GenesisWStakeholders)
-import           Pos.Generator.Block         (MonadBlockGen)
+import           Pos.Generator.Block         (BlockTxpGenMode, MonadBlockGen)
 import           Pos.Generator.BlockEvent    (BlockApplyResult (..), BlockDesc (..),
                                               BlockEvent' (..), BlockEventApply' (..),
                                               BlockEventRollback' (..),
@@ -115,8 +115,8 @@ snapshotEq ::
 snapshotEq snapshotId = emitEvent $
     BlkEvSnap (SnapshotEq snapshotId)
 
-runBlockEventGenT ::
-       (RandomGen g, MonadBlockGen ctx m)
+runBlockEventGenT
+    :: BlockTxpGenMode g ctx m
     => AllSecrets
     -> GenesisWStakeholders
     -> BlockEventGenT g m ()

@@ -324,9 +324,7 @@ getBlockTxs
 getBlockTxs cHash mLimit mSkip = do
     let limit = fromIntegral $ fromMaybe defaultPageSize mLimit
     let skip = fromIntegral $ fromMaybe 0 mSkip
-    h   <- unwrapOrThrow $ fromCHash cHash
-    blk <- getMainBlock h
-    txs <- topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs
+    txs <- getMainBlockTxs cHash
 
     forM (take limit . drop skip $ txs) $ \tx -> do
         extra <- EX.getTxExtra (hash tx) >>=
@@ -674,18 +672,13 @@ getStatsTxs mPageNumber = do
         cHashes = cbeBlkHash <$> cBlockEntries
 
         blockPageTxsInfo :: m [(CTxId, Byte)]
-        blockPageTxsInfo = concat <$> forM cHashes getBlockTxsInfo
+        blockPageTxsInfo = concatForM cHashes getBlockTxsInfo
 
         getBlockTxsInfo
             :: CHash
             -> m [(CTxId, Byte)]
         getBlockTxsInfo cHash = do
-            h   <- unwrapOrThrow $ fromCHash cHash
-            blk <- getMainBlock h
-            txs <- topsortTxsOrFail withHash
-                $ toList
-                $ blk ^. mainBlockTxPayload . txpTxs
-
+            txs <- getMainBlockTxs cHash
             pure $ txToTxIdSize <$> txs
           where
             txToTxIdSize :: Tx -> (CTxId, Byte)
@@ -704,6 +697,14 @@ toPageSize = fromIntegral . fromMaybe defaultPageSize
 
 toAddressesFilter :: Maybe CAddressesFilter -> CAddressesFilter
 toAddressesFilter = fromMaybe AllAddresses
+
+getMainBlockTxs :: ExplorerMode ctx m => CHash -> m [Tx]
+getMainBlockTxs cHash = do
+    hash' <- unwrapOrThrow $ fromCHash cHash
+    blk   <- getMainBlock hash'
+    txs   <- topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs
+
+    pure txs
 
 makeTxBrief :: Tx -> TxExtra -> CTxBrief
 makeTxBrief tx extra = toTxBrief (TxInternal extra tx)

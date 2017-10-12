@@ -183,7 +183,7 @@ periodicPollChanges connVar closed =
                 logDebug $ sformat ("Blockchain updated ("%int%" blocks)")
                     (length newBlunds)
 
-            newBlockchainTxs <- lift $ concat <$> forM newBlunds (getBlockTxs @SscGodTossing @ctx . fst)
+            newBlockchainTxs <- lift $ concatForM newBlunds (getBlockTxs @SscGodTossing @ctx . fst)
             let newLocalTxs = S.toList $ mempoolTxs `S.difference` wasMempoolTxs
 
             let allTxs = newBlockchainTxs <> newLocalTxs

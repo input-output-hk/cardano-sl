@@ -131,7 +131,7 @@ data AccountId = AccountId
       aiWId   :: CId Wal
     , -- | Derivation index of this account key
       aiIndex :: Word32
-    } deriving (Eq, Show, Generic, Typeable)
+    } deriving (Eq, Ord, Show, Generic, Typeable)
 
 instance Hashable AccountId
 
@@ -144,9 +144,9 @@ data CWAddressMeta = CWAddressMeta
     { -- | Address of wallet this account belongs to
       cwamWId          :: CId Wal
     , -- | First index in derivation path of this account key
-      cwamWalletIndex  :: Word32
-    , -- | Second index in derivation path of this account key
       cwamAccountIndex :: Word32
+    , -- | Second index in derivation path of this account key
+      cwamAddressIndex :: Word32
     , -- | Actual address
       cwamId           :: CId Addr
     } deriving (Eq, Ord, Show, Generic, Typeable)
@@ -154,7 +154,7 @@ data CWAddressMeta = CWAddressMeta
 instance Buildable CWAddressMeta where
     build CWAddressMeta{..} =
         bprint (build%"@"%build%"@"%build%" ("%build%")")
-        cwamWId cwamWalletIndex cwamAccountIndex cwamId
+        cwamWId cwamAccountIndex cwamAddressIndex cwamId
 
 instance Hashable CWAddressMeta
 

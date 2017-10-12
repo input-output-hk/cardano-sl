@@ -238,36 +238,42 @@ genTestnetDistribution ::
     => TestnetBalanceOptions
     -> Integer
     -> ([Coin], [Coin])
-genTestnetDistribution TestnetBalanceOptions{..} testBalance =
+genTestnetDistribution TestnetBalanceOptions {..} testBalance =
     checkConsistency (richBalances, poorBalances)
   where
     richs = fromIntegral tboRichmen
     poors = fromIntegral tboPoors
-
     -- Calculate actual balances
     desiredRichBalance = getShare tboRichmenShare testBalance
-    oneRichmanBalance = desiredRichBalance `div` richs +
-        if desiredRichBalance `mod` richs > 0 then 1 else 0
+    oneRichmanBalance
+        | richs == 0 = 0
+        | otherwise =
+            desiredRichBalance `div` richs +
+            if desiredRichBalance `mod` richs > 0
+                then 1
+                else 0
     realRichBalance = oneRichmanBalance * richs
     poorsBalance = testBalance - realRichBalance
-    onePoorBalance = if poors == 0 then 0 else poorsBalance `div` poors
+    onePoorBalance | poors == 0 = 0
+                   | otherwise = poorsBalance `div` poors
     realPoorBalance = onePoorBalance * poors
-
-    richBalances = replicate (fromInteger richs) (unsafeIntegerToCoin oneRichmanBalance)
-    poorBalances = replicate (fromInteger poors) (unsafeIntegerToCoin onePoorBalance)
+    richBalances =
+        replicate (fromInteger richs) (unsafeIntegerToCoin oneRichmanBalance)
+    poorBalances =
+        replicate (fromInteger poors) (unsafeIntegerToCoin onePoorBalance)
 
     -- Consistency checks
     everythingIsConsistent :: [(Bool, Text)]
     everythingIsConsistent =
         [ ( realRichBalance + realPoorBalance <= testBalance
-          , "Real rich + poor balance is more than desired."
-          )
+          , "Real rich + poor balance is more than desired.")
         ]
 
     checkConsistency :: a -> a
-    checkConsistency = case verifyGeneric everythingIsConsistent of
-        VerSuccess        -> identity
-        VerFailure errors -> error $ formatAllErrors errors
+    checkConsistency =
+        case verifyGeneric everythingIsConsistent of
+            VerSuccess -> identity
+            VerFailure errors -> error $ formatAllErrors errors
 
     getShare :: Double -> Integer -> Integer
     getShare sh n = round $ sh * fromInteger n

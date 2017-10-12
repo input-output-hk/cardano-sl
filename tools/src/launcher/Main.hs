@@ -12,6 +12,7 @@ import           Universum
 import           Control.Concurrent           (modifyMVar_)
 import           Control.Concurrent.Async.Lifted.Safe
     (Async, async, cancel, poll, wait, waitAny, withAsyncWithUnmask)
+import           Control.Exception.Safe       (tryAny)
 import           Data.List                    (isSuffixOf)
 import qualified Data.Text.IO                 as T
 import           Data.Time.Units              (Second, convertUnit)
@@ -325,7 +326,9 @@ clientScenario logConf node wallet updater nodeTimeout report = do
   where
     killNode nodeHandle nodeAsync = do
         logInfo "Killing the node"
-        liftIO $ Process.terminateProcess nodeHandle
+        liftIO (tryAny (Process.terminateProcess nodeHandle)) >>= \case
+            Right _ -> pass
+            Left ex -> logError $ "'terminateProcess' failed: " <> show ex
         cancel nodeAsync
         -- Give the node some time to die, then complain if it hasn't
         nodeExitCode <- liftIO $

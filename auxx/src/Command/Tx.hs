@@ -56,7 +56,7 @@ import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo             (HasCompileInfo)
 import           Pos.Util.UserSecret              (usWallet, userSecret)
 import           Pos.Util.Util                    (maybeThrow)
-import           Pos.Wallet                       (getSecretKeysPlain)
+import           Pos.Wallet.KeyStorage            (getSecretKeysPlain)
 import           Pos.Wallet.Web.Secret            (wusRootKey)
 
 import           Command.Types                    (SendMode (..),

@@ -116,28 +116,6 @@ library
                         Pos.Util.OutboundQueue
                         Pos.Util.UserSecret
 
-                        -- Wallets
-                        Pos.Wallet
-                        Pos.Wallet.KeyStorage
-                        Pos.Wallet.WalletMode
-                        Pos.Wallet.Web.Assurance
-                        Pos.Wallet.Web.ClientTypes
-                        Pos.Wallet.Web.ClientTypes.Functions
-                        Pos.Wallet.Web.ClientTypes.Instances
-                        Pos.Wallet.Web.ClientTypes.Types
-                        Pos.Wallet.Web.Error
-                        Pos.Wallet.Web.Error.Types
-                        Pos.Wallet.Web.Error.Util
-                        Pos.Wallet.Web.Pending.Types
-                        Pos.Wallet.Web.Pending.Util
-                        Pos.Wallet.Web.State
-                        Pos.Wallet.Web.State.Acidic
-                        Pos.Wallet.Web.State.State
-                        Pos.Wallet.Web.State.Storage
-                        Pos.Wallet.Web.State.Util
-                        Pos.Wallet.Web.Secret
-                        Pos.Wallet.Web.Util
-
                         Pos.Web
                         Pos.Web.Api
                         Pos.Web.Mode
@@ -155,6 +133,10 @@ library
 
                         -- Heavy delegation
                         Pos.Delegation.Types
+
+                        -- Wallets
+                        Pos.Wallet.KeyStorage
+                        Pos.Wallet.Web.Secret
 
                         -- Exposed for tests
                         Pos.Block.Logic.VAR

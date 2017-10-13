@@ -31,7 +31,7 @@ import           Pos.Update               (SystemTag, UpId, UpdateData (..),
                                            mkUpdateProposalWSign)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo     (HasCompileInfo)
-import           Pos.Wallet               (getSecretKeysPlain)
+import           Pos.Wallet.KeyStorage    (getSecretKeysPlain)
 
 import           Command.Types            (ProposeUpdateParams (..),
                                            ProposeUpdateSystem (..))

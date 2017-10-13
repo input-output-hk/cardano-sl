@@ -19,7 +19,6 @@ module Pos.Wallet.Web.Methods.Misc
 
 import           Universum
 
-import           Pos.Aeson.ClientTypes      ()
 import           Pos.Core                   (SoftwareVersion (..), decodeTextAddress)
 import           Pos.Update.Configuration   (curSoftwareVersion)
 import           Pos.Util                   (maybeThrow)

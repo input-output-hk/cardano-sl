@@ -18,8 +18,6 @@ import           Servant.Server                    (Handler, runHandler)
 import           Servant.Utils.Enter               ((:~>) (..))
 import           System.Wlog                       (logDebug)
 
-import           Pos.Aeson.ClientTypes             ()
-import           Pos.Aeson.WalletBackup            ()
 import           Pos.DB                            (MonadGState (..))
 import           Pos.Wallet.WalletMode             (connectedPeers, localChainDifficulty,
                                                     networkChainDifficulty, waitForUpdate)

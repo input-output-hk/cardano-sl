@@ -1,6 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
-module Pos.Aeson.WalletBackup
+module Pos.Wallet.Aeson.WalletBackup
        (
        ) where
 

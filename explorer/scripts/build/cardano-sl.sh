@@ -50,7 +50,6 @@ spec_prj=''
 
 no_nix=false
 ram=false
-wallet=true
 explorer=false
 no_code=false
 werror=false
@@ -89,9 +88,6 @@ do
   # -Werror = compile with -Werror
   elif [[ $var == "-Werror" ]]; then
     werror=true
-  # --no-wallet = don't build in wallet mode
-  elif [[ $var == "--no-wallet" ]]; then
-    wallet=false
   # --explorer = build with Explorer support
   elif [[ $var == "--explorer" ]]; then
     explorer=true
@@ -134,10 +130,6 @@ fi
 
 if [[ $for_installer == true ]]; then
   commonargs="$commonargs --flag cardano-sl-tools:for-installer"
-fi
-
-if [[ $wallet == false ]]; then
-  commonargs="$commonargs --flag cardano-sl:-with-wallet"
 fi
 
 if [[ $no_fast == true ]];
@@ -191,7 +183,7 @@ fi
 echo "Going to build: $to_build"
 
 for prj in $to_build; do
- 
+
   echo -e "Building $prj\n"
   sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun --dependencies-only $args $prj"
   echo -e "$sbuild\n\n"

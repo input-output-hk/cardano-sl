@@ -35,6 +35,7 @@ library
                       , binary
                       , bytestring
                       , containers
+                      , data-default
                       , either
                       , ether >= 0.5.1
                       , exceptions
@@ -100,6 +101,7 @@ library
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
+                        TemplateHaskell
                         TypeApplications
                         TupleSections
                         ViewPatterns
@@ -226,6 +228,7 @@ executable cardano-explorer-swagger
   build-depends:       aeson
                      , base
                      , bytestring
+                     , cardano-sl
                      , cardano-sl-explorer
                      , lens
                      , swagger2

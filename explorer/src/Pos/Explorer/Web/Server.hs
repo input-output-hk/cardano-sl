@@ -22,7 +22,6 @@ module Pos.Explorer.Web.Server
 import           Universum
 
 import           Control.Lens                     (at)
-import           Control.Monad.Catch              (try)
 import qualified Data.ByteString                  as BS
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.List.NonEmpty               as NE
@@ -123,78 +122,31 @@ explorerApp serv = serve explorerApi <$> serv
 
 explorerHandlers :: ExplorerMode ctx m => SendActions m -> ServerT ExplorerApi m
 explorerHandlers _sendActions =
-      apiTotalAda
+      getTotalAda
     :<|>
-      apiBlocksPages
+      getBlocksPage
     :<|>
-      apiBlocksPagesTotal
+      getBlocksPagesTotal
     :<|>
-      apiBlocksSummary
+      getBlockSummary
     :<|>
-      apiBlocksTxs
+      getBlockTxs
     :<|>
-      apiTxsLast
+      getLastTxs
     :<|>
-      apiTxsSummary
+      getTxSummary
     :<|>
-      apiAddressSummary
+      getAddressSummary
     :<|>
-      apiEpochSlotSearch
+      epochSlotSearch
     :<|>
-      apiGenesisSummary
+      getGenesisSummary
     :<|>
-      apiGenesisPagesTotal
+      getGenesisPagesTotal
     :<|>
-      apiGenesisAddressInfo
+      getGenesisAddressInfo
     :<|>
-      apiStatsTxs
-  where
-    apiTotalAda           = tryGetTotalAda
-    apiBlocksPages        = getBlocksPagesDefault
-    apiBlocksPagesTotal   = getBlocksPagesTotalDefault
-    apiBlocksSummary      = catchExplorerError . getBlockSummary
-    apiBlocksTxs          = getBlockTxsDefault
-    apiTxsLast            = catchExplorerError getLastTxs
-    apiTxsSummary         = catchExplorerError . getTxSummary
-    apiAddressSummary     = catchExplorerError . getAddressSummary
-    apiEpochSlotSearch    = tryEpochSlotSearch
-    apiGenesisSummary     = catchExplorerError getGenesisSummary
-    apiGenesisPagesTotal  = getGenesisPagesTotalDefault
-    apiGenesisAddressInfo = getGenesisAddressInfoDefault
-    apiStatsTxs           = getStatsTxsDefault
-
-    catchExplorerError    = try
-
-    tryGetTotalAda =
-        catchExplorerError getTotalAda
-
-    getBlocksPagesDefault page size  =
-        catchExplorerError $ getBlocksPage page (defaultPageSize size)
-
-    getBlocksPagesTotalDefault size  =
-        catchExplorerError $ getBlocksPagesTotal (defaultPageSize size)
-
-    getBlockTxsDefault hash' limit skip =
-        catchExplorerError $ getBlockTxs hash' (defaultLimit limit) (defaultSkip skip)
-
-    tryEpochSlotSearch epoch maybeSlot =
-        catchExplorerError $ epochSlotSearch epoch maybeSlot
-
-    getGenesisPagesTotalDefault size addrFilt =
-        catchExplorerError $
-            getGenesisPagesTotal (defaultPageSize size) (defaultAddressesFilter addrFilt)
-
-    getGenesisAddressInfoDefault page size addrFilt =
-        catchExplorerError $
-            getGenesisAddressInfo page (defaultPageSize size) (defaultAddressesFilter addrFilt)
-
-    getStatsTxsDefault page =
-        catchExplorerError $ getStatsTxs page
-
-    defaultPageSize size   = (fromIntegral $ fromMaybe 10 size)
-    defaultLimit limit     = (fromIntegral $ fromMaybe 10 limit)
-    defaultSkip  skip      = (fromIntegral $ fromMaybe 0  skip)
-    defaultAddressesFilter = fromMaybe AllAddresses
+      getStatsTxs
 
 ----------------------------------------------------------------
 -- API Functions
@@ -223,7 +175,6 @@ getBlocksTotal
 getBlocksTotal = do
     -- Get the tip block.
     tipBlock <- DB.getTipBlock @SscGodTossing
-
     pure $ maxBlocks tipBlock
   where
     maxBlocks tipBlock = fromIntegral $ getChainDifficulty $ tipBlock ^. difficultyL
@@ -235,12 +186,12 @@ getBlocksTotal = do
 getBlocksPage
     :: ExplorerMode ctx m
     => Maybe Word
-    -> Word
+    -> Maybe Word
     -> m (Integer, [CBlockEntry])
-getBlocksPage mPageNumber pageSize = do
-
+getBlocksPage mPageNumber mPageSize = do
+    let pageSize = toPageSize mPageSize
     -- Get total pages from the blocks.
-    totalPages <- getBlocksPagesTotal pageSize
+    totalPages <- getBlocksPagesTotal mPageSize
 
     -- Initially set on the last page number if page number not defined.
     let pageNumber = fromMaybe totalPages $ toInteger <$> mPageNumber
@@ -253,7 +204,7 @@ getBlocksPage mPageNumber pageSize = do
         throwM $ Internal "Number of pages exceeds total pages number."
 
     -- TODO: Fix in the future.
-    when (pageSize /= 10) $
+    when (pageSize /= fromIntegral defaultPageSize) $
         throwM $ Internal "We currently support only page size of 10."
 
     when (pageSize > 1000) $
@@ -293,9 +244,10 @@ getBlundOrThrow headerHash = DB.blkGetBlund headerHash >>=
 -- pageSize we pass to it.
 getBlocksPagesTotal
     :: ExplorerMode ctx m
-    => Word
+    => Maybe Word
     -> m Integer
-getBlocksPagesTotal pageSize = do
+getBlocksPagesTotal mPageSize = do
+    let pageSize = toPageSize mPageSize
     -- Get total blocks in the blockchain.
     blocksTotal <- toInteger <$> getBlocksTotal
 
@@ -303,12 +255,10 @@ getBlocksPagesTotal pageSize = do
     -- with the example, the page size 10,
     -- to start with 10 + 1 == 11, not with 10 since with
     -- 10 we'll have an empty page.
-    let totalPages = (blocksTotal - 1) `div` pageSizeInt
+    let totalPages = (blocksTotal - 1) `div` pageSize
 
     -- We start from page 1.
     pure (totalPages + 1)
-  where
-    pageSizeInt     = toInteger pageSize
 
 
 -- | Get the last page from the blockchain. We use the default 10
@@ -316,11 +266,7 @@ getBlocksPagesTotal pageSize = do
 getBlocksLastPage
     :: ExplorerMode ctx m
     => m (Integer, [CBlockEntry])
-getBlocksLastPage = getBlocksPage Nothing pageSize
-  where
-    pageSize :: Word
-    pageSize = 10
-
+getBlocksLastPage = getBlocksPage Nothing (Just defaultPageSize)
 
 -- | Get last transactions from the blockchain.
 getLastTxs
@@ -372,13 +318,15 @@ getBlockSummary cHash = do
 getBlockTxs
     :: ExplorerMode ctx m
     => CHash
-    -> Word
-    -> Word
+    -> Maybe Word
+    -> Maybe Word
     -> m [CTxBrief]
-getBlockTxs cHash (fromIntegral -> lim) (fromIntegral -> off) = do
+getBlockTxs cHash mLimit mSkip = do
+    let limit = fromIntegral $ fromMaybe defaultPageSize mLimit
+    let skip = fromIntegral $ fromMaybe 0 mSkip
     txs <- getMainBlockTxs cHash
 
-    forM (take lim . drop off $ txs) $ \tx -> do
+    forM (take limit . drop skip $ txs) $ \tx -> do
         extra <- EX.getTxExtra (hash tx) >>=
                  maybeThrow (Internal "In-block transaction doesn't \
                                       \have extra info in DB")
@@ -613,12 +561,13 @@ getFilteredGrai addrFilt = do
 getGenesisAddressInfo
     :: (ExplorerMode ctx m)
     => Maybe Word  -- ^ pageNumber
-    -> Word        -- ^ pageSize
+    -> Maybe Word  -- ^ pageSize
     -> CAddressesFilter
     -> m [CGenesisAddressInfo]
-getGenesisAddressInfo (fmap fromIntegral -> mPage) (fromIntegral -> pageSize) addrFilt = do
+getGenesisAddressInfo (fmap fromIntegral -> mPage) mPageSize addrFilt = do
     filteredGrai <- getFilteredGrai addrFilt
     let pageNumber    = fromMaybe 1 mPage
+        pageSize      = fromIntegral $ toPageSize mPageSize
         skipItems     = (pageNumber - 1) * pageSize
         requestedPage = V.slice skipItems pageSize filteredGrai
     V.toList <$> V.mapM toGenesisAddressInfo requestedPage
@@ -637,12 +586,15 @@ getGenesisAddressInfo (fmap fromIntegral -> mPage) (fromIntegral -> pageSize) ad
 
 getGenesisPagesTotal
     :: ExplorerMode ctx m
-    => Word
+    => Maybe Word
     -> CAddressesFilter
     -> m Integer
-getGenesisPagesTotal (fromIntegral -> pageSize) addrFilt = do
+getGenesisPagesTotal mPageSize addrFilt = do
     filteredGrai <- getFilteredGrai addrFilt
     pure $ fromIntegral $ (length filteredGrai + pageSize - 1) `div` pageSize
+  where
+    pageSize = fromIntegral $ toPageSize mPageSize
+
 
 -- | Search the blocks by epoch and slot. Slot is optional.
 epochSlotSearch
@@ -650,18 +602,18 @@ epochSlotSearch
     => EpochIndex
     -> Maybe Word16
     -> m [CBlockEntry]
-epochSlotSearch epochIndex slotIndex = do
+epochSlotSearch epochIndex mSlotIndex = do
 
     -- [CSE-236] Disable search for epoch only
     -- TODO: Remove restriction if epoch search will be optimized
-    when (isNothing slotIndex) $
+    when (isNothing mSlotIndex) $
         throwM $ Internal "We currently do not support searching for epochs only."
 
     -- Get pages from the database
     -- TODO: Fix this Int / Integer thing once we merge repositories
     epochBlocksHH   <- getPageHHsOrThrow epochIndex
     blunds          <- forM epochBlocksHH getBlundOrThrow
-    cBlocksEntry    <- forM (getEpochSlots slotIndex (rights' blunds)) toBlockEntry
+    cBlocksEntry    <- forM (getEpochSlots mSlotIndex (rights' blunds)) toBlockEntry
 
     pure cBlocksEntry
   where
@@ -673,7 +625,7 @@ epochSlotSearch epochIndex slotIndex = do
         -> [MainBlund SscGodTossing]
         -> [MainBlund SscGodTossing]
     getEpochSlots Nothing           blunds = blunds
-    getEpochSlots (Just slotIndex') blunds = filter filterBlundsBySlotIndex blunds
+    getEpochSlots (Just slotIndex) blunds = filter filterBlundsBySlotIndex blunds
       where
         getBlundSlotIndex
             :: MainBlund SscGodTossing
@@ -683,7 +635,7 @@ epochSlotSearch epochIndex slotIndex = do
         filterBlundsBySlotIndex
             :: MainBlund SscGodTossing
             -> Bool
-        filterBlundsBySlotIndex blund = getBlundSlotIndex blund == slotIndex'
+        filterBlundsBySlotIndex blund = getBlundSlotIndex blund == slotIndex
 
     -- Either get the @HeaderHash@es from the @Epoch@ or throw an exception.
     getPageHHsOrThrow
@@ -703,7 +655,7 @@ getStatsTxs
     -> m (Integer, [(CTxId, Byte)])
 getStatsTxs mPageNumber = do
     -- Get blocks from the requested page
-    blocksPage <- getBlocksPage mPageNumber 10
+    blocksPage <- getBlocksPage mPageNumber (Just defaultPageSize)
 
     blockPageTxsInfo <- getBlockPageTxsInfo blocksPage
     pure blockPageTxsInfo
@@ -735,6 +687,12 @@ getStatsTxs mPageNumber = do
 --------------------------------------------------------------------------------
 -- Helpers
 --------------------------------------------------------------------------------
+
+defaultPageSize :: Word
+defaultPageSize = 10
+
+toPageSize :: Maybe Word -> Integer
+toPageSize = fromIntegral . fromMaybe defaultPageSize
 
 getMainBlockTxs :: ExplorerMode ctx m => CHash -> m [Tx]
 getMainBlockTxs cHash = do

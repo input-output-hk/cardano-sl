@@ -52,11 +52,10 @@ main :: IO ()
 main = do
     args <- getExplorerNodeOptions
     let loggingParams = CLI.loggingParams "node" (enaCommonNodeArgs args)
-    loggerBracket loggingParams $ do
+    loggerBracket loggingParams . runProduction $ do
         CLI.printFlags
-        runProduction $ do
-            logInfo $ "[Attention] Software is built with explorer part"
-            action args
+        logInfo $ "[Attention] Software is built with explorer part"
+        action args
 
 action :: ExplorerNodeArgs -> Production ()
 action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =

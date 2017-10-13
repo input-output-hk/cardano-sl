@@ -141,8 +141,7 @@ main :: IO ()
 main = withCompileInfo $(retrieveCompileTimeInfo) $ do
     args <- getWalletNodeOptions
     let loggingParams = CLI.loggingParams "node" (wnaCommonNodeArgs args)
-    loggerBracket loggingParams $ do
+    loggerBracket loggingParams . runProduction $ do
         CLI.printFlags
-        runProduction $ do
-            logInfo "[Attention] Software is built with wallet part"
-            action args
+        logInfo "[Attention] Software is built with wallet part"
+        action args

@@ -25,6 +25,7 @@ import           Pos.Core                          (ChainDifficulty (..), SlotId
 import           Pos.Core.Configuration            (HasConfiguration)
 import           Pos.Crypto                        (WithHash (..))
 import           Pos.DB.DB                         (getTipHeader)
+import           Pos.Reporting                     (MonadReporting)
 import           Pos.Slotting                      (getNextEpochSlotDuration, onNewSlot)
 import           Pos.Txp                           (TxAux (..), topsortTxs)
 import           Pos.Util.LogSafe                  (logInfoS)
@@ -43,6 +44,7 @@ import           Pos.Wallet.Web.Util               (getWalletAssuredDepth)
 type MonadPendings ctx m =
     ( MonadWalletWebMode ctx m
     , MonadAddresses m
+    , MonadReporting ctx m
     , MonadWalletSendActions m
     , HasConfiguration
     , HasNodeConfiguration

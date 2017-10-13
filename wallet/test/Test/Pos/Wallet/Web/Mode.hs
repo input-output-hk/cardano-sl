@@ -10,7 +10,6 @@ module Test.Pos.Wallet.Web.Mode
        , WalletTestContext (..)
        , runWalletTestMode
        , WalletProperty
-       , HasWalletSpecConfiguration
        ) where
 
 import           Universum
@@ -55,7 +54,6 @@ import           Pos.DB.DB                         (gsAdoptedBVDataDefault)
 import           Pos.DB.Pure                       (DBPureVar)
 import           Pos.Generator.Block               (BlockGenMode)
 import qualified Pos.GState                        as GS
-import           Pos.Infra.Configuration           (HasInfraConfiguration)
 import           Pos.KnownPeers                    (MonadFormatPeers (..),
                                                     MonadKnownPeers (..))
 import           Pos.Launcher                      (HasConfigurations)
@@ -74,7 +72,6 @@ import           Pos.Txp                           (GenericTxpLocalData, Mempool
                                                     MonadTxpLocal (..), TxpGlobalSettings,
                                                     TxpHolderTag, txNormalize,
                                                     txProcessTransactionNoLock, txpTip)
-import           Pos.Update.Configuration          (HasUpdateConfiguration)
 import           Pos.Update.Context                (UpdateContext)
 import           Pos.Util.CompileInfo              (HasCompileInfo)
 import           Pos.Util.JsonLog                  (HasJsonLogConfig (..),
@@ -112,15 +109,6 @@ import           Test.Pos.Block.Logic.Mode         (BlockTestContext (..),
                                                     getCurrentSlotInaccurateTestDefault,
                                                     getCurrentSlotTestDefault,
                                                     initBlockTestContext)
-
-type HasWalletSpecConfiguration
-   = ( HasConfiguration
-     , HasGtConfiguration
-     , HasInfraConfiguration
-     , HasUpdateConfiguration
-     , HasNodeConfiguration
-     , HasCompileInfo
-     )
 
 ----------------------------------------------------------------------------
 -- Parameters
@@ -361,15 +349,9 @@ instance HasLens StateLockMetrics WalletTestContext StateLockMetrics where
             , slmRelease = const $ pure ()
             }
 
-instance
-    ( HasConfiguration
-    , HasNodeConfiguration
-    , HasInfraConfiguration
-    , HasGtConfiguration
-    , HasUpdateConfiguration
-    , HasCompileInfo
-    )
-    => MonadAddresses WalletTestMode where
+-- TODO remove HasCompileInfo here
+-- when getNewAddressWebWallet won't require MonadWalletWebMode
+instance (HasCompileInfo, HasConfigurations) => MonadAddresses WalletTestMode where
     type AddrData WalletTestMode = (AccountId, PassPhrase)
     getNewAddress = getNewAddressWebWallet
     getFakeChangeAddress = pure largestHDAddressBoot
@@ -380,7 +362,7 @@ instance MonadKeys WalletTestMode where
         us <- view wtcUserSecret_L
         void $ atomically $ STM.modifyTVar us f
 
-instance (HasConfigurations, HasCompileInfo) => MonadTxHistory WalletTestMode where
+instance (HasCompileInfo, HasConfigurations) => MonadTxHistory WalletTestMode where
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
@@ -393,7 +375,7 @@ instance MonadUpdates WalletTestMode where
     waitForUpdate = waitForUpdateWebWallet
     applyLastUpdate = applyLastUpdateWebWallet
 
-instance (HasConfiguration, HasCompileInfo) => MonadBListener WalletTestMode where
+instance (HasCompileInfo, HasConfiguration) => MonadBListener WalletTestMode where
     onApplyBlocks = onApplyBlocksWebWallet
     onRollbackBlocks = onRollbackBlocksWebWallet
 
@@ -405,10 +387,11 @@ instance HasConfiguration => MonadBlockchainInfo WalletTestMode where
 
 type instance MempoolExt WalletTestMode = EmptyMempoolExt
 
-instance (HasConfigurations, HasCompileInfo) => MonadTxpLocal (BlockGenMode EmptyMempoolExt WalletTestMode) where
+instance (HasCompileInfo, HasConfigurations)
+        => MonadTxpLocal (BlockGenMode EmptyMempoolExt WalletTestMode) where
     txpNormalize = txNormalize
     txpProcessTx = txProcessTransactionNoLock
 
-instance (HasConfigurations, HasCompileInfo) => MonadTxpLocal WalletTestMode where
+instance (HasCompileInfo, HasConfigurations) => MonadTxpLocal WalletTestMode where
     txpNormalize = txNormalize
     txpProcessTx = txProcessTransactionNoLock

@@ -67,7 +67,8 @@ import           Pos.Launcher                     (HasConfigurations)
 import           Pos.Network.Types                (HasNodeType (..))
 import           Pos.Recovery                     ()
 import           Pos.Recovery.Info                (MonadRecoveryInfo)
-import           Pos.Reporting                    (HasReportingContext (..))
+import           Pos.Reporting                    (HasReportingContext (..),
+                                                   MonadReporting)
 import           Pos.Shutdown                     (HasShutdownContext (..))
 import           Pos.Slotting.Class               (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum            (currentTimeSlottingSum,
@@ -222,6 +223,7 @@ type MonadFullWalletWebMode ctx m =
     ( MonadWalletWebMode ctx m
     , MonadWebSockets ctx
     , MonadWalletSendActions m
+    , MonadReporting ctx m
     )
 
 ----------------------------------------------------------------------------
@@ -340,7 +342,7 @@ instance MonadKeys WalletWebMode where
         new <- atomically $ modifyTVarS us (identity <%= f)
         writeUserSecret new
 
-instance (HasConfigurations, HasCompileInfo) => MonadWalletSendActions WalletWebMode where
+instance HasConfigurations => MonadWalletSendActions WalletWebMode where
     sendTxToNetwork tx = do
         saVar <- view wwmcSendActions_L
         saMB <- atomically $ STM.tryReadTMVar saVar

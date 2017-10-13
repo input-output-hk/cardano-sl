@@ -107,7 +107,7 @@ instance Exception BlockNetLogicException where
 -- | Start recovery based on established communication. “Starting recovery”
 -- means simply sending all our neighbors a 'MsgGetHeaders' message (see
 -- 'requestTip'), so sometimes 'triggerRecovery' is used simply to ask for
--- tips (e.g. in 'queryBlocksWorker').
+-- tips.
 --
 -- Note that when recovery is in progress (see 'recoveryInProgress'),
 -- 'triggerRecovery' does nothing. It's okay because when recovery is in

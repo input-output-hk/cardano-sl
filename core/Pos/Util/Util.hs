@@ -436,8 +436,8 @@ inAssertMode _ = pure ()
     lhs' = reverse $ dropWhile isSlash $ reverse lhs
     rhs' = dropWhile isSlash rhs
 
--- | Suggested by @dnikulin. To be used with paging of any kind.
--- The pages should be inclusive(bounded) and contain N elements (we use 10 by default):
+-- | To be used with paging of any kind.
+-- The pages should contain N elements (we use 10 by default):
 -- - 1  - 10
 -- - 11 - 20
 -- - 21 - 30

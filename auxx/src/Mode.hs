@@ -24,6 +24,7 @@ import           Universum
 import           Control.Lens                     (lens, makeLensesWith)
 import           Control.Monad.Morph              (hoist)
 import           Control.Monad.Reader             (withReaderT)
+import           Data.Default                     (def)
 import           Mockable                         (Production)
 import           System.Wlog                      (HasLoggerName (..))
 
@@ -52,11 +53,13 @@ import           Pos.DB                           (DBSum (..), MonadGState (..),
 import           Pos.DB.Class                     (MonadBlockDBGeneric (..),
                                                    MonadBlockDBGenericWrite (..),
                                                    MonadDB (..), MonadDBRead (..))
+import           Pos.Generator.Block              (BlockGenMode)
 import           Pos.GState                       (HasGStateContext (..),
                                                    getGStateImplicit)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.KnownPeers                   (MonadFormatPeers (..),
                                                    MonadKnownPeers (..))
+import           Pos.Launcher                     (HasConfigurations)
 import           Pos.Network.Types                (HasNodeType (..), NodeType (..))
 import           Pos.Reporting                    (HasReportingContext (..))
 import           Pos.Shutdown                     (HasShutdownContext (..))
@@ -66,10 +69,11 @@ import           Pos.Ssc.Class                    (HasSscContext (..), SscBlock)
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                          (MempoolExt, MonadTxpLocal (..),
-                                                   txNormalize, txProcessTransaction)
+                                                   txNormalize, txProcessTransaction,
+                                                   txProcessTransactionNoLock)
 import           Pos.Txp.DB.Utxo                  (getFilteredUtxo)
 import           Pos.Util                         (Some (..))
-import           Pos.Util.CompileInfo             (HasCompileInfo)
+import           Pos.Util.CompileInfo             (HasCompileInfo, withCompileInfo)
 import           Pos.Util.JsonLog                 (HasJsonLogConfig (..))
 import           Pos.Util.LoggerName              (HasLoggerName' (..))
 import qualified Pos.Util.OutboundQueue           as OQ.Reader
@@ -238,7 +242,7 @@ instance MonadFormatPeers AuxxMode where
 
 instance (HasConfiguration, HasInfraConfiguration) => MonadAddresses AuxxMode where
     type AddrData AuxxMode = PublicKey
-    getNewAddress = makePubKeyAddressAuxx
+    getNewAddress = withCompileInfo def $ makePubKeyAddressAuxx
 
 type instance MempoolExt AuxxMode = EmptyMempoolExt
 
@@ -246,17 +250,28 @@ instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo) => MonadTxpLo
     txpNormalize = withReaderT acRealModeContext txNormalize
     txpProcessTx = withReaderT acRealModeContext . txProcessTransaction
 
+instance (HasConfigurations) =>
+         MonadTxpLocal (BlockGenMode EmptyMempoolExt AuxxMode) where
+    txpNormalize = withCompileInfo def $ txNormalize
+    txpProcessTx = withCompileInfo def $ txProcessTransactionNoLock
+
 -- | In order to create an 'Address' from a 'PublicKey' we need to
 -- choose suitable stake distribution. We want to pick it based on
 -- whether we are currently in bootstrap era.
-makePubKeyAddressAuxx :: (HasConfiguration, HasInfraConfiguration) => PublicKey -> AuxxMode Address
+makePubKeyAddressAuxx ::
+       (HasConfiguration, HasInfraConfiguration, HasCompileInfo)
+    => PublicKey
+    -> AuxxMode Address
 makePubKeyAddressAuxx pk = do
     epochIndex <- siEpoch <$> getCurrentSlotInaccurate
     ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra epochIndex
     pure $ makePubKeyAddress ibea pk
 
 -- | Similar to @makePubKeyAddressAuxx@ but create HD address.
-deriveHDAddressAuxx :: (HasConfiguration, HasInfraConfiguration) => EncryptedSecretKey -> AuxxMode Address
+deriveHDAddressAuxx ::
+       (HasConfiguration, HasInfraConfiguration, HasCompileInfo)
+    => EncryptedSecretKey
+    -> AuxxMode Address
 deriveHDAddressAuxx hdwSk = do
     epochIndex <- siEpoch <$> getCurrentSlotInaccurate
     ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra epochIndex

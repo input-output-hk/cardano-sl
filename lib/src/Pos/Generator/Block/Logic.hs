@@ -52,7 +52,7 @@ type BlockTxpGenMode g ctx m =
     ( RandomGen g
     , MonadBlockGenInit ctx m
     , Default (MempoolExt m)
-    , MonadTxpLocal m
+    , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
     )
 
 -- | Generate an arbitrary sequence of valid blocks. The blocks are
@@ -82,7 +82,7 @@ genBlock ::
        ( RandomGen g
        , MonadBlockGen ctx m
        , Default (MempoolExt m)
-       , MonadTxpLocal m
+       , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
        )
     => EpochOrSlot
     -> BlockGenRandMode (MempoolExt m) g m (Maybe Blund)

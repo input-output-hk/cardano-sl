@@ -25,11 +25,12 @@ module Pos.Txp.MemState.Class
 import           Universum
 
 import qualified Control.Concurrent.STM as STM
+import           Control.Monad.Morph    (generalize, hoist)
 import           Data.Default           (Default (def))
 import qualified Data.HashMap.Strict    as HM
 import           Ether.Internal         (HasLens (..))
 import           Mockable               (CurrentTime, Mockable)
-import           System.Wlog            (WithLogger)
+import           System.Wlog            (NamedPureLogger, WithLogger, launchNamedPureLog)
 
 import           Pos.Core               (HasConfiguration)
 import           Pos.DB.Class           (MonadDBRead, MonadGState (..))
@@ -90,40 +91,41 @@ getTxpExtra :: (MonadIO m, MonadTxpMem e ctx m) => m e
 getTxpExtra = getTxpLocalData (STM.readTVar . txpExtra)
 
 modifyTxpLocalData
-    :: (MonadIO m, MonadTxpMem ext ctx m)
-    => (GenericTxpLocalDataPure ext -> (a, GenericTxpLocalDataPure ext))
+    :: (MonadIO m, MonadTxpMem ext ctx m, WithLogger m)
+    => (GenericTxpLocalDataPure ext -> NamedPureLogger Identity (a, GenericTxpLocalDataPure ext))
     -> m a
 modifyTxpLocalData f =
-    askTxpMem >>= \TxpLocalData{..} -> atomically $ do
-        curUM <- STM.readTVar txpUtxoModifier
-        curMP <- STM.readTVar txpMemPool
-        curUndos <- STM.readTVar txpUndos
-        curTip <- STM.readTVar txpTip
-        curExtra <- STM.readTVar txpExtra
-        let (res,(newUM,newMP,newUndos,newTip,newExtra)) =
+    askTxpMem >>= \TxpLocalData{..} -> launchNamedPureLog atomically $ do
+        curUM    <- lift $ STM.readTVar txpUtxoModifier
+        curMP    <- lift $ STM.readTVar txpMemPool
+        curUndos <- lift $ STM.readTVar txpUndos
+        curTip   <- lift $ STM.readTVar txpTip
+        curExtra <- lift $ STM.readTVar txpExtra
+        (res, (newUM, newMP, newUndos, newTip, newExtra)) <- hoist generalize $
                 f (curUM, curMP, curUndos, curTip, curExtra)
-        STM.writeTVar txpUtxoModifier newUM
-        STM.writeTVar txpMemPool newMP
-        STM.writeTVar txpUndos newUndos
-        STM.writeTVar txpTip newTip
-        STM.writeTVar txpExtra newExtra
+        lift $ STM.writeTVar txpUtxoModifier newUM
+        lift $ STM.writeTVar txpMemPool newMP
+        lift $ STM.writeTVar txpUndos newUndos
+        lift $ STM.writeTVar txpTip newTip
+        lift $ STM.writeTVar txpExtra newExtra
         pure res
 
 setTxpLocalData ::
-       (MonadIO m, MonadTxpMem ext ctx m)
+       (MonadIO m, MonadTxpMem ext ctx m, WithLogger m)
     => GenericTxpLocalDataPure ext
     -> m ()
-setTxpLocalData x = modifyTxpLocalData (const ((), x))
+setTxpLocalData x = modifyTxpLocalData (const $ pure ((), x))
 
 clearTxpMemPool ::
        ( MonadIO m
        , MonadTxpMem ext ctx m
        , Default ext
+       , WithLogger m
        )
     => m ()
 clearTxpMemPool = modifyTxpLocalData clearF
   where
-    clearF (_, _, _, tip, _) = ((), (mempty, def, mempty, tip, def))
+    clearF (_, _, _, tip, _) = pure ((), (mempty, def, mempty, tip, def))
 
 ----------------------------------------------------------------------------
 -- Abstract txNormalize and processTx

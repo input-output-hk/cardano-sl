@@ -60,7 +60,8 @@ type GlobalVerifyToilMode m =
     ( MonadUtxo m
     , MonadStakes m
     , MonadGState m
-    , WithLogger m)
+    , WithLogger m
+    )
 
 -- CHECK: @verifyToil
 -- | Verify transactions correctness with respect to Utxo applying
@@ -102,6 +103,7 @@ type LocalToilMode m =
     ( MonadUtxo m
     , MonadGState m
     , MonadTxPool m
+    , WithLogger m
     , HasConfiguration
     )
 

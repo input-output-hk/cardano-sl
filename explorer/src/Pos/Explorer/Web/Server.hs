@@ -66,7 +66,7 @@ import           Pos.Txp                          (MonadTxpMem, Tx (..), TxAux, 
                                                    _txOutputs)
 import           Pos.Util                         (maybeThrow)
 import           Pos.Util.Chrono                  (NewestFirst (..))
-import           Pos.Web                          (serveImplNoTLS)
+import           Pos.Web                          (serveImpl)
 import           Pos.WorkMode                     (WorkMode)
 
 import           Pos.Explorer                     (TxExtra (..), getEpochBlocks,
@@ -110,7 +110,7 @@ explorerServeImpl
     => m Application
     -> Word16
     -> m ()
-explorerServeImpl = flip serveImplNoTLS "*"
+explorerServeImpl app port = serveImpl app "*" port Nothing
 
 explorerApp :: ExplorerMode ctx m => m (Server ExplorerApi) -> m Application
 explorerApp serv = serve explorerApi <$> serv

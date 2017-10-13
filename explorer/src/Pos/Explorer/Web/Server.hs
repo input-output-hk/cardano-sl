@@ -605,7 +605,7 @@ epochSlotSearch
 epochSlotSearch epochIndex slotIndex = do
 
     -- The slots start from 0 so we need to modify the calculation of the index.
-    let page = fromIntegral $ (slotIndex + 10) `div` 10
+    let page = fromIntegral $ (slotIndex `div` 10) + 1
     -- Get pages from the database
     -- TODO: Fix this Int / Integer thing once we merge repositories
     epochBlocksHH   <- getPageHHsOrThrow epochIndex page

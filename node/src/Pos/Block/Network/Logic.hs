@@ -59,9 +59,8 @@ import           Pos.Communication.Protocol (Conversation (..), ConversationActi
 import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHeaderTag,
                                              recoveryCommGuard, recoveryInProgress)
 import           Pos.Core                   (HasConfiguration, HasHeaderHash (..),
-                                             HeaderHash, gbHeader, headerHashG,
-                                             isMoreDifficult, prevBlockL,
-                                             criticalForkThreshold)
+                                             HeaderHash, criticalForkThreshold, gbHeader,
+                                             headerHashG, isMoreDifficult, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.DB.Block               (blkGetHeader)
 import qualified Pos.DB.DB                  as DB
@@ -371,7 +370,7 @@ addHeaderToBlockRequestQueue
        (WorkMode ssc ctx m)
     => NodeId
     -> BlockHeader ssc
-    -> Bool -- Continues?
+    -> Bool -- ^ Was classified as chain continuation
     -> m ()
 addHeaderToBlockRequestQueue nodeId header continues = do
     logDebug $ sformat ("addToBlockRequestQueue, : "%build) header

@@ -54,7 +54,7 @@ instance ModifiesApiRes ExplorerVerbTag where
         :: Proxy ExplorerVerbTag
         -> IO (Either ServantErr a)
         -> IO (Either ServantErr (Either ExplorerError a))
-    modifyApiResult _ action = try . try $ (either throwM pure =<<) action
+    modifyApiResult _ action = try . try $ either throwM pure =<< action
 
 -- | Common prefix for all endpoints.
 type API = "api"

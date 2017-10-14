@@ -1063,11 +1063,11 @@ self: {
       cardano-report-server = callPackage ({ aeson, aeson-pretty, base, bytestring, case-insensitive, directory, exceptions, fetchgit, filelock, filepath, formatting, http-types, lens, lifted-base, log-warper, mkDerivation, monad-control, mtl, network, optparse-applicative, parsec, random, stdenv, text, time, transformers, universum, vector, wai, wai-extra, warp }:
       mkDerivation {
           pname = "cardano-report-server";
-          version = "0.3.0";
+          version = "0.4.0";
           src = fetchgit {
             url = "https://github.com/input-output-hk/cardano-report-server.git";
-            sha256 = "0kysicb6ij4mwkg8dx222hn1lxzalmzb79z1f9bpm6dfjhs7m0sf";
-            rev = "69583b607dd841b0de1ef660388172a94c660c84";
+            sha256 = "02s3qqwb2c8ldxnj43xrhmscyzby165421k2p53z2x9qg35zgn6m";
+            rev = "7b28613c9c3535193991712ff5a4a36a9f165570";
           };
           isLibrary = true;
           isExecutable = true;

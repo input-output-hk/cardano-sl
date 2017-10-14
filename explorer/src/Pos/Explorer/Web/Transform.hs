@@ -51,11 +51,13 @@ type ExplorerProd = ExtraContextT (ExplorerBListener RealModeE)
 
 type instance MempoolExt ExplorerProd = ExplorerExtra
 
-instance (HasConfiguration, HasInfraConfiguration) => MonadTxpLocal RealModeE where
+instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo) =>
+         MonadTxpLocal RealModeE where
     txpNormalize = eTxNormalize
     txpProcessTx = eTxProcessTransaction
 
-instance (HasConfiguration, HasInfraConfiguration) => MonadTxpLocal ExplorerProd where
+instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo) =>
+         MonadTxpLocal ExplorerProd where
     txpNormalize = lift $ lift txpNormalize
     txpProcessTx = lift . lift . txpProcessTx
 

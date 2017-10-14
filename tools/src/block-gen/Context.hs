@@ -13,6 +13,7 @@ import           Universum
 
 import           Control.Lens               (makeLensesWith)
 import qualified Control.Monad.Reader       as Mtl
+import           Data.Default               (def)
 import           Ether.Internal             (HasLens (..))
 import           Mockable                   (Production, currentTime)
 
@@ -38,6 +39,7 @@ import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Txp                    (MempoolExt, MonadTxpLocal (..), txNormalize,
                                              txProcessTransactionNoLock)
 import           Pos.Util                   (newInitFuture, postfixLFields)
+import           Pos.Util.CompileInfo       (withCompileInfo)
 import           Pos.WorkMode               (EmptyMempoolExt)
 
 -- | Enough context for generation of blocks.
@@ -135,5 +137,5 @@ instance HasConfigurations => DB.MonadGState TBlockGenMode where
 type instance MempoolExt TBlockGenMode = EmptyMempoolExt
 
 instance HasConfigurations => MonadTxpLocal (BlockGenMode EmptyMempoolExt TBlockGenMode) where
-    txpNormalize = txNormalize
-    txpProcessTx = txProcessTransactionNoLock
+    txpNormalize = withCompileInfo def $ txNormalize
+    txpProcessTx = withCompileInfo def $ txProcessTransactionNoLock

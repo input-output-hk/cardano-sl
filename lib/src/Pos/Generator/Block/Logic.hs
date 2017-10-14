@@ -12,7 +12,7 @@ import           Universum
 
 import           Control.Lens                (at, ix, _Wrapped)
 import           Control.Monad.Random.Strict (RandT, mapRandT)
-import           Data.Default                (Default)
+import           Data.Default                (Default (def))
 import           Formatting                  (build, sformat, (%))
 import           System.Random               (RandomGen (..))
 import           System.Wlog                 (logWarning)
@@ -40,6 +40,7 @@ import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Txp                     (MempoolExt, MonadTxpLocal)
 import           Pos.Util.Chrono             (OldestFirst (..))
+import           Pos.Util.CompileInfo        (withCompileInfo)
 import           Pos.Util.Util               (maybeThrow, _neHead)
 
 ----------------------------------------------------------------------------
@@ -79,7 +80,7 @@ genBlock ::
        forall g ctx m . BlockTxpGenMode g ctx m
     => EpochOrSlot
     -> BlockGenRandMode (MempoolExt m) g m (Maybe (Blund SscGodTossing))
-genBlock eos = do
+genBlock eos = withCompileInfo def $ do
     let epoch = eos ^. epochIndexL
     unlessM ((epoch ==) <$> lift LrcDB.getEpoch) $
         lift $ lrcSingleShot epoch
@@ -117,10 +118,12 @@ genBlock eos = do
                     Just <$> usingPrimaryKey leaderSK (genMainBlock slot (Right . swap <$> transCert))
   where
     genMainBlock slot proxySkInfo =
+        withCompileInfo def $
         lift $ createMainBlockInternal @SscGodTossing slot proxySkInfo >>= \case
             Left err -> throwM (BGFailedToCreate err)
             Right mainBlock -> verifyAndApply $ Right mainBlock
     verifyAndApply block =
+        withCompileInfo def $
         verifyBlocksPrefix (one block) >>= \case
             Left err -> throwM (BGCreatedInvalid err)
             Right (undos, pollModifier) -> do

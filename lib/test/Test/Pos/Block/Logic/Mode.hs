@@ -25,6 +25,7 @@ module Test.Pos.Block.Logic.Mode
 import           Universum
 
 import           Control.Lens                   (lens, makeClassy, makeLensesWith)
+import           Data.Default                   (def)
 import qualified Data.Map                       as Map
 import qualified Data.Text.Buildable
 import           Data.Time.Units                (TimeUnit (..))
@@ -95,6 +96,7 @@ import           Pos.Txp                        (GenericTxpLocalData, MempoolExt
                                                  TxpHolderTag, mkTxpLocalData)
 import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
 import           Pos.Util                       (Some, newInitFuture, postfixLFields)
+import           Pos.Util.CompileInfo           (withCompileInfo)
 import           Pos.Util.LoggerName            (HasLoggerName' (..),
                                                  getLoggerNameDefault,
                                                  modifyLoggerNameDefault)
@@ -511,9 +513,9 @@ instance MonadFormatPeers BlockTestMode where
 type instance MempoolExt BlockTestMode = ExplorerExtra
 
 instance HasConfigurations => MonadTxpLocal (BlockGenMode ExplorerExtra BlockTestMode) where
-    txpNormalize = eTxNormalize
-    txpProcessTx = eTxProcessTransactionNoLock
+    txpNormalize = withCompileInfo def $ eTxNormalize
+    txpProcessTx = withCompileInfo def $ eTxProcessTransactionNoLock
 
 instance HasConfigurations => MonadTxpLocal BlockTestMode where
-    txpNormalize = eTxNormalize
-    txpProcessTx = eTxProcessTransactionNoLock
+    txpNormalize = withCompileInfo def $ eTxNormalize
+    txpProcessTx = withCompileInfo def $ eTxProcessTransactionNoLock

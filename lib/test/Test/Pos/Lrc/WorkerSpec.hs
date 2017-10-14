@@ -11,6 +11,7 @@ module Test.Pos.Lrc.WorkerSpec
 import           Universum
 
 import           Control.Lens              (At (at), Index, _Right)
+import           Data.Default              (def)
 import qualified Data.HashMap.Strict       as HM
 import           Formatting                (build, sformat, (%))
 import           Serokell.Util             (listJson)
@@ -34,6 +35,7 @@ import qualified Pos.GState                as GS
 import           Pos.Launcher              (HasConfigurations)
 import qualified Pos.Lrc                   as Lrc
 import           Pos.Txp                   (TxAux, mkTxPayload)
+import           Pos.Util.CompileInfo      (withCompileInfo)
 import           Pos.Util.Util             (getKeys)
 
 import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..),
@@ -132,7 +134,7 @@ lrcCorrectnessProp = do
     -- already applied 1 blocks, hence 'pred'.
     blkCount1 <- pred <$> pick (choose (k, 2 * k))
     () <$ bpGenBlocks (Just blkCount1) (EnableTxPayload False) (InplaceDB True)
-    lift $ Lrc.lrcSingleShot 1
+    lift $ withCompileInfo def $ Lrc.lrcSingleShot 1
     leaders1 <-
         maybeStopProperty "No leaders for epoch#1!" =<< lift (Lrc.getLeaders 1)
     -- Here we use 'genesisSeed' (which is the seed for the 0-th
@@ -226,7 +228,8 @@ genAndApplyBlockFixedTxs txs = do
     let txPayload = mkTxPayload txs
     emptyBlund <- bpGenBlock (EnableTxPayload False) (InplaceDB False)
     let blund = emptyBlund & _1 . _Right . mainBlockTxPayload .~ txPayload
-    lift $ applyBlocksUnsafe (ShouldCallBListener False)(one blund) Nothing
+    lift $ withCompileInfo def $
+        applyBlocksUnsafe (ShouldCallBListener False)(one blund) Nothing
 
 -- TODO: we can't change stake in bootstrap era!
 -- This part should be implemented in CSL-1450.

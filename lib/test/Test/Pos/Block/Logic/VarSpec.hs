@@ -10,6 +10,7 @@ import           Universum                    hiding ((<>))
 
 import           Control.Monad.Random.Strict  (MonadRandom (..), RandomGen, evalRandT,
                                                uniform)
+import           Data.Default                 (def)
 import           Data.List                    (span)
 import           Data.List.NonEmpty           (NonEmpty ((:|)))
 import qualified Data.List.NonEmpty           as NE
@@ -41,6 +42,7 @@ import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst
                                                nonEmptyNewestFirst, nonEmptyOldestFirst,
                                                splitAtNewestFirst, toNewestFirst,
                                                _NewestFirst)
+import           Pos.Util.CompileInfo         (withCompileInfo)
 
 import           Test.Pos.Block.Logic.Event   (BlockScenarioResult (..),
                                                DbNotEquivalentToSnapshot (..),
@@ -92,9 +94,9 @@ verifyBlocksPrefixSpec = do
 
 verifyEmptyMainBlock
     :: HasConfigurations => BlockProperty ()
-verifyEmptyMainBlock = do
+verifyEmptyMainBlock = withCompileInfo def $ do
     emptyBlock <- fst <$> bpGenBlock (EnableTxPayload False) (InplaceDB False)
-    whenLeftM (lift $ verifyBlocksPrefix (one emptyBlock)) $
+    whenLeftM (lift $ withCompileInfo def $ verifyBlocksPrefix (one emptyBlock)) $
         stopProperty . pretty
 
 verifyValidBlocks
@@ -114,8 +116,8 @@ verifyValidBlocks = do
                     let (otherBlocks', _) = span isRight otherBlocks
                     in block0 :| otherBlocks'
     verRes <-
-        lift $ satisfySlotCheck blocksToVerify $ verifyBlocksPrefix $
-        blocksToVerify
+        lift $ satisfySlotCheck blocksToVerify $
+        withCompileInfo def $ verifyBlocksPrefix blocksToVerify
     whenLeft verRes $
         stopProperty . pretty
 
@@ -131,7 +133,7 @@ verifyAndApplyBlocksSpec = do
     applier blunds =
         let blocks = map fst blunds
         in satisfySlotCheck blocks $
-           whenLeftM (verifyAndApplyBlocks True blocks) throwM
+           whenLeftM (withCompileInfo def $ verifyAndApplyBlocks True blocks) throwM
     applyByOneOrAllAtOnceDesc =
         "verifying and applying blocks one by one leads " <>
         "to the same GState as verifying and applying them all at once " <>
@@ -296,7 +298,8 @@ blockEventSuccessProp = do
 runBlockScenarioAndVerify
     :: HasConfigurations => BlockScenario -> BlockProperty ()
 runBlockScenarioAndVerify bs =
-    verifyBlockScenarioResult =<< lift (runBlockScenario bs)
+    verifyBlockScenarioResult =<<
+    lift (withCompileInfo def $ runBlockScenario bs)
 
 verifyBlockScenarioResult :: BlockScenarioResult -> BlockProperty ()
 verifyBlockScenarioResult = \case

@@ -16,7 +16,7 @@ import qualified Data.List.NonEmpty     as NE
 import qualified Data.Map               as M (fromList)
 import           Formatting             (build, sformat, (%))
 import           Mockable               (CurrentTime, Mockable)
-import           System.Wlog            (WithLogger, logDebug)
+import           System.Wlog            (NamedPureLogger, WithLogger, logDebug)
 
 import           Pos.Core               (BlockVersionData, EpochIndex, HeaderHash,
                                          Timestamp, siEpoch)
@@ -73,7 +73,7 @@ instance HasLens Utxo EProcessTxContext Utxo where
     lensOf = eptcUtxoBase
 
 -- Base monad for tx processing in explorer.
-type EProcessTxMode = Reader EProcessTxContext
+type EProcessTxMode = ReaderT EProcessTxContext (NamedPureLogger Identity)
 
 instance HasConfiguration => MonadUtxoRead EProcessTxMode where
     utxoGet = utxoGetReader
@@ -173,10 +173,10 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $
         -> (TxId, TxAux)
         -> Maybe Timestamp
         -> ETxpLocalDataPure
-        -> (Either ToilVerFailure (), ETxpLocalDataPure)
+        -> NamedPureLogger Identity (Either ToilVerFailure (), ETxpLocalDataPure)
     processTxDo curEpoch ctx@EProcessTxContext {..} tipBefore tx mTxTimestamp txld@(uv, mp, undo, tip, extra)
-        | tipBefore /= tip = (Left $ ToilTipsMismatch tipBefore tip, txld)
-        | otherwise =
+        | tipBefore /= tip = pure (Left $ ToilTipsMismatch tipBefore tip, txld)
+        | otherwise = do
             let runToil ::
                        Functor m
                     => ToilT ExplorerExtra m a
@@ -189,14 +189,14 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $
                 -- NE.fromList is safe here, because if `resolved` is empty, `processTx`
                 -- wouldn't save extra value, thus wouldn't reduce it to NF
                 txUndo = NE.fromList $ map Just $ toList _eptcUtxoBase
-                res :: ( Either ToilVerFailure ()
-                       , GenericToilModifier ExplorerExtra)
-                res = usingReader ctx $ runToil $ runExceptT action
-            in case res of
-                   (Left er, _) -> (Left er, txld)
-                   (Right (), ToilModifier {..}) ->
-                       ( Right ()
-                       , (_tmUtxo, _tmMemPool, _tmUndos, tip, _tmExtra))
+            res :: ( Either ToilVerFailure (), GenericToilModifier ExplorerExtra) <-
+                    flip runReaderT ctx $
+                    runToil $ runExceptT action
+            case res of
+                (Left er, _) -> pure (Left er, txld)
+                (Right (), ToilModifier {..}) -> pure
+                    ( Right ()
+                    , (_tmUtxo, _tmMemPool, _tmUndos, tip, _tmExtra))
     runUM um = runToilTLocalExtra um def mempty (def @ExplorerExtra)
     buildMap :: (Eq a, Hashable a) => [a] -> [Maybe b] -> HM.HashMap a b
     buildMap keys maybeValues =

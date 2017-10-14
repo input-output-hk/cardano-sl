@@ -20,7 +20,8 @@ import qualified Data.HashMap.Strict  as HM
 import qualified Data.List.NonEmpty   as NE
 import qualified Data.Map             as M (fromList)
 import           Formatting           (build, sformat, (%))
-import           System.Wlog          (WithLogger, logDebug, logError, logWarning)
+import           System.Wlog          (NamedPureLogger, WithLogger, logDebug, logError,
+                                       logWarning)
 
 import           Pos.Core             (BlockVersionData, EpochIndex, HasConfiguration,
                                        HeaderHash, siEpoch)
@@ -54,7 +55,7 @@ instance HasLens Utxo ProcessTxContext Utxo where
     lensOf = ptcUtxoBase
 
 -- Base monad for tx processing in.
-type ProcessTxMode = Reader ProcessTxContext
+type ProcessTxMode = ReaderT ProcessTxContext (NamedPureLogger Identity)
 
 instance HasConfiguration => MonadUtxoRead ProcessTxMode where
     utxoGet = utxoGetReader
@@ -137,21 +138,20 @@ txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ 
         -> HeaderHash
         -> (TxId, TxAux)
         -> TxpLocalDataPure
-        -> (Either ToilVerFailure (), TxpLocalDataPure)
+        -> NamedPureLogger Identity (Either ToilVerFailure (), TxpLocalDataPure)
     processTxDo curEpoch ctx tipDB tx txld@(uv, mp, undo, tip, ())
-        | tipDB /= tip = (Left $ ToilTipsMismatch tipDB tip, txld)
-        | otherwise =
+        | tipDB /= tip = pure (Left $ ToilTipsMismatch tipDB tip, txld)
+        | otherwise = do
             let action :: ExceptT ToilVerFailure (ToilT () ProcessTxMode) TxUndo
                 action = processTx curEpoch tx
-                res :: (Either ToilVerFailure TxUndo, ToilModifier)
-                res =
-                    usingReader ctx $
+            res :: (Either ToilVerFailure TxUndo, ToilModifier) <-
+                    flip runReaderT ctx $
                     runToilTLocal uv mp undo $ runExceptT action
-            in case res of
-                   (Left er, _) -> (Left er, txld)
-                   (Right _, ToilModifier {..}) ->
-                       ( Right ()
-                       , (_tmUtxo, _tmMemPool, _tmUndos, tip, _tmExtra))
+            case res of
+                (Left er, _) -> pure (Left er, txld)
+                (Right _, ToilModifier {..}) -> pure
+                    ( Right ()
+                    , (_tmUtxo, _tmMemPool, _tmUndos, tip, _tmExtra))
     -- REPORT:ERROR Tips mismatch in txp.
     reportTipMismatch action = do
         res <- action

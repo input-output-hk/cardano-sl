@@ -78,9 +78,7 @@ main :: IO ()
 main = withCompileInfo $(retrieveCompileTimeInfo) $ do
     args@(CLI.SimpleNodeArgs commonNodeArgs _) <- CLI.getSimpleNodeOptions
     let loggingParams = CLI.loggingParams "node" commonNodeArgs
-    loggerBracket loggingParams $ do
+    let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
+    loggerBracket loggingParams . runProduction $ do
         CLI.printFlags
-        let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
-        runProduction $
-            withConfigurations conf $
-            action args
+        withConfigurations conf $ action args

@@ -49,6 +49,7 @@ import           Data.Default            (Default (..))
 import           Data.Reflection         (Reifies (..), reflect)
 import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX   (getPOSIXTime)
+import           GHC.TypeLits            (KnownSymbol, symbolVal)
 import           Formatting              (bprint, build, builder, formatToString, sformat,
                                           shown, stext, string, (%))
 import           Serokell.Util           (listJsonIndent)

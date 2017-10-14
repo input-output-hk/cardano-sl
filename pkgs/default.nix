@@ -4517,11 +4517,11 @@ self: {
           description = "ListT done right";
           license = stdenv.lib.licenses.mit;
         }) {};
-      log-warper = callPackage ({ aeson, ansi-terminal, base, containers, directory, dlist, errors, exceptions, extra, filepath, formatting, hashable, lens, mkDerivation, mmorph, monad-control, monad-loops, mtl, network, safecopy, stdenv, text, text-format, time, transformers, transformers-base, universum, unix, unordered-containers, yaml }:
+      log-warper = callPackage ({ aeson, ansi-terminal, base, containers, deepseq, directory, dlist, errors, exceptions, extra, filepath, fmt, formatting, hashable, lens, mkDerivation, mmorph, monad-control, monad-loops, mtl, network, safecopy, stdenv, text, text-format, time, transformers, transformers-base, universum, unix, unordered-containers, yaml }:
       mkDerivation {
           pname = "log-warper";
-          version = "1.2.3";
-          sha256 = "7c2e2bed8beb19c338066a7055e05e7f0acdbcf532b3f327a83ffa6f21136e64";
+          version = "1.3.3";
+          sha256 = "5ab18ba9e3633a869729a87cb35af348c10d3d566bcfa2463bfa6365b54bfde4";
           isLibrary = true;
           isExecutable = true;
           libraryHaskellDepends = [
@@ -4529,12 +4529,14 @@ self: {
             ansi-terminal
             base
             containers
+            deepseq
             directory
             dlist
             errors
             exceptions
             extra
             filepath
+            fmt
             formatting
             hashable
             lens
@@ -4989,8 +4991,8 @@ self: {
           version = "0.2.0.0";
           src = fetchgit {
             url = "https://github.com/serokell/time-warp-nt.git";
-            sha256 = "13avvcni90crjrq10xdpz8d6v5gawm1nw5rvj8lg6vkmcsy44zni";
-            rev = "630b23847ea39778f5616134a4f416b473639a15";
+            sha256 = "046kqk7m2rhzxk3960fd4jcvar8hcczbg7lv13jpw1g5wvl431fn";
+            rev = "48cb189a412c5a606888285944b9a8f32fcd0d30";
           };
           isLibrary = true;
           isExecutable = true;
@@ -7018,8 +7020,8 @@ self: {
       universum = callPackage ({ base, bytestring, containers, deepseq, exceptions, ghc-prim, hashable, microlens, microlens-mtl, mkDerivation, mtl, safe, safe-exceptions, stdenv, stm, text, text-format, transformers, type-operators, unordered-containers, utf8-string, vector }:
       mkDerivation {
           pname = "universum";
-          version = "0.6.1";
-          sha256 = "538bff64be0fba8902cd7c5b0fc40d50848567886078227a5ee388ce9a9f04a3";
+          version = "0.7.0";
+          sha256 = "2eb3398cafb621a0b8966e5d6af16989a3dac0ec7467c62fd3c9a127e84148b4";
           libraryHaskellDepends = [
             base
             bytestring

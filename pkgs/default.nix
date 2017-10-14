@@ -3419,6 +3419,8 @@ self: {
           pname = "foldl";
           version = "1.2.5";
           sha256 = "0jzc00dqwkr3kvy40f8f9klh24s8zvhfk2flrlyichc6zcy5qbda";
+          revision = "1";
+          editedCabalFile = "02lk5838594mi15bylz2kpcm1c4akbsswj73i7k8xw4ns66iaq04";
           libraryHaskellDepends = [
             base
             bytestring
@@ -3671,10 +3673,8 @@ self: {
       happy = callPackage ({ Cabal, array, base, containers, directory, filepath, mkDerivation, mtl, stdenv }:
       mkDerivation {
           pname = "happy";
-          version = "1.19.7";
-          sha256 = "16vg292pp12wnkny7znsv7bichh9ghny7swl7v55qafmcfg2lcdv";
-          revision = "1";
-          editedCabalFile = "1w0sm3qn1icxiiif6355pr6cwd9bqfh56g8qc5hycagcnms8hip1";
+          version = "1.19.8";
+          sha256 = "186ky3bly0i3cc56qk3r7j7pxh2108aackq4n2lli7jmbnb3kxsd";
           isLibrary = false;
           isExecutable = true;
           setupHaskellDepends = [

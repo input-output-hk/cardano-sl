@@ -59,6 +59,7 @@ import           Pos.Core.Configuration                (HasConfiguration, protoc
 import           Pos.Core.Types                        (ProtocolMagic (..))
 import           Pos.Exception                         (CardanoFatalError)
 import           Pos.KnownPeers                        (MonadFormatPeers (..))
+import           Pos.Network.Types                     (HasNodeType (..), NodeType (..))
 import           Pos.Reporting.Exceptions              (ReportingError (..))
 import           Pos.Reporting.MemState                (HasLoggerConfig (..),
                                                         HasReportServers (..),
@@ -72,6 +73,7 @@ type MonadReporting ctx m =
        , MonadReader ctx m
        , MonadFormatPeers m
        , HasReportingContext ctx
+       , HasNodeType ctx
        , WithLogger m
        , HasConfiguration
        )
@@ -200,10 +202,18 @@ reportNode sendLogs extendWithNodeInfo reportType =
 -- | Report «misbehavior», i. e. a situation when something is globally
 -- wrong, not only with our node. 'Bool' argument determines whether
 -- misbehavior is critical and requires immediate response.
+--
+-- Misbehaviour is reported only by core nodes, because
+-- a) core nodes usually have the most actual vision of the current state;
+-- b) reporting misbehaviour from many nodes is redundant.
 reportMisbehaviour
     :: forall ctx m . (MonadReporting ctx m)
     => Bool -> Text -> m ()
-reportMisbehaviour isCritical = reportNode True True . RMisbehavior isCritical
+reportMisbehaviour isCritical message = do
+    nodeType <- getNodeType <$> ask
+    case nodeType of
+        NodeCore -> reportNode True True (RMisbehavior isCritical message)
+        _        -> pass
 
 -- | Report some general information.
 reportInfo

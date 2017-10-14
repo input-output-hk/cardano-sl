@@ -55,6 +55,7 @@ import qualified Pos.GState                  as GS
 import           Pos.Infra.Configuration     (HasInfraConfiguration)
 import           Pos.KnownPeers              (MonadFormatPeers)
 import           Pos.Lrc                     (LrcContext (..))
+import           Pos.Network.Types           (HasNodeType (..), NodeType (..))
 import           Pos.Reporting               (HasReportingContext (..), ReportingContext,
                                               emptyReportingContext)
 import           Pos.Slotting                (HasSlottingVar (..), MonadSlots (..),
@@ -307,6 +308,12 @@ instance HasLens TxpGlobalSettings BlockGenContext TxpGlobalSettings where
 
 instance HasReportingContext BlockGenContext where
     reportingContext = bgcReportingContext_L
+
+-- Let's assume that block-gen is core node, though it shouldn't
+-- really matter (needed for reporting, which is not used in block-gen
+-- anyway).
+instance HasNodeType BlockGenContext where
+    getNodeType _ = NodeCore
 
 instance MonadBlockGenBase m => MonadDBRead (BlockGenMode m) where
     dbGet = DB.dbGetSumDefault

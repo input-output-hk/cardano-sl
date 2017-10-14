@@ -42,9 +42,8 @@ import           Universum
 import           Pos.Communication.Types.Protocol
 import           Pos.Core.Configuration           (HasConfiguration)
 import           Pos.Core.Types                   (SlotId)
-import           Pos.KnownPeers                   (MonadFormatPeers)
 import           Pos.Recovery.Info                (MonadRecoveryInfo)
-import           Pos.Reporting                    (HasReportingContext)
+import           Pos.Reporting                    (MonadReporting)
 import           Pos.Shutdown                     (HasShutdownContext)
 import           Pos.Slotting                     (MonadSlots)
 import           Pos.Slotting.Util                (onNewSlot, onNewSlotImpl)
@@ -225,10 +224,9 @@ type LocalOnNewSlotComm ctx m =
     , MonadMask m
     , WithLogger m
     , Mockables m [Fork, Delay]
-    , HasReportingContext ctx
+    , MonadReporting ctx m
     , HasShutdownContext ctx
     , MonadRecoveryInfo m
-    , MonadFormatPeers m
     , HasConfiguration
     )
 

@@ -6,20 +6,23 @@ module Pos.Wallet.KeyStorage
        ( MonadKeys
        , getPrimaryKey
        , getSecretKeys
+       , getSecretKeysPlain
        , addSecretKey
        , deleteSecretKey
        , newSecretKey
        , KeyData
        , KeyError (..)
+       , AllUserSecrets (..)
        , keyDataFromFile
        ) where
+
+import           Universum
 
 import qualified Control.Concurrent.STM as STM
 import           Control.Lens           ((<>~))
 import           Control.Monad.Catch    (MonadThrow)
 import           Serokell.Util          (modifyTVarS)
 import           System.Wlog            (WithLogger)
-import           Universum
 
 import           Pos.Binary.Crypto      ()
 import           Pos.Crypto             (EncryptedSecretKey, PassPhrase, SecretKey, hash,
@@ -43,8 +46,17 @@ type MonadKeys ctx m =
 getPrimaryKey :: MonadKeys ctx m => m (Maybe SecretKey)
 getPrimaryKey = view usPrimKey <$> getSecret
 
-getSecretKeys :: MonadKeys ctx m => m [EncryptedSecretKey]
-getSecretKeys = view usKeys <$> getSecret
+newtype AllUserSecrets = AllUserSecrets
+    { getAllUserSecrets :: [EncryptedSecretKey]
+    } deriving (Container, NontrivialContainer)
+
+type instance Element AllUserSecrets = EncryptedSecretKey
+
+getSecretKeys :: MonadKeys ctx m => m AllUserSecrets
+getSecretKeys = AllUserSecrets . view usKeys <$> getSecret
+
+getSecretKeysPlain :: MonadKeys ctx m => m [EncryptedSecretKey]
+getSecretKeysPlain = view usKeys <$> getSecret
 
 addSecretKey :: MonadKeys ctx m => EncryptedSecretKey -> m ()
 addSecretKey sk = do

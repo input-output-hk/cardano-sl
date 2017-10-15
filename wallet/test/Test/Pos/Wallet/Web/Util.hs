@@ -9,6 +9,9 @@ module Test.Pos.Wallet.Web.Util
        -- * Wallet utils
        , importSomeWallets
        , deriveRandomAddress
+       , genWalletLvl2KeyPair
+       , genWalletAddress
+       , genWalletUtxo
        , expectedAddrBalance
        ) where
 
@@ -19,6 +22,7 @@ import           Control.Concurrent.STM         (putTMVar, tryTakeTMVar, writeTV
 import           Control.Monad.Random.Strict    (evalRandT)
 import           Data.List                      ((!!))
 import qualified Data.List.NonEmpty             as NE
+import qualified Data.Map                       as M
 import           Formatting                     (build, sformat, (%))
 import           Test.QuickCheck                (Arbitrary (..), choose, sublistOf,
                                                  vectorOf)
@@ -34,12 +38,15 @@ import           Pos.Core                       (Address, BlockCount, Coin,
                                                  HasConfiguration, generatedSecrets,
                                                  gsSecretKeysPoor, headerHashG)
 import           Pos.Core.Address               (IsBootstrapEraAddr (..),
-                                                 deriveLvl2KeyPair, deriveLvl2KeyPair)
-import           Pos.Crypto                     (PassPhrase, ShouldCheckPassphrase (..),
+                                                 deriveLvl2KeyPair)
+import           Pos.Crypto                     (EncryptedSecretKey, PassPhrase,
+                                                 ShouldCheckPassphrase (..),
                                                  firstHardened)
 import           Pos.Generator.Block            (genBlocks)
 import           Pos.Launcher                   (HasConfigurations)
 import           Pos.StateLock                  (Priority (..), modifyStateLock)
+import           Pos.Txp.Core                   (TxIn, TxOut (..), TxOutAux (..))
+import           Pos.Txp.Toil                   (Utxo)
 import           Pos.Util.Chrono                (OldestFirst (..))
 import           Pos.Util.CompileInfo           (HasCompileInfo)
 import           Pos.Util.Servant               (encodeCType)
@@ -94,7 +101,7 @@ wpGenBlock = fmap (unsafeHead . toList) ... wpGenBlocks (Just 1)
 
 -- | Import some nonempty set, but not bigger than 10 elements, of genesis secrets.
 -- Returns corresponding passphrases.
-importSomeWallets :: (HasConfigurations, HasCompileInfo)  => WalletProperty [PassPhrase]
+importSomeWallets :: (HasConfigurations, HasCompileInfo) => WalletProperty [PassPhrase]
 importSomeWallets = do
     let secrets =
             map (view _2) .
@@ -121,17 +128,58 @@ deriveRandomAddress passphrases = do
     let l = length skeys
     assert (l > 0)
     walletIdx <- pick $ choose (0, l - 1)
-    accountIdx <- pick $ getDerivingIndex <$> arbitrary
-    addressIdx <- pick $ getDerivingIndex <$> arbitrary
     let sk = skeys !! walletIdx
     let psw = passphrases !! walletIdx
-    let !addressMB = fst <$>
-            deriveLvl2KeyPair
-                (IsBootstrapEraAddr True)
-                (ShouldCheckPassphrase False)
-                psw sk accountIdx addressIdx
-    address <- maybeStopProperty "withRandomOurAddress: couldn't derive HD address" addressMB
+    addressMB <- pick $ genWalletAddress sk psw
+    address <- maybeStopProperty "deriveRandomAddress: couldn't derive HD address" addressMB
     pure $ encodeCType address
+
+----------------------------------------------------------------------------
+-- Wallet addresses generation
+----------------------------------------------------------------------------
+
+-- | Take root secret key of wallet and a passphrase
+-- and generate arbitrary wallet address with corresponding lvl 2
+-- secret key
+-- BE CAREFUL: this functions might take long time b/c it uses @deriveLvl2KeyPair@
+genWalletLvl2KeyPair
+    :: EncryptedSecretKey
+    -> PassPhrase
+    -> Gen (Maybe (Address, EncryptedSecretKey))
+genWalletLvl2KeyPair sk psw = do
+    accountIdx <- getDerivingIndex <$> arbitrary
+    addressIdx <- getDerivingIndex <$> arbitrary
+    pure $ deriveLvl2KeyPair
+        (IsBootstrapEraAddr True)
+        (ShouldCheckPassphrase False)
+        psw sk accountIdx addressIdx
+
+-- | Take root secret key of wallet and a passphrase
+-- and generate arbitrary wallet address
+-- BE CAREFUL: this functions might take long time b/c it uses @deriveLvl2KeyPair@
+genWalletAddress
+    :: EncryptedSecretKey
+    -> PassPhrase
+    -> Gen (Maybe Address)
+genWalletAddress sk psw = fst <<$>> genWalletLvl2KeyPair sk psw
+
+-- | Generate utxo which contains only addresses from given wallet
+-- BE CAREFUL: @deriveLvl2KeyPair@ is called `size` times here -
+-- generating large utxos will take a long time
+genWalletUtxo
+    :: EncryptedSecretKey
+    -> PassPhrase
+    -> Int                -- Size of Utxo
+    -> Gen (Maybe Utxo)
+genWalletUtxo sk psw size =
+    fmap M.fromList . sequence <$> replicateM size genOutput
+  where
+    genOutput :: Gen (Maybe (TxIn, TxOutAux))
+    genOutput = do
+        txIn <- arbitrary
+        coin <- arbitrary
+        (\address -> (txIn, TxOutAux $ TxOut address coin)) <<$>>
+            genWalletAddress sk psw
 
 ----------------------------------------------------------------------------
 -- Wallet properties
@@ -160,3 +208,4 @@ newtype DerivingIndex = DerivingIndex
 
 instance Arbitrary DerivingIndex where
     arbitrary = DerivingIndex <$> choose (0, firstHardened - 1)
+

@@ -83,7 +83,6 @@ onApplyBlocksWebWallet blunds = setLogger $ do
     -- something a bit more reasonable.
     pure mempty
   where
-
     syncWallet
         :: HeaderHash
         -> BlockHeader

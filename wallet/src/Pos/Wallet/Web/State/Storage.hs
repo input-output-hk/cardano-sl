@@ -12,6 +12,7 @@ module Pos.Wallet.Web.State.Storage
        , Query
        , Update
        , flushWalletStorage
+       , getWalletStorage
        , getProfile
        , setProfile
        , getAccountIds
@@ -106,7 +107,7 @@ type AddressSortingKey = Int
 data AddressInfo = AddressInfo
     { adiCWAddressMeta :: !CWAddressMeta
     , adiSortingKey    :: !AddressSortingKey
-    }
+    } deriving (Eq)
 
 type CAddresses = HashMap (CId Addr) AddressInfo
 
@@ -115,13 +116,14 @@ data AccountInfo = AccountInfo
     , _aiAddresses        :: !CAddresses
     , _aiRemovedAddresses :: !CAddresses
     , _aiUnusedKey        :: !AddressSortingKey
-    }
+    } deriving (Eq)
 
 makeLenses ''AccountInfo
 
 data WalletTip
     = NotSynced
     | SyncedWith !HeaderHash
+    deriving (Eq)
 
 data WalletInfo = WalletInfo
     { _wiMeta         :: !CWalletMeta
@@ -133,7 +135,7 @@ data WalletInfo = WalletInfo
     -- are excluded from api endpoints. This info should not be leaked
     -- into a client facing data structure (for example `CWalletMeta`)
     , _wiIsReady      :: !Bool
-    }
+    } deriving (Eq)
 
 makeLenses ''WalletInfo
 
@@ -150,7 +152,7 @@ data WalletStorage = WalletStorage
     , _wsUtxo            :: !Utxo
     , _wsUsedAddresses   :: !CustomAddresses
     , _wsChangeAddresses :: !CustomAddresses
-    }
+    } deriving (Eq)
 
 makeClassy ''WalletStorage
 
@@ -462,6 +464,9 @@ addOnlyNewPendingTx :: PendingTx -> Update ()
 addOnlyNewPendingTx ptx =
     wsWalletInfos . ix (_ptxWallet ptx) .
     wsPendingTxs . at (_ptxTxId ptx) %= (<|> Just ptx)
+
+getWalletStorage :: Query WalletStorage
+getWalletStorage = ask
 
 -- | Flushes data in wallet storage
 -- Preserves all metadata, wallets, accounts and addresses

@@ -4,12 +4,12 @@ module Test.Pos.Wallet.Web.Methods.LogicSpec
 
 import           Universum
 
+import           Data.Default                 (def)
 import           Test.Hspec                   (Spec, describe)
 import           Test.Hspec.QuickCheck        (prop)
 
 import           Pos.Launcher                 (HasConfigurations)
-import           Pos.Util.CompileInfo         (HasCompileInfo, retrieveCompileTimeInfo,
-                                               withCompileInfo)
+import           Pos.Util.CompileInfo         (HasCompileInfo, withCompileInfo)
 import           Pos.Wallet.Web.Methods.Logic (getAccounts, getWallets)
 
 import           Test.Pos.Util                (stopProperty, withDefConfigurations)
@@ -17,9 +17,9 @@ import           Test.Pos.Wallet.Web.Mode     (WalletProperty)
 
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.
 spec :: Spec
-spec =  withCompileInfo $(retrieveCompileTimeInfo) $
-        withDefConfigurations $
-        describe "Pos.Wallet.Web.Methods" $ do
+spec = withCompileInfo def $
+       withDefConfigurations $
+       describe "Pos.Wallet.Web.Methods" $ do
     prop emptyWalletOnStarts emptyWallet
   where
     emptyWalletOnStarts = "wallet must be empty on start"

@@ -55,11 +55,14 @@ import           Pos.Core                          (HasConfiguration, IsHeader,
                                                     Timestamp (..), largestHDAddressBoot)
 import           Pos.Crypto                        (PassPhrase)
 import           Pos.DB                            (MonadBlockDBGeneric (..),
-                                                    MonadDBRead (..), MonadGState (..))
+                                                    MonadBlockDBGenericWrite (..),
+                                                    MonadDB (..), MonadDBRead (..),
+                                                    MonadGState (..))
 import qualified Pos.DB                            as DB
 import qualified Pos.DB.Block                      as DB
 import           Pos.DB.DB                         (gsAdoptedBVDataDefault)
 import           Pos.DB.Pure                       (DBPureVar)
+import           Pos.Delegation                    (DelegationVar)
 import           Pos.Generator.Block               (BlockGenMode)
 import qualified Pos.GState                        as GS
 import           Pos.KnownPeers                    (MonadFormatPeers (..),
@@ -73,6 +76,7 @@ import           Pos.Shutdown                      (HasShutdownContext (..),
 import           Pos.Slotting                      (HasSlottingVar (..), MonadSlots (..),
                                                     MonadSlotsData)
 import           Pos.Ssc.Class                     (SscBlock)
+import           Pos.Ssc.Extra                     (SscMemTag, SscState)
 import           Pos.Ssc.GodTossing.Configuration  (HasGtConfiguration)
 import           Pos.StateLock                     (StateLock, StateLockMetrics (..),
                                                     newStateLock)
@@ -273,6 +277,12 @@ instance HasLens LrcContext WalletTestContext LrcContext where
 instance HasLens TxpGlobalSettings WalletTestContext TxpGlobalSettings where
     lensOf = wtcBlockTestContext_L . lensOf @TxpGlobalSettings
 
+instance HasLens DelegationVar WalletTestContext DelegationVar where
+    lensOf = wtcBlockTestContext_L . lensOf @DelegationVar
+
+instance HasLens SscMemTag WalletTestContext SscState where
+    lensOf = wtcBlockTestContext_L . lensOf @SscMemTag
+
 instance (HasConfiguration, MonadSlotsData ctx WalletTestMode)
         => MonadSlots ctx WalletTestMode where
     getCurrentSlot = getCurrentSlotTestDefault
@@ -306,6 +316,11 @@ instance HasConfiguration => MonadDBRead WalletTestMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
 
+instance HasConfiguration => MonadDB WalletTestMode where
+    dbPut = DB.dbPutPureDefault
+    dbWriteBatch = DB.dbWriteBatchPureDefault
+    dbDelete = DB.dbDeletePureDefault
+
 instance HasConfiguration =>
          MonadBlockDBGeneric BlockHeader Block Undo WalletTestMode
   where
@@ -318,6 +333,12 @@ instance HasConfiguration => MonadBlockDBGeneric (Some IsHeader) SscBlock () Wal
     dbGetBlock = DB.dbGetBlockSscPureDefault
     dbGetUndo = DB.dbGetUndoSscPureDefault
     dbGetHeader = DB.dbGetHeaderSscPureDefault
+
+instance
+    HasConfiguration =>
+    MonadBlockDBGenericWrite BlockHeader Block Undo WalletTestMode
+  where
+    dbPutBlund = DB.dbPutBlundPureDefault
 
 instance HasConfiguration => MonadGState WalletTestMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
@@ -413,6 +434,7 @@ instance (HasCompileInfo, HasConfigurations)
         => MonadTxpLocal (BlockGenMode EmptyMempoolExt WalletTestMode) where
     txpNormalize = txNormalize
     txpProcessTx = txProcessTransactionNoLock
+
 
 instance (HasCompileInfo, HasConfigurations) => MonadTxpLocal WalletTestMode where
     txpNormalize = txNormalize

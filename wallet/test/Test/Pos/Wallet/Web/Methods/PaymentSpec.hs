@@ -4,6 +4,7 @@ module Test.Pos.Wallet.Web.Methods.PaymentSpec
 
 import           Universum
 
+import           Data.Default                   (def)
 import           Data.List                      ((!!))
 import           Formatting                     (build, sformat, (%))
 import           Test.Hspec                     (Spec, describe)
@@ -18,8 +19,7 @@ import           Pos.Core                       (TxFeePolicy (..), bvdTxFeePolic
 import           Pos.DB.Class                   (MonadGState (..))
 import           Pos.Launcher                   (HasConfigurations)
 import           Pos.Txp                        (Tx (..), TxAux (..), TxFee (..), _TxOut)
-import           Pos.Util.CompileInfo           (HasCompileInfo, retrieveCompileTimeInfo,
-                                                 withCompileInfo)
+import           Pos.Util.CompileInfo           (HasCompileInfo, withCompileInfo)
 import           Pos.Wallet.Web.Account         (myRootAddresses)
 import           Pos.Wallet.Web.ClientTypes     (CAccount (..), CWAddressMeta (..))
 import           Pos.Wallet.Web.Methods.Logic   (getAccounts)
@@ -38,9 +38,9 @@ import           Test.Pos.Wallet.Web.Util       (deriveRandomAddress, expectedAd
 
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.
 spec :: Spec
-spec =  withCompileInfo $(retrieveCompileTimeInfo) $
-        withDefConfigurations $
-        describe "Wallet.Web.Methods.Payment" $ modifyMaxSuccess (const 10) $ do
+spec = withCompileInfo def $
+       withDefConfigurations $
+       describe "Wallet.Web.Methods.Payment" $ modifyMaxSuccess (const 10) $ do
     describe "newPayment" $ do
         describe "One payment" oneNewPaymentSpec
 

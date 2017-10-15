@@ -67,6 +67,7 @@ import           Pos.Txp                          (MempoolExt, MonadTxpLocal (..
                                                    txNormalize, txProcessTransaction)
 import           Pos.Txp.DB.Utxo                  (getFilteredUtxo)
 import           Pos.Util                         (Some (..))
+import           Pos.Util.CompileInfo             (HasCompileInfo)
 import           Pos.Util.JsonLog                 (HasJsonLogConfig (..))
 import           Pos.Util.LoggerName              (HasLoggerName' (..))
 import qualified Pos.Util.OutboundQueue           as OQ.Reader
@@ -212,7 +213,7 @@ instance HasConfiguration => MonadBalances AuxxMode where
     getOwnUtxos addrs = ifM isTempDbUsed (getOwnUtxosGenesis addrs) (getFilteredUtxo addrs)
     getBalance = getBalanceFromUtxo
 
-instance (HasConfiguration, HasInfraConfiguration, HasGtConfiguration) =>
+instance (HasConfiguration, HasInfraConfiguration, HasGtConfiguration, HasCompileInfo) =>
          MonadTxHistory AuxxSscType AuxxMode where
     getBlockHistory = getBlockHistoryDefault @AuxxSscType
     getLocalHistory = getLocalHistoryDefault
@@ -230,7 +231,7 @@ instance (HasConfiguration, HasInfraConfiguration) => MonadAddresses AuxxMode wh
 
 type instance MempoolExt AuxxMode = EmptyMempoolExt
 
-instance (HasConfiguration, HasInfraConfiguration) => MonadTxpLocal AuxxMode where
+instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo) => MonadTxpLocal AuxxMode where
     txpNormalize = withReaderT acRealModeContext txNormalize
     txpProcessTx = withReaderT acRealModeContext . txProcessTransaction
 

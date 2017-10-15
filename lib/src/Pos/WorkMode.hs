@@ -63,6 +63,7 @@ import           Pos.Txp                 (GenericTxpLocalData, MempoolExt,
                                           MonadTxpLocal (..), TxpHolderTag, txNormalize,
                                           txProcessTransaction)
 import           Pos.Util                (Some (..))
+import           Pos.Util.CompileInfo    (HasCompileInfo)
 import           Pos.Util.JsonLog        (HasJsonLogConfig (..), JsonLogConfig,
                                           jsonLogDefault)
 import           Pos.Util.LoggerName     (HasLoggerName' (..), getLoggerNameDefault,
@@ -209,6 +210,7 @@ instance MonadFormatPeers (RealMode scc ext) where
 
 type instance MempoolExt (RealMode ssc ext) = ext
 
-instance (HasConfiguration, HasInfraConfiguration) => MonadTxpLocal (RealMode ssc ()) where
+instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo) =>
+         MonadTxpLocal (RealMode ssc ()) where
     txpNormalize = txNormalize
     txpProcessTx = txProcessTransaction

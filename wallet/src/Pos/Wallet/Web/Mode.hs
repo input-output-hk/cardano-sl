@@ -210,7 +210,8 @@ instance (HasConfiguration, HasGtConfiguration) =>
 instance HasConfiguration => MonadGState WalletWebMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
-instance (HasConfiguration, HasInfraConfiguration) => MonadBListener WalletWebMode where
+instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo) =>
+         MonadBListener WalletWebMode where
     onApplyBlocks = onApplyTracking
     onRollbackBlocks = onRollbackTracking
 
@@ -218,7 +219,8 @@ instance MonadUpdates WalletWebMode where
     waitForUpdate = waitForUpdateWebWallet
     applyLastUpdate = applyLastUpdateWebWallet
 
-instance (HasConfiguration, HasGtConfiguration, HasInfraConfiguration) => MonadBlockchainInfo WalletWebMode where
+instance (HasConfiguration, HasGtConfiguration, HasInfraConfiguration) =>
+         MonadBlockchainInfo WalletWebMode where
     networkChainDifficulty = networkChainDifficultyWebWallet
     localChainDifficulty = localChainDifficultyWebWallet
     connectedPeers = connectedPeersWebWallet
@@ -228,7 +230,12 @@ instance HasConfiguration => MonadBalances WalletWebMode where
     getOwnUtxos = getOwnUtxosDefault
     getBalance = getBalanceDefault
 
-instance (HasConfiguration, HasGtConfiguration, HasInfraConfiguration) => MonadTxHistory WalletSscType WalletWebMode where
+instance ( HasConfiguration
+         , HasGtConfiguration
+         , HasInfraConfiguration
+         , HasCompileInfo
+         ) =>
+         MonadTxHistory WalletSscType WalletWebMode where
     getBlockHistory = getBlockHistoryDefault @WalletSscType
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
@@ -241,6 +248,7 @@ instance MonadFormatPeers WalletWebMode where
 
 type instance MempoolExt WalletWebMode = EmptyMempoolExt
 
-instance (HasConfiguration, HasInfraConfiguration) => MonadTxpLocal WalletWebMode where
+instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo) =>
+         MonadTxpLocal WalletWebMode where
     txpNormalize = txNormalize
     txpProcessTx = txProcessTransaction

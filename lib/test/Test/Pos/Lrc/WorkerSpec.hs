@@ -11,6 +11,7 @@ module Test.Pos.Lrc.WorkerSpec
 import           Universum
 
 import           Control.Lens              (At (at), Index, _Right)
+import           Data.Default              (def)
 import qualified Data.HashMap.Strict       as HM
 import           Formatting                (build, sformat, (%))
 import           Serokell.Util             (listJson)
@@ -34,6 +35,7 @@ import qualified Pos.GState                as GS
 import           Pos.Launcher              (HasConfigurations)
 import qualified Pos.Lrc                   as Lrc
 import           Pos.Txp                   (TxAux, mkTxPayload)
+import           Pos.Util.CompileInfo      (HasCompileInfo, withCompileInfo)
 import           Pos.Util.Util             (getKeys)
 
 import           Test.Pos.Block.Logic.Mode (BlockProperty, TestParams (..),
@@ -48,7 +50,7 @@ spec :: Spec
 -- Currently we want to run it only 4 times, because there is no
 -- much randomization (its effect is likely negligible) and
 -- performance matters (but not very much, so we can run more than once).
-spec = withStaticConfigurations $
+spec = withStaticConfigurations $ withCompileInfo def $
     describe "Lrc.Worker" $ modifyMaxSuccess (const 4) $ do
         describe "lrcSingleShot" $ do
             prop lrcCorrectnessDesc $
@@ -108,7 +110,7 @@ genGenesisInitializer = do
 -- Actual test
 ----------------------------------------------------------------------------
 
-lrcCorrectnessProp :: HasConfigurations => BlockProperty ()
+lrcCorrectnessProp :: (HasConfigurations,HasCompileInfo) => BlockProperty ()
 lrcCorrectnessProp = do
     let k = blkSecurityParam
     -- This value is how many blocks we need to generate first. We
@@ -221,7 +223,7 @@ checkRichmen = do
                  %coinF%", total stake is "%coinF)
                 poorGuyStake totalStake
 
-genAndApplyBlockFixedTxs :: HasConfigurations => [TxAux] -> BlockProperty ()
+genAndApplyBlockFixedTxs :: (HasConfigurations,HasCompileInfo) => [TxAux] -> BlockProperty ()
 genAndApplyBlockFixedTxs txs = do
     let txPayload = mkTxPayload txs
     emptyBlund <- bpGenBlock (EnableTxPayload False) (InplaceDB False)

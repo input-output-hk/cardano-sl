@@ -27,6 +27,7 @@ import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                          (TxAux, flattenTxPayload)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util.Chrono                  (NewestFirst, _NewestFirst)
+import           Pos.Util.CompileInfo             (HasCompileInfo)
 
 import           Mode                             (AuxxMode, AuxxSscType)
 
@@ -37,6 +38,7 @@ rollbackAndDump
        , HasGtConfiguration
        , HasUpdateConfiguration
        , HasInfraConfiguration
+       , HasCompileInfo
        )
     => Word
     -> FilePath

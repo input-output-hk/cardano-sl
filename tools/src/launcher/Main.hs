@@ -4,6 +4,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE TemplateHaskell   #-}
 
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
@@ -50,6 +51,8 @@ import           Pos.Launcher.Configuration   (ConfigurationOptions (..))
 import           Pos.Reporting.Methods        (retrieveLogFiles, sendReport)
 import           Pos.ReportServer.Report      (ReportType (..))
 import           Pos.Util                     (directory, sleep)
+import           Pos.Util.CompileInfo         (HasCompileInfo, retrieveCompileTimeInfo,
+                                               withCompileInfo)
 
 data LauncherOptions = LO
     { loNodePath            :: !FilePath
@@ -184,6 +187,7 @@ main = do
                 Just lc -> loNodeArgs ++ ["--log-config", toText lc]
     usingLoggerName "launcher" $
         withConfigurations loConfiguration $
+        withCompileInfo $(retrieveCompileTimeInfo) $
         liftIO $
         case loWalletPath of
             Nothing -> do
@@ -240,7 +244,7 @@ main = do
 -- * Launch the node.
 -- * If it exits with code 20, then update and restart, else quit.
 serverScenario
-    :: HasConfigurations
+    :: (HasConfigurations,HasCompileInfo)
     => Maybe FilePath                      -- ^ Logger config
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
@@ -265,7 +269,7 @@ serverScenario logConf node updater report = do
 -- * Launch the node and the wallet.
 -- * If the wallet exits with code 20, then update and restart, else quit.
 clientScenario
-    :: HasConfigurations
+    :: (HasConfigurations,HasCompileInfo)
     => Maybe FilePath                      -- ^ Logger config
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text])                  -- ^ Wallet, args
@@ -415,7 +419,7 @@ runWallet (path, args) = do
 -- ...Or maybe we don't care because we don't restart anything after sending
 -- logs (and so the user never actually sees the process or waits for it).
 reportNodeCrash
-    :: (HasConfigurations, MonadIO m)
+    :: (HasConfigurations, HasCompileInfo, MonadIO m)
     => ExitCode        -- ^ Exit code of the node
     -> Maybe FilePath  -- ^ Path to the logger config
     -> String          -- ^ URL of the server

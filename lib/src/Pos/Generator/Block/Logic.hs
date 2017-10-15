@@ -12,13 +12,13 @@ import           Universum
 
 import           Control.Lens                (at, ix, _Wrapped)
 import           Control.Monad.Random.Strict (RandT, mapRandT)
-import           Data.Default                (Default)
+import           Data.Default                (Default (def))
 import           Formatting                  (build, sformat, (%))
 import           System.Random               (RandomGen (..))
 import           System.Wlog                 (logWarning)
 
 import           Pos.AllSecrets              (HasAllSecrets (..), unInvSecretsMap)
-import           Pos.Block.Core              (mkGenesisBlock)
+import           Pos.Block.Core              (Block, mkGenesisBlock)
 import           Pos.Block.Logic             (applyBlocksUnsafe, createMainBlockInternal,
                                               normalizeMempool, verifyBlocksPrefix)
 import           Pos.Block.Slog              (ShouldCallBListener (..))
@@ -28,6 +28,7 @@ import           Pos.Core                    (EpochOrSlot (..), SlotId (..), add
 import           Pos.Crypto                  (pskDelegatePk)
 import           Pos.DB.DB                   (getTipHeader)
 import           Pos.Delegation.Logic        (getDlgTransPsk)
+import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.Generator.Block.Error   (BlockGenError (..))
 import           Pos.Generator.Block.Mode    (BlockGenMode, BlockGenRandMode,
                                               MonadBlockGen, mkBlockGenContext,
@@ -40,6 +41,7 @@ import qualified Pos.Lrc.DB                  as LrcDB
 import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Txp                     (MempoolExt, MonadTxpLocal)
 import           Pos.Util.Chrono             (OldestFirst (..))
+import           Pos.Util.CompileInfo        (HasCompileInfo, withCompileInfo)
 import           Pos.Util.Util               (maybeThrow, _neHead)
 
 ----------------------------------------------------------------------------
@@ -79,10 +81,9 @@ genBlock ::
        forall g ctx m . BlockTxpGenMode g ctx m
     => EpochOrSlot
     -> BlockGenRandMode (MempoolExt m) g m (Maybe (Blund SscGodTossing))
-genBlock eos = do
+genBlock eos = withCompileInfo def $ do
     let epoch = eos ^. epochIndexL
-    unlessM ((epoch ==) <$> lift LrcDB.getEpoch) $
-        lift $ lrcSingleShot epoch
+    lift $ unlessM ((epoch ==) <$> LrcDB.getEpoch) (lrcSingleShot epoch)
     -- We need to know leaders to create any block.
     leaders <- lift $ lrcActionOnEpochReason epoch "genBlock" LrcDB.getLeaders
     case eos of
@@ -114,12 +115,21 @@ genBlock eos = do
                     throwM $ BGUnknownSecret leader
                 (Just leaderSK, _) ->
                     -- When we know the secret key we can proceed to the actual creation.
-                    Just <$> usingPrimaryKey leaderSK (genMainBlock slot (Right . swap <$> transCert))
+                    Just <$> usingPrimaryKey leaderSK
+                             (lift $ genMainBlock slot (Right . swap <$> transCert))
   where
+    genMainBlock ::
+        HasCompileInfo =>
+        SlotId ->
+        ProxySKBlockInfo ->
+        BlockGenMode (MempoolExt m) m (Blund SscGodTossing)
     genMainBlock slot proxySkInfo =
-        lift $ createMainBlockInternal @SscGodTossing slot proxySkInfo >>= \case
+        createMainBlockInternal @SscGodTossing slot proxySkInfo >>= \case
             Left err -> throwM (BGFailedToCreate err)
             Right mainBlock -> verifyAndApply $ Right mainBlock
+    verifyAndApply ::
+        HasCompileInfo =>
+        Block SscGodTossing -> BlockGenMode (MempoolExt m) m (Blund SscGodTossing)
     verifyAndApply block =
         verifyBlocksPrefix (one block) >>= \case
             Left err -> throwM (BGCreatedInvalid err)

@@ -15,8 +15,8 @@ import qualified Pos.Client.CLI        as CLI
 import           Pos.Communication     (OutSpecs, WorkerSpec)
 import           Pos.Core              (Timestamp (..), gdStartTime, genesisData)
 import           Pos.Launcher          (HasConfigurations, NodeParams (..), NodeResources,
-                                        bracketNodeResources, loggerBracket, runNode,
-                                        runRealBasedMode, withConfigurations)
+                                        bracketNodeResources, loggerBracket, lpConsoleLog,
+                                        runNode, runRealBasedMode, withConfigurations)
 import           Pos.Network.Types     (NetworkConfig (..), Topology (..),
                                         topologyDequeuePolicy, topologyEnqueuePolicy,
                                         topologyFailurePolicy)
@@ -26,10 +26,11 @@ import           Pos.Util.CompileInfo  (HasCompileInfo, retrieveCompileTimeInfo,
 import           Pos.Util.UserSecret   (usVss)
 import           Pos.WorkMode          (EmptyMempoolExt, RealMode)
 
-import           AuxxOptions           (AuxxOptions (..), getAuxxOptions)
+import           AuxxOptions           (AuxxAction (..), AuxxOptions (..), getAuxxOptions)
 import           Mode                  (AuxxContext (..), AuxxMode, AuxxSscType,
                                         CmdCtx (..), realModeToAuxx)
 import           Plugin                (auxxPlugin)
+import           Repl                  (WithCommandAction, withAuxxRepl)
 
 -- 'NodeParams' obtained using 'CLI.getNodeParams' are not perfect for
 -- Auxx, so we need to adapt them slightly.
@@ -70,8 +71,8 @@ runNodeWithSinglePlugin ::
 runNodeWithSinglePlugin nr (plugin, plOuts) =
     runNode nr ([plugin], plOuts)
 
-action :: HasCompileInfo => AuxxOptions -> Production ()
-action opts@AuxxOptions {..} = withConfigurations conf $ do
+action :: HasCompileInfo => AuxxOptions -> Either (WithCommandAction AuxxMode) Text -> Production ()
+action opts@AuxxOptions {..} command = withConfigurations conf $ do
     CLI.printFlags
     logInfo $ sformat ("System start time is "%shown) $ gdStartTime genesisData
     t <- currentTime
@@ -93,7 +94,7 @@ action opts@AuxxOptions {..} = withConfigurations conf $ do
     bracketNodeResources @AuxxSscType nodeParams gtParams $ \nr ->
         runRealBasedMode toRealMode realModeToAuxx nr $
             (if aoNodeEnabled then runNodeWithSinglePlugin nr else identity)
-            (auxxPlugin opts)
+            (auxxPlugin opts command)
   where
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)
@@ -104,5 +105,19 @@ action opts@AuxxOptions {..} = withConfigurations conf $ do
 main :: IO ()
 main = withCompileInfo $(retrieveCompileTimeInfo) $ do
     opts <- getAuxxOptions
-    let loggingParams = CLI.loggingParams "auxx" (aoCommonNodeArgs opts)
-    loggerBracket loggingParams $ runProduction $ action opts
+    let disableConsoleLog
+            | Repl <- aoAction opts =
+                  -- Logging in the REPL disrupts the prompt,
+                  -- so we disable it.
+                  -- TODO: When LW-25 is resolved we also want
+                  -- to be able to enable logging in REPL using
+                  -- a Haskeline-compatible print action.
+                  \lp -> lp { lpConsoleLog = Just False }
+            | otherwise = identity
+        loggingParams = disableConsoleLog $
+            CLI.loggingParams "auxx" (aoCommonNodeArgs opts)
+    loggerBracket loggingParams $ do
+        let runAction a = runProduction $ action opts a
+        case aoAction opts of
+            Repl    -> withAuxxRepl $ \c -> runAction (Left c)
+            Cmd cmd -> runAction (Right cmd)

@@ -16,12 +16,14 @@ executable cardano-auxx
   main-is:             Main.hs
   other-modules:
                        Command
+                       Command.Help
                        Command.Parser
                        Command.Rollback
                        Command.Run
                        Command.Tx
                        Command.Types
                        Command.Update
+                       Repl
                        Mode
                        Plugin
                        AuxxOptions
@@ -30,6 +32,7 @@ executable cardano-auxx
                        QuickCheck
                      , acid-state
                      , ansi-wl-pprint
+                     , async
                      , base
                      , base58-bytestring
                      , binary
@@ -49,6 +52,7 @@ executable cardano-auxx
                      , exceptions
                      , containers
                      , formatting
+                     , haskeline
                      , lens
                      , log-warper
                      , mmorph

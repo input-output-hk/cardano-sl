@@ -17,8 +17,8 @@ import           Control.Lens           (zoom, (?=))
 import qualified Data.ByteString.Lazy   as BSL
 import           Formatting             (sformat, shown, (%))
 import           System.Wlog            (LoggerConfig (..), Severity (Info, Warning),
-                                         fromScratch, lcTree, ltSeverity,
-                                         parseLoggerConfig, zoomLogger)
+                                         WithLogger, fromScratch, lcTree, logInfo,
+                                         ltSeverity, parseLoggerConfig, zoomLogger)
 import           Text.Parsec            (try)
 import qualified Text.Parsec.Char       as P
 import qualified Text.Parsec.Text       as P
@@ -33,9 +33,9 @@ import           Pos.Ssc.SscAlgo        (SscAlgo (..))
 import           Pos.Util               (eitherToFail, inAssertMode)
 import           Pos.Util.TimeWarp      (addrParser)
 
-printFlags :: MonadIO m => m ()
+printFlags :: WithLogger m => m ()
 printFlags = do
-    inAssertMode $ putText "Asserts are ON"
+    inAssertMode $ logInfo "Asserts are ON"
 
 -- | Decides which secret-sharing algorithm to use.
 sscAlgoParser :: P.Parser SscAlgo

@@ -32,8 +32,11 @@ import qualified Data.HashMap.Strict         as HM
 import           Pos.Binary.Core             ()
 import           Pos.Context                 (genesisStakes)
 import           Pos.Core                    (BlockVersionData (bvdHeavyDelThd), Coin,
-                                              EpochIndex, HasConfiguration, StakeholderId,
-                                              genesisBlockVersionData)
+                                              EpochIndex, HasConfiguration, ProxySKHeavy,
+                                              StakeholderId, addressHash,
+                                              gdHeavyDelegation, genesisBlockVersionData,
+                                              genesisData, unGenesisDelegation)
+import           Pos.Crypto                  (pskDelegatePk)
 import           Pos.DB.Class                (MonadDB, MonadDBRead)
 import           Pos.Lrc.Class               (RichmenComponent (..),
                                               SomeRichmenComponent (..),
@@ -56,23 +59,36 @@ prepareLrcRichmen ::
     => m ()
 prepareLrcRichmen = do
     let genesisDistribution = HM.toList genesisStakes
-    mapM_ (prepareLrcRichmenDo genesisDistribution) richmenComponents
+        genesisDelegation   = unGenesisDelegation $
+                              gdHeavyDelegation genesisData
+    mapM_ (prepareLrcRichmenDo genesisDistribution genesisDelegation)
+          richmenComponents
   where
-    prepareLrcRichmenDo distr (SomeRichmenComponent proxy) =
+    prepareLrcRichmenDo distr deleg (SomeRichmenComponent proxy) =
         whenNothingM_ (getRichmenP proxy 0) $
-            putRichmenP proxy 0 (computeInitial distr proxy)
+            putRichmenP proxy 0 (computeInitial distr deleg proxy)
 
 computeInitial
     :: RichmenComponent c
-    => [(StakeholderId, Coin)] -> Proxy c -> FullRichmenData
-computeInitial initialDistr proxy =
+    => [(StakeholderId, Coin)]              -- ^ Genesis distribution
+    -> HashMap StakeholderId ProxySKHeavy   -- ^ Genesis delegation
+    -> Proxy c
+    -> FullRichmenData
+computeInitial initialDistr initialDeleg proxy =
     findRichmenPure
         initialDistr
         (rcInitialThreshold proxy)
         richmenType
   where
+    -- A reverse delegation map (keys = delegates, values = issuers).
+    -- Delegates must not be issuers so we can simply invert the map
+    -- without having to compute a transitive closure.
+    revDelegationMap =
+        HM.fromListWith (<>) $
+        map (\(issuer, delegate) -> (delegate, one issuer)) $
+        HM.toList $ map (addressHash . pskDelegatePk) initialDeleg
     richmenType
-        | rcConsiderDelegated proxy = RTDelegation mempty
+        | rcConsiderDelegated proxy = RTDelegation revDelegationMap
         | otherwise = RTUsual
 
 ----------------------------------------------------------------------------

@@ -33,7 +33,7 @@ import           Pos.Util.CompileInfo       (HasCompileInfo)
 import           Pos.Util.UserSecret        (WalletUserSecret (..), readUserSecret,
                                              usKeys, usWallet, userSecret)
 
-import           BlockGen                   (generateBlocks)
+import           Command.BlockGen           (generateBlocks)
 import           Command.Help               (helpMessage)
 import qualified Command.Rollback           as Rollback
 import qualified Command.Tx                 as Tx

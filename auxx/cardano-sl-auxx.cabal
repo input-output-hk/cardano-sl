@@ -16,9 +16,9 @@ executable cardano-auxx
   main-is:             Main.hs
   other-modules:
                        AuxxOptions
-                       BlockGen
                        Command
                        Command.Help
+                       Command.BlockGen
                        Command.Parser
                        Command.Rollback
                        Command.Run

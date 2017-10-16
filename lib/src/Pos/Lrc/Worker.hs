@@ -47,6 +47,7 @@ import           Pos.Reporting            (reportMisbehaviour)
 import           Pos.Slotting             (MonadSlots)
 import           Pos.Ssc.Class            (SscHelpersClass, SscWorkersClass)
 import           Pos.Ssc.Extra            (MonadSscMem, sscCalculateSeed)
+import           Pos.Ssc.GodTossing       (HasGtConfiguration, noReportNoSecretsForEpoch1)
 import           Pos.Update.DB            (getCompetingBVStates)
 import           Pos.Update.Poll.Types    (BlockVersionState (..))
 import           Pos.Util                 (logWarningWaitLinear, maybeThrow)
@@ -65,6 +66,7 @@ type LrcModeFull ssc ctx m =
     , MonadSlots ctx m
     , MonadBlockApply ssc ctx m
     , MonadReader ctx m
+    , HasGtConfiguration
     )
 
 -- | Run leaders and richmen computation for given epoch. If stable
@@ -151,10 +153,11 @@ lrcDo epoch consumers = do
             -- Critical error means that the system is in dangerous state.
             -- For now let's consider all errors critical, maybe we'll revise it later.
             -- REPORT:MISBEHAVIOUR(T) Couldn't compute seed.
-            reportMisbehaviour isCritical $ sformat
-                ("SSC couldn't compute seed: "%build%" for epoch "%build%
-                 ", going to reuse seed for previous epoch")
-                err epoch
+            unless (noReportNoSecretsForEpoch1 && epoch == 1) $
+                reportMisbehaviour isCritical $ sformat
+                    ("SSC couldn't compute seed: "%build%" for epoch "%build%
+                     ", going to reuse seed for previous epoch")
+                    err epoch
             getSeed (epoch - 1) >>=
                 maybeThrow (CanNotReuseSeedForLrc (epoch - 1))
     putSeed epoch seed

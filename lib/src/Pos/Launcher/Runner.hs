@@ -64,6 +64,7 @@ import           Pos.Network.Types               (NetworkConfig (..), NodeId, in
                                                   topologyRoute53HealthCheckEnabled)
 import           Pos.Recovery.Instance           ()
 import           Pos.Ssc.Class                   (SscConstraint)
+import           Pos.Ssc.GodTossing              (HasGtConfiguration)
 import           Pos.Statistics                  (EkgParams (..), StatsdParams (..))
 import           Pos.Txp                         (MonadTxpLocal)
 import           Pos.Update.Configuration        (HasUpdateConfiguration,
@@ -118,6 +119,7 @@ runRealModeDo
        , HasInfraConfiguration
        , HasUpdateConfiguration
        , HasNodeConfiguration
+       , HasGtConfiguration
        , HasCompileInfo
        , SscConstraint ssc
        , Default ext

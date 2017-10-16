@@ -72,6 +72,7 @@ findAllRichmenMaybe maybeT maybeTD
 
 data RichmenType
     = RTUsual
+    -- | A map from delegates to issuers
     | RTDelegation (HashMap StakeholderId (HashSet StakeholderId))
 
 -- | Pure version of 'findRichmen' which uses a list of stakeholders.

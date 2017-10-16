@@ -103,6 +103,15 @@ type CachedCAccModifier = CAccModifier
 -- Funcs
 ----------------------------------------------------------------------------
 
+deleteNotDeep :: (Eq k, Hashable k) => k -> MapModifier k v -> MapModifier k v
+deleteNotDeep = MM.alter alterDelF
+  where
+    alterDelF :: MM.KeyState v -> MM.KeyState v
+    alterDelF MM.KeyNotFound     = MM.KeyDeleted
+    alterDelF MM.KeyDeleted      = MM.KeyDeleted
+    alterDelF (MM.KeyInserted _) = MM.KeyNotFound
+
+
 insertIMM
     :: (Eq a, Hashable a)
     => a -> IndexedMapModifier a -> IndexedMapModifier a
@@ -117,7 +126,7 @@ deleteIMM
     => a -> IndexedMapModifier a -> IndexedMapModifier a
 deleteIMM k IndexedMapModifier {..} =
     IndexedMapModifier
-    { immModifier = MM.delete k immModifier
+    { immModifier = deleteNotDeep k immModifier
     , ..
     }
 
@@ -144,5 +153,5 @@ deleteAndInsertMM dels ins mapModifier =
     insertAcc modifier (k, v) = MM.insert k v modifier
 
     deleteAcc :: (Hashable k, Eq k) => MapModifier k v -> k -> MapModifier k v
-    deleteAcc = flip MM.delete
+    deleteAcc = flip deleteNotDeep
 

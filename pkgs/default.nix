@@ -1855,7 +1855,7 @@ self: {
           description = "Cardano SL - the SSC class";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-tools = callPackage ({ Chart, Chart-diagrams, Glob, MonadRandom, QuickCheck, aeson, ansi-wl-pprint, array, async, attoparsec, base, base58-bytestring, bytestring, canonical-json, cardano-report-server, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, containers, cpphs, cryptonite, data-default, directory, ed25519, ether, fgl, filepath, foldl, formatting, graphviz, kademlia, lens, log-warper, mkDerivation, mtl, neat-interpolation, node-sketch, optparse-applicative, parsec, pipes, pipes-bytestring, pipes-interleave, pipes-safe, process, random, random-shuffle, safe-exceptions, serokell-util, stdenv, stm, system-filepath, tabl, tar, text, text-format, time, time-units, universum, unix-compat, unordered-containers, vector, yaml }:
+      cardano-sl-tools = callPackage ({ Chart, Chart-diagrams, Glob, MonadRandom, QuickCheck, aeson, ansi-wl-pprint, array, async, attoparsec, base, base58-bytestring, bytestring, canonical-json, cardano-report-server, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, containers, cpphs, cryptonite, data-default, directory, ed25519, ether, fgl, filepath, foldl, formatting, graphviz, kademlia, lens, lifted-async, log-warper, mkDerivation, mtl, neat-interpolation, node-sketch, optparse-applicative, parsec, pipes, pipes-bytestring, pipes-interleave, pipes-safe, process, random, random-shuffle, safe-exceptions, serokell-util, stdenv, stm, system-filepath, tabl, tar, text, text-format, time, time-units, universum, unix, unix-compat, unordered-containers, vector, yaml }:
       mkDerivation {
           pname = "cardano-sl-tools";
           version = "1.0.2";
@@ -1896,6 +1896,7 @@ self: {
             graphviz
             kademlia
             lens
+            lifted-async
             log-warper
             MonadRandom
             mtl
@@ -1922,6 +1923,7 @@ self: {
             time
             time-units
             universum
+            unix
             unix-compat
             unordered-containers
             vector
@@ -2421,6 +2423,27 @@ self: {
           homepage = "http://github.com/vincenthz/hs-connection";
           description = "Simple and easy network connections API";
           license = stdenv.lib.licenses.bsd3;
+        }) {};
+      constraints = callPackage ({ base, binary, deepseq, ghc-prim, hashable, mkDerivation, mtl, stdenv, transformers, transformers-compat }:
+      mkDerivation {
+          pname = "constraints";
+          version = "0.9.1";
+          sha256 = "276e012838861145fca65d065dd9839f7cbd71236032b557194389180a30a785";
+          libraryHaskellDepends = [
+            base
+            binary
+            deepseq
+            ghc-prim
+            hashable
+            mtl
+            transformers
+            transformers-compat
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "http://github.com/ekmett/constraints/";
+          description = "Constraint manipulation";
+          license = stdenv.lib.licenses.bsd2;
         }) {};
       containers = callPackage ({ array, base, deepseq, ghc-prim, mkDerivation, stdenv }:
       mkDerivation {
@@ -4438,6 +4461,25 @@ self: {
           homepage = "http://github.com/ekmett/lens/";
           description = "Lenses, Folds and Traversals";
           license = stdenv.lib.licenses.bsd2;
+        }) {};
+      lifted-async = callPackage ({ async, base, constraints, lifted-base, mkDerivation, monad-control, stdenv, transformers-base }:
+      mkDerivation {
+          pname = "lifted-async";
+          version = "0.9.3";
+          sha256 = "97978307f34c8ab1d765724d723a13fede4112a94fe5fbf3494f00378961b461";
+          libraryHaskellDepends = [
+            async
+            base
+            constraints
+            lifted-base
+            monad-control
+            transformers-base
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "https://github.com/maoe/lifted-async";
+          description = "Run lifted IO operations asynchronously and wait for their results";
+          license = stdenv.lib.licenses.bsd3;
         }) {};
       lifted-base = callPackage ({ base, mkDerivation, monad-control, stdenv, transformers-base }:
       mkDerivation {

@@ -107,6 +107,7 @@ runCmd sendActions (Vote idx decision upId) =
     Update.vote sendActions idx decision upId
 runCmd sendActions (ProposeUpdate params) =
     Update.propose sendActions params
+runCmd _ (HashInstaller path) = Update.hashInstaller path
 runCmd _ Help = putText helpMsg
 runCmd _ ListAddresses = do
    sks <- getSecretKeysPlain

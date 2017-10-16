@@ -15,7 +15,7 @@ import qualified Data.ByteString.Lazy         as BSL
 import qualified Data.HashMap.Strict          as HM
 import           Formatting                   (sformat, stext, (%))
 
-import           Pos.Wallet.KeyStorage        (addSecretKey)
+import           Pos.Client.KeyStorage        (addSecretKey)
 import           Pos.Wallet.Web.Account       (GenSeed (..), genUniqueAccountId)
 import           Pos.Wallet.Web.Backup        (AccountMetaBackup (..), TotalBackup (..),
                                                WalletBackup (..), WalletMetaBackup (..),

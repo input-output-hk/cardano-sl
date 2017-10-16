@@ -18,6 +18,7 @@ import           Formatting                   (build, sformat, (%))
 import           System.IO.Error              (isDoesNotExistError)
 import           System.Wlog                  (logDebug)
 
+import           Pos.Client.KeyStorage        (addSecretKey)
 import           Pos.Core.Configuration       (genesisHdwSecretKeys)
 import           Pos.Crypto                   (EncryptedSecretKey, PassPhrase,
                                                emptyPassphrase, firstHardened)
@@ -25,7 +26,6 @@ import           Pos.StateLock                (Priority (..), withStateLockNoMet
 import           Pos.Util                     (maybeThrow)
 import           Pos.Util.UserSecret          (UserSecretDecodingError (..),
                                                readUserSecret, usWallet)
-import           Pos.Wallet.KeyStorage        (addSecretKey)
 import           Pos.Wallet.Web.Account       (GenSeed (..), genSaveRootKey,
                                                genUniqueAccountId)
 import           Pos.Wallet.Web.ClientTypes   (AccountId (..), CAccountInit (..),

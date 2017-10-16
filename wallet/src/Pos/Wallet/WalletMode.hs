@@ -15,13 +15,13 @@ import           Universum
 import           Control.Monad.Trans     (MonadTrans)
 import           Data.Time.Units         (Millisecond)
 
+import           Pos.Client.KeyStorage   (MonadKeys)
 import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History  (MonadTxHistory (..))
 import           Pos.Communication       (TxMode)
 import           Pos.Core                (ChainDifficulty)
 import           Pos.Update              (ConfirmedProposalState (..))
 import           Pos.Util.TimeWarp       (CanJsonLog)
-import           Pos.Wallet.KeyStorage   (MonadKeys)
 
 class Monad m => MonadBlockchainInfo m where
     networkChainDifficulty :: m (Maybe ChainDifficulty)

@@ -18,6 +18,7 @@ import           Formatting               (sformat, string, (%))
 import           System.Wlog              (logDebug, logError, logInfo)
 
 import           Pos.Binary               (Raw)
+import           Pos.Client.KeyStorage    (getSecretKeysPlain)
 import           Pos.Communication        (SendActions, immediateConcurrentConversations,
                                            submitUpdateProposal, submitVote)
 import           Pos.Configuration        (HasNodeConfiguration)
@@ -31,7 +32,6 @@ import           Pos.Update               (SystemTag, UpId, UpdateData (..),
                                            mkUpdateProposalWSign)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo     (HasCompileInfo)
-import           Pos.Wallet.KeyStorage    (getSecretKeysPlain)
 
 import           Command.Types            (ProposeUpdateParams (..),
                                            ProposeUpdateSystem (..))

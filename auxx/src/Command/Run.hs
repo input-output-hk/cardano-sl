@@ -16,6 +16,7 @@ import           System.Wlog                (logError, logInfo)
 import qualified Text.JSON.Canonical        as CanonicalJSON
 
 import           Pos.Binary                 (serialize')
+import           Pos.Client.KeyStorage      (addSecretKey, getSecretKeysPlain)
 import           Pos.Client.Txp.Balances    (getBalance)
 import           Pos.Communication          (MsgType (..), Origin (..), SendActions,
                                              dataFlow, immediateConcurrentConversations)
@@ -30,7 +31,6 @@ import           Pos.DB.Class               (MonadGState (..))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo       (HasCompileInfo)
 import           Pos.Util.UserSecret        (readUserSecret, usKeys, usWallet, userSecret)
-import           Pos.Wallet.KeyStorage      (addSecretKey, getSecretKeysPlain)
 import           Pos.Wallet.Web.Secret      (WalletUserSecret (..))
 
 import           Command.Help               (helpMessage)

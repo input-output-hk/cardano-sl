@@ -26,6 +26,8 @@ servantHandlers
 servantHandlers sendActions =
      M.testResetAll
     :<|>
+     M.dumpState
+    :<|>
 
      M.getWallet
     :<|>

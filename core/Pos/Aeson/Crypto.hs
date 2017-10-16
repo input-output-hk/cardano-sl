@@ -4,17 +4,25 @@ module Pos.Aeson.Crypto
 
 import           Universum
 
-import           Crypto.Hash   (HashAlgorithm)
-import           Data.Aeson    (FromJSON (..), FromJSONKey (..), FromJSONKeyFunction (..),
-                                ToJSON (..))
-import           Data.Aeson.TH (defaultOptions, deriveJSON)
-import           Formatting    (sformat)
+import qualified Cardano.Crypto.Wallet as CC
+import           Crypto.Hash           (HashAlgorithm)
+import qualified Crypto.Sign.Ed25519   as Ed25519
+import           Data.Aeson            (FromJSON (..), FromJSONKey (..),
+                                        FromJSONKeyFunction (..), ToJSON (..),
+                                        ToJSONKey (..))
+import           Data.Aeson.TH         (defaultOptions, deriveJSON)
+import           Data.Aeson.Types      (toJSONKeyText)
+import           Formatting            (sformat)
+import           Serokell.Util.Base64  (JsonByteString (..))
 
-import           Pos.Crypto    (AbstractHash, ProxyCert, ProxySecretKey, PublicKey,
-                                Signature (..), decodeAbstractHash, fullProxyCertHexF,
-                                fullPublicKeyF, hashHexF, parseFullProxyCert,
-                                parseFullPublicKey, parseFullSignature)
-import           Pos.Util.Util (eitherToFail, parseJSONWithRead)
+import           Pos.Crypto            (AbstractHash, HDAddressPayload (..), ProxyCert,
+                                        ProxySecretKey, PublicKey, RedeemPublicKey,
+                                        RedeemSignature, Signature (..),
+                                        decodeAbstractHash, fullProxyCertHexF,
+                                        fullPublicKeyF, fullSignatureHexF, hashHexF,
+                                        hashHexF, parseFullProxyCert, parseFullPublicKey,
+                                        parseFullSignature)
+import           Pos.Util.Util         (eitherToFail, parseJSONWithRead)
 
 instance ToJSON (AbstractHash algo a) where
     toJSON = toJSON . sformat hashHexF
@@ -28,12 +36,14 @@ instance (HashAlgorithm algo, FromJSON (AbstractHash algo a))
       where
         parser = eitherToFail . decodeAbstractHash
 
+instance ToJSONKey (AbstractHash algo a) where
+    toJSONKey = toJSONKeyText (sformat hashHexF)
+
 instance ToJSON PublicKey where
     toJSON = toJSON . sformat fullPublicKeyF
 
 instance ToJSON (ProxyCert w) where
     toJSON = toJSON . sformat fullProxyCertHexF
-
 
 eitherMsgFail :: (MonadFail m, ToString s) => String -> Either s a -> m a
 eitherMsgFail msg =
@@ -45,7 +55,39 @@ instance FromJSON PublicKey where
 instance FromJSON (Signature w) where
     parseJSON v = parseJSON v >>= eitherMsgFail "Signature" . parseFullSignature
 
+instance ToJSON (Signature w) where
+    toJSON = toJSON . sformat fullSignatureHexF
+
 instance FromJSON (ProxyCert w) where
     parseJSON v = parseJSON v >>= eitherMsgFail "Signature" . parseFullProxyCert
 
 deriveJSON defaultOptions ''ProxySecretKey
+
+-- All these instances below needed for wallet
+
+instance FromJSON Ed25519.PublicKey where
+    parseJSON v = Ed25519.PublicKey . getJsonByteString <$> parseJSON v
+
+instance ToJSON Ed25519.PublicKey where
+    toJSON = toJSON . JsonByteString . Ed25519.openPublicKey
+
+instance FromJSON Ed25519.Signature where
+    parseJSON v = Ed25519.Signature . getJsonByteString <$> parseJSON v
+
+instance ToJSON Ed25519.Signature where
+    toJSON = toJSON . JsonByteString . Ed25519.unSignature
+
+instance FromJSON CC.XSignature where
+    parseJSON v = either (error . toText) identity . CC.xsignature . getJsonByteString <$> parseJSON v
+
+instance ToJSON CC.XSignature where
+    toJSON = toJSON . JsonByteString . CC.unXSignature
+
+instance FromJSON HDAddressPayload where
+    parseJSON v = HDAddressPayload . getJsonByteString <$> parseJSON v
+
+instance ToJSON HDAddressPayload where
+    toJSON = toJSON . JsonByteString . getHDAddressPayload
+
+deriveJSON defaultOptions ''RedeemPublicKey
+deriveJSON defaultOptions ''RedeemSignature

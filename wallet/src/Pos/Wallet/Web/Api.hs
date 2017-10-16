@@ -15,6 +15,7 @@ module Pos.Wallet.Web.Api
        , WalletVerb
 
        , TestReset
+       , TestState
 
        , GetWallet
        , GetWallets
@@ -72,6 +73,7 @@ import           Servant.API                ((:<|>), (:>), Capture, Delete, Get,
                                              ReqBody, Verb)
 import           Servant.Server             (HasServer (..))
 import           Servant.Swagger.UI         (SwaggerSchemaUI)
+import           Servant.API.ContentTypes   (OctetStream)
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
@@ -91,6 +93,7 @@ import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccoun
                                              Wal)
 import           Pos.Wallet.Web.Error       (WalletError (DecodeError),
                                              catchEndpointErrors)
+import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
 
 -- | Common prefix for all endpoints.
 type ApiPrefix = "api"
@@ -139,6 +142,11 @@ type TestReset =
        "test"
     :> "reset"
     :> WRes Post ()
+
+type TestState =
+       "test"
+    :> "state"
+    :> Get '[OctetStream] WalletStateSnapshot
 
 -------------------------------------------------------------------------
 -- Wallets
@@ -385,6 +393,8 @@ type ExportBackupJSON =
 type WalletApi = ApiPrefix :> (
      -- NOTE: enabled in prod mode https://issues.serokell.io/issue/CSM-333
      TestReset
+    :<|>
+     TestState
     :<|>
      -------------------------------------------------------------------------
      -- Wallets

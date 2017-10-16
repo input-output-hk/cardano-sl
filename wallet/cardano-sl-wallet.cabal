@@ -21,6 +21,7 @@ Flag for-installer
 library
   hs-source-dirs:     src
   exposed-modules:    Pos.Aeson.ClientTypes
+                      Pos.Aeson.Storage
                       Pos.Aeson.WalletBackup
 
                       Pos.Wallet
@@ -109,6 +110,7 @@ library
                       , stm-containers
                       , swagger2
                       , text-format
+                      , text
                       , time
                       , time-units
                       , transformers

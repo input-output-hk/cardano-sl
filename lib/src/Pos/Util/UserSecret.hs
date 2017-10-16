@@ -8,7 +8,16 @@
 #endif
 
 module Pos.Util.UserSecret
-       ( UserSecret
+       ( WalletUserSecret (..)
+       , wusRootKey
+       , wusWalletName
+       , wusAccounts
+       , wusAddrs
+       , accountGenesisIndex
+       , wAddressGenesisIndex
+       , mkGenesisWalletUserSecret
+
+       , UserSecret
        , usKeys
        , usVss
        , usWallet
@@ -32,7 +41,8 @@ import           Control.Lens           (makeLenses, to)
 import qualified Data.ByteString        as BS
 import           Data.Default           (Default (..))
 import qualified Data.Text.Buildable
-import           Formatting             (bprint, build, formatToString, (%))
+import           Formatting             (Format, bprint, build, formatToString, later,
+                                         (%))
 import qualified Prelude
 import           Serokell.Util.Text     (listJson)
 import           System.Directory       (doesFileExist)
@@ -42,16 +52,18 @@ import           Universum
 
 import           Pos.Binary.Class       (Bi (..), decodeFull, encodeListLen, enforceSize,
                                          serialize')
+import           Pos.Binary.Class       (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Binary.Crypto      ()
-import           Pos.Crypto             (EncryptedSecretKey, SecretKey, VssKeyPair)
+import           Pos.Core               (accountGenesisIndex, addressF,
+                                         makeRootPubKeyAddress, wAddressGenesisIndex)
+import           Pos.Crypto             (EncryptedSecretKey, SecretKey, VssKeyPair,
+                                         encToPublic)
 
 import           Pos.Types              (Address)
 import           System.Directory       (renameFile)
 import           System.FilePath        (takeDirectory, takeFileName)
 import           System.IO              (hClose, openBinaryTempFile)
 import           System.Wlog            (WithLogger)
-
-import           Pos.Wallet.Web.Secret  (WalletUserSecret)
 
 #ifdef POSIX
 import           Formatting             (oct, sformat)
@@ -62,6 +74,44 @@ import           System.Wlog            (logWarning)
 
 -- Because of the Formatting import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
+
+-- | Describes HD wallets keyfile content
+data WalletUserSecret = WalletUserSecret
+    { _wusRootKey    :: EncryptedSecretKey  -- ^ root key of wallet set
+    , _wusWalletName :: Text                -- ^ name of wallet
+    , _wusAccounts   :: [(Word32, Text)]    -- ^ accounts coordinates and names
+    , _wusAddrs      :: [(Word32, Word32)]  -- ^ addresses coordinates
+    }
+
+makeLenses ''WalletUserSecret
+
+instance Buildable WalletUserSecret where
+    build WalletUserSecret{..} =
+        bprint ("{ root = "%addressF%", set name = "%build%
+                ", wallets = "%pairsF%", accounts = "%pairsF%" }")
+        (makeRootPubKeyAddress $ encToPublic _wusRootKey)
+        _wusWalletName
+        _wusAccounts
+        _wusAddrs
+      where
+        pairsF :: (Buildable a, Buildable b) => Format r ([(a, b)] -> r)
+        pairsF = later $ mconcat . map (uncurry $ bprint ("("%build%", "%build%")"))
+
+deriveSimpleBi ''WalletUserSecret [
+    Cons 'WalletUserSecret [
+        Field [| _wusRootKey    :: EncryptedSecretKey |],
+        Field [| _wusWalletName :: Text               |],
+        Field [| _wusAccounts   :: [(Word32, Text)]   |],
+        Field [| _wusAddrs      :: [(Word32, Word32)] |]
+    ]]
+
+mkGenesisWalletUserSecret :: EncryptedSecretKey -> WalletUserSecret
+mkGenesisWalletUserSecret _wusRootKey = do
+    let _wusWalletName = "Genesis wallet"
+        _wusAccounts   = [(accountGenesisIndex, "Genesis account")]
+        _wusAddrs      = [(accountGenesisIndex, wAddressGenesisIndex)]
+    WalletUserSecret{..}
+
 
 -- | User secret data. Includes secret keys only for now (not
 -- including auxiliary @_usPath@).

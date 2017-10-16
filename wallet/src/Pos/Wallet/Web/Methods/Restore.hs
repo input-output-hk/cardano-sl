@@ -25,7 +25,9 @@ import           Pos.Crypto                   (EncryptedSecretKey, PassPhrase,
 import           Pos.StateLock                (Priority (..), withStateLockNoMetrics)
 import           Pos.Util                     (maybeThrow)
 import           Pos.Util.UserSecret          (UserSecretDecodingError (..),
-                                               readUserSecret, usWallet)
+                                               WalletUserSecret (..),
+                                               mkGenesisWalletUserSecret, readUserSecret,
+                                               usWallet, wusAccounts, wusWalletName)
 import           Pos.Wallet.Web.Account       (GenSeed (..), genSaveRootKey,
                                                genUniqueAccountId)
 import           Pos.Wallet.Web.ClientTypes   (AccountId (..), CAccountInit (..),
@@ -35,9 +37,6 @@ import           Pos.Wallet.Web.ClientTypes   (AccountId (..), CAccountInit (..)
 import           Pos.Wallet.Web.Error         (WalletError (..), rewrapToWalletError)
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
-import           Pos.Wallet.Web.Secret        (WalletUserSecret (..),
-                                               mkGenesisWalletUserSecret, wusAccounts,
-                                               wusWalletName)
 import           Pos.Wallet.Web.State         (createAccount, removeHistoryCache,
                                                setWalletSyncTip)
 import           Pos.Wallet.Web.Tracking      (syncWalletOnImport)

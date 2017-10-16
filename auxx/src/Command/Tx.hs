@@ -55,9 +55,8 @@ import           Pos.Txp                          (TxAux, TxOut (..), TxOutAux (
                                                    topsortTxAuxes, txaF)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo             (HasCompileInfo)
-import           Pos.Util.UserSecret              (usWallet, userSecret)
+import           Pos.Util.UserSecret              (usWallet, userSecret, wusRootKey)
 import           Pos.Util.Util                    (maybeThrow)
-import           Pos.Wallet.Web.Secret            (wusRootKey)
 
 import           Command.Types                    (SendMode (..),
                                                    SendToAllGenesisParams (..))

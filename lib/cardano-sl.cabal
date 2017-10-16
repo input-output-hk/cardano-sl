@@ -135,9 +135,6 @@ library
                         -- Heavy delegation
                         Pos.Delegation.Types
 
-                        -- Wallets
-                        Pos.Wallet.Web.Secret
-
                         -- Exposed for tests
                         Pos.Block.Logic.VAR
                         Pos.Generator.Block.Param

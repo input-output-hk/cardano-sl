@@ -3470,6 +3470,8 @@ self: {
           pname = "foldl";
           version = "1.2.5";
           sha256 = "aa2d5c3cfb8641163dcdd489e9e0fe481301e94c0e3940fc9e234f8e1b00ec4b";
+          revision = "1";
+          editedCabalFile = "02lk5838594mi15bylz2kpcm1c4akbsswj73i7k8xw4ns66iaq04";
           libraryHaskellDepends = [
             base
             bytestring

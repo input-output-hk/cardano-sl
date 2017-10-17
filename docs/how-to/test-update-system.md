@@ -79,20 +79,21 @@ Available addresses:
 #### Propose update
 
 ```
-propose-update  csl-daedalus:1  0 0.1.0 1 15 2000000  win64 daedalus1.exe none  macos daedalus1c.pkg none
+propose-update 0 0.1.0 csl-daedalus:1 1 15 2000000 win64 daedalus1.exe none macos daedalus1c.pkg none
 ```
+
 (`none` states for binary diff package)
+
+Replace `0.1.0` with actual block version from config (i.e. `lastKnownBVMajor.lastKnownBVMinor.lastKnownBVAlt`), if needed.
 
 Replace `csl-daedalus:1` with `applicationName:applicationVersion` as for config.
 
-Arguments 3-6 are block version modifiers:
-* Replace argument 3, `0.1.0`, with actual block version from config (i.e. `lastKnownBVMajor.lastKnownBVMinor.lastKnownBVAlt`), if needed.
-* Replace argument 4, `1` with actual script version.
+Replace argument 4, `1` with actual script version.
 
 After launching `propose-update` command you'll see output like this:
 
 ```
-> propose-update 0 0.1.0 1 15 2000000 csl-daedalus:1 win64 daedalus1.exe none macos daedalus1c.pkg none
+> propose-update 0 0.1.0 csl-daedalus:1 1 15 2000000 win64 daedalus1.exe none macos daedalus1c.pkg none
 [smart-wallet:DEBUG:ThreadId 10] [2017-09-01 15:13:07 MSK] Proposing update...
 Read file daedalus1.exe succesfuly, its hash: 77de53da248fa85143f45ca8a3f83ef7088395222b25ea777859e4209cff1ceb
 Read file daedalus1c.pkg succesfuly, its hash: f53b7e9e024eeb6d96116764b4bedd756e9b5f5fccb07beac27cc9c197cd593c

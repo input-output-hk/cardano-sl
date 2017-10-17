@@ -4,8 +4,8 @@ module Pos.Binary.Explorer () where
 
 import           Universum
 
+import           Pos.Binary              ()
 import           Pos.Binary.Class        (Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Binary.Txp          ()
 import           Pos.Core                (HeaderHash, Timestamp)
 import           Pos.Explorer.Core.Types (TxExtra (..))
 import           Pos.Txp.Core            (TxUndo)

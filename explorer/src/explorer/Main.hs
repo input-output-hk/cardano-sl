@@ -24,9 +24,9 @@ import           Pos.Client.CLI            (CommonNodeArgs (..), NodeArgs (..),
 import qualified Pos.Client.CLI            as CLI
 import           Pos.Communication         (OutSpecs, WorkerSpec)
 import           Pos.Core                  (gdStartTime, genesisData)
-import           Pos.Explorer              (ExplorerExtra)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
 import           Pos.Explorer.Socket       (NotifierSettings (..))
+import           Pos.Explorer.Txp          (ExplorerExtra)
 import           Pos.Explorer.Web          (ExplorerProd, explorerPlugin,
                                             liftToExplorerProd, notifierPlugin,
                                             runExplorerProd)

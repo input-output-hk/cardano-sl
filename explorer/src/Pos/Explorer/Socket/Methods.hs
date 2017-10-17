@@ -59,8 +59,8 @@ import           Pos.Block.Types                (Blund)
 import           Pos.Crypto                     (hash, withHash)
 import qualified Pos.DB.Block                   as DB
 import           Pos.DB.Class                   (MonadDBRead)
-import           Pos.Explorer                   (TxExtra (..))
-import qualified Pos.Explorer                   as DB
+import           Pos.Explorer.Core              (TxExtra (..))
+import qualified Pos.Explorer.DB                as DB
 import qualified Pos.GState                     as DB
 import           Pos.Txp                        (Tx (..), TxOut (..), TxOutAux (..),
                                                  txOutAddress, txpTxs)

@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE RankNTypes          #-}
 
 -- | Blockchain listener for Explorer.
 -- Callbacks on application and rollback.

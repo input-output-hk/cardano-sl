@@ -8,4 +8,4 @@ module Pos.Explorer.Txp
 
 import           Pos.Explorer.Txp.Global
 import           Pos.Explorer.Txp.Local
-import           Pos.Explorer.Txp.Toil   (ExplorerExtra)
+import           Pos.Explorer.Txp.Toil

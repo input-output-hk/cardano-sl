@@ -13,7 +13,7 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 Flag with-explorer
-  default:     True
+  default:     False
   manual:      True
 
   description: Build with explorer
@@ -139,13 +139,7 @@ library
                         Pos.Block.Logic.VAR
                         Pos.Generator.Block.Param
 
-  -- Explorer (TODO: move into cardano-explorer)
   exposed-modules:
-                        Pos.Explorer
-
-                        -- Needed for testing
-                        Pos.Arbitrary.Explorer
-
                         Pos.Util.Servant
 
   other-modules:        Pos.Aeson.Types
@@ -281,20 +275,6 @@ library
                         Pos.Update.Network
                         Pos.Update.Network.Listeners
                         Pos.Update.Worker
-
-  -- Explorer (TODO: move into cardano-explorer)
-  other-modules:        Pos.Binary.Explorer
-                        Pos.Explorer.Core
-                        Pos.Explorer.Core.Types
-                        Pos.Explorer.Txp
-                        Pos.Explorer.Txp.Global
-                        Pos.Explorer.Txp.Local
-                        Pos.Explorer.Txp.Toil
-                        Pos.Explorer.Txp.Toil.Class
-                        Pos.Explorer.Txp.Toil.Logic
-                        Pos.Explorer.Txp.Toil.Types
-                        Pos.Explorer.DB
-                        Pos.Explorer.BListener
 
   build-depends:        MonadRandom
                       , QuickCheck

@@ -70,13 +70,12 @@ import           Pos.Util.Chrono                      (NewestFirst (..))
 import           Pos.Web                              (serveImpl)
 import           Pos.WorkMode                         (WorkMode)
 
-import           Pos.Explorer                         (TxExtra (..), getEpochBlocks,
-                                                       getLastTransactions, getPageBlocks,
-                                                       getTxExtra)
-import qualified Pos.Explorer                         as EX (getAddrBalance,
-                                                             getAddrHistory, getTxExtra,
-                                                             getUtxoSum)
 import           Pos.Explorer.Aeson.ClientTypes       ()
+import           Pos.Explorer.Core                    (TxExtra (..))
+import           Pos.Explorer.DB                      (getAddrBalance, getAddrHistory,
+                                                       getEpochBlocks,
+                                                       getLastTransactions, getPageBlocks,
+                                                       getTxExtra, getUtxoSum)
 import           Pos.Explorer.ExtraContext            (HasGenesisRedeemAddressInfo (..))
 import           Pos.Explorer.Web.Api                 (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes         (Byte, CAda (..), CAddress (..),
@@ -162,7 +161,7 @@ explorerHandlers _sendActions =
 
 getTotalAda :: ExplorerMode ctx m => m CAda
 getTotalAda = do
-    utxoSum <- EX.getUtxoSum
+    utxoSum <- getUtxoSum
     validateUtxoSum utxoSum
     pure $ CAda $ fromInteger utxoSum / 1e6
   where
@@ -306,7 +305,7 @@ getLastTxs = do
             => WithHash Tx
             -> m TxInternal
         toTxInternal (WithHash tx txId) = do
-            extra <- EX.getTxExtra txId >>=
+            extra <- getTxExtra txId >>=
                 maybeThrow (Internal "No extra info for tx in DB!")
             pure $ TxInternal extra tx
 
@@ -335,7 +334,7 @@ getBlockTxs cHash mLimit mSkip = do
     txs <- getMainBlockTxs cHash
 
     forM (take limit . drop skip $ txs) $ \tx -> do
-        extra <- EX.getTxExtra (hash tx) >>=
+        extra <- getTxExtra (hash tx) >>=
                  maybeThrow (Internal "In-block transaction doesn't \
                                       \have extra info in DB")
         pure $ makeTxBrief tx extra
@@ -354,8 +353,8 @@ getAddressSummary cAddr = do
     when (isUnknownAddressType addr) $
         throwM $ Internal "Unknown address type"
 
-    balance <- mkCCoin . fromMaybe minBound <$> EX.getAddrBalance addr
-    txIds <- getNewestFirst <$> EX.getAddrHistory addr
+    balance <- mkCCoin . fromMaybe minBound <$> getAddrBalance addr
+    txIds <- getNewestFirst <$> getAddrHistory addr
     transactions <- forM txIds $ \id -> do
         extra <- getTxExtraOrFail id
         tx <- getTxMain id extra
@@ -521,7 +520,7 @@ getGenesisSummary = do
         :: (MonadDBRead m, MonadThrow m)
         => Address -> Coin -> m GenesisSummaryInternal
     getRedeemAddressInfo address initialBalance = do
-        currentBalance <- fromMaybe minBound <$> EX.getAddrBalance address
+        currentBalance <- fromMaybe minBound <$> getAddrBalance address
         if currentBalance > initialBalance then
             throwM $ Internal $ sformat
                 ("Redeem address "%build%" had "%build%" at genesis, but now has "%build)
@@ -549,7 +548,7 @@ getGenesisSummary = do
 
 isAddressRedeemed :: MonadDBRead m => Address -> m Bool
 isAddressRedeemed address = do
-    currentBalance <- fromMaybe minBound <$> EX.getAddrBalance address
+    currentBalance <- fromMaybe minBound <$> getAddrBalance address
     pure $ currentBalance == minBound
 
 getFilteredGrai :: ExplorerMode ctx m => CAddressesFilter -> m (V.Vector (Address, Coin))

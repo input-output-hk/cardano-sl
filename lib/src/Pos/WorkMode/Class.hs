@@ -46,6 +46,7 @@ import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage       (SscGStateClass)
 import           Pos.Ssc.Class.Workers       (SscWorkersClass)
 import           Pos.Ssc.Extra               (MonadSscMem)
+import           Pos.Ssc.GodTossing          (HasGtConfiguration)
 import           Pos.StateLock               (StateLock, StateLockMetrics)
 import           Pos.Txp.MemState            (MempoolExt, MonadTxpLocal, MonadTxpMem)
 import           Pos.Update.Configuration    (HasUpdateConfiguration)
@@ -100,6 +101,7 @@ type WorkMode ssc ctx m
       , HasSlogContext ctx
       , HasSlogGState ctx
       , HasNodeType ctx
+      , HasGtConfiguration
       )
 
 -- | More relaxed version of 'WorkMode'.

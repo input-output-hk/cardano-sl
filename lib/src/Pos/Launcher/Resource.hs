@@ -85,10 +85,10 @@ import           Pos.Launcher.Mode                (InitMode, InitModeContext (..
 import           Pos.Update.Context               (mkUpdateContext)
 import qualified Pos.Update.DB                    as GState
 import           Pos.Util                         (newInitFuture)
+import qualified System.Wlog                      as Logger
 
 #ifdef linux_HOST_OS
 import qualified System.Systemd.Daemon            as Systemd
-import qualified System.Wlog                      as Logger
 #endif
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
@@ -247,7 +247,11 @@ getRealLoggerConfig LoggingParams{..} = do
                   <> showTidB
                   <> maybe mempty prefixB lpHandlerPrefix
     cfg <- readLoggerConfig lpConfigPath
-    pure $ cfg <> cfgBuilder
+    pure $ overrideConsoleLog $ cfg <> cfgBuilder
+  where
+    overrideConsoleLog = case lpConsoleLog of
+        Nothing         -> identity
+        Just consoleOut -> set Logger.lcConsoleOutput (Any consoleOut)
 
 setupLoggers :: MonadIO m => LoggingParams -> m ()
 setupLoggers params = setupLogging Nothing =<< getRealLoggerConfig params

@@ -79,15 +79,15 @@ Available addresses:
 #### Propose update
 
 ```
-propose-update 0 0.1.0 1 15 2000000 csl-daedalus:1 win64 daedalus1.exe none macos daedalus1c.pkg none
+propose-update  csl-daedalus:1  0 0.1.0 1 15 2000000  win64 daedalus1.exe none  macos daedalus1c.pkg none
 ```
 (`none` states for binary diff package)
 
-Replace second argument, `0.1.0`, with actual block version from config (i.e. `lastKnownBVMajor.lastKnownBVMinor.lastKnownBVAlt`), if needed.
-
-Replace third argument, `1` with actual script version.
-
 Replace `csl-daedalus:1` with `applicationName:applicationVersion` as for config.
+
+Arguments 3-6 are block version modifiers:
+* Replace argument 3, `0.1.0`, with actual block version from config (i.e. `lastKnownBVMajor.lastKnownBVMinor.lastKnownBVAlt`), if needed.
+* Replace argument 4, `1` with actual script version.
 
 After launching `propose-update` command you'll see output like this:
 

@@ -6,6 +6,7 @@ module Command.Types
        , SendMode (..)
        , SendToAllGenesisParams (..)
        , ProposeUpdateParams (..)
+       , PrintAction
        ) where
 
 import           Universum
@@ -70,3 +71,7 @@ data ProposeUpdateSystem = ProposeUpdateSystem
     , pusInstallerPath :: Maybe FilePath
     , pusBinDiffPath   :: Maybe FilePath
     } deriving Show
+
+-- | An action used to print messages to the terminal. We can't hardcode
+-- 'putText' because Haskeline defines its own printing method.
+type PrintAction m = Text -> m ()

@@ -104,6 +104,7 @@ dev: &dev
   gt: &dev_gt
     mpcSendInterval: 10 # must be less than (2 * k * slotDuration - networkDiameter)
     mdNoCommitmentsEpochThreshold: 3
+    noReportNoSecretsForEpoch1: False
 
   node: &dev_node
     networkDiameter: 3
@@ -283,6 +284,7 @@ mainnet_base: &mainnet_base
   gt:
     mpcSendInterval: 100 # must be less than (2 * k * slotDuration - networkDiameter)
     mdNoCommitmentsEpochThreshold: 3
+    noReportNoSecretsForEpoch1: True
 
   node: &mainnet_base_node
     networkDiameter: 18

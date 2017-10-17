@@ -96,7 +96,6 @@ instance ( Arbitrary (SscPayload SscGodTossing)
          , Bi Raw
          , SscHelpersClass SscGodTossing
          , HasConfiguration
-         , ssc ~ SscGodTossing
          ) =>
          Arbitrary T.MainBlockHeader where
     arbitrary =

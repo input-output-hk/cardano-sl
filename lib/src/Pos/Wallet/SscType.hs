@@ -7,9 +7,7 @@ module Pos.Wallet.SscType
 
 import           Pos.Security.Workers ()
 import           Pos.Ssc.GodTossing   (SscGodTossing)
---import Pos.Ssc.NistBeacon (SscNistBeacon)
 
 -- | We can also use CPP flags that I proposed that would enable switching between
 -- implementations without changing the code.
 type WalletSscType = SscGodTossing
---type WalletSscType = SscNistBeacon

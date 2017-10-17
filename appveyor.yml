@@ -118,6 +118,9 @@ test_script:
   - npm run build:prod
   - dir "%WORK_DIR%\daedalus\"
   - ps: foreach ($x in @("cardano-launcher.exe", "cardano-node.exe")) { if (-NOT (Test-Path "$($env:WORK_DIR)\daedalus\$x")) { throw "ERROR... Missing $x" }}
+  - echo Stack cache content
+  - dir "%WORK_DIR%\%STACK_WORK%"
+  - ps: if (-NOT (Test-Path "$($env:WORK_DIR)\$env:STACK_WORK")) { throw "ERROR... Stack cache absent $x" }
 
 after_test:
  # As per https://github.com/input-output-hk/cardano-sl/pull/1773#issue-265730372:

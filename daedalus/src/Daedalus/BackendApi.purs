@@ -260,6 +260,9 @@ systemVersion tls = getR tls $ noQueryParam ["settings", "version"]
 syncProgress :: forall eff. TLSOptions -> Aff (http :: HTTP, exception :: EXCEPTION | eff) SyncProgress
 syncProgress tls = getR tls $ noQueryParam ["settings", "sync", "progress"]
 
+localTimeDifference :: forall eff. TLSOptions -> Aff (http :: HTTP, exception :: EXCEPTION | eff) Int
+localTimeDifference tls = getR tls $ noQueryParam ["settings", "time", "difference"]
+
 --------------------------------------------------------------------------------
 -- JSON BACKUP -----------------------------------------------------------------
 importBackupJSON :: forall eff. TLSOptions -> String -> Aff (http :: HTTP, exception :: EXCEPTION | eff) CWallet

@@ -248,13 +248,13 @@ getBlocksTotalEMode
     :: (MonadBlockDB SscGodTossing m)
     => ExplorerMockMode m SscGodTossing
     -> m Integer
-getBlocksTotalEMode _ = do
+getBlocksTotalEMode mode = do
 
     -- Get the required function for getting the tip of the block from the mode.
-    -- let getTipBlockE = emmGetTipBlock mode
+    let getTipBlockE = emmGetTipBlock mode
 
     -- Get the tip block.
-    tipBlock <- getTipBlockCSLI
+    tipBlock <- getTipBlockE
 
     pure $ pureGetBlocksTotal tipBlock
 

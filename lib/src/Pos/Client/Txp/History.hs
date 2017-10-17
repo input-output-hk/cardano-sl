@@ -71,7 +71,6 @@ import           Pos.Txp                      (MempoolExt, MonadTxpLocal, MonadT
                                                unGenesisUtxo, utxoGet)
 import           Pos.Util                     (eitherToThrow, maybeThrow)
 import           Pos.Util.Util                (HasLens')
-import           Pos.Ssc.GodTossing.Type      (SscGodTossing)
 
 ----------------------------------------------------------------------
 -- Deduction of history
@@ -243,7 +242,7 @@ type TxHistoryEnv' ctx m =
 type GenesisHistoryFetcher m = ToilT () (GenesisToil m)
 
 getBlockHistoryDefault
-    :: forall ctx m. (HasConfiguration, SscHelpersClass SscGodTossing, TxHistoryEnv' ctx m)
+    :: forall ctx m. (HasConfiguration, TxHistoryEnv' ctx m)
     => [Address] -> m (Map TxId TxHistoryEntry)
 getBlockHistoryDefault addrs = do
     let bot      = headerHash genesisBlock0

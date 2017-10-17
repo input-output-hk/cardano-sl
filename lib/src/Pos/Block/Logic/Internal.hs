@@ -51,7 +51,6 @@ import           Pos.Exception           (assertionFailed)
 import qualified Pos.GState              as GS
 import           Pos.Lrc.Context         (LrcContext)
 import           Pos.Reporting           (MonadReporting)
-import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage   (SscGStateClass)
 import           Pos.Ssc.Extra           (MonadSscMem, sscApplyBlocks, sscNormalize,
@@ -239,7 +238,7 @@ rollbackBlocksUnsafe bsc scb toRollback = do
 
 -- [CSL-1156] Need something more elegant.
 toTxpBlock
-    :: (HasConfiguration, SscHelpersClass SscGodTossing)
+    :: HasConfiguration
     => Block -> TxpBlock
 toTxpBlock = bimap convertGenesis convertMain
   where
@@ -250,13 +249,13 @@ toTxpBlock = bimap convertGenesis convertMain
 
 -- [CSL-1156] Yes, definitely need something more elegant.
 toTxpBlund
-    :: (HasConfiguration, SscHelpersClass SscGodTossing)
+    :: HasConfiguration
     => Blund -> TxpBlund
 toTxpBlund = bimap toTxpBlock undoTx
 
 -- [CSL-1156] Sure, totally need something more elegant
 toUpdateBlock
-    :: (HasConfiguration, SscHelpersClass SscGodTossing)
+    :: HasConfiguration
     => Block -> UpdateBlock
 toUpdateBlock = bimap convertGenesis convertMain
   where

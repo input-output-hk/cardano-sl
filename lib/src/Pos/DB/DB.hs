@@ -37,9 +37,7 @@ import           Pos.DB.GState.Common             (getTip, getTipBlockGeneric,
 import           Pos.DB.Misc                      (prepareMiscDB)
 import           Pos.GState.GState                (prepareGStateDB, sanityCheckGStateDB)
 import           Pos.Lrc.DB                       (prepareLrcDB)
-import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Update.DB                    (getAdoptedBVData)
 import           Pos.Util                         (inAssertMode)
 import           Pos.Util.Chrono                  (NewestFirst)
@@ -54,7 +52,6 @@ initNodeDBs
     :: forall ctx m.
        ( MonadReader ctx m
        , MonadBlockDBWrite m
-       , SscHelpersClass SscGodTossing
        , MonadDB m
        , HasConfiguration
        , HasGtConfiguration

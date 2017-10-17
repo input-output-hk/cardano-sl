@@ -69,7 +69,7 @@ import           Pos.Exception              (cardanoExceptionFromException,
 import           Pos.Lrc.Error              (LrcError (UnknownBlocksForLrc))
 import           Pos.Lrc.Worker             (lrcSingleShot)
 import           Pos.Reporting.Methods      (reportMisbehaviour)
-import           Pos.Ssc.Class              (SscHelpersClass, SscWorkersClass)
+import           Pos.Ssc.Class              (SscWorkersClass)
 import           Pos.StateLock              (Priority (..), modifyStateLock,
                                              withStateLockNoMetrics)
 import           Pos.Util                   (inAssertMode, _neHead, _neLast)
@@ -235,7 +235,7 @@ data MatchReqHeadersRes
 -- TODO This function is used ONLY in recovery mode, so passing the
 -- flag is redundant, it's always True.
 matchRequestedHeaders
-    :: (SscHelpersClass SscGodTossing, HasConfiguration)
+    :: HasConfiguration
     => NewestFirst NE BlockHeader -> MsgGetHeaders -> Bool -> MatchReqHeadersRes
 matchRequestedHeaders headers mgh@MsgGetHeaders {..} inRecovery =
     let newTip = headers ^. _NewestFirst . _neHead

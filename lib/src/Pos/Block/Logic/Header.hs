@@ -45,8 +45,6 @@ import qualified Pos.GState                as GS
 import           Pos.Lrc.Context           (LrcContext)
 import qualified Pos.Lrc.DB                as LrcDB
 import           Pos.Slotting.Class        (MonadSlots (getCurrentSlot))
-import           Pos.Ssc.Class             (SscHelpersClass)
-import           Pos.Ssc.GodTossing.Type   (SscGodTossing)
 import           Pos.Util                  (HasLens', _neHead, _neLast)
 import           Pos.Util.Chrono           (NE, NewestFirst (..), OldestFirst (..),
                                             toNewestFirst, toOldestFirst, _NewestFirst,
@@ -311,8 +309,7 @@ getHeadersFromManyTo checkpoints startM = do
 -- it returns not more than 'blkSecurityParam' blocks distributed
 -- exponentially base 2 relatively to the depth in the blockchain.
 getHeadersOlderExp
-    :: forall m.
-       (HasConfiguration, MonadDBRead m, SscHelpersClass SscGodTossing)
+    :: (HasConfiguration, MonadDBRead m)
     => Maybe HeaderHash -> m (OldestFirst NE HeaderHash)
 getHeadersOlderExp upto = do
     tip <- GS.getTip
@@ -366,8 +363,7 @@ getHeadersOlderExp upto = do
 -- than @to@, and valid chain in between can be found, headers in
 -- range @[from..to]@ will be found.
 getHeadersFromToIncl
-    :: forall m .
-       (HasConfiguration, MonadDBRead m, SscHelpersClass SscGodTossing)
+    :: forall m. (HasConfiguration, MonadDBRead m)
     => HeaderHash -> HeaderHash -> m (Maybe (OldestFirst NE HeaderHash))
 getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
     -- oldest and newest blocks do exist

@@ -22,7 +22,6 @@ import           Pos.Crypto            (ProxySecretKey (pskIssuerPk), SecretKey,
                                         SignTag (..), createPsk, proxySign, sign,
                                         toPublic)
 import           Pos.Data.Attributes   (mkAttributes)
-import           Pos.Ssc.Class         (SscHelpersClass)
 import           Pos.Ssc.GodTossing    (SscGodTossing)
 import qualified Pos.Types             as T
 import           Pos.Util.Chrono       (NewestFirst (..))
@@ -50,7 +49,7 @@ spec = withDefConfiguration $ describe "Block properties" $ do
     verifyHeadersDesc = "Successfully verifies a correct chain of block headers"
     verifyEmptyHsDesc = "Successfully validates an empty header chain"
     emptyHeaderChain ::
-           (HasConfiguration, SscHelpersClass SscGodTossing)
+           HasConfiguration
         => NewestFirst [] T.BlockHeader
         -> Spec
     emptyHeaderChain l =
@@ -63,7 +62,7 @@ spec = withDefConfiguration $ describe "Block properties" $ do
 -- the ensuing failed tests.
 
 genesisHeaderFormation
-    :: (HasConfiguration, SscHelpersClass SscGodTossing)
+    :: HasConfiguration
     => Maybe T.BlockHeader
     -> T.EpochIndex
     -> T.Body (T.GenesisBlockchain SscGodTossing)
@@ -86,7 +85,7 @@ genesisHeaderFormation prevHeader epoch body =
         T.GenesisConsensusData {T._gcdEpoch = epoch, T._gcdDifficulty = difficulty}
 
 mainHeaderFormation
-    :: (HasConfiguration, SscHelpersClass SscGodTossing)
+    :: HasConfiguration
     => Maybe T.BlockHeader
     -> T.SlotId
     -> Either SecretKey (SecretKey, SecretKey, Bool)
@@ -147,13 +146,13 @@ mainHeaderFormation prevHeader slotId signer body extra =
 ----------------------------------------------------------------------------
 
 validateGoodMainHeader
-    :: (HasConfiguration, SscHelpersClass SscGodTossing)
+    :: HasConfiguration
     => T.HeaderAndParams -> Bool
 validateGoodMainHeader (T.getHAndP -> (params, header)) =
     isVerSuccess $ T.verifyHeader params header
 
 validateGoodHeaderChain
-    :: (HasConfiguration, SscHelpersClass SscGodTossing)
+    :: HasConfiguration
     => T.BlockHeaderList -> Bool
 validateGoodHeaderChain (T.BHL (l, _)) =
     isVerSuccess $ T.verifyHeaders Nothing (NewestFirst l)

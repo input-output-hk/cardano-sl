@@ -8,14 +8,13 @@ import           Pos.Binary.Block      ()
 import           Pos.Block.Core        (Block, GenesisBlock, MainBlock, mbSscPayload)
 import           Pos.Core              (HasConfiguration, IsGenesisHeader, IsMainHeader,
                                         gbBody, gbHeader)
-import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Ssc.Class.Types   (SscBlock (..), SscPayload)
 import           Pos.Util              (Some (..))
 import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 
 -- [CSL-1156] Totally need something more elegant
 toSscBlock
-    :: (HasConfiguration, SscHelpersClass SscGodTossing)
+    :: HasConfiguration
     => Block -> SscBlock SscGodTossing
 toSscBlock = SscBlock . bimap convertGenesis convertMain
   where

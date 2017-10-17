@@ -46,8 +46,6 @@ import           Pos.Core                      (HasConfiguration, SlotId (..), g
                                                 gbhPrevBlock, getSlotIndex, headerHash,
                                                 mkLocalSlotIndex)
 import           Pos.Crypto                    (hash, hashHexF)
-import           Pos.Ssc.Class.Helpers         (SscHelpersClass)
-import           Pos.Ssc.GodTossing.Type       (SscGodTossing)
 import           Pos.Txp.Core                  (txpTxs)
 import           Pos.Txp.MemState.Types        (MemPoolModifyReason)
 import           Pos.Types                     (EpochIndex (..), HeaderHash, headerHashF)
@@ -159,7 +157,7 @@ appendJL path ev = liftIO $ do
   LBS.appendFile path . encode $ JLTimedEvent (fromIntegral time) ev
 
 -- | Returns event of created 'Block'.
-jlAdoptedBlock :: (HasConfiguration, SscHelpersClass SscGodTossing) => Block -> JLEvent
+jlAdoptedBlock :: HasConfiguration => Block -> JLEvent
 jlAdoptedBlock = JLAdoptedBlock . showHeaderHash . headerHash
 
 jsonLogConfigFromHandle :: MonadIO m => Handle -> m JsonLogConfig

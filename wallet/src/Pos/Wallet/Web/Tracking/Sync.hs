@@ -72,7 +72,6 @@ import qualified Pos.GState                       as GS
 import           Pos.GState.BlockExtra            (foldlUpWhileM, resolveForwardLink)
 import           Pos.Slotting                     (MonadSlots (..), MonadSlotsData,
                                                    getSlotStartPure, getSystemStartM)
-import           Pos.Ssc.Class                    (SscHelpersClass)
 import           Pos.StateLock                    (Priority (..), StateLock,
                                                    withStateLockNoMetrics)
 import           Pos.Txp                          (MonadTxpMem, genesisUtxo,
@@ -101,7 +100,6 @@ import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..), CachedCAcc
                                                    deleteAndInsertVM, indexedDeletions,
                                                    sortedInsertions)
 import           Pos.Wallet.Web.Util              (getWalletAddrMetas)
-import           Pos.Ssc.GodTossing               (SscGodTossing)
 
 type BlockLockMode ctx m =
      ( WithLogger m
@@ -315,7 +313,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
 -- Addresses are used in TxIn's will be deleted,
 -- in TxOut's will be added.
 trackingApplyTxs
-    :: (HasConfiguration, SscHelpersClass SscGodTossing)
+    :: HasConfiguration
     => EncryptedSecretKey                          -- ^ Wallet's secret key
     -> [CWAddressMeta]                             -- ^ All addresses in wallet
     -> (BlockHeader -> Maybe ChainDifficulty)      -- ^ Function to determine tx chain difficulty
@@ -377,7 +375,7 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs getPtxBlkInf
 -- Process transactions on block rollback.
 -- Like @trackingApplyTx@, but vise versa.
 trackingRollbackTxs
-    :: (HasConfiguration, SscHelpersClass SscGodTossing)
+    :: HasConfiguration
     => EncryptedSecretKey -- ^ Wallet's secret key
     -> [CWAddressMeta] -- ^ All adresses
     -> (BlockHeader -> Maybe ChainDifficulty)  -- ^ Function to determine tx chain difficulty

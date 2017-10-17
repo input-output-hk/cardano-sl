@@ -299,7 +299,7 @@ canCreateBlock sId tipHeader =
 
 createMainBlockPure
     :: forall m.
-       (MonadError Text m, SscHelpersClass SscGodTossing, HasConfiguration, HasUpdateConfiguration)
+       (MonadError Text m, HasConfiguration, HasUpdateConfiguration)
     => Byte                   -- ^ Block size limit (real max.value)
     -> BlockHeader
     -> ProxySKBlockInfo

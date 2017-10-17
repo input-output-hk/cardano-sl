@@ -51,8 +51,6 @@ import qualified Pos.GState               as GS
 import           Pos.Lrc.Context          (LrcContext)
 import qualified Pos.Lrc.DB               as LrcDB
 import           Pos.Slotting             (MonadSlots (getCurrentSlot))
-import           Pos.Ssc.Class.Helpers    (SscHelpersClass (..))
-import           Pos.Ssc.GodTossing.Type  (SscGodTossing)
 import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
 import           Pos.Util                 (HasLens', inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono          (NE, NewestFirst (getNewestFirst),
@@ -102,7 +100,6 @@ mustDataBeKnown adoptedBV =
 type MonadSlogBase ctx m =
     ( MonadSlots ctx m
     , MonadIO m
-    , SscHelpersClass SscGodTossing
     , MonadDBRead m
     , WithLogger m
     , HasConfiguration

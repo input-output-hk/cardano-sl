@@ -56,8 +56,6 @@ import qualified Pos.GState                   as GS
 import           Pos.Lrc.Context              (LrcContext)
 import qualified Pos.Lrc.DB                   as LrcDB
 import           Pos.Lrc.Types                (RichmenSet)
-import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
-import           Pos.Ssc.GodTossing.Type      (SscGodTossing)
 import           Pos.Util                     (HasLens', getKeys, _neHead)
 import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..))
 
@@ -419,7 +417,6 @@ dlgApplyBlocks ::
        , WithLogger m
        , MonadMask m
        , HasConfiguration
-       , SscHelpersClass SscGodTossing
        )
     => OldestFirst NE Blund
     -> m (NonEmpty SomeBatchOp)
@@ -509,7 +506,6 @@ dlgNormalizeOnRollback ::
        , HasLens' ctx LrcContext
        , Mockable CurrentTime m
        , HasConfiguration
-       , SscHelpersClass SscGodTossing
        )
     => m ()
 dlgNormalizeOnRollback = do

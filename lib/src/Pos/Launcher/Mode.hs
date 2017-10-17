@@ -51,7 +51,6 @@ import           Pos.Slotting.Impl.Sum   (SlottingContextSum, currentTimeSlottin
                                           getCurrentSlotBlockingSum,
                                           getCurrentSlotInaccurateSum, getCurrentSlotSum)
 import           Pos.Slotting.MemState   (MonadSlotsData)
-import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
 import           Pos.Ssc.Class.Types     (SscBlock)
 import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 import           Pos.Util                (Some (..))
@@ -96,19 +95,21 @@ instance HasConfiguration => MonadDB InitMode where
     dbDelete = dbDeleteDefault
 
 instance
-    (HasConfiguration, SscHelpersClass SscGodTossing) =>
+    HasConfiguration =>
     MonadBlockDBGeneric BlockHeader Block Undo InitMode
   where
     dbGetBlock  = dbGetBlockDefault
     dbGetUndo   = dbGetUndoDefault
     dbGetHeader = dbGetHeaderDefault
 
-instance (HasConfiguration, SscHelpersClass SscGodTossing) =>
-         MonadBlockDBGenericWrite BlockHeader Block Undo InitMode where
+instance
+    HasConfiguration =>
+    MonadBlockDBGenericWrite BlockHeader Block Undo InitMode
+  where
     dbPutBlund = dbPutBlundDefault
 
 instance
-    (HasConfiguration, SscHelpersClass SscGodTossing) =>
+    HasConfiguration =>
     MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () InitMode
   where
     dbGetBlock  = dbGetBlockSscDefault

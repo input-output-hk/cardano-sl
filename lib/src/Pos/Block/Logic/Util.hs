@@ -39,10 +39,8 @@ import           Pos.Exception          (reportFatalError)
 import qualified Pos.GState             as GS
 import           Pos.Slotting           (MonadSlots (..), getCurrentSlotFlat,
                                          slotFromTimestamp)
-import           Pos.Ssc.Class          (SscHelpersClass)
 import           Pos.Util               (_neHead)
 import           Pos.Util.Chrono        (NE, OldestFirst (..))
-import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 
 --- Usually in this method oldest header is LCA, so it can be optimized
 -- by traversing from older to newer.
@@ -50,7 +48,7 @@ import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 -- header's parent hash. Iterates from newest to oldest until meets
 -- first header that's in main chain. O(n).
 lcaWithMainChain
-    :: (HasConfiguration, MonadDBRead m, SscHelpersClass SscGodTossing)
+    :: (HasConfiguration, MonadDBRead m)
     => OldestFirst NE BlockHeader -> m (Maybe HeaderHash)
 lcaWithMainChain headers =
     lcaProceed Nothing $

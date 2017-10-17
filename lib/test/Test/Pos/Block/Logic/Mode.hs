@@ -88,7 +88,6 @@ import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots
                                                  mkSimpleSlottingVar)
 import           Pos.Slotting.MemState          (MonadSlotsData)
 import           Pos.Ssc.Class                  (SscBlock)
-import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing             (HasGtConfiguration, SscGodTossing)
 import           Pos.Txp                        (GenericTxpLocalData, MempoolExt,
@@ -362,19 +361,21 @@ instance HasConfiguration => MonadDB TestInitMode where
     dbDelete = DB.dbDeletePureDefault
 
 instance
-    (HasConfiguration, SscHelpersClass SscGodTossing) =>
+    HasConfiguration =>
     MonadBlockDBGeneric BlockHeader Block Undo TestInitMode
   where
     dbGetBlock  = DB.dbGetBlockPureDefault
     dbGetUndo   = DB.dbGetUndoPureDefault
     dbGetHeader = DB.dbGetHeaderPureDefault
 
-instance (HasConfiguration, SscHelpersClass SscGodTossing) =>
-         MonadBlockDBGenericWrite BlockHeader Block Undo TestInitMode where
+instance
+    HasConfiguration =>
+    MonadBlockDBGenericWrite BlockHeader Block Undo TestInitMode
+  where
     dbPutBlund = DB.dbPutBlundPureDefault
 
 instance
-    (HasConfiguration, SscHelpersClass SscGodTossing) =>
+    HasConfiguration =>
     MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () TestInitMode
   where
     dbGetBlock  = DB.dbGetBlockSscPureDefault

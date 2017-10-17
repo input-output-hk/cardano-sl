@@ -32,8 +32,6 @@ import           Pos.DB.BatchOp               (SomeBatchOp (..))
 import           Pos.DB.Class                 (MonadDBRead)
 import           Pos.Explorer.DB              (Epoch, Page, numOfLastTxs)
 import qualified Pos.Explorer.DB              as DB
-import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
-import           Pos.Ssc.GodTossing.Type      (SscGodTossing)
 import           Pos.Txp                      (Tx, topsortTxs, txpTxs)
 import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..),
                                                toNewestFirst)
@@ -53,8 +51,7 @@ runExplorerBListener = coerce
 
 -- Type alias, remove duplication
 type MonadBListenerT m =
-    ( SscHelpersClass SscGodTossing
-    , WithLogger m
+    ( WithLogger m
     , MonadCatch m
     , MonadDBRead m
     , HasConfiguration
@@ -185,7 +182,7 @@ onRollbackLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
 
 -- Return a map from @Epoch@ to @HeaderHash@es for all non-empty blocks.
 epochBlocksMap
-    :: (HasConfiguration, SscHelpersClass SscGodTossing)
+    :: HasConfiguration
     => NE Block
     -> M.Map Epoch [HeaderHash]
 epochBlocksMap neBlocks = blocksEpochs
@@ -212,7 +209,7 @@ epochBlocksMap neBlocks = blocksEpochs
 
 -- Return a map from @Page@ to @HeaderHash@es for all non-empty blocks.
 pageBlocksMap
-    :: (HasConfiguration, SscHelpersClass SscGodTossing)
+    :: HasConfiguration
     => NE Block
     -> M.Map Page [HeaderHash]
 pageBlocksMap neBlocks = blocksPages

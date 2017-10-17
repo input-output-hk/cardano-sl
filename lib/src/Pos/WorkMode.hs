@@ -192,15 +192,17 @@ instance
     dbGetHeader = dbGetHeaderDefault
 
 instance
-    (HasConfiguration, SscHelpersClass SscGodTossing) =>
+    HasConfiguration =>
     MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () (RealMode SscGodTossing ext)
   where
     dbGetBlock  = dbGetBlockSscDefault
     dbGetUndo   = dbGetUndoSscDefault
     dbGetHeader = dbGetHeaderSscDefault
 
-instance (HasConfiguration, SscHelpersClass SscGodTossing) =>
-         MonadBlockDBGenericWrite BlockHeader Block Undo (RealMode SscGodTossing ext) where
+instance
+    HasConfiguration =>
+    MonadBlockDBGenericWrite BlockHeader Block Undo (RealMode SscGodTossing ext)
+  where
     dbPutBlund = dbPutBlundDefault
 
 instance MonadKnownPeers (RealMode ssc ext) where

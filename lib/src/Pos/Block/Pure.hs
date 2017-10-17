@@ -38,7 +38,6 @@ import           Pos.Core                   (BlockVersionData (..), ChainDifficu
                                              addressHash, gbExtra, gbhExtra, getSlotIndex,
                                              headerSlotL, prevBlockL)
 import           Pos.Data.Attributes        (areAttributesKnown)
-import           Pos.Ssc.Class.Helpers      (SscHelpersClass)
 import           Pos.Ssc.GodTossing.Type    (SscGodTossing)
 import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
 
@@ -75,7 +74,7 @@ maybeMempty = maybe mempty
 -- | Check some predicates (determined by 'VerifyHeaderParams') about
 -- 'BlockHeader'.
 verifyHeader
-    :: (SscHelpersClass SscGodTossing, HasConfiguration)
+    :: HasConfiguration
     => VerifyHeaderParams -> BlockHeader -> VerificationRes
 verifyHeader VerifyHeaderParams {..} h =
     verifyGeneric checks
@@ -175,7 +174,7 @@ verifyHeader VerifyHeaderParams {..} h =
 -- | Verifies a set of block headers. Only basic consensus check and
 -- linking checks are performed!
 verifyHeaders ::
-       (SscHelpersClass SscGodTossing, HasConfiguration)
+       HasConfiguration
     => Maybe SlotLeaders
     -> NewestFirst [] BlockHeader
     -> VerificationRes
@@ -222,7 +221,7 @@ data VerifyBlockParams = VerifyBlockParams
 -- | Check predicates defined by VerifyBlockParams.
 -- #verifyHeader
 verifyBlock
-    :: (SscHelpersClass SscGodTossing, HasConfiguration)
+    :: HasConfiguration
     => VerifyBlockParams -> Block -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk =
     mconcat
@@ -262,8 +261,7 @@ type VerifyBlocksIter ssc = (SlotLeaders, Maybe BlockHeader, VerificationRes)
 -- laziness of 'VerificationRes' which is good because laziness for this data
 -- type is crucial.
 verifyBlocks
-    :: ( SscHelpersClass SscGodTossing
-       , t ~ OldestFirst f Block
+    :: ( t ~ OldestFirst f Block
        , NontrivialContainer t
        , HasConfiguration
        )

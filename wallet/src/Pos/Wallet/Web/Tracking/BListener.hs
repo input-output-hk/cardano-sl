@@ -31,7 +31,6 @@ import qualified Pos.GState                       as GS
 import           Pos.Reporting                    (MonadReporting, reportOrLogW)
 import           Pos.Slotting                     (MonadSlots, MonadSlotsData,
                                                    getSlotStartPure, getSystemStartM)
-import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Txp.Core                     (TxAux (..), TxUndo, flattenTxPayload)
 import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..))
 
@@ -44,7 +43,6 @@ import           Pos.Wallet.Web.Tracking.Sync     (applyModifierToWallet,
                                                    rollbackModifierFromWallet,
                                                    trackingApplyTxs, trackingRollbackTxs)
 import           Pos.Wallet.Web.Util              (getWalletAddrMetas)
-import           Pos.Ssc.GodTossing               (SscGodTossing)
 
 walletGuard ::
     ( AccountMode ctx m
@@ -66,8 +64,7 @@ walletGuard curTip wAddr action = WS.getWalletSyncTip wAddr >>= \case
 -- Perform this action under block lock.
 onApplyTracking
     :: forall ctx m .
-    ( SscHelpersClass SscGodTossing
-    , AccountMode ctx m
+    ( AccountMode ctx m
     , MonadSlotsData ctx m
     , MonadDBRead m
     , MonadReporting ctx m
@@ -111,7 +108,6 @@ onRollbackTracking
     ( AccountMode ctx m
     , MonadDBRead m
     , MonadSlots ctx m
-    , SscHelpersClass SscGodTossing
     , MonadReporting ctx m
     , HasConfiguration
     )
@@ -148,7 +144,6 @@ onRollbackTracking blunds = setLogger $ do
 blkHeaderTsGetter
     :: ( MonadSlotsData ctx m
        , MonadDBRead m
-       , SscHelpersClass SscGodTossing
        , HasConfiguration
        )
     => m (BlockHeader -> Maybe Timestamp)

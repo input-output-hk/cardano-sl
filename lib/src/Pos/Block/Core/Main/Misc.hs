@@ -164,7 +164,6 @@ instance Bi BlockHeader => IsMainHeader MainBlockHeader where
 
 type SanityConstraint
      = ( BiSsc
-       , SscHelpersClass SscGodTossing
        , HasDifficulty BlockHeader
        , HasHeaderHash BlockHeader
        , HasConfiguration

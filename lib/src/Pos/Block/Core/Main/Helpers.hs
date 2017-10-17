@@ -35,7 +35,6 @@ import           Pos.Util.Util              (Some (Some))
 
 
 instance ( Bi BlockHeader
-         , SscHelpersClass SscGodTossing
          , HasConfiguration
          , IsMainHeader MainBlockHeader
          ) =>

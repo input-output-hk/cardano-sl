@@ -45,7 +45,7 @@ import           Pos.Lrc.Logic            (findAllRichmenMaybe)
 import           Pos.Lrc.Mode             (LrcMode)
 import           Pos.Reporting            (reportMisbehaviour)
 import           Pos.Slotting             (MonadSlots)
-import           Pos.Ssc.Class            (SscHelpersClass, SscWorkersClass)
+import           Pos.Ssc.Class            (SscWorkersClass)
 import           Pos.Ssc.Extra            (MonadSscMem, sscCalculateSeed)
 import           Pos.Ssc.GodTossing       (HasGtConfiguration, SscGodTossing,
                                            noReportNoSecretsForEpoch1)
@@ -63,7 +63,6 @@ import           Pos.Util.Chrono          (NE, NewestFirst (..), toOldestFirst)
 type LrcModeFull ctx m =
     ( LrcMode ctx m
     , SscWorkersClass SscGodTossing
-    , SscHelpersClass SscGodTossing
     , MonadSscMem SscGodTossing ctx m
     , MonadSlots ctx m
     , MonadBlockApply ctx m

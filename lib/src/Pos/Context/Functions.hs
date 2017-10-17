@@ -30,11 +30,9 @@ import           Pos.Core            (GenesisData (..), HasConfiguration, SlotLe
                                       genesisData)
 import           Pos.Lrc.Context     (lrcActionOnEpoch, lrcActionOnEpochReason, waitLrc)
 import           Pos.Lrc.FtsPure     (followTheSatoshiUtxo)
-import           Pos.Ssc.Class       (SscHelpersClass)
 import           Pos.Txp.GenesisUtxo (genesisStakes, genesisUtxo)
 import           Pos.Txp.Toil        (GenesisUtxo (..))
 import           Pos.Util.Util       (HasLens (lensOf))
-import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 
 ----------------------------------------------------------------------------
 -- Genesis
@@ -46,8 +44,7 @@ genesisLeaders = followTheSatoshiUtxo (gdFtsSeed genesisData) utxo
   where
     GenesisUtxo utxo = genesisUtxo
 
-genesisBlock0 :: (HasConfiguration, SscHelpersClass SscGodTossing)
-    => GenesisBlock
+genesisBlock0 :: HasConfiguration => GenesisBlock
 genesisBlock0 = mkGenesisBlock Nothing 0 genesisLeaders
 
 ----------------------------------------------------------------------------

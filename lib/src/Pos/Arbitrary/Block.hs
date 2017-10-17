@@ -28,7 +28,7 @@ import qualified Pos.Core                          as Core
 import           Pos.Crypto                        (ProxySecretKey, PublicKey, SecretKey,
                                                     createPsk, hash, toPublic)
 import           Pos.Data.Attributes               (areAttributesKnown)
-import           Pos.Ssc.Class                     (Ssc (..), SscHelpersClass)
+import           Pos.Ssc.Class                     (Ssc (..))
 import qualified Pos.Types                         as T
 import           Pos.Util.Arbitrary                (makeSmall)
 import           Pos.Util.Util                     (leftToPanic)
@@ -80,7 +80,6 @@ instance Arbitrary (T.Body (T.GenesisBlockchain ssc)) where
 
 instance ( Arbitrary $ SscProof SscGodTossing
          , Arbitrary $ SscPayload SscGodTossing
-         , SscHelpersClass SscGodTossing
          , HasConfiguration
          ) =>
          Arbitrary T.GenesisBlock where
@@ -94,7 +93,6 @@ instance ( Arbitrary $ SscProof SscGodTossing
 instance ( Arbitrary (SscPayload SscGodTossing)
          , Arbitrary (SscProof SscGodTossing)
          , Bi Raw
-         , SscHelpersClass SscGodTossing
          , HasConfiguration
          ) =>
          Arbitrary T.MainBlockHeader where
@@ -171,7 +169,6 @@ instance (HasConfiguration, Arbitrary (SscPayload ssc)) => Arbitrary (T.Body (T.
 instance ( Arbitrary $ SscPayload SscGodTossing
          , Arbitrary $ SscProof SscGodTossing
          , Arbitrary $ SscPayloadDependsOnSlot SscGodTossing
-         , SscHelpersClass SscGodTossing
          , HasConfiguration
          ) =>
          Arbitrary T.MainBlock where
@@ -209,7 +206,6 @@ instance Arbitrary T.MsgGetBlocks where
 instance ( Arbitrary (SscPayload SscGodTossing)
          , Arbitrary (SscProof SscGodTossing)
          , Bi Raw
-         , SscHelpersClass SscGodTossing
          , HasConfiguration
          ) =>
          Arbitrary T.MsgHeaders where
@@ -219,7 +215,6 @@ instance ( Arbitrary (SscPayload SscGodTossing)
 instance ( Arbitrary (SscPayload SscGodTossing)
          , Arbitrary (SscProof SscGodTossing)
          , Arbitrary (SscPayloadDependsOnSlot SscGodTossing)
-         , SscHelpersClass SscGodTossing
          , HasConfiguration
          ) =>
          Arbitrary T.MsgBlock where
@@ -264,7 +259,6 @@ instance T.BiSsc => Show BlockHeaderList where
 --     genesis kind.
 recursiveHeaderGen
     :: ( Arbitrary (SscPayload SscGodTossing)
-       , SscHelpersClass SscGodTossing
        , HasConfiguration
        )
     => Bool -- ^ Whether to create genesis block before creating main block for 0th slot
@@ -337,7 +331,6 @@ bhlEpochs = 2
 -- Note that a leader is generated for each slot.
 -- (Not exactly a leader - see previous comment)
 instance ( Arbitrary (SscPayload SscGodTossing)
-         , SscHelpersClass SscGodTossing
          , HasConfiguration
          ) =>
          Arbitrary BlockHeaderList where
@@ -348,7 +341,6 @@ instance ( Arbitrary (SscPayload SscGodTossing)
 
 generateBHL
     :: ( Arbitrary (SscPayload SscGodTossing)
-       , SscHelpersClass SscGodTossing
        , HasConfiguration
        )
     => Bool         -- ^ Whether to create genesis block before creating main
@@ -391,7 +383,7 @@ deriving instance Show T.BlockHeader => Show HeaderAndParams
 -- already been done in the 'Arbitrary' instance of the 'BlockHeaderList'
 -- type, so it is used here and at most 3 blocks are taken from the generated
 -- list.
-instance (Arbitrary (SscPayload SscGodTossing), SscHelpersClass SscGodTossing, HasConfiguration) =>
+instance (Arbitrary (SscPayload SscGodTossing), HasConfiguration) =>
     Arbitrary HeaderAndParams where
     arbitrary = do
         -- This integer is used as a seed to randomly choose a slot down below

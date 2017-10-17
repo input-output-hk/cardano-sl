@@ -5,6 +5,7 @@ build: off
 
 environment:
   global:
+    VERSION: "1.0"
     # Avoid long paths on Windows
     STACK_ROOT: "c:\\s"
     STACK_WORK: ".w"
@@ -36,7 +37,7 @@ cache:
   # different branch is built.
   - "%BRANCH_CACHE_DIR%"        # e.g. C:\cache\feature_abc123
   - "%CACHE_DIR%\\master"
-  - "%CACHE_DIR%\\cardano-sl-0.4"
+  - "%CACHE_DIR%\\cardano-sl-%VERSION%"
   # Add more "%CACHE_DIR%\\<branch_name>" directories as needed
 
 before_test:
@@ -114,8 +115,14 @@ test_script:
   - npm run build:prod
   - dir "%WORK_DIR%\daedalus\"
   - ps: foreach ($x in @("cardano-launcher.exe", "cardano-node.exe")) { if (-NOT (Test-Path "$($env:WORK_DIR)\daedalus\$x")) { throw "ERROR... Missing $x" }}
+  - echo Stack cache content
+  - dir "%WORK_DIR%\%STACK_WORK%"
+  - ps: if (-NOT (Test-Path "$($env:WORK_DIR)\$env:STACK_WORK")) { throw "ERROR... Stack cache absent $x" }
 
 after_test:
+ # As per https://github.com/input-output-hk/cardano-sl/pull/1773#issue-265730372:
+ # > STACK_WORK, as well as CACHED_STACK_WORK are relative directories, since stack doesn't support absolute ones.
+ - cd "%WORK_DIR%"
  - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_ROOT% xcopy /q /s /e /r /k /i /v /h /y %STACK_ROOT% %CACHED_STACK_ROOT%
  - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_WORK% xcopy /q /s /e /r /k /i /v /h /y %STACK_WORK% %CACHED_STACK_WORK%
  - xcopy /q /s /e /r /k /i /v /h /y "%WORK_DIR%\daedalus" C:\projects\cardano-sl\daedalus

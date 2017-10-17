@@ -20,6 +20,7 @@ import           Pos.Launcher          (HasConfigurations, NodeParams (..), Node
 import           Pos.Network.Types     (NetworkConfig (..), Topology (..),
                                         topologyDequeuePolicy, topologyEnqueuePolicy,
                                         topologyFailurePolicy)
+import           Pos.Ssc.GodTossing    (SscGodTossing)
 import           Pos.Ssc.SscAlgo       (SscAlgo (GodTossingAlgo))
 import           Pos.Util.CompileInfo  (HasCompileInfo, retrieveCompileTimeInfo,
                                         withCompileInfo)
@@ -27,7 +28,7 @@ import           Pos.Util.UserSecret   (usVss)
 import           Pos.WorkMode          (EmptyMempoolExt, RealMode)
 
 import           AuxxOptions           (AuxxAction (..), AuxxOptions (..), getAuxxOptions)
-import           Mode                  (AuxxContext (..), AuxxMode, AuxxSscType,
+import           Mode                  (AuxxContext (..), AuxxMode,
                                         CmdCtx (..), realModeToAuxx)
 import           Plugin                (auxxPlugin)
 import           Repl                  (WithCommandAction, withAuxxRepl)
@@ -65,7 +66,7 @@ correctNodeParams AuxxOptions {..} np = do
 
 runNodeWithSinglePlugin ::
        (HasConfigurations, HasCompileInfo)
-    => NodeResources AuxxSscType EmptyMempoolExt AuxxMode
+    => NodeResources SscGodTossing EmptyMempoolExt AuxxMode
     -> (WorkerSpec AuxxMode, OutSpecs)
     -> (WorkerSpec AuxxMode, OutSpecs)
 runNodeWithSinglePlugin nr (plugin, plOuts) =
@@ -80,7 +81,7 @@ action opts@AuxxOptions {..} command = withConfigurations conf $ do
     (nodeParams, tempDbUsed) <-
         correctNodeParams opts =<< CLI.getNodeParams cArgs nArgs
     let
-        toRealMode :: AuxxMode a -> RealMode AuxxSscType EmptyMempoolExt a
+        toRealMode :: AuxxMode a -> RealMode SscGodTossing EmptyMempoolExt a
         toRealMode auxxAction = do
             realModeContext <- ask
             let auxxContext =

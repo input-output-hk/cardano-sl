@@ -119,7 +119,6 @@ library
                         -- Wallets
                         Pos.Wallet
                         Pos.Wallet.KeyStorage
-                        Pos.Wallet.SscType
                         Pos.Wallet.WalletMode
                         Pos.Wallet.Web.Assurance
                         Pos.Wallet.Web.ClientTypes

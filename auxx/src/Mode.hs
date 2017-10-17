@@ -10,7 +10,6 @@ module Mode
        -- * Mode, context, etc.
        , AuxxContext (..)
        , AuxxMode
-       , AuxxSscType
 
        -- * Helpers
        , getCmdCtx
@@ -82,12 +81,10 @@ data CmdCtx = CmdCtx
     { ccPeers :: ![NodeId]
     }
 
-type AuxxSscType = SscGodTossing
-
 type AuxxMode = ReaderT AuxxContext Production
 
 data AuxxContext = AuxxContext
-    { acRealModeContext :: !(RealModeContext AuxxSscType EmptyMempoolExt)
+    { acRealModeContext :: !(RealModeContext SscGodTossing EmptyMempoolExt)
     , acCmdCtx          :: !CmdCtx
     , acTempDbUsed      :: !Bool
     }
@@ -106,14 +103,14 @@ isTempDbUsed :: AuxxMode Bool
 isTempDbUsed = view acTempDbUsed_L
 
 -- | Turn 'RealMode' action into 'AuxxMode' action.
-realModeToAuxx :: RealMode AuxxSscType EmptyMempoolExt a -> AuxxMode a
+realModeToAuxx :: RealMode SscGodTossing EmptyMempoolExt a -> AuxxMode a
 realModeToAuxx = withReaderT acRealModeContext
 
 ----------------------------------------------------------------------------
 -- Boilerplate instances
 ----------------------------------------------------------------------------
 
-instance HasSscContext AuxxSscType AuxxContext where
+instance HasSscContext SscGodTossing AuxxContext where
     sscContext = acRealModeContext_L . sscContext
 
 instance HasPrimaryKey AuxxContext where
@@ -128,7 +125,7 @@ instance HasUserSecret AuxxContext where
 instance HasShutdownContext AuxxContext where
     shutdownContext = acRealModeContext_L . shutdownContext
 
-instance HasNodeContext AuxxSscType AuxxContext where
+instance HasNodeContext SscGodTossing AuxxContext where
     nodeContext = acRealModeContext_L . nodeContext
 
 instance HasSlottingVar AuxxContext where
@@ -139,7 +136,7 @@ instance HasNodeType AuxxContext where
     getNodeType _ = NodeEdge
 
 instance {-# OVERLAPPABLE #-}
-    HasLens tag (RealModeContext AuxxSscType EmptyMempoolExt) r =>
+    HasLens tag (RealModeContext SscGodTossing EmptyMempoolExt) r =>
     HasLens tag AuxxContext r
   where
     lensOf = acRealModeContext_L . lensOf @tag
@@ -168,7 +165,7 @@ instance {-# OVERLAPPING #-} HasLoggerName AuxxMode where
     getLoggerName = realModeToAuxx getLoggerName
     modifyLoggerName f action = do
         auxxCtx <- ask
-        let auxxToRealMode :: AuxxMode a -> RealMode AuxxSscType EmptyMempoolExt a
+        let auxxToRealMode :: AuxxMode a -> RealMode SscGodTossing EmptyMempoolExt a
             auxxToRealMode = withReaderT (\realCtx -> set acRealModeContext_L realCtx auxxCtx)
         realModeToAuxx $ modifyLoggerName f $ auxxToRealMode action
 
@@ -196,11 +193,11 @@ instance (HasConfiguration, HasGtConfiguration) =>
     dbGetHeader = realModeToAuxx ... dbGetHeader @BlockHeader @Block @Undo
 
 instance (HasConfiguration, HasGtConfiguration) =>
-         MonadBlockDBGeneric (Some IsHeader) (SscBlock AuxxSscType) () AuxxMode
+         MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () AuxxMode
   where
     dbGetBlock  = realModeToAuxx ... dbGetBlock
-    dbGetUndo   = realModeToAuxx ... dbGetUndo @(Some IsHeader) @(SscBlock AuxxSscType) @()
-    dbGetHeader = realModeToAuxx ... dbGetHeader @(Some IsHeader) @(SscBlock AuxxSscType) @()
+    dbGetUndo   = realModeToAuxx ... dbGetUndo @(Some IsHeader) @(SscBlock SscGodTossing) @()
+    dbGetHeader = realModeToAuxx ... dbGetHeader @(Some IsHeader) @(SscBlock SscGodTossing) @()
 
 instance HasConfiguration => MonadGState AuxxMode where
     gsAdoptedBVData = realModeToAuxx ... gsAdoptedBVData
@@ -214,7 +211,7 @@ instance HasConfiguration => MonadBalances AuxxMode where
     getBalance = getBalanceFromUtxo
 
 instance (HasConfiguration, HasInfraConfiguration, HasGtConfiguration, HasCompileInfo) =>
-         MonadTxHistory AuxxSscType AuxxMode where
+         MonadTxHistory SscGodTossing AuxxMode where
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault

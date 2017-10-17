@@ -1,19 +1,19 @@
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE PolyKinds             #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeOperators         #-}
 module Cardano.Wallet.API.V1.Handlers where
 
-import Cardano.Wallet.API (WalletAPI)
-import Cardano.Wallet.API.Types (APIVersion(..))
-import qualified Cardano.Wallet.API.V1 as V1
-import qualified Cardano.Wallet.API.V1.Handlers.Accounts as Accounts
+import           Cardano.Wallet.API                       (WalletAPI)
+import           Cardano.Wallet.API.Types
+import qualified Cardano.Wallet.API.V1                    as V1
+import qualified Cardano.Wallet.API.V1.Handlers.Accounts  as Accounts
 import qualified Cardano.Wallet.API.V1.Handlers.Addresses as Addresses
 
-import Servant
+import           Servant
 
 handlers :: Server V1.API
 handlers = apiVersion

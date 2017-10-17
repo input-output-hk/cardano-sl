@@ -1,13 +1,15 @@
+{-# LANGUAGE DataKinds     #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE DataKinds #-}
 module Cardano.Wallet.API.V1 where
 
-import Cardano.Wallet.API.Types (APIVersion)
-import qualified Cardano.Wallet.API.V1.Accounts as Accounts
+import           Cardano.Wallet.API.Types
+import qualified Cardano.Wallet.API.V1.Accounts  as Accounts
 import qualified Cardano.Wallet.API.V1.Addresses as Addresses
 
-import Servant
+import           Servant
 
-type API = "version" :> Get '[JSON] APIVersion
+type API = "version"
+           :> Summary "Returns the version for this API."
+           :> Get '[JSON] APIVersion
        :<|> Accounts.API
        :<|> Addresses.API

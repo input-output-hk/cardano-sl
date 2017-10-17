@@ -1,16 +1,30 @@
 {-- Types shared between different API versions. --}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE GADTs #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeOperators         #-}
 module Cardano.Wallet.API.Types where
 
-import Data.Aeson
-import Test.QuickCheck
+import           Data.Aeson
+import           GHC.TypeLits
+import           Servant
+import           Servant.API.Sub ((:>))
+import           Test.QuickCheck
+
+data Summary (sym :: Symbol)
+
+-- | Instance of `HasServer` which erases a `Summary` from its routing,
+-- as the latter is needed only for Swagger.
+instance (KnownSymbol desc, HasServer subApi context)
+      => HasServer (Summary desc :> subApi) context where
+
+  type ServerT (Summary desc :> subApi) m = ServerT subApi m
+  route _ = route (Proxy @ subApi)
 
 data APIVersion = V0
                 | V1

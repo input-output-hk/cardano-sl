@@ -1,32 +1,36 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE PolyKinds #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE FlexibleInstances   #-}
+{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeApplications    #-}
+{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeOperators       #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Cardano.Wallet.API.V1.Swagger where
 
-import Cardano.Wallet.API
-import Cardano.Wallet.API.Types
-import Cardano.Wallet.API.V1.Types
+import           Cardano.Wallet.API
+import           Cardano.Wallet.API.Types
+import           Cardano.Wallet.API.V1.Types
 
-import Servant.Swagger
-import Data.String.Conv
-import Data.Swagger
-import Data.Aeson.Encode.Pretty
-import Data.Monoid
-import Data.Swagger.Declare
-import Data.Typeable
-import Test.QuickCheck
-import Test.QuickCheck.Gen
-import Test.QuickCheck.Random
-import Data.Aeson
-import Control.Lens
-import qualified Data.Text as T
+import           Control.Lens
+import           Data.Aeson
+import           Data.Aeson.Encode.Pretty
+import           Data.Monoid
+import           Data.String.Conv
+import           Data.Swagger
+import           Data.Swagger.Declare
+import qualified Data.Text                   as T
+import           Data.Typeable
+import           GHC.TypeLits
+import           Servant.API.Sub
+import           Servant.Swagger
+import           Test.QuickCheck
+import           Test.QuickCheck.Gen
+import           Test.QuickCheck.Random
+
+--
+-- Helper functions
+--
 
 -- | Generate an example for type @a@ with a static seed.
 genExample :: (ToJSON a, Arbitrary a) => a
@@ -39,6 +43,31 @@ fromArbitraryJSON (_ :: proxy a) = do
     let (randomSample :: a) = genExample
     return $ NamedSchema (Just $ toS $ show $ typeOf randomSample) (sketchSchema randomSample)
 
+-- | Adds a randomly-generated but valid example to the spec, formatted as a JSON.
+withExample :: (ToJSON a, Arbitrary a) => proxy a -> T.Text -> T.Text
+withExample (_ :: proxy a) desc =
+  desc <> " Here's an example:<br><br><pre>" <> toS (encodePretty $ toJSON @a genExample) <> "</pre>"
+
+--
+-- Extra Typeclasses
+--
+
+-- TODO: Writing instances this way is a bit verbose. Is there a better way?
+class (ToJSON a, Typeable a, Arbitrary a) => ToDocs a where
+  annotate :: (proxy a -> Declare (Definitions Schema) NamedSchema)
+           -> proxy a
+           -> Declare (Definitions Schema) NamedSchema
+
+--
+-- Instances
+--
+
+instance ( KnownSymbol summary , HasSwagger subApi) => HasSwagger (Summary summary :> subApi) where
+    toSwagger _ =
+        let summaryTxt = toS (symbolVal (Proxy @summary))
+            swgr       = toSwagger (Proxy @subApi)
+        in swgr & (operationsOf swgr) . summary ?~ summaryTxt
+
 instance ToDocs APIVersion where
   annotate f p = do
     s <- f p
@@ -47,12 +76,6 @@ instance ToDocs APIVersion where
 
 instance ToSchema APIVersion where
   declareNamedSchema = annotate fromArbitraryJSON
-
--- TODO: Writing instances this way is a bit verbose. Is there a better way?
-class (ToJSON a, Typeable a, Arbitrary a) => ToDocs a where
-  annotate :: (proxy a -> Declare (Definitions Schema) NamedSchema)
-           -> proxy a
-           -> Declare (Definitions Schema) NamedSchema
 
 instance ToDocs Account where
   annotate f p = do
@@ -68,11 +91,6 @@ instance ToDocs Address where
     s <- f p
     return $ s & (schema . description ?~ withExample p "An Address.")
                . (schema . example ?~ toJSON @Address genExample)
-
--- | Adds a randomly-generated but valid example to the spec, formatted as a JSON.
-withExample :: (ToJSON a, Arbitrary a) => proxy a -> T.Text -> T.Text
-withExample (_ :: proxy a) desc =
-  desc <> " Here's an example:<br><br><pre>" <> toS (encodePretty $ toJSON @a genExample) <> "</pre>"
 
 instance ToSchema Address where
   declareNamedSchema = annotate fromArbitraryJSON
@@ -114,6 +132,10 @@ instance (ToDocs a, ToDocs b) => ToDocs (OneOf a b) where
 
 instance ( ToDocs a, ToDocs b) => ToSchema (OneOf a b) where
   declareNamedSchema = annotate fromArbitraryJSON
+
+--
+-- The API
+--
 
 api :: Swagger
 api = toSwagger walletAPI

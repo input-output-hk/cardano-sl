@@ -229,5 +229,5 @@ command = try (text "balance") *> balance <|>
           try (text "listaddr") *> pure ListAddresses <?>
           "Undefined command"
 
-parseCommand :: Text -> Either String Command
+parseCommand :: Text -> Either Text Command
 parseCommand = first show . parse command ""

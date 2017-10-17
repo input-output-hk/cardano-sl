@@ -1297,7 +1297,7 @@ self: {
           description = "Cardano SL main implementation";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-auxx = callPackage ({ QuickCheck, acid-state, ansi-wl-pprint, base, base58-bytestring, binary, bytestring, canonical-json, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-godtossing, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, containers, cpphs, data-default, dlist, ether, exceptions, formatting, lens, log-warper, mkDerivation, mmorph, monad-control, monad-loops, mtl, neat-interpolation, network-transport-tcp, node-sketch, optparse-applicative, parsec, random, resourcet, safe-exceptions, safecopy, serokell-util, stdenv, stm, stm-containers, tagged, temporary, text, time, time-units, transformers, transformers-base, transformers-lift, universum, unix, unordered-containers }:
+      cardano-sl-auxx = callPackage ({ QuickCheck, acid-state, ansi-wl-pprint, async, base, base58-bytestring, binary, bytestring, canonical-json, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-godtossing, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, containers, cpphs, data-default, dlist, ether, exceptions, formatting, haskeline, lens, log-warper, mkDerivation, mmorph, monad-control, monad-loops, mtl, neat-interpolation, network-transport-tcp, node-sketch, optparse-applicative, parsec, random, resourcet, safe-exceptions, safecopy, serokell-util, stdenv, stm, stm-containers, tagged, temporary, text, time, time-units, transformers, transformers-base, transformers-lift, universum, unix, unordered-containers }:
       mkDerivation {
           pname = "cardano-sl-auxx";
           version = "1.0.2";
@@ -1307,6 +1307,7 @@ self: {
           executableHaskellDepends = [
             acid-state
             ansi-wl-pprint
+            async
             base
             base58-bytestring
             binary
@@ -1326,6 +1327,7 @@ self: {
             ether
             exceptions
             formatting
+            haskeline
             lens
             log-warper
             mmorph
@@ -3804,6 +3806,28 @@ self: {
           doCheck = false;
           homepage = "http://github.com/tibbe/hashable";
           description = "A class for types that can be converted to a hash value";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
+      haskeline = callPackage ({ base, bytestring, containers, directory, filepath, mkDerivation, process, stdenv, terminfo, transformers, unix }:
+      mkDerivation {
+          pname = "haskeline";
+          version = "0.7.4.0";
+          sha256 = "9ad5f556891733171086823ad63fc1e7b6cd9d758ff3f943eadbbdfaead53978";
+          libraryHaskellDepends = [
+            base
+            bytestring
+            containers
+            directory
+            filepath
+            process
+            terminfo
+            transformers
+            unix
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "http://trac.haskell.org/haskeline";
+          description = "A command-line interface for user input, written in Haskell";
           license = stdenv.lib.licenses.bsd3;
         }) {};
       heaps = callPackage ({ Cabal, base, cabal-doctest, mkDerivation, stdenv }:
@@ -6614,6 +6638,23 @@ self: {
           description = "Portable temporary file and directory support";
           license = stdenv.lib.licenses.bsd3;
         }) {};
+      terminfo = callPackage ({ base, mkDerivation, ncurses, stdenv }:
+      mkDerivation {
+          pname = "terminfo";
+          version = "0.4.1.0";
+          sha256 = "3f53d7b1ae046a3767e6254f07eb7f91ec958a5e1633682677e292e8d7e9ff5d";
+          libraryHaskellDepends = [
+            base
+          ];
+          librarySystemDepends = [
+            ncurses
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "https://github.com/judah/terminfo";
+          description = "Haskell bindings to the terminfo library";
+          license = stdenv.lib.licenses.bsd3;
+        }) { ncurses = pkgs.ncurses; };
       text = callPackage ({ array, base, binary, bytestring, deepseq, ghc-prim, integer-gmp, mkDerivation, stdenv }:
       mkDerivation {
           pname = "text";

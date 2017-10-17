@@ -20,8 +20,8 @@ import           Test.Pos.Block.Logic.Mode    (BlockTestMode, runBlockTestMode)
 import           Pos.Arbitrary.Block          ()
 import           Pos.Block.Core               (Block)
 import qualified Pos.Communication            ()
-import           Pos.Core                     (EpochIndex (..), LocalSlotIndex (..),
-                                               SlotId (..), HasConfiguration)
+import           Pos.Core                     (EpochIndex (..), HasConfiguration,
+                                               LocalSlotIndex (..), SlotId (..))
 import           Pos.DB.Block                 (MonadBlockDB)
 import           Pos.Explorer.TestUtil        (basicBlockGenericUnsafe, emptyBlk,
                                                leftToCounter)
@@ -33,27 +33,32 @@ import           Pos.Explorer.Web.Server      (getBlocksLastPageEMode, getBlocks
                                                pureGetBlocksTotal)
 import           Pos.Ssc.GodTossing           (SscGodTossing)
 
+import           Pos.Launcher.Configuration   (HasConfigurations)
+import           Test.Pos.Util                (withDefConfigurations)
+
+
 
 ----------------------------------------------------------------
 -- Spec
 ----------------------------------------------------------------
 
--- stack test cardano-sl-explorer --fast --test-arguments "-m Test.Pos.Explorer.Web.ServerSpec"
-spec :: HasConfiguration => Spec
-spec = do
-    blocksPureTotalSpec
-    blocksPagesPureTotalSpec
+-- sack test cardano-sl-explorer --fast --test-arguments "-m Test.Pos.Explorer.Web.ServerSpec"
+spec :: Spec
+spec = withDefConfigurations $ do
+    describe "Pos.Explorer.Web.Server" $ do
+        blocksPureTotalSpec
+        blocksPagesPureTotalSpec
 
-    blocksTotalUnitSpec
-    blocksPagesTotalUnitSpec
-    blocksPageUnitSpec
-    blocksLastPageUnitSpec
+        blocksTotalUnitSpec
+        blocksPagesTotalUnitSpec
+        blocksPageUnitSpec
+        blocksLastPageUnitSpec
 
-    blocksTotalFunctionalSpec
+        blocksTotalFunctionalSpec
 
 -- | A spec with the following test invariant. If a block is generated, there is no way
 -- that blocksTotal could be less than 1.
-blocksPureTotalSpec :: HasConfiguration => Spec
+blocksPureTotalSpec :: HasConfigurations => Spec
 blocksPureTotalSpec =
     describe "pureGetBlocksTotal"
     $ modifyMaxSuccess (const 200) $ do
@@ -81,7 +86,7 @@ blocksPagesPureTotalSpec =
 -- that blocksTotal could be less than 1.
 -- I originally thought that this is going to be faster then emulation, but seems the
 -- real issue of performance here is the block creation speed.
-blocksTotalUnitSpec :: HasConfiguration => Spec
+blocksTotalUnitSpec :: HasConfigurations => Spec
 blocksTotalUnitSpec =
     describe "getBlocksTotalUnit"
     $ modifyMaxSuccess (const 200) $ do
@@ -112,7 +117,7 @@ blocksTotalUnitSpec =
 
 -- | A spec with the following test invariant. If a block is generated, there is no way
 -- that blocks pages could be < 1.
-blocksPagesTotalUnitSpec :: HasConfiguration => Spec
+blocksPagesTotalUnitSpec :: HasConfigurations => Spec
 blocksPagesTotalUnitSpec =
     describe "getBlocksPagesTotal"
     $ modifyMaxSuccess (const 200) $ do
@@ -144,7 +149,7 @@ blocksPagesTotalUnitSpec =
 -- | A spec with the following test invariant. If a block is generated, there is no way
 -- that the client block is not. Also, we can check for specific properties on the
 -- client block and they should be relational as to the block.
-blocksPageUnitSpec :: HasConfiguration => Spec
+blocksPageUnitSpec :: HasConfigurations => Spec
 blocksPageUnitSpec =
     describe "getBlocksPage"
     $ modifyMaxSuccess (const 200) $ do
@@ -192,7 +197,7 @@ blocksPageUnitSpec =
 -- | A spec with the following test invariant. If a block is generated, there is no way
 -- that the client block is not. Also, we can check for specific properties on the
 -- client block and they should be relational as to the block.
-blocksLastPageUnitSpec :: HasConfiguration => Spec
+blocksLastPageUnitSpec :: HasConfigurations => Spec
 blocksLastPageUnitSpec =
     describe "getBlocksLastPage"
     $ modifyMaxSuccess (const 200) $ do
@@ -233,7 +238,7 @@ blocksLastPageUnitSpec =
 -- | A spec with the following test invariant. If a block is generated, there is no way
 -- that blocksTotal could be less than 0.
 -- We don't have control over this block generation, so it really can be 0.
-blocksTotalFunctionalSpec :: HasConfiguration => Spec
+blocksTotalFunctionalSpec :: HasConfigurations => Spec
 blocksTotalFunctionalSpec =
     describe "getBlocksTotalFunctional"
     $ modifyMaxSuccess (const 200) $ do

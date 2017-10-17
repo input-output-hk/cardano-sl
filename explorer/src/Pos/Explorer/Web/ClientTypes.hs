@@ -1,11 +1,13 @@
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE RankNTypes #-}
 
 -- | Types for using in purescript-bridge
 module Pos.Explorer.Web.ClientTypes
        ( ExplorerMockMode (..)
        , prodMode
+       , HasExplorerCSLInterface (..)
        , CHash (..)
        , CAddress (..)
        , CTxId (..)
@@ -158,6 +160,40 @@ instance Default (ExplorerMockMode m SscGodTossing) where
     where
       errorImpl = error "Cannot be used, please implement this function!"
 
+-- | We use this for an external CSL functions representation so we can replace them when
+-- testing.
+class HasExplorerCSLInterface ctx m where
+    getTipBlockCSLI
+          :: MonadBlockDB SscGodTossing m
+          => m (Block SscGodTossing)
+    getPageBlocksCSLI
+          :: MonadDBRead m
+          => Page
+          -> m (Maybe [HeaderHash])
+    getBlundFromHHCSLI
+          :: MonadBlockDB SscGodTossing m
+          => HeaderHash
+          -> m (Maybe (Blund SscGodTossing))
+    getSlotStartCSLI
+          :: MonadSlotsData ctx m
+          => SlotId
+          -> m (Maybe Timestamp)
+    getLeadersFromEpochCSLI
+          :: MonadDBRead m
+          => EpochIndex
+          -> m (Maybe SlotLeaders)
+
+-- class Monad m => HasExplorerMockMode ctx m where
+--     explorerMockMode :: Lens' ctx (ExplorerMockMode m SscGodTossing)
+-- Lens' ctx (m (Block SscGodTossing)) ...
+
+instance Monad m => HasExplorerCSLInterface ctx m where
+    getTipBlockCSLI = getTipBlock
+    getPageBlocksCSLI = getPageBlocks
+    getBlundFromHHCSLI = blkGetBlund
+    getSlotStartCSLI = getSlotStart
+    getLeadersFromEpochCSLI = getLeaders
+
 -------------------------------------------------------------------------------------
 -- Hash types
 -------------------------------------------------------------------------------------
@@ -172,7 +208,7 @@ instance Default (ExplorerMockMode m SscGodTossing) where
 -- type AddressHash   = AbstractHash Blake2b_224
 -- type Hash          = AbstractHash Blake2b_256
 --
--- type TxId          = Hash Tx = AbstractHash Blake2b_256 Tx
+-- type TxId          = Hash Tx               = AbstractHash Blake2b_256 Tx
 -- type StakeholderId = AddressHash PublicKey = AbstractHash Blake2b_224 PublicKey
 --
 -- From there on we have the client types that we use to represent the actual hashes.
@@ -284,7 +320,7 @@ toBlockEntry
 toBlockEntry mode (blk, Undo{..}) = do
 
     -- The CSL interface functions which can be mocked.
-    let getSlotStartE           = emmGetSlotStart mode
+    let getSlotStartE = emmGetSlotStart mode
 
     blkSlotStart      <- getSlotStartE $ blk ^. gbHeader . gbhConsensus . mcdSlot
 
@@ -402,8 +438,8 @@ toBlockSummary mode blund@(blk, _) = do
 
     return CBlockSummary {..}
 
-data CAddressType =
-      CPubKeyAddress
+data CAddressType
+    = CPubKeyAddress
     | CScriptAddress
     | CRedeemAddress
     | CUnknownAddress
@@ -464,8 +500,8 @@ data CGenesisAddressInfo = CGenesisAddressInfo
     , cgaiIsRedeemed     :: !Bool
     } deriving (Show, Generic)
 
-data CAddressesFilter =
-      RedeemedAddresses
+data CAddressesFilter
+    = RedeemedAddresses
     | NonRedeemedAddresses
     | AllAddresses
     deriving (Show, Generic)

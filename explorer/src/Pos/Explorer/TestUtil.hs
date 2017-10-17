@@ -24,7 +24,7 @@ import           Pos.Block.Types                   (SlogUndo, Undo)
 import qualified Pos.Communication                 ()
 import           Pos.Core                          (EpochIndex (..), HasConfiguration,
                                                     LocalSlotIndex (..), SlotId (..),
-                                                    SlotLeaders, StakeholderId)
+                                                    SlotLeaders, StakeholderId, ChainDifficulty (..), BlockCount (..), difficultyL)
 import           Pos.Crypto                        (SecretKey)
 import           Pos.Delegation                    (DlgPayload, DlgUndo, ProxySKBlockInfo)
 import           Pos.Ssc.Class                     (Ssc (..), sscDefaultPayload)
@@ -136,21 +136,17 @@ produceBlocksByBlockNumberAndSlots
 produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders secretKeys = do
 
     -- This is just plain wrong and we need to check for it.
-    when (blockNumber < slotsNumber) $ error "Illegal argument"
+    when (blockNumber < slotsNumber) $ error "Illegal argument."
 
-    let generatedEpochBlocksM :: [m [Block SscGodTossing]]
-        generatedEpochBlocksM =
-            [generateGenericEpochBlocks Nothing slotsNumber (EpochIndex . fromIntegral $ currentEpoch) | currentEpoch <- [0..totalEpochs]]
+    let generatedEpochBlocksM :: m [[Block SscGodTossing]]
+        generatedEpochBlocksM = forM [0..totalEpochs] $ \currentEpoch -> do
+            generateGenericEpochBlocks Nothing slotsNumber (EpochIndex . fromIntegral $ currentEpoch)
 
-    generatedEpochBlocks <- sequence generatedEpochBlocksM
-    pure $ concat generatedEpochBlocks
+    concat <$> generatedEpochBlocksM
   where
 
     totalEpochs :: TotalEpochs
     totalEpochs = blockNumber `div` slotsNumber
-
-    -- producedSlotLeaders :: m SlotLeaders
-    -- producedSlotLeaders = produceSlotLeaders blockNumber
 
     generateGenericEpochBlocks
         :: Maybe (BlockHeader SscGodTossing)
@@ -195,7 +191,7 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
             getPrevBlockHeader = getBlockHeader . Left $ epochGenesisBlock
 
             generateBlocks
-                :: (HasConfiguration)
+                :: (HasConfiguration, HasUpdateConfiguration)
                 => BlockHeader SscGodTossing
                 -> BlockNumber
                 -> MainBlock SscGodTossing
@@ -203,7 +199,8 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
 
                 case basicBlock previousBlockHeader currentSecretKey slotId of
                     Left _      -> error "Block creation error!"
-                    Right block -> block
+                    Right block ->
+                        block & difficultyL .~ (ChainDifficulty $ BlockCount $ fromIntegral blockNumber')
               where
 
                 slotId :: SlotId

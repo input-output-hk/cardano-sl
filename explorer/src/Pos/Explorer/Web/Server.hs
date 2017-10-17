@@ -102,7 +102,8 @@ import           Pos.Explorer.Web.ClientTypes     (Byte, CAda (..), CAddress (..
                                                    CGenesisSummary (..), CHash,
                                                    CTxBrief (..), CTxEntry (..),
                                                    CTxId (..), CTxSummary (..),
-                                                   ExplorerMockMode (..), TxInternal (..),
+                                                   ExplorerMockMode (..), HasExplorerCSLInterface (..),
+                                                   TxInternal (..),
                                                    convertTxOutputs, convertTxOutputsMB,
                                                    fromCAddress, fromCHash, fromCTxId,
                                                    getEpochIndex, getSlotIndex, mkCCoin,
@@ -124,6 +125,7 @@ type ExplorerMode ctx m =
     ( WorkMode SscGodTossing ctx m
     , HasGenesisRedeemAddressInfo m
     , HasGtConfiguration
+    , HasExplorerCSLInterface ctx m
     )
 
 explorerServeImpl
@@ -237,22 +239,22 @@ getTotalAda = do
 -- Total number of main blocks   = difficulty of the topmost (tip) header.
 -- Total number of anchor blocks = current epoch + 1
 getBlocksTotal
-    :: forall m. (HasConfiguration, MonadBlockDB SscGodTossing m)
+    :: forall m. (MonadBlockDB SscGodTossing m)
     => m Integer
 getBlocksTotal = getBlocksTotalEMode prodMode
 
 -- | getBlocksTotal configurable function.
 getBlocksTotalEMode
-    :: (HasConfiguration,  MonadBlockDB SscGodTossing m)
+    :: (MonadBlockDB SscGodTossing m)
     => ExplorerMockMode m SscGodTossing
     -> m Integer
-getBlocksTotalEMode mode = do
+getBlocksTotalEMode _ = do
 
     -- Get the required function for getting the tip of the block from the mode.
-    let getTipBlockE = emmGetTipBlock mode
+    -- let getTipBlockE = emmGetTipBlock mode
 
     -- Get the tip block.
-    tipBlock <- getTipBlockE
+    tipBlock <- getTipBlockCSLI
 
     pure $ pureGetBlocksTotal tipBlock
 

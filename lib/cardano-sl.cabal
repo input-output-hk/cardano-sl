@@ -173,6 +173,10 @@ library
                         Test.Pos.Block.Logic.Util
                         Test.Pos.Block.Logic.Event
 
+                        -- Util code for tests
+                        Test.Pos.Util
+                        Test.Pos.Configuration
+
   -- Explorer (TODO: move into cardano-explorer)
   exposed-modules:
                         Pos.Explorer
@@ -440,6 +444,9 @@ library
                       , yaml
                       -- https://issues.serokell.io/issue/DEVOPS-230
                       , cpphs
+                      -- Required for common test modules
+                      , cborg
+                      , hspec
 
   if !os(windows)
     build-depends:      unix
@@ -545,7 +552,7 @@ test-suite cardano-test
                        Test.Pos.Update.Identity.SafeCopySpec
                        Test.Pos.Update.MemStateSpec
                        Test.Pos.Update.PollSpec
-                       Test.Pos.Util
+
                        Test.Pos.Util.LimitsSpec
                        Test.Pos.Util.ModifierSpec
                        Test.Pos.UtilSpec

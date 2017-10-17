@@ -92,6 +92,7 @@ import           Pos.Launcher.Configuration       (Configuration (..), HasConfig
 
 import           Test.Pos.Configuration           (defaultTestConf)
 
+
 -- | This constraint requires all configurations which are not
 -- always hardcoded in tests (currently).
 type HasStaticConfigurations =

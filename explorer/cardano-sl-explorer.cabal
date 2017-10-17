@@ -14,21 +14,24 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:      Pos.Explorer.ExtraContext
+
                         Pos.Explorer.Socket
                         Pos.Explorer.Socket.App
                         Pos.Explorer.Socket.Methods
                         Pos.Explorer.Socket.Util
+
                         Pos.Explorer.Web
                         Pos.Explorer.Web.Api
                         Pos.Explorer.Web.ClientTypes
                         Pos.Explorer.Web.Error
                         Pos.Explorer.Web.TestServer
                         Pos.Explorer.Web.Server
+                        Pos.Explorer.Web.Transform
+
                         Pos.Explorer.TestUtil
 
   other-modules:        Pos.Explorer.Aeson.ClientTypes
                         Pos.Explorer.Socket.Holder
-                        Pos.Explorer.Web.Transform
 
   build-depends:        aeson
                       , base
@@ -326,6 +329,7 @@ test-suite cardano-explorer-test
                      , cardano-sl-core
                      , cardano-sl-txp
                      , cardano-sl-ssc
+                     , cardano-sl-db
                      , cardano-sl
                      , cborg
                      , cereal

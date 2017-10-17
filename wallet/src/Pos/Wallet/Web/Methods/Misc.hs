@@ -13,6 +13,7 @@ module Pos.Wallet.Web.Methods.Misc
        , applyUpdate
 
        , syncProgress
+       , localTimeDifference
 
        , testResetAll
        ) where
@@ -90,6 +91,15 @@ syncProgress =
     <$> localChainDifficulty
     <*> networkChainDifficulty
     <*> connectedPeers
+
+----------------------------------------------------------------------------
+-- local time
+----------------------------------------------------------------------------
+
+localTimeDifference :: MonadWalletWebMode m => m Word
+localTimeDifference = pure 0
+    -- TODO (jk): ^ Get local time difference,
+    -- if `CSL-1383` will be ready
 
 ----------------------------------------------------------------------------
 -- Reset

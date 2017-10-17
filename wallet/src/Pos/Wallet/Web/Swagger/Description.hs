@@ -184,6 +184,10 @@ instance HasCustomSwagger GetSyncProgress where
         "Sync progress, with info about local chain difficulty,\
         \network chain difficulty and connected peers."
 
+instance HasCustomSwagger LocalTimeDifference where
+    swaggerModifier = modifyDescription
+        "Get local time difference in milliseconds."
+
 
 instance HasCustomSwagger ImportBackupJSON where
     swaggerModifier = modifyDescription

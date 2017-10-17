@@ -76,10 +76,14 @@ dev: &dev
 
   infra: &dev_infra
 
-    # NTP
+    # NTP slotting
     ntpResponseTimeout: 7000000 # 7 sec
     ntpPollDelay: 300000000 # 300 sec
     ntpMaxError: 120000000 # 2 mins
+
+    # NTP checking
+    timeDifferenceWarnInterval: 14400000000 # 4 hours
+    timeDifferenceWarnThreshold: 5000000 # 5 sec
 
     neighboursSendThreshold: 2
     kademliaDumpInterval: 4
@@ -256,10 +260,14 @@ mainnet_base: &mainnet_base
 
   infra:
 
-    # NTP
+    # NTP slotting
     ntpResponseTimeout: 10000000           # 10 sec
     ntpPollDelay: 60000000                 # 1 min
     ntpMaxError: 120000000 # 2 mins
+
+    # NTP checking
+    timeDifferenceWarnInterval: 14400000000 # 4 hours
+    timeDifferenceWarnThreshold: 5000000 # 5 sec
 
     neighboursSendThreshold: 2
     kademliaDumpInterval: 4

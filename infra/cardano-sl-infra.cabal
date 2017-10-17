@@ -97,6 +97,9 @@ library
                         Pos.Subscription.Dns
                         Pos.Subscription.Dht
 
+                        -- NTP
+                        Pos.NtpCheck
+
                         -- Pos.Binary
                         Pos.Binary.Infra
                         Pos.Binary.Infra.DHTModel

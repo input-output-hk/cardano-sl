@@ -13,7 +13,7 @@ import           Universum
 import           Data.Maybe           (fromJust)
 import           Formatting           (sformat, shown, (%))
 import           Mockable             (Production, currentTime, runProduction)
-import           System.Wlog          (logInfo)
+import           System.Wlog          (logDebug, logInfo, logWarning)
 
 import           Pos.Binary           ()
 import           Pos.Client.CLI       (CommonNodeArgs (..), NodeArgs (..),
@@ -23,6 +23,7 @@ import           Pos.Communication    (OutSpecs, WorkerSpec)
 import           Pos.Core             (GenesisData (..), Timestamp (..), genesisData)
 import           Pos.Launcher         (HasConfigurations, NodeParams (..), loggerBracket,
                                        runNodeReal, withConfigurations)
+import           Pos.NtpCheck         (NtpStatus (..), withNtpCheck)
 import           Pos.Ssc.Class        (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Ssc.NistBeacon   (SscNistBeacon)
@@ -68,7 +69,15 @@ action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
     let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-    case sscAlgo of
+    let onNtpStatus = \case
+            NtpSyncOk -> logDebug $
+                      -- putText  $ -- FIXME: for some reason this message isn't printed
+                                    -- when using 'logDebug', but a simple 'putText' works
+                                    -- just fine.
+                "Local time is in sync with the NTP server"
+            NtpDesync diff -> logWarning $
+                "Local time is severely off sync with the NTP server: " <> show diff
+    withNtpCheck onNtpStatus $ case sscAlgo of
         NistBeaconAlgo ->
             actionWithoutWallet @SscNistBeacon () currentParams
         GodTossingAlgo ->

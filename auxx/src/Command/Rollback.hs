@@ -51,7 +51,7 @@ rollbackAndDump numToRollback outFile = do
     case _Wrapped nonEmpty blundsMaybeEmpty of
         Nothing -> pass
         Just blunds -> do
-            let extractTxs :: Blund SscGodTossing -> [TxAux]
+            let extractTxs :: Blund -> [TxAux]
                 extractTxs (Left _, _) = []
                 extractTxs (Right mainBlock, _) =
                     flattenTxPayload $ mainBlock ^. mainBlockTxPayload
@@ -67,11 +67,11 @@ rollbackAndDump numToRollback outFile = do
     -- It's illegal to rollback 0-th genesis block.  We also may load
     -- more blunds than necessary, because genesis blocks don't
     -- contribute to depth counter.
-    modifyBlunds :: HasGtConfiguration => NewestFirst [] (Blund ssc) -> NewestFirst [] (Blund ssc)
+    modifyBlunds :: HasGtConfiguration => NewestFirst [] Blund -> NewestFirst [] Blund
     modifyBlunds =
         over _NewestFirst (genericTake numToRollback . skip0thGenesis)
     skip0thGenesis = filter (not . is0thGenesis)
-    is0thGenesis :: Blund ssc -> Bool
+    is0thGenesis :: Blund -> Bool
     is0thGenesis (Left genBlock, _)
         | genBlock ^. epochIndexL == 0 = True
     is0thGenesis _ = False

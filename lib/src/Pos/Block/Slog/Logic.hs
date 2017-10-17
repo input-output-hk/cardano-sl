@@ -52,11 +52,11 @@ import           Pos.Lrc.Context          (LrcContext)
 import qualified Pos.Lrc.DB               as LrcDB
 import           Pos.Slotting             (MonadSlots (getCurrentSlot))
 import           Pos.Ssc.Class.Helpers    (SscHelpersClass (..))
+import           Pos.Ssc.GodTossing.Type  (SscGodTossing)
 import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
 import           Pos.Util                 (HasLens', inAssertMode, _neHead, _neLast)
 import           Pos.Util.Chrono          (NE, NewestFirst (getNewestFirst),
                                            OldestFirst (..), toOldestFirst)
-
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -123,8 +123,9 @@ slogVerifyBlocks
     ( MonadSlogVerify ssc ctx m
     , MonadError Text m
     , SscHelpersClass ssc
+    , ssc ~ SscGodTossing
     )
-    => OldestFirst NE (Block ssc)
+    => OldestFirst NE Block
     -> m (OldestFirst NE SlogUndo)
 slogVerifyBlocks blocks = do
     curSlot <- getCurrentSlot
@@ -202,9 +203,9 @@ newtype ShouldCallBListener = ShouldCallBListener Bool
 -- | This function does everything that should be done when blocks are
 -- applied and is not done in other components.
 slogApplyBlocks
-    :: forall ssc ctx m. (MonadSlogApply ssc ctx m)
+    :: forall ssc ctx m. (MonadSlogApply ssc ctx m, ssc ~ SscGodTossing)
     => ShouldCallBListener
-    -> OldestFirst NE (Blund ssc)
+    -> OldestFirst NE Blund
     -> m SomeBatchOp
 slogApplyBlocks (ShouldCallBListener callBListener) blunds = do
     -- Note: it's important to put blunds first. The invariant is that
@@ -259,10 +260,10 @@ newtype BypassSecurityCheck = BypassSecurityCheck Bool
 -- | This function does everything that should be done when rollback
 -- happens and that is not done in other components.
 slogRollbackBlocks ::
-       forall ssc ctx m. MonadSlogApply ssc ctx m
+       forall ssc ctx m. (MonadSlogApply ssc ctx m, ssc ~ SscGodTossing)
     => BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
     -> ShouldCallBListener
-    -> NewestFirst NE (Blund ssc)
+    -> NewestFirst NE Blund
     -> m SomeBatchOp
 slogRollbackBlocks (BypassSecurityCheck bypassSecurity) (ShouldCallBListener callBListener) blunds = do
     inAssertMode $ when (isGenesis0 (blocks ^. _Wrapped . _neLast)) $

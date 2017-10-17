@@ -109,7 +109,7 @@ mkDelegationVar ::
        forall ssc m. (MonadIO m, DB.MonadBlockDB ssc m, HasConfiguration, HasNodeConfiguration)
     => m DelegationVar
 mkDelegationVar = do
-    tip <- DB.getTipHeader @ssc
+    tip <- DB.getTipHeader
     newTVarIO
         DelegationWrap
         { _dwMessageCache = LRU.newLRU msgCacheLimit

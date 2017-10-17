@@ -28,8 +28,8 @@ import           Pos.Block.Core       (Block, BlockHeader, blockHeader)
 import           Pos.Block.Slog.Types (LastBlkSlots, noLastBlkSlots)
 import           Pos.Block.Types      (Blund)
 import           Pos.Core             (FlatSlotId, HasConfiguration, HasHeaderHash,
-                                       HeaderHash, headerHash, slotIdF, unflattenSlotId,
-                                       genesisHash)
+                                       HeaderHash, genesisHash, headerHash, slotIdF,
+                                       unflattenSlotId)
 import           Pos.Crypto           (shortHashF)
 import           Pos.DB               (DBError (..), MonadDB, MonadDBRead,
                                        RocksBatchOp (..), dbSerializeValue)
@@ -37,6 +37,7 @@ import           Pos.DB.Block         (MonadBlockDB, blkGetBlund)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Util.Chrono      (OldestFirst (..))
 import           Pos.Util.Util        (maybeThrow)
+import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -116,10 +117,11 @@ foldlUpWhileM
     :: forall a b ssc m r .
     ( MonadBlockDB ssc m
     , HasHeaderHash a
+    , ssc ~ SscGodTossing
     )
-    => (Blund ssc -> m b)
+    => (Blund -> m b)
     -> a
-    -> ((Blund ssc, b) -> Int -> Bool)
+    -> ((Blund, b) -> Int -> Bool)
     -> (r -> b -> m r)
     -> r
     -> m r
@@ -140,8 +142,8 @@ foldlUpWhileM morphM start condition accM init =
 
 -- Loads something from old to new.
 loadUpWhile
-    :: forall a b ssc m . (MonadBlockDB ssc m, HasHeaderHash a)
-    => (Blund ssc -> b)
+    :: forall a b ssc m . (MonadBlockDB ssc m, HasHeaderHash a, ssc ~ SscGodTossing)
+    => (Blund -> b)
     -> a
     -> (b -> Int -> Bool)
     -> m (OldestFirst [] b)
@@ -155,19 +157,19 @@ loadUpWhile morph start condition = OldestFirst . reverse <$>
 
 -- | Returns headers loaded up.
 loadHeadersUpWhile
-    :: (MonadBlockDB ssc m, HasHeaderHash a)
+    :: (MonadBlockDB ssc m, HasHeaderHash a, ssc ~ SscGodTossing)
     => a
-    -> (BlockHeader ssc -> Int -> Bool)
-    -> m (OldestFirst [] (BlockHeader ssc))
+    -> (BlockHeader -> Int -> Bool)
+    -> m (OldestFirst [] BlockHeader)
 loadHeadersUpWhile start condition =
     loadUpWhile (view blockHeader . fst) start condition
 
 -- | Returns blocks loaded up.
 loadBlocksUpWhile
-    :: (MonadBlockDB ssc m, HasHeaderHash a)
+    :: (MonadBlockDB ssc m, HasHeaderHash a, ssc ~ SscGodTossing)
     => a
-    -> (Block ssc -> Int -> Bool)
-    -> m (OldestFirst [] (Block ssc))
+    -> (Block -> Int -> Bool)
+    -> m (OldestFirst [] Block)
 loadBlocksUpWhile start condition = loadUpWhile fst start condition
 
 ----------------------------------------------------------------------------

@@ -39,6 +39,7 @@ import           Pos.GState.GState                (prepareGStateDB, sanityCheckG
 import           Pos.Lrc.DB                       (prepareLrcDB)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Update.DB                    (getAdoptedBVData)
 import           Pos.Util                         (inAssertMode)
 import           Pos.Util.Chrono                  (NewestFirst)
@@ -57,6 +58,7 @@ initNodeDBs
        , MonadDB m
        , HasConfiguration
        , HasGtConfiguration
+       , ssc ~ SscGodTossing
        )
     => m ()
 initNodeDBs = do
@@ -73,15 +75,15 @@ initNodeDBs = do
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.
 loadBlundsFromTipWhile
-    :: (MonadBlockDB ssc m)
-    => (Block ssc -> Bool) -> m (NewestFirst [] (Blund ssc))
+    :: (MonadBlockDB ssc m, ssc ~ SscGodTossing)
+    => (Block -> Bool) -> m (NewestFirst [] Blund)
 loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
 
 -- | Load blunds from BlockDB starting from tip which have depth less than
 -- given.
 loadBlundsFromTipByDepth
-    :: (MonadBlockDB ssc m)
-    => BlockCount -> m (NewestFirst [] (Blund ssc))
+    :: (MonadBlockDB ssc m, ssc ~ SscGodTossing)
+    => BlockCount -> m (NewestFirst [] Blund)
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 
 sanityCheckDB ::
@@ -95,15 +97,15 @@ sanityCheckDB = inAssertMode sanityCheckGStateDB
 
 -- | Specialized version of 'getTipBlockGeneric'.
 getTipBlock ::
-       forall ssc m. MonadBlockDB ssc m
-    => m (Block ssc)
-getTipBlock = getTipBlockGeneric @(Block ssc)
+       forall ssc m. (MonadBlockDB ssc m, ssc ~ SscGodTossing)
+    => m Block
+getTipBlock = getTipBlockGeneric @Block
 
 -- | Specialized version of 'getTipHeaderGeneric'.
 getTipHeader ::
-       forall ssc m. MonadBlockDB ssc m
-    => m (BlockHeader ssc)
-getTipHeader = getTipHeaderGeneric @(Block ssc)
+       forall ssc m. (MonadBlockDB ssc m, ssc ~ SscGodTossing)
+    => m BlockHeader
+getTipHeader = getTipHeaderGeneric @Block
 
 ----------------------------------------------------------------------------
 -- MonadGState instance

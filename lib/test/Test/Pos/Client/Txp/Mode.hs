@@ -156,19 +156,19 @@ instance HasTxpConfigurations => DB.MonadDB TxpTestInitMode where
     dbDelete = DB.dbDeletePureDefault
 
 instance
-    (HasTxpConfigurations, SscHelpersClass ssc) =>
-    DB.MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo TxpTestInitMode
+    (HasTxpConfigurations, SscHelpersClass ssc, ssc ~ SscGodTossing) =>
+    DB.MonadBlockDBGeneric BlockHeader Block Undo TxpTestInitMode
   where
     dbGetBlock  = DB.dbGetBlockPureDefault @ssc
     dbGetUndo   = DB.dbGetUndoPureDefault @ssc
     dbGetHeader = DB.dbGetHeaderPureDefault @ssc
 
-instance (HasTxpConfigurations, SscHelpersClass ssc) =>
-         DB.MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo TxpTestInitMode where
+instance (HasTxpConfigurations, SscHelpersClass ssc, ssc ~ SscGodTossing) =>
+         DB.MonadBlockDBGenericWrite BlockHeader Block Undo TxpTestInitMode where
     dbPutBlund = DB.dbPutBlundPureDefault
 
 instance
-    (HasTxpConfigurations, SscHelpersClass ssc) =>
+    (HasTxpConfigurations, SscHelpersClass ssc, ssc ~ SscGodTossing) =>
     DB.MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () TxpTestInitMode
   where
     dbGetBlock  = DB.dbGetBlockSscPureDefault @ssc

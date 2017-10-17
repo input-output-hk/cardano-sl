@@ -248,7 +248,7 @@ instance MonadBlockGenBase m => MonadDB (InitBlockGenMode ext m) where
     dbDelete = DB.dbDeleteSumDefault
 
 instance (HasGtConfiguration, MonadBlockGenBase m) =>
-    MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo (InitBlockGenMode ext m)
+    MonadBlockDBGeneric BlockHeader Block Undo (InitBlockGenMode ext m)
   where
     dbGetBlock = BDB.dbGetBlockSumDefault @SscGodTossing
     dbGetUndo = BDB.dbGetUndoSumDefault @SscGodTossing
@@ -333,7 +333,7 @@ instance MonadBlockGenBase m => MonadDB (BlockGenMode ext m) where
     dbDelete = DB.dbDeleteSumDefault
 
 instance (HasGtConfiguration, MonadBlockGenBase m) =>
-    MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo (BlockGenMode ext m)
+    MonadBlockDBGeneric BlockHeader Block Undo (BlockGenMode ext m)
   where
     dbGetBlock = BDB.dbGetBlockSumDefault @SscGodTossing
     dbGetUndo = BDB.dbGetUndoSumDefault @SscGodTossing
@@ -347,7 +347,7 @@ instance (HasGtConfiguration, MonadBlockGenBase m) =>
     dbGetHeader = BDB.dbGetHeaderSscSumDefault @SscGodTossing
 
 instance (HasGtConfiguration, MonadBlockGenBase m) =>
-         MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo (BlockGenMode ext m) where
+         MonadBlockDBGenericWrite BlockHeader Block Undo (BlockGenMode ext m) where
     dbPutBlund = BDB.dbPutBlundSumDefault
 
 instance (MonadBlockGenBase m, MonadSlotsData ctx (BlockGenMode ext m))

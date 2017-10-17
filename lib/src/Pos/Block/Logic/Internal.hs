@@ -56,6 +56,7 @@ import           Pos.Ssc.Class.LocalData (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage   (SscGStateClass)
 import           Pos.Ssc.Extra           (MonadSscMem, sscApplyBlocks, sscNormalize,
                                           sscRollbackBlocks)
+import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 import           Pos.Ssc.Util            (toSscBlock)
 import           Pos.Txp.Core            (TxPayload)
 import           Pos.Txp.MemState        (MonadTxpLocal (..))
@@ -142,9 +143,9 @@ normalizeMempool = do
 --
 -- Invariant: all blocks have the same epoch.
 applyBlocksUnsafe
-    :: forall ssc ctx m . MonadBlockApply ssc ctx m
+    :: forall ssc ctx m . (MonadBlockApply ssc ctx m, ssc ~ SscGodTossing)
     => ShouldCallBListener
-    -> OldestFirst NE (Blund ssc)
+    -> OldestFirst NE Blund
     -> Maybe PollModifier
     -> m ()
 applyBlocksUnsafe scb blunds pModifier = do
@@ -173,9 +174,9 @@ applyBlocksUnsafe scb blunds pModifier = do
         spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds
 
 applyBlocksDbUnsafeDo
-    :: forall ssc ctx m . MonadBlockApply ssc ctx m
+    :: forall ssc ctx m . (MonadBlockApply ssc ctx m, ssc ~ SscGodTossing)
     => ShouldCallBListener
-    -> OldestFirst NE (Blund ssc)
+    -> OldestFirst NE Blund
     -> Maybe PollModifier
     -> m ()
 applyBlocksDbUnsafeDo scb blunds pModifier = do
@@ -202,10 +203,10 @@ applyBlocksDbUnsafeDo scb blunds pModifier = do
 -- | Rollback sequence of blocks, head-newest order expected with head being
 -- current tip. It's also assumed that lock on block db is taken already.
 rollbackBlocksUnsafe
-    :: forall ssc ctx m. (MonadBlockApply ssc ctx m)
+    :: forall ssc ctx m. (MonadBlockApply ssc ctx m, ssc ~ SscGodTossing)
     => BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
     -> ShouldCallBListener
-    -> NewestFirst NE (Blund ssc)
+    -> NewestFirst NE Blund
     -> m ()
 rollbackBlocksUnsafe bsc scb toRollback = do
     slogRoll <- slogRollbackBlocks bsc scb toRollback
@@ -239,30 +240,30 @@ rollbackBlocksUnsafe bsc scb toRollback = do
 -- [CSL-1156] Need something more elegant.
 toTxpBlock
     :: forall ssc.
-       (HasConfiguration, SscHelpersClass ssc)
-    => Block ssc -> TxpBlock
+       (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing)
+    => Block -> TxpBlock
 toTxpBlock = bimap convertGenesis convertMain
   where
-    convertGenesis :: GenesisBlock ssc -> Some IsGenesisHeader
+    convertGenesis :: GenesisBlock -> Some IsGenesisHeader
     convertGenesis = Some . view gbHeader
-    convertMain :: MainBlock ssc -> (Some IsMainHeader, TxPayload)
+    convertMain :: MainBlock -> (Some IsMainHeader, TxPayload)
     convertMain blk = (Some $ blk ^. gbHeader, blk ^. gbBody . mbTxPayload)
 
 -- [CSL-1156] Yes, definitely need something more elegant.
 toTxpBlund
     :: forall ssc.
-       (HasConfiguration, SscHelpersClass ssc)
-    => Blund ssc -> TxpBlund
+       (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing)
+    => Blund -> TxpBlund
 toTxpBlund = bimap toTxpBlock undoTx
 
 -- [CSL-1156] Sure, totally need something more elegant
 toUpdateBlock
     :: forall ssc.
-       (HasConfiguration, SscHelpersClass ssc)
-    => Block ssc -> UpdateBlock
+       (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing)
+    => Block -> UpdateBlock
 toUpdateBlock = bimap convertGenesis convertMain
   where
-    convertGenesis :: GenesisBlock ssc -> Some IsGenesisHeader
+    convertGenesis :: GenesisBlock -> Some IsGenesisHeader
     convertGenesis = Some . view gbHeader
-    convertMain :: MainBlock ssc -> (Some IsMainHeader, UpdatePayload)
+    convertMain :: MainBlock -> (Some IsMainHeader, UpdatePayload)
     convertMain blk = (Some $ blk ^. gbHeader, blk ^. gbBody . mbUpdatePayload)

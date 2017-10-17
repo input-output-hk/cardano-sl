@@ -14,7 +14,7 @@ import           Pos.Communication.Types (NodeId)
 
 -- | Task that block retrieval queue is asked to do.
 data BlockRetrievalTask ssc = BlockRetrievalTask
-    { brtHeader    :: !(BlockHeader ssc)
+    { brtHeader    :: !BlockHeader
       -- ^ Header we're insterested in.
     , brtContinues :: !Bool
       -- ^ If it was tentatively classified as "direct continuation of

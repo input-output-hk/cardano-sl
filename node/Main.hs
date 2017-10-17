@@ -25,7 +25,6 @@ import           Pos.Launcher         (HasConfigurations, NodeParams (..), logge
                                        runNodeReal, withConfigurations)
 import           Pos.Ssc.Class        (SscConstraint, SscParams)
 import           Pos.Ssc.GodTossing   (SscGodTossing)
-import           Pos.Ssc.NistBeacon   (SscNistBeacon)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Update           (updateTriggerWorker)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,
@@ -39,6 +38,7 @@ actionWithoutWallet
        ( SscConstraint ssc
        , HasConfigurations
        , HasCompileInfo
+       , ssc ~ SscGodTossing
        )
     => SscParams ssc
     -> NodeParams
@@ -70,9 +70,9 @@ action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
 
     case sscAlgo of
         NistBeaconAlgo ->
-            actionWithoutWallet @SscNistBeacon () currentParams
+            error "NistBeaconAlgo is not supported"
         GodTossingAlgo ->
-            actionWithoutWallet @SscGodTossing gtParams currentParams
+            actionWithoutWallet gtParams currentParams
 
 main :: IO ()
 main = withCompileInfo $(retrieveCompileTimeInfo) $ do

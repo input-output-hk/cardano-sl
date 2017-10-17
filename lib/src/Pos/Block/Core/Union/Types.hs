@@ -4,7 +4,6 @@ module Pos.Block.Core.Union.Types
        ( BiSsc
        , BlockHeader
        , Block
-       , BiHeader
 
        , blockHeaderHash
 
@@ -37,32 +36,15 @@ type BiSsc ssc =
     )
 
 -- | Either header of ordinary main block or genesis block.
-type BlockHeader ssc = Either (GenesisBlockHeader ssc) (MainBlockHeader ssc)
+type BlockHeader = Either GenesisBlockHeader MainBlockHeader
 
 -- | Block.
-type Block ssc = Either (GenesisBlock ssc) (MainBlock ssc)
-
-{- The story of unnecessary constraints
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-All of the instances below have a BiHeader constraint. BiHeader is defined as
-“Bi BlockHeader”, which in its turn expands into:
-
-    Bi (Either GenesisBlockHeader MainBlockHeader)
-
-Thus, effectively we require “Bi MainBlockHeader” for the HasHeaderHash
-instance of *Genesis*BlockHeader, and vice-versa. This is because hashing of
-all headers (MainBlockHeader and GenesisBlockHeader) is done by converting
-them to BlockHeader first, so that a header would have the same hash
-regardless of whether it's inside a BlockHeader or not.
--}
-
-type BiHeader ssc = Bi (BlockHeader ssc)
+type Block = Either GenesisBlock MainBlock
 
 -- | This function is required because type inference fails in attempts to
 -- hash only @Right@ or @Left@.
 --
 -- Perhaps, it shouldn't be here, but I decided not to create a module
 -- for only this function.
-blockHeaderHash :: BiHeader ssc => BlockHeader ssc -> HeaderHash
+blockHeaderHash :: Bi BlockHeader => BlockHeader -> HeaderHash
 blockHeaderHash = unsafeHash

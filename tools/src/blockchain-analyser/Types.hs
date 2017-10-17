@@ -64,11 +64,11 @@ instance HasConfiguration => MonadDBRead BlockchainInspector where
 
 instance
     HasConfiguration =>
-    MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockchainInspector
+    MonadBlockDBGeneric BlockHeader Block Undo BlockchainInspector
   where
     dbGetBlock = BDB.dbGetBlockDefault @SscGodTossing
     dbGetUndo = BDB.dbGetUndoDefault @SscGodTossing
     dbGetHeader = BDB.dbGetHeaderDefault @SscGodTossing
 
-prevBlock :: HasConfiguration => Block SscGodTossing -> HeaderHash
+prevBlock :: HasConfiguration => Block -> HeaderHash
 prevBlock = view prevBlockL

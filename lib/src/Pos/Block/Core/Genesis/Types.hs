@@ -17,6 +17,7 @@ import           Formatting          (bprint, build, (%))
 
 import           Pos.Core.Block      (GenericBlock (..), GenericBlockHeader (..))
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
+import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 
 -- | Represents genesis block header attributes.
 type GenesisHeaderAttributes = Attributes ()
@@ -58,7 +59,7 @@ instance Buildable GenesisExtraBodyData where
 data GenesisBlockchain ssc
 
 -- | Header of Genesis block.
-type GenesisBlockHeader ssc = GenericBlockHeader (GenesisBlockchain ssc)
+type GenesisBlockHeader = GenericBlockHeader (GenesisBlockchain SscGodTossing)
 
 -- | Genesis block parametrized by 'GenesisBlockchain'.
-type GenesisBlock ssc = GenericBlock (GenesisBlockchain ssc)
+type GenesisBlock = GenericBlock (GenesisBlockchain SscGodTossing)

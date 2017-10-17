@@ -63,17 +63,17 @@ import           Pos.Util.Util            (postfixLFields)
 ----------------------------------------------------------------------------
 
 data LastKnownHeaderTag
-type LastKnownHeader ssc = TVar (Maybe (BlockHeader ssc))
+type LastKnownHeader ssc = TVar (Maybe BlockHeader)
 type MonadLastKnownHeader ssc ctx m
      = (MonadReader ctx m, HasLens LastKnownHeaderTag ctx (LastKnownHeader ssc))
 
 data ProgressHeaderTag
-type ProgressHeader ssc = STM.TMVar (BlockHeader ssc)
+type ProgressHeader ssc = STM.TMVar BlockHeader
 type MonadProgressHeader ssc ctx m
      = (MonadReader ctx m, HasLens ProgressHeaderTag ctx (ProgressHeader ssc))
 
 data RecoveryHeaderTag
-type RecoveryHeader ssc = STM.TMVar (NodeId, BlockHeader ssc)
+type RecoveryHeader ssc = STM.TMVar (NodeId, BlockHeader)
 type MonadRecoveryHeader ssc ctx m
      = (MonadReader ctx m, HasLens RecoveryHeaderTag ctx (RecoveryHeader ssc))
 

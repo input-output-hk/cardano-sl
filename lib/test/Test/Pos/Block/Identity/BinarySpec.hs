@@ -26,19 +26,15 @@ spec = withDefConfiguration $ describe "Block types" $ do
             describe "MsgGetBlocks" $
                 binaryTest @BT.MsgGetBlocks
             describe "MsgHeaders" $ do
-                binaryTest @(BT.MsgHeaders SscNistBeacon)
-                binaryTest @(BT.MsgHeaders SscGodTossing)
+                binaryTest @BT.MsgHeaders
             describe "MsgBlock" $ do
-                binaryTest @(BT.MsgBlock SscNistBeacon)
-                binaryTest @(BT.MsgBlock SscGodTossing)
+                binaryTest @BT.MsgBlock
         describe "Blockchains and blockheaders" $ do
             describe "GenericBlockHeader" $ do
                 describe "GenesisBlockHeader" $ do
-                    binaryTest @(BT.GenesisBlockHeader SscNistBeacon)
-                    binaryTest @(BT.GenesisBlockHeader SscGodTossing)
+                    binaryTest @BT.GenesisBlockHeader
                 describe "MainBlockHeader" $ do
-                    binaryTest @(BT.MainBlockHeader SscNistBeacon)
-                    binaryTest @(BT.MainBlockHeader SscGodTossing)
+                    binaryTest @BT.MainBlockHeader
             describe "GenesisBlockchain" $ do
                 describe "BodyProof" $ do
                     binaryTest @BT.GenesisExtraHeaderData

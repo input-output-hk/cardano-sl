@@ -185,15 +185,15 @@ instance HasConfiguration => MonadDB AuxxMode where
     dbDelete = realModeToAuxx ... dbDelete
 
 instance (HasConfiguration, HasGtConfiguration) =>
-         MonadBlockDBGenericWrite (BlockHeader AuxxSscType) (Block AuxxSscType) Undo AuxxMode where
+         MonadBlockDBGenericWrite BlockHeader Block Undo AuxxMode where
     dbPutBlund = realModeToAuxx ... dbPutBlund
 
 instance (HasConfiguration, HasGtConfiguration) =>
-         MonadBlockDBGeneric (BlockHeader AuxxSscType) (Block AuxxSscType) Undo AuxxMode
+         MonadBlockDBGeneric BlockHeader Block Undo AuxxMode
   where
     dbGetBlock  = realModeToAuxx ... dbGetBlock
-    dbGetUndo   = realModeToAuxx ... dbGetUndo @(BlockHeader AuxxSscType) @(Block AuxxSscType) @Undo
-    dbGetHeader = realModeToAuxx ... dbGetHeader @(BlockHeader AuxxSscType) @(Block AuxxSscType) @Undo
+    dbGetUndo   = realModeToAuxx ... dbGetUndo @BlockHeader @Block @Undo
+    dbGetHeader = realModeToAuxx ... dbGetHeader @BlockHeader @Block @Undo
 
 instance (HasConfiguration, HasGtConfiguration) =>
          MonadBlockDBGeneric (Some IsHeader) (SscBlock AuxxSscType) () AuxxMode

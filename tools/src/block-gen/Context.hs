@@ -115,7 +115,7 @@ instance HasConfigurations => MonadDB TBlockGenMode where
 
 instance
     HasConfigurations =>
-    MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo TBlockGenMode
+    MonadBlockDBGeneric BlockHeader Block Undo TBlockGenMode
   where
     dbGetBlock = BDB.dbGetBlockSumDefault @SscGodTossing
     dbGetUndo = BDB.dbGetUndoSumDefault @SscGodTossing
@@ -123,7 +123,7 @@ instance
 
 instance
     HasConfigurations =>
-    MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo TBlockGenMode
+    MonadBlockDBGenericWrite BlockHeader Block Undo TBlockGenMode
   where
     dbPutBlund = BDB.dbPutBlundSumDefault
 

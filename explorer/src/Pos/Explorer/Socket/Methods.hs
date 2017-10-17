@@ -3,6 +3,7 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE GADTs               #-}
 
 -- | Logic of Explorer socket-io Server.
 
@@ -55,7 +56,7 @@ import           Network.SocketIO               (Socket, socketId)
 import           Pos.Block.Core                 (Block, mainBlockTxPayload)
 import qualified Pos.Block.Logic                as DB
 import           Pos.Block.Types                (Blund)
-import           Pos.Crypto                     (withHash, hash)
+import           Pos.Crypto                     (hash, withHash)
 import qualified Pos.DB.Block                   as DB
 import           Pos.DB.Class                   (MonadDBRead)
 import           Pos.Explorer                   (TxExtra (..))
@@ -311,11 +312,11 @@ notifyTxsSubscribers cTxEntries =
 -- | Gets blocks from recent inclusive to old one exclusive.
 getBlundsFromTo
     :: forall ctx m . ExplorerMode ctx m
-    => HeaderHash -> HeaderHash -> m (Maybe [Blund SscGodTossing])
+    => HeaderHash -> HeaderHash -> m (Maybe [Blund])
 getBlundsFromTo recentBlock oldBlock = do
     mheaders <- DB.getHeadersFromToIncl @SscGodTossing oldBlock recentBlock
     forM (getOldestFirst <$> mheaders) $ \(_ :| headers) ->
-        catMaybes <$> forM headers (DB.blkGetBlund @SscGodTossing)
+        catMaybes <$> forM headers DB.blkGetBlund
 
 addrsTouchedByTx
     :: (MonadDBRead m, WithLogger m)
@@ -338,8 +339,8 @@ addressSetByTxs tx txs =
     S.fromList $ txOutAddress <$> txs'
 
 getBlockTxs
-    :: forall ssc ctx m . ExplorerMode ctx m
-    => Block ssc -> m [TxInternal]
+    :: forall ssc ctx m . (ExplorerMode ctx m, ssc ~ SscGodTossing)
+    => Block -> m [TxInternal]
 getBlockTxs (Left  _  ) = return []
 getBlockTxs (Right blk) = do
     txs <- topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs

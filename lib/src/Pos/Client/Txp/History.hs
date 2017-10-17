@@ -37,7 +37,7 @@ import           Control.Monad.Trans          (MonadTrans)
 import           Control.Monad.Trans.Control  (MonadBaseControl)
 import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Data.Coerce                  (coerce)
-import qualified Data.Map.Strict              as M (lookup, insert, fromList)
+import qualified Data.Map.Strict              as M (fromList, insert, lookup)
 import qualified Data.Text.Buildable
 import qualified Ether
 import           Formatting                   (bprint, build, (%))
@@ -148,16 +148,16 @@ getRelatedTxsByAddrs addrs = getTxsByPredicate $ any (`elem` addrs)
 -- Tx will be required.
 deriveAddrHistory
     :: MonadUtxo m
-    => [Address] -> [Block ssc] -> m (Map TxId TxHistoryEntry)
+    => [Address] -> [Block] -> m (Map TxId TxHistoryEntry)
 deriveAddrHistory addrs chain =
     foldrM (flip $ deriveAddrHistoryBlk addrs $ const Nothing) mempty chain
 
 deriveAddrHistoryBlk
     :: MonadUtxo m
     => [Address]
-    -> (MainBlock ssc -> Maybe Timestamp)
+    -> (MainBlock -> Maybe Timestamp)
     -> Map TxId TxHistoryEntry
-    -> Block ssc
+    -> Block
     -> m (Map TxId TxHistoryEntry)
 deriveAddrHistoryBlk _ _ hist (Left _) = pure hist
 deriveAddrHistoryBlk addrs getTs hist (Right blk) = do
@@ -245,14 +245,14 @@ getBlockHistoryDefault
     :: forall ssc ctx m. (HasConfiguration, SscHelpersClass ssc, TxHistoryEnv' ssc ctx m)
     => [Address] -> m (Map TxId TxHistoryEntry)
 getBlockHistoryDefault addrs = do
-    let bot      = headerHash (genesisBlock0 @ssc)
+    let bot      = headerHash genesisBlock0
     sd          <- GS.getSlottingData
     systemStart <- getSystemStartM
 
-    let fromBlund :: Blund ssc -> GenesisHistoryFetcher m (Block ssc)
+    let fromBlund :: Blund -> GenesisHistoryFetcher m Block
         fromBlund = pure . fst
 
-        getBlockTimestamp :: MainBlock ssc -> Maybe Timestamp
+        getBlockTimestamp :: MainBlock -> Maybe Timestamp
         getBlockTimestamp blk = getSlotStartPure systemStart (blk ^. mainBlockSlot) sd
 
         blockFetcher :: HeaderHash -> GenesisHistoryFetcher m (Map TxId TxHistoryEntry)

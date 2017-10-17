@@ -17,6 +17,7 @@ import           Formatting                  (bprint, build, int, stext, (%))
 import           Serokell.Util               (Color (Magenta), colorize, listJson)
 
 import           Pos.Binary.Block.Core       ()
+import           Pos.Binary.Class            (Bi)
 import           Pos.Block.Core.Main.Chain   (Body (..), ConsensusData (..))
 import           Pos.Block.Core.Main.Helpers ()
 import           Pos.Block.Core.Main.Lens    (mainBlockBlockVersion, mainBlockDifficulty,
@@ -30,16 +31,14 @@ import           Pos.Block.Core.Main.Types   (BlockSignature (..), MainBlock,
                                               MainBlockHeader, MainBlockchain,
                                               MainExtraBodyData (..),
                                               MainExtraHeaderData (..), MainToSign (..))
-import           Pos.Block.Core.Union.Types  (BiHeader, BiSsc, BlockHeader,
-                                              blockHeaderHash)
+import           Pos.Block.Core.Union.Types  (BiSsc, BlockHeader, blockHeaderHash)
 import           Pos.Core                    (EpochOrSlot (..), GenericBlock (..),
                                               GenericBlockHeader (..),
-                                              HasBlockVersion (..),
-                                              HasDifficulty (..), HasEpochIndex (..),
-                                              HasEpochOrSlot (..), HasHeaderHash (..),
-                                              HasSoftwareVersion (..), HeaderHash,
-                                              IsHeader, IsMainHeader (..), LocalSlotIndex,
-                                              SlotId, mkGenericHeader,
+                                              HasBlockVersion (..), HasDifficulty (..),
+                                              HasEpochIndex (..), HasEpochOrSlot (..),
+                                              HasHeaderHash (..), HasSoftwareVersion (..),
+                                              HeaderHash, IsHeader, IsMainHeader (..),
+                                              LocalSlotIndex, SlotId, mkGenericHeader,
                                               recreateGenericBlock, slotIdF)
 import           Pos.Core.Configuration      (HasConfiguration)
 import           Pos.Crypto                  (ProxySecretKey (..), SecretKey,
@@ -48,12 +47,14 @@ import           Pos.Crypto                  (ProxySecretKey (..), SecretKey,
 import           Pos.Data.Attributes         (mkAttributes)
 import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
+import           Pos.Ssc.GodTossing.Type     (SscGodTossing)
 import           Pos.Txp.Core                (emptyTxPayload)
-import           Pos.Update.Configuration    (HasUpdateConfiguration,
-                                              lastKnownBlockVersion, curSoftwareVersion)
+import           Pos.Update.Configuration    (HasUpdateConfiguration, curSoftwareVersion,
+                                              lastKnownBlockVersion)
 import           Pos.Util.Util               (leftToPanic)
 
-instance BiSsc ssc => Buildable (MainBlockHeader ssc) where
+
+instance BiSsc SscGodTossing => Buildable MainBlockHeader where
     build gbh@UnsafeGenericBlockHeader {..} =
         bprint
             ("MainBlockHeader:\n"%
@@ -77,7 +78,7 @@ instance BiSsc ssc => Buildable (MainBlockHeader ssc) where
         gbhHeaderHash = blockHeaderHash $ Right gbh
         MainConsensusData {..} = _gbhConsensus
 
-instance (HasConfiguration, BiSsc ssc) => Buildable (MainBlock ssc) where
+instance (HasConfiguration, BiSsc SscGodTossing) => Buildable MainBlock where
     build UnsafeGenericBlock {..} =
         bprint
             (stext%":\n"%
@@ -100,33 +101,37 @@ instance (HasConfiguration, BiSsc ssc) => Buildable (MainBlock ssc) where
         MainBody {..} = _gbBody
         txs = _gbBody ^. mbTxs
 
-instance HasEpochIndex (MainBlock ssc) where
+instance HasEpochIndex MainBlock where
     epochIndexL = mainBlockSlot . epochIndexL
 
-instance HasEpochIndex (MainBlockHeader ssc) where
+instance HasEpochIndex MainBlockHeader where
     epochIndexL = mainHeaderSlot . epochIndexL
 
-instance HasEpochOrSlot (MainBlockHeader ssc) where
+instance HasEpochOrSlot MainBlockHeader where
     getEpochOrSlot = EpochOrSlot . Right . view mainHeaderSlot
 
-instance HasEpochOrSlot (MainBlock ssc) where
+instance HasEpochOrSlot MainBlock where
     getEpochOrSlot = getEpochOrSlot . _gbHeader
 
-instance BiHeader ssc =>
-         HasHeaderHash (MainBlockHeader ssc) where
+-- NB. it's not a mistake that these instances require @Bi BlockHeader@
+-- instead of @Bi MainBlockHeader@. We compute header's hash by
+-- converting it to a BlockHeader first.
+
+instance Bi BlockHeader =>
+         HasHeaderHash MainBlockHeader where
     headerHash = blockHeaderHash . Right
 
-instance BiHeader ssc =>
-         HasHeaderHash (MainBlock ssc) where
+instance Bi BlockHeader =>
+         HasHeaderHash MainBlock where
     headerHash = blockHeaderHash . Right . _gbHeader
 
 instance HasDifficulty (ConsensusData $ MainBlockchain ssc) where
     difficultyL = mcdDifficulty
 
-instance HasDifficulty (MainBlockHeader ssc) where
+instance HasDifficulty MainBlockHeader where
     difficultyL = mainHeaderDifficulty
 
-instance HasDifficulty (MainBlock ssc) where
+instance HasDifficulty MainBlock where
     difficultyL = mainBlockDifficulty
 
 instance HasBlockVersion MainExtraHeaderData where
@@ -135,21 +140,21 @@ instance HasBlockVersion MainExtraHeaderData where
 instance HasSoftwareVersion MainExtraHeaderData where
     softwareVersionL = mehSoftwareVersion
 
-instance HasBlockVersion (MainBlock ssc) where
+instance HasBlockVersion MainBlock where
     blockVersionL = mainBlockBlockVersion
 
-instance HasSoftwareVersion (MainBlock ssc) where
+instance HasSoftwareVersion MainBlock where
     softwareVersionL = mainBlockSoftwareVersion
 
-instance HasBlockVersion (MainBlockHeader ssc) where
+instance HasBlockVersion MainBlockHeader where
     blockVersionL = mainHeaderBlockVersion
 
-instance HasSoftwareVersion (MainBlockHeader ssc) where
+instance HasSoftwareVersion MainBlockHeader where
     softwareVersionL = mainHeaderSoftwareVersion
 
-instance BiHeader ssc => IsHeader (MainBlockHeader ssc)
+instance Bi BlockHeader => IsHeader MainBlockHeader
 
-instance BiHeader ssc => IsMainHeader (MainBlockHeader ssc) where
+instance Bi BlockHeader => IsMainHeader MainBlockHeader where
     headerSlotL = mainHeaderSlot
     headerLeaderKeyL = mainHeaderLeaderKey
 
@@ -160,21 +165,22 @@ instance BiHeader ssc => IsMainHeader (MainBlockHeader ssc) where
 type SanityConstraint ssc
      = ( BiSsc ssc
        , SscHelpersClass ssc
-       , HasDifficulty $ BlockHeader ssc
-       , HasHeaderHash $ BlockHeader ssc
+       , HasDifficulty BlockHeader
+       , HasHeaderHash BlockHeader
        , HasConfiguration
+       , ssc ~ SscGodTossing
        )
 
 -- | Smart constructor for 'MainBlockHeader'.
 mkMainHeader
     :: (SanityConstraint ssc)
-    => Maybe (BlockHeader ssc)
+    => Maybe BlockHeader
     -> SlotId
     -> SecretKey
     -> ProxySKBlockInfo
     -> Body (MainBlockchain ssc)
     -> MainExtraHeaderData
-    -> MainBlockHeader ssc
+    -> MainBlockHeader
 mkMainHeader prevHeader slotId sk pske body extra =
     -- here we know that header creation can't fail, because the only invariant
     -- which we check in 'verifyBBlockHeader' is signature correctness, which
@@ -206,12 +212,12 @@ mkMainHeader prevHeader slotId sk pske body extra =
 -- verifies consistency of given data and may fail.
 mkMainBlock
     :: (HasUpdateConfiguration, SanityConstraint ssc, MonadError Text m)
-    => Maybe (BlockHeader ssc)
+    => Maybe BlockHeader
     -> SlotId
     -> SecretKey
     -> ProxySKBlockInfo
     -> Body (MainBlockchain ssc)
-    -> m (MainBlock ssc)
+    -> m MainBlock
 mkMainBlock prevHeader slotId sk pske body =
     recreateGenericBlock
         (mkMainHeader prevHeader slotId sk pske body extraH)

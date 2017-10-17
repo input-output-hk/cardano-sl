@@ -3,6 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE GADTs               #-}
 
 -- | Server launcher
 
@@ -164,7 +165,7 @@ periodicPollChanges connVar closed =
         wasMempoolTxs <- _2 <<.= mempoolTxs
 
         lift . askingConnState connVar $ do
-            mNewBlunds :: Maybe [Blund SscGodTossing] <-
+            mNewBlunds :: Maybe [Blund] <-
                 if mWasBlock == Just curBlock
                     then return Nothing
                     else forM mWasBlock $ \wasBlock -> do

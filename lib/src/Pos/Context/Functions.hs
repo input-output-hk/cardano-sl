@@ -34,6 +34,7 @@ import           Pos.Ssc.Class       (SscHelpersClass)
 import           Pos.Txp.GenesisUtxo (genesisStakes, genesisUtxo)
 import           Pos.Txp.Toil        (GenesisUtxo (..))
 import           Pos.Util.Util       (HasLens (lensOf))
+import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 
 ----------------------------------------------------------------------------
 -- Genesis
@@ -45,8 +46,8 @@ genesisLeaders = followTheSatoshiUtxo (gdFtsSeed genesisData) utxo
   where
     GenesisUtxo utxo = genesisUtxo
 
-genesisBlock0 :: forall ssc . (HasConfiguration, SscHelpersClass ssc)
-    => GenesisBlock ssc
+genesisBlock0 :: forall ssc . (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing)
+    => GenesisBlock
 genesisBlock0 = mkGenesisBlock @ssc Nothing 0 genesisLeaders
 
 ----------------------------------------------------------------------------

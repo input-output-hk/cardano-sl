@@ -117,7 +117,7 @@ dlgReachesIssuance i d psk = reach i
 -- | Verifies a header from delegation perspective (signature checks).
 dlgVerifyHeader ::
        (MonadCedeRead m)
-    => MainBlockHeader ssc
+    => MainBlockHeader
     -> ExceptT Text m ()
 dlgVerifyHeader h = do
     -- Issuer didn't delegate the right to issue to elseone.

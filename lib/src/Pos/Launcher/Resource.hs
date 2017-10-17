@@ -82,6 +82,7 @@ import           Pos.Txp                          (txpGlobalSettings)
 
 import           Pos.Launcher.Mode                (InitMode, InitModeContext (..),
                                                    runInitMode)
+import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Update.Context               (mkUpdateContext)
 import qualified Pos.Update.DB                    as GState
 import           Pos.Util                         (newInitFuture)
@@ -141,6 +142,7 @@ allocateNodeResources
        -- 'allocateNodeResources' had a hidden assumption that somebody will
        -- fill in the required godtossing data, probably using 'unsafePerformIO'.
        , HasGtConfiguration
+       , ssc ~ SscGodTossing
        )
     => Transport m
     -> NetworkConfig KademliaDHTInstance
@@ -168,7 +170,7 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
             futureSlottingContext
             futureLrcContext
     runInitMode initModeContext $ do
-        initNodeDBs @ssc
+        initNodeDBs @SscGodTossing
 
         nrEkgStore <- liftIO $ Metrics.newStore
 
@@ -223,6 +225,7 @@ bracketNodeResources :: forall ssc ext m a.
       , HasNodeConfiguration
       , HasInfraConfiguration
       , HasGtConfiguration
+      , ssc ~ SscGodTossing
       )
     => NodeParams
     -> SscParams ssc

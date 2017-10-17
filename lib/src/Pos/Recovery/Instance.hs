@@ -17,6 +17,7 @@ import           Pos.DB.DB              (getTipHeader)
 import           Pos.Recovery.Info      (MonadRecoveryInfo (..), SyncStatus (..))
 import           Pos.Slotting           (MonadSlots (getCurrentSlot))
 import           Pos.Util.Util          (HasLens (..))
+import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 
 instance ( Monad m
          , MonadIO m
@@ -25,6 +26,7 @@ instance ( Monad m
          , MonadReader ctx m
          , HasLens RecoveryHeaderTag ctx (RecoveryHeader ssc)
          , HasCoreConfiguration
+         , ssc ~ SscGodTossing
          ) =>
          MonadRecoveryInfo m where
     getSyncStatus lagBehindParam =

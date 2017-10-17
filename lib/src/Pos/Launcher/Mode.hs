@@ -53,6 +53,7 @@ import           Pos.Slotting.Impl.Sum   (SlottingContextSum, currentTimeSlottin
 import           Pos.Slotting.MemState   (MonadSlotsData)
 import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
 import           Pos.Ssc.Class.Types     (SscBlock)
+import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 import           Pos.Util                (Some (..))
 import           Pos.Util.Util           (postfixLFields)
 
@@ -95,24 +96,24 @@ instance HasConfiguration => MonadDB (InitMode ssc) where
     dbDelete = dbDeleteDefault
 
 instance
-    (HasConfiguration, SscHelpersClass ssc) =>
-    MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (InitMode ssc)
+    (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing) =>
+    MonadBlockDBGeneric BlockHeader Block Undo (InitMode ssc)
   where
     dbGetBlock  = dbGetBlockDefault @ssc
     dbGetUndo   = dbGetUndoDefault @ssc
     dbGetHeader = dbGetHeaderDefault @ssc
 
-instance (HasConfiguration, SscHelpersClass ssc) =>
-         MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo (InitMode ssc) where
+instance (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing) =>
+         MonadBlockDBGenericWrite BlockHeader Block Undo (InitMode ssc) where
     dbPutBlund = dbPutBlundDefault
 
 instance
-    (HasConfiguration, SscHelpersClass ssc) =>
+    (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing) =>
     MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (InitMode ssc)
   where
-    dbGetBlock  = dbGetBlockSscDefault @ssc
-    dbGetUndo   = dbGetUndoSscDefault @ssc
-    dbGetHeader = dbGetHeaderSscDefault @ssc
+    dbGetBlock  = dbGetBlockSscDefault @SscGodTossing
+    dbGetUndo   = dbGetUndoSscDefault @SscGodTossing
+    dbGetHeader = dbGetHeaderSscDefault @SscGodTossing
 
 instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx (InitMode ssc)) =>
          MonadSlots ctx (InitMode ssc)

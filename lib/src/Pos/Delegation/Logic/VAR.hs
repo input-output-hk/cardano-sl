@@ -57,9 +57,9 @@ import           Pos.Lrc.Context              (LrcContext)
 import qualified Pos.Lrc.DB                   as LrcDB
 import           Pos.Lrc.Types                (RichmenSet)
 import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
+import           Pos.Ssc.GodTossing.Type      (SscGodTossing)
 import           Pos.Util                     (HasLens', getKeys, _neHead)
 import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..))
-
 
 -- Copied from 'these' library.
 data These a b = This a | That b | These a b
@@ -331,8 +331,9 @@ dlgVerifyBlocks ::
        , MonadReader ctx m
        , HasLens' ctx LrcContext
        , HasConfiguration
+       , ssc ~ SscGodTossing
        )
-    => OldestFirst NE (Block ssc)
+    => OldestFirst NE Block
     -> ExceptT Text m (OldestFirst NE DlgUndo)
 dlgVerifyBlocks blocks = do
     (richmen :: RichmenSet) <-
@@ -346,7 +347,7 @@ dlgVerifyBlocks blocks = do
 
     verifyBlock ::
         RichmenSet ->
-        Block ssc ->
+        Block ->
         ExceptT Text (MapCede m) DlgUndo
     verifyBlock _ (Left genesisBlk) = do
         let blkEpoch = genesisBlk ^. epochIndexL
@@ -420,8 +421,9 @@ dlgApplyBlocks ::
        , MonadMask m
        , HasConfiguration
        , SscHelpersClass ssc
+       , ssc ~ SscGodTossing
        )
-    => OldestFirst NE (Blund ssc)
+    => OldestFirst NE Blund
     -> m (NonEmpty SomeBatchOp)
 dlgApplyBlocks blunds = do
     tip <- GS.getTip
@@ -434,7 +436,7 @@ dlgApplyBlocks blunds = do
     getOldestFirst <$> mapM applyBlock blunds
   where
     blocks = map fst blunds
-    applyBlock :: Blund ssc -> m SomeBatchOp
+    applyBlock :: Blund -> m SomeBatchOp
     applyBlock ((Left block), undoDlg -> DlgUndo{..}) = do
         runDelegationStateAction $ do
             -- all possible psks candidates are now invalid because epoch changed
@@ -476,12 +478,13 @@ dlgRollbackBlocks
        ( MonadDelegation ctx m
        , DB.MonadBlockDB ssc m
        , WithLogger m
+       , ssc ~ SscGodTossing
        )
-    => NewestFirst NE (Blund ssc) -> m (NonEmpty SomeBatchOp)
+    => NewestFirst NE Blund -> m (NonEmpty SomeBatchOp)
 dlgRollbackBlocks blunds = do
     getNewestFirst <$> mapM rollbackBlund blunds
   where
-    rollbackBlund :: Blund ssc -> m SomeBatchOp
+    rollbackBlund :: Blund -> m SomeBatchOp
     rollbackBlund (Left _, undoDlg -> DlgUndo{..}) =
         -- We should restore "this epoch posted" set to one from the undo
         pure $ SomeBatchOp $ map GS.AddPostedThisEpoch $ HS.toList duPrevEpochPosted
@@ -513,7 +516,7 @@ dlgNormalizeOnRollback ::
        )
     => m ()
 dlgNormalizeOnRollback = do
-    tip <- DB.getTipHeader @ssc
+    tip <- DB.getTipHeader
     oldPool <- runDelegationStateAction $ do
         pool <- uses dwProxySKPool toList
         dwProxySKPool .= mempty

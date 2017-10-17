@@ -208,7 +208,7 @@ toBlockEntry
     , HasConfiguration
     , HasGtConfiguration
     )
-    => (MainBlock SscGodTossing, Undo)
+    => (MainBlock, Undo)
     -> m CBlockEntry
 toBlockEntry (blk, Undo{..}) = do
 
@@ -300,7 +300,7 @@ toBlockSummary
     , HasConfiguration
     , HasGtConfiguration
     )
-    => (MainBlock SscGodTossing, Undo)
+    => (MainBlock, Undo)
     -> m CBlockSummary
 toBlockSummary blund@(blk, _) = do
     cbsEntry <- toBlockEntry blund

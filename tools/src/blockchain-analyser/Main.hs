@@ -14,7 +14,6 @@ import           Pos.DB             (closeNodeDBs, openNodeDBs)
 import qualified Pos.DB.Block       as DB
 import qualified Pos.DB.DB          as DB
 import           Pos.Launcher       (withConfigurations)
-import           Pos.Ssc.GodTossing (SscGodTossing)
 import           Pos.Util.Chrono    (NewestFirst (..))
 import           System.Directory   (canonicalizePath, doesDirectoryExist, getFileSize,
                                      listDirectory, withCurrentDirectory)
@@ -54,12 +53,12 @@ analyseBlockchain cli tip =
                        else analyseBlockchainLazily cli
 
 -- | Tries to fetch a `Block` given its `HeaderHash`.
-fetchBlock :: HasConfiguration => HeaderHash -> BlockchainInspector (Maybe (Block SscGodTossing))
-fetchBlock = DB.blkGetBlock @SscGodTossing
+fetchBlock :: HasConfiguration => HeaderHash -> BlockchainInspector (Maybe Block)
+fetchBlock = DB.blkGetBlock
 
 -- | Tries to fetch an `Undo` for the given `Block`.
-fetchUndo :: HasConfiguration => Block SscGodTossing -> BlockchainInspector (Maybe Undo)
-fetchUndo block = DB.blkGetUndo @SscGodTossing (headerHash block)
+fetchUndo :: HasConfiguration => Block -> BlockchainInspector (Maybe Undo)
+fetchUndo block = DB.blkGetUndo (headerHash block)
 
 -- | Analyse the blockchain lazily by rendering all the blocks at once, loading the whole
 -- blockchain into memory. This mode generates very nice-looking tables, but using it for

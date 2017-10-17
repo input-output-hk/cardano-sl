@@ -78,6 +78,7 @@ import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (
 import           Pos.Util.JsonLog           (jlAdoptedBlock)
 import           Pos.Util.TimeWarp          (CanJsonLog (..))
 import           Pos.WorkMode.Class         (WorkMode)
+import           Pos.Ssc.GodTossing.Type    (SscGodTossing)
 
 ----------------------------------------------------------------------------
 -- Exceptions
@@ -127,7 +128,7 @@ triggerRecovery enqueue = unlessM recoveryInProgress $ do
 requestTipOuts :: OutSpecs
 requestTipOuts =
     toOutSpecs [ convH (Proxy :: Proxy MsgGetHeaders)
-                       (Proxy :: Proxy (MsgHeaders ssc)) ]
+                       (Proxy :: Proxy MsgHeaders) ]
 
 -- | Is used if we're recovering after offline and want to know what's
 -- current blockchain state. Sends "what's your current tip" request
@@ -136,7 +137,7 @@ requestTip
     :: forall ssc ctx m.
        (SscWorkersClass ssc, WorkMode ssc ctx m)
     => NodeId
-    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
+    -> ConversationActions MsgGetHeaders MsgHeaders m
     -> m ()
 requestTip nodeId conv = do
     logDebug "Requesting tip..."
@@ -169,16 +170,15 @@ mkHeadersRequest
        WorkMode ssc ctx m
     => HeaderHash -> m MkHeadersRequestResult
 mkHeadersRequest upto = do
-    uHdr <- blkGetHeader @ssc upto
+    uHdr <- blkGetHeader upto
     if isJust uHdr then return MhrrBlockAdopted else do
-        bHeaders <- toList <$> getHeadersOlderExp @ssc Nothing
+        bHeaders <- toList <$> getHeadersOlderExp Nothing
         pure $ MhrrWithCheckpoints $ MsgGetHeaders (toList bHeaders) (Just upto)
 
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders
-    :: forall ssc ctx m.
-       (SscWorkersClass ssc, WorkMode ssc ctx m)
-    => NonEmpty (BlockHeader ssc)
+    :: (SscWorkersClass SscGodTossing, WorkMode SscGodTossing ctx m)
+    => NonEmpty BlockHeader
     -> NodeId
     -> m ()
 handleUnsolicitedHeaders (header :| []) nodeId =
@@ -189,9 +189,8 @@ handleUnsolicitedHeaders (h:|hs) _ = do
     logWarning $ sformat ("Here they are: "%listJson) (h:hs)
 
 handleUnsolicitedHeader
-    :: forall ssc ctx m.
-       (SscWorkersClass ssc, WorkMode ssc ctx m)
-    => BlockHeader ssc
+    :: (SscWorkersClass SscGodTossing, WorkMode SscGodTossing ctx m)
+    => BlockHeader
     -> NodeId
     -> m ()
 handleUnsolicitedHeader header nodeId = do
@@ -237,8 +236,8 @@ data MatchReqHeadersRes
 -- TODO This function is used ONLY in recovery mode, so passing the
 -- flag is redundant, it's always True.
 matchRequestedHeaders
-    :: (SscHelpersClass ssc, HasConfiguration)
-    => NewestFirst NE (BlockHeader ssc) -> MsgGetHeaders -> Bool -> MatchReqHeadersRes
+    :: (SscHelpersClass ssc, HasConfiguration, ssc ~ SscGodTossing)
+    => NewestFirst NE BlockHeader -> MsgGetHeaders -> Bool -> MatchReqHeadersRes
 matchRequestedHeaders headers mgh@MsgGetHeaders {..} inRecovery =
     let newTip = headers ^. _NewestFirst . _neHead
         startHeader = headers ^. _NewestFirst . _neLast
@@ -264,10 +263,10 @@ matchRequestedHeaders headers mgh@MsgGetHeaders {..} inRecovery =
 requestHeaders
     :: forall ssc ctx m.
        (SscWorkersClass ssc, WorkMode ssc ctx m)
-    => (NewestFirst NE (BlockHeader ssc) -> m ())
+    => (NewestFirst NE BlockHeader -> m ())
     -> MsgGetHeaders
     -> NodeId
-    -> ConversationActions MsgGetHeaders (MsgHeaders ssc) m
+    -> ConversationActions MsgGetHeaders MsgHeaders m
     -> m ()
 requestHeaders cont mgh nodeId conv = do
     logDebug $ sformat ("requestHeaders: sending "%build) mgh
@@ -317,9 +316,9 @@ requestHeaders cont mgh nodeId conv = do
 handleRequestedHeaders
     :: forall ssc ctx m.
        WorkMode ssc ctx m
-    => (NewestFirst NE (BlockHeader ssc) -> m ())
+    => (NewestFirst NE BlockHeader -> m ())
     -> Bool -- recovery in progress?
-    -> NewestFirst NE (BlockHeader ssc)
+    -> NewestFirst NE BlockHeader
     -> m ()
 handleRequestedHeaders cont inRecovery headers = do
     -- Try to calculate LRC for the oldest header epoch. If we're in
@@ -407,7 +406,7 @@ addHeaderToBlockRequestQueue
     :: forall ssc ctx m.
        (WorkMode ssc ctx m)
     => NodeId
-    -> BlockHeader ssc
+    -> BlockHeader
     -> Bool -- ^ Was classified as chain continuation
     -> m ()
 addHeaderToBlockRequestQueue nodeId header continues = do
@@ -437,8 +436,8 @@ addTaskToBlockRequestQueue nodeId queue task = do
         (True <$ writeTBQueue queue (nodeId, task))
 
 updateLastKnownHeader
-    :: TVar (Maybe (BlockHeader ssc))
-    -> BlockHeader ssc
+    :: TVar (Maybe BlockHeader)
+    -> BlockHeader
     -> STM ()
 updateLastKnownHeader lastKnownH header = do
     oldV <- readTVar lastKnownH
@@ -463,7 +462,7 @@ handleBlocks
     :: forall ssc ctx m.
        (SscWorkersClass ssc, WorkMode ssc ctx m)
     => NodeId
-    -> OldestFirst NE (Block ssc)
+    -> OldestFirst NE Block
     -> EnqueueMsg m
     -> m ()
 handleBlocks nodeId blocks enqueue = do
@@ -485,7 +484,7 @@ handleBlocksWithLca
        (SscWorkersClass ssc, WorkMode ssc ctx m)
     => NodeId
     -> EnqueueMsg m
-    -> OldestFirst NE (Block ssc)
+    -> OldestFirst NE Block
     -> HeaderHash
     -> m ()
 handleBlocksWithLca nodeId enqueue blocks lcaHash = do
@@ -502,7 +501,7 @@ applyWithoutRollback
     :: forall ssc ctx m.
        (WorkMode ssc ctx m, SscWorkersClass ssc)
     => EnqueueMsg m
-    -> OldestFirst NE (Block ssc)
+    -> OldestFirst NE Block
     -> m ()
 applyWithoutRollback enqueue blocks = do
     logInfo $ sformat ("Trying to apply blocks w/o rollback: "%listJson) $
@@ -543,9 +542,9 @@ applyWithRollback
        (WorkMode ssc ctx m, SscWorkersClass ssc)
     => NodeId
     -> EnqueueMsg m
-    -> OldestFirst NE (Block ssc)
+    -> OldestFirst NE Block
     -> HeaderHash
-    -> NewestFirst NE (Blund ssc)
+    -> NewestFirst NE Blund
     -> m ()
 applyWithRollback nodeId enqueue toApply lca toRollback = do
     logInfo $ sformat ("Trying to apply blocks w/ rollback: "%listJson)
@@ -590,7 +589,7 @@ applyWithRollback nodeId enqueue toApply lca toRollback = do
 relayBlock
     :: forall ssc ctx m.
        (WorkMode ssc ctx m)
-    => EnqueueMsg m -> Block ssc -> m ()
+    => EnqueueMsg m -> Block -> m ()
 relayBlock _ (Left _)                  = logDebug "Not relaying Genesis block"
 relayBlock enqueue (Right mainBlk) = do
     recoveryInProgress >>= \case
@@ -607,7 +606,7 @@ relayBlock enqueue (Right mainBlk) = do
 onFailedVerifyBlocks
     :: forall ssc ctx m.
        (WorkMode ssc ctx m)
-    => NonEmpty (Block ssc) -> Text -> m ()
+    => NonEmpty Block -> Text -> m ()
 onFailedVerifyBlocks blocks err = do
     logWarning $ sformat ("Failed to verify blocks: "%stext%"\n  blocks = "%listJson)
         err (fmap headerHash blocks)

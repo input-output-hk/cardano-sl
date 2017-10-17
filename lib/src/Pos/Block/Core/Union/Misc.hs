@@ -10,54 +10,52 @@ import           Universum
 import           Control.Lens               (Getter, choosing, to)
 import qualified Data.Text.Buildable        as Buildable
 
+import           Pos.Binary.Class           (Bi)
 import           Pos.Block.Core.Genesis     ()
 import           Pos.Block.Core.Main        ()
-import           Pos.Block.Core.Union.Types (BiHeader, BiSsc, Block, BlockHeader,
-                                             blockHeaderHash)
+import           Pos.Block.Core.Union.Types (BiSsc, Block, BlockHeader, blockHeaderHash)
 import           Pos.Core                   (GenericBlock (..), HasDifficulty (..),
                                              HasHeaderHash (..), IsHeader)
+import           Pos.Ssc.GodTossing.Type    (SscGodTossing)
 
 ----------------------------------------------------------------------------
 -- Buildable
 ----------------------------------------------------------------------------
 
-instance BiSsc ssc => Buildable (BlockHeader ssc) where
+instance BiSsc SscGodTossing => Buildable BlockHeader where
     build = either Buildable.build Buildable.build
 
 ----------------------------------------------------------------------------
 -- HasHeaderHash
 ----------------------------------------------------------------------------
 
-instance BiHeader ssc =>
-         HasHeaderHash (BlockHeader ssc) where
+instance Bi BlockHeader =>
+         HasHeaderHash BlockHeader where
     headerHash = blockHeaderHash
 
-instance BiHeader ssc =>
-         HasHeaderHash (Block ssc) where
+instance Bi BlockHeader =>
+         HasHeaderHash Block where
     headerHash = blockHeaderHash . getBlockHeader
 
 -- | Take 'BlockHeader' from either 'GenesisBlock' or 'MainBlock'.
-getBlockHeader :: Block ssc -> BlockHeader ssc
+getBlockHeader :: Block -> BlockHeader
 getBlockHeader = bimap _gbHeader _gbHeader
 
-blockHeader :: Getter (Block ssc) (BlockHeader ssc)
+blockHeader :: Getter Block BlockHeader
 blockHeader = to getBlockHeader
 
 ----------------------------------------------------------------------------
 -- HasDifficulty
 ----------------------------------------------------------------------------
 
-instance HasDifficulty (BlockHeader ssc) where
+instance HasDifficulty BlockHeader where
     difficultyL = choosing difficultyL difficultyL
 
-instance HasDifficulty (Block ssc) where
+instance HasDifficulty Block where
     difficultyL = choosing difficultyL difficultyL
 
 ----------------------------------------------------------------------------
 -- IsHeader
 ----------------------------------------------------------------------------
 
--- If this constraint seems wrong to you, read “The story of unnecessary
--- constraints” in 'Types.hs'.
-
-instance BiHeader ssc => IsHeader (BlockHeader ssc)
+instance Bi BlockHeader  => IsHeader BlockHeader

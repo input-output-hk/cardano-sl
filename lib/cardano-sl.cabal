@@ -462,6 +462,7 @@ library
                         BangPatterns
                         TemplateHaskell
                         ScopedTypeVariables
+                        GADTs
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -624,6 +625,7 @@ test-suite cardano-test
                         BangPatterns
                         TemplateHaskell
                         ScopedTypeVariables
+                        GADTs
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -689,6 +691,7 @@ benchmark cardano-bench-criterion
                         BangPatterns
                         TemplateHaskell
                         ScopedTypeVariables
+                        GADTs
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

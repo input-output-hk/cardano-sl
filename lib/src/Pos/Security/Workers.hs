@@ -16,11 +16,13 @@ import           Pos.Block.Logic            (needRecovery)
 import           Pos.Block.Network          (requestTipOuts, triggerRecovery)
 import           Pos.Communication.Protocol (OutSpecs, SendActions (..), WorkerSpec,
                                              worker)
-import           Pos.Configuration          (HasNodeConfiguration, mdNoBlocksSlotThreshold)
+import           Pos.Configuration          (HasNodeConfiguration,
+                                             mdNoBlocksSlotThreshold)
 import           Pos.Context                (getOurPublicKey, getUptime,
                                              recoveryCommGuard)
-import           Pos.Core                   (SlotId (..), flattenEpochOrSlot, flattenSlotId,
-                                             headerHash, headerLeaderKeyL, prevBlockL)
+import           Pos.Core                   (SlotId (..), flattenEpochOrSlot,
+                                             flattenSlotId, headerHash, headerLeaderKeyL,
+                                             prevBlockL)
 import           Pos.Core.Configuration     (HasConfiguration, genesisHash)
 import           Pos.Crypto                 (PublicKey)
 import           Pos.DB                     (DBError (DBMalformed))
@@ -29,6 +31,7 @@ import           Pos.DB.DB                  (getTipHeader)
 import           Pos.Reporting              (reportMisbehaviour, reportOrLogE)
 import           Pos.Slotting               (getCurrentSlot, getNextEpochSlotDuration)
 import           Pos.WorkMode.Class         (WorkMode)
+import           Pos.Ssc.GodTossing.Type    (SscGodTossing)
 
 -- | Workers which perform security checks.
 securityWorkers :: WorkMode ssc ctx m => ([WorkerSpec m], OutSpecs)
@@ -43,8 +46,8 @@ checkForReceivedBlocksWorker =
     worker requestTipOuts checkForReceivedBlocksWorkerImpl
 
 checkEclipsed
-    :: (MonadBlockDB ssc m, HasConfiguration, HasNodeConfiguration)
-    => PublicKey -> SlotId -> BlockHeader ssc -> m Bool
+    :: (MonadBlockDB ssc m, HasConfiguration, HasNodeConfiguration, ssc ~ SscGodTossing)
+    => PublicKey -> SlotId -> BlockHeader -> m Bool
 checkEclipsed ourPk slotId x = notEclipsed x
   where
     onBlockLoadFailure header = do

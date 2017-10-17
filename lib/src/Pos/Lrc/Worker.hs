@@ -47,11 +47,13 @@ import           Pos.Reporting            (reportMisbehaviour)
 import           Pos.Slotting             (MonadSlots)
 import           Pos.Ssc.Class            (SscHelpersClass, SscWorkersClass)
 import           Pos.Ssc.Extra            (MonadSscMem, sscCalculateSeed)
-import           Pos.Ssc.GodTossing       (HasGtConfiguration, noReportNoSecretsForEpoch1)
+import           Pos.Ssc.GodTossing       (HasGtConfiguration, SscGodTossing,
+                                           noReportNoSecretsForEpoch1)
 import           Pos.Update.DB            (getCompetingBVStates)
 import           Pos.Update.Poll.Types    (BlockVersionState (..))
 import           Pos.Util                 (logWarningWaitLinear, maybeThrow)
 import           Pos.Util.Chrono          (NE, NewestFirst (..), toOldestFirst)
+
 
 ----------------------------------------------------------------------------
 -- Single short
@@ -73,7 +75,7 @@ type LrcModeFull ssc ctx m =
 -- block for this epoch is not known, LrcError will be thrown.
 -- It assumes that 'StateLock' is taken already.
 lrcSingleShot
-    :: forall ssc ctx m. (LrcModeFull ssc ctx m)
+    :: forall ssc ctx m. (LrcModeFull ssc ctx m, ssc ~ SscGodTossing)
     => EpochIndex -> m ()
 lrcSingleShot epoch = do
     lock <- views (lensOf @LrcContext) lcLrcSync
@@ -126,10 +128,10 @@ tryAcquireExclusiveLock epoch lock action =
 
 lrcDo
     :: forall ssc ctx m.
-       LrcModeFull ssc ctx m
+       (LrcModeFull ssc ctx m, ssc ~ SscGodTossing)
     => EpochIndex -> [LrcConsumer m] -> m ()
 lrcDo epoch consumers = do
-    blundsUpToGenesis <- DB.loadBlundsFromTipWhile @ssc upToGenesis
+    blundsUpToGenesis <- DB.loadBlundsFromTipWhile @SscGodTossing upToGenesis
     -- If there are blocks from 'epoch' it means that we somehow accepted them
     -- before running LRC for 'epoch'. It's very bad.
     unless (null blundsUpToGenesis) $ throwM LrcAfterGenesis

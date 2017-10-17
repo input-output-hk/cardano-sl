@@ -42,6 +42,7 @@ import           Pos.Slotting           (MonadSlots (..), getCurrentSlotFlat,
 import           Pos.Ssc.Class          (SscHelpersClass)
 import           Pos.Util               (_neHead)
 import           Pos.Util.Chrono        (NE, OldestFirst (..))
+import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 
 --- Usually in this method oldest header is LCA, so it can be optimized
 -- by traversing from older to newer.
@@ -49,8 +50,8 @@ import           Pos.Util.Chrono        (NE, OldestFirst (..))
 -- header's parent hash. Iterates from newest to oldest until meets
 -- first header that's in main chain. O(n).
 lcaWithMainChain
-    :: (HasConfiguration, MonadDBRead m, SscHelpersClass ssc)
-    => OldestFirst NE (BlockHeader ssc) -> m (Maybe HeaderHash)
+    :: (HasConfiguration, MonadDBRead m, SscHelpersClass ssc, ssc ~ SscGodTossing)
+    => OldestFirst NE BlockHeader -> m (Maybe HeaderHash)
 lcaWithMainChain headers =
     lcaProceed Nothing $
     oldestParent <| fmap headerHash (getOldestFirst headers)
@@ -87,7 +88,7 @@ needRecovery
 needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
   where
     isTooOld currentSlot = do
-        lastKnownBlockSlot <- getEpochOrSlot <$> DB.getTipHeader @ssc
+        lastKnownBlockSlot <- getEpochOrSlot <$> DB.getTipHeader @SscGodTossing
         let distance = getEpochOrSlot currentSlot `diffEpochOrSlot`
                          lastKnownBlockSlot
         pure $ case distance of
@@ -150,7 +151,7 @@ calcOverallChainQuality =
     getCurrentSlotFlat >>= \case
         Nothing -> pure Nothing
         Just curFlatSlot ->
-            calcOverallChainQualityDo curFlatSlot <$> DB.getTipHeader @ssc
+            calcOverallChainQualityDo curFlatSlot <$> DB.getTipHeader @SscGodTossing
   where
     calcOverallChainQualityDo curFlatSlot tipHeader
         | curFlatSlot == 0 = Nothing

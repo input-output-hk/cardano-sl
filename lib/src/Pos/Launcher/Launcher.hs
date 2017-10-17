@@ -22,6 +22,7 @@ import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo             (HasCompileInfo)
 import           Pos.WorkMode                     (EmptyMempoolExt, RealMode)
+import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 
 -----------------------------------------------------------------------------
 -- Main launchers
@@ -34,15 +35,10 @@ runNodeReal
        , HasConfiguration
        , HasUpdateConfiguration
        , HasInfraConfiguration
-       -- FIXME avieth
-       -- godtossing is always assumed, regardless of the forall ssc.
-       -- It wasn't noticed before, because the godtossing data was in some
-       -- global mutable variable and so didn't appear as a bona fide dependency
-       -- in any constraint or left-hand-side of an arrow.
-       -- See 'prepareGStateDB'.
        , HasGtConfiguration
        , HasNodeConfiguration
        , HasCompileInfo
+       , ssc ~ SscGodTossing
        )
     => NodeParams
     -> SscParams ssc

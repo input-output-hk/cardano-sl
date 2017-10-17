@@ -175,7 +175,7 @@ processProxySKHeavyInternal
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavyInternal psk = do
     curTime <- microsecondsToUTC <$> currentTime
-    dbTip <- DB.getTipHeader @ssc
+    dbTip <- DB.getTipHeader
     let dbTipHash = headerHash dbTip
     let headEpoch = dbTip ^. epochIndexL
     richmen <-

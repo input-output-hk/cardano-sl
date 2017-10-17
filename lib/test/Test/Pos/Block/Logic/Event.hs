@@ -65,7 +65,7 @@ verifyAndApplyBlocks' ::
        , BlockLrcMode SscGodTossing BlockTestContext m
        , MonadTxpLocal m
        )
-    => OldestFirst NE (Blund SscGodTossing)
+    => OldestFirst NE Blund
     -> m ()
 verifyAndApplyBlocks' blunds = do
     satisfySlotCheck blocks $ do

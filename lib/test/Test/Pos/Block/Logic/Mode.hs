@@ -362,19 +362,19 @@ instance HasConfiguration => MonadDB TestInitMode where
     dbDelete = DB.dbDeletePureDefault
 
 instance
-    (HasConfiguration, SscHelpersClass ssc) =>
-    MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo TestInitMode
+    (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing) =>
+    MonadBlockDBGeneric BlockHeader Block Undo TestInitMode
   where
     dbGetBlock  = DB.dbGetBlockPureDefault @ssc
     dbGetUndo   = DB.dbGetUndoPureDefault @ssc
     dbGetHeader = DB.dbGetHeaderPureDefault @ssc
 
-instance (HasConfiguration, SscHelpersClass ssc) =>
-         MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo TestInitMode where
+instance (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing) =>
+         MonadBlockDBGenericWrite BlockHeader Block Undo TestInitMode where
     dbPutBlund = DB.dbPutBlundPureDefault
 
 instance
-    (HasConfiguration, SscHelpersClass ssc) =>
+    (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing) =>
     MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () TestInitMode
   where
     dbGetBlock  = DB.dbGetBlockSscPureDefault @ssc
@@ -484,7 +484,7 @@ instance HasConfiguration => MonadDB BlockTestMode where
     dbDelete = DB.dbDeletePureDefault
 
 instance HasConfiguration =>
-         MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode
+         MonadBlockDBGeneric BlockHeader Block Undo BlockTestMode
   where
     dbGetBlock = DB.dbGetBlockPureDefault
     dbGetUndo = DB.dbGetUndoPureDefault @SscGodTossing
@@ -497,7 +497,7 @@ instance HasConfiguration => MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGo
     dbGetHeader = DB.dbGetHeaderSscPureDefault @SscGodTossing
 
 instance HasConfiguration =>
-         MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode where
+         MonadBlockDBGenericWrite BlockHeader Block Undo BlockTestMode where
     dbPutBlund = DB.dbPutBlundPureDefault
 
 instance HasConfiguration => MonadGState BlockTestMode where

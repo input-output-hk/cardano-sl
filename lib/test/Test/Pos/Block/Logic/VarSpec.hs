@@ -37,7 +37,6 @@ import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..), BlockEvent
                                                runBlockEventGenT)
 import qualified Pos.GState                   as GS
 import           Pos.Launcher                 (HasConfigurations)
-import           Pos.Ssc.GodTossing           (SscGodTossing)
 import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..),
                                                nonEmptyNewestFirst, nonEmptyOldestFirst,
                                                splitAtNewestFirst, toNewestFirst,
@@ -162,7 +161,7 @@ applyBlocksSpec = pass
 
 applyByOneOrAllAtOnce
     :: HasConfigurations
-       => (OldestFirst NE (Blund SscGodTossing) -> BlockTestMode ())
+       => (OldestFirst NE Blund -> BlockTestMode ())
        -> BlockProperty ()
 applyByOneOrAllAtOnce applier = do
     bpGoToArbitraryState

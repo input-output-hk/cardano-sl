@@ -19,11 +19,9 @@ spec = withDefConfiguration $ describe "Block types" $ do
     describe "SafeCopy instances" $ do
         describe "GenericBlockHeader" $ do
             describe "GenesisBlockHeader" $ do
-                safeCopyTest @(BT.GenesisBlockHeader SscNistBeacon)
-                safeCopyTest @(BT.GenesisBlockHeader SscGodTossing)
+                safeCopyTest @BT.GenesisBlockHeader
             describe "MainBlockHeader" $ do
-                safeCopyTest @(BT.MainBlockHeader SscNistBeacon)
-                safeCopyTest @(BT.MainBlockHeader SscGodTossing)
+                safeCopyTest @BT.MainBlockHeader
         describe "GenesisBlockchain" $ do
             describe "BodyProof" $ do
                 safeCopyTest @(BT.BodyProof (BT.GenesisBlockchain SscNistBeacon))

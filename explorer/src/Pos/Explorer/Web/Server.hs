@@ -3,6 +3,7 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE GADTs               #-}
 
 -- API server logic
 
@@ -103,7 +104,8 @@ import           Pos.Explorer.Web.Error               (ExplorerError (..))
 ----------------------------------------------------------------
 -- Top level functionality
 ----------------------------------------------------------------
-type MainBlund ssc = (MainBlock ssc, Undo)
+
+type MainBlund = (MainBlock, Undo)
 
 type ExplorerMode ctx m =
     ( WorkMode SscGodTossing ctx m
@@ -243,7 +245,7 @@ getBlocksPage mPageNumber mPageSize = do
 getBlundOrThrow
     :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
     => HeaderHash
-    -> m (Blund SscGodTossing)
+    -> m Blund
 getBlundOrThrow headerHash = DB.blkGetBlund headerHash >>=
     maybeThrow (Internal "Blund with hash cannot be found!")
 
@@ -629,18 +631,18 @@ epochSlotSearch epochIndex mSlotIndex = do
     -- the slot is @Nothing@.
     getEpochSlots
         :: Maybe Word16
-        -> [MainBlund SscGodTossing]
-        -> [MainBlund SscGodTossing]
+        -> [MainBlund]
+        -> [MainBlund]
     getEpochSlots Nothing           blunds = blunds
     getEpochSlots (Just slotIndex) blunds = filter filterBlundsBySlotIndex blunds
       where
         getBlundSlotIndex
-            :: MainBlund SscGodTossing
+            :: MainBlund
             -> Word16
         getBlundSlotIndex blund = getSlotIndex $ siSlot $ fst blund ^. mainBlockSlot
 
         filterBlundsBySlotIndex
-            :: MainBlund SscGodTossing
+            :: MainBlund
             -> Bool
         filterBlundsBySlotIndex blund = getBlundSlotIndex blund == slotIndex
 
@@ -750,7 +752,7 @@ getMempoolTxs = do
     mkWhTx :: (TxId, TxAux) -> WithHash Tx
     mkWhTx (txid, txAux) = WithHash (taTx txAux) txid
 
-getBlkSlotStart :: MonadSlots ctx m => MainBlock ssc -> m (Maybe Timestamp)
+getBlkSlotStart :: MonadSlots ctx m => MainBlock -> m (Maybe Timestamp)
 getBlkSlotStart blk = getSlotStart $ blk ^. gbHeader . gbhConsensus . mcdSlot
 
 topsortTxsOrFail :: (MonadThrow m, Eq a) => (a -> WithHash Tx) -> [a] -> m [a]
@@ -790,12 +792,12 @@ cTxIdToTxId cTxId = either exception pure (fromCTxId cTxId)
   where
     exception = const $ throwM $ Internal "Invalid transaction id!"
 
-getMainBlund :: ExplorerMode ctx m => HeaderHash -> m (MainBlund SscGodTossing)
+getMainBlund :: ExplorerMode ctx m => HeaderHash -> m MainBlund
 getMainBlund h = do
     (blk, undo) <- DB.blkGetBlund h >>= maybeThrow (Internal "No block found")
     either (const $ throwM $ Internal "Block is genesis block") (pure . (,undo)) blk
 
-getMainBlock :: ExplorerMode ctx m => HeaderHash -> m (MainBlock SscGodTossing)
+getMainBlock :: ExplorerMode ctx m => HeaderHash -> m MainBlock
 getMainBlock = fmap fst . getMainBlund
 
 -- | Get transaction extra from the database, and if you don't find it

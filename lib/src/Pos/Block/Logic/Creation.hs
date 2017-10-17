@@ -53,6 +53,7 @@ import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefau
                                              SscLocalDataClass)
 import           Pos.Ssc.Extra              (MonadSscMem, sscGetLocalPayload,
                                              sscResetLocal)
+import           Pos.Ssc.GodTossing.Type    (SscGodTossing)
 import           Pos.StateLock              (Priority (..), StateLock, StateLockMetrics,
                                              modifyStateLock)
 import           Pos.Txp                    (MempoolExt, MonadTxpLocal (..), MonadTxpMem,
@@ -116,9 +117,10 @@ createGenesisBlockAndApply ::
        , MonadBlockApply ssc ctx m
        , HasLens StateLock ctx StateLock
        , HasLens StateLockMetrics ctx StateLockMetrics
+       , ssc ~ SscGodTossing
        )
     => EpochIndex
-    -> m (Maybe (GenesisBlock ssc))
+    -> m (Maybe GenesisBlock)
 -- Genesis block for 0-th epoch is hardcoded.
 createGenesisBlockAndApply 0 = pure Nothing
 createGenesisBlockAndApply epoch = do
@@ -136,9 +138,10 @@ createGenesisBlockAndApply epoch = do
 createGenesisBlockDo
     :: forall ssc ctx m.
        ( MonadCreateBlock ssc ctx m
-       , MonadBlockApply ssc ctx m)
+       , MonadBlockApply ssc ctx m
+       , ssc ~ SscGodTossing)
     => EpochIndex
-    -> m (HeaderHash, Maybe (GenesisBlock ssc))
+    -> m (HeaderHash, Maybe GenesisBlock)
 createGenesisBlockDo epoch = do
     tipHeader <- DB.getTipHeader
     logDebug $ sformat msgTryingFmt epoch tipHeader
@@ -173,9 +176,10 @@ createGenesisBlockDo epoch = do
 needCreateGenesisBlock ::
        ( MonadCreateBlock ssc ctx m
        , MonadBlockApply ssc ctx m
+       , ssc ~ SscGodTossing
        )
     => EpochIndex
-    -> BlockHeader ssc
+    -> BlockHeader
     -> m Bool
 needCreateGenesisBlock epoch tipHeader = do
     case tipHeader of
@@ -214,10 +218,11 @@ createMainBlockAndApply ::
        , MonadBlockApply ssc ctx m
        , HasLens' ctx StateLock
        , HasLens' ctx StateLockMetrics
+       , ssc ~ SscGodTossing
        )
     => SlotId
     -> ProxySKBlockInfo
-    -> m (Either Text (MainBlock ssc))
+    -> m (Either Text MainBlock)
 createMainBlockAndApply sId pske =
     modifyStateLock HighPriority "createMainBlockAndApply" createAndApply
   where
@@ -237,10 +242,10 @@ createMainBlockAndApply sId pske =
 -- block. It only checks whether a block can be created (see
 -- 'createMainBlockAndApply') and creates it checks passes.
 createMainBlockInternal ::
-       forall ssc ctx m. (MonadCreateBlock ssc ctx m)
+       forall ssc ctx m. (MonadCreateBlock ssc ctx m, ssc ~ SscGodTossing)
     => SlotId
     -> ProxySKBlockInfo
-    -> m (Either Text (MainBlock ssc))
+    -> m (Either Text MainBlock)
 createMainBlockInternal sId pske = do
     tipHeader <- DB.getTipHeader @ssc
     logInfoS $ sformat msgFmt tipHeader
@@ -249,7 +254,7 @@ createMainBlockInternal sId pske = do
         Right () -> runExceptT (createMainBlockFinish tipHeader)
   where
     msgFmt = "We are trying to create main block, our tip header is\n"%build
-    createMainBlockFinish :: BlockHeader ssc -> ExceptT Text m (MainBlock ssc)
+    createMainBlockFinish :: BlockHeader -> ExceptT Text m MainBlock
     createMainBlockFinish prevHeader = do
         rawPay <- lift $ getRawPayload (headerHash prevHeader) sId
         sk <- getOurSecretKey
@@ -263,9 +268,9 @@ createMainBlockInternal sId pske = do
         block <$ evaluateNF_ block
 
 canCreateBlock ::
-       forall ssc ctx m. MonadCreateBlock ssc ctx m
+       forall ssc ctx m. (MonadCreateBlock ssc ctx m, ssc ~ SscGodTossing)
     => SlotId
-    -> BlockHeader ssc
+    -> BlockHeader
     -> m (Either Text ())
 canCreateBlock sId tipHeader =
     runExceptT $ do
@@ -298,14 +303,14 @@ canCreateBlock sId tipHeader =
 
 createMainBlockPure
     :: forall m ssc .
-       (MonadError Text m, SscHelpersClass ssc, HasConfiguration, HasUpdateConfiguration)
+       (MonadError Text m, SscHelpersClass ssc, HasConfiguration, HasUpdateConfiguration, ssc ~ SscGodTossing)
     => Byte                   -- ^ Block size limit (real max.value)
-    -> BlockHeader ssc
+    -> BlockHeader
     -> ProxySKBlockInfo
     -> SlotId
     -> SecretKey
     -> RawPayload ssc
-    -> m (MainBlock ssc)
+    -> m MainBlock
 createMainBlockPure limit prevHeader pske sId sk rawPayload = do
     bodyLimit <- execStateT computeBodyLimit limit
     body <- createMainBody bodyLimit sId rawPayload
@@ -339,14 +344,15 @@ applyCreatedBlock ::
       forall ssc ctx m.
     ( MonadBlockApply ssc ctx m
     , MonadCreateBlock ssc ctx m
+    , ssc ~ SscGodTossing
     )
     => ProxySKBlockInfo
-    -> MainBlock ssc
-    -> m (MainBlock ssc)
+    -> MainBlock
+    -> m MainBlock
 applyCreatedBlock pske createdBlock = applyCreatedBlockDo False createdBlock
   where
     slotId = createdBlock ^. BC.mainBlockSlot
-    applyCreatedBlockDo :: Bool -> MainBlock ssc -> m (MainBlock ssc)
+    applyCreatedBlockDo :: Bool -> MainBlock -> m MainBlock
     applyCreatedBlockDo isFallback blockToApply =
         verifyBlocksPrefix (one (Right blockToApply)) >>= \case
             Left (pretty -> reason)
@@ -366,7 +372,7 @@ applyCreatedBlock pske createdBlock = applyCreatedBlockDo False createdBlock
         sscResetLocal
         clearUSMemPool
         clearDlgMemPool
-    fallback :: Text -> m (MainBlock ssc)
+    fallback :: Text -> m MainBlock
     fallback reason = do
         let message = sformat ("We've created bad main block: "%stext) reason
         -- REPORT:ERROR Created bad main block

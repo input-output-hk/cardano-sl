@@ -190,11 +190,11 @@ instance HasConfiguration => MonadDB WalletWebMode where
     dbDelete = dbDeleteDefault
 
 instance (HasConfiguration, HasGtConfiguration) =>
-         MonadBlockDBGenericWrite (BlockHeader WalletSscType) (Block WalletSscType) Undo WalletWebMode where
+         MonadBlockDBGenericWrite BlockHeader Block Undo WalletWebMode where
     dbPutBlund = dbPutBlundDefault
 
 instance (HasConfiguration, HasGtConfiguration) =>
-         MonadBlockDBGeneric (BlockHeader WalletSscType) (Block WalletSscType) Undo WalletWebMode
+         MonadBlockDBGeneric BlockHeader Block Undo WalletWebMode
   where
     dbGetBlock  = dbGetBlockDefault @WalletSscType
     dbGetUndo   = dbGetUndoDefault @WalletSscType

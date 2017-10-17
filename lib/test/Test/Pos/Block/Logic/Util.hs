@@ -28,7 +28,6 @@ import           Pos.Core                    (BlockCount, GenesisData (..),
 import           Pos.Generator.Block         (BlockGenParams (..), genBlocks,
                                               tgpTxCountRange)
 import           Pos.Launcher                (HasConfigurations)
-import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Util.Chrono             (NE, OldestFirst (..))
 import           Pos.Util.Util               (_neLast)
 
@@ -50,7 +49,7 @@ bpGenBlocks
     => Maybe BlockCount
     -> EnableTxPayload
     -> InplaceDB
-    -> BlockProperty (OldestFirst [] (Blund SscGodTossing))
+    -> BlockProperty (OldestFirst [] Blund)
 bpGenBlocks blkCnt (EnableTxPayload enableTxPayload) (InplaceDB inplaceDB) = do
     allSecrets_ <- getAllSecrets
     let genStakeholders = gdBootStakeholders genesisData
@@ -72,7 +71,7 @@ bpGenBlocks blkCnt (EnableTxPayload enableTxPayload) (InplaceDB inplaceDB) = do
 -- | A version of 'bpGenBlocks' which generates exactly one
 -- block. Allows one to avoid unsafe functions sometimes.
 bpGenBlock ::
-       HasConfigurations => EnableTxPayload -> InplaceDB -> BlockProperty (Blund SscGodTossing)
+       HasConfigurations => EnableTxPayload -> InplaceDB -> BlockProperty Blund
 -- 'unsafeHead' is safe because we create exactly 1 block
 bpGenBlock = fmap (unsafeHead . toList) ... bpGenBlocks (Just 1)
 
@@ -94,7 +93,7 @@ withCurrentSlot slot = local (set btcSlotId_L $ Just slot)
 -- slot of the given blocks.
 satisfySlotCheck
     :: (HasConfiguration, MonadReader BlockTestContext m)
-    => OldestFirst NE (Block SscGodTossing)
+    => OldestFirst NE Block
     -> m a
     -> m a
 satisfySlotCheck (OldestFirst blocks) action =

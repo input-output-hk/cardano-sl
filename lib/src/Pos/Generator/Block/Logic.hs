@@ -61,7 +61,7 @@ type BlockTxpGenMode g ctx m =
 genBlocks ::
        forall g ctx m . BlockTxpGenMode g ctx m
     => BlockGenParams
-    -> RandT g m (OldestFirst [] (Blund SscGodTossing))
+    -> RandT g m (OldestFirst [] Blund)
 genBlocks params = do
     ctx <- lift $ mkBlockGenContext @(MempoolExt m) params
     mapRandT (`runReaderT` ctx) genBlocksDo
@@ -80,7 +80,7 @@ genBlocks params = do
 genBlock ::
        forall g ctx m . BlockTxpGenMode g ctx m
     => EpochOrSlot
-    -> BlockGenRandMode (MempoolExt m) g m (Maybe (Blund SscGodTossing))
+    -> BlockGenRandMode (MempoolExt m) g m (Maybe Blund)
 genBlock eos = withCompileInfo def $ do
     let epoch = eos ^. epochIndexL
     lift $ unlessM ((epoch ==) <$> LrcDB.getEpoch) (lrcSingleShot epoch)
@@ -122,14 +122,14 @@ genBlock eos = withCompileInfo def $ do
         HasCompileInfo =>
         SlotId ->
         ProxySKBlockInfo ->
-        BlockGenMode (MempoolExt m) m (Blund SscGodTossing)
+        BlockGenMode (MempoolExt m) m Blund
     genMainBlock slot proxySkInfo =
         createMainBlockInternal @SscGodTossing slot proxySkInfo >>= \case
             Left err -> throwM (BGFailedToCreate err)
             Right mainBlock -> verifyAndApply $ Right mainBlock
     verifyAndApply ::
         HasCompileInfo =>
-        Block SscGodTossing -> BlockGenMode (MempoolExt m) m (Blund SscGodTossing)
+        Block -> BlockGenMode (MempoolExt m) m Blund
     verifyAndApply block =
         verifyBlocksPrefix (one block) >>= \case
             Left err -> throwM (BGCreatedInvalid err)

@@ -50,6 +50,7 @@ import           Pos.Util                   (_neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..),
                                              _NewestFirst, _OldestFirst)
 import           Pos.WorkMode.Class         (WorkMode)
+import           Pos.Ssc.GodTossing.Type    (SscGodTossing)
 
 retrievalWorker
     :: forall ssc ctx m.
@@ -59,7 +60,7 @@ retrievalWorker = worker outs retrievalWorkerImpl
   where
     outs = announceBlockOuts <>
            toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
-                             (Proxy :: Proxy (MsgBlock ssc))
+                             (Proxy :: Proxy MsgBlock)
                       ]
 
 -- I really don't like join
@@ -180,7 +181,7 @@ retrievalWorkerImpl SendActions {..} =
                 throwM $ DialogUnexpected "handleRecovery: got MhrrBlockAdopted"
             MhrrWithCheckpoints mgh -> do
                 logDebug "handleRecovery: asking for headers"
-                let cont (headers :: NewestFirst NE (BlockHeader ssc)) =
+                let cont (headers :: NewestFirst NE BlockHeader) =
                         let oldestHeader = headers ^. _NewestFirst . _neLast
                             newestHeader = headers ^. _NewestFirst . _neHead
                         in getProcessBlocks enqueueMsg nodeId
@@ -200,12 +201,12 @@ retrievalWorkerImpl SendActions {..} =
 
 -- | Result of attempt to update recovery header.
 data UpdateRecoveryResult ssc
-    = RecoveryStarted NodeId (BlockHeader ssc)
+    = RecoveryStarted NodeId BlockHeader
       -- ^ Recovery header was absent, so we've set it.
-    | RecoveryShifted NodeId (BlockHeader ssc) NodeId (BlockHeader ssc)
+    | RecoveryShifted NodeId BlockHeader NodeId BlockHeader
       -- ^ Header was present, but we've replaced it with another
       -- (more difficult) one.
-    | RecoveryContinued NodeId (BlockHeader ssc)
+    | RecoveryContinued NodeId BlockHeader
       -- ^ Header is good, but is irrelevant, so recovery variable is
       -- unchanged.
 
@@ -214,9 +215,9 @@ data UpdateRecoveryResult ssc
 -- condition can occur where we are caught in the recovery mode
 -- indefinitely.
 updateRecoveryHeader
-    :: WorkMode ssc ctx m
+    :: WorkMode SscGodTossing ctx m
     => NodeId
-    -> BlockHeader ssc
+    -> BlockHeader
     -> m ()
 updateRecoveryHeader nodeId hdr = do
     recHeaderVar <- view (lensOf @RecoveryHeaderTag)
@@ -310,7 +311,7 @@ getProcessBlocks
        (SscWorkersClass ssc, WorkMode ssc ctx m)
     => EnqueueMsg m
     -> NodeId
-    -> BlockHeader ssc
+    -> BlockHeader
     -> HeaderHash
     -> m ()
 getProcessBlocks enqueue nodeId lcaChild newestHash = do
@@ -318,7 +319,7 @@ getProcessBlocks enqueue nodeId lcaChild newestHash = do
     -- them. Each one gives a 'Bool' where 'True' means that a recovery was
     -- completed (depends upon the state of the recovery-mode TMVar).
     enqueueMsgSingle enqueue (MsgRequestBlocks (S.singleton nodeId)) $ Conversation $
-      \(conv :: ConversationActions MsgGetBlocks (MsgBlock ssc) m) -> do
+      \(conv :: ConversationActions MsgGetBlocks MsgBlock m) -> do
         let lcaChildHash = headerHash lcaChild
         logDebug $ sformat ("Requesting blocks from "%shortHashF%" to "%shortHashF)
                            lcaChildHash
@@ -367,10 +368,10 @@ getProcessBlocks enqueue nodeId lcaChild newestHash = do
 
 retrieveBlocks
     :: (SscWorkersClass ssc, WorkMode ssc ctx m)
-    => ConversationActions MsgGetBlocks (MsgBlock ssc) m
-    -> BlockHeader ssc
+    => ConversationActions MsgGetBlocks MsgBlock m
+    -> BlockHeader
     -> HeaderHash
-    -> ExceptT Text m (OldestFirst NE (Block ssc))
+    -> ExceptT Text m (OldestFirst NE Block)
 retrieveBlocks conv lcaChild endH = do
     blocks <- retrieveBlocksDo 0 conv (lcaChild ^. prevBlockL) endH
     let b0 = blocks ^. _OldestFirst . _neHead
@@ -384,10 +385,10 @@ retrieveBlocks conv lcaChild endH = do
 retrieveBlocksDo
     :: (SscWorkersClass ssc, WorkMode ssc ctx m)
     => Int        -- ^ Index of block we're requesting
-    -> ConversationActions MsgGetBlocks (MsgBlock ssc) m
+    -> ConversationActions MsgGetBlocks MsgBlock m
     -> HeaderHash -- ^ We're expecting a child of this block
     -> HeaderHash -- ^ Block at which to stop
-    -> ExceptT Text m (OldestFirst NE (Block ssc))
+    -> ExceptT Text m (OldestFirst NE Block)
 retrieveBlocksDo i conv prevH endH = lift (recvLimited conv) >>= \case
     Nothing ->
         throwError $ sformat ("Failed to receive block #"%int) i

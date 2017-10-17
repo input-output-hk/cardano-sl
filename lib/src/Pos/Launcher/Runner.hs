@@ -1,6 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE CPP                 #-}
-{-# LANGUAGE GADTs               #-}
 {-# LANGUAGE RankNTypes          #-}
 
 -- | Runners in various modes.
@@ -64,7 +63,8 @@ import           Pos.Network.Types               (NetworkConfig (..), NodeId, in
                                                   topologyRoute53HealthCheckEnabled)
 import           Pos.Recovery.Instance           ()
 import           Pos.Ssc.Class                   (SscConstraint)
-import           Pos.Ssc.GodTossing              (HasGtConfiguration)
+import           Pos.Ssc.GodTossing              (SscGodTossing,
+                                                  HasGtConfiguration)
 import           Pos.Statistics                  (EkgParams (..), StatsdParams (..))
 import           Pos.Txp                         (MonadTxpLocal)
 import           Pos.Update.Configuration        (HasUpdateConfiguration,
@@ -124,6 +124,7 @@ runRealModeDo
        , SscConstraint ssc
        , Default ext
        , MonadTxpLocal (RealMode ssc ext)
+       , ssc ~ SscGodTossing
        )
     => NodeResources ssc ext (RealMode ssc ext)
     -> OutSpecs

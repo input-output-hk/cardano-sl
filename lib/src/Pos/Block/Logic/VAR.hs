@@ -40,6 +40,7 @@ import           Pos.Delegation.Logic     (dlgVerifyBlocks)
 import qualified Pos.GState               as GS
 import           Pos.Lrc.Worker           (LrcModeFull, lrcSingleShot)
 import           Pos.Ssc.Extra            (sscVerifyBlocks)
+import           Pos.Ssc.GodTossing.Type  (SscGodTossing)
 import           Pos.Ssc.Util             (toSscBlock)
 import           Pos.Txp.Settings         (TxpGlobalSettings (..))
 import           Pos.Update.Logic         (usVerifyBlocks)
@@ -61,8 +62,8 @@ import           Pos.Util.Chrono          (NE, NewestFirst (..), OldestFirst (..
 -- LRC must be already performed for the epoch from which blocks are.
 verifyBlocksPrefix
     :: forall ssc ctx m.
-       MonadBlockVerify ssc ctx m
-    => OldestFirst NE (Block ssc)
+       (MonadBlockVerify ssc ctx m, ssc ~ SscGodTossing)
+    => OldestFirst NE Block
     -> m (Either VerifyBlocksException (OldestFirst NE Undo, PollModifier))
 verifyBlocksPrefix blocks = runExceptT $ do
     -- This check (about tip) is here just in case, we actually check
@@ -109,8 +110,8 @@ type BlockLrcMode ssc ctx m = (MonadBlockApply ssc ctx m, LrcModeFull ssc ctx m)
 -- header hash of new tip. It's up to caller to log warning that
 -- partial application happened.
 verifyAndApplyBlocks
-    :: forall ssc ctx m. (BlockLrcMode ssc ctx m, MonadMempoolNormalization ssc ctx m)
-    => Bool -> OldestFirst NE (Block ssc) -> m (Either ApplyBlocksException HeaderHash)
+    :: forall ssc ctx m. (BlockLrcMode ssc ctx m, MonadMempoolNormalization ssc ctx m, ssc ~ SscGodTossing)
+    => Bool -> OldestFirst NE Block -> m (Either ApplyBlocksException HeaderHash)
 verifyAndApplyBlocks rollback blocks = runExceptT $ do
     tip <- GS.getTip
     let assumedTip = blocks ^. _Wrapped . _neHead . prevBlockL
@@ -121,8 +122,8 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
     pure hh
   where
     spanEpoch ::
-           OldestFirst NE (Block ssc)
-        -> (OldestFirst NE (Block ssc), OldestFirst [] (Block ssc))
+           OldestFirst NE Block
+        -> (OldestFirst NE Block, OldestFirst [] Block)
     spanEpoch (OldestFirst (b@(Left _):|xs)) = (OldestFirst $ b:|[], OldestFirst xs)
     spanEpoch x                              = spanTail x
     spanTail = over _1 OldestFirst . over _2 OldestFirst .  -- wrap both results
@@ -145,7 +146,7 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
     -- Rollbacks and returns an error
     failWithRollback
         :: ApplyBlocksException
-        -> [NewestFirst NE (Blund ssc)]
+        -> [NewestFirst NE Blund]
         -> ExceptT ApplyBlocksException m HeaderHash
     failWithRollback e toRollback = do
         logDebug "verifyAndapply failed, rolling back"
@@ -158,8 +159,8 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
     -- to rollback first. This function also tries to apply as much as
     -- possible if the flag is on.
     rollingVerifyAndApply
-        :: [NewestFirst NE (Blund ssc)]
-        -> (OldestFirst NE (Block ssc), OldestFirst [] (Block ssc))
+        :: [NewestFirst NE Blund]
+        -> (OldestFirst NE Block, OldestFirst [] Block)
         -> ExceptT ApplyBlocksException m HeaderHash
     rollingVerifyAndApply blunds (prefix, suffix) = do
         let prefixHead = prefix ^. _Wrapped . _neHead
@@ -196,8 +197,8 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
 -- per-epoch, calculating lrc when needed if flag is set.
 applyBlocks
     :: forall ssc ctx m.
-       (BlockLrcMode ssc ctx m)
-    => Bool -> Maybe PollModifier -> OldestFirst NE (Blund ssc) -> m ()
+       (BlockLrcMode ssc ctx m, ssc ~ SscGodTossing)
+    => Bool -> Maybe PollModifier -> OldestFirst NE Blund -> m ()
 applyBlocks calculateLrc pModifier blunds = do
     when (isLeft prefixHead && calculateLrc) $
         -- Hopefully this lrc check is never triggered -- because
@@ -221,8 +222,8 @@ applyBlocks calculateLrc pModifier blunds = do
 
 -- | Rollbacks blocks. Head must be the current tip.
 rollbackBlocks
-    :: (MonadBlockApply ssc ctx m)
-    => NewestFirst NE (Blund ssc) -> m ()
+    :: (MonadBlockApply ssc ctx m, ssc ~ SscGodTossing)
+    => NewestFirst NE Blund -> m ()
 rollbackBlocks blunds = do
     tip <- GS.getTip
     let firstToRollback = blunds ^. _Wrapped . _neHead . _1 . headerHashG
@@ -232,9 +233,10 @@ rollbackBlocks blunds = do
 
 -- | Rollbacks some blocks and then applies some blocks.
 applyWithRollback
-    :: (BlockLrcMode ssc ctx m, MonadMempoolNormalization ssc ctx m)
-    => NewestFirst NE (Blund ssc)  -- ^ Blocks to rollbck
-    -> OldestFirst NE (Block ssc)  -- ^ Blocks to apply
+    :: forall ssc ctx m.
+    (BlockLrcMode ssc ctx m, MonadMempoolNormalization ssc ctx m, ssc ~ SscGodTossing)
+    => NewestFirst NE Blund        -- ^ Blocks to rollbck
+    -> OldestFirst NE Block        -- ^ Blocks to apply
     -> m (Either ApplyBlocksException HeaderHash)
 applyWithRollback toRollback toApply = runExceptT $ do
     tip <- GS.getTip
@@ -248,6 +250,7 @@ applyWithRollback toRollback toApply = runExceptT $ do
             else onGoodRollback
   where
     reApply = toOldestFirst toRollback
+    applyBack :: m ()
     applyBack = applyBlocks False Nothing reApply
     expectedTipApply = toApply ^. _Wrapped . _neHead . prevBlockL
     newestToRollback = toRollback ^. _Wrapped . _neHead . _1 . headerHashG

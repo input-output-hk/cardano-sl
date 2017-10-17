@@ -36,7 +36,7 @@ isRevokePsk :: ProxySecretKey w -> Bool
 isRevokePsk = isSelfSignedPsk
 
 -- | Applies block certificates to 'ProxySKHeavyMap'.
-dlgMemPoolApplyBlock :: MainBlock ssc -> DlgMemPool -> DlgMemPool
+dlgMemPoolApplyBlock :: MainBlock -> DlgMemPool -> DlgMemPool
 dlgMemPoolApplyBlock block m = flip execState m $ do
     let (toDelete,toReplace) =
             partition isRevokePsk (getDlgPayload $ block ^. mainBlockDlgPayload)

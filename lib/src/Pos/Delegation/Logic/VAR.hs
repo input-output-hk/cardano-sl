@@ -325,13 +325,12 @@ getNoLongerRichmen newEpoch =
 -- It's assumed blocks are correct from 'Pos.Types.Block#verifyBlocks'
 -- point of view.
 dlgVerifyBlocks ::
-       forall ssc ctx m.
-       ( DB.MonadBlockDB ssc m
+       forall ctx m.
+       ( DB.MonadBlockDB m
        , MonadIO m
        , MonadReader ctx m
        , HasLens' ctx LrcContext
        , HasConfiguration
-       , ssc ~ SscGodTossing
        )
     => OldestFirst NE Block
     -> ExceptT Text m (OldestFirst NE DlgUndo)
@@ -413,15 +412,14 @@ dlgVerifyBlocks blocks = do
 -- returns batchops. It works correctly only in case blocks don't
 -- cross over epoch. So genesis block is either absent or the head.
 dlgApplyBlocks ::
-       forall ssc ctx m.
+       forall ctx m.
        ( MonadDelegation ctx m
        , MonadIO m
        , MonadDBRead m
        , WithLogger m
        , MonadMask m
        , HasConfiguration
-       , SscHelpersClass ssc
-       , ssc ~ SscGodTossing
+       , SscHelpersClass SscGodTossing
        )
     => OldestFirst NE Blund
     -> m (NonEmpty SomeBatchOp)
@@ -474,11 +472,10 @@ dlgApplyBlocks blunds = do
 -- restore them after the rollback (see Txp#normalizeTxpLD). You can
 -- rollback arbitrary number of blocks.
 dlgRollbackBlocks
-    :: forall ssc ctx m.
+    :: forall ctx m.
        ( MonadDelegation ctx m
-       , DB.MonadBlockDB ssc m
+       , DB.MonadBlockDB m
        , WithLogger m
-       , ssc ~ SscGodTossing
        )
     => NewestFirst NE Blund -> m (NonEmpty SomeBatchOp)
 dlgRollbackBlocks blunds = do
@@ -503,16 +500,16 @@ dlgRollbackBlocks blunds = do
 -- | Normalizes the memory state after the rollback. Must be called
 -- only when 'StateLock' is taken.
 dlgNormalizeOnRollback ::
-       forall ssc ctx m.
+       forall ctx m.
        ( MonadDelegation ctx m
-       , DB.MonadBlockDB ssc m
+       , DB.MonadBlockDB m
        , DB.MonadGState m
        , MonadIO m
        , MonadMask m
        , HasLens' ctx LrcContext
        , Mockable CurrentTime m
        , HasConfiguration
-       , SscHelpersClass ssc
+       , SscHelpersClass SscGodTossing
        )
     => m ()
 dlgNormalizeOnRollback = do
@@ -522,4 +519,4 @@ dlgNormalizeOnRollback = do
         dwProxySKPool .= mempty
         dwTip .= headerHash tip
         pure pool
-    forM_ oldPool $ processProxySKHeavyInternal @ssc
+    forM_ oldPool $ processProxySKHeavyInternal

@@ -10,17 +10,16 @@ import           Pos.Core              (HasConfiguration, IsGenesisHeader, IsMai
                                         gbBody, gbHeader)
 import           Pos.Ssc.Class.Helpers (SscHelpersClass)
 import           Pos.Ssc.Class.Types   (SscBlock (..), SscPayload)
-import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 import           Pos.Util              (Some (..))
+import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 
 -- [CSL-1156] Totally need something more elegant
 toSscBlock
-    :: forall ssc.
-       (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing)
-    => Block -> SscBlock ssc
+    :: (HasConfiguration, SscHelpersClass SscGodTossing)
+    => Block -> SscBlock SscGodTossing
 toSscBlock = SscBlock . bimap convertGenesis convertMain
   where
     convertGenesis :: GenesisBlock -> Some IsGenesisHeader
     convertGenesis = Some . view gbHeader
-    convertMain :: MainBlock -> (Some IsMainHeader, SscPayload ssc)
+    convertMain :: MainBlock -> (Some IsMainHeader, SscPayload SscGodTossing)
     convertMain blk = (Some $ blk ^. gbHeader, blk ^. gbBody . mbSscPayload)

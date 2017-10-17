@@ -43,11 +43,11 @@ instance {-# OVERLAPPABLE #-}
     onRollbackBlocks = lift . onRollbackBlocks
 
 onApplyBlocksStub
-    :: forall ssc m . (SscHelpersClass ssc, Monad m, ssc ~ SscGodTossing)
+    :: (SscHelpersClass SscGodTossing, Monad m)
     => OldestFirst NE Blund -> m SomeBatchOp
 onApplyBlocksStub _ = pure mempty
 
 onRollbackBlocksStub
-    :: forall ssc m . (SscHelpersClass ssc, Monad m, ssc ~ SscGodTossing)
+    :: (SscHelpersClass SscGodTossing, Monad m)
     => NewestFirst NE Blund -> m SomeBatchOp
 onRollbackBlocksStub _ = pure mempty

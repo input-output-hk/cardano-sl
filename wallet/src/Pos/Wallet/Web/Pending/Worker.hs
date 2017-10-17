@@ -29,7 +29,6 @@ import           Pos.DB.DB                         (getTipHeader)
 import           Pos.Slotting                      (getNextEpochSlotDuration, onNewSlot)
 import           Pos.Txp                           (TxAux (..), topsortTxs)
 import           Pos.Util.LogSafe                  (logInfoS)
-import           Pos.Wallet.SscType                (WalletSscType)
 import           Pos.Wallet.Web.Mode               (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending.Functions  (usingPtxCoords)
 import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler,
@@ -51,7 +50,7 @@ type MonadPendings m =
 processPtxInNewestBlocks :: MonadPendings m => PendingTx -> m ()
 processPtxInNewestBlocks PendingTx{..} = do
     mdepth <- getWalletAssuredDepth _ptxWallet
-    tipDiff <- view difficultyL <$> getTipHeader @WalletSscType
+    tipDiff <- view difficultyL <$> getTipHeader
     if | PtxInNewestBlocks ptxDiff <- _ptxCond,
          Just depth <- mdepth,
          longAgo depth ptxDiff tipDiff -> do

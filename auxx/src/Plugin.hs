@@ -85,13 +85,13 @@ runCmdOuts :: (HasConfigurations,HasCompileInfo) => OutSpecs
 runCmdOuts =
     relayPropagateOut $
     mconcat
-        [ usRelays @(RealModeContext SscGodTossing EmptyMempoolExt) @(RealMode SscGodTossing EmptyMempoolExt)
+        [ usRelays
+              @(RealModeContext SscGodTossing EmptyMempoolExt)
+              @(RealMode SscGodTossing EmptyMempoolExt)
         , delegationRelays
-              @SscGodTossing
               @(RealModeContext SscGodTossing EmptyMempoolExt)
               @(RealMode SscGodTossing EmptyMempoolExt)
         , txRelays
-              @SscGodTossing
               @(RealModeContext SscGodTossing EmptyMempoolExt)
               @(RealMode SscGodTossing EmptyMempoolExt)
         ]

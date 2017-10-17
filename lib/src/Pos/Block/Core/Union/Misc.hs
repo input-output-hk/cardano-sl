@@ -16,13 +16,12 @@ import           Pos.Block.Core.Main        ()
 import           Pos.Block.Core.Union.Types (BiSsc, Block, BlockHeader, blockHeaderHash)
 import           Pos.Core                   (GenericBlock (..), HasDifficulty (..),
                                              HasHeaderHash (..), IsHeader)
-import           Pos.Ssc.GodTossing.Type    (SscGodTossing)
 
 ----------------------------------------------------------------------------
 -- Buildable
 ----------------------------------------------------------------------------
 
-instance BiSsc SscGodTossing => Buildable BlockHeader where
+instance BiSsc => Buildable BlockHeader where
     build = either Buildable.build Buildable.build
 
 ----------------------------------------------------------------------------

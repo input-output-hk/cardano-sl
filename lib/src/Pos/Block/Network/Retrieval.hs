@@ -45,16 +45,14 @@ import           Pos.Core                   (HasHeaderHash (..), HeaderHash, dif
                                              isMoreDifficult, prevBlockL)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.Reporting              (reportOrLogE, reportOrLogW)
-import           Pos.Ssc.Class              (SscWorkersClass)
 import           Pos.Util                   (_neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..),
                                              _NewestFirst, _OldestFirst)
 import           Pos.WorkMode.Class         (WorkMode)
-import           Pos.Ssc.GodTossing.Type    (SscGodTossing)
 
 retrievalWorker
-    :: forall ssc ctx m.
-       (SscWorkersClass ssc, WorkMode ssc ctx m)
+    :: forall ctx m.
+       (WorkMode ctx m)
     => (WorkerSpec m, OutSpecs)
 retrievalWorker = worker outs retrievalWorkerImpl
   where
@@ -77,8 +75,8 @@ retrievalWorker = worker outs retrievalWorkerImpl
 -- If both happen at the same time, 'BlockRetrievalQueue' takes precedence.
 --
 retrievalWorkerImpl
-    :: forall ssc ctx m.
-       (SscWorkersClass ssc, WorkMode ssc ctx m)
+    :: forall ctx m.
+       (WorkMode ctx m)
     => SendActions m -> m ()
 retrievalWorkerImpl SendActions {..} =
     handleAll mainLoopE $ do
@@ -215,7 +213,7 @@ data UpdateRecoveryResult ssc
 -- condition can occur where we are caught in the recovery mode
 -- indefinitely.
 updateRecoveryHeader
-    :: WorkMode SscGodTossing ctx m
+    :: WorkMode ctx m
     => NodeId
     -> BlockHeader
     -> m ()
@@ -249,7 +247,7 @@ updateRecoveryHeader nodeId hdr = do
             rNodeId
             (headerHash rHeader)
 
-dropUpdateHeader :: WorkMode ssc ctx m => m ()
+dropUpdateHeader :: WorkMode ctx m => m ()
 dropUpdateHeader = do
     progressHeaderVar <- view (lensOf @ProgressHeaderTag)
     void $ atomically $ tryTakeTMVar progressHeaderVar
@@ -264,7 +262,7 @@ dropUpdateHeader = do
 -- to continue working with P2 and ignore the exception that happened with P.
 -- So, @nodeId@ is used to check that the peer wasn't replaced mid-execution.
 dropRecoveryHeader
-    :: WorkMode ssc ctx m
+    :: WorkMode ctx m
     => NodeId
     -> m Bool
 dropRecoveryHeader nodeId = do
@@ -284,7 +282,7 @@ dropRecoveryHeader nodeId = do
 
 -- | Drops recovery header and, if it was successful, queries tips.
 dropRecoveryHeaderAndRepeat
-    :: (SscWorkersClass ssc, WorkMode ssc ctx m)
+    :: (WorkMode ctx m)
     => EnqueueMsg m -> NodeId -> m ()
 dropRecoveryHeaderAndRepeat enqueue nodeId = do
     kicked <- dropRecoveryHeader nodeId
@@ -307,8 +305,8 @@ dropRecoveryHeaderAndRepeat enqueue nodeId = do
 -- Returns only if blocks were successfully downloaded and
 -- processed. Throws exception if something goes wrong.
 getProcessBlocks
-    :: forall ssc ctx m.
-       (SscWorkersClass ssc, WorkMode ssc ctx m)
+    :: forall ctx m.
+       (WorkMode ctx m)
     => EnqueueMsg m
     -> NodeId
     -> BlockHeader
@@ -367,7 +365,7 @@ getProcessBlocks enqueue nodeId lcaChild newestHash = do
 ----------------------------------------------------------------------------
 
 retrieveBlocks
-    :: (SscWorkersClass ssc, WorkMode ssc ctx m)
+    :: (WorkMode ctx m)
     => ConversationActions MsgGetBlocks MsgBlock m
     -> BlockHeader
     -> HeaderHash
@@ -383,7 +381,7 @@ retrieveBlocks conv lcaChild endH = do
                 (b0 ^. blockHeader) lcaChild
 
 retrieveBlocksDo
-    :: (SscWorkersClass ssc, WorkMode ssc ctx m)
+    :: (WorkMode ctx m)
     => Int        -- ^ Index of block we're requesting
     -> ConversationActions MsgGetBlocks MsgBlock m
     -> HeaderHash -- ^ We're expecting a child of this block

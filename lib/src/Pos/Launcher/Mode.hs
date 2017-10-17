@@ -59,7 +59,7 @@ import           Pos.Util.Util           (postfixLFields)
 
 -- The fields are lazy on purpose: this allows using them with
 -- futures.
-data InitModeContext ssc = InitModeContext
+data InitModeContext = InitModeContext
     { imcNodeDBs            :: NodeDBs
     , imcSlottingVar        :: (Timestamp, TVar SlottingData)
     , imcSlottingContextSum :: SlottingContextSum
@@ -68,55 +68,55 @@ data InitModeContext ssc = InitModeContext
 
 makeLensesWith postfixLFields ''InitModeContext
 
-type InitMode ssc = Mtl.ReaderT (InitModeContext ssc) Production
+type InitMode = Mtl.ReaderT InitModeContext Production
 
-runInitMode :: InitModeContext ssc -> InitMode ssc a -> Production a
+runInitMode :: InitModeContext -> InitMode a -> Production a
 runInitMode = flip Mtl.runReaderT
 
-instance HasLens NodeDBs (InitModeContext ssc) NodeDBs where
+instance HasLens NodeDBs InitModeContext NodeDBs where
     lensOf = imcNodeDBs_L
 
-instance HasLens SlottingContextSum (InitModeContext ssc) SlottingContextSum where
+instance HasLens SlottingContextSum InitModeContext SlottingContextSum where
     lensOf = imcSlottingContextSum_L
 
-instance HasLens LrcContext (InitModeContext ssc) LrcContext where
+instance HasLens LrcContext InitModeContext LrcContext where
     lensOf = imcLrcContext_L
 
-instance HasSlottingVar (InitModeContext ssc) where
+instance HasSlottingVar InitModeContext where
     slottingTimestamp = imcSlottingVar_L . _1
     slottingVar = imcSlottingVar_L . _2
 
-instance HasConfiguration => MonadDBRead (InitMode ssc) where
+instance HasConfiguration => MonadDBRead InitMode where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
 
-instance HasConfiguration => MonadDB (InitMode ssc) where
+instance HasConfiguration => MonadDB InitMode where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
 
 instance
-    (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing) =>
-    MonadBlockDBGeneric BlockHeader Block Undo (InitMode ssc)
+    (HasConfiguration, SscHelpersClass SscGodTossing) =>
+    MonadBlockDBGeneric BlockHeader Block Undo InitMode
   where
-    dbGetBlock  = dbGetBlockDefault @ssc
-    dbGetUndo   = dbGetUndoDefault @ssc
-    dbGetHeader = dbGetHeaderDefault @ssc
+    dbGetBlock  = dbGetBlockDefault
+    dbGetUndo   = dbGetUndoDefault
+    dbGetHeader = dbGetHeaderDefault
 
-instance (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing) =>
-         MonadBlockDBGenericWrite BlockHeader Block Undo (InitMode ssc) where
+instance (HasConfiguration, SscHelpersClass SscGodTossing) =>
+         MonadBlockDBGenericWrite BlockHeader Block Undo InitMode where
     dbPutBlund = dbPutBlundDefault
 
 instance
-    (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing) =>
-    MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (InitMode ssc)
+    (HasConfiguration, SscHelpersClass SscGodTossing) =>
+    MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () InitMode
   where
-    dbGetBlock  = dbGetBlockSscDefault @SscGodTossing
-    dbGetUndo   = dbGetUndoSscDefault @SscGodTossing
-    dbGetHeader = dbGetHeaderSscDefault @SscGodTossing
+    dbGetBlock  = dbGetBlockSscDefault
+    dbGetUndo   = dbGetUndoSscDefault
+    dbGetHeader = dbGetHeaderSscDefault
 
-instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx (InitMode ssc)) =>
-         MonadSlots ctx (InitMode ssc)
+instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx InitMode) =>
+         MonadSlots ctx InitMode
   where
     getCurrentSlot           = getCurrentSlotSum
     getCurrentSlotBlocking   = getCurrentSlotBlockingSum

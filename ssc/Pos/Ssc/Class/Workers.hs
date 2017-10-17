@@ -20,5 +20,5 @@ class Ssc ssc => SscWorkersClass ssc where
                => ([WorkerSpec m], OutSpecs)
 
     -- | LRC consumers. Note that this uses 'LrcMode', not 'SscMode'.
-    sscLrcConsumers :: LrcMode ssc ctx m
+    sscLrcConsumers :: LrcMode ctx m
                     => [LrcConsumer m]

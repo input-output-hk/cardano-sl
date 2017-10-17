@@ -215,7 +215,7 @@ instance HasConfiguration => MonadBalances AuxxMode where
 
 instance (HasConfiguration, HasInfraConfiguration, HasGtConfiguration, HasCompileInfo) =>
          MonadTxHistory AuxxSscType AuxxMode where
-    getBlockHistory = getBlockHistoryDefault @AuxxSscType
+    getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
 

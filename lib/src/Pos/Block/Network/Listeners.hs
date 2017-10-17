@@ -30,7 +30,7 @@ import           Pos.WorkMode.Class              (WorkMode)
 import           Pos.Ssc.GodTossing.Type         (SscGodTossing)
 
 blockListeners
-    :: (SscWorkersClass ssc, WorkMode ssc ctx m)
+    :: WorkMode ctx m
     => OQ.OutboundQ pack NodeId Bucket
     -> MkListeners m
 blockListeners oq = constantListeners $ map ($ oq)
@@ -48,7 +48,7 @@ blockListeners oq = constantListeners $ map ($ oq)
 -- field.
 handleGetHeaders
     :: forall pack ctx m.
-       (WorkMode SscGodTossing ctx m)
+       (WorkMode ctx m)
     => OQ.OutboundQ pack NodeId Bucket
     -> (ListenerSpec m, OutSpecs)
 handleGetHeaders oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
@@ -57,7 +57,7 @@ handleGetHeaders oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
 
 handleGetBlocks
     :: forall pack ctx m.
-       (WorkMode SscGodTossing ctx m)
+       (WorkMode ctx m)
     => OQ.OutboundQ pack NodeId Bucket
     -> (ListenerSpec m, OutSpecs)
 handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
@@ -65,7 +65,7 @@ handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
     whenJust mbMsg $ \mgb@MsgGetBlocks{..} -> do
         logDebug $ sformat ("handleGetBlocks: got request "%build%" from "%build)
             mgb nodeId
-        mHashes <- getHeadersFromToIncl @SscGodTossing mgbFrom mgbTo
+        mHashes <- getHeadersFromToIncl mgbFrom mgbTo
         case mHashes of
             Just hashes -> do
                 logDebug $ sformat
@@ -94,7 +94,7 @@ handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
 -- | Handles MsgHeaders request, unsolicited usecase
 handleBlockHeaders
     :: forall pack ctx m.
-       (SscWorkersClass SscGodTossing, WorkMode SscGodTossing ctx m)
+       (SscWorkersClass SscGodTossing, WorkMode ctx m)
     => OQ.OutboundQ pack NodeId Bucket
     -> (ListenerSpec m, OutSpecs)
 handleBlockHeaders oq = listenerConv @MsgGetHeaders oq $ \__ourVerInfo nodeId conv -> do

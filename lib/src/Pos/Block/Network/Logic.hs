@@ -114,8 +114,8 @@ instance Exception BlockNetLogicException where
 -- 'triggerRecovery' does nothing. It's okay because when recovery is in
 -- progress and 'ncRecoveryHeader' is full, we'll be requesting blocks anyway
 -- and until we're finished we shouldn't be asking for new blocks.
-triggerRecovery :: forall ssc ctx m.
-    (SscWorkersClass ssc, WorkMode ssc ctx m)
+triggerRecovery
+    :: WorkMode ctx m
     => EnqueueMsg m -> m ()
 triggerRecovery enqueue = unlessM recoveryInProgress $ do
     logDebug "Recovery triggered, requesting tips from neighbors"
@@ -134,8 +134,7 @@ requestTipOuts =
 -- current blockchain state. Sends "what's your current tip" request
 -- to everybody we know.
 requestTip
-    :: forall ssc ctx m.
-       (SscWorkersClass ssc, WorkMode ssc ctx m)
+    :: WorkMode ctx m
     => NodeId
     -> ConversationActions MsgGetHeaders MsgHeaders m
     -> m ()
@@ -166,8 +165,8 @@ data MkHeadersRequestResult
 -- chooses appropriate 'from' hashes and puts them into 'GetHeaders'
 -- message.
 mkHeadersRequest
-    :: forall ssc ctx m.
-       WorkMode ssc ctx m
+    :: forall ctx m.
+       WorkMode ctx m
     => HeaderHash -> m MkHeadersRequestResult
 mkHeadersRequest upto = do
     uHdr <- blkGetHeader upto
@@ -177,7 +176,7 @@ mkHeadersRequest upto = do
 
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders
-    :: (SscWorkersClass SscGodTossing, WorkMode SscGodTossing ctx m)
+    :: (SscWorkersClass SscGodTossing, WorkMode ctx m)
     => NonEmpty BlockHeader
     -> NodeId
     -> m ()
@@ -189,7 +188,7 @@ handleUnsolicitedHeaders (h:|hs) _ = do
     logWarning $ sformat ("Here they are: "%listJson) (h:hs)
 
 handleUnsolicitedHeader
-    :: (SscWorkersClass SscGodTossing, WorkMode SscGodTossing ctx m)
+    :: (SscWorkersClass SscGodTossing, WorkMode ctx m)
     => BlockHeader
     -> NodeId
     -> m ()
@@ -236,7 +235,7 @@ data MatchReqHeadersRes
 -- TODO This function is used ONLY in recovery mode, so passing the
 -- flag is redundant, it's always True.
 matchRequestedHeaders
-    :: (SscHelpersClass ssc, HasConfiguration, ssc ~ SscGodTossing)
+    :: (SscHelpersClass SscGodTossing, HasConfiguration)
     => NewestFirst NE BlockHeader -> MsgGetHeaders -> Bool -> MatchReqHeadersRes
 matchRequestedHeaders headers mgh@MsgGetHeaders {..} inRecovery =
     let newTip = headers ^. _NewestFirst . _neHead
@@ -261,8 +260,8 @@ matchRequestedHeaders headers mgh@MsgGetHeaders {..} inRecovery =
           | otherwise -> MRGood
 
 requestHeaders
-    :: forall ssc ctx m.
-       (SscWorkersClass ssc, WorkMode ssc ctx m)
+    :: forall ctx m.
+       WorkMode ctx m
     => (NewestFirst NE BlockHeader -> m ())
     -> MsgGetHeaders
     -> NodeId
@@ -314,8 +313,8 @@ requestHeaders cont mgh nodeId conv = do
             sformat ("requestHeaders: received unexpected headers from "%build) nodeId
 
 handleRequestedHeaders
-    :: forall ssc ctx m.
-       WorkMode ssc ctx m
+    :: forall ctx m.
+       WorkMode ctx m
     => (NewestFirst NE BlockHeader -> m ())
     -> Bool -- recovery in progress?
     -> NewestFirst NE BlockHeader
@@ -358,7 +357,7 @@ handleRequestedHeaders cont inRecovery headers = do
     oldestEpoch = oldestHeader ^. epochIndexL
 
     tryCalculateLrc = do
-        tip <- DB.getTipHeader @ssc
+        tip <- DB.getTipHeader
         let tipEpochOrSlot = tip ^. epochOrSlotG
         let tipEpoch = tip ^. epochIndexL
         let differentEpochs = oldestEpoch == tipEpoch + 1
@@ -403,8 +402,8 @@ handleRequestedHeaders cont inRecovery headers = do
 -- | Given a valid blockheader and nodeid, this function will put them into
 -- download queue and they will be processed later.
 addHeaderToBlockRequestQueue
-    :: forall ssc ctx m.
-       (WorkMode ssc ctx m)
+    :: forall ctx m.
+       (WorkMode ctx m)
     => NodeId
     -> BlockHeader
     -> Bool -- ^ Was classified as chain continuation
@@ -427,8 +426,8 @@ addHeaderToBlockRequestQueue nodeId header continues = do
 
 addTaskToBlockRequestQueue
     :: NodeId
-    -> BlockRetrievalQueue ssc
-    -> BlockRetrievalTask ssc
+    -> BlockRetrievalQueue
+    -> BlockRetrievalTask
     -> STM Bool
 addTaskToBlockRequestQueue nodeId queue task = do
     ifM (isFullTBQueue queue)
@@ -459,8 +458,7 @@ mkBlocksRequest lcaChild wantedBlock =
     }
 
 handleBlocks
-    :: forall ssc ctx m.
-       (SscWorkersClass ssc, WorkMode ssc ctx m)
+    :: WorkMode ctx m
     => NodeId
     -> OldestFirst NE Block
     -> EnqueueMsg m
@@ -480,8 +478,7 @@ handleBlocks nodeId blocks enqueue = do
         "Probably rollback happened in parallel"
 
 handleBlocksWithLca
-    :: forall ssc ctx m.
-       (SscWorkersClass ssc, WorkMode ssc ctx m)
+    :: WorkMode ctx m
     => NodeId
     -> EnqueueMsg m
     -> OldestFirst NE Block
@@ -498,8 +495,8 @@ handleBlocksWithLca nodeId enqueue blocks lcaHash = do
     lcaFmt = "Handling block w/ LCA, which is "%shortHashF
 
 applyWithoutRollback
-    :: forall ssc ctx m.
-       (WorkMode ssc ctx m, SscWorkersClass ssc)
+    :: forall ctx m.
+       WorkMode ctx m
     => EnqueueMsg m
     -> OldestFirst NE Block
     -> m ()
@@ -538,8 +535,7 @@ applyWithoutRollback enqueue blocks = do
         pure (newTip, res)
 
 applyWithRollback
-    :: forall ssc ctx m.
-       (WorkMode ssc ctx m, SscWorkersClass ssc)
+    :: WorkMode ctx m
     => NodeId
     -> EnqueueMsg m
     -> OldestFirst NE Block
@@ -587,8 +583,8 @@ applyWithRollback nodeId enqueue toApply lca toRollback = do
         getOldestFirst $ toApply
 
 relayBlock
-    :: forall ssc ctx m.
-       (WorkMode ssc ctx m)
+    :: forall ctx m.
+       (WorkMode ctx m)
     => EnqueueMsg m -> Block -> m ()
 relayBlock _ (Left _)                  = logDebug "Not relaying Genesis block"
 relayBlock enqueue (Right mainBlk) = do
@@ -604,8 +600,8 @@ relayBlock enqueue (Right mainBlk) = do
 
 -- TODO: ban node for it!
 onFailedVerifyBlocks
-    :: forall ssc ctx m.
-       (WorkMode ssc ctx m)
+    :: forall ctx m.
+       (WorkMode ctx m)
     => NonEmpty Block -> Text -> m ()
 onFailedVerifyBlocks blocks err = do
     logWarning $ sformat ("Failed to verify blocks: "%stext%"\n  blocks = "%listJson)

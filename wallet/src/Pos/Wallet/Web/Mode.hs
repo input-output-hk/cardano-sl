@@ -196,16 +196,16 @@ instance (HasConfiguration, HasGtConfiguration) =>
 instance (HasConfiguration, HasGtConfiguration) =>
          MonadBlockDBGeneric BlockHeader Block Undo WalletWebMode
   where
-    dbGetBlock  = dbGetBlockDefault @WalletSscType
-    dbGetUndo   = dbGetUndoDefault @WalletSscType
-    dbGetHeader = dbGetHeaderDefault @WalletSscType
+    dbGetBlock  = dbGetBlockDefault
+    dbGetUndo   = dbGetUndoDefault
+    dbGetHeader = dbGetHeaderDefault
 
 instance (HasConfiguration, HasGtConfiguration) =>
          MonadBlockDBGeneric (Some IsHeader) (SscBlock WalletSscType) () WalletWebMode
   where
-    dbGetBlock  = dbGetBlockSscDefault @WalletSscType
-    dbGetUndo   = dbGetUndoSscDefault @WalletSscType
-    dbGetHeader = dbGetHeaderSscDefault @WalletSscType
+    dbGetBlock  = dbGetBlockSscDefault
+    dbGetUndo   = dbGetUndoSscDefault
+    dbGetHeader = dbGetHeaderSscDefault
 
 instance HasConfiguration => MonadGState WalletWebMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
@@ -236,7 +236,7 @@ instance ( HasConfiguration
          , HasCompileInfo
          ) =>
          MonadTxHistory WalletSscType WalletWebMode where
-    getBlockHistory = getBlockHistoryDefault @WalletSscType
+    getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
 

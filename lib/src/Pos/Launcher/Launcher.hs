@@ -30,24 +30,22 @@ import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 
 -- | Run full node in real mode.
 runNodeReal
-    :: forall ssc.
-       ( SscConstraint ssc
+    :: ( SscConstraint SscGodTossing
        , HasConfiguration
        , HasUpdateConfiguration
        , HasInfraConfiguration
        , HasGtConfiguration
        , HasNodeConfiguration
        , HasCompileInfo
-       , ssc ~ SscGodTossing
        )
     => NodeParams
-    -> SscParams ssc
-    -> ([WorkerSpec (RealMode ssc EmptyMempoolExt)], OutSpecs)
+    -> SscParams SscGodTossing
+    -> ([WorkerSpec (RealMode SscGodTossing EmptyMempoolExt)], OutSpecs)
     -> Production ()
 runNodeReal np sscnp plugins = bracketNodeResources np sscnp action
   where
-    action :: HasConfiguration => NodeResources ssc EmptyMempoolExt (RealMode ssc EmptyMempoolExt) -> Production ()
+    action :: HasConfiguration => NodeResources SscGodTossing EmptyMempoolExt (RealMode SscGodTossing EmptyMempoolExt) -> Production ()
     action nr@NodeResources {..} =
         runRealMode
             nr
-            (runNode @ssc nr plugins)
+            (runNode nr plugins)

@@ -59,7 +59,6 @@ import           Pos.Core                             (AddrType (..), Address (.
                                                        unsafeSubCoin)
 import           Pos.DB.Class                         (MonadDBRead)
 import           Pos.Slotting                         (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.GodTossing                   (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration     (HasGtConfiguration)
 import           Pos.Txp                              (MonadTxpMem, Tx (..), TxAux, TxId,
                                                        TxMap, TxOutAux (..), getLocalTxs,
@@ -108,7 +107,7 @@ import           Pos.Explorer.Web.Error               (ExplorerError (..))
 type MainBlund = (MainBlock, Undo)
 
 type ExplorerMode ctx m =
-    ( WorkMode SscGodTossing ctx m
+    ( WorkMode ctx m
     , HasGenesisRedeemAddressInfo m
     , HasGtConfiguration
     )
@@ -183,7 +182,7 @@ getBlocksTotal
     => m Integer
 getBlocksTotal = do
     -- Get the tip block.
-    tipBlock <- DB.getTipBlock @SscGodTossing
+    tipBlock <- DB.getTipBlock
     pure $ maxBlocks tipBlock
   where
     maxBlocks tipBlock = fromIntegral $ getChainDifficulty $ tipBlock ^. difficultyL
@@ -232,7 +231,7 @@ getBlocksPage mPageNumber mPageSize = do
 
     -- Either get the @HeaderHash@es from the @Page@ or throw an exception.
     getPageHHsOrThrow
-        :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
+        :: (DB.MonadBlockDB m, MonadThrow m)
         => Int
         -> m [HeaderHash]
     getPageHHsOrThrow pageNumber = getPageBlocks pageNumber >>=
@@ -243,7 +242,7 @@ getBlocksPage mPageNumber mPageSize = do
 
 -- Either get the block from the @HeaderHash@ or throw an exception.
 getBlundOrThrow
-    :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
+    :: (DB.MonadBlockDB m, MonadThrow m)
     => HeaderHash
     -> m Blund
 getBlundOrThrow headerHash = DB.blkGetBlund headerHash >>=
@@ -648,7 +647,7 @@ epochSlotSearch epochIndex mSlotIndex = do
 
     -- Either get the @HeaderHash@es from the @Epoch@ or throw an exception.
     getPageHHsOrThrow
-        :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
+        :: (DB.MonadBlockDB m, MonadThrow m)
         => EpochIndex
         -> m [HeaderHash]
     getPageHHsOrThrow epoch = getEpochBlocks epoch >>=

@@ -34,22 +34,21 @@ import           Pos.Slotting          (MonadSlots (..), getNextEpochSlotDuratio
 import           Pos.Update.Context    (UpdateContext (ucDownloadedUpdate))
 import           Pos.Update.Poll.Types (ConfirmedProposalState)
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (..))
-import           Pos.Ssc.GodTossing    (SscGodTossing)
 
 ----------------------------------------------------------------------------
 -- BlockchainInfo
 ----------------------------------------------------------------------------
 
 getLastKnownHeader
-  :: (PC.MonadLastKnownHeader SscGodTossing ctx m, MonadIO m)
+  :: (PC.MonadLastKnownHeader ctx m, MonadIO m)
   => m (Maybe BlockHeader)
 getLastKnownHeader =
     atomically . readTVar =<< view (lensOf @PC.LastKnownHeaderTag)
 
-type BlockchainInfoEnv ssc ctx m =
-    ( MonadBlockDB ssc m
-    , PC.MonadLastKnownHeader ssc ctx m
-    , PC.MonadProgressHeader ssc ctx m
+type BlockchainInfoEnv ctx m =
+    ( MonadBlockDB m
+    , PC.MonadLastKnownHeader ctx m
+    , PC.MonadProgressHeader ctx m
     , MonadReader ctx m
     , HasLens PC.ConnectedPeers ctx PC.ConnectedPeers
     , MonadIO m
@@ -59,7 +58,7 @@ type BlockchainInfoEnv ssc ctx m =
     )
 
 networkChainDifficultyWebWallet
-    :: forall ctx m. BlockchainInfoEnv SscGodTossing ctx m
+    :: forall ctx m. BlockchainInfoEnv ctx m
     => m (Maybe ChainDifficulty)
 networkChainDifficultyWebWallet = getLastKnownHeader >>= \case
     Just lh -> do
@@ -69,7 +68,7 @@ networkChainDifficultyWebWallet = getLastKnownHeader >>= \case
     Nothing -> pure Nothing
 
 localChainDifficultyWebWallet
-    :: forall ctx m. BlockchainInfoEnv SscGodTossing ctx m
+    :: forall ctx m. BlockchainInfoEnv ctx m
     => m ChainDifficulty
 localChainDifficultyWebWallet = do
     -- Workaround: Make local chain difficulty monotonic
@@ -78,14 +77,14 @@ localChainDifficultyWebWallet = do
     return $ max prevMaxDifficulty currDifficulty
 
 connectedPeersWebWallet
-    :: forall ctx m. BlockchainInfoEnv SscGodTossing ctx m
+    :: forall ctx m. BlockchainInfoEnv ctx m
     => m Word
 connectedPeersWebWallet = fromIntegral . length <$> do
     PC.ConnectedPeers cp <- view (lensOf @PC.ConnectedPeers)
     atomically (readTVar cp)
 
 blockchainSlotDurationWebWallet
-    :: forall ctx m. BlockchainInfoEnv SscGodTossing ctx m
+    :: forall ctx m. BlockchainInfoEnv ctx m
     => m Millisecond
 blockchainSlotDurationWebWallet = getNextEpochSlotDuration
 

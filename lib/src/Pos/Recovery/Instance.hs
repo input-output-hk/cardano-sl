@@ -17,16 +17,14 @@ import           Pos.DB.DB              (getTipHeader)
 import           Pos.Recovery.Info      (MonadRecoveryInfo (..), SyncStatus (..))
 import           Pos.Slotting           (MonadSlots (getCurrentSlot))
 import           Pos.Util.Util          (HasLens (..))
-import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 
 instance ( Monad m
          , MonadIO m
-         , MonadBlockDB ssc m
+         , MonadBlockDB m
          , MonadSlots ctx m
          , MonadReader ctx m
-         , HasLens RecoveryHeaderTag ctx (RecoveryHeader ssc)
+         , HasLens RecoveryHeaderTag ctx RecoveryHeader
          , HasCoreConfiguration
-         , ssc ~ SscGodTossing
          ) =>
          MonadRecoveryInfo m where
     getSyncStatus lagBehindParam =
@@ -35,7 +33,7 @@ instance ( Monad m
                 False -> pass
                 True -> throwError SSDoingRecovery
             curSlot <- note SSUnknownSlot =<< getCurrentSlot
-            tipHeader <- getTipHeader @ssc
+            tipHeader <- getTipHeader
             let tipSlot = epochOrSlotToSlot (tipHeader ^. epochOrSlotG)
             unless (tipSlot <= curSlot) $
                 throwError

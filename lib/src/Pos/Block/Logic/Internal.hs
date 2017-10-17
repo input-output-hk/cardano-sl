@@ -69,19 +69,19 @@ import           Pos.Util                (Some (..), spanSafe)
 import           Pos.Util.Chrono         (NE, NewestFirst (..), OldestFirst (..))
 
 -- | Set of basic constraints used by high-level block processing.
-type MonadBlockBase ssc ctx m
-     = ( MonadSlogBase ssc ctx m
+type MonadBlockBase ctx m
+     = ( MonadSlogBase ctx m
        -- Needed because SSC state is fully stored in memory.
-       , MonadSscMem ssc ctx m
+       , MonadSscMem SscGodTossing ctx m
        -- Needed to load blocks (at least delegation does it).
-       , MonadBlockDB ssc m
-       , MonadSscBlockDB ssc m
+       , MonadBlockDB m
+       , MonadSscBlockDB m
        -- Needed by some components.
        , MonadGState m
        -- This constraints define block components' global logic.
        , HasLens LrcContext ctx LrcContext
        , HasLens TxpGlobalSettings ctx TxpGlobalSettings
-       , SscGStateClass ssc
+       , SscGStateClass SscGodTossing
        , MonadDelegation ctx m
        -- 'MonadRandom' for crypto.
        , Rand.MonadRandom m
@@ -90,13 +90,13 @@ type MonadBlockBase ssc ctx m
        )
 
 -- | Set of constraints necessary for high-level block verification.
-type MonadBlockVerify ssc ctx m = MonadBlockBase ssc ctx m
+type MonadBlockVerify ctx m = MonadBlockBase ctx m
 
 -- | Set of constraints necessary to apply or rollback blocks at high-level.
 -- Also normalize mempool.
-type MonadBlockApply ssc ctx m
-     = ( MonadBlockBase ssc ctx m
-       , MonadSlogApply ssc ctx m
+type MonadBlockApply ctx m
+     = ( MonadBlockBase ctx m
+       , MonadSlogApply ctx m
        -- It's obviously needed to write something to DB, for instance.
        , MonadDB m
        -- Needed for iteration over DB.
@@ -107,16 +107,16 @@ type MonadBlockApply ssc ctx m
        , Mockable CurrentTime m
        )
 
-type MonadMempoolNormalization ssc ctx m
-    = ( MonadSlogBase ssc ctx m
+type MonadMempoolNormalization ctx m
+    = ( MonadSlogBase ctx m
       , MonadTxpLocal m
-      , SscLocalDataClass ssc
-      , MonadSscMem ssc ctx m
+      , SscLocalDataClass SscGodTossing
+      , MonadSscMem SscGodTossing ctx m
       , HasLens LrcContext ctx LrcContext
       , HasLens UpdateContext ctx UpdateContext
       -- Needed to load useful information from db
-      , MonadBlockDB ssc m
-      , MonadSscBlockDB ssc m
+      , MonadBlockDB m
+      , MonadSscBlockDB m
       , MonadGState m
       -- Needed for error reporting.
       , MonadReporting ctx m
@@ -127,13 +127,13 @@ type MonadMempoolNormalization ssc ctx m
 
 -- | Normalize mempool.
 normalizeMempool
-    :: forall ssc ctx m . (MonadMempoolNormalization ssc ctx m)
+    :: forall ctx m . (MonadMempoolNormalization ctx m)
     => m ()
 normalizeMempool = do
     -- We normalize all mempools except the delegation one.
     -- That's because delegation mempool normalization is harder and is done
     -- within block application.
-    sscNormalize @ssc
+    sscNormalize @SscGodTossing
     txpNormalize
     usNormalize
 
@@ -143,7 +143,7 @@ normalizeMempool = do
 --
 -- Invariant: all blocks have the same epoch.
 applyBlocksUnsafe
-    :: forall ssc ctx m . (MonadBlockApply ssc ctx m, ssc ~ SscGodTossing)
+    :: forall ctx m . (MonadBlockApply ctx m)
     => ShouldCallBListener
     -> OldestFirst NE Blund
     -> Maybe PollModifier
@@ -174,7 +174,7 @@ applyBlocksUnsafe scb blunds pModifier = do
         spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds
 
 applyBlocksDbUnsafeDo
-    :: forall ssc ctx m . (MonadBlockApply ssc ctx m, ssc ~ SscGodTossing)
+    :: forall ctx m . (MonadBlockApply ctx m)
     => ShouldCallBListener
     -> OldestFirst NE Blund
     -> Maybe PollModifier
@@ -203,7 +203,7 @@ applyBlocksDbUnsafeDo scb blunds pModifier = do
 -- | Rollback sequence of blocks, head-newest order expected with head being
 -- current tip. It's also assumed that lock on block db is taken already.
 rollbackBlocksUnsafe
-    :: forall ssc ctx m. (MonadBlockApply ssc ctx m, ssc ~ SscGodTossing)
+    :: forall ctx m. (MonadBlockApply ctx m)
     => BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
     -> ShouldCallBListener
     -> NewestFirst NE Blund
@@ -230,7 +230,7 @@ rollbackBlocksUnsafe bsc scb toRollback = do
     -- We don't normalize other mempools, because they are normalized
     -- in 'applyBlocksUnsafe' and we always ensure that some blocks
     -- are applied after rollback.
-    dlgNormalizeOnRollback @ssc
+    dlgNormalizeOnRollback
     sanityCheckDB
 
 ----------------------------------------------------------------------------
@@ -239,8 +239,7 @@ rollbackBlocksUnsafe bsc scb toRollback = do
 
 -- [CSL-1156] Need something more elegant.
 toTxpBlock
-    :: forall ssc.
-       (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing)
+    :: (HasConfiguration, SscHelpersClass SscGodTossing)
     => Block -> TxpBlock
 toTxpBlock = bimap convertGenesis convertMain
   where
@@ -251,15 +250,13 @@ toTxpBlock = bimap convertGenesis convertMain
 
 -- [CSL-1156] Yes, definitely need something more elegant.
 toTxpBlund
-    :: forall ssc.
-       (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing)
+    :: (HasConfiguration, SscHelpersClass SscGodTossing)
     => Blund -> TxpBlund
 toTxpBlund = bimap toTxpBlock undoTx
 
 -- [CSL-1156] Sure, totally need something more elegant
 toUpdateBlock
-    :: forall ssc.
-       (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing)
+    :: (HasConfiguration, SscHelpersClass SscGodTossing)
     => Block -> UpdateBlock
 toUpdateBlock = bimap convertGenesis convertMain
   where

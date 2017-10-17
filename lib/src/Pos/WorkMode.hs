@@ -184,23 +184,23 @@ instance MonadBListener (RealMode ssc ext) where
     onRollbackBlocks = onRollbackBlocksStub
 
 instance
-    (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing) =>
+    (HasConfiguration, SscHelpersClass ssc) =>
     MonadBlockDBGeneric BlockHeader Block Undo (RealMode ssc ext)
   where
-    dbGetBlock  = dbGetBlockDefault @ssc
-    dbGetUndo   = dbGetUndoDefault @ssc
-    dbGetHeader = dbGetHeaderDefault @ssc
+    dbGetBlock  = dbGetBlockDefault
+    dbGetUndo   = dbGetUndoDefault
+    dbGetHeader = dbGetHeaderDefault
 
 instance
-    (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing) =>
-    MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (RealMode ssc ext)
+    (HasConfiguration, SscHelpersClass SscGodTossing) =>
+    MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () (RealMode SscGodTossing ext)
   where
-    dbGetBlock  = dbGetBlockSscDefault @SscGodTossing
-    dbGetUndo   = dbGetUndoSscDefault @SscGodTossing
-    dbGetHeader = dbGetHeaderSscDefault @SscGodTossing
+    dbGetBlock  = dbGetBlockSscDefault
+    dbGetUndo   = dbGetUndoSscDefault
+    dbGetHeader = dbGetHeaderSscDefault
 
-instance (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing) =>
-         MonadBlockDBGenericWrite BlockHeader Block Undo (RealMode ssc ext) where
+instance (HasConfiguration, SscHelpersClass SscGodTossing) =>
+         MonadBlockDBGenericWrite BlockHeader Block Undo (RealMode SscGodTossing ext) where
     dbPutBlund = dbPutBlundDefault
 
 instance MonadKnownPeers (RealMode ssc ext) where

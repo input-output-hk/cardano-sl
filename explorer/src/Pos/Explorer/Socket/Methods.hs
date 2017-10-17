@@ -62,7 +62,6 @@ import           Pos.DB.Class                   (MonadDBRead)
 import           Pos.Explorer                   (TxExtra (..))
 import qualified Pos.Explorer                   as DB
 import qualified Pos.GState                     as DB
-import           Pos.Ssc.GodTossing             (SscGodTossing)
 import           Pos.Txp                        (Tx (..), TxOut (..), TxOutAux (..),
                                                  txOutAddress, txpTxs)
 import           Pos.Types                      (Address, HeaderHash)
@@ -314,7 +313,7 @@ getBlundsFromTo
     :: forall ctx m . ExplorerMode ctx m
     => HeaderHash -> HeaderHash -> m (Maybe [Blund])
 getBlundsFromTo recentBlock oldBlock = do
-    mheaders <- DB.getHeadersFromToIncl @SscGodTossing oldBlock recentBlock
+    mheaders <- DB.getHeadersFromToIncl oldBlock recentBlock
     forM (getOldestFirst <$> mheaders) $ \(_ :| headers) ->
         catMaybes <$> forM headers DB.blkGetBlund
 
@@ -339,7 +338,7 @@ addressSetByTxs tx txs =
     S.fromList $ txOutAddress <$> txs'
 
 getBlockTxs
-    :: forall ssc ctx m . (ExplorerMode ctx m, ssc ~ SscGodTossing)
+    :: forall ctx m . (ExplorerMode ctx m)
     => Block -> m [TxInternal]
 getBlockTxs (Left  _  ) = return []
 getBlockTxs (Right blk) = do

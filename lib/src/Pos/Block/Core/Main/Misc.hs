@@ -54,7 +54,7 @@ import           Pos.Update.Configuration    (HasUpdateConfiguration, curSoftwar
 import           Pos.Util.Util               (leftToPanic)
 
 
-instance BiSsc SscGodTossing => Buildable MainBlockHeader where
+instance BiSsc => Buildable MainBlockHeader where
     build gbh@UnsafeGenericBlockHeader {..} =
         bprint
             ("MainBlockHeader:\n"%
@@ -78,7 +78,7 @@ instance BiSsc SscGodTossing => Buildable MainBlockHeader where
         gbhHeaderHash = blockHeaderHash $ Right gbh
         MainConsensusData {..} = _gbhConsensus
 
-instance (HasConfiguration, BiSsc SscGodTossing) => Buildable MainBlock where
+instance (HasConfiguration, BiSsc) => Buildable MainBlock where
     build UnsafeGenericBlock {..} =
         bprint
             (stext%":\n"%
@@ -162,23 +162,22 @@ instance Bi BlockHeader => IsMainHeader MainBlockHeader where
 -- Smart constructors
 ----------------------------------------------------------------------------
 
-type SanityConstraint ssc
-     = ( BiSsc ssc
-       , SscHelpersClass ssc
+type SanityConstraint
+     = ( BiSsc
+       , SscHelpersClass SscGodTossing
        , HasDifficulty BlockHeader
        , HasHeaderHash BlockHeader
        , HasConfiguration
-       , ssc ~ SscGodTossing
        )
 
 -- | Smart constructor for 'MainBlockHeader'.
 mkMainHeader
-    :: (SanityConstraint ssc)
+    :: SanityConstraint
     => Maybe BlockHeader
     -> SlotId
     -> SecretKey
     -> ProxySKBlockInfo
-    -> Body (MainBlockchain ssc)
+    -> Body (MainBlockchain SscGodTossing)
     -> MainExtraHeaderData
     -> MainBlockHeader
 mkMainHeader prevHeader slotId sk pske body extra =
@@ -211,12 +210,12 @@ mkMainHeader prevHeader slotId sk pske body extra =
 -- | Smart constructor for 'MainBlock'. Uses 'mkMainHeader'. It
 -- verifies consistency of given data and may fail.
 mkMainBlock
-    :: (HasUpdateConfiguration, SanityConstraint ssc, MonadError Text m)
+    :: (HasUpdateConfiguration, SanityConstraint, MonadError Text m)
     => Maybe BlockHeader
     -> SlotId
     -> SecretKey
     -> ProxySKBlockInfo
-    -> Body (MainBlockchain ssc)
+    -> Body (MainBlockchain SscGodTossing)
     -> m MainBlock
 mkMainBlock prevHeader slotId sk pske body =
     recreateGenericBlock

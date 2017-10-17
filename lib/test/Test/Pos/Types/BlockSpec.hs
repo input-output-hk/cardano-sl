@@ -148,7 +148,7 @@ mainHeaderFormation prevHeader slotId signer body extra =
 
 validateGoodMainHeader
     :: (HasConfiguration, SscHelpersClass SscGodTossing)
-    => T.HeaderAndParams SscGodTossing -> Bool
+    => T.HeaderAndParams -> Bool
 validateGoodMainHeader (T.getHAndP -> (params, header)) =
     isVerSuccess $ T.verifyHeader params header
 

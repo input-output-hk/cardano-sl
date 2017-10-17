@@ -26,7 +26,6 @@ import qualified Data.ByteString.Char8            as BS8
 import           Pos.Communication                (OutSpecs, SendActions (..), sendTxOuts)
 import           Pos.Launcher.Configuration       (HasConfigurations)
 import           Pos.Util.TimeWarp                (NetworkAddress)
-import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.Web.Account           (findKey, myRootAddresses)
 import           Pos.Wallet.Web.Api               (WalletSwaggerApi, swaggerWalletApi)
 import           Pos.Wallet.Web.Mode              (MonadWalletWebMode)
@@ -67,7 +66,7 @@ walletServer
     -> m (Server WalletSwaggerApi)
 walletServer sendActions natM = do
     nat <- natM
-    syncWalletsWithGState @WalletSscType =<< mapM findKey =<< myRootAddresses
+    syncWalletsWithGState =<< mapM findKey =<< myRootAddresses
     startPendingTxsResubmitter sendActions
     launchNotifier nat
     return $ servantHandlersWithSwagger sendActions nat

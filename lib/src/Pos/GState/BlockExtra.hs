@@ -37,7 +37,6 @@ import           Pos.DB.Block         (MonadBlockDB, blkGetBlund)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Util.Chrono      (OldestFirst (..))
 import           Pos.Util.Util        (maybeThrow)
-import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 
 ----------------------------------------------------------------------------
 -- Getters
@@ -114,10 +113,9 @@ instance HasConfiguration => RocksBatchOp BlockExtraOp where
 ----------------------------------------------------------------------------
 
 foldlUpWhileM
-    :: forall a b ssc m r .
-    ( MonadBlockDB ssc m
+    :: forall a b m r .
+    ( MonadBlockDB m
     , HasHeaderHash a
-    , ssc ~ SscGodTossing
     )
     => (Blund -> m b)
     -> a
@@ -142,7 +140,7 @@ foldlUpWhileM morphM start condition accM init =
 
 -- Loads something from old to new.
 loadUpWhile
-    :: forall a b ssc m . (MonadBlockDB ssc m, HasHeaderHash a, ssc ~ SscGodTossing)
+    :: forall a b m . (MonadBlockDB m, HasHeaderHash a)
     => (Blund -> b)
     -> a
     -> (b -> Int -> Bool)
@@ -157,7 +155,7 @@ loadUpWhile morph start condition = OldestFirst . reverse <$>
 
 -- | Returns headers loaded up.
 loadHeadersUpWhile
-    :: (MonadBlockDB ssc m, HasHeaderHash a, ssc ~ SscGodTossing)
+    :: (MonadBlockDB m, HasHeaderHash a)
     => a
     -> (BlockHeader -> Int -> Bool)
     -> m (OldestFirst [] BlockHeader)
@@ -166,7 +164,7 @@ loadHeadersUpWhile start condition =
 
 -- | Returns blocks loaded up.
 loadBlocksUpWhile
-    :: (MonadBlockDB ssc m, HasHeaderHash a, ssc ~ SscGodTossing)
+    :: (MonadBlockDB m, HasHeaderHash a)
     => a
     -> (Block -> Int -> Bool)
     -> m (OldestFirst [] Block)

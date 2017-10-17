@@ -206,23 +206,27 @@ instance Arbitrary T.MsgGetBlocks where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance (Arbitrary (SscPayload ssc), Arbitrary (SscProof ssc), Bi Raw, SscHelpersClass ssc, HasConfiguration, ssc ~ SscGodTossing) =>
+instance ( Arbitrary (SscPayload SscGodTossing)
+         , Arbitrary (SscProof SscGodTossing)
+         , Bi Raw
+         , SscHelpersClass SscGodTossing
+         , HasConfiguration
+         ) =>
          Arbitrary T.MsgHeaders where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance ( Arbitrary $ SscPayload ssc
-         , Arbitrary (SscProof ssc)
-         , Arbitrary (SscPayloadDependsOnSlot ssc)
-         , SscHelpersClass ssc
+instance ( Arbitrary (SscPayload SscGodTossing)
+         , Arbitrary (SscProof SscGodTossing)
+         , Arbitrary (SscPayloadDependsOnSlot SscGodTossing)
+         , SscHelpersClass SscGodTossing
          , HasConfiguration
-         , ssc ~ SscGodTossing
          ) =>
          Arbitrary T.MsgBlock where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance T.BiSsc SscGodTossing => Buildable (T.BlockHeader, PublicKey) where
+instance T.BiSsc => Buildable (T.BlockHeader, PublicKey) where
     build (block, key) =
         bprint
             ( build%"\n"%
@@ -235,7 +239,7 @@ newtype BlockHeaderList = BHL
 
 deriving instance Eq T.BlockHeader => Eq BlockHeaderList
 
-instance T.BiSsc SscGodTossing => Show BlockHeaderList where
+instance T.BiSsc => Show BlockHeaderList where
     show = toString . unlines . map pretty . uncurry zip . getHeaderList
 
 -- | Generation of arbitrary, valid headerchain along with a list of leaders
@@ -259,7 +263,10 @@ instance T.BiSsc SscGodTossing => Show BlockHeaderList where
 --   * if an epoch is `n` slots long, every `n+1`-th block will be of the
 --     genesis kind.
 recursiveHeaderGen
-    :: (Arbitrary (SscPayload ssc), SscHelpersClass ssc, HasConfiguration, ssc ~ SscGodTossing)
+    :: ( Arbitrary (SscPayload SscGodTossing)
+       , SscHelpersClass SscGodTossing
+       , HasConfiguration
+       )
     => Bool -- ^ Whether to create genesis block before creating main block for 0th slot
     -> [Either SecretKey (SecretKey, SecretKey, Bool)]
     -> [T.SlotId]
@@ -329,7 +336,10 @@ bhlEpochs = 2
 --
 -- Note that a leader is generated for each slot.
 -- (Not exactly a leader - see previous comment)
-instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc, HasConfiguration, ssc ~ SscGodTossing) =>
+instance ( Arbitrary (SscPayload SscGodTossing)
+         , SscHelpersClass SscGodTossing
+         , HasConfiguration
+         ) =>
          Arbitrary BlockHeaderList where
     arbitrary = do
         incompleteEpochSize <- choose (1, epochSlots - 1)
@@ -337,7 +347,10 @@ instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc, HasConfiguration, ssc
         generateBHL True slot (epochSlots * bhlEpochs + incompleteEpochSize)
 
 generateBHL
-    :: (Arbitrary (SscPayload ssc), SscHelpersClass ssc, HasConfiguration, ssc ~ SscGodTossing)
+    :: ( Arbitrary (SscPayload SscGodTossing)
+       , SscHelpersClass SscGodTossing
+       , HasConfiguration
+       )
     => Bool         -- ^ Whether to create genesis block before creating main
                     --    block for 0th slot
     -> T.SlotId     -- ^ Start slot
@@ -367,19 +380,19 @@ generateBHL createInitGenesis startSlot slotCount = BHL <$> do
 -- 'Pos.Types.Blocks.Functions.verifyHeader', the blockheaders that may be
 -- part of the verification parameters are guaranteed to be valid, as are the
 -- slot leaders and the current slot.
-newtype HeaderAndParams ssc = HAndP
-    { getHAndP :: (T.VerifyHeaderParams ssc, T.BlockHeader)
+newtype HeaderAndParams = HAndP
+    { getHAndP :: (T.VerifyHeaderParams, T.BlockHeader)
     }
 
-deriving instance Eq T.BlockHeader => Eq (HeaderAndParams ssc)
-deriving instance Show T.BlockHeader => Show (HeaderAndParams ssc)
+deriving instance Eq T.BlockHeader => Eq HeaderAndParams
+deriving instance Show T.BlockHeader => Show HeaderAndParams
 
 -- | A lot of the work to generate a valid sequence of blockheaders has
 -- already been done in the 'Arbitrary' instance of the 'BlockHeaderList'
 -- type, so it is used here and at most 3 blocks are taken from the generated
 -- list.
-instance (Arbitrary (SscPayload ssc), SscHelpersClass ssc, HasConfiguration) =>
-    Arbitrary (HeaderAndParams ssc) where
+instance (Arbitrary (SscPayload SscGodTossing), SscHelpersClass SscGodTossing, HasConfiguration) =>
+    Arbitrary HeaderAndParams where
     arbitrary = do
         -- This integer is used as a seed to randomly choose a slot down below
         seed <- arbitrary :: Gen Int

@@ -25,15 +25,16 @@ import           Pos.Communication.Util          (wrapListener)
 import           Pos.Delegation.Listeners        (delegationRelays)
 import           Pos.Network.Types               (Bucket, NodeId, Topology,
                                                   topologySubscribers)
-import           Pos.Ssc.Class                   (SscListenersClass (..), SscWorkersClass)
+import           Pos.Ssc.Class                   (SscListenersClass (..))
 import           Pos.Subscription.Common         (subscriptionListeners)
 import           Pos.Txp                         (txRelays)
 import           Pos.Update                      (usRelays)
 import           Pos.WorkMode.Class              (WorkMode)
+import           Pos.Ssc.GodTossing.Type         (SscGodTossing)
 
 -- | All listeners running on one node.
 allListeners
-    :: (SscListenersClass ssc, SscWorkersClass ssc, WorkMode ssc ctx m)
+    :: (SscListenersClass SscGodTossing, WorkMode ctx m)
     => OQ.OutboundQ pack NodeId Bucket
     -> Topology kademlia -> EnqueueMsg m -> MkListeners m
 allListeners oq topology enqueue = mconcat $

@@ -52,8 +52,8 @@ runExplorerBListener :: ExplorerBListener m a -> m a
 runExplorerBListener = coerce
 
 -- Type alias, remove duplication
-type MonadBListenerT m ssc =
-    ( SscHelpersClass ssc
+type MonadBListenerT m =
+    ( SscHelpersClass SscGodTossing
     , WithLogger m
     , MonadCatch m
     , MonadDBRead m
@@ -77,8 +77,7 @@ instance ( MonadDBRead m
 
 
 onApplyCallGeneral
-    :: forall ssc m .
-    (MonadBListenerT m ssc, ssc ~ SscGodTossing)
+    :: MonadBListenerT m
     => OldestFirst NE Blund -> m SomeBatchOp
 onApplyCallGeneral    blunds = do
     epochBlocks <- onApplyEpochBlocksExplorer blunds
@@ -88,8 +87,7 @@ onApplyCallGeneral    blunds = do
 
 
 onRollbackCallGeneral
-    :: forall ssc m .
-    (MonadBListenerT m ssc, ssc ~ SscGodTossing)
+    :: MonadBListenerT m
     => NewestFirst NE Blund -> m SomeBatchOp
 onRollbackCallGeneral blunds = do
     epochBlocks <- onRollbackEpochBlocksExplorer blunds
@@ -105,8 +103,7 @@ onRollbackCallGeneral blunds = do
 
 -- For @EpochBlocks@
 onApplyEpochBlocksExplorer
-    :: forall ssc m.
-    (MonadBListenerT m ssc, ssc ~ SscGodTossing)
+    :: MonadBListenerT m
     => OldestFirst NE Blund
     -> m SomeBatchOp
 onApplyEpochBlocksExplorer blunds = onApplyKeyBlocksGeneral blunds epochBlocksMap
@@ -114,8 +111,7 @@ onApplyEpochBlocksExplorer blunds = onApplyKeyBlocksGeneral blunds epochBlocksMa
 
 -- For @PageBlocks@
 onApplyPageBlocksExplorer
-    :: forall ssc m .
-    (MonadBListenerT m ssc, ssc ~ SscGodTossing)
+    :: MonadBListenerT m
     => OldestFirst NE Blund
     -> m SomeBatchOp
 onApplyPageBlocksExplorer blunds = onApplyKeyBlocksGeneral blunds pageBlocksMap
@@ -123,8 +119,7 @@ onApplyPageBlocksExplorer blunds = onApplyKeyBlocksGeneral blunds pageBlocksMap
 
 -- For last transactions, @Tx@
 onApplyLastTxsExplorer
-    :: forall ssc m .
-    (MonadBListenerT m ssc, ssc ~ SscGodTossing)
+    :: MonadBListenerT m
     => OldestFirst NE Blund
     -> m SomeBatchOp
 onApplyLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
@@ -152,24 +147,21 @@ onApplyLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
 
 -- For @EpochBlocks@
 onRollbackEpochBlocksExplorer
-    :: forall ssc m .
-    (MonadBListenerT m ssc, ssc ~ SscGodTossing)
+    :: MonadBListenerT m
     => NewestFirst NE Blund -> m SomeBatchOp
 onRollbackEpochBlocksExplorer blunds = onRollbackGeneralBlocks blunds epochBlocksMap
 
 
 -- For @PageBlocks@
 onRollbackPageBlocksExplorer
-    :: forall ssc m .
-    (MonadBListenerT m ssc, ssc ~ SscGodTossing)
+    :: MonadBListenerT m
     => NewestFirst NE Blund -> m SomeBatchOp
 onRollbackPageBlocksExplorer blunds = onRollbackGeneralBlocks blunds pageBlocksMap
 
 
 -- For last transactions, @Tx@
 onRollbackLastTxsExplorer
-    :: forall ssc m .
-    (MonadBListenerT m ssc, ssc ~ SscGodTossing)
+    :: MonadBListenerT m
     => NewestFirst NE Blund -> m SomeBatchOp
 onRollbackLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
   where
@@ -193,7 +185,7 @@ onRollbackLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
 
 -- Return a map from @Epoch@ to @HeaderHash@es for all non-empty blocks.
 epochBlocksMap
-    :: forall ssc. (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing)
+    :: (HasConfiguration, SscHelpersClass SscGodTossing)
     => NE Block
     -> M.Map Epoch [HeaderHash]
 epochBlocksMap neBlocks = blocksEpochs
@@ -220,7 +212,7 @@ epochBlocksMap neBlocks = blocksEpochs
 
 -- Return a map from @Page@ to @HeaderHash@es for all non-empty blocks.
 pageBlocksMap
-    :: forall ssc. (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing)
+    :: (HasConfiguration, SscHelpersClass SscGodTossing)
     => NE Block
     -> M.Map Page [HeaderHash]
 pageBlocksMap neBlocks = blocksPages
@@ -348,8 +340,8 @@ getExistingBlocks keys = do
 -- A general @Key@ @Block@ database application for the apply call.
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 onApplyKeyBlocksGeneral
-    :: forall k ssc m.
-    (MonadBListenerT m ssc, KeyBlocksOperation k, ssc ~ SscGodTossing)
+    :: forall k m.
+    (MonadBListenerT m, KeyBlocksOperation k)
     => OldestFirst NE Blund
     -> (NE Block -> M.Map k [HeaderHash])
     -> m SomeBatchOp
@@ -385,8 +377,8 @@ onApplyKeyBlocksGeneral blunds newBlocksMapF = do
 -- A general @Key@ @Block@ database application for the rollback call.
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 onRollbackGeneralBlocks
-    :: forall k ssc m.
-    (MonadBListenerT m ssc, KeyBlocksOperation k, ssc ~ SscGodTossing)
+    :: forall k m.
+    (MonadBListenerT m, KeyBlocksOperation k)
     => NewestFirst NE Blund
     -> (NE Block -> M.Map k [HeaderHash])
     -> m SomeBatchOp
@@ -425,8 +417,7 @@ newtype NewTxs = NewTxs { getNewTxs :: [Tx] }
 -- combine old and new transactions I will return you an
 -- atomic database operation.
 generalLastTxsExplorer
-    :: forall ssc m .
-    (MonadBListenerT m ssc, ssc ~ SscGodTossing)
+    :: MonadBListenerT m
     => NE Block
     -> (OldTxs -> NewTxs -> [Tx])
     -> m SomeBatchOp

@@ -60,13 +60,13 @@ import           Pos.Util.Chrono          (NE, NewestFirst (..), toOldestFirst)
 ----------------------------------------------------------------------------
 
 -- | 'LrcModeFull' contains all constraints necessary to launch LRC.
-type LrcModeFull ssc ctx m =
-    ( LrcMode ssc ctx m
-    , SscWorkersClass ssc
-    , SscHelpersClass ssc
-    , MonadSscMem ssc ctx m
+type LrcModeFull ctx m =
+    ( LrcMode ctx m
+    , SscWorkersClass SscGodTossing
+    , SscHelpersClass SscGodTossing
+    , MonadSscMem SscGodTossing ctx m
     , MonadSlots ctx m
-    , MonadBlockApply ssc ctx m
+    , MonadBlockApply ctx m
     , MonadReader ctx m
     , HasGtConfiguration
     )
@@ -75,7 +75,7 @@ type LrcModeFull ssc ctx m =
 -- block for this epoch is not known, LrcError will be thrown.
 -- It assumes that 'StateLock' is taken already.
 lrcSingleShot
-    :: forall ssc ctx m. (LrcModeFull ssc ctx m, ssc ~ SscGodTossing)
+    :: forall ctx m. (LrcModeFull ctx m)
     => EpochIndex -> m ()
 lrcSingleShot epoch = do
     lock <- views (lensOf @LrcContext) lcLrcSync
@@ -84,7 +84,7 @@ lrcSingleShot epoch = do
          %build) epoch
     tryAcquireExclusiveLock epoch lock onAcquiredLock
   where
-    consumers = allLrcConsumers @ssc
+    consumers = allLrcConsumers @ctx @m
     for_thEpochMsg = sformat (" for "%ords%" epoch") epoch
     onAcquiredLock = do
         logDebug "lrcSingleShot has acquired LRC lock"
@@ -103,7 +103,7 @@ lrcSingleShot epoch = do
                     , expectedRichmenComp)
         when need $ do
             logInfo "LRC is starting actual computation"
-            lrcDo @ssc epoch filteredConsumers
+            lrcDo epoch filteredConsumers
             logInfo "LRC has finished actual computation"
         putEpoch epoch
         logInfo ("LRC has updated LRC DB" <> for_thEpochMsg)
@@ -127,11 +127,11 @@ tryAcquireExclusiveLock epoch lock action =
     doAction _       = action >> releaseLock epoch
 
 lrcDo
-    :: forall ssc ctx m.
-       (LrcModeFull ssc ctx m, ssc ~ SscGodTossing)
+    :: forall ctx m.
+       (LrcModeFull ctx m)
     => EpochIndex -> [LrcConsumer m] -> m ()
 lrcDo epoch consumers = do
-    blundsUpToGenesis <- DB.loadBlundsFromTipWhile @SscGodTossing upToGenesis
+    blundsUpToGenesis <- DB.loadBlundsFromTipWhile upToGenesis
     -- If there are blocks from 'epoch' it means that we somehow accepted them
     -- before running LRC for 'epoch'. It's very bad.
     unless (null blundsUpToGenesis) $ throwM LrcAfterGenesis
@@ -145,7 +145,7 @@ lrcDo epoch consumers = do
     blundsToRollback <- DB.loadBlundsFromTipWhile whileAfterCrucial
     blundsToRollbackNE <-
         maybeThrow UnknownBlocksForLrc (nonEmptyNewestFirst blundsToRollback)
-    seed <- sscCalculateSeed @ssc epoch >>= \case
+    seed <- sscCalculateSeed epoch >>= \case
         Right s -> do
             logInfo $ sformat
                 ("Calculated seed for epoch "%build%" successfully") epoch
@@ -190,7 +190,7 @@ lrcDo epoch consumers = do
         bracket_ (rollbackBlocksUnsafe bsc scb blunds)
                  (applyBack (toOldestFirst blunds))
 
-issuersComputationDo :: forall ssc ctx m . LrcMode ssc ctx m => EpochIndex -> m ()
+issuersComputationDo :: forall ctx m . LrcMode ctx m => EpochIndex -> m ()
 issuersComputationDo epochId = do
     issuers <- unionHSs .
                map (bvsIssuersStable . snd) <$>
@@ -205,7 +205,7 @@ issuersComputationDo epochId = do
            hm <$ (logWarning $ sformat ("Stake for issuer "%build% " not found") id)
         Just stake -> pure $ HM.insert id stake hm
 
-leadersComputationDo :: LrcMode ssc ctx m => EpochIndex -> SharedSeed -> m ()
+leadersComputationDo :: LrcMode ctx m => EpochIndex -> SharedSeed -> m ()
 leadersComputationDo epochId seed =
     unlessM (isJust <$> getLeaders epochId) $ do
         totalStake <- GS.getRealTotalStake
@@ -213,8 +213,8 @@ leadersComputationDo epochId seed =
         putLeaders epochId leaders
 
 richmenComputationDo
-    :: forall ssc ctx m.
-       LrcMode ssc ctx m
+    :: forall ctx m.
+       LrcMode ctx m
     => EpochIndex -> [LrcConsumer m] -> m ()
 richmenComputationDo epochIdx consumers = unless (null consumers) $ do
     total <- GS.getRealTotalStake

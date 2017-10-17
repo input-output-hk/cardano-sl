@@ -43,8 +43,6 @@ import           System.Wlog                    (CanLog, LoggerName, NamedPureLo
 import           Pos.Block.Types                (Blund)
 import           Pos.Core                       (addressF)
 import qualified Pos.GState                     as DB
-import           Pos.Ssc.Class                  (SscHelpersClass)
-import           Pos.Ssc.GodTossing             (SscGodTossing)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Socket.Holder     (ConnectionsState, ConnectionsVar,
@@ -152,8 +150,8 @@ notifierServer notifierSettings connVar = do
         "404 - Not Found"
 
 periodicPollChanges
-    :: forall ssc ctx m.
-       (ExplorerMode ctx m, SscHelpersClass ssc)
+    :: forall ctx m.
+       (ExplorerMode ctx m)
     => ConnectionsVar -> m Bool -> m ()
 periodicPollChanges connVar closed =
     -- Runs every 5 seconds.
@@ -183,7 +181,7 @@ periodicPollChanges connVar closed =
                 logDebug $ sformat ("Blockchain updated ("%int%" blocks)")
                     (length newBlunds)
 
-            newBlockchainTxs <- lift $ concatForM newBlunds (getBlockTxs @SscGodTossing @ctx . fst)
+            newBlockchainTxs <- lift $ concatForM newBlunds (getBlockTxs @ctx . fst)
             let newLocalTxs = S.toList $ mempoolTxs `S.difference` wasMempoolTxs
 
             let allTxs = newBlockchainTxs <> newLocalTxs
@@ -204,11 +202,11 @@ periodicPollChanges connVar closed =
 
 -- | Starts notification server. Kill current thread to stop it.
 notifierApp
-    :: forall ssc ctx m.
-       (ExplorerMode ctx m, SscHelpersClass ssc)
+    :: forall ctx m.
+       (ExplorerMode ctx m)
     => NotifierSettings -> m ()
 notifierApp settings = modifyLoggerName (<> "notifier.socket-io") $ do
     logInfo "Starting"
     connVar <- liftIO $ STM.newTVarIO mkConnectionsState
-    forkAccompanion (periodicPollChanges @ssc connVar)
+    forkAccompanion (periodicPollChanges connVar)
                     (notifierServer settings connVar)

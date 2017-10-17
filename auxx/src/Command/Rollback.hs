@@ -22,14 +22,13 @@ import           Pos.Core                         (HasConfiguration, difficultyL
                                                    epochIndexL)
 import           Pos.DB.DB                        (getTipHeader, loadBlundsFromTipByDepth)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
-import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                          (TxAux, flattenTxPayload)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util.Chrono                  (NewestFirst, _NewestFirst)
 import           Pos.Util.CompileInfo             (HasCompileInfo)
 
-import           Mode                             (AuxxMode, AuxxSscType)
+import           Mode                             (AuxxMode)
 
 -- | Rollback given number of blocks from the DB and dump transactions
 -- from it to the given file.
@@ -46,7 +45,7 @@ rollbackAndDump
 rollbackAndDump numToRollback outFile = do
     printTipDifficulty
     blundsMaybeEmpty <- modifyBlunds <$>
-        loadBlundsFromTipByDepth @SscGodTossing (fromIntegral numToRollback)
+        loadBlundsFromTipByDepth (fromIntegral numToRollback)
     logInfo $ sformat ("Loaded "%int%" blunds") (length blundsMaybeEmpty)
     case _Wrapped nonEmpty blundsMaybeEmpty of
         Nothing -> pass
@@ -76,5 +75,5 @@ rollbackAndDump numToRollback outFile = do
         | genBlock ^. epochIndexL == 0 = True
     is0thGenesis _ = False
     printTipDifficulty = do
-        tipDifficulty <- view difficultyL <$> getTipHeader @AuxxSscType
+        tipDifficulty <- view difficultyL <$> getTipHeader
         logInfo $ sformat ("Our tip's difficulty is "%build) tipDifficulty

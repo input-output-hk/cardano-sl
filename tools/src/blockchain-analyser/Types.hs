@@ -26,7 +26,6 @@ import           Pos.Core             (HasConfiguration, HeaderHash, prevBlockL)
 import           Pos.DB               (MonadBlockDBGeneric (..), MonadDBRead (..))
 import qualified Pos.DB               as DB
 import qualified Pos.DB.Block         as BDB
-import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Util.Util        (postfixLFields)
 
 type DBFolderStat = (Text, Integer)
@@ -66,9 +65,9 @@ instance
     HasConfiguration =>
     MonadBlockDBGeneric BlockHeader Block Undo BlockchainInspector
   where
-    dbGetBlock = BDB.dbGetBlockDefault @SscGodTossing
-    dbGetUndo = BDB.dbGetUndoDefault @SscGodTossing
-    dbGetHeader = BDB.dbGetHeaderDefault @SscGodTossing
+    dbGetBlock = BDB.dbGetBlockDefault
+    dbGetUndo = BDB.dbGetUndoDefault
+    dbGetHeader = BDB.dbGetHeaderDefault
 
 prevBlock :: HasConfiguration => Block -> HeaderHash
 prevBlock = view prevBlockL

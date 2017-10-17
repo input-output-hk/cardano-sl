@@ -91,7 +91,7 @@ action opts@AuxxOptions {..} command = withConfigurations conf $ do
             lift $ runReaderT auxxAction auxxContext
     let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
     let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
-    bracketNodeResources @AuxxSscType nodeParams gtParams $ \nr ->
+    bracketNodeResources nodeParams gtParams $ \nr ->
         runRealBasedMode toRealMode realModeToAuxx nr $
             (if aoNodeEnabled then runNodeWithSinglePlugin nr else identity)
             (auxxPlugin opts command)

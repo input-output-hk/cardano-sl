@@ -51,19 +51,18 @@ import           Pos.Explorer.DB                  (prepareExplorerDB)
 
 -- | Initialize DBs if necessary.
 initNodeDBs
-    :: forall ssc ctx m.
+    :: forall ctx m.
        ( MonadReader ctx m
-       , MonadBlockDBWrite ssc m
-       , SscHelpersClass ssc
+       , MonadBlockDBWrite m
+       , SscHelpersClass SscGodTossing
        , MonadDB m
        , HasConfiguration
        , HasGtConfiguration
-       , ssc ~ SscGodTossing
        )
     => m ()
 initNodeDBs = do
-    let initialTip = headerHash (genesisBlock0 @ssc)
-    prepareBlockDB (genesisBlock0 @ssc)
+    let initialTip = headerHash genesisBlock0
+    prepareBlockDB genesisBlock0
     prepareGStateDB initialTip
     prepareLrcDB
     prepareMiscDB
@@ -75,14 +74,14 @@ initNodeDBs = do
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.
 loadBlundsFromTipWhile
-    :: (MonadBlockDB ssc m, ssc ~ SscGodTossing)
+    :: (MonadBlockDB m)
     => (Block -> Bool) -> m (NewestFirst [] Blund)
 loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
 
 -- | Load blunds from BlockDB starting from tip which have depth less than
 -- given.
 loadBlundsFromTipByDepth
-    :: (MonadBlockDB ssc m, ssc ~ SscGodTossing)
+    :: (MonadBlockDB m)
     => BlockCount -> m (NewestFirst [] Blund)
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 
@@ -97,13 +96,13 @@ sanityCheckDB = inAssertMode sanityCheckGStateDB
 
 -- | Specialized version of 'getTipBlockGeneric'.
 getTipBlock ::
-       forall ssc m. (MonadBlockDB ssc m, ssc ~ SscGodTossing)
+       (MonadBlockDB m)
     => m Block
 getTipBlock = getTipBlockGeneric @Block
 
 -- | Specialized version of 'getTipHeaderGeneric'.
 getTipHeader ::
-       forall ssc m. (MonadBlockDB ssc m, ssc ~ SscGodTossing)
+       (MonadBlockDB m)
     => m BlockHeader
 getTipHeader = getTipHeaderGeneric @Block
 

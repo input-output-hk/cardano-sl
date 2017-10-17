@@ -86,7 +86,6 @@ import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
 import qualified Pos.Util.Modifier                as MM
 import           Pos.Util.Servant                 (encodeCType)
 
-import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.Web.Account           (MonadKeySearch (..))
 import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CTxMeta (..),
                                                    CWAddressMeta (..), Wal, encToCId,
@@ -104,17 +103,17 @@ import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..), CachedCAcc
 import           Pos.Wallet.Web.Util              (getWalletAddrMetas)
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 
-type BlockLockMode ssc ctx m =
+type BlockLockMode ctx m =
      ( WithLogger m
      , MonadReader ctx m
      , HasLens StateLock ctx StateLock
      , MonadRealDB ctx m
-     , DB.MonadBlockDB ssc m
+     , DB.MonadBlockDB m
      , MonadMask m
      )
 
 type WalletTrackingEnv ext ctx m =
-     ( BlockLockMode WalletSscType ctx m
+     ( BlockLockMode ctx m
      , WebWalletModeDB ctx m
      , MonadTxpMem ext ctx m
      , WS.MonadWalletWebDB ctx m
@@ -124,7 +123,7 @@ type WalletTrackingEnv ext ctx m =
      )
 
 syncWalletOnImport :: WalletTrackingEnv ext ctx m => EncryptedSecretKey -> m ()
-syncWalletOnImport = syncWalletsWithGState @WalletSscType . one
+syncWalletOnImport = syncWalletsWithGState . one
 
 txMempoolToModifier :: WalletTrackingEnv ext ctx m => EncryptedSecretKey -> m CAccModifier
 txMempoolToModifier encSK = do
@@ -142,12 +141,12 @@ txMempoolToModifier encSK = do
             logError errMsg
             throwM $ InternalError errMsg
 
-    tipH <- DB.getTipHeader @WalletSscType
+    tipH <- DB.getTipHeader
     allAddresses <- getWalletAddrMetas Ever wId
     case topsortTxs wHash txsWUndo of
         Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
         Just ordered -> pure $
-            trackingApplyTxs @WalletSscType encSK allAddresses getDiff getTs getPtxBlkInfo $
+            trackingApplyTxs encSK allAddresses getDiff getTs getPtxBlkInfo $
             map (\(_, tx, undo) -> (tx, undo, tipH)) ordered
 
 ----------------------------------------------------------------------------
@@ -156,12 +155,11 @@ txMempoolToModifier encSK = do
 
 -- Iterate over blocks (using forward links) and actualize our accounts.
 syncWalletsWithGState
-    :: forall ssc ctx m.
+    :: forall ctx m.
     ( WebWalletModeDB ctx m
-    , BlockLockMode ssc ctx m
+    , BlockLockMode ctx m
     , MonadSlotsData ctx m
     , HasConfiguration
-    , ssc ~ SscGodTossing
     )
     => [EncryptedSecretKey] -> m ()
 syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) $ do
@@ -180,7 +178,7 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) 
     syncDo :: EncryptedSecretKey -> Maybe BlockHeader -> m ()
     syncDo encSK wTipH = do
         let wdiff = maybe (0::Word32) (fromIntegral . ( ^. difficultyL)) wTipH
-        gstateTipH <- DB.getTipHeader @ssc
+        gstateTipH <- DB.getTipHeader
         -- If account's syncTip is before the current gstate's tip,
         -- then it loads accounts and addresses starting with @wHeader@.
         -- syncTip can be before gstate's the current tip
@@ -212,13 +210,12 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) 
 
 -- BE CAREFUL! This function iterates over blockchain, the blockchain can be large.
 syncWalletWithGStateUnsafe
-    :: forall ssc ctx m .
+    :: forall ctx m .
     ( WebWalletModeDB ctx m
-    , DB.MonadBlockDB ssc m
+    , DB.MonadBlockDB m
     , WithLogger m
     , MonadSlotsData ctx m
     , HasConfiguration
-    , ssc ~ SscGodTossing
     )
     => EncryptedSecretKey      -- ^ Secret key for decoding our addresses
     -> Maybe BlockHeader       -- ^ Block header corresponding to wallet's tip.
@@ -318,7 +315,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
 -- Addresses are used in TxIn's will be deleted,
 -- in TxOut's will be added.
 trackingApplyTxs
-    :: forall ssc . (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing)
+    :: (HasConfiguration, SscHelpersClass SscGodTossing)
     => EncryptedSecretKey                          -- ^ Wallet's secret key
     -> [CWAddressMeta]                             -- ^ All addresses in wallet
     -> (BlockHeader -> Maybe ChainDifficulty)      -- ^ Function to determine tx chain difficulty
@@ -380,7 +377,7 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs getPtxBlkInf
 -- Process transactions on block rollback.
 -- Like @trackingApplyTx@, but vise versa.
 trackingRollbackTxs
-    :: forall ssc . (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing)
+    :: (HasConfiguration, SscHelpersClass SscGodTossing)
     => EncryptedSecretKey -- ^ Wallet's secret key
     -> [CWAddressMeta] -- ^ All adresses
     -> (BlockHeader -> Maybe ChainDifficulty)  -- ^ Function to determine tx chain difficulty

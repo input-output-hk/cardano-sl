@@ -129,7 +129,7 @@ $(deriveJSON defaultOptions ''JLTxR)
 $(deriveJSON defaultOptions ''JLMemPool)
 
 -- | Return event of created block.
-jlCreatedBlock :: (BiSsc ssc, HasConfiguration, ssc ~ SscGodTossing) => Block -> JLEvent
+jlCreatedBlock :: (BiSsc, HasConfiguration) => Block -> JLEvent
 jlCreatedBlock block = JLCreatedBlock $ JLBlock {..}
   where
     jlHash = showHeaderHash $ headerHash block
@@ -159,7 +159,7 @@ appendJL path ev = liftIO $ do
   LBS.appendFile path . encode $ JLTimedEvent (fromIntegral time) ev
 
 -- | Returns event of created 'Block'.
-jlAdoptedBlock :: (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing) => Block -> JLEvent
+jlAdoptedBlock :: (HasConfiguration, SscHelpersClass SscGodTossing) => Block -> JLEvent
 jlAdoptedBlock = JLAdoptedBlock . showHeaderHash . headerHash
 
 jsonLogConfigFromHandle :: MonadIO m => Handle -> m JsonLogConfig

@@ -39,7 +39,7 @@ import           Pos.Util.Util                (leftToPanic)
 -- Buildable
 ----------------------------------------------------------------------------
 
-instance BiSsc SscGodTossing => Buildable GenesisBlockHeader where
+instance BiSsc => Buildable GenesisBlockHeader where
     build gbh@UnsafeGenericBlockHeader {..} =
         bprint
             ("GenesisBlockHeader:\n"%
@@ -57,7 +57,7 @@ instance BiSsc SscGodTossing => Buildable GenesisBlockHeader where
         gbhHeaderHash = blockHeaderHash $ Left gbh
         GenesisConsensusData {..} = _gbhConsensus
 
-instance BiSsc SscGodTossing => Buildable GenesisBlock where
+instance BiSsc => Buildable GenesisBlock where
     build UnsafeGenericBlock {..} =
         bprint
             (stext%":\n"%
@@ -117,16 +117,15 @@ instance Bi BlockHeader => IsGenesisHeader GenesisBlockHeader
 -- Smart constructors
 ----------------------------------------------------------------------------
 
-type SanityConstraint ssc
+type SanityConstraint
      = ( HasDifficulty BlockHeader
        , HasHeaderHash BlockHeader
        , HasConfiguration
-       , ssc ~ SscGodTossing
        )
 
 -- | Smart constructor for 'GenesisBlockHeader'. Uses 'mkGenericHeader'.
 mkGenesisHeader
-    :: SanityConstraint ssc
+    :: SanityConstraint
     => Maybe BlockHeader
     -> EpochIndex
     -> Body (GenesisBlockchain SscGodTossing)
@@ -146,7 +145,7 @@ mkGenesisHeader prevHeader epoch body =
 
 -- | Smart constructor for 'GenesisBlock'.
 mkGenesisBlock
-    :: SanityConstraint ssc
+    :: SanityConstraint
     => Maybe BlockHeader
     -> EpochIndex
     -> SlotLeaders

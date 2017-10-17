@@ -83,28 +83,28 @@ import           Pos.WorkMode                    (EnqueuedConversation (..), OQ,
 
 -- | Run activity in 'RealMode'.
 runRealMode
-    :: forall ssc ext ctx a.
-       (SscConstraint ssc, WorkMode ssc ctx (RealMode ssc ext))
-    => NodeResources ssc ext (RealMode ssc ext)
-    -> (ActionSpec (RealMode ssc ext) a, OutSpecs)
+    :: forall ext ctx a.
+       (SscConstraint SscGodTossing, WorkMode ctx (RealMode SscGodTossing ext))
+    => NodeResources SscGodTossing ext (RealMode SscGodTossing ext)
+    -> (ActionSpec (RealMode SscGodTossing ext) a, OutSpecs)
     -> Production a
-runRealMode = runRealBasedMode @ssc @ext identity identity
+runRealMode = runRealBasedMode @ext @ctx identity identity
 
 -- | Run activity in something convertible to 'RealMode' and back.
 runRealBasedMode
-    :: forall ssc ext ctx m a.
-       ( SscConstraint ssc
-       , WorkMode ssc ctx m
+    :: forall ext ctx m a.
+       ( SscConstraint SscGodTossing
+       , WorkMode ctx m
        , Default ext
-       , MonadTxpLocal (RealMode ssc ext)
+       , MonadTxpLocal (RealMode SscGodTossing ext)
        -- MonadTxpLocal is meh,
        -- we can't remove @ext@ from @RealMode@ because
        -- explorer and wallet use RealMode,
        -- though they should use only @RealModeContext@
        )
-    => (forall b. m b -> RealMode ssc ext b)
-    -> (forall b. RealMode ssc ext b -> m b)
-    -> NodeResources ssc ext m
+    => (forall b. m b -> RealMode SscGodTossing ext b)
+    -> (forall b. RealMode SscGodTossing ext b -> m b)
+    -> NodeResources SscGodTossing ext m
     -> (ActionSpec m a, OutSpecs)
     -> Production a
 runRealBasedMode unwrap wrap nr@NodeResources {..} (ActionSpec action, outSpecs) =
@@ -114,21 +114,20 @@ runRealBasedMode unwrap wrap nr@NodeResources {..} (ActionSpec action, outSpecs)
 
 -- | RealMode runner.
 runRealModeDo
-    :: forall ssc ext a.
+    :: forall ext a.
        ( HasConfiguration
        , HasInfraConfiguration
        , HasUpdateConfiguration
        , HasNodeConfiguration
        , HasGtConfiguration
        , HasCompileInfo
-       , SscConstraint ssc
+       , SscConstraint SscGodTossing
        , Default ext
-       , MonadTxpLocal (RealMode ssc ext)
-       , ssc ~ SscGodTossing
+       , MonadTxpLocal (RealMode SscGodTossing ext)
        )
-    => NodeResources ssc ext (RealMode ssc ext)
+    => NodeResources SscGodTossing ext (RealMode SscGodTossing ext)
     -> OutSpecs
-    -> ActionSpec (RealMode ssc ext) a
+    -> ActionSpec (RealMode SscGodTossing ext) a
     -> Production a
 runRealModeDo NodeResources {..} outSpecs action =
     do
@@ -162,7 +161,7 @@ runRealModeDo NodeResources {..} outSpecs action =
                 Just (hst, prt) -> (decodeUtf8 hst, fromIntegral prt)
         mRoute53HealthCheck <- case topologyRoute53HealthCheckEnabled topology of
             False -> return Nothing
-            True  -> let app = route53HealthCheckApplication topology oq
+            True  -> let app = route53HealthCheckApplication @SscGodTossing topology oq
                      in Just <$> async (serveImpl app hcHost hcPort Nothing)
         -- Run the optional tools.
         case npEnableMetrics of
@@ -196,8 +195,8 @@ runRealModeDo NodeResources {..} outSpecs action =
 
     runToProd :: forall t .
                  JsonLogConfig
-              -> OQ (RealMode ssc ext)
-              -> RealMode ssc ext t
+              -> OQ (RealMode SscGodTossing ext)
+              -> RealMode SscGodTossing ext t
               -> Production t
     runToProd jlConf oq act = Mtl.runReaderT act $
         RealModeContext

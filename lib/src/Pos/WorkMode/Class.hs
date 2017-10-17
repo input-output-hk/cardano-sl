@@ -57,7 +57,7 @@ import           Pos.Util.TimeWarp           (CanJsonLog)
 import           Pos.Util.Util               (HasLens, HasLens')
 
 -- | Bunch of constraints to perform work for real world distributed system.
-type WorkMode ssc ctx m
+type WorkMode ctx m
     = ( MinWorkMode m
       , MonadBaseControl IO m
       , Rand.MonadRandom m
@@ -67,19 +67,19 @@ type WorkMode ssc ctx m
       , MonadRealDB ctx m
       , MonadGState m
       , MonadTxpLocal m
-      , MonadSscBlockDB ssc m
-      , MonadBlockDBWrite ssc m
+      , MonadSscBlockDB m
+      , MonadBlockDBWrite m
       , MonadTxpMem (MempoolExt m) ctx m
       , MonadDelegation ctx m
-      , MonadSscMem ssc ctx m
-      , SscGStateClass ssc
-      , SscLocalDataClass ssc
-      , SscHelpersClass ssc
-      , SscWorkersClass ssc
+      , MonadSscMem SscGodTossing ctx m
+      , SscGStateClass SscGodTossing
+      , SscLocalDataClass SscGodTossing
+      , SscHelpersClass SscGodTossing
+      , SscWorkersClass SscGodTossing
       , MonadRecoveryInfo m
-      , MonadRecoveryHeader ssc ctx m
-      , MonadProgressHeader ssc ctx m
-      , MonadLastKnownHeader ssc ctx m
+      , MonadRecoveryHeader ctx m
+      , MonadProgressHeader ctx m
+      , MonadLastKnownHeader ctx m
       , MonadBListener m
       , MonadReader ctx m
       , MonadKnownPeers m
@@ -92,9 +92,9 @@ type WorkMode ssc ctx m
       , HasLens UpdateParams ctx UpdateParams
       , HasLens SecurityParams ctx SecurityParams
       , HasLens TxpGlobalSettings ctx TxpGlobalSettings
-      , HasLens BlockRetrievalQueueTag ctx (BlockRetrievalQueue ssc)
+      , HasLens BlockRetrievalQueueTag ctx BlockRetrievalQueue
       , HasLens' ctx (NetworkConfig KademliaDHTInstance)
-      , HasSscContext ssc ctx
+      , HasSscContext SscGodTossing ctx
       , HasReportingContext ctx
       , HasPrimaryKey ctx
       , HasShutdownContext ctx
@@ -102,7 +102,6 @@ type WorkMode ssc ctx m
       , HasSlogGState ctx
       , HasNodeType ctx
       , HasGtConfiguration
-      , ssc ~ SscGodTossing
       )
 
 -- | More relaxed version of 'WorkMode'.

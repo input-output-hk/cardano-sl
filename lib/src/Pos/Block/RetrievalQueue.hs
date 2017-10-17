@@ -13,7 +13,7 @@ import           Pos.Block.Core          (BlockHeader)
 import           Pos.Communication.Types (NodeId)
 
 -- | Task that block retrieval queue is asked to do.
-data BlockRetrievalTask ssc = BlockRetrievalTask
+data BlockRetrievalTask = BlockRetrievalTask
     { brtHeader    :: !BlockHeader
       -- ^ Header we're insterested in.
     , brtContinues :: !Bool
@@ -24,4 +24,4 @@ data BlockRetrievalTask ssc = BlockRetrievalTask
 data BlockRetrievalQueueTag
 
 -- | Queue types.
-type BlockRetrievalQueue ssc = TBQueue (NodeId, BlockRetrievalTask ssc)
+type BlockRetrievalQueue = TBQueue (NodeId, BlockRetrievalTask)

@@ -34,19 +34,17 @@ import           Pos.WorkMode         (EmptyMempoolExt, RealMode)
 
 
 actionWithoutWallet
-    :: forall ssc.
-       ( SscConstraint ssc
+    :: ( SscConstraint SscGodTossing
        , HasConfigurations
        , HasCompileInfo
-       , ssc ~ SscGodTossing
        )
-    => SscParams ssc
+    => SscParams SscGodTossing
     -> NodeParams
     -> Production ()
 actionWithoutWallet sscParams nodeParams =
-    runNodeReal @ssc nodeParams sscParams plugins
+    runNodeReal nodeParams sscParams plugins
   where
-    plugins :: ([WorkerSpec (RealMode ssc EmptyMempoolExt)], OutSpecs)
+    plugins :: ([WorkerSpec (RealMode SscGodTossing EmptyMempoolExt)], OutSpecs)
     plugins = updateTriggerWorker
 
 action

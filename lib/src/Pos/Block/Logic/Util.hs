@@ -50,7 +50,7 @@ import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 -- header's parent hash. Iterates from newest to oldest until meets
 -- first header that's in main chain. O(n).
 lcaWithMainChain
-    :: (HasConfiguration, MonadDBRead m, SscHelpersClass ssc, ssc ~ SscGodTossing)
+    :: (HasConfiguration, MonadDBRead m, SscHelpersClass SscGodTossing)
     => OldestFirst NE BlockHeader -> m (Maybe HeaderHash)
 lcaWithMainChain headers =
     lcaProceed Nothing $
@@ -79,16 +79,16 @@ lcaWithMainChain headers =
 -- now, 'needRecovery' will still return 'True'.
 --
 needRecovery
-    :: forall ctx ssc m.
+    :: forall ctx m.
     ( HasConfiguration
     , MonadSlots ctx m
-    , MonadBlockDB ssc m
+    , MonadBlockDB m
     )
     => m Bool
 needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
   where
     isTooOld currentSlot = do
-        lastKnownBlockSlot <- getEpochOrSlot <$> DB.getTipHeader @SscGodTossing
+        lastKnownBlockSlot <- getEpochOrSlot <$> DB.getTipHeader
         let distance = getEpochOrSlot currentSlot `diffEpochOrSlot`
                          lastKnownBlockSlot
         pure $ case distance of
@@ -144,14 +144,14 @@ calcChainQualityM newSlot = do
 -- divided by number of slots so far. Returns 'Nothing' if current
 -- slot is unknown.
 calcOverallChainQuality ::
-       forall ssc ctx m res.
-       (Fractional res, MonadSlots ctx m, MonadBlockDB ssc m, HasConfiguration)
+       forall ctx m res.
+       (Fractional res, MonadSlots ctx m, MonadBlockDB m, HasConfiguration)
     => m (Maybe res)
 calcOverallChainQuality =
     getCurrentSlotFlat >>= \case
         Nothing -> pure Nothing
         Just curFlatSlot ->
-            calcOverallChainQualityDo curFlatSlot <$> DB.getTipHeader @SscGodTossing
+            calcOverallChainQualityDo curFlatSlot <$> DB.getTipHeader
   where
     calcOverallChainQualityDo curFlatSlot tipHeader
         | curFlatSlot == 0 = Nothing

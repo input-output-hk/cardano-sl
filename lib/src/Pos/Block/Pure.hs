@@ -52,7 +52,7 @@ headerDifficultyIncrement (Left _)  = 0
 headerDifficultyIncrement (Right _) = 1
 
 -- | Extra data which may be used by verifyHeader function to do more checks.
-data VerifyHeaderParams ssc = VerifyHeaderParams
+data VerifyHeaderParams = VerifyHeaderParams
     { vhpPrevHeader      :: !(Maybe BlockHeader)
       -- ^ Nothing means that block is unknown, not genesis.
     , vhpCurrentSlot     :: !(Maybe SlotId)
@@ -65,8 +65,8 @@ data VerifyHeaderParams ssc = VerifyHeaderParams
       -- ^ Check that header has no unknown attributes.
     }
 
-deriving instance Eq BlockHeader => Eq (VerifyHeaderParams ssc)
-deriving instance Show BlockHeader => Show (VerifyHeaderParams ssc)
+deriving instance Eq BlockHeader => Eq VerifyHeaderParams
+deriving instance Show BlockHeader => Show VerifyHeaderParams
 
 maybeMempty :: Monoid m => (a -> m) -> Maybe a -> m
 maybeMempty = maybe mempty
@@ -75,8 +75,8 @@ maybeMempty = maybe mempty
 -- | Check some predicates (determined by 'VerifyHeaderParams') about
 -- 'BlockHeader'.
 verifyHeader
-    :: forall ssc . (SscHelpersClass ssc, HasConfiguration, ssc ~ SscGodTossing)
-    => VerifyHeaderParams ssc -> BlockHeader -> VerificationRes
+    :: (SscHelpersClass SscGodTossing, HasConfiguration)
+    => VerifyHeaderParams -> BlockHeader -> VerificationRes
 verifyHeader VerifyHeaderParams {..} h =
     verifyGeneric checks
   where
@@ -175,7 +175,7 @@ verifyHeader VerifyHeaderParams {..} h =
 -- | Verifies a set of block headers. Only basic consensus check and
 -- linking checks are performed!
 verifyHeaders ::
-       (SscHelpersClass ssc, HasConfiguration, ssc ~ SscGodTossing)
+       (SscHelpersClass SscGodTossing, HasConfiguration)
     => Maybe SlotLeaders
     -> NewestFirst [] BlockHeader
     -> VerificationRes
@@ -208,8 +208,8 @@ verifyHeaders leaders (NewestFirst (headers@(_:xh))) =
 -- necessary for verification of a single block.
 -- Note: to check that block references previous block and/or is referenced
 -- by next block, use header verification (via vbpVerifyHeader).
-data VerifyBlockParams ssc = VerifyBlockParams
-    { vbpVerifyHeader    :: !(VerifyHeaderParams ssc)
+data VerifyBlockParams = VerifyBlockParams
+    { vbpVerifyHeader    :: !VerifyHeaderParams
       -- ^ Verifies header accordingly to params ('verifyHeader')
     , vbpMaxSize         :: !Byte
     -- ^ Maximal block size. This value limit size of 'Block' (which
@@ -222,8 +222,8 @@ data VerifyBlockParams ssc = VerifyBlockParams
 -- | Check predicates defined by VerifyBlockParams.
 -- #verifyHeader
 verifyBlock
-    :: forall ssc. (SscHelpersClass ssc, HasConfiguration, ssc ~ SscGodTossing)
-    => VerifyBlockParams ssc -> Block -> VerificationRes
+    :: (SscHelpersClass SscGodTossing, HasConfiguration)
+    => VerifyBlockParams -> Block -> VerificationRes
 verifyBlock VerifyBlockParams {..} blk =
     mconcat
         [ verifyHeader vbpVerifyHeader (getBlockHeader blk)
@@ -262,12 +262,10 @@ type VerifyBlocksIter ssc = (SlotLeaders, Maybe BlockHeader, VerificationRes)
 -- laziness of 'VerificationRes' which is good because laziness for this data
 -- type is crucial.
 verifyBlocks
-    :: forall ssc f t.
-       ( SscHelpersClass ssc
+    :: ( SscHelpersClass SscGodTossing
        , t ~ OldestFirst f Block
        , NontrivialContainer t
        , HasConfiguration
-       , ssc ~ SscGodTossing
        )
     => Maybe SlotId
     -> Bool
@@ -277,7 +275,7 @@ verifyBlocks
     -> VerificationRes
 verifyBlocks curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step start
   where
-    start :: VerifyBlocksIter ssc
+    start :: VerifyBlocksIter SscGodTossing
     -- Note that here we never know previous header before this
     -- function is launched.  Which means that we will not do any
     -- checks related to previous header. And it is fine, because we
@@ -285,7 +283,7 @@ verifyBlocks curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step s
     -- headers. However, it's a little obscure invariant, so keep it
     -- in mind.
     start = (initLeaders, Nothing, mempty)
-    step :: VerifyBlocksIter ssc -> Block -> VerifyBlocksIter ssc
+    step :: VerifyBlocksIter SscGodTossing -> Block -> VerifyBlocksIter SscGodTossing
     step (leaders, prevHeader, res) blk =
         let newLeaders = case blk of
                 Left genesisBlock -> genesisBlock ^. genBlockLeaders

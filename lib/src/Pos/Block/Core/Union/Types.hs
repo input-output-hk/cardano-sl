@@ -17,7 +17,6 @@ import           Universum
 import           Pos.Binary.Class             (Bi)
 import           Pos.Core                     (HeaderHash)
 import           Pos.Crypto                   (unsafeHash)
-import           Pos.Ssc.Class.Types          (Ssc (..))
 
 -- Re-exports
 import           Pos.Block.Core.Genesis.Types
@@ -29,10 +28,9 @@ import           Pos.Core.Block
 ----------------------------------------------------------------------------
 
 -- | Ssc w/ buildable blockchain
-type BiSsc ssc =
-    ( Ssc ssc
-    , Bi (GenericBlockHeader (GenesisBlockchain ssc))
-    , Bi (GenericBlockHeader (MainBlockchain ssc))
+type BiSsc =
+    ( Bi GenesisBlockHeader
+    , Bi MainBlockHeader
     )
 
 -- | Either header of ordinary main block or genesis block.

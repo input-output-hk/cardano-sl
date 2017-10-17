@@ -46,9 +46,9 @@ genesisLeaders = followTheSatoshiUtxo (gdFtsSeed genesisData) utxo
   where
     GenesisUtxo utxo = genesisUtxo
 
-genesisBlock0 :: forall ssc . (HasConfiguration, SscHelpersClass ssc, ssc ~ SscGodTossing)
+genesisBlock0 :: (HasConfiguration, SscHelpersClass SscGodTossing)
     => GenesisBlock
-genesisBlock0 = mkGenesisBlock @ssc Nothing 0 genesisLeaders
+genesisBlock0 = mkGenesisBlock Nothing 0 genesisLeaders
 
 ----------------------------------------------------------------------------
 -- Misc

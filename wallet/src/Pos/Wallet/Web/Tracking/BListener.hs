@@ -65,14 +65,13 @@ walletGuard curTip wAddr action = WS.getWalletSyncTip wAddr >>= \case
 
 -- Perform this action under block lock.
 onApplyTracking
-    :: forall ssc ctx m .
-    ( SscHelpersClass ssc
+    :: forall ctx m .
+    ( SscHelpersClass SscGodTossing
     , AccountMode ctx m
     , MonadSlotsData ctx m
     , MonadDBRead m
     , MonadReporting ctx m
     , HasConfiguration
-    , ssc ~ SscGodTossing
     )
     => OldestFirst NE Blund -> m SomeBatchOp
 onApplyTracking blunds = setLogger $ do
@@ -108,14 +107,13 @@ onApplyTracking blunds = setLogger $ do
 
 -- Perform this action under block lock.
 onRollbackTracking
-    :: forall ssc ctx m .
+    :: forall ctx m .
     ( AccountMode ctx m
     , MonadDBRead m
     , MonadSlots ctx m
-    , SscHelpersClass ssc
+    , SscHelpersClass SscGodTossing
     , MonadReporting ctx m
     , HasConfiguration
-    , ssc ~ SscGodTossing
     )
     => NewestFirst NE Blund -> m SomeBatchOp
 onRollbackTracking blunds = setLogger $ do
@@ -150,9 +148,8 @@ onRollbackTracking blunds = setLogger $ do
 blkHeaderTsGetter
     :: ( MonadSlotsData ctx m
        , MonadDBRead m
-       , SscHelpersClass ssc
+       , SscHelpersClass SscGodTossing
        , HasConfiguration
-       , ssc ~ SscGodTossing
        )
     => m (BlockHeader -> Maybe Timestamp)
 blkHeaderTsGetter = do

@@ -41,7 +41,7 @@ announceBlockOuts = toOutSpecs [convH (Proxy :: Proxy MsgHeaders)
                                ]
 
 announceBlock
-    :: WorkMode ssc ctx m
+    :: WorkMode ctx m
     => EnqueueMsg m -> MainBlockHeader -> m (Map NodeId (m ()))
 announceBlock enqueue header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
@@ -63,8 +63,8 @@ announceBlock enqueue header = do
         handleHeadersCommunication cA
 
 handleHeadersCommunication
-    :: forall ssc ctx m .
-       (WorkMode ssc ctx m)
+    :: forall ctx m .
+       (WorkMode ctx m)
     => ConversationActions MsgHeaders MsgGetHeaders m
     -> m ()
 handleHeadersCommunication conv = do
@@ -75,7 +75,7 @@ handleHeadersCommunication conv = do
                 ([], Nothing) -> Right . one <$> getLastMainHeader
                 ([], Just h)  ->
                     maybeToRight "getBlockHeader returned Nothing" . fmap one <$>
-                    DB.blkGetHeader @ssc h
+                    DB.blkGetHeader h
                 (c1:cxs, _)   -> runExceptT
                     (getHeadersFromManyTo (c1:|cxs) mghTo)
             either onNoHeaders handleSuccess headers

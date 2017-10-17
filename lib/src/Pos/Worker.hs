@@ -37,7 +37,7 @@ import           Pos.WorkMode            (WorkMode)
 allWorkers
     :: forall ssc ext ctx m .
        ( SscListenersClass ssc
-       , WorkMode ssc ctx m
+       , WorkMode ctx m
        )
     => NodeResources ssc ext m -> ([WorkerSpec m], OutSpecs)
 allWorkers NodeResources {..} = mconcatPair

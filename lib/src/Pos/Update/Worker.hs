@@ -26,10 +26,9 @@ import           Pos.Update.Logic.Local     (processNewSlot)
 import           Pos.Update.Poll            (ConfirmedProposalState (..))
 import           Pos.Util.Util              (lensOf)
 import           Pos.WorkMode.Class         (WorkMode)
-import           Pos.Ssc.GodTossing.Type    (SscGodTossing)
 
 -- | Update System related workers.
-usWorkers :: forall ctx m. WorkMode SscGodTossing ctx m => ([WorkerSpec m], OutSpecs)
+usWorkers :: forall ctx m. WorkMode ctx m => ([WorkerSpec m], OutSpecs)
 usWorkers = (map fst [processNewSlotWorker, checkForUpdateWorker], mempty)
   where
     -- These are two separate workers. We want them to run in parallel
@@ -49,7 +48,7 @@ usWorkers = (map fst [processNewSlotWorker, checkForUpdateWorker], mempty)
             recoveryCommGuard "checkForUpdate" (checkForUpdate @ctx @m)
 
 checkForUpdate ::
-       forall ctx m. WorkMode SscGodTossing ctx m
+       forall ctx m. WorkMode ctx m
     => m ()
 checkForUpdate = do
     logDebug "Checking for update..."
@@ -80,7 +79,7 @@ checkForUpdate = do
 -- application. When an update is downloaded, it shuts the system
 -- down. It should be used in there is no high-level code which shuts
 -- down the system (e. g. in regular node w/o wallet or in explorer).
-updateTriggerWorker :: WorkMode SscGodTossing ctx m => ([WorkerSpec m], OutSpecs)
+updateTriggerWorker :: WorkMode ctx m => ([WorkerSpec m], OutSpecs)
 updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     logInfo "Update trigger worker is locked"
     void $ takeMVar . ucDownloadedUpdate =<< view (lensOf @UpdateContext)

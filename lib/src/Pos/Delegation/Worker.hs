@@ -21,7 +21,7 @@ import           Pos.Util                   (microsecondsToUTC)
 import           Pos.WorkMode.Class         (WorkMode)
 
 -- | All workers specific to proxy sertificates processing.
-dlgWorkers :: (WorkMode ssc ctx m) => ([WorkerSpec m], OutSpecs)
+dlgWorkers :: (WorkMode ctx m) => ([WorkerSpec m], OutSpecs)
 dlgWorkers = first pure $ localWorker dlgInvalidateCaches
 
 -- | Runs proxy caches invalidating action every second.

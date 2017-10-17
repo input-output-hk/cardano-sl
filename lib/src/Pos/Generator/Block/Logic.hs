@@ -38,7 +38,6 @@ import           Pos.Generator.Block.Payload (genPayload)
 import           Pos.Lrc                     (lrcSingleShot)
 import           Pos.Lrc.Context             (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB                  as LrcDB
-import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Txp                     (MempoolExt, MonadTxpLocal)
 import           Pos.Util.Chrono             (OldestFirst (..))
 import           Pos.Util.CompileInfo        (HasCompileInfo, withCompileInfo)
@@ -69,7 +68,7 @@ genBlocks params = do
     genBlocksDo =
         OldestFirst <$> do
             let numberOfBlocks = params ^. bgpBlockCount
-            tipEOS <- getEpochOrSlot <$> lift (getTipHeader @SscGodTossing)
+            tipEOS <- getEpochOrSlot <$> lift getTipHeader
             let startEOS = succ tipEOS
             let finishEOS =
                     toEnum $ fromEnum tipEOS + fromIntegral numberOfBlocks
@@ -88,7 +87,7 @@ genBlock eos = withCompileInfo def $ do
     leaders <- lift $ lrcActionOnEpochReason epoch "genBlock" LrcDB.getLeaders
     case eos of
         EpochOrSlot (Left _) -> do
-            tipHeader <- lift $ getTipHeader @SscGodTossing
+            tipHeader <- lift getTipHeader
             let slot0 = SlotId epoch minBound
             let genesisBlock = mkGenesisBlock (Just tipHeader) epoch leaders
             fmap Just $ withCurrentSlot slot0 $ lift $ verifyAndApply (Left genesisBlock)
@@ -124,7 +123,7 @@ genBlock eos = withCompileInfo def $ do
         ProxySKBlockInfo ->
         BlockGenMode (MempoolExt m) m Blund
     genMainBlock slot proxySkInfo =
-        createMainBlockInternal @SscGodTossing slot proxySkInfo >>= \case
+        createMainBlockInternal slot proxySkInfo >>= \case
             Left err -> throwM (BGFailedToCreate err)
             Right mainBlock -> verifyAndApply $ Right mainBlock
     verifyAndApply ::

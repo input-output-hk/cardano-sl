@@ -35,19 +35,19 @@ instance Buildable ProxySKLightConfirmation where
 
 -- | Listeners for requests related to delegation processing.
 delegationRelays
-    :: forall ssc ctx m. WorkMode ssc ctx m
+    :: forall ctx m. WorkMode ctx m
     => [Relay m]
 delegationRelays = [ pskHeavyRelay ]
 
 pskHeavyRelay
-    :: WorkMode ssc ctx m
+    :: WorkMode ctx m
     => Relay m
 pskHeavyRelay = Data $ DataParams MsgTransaction $ \_ _ -> handlePsk
   where
-    handlePsk :: forall ssc ctx m. WorkMode ssc ctx m => ProxySKHeavy -> m Bool
+    handlePsk :: forall ctx m. WorkMode ctx m => ProxySKHeavy -> m Bool
     handlePsk pSk = do
         logDebug $ sformat ("Got request to handle heavyweight psk: "%build) pSk
-        verdict <- processProxySKHeavy @ssc pSk
+        verdict <- processProxySKHeavy pSk
         logDebug $ sformat ("The verdict for cert "%build%" is: "%shown) pSk verdict
         case verdict of
             PHTipMismatch -> do
@@ -69,7 +69,7 @@ pskHeavyRelay = Data $ DataParams MsgTransaction $ \_ _ -> handlePsk
 -- @volhovm
 
 _pskLightRelay
-    :: WorkMode ssc ctx m
+    :: WorkMode ctx m
     => Relay m
 _pskLightRelay = Data $ DataParams MsgTransaction $ \enqueue _ pSk -> do
     logDebug $ sformat ("Got request to handle lightweight psk: "%build) pSk
@@ -105,7 +105,7 @@ _pskLightRelay = Data $ DataParams MsgTransaction $ \enqueue _ pSk -> do
         sformat ("Got proxy signature that wasn't accepted. Reason: "%shown) verdict
 
 _confirmPskRelay
-    :: WorkMode ssc ctx m
+    :: WorkMode ctx m
     => Relay m
 _confirmPskRelay = Data $ DataParams MsgTransaction $ \_ _ (pSk, proof) -> do
     verdict <- processConfirmProxySk pSk proof

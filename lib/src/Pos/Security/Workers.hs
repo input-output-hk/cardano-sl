@@ -31,22 +31,21 @@ import           Pos.DB.DB                  (getTipHeader)
 import           Pos.Reporting              (reportMisbehaviour, reportOrLogE)
 import           Pos.Slotting               (getCurrentSlot, getNextEpochSlotDuration)
 import           Pos.WorkMode.Class         (WorkMode)
-import           Pos.Ssc.GodTossing.Type    (SscGodTossing)
 
 -- | Workers which perform security checks.
-securityWorkers :: WorkMode ssc ctx m => ([WorkerSpec m], OutSpecs)
+securityWorkers :: WorkMode ctx m => ([WorkerSpec m], OutSpecs)
 securityWorkers = merge [checkForReceivedBlocksWorker]
   where
     merge = mconcat . map (first pure)
 
 checkForReceivedBlocksWorker ::
-    (WorkMode ssc ctx m)
+    (WorkMode ctx m)
     => (WorkerSpec m, OutSpecs)
 checkForReceivedBlocksWorker =
     worker requestTipOuts checkForReceivedBlocksWorkerImpl
 
 checkEclipsed
-    :: (MonadBlockDB ssc m, HasConfiguration, HasNodeConfiguration, ssc ~ SscGodTossing)
+    :: (MonadBlockDB m, HasConfiguration, HasNodeConfiguration)
     => PublicKey -> SlotId -> BlockHeader -> m Bool
 checkEclipsed ourPk slotId x = notEclipsed x
   where
@@ -83,17 +82,17 @@ checkEclipsed ourPk slotId x = notEclipsed x
 
 -- FIX: CSL-1470 Do we need this logic? It's duplicated in practice by chain quality check
 checkForReceivedBlocksWorkerImpl
-    :: forall ssc ctx m.
-       (WorkMode ssc ctx m)
+    :: forall ctx m.
+       (WorkMode ctx m)
     => SendActions m -> m ()
 checkForReceivedBlocksWorkerImpl SendActions {..} = afterDelay $ do
     repeatOnInterval (const (sec' 4)) . recoveryCommGuard "security worker" $
-        whenM (needRecovery @ctx @ssc) $ triggerRecovery enqueueMsg
+        whenM (needRecovery @ctx) $ triggerRecovery enqueueMsg
     -- FIXME: 'repeatOnInterval' is looped, will the code below ever be called?
     repeatOnInterval (min (sec' 20)) . recoveryCommGuard "security worker" $ do
         ourPk <- getOurPublicKey
         let onSlotDefault slotId = do
-                header <- getTipHeader @ssc
+                header <- getTipHeader
                 unlessM (checkEclipsed ourPk slotId header) onEclipsed
         whenJustM getCurrentSlot onSlotDefault
   where

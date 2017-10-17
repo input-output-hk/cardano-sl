@@ -26,9 +26,10 @@ singleton t = NonEmptySet t S.empty
 
 -- | Extend a 'NonEmptySet' by adding one element.
 insert :: Ord t => t -> NonEmptySet t -> NonEmptySet t
-insert t (NonEmptySet t' set) = case t `compare` t' of
+insert t nes@(NonEmptySet t' set) = case t `compare` t' of
     LT -> NonEmptySet t (S.insert t' set)
-    _  -> NonEmptySet t' (S.insert t set)
+    EQ -> nes
+    GT -> NonEmptySet t' (S.insert t set)
 
 -- | Remove an element from a 'NonEmptySet'. If it's the only element of the
 --   set, 'Nothing' is given.

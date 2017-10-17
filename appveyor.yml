@@ -5,6 +5,7 @@ build: off
 
 environment:
   global:
+    VERSION: "1.0"
     # Avoid long paths on Windows
     STACK_ROOT: "c:\\s"
     STACK_WORK: ".w"
@@ -36,7 +37,7 @@ cache:
   # different branch is built.
   - "%BRANCH_CACHE_DIR%"        # e.g. C:\cache\feature_abc123
   - "%CACHE_DIR%\\master"
-  - "%CACHE_DIR%\\cardano-sl-0.4"
+  - "%CACHE_DIR%\\cardano-sl-%VERSION%"
   # Add more "%CACHE_DIR%\\<branch_name>" directories as needed
 
 before_test:

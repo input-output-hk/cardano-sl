@@ -46,7 +46,6 @@ import           Pos.Util.CompileInfo     (compileInfo)
 import           Pos.Util.LogSafe         (logInfoS)
 import           Pos.Worker               (allWorkers)
 import           Pos.WorkMode.Class       (WorkMode)
-import           Pos.Ssc.GodTossing.Type  (SscGodTossing)
 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
@@ -54,7 +53,7 @@ runNode'
     :: forall ext ctx m.
        ( WorkMode ctx m
        )
-    => NodeResources SscGodTossing ext m
+    => NodeResources ext m
     -> [WorkerSpec m]
     -> [WorkerSpec m]
     -> WorkerSpec m
@@ -130,10 +129,10 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
 runNode ::
-       ( SscConstraint SscGodTossing
+       ( SscConstraint
        , WorkMode ctx m
        )
-    => NodeResources SscGodTossing ext m
+    => NodeResources ext m
     -> ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
 runNode nr (plugins, plOuts) =

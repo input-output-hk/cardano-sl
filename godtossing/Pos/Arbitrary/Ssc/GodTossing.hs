@@ -35,13 +35,13 @@ import           Pos.Ssc.GodTossing.Core           (Commitment (..), Commitments
                                                     isSharesId, mkCommitmentsMap,
                                                     mkCommitmentsMap, mkSignedCommitment)
 import           Pos.Ssc.GodTossing.Toss.Types     (TossModifier (..))
-import           Pos.Ssc.GodTossing.Type           (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Message  (GtTag (..), MCCommitment (..),
                                                     MCOpening (..), MCShares (..),
                                                     MCVssCertificate (..))
 import           Pos.Ssc.GodTossing.Types.Types    (GtGlobalState (..),
                                                     GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData    (VssCertData (..))
+import           Pos.Ssc.GodTossing.Instance       ()
 import           Pos.Util.Arbitrary                (Nonrepeating (..), makeSmall,
                                                     sublistN)
 
@@ -149,7 +149,7 @@ instance HasConfiguration => Arbitrary GtPayload where
             ]
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary (SscPayloadDependsOnSlot SscGodTossing) where
+instance HasConfiguration => Arbitrary SscPayloadDependsOnSlot where
     arbitrary = pure $ SscPayloadDependsOnSlot payloadGen
       where
         payloadGen slot

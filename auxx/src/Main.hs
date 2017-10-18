@@ -21,7 +21,6 @@ import           Pos.Launcher          (HasConfigurations, NodeParams (..), Node
 import           Pos.Network.Types     (NetworkConfig (..), Topology (..),
                                         topologyDequeuePolicy, topologyEnqueuePolicy,
                                         topologyFailurePolicy)
-import           Pos.Ssc.GodTossing    (SscGodTossing)
 import           Pos.Ssc.SscAlgo       (SscAlgo (GodTossingAlgo))
 import           Pos.Txp               (txpGlobalSettings)
 import           Pos.Util.CompileInfo  (HasCompileInfo, retrieveCompileTimeInfo,
@@ -68,7 +67,7 @@ correctNodeParams AuxxOptions {..} np = do
 
 runNodeWithSinglePlugin ::
        (HasConfigurations, HasCompileInfo)
-    => NodeResources SscGodTossing EmptyMempoolExt AuxxMode
+    => NodeResources EmptyMempoolExt AuxxMode
     -> (WorkerSpec AuxxMode, OutSpecs)
     -> (WorkerSpec AuxxMode, OutSpecs)
 runNodeWithSinglePlugin nr (plugin, plOuts) =
@@ -83,7 +82,7 @@ action opts@AuxxOptions {..} command = withConfigurations conf $ do
     (nodeParams, tempDbUsed) <-
         correctNodeParams opts =<< CLI.getNodeParams cArgs nArgs
     let
-        toRealMode :: AuxxMode a -> RealMode SscGodTossing EmptyMempoolExt a
+        toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
         toRealMode auxxAction = do
             realModeContext <- ask
             let auxxContext =

@@ -38,7 +38,6 @@ import           Pos.Core                   (BlockVersionData (..), ChainDifficu
                                              addressHash, gbExtra, gbhExtra, getSlotIndex,
                                              headerSlotL, prevBlockL)
 import           Pos.Data.Attributes        (areAttributesKnown)
-import           Pos.Ssc.GodTossing.Type    (SscGodTossing)
 import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
 
 ----------------------------------------------------------------------------
@@ -250,7 +249,7 @@ verifyBlock VerifyBlockParams {..} blk =
                ]
 
 -- Type alias for the fold accumulator used inside 'verifyBlocks'
-type VerifyBlocksIter ssc = (SlotLeaders, Maybe BlockHeader, VerificationRes)
+type VerifyBlocksIter = (SlotLeaders, Maybe BlockHeader, VerificationRes)
 
 -- CHECK: @verifyBlocks
 -- Verifies a sequence of blocks.
@@ -273,7 +272,7 @@ verifyBlocks
     -> VerificationRes
 verifyBlocks curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step start
   where
-    start :: VerifyBlocksIter SscGodTossing
+    start :: VerifyBlocksIter
     -- Note that here we never know previous header before this
     -- function is launched.  Which means that we will not do any
     -- checks related to previous header. And it is fine, because we
@@ -281,7 +280,7 @@ verifyBlocks curSlotId verifyNoUnknown bvd initLeaders = view _3 . foldl' step s
     -- headers. However, it's a little obscure invariant, so keep it
     -- in mind.
     start = (initLeaders, Nothing, mempty)
-    step :: VerifyBlocksIter SscGodTossing -> Block -> VerifyBlocksIter SscGodTossing
+    step :: VerifyBlocksIter -> Block -> VerifyBlocksIter
     step (leaders, prevHeader, res) blk =
         let newLeaders = case blk of
                 Left genesisBlock -> genesisBlock ^. genBlockLeaders

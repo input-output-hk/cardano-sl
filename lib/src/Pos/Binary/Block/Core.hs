@@ -24,20 +24,20 @@ import           Pos.Ssc.Class.Types          (Ssc (..))
 -- MainBlock
 ----------------------------------------------------------------------------
 
-instance (Typeable ssc, Ssc ssc) => Bi (Core.BodyProof (BC.MainBlockchain ssc)) where
+instance Ssc => Bi (Core.BodyProof BC.MainBlockchain) where
   encode bc =  encodeListLen 4
             <> encode (BC.mpTxProof bc)
             <> encode (BC.mpMpcProof bc)
             <> encode (BC.mpProxySKsProof bc)
             <> encode (BC.mpUpdateProof bc)
   decode = do
-    enforceSize "Core.BodyProof (BC.MainBlockChain ssc)" 4
+    enforceSize "Core.BodyProof BC.MainBlockChain" 4
     BC.MainProof <$> decode <*>
                      decode <*>
                      decode <*>
                      decode
 
-instance Typeable ssc => Bi (BC.BlockSignature ssc) where
+instance Bi BC.BlockSignature where
   encode input = case input of
     BC.BlockSignature sig       -> encodeListLen 2 <> encode (0 :: Word8) <> encode sig
     BC.BlockPSignatureLight pxy -> encodeListLen 2 <> encode (1 :: Word8) <> encode pxy
@@ -51,27 +51,27 @@ instance Typeable ssc => Bi (BC.BlockSignature ssc) where
       2 -> BC.BlockPSignatureHeavy <$> decode
       _ -> fail $ "decode@BlockSignature: unknown tag: " <> show tag
 
-instance (Typeable ssc, HasConfiguration) => Bi (BC.ConsensusData (BC.MainBlockchain ssc)) where
+instance HasConfiguration => Bi (BC.ConsensusData BC.MainBlockchain) where
   encode cd =  encodeListLen 4
             <> encode (BC._mcdSlot cd)
             <> encode (BC._mcdLeaderKey cd)
             <> encode (BC._mcdDifficulty cd)
             <> encode (BC._mcdSignature cd)
   decode = do
-    enforceSize "BC.ConsensusData (BC.MainBlockchain ssc))" 4
+    enforceSize "BC.ConsensusData BC.MainBlockchain)" 4
     BC.MainConsensusData <$> decode <*>
                              decode <*>
                              decode <*>
                              decode
 
-instance (HasConfiguration, Typeable ssc, Ssc ssc) => Bi (BC.Body (BC.MainBlockchain ssc)) where
+instance (HasConfiguration, Ssc) => Bi (BC.Body BC.MainBlockchain) where
   encode bc =  encodeListLen 4
             <> encode (BC._mbTxPayload  bc)
             <> encode (BC._mbSscPayload bc)
             <> encode (BC._mbDlgPayload bc)
             <> encode (BC._mbUpdatePayload bc)
   decode = do
-    enforceSize "BC.Body (BC.MainBlockchain ssc)" 4
+    enforceSize "BC.Body BC.MainBlockchain" 4
     BC.MainBody <$> decode <*>
                     decode <*>
                     decode <*>
@@ -90,7 +90,7 @@ deriveSimpleBi ''BC.MainExtraBodyData [
         Field [| BC._mebAttributes :: BC.BlockBodyAttributes |]
     ]]
 
-instance (HasConfiguration, Ssc ssc) => Bi (BC.MainToSign ssc) where
+instance (HasConfiguration, Ssc) => Bi BC.MainToSign where
   encode mts = encodeListLen 5
              <> encode (BC._msHeaderHash mts)
              <> encode (BC._msBodyProof mts)
@@ -119,18 +119,18 @@ deriveSimpleBi ''BC.GenesisExtraBodyData [
         Field [| BC._gebAttributes :: BC.GenesisBodyAttributes |]
     ]]
 
-instance Typeable ssc => Bi (BC.BodyProof (BC.GenesisBlockchain ssc)) where
+instance Bi (BC.BodyProof BC.GenesisBlockchain) where
   encode (BC.GenesisProof h) = encode h
   decode = BC.GenesisProof <$> decode
 
-instance Typeable ssc => Bi (BC.ConsensusData (BC.GenesisBlockchain ssc)) where
+instance Bi (BC.ConsensusData BC.GenesisBlockchain) where
   encode bc =  encodeListLen 2
             <> encode (BC._gcdEpoch bc)
             <> encode (BC._gcdDifficulty bc)
   decode = do
-    enforceSize "BC.ConsensusData (BC.GenesisBlockchain ssc)" 2
+    enforceSize "BC.ConsensusData BC.GenesisBlockchain" 2
     BC.GenesisConsensusData <$> decode <*> decode
 
-instance Typeable ssc => Bi (BC.Body (BC.GenesisBlockchain ssc)) where
+instance Bi (BC.Body BC.GenesisBlockchain) where
   encode = encode . BC._gbLeaders
   decode = BC.GenesisBody <$> decode

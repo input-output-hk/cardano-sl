@@ -68,7 +68,6 @@ import           Pos.Slotting                     (HasSlottingVar (..), MonadSlo
                                                    currentTimeSlottingSimple)
 import           Pos.Ssc.Class                    (SscBlock)
 import           Pos.Ssc.Extra                    (SscMemTag, SscState, mkSscState)
-import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                          (GenericTxpLocalData, MempoolExt,
                                                    TxpGlobalSettings, TxpHolderTag,
@@ -151,7 +150,7 @@ data BlockGenContext ext = BlockGenContext
     , bgcGenStakeholders   :: !GenesisWStakeholders
     , bgcTxpMem            :: !(GenericTxpLocalData ext)
     , bgcUpdateContext     :: !UpdateContext
-    , bgcSscState          :: !(SscState SscGodTossing)
+    , bgcSscState          :: !SscState
     , bgcSlotId            :: !(Maybe SlotId)
     -- ^ During block generation we don't want to use real time, but
     -- rather want to set current slot (fake one) by ourselves.
@@ -207,7 +206,7 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
     usingReaderT initCtx $ do
         tipEOS <- getEpochOrSlot <$> getTipHeader
         putInitSlot (epochOrSlotToSlot tipEOS)
-        bgcSscState <- mkSscState @SscGodTossing
+        bgcSscState <- mkSscState
         bgcUpdateContext <- mkUpdateContext
         bgcTxpMem <- mkTxpLocalData
         bgcDelegation <- mkDelegationVar
@@ -307,7 +306,7 @@ instance HasSlogGState (BlockGenContext ext) where
 instance HasLens TxpHolderTag (BlockGenContext ext) (GenericTxpLocalData ext) where
     lensOf = bgcTxpMem_L
 
-instance HasLens SscMemTag (BlockGenContext ext) (SscState SscGodTossing) where
+instance HasLens SscMemTag (BlockGenContext ext) SscState where
     lensOf = bgcSscState_L
 
 instance HasLens TxpGlobalSettings (BlockGenContext ext) TxpGlobalSettings where
@@ -339,7 +338,7 @@ instance (HasGtConfiguration, MonadBlockGenBase m) =>
     dbGetHeader = BDB.dbGetHeaderSumDefault
 
 instance (HasGtConfiguration, MonadBlockGenBase m) =>
-    MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () (BlockGenMode ext m)
+    MonadBlockDBGeneric (Some IsHeader) SscBlock () (BlockGenMode ext m)
   where
     dbGetBlock = BDB.dbGetBlockSscSumDefault
     dbGetUndo = BDB.dbGetUndoSscSumDefault

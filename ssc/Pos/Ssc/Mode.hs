@@ -25,7 +25,7 @@ import           Pos.Ssc.Extra       (MonadSscMem)
 import           Pos.Util.TimeWarp   (CanJsonLog)
 
 -- | Mode used for all SSC listeners, workers, and the like.
-type SscMode ssc ctx m
+type SscMode ctx m
     = ( WithLogger m
       , CanJsonLog m
       , MonadIO m
@@ -35,11 +35,11 @@ type SscMode ssc ctx m
       , MonadSlots ctx m
       , MonadGState m
       , MonadDB m
-      , MonadSscMem ssc ctx m
+      , MonadSscMem ctx m
       , MonadRecoveryInfo m
       , HasShutdownContext ctx
       , MonadReader ctx m
-      , HasSscContext ssc ctx
+      , HasSscContext ctx
       , MonadReporting ctx m
       , HasPrimaryKey ctx
       , HasLens SecurityParams ctx SecurityParams

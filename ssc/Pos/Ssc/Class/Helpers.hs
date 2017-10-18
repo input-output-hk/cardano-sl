@@ -12,16 +12,16 @@ import           Pos.Core                   (EpochIndex, IsMainHeader, LocalSlot
 import           Pos.Ssc.Class.Types        (Ssc (..))
 import           Pos.Util.Util              (Some)
 
-class Ssc ssc => SscHelpersClass ssc where
+class Ssc => SscHelpersClass where
     sscVerifyPayload
         :: Either EpochIndex (Some IsMainHeader)
-        -> SscPayload ssc
-        -> Either (SscVerifyError ssc) ()
+        -> SscPayload
+        -> Either SscVerifyError ()
     -- | Removes parts of payload so its binary representation length
     -- fits into passed limit. If limit is too low (0), we can return
     -- 'Nothing'.
-    sscStripPayload :: Byte -> SscPayload ssc -> Maybe (SscPayload ssc)
+    sscStripPayload :: Byte -> SscPayload -> Maybe SscPayload
     -- | Returns default payload for the given local slot index.
-    sscDefaultPayload :: LocalSlotIndex -> (SscPayload ssc)
+    sscDefaultPayload :: LocalSlotIndex -> SscPayload
     -- | Returns 'True' if the error must be reported.
-    sscIsCriticalError :: SscVerifyError ssc -> Bool
+    sscIsCriticalError :: SscVerifyError -> Bool

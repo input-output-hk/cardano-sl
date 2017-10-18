@@ -47,7 +47,6 @@ import           Pos.Crypto                  (ProxySecretKey (..), SecretKey,
 import           Pos.Data.Attributes         (mkAttributes)
 import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
-import           Pos.Ssc.GodTossing.Type     (SscGodTossing)
 import           Pos.Txp.Core                (emptyTxPayload)
 import           Pos.Update.Configuration    (HasUpdateConfiguration, curSoftwareVersion,
                                               lastKnownBlockVersion)
@@ -125,7 +124,7 @@ instance Bi BlockHeader =>
          HasHeaderHash MainBlock where
     headerHash = blockHeaderHash . Right . _gbHeader
 
-instance HasDifficulty (ConsensusData $ MainBlockchain ssc) where
+instance HasDifficulty (ConsensusData MainBlockchain) where
     difficultyL = mcdDifficulty
 
 instance HasDifficulty MainBlockHeader where
@@ -176,7 +175,7 @@ mkMainHeader
     -> SlotId
     -> SecretKey
     -> ProxySKBlockInfo
-    -> Body (MainBlockchain SscGodTossing)
+    -> Body MainBlockchain
     -> MainExtraHeaderData
     -> MainBlockHeader
 mkMainHeader prevHeader slotId sk pske body extra =
@@ -214,7 +213,7 @@ mkMainBlock
     -> SlotId
     -> SecretKey
     -> ProxySKBlockInfo
-    -> Body (MainBlockchain SscGodTossing)
+    -> Body MainBlockchain
     -> m MainBlock
 mkMainBlock prevHeader slotId sk pske body =
     recreateGenericBlock
@@ -234,13 +233,13 @@ mkMainBlock prevHeader slotId sk pske body =
 
 -- | Empty (i. e. no payload) body of main block for given local slot index.
 emptyMainBody ::
-       forall ssc. SscHelpersClass ssc
+       SscHelpersClass
     => LocalSlotIndex
-    -> Body (MainBlockchain ssc)
+    -> Body MainBlockchain
 emptyMainBody slot =
     MainBody
     { _mbTxPayload = emptyTxPayload
-    , _mbSscPayload = sscDefaultPayload @ssc slot
+    , _mbSscPayload = sscDefaultPayload slot
     , _mbDlgPayload = def
     , _mbUpdatePayload = def
     }

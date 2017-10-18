@@ -32,7 +32,6 @@ import           Pos.Core                     (EpochIndex, EpochOrSlot (..),
                                                recreateGenericBlock)
 import           Pos.Crypto                   (hashHexF)
 import           Pos.Data.Attributes          (mkAttributes)
-import           Pos.Ssc.GodTossing.Type      (SscGodTossing)
 import           Pos.Util.Util                (leftToPanic)
 
 ----------------------------------------------------------------------------
@@ -101,7 +100,7 @@ instance Bi BlockHeader =>
          HasHeaderHash GenesisBlock where
     headerHash = blockHeaderHash . Left . _gbHeader
 
-instance HasDifficulty (ConsensusData (GenesisBlockchain SscGodTossing)) where
+instance HasDifficulty (ConsensusData GenesisBlockchain) where
     difficultyL = gcdDifficulty
 
 instance HasDifficulty GenesisBlockHeader where
@@ -128,7 +127,7 @@ mkGenesisHeader
     :: SanityConstraint
     => Maybe BlockHeader
     -> EpochIndex
-    -> Body (GenesisBlockchain SscGodTossing)
+    -> Body GenesisBlockchain
     -> GenesisBlockHeader
 mkGenesisHeader prevHeader epoch body =
     -- here we know that genesis header construction can not fail

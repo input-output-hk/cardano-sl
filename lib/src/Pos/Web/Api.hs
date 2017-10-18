@@ -22,7 +22,6 @@ import           Servant.API        ((:<|>), (:>), Capture, Get, JSON, PlainText
 import           Universum
 
 import           Pos.Crypto         (PublicKey)
-import           Pos.Ssc.GodTossing (SscGodTossing)
 import           Pos.Txp            (TxOut)
 import           Pos.Types          (EpochIndex, HeaderHash, SlotLeaders)
 
@@ -30,7 +29,7 @@ import           Pos.Types          (EpochIndex, HeaderHash, SlotLeaders)
 --
 -- Implementations of these methods are in
 -- 'Pos.Web.Server.baseServantHandlers'.
-type BaseNodeApi ssc =
+type BaseNodeApi =
     -- "current_slot"
     --     :> Get '[JSON] SlotId
     -- :<|>
@@ -58,7 +57,7 @@ type HealthCheckApi =
     "healthcheck" :> "route53" :> Get '[PlainText] String
 
 -- | Helper Proxy.
-baseNodeApi :: Proxy (BaseNodeApi ssc)
+baseNodeApi :: Proxy BaseNodeApi
 baseNodeApi = Proxy
 
 -- | GodTossing specific API.
@@ -78,7 +77,7 @@ godTossingApi = Proxy
 -- | Servant API which provides access to full node internals with
 -- GodTossing SSC.
 type GtNodeApi =
-    BaseNodeApi SscGodTossing
+    BaseNodeApi
     :<|>
     "god_tossing"
         :> GodTossingApi

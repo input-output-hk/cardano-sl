@@ -34,7 +34,7 @@ import           Pos.Ssc.GodTossing.Toss.Base     (checkPayload)
 import           Pos.Ssc.GodTossing.Toss.Class    (MonadToss (..), MonadTossEnv (..))
 import           Pos.Ssc.GodTossing.Toss.Failure  (TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Toss.Types    (TossModifier (..))
-import           Pos.Ssc.GodTossing.Type          ()
+import           Pos.Ssc.GodTossing.Instance      ()
 import           Pos.Util.Chrono                  (NewestFirst (..))
 import           Pos.Util.Util                    (Some, inAssertMode, sortWithMDesc)
 

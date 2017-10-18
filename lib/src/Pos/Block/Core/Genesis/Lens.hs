@@ -51,7 +51,6 @@ import           Pos.Core                     (ChainDifficulty, EpochIndex (..),
                                                HeaderHash, SlotLeaders, gbBody, gbExtra,
                                                gbHeader, gbPrevBlock, gbhBodyProof,
                                                gbhConsensus, gbhExtra, gbhPrevBlock)
-import           Pos.Ssc.GodTossing.Type      (SscGodTossing)
 
 ----------------------------------------------------------------------------
 -- Extra types
@@ -76,7 +75,7 @@ genHeaderPrevBlock = gbhPrevBlock
 
 -- | Lens from 'GenesisBlockHeader' to 'GenesisProof'.
 genHeaderProof ::
-       Lens' GenesisBlockHeader (BodyProof $ GenesisBlockchain SscGodTossing)
+       Lens' GenesisBlockHeader (BodyProof GenesisBlockchain)
 genHeaderProof = gbhBodyProof
 
 -- | Lens from 'GenesisBlockHeader' to 'EpochIndex'.
@@ -107,7 +106,7 @@ genBlockPrevBlock :: Lens' GenesisBlock HeaderHash
 genBlockPrevBlock = gbPrevBlock
 
 -- | Lens from 'GenesisBlock' to 'GenesisProof'.
-genBlockProof :: Lens' GenesisBlock (BodyProof $ GenesisBlockchain SscGodTossing)
+genBlockProof :: Lens' GenesisBlock (BodyProof GenesisBlockchain)
 genBlockProof = gbHeader . genHeaderProof
 
 -- | Lens from 'GenesisBlock' to 'EpochIndex'.

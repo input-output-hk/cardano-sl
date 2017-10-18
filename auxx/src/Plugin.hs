@@ -27,7 +27,6 @@ import           Pos.Communication          (Conversation (..), OutSpecs (..),
                                              delegationRelays, relayPropagateOut,
                                              txRelays, usRelays, worker)
 import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Txp                    (genesisUtxo, unGenesisUtxo)
 import           Pos.Util.CompileInfo       (HasCompileInfo)
 import           Pos.WorkMode               (EmptyMempoolExt, RealMode, RealModeContext)
@@ -86,14 +85,14 @@ runCmdOuts =
     relayPropagateOut $
     mconcat
         [ usRelays
-              @(RealModeContext SscGodTossing EmptyMempoolExt)
-              @(RealMode SscGodTossing EmptyMempoolExt)
+              @(RealModeContext EmptyMempoolExt)
+              @(RealMode EmptyMempoolExt)
         , delegationRelays
-              @(RealModeContext SscGodTossing EmptyMempoolExt)
-              @(RealMode SscGodTossing EmptyMempoolExt)
+              @(RealModeContext EmptyMempoolExt)
+              @(RealMode EmptyMempoolExt)
         , txRelays
-              @(RealModeContext SscGodTossing EmptyMempoolExt)
-              @(RealMode SscGodTossing EmptyMempoolExt)
+              @(RealModeContext EmptyMempoolExt)
+              @(RealMode EmptyMempoolExt)
         ]
 
 ----------------------------------------------------------------------------

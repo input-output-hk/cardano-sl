@@ -9,8 +9,6 @@ module Pos.Worker
 
 import           Universum
 
-import           Data.Tagged             (untag)
-
 import           Pos.Block.Worker        (blkWorkers)
 import           Pos.Communication       (OutSpecs, Relay, WorkerSpec, localWorker,
                                           relayPropagateOut, wrapActionSpec)
@@ -35,11 +33,11 @@ import           Pos.WorkMode            (WorkMode)
 
 -- | All, but in reality not all, workers used by full node.
 allWorkers
-    :: forall ssc ext ctx m .
-       ( SscListenersClass ssc
+    :: forall ext ctx m .
+       ( SscListenersClass
        , WorkMode ctx m
        )
-    => NodeResources ssc ext m -> ([WorkerSpec m], OutSpecs)
+    => NodeResources ext m -> ([WorkerSpec m], OutSpecs)
 allWorkers NodeResources {..} = mconcatPair
     [
       -- Only workers of "onNewSlot" type
@@ -66,7 +64,7 @@ allWorkers NodeResources {..} = mconcatPair
       -- MAGIC "relay" out specs.
       -- There's no cardano-sl worker for them; they're put out by the outbound
       -- queue system from time-warp (enqueueConversation on SendActions).
-    , ([], relayPropagateOut (mconcat [delegationRelays, untag sscRelays, txRelays, usRelays] :: [Relay m]))
+    , ([], relayPropagateOut (mconcat [delegationRelays, sscRelays, txRelays, usRelays] :: [Relay m]))
 
       -- Kademlia has some workers to run.
       --

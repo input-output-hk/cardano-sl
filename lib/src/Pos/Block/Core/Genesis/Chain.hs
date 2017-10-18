@@ -20,39 +20,38 @@ import           Pos.Core                     (Blockchain (..), BlockchainHelper
                                                SlotLeaders)
 import           Pos.Crypto                   (Hash, hash)
 import           Pos.Ssc.Class.Types          (Ssc (..))
-import           Pos.Ssc.GodTossing.Type      (SscGodTossing)
 
-instance Blockchain (GenesisBlockchain ssc) where
+instance Blockchain GenesisBlockchain where
     -- [CSL-199]: maybe we should use ADS.
     -- | Proof of GenesisBody is just a hash of slot leaders list.
-    data BodyProof (GenesisBlockchain ssc) = GenesisProof
+    data BodyProof GenesisBlockchain = GenesisProof
         !(Hash SlotLeaders)
         deriving (Eq, Generic, Show)
-    data ConsensusData (GenesisBlockchain ssc) = GenesisConsensusData
+    data ConsensusData GenesisBlockchain = GenesisConsensusData
         { -- | Index of the slot for which this genesis block is relevant.
           _gcdEpoch :: !EpochIndex
         , -- | Difficulty of the chain ending in this genesis block.
           _gcdDifficulty :: !ChainDifficulty
         } deriving (Generic, Show, Eq)
-    type BBlockHeader (GenesisBlockchain ssc) = BlockHeader
-    type ExtraHeaderData (GenesisBlockchain ssc) = GenesisExtraHeaderData
+    type BBlockHeader GenesisBlockchain = BlockHeader
+    type ExtraHeaderData GenesisBlockchain = GenesisExtraHeaderData
 
     -- | Body of genesis block consists of slot leaders for epoch
     -- associated with this block.
-    data Body (GenesisBlockchain ssc) = GenesisBody
+    data Body GenesisBlockchain = GenesisBody
         { _gbLeaders :: !SlotLeaders
         } deriving (Generic, Show, Eq)
 
-    type ExtraBodyData (GenesisBlockchain ssc) = GenesisExtraBodyData
-    type BBlock (GenesisBlockchain ssc) = Block
+    type ExtraBodyData GenesisBlockchain = GenesisExtraBodyData
+    type BBlock GenesisBlockchain = Block
 
     mkBodyProof = GenesisProof . hash . _gbLeaders
 
-instance BlockchainHelpers (GenesisBlockchain ssc) where
+instance BlockchainHelpers GenesisBlockchain where
     verifyBBlockHeader _ = pure ()
     verifyBBlock _ = pure ()
 
-instance (Ssc ssc) => NFData (BodyProof (GenesisBlockchain ssc))
-instance (Ssc ssc) => NFData (ConsensusData (GenesisBlockchain ssc))
-instance (Ssc ssc) => NFData (Body (GenesisBlockchain ssc))
-instance (Ssc SscGodTossing) => NFData GenesisBlock
+instance Ssc => NFData (BodyProof GenesisBlockchain)
+instance Ssc => NFData (ConsensusData GenesisBlockchain)
+instance Ssc => NFData (Body GenesisBlockchain)
+instance Ssc => NFData GenesisBlock

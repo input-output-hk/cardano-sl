@@ -5,7 +5,7 @@
 
 module Pos.Ssc.GodTossing.GState
        ( -- * Instances
-         -- ** instance SscGStateClass SscGodTossing
+         -- ** instance SscGStateClass
          getGlobalCerts
        , gtGetGlobalState
        , getStableCerts
@@ -16,7 +16,6 @@ import           Control.Monad.Except             (MonadError (throwError), runE
 import           Control.Monad.Morph              (hoist)
 import qualified Crypto.Random                    as Rand
 import qualified Data.HashMap.Strict              as HM
-import           Data.Tagged                      (Tagged (..))
 import           Formatting                       (build, sformat, (%))
 import           System.Wlog                      (WithLogger, logDebug, logInfo)
 import           Universum
@@ -41,7 +40,6 @@ import           Pos.Ssc.GodTossing.Toss          (MultiRichmenStakes, PureToss,
                                                    rollbackGT, runPureTossWithLogger,
                                                    supplyPureTossEnv,
                                                    verifyAndApplyGtPayload)
-import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types         (GtGlobalState (..), gsCommitments,
                                                    gsOpenings, gsShares,
                                                    gsVssCertificates)
@@ -54,12 +52,12 @@ import           Pos.Util.Util                    (_neHead, _neLast)
 ----------------------------------------------------------------------------
 
 gtGetGlobalState
-    :: (MonadSscMem SscGodTossing ctx m, MonadIO m)
+    :: (MonadSscMem ctx m, MonadIO m)
     => m GtGlobalState
 gtGetGlobalState = sscRunGlobalQuery ask
 
 getGlobalCerts
-    :: (MonadSscMem SscGodTossing ctx m, MonadIO m)
+    :: (MonadSscMem ctx m, MonadIO m)
     => SlotId -> m VssCertificatesMap
 getGlobalCerts sl =
     sscRunGlobalQuery $
@@ -69,7 +67,7 @@ getGlobalCerts sl =
 
 -- | Get stable VSS certificates for given epoch.
 getStableCerts
-    :: (HasGtConfiguration, HasConfiguration, MonadSscMem SscGodTossing ctx m, MonadIO m)
+    :: (HasGtConfiguration, HasConfiguration, MonadSscMem ctx m, MonadIO m)
     => EpochIndex -> m VssCertificatesMap
 getStableCerts epoch =
     getStableCertsPure epoch <$> sscRunGlobalQuery (view gsVssCertificates)
@@ -78,9 +76,9 @@ getStableCerts epoch =
 -- Methods from class
 ----------------------------------------------------------------------------
 
-instance (HasGtConfiguration, HasConfiguration) => SscGStateClass SscGodTossing where
+instance (HasGtConfiguration, HasConfiguration) => SscGStateClass where
     sscLoadGlobalState = loadGlobalState
-    sscGlobalStateToBatch = Tagged . dumpGlobalState
+    sscGlobalStateToBatch = dumpGlobalState
     sscRollbackU = rollbackBlocks
     sscVerifyAndApplyBlocks = verifyAndApply
     sscCalculateSeedQ _epoch richmen =
@@ -104,7 +102,7 @@ dumpGlobalState = one . SomeBatchOp . DB.gtGlobalStateToBatch
 -- randomness needed for crypto :(
 type GSUpdate a = forall m . (MonadState GtGlobalState m, WithLogger m, Rand.MonadRandom m) => m a
 
-rollbackBlocks :: (HasGtConfiguration, HasConfiguration) => NewestFirst NE (SscBlock SscGodTossing) -> GSUpdate ()
+rollbackBlocks :: (HasGtConfiguration, HasConfiguration) => NewestFirst NE SscBlock -> GSUpdate ()
 rollbackBlocks blocks = tossToUpdate $ rollbackGT oldestEOS payloads
   where
     oldestEOS = blocks ^. _Wrapped . _neLast . epochOrSlotG
@@ -115,8 +113,8 @@ verifyAndApply
     :: (HasGtConfiguration, HasConfiguration)
     => RichmenStakes
     -> BlockVersionData
-    -> OldestFirst NE (SscBlock SscGodTossing)
-    -> SscVerifier SscGodTossing ()
+    -> OldestFirst NE SscBlock
+    -> SscVerifier ()
 verifyAndApply richmenStake bvd blocks =
     verifyAndApplyMultiRichmen False (richmenData, bvd) blocks
   where
@@ -127,8 +125,8 @@ verifyAndApplyMultiRichmen
     :: (HasGtConfiguration, HasConfiguration)
     => Bool
     -> (MultiRichmenStakes, BlockVersionData)
-    -> OldestFirst NE (SscBlock SscGodTossing)
-    -> SscVerifier SscGodTossing ()
+    -> OldestFirst NE SscBlock
+    -> SscVerifier ()
 verifyAndApplyMultiRichmen onlyCerts env =
     tossToVerifier . hoist (supplyPureTossEnv env) .
     mapM_ (verifyAndApplyDo . getSscBlock)
@@ -154,7 +152,7 @@ tossToUpdate action = do
 
 tossToVerifier
     :: ExceptT TossVerFailure PureToss a
-    -> SscVerifier SscGodTossing a
+    -> SscVerifier a
 tossToVerifier action = do
     oldState <- use identity
     (resOrErr, newState) <-

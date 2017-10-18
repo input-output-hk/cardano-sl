@@ -30,19 +30,18 @@ import           Pos.Crypto                 (ProxySignature (..), SignTag (..), 
 import           Pos.Delegation.Helpers     (dlgVerifyPayload)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types        (Ssc (..))
-import           Pos.Ssc.GodTossing.Type    (SscGodTossing)
 import           Pos.Util.Util              (Some (Some))
-
+import           Pos.Ssc.GodTossing.Instance ()
 
 instance ( Bi BlockHeader
          , HasConfiguration
          , IsMainHeader MainBlockHeader
          ) =>
-         BlockchainHelpers (MainBlockchain SscGodTossing) where
+         BlockchainHelpers MainBlockchain where
     verifyBBlockHeader = verifyMainBlockHeader
     verifyBBlock block@UnsafeGenericBlock {..} = do
         either (throwError . pretty) pure $
-            sscVerifyPayload @SscGodTossing
+            sscVerifyPayload
                 (Right (Some _gbHeader))
                 (_mbSscPayload _gbBody)
         dlgVerifyPayload (_gbHeader ^. epochIndexL) (_mbDlgPayload _gbBody)
@@ -50,7 +49,7 @@ instance ( Bi BlockHeader
             throwError "Hash of extra body data is not equal to it's representation in the header."
 
 verifyMainBlockHeader ::
-       (HasConfiguration, Ssc SscGodTossing, MonadError Text m, Bi $ BodyProof $ MainBlockchain SscGodTossing)
+       (HasConfiguration, Ssc, MonadError Text m, Bi (BodyProof MainBlockchain))
     => MainBlockHeader
     -> m ()
 verifyMainBlockHeader mbh = do

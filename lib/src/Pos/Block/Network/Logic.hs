@@ -78,7 +78,6 @@ import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (
 import           Pos.Util.JsonLog           (jlAdoptedBlock)
 import           Pos.Util.TimeWarp          (CanJsonLog (..))
 import           Pos.WorkMode.Class         (WorkMode)
-import           Pos.Ssc.GodTossing.Type    (SscGodTossing)
 
 ----------------------------------------------------------------------------
 -- Exceptions
@@ -176,7 +175,7 @@ mkHeadersRequest upto = do
 
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders
-    :: (SscWorkersClass SscGodTossing, WorkMode ctx m)
+    :: (SscWorkersClass, WorkMode ctx m)
     => NonEmpty BlockHeader
     -> NodeId
     -> m ()
@@ -188,7 +187,7 @@ handleUnsolicitedHeaders (h:|hs) _ = do
     logWarning $ sformat ("Here they are: "%listJson) (h:hs)
 
 handleUnsolicitedHeader
-    :: (SscWorkersClass SscGodTossing, WorkMode ctx m)
+    :: (SscWorkersClass, WorkMode ctx m)
     => BlockHeader
     -> NodeId
     -> m ()

@@ -4,7 +4,7 @@
 
 module Pos.Ssc.GodTossing.Workers
        ( -- * Instances
-         -- ** instance SscWorkersClass SscGodTossing
+         -- ** instance SscWorkersClass
        ) where
 
 import           Universum
@@ -91,7 +91,6 @@ import qualified Pos.Ssc.GodTossing.SecretStorage      as SS
 import           Pos.Ssc.GodTossing.Shares             (getOurShares)
 import           Pos.Ssc.GodTossing.Toss               (computeParticipants,
                                                         computeSharesDistrPure)
-import           Pos.Ssc.GodTossing.Type               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types              (gsCommitments, gtcBehavior,
                                                         gtcParticipateSsc, gtcVssKeyPair)
 import           Pos.Ssc.GodTossing.Types.Message      (GtTag (..), MCCommitment (..),
@@ -104,13 +103,13 @@ import           Pos.Util.LogSafe                      (logDebugS, logErrorS, lo
 import           Pos.Util.Util                         (getKeys, inAssertMode,
                                                         leftToPanic)
 
-instance GtMessageConstraints => SscWorkersClass SscGodTossing where
+instance GtMessageConstraints => SscWorkersClass where
     sscWorkers = merge [onNewSlotSsc, checkForIgnoredCommitmentsWorker]
       where
         merge = mconcat . map (first pure)
     sscLrcConsumers = [gtLrcConsumer]
 
-shouldParticipate :: (SscMode SscGodTossing ctx m) => EpochIndex -> m Bool
+shouldParticipate :: (SscMode ctx m) => EpochIndex -> m Bool
 shouldParticipate epoch = do
     richmen <- lrcActionOnEpochReason epoch
         "couldn't get SSC richmen"
@@ -126,7 +125,7 @@ shouldParticipate epoch = do
 -- CHECK: @onNewSlotSsc
 -- #checkNSendOurCert
 onNewSlotSsc
-    :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
+    :: (GtMessageConstraints, SscMode ctx m)
     => (WorkerSpec m, OutSpecs)
 onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions ->
     recoveryCommGuard "onNewSlot worker in GodTossing" $ do
@@ -150,7 +149,7 @@ onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions ->
 -- Checks whether 'our' VSS certificate has been announced
 checkNSendOurCert
     :: forall ctx m.
-       (GtMessageConstraints, SscMode SscGodTossing ctx m)
+       (GtMessageConstraints, SscMode ctx m)
     => Worker m
 checkNSendOurCert sendActions = do
     ourId <- getOurStakeholderId
@@ -200,12 +199,12 @@ checkNSendOurCert sendActions = do
                         (+) (vssMaxTTL - 1) . siEpoch
                 return $ createOurCert slot
 
-getOurVssKeyPair :: SscMode SscGodTossing ctx m => m VssKeyPair
+getOurVssKeyPair :: SscMode ctx m => m VssKeyPair
 getOurVssKeyPair = views sscContext gtcVssKeyPair
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
-    :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
+    :: (GtMessageConstraints, SscMode ctx m)
     => SlotId -> Worker m
 onNewSlotCommitment slotId@SlotId {..} sendActions
     | not (isCommitmentIdx siSlot) = pass
@@ -242,7 +241,7 @@ onNewSlotCommitment slotId@SlotId {..} sendActions
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
-    :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
+    :: (GtMessageConstraints, SscMode ctx m)
     => GtOpeningParams -> SlotId -> Worker m
 onNewSlotOpening params SlotId {..} sendActions
     | not $ isOpeningIdx siSlot = pass
@@ -273,7 +272,7 @@ onNewSlotOpening params SlotId {..} sendActions
 
 -- Shares-related part of new slot processing
 onNewSlotShares
-    :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
+    :: (GtMessageConstraints, SscMode ctx m)
     => GtSharesParams -> SlotId -> Worker m
 onNewSlotShares params SlotId {..} sendActions = do
     ourId <- getOurStakeholderId
@@ -302,7 +301,7 @@ onNewSlotShares params SlotId {..} sendActions = do
             sendOurData (enqueueMsg sendActions) SharesMsg ourId msg siEpoch 4
 
 sscProcessOurMessage
-    :: (Buildable err, SscMode SscGodTossing ctx m)
+    :: (Buildable err, SscMode ctx m)
     => ExceptT err m () -> m ()
 sscProcessOurMessage action =
     runExceptT action >>= logResult
@@ -313,7 +312,7 @@ sscProcessOurMessage action =
         sformat ("We have rejected our message, reason: "%build) er
 
 sendOurData ::
-    ( SscMode SscGodTossing ctx m
+    ( SscMode ctx m
     , Bi (DataMsg contents)
     , Typeable contents
     , Message (InvOrData (Tagged contents StakeholderId) contents)
@@ -345,7 +344,7 @@ sendOurData enqueue msgTag ourId dt epoch slMultiplier = do
 -- synchronized).
 generateAndSetNewSecret
     :: forall ctx m.
-       (HasGtConfiguration, HasConfiguration, SscMode SscGodTossing ctx m, Bi Commitment)
+       (HasGtConfiguration, HasConfiguration, SscMode ctx m, Bi Commitment)
     => SecretKey
     -> SlotId -- ^ Current slot
     -> m (Maybe SignedCommitment)
@@ -397,7 +396,7 @@ generateAndSetNewSecret sk SlotId {..} = do
                         pure (Just signedComm)
 
 randomTimeInInterval
-    :: SscMode SscGodTossing ctx m
+    :: SscMode ctx m
     => Microsecond -> m Microsecond
 randomTimeInInterval interval =
     -- Type applications here ensure that the same time units are used.
@@ -407,7 +406,7 @@ randomTimeInInterval interval =
     n = toInteger @Microsecond interval
 
 waitUntilSend
-    :: (HasInfraConfiguration, HasGtConfiguration, SscMode SscGodTossing ctx m)
+    :: (HasInfraConfiguration, HasGtConfiguration, SscMode ctx m)
     => GtTag -> EpochIndex -> Word16 -> m ()
 waitUntilSend msgTag epoch slMultiplier = do
     let slot =
@@ -437,7 +436,7 @@ waitUntilSend msgTag epoch slMultiplier = do
 
 checkForIgnoredCommitmentsWorker
     :: forall ctx m.
-       (HasInfraConfiguration, HasGtConfiguration, SscMode SscGodTossing ctx m)
+       (HasInfraConfiguration, HasGtConfiguration, SscMode ctx m)
     => (WorkerSpec m, OutSpecs)
 checkForIgnoredCommitmentsWorker = localWorker $ do
     counter <- newTVarIO 0
@@ -454,7 +453,7 @@ checkForIgnoredCommitmentsWorker = localWorker $ do
 -- detect unexpected absence of our commitment and is reset to 0 when
 -- our commitment appears in blocks.
 checkForIgnoredCommitmentsWorkerImpl
-    :: forall ctx m. (HasInfraConfiguration, HasGtConfiguration, SscMode SscGodTossing ctx m)
+    :: forall ctx m. (HasInfraConfiguration, HasGtConfiguration, SscMode ctx m)
     => TVar Word -> SlotId -> m ()
 checkForIgnoredCommitmentsWorkerImpl counter SlotId {..}
     -- It's enough to do this check once per epoch near the end of the epoch.

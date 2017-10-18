@@ -53,7 +53,6 @@ import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefau
                                              SscLocalDataClass)
 import           Pos.Ssc.Extra              (MonadSscMem, sscGetLocalPayload,
                                              sscResetLocal)
-import           Pos.Ssc.GodTossing.Type    (SscGodTossing)
 import           Pos.StateLock              (Priority (..), StateLock, StateLockMetrics,
                                              modifyStateLock)
 import           Pos.Txp                    (MempoolExt, MonadTxpLocal (..), MonadTxpMem,
@@ -88,8 +87,8 @@ type MonadCreateBlock ctx m
        , MonadTxpMem (MempoolExt m) ctx m
        , MonadTxpLocal m
        , HasLens UpdateContext ctx UpdateContext
-       , MonadSscMem SscGodTossing ctx m
-       , SscLocalDataClass SscGodTossing
+       , MonadSscMem ctx m
+       , SscLocalDataClass
        )
 
 ----------------------------------------------------------------------------
@@ -305,7 +304,7 @@ createMainBlockPure
     -> ProxySKBlockInfo
     -> SlotId
     -> SecretKey
-    -> RawPayload SscGodTossing
+    -> RawPayload
     -> m MainBlock
 createMainBlockPure limit prevHeader pske sId sk rawPayload = do
     bodyLimit <- execStateT computeBodyLimit limit
@@ -313,8 +312,8 @@ createMainBlockPure limit prevHeader pske sId sk rawPayload = do
     mkMainBlock (Just prevHeader) sId sk pske body
   where
     -- default ssc to put in case we won't fit a normal one
-    defSsc :: SscPayload SscGodTossing
-    defSsc = sscDefaultPayload @SscGodTossing (siSlot sId)
+    defSsc :: SscPayload
+    defSsc = sscDefaultPayload (siSlot sId)
     computeBodyLimit :: StateT Byte m ()
     computeBodyLimit = do
         -- account for block header and serialization overhead, etc;
@@ -389,9 +388,9 @@ applyCreatedBlock pske createdBlock = applyCreatedBlockDo False createdBlock
 -- MainBody, payload
 ----------------------------------------------------------------------------
 
-data RawPayload ssc = RawPayload
+data RawPayload = RawPayload
     { rpTxp    :: ![TxAux]
-    , rpSsc    :: !(SscPayload ssc)
+    , rpSsc    :: !SscPayload
     , rpDlg    :: !DlgPayload
     , rpUpdate :: !UpdatePayload
     }
@@ -400,10 +399,10 @@ getRawPayload ::
        forall ctx m. (MonadCreateBlock ctx m)
     => HeaderHash
     -> SlotId
-    -> m (RawPayload SscGodTossing)
+    -> m RawPayload
 getRawPayload tip slotId = do
     localTxs <- txGetPayload tip -- result is topsorted
-    sscData <- sscGetLocalPayload @SscGodTossing slotId
+    sscData <- sscGetLocalPayload slotId
     usPayload <- usPreparePayload tip slotId
     dlgPayload <- getDlgMempool
     let rawPayload =
@@ -421,21 +420,21 @@ getRawPayload tip slotId = do
 --
 -- Given limit applies only to body, not to other data from block.
 createMainBody
-    :: forall m ssc .
-       (MonadError Text m, SscHelpersClass ssc, HasConfiguration)
+    :: forall m .
+       (MonadError Text m, SscHelpersClass, HasConfiguration)
     => Byte  -- ^ Body limit
     -> SlotId
-    -> RawPayload ssc
-    -> m $ Body $ MainBlockchain ssc
+    -> RawPayload
+    -> m (Body MainBlockchain)
 createMainBody bodyLimit sId payload =
     flip evalStateT bodyLimit $ do
-        let defSsc :: SscPayload ssc
-            defSsc = sscDefaultPayload @ssc (siSlot sId)
+        let defSsc :: SscPayload
+            defSsc = sscDefaultPayload (siSlot sId)
         -- include ssc data limited with max half of block space if it's possible
         sscPayload <- ifM (uses identity (<= biSize defSsc)) (pure defSsc) $ do
             halfLeft <- uses identity (`div` 2)
             -- halfLeft > 0, otherwize sscStripPayload may fail
-            let sscPayload = sscStripPayload @ssc halfLeft sscData
+            let sscPayload = sscStripPayload halfLeft sscData
             flip (maybe $ pure defSsc) sscPayload $ \sscP -> do
                 -- we subtract size of empty map because it's
                 -- already included in musthaveBlock

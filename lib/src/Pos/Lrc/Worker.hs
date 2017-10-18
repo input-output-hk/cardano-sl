@@ -47,7 +47,7 @@ import           Pos.Reporting            (reportMisbehaviour)
 import           Pos.Slotting             (MonadSlots)
 import           Pos.Ssc.Class            (SscWorkersClass)
 import           Pos.Ssc.Extra            (MonadSscMem, sscCalculateSeed)
-import           Pos.Ssc.GodTossing       (HasGtConfiguration, SscGodTossing,
+import           Pos.Ssc.GodTossing       (HasGtConfiguration,
                                            noReportNoSecretsForEpoch1)
 import           Pos.Update.DB            (getCompetingBVStates)
 import           Pos.Update.Poll.Types    (BlockVersionState (..))
@@ -62,8 +62,8 @@ import           Pos.Util.Chrono          (NE, NewestFirst (..), toOldestFirst)
 -- | 'LrcModeFull' contains all constraints necessary to launch LRC.
 type LrcModeFull ctx m =
     ( LrcMode ctx m
-    , SscWorkersClass SscGodTossing
-    , MonadSscMem SscGodTossing ctx m
+    , SscWorkersClass
+    , MonadSscMem ctx m
     , MonadSlots ctx m
     , MonadBlockApply ctx m
     , MonadReader ctx m

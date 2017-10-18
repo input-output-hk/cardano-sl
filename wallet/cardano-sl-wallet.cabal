@@ -21,7 +21,6 @@ Flag for-installer
 library
   hs-source-dirs:     src
   exposed-modules:    Pos.Wallet
-                      Pos.Wallet.SscType
                       Pos.Wallet.Redirect
                       Pos.Wallet.WalletMode
 

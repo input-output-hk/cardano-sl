@@ -63,7 +63,7 @@ data Command
      -- ^ From whom, to whom, ttl epoch, last argument is current
      -- epoch, dry mode
     | AddKeyFromPool !Int
-    | AddKeyFromFile !FilePath
+    | AddKeyFromFile !FilePath !Bool
     | AddrDistr !PublicKey !AddrStakeDistribution
     | Rollback !Word !FilePath
     | SendTxsFromFile !FilePath

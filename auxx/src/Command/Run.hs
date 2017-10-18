@@ -29,7 +29,7 @@ import           Pos.Crypto                 (emptyPassphrase, encToPublic,
                                              fullPublicKeyHexF, hashHexF, noPassEncrypt,
                                              safeCreatePsk, withSafeSigner)
 import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Util.UserSecret        (readUserSecret, usKeys)
+import           Pos.Util.UserSecret        (readUserSecret, usKeys, usPrimKey)
 import           Pos.Wallet                 (addSecretKey, getBalance, getSecretKeysPlain)
 
 import qualified Command.Rollback           as Rollback
@@ -62,7 +62,7 @@ Avaliable commands:
    delegate-heavy <N> <M> <e>     -- delegate secret key #N to pk <M> heavyweight (M is encoded in base58),
                                      e is current epoch.
    add-key-pool <N>               -- add key from intial pool
-   add-key <file>                 -- add key from file
+   add-key <file> [primary]       -- add key from file, if primary flag is set then add only primary key
 
    addr-distr <N> boot
    addr-distr <N> [<M>:<coinPortion>]+
@@ -156,9 +156,13 @@ runCmd _ (AddKeyFromPool i) = do
     let secrets = fromMaybe (error "Secret keys are unknown") genesisSecretKeys
     let key = secrets !! i
     addSecretKey $ noPassEncrypt key
-runCmd _ (AddKeyFromFile f) = do
+runCmd _ (AddKeyFromFile f primary) = do
     secret <- readUserSecret f
-    mapM_ addSecretKey $ secret ^. usKeys
+    if primary then do
+        let primSk = fromMaybe (error "Primary key not found") (secret ^. usPrimKey)
+        addSecretKey $ noPassEncrypt primSk
+    else
+        mapM_ addSecretKey $ secret ^. usKeys
 runCmd _ (AddrDistr pk asd) = do
     putText $ pretty addr
   where

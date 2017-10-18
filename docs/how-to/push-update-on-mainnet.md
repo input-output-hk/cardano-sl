@@ -69,24 +69,13 @@ COMMONOPTS="--system-start 0 --configuration-file ../cardano-sl/node/configurati
 AUXXOPTS="--log-config ../cardano-sl/scripts/log-templates/log-config-qa.yaml --logs-prefix logs/aux-update.1.0.1 --db-path aux-update-1.0.1 --peer ${RELAY_PEER}"
 ```
 
-Rearranging the keys
---------------------
-
-Apply `cardano-keygen rearrange` to the keys to make them usable for proposing an update and voting:
-
-```
-for idx in {0..6}; do
-  stack exec -- cardano-keygen $COMMONOPTS rearrange --mask key${idx}.sk
-done
-```
-
 Importing the keys
 ------------------
 
 Import secret keys: only 4 of 7 is needed (extra votes will be ignored). Cluster nodes all have equal stake and more than a half stake's votes is needed to make a decision about update (approve/dismiss). Imported keys are stored locally in `secret.key` which you **must** delete after completing this guide (unless there's a good valid reason not to).
 
 ```
-stack exec -- cardano-auxx $COMMONOPTS $AUXXOPTS cmd --commands "add-key key0.sk, add-key key1.sk, add-key key2.sk, add-key key3.sk, listaddr"
+stack exec -- cardano-auxx $COMMONOPTS $AUXXOPTS cmd --commands "add-key key0.sk primary, add-key key1.sk primary, add-key key2.sk primary, add-key key3.sk primary, listaddr"
 ```
 
 If the `listaddr` command hasn't printed the addresses belonging to the four keys, you did something wrong. Maybe you forgot to rearrange the keys?

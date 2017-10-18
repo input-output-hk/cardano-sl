@@ -94,9 +94,12 @@ delegateL =
 delegateH =
     DelegateHeavy <$> num <*> base58PkParser <*> num <*> dumpFlag
 
+primaryKeyFlag :: Parser Bool
+primaryKeyFlag = (True <$ lexeme (try $ string "primary")) <|> pure False
+
 addKeyFromPool, addKeyFromFile :: Parser Command
 addKeyFromPool = AddKeyFromPool <$> num
-addKeyFromFile = AddKeyFromFile <$> filePath
+addKeyFromFile = AddKeyFromFile <$> filePath <*> primaryKeyFlag
 
 send :: Parser Command
 send = Send <$> num <*> (NE.fromList <$> many1 txout)

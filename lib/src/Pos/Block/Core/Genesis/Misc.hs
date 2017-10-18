@@ -21,7 +21,7 @@ import           Pos.Block.Core.Genesis.Types (GenesisBlock, GenesisBlockHeader,
                                                GenesisBlockchain,
                                                GenesisExtraBodyData (..),
                                                GenesisExtraHeaderData (..))
-import           Pos.Block.Core.Union.Types   (BiSsc, BlockHeader, blockHeaderHash)
+import           Pos.Block.Core.Union.Types   (BlockHeader, blockHeaderHash)
 import           Pos.Core                     (EpochIndex, EpochOrSlot (..),
                                                GenericBlock (..), GenericBlockHeader (..),
                                                HasConfiguration, HasDifficulty (..),
@@ -38,7 +38,7 @@ import           Pos.Util.Util                (leftToPanic)
 -- Buildable
 ----------------------------------------------------------------------------
 
-instance BiSsc => Buildable GenesisBlockHeader where
+instance Bi BlockHeader => Buildable GenesisBlockHeader where
     build gbh@UnsafeGenericBlockHeader {..} =
         bprint
             ("GenesisBlockHeader:\n"%
@@ -56,7 +56,7 @@ instance BiSsc => Buildable GenesisBlockHeader where
         gbhHeaderHash = blockHeaderHash $ Left gbh
         GenesisConsensusData {..} = _gbhConsensus
 
-instance BiSsc => Buildable GenesisBlock where
+instance Bi BlockHeader => Buildable GenesisBlock where
     build UnsafeGenericBlock {..} =
         bprint
             (stext%":\n"%

@@ -31,7 +31,7 @@ import           Pos.Block.Core.Main.Types   (BlockSignature (..), MainBlock,
                                               MainBlockHeader, MainBlockchain,
                                               MainExtraBodyData (..),
                                               MainExtraHeaderData (..), MainToSign (..))
-import           Pos.Block.Core.Union.Types  (BiSsc, BlockHeader, blockHeaderHash)
+import           Pos.Block.Core.Union.Types  (BlockHeader, blockHeaderHash)
 import           Pos.Core                    (EpochOrSlot (..), GenericBlock (..),
                                               GenericBlockHeader (..),
                                               HasBlockVersion (..), HasDifficulty (..),
@@ -53,7 +53,7 @@ import           Pos.Update.Configuration    (HasUpdateConfiguration, curSoftwar
 import           Pos.Util.Util               (leftToPanic)
 
 
-instance BiSsc => Buildable MainBlockHeader where
+instance Bi BlockHeader => Buildable MainBlockHeader where
     build gbh@UnsafeGenericBlockHeader {..} =
         bprint
             ("MainBlockHeader:\n"%
@@ -77,7 +77,7 @@ instance BiSsc => Buildable MainBlockHeader where
         gbhHeaderHash = blockHeaderHash $ Right gbh
         MainConsensusData {..} = _gbhConsensus
 
-instance (HasConfiguration, BiSsc) => Buildable MainBlock where
+instance (HasConfiguration, Bi BlockHeader) => Buildable MainBlock where
     build UnsafeGenericBlock {..} =
         bprint
             (stext%":\n"%
@@ -162,8 +162,7 @@ instance Bi BlockHeader => IsMainHeader MainBlockHeader where
 ----------------------------------------------------------------------------
 
 type SanityConstraint
-     = ( BiSsc
-       , HasDifficulty BlockHeader
+     = ( HasDifficulty BlockHeader
        , HasHeaderHash BlockHeader
        , HasConfiguration
        )

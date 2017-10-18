@@ -220,7 +220,7 @@ instance ( Arbitrary SscPayload
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance T.BiSsc => Buildable (T.BlockHeader, PublicKey) where
+instance Buildable T.BlockHeader => Buildable (T.BlockHeader, PublicKey) where
     build (block, key) =
         bprint
             ( build%"\n"%
@@ -233,7 +233,7 @@ newtype BlockHeaderList = BHL
 
 deriving instance Eq T.BlockHeader => Eq BlockHeaderList
 
-instance T.BiSsc => Show BlockHeaderList where
+instance Buildable T.BlockHeader => Show BlockHeaderList where
     show = toString . unlines . map pretty . uncurry zip . getHeaderList
 
 -- | Generation of arbitrary, valid headerchain along with a list of leaders

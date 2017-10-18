@@ -13,7 +13,7 @@ import qualified Data.Text.Buildable        as Buildable
 import           Pos.Binary.Class           (Bi)
 import           Pos.Block.Core.Genesis     ()
 import           Pos.Block.Core.Main        ()
-import           Pos.Block.Core.Union.Types (BiSsc, Block, BlockHeader, blockHeaderHash)
+import           Pos.Block.Core.Union.Types (Block, BlockHeader, blockHeaderHash)
 import           Pos.Core                   (GenericBlock (..), HasDifficulty (..),
                                              HasHeaderHash (..), IsHeader)
 
@@ -21,7 +21,8 @@ import           Pos.Core                   (GenericBlock (..), HasDifficulty (.
 -- Buildable
 ----------------------------------------------------------------------------
 
-instance BiSsc => Buildable BlockHeader where
+instance Bi BlockHeader =>
+         Buildable BlockHeader where
     build = either Buildable.build Buildable.build
 
 ----------------------------------------------------------------------------

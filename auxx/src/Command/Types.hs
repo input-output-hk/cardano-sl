@@ -49,6 +49,7 @@ data Command
     | SendToAllGenesis !SendToAllGenesisParams
     | Vote Int Bool UpId
     | ProposeUpdate !ProposeUpdateParams
+    | HashInstaller !FilePath
     | Help
     | ListAddresses
     | DelegateLight !Int !PublicKey !EpochIndex !(Maybe EpochIndex)

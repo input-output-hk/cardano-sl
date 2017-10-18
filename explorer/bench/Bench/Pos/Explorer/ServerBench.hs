@@ -6,7 +6,6 @@ module Bench.Pos.Explorer.ServerBench
 import qualified Prelude
 import           Universum
 
--- import           Formatting                        (bprint)  --(bprint, build, int, stext, (%))
 import           Criterion.Main               (Benchmark, bench, defaultConfig,
                                                defaultMainWith, env, whnf)
 import           Criterion.Types              (Config (..))

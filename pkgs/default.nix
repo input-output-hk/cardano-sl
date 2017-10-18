@@ -1149,6 +1149,7 @@ self: {
             cardano-sl-ssc
             cardano-sl-txp
             cardano-sl-update
+            cborg
             cereal
             conduit
             containers
@@ -1176,6 +1177,7 @@ self: {
             formatting
             generic-arbitrary
             hashable
+            hspec
             http-client
             http-client-tls
             http-conduit
@@ -1486,7 +1488,7 @@ self: {
           description = "Cardano SL - basic DB interfaces";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-explorer = callPackage ({ MonadRandom, QuickCheck, aeson, base, base16-bytestring, binary, bytestring, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-godtossing, cardano-sl-infra, cardano-sl-ssc, cardano-sl-update, cborg, cereal, containers, cpphs, cryptonite, data-default, either, engine-io, engine-io-wai, ether, exceptions, formatting, generic-arbitrary, hspec, http-types, kademlia, lens, lifted-base, log-warper, memory, mkDerivation, mmorph, monad-control, monad-loops, mtl, network-transport-tcp, node-sketch, optparse-applicative, optparse-simple, purescript-bridge, pvss, quickcheck-instances, random, reflection, regex-tdfa, regex-tdfa-text, safecopy, serokell-util, servant, servant-multipart, servant-server, servant-swagger, servant-swagger-ui, socket-io, stdenv, stm, swagger2, tagged, text, text-format, time, time-units, transformers, transformers-base, universum, unordered-containers, vector, wai, wai-cors, wai-extra, warp }:
+      cardano-sl-explorer = callPackage ({ MonadRandom, QuickCheck, aeson, base, base16-bytestring, binary, bytestring, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-godtossing, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cborg, cereal, containers, cpphs, cryptonite, data-default, either, engine-io, engine-io-wai, ether, exceptions, formatting, generic-arbitrary, hspec, http-types, kademlia, lens, lifted-base, log-warper, memory, mkDerivation, mmorph, monad-control, monad-loops, mtl, network-transport-tcp, node-sketch, optparse-applicative, optparse-simple, purescript-bridge, pvss, quickcheck-instances, random, reflection, regex-tdfa, regex-tdfa-text, safecopy, serokell-util, servant, servant-multipart, servant-server, servant-swagger, servant-swagger-ui, socket-io, stdenv, stm, swagger2, tagged, text, text-format, time, time-units, transformers, transformers-base, universum, unordered-containers, vector, wai, wai-cors, wai-extra, warp }:
       mkDerivation {
           pname = "cardano-sl-explorer";
           version = "1.0.2";
@@ -1505,6 +1507,7 @@ self: {
             cardano-sl-godtossing
             cardano-sl-infra
             cardano-sl-ssc
+            cardano-sl-txp
             cardano-sl-update
             containers
             data-default
@@ -1514,6 +1517,7 @@ self: {
             ether
             exceptions
             formatting
+            generic-arbitrary
             http-types
             lens
             lifted-base
@@ -1523,6 +1527,7 @@ self: {
             monad-loops
             mtl
             node-sketch
+            QuickCheck
             serokell-util
             servant
             servant-server
@@ -1584,6 +1589,10 @@ self: {
             bytestring
             cardano-sl
             cardano-sl-core
+            cardano-sl-db
+            cardano-sl-ssc
+            cardano-sl-txp
+            cardano-sl-update
             cborg
             cereal
             containers
@@ -6145,6 +6154,8 @@ self: {
           pname = "servant-swagger";
           version = "1.1.3.1";
           sha256 = "e8d85d05f4251b7bdbd7c5f215d90a22eb55a46812bc82469d94d2f07adebb58";
+          revision = "1";
+          editedCabalFile = "1bx68rcz4whjw3pqm40aiqpfigcgg9dkgjdlggry2iv81s0415xf";
           setupHaskellDepends = [
             base
             Cabal

@@ -11,5 +11,5 @@ import           Servant
 type API = "version"
            :> Summary "Returns the version for this API."
            :> Get '[JSON] APIVersion
-       :<|> Accounts.API
-       :<|> Addresses.API
+       :<|> Tags '["Accounts"]  :> Accounts.API
+       :<|> Tags '["Addresses"] :> Addresses.API

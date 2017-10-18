@@ -16,6 +16,7 @@ import           Control.Lens
 import           Data.Aeson
 import           Data.Aeson.Encode.Pretty
 import           Data.Monoid
+import qualified Data.Set                    as Set
 import           Data.String.Conv
 import           Data.Swagger
 import           Data.Swagger.Declare
@@ -58,15 +59,35 @@ class (ToJSON a, Typeable a, Arbitrary a) => ToDocs a where
            -> proxy a
            -> Declare (Definitions Schema) NamedSchema
 
+-- | Shamelessly copied from:
+-- <https://stackoverflow.com/questions/37364835/how-to-get-the-type-level-values-of-string-in-haskell>
+-- The idea is to extend `KnownSymbol` to a type-level list, so that it's possibly to reify at the value-level
+-- a `'[Symbol]` into a `[String]`.
+class KnownSymbols (xs :: [Symbol]) where
+  symbolVals :: proxy xs -> [String]
+
 --
 -- Instances
 --
+
+instance KnownSymbols ('[]) where
+  symbolVals _ = []
+
+instance (KnownSymbol a, KnownSymbols as) => KnownSymbols (a ': as) where
+  symbolVals _ =
+    symbolVal (Proxy :: Proxy a) : symbolVals (Proxy :: Proxy as)
 
 instance ( KnownSymbol summary , HasSwagger subApi) => HasSwagger (Summary summary :> subApi) where
     toSwagger _ =
         let summaryTxt = toS (symbolVal (Proxy @summary))
             swgr       = toSwagger (Proxy @subApi)
         in swgr & (operationsOf swgr) . summary ?~ summaryTxt
+
+instance (KnownSymbols tags, HasSwagger subApi) => HasSwagger (Tags tags :> subApi) where
+    toSwagger _ =
+        let newTags    = map toS (symbolVals (Proxy @tags))
+            swgr       = toSwagger (Proxy @subApi)
+        in swgr & over (operationsOf swgr . tags) (mappend (Set.fromList newTags))
 
 instance ToDocs APIVersion where
   annotate f p = do

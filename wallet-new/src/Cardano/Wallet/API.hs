@@ -1,10 +1,11 @@
+{-# LANGUAGE DataKinds     #-}
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE DataKinds #-}
 module Cardano.Wallet.API where
 
-import Servant
-import qualified Cardano.Wallet.API.V0 as V0
-import qualified Cardano.Wallet.API.V1 as V1
+import           Cardano.Wallet.API.Types
+import qualified Cardano.Wallet.API.V0    as V0
+import qualified Cardano.Wallet.API.V1    as V1
+import           Servant
 
 -- | The complete API, qualified by its versions. For backward compatibility's sake, we still expose
 -- the old API both under `/api/` and under `/api/v0`. Specification is split under separate modules.
@@ -22,9 +23,14 @@ import qualified Cardano.Wallet.API.V1 as V1
 -- * Cardano.Wallet.API.V1.Handlers contains all the @Handler@s serving the V1 API;
 --
 type WalletAPI
-    =    "api"         :> V0.API
-    :<|> "api" :> "v0" :> V0.API
-    :<|> "api" :> "v1" :> V1.API
+    =    "api" :> Tags '["V0"]
+               :> V0.API
+    :<|> "api" :> "v0"
+               :> Tags '["V0"]
+               :> V0.API
+    :<|> "api" :> "v1"
+               :> Tags '["V1"]
+               :> V1.API
 
 walletAPI :: Proxy WalletAPI
 walletAPI = Proxy

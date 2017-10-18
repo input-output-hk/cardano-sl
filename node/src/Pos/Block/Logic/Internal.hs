@@ -36,8 +36,8 @@ import           Pos.Block.BListener     (MonadBListener)
 import           Pos.Block.Core          (Block, GenesisBlock, MainBlock, mbTxPayload,
                                           mbUpdatePayload)
 import           Pos.Block.Slog          (BypassSecurityCheck (..), MonadSlogApply,
-                                          MonadSlogBase, slogApplyBlocks,
-                                          slogRollbackBlocks)
+                                          MonadSlogBase, ShouldCallBListener,
+                                          slogApplyBlocks, slogRollbackBlocks)
 import           Pos.Block.Types         (Blund, Undo (undoTx, undoUS))
 import           Pos.Core                (HasConfiguration, IsGenesisHeader, IsMainHeader,
                                           epochIndexL, gbBody, gbHeader, headerHash)
@@ -153,8 +153,11 @@ normalizeMempool = do
 -- Invariant: all blocks have the same epoch.
 applyBlocksUnsafe
     :: forall ssc ctx m . MonadBlockApply ssc ctx m
-    => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
-applyBlocksUnsafe blunds pModifier = do
+    => ShouldCallBListener
+    -> OldestFirst NE (Blund ssc)
+    -> Maybe PollModifier
+    -> m ()
+applyBlocksUnsafe scb blunds pModifier = do
     -- Check that all blunds have the same epoch.
     unless (null nextEpoch) $ assertionFailed $
         sformat ("applyBlocksUnsafe: tried to apply more than we should"%
@@ -174,19 +177,22 @@ applyBlocksUnsafe blunds pModifier = do
         (b@(Left _,_):|(x:xs)) -> app' (b:|[]) >> app' (x:|xs)
         _                      -> app blunds
   where
-    app x = applyBlocksDbUnsafeDo x pModifier
+    app x = applyBlocksDbUnsafeDo scb x pModifier
     app' = app . OldestFirst
     (thisEpoch, nextEpoch) =
         spanSafe ((==) `on` view (_1 . epochIndexL)) $ getOldestFirst blunds
 
 applyBlocksDbUnsafeDo
     :: forall ssc ctx m . MonadBlockApply ssc ctx m
-    => OldestFirst NE (Blund ssc) -> Maybe PollModifier -> m ()
-applyBlocksDbUnsafeDo blunds pModifier = do
+    => ShouldCallBListener
+    -> OldestFirst NE (Blund ssc)
+    -> Maybe PollModifier
+    -> m ()
+applyBlocksDbUnsafeDo scb blunds pModifier = do
     let blocks = fmap fst blunds
     -- Note: it's important to do 'slogApplyBlocks' first, because it
     -- puts blocks in DB.
-    slogBatch <- slogApplyBlocks blunds
+    slogBatch <- slogApplyBlocks scb blunds
     TxpGlobalSettings {..} <- view (lensOf @TxpGlobalSettings)
     usBatch <- SomeBatchOp <$> usApplyBlocks (map toUpdateBlock blocks) pModifier
     delegateBatch <- SomeBatchOp <$> dlgApplyBlocks blunds
@@ -208,10 +214,11 @@ applyBlocksDbUnsafeDo blunds pModifier = do
 rollbackBlocksUnsafe
     :: forall ssc ctx m. (MonadBlockApply ssc ctx m)
     => BypassSecurityCheck -- ^ is rollback for more than k blocks allowed?
+    -> ShouldCallBListener
     -> NewestFirst NE (Blund ssc)
     -> m ()
-rollbackBlocksUnsafe bsc toRollback = do
-    slogRoll <- slogRollbackBlocks bsc toRollback
+rollbackBlocksUnsafe bsc scb toRollback = do
+    slogRoll <- slogRollbackBlocks bsc scb toRollback
     dlgRoll <- SomeBatchOp <$> dlgRollbackBlocks toRollback
     usRoll <- SomeBatchOp <$> usRollbackBlocks
                   (toRollback & each._2 %~ undoUS

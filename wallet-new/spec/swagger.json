@@ -1,0 +1,303 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "version": "2.0",
+        "title": "Cardano Wallet API",
+        "license": {
+            "url": "http://mit.com",
+            "name": "MIT"
+        },
+        "description": "This is the specification for the Cardano Wallet API, automatically generated\nas a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API\nof [Cardano](https://github.com/input-output-hk/cardano-sl).\n\n### Request format\n\nHere we document how to perform a request.\n\n### Response format\n\nHere we document what do expect as a result.\n\n``` json\n{ \"id\": \"foo\",\n  \"bar\": 10\n}\n```\n"
+    },
+    "definitions": {
+        "APIVersion": {
+            "example": {
+                "version": "v0"
+            },
+            "required": [
+                "version"
+            ],
+            "type": "object",
+            "description": "The API version. We currently support v0 and v1. Here's an example:<br><br><pre>{\n    \"version\": \"v0\"\n}</pre>",
+            "properties": {
+                "version": {
+                    "type": "string"
+                }
+            }
+        },
+        "OneOf [Account] (ExtendedResponse [Account])": {
+            "example": [
+                {
+                    "id": "DEADBeef"
+                }
+            ],
+            "items": {
+                "required": [
+                    "id"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    }
+                }
+            },
+            "type": "array",
+            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Account] or [Account] depending on whether or not the extended response format has been requested. Whilst using the  api this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an 'a' will be returned. Here's an example:<br><br><pre>[\n    {\n        \"id\": \"123456\"\n    },\n    {\n        \"id\": \"DEADBeef\"\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"id\": \"DEADBeef\"\n        },\n        {\n            \"id\": \"123456\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"total_entries\": 2,\n        \"total_pages\": 1,\n        \"per_page\": 3\n    }\n}</pre>"
+        },
+        "OneOf [Address] (ExtendedResponse [Address])": {
+            "example": [
+                {
+                    "id": "DEADBeef"
+                }
+            ],
+            "items": {
+                "required": [
+                    "id"
+                ],
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    }
+                }
+            },
+            "type": "array",
+            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Address] or [Address] depending on whether or not the extended response format has been requested. Whilst using the  api this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an 'a' will be returned. Here's an example:<br><br><pre>[\n    {\n        \"id\": \"123456\"\n    },\n    {\n        \"id\": \"DEADBeef\"\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"id\": \"DEADBeef\"\n        },\n        {\n            \"id\": \"123456\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"total_entries\": 2,\n        \"total_pages\": 1,\n        \"per_page\": 3\n    }\n}</pre>"
+        },
+        "Address": {
+            "example": {
+                "id": "DEADBeef"
+            },
+            "required": [
+                "id"
+            ],
+            "type": "object",
+            "description": "An Address. Here's an example:<br><br><pre>{\n    \"id\": \"DEADBeef\"\n}</pre>",
+            "properties": {
+                "id": {
+                    "type": "string"
+                }
+            }
+        }
+    },
+    "paths": {
+        "/api/v1/version": {
+            "get": {
+                "summary": "Returns the version for this API.",
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/APIVersion"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V1"
+                ]
+            }
+        },
+        "/api/version": {
+            "get": {
+                "summary": "Returns the version for this API.",
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/APIVersion"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/version": {
+            "get": {
+                "summary": "Returns the version for this API.",
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/APIVersion"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v1/accounts": {
+            "get": {
+                "summary": "Retrieves the full list of Accounts.",
+                "responses": {
+                    "400": {
+                        "description": "Invalid `Daedalus-Response-Format` or `extended` or `per_page` or `page`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/OneOf [Account] (ExtendedResponse [Account])"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "maximum": 9223372036854775807,
+                        "minimum": -9223372036854775808,
+                        "in": "query",
+                        "name": "page",
+                        "type": "integer"
+                    },
+                    {
+                        "maximum": 9223372036854775807,
+                        "minimum": -9223372036854775808,
+                        "in": "query",
+                        "name": "per_page",
+                        "type": "integer"
+                    },
+                    {
+                        "in": "query",
+                        "name": "extended",
+                        "type": "boolean"
+                    },
+                    {
+                        "in": "header",
+                        "name": "Daedalus-Response-Format",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "Accounts",
+                    "V1"
+                ]
+            }
+        },
+        "/api/v1/addresses": {
+            "post": {
+                "summary": "Creates a new Address.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/Address"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/Address"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "Addresses",
+                    "V1"
+                ]
+            },
+            "get": {
+                "summary": "Returns all the addresses.",
+                "responses": {
+                    "400": {
+                        "description": "Invalid `Daedalus-Response-Format` or `extended` or `per_page` or `page`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/OneOf [Address] (ExtendedResponse [Address])"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "maximum": 9223372036854775807,
+                        "minimum": -9223372036854775808,
+                        "in": "query",
+                        "name": "page",
+                        "type": "integer"
+                    },
+                    {
+                        "maximum": 9223372036854775807,
+                        "minimum": -9223372036854775808,
+                        "in": "query",
+                        "name": "per_page",
+                        "type": "integer"
+                    },
+                    {
+                        "in": "query",
+                        "name": "extended",
+                        "type": "boolean"
+                    },
+                    {
+                        "in": "header",
+                        "name": "Daedalus-Response-Format",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "Addresses",
+                    "V1"
+                ]
+            }
+        },
+        "/api/v1/accounts/{account_id}": {
+            "delete": {
+                "summary": "Deletes an Account.",
+                "responses": {
+                    "404": {
+                        "description": "`account_id` not found"
+                    },
+                    "204": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "account_id",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "Accounts",
+                    "V1"
+                ]
+            }
+        }
+    }
+}

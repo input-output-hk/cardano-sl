@@ -7,7 +7,6 @@
 {-# LANGUAGE TypeOperators         #-}
 module Cardano.Wallet.API.V1.Handlers where
 
-import           Cardano.Wallet.API                       (WalletAPI)
 import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1                    as V1
 import qualified Cardano.Wallet.API.V1.Handlers.Accounts  as Accounts

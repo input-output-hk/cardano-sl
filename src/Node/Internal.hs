@@ -835,7 +835,8 @@ nodeDispatcher node handlerInOut =
 
           -- When a heavyweight connection is lost we must close up all of the
           -- lightweight connections which it carried.
-          NT.ErrorEvent (NT.TransportError (NT.EventErrorCode (NT.EventConnectionLost peer bundle)) _msg) ->
+          NT.ErrorEvent (NT.TransportError (NT.EventErrorCode (NT.EventConnectionLost peer bundle)) reason) -> do
+              logError $ sformat ("EventConnectionLost received from the network layer: " % shown) reason
               connectionLost state peer bundle >>= loop
 
           -- Unsupported event is recoverable. Just log and carry on.

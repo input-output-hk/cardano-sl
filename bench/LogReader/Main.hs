@@ -34,6 +34,7 @@ import           LogReaderOptions             (Args (..), argsParser)
 import           System.Wlog                  (LoggerNameBox, Severity (Info),
                                                initTerminalLogging, logError, logWarning,
                                                usingLoggerName)
+import           System.Wlog.Formatter        (centiUtcTimeF)
 
 
 type Measures = M.Map MsgId (Payload, [(MeasureEvent, Timestamp)])
@@ -127,7 +128,7 @@ getOptions = (\(a, ()) -> a) <$> simpleOptions
 
 main :: IO ()
 main = usingLoggerName mempty $ do
-    initTerminalLogging True True (Just Info)
+    initTerminalLogging centiUtcTimeF True True (Just Info)
     Args{..} <- liftIO getOptions
     measures <- flip execStateT M.empty $
         forM_ inputFiles analyze

@@ -138,11 +138,11 @@ data PskHeavyVerdict
 -- depending on issuer's stake, overrides if exists, checks
 -- validity and cachemsg state.
 processProxySKHeavy
-    :: forall ssc ctx m.
+    :: forall ctx m.
        ( MonadIO m
        , MonadMask m
        , MonadDBRead m
-       , MonadBlockDB ssc m
+       , MonadBlockDB m
        , MonadGState m
        , MonadDelegation ctx m
        , MonadReader ctx m
@@ -154,17 +154,17 @@ processProxySKHeavy
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavy psk =
     withStateLockNoMetrics LowPriority $ \_stateLockHeader ->
-        processProxySKHeavyInternal @ssc psk
+        processProxySKHeavyInternal psk
 
 -- | Main logic of heavy psk processing, doesn't have
 -- synchronization. Should be called __only__ if you are sure that
 -- 'StateLock' is taken already.
 processProxySKHeavyInternal
-    :: forall ssc ctx m.
+    :: forall ctx m.
        ( MonadIO m
        , MonadMask m
        , MonadDBRead m
-       , MonadBlockDB ssc m
+       , MonadBlockDB m
        , MonadGState m
        , MonadDelegation ctx m
        , MonadReader ctx m
@@ -175,7 +175,7 @@ processProxySKHeavyInternal
     => ProxySKHeavy -> m PskHeavyVerdict
 processProxySKHeavyInternal psk = do
     curTime <- microsecondsToUTC <$> currentTime
-    dbTip <- DB.getTipHeader @ssc
+    dbTip <- DB.getTipHeader
     let dbTipHash = headerHash dbTip
     let headEpoch = dbTip ^. epochIndexL
     richmen <-

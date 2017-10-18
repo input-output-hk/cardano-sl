@@ -17,7 +17,7 @@ import           Pos.DB.Class    (MonadDB, MonadGState)
 import           Pos.Lrc.Context (LrcContext)
 
 -- | Set of constraints used by LRC.
-type LrcMode ssc ctx m
+type LrcMode ctx m
      = ( WithLogger m
        , MonadMask m
        , MonadGState m

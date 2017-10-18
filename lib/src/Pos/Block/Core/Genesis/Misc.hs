@@ -14,31 +14,32 @@ import           Formatting                   (bprint, build, int, sformat, stex
 import           Serokell.Util                (Color (Magenta), colorize, listJson)
 
 import           Pos.Binary.Block.Core        ()
+import           Pos.Binary.Class             (Bi)
 import           Pos.Block.Core.Genesis.Chain (Body (..), ConsensusData (..))
 import           Pos.Block.Core.Genesis.Lens  (gcdDifficulty, gcdEpoch)
 import           Pos.Block.Core.Genesis.Types (GenesisBlock, GenesisBlockHeader,
                                                GenesisBlockchain,
                                                GenesisExtraBodyData (..),
                                                GenesisExtraHeaderData (..))
-import           Pos.Block.Core.Union.Types   (BiHeader, BiSsc, BlockHeader,
-                                               blockHeaderHash)
+import           Pos.Block.Core.Union.Types   (BiSsc, BlockHeader, blockHeaderHash)
 import           Pos.Core                     (EpochIndex, EpochOrSlot (..),
                                                GenericBlock (..), GenericBlockHeader (..),
-                                               HasDifficulty (..), HasEpochIndex (..),
-                                               HasEpochOrSlot (..), HasHeaderHash (..),
-                                               HeaderHash, IsGenesisHeader, IsHeader,
-                                               SlotLeaders, gbHeader, gbhConsensus,
-                                               mkGenericHeader, recreateGenericBlock,
-                                               HasConfiguration)
+                                               HasConfiguration, HasDifficulty (..),
+                                               HasEpochIndex (..), HasEpochOrSlot (..),
+                                               HasHeaderHash (..), HeaderHash,
+                                               IsGenesisHeader, IsHeader, SlotLeaders,
+                                               gbHeader, gbhConsensus, mkGenericHeader,
+                                               recreateGenericBlock)
 import           Pos.Crypto                   (hashHexF)
 import           Pos.Data.Attributes          (mkAttributes)
+import           Pos.Ssc.GodTossing.Type      (SscGodTossing)
 import           Pos.Util.Util                (leftToPanic)
 
 ----------------------------------------------------------------------------
 -- Buildable
 ----------------------------------------------------------------------------
 
-instance BiSsc ssc => Buildable (GenesisBlockHeader ssc) where
+instance BiSsc => Buildable GenesisBlockHeader where
     build gbh@UnsafeGenericBlockHeader {..} =
         bprint
             ("GenesisBlockHeader:\n"%
@@ -56,7 +57,7 @@ instance BiSsc ssc => Buildable (GenesisBlockHeader ssc) where
         gbhHeaderHash = blockHeaderHash $ Left gbh
         GenesisConsensusData {..} = _gbhConsensus
 
-instance BiSsc ssc => Buildable (GenesisBlock ssc) where
+instance BiSsc => Buildable GenesisBlock where
     build UnsafeGenericBlock {..} =
         bprint
             (stext%":\n"%
@@ -76,55 +77,59 @@ instance BiSsc ssc => Buildable (GenesisBlock ssc) where
 -- Pos.Core.Class
 ----------------------------------------------------------------------------
 
-instance HasEpochIndex (GenesisBlock ssc) where
+instance HasEpochIndex GenesisBlock where
     epochIndexL = gbHeader . gbhConsensus . gcdEpoch
 
-instance HasEpochIndex (GenesisBlockHeader ssc) where
+instance HasEpochIndex GenesisBlockHeader where
     epochIndexL = gbhConsensus . gcdEpoch
 
-instance HasEpochOrSlot (GenesisBlockHeader ssc) where
+instance HasEpochOrSlot GenesisBlockHeader where
     getEpochOrSlot = EpochOrSlot . Left . _gcdEpoch . _gbhConsensus
 
-instance HasEpochOrSlot (GenesisBlock ssc) where
+instance HasEpochOrSlot GenesisBlock where
     getEpochOrSlot = getEpochOrSlot . _gbHeader
 
-instance BiHeader ssc =>
-         HasHeaderHash (GenesisBlockHeader ssc) where
+-- NB. it's not a mistake that these instances require @Bi BlockHeader@
+-- instead of @Bi GenesisBlockHeader@. We compute header's hash by
+-- converting it to a BlockHeader first.
+
+instance Bi BlockHeader =>
+         HasHeaderHash GenesisBlockHeader where
     headerHash = blockHeaderHash . Left
 
-instance BiHeader ssc =>
-         HasHeaderHash (GenesisBlock ssc) where
+instance Bi BlockHeader =>
+         HasHeaderHash GenesisBlock where
     headerHash = blockHeaderHash . Left . _gbHeader
 
-instance HasDifficulty (ConsensusData (GenesisBlockchain ssc)) where
+instance HasDifficulty (ConsensusData (GenesisBlockchain SscGodTossing)) where
     difficultyL = gcdDifficulty
 
-instance HasDifficulty (GenesisBlockHeader ssc) where
+instance HasDifficulty GenesisBlockHeader where
     difficultyL = gbhConsensus . difficultyL
 
-instance HasDifficulty (GenesisBlock ssc) where
+instance HasDifficulty GenesisBlock where
     difficultyL = gbHeader . difficultyL
 
-instance BiHeader ssc => IsHeader (GenesisBlockHeader ssc)
-instance BiHeader ssc => IsGenesisHeader (GenesisBlockHeader ssc)
+instance Bi BlockHeader => IsHeader GenesisBlockHeader
+instance Bi BlockHeader => IsGenesisHeader GenesisBlockHeader
 
 ----------------------------------------------------------------------------
 -- Smart constructors
 ----------------------------------------------------------------------------
 
-type SanityConstraint ssc
-     = ( HasDifficulty $ BlockHeader ssc
-       , HasHeaderHash $ BlockHeader ssc
+type SanityConstraint
+     = ( HasDifficulty BlockHeader
+       , HasHeaderHash BlockHeader
        , HasConfiguration
        )
 
 -- | Smart constructor for 'GenesisBlockHeader'. Uses 'mkGenericHeader'.
 mkGenesisHeader
-    :: SanityConstraint ssc
-    => Maybe (BlockHeader ssc)
+    :: SanityConstraint
+    => Maybe BlockHeader
     -> EpochIndex
-    -> Body (GenesisBlockchain ssc)
-    -> GenesisBlockHeader ssc
+    -> Body (GenesisBlockchain SscGodTossing)
+    -> GenesisBlockHeader
 mkGenesisHeader prevHeader epoch body =
     -- here we know that genesis header construction can not fail
     leftToPanic "mkGenesisHeader: " $
@@ -140,11 +145,11 @@ mkGenesisHeader prevHeader epoch body =
 
 -- | Smart constructor for 'GenesisBlock'.
 mkGenesisBlock
-    :: SanityConstraint ssc
-    => Maybe (BlockHeader ssc)
+    :: SanityConstraint
+    => Maybe BlockHeader
     -> EpochIndex
     -> SlotLeaders
-    -> GenesisBlock ssc
+    -> GenesisBlock
 mkGenesisBlock prevHeader epoch leaders =
     leftToPanic "mkGenesisBlock: " $ recreateGenericBlock header body extra
   where

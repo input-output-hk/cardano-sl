@@ -114,7 +114,7 @@ spec = withDefConfiguration $ withDefUpdateConfiguration $
     leftToCounter :: (ToString s, Testable p) => Either s a -> (a -> p) -> Property
     leftToCounter x c = either (\t -> counterexample (toString t) False) (property . c) x
 
-    emptyBlk :: (HasConfiguration, HasUpdateConfiguration, Testable p) => (Either Text (MainBlock SscGodTossing) -> p) -> Property
+    emptyBlk :: (HasConfiguration, HasUpdateConfiguration, Testable p) => (Either Text MainBlock -> p) -> Property
     emptyBlk foo =
         forAll arbitrary $ \(prevHeader, sk, slotId) ->
         foo $ producePureBlock infLimit prevHeader [] Nothing slotId def (defGTP slotId) def sk
@@ -126,12 +126,12 @@ spec = withDefConfiguration $ withDefUpdateConfiguration $
     noSscBlock
         :: (HasConfiguration, HasUpdateConfiguration)
         => Byte
-        -> BlockHeader SscGodTossing
+        -> BlockHeader
         -> [TxAux]
         -> DlgPayload
         -> UpdatePayload
         -> SecretKey
-        -> Either Text (MainBlock SscGodTossing)
+        -> Either Text MainBlock
     noSscBlock limit prevHeader txs proxyCerts updatePayload sk =
         let neutralSId = SlotId 0 (unsafeMkLocalSlotIndex $ fromIntegral $ blkSecurityParam * 2)
         in producePureBlock
@@ -140,7 +140,7 @@ spec = withDefConfiguration $ withDefUpdateConfiguration $
     producePureBlock
         :: (HasConfiguration, HasUpdateConfiguration)
         => Byte
-        -> BlockHeader SscGodTossing
+        -> BlockHeader
         -> [TxAux]
         -> ProxySKBlockInfo
         -> SlotId
@@ -148,7 +148,7 @@ spec = withDefConfiguration $ withDefUpdateConfiguration $
         -> SscPayload SscGodTossing
         -> UpdatePayload
         -> SecretKey
-        -> Either Text (MainBlock SscGodTossing)
+        -> Either Text MainBlock
     producePureBlock limit prev txs psk slot dlgPay sscPay usPay sk =
         createMainBlockPure limit prev psk slot sk $
         RawPayload txs sscPay dlgPay usPay

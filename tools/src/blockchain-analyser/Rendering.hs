@@ -20,7 +20,6 @@ import           Pos.Core                   (EpochIndex, EpochOrSlot (..),
                                              SlotId (..), getEpochIndex, getEpochOrSlot)
 import           Pos.Crypto                 (PublicKey)
 import           Pos.Merkle                 (MerkleTree (..))
-import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Txp.Core               (Tx)
 import           Serokell.Data.Memory.Units (Byte, fromBytes, memory, toBytes)
 import           Text.Tabl                  (Alignment (..), Decoration (..),
@@ -92,7 +91,7 @@ renderAsciiTable uom stats =
 
 renderBlock :: HasConfiguration
             => CLIOptions
-            -> (Block SscGodTossing, Maybe Undo)
+            -> (Block, Maybe Undo)
             -> Text
 renderBlock cli block = case printMode cli of
     Human      -> renderBlockHuman (fst block)
@@ -100,10 +99,10 @@ renderBlock cli block = case printMode cli of
                   in renderAsTable DecorNone DecorNone (defaultAlignment rows) rows
     CSV        -> renderBlockCSV (uom cli) block
 
-renderBlockHuman :: HasConfiguration => Block SscGodTossing -> Text
+renderBlockHuman :: HasConfiguration => Block -> Text
 renderBlockHuman = either pretty pretty
 
-renderBlockCSV :: HasConfiguration => UOM -> (Block SscGodTossing, Maybe Undo) -> Text
+renderBlockCSV :: HasConfiguration => UOM -> (Block, Maybe Undo) -> Text
 renderBlockCSV uom = T.intercalate "," . (toTableRow uom)
 
 defaultHorizontalDecoration :: Decoration
@@ -144,7 +143,7 @@ header uom = [
 
 renderBlocks :: HasConfiguration
              => CLIOptions
-             -> [(Block SscGodTossing, Maybe Undo)]
+             -> [(Block, Maybe Undo)]
              -> Text
 renderBlocks cli blocks = case printMode cli of
     Human      -> unlines $ map (renderBlockHuman . fst) blocks
@@ -153,26 +152,26 @@ renderBlocks cli blocks = case printMode cli of
     CSV        -> unlines (renderHeader cli : map (renderBlockCSV (uom cli)) blocks)
 
 
-getEpoch :: BlockHeader SscGodTossing -> EpochIndex
+getEpoch :: BlockHeader -> EpochIndex
 getEpoch h = case unEpochOrSlot (getEpochOrSlot h) of
     Left e   -> e
     Right sl -> siEpoch sl
 
-getSlot :: BlockHeader SscGodTossing -> Maybe SlotId
+getSlot :: BlockHeader -> Maybe SlotId
 getSlot = either (const Nothing) Just . unEpochOrSlot . getEpochOrSlot
 
-getLeader :: BlockHeader SscGodTossing -> Maybe PublicKey
+getLeader :: BlockHeader -> Maybe PublicKey
 getLeader (Left _)   = Nothing
 getLeader (Right bh) = Just . _mcdLeaderKey . _gbhConsensus $ bh
 
-getTxs :: Block SscGodTossing -> MerkleTree Tx
+getTxs :: Block -> MerkleTree Tx
 getTxs (Left _)          = MerkleEmpty
 getTxs (Right mainBlock) = (_gbBody mainBlock) ^. mbTxs
 
-getHeaderSize :: HasConfiguration => BlockHeader SscGodTossing -> Integer
+getHeaderSize :: HasConfiguration => BlockHeader -> Integer
 getHeaderSize = either (toBytes . biSize) (toBytes . biSize)
 
-getBlockSize :: HasConfiguration => Block SscGodTossing -> Integer
+getBlockSize :: HasConfiguration => Block -> Integer
 getBlockSize = either (toBytes . biSize) (toBytes . biSize)
 
 getUndoSize :: HasConfiguration => Maybe Undo -> Integer
@@ -180,7 +179,7 @@ getUndoSize = maybe 0 (toBytes . biSize)
 
 -- | Given a `Block`, returns a table row suitable for being printed
 -- by `tabl`.
-toTableRow :: HasConfiguration => UOM -> (Block SscGodTossing, Maybe Undo) -> [Text]
+toTableRow :: HasConfiguration => UOM -> (Block, Maybe Undo) -> [Text]
 toTableRow uom (block, mbUndo) =
     let blockHeader   = getBlockHeader block
         previousBlock = pretty (prevBlock block)

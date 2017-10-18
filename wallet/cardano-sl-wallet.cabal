@@ -152,6 +152,7 @@ library
                         BangPatterns
                         TemplateHaskell
                         TypeOperators
+                        GADTs
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -244,6 +245,7 @@ executable cardano-node
                         UndecidableInstances
                         BangPatterns
                         TemplateHaskell
+                        GADTs
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

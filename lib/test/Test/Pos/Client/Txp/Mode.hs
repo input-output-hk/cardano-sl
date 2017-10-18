@@ -40,7 +40,6 @@ import           Pos.Slotting                     (HasSlottingVar (..), MonadSlo
                                                    mkSimpleSlottingVar)
 import qualified Pos.Slotting                     as Slot
 import           Pos.Ssc.Class                    (SscBlock)
-import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
@@ -114,7 +113,7 @@ initTxpTestContext tp@TestParams {..} = do
             -- , tticGenesisContext = _ttpGenesisContext
             }
     liftIO $ runTestInitMode initCtx $ do
-        initNodeDBs @SscGodTossing
+        initNodeDBs
         lcLrcSync <- newTVarIO =<< mkLrcSyncData
         let _gscLrcContext = LrcContext {..}
         _gscSlogGState <- mkSlogGState
@@ -156,24 +155,26 @@ instance HasTxpConfigurations => DB.MonadDB TxpTestInitMode where
     dbDelete = DB.dbDeletePureDefault
 
 instance
-    (HasTxpConfigurations, SscHelpersClass ssc) =>
-    DB.MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo TxpTestInitMode
+    HasTxpConfigurations =>
+    DB.MonadBlockDBGeneric BlockHeader Block Undo TxpTestInitMode
   where
-    dbGetBlock  = DB.dbGetBlockPureDefault @ssc
-    dbGetUndo   = DB.dbGetUndoPureDefault @ssc
-    dbGetHeader = DB.dbGetHeaderPureDefault @ssc
+    dbGetBlock  = DB.dbGetBlockPureDefault
+    dbGetUndo   = DB.dbGetUndoPureDefault
+    dbGetHeader = DB.dbGetHeaderPureDefault
 
-instance (HasTxpConfigurations, SscHelpersClass ssc) =>
-         DB.MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo TxpTestInitMode where
+instance
+    HasTxpConfigurations =>
+    DB.MonadBlockDBGenericWrite BlockHeader Block Undo TxpTestInitMode
+  where
     dbPutBlund = DB.dbPutBlundPureDefault
 
 instance
-    (HasTxpConfigurations, SscHelpersClass ssc) =>
-    DB.MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () TxpTestInitMode
+    HasTxpConfigurations =>
+    DB.MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () TxpTestInitMode
   where
-    dbGetBlock  = DB.dbGetBlockSscPureDefault @ssc
-    dbGetUndo   = DB.dbGetUndoSscPureDefault @ssc
-    dbGetHeader = DB.dbGetHeaderSscPureDefault @ssc
+    dbGetBlock  = DB.dbGetBlockSscPureDefault
+    dbGetUndo   = DB.dbGetUndoSscPureDefault
+    dbGetHeader = DB.dbGetHeaderSscPureDefault
 
 ----------------------------------------------------------------------------
 -- Boilerplate TxpTestContext instances

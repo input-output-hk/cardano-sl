@@ -29,7 +29,7 @@ instance Message MsgGetHeaders where
     messageCode _ = 4
     formatMessage _ = "GetHeaders"
 
-instance Message (MsgHeaders ssc) where
+instance Message MsgHeaders where
     messageCode _ = 5
     formatMessage _ = "BlockHeaders"
 
@@ -37,7 +37,7 @@ instance Message MsgGetBlocks where
     messageCode _ = 6
     formatMessage _ = "GetBlocks"
 
-instance Message (MsgBlock ssc) where
+instance Message MsgBlock where
     messageCode _ = 7
     formatMessage _ = "Block"
 

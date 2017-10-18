@@ -3,6 +3,7 @@
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE GADTs               #-}
 
 -- API server logic
 
@@ -58,7 +59,6 @@ import           Pos.Core                             (AddrType (..), Address (.
                                                        unsafeSubCoin)
 import           Pos.DB.Class                         (MonadDBRead)
 import           Pos.Slotting                         (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.GodTossing                   (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration     (HasGtConfiguration)
 import           Pos.Txp                              (MonadTxpMem, Tx (..), TxAux, TxId,
                                                        TxMap, TxOutAux (..), getLocalTxs,
@@ -103,10 +103,11 @@ import           Pos.Explorer.Web.Error               (ExplorerError (..))
 ----------------------------------------------------------------
 -- Top level functionality
 ----------------------------------------------------------------
-type MainBlund ssc = (MainBlock ssc, Undo)
+
+type MainBlund = (MainBlock, Undo)
 
 type ExplorerMode ctx m =
-    ( WorkMode SscGodTossing ctx m
+    ( WorkMode ctx m
     , HasGenesisRedeemAddressInfo m
     , HasGtConfiguration
     )
@@ -181,7 +182,7 @@ getBlocksTotal
     => m Integer
 getBlocksTotal = do
     -- Get the tip block.
-    tipBlock <- DB.getTipBlock @SscGodTossing
+    tipBlock <- DB.getTipBlock
     pure $ maxBlocks tipBlock
   where
     maxBlocks tipBlock = fromIntegral $ getChainDifficulty $ tipBlock ^. difficultyL
@@ -230,7 +231,7 @@ getBlocksPage mPageNumber mPageSize = do
 
     -- Either get the @HeaderHash@es from the @Page@ or throw an exception.
     getPageHHsOrThrow
-        :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
+        :: (DB.MonadBlockDB m, MonadThrow m)
         => Int
         -> m [HeaderHash]
     getPageHHsOrThrow pageNumber = getPageBlocks pageNumber >>=
@@ -241,9 +242,9 @@ getBlocksPage mPageNumber mPageSize = do
 
 -- Either get the block from the @HeaderHash@ or throw an exception.
 getBlundOrThrow
-    :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
+    :: (DB.MonadBlockDB m, MonadThrow m)
     => HeaderHash
-    -> m (Blund SscGodTossing)
+    -> m Blund
 getBlundOrThrow headerHash = DB.blkGetBlund headerHash >>=
     maybeThrow (Internal "Blund with hash cannot be found!")
 
@@ -629,24 +630,24 @@ epochSlotSearch epochIndex mSlotIndex = do
     -- the slot is @Nothing@.
     getEpochSlots
         :: Maybe Word16
-        -> [MainBlund SscGodTossing]
-        -> [MainBlund SscGodTossing]
+        -> [MainBlund]
+        -> [MainBlund]
     getEpochSlots Nothing           blunds = blunds
     getEpochSlots (Just slotIndex) blunds = filter filterBlundsBySlotIndex blunds
       where
         getBlundSlotIndex
-            :: MainBlund SscGodTossing
+            :: MainBlund
             -> Word16
         getBlundSlotIndex blund = getSlotIndex $ siSlot $ fst blund ^. mainBlockSlot
 
         filterBlundsBySlotIndex
-            :: MainBlund SscGodTossing
+            :: MainBlund
             -> Bool
         filterBlundsBySlotIndex blund = getBlundSlotIndex blund == slotIndex
 
     -- Either get the @HeaderHash@es from the @Epoch@ or throw an exception.
     getPageHHsOrThrow
-        :: (DB.MonadBlockDB SscGodTossing m, MonadThrow m)
+        :: (DB.MonadBlockDB m, MonadThrow m)
         => EpochIndex
         -> m [HeaderHash]
     getPageHHsOrThrow epoch = getEpochBlocks epoch >>=
@@ -750,7 +751,7 @@ getMempoolTxs = do
     mkWhTx :: (TxId, TxAux) -> WithHash Tx
     mkWhTx (txid, txAux) = WithHash (taTx txAux) txid
 
-getBlkSlotStart :: MonadSlots ctx m => MainBlock ssc -> m (Maybe Timestamp)
+getBlkSlotStart :: MonadSlots ctx m => MainBlock -> m (Maybe Timestamp)
 getBlkSlotStart blk = getSlotStart $ blk ^. gbHeader . gbhConsensus . mcdSlot
 
 topsortTxsOrFail :: (MonadThrow m, Eq a) => (a -> WithHash Tx) -> [a] -> m [a]
@@ -790,12 +791,12 @@ cTxIdToTxId cTxId = either exception pure (fromCTxId cTxId)
   where
     exception = const $ throwM $ Internal "Invalid transaction id!"
 
-getMainBlund :: ExplorerMode ctx m => HeaderHash -> m (MainBlund SscGodTossing)
+getMainBlund :: ExplorerMode ctx m => HeaderHash -> m MainBlund
 getMainBlund h = do
     (blk, undo) <- DB.blkGetBlund h >>= maybeThrow (Internal "No block found")
     either (const $ throwM $ Internal "Block is genesis block") (pure . (,undo)) blk
 
-getMainBlock :: ExplorerMode ctx m => HeaderHash -> m (MainBlock SscGodTossing)
+getMainBlock :: ExplorerMode ctx m => HeaderHash -> m MainBlock
 getMainBlock = fmap fst . getMainBlund
 
 -- | Get transaction extra from the database, and if you don't find it

@@ -30,7 +30,7 @@ import           Pos.Util.JsonLog          (JLEvent (..), JLTxR (..))
 import           Pos.Util.TimeWarp         (CanJsonLog (..))
 import           Pos.WorkMode.Class        (WorkMode)
 
-txInvReqDataParams :: WorkMode ssc ctx m
+txInvReqDataParams :: WorkMode ctx m
     => InvReqDataParams (Tagged TxMsgContents TxId) TxMsgContents m
 txInvReqDataParams =
     InvReqDataParams
@@ -49,7 +49,7 @@ txInvReqDataParams =
     txHandleData (TxMsgContents txAux) = handleTxDo txAux
 
 txRelays
-    :: forall ssc ctx m. WorkMode ssc ctx m
+    :: forall ctx m. WorkMode ctx m
     => [Relay m]
 txRelays = pure $
     InvReqData (KeyMempool (Proxy :: Proxy TxMsgContents)
@@ -62,7 +62,7 @@ txRelays = pure $
 -- CHECK: @handleTxDo
 -- #txProcessTransaction
 handleTxDo
-    :: WorkMode ssc ctx m
+    :: WorkMode ctx m
     => TxAux -> m Bool
 handleTxDo txAux = do
     let txId = hash (taTx txAux)

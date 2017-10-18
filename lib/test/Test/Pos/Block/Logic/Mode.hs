@@ -88,7 +88,6 @@ import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots
                                                  mkSimpleSlottingVar)
 import           Pos.Slotting.MemState          (MonadSlotsData)
 import           Pos.Ssc.Class                  (SscBlock)
-import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing             (HasGtConfiguration, SscGodTossing)
 import           Pos.Txp                        (GenericTxpLocalData, MempoolExt,
@@ -245,7 +244,7 @@ initBlockTestContext tp@TestParams {..} callback = do
                 systemStart
                 futureLrcCtx
         initBlockTestContextDo = do
-            initNodeDBs @SscGodTossing
+            initNodeDBs
             _gscSlottingVar <- newTVarIO =<< GS.getSlottingData
             putSlottingVar _gscSlottingVar
             btcSSlottingVar <- mkSimpleSlottingVar
@@ -262,7 +261,7 @@ initBlockTestContext tp@TestParams {..} callback = do
             let btcSlotId = Nothing
             let btcParams = tp
             let btcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}
-            btcDelegation <- mkDelegationVar @SscGodTossing
+            btcDelegation <- mkDelegationVar
             btcPureDBSnapshots <- PureDBSnapshotsVar <$> newIORef Map.empty
             let secretKeys =
                     case genesisSecretKeys of
@@ -362,24 +361,26 @@ instance HasConfiguration => MonadDB TestInitMode where
     dbDelete = DB.dbDeletePureDefault
 
 instance
-    (HasConfiguration, SscHelpersClass ssc) =>
-    MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo TestInitMode
+    HasConfiguration =>
+    MonadBlockDBGeneric BlockHeader Block Undo TestInitMode
   where
-    dbGetBlock  = DB.dbGetBlockPureDefault @ssc
-    dbGetUndo   = DB.dbGetUndoPureDefault @ssc
-    dbGetHeader = DB.dbGetHeaderPureDefault @ssc
+    dbGetBlock  = DB.dbGetBlockPureDefault
+    dbGetUndo   = DB.dbGetUndoPureDefault
+    dbGetHeader = DB.dbGetHeaderPureDefault
 
-instance (HasConfiguration, SscHelpersClass ssc) =>
-         MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo TestInitMode where
+instance
+    HasConfiguration =>
+    MonadBlockDBGenericWrite BlockHeader Block Undo TestInitMode
+  where
     dbPutBlund = DB.dbPutBlundPureDefault
 
 instance
-    (HasConfiguration, SscHelpersClass ssc) =>
-    MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () TestInitMode
+    HasConfiguration =>
+    MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () TestInitMode
   where
-    dbGetBlock  = DB.dbGetBlockSscPureDefault @ssc
-    dbGetUndo   = DB.dbGetUndoSscPureDefault @ssc
-    dbGetHeader = DB.dbGetHeaderSscPureDefault @ssc
+    dbGetBlock  = DB.dbGetBlockSscPureDefault
+    dbGetUndo   = DB.dbGetUndoSscPureDefault
+    dbGetHeader = DB.dbGetHeaderSscPureDefault
 
 instance (HasConfiguration, MonadSlotsData ctx TestInitMode)
       => MonadSlots ctx TestInitMode
@@ -484,20 +485,20 @@ instance HasConfiguration => MonadDB BlockTestMode where
     dbDelete = DB.dbDeletePureDefault
 
 instance HasConfiguration =>
-         MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode
+         MonadBlockDBGeneric BlockHeader Block Undo BlockTestMode
   where
     dbGetBlock = DB.dbGetBlockPureDefault
-    dbGetUndo = DB.dbGetUndoPureDefault @SscGodTossing
-    dbGetHeader = DB.dbGetHeaderPureDefault @SscGodTossing
+    dbGetUndo = DB.dbGetUndoPureDefault
+    dbGetHeader = DB.dbGetHeaderPureDefault
 
 instance HasConfiguration => MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () BlockTestMode
   where
     dbGetBlock = DB.dbGetBlockSscPureDefault
-    dbGetUndo = DB.dbGetUndoSscPureDefault @SscGodTossing
-    dbGetHeader = DB.dbGetHeaderSscPureDefault @SscGodTossing
+    dbGetUndo = DB.dbGetUndoSscPureDefault
+    dbGetHeader = DB.dbGetHeaderSscPureDefault
 
 instance HasConfiguration =>
-         MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo BlockTestMode where
+         MonadBlockDBGenericWrite BlockHeader Block Undo BlockTestMode where
     dbPutBlund = DB.dbPutBlundPureDefault
 
 instance HasConfiguration => MonadGState BlockTestMode where

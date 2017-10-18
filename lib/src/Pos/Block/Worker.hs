@@ -60,7 +60,6 @@ import           Pos.Reporting               (MetricMonitor (..), MetricMonitorS
                                               noReportMonitor, recordValue, reportOrLogE)
 import           Pos.Slotting                (currentTimeSlotting,
                                               getSlotStartEmpatically)
-import           Pos.Ssc.Class               (SscWorkersClass)
 import           Pos.Util                    (logWarningSWaitLinear, mconcatPair)
 import           Pos.Util.Chrono             (OldestFirst (..))
 import           Pos.Util.JsonLog            (jlCreatedBlock)
@@ -74,7 +73,7 @@ import           Pos.WorkMode.Class          (WorkMode)
 
 -- | All workers specific to block processing.
 blkWorkers
-    :: (SscWorkersClass ssc, WorkMode ssc ctx m)
+    :: WorkMode ctx m
     => ([WorkerSpec m], OutSpecs)
 blkWorkers =
     merge $ [ blkCreatorWorker
@@ -84,7 +83,7 @@ blkWorkers =
   where
     merge = mconcatPair . map (first pure)
 
-blkMetricCheckerWorker :: WorkMode ssc ctx m => (WorkerSpec m, OutSpecs)
+blkMetricCheckerWorker :: WorkMode ctx m => (WorkerSpec m, OutSpecs)
 blkMetricCheckerWorker =
     onNewSlotWorker True announceBlockOuts $ \slotId _ ->
         recoveryCommGuard "onNewSlot worker, blkMetricCheckerWorker" $
@@ -95,7 +94,7 @@ blkMetricCheckerWorker =
 ----------------------------------------------------------------------------
 
 -- TODO [CSL-1606] Using 'fork' here is quite bad, it's a temporary solution.
-blkCreatorWorker :: WorkMode ssc ctx m => (WorkerSpec m, OutSpecs)
+blkCreatorWorker :: WorkMode ctx m => (WorkerSpec m, OutSpecs)
 blkCreatorWorker =
     onNewSlotWorker True announceBlockOuts $ \slotId sendActions ->
         recoveryCommGuard "onNewSlot worker, blkCreatorWorker" $
@@ -106,7 +105,7 @@ blkCreatorWorker =
 
 
 blockCreator
-    :: WorkMode ssc ctx m
+    :: WorkMode ctx m
     => SlotId -> SendActions m -> m ()
 blockCreator (slotId@SlotId {..}) sendActions = do
 
@@ -196,7 +195,7 @@ blockCreator (slotId@SlotId {..}) sendActions = do
            | otherwise -> pass
 
 onNewSlotWhenLeader
-    :: WorkMode ssc ctx m
+    :: WorkMode ctx m
     => SlotId
     -> ProxySKBlockInfo
     -> Worker m
@@ -245,11 +244,11 @@ onNewSlotWhenLeader slotId pske SendActions {..} = do
 --
 -- Apart from chain quality check we also record some generally useful values.
 metricWorker
-    :: forall ssc ctx m. WorkMode ssc ctx m
+    :: forall ctx m. WorkMode ctx m
     => SlotId -> m ()
 metricWorker curSlot = do
     OldestFirst lastSlots <- slogGetLastSlots
-    reportTotalBlocks @ssc
+    reportTotalBlocks
     reportSlottingData curSlot
     reportCrucialValues
     -- If total number of blocks is less than `blkSecurityParam' we do
@@ -261,17 +260,17 @@ metricWorker curSlot = do
         Nothing -> pass
         Just slotsNE
             | length slotsNE < fromIntegral blkSecurityParam -> pass
-            | otherwise -> chainQualityChecker @ssc curSlot (NE.head slotsNE)
+            | otherwise -> chainQualityChecker curSlot (NE.head slotsNE)
 
 ----------------------------------------------------------------------------
 -- -- General metrics
 ----------------------------------------------------------------------------
 
 reportTotalBlocks ::
-       forall ssc ctx m. WorkMode ssc ctx m
+       forall ctx m. WorkMode ctx m
     => m ()
 reportTotalBlocks = do
-    difficulty <- view difficultyL <$> DB.getTipHeader @ssc
+    difficulty <- view difficultyL <$> DB.getTipHeader
     monitor <- difficultyMonitor <$> view scDifficultyMonitorState
     recordValue monitor difficulty
 
@@ -280,7 +279,7 @@ difficultyMonitor ::
        MetricMonitorState ChainDifficulty -> MetricMonitor ChainDifficulty
 difficultyMonitor = noReportMonitor fromIntegral Nothing
 
-reportSlottingData :: WorkMode ssc ctx m => SlotId -> m ()
+reportSlottingData :: WorkMode ctx m => SlotId -> m ()
 reportSlottingData slotId = do
     -- epoch
     let epoch = siEpoch slotId
@@ -300,7 +299,7 @@ reportSlottingData slotId = do
         view scGlobalSlotMonitorState
     recordValue globalSlotMonitor globalSlot
 
-reportCrucialValues :: WorkMode ssc ctx m => m ()
+reportCrucialValues :: WorkMode ctx m => m ()
 reportCrucialValues = do
     label <- view scCrucialValuesLabel
     BlockVersionData {..} <- getAdoptedBVData
@@ -318,7 +317,7 @@ reportCrucialValues = do
 ----------------------------------------------------------------------------
 
 chainQualityChecker ::
-       forall ssc ctx m. WorkMode ssc ctx m
+       forall ctx m. WorkMode ctx m
     => SlotId
     -> FlatSlotId
     -> m ()
@@ -333,7 +332,7 @@ chainQualityChecker curSlot kThSlot = do
     monitorOverall <- cqOverallMetricMonitor <$> view scCQOverallMonitorState
     monitorFixed <- cqFixedMetricMonitor <$> view scCQFixedMonitorState
     whenJustM (calcChainQualityM curFlatSlot) (recordValue monitorK)
-    whenJustM (calcOverallChainQuality @ssc) $ recordValue monitorOverall
+    whenJustM calcOverallChainQuality $ recordValue monitorOverall
     whenJustM calcChainQualityFixedTime $ recordValue monitorFixed
 
 -- Monitor for chain quality for last k blocks.

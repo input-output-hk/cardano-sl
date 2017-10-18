@@ -71,7 +71,6 @@ import qualified Pos.GState                       as GS
 import           Pos.Lrc                          (getLeaders)
 import           Pos.Merkle                       (getMerkleRoot, mtRoot)
 import           Pos.Slotting                     (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                          (Tx (..), TxId, TxOut (..),
                                                    TxOutAux (..), TxUndo, txpTxs,
@@ -200,7 +199,7 @@ data CBlockEntry = CBlockEntry
 
 toBlockEntry
     :: forall ctx m .
-    ( MonadBlockDB SscGodTossing m
+    ( MonadBlockDB m
     , MonadDBRead m
     , MonadRealDB ctx m
     , MonadSlots ctx m
@@ -208,7 +207,7 @@ toBlockEntry
     , HasConfiguration
     , HasGtConfiguration
     )
-    => (MainBlock SscGodTossing, Undo)
+    => (MainBlock, Undo)
     -> m CBlockEntry
 toBlockEntry (blk, Undo{..}) = do
 
@@ -246,7 +245,7 @@ toBlockEntry (blk, Undo{..}) = do
 -- Returning @Maybe@ is the simplest implementation for now, since it's hard
 -- to forsee what is and what will the state of leaders be at any given moment.
 getLeaderFromEpochSlot
-    :: (MonadBlockDB SscGodTossing m, MonadDBRead m, MonadRealDB ctx m)
+    :: (MonadBlockDB m, MonadDBRead m, MonadRealDB ctx m)
     => EpochIndex
     -> LocalSlotIndex
     -> m (Maybe StakeholderId)
@@ -292,7 +291,7 @@ data CBlockSummary = CBlockSummary
 
 toBlockSummary
     :: forall ctx m.
-    ( MonadBlockDB SscGodTossing m
+    ( MonadBlockDB m
     , MonadDBRead m
     , MonadRealDB ctx m
     , MonadSlots ctx m
@@ -300,7 +299,7 @@ toBlockSummary
     , HasConfiguration
     , HasGtConfiguration
     )
-    => (MainBlock SscGodTossing, Undo)
+    => (MainBlock, Undo)
     -> m CBlockSummary
 toBlockSummary blund@(blk, _) = do
     cbsEntry <- toBlockEntry blund

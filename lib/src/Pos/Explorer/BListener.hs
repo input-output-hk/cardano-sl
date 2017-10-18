@@ -32,7 +32,6 @@ import           Pos.DB.BatchOp               (SomeBatchOp (..))
 import           Pos.DB.Class                 (MonadDBRead)
 import           Pos.Explorer.DB              (Epoch, Page, numOfLastTxs)
 import qualified Pos.Explorer.DB              as DB
-import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
 import           Pos.Txp                      (Tx, topsortTxs, txpTxs)
 import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..),
                                                toNewestFirst)
@@ -51,9 +50,8 @@ runExplorerBListener :: ExplorerBListener m a -> m a
 runExplorerBListener = coerce
 
 -- Type alias, remove duplication
-type MonadBListenerT m ssc =
-    ( SscHelpersClass ssc
-    , WithLogger m
+type MonadBListenerT m =
+    ( WithLogger m
     , MonadCatch m
     , MonadDBRead m
     , HasConfiguration
@@ -76,9 +74,8 @@ instance ( MonadDBRead m
 
 
 onApplyCallGeneral
-    :: forall ssc m .
-    MonadBListenerT m ssc
-    => OldestFirst NE (Blund ssc) -> m SomeBatchOp
+    :: MonadBListenerT m
+    => OldestFirst NE Blund -> m SomeBatchOp
 onApplyCallGeneral    blunds = do
     epochBlocks <- onApplyEpochBlocksExplorer blunds
     pageBlocks  <- onApplyPageBlocksExplorer blunds
@@ -87,9 +84,8 @@ onApplyCallGeneral    blunds = do
 
 
 onRollbackCallGeneral
-    :: forall ssc m .
-    MonadBListenerT m ssc
-    => NewestFirst NE (Blund ssc) -> m SomeBatchOp
+    :: MonadBListenerT m
+    => NewestFirst NE Blund -> m SomeBatchOp
 onRollbackCallGeneral blunds = do
     epochBlocks <- onRollbackEpochBlocksExplorer blunds
     pageBlocks  <- onRollbackPageBlocksExplorer blunds
@@ -104,27 +100,24 @@ onRollbackCallGeneral blunds = do
 
 -- For @EpochBlocks@
 onApplyEpochBlocksExplorer
-    :: forall ssc m.
-    MonadBListenerT m ssc
-    => OldestFirst NE (Blund ssc)
+    :: MonadBListenerT m
+    => OldestFirst NE Blund
     -> m SomeBatchOp
 onApplyEpochBlocksExplorer blunds = onApplyKeyBlocksGeneral blunds epochBlocksMap
 
 
 -- For @PageBlocks@
 onApplyPageBlocksExplorer
-    :: forall ssc m .
-    MonadBListenerT m ssc
-    => OldestFirst NE (Blund ssc)
+    :: MonadBListenerT m
+    => OldestFirst NE Blund
     -> m SomeBatchOp
 onApplyPageBlocksExplorer blunds = onApplyKeyBlocksGeneral blunds pageBlocksMap
 
 
 -- For last transactions, @Tx@
 onApplyLastTxsExplorer
-    :: forall ssc m .
-    MonadBListenerT m ssc
-    => OldestFirst NE (Blund ssc)
+    :: MonadBListenerT m
+    => OldestFirst NE Blund
     -> m SomeBatchOp
 onApplyLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
   where
@@ -140,7 +133,7 @@ onApplyLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
         reversedCombined :: [Tx]
         reversedCombined = reverse $ getOldTxs oldTxs ++ getNewTxs newTxs
 
-    blocksNE :: NE (Block ssc)
+    blocksNE :: NE Block
     blocksNE = fst <$> getOldestFirst blunds
 
 
@@ -151,25 +144,22 @@ onApplyLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
 
 -- For @EpochBlocks@
 onRollbackEpochBlocksExplorer
-    :: forall ssc m .
-    MonadBListenerT m ssc
-    => NewestFirst NE (Blund ssc) -> m SomeBatchOp
+    :: MonadBListenerT m
+    => NewestFirst NE Blund -> m SomeBatchOp
 onRollbackEpochBlocksExplorer blunds = onRollbackGeneralBlocks blunds epochBlocksMap
 
 
 -- For @PageBlocks@
 onRollbackPageBlocksExplorer
-    :: forall ssc m .
-    MonadBListenerT m ssc
-    => NewestFirst NE (Blund ssc) -> m SomeBatchOp
+    :: MonadBListenerT m
+    => NewestFirst NE Blund -> m SomeBatchOp
 onRollbackPageBlocksExplorer blunds = onRollbackGeneralBlocks blunds pageBlocksMap
 
 
 -- For last transactions, @Tx@
 onRollbackLastTxsExplorer
-    :: forall ssc m .
-    MonadBListenerT m ssc
-    => NewestFirst NE (Blund ssc) -> m SomeBatchOp
+    :: MonadBListenerT m
+    => NewestFirst NE Blund -> m SomeBatchOp
 onRollbackLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
   where
     -- Get the top transactions by pulling the old top transactions and removing
@@ -181,7 +171,7 @@ onRollbackLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
         -> [Tx]
     getTopTxsDiff oldTxs newTxs = getOldTxs oldTxs \\ getNewTxs newTxs
 
-    blocksNE :: NE (Block ssc)
+    blocksNE :: NE Block
     blocksNE = fst <$> getNewestFirst blunds
 
 
@@ -192,8 +182,8 @@ onRollbackLastTxsExplorer blunds = generalLastTxsExplorer blocksNE getTopTxsDiff
 
 -- Return a map from @Epoch@ to @HeaderHash@es for all non-empty blocks.
 epochBlocksMap
-    :: forall ssc. (HasConfiguration, SscHelpersClass ssc)
-    => NE (Block ssc)
+    :: HasConfiguration
+    => NE Block
     -> M.Map Epoch [HeaderHash]
 epochBlocksMap neBlocks = blocksEpochs
   where
@@ -210,17 +200,17 @@ epochBlocksMap neBlocks = blocksEpochs
         blockEpochs :: [Epoch]
         blockEpochs = getBlockEpoch <$> blocks
 
-    getBlockEpoch :: (Block ssc) -> Epoch
+    getBlockEpoch :: Block -> Epoch
     getBlockEpoch block = block ^. epochIndexL
 
-    blocks :: [Block ssc]
+    blocks :: [Block]
     blocks = NE.toList neBlocks
 
 
 -- Return a map from @Page@ to @HeaderHash@es for all non-empty blocks.
 pageBlocksMap
-    :: forall ssc. (HasConfiguration, SscHelpersClass ssc)
-    => NE (Block ssc)
+    :: HasConfiguration
+    => NE Block
     -> M.Map Page [HeaderHash]
 pageBlocksMap neBlocks = blocksPages
   where
@@ -246,10 +236,10 @@ pageBlocksMap neBlocks = blocksPages
     blockIndexes :: [Int]
     blockIndexes = getBlockIndex <$> blocks
 
-    getBlockIndex :: (Block ssc) -> Int
+    getBlockIndex :: Block -> Int
     getBlockIndex block = fromIntegral $ getChainDifficulty $ block ^. difficultyL
 
-    blocks :: [Block ssc]
+    blocks :: [Block]
     blocks = NE.toList neBlocks
 
 
@@ -347,10 +337,10 @@ getExistingBlocks keys = do
 -- A general @Key@ @Block@ database application for the apply call.
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 onApplyKeyBlocksGeneral
-    :: forall k ssc m.
-    (MonadBListenerT m ssc, KeyBlocksOperation k)
-    => OldestFirst NE (Blund ssc)
-    -> (NE (Block ssc) -> M.Map k [HeaderHash])
+    :: forall k m.
+    (MonadBListenerT m, KeyBlocksOperation k)
+    => OldestFirst NE Blund
+    -> (NE Block -> M.Map k [HeaderHash])
     -> m SomeBatchOp
 onApplyKeyBlocksGeneral blunds newBlocksMapF = do
 
@@ -374,20 +364,20 @@ onApplyKeyBlocksGeneral blunds newBlocksMapF = do
     newBlocks :: M.Map k [HeaderHash]
     newBlocks = newBlocksMapF blocksNE
 
-    blocksNE :: NE (Block ssc)
+    blocksNE :: NE Block
     blocksNE = fst <$> getNewestFirst blocksNewF
 
-    blocksNewF :: NewestFirst NE (Blund ssc)
+    blocksNewF :: NewestFirst NE Blund
     blocksNewF = toNewestFirst blunds
 
 
 -- A general @Key@ @Block@ database application for the rollback call.
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 onRollbackGeneralBlocks
-    :: forall k ssc m.
-    (MonadBListenerT m ssc, KeyBlocksOperation k)
-    => NewestFirst NE (Blund ssc)
-    -> (NE (Block ssc) -> M.Map k [HeaderHash])
+    :: forall k m.
+    (MonadBListenerT m, KeyBlocksOperation k)
+    => NewestFirst NE Blund
+    -> (NE Block -> M.Map k [HeaderHash])
     -> m SomeBatchOp
 onRollbackGeneralBlocks blunds newBlocksMapF = do
 
@@ -413,7 +403,7 @@ onRollbackGeneralBlocks blunds newBlocksMapF = do
     newBlocks :: M.Map k [HeaderHash]
     newBlocks = newBlocksMapF blocksNE
 
-    blocksNE :: NE (Block ssc)
+    blocksNE :: NE Block
     blocksNE = fst <$> getNewestFirst blunds
 
 -- Wrappers so I don't mess up the parameter order
@@ -424,9 +414,8 @@ newtype NewTxs = NewTxs { getNewTxs :: [Tx] }
 -- combine old and new transactions I will return you an
 -- atomic database operation.
 generalLastTxsExplorer
-    :: forall ssc m .
-    MonadBListenerT m ssc
-    => NE (Block ssc)
+    :: MonadBListenerT m
+    => NE Block
     -> (OldTxs -> NewTxs -> [Tx])
     -> m SomeBatchOp
 generalLastTxsExplorer blocksNE getTopTxsDiff = do
@@ -452,11 +441,11 @@ generalLastTxsExplorer blocksNE getTopTxsDiff = do
     mMainBlocksTxs :: [Maybe [Tx]]
     mMainBlocksTxs = blockTxs <$> mainBlocks
 
-    blockTxs :: MainBlock ssc -> Maybe [Tx]
+    blockTxs :: MainBlock -> Maybe [Tx]
     blockTxs mb = topsortTxs withHash $ toList $ mb ^. mainBlockTxPayload . txpTxs
 
-    mainBlocks :: [MainBlock ssc]
+    mainBlocks :: [MainBlock]
     mainBlocks = rights blocks
 
-    blocks :: [Block ssc]
+    blocks :: [Block]
     blocks = NE.toList blocksNE

@@ -70,12 +70,11 @@ import           Pos.Generator.Block              (BlockGenParams (..), BlockTxp
                                                    genBlocks)
 import           Pos.GState.Context               (withClonedGState)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..),
                                                    toNewestFirst, toOldestFirst,
                                                    _OldestFirst)
 
-type BlundDefault = Blund SscGodTossing
+type BlundDefault = Blund
 
 ----------------------------------------------------------------------------
 -- Blockchain tree

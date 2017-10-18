@@ -39,7 +39,6 @@ import           Pos.Exception          (reportFatalError)
 import qualified Pos.GState             as GS
 import           Pos.Slotting           (MonadSlots (..), getCurrentSlotFlat,
                                          slotFromTimestamp)
-import           Pos.Ssc.Class          (SscHelpersClass)
 import           Pos.Util               (_neHead)
 import           Pos.Util.Chrono        (NE, OldestFirst (..))
 
@@ -49,8 +48,8 @@ import           Pos.Util.Chrono        (NE, OldestFirst (..))
 -- header's parent hash. Iterates from newest to oldest until meets
 -- first header that's in main chain. O(n).
 lcaWithMainChain
-    :: (HasConfiguration, MonadDBRead m, SscHelpersClass ssc)
-    => OldestFirst NE (BlockHeader ssc) -> m (Maybe HeaderHash)
+    :: (HasConfiguration, MonadDBRead m)
+    => OldestFirst NE BlockHeader -> m (Maybe HeaderHash)
 lcaWithMainChain headers =
     lcaProceed Nothing $
     oldestParent <| fmap headerHash (getOldestFirst headers)
@@ -78,16 +77,16 @@ lcaWithMainChain headers =
 -- now, 'needRecovery' will still return 'True'.
 --
 needRecovery
-    :: forall ctx ssc m.
+    :: forall ctx m.
     ( HasConfiguration
     , MonadSlots ctx m
-    , MonadBlockDB ssc m
+    , MonadBlockDB m
     )
     => m Bool
 needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
   where
     isTooOld currentSlot = do
-        lastKnownBlockSlot <- getEpochOrSlot <$> DB.getTipHeader @ssc
+        lastKnownBlockSlot <- getEpochOrSlot <$> DB.getTipHeader
         let distance = getEpochOrSlot currentSlot `diffEpochOrSlot`
                          lastKnownBlockSlot
         pure $ case distance of
@@ -143,14 +142,14 @@ calcChainQualityM newSlot = do
 -- divided by number of slots so far. Returns 'Nothing' if current
 -- slot is unknown.
 calcOverallChainQuality ::
-       forall ssc ctx m res.
-       (Fractional res, MonadSlots ctx m, MonadBlockDB ssc m, HasConfiguration)
+       forall ctx m res.
+       (Fractional res, MonadSlots ctx m, MonadBlockDB m, HasConfiguration)
     => m (Maybe res)
 calcOverallChainQuality =
     getCurrentSlotFlat >>= \case
         Nothing -> pure Nothing
         Just curFlatSlot ->
-            calcOverallChainQualityDo curFlatSlot <$> DB.getTipHeader @ssc
+            calcOverallChainQualityDo curFlatSlot <$> DB.getTipHeader
   where
     calcOverallChainQualityDo curFlatSlot tipHeader
         | curFlatSlot == 0 = Nothing

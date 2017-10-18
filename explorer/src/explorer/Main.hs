@@ -83,7 +83,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
             let extraCtx = makeExtraCtx
             in runExplorerRealMode
                 (hoistNodeResources (liftToExplorerProd . runExplorerProd extraCtx) nr)
-                (runNode @SscGodTossing nr plugins)
+                (runNode nr plugins)
   where
 
     conf :: ConfigurationOptions

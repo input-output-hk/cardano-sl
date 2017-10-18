@@ -35,7 +35,6 @@ import           Pos.KnownPeers             (MonadFormatPeers (..))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Lrc.Context            (LrcContext (..), mkLrcSyncData)
 import           Pos.Slotting               (HasSlottingVar (..))
-import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Txp                    (MempoolExt, MonadTxpLocal (..), txNormalize,
                                              txProcessTransactionNoLock)
 import           Pos.Util                   (newInitFuture, postfixLFields)
@@ -71,7 +70,7 @@ initTBlockGenMode nodeDBs action = do
     tbgcSystemStart <- Timestamp <$> currentTime
     let tblockCtx = TBlockGenContext {..}
     runTBlockGenMode tblockCtx $ do
-        initNodeDBs @SscGodTossing
+        initNodeDBs
         slotVar <- newTVarIO =<< GS.getSlottingData
         putSlottingVar slotVar
 
@@ -115,15 +114,15 @@ instance HasConfigurations => MonadDB TBlockGenMode where
 
 instance
     HasConfigurations =>
-    MonadBlockDBGeneric (BlockHeader SscGodTossing) (Block SscGodTossing) Undo TBlockGenMode
+    MonadBlockDBGeneric BlockHeader Block Undo TBlockGenMode
   where
-    dbGetBlock = BDB.dbGetBlockSumDefault @SscGodTossing
-    dbGetUndo = BDB.dbGetUndoSumDefault @SscGodTossing
-    dbGetHeader = BDB.dbGetHeaderSumDefault @SscGodTossing
+    dbGetBlock = BDB.dbGetBlockSumDefault
+    dbGetUndo = BDB.dbGetUndoSumDefault
+    dbGetHeader = BDB.dbGetHeaderSumDefault
 
 instance
     HasConfigurations =>
-    MonadBlockDBGenericWrite (BlockHeader SscGodTossing) (Block SscGodTossing) Undo TBlockGenMode
+    MonadBlockDBGenericWrite BlockHeader Block Undo TBlockGenMode
   where
     dbPutBlund = BDB.dbPutBlundSumDefault
 

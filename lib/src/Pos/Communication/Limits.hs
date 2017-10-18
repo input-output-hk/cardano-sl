@@ -271,17 +271,17 @@ instance MessageLimitedPure MsgGetBlocks where
 
 instance MessageLimited MsgGetBlocks
 
-instance MessageLimited (BlockHeader ssc) where
+instance MessageLimited BlockHeader where
     -- FIXME Integer -> Word32
     getMsgLenLimit _ = Limit . fromIntegral <$> DB.gsMaxHeaderSize
 
-instance MessageLimited (Block ssc) where
+instance MessageLimited Block where
     -- FIXME Integer -> Word32
     getMsgLenLimit _ = Limit . fromIntegral <$> DB.gsMaxBlockSize
 
-instance MessageLimited (MsgBlock ssc) where
+instance MessageLimited MsgBlock where
     getMsgLenLimit _ = do
-        blkLimit <- getMsgLenLimit (Proxy @(Block ssc))
+        blkLimit <- getMsgLenLimit (Proxy @Block)
         return $ MsgBlock <$> blkLimit
 
 instance HasConfiguration => MessageLimitedPure MsgGetHeaders where
@@ -292,9 +292,9 @@ instance HasConfiguration => MessageLimitedPure MsgGetHeaders where
 
 instance HasConfiguration => MessageLimited MsgGetHeaders
 
-instance HasNodeConfiguration => MessageLimited (MsgHeaders ssc) where
+instance HasNodeConfiguration => MessageLimited MsgHeaders where
     getMsgLenLimit _ = do
-        headerLimit <- getMsgLenLimit (Proxy @(BlockHeader ssc))
+        headerLimit <- getMsgLenLimit (Proxy @BlockHeader)
         return $
             MsgHeaders <$> vectorOf recoveryHeadersMessage headerLimit
 

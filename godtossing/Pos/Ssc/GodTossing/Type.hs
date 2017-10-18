@@ -31,19 +31,19 @@ data SscGodTossing
 deriving instance Show SscGodTossing
 deriving instance Eq SscGodTossing
 
-instance (HasConfiguration) => Ssc SscGodTossing where
-    type SscLocalData   SscGodTossing = GtLocalData
-    type SscPayload     SscGodTossing = GtPayload
-    type SscGlobalState SscGodTossing = GtGlobalState
-    type SscProof       SscGodTossing = GtProof
-    type SscSeedError   SscGodTossing = SeedError
-    type SscNodeContext SscGodTossing = GtContext
-    type SscParams      SscGodTossing = GtParams
-    type SscVerifyError SscGodTossing = TossVerFailure
+instance (HasConfiguration, ssc ~ SscGodTossing) => Ssc ssc where
+    type SscLocalData   ssc = GtLocalData
+    type SscPayload     ssc = GtPayload
+    type SscGlobalState ssc = GtGlobalState
+    type SscProof       ssc = GtProof
+    type SscSeedError   ssc = SeedError
+    type SscNodeContext ssc = GtContext
+    type SscParams      ssc = GtParams
+    type SscVerifyError ssc = TossVerFailure
     mkSscProof = Tagged mkGtProof
     sscCreateNodeContext = Tagged createGtContext
 
-instance (HasConfiguration) => SscHelpersClass SscGodTossing where
+instance (HasConfiguration, ssc ~ SscGodTossing) => SscHelpersClass ssc where
     sscVerifyPayload = sanityChecksGtPayload
     sscStripPayload = stripGtPayload
     sscDefaultPayload = defaultGtPayload

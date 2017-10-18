@@ -37,7 +37,6 @@ import           Pos.DB.GState.Common             (getTip, getTipBlockGeneric,
 import           Pos.DB.Misc                      (prepareMiscDB)
 import           Pos.GState.GState                (prepareGStateDB, sanityCheckGStateDB)
 import           Pos.Lrc.DB                       (prepareLrcDB)
-import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Update.DB                    (getAdoptedBVData)
 import           Pos.Util                         (inAssertMode)
@@ -50,18 +49,17 @@ import           Pos.Explorer.DB                  (prepareExplorerDB)
 
 -- | Initialize DBs if necessary.
 initNodeDBs
-    :: forall ssc ctx m.
+    :: forall ctx m.
        ( MonadReader ctx m
-       , MonadBlockDBWrite ssc m
-       , SscHelpersClass ssc
+       , MonadBlockDBWrite m
        , MonadDB m
        , HasConfiguration
        , HasGtConfiguration
        )
     => m ()
 initNodeDBs = do
-    let initialTip = headerHash (genesisBlock0 @ssc)
-    prepareBlockDB (genesisBlock0 @ssc)
+    let initialTip = headerHash genesisBlock0
+    prepareBlockDB genesisBlock0
     prepareGStateDB initialTip
     prepareLrcDB
     prepareMiscDB
@@ -73,15 +71,15 @@ initNodeDBs = do
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.
 loadBlundsFromTipWhile
-    :: (MonadBlockDB ssc m)
-    => (Block ssc -> Bool) -> m (NewestFirst [] (Blund ssc))
+    :: (MonadBlockDB m)
+    => (Block -> Bool) -> m (NewestFirst [] Blund)
 loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
 
 -- | Load blunds from BlockDB starting from tip which have depth less than
 -- given.
 loadBlundsFromTipByDepth
-    :: (MonadBlockDB ssc m)
-    => BlockCount -> m (NewestFirst [] (Blund ssc))
+    :: (MonadBlockDB m)
+    => BlockCount -> m (NewestFirst [] Blund)
 loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 
 sanityCheckDB ::
@@ -95,15 +93,15 @@ sanityCheckDB = inAssertMode sanityCheckGStateDB
 
 -- | Specialized version of 'getTipBlockGeneric'.
 getTipBlock ::
-       forall ssc m. MonadBlockDB ssc m
-    => m (Block ssc)
-getTipBlock = getTipBlockGeneric @(Block ssc)
+       (MonadBlockDB m)
+    => m Block
+getTipBlock = getTipBlockGeneric @Block
 
 -- | Specialized version of 'getTipHeaderGeneric'.
 getTipHeader ::
-       forall ssc m. MonadBlockDB ssc m
-    => m (BlockHeader ssc)
-getTipHeader = getTipHeaderGeneric @(Block ssc)
+       (MonadBlockDB m)
+    => m BlockHeader
+getTipHeader = getTipHeaderGeneric @Block
 
 ----------------------------------------------------------------------------
 -- MonadGState instance

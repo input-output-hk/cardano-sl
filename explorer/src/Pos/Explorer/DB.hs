@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes  #-}
 {-# LANGUAGE TypeFamilies         #-}
 {-# LANGUAGE UndecidableInstances #-}
 
@@ -15,7 +16,7 @@ module Pos.Explorer.DB
        , getPageBlocks
        , getEpochBlocks
        , getLastTransactions
-       , prepareExplorerDB
+       , explorerInitDB
        , sanityCheckBalances
        ) where
 
@@ -32,16 +33,18 @@ import           Serokell.Util                (Color (Red), colorize, mapJson)
 import           System.Wlog                  (WithLogger, logError)
 
 import           Pos.Binary.Class             (UnsignedVarInt (..), serialize')
-import           Pos.Core                     (Address, Coin, EpochIndex, HeaderHash,
+import           Pos.Core                     (Address, Coin, EpochIndex,
+                                               HasConfiguration, HeaderHash,
                                                coinToInteger, unsafeAddCoin)
-import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.DB                       (DBError (..), DBIteratorClass (..),
                                                DBTag (GStateDB), MonadDB,
                                                MonadDBRead (dbGet), RocksBatchOp (..),
                                                dbIterSource, dbSerializeValue,
                                                encodeWithKeyPrefix)
+import           Pos.DB.Block                 (MonadBlockDBWrite)
+import           Pos.DB.DB                    (initNodeDBs)
 import           Pos.DB.GState.Common         (gsGetBi, gsPutBi, writeBatchGState)
-import           Pos.Explorer.Core            (AddrHistory, TxExtra (..))
+import           Pos.Ssc.GodTossing           (HasGtConfiguration)
 import           Pos.Txp.Core                 (Tx, TxId, TxOut (..), TxOutAux (..))
 import           Pos.Txp.DB                   (getAllPotentiallyHugeUtxo, utxoSource)
 import           Pos.Txp.GenesisUtxo          (genesisUtxo)
@@ -49,6 +52,19 @@ import           Pos.Txp.Toil                 (GenesisUtxo (..), utxoF,
                                                utxoToAddressCoinPairs)
 import           Pos.Util.Chrono              (NewestFirst (..))
 import           Pos.Util.Util                (maybeThrow)
+
+import           Pos.Explorer.Core            (AddrHistory, TxExtra (..))
+
+explorerInitDB
+    :: forall ctx m.
+       ( MonadReader ctx m
+       , MonadBlockDBWrite m
+       , MonadDB m
+       , HasConfiguration
+       , HasGtConfiguration
+       )
+    => m ()
+explorerInitDB = initNodeDBs >> prepareExplorerDB
 
 ----------------------------------------------------------------------------
 -- Types
@@ -98,7 +114,7 @@ getLastTransactions = gsGetBi lastTxsPrefix
 -- Initialization
 ----------------------------------------------------------------------------
 
-prepareExplorerDB :: (MonadReader ctx m, MonadDB m) => m ()
+prepareExplorerDB :: MonadDB m => m ()
 prepareExplorerDB = do
     unlessM balancesInitializedM $ do
         let GenesisUtxo utxo = genesisUtxo

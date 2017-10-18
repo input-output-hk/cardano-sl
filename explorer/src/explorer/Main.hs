@@ -24,9 +24,10 @@ import           Pos.Client.CLI            (CommonNodeArgs (..), NodeArgs (..),
 import qualified Pos.Client.CLI            as CLI
 import           Pos.Communication         (OutSpecs, WorkerSpec)
 import           Pos.Core                  (gdStartTime, genesisData)
+import           Pos.Explorer.DB           (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
 import           Pos.Explorer.Socket       (NotifierSettings (..))
-import           Pos.Explorer.Txp          (ExplorerExtra)
+import           Pos.Explorer.Txp          (ExplorerExtra, explorerTxpGlobalSettings)
 import           Pos.Explorer.Web          (ExplorerProd, explorerPlugin,
                                             liftToExplorerProd, notifierPlugin,
                                             runExplorerProd)
@@ -78,8 +79,9 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
                 , notifierPlugin NotifierSettings{ nsPort = notifierPort }
                 , updateTriggerWorker
                 ]
-
-        bracketNodeResources currentParams gtParams $ \nr@NodeResources {..} ->
+        bracketNodeResources currentParams gtParams
+            explorerTxpGlobalSettings
+            explorerInitDB $ \nr@NodeResources {..} ->
             let extraCtx = makeExtraCtx
             in runExplorerRealMode
                 (hoistNodeResources (liftToExplorerProd . runExplorerProd extraCtx) nr)

@@ -12,12 +12,6 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
-Flag with-explorer
-  default:     False
-  manual:      True
-
-  description: Build with explorer
-
 library
   exposed-modules:      Paths_cardano_sl
 
@@ -425,9 +419,6 @@ library
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-explorer)
-    cpp-options: -DWITH_EXPLORER
-
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:
@@ -465,7 +456,6 @@ test-suite cardano-test
                        Test.Pos.CryptoSpec
                        Test.Pos.Delegation.Identity.BinarySpec
                        Test.Pos.DHT.Identity.BinarySpec
-                       Test.Pos.Explorer.Identity.BinarySpec
                        Test.Pos.Genesis.CanonicalSpec
                        Test.Pos.MerkleSpec
                        Test.Pos.Slotting.TypesSpec
@@ -587,9 +577,6 @@ test-suite cardano-test
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-
-  if flag(with-explorer)
-    cpp-options: -DWITH_EXPLORER
 
 benchmark cardano-bench-criterion
   hs-source-dirs:      bench

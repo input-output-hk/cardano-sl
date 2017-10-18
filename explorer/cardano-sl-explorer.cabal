@@ -14,6 +14,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:      Pos.Explorer.Core
+                        Pos.Explorer.DB
                         Pos.Explorer.ExtraContext
                         Pos.Explorer.Socket
                         Pos.Explorer.Socket.App
@@ -42,7 +43,6 @@ library
                         Pos.Explorer.Txp.Toil.Class
                         Pos.Explorer.Txp.Toil.Logic
                         Pos.Explorer.Txp.Toil.Types
-                        Pos.Explorer.DB
                         Pos.Explorer.BListener
 
   build-depends:        QuickCheck
@@ -339,6 +339,8 @@ test-suite cardano-explorer-test
                        Test.Pos.Explorer.Socket.UtilSpec
                        Test.Pos.Explorer.Web.ServerSpec
                        Test.Pos.Explorer.Web.ClientTypesSpec
+
+                       Test.Pos.Explorer.Identity.BinarySpec
 
   type:                exitcode-stdio-1.0
   build-depends:       MonadRandom

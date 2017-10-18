@@ -52,6 +52,7 @@ executable wallet-new-server
                        Cardano.Wallet.Server
   build-depends:       base
                      , cardano-sl-wallet-new
+                     , neat-interpolation
                      , containers
                      , servant
                      , servant-server

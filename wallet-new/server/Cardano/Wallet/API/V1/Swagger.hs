@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE FlexibleInstances   #-}
 {-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE QuasiQuotes         #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeFamilies        #-}
@@ -23,6 +24,7 @@ import           Data.Swagger.Declare
 import qualified Data.Text                   as T
 import           Data.Typeable
 import           GHC.TypeLits
+import           NeatInterpolation
 import           Servant.API.Sub
 import           Servant.Swagger
 import           Test.QuickCheck
@@ -158,9 +160,32 @@ instance ( ToDocs a, ToDocs b) => ToSchema (OneOf a b) where
 -- The API
 --
 
+highLevelDescription :: T.Text
+highLevelDescription = [text|
+
+This is the specification for the Cardano Wallet API, automatically generated
+as a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API
+of [Cardano](https://github.com/input-output-hk/cardano-sl).
+
+### Request format
+
+Here we document how to perform a request.
+
+### Response format
+
+Here we document what do expect as a result.
+
+``` json
+{ "id": "foo",
+  "bar": 10
+}
+```
+
+|]
+
 api :: Swagger
 api = toSwagger walletAPI
   & info.title   .~ "Cardano Wallet API"
   & info.version .~ "2.0"
-  & info.description ?~ "This is an API that tests swagger integration"
+  & info.description ?~ highLevelDescription
   & info.license ?~ ("MIT" & url ?~ URL "http://mit.com")

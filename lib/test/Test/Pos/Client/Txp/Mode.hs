@@ -31,7 +31,6 @@ import           Pos.DB                           (MonadGState (..))
 import qualified Pos.DB                           as DB
 import qualified Pos.DB.Block                     as DB
 import           Pos.DB.DB                        as DB
-import           Pos.DB.DB                        (initNodeDBs)
 import qualified Pos.GState                       as GS
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.Lrc                          (LrcContext (..), mkLrcSyncData)
@@ -113,7 +112,7 @@ initTxpTestContext tp@TestParams {..} = do
             -- , tticGenesisContext = _ttpGenesisContext
             }
     liftIO $ runTestInitMode initCtx $ do
-        initNodeDBs
+        DB.initNodeDBs
         lcLrcSync <- newTVarIO =<< mkLrcSyncData
         let _gscLrcContext = LrcContext {..}
         _gscSlogGState <- mkSlogGState

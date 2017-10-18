@@ -6,13 +6,14 @@ module Test.Pos.Explorer.Identity.BinarySpec
 
 import           Universum
 
-import           Test.Hspec    (Spec, describe)
+import           Test.Hspec             (Spec, describe)
 
-import           Pos.Explorer  (TxExtra)
-import           Test.Pos.Util (binaryTest)
-
+import           Pos.Arbitrary.Explorer ()
 
 spec :: Spec
 spec = describe "Explorer types" $ do
-    describe "Bi instances" $ do
-        binaryTest @TxExtra
+    pass
+    -- TODO uncomment this code when
+    -- @binaryTest@ will be in lib/src/Test
+    -- describe "Bi instances" $ do
+    --     binaryTest @TxExtra

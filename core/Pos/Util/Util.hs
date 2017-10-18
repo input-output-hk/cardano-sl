@@ -24,6 +24,7 @@ module Pos.Util.Util
        , leftToPanic
        , dumpSplices
        , histogram
+       , median
        , (<//>)
 
        -- * Lenses
@@ -113,6 +114,7 @@ import           Data.Hashable                  (Hashable (hashWithSalt))
 import qualified Data.HashMap.Strict            as HM
 import           Data.HashSet                   (fromMap)
 import           Data.List                      (last)
+import qualified Data.List.NonEmpty             as NE
 import qualified Data.Map                       as M
 import qualified Data.Semigroup                 as Smg
 import           Data.Tagged                    (Tagged (Tagged))
@@ -481,6 +483,12 @@ histogram = foldl' step M.empty
   where
     step :: Map a Int -> a -> Map a Int
     step m x = M.insertWith (+) x 1 m
+
+median :: Ord a => NonEmpty a -> a
+median l = NE.sort l NE.!! middle
+  where
+    len = NE.length l
+    middle = (len - 1) `div` 2
 
 -- MinMax
 

@@ -61,10 +61,7 @@ data VerifyHeaderParams = VerifyHeaderParams
       -- ^ Maximal allowed header size. It's applied to 'BlockHeader'.
     , vhpVerifyNoUnknown :: !Bool
       -- ^ Check that header has no unknown attributes.
-    }
-
-deriving instance Eq BlockHeader => Eq VerifyHeaderParams
-deriving instance Show BlockHeader => Show VerifyHeaderParams
+    } deriving (Eq, Show)
 
 maybeMempty :: Monoid m => (a -> m) -> Maybe a -> m
 maybeMempty = maybe mempty

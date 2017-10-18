@@ -41,7 +41,8 @@ instance ( HasConfiguration
         , mpMpcProof      :: !SscProof
         , mpProxySKsProof :: !(Hash DlgPayload)
         , mpUpdateProof   :: !UpdateProof
-        } deriving (Generic)
+        } deriving (Eq, Show, Generic)
+
     data ConsensusData MainBlockchain = MainConsensusData
         { -- | Id of the slot for which this block was generated.
           _mcdSlot       :: !SlotId
@@ -53,6 +54,7 @@ instance ( HasConfiguration
         , -- | Signature given by slot leader.
           _mcdSignature  :: !BlockSignature
         } deriving (Generic, Show, Eq)
+
     type BBlockHeader MainBlockchain = BlockHeader
     type ExtraHeaderData MainBlockchain = MainExtraHeaderData
 
@@ -67,7 +69,7 @@ instance ( HasConfiguration
           _mbDlgPayload :: !DlgPayload
           -- | Additional update information for the update system.
         , _mbUpdatePayload :: !UpdatePayload
-        } deriving (Generic, Typeable)
+        } deriving (Eq, Show, Generic, Typeable)
 
     type ExtraBodyData MainBlockchain = MainExtraBodyData
     type BBlock MainBlockchain = Block
@@ -80,16 +82,10 @@ instance ( HasConfiguration
         , mpUpdateProof = mkUpdateProof _mbUpdatePayload
         }
 
-deriving instance Ssc => Show (Body MainBlockchain)
-deriving instance (Eq SscPayload, Ssc) => Eq (Body MainBlockchain)
-deriving instance Ssc => Show (BodyProof MainBlockchain)
-deriving instance Ssc => Eq (BodyProof MainBlockchain)
--- The two previous instances are required for the following two
+deriving instance Show MainToSign
+deriving instance Eq MainToSign
 
-deriving instance Ssc => Show MainToSign
-deriving instance Ssc => Eq MainToSign
-
-instance Ssc => NFData (BodyProof MainBlockchain)
-instance Ssc => NFData (ConsensusData MainBlockchain)
-instance Ssc => NFData (Body MainBlockchain)
-instance Ssc => NFData MainBlock
+instance NFData (BodyProof MainBlockchain)
+instance NFData (ConsensusData MainBlockchain)
+instance NFData (Body MainBlockchain)
+instance NFData MainBlock

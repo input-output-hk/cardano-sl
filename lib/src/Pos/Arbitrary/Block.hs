@@ -229,9 +229,7 @@ instance Buildable T.BlockHeader => Buildable (T.BlockHeader, PublicKey) where
 
 newtype BlockHeaderList = BHL
     { getHeaderList :: ([T.BlockHeader], [PublicKey])
-    }
-
-deriving instance Eq T.BlockHeader => Eq BlockHeaderList
+    } deriving (Eq)
 
 instance Buildable T.BlockHeader => Show BlockHeaderList where
     show = toString . unlines . map pretty . uncurry zip . getHeaderList
@@ -373,10 +371,7 @@ generateBHL createInitGenesis startSlot slotCount = BHL <$> do
 -- slot leaders and the current slot.
 newtype HeaderAndParams = HAndP
     { getHAndP :: (T.VerifyHeaderParams, T.BlockHeader)
-    }
-
-deriving instance Eq T.BlockHeader => Eq HeaderAndParams
-deriving instance Show T.BlockHeader => Show HeaderAndParams
+    } deriving (Eq, Show)
 
 -- | A lot of the work to generate a valid sequence of blockheaders has
 -- already been done in the 'Arbitrary' instance of the 'BlockHeaderList'

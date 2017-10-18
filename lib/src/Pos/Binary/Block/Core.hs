@@ -19,12 +19,13 @@ import           Pos.Core                     (BlockVersion, SoftwareVersion, Ha
 import qualified Pos.Core.Block               as Core
 import           Pos.Crypto                   (Hash)
 import           Pos.Ssc.Class.Types          (Ssc (..))
+import           Pos.Ssc.GodTossing.Instance  ()
 
 ----------------------------------------------------------------------------
 -- MainBlock
 ----------------------------------------------------------------------------
 
-instance Ssc => Bi (Core.BodyProof BC.MainBlockchain) where
+instance Bi (Core.BodyProof BC.MainBlockchain) where
   encode bc =  encodeListLen 4
             <> encode (BC.mpTxProof bc)
             <> encode (BC.mpMpcProof bc)

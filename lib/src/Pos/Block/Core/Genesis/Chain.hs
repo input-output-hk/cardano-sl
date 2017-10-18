@@ -19,7 +19,6 @@ import           Pos.Core                     (Blockchain (..), BlockchainHelper
                                                ChainDifficulty, EpochIndex (..),
                                                SlotLeaders)
 import           Pos.Crypto                   (Hash, hash)
-import           Pos.Ssc.Class.Types          (Ssc (..))
 
 instance Blockchain GenesisBlockchain where
     -- [CSL-199]: maybe we should use ADS.
@@ -51,7 +50,7 @@ instance BlockchainHelpers GenesisBlockchain where
     verifyBBlockHeader _ = pure ()
     verifyBBlock _ = pure ()
 
-instance Ssc => NFData (BodyProof GenesisBlockchain)
-instance Ssc => NFData (ConsensusData GenesisBlockchain)
-instance Ssc => NFData (Body GenesisBlockchain)
-instance Ssc => NFData GenesisBlock
+instance NFData (BodyProof GenesisBlockchain)
+instance NFData (ConsensusData GenesisBlockchain)
+instance NFData (Body GenesisBlockchain)
+instance NFData GenesisBlock

@@ -136,8 +136,8 @@ instance (HasConfiguration, Arbitrary SscProof) => Arbitrary T.MainToSign where
 -- its output list must be the same as the length of the i-th item in the
 -- TxDistribution list.
 --
--- Because of this, the Arbitrary instance for Ssc => Body
--- MainBlockchain ensures that for every transaction generated, a
+-- Because of this, the Arbitrary instance for @Body
+-- MainBlockchain@ ensures that for every transaction generated, a
 -- transaction witness is generated as well, and the lengths of its list of
 -- outputs must also be the same as the length of its corresponding
 -- TxDistribution item.

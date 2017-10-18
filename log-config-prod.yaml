@@ -2,6 +2,7 @@ rotation:
     logLimit: 5242880 # 5MB
     keepFiles: 20
 severity: Info
+termSeverity: Debug
 node:
     severity: Debug
     handlers:

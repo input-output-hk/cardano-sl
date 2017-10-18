@@ -36,6 +36,7 @@ loggingParams tag CommonNodeArgs{..} =
     { lpHandlerPrefix = logPrefix commonArgs
     , lpConfigPath    = logConfig commonArgs
     , lpRunnerTag     = tag
+    , lpConsoleLog    = Nothing -- no override by default
     }
 
 getBaseParams :: LoggerName -> CommonNodeArgs -> BaseParams

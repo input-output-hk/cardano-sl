@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP             #-}
 {-# LANGUAGE RankNTypes      #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies    #-}
@@ -19,94 +18,92 @@ module Test.Pos.Block.Logic.Mode
 
        , BlockProperty
        , blockPropertyToProperty
-
-       , HasVarSpecConfigurations
+       , blockPropertyTestable
+       , blockPropertySpec
        ) where
 
 import           Universum
 
-import           Control.Lens                     (lens, makeClassy, makeLensesWith)
-import qualified Data.Map                         as Map
+import           Control.Lens                   (lens, makeClassy, makeLensesWith)
+import           Data.Default                   (def)
+import qualified Data.Map                       as Map
 import qualified Data.Text.Buildable
-import           Data.Time.Units                  (Microsecond, TimeUnit (..))
-import           Ether.Internal                   (HasLens (..))
-import           Formatting                       (bprint, build, formatToString, shown,
-                                                   (%))
-import           Mockable                         (Production, currentTime, runProduction)
+import           Data.Time.Units                (TimeUnit (..))
+import           Ether.Internal                 (HasLens (..))
+import           Formatting                     (bprint, build, formatToString, shown,
+                                                 (%))
+import           Mockable                       (Production, currentTime, runProduction)
 import qualified Prelude
-import           System.Wlog                      (HasLoggerName (..), LoggerName)
-import           Test.QuickCheck                  (Arbitrary (..), Gen, Property,
-                                                   Testable (..), forAll, ioProperty)
-import           Test.QuickCheck.Monadic          (PropertyM, monadic)
+import           System.Wlog                    (HasLoggerName (..), LoggerName)
+import           Test.Hspec                     (Spec)
+import           Test.Hspec.QuickCheck          (prop)
+import           Test.QuickCheck                (Arbitrary (..), Gen, Property, forAll,
+                                                 ioProperty)
+import           Test.QuickCheck.Monadic        (PropertyM, monadic)
 
-import           Pos.AllSecrets                   (AllSecrets (..), HasAllSecrets (..),
-                                                   mkAllSecretsSimple)
-import           Pos.Block.BListener              (MonadBListener (..), onApplyBlocksStub,
-                                                   onRollbackBlocksStub)
-import           Pos.Block.Core                   (Block, BlockHeader)
-import           Pos.Block.Slog                   (HasSlogGState (..), mkSlogGState)
-import           Pos.Block.Types                  (Undo)
-import           Pos.Configuration                (HasNodeConfiguration)
-import           Pos.Core                         (HasConfiguration, IsHeader, SlotId,
-                                                   Timestamp (..), genesisSecretKeys)
-import           Pos.DB                           (DBPure, MonadBlockDBGeneric (..),
-                                                   MonadBlockDBGenericWrite (..),
-                                                   MonadDB (..), MonadDBRead (..),
-                                                   MonadGState (..))
-import qualified Pos.DB                           as DB
-import qualified Pos.DB.Block                     as DB
-import           Pos.DB.DB                        (gsAdoptedBVDataDefault, initNodeDBs)
-import           Pos.DB.Pure                      (DBPureVar, newDBPureVar)
-import           Pos.Delegation                   (DelegationVar, mkDelegationVar)
-import           Pos.Generator.BlockEvent         (SnapshotId)
-import qualified Pos.GState                       as GS
-import           Pos.Infra.Configuration          (HasInfraConfiguration)
-import           Pos.KnownPeers                   (MonadFormatPeers (..))
-import           Pos.Lrc                          (LrcContext (..), mkLrcSyncData)
-import           Pos.Reporting                    (HasReportingContext (..),
-                                                   ReportingContext,
-                                                   emptyReportingContext)
-import           Pos.Slotting                     (HasSlottingVar (..), MonadSlots (..),
-                                                   SimpleSlottingVar, SlottingData,
-                                                   currentTimeSlottingSimple,
-                                                   getCurrentSlotBlockingSimple,
-                                                   getCurrentSlotInaccurateSimple,
-                                                   getCurrentSlotSimple,
-                                                   mkSimpleSlottingVar)
-import           Pos.Slotting.MemState            (MonadSlotsData)
-import           Pos.Ssc.Class                    (SscBlock)
-import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
-import           Pos.Ssc.Extra                    (SscMemTag, SscState, mkSscState)
-import           Pos.Ssc.GodTossing               (SscGodTossing)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Txp                          (GenericTxpLocalData, TxpGlobalSettings,
-                                                   TxpHolderTag, mkTxpLocalData)
-import           Pos.Update.Configuration         (HasUpdateConfiguration)
-import           Pos.Update.Context               (UpdateContext, mkUpdateContext)
-import           Pos.Util                         (Some, newInitFuture, postfixLFields)
-import           Pos.Util.LoggerName              (HasLoggerName' (..),
-                                                   getLoggerNameDefault,
-                                                   modifyLoggerNameDefault)
-import           Pos.WorkMode.Class               (TxpExtra_TMP)
-#ifdef WITH_EXPLORER
-import           Pos.Explorer                     (explorerTxpGlobalSettings)
-#else
-import           Pos.Txp                          (txpGlobalSettings)
-#endif
+import           Pos.AllSecrets                 (AllSecrets (..), HasAllSecrets (..),
+                                                 mkAllSecretsSimple)
+import           Pos.Block.BListener            (MonadBListener (..), onApplyBlocksStub,
+                                                 onRollbackBlocksStub)
+import           Pos.Block.Core                 (Block, BlockHeader)
+import           Pos.Block.Slog                 (HasSlogGState (..), mkSlogGState)
+import           Pos.Block.Types                (Undo)
+import           Pos.Configuration              (HasNodeConfiguration)
+import           Pos.Core                       (BlockVersionData, CoreConfiguration (..),
+                                                 GenesisConfiguration (..),
+                                                 GenesisInitializer (..),
+                                                 GenesisSpec (..), HasConfiguration,
+                                                 IsHeader, SlotId,
+                                                 TestnetDistribution (..), Timestamp (..),
+                                                 genesisSecretKeys, withGenesisSpec)
+import           Pos.Core.Configuration         (HasGenesisBlockVersionData,
+                                                 withGenesisBlockVersionData)
+import           Pos.DB                         (DBPure, MonadBlockDBGeneric (..),
+                                                 MonadBlockDBGenericWrite (..),
+                                                 MonadDB (..), MonadDBRead (..),
+                                                 MonadGState (..))
+import qualified Pos.DB                         as DB
+import qualified Pos.DB.Block                   as DB
+import           Pos.DB.DB                      (gsAdoptedBVDataDefault, initNodeDBs)
+import           Pos.DB.Pure                    (DBPureVar, newDBPureVar)
+import           Pos.Delegation                 (DelegationVar, mkDelegationVar)
+import           Pos.Explorer                   (ExplorerExtra, eTxNormalize,
+                                                 eTxProcessTransactionNoLock,
+                                                 explorerTxpGlobalSettings)
+import           Pos.Generator.Block            (BlockGenMode)
+import           Pos.Generator.BlockEvent       (SnapshotId)
+import qualified Pos.GState                     as GS
+import           Pos.KnownPeers                 (MonadFormatPeers (..))
+import           Pos.Launcher.Configuration     (Configuration (..), HasConfigurations)
+import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
+import           Pos.Network.Types              (HasNodeType (..), NodeType (..))
+import           Pos.Reporting                  (HasReportingContext (..),
+                                                 ReportingContext, emptyReportingContext)
+import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots (..),
+                                                 SimpleSlottingVar, SlottingData,
+                                                 currentTimeSlottingSimple,
+                                                 getCurrentSlotBlockingSimple,
+                                                 getCurrentSlotInaccurateSimple,
+                                                 getCurrentSlotSimple,
+                                                 mkSimpleSlottingVar)
+import           Pos.Slotting.MemState          (MonadSlotsData)
+import           Pos.Ssc.Class                  (SscBlock)
+import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
+import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState)
+import           Pos.Ssc.GodTossing             (HasGtConfiguration, SscGodTossing)
+import           Pos.Txp                        (GenericTxpLocalData, MempoolExt,
+                                                 MonadTxpLocal (..), TxpGlobalSettings,
+                                                 TxpHolderTag, mkTxpLocalData)
+import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
+import           Pos.Util                       (Some, newInitFuture, postfixLFields)
+import           Pos.Util.CompileInfo           (withCompileInfo)
+import           Pos.Util.LoggerName            (HasLoggerName' (..),
+                                                 getLoggerNameDefault,
+                                                 modifyLoggerNameDefault)
 
-import           Test.Pos.Block.Logic.Emulation   (Emulation (..), runEmulation,
-                                                   sudoLiftIO)
-
-type HasVarSpecConfigurations =
-       ( HasNodeConfiguration
-       , HasGtConfiguration
-       , HasConfiguration
-       , HasInfraConfiguration
-       , HasUpdateConfiguration
-       )
-
--- Remove this once there's no #ifdef-ed Pos.Txp import
-{-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
+import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, sudoLiftIO)
+import           Test.Pos.Configuration         (defaultTestBlockVersionData,
+                                                 defaultTestConf, defaultTestGenesisSpec)
 
 ----------------------------------------------------------------------------
 -- Parameters
@@ -115,40 +112,61 @@ type HasVarSpecConfigurations =
 -- | This data type contains all parameters which should be generated
 -- before testing starts.
 data TestParams = TestParams
-    { _tpAllSecrets :: !AllSecrets
-    -- ^ Secret keys corresponding to 'PubKeyAddress'es from
-    -- genesis 'Utxo'.
-    -- They are stored in map (with 'StakeholderId' as key) to make it easy
-    -- to find 'SecretKey' corresponding to given 'StakeholderId'.
-    -- In tests we often want to have inverse of 'hash' and 'toPublic'.
-    , _tpStartTime  :: !Microsecond
+    { _tpStartTime          :: !Timestamp
+    -- ^ System start time.
+    , _tpBlockVersionData   :: !BlockVersionData
+    -- ^ Genesis 'BlockVersionData' in tests.
+    , _tpGenesisInitializer :: !GenesisInitializer
+    -- ^ 'GenesisInitializer' in 'TestParams' allows one to use custom
+    -- genesis data.
     }
 
 makeClassy ''TestParams
 
-instance HasAllSecrets TestParams where
-    allSecrets = tpAllSecrets
-
 instance Buildable TestParams where
     build TestParams {..} =
         bprint ("TestParams {\n"%
-                "  secrets: "%build%"\n"%
                 "  start time: "%shown%"\n"%
+                "  initializer: "%build%"\n"%
                 "}\n")
-            _tpAllSecrets
             _tpStartTime
+            _tpGenesisInitializer
 
 instance Show TestParams where
     show = formatToString build
 
-instance HasConfiguration => Arbitrary TestParams where
+instance Arbitrary TestParams where
     arbitrary = do
-        keys <- case genesisSecretKeys of
-            Nothing -> error "arbitrary @TestParams: no genesisSecretKeys"
-            Just ks -> pure ks
-        let _tpAllSecrets = mkAllSecretsSimple keys
-            _tpStartTime  = fromMicroseconds 0
+        let _tpStartTime = Timestamp (fromMicroseconds 0)
+        let _tpBlockVersionData = defaultTestBlockVersionData
+        _tpGenesisInitializer <-
+            withGenesisBlockVersionData
+                _tpBlockVersionData
+                genGenesisInitializer
         return TestParams {..}
+
+genGenesisInitializer :: HasGenesisBlockVersionData => Gen GenesisInitializer
+genGenesisInitializer = do
+    tiTestBalance <- arbitrary
+    tiFakeAvvmBalance <- arbitrary
+    let tiDistribution = TestnetRichmenStakeDistr
+    tiSeed <- arbitrary
+    return TestnetInitializer {..}
+
+-- This function creates 'CoreConfiguration' from 'TestParams' and
+-- uses it to satisfy 'HasConfiguration'.
+withTestParams :: TestParams -> (HasConfiguration => r) -> r
+withTestParams TestParams {..} = withGenesisSpec _tpStartTime coreConfiguration
+  where
+    defaultCoreConf :: CoreConfiguration
+    defaultCoreConf = ccCore defaultTestConf
+    coreConfiguration :: CoreConfiguration
+    coreConfiguration = defaultCoreConf {ccGenesis = GCSpec genesisSpec}
+    genesisSpec =
+        defaultTestGenesisSpec
+        { gsInitializer = _tpGenesisInitializer
+        , gsBlockVersionData = _tpBlockVersionData
+        }
 
 ----------------------------------------------------------------------------
 -- Init mode with instances
@@ -185,7 +203,7 @@ data BlockTestContext = BlockTestContext
     , btcSSlottingVar      :: !SimpleSlottingVar
     , btcUpdateContext     :: !UpdateContext
     , btcSscState          :: !(SscState SscGodTossing)
-    , btcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP)
+    , btcTxpMem            :: !(GenericTxpLocalData ExplorerExtra)
     , btcTxpGlobalSettings :: !TxpGlobalSettings
     , btcSlotId            :: !(Maybe SlotId)
     -- ^ If this value is 'Just' we will return it as the current
@@ -194,6 +212,7 @@ data BlockTestContext = BlockTestContext
     , btcReportingContext  :: !ReportingContext
     , btcDelegation        :: !DelegationVar
     , btcPureDBSnapshots   :: !PureDBSnapshotsVar
+    , btcAllSecrets        :: !AllSecrets
     }
 
 makeLensesWith postfixLFields ''BlockTestContext
@@ -202,7 +221,7 @@ instance HasTestParams BlockTestContext where
     testParams = btcParams_L
 
 instance HasAllSecrets BlockTestContext where
-    allSecrets = testParams . allSecrets
+    allSecrets = btcAllSecrets_L
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -238,17 +257,19 @@ initBlockTestContext tp@TestParams {..} callback = do
             btcSscState <- mkSscState @SscGodTossing
             _gscSlogGState <- mkSlogGState
             btcTxpMem <- mkTxpLocalData
-#ifdef WITH_EXPLORER
             let btcTxpGlobalSettings = explorerTxpGlobalSettings
-#else
-            let btcTxpGlobalSettings = txpGlobalSettings
-#endif
             let btcReportingContext = emptyReportingContext
             let btcSlotId = Nothing
             let btcParams = tp
             let btcGState = GS.GStateContext {_gscDB = DB.PureDB dbPureVar, ..}
             btcDelegation <- mkDelegationVar @SscGodTossing
             btcPureDBSnapshots <- PureDBSnapshotsVar <$> newIORef Map.empty
+            let secretKeys =
+                    case genesisSecretKeys of
+                        Nothing ->
+                            error "initBlockTestContext: no genesisSecretKeys"
+                        Just ks -> ks
+            let btcAllSecrets = mkAllSecretsSimple secretKeys
             let btCtx = BlockTestContext {btcSystemStart = systemStart, ..}
             liftIO $ flip runReaderT clockVar $ unEmulation $ callback btCtx
     sudoLiftIO $ runTestInitMode initCtx $ initBlockTestContextDo
@@ -267,7 +288,7 @@ type BlockTestMode = ReaderT BlockTestContext Emulation
 runBlockTestMode :: (HasNodeConfiguration, HasGtConfiguration, HasConfiguration)
                  => TestParams -> BlockTestMode a -> IO a
 runBlockTestMode tp action =
-    runEmulation (tp ^. tpStartTime) $
+    runEmulation (getTimestamp $ tp ^. tpStartTime) $
     initBlockTestContext tp (runReaderT action)
 
 ----------------------------------------------------------------------------
@@ -278,19 +299,44 @@ type BlockProperty = PropertyM BlockTestMode
 
 -- | Convert 'BlockProperty' to 'Property' using given generator of
 -- 'TestParams'.
-blockPropertyToProperty :: (HasNodeConfiguration, HasGtConfiguration, HasConfiguration)
-                        => Gen TestParams -> BlockProperty a -> Property
+blockPropertyToProperty ::
+       (HasNodeConfiguration, HasGtConfiguration)
+    => Gen TestParams
+    -> (HasConfiguration =>
+            BlockProperty a)
+    -> Property
 blockPropertyToProperty tpGen blockProperty =
     forAll tpGen $ \tp ->
+        withTestParams tp $
         monadic (ioProperty . runBlockTestMode tp) blockProperty
 
--- | 'Testable' instance allows one to write monadic properties in
--- do-notation and pass them directly to QuickCheck engine. It uses
--- arbitrary 'TestParams'. For more fine-grained control over
--- parameters use 'blockPropertyToProperty'.
-instance (HasNodeConfiguration, HasGtConfiguration, HasConfiguration)
-         => Testable (BlockProperty a) where
-    property = blockPropertyToProperty arbitrary
+-- | Simplified version of 'blockPropertyToProperty' which uses
+-- 'Arbitrary' instance to generate 'TestParams'.
+--
+-- You can treat it as 'Testable' instance for 'HasConfiguration =>
+-- BlockProperty a', but unfortunately it's impossible to write such
+-- instance.
+--
+-- The following code doesn't compile:
+--
+-- instance (HasNodeConfiguration, HasGtConfiguration)
+--          => Testable (HasConfiguration => BlockProperty a) where
+--     property = blockPropertyToProperty arbitrary
+blockPropertyTestable ::
+       (HasNodeConfiguration, HasGtConfiguration)
+    => (HasConfiguration =>
+            BlockProperty a)
+    -> Property
+blockPropertyTestable = blockPropertyToProperty arbitrary
+
+-- | Specialized version of 'prop' function from 'hspec'.
+blockPropertySpec ::
+       (HasNodeConfiguration, HasGtConfiguration)
+    => String
+    -> (HasConfiguration =>
+            BlockProperty a)
+    -> Spec
+blockPropertySpec description bp = prop description (blockPropertyTestable bp)
 
 ----------------------------------------------------------------------------
 -- Boilerplate TestInitContext instances
@@ -398,11 +444,14 @@ instance HasSlogGState BlockTestContext where
 instance HasLens DelegationVar BlockTestContext DelegationVar where
     lensOf = btcDelegation_L
 
-instance HasLens TxpHolderTag BlockTestContext (GenericTxpLocalData TxpExtra_TMP) where
+instance HasLens TxpHolderTag BlockTestContext (GenericTxpLocalData ExplorerExtra) where
     lensOf = btcTxpMem_L
 
 instance HasLoggerName' BlockTestContext where
     loggerName = lensOf @LoggerName
+
+instance HasNodeType BlockTestContext where
+    getNodeType _ = NodeCore -- doesn't really matter, it's for reporting
 
 instance {-# OVERLAPPING #-} HasLoggerName BlockTestMode where
     getLoggerName = getLoggerNameDefault
@@ -460,3 +509,13 @@ instance MonadBListener BlockTestMode where
 
 instance MonadFormatPeers BlockTestMode where
     formatKnownPeers _ = pure Nothing
+
+type instance MempoolExt BlockTestMode = ExplorerExtra
+
+instance HasConfigurations => MonadTxpLocal (BlockGenMode ExplorerExtra BlockTestMode) where
+    txpNormalize = withCompileInfo def $ eTxNormalize
+    txpProcessTx = withCompileInfo def $ eTxProcessTransactionNoLock
+
+instance HasConfigurations => MonadTxpLocal BlockTestMode where
+    txpNormalize = withCompileInfo def $ eTxNormalize
+    txpProcessTx = withCompileInfo def $ eTxProcessTransactionNoLock

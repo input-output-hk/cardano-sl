@@ -53,7 +53,6 @@ spec_prj=''
 no_nix=false
 ram=false
 prodMode=
-wallet=true
 explorer=true
 no_code=false
 werror=false
@@ -97,9 +96,6 @@ do
   # -Werror = compile with -Werror
   elif [[ $var == "-Werror" ]]; then
     werror=true
-  # --no-wallet = don't build in wallet mode
-  elif [[ $var == "--no-wallet" ]]; then
-    wallet=false
   # --no-explorer = build without Explorer (support)
   elif [[ $var == "--no-explorer" ]]; then
     explorer=false
@@ -169,10 +165,6 @@ fi
 
 if [[ $explorer == false ]]; then
   commonargs="$commonargs --flag cardano-sl:-with-explorer"
-fi
-
-if [[ $wallet == true ]]; then
-  commonargs="$commonargs --flag cardano-sl:with-wallet"
 fi
 
 if [[ $for_installer == true ]]; then
@@ -254,12 +246,6 @@ else
   to_build="cardano-sl-$spec_prj"
 fi
 
-# A warning for invalid flag usage when building wallet. This should not happen.
-if [[ $to_build == *"wallet"* && $wallet == false ]]; then
-  echo "You can't build output with wallet and not use wallet! Invalid flag '--no-wallet'."
-  exit
-fi
-
 # A warning for invalid flag usage when building explorer. This should not happen.
 if [[ $to_build == *"explorer"* && $explorer == false ]]; then
   echo "You can't build output with explorer and not use explorer! Invalid flag '--no-explorer'."
@@ -271,7 +257,6 @@ if [[ $to_build == "" ]]; then
 else
   echo "Going to build: $to_build"
 fi
-echo "'wallet' flag: $wallet"
 echo "'explorer' flag: $explorer"
 
 for prj in $to_build; do

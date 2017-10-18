@@ -20,13 +20,13 @@ import           Pos.Binary.Class                        (asBinary, serialize')
 import           Pos.Binary.Core.Address                 ()
 import           Pos.Core.Address                        (Address,
                                                           IsBootstrapEraAddr (..),
-                                                          addressHash, deriveLvl2KeyPair,
+                                                          addressHash,
+                                                          deriveFirstHDAddress,
                                                           makePubKeyAddressBoot)
 import           Pos.Core.Coin                           (mkCoin, unsafeIntegerToCoin)
 import           Pos.Core.Configuration.BlockVersionData (HasGenesisBlockVersionData)
 import           Pos.Core.Configuration.Protocol         (HasProtocolConstants, vssMaxTTL,
                                                           vssMinTTL)
-import qualified Pos.Core.Genesis.Constants              as Const
 import           Pos.Core.Genesis.Types                  (FakeAvvmOptions (..),
                                                           GenesisAvvmBalances (..),
                                                           GenesisInitializer (..),
@@ -41,7 +41,6 @@ import           Pos.Core.Vss                            (VssCertificate,
                                                           mkVssCertificatesMap)
 import           Pos.Crypto                              (EncryptedSecretKey,
                                                           RedeemPublicKey, SecretKey,
-                                                          ShouldCheckPassphrase (..),
                                                           VssKeyPair, deterministic,
                                                           emptyPassphrase, keyGen,
                                                           randomNumberInRange,
@@ -165,9 +164,8 @@ generateSecretsAndAddress mbSk hasHDPayload= do
         hdwAccountPk =
             if not hasHDPayload then makePubKeyAddressBoot (toPublic sk)
             else
-                fst $ fromMaybe (error "generateKeyfile: pass mismatch") $
-                deriveLvl2KeyPair (IsBootstrapEraAddr True) (ShouldCheckPassphrase False) emptyPassphrase hdwSk
-                    Const.accountGenesisIndex Const.wAddressGenesisIndex
+                fst $ fromMaybe (error "generateSecretsAndAddress: pass mismatch") $
+                deriveFirstHDAddress (IsBootstrapEraAddr True) emptyPassphrase hdwSk
     pure (sk, hdwSk, vss, vssCert, hdwAccountPk)
 
 generateFakeAvvm :: MonadRandom m => m (RedeemPublicKey, ByteString)

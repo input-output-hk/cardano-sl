@@ -66,6 +66,9 @@ address = lexeme $ do
 num :: Num a => Parser a
 num = lexeme $ fromInteger . read <$> many1 digit
 
+numOrN1 :: Num a => Parser a
+numOrN1 = lexeme $ fromInteger . read <$> (string "-1" <|> many1 digit)
+
 coin :: Parser Coin
 coin = mkCoin <$> num
 
@@ -106,7 +109,7 @@ addKeyFromPool = AddKeyFromPool <$> num
 addKeyFromFile = AddKeyFromFile <$> filePath
 
 send :: Parser Command
-send = Send <$> num <*> (NE.fromList <$> many1 txout)
+send = Send <$> numOrN1 <*> (NE.fromList <$> many1 txout)
 
 sendMode :: Parser SendMode
 sendMode = lexeme $ text "neighbours" $> SendNeighbours
@@ -160,6 +163,9 @@ proposeUnlockStakeEpochParams =
 
 proposeUnlockStakeEpoch :: Parser Command
 proposeUnlockStakeEpoch = ProposeUpdate <$> proposeUnlockStakeEpochParams
+
+hashInstaller :: Parser Command
+hashInstaller = HashInstaller <$> filePath
 
 coinPortionP :: Parser CoinPortion
 coinPortionP = do
@@ -215,6 +221,7 @@ command = try (text "balance") *> balance <|>
           try (text "vote") *> vote <|>
           try (text "propose-update") *> proposeUpdate <|>
           try (text "propose-unlock-stake-epoch") *> proposeUnlockStakeEpoch <|>
+          try (text "hash-installer") *> hashInstaller <|>
           try (text "delegate-light") *> delegateL <|>
           try (text "delegate-heavy") *> delegateH <|>
           try (text "add-key-pool") *> addKeyFromPool <|>
@@ -226,5 +233,5 @@ command = try (text "balance") *> balance <|>
           try (text "listaddr") *> pure ListAddresses <?>
           "Undefined command"
 
-parseCommand :: Text -> Either String Command
+parseCommand :: Text -> Either Text Command
 parseCommand = first show . parse command ""

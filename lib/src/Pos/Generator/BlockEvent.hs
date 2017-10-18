@@ -65,8 +65,9 @@ import           Pos.Block.Types                  (Blund)
 import           Pos.Core                         (GenesisWStakeholders, HasConfiguration,
                                                    HeaderHash, headerHash, prevBlockL)
 import           Pos.Crypto.Hashing               (hashHexF)
-import           Pos.Generator.Block              (BlockGenParams (..), MonadBlockGen,
-                                                   TxGenParams (..), genBlocks)
+import           Pos.Generator.Block              (BlockGenParams (..), BlockTxpGenMode,
+                                                   MonadBlockGen, TxGenParams (..),
+                                                   genBlocks)
 import           Pos.GState.Context               (withClonedGState)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
@@ -158,8 +159,8 @@ flattenBlockchainTree prePath tree = do
     let BlockchainTree a forest = tree
     (prePath, a) : flattenBlockchainForest prePath forest
 
-genBlocksInForest ::
-       (MonadBlockGen ctx m, RandomGen g)
+genBlocksInForest
+    :: BlockTxpGenMode g ctx m
     => AllSecrets
     -> GenesisWStakeholders
     -> BlockchainForest BlockDesc
@@ -168,15 +169,14 @@ genBlocksInForest secrets bootStakeholders =
     traverse $ mapRandT withClonedGState .
     genBlocksInTree secrets bootStakeholders
 
-genBlocksInTree ::
-       (MonadBlockGen ctx m, RandomGen g)
+genBlocksInTree
+    :: BlockTxpGenMode g ctx m
     => AllSecrets
     -> GenesisWStakeholders
     -> BlockchainTree BlockDesc
     -> RandT g m (BlockchainTree BlundDefault)
 genBlocksInTree secrets bootStakeholders blockchainTree = do
-    let
-        BlockchainTree blockDesc blockchainForest = blockchainTree
+    let BlockchainTree blockDesc blockchainForest = blockchainTree
         txGenParams = case blockDesc of
             BlockDescDefault  -> TxGenParams (0, 0) 0
             BlockDescCustom p -> p
@@ -196,9 +196,8 @@ genBlocksInTree secrets bootStakeholders blockchainTree = do
 
 -- Precondition: paths in the structure are non-empty.
 genBlocksInStructure ::
-       ( MonadBlockGen ctx m
-       , Functor t, Foldable t
-       , RandomGen g )
+       ( BlockTxpGenMode g ctx m
+       , Functor t, Foldable t)
     => AllSecrets
     -> GenesisWStakeholders
     -> Map Path BlockDesc

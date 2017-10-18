@@ -92,7 +92,6 @@ test_script:
       --test
       --no-haddock-deps
       --work-dir %STACK_WORK%
-      --flag cardano-sl:with-wallet
       --flag cardano-sl-core:-asserts
       --flag cardano-sl-tools:for-installer
       --flag cardano-sl-wallet:for-installer

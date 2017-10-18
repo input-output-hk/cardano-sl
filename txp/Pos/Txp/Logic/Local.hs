@@ -1,4 +1,5 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes   #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Logic for local processing of transactions.
 -- Local transaction is transaction which hasn't been added in the blockchain yet.
@@ -19,41 +20,28 @@ import qualified Data.HashMap.Strict  as HM
 import qualified Data.List.NonEmpty   as NE
 import qualified Data.Map             as M (fromList)
 import           Formatting           (build, sformat, (%))
-import           Mockable             (CurrentTime, Mockable)
-import           System.Wlog          (WithLogger, logDebug, logError, logWarning)
+import           System.Wlog          (NamedPureLogger, WithLogger, logDebug, logError,
+                                       logWarning)
 
 import           Pos.Core             (BlockVersionData, EpochIndex, HasConfiguration,
                                        HeaderHash, siEpoch)
 import           Pos.Crypto           (WithHash (..))
-import           Pos.DB.Class         (MonadDBRead, MonadGState (..))
+import           Pos.DB.Class         (MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
-import           Pos.Reporting        (MonadReporting, reportError)
+import           Pos.Reporting        (reportError)
 import           Pos.Slotting         (MonadSlots (..))
 import           Pos.StateLock        (Priority (..), StateLock, StateLockMetrics,
                                        withStateLock)
 import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId, TxUndo, topsortTxs)
-import           Pos.Txp.MemState     (GenericTxpLocalData (..), MonadTxpMem,
-                                       TxpLocalDataPure, askTxpMem, getLocalTxs,
-                                       getUtxoModifier, modifyTxpLocalData,
+import           Pos.Txp.MemState     (GenericTxpLocalData (..), MempoolExt, MonadTxpMem,
+                                       TxpLocalDataPure, TxpLocalWorkMode, askTxpMem,
+                                       getLocalTxs, getUtxoModifier, modifyTxpLocalData,
                                        setTxpLocalData)
 import           Pos.Txp.Toil         (GenericToilModifier (..), MonadUtxoRead (..),
                                        ToilModifier, ToilT, ToilVerFailure (..), Utxo,
                                        execToilTLocal, mpLocalTxs, normalizeToil,
                                        processTx, runDBToil, runToilTLocal, utxoGetReader)
 import           Pos.Util.Util        (HasLens (..), HasLens')
-
-type TxpLocalWorkMode ctx m =
-    ( MonadIO m
-    , MonadDBRead m
-    , MonadGState m
-    , MonadSlots ctx m
-    , MonadTxpMem () ctx m
-    , WithLogger m
-    , Mockable CurrentTime m
-    , MonadMask m
-    , MonadReporting ctx m
-    , HasConfiguration
-    )
 
 -- Base context for tx processing in.
 data ProcessTxContext = ProcessTxContext
@@ -67,7 +55,7 @@ instance HasLens Utxo ProcessTxContext Utxo where
     lensOf = ptcUtxoBase
 
 -- Base monad for tx processing in.
-type ProcessTxMode = Reader ProcessTxContext
+type ProcessTxMode = ReaderT ProcessTxContext (NamedPureLogger Identity)
 
 instance HasConfiguration => MonadUtxoRead ProcessTxMode where
     utxoGet = utxoGetReader
@@ -79,8 +67,13 @@ instance MonadGState ProcessTxMode where
 -- transaction in 'TxAux'. Separation is supported for optimization
 -- only.
 txProcessTransaction
-    :: (TxpLocalWorkMode ctx m, HasLens' ctx StateLock,
-        HasLens' ctx StateLockMetrics, MonadMask m)
+    :: ( TxpLocalWorkMode ctx m
+       , MonadReader ctx m
+       , HasLens' ctx StateLock
+       , HasLens' ctx StateLockMetrics
+       , MonadMask m
+       , MempoolExt m ~ ()
+       )
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 txProcessTransaction itw =
     withStateLock LowPriority "txProcessTransaction" $ \__tip -> txProcessTransactionNoLock itw
@@ -88,7 +81,9 @@ txProcessTransaction itw =
 -- | Unsafe version of 'txProcessTransaction' which doesn't take a
 -- lock. Can be used in tests.
 txProcessTransactionNoLock
-    :: (TxpLocalWorkMode ctx m)
+    :: ( TxpLocalWorkMode ctx m
+       , MempoolExt m ~ ()
+       )
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
     let UnsafeTx {..} = taTx txAux
@@ -137,27 +132,26 @@ txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ 
             logDebug
                 (sformat ("Transaction is processed successfully: " %build) txId)
   where
-    processTxDo ::
-           EpochIndex
+    processTxDo
+        :: EpochIndex
         -> ProcessTxContext
         -> HeaderHash
         -> (TxId, TxAux)
         -> TxpLocalDataPure
-        -> (Either ToilVerFailure (), TxpLocalDataPure)
+        -> NamedPureLogger Identity (Either ToilVerFailure (), TxpLocalDataPure)
     processTxDo curEpoch ctx tipDB tx txld@(uv, mp, undo, tip, ())
-        | tipDB /= tip = (Left $ ToilTipsMismatch tipDB tip, txld)
-        | otherwise =
+        | tipDB /= tip = pure (Left $ ToilTipsMismatch tipDB tip, txld)
+        | otherwise = do
             let action :: ExceptT ToilVerFailure (ToilT () ProcessTxMode) TxUndo
                 action = processTx curEpoch tx
-                res :: (Either ToilVerFailure TxUndo, ToilModifier)
-                res =
-                    usingReader ctx $
+            res :: (Either ToilVerFailure TxUndo, ToilModifier) <-
+                    flip runReaderT ctx $
                     runToilTLocal uv mp undo $ runExceptT action
-            in case res of
-                   (Left er, _) -> (Left er, txld)
-                   (Right _, ToilModifier {..}) ->
-                       ( Right ()
-                       , (_tmUtxo, _tmMemPool, _tmUndos, tip, _tmExtra))
+            case res of
+                (Left er, _) -> pure (Left er, txld)
+                (Right _, ToilModifier {..}) -> pure
+                    ( Right ()
+                    , (_tmUtxo, _tmMemPool, _tmUndos, tip, _tmExtra))
     -- REPORT:ERROR Tips mismatch in txp.
     reportTipMismatch action = do
         res <- action
@@ -170,7 +164,9 @@ txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ 
 -- | 3. Set new tip to txp local data
 txNormalize
     :: ( TxpLocalWorkMode ctx m
-       , MonadSlots ctx m)
+       , MonadSlots ctx m
+       , MempoolExt m ~ ()
+       )
     => m ()
 txNormalize = getCurrentSlot >>= \case
     Nothing -> do

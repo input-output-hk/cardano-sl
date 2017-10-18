@@ -30,11 +30,12 @@ import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Ssc.GodTossing         (SscGodTossing)
 import           Pos.Txp                    (genesisUtxo, unGenesisUtxo)
 import           Pos.Util.CompileInfo       (HasCompileInfo)
-import           Pos.WorkMode               (RealMode, RealModeContext)
+import           Pos.WorkMode               (EmptyMempoolExt, RealMode, RealModeContext)
 
-import           AuxxOptions                (AuxxAction (..), AuxxOptions (..))
-import           Command                    (Command (..), parseCommand, runCmd)
+import           AuxxOptions                (AuxxOptions (..))
+import           Command                    (parseCommand, runCmd)
 import           Mode                       (AuxxMode)
+import           Repl                       (WithCommandAction (..))
 
 ----------------------------------------------------------------------------
 -- Plugin implementation
@@ -43,43 +44,21 @@ import           Mode                       (AuxxMode)
 auxxPlugin ::
        (HasConfigurations, HasCompileInfo)
     => AuxxOptions
+    -> Either (WithCommandAction AuxxMode) Text
     -> (WorkerSpec AuxxMode, OutSpecs)
-auxxPlugin AuxxOptions {..} =
-    case aoAction of
-        Repl    -> worker' runCmdOuts $ runWalletRepl
-        Cmd cmd -> worker' runCmdOuts $ runWalletCmd cmd
+auxxPlugin AuxxOptions{..} = \case
+        Left WithCommandAction{..} -> worker' runCmdOuts $ \sendActions -> do
+            printAction <- getPrintAction
+            printAction "... the auxx plugin is ready"
+            forever $ withCommand $ \cmd -> do
+                runCmd cmd printAction sendActions
+        Right cmd -> worker' runCmdOuts $ runWalletCmd cmd
   where
     worker' specs w =
         worker specs $ \sa -> do
             logInfo $ sformat ("Length of genesis utxo: " %int)
                               (length $ unGenesisUtxo genesisUtxo)
             w (addLogging sa)
-
-evalCmd ::
-       (HasConfigurations, HasCompileInfo)
-    => SendActions AuxxMode
-    -> Command
-    -> AuxxMode ()
-evalCmd _ Quit = pure ()
-evalCmd sa cmd = runCmd sa cmd >> evalCommands sa
-
-evalCommands ::
-       (HasConfigurations, HasCompileInfo)
-    => SendActions AuxxMode
-    -> AuxxMode ()
-evalCommands sa = do
-    putStr @Text "> "
-    liftIO $ hFlush stdout
-    line <- getLine
-    let cmd = parseCommand line
-    case cmd of
-        Left err   -> putStrLn err >> evalCommands sa
-        Right cmd_ -> evalCmd sa cmd_
-
-runWalletRepl :: (HasConfigurations, HasCompileInfo) => Worker AuxxMode
-runWalletRepl sa = do
-    putText "Welcome to Wallet CLI Node"
-    evalCmd sa Help
 
 runWalletCmd :: (HasConfigurations, HasCompileInfo) => Text -> Worker AuxxMode
 runWalletCmd str sa = do
@@ -88,7 +67,7 @@ runWalletCmd str sa = do
         let mcmd = parseCommand scmd
         case mcmd of
             Left err   -> putStrLn err
-            Right cmd' -> runCmd sa cmd'
+            Right cmd' -> runCmd cmd' putText sa
     putText "Command execution finished"
     putText " " -- for exit by SIGPIPE
     liftIO $ hFlush stdout
@@ -106,15 +85,15 @@ runCmdOuts :: (HasConfigurations,HasCompileInfo) => OutSpecs
 runCmdOuts =
     relayPropagateOut $
     mconcat
-        [ usRelays @(RealModeContext SscGodTossing) @(RealMode SscGodTossing)
+        [ usRelays @(RealModeContext SscGodTossing EmptyMempoolExt) @(RealMode SscGodTossing EmptyMempoolExt)
         , delegationRelays
               @SscGodTossing
-              @(RealModeContext SscGodTossing)
-              @(RealMode SscGodTossing)
+              @(RealModeContext SscGodTossing EmptyMempoolExt)
+              @(RealMode SscGodTossing EmptyMempoolExt)
         , txRelays
               @SscGodTossing
-              @(RealModeContext SscGodTossing)
-              @(RealMode SscGodTossing)
+              @(RealModeContext SscGodTossing EmptyMempoolExt)
+              @(RealMode SscGodTossing EmptyMempoolExt)
         ]
 
 ----------------------------------------------------------------------------

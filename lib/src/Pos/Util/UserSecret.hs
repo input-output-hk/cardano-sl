@@ -11,7 +11,7 @@ module Pos.Util.UserSecret
        ( UserSecret
        , usKeys
        , usVss
-       , usWalletSet
+       , usWallet
        , usPrimKey
        , HasUserSecret(..)
        , getUSPath
@@ -66,12 +66,12 @@ import           System.Wlog            (logWarning)
 -- | User secret data. Includes secret keys only for now (not
 -- including auxiliary @_usPath@).
 data UserSecret = UserSecret
-    { _usKeys      :: [EncryptedSecretKey]
-    , _usPrimKey   :: Maybe SecretKey
-    , _usVss       :: Maybe VssKeyPair
-    , _usWalletSet :: Maybe WalletUserSecret
-    , _usPath      :: FilePath
-    , _usLock      :: Maybe FileLock
+    { _usKeys    :: [EncryptedSecretKey]
+    , _usPrimKey :: Maybe SecretKey
+    , _usVss     :: Maybe VssKeyPair
+    , _usWallet  :: Maybe WalletUserSecret
+    , _usPath    :: FilePath
+    , _usLock    :: Maybe FileLock
     }
 
 makeLenses ''UserSecret
@@ -85,11 +85,11 @@ instance Bi Address => Show UserSecret where
     show UserSecret {..} =
         formatToString
             ("UserSecret { _usKeys = "%listJson%", _usVss = "%build%
-             ", _usPath = "%build%", _usWalletSet = "%build%"}")
+             ", _usPath = "%build%", _usWallet = "%build%"}")
             _usKeys
             _usVss
             _usPath
-            _usWalletSet
+            _usWallet
 
 newtype UserSecretDecodingError = UserSecretDecodingError Text
     deriving (Show)
@@ -127,18 +127,18 @@ instance Bi UserSecret where
   encode us = encodeListLen 4 <> encode (_usVss us) <>
                                       encode (_usPrimKey us) <>
                                       encode (_usKeys us) <>
-                                      encode (_usWalletSet us)
+                                      encode (_usWallet us)
   decode = do
     enforceSize "UserSecret" 4
     vss  <- decode
     pkey <- decode
     keys <- decode
-    wset <- decode
+    wallet <- decode
     return $ def
         & usVss .~ vss
         & usPrimKey .~ pkey
         & usKeys .~ keys
-        & usWalletSet .~ wset
+        & usWallet .~ wallet
 
 #ifdef POSIX
 -- | Constant that defines file mode 600 (readable & writable only by owner).

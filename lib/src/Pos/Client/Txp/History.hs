@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE InstanceSigs        #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE TemplateHaskell     #-}
@@ -62,24 +61,16 @@ import           Pos.Slotting                 (MonadSlots, getSlotStartPure,
                                                getSystemStartM)
 import           Pos.Ssc.Class                (SscHelpersClass)
 import           Pos.StateLock                (StateLock, StateLockMetrics)
-import           Pos.Util.Util                (HasLens')
-#ifdef WITH_EXPLORER
-import           Pos.Explorer.Txp.Local       (eTxProcessTransaction)
-#else
-import           Pos.Txp                      (txProcessTransaction)
-#endif
-import           Pos.Txp                      (MonadTxpMem, MonadUtxo, MonadUtxoRead,
-                                               ToilT, Tx (..), TxAux (..), TxId, TxOut,
-                                               TxOutAux (..), TxWitness, TxpError (..),
-                                               applyTxToUtxo, evalToilTEmpty,
-                                               flattenTxPayload, genesisUtxo, getLocalTxs,
-                                               runDBToil, topsortTxs, txOutAddress,
+import           Pos.Txp                      (MempoolExt, MonadTxpLocal, MonadTxpMem,
+                                               MonadUtxo, MonadUtxoRead, ToilT, Tx (..),
+                                               TxAux (..), TxId, TxOut, TxOutAux (..),
+                                               TxWitness, TxpError (..), applyTxToUtxo,
+                                               evalToilTEmpty, flattenTxPayload,
+                                               genesisUtxo, getLocalTxs, runDBToil,
+                                               topsortTxs, txOutAddress, txpProcessTx,
                                                unGenesisUtxo, utxoGet)
 import           Pos.Util                     (eitherToThrow, maybeThrow)
-import           Pos.WorkMode.Class           (TxpExtra_TMP)
-
--- Remove this once there's no #ifdef-ed Pos.Txp import
-{-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
+import           Pos.Util.Util                (HasLens')
 
 ----------------------------------------------------------------------
 -- Deduction of history
@@ -230,11 +221,12 @@ type TxHistoryEnv ctx m =
     ( MonadRealDB ctx m
     , MonadDBRead m
     , MonadGState m
+    , MonadTxpLocal m
     , MonadMask m
     , WithLogger m
     , MonadSlots ctx m
     , MonadReader ctx m
-    , MonadTxpMem TxpExtra_TMP ctx m
+    , MonadTxpMem (MempoolExt m) ctx m
     , HasLens' ctx StateLock
     , HasLens' ctx StateLockMetrics
     , MonadBaseControl IO m
@@ -284,11 +276,7 @@ getLocalHistoryDefault addrs = runDBToil . evalToilTEmpty $ do
 
 saveTxDefault :: TxHistoryEnv ctx m => (TxId, TxAux) -> m ()
 saveTxDefault txw = do
-#ifdef WITH_EXPLORER
-    res <- eTxProcessTransaction txw
-#else
-    res <- txProcessTransaction txw
-#endif
+    res <- txpProcessTx txw
     eitherToThrow res
 
 txHistoryListToMap :: [TxHistoryEntry] -> Map TxId TxHistoryEntry

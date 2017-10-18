@@ -66,7 +66,7 @@ module Pos.Binary.Class.TH
 import           Universum
 
 import           Control.Lens          (imap)
-import           Data.List             (notElem, nubBy)
+import           Data.List             (nubBy)
 import qualified Data.Text             as T
 import           Formatting            (sformat, shown, (%))
 import           Language.Haskell.TH

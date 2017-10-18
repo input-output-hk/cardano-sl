@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP             #-}
 {-# LANGUAGE RankNTypes      #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies    #-}
@@ -26,6 +25,7 @@ module Test.Pos.Block.Logic.Mode
 import           Universum
 
 import           Control.Lens                   (lens, makeClassy, makeLensesWith)
+import           Data.Default                   (def)
 import qualified Data.Map                       as Map
 import qualified Data.Text.Buildable
 import           Data.Time.Units                (TimeUnit (..))
@@ -67,10 +67,14 @@ import qualified Pos.DB.Block                   as DB
 import           Pos.DB.DB                      (gsAdoptedBVDataDefault, initNodeDBs)
 import           Pos.DB.Pure                    (DBPureVar, newDBPureVar)
 import           Pos.Delegation                 (DelegationVar, mkDelegationVar)
+import           Pos.Explorer                   (ExplorerExtra, eTxNormalize,
+                                                 eTxProcessTransactionNoLock,
+                                                 explorerTxpGlobalSettings)
+import           Pos.Generator.Block            (BlockGenMode)
 import           Pos.Generator.BlockEvent       (SnapshotId)
 import qualified Pos.GState                     as GS
 import           Pos.KnownPeers                 (MonadFormatPeers (..))
-import           Pos.Launcher.Configuration     (Configuration (..))
+import           Pos.Launcher.Configuration     (Configuration (..), HasConfigurations)
 import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
 import           Pos.Network.Types              (HasNodeType (..), NodeType (..))
 import           Pos.Reporting                  (HasReportingContext (..),
@@ -87,26 +91,19 @@ import           Pos.Ssc.Class                  (SscBlock)
 import           Pos.Ssc.Class.Helpers          (SscHelpersClass)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing             (HasGtConfiguration, SscGodTossing)
-import           Pos.Txp                        (GenericTxpLocalData, TxpGlobalSettings,
+import           Pos.Txp                        (GenericTxpLocalData, MempoolExt,
+                                                 MonadTxpLocal (..), TxpGlobalSettings,
                                                  TxpHolderTag, mkTxpLocalData)
 import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
 import           Pos.Util                       (Some, newInitFuture, postfixLFields)
+import           Pos.Util.CompileInfo           (withCompileInfo)
 import           Pos.Util.LoggerName            (HasLoggerName' (..),
                                                  getLoggerNameDefault,
                                                  modifyLoggerNameDefault)
-import           Pos.WorkMode.Class             (TxpExtra_TMP)
-#ifdef WITH_EXPLORER
-import           Pos.Explorer                   (explorerTxpGlobalSettings)
-#else
-import           Pos.Txp                        (txpGlobalSettings)
-#endif
 
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, sudoLiftIO)
 import           Test.Pos.Configuration         (defaultTestBlockVersionData,
                                                  defaultTestConf, defaultTestGenesisSpec)
-
--- Remove this once there's no #ifdef-ed Pos.Txp import
-{-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
 
 ----------------------------------------------------------------------------
 -- Parameters
@@ -206,7 +203,7 @@ data BlockTestContext = BlockTestContext
     , btcSSlottingVar      :: !SimpleSlottingVar
     , btcUpdateContext     :: !UpdateContext
     , btcSscState          :: !(SscState SscGodTossing)
-    , btcTxpMem            :: !(GenericTxpLocalData TxpExtra_TMP)
+    , btcTxpMem            :: !(GenericTxpLocalData ExplorerExtra)
     , btcTxpGlobalSettings :: !TxpGlobalSettings
     , btcSlotId            :: !(Maybe SlotId)
     -- ^ If this value is 'Just' we will return it as the current
@@ -260,11 +257,7 @@ initBlockTestContext tp@TestParams {..} callback = do
             btcSscState <- mkSscState @SscGodTossing
             _gscSlogGState <- mkSlogGState
             btcTxpMem <- mkTxpLocalData
-#ifdef WITH_EXPLORER
             let btcTxpGlobalSettings = explorerTxpGlobalSettings
-#else
-            let btcTxpGlobalSettings = txpGlobalSettings
-#endif
             let btcReportingContext = emptyReportingContext
             let btcSlotId = Nothing
             let btcParams = tp
@@ -451,7 +444,7 @@ instance HasSlogGState BlockTestContext where
 instance HasLens DelegationVar BlockTestContext DelegationVar where
     lensOf = btcDelegation_L
 
-instance HasLens TxpHolderTag BlockTestContext (GenericTxpLocalData TxpExtra_TMP) where
+instance HasLens TxpHolderTag BlockTestContext (GenericTxpLocalData ExplorerExtra) where
     lensOf = btcTxpMem_L
 
 instance HasLoggerName' BlockTestContext where
@@ -516,3 +509,13 @@ instance MonadBListener BlockTestMode where
 
 instance MonadFormatPeers BlockTestMode where
     formatKnownPeers _ = pure Nothing
+
+type instance MempoolExt BlockTestMode = ExplorerExtra
+
+instance HasConfigurations => MonadTxpLocal (BlockGenMode ExplorerExtra BlockTestMode) where
+    txpNormalize = withCompileInfo def $ eTxNormalize
+    txpProcessTx = withCompileInfo def $ eTxProcessTransactionNoLock
+
+instance HasConfigurations => MonadTxpLocal BlockTestMode where
+    txpNormalize = withCompileInfo def $ eTxNormalize
+    txpProcessTx = withCompileInfo def $ eTxProcessTransactionNoLock

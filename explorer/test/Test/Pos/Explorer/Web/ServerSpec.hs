@@ -140,7 +140,9 @@ blocksPagesTotalUnitSpec =
                   -- We run the function in @BlockTestMode@ so we don't need to define
                   -- a million instances.
                   let blockExecution :: IO Integer
-                      blockExecution = runBlockTestMode testParams $ getBlocksPagesTotalEMode mode 10
+                      blockExecution =
+                          runBlockTestMode testParams
+                          $ getBlocksPagesTotalEMode mode (Just 10)
 
                   -- We finally run it as @PropertyM@ and check if it holds.
                   blocksTotal <- run blockExecution
@@ -188,7 +190,8 @@ blocksPageUnitSpec =
                   -- a million instances.
                   let blockExecution :: IO (Integer, [CBlockEntry])
                       blockExecution =
-                          runBlockTestMode testParams $ getBlocksPageEMode mode Nothing 10
+                          runBlockTestMode testParams
+                          $ getBlocksPageEMode mode Nothing (Just 10)
 
                   -- We finally run it as @PropertyM@ and check if it holds.
                   blocksTotal <- fst <$> run blockExecution

@@ -82,6 +82,7 @@ library
                      , lifted-base
                      , log-warper
                      , memory
+                     , mmorph
                      , monad-control
                      , mtl
                      , neat-interpolation

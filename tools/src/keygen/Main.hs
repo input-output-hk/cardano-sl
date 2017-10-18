@@ -30,7 +30,7 @@ import           Pos.Crypto             (EncryptedSecretKey (..), SecretKey (..)
                                          redeemPkB64F, toPublic, toVssPublicKey)
 import           Pos.Launcher           (HasConfigurations, withConfigurations)
 import           Pos.Util.UserSecret    (readUserSecret, takeUserSecret, usKeys,
-                                         usPrimKey, usVss, usWalletSet,
+                                         usPrimKey, usVss, usWallet,
                                          writeUserSecretRelease)
 import           Pos.Wallet.Web.Secret  (wusRootKey)
 
@@ -72,7 +72,7 @@ readKey path = do
                     view usPrimKey us
     logInfo $ maybe "No wallet set"
                     (("Wallet set: " <>) . showKeyWithAddressHash . decryptESK . view wusRootKey) $
-                    view usWalletSet us
+                    view usWallet us
     logInfo $ "Keys: " <> (T.concat $ L.intersperse "\n" $
                            map (showKeyWithAddressHash . decryptESK) $
                            view usKeys us)
@@ -155,7 +155,7 @@ genVssCert path = do
 main :: IO ()
 main = do
     KeygenOptions{..} <- getKeygenOptions
-    setupLogging $ consoleOutB & lcTermSeverity ?~ Debug
+    setupLogging Nothing $ consoleOutB & lcTermSeverity ?~ Debug
     usingLoggerName "keygen" $ withConfigurations koConfigurationOptions $ do
         logInfo "Processing command"
         case koCommand of

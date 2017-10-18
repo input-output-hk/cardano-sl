@@ -35,11 +35,11 @@ import           Pos.WorkMode            (WorkMode)
 
 -- | All, but in reality not all, workers used by full node.
 allWorkers
-    :: forall ssc ctx m .
+    :: forall ssc ext ctx m .
        ( SscListenersClass ssc
        , WorkMode ssc ctx m
        )
-    => NodeResources ssc m -> ([WorkerSpec m], OutSpecs)
+    => NodeResources ssc ext m -> ([WorkerSpec m], OutSpecs)
 allWorkers NodeResources {..} = mconcatPair
     [
       -- Only workers of "onNewSlot" type

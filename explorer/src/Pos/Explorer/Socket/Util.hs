@@ -100,8 +100,8 @@ forkAccompanion
     :: (MonadIO m, MonadMask m, Mockable Fork m)
     => (m Bool -> m ()) -> m a -> m a
 forkAccompanion accompanion main = do
-    stopped <- liftIO $ newTVarIO False
-    let whetherStopped = liftIO $ readTVarIO stopped
+    stopped <- newTVarIO False
+    let whetherStopped = readTVarIO stopped
     bracket_ (fork $ accompanion whetherStopped)
              (atomically $ writeTVar stopped True)
              main

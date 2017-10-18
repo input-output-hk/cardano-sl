@@ -16,6 +16,7 @@ module Pos.Util.CompileInfo
 
 import           Universum
 
+import           Data.Default               (Default (def))
 import           Data.Reflection            (Given (..), give, given)
 import qualified Data.Text.Buildable
 import           Formatting                 (bprint, stext, (%))
@@ -31,6 +32,10 @@ import           System.Process             (readProcessWithExitCode)
 data CompileTimeInfo = CompileTimeInfo
     { ctiGitRevision :: Text
     } deriving (Show,TH.Lift)
+
+instance Default CompileTimeInfo where
+    def = CompileTimeInfo { ctiGitRevision = "<def instance>"
+                          }
 
 instance Buildable CompileTimeInfo where
     build CompileTimeInfo{..} =

@@ -84,8 +84,9 @@ analyseBlockchainEagerly cli currentTip = do
 main :: IO ()
 main = do
     args <- getOptions
-    CLI.printFlags
-    runProduction $ action args
+    runProduction $ do
+        CLI.printFlags
+        action args
 
 action :: CLIOptions -> Production ()
 action cli@CLIOptions{..} = withConfigurations conf $ do

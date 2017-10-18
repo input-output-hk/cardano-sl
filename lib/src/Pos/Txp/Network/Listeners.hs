@@ -23,12 +23,7 @@ import           Pos.Communication.Relay   (InvReqDataParams (..), MempoolParams
 import           Pos.Communication.Types   (MsgType (..))
 import           Pos.Crypto                (hash)
 import           Pos.Txp.Core.Types        (TxAux (..), TxId)
-#ifdef WITH_EXPLORER
-import           Pos.Explorer.Txp.Local    (eTxProcessTransaction)
-#else
-import           Pos.Txp.Logic             (txProcessTransaction)
-#endif
-import           Pos.Txp.MemState          (getMemPool)
+import           Pos.Txp.MemState          (getMemPool, txpProcessTx)
 import           Pos.Txp.Network.Types     (TxMsgContents (..))
 import           Pos.Txp.Toil.Types        (MemPool (..))
 import           Pos.Util.JsonLog          (JLEvent (..), JLTxR (..))
@@ -71,11 +66,7 @@ handleTxDo
     => TxAux -> m Bool
 handleTxDo txAux = do
     let txId = hash (taTx txAux)
-#ifdef WITH_EXPLORER
-    res <- eTxProcessTransaction (txId, txAux)
-#else
-    res <- txProcessTransaction (txId, txAux)
-#endif
+    res <- txpProcessTx (txId, txAux)
     let json me = jsonLog $ JLTxReceived $ JLTxR
             { jlrTxId     = sformat build txId
             , jlrError    = me

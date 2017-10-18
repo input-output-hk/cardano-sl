@@ -506,6 +506,9 @@ data CAddressesFilter
     | AllAddresses
     deriving (Show, Generic)
 
+instance Default CAddressesFilter where
+    def = AllAddresses
+
 --------------------------------------------------------------------------------
 -- FromHttpApiData instances
 --------------------------------------------------------------------------------

@@ -28,17 +28,16 @@ import           Network.SocketIO               (RoutingTable, Socket,
                                                  appendDisconnectHandler, initialize,
                                                  socketId)
 import           Network.Wai                    (Application, Middleware, Request,
-                                                 Response, pathInfo,
-                                                 responseLBS)
+                                                 Response, pathInfo, responseLBS)
 import           Network.Wai.Handler.Warp       (Settings, defaultSettings, runSettings,
                                                  setPort)
 import           Network.Wai.Middleware.Cors    (CorsResourcePolicy, cors, corsOrigins,
                                                  simpleCorsResourcePolicy)
+import           Serokell.Util.Text             (listJson)
 import           System.Wlog                    (CanLog, LoggerName, NamedPureLogger,
                                                  WithLogger, getLoggerName, logDebug,
                                                  logInfo, logWarning, modifyLoggerName,
                                                  usingLoggerName)
-import           Serokell.Util.Text             (listJson)
 
 import           Pos.Block.Types                (Blund)
 import           Pos.Core                       (addressF)
@@ -92,7 +91,7 @@ notifierHandler connVar loggerName = do
  where
     -- handlers provide context for logging and `ConnectionsVar` changes
     asHandler
-        :: (a -> SocketId -> (NamedPureLogger $ StateT ConnectionsState STM) ())
+        :: (a -> SocketId -> (StateT ConnectionsState (NamedPureLogger STM)) ())
         -> a
         -> ReaderT Socket IO ()
     asHandler f arg = inHandlerCtx . f arg . socketId =<< ask
@@ -101,7 +100,7 @@ notifierHandler connVar loggerName = do
 
     inHandlerCtx
         :: (MonadIO m, CanLog m)
-        => NamedPureLogger (StateT ConnectionsState STM) a
+        => StateT ConnectionsState (NamedPureLogger STM) a
         -> m ()
     inHandlerCtx =
         -- currently @NotifierError@s aren't caught
@@ -183,7 +182,7 @@ periodicPollChanges connVar closed =
                 logDebug $ sformat ("Blockchain updated ("%int%" blocks)")
                     (length newBlunds)
 
-            newBlockchainTxs <- lift $ concat <$> forM newBlunds (getBlockTxs @SscGodTossing @ctx . fst)
+            newBlockchainTxs <- lift $ concatForM newBlunds (getBlockTxs @SscGodTossing @ctx . fst)
             let newLocalTxs = S.toList $ mempoolTxs `S.difference` wasMempoolTxs
 
             let allTxs = newBlockchainTxs <> newLocalTxs

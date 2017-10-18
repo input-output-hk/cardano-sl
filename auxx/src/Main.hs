@@ -15,8 +15,8 @@ import qualified Pos.Client.CLI        as CLI
 import           Pos.Communication     (OutSpecs, WorkerSpec)
 import           Pos.Core              (Timestamp (..), gdStartTime, genesisData)
 import           Pos.Launcher          (HasConfigurations, NodeParams (..), NodeResources,
-                                        bracketNodeResources, runNode, runRealBasedMode,
-                                        withConfigurations)
+                                        bracketNodeResources, loggerBracket, lpConsoleLog,
+                                        runNode, runRealBasedMode, withConfigurations)
 import           Pos.Network.Types     (NetworkConfig (..), Topology (..),
                                         topologyDequeuePolicy, topologyEnqueuePolicy,
                                         topologyFailurePolicy)
@@ -24,12 +24,13 @@ import           Pos.Ssc.SscAlgo       (SscAlgo (GodTossingAlgo))
 import           Pos.Util.CompileInfo  (HasCompileInfo, retrieveCompileTimeInfo,
                                         withCompileInfo)
 import           Pos.Util.UserSecret   (usVss)
-import           Pos.WorkMode          (RealMode)
+import           Pos.WorkMode          (EmptyMempoolExt, RealMode)
 
-import           AuxxOptions           (AuxxOptions (..), getAuxxOptions)
+import           AuxxOptions           (AuxxAction (..), AuxxOptions (..), getAuxxOptions)
 import           Mode                  (AuxxContext (..), AuxxMode, AuxxSscType,
                                         CmdCtx (..), realModeToAuxx)
 import           Plugin                (auxxPlugin)
+import           Repl                  (WithCommandAction, withAuxxRepl)
 
 -- 'NodeParams' obtained using 'CLI.getNodeParams' are not perfect for
 -- Auxx, so we need to adapt them slightly.
@@ -39,12 +40,10 @@ correctNodeParams AuxxOptions {..} np = do
         Nothing -> do
             tempDir <- liftIO $ Temp.getCanonicalTemporaryDirectory
             dbPath <- liftIO $ Temp.createTempDirectory tempDir "nodedb"
-            putStrLn $ -- TODO: use logInfo after CSL-1693
-                sformat ("Temporary db created: "%shown) dbPath
+            logInfo $ sformat ("Temporary db created: "%shown) dbPath
             return (dbPath, True)
         Just dbPath -> do
-            putStrLn $ -- TODO: use logInfo after CSL-1693
-                sformat ("Supplied db used: "%shown) dbPath
+            logInfo $ sformat ("Supplied db used: "%shown) dbPath
             return (dbPath, False)
     let np' = np
             { npNetworkConfig = networkConfig
@@ -66,14 +65,14 @@ correctNodeParams AuxxOptions {..} np = do
 
 runNodeWithSinglePlugin ::
        (HasConfigurations, HasCompileInfo)
-    => NodeResources AuxxSscType AuxxMode
+    => NodeResources AuxxSscType EmptyMempoolExt AuxxMode
     -> (WorkerSpec AuxxMode, OutSpecs)
     -> (WorkerSpec AuxxMode, OutSpecs)
 runNodeWithSinglePlugin nr (plugin, plOuts) =
     runNode nr ([plugin], plOuts)
 
-action :: HasCompileInfo => AuxxOptions -> Production ()
-action opts@AuxxOptions {..} = withConfigurations conf $ do
+action :: HasCompileInfo => AuxxOptions -> Either (WithCommandAction AuxxMode) Text -> Production ()
+action opts@AuxxOptions {..} command = withConfigurations conf $ do
     CLI.printFlags
     logInfo $ sformat ("System start time is "%shown) $ gdStartTime genesisData
     t <- currentTime
@@ -81,7 +80,7 @@ action opts@AuxxOptions {..} = withConfigurations conf $ do
     (nodeParams, tempDbUsed) <-
         correctNodeParams opts =<< CLI.getNodeParams cArgs nArgs
     let
-        toRealMode :: AuxxMode a -> RealMode AuxxSscType a
+        toRealMode :: AuxxMode a -> RealMode AuxxSscType EmptyMempoolExt a
         toRealMode auxxAction = do
             realModeContext <- ask
             let auxxContext =
@@ -95,7 +94,7 @@ action opts@AuxxOptions {..} = withConfigurations conf $ do
     bracketNodeResources @AuxxSscType nodeParams gtParams $ \nr ->
         runRealBasedMode toRealMode realModeToAuxx nr $
             (if aoNodeEnabled then runNodeWithSinglePlugin nr else identity)
-            (auxxPlugin opts)
+            (auxxPlugin opts command)
   where
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)
@@ -104,6 +103,21 @@ action opts@AuxxOptions {..} = withConfigurations conf $ do
     cmdCtx = CmdCtx {ccPeers = aoPeers}
 
 main :: IO ()
-main =
-    withCompileInfo $(retrieveCompileTimeInfo) $
-    getAuxxOptions >>= runProduction . action
+main = withCompileInfo $(retrieveCompileTimeInfo) $ do
+    opts <- getAuxxOptions
+    let disableConsoleLog
+            | Repl <- aoAction opts =
+                  -- Logging in the REPL disrupts the prompt,
+                  -- so we disable it.
+                  -- TODO: When LW-25 is resolved we also want
+                  -- to be able to enable logging in REPL using
+                  -- a Haskeline-compatible print action.
+                  \lp -> lp { lpConsoleLog = Just False }
+            | otherwise = identity
+        loggingParams = disableConsoleLog $
+            CLI.loggingParams "auxx" (aoCommonNodeArgs opts)
+    loggerBracket loggingParams $ do
+        let runAction a = runProduction $ action opts a
+        case aoAction opts of
+            Repl    -> withAuxxRepl $ \c -> runAction (Left c)
+            Cmd cmd -> runAction (Right cmd)

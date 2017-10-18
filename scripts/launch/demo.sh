@@ -62,7 +62,7 @@ fi
 # and start processing the first slot.
 if [ -z "$system_start" ]
   then
-    system_start=$((`date +%s` + 45))
+    system_start=$((`date +%s` + 15))
 fi
 
 echo "Using system start time "$system_start

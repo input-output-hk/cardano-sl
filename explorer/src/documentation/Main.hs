@@ -1,7 +1,6 @@
 {-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE FlexibleInstances   #-}
-{-# LANGUAGE KindSignatures      #-}
 {-# LANGUAGE OverloadedLists     #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
@@ -118,7 +117,7 @@ type Op = Traversal' Swagger Operation
 swaggerSpecForExplorerApi :: Swagger
 swaggerSpecForExplorerApi = toSwagger A.explorerApi
     & info . title       .~ "Cardano SL Explorer Web API"
-    & info . version     .~ (toText $ showVersion CSLE.version)
+    & info . version     .~ toText (showVersion CSLE.version)
     & info . description ?~ "This is an API for Cardano SL Explorer."
     & host               ?~ "cardanoexplorer.com"
     -- Descriptions for all endpoints.

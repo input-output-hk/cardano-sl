@@ -17,6 +17,7 @@ module Mode
        , isTempDbUsed
        , realModeToAuxx
        , makePubKeyAddressAuxx
+       , deriveHDAddressAuxx
        ) where
 
 import           Universum
@@ -43,8 +44,10 @@ import           Pos.Context                      (HasNodeContext (..))
 import           Pos.Core                         (Address, HasConfiguration,
                                                    HasPrimaryKey (..),
                                                    IsBootstrapEraAddr (..), IsHeader,
+                                                   deriveFirstHDAddress,
                                                    makePubKeyAddress, siEpoch)
-import           Pos.Crypto                       (PublicKey)
+import           Pos.Crypto                       (EncryptedSecretKey, PublicKey,
+                                                   emptyPassphrase)
 import           Pos.DB                           (MonadGState (..), gsIsBootstrapEra)
 import           Pos.DB.Class                     (MonadBlockDBGeneric (..),
                                                    MonadBlockDBGenericWrite (..),
@@ -60,15 +63,19 @@ import           Pos.Slotting.MemState            (HasSlottingVar (..), MonadSlo
 import           Pos.Ssc.Class                    (HasSscContext (..), SscBlock)
 import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Txp                          (MempoolExt, MonadTxpLocal (..),
+                                                   txNormalize, txProcessTransaction)
 import           Pos.Txp.DB.Utxo                  (getFilteredUtxo)
 import           Pos.Util                         (Some (..))
+import           Pos.Util.CompileInfo             (HasCompileInfo)
 import           Pos.Util.JsonLog                 (HasJsonLogConfig (..))
 import           Pos.Util.LoggerName              (HasLoggerName' (..))
 import qualified Pos.Util.OutboundQueue           as OQ.Reader
 import           Pos.Util.TimeWarp                (CanJsonLog (..))
 import           Pos.Util.UserSecret              (HasUserSecret (..))
 import           Pos.Util.Util                    (HasLens (..), postfixLFields)
-import           Pos.WorkMode                     (RealMode, RealModeContext (..))
+import           Pos.WorkMode                     (EmptyMempoolExt, RealMode,
+                                                   RealModeContext (..))
 
 -- | Command execution context.
 data CmdCtx = CmdCtx
@@ -80,7 +87,7 @@ type AuxxSscType = SscGodTossing
 type AuxxMode = ReaderT AuxxContext Production
 
 data AuxxContext = AuxxContext
-    { acRealModeContext :: !(RealModeContext AuxxSscType)
+    { acRealModeContext :: !(RealModeContext AuxxSscType EmptyMempoolExt)
     , acCmdCtx          :: !CmdCtx
     , acTempDbUsed      :: !Bool
     }
@@ -99,7 +106,7 @@ isTempDbUsed :: AuxxMode Bool
 isTempDbUsed = view acTempDbUsed_L
 
 -- | Turn 'RealMode' action into 'AuxxMode' action.
-realModeToAuxx :: RealMode AuxxSscType a -> AuxxMode a
+realModeToAuxx :: RealMode AuxxSscType EmptyMempoolExt a -> AuxxMode a
 realModeToAuxx = withReaderT acRealModeContext
 
 ----------------------------------------------------------------------------
@@ -132,7 +139,7 @@ instance HasNodeType AuxxContext where
     getNodeType _ = NodeEdge
 
 instance {-# OVERLAPPABLE #-}
-    HasLens tag (RealModeContext AuxxSscType) r =>
+    HasLens tag (RealModeContext AuxxSscType EmptyMempoolExt) r =>
     HasLens tag AuxxContext r
   where
     lensOf = acRealModeContext_L . lensOf @tag
@@ -161,7 +168,7 @@ instance {-# OVERLAPPING #-} HasLoggerName AuxxMode where
     getLoggerName = realModeToAuxx getLoggerName
     modifyLoggerName f action = do
         auxxCtx <- ask
-        let auxxToRealMode :: AuxxMode a -> RealMode AuxxSscType a
+        let auxxToRealMode :: AuxxMode a -> RealMode AuxxSscType EmptyMempoolExt a
             auxxToRealMode = withReaderT (\realCtx -> set acRealModeContext_L realCtx auxxCtx)
         realModeToAuxx $ modifyLoggerName f $ auxxToRealMode action
 
@@ -206,7 +213,7 @@ instance HasConfiguration => MonadBalances AuxxMode where
     getOwnUtxos addrs = ifM isTempDbUsed (getOwnUtxosGenesis addrs) (getFilteredUtxo addrs)
     getBalance = getBalanceFromUtxo
 
-instance (HasConfiguration, HasInfraConfiguration, HasGtConfiguration) =>
+instance (HasConfiguration, HasInfraConfiguration, HasGtConfiguration, HasCompileInfo) =>
          MonadTxHistory AuxxSscType AuxxMode where
     getBlockHistory = getBlockHistoryDefault @AuxxSscType
     getLocalHistory = getLocalHistoryDefault
@@ -222,6 +229,12 @@ instance (HasConfiguration, HasInfraConfiguration) => MonadAddresses AuxxMode wh
     type AddrData AuxxMode = PublicKey
     getNewAddress = makePubKeyAddressAuxx
 
+type instance MempoolExt AuxxMode = EmptyMempoolExt
+
+instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo) => MonadTxpLocal AuxxMode where
+    txpNormalize = withReaderT acRealModeContext txNormalize
+    txpProcessTx = withReaderT acRealModeContext . txProcessTransaction
+
 -- | In order to create an 'Address' from a 'PublicKey' we need to
 -- choose suitable stake distribution. We want to pick it based on
 -- whether we are currently in bootstrap era.
@@ -229,4 +242,12 @@ makePubKeyAddressAuxx :: (HasConfiguration, HasInfraConfiguration) => PublicKey 
 makePubKeyAddressAuxx pk = do
     epochIndex <- siEpoch <$> getCurrentSlotInaccurate
     ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra epochIndex
-    return $ makePubKeyAddress ibea pk
+    pure $ makePubKeyAddress ibea pk
+
+-- | Similar to @makePubKeyAddressAuxx@ but create HD address.
+deriveHDAddressAuxx :: (HasConfiguration, HasInfraConfiguration) => EncryptedSecretKey -> AuxxMode Address
+deriveHDAddressAuxx hdwSk = do
+    epochIndex <- siEpoch <$> getCurrentSlotInaccurate
+    ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra epochIndex
+    pure $ fst $ fromMaybe (error "makePubKeyHDAddressAuxx: pass mismatch") $
+        deriveFirstHDAddress ibea emptyPassphrase hdwSk

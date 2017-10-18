@@ -19,8 +19,7 @@ import qualified Data.HashSet                as HS
 import           Data.List                   (delete)
 import qualified Data.List.NonEmpty          as NE
 import           Formatting                  (build, sformat, (%))
-import           System.Wlog                 (WithLogger, logError, runNamedPureLog,
-                                              usingLoggerName)
+import           System.Wlog                 (WithLogger, logError)
 
 import           Pos.Core                    (Address, Coin, EpochIndex, HeaderHash,
                                               Timestamp, mkCoin, sumCoins, unsafeAddCoin,
@@ -106,9 +105,7 @@ eProcessTx curEpoch tx@(id, aux) extra = do
     undo <- Txp.processTx curEpoch tx
     putTxExtraWithHistory id extra $ getTxRelatedAddrs aux undo
     let balanceUpdate = getBalanceUpdate aux undo
-    -- TODO: [CSM-245] do not discard logged errors
-    fmap fst $ usingLoggerName "eProcessTx" $ runNamedPureLog $
-        updateAddrBalances balanceUpdate
+    updateAddrBalances balanceUpdate
     updateUtxoSumFromBalanceUpdate balanceUpdate
 
 -- | Get rid of invalid transactions.

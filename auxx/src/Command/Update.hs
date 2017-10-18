@@ -5,16 +5,17 @@
 module Command.Update
        ( vote
        , propose
+       , hashInstaller
        ) where
 
 import           Universum
 
-import qualified Data.ByteString          as BS
+import qualified Data.ByteString.Lazy     as BSL
 import           Data.Default             (def)
 import qualified Data.HashMap.Strict      as HM
 import           Data.List                ((!!))
 import           Formatting               (sformat, string, (%))
-import           System.Wlog              (logDebug)
+import           System.Wlog              (logDebug, logError, logInfo)
 
 import           Pos.Binary               (Raw)
 import           Pos.Communication        (SendActions, immediateConcurrentConversations,
@@ -26,7 +27,8 @@ import           Pos.Crypto               (Hash, SignTag (SignUSVote), emptyPass
                                            unsafeHash, withSafeSigner)
 import           Pos.Infra.Configuration  (HasInfraConfiguration)
 import           Pos.Update               (SystemTag, UpId, UpdateData (..),
-                                           UpdateVote (..), mkUpdateProposalWSign)
+                                           UpdateVote (..), installerHash,
+                                           mkUpdateProposalWSign)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo     (HasCompileInfo)
 import           Pos.Wallet               (getSecretKeysPlain)
@@ -58,7 +60,7 @@ vote sendActions idx decision upid = do
     msignature <- withSafeSigner skey (pure emptyPassphrase) $ mapM $
                         \ss -> pure $ safeSign SignUSVote ss (upid, decision)
     case msignature of
-        Nothing -> putText "Invalid passphrase"
+        Nothing -> logError "Invalid passphrase"
         Just signature -> do
             let voteUpd = UpdateVote
                     { uvKey        = encToPublic skey
@@ -67,13 +69,13 @@ vote sendActions idx decision upid = do
                     , uvSignature  = signature
                 }
             if null ccPeers
-                then putText "Error: no addresses specified"
+                then logError "Error: no addresses specified"
                 else do
                     submitVote (immediateConcurrentConversations sendActions ccPeers) voteUpd
-                    putText "Submitted vote"
+                    logInfo "Submitted vote"
 
 ----------------------------------------------------------------------------
--- Propose
+-- Propose, hash installer
 ----------------------------------------------------------------------------
 
 propose
@@ -94,7 +96,7 @@ propose sendActions ProposeUpdateParams{..} = do
     let udata = HM.fromList updateData
     let whenCantCreate = error . mappend "Failed to create update proposal: "
     withSafeSigner skey (pure emptyPassphrase) $ \case
-        Nothing -> putText "Invalid passphrase"
+        Nothing -> logError "Invalid passphrase"
         Just ss -> do
             let updateProposal = either whenCantCreate identity $
                     mkUpdateProposalWSign
@@ -105,25 +107,30 @@ propose sendActions ProposeUpdateParams{..} = do
                         def
                         ss
             if null ccPeers
-                then putText "Error: no addresses specified"
+                then logError "Error: no addresses specified"
                 else do
                     submitUpdateProposal (immediateConcurrentConversations sendActions ccPeers) ss updateProposal
                     let id = hash updateProposal
-                    putText $ sformat ("Update proposal submitted, upId: "%hashHexF) id
+                    logInfo $ sformat ("Update proposal submitted, upId: "%hashHexF) id
 
-updateDataElement :: MonadIO m => ProposeUpdateSystem -> m (SystemTag, UpdateData)
+updateDataElement :: ProposeUpdateSystem -> AuxxMode (SystemTag, UpdateData)
 updateDataElement ProposeUpdateSystem{..} = do
     diffHash <- hashFile pusBinDiffPath
-    installerHash <- hashFile pusInstallerPath
-    pure (pusSystemTag, UpdateData diffHash installerHash dummyHash dummyHash)
+    pkgHash <- hashFile pusInstallerPath
+    pure (pusSystemTag, UpdateData diffHash pkgHash dummyHash dummyHash)
 
 dummyHash :: Hash Raw
 dummyHash = unsafeHash (0 :: Integer)
 
-hashFile :: MonadIO m => Maybe FilePath -> m (Hash Raw)
+hashFile :: Maybe FilePath -> AuxxMode (Hash Raw)
 hashFile Nothing  = pure dummyHash
 hashFile (Just filename) = do
-    fileData <- liftIO $ BS.readFile filename
-    let h = unsafeHash fileData
+    fileData <- liftIO $ BSL.readFile filename
+    let h = installerHash fileData
     putText $ sformat ("Read file "%string%" succesfuly, its hash: "%hashHexF) filename h
     pure h
+
+hashInstaller :: FilePath -> AuxxMode ()
+hashInstaller path = do
+    h <- installerHash <$> liftIO (BSL.readFile path)
+    putText $ sformat ("Hash of installer '"%string%"' is "%hashHexF) path h

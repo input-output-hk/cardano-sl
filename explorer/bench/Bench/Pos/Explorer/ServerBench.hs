@@ -108,7 +108,7 @@ getBlocksPageMock
     -> IO (Integer, [CBlockEntry])
 getBlocksPageMock genTestArgs = do
     testParams <- testParamsGen -- TODO(ks): Temporary test params, will be removed.
-    runBlockTestMode testParams $ getBlocksPageEMode mode pageNumber 10
+    runBlockTestMode testParams $ getBlocksPageEMode mode pageNumber (Just 10)
   where
     -- TODO(ks): Temporary test params, will be removed.
     testParamsGen :: IO TestParams

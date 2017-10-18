@@ -38,7 +38,8 @@ data SendToAllGenesisParams = SendToAllGenesisParams
 
 -- | Parameters for 'ProposeUpdate' command.
 data ProposeUpdateParams = ProposeUpdateParams
-    { puIdx             :: Int -- TODO: what is this? rename
+    { puIdx             :: Int
+    , puVoteAll         :: Bool
     , puBlockVersion    :: BlockVersion
     , puScriptVersion   :: ScriptVersion
     , puSlotDurationSec :: Int

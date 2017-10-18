@@ -52,9 +52,10 @@ Avaliable commands:
                                      "round-robin", and "send-random".
    vote <N> <decision> <upid>     -- send vote with given hash of proposal id (in base16) and
                                      decision, from own address #N
-   propose-update <N> <block ver> <script ver> <slot duration> <max block size> <software ver> <propose_file>?
+   propose-update <N> [vote-all] <block ver> <script ver> <slot duration> <max block size> <software ver> <propose_file>?
                                   -- propose an update with given versions and other data
                                      with one positive vote for it, from own address #N
+                                     if vote-all flag is set then votes from all secret keys also will be sent
    listaddr                       -- list own addresses
    delegate-light <N> <M> <eStart> <eEnd>?
                                   -- delegate secret key #N to pk <M> light version (M is encoded in base58),

@@ -75,3 +75,4 @@ main = do
     CLI.printFlags
     let conf = CLI.configurationOptions (CLI.commonArgs commonNodeArgs)
     runProduction $ withConfigurations conf (action args)
+

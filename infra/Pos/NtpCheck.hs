@@ -40,7 +40,7 @@ withNtpCheck onStatus action = bracket (startNtpClient ntpSettings) pressNtpStop
         { ntpServers         = Infra.ntpServers
         , ntpHandler         = ntpCheckHandler onStatus
         , ntpLogName         = "ntp-check"
-        , ntpResponseTimeout = sec 1
+        , ntpResponseTimeout = sec 5
         , ntpPollDelay       = timeDifferenceWarnInterval
         , ntpMeanSelection   = median . NE.fromList
         }

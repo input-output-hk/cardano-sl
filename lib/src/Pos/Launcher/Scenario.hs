@@ -16,7 +16,8 @@ import           Formatting               (build, int, sformat, shown, (%))
 import           Mockable                 (mapConcurrently, race)
 import           Serokell.Util.Text       (listJson)
 import           System.Exit              (ExitCode (..))
-import           System.Wlog              (WithLogger, getLoggerName, logInfo, logWarning)
+import           System.Wlog              (WithLogger, getLoggerName, logDebug, logInfo,
+                                           logWarning)
 
 import           Pos.Communication        (ActionSpec (..), OutSpecs, WorkerSpec,
                                            wrapActionSpec)
@@ -32,6 +33,7 @@ import qualified Pos.GState               as GS
 import           Pos.Launcher.Resource    (NodeResources (..))
 import           Pos.Lrc.DB               as LrcDB
 import           Pos.Network.Types        (NetworkConfig (..), topologyRunKademlia)
+import           Pos.NtpCheck             (NtpStatus (..), withNtpCheck)
 import           Pos.Reporting            (reportError)
 import           Pos.Shutdown             (waitForShutdown)
 import           Pos.Slotting             (waitSystemStart)
@@ -55,7 +57,7 @@ runNode'
     -> [WorkerSpec m]
     -> [WorkerSpec m]
     -> WorkerSpec m
-runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> do
+runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> ntpCheck $ do
     logInfo $ "Built with: " <> pretty compileInfo
     nodeStartMsg
     inAssertMode $ logInfo "Assert mode on"
@@ -122,6 +124,7 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
             sformat ("Worker/plugin with logger name "%shown%
                     " failed with exception: "%shown)
             loggerName e
+    ntpCheck = withNtpCheck onNtpStatusLogWarning
 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
@@ -137,6 +140,16 @@ runNode nr (plugins, plOuts) =
   where
     (workers', wOuts) = allWorkers nr
     plugins' = map (wrapActionSpec "plugin") plugins
+
+onNtpStatusLogWarning :: WithLogger m => NtpStatus -> m ()
+onNtpStatusLogWarning = \case
+    NtpSyncOk -> logDebug $
+              -- putText  $ -- FIXME: for some reason this message isn't printed
+                            -- when using 'logDebug', but a simple 'putText' works
+                            -- just fine.
+        "Local time is in sync with the NTP server"
+    NtpDesync diff -> logWarning $
+        "Local time is severely off sync with the NTP server: " <> show diff
 
 -- | This function prints a very useful message when node is started.
 nodeStartMsg :: (HasUpdateConfiguration, WithLogger m) => m ()

@@ -51,10 +51,10 @@ data InfraConfiguration = InfraConfiguration
     -- -- NTP checking
     --------------------------------------------------------------------------
     , ccTimeDifferenceWarnInterval  :: !Integer
-      -- ^ NTP checking interval
+      -- ^ NTP checking interval, microseconds
     , ccTimeDifferenceWarnThreshold :: !Integer
       -- ^ Maximum tolerable difference between NTP time
-      -- and local time
+      -- and local time, microseconds
     } deriving (Show, Generic)
 
 instance FromJSON InfraConfiguration where

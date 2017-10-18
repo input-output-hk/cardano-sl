@@ -70,6 +70,9 @@ runCmd cmd printAction sendActions = case cmd of
     ProposeUpdate params ->
         Update.propose sendActions params
 
+    HashInstaller path ->
+        Update.hashInstaller path
+
     Help ->
         printAction helpMessage
 

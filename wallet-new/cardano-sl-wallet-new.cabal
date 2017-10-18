@@ -68,3 +68,31 @@ executable wallet-new-server
                      , QuickCheck
                      , aeson
   default-language:    Haskell2010
+
+test-suite wallet-new-specs
+  ghc-options:      -Wall
+  type:             exitcode-stdio-1.0
+  hs-source-dirs:   server test
+  main-is:          Spec.hs
+  other-modules:    SwaggerSpec
+                    APISpec
+  build-depends:    base
+                  , aeson
+                  , cardano-sl-wallet-new
+                  , hspec
+                  , servant-swagger
+                  , servant-server
+                  , servant-quickcheck
+                  , servant
+                  , http-types
+                  , http-client
+                  , swagger2
+                  , text
+                  , string-conv
+                  , containers
+                  , neat-interpolation
+                  , aeson-pretty
+                  , lens
+                  , QuickCheck
+                  , quickcheck-instances
+  default-language: Haskell2010

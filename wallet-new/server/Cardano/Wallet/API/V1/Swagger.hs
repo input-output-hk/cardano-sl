@@ -35,10 +35,12 @@ import           Test.QuickCheck.Random
 -- Helper functions
 --
 
--- | Generate an example for type @a@ with a static seed.
+-- | Generates an example for type `a` with a static seed.
 genExample :: (ToJSON a, Arbitrary a) => a
 genExample = (unGen (resize 3 arbitrary)) (mkQCGen 42) 42
 
+-- | Generates a `NamedSchema` exploiting the `ToJSON` instance in scope,
+-- by calling `sketchSchema` under the hood.
 fromArbitraryJSON :: (ToJSON a, Typeable a, Arbitrary a)
                   => proxy a
                   -> Declare (Definitions Schema) NamedSchema

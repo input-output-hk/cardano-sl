@@ -5,6 +5,7 @@
 
 module Pos.Wallet.Web.Pending.Functions
     ( ptxPoolInfo
+    , isPtxActive
     , isPtxInBlocks
     , mkPendingTx
     , isReclaimableFailure
@@ -27,9 +28,16 @@ import           Pos.Wallet.Web.Pending.Util  (mkPtxSubmitTiming)
 import           Pos.Wallet.Web.State         (MonadWalletDBRead, getWalletMeta)
 
 ptxPoolInfo :: PtxCondition -> Maybe PtxPoolInfo
-ptxPoolInfo (PtxApplying i)    = Just i
-ptxPoolInfo (PtxWontApply _ i) = Just i
-ptxPoolInfo _                  = Nothing
+ptxPoolInfo (PtxCreating i)     = Just i
+ptxPoolInfo (PtxApplying i)     = Just i
+ptxPoolInfo (PtxWontApply _ i)  = Just i
+ptxPoolInfo PtxInNewestBlocks{} = Nothing
+ptxPoolInfo PtxPersisted{}      = Nothing
+
+-- | Whether transaction is claimed to be once created.
+isPtxActive :: PtxCondition -> Bool
+isPtxActive PtxCreating{} = False
+isPtxActive _             = True
 
 isPtxInBlocks :: PtxCondition -> Bool
 isPtxInBlocks = isNothing . ptxPoolInfo
@@ -42,7 +50,7 @@ mkPendingTx wid _ptxTxId _ptxTxAux th = do
 
     _ptxCreationSlot <- getCurrentSlotInaccurate
     return PendingTx
-        { _ptxCond = PtxApplying th
+        { _ptxCond = PtxCreating th
         , _ptxWallet = wid
         , _ptxPeerAck = False
         , _ptxSubmitTiming = mkPtxSubmitTiming _ptxCreationSlot

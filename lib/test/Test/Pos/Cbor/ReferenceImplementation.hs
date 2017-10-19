@@ -36,6 +36,8 @@ import           Foreign                   (Storable(..), alloca, castPtr)
 import           System.IO.Unsafe          (unsafeDupablePerformIO)
 import           Universum
 
+import           Test.QuickCheck.Property  (Property, property, conjoin,
+                                            (===), (.&&.))
 import           Test.QuickCheck.Arbitrary (Arbitrary(..), arbitraryBoundedIntegral)
 import           Test.QuickCheck.Gen       (Gen, elements, sized, oneof, choose,
                                             frequency, resize, suchThat, vectorOf)
@@ -110,10 +112,10 @@ decodeInitialByte :: Word8 -> (MajorType, Word)
 decodeInitialByte ib = ( toEnum $ fromIntegral $ ib `shiftR` 5
                        , fromIntegral $ ib .&. 0x1f)
 
-prop_InitialByte :: Bool
+prop_InitialByte :: Property
 prop_InitialByte =
-    and [ (uncurry encodeInitialByte . decodeInitialByte) w8 == w8
-        | w8 <- [minBound..maxBound] ]
+    conjoin [ (uncurry encodeInitialByte . decodeInitialByte) w8 === w8
+            | w8 <- [minBound..maxBound] ]
 
 -- When the value of the
 -- additional information is less than 24, it is directly used as a
@@ -206,11 +208,11 @@ encodeAdditionalInfo = enc
       | n >= 28 && n < 31    = (n,  [])
       | otherwise            = error "invalid AiReserved value"
 
-prop_AdditionalInfo :: AdditionalInformation -> Bool
+prop_AdditionalInfo :: AdditionalInformation -> Property
 prop_AdditionalInfo ai =
     let (w, ws) = encodeAdditionalInfo ai
         Just (ai', _) = runDecoder (decodeAdditionalInfo w) ws
-     in ai == ai'
+     in ai === ai'
 
 
 data TokenHeader = TokenHeader MajorType AdditionalInformation
@@ -231,21 +233,21 @@ encodeTokenHeader (TokenHeader mt ai) =
     let (w, ws) = encodeAdditionalInfo ai
      in encodeInitialByte mt w : ws
 
-prop_TokenHeader :: TokenHeader -> Bool
+prop_TokenHeader :: TokenHeader -> Property
 prop_TokenHeader header =
     let ws                = encodeTokenHeader header
         Just (header', _) = runDecoder decodeTokenHeader ws
-     in header == header'
+     in header === header'
 
-prop_TokenHeader2 :: Bool
+prop_TokenHeader2 :: Property
 prop_TokenHeader2 =
-    and [ w8 : extraused == encoded
-        | w8 <- [minBound..maxBound]
-        , let extra = [1..8]
-              Just (header, unused) = runDecoder decodeTokenHeader (w8 : extra)
-              encoded   = encodeTokenHeader header
-              extraused = take (8 - length unused) extra
-        ]
+    conjoin [ w8 : extraused === encoded
+            | w8 <- [minBound..maxBound]
+            , let extra = [1..8]
+                  Just (header, unused) = runDecoder decodeTokenHeader (w8 : extra)
+                  encoded   = encodeTokenHeader header
+                  extraused = take (8 - length unused) extra
+            ]
 
 data Token =
      MT0_UnsignedInt UInt
@@ -294,7 +296,7 @@ instance Arbitrary Token where
         let n = length xs in
         elements $
              [ UIntSmall (fromIntegral n) | n < 24  ]
-          ++ [ UInt8     (fromIntegral n) | n < 255 ]
+          ++ [ UInt8     (fromIntegral n) | n < 256 ]
           ++ [ UInt16    (fromIntegral n) | n < 65536 ]
           ++ [ UInt32    (fromIntegral n)
              , UInt64    (fromIntegral n) ]
@@ -434,18 +436,18 @@ reservedSimple w = w >= 20 && w <= 31
 reservedTag :: Word64 -> Bool
 reservedTag w = w <= 5
 
-prop_Token :: Token -> Bool
+prop_Token :: Token -> Property
 prop_Token token =
     let ws = encodeToken token
         Just (token', []) = runDecoder decodeToken ws
      in token `eqToken` token'
-
--- NaNs are so annoying...
-eqToken :: Token -> Token -> Bool
-eqToken (MT7_Float16 f) (MT7_Float16 f') | isNaN f && isNaN f' = True
-eqToken (MT7_Float32 f) (MT7_Float32 f') | isNaN f && isNaN f' = True
-eqToken (MT7_Float64 f) (MT7_Float64 f') | isNaN f && isNaN f' = True
-eqToken a b = a == b
+  where
+    -- NaNs are so annoying...
+    eqToken :: Token -> Token -> Property
+    eqToken (MT7_Float16 f) (MT7_Float16 f') | isNaN f && isNaN f' = property True
+    eqToken (MT7_Float32 f) (MT7_Float32 f') | isNaN f && isNaN f' = property True
+    eqToken (MT7_Float64 f) (MT7_Float64 f') | isNaN f && isNaN f' = property True
+    eqToken a b                                                    = a === b
 
 data Term = TUInt   UInt
           | TNInt   UInt
@@ -550,10 +552,10 @@ decodeTermFrom tk =
       MT3_String _ ws    -> either fail (return . TString) (decodeUTF8 ws)
       MT3_StringIndef    -> decodeStrings []
 
-      MT4_ArrayLen len   -> decodeArrayN (fromUInt len) []
+      MT4_ArrayLen len   -> decodeArrayN (fromUInt len)
       MT4_ArrayLenIndef  -> decodeArray []
 
-      MT5_MapLen  len    -> decodeMapN (fromUInt len) []
+      MT5_MapLen  len    -> decodeMapN (fromUInt len)
       MT5_MapLenIndef    -> decodeMap  []
 
       MT6_Tag     tag    -> decodeTagged tag
@@ -586,12 +588,8 @@ decodeStrings acc = do
                              decodeStrings (cs : acc)
       _                -> fail "unexpected"
 
-decodeArrayN :: Word64 -> [Term] -> Decoder Term
-decodeArrayN n acc =
-    case n of
-      0 -> return $! TArray (reverse acc)
-      _ -> do t <- decodeTerm
-              decodeArrayN (n-1) (t : acc)
+decodeArrayN :: Word64 -> Decoder Term
+decodeArrayN n = TArray <$!> replicateM (fromIntegral n) decodeTerm
 
 decodeArray :: [Term] -> Decoder Term
 decodeArray acc = do
@@ -602,14 +600,8 @@ decodeArray acc = do
         tm <- decodeTermFrom tk
         decodeArray (tm : acc)
 
-decodeMapN :: Word64 -> [(Term, Term)] -> Decoder Term
-decodeMapN n acc =
-    case n of
-      0 -> return $! TMap (reverse acc)
-      _ -> do
-        tm   <- decodeTerm
-        tm'  <- decodeTerm
-        decodeMapN (n-1) ((tm, tm') : acc)
+decodeMapN :: Word64 -> Decoder Term
+decodeMapN n = TMap <$!> replicateM (fromIntegral n) ((,) <$> decodeTerm <*> decodeTerm)
 
 decodeMap :: [(Term, Term)] -> Decoder Term
 decodeMap acc = do
@@ -653,16 +645,16 @@ integerToBytes n0
     narrow :: Integer -> Word8
     narrow = fromIntegral
 
-prop_integerToFromBytes :: LargeInteger -> Bool
+prop_integerToFromBytes :: LargeInteger -> Property
 prop_integerToFromBytes (LargeInteger n)
   | n >= 0 =
     let ws = integerToBytes n
         n' = integerFromBytes ws
-     in n == n'
+     in n === n'
   | otherwise =
     let ws = integerToBytes n
         n' = integerFromBytes ws
-     in n == -n'
+     in n === -n'
 
 -------------------------------------------------------------------------------
 
@@ -722,26 +714,26 @@ encodeTerm (TFloat64 f)    = encodeToken (MT7_Float64 f)
 
 -------------------------------------------------------------------------------
 
-prop_Term :: Term -> Bool
+prop_Term :: Term -> Property
 prop_Term term =
     let ws = encodeTerm term
         Just (term', []) = runDecoder decodeTerm ws
      in term `eqTerm` term'
+  where
+    -- NaNs are so annoying...
+    eqTerm :: Term -> Term -> Property
+    eqTerm (TArray  ts)  (TArray  ts')   = conjoin (zipWith eqTerm ts ts')
+    eqTerm (TArrayI ts)  (TArrayI ts')   = conjoin (zipWith eqTerm ts ts')
+    eqTerm (TMap    ts)  (TMap    ts')   = conjoin (zipWith eqTermPair ts ts')
+    eqTerm (TMapI   ts)  (TMapI   ts')   = conjoin (zipWith eqTermPair ts ts')
+    eqTerm (TTagged w t) (TTagged w' t') = w === w' .&&. eqTerm t t'
+    eqTerm (TFloat16 f)  (TFloat16 f') | isNaN f && isNaN f' = property True
+    eqTerm (TFloat32 f)  (TFloat32 f') | isNaN f && isNaN f' = property True
+    eqTerm (TFloat64 f)  (TFloat64 f') | isNaN f && isNaN f' = property True
+    eqTerm a b = a === b
 
--- NaNs are so annoying...
-eqTerm :: Term -> Term -> Bool
-eqTerm (TArray  ts)  (TArray  ts')   = and (zipWith eqTerm ts ts')
-eqTerm (TArrayI ts)  (TArrayI ts')   = and (zipWith eqTerm ts ts')
-eqTerm (TMap    ts)  (TMap    ts')   = and (zipWith eqTermPair ts ts')
-eqTerm (TMapI   ts)  (TMapI   ts')   = and (zipWith eqTermPair ts ts')
-eqTerm (TTagged w t) (TTagged w' t') = w == w' && eqTerm t t'
-eqTerm (TFloat16 f)  (TFloat16 f') | isNaN f && isNaN f' = True
-eqTerm (TFloat32 f)  (TFloat32 f') | isNaN f && isNaN f' = True
-eqTerm (TFloat64 f)  (TFloat64 f') | isNaN f && isNaN f' = True
-eqTerm a b = a == b
-
-eqTermPair :: (Term, Term) -> (Term, Term) -> Bool
-eqTermPair (a,b) (a',b') = eqTerm a a' && eqTerm b b'
+    eqTermPair :: (Term, Term) -> (Term, Term) -> Property
+    eqTermPair (a, b) (a', b') = eqTerm a a' .&&. eqTerm b b'
 
 -- | Canonical representation of a NaN, as per
 -- https://tools.ietf.org/html/rfc7049#section-3.9.
@@ -801,19 +793,19 @@ word64ToNet w =
     , fromIntegral ((w `shiftR` 0 {- 8*0 -}) .&. 0xff)
     )
 
-prop_word16ToFromNet :: Word8 -> Word8 -> Bool
+prop_word16ToFromNet :: Word8 -> Word8 -> Property
 prop_word16ToFromNet w1 w0 =
-    word16ToNet (word16FromNet w1 w0) == (w1, w0)
+    word16ToNet (word16FromNet w1 w0) === (w1, w0)
 
-prop_word32ToFromNet :: Word8 -> Word8 -> Word8 -> Word8 -> Bool
+prop_word32ToFromNet :: Word8 -> Word8 -> Word8 -> Word8 -> Property
 prop_word32ToFromNet w3 w2 w1 w0 =
-    word32ToNet (word32FromNet w3 w2 w1 w0) == (w3, w2, w1, w0)
+    word32ToNet (word32FromNet w3 w2 w1 w0) === (w3, w2, w1, w0)
 
 prop_word64ToFromNet :: Word8 -> Word8 -> Word8 -> Word8 ->
-                        Word8 -> Word8 -> Word8 -> Word8 -> Bool
+                        Word8 -> Word8 -> Word8 -> Word8 -> Property
 prop_word64ToFromNet w7 w6 w5 w4 w3 w2 w1 w0 =
-    word64ToNet (word64FromNet w7 w6 w5 w4 w3 w2 w1 w0)
- == (w7, w6, w5, w4, w3, w2, w1, w0)
+     word64ToNet (word64FromNet w7 w6 w5 w4 w3 w2 w1 w0)
+ === (w7, w6, w5, w4, w3, w2, w1, w0)
 
 wordToHalf :: Word16 -> Half
 wordToHalf = Half.Half . fromIntegral
@@ -847,12 +839,14 @@ fromFloat float =
 
 -- Note: some NaNs do not roundtrip https://github.com/ekmett/half/issues/3
 -- but all the others had better
-prop_halfToFromFloat :: Bool
+prop_halfToFromFloat :: Property
 prop_halfToFromFloat =
-    all (\w -> roundTrip w || isNaN (Half.Half w)) [minBound..maxBound]
+    conjoin . map roundTrip
+            . filter (not . isNaN . Half.Half)
+            $ [minBound..maxBound]
   where
     roundTrip w =
-      w == (Half.getHalf . Half.toHalf . Half.fromHalf . Half.Half $ w)
+      w === (Half.getHalf . Half.toHalf . Half.fromHalf . Half.Half $ w)
 
 instance Arbitrary Half where
   arbitrary = Half.Half . fromIntegral <$> (arbitrary :: Gen Word16)

@@ -313,13 +313,16 @@ spec = withDefConfiguration $ do
             prop "encoding/decoding token header 2"  R.prop_TokenHeader2
             prop "encoding/decoding tokens"          R.prop_Token
             modifyMaxSuccess (const 1000) . modifyMaxSize (const 150) $ do
-                prop "encoding/decoding terms"           R.prop_Term
+                prop "encoding/decoding terms"       R.prop_Term
         describe "internal properties" $ do
             prop "Integer to/from bytes"             R.prop_integerToFromBytes
             prop "Word16 to/from network byte order" R.prop_word16ToFromNet
             prop "Word32 to/from network byte order" R.prop_word32ToFromNet
             prop "Word64 to/from network byte order" R.prop_word64ToFromNet
-            prop "Numeric.Half to/from Float"        R.prop_halfToFromFloat
+            modifyMaxSuccess (const 1) $ do
+                -- Using once inside the property would be lovely (as it tests
+                -- all the Halfs) but it doesn't work for some reason.
+                prop "Numeric.Half to/from Float"    R.prop_halfToFromFloat
 
     describe "Cbor.Bi instances" $ modifyMaxSuccess (const 1000) $ do
         describe "Test instances" $ do

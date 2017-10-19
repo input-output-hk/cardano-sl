@@ -16,21 +16,25 @@ import           Universum
 -- deserializing values serialized using 'Bi' class, hence certain terms will
 -- not occur. Therefore we make additional effort to check for them and bail if
 -- they are there.
+--
+-- Used in 'countCanonicalBits' for counting the number of canonical bits in a
+-- term and 'perturbCanonicity' for modifying them randomly to obtain
+-- non-canonical term.
 traverseCanonicalBits
     :: Monad m
-    => (UInt -> m Term)
-    -> (UInt -> m Term)
-    -> (UInt -> m UInt)
-    -> (forall term. [term] -> m [term])
-    -> (Half -> m Half)
+    => (UInt -> m Term)                  -- ^ positive int
+    -> (UInt -> m Term)                  -- ^ negative int
+    -> (UInt -> m UInt)                  -- ^ tag
+    -> (forall term. [term] -> m [term]) -- ^ map/set
+    -> (Half -> m Half)                  -- ^ 16-bit NaN
     -> Term
     -> m Term
 traverseCanonicalBits tuint tnint ttag tmapset tnan16 = go
   where
     go = \case
-        -- Representation can be widen or changed to TBigInt.
+        -- Representation can be widened or changed to TBigInt.
         TUInt n    -> tuint n
-        -- Representation can be widen or changed to TBigInt.
+        -- Representation can be widened or changed to TBigInt.
         TNInt n    -> tnint n
         -- Order of term pairs can be changed or duplicates added.
         TMap terms -> mapM (\(k, v) -> (,) <$> go k <*> go v) terms
@@ -141,8 +145,6 @@ perturbCanonicity term = sized $ \sz -> do
       tnan16 f = shouldBeChanged >>= \case
           False -> pure f
           True  -> lift (elements nans)
-        where
-            nans = filter isNaN [Half w | w <- [minBound..maxBound]]
 
       changeUInt :: (UInt -> Term) -> (Integer -> Integer) -> UInt -> Gen Term
       changeUInt tint f (UIntSmall w) = elements
@@ -164,7 +166,7 @@ perturbCanonicity term = sized $ \sz -> do
           , TBigInt . f   $ fromIntegral w
           ]
       changeUInt tint f (UInt32 w) = elements
-          [ tint . UInt32 $ fromIntegral w
+          [ tint . UInt64 $ fromIntegral w
           , TBigInt . f   $ fromIntegral w
           ]
       changeUInt _ f (UInt64 w) = pure . TBigInt . f $ fromIntegral w
@@ -177,3 +179,7 @@ perturbCanonicity term = sized $ \sz -> do
           (x:xs) <- S.get
           S.put xs
           return x
+
+-- All possible representations of a 16-bit NaN.
+nans :: [Half]
+nans = filter isNaN [Half w | w <- [minBound..maxBound]]

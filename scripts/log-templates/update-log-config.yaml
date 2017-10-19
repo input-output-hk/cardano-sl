@@ -3,6 +3,7 @@
 # manually.
 
 severity: Debug
+termSeverity: Debug
 smart-wallet:
     severity: Error
 node:

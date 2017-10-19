@@ -97,9 +97,8 @@ syncProgress =
 ----------------------------------------------------------------------------
 
 localTimeDifference :: MonadWalletWebMode m => m Word
-localTimeDifference = do
-    var <- mkNtpStatusVar
-    readTVarIO var >>= pure . diff
+localTimeDifference =
+    mkNtpStatusVar >>= readTVarIO >>= pure . diff
   where
     diff :: NtpStatus -> Word
     diff = \case
@@ -107,6 +106,7 @@ localTimeDifference = do
         -- ^ `NtpSyncOk` considered already a `timeDifferenceWarnThreshold`
         -- so that we can return 0 here to show there is no difference in time
         NtpDesync diff' -> fromIntegral diff'
+
 ----------------------------------------------------------------------------
 -- Reset
 ----------------------------------------------------------------------------

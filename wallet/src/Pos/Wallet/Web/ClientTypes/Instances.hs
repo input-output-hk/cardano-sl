@@ -107,6 +107,7 @@ type instance OriginType CPtxCondition = Maybe PtxCondition
 
 instance ToCType CPtxCondition where
     encodeCType = maybe CPtxNotTracked $ \case
+        PtxCreating{}       -> CPtxInvisible
         PtxApplying{}       -> CPtxApplying
         PtxInNewestBlocks{} -> CPtxInBlocks
         PtxPersisted{}      -> CPtxInBlocks

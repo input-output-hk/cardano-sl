@@ -22,7 +22,7 @@ import           Universum
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Core                   (SoftwareVersion (..), decodeTextAddress)
-import           Pos.NtpCheck               (mkNtpDiffVar)
+import           Pos.NtpCheck               (NtpStatus(..), mkNtpStatusVar)
 import           Pos.Update.Configuration   (curSoftwareVersion)
 import           Pos.Util                   (maybeThrow)
 import           Pos.Wallet.KeyStorage      (deleteSecretKey, getSecretKeys)
@@ -93,15 +93,20 @@ syncProgress =
     <*> connectedPeers
 
 ----------------------------------------------------------------------------
--- status of NTP (Network Time Protocol)
+-- NTP (Network Time Protocol) based time difference
 ----------------------------------------------------------------------------
 
 localTimeDifference :: MonadWalletWebMode m => m Word
 localTimeDifference = do
-    var <- mkNtpDiffVar
-    diff <- atomically $ readTVar var
-    pure $ fromIntegral diff
-
+    var <- mkNtpStatusVar
+    readTVarIO var >>= pure . diff
+  where
+    diff :: NtpStatus -> Word
+    diff = \case
+        NtpSyncOk -> 0
+        -- ^ `NtpSyncOk` considered already a `timeDifferenceWarnThreshold`
+        -- so that we can return 0 here to show there is no difference in time
+        NtpDesync diff' -> fromIntegral diff'
 ----------------------------------------------------------------------------
 -- Reset
 ----------------------------------------------------------------------------

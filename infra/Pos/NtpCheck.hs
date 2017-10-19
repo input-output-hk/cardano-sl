@@ -2,7 +2,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.NtpCheck
-    ( mkNtpDiffVar
+    ( mkNtpStatusVar
     , ntpSettings
     , withNtpCheck
     , NtpStatus(..)
@@ -70,19 +70,13 @@ timeDifferenceWarnInterval = fromIntegral (Infra.ccTimeDifferenceWarnInterval in
 timeDifferenceWarnThreshold :: HasInfraConfiguration => Microsecond
 timeDifferenceWarnThreshold = fromIntegral (Infra.ccTimeDifferenceWarnThreshold infraConfiguration)
 
-type NtpDiffVar = TVar Microsecond
+type NtpStatusVar = TVar NtpStatus
 
--- Helper to get difference in `Microsecond`
-mkNtpDiffVar :: ( NtpCheckMonad m , Mockables m [ CurrentTime, Delay] )
-    => m NtpDiffVar
-mkNtpDiffVar = do
-    let noDiff = 0
-    -- ^ no difference in microseconds, which is our initial value here
-    diff <- newTVarIO noDiff
-    let onStatusHandler = atomically . \case
-            NtpSyncOk -> writeTVar diff noDiff
-            -- ^ We will return no difference here, because we already
-            -- considered `timeDifferenceWarnThreshold` with `NtpSyncOk`
-            NtpDesync diff' -> writeTVar diff diff'
+-- Helper to get ntp status
+mkNtpStatusVar :: ( NtpCheckMonad m , Mockables m [ CurrentTime, Delay] )
+    => m NtpStatusVar
+mkNtpStatusVar = do
+    status <- newTVarIO NtpSyncOk
+    let onStatusHandler = atomically . writeTVar status
     _ <- ntpSingleShot $ ntpSettings onStatusHandler
-    pure diff
+    pure status

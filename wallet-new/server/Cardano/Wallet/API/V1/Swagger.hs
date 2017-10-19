@@ -218,9 +218,9 @@ instance (ToDocs a, ToDocs b) => ToDocs (OneOf a b) where
              "different types depending on the parameter of the request. While this has been fixed " <>
              "in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either " <>
              typeOfA <> " or " <> typeOfB <>
-             " depending on whether or not the extended response format has been requested. Whilst using the " <>
-             " api this type is erased away in the HTTP response, so that, in case the user requested the 'normal' " <>
-             (withExample (Proxy @ a) " response format, an 'a' will be returned.") <>
+             " depending on whether or not the extended response format has been requested. While using the " <>
+             " API this type is erased away in the HTTP response, so that, in case the user requested the 'normal' " <>
+             (withExample (Proxy @ a) " response format, an <b>a</b> will be returned.") <>
              (withExample (Proxy @ b) " In case the user selected the extended format, a full 'ExtendedResponse' will be yielded.")
 
 instance ( ToDocs a, ToDocs b) => ToSchema (OneOf a b) where

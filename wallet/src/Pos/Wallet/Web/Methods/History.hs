@@ -32,7 +32,8 @@ import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..)
                                              CTxMeta (..), CWAddressMeta (..), Wal, mkCTx)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode, convertCIdTOAddrs)
-import           Pos.Wallet.Web.Pending     (PendingTx (..), ptxPoolInfo, _PtxApplying)
+import           Pos.Wallet.Web.Pending     (PendingTx (..), isPtxActive, ptxPoolInfo,
+                                             _PtxApplying)
 import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), NeedSorting (..),
                                              addOnlyNewTxMetas, getHistoryCache,
                                              getPendingTx, getTxMeta, getWalletPendingTxs,
@@ -62,7 +63,7 @@ getFullWalletHistory cWalId = do
 
     logTxHistory "Mempool" localHistory
 
-    fullHistory <- addRecentPtxHistory cWalId $ localHistory `Map.union` blockHistory
+    fullHistory <- addPtxHistory cWalId $ localHistory `Map.union` blockHistory
     walAddrsDetector <- getWalletAddrsDetector Ever cWalId
     diff        <- getCurChainDifficulty
     logDebug "getFullWalletHistory: fetched full history"
@@ -202,17 +203,19 @@ updateTransaction :: MonadWalletWebMode m => AccountId -> CTxId -> CTxMeta -> m 
 updateTransaction accId txId txMeta = do
     setWalletTxMeta (aiWId accId) txId txMeta
 
-addRecentPtxHistory
+addPtxHistory
     :: MonadWalletWebMode m
     => CId Wal -> Map TxId TxHistoryEntry -> m (Map TxId TxHistoryEntry)
-addRecentPtxHistory wid currentHistory = do
+addPtxHistory wid currentHistory = do
     pendingTxs <- fromMaybe [] <$> getWalletPendingTxs wid
     let conditions = map _ptxCond pendingTxs
     -- show only actually pending transactions in logs
     logTxHistory "Pending" $ mapMaybe (preview _PtxApplying) conditions
     -- but return all transactions which are not yet in blocks
-    let candidatesList = txHistoryListToMap (mapMaybe ptxPoolInfo conditions)
+    let candidatesList = txHistoryListToMap (mapMaybe getPtxTh conditions)
     return $ Map.union currentHistory candidatesList
+  where
+    getPtxTh cond = guard (isPtxActive cond) *> ptxPoolInfo cond
 
 -- FIXME: use @listChunkedJson k@ with appropriate @k@s, once available,
 -- in these 2 functions

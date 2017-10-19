@@ -6,25 +6,30 @@
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE TypeFamilies        #-}
 {-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE ViewPatterns        #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Cardano.Wallet.API.V1.Swagger where
 
 import           Cardano.Wallet.API
 import           Cardano.Wallet.API.Types
+import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
 
 import           Control.Lens
 import           Data.Aeson
 import           Data.Aeson.Encode.Pretty
+import           Data.Map                         (Map)
+import qualified Data.Map.Strict                  as M
 import           Data.Monoid
-import qualified Data.Set                    as Set
+import qualified Data.Set                         as Set
 import           Data.String.Conv
-import           Data.Swagger
+import           Data.Swagger                     hiding (Header)
 import           Data.Swagger.Declare
-import qualified Data.Text                   as T
+import qualified Data.Text                        as T
 import           Data.Typeable
 import           GHC.TypeLits
 import           NeatInterpolation
+import           Servant                          (Header, QueryParam)
 import           Servant.API.Sub
 import           Servant.Swagger
 import           Test.QuickCheck
@@ -92,6 +97,64 @@ instance (KnownSymbols tags, HasSwagger subApi) => HasSwagger (Tags tags :> subA
         let newTags    = map toS (symbolVals (Proxy @tags))
             swgr       = toSwagger (Proxy @subApi)
         in swgr & over (operationsOf swgr . tags) (mappend (Set.fromList newTags))
+
+instance (HasSwagger subApi) => HasSwagger (WalletRequestParams :> subApi) where
+    toSwagger _ =
+        let swgr       = toSwagger (Proxy @(WithWalletRequestParams subApi))
+        in swgr & over (operationsOf swgr . parameters) (map toDescription)
+          where
+            toDescription :: Referenced Param -> Referenced Param
+            toDescription (Inline p@(_paramName -> pName)) =
+              Inline (p & description .~ M.lookup pName requestParameterToDescription)
+            toDescription x = x
+
+requestParameterToDescription :: Map T.Text T.Text
+requestParameterToDescription = M.fromList [
+    ("page", pageDescription)
+  , ("per_page", perPageDescription (toS $ show maxPerPageEntries) (toS $ show defaultPerPageEntries))
+  , ("extended", extendedDescription)
+  , ("Daedalus-Response-Format", responseFormatDescription)
+  ]
+
+pageDescription :: T.Text
+pageDescription = [text|
+The page number to fetch for this request. The minimum is **1**.
+If nothing is specified, **this value defaults to 1** and always shows the first
+entries in the requested collection.
+|]
+
+perPageDescription :: T.Text -> T.Text -> T.Text
+perPageDescription maxValue defaultValue = [text|
+The number of entries to display for each page. The minimum is **1**, whereas the maximum
+is **$maxValue**. If nothing is specified, **this value defaults to $defaultValue**.
+|]
+
+extendedDescription :: T.Text
+extendedDescription = [text|
+Informs the backend that the fetched data should be wrapped in an `ExtendedResponse`
+(see the Models section). An `ExtendedResponse` includes useful metadata
+which can be used by clients to support pagination.
+|]
+
+responseFormatDescription :: T.Text
+responseFormatDescription = [text|
+It has the same effect of setting `extended=true` in the URL as a query parameter.
+If the header `Daedalus-Response-Format` is present in the HTTP request with a value set to
+`extended`, the fetched data will be wrapped in an `ExtendedResponse`.
+|]
+
+instance ToParamSchema PerPage where
+  toParamSchema _ = mempty
+    & type_ .~ SwaggerInteger
+    & default_ ?~ (Number $ fromIntegral defaultPerPageEntries)
+    & minimum_ ?~ 1
+    & maximum_ ?~ (fromIntegral maxPerPageEntries)
+
+instance ToParamSchema Page where
+  toParamSchema _ = mempty
+    & type_ .~ SwaggerInteger
+    & default_ ?~ (Number 1) -- Always show the first page by default.
+    & minimum_ ?~ 1
 
 instance ToDocs APIVersion where
   annotate f p = do

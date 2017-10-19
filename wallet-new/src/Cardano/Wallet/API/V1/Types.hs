@@ -1,53 +1,87 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# OPTIONS_GHC -fno-warn-unused-binds -fno-warn-unused-imports #-}
+{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TemplateHaskell            #-}
 
 module Cardano.Wallet.API.V1.Types (
-    Account (..)
-  , Address (..)
-  , ExtendedResponse (..)
+  -- * Swagger & REST-related types
+    ExtendedResponse (..)
   , Metadata (..)
+  , Page(..)
+  , PerPage(..)
+  , maxPerPageEntries
+  , defaultPerPageEntries
   , OneOf (..)
+  -- * Error handling
   , WalletError (..)
+  -- * Domain-specific types
+  , Account (..)
+  , Address (..)
   ) where
 
-import Data.List (stripPrefix)
-import Data.Maybe (fromMaybe)
-import Data.Aeson
-import Data.Aeson.TH
-import Data.Text (Text)
-import Test.QuickCheck
-import qualified Data.Text as T
-import qualified Data.Map as Map
-import GHC.Generics (Generic)
-import Data.Function ((&))
+import           Data.Aeson
+import           Data.Aeson.TH
+import           Data.Monoid
+import           Data.Text       (Text)
+import qualified Data.Text       as T
+import           GHC.Generics    (Generic)
+import           Test.QuickCheck
+import           Web.HttpApiData
 
--- | A wallet 'Account'.
-newtype Account = Account
-  { acc_id :: Text -- ^ A base58 Public Key.
-  } deriving (Show, Eq, Generic)
+--
+-- Swagger & REST-related types
+--
 
-deriveJSON defaultOptions { fieldLabelModifier = drop 4 } ''Account
+newtype Page = Page Int deriving (Show, Eq, Ord, Num)
 
-instance Arbitrary Account where
-  arbitrary = Account . T.pack <$> elements ["DEADBeef", "123456"]
+deriveJSON defaultOptions ''Page
+
+instance Arbitrary Page where
+  arbitrary = Page <$> fmap getPositive arbitrary
+
+instance FromHttpApiData Page where
+    parseQueryParam qp = case parseQueryParam qp of
+        Right (p :: Int) | p < 1 -> Left "A page number cannot be less than 1."
+        Right (p :: Int) -> Right (Page p)
+        Left e           -> Left e
+
+newtype PerPage = PerPage Int deriving (Show, Eq, Num, Ord)
+
+deriveJSON defaultOptions ''PerPage
+
+maxPerPageEntries :: Int
+maxPerPageEntries = 500
+
+defaultPerPageEntries :: Int
+defaultPerPageEntries = 10
+
+instance Arbitrary PerPage where
+  arbitrary = PerPage <$> choose (1, 500)
+
+instance FromHttpApiData PerPage where
+    parseQueryParam qp = case parseQueryParam qp of
+        Right (p :: Int) | p < 1 -> Left "per_page should be at least 1."
+        Right (p :: Int) | p > maxPerPageEntries ->
+                           Left $ T.pack $ "per_page cannot be greater than " <> show maxPerPageEntries <> "."
+        Right (p :: Int) -> Right (PerPage p)
+        Left e           -> Left e
+
 
 -- | Extra information associated with an HTTP response.
 data Metadata = Metadata
-  { meta_total_pages :: Int   -- ^ The total pages returned by this query.
-  , meta_page :: Int          -- ^ The current page number (index starts at 1).
-  , meta_per_page :: Int      -- ^ The number of entries contained in this page.
-  , meta_total_entries :: Int -- ^ The total number of entries in the collection.
+  { meta_total_pages   :: Int     -- ^ The total pages returned by this query.
+  , meta_page          :: Page    -- ^ The current page number (index starts at 1).
+  , meta_per_page      :: PerPage -- ^ The number of entries contained in this page.
+  , meta_total_entries :: Int     -- ^ The total number of entries in the collection.
   } deriving (Show, Eq, Generic)
 
 deriveJSON defaultOptions { fieldLabelModifier = drop 5 } ''Metadata
 
 instance Arbitrary Metadata where
   arbitrary = Metadata <$> fmap getPositive arbitrary
-                       <*> fmap getPositive arbitrary
-                       <*> fmap getPositive arbitrary
+                       <*> arbitrary
+                       <*> arbitrary
                        <*> fmap getPositive arbitrary
 
 -- | An `ExtendedResponse` allows the consumer of the API to ask for
@@ -76,6 +110,10 @@ instance (Arbitrary a, Arbitrary b) => Arbitrary (OneOf a b) where
   arbitrary = OneOf <$> oneof [ fmap Left  (arbitrary :: Gen a)
                               , fmap Right (arbitrary :: Gen b)]
 
+--
+-- Error handling
+--
+
 -- | Models a Wallet Error as a Jsend <https://labs.omniti.com/labs/jsend> response.
 data WalletError = WalletError
   { err_status  :: Text -- ^  TODO: Turn into a proper enum.
@@ -83,6 +121,20 @@ data WalletError = WalletError
   } deriving (Show, Eq, Generic)
 
 deriveJSON defaultOptions { fieldLabelModifier = drop 4 } ''WalletError
+
+--
+-- Domain-specific types
+--
+
+-- | A wallet 'Account'.
+newtype Account = Account
+  { acc_id :: Text -- ^ A base58 Public Key.
+  } deriving (Show, Eq, Generic)
+
+deriveJSON defaultOptions { fieldLabelModifier = drop 4 } ''Account
+
+instance Arbitrary Account where
+  arbitrary = Account . T.pack <$> elements ["DEADBeef", "123456"]
 
 -- Placeholder.
 newtype Address = Address

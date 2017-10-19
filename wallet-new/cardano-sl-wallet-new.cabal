@@ -16,6 +16,7 @@ library
                        Cardano.Wallet.API.Types
                        Cardano.Wallet.API.V1
                        Cardano.Wallet.API.V1.Types
+                       Cardano.Wallet.API.V1.Parameters
                        Cardano.Wallet.API.V1.Addresses
                        Cardano.Wallet.API.V1.Accounts
                        Cardano.Wallet.API.V0

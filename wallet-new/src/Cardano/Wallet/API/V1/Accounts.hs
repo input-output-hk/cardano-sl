@@ -1,8 +1,14 @@
-{-# LANGUAGE DataKinds     #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TypeApplications      #-}
+{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE TypeOperators         #-}
 module Cardano.Wallet.API.V1.Accounts where
 
 import           Cardano.Wallet.API.Types
+import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
 
 import           Data.Text
@@ -13,10 +19,7 @@ type API
                     :> Summary "Deletes an Account."
                     :> DeleteNoContent '[JSON] NoContent
     -- TODO: Is there a way to scrap up this boilerplate?
-    :<|> "accounts" :> QueryParam "page"     Int
-                    :> QueryParam "per_page" Int
-                    :> QueryParam "extended" Bool
-                    :> Header "Daedalus-Response-Format" Text
+    :<|> "accounts" :> WalletRequestParams
                     :> Summary "Retrieves the full list of Accounts."
                     :> Get '[JSON] (OneOf [Account] (ExtendedResponse [Account]))
     -- :<|> "accounts" :> ReqBody '[JSON] Account :> Post '[JSON] Account

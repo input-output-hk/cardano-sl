@@ -1,23 +1,23 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeOperators     #-}
 module Cardano.Wallet.API.V1.Handlers.Addresses where
 
+import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1.Addresses as Addresses
-import Cardano.Wallet.API.V1.Types
-import Cardano.Wallet.API.Types
+import           Cardano.Wallet.API.V1.Types
 
-import Servant
-import Data.Text
+import           Data.Text
+import           Servant
 
 handlers :: Server Addresses.API
 handlers =  listAddresses
        :<|> newAddress
 
-listAddresses :: Maybe Int
-             -> Maybe Int
-             -> Maybe Bool
-             -> Maybe Text
-             -> Handler (OneOf [Address] (ExtendedResponse [Address]))
+listAddresses :: Maybe Page
+              -> Maybe PerPage
+              -> Maybe Bool
+              -> Maybe Text
+              -> Handler (OneOf [Address] (ExtendedResponse [Address]))
 listAddresses _ _ mbExtended _ =
   case mbExtended of
     Just True  -> return $ OneOf $ Right $

@@ -1,13 +1,13 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeOperators     #-}
 module Cardano.Wallet.API.V1.Handlers.Accounts where
 
+import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1.Accounts as Accounts
-import Cardano.Wallet.API.V1.Types
-import Cardano.Wallet.API.Types
+import           Cardano.Wallet.API.V1.Types
 
-import Servant
-import Data.Text
+import           Data.Text
+import           Servant
 
 handlers :: Server Accounts.API
 handlers =   deleteAccount
@@ -16,8 +16,8 @@ handlers =   deleteAccount
 deleteAccount :: Text -> Handler NoContent
 deleteAccount _ = return NoContent
 
-listAccounts :: Maybe Int
-             -> Maybe Int
+listAccounts :: Maybe Page
+             -> Maybe PerPage
              -> Maybe Bool
              -> Maybe Text
              -> Handler (OneOf [Account] (ExtendedResponse [Account]))

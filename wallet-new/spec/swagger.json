@@ -43,7 +43,7 @@
                 }
             },
             "type": "array",
-            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Account] or [Account] depending on whether or not the extended response format has been requested. Whilst using the  api this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an 'a' will be returned. Here's an example:<br><br><pre>[\n    {\n        \"id\": \"123456\"\n    },\n    {\n        \"id\": \"DEADBeef\"\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"id\": \"DEADBeef\"\n        },\n        {\n            \"id\": \"123456\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"total_entries\": 2,\n        \"total_pages\": 1,\n        \"per_page\": 3\n    }\n}</pre>"
+            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Account] or [Account] depending on whether or not the extended response format has been requested. Whilst using the  api this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an 'a' will be returned. Here's an example:<br><br><pre>[\n    {\n        \"id\": \"123456\"\n    },\n    {\n        \"id\": \"DEADBeef\"\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"id\": \"DEADBeef\"\n        },\n        {\n            \"id\": \"123456\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"total_entries\": 2,\n        \"total_pages\": 1,\n        \"per_page\": 96\n    }\n}</pre>"
         },
         "OneOf [Address] (ExtendedResponse [Address])": {
             "example": [
@@ -63,7 +63,7 @@
                 }
             },
             "type": "array",
-            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Address] or [Address] depending on whether or not the extended response format has been requested. Whilst using the  api this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an 'a' will be returned. Here's an example:<br><br><pre>[\n    {\n        \"id\": \"123456\"\n    },\n    {\n        \"id\": \"DEADBeef\"\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"id\": \"DEADBeef\"\n        },\n        {\n            \"id\": \"123456\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"total_entries\": 2,\n        \"total_pages\": 1,\n        \"per_page\": 3\n    }\n}</pre>"
+            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Address] or [Address] depending on whether or not the extended response format has been requested. Whilst using the  api this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an 'a' will be returned. Here's an example:<br><br><pre>[\n    {\n        \"id\": \"123456\"\n    },\n    {\n        \"id\": \"DEADBeef\"\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"id\": \"DEADBeef\"\n        },\n        {\n            \"id\": \"123456\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"total_entries\": 2,\n        \"total_pages\": 1,\n        \"per_page\": 96\n    }\n}</pre>"
         },
         "Address": {
             "example": {
@@ -158,28 +158,33 @@
                 ],
                 "parameters": [
                     {
-                        "maximum": 9223372036854775807,
-                        "minimum": -9223372036854775808,
+                        "default": 1,
+                        "minimum": 1,
                         "in": "query",
                         "name": "page",
-                        "type": "integer"
+                        "type": "integer",
+                        "description": "The page number to fetch for this request. The minimum is **1**.\nIf nothing is specified, **this value defaults to 1** and always shows the first\nentries in the requested collection.\n"
                     },
                     {
-                        "maximum": 9223372036854775807,
-                        "minimum": -9223372036854775808,
+                        "maximum": 500,
+                        "default": 10,
+                        "minimum": 1,
                         "in": "query",
                         "name": "per_page",
-                        "type": "integer"
+                        "type": "integer",
+                        "description": "The number of entries to display for each page. The minimum is **1**, whereas the maximum\nis **500**. If nothing is specified, **this value defaults to 10**.\n"
                     },
                     {
                         "in": "query",
                         "name": "extended",
-                        "type": "boolean"
+                        "type": "boolean",
+                        "description": "Informs the backend that the fetched data should be wrapped in an `ExtendedResponse`\n(see the [definitions](#/definitions)). An `ExtendedResponse` includes useful metadata\nwhich can be used by clients to support pagination.\n"
                     },
                     {
                         "in": "header",
                         "name": "Daedalus-Response-Format",
-                        "type": "string"
+                        "type": "string",
+                        "description": "It has the same effect of setting `extended=true` in the URL as a query parameter.\nIf the header `Daedalus-Response-Format` is present in the HTTP request with a value set to\n`extended`, the fetched data will be wrapped in an `ExtendedResponse`.\n"
                     }
                 ],
                 "tags": [
@@ -241,28 +246,33 @@
                 ],
                 "parameters": [
                     {
-                        "maximum": 9223372036854775807,
-                        "minimum": -9223372036854775808,
+                        "default": 1,
+                        "minimum": 1,
                         "in": "query",
                         "name": "page",
-                        "type": "integer"
+                        "type": "integer",
+                        "description": "The page number to fetch for this request. The minimum is **1**.\nIf nothing is specified, **this value defaults to 1** and always shows the first\nentries in the requested collection.\n"
                     },
                     {
-                        "maximum": 9223372036854775807,
-                        "minimum": -9223372036854775808,
+                        "maximum": 500,
+                        "default": 10,
+                        "minimum": 1,
                         "in": "query",
                         "name": "per_page",
-                        "type": "integer"
+                        "type": "integer",
+                        "description": "The number of entries to display for each page. The minimum is **1**, whereas the maximum\nis **500**. If nothing is specified, **this value defaults to 10**.\n"
                     },
                     {
                         "in": "query",
                         "name": "extended",
-                        "type": "boolean"
+                        "type": "boolean",
+                        "description": "Informs the backend that the fetched data should be wrapped in an `ExtendedResponse`\n(see the [definitions](#/definitions)). An `ExtendedResponse` includes useful metadata\nwhich can be used by clients to support pagination.\n"
                     },
                     {
                         "in": "header",
                         "name": "Daedalus-Response-Format",
-                        "type": "string"
+                        "type": "string",
+                        "description": "It has the same effect of setting `extended=true` in the URL as a query parameter.\nIf the header `Daedalus-Response-Format` is present in the HTTP request with a value set to\n`extended`, the fetched data will be wrapped in an `ExtendedResponse`.\n"
                     }
                 ],
                 "tags": [

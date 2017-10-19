@@ -3,15 +3,12 @@
 module Cardano.Wallet.API.V1.Addresses where
 
 import           Cardano.Wallet.API.Types
+import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
 
-import           Data.Text
 import           Servant
 
-type API = "addresses" :> QueryParam "page"     Int
-                       :> QueryParam "per_page" Int
-                       :> QueryParam "extended" Bool
-                       :> Header "Daedalus-Response-Format" Text
+type API = "addresses" :> WalletRequestParams
                        :> Summary "Returns all the addresses."
                        :> Get '[JSON] (OneOf [Address] (ExtendedResponse [Address]))
       :<|> "addresses" :> ReqBody '[JSON] Address

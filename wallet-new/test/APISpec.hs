@@ -77,15 +77,27 @@ putIdempotency = RequestPredicate $ \req mgr ->
          return [resp1, resp2]
        else return []
 
+-- | Checks that every request which is not a 204 No Content
+-- does not have an empty body, but it always returns something.
+noEmptyBody :: RequestPredicate
+noEmptyBody = RequestPredicate $ \req mgr -> do
+  resp <- httpLbs req mgr
+  let body   = responseBody resp
+  let status = responseStatus resp
+  when (status /= status204 && body == mempty) $
+    throw $ PredicateFailure "noEmptyBody" (Just req) resp
+  return [resp]
+
 -- Our API apparently is returning JSON Arrays which is considered bad practice as very old
 -- browsers can be hacked: https://haacked.com/archive/2009/06/25/json-hijacking.aspx/
 -- TODO: Should we worry about this?
 spec :: Spec
-spec = describe "API Servant Properties" $ do
-  it "follows best practices" $ do
+spec = describe "Servant API Properties" $ do
+  it "follows best practices & is RESTful abiding" $ do
    withServantServer walletAPI (return walletServer) $ \burl ->
      serverSatisfies walletAPI burl stdArgs (not500
                                    <%> deleteReqShouldReturn204
                                    <%> putReqShouldReturn201
                                    <%> putIdempotency
+                                   <%> noEmptyBody
                                    <%> mempty)

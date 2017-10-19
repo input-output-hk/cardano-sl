@@ -38,7 +38,6 @@ import           Pos.Generator.Block.Payload (genPayload)
 import           Pos.Lrc                     (lrcSingleShot)
 import           Pos.Lrc.Context             (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB                  as LrcDB
-import           Pos.Ssc.GodTossing          (SscGodTossing)
 import           Pos.Txp                     (MempoolExt, MonadTxpLocal)
 import           Pos.Util.Chrono             (OldestFirst (..))
 import           Pos.Util.CompileInfo        (HasCompileInfo, withCompileInfo)
@@ -61,7 +60,7 @@ type BlockTxpGenMode g ctx m =
 genBlocks ::
        forall g ctx m . BlockTxpGenMode g ctx m
     => BlockGenParams
-    -> RandT g m (OldestFirst [] (Blund SscGodTossing))
+    -> RandT g m (OldestFirst [] Blund)
 genBlocks params = do
     ctx <- lift $ mkBlockGenContext @(MempoolExt m) params
     mapRandT (`runReaderT` ctx) genBlocksDo
@@ -69,7 +68,7 @@ genBlocks params = do
     genBlocksDo =
         OldestFirst <$> do
             let numberOfBlocks = params ^. bgpBlockCount
-            tipEOS <- getEpochOrSlot <$> lift (getTipHeader @SscGodTossing)
+            tipEOS <- getEpochOrSlot <$> lift getTipHeader
             let startEOS = succ tipEOS
             let finishEOS =
                     toEnum $ fromEnum tipEOS + fromIntegral numberOfBlocks
@@ -80,7 +79,7 @@ genBlocks params = do
 genBlock ::
        forall g ctx m . BlockTxpGenMode g ctx m
     => EpochOrSlot
-    -> BlockGenRandMode (MempoolExt m) g m (Maybe (Blund SscGodTossing))
+    -> BlockGenRandMode (MempoolExt m) g m (Maybe Blund)
 genBlock eos = withCompileInfo def $ do
     let epoch = eos ^. epochIndexL
     lift $ unlessM ((epoch ==) <$> LrcDB.getEpoch) (lrcSingleShot epoch)
@@ -88,7 +87,7 @@ genBlock eos = withCompileInfo def $ do
     leaders <- lift $ lrcActionOnEpochReason epoch "genBlock" LrcDB.getLeaders
     case eos of
         EpochOrSlot (Left _) -> do
-            tipHeader <- lift $ getTipHeader @SscGodTossing
+            tipHeader <- lift getTipHeader
             let slot0 = SlotId epoch minBound
             let genesisBlock = mkGenesisBlock (Just tipHeader) epoch leaders
             fmap Just $ withCurrentSlot slot0 $ lift $ verifyAndApply (Left genesisBlock)
@@ -122,14 +121,14 @@ genBlock eos = withCompileInfo def $ do
         HasCompileInfo =>
         SlotId ->
         ProxySKBlockInfo ->
-        BlockGenMode (MempoolExt m) m (Blund SscGodTossing)
+        BlockGenMode (MempoolExt m) m Blund
     genMainBlock slot proxySkInfo =
-        createMainBlockInternal @SscGodTossing slot proxySkInfo >>= \case
+        createMainBlockInternal slot proxySkInfo >>= \case
             Left err -> throwM (BGFailedToCreate err)
             Right mainBlock -> verifyAndApply $ Right mainBlock
     verifyAndApply ::
         HasCompileInfo =>
-        Block SscGodTossing -> BlockGenMode (MempoolExt m) m (Blund SscGodTossing)
+        Block -> BlockGenMode (MempoolExt m) m Blund
     verifyAndApply block =
         verifyBlocksPrefix (one block) >>= \case
             Left err -> throwM (BGCreatedInvalid err)

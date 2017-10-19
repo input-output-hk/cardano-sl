@@ -71,6 +71,7 @@ import           Pos.Ssc.Class                    (SscConstraint, SscParams,
                                                    sscCreateNodeContext)
 import           Pos.Ssc.Extra                    (SscState, mkSscState)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.StateLock                    (newStateLock)
 import           Pos.Txp                          (GenericTxpLocalData (..),
                                                    mkTxpLocalData, recordTxpMetrics)
@@ -85,6 +86,7 @@ import           Pos.Launcher.Mode                (InitMode, InitModeContext (..
 import           Pos.Update.Context               (mkUpdateContext)
 import qualified Pos.Update.DB                    as GState
 import           Pos.Util                         (newInitFuture)
+
 import qualified System.Wlog                      as Logger
 
 #ifdef linux_HOST_OS
@@ -131,15 +133,6 @@ allocateNodeResources
        , HasConfiguration
        , HasNodeConfiguration
        , HasInfraConfiguration
-       -- FIXME avieth
-       -- 'HasGtConfiguration' arises from 'initNodeDBs', where that constraint
-       -- in turn arises from 'prepareGStateDB', which is in fact tied to
-       -- godtossing.
-       -- So the 'forall ssc' here is misleading. This only works for
-       -- godtossing. The dependency was hidden before, where the godtossing
-       -- data was all delivered by global mutable variables. That's to say,
-       -- 'allocateNodeResources' had a hidden assumption that somebody will
-       -- fill in the required godtossing data, probably using 'unsafePerformIO'.
        , HasGtConfiguration
        )
     => Transport m
@@ -168,7 +161,7 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
             futureSlottingContext
             futureLrcContext
     runInitMode initModeContext $ do
-        initNodeDBs @ssc
+        initNodeDBs
 
         nrEkgStore <- liftIO $ Metrics.newStore
 
@@ -184,7 +177,7 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
                 }
         ctx@NodeContext {..} <- allocateNodeContext ancd
         putLrcContext ncLrcContext
-        dlgVar <- mkDelegationVar @ssc
+        dlgVar <- mkDelegationVar
         sscState <- mkSscState @ssc
         let nrTransport = transport
         nrJLogHandle <-
@@ -206,8 +199,7 @@ allocateNodeResources transport networkConfig np@NodeParams {..} sscnp = do
 
 -- | Release all resources used by node. They must be released eventually.
 releaseNodeResources ::
-       forall ssc ext m. ( )
-    => NodeResources ssc ext m -> Production ()
+       NodeResources SscGodTossing ext m -> Production ()
 releaseNodeResources NodeResources {..} = do
     whenJust nrJLogHandle (liftIO . hClose)
     closeNodeDBs nrDBs
@@ -215,8 +207,8 @@ releaseNodeResources NodeResources {..} = do
 
 -- | Run computation which requires 'NodeResources' ensuring that
 -- resources will be released eventually.
-bracketNodeResources :: forall ssc ext m a.
-      ( SscConstraint ssc
+bracketNodeResources :: forall ext m a.
+      ( SscConstraint SscGodTossing
       , Default ext
       , MonadIO m
       , HasConfiguration
@@ -225,8 +217,8 @@ bracketNodeResources :: forall ssc ext m a.
       , HasGtConfiguration
       )
     => NodeParams
-    -> SscParams ssc
-    -> (HasConfiguration => NodeResources ssc ext m -> Production a)
+    -> SscParams SscGodTossing
+    -> (HasConfiguration => NodeResources SscGodTossing ext m -> Production a)
     -> Production a
 bracketNodeResources np sp k =
     bracketTransport (ncTcpAddr (npNetworkConfig np)) $ \transport ->
@@ -267,7 +259,7 @@ loggerBracket lp = bracket_ (setupLoggers lp) releaseAllHandlers
 data AllocateNodeContextData ssc ext = AllocateNodeContextData
     { ancdNodeParams :: !NodeParams
     , ancdSscParams :: !(SscParams ssc)
-    , ancdPutSlotting :: (Timestamp, TVar SlottingData) -> SlottingContextSum -> InitMode ssc ()
+    , ancdPutSlotting :: (Timestamp, TVar SlottingData) -> SlottingContextSum -> InitMode ()
     , ancdNetworkCfg :: NetworkConfig KademliaDHTInstance
     , ancdEkgStore :: !Metrics.Store
     , ancdTxpMemState :: !(GenericTxpLocalData ext)
@@ -277,7 +269,7 @@ allocateNodeContext
     :: forall ssc ext .
       (HasConfiguration, HasNodeConfiguration, HasInfraConfiguration, SscConstraint ssc)
     => AllocateNodeContextData ssc ext
-    -> InitMode ssc (NodeContext ssc)
+    -> InitMode (NodeContext ssc)
 allocateNodeContext ancd = do
     let AllocateNodeContextData { ancdNodeParams = np@NodeParams {..}
                                 , ancdSscParams = sscnp

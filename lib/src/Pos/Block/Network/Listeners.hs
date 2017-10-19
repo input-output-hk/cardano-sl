@@ -27,9 +27,10 @@ import           Pos.Network.Types               (Bucket, NodeId)
 import           Pos.Ssc.Class                   (SscWorkersClass)
 import           Pos.Util.Chrono                 (NewestFirst (..))
 import           Pos.WorkMode.Class              (WorkMode)
+import           Pos.Ssc.GodTossing.Type         (SscGodTossing)
 
 blockListeners
-    :: (SscWorkersClass ssc, WorkMode ssc ctx m)
+    :: WorkMode ctx m
     => OQ.OutboundQ pack NodeId Bucket
     -> MkListeners m
 blockListeners oq = constantListeners $ map ($ oq)
@@ -46,8 +47,8 @@ blockListeners oq = constantListeners $ map ($ oq)
 -- headers from some checkpoints that are older than optional @to@
 -- field.
 handleGetHeaders
-    :: forall pack ssc ctx m.
-       (WorkMode ssc ctx m)
+    :: forall pack ctx m.
+       (WorkMode ctx m)
     => OQ.OutboundQ pack NodeId Bucket
     -> (ListenerSpec m, OutSpecs)
 handleGetHeaders oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
@@ -55,8 +56,8 @@ handleGetHeaders oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
     handleHeadersCommunication conv --(convToSProxy conv)
 
 handleGetBlocks
-    :: forall pack ssc ctx m.
-       (WorkMode ssc ctx m)
+    :: forall pack ctx m.
+       (WorkMode ctx m)
     => OQ.OutboundQ pack NodeId Bucket
     -> (ListenerSpec m, OutSpecs)
 handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
@@ -64,7 +65,7 @@ handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
     whenJust mbMsg $ \mgb@MsgGetBlocks{..} -> do
         logDebug $ sformat ("handleGetBlocks: got request "%build%" from "%build)
             mgb nodeId
-        mHashes <- getHeadersFromToIncl @ssc mgbFrom mgbTo
+        mHashes <- getHeadersFromToIncl mgbFrom mgbTo
         case mHashes of
             Just hashes -> do
                 logDebug $ sformat
@@ -72,7 +73,7 @@ handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
                      " blocks to "%build%" one-by-one: "%listJson)
                     (length hashes) nodeId hashes
                 for_ hashes $ \hHash ->
-                    DB.blkGetBlock @ssc hHash >>= \case
+                    DB.blkGetBlock hHash >>= \case
                         Nothing -> do
                             send conv (MsgNoBlock $
                                        "Couldn't retrieve block with hash " <> pretty hHash)
@@ -92,8 +93,8 @@ handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
 
 -- | Handles MsgHeaders request, unsolicited usecase
 handleBlockHeaders
-    :: forall pack ssc ctx m.
-       (SscWorkersClass ssc, WorkMode ssc ctx m)
+    :: forall pack ctx m.
+       (SscWorkersClass SscGodTossing, WorkMode ctx m)
     => OQ.OutboundQ pack NodeId Bucket
     -> (ListenerSpec m, OutSpecs)
 handleBlockHeaders oq = listenerConv @MsgGetHeaders oq $ \__ourVerInfo nodeId conv -> do

@@ -78,7 +78,7 @@ notifierPlugin
     => NotifierSettings
     -> ([WorkerSpec ExplorerProd], OutSpecs)
 notifierPlugin = first pure . worker mempty .
-    \settings _sa -> notifierApp @SscGodTossing settings
+    \settings _sa -> notifierApp settings
 
 explorerPlugin
     :: ( HasConfiguration

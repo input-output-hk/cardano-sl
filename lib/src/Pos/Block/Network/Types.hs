@@ -14,7 +14,6 @@ import           Universum
 
 import           Pos.Block.Core      (Block, BlockHeader)
 import           Pos.Core            (HeaderHash)
-import           Pos.Ssc.Class.Types (Ssc (SscPayload))
 import           Pos.Util.Chrono     (NE, NewestFirst)
 
 -- | 'GetHeaders' message. Behaviour of the response depends on
@@ -62,15 +61,19 @@ instance Buildable MsgGetBlocks where
                mgbFrom mgbTo
 
 -- | 'Headers' message (see protocol specification).
-data MsgHeaders ssc
-    = MsgHeaders (NewestFirst NE (BlockHeader ssc))
+data MsgHeaders
+    = MsgHeaders (NewestFirst NE BlockHeader)
     | MsgNoHeaders Text
-    deriving (Generic, Show, Eq)
+    deriving (Generic)
+
+deriving instance Eq BlockHeader => Eq MsgHeaders
+deriving instance Show BlockHeader => Show MsgHeaders
 
 -- | 'Block' message (see protocol specification).
-data MsgBlock ssc
-    = MsgBlock (Block ssc)
+data MsgBlock
+    = MsgBlock Block
     | MsgNoBlock Text
-    deriving (Generic, Show)
+    deriving (Generic)
 
-deriving instance (Ssc ssc, Eq (SscPayload ssc)) => Eq (MsgBlock ssc)
+deriving instance Eq Block => Eq MsgBlock
+deriving instance Show Block => Show MsgBlock

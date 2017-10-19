@@ -46,14 +46,15 @@ import           Pos.Util.CompileInfo     (compileInfo)
 import           Pos.Util.LogSafe         (logInfoS)
 import           Pos.Worker               (allWorkers)
 import           Pos.WorkMode.Class       (WorkMode)
+import           Pos.Ssc.GodTossing.Type  (SscGodTossing)
 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
 runNode'
-    :: forall ssc ext ctx m.
-       ( WorkMode ssc ctx m
+    :: forall ext ctx m.
+       ( WorkMode ctx m
        )
-    => NodeResources ssc ext m
+    => NodeResources SscGodTossing ext m
     -> [WorkerSpec m]
     -> [WorkerSpec m]
     -> WorkerSpec m
@@ -98,7 +99,7 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
             sformat ("Last known leaders for epoch "%build%" are: "%listJson)
                     lastKnownEpoch leaders
     LrcDB.getLeaders lastKnownEpoch >>= maybe onNoLeaders onLeaders
-    tipHeader <- DB.getTipHeader @ssc
+    tipHeader <- DB.getTipHeader
     logInfo $ sformat ("Current tip header: "%build) tipHeader
 
     waitSystemStart
@@ -129,10 +130,10 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
 runNode ::
-       ( SscConstraint ssc
-       , WorkMode ssc ctx m
+       ( SscConstraint SscGodTossing
+       , WorkMode ctx m
        )
-    => NodeResources ssc ext m
+    => NodeResources SscGodTossing ext m
     -> ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
 runNode nr (plugins, plOuts) =

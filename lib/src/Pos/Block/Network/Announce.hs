@@ -36,13 +36,13 @@ import           Pos.Util.TimeWarp          (nodeIdToAddress)
 import           Pos.WorkMode.Class         (WorkMode)
 
 announceBlockOuts :: OutSpecs
-announceBlockOuts = toOutSpecs [convH (Proxy :: Proxy (MsgHeaders ssc))
+announceBlockOuts = toOutSpecs [convH (Proxy :: Proxy MsgHeaders)
                                       (Proxy :: Proxy MsgGetHeaders)
                                ]
 
 announceBlock
-    :: WorkMode ssc ctx m
-    => EnqueueMsg m -> MainBlockHeader ssc -> m (Map NodeId (m ()))
+    :: WorkMode ctx m
+    => EnqueueMsg m -> MainBlockHeader -> m (Map NodeId (m ()))
 announceBlock enqueue header = do
     logDebug $ sformat ("Announcing header to others:\n"%build) header
     enqueue (MsgAnnounceBlockHeader OriginSender) (\addr _ -> announceBlockDo addr)
@@ -63,9 +63,9 @@ announceBlock enqueue header = do
         handleHeadersCommunication cA
 
 handleHeadersCommunication
-    :: forall ssc ctx m .
-       (WorkMode ssc ctx m)
-    => ConversationActions (MsgHeaders ssc) MsgGetHeaders m
+    :: forall ctx m .
+       (WorkMode ctx m)
+    => ConversationActions MsgHeaders MsgGetHeaders m
     -> m ()
 handleHeadersCommunication conv = do
     whenJustM (recvLimited conv) $ \mgh@(MsgGetHeaders {..}) -> do
@@ -75,16 +75,16 @@ handleHeadersCommunication conv = do
                 ([], Nothing) -> Right . one <$> getLastMainHeader
                 ([], Just h)  ->
                     maybeToRight "getBlockHeader returned Nothing" . fmap one <$>
-                    DB.blkGetHeader @ssc h
+                    DB.blkGetHeader h
                 (c1:cxs, _)   -> runExceptT
                     (getHeadersFromManyTo (c1:|cxs) mghTo)
             either onNoHeaders handleSuccess headers
   where
     -- retrieves header of the newest main block if there's any,
     -- genesis otherwise.
-    getLastMainHeader :: m (BlockHeader ssc)
+    getLastMainHeader :: m BlockHeader
     getLastMainHeader = do
-        (tip :: Block ssc) <- DB.getTipBlock
+        tip :: Block <- DB.getTipBlock
         let tipHeader = tip ^. blockHeader
         case tip of
             Left _  -> fromMaybe tipHeader <$> DB.blkGetHeader (tip ^. prevBlockL)

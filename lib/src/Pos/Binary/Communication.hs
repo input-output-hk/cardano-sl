@@ -19,7 +19,6 @@ import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpec
                                                    MsgSubscribe (..), VerInfo (..))
 import           Pos.Core                         (BlockVersion, HasConfiguration,
                                                    HeaderHash)
-import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 
 -- TODO: move into each component
 
@@ -39,7 +38,7 @@ deriveSimpleBi ''MsgGetBlocks [
         Field [| mgbTo   :: HeaderHash |]
     ]]
 
-instance (HasConfiguration, SscHelpersClass ssc) => Bi (MsgHeaders ssc) where
+instance HasConfiguration => Bi MsgHeaders where
     encode = \case
         (MsgHeaders b) -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
         (MsgNoHeaders t) -> encodeListLen 2 <> encode (1 :: Word8) <> encode t
@@ -51,7 +50,7 @@ instance (HasConfiguration, SscHelpersClass ssc) => Bi (MsgHeaders ssc) where
             1 -> MsgNoHeaders <$> decode
             t -> fail $ "MsgHeaders wrong tag: " <> show t
 
-instance (HasConfiguration, SscHelpersClass ssc) => Bi (MsgBlock ssc) where
+instance HasConfiguration => Bi MsgBlock where
     encode = \case
         (MsgBlock b) -> encodeListLen 2 <> encode (0 :: Word8) <> encode b
         (MsgNoBlock t) -> encodeListLen 2 <> encode (1 :: Word8) <> encode t

@@ -74,6 +74,7 @@ import           Pos.Util.TimeWarp       (CanJsonLog (..))
 import           Pos.Util.UserSecret     (HasUserSecret (..))
 import           Pos.Util.Util           (postfixLFields)
 import           Pos.WorkMode.Class      (MinWorkMode, WorkMode)
+import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 
 
 data RealModeContext ssc ext = RealModeContext
@@ -184,22 +185,24 @@ instance MonadBListener (RealMode ssc ext) where
 
 instance
     (HasConfiguration, SscHelpersClass ssc) =>
-    MonadBlockDBGeneric (BlockHeader ssc) (Block ssc) Undo (RealMode ssc ext)
+    MonadBlockDBGeneric BlockHeader Block Undo (RealMode ssc ext)
   where
-    dbGetBlock  = dbGetBlockDefault @ssc
-    dbGetUndo   = dbGetUndoDefault @ssc
-    dbGetHeader = dbGetHeaderDefault @ssc
+    dbGetBlock  = dbGetBlockDefault
+    dbGetUndo   = dbGetUndoDefault
+    dbGetHeader = dbGetHeaderDefault
 
 instance
-    (HasConfiguration, SscHelpersClass ssc) =>
-    MonadBlockDBGeneric (Some IsHeader) (SscBlock ssc) () (RealMode ssc ext)
+    HasConfiguration =>
+    MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () (RealMode SscGodTossing ext)
   where
-    dbGetBlock  = dbGetBlockSscDefault @ssc
-    dbGetUndo   = dbGetUndoSscDefault @ssc
-    dbGetHeader = dbGetHeaderSscDefault @ssc
+    dbGetBlock  = dbGetBlockSscDefault
+    dbGetUndo   = dbGetUndoSscDefault
+    dbGetHeader = dbGetHeaderSscDefault
 
-instance (HasConfiguration, SscHelpersClass ssc) =>
-         MonadBlockDBGenericWrite (BlockHeader ssc) (Block ssc) Undo (RealMode ssc ext) where
+instance
+    HasConfiguration =>
+    MonadBlockDBGenericWrite BlockHeader Block Undo (RealMode SscGodTossing ext)
+  where
     dbPutBlund = dbPutBlundDefault
 
 instance MonadKnownPeers (RealMode ssc ext) where

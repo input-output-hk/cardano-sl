@@ -88,6 +88,7 @@ module Pos.Util.Util
 
        -- ** Buildable
        -- *** "Data.Time.Units" types
+       -- *** @()@
        ) where
 
 import           Universum
@@ -243,7 +244,7 @@ instance NFData Microsecond where
 
 
 ----------------------------------------------------------------------------
--- Orphan Buildable instances for time-units
+-- Orphan Buildable instances
 ----------------------------------------------------------------------------
 
 instance Buildable Attosecond  where build = build @String . show
@@ -262,6 +263,11 @@ instance Buildable Fortnight   where build = build @String . show
 -- it breaks things sometimes.
 instance Buildable Microsecond where
     build = build . (++ "mcs") . show . toMicroseconds
+
+-- | This instance is needed because 'Ssc' puts the 'Buildable' constraint
+-- on things.
+instance Buildable () where
+    build _ = "()"
 
 ----------------------------------------------------------------------------
 -- MonadResource/ResourceT

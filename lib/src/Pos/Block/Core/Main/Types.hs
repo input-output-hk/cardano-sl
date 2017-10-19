@@ -24,8 +24,9 @@ import           Pos.Core.Block      (Blockchain (..), GenericBlock (..),
 import           Pos.Core.Types      (BlockVersion, ChainDifficulty, HeaderHash,
                                       ProxySigHeavy, ProxySigLight, SlotId (..),
                                       SoftwareVersion)
-import           Pos.Crypto          (Signature, Hash)
+import           Pos.Crypto          (Hash, Signature)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
+import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 
 -- | Represents blockchain consisting of main blocks, i. e. blocks
 -- with actual payload (transactions, SSC, update system, etc.).
@@ -108,8 +109,8 @@ instance Buildable MainExtraBodyData where
         | otherwise = bprint ("extra data has attributes: "%build) attrs
 
 -- | Header of generic main block.
-type MainBlockHeader ssc = GenericBlockHeader (MainBlockchain ssc)
+type MainBlockHeader = GenericBlockHeader (MainBlockchain SscGodTossing)
 
 -- | MainBlock is a block with transactions and MPC messages. It's the
 -- main part of our consensus algorithm.
-type MainBlock ssc = GenericBlock (MainBlockchain ssc)
+type MainBlock = GenericBlock (MainBlockchain SscGodTossing)

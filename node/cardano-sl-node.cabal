@@ -77,6 +77,7 @@ executable cardano-node-simple
                         BangPatterns
                         TemplateHaskell
                         ScopedTypeVariables
+                        GADTs
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

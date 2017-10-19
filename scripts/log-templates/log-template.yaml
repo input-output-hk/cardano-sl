@@ -2,6 +2,7 @@ rotation:
     logLimit: 104857600 # 100 MB
     keepFiles: 20
 severity: Debug
+termSeverity: Debug
 smart-wallet:
     severity: Debug
     handlers:

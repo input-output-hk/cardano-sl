@@ -28,9 +28,9 @@ import           Pos.Communication.Protocol     (SendActions)
 import           Pos.Launcher.Configuration     (HasConfigurations)
 import           Pos.Launcher.Resource          (NodeResources)
 import           Pos.Launcher.Runner            (runRealBasedMode)
+import           Pos.Ssc.GodTossing             (SscGodTossing)
 import           Pos.Util.CompileInfo           (HasCompileInfo)
 import           Pos.Util.TimeWarp              (NetworkAddress)
-import           Pos.Wallet.SscType             (WalletSscType)
 import           Pos.Wallet.Web.Methods         (addInitialRichAccount)
 import           Pos.Wallet.Web.Mode            (EmptyMempoolExt, WalletWebMode,
                                                  WalletWebModeContext (..),
@@ -48,7 +48,7 @@ runWRealMode
        )
     => WalletState
     -> ConnectionsVar
-    -> NodeResources WalletSscType EmptyMempoolExt WalletWebMode
+    -> NodeResources SscGodTossing EmptyMempoolExt WalletWebMode
     -> (ActionSpec WalletWebMode a, OutSpecs)
     -> Production a
 runWRealMode db conn =

@@ -62,7 +62,7 @@ import           Pos.Web.Types                   (TlsParams (..))
 
 -- [CSL-152]: I want SscConstraint to be part of WorkMode.
 type MyWorkMode ssc ctx m =
-    ( WorkMode ssc ctx m
+    ( WorkMode ctx m
     , SscConstraint ssc
     , HasNodeContext ssc ctx -- for ConvertHandler
     , Default (MempoolExt m)

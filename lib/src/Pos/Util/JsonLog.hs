@@ -46,7 +46,6 @@ import           Pos.Core                      (HasConfiguration, SlotId (..), g
                                                 gbhPrevBlock, getSlotIndex, headerHash,
                                                 mkLocalSlotIndex)
 import           Pos.Crypto                    (hash, hashHexF)
-import           Pos.Ssc.Class.Helpers         (SscHelpersClass)
 import           Pos.Txp.Core                  (txpTxs)
 import           Pos.Txp.MemState.Types        (MemPoolModifyReason)
 import           Pos.Types                     (EpochIndex (..), HeaderHash, headerHashF)
@@ -128,7 +127,7 @@ $(deriveJSON defaultOptions ''JLTxR)
 $(deriveJSON defaultOptions ''JLMemPool)
 
 -- | Return event of created block.
-jlCreatedBlock :: (BiSsc ssc, HasConfiguration) => Block ssc -> JLEvent
+jlCreatedBlock :: (BiSsc, HasConfiguration) => Block -> JLEvent
 jlCreatedBlock block = JLCreatedBlock $ JLBlock {..}
   where
     jlHash = showHeaderHash $ headerHash block
@@ -158,7 +157,7 @@ appendJL path ev = liftIO $ do
   LBS.appendFile path . encode $ JLTimedEvent (fromIntegral time) ev
 
 -- | Returns event of created 'Block'.
-jlAdoptedBlock :: (HasConfiguration, SscHelpersClass ssc) => Block ssc -> JLEvent
+jlAdoptedBlock :: HasConfiguration => Block -> JLEvent
 jlAdoptedBlock = JLAdoptedBlock . showHeaderHash . headerHash
 
 jsonLogConfigFromHandle :: MonadIO m => Handle -> m JsonLogConfig

@@ -4587,8 +4587,8 @@ self: {
       log-warper = callPackage ({ aeson, ansi-terminal, base, containers, deepseq, directory, dlist, errors, exceptions, extra, filepath, fmt, formatting, hashable, lens, mkDerivation, mmorph, monad-control, monad-loops, mtl, network, safecopy, stdenv, text, text-format, time, transformers, transformers-base, universum, unix, unordered-containers, yaml }:
       mkDerivation {
           pname = "log-warper";
-          version = "1.3.3";
-          sha256 = "5ab18ba9e3633a869729a87cb35af348c10d3d566bcfa2463bfa6365b54bfde4";
+          version = "1.3.4";
+          sha256 = "155aa9316e4d3fbd55a4f91fee163e7cf27420008d80e15c296947c2466cc772";
           isLibrary = true;
           isExecutable = true;
           libraryHaskellDepends = [
@@ -6145,6 +6145,8 @@ self: {
           pname = "servant-swagger";
           version = "1.1.3.1";
           sha256 = "e8d85d05f4251b7bdbd7c5f215d90a22eb55a46812bc82469d94d2f07adebb58";
+          revision = "1";
+          editedCabalFile = "1bx68rcz4whjw3pqm40aiqpfigcgg9dkgjdlggry2iv81s0415xf";
           setupHaskellDepends = [
             base
             Cabal

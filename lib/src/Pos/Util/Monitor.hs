@@ -1,5 +1,4 @@
 {-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE GADTs            #-}
 {-# LANGUAGE RankNTypes       #-}
 
 module Pos.Util.Monitor (

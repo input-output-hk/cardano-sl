@@ -41,12 +41,11 @@ import           Pos.Reporting               (HasReportingContext)
 import           Pos.Security.Params         (SecurityParams)
 import           Pos.Shutdown                (HasShutdownContext)
 import           Pos.Slotting.Class          (MonadSlots)
-import           Pos.Ssc.Class.Helpers       (SscHelpersClass)
 import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage       (SscGStateClass)
 import           Pos.Ssc.Class.Workers       (SscWorkersClass)
 import           Pos.Ssc.Extra               (MonadSscMem)
-import           Pos.Ssc.GodTossing          (HasGtConfiguration)
+import           Pos.Ssc.GodTossing          (SscGodTossing, HasGtConfiguration)
 import           Pos.StateLock               (StateLock, StateLockMetrics)
 import           Pos.Txp.MemState            (MempoolExt, MonadTxpLocal, MonadTxpMem)
 import           Pos.Update.Configuration    (HasUpdateConfiguration)
@@ -57,7 +56,7 @@ import           Pos.Util.TimeWarp           (CanJsonLog)
 import           Pos.Util.Util               (HasLens, HasLens')
 
 -- | Bunch of constraints to perform work for real world distributed system.
-type WorkMode ssc ctx m
+type WorkMode ctx m
     = ( MinWorkMode m
       , MonadBaseControl IO m
       , Rand.MonadRandom m
@@ -67,19 +66,18 @@ type WorkMode ssc ctx m
       , MonadRealDB ctx m
       , MonadGState m
       , MonadTxpLocal m
-      , MonadSscBlockDB ssc m
-      , MonadBlockDBWrite ssc m
+      , MonadSscBlockDB m
+      , MonadBlockDBWrite m
       , MonadTxpMem (MempoolExt m) ctx m
       , MonadDelegation ctx m
-      , MonadSscMem ssc ctx m
-      , SscGStateClass ssc
-      , SscLocalDataClass ssc
-      , SscHelpersClass ssc
-      , SscWorkersClass ssc
+      , MonadSscMem SscGodTossing ctx m
+      , SscGStateClass SscGodTossing
+      , SscLocalDataClass SscGodTossing
+      , SscWorkersClass SscGodTossing
       , MonadRecoveryInfo m
-      , MonadRecoveryHeader ssc ctx m
-      , MonadProgressHeader ssc ctx m
-      , MonadLastKnownHeader ssc ctx m
+      , MonadRecoveryHeader ctx m
+      , MonadProgressHeader ctx m
+      , MonadLastKnownHeader ctx m
       , MonadBListener m
       , MonadReader ctx m
       , MonadKnownPeers m
@@ -92,9 +90,9 @@ type WorkMode ssc ctx m
       , HasLens UpdateParams ctx UpdateParams
       , HasLens SecurityParams ctx SecurityParams
       , HasLens TxpGlobalSettings ctx TxpGlobalSettings
-      , HasLens BlockRetrievalQueueTag ctx (BlockRetrievalQueue ssc)
+      , HasLens BlockRetrievalQueueTag ctx BlockRetrievalQueue
       , HasLens' ctx (NetworkConfig KademliaDHTInstance)
-      , HasSscContext ssc ctx
+      , HasSscContext SscGodTossing ctx
       , HasReportingContext ctx
       , HasPrimaryKey ctx
       , HasShutdownContext ctx

@@ -5,12 +5,15 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
+{-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
 module Cardano.Wallet.API.Types where
 
 import           Data.Aeson
+import           Data.Aeson.TH
+import qualified Data.Text       as T
 import           GHC.TypeLits
 import           Servant
 import           Servant.API.Sub ((:>))
@@ -33,6 +36,12 @@ data Tags (tags :: [Symbol])
 data APIVersion = V0
                 | V1
                 deriving (Eq, Enum, Bounded)
+
+data WalletVersion = WalletVersion {
+      ver_version :: APIVersion
+    , ver_gitRev  :: T.Text
+    -- ^ The current git revision
+    } deriving (Show, Eq)
 
 --
 -- Instances
@@ -58,4 +67,9 @@ instance Show APIVersion where
   show V1 = "v1"
 
 instance ToJSON APIVersion where
-  toJSON x = object ["version" .= show x]
+    toJSON = String . T.pack . show
+
+deriveToJSON defaultOptions { fieldLabelModifier = drop 4 } ''WalletVersion
+
+instance Arbitrary WalletVersion where
+    arbitrary = WalletVersion <$> arbitrary <*> pure "6f1131adca2f0bc6d24c9181cabd2b9e0704fd79"

@@ -162,7 +162,16 @@ instance ToDocs APIVersion where
     return $ s & (schema . description ?~ (withExample p "The API version. We currently support v0 and v1."))
                . (schema . example ?~ toJSON @APIVersion genExample)
 
+instance ToDocs WalletVersion where
+  annotate f p = do
+    s <- f p
+    return $ s & (schema . description ?~ (withExample p "The Wallet version, including the API version and the Git revision."))
+               . (schema . example ?~ toJSON @APIVersion genExample)
+
 instance ToSchema APIVersion where
+  declareNamedSchema = annotate fromArbitraryJSON
+
+instance ToSchema WalletVersion where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToDocs Account where

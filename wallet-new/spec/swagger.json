@@ -11,15 +11,22 @@
     },
     "definitions": {
         "APIVersion": {
-            "example": {
-                "version": "v0"
-            },
+            "example": "v0",
+            "type": "string",
+            "description": "The API version. We currently support v0 and v1. Here's an example:<br><br><pre>\"v0\"</pre>"
+        },
+        "WalletVersion": {
+            "example": "v0",
             "required": [
+                "gitRev",
                 "version"
             ],
             "type": "object",
-            "description": "The API version. We currently support v0 and v1. Here's an example:<br><br><pre>{\n    \"version\": \"v0\"\n}</pre>",
+            "description": "The Wallet version, including the API version and the Git revision. Here's an example:<br><br><pre>{\n    \"gitRev\": \"6f1131adca2f0bc6d24c9181cabd2b9e0704fd79\",\n    \"version\": \"v0\"\n}</pre>",
             "properties": {
+                "gitRev": {
+                    "type": "string"
+                },
                 "version": {
                     "type": "string"
                 }
@@ -88,7 +95,7 @@
                 "responses": {
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/APIVersion"
+                            "$ref": "#/definitions/WalletVersion"
                         },
                         "description": ""
                     }
@@ -178,7 +185,7 @@
                         "in": "query",
                         "name": "extended",
                         "type": "boolean",
-                        "description": "Informs the backend that the fetched data should be wrapped in an `ExtendedResponse`\n(see the [definitions](#/definitions)). An `ExtendedResponse` includes useful metadata\nwhich can be used by clients to support pagination.\n"
+                        "description": "Informs the backend that the fetched data should be wrapped in an `ExtendedResponse`\n(see the Models section). An `ExtendedResponse` includes useful metadata\nwhich can be used by clients to support pagination.\n"
                     },
                     {
                         "in": "header",
@@ -266,7 +273,7 @@
                         "in": "query",
                         "name": "extended",
                         "type": "boolean",
-                        "description": "Informs the backend that the fetched data should be wrapped in an `ExtendedResponse`\n(see the [definitions](#/definitions)). An `ExtendedResponse` includes useful metadata\nwhich can be used by clients to support pagination.\n"
+                        "description": "Informs the backend that the fetched data should be wrapped in an `ExtendedResponse`\n(see the Models section). An `ExtendedResponse` includes useful metadata\nwhich can be used by clients to support pagination.\n"
                     },
                     {
                         "in": "header",

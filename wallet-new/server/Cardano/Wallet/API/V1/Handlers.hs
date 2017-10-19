@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PolyKinds             #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
@@ -19,5 +20,5 @@ handlers = apiVersion
       :<|> Accounts.handlers
       :<|> Addresses.handlers
 
-apiVersion :: Handler APIVersion
-apiVersion = return V1
+apiVersion :: Handler WalletVersion
+apiVersion = return (WalletVersion V1 "6f1131adca2f0bc6d24c9181cabd2b9e0704fd79")

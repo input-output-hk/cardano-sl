@@ -46,6 +46,9 @@ instance FromHttpApiData Page where
         Right (p :: Int) -> Right (Page p)
         Left e           -> Left e
 
+instance ToHttpApiData Page where
+    toQueryParam (Page p) = T.pack (show p)
+
 newtype PerPage = PerPage Int deriving (Show, Eq, Num, Ord)
 
 deriveJSON defaultOptions ''PerPage
@@ -67,6 +70,8 @@ instance FromHttpApiData PerPage where
         Right (p :: Int) -> Right (PerPage p)
         Left e           -> Left e
 
+instance ToHttpApiData PerPage where
+    toQueryParam (PerPage p) = T.pack (show p)
 
 -- | Extra information associated with an HTTP response.
 data Metadata = Metadata

@@ -9,4 +9,4 @@ import           Servant
 -- | "Mount" the legacy API here.
 type API
    = "version" :> Summary "Returns the version for this API."
-               :> Get '[JSON] APIVersion
+               :> Get '[JSON] WalletVersion

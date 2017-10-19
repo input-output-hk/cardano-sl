@@ -7,17 +7,18 @@ module APISpec where
 
 import           Control.Exception
 import           Control.Monad
-import           Network.HTTP.Client         hiding (Proxy)
+import           Network.HTTP.Client              hiding (Proxy)
 import           Network.HTTP.Types
 import           Servant.API.Sub
 import           Servant.QuickCheck
 import           Servant.QuickCheck.Internal
 import           Test.Hspec
 import           Test.QuickCheck
-import           Test.QuickCheck.Instances   ()
+import           Test.QuickCheck.Instances        ()
 
 import           Cardano.Wallet.API
 import           Cardano.Wallet.API.Types
+import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.Server
 
 --
@@ -29,6 +30,9 @@ instance HasGenRequest sub => HasGenRequest (Tags tags :> sub) where
 
 instance HasGenRequest sub => HasGenRequest (Summary sum :> sub) where
     genRequest (Proxy :: Proxy (Summary sum :> sub)) = genRequest (Proxy :: Proxy sub)
+
+instance HasGenRequest sub => HasGenRequest (WalletRequestParams :> sub) where
+    genRequest _ = genRequest (Proxy :: Proxy (WithWalletRequestParams sub))
 
 --
 -- RESTful-abiding predicates

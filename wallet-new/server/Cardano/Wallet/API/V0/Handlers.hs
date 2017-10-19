@@ -1,14 +1,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Cardano.Wallet.API.V0.Handlers where
 
-import qualified Cardano.Wallet.API.V0 as V0
-import Cardano.Wallet.API.Types
+import           Cardano.Wallet.API.Types
+import qualified Cardano.Wallet.API.V0    as V0
 
-import Data.Text
-import Servant
+import           Data.Text
+import           Servant
 
 handlers :: Server V0.API
 handlers = apiVersion
 
-apiVersion :: Handler APIVersion
-apiVersion = return V0
+apiVersion :: Handler WalletVersion
+apiVersion = return (WalletVersion V0 "6f1131adca2f0bc6d24c9181cabd2b9e0704fd79")

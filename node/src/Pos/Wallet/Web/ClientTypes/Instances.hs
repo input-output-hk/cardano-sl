@@ -11,8 +11,9 @@ import qualified Data.ByteString                      as BS
 import           Data.List                            (intersperse, partition)
 import           Data.Text                            (splitOn)
 import qualified Data.Text.Buildable
+import           Data.Version                         (showVersion)
 import           Formatting                           (bprint, build, builder, int,
-                                                       sformat, shown, (%))
+                                                       sformat, shown, string, (%))
 import           Serokell.Util                        (listJsonIndent)
 import qualified Serokell.Util.Base16                 as Base16
 import           Servant.API                          (FromHttpApiData (..))
@@ -23,8 +24,7 @@ import           Pos.Core                             (Address, Coin, decodeText
                                                        mkCoin)
 import           Pos.Crypto                           (PassPhrase, passphraseLength)
 import           Pos.Txp.Core.Types                   (TxId)
-import           Pos.Util.LogSafe                     (SecureLog, SecureLog (..),
-                                                       buildUnsecure)
+import           Pos.Util.LogSafe                     (SecureLog (..), buildUnsecure)
 import           Pos.Util.Servant                     (FromCType (..),
                                                        HasTruncateLogPolicy (..),
                                                        OriginType, ToCType (..),
@@ -32,8 +32,9 @@ import           Pos.Util.Servant                     (FromCType (..),
 import           Pos.Wallet.Web.ClientTypes.Functions (addressToCId, cIdToAddress,
                                                        mkCCoin, mkCTxId,
                                                        ptxCondToCPtxCond, txIdToCTxId)
-import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), CAccount (..),
-                                                       CAccountId (..), CAccountInit (..),
+import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), ApiVersion (..),
+                                                       CAccount (..), CAccountId (..),
+                                                       CAccountInit (..),
                                                        CAccountMeta (..), CAddress (..),
                                                        CCoin (..),
                                                        CElectronCrashReport (..),
@@ -42,12 +43,12 @@ import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), CAccount 
                                                        CPaperVendWalletRedeem (..),
                                                        CPassPhrase (..), CProfile (..),
                                                        CPtxCondition, CTx (..),
-                                                       CTxId (..), CTxId, CTxMeta (..),
+                                                       CTxId (..), CTxMeta (..),
                                                        CUpdateInfo (..), CWallet (..),
                                                        CWallet, CWalletAssurance,
                                                        CWalletInit (..), CWalletMeta (..),
                                                        CWalletRedeem (..),
-                                                       ScrollLimit (..),
+                                                       ClientInfo (..), ScrollLimit (..),
                                                        ScrollOffset (..),
                                                        SyncProgress (..))
 import           Pos.Wallet.Web.Pending.Types         (PtxCondition)
@@ -414,3 +415,18 @@ instance (Buildable e, Buildable (WithTruncatedLog a)) =>
         case x of
             Left e  -> bprint ("Failure: "%build) e
             Right a -> bprint build (WithTruncatedLog a)
+
+instance Buildable ApiVersion where
+    build ApiVersion0 = "ApiVersion0"
+
+instance Buildable ClientInfo where
+    build ClientInfo {..} =
+        bprint ("{ gitRevision="%build
+                %" apiVersion="%build
+                %" softwareVersion="%build
+                %" cabalVersion="%string
+                %" }")
+        ciGitRevision
+        ciApiVersion
+        ciSoftwareVersion
+        (showVersion ciCabalVersion)

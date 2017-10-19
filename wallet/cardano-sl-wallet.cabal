@@ -33,6 +33,7 @@ library
                       Pos.Wallet.Web.Methods
                       Pos.Wallet.Web.Methods.Backup
                       Pos.Wallet.Web.Methods.History
+                      Pos.Wallet.Web.Methods.Info
                       Pos.Wallet.Web.Methods.Logic
                       Pos.Wallet.Web.Methods.Misc
                       Pos.Wallet.Web.Methods.Payment
@@ -63,6 +64,8 @@ library
                       Pos.Wallet.Web.Tracking.BListener
                       Pos.Wallet.Web.Tracking.Sync
                       Pos.Wallet.Web.Tracking.Modifier
+
+  other-modules:        Paths_cardano_sl_wallet
 
   build-depends:        aeson >= 0.11.2.1
                       , ansi-wl-pprint

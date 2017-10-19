@@ -22,9 +22,9 @@ import           Universum
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Core                   (SoftwareVersion (..), decodeTextAddress)
+import           Pos.NtpCheck               (mkNtpDiffVar)
 import           Pos.Update.Configuration   (curSoftwareVersion)
 import           Pos.Util                   (maybeThrow)
-
 import           Pos.Wallet.KeyStorage      (deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.WalletMode      (applyLastUpdate, connectedPeers,
                                              localChainDifficulty, networkChainDifficulty)
@@ -93,13 +93,14 @@ syncProgress =
     <*> connectedPeers
 
 ----------------------------------------------------------------------------
--- local time
+-- status of NTP (Network Time Protocol)
 ----------------------------------------------------------------------------
 
 localTimeDifference :: MonadWalletWebMode m => m Word
-localTimeDifference = pure 0
-    -- TODO (jk): ^ Get local time difference,
-    -- if `CSL-1383` will be ready
+localTimeDifference = do
+    var <- mkNtpDiffVar
+    diff <- atomically $ readTVar var
+    pure $ fromIntegral diff
 
 ----------------------------------------------------------------------------
 -- Reset

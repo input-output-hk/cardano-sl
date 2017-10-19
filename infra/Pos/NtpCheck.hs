@@ -1,19 +1,24 @@
+{-# LANGUAGE DataKinds           #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module Pos.NtpCheck
-    ( withNtpCheck
+    ( mkNtpDiffVar
+    , ntpSettings
+    , withNtpCheck
     , NtpStatus(..)
+    , NtpCheckMonad
     ) where
 
 import           Universum                   hiding (bracket)
 
 import           Control.Monad.Trans.Control (MonadBaseControl)
+
 import qualified Data.List.NonEmpty          as NE
 import           Data.Time.Units             (Microsecond)
-import           Mockable                    (Bracket, CurrentTime, Fork, Mockable,
-                                              bracket, currentTime)
-import           NTP.Client                  (NtpClientSettings (..), pressNtpStopButton,
-                                              startNtpClient)
+import           Mockable                    (Bracket, CurrentTime, Delay, Fork, Mockable,
+                                              Mockables, bracket, currentTime)
+import           NTP.Client                  (NtpClientSettings (..), ntpSingleShot,
+                                              pressNtpStopButton, startNtpClient)
 import           Pos.Core.Timestamp          (Timestamp (..), diffTimestamp)
 import           Pos.Infra.Configuration     (HasInfraConfiguration, infraConfiguration)
 import qualified Pos.Infra.Configuration     as Infra
@@ -32,18 +37,19 @@ type NtpCheckMonad m =
     , HasInfraConfiguration
     )
 
-withNtpCheck :: forall m a. NtpCheckMonad m => (NtpStatus -> m ()) -> m a -> m a
-withNtpCheck onStatus action = bracket (startNtpClient ntpSettings) pressNtpStopButton (\_ -> action)
-  where
-    ntpSettings :: NtpClientSettings m
-    ntpSettings = NtpClientSettings
-        { ntpServers         = Infra.ntpServers
-        , ntpHandler         = ntpCheckHandler onStatus
-        , ntpLogName         = "ntp-check"
-        , ntpResponseTimeout = sec 5
-        , ntpPollDelay       = timeDifferenceWarnInterval
-        , ntpMeanSelection   = median . NE.fromList
-        }
+withNtpCheck :: forall m a. NtpCheckMonad m => NtpClientSettings m -> m a -> m a
+withNtpCheck settings action =
+    bracket (startNtpClient settings) pressNtpStopButton (const action)
+
+ntpSettings :: NtpCheckMonad m => (NtpStatus -> m ()) -> NtpClientSettings m
+ntpSettings onStatus = NtpClientSettings
+    { ntpServers         = Infra.ntpServers
+    , ntpHandler         = ntpCheckHandler onStatus
+    , ntpLogName         = "ntp-check"
+    , ntpResponseTimeout = sec 5
+    , ntpPollDelay       = timeDifferenceWarnInterval
+    , ntpMeanSelection   = median . NE.fromList
+    }
 
 data NtpStatus = NtpSyncOk | NtpDesync Microsecond
     deriving (Eq, Show)
@@ -63,3 +69,20 @@ timeDifferenceWarnInterval = fromIntegral (Infra.ccTimeDifferenceWarnInterval in
 
 timeDifferenceWarnThreshold :: HasInfraConfiguration => Microsecond
 timeDifferenceWarnThreshold = fromIntegral (Infra.ccTimeDifferenceWarnThreshold infraConfiguration)
+
+type NtpDiffVar = TVar Microsecond
+
+-- Helper to get difference in `Microsecond`
+mkNtpDiffVar :: ( NtpCheckMonad m , Mockables m [ CurrentTime, Delay] )
+    => m NtpDiffVar
+mkNtpDiffVar = do
+    let noDiff = 0
+    -- ^ no difference in microseconds, which is our initial value here
+    diff <- newTVarIO noDiff
+    let onStatusHandler = atomically . \case
+            NtpSyncOk -> writeTVar diff noDiff
+            -- ^ We will return no difference here, because with `NtpSyncOk`
+            -- we are already consider `timeDifferenceWarnThreshold`
+            NtpDesync diff' -> writeTVar diff diff'
+    _ <- ntpSingleShot $ ntpSettings onStatusHandler
+    pure diff

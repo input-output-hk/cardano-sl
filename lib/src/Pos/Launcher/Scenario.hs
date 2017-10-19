@@ -33,7 +33,7 @@ import qualified Pos.GState               as GS
 import           Pos.Launcher.Resource    (NodeResources (..))
 import           Pos.Lrc.DB               as LrcDB
 import           Pos.Network.Types        (NetworkConfig (..), topologyRunKademlia)
-import           Pos.NtpCheck             (NtpStatus (..), withNtpCheck)
+import           Pos.NtpCheck             (NtpStatus (..), ntpSettings, withNtpCheck)
 import           Pos.Reporting            (reportError)
 import           Pos.Shutdown             (waitForShutdown)
 import           Pos.Slotting             (waitSystemStart)
@@ -124,7 +124,7 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
             sformat ("Worker/plugin with logger name "%shown%
                     " failed with exception: "%shown)
             loggerName e
-    ntpCheck = withNtpCheck onNtpStatusLogWarning
+    ntpCheck = withNtpCheck $ ntpSettings onNtpStatusLogWarning
 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.

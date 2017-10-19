@@ -4978,9 +4978,9 @@ self: {
           pname = "node-sketch";
           version = "0.2.0.0";
           src = fetchgit {
-            url = "https://github.com/serokell/time-warp-nt.git";
-            sha256 = "13avvcni90crjrq10xdpz8d6v5gawm1nw5rvj8lg6vkmcsy44zni";
-            rev = "630b23847ea39778f5616134a4f416b473639a15";
+            url = "https://github.com/arybczak/time-warp-nt.git";
+            sha256 = "0aijj6wq14k0ralji2rn0qiyq8rplcpvgnv43w3vqdxikbxsg85s";
+            rev = "74acf3c98ec402490e4ae086a60227560cde166d";
           };
           isLibrary = true;
           isExecutable = true;
@@ -6066,6 +6066,8 @@ self: {
           pname = "servant-swagger";
           version = "1.1.3.1";
           sha256 = "e8d85d05f4251b7bdbd7c5f215d90a22eb55a46812bc82469d94d2f07adebb58";
+          revision = "1";
+          editedCabalFile = "1bx68rcz4whjw3pqm40aiqpfigcgg9dkgjdlggry2iv81s0415xf";
           setupHaskellDepends = [
             base
             Cabal
@@ -6096,6 +6098,8 @@ self: {
           pname = "servant-swagger-ui";
           version = "0.2.4.3.0.20";
           sha256 = "b603d7da9141714a5eab226d015ffe566294671840c84d9bf94c4ea0114817a3";
+          revision = "1";
+          editedCabalFile = "1wsbb9zaq5qv39hrymy1cma581337rbvqlm7y24jwfvk4vafs3fp";
           libraryHaskellDepends = [
             base
             blaze-markup

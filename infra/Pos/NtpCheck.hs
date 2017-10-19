@@ -70,13 +70,13 @@ timeDifferenceWarnInterval = fromIntegral (Infra.ccTimeDifferenceWarnInterval in
 timeDifferenceWarnThreshold :: HasInfraConfiguration => Microsecond
 timeDifferenceWarnThreshold = fromIntegral (Infra.ccTimeDifferenceWarnThreshold infraConfiguration)
 
-type NtpStatusVar = TVar NtpStatus
+type NtpStatusVar = MVar NtpStatus
 
 -- Helper to get ntp status
 mkNtpStatusVar :: ( NtpCheckMonad m , Mockables m [ CurrentTime, Delay] )
     => m NtpStatusVar
 mkNtpStatusVar = do
-    status <- newTVarIO NtpSyncOk
-    let onStatusHandler = atomically . writeTVar status
+    status <- newEmptyMVar
+    let onStatusHandler = putMVar status
     _ <- ntpSingleShot $ ntpSettings onStatusHandler
     pure status

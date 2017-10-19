@@ -98,7 +98,7 @@ syncProgress =
 
 localTimeDifference :: MonadWalletWebMode m => m Word
 localTimeDifference =
-    mkNtpStatusVar >>= readTVarIO >>= pure . diff
+    mkNtpStatusVar >>= readMVar >>= pure . diff
   where
     diff :: NtpStatus -> Word
     diff = \case

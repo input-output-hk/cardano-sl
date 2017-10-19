@@ -230,45 +230,86 @@ instance ( ToDocs a, ToDocs b) => ToSchema (OneOf a b) where
 -- The API
 --
 
-highLevelDescription :: T.Text -> T.Text
-highLevelDescription errorExample = [text|
+highLevelDescription :: DescriptionEnvironment -> T.Text
+highLevelDescription DescriptionEnvironment{..} = [text|
 
 This is the specification for the Cardano Wallet API, automatically generated
 as a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API
 of [Cardano](https://github.com/input-output-hk/cardano-sl).
 
-### Request format
+### Request format (all versions)
 
-Here we document how to perform a request.
+Issuing requests against this API is conceptually not very different from any other web service out there. The API
+is versioned, meaning is possible to access different versions of the latter by changing the _version number_ in the URL.
 
-### Response format
+For example, _omitting_ the version number of passing `v0` would call the version 0 of the API. Examples:
 
-Here we document what do expect as a result.
-
-``` json
-{ "id": "foo",
-  "bar": 10
-}
+```
+/api/version
+/api/v0/version
 ```
 
-### Dealing with errors
+Both URL above will return the same result. Compatibility between major versions is not _guaranteed_, i.e. the
+request & response formats might differ.
+
+### Response format (V1 onwards)
+
+**All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is
+the best way of ensuring the performance of GET requests is not affected by the size of the data storage.
+
+Version `V1` introduced a different way of requesting information to the API. In particular, GET requests
+which returns a _collection_ (i.e. typically a JSON array of resources) lists extra parameters which can be
+used to modify the shape of the response. In particular, those are:
+
+* `page`: (Default value: **1**).
+* `per_page`: (Default value: **$defaultPerPage**)
+* `extended`: (Default value: `false`)
+* `Daedalus-Response-Format`: (Default value: `null`)
+
+For a more accurate description, see the section `Parameters` of each GET request, but as a brief overview
+the first two control how many results and which results to access in a paginated request. The other two
+(one to be passed as a query parameter, the other as an HTTP Header) controls the response format. By omitting
+both, the "naked" collection will be returned. For example, requesting for a list of _Accounts_ might issue,
+in this case:
+
+``` json
+$accountExample
+```
+
+In the second case, instead:
+
+``` json
+$accountExtendedExample
+```
+
+### Dealing with errors (V1 onwards)
 
 In case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a
 [JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together
 with a numeric error code which can be used by API consumers to implement proper error handling in their
 application. For example, here's a typical error which might be issued:
 
-```
+``` json
 $errorExample
 ```
 
 |]
 
+data DescriptionEnvironment = DescriptionEnvironment {
+    errorExample           :: !T.Text
+  , defaultPerPage         :: !T.Text
+  , accountExample         :: !T.Text
+  , accountExtendedExample :: !T.Text
+  }
+
 api :: Swagger
 api = toSwagger walletAPI
   & info.title   .~ "Cardano Wallet API"
   & info.version .~ "2.0"
-  & info.description ?~ (highLevelDescription errorExample)
+  & info.description ?~ (highLevelDescription $ DescriptionEnvironment {
+      errorExample = toS $ encodePretty (genExample @WalletError)
+    , defaultPerPage = fromString (show defaultPerPageEntries)
+    , accountExample = toS $ encodePretty (genExample @[Account])
+    , accountExtendedExample = toS $ encodePretty (genExample @(ExtendedResponse [Account]))
+    })
   & info.license ?~ ("MIT" & url ?~ URL "http://mit.com")
-  where
-    errorExample = toS $ encodePretty (genExample @WalletError)

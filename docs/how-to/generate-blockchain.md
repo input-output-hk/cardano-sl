@@ -11,9 +11,10 @@ $ stack exec -- cardano-auxx                     \
     --configuration-file node/configuration.yaml \
     --configuration-key mainnet_full             \
     --db-path some-db                            \
+    repl
 ```
 
 Then ensure you have all the needed keys imported (see `add-key` and 
-`add-key-pool` commands). Next is running `generate-blocks <N> <seed>?` command, where
-`<N>` is number of blocks to generate and `<seed>` is optional generation seed.
-Transaction payload generation is disabled by default.
+`add-key-pool` commands). Next is running `generate-blocks <N>` command, where
+`<N>` is number of blocks to generate. Transaction payload generation is 
+disabled by default.

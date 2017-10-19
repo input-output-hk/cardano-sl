@@ -20,7 +20,7 @@ import           Pos.Block.Core.Main.Chain  (Body (..), ConsensusData (..))
 import           Pos.Block.Core.Main.Lens   (mainBlockEBDataProof)
 import           Pos.Block.Core.Main.Types  (MainBlockHeader, MainBlockchain,
                                              MainToSign (..))
-import           Pos.Block.Core.Union.Types (BiHeader, BlockSignature (..))
+import           Pos.Block.Core.Union.Types (BlockHeader, BlockSignature (..))
 import           Pos.Core                   (Blockchain (..), BlockchainHelpers (..),
                                              GenericBlock (..), GenericBlockHeader (..),
                                              HasConfiguration, IsMainHeader (..),
@@ -30,18 +30,19 @@ import           Pos.Crypto                 (ProxySignature (..), SignTag (..), 
 import           Pos.Delegation.Helpers     (dlgVerifyPayload)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types        (Ssc (..))
+import           Pos.Ssc.GodTossing.Type    (SscGodTossing)
 import           Pos.Util.Util              (Some (Some))
 
-instance ( BiHeader ssc
-         , SscHelpersClass ssc
+
+instance ( Bi BlockHeader
          , HasConfiguration
-         , IsMainHeader (GenericBlockHeader $ MainBlockchain ssc)
+         , IsMainHeader MainBlockHeader
          ) =>
-         BlockchainHelpers (MainBlockchain ssc) where
+         BlockchainHelpers (MainBlockchain SscGodTossing) where
     verifyBBlockHeader = verifyMainBlockHeader
     verifyBBlock block@UnsafeGenericBlock {..} = do
         either (throwError . pretty) pure $
-            sscVerifyPayload @ssc
+            sscVerifyPayload @SscGodTossing
                 (Right (Some _gbHeader))
                 (_mbSscPayload _gbBody)
         dlgVerifyPayload (_gbHeader ^. epochIndexL) (_mbDlgPayload _gbBody)
@@ -49,8 +50,8 @@ instance ( BiHeader ssc
             throwError "Hash of extra body data is not equal to it's representation in the header."
 
 verifyMainBlockHeader ::
-       (HasConfiguration, Ssc ssc, MonadError Text m, Bi $ BodyProof $ MainBlockchain ssc)
-    => MainBlockHeader ssc
+       (HasConfiguration, Ssc SscGodTossing, MonadError Text m, Bi $ BodyProof $ MainBlockchain SscGodTossing)
+    => MainBlockHeader
     -> m ()
 verifyMainBlockHeader mbh = do
     when (selfSignedProxy $ _mcdSignature) $

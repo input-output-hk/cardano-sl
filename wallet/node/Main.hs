@@ -32,7 +32,6 @@ import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,
                                        withCompileInfo)
 import           Pos.Util.UserSecret  (usVss)
-import           Pos.Wallet.SscType   (WalletSscType)
 import           Pos.Wallet.Web       (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
                                        getSKById, runWRealMode, syncWalletsWithGState,
                                        walletServeWebFull, walletServerOuts)
@@ -74,13 +73,13 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
             logInfo "Resyncing wallets with blockchain..."
             syncWallets
     runNodeWithInit init nr =
-        let (ActionSpec f, outs) = runNode @SscGodTossing nr plugins
+        let (ActionSpec f, outs) = runNode nr plugins
          in (ActionSpec $ \v s -> init >> f v s, outs)
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
     syncWallets :: WalletWebMode ()
     syncWallets = do
         sks <- getWalletAddresses >>= mapM getSKById
-        syncWalletsWithGState @WalletSscType sks
+        syncWalletsWithGState sks
     plugins :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
     plugins = mconcat [ convPlugins (pluginsGT wArgs)
                       , walletProd wArgs
@@ -106,7 +105,7 @@ walletProd WalletArgs {..} = first pure $ worker walletServerOuts $ \sendActions
         (Just walletTLSParams)
 
 pluginsGT ::
-    ( WorkMode SscGodTossing ctx m
+    ( WorkMode ctx m
     , HasNodeContext SscGodTossing ctx
     , HasConfigurations
     , HasCompileInfo

@@ -56,10 +56,8 @@ import qualified Pos.GState                   as GS
 import           Pos.Lrc.Context              (LrcContext)
 import qualified Pos.Lrc.DB                   as LrcDB
 import           Pos.Lrc.Types                (RichmenSet)
-import           Pos.Ssc.Class.Helpers        (SscHelpersClass)
 import           Pos.Util                     (HasLens', getKeys, _neHead)
 import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..))
-
 
 -- Copied from 'these' library.
 data These a b = This a | That b | These a b
@@ -325,14 +323,14 @@ getNoLongerRichmen newEpoch =
 -- It's assumed blocks are correct from 'Pos.Types.Block#verifyBlocks'
 -- point of view.
 dlgVerifyBlocks ::
-       forall ssc ctx m.
-       ( DB.MonadBlockDB ssc m
+       forall ctx m.
+       ( DB.MonadBlockDB m
        , MonadIO m
        , MonadReader ctx m
        , HasLens' ctx LrcContext
        , HasConfiguration
        )
-    => OldestFirst NE (Block ssc)
+    => OldestFirst NE Block
     -> ExceptT Text m (OldestFirst NE DlgUndo)
 dlgVerifyBlocks blocks = do
     (richmen :: RichmenSet) <-
@@ -346,7 +344,7 @@ dlgVerifyBlocks blocks = do
 
     verifyBlock ::
         RichmenSet ->
-        Block ssc ->
+        Block ->
         ExceptT Text (MapCede m) DlgUndo
     verifyBlock _ (Left genesisBlk) = do
         let blkEpoch = genesisBlk ^. epochIndexL
@@ -412,16 +410,15 @@ dlgVerifyBlocks blocks = do
 -- returns batchops. It works correctly only in case blocks don't
 -- cross over epoch. So genesis block is either absent or the head.
 dlgApplyBlocks ::
-       forall ssc ctx m.
+       forall ctx m.
        ( MonadDelegation ctx m
        , MonadIO m
        , MonadDBRead m
        , WithLogger m
        , MonadMask m
        , HasConfiguration
-       , SscHelpersClass ssc
        )
-    => OldestFirst NE (Blund ssc)
+    => OldestFirst NE Blund
     -> m (NonEmpty SomeBatchOp)
 dlgApplyBlocks blunds = do
     tip <- GS.getTip
@@ -434,7 +431,7 @@ dlgApplyBlocks blunds = do
     getOldestFirst <$> mapM applyBlock blunds
   where
     blocks = map fst blunds
-    applyBlock :: Blund ssc -> m SomeBatchOp
+    applyBlock :: Blund -> m SomeBatchOp
     applyBlock ((Left block), undoDlg -> DlgUndo{..}) = do
         runDelegationStateAction $ do
             -- all possible psks candidates are now invalid because epoch changed
@@ -472,16 +469,16 @@ dlgApplyBlocks blunds = do
 -- restore them after the rollback (see Txp#normalizeTxpLD). You can
 -- rollback arbitrary number of blocks.
 dlgRollbackBlocks
-    :: forall ssc ctx m.
+    :: forall ctx m.
        ( MonadDelegation ctx m
-       , DB.MonadBlockDB ssc m
+       , DB.MonadBlockDB m
        , WithLogger m
        )
-    => NewestFirst NE (Blund ssc) -> m (NonEmpty SomeBatchOp)
+    => NewestFirst NE Blund -> m (NonEmpty SomeBatchOp)
 dlgRollbackBlocks blunds = do
     getNewestFirst <$> mapM rollbackBlund blunds
   where
-    rollbackBlund :: Blund ssc -> m SomeBatchOp
+    rollbackBlund :: Blund -> m SomeBatchOp
     rollbackBlund (Left _, undoDlg -> DlgUndo{..}) =
         -- We should restore "this epoch posted" set to one from the undo
         pure $ SomeBatchOp $ map GS.AddPostedThisEpoch $ HS.toList duPrevEpochPosted
@@ -500,23 +497,22 @@ dlgRollbackBlocks blunds = do
 -- | Normalizes the memory state after the rollback. Must be called
 -- only when 'StateLock' is taken.
 dlgNormalizeOnRollback ::
-       forall ssc ctx m.
+       forall ctx m.
        ( MonadDelegation ctx m
-       , DB.MonadBlockDB ssc m
+       , DB.MonadBlockDB m
        , DB.MonadGState m
        , MonadIO m
        , MonadMask m
        , HasLens' ctx LrcContext
        , Mockable CurrentTime m
        , HasConfiguration
-       , SscHelpersClass ssc
        )
     => m ()
 dlgNormalizeOnRollback = do
-    tip <- DB.getTipHeader @ssc
+    tip <- DB.getTipHeader
     oldPool <- runDelegationStateAction $ do
         pool <- uses dwProxySKPool toList
         dwProxySKPool .= mempty
         dwTip .= headerHash tip
         pure pool
-    forM_ oldPool $ processProxySKHeavyInternal @ssc
+    forM_ oldPool $ processProxySKHeavyInternal

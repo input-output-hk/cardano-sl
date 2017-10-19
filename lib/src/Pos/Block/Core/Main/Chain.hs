@@ -20,19 +20,19 @@ import           Pos.Binary.Txp             ()
 import           Pos.Binary.Update          ()
 import           Pos.Block.Core.Main.Types  (MainBlock, MainBlockchain, MainExtraBodyData,
                                              MainExtraHeaderData, MainToSign (..))
-import           Pos.Block.Core.Union.Types (BiHeader, Block, BlockHeader,
-                                             BlockSignature (..))
+import           Pos.Block.Core.Union.Types (Block, BlockHeader, BlockSignature (..))
 import           Pos.Core                   (Blockchain (..), ChainDifficulty,
-                                             GenericBlockHeader (..), IsMainHeader (..),
-                                             SlotId (..), HasConfiguration)
+                                             GenericBlockHeader (..), HasConfiguration,
+                                             IsMainHeader (..), SlotId (..))
 import           Pos.Crypto                 (Hash, PublicKey, hash)
 import           Pos.Delegation.Types       (DlgPayload)
 import           Pos.Ssc.Class.Types        (Ssc (..))
+import           Pos.Ssc.GodTossing.Type    (SscGodTossing)
 import           Pos.Txp.Core               (TxPayload, TxProof, mkTxProof)
 import           Pos.Update.Core.Types      (UpdatePayload, UpdateProof, mkUpdateProof)
 
 instance ( HasConfiguration
-         , BiHeader ssc
+         , Bi BlockHeader
          , Ssc ssc
          , Bi $ BodyProof $ MainBlockchain ssc
          , IsMainHeader (GenericBlockHeader $ MainBlockchain ssc)) =>
@@ -56,7 +56,7 @@ instance ( HasConfiguration
         , -- | Signature given by slot leader.
           _mcdSignature  :: !(BlockSignature ssc)
         } deriving (Generic, Show, Eq)
-    type BBlockHeader (MainBlockchain ssc) = BlockHeader ssc
+    type BBlockHeader (MainBlockchain ssc) = BlockHeader
     type ExtraHeaderData (MainBlockchain ssc) = MainExtraHeaderData
 
     -- | In our cryptocurrency, body consists of payloads of all block
@@ -73,7 +73,7 @@ instance ( HasConfiguration
         } deriving (Generic, Typeable)
 
     type ExtraBodyData (MainBlockchain ssc) = MainExtraBodyData
-    type BBlock (MainBlockchain ssc) = Block ssc
+    type BBlock (MainBlockchain ssc) = Block
 
     mkBodyProof MainBody{..} =
         MainProof
@@ -95,4 +95,4 @@ deriving instance Ssc ssc => Eq (MainToSign ssc)
 instance (Ssc ssc) => NFData (BodyProof (MainBlockchain ssc))
 instance (Ssc ssc) => NFData (ConsensusData (MainBlockchain ssc))
 instance (Ssc ssc) => NFData (Body (MainBlockchain ssc))
-instance (Ssc ssc) => NFData (MainBlock ssc)
+instance (Ssc SscGodTossing) => NFData MainBlock

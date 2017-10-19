@@ -60,7 +60,8 @@ import           Pos.Slotting.Impl.Sum            (currentTimeSlottingSum,
                                                    getCurrentSlotSum)
 import           Pos.Slotting.MemState            (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Ssc.Class.Types              (HasSscContext (..), SscBlock)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.GodTossing               (HasGtConfiguration,
+                                                   SscGodTossing)
 import           Pos.Txp                          (MempoolExt, MonadTxpLocal (..),
                                                    txNormalize, txProcessTransaction)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
@@ -82,7 +83,6 @@ import           Pos.Wallet.Redirect              (MonadBlockchainInfo (..),
                                                    localChainDifficultyWebWallet,
                                                    networkChainDifficultyWebWallet,
                                                    waitForUpdateWebWallet)
-import           Pos.Wallet.SscType               (WalletSscType)
 import           Pos.Wallet.Web.Sockets.ConnSet   (ConnectionsVar)
 import           Pos.Wallet.Web.State.State       (WalletState)
 import           Pos.Wallet.Web.Tracking          (MonadBListener (..), onApplyTracking,
@@ -92,12 +92,12 @@ import           Pos.WorkMode                     (EmptyMempoolExt, RealModeCont
 data WalletWebModeContext = WalletWebModeContext
     { wwmcWalletState     :: !WalletState
     , wwmcConnectionsVar  :: !ConnectionsVar
-    , wwmcRealModeContext :: !(RealModeContext WalletSscType EmptyMempoolExt)
+    , wwmcRealModeContext :: !(RealModeContext SscGodTossing EmptyMempoolExt)
     }
 
 makeLensesWith postfixLFields ''WalletWebModeContext
 
-instance HasSscContext WalletSscType WalletWebModeContext where
+instance HasSscContext SscGodTossing WalletWebModeContext where
     sscContext = wwmcRealModeContext_L . sscContext
 
 instance HasPrimaryKey WalletWebModeContext where
@@ -112,7 +112,7 @@ instance HasUserSecret WalletWebModeContext where
 instance HasShutdownContext WalletWebModeContext where
     shutdownContext = wwmcRealModeContext_L . shutdownContext
 
-instance HasNodeContext WalletSscType WalletWebModeContext where
+instance HasNodeContext SscGodTossing WalletWebModeContext where
     nodeContext = wwmcRealModeContext_L . nodeContext
 
 instance HasSlottingVar WalletWebModeContext where
@@ -126,7 +126,7 @@ instance HasLens ConnectionsVar WalletWebModeContext ConnectionsVar where
     lensOf = wwmcConnectionsVar_L
 
 instance {-# OVERLAPPABLE #-}
-    HasLens tag (RealModeContext WalletSscType EmptyMempoolExt) r =>
+    HasLens tag (RealModeContext SscGodTossing EmptyMempoolExt) r =>
     HasLens tag WalletWebModeContext r
   where
     lensOf = wwmcRealModeContext_L . lensOf @tag
@@ -190,22 +190,22 @@ instance HasConfiguration => MonadDB WalletWebMode where
     dbDelete = dbDeleteDefault
 
 instance (HasConfiguration, HasGtConfiguration) =>
-         MonadBlockDBGenericWrite (BlockHeader WalletSscType) (Block WalletSscType) Undo WalletWebMode where
+         MonadBlockDBGenericWrite BlockHeader Block Undo WalletWebMode where
     dbPutBlund = dbPutBlundDefault
 
 instance (HasConfiguration, HasGtConfiguration) =>
-         MonadBlockDBGeneric (BlockHeader WalletSscType) (Block WalletSscType) Undo WalletWebMode
+         MonadBlockDBGeneric BlockHeader Block Undo WalletWebMode
   where
-    dbGetBlock  = dbGetBlockDefault @WalletSscType
-    dbGetUndo   = dbGetUndoDefault @WalletSscType
-    dbGetHeader = dbGetHeaderDefault @WalletSscType
+    dbGetBlock  = dbGetBlockDefault
+    dbGetUndo   = dbGetUndoDefault
+    dbGetHeader = dbGetHeaderDefault
 
 instance (HasConfiguration, HasGtConfiguration) =>
-         MonadBlockDBGeneric (Some IsHeader) (SscBlock WalletSscType) () WalletWebMode
+         MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () WalletWebMode
   where
-    dbGetBlock  = dbGetBlockSscDefault @WalletSscType
-    dbGetUndo   = dbGetUndoSscDefault @WalletSscType
-    dbGetHeader = dbGetHeaderSscDefault @WalletSscType
+    dbGetBlock  = dbGetBlockSscDefault
+    dbGetUndo   = dbGetUndoSscDefault
+    dbGetHeader = dbGetHeaderSscDefault
 
 instance HasConfiguration => MonadGState WalletWebMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault
@@ -235,8 +235,8 @@ instance ( HasConfiguration
          , HasInfraConfiguration
          , HasCompileInfo
          ) =>
-         MonadTxHistory WalletSscType WalletWebMode where
-    getBlockHistory = getBlockHistoryDefault @WalletSscType
+         MonadTxHistory SscGodTossing WalletWebMode where
+    getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
 

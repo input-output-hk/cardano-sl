@@ -1,5 +1,4 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE GADTs               #-}
 {-# LANGUAGE RankNTypes          #-}
 
 module Test.Pos.Util

@@ -57,7 +57,7 @@ import           Pos.Util.Util                (maybeThrow)
 type Page = Int
 type Epoch = EpochIndex
 
--- type PageBlocks = [Block SscGodTossing]
+-- type PageBlocks = [Block]
 -- ^ this is much simpler but we are trading time for space
 -- (since space is an issue, it seems)
 

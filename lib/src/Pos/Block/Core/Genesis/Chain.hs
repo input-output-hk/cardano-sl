@@ -20,6 +20,7 @@ import           Pos.Core                     (Blockchain (..), BlockchainHelper
                                                SlotLeaders)
 import           Pos.Crypto                   (Hash, hash)
 import           Pos.Ssc.Class.Types          (Ssc (..))
+import           Pos.Ssc.GodTossing.Type      (SscGodTossing)
 
 instance Blockchain (GenesisBlockchain ssc) where
     -- [CSL-199]: maybe we should use ADS.
@@ -33,7 +34,7 @@ instance Blockchain (GenesisBlockchain ssc) where
         , -- | Difficulty of the chain ending in this genesis block.
           _gcdDifficulty :: !ChainDifficulty
         } deriving (Generic, Show, Eq)
-    type BBlockHeader (GenesisBlockchain ssc) = BlockHeader ssc
+    type BBlockHeader (GenesisBlockchain ssc) = BlockHeader
     type ExtraHeaderData (GenesisBlockchain ssc) = GenesisExtraHeaderData
 
     -- | Body of genesis block consists of slot leaders for epoch
@@ -43,7 +44,7 @@ instance Blockchain (GenesisBlockchain ssc) where
         } deriving (Generic, Show, Eq)
 
     type ExtraBodyData (GenesisBlockchain ssc) = GenesisExtraBodyData
-    type BBlock (GenesisBlockchain ssc) = Block ssc
+    type BBlock (GenesisBlockchain ssc) = Block
 
     mkBodyProof = GenesisProof . hash . _gbLeaders
 
@@ -54,4 +55,4 @@ instance BlockchainHelpers (GenesisBlockchain ssc) where
 instance (Ssc ssc) => NFData (BodyProof (GenesisBlockchain ssc))
 instance (Ssc ssc) => NFData (ConsensusData (GenesisBlockchain ssc))
 instance (Ssc ssc) => NFData (Body (GenesisBlockchain ssc))
-instance (Ssc ssc) => NFData (GenesisBlock ssc)
+instance (Ssc SscGodTossing) => NFData GenesisBlock

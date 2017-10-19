@@ -16,7 +16,8 @@ import           Formatting               (build, int, sformat, shown, (%))
 import           Mockable                 (mapConcurrently, race)
 import           Serokell.Util.Text       (listJson)
 import           System.Exit              (ExitCode (..))
-import           System.Wlog              (WithLogger, getLoggerName, logInfo, logWarning)
+import           System.Wlog              (WithLogger, getLoggerName, logDebug, logInfo,
+                                           logWarning)
 
 import           Pos.Communication        (ActionSpec (..), OutSpecs, WorkerSpec,
                                            wrapActionSpec)
@@ -32,6 +33,7 @@ import qualified Pos.GState               as GS
 import           Pos.Launcher.Resource    (NodeResources (..))
 import           Pos.Lrc.DB               as LrcDB
 import           Pos.Network.Types        (NetworkConfig (..), topologyRunKademlia)
+import           Pos.NtpCheck             (NtpStatus (..), withNtpCheck)
 import           Pos.Reporting            (reportError)
 import           Pos.Shutdown             (waitForShutdown)
 import           Pos.Slotting             (waitSystemStart)
@@ -44,18 +46,19 @@ import           Pos.Util.CompileInfo     (compileInfo)
 import           Pos.Util.LogSafe         (logInfoS)
 import           Pos.Worker               (allWorkers)
 import           Pos.WorkMode.Class       (WorkMode)
+import           Pos.Ssc.GodTossing.Type  (SscGodTossing)
 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
 runNode'
-    :: forall ssc ext ctx m.
-       ( WorkMode ssc ctx m
+    :: forall ext ctx m.
+       ( WorkMode ctx m
        )
-    => NodeResources ssc ext m
+    => NodeResources SscGodTossing ext m
     -> [WorkerSpec m]
     -> [WorkerSpec m]
     -> WorkerSpec m
-runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> do
+runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> ntpCheck $ do
     logInfo $ "Built with: " <> pretty compileInfo
     nodeStartMsg
     inAssertMode $ logInfo "Assert mode on"
@@ -96,7 +99,7 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
             sformat ("Last known leaders for epoch "%build%" are: "%listJson)
                     lastKnownEpoch leaders
     LrcDB.getLeaders lastKnownEpoch >>= maybe onNoLeaders onLeaders
-    tipHeader <- DB.getTipHeader @ssc
+    tipHeader <- DB.getTipHeader
     logInfo $ sformat ("Current tip header: "%build) tipHeader
 
     waitSystemStart
@@ -122,14 +125,15 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
             sformat ("Worker/plugin with logger name "%shown%
                     " failed with exception: "%shown)
             loggerName e
+    ntpCheck = withNtpCheck onNtpStatusLogWarning
 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
 runNode ::
-       ( SscConstraint ssc
-       , WorkMode ssc ctx m
+       ( SscConstraint SscGodTossing
+       , WorkMode ctx m
        )
-    => NodeResources ssc ext m
+    => NodeResources SscGodTossing ext m
     -> ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)
 runNode nr (plugins, plOuts) =
@@ -137,6 +141,16 @@ runNode nr (plugins, plOuts) =
   where
     (workers', wOuts) = allWorkers nr
     plugins' = map (wrapActionSpec "plugin") plugins
+
+onNtpStatusLogWarning :: WithLogger m => NtpStatus -> m ()
+onNtpStatusLogWarning = \case
+    NtpSyncOk -> logDebug $
+              -- putText  $ -- FIXME: for some reason this message isn't printed
+                            -- when using 'logDebug', but a simple 'putText' works
+                            -- just fine.
+        "Local time is in sync with the NTP server"
+    NtpDesync diff -> logWarning $
+        "Local time is severely off sync with the NTP server: " <> show diff
 
 -- | This function prints a very useful message when node is started.
 nodeStartMsg :: (HasUpdateConfiguration, WithLogger m) => m ()

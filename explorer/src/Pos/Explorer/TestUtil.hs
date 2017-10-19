@@ -64,20 +64,20 @@ instance HasConfiguration => Arbitrary Undo where
 
 basicBlockGenericUnsafe
     :: (HasConfiguration, HasUpdateConfiguration)
-    => BlockHeader SscGodTossing
+    => BlockHeader
     -> SecretKey
     -> SlotId
-    -> Block SscGodTossing
+    -> Block
 basicBlockGenericUnsafe prevHeader sk slotId = case (basicBlock prevHeader sk slotId) of
     Left e      -> error e
     Right block -> Right block
 
 basicBlock
     :: (HasConfiguration, HasUpdateConfiguration)
-    => BlockHeader SscGodTossing
+    => BlockHeader
     -> SecretKey
     -> SlotId
-    -> Either Text (MainBlock SscGodTossing)
+    -> Either Text MainBlock
 basicBlock prevHeader sk slotId =
     producePureBlock infLimit prevHeader [] Nothing slotId def (defGTP slotId) def sk
   where
@@ -89,7 +89,7 @@ basicBlock prevHeader sk slotId =
 
 emptyBlk
     :: (HasConfiguration, HasUpdateConfiguration, Testable p)
-    => (Either Text (MainBlock SscGodTossing) -> p)
+    => (Either Text MainBlock -> p)
     -> Property
 emptyBlk testableBlock =
     forAll arbitrary $ \(sk, prevHeader, slotId) ->
@@ -105,7 +105,7 @@ emptyBlk testableBlock =
 producePureBlock
     :: (HasConfiguration, HasUpdateConfiguration)
     => Byte
-    -> BlockHeader SscGodTossing
+    -> BlockHeader
     -> [TxAux]
     -> ProxySKBlockInfo
     -> SlotId
@@ -113,7 +113,7 @@ producePureBlock
     -> SscPayload SscGodTossing
     -> UpdatePayload
     -> SecretKey
-    -> Either Text (MainBlock SscGodTossing)
+    -> Either Text MainBlock
 producePureBlock limit prev txs psk slot dlgPay sscPay usPay sk =
     createMainBlockPure limit prev psk slot sk $
     RawPayload txs sscPay dlgPay usPay
@@ -132,13 +132,13 @@ produceBlocksByBlockNumberAndSlots
     -> SlotsPerEpoch
     -> SlotLeaders
     -> [SecretKey]
-    -> m [Block SscGodTossing]
+    -> m [Block]
 produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders secretKeys = do
 
     -- This is just plain wrong and we need to check for it.
     when (blockNumber < slotsNumber) $ error "Illegal argument."
 
-    let generatedEpochBlocksM :: m [[Block SscGodTossing]]
+    let generatedEpochBlocksM :: m [[Block]]
         generatedEpochBlocksM = forM [0..totalEpochs] $ \currentEpoch -> do
             generateGenericEpochBlocks Nothing slotsNumber (EpochIndex . fromIntegral $ currentEpoch)
 
@@ -149,36 +149,36 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
     totalEpochs = blockNumber `div` slotsNumber
 
     generateGenericEpochBlocks
-        :: Maybe (BlockHeader SscGodTossing)
+        :: Maybe BlockHeader
         -> SlotsPerEpoch
         -> EpochIndex
-        -> m [Block SscGodTossing]
+        -> m [Block]
     generateGenericEpochBlocks mBlockHeader slotsPerEpoch epochIndex = do
         let generatedBlocks = generateEpochBlocks mBlockHeader slotsPerEpoch epochIndex
 
-        let gbToMainBlock :: Block SscGodTossing
+        let gbToMainBlock :: Block
             gbToMainBlock = Left . fst $ generatedBlocks
 
-        let mainBlocks :: [MainBlock SscGodTossing]
+        let mainBlocks :: [MainBlock]
             mainBlocks = snd generatedBlocks
 
-        let mbToMainBlock :: [Block SscGodTossing]
+        let mbToMainBlock :: [Block]
             mbToMainBlock = Right <$> mainBlocks
 
         pure $ [gbToMainBlock] ++ mbToMainBlock
 
     generateEpochBlocks
-        :: Maybe (BlockHeader SscGodTossing)
+        :: Maybe BlockHeader
         -> SlotsPerEpoch
         -> EpochIndex
-        -> (GenesisBlock SscGodTossing, [MainBlock SscGodTossing])
+        -> (GenesisBlock, [MainBlock])
     generateEpochBlocks mBlockHeader slotsPerEpoch' epochIndex =
         (epochGenesisBlock, epochBlocks)
       where
-        epochGenesisBlock :: GenesisBlock SscGodTossing
+        epochGenesisBlock :: GenesisBlock
         epochGenesisBlock = mkGenesisBlock mBlockHeader epochIndex producedSlotLeaders
 
-        epochBlocks :: [MainBlock SscGodTossing]
+        epochBlocks :: [MainBlock]
         epochBlocks =
             -- TODO(ks): Not correct, but I will fix it later.
             generateBlocks getPrevBlockHeader <$> blockNumbers
@@ -187,14 +187,14 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
             blockNumbers = [1..slotsPerEpoch']
 
             -- type BlockHeader ssc = Either (GenesisBlockHeader ssc) (MainBlockHeader ssc)
-            getPrevBlockHeader :: BlockHeader SscGodTossing
+            getPrevBlockHeader :: BlockHeader
             getPrevBlockHeader = getBlockHeader . Left $ epochGenesisBlock
 
             generateBlocks
                 :: (HasConfiguration, HasUpdateConfiguration)
-                => BlockHeader SscGodTossing
+                => BlockHeader
                 -> BlockNumber
-                -> MainBlock SscGodTossing
+                -> MainBlock
             generateBlocks previousBlockHeader blockNumber' =
 
                 case basicBlock previousBlockHeader currentSecretKey slotId of

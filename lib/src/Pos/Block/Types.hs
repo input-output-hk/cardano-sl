@@ -13,7 +13,7 @@ import qualified Data.Text.Buildable
 import           Formatting            (bprint, build, (%))
 import           Serokell.Util.Text    (listJson)
 
-import           Pos.Block.Core        (BiSsc, Block)
+import           Pos.Block.Core        (Block)
 import           Pos.Block.Slog.Types  (SlogUndo (..))
 import           Pos.Core              (HasConfiguration, HasDifficulty (..),
                                         HasHeaderHash (..))
@@ -32,7 +32,7 @@ data Undo = Undo
 instance NFData Undo
 
 -- | Block and its Undo.
-type Blund ssc = (Block ssc, Undo)
+type Blund = (Block, Undo)
 
 instance HasConfiguration => Buildable Undo where
     build Undo{..} =
@@ -43,8 +43,8 @@ instance HasConfiguration => Buildable Undo where
                 "  undoSlog: "%build)
                (map (bprint listJson) undoTx) undoDlg undoUS undoSlog
 
-instance HasDifficulty (Blund ssc) where
+instance HasDifficulty Blund where
     difficultyL = _1 . difficultyL
 
-instance BiSsc ssc => HasHeaderHash (Blund ssc) where
+instance HasHeaderHash Block => HasHeaderHash Blund where
     headerHash = headerHash . fst

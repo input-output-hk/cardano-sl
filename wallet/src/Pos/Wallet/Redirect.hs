@@ -40,15 +40,15 @@ import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (
 ----------------------------------------------------------------------------
 
 getLastKnownHeader
-  :: (PC.MonadLastKnownHeader ssc ctx m, MonadIO m)
-  => m (Maybe (BlockHeader ssc))
+  :: (PC.MonadLastKnownHeader ctx m, MonadIO m)
+  => m (Maybe BlockHeader)
 getLastKnownHeader =
     atomically . readTVar =<< view (lensOf @PC.LastKnownHeaderTag)
 
-type BlockchainInfoEnv ssc ctx m =
-    ( MonadBlockDB ssc m
-    , PC.MonadLastKnownHeader ssc ctx m
-    , PC.MonadProgressHeader ssc ctx m
+type BlockchainInfoEnv ctx m =
+    ( MonadBlockDB m
+    , PC.MonadLastKnownHeader ctx m
+    , PC.MonadProgressHeader ctx m
     , MonadReader ctx m
     , HasLens PC.ConnectedPeers ctx PC.ConnectedPeers
     , MonadIO m
@@ -58,33 +58,33 @@ type BlockchainInfoEnv ssc ctx m =
     )
 
 networkChainDifficultyWebWallet
-    :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m
+    :: forall ctx m. BlockchainInfoEnv ctx m
     => m (Maybe ChainDifficulty)
 networkChainDifficultyWebWallet = getLastKnownHeader >>= \case
     Just lh -> do
-        thDiff <- view difficultyL <$> getTipHeader @ssc
+        thDiff <- view difficultyL <$> getTipHeader
         let lhDiff = lh ^. difficultyL
         return . Just $ max thDiff lhDiff
     Nothing -> pure Nothing
 
 localChainDifficultyWebWallet
-    :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m
+    :: forall ctx m. BlockchainInfoEnv ctx m
     => m ChainDifficulty
 localChainDifficultyWebWallet = do
     -- Workaround: Make local chain difficulty monotonic
     prevMaxDifficulty <- fromMaybe 0 <$> GS.getMaxSeenDifficultyMaybe
-    currDifficulty <- view difficultyL <$> getTipHeader @ssc
+    currDifficulty <- view difficultyL <$> getTipHeader
     return $ max prevMaxDifficulty currDifficulty
 
 connectedPeersWebWallet
-    :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m
+    :: forall ctx m. BlockchainInfoEnv ctx m
     => m Word
 connectedPeersWebWallet = fromIntegral . length <$> do
     PC.ConnectedPeers cp <- view (lensOf @PC.ConnectedPeers)
     atomically (readTVar cp)
 
 blockchainSlotDurationWebWallet
-    :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m
+    :: forall ctx m. BlockchainInfoEnv ctx m
     => m Millisecond
 blockchainSlotDurationWebWallet = getNextEpochSlotDuration
 

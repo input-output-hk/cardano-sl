@@ -31,7 +31,6 @@ import qualified Pos.GState                       as GS
 import           Pos.Reporting                    (MonadReporting, reportOrLogW)
 import           Pos.Slotting                     (MonadSlots, MonadSlotsData,
                                                    getSlotStartPure, getSystemStartM)
-import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Txp.Core                     (TxAux (..), TxUndo, flattenTxPayload)
 import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..))
 
@@ -64,15 +63,14 @@ walletGuard curTip wAddr action = WS.getWalletSyncTip wAddr >>= \case
 
 -- Perform this action under block lock.
 onApplyTracking
-    :: forall ssc ctx m .
-    ( SscHelpersClass ssc
-    , AccountMode ctx m
+    :: forall ctx m .
+    ( AccountMode ctx m
     , MonadSlotsData ctx m
     , MonadDBRead m
     , MonadReporting ctx m
     , HasConfiguration
     )
-    => OldestFirst NE (Blund ssc) -> m SomeBatchOp
+    => OldestFirst NE Blund -> m SomeBatchOp
 onApplyTracking blunds = setLogger $ do
     let oldestFirst = getOldestFirst blunds
         txsWUndo = concatMap gbTxsWUndo oldestFirst
@@ -88,8 +86,8 @@ onApplyTracking blunds = setLogger $ do
 
     syncWallet
         :: HeaderHash
-        -> BlockHeader ssc
-        -> [(TxAux, TxUndo, BlockHeader ssc)]
+        -> BlockHeader
+        -> [(TxAux, TxUndo, BlockHeader)]
         -> CId Wal
         -> m ()
     syncWallet curTip newTipH blkTxsWUndo wAddr = walletGuard curTip wAddr $ do
@@ -106,15 +104,14 @@ onApplyTracking blunds = setLogger $ do
 
 -- Perform this action under block lock.
 onRollbackTracking
-    :: forall ssc ctx m .
+    :: forall ctx m .
     ( AccountMode ctx m
     , MonadDBRead m
     , MonadSlots ctx m
-    , SscHelpersClass ssc
     , MonadReporting ctx m
     , HasConfiguration
     )
-    => NewestFirst NE (Blund ssc) -> m SomeBatchOp
+    => NewestFirst NE Blund -> m SomeBatchOp
 onRollbackTracking blunds = setLogger $ do
     let newestFirst = getNewestFirst blunds
         txs = concatMap (reverse . gbTxsWUndo) newestFirst
@@ -130,7 +127,7 @@ onRollbackTracking blunds = setLogger $ do
     syncWallet
         :: HeaderHash
         -> HeaderHash
-        -> [(TxAux, TxUndo, BlockHeader ssc)]
+        -> [(TxAux, TxUndo, BlockHeader)]
         -> CId Wal
         -> m ()
     syncWallet curTip newTip txs wid = walletGuard curTip wid $ do
@@ -147,10 +144,9 @@ onRollbackTracking blunds = setLogger $ do
 blkHeaderTsGetter
     :: ( MonadSlotsData ctx m
        , MonadDBRead m
-       , SscHelpersClass ssc
        , HasConfiguration
        )
-    => m (BlockHeader ssc -> Maybe Timestamp)
+    => m (BlockHeader -> Maybe Timestamp)
 blkHeaderTsGetter = do
     systemStart <- getSystemStartM
     sd <- GS.getSlottingData
@@ -158,7 +154,7 @@ blkHeaderTsGetter = do
             getSlotStartPure systemStart (mBlkH ^. headerSlotL) sd
     return $ either (const Nothing) mainBlkHeaderTs
 
-gbTxsWUndo :: Blund ssc -> [(TxAux, TxUndo, BlockHeader ssc)]
+gbTxsWUndo :: Blund -> [(TxAux, TxUndo, BlockHeader)]
 gbTxsWUndo (Left _, _) = []
 gbTxsWUndo (blk@(Right mb), undo) =
     zip3 (mb ^. mainBlockTxPayload . to flattenTxPayload)
@@ -171,7 +167,7 @@ setLogger = modifyLoggerName (<> "wallet" <> "blistener")
 logMsg
     :: (MonadIO m, WithLogger m)
     => Text
-    -> NonEmpty (Blund ssc)
+    -> NonEmpty Blund
     -> CId Wal
     -> CAccModifier
     -> m ()

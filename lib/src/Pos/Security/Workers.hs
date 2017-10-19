@@ -16,11 +16,13 @@ import           Pos.Block.Logic            (needRecovery)
 import           Pos.Block.Network          (requestTipOuts, triggerRecovery)
 import           Pos.Communication.Protocol (OutSpecs, SendActions (..), WorkerSpec,
                                              worker)
-import           Pos.Configuration          (HasNodeConfiguration, mdNoBlocksSlotThreshold)
+import           Pos.Configuration          (HasNodeConfiguration,
+                                             mdNoBlocksSlotThreshold)
 import           Pos.Context                (getOurPublicKey, getUptime,
                                              recoveryCommGuard)
-import           Pos.Core                   (SlotId (..), flattenEpochOrSlot, flattenSlotId,
-                                             headerHash, headerLeaderKeyL, prevBlockL)
+import           Pos.Core                   (SlotId (..), flattenEpochOrSlot,
+                                             flattenSlotId, headerHash, headerLeaderKeyL,
+                                             prevBlockL)
 import           Pos.Core.Configuration     (HasConfiguration, genesisHash)
 import           Pos.Crypto                 (PublicKey)
 import           Pos.DB                     (DBError (DBMalformed))
@@ -31,20 +33,20 @@ import           Pos.Slotting               (getCurrentSlot, getNextEpochSlotDur
 import           Pos.WorkMode.Class         (WorkMode)
 
 -- | Workers which perform security checks.
-securityWorkers :: WorkMode ssc ctx m => ([WorkerSpec m], OutSpecs)
+securityWorkers :: WorkMode ctx m => ([WorkerSpec m], OutSpecs)
 securityWorkers = merge [checkForReceivedBlocksWorker]
   where
     merge = mconcat . map (first pure)
 
 checkForReceivedBlocksWorker ::
-    (WorkMode ssc ctx m)
+    (WorkMode ctx m)
     => (WorkerSpec m, OutSpecs)
 checkForReceivedBlocksWorker =
     worker requestTipOuts checkForReceivedBlocksWorkerImpl
 
 checkEclipsed
-    :: (MonadBlockDB ssc m, HasConfiguration, HasNodeConfiguration)
-    => PublicKey -> SlotId -> BlockHeader ssc -> m Bool
+    :: (MonadBlockDB m, HasConfiguration, HasNodeConfiguration)
+    => PublicKey -> SlotId -> BlockHeader -> m Bool
 checkEclipsed ourPk slotId x = notEclipsed x
   where
     onBlockLoadFailure header = do
@@ -80,17 +82,17 @@ checkEclipsed ourPk slotId x = notEclipsed x
 
 -- FIX: CSL-1470 Do we need this logic? It's duplicated in practice by chain quality check
 checkForReceivedBlocksWorkerImpl
-    :: forall ssc ctx m.
-       (WorkMode ssc ctx m)
+    :: forall ctx m.
+       (WorkMode ctx m)
     => SendActions m -> m ()
 checkForReceivedBlocksWorkerImpl SendActions {..} = afterDelay $ do
     repeatOnInterval (const (sec' 4)) . recoveryCommGuard "security worker" $
-        whenM (needRecovery @ctx @ssc) $ triggerRecovery enqueueMsg
+        whenM (needRecovery @ctx) $ triggerRecovery enqueueMsg
     -- FIXME: 'repeatOnInterval' is looped, will the code below ever be called?
     repeatOnInterval (min (sec' 20)) . recoveryCommGuard "security worker" $ do
         ourPk <- getOurPublicKey
         let onSlotDefault slotId = do
-                header <- getTipHeader @ssc
+                header <- getTipHeader
                 unlessM (checkEclipsed ourPk slotId header) onEclipsed
         whenJustM getCurrentSlot onSlotDefault
   where

@@ -20,10 +20,10 @@ import           Pos.Util.Util          (HasLens (..))
 
 instance ( Monad m
          , MonadIO m
-         , MonadBlockDB ssc m
+         , MonadBlockDB m
          , MonadSlots ctx m
          , MonadReader ctx m
-         , HasLens RecoveryHeaderTag ctx (RecoveryHeader ssc)
+         , HasLens RecoveryHeaderTag ctx RecoveryHeader
          , HasCoreConfiguration
          ) =>
          MonadRecoveryInfo m where
@@ -33,7 +33,7 @@ instance ( Monad m
                 False -> pass
                 True -> throwError SSDoingRecovery
             curSlot <- note SSUnknownSlot =<< getCurrentSlot
-            tipHeader <- getTipHeader @ssc
+            tipHeader <- getTipHeader
             let tipSlot = epochOrSlotToSlot (tipHeader ^. epochOrSlotG)
             unless (tipSlot <= curSlot) $
                 throwError

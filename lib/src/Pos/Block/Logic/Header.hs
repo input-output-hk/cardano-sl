@@ -45,7 +45,6 @@ import qualified Pos.GState                as GS
 import           Pos.Lrc.Context           (LrcContext)
 import qualified Pos.Lrc.DB                as LrcDB
 import           Pos.Slotting.Class        (MonadSlots (getCurrentSlot))
-import           Pos.Ssc.Class             (SscHelpersClass)
 import           Pos.Util                  (HasLens', _neHead, _neLast)
 import           Pos.Util.Chrono           (NE, NewestFirst (..), OldestFirst (..),
                                             toNewestFirst, toOldestFirst, _NewestFirst,
@@ -75,19 +74,19 @@ mkCHRinvalid = CHInvalid . T.intercalate "; "
 -- | Classify new header announced by some node. Result is represented
 -- as ClassifyHeaderRes type.
 classifyNewHeader
-    :: forall ctx ssc m.
+    :: forall ctx m.
     ( HasConfiguration
     , MonadSlots ctx m
-    , DB.MonadBlockDB ssc m
+    , DB.MonadBlockDB m
     , MonadSlots ctx m
     , HasLens' ctx LrcContext
     )
-    => BlockHeader ssc -> m ClassifyHeaderRes
+    => BlockHeader -> m ClassifyHeaderRes
 -- Genesis headers seem useless, we can create them by ourselves.
 classifyNewHeader (Left _) = pure $ CHUseless "genesis header is useless"
 classifyNewHeader (Right header) = fmap (either identity identity) <$> runExceptT $ do
     curSlot <- getCurrentSlot
-    tipHeader <- DB.getTipHeader @ssc
+    tipHeader <- DB.getTipHeader
     let tipEoS = getEpochOrSlot tipHeader
     let newHeaderEoS = getEpochOrSlot header
     let newHeaderSlot = header ^. headerSlotL
@@ -146,12 +145,13 @@ classifyNewHeader (Right header) = fmap (either identity identity) <$> runExcept
             "header doesn't continue main chain and is not more difficult"
 
 -- | Result of multiple headers classification.
-data ClassifyHeadersRes ssc
-    = CHsValid (BlockHeader ssc)   -- ^ Header list can be applied,
+data ClassifyHeadersRes
+    = CHsValid BlockHeader         -- ^ Header list can be applied,
                                    --    LCA child attached.
     | CHsUseless !Text             -- ^ Header is useless.
     | CHsInvalid !Text             -- ^ Header is invalid.
-    deriving (Show)
+
+deriving instance Show BlockHeader => Show ClassifyHeadersRes
 
 -- | Classify headers received in response to 'GetHeaders' message.
 --
@@ -164,8 +164,8 @@ data ClassifyHeadersRes ssc
 --    (i.e. if 'needRecovery' is false) but the newest header in the list isn't
 --    from the current slot. See CSL-177.
 classifyHeaders ::
-       forall ctx ssc m.
-       ( DB.MonadBlockDB ssc m
+       forall ctx m.
+       ( DB.MonadBlockDB m
        , MonadCatch m
        , HasLens' ctx LrcContext
        , MonadSlots ctx m
@@ -173,12 +173,12 @@ classifyHeaders ::
        , HasConfiguration
        )
     => Bool -- recovery in progress?
-    -> NewestFirst NE (BlockHeader ssc)
-    -> m (ClassifyHeadersRes ssc)
+    -> NewestFirst NE BlockHeader
+    -> m ClassifyHeadersRes
 classifyHeaders inRecovery headers = do
-    tipHeader <- DB.getTipHeader @ssc
+    tipHeader <- DB.getTipHeader
     let tip = headerHash tipHeader
-    haveOldestParent <- isJust <$> DB.blkGetHeader @ssc oldestParentHash
+    haveOldestParent <- isJust <$> DB.blkGetHeader oldestParentHash
     leaders <- LrcDB.getLeaders oldestHeaderEpoch
     let headersValid =
             isVerSuccess $
@@ -252,24 +252,23 @@ classifyHeaders inRecovery headers = do
 -- 'recoveryHeadersMessage' headers starting from the the newest
 -- checkpoint that's in our main chain to the newest ones.
 getHeadersFromManyTo ::
-       forall ssc m.
-       ( DB.MonadBlockDB ssc m
+       ( DB.MonadBlockDB m
        , WithLogger m
        , MonadError Text m
        , HasConfiguration
        , HasNodeConfiguration
        )
     => NonEmpty HeaderHash -- ^ Checkpoints; not guaranteed to be
-                            --   in any particular order
+                           --   in any particular order
     -> Maybe HeaderHash
-    -> m (NewestFirst NE (BlockHeader ssc))
+    -> m (NewestFirst NE BlockHeader)
 getHeadersFromManyTo checkpoints startM = do
     logDebug $
         sformat ("getHeadersFromManyTo: "%listJson%", start: "%build)
                 checkpoints startM
     validCheckpoints <- noteM "Failed to retrieve checkpoints" $
         nonEmpty . catMaybes <$>
-        mapM (DB.blkGetHeader @ssc) (toList checkpoints)
+        mapM DB.blkGetHeader (toList checkpoints)
     tip <- GS.getTip
     unless (all ((/= tip) . headerHash) validCheckpoints) $
         throwError "Found checkpoint that is equal to our tip"
@@ -310,18 +309,17 @@ getHeadersFromManyTo checkpoints startM = do
 -- it returns not more than 'blkSecurityParam' blocks distributed
 -- exponentially base 2 relatively to the depth in the blockchain.
 getHeadersOlderExp
-    :: forall ssc m.
-       (HasConfiguration, MonadDBRead m, SscHelpersClass ssc)
+    :: (HasConfiguration, MonadDBRead m)
     => Maybe HeaderHash -> m (OldestFirst NE HeaderHash)
 getHeadersOlderExp upto = do
     tip <- GS.getTip
     let upToReal = fromMaybe tip upto
     -- Using 'blkSecurityParam + 1' because fork can happen on k+1th one.
-    (allHeaders :: NewestFirst [] (BlockHeader ssc)) <-
+    (allHeaders :: NewestFirst [] BlockHeader) <-
         -- loadHeadersByDepth always returns nonempty list unless you
         -- pass depth 0 (we pass k+1). It throws if upToReal is
         -- absent. So it either throws or returns nonempty.
-        DB.loadHeadersByDepth @ssc (blkSecurityParam + 1) upToReal
+        DB.loadHeadersByDepth (blkSecurityParam + 1) upToReal
     let toNE = fromMaybe (error "getHeadersOlderExp: couldn't create nonempty") .
                nonEmpty
     let selectedHashes :: NewestFirst [] HeaderHash
@@ -365,13 +363,12 @@ getHeadersOlderExp upto = do
 -- than @to@, and valid chain in between can be found, headers in
 -- range @[from..to]@ will be found.
 getHeadersFromToIncl
-    :: forall ssc m .
-       (HasConfiguration, MonadDBRead m, SscHelpersClass ssc)
+    :: forall m. (HasConfiguration, MonadDBRead m)
     => HeaderHash -> HeaderHash -> m (Maybe (OldestFirst NE HeaderHash))
 getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
     -- oldest and newest blocks do exist
-    start <- MaybeT $ DB.blkGetHeader @ssc newer
-    end   <- MaybeT $ DB.blkGetHeader @ssc older
+    start <- MaybeT $ DB.blkGetHeader newer
+    end   <- MaybeT $ DB.blkGetHeader older
     guard $ getEpochOrSlot start >= getEpochOrSlot end
     let lowerBound = getEpochOrSlot end
     if newer == older
@@ -387,7 +384,7 @@ getHeadersFromToIncl older newer = runMaybeT . fmap OldestFirst $ do
         | nextHash == genesisHash = mzero
         | nextHash == older = pure $ nextHash <| hashes
         | otherwise = do
-            nextHeader <- MaybeT $ (DB.blkGetHeader @ssc) nextHash
+            nextHeader <- MaybeT $ DB.blkGetHeader nextHash
             guard $ getEpochOrSlot nextHeader > lowerBound
             -- hashes are being prepended so the oldest hash will be the last
             -- one to be prepended and thus the order is OldestFirst

@@ -13,10 +13,11 @@ import           Pos.Lrc.Consumer      (LrcConsumer)
 import           Pos.Lrc.Mode          (LrcMode)
 import           Pos.Ssc.Class.Workers (SscWorkersClass (sscLrcConsumers))
 import           Pos.Update.Lrc        (usLrcConsumer)
+import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 
 allLrcConsumers
-    :: forall ssc ctx m.
-       (LrcMode ssc ctx m, SscWorkersClass ssc)
+    :: forall ctx m.
+       (LrcMode ctx m, SscWorkersClass SscGodTossing)
     => [LrcConsumer m]
 allLrcConsumers = [delegationLrcConsumer, usLrcConsumer] ++
-                  sscLrcConsumers @ssc
+                  sscLrcConsumers @SscGodTossing

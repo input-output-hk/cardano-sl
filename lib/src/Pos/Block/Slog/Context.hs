@@ -23,7 +23,8 @@ import           Pos.Core                     (HasConfiguration, blkSecurityPara
                                                fixedTimeCQSec)
 import           Pos.DB.Class                 (MonadDBRead)
 import           Pos.GState.BlockExtra        (getLastSlots)
-import           Pos.Reporting                (mkMetricMonitorState)
+import           Pos.Reporting                (MetricMonitorState,
+                                               mkMetricMonitorState)
 import           Pos.System.Metrics.Constants (withCardanoNamespace)
 
 -- | Make new 'SlogGState' using data from DB.
@@ -34,13 +35,14 @@ mkSlogGState = do
 
 -- | Make new 'SlogContext' using data from DB.
 mkSlogContext ::
-       (MonadIO m, MonadDBRead m, HasConfiguration)
+    forall m. (MonadIO m, MonadDBRead m, HasConfiguration)
     => Ekg.Store
     -> m SlogContext
 mkSlogContext store = do
     _scGState <- mkSlogGState
 
-    let mkMMonitorState = flip mkMetricMonitorState store
+    let mkMMonitorState :: Text -> m (MetricMonitorState a)
+        mkMMonitorState = flip mkMetricMonitorState store
     -- Chain quality metrics stuff.
     let metricNameK =
             sformat ("chain_quality_last_k_("%int%")_blocks_%")

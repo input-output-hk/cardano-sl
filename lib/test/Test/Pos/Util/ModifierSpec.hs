@@ -1,5 +1,3 @@
-{-# LANGUAGE GADTs #-}
-
 -- | Specification for Pos.Util.Modifier (from 'core')
 
 module Test.Pos.Util.ModifierSpec

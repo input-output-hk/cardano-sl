@@ -16,7 +16,6 @@ import           Test.QuickCheck              (arbitrary, generate)
 import           Control.Lens                 (makeLenses)
 import           Data.Default                 (def)
 import           Pos.Arbitrary.Txp.Unsafe     ()
-import           Pos.Ssc.GodTossing           (SscGodTossing)
 
 import           Pos.Block.Core               (Block)
 import           Pos.Block.Types              (Blund)
@@ -39,9 +38,9 @@ import           Test.Pos.Block.Logic.Mode    (BlockTestMode, TestParams,
 -- function.
 data GeneratedTestArguments = GeneratedTestArguments
     { _gtaPageNumber              :: Maybe Word
-    , _gtaTipBlock                :: Block SscGodTossing
+    , _gtaTipBlock                :: Block
     , _gtaBlockHeaderHashes       :: {-Maybe -}[HeaderHash]
-    , _gtaBlundsFromHeaderHashes  :: {-Maybe -}(Blund SscGodTossing)
+    , _gtaBlundsFromHeaderHashes  :: {-Maybe -}Blund
     , _gtaSlotStart               :: {-Maybe -}Timestamp
     , _gtaSlotLeaders             :: {-Maybe -}SlotLeaders
     } deriving (Generic)
@@ -92,11 +91,11 @@ getBlocksTotalMock genTestArgs = do
     testParamsGen :: IO TestParams
     testParamsGen = generate arbitrary
 
-    defaultInstance :: ExplorerMockMode BlockTestMode SscGodTossing
+    defaultInstance :: ExplorerMockMode BlockTestMode
     defaultInstance = def
 
     -- The mocked CSL function interfaces
-    mode :: ExplorerMockMode BlockTestMode SscGodTossing
+    mode :: ExplorerMockMode BlockTestMode
     mode = defaultInstance { emmGetTipBlock = pure $ genTestArgs ^. gtaTipBlock }
 
 
@@ -117,11 +116,11 @@ getBlocksPageMock genTestArgs = do
     pageNumber :: Maybe Word
     pageNumber = genTestArgs ^. gtaPageNumber
 
-    defaultInstance :: ExplorerMockMode BlockTestMode SscGodTossing
+    defaultInstance :: ExplorerMockMode BlockTestMode
     defaultInstance = def
 
     -- The mocked CSL function interfaces
-    mode :: ExplorerMockMode BlockTestMode SscGodTossing
+    mode :: ExplorerMockMode BlockTestMode
     mode = defaultInstance {
         emmGetTipBlock            = pure $ genTestArgs ^. gtaTipBlock,
         emmGetPageBlocks          = \_ -> pure $ Just $ genTestArgs ^. gtaBlockHeaderHashes,

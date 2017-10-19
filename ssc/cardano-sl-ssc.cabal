@@ -30,7 +30,6 @@ library
     Pos.Ssc.Extra.Logic
 
     Pos.Ssc.Mode
-    Pos.Ssc.NistBeacon
     Pos.Ssc.RichmenComponent
 
     Pos.Security.Params

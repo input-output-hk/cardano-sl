@@ -22,6 +22,7 @@ import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo             (HasCompileInfo)
 import           Pos.WorkMode                     (EmptyMempoolExt, RealMode)
+import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 
 -----------------------------------------------------------------------------
 -- Main launchers
@@ -29,29 +30,22 @@ import           Pos.WorkMode                     (EmptyMempoolExt, RealMode)
 
 -- | Run full node in real mode.
 runNodeReal
-    :: forall ssc.
-       ( SscConstraint ssc
+    :: ( SscConstraint SscGodTossing
        , HasConfiguration
        , HasUpdateConfiguration
        , HasInfraConfiguration
-       -- FIXME avieth
-       -- godtossing is always assumed, regardless of the forall ssc.
-       -- It wasn't noticed before, because the godtossing data was in some
-       -- global mutable variable and so didn't appear as a bona fide dependency
-       -- in any constraint or left-hand-side of an arrow.
-       -- See 'prepareGStateDB'.
        , HasGtConfiguration
        , HasNodeConfiguration
        , HasCompileInfo
        )
     => NodeParams
-    -> SscParams ssc
-    -> ([WorkerSpec (RealMode ssc EmptyMempoolExt)], OutSpecs)
+    -> SscParams SscGodTossing
+    -> ([WorkerSpec (RealMode SscGodTossing EmptyMempoolExt)], OutSpecs)
     -> Production ()
 runNodeReal np sscnp plugins = bracketNodeResources np sscnp action
   where
-    action :: HasConfiguration => NodeResources ssc EmptyMempoolExt (RealMode ssc EmptyMempoolExt) -> Production ()
+    action :: HasConfiguration => NodeResources SscGodTossing EmptyMempoolExt (RealMode SscGodTossing EmptyMempoolExt) -> Production ()
     action nr@NodeResources {..} =
         runRealMode
             nr
-            (runNode @ssc nr plugins)
+            (runNode nr plugins)

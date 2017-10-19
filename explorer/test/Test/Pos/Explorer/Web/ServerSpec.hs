@@ -31,7 +31,6 @@ import           Pos.Explorer.Web.Server      (getBlocksLastPageEMode, getBlocks
                                                getBlocksTotalEMode,
                                                pureGetBlocksPagesTotal,
                                                pureGetBlocksTotal)
-import           Pos.Ssc.GodTossing           (SscGodTossing)
 
 import           Pos.Launcher.Configuration   (HasConfigurations)
 import           Test.Pos.Util                (withDefConfigurations)
@@ -95,15 +94,15 @@ blocksTotalUnitSpec =
                 monadicIO $ do
 
                   -- The created arbitrary block.
-                  let testBlock :: MonadBlockDB SscGodTossing m => m (Block SscGodTossing)
+                  let testBlock :: MonadBlockDB m => m Block
                       testBlock = pure $ basicBlockGenericUnsafe prevHeader sk slotId
 
                   -- The default @ExplorerMockMode@ instance that has no implementation.
-                  let defaultInstance :: ExplorerMockMode BlockTestMode SscGodTossing
+                  let defaultInstance :: ExplorerMockMode BlockTestMode
                       defaultInstance = def
 
                   -- We replace the "real" database with our custom data.
-                  let mode :: ExplorerMockMode BlockTestMode SscGodTossing
+                  let mode :: ExplorerMockMode BlockTestMode
                       mode = defaultInstance { emmGetTipBlock = testBlock }
 
                   -- We run the function in @BlockTestMode@ so we don't need to define
@@ -126,15 +125,15 @@ blocksPagesTotalUnitSpec =
                 monadicIO $ do
 
                   -- The created arbitrary block.
-                  let testBlock :: MonadBlockDB SscGodTossing m => m (Block SscGodTossing)
+                  let testBlock :: MonadBlockDB m => m Block
                       testBlock = pure $ basicBlockGenericUnsafe prevHeader sk slotId
 
                   -- The default @ExplorerMockMode@ instance that has no implementation.
-                  let defaultInstance :: ExplorerMockMode BlockTestMode SscGodTossing
+                  let defaultInstance :: ExplorerMockMode BlockTestMode
                       defaultInstance = def
 
                   -- We replace the "real" database with our custom data.
-                  let mode :: ExplorerMockMode BlockTestMode SscGodTossing
+                  let mode :: ExplorerMockMode BlockTestMode
                       mode = defaultInstance { emmGetTipBlock = testBlock }
 
                   -- We run the function in @BlockTestMode@ so we don't need to define
@@ -168,15 +167,15 @@ blocksPageUnitSpec =
                           }
 
                   -- The created arbitrary block.
-                  let testBlock :: MonadBlockDB SscGodTossing m => m (Block SscGodTossing)
+                  let testBlock :: MonadBlockDB m => m Block
                       testBlock = pure $ basicBlockGenericUnsafe prevHeader sk mockSlotId
 
                   -- The default @ExplorerMockMode@ instance that has no implementation.
-                  let defaultInstance :: ExplorerMockMode BlockTestMode SscGodTossing
+                  let defaultInstance :: ExplorerMockMode BlockTestMode
                       defaultInstance = def
 
                   -- We replace the "real" functions with our custom functions.
-                  let mode :: ExplorerMockMode BlockTestMode SscGodTossing
+                  let mode :: ExplorerMockMode BlockTestMode
                       mode = defaultInstance {
                           emmGetTipBlock            = testBlock,
                           emmGetPageBlocks          = \_   -> pure $ Just hh,
@@ -210,15 +209,15 @@ blocksLastPageUnitSpec =
                 monadicIO $ do
 
                   -- The created arbitrary block.
-                  let testBlock :: MonadBlockDB SscGodTossing m => m (Block SscGodTossing)
+                  let testBlock :: MonadBlockDB m => m Block
                       testBlock = pure $ basicBlockGenericUnsafe prevHeader sk slotId
 
                   -- The default @ExplorerMockMode@ instance that has no implementation.
-                  let defaultInstance :: ExplorerMockMode BlockTestMode SscGodTossing
+                  let defaultInstance :: ExplorerMockMode BlockTestMode
                       defaultInstance = def
 
                   -- We replace the "real" functions with our custom functions.
-                  let mode :: ExplorerMockMode BlockTestMode SscGodTossing
+                  let mode :: ExplorerMockMode BlockTestMode
                       mode = defaultInstance {
                           emmGetTipBlock            = testBlock,
                           emmGetPageBlocks          = \_   -> pure $ Just hh,

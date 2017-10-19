@@ -80,7 +80,6 @@ import           Pos.Lrc                          (getLeaders)
 import           Pos.Merkle                       (getMerkleRoot, mtRoot)
 import           Pos.Slotting                     (MonadSlots (..), MonadSlotsData,
                                                    getSlotStart)
-import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                          (Tx (..), TxId, TxOut (..),
                                                    TxOutAux (..), TxUndo, txpTxs,
@@ -112,18 +111,18 @@ import           Servant.API                      (FromHttpApiData (..))
 -- TODO(KS): A reader `ReaderT (ExplorerMockMode m ssc) m a` would be convenient.
 -- | A simple data structure that holds all the foreign functions Explorer needs to call.
 -- `emm`.
-data ExplorerMockMode m ssc = ExplorerMockMode
+data ExplorerMockMode m = ExplorerMockMode
     { emmGetTipBlock
-          :: MonadBlockDB ssc m
-          => m (Block ssc)
+          :: MonadBlockDB m
+          => m Block
     , emmGetPageBlocks
           :: MonadDBRead m
           => Page
           -> m (Maybe [HeaderHash])
     , emmGetBlundFromHH
-          :: MonadBlockDB ssc m
+          :: MonadBlockDB m
           => HeaderHash
-          -> m (Maybe (Blund ssc))
+          -> m (Maybe Blund)
     , emmGetSlotStart
           :: forall ctx. MonadSlotsData ctx m
           => SlotId
@@ -135,7 +134,7 @@ data ExplorerMockMode m ssc = ExplorerMockMode
     }
 
 -- | This is what we use in production when we run Explorer.
-prodMode :: forall m. ExplorerMockMode m SscGodTossing
+prodMode :: forall m. ExplorerMockMode m
 prodMode = ExplorerMockMode {
       emmGetTipBlock            = getTipBlock,
       emmGetPageBlocks          = getPageBlocks,
@@ -149,7 +148,7 @@ prodMode = ExplorerMockMode {
 -- On the other side, it moves that error into runtime and enables simple mocking.
 -- This is a good thing once we have a larger amount of functions, like in _explorer_,
 -- and this gives us the flexibility to "mock" whichever we want.
-instance Default (ExplorerMockMode m SscGodTossing) where
+instance Default (ExplorerMockMode m) where
   def = ExplorerMockMode {
         emmGetTipBlock            = errorImpl,
         emmGetPageBlocks          = errorImpl,
@@ -164,16 +163,16 @@ instance Default (ExplorerMockMode m SscGodTossing) where
 -- testing.
 class HasExplorerCSLInterface ctx m where
     getTipBlockCSLI
-          :: MonadBlockDB SscGodTossing m
-          => m (Block SscGodTossing)
+          :: MonadBlockDB m
+          => m Block
     getPageBlocksCSLI
           :: MonadDBRead m
           => Page
           -> m (Maybe [HeaderHash])
     getBlundFromHHCSLI
-          :: MonadBlockDB SscGodTossing m
+          :: MonadBlockDB m
           => HeaderHash
-          -> m (Maybe (Blund SscGodTossing))
+          -> m (Maybe Blund)
     getSlotStartCSLI
           :: MonadSlotsData ctx m
           => SlotId
@@ -184,8 +183,8 @@ class HasExplorerCSLInterface ctx m where
           -> m (Maybe SlotLeaders)
 
 -- class Monad m => HasExplorerMockMode ctx m where
---     explorerMockMode :: Lens' ctx (ExplorerMockMode m SscGodTossing)
--- Lens' ctx (m (Block SscGodTossing)) ...
+--     explorerMockMode :: Lens' ctx (ExplorerMockMode m)
+-- Lens' ctx (m Block) ...
 
 instance Monad m => HasExplorerCSLInterface ctx m where
     getTipBlockCSLI = getTipBlock
@@ -308,14 +307,14 @@ data CBlockEntry = CBlockEntry
 
 toBlockEntry
     :: forall ctx m .
-    ( MonadBlockDB SscGodTossing m
+    ( MonadBlockDB m
     , MonadDBRead m
     , MonadSlots ctx m
     , MonadThrow m
     , HasConfiguration
     )
-    => ExplorerMockMode m SscGodTossing
-    -> (MainBlock SscGodTossing, Undo)
+    => ExplorerMockMode m
+    -> (MainBlock, Undo)
     -> m CBlockEntry
 toBlockEntry mode (blk, Undo{..}) = do
 
@@ -357,7 +356,7 @@ toBlockEntry mode (blk, Undo{..}) = do
 -- Returning @Maybe@ is the simplest implementation for now, since it's hard
 -- to forsee what is and what will the state of leaders be at any given moment.
 getLeaderFromEpochSlot
-    :: (MonadBlockDB SscGodTossing m, MonadDBRead m)
+    :: (MonadBlockDB m, MonadDBRead m)
     => EpochIndex
     -> LocalSlotIndex
     -> m (Maybe StakeholderId)
@@ -366,8 +365,8 @@ getLeaderFromEpochSlot epochIndex slotIndex =
 
 
 getLeaderFromEpochSlotE
-    :: (MonadBlockDB SscGodTossing m, MonadDBRead m)
-    => ExplorerMockMode m SscGodTossing
+    :: (MonadBlockDB m, MonadDBRead m)
+    => ExplorerMockMode m
     -> EpochIndex
     -> LocalSlotIndex
     -> m (Maybe StakeholderId)
@@ -416,7 +415,7 @@ data CBlockSummary = CBlockSummary
 
 toBlockSummary
     :: forall ctx m.
-    ( MonadBlockDB SscGodTossing m
+    ( MonadBlockDB m
     , MonadDBRead m
     , MonadRealDB ctx m
     , MonadSlots ctx m
@@ -424,8 +423,8 @@ toBlockSummary
     , HasConfiguration
     , HasGtConfiguration
     )
-    => ExplorerMockMode m SscGodTossing
-    -> (MainBlock SscGodTossing, Undo)
+    => ExplorerMockMode m
+    -> (MainBlock, Undo)
     -> m CBlockSummary
 toBlockSummary mode blund@(blk, _) = do
     cbsEntry    <- toBlockEntry mode blund

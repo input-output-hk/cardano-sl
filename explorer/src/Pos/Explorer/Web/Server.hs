@@ -6,6 +6,7 @@
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeOperators       #-}
 {-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE GADTs               #-}
 
 -- API server logic
 
@@ -74,19 +75,6 @@ import           Pos.Core                             (AddrType (..), Address (.
                                                        sumCoins, timestampToPosix,
                                                        unsafeAddCoin, unsafeIntegerToCoin,
                                                        unsafeSubCoin)
-import           Pos.Slotting                         (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.GodTossing                   (SscGodTossing)
-import           Pos.Ssc.GodTossing.Configuration     (HasGtConfiguration)
-import           Pos.Txp                              (MonadTxpMem, Tx (..), TxAux, TxId,
-                                                       TxMap, TxOutAux (..), getLocalTxs,
-                                                       getMemPool, mpLocalTxs, taTx,
-                                                       topsortTxs, txOutValue, txpTxs,
-                                                       _txOutputs)
-import           Pos.Util                             (maybeThrow)
-import           Pos.Util.Chrono                      (NewestFirst (..))
-import           Pos.Web                              (serveImpl)
-import           Pos.WorkMode                         (WorkMode)
-
 import           Pos.Explorer                         (TxExtra (..), getEpochBlocks,
                                                        getLastTransactions, getTxExtra)
 import qualified Pos.Explorer                         as EX (getAddrBalance,
@@ -116,15 +104,28 @@ import           Pos.Explorer.Web.ClientTypes         (Byte, CAda (..), CAddress
                                                        toBlockSummary, toCAddress,
                                                        toCHash, toCTxId, toTxBrief)
 import           Pos.Explorer.Web.Error               (ExplorerError (..))
+import           Pos.Slotting                         (MonadSlots (..), getSlotStart)
+import           Pos.Ssc.GodTossing.Configuration     (HasGtConfiguration)
+import           Pos.Txp                              (MonadTxpMem, Tx (..), TxAux, TxId,
+                                                       TxMap, TxOutAux (..), getLocalTxs,
+                                                       getMemPool, mpLocalTxs, taTx,
+                                                       topsortTxs, txOutValue, txpTxs,
+                                                       _txOutputs)
+import           Pos.Util                             (maybeThrow)
+import           Pos.Util.Chrono                      (NewestFirst (..))
+import           Pos.Web                              (serveImpl)
+import           Pos.WorkMode                         (WorkMode)
+
 
 
 ----------------------------------------------------------------
 -- Top level functionality
 ----------------------------------------------------------------
-type MainBlund ssc = (MainBlock ssc, Undo)
+
+type MainBlund = (MainBlock, Undo)
 
 type ExplorerMode ctx m =
-    ( WorkMode SscGodTossing ctx m
+    ( WorkMode ctx m
     , HasGenesisRedeemAddressInfo m
     , HasGtConfiguration
     , HasExplorerCSLInterface ctx m
@@ -196,14 +197,14 @@ getTotalAda = do
 -- Total number of main blocks   = difficulty of the topmost (tip) header.
 -- Total number of anchor blocks = current epoch + 1
 getBlocksTotal
-    :: forall m. (MonadBlockDB SscGodTossing m)
+    :: forall m. (MonadBlockDB m)
     => m Integer
 getBlocksTotal = getBlocksTotalEMode prodMode
 
 -- | getBlocksTotal configurable function.
 getBlocksTotalEMode
-    :: (MonadBlockDB SscGodTossing m)
-    => ExplorerMockMode m SscGodTossing
+    :: (MonadBlockDB m)
+    => ExplorerMockMode m
     -> m Integer
 getBlocksTotalEMode mode = do
 
@@ -216,7 +217,7 @@ getBlocksTotalEMode mode = do
     pure $ pureGetBlocksTotal tipBlock
 
 -- | A pure function that return the number of blocks.
-pureGetBlocksTotal :: Block SscGodTossing -> Integer
+pureGetBlocksTotal :: Block -> Integer
 pureGetBlocksTotal tipBlock = fromIntegral $ getChainDifficulty $ tipBlock ^. difficultyL
 
 -- | Get last blocks with a page parameter. This enables easier paging on the
@@ -224,7 +225,7 @@ pureGetBlocksTotal tipBlock = fromIntegral $ getChainDifficulty $ tipBlock ^. di
 -- Currently the pages are in chronological order.
 getBlocksPage
     :: forall ctx m .
-    ( MonadBlockDB SscGodTossing m
+    ( MonadBlockDB m
     , MonadDBRead m
     , MonadSlots ctx m
     , MonadThrow m
@@ -238,13 +239,13 @@ getBlocksPage mPageNumber mPageSize = getBlocksPageEMode prodMode mPageNumber mP
 -- | getBlocksPage configurable function.
 getBlocksPageEMode
     :: forall ctx m .
-    ( MonadBlockDB SscGodTossing m
+    ( MonadBlockDB m
     , MonadDBRead m
     , MonadSlots ctx m
     , MonadThrow m
     , HasConfiguration
     )
-    => ExplorerMockMode m SscGodTossing
+    => ExplorerMockMode m
     -> Maybe Word -- ^ Page number
     -> Maybe Word -- ^ Page size
     -> m (Integer, [CBlockEntry])
@@ -281,12 +282,12 @@ getBlocksPageEMode mode mPageNumber mPageSize = do
     -- Return total pages and the blocks. We start from page 1.
     pure (totalPages, reverse cBlocksEntry)
   where
-    blundToMainBlockUndo :: [Blund SscGodTossing] -> [(MainBlock SscGodTossing, Undo)]
+    blundToMainBlockUndo :: [Blund] -> [(MainBlock, Undo)]
     blundToMainBlockUndo blund = [(mainBlock, undo) | (Right mainBlock, undo) <- blund]
 
     -- Either get the @HeaderHash@es from the @Page@ or throw an exception.
     getPageHHsOrThrow
-        :: (MonadBlockDB SscGodTossing m, MonadThrow m)
+        :: (MonadBlockDB m, MonadThrow m)
         => Int
         -> m [HeaderHash]
     getPageHHsOrThrow pageNumber = do
@@ -303,15 +304,15 @@ getBlocksPageEMode mode mPageNumber mPageSize = do
 -- | Get total pages from blocks. Calculated from
 -- pageSize we pass to it.
 getBlocksPagesTotal
-    :: (HasConfiguration,  MonadBlockDB SscGodTossing m)
+    :: (HasConfiguration,  MonadBlockDB m)
     => Maybe Word
     -> m Integer
 getBlocksPagesTotal mPageSize = getBlocksPagesTotalEMode prodMode mPageSize
 
 -- | getBlocksPagesTotal configurable function.
 getBlocksPagesTotalEMode
-    :: (HasConfiguration,  MonadBlockDB SscGodTossing m)
-    => ExplorerMockMode m SscGodTossing
+    :: (HasConfiguration,  MonadBlockDB m)
+    => ExplorerMockMode m
     -> Maybe Word
     -> m Integer
 getBlocksPagesTotalEMode mode mPageSize = do
@@ -352,7 +353,7 @@ pureGetBlocksPagesTotal blocksTotal pageSizeInt = divRoundUp blocksTotal pageSiz
 -- for the page size since this is called from __explorer only__.
 getBlocksLastPage
     :: forall ctx m .
-    ( MonadBlockDB SscGodTossing m
+    ( MonadBlockDB m
     , MonadDBRead m
     , MonadSlots ctx m
     , MonadThrow m
@@ -364,13 +365,13 @@ getBlocksLastPage = getBlocksLastPageEMode prodMode
 -- | getBlocksLastPage configurable function.
 getBlocksLastPageEMode
     :: forall ctx m .
-    ( MonadBlockDB SscGodTossing m
+    ( MonadBlockDB m
     , MonadDBRead m
     , MonadSlots ctx m
     , MonadThrow m
     , HasConfiguration
     )
-    => ExplorerMockMode m SscGodTossing
+    => ExplorerMockMode m
     -> m (Integer, [CBlockEntry])
 getBlocksLastPageEMode mode = getBlocksPageEMode mode Nothing (Just defaultPageSize)
 
@@ -418,7 +419,7 @@ getBlockSummary cHash = getBlockSummaryEMode prodMode cHash
 
 getBlockSummaryEMode
     :: ExplorerMode ctx m
-    => ExplorerMockMode m SscGodTossing
+    => ExplorerMockMode m
     -> CHash
     -> m CBlockSummary
 getBlockSummaryEMode mode cHash = do
@@ -738,24 +739,24 @@ epochSlotSearch epochIndex mSlotIndex = do
     -- the slot is @Nothing@.
     getEpochSlots
         :: Maybe Word16
-        -> [MainBlund SscGodTossing]
-        -> [MainBlund SscGodTossing]
+        -> [MainBlund]
+        -> [MainBlund]
     getEpochSlots Nothing           blunds = blunds
     getEpochSlots (Just slotIndex) blunds = filter filterBlundsBySlotIndex blunds
       where
         getBlundSlotIndex
-            :: MainBlund SscGodTossing
+            :: MainBlund
             -> Word16
         getBlundSlotIndex blund = getSlotIndex $ siSlot $ fst blund ^. mainBlockSlot
 
         filterBlundsBySlotIndex
-            :: MainBlund SscGodTossing
+            :: MainBlund
             -> Bool
         filterBlundsBySlotIndex blund = getBlundSlotIndex blund == slotIndex
 
     -- Either get the @HeaderHash@es from the @Epoch@ or throw an exception.
     getPageHHsOrThrow
-        :: (MonadBlockDB SscGodTossing m, MonadThrow m)
+        :: (MonadBlockDB m, MonadThrow m)
         => EpochIndex
         -> m [HeaderHash]
     getPageHHsOrThrow epoch = getEpochBlocks epoch >>= maybeThrow (Internal errMsg)
@@ -858,7 +859,7 @@ getMempoolTxs = do
     mkWhTx :: (TxId, TxAux) -> WithHash Tx
     mkWhTx (txid, txAux) = WithHash (taTx txAux) txid
 
-getBlkSlotStart :: MonadSlots ctx m => MainBlock ssc -> m (Maybe Timestamp)
+getBlkSlotStart :: MonadSlots ctx m => MainBlock -> m (Maybe Timestamp)
 getBlkSlotStart blk = getSlotStart $ blk ^. gbHeader . gbhConsensus . mcdSlot
 
 topsortTxsOrFail :: (MonadThrow m, Eq a) => (a -> WithHash Tx) -> [a] -> m [a]
@@ -868,18 +869,18 @@ topsortTxsOrFail f =
 
 -- Either get the block from the @HeaderHash@ or throw an exception.
 getBlundOrThrow
-    :: forall m. (MonadBlockDB SscGodTossing m, MonadThrow m)
-    => ExplorerMockMode m SscGodTossing
+    :: forall m. (MonadBlockDB m, MonadThrow m)
+    => ExplorerMockMode m
     -> HeaderHash
-    -> m (Blund SscGodTossing)
+    -> m Blund
 getBlundOrThrow mode headerHash =
     blkGetBlundE headerHash >>= maybeThrow (Internal "Blund with hash cannot be found!")
   where
     -- A function from mode.
     blkGetBlundE
-        :: MonadBlockDB SscGodTossing m
+        :: MonadBlockDB m
         => HeaderHash
-        -> m (Maybe (Blund SscGodTossing))
+        -> m (Maybe Blund)
     blkGetBlundE = emmGetBlundFromHH mode
 
 -- | Deserialize Cardano or RSCoin address and convert it to Cardano address.
@@ -914,12 +915,12 @@ cTxIdToTxId cTxId = either exception pure (fromCTxId cTxId)
   where
     exception = const $ throwM $ Internal "Invalid transaction id!"
 
-getMainBlund :: ExplorerMode ctx m => HeaderHash -> m (MainBlund SscGodTossing)
+getMainBlund :: ExplorerMode ctx m => HeaderHash -> m MainBlund
 getMainBlund h = do
     (blk, undo) <- blkGetBlund h >>= maybeThrow (Internal "No block found")
     either (const $ throwM $ Internal "Block is genesis block") (pure . (,undo)) blk
 
-getMainBlock :: ExplorerMode ctx m => HeaderHash -> m (MainBlock SscGodTossing)
+getMainBlock :: ExplorerMode ctx m => HeaderHash -> m MainBlock
 getMainBlock = fmap fst . getMainBlund
 
 -- | Get transaction extra from the database, and if you don't find it

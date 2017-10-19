@@ -3,7 +3,6 @@
 {-# LANGUAGE AllowAmbiguousTypes       #-}
 {-# LANGUAGE DeriveGeneric             #-}
 {-# LANGUAGE ExistentialQuantification #-}
-{-# LANGUAGE GADTs                     #-}
 {-# LANGUAGE TemplateHaskell           #-}
 
 module Test.Pos.CborSpec

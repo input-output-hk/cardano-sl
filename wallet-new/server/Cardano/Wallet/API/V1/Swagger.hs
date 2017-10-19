@@ -162,7 +162,7 @@ instance ToDocs WalletVersion where
   annotate f p = do
     s <- f p
     return $ s & (schema . description ?~ (withExample p "The Wallet version, including the API version and the Git revision."))
-               . (schema . example ?~ toJSON @APIVersion genExample)
+               . (schema . example ?~ toJSON @WalletVersion genExample)
 
 instance ToSchema APIVersion where
   declareNamedSchema = annotate fromArbitraryJSON
@@ -230,8 +230,8 @@ instance ( ToDocs a, ToDocs b) => ToSchema (OneOf a b) where
 -- The API
 --
 
-highLevelDescription :: T.Text
-highLevelDescription = [text|
+highLevelDescription :: T.Text -> T.Text
+highLevelDescription errorExample = [text|
 
 This is the specification for the Cardano Wallet API, automatically generated
 as a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API
@@ -251,11 +251,24 @@ Here we document what do expect as a result.
 }
 ```
 
+### Dealing with errors
+
+In case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a
+[JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together
+with a numeric error code which can be used by API consumers to implement proper error handling in their
+application. For example, here's a typical error which might be issued:
+
+```
+$errorExample
+```
+
 |]
 
 api :: Swagger
 api = toSwagger walletAPI
   & info.title   .~ "Cardano Wallet API"
   & info.version .~ "2.0"
-  & info.description ?~ highLevelDescription
+  & info.description ?~ (highLevelDescription errorExample)
   & info.license ?~ ("MIT" & url ?~ URL "http://mit.com")
+  where
+    errorExample = toS $ encodePretty (genExample @WalletError)

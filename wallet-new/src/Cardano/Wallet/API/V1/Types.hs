@@ -121,11 +121,18 @@ instance (Arbitrary a, Arbitrary b) => Arbitrary (OneOf a b) where
 
 -- | Models a Wallet Error as a Jsend <https://labs.omniti.com/labs/jsend> response.
 data WalletError = WalletError
-  { err_status  :: Text -- ^  TODO: Turn into a proper enum.
-  , err_message :: Text -- ^ TODO: Turn into a proper domain-specific error.
+  { err_code    :: !Int
+  , err_message :: Text
   } deriving (Show, Eq, Generic)
 
-deriveJSON defaultOptions { fieldLabelModifier = drop 4 } ''WalletError
+instance ToJSON WalletError where
+    toJSON WalletError{..} = object [ "code"    .= toJSON err_code
+                                    , "status"  .= String "error"
+                                    , "message" .= toJSON err_message
+                                    ]
+
+instance Arbitrary WalletError where
+    arbitrary = WalletError <$> choose (1,999) <*> pure "The given AccountId is not correct."
 
 --
 -- Domain-specific types

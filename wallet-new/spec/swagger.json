@@ -7,16 +7,14 @@
             "url": "http://mit.com",
             "name": "MIT"
         },
-        "description": "This is the specification for the Cardano Wallet API, automatically generated\nas a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API\nof [Cardano](https://github.com/input-output-hk/cardano-sl).\n\n### Request format\n\nHere we document how to perform a request.\n\n### Response format\n\nHere we document what do expect as a result.\n\n``` json\n{ \"id\": \"foo\",\n  \"bar\": 10\n}\n```\n"
+        "description": "This is the specification for the Cardano Wallet API, automatically generated\nas a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API\nof [Cardano](https://github.com/input-output-hk/cardano-sl).\n\n### Request format\n\nHere we document how to perform a request.\n\n### Response format\n\nHere we document what do expect as a result.\n\n``` json\n{ \"id\": \"foo\",\n  \"bar\": 10\n}\n```\n\n### Dealing with errors\n\nIn case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a\n[JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together\nwith a numeric error code which can be used by API consumers to implement proper error handling in their\napplication. For example, here's a typical error which might be issued:\n\n```\n{\n    \"status\": \"error\",\n    \"code\": 449,\n    \"message\": \"The given AccountId is not correct.\"\n}\n```\n"
     },
     "definitions": {
-        "APIVersion": {
-            "example": "v0",
-            "type": "string",
-            "description": "The API version. We currently support v0 and v1. Here's an example:<br><br><pre>\"v0\"</pre>"
-        },
         "WalletVersion": {
-            "example": "v0",
+            "example": {
+                "gitRev": "6f1131adca2f0bc6d24c9181cabd2b9e0704fd79",
+                "version": "v0"
+            },
             "required": [
                 "gitRev",
                 "version"
@@ -114,7 +112,7 @@
                 "responses": {
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/APIVersion"
+                            "$ref": "#/definitions/WalletVersion"
                         },
                         "description": ""
                     }
@@ -133,7 +131,7 @@
                 "responses": {
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/APIVersion"
+                            "$ref": "#/definitions/WalletVersion"
                         },
                         "description": ""
                     }

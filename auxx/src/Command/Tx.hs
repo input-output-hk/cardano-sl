@@ -32,6 +32,7 @@ import           System.Random                    (randomRIO)
 import           System.Wlog                      (logError, logInfo)
 
 import           Pos.Binary                       (decodeFull)
+import           Pos.Client.KeyStorage            (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances          (getOwnUtxoForPk)
 import           Pos.Client.Txp.Util              (createTx)
 import           Pos.Communication                (SendActions,
@@ -54,10 +55,8 @@ import           Pos.Txp                          (TxAux, TxOut (..), TxOutAux (
                                                    topsortTxAuxes, txaF)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo             (HasCompileInfo)
-import           Pos.Util.UserSecret              (usWallet, userSecret)
+import           Pos.Util.UserSecret              (usWallet, userSecret, wusRootKey)
 import           Pos.Util.Util                    (maybeThrow)
-import           Pos.Wallet                       (getSecretKeysPlain)
-import           Pos.Wallet.Web.Secret            (wusRootKey)
 
 import           Command.Types                    (SendMode (..),
                                                    SendToAllGenesisParams (..))

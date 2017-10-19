@@ -1,4 +1,4 @@
-module Pos.Aeson.ClientTypes
+module Pos.Wallet.Aeson.ClientTypes
        (
        ) where
 

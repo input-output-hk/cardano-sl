@@ -19,7 +19,6 @@ import qualified Data.Set                             as S
 import           Data.Text                            (Text)
 import           Formatting                           (build, sformat)
 
-import           Pos.Aeson.Types                      ()
 import           Pos.Client.Txp.History               (TxHistoryEntry (..))
 import           Pos.Crypto                           (EncryptedSecretKey, encToPublic)
 import           Pos.Txp.Core.Types                   (Tx (..), TxOut (..), txOutAddress,

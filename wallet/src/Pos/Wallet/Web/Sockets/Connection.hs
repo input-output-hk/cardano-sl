@@ -26,7 +26,7 @@ import           Network.Wai.Handler.WebSockets (websocketsOr)
 import qualified Network.WebSockets             as WS
 import           System.Wlog                    (logError, logNotice, usingLoggerName)
 
-import           Pos.Aeson.ClientTypes          ()
+import           Pos.Wallet.Aeson               ()
 import qualified Pos.Wallet.Web.Sockets.ConnSet as CS
 import           Pos.Wallet.Web.Sockets.Types   (NotifyEvent (ConnectionClosed, ConnectionOpened),
                                                  WSConnection)

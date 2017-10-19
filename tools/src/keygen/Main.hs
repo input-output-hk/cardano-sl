@@ -31,8 +31,7 @@ import           Pos.Crypto             (EncryptedSecretKey (..), SecretKey (..)
 import           Pos.Launcher           (HasConfigurations, withConfigurations)
 import           Pos.Util.UserSecret    (readUserSecret, takeUserSecret, usKeys,
                                          usPrimKey, usVss, usWallet,
-                                         writeUserSecretRelease)
-import           Pos.Wallet.Web.Secret  (wusRootKey)
+                                         writeUserSecretRelease, wusRootKey)
 
 import           Dump                   (dumpFakeAvvmSeed, dumpGeneratedGenesisData,
                                          dumpKeyfile)

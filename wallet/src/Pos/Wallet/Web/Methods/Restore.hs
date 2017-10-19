@@ -18,16 +18,16 @@ import           Formatting                   (build, sformat, (%))
 import           System.IO.Error              (isDoesNotExistError)
 import           System.Wlog                  (logDebug)
 
-import           Pos.Aeson.ClientTypes        ()
-import           Pos.Aeson.WalletBackup       ()
+import           Pos.Client.KeyStorage        (addSecretKey)
 import           Pos.Core.Configuration       (genesisHdwSecretKeys)
 import           Pos.Crypto                   (EncryptedSecretKey, PassPhrase,
                                                emptyPassphrase, firstHardened)
 import           Pos.StateLock                (Priority (..), withStateLockNoMetrics)
 import           Pos.Util                     (maybeThrow)
 import           Pos.Util.UserSecret          (UserSecretDecodingError (..),
-                                               readUserSecret, usWallet)
-import           Pos.Wallet.KeyStorage        (addSecretKey)
+                                               WalletUserSecret (..),
+                                               mkGenesisWalletUserSecret, readUserSecret,
+                                               usWallet, wusAccounts, wusWalletName)
 import           Pos.Wallet.Web.Account       (GenSeed (..), genSaveRootKey,
                                                genUniqueAccountId)
 import           Pos.Wallet.Web.ClientTypes   (AccountId (..), CAccountInit (..),
@@ -37,11 +37,8 @@ import           Pos.Wallet.Web.ClientTypes   (AccountId (..), CAccountInit (..)
 import           Pos.Wallet.Web.Error         (WalletError (..), rewrapToWalletError)
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
-import           Pos.Wallet.Web.Secret        (WalletUserSecret (..),
-                                               mkGenesisWalletUserSecret, wusAccounts,
-                                               wusWalletName)
-import           Pos.Wallet.Web.State         (createAccount, setWalletSyncTip,
-                                               removeHistoryCache)
+import           Pos.Wallet.Web.State         (createAccount, removeHistoryCache,
+                                               setWalletSyncTip)
 import           Pos.Wallet.Web.Tracking      (syncWalletOnImport)
 
 

@@ -33,7 +33,7 @@ import           Pos.Wallet.Web.ClientTypes   (AccountId (..), Addr, CId, CTx (.
                                                ScrollLimit, ScrollOffset, Wal, mkCTx)
 import           Pos.Wallet.Web.Error         (WalletError (..))
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogicRead)
-import           Pos.Wallet.Web.Pending       (PendingTx (..), ptxPoolInfo)
+import           Pos.Wallet.Web.Pending       (PendingTx (..), isPtxActive, ptxPoolInfo)
 import           Pos.Wallet.Web.State         (AddressLookupMode (Ever), MonadWalletDB,
                                                MonadWalletDBRead, addOnlyNewTxMetas,
                                                getHistoryCache, getPendingTx, getTxMeta,
@@ -71,7 +71,7 @@ getFullWalletHistory cWalId = do
     _ <- logTxHistory "Block" blockHistory
     _ <- logTxHistory "Mempool" localHistory
 
-    fullHistory <- addRecentPtxHistory cWalId $ localHistory `Map.union` blockHistory
+    fullHistory <- addPtxHistory cWalId $ localHistory `Map.union` blockHistory
     walAddrs    <- getWalletAddrsSet Ever cWalId
     diff        <- getCurChainDifficulty
     cHistory <- forM fullHistory (constructCTx cWalId walAddrs diff)
@@ -197,10 +197,10 @@ updateTransaction accId txId txMeta = do
     setWalletTxMeta (aiWId accId) txId txMeta
     return NoContent
 
-addRecentPtxHistory
+addPtxHistory
     :: (WithLogger m, MonadWalletDBRead ctx m)
     => CId Wal -> Map TxId TxHistoryEntry -> m (Map TxId TxHistoryEntry)
-addRecentPtxHistory wid currentHistory = do
+addPtxHistory wid currentHistory = do
     pendingTxs <- getWalletPendingTxs wid
     let candidates = toCandidates pendingTxs
     _ <- logTxHistory "Pending" candidates
@@ -208,8 +208,10 @@ addRecentPtxHistory wid currentHistory = do
   where
     toCandidates =
             txHistoryListToMap
-        .   mapMaybe (ptxPoolInfo . _ptxCond)
+        .   mapMaybe getPtxTh
         .   fromMaybe []
+    getPtxTh PendingTx{..} =
+        guard (isPtxActive _ptxCond) *> ptxPoolInfo _ptxCond
 
 logTxHistory
     :: (Container t, Element t ~ TxHistoryEntry, WithLogger m, MonadIO m)

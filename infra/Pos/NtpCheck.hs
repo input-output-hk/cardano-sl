@@ -81,8 +81,8 @@ mkNtpDiffVar = do
     diff <- newTVarIO noDiff
     let onStatusHandler = atomically . \case
             NtpSyncOk -> writeTVar diff noDiff
-            -- ^ We will return no difference here, because with `NtpSyncOk`
-            -- we are already consider `timeDifferenceWarnThreshold`
+            -- ^ We will return no difference here, because we already
+            -- considered `timeDifferenceWarnThreshold` with `NtpSyncOk`
             NtpDesync diff' -> writeTVar diff diff'
     _ <- ntpSingleShot $ ntpSettings onStatusHandler
     pure diff

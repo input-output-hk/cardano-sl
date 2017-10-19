@@ -5958,6 +5958,8 @@ self: {
           pname = "servant-swagger";
           version = "1.1.3.1";
           sha256 = "0n5vvrxg1lllkm385g0jd2j5bsr21bcibwn5szdpn6r5yh2mvn78";
+          revision = "1";
+          editedCabalFile = "1bx68rcz4whjw3pqm40aiqpfigcgg9dkgjdlggry2iv81s0415xf";
           setupHaskellDepends = [
             base
             Cabal
@@ -5988,6 +5990,8 @@ self: {
           pname = "servant-swagger-ui";
           version = "0.2.4.3.0.20";
           sha256 = "18qp908s0kjcz6dlvj2031kr8qjnzrgh2v92mdg4lwa1j7ddf0xn";
+          revision = "1";
+          editedCabalFile = "1wsbb9zaq5qv39hrymy1cma581337rbvqlm7y24jwfvk4vafs3fp";
           libraryHaskellDepends = [
             base
             blaze-markup

@@ -22,20 +22,27 @@ import           Universum
 -- non-canonical term.
 traverseCanonicalBits
     :: Monad m
-    => (UInt -> m Term)                  -- ^ positive int
-    -> (UInt -> m Term)                  -- ^ negative int
-    -> (UInt -> m UInt)                  -- ^ tag
-    -> (forall term. [term] -> m [term]) -- ^ map/set
-    -> (Half -> m Half)                  -- ^ 16-bit NaN
+    => (UInt -> m Term)                         -- ^ positive int
+    -> (UInt -> m Term)                         -- ^ negative int
+    -> ((Word8, Integer) -> m (Word8, Integer)) -- ^ big integer
+    -> (UInt -> m UInt)                         -- ^ tag
+    -> (forall term. [term] -> m [term])        -- ^ map/set
+    -> (Half -> m Half)                         -- ^ 16-bit NaN
     -> Term
     -> m Term
-traverseCanonicalBits tuint tnint ttag tmapset tnan16 = go
+traverseCanonicalBits tuint tnint tbigint ttag tmapset tnan16 = go
   where
     go = \case
         -- Representation can be widened or changed to TBigInt.
         TUInt n    -> tuint n
         -- Representation can be widened or changed to TBigInt.
         TNInt n    -> tnint n
+        -- Leading zeroes can be added to binary representation.
+        TBigInt zs n -> case zs of
+            -- Canonical representation doesn't have leading zeroes.
+            0 -> uncurry TBigInt <$> tbigint (zs, n)
+            k -> error $ "Unexpected TBigInt with " <> show k
+                      <> " leading zeroes: " <> show n
         -- Order of term pairs can be changed or duplicates added.
         TMap terms -> mapM (\(k, v) -> (,) <$> go k <*> go v) terms
             >>= fmap TMap . tmapset
@@ -80,6 +87,7 @@ countCanonicalBits = (`execState` 0) . traverseCanonicalBits
   dummyAdd
   dummyAdd
   dummyAdd
+  dummyAdd
   where
     add :: State Int ()
     add = S.modify' (+1)
@@ -94,7 +102,8 @@ perturbCanonicity term = sized $ \sz -> do
     n <- choose (1, sz)
     toChange <- shuffle . take (countCanonicalBits term) $
         replicate n True ++ repeat False
-    evalStateT (traverseCanonicalBits tuint tnint ttag tmapset tnan16 term) toChange
+    evalStateT (traverseCanonicalBits tuint tnint tbigint ttag tmapset tnan16 term)
+               toChange
   where
       tuint n = shouldBeChanged >>= \case
           False -> pure $ TUInt n
@@ -103,6 +112,12 @@ perturbCanonicity term = sized $ \sz -> do
       tnint n = shouldBeChanged >>= \case
           False -> pure $ TNInt n
           True  -> lift $ changeUInt TNInt negate n
+
+      tbigint (z, n) = shouldBeChanged >>= \case
+          False -> pure (z, n)
+          True  -> lift . sized $ \sz -> do
+              zs <- choose (1, sz)
+              pure (fromIntegral zs, n)
 
       ttag n = shouldBeChanged >>= \case
           False -> pure n
@@ -152,24 +167,24 @@ perturbCanonicity term = sized $ \sz -> do
           , tint . UInt16 $ fromIntegral w
           , tint . UInt32 $ fromIntegral w
           , tint . UInt64 $ fromIntegral w
-          , TBigInt . f   $ fromIntegral w
+          , TBigInt 0 . f $ fromIntegral w
           ]
       changeUInt tint f (UInt8 w) = elements
           [ tint . UInt16 $ fromIntegral w
           , tint . UInt32 $ fromIntegral w
           , tint . UInt64 $ fromIntegral w
-          , TBigInt . f   $ fromIntegral w
+          , TBigInt 0 . f $ fromIntegral w
           ]
       changeUInt tint f (UInt16 w) = elements
           [ tint . UInt32 $ fromIntegral w
           , tint . UInt64 $ fromIntegral w
-          , TBigInt . f   $ fromIntegral w
+          , TBigInt 0 . f $ fromIntegral w
           ]
       changeUInt tint f (UInt32 w) = elements
           [ tint . UInt64 $ fromIntegral w
-          , TBigInt . f   $ fromIntegral w
+          , TBigInt 0 . f $ fromIntegral w
           ]
-      changeUInt _ f (UInt64 w) = pure . TBigInt . f $ fromIntegral w
+      changeUInt _ f (UInt64 w) = pure . TBigInt 0 . f $ fromIntegral w
 
       shouldBeChanged :: StateT [Bool] Gen Bool
       shouldBeChanged = do

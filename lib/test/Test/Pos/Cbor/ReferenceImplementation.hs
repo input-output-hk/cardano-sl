@@ -25,6 +25,7 @@ module Test.Pos.Cbor.ReferenceImplementation (
     ) where
 
 import           Data.Bits
+import           Data.List                 (span)
 import           Numeric.Half              (Half(..))
 import qualified Numeric.Half              as Half
 import           GHC.Float                 (RealFloat(..))
@@ -451,7 +452,8 @@ prop_Token token =
 
 data Term = TUInt   UInt
           | TNInt   UInt
-          | TBigInt Integer
+          | TBigInt Word8 {- number of leading zero bytes in the binary representation -}
+                    Integer
           | TBytes    [Word8]
           | TBytess  [[Word8]]
           | TString   [Char]
@@ -476,7 +478,8 @@ instance Arbitrary Term where
       frequency
         [ (1, TUInt    <$> arbitrary)
         , (1, TNInt    <$> arbitrary)
-        , (1, TBigInt . getLargeInteger <$> arbitrary)
+        , (1, TBigInt  <$> sized (\sz -> fromIntegral <$> choose (0, sz))
+                       <*> (getLargeInteger <$> arbitrary))
         , (1, TBytes   <$> arbitrary)
         , (1, TBytess  <$> arbitrary)
         , (1, TString  <$> arbitrary)
@@ -506,7 +509,7 @@ instance Arbitrary Term where
 
   shrink (TUInt   n)    = [ TUInt    n'   | n' <- shrink n ]
   shrink (TNInt   n)    = [ TNInt    n'   | n' <- shrink n ]
-  shrink (TBigInt n)    = [ TBigInt  n'   | n' <- shrink n ]
+  shrink (TBigInt z n)  = [ TBigInt z' n' | (z', n') <- shrink (z, n) ]
 
   shrink (TBytes  ws)   = [ TBytes   ws'  | ws'  <- shrink ws  ]
   shrink (TBytess wss)  = [ TBytess  wss' | wss' <- shrink wss ]
@@ -614,17 +617,25 @@ decodeMap acc = do
         decodeMap ((tm, tm') : acc)
 
 decodeTagged :: UInt -> Decoder Term
-decodeTagged tag | fromUInt tag == 2 = do
-    MT2_ByteString _ bs <- decodeToken
-    let !n = integerFromBytes bs
-    return (TBigInt n)
-decodeTagged tag | fromUInt tag == 3 = do
-    MT2_ByteString _ bs <- decodeToken
-    let !n = integerFromBytes bs
-    return (TBigInt (-1 - n))
-decodeTagged tag = do
-    tm <- decodeTerm
-    return (TTagged tag tm)
+decodeTagged tag = case fromUInt tag of
+    2 -> do
+        MT2_ByteString _ bs <- decodeToken
+        let !n = integerFromBytes bs
+        return $ TBigInt (leadingZeroes bs) n
+    3 -> do
+        MT2_ByteString _ bs <- decodeToken
+        let !n = integerFromBytes bs
+        return $ TBigInt (leadingZeroes bs) (-1 - n)
+    _ -> do
+        tm <- decodeTerm
+        return (TTagged tag tm)
+  where
+    -- If all of the bytes are zeroes, we don't count the last one.
+    leadingZeroes :: [Word8] -> Word8
+    leadingZeroes bs = fromIntegral $ case span (== 0) bs of
+        ([], []) -> error "leadingZeroes: unexpected empty list"
+        (zs, []) -> length zs - 1
+        (zs, _)  -> length zs
 
 integerFromBytes :: [Word8] -> Integer
 integerFromBytes []       = 0
@@ -661,13 +672,15 @@ prop_integerToFromBytes (LargeInteger n)
 encodeTerm :: Encoder Term
 encodeTerm (TUInt n)       = encodeToken (MT0_UnsignedInt n)
 encodeTerm (TNInt n)       = encodeToken (MT1_NegativeInt n)
-encodeTerm (TBigInt n)
+encodeTerm (TBigInt zs n)
                | n >= 0    = encodeToken (MT6_Tag (UIntSmall 2))
-                          <> let ws  = integerToBytes n
+                          <> let ws  = replicate (fromIntegral zs) 0
+                                    ++ integerToBytes n
                                  len = lengthUInt ws in
                              encodeToken (MT2_ByteString len ws)
                | otherwise = encodeToken (MT6_Tag (UIntSmall 3))
-                          <> let ws  = integerToBytes (-1 - n)
+                          <> let ws  = replicate (fromIntegral zs) 0
+                                    ++ integerToBytes (-1 - n)
                                  len = lengthUInt ws in
                              encodeToken (MT2_ByteString len ws)
 encodeTerm (TBytes ws)     = let len = lengthUInt ws in

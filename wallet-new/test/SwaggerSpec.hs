@@ -1,11 +1,12 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module SwaggerSpec where
 
+import           Universum
+
 import           Cardano.Wallet.API
 import           Cardano.Wallet.API.V1.Swagger ()
 import           Data.Aeson
 import           Data.Swagger
-import           Data.Swagger.Schema
 import           Servant.API.ContentTypes
 import           Servant.Swagger.Test
 import           Test.Hspec

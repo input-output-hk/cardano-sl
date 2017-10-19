@@ -23,23 +23,30 @@ library
                        Cardano.Wallet.API.V0.Types
   ghc-options:         -Wall
   build-depends:       base
+                     , QuickCheck
                      , aeson
-                     , text
                      , containers
-                     , network-uri
                      , http-api-data
-                     , servant-client
-                     , servant-server
-                     , servant
-                     , warp
-                     , transformers
-                     , mtl
                      , http-client
                      , http-types
-                     , QuickCheck
+                     , mtl
+                     , network-uri
+                     , servant
+                     , servant-client
+                     , servant-server
+                     , text
+                     , transformers
+                     , universum
+                     , warp
   default-language:    Haskell2010
   default-extensions: TypeOperators
                       DataKinds
+                      NoImplicitPrelude
+                      OverloadedStrings
+                      ScopedTypeVariables
+                      TypeApplications
+                      TemplateHaskell
+                      RecordWildCards
 
 executable wallet-new-server
   hs-source-dirs:      server
@@ -52,23 +59,32 @@ executable wallet-new-server
                        Cardano.Wallet.API.V1.Swagger
                        Cardano.Wallet.Server
   build-depends:       base
+                     , QuickCheck
+                     , aeson
+                     , aeson-pretty
+                     , bytestring
                      , cardano-sl-wallet-new
-                     , neat-interpolation
                      , containers
+                     , http-api-data
+                     , lens
+                     , neat-interpolation
                      , servant
                      , servant-server
                      , servant-swagger
-                     , swagger2
                      , string-conv
-                     , lens
-                     , aeson-pretty
+                     , swagger2
                      , text
+                     , universum
                      , warp
-                     , bytestring
-                     , http-api-data
-                     , QuickCheck
-                     , aeson
   default-language:    Haskell2010
+  default-extensions: TypeOperators
+                      DataKinds
+                      NoImplicitPrelude
+                      OverloadedStrings
+                      ScopedTypeVariables
+                      TypeApplications
+                      TemplateHaskell
+                      RecordWildCards
 
 test-suite wallet-new-specs
   ghc-options:      -Wall
@@ -78,22 +94,31 @@ test-suite wallet-new-specs
   other-modules:    SwaggerSpec
                     APISpec
   build-depends:    base
-                  , aeson
-                  , cardano-sl-wallet-new
-                  , hspec
-                  , servant-swagger
-                  , servant-server
-                  , servant-quickcheck
-                  , servant
-                  , http-types
-                  , http-client
-                  , swagger2
-                  , text
-                  , string-conv
-                  , containers
-                  , neat-interpolation
-                  , aeson-pretty
-                  , lens
                   , QuickCheck
+                  , aeson
+                  , aeson-pretty
+                  , cardano-sl-wallet-new
+                  , containers
+                  , hspec
+                  , http-client
+                  , http-types
+                  , lens
+                  , neat-interpolation
                   , quickcheck-instances
+                  , servant
+                  , servant-quickcheck
+                  , servant-server
+                  , servant-swagger
+                  , string-conv
+                  , swagger2
+                  , universum
+                  , text
   default-language: Haskell2010
+  default-extensions: TypeOperators
+                      DataKinds
+                      NoImplicitPrelude
+                      OverloadedStrings
+                      ScopedTypeVariables
+                      TypeApplications
+                      TemplateHaskell
+                      RecordWildCards

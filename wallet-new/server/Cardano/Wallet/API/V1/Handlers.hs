@@ -1,12 +1,11 @@
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE PolyKinds             #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE TypeOperators         #-}
 module Cardano.Wallet.API.V1.Handlers where
+
+import           Universum
 
 import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1                    as V1

@@ -1,26 +1,23 @@
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE FlexibleInstances   #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE QuasiQuotes         #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeApplications    #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE TypeOperators       #-}
-{-# LANGUAGE ViewPatterns        #-}
+{-# LANGUAGE DataKinds         #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE QuasiQuotes       #-}
+{-# LANGUAGE TypeFamilies      #-}
+{-# LANGUAGE ViewPatterns      #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Cardano.Wallet.API.V1.Swagger where
+
+import           Universum
 
 import           Cardano.Wallet.API
 import           Cardano.Wallet.API.Types
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
 
-import           Control.Lens
+import           Control.Lens                     ((?~))
 import           Data.Aeson
 import           Data.Aeson.Encode.Pretty
 import           Data.Map                         (Map)
 import qualified Data.Map.Strict                  as M
-import           Data.Monoid
 import qualified Data.Set                         as Set
 import           Data.String.Conv
 import           Data.Swagger                     hiding (Header)
@@ -29,7 +26,6 @@ import qualified Data.Text                        as T
 import           Data.Typeable
 import           GHC.TypeLits
 import           NeatInterpolation
-import           Servant                          (Header, QueryParam)
 import           Servant.API.Sub
 import           Servant.Swagger
 import           Test.QuickCheck
@@ -51,7 +47,7 @@ fromArbitraryJSON :: (ToJSON a, Typeable a, Arbitrary a)
                   -> Declare (Definitions Schema) NamedSchema
 fromArbitraryJSON (_ :: proxy a) = do
     let (randomSample :: a) = genExample
-    return $ NamedSchema (Just $ toS $ show $ typeOf randomSample) (sketchSchema randomSample)
+    return $ NamedSchema (Just $ fromString $ show $ typeOf randomSample) (sketchSchema randomSample)
 
 -- | Adds a randomly-generated but valid example to the spec, formatted as a JSON.
 withExample :: (ToJSON a, Arbitrary a) => proxy a -> T.Text -> T.Text
@@ -111,7 +107,7 @@ instance (HasSwagger subApi) => HasSwagger (WalletRequestParams :> subApi) where
 requestParameterToDescription :: Map T.Text T.Text
 requestParameterToDescription = M.fromList [
     ("page", pageDescription)
-  , ("per_page", perPageDescription (toS $ show maxPerPageEntries) (toS $ show defaultPerPageEntries))
+  , ("per_page", perPageDescription (fromString $ show maxPerPageEntries) (fromString $ show defaultPerPageEntries))
   , ("extended", extendedDescription)
   , ("Daedalus-Response-Format", responseFormatDescription)
   ]
@@ -204,7 +200,7 @@ instance (ToJSON a, ToDocs a, Typeable a, Arbitrary a) => ToSchema (ExtendedResp
 instance (ToDocs a) => ToDocs [a] where
   annotate f p = do
     s <- f p
-    return $ s & (schema . description ?~ withExample p ("A list of " <> toS (show $ typeOf (genExample @ a)) <> "."))
+    return $ s & (schema . description ?~ withExample p ("A list of " <> fromString (show $ typeOf (genExample @ a)) <> "."))
 
 instance (ToDocs a, ToDocs b) => ToDocs (OneOf a b) where
   annotate f p = do
@@ -212,8 +208,8 @@ instance (ToDocs a, ToDocs b) => ToDocs (OneOf a b) where
     return $ s & (schema . description ?~ desc)
     where
       typeOfA, typeOfB :: T.Text
-      typeOfA = toS (show $ typeOf @b exampleOfB)
-      typeOfB = toS (show $ typeOf @a exampleOfA)
+      typeOfA = fromString (show $ typeOf @b exampleOfB)
+      typeOfB = fromString (show $ typeOf @a exampleOfA)
       exampleOfA = genExample
       exampleOfB = genExample
 

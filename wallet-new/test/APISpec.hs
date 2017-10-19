@@ -5,8 +5,9 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module APISpec where
 
+import           Universum
+
 import           Control.Exception
-import           Control.Monad
 import           Network.HTTP.Client              hiding (Proxy)
 import           Network.HTTP.Types
 import           Servant.API.Sub

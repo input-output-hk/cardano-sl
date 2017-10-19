@@ -1,10 +1,10 @@
-{-# LANGUAGE OverloadedStrings #-}
 module Cardano.Wallet.API.V0.Handlers where
+
+import           Universum
 
 import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V0    as V0
 
-import           Data.Text
 import           Servant
 
 handlers :: Server V0.API

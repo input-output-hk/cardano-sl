@@ -6,11 +6,11 @@
 {-# LANGUAGE RecordWildCards            #-}
 module Main where
 
-import           Control.Monad.IO.Class
+import           Universum
+
 import           Data.Aeson.Encode.Pretty      (encodePretty)
 import qualified Data.ByteString.Lazy.Char8    as BL8
 import           Data.Function                 ((&))
-import           Data.Monoid
 import           Data.String                   (fromString)
 import qualified Network.Wai.Handler.Warp      as Warp
 import           Servant

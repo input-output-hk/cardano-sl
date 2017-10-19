@@ -8,6 +8,8 @@
 {-# OPTIONS_GHC -fno-warn-orphans  #-}
 module Cardano.Wallet.API.V1.Parameters where
 
+import           Universum
+
 import           Cardano.Wallet.API.V1.Types
 
 import           Data.Text                   (Text)

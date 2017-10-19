@@ -3,18 +3,17 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE GADTs                 #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
 module Cardano.Wallet.API.Types where
+
+import           Universum
 
 import           Data.Aeson
 import           Data.Aeson.TH
 import qualified Data.Text       as T
 import           GHC.TypeLits
+import qualified Prelude
 import           Servant
 import           Servant.API.Sub ((:>))
 import           Test.QuickCheck
@@ -67,7 +66,7 @@ instance Show APIVersion where
   show V1 = "v1"
 
 instance ToJSON APIVersion where
-    toJSON = String . T.pack . show
+    toJSON = String . fromString . show
 
 deriveToJSON defaultOptions { fieldLabelModifier = drop 4 } ''WalletVersion
 

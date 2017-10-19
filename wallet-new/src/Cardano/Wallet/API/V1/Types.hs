@@ -20,11 +20,11 @@ module Cardano.Wallet.API.V1.Types (
   , Address (..)
   ) where
 
+import           Universum
+
 import           Data.Aeson
 import           Data.Aeson.TH
-import           Data.Monoid
 import           Data.Text       (Text)
-import qualified Data.Text       as T
 import           GHC.Generics    (Generic)
 import           Test.QuickCheck
 import           Web.HttpApiData
@@ -47,7 +47,7 @@ instance FromHttpApiData Page where
         Left e           -> Left e
 
 instance ToHttpApiData Page where
-    toQueryParam (Page p) = T.pack (show p)
+    toQueryParam (Page p) = fromString (show p)
 
 newtype PerPage = PerPage Int deriving (Show, Eq, Num, Ord)
 
@@ -66,12 +66,12 @@ instance FromHttpApiData PerPage where
     parseQueryParam qp = case parseQueryParam qp of
         Right (p :: Int) | p < 1 -> Left "per_page should be at least 1."
         Right (p :: Int) | p > maxPerPageEntries ->
-                           Left $ T.pack $ "per_page cannot be greater than " <> show maxPerPageEntries <> "."
+                           Left $ fromString $ "per_page cannot be greater than " <> show maxPerPageEntries <> "."
         Right (p :: Int) -> Right (PerPage p)
         Left e           -> Left e
 
 instance ToHttpApiData PerPage where
-    toQueryParam (PerPage p) = T.pack (show p)
+    toQueryParam (PerPage p) = fromString (show p)
 
 -- | Extra information associated with an HTTP response.
 data Metadata = Metadata
@@ -139,7 +139,7 @@ newtype Account = Account
 deriveJSON defaultOptions { fieldLabelModifier = drop 4 } ''Account
 
 instance Arbitrary Account where
-  arbitrary = Account . T.pack <$> elements ["DEADBeef", "123456"]
+  arbitrary = Account . fromString <$> elements ["DEADBeef", "123456"]
 
 -- Placeholder.
 newtype Address = Address
@@ -149,4 +149,4 @@ newtype Address = Address
 deriveJSON defaultOptions { fieldLabelModifier = drop 4 } ''Address
 
 instance Arbitrary Address where
-  arbitrary = Address . T.pack <$> elements ["DEADBeef", "123456"]
+  arbitrary = Address . fromString <$> elements ["DEADBeef", "123456"]

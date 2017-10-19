@@ -2,11 +2,11 @@
 {-# LANGUAGE TypeOperators     #-}
 module Cardano.Wallet.API.V1.Handlers.Addresses where
 
-import           Cardano.Wallet.API.Types
+import           Universum
+
 import qualified Cardano.Wallet.API.V1.Addresses as Addresses
 import           Cardano.Wallet.API.V1.Types
 
-import           Data.Text
 import           Servant
 
 handlers :: Server Addresses.API

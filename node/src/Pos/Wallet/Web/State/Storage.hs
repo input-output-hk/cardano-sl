@@ -1,10 +1,13 @@
+{-# LANGUAGE Rank2Types   #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE Rank2Types #-}
 
 -- @jens: this document is inspired by https://github.com/input-output-hk/rscoin-haskell/blob/master/src/RSCoin/Explorer/Storage.hs
 module Pos.Wallet.Web.State.Storage
        (
          WalletStorage (..)
+       , WalletInfo (..)
+       , AccountInfo (..)
+       , AddressInfo (..)
        , AddressLookupMode (..)
        , CustomAddressType (..)
        , WalletTip (..)
@@ -80,7 +83,8 @@ import           Control.Monad.State.Class      (put)
 import           Data.Default                   (Default, def)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.Map                       as M
-import           Data.SafeCopy                  (Migrate (..), extension, base, deriveSafeCopySimple)
+import           Data.SafeCopy                  (Migrate (..), base, deriveSafeCopySimple,
+                                                 extension)
 import           Data.Time.Clock.POSIX          (POSIXTime)
 
 import           Pos.Client.Txp.History         (TxHistoryEntry, txHistoryListToMap)

@@ -8,16 +8,17 @@ module Main where
 
 import           Universum
 
-import           Data.Aeson.Encode.Pretty      (encodePretty)
-import qualified Data.ByteString.Lazy.Char8    as BL8
-import           Data.Function                 ((&))
-import           Data.String                   (fromString)
-import qualified Network.Wai.Handler.Warp      as Warp
+import           Data.Aeson.Encode.Pretty             (encodePretty)
+import qualified Data.ByteString.Lazy.Char8           as BL8
+import           Data.Function                        ((&))
+import           Data.String                          (fromString)
+import qualified Network.Wai.Handler.Warp             as Warp
+import           Network.Wai.Middleware.RequestLogger (logStdout)
 import           Servant
 
-import qualified Cardano.Wallet.API            as API
-import qualified Cardano.Wallet.API.V1.Swagger as Swagger
-import qualified Cardano.Wallet.Server         as Server
+import qualified Cardano.Wallet.API                   as API
+import qualified Cardano.Wallet.API.V1.Swagger        as Swagger
+import qualified Cardano.Wallet.Server                as Server
 
 -- | Server or client configuration, specifying the host and port to query or serve on.
 data ServerConfig = ServerConfig
@@ -27,8 +28,9 @@ data ServerConfig = ServerConfig
 
 -- | Run the Wallet server at the provided host and port.
 runWalletServer :: MonadIO m => ServerConfig -> m ()
-runWalletServer ServerConfig{..} =
-  liftIO $ Warp.runSettings warpSettings $ serve API.walletAPI Server.walletServer
+runWalletServer ServerConfig{..} = do
+  let app = serve API.walletAPI Server.walletServer
+  liftIO $ Warp.runSettings warpSettings (logStdout app)
   where
     warpSettings = Warp.defaultSettings & Warp.setPort configPort & Warp.setHost (fromString configHost)
 

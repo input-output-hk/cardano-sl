@@ -8,33 +8,35 @@ module Pos.Ssc.GodTossing.Toss.Logic
        , refreshToss
        ) where
 
-import           Control.Lens                    (at)
-import           Control.Monad.Except            (MonadError, runExceptT)
-import           Crypto.Random                   (MonadRandom)
-import qualified Data.HashMap.Strict             as HM
-import           System.Wlog                     (logError)
+import           Control.Lens                     (at)
+import           Control.Monad.Except             (MonadError, runExceptT)
+import           Crypto.Random                    (MonadRandom)
+import qualified Data.HashMap.Strict              as HM
+import           System.Wlog                      (logError)
 import           Universum
 
-import           Pos.Core                        (EpochIndex, EpochOrSlot (..),
-                                                  HasConfiguration, IsMainHeader,
-                                                  LocalSlotIndex, SlotCount,
-                                                  SlotId (siSlot), StakeholderId,
-                                                  VssCertificate, epochIndexL,
-                                                  epochOrSlot, getEpochOrSlot,
-                                                  headerSlotL, mkCoin, slotSecurityParam)
+import           Pos.Core                         (EpochIndex, EpochOrSlot (..),
+                                                   HasConfiguration, IsMainHeader,
+                                                   LocalSlotIndex, SlotCount,
+                                                   SlotId (siSlot), StakeholderId,
+                                                   VssCertificate, epochIndexL,
+                                                   epochOrSlot, getEpochOrSlot,
+                                                   getVssCertificatesMap, headerSlotL,
+                                                   mkCoin, mkVssCertificatesMapSingleton,
+                                                   slotSecurityParam)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (..), GtPayload (..),
-                                                  InnerSharesMap, Opening,
-                                                  SignedCommitment, getCommitmentsMap,
-                                                  mkCommitmentsMapUnsafe, _gpCertificates)
-import           Pos.Ssc.GodTossing.Functions    (sanityChecksGtPayload)
-import           Pos.Ssc.GodTossing.Toss.Base    (checkPayload)
-import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossEnv (..))
-import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
-import           Pos.Ssc.GodTossing.Toss.Types   (TossModifier (..))
-import           Pos.Ssc.GodTossing.Type         ()
-import           Pos.Util.Chrono                 (NewestFirst (..))
-import           Pos.Util.Util                   (Some, inAssertMode, sortWithMDesc)
+import           Pos.Ssc.GodTossing.Core          (CommitmentsMap (..), GtPayload (..),
+                                                   InnerSharesMap, Opening,
+                                                   SignedCommitment, getCommitmentsMap,
+                                                   gpVss, mkCommitmentsMapUnsafe)
+import           Pos.Ssc.GodTossing.Functions     (sanityChecksGtPayload)
+import           Pos.Ssc.GodTossing.Toss.Base     (checkPayload)
+import           Pos.Ssc.GodTossing.Toss.Class    (MonadToss (..), MonadTossEnv (..))
+import           Pos.Ssc.GodTossing.Toss.Failure  (TossVerFailure (..))
+import           Pos.Ssc.GodTossing.Toss.Types    (TossModifier (..))
+import           Pos.Ssc.GodTossing.Instance      ()
+import           Pos.Util.Chrono                  (NewestFirst (..))
+import           Pos.Util.Util                    (Some, inAssertMode, sortWithMDesc)
 
 -- | Verify 'GtPayload' with respect to data provided by
 -- MonadToss. If data is valid it is also applied.  Otherwise
@@ -51,7 +53,7 @@ verifyAndApplyGtPayload eoh payload = do
     -- (in the 'recreateGenericBlock').  So this check is just in case.
     inAssertMode $
         whenRight eoh $ const $ sanityChecksGtPayload eoh payload
-    let blockCerts = _gpCertificates payload
+    let blockCerts = gpVss payload
     let curEpoch = either identity (^. epochIndexL) eoh
     checkPayload curEpoch payload
 
@@ -120,7 +122,7 @@ normalizeToss epoch TossModifier {..} =
         ( HM.toList (getCommitmentsMap _tmCommitments)
         , HM.toList _tmOpenings
         , HM.toList _tmShares
-        , HM.toList _tmCertificates)
+        , HM.toList (getVssCertificatesMap _tmCertificates))
 
 -- | Apply the most valuable from given 'TossModifier' and drop the
 -- rest. This function can be used if mempool is exhausted.
@@ -132,7 +134,7 @@ refreshToss epoch TossModifier {..} = do
         takeMostValuable epoch (HM.toList (getCommitmentsMap _tmCommitments))
     opens <- takeMostValuable epoch (HM.toList _tmOpenings)
     shares <- takeMostValuable epoch (HM.toList _tmShares)
-    certs <- takeMostValuable epoch (HM.toList _tmCertificates)
+    certs <- takeMostValuable epoch (HM.toList (getVssCertificatesMap _tmCertificates))
     normalizeTossDo epoch (comms, opens, shares, certs)
 
 takeMostValuable
@@ -163,7 +165,7 @@ normalizeTossDo epoch (comms, opens, shares, certs) = do
         comms
     putsUseful $ map (flip OpeningsPayload mempty . one) opens
     putsUseful $ map (flip SharesPayload mempty . one) shares
-    putsUseful $ map (CertificatesPayload . one) certs
+    putsUseful $ map (CertificatesPayload . mkVssCertificatesMapSingleton . snd) certs
   where
     putsUseful :: [GtPayload] -> m ()
     putsUseful entries = do

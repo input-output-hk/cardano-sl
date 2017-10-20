@@ -1,5 +1,5 @@
 name:                cardano-sl-explorer
-version:             0.6.2
+version:             1.0.2
 synopsis:            Cardano explorer
 description:         Please see README.md
 license:             MIT
@@ -13,7 +13,14 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:      Pos.Explorer.Socket
+  exposed-modules:      Pos.Explorer.Core
+                        Pos.Explorer.DB
+                        Pos.Explorer.ExtraContext
+                        Pos.Explorer.Socket
+                        Pos.Explorer.Socket.App
+                        Pos.Explorer.Socket.Methods
+                        Pos.Explorer.Socket.Util
+                        Pos.Explorer.Txp
                         Pos.Explorer.Web
                         Pos.Explorer.Web.Api
                         Pos.Explorer.Web.ClientTypes
@@ -21,28 +28,43 @@ library
                         Pos.Explorer.Web.TestServer
                         Pos.Explorer.Web.Server
 
+                        -- Needed for testing
+                        Pos.Arbitrary.Explorer
+
   other-modules:        Pos.Explorer.Aeson.ClientTypes
-
-                        Pos.Explorer.Socket.App
                         Pos.Explorer.Socket.Holder
-                        Pos.Explorer.Socket.Methods
-                        Pos.Explorer.Socket.Util
-
                         Pos.Explorer.Web.Transform
-  build-depends:        aeson
+
+                        Pos.Binary.Explorer
+                        Pos.Explorer.Core.Types
+                        Pos.Explorer.Txp.Global
+                        Pos.Explorer.Txp.Local
+                        Pos.Explorer.Txp.Toil
+                        Pos.Explorer.Txp.Toil.Class
+                        Pos.Explorer.Txp.Toil.Logic
+                        Pos.Explorer.Txp.Toil.Types
+                        Pos.Explorer.BListener
+
+  build-depends:        QuickCheck
+                      , aeson
                       , base
                       , base16-bytestring
                       , binary
                       , bytestring
                       , containers
+                      , conduit
+                      , data-default
                       , either
                       , ether >= 0.5.1
                       , exceptions
                       , formatting
+                      , generic-arbitrary
                       , lens
                       , log-warper
                       , memory
                       , node-sketch
+                      , rocksdb-haskell
+                      , resourcet
                       , serokell-util
                       , stm
                       , tagged
@@ -53,12 +75,14 @@ library
                       , transformers
                       , universum
                       , unordered-containers
+                      , vector
 
                       -- cardano sl
                       , cardano-sl
                       , cardano-sl-core
                       , cardano-sl-godtossing
                       , cardano-sl-infra
+                      , cardano-sl-txp
                       , cardano-sl-db
                       , cardano-sl-ssc
                       , cardano-sl-update
@@ -79,6 +103,7 @@ library
                       , engine-io
                       , engine-io-wai
                       , wai
+                      , wai-extra
                       , wai-cors
                       , warp
   hs-source-dirs:       src
@@ -99,11 +124,15 @@ library
                         NoImplicitPrelude
                         OverloadedStrings
                         RecordWildCards
+                        TemplateHaskell
                         TypeApplications
                         TupleSections
                         ViewPatterns
                         LambdaCase
                         MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        ScopedTypeVariables
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -117,9 +146,7 @@ library
 executable cardano-explorer
   hs-source-dirs:      src/explorer
   main-is:             Main.hs
-  other-modules:       ExplorerOptions
-                     , Params
-                     , Secrets
+  other-modules:       NodeOptions
   build-depends:       base
                      , bytestring
                      , ether
@@ -138,7 +165,7 @@ executable cardano-explorer
                      , mtl
                      , network-transport-tcp
                      , node-sketch
-                     , optparse-simple
+                     , optparse-applicative
                      , universum
                      , serokell-util
                      , time
@@ -227,6 +254,7 @@ executable cardano-explorer-swagger
   build-depends:       aeson
                      , base
                      , bytestring
+                     , cardano-sl
                      , cardano-sl-explorer
                      , lens
                      , swagger2
@@ -303,10 +331,16 @@ test-suite cardano-explorer-test
   other-modules:
                        -- Standard module with some magic
                        Spec
-
+                       -- Utils
+                       Test.Pos.Explorer.MockFactory
                        -- Tests
+                       Test.Pos.Explorer.Socket.AppSpec
+                       Test.Pos.Explorer.Socket.MethodsSpec
+                       Test.Pos.Explorer.Socket.UtilSpec
                        Test.Pos.Explorer.Web.ServerSpec
                        Test.Pos.Explorer.Web.ClientTypesSpec
+
+                       Test.Pos.Explorer.Identity.BinarySpec
 
   type:                exitcode-stdio-1.0
   build-depends:       MonadRandom
@@ -350,6 +384,7 @@ test-suite cardano-explorer-test
                      , universum >= 0.1.11
                      , unordered-containers
                      , vector
+                     , warp
   hs-source-dirs:      test
   default-language:    Haskell2010
   ghc-options:         -threaded
@@ -387,4 +422,3 @@ test-suite cardano-explorer-test
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-

@@ -7,8 +7,8 @@ module Pos.Update.Constants
 
 import           Universum
 
-import           Pos.Core                   (ApplicationName, BlockVersion (..),
-                                             SoftwareVersion (..), mkApplicationName)
+import           Pos.Core  (ApplicationName, BlockVersion (..), SoftwareVersion (..),
+                            mkApplicationName)
 
 ----------------------------------------------------------------------------
 -- Genesis constants

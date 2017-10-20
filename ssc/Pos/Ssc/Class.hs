@@ -19,11 +19,11 @@ import           Pos.Ssc.Class.Storage
 import           Pos.Ssc.Class.Types
 import           Pos.Ssc.Class.Workers
 
-type SscConstraint ssc =
-    ( Ssc ssc
-    , SscListenersClass ssc
-    , SscLocalDataClass ssc
-    , SscHelpersClass ssc
-    , SscGStateClass ssc
-    , SscWorkersClass ssc
+type SscConstraint =
+    ( Ssc
+    , SscListenersClass
+    , SscLocalDataClass
+    , SscHelpersClass
+    , SscGStateClass
+    , SscWorkersClass
     )

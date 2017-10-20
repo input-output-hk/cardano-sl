@@ -3,6 +3,7 @@
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
+{-# LANGUAGE GADTs               #-}
 
 -- | Logic of Explorer socket-io Server.
 
@@ -10,9 +11,18 @@ module Pos.Explorer.Socket.Methods
        ( Subscription (..)
        , ClientEvent (..)
        , ServerEvent (..)
+       , SubscriptionParam (..)
 
+       -- * Creating `SubscriptionParam`s
+       , addrSubParam
+       , blockPageSubParam
+       , txsSubParam
+
+       -- Sessions
        , startSession
        , finishSession
+
+       -- Un-/Subscriptions
        , subscribeAddr
        , subscribeBlocksLastPage
        , subscribeTxs
@@ -20,13 +30,20 @@ module Pos.Explorer.Socket.Methods
        , unsubscribeBlocksLastPage
        , unsubscribeTxs
 
+       -- * Notifications
        , notifyAddrSubscribers
        , notifyBlocksLastPageSubscribers
        , notifyTxsSubscribers
+
+      -- * DB data
        , getBlundsFromTo
-       , addrsTouchedByTx
        , getBlockTxs
        , getTxInfo
+
+       -- * Helper
+       , addressSetByTxs
+       , addrsTouchedByTx
+       , fromCAddressOrThrow
        ) where
 
 import           Control.Lens                   (at, ix, lens, non, (.=), _Just)
@@ -39,14 +56,12 @@ import           Network.SocketIO               (Socket, socketId)
 import           Pos.Block.Core                 (Block, mainBlockTxPayload)
 import qualified Pos.Block.Logic                as DB
 import           Pos.Block.Types                (Blund)
-import           Pos.Crypto                     (withHash)
-import           Pos.Crypto                     (hash)
+import           Pos.Crypto                     (hash, withHash)
 import qualified Pos.DB.Block                   as DB
 import           Pos.DB.Class                   (MonadDBRead)
-import           Pos.Explorer                   (TxExtra (..))
-import qualified Pos.Explorer                   as DB
+import           Pos.Explorer.Core              (TxExtra (..))
+import qualified Pos.Explorer.DB                as DB
 import qualified Pos.GState                     as DB
-import           Pos.Ssc.GodTossing             (SscGodTossing)
 import           Pos.Txp                        (Tx (..), TxOut (..), TxOutAux (..),
                                                  txOutAddress, txpTxs)
 import           Pos.Types                      (Address, HeaderHash)
@@ -296,29 +311,35 @@ notifyTxsSubscribers cTxEntries =
 -- | Gets blocks from recent inclusive to old one exclusive.
 getBlundsFromTo
     :: forall ctx m . ExplorerMode ctx m
-    => HeaderHash -> HeaderHash -> m (Maybe [Blund SscGodTossing])
+    => HeaderHash -> HeaderHash -> m (Maybe [Blund])
 getBlundsFromTo recentBlock oldBlock = do
-    mheaders <- DB.getHeadersFromToIncl @SscGodTossing oldBlock recentBlock
+    mheaders <- DB.getHeadersFromToIncl oldBlock recentBlock
     forM (getOldestFirst <$> mheaders) $ \(_ :| headers) ->
-        fmap catMaybes $ forM headers (DB.blkGetBlund @SscGodTossing)
+        catMaybes <$> forM headers DB.blkGetBlund
 
 addrsTouchedByTx
     :: (MonadDBRead m, WithLogger m)
     => Tx -> m (S.Set Address)
 addrsTouchedByTx tx = do
-    -- for each transaction, get its OutTx
-    -- and transactions from InTx
-    inTxs <- forM (_txInputs tx) $ DB.getTxOut >=> \case
-        -- TODO [CSM-153]: lookup mempool as well
-        Nothing    -> mempty <$ return () -- logError "Can't find input of transaction!"
-        Just txOut -> return . one $ toaOut txOut
+      -- for each transaction, get its OutTx
+      -- and transactions from InTx
+      inTxs <- forM (_txInputs tx) $ DB.getTxOut >=> \case
+      -- ^ inTxs :: NonEmpty [TxOut]
+          -- TODO [CSM-153]: lookup mempool as well
+          Nothing       -> return mempty
+          Just txOutAux -> return . one $ toaOut txOutAux
 
-    let relatedTxs = toList (_txOutputs tx) <> concat (toList inTxs)
-    return . S.fromList $ txOutAddress <$> relatedTxs
+      pure $ addressSetByTxs (_txOutputs tx) inTxs
+
+-- | Helper to filter addresses by a given tx from a list of txs
+addressSetByTxs :: NonEmpty TxOut -> NonEmpty [TxOut] -> (S.Set Address)
+addressSetByTxs tx txs =
+    let txs' = (toList tx) <> (concat txs) in
+    S.fromList $ txOutAddress <$> txs'
 
 getBlockTxs
-    :: forall ssc ctx m . ExplorerMode ctx m
-    => Block ssc -> m [TxInternal]
+    :: forall ctx m . (ExplorerMode ctx m)
+    => Block -> m [TxInternal]
 getBlockTxs (Left  _  ) = return []
 getBlockTxs (Right blk) = do
     txs <- topsortTxsOrFail withHash $ toList $ blk ^. mainBlockTxPayload . txpTxs

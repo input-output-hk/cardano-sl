@@ -102,8 +102,8 @@ forkAccompanion
     :: (MonadIO m, MonadMask m, Mockable Fork m)
     => (m Bool -> m ()) -> m a -> m a
 forkAccompanion accompanion main = do
-    stopped <- liftIO $ newTVarIO False
-    let whetherStopped = liftIO $ readTVarIO stopped
+    stopped <- newTVarIO False
+    let whetherStopped = readTVarIO stopped
     bracket_ (fork $ accompanion whetherStopped)
              (atomically $ writeTVar stopped True)
              main
@@ -112,6 +112,6 @@ regroupBySnd
     :: forall a b l. (Ord b, Container l, Element l ~ b)
     => [(a, l)] -> M.Map b [a]
 regroupBySnd info =
-    let entries = fmap swap $ concat $ fmap sequence
-                $ toList <<$>> info :: [(b, a)]
+    let entries :: [(b, a)]
+        entries = fmap swap $ concatMap sequence $ toList <<$>> info
     in  fmap ($ []) $ M.fromListWith (.) $ fmap (second $ (++) . pure) entries

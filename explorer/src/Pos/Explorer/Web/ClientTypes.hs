@@ -1,6 +1,6 @@
 {-# OPTIONS_GHC -fno-warn-unused-top-binds #-}
 
-{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE RankNTypes #-}
 
 -- | Types for using in purescript-bridge
 module Pos.Explorer.Web.ClientTypes
@@ -17,8 +17,10 @@ module Pos.Explorer.Web.ClientTypes
        , CTxSummary (..)
        , CGenesisSummary (..)
        , CGenesisAddressInfo (..)
+       , CAddressesFilter (..)
        , TxInternal (..)
        , CCoin
+       , CAda (..)
        , EpochIndex (..)
        , LocalSlotIndex (..)
        , StakeholderId
@@ -43,44 +45,48 @@ module Pos.Explorer.Web.ClientTypes
        , decodeHashHex
        ) where
 
+import qualified Prelude
 import           Universum
 
-import           Control.Arrow              ((&&&))
-import           Control.Lens               (ix, _Left)
-import qualified Data.ByteArray             as BA
-import qualified Data.List.NonEmpty         as NE
-import           Data.Time.Clock.POSIX      (POSIXTime)
-import           Formatting                 (sformat)
-import           Pos.Binary                 (Bi, biSize)
-import           Pos.Block.Core             (MainBlock, mainBlockSlot, mainBlockTxPayload,
-                                             mcdSlot)
-import           Pos.Block.Types            (Undo (..))
-import           Pos.Core                   (HasConfiguration, timestampToPosix)
-import           Pos.Crypto                 (Hash, hash)
-import           Pos.DB.Block               (MonadBlockDB)
-import           Pos.DB.Class               (MonadDBRead)
-import           Pos.DB.Rocks               (MonadRealDB)
-import           Pos.Explorer               (TxExtra (..))
-import qualified Pos.GState                 as GS
-import           Pos.Lrc                    (getLeaders)
-import           Pos.Merkle                 (getMerkleRoot, mtRoot)
-import           Pos.Slotting               (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.GodTossing         (SscGodTossing)
+import           Control.Arrow                    ((&&&))
+import           Control.Lens                     (ix, _Left)
+import           Control.Monad.Error.Class        (throwError)
+import qualified Data.ByteArray                   as BA
+import           Data.Default                     (Default (..))
+import           Data.Fixed                       (Micro, showFixed)
+import qualified Data.List.NonEmpty               as NE
+import           Data.Time.Clock.POSIX            (POSIXTime)
+import           Formatting                       (build, sformat, (%))
+import           Pos.Binary                       (Bi, biSize)
+import           Pos.Block.Core                   (MainBlock, mainBlockSlot,
+                                                   mainBlockTxPayload, mcdSlot)
+import           Pos.Block.Types                  (Undo (..))
+import           Pos.Core                         (HasConfiguration, timestampToPosix)
+import           Pos.Crypto                       (Hash, hash)
+import           Pos.DB.Block                     (MonadBlockDB)
+import           Pos.DB.Class                     (MonadDBRead)
+import           Pos.DB.Rocks                     (MonadRealDB)
+import           Pos.Explorer.Core                (TxExtra (..))
+import qualified Pos.GState                       as GS
+import           Pos.Lrc                          (getLeaders)
+import           Pos.Merkle                       (getMerkleRoot, mtRoot)
+import           Pos.Slotting                     (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Txp                    (Tx (..), TxId, TxOut (..), TxOutAux (..),
-                                             TxUndo, txpTxs, _txOutputs)
-import           Pos.Types                  (Address, AddressHash, Coin, EpochIndex,
-                                             LocalSlotIndex, SlotId (..), StakeholderId,
-                                             Timestamp, addressF, coinToInteger,
-                                             decodeTextAddress, gbHeader, gbhConsensus,
-                                             getEpochIndex, getSlotIndex, headerHash,
-                                             mkCoin, prevBlockL, sumCoins, unsafeAddCoin,
-                                             unsafeGetCoin, unsafeIntegerToCoin,
-                                             unsafeSubCoin)
-import           Prelude                    ()
-import           Serokell.Data.Memory.Units (Byte)
-import           Serokell.Util.Base16       as SB16
-import           Servant.API                (FromHttpApiData (..))
+import           Pos.Txp                          (Tx (..), TxId, TxOut (..),
+                                                   TxOutAux (..), TxUndo, txpTxs,
+                                                   _txOutputs)
+import           Pos.Types                        (Address, AddressHash, Coin, EpochIndex,
+                                                   LocalSlotIndex, SlotId (..),
+                                                   StakeholderId, Timestamp, addressF,
+                                                   coinToInteger, decodeTextAddress,
+                                                   gbHeader, gbhConsensus, getEpochIndex,
+                                                   getSlotIndex, headerHash, mkCoin,
+                                                   prevBlockL, sumCoins, unsafeAddCoin,
+                                                   unsafeGetCoin, unsafeIntegerToCoin,
+                                                   unsafeSubCoin)
+import           Serokell.Data.Memory.Units       (Byte)
+import           Serokell.Util.Base16             as SB16
+import           Servant.API                      (FromHttpApiData (..))
 
 
 -------------------------------------------------------------------------------------
@@ -171,6 +177,13 @@ mkCCoin = CCoin . show . unsafeGetCoin
 mkCCoinMB :: Maybe Coin -> CCoin
 mkCCoinMB = maybe (CCoin "N/A") mkCCoin
 
+newtype CAda = CAda
+    { getAda :: Micro
+    } deriving (Generic)
+
+instance Show CAda where
+    show (CAda ada) = showFixed True ada
+
 -- | List of block entries is returned from "get latest N blocks" endpoint
 data CBlockEntry = CBlockEntry
     { cbeEpoch      :: !Word64
@@ -186,7 +199,7 @@ data CBlockEntry = CBlockEntry
 
 toBlockEntry
     :: forall ctx m .
-    ( MonadBlockDB SscGodTossing m
+    ( MonadBlockDB m
     , MonadDBRead m
     , MonadRealDB ctx m
     , MonadSlots ctx m
@@ -194,7 +207,7 @@ toBlockEntry
     , HasConfiguration
     , HasGtConfiguration
     )
-    => (MainBlock SscGodTossing, Undo)
+    => (MainBlock, Undo)
     -> m CBlockEntry
 toBlockEntry (blk, Undo{..}) = do
 
@@ -232,7 +245,7 @@ toBlockEntry (blk, Undo{..}) = do
 -- Returning @Maybe@ is the simplest implementation for now, since it's hard
 -- to forsee what is and what will the state of leaders be at any given moment.
 getLeaderFromEpochSlot
-    :: (MonadBlockDB SscGodTossing m, MonadDBRead m, MonadRealDB ctx m)
+    :: (MonadBlockDB m, MonadDBRead m, MonadRealDB ctx m)
     => EpochIndex
     -> LocalSlotIndex
     -> m (Maybe StakeholderId)
@@ -278,7 +291,7 @@ data CBlockSummary = CBlockSummary
 
 toBlockSummary
     :: forall ctx m.
-    ( MonadBlockDB SscGodTossing m
+    ( MonadBlockDB m
     , MonadDBRead m
     , MonadRealDB ctx m
     , MonadSlots ctx m
@@ -286,7 +299,7 @@ toBlockSummary
     , HasConfiguration
     , HasGtConfiguration
     )
-    => (MainBlock SscGodTossing, Undo)
+    => (MainBlock, Undo)
     -> m CBlockSummary
 toBlockSummary blund@(blk, _) = do
     cbsEntry <- toBlockEntry blund
@@ -343,8 +356,11 @@ data CTxSummary = CTxSummary
     } deriving (Show, Generic)
 
 data CGenesisSummary = CGenesisSummary
-    { cgsNumTotal    :: !Int
-    , cgsNumRedeemed :: !Int
+    { cgsNumTotal               :: !Int
+    , cgsNumRedeemed            :: !Int
+    , cgsNumNotRedeemed         :: !Int
+    , cgsRedeemedAmountTotal    :: !CCoin
+    , cgsNonRedeemedAmountTotal :: !CCoin
     } deriving (Show, Generic)
 
 data CGenesisAddressInfo = CGenesisAddressInfo
@@ -357,6 +373,15 @@ data CGenesisAddressInfo = CGenesisAddressInfo
     , cgaiGenesisAmount  :: !CCoin
     , cgaiIsRedeemed     :: !Bool
     } deriving (Show, Generic)
+
+data CAddressesFilter =
+      RedeemedAddresses
+    | NonRedeemedAddresses
+    | AllAddresses
+    deriving (Show, Generic)
+
+instance Default CAddressesFilter where
+    def = AllAddresses
 
 --------------------------------------------------------------------------------
 -- FromHttpApiData instances
@@ -372,6 +397,14 @@ instance FromHttpApiData CAddress where
 
 instance FromHttpApiData CTxId where
     parseUrlPiece = pure . CTxId . CHash
+
+instance FromHttpApiData CAddressesFilter where
+    parseUrlPiece "all" = pure AllAddresses
+    parseUrlPiece "redeemed" = pure RedeemedAddresses
+    parseUrlPiece "notredeemed" = pure NonRedeemedAddresses
+    parseUrlPiece other = throwError $
+        sformat ("Unknown option '"%build%"'. "%
+            "Valid options are 'all', 'redeemed' and 'notredeemed'.") other
 
 -- TODO: When we have a generic enough `readEither`
 -- instance FromHttpApiData LocalSlotIndex where

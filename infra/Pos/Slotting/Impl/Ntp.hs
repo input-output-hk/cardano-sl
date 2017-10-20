@@ -31,7 +31,7 @@ import           Universum
 import qualified Control.Concurrent.STM      as STM
 import           Control.Lens                (makeLenses)
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import           Data.List                   ((!!))
+import qualified Data.List.NonEmpty          as NE
 import           Data.Time.Units             (Microsecond)
 import           Formatting                  (int, sformat, shown, stext, (%))
 import           Mockable                    (Catch, CurrentTime, Delay, Fork, Mockables,
@@ -42,16 +42,17 @@ import           NTP.Example                 ()
 import           Serokell.Util               (sec)
 import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
 
-import qualified Pos.Core.Constants          as C
 import           Pos.Core.Configuration      (HasConfiguration)
 import           Pos.Core.Slotting           (unflattenSlotId)
 import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp (..))
 import           Pos.Infra.Configuration     (HasInfraConfiguration)
+import qualified Pos.Infra.Configuration     as Infra
 import qualified Pos.Slotting.Configuration  as C
 import           Pos.Slotting.Impl.Util      (approxSlotUsingOutdated, slotFromTimestamp)
 import           Pos.Slotting.MemState       (MonadSlotsData, getCurrentNextEpochIndexM,
                                               getCurrentNextEpochSlottingDataM,
                                               waitCurrentEpochEqualsM)
+import           Pos.Util.Util               (median)
 
 ----------------------------------------------------------------------------
 -- TODO
@@ -114,7 +115,7 @@ mkNtpSlottingVar = do
     let settings = (ntpSettings res) { ntpResponseTimeout = 1 & sec }
     res <$ singleShot settings
   where
-    singleShot settings = unless C.isDevelopment $ do
+    singleShot settings = do
         logInfo $ "Waiting for response from NTP servers"
         ntpSingleShot settings
 
@@ -261,9 +262,7 @@ ntpSettings
     => NtpSlottingVar -> NtpClientSettings m
 ntpSettings var = NtpClientSettings
     { -- list of servers addresses
-      ntpServers         = [ "time.windows.com"
-                           , "clock.isc.org"
-                           , "ntp5.stratum2.ru"]
+      ntpServers         = Infra.ntpServers
     -- got time margin callback
     , ntpHandler         = ntpHandlerDo var
     -- logger name modifier
@@ -274,5 +273,5 @@ ntpSettings var = NtpClientSettings
     -- how often to send responses to server
     , ntpPollDelay       = C.ntpPollDelay
     -- way to sumarize results received from different servers.
-    , ntpMeanSelection   = \l -> let len = length l in sort l !! ((len - 1) `div` 2)
+    , ntpMeanSelection   = median . NE.fromList
     }

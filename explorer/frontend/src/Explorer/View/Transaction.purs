@@ -95,12 +95,14 @@ summaryRowEpochSlot (CTxSummary ctxSummary) lang =
         case ctxSummary ^. ctsBlockEpoch of
             Just epoch ->
                 let epochLabel = translate (I18nL.common <<< I18nL.cEpoch) lang
-                    epochRoute = Epoch $ mkEpochIndex epoch
+                    -- [CSE-236] Disable epoch search
+                    -- epochRoute = Epoch $ mkEpochIndex epoch
                 in
-                S.a ! S.href (toUrl epochRoute)
-                    #! P.onClick (Navigate $ toUrl epochRoute)
-                    ! S.className "link"
-                    $ S.text (epochLabel <> " " <> show epoch)
+                -- [CSE-236] Disable epoch search
+                -- S.a ! S.href (toUrl epochRoute)
+                --     #! P.onClick (Navigate $ toUrl epochRoute)
+                --     ! S.className "link"
+                S.span $ S.text (epochLabel <> " " <> show epoch)
             Nothing ->
                 S.span $ S.text noData
         S.text " / "

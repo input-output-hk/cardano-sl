@@ -32,7 +32,7 @@ findDelegationStakes
     -> Coin                                        -- ^ Coin threshold
     -> Sink (StakeholderId, HashSet StakeholderId)
             m
-            (RichmenSet, RichmenStakes)             -- ^ Old richmen, new richmen
+            (RichmenSet, RichmenStakes)            -- ^ Old richmen, new richmen
 findDelegationStakes isIssuer stakeResolver t = do
     (old, new) <- step (mempty, mempty)
     pure (getKeys ((HS.toMap old) `HM.difference` new), new)

@@ -5,6 +5,13 @@ flag. When no `.yaml` file is specified the node is considered to be a
 behind-NAT edge node with a hardcoded set of default domain names to discover
 relays (see "Behind-NAT Nodes", below).
 
+SIGHUP can be sent to an already running node to make it re-read the topology
+file. Only a few settings can be changed dynamically in this manner. For
+instance, while it is possible to add additional routes, it is not possible
+to change a node's type dynamically. To change other settings the node needs
+to be restarted. Sending SIGHUP also causes the outbound queue to clear its
+failure statistics (see QUEUE_METRICS.md).
+
 ## Statically configured nodes (core or relay)
 
 Statically configured nodes are provided with a full list of all nodes and

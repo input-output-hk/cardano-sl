@@ -1,3 +1,5 @@
+{-# LANGUAGE ApplicativeDo #-}
+
 -- | Module for commands parsing.
 
 module Command.Parser
@@ -5,6 +7,10 @@ module Command.Parser
        ) where
 
 import           Universum
+
+import           Data.Default           (def)
+import           Data.Time.Units        (convertUnit)
+import           Serokell.Util          (sec)
 
 import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58)
 import qualified Data.List.NonEmpty     as NE
@@ -27,10 +33,12 @@ import           Pos.Txp                (TxOut (..))
 import           Pos.Types              (AddrStakeDistribution (..), Address, Coin,
                                          CoinPortion, decodeTextAddress, mkCoin,
                                          mkMultiKeyDistr, unsafeCoinPortionFromDouble)
-import           Pos.Update             (SystemTag, mkSystemTag)
+import           Pos.Update             (BlockVersionModifier (..), SystemTag,
+                                         mkSystemTag)
 import           Pos.Util.Util          (eitherToFail)
 
-import           Command.Types          (Command (..), ProposeUpdateParams (..),
+import           Command.Types          (Command (..), GenBlocksParams (..),
+                                         ProposeUpdateParams (..),
                                          ProposeUpdateSystem (..), SendMode (..),
                                          SendToAllGenesisParams (..))
 
@@ -58,6 +66,9 @@ address = lexeme $ do
 
 num :: Num a => Parser a
 num = lexeme $ fromInteger . read <$> many1 digit
+
+numOrN1 :: Num a => Parser a
+numOrN1 = lexeme $ fromInteger . read <$> (string "-1" <|> many1 digit)
 
 coin :: Parser Coin
 coin = mkCoin <$> num
@@ -90,7 +101,7 @@ dumpFlag = (True <$ lexeme (try $ string "dump")) <|> pure False
 
 delegateL, delegateH :: Parser Command
 delegateL =
-    DelegateLight <$> num <*> base58PkParser <*> num <*> optional num <*> dumpFlag
+    DelegateLight <$> num <*> base58PkParser <*> num <*> optional num
 delegateH =
     DelegateHeavy <$> num <*> base58PkParser <*> num <*> dumpFlag
 
@@ -99,7 +110,7 @@ addKeyFromPool = AddKeyFromPool <$> num
 addKeyFromFile = AddKeyFromFile <$> filePath
 
 send :: Parser Command
-send = Send <$> num <*> (NE.fromList <$> many1 txout)
+send = Send <$> numOrN1 <*> (NE.fromList <$> many1 txout)
 
 sendMode :: Parser SendMode
 sendMode = lexeme $ text "neighbours" $> SendNeighbours
@@ -121,14 +132,41 @@ proposeUpdateParams =
     ProposeUpdateParams <$>
     num <*>
     lexeme parseBlockVersion <*>
-    lexeme parseIntegralSafe <*>
-    lexeme parseIntegralSafe <*>
-    lexeme parseIntegralSafe <*>
     lexeme parseSoftwareVersion <*>
+    parseBvm <*>
     many1 parseProposeUpdateSystem
+  where
+    parseBvm = do
+        updScriptVersion <- parseIntegralSafe
+        updSlotDurationSec <- parseIntegralSafe
+        updMaxBlockSize <- parseIntegralSafe
+        return def
+            { bvmScriptVersion = Just updScriptVersion
+            , bvmSlotDuration  = Just $ convertUnit (sec updSlotDurationSec)
+            , bvmMaxBlockSize  = Just updMaxBlockSize
+            }
 
 proposeUpdate :: Parser Command
 proposeUpdate = ProposeUpdate <$> proposeUpdateParams
+
+proposeUnlockStakeEpochParams :: Parser ProposeUpdateParams
+proposeUnlockStakeEpochParams =
+    ProposeUpdateParams <$>
+    num <*>
+    lexeme parseBlockVersion <*>
+    lexeme parseSoftwareVersion <*>
+    parseBvm <*>
+    pure []
+  where
+    parseBvm = do
+        updUnlockStakeEpoch <- num
+        return $ def { bvmUnlockStakeEpoch = Just updUnlockStakeEpoch }
+
+proposeUnlockStakeEpoch :: Parser Command
+proposeUnlockStakeEpoch = ProposeUpdate <$> proposeUnlockStakeEpochParams
+
+hashInstaller :: Parser Command
+hashInstaller = HashInstaller <$> filePath
 
 coinPortionP :: Parser CoinPortion
 coinPortionP = do
@@ -159,6 +197,9 @@ rollbackP = Rollback <$> num <*> filePath
 sendTxsFromFileP :: Parser Command
 sendTxsFromFileP = SendTxsFromFile <$> filePath
 
+genBlocksParams :: Parser Command
+genBlocksParams = fmap GenBlocks $ GenBlocksParams <$> num <*> optional num
+
 parseProposeUpdateSystem :: Parser ProposeUpdateSystem
 parseProposeUpdateSystem =
     ProposeUpdateSystem <$>
@@ -177,13 +218,17 @@ parseSystemTag =
 
 command :: Parser Command
 command = try (text "balance") *> balance <|>
+          try (text "print-bvd") $> PrintBlockVersionData <|>
           try (text "send-to-all-genesis") *> sendToAllGenesis <|>
           try (text "send-from-file") *> sendTxsFromFileP <|>
           try (text "send") *> send <|>
           try (text "vote") *> vote <|>
           try (text "propose-update") *> proposeUpdate <|>
+          try (text "propose-unlock-stake-epoch") *> proposeUnlockStakeEpoch <|>
+          try (text "hash-installer") *> hashInstaller <|>
           try (text "delegate-light") *> delegateL <|>
           try (text "delegate-heavy") *> delegateH <|>
+          try (text "generate-blocks") *> genBlocksParams <|>
           try (text "add-key-pool") *> addKeyFromPool <|>
           try (text "add-key") *> addKeyFromFile <|>
           try (text "addr-distr") *> addrDistrP <|>
@@ -193,5 +238,5 @@ command = try (text "balance") *> balance <|>
           try (text "listaddr") *> pure ListAddresses <?>
           "Undefined command"
 
-parseCommand :: Text -> Either String Command
+parseCommand :: Text -> Either Text Command
 parseCommand = first show . parse command ""

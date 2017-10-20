@@ -18,17 +18,16 @@ import           Formatting                   (build, sformat, (%))
 import           System.IO.Error              (isDoesNotExistError)
 import           System.Wlog                  (logDebug)
 
-import           Pos.Aeson.ClientTypes        ()
-import           Pos.Aeson.WalletBackup       ()
-import           Pos.Constants                (isDevelopment)
+import           Pos.Client.KeyStorage        (addSecretKey)
+import           Pos.Core.Configuration       (genesisHdwSecretKeys)
 import           Pos.Crypto                   (EncryptedSecretKey, PassPhrase,
                                                emptyPassphrase, firstHardened)
-import           Pos.Core.Configuration       (genesisHdwSecretKeys)
 import           Pos.StateLock                (Priority (..), withStateLockNoMetrics)
 import           Pos.Util                     (maybeThrow)
 import           Pos.Util.UserSecret          (UserSecretDecodingError (..),
-                                               readUserSecret, usWalletSet)
-import           Pos.Wallet.KeyStorage        (addSecretKey)
+                                               WalletUserSecret (..),
+                                               mkGenesisWalletUserSecret, readUserSecret,
+                                               usWallet, wusAccounts, wusWalletName)
 import           Pos.Wallet.Web.Account       (GenSeed (..), genSaveRootKey,
                                                genUniqueAccountId)
 import           Pos.Wallet.Web.ClientTypes   (AccountId (..), CAccountInit (..),
@@ -38,11 +37,8 @@ import           Pos.Wallet.Web.ClientTypes   (AccountId (..), CAccountInit (..)
 import           Pos.Wallet.Web.Error         (WalletError (..), rewrapToWalletError)
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
-import           Pos.Wallet.Web.Secret        (WalletUserSecret (..),
-                                               mkGenesisWalletUserSecret, wusAccounts,
-                                               wusWalletName)
-import           Pos.Wallet.Web.State         (createAccount, setWalletSyncTip,
-                                               updateHistoryCache)
+import           Pos.Wallet.Web.State         (createAccount, removeHistoryCache,
+                                               setWalletSyncTip)
 import           Pos.Wallet.Web.Tracking      (syncWalletOnImport)
 
 
@@ -73,7 +69,7 @@ newWallet :: MonadWalletWebMode m => PassPhrase -> CWalletInit -> m CWallet
 newWallet passphrase cwInit = do
     -- A brand new wallet doesn't need any syncing, so we mark isReady=True
     (_, wId) <- newWalletFromBackupPhrase passphrase cwInit True
-    updateHistoryCache wId []
+    removeHistoryCache wId
     -- BListener checks current syncTip before applying update,
     -- thus setting it up to date manually here
     withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip wId tip
@@ -98,7 +94,7 @@ importWallet passphrase (toString -> fp) = do
         rewrapToWalletError isDoesNotExistError noFile $
         rewrapToWalletError (\UserSecretDecodingError{} -> True) decodeFailed $
         readUserSecret fp
-    wSecret <- maybeThrow noWalletSecret (secret ^. usWalletSet)
+    wSecret <- maybeThrow noWalletSecret (secret ^. usWallet)
     wId <- cwId <$> importWalletSecret emptyPassphrase wSecret
     L.changeWalletPassphrase wId emptyPassphrase passphrase
     L.getWallet wId
@@ -140,7 +136,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
 -- For debug purposes
 addInitialRichAccount :: MonadWalletWebMode m => Int -> m ()
 addInitialRichAccount keyId =
-    when isDevelopment . E.handleAll wSetExistsHandler $ do
+    E.handleAll wSetExistsHandler $ do
         let hdwSecretKeys = fromMaybe (error "Hdw secrets keys are unknown") genesisHdwSecretKeys
         key <- maybeThrow noKey (hdwSecretKeys ^? ix keyId)
         void $ importWalletSecret emptyPassphrase $

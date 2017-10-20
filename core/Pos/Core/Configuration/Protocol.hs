@@ -17,9 +17,9 @@ module Pos.Core.Configuration.Protocol
 
 import           Universum
 
-import           Data.Reflection            (Given (..), give)
-import           Pos.Core.Genesis.Types     (ProtocolConstants (..))
-import           Pos.Core.Types             (SlotCount, BlockCount (..), ProtocolMagic (..))
+import           Data.Reflection        (Given (..), give)
+import           Pos.Core.Genesis.Types (ProtocolConstants (..))
+import           Pos.Core.Types         (BlockCount (..), ProtocolMagic (..), SlotCount)
 
 type HasProtocolConstants = Given ProtocolConstants
 
@@ -44,9 +44,7 @@ vssMinTTL :: (HasProtocolConstants, Integral i) => i
 vssMinTTL = fromIntegral . pcVssMinTTL $ protocolConstants
 
 -- | Security parameter which is maximum number of blocks which can be
--- rolled back. This value is embedded into library and can be used
--- only for initialization. The actual value should be fetched from
--- runtime context (it can differ from this one).
+-- rolled back.
 blkSecurityParam :: HasProtocolConstants => BlockCount
 blkSecurityParam = fromIntegral . pcK $ protocolConstants
 

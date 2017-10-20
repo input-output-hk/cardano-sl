@@ -40,15 +40,17 @@ import           Pos.Binary.Core                   ()
 import           Pos.Binary.Crypto                 ()
 import           Pos.Core.Address                  (addressHash, makeAddress)
 import           Pos.Core.Coin                     (coinToInteger, divCoin, unsafeSubCoin)
-import           Pos.Core.Configuration.Protocol   (HasProtocolConstants, epochSlots)
+import           Pos.Core.Configuration            (HasGenesisBlockVersionData,
+                                                    HasProtocolConstants, epochSlots)
 import           Pos.Core.Constants                (sharedSeedLength)
 import qualified Pos.Core.Fee                      as Fee
 import qualified Pos.Core.Genesis                  as G
 import qualified Pos.Core.Slotting                 as Types
-import           Pos.Core.Types                    (BlockVersionData (..), Timestamp (..))
+import           Pos.Core.Types                    (BlockVersionData (..), Timestamp (..),
+                                                    maxCoinVal)
 import qualified Pos.Core.Types                    as Types
 import           Pos.Core.Vss                      (VssCertificate, mkVssCertificate,
-                                                    mkVssCertificatesMap)
+                                                    mkVssCertificatesMapLossy)
 import           Pos.Crypto                        (createPsk, toPublic)
 import           Pos.Data.Attributes               (Attributes (..), UnparsedFields (..))
 import           Pos.Util.Arbitrary                (nonrepeating)
@@ -493,6 +495,23 @@ instance Arbitrary Fee.TxFeePolicy where
 -- Arbitrary types from 'Pos.Core.Genesis'
 ----------------------------------------------------------------------------
 
+instance HasGenesisBlockVersionData => Arbitrary G.TestnetBalanceOptions where
+    arbitrary = do
+        -- We have at least 2 owned addresses in system so we can send
+        -- transactions in block-gen/tests.
+        tboPoors <- choose (1, 100)
+        tboRichmen <- choose (1, 12)
+        tboTotalBalance <- choose (1000, maxCoinVal)
+        tboRichmenShare <- choose (0.55, 0.996)
+        let tboUseHDAddresses = False
+        return G.TestnetBalanceOptions {..}
+
+instance Arbitrary G.FakeAvvmOptions where
+    arbitrary = do
+        faoCount <- choose (0, 10)
+        faoOneBalance <- choose (5, 30)
+        return G.FakeAvvmOptions {..}
+
 instance HasProtocolConstants => Arbitrary G.GenesisDelegation where
     arbitrary =
         leftToPanic "arbitrary@GenesisDelegation" . G.mkGenesisDelegation . HM.fromList <$> do
@@ -508,21 +527,6 @@ instance HasProtocolConstants => Arbitrary G.GenesisDelegation where
         mkCertPair delegatePk issuer =
             ( addressHash (toPublic issuer)
             , createPsk issuer delegatePk 0 )
-
-instance Arbitrary G.BalanceDistribution where
-    arbitrary = do
-           sdRichmen <- choose (0, 20)
-           sdRichBalance <- Types.mkCoin <$> choose (100000, 5000000)
-           sdPoor <- choose (0, 20)
-           sdPoorBalance <- Types.mkCoin <$> choose (1000, 50000)
-           return G.RichPoorBalances{..}
-      --[ do stakeholders <- choose (1, 10000)
-      --     coins <- Types.mkCoin <$> choose (stakeholders, 20*1000*1000*1000)
-      --     return (G.FlatBalances (fromIntegral stakeholders) coins)
-      -- , G.safeExpBalances <$> choose (0::Integer, 20)
-      -- , G.CustomBalances <$> arbitrary
-      -- ]
-    shrink = genericShrink
 
 instance Arbitrary G.GenesisWStakeholders where
     arbitrary = G.GenesisWStakeholders <$> arbitrary
@@ -551,7 +555,7 @@ instance HasProtocolConstants => Arbitrary G.GenesisData where
         hasKnownFeePolicy BlockVersionData {bvdTxFeePolicy = Fee.TxFeePolicyTxSizeLinear {}} =
             True
         hasKnownFeePolicy _ = False
-        arbitraryVssCerts = G.GenesisVssCertificatesMap . mkVssCertificatesMap <$> arbitrary
+        arbitraryVssCerts = G.GenesisVssCertificatesMap . mkVssCertificatesMapLossy <$> arbitrary
 
 ----------------------------------------------------------------------------
 -- Arbitrary miscellaneous types

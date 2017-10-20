@@ -28,19 +28,20 @@ import           Pos.Binary.Core.Address    ()
 import           Pos.Core.Address           (addressF, decodeTextAddress)
 import           Pos.Core.Fee               (Coeff (..), TxFeePolicy (..),
                                              TxSizeLinear (..))
+import           Pos.Core.Genesis.Helpers   (mkGenesisDelegation)
 import           Pos.Core.Genesis.Types     (GenesisAvvmBalances (..), GenesisData (..),
                                              GenesisDelegation (..),
                                              GenesisNonAvvmBalances (..),
                                              GenesisVssCertificatesMap (..),
                                              GenesisWStakeholders (..),
-                                             ProtocolConstants (..), mkGenesisDelegation)
+                                             ProtocolConstants (..))
 import           Pos.Core.Types             (Address, BlockVersionData (..), Coin,
                                              CoinPortion, EpochIndex (..),
                                              SharedSeed (..), SoftforkRule (..),
                                              StakeholderId, Timestamp (..),
                                              getCoinPortion, mkCoin, mkCoinPortion,
                                              unsafeGetCoin)
-import           Pos.Core.Vss               (VssCertificate (..), VssCertificatesMap,
+import           Pos.Core.Vss               (VssCertificate (..), VssCertificatesMap (..),
                                              validateVssCertificatesMap)
 import           Pos.Crypto                 (ProxyCert, ProxySecretKey (..), PublicKey,
                                              RedeemPublicKey, Signature,
@@ -115,7 +116,7 @@ instance Monad m => ToJSON m (AsBinary smth) where
     toJSON = pure . JSString . formatToString base64F . getAsBinary
 
 -- Note that it will be encoded as string, because 'EpochIndex'
--- doesn't necessary fits into JS number.
+-- doesn't necessary fit into JS number.
 instance Monad m => ToJSON m EpochIndex where
     toJSON = toJSON . getEpochIndex
 
@@ -127,6 +128,9 @@ instance Monad m => ToJSON m VssCertificate where
             , ("signature", toJSON (vcSignature vc))
             , ("signingKey", toJSON (vcSigningKey vc))
             ]
+
+instance Monad m => ToJSON m VssCertificatesMap where
+    toJSON = toJSON . getVssCertificatesMap
 
 instance Monad m => ToObjectKey m StakeholderId where
     toObjectKey = pure . formatToString hashHexF
@@ -356,6 +360,11 @@ instance (ReportSchemaErrors m) => FromJSON m VssCertificate where
             , vcSigningKey  = signingKey
             }
 
+instance ReportSchemaErrors m => FromJSON m VssCertificatesMap where
+    fromJSON val = do
+        m <- UnsafeVssCertificatesMap <$> fromJSON val
+        wrapConstructor (validateVssCertificatesMap m)
+
 instance ReportSchemaErrors m => FromObjectKey m StakeholderId where
     fromObjectKey = fmap Just . tryParseString (decodeAbstractHash) . JSString
 
@@ -452,13 +461,12 @@ instance (ReportSchemaErrors m) => FromJSON m GenesisData where
         gdBootStakeholders <- fromJSField obj "bootStakeholders"
         gdHeavyDelegation <- fromJSField obj "heavyDelegation"
         gdStartTime <- fromJSField obj "startTime"
-        gdVssCerts <- fromJSField obj "vssCerts" >>= wrapConstructor . mkGenesisVssCertsMap
+        -- note that we don't need to validate this map explicitly because
+        -- the FromJSON instance of 'VssCertificatesMap' already does this
+        gdVssCerts <- GenesisVssCertificatesMap <$> fromJSField obj "vssCerts"
         gdNonAvvmBalances <- fromJSField obj "nonAvvmBalances"
         gdBlockVersionData <- fromJSField obj "blockVersionData"
         gdProtocolConsts <- fromJSField obj "protocolConsts"
         gdAvvmDistr <- fromJSField obj "avvmDistr"
         gdFtsSeed <- fromJSField obj "ftsSeed"
         return GenesisData {..}
-      where
-        mkGenesisVssCertsMap :: VssCertificatesMap -> Either Text GenesisVssCertificatesMap
-        mkGenesisVssCertsMap = fmap GenesisVssCertificatesMap . validateVssCertificatesMap

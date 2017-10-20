@@ -23,18 +23,18 @@ import           Pos.Ssc.Extra.Class     (SscMemTag)
 import           Pos.Ssc.Extra.Types     (SscState (..))
 
 mkSscState
-    :: forall ssc ctx m .
+    :: forall ctx m .
        ( WithLogger m
        , MonadReader ctx m
        , HasLens LrcContext ctx LrcContext
-       , SscGStateClass ssc
-       , SscLocalDataClass ssc
+       , SscGStateClass
+       , SscLocalDataClass
        , MonadDBRead m
        , MonadIO m
        , MonadSlots ctx m
        )
-    => m (SscState ssc)
+    => m SscState
 mkSscState = do
-    gState <- sscLoadGlobalState @ssc
-    ld <- sscNewLocalData @ssc
+    gState <- sscLoadGlobalState
+    ld <- sscNewLocalData
     liftIO $ SscState <$> STM.newTVarIO gState <*> STM.newTVarIO ld

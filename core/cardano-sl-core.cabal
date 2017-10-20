@@ -1,5 +1,5 @@
 name:                cardano-sl-core
-version:             0.6.2
+version:             1.0.2
 synopsis:            Cardano SL - core
 description:         Cardano SL - core
 license:             MIT
@@ -14,12 +14,6 @@ cabal-version:       >=1.10
 flag asserts
   default:     True
   manual:      True
-
-flag dev-mode
-  default:     True
-  manual:      True
-
-  description: Switch between Development and Production mode
 
 library
   exposed-modules:
@@ -62,8 +56,8 @@ library
 
                        Pos.Core.Genesis
                        Pos.Core.Genesis.Canonical
-                       Pos.Core.Genesis.Constants
                        Pos.Core.Genesis.Generate
+                       Pos.Core.Genesis.Helpers
                        Pos.Core.Genesis.Types
 
                        Pos.Crypto
@@ -109,13 +103,13 @@ library
                        Pos.System.Metrics.Constants
 
                        Pos.Util.Arbitrary
+                       Pos.Util.CompileInfo
                        Pos.Util.Concurrent
                        Pos.Util.Concurrent.LockedTVar
                        Pos.Util.Concurrent.PriorityLock
                        Pos.Util.Concurrent.RWLock
                        Pos.Util.Concurrent.RWVar
                        Pos.Util.Chrono
-                       Pos.Util.HVect
                        Pos.Util.Limits
                        Pos.Util.LRU
                        Pos.Util.Mnemonics
@@ -153,8 +147,10 @@ library
                      , ed25519
                      , ether >= 0.5
                      , exceptions
+                     , extra
                      , file-embed
                      , filepath
+                     , fmt
                      , formatting
                      , generic-arbitrary
                      , hashable
@@ -167,6 +163,7 @@ library
                      , node-sketch
                      , parsec
                      , plutus-prototype
+                     , process
                      , pvss
                      , quickcheck-instances
                      , random
@@ -226,5 +223,3 @@ library
   ghc-options: -pgmP cpphs -optP --cpp
   if flag(asserts)
     cpp-options: -DASSERTS_ON
-  if flag(dev-mode)
-    cpp-options: -DDEV_MODE

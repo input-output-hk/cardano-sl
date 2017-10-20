@@ -1,5 +1,5 @@
 name:                cardano-sl-infra
-version:             0.6.2
+version:             1.0.2
 synopsis:            Cardano SL - infrastructural
 description:         Cardano SL - infrastructural
 license:             MIT
@@ -96,6 +96,9 @@ library
                         Pos.Subscription.Common
                         Pos.Subscription.Dns
                         Pos.Subscription.Dht
+
+                        -- NTP
+                        Pos.NtpCheck
 
                         -- Pos.Binary
                         Pos.Binary.Infra

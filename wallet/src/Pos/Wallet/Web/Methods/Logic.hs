@@ -28,27 +28,27 @@ module Pos.Wallet.Web.Methods.Logic
 import           Universum
 
 import qualified Data.HashMap.Strict        as HM
-import           Data.List                  (findIndex, notElem)
+import           Data.List                  (findIndex)
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (build, sformat, (%))
 
-import           Pos.Aeson.ClientTypes      ()
-import           Pos.Aeson.WalletBackup     ()
+import           Pos.Client.KeyStorage      (addSecretKey, deleteSecretKey,
+                                             getSecretKeysPlain)
 import           Pos.Core                   (Coin, sumCoins, unsafeIntegerToCoin)
 import           Pos.Crypto                 (PassPhrase, changeEncPassphrase,
                                              checkPassMatches, emptyPassphrase)
 import           Pos.Util                   (maybeThrow)
 import qualified Pos.Util.Modifier          as MM
 import           Pos.Util.Servant           (encodeCType)
-import           Pos.Wallet.KeyStorage      (addSecretKey, deleteSecretKey, getSecretKeys)
+import           Pos.Wallet.Aeson           ()
 import           Pos.Wallet.WalletMode      (getBalance)
-import           Pos.Wallet.Web.Account     (AddrGenSeed, genUniqueAccountAddress,
-                                             genUniqueAccountId, getAddrIdx, getSKById)
+import           Pos.Wallet.Web.Account     (AddrGenSeed, genUniqueAccountId,
+                                             genUniqueAddress, getAddrIdx, getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..),
                                              CAccountInit (..), CAccountMeta (..),
                                              CAddress (..), CId, CWAddressMeta (..),
                                              CWallet (..), CWalletMeta (..), Wal,
-                                             addrMetaToAccount, encToCId, mkCCoin)
+                                             addrMetaToAccount, encToCId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
 import           Pos.Wallet.Web.State       (AddressLookupMode (Existing),
@@ -90,7 +90,7 @@ getWAddress cachedAccModifier cAddr = do
             return (checkDB || checkMempool)
     isUsed   <- getFlag UsedAddr camUsed
     isChange <- getFlag ChangeAddr camChange
-    return $ CAddress aId (mkCCoin balance) isUsed isChange
+    return $ CAddress aId (encodeCType balance) isUsed isChange
 
 getAccount :: MonadWalletWebMode m => CachedCAccModifier -> AccountId -> m CAccount
 getAccount accMod accId = do
@@ -98,7 +98,7 @@ getAccount accMod accId = do
     let modifier   = camAddresses accMod
     let allAddrIds = gatherAddresses modifier dbAddrs
     allAddrs <- mapM (getWAddress accMod) allAddrIds
-    balance  <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
+    balance  <- encodeCType . unsafeIntegerToCoin . sumCoins <$>
                 mapM getWAddressBalance allAddrIds
     meta <- getAccountMeta accId >>= maybeThrow noWallet
     pure $ CAccount (encodeCType accId) meta allAddrs balance
@@ -117,7 +117,7 @@ getWalletIncludeUnready includeUnready cAddr = do
     meta       <- getWalletMetaIncludeUnready includeUnready cAddr >>= maybeThrow noWSet
     wallets    <- getAccountsIncludeUnready includeUnready (Just cAddr)
     let walletsNum = length wallets
-    balance    <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
+    balance    <- encodeCType . unsafeIntegerToCoin . sumCoins <$>
                      mapM (decodeCTypeOrFail . caAmount) wallets
     hasPass    <- isNothing . checkPassMatches emptyPassphrase <$> getSKById cAddr
     passLU     <- getWalletPassLU cAddr >>= maybeThrow noWSet
@@ -166,7 +166,7 @@ newAddress addGenSeed passphrase accId =
         -- check whether account exists
         _ <- getAccount accMod accId
 
-        cAccAddr <- genUniqueAccountAddress addGenSeed passphrase accId
+        cAccAddr <- genUniqueAddress addGenSeed passphrase accId
         addWAddress cAccAddr
         getWAddress accMod cAccAddr
 
@@ -257,7 +257,7 @@ changeWalletPassphrase wid oldPass newPass = do
     badPass = RequestError "Invalid old passphrase given"
     deleteSK passphrase = do
         let nice k = encToCId k == wid && isJust (checkPassMatches passphrase k)
-        midx <- findIndex nice <$> getSecretKeys
+        midx <- findIndex nice <$> getSecretKeysPlain
         idx  <- RequestError "No key with such address and pass found"
                 `maybeThrow` midx
         deleteSecretKey (fromIntegral idx)

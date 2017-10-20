@@ -8,9 +8,9 @@ import qualified Data.Text.Buildable
 import           Formatting          (bprint, stext, (%))
 import           Universum
 
-data ExplorerError =
+newtype ExplorerError =
     -- | Some internal error.
-    Internal !Text
+    Internal Text
     deriving (Show, Generic)
 
 instance Exception ExplorerError

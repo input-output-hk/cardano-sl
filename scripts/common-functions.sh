@@ -74,7 +74,7 @@ function dht_key {
   $(find_binary cardano-dht-keygen) -n 000000000000$i2 | tr -d '\n'
 }
 
-# Generates kademliaN.yaml and topologyN.yaml for demo setup 
+# Generates kademliaN.yaml and topologyN.yaml for demo setup
 # for N \in {0..n-1} where n is number of nodes specified.
 function gen_kademlia_topology {
   local total_nodes=$1
@@ -113,7 +113,7 @@ function gen_kademlia_topology {
     else
       echo "peers: " > $kfile
     fi
-    
+
     for j in $(seq 0 $others_n); do
       if [[ $j -eq $i ]]; then continue; fi
       echo "  - host: '127.0.0.1'" >> $kfile
@@ -132,17 +132,14 @@ function gen_kademlia_topology {
     local tfile=$out_dir/topology$i.yaml
     echo "nodes: " > $tfile
     for j in $(seq 0 $npred); do
-  
+
       local routes="["
-      for k in $(seq 0 $npred); do 
+      for k in $(seq 0 $npred); do
         if [ $k -eq $j ]; then continue; fi
-        routes="$routes[\"node$k\"]"
-        # don't put comma after last element and after pre-last element of last list item
-        if ! ([ $k -eq $npred ] || [ $k -eq $(($npred-1)) -a $j -eq $npred ]); then 
-          routes=$routes", "
-        fi
+        routes="$routes[\"node$k\"], "
       done
-      routes="$routes]"
+      # If we have explorer add it so that the other nodes converse with it.
+      routes="$routes[\"explorer\"]]"
 
       echo "  \"node$j\":"              >> $tfile
       echo "    type: core"             >> $tfile
@@ -150,6 +147,29 @@ function gen_kademlia_topology {
       echo "    static-routes: $routes" >> $tfile
       echo "    addr: 127.0.0.1"        >> $tfile
       echo "    port: 300$j"            >> $tfile
+
+      # add explorer (as relay node)
+      if [[ $j -eq $npred ]]; then
+        # count port
+        local exp=($n + 1)
+        # explorers routes
+        local exr="["
+        for k in $(seq 0 $npred); do
+          exr="$exr[\"node$k\"]"
+          # don't put comma after last element and after pre-last element of last list item
+          if ! ([ $k -eq $npred ]); then
+            exr=$exr", "
+          fi
+        done
+        exr="$exr]"
+
+        echo "  \"explorer\":"            >> $tfile
+        echo "    type: relay"            >> $tfile
+        echo "    region: undefined"      >> $tfile
+        echo "    static-routes: $exr"    >> $tfile
+        echo "    addr: 127.0.0.1"        >> $tfile
+        echo "    port: 300$exp"          >> $tfile
+      fi
     done
   done
 
@@ -171,7 +191,7 @@ function node_cmd {
 
   ensure_run
 
-  keys_args="--vss-genesis $i --spending-genesis $i"
+  keys_args="--genesis-secret $i"
   if [[ "$CSL_PRODUCTION" != "" ]]; then
       keys_args="--keyfile \"secrets/secret-$((i+1)).key\""
   fi
@@ -204,7 +224,7 @@ function node_cmd {
   fi
 
   local topology_file="$config_dir/topology$i.yaml"
-  local kademlia_file="$config_dir/kademlia$i.yaml"
+  #local kademlia_file="$config_dir/kademlia$i.yaml"
 
   echo -n "$(find_binary $exec_name) --db-path $run_dir/node-db$i $rts_opts $reb $no_ntp $keys_args"
 
@@ -214,7 +234,7 @@ function node_cmd {
   # A sloppy test but it'll do for now.
   local topology_first_six_bytes=`cat $topology_file | head -c 6`
   if [[ "$topology_first_six_bytes" != "wallet" ]]; then
-    echo -n " --address 127.0.0.1:"`get_port $i`
+    #echo -n " --address 127.0.0.1:"`get_port $i`
     echo -n " --listen 127.0.0.1:"`get_port $i`
   fi
   if [[ "$config_key" != "" ]]; then
@@ -231,7 +251,7 @@ function node_cmd {
   #echo -n " --statsd-server $statsd_server"
   echo -n " --node-id node$i"
   echo -n " --topology $topology_file"
-  echo -n " --kademlia $kademlia_file"
+  #echo -n " --kademlia $kademlia_file"
   # Use the policies option if you want to change enqueue/dequeue/failure
   # policies without re-compiling. See example files
   #   scripts/policies/policy_core.yaml

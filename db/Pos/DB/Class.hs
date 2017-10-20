@@ -68,8 +68,8 @@ import           Serokell.Data.Memory.Units   (Byte)
 
 import           Pos.Binary.Class             (Bi)
 import           Pos.Core                     (BlockVersionData (..), EpochIndex,
-                                               HeaderHash, isBootstrapEra,
-                                               HasConfiguration)
+                                               HasConfiguration, HeaderHash,
+                                               isBootstrapEra)
 
 ----------------------------------------------------------------------------
 -- Pure

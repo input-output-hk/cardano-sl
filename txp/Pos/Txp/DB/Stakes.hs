@@ -33,10 +33,9 @@ import           Formatting                   (bprint, sformat, (%))
 import           Serokell.Util                (Color (Red), colorize)
 import           System.Wlog                  (WithLogger, logError)
 
-import           Pos.Core                     (Coin, GenesisWStakeholders, StakeholderId,
+import           Pos.Core                     (Coin, HasConfiguration, StakeholderId,
                                                StakesMap, coinF, mkCoin, sumCoins,
-                                               unsafeAddCoin, unsafeIntegerToCoin,
-                                               HasConfiguration)
+                                               unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Crypto                   (shortHashF)
 import           Pos.DB                       (DBError (..), DBTag (GStateDB), IterType,
                                                MonadDB, MonadDBRead, RocksBatchOp (..),
@@ -71,16 +70,16 @@ instance HasConfiguration => RocksBatchOp StakesOp where
 -- Initialization
 ----------------------------------------------------------------------------
 
-initGStateStakes
-    :: forall m.
-       MonadDB m
-    => GenesisUtxo -> GenesisWStakeholders -> m ()
-initGStateStakes (GenesisUtxo genesisUtxo) gws = do
+initGStateStakes ::
+       forall m. MonadDB m
+    => GenesisUtxo
+    -> m ()
+initGStateStakes (GenesisUtxo genesisUtxo) = do
     putFtsStakes
     putGenesisTotalStake
   where
     putTotalFtsStake = gsPutBi ftsSumKey
-    genesisStakes = utxoToStakes gws genesisUtxo
+    genesisStakes = utxoToStakes genesisUtxo
     totalCoins = sumCoins genesisStakes
     -- Will 'error' if the result doesn't fit into 'Coin' (which should never
     -- happen)

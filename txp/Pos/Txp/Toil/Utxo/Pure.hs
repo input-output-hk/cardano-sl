@@ -1,5 +1,3 @@
-{-# LANGUAGE CPP #-}
-
 -- | Pure version of UTXO.
 
 module Pos.Txp.Toil.Utxo.Pure

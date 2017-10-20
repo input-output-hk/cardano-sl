@@ -10,29 +10,37 @@ module NodeOptions
        , getWalletNodeOptions
        ) where
 
-import           Data.Version        (showVersion)
-import           Options.Applicative (Parser, execParser, footerDoc, fullDesc, header,
-                                      help, helper, info, infoOption, long, progDesc,
-                                      strOption, switch, value)
-import qualified Options.Applicative as Opt
-import           Universum           hiding (show)
+import           Data.Time.Units      (Minute)
+import           Data.Version         (showVersion)
+import           Options.Applicative  (Parser, auto, execParser, footerDoc, fullDesc,
+                                       header, help, helper, info, infoOption, long,
+                                       metavar, option, progDesc, strOption, switch,
+                                       value)
+import qualified Options.Applicative  as Opt
+import           Universum            hiding (show)
 
-import           Paths_cardano_sl    (version)
-import           Pos.Client.CLI      (CommonNodeArgs (..))
-import qualified Pos.Client.CLI      as CLI
-import           Pos.Util.TimeWarp   (NetworkAddress, localhost)
-import           Pos.Web.Types       (TlsParams (..))
+import           Paths_cardano_sl     (version)
+import           Pos.Client.CLI       (CommonNodeArgs (..))
+import qualified Pos.Client.CLI       as CLI
+import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo, compileInfo)
+import           Pos.Util.TimeWarp    (NetworkAddress, localhost)
+import           Pos.Web.Types        (TlsParams (..))
 
-data WalletNodeArgs = WalletNodeArgs CommonNodeArgs WalletArgs
+data WalletNodeArgs = WalletNodeArgs
+    { wnaCommonNodeArgs :: !CommonNodeArgs
+    , wnaWalletArgs     :: !WalletArgs
+    } deriving Show
 
 data WalletArgs = WalletArgs
-    { enableWeb       :: !Bool
-    , webPort         :: !Word16
-    , walletTLSParams :: !TlsParams
-    , walletAddress   :: !NetworkAddress
-    , walletDbPath    :: !FilePath
-    , walletRebuildDb :: !Bool
-    , walletDebug     :: !Bool
+    { enableWeb          :: !Bool
+    , webPort            :: !Word16
+    , walletTLSParams    :: !TlsParams
+    , walletAddress      :: !NetworkAddress
+    , walletDbPath       :: !FilePath
+    , walletRebuildDb    :: !Bool
+    , walletAcidInterval :: !Minute
+    , walletDebug        :: !Bool
+    , walletFlushDb      :: !Bool
     } deriving Show
 
 walletArgsParser :: Parser WalletNodeArgs
@@ -53,14 +61,24 @@ walletArgsParser = do
         long "wallet-rebuild-db" <>
         help "If wallet's database already exists, discard its contents \
              \and create a new one from scratch."
+    walletAcidInterval <- fmap fromInteger $ option auto $
+        long "wallet-acid-cleanup-interval" <>
+        help "Interval on which to execute wallet cleanup action (create checkpoint \
+             \and archive and cleanup archive partially)" <>
+        metavar "MINUTES" <>
+        value (12 * 60)
     walletDebug <- switch $
         long "wallet-debug" <>
         help "Run wallet with debug params (e.g. include \
              \all the genesis keys in the set of secret keys)."
+    walletFlushDb <- switch $
+        long "flush-wallet-db" <>
+        help "Flushes all blockchain-recoverable data from DB \
+              \(everything excluding wallets/accounts/addresses, metadata)"
 
     pure $ WalletNodeArgs commonNodeArgs WalletArgs{..}
 
-getWalletNodeOptions :: IO WalletNodeArgs
+getWalletNodeOptions :: HasCompileInfo => IO WalletNodeArgs
 getWalletNodeOptions = execParser programInfo
   where
     programInfo = info (helper <*> versionOption <*> walletArgsParser) $
@@ -69,7 +87,8 @@ getWalletNodeOptions = execParser programInfo
                  <> footerDoc CLI.usageExample
 
     versionOption = infoOption
-        ("cardano-node-" <> showVersion version)
+        ("cardano-node-" <> showVersion version <>
+         ", git revision " <> toString (ctiGitRevision compileInfo))
         (long "version" <> help "Show version.")
 
 tlsParamsOption :: Opt.Parser TlsParams

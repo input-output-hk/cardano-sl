@@ -59,10 +59,12 @@ import           Pos.Core.Configuration                (HasConfiguration, protoc
 import           Pos.Core.Types                        (ProtocolMagic (..))
 import           Pos.Exception                         (CardanoFatalError)
 import           Pos.KnownPeers                        (MonadFormatPeers (..))
+import           Pos.Network.Types                     (HasNodeType (..), NodeType (..))
 import           Pos.Reporting.Exceptions              (ReportingError (..))
 import           Pos.Reporting.MemState                (HasLoggerConfig (..),
                                                         HasReportServers (..),
                                                         HasReportingContext (..))
+import           Pos.Util.CompileInfo                  (HasCompileInfo, compileInfo)
 import           Pos.Util.Util                         (maybeThrow, withSystemTempFile,
                                                         (<//>))
 
@@ -72,8 +74,10 @@ type MonadReporting ctx m =
        , MonadReader ctx m
        , MonadFormatPeers m
        , HasReportingContext ctx
+       , HasNodeType ctx
        , WithLogger m
        , HasConfiguration
+       , HasCompileInfo
        )
 
 ----------------------------------------------------------------------------
@@ -200,10 +204,18 @@ reportNode sendLogs extendWithNodeInfo reportType =
 -- | Report «misbehavior», i. e. a situation when something is globally
 -- wrong, not only with our node. 'Bool' argument determines whether
 -- misbehavior is critical and requires immediate response.
+--
+-- Misbehaviour is reported only by core nodes, because
+-- a) core nodes usually have the most actual vision of the current state;
+-- b) reporting misbehaviour from many nodes is redundant.
 reportMisbehaviour
     :: forall ctx m . (MonadReporting ctx m)
     => Bool -> Text -> m ()
-reportMisbehaviour isCritical = reportNode True True . RMisbehavior isCritical
+reportMisbehaviour isCritical message = do
+    nodeType <- getNodeType <$> ask
+    case nodeType of
+        NodeCore -> reportNode True True (RMisbehavior isCritical message)
+        _        -> pass
 
 -- | Report some general information.
 reportInfo
@@ -232,7 +244,7 @@ reportError = reportNode True True . RError
 -- same file, see 'System.IO' documentation on handles. Use second
 -- parameter for that.
 sendReport
-    :: (HasConfiguration, MonadIO m, MonadMask m)
+    :: (HasConfiguration, HasCompileInfo, MonadIO m, MonadMask m)
     => [FilePath]                 -- ^ Log files to read from
     -> [Text]                     -- ^ Raw log text (optional)
     -> ReportType
@@ -254,7 +266,7 @@ sendReport logFiles rawLogs reportType appName reportServerUri = do
         let pathsPart = map partFile' existingFiles
         let payloadPart =
                 Form.partLBS "payload"
-                (encode $ mkReportInfo curTime $ existingFiles ++ memlogFiles)
+                (encode $ mkReportInfo curTime)
         -- If performance will ever be a concern, moving to a global manager
         -- should help a lot.
         reportManager <- newManager tlsManagerSettings
@@ -268,16 +280,15 @@ sendReport logFiles rawLogs reportType appName reportServerUri = do
   where
     partFile' fp = Form.partFile (toFileName fp) fp
     toFileName = toText . takeFileName
-    mkReportInfo curTime files =
+    mkReportInfo curTime =
         ReportInfo
         { rApplication = appName
         -- We are using version of 'cardano-sl-infra' here. We agreed
         -- that the version of 'cardano-sl' and it subpackages should
         -- be same.
         , rVersion = version
-        , rBuild = 0 -- what should be put here?
+        , rBuild = pretty compileInfo
         , rOS = toText (os <> "-" <> arch)
-        , rLogs = map toFileName files
         , rMagic = getProtocolMagic protocolMagic
         , rDate = curTime
         , rReportType = reportType

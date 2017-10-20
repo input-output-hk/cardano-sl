@@ -4,13 +4,14 @@ module Pos.Binary.Core.Genesis () where
 
 import           Universum
 
-import           Pos.Binary.Class        (Bi (..))
-import           Pos.Binary.Core.Address ()
-import           Pos.Binary.Core.Types   ()
-import           Pos.Core.Address        ()
-import           Pos.Core.Genesis.Types  (GenesisDelegation, GenesisWStakeholders (..),
-                                          mkGenesisDelegation, unGenesisDelegation)
-import           Pos.Util.Util           (eitherToFail)
+import           Pos.Binary.Class         (Bi (..))
+import           Pos.Binary.Core.Address  ()
+import           Pos.Binary.Core.Types    ()
+import           Pos.Core.Address         ()
+import           Pos.Core.Genesis.Helpers (mkGenesisDelegation)
+import           Pos.Core.Genesis.Types   (GenesisDelegation, GenesisWStakeholders (..),
+                                           unGenesisDelegation)
+import           Pos.Util.Util            (eitherToFail)
 
 instance Bi GenesisWStakeholders where
     encode (GenesisWStakeholders m) = encode m

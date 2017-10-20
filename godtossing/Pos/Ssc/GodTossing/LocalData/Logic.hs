@@ -15,7 +15,7 @@ module Pos.Ssc.GodTossing.LocalData.Logic
        , localOnNewSlot
 
          -- * Instances
-         -- ** instance SscLocalDataClass SscGodTossing
+         -- ** instance SscLocalDataClass
        ) where
 
 import           Universum
@@ -34,8 +34,7 @@ import           Pos.Binary.GodTossing              ()
 import           Pos.Core                           (BlockVersionData (..), EpochIndex,
                                                      HasConfiguration, SlotId (..),
                                                      StakeholderId, VssCertificate,
-                                                     mkVssCertificatesMap,
-                                                     memPoolLimitRatio)
+                                                     mkVssCertificatesMapSingleton)
 import           Pos.DB                             (MonadDBRead,
                                                      MonadGState (gsAdoptedBVData))
 import           Pos.Lrc.Types                      (RichmenStakes)
@@ -61,7 +60,6 @@ import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossT
                                                      supplyPureTossEnv, tmCertificates,
                                                      tmCommitments, tmOpenings, tmShares,
                                                      verifyAndApplyGtPayload)
-import           Pos.Ssc.GodTossing.Type            (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types           (GtGlobalState)
 import           Pos.Ssc.RichmenComponent           (getRichmenSsc)
 
@@ -69,7 +67,7 @@ import           Pos.Ssc.RichmenComponent           (getRichmenSsc)
 -- Methods from type class
 ----------------------------------------------------------------------------
 
-instance (HasGtConfiguration, HasConfiguration) => SscLocalDataClass SscGodTossing where
+instance (HasGtConfiguration, HasConfiguration) => SscLocalDataClass where
     sscGetLocalPayloadQ = getLocalPayload
     sscNormalizeU = normalize
     sscNewLocalData =
@@ -78,7 +76,7 @@ instance (HasGtConfiguration, HasConfiguration) => SscLocalDataClass SscGodTossi
       where
         slot0 = SlotId 0 minBound
 
-getLocalPayload :: HasConfiguration => SlotId -> LocalQuery SscGodTossing GtPayload
+getLocalPayload :: HasConfiguration => SlotId -> LocalQuery GtPayload
 getLocalPayload SlotId {..} = do
     expectedEpoch <- view ldEpoch
     let warningMsg = sformat warningFmt siEpoch expectedEpoch
@@ -103,7 +101,7 @@ normalize
     => (EpochIndex, RichmenStakes)
     -> BlockVersionData
     -> GtGlobalState
-    -> LocalUpdate SscGodTossing ()
+    -> LocalUpdate ()
 normalize (epoch, stake) bvd gs = do
     oldModifier <- use ldModifier
     let multiRichmen = HM.fromList [(epoch, stake)]
@@ -128,7 +126,7 @@ sscIsDataUseful
     :: ( WithLogger m
        , MonadIO m
        , MonadSlots ctx m
-       , MonadSscMem SscGodTossing ctx m
+       , MonadSscMem ctx m
        , Rand.MonadRandom m
        , HasConfiguration
        , HasGtConfiguration
@@ -147,7 +145,7 @@ sscIsDataUseful tag id =
     evalTossInMem
         :: ( WithLogger m
            , MonadIO m
-           , MonadSscMem SscGodTossing ctx m
+           , MonadSscMem ctx m
            , Rand.MonadRandom m
            )
         => TossT PureToss a -> m a
@@ -168,7 +166,7 @@ type GtDataProcessingMode ctx m =
     , MonadDBRead m       -- to get richmen
     , MonadGState m       -- to get block size limit
     , MonadSlots ctx m
-    , MonadSscMem SscGodTossing ctx m
+    , MonadSscMem ctx m
     , MonadError TossVerFailure m
     , HasConfiguration
     , HasGtConfiguration
@@ -208,7 +206,7 @@ sscProcessCertificate
     => VssCertificate -> m ()
 sscProcessCertificate cert =
     sscProcessData VssCertificateMsg $
-    CertificatesPayload (mkVssCertificatesMap [cert])
+    CertificatesPayload (mkVssCertificatesMapSingleton cert)
 
 sscProcessData
     :: forall ctx m.
@@ -256,7 +254,8 @@ sscProcessDataDo richmenData bvd gs payload =
         let multiRichmen = HM.fromList [richmenData]
         unless (storedEpoch == givenEpoch) $
             throwError $ DifferentEpoches storedEpoch givenEpoch
-        let maxMemPoolSize = bvdMaxBlockSize bvd * memPoolLimitRatio
+        -- TODO: This is a rather arbitrary limit, we should revisit it (see CSL-1664)
+        let maxMemPoolSize = bvdMaxBlockSize bvd * 2
         curSize <- use ldSize
         let exhausted = curSize >= maxMemPoolSize
         -- If our mempool is exhausted we drop some data from it.
@@ -291,7 +290,7 @@ sscProcessDataDo richmenData bvd gs payload =
 -- validity of local data.
 -- Currently it does nothing, but maybe later we'll decide to do clean-up.
 localOnNewSlot
-    :: MonadSscMem SscGodTossing ctx m
+    :: MonadSscMem ctx m
     => SlotId -> m ()
 localOnNewSlot _ = pass
 -- unless (isCommitmentIdx slotIdx) $ gtLocalCommitments .= mempty

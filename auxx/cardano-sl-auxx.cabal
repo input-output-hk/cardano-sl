@@ -1,5 +1,5 @@
 name:                cardano-sl-auxx
-version:             0.6.0
+version:             1.0.2
 synopsis:            Cardano SL - Auxx
 description:         Cardano SL - Auxx
 license:             MIT
@@ -15,25 +15,25 @@ executable cardano-auxx
   hs-source-dirs:      src
   main-is:             Main.hs
   other-modules:
+                       AuxxOptions
                        Command
+                       Command.Help
+                       Command.BlockGen
                        Command.Parser
                        Command.Rollback
                        Command.Run
                        Command.Tx
                        Command.Types
                        Command.Update
+                       Repl
                        Mode
                        Plugin
-                       AuxxOptions
-
-                       -- TODO: delete these
-                       Pos.Auxx
-                       Pos.Auxx.Hacks
 
   build-depends:
                        QuickCheck
                      , acid-state
                      , ansi-wl-pprint
+                     , async
                      , base
                      , base58-bytestring
                      , binary
@@ -46,16 +46,20 @@ executable cardano-auxx
                      , cardano-sl-infra
                      , cardano-sl-ssc
                      , cardano-sl-txp
+                     , cardano-sl-lrc
                      , cardano-sl-update
                      , data-default
+                     , directory
                      , dlist
                      , ether
                      , exceptions
                      , containers
                      , formatting
+                     , haskeline
                      , lens
                      , log-warper
                      , mmorph
+                     , MonadRandom
                      , monad-control
                      , monad-loops
                      , mtl
@@ -72,7 +76,9 @@ executable cardano-auxx
                      , stm
                      , stm-containers
                      , tagged
+                     , temporary
                      , text
+                     , text-format
                      , time
                      , time-units
                      , transformers

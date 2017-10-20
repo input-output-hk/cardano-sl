@@ -13,12 +13,12 @@ import           Pos.Ssc.Class.Types        (Ssc (..))
 import           Pos.Ssc.Mode               (SscMode)
 
 -- | Class for @SSC@ workers.
-class Ssc ssc => SscWorkersClass ssc where
+class Ssc => SscWorkersClass where
 
     -- | All workers specific to SSC.
-    sscWorkers :: SscMode ssc ctx m
+    sscWorkers :: SscMode ctx m
                => ([WorkerSpec m], OutSpecs)
 
     -- | LRC consumers. Note that this uses 'LrcMode', not 'SscMode'.
-    sscLrcConsumers :: LrcMode ssc ctx m
+    sscLrcConsumers :: LrcMode ctx m
                     => [LrcConsumer m]

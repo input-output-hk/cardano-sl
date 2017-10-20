@@ -130,16 +130,16 @@ type InnerSharesMap = HashMap StakeholderId (NonEmpty (AsBinary DecShare))
 --   * Inner key = who created the share
 --
 -- Let's say that there are participants {A, B, C}. If A has generated a
--- secret and shared it, A's shares will be denoted as Ab and Ac (sent
--- correspondingly to B and C). Then node B will decrypt the share and get
--- Ab_dec; same for other nodes and participants. In the end, after the
--- second phase of the protocol completes and we gather everyone's shares,
--- we'll get the following map:
+-- secret and shared it, A's shares will be denoted as Aa, Ab and Ac (sent
+-- correspondingly to A itself, B and C). Then node B will decrypt its share
+-- and get Ab_dec; same for other nodes and participants. In the end, after
+-- the second phase of the protocol completes and we gather everyone's
+-- shares, we'll get the following map:
 --
 -- @
--- { A: {B: Ba_dec, C: Ca_dec}
--- , B: {A: Ab_dec, C: Cb_dec}
--- , C: {A: Ac_dec, B: Bc_dec}
+-- { A: {A: Aa_dec, B: Ba_dec, C: Ca_dec}
+-- , B: {A: Ab_dec, B: Bb_dec, C: Cb_dec}
+-- , C: {A: Ac_dec, B: Bc_dec, C: Cc_dec}
 -- }
 -- @
 --
@@ -159,18 +159,32 @@ instance Buildable (StakeholderId, Word16) where
 
 -- | Payload included into blocks.
 data GtPayload
-    = CommitmentsPayload  !CommitmentsMap !VssCertificatesMap
-    | OpeningsPayload     !OpeningsMap    !VssCertificatesMap
-    | SharesPayload       !SharesMap      !VssCertificatesMap
-    | CertificatesPayload !VssCertificatesMap
+    = CommitmentsPayload
+        { gpComms :: !CommitmentsMap
+        , gpVss   :: !VssCertificatesMap }
+    | OpeningsPayload
+        { gpOpenings :: !OpeningsMap
+        , gpVss      :: !VssCertificatesMap }
+    | SharesPayload
+        { gpShares :: !SharesMap
+        , gpVss    :: !VssCertificatesMap }
+    | CertificatesPayload
+        { gpVss    :: !VssCertificatesMap }
     deriving (Eq, Show, Generic)
 
 -- | Proof of GtPayload.
 data GtProof
-    = CommitmentsProof !(Hash CommitmentsMap) !(Hash VssCertificatesMap)
-    | OpeningsProof !(Hash OpeningsMap) !(Hash VssCertificatesMap)
-    | SharesProof !(Hash SharesMap) !(Hash VssCertificatesMap)
-    | CertificatesProof !(Hash VssCertificatesMap)
+    = CommitmentsProof
+        { gprComms :: !(Hash CommitmentsMap)
+        , gprVss   :: !(Hash VssCertificatesMap) }
+    | OpeningsProof
+        { gprOpenings :: !(Hash OpeningsMap)
+        , gprVss      :: !(Hash VssCertificatesMap) }
+    | SharesProof
+        { gprShares :: !(Hash SharesMap)
+        , gprVss    :: !(Hash VssCertificatesMap) }
+    | CertificatesProof
+        { gprVss    :: !(Hash VssCertificatesMap) }
     deriving (Show, Eq, Generic)
 
 instance NFData GtPayload

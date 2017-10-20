@@ -15,6 +15,7 @@ module Pos.Util.Util
        , liftGetterSome
 
        -- * Something
+       , Sign (..)
        , maybeThrow
        , eitherToFail
        , eitherToThrow
@@ -22,6 +23,8 @@ module Pos.Util.Util
        , sortWithMDesc
        , leftToPanic
        , dumpSplices
+       , histogram
+       , median
        , (<//>)
 
        -- * Lenses
@@ -85,6 +88,7 @@ module Pos.Util.Util
 
        -- ** Buildable
        -- *** "Data.Time.Units" types
+       -- *** @()@
        ) where
 
 import           Universum
@@ -108,10 +112,11 @@ import qualified Data.Aeson                     as A
 import qualified Data.Aeson.Types               as A
 import           Data.Char                      (isAlphaNum)
 import           Data.Hashable                  (Hashable (hashWithSalt))
-import           Data.HashMap.Strict            (HashMap)
 import qualified Data.HashMap.Strict            as HM
 import           Data.HashSet                   (fromMap)
 import           Data.List                      (last)
+import qualified Data.List.NonEmpty             as NE
+import qualified Data.Map                       as M
 import qualified Data.Semigroup                 as Smg
 import           Data.Tagged                    (Tagged (Tagged))
 import           Data.Text.Buildable            (build)
@@ -212,7 +217,7 @@ instance IsString s => MonadFail (Either s) where
     fail = Left . fromString
 
 instance Rand.DRG drg => HasLoggerName (Rand.MonadPseudoRandom drg) where
-    getLoggerName = pure mempty
+    getLoggerName = pure "MonadPseudoRandom"
     modifyLoggerName = flip const
 
 instance {-# OVERLAPPABLE #-}
@@ -222,7 +227,7 @@ instance {-# OVERLAPPABLE #-}
 
 instance Rand.MonadRandom QC.Gen where
     getRandomBytes n = do
-        [a,b,c,d,e] <- replicateM 5 QC.arbitrary
+        [a,b,c,d,e] <- replicateM 5 (QC.choose (minBound, maxBound))
         pure $ fst $ Rand.randomBytesGenerate n (Rand.drgNewTest (a,b,c,d,e))
 
 instance Hashable Millisecond where
@@ -239,7 +244,7 @@ instance NFData Microsecond where
 
 
 ----------------------------------------------------------------------------
--- Orphan Buildable instances for time-units
+-- Orphan Buildable instances
 ----------------------------------------------------------------------------
 
 instance Buildable Attosecond  where build = build @String . show
@@ -258,6 +263,11 @@ instance Buildable Fortnight   where build = build @String . show
 -- it breaks things sometimes.
 instance Buildable Microsecond where
     build = build . (++ "mcs") . show . toMicroseconds
+
+-- | This instance is needed because 'Ssc' puts the 'Buildable' constraint
+-- on things.
+instance Buildable () where
+    build _ = "()"
 
 ----------------------------------------------------------------------------
 -- MonadResource/ResourceT
@@ -347,6 +357,8 @@ type instance ChannelT (Ether.TaggedTrans tag t m) = ChannelT m
 ----------------------------------------------------------------------------
 -- Not instances
 ----------------------------------------------------------------------------
+
+data Sign = Plus | Minus
 
 maybeThrow :: (MonadThrow m, Exception e) => e -> Maybe a -> m a
 maybeThrow e = maybe (throwM e) pure
@@ -470,6 +482,19 @@ dumpSplices x = do
 
 postfixLFields :: LensRules
 postfixLFields = lensRules & lensField .~ mappingNamer (\s -> [s++"_L"])
+
+-- | Count elements in a list.
+histogram :: forall a. Ord a => [a] -> Map a Int
+histogram = foldl' step M.empty
+  where
+    step :: Map a Int -> a -> Map a Int
+    step m x = M.insertWith (+) x 1 m
+
+median :: Ord a => NonEmpty a -> a
+median l = NE.sort l NE.!! middle
+  where
+    len = NE.length l
+    middle = (len - 1) `div` 2
 
 -- MinMax
 

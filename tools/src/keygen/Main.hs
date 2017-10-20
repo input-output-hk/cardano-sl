@@ -30,9 +30,8 @@ import           Pos.Crypto             (EncryptedSecretKey (..), SecretKey (..)
                                          redeemPkB64F, toPublic, toVssPublicKey)
 import           Pos.Launcher           (HasConfigurations, withConfigurations)
 import           Pos.Util.UserSecret    (readUserSecret, takeUserSecret, usKeys,
-                                         usPrimKey, usVss, usWalletSet,
-                                         writeUserSecretRelease)
-import           Pos.Wallet.Web.Secret  (wusRootKey)
+                                         usPrimKey, usVss, usWallet,
+                                         writeUserSecretRelease, wusRootKey)
 
 import           Dump                   (dumpFakeAvvmSeed, dumpGeneratedGenesisData,
                                          dumpKeyfile)
@@ -67,12 +66,12 @@ genPrimaryKey path = do
 readKey :: (MonadIO m, MonadThrow m, WithLogger m) => FilePath -> m ()
 readKey path = do
     us <- readUserSecret path
-    logInfo $ maybe "No Pimary key"
+    logInfo $ maybe "No Primary key"
                     (("Primary: " <>) . showKeyWithAddressHash) $
                     view usPrimKey us
     logInfo $ maybe "No wallet set"
                     (("Wallet set: " <>) . showKeyWithAddressHash . decryptESK . view wusRootKey) $
-                    view usWalletSet us
+                    view usWallet us
     logInfo $ "Keys: " <> (T.concat $ L.intersperse "\n" $
                            map (showKeyWithAddressHash . decryptESK) $
                            view usKeys us)
@@ -155,7 +154,7 @@ genVssCert path = do
 main :: IO ()
 main = do
     KeygenOptions{..} <- getKeygenOptions
-    setupLogging $ consoleOutB & lcTermSeverity ?~ Debug
+    setupLogging Nothing $ consoleOutB & lcTermSeverity ?~ Debug
     usingLoggerName "keygen" $ withConfigurations koConfigurationOptions $ do
         logInfo "Processing command"
         case koCommand of

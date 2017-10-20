@@ -9,49 +9,97 @@ module Main
        ( main
        ) where
 
-import           Universum           hiding (over)
+import           Universum            hiding (over)
 
-import           Data.Maybe          (fromJust)
-import           Formatting          (sformat, shown, (%))
-import           Mockable            (Production, currentTime, runProduction)
+import           Data.Maybe           (fromJust)
+import           Formatting           (sformat, shown, (%))
+import           Mockable             (Production, currentTime, runProduction)
+import           System.Wlog          (logInfo, modifyLoggerName)
 
-import           Pos.Binary          ()
-import           Pos.Client.CLI      (CommonNodeArgs (..))
-import qualified Pos.Client.CLI      as CLI
-import           Pos.Communication   (ActionSpec (..), OutSpecs, WorkerSpec, worker)
-import           Pos.Context         (HasNodeContext)
-import           Pos.Core            (Timestamp (..), gdStartTime, genesisData)
-import           Pos.Launcher        (HasConfigurations, NodeParams (..),
-                                      NodeResources (..), bracketNodeResources, runNode,
-                                      withConfigurations)
-import           Pos.Ssc.Class       (SscParams)
-import           Pos.Ssc.GodTossing  (SscGodTossing)
-import           Pos.Util.UserSecret (usVss)
-import           Pos.Wallet.Web      (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
-                                      runWRealMode, walletServeWebFull, walletServerOuts)
-import           Pos.Web             (serveWebGT)
-import           Pos.WorkMode        (WorkMode)
+import           Pos.Binary           ()
+import           Pos.Client.CLI       (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
+import qualified Pos.Client.CLI       as CLI
+import           Pos.Communication    (ActionSpec (..), OutSpecs, WorkerSpec, worker)
+import           Pos.Context          (HasNodeContext)
+import           Pos.Core             (Timestamp (..), gdStartTime, genesisData)
+import           Pos.DB.DB            (initNodeDBs)
+import           Pos.Launcher         (ConfigurationOptions (..), HasConfigurations,
+                                       NodeParams (..), NodeResources (..),
+                                       bracketNodeResources, loggerBracket, runNode,
+                                       withConfigurations)
+import           Pos.Ssc.Class        (SscParams)
+import           Pos.Ssc.SscAlgo      (SscAlgo (..))
+import           Pos.Txp              (txpGlobalSettings)
+import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,
+                                       withCompileInfo)
+import           Pos.Util.UserSecret  (usVss)
+import           Pos.Wallet.Web       (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
+                                       getSKById, runWRealMode, syncWalletsWithGState,
+                                       walletServeWebFull, walletServerOuts)
+import           Pos.Wallet.Web.State (cleanupAcidStatePeriodically, flushWalletStorage,
+                                       getWalletAddresses)
+import           Pos.Web              (serveWebGT)
+import           Pos.WorkMode         (WorkMode)
 
-import           NodeOptions         (WalletArgs (..), WalletNodeArgs (..),
-                                      getWalletNodeOptions)
-import           Params              (getNodeParams)
+import           NodeOptions          (WalletArgs (..), WalletNodeArgs (..),
+                                       getWalletNodeOptions)
 
-actionWithWallet :: HasConfigurations => SscParams SscGodTossing -> NodeParams -> WalletArgs -> Production ()
+
+----------------------------------------------------------------------------
+-- Main action
+----------------------------------------------------------------------------
+
+actionWithWallet ::
+       ( HasConfigurations
+       , HasCompileInfo
+       )
+    => SscParams
+    -> NodeParams
+    -> WalletArgs
+    -> Production ()
 actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
     bracketWalletWebDB walletDbPath walletRebuildDb $ \db ->
         bracketWalletWS $ \conn ->
-            bracketNodeResources nodeParams sscParams $ \nr@NodeResources {..} ->
+            bracketNodeResources nodeParams sscParams
+                txpGlobalSettings
+                initNodeDBs $ \nr@NodeResources {..} ->
                 runWRealMode
                     db
                     conn
                     nr
-                    (runNode @SscGodTossing nr plugins)
+                    (mainAction nr)
   where
+    mainAction = runNodeWithInit $ do
+        when (walletFlushDb) $ do
+            logInfo "Flushing wallet db..."
+            flushWalletStorage
+            logInfo "Resyncing wallets with blockchain..."
+            syncWallets
+    runNodeWithInit init nr =
+        let (ActionSpec f, outs) = runNode nr plugins
+         in (ActionSpec $ \v s -> init >> f v s, outs)
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
+    syncWallets :: WalletWebMode ()
+    syncWallets = do
+        sks <- getWalletAddresses >>= mapM getSKById
+        syncWalletsWithGState sks
     plugins :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
-    plugins = convPlugins (pluginsGT wArgs) <> walletProd wArgs
+    plugins = mconcat [ convPlugins (pluginsGT wArgs)
+                      , walletProd wArgs
+                      , acidCleanupWorker wArgs ]
 
-walletProd :: HasConfigurations => WalletArgs -> ([WorkerSpec WalletWebMode], OutSpecs)
+acidCleanupWorker :: HasConfigurations => WalletArgs -> ([WorkerSpec WalletWebMode], OutSpecs)
+acidCleanupWorker WalletArgs{..} =
+    first one $ worker mempty $ const $
+    modifyLoggerName (const "acidcleanup") $
+    cleanupAcidStatePeriodically walletAcidInterval
+
+walletProd ::
+       ( HasConfigurations
+       , HasCompileInfo
+       )
+    => WalletArgs
+    -> ([WorkerSpec WalletWebMode], OutSpecs)
 walletProd WalletArgs {..} = first pure $ worker walletServerOuts $ \sendActions ->
     walletServeWebFull
         sendActions
@@ -60,35 +108,42 @@ walletProd WalletArgs {..} = first pure $ worker walletServerOuts $ \sendActions
         (Just walletTLSParams)
 
 pluginsGT ::
-    ( WorkMode SscGodTossing ctx m
-    , HasNodeContext SscGodTossing ctx
+    ( WorkMode ctx m
+    , HasNodeContext ctx
     , HasConfigurations
+    , HasCompileInfo
     ) => WalletArgs -> [m ()]
 pluginsGT WalletArgs {..}
     | enableWeb = [serveWebGT webPort (Just walletTLSParams)]
     | otherwise = []
 
-action :: WalletNodeArgs -> Production ()
+action :: HasCompileInfo => WalletNodeArgs -> Production ()
 action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
     withConfigurations conf $ do
         whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData
-        putText $ sformat ("System start time is " % shown) $ gdStartTime genesisData
+        logInfo $ sformat ("System start time is " % shown) $ gdStartTime genesisData
         t <- currentTime
-        putText $ sformat ("Current time is " % shown) (Timestamp t)
-        currentParams <- getNodeParams cArgs
-        putText $ "Wallet is enabled!"
-        putText $ sformat ("Using configs and genesis:\n"%shown) conf
+        logInfo $ sformat ("Current time is " % shown) (Timestamp t)
+        currentParams <- getNodeParams cArgs nodeArgs
+        logInfo $ "Wallet is enabled!"
+        logInfo $ sformat ("Using configs and genesis:\n"%shown) conf
 
         let vssSK = fromJust $ npUserSecret currentParams ^. usVss
         let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
         actionWithWallet gtParams currentParams wArgs
   where
-    conf = CLI.configurationOptions (CLI.commonArgs cArgs)
+    nodeArgs :: NodeArgs
+    nodeArgs = NodeArgs { sscAlgo = GodTossingAlgo, behaviorConfigPath = Nothing }
+
+    conf :: ConfigurationOptions
+    conf = CLI.configurationOptions $ CLI.commonArgs cArgs
 
 main :: IO ()
-main = do
+main = withCompileInfo $(retrieveCompileTimeInfo) $ do
     args <- getWalletNodeOptions
-    CLI.printFlags
-    putText "[Attention] Software is built with wallet part"
-    runProduction $ action args
+    let loggingParams = CLI.loggingParams "node" (wnaCommonNodeArgs args)
+    loggerBracket loggingParams . runProduction $ do
+        CLI.printFlags
+        logInfo "[Attention] Software is built with wallet part"
+        action args

@@ -1,46 +1,51 @@
+{-# LANGUAGE AllowAmbiguousTypes       #-}
 {-# LANGUAGE ExistentialQuantification #-}
 
 module Pos.Network.Types
-    ( -- * Network configuration
-      NetworkConfig (..)
-    , NodeName (..)
-    , defaultNetworkConfig
-      -- * Topology
-    , StaticPeers(..)
-    , Topology(..)
-      -- ** Derived information
-    , SubscriptionWorker(..)
-    , topologyNodeType
-    , topologySubscribers
-    , topologyUnknownNodeType
-    , topologySubscriptionWorker
-    , topologyRunKademlia
-    , topologyEnqueuePolicy
-    , topologyDequeuePolicy
-    , topologyFailurePolicy
-    , topologyMaxBucketSize
-    , topologyRoute53HealthCheckEnabled
-      -- * Queue initialization
-    , Bucket(..)
-    , initQueue
-      -- * Constructing peers
-    , Valency
-    , Fallbacks
-    , choosePeers
-      -- * DNS support
-    , Resolver
-    , resolveDnsDomains
-    , initDnsOnUse
-      -- * Re-exports
-      -- ** from .DnsDomains
-    , DnsDomains(..)
-      -- ** from time-warp
-    , NodeType (..)
-    , MsgType (..)
-    , Origin (..)
-      -- ** other
-    , NodeId (..)
-    ) where
+       ( -- * Network configuration
+         NetworkConfig (..)
+       , NodeName (..)
+       -- * Topology
+       , StaticPeers(..)
+       , Topology(..)
+       -- ** Derived information
+       , SubscriptionWorker(..)
+       , topologyNodeType
+       , topologySubscribers
+       , topologyUnknownNodeType
+       , topologySubscriptionWorker
+       , topologyRunKademlia
+       , topologyEnqueuePolicy
+       , topologyDequeuePolicy
+       , topologyFailurePolicy
+       , topologyMaxBucketSize
+       , topologyRoute53HealthCheckEnabled
+       -- * Queue initialization
+       , Bucket(..)
+       , initQueue
+       -- * Constructing peers
+       , Valency
+       , Fallbacks
+       , choosePeers
+       -- * DNS support
+       , Resolver
+       , resolveDnsDomains
+       , initDnsOnUse
+       -- * Helpers
+       , HasNodeType (..)
+       , getNodeTypeDefault
+       -- * Re-exports
+       -- ** from .DnsDomains
+       , DnsDomains(..)
+       -- ** from time-warp
+       , NodeType (..)
+       , MsgType (..)
+       , Origin (..)
+       -- ** other
+       , NodeId (..)
+       ) where
+
+import           Universum                             hiding (show)
 
 import           Data.IP                               (IPv4)
 import           GHC.Show                              (Show (..))
@@ -49,15 +54,17 @@ import qualified Network.Broadcast.OutboundQueue       as OQ
 import           Network.Broadcast.OutboundQueue.Types
 import           Network.DNS                           (DNSError)
 import qualified Network.DNS                           as DNS
+import qualified Network.Transport.TCP                 as TCP
 import           Node.Internal                         (NodeId (..))
-import           Pos.Network.DnsDomains                (DnsDomains (..))
+import qualified System.Metrics                        as Monitoring
+import           System.Wlog.CanLog                    (WithLogger)
+
+import           Pos.Network.DnsDomains                (DnsDomains (..), NodeAddr)
 import qualified Pos.Network.DnsDomains                as DnsDomains
 import qualified Pos.Network.Policy                    as Policy
 import           Pos.System.Metrics.Constants          (cardanoNamespace)
 import           Pos.Util.TimeWarp                     (addressToNodeId)
-import qualified System.Metrics                        as Monitoring
-import           System.Wlog.CanLog                    (WithLogger)
-import           Universum                             hiding (show)
+import           Pos.Util.Util                         (HasLens', lensOf)
 
 {-------------------------------------------------------------------------------
   Network configuration
@@ -80,17 +87,19 @@ data NetworkConfig kademlia = NetworkConfig
     , ncEnqueuePolicy :: !(OQ.EnqueuePolicy NodeId)
     , ncDequeuePolicy :: !OQ.DequeuePolicy
     , ncFailurePolicy :: !(OQ.FailurePolicy NodeId)
+    , ncTcpAddr       :: !TCP.TCPAddr
+      -- ^ External TCP address of the node.
+      -- It encapsulates both bind address and address visible to other nodes.
     }
 
 instance Show kademlia => Show (NetworkConfig kademlia) where
     show = show . showableNetworkConfig
 
-data ShowableNetworkConfig kademlia = ShowableNetworkConfig {
-      sncTopology    :: !(Topology kademlia)
+data ShowableNetworkConfig kademlia = ShowableNetworkConfig
+    { sncTopology    :: !(Topology kademlia)
     , sncDefaultPort :: !Word16
     , sncSelfName    :: !(Maybe NodeName)
-    }
-    deriving (Show)
+    } deriving (Show)
 
 showableNetworkConfig :: NetworkConfig kademlia -> ShowableNetworkConfig kademlia
 showableNetworkConfig NetworkConfig {..} =
@@ -99,19 +108,9 @@ showableNetworkConfig NetworkConfig {..} =
         sncSelfName    = ncSelfName
     in  ShowableNetworkConfig {..}
 
-defaultNetworkConfig :: Topology kademlia -> NetworkConfig kademlia
-defaultNetworkConfig ncTopology = NetworkConfig {
-      ncDefaultPort   = 3000
-    , ncSelfName      = Nothing
-    , ncEnqueuePolicy = topologyEnqueuePolicy ncTopology
-    , ncDequeuePolicy = topologyDequeuePolicy ncTopology
-    , ncFailurePolicy = topologyFailurePolicy ncTopology
-    , ..
-    }
-
-{-------------------------------------------------------------------------------
-  Topology (from the pov of a single node)
--------------------------------------------------------------------------------}
+----------------------------------------------------------------------------
+-- Topology
+----------------------------------------------------------------------------
 
 -- | Statically configured peers
 --
@@ -126,7 +125,7 @@ data StaticPeers = forall m. (MonadIO m, WithLogger m) => StaticPeers {
     }
 
 instance Show StaticPeers where
-  show _ = "<<StaticPeers>>"
+    show _ = "<<StaticPeers>>"
 
 -- | Topology of the network, from the point of view of the current node
 data Topology kademlia =
@@ -182,9 +181,9 @@ data Topology kademlia =
       }
   deriving (Show)
 
-{-------------------------------------------------------------------------------
-  Information derived from the topology
--------------------------------------------------------------------------------}
+----------------------------------------------------------------------------
+-- Information derived from the topology
+----------------------------------------------------------------------------
 
 -- See the networking policy document for background to understand this
 -- docs/network/policy.md
@@ -197,6 +196,22 @@ topologyNodeType TopologyBehindNAT{}   = NodeEdge
 topologyNodeType TopologyP2P{}         = NodeEdge
 topologyNodeType TopologyTraditional{} = NodeCore
 topologyNodeType TopologyAuxx{}        = NodeEdge
+
+-- | Type class which encapsulates something that has 'NodeType'.
+class HasNodeType ctx where
+    -- | Extract 'NodeType' from a context. It's not a 'Lens', because
+    -- the intended usage is that context has topology and it's not
+    -- possible to 'set' node type in topology.
+    getNodeType :: ctx -> NodeType
+
+-- | Implementation of 'getNodeType' for something that has
+-- 'NetworkConfig' inside.
+getNodeTypeDefault ::
+       forall kademlia ctx. HasLens' ctx (NetworkConfig kademlia)
+    => ctx
+    -> NodeType
+getNodeTypeDefault =
+    topologyNodeType . ncTopology <$> view (lensOf @(NetworkConfig kademlia))
 
 -- | Assumed type and maximum number of subscribers (if subscription is allowed)
 --
@@ -224,7 +239,7 @@ topologyUnknownNodeType topology = OQ.UnknownNodeType $ go topology
     go TopologyAuxx{}        = const NodeEdge   -- should never happen
 
 data SubscriptionWorker kademlia =
-    SubscriptionWorkerBehindNAT (DnsDomains DNS.Domain) Valency Fallbacks
+    SubscriptionWorkerBehindNAT (DnsDomains DNS.Domain)
   | SubscriptionWorkerKademlia kademlia NodeType Valency Fallbacks
 
 -- | What kind of subscription worker do we run?
@@ -236,12 +251,8 @@ topologySubscriptionWorker = go
                                = Nothing
     go TopologyRelay{..}       = Just $ SubscriptionWorkerBehindNAT
                                           topologyDnsDomains
-                                          topologyValency
-                                          topologyFallbacks
     go TopologyBehindNAT{..}   = Just $ SubscriptionWorkerBehindNAT
                                           topologyDnsDomains
-                                          topologyValency
-                                          topologyFallbacks
     go TopologyP2P{..}         = Just $ SubscriptionWorkerKademlia
                                           topologyKademlia
                                           NodeRelay
@@ -387,9 +398,9 @@ initQueue NetworkConfig{..} mStore = do
 
     return oq
 
-{-------------------------------------------------------------------------------
-  Constructing peers
--------------------------------------------------------------------------------}
+----------------------------------------------------------------------------
+-- Constructing peers
+----------------------------------------------------------------------------
 
 -- | The number of peers we want to send to
 --
@@ -417,22 +428,23 @@ choosePeers valency fallbacks peerType =
     mkGroupsOf n lst = case splitAt n lst of
                          (these, those) -> these : mkGroupsOf n those
 
-{-------------------------------------------------------------------------------
-  DNS support
--------------------------------------------------------------------------------}
+----------------------------------------------------------------------------
+-- DNS support
+----------------------------------------------------------------------------
 
 type Resolver = DNS.Domain -> IO (Either DNSError [IPv4])
 
 -- | Variation on resolveDnsDomains that returns node IDs
 resolveDnsDomains :: NetworkConfig kademlia
-                  -> DnsDomains DNS.Domain
-                  -> IO (Either [DNSError] [NodeId])
+                  -> [NodeAddr DNS.Domain]
+                  -> IO [Either DNSError [NodeId]]
 resolveDnsDomains NetworkConfig{..} dnsDomains =
-    initDnsOnUse $ \resolve ->
-      fmap (fmap addressToNodeId) <$> DnsDomains.resolveDnsDomains
-                                        resolve
-                                        ncDefaultPort
-                                        dnsDomains
+    initDnsOnUse $ \resolve -> (fmap . fmap . fmap . fmap) addressToNodeId $
+        DnsDomains.resolveDnsDomains resolve
+                                     ncDefaultPort
+                                     dnsDomains
+{-# ANN resolveDnsDomains ("HLint: ignore Use <$>" :: String) #-}
+
 
 -- | Initialize the DNS library whenever it's used
 --

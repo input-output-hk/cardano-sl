@@ -14,11 +14,11 @@ module Pos.Ssc.GodTossing.Toss.Pure
 
 import           Universum
 
-import           Control.Lens                   (at, sequenceAOf, (%=), (.=))
+import           Control.Lens                   (at, uses, (%=), (.=))
 import qualified Crypto.Random                  as Rand
 import           System.Wlog                    (CanLog, HasLoggerName (..), LogEvent,
                                                  NamedPureLogger (..), WithLogger,
-                                                 launchNamedPureLog, runNamedPureLog)
+                                                 dispatchEvents, runNamedPureLog)
 
 import           Pos.Core                       (BlockVersionData, EpochIndex,
                                                  HasGenesisData, HasProtocolConstants,
@@ -39,8 +39,8 @@ type MultiRichmenSet   = HashMap EpochIndex RichmenSet
 -- require randomness even though they are deterministic. Note that running
 -- them with the same seed every time is insecure and must not be done.
 newtype PureToss a = PureToss
-    { getPureToss :: NamedPureLogger (
-                     StateT GtGlobalState (
+    { getPureToss :: StateT GtGlobalState (
+                     NamedPureLogger (
                      Rand.MonadPseudoRandom Rand.ChaChaDRG)) a
     } deriving (Functor, Applicative, Monad,
                 CanLog, HasLoggerName, Rand.MonadRandom)
@@ -58,13 +58,12 @@ instance (HasGenesisData, HasProtocolConstants) => MonadTossRead PureToss where
     getCommitments = PureToss $ use gsCommitments
     getOpenings = PureToss $ use gsOpenings
     getShares = PureToss $ use gsShares
-    getVssCertificates = PureToss $ VCD.certs <$> use gsVssCertificates
+    getVssCertificates = PureToss $ uses gsVssCertificates VCD.certs
     getStableCertificates epoch
         | epoch == 0 = pure $ genesisVssCerts
-        | otherwise =
-            PureToss $
-            VCD.certs . VCD.setLastKnownSlot (crucialSlot epoch) <$>
-            use gsVssCertificates
+        | otherwise = PureToss $
+            uses gsVssCertificates $
+                VCD.certs . VCD.setLastKnownSlot (crucialSlot epoch)
 
 instance MonadTossEnv PureTossWithEnv where
     getRichmen epoch = PureTossWithEnv $ view (_1 . at epoch)
@@ -94,10 +93,10 @@ runPureToss
     -> m (a, GtGlobalState, [LogEvent])
 runPureToss gs (PureToss act) = do
     seed <- Rand.drgNew
-    let ((res, events), newGS) =
+    let ((res, newGS), events) =
             fst . Rand.withDRG seed $    -- run MonadRandom
-            (`runStateT` gs) $           -- run State
-            runNamedPureLog act          -- run NamedPureLogger
+            runNamedPureLog $            -- run NamedPureLogger
+            runStateT act gs             -- run State
     pure (res, newGS, events)
 
 runPureTossWithLogger
@@ -105,13 +104,9 @@ runPureTossWithLogger
     => GtGlobalState
     -> PureToss a
     -> m (a, GtGlobalState)
-runPureTossWithLogger gs (PureToss act) = do
-    seed <- Rand.drgNew
-    let unwrapLower a = pure $ sequenceAOf _1 $     -- (f a, b) -> f (a, b)
-                        fst $ Rand.withDRG seed $   -- run MonadRandom
-                        runStateT a gs              -- run State
-    (res, newGS) <- launchNamedPureLog unwrapLower act
-    return (res, newGS)
+runPureTossWithLogger gs act = do
+    (res, newGS, events) <- runPureToss gs act
+    (res, newGS) <$ dispatchEvents events
 
 evalPureTossWithLogger
     :: (WithLogger m, Rand.MonadRandom m)

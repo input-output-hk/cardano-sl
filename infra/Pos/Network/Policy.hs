@@ -1,18 +1,20 @@
 module Pos.Network.Policy
-    ( defaultEnqueuePolicyCore
-    , defaultEnqueuePolicyRelay
-    , defaultEnqueuePolicyEdgeBehindNat
-    , defaultEnqueuePolicyEdgeP2P
-    , defaultDequeuePolicyCore
-    , defaultDequeuePolicyRelay
-    , defaultDequeuePolicyEdgeBehindNat
-    , defaultDequeuePolicyEdgeP2P
-    , defaultFailurePolicy
-    ) where
+       ( defaultEnqueuePolicyCore
+       , defaultEnqueuePolicyRelay
+       , defaultEnqueuePolicyEdgeBehindNat
+       , defaultEnqueuePolicyEdgeP2P
+       , defaultDequeuePolicyCore
+       , defaultDequeuePolicyRelay
+       , defaultDequeuePolicyEdgeBehindNat
+       , defaultDequeuePolicyEdgeP2P
+       , defaultFailurePolicy
+       ) where
+
 
 import           Universum
-import           Network.Broadcast.OutboundQueue.Types
+
 import           Network.Broadcast.OutboundQueue
+import           Network.Broadcast.OutboundQueue.Types
 
 -- | Default enqueue policy for core nodes
 defaultEnqueuePolicyCore :: EnqueuePolicy nid

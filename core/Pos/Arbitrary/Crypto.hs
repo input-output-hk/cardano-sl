@@ -9,18 +9,18 @@ import           Universum
 import           Control.Monad                     (zipWithM)
 import qualified Data.ByteArray                    as ByteArray
 import           Data.List.NonEmpty                (fromList)
-import           System.IO.Unsafe                  (unsafePerformIO)
-import           Test.QuickCheck                   (Arbitrary (..), choose, elements,
-                                                    generate, oneof, vector)
+import           Test.QuickCheck                   (Arbitrary (..), elements, oneof,
+                                                    vector)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Crypto.Unsafe       ()
 import           Pos.Binary.Class                  (AsBinary (..), AsBinaryClass (..), Bi)
 import           Pos.Binary.Crypto                 ()
-import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
+import           Pos.Core.Configuration.Protocol   (HasProtocolConstants)
 import           Pos.Crypto.AsBinary               ()
 import           Pos.Crypto.Hashing                (AbstractHash, HashAlgorithm)
 import           Pos.Crypto.HD                     (HDAddressPayload, HDPassphrase (..))
+import           Pos.Crypto.Random                 (deterministic, randomNumberInRange)
 import           Pos.Crypto.SecretSharing          (DecShare, EncShare, Secret,
                                                     SecretProof, Threshold, VssKeyPair,
                                                     VssPublicKey, decryptShare,
@@ -37,18 +37,17 @@ import           Pos.Crypto.Signing.Safe           (PassPhrase, createProxyCert,
                                                     createPsk)
 import           Pos.Crypto.Signing.Types.Tag      (SignTag (..))
 import           Pos.Util.Arbitrary                (Nonrepeating (..), arbitraryUnsafe,
-                                                    sublistN, unsafeMakePool)
+                                                    sublistN)
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-We can't make an 'Arbitrary' instance for keys or seeds because generating
-them safely requires randomness which must come from IO (we could use an
-'arbitrary' randomness generator for an 'Arbitrary' instance, but then what's
-the point of testing key generation when we use different generators in
-production and in tests?). So, we just generate lots of keys and seeds with
-'unsafePerformIO' and use them for everything.
+Generating keys takes time, so we just pregenerate lots of keys in advance
+and use them in 'Arbitrary' instances.
 -}
+
+keysToGenerate :: Int
+keysToGenerate = 128
 
 ----------------------------------------------------------------------------
 -- SignTag
@@ -67,8 +66,8 @@ instance Arbitrary SignTag where
 -- public key.
 
 keys :: [(PublicKey, SecretKey)]
-keys = unsafeMakePool "[generating keys for tests...]" 50 keyGen
-{-# NOINLINE keys #-}
+keys = deterministic "keys" $
+    replicateM keysToGenerate keyGen
 
 instance Arbitrary PublicKey where
     arbitrary = fst <$> elements keys
@@ -82,7 +81,8 @@ instance Nonrepeating SecretKey where
 
 -- Repeat the same for ADA redemption keys
 redemptionKeys :: [(RedeemPublicKey, RedeemSecretKey)]
-redemptionKeys = unsafeMakePool "[generating redemption keys for tests..]" 50 redeemKeyGen
+redemptionKeys = deterministic "redemptionKeys" $
+    replicateM keysToGenerate redeemKeyGen
 
 instance Arbitrary RedeemPublicKey where
     arbitrary = fst <$> elements redemptionKeys
@@ -99,8 +99,8 @@ instance Nonrepeating RedeemSecretKey where
 ----------------------------------------------------------------------------
 
 vssKeys :: [VssKeyPair]
-vssKeys = unsafeMakePool "[generating VSS keys for tests...]" 50 vssKeyGen
-{-# NOINLINE vssKeys #-}
+vssKeys = deterministic "vssKeys" $
+    replicateM keysToGenerate vssKeyGen
 
 instance Arbitrary VssKeyPair where
     arbitrary = elements vssKeys
@@ -150,30 +150,29 @@ instance (HasProtocolConstants, Bi w, Arbitrary w, Bi a, Arbitrary a) =>
 ----------------------------------------------------------------------------
 
 data SharedSecrets = SharedSecrets
-    { ssSecret    :: Secret
-    , ssSecProof  :: SecretProof
-    , ssShares    :: [(EncShare, DecShare)]
-    , ssThreshold :: Threshold
-    , ssVSSPKs    :: [VssPublicKey]
-    , ssPos       :: Int            -- This field is a valid, zero-based index in the
-                                    -- shares/keys lists.
+    { ssSecret    :: !Secret
+    , ssSecProof  :: !SecretProof
+    , ssEncShares :: ![EncShare]
+    , ssDecShares :: ![DecShare]
+    , ssThreshold :: !Threshold
+    , ssVssKeys   :: ![VssPublicKey]
+    , ssPos       :: !Int            -- This field is a valid, zero-based index in the
+                                     -- shares/keys lists.
     } deriving (Show, Eq)
 
 sharedSecrets :: [SharedSecrets]
 sharedSecrets =
-    unsafeMakePool "[generating shared secrets for tests...]" 50 $ do
-        parties <- generate $ choose (4, length vssKeys)
-        threshold <- generate $ choose (2, toInteger parties - 2)
+    deterministic "sharedSecrets" $ replicateM keysToGenerate $ do
+        parties <- randomNumberInRange 4 (toInteger (length vssKeys))
+        ssThreshold <- randomNumberInRange 2 (parties - 2)
         vssKs <- sortWith toVssPublicKey <$>
-                 generate (sublistN parties vssKeys)
-        (s, sp, encryptedShares) <-
-            genSharedSecret threshold (map toVssPublicKey $ fromList vssKs)
-        decryptedShares <- zipWithM decryptShare
-                             vssKs (map snd encryptedShares)
-        let shares = zip (map snd encryptedShares) decryptedShares
-            vssPKs = map toVssPublicKey vssKs
-        return $ SharedSecrets s sp shares threshold vssPKs (parties - 1)
-{-# NOINLINE sharedSecrets #-}
+                 sublistN (fromInteger parties) vssKeys
+        let ssVssKeys = map toVssPublicKey vssKs
+        (ssSecret, ssSecProof, map snd -> ssEncShares) <-
+            genSharedSecret ssThreshold (fromList ssVssKeys)
+        ssDecShares <- zipWithM decryptShare vssKs ssEncShares
+        let ssPos = fromInteger parties - 1
+        return SharedSecrets{..}
 
 instance Arbitrary Secret where
     arbitrary = elements . fmap ssSecret $ sharedSecrets
@@ -185,13 +184,13 @@ instance Arbitrary SecretProof where
     arbitrary = elements . fmap ssSecProof $ sharedSecrets
 
 instance Arbitrary EncShare where
-    arbitrary = elements . concatMap (fmap fst . ssShares) $ sharedSecrets
+    arbitrary = elements . concatMap ssEncShares $ sharedSecrets
 
 instance Arbitrary (AsBinary EncShare) where
     arbitrary = asBinary @EncShare <$> arbitrary
 
 instance Arbitrary DecShare where
-    arbitrary = unsafePerformIO <$> (decryptShare <$> arbitrary <*> arbitrary)
+    arbitrary = elements . concatMap ssDecShares $ sharedSecrets
 
 instance Arbitrary (AsBinary DecShare) where
     arbitrary = asBinary @DecShare <$> arbitrary

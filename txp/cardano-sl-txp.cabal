@@ -1,5 +1,5 @@
 name:                cardano-sl-txp
-version:             0.6.2
+version:             1.0.2
 synopsis:            Cardano SL - transaction processing
 description:         Cardano SL - transaction processing
 license:             MIT
@@ -74,6 +74,7 @@ library
                      , ekg-core
                      , ether
                      , exceptions
+                     , fmt >= 0.4
                      , formatting
                      , generic-arbitrary
                      , hashable
@@ -81,6 +82,7 @@ library
                      , lifted-base
                      , log-warper
                      , memory
+                     , mmorph
                      , monad-control
                      , mtl
                      , neat-interpolation

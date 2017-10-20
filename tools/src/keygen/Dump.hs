@@ -8,21 +8,20 @@ module Dump
 
 import           Universum
 
-import           Control.Lens          ((?~))
-import           Crypto.Random         (MonadRandom)
-import qualified Data.Text             as T
-import qualified Serokell.Util.Base64  as B64
-import           System.Directory      (createDirectoryIfMissing)
-import           System.FilePath       ((</>))
-import           System.Wlog           (WithLogger, logInfo)
+import           Control.Lens         ((?~))
+import           Crypto.Random        (MonadRandom)
+import qualified Data.Text            as T
+import qualified Serokell.Util.Base64 as B64
+import           System.Directory     (createDirectoryIfMissing)
+import           System.FilePath      ((</>))
+import           System.Wlog          (WithLogger, logInfo)
 
-import           Pos.Core.Genesis      (GeneratedSecrets (..), TestnetBalanceOptions (..))
-import           Pos.Crypto            (EncryptedSecretKey, SecretKey, VssKeyPair,
-                                        noPassEncrypt)
-import           Pos.Util.UserSecret   (initializeUserSecret, takeUserSecret, usKeys,
-                                        usPrimKey, usVss, usWalletSet,
-                                        writeUserSecretRelease)
-import           Pos.Wallet.Web.Secret (mkGenesisWalletUserSecret)
+import           Pos.Core.Genesis     (GeneratedSecrets (..), TestnetBalanceOptions (..))
+import           Pos.Crypto           (EncryptedSecretKey, SecretKey, VssKeyPair,
+                                       noPassEncrypt)
+import           Pos.Util.UserSecret  (initializeUserSecret, mkGenesisWalletUserSecret,
+                                       takeUserSecret, usKeys, usPrimKey, usVss, usWallet,
+                                       writeUserSecretRelease)
 
 
 dumpGeneratedGenesisData
@@ -32,7 +31,7 @@ dumpGeneratedGenesisData
     -> GeneratedSecrets
     -> m ()
 dumpGeneratedGenesisData (dir, pat) tbo GeneratedSecrets {..} = do
-    dumpKeyfiles (dir, pat) tbo gsSecretKeys
+    dumpKeyfiles (dir, pat) tbo (gsSecretKeysRich <> gsSecretKeysPoor)
     dumpFakeAvvmSeeds dir gsFakeAvvmSeeds
 
 dumpKeyfiles
@@ -93,7 +92,7 @@ dumpKeyfile isPrim fp (sk, hdwSk, vss) = do
         us & (if isPrim
             then usPrimKey .~ Just sk
             else (usKeys %~ (noPassEncrypt sk :))
-                . (usWalletSet ?~ mkGenesisWalletUserSecret hdwSk))
+                . (usWallet ?~ mkGenesisWalletUserSecret hdwSk))
         & usVss .~ Just vss
 
 dumpFakeAvvmSeed :: MonadIO m => FilePath -> ByteString -> m ()

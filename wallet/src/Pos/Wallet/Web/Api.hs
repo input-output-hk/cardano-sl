@@ -55,6 +55,7 @@ module Pos.Wallet.Web.Api
        , GetSlotsDuration
        , GetVersion
        , GetSyncProgress
+       , LocalTimeDifference
 
        , ImportBackupJSON
        , ExportBackupJSON
@@ -109,15 +110,18 @@ instance ModifiesApiRes WalletVerbTag where
 instance ReportDecodeError (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) where
     reportDecodeError _ err = throwM (DecodeError err) ^. from serverHandlerL'
 
-instance ( HasServer (WalletVerb (Verb mt st ct a)) ctx
+instance ( HasServer (Verb mt st ct $ ApiModifiedRes WalletVerbTag a) ctx
          , Reifies config ApiLoggingConfig
          , ReflectMethod mt
          , Buildable (WithTruncatedLog a)
          ) =>
          HasLoggingServer config (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) ctx where
     routeWithLog =
-        inRouteServer @(WalletVerb (Verb mt st ct a)) route $
-        applyLoggingToHandler (Proxy @config) (Proxy @mt)
+        -- TODO [CSM-466] avoid manually rewriting rule for composite api modification
+        inRouteServer @(Verb mt st ct $ ApiModifiedRes WalletVerbTag a) route $
+        \(paramsInfo, handler) ->
+            handler & serverHandlerL' %~ modifyApiResult (Proxy @WalletVerbTag)
+                    & applyLoggingToHandler (Proxy @config) (Proxy @mt) . (paramsInfo, )
 
 -- | Specifes servant logging config.
 data WalletLoggingConfig
@@ -360,6 +364,12 @@ type GetSyncProgress =
     :> "progress"
     :> WRes Get SyncProgress
 
+type LocalTimeDifference =
+       "settings"
+    :> "time"
+    :> "difference"
+    :> WRes Get Word
+
 -------------------------------------------------------------------------
 -- JSON backup
 -------------------------------------------------------------------------
@@ -378,7 +388,6 @@ type ExportBackupJSON =
     :> WRes Post ()
 
 -- | Servant API which provides access to wallet.
--- TODO: Should be composed depending on the resource - wallets, txs, ... http://haskell-servant.github.io/tutorial/0.4/server.html#nested-apis
 type WalletApi = ApiPrefix :> (
      -- NOTE: enabled in prod mode https://issues.serokell.io/issue/CSM-333
      TestReset
@@ -428,8 +437,6 @@ type WalletApi = ApiPrefix :> (
      -------------------------------------------------------------------------
      -- Profile(s)
      -------------------------------------------------------------------------
-     -- TODO: A single profile? Should be possible in the future to have
-     -- multiple profiles?
      GetProfile
     :<|>
      UpdateProfile
@@ -437,13 +444,10 @@ type WalletApi = ApiPrefix :> (
      -------------------------------------------------------------------------
      -- Transactons
      -------------------------------------------------------------------------
-    -- TODO: for now we only support one2one sending. We should extend this
-    -- to support many2many
      NewPayment
     :<|>
      TxFee
     :<|>
-      -- FIXME: Should capture the URL parameters in the payload.
      UpdateTx
     :<|>
      GetHistory
@@ -477,6 +481,8 @@ type WalletApi = ApiPrefix :> (
      GetVersion
     :<|>
      GetSyncProgress
+    :<|>
+     LocalTimeDifference
     :<|>
      -------------------------------------------------------------------------
      -- JSON backup

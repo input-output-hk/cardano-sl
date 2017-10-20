@@ -1,5 +1,5 @@
 name:                cardano-sl-wallet
-version:             0.6.2
+version:             1.0.2
 synopsis:            Cardano SL - wallet
 description:         Cardano SL - wallet
 license:             MIT
@@ -20,16 +20,30 @@ Flag for-installer
 
 library
   hs-source-dirs:     src
-  exposed-modules:    Pos.Aeson.ClientTypes
-                      Pos.Aeson.WalletBackup
-
-                      Pos.Wallet
+  exposed-modules:    Pos.Wallet
                       Pos.Wallet.Redirect
+                      Pos.Wallet.WalletMode
+
+                      Pos.Wallet.Aeson
+                      Pos.Wallet.Aeson.ClientTypes
+                      Pos.Wallet.Aeson.WalletBackup
+
                       Pos.Wallet.Web
                       Pos.Wallet.Web.Account
+                      Pos.Wallet.Web.Assurance
                       Pos.Wallet.Web.Api
                       Pos.Wallet.Web.Backup
+
+                      Pos.Wallet.Web.ClientTypes
+                      Pos.Wallet.Web.ClientTypes.Functions
+                      Pos.Wallet.Web.ClientTypes.Instances
+                      Pos.Wallet.Web.ClientTypes.Types
+                      Pos.Wallet.Web.Error
+                      Pos.Wallet.Web.Error.Types
+                      Pos.Wallet.Web.Error.Util
+
                       Pos.Wallet.Web.Mode
+
                       Pos.Wallet.Web.Methods
                       Pos.Wallet.Web.Methods.Backup
                       Pos.Wallet.Web.Methods.History
@@ -40,31 +54,47 @@ library
                       Pos.Wallet.Web.Methods.Reporting
                       Pos.Wallet.Web.Methods.Restore
                       Pos.Wallet.Web.Methods.Txp
+
                       Pos.Wallet.Web.Pending
+                      Pos.Wallet.Web.Pending.Types
                       Pos.Wallet.Web.Pending.Submission
+                      Pos.Wallet.Web.Pending.Functions
                       Pos.Wallet.Web.Pending.Util
                       Pos.Wallet.Web.Pending.Worker
+
                       Pos.Wallet.Web.Server
                       Pos.Wallet.Web.Server.Handlers
                       Pos.Wallet.Web.Server.Launcher
                       Pos.Wallet.Web.Server.Runner
+
                       Pos.Wallet.Web.Sockets
                       Pos.Wallet.Web.Sockets.ConnSet
                       Pos.Wallet.Web.Sockets.Connection
                       Pos.Wallet.Web.Sockets.Notifier
                       Pos.Wallet.Web.Sockets.Types
+
+                      Pos.Wallet.Web.State
+                      Pos.Wallet.Web.State.Acidic
+                      Pos.Wallet.Web.State.State
+                      Pos.Wallet.Web.State.Storage
+                      Pos.Wallet.Web.State.Util
+
                       Pos.Wallet.Web.Swagger
                       Pos.Wallet.Web.Swagger.CustomSwagger
                       Pos.Wallet.Web.Swagger.Description
                       Pos.Wallet.Web.Swagger.Instances.Schema
                       Pos.Wallet.Web.Swagger.Instances.Swagger
                       Pos.Wallet.Web.Swagger.Spec
+
                       Pos.Wallet.Web.Tracking
                       Pos.Wallet.Web.Tracking.BListener
                       Pos.Wallet.Web.Tracking.Sync
                       Pos.Wallet.Web.Tracking.Modifier
 
-  build-depends:        aeson >= 0.11.2.1
+                      Pos.Wallet.Web.Util
+
+  build-depends:        acid-state
+                      , aeson >= 0.11.2.1
                       , ansi-wl-pprint
                       , base
                       , base58-bytestring
@@ -87,8 +117,10 @@ library
                       , exceptions
                       , filepath
                       , formatting
+                      , hashable
                       , lens
                       , log-warper
+                      , memory
                       , mtl
                       , network-transport
                       , node-sketch
@@ -97,6 +129,7 @@ library
                       , parsec
                       , random
                       , reflection
+                      , safecopy
                       , semver
                       , serokell-util >= 0.1.3.4
                       , servant >= 0.8.1
@@ -108,6 +141,7 @@ library
                       , stm
                       , stm-containers
                       , swagger2
+                      , text
                       , text-format
                       , time
                       , time-units
@@ -144,14 +178,17 @@ library
                         RecordWildCards
                         TypeApplications
                         TupleSections
-                        ViewPatterns
                         LambdaCase
+                        ViewPatterns
                         MultiWayIf
                         ConstraintKinds
                         UndecidableInstances
                         BangPatterns
+                        ScopedTypeVariables
                         TemplateHaskell
                         TypeOperators
+                        GADTs
+
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
@@ -160,9 +197,8 @@ executable cardano-node
   hs-source-dirs:     node
   main-is:            Main.hs
   other-modules:      NodeOptions
-                      Params
-
   build-depends:        aeson >= 0.11.2.1
+                      , acid-state
                       , ansi-wl-pprint
                       , base
                       , base58-bytestring
@@ -194,6 +230,7 @@ executable cardano-node
                       , optparse-applicative
                       , parsec
                       , random
+                      , safe-exceptions
                       , serokell-util >= 0.1.3.4
                       , servant >= 0.8.1
                       , servant-multipart >= 0.10
@@ -244,6 +281,7 @@ executable cardano-node
                         UndecidableInstances
                         BangPatterns
                         TemplateHaskell
+                        GADTs
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp

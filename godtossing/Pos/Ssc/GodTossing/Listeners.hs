@@ -4,7 +4,7 @@
 
 module Pos.Ssc.GodTossing.Listeners
        ( -- * Instances
-         -- ** instance SscListenersClass SscGodTossing
+         -- ** instance SscListenersClass
        ) where
 
 import           Universum
@@ -26,29 +26,28 @@ import           Pos.Communication.Relay               (DataMsg, InvOrData,
                                                         Relay (..), ReqMsg, ReqOrRes)
 import           Pos.Communication.Types.Protocol      (MsgType (..))
 import           Pos.Core                              (HasConfiguration, StakeholderId,
-                                                        addressHash, getCertId)
+                                                        addressHash, getCertId, lookupVss)
 import           Pos.Security.Util                     (shouldIgnorePkAddress)
 import           Pos.Ssc.Class.Listeners               (SscListenersClass (..))
 import           Pos.Ssc.Extra                         (sscRunLocalQuery)
+import           Pos.Ssc.GodTossing.Configuration      (HasGtConfiguration)
 import           Pos.Ssc.GodTossing.Core               (getCommitmentsMap)
 import           Pos.Ssc.GodTossing.LocalData          (ldModifier, sscIsDataUseful,
                                                         sscProcessCertificate,
                                                         sscProcessCommitment,
                                                         sscProcessOpening,
                                                         sscProcessShares)
-import           Pos.Ssc.GodTossing.Configuration      (HasGtConfiguration)
 import           Pos.Ssc.GodTossing.Network.Constraint (GtMessageConstraints)
 import           Pos.Ssc.GodTossing.Toss               (GtTag (..), TossModifier,
                                                         tmCertificates, tmCommitments,
                                                         tmOpenings, tmShares)
-import           Pos.Ssc.GodTossing.Type               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types.Message      (MCCommitment (..), MCOpening (..),
                                                         MCShares (..),
                                                         MCVssCertificate (..))
 import           Pos.Ssc.Mode                          (SscMode)
 
-instance GtMessageConstraints => SscListenersClass SscGodTossing where
-    sscRelays = Tagged
+instance GtMessageConstraints => SscListenersClass where
+    sscRelays =
         [ commitmentRelay
         , openingRelay
         , sharesRelay
@@ -56,7 +55,7 @@ instance GtMessageConstraints => SscListenersClass SscGodTossing where
         ]
 
 commitmentRelay
-    :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
+    :: (GtMessageConstraints, SscMode ctx m)
     => Relay m
 commitmentRelay =
     sscRelay CommitmentMsg
@@ -65,7 +64,7 @@ commitmentRelay =
              (\(MCCommitment comm) -> sscProcessCommitment comm)
 
 openingRelay
-    :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
+    :: (GtMessageConstraints, SscMode ctx m)
     => Relay m
 openingRelay =
     sscRelay OpeningMsg
@@ -74,7 +73,7 @@ openingRelay =
              (\(MCOpening key open) -> sscProcessOpening key open)
 
 sharesRelay
-    :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
+    :: (GtMessageConstraints, SscMode ctx m)
     => Relay m
 sharesRelay =
     sscRelay SharesMsg
@@ -83,16 +82,16 @@ sharesRelay =
              (\(MCShares key shares) -> sscProcessShares key shares)
 
 vssCertRelay
-    :: (GtMessageConstraints, SscMode SscGodTossing ctx m)
+    :: (GtMessageConstraints, SscMode ctx m)
     => Relay m
 vssCertRelay =
     sscRelay VssCertificateMsg
              (\(MCVssCertificate vc) -> getCertId vc)
-             (\id tm -> MCVssCertificate <$> tm ^. tmCertificates . at id)
+             (\id tm -> MCVssCertificate <$> lookupVss id (tm ^. tmCertificates))
              (\(MCVssCertificate cert) -> sscProcessCertificate cert)
 
 sscRelay
-    :: ( SscMode SscGodTossing ctx m
+    :: ( SscMode ctx m
        , Buildable err
        , Buildable contents
        , Typeable contents
@@ -134,7 +133,7 @@ sscRelay gtTag contentsToKey toContents processData =
         | otherwise = sscProcessMessage processData dat
 
 sscProcessMessage
-    :: (SscMode SscGodTossing ctx m, Buildable err)
+    :: (SscMode ctx m, Buildable err)
     => (a -> ExceptT err m ()) -> a -> m Bool
 sscProcessMessage sscProcessMessageDo dat =
     runExceptT (sscProcessMessageDo dat) >>= \case

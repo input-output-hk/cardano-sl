@@ -17,41 +17,38 @@ module Pos.Wallet.Redirect
 
 import           Universum
 
-import           Control.Lens              (views)
-import           Control.Monad.Trans.Maybe (MaybeT (..))
-import           Data.Time.Units           (Millisecond)
-import           Ether.Internal            (HasLens (..))
-import           System.Wlog               (WithLogger)
+import           Control.Lens          (views)
+import           Data.Time.Units       (Millisecond)
+import           Ether.Internal        (HasLens (..))
+import           System.Wlog           (WithLogger)
 
-import           Pos.Block.Core            (BlockHeader)
-import qualified Pos.Context               as PC
-import           Pos.Core                  (ChainDifficulty, HasConfiguration,
-                                            difficultyL, flattenEpochOrSlot,
-                                            flattenSlotId, slotSecurityParam)
-import           Pos.DB                    (MonadRealDB)
-import           Pos.DB.Block              (MonadBlockDB)
-import           Pos.DB.DB                 (getTipHeader)
-import           Pos.Shutdown              (HasShutdownContext, triggerShutdown)
-import           Pos.Slotting              (MonadSlots (..), getNextEpochSlotDuration)
-import           Pos.Update.Context        (UpdateContext (ucDownloadedUpdate))
-import           Pos.Update.Poll.Types     (ConfirmedProposalState)
-import           Pos.Wallet.WalletMode     (MonadBlockchainInfo (..), MonadUpdates (..))
-import qualified Pos.GState                as GS
+import           Pos.Block.Core        (BlockHeader)
+import qualified Pos.Context           as PC
+import           Pos.Core              (ChainDifficulty, HasConfiguration, difficultyL)
+import           Pos.DB                (MonadRealDB)
+import           Pos.DB.Block          (MonadBlockDB)
+import           Pos.DB.DB             (getTipHeader)
+import qualified Pos.GState            as GS
+import           Pos.Shutdown          (HasShutdownContext, triggerShutdown)
+import           Pos.Slotting          (MonadSlots (..), getNextEpochSlotDuration)
+import           Pos.Update.Context    (UpdateContext (ucDownloadedUpdate))
+import           Pos.Update.Poll.Types (ConfirmedProposalState)
+import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (..))
 
 ----------------------------------------------------------------------------
 -- BlockchainInfo
 ----------------------------------------------------------------------------
 
 getLastKnownHeader
-  :: (PC.MonadLastKnownHeader ssc ctx m, MonadIO m)
-  => m (Maybe (BlockHeader ssc))
+  :: (PC.MonadLastKnownHeader ctx m, MonadIO m)
+  => m (Maybe BlockHeader)
 getLastKnownHeader =
     atomically . readTVar =<< view (lensOf @PC.LastKnownHeaderTag)
 
-type BlockchainInfoEnv ssc ctx m =
-    ( MonadBlockDB ssc m
-    , PC.MonadLastKnownHeader ssc ctx m
-    , PC.MonadProgressHeader ssc ctx m
+type BlockchainInfoEnv ctx m =
+    ( MonadBlockDB m
+    , PC.MonadLastKnownHeader ctx m
+    , PC.MonadProgressHeader ctx m
     , MonadReader ctx m
     , HasLens PC.ConnectedPeers ctx PC.ConnectedPeers
     , MonadIO m
@@ -61,39 +58,33 @@ type BlockchainInfoEnv ssc ctx m =
     )
 
 networkChainDifficultyWebWallet
-    :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m
+    :: forall ctx m. BlockchainInfoEnv ctx m
     => m (Maybe ChainDifficulty)
 networkChainDifficultyWebWallet = getLastKnownHeader >>= \case
     Just lh -> do
-        thDiff <- view difficultyL <$> getTipHeader @ssc
+        thDiff <- view difficultyL <$> getTipHeader
         let lhDiff = lh ^. difficultyL
         return . Just $ max thDiff lhDiff
-    Nothing -> runMaybeT $ do
-        cSlot <- flattenSlotId <$> MaybeT getCurrentSlot
-        th <- lift (getTipHeader @ssc)
-        let hSlot = flattenEpochOrSlot th
-        when (hSlot + fromIntegral slotSecurityParam <= cSlot) $
-            fail "Local tip is outdated"
-        return $ th ^. difficultyL
+    Nothing -> pure Nothing
 
 localChainDifficultyWebWallet
-    :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m
+    :: forall ctx m. BlockchainInfoEnv ctx m
     => m ChainDifficulty
 localChainDifficultyWebWallet = do
     -- Workaround: Make local chain difficulty monotonic
     prevMaxDifficulty <- fromMaybe 0 <$> GS.getMaxSeenDifficultyMaybe
-    currDifficulty <- view difficultyL <$> getTipHeader @ssc
+    currDifficulty <- view difficultyL <$> getTipHeader
     return $ max prevMaxDifficulty currDifficulty
 
 connectedPeersWebWallet
-    :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m
+    :: forall ctx m. BlockchainInfoEnv ctx m
     => m Word
 connectedPeersWebWallet = fromIntegral . length <$> do
     PC.ConnectedPeers cp <- view (lensOf @PC.ConnectedPeers)
     atomically (readTVar cp)
 
 blockchainSlotDurationWebWallet
-    :: forall ssc ctx m. BlockchainInfoEnv ssc ctx m
+    :: forall ctx m. BlockchainInfoEnv ctx m
     => m Millisecond
 blockchainSlotDurationWebWallet = getNextEpochSlotDuration
 

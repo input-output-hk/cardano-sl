@@ -17,15 +17,16 @@ import           Servant.Server                 (Handler, Server, serve)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (CAddress (..), CAddressSummary (..),
-                                                 CAddressType (..), CBlockEntry (..),
+import           Pos.Explorer.Web.ClientTypes   (Byte, CAda (..), CAddress (..),
+                                                 CAddressSummary (..), CAddressType (..),
+                                                 CAddressesFilter (..), CBlockEntry (..),
                                                  CBlockSummary (..),
                                                  CGenesisAddressInfo (..),
                                                  CGenesisSummary (..), CHash (..),
                                                  CTxBrief (..), CTxEntry (..), CTxId (..),
-                                                 CTxSummary (..), Byte, mkCCoin)
-import           Pos.Explorer.Web.Error         (ExplorerError (..))
-import           Pos.Types                      (EpochIndex, mkCoin)
+                                                 CTxSummary (..), mkCCoin)
+import           Pos.Explorer.Web.Error         (ExplorerError (Internal))
+import           Pos.Types                      (EpochIndex (..), mkCoin)
 import           Pos.Web                        ()
 
 
@@ -46,6 +47,8 @@ explorerApp = serve explorerApi explorerHandlers
 
 explorerHandlers :: Server ExplorerApi
 explorerHandlers =
+      apiTotalAda
+    :<|>
       apiBlocksPages
     :<|>
       apiBlocksPagesTotal
@@ -70,6 +73,7 @@ explorerHandlers =
     :<|>
       apiStatsTxs
   where
+    apiTotalAda           = testTotalAda
     apiBlocksPages        = testBlocksPages
     apiBlocksPagesTotal   = testBlocksPagesTotal
     apiBlocksSummary      = testBlocksSummary
@@ -122,16 +126,19 @@ cTxBrief = CTxBrief
 -- Test handlers
 ----------------------------------------------------------------
 
+testTotalAda :: Handler CAda
+testTotalAda = pure $ CAda 123.456789
+
 testBlocksPagesTotal
     :: Maybe Word
-    -> Handler (Either ExplorerError Integer)
-testBlocksPagesTotal _ = pure $ pure 10
+    -> Handler Integer
+testBlocksPagesTotal _ = pure 10
 
 testBlocksPages
     :: Maybe Word
     -> Maybe Word
-    -> Handler (Either ExplorerError (Integer, [CBlockEntry]))
-testBlocksPages _ _  = pure . pure $ (1, [CBlockEntry
+    -> Handler (Integer, [CBlockEntry])
+testBlocksPages _ _  = pure (1, [CBlockEntry
     { cbeEpoch      = 37294
     , cbeSlot       = 10
     , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
@@ -145,8 +152,8 @@ testBlocksPages _ _  = pure . pure $ (1, [CBlockEntry
 
 testBlocksSummary
     :: CHash
-    -> Handler (Either ExplorerError CBlockSummary)
-testBlocksSummary _ = pure . pure $ CBlockSummary
+    -> Handler CBlockSummary
+testBlocksSummary _ = pure CBlockSummary
     { cbsEntry      = CBlockEntry
                         { cbeEpoch      = 37294
                         , cbeSlot       = 10
@@ -167,16 +174,16 @@ testBlocksTxs
     :: CHash
     -> Maybe Word
     -> Maybe Word
-    -> Handler (Either ExplorerError [CTxBrief])
-testBlocksTxs _ _ _ = pure . pure $ [cTxBrief]
+    -> Handler [CTxBrief]
+testBlocksTxs _ _ _ = pure [cTxBrief]
 
-testTxsLast :: Handler (Either ExplorerError [CTxEntry])
-testTxsLast         = pure . pure $ [cTxEntry]
+testTxsLast :: Handler [CTxEntry]
+testTxsLast         = pure [cTxEntry]
 
 testTxsSummary
     :: CTxId
-    -> Handler (Either ExplorerError CTxSummary)
-testTxsSummary _       = pure . pure $ CTxSummary
+    -> Handler CTxSummary
+testTxsSummary _       = pure CTxSummary
     { ctsId              = CTxId $ CHash "8aac4a6b18fafa2783071c66519332157ce96c67e88fc0cc3cb04ba0342d12a1"
     , ctsTxTimeIssued    = Just posixTime
     , ctsBlockTimeIssued = Nothing
@@ -199,14 +206,21 @@ testTxsSummary _       = pure . pure $ CTxSummary
 
 testAddressSummary
     :: CAddress
-    -> Handler (Either ExplorerError CAddressSummary)
-testAddressSummary _  = pure . pure $ sampleAddressSummary
+    -> Handler CAddressSummary
+testAddressSummary _  = pure sampleAddressSummary
 
 testEpochSlotSearch
     :: EpochIndex
     -> Maybe Word16
-    -> Handler (Either ExplorerError [CBlockEntry])
-testEpochSlotSearch _ _ = pure . pure $ [CBlockEntry
+    -> Handler [CBlockEntry]
+-- `?epoch=1&slot=1` returns an empty list
+testEpochSlotSearch (EpochIndex 1) (Just 1) =
+    pure []
+-- `?epoch=1&slot=2` returns an error
+testEpochSlotSearch (EpochIndex 1) (Just 2) =
+    throwM $ Internal "Error while searching epoch/slot"
+-- all others returns a simple result
+testEpochSlotSearch _ _ = pure [ CBlockEntry
     { cbeEpoch      = 37294
     , cbeSlot       = 10
     , cbeBlkHash    = CHash "75aa93bfa1bf8e6aa913bc5fa64479ab4ffc1373a25c8176b61fa1ab9cbae35d"
@@ -219,39 +233,81 @@ testEpochSlotSearch _ _ = pure . pure $ [CBlockEntry
     }]
 
 testGenesisSummary
-    :: Handler (Either ExplorerError CGenesisSummary)
-testGenesisSummary = pure . pure $ CGenesisSummary
-    { cgsNumTotal    = 2
-    , cgsNumRedeemed = 1
+    :: Handler CGenesisSummary
+testGenesisSummary = pure CGenesisSummary
+    { cgsNumTotal       = 4
+    , cgsNumRedeemed    = 3
+    , cgsNumNotRedeemed = 1
+    , cgsRedeemedAmountTotal    = mkCCoin $ mkCoin 300000000
+    , cgsNonRedeemedAmountTotal = mkCCoin $ mkCoin 100000000
+    }
+
+-- mock CGenesisAddressInfo
+gAddressInfoA :: CGenesisAddressInfo
+gAddressInfoA = CGenesisAddressInfo
+    -- Commenting out RSCoin addresses until they can actually be displayed.
+    -- See comment in src/Pos/Explorer/Web/ClientTypes.hs for more information.
+    { cgaiCardanoAddress   = CAddress "3mfaPhQ8ewtmyi7tvcxo1TXhGh5piePbjkqgz49Jo2wpV9"
+    -- , cgaiRSCoinAddress = CAddress "l-47iKlYk1xlyCaxoPiCHNhPQ9PTsHWnXKl6Nk9dwac="
+    , cgaiGenesisAmount    = mkCCoin $ mkCoin 2225295000000
+    , cgaiIsRedeemed       = True
+    }
+
+-- mock another CGenesisAddressInfo
+gAddressInfoB :: CGenesisAddressInfo
+gAddressInfoB = CGenesisAddressInfo
+    -- Commenting out RSCoin addresses until they can actually be displayed.
+    -- See comment in src/Pos/Explorer/Web/ClientTypes.hs for more information.
+    { cgaiCardanoAddress   = CAddress "3meLwrCDE4C7RofEdkZbUuR75ep3EcTmZv9ebcdjfMtv5H"
+    -- , cgaiRSCoinAddress = CAddress "JwvXUQ31cvrFpqqtx6fB-NOp0Q-eGQs74yXMGa-72Ak="
+    , cgaiGenesisAmount    = mkCCoin $ mkCoin 15000000
+    , cgaiIsRedeemed       = False
+    }
+
+-- mock another CGenesisAddressInfo
+gAddressInfoC :: CGenesisAddressInfo
+gAddressInfoC = CGenesisAddressInfo
+    -- Commenting out RSCoin addresses until they can actually be displayed.
+    -- See comment in src/Pos/Explorer/Web/ClientTypes.hs for more information.
+    { cgaiCardanoAddress   = CAddress "LaVWbkFegK1TUNHMc3Fads2cG6ivPb2gJUxXBxNtumLtbG"
+    -- , cgaiRSCoinAddress = CAddress "JwvXUQ31cvrFpqqtx6fB-NOp0Q-eGQs74yXMGa-LtbG="
+    , cgaiGenesisAmount    = mkCCoin $ mkCoin 333000000
+    , cgaiIsRedeemed       = False
     }
 
 testGenesisPagesTotal
     :: Maybe Word
-    -> Handler (Either ExplorerError Integer)
-testGenesisPagesTotal _ = pure $ pure 2
+    -> CAddressesFilter
+    -> Handler Integer
+-- number of redeemed addresses pages
+testGenesisPagesTotal _ RedeemedAddresses = pure 1
+-- number of non redeemed addresses pages
+testGenesisPagesTotal _ NonRedeemedAddresses = pure 1
+-- number of all redeem addresses pages
+testGenesisPagesTotal _ _ = pure 2
 
 testGenesisAddressInfo
     :: Maybe Word
     -> Maybe Word
-    -> Handler (Either ExplorerError [CGenesisAddressInfo])
-testGenesisAddressInfo _ _ = pure . pure $ [
-    -- Commenting out RSCoin addresses until they can actually be displayed.
-    -- See comment in src/Pos/Explorer/Web/ClientTypes.hs for more information.
-    CGenesisAddressInfo
-    { cgaiCardanoAddress = CAddress "3meLwrCDE4C7RofEdkZbUuR75ep3EcTmZv9ebcdjfMtv5H"
-    -- , cgaiRSCoinAddress  = CAddress "JwvXUQ31cvrFpqqtx6fB-NOp0Q-eGQs74yXMGa-72Ak="
-    , cgaiGenesisAmount  = mkCCoin $ mkCoin 15000000
-    , cgaiIsRedeemed     = False
-    },
-    CGenesisAddressInfo
-    { cgaiCardanoAddress = CAddress "3mfaPhQ8ewtmyi7tvcxo1TXhGh5piePbjkqgz49Jo2wpV9"
-    -- , cgaiRSCoinAddress  = CAddress "l-47iKlYk1xlyCaxoPiCHNhPQ9PTsHWnXKl6Nk9dwac="
-    , cgaiGenesisAmount  = mkCCoin $ mkCoin 2225295000000
-    , cgaiIsRedeemed     = True
-    }]
+    -> CAddressesFilter
+    -> Handler [CGenesisAddressInfo]
+-- filter redeemed addresses
+testGenesisAddressInfo _ _ RedeemedAddresses =
+    pure [ gAddressInfoA ]
+-- filter non-redeemed addresses
+testGenesisAddressInfo _ _ NonRedeemedAddresses =
+    pure [ gAddressInfoB, gAddressInfoC ]
+-- all addresses (w/o filtering) - page 1
+testGenesisAddressInfo (Just 1) _ AllAddresses =
+    pure [ gAddressInfoA, gAddressInfoB ]
+-- all addresses (w/o filtering) - page 2
+testGenesisAddressInfo (Just 2) _ AllAddresses =
+    pure [ gAddressInfoC ]
+-- all others requests will ended up with an error
+testGenesisAddressInfo _ _ _ =
+    throwM $ Internal "Error while pagening genesis addresses"
 
 testStatsTxs
     :: Maybe Word
-    -> Handler (Either ExplorerError (Integer, [(CTxId, Byte)]))
-testStatsTxs _ = pure . pure $ (1, [(cTxId, 200)])
-
+    -> Handler (Integer, [(CTxId, Byte)])
+testStatsTxs _ = pure (1, [(cTxId, 200)])

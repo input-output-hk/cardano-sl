@@ -19,7 +19,8 @@ import           System.Wlog                       (logInfo, modifyLoggerName)
 
 import           Pos.Client.Txp.Addresses          (MonadAddresses)
 import           Pos.Communication.Protocol        (SendActions (..))
-import           Pos.Configuration                 (HasNodeConfiguration, pendingTxResubmitionPeriod)
+import           Pos.Configuration                 (HasNodeConfiguration,
+                                                    pendingTxResubmitionPeriod)
 import           Pos.Core                          (ChainDifficulty (..), SlotId (..),
                                                     difficultyL)
 import           Pos.Core.Configuration            (HasConfiguration)
@@ -27,13 +28,13 @@ import           Pos.Crypto                        (WithHash (..))
 import           Pos.DB.DB                         (getTipHeader)
 import           Pos.Slotting                      (getNextEpochSlotDuration, onNewSlot)
 import           Pos.Txp                           (TxAux (..), topsortTxs)
-import           Pos.Wallet.SscType                (WalletSscType)
+import           Pos.Util.LogSafe                  (logInfoS)
 import           Pos.Wallet.Web.Mode               (MonadWalletWebMode)
+import           Pos.Wallet.Web.Pending.Functions  (usingPtxCoords)
 import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler,
                                                     submitAndSavePtx)
 import           Pos.Wallet.Web.Pending.Types      (PendingTx (..), PtxCondition (..),
                                                     ptxNextSubmitSlot, _PtxApplying)
-import           Pos.Wallet.Web.Pending.Util       (usingPtxCoords)
 import           Pos.Wallet.Web.State              (PtxMetaUpdate (PtxIncSubmitTiming),
                                                     casPtxCondition, getPendingTx,
                                                     getPendingTxs, ptxUpdateMeta)
@@ -49,12 +50,12 @@ type MonadPendings m =
 processPtxInNewestBlocks :: MonadPendings m => PendingTx -> m ()
 processPtxInNewestBlocks PendingTx{..} = do
     mdepth <- getWalletAssuredDepth _ptxWallet
-    tipDiff <- view difficultyL <$> getTipHeader @WalletSscType
+    tipDiff <- view difficultyL <$> getTipHeader
     if | PtxInNewestBlocks ptxDiff <- _ptxCond,
          Just depth <- mdepth,
          longAgo depth ptxDiff tipDiff -> do
              void $ casPtxCondition _ptxWallet _ptxTxId _ptxCond PtxPersisted
-             logInfo $ sformat ("Transaction "%build%" got persistent") _ptxTxId
+             logInfoS $ sformat ("Transaction "%build%" got persistent") _ptxTxId
        | otherwise -> pass
   where
      longAgo depth (ChainDifficulty ptxDiff) (ChainDifficulty tipDiff) =
@@ -63,13 +64,13 @@ processPtxInNewestBlocks PendingTx{..} = do
 resubmitTx :: MonadPendings m => SendActions m -> PendingTx -> m ()
 resubmitTx SendActions{..} ptx =
     handleAll (\_ -> pass) $ do
-        logInfo $ sformat ("Resubmitting tx "%build) (_ptxTxId ptx)
+        logInfoS $ sformat ("Resubmitting tx "%build) (_ptxTxId ptx)
         let submissionH = ptxResubmissionHandler ptx
         submitAndSavePtx submissionH enqueueMsg ptx
         updateTiming
   where
     reportNextCheckTime =
-        logInfo .
+        logInfoS .
         sformat ("Next resubmission of transaction "%build%" is scheduled at "
                 %build) (_ptxTxId ptx)
 
@@ -105,7 +106,9 @@ processPtxsToResubmit sendActions curSlot ptxs = do
             filter ((curSlot >=) . view ptxNextSubmitSlot) $
             filter (has _PtxApplying . _ptxCond) $
             ptxs
-    logInfo $ sformat fmt (map _ptxTxId toResubmit)
+    unless (null toResubmit) $
+        logInfo $ "We are going to resubmit some transactions"
+    logInfoS $ sformat fmt (map _ptxTxId toResubmit)
     resubmitPtxsDuringSlot sendActions toResubmit
   where
     fmt = "Transactions to resubmit on current slot: "%listJson

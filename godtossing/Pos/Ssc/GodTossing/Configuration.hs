@@ -7,6 +7,7 @@ module Pos.Ssc.GodTossing.Configuration
     , withGtConfiguration
     , mpcSendInterval
     , mdNoCommitmentsEpochThreshold
+    , noReportNoSecretsForEpoch1
     ) where
 
 import           Universum
@@ -31,6 +32,8 @@ data GtConfiguration = GtConfiguration
       ccMpcSendInterval               :: !Word
       -- | Threshold of epochs for malicious activity detection
     , ccMdNoCommitmentsEpochThreshold :: !Int
+      -- | Don't print “SSC couldn't compute seed” for the first epoch.
+    , ccNoReportNoSecretsForEpoch1    :: !Bool
     }
     deriving (Show, Generic)
 
@@ -50,3 +53,11 @@ mpcSendInterval = sec . fromIntegral . ccMpcSendInterval $ gtConfiguration
 mdNoCommitmentsEpochThreshold :: (HasGtConfiguration, Integral i) => i
 mdNoCommitmentsEpochThreshold =
     fromIntegral . ccMdNoCommitmentsEpochThreshold $ gtConfiguration
+
+-- | In the first mainnet version we messed up the calculation of the
+-- initial richmen set, and the richmen weren't sending commitments. It has
+-- been fixed, but now and for eternity the node prints “SSC couldn't
+-- compute seed” after processing blocks from the first epoch. This flag
+-- silences that message.
+noReportNoSecretsForEpoch1 :: HasGtConfiguration => Bool
+noReportNoSecretsForEpoch1 = ccNoReportNoSecretsForEpoch1 $ gtConfiguration

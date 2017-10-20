@@ -21,10 +21,10 @@ import           Pos.Core.Slotting          (flattenSlotId)
 import           Pos.Core.Types             (slotIdF)
 import           Pos.DHT.Configuration      (kademliaDumpInterval)
 import           Pos.DHT.Real.Types         (KademliaDHTInstance (..))
-import           Pos.KnownPeers             (MonadFormatPeers, MonadKnownPeers)
 import           Pos.Infra.Configuration    (HasInfraConfiguration)
+import           Pos.KnownPeers             (MonadKnownPeers)
 import           Pos.Recovery.Info          (MonadRecoveryInfo, recoveryCommGuard)
-import           Pos.Reporting              (HasReportingContext)
+import           Pos.Reporting              (MonadReporting)
 import           Pos.Shutdown               (HasShutdownContext)
 import           Pos.Slotting.Class         (MonadSlots)
 
@@ -39,9 +39,8 @@ type DhtWorkMode ctx m =
     , Mockable Catch m
     , MonadRecoveryInfo m
     , MonadReader ctx m
+    , MonadReporting ctx m
     , MonadKnownPeers m
-    , MonadFormatPeers m
-    , HasReportingContext ctx
     , HasShutdownContext ctx
     , HasConfiguration
     , HasInfraConfiguration
@@ -60,7 +59,7 @@ dumpKademliaStateWorker
     => KademliaDHTInstance
     -> (WorkerSpec m, OutSpecs)
 dumpKademliaStateWorker kademliaInst = localOnNewSlotWorker True $ \slotId ->
-    when (isTimeToDump slotId) $ recoveryCommGuard $ do
+    when (isTimeToDump slotId) $ recoveryCommGuard "dump kademlia state" $ do
         let dumpFile = kdiDumpPath kademliaInst
         logNotice $ sformat ("Dumping kademlia snapshot on slot: "%slotIdF) slotId
         let inst = kdiHandle kademliaInst

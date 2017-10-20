@@ -6,23 +6,26 @@ module Pos.Util.Arbitrary
        , SmallGenerator (..)
        , makeSmall
        , sublistN
-       , unsafeMakeList
-       , unsafeMakePool
        , arbitrarySizedS
        , arbitrarySizedSL
        , runGen
        ) where
 
-import           Pos.Binary.Class       (Bi)
+import           Universum
+
+import qualified Crypto.Random          as Rand
 import           Data.ByteString        (pack)
 import qualified Data.ByteString.Lazy   as BL (ByteString, pack)
 import           Data.List.NonEmpty     (NonEmpty ((:|)))
-import           System.IO.Unsafe       (unsafePerformIO)
+import           Formatting             (build, sformat, (%))
+import           Pos.Binary.Class       (Bi)
 import           Test.QuickCheck        (Arbitrary (..), Gen, listOf, scale, shuffle,
                                          vector)
 import           Test.QuickCheck.Gen    (unGen)
 import           Test.QuickCheck.Random (mkQCGen)
-import           Universum
+
+import           Pos.Crypto.Random      (randomNumberInRange)
+import           Pos.Util.Util          ()
 
 makeSmall :: Gen a -> Gen a
 makeSmall = scale f
@@ -52,30 +55,20 @@ deriving instance Bi a => Bi (SmallGenerator a)
 
 -- | Choose a random (shuffled) subset of length n. Throws an error if
 -- there's not enough elements.
-sublistN :: Int -> [a] -> Gen [a]
-sublistN n xs
-    | length xs < n = error "sublistN: not enough elements"
-    | otherwise     = take n <$> shuffle xs
+sublistN :: Rand.MonadRandom m => Int -> [a] -> m [a]
+sublistN n xs = do
+    let len = length xs
+    if len < n then
+        error $ sformat ("sublistN: requested "%build%" elements, "%
+            "but list only contains "%build) n len
+    else do
+        seed <- randomNumberInRange 0 (toInteger (maxBound @Int))
+        let shuffled = unGen (shuffle xs) (mkQCGen (fromInteger seed)) 30
+        pure $ take n shuffled
 
 -- | Type for generating list of unique (nonrepeating) elemets.
 class Nonrepeating a where
     nonrepeating :: Int -> Gen [a]
-
--- | Unsafely create pool of `n` random values to be picked
--- (see note in `Pos.Crypto.Arbitrary` for explanation)
-unsafeMakePool :: Text -> Int -> IO a -> [a]
-unsafeMakePool msg n action = unsafePerformIO $ do
-    putText msg
-    replicateM n action
-
--- | Unsafely create list of `n` random values to be picked
--- (see note in `Pos.Crypto.Arbitrary` for explanation)
--- Used because genSharedSecret already returns a list
--- of EncShares, making the 'replicateM' unneeded.
-unsafeMakeList :: Text -> IO [a] -> [a]
-unsafeMakeList msg action = unsafePerformIO $ do
-    putText msg
-    action
 
 -- | Make arbitrary `ByteString` of given length.
 arbitrarySizedS :: Int -> Gen ByteString

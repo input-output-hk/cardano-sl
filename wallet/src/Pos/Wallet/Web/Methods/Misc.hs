@@ -13,17 +13,19 @@ module Pos.Wallet.Web.Methods.Misc
        , applyUpdate
 
        , syncProgress
+       , localTimeDifference
 
        , testResetAll
        ) where
 
 import           Universum
 
-import           Pos.Aeson.ClientTypes      ()
-import           Pos.Core                   (decodeTextAddress)
+import           Pos.Core                   (SoftwareVersion (..), decodeTextAddress)
+import           Pos.NtpCheck               (NtpStatus(..), mkNtpStatusVar)
+import           Pos.Update.Configuration   (curSoftwareVersion)
 import           Pos.Util                   (maybeThrow)
 
-import           Pos.Wallet.KeyStorage      (deleteSecretKey, getSecretKeys)
+import           Pos.Client.KeyStorage      (deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.WalletMode      (applyLastUpdate, connectedPeers,
                                              localChainDifficulty, networkChainDifficulty)
 import           Pos.Wallet.Web.ClientTypes (CProfile (..), CUpdateInfo (..),
@@ -59,8 +61,17 @@ isValidAddress sAddr =
 
 -- | Get last update info
 nextUpdate :: MonadWalletWebMode m => m CUpdateInfo
-nextUpdate = getNextUpdate >>=
-             maybeThrow (RequestError "No updates available")
+nextUpdate = do
+    updateInfo <- getNextUpdate >>= maybeThrow noUpdates
+    if isUpdateActual (cuiSoftwareVersion updateInfo)
+        then pure updateInfo
+        else removeNextUpdate >> nextUpdate
+  where
+    isUpdateActual :: SoftwareVersion -> Bool
+    isUpdateActual ver = svAppName ver == svAppName curSoftwareVersion
+        && svNumber ver > svNumber curSoftwareVersion
+    noUpdates = RequestError "No updates available"
+
 
 -- | Postpone next update after restart
 postponeUpdate :: MonadWalletWebMode m => m ()
@@ -80,6 +91,21 @@ syncProgress =
     <$> localChainDifficulty
     <*> networkChainDifficulty
     <*> connectedPeers
+
+----------------------------------------------------------------------------
+-- NTP (Network Time Protocol) based time difference
+----------------------------------------------------------------------------
+
+localTimeDifference :: MonadWalletWebMode m => m Word
+localTimeDifference =
+    mkNtpStatusVar >>= readMVar >>= pure . diff
+  where
+    diff :: NtpStatus -> Word
+    diff = \case
+        NtpSyncOk -> 0
+        -- ^ `NtpSyncOk` considered already a `timeDifferenceWarnThreshold`
+        -- so that we can return 0 here to show there is no difference in time
+        NtpDesync diff' -> fromIntegral diff'
 
 ----------------------------------------------------------------------------
 -- Reset

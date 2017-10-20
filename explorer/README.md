@@ -53,6 +53,7 @@ NOTE: before running explorer if you want clean sync (explorer will have to sync
 `CORS` requests to connect `socket` server are currently restricted to following resources:
 * https://cardanoexplorer.com
 * https://explorer.iohkdev.io
+* http://cardano-explorer.cardano-mainnet.iohk.io
 * http://localhost:3100
 
 Change `CORS` policies in `src/Pos/Explorer/Socket/App.hs` whenever you have to add more resources.

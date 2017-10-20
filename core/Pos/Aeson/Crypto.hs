@@ -4,17 +4,19 @@ module Pos.Aeson.Crypto
 
 import           Universum
 
-import           Crypto.Hash   (HashAlgorithm)
-import           Data.Aeson    (FromJSON (..), FromJSONKey (..), FromJSONKeyFunction (..),
-                                ToJSON (..))
-import           Data.Aeson.TH (defaultOptions, deriveJSON)
-import           Formatting    (sformat)
+import           Crypto.Hash            (HashAlgorithm)
+import           Data.Aeson             (FromJSON (..), FromJSONKey (..),
+                                         FromJSONKeyFunction (..), ToJSON (..))
+import           Data.Aeson.TH          (deriveJSON)
+import           Formatting             (sformat)
+import           Serokell.Aeson.Options (defaultOptions)
 
-import           Pos.Crypto    (AbstractHash, ProxyCert, ProxySecretKey, PublicKey,
-                                Signature (..), decodeAbstractHash, fullProxyCertHexF,
-                                fullPublicKeyF, hashHexF, parseFullProxyCert,
-                                parseFullPublicKey, parseFullSignature)
-import           Pos.Util.Util (eitherToFail, parseJSONWithRead)
+import           Pos.Crypto             (AbstractHash, ProxyCert, ProxySecretKey,
+                                         PublicKey, Signature (..), decodeAbstractHash,
+                                         fullProxyCertHexF, fullPublicKeyF, hashHexF,
+                                         parseFullProxyCert, parseFullPublicKey,
+                                         parseFullSignature)
+import           Pos.Util.Util          (eitherToFail, parseJSONWithRead)
 
 instance ToJSON (AbstractHash algo a) where
     toJSON = toJSON . sformat hashHexF

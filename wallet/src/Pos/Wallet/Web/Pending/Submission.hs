@@ -13,25 +13,26 @@ module Pos.Wallet.Web.Pending.Submission
 
 import           Universum
 
-import           Control.Monad.Catch          (Handler (..), catches)
-import           Formatting                   (build, sformat, shown, stext, (%))
-import           System.Wlog                  (WithLogger, logInfo, logWarning)
+import           Control.Monad.Catch              (Handler (..), catches)
+import           Formatting                       (build, sformat, shown, stext, (%))
+import           System.Wlog                      (WithLogger, logInfo)
 
-import           Pos.Client.Txp.History       (saveTx)
-import           Pos.Communication            (EnqueueMsg, submitTxRaw)
-import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
-                                               PtxPoolInfo)
-import           Pos.Wallet.Web.Pending.Util  (isReclaimableFailure)
-import           Pos.Wallet.Web.State         (PtxMetaUpdate (PtxMarkAcknowledged),
-                                               addOnlyNewPendingTx, casPtxCondition,
-                                               ptxUpdateMeta)
+import           Pos.Client.Txp.History           (saveTx)
+import           Pos.Communication                (EnqueueMsg, submitTxRaw)
+import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
+import           Pos.Wallet.Web.Mode              (MonadWalletWebMode)
+import           Pos.Wallet.Web.Pending.Functions (isReclaimableFailure)
+import           Pos.Wallet.Web.Pending.Types     (PendingTx (..), PtxCondition (..),
+                                                   PtxPoolInfo)
+import           Pos.Wallet.Web.State             (PtxMetaUpdate (PtxMarkAcknowledged),
+                                                   addOnlyNewPendingTx, casPtxCondition,
+                                                   ptxUpdateMeta)
 
 -- | Handers used for to procees various pending transaction submission
 -- errors.
--- If error is fatal for transaction, handler is supposed to throw exception.
+-- If error is fatal for transaction, handler is supposed to rethrow exception.
 data PtxSubmissionHandlers m = PtxSubmissionHandlers
-    { -- | When fatal 'ToilVerFailure' occurs.
+    { -- | When fatal case of 'ToilVerFailure' occurs.
       -- Exception is not specified explicitely to prevent a wish
       -- to disassemble the cases - it's already done.
       pshOnNonReclaimable  :: forall e. (Exception e, Buildable e)
@@ -84,25 +85,24 @@ ptxResubmissionHandler PendingTx{..} =
         reportCanceled
 
     reportPeerAppliedEarlier =
-        logInfo $
+        logInfoS $
         sformat ("Some peer applied tx #"%build%" earlier - continuing \
             \tracking")
             _ptxTxId
     reportPeerApplied =
-        logInfo $
+        logInfoS $
         sformat ("Peer applied tx #"%build%", while we didn't - continuing \
             \tracking")
             _ptxTxId
     reportCanceled =
-        logInfo $
+        logInfoS $
         sformat ("Pending transaction #"%build%" was canceled")
             _ptxTxId
     reportBadCondition =
-        logWarning $
+        logWarningS $
         sformat ("Processing failure of "%build%" resubmission, but \
             \this transaction has unexpected condition "%build)
             _ptxTxId _ptxCond
-
 
 -- | Like 'Pos.Communication.Tx.submitAndSaveTx',
 -- but treats tx as future /pending/ transaction.
@@ -135,6 +135,6 @@ submitAndSavePtx PtxSubmissionHandlers{..} enqueue ptx@PendingTx{..} = do
         pshOnNonReclaimable accepted e
 
     reportError desc e outcome =
-        logInfo $
+        logInfoS $
         sformat ("Transaction #"%build%" application failed ("%shown%" - "
                 %stext%")"%stext) _ptxTxId e desc outcome

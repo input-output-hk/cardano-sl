@@ -42,9 +42,7 @@ import           Serokell.Util                (Color (Red), colorize)
 import           System.Wlog                  (WithLogger, logError)
 
 import           Pos.Binary.Core              ()
-import           Pos.Core                     (Address, Coin,
-                                               GenesisData (gdBootStakeholders),
-                                               HasConfiguration, coinF, genesisData,
+import           Pos.Core                     (Address, Coin, HasConfiguration, coinF,
                                                mkCoin, sumCoins, unsafeAddCoin,
                                                unsafeIntegerToCoin)
 import           Pos.DB                       (DBError (..), DBIteratorClass (..),
@@ -137,9 +135,8 @@ sanityCheckUtxo
     :: (MonadDBRead m, WithLogger m)
     => Coin -> m ()
 sanityCheckUtxo expectedTotalStake = do
-    let gws = gdBootStakeholders genesisData
     let stakesSource =
-            mapOutput (map snd . txOutStake gws . toaOut . snd) utxoSource
+            mapOutput (map snd . txOutStake . toaOut . snd) utxoSource
     calculatedTotalStake <-
         runConduitRes $ stakesSource .| CL.fold foldAdd (mkCoin 0)
     let fmt =

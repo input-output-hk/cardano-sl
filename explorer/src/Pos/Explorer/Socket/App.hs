@@ -9,6 +9,7 @@
 module Pos.Explorer.Socket.App
        ( NotifierSettings (..)
        , notifierApp
+       , toConfig
        ) where
 
 import           Universum                      hiding (on)
@@ -27,23 +28,20 @@ import           Network.SocketIO               (RoutingTable, Socket,
                                                  appendDisconnectHandler, initialize,
                                                  socketId)
 import           Network.Wai                    (Application, Middleware, Request,
-                                                 Response, pathInfo,
-                                                 responseLBS)
+                                                 Response, pathInfo, responseLBS)
 import           Network.Wai.Handler.Warp       (Settings, defaultSettings, runSettings,
                                                  setPort)
 import           Network.Wai.Middleware.Cors    (CorsResourcePolicy, cors, corsOrigins,
                                                  simpleCorsResourcePolicy)
+import           Serokell.Util.Text             (listJson)
 import           System.Wlog                    (CanLog, LoggerName, NamedPureLogger,
                                                  WithLogger, getLoggerName, logDebug,
                                                  logInfo, logWarning, modifyLoggerName,
                                                  usingLoggerName)
-import           Serokell.Util.Text             (listJson)
 
 import           Pos.Block.Types                (Blund)
 import           Pos.Core                       (addressF)
 import qualified Pos.GState                     as DB
-import           Pos.Ssc.Class                  (SscHelpersClass)
-import           Pos.Ssc.GodTossing             (SscGodTossing)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Socket.Holder     (ConnectionsState, ConnectionsVar,
@@ -67,7 +65,7 @@ import           Pos.Explorer.Web.Server        (ExplorerMode, getMempoolTxs)
 
 data NotifierSettings = NotifierSettings
     { nsPort :: Word16
-    }
+    } deriving (Show)
 
 -- TODO(ks): Add logging, currently it's missing.
 toConfig :: NotifierSettings -> LoggerName -> Settings
@@ -91,7 +89,7 @@ notifierHandler connVar loggerName = do
  where
     -- handlers provide context for logging and `ConnectionsVar` changes
     asHandler
-        :: (a -> SocketId -> (NamedPureLogger $ StateT ConnectionsState STM) ())
+        :: (a -> SocketId -> (StateT ConnectionsState (NamedPureLogger STM)) ())
         -> a
         -> ReaderT Socket IO ()
     asHandler f arg = inHandlerCtx . f arg . socketId =<< ask
@@ -100,7 +98,7 @@ notifierHandler connVar loggerName = do
 
     inHandlerCtx
         :: (MonadIO m, CanLog m)
-        => NamedPureLogger (StateT ConnectionsState STM) a
+        => StateT ConnectionsState (NamedPureLogger STM) a
         -> m ()
     inHandlerCtx =
         -- currently @NotifierError@s aren't caught
@@ -132,6 +130,7 @@ notifierServer notifierSettings connVar = do
                                     -- Add more resources to the following list if needed.
                                     { corsOrigins = Just ([ "https://cardanoexplorer.com"
                                                           , "https://explorer.iohkdev.io"
+                                                          , "http://cardano-explorer.cardano-mainnet.iohk.io"
                                                           , "http://localhost:3100"
                                                           ], True)
                                     }
@@ -150,8 +149,8 @@ notifierServer notifierSettings connVar = do
         "404 - Not Found"
 
 periodicPollChanges
-    :: forall ssc ctx m.
-       (ExplorerMode ctx m, SscHelpersClass ssc)
+    :: forall ctx m.
+       (ExplorerMode ctx m)
     => ConnectionsVar -> m Bool -> m ()
 periodicPollChanges connVar closed =
     -- Runs every 5 seconds.
@@ -163,7 +162,7 @@ periodicPollChanges connVar closed =
         wasMempoolTxs <- _2 <<.= mempoolTxs
 
         lift . askingConnState connVar $ do
-            mNewBlunds :: Maybe [Blund SscGodTossing] <-
+            mNewBlunds :: Maybe [Blund] <-
                 if mWasBlock == Just curBlock
                     then return Nothing
                     else forM mWasBlock $ \wasBlock -> do
@@ -181,7 +180,7 @@ periodicPollChanges connVar closed =
                 logDebug $ sformat ("Blockchain updated ("%int%" blocks)")
                     (length newBlunds)
 
-            newBlockchainTxs <- lift $ concat <$> forM newBlunds (getBlockTxs @SscGodTossing @ctx . fst)
+            newBlockchainTxs <- lift $ concatForM newBlunds (getBlockTxs @ctx . fst)
             let newLocalTxs = S.toList $ mempoolTxs `S.difference` wasMempoolTxs
 
             let allTxs = newBlockchainTxs <> newLocalTxs
@@ -202,11 +201,11 @@ periodicPollChanges connVar closed =
 
 -- | Starts notification server. Kill current thread to stop it.
 notifierApp
-    :: forall ssc ctx m.
-       (ExplorerMode ctx m, SscHelpersClass ssc)
+    :: forall ctx m.
+       (ExplorerMode ctx m)
     => NotifierSettings -> m ()
 notifierApp settings = modifyLoggerName (<> "notifier.socket-io") $ do
     logInfo "Starting"
     connVar <- liftIO $ STM.newTVarIO mkConnectionsState
-    forkAccompanion (periodicPollChanges @ssc connVar)
+    forkAccompanion (periodicPollChanges connVar)
                     (notifierServer settings connVar)

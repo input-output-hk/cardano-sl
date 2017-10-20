@@ -14,6 +14,7 @@ module Pos.Wallet.Web.State.Storage
        , PtxMetaUpdate (..)
        , Query
        , Update
+       , getWalletStorage
        , flushWalletStorage
        , getProfile
        , setProfile
@@ -466,6 +467,10 @@ addOnlyNewPendingTx :: PendingTx -> Update ()
 addOnlyNewPendingTx ptx =
     wsWalletInfos . ix (_ptxWallet ptx) .
     wsPendingTxs . at (_ptxTxId ptx) %= (<|> Just ptx)
+
+
+getWalletStorage :: Query WalletStorage
+getWalletStorage = ask
 
 -- | Flushes data in wallet storage
 -- Preserves all metadata, wallets, accounts and addresses

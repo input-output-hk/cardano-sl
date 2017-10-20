@@ -52,6 +52,9 @@ instance HasCustomSwagger TestReset where
         "Delete all secret keys. It works in development mode only, \
         \returns HTTP 403 otherwise."
 
+instance HasCustomSwagger TestState where
+    swaggerModifier = modifyDescription "Print wallet state as JSON"
+
 instance HasCustomSwagger GetWallet where
     swaggerModifier = modifyDescription
         "Get information about a wallet by its ID (address)."

@@ -20,7 +20,7 @@ import           Pos.Crypto                        (VssKeyPair, VssPublicKey,
                                                     deterministicVssKeyGen,
                                                     toVssPublicKey)
 import           Pos.Ssc.GodTossing.Constants      (vssMaxTTL, vssMinTTL)
-import           Pos.Ssc.GodTossing.Core.Types     (VssCertificatesMap, mkVssCertificate,
+import           Pos.Ssc.Core.Types                (VssCertificatesMap, mkVssCertificate,
                                                     mkVssCertificatesMap)
 
 -- reexports

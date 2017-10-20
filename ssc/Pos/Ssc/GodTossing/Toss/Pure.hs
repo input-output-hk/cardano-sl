@@ -24,7 +24,7 @@ import           Pos.Core                       (BlockVersionData, EpochIndex,
                                                  HasGenesisData, HasProtocolConstants,
                                                  crucialSlot, genesisVssCerts)
 import           Pos.Lrc.Types                  (RichmenSet, RichmenStakes)
-import           Pos.Ssc.GodTossing.Core        (deleteSignedCommitment,
+import           Pos.Ssc.Core                   (deleteSignedCommitment,
                                                  insertSignedCommitment)
 import           Pos.Ssc.GodTossing.Toss.Class  (MonadToss (..), MonadTossEnv (..),
                                                  MonadTossRead (..))

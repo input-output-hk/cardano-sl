@@ -50,8 +50,8 @@ import           Pos.Delegation.Types            (DlgPayload (..))
 import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (..),
                                                   MerkleTree (..))
 import           Pos.Ssc.Class.Types             (Ssc (..))
-import           Pos.Ssc.GodTossing.Core.Types   (Commitment (..), CommitmentsMap,
-                                                  GtPayload (..), GtProof (..),
+import           Pos.Ssc.Core                    (Commitment (..), CommitmentsMap,
+                                                  SscPayload (..), SscProof (..),
                                                   Opening (..))
 import           Pos.Txp.Core.Types              (Tx (..), TxIn (..), TxInWitness (..),
                                                   TxOut (..), TxOutAux (..),
@@ -107,8 +107,8 @@ deriveSafeCopySimple 0 'base ''Commitment
 deriveSafeCopySimple 0 'base ''CommitmentsMap
 deriveSafeCopySimple 0 'base ''VssCertificatesMap
 
-deriveSafeCopySimple 0 'base ''GtPayload
-deriveSafeCopySimple 0 'base ''GtProof
+deriveSafeCopySimple 0 'base ''SscPayload
+deriveSafeCopySimple 0 'base ''SscProof
 
 ----------------------------------------------------------------------------
 -- Base types

@@ -28,7 +28,7 @@ import qualified Pos.Core                          as Core
 import           Pos.Crypto                        (ProxySecretKey, PublicKey, SecretKey,
                                                     createPsk, hash, toPublic)
 import           Pos.Data.Attributes               (areAttributesKnown)
-import           Pos.Ssc.Class                     (Ssc (..))
+import           Pos.Ssc.Core                      (SscPayload, SscProof)
 import qualified Pos.Types                         as T
 import           Pos.Util.Arbitrary                (makeSmall)
 import           Pos.Util.Util                     (leftToPanic)

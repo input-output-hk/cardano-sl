@@ -2,7 +2,7 @@
 
 -- | Core functions from GodTossing SSC.
 
-module Pos.Ssc.GodTossing.Core.Core
+module Pos.Ssc.Core.Functions
        (
          -- * Helpers
          genCommitmentAndOpening
@@ -31,9 +31,9 @@ module Pos.Ssc.GodTossing.Core.Core
        , verifyOpening
 
        -- * Payload and proof
-       , mkGtProof
-       , stripGtPayload
-       , defaultGtPayload
+       , mkSscProof
+       , stripSscPayload
+       , defaultSscPayload
        ) where
 
 import           Universum
@@ -42,11 +42,9 @@ import qualified Crypto.Random                 as Rand
 import qualified Data.HashMap.Strict           as HM
 import           Data.Ix                       (inRange)
 import qualified Data.List.NonEmpty            as NE
-import qualified Data.Text.Buildable
-import           Data.Text.Lazy.Builder        (Builder)
-import           Formatting                    (Format, bprint, build, int, sformat, (%))
+import           Formatting                    (build, sformat, (%))
 import           Serokell.Data.Memory.Units    (Byte)
-import           Serokell.Util                 (VerificationRes, listJson, verifyGeneric)
+import           Serokell.Util                 (VerificationRes, verifyGeneric)
 
 import           Pos.Binary.Class              (Bi, asBinary, biSize, fromBinaryM)
 import           Pos.Binary.Crypto             ()
@@ -63,10 +61,10 @@ import           Pos.Crypto                    (Secret, SecretKey,
                                                 SignTag (SignCommitment), Threshold,
                                                 VssPublicKey, checkSig, genSharedSecret,
                                                 getDhSecret, hash, secretToDhSecret,
-                                                shortHashF, sign, toPublic, verifySecret)
-import           Pos.Ssc.GodTossing.Core.Types (Commitment (..),
+                                                sign, toPublic, verifySecret)
+import           Pos.Ssc.Core.Types            (Commitment (..),
                                                 CommitmentsMap (getCommitmentsMap),
-                                                GtPayload (..), GtProof (..),
+                                                SscPayload (..), SscProof (..),
                                                 Opening (..), SignedCommitment,
                                                 mkCommitmentsMapUnsafe)
 import           Pos.Util.Limits               (stripHashMap)
@@ -241,55 +239,9 @@ checkCertTTL curEpochIndex vc =
 -- Payload and proof
 ----------------------------------------------------------------------------
 
-isEmptyGtPayload :: GtPayload -> Bool
-isEmptyGtPayload (CommitmentsPayload comms certs) = null comms && null certs
-isEmptyGtPayload (OpeningsPayload opens certs)    = null opens && null certs
-isEmptyGtPayload (SharesPayload shares certs)     = null shares && null certs
-isEmptyGtPayload (CertificatesPayload certs)      = null certs
-
-instance Buildable GtPayload where
-    build gp
-        | isEmptyGtPayload gp = "  no GodTossing payload"
-        | otherwise =
-            case gp of
-                CommitmentsPayload comms certs ->
-                    formatTwo formatCommitments comms certs
-                OpeningsPayload openings certs ->
-                    formatTwo formatOpenings openings certs
-                SharesPayload shares certs ->
-                    formatTwo formatShares shares certs
-                CertificatesPayload certs -> formatCertificates certs
-      where
-        formatIfNotNull
-            :: Container c
-            => Format Builder (c -> Builder) -> c -> Builder
-        formatIfNotNull formatter l
-            | null l = mempty
-            | otherwise = bprint formatter l
-        formatCommitments (getCommitmentsMap -> comms) =
-            formatIfNotNull
-                ("  commitments from: " %listJson % "\n")
-                (HM.keys comms)
-        formatOpenings openings =
-            formatIfNotNull
-                ("  openings from: " %listJson % "\n")
-                (HM.keys openings)
-        formatShares shares =
-            formatIfNotNull
-                ("  shares from: " %listJson % "\n")
-                (HM.keys shares)
-        formatCertificates (getVssCertificatesMap -> certs) =
-            formatIfNotNull
-                ("  certificates from: " %listJson % "\n")
-                (map formatVssCert $ HM.toList certs)
-        formatVssCert (id, cert) =
-            bprint (shortHashF%":"%int) id (vcExpiryEpoch cert)
-        formatTwo formatter hm certs =
-            mconcat [formatter hm, formatCertificates certs]
-
--- | Construct 'GtProof' from 'GtPayload'.
-mkGtProof :: HasConfiguration => GtPayload -> GtProof
-mkGtProof payload =
+-- | Create proof (for inclusion into block header) from 'SscPayload'.
+mkSscProof :: HasConfiguration => SscPayload -> SscProof
+mkSscProof payload =
     case payload of
         CommitmentsPayload comms certs ->
             proof CommitmentsProof comms certs
@@ -303,10 +255,10 @@ mkGtProof payload =
         proof constr hm cert =
             constr (hash hm) (hash cert)
 
--- | Transforms GtPayload to fit under size limit.
-stripGtPayload :: HasConfiguration => Byte -> GtPayload -> Maybe GtPayload
-stripGtPayload lim payload | biSize payload <= lim = Just payload
-stripGtPayload lim payload = case payload of
+-- | Transforms SscPayload to fit under size limit.
+stripSscPayload :: HasConfiguration => Byte -> SscPayload -> Maybe SscPayload
+stripSscPayload lim payload | biSize payload <= lim = Just payload
+stripSscPayload lim payload = case payload of
     (CertificatesPayload vssmap) ->
         CertificatesPayload <$> stripVss lim vssmap
     (CommitmentsPayload (getCommitmentsMap -> comms0) certs0) -> do
@@ -331,8 +283,8 @@ stripGtPayload lim payload = case payload of
                  getVssCertificatesMap
 
 -- | Default godtossing payload depending on local slot index.
-defaultGtPayload :: HasConfiguration => LocalSlotIndex -> GtPayload
-defaultGtPayload lsi
+defaultSscPayload :: HasConfiguration => LocalSlotIndex -> SscPayload
+defaultSscPayload lsi
     | isCommitmentIdx lsi = CommitmentsPayload mempty mempty
     | isOpeningIdx lsi = OpeningsPayload mempty mempty
     | isSharesIdx lsi = SharesPayload mempty mempty

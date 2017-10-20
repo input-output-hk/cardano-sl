@@ -19,7 +19,7 @@ import           Pos.Crypto               (DecShare, EncShare, VssKeyPair, VssPu
                                            decryptShare, toVssPublicKey)
 import           Pos.Ssc.Class.Storage    (SscGlobalQuery)
 import           Pos.Ssc.Extra            (MonadSscMem, sscRunGlobalQuery)
-import           Pos.Ssc.GodTossing.Core  (Commitment (..), getCommitmentsMap)
+import           Pos.Ssc.Core             (Commitment (..), getCommitmentsMap)
 import           Pos.Ssc.GodTossing.Types (gsCommitments, gsOpenings)
 import           Pos.Ssc.GodTossing.Instance ()
 

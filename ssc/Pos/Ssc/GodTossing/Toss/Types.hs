@@ -18,7 +18,7 @@ import           Universum
 
 import           Pos.Core                (HasConfiguration, LocalSlotIndex, SlotId,
                                           VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Core (CommitmentsMap, OpeningsMap, SharesMap,
+import           Pos.Ssc.Core            (CommitmentsMap, OpeningsMap, SharesMap,
                                           isCommitmentId, isCommitmentIdx, isOpeningId,
                                           isOpeningIdx, isSharesId, isSharesIdx)
 

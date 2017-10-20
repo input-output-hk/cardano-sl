@@ -18,6 +18,7 @@ import           Pos.DB.Class        (MonadDBRead)
 import           Pos.Lrc.Types       (RichmenStakes)
 import           Pos.Slotting.Class  (MonadSlots)
 import           Pos.Ssc.Class.Types (Ssc (..))
+import           Pos.Ssc.Core.Types  (SscPayload)
 
 ----------------------------------------------------------------------------
 -- Modern

@@ -31,7 +31,7 @@ import           Pos.Security.Util                     (shouldIgnorePkAddress)
 import           Pos.Ssc.Class.Listeners               (SscListenersClass (..))
 import           Pos.Ssc.Extra                         (sscRunLocalQuery)
 import           Pos.Ssc.GodTossing.Configuration      (HasGtConfiguration)
-import           Pos.Ssc.GodTossing.Core               (getCommitmentsMap)
+import           Pos.Ssc.Core                          (getCommitmentsMap)
 import           Pos.Ssc.GodTossing.LocalData          (ldModifier, sscIsDataUseful,
                                                         sscProcessCertificate,
                                                         sscProcessCommitment,

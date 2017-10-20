@@ -18,7 +18,7 @@ import           Pos.Core                 (SharedSeed, StakeholderId, addressHas
 import           Pos.Crypto               (DecShare, Secret, VssPublicKey, recoverSecret,
                                            verifySecret)
 import           Pos.Lrc.Types            (RichmenStakes)
-import           Pos.Ssc.GodTossing.Core  (Commitment (..), CommitmentsMap (..),
+import           Pos.Ssc.Core             (Commitment (..), CommitmentsMap (..),
                                            Opening (..), OpeningsMap, SharesMap,
                                            SignedCommitment, getCommShares,
                                            secretToSharedSeed, verifyOpening,

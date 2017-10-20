@@ -27,8 +27,8 @@ import           Pos.Core                          (EpochIndex, HasConfiguration
 import           Pos.Crypto                        (SecretKey, deterministic,
                                                     randomNumberInRange, toVssPublicKey,
                                                     vssKeyGen)
-import           Pos.Ssc.GodTossing.Core           (Commitment (..), CommitmentsMap,
-                                                    GtPayload (..), GtProof (..),
+import           Pos.Ssc.Core                      (Commitment (..), CommitmentsMap,
+                                                    SscPayload (..), SscProof (..),
                                                     Opening (..), SignedCommitment,
                                                     genCommitmentAndOpening,
                                                     isCommitmentId, isOpeningId,
@@ -134,11 +134,11 @@ vssCertificateEpochGen x = do
 -- Gt (God Tossing) types
 ----------------------------------------------------------------------------
 
-instance HasConfiguration => Arbitrary GtProof where
+instance HasConfiguration => Arbitrary SscProof where
     arbitrary = genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary GtPayload where
+instance HasConfiguration => Arbitrary SscPayload where
     arbitrary =
         makeSmall $
         oneof

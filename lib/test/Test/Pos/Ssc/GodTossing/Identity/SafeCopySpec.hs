@@ -18,5 +18,5 @@ spec = withDefConfiguration $ describe "GodTossing" $ do
         safeCopyTest @GT.CommitmentSignature
         safeCopyTest @GT.SignedCommitment
         safeCopyTest @GT.Opening
-        safeCopyTest @GT.GtPayload
-        safeCopyTest @GT.GtProof
+        safeCopyTest @GT.SscPayload
+        safeCopyTest @GT.SscProof

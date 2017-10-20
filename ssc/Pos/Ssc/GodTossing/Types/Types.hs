@@ -9,7 +9,7 @@ module Pos.Ssc.GodTossing.Types.Types
        , GtSecretStorage (..)
 
        -- * Lenses
-       -- ** GtPayload
+       -- ** SscPayload
        , gsCommitments
        , gsOpenings
        , gsShares
@@ -30,7 +30,7 @@ import           Universum
 import           Pos.Core                       (EpochIndex)
 import           Pos.Crypto                     (VssKeyPair)
 import           Pos.Ssc.GodTossing.Behavior    (GtBehavior)
-import           Pos.Ssc.GodTossing.Core        (CommitmentsMap (getCommitmentsMap),
+import           Pos.Ssc.Core                   (CommitmentsMap (getCommitmentsMap),
                                                  Opening, OpeningsMap, SharesMap,
                                                  SignedCommitment)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD

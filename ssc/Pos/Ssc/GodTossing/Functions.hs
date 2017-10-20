@@ -6,8 +6,8 @@ module Pos.Ssc.GodTossing.Functions
        , hasShares
        , hasVssCertificate
 
-       -- * GtPayload
-       , sanityChecksGtPayload
+       -- * SscPayload
+       , sanityChecksSscPayload
 
        -- * VSS
        , vssThreshold
@@ -29,8 +29,8 @@ import           Pos.Core                        (EpochIndex (..), HasConfigurat
                                                   StakeholderId, VssCertificatesMap,
                                                   genesisVssCerts, headerSlotL)
 import           Pos.Core.Slotting               (crucialSlot)
-import           Pos.Ssc.GodTossing.Core         (CommitmentsMap (getCommitmentsMap),
-                                                  GtPayload (..), checkCertTTL,
+import           Pos.Ssc.Core                    (CommitmentsMap (getCommitmentsMap),
+                                                  SscPayload (..), checkCertTTL,
                                                   isCommitmentId, isOpeningId, isSharesId,
                                                   verifySignedCommitment, vssThreshold)
 import           Pos.Ssc.GodTossing.Toss.Base    (verifyEntriesGuardM)
@@ -56,10 +56,10 @@ hasVssCertificate :: StakeholderId -> GtGlobalState -> Bool
 hasVssCertificate id = VCD.member id . _gsVssCertificates
 
 ----------------------------------------------------------------------------
--- GtPayload Part
+-- SscPayload Part
 ----------------------------------------------------------------------------
 
--- CHECK: @sanityChecksGtPayload
+-- CHECK: @sanityChecksSscPayload
 -- Verify payload using header containing this payload.
 --
 -- For each DS datum we check:
@@ -71,10 +71,10 @@ hasVssCertificate id = VCD.member id . _gsVssCertificates
 --      valid, etc.)
 --
 -- We also do some general sanity checks.
-sanityChecksGtPayload
+sanityChecksSscPayload
     :: (HasConfiguration, MonadError TossVerFailure m)
-    => Either EpochIndex (Some IsMainHeader) -> GtPayload -> m ()
-sanityChecksGtPayload eoh payload = case payload of
+    => Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
+sanityChecksSscPayload eoh payload = case payload of
     CommitmentsPayload comms certs -> do
         whenHeader eoh isComm
         commChecks comms

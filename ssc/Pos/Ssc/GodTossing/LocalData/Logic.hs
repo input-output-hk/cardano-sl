@@ -44,7 +44,7 @@ import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate,
 import           Pos.Ssc.Extra                      (MonadSscMem, sscRunGlobalQuery,
                                                      sscRunLocalQuery, sscRunLocalSTM)
 import           Pos.Ssc.GodTossing.Configuration   (HasGtConfiguration)
-import           Pos.Ssc.GodTossing.Core            (GtPayload (..), InnerSharesMap,
+import           Pos.Ssc.Core                       (SscPayload (..), InnerSharesMap,
                                                      Opening, SignedCommitment,
                                                      isCommitmentIdx, isOpeningIdx,
                                                      isSharesIdx, mkCommitmentsMap)
@@ -59,7 +59,7 @@ import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossT
                                                      normalizeToss, refreshToss,
                                                      supplyPureTossEnv, tmCertificates,
                                                      tmCommitments, tmOpenings, tmShares,
-                                                     verifyAndApplyGtPayload)
+                                                     verifyAndApplySscPayload)
 import           Pos.Ssc.GodTossing.Types           (GtGlobalState)
 import           Pos.Ssc.RichmenComponent           (getRichmenSsc)
 
@@ -76,7 +76,7 @@ instance (HasGtConfiguration, HasConfiguration) => SscLocalDataClass where
       where
         slot0 = SlotId 0 minBound
 
-getLocalPayload :: HasConfiguration => SlotId -> LocalQuery GtPayload
+getLocalPayload :: HasConfiguration => SlotId -> LocalQuery SscPayload
 getLocalPayload SlotId {..} = do
     expectedEpoch <- view ldEpoch
     let warningMsg = sformat warningFmt siEpoch expectedEpoch
@@ -211,7 +211,7 @@ sscProcessCertificate cert =
 sscProcessData
     :: forall ctx m.
        GtDataProcessingMode ctx m
-    => GtTag -> GtPayload -> m ()
+    => GtTag -> SscPayload -> m ()
 sscProcessData tag payload =
     generalizeExceptT $ do
         getCurrentSlot >>= checkSlot
@@ -245,7 +245,7 @@ sscProcessDataDo
     => (EpochIndex, RichmenStakes)
     -> BlockVersionData
     -> GtGlobalState
-    -> GtPayload
+    -> SscPayload
     -> m (Either TossVerFailure ())
 sscProcessDataDo richmenData bvd gs payload =
     runExceptT $ do
@@ -271,7 +271,7 @@ sscProcessDataDo richmenData bvd gs payload =
             evalPureTossWithLogger gs $
             supplyPureTossEnv (multiRichmen, bvd) $
             runExceptT $
-            execTossT oldTM $ verifyAndApplyGtPayload (Left storedEpoch) payload
+            execTossT oldTM $ verifyAndApplySscPayload (Left storedEpoch) payload
         ldModifier .= newTM
         -- If mempool was exhausted, it's easier to recompute total size.
         -- Otherwise (most common case) we don't want to spend time on it and

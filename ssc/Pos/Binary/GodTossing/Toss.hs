@@ -6,7 +6,7 @@ module Pos.Binary.GodTossing.Toss
 
 import           Pos.Binary.Class              (Cons (..), Field (..), deriveSimpleBi,
                                                 deriveSimpleBiCxt)
-import           Pos.Ssc.GodTossing.Core       (CommitmentsMap, OpeningsMap, SharesMap)
+import           Pos.Ssc.Core                  (CommitmentsMap, OpeningsMap, SharesMap)
 import           Pos.Ssc.GodTossing.Toss.Types (GtTag (..), TossModifier (..))
 import           Pos.Core.Configuration        (HasConfiguration)
 import           Pos.Core.Vss                  (VssCertificatesMap)

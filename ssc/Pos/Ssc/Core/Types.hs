@@ -1,10 +1,10 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- | Core types of GodTossing SSC.
+-- | Core types of SSC.
 
-module Pos.Ssc.GodTossing.Core.Types
+module Pos.Ssc.Core.Types
        (
-         -- * Commitments
+       -- * Commitments
          Commitment (..)
        , getCommShares
        , CommitmentSignature
@@ -17,34 +17,38 @@ module Pos.Ssc.GodTossing.Core.Types
        , Opening (..)
        , OpeningsMap
 
-         -- * Shares
+       -- * Shares
        , InnerSharesMap
        , SharesMap
        , SharesDistribution
 
        -- * Payload
-       , GtPayload (..)
-       , GtProof (..)
+       , SscPayload (..)
+       , SscProof (..)
 
-         -- * Misc
+       -- * Misc
        , NodeSet
        ) where
+
+import           Universum
 
 import           Control.Lens        (each, traverseOf)
 import           Data.Hashable       (Hashable (..))
 import           Data.HashMap.Strict (HashMap)
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable
-import           Formatting          (bprint, build, (%))
-import           Universum
+import           Data.Text.Lazy.Builder (Builder)
+import           Formatting          (Format, bprint, build, int, (%))
+import           Serokell.Util       (listJson)
 
 import           Pos.Binary.Class    (AsBinary (..), fromBinaryM, serialize')
 import           Pos.Binary.Core     ()
 import           Pos.Core.Address    (addressHash)
 import           Pos.Core.Types      (EpochIndex, StakeholderId)
-import           Pos.Core.Vss        (VssCertificatesMap)
+import           Pos.Core.Vss        (VssCertificatesMap(..), vcExpiryEpoch)
 import           Pos.Crypto          (DecShare, EncShare, Hash, PublicKey, Secret,
-                                      SecretProof, Signature, VssPublicKey)
+                                      SecretProof, Signature, VssPublicKey,
+                                      shortHashF)
 
 type NodeSet = HashSet StakeholderId
 
@@ -158,34 +162,80 @@ instance Buildable (StakeholderId, Word16) where
 ----------------------------------------------------------------------------
 
 -- | Payload included into blocks.
-data GtPayload
+data SscPayload
     = CommitmentsPayload
-        { gpComms :: !CommitmentsMap
-        , gpVss   :: !VssCertificatesMap }
+        { spComms :: !CommitmentsMap
+        , spVss   :: !VssCertificatesMap }
     | OpeningsPayload
-        { gpOpenings :: !OpeningsMap
-        , gpVss      :: !VssCertificatesMap }
+        { spOpenings :: !OpeningsMap
+        , spVss      :: !VssCertificatesMap }
     | SharesPayload
-        { gpShares :: !SharesMap
-        , gpVss    :: !VssCertificatesMap }
+        { spShares :: !SharesMap
+        , spVss    :: !VssCertificatesMap }
     | CertificatesPayload
-        { gpVss    :: !VssCertificatesMap }
+        { spVss    :: !VssCertificatesMap }
     deriving (Eq, Show, Generic)
 
--- | Proof of GtPayload.
-data GtProof
+-- | Proof that SSC payload is correct (it's included into block header)
+data SscProof
     = CommitmentsProof
-        { gprComms :: !(Hash CommitmentsMap)
-        , gprVss   :: !(Hash VssCertificatesMap) }
+        { sprComms :: !(Hash CommitmentsMap)
+        , sprVss   :: !(Hash VssCertificatesMap) }
     | OpeningsProof
-        { gprOpenings :: !(Hash OpeningsMap)
-        , gprVss      :: !(Hash VssCertificatesMap) }
+        { sprOpenings :: !(Hash OpeningsMap)
+        , sprVss      :: !(Hash VssCertificatesMap) }
     | SharesProof
-        { gprShares :: !(Hash SharesMap)
-        , gprVss    :: !(Hash VssCertificatesMap) }
+        { sprShares :: !(Hash SharesMap)
+        , sprVss    :: !(Hash VssCertificatesMap) }
     | CertificatesProof
-        { gprVss    :: !(Hash VssCertificatesMap) }
-    deriving (Show, Eq, Generic)
+        { sprVss    :: !(Hash VssCertificatesMap) }
+    deriving (Eq, Show, Generic)
 
-instance NFData GtPayload
-instance NFData GtProof
+instance NFData SscPayload
+instance NFData SscProof
+
+isEmptySscPayload :: SscPayload -> Bool
+isEmptySscPayload (CommitmentsPayload comms certs) = null comms && null certs
+isEmptySscPayload (OpeningsPayload opens certs)    = null opens && null certs
+isEmptySscPayload (SharesPayload shares certs)     = null shares && null certs
+isEmptySscPayload (CertificatesPayload certs)      = null certs
+
+instance Buildable SscPayload where
+    build gp
+        | isEmptySscPayload gp = "  no GodTossing payload"
+        | otherwise =
+            case gp of
+                CommitmentsPayload comms certs ->
+                    formatTwo formatCommitments comms certs
+                OpeningsPayload openings certs ->
+                    formatTwo formatOpenings openings certs
+                SharesPayload shares certs ->
+                    formatTwo formatShares shares certs
+                CertificatesPayload certs -> formatCertificates certs
+      where
+        formatIfNotNull
+            :: Container c
+            => Format Builder (c -> Builder) -> c -> Builder
+        formatIfNotNull formatter l
+            | null l = mempty
+            | otherwise = bprint formatter l
+        formatCommitments (getCommitmentsMap -> comms) =
+            formatIfNotNull
+                ("  commitments from: " %listJson % "\n")
+                (HM.keys comms)
+        formatOpenings openings =
+            formatIfNotNull
+                ("  openings from: " %listJson % "\n")
+                (HM.keys openings)
+        formatShares shares =
+            formatIfNotNull
+                ("  shares from: " %listJson % "\n")
+                (HM.keys shares)
+        formatCertificates (getVssCertificatesMap -> certs) =
+            formatIfNotNull
+                ("  certificates from: " %listJson % "\n")
+                (map formatVssCert $ HM.toList certs)
+        formatVssCert (id, cert) =
+            bprint (shortHashF%":"%int) id (vcExpiryEpoch cert)
+        formatTwo formatter hm certs =
+            mconcat [formatter hm, formatCertificates certs]

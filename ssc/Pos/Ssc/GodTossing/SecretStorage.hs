@@ -10,7 +10,7 @@ import           Pos.Binary.GodTossing.Types ()
 import           Pos.Core                    (EpochIndex)
 import           Pos.DB                      (MonadDB, MonadDBRead)
 import           Pos.DB.Misc.Common          (miscGetBi, miscPutBi)
-import           Pos.Ssc.GodTossing.Core     (Opening, SignedCommitment)
+import           Pos.Ssc.Core                (Opening, SignedCommitment)
 import           Pos.Ssc.GodTossing.Types    (GtSecretStorage (..))
 
 -- | Get our commitment for given epoch if it's known.

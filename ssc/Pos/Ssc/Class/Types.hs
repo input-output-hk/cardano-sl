@@ -17,36 +17,24 @@ import           Pos.Core            (HasDifficulty (..), HasEpochIndex (..),
                                       HasEpochOrSlot (..), HasHeaderHash (..),
                                       IsGenesisHeader, IsMainHeader)
 import           Pos.Util.Util       (Some)
+import           Pos.Ssc.Core.Types  (SscPayload(..), SscProof(..))
 
 -- | Main Shared Seed Calculation type class. Stores all needed type
 -- parameters for general implementation of SSC.
-class ( Typeable SscPayload
-      , Typeable SscProof
-      , Typeable SscSeedError
-      , Eq SscProof
+class ( Typeable SscSeedError
       , Eq SscGlobalState
-      , Show SscProof
-      , Show SscPayload
-      , Buildable SscPayload
       , Buildable SscSeedError
       , Buildable SscVerifyError
       , Buildable SscGlobalState
       , Bi SscProof
       , Bi SscPayload
-      , NFData SscPayload
-      , NFData SscProof
       ) =>
       Ssc where
 
     -- | Internal SSC state stored in memory
     type SscLocalData
-    -- | Payload which will be stored in main blocks
-    type SscPayload
     -- | Global state, which is formed from all known blocks
     type SscGlobalState
-    -- | Proof that SSC payload is correct (it'll be included into block
-    -- header)
-    type SscProof
     -- | Error that can happen when calculating the seed
     type SscSeedError
     -- | SSC specific context in NodeContext
@@ -55,9 +43,6 @@ class ( Typeable SscPayload
     type SscParams
     -- | Type for verification error
     type SscVerifyError
-
-    -- | Create proof (for inclusion into block header) from payload
-    mkSscProof :: SscPayload -> SscProof
 
     -- | Create SscNodeContext
     sscCreateNodeContext :: MonadIO m => SscParams -> m SscNodeContext

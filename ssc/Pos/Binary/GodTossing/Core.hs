@@ -18,8 +18,8 @@ import           Pos.Core.Vss                  (VssCertificate (..),
                                                 mkVssCertificatesMap,
                                                 recreateVssCertificate)
 import           Pos.Crypto                    (Hash, PublicKey)
-import           Pos.Ssc.GodTossing.Core.Types (Commitment (..), CommitmentsMap (..),
-                                                GtPayload (..), GtProof (..),
+import           Pos.Ssc.Core.Types            (Commitment (..), CommitmentsMap (..),
+                                                SscPayload (..), SscProof (..),
                                                 Opening (..), OpeningsMap, SharesMap,
                                                 SignedCommitment, mkCommitmentsMap)
 import           Serokell.Util                 (allDistinct)
@@ -106,30 +106,30 @@ decodeCommitments = do
 -- TH-generated instances go to the end of the file
 ----------------------------------------------------------------------------
 
-deriveSimpleBiCxt [t|HasConfiguration|] ''GtPayload [
+deriveSimpleBiCxt [t|HasConfiguration|] ''SscPayload [
     Cons 'CommitmentsPayload [
-        Field [| gpComms    :: CommitmentsMap     |],
-        Field [| gpVss      :: VssCertificatesMap |] ],
+        Field [| spComms    :: CommitmentsMap     |],
+        Field [| spVss      :: VssCertificatesMap |] ],
     Cons 'OpeningsPayload [
-        Field [| gpOpenings :: OpeningsMap        |],
-        Field [| gpVss      :: VssCertificatesMap |] ],
+        Field [| spOpenings :: OpeningsMap        |],
+        Field [| spVss      :: VssCertificatesMap |] ],
     Cons 'SharesPayload [
-        Field [| gpShares   :: SharesMap          |],
-        Field [| gpVss      :: VssCertificatesMap |] ],
+        Field [| spShares   :: SharesMap          |],
+        Field [| spVss      :: VssCertificatesMap |] ],
     Cons 'CertificatesPayload [
-        Field [| gpVss      :: VssCertificatesMap |] ]
+        Field [| spVss      :: VssCertificatesMap |] ]
     ]
 
-deriveSimpleBi ''GtProof [
+deriveSimpleBi ''SscProof [
     Cons 'CommitmentsProof [
-        Field [| gprComms    :: Hash CommitmentsMap     |],
-        Field [| gprVss      :: Hash VssCertificatesMap |] ],
+        Field [| sprComms    :: Hash CommitmentsMap     |],
+        Field [| sprVss      :: Hash VssCertificatesMap |] ],
     Cons 'OpeningsProof [
-        Field [| gprOpenings :: Hash OpeningsMap        |],
-        Field [| gprVss      :: Hash VssCertificatesMap |] ],
+        Field [| sprOpenings :: Hash OpeningsMap        |],
+        Field [| sprVss      :: Hash VssCertificatesMap |] ],
     Cons 'SharesProof [
-        Field [| gprShares   :: Hash SharesMap          |],
-        Field [| gprVss      :: Hash VssCertificatesMap |] ],
+        Field [| sprShares   :: Hash SharesMap          |],
+        Field [| sprVss      :: Hash VssCertificatesMap |] ],
     Cons 'CertificatesProof [
-        Field [| gprVss      :: Hash VssCertificatesMap |] ]
+        Field [| sprVss      :: Hash VssCertificatesMap |] ]
     ]

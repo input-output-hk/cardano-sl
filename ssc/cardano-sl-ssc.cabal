@@ -13,6 +13,10 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+    Pos.Ssc.Core
+    Pos.Ssc.Core.Types
+    Pos.Ssc.Core.Functions
+
     -- SSC
     Pos.Arbitrary.Ssc
 
@@ -40,9 +44,6 @@ library
     Pos.Arbitrary.Ssc.GodTossing
 
     Pos.Ssc.GodTossing.Configuration
-    Pos.Ssc.GodTossing.Core
-    Pos.Ssc.GodTossing.Core.Types
-    Pos.Ssc.GodTossing.Core.Core
 
     Pos.Ssc.GodTossing.Behavior
 

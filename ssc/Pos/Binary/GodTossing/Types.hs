@@ -9,7 +9,7 @@ import           Pos.Binary.Class               (Cons (..), Field (..), deriveSi
 import           Pos.Core.Configuration         (HasConfiguration)
 import           Pos.Core.Types                 (EpochIndex, EpochOrSlot, StakeholderId)
 import           Pos.Core.Vss                   (VssCertificate, VssCertificatesMap)
-import           Pos.Ssc.GodTossing.Core        (CommitmentsMap, Opening, OpeningsMap,
+import           Pos.Ssc.Core                   (CommitmentsMap, Opening, OpeningsMap,
                                                  SharesMap, SignedCommitment)
 import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData (VssCertData (..))

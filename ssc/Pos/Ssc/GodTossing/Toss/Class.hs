@@ -17,7 +17,7 @@ import           Pos.Core                (BlockVersionData, EpochIndex, EpochOrS
                                           StakeholderId, VssCertificate,
                                           VssCertificatesMap)
 import           Pos.Lrc.Types           (RichmenStakes)
-import           Pos.Ssc.GodTossing.Core (CommitmentsMap, InnerSharesMap, Opening,
+import           Pos.Ssc.Core            (CommitmentsMap, InnerSharesMap, Opening,
                                           OpeningsMap, SharesMap, SignedCommitment)
 
 ----------------------------------------------------------------------------

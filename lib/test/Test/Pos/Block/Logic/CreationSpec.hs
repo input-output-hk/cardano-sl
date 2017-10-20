@@ -28,8 +28,8 @@ import           Pos.Core                   (BlockVersionData (bvdMaxBlockSize),
                                              unsafeMkLocalSlotIndex)
 import           Pos.Crypto                 (SecretKey)
 import           Pos.Delegation             (DlgPayload, ProxySKBlockInfo)
-import           Pos.Ssc.Class              (Ssc (..), sscDefaultPayload)
-import           Pos.Ssc.GodTossing         (GtPayload (..),
+import           Pos.Ssc.Class              (sscDefaultPayload)
+import           Pos.Ssc.GodTossing         (SscPayload (..),
                                              commitmentMapEpochGen,
                                              vssCertificateEpochGen)
 import           Pos.Txp.Core               (TxAux)
@@ -69,7 +69,7 @@ spec = withDefConfiguration $ withDefUpdateConfiguration $
         prop "doesn't create blocks bigger than the limit" $
             forAll (choose (emptyBSize, emptyBSize * 10)) $ \(fromBytes -> limit) ->
             forAll arbitrary $ \(prevHeader, sk, updatePayload) ->
-            forAll validGtPayloadGen $ \(gtPayload, slotId) ->
+            forAll validSscPayloadGen $ \(gtPayload, slotId) ->
             forAll (genDlgPayload (siEpoch slotId)) $ \dlgPayload ->
             forAll (makeSmall $ listOf1 genTxAux) $ \txs ->
             let blk = producePureBlock limit prevHeader txs Nothing slotId
@@ -92,7 +92,7 @@ spec = withDefConfiguration $ withDefUpdateConfiguration $
                    leftToCounter blk2 (const True)
         prop "strips ssc data when necessary" $
             forAll arbitrary $ \(prevHeader, sk) ->
-            forAll validGtPayloadGen $ \(gtPayload, slotId) ->
+            forAll validSscPayloadGen $ \(gtPayload, slotId) ->
             forAll (elements [0,0.5,0.9]) $ \(delta :: Double) ->
             let blk0 = producePureBlock infLimit prevHeader [] Nothing
                                         slotId def (defGTP slotId) def sk
@@ -106,7 +106,7 @@ spec = withDefConfiguration $ withDefUpdateConfiguration $
                 in counterexample ("Tested with block size limit: " <> show s) $
                    leftToCounter blk2 (const True)
   where
-    defGTP :: HasConfiguration => SlotId -> GtPayload
+    defGTP :: HasConfiguration => SlotId -> SscPayload
     defGTP sId = sscDefaultPayload $ siSlot sId
 
     infLimit = convertUnit @Gigabyte @Byte 1
@@ -153,8 +153,8 @@ spec = withDefConfiguration $ withDefUpdateConfiguration $
         createMainBlockPure limit prev psk slot sk $
         RawPayload txs sscPay dlgPay usPay
 
-validGtPayloadGen :: HasConfiguration => Gen (GtPayload, SlotId)
-validGtPayloadGen = do
+validSscPayloadGen :: HasConfiguration => Gen (SscPayload, SlotId)
+validSscPayloadGen = do
     vssCerts <- makeSmall $ fmap mkVssCertificatesMapLossy $ listOf $ vssCertificateEpochGen 0
     let mkSlot i = SlotId 0 (unsafeMkLocalSlotIndex (fromIntegral i))
     oneof [ do commMap <- makeSmall $ commitmentMapEpochGen 0

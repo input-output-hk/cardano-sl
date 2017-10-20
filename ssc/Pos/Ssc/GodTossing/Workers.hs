@@ -71,7 +71,7 @@ import           Pos.Ssc.GodTossing.Behavior           (GtBehavior (..),
 import           Pos.Ssc.GodTossing.Configuration      (HasGtConfiguration,
                                                         mdNoCommitmentsEpochThreshold,
                                                         mpcSendInterval)
-import           Pos.Ssc.GodTossing.Core               (Commitment (..), SignedCommitment,
+import           Pos.Ssc.Core                          (Commitment (..), SignedCommitment,
                                                         genCommitmentAndOpening,
                                                         getCommitmentsMap,
                                                         isCommitmentIdx, isOpeningIdx,

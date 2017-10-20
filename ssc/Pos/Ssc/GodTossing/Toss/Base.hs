@@ -55,13 +55,13 @@ import           Pos.Core                        (CoinPortion, EpochIndex, Stake
 import           Pos.Crypto                      (DecShare, verifyDecShare,
                                                   verifyEncShares)
 import           Pos.Lrc.Types                   (RichmenSet, RichmenStakes)
-import           Pos.Ssc.GodTossing.Core         (Commitment (..),
+import           Pos.Ssc.Core                    (Commitment (..),
                                                   CommitmentsMap (getCommitmentsMap),
-                                                  GtPayload (..), InnerSharesMap,
+                                                  SscPayload (..), InnerSharesMap,
                                                   Opening (..), OpeningsMap,
                                                   SharesDistribution, SharesMap,
                                                   SignedCommitment, commShares,
-                                                  getCommShares, gpVss, verifyOpening,
+                                                  getCommShares, spVss, verifyOpening,
                                                   vssThreshold)
 import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossEnv (..),
                                                   MonadTossRead (..))
@@ -494,10 +494,10 @@ checkPayload
     :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m,
         MonadRandom m)
     => EpochIndex
-    -> GtPayload
+    -> SscPayload
     -> m ()
 checkPayload epoch payload = do
-    let payloadCerts = gpVss payload
+    let payloadCerts = spVss payload
     case payload of
         CommitmentsPayload comms _ -> checkCommitmentsPayload epoch comms
         OpeningsPayload opens _    -> checkOpeningsPayload opens

@@ -1,7 +1,7 @@
 -- | Main Toss logic.
 
 module Pos.Ssc.GodTossing.Toss.Logic
-       ( verifyAndApplyGtPayload
+       ( verifyAndApplySscPayload
        , applyGenesisBlock
        , rollbackGT
        , normalizeToss
@@ -25,11 +25,11 @@ import           Pos.Core                         (EpochIndex, EpochOrSlot (..),
                                                    mkCoin, mkVssCertificatesMapSingleton,
                                                    slotSecurityParam)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Ssc.GodTossing.Core          (CommitmentsMap (..), GtPayload (..),
+import           Pos.Ssc.Core                     (CommitmentsMap (..), SscPayload (..),
                                                    InnerSharesMap, Opening,
                                                    SignedCommitment, getCommitmentsMap,
-                                                   gpVss, mkCommitmentsMapUnsafe)
-import           Pos.Ssc.GodTossing.Functions     (sanityChecksGtPayload)
+                                                   spVss, mkCommitmentsMapUnsafe)
+import           Pos.Ssc.GodTossing.Functions     (sanityChecksSscPayload)
 import           Pos.Ssc.GodTossing.Toss.Base     (checkPayload)
 import           Pos.Ssc.GodTossing.Toss.Class    (MonadToss (..), MonadTossEnv (..))
 import           Pos.Ssc.GodTossing.Toss.Failure  (TossVerFailure (..))
@@ -38,22 +38,22 @@ import           Pos.Ssc.GodTossing.Instance      ()
 import           Pos.Util.Chrono                  (NewestFirst (..))
 import           Pos.Util.Util                    (Some, inAssertMode, sortWithMDesc)
 
--- | Verify 'GtPayload' with respect to data provided by
+-- | Verify 'SscPayload' with respect to data provided by
 -- MonadToss. If data is valid it is also applied.  Otherwise
 -- TossVerFailure is thrown using 'MonadError' type class.
-verifyAndApplyGtPayload
+verifyAndApplySscPayload
     :: (HasGtConfiguration, HasConfiguration, MonadToss m, MonadTossEnv m,
         MonadError TossVerFailure m, MonadRandom m)
-    => Either EpochIndex (Some IsMainHeader) -> GtPayload -> m ()
-verifyAndApplyGtPayload eoh payload = do
+    => Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
+verifyAndApplySscPayload eoh payload = do
     -- We can't trust payload from mempool, so we must call
-    -- @sanityChecksGtPayload@.
-    whenLeft eoh $ const $ sanityChecksGtPayload eoh payload
-    -- We perform @sanityChecksGtPayload@ for block when we construct it
+    -- @sanityChecksSscPayload@.
+    whenLeft eoh $ const $ sanityChecksSscPayload eoh payload
+    -- We perform @sanityChecksSscPayload@ for block when we construct it
     -- (in the 'recreateGenericBlock').  So this check is just in case.
     inAssertMode $
-        whenRight eoh $ const $ sanityChecksGtPayload eoh payload
-    let blockCerts = gpVss payload
+        whenRight eoh $ const $ sanityChecksSscPayload eoh payload
+    let blockCerts = spVss payload
     let curEpoch = either identity (^. epochIndexL) eoh
     checkPayload curEpoch payload
 
@@ -93,9 +93,9 @@ applyGenesisBlock epoch = do
     -- and clear their after that
     resetCO
 
--- | Rollback application of 'GtPayload's in 'Toss'. First argument is
+-- | Rollback application of 'SscPayload's in 'Toss'. First argument is
 -- 'EpochOrSlot' of oldest block which is subject to rollback.
-rollbackGT :: (HasConfiguration, MonadToss m) => EpochOrSlot -> NewestFirst [] GtPayload -> m ()
+rollbackGT :: (HasConfiguration, MonadToss m) => EpochOrSlot -> NewestFirst [] SscPayload -> m ()
 rollbackGT oldestEOS (NewestFirst payloads)
     | oldestEOS == toEnum 0 = do
         logError "rollbackGT: most genesis block is passed to rollback"
@@ -167,7 +167,7 @@ normalizeTossDo epoch (comms, opens, shares, certs) = do
     putsUseful $ map (flip SharesPayload mempty . one) shares
     putsUseful $ map (CertificatesPayload . mkVssCertificatesMapSingleton . snd) certs
   where
-    putsUseful :: [GtPayload] -> m ()
+    putsUseful :: [SscPayload] -> m ()
     putsUseful entries = do
-        let verifyAndApply = runExceptT . verifyAndApplyGtPayload (Left epoch)
+        let verifyAndApply = runExceptT . verifyAndApplySscPayload (Left epoch)
         mapM_ verifyAndApply entries

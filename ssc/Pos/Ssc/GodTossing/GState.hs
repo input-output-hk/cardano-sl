@@ -31,7 +31,7 @@ import           Pos.Ssc.Class.Storage            (SscGStateClass (..), SscVerif
 import           Pos.Ssc.Class.Types              (SscBlock, getSscBlock)
 import           Pos.Ssc.Extra                    (MonadSscMem, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Ssc.GodTossing.Core          (GtPayload (..))
+import           Pos.Ssc.Core                     (SscPayload (..))
 import qualified Pos.Ssc.GodTossing.DB            as DB
 import           Pos.Ssc.GodTossing.Functions     (getStableCertsPure)
 import           Pos.Ssc.GodTossing.Seed          (calculateSeed)
@@ -39,7 +39,7 @@ import           Pos.Ssc.GodTossing.Toss          (MultiRichmenStakes, PureToss,
                                                    TossVerFailure (..), applyGenesisBlock,
                                                    rollbackGT, runPureTossWithLogger,
                                                    supplyPureTossEnv,
-                                                   verifyAndApplyGtPayload)
+                                                   verifyAndApplySscPayload)
 import           Pos.Ssc.GodTossing.Types         (GtGlobalState (..), gsCommitments,
                                                    gsOpenings, gsShares,
                                                    gsVssCertificates)
@@ -133,7 +133,7 @@ verifyAndApplyMultiRichmen onlyCerts env =
   where
     verifyAndApplyDo (Left header) = applyGenesisBlock $ header ^. epochIndexL
     verifyAndApplyDo (Right (header, payload)) =
-        verifyAndApplyGtPayload (Right header) $
+        verifyAndApplySscPayload (Right header) $
         filterPayload payload
     filterPayload payload
         | onlyCerts = leaveOnlyCerts payload

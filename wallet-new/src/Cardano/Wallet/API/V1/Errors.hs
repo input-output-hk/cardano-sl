@@ -7,6 +7,6 @@ import           Cardano.Wallet.API.V1.Types (WalletError (..))
 
 walletNotFound :: WalletError
 walletNotFound = WalletError {
-      err_code = 600
-    , err_message = "The requested Wallet cannot be found."
+      errCode = 600
+    , errMessage = "The requested Wallet cannot be found."
     }

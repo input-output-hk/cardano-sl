@@ -30,12 +30,12 @@ listAccounts _ _ mbExtended _ = do
   case mbExtended of
     Just True  -> return $ OneOf $ Right $
       ExtendedResponse {
-        ext_data = example
-      , ext_meta = Metadata {
-          meta_total_pages = 1
-        , meta_page = 1
-        , meta_per_page = 20
-        , meta_total_entries = 3
+        extData = example
+      , extMeta = Metadata {
+          metaTotalPages = 1
+        , metaPage = 1
+        , metaPerPage = 20
+        , metaTotalEntries = 3
       }
       }
     _ -> return $ OneOf $ Left example

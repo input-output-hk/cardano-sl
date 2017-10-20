@@ -22,12 +22,12 @@ listAddresses _ _ mbExtended _ =
   case mbExtended of
     Just True  -> return $ OneOf $ Right $
       ExtendedResponse {
-        ext_data = [Address "deadBeef", Address "123AABBCC"]
-      , ext_meta = Metadata {
-          meta_total_pages = 1
-        , meta_page = 1
-        , meta_per_page = 20
-        , meta_total_entries = 2
+        extData = [Address "deadBeef", Address "123AABBCC"]
+      , extMeta = Metadata {
+          metaTotalPages = 1
+        , metaPage = 1
+        , metaPerPage = 20
+        , metaTotalEntries = 2
       }
       }
     _ -> return $ OneOf $ Left  [Address "deadBeef", Address "123AABBCC"]

@@ -27,9 +27,9 @@ import           Universum
 
 import           Data.Aeson
 import           Data.Aeson.TH
-import           Data.Char       (toLower)
-import           Data.Text       (Text)
-import           GHC.Generics    (Generic)
+import           Data.Text              (Text)
+import           GHC.Generics           (Generic)
+import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck
 import           Web.HttpApiData
 
@@ -42,7 +42,7 @@ import           Web.HttpApiData
 newtype Page = Page Int
              deriving (Show, Eq, Ord, Num)
 
-deriveJSON defaultOptions ''Page
+deriveJSON Serokell.defaultOptions ''Page
 
 instance Arbitrary Page where
   arbitrary = Page <$> fmap getPositive arbitrary
@@ -61,7 +61,7 @@ instance ToHttpApiData Page where
 newtype PerPage = PerPage Int
                 deriving (Show, Eq, Num, Ord)
 
-deriveJSON defaultOptions ''PerPage
+deriveJSON Serokell.defaultOptions ''PerPage
 
 -- | The maximum number of entries a paginated request can return on a single call.
 -- This value is currently arbitrary and it might need to be tweaked down to strike
@@ -90,13 +90,13 @@ instance ToHttpApiData PerPage where
 
 -- | Extra information associated with an HTTP response.
 data Metadata = Metadata
-  { meta_total_pages   :: Int     -- ^ The total pages returned by this query.
-  , meta_page          :: Page    -- ^ The current page number (index starts at 1).
-  , meta_per_page      :: PerPage -- ^ The number of entries contained in this page.
-  , meta_total_entries :: Int     -- ^ The total number of entries in the collection.
+  { metaTotalPages   :: Int     -- ^ The total pages returned by this query.
+  , metaPage         :: Page    -- ^ The current page number (index starts at 1).
+  , metaPerPage      :: PerPage -- ^ The number of entries contained in this page.
+  , metaTotalEntries :: Int     -- ^ The total number of entries in the collection.
   } deriving (Show, Eq, Generic)
 
-deriveJSON defaultOptions { fieldLabelModifier = drop 5 } ''Metadata
+deriveJSON Serokell.defaultOptions ''Metadata
 
 instance Arbitrary Metadata where
   arbitrary = Metadata <$> fmap getPositive arbitrary
@@ -108,11 +108,11 @@ instance Arbitrary Metadata where
 -- more than simply the result of the RESTful endpoint, but also for
 -- extra informations like pagination parameters etc.
 data ExtendedResponse a = ExtendedResponse
-  { ext_data :: a        -- ^ The wrapped domain object.
-  , ext_meta :: Metadata -- ^ Extra metadata to be returned.
+  { extData :: a        -- ^ The wrapped domain object.
+  , extMeta :: Metadata -- ^ Extra metadata to be returned.
   } deriving (Show, Eq, Generic)
 
-deriveJSON defaultOptions { fieldLabelModifier = drop 4 } ''ExtendedResponse
+deriveJSON Serokell.defaultOptions ''ExtendedResponse
 
 instance Arbitrary a => Arbitrary (ExtendedResponse a) where
   arbitrary = ExtendedResponse <$> arbitrary <*> arbitrary
@@ -136,14 +136,14 @@ instance (Arbitrary a, Arbitrary b) => Arbitrary (OneOf a b) where
 
 -- | Models a Wallet Error as a Jsend <https://labs.omniti.com/labs/jsend> response.
 data WalletError = WalletError
-  { err_code    :: !Int
-  , err_message :: Text
+  { errCode    :: !Int
+  , errMessage :: Text
   } deriving (Show, Eq, Generic)
 
 instance ToJSON WalletError where
-    toJSON WalletError{..} = object [ "code"    .= toJSON err_code
+    toJSON WalletError{..} = object [ "code"    .= toJSON errCode
                                     , "status"  .= String "error"
-                                    , "message" .= toJSON err_message
+                                    , "message" .= toJSON errMessage
                                     ]
 
 instance Arbitrary WalletError where
@@ -162,12 +162,12 @@ data WalletAssurance = AssuranceNormal
 instance Arbitrary WalletAssurance where
     arbitrary = elements [minBound .. maxBound]
 
-deriveJSON defaultOptions { constructorTagModifier = map toLower . drop 9 } ''WalletAssurance
+deriveJSON Serokell.defaultOptions ''WalletAssurance
 
 -- | A Wallet ID.
 newtype WalletId = WalletId Text deriving (Show, Eq, Generic)
 
-deriveJSON defaultOptions ''WalletId
+deriveJSON Serokell.defaultOptions ''WalletId
 
 instance Arbitrary WalletId where
   arbitrary = WalletId . fromString <$> elements ["1Z1F10ADD10F9872"]
@@ -178,13 +178,13 @@ instance FromHttpApiData WalletId where
 
 -- | A Wallet.
 data Wallet = Wallet {
-      wal_id           :: WalletId
-    , wal_backupPhrase :: BackupPhrase
-    , wal_unit         :: !Int
-    , wal_assurance    :: WalletAssurance
+      walId           :: WalletId
+    , walBackupPhrase :: BackupPhrase
+    , walUnit         :: !Int
+    , walAssurance    :: WalletAssurance
     }
 
-deriveJSON defaultOptions { fieldLabelModifier = drop 4 } ''Wallet
+deriveJSON Serokell.defaultOptions  ''Wallet
 
 instance Arbitrary Wallet where
   arbitrary = Wallet <$> arbitrary
@@ -194,10 +194,10 @@ instance Arbitrary Wallet where
 
 -- Placeholder.
 newtype Address = Address
-  { add_id :: Text -- ^ A base58 Public Key.
+  { addrId :: Text -- ^ A base58 Public Key.
   } deriving (Show, Eq, Generic)
 
-deriveJSON defaultOptions { fieldLabelModifier = drop 4 } ''Address
+deriveJSON Serokell.defaultOptions ''Address
 
 instance Arbitrary Address where
   arbitrary = Address . fromString <$> elements ["DEADBeef", "123456"]
@@ -206,16 +206,16 @@ type AccountId = Text
 
 -- | A wallet 'Account'.
 data Account = Account
-  { acc_id        :: !AccountId
-  , acc_addresses :: [Address]
-  , acc_amount    :: !Int
+  { accId        :: !AccountId
+  , accAddresses :: [Address]
+  , accAmount    :: !Int
   -- | The Account name.
-  , acc_name      :: !Text
+  , accName      :: !Text
   -- | The parent Wallet Id.
-  , acc_walletId  :: WalletId
+  , accWalletId  :: WalletId
   } deriving (Show, Eq, Generic)
 
-deriveJSON defaultOptions { fieldLabelModifier = drop 4 } ''Account
+deriveJSON Serokell.defaultOptions ''Account
 
 instance Arbitrary Account where
   arbitrary = Account . fromString <$> elements ["DEADBeef", "123456"]

@@ -40,12 +40,12 @@ listWallets _ _ mbExtended _ = do
   case mbExtended of
     Just True  -> return $ OneOf $ Right $
       ExtendedResponse {
-        ext_data = example
-      , ext_meta = Metadata {
-          meta_total_pages = 1
-        , meta_page = 1
-        , meta_per_page = 20
-        , meta_total_entries = 3
+        extData = example
+      , extMeta = Metadata {
+          metaTotalPages = 1
+        , metaPage = 1
+        , metaPerPage = 20
+        , metaTotalEntries = 3
       }
       }
     _ -> return $ OneOf $ Left example
@@ -64,11 +64,11 @@ newAccount w@(WalletId wId) _ Account{..} = do
     when (wId /= "testwallet") $ throwError (toError err404 Errors.walletNotFound)
     -- In real code we would generate things like addresses (if needed) or
     -- any other form of Id/data.
-    accId <- liftIO $ generate (listOf1 arbitrary)
+    newId <- liftIO $ generate (listOf1 arbitrary)
     return $ Account {
-             acc_id = fromString accId
-           , acc_amount = 0
-           , acc_addresses = mempty
-           , acc_name = acc_name
-           , acc_walletId = w
+             accId = fromString newId
+           , accAmount = 0
+           , accAddresses = mempty
+           , accName = accName
+           , accWalletId = w
            }

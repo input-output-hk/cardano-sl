@@ -39,6 +39,7 @@ library
                      , text
                      , transformers
                      , universum
+                     , serokell-util
                      , warp
   default-language:    Haskell2010
   default-extensions: TypeOperators

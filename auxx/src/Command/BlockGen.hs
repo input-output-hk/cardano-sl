@@ -18,6 +18,7 @@ import           Pos.Crypto                  (encToSecret)
 import           Pos.Generator.Block         (BlockGenParams (..), genBlocks,
                                               tgpTxCountRange)
 import           Pos.Launcher                (HasConfigurations)
+import           Pos.Txp                     (txpGlobalSettings)
 import           Pos.Util.CompileInfo        (withCompileInfo)
 
 import           Command.Types               (GenBlocksParams (..))
@@ -40,6 +41,7 @@ generateBlocks GenBlocksParams{..} = do
                 , _bgpTxGenParams     = def & tgpTxCountRange .~ (0,0)
                 , _bgpInplaceDB       = True
                 , _bgpSkipNoKey       = True
+                , _bgpTxpGlobalSettings = txpGlobalSettings
                 }
     withCompileInfo def $ void $ evalRandT (genBlocks bgenParams) (mkStdGen seed)
     -- We print it twice because there can be a ton of logs and

@@ -22,6 +22,7 @@ import qualified Pos.Client.CLI       as CLI
 import           Pos.Communication    (ActionSpec (..), OutSpecs, WorkerSpec, worker)
 import           Pos.Context          (HasNodeContext)
 import           Pos.Core             (Timestamp (..), gdStartTime, genesisData)
+import           Pos.DB.DB            (initNodeDBs)
 import           Pos.Launcher         (ConfigurationOptions (..), HasConfigurations,
                                        NodeParams (..), NodeResources (..),
                                        bracketNodeResources, loggerBracket, runNode,
@@ -29,6 +30,7 @@ import           Pos.Launcher         (ConfigurationOptions (..), HasConfigurati
 import           Pos.Ssc.Class        (SscParams)
 import           Pos.Ssc.GodTossing   (SscGodTossing)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
+import           Pos.Txp              (txpGlobalSettings)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,
                                        withCompileInfo)
 import           Pos.Util.UserSecret  (usVss)
@@ -59,7 +61,9 @@ actionWithWallet ::
 actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
     bracketWalletWebDB walletDbPath walletRebuildDb $ \db ->
         bracketWalletWS $ \conn ->
-            bracketNodeResources nodeParams sscParams $ \nr@NodeResources {..} ->
+            bracketNodeResources nodeParams sscParams
+                txpGlobalSettings
+                initNodeDBs $ \nr@NodeResources {..} ->
                 runWRealMode
                     db
                     conn

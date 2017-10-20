@@ -77,11 +77,6 @@ import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Update.Context               (UpdateContext, mkUpdateContext)
 import           Pos.Util                         (HasLens (..), Some, newInitFuture,
                                                    postfixLFields)
-#ifdef WITH_EXPLORER
-import           Pos.Explorer                     (explorerTxpGlobalSettings)
-#else
-import           Pos.Txp                          (txpGlobalSettings)
-#endif
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -199,11 +194,7 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
     bgcSystemStart <- view slottingTimestamp
     (initSlot, putInitSlot) <- newInitFuture "initSlot"
     let bgcSlotId = Nothing
-#ifdef WITH_EXPLORER
-    let bgcTxpGlobalSettings = explorerTxpGlobalSettings
-#else
-    let bgcTxpGlobalSettings = txpGlobalSettings
-#endif
+    let bgcTxpGlobalSettings = _bgpTxpGlobalSettings
     let bgcReportingContext = emptyReportingContext
     let bgcGenStakeholders = _bgpGenStakeholders
     let initCtx =

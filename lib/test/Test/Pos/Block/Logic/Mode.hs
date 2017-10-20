@@ -67,9 +67,6 @@ import qualified Pos.DB.Block                   as DB
 import           Pos.DB.DB                      (gsAdoptedBVDataDefault, initNodeDBs)
 import           Pos.DB.Pure                    (DBPureVar, newDBPureVar)
 import           Pos.Delegation                 (DelegationVar, mkDelegationVar)
-import           Pos.Explorer                   (ExplorerExtra, eTxNormalize,
-                                                 eTxProcessTransactionNoLock,
-                                                 explorerTxpGlobalSettings)
 import           Pos.Generator.Block            (BlockGenMode)
 import           Pos.Generator.BlockEvent       (SnapshotId)
 import qualified Pos.GState                     as GS
@@ -92,13 +89,16 @@ import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState
 import           Pos.Ssc.GodTossing             (HasGtConfiguration, SscGodTossing)
 import           Pos.Txp                        (GenericTxpLocalData, MempoolExt,
                                                  MonadTxpLocal (..), TxpGlobalSettings,
-                                                 TxpHolderTag, mkTxpLocalData)
+                                                 TxpHolderTag, mkTxpLocalData,
+                                                 txNormalize, txProcessTransactionNoLock,
+                                                 txpGlobalSettings)
 import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
 import           Pos.Util                       (Some, newInitFuture, postfixLFields)
 import           Pos.Util.CompileInfo           (withCompileInfo)
 import           Pos.Util.LoggerName            (HasLoggerName' (..),
                                                  getLoggerNameDefault,
                                                  modifyLoggerNameDefault)
+import           Pos.WorkMode                   (EmptyMempoolExt)
 
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, sudoLiftIO)
 import           Test.Pos.Configuration         (defaultTestBlockVersionData,
@@ -202,7 +202,7 @@ data BlockTestContext = BlockTestContext
     , btcSSlottingVar      :: !SimpleSlottingVar
     , btcUpdateContext     :: !UpdateContext
     , btcSscState          :: !(SscState SscGodTossing)
-    , btcTxpMem            :: !(GenericTxpLocalData ExplorerExtra)
+    , btcTxpMem            :: !(GenericTxpLocalData EmptyMempoolExt)
     , btcTxpGlobalSettings :: !TxpGlobalSettings
     , btcSlotId            :: !(Maybe SlotId)
     -- ^ If this value is 'Just' we will return it as the current
@@ -256,7 +256,7 @@ initBlockTestContext tp@TestParams {..} callback = do
             btcSscState <- mkSscState @SscGodTossing
             _gscSlogGState <- mkSlogGState
             btcTxpMem <- mkTxpLocalData
-            let btcTxpGlobalSettings = explorerTxpGlobalSettings
+            let btcTxpGlobalSettings = txpGlobalSettings
             let btcReportingContext = emptyReportingContext
             let btcSlotId = Nothing
             let btcParams = tp
@@ -445,7 +445,7 @@ instance HasSlogGState BlockTestContext where
 instance HasLens DelegationVar BlockTestContext DelegationVar where
     lensOf = btcDelegation_L
 
-instance HasLens TxpHolderTag BlockTestContext (GenericTxpLocalData ExplorerExtra) where
+instance HasLens TxpHolderTag BlockTestContext (GenericTxpLocalData EmptyMempoolExt) where
     lensOf = btcTxpMem_L
 
 instance HasLoggerName' BlockTestContext where
@@ -511,12 +511,12 @@ instance MonadBListener BlockTestMode where
 instance MonadFormatPeers BlockTestMode where
     formatKnownPeers _ = pure Nothing
 
-type instance MempoolExt BlockTestMode = ExplorerExtra
+type instance MempoolExt BlockTestMode = EmptyMempoolExt
 
-instance HasConfigurations => MonadTxpLocal (BlockGenMode ExplorerExtra BlockTestMode) where
-    txpNormalize = withCompileInfo def $ eTxNormalize
-    txpProcessTx = withCompileInfo def $ eTxProcessTransactionNoLock
+instance HasConfigurations => MonadTxpLocal (BlockGenMode EmptyMempoolExt BlockTestMode) where
+    txpNormalize = withCompileInfo def $ txNormalize
+    txpProcessTx = withCompileInfo def $ txProcessTransactionNoLock
 
 instance HasConfigurations => MonadTxpLocal BlockTestMode where
-    txpNormalize = withCompileInfo def $ eTxNormalize
-    txpProcessTx = withCompileInfo def $ eTxProcessTransactionNoLock
+    txpNormalize = withCompileInfo def $ txNormalize
+    txpProcessTx = withCompileInfo def $ txProcessTransactionNoLock

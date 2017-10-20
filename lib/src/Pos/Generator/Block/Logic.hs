@@ -39,10 +39,11 @@ import           Pos.Generator.Block.Payload (genPayload)
 import           Pos.Lrc                     (lrcSingleShot)
 import           Pos.Lrc.Context             (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB                  as LrcDB
-import           Pos.Txp                     (MempoolExt, MonadTxpLocal)
+import           Pos.Txp                     (MempoolExt, MonadTxpLocal,
+                                              TxpGlobalSettings)
 import           Pos.Util.Chrono             (OldestFirst (..))
 import           Pos.Util.CompileInfo        (HasCompileInfo, withCompileInfo)
-import           Pos.Util.Util               (maybeThrow, _neHead)
+import           Pos.Util.Util               (HasLens', maybeThrow, _neHead)
 
 ----------------------------------------------------------------------------
 -- Block generation
@@ -51,6 +52,7 @@ import           Pos.Util.Util               (maybeThrow, _neHead)
 type BlockTxpGenMode g ctx m =
     ( RandomGen g
     , MonadBlockGenInit ctx m
+    , HasLens' ctx TxpGlobalSettings
     , Default (MempoolExt m)
     , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
     )

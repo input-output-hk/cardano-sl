@@ -18,6 +18,7 @@ import           Serokell.Util       (pairF)
 
 import           Pos.AllSecrets      (AllSecrets, HasAllSecrets (..))
 import           Pos.Core            (BlockCount, GenesisWStakeholders)
+import           Pos.Txp             (TxpGlobalSettings)
 
 -- | Parameters for transactions payload generation.
 data TxGenParams = TxGenParams
@@ -50,19 +51,22 @@ instance Default TxGenParams where
 
 -- | Parameters for blockchain generation. Probably they come from the outside.
 data BlockGenParams = BlockGenParams
-    { _bgpSecrets         :: !AllSecrets
+    { _bgpSecrets           :: !AllSecrets
     -- ^ Secret data for the whole system.
-    , _bgpBlockCount      :: !BlockCount
+    , _bgpBlockCount        :: !BlockCount
     -- ^ Number of blocks to generate.
-    , _bgpTxGenParams     :: !TxGenParams
+    , _bgpTxGenParams       :: !TxGenParams
     -- ^ Transaction generation parameters.
-    , _bgpInplaceDB       :: !Bool
+    , _bgpInplaceDB         :: !Bool
     -- ^ Whether to extend existing DB.
-    , _bgpSkipNoKey       :: !Bool
+    , _bgpSkipNoKey         :: !Bool
     -- ^ Skip block creation procedure if related leader key is not found.
-    , _bgpGenStakeholders :: !GenesisWStakeholders
+    , _bgpGenStakeholders   :: !GenesisWStakeholders
     -- ^ Set of genesis stakeholders. This is needed to properly
     -- generate transaction payload.
+    , _bgpTxpGlobalSettings :: !TxpGlobalSettings
+    -- ^ Callbacks on verification, application and rollback blocks
+    -- related to txp.
     }
 
 makeClassy ''BlockGenParams

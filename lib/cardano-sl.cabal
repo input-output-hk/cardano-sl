@@ -12,12 +12,6 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
-Flag with-explorer
-  default:     True
-  manual:      True
-
-  description: Build with explorer
-
 library
   exposed-modules:      Paths_cardano_sl
 
@@ -139,13 +133,7 @@ library
                         Pos.Block.Logic.VAR
                         Pos.Generator.Block.Param
 
-  -- Explorer (TODO: move into cardano-explorer)
   exposed-modules:
-                        Pos.Explorer
-
-                        -- Needed for testing
-                        Pos.Arbitrary.Explorer
-
                         Pos.Util.Servant
 
   other-modules:        Pos.Aeson.Types
@@ -281,20 +269,6 @@ library
                         Pos.Update.Network
                         Pos.Update.Network.Listeners
                         Pos.Update.Worker
-
-  -- Explorer (TODO: move into cardano-explorer)
-  other-modules:        Pos.Binary.Explorer
-                        Pos.Explorer.Core
-                        Pos.Explorer.Core.Types
-                        Pos.Explorer.Txp
-                        Pos.Explorer.Txp.Global
-                        Pos.Explorer.Txp.Local
-                        Pos.Explorer.Txp.Toil
-                        Pos.Explorer.Txp.Toil.Class
-                        Pos.Explorer.Txp.Toil.Logic
-                        Pos.Explorer.Txp.Toil.Types
-                        Pos.Explorer.DB
-                        Pos.Explorer.BListener
 
   build-depends:        MonadRandom
                       , QuickCheck
@@ -445,9 +419,6 @@ library
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-explorer)
-    cpp-options: -DWITH_EXPLORER
-
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:
@@ -485,7 +456,6 @@ test-suite cardano-test
                        Test.Pos.CryptoSpec
                        Test.Pos.Delegation.Identity.BinarySpec
                        Test.Pos.DHT.Identity.BinarySpec
-                       Test.Pos.Explorer.Identity.BinarySpec
                        Test.Pos.Genesis.CanonicalSpec
                        Test.Pos.MerkleSpec
                        Test.Pos.Slotting.TypesSpec
@@ -607,9 +577,6 @@ test-suite cardano-test
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-
-  if flag(with-explorer)
-    cpp-options: -DWITH_EXPLORER
 
 benchmark cardano-bench-criterion
   hs-source-dirs:      bench

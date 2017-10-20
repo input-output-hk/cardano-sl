@@ -66,7 +66,7 @@ import           Pos.Crypto                       (Hash, hash)
 import           Pos.DB.Block                     (MonadBlockDB)
 import           Pos.DB.Class                     (MonadDBRead)
 import           Pos.DB.Rocks                     (MonadRealDB)
-import           Pos.Explorer                     (TxExtra (..))
+import           Pos.Explorer.Core                (TxExtra (..))
 import qualified Pos.GState                       as GS
 import           Pos.Lrc                          (getLeaders)
 import           Pos.Merkle                       (getMerkleRoot, mtRoot)

@@ -42,7 +42,8 @@ import           Pos.Configuration                (HasNodeConfiguration)
 import           Pos.Core                         (Address, GenesisWStakeholders (..),
                                                    HasConfiguration, HasPrimaryKey (..),
                                                    IsHeader, SlotId (..), Timestamp,
-                                                   epochOrSlotToSlot, getEpochOrSlot)
+                                                   epochOrSlotToSlot, getEpochOrSlot,
+                                                   largestPubKeyAddressBoot)
 import           Pos.Crypto                       (SecretKey)
 import           Pos.DB                           (DBSum, MonadBlockDBGeneric (..),
                                                    MonadBlockDBGenericWrite (..), MonadDB,
@@ -373,6 +374,12 @@ instance MonadBlockGenBase m => MonadBListener (BlockGenMode ext m) where
 instance Monad m => MonadAddresses (BlockGenMode ext m) where
     type AddrData (BlockGenMode ext m) = Address
     getNewAddress = pure
+    -- It must be consistent with the way we construct address in
+    -- block-gen. If it's changed, tests will fail, so we will notice
+    -- it.
+    -- N.B. Currently block-gen uses only PubKey addresses with BootstrapEra
+    -- distribution.
+    getFakeChangeAddress = pure largestPubKeyAddressBoot
 
 type instance MempoolExt (BlockGenMode ext m) = ext
 

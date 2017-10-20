@@ -45,6 +45,8 @@ import           Pos.Core                         (Address, HasConfiguration,
                                                    HasPrimaryKey (..),
                                                    IsBootstrapEraAddr (..), IsHeader,
                                                    deriveFirstHDAddress,
+                                                   largestPubKeyAddressBoot,
+                                                   largestPubKeyAddressSingleKey,
                                                    makePubKeyAddress, siEpoch)
 import           Pos.Crypto                       (EncryptedSecretKey, PublicKey,
                                                    emptyPassphrase)
@@ -239,9 +241,15 @@ instance MonadKnownPeers AuxxMode where
 instance MonadFormatPeers AuxxMode where
     formatKnownPeers = OQ.Reader.formatKnownPeersReader (rmcOutboundQ . acRealModeContext)
 
-instance (HasConfiguration, HasInfraConfiguration) => MonadAddresses AuxxMode where
+instance (HasConfiguration, HasInfraConfiguration) =>
+         MonadAddresses AuxxMode where
     type AddrData AuxxMode = PublicKey
-    getNewAddress = withCompileInfo def $ makePubKeyAddressAuxx
+    getNewAddress = makePubKeyAddressAuxx
+    getFakeChangeAddress = do
+        epochIndex <- siEpoch <$> getCurrentSlotInaccurate
+        gsIsBootstrapEra epochIndex <&> \case
+            False -> largestPubKeyAddressBoot
+            True -> largestPubKeyAddressSingleKey
 
 type instance MempoolExt AuxxMode = EmptyMempoolExt
 
@@ -258,7 +266,7 @@ instance (HasConfigurations) =>
 -- choose suitable stake distribution. We want to pick it based on
 -- whether we are currently in bootstrap era.
 makePubKeyAddressAuxx ::
-       (HasConfiguration, HasInfraConfiguration, HasCompileInfo)
+       (HasConfiguration, HasInfraConfiguration)
     => PublicKey
     -> AuxxMode Address
 makePubKeyAddressAuxx pk = do
@@ -268,7 +276,7 @@ makePubKeyAddressAuxx pk = do
 
 -- | Similar to @makePubKeyAddressAuxx@ but create HD address.
 deriveHDAddressAuxx ::
-       (HasConfiguration, HasInfraConfiguration, HasCompileInfo)
+       (HasConfiguration, HasInfraConfiguration)
     => EncryptedSecretKey
     -> AuxxMode Address
 deriveHDAddressAuxx hdwSk = do

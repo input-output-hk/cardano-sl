@@ -23,7 +23,8 @@ import           Pos.Client.Txp.Util              (computeTxFee, runTxCreator)
 import           Pos.Communication                (SendActions (..), prepareMTx)
 import           Pos.Configuration                (HasNodeConfiguration)
 import           Pos.Core                         (Coin, HasConfiguration, addressF,
-                                                   getCurrentTimestamp)
+                                                   getCurrentTimestamp,
+                                                   largestHDAddressBoot)
 import           Pos.Crypto                       (PassPhrase, ShouldCheckPassphrase (..),
                                                    checkPassMatches, hash,
                                                    withSafeSignerUnsafe)
@@ -135,6 +136,9 @@ instance
     getNewAddress (accId, passphrase) = do
         clientAddress <- L.newAddress RandomSeed passphrase accId
         decodeCTypeOrFail (cadId clientAddress)
+    -- We rely on the fact that Daedalus always uses HD addresses with
+    -- BootstrapEra distribution.
+    getFakeChangeAddress = pure largestHDAddressBoot
 
 sendMoney
     :: MonadWalletWebMode m

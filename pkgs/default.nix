@@ -6186,6 +6186,8 @@ self: {
           pname = "servant-swagger-ui";
           version = "0.2.4.3.0.20";
           sha256 = "b603d7da9141714a5eab226d015ffe566294671840c84d9bf94c4ea0114817a3";
+          revision = "1";
+          editedCabalFile = "1wsbb9zaq5qv39hrymy1cma581337rbvqlm7y24jwfvk4vafs3fp";
           libraryHaskellDepends = [
             base
             blaze-markup

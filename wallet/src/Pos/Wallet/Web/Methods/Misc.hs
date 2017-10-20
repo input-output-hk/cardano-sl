@@ -20,12 +20,12 @@ module Pos.Wallet.Web.Methods.Misc
 
 import           Universum
 
-import           Pos.Aeson.ClientTypes      ()
 import           Pos.Core                   (SoftwareVersion (..), decodeTextAddress)
 import           Pos.NtpCheck               (NtpStatus(..), mkNtpStatusVar)
 import           Pos.Update.Configuration   (curSoftwareVersion)
 import           Pos.Util                   (maybeThrow)
-import           Pos.Wallet.KeyStorage      (deleteSecretKey, getSecretKeys)
+
+import           Pos.Client.KeyStorage      (deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.WalletMode      (applyLastUpdate, connectedPeers,
                                              localChainDifficulty, networkChainDifficulty)
 import           Pos.Wallet.Web.ClientTypes (CProfile (..), CUpdateInfo (..),

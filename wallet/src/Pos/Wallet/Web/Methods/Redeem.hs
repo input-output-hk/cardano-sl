@@ -12,8 +12,6 @@ import           Universum
 import           Data.ByteString.Base58         (bitcoinAlphabet, decodeBase58)
 import qualified Serokell.Util.Base64           as B64
 
-import           Pos.Aeson.ClientTypes          ()
-import           Pos.Aeson.WalletBackup         ()
 import           Pos.Client.Txp.Addresses       (MonadAddresses)
 import           Pos.Client.Txp.History         (TxHistoryEntry (..))
 import           Pos.Communication              (SendActions (..), prepareRedemptionTx)

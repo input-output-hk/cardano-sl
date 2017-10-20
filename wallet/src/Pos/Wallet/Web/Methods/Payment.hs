@@ -15,8 +15,7 @@ import           Control.Monad.Except             (runExcept)
 import           Formatting                       (sformat, (%))
 import qualified Formatting                       as F
 
-import           Pos.Aeson.ClientTypes            ()
-import           Pos.Aeson.WalletBackup           ()
+import           Pos.Client.KeyStorage            (getSecretKeys)
 import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
 import           Pos.Client.Txp.Balances          (getOwnUtxos)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..))
@@ -37,7 +36,6 @@ import           Pos.Util                         (eitherToThrow, maybeThrow)
 import           Pos.Util.CompileInfo             (HasCompileInfo)
 import           Pos.Util.LogSafe                 (logInfoS)
 import           Pos.Util.Servant                 (encodeCType)
-import           Pos.Wallet.KeyStorage            (getSecretKeys)
 import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAddressPure,
                                                    getSKById)
 import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAddress (..),

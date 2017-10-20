@@ -237,9 +237,9 @@ elif [[ $spec_prj == "node" ]]; then
 elif [[ $spec_prj == "auxx" ]]; then
   to_build="cardano-sl-auxx"
 elif [[ $spec_prj == "wallet" ]]; then
-  to_build="cardano-sl-wallet"
+  to_build="cardano-sl-node cardano-sl-wallet"
 elif [[ $spec_prj == "explorer" ]]; then
-  to_build="cardano-sl-explorer"
+  to_build="cardano-sl-node cardano-sl-explorer"
 elif [[ $spec_prj == "all" ]]; then
   to_build="" # build everything concurrently
 else

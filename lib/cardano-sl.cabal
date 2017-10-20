@@ -12,12 +12,6 @@ build-type:          Simple
 extra-source-files:  README.md
 cabal-version:       >=1.10
 
-Flag with-explorer
-  default:     True
-  manual:      True
-
-  description: Build with explorer
-
 library
   exposed-modules:      Paths_cardano_sl
 
@@ -89,6 +83,7 @@ library
                         Pos.Recovery
 
                         -- Client
+                        Pos.Client.KeyStorage
                         Pos.Client.Txp.Addresses
                         Pos.Client.Txp.Balances
                         Pos.Client.Txp.History
@@ -115,28 +110,6 @@ library
                         Pos.Util.JsonLog
                         Pos.Util.OutboundQueue
                         Pos.Util.UserSecret
-
-                        -- Wallets
-                        Pos.Wallet
-                        Pos.Wallet.KeyStorage
-                        Pos.Wallet.WalletMode
-                        Pos.Wallet.Web.Assurance
-                        Pos.Wallet.Web.ClientTypes
-                        Pos.Wallet.Web.ClientTypes.Functions
-                        Pos.Wallet.Web.ClientTypes.Instances
-                        Pos.Wallet.Web.ClientTypes.Types
-                        Pos.Wallet.Web.Error
-                        Pos.Wallet.Web.Error.Types
-                        Pos.Wallet.Web.Error.Util
-                        Pos.Wallet.Web.Pending.Types
-                        Pos.Wallet.Web.Pending.Util
-                        Pos.Wallet.Web.State
-                        Pos.Wallet.Web.State.Acidic
-                        Pos.Wallet.Web.State.State
-                        Pos.Wallet.Web.State.Storage
-                        Pos.Wallet.Web.State.Util
-                        Pos.Wallet.Web.Secret
-                        Pos.Wallet.Web.Util
 
                         Pos.Web
                         Pos.Web.Api
@@ -170,11 +143,6 @@ library
                         Test.Pos.Util
                         Test.Pos.Configuration
 
-                        -- Explorer (TODO: move into cardano-explorer)
-                        Pos.Explorer
-
-                        -- Needed for testing
-                        Pos.Arbitrary.Explorer
                         Pos.Util.Servant
 
                         -- Needed for testing / genesis creation
@@ -312,20 +280,6 @@ library
                         Pos.Update.Network
                         Pos.Update.Network.Listeners
                         Pos.Update.Worker
-
-  -- Explorer (TODO: move into cardano-explorer)
-  other-modules:        Pos.Binary.Explorer
-                        Pos.Explorer.Core
-                        Pos.Explorer.Core.Types
-                        Pos.Explorer.Txp
-                        Pos.Explorer.Txp.Global
-                        Pos.Explorer.Txp.Local
-                        Pos.Explorer.Txp.Toil
-                        Pos.Explorer.Txp.Toil.Class
-                        Pos.Explorer.Txp.Toil.Logic
-                        Pos.Explorer.Txp.Toil.Types
-                        Pos.Explorer.DB
-                        Pos.Explorer.BListener
 
   build-depends:        MonadRandom
                       , QuickCheck
@@ -479,9 +433,6 @@ library
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
 
-  if flag(with-explorer)
-    cpp-options: -DWITH_EXPLORER
-
 test-suite cardano-test
   main-is:             Test.hs
   other-modules:
@@ -514,7 +465,6 @@ test-suite cardano-test
                        Test.Pos.CryptoSpec
                        Test.Pos.Delegation.Identity.BinarySpec
                        Test.Pos.DHT.Identity.BinarySpec
-                       Test.Pos.Explorer.Identity.BinarySpec
                        Test.Pos.Genesis.CanonicalSpec
                        Test.Pos.MerkleSpec
                        Test.Pos.Slotting.TypesSpec
@@ -636,9 +586,6 @@ test-suite cardano-test
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-
-  if flag(with-explorer)
-    cpp-options: -DWITH_EXPLORER
 
 benchmark cardano-bench-criterion
   hs-source-dirs:      bench

@@ -70,9 +70,11 @@ import           Pos.Generator.Block              (BlockGenParams (..), BlockTxp
                                                    genBlocks)
 import           Pos.GState.Context               (withClonedGState)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Txp                          (TxpGlobalSettings)
 import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..),
                                                    toNewestFirst, toOldestFirst,
                                                    _OldestFirst)
+import           Pos.Util.Util                    (lensOf')
 
 type BlundDefault = Blund
 
@@ -175,6 +177,7 @@ genBlocksInTree
     -> BlockchainTree BlockDesc
     -> RandT g m (BlockchainTree BlundDefault)
 genBlocksInTree secrets bootStakeholders blockchainTree = do
+    txpSettings <- view (lensOf' @TxpGlobalSettings)
     let BlockchainTree blockDesc blockchainForest = blockchainTree
         txGenParams = case blockDesc of
             BlockDescDefault  -> TxGenParams (0, 0) 0
@@ -186,6 +189,7 @@ genBlocksInTree secrets bootStakeholders blockchainTree = do
             , _bgpTxGenParams     = txGenParams
             , _bgpInplaceDB       = True
             , _bgpSkipNoKey       = False
+            , _bgpTxpGlobalSettings = txpSettings
             }
     -- Partial pattern-matching is safe because we specify
     -- blockCount = 1 in the generation parameters.

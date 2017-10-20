@@ -14,6 +14,9 @@ import           Universum
 
 import           Control.Lens                     (makeLensesWith)
 import qualified Control.Monad.Reader             as Mtl
+import qualified Data.HashSet                     as HS
+import           Data.List                        (partition)
+import qualified Data.Map                         as M
 import           Ether.Internal                   (HasLens (..))
 import           Mockable                         (Production)
 import           System.Wlog                      (HasLoggerName (..))
@@ -25,7 +28,7 @@ import           Pos.Block.Types                  (Undo)
 import           Pos.Configuration                (HasNodeConfiguration)
 import           Pos.Context                      (HasNodeContext (..))
 import           Pos.Core                         (HasConfiguration, HasPrimaryKey (..),
-                                                   IsHeader)
+                                                   IsHeader, isRedeemAddress)
 import           Pos.DB                           (MonadGState (..))
 import           Pos.DB.Block                     (dbGetBlockDefault,
                                                    dbGetBlockSscDefault,
@@ -41,9 +44,9 @@ import           Pos.DB.Rocks                     (dbDeleteDefault, dbGetDefault
                                                    dbIterSourceDefault, dbPutDefault,
                                                    dbWriteBatchDefault)
 import           Pos.Recovery                     ()
+import qualified Pos.Util.Modifier                as MM
 
-import           Pos.Client.Txp.Balances          (MonadBalances (..), getBalanceDefault,
-                                                   getOwnUtxosDefault)
+import           Pos.Client.Txp.Balances          (MonadBalances (..), getBalanceDefault)
 import           Pos.Client.Txp.History           (MonadTxHistory (..),
                                                    getBlockHistoryDefault,
                                                    getLocalHistoryDefault, saveTxDefault)
@@ -63,7 +66,9 @@ import           Pos.Ssc.Class.Types              (HasSscContext (..), SscBlock)
 import           Pos.Ssc.GodTossing               (HasGtConfiguration,
                                                    SscGodTossing)
 import           Pos.Txp                          (MempoolExt, MonadTxpLocal (..),
+                                                   addrBelongsToSet, getUtxoModifier,
                                                    txNormalize, txProcessTransaction)
+import qualified Pos.Txp.DB                       as DB
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util                         (Some (..))
 import           Pos.Util.CompileInfo             (HasCompileInfo)
@@ -84,7 +89,7 @@ import           Pos.Wallet.Redirect              (MonadBlockchainInfo (..),
                                                    networkChainDifficultyWebWallet,
                                                    waitForUpdateWebWallet)
 import           Pos.Wallet.Web.Sockets.ConnSet   (ConnectionsVar)
-import           Pos.Wallet.Web.State.State       (WalletState)
+import           Pos.Wallet.Web.State.State       (WalletState, getWalletUtxo)
 import           Pos.Wallet.Web.Tracking          (MonadBListener (..), onApplyTracking,
                                                    onRollbackTracking)
 import           Pos.WorkMode                     (EmptyMempoolExt, RealModeContext (..))
@@ -227,7 +232,19 @@ instance (HasConfiguration, HasGtConfiguration, HasInfraConfiguration) =>
     blockchainSlotDuration = blockchainSlotDurationWebWallet
 
 instance HasConfiguration => MonadBalances WalletWebMode where
-    getOwnUtxos = getOwnUtxosDefault
+    getOwnUtxos addrs = do
+        let (redeemAddrs, commonAddrs) = partition isRedeemAddress addrs
+
+        updates <- getUtxoModifier
+        commonUtxo <- if null commonAddrs then pure mempty
+                        else getWalletUtxo
+        redeemUtxo <- if null redeemAddrs then pure mempty
+                        else DB.getFilteredUtxo redeemAddrs
+
+        let allUtxo = MM.modifyMap updates $ commonUtxo <> redeemUtxo
+            addrsSet = HS.fromList addrs
+        pure $ M.filter (`addrBelongsToSet` addrsSet) allUtxo
+
     getBalance = getBalanceDefault
 
 instance ( HasConfiguration

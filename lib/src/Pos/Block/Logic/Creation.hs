@@ -46,7 +46,7 @@ import           Pos.Delegation             (DelegationVar, DlgPayload (getDlgPa
                                              ProxySKBlockInfo, clearDlgMemPool,
                                              getDlgMempool, mkDlgPayload)
 import           Pos.Exception              (assertionFailed, reportFatalError)
-import           Pos.Lrc                    (LrcContext, LrcModeFull, lrcSingleShot)
+import           Pos.Lrc                    (HasLrcContext, LrcModeFull, lrcSingleShot)
 import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Reporting              (reportError)
 import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefaultPayload, sscStripPayload),
@@ -80,7 +80,7 @@ type MonadCreateBlock ctx m
        , DB.MonadBlockDB m
        , MonadIO m
        , MonadMask m
-       , HasLens LrcContext ctx LrcContext
+       , HasLrcContext ctx
        , LrcModeFull ctx m
 
        -- Mempools

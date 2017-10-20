@@ -14,7 +14,7 @@ import           System.Wlog         (WithLogger)
 
 import           Pos.Core            (HasConfiguration, HasPrimaryKey)
 import           Pos.DB.Class        (MonadDB, MonadGState)
-import           Pos.Lrc.Context     (LrcContext)
+import           Pos.Lrc.Context     (HasLrcContext)
 import           Pos.Recovery.Info   (MonadRecoveryInfo)
 import           Pos.Reporting       (MonadReporting)
 import           Pos.Security.Params (SecurityParams)
@@ -43,6 +43,6 @@ type SscMode ssc ctx m
       , MonadReporting ctx m
       , HasPrimaryKey ctx
       , HasLens SecurityParams ctx SecurityParams
-      , HasLens LrcContext ctx LrcContext
+      , HasLrcContext ctx
       , HasConfiguration
       )

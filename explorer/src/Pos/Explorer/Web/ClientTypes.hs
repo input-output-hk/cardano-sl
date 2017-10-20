@@ -7,7 +7,6 @@
 module Pos.Explorer.Web.ClientTypes
        ( ExplorerMockMode (..)
        , prodMode
-       , HasExplorerCSLInterface (..)
        , CHash (..)
        , CAddress (..)
        , CTxId (..)
@@ -74,7 +73,9 @@ import           Pos.DB.Block                     (MonadBlockDB, blkGetBlund)
 import           Pos.DB.Class                     (MonadDBRead)
 import           Pos.DB.DB                        (getTipBlock)
 
-import           Pos.Explorer                     (Page, TxExtra (..), getPageBlocks)
+import           Pos.Explorer.Core                (TxExtra (..))
+import           Pos.Explorer.DB                  (Page, getPageBlocks)
+
 import qualified Pos.GState                       as GS
 import           Pos.Lrc                          (getLeaders)
 import           Pos.Merkle                       (getMerkleRoot, mtRoot)
@@ -98,7 +99,6 @@ import           Pos.Types                        (Address, Coin, EpochIndex, He
 import           Serokell.Data.Memory.Units       (Byte)
 import           Serokell.Util.Base16             as SB16
 import           Servant.API                      (FromHttpApiData (..))
-
 
 
 -------------------------------------------------------------------------------------
@@ -158,40 +158,6 @@ instance Default (ExplorerMockMode m) where
       }
     where
       errorImpl = error "Cannot be used, please implement this function!"
-
--- | We use this for an external CSL functions representation so we can replace them when
--- testing.
-class HasExplorerCSLInterface ctx m where
-    getTipBlockCSLI
-          :: MonadBlockDB m
-          => m Block
-    getPageBlocksCSLI
-          :: MonadDBRead m
-          => Page
-          -> m (Maybe [HeaderHash])
-    getBlundFromHHCSLI
-          :: MonadBlockDB m
-          => HeaderHash
-          -> m (Maybe Blund)
-    getSlotStartCSLI
-          :: MonadSlotsData ctx m
-          => SlotId
-          -> m (Maybe Timestamp)
-    getLeadersFromEpochCSLI
-          :: MonadDBRead m
-          => EpochIndex
-          -> m (Maybe SlotLeaders)
-
--- class Monad m => HasExplorerMockMode ctx m where
---     explorerMockMode :: Lens' ctx (ExplorerMockMode m)
--- Lens' ctx (m Block) ...
-
-instance Monad m => HasExplorerCSLInterface ctx m where
-    getTipBlockCSLI = getTipBlock
-    getPageBlocksCSLI = getPageBlocks
-    getBlundFromHHCSLI = blkGetBlund
-    getSlotStartCSLI = getSlotStart
-    getLeadersFromEpochCSLI = getLeaders
 
 -------------------------------------------------------------------------------------
 -- Hash types

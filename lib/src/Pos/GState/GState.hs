@@ -32,10 +32,6 @@ import           Pos.Txp.DB                       (initGStateStakes, initGStateU
 import           Pos.Txp.GenesisUtxo              (genesisUtxo)
 import           Pos.Update.DB                    (initGStateUS)
 
-#ifdef WITH_EXPLORER
-import qualified Pos.Explorer.DB                  as ExplorerDB
-#endif
-
 -- | Put missing initial data into GState DB.
 prepareGStateDB ::
        forall ctx m.
@@ -68,9 +64,6 @@ sanityCheckGStateDB ::
 sanityCheckGStateDB = do
     sanityCheckStakes
     sanityCheckUtxo =<< getRealTotalStake
-#ifdef WITH_EXPLORER
-    ExplorerDB.sanityCheckBalances
-#endif
 
 usingGStateSnapshot :: (MonadRealDB ctx m, MonadMask m) => m a -> m a
 usingGStateSnapshot action = do

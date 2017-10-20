@@ -20,8 +20,6 @@ import           Formatting                 (build, sformat, stext, (%))
 import           Serokell.Util              (listJson)
 import           System.Wlog                (WithLogger, logWarning)
 
-import           Pos.Aeson.ClientTypes      ()
-import           Pos.Aeson.WalletBackup     ()
 import           Pos.Client.Txp.History     (TxHistoryEntry (..), txHistoryListToMap)
 import           Pos.Core                   (ChainDifficulty, timestampToPosix)
 import           Pos.Txp.Core.Types         (TxId)
@@ -38,8 +36,8 @@ import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), addOnlyNe
                                              getHistoryCache, getPendingTx, getTxMeta,
                                              getWalletPendingTxs, setWalletTxMeta)
 import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
-                                             getWalletAccountIds, getWalletAddrsSet,
-                                             getWalletAddrs)
+                                             getWalletAccountIds, getWalletAddrs,
+                                             getWalletAddrsSet)
 
 
 getFullWalletHistory :: MonadWalletWebMode m => CId Wal -> m (Map TxId (CTx, POSIXTime), Word)

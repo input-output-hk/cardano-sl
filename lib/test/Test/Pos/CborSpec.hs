@@ -25,7 +25,6 @@ import qualified Codec.CBOR.FlatTerm               as CBOR
 import           Pos.Arbitrary.Block               ()
 import           Pos.Arbitrary.Core                ()
 import           Pos.Arbitrary.Delegation          ()
-import           Pos.Arbitrary.Explorer            ()
 import           Pos.Arbitrary.Infra               ()
 import           Pos.Arbitrary.Slotting            ()
 import           Pos.Arbitrary.Ssc.GodTossing      ()

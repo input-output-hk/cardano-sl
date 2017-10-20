@@ -101,6 +101,8 @@ servantHandlers sendActions =
     :<|>
      M.syncProgress
     :<|>
+     M.localTimeDifference
+    :<|>
      M.importWalletJSON
     :<|>
      M.exportWalletJSON
@@ -115,4 +117,3 @@ servantHandlersWithSwagger sendActions nat =
    :<|>
     -- doesn't work for arbitrary monad, so we have to 'enter' above
     swaggerSchemaUIServer swaggerSpecForWalletApi
-

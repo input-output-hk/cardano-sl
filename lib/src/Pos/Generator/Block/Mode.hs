@@ -7,6 +7,7 @@
 module Pos.Generator.Block.Mode
        ( MonadBlockGenBase
        , MonadBlockGen
+       , MonadBlockGenInit
        , BlockGenContext (..)
        , BlockGenMode
        , BlockGenRandMode
@@ -57,7 +58,7 @@ import           Pos.Generator.Block.Param        (BlockGenParams (..),
 import qualified Pos.GState                       as GS
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.KnownPeers                   (MonadFormatPeers)
-import           Pos.Lrc                          (LrcContext (..))
+import           Pos.Lrc                          (HasLrcContext, LrcContext (..))
 import           Pos.Network.Types                (HasNodeType (..), NodeType (..))
 import           Pos.Reporting                    (HasReportingContext (..),
                                                    ReportingContext,
@@ -76,11 +77,6 @@ import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Update.Context               (UpdateContext, mkUpdateContext)
 import           Pos.Util                         (HasLens (..), Some, newInitFuture,
                                                    postfixLFields)
-#ifdef WITH_EXPLORER
-import           Pos.Explorer                     (explorerTxpGlobalSettings)
-#else
-import           Pos.Txp                          (txpGlobalSettings)
-#endif
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -119,10 +115,17 @@ type MonadBlockGenBase m
 type MonadBlockGen ctx m
      = ( MonadBlockGenBase m
        , MonadReader ctx m
-       , GS.HasGStateContext ctx
-       , HasSlottingVar ctx
-       -- 'MonadRandom' for crypto.
        , Rand.MonadRandom m
+
+       , HasSlottingVar ctx
+       , HasSlogGState ctx
+       , HasLrcContext ctx
+       )
+
+-- | MonadBlockGen extended with the specific GStateContext.
+type MonadBlockGenInit ctx m
+     = ( MonadBlockGen ctx m
+       , GS.HasGStateContext ctx
        )
 
 ----------------------------------------------------------------------------
@@ -176,7 +179,7 @@ instance MonadThrow m => MonadThrow (RandT g m) where
 -- recreated.
 mkBlockGenContext
     :: forall ext ctx m.
-       ( MonadBlockGen ctx m
+       ( MonadBlockGenInit ctx m
        , HasGtConfiguration
        , HasNodeConfiguration
        , Default ext
@@ -191,11 +194,7 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
     bgcSystemStart <- view slottingTimestamp
     (initSlot, putInitSlot) <- newInitFuture "initSlot"
     let bgcSlotId = Nothing
-#ifdef WITH_EXPLORER
-    let bgcTxpGlobalSettings = explorerTxpGlobalSettings
-#else
-    let bgcTxpGlobalSettings = txpGlobalSettings
-#endif
+    let bgcTxpGlobalSettings = _bgpTxpGlobalSettings
     let bgcReportingContext = emptyReportingContext
     let bgcGenStakeholders = _bgpGenStakeholders
     let initCtx =

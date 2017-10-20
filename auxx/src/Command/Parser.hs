@@ -37,7 +37,8 @@ import           Pos.Update             (BlockVersionModifier (..), SystemTag,
                                          mkSystemTag)
 import           Pos.Util.Util          (eitherToFail)
 
-import           Command.Types          (Command (..), ProposeUpdateParams (..),
+import           Command.Types          (Command (..), GenBlocksParams (..),
+                                         ProposeUpdateParams (..),
                                          ProposeUpdateSystem (..), SendMode (..),
                                          SendToAllGenesisParams (..))
 
@@ -196,6 +197,9 @@ rollbackP = Rollback <$> num <*> filePath
 sendTxsFromFileP :: Parser Command
 sendTxsFromFileP = SendTxsFromFile <$> filePath
 
+genBlocksParams :: Parser Command
+genBlocksParams = fmap GenBlocks $ GenBlocksParams <$> num <*> optional num
+
 parseProposeUpdateSystem :: Parser ProposeUpdateSystem
 parseProposeUpdateSystem =
     ProposeUpdateSystem <$>
@@ -224,6 +228,7 @@ command = try (text "balance") *> balance <|>
           try (text "hash-installer") *> hashInstaller <|>
           try (text "delegate-light") *> delegateL <|>
           try (text "delegate-heavy") *> delegateH <|>
+          try (text "generate-blocks") *> genBlocksParams <|>
           try (text "add-key-pool") *> addKeyFromPool <|>
           try (text "add-key") *> addKeyFromFile <|>
           try (text "addr-distr") *> addrDistrP <|>

@@ -8,21 +8,20 @@ module Dump
 
 import           Universum
 
-import           Control.Lens          ((?~))
-import           Crypto.Random         (MonadRandom)
-import qualified Data.Text             as T
-import qualified Serokell.Util.Base64  as B64
-import           System.Directory      (createDirectoryIfMissing)
-import           System.FilePath       ((</>))
-import           System.Wlog           (WithLogger, logInfo)
+import           Control.Lens         ((?~))
+import           Crypto.Random        (MonadRandom)
+import qualified Data.Text            as T
+import qualified Serokell.Util.Base64 as B64
+import           System.Directory     (createDirectoryIfMissing)
+import           System.FilePath      ((</>))
+import           System.Wlog          (WithLogger, logInfo)
 
-import           Pos.Core.Genesis      (GeneratedSecrets (..), TestnetBalanceOptions (..))
-import           Pos.Crypto            (EncryptedSecretKey, SecretKey, VssKeyPair,
-                                        noPassEncrypt)
-import           Pos.Util.UserSecret   (initializeUserSecret, takeUserSecret, usKeys,
-                                        usPrimKey, usVss, usWallet,
-                                        writeUserSecretRelease)
-import           Pos.Wallet.Web.Secret (mkGenesisWalletUserSecret)
+import           Pos.Core.Genesis     (GeneratedSecrets (..), TestnetBalanceOptions (..))
+import           Pos.Crypto           (EncryptedSecretKey, SecretKey, VssKeyPair,
+                                       noPassEncrypt)
+import           Pos.Util.UserSecret  (initializeUserSecret, mkGenesisWalletUserSecret,
+                                       takeUserSecret, usKeys, usPrimKey, usVss, usWallet,
+                                       writeUserSecretRelease)
 
 
 dumpGeneratedGenesisData

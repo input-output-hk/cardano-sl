@@ -8,6 +8,7 @@ module Pos.Crypto.Signing.Types.Safe
        , emptyPassphrase
        , mkEncSecretWithSalt
        , mkEncSecret
+       , encToSecret
        , encToPublic
        , noPassEncrypt
        , checkPassMatches
@@ -25,11 +26,13 @@ import           Universum
 
 import           Pos.Binary.Class                 (Bi)
 import qualified Pos.Crypto.Scrypt                as S
-import           Pos.Crypto.Signing.Types.Signing (PublicKey (..), SecretKey (..))
+import           Pos.Crypto.Signing.Types.Signing (PublicKey (..), SecretKey (..),
+                                                   toPublic)
 
+-- | Encrypted HD secret key.
 data EncryptedSecretKey = EncryptedSecretKey
-    { eskPayload :: !CC.XPrv          -- ^ Secret key itself
-    , eskHash    :: !S.EncryptedPass  -- ^ Hash of passphrase used for key creation
+    { eskPayload :: !CC.XPrv          -- ^ Secret key itself (unencrypted).
+    , eskHash    :: !S.EncryptedPass  -- ^ Hash of passphrase used for key creation.
     }
 
 instance Show EncryptedSecretKey where
@@ -90,9 +93,13 @@ mkEncSecret
 mkEncSecret pp payload =
     EncryptedSecretKey payload <$> S.encryptPass passScryptParam pp
 
+-- | Generate a secret key from encrypted secret key.
+encToSecret :: EncryptedSecretKey -> SecretKey
+encToSecret (EncryptedSecretKey sk _) = SecretKey sk
+
 -- | Generate a public key using an encrypted secret key and passphrase
 encToPublic :: EncryptedSecretKey -> PublicKey
-encToPublic (EncryptedSecretKey sk _) = PublicKey (CC.toXPub sk)
+encToPublic = toPublic . encToSecret
 
 -- | Re-wrap unencrypted secret key as an encrypted one.
 -- NB: for testing purposes only
@@ -108,4 +115,3 @@ checkPassMatches
     => PassPhrase -> EncryptedSecretKey -> f ()
 checkPassMatches pp (EncryptedSecretKey _ pph) =
     guard (S.verifyPass passScryptParam pp pph)
-

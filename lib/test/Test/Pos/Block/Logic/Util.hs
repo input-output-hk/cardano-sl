@@ -28,6 +28,7 @@ import           Pos.Core                    (BlockCount, GenesisData (..),
 import           Pos.Generator.Block         (BlockGenParams (..), genBlocks,
                                               tgpTxCountRange)
 import           Pos.Launcher                (HasConfigurations)
+import           Pos.Txp                     (txpGlobalSettings)
 import           Pos.Util.Chrono             (NE, OldestFirst (..))
 import           Pos.Util.Util               (_neLast)
 
@@ -63,6 +64,7 @@ bpGenBlocks blkCnt (EnableTxPayload enableTxPayload) (InplaceDB inplaceDB) = do
                 , _bgpInplaceDB = inplaceDB
                 , _bgpGenStakeholders = genStakeholders
                 , _bgpSkipNoKey = False
+                , _bgpTxpGlobalSettings = txpGlobalSettings
                 }
     params <- pick $ sized genBlockGenParams
     g <- pick $ MkGen $ \qc _ -> qc

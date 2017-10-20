@@ -31,17 +31,19 @@ import           Pos.Delegation.Logic        (getDlgTransPsk)
 import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.Generator.Block.Error   (BlockGenError (..))
 import           Pos.Generator.Block.Mode    (BlockGenMode, BlockGenRandMode,
-                                              MonadBlockGen, mkBlockGenContext,
-                                              usingPrimaryKey, withCurrentSlot)
+                                              MonadBlockGen, MonadBlockGenInit,
+                                              mkBlockGenContext, usingPrimaryKey,
+                                              withCurrentSlot)
 import           Pos.Generator.Block.Param   (BlockGenParams, HasBlockGenParams (..))
 import           Pos.Generator.Block.Payload (genPayload)
 import           Pos.Lrc                     (lrcSingleShot)
 import           Pos.Lrc.Context             (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB                  as LrcDB
-import           Pos.Txp                     (MempoolExt, MonadTxpLocal)
+import           Pos.Txp                     (MempoolExt, MonadTxpLocal,
+                                              TxpGlobalSettings)
 import           Pos.Util.Chrono             (OldestFirst (..))
 import           Pos.Util.CompileInfo        (HasCompileInfo, withCompileInfo)
-import           Pos.Util.Util               (maybeThrow, _neHead)
+import           Pos.Util.Util               (HasLens', maybeThrow, _neHead)
 
 ----------------------------------------------------------------------------
 -- Block generation
@@ -49,7 +51,8 @@ import           Pos.Util.Util               (maybeThrow, _neHead)
 
 type BlockTxpGenMode g ctx m =
     ( RandomGen g
-    , MonadBlockGen ctx m
+    , MonadBlockGenInit ctx m
+    , HasLens' ctx TxpGlobalSettings
     , Default (MempoolExt m)
     , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
     )
@@ -77,7 +80,12 @@ genBlocks params = do
 -- Generate a valid 'Block' for the given epoch or slot (genesis block
 -- in the former case and main block the latter case) and apply it.
 genBlock ::
-       forall g ctx m . BlockTxpGenMode g ctx m
+       forall g ctx m.
+       ( RandomGen g
+       , MonadBlockGen ctx m
+       , Default (MempoolExt m)
+       , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
+       )
     => EpochOrSlot
     -> BlockGenRandMode (MempoolExt m) g m (Maybe Blund)
 genBlock eos = withCompileInfo def $ do

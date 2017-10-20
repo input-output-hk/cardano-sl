@@ -16,6 +16,8 @@ import           System.Wlog                (logError, logInfo)
 import qualified Text.JSON.Canonical        as CanonicalJSON
 
 import           Pos.Binary                 (serialize')
+import           Pos.Client.KeyStorage      (addSecretKey, getSecretKeysPlain)
+import           Pos.Client.Txp.Balances    (getBalance)
 import           Pos.Communication          (MsgType (..), Origin (..), SendActions,
                                              dataFlow, immediateConcurrentConversations)
 import           Pos.Core                   (addressHash, coinF)
@@ -28,10 +30,10 @@ import           Pos.Crypto                 (emptyPassphrase, encToPublic,
 import           Pos.DB.Class               (MonadGState (..))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo       (HasCompileInfo)
-import           Pos.Util.UserSecret        (readUserSecret, usKeys, usWallet, userSecret)
-import           Pos.Wallet                 (addSecretKey, getBalance, getSecretKeysPlain)
-import           Pos.Wallet.Web.Secret      (WalletUserSecret (..))
+import           Pos.Util.UserSecret        (WalletUserSecret (..), readUserSecret,
+                                             usKeys, usWallet, userSecret)
 
+import           Command.BlockGen           (generateBlocks)
 import           Command.Help               (helpMessage)
 import qualified Command.Rollback           as Rollback
 import qualified Command.Tx                 as Tx
@@ -39,6 +41,7 @@ import           Command.Types              (Command (..), PrintAction)
 import qualified Command.Update             as Update
 import           Mode                       (AuxxMode, CmdCtx (..), deriveHDAddressAuxx,
                                              getCmdCtx, makePubKeyAddressAuxx)
+
 
 runCmd
     :: ( HasConfigurations
@@ -152,6 +155,9 @@ runCmd cmd printAction sendActions = case cmd of
 
     Rollback rollbackNum rollbackDumpPath ->
         Rollback.rollbackAndDump rollbackNum rollbackDumpPath
+
+    GenBlocks params ->
+        generateBlocks params
 
     SendTxsFromFile filePath ->
         Tx.sendTxsFromFile sendActions filePath

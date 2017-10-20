@@ -2,7 +2,7 @@
 {-# LANGUAGE PolyKinds    #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module Pos.Wallet.KeyStorage
+module Pos.Client.KeyStorage
        ( MonadKeys
        , getPrimaryKey
        , getSecretKeys

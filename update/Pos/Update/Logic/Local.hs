@@ -1,4 +1,3 @@
-
 -- | Logic of local data processing in Update System.
 
 module Pos.Update.Logic.Local
@@ -39,7 +38,7 @@ import           Pos.Core                 (BlockVersionData (bvdMaxBlockSize),
 import           Pos.Crypto               (PublicKey, shortHashF)
 import           Pos.DB.Class             (MonadDBRead)
 import qualified Pos.DB.GState.Common     as DB
-import           Pos.Lrc.Context          (LrcContext)
+import           Pos.Lrc.Context          (HasLrcContext)
 import           Pos.Reporting            (MonadReporting)
 import           Pos.StateLock            (StateLock)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
@@ -65,7 +64,7 @@ type USLocalLogicMode ctx m =
     , WithLogger m
     , MonadReader ctx m
     , HasLens UpdateContext ctx UpdateContext
-    , HasLens LrcContext ctx LrcContext
+    , HasLrcContext ctx
     , HasConfiguration
     , HasUpdateConfiguration
     )
@@ -164,7 +163,7 @@ refreshMemPool
        , MonadIO m
        , MonadReader ctx m
        , HasLens UpdateContext ctx UpdateContext
-       , HasLens LrcContext ctx LrcContext
+       , HasLrcContext ctx
        , WithLogger m
        , HasConfiguration
        , HasUpdateConfiguration

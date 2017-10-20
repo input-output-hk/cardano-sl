@@ -27,7 +27,7 @@ import           Universum
 
 import           Control.Lens            (each, _Wrapped)
 import qualified Crypto.Random           as Rand
-import           Ether.Internal          (HasLens (..))
+import           Ether.Internal          (lensOf)
 import           Formatting              (sformat, (%))
 import           Mockable                (CurrentTime, Mockable)
 import           Serokell.Util.Text      (listJson)
@@ -49,7 +49,7 @@ import           Pos.Delegation.Logic    (dlgApplyBlocks, dlgNormalizeOnRollback
                                           dlgRollbackBlocks)
 import           Pos.Exception           (assertionFailed)
 import qualified Pos.GState              as GS
-import           Pos.Lrc.Context         (LrcContext)
+import           Pos.Lrc.Context         (HasLrcContext)
 import           Pos.Reporting           (MonadReporting)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage   (SscGStateClass)
@@ -64,7 +64,7 @@ import           Pos.Update.Context      (UpdateContext)
 import           Pos.Update.Core         (UpdateBlock, UpdatePayload)
 import           Pos.Update.Logic        (usApplyBlocks, usNormalize, usRollbackBlocks)
 import           Pos.Update.Poll         (PollModifier)
-import           Pos.Util                (Some (..), spanSafe)
+import           Pos.Util                (HasLens', Some (..), spanSafe)
 import           Pos.Util.Chrono         (NE, NewestFirst (..), OldestFirst (..))
 
 -- | Set of basic constraints used by high-level block processing.
@@ -78,8 +78,8 @@ type MonadBlockBase ctx m
        -- Needed by some components.
        , MonadGState m
        -- This constraints define block components' global logic.
-       , HasLens LrcContext ctx LrcContext
-       , HasLens TxpGlobalSettings ctx TxpGlobalSettings
+       , HasLrcContext ctx
+       , HasLens' ctx TxpGlobalSettings
        , SscGStateClass SscGodTossing
        , MonadDelegation ctx m
        -- 'MonadRandom' for crypto.
@@ -111,8 +111,8 @@ type MonadMempoolNormalization ctx m
       , MonadTxpLocal m
       , SscLocalDataClass SscGodTossing
       , MonadSscMem SscGodTossing ctx m
-      , HasLens LrcContext ctx LrcContext
-      , HasLens UpdateContext ctx UpdateContext
+      , HasLrcContext ctx
+      , HasLens' ctx UpdateContext
       -- Needed to load useful information from db
       , MonadBlockDB m
       , MonadSscBlockDB m

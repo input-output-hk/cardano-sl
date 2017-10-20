@@ -1297,7 +1297,7 @@ self: {
           description = "Cardano SL main implementation";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-auxx = callPackage ({ QuickCheck, acid-state, ansi-wl-pprint, async, base, base58-bytestring, binary, bytestring, canonical-json, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-godtossing, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, containers, cpphs, data-default, dlist, ether, exceptions, formatting, haskeline, lens, log-warper, mkDerivation, mmorph, monad-control, monad-loops, mtl, neat-interpolation, network-transport-tcp, node-sketch, optparse-applicative, parsec, random, resourcet, safe-exceptions, safecopy, serokell-util, stdenv, stm, stm-containers, tagged, temporary, text, time, time-units, transformers, transformers-base, transformers-lift, universum, unix, unordered-containers }:
+      cardano-sl-auxx = callPackage ({ MonadRandom, QuickCheck, acid-state, ansi-wl-pprint, async, base, base58-bytestring, binary, bytestring, canonical-json, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-godtossing, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, containers, cpphs, data-default, directory, dlist, ether, exceptions, formatting, haskeline, lens, log-warper, mkDerivation, mmorph, monad-control, monad-loops, mtl, neat-interpolation, network-transport-tcp, node-sketch, optparse-applicative, parsec, random, resourcet, safe-exceptions, safecopy, serokell-util, stdenv, stm, stm-containers, tagged, temporary, text, text-format, time, time-units, transformers, transformers-base, transformers-lift, universum, unix, unordered-containers }:
       mkDerivation {
           pname = "cardano-sl-auxx";
           version = "1.0.2";
@@ -1318,11 +1318,13 @@ self: {
             cardano-sl-db
             cardano-sl-godtossing
             cardano-sl-infra
+            cardano-sl-lrc
             cardano-sl-ssc
             cardano-sl-txp
             cardano-sl-update
             containers
             data-default
+            directory
             dlist
             ether
             exceptions
@@ -1333,6 +1335,7 @@ self: {
             mmorph
             monad-control
             monad-loops
+            MonadRandom
             mtl
             neat-interpolation
             network-transport-tcp
@@ -1350,6 +1353,7 @@ self: {
             tagged
             temporary
             text
+            text-format
             time
             time-units
             transformers
@@ -1858,7 +1862,7 @@ self: {
           description = "Cardano SL - the SSC class";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-tools = callPackage ({ Chart, Chart-diagrams, Glob, MonadRandom, QuickCheck, aeson, ansi-wl-pprint, array, async, attoparsec, base, base58-bytestring, bytestring, canonical-json, cardano-report-server, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, containers, cpphs, cryptonite, data-default, directory, ed25519, ether, fgl, filepath, foldl, formatting, graphviz, kademlia, lens, lifted-async, log-warper, mkDerivation, mtl, neat-interpolation, node-sketch, optparse-applicative, parsec, pipes, pipes-bytestring, pipes-interleave, pipes-safe, process, random, random-shuffle, safe-exceptions, serokell-util, stdenv, stm, system-filepath, tabl, tar, text, text-format, time, time-units, universum, unix, unix-compat, unordered-containers, vector, yaml }:
+      cardano-sl-tools = callPackage ({ Chart, Chart-diagrams, Glob, MonadRandom, QuickCheck, aeson, ansi-wl-pprint, array, async, attoparsec, base, base58-bytestring, bytestring, canonical-json, cardano-report-server, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-txp, containers, cpphs, cryptonite, data-default, directory, ed25519, ether, fgl, filepath, foldl, formatting, graphviz, kademlia, lens, lifted-async, log-warper, mkDerivation, mtl, neat-interpolation, node-sketch, optparse-applicative, parsec, pipes, pipes-bytestring, pipes-interleave, pipes-safe, process, random, random-shuffle, safe-exceptions, serokell-util, stdenv, stm, system-filepath, tabl, tar, text, time, time-units, universum, unix, unix-compat, unordered-containers, vector, yaml }:
       mkDerivation {
           pname = "cardano-sl-tools";
           version = "1.0.2";
@@ -1881,7 +1885,6 @@ self: {
             cardano-sl-db
             cardano-sl-infra
             cardano-sl-lrc
-            cardano-sl-ssc
             cardano-sl-txp
             Chart
             Chart-diagrams
@@ -1922,7 +1925,6 @@ self: {
             tabl
             tar
             text
-            text-format
             time
             time-units
             universum

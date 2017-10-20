@@ -47,6 +47,7 @@ Avaliable commands:
    rollback <N> <file>            -- Rollback <N> blocks (genesis or main doesn't matter) and dump transactions from
                                   -- them to <file> in binary format.
 
+   generate-blocks <N> <seed>?    -- Generate blocks. Parameters are number of blocks and seed.
    send-from-file <file>          -- Read transactions in binary format from <file> and submit them to the network.
                                   -- <file> should be in format produced by 'rollback' command.
 

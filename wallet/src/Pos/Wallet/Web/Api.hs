@@ -55,6 +55,7 @@ module Pos.Wallet.Web.Api
        , GetSlotsDuration
        , GetVersion
        , GetSyncProgress
+       , LocalTimeDifference
 
        , ImportBackupJSON
        , ExportBackupJSON
@@ -363,6 +364,12 @@ type GetSyncProgress =
     :> "progress"
     :> WRes Get SyncProgress
 
+type LocalTimeDifference =
+       "settings"
+    :> "time"
+    :> "difference"
+    :> WRes Get Word
+
 -------------------------------------------------------------------------
 -- JSON backup
 -------------------------------------------------------------------------
@@ -474,6 +481,8 @@ type WalletApi = ApiPrefix :> (
      GetVersion
     :<|>
      GetSyncProgress
+    :<|>
+     LocalTimeDifference
     :<|>
      -------------------------------------------------------------------------
      -- JSON backup

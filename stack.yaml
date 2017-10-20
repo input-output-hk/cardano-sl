@@ -15,7 +15,6 @@ packages:
 - lrc
 - auxx
 - ssc
-- godtossing
 - txp
 - node
 - tools
@@ -135,7 +134,6 @@ ghc-options:
   cardano-sl-infra:      -Werror
   cardano-sl-lrc:        -Werror
   cardano-sl-update:     -Werror
-  cardano-sl-godtossing: -Werror
   cardano-sl-txp:        -Werror
   cardano-sl:            -Werror
   cardano-sl-tools:      -Werror

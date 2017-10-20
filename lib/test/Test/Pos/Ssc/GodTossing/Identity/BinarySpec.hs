@@ -36,8 +36,8 @@ spec = withDefInfraConfiguration $ withDefConfiguration $
         binaryTest @GT.GtTag
         binaryTest @GT.TossModifier
         binaryTest @GT.VssCertData
-        binaryTest @GT.GtGlobalState
-        binaryTest @GT.GtSecretStorage
+        binaryTest @GT.SscGlobalState
+        binaryTest @GT.SscSecretStorage
     describe "Message length limit" $ do
         msgLenLimitedTest @GT.Opening
         msgLenLimitedTest @(R.InvMsg (Tagged GT.MCCommitment StakeholderId))

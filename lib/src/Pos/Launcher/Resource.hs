@@ -65,8 +65,8 @@ import           Pos.Network.Types                (NetworkConfig (..), Topology 
 import           Pos.Shutdown.Types               (ShutdownContext (..))
 import           Pos.Slotting                     (SlottingContextSum (..), SlottingData,
                                                    mkNtpSlottingVar, mkSimpleSlottingVar)
-import           Pos.Ssc.Class                    (SscParams,
-                                                   sscCreateNodeContext)
+import           Pos.Ssc.Types                    (SscParams,
+                                                   createSscContext)
 import           Pos.Ssc.Extra                    (SscState, mkSscState)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.StateLock                    (newStateLock)
@@ -292,7 +292,7 @@ allocateNodeContext ancd txpSettings = do
     ncStartTime <- StartTime <$> liftIO Time.getCurrentTime
     ncLastKnownHeader <- newTVarIO Nothing
     ncUpdateContext <- mkUpdateContext
-    ncSscContext <- sscCreateNodeContext sscnp
+    ncSscContext <- createSscContext sscnp
     ncSlogContext <- mkSlogContext store
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.

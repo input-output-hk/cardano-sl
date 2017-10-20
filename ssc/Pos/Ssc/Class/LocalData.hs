@@ -19,6 +19,7 @@ import           Pos.Lrc.Types       (RichmenStakes)
 import           Pos.Slotting.Class  (MonadSlots)
 import           Pos.Ssc.Class.Types (Ssc (..))
 import           Pos.Ssc.Core.Types  (SscPayload)
+import           Pos.Ssc.Types       (SscGlobalState, SscLocalData)
 
 ----------------------------------------------------------------------------
 -- Modern

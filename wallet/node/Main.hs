@@ -27,7 +27,7 @@ import           Pos.Launcher         (ConfigurationOptions (..), HasConfigurati
                                        NodeParams (..), NodeResources (..),
                                        bracketNodeResources, loggerBracket, runNode,
                                        withConfigurations)
-import           Pos.Ssc.Class        (SscParams)
+import           Pos.Ssc.Types        (SscParams)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Txp              (txpGlobalSettings)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,

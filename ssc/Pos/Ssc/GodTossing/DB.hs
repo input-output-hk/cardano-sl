@@ -1,7 +1,7 @@
--- | DB operations for storing and dumping GtGlobalState.
+-- | DB operations for storing and dumping SscGlobalState.
 
 module Pos.Ssc.GodTossing.DB
-       ( getGtGlobalState
+       ( getSscGlobalState
        , gtGlobalStateToBatch
        , initGtDB
        ) where
@@ -19,20 +19,20 @@ import           Pos.DB                         (MonadDB, MonadDBRead, RocksBatc
 import           Pos.DB.Error                   (DBError (DBMalformed))
 import           Pos.DB.Functions               (dbSerializeValue)
 import           Pos.DB.GState.Common           (gsGetBi, gsPutBi)
-import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..))
+import           Pos.Ssc.Types                  (SscGlobalState (..))
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Util.Util                  (maybeThrow)
 
-getGtGlobalState :: (MonadDBRead m) => m GtGlobalState
-getGtGlobalState =
+getSscGlobalState :: (MonadDBRead m) => m SscGlobalState
+getSscGlobalState =
     maybeThrow (DBMalformed "GodTossing global state DB is not initialized") =<<
     gsGetBi gtKey
 
-gtGlobalStateToBatch :: GtGlobalState -> GtOp
+gtGlobalStateToBatch :: SscGlobalState -> GtOp
 gtGlobalStateToBatch = PutGlobalState
 
 initGtDB :: (HasConfiguration, MonadDB m) => m ()
-initGtDB = gsPutBi gtKey (def {_gsVssCertificates = vcd})
+initGtDB = gsPutBi gtKey (def {_sgsVssCertificates = vcd})
   where
     vcd = VCD.fromList . toList $ genesisVssCerts
 
@@ -41,7 +41,7 @@ initGtDB = gsPutBi gtKey (def {_gsVssCertificates = vcd})
 ----------------------------------------------------------------------------
 
 data GtOp
-    = PutGlobalState !GtGlobalState
+    = PutGlobalState !SscGlobalState
 
 instance Buildable GtOp where
     build (PutGlobalState gs) = bprint ("GtOp ("%build%")") gs

@@ -20,7 +20,7 @@ import           Pos.Crypto               (DecShare, EncShare, VssKeyPair, VssPu
 import           Pos.Ssc.Class.Storage    (SscGlobalQuery)
 import           Pos.Ssc.Extra            (MonadSscMem, sscRunGlobalQuery)
 import           Pos.Ssc.Core             (Commitment (..), getCommitmentsMap)
-import           Pos.Ssc.GodTossing.Types (gsCommitments, gsOpenings)
+import           Pos.Ssc.Types            (sgsCommitments, sgsOpenings)
 import           Pos.Ssc.GodTossing.Instance ()
 
 type GSQuery a = SscGlobalQuery a
@@ -51,8 +51,8 @@ decryptOurShares
     :: AsBinary VssPublicKey                           -- ^ Our VSS key
     -> GSQuery (HashMap StakeholderId (NonEmpty (AsBinary EncShare)))
 decryptOurShares ourPK = do
-    comms <- getCommitmentsMap <$> view gsCommitments
-    opens <- view gsOpenings
+    comms <- getCommitmentsMap <$> view sgsCommitments
+    opens <- view sgsOpenings
     return . HM.fromList . catMaybes $ checkOpen opens <$> toList comms
   where
     checkOpen opens (addressHash -> theirId, Commitment {..}, _)

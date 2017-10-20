@@ -31,14 +31,14 @@ import           Pos.Lrc.Types         (RichmenStakes)
 import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadSignedCommitment (..),
                                         Commitment, CommitmentOpening (..),
                                         CommitmentSignature, CommitmentsMap (..),
-                                        GtGlobalState (..), InnerSharesMap,
+                                        SscGlobalState (..), InnerSharesMap,
                                         MultiRichmenStakes, Opening, OpeningsMap,
                                         PureTossWithEnv, SharesMap, SignedCommitment,
                                         TossVerFailure (..), VssCertData (..),
                                         checkCertificatesPayload, checkCommitmentsPayload,
                                         checkOpeningsPayload, checkSharesPayload,
-                                        deleteSignedCommitment, gsCommitments, gsOpenings,
-                                        gsShares, gsVssCertificates,
+                                        deleteSignedCommitment, sgsCommitments, sgsOpenings,
+                                        sgsShares, sgsVssCertificates,
                                         mkCommitmentsMapUnsafe, runPureToss,
                                         supplyPureTossEnv, verifyCommitment,
                                         verifyCommitmentSignature, verifyOpening)
@@ -133,7 +133,7 @@ emptyPayload
     :: (HasConfiguration, Monoid container, Show e)
     => (container -> ExceptT e PureTossWithEnv a)
     -> MultiRichmenStakes
-    -> GtGlobalState
+    -> SscGlobalState
     -> Property
 emptyPayload pureToss mrs gtgs =
     qcIsRight $ tossRunner mrs gtgs $ pureToss mempty
@@ -141,7 +141,7 @@ emptyPayload pureToss mrs gtgs =
 emptyPayloadComms
     :: HasConfiguration
     => GoodCommsPayload
-    -> GtGlobalState
+    -> SscGlobalState
     -> Property
     -- The 'checkCommitmentsPayload' function will never pass without a valid
     -- multirichmen hashmap, meaning we can't use entirely arbitrary data.
@@ -155,7 +155,7 @@ emptyPayloadComms GoodPayload {..} =
 
 data GoodPayload p = GoodPayload
     { gpEpoch              :: !EpochIndex
-    , gpGlobalState        :: !GtGlobalState
+    , gpGlobalState        :: !SscGlobalState
     , gpPayload            :: p
     , gpMultiRichmenStakes :: !MultiRichmenStakes
     } deriving (Show, Eq)
@@ -165,8 +165,8 @@ type GoodCommsPayload = GoodPayload CommitmentsMap
 instance HasConfiguration => Arbitrary GoodCommsPayload where
     arbitrary = do
         -- These fields won't be needed for anything, so they can be entirely arbitrary.
-        _gsOpenings <- arbitrary
-        _gsShares <- arbitrary
+        _sgsOpenings <- arbitrary
+        _sgsShares <- arbitrary
 
         -- The epoch used in the tests is generated separately to make sure it exists.
         (gpEpoch, m) <- arbitrary :: Gen (EpochIndex, MultiRichmenStakes)
@@ -189,7 +189,7 @@ instance HasConfiguration => Arbitrary GoodCommsPayload where
         -- 'checkCommitmentsPayload' is called with the same epoch as the 'lastKnownEoS'
         -- in 'gsVssCertificate'.
         -- This is because rolling back slots is and should be tested elsewhere.
-        _gsVssCertificates <- VssCertData
+        _sgsVssCertificates <- VssCertData
             <$> (pure . EpochOrSlot . Right . crucialSlot $ gpEpoch)
             <*> pure stableCerts
             <*> arbitrary
@@ -199,10 +199,10 @@ instance HasConfiguration => Arbitrary GoodCommsPayload where
 
         gpPayload <- mkCommitmentsMapUnsafe . HM.fromList <$>
                 mapM (\k -> (,) <$> pure k <*> arbitrary) richmenWithComms
-        _gsCommitments <- mkCommitmentsMapUnsafe <$> customHashMapGen
+        _sgsCommitments <- mkCommitmentsMapUnsafe <$> customHashMapGen
             (arbitrary `suchThat` (not . flip elem richmenWithComms))
             arbitrary
-        let gpGlobalState = GtGlobalState {..}
+        let gpGlobalState = SscGlobalState {..}
 
         return GoodPayload {..}
 
@@ -223,7 +223,7 @@ checksBadCommsPayload
     -> Int
     -> Property
 checksBadCommsPayload
-    (GoodPayload epoch gtgs@GtGlobalState {..} commsMap mrs)
+    (GoodPayload epoch gtgs@SscGlobalState {..} commsMap mrs)
     sid
     comm
     seed =
@@ -256,31 +256,31 @@ checksBadCommsPayload
                 randomIndex = fst $ randomR (0, length holders - 1) $ mkStdGen seed
                 res = holders ^? ix randomIndex
 
-        gtgs' = gtgs & gsCommitments %~ wrapCMap (HM.insert someRichman comm)
+        gtgs' = gtgs & sgsCommitments %~ wrapCMap (HM.insert someRichman comm)
         commitmentAlreadySent =
             tossRunner mrs gtgs' $ checkCommitmentsPayload epoch commsMap
         res3 = case commitmentAlreadySent of
             Left (CommitmentAlreadySent (s :| [])) -> s == someRichman
             _                                      -> False
 
-    in not (commMember sid _gsCommitments) &&
+    in not (commMember sid _sgsCommitments) &&
        not (commMember sid commsMap) &&
-       not (null _gsCommitments) &&
+       not (null _sgsCommitments) &&
        not (null commsMap) ==> res1  && res2 && res3
 
 newtype GoodOpeningPayload = GoodOpens
-    { getGoodOpens :: (GtGlobalState, OpeningsMap)
+    { getGoodOpens :: (SscGlobalState, OpeningsMap)
     } deriving (Show, Eq)
 
 instance HasConfiguration => Arbitrary GoodOpeningPayload where
     arbitrary = GoodOpens <$> do
 
       -- These fields won't be used, so they can be entirely arbitrary
-        _gsShares <- arbitrary :: Gen SharesMap
-        _gsVssCertificates <- arbitrary :: Gen VssCertData
+        _sgsShares <- arbitrary :: Gen SharesMap
+        _sgsVssCertificates <- arbitrary :: Gen VssCertData
 
         -- Because 'Opening's and 'Commitment's in the openings payload map and
-        -- '_gsCommitments' resp. will need to be matched succesfully by
+        -- '_sgsCommitments' resp. will need to be matched succesfully by
         -- 'checkOpeningsPayload', they must be generated in tandem, along with their
         -- respective keys in both maps and the dummy 'CommitmentSignature' to be used in
         -- the commitments map.
@@ -289,13 +289,13 @@ instance HasConfiguration => Arbitrary GoodOpeningPayload where
         let fun (s, (pk, p, cs)) = (s, ((pk, coCommitment p, cs), coOpening p))
 
             -- The stakeholders in this assoc list are paired with a tuple, the first
-            -- component of which will be their value in '_gsCommitments' and the second
-            -- the value in '_gsOpenings'.
+            -- component of which will be their value in '_sgsCommitments' and the second
+            -- the value in '_sgsOpenings'.
             stakeHoldersAndCOs
                 :: [(StakeholderId,
                     ((PublicKey, Commitment, CommitmentSignature), Opening))]
             stakeHoldersAndCOs = map fun commsAndOpens
-            _gsCommitments =
+            _sgsCommitments =
                 mkCommitmentsMapUnsafe .
                 -- over _2 (view _1) (a,(b,c)) = (a,b)
                 HM.fromList $ fmap (over _2 $ view _1) stakeHoldersAndCOs
@@ -303,14 +303,14 @@ instance HasConfiguration => Arbitrary GoodOpeningPayload where
 
         -- For the test data to be correct, none of the stakeholders with an opening in
         -- openings payload can have an opening in the global state i.e. be a key in
-        -- '_gsOpenings'.
-        _gsOpenings <- customHashMapGen
+        -- '_sgsOpenings'.
+        _sgsOpenings <- customHashMapGen
             (arbitrary `suchThat` (not . flip elem (map fst openingPldList)))
             (arbitrary :: Gen Opening)
         -- over _2 (view _2) (a,(b,c)) = (a,c)
         let opensPayload = HM.fromList $ fmap (over _2 $ view _2) openingPldList
 
-        return (GtGlobalState {..}, opensPayload)
+        return (SscGlobalState {..}, opensPayload)
 
 checksGoodOpeningsPayload
     :: HasConfiguration
@@ -331,11 +331,11 @@ checksBadOpeningsPayload
     op
     sig@(_, comm, _)
     mrs
-    (getGoodOpens -> (gtgs@GtGlobalState {..}, openPayload)) =
+    (getGoodOpens -> (gtgs@SscGlobalState {..}, openPayload)) =
     let newOpenPayload = HM.insert sid op openPayload
 
         openingAlreadySent =
-            tossRunner mrs (gtgs & gsOpenings %~ HM.insert sid op) $
+            tossRunner mrs (gtgs & sgsOpenings %~ HM.insert sid op) $
             checkOpeningsPayload newOpenPayload
         res1 = case openingAlreadySent of
             Left (OpeningAlreadySent _) -> True
@@ -350,13 +350,13 @@ checksBadOpeningsPayload
         alterCommitsMap = mkCommitmentsMapUnsafe . HM.insert sid sig . getCommitmentsMap
         payloadWithBadOpening = HM.insert sid op openPayload
         openingNotMatchComm =
-            tossRunner mrs (gtgs & gsCommitments %~ alterCommitsMap) $
+            tossRunner mrs (gtgs & sgsCommitments %~ alterCommitsMap) $
             checkOpeningsPayload payloadWithBadOpening
         res3 = case openingNotMatchComm of
             Left (OpeningNotMatchCommitment _) -> True
             _                                  -> False
 
-    in (not (HM.member sid _gsOpenings) &&
+    in (not (HM.member sid _sgsOpenings) &&
         not (verifyOpening comm op)) ==> res1 && res2 && res3
 
 type GoodSharesPayload = GoodPayload SharesMap
@@ -364,7 +364,7 @@ type GoodSharesPayload = GoodPayload SharesMap
 instance HasConfiguration => Arbitrary GoodSharesPayload where
     arbitrary = do
         -- These openings won't be needed for anything, so they can be entirely arbitrary.
-        _gsOpenings <- arbitrary
+        _sgsOpenings <- arbitrary
 
         -- The richmen for the epoch used in the tests is generated separately to make
         -- sure it exists.
@@ -373,7 +373,7 @@ instance HasConfiguration => Arbitrary GoodSharesPayload where
         let richmenIds = HM.keys richmen
             gpMultiRichmenStakes = HM.insert gpEpoch richmen m
         -- This is the list of richmen which will be used to make keys for the stable
-        -- 'VssCertificates' that will be in the 'certs' field of '_gsVssCertificates'.
+        -- 'VssCertificates' that will be in the 'certs' field of '_sgsVssCertificates'.
         richmenWithCerts <- sublistOf richmenIds
         -- These richmen will be used to make keys for the shares that will be in the
         -- 'SharesMap' which will be used as the second argument of 'checkSharesPayload'
@@ -388,7 +388,7 @@ instance HasConfiguration => Arbitrary GoodSharesPayload where
         -- Like with 'GoodCommsPayload', only the simplest case is considered w.r.t. the
         -- 'lastKnownEoS' field: 'checkSharesPayload' is called with the same epoch as the
         -- 'lastKnownEoS' in 'gsVssCertificate'.
-        _gsVssCertificates <- VssCertData
+        _sgsVssCertificates <- VssCertData
             <$> (pure . EpochOrSlot . Right . crucialSlot $ gpEpoch)
             <*> pure stableCerts
             <*> arbitrary
@@ -399,20 +399,20 @@ instance HasConfiguration => Arbitrary GoodSharesPayload where
         innerMaps <- (vector n) :: Gen [InnerSharesMap]
         let gpPayload = HM.fromList $ zip richmenWithShares innerMaps
             -- Every key from every inner shares map must have a commitment in the global
-            -- state i.e. be a key in '_gsCommitments'.
+            -- state i.e. be a key in '_sgsCommitments'.
             necessaryKeys = concatMap HM.keys innerMaps
 
-        _gsCommitments <- mkCommitmentsMapUnsafe <$> do
+        _sgsCommitments <- mkCommitmentsMapUnsafe <$> do
             necessaryMap <- HM.fromList <$>
                 mapM (\k -> (,) <$> pure k <*> arbitrary) necessaryKeys
             fillerMap <- arbitrary :: Gen (HashMap StakeholderId SignedCommitment)
             return $ HM.union necessaryMap fillerMap
         -- The keys in the shares map with which 'checkSharesPayload' is ran must not
-        -- exist in '_gsShares' for the global data to be correct.
-        _gsShares <-
+        -- exist in '_sgsShares' for the global data to be correct.
+        _sgsShares <-
             customHashMapGen (arbitrary `suchThat` (not . flip elem richmenWithShares))
                              arbitrary
-        let gpGlobalState = GtGlobalState {..}
+        let gpGlobalState = SscGlobalState {..}
 
         return GoodPayload {..}
 
@@ -436,15 +436,15 @@ checksBadSharesPayload
     -> NonEmpty (AsBinary DecShare)
     -> VssCertificate
     -> Property
-checksBadSharesPayload (GoodPayload epoch g@GtGlobalState {..} sm mrs) pk ne cert =
+checksBadSharesPayload (GoodPayload epoch g@SscGlobalState {..} sm mrs) pk ne cert =
     let sid = addressHash pk
 
         -- This property assumes the existence of a stakeholder not present in neither the
         -- commitments nor shares map. Instead of writing a new 'Arbitrary' type which
         -- will only be useful here, this condition is just enforced by deleting it from
         -- where it shouldn't be.
-        gtgs = g & gsShares %~ HM.delete sid
-                 & gsCommitments %~ deleteSignedCommitment sid
+        gtgs = g & sgsShares %~ HM.delete sid
+                 & sgsCommitments %~ deleteSignedCommitment sid
         sharesMap = fmap (HM.delete sid) . HM.delete sid $ sm
 
         mrsWithMissingEpoch = HM.delete epoch mrs
@@ -472,8 +472,8 @@ checksBadSharesPayload (GoodPayload epoch g@GtGlobalState {..} sm mrs) pk ne cer
         -- it gets incremented internally and overflows
         cert' = cert { vcSigningKey = pk, vcExpiryEpoch = pred maxBound }
         newestSharesMap = HM.insert sid mempty sharesMap
-        gtgs' = gtgs & gsShares %~ HM.insert sid mempty
-                     & gsVssCertificates %~ \vcd@VssCertData{..} ->
+        gtgs' = gtgs & sgsShares %~ HM.insert sid mempty
+                     & sgsVssCertificates %~ \vcd@VssCertData{..} ->
                            vcd { certs = fst $ insertVss cert' certs}
         mrs' = HM.update (Just . HM.insert sid (mkCoin 0)) epoch mrs
         sharesAlreadySent =
@@ -484,7 +484,7 @@ checksBadSharesPayload (GoodPayload epoch g@GtGlobalState {..} sm mrs) pk ne cer
                           " to be a Left (SharesAlreadySent ...)"
 
         allCerts = toList . getVssCertificatesMap $
-                   certs (gtgs ^. gsVssCertificates)
+                   certs (gtgs ^. sgsVssCertificates)
 
     in not (null sharesMap) &&
        not (vcVssKey cert `elem` map vcVssKey allCerts) &&
@@ -496,11 +496,11 @@ type GoodCertsPayload = GoodPayload VssCertificatesMap
 instance HasConfiguration => Arbitrary GoodCertsPayload where
     arbitrary = do
 
-        -- These fields of 'GtGlobalState' are irrelevant for the
+        -- These fields of 'SscGlobalState' are irrelevant for the
         -- 'checkCertificatesPayload' function.
-        _gsShares <- arbitrary
-        _gsOpenings <- arbitrary
-        _gsCommitments <- arbitrary
+        _sgsShares <- arbitrary
+        _sgsOpenings <- arbitrary
+        _sgsCommitments <- arbitrary
 
         -- We'll need an 'EpochIndex' to run 'checkCertificatesPayload'. This epoch index
         -- will also need an accompanying 'RichmenStakes', but because we'll need the
@@ -552,13 +552,13 @@ instance HasConfiguration => Arbitrary GoodCertsPayload where
         -- stakeholders don't match the certificates
         let payloadVssKeys = HS.fromList $ map vcVssKey $
                 toList (getVssCertificatesMap gpPayload)
-        _gsVssCertificates <- do
+        _sgsVssCertificates <- do
             certs <- UnsafeVssCertificatesMap <$> customHashMapGen
                 (arbitrary `suchThat` (not . flip HM.member richmen))
                 (arbitrary `suchThat` (not . flip HS.member payloadVssKeys . vcVssKey))
             vssData <- arbitrary
             return $ vssData {certs = certs}
-        let gpGlobalState = GtGlobalState {..}
+        let gpGlobalState = SscGlobalState {..}
 
         return GoodPayload {..}
 
@@ -580,7 +580,7 @@ checksBadCertsPayload (GoodPayload epoch gtgs certsMap mrs) pk cert =
         -- it gets incremented internally and overflows
         cert' = cert { vcSigningKey = pk, vcExpiryEpoch = pred maxBound }
         (certsMap2, _) = insertVss cert' certsMap
-        newGtgs = gtgs & gsVssCertificates %~
+        newGtgs = gtgs & sgsVssCertificates %~
             \vcd -> vcd { certs = fst $ insertVss cert' (certs vcd) }
         certAlreadySent =
             tossRunner mrs newGtgs $ checkCertificatesPayload epoch certsMap2
@@ -601,7 +601,7 @@ checksBadCertsPayload (GoodPayload epoch gtgs certsMap mrs) pk cert =
         -- We take the VSS key of some cert from 'gtgs' and replace a key of
         -- some cert in 'certsMap' with it
         res4 = fromMaybe (property True) $ do
-            c1 <- head (certs (gtgs ^. gsVssCertificates))
+            c1 <- head (certs (gtgs ^. sgsVssCertificates))
             let c1id = addressHash . vcSigningKey $ c1
             c2id <- head (HM.keys (getVssCertificatesMap certsMap))
             let certsMap4 = certsMap
@@ -628,7 +628,7 @@ checksBadCertsPayload (GoodPayload epoch gtgs certsMap mrs) pk cert =
 -- everything is annoying
 tossRunner :: HasConfiguration
            => MultiRichmenStakes
-           -> GtGlobalState
+           -> SscGlobalState
            -> ExceptT e PureTossWithEnv a
            -> Either e a
 tossRunner mrs gtgs =

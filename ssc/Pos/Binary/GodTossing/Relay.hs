@@ -7,7 +7,7 @@ import           Universum
 import           Pos.Binary.Class              (Bi (..), enforceSize, encodeListLen)
 import           Pos.Core.Configuration        (HasConfiguration)
 import           Pos.Communication.Types.Relay (DataMsg (..))
-import qualified Pos.Ssc.GodTossing.Types      as T
+import qualified Pos.Ssc.GodTossing.Types.Message as T
 
 instance Bi (DataMsg T.MCCommitment) where
   encode (DataMsg (T.MCCommitment signedComm)) = encode signedComm

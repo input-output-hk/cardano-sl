@@ -28,8 +28,8 @@ import           Pos.Ssc.Core                   (deleteSignedCommitment,
                                                  insertSignedCommitment)
 import           Pos.Ssc.GodTossing.Toss.Class  (MonadToss (..), MonadTossEnv (..),
                                                  MonadTossRead (..))
-import           Pos.Ssc.GodTossing.Types       (GtGlobalState, gsCommitments, gsOpenings,
-                                                 gsShares, gsVssCertificates)
+import           Pos.Ssc.Types                  (SscGlobalState, sgsCommitments, sgsOpenings,
+                                                 sgsShares, sgsVssCertificates)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 
 type MultiRichmenStakes = HashMap EpochIndex RichmenStakes
@@ -39,7 +39,7 @@ type MultiRichmenSet   = HashMap EpochIndex RichmenSet
 -- require randomness even though they are deterministic. Note that running
 -- them with the same seed every time is insecure and must not be done.
 newtype PureToss a = PureToss
-    { getPureToss :: StateT GtGlobalState (
+    { getPureToss :: StateT SscGlobalState (
                      NamedPureLogger (
                      Rand.MonadPseudoRandom Rand.ChaChaDRG)) a
     } deriving (Functor, Applicative, Monad,
@@ -55,14 +55,14 @@ deriving instance (HasProtocolConstants, HasGenesisData) => MonadTossRead PureTo
 deriving instance (HasProtocolConstants, HasGenesisData) => MonadToss PureTossWithEnv
 
 instance (HasGenesisData, HasProtocolConstants) => MonadTossRead PureToss where
-    getCommitments = PureToss $ use gsCommitments
-    getOpenings = PureToss $ use gsOpenings
-    getShares = PureToss $ use gsShares
-    getVssCertificates = PureToss $ uses gsVssCertificates VCD.certs
+    getCommitments = PureToss $ use sgsCommitments
+    getOpenings = PureToss $ use sgsOpenings
+    getShares = PureToss $ use sgsShares
+    getVssCertificates = PureToss $ uses sgsVssCertificates VCD.certs
     getStableCertificates epoch
         | epoch == 0 = pure $ genesisVssCerts
         | otherwise = PureToss $
-            uses gsVssCertificates $
+            uses sgsVssCertificates $
                 VCD.certs . VCD.setLastKnownSlot (crucialSlot epoch)
 
 instance MonadTossEnv PureTossWithEnv where
@@ -71,26 +71,26 @@ instance MonadTossEnv PureTossWithEnv where
 
 instance (HasProtocolConstants, HasGenesisData) => MonadToss PureToss where
     putCommitment signedComm =
-        PureToss $ gsCommitments %= insertSignedCommitment signedComm
-    putOpening id op = PureToss $ gsOpenings . at id .= Just op
-    putShares id sh = PureToss $ gsShares . at id .= Just sh
+        PureToss $ sgsCommitments %= insertSignedCommitment signedComm
+    putOpening id op = PureToss $ sgsOpenings . at id .= Just op
+    putShares id sh = PureToss $ sgsShares . at id .= Just sh
     putCertificate cert =
-        PureToss $ gsVssCertificates %= VCD.insert cert
+        PureToss $ sgsVssCertificates %= VCD.insert cert
     delCommitment id =
-        PureToss $ gsCommitments %= deleteSignedCommitment id
-    delOpening id = PureToss $ gsOpenings . at id .= Nothing
-    delShares id = PureToss $ gsShares . at id .= Nothing
+        PureToss $ sgsCommitments %= deleteSignedCommitment id
+    delOpening id = PureToss $ sgsOpenings . at id .= Nothing
+    delShares id = PureToss $ sgsShares . at id .= Nothing
     resetCO = PureToss $ do
-        gsCommitments .= mempty
-        gsOpenings .= mempty
-    resetShares = PureToss $ gsShares .= mempty
-    setEpochOrSlot eos = PureToss $ gsVssCertificates %= VCD.setLastKnownEoS eos
+        sgsCommitments .= mempty
+        sgsOpenings .= mempty
+    resetShares = PureToss $ sgsShares .= mempty
+    setEpochOrSlot eos = PureToss $ sgsVssCertificates %= VCD.setLastKnownEoS eos
 
 runPureToss
     :: Rand.MonadRandom m
-    => GtGlobalState
+    => SscGlobalState
     -> PureToss a
-    -> m (a, GtGlobalState, [LogEvent])
+    -> m (a, SscGlobalState, [LogEvent])
 runPureToss gs (PureToss act) = do
     seed <- Rand.drgNew
     let ((res, newGS), events) =
@@ -101,25 +101,25 @@ runPureToss gs (PureToss act) = do
 
 runPureTossWithLogger
     :: (WithLogger m, Rand.MonadRandom m)
-    => GtGlobalState
+    => SscGlobalState
     -> PureToss a
-    -> m (a, GtGlobalState)
+    -> m (a, SscGlobalState)
 runPureTossWithLogger gs act = do
     (res, newGS, events) <- runPureToss gs act
     (res, newGS) <$ dispatchEvents events
 
 evalPureTossWithLogger
     :: (WithLogger m, Rand.MonadRandom m)
-    => GtGlobalState
+    => SscGlobalState
     -> PureToss a
     -> m a
 evalPureTossWithLogger g = fmap fst . runPureTossWithLogger g
 
 execPureTossWithLogger
     :: (WithLogger m, Rand.MonadRandom m)
-    => GtGlobalState
+    => SscGlobalState
     -> PureToss a
-    -> m GtGlobalState
+    -> m SscGlobalState
 execPureTossWithLogger g = fmap snd . runPureTossWithLogger g
 
 supplyPureTossEnv

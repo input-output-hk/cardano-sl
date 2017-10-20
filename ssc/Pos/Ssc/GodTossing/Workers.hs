@@ -63,8 +63,7 @@ import           Pos.Reporting                         (reportMisbehaviour)
 import           Pos.Slotting                          (getCurrentSlot,
                                                         getSlotStartEmpatically,
                                                         onNewSlot)
-import           Pos.Ssc.Class                         (HasSscContext (..),
-                                                        SscWorkersClass (..))
+import           Pos.Ssc.Class                         (SscWorkersClass (..))
 import           Pos.Ssc.GodTossing.Behavior           (GtBehavior (..),
                                                         GtOpeningParams (..),
                                                         GtSharesParams (..))
@@ -91,8 +90,9 @@ import qualified Pos.Ssc.GodTossing.SecretStorage      as SS
 import           Pos.Ssc.GodTossing.Shares             (getOurShares)
 import           Pos.Ssc.GodTossing.Toss               (computeParticipants,
                                                         computeSharesDistrPure)
-import           Pos.Ssc.GodTossing.Types              (gsCommitments, gtcBehavior,
-                                                        gtcParticipateSsc, gtcVssKeyPair)
+import           Pos.Ssc.Types                         (HasSscContext (..),
+                                                        sgsCommitments, scBehavior,
+                                                        scParticipateSsc, scVssKeyPair)
 import           Pos.Ssc.GodTossing.Types.Message      (GtTag (..), MCCommitment (..),
                                                         MCOpening (..), MCShares (..),
                                                         MCVssCertificate (..))
@@ -115,7 +115,7 @@ shouldParticipate epoch = do
         "couldn't get SSC richmen"
         getRichmenSsc
     participationEnabled <- view sscContext >>=
-        atomically . readTVar . gtcParticipateSsc
+        atomically . readTVar . scParticipateSsc
     ourId <- getOurStakeholderId
     let enoughStake = ourId `HM.member` richmen
     when (participationEnabled && not enoughStake) $
@@ -132,7 +132,7 @@ onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions ->
         localOnNewSlot slotId
         whenM (shouldParticipate $ siEpoch slotId) $ do
             behavior <- view sscContext >>=
-                atomically . readTVar . gtcBehavior
+                atomically . readTVar . scBehavior
             checkNSendOurCert sendActions
             onNewSlotCommitment slotId sendActions
             onNewSlotOpening (gbSendOpening behavior) slotId sendActions
@@ -200,7 +200,7 @@ checkNSendOurCert sendActions = do
                 return $ createOurCert slot
 
 getOurVssKeyPair :: SscMode ctx m => m VssKeyPair
-getOurVssKeyPair = views sscContext gtcVssKeyPair
+getOurVssKeyPair = views sscContext scVssKeyPair
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
@@ -249,7 +249,7 @@ onNewSlotOpening params SlotId {..} sendActions
         ourId <- getOurStakeholderId
         globalData <- gtGetGlobalState
         unless (hasOpening ourId globalData) $
-            case globalData ^. gsCommitments . to getCommitmentsMap . at ourId of
+            case globalData ^. sgsCommitments . to getCommitmentsMap . at ourId of
                 Nothing -> logDebugS noCommMsg
                 Just _  -> SS.getOurOpening siEpoch >>= \case
                     Nothing   -> logWarningS noOpenMsg
@@ -281,7 +281,7 @@ onNewSlotShares params SlotId {..} sendActions = do
         sharesInBlockchain <- hasShares ourId <$> gtGetGlobalState
         return $ isSharesIdx siSlot && not sharesInBlockchain
     when shouldSendShares $ do
-        ourVss <- views sscContext gtcVssKeyPair
+        ourVss <- views sscContext scVssKeyPair
         sendShares ourId =<< getOurShares ourVss
   where
     sendShares ourId shares = do
@@ -463,7 +463,7 @@ checkForIgnoredCommitmentsWorkerImpl counter SlotId {..}
         whenM (shouldParticipate siEpoch) $ do
             ourId <- getOurStakeholderId
             globalCommitments <-
-                getCommitmentsMap . view gsCommitments <$> gtGetGlobalState
+                getCommitmentsMap . view sgsCommitments <$> gtGetGlobalState
             case globalCommitments ^. at ourId of
                 Nothing -> do
                     -- `modifyTVar'` returns (), hence not used

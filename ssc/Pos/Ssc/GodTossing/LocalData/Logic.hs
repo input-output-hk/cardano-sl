@@ -1,6 +1,6 @@
 {-# LANGUAGE Rank2Types #-}
 
--- | This module defines methods which operate on GtLocalData.
+-- | This module defines methods which operate on SscLocalData.
 
 module Pos.Ssc.GodTossing.LocalData.Logic
        (
@@ -48,8 +48,6 @@ import           Pos.Ssc.Core                       (SscPayload (..), InnerShare
                                                      Opening, SignedCommitment,
                                                      isCommitmentIdx, isOpeningIdx,
                                                      isSharesIdx, mkCommitmentsMap)
-import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData (..), ldEpoch,
-                                                     ldModifier, ldSize)
 import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossT,
                                                      TossVerFailure (..),
                                                      evalPureTossWithLogger, evalTossT,
@@ -60,7 +58,9 @@ import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossT
                                                      supplyPureTossEnv, tmCertificates,
                                                      tmCommitments, tmOpenings, tmShares,
                                                      verifyAndApplySscPayload)
-import           Pos.Ssc.GodTossing.Types           (GtGlobalState)
+import           Pos.Ssc.Types                      (SscLocalData (..),
+                                                     SscGlobalState, ldEpoch,
+                                                     ldModifier, ldSize)
 import           Pos.Ssc.RichmenComponent           (getRichmenSsc)
 
 ----------------------------------------------------------------------------
@@ -71,7 +71,7 @@ instance (HasGtConfiguration, HasConfiguration) => SscLocalDataClass where
     sscGetLocalPayloadQ = getLocalPayload
     sscNormalizeU = normalize
     sscNewLocalData =
-        GtLocalData mempty . siEpoch . fromMaybe slot0 <$> getCurrentSlot <*>
+        SscLocalData mempty . siEpoch . fromMaybe slot0 <$> getCurrentSlot <*>
         pure 1
       where
         slot0 = SlotId 0 minBound
@@ -100,7 +100,7 @@ normalize
     :: (HasGtConfiguration, HasConfiguration)
     => (EpochIndex, RichmenStakes)
     -> BlockVersionData
-    -> GtGlobalState
+    -> SscGlobalState
     -> LocalUpdate ()
 normalize (epoch, stake) bvd gs = do
     oldModifier <- use ldModifier
@@ -240,11 +240,11 @@ sscProcessData tag payload =
     executeMonadBaseRandom seed = hoist $ hoist (pure . fst . Rand.withDRG seed)
 
 sscProcessDataDo
-    :: (HasGtConfiguration, HasConfiguration, MonadState GtLocalData m,
+    :: (HasGtConfiguration, HasConfiguration, MonadState SscLocalData m,
         WithLogger m, Rand.MonadRandom m)
     => (EpochIndex, RichmenStakes)
     -> BlockVersionData
-    -> GtGlobalState
+    -> SscGlobalState
     -> SscPayload
     -> m (Either TossVerFailure ())
 sscProcessDataDo richmenData bvd gs payload =

@@ -35,7 +35,7 @@ import           Pos.Ssc.Core                    (CommitmentsMap (getCommitments
                                                   verifySignedCommitment, vssThreshold)
 import           Pos.Ssc.GodTossing.Toss.Base    (verifyEntriesGuardM)
 import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
-import           Pos.Ssc.GodTossing.Types.Types  (GtGlobalState (..))
+import           Pos.Ssc.Types                   (SscGlobalState (..))
 import qualified Pos.Ssc.GodTossing.VssCertData  as VCD
 import           Pos.Util.Util                   (Some)
 
@@ -43,17 +43,17 @@ import           Pos.Util.Util                   (Some)
 -- Simple predicates for GodTossing.Types.Base
 ----------------------------------------------------------------------------
 
-hasCommitment :: StakeholderId -> GtGlobalState -> Bool
-hasCommitment id = HM.member id . getCommitmentsMap . _gsCommitments
+hasCommitment :: StakeholderId -> SscGlobalState -> Bool
+hasCommitment id = HM.member id . getCommitmentsMap . _sgsCommitments
 
-hasOpening :: StakeholderId -> GtGlobalState -> Bool
-hasOpening id = HM.member id . _gsOpenings
+hasOpening :: StakeholderId -> SscGlobalState -> Bool
+hasOpening id = HM.member id . _sgsOpenings
 
-hasShares :: StakeholderId -> GtGlobalState -> Bool
-hasShares id = HM.member id . _gsShares
+hasShares :: StakeholderId -> SscGlobalState -> Bool
+hasShares id = HM.member id . _sgsShares
 
-hasVssCertificate :: StakeholderId -> GtGlobalState -> Bool
-hasVssCertificate id = VCD.member id . _gsVssCertificates
+hasVssCertificate :: StakeholderId -> SscGlobalState -> Bool
+hasVssCertificate id = VCD.member id . _sgsVssCertificates
 
 ----------------------------------------------------------------------------
 -- SscPayload Part

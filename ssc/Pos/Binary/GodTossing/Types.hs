@@ -11,7 +11,7 @@ import           Pos.Core.Types                 (EpochIndex, EpochOrSlot, Stakeh
 import           Pos.Core.Vss                   (VssCertificate, VssCertificatesMap)
 import           Pos.Ssc.Core                   (CommitmentsMap, Opening, OpeningsMap,
                                                  SharesMap, SignedCommitment)
-import           Pos.Ssc.GodTossing.Types       (GtGlobalState (..), GtSecretStorage (..))
+import           Pos.Ssc.Types                  (SscGlobalState (..), SscSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData (VssCertData (..))
 
 deriveSimpleBiCxt [t|HasConfiguration|] ''VssCertData [
@@ -26,17 +26,17 @@ deriveSimpleBiCxt [t|HasConfiguration|] ''VssCertData [
                                                       VssCertificate)) |]
     ]]
 
-deriveSimpleBiCxt [t|HasConfiguration|] ''GtGlobalState [
-    Cons 'GtGlobalState [
-        Field [| _gsCommitments     :: CommitmentsMap |],
-        Field [| _gsOpenings        :: OpeningsMap    |],
-        Field [| _gsShares          :: SharesMap      |],
-        Field [| _gsVssCertificates :: VssCertData    |]
+deriveSimpleBiCxt [t|HasConfiguration|] ''SscGlobalState [
+    Cons 'SscGlobalState [
+        Field [| _sgsCommitments     :: CommitmentsMap |],
+        Field [| _sgsOpenings        :: OpeningsMap    |],
+        Field [| _sgsShares          :: SharesMap      |],
+        Field [| _sgsVssCertificates :: VssCertData    |]
     ]]
 
-deriveSimpleBi ''GtSecretStorage [
-    Cons 'GtSecretStorage [
-        Field [| gssCommitment :: SignedCommitment |],
-        Field [| gssOpening    :: Opening          |],
-        Field [| gssEpoch      :: EpochIndex       |]
+deriveSimpleBi ''SscSecretStorage [
+    Cons 'SscSecretStorage [
+        Field [| sssCommitment :: SignedCommitment |],
+        Field [| sssOpening    :: Opening          |],
+        Field [| sssEpoch      :: EpochIndex       |]
     ]]

@@ -38,8 +38,8 @@ import           Pos.Ssc.GodTossing.Toss.Types     (TossModifier (..))
 import           Pos.Ssc.GodTossing.Types.Message  (GtTag (..), MCCommitment (..),
                                                     MCOpening (..), MCShares (..),
                                                     MCVssCertificate (..))
-import           Pos.Ssc.GodTossing.Types.Types    (GtGlobalState (..),
-                                                    GtSecretStorage (..))
+import           Pos.Ssc.Types                     (SscGlobalState (..),
+                                                    SscSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData    (VssCertData (..))
 import           Pos.Ssc.GodTossing.Instance       ()
 import           Pos.Util.Arbitrary                (Nonrepeating (..), makeSmall,
@@ -183,11 +183,11 @@ instance HasConfiguration => Arbitrary VssCertData where
     arbitrary = makeSmall genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary GtGlobalState where
+instance HasConfiguration => Arbitrary SscGlobalState where
     arbitrary = makeSmall genericArbitrary
     shrink = genericShrink
 
-instance HasConfiguration => Arbitrary GtSecretStorage where
+instance HasConfiguration => Arbitrary SscSecretStorage where
     arbitrary = genericArbitrary
     shrink = genericShrink
 

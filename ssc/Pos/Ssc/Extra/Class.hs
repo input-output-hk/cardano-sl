@@ -11,7 +11,7 @@ module Pos.Ssc.Extra.Class
 import           Ether.Internal      (HasLens (..))
 import           Universum
 
-import           Pos.Ssc.Extra.Types (SscState)
+import           Pos.Ssc.Types       (SscState)
 
 data SscMemTag
 

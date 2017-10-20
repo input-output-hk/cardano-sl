@@ -17,7 +17,7 @@ import           Pos.Launcher.Resource            (NodeResources (..),
                                                    bracketNodeResources)
 import           Pos.Launcher.Runner              (runRealMode)
 import           Pos.Launcher.Scenario            (runNode)
-import           Pos.Ssc.Class.Types              (SscParams)
+import           Pos.Ssc.Types                    (SscParams)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Ssc.GodTossing.Instance      ()
 import           Pos.Txp                          (txpGlobalSettings)

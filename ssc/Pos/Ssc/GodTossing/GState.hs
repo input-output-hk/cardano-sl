@@ -28,7 +28,6 @@ import           Pos.Core                         (BlockVersionData, EpochIndex 
 import           Pos.DB                           (MonadDBRead, SomeBatchOp (..))
 import           Pos.Lrc.Types                    (RichmenStakes)
 import           Pos.Ssc.Class.Storage            (SscGStateClass (..), SscVerifier)
-import           Pos.Ssc.Class.Types              (SscBlock, getSscBlock)
 import           Pos.Ssc.Extra                    (MonadSscMem, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Ssc.Core                     (SscPayload (..))
@@ -40,9 +39,9 @@ import           Pos.Ssc.GodTossing.Toss          (MultiRichmenStakes, PureToss,
                                                    rollbackGT, runPureTossWithLogger,
                                                    supplyPureTossEnv,
                                                    verifyAndApplySscPayload)
-import           Pos.Ssc.GodTossing.Types         (GtGlobalState (..), gsCommitments,
-                                                   gsOpenings, gsShares,
-                                                   gsVssCertificates)
+import           Pos.Ssc.Types                    (SscBlock (..), SscGlobalState (..), sgsCommitments,
+                                                   sgsOpenings, sgsShares,
+                                                   sgsVssCertificates)
 import qualified Pos.Ssc.GodTossing.VssCertData   as VCD
 import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.Util                    (_neHead, _neLast)
@@ -53,7 +52,7 @@ import           Pos.Util.Util                    (_neHead, _neLast)
 
 gtGetGlobalState
     :: (MonadSscMem ctx m, MonadIO m)
-    => m GtGlobalState
+    => m SscGlobalState
 gtGetGlobalState = sscRunGlobalQuery ask
 
 getGlobalCerts
@@ -63,14 +62,14 @@ getGlobalCerts sl =
     sscRunGlobalQuery $
         VCD.certs .
         VCD.setLastKnownSlot sl <$>
-        view gsVssCertificates
+        view sgsVssCertificates
 
 -- | Get stable VSS certificates for given epoch.
 getStableCerts
     :: (HasGtConfiguration, HasConfiguration, MonadSscMem ctx m, MonadIO m)
     => EpochIndex -> m VssCertificatesMap
 getStableCerts epoch =
-    getStableCertsPure epoch <$> sscRunGlobalQuery (view gsVssCertificates)
+    getStableCertsPure epoch <$> sscRunGlobalQuery (view sgsVssCertificates)
 
 ----------------------------------------------------------------------------
 -- Methods from class
@@ -83,24 +82,24 @@ instance (HasGtConfiguration, HasConfiguration) => SscGStateClass where
     sscVerifyAndApplyBlocks = verifyAndApply
     sscCalculateSeedQ _epoch richmen =
         calculateSeed
-        <$> view gsCommitments
+        <$> view sgsCommitments
         <*> (map vcVssKey . getVssCertificatesMap . VCD.certs <$>
-             view gsVssCertificates)
-        <*> view gsOpenings
-        <*> view gsShares
+             view sgsVssCertificates)
+        <*> view sgsOpenings
+        <*> view sgsShares
         <*> pure richmen
 
-loadGlobalState :: (HasConfiguration, MonadDBRead m, WithLogger m) => m GtGlobalState
+loadGlobalState :: (HasConfiguration, MonadDBRead m, WithLogger m) => m SscGlobalState
 loadGlobalState = do
     logDebug "Loading SSC global state"
-    gs <- DB.getGtGlobalState
+    gs <- DB.getSscGlobalState
     gs <$ logInfo (sformat ("Loaded GodTossing state: " %build) gs)
 
-dumpGlobalState :: HasConfiguration => GtGlobalState -> [SomeBatchOp]
+dumpGlobalState :: HasConfiguration => SscGlobalState -> [SomeBatchOp]
 dumpGlobalState = one . SomeBatchOp . DB.gtGlobalStateToBatch
 
 -- randomness needed for crypto :(
-type GSUpdate a = forall m . (MonadState GtGlobalState m, WithLogger m, Rand.MonadRandom m) => m a
+type GSUpdate a = forall m . (MonadState SscGlobalState m, WithLogger m, Rand.MonadRandom m) => m a
 
 rollbackBlocks :: (HasGtConfiguration, HasConfiguration) => NewestFirst NE SscBlock -> GSUpdate ()
 rollbackBlocks blocks = tossToUpdate $ rollbackGT oldestEOS payloads

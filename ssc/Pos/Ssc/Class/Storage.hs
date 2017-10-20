@@ -18,8 +18,9 @@ import           Universum
 import           Pos.Core             (BlockVersionData, EpochIndex, SharedSeed)
 import           Pos.DB               (MonadDBRead, SomeBatchOp)
 import           Pos.Lrc.Types        (RichmenStakes)
-import           Pos.Ssc.Class.Types  (Ssc (..), SscBlock)
+import           Pos.Ssc.Class.Types  (Ssc (..))
 import           Pos.Ssc.SeedError    (SscSeedError)
+import           Pos.Ssc.Types        (SscBlock, SscGlobalState)
 import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
 
 ----------------------------------------------------------------------------

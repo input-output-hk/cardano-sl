@@ -8,7 +8,7 @@ import           Pos.Binary.Block      ()
 import           Pos.Block.Core        (Block, GenesisBlock, MainBlock, mbSscPayload)
 import           Pos.Core              (HasConfiguration, IsGenesisHeader, IsMainHeader,
                                         gbBody, gbHeader)
-import           Pos.Ssc.Class.Types   (SscBlock (..))
+import           Pos.Ssc.Types         (SscBlock (..))
 import           Pos.Ssc.Core          (SscPayload)
 import           Pos.Util              (Some (..))
 

@@ -19,6 +19,8 @@ library
 
     Pos.Ssc.SeedError
 
+    Pos.Ssc.Types
+
     -- SSC
     Pos.Arbitrary.Ssc
 
@@ -31,7 +33,6 @@ library
     Pos.Ssc.Class.Workers
 
     Pos.Ssc.Extra
-    Pos.Ssc.Extra.Types
     Pos.Ssc.Extra.Holder
     Pos.Ssc.Extra.Class
     Pos.Ssc.Extra.Logic
@@ -49,8 +50,6 @@ library
 
     Pos.Ssc.GodTossing.Behavior
 
-    Pos.Ssc.GodTossing.Types
-    Pos.Ssc.GodTossing.Types.Types
     Pos.Ssc.GodTossing.Types.Message
 
     Pos.Ssc.GodTossing.Toss
@@ -63,7 +62,6 @@ library
     Pos.Ssc.GodTossing.Toss.Types
 
     Pos.Ssc.GodTossing.LocalData
-    Pos.Ssc.GodTossing.LocalData.Types
     Pos.Ssc.GodTossing.LocalData.Logic
 
     Pos.Ssc.GodTossing.VssCertData

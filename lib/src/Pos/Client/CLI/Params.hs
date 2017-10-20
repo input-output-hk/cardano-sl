@@ -25,7 +25,7 @@ import           Pos.Crypto                       (VssKeyPair)
 import           Pos.Launcher                     (BaseParams (..), LoggingParams (..),
                                                    NodeParams (..))
 import           Pos.Network.CLI                  (intNetworkConfigOpts)
-import           Pos.Ssc.GodTossing               (GtParams (..))
+import           Pos.Ssc.GodTossing               (SscParams (..))
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Update.Params                (UpdateParams (..))
 import           Pos.Util.UserSecret              (peekUserSecret)
@@ -43,12 +43,12 @@ getBaseParams :: LoggerName -> CommonNodeArgs -> BaseParams
 getBaseParams loggingTag args@CommonNodeArgs {..} =
     BaseParams { bpLoggingParams = loggingParams loggingTag args }
 
-gtSscParams :: CommonNodeArgs -> VssKeyPair -> BehaviorConfig -> GtParams
+gtSscParams :: CommonNodeArgs -> VssKeyPair -> BehaviorConfig -> SscParams
 gtSscParams CommonNodeArgs {..} vssSK BehaviorConfig{..} =
-    GtParams
-    { gtpSscEnabled = True
-    , gtpVssKeyPair = vssSK
-    , gtpBehavior   = bcGtBehavior
+    SscParams
+    { spSscEnabled = True
+    , spVssKeyPair = vssSK
+    , spBehavior   = bcGtBehavior
     }
 
 getKeyfilePath :: CommonNodeArgs -> FilePath

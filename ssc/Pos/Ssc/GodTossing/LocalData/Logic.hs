@@ -49,7 +49,6 @@ import           Pos.Ssc.Core                       (SscPayload (..), InnerShare
                                                      isCommitmentIdx, isOpeningIdx,
                                                      isSharesIdx, mkCommitmentsMap)
 import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossT,
-                                                     TossVerFailure (..),
                                                      evalPureTossWithLogger, evalTossT,
                                                      execTossT, hasCertificateToss,
                                                      hasCommitmentToss, hasOpeningToss,
@@ -61,6 +60,7 @@ import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossT
 import           Pos.Ssc.Types                      (SscLocalData (..),
                                                      SscGlobalState, ldEpoch,
                                                      ldModifier, ldSize)
+import           Pos.Ssc.VerifyError                (SscVerifyError (..))
 import           Pos.Ssc.RichmenComponent           (getRichmenSsc)
 
 ----------------------------------------------------------------------------
@@ -167,7 +167,7 @@ type GtDataProcessingMode ctx m =
     , MonadGState m       -- to get block size limit
     , MonadSlots ctx m
     , MonadSscMem ctx m
-    , MonadError TossVerFailure m
+    , MonadError SscVerifyError m
     , HasConfiguration
     , HasGtConfiguration
     )
@@ -246,7 +246,7 @@ sscProcessDataDo
     -> BlockVersionData
     -> SscGlobalState
     -> SscPayload
-    -> m (Either TossVerFailure ())
+    -> m (Either SscVerifyError ())
 sscProcessDataDo richmenData bvd gs payload =
     runExceptT $ do
         storedEpoch <- use ldEpoch

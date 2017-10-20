@@ -18,6 +18,7 @@ library
     Pos.Ssc.Core.Functions
 
     Pos.Ssc.SeedError
+    Pos.Ssc.VerifyError
 
     Pos.Ssc.Types
 
@@ -25,7 +26,6 @@ library
     Pos.Arbitrary.Ssc
 
     Pos.Ssc.Class
-    Pos.Ssc.Class.Types
     Pos.Ssc.Class.LocalData
     Pos.Ssc.Class.Helpers
     Pos.Ssc.Class.Storage
@@ -57,7 +57,6 @@ library
     Pos.Ssc.GodTossing.Toss.Pure
     Pos.Ssc.GodTossing.Toss.Base
     Pos.Ssc.GodTossing.Toss.Class
-    Pos.Ssc.GodTossing.Toss.Failure
     Pos.Ssc.GodTossing.Toss.Trans
     Pos.Ssc.GodTossing.Toss.Types
 

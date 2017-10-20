@@ -32,7 +32,7 @@ import           Pos.Ssc.Core                     (CommitmentsMap (..), SscPaylo
 import           Pos.Ssc.GodTossing.Functions     (sanityChecksSscPayload)
 import           Pos.Ssc.GodTossing.Toss.Base     (checkPayload)
 import           Pos.Ssc.GodTossing.Toss.Class    (MonadToss (..), MonadTossEnv (..))
-import           Pos.Ssc.GodTossing.Toss.Failure  (TossVerFailure (..))
+import           Pos.Ssc.VerifyError              (SscVerifyError (..))
 import           Pos.Ssc.GodTossing.Toss.Types    (TossModifier (..))
 import           Pos.Ssc.GodTossing.Instance      ()
 import           Pos.Util.Chrono                  (NewestFirst (..))
@@ -40,10 +40,10 @@ import           Pos.Util.Util                    (Some, inAssertMode, sortWithM
 
 -- | Verify 'SscPayload' with respect to data provided by
 -- MonadToss. If data is valid it is also applied.  Otherwise
--- TossVerFailure is thrown using 'MonadError' type class.
+-- SscVerifyError is thrown using 'MonadError' type class.
 verifyAndApplySscPayload
     :: (HasGtConfiguration, HasConfiguration, MonadToss m, MonadTossEnv m,
-        MonadError TossVerFailure m, MonadRandom m)
+        MonadError SscVerifyError m, MonadRandom m)
     => Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
 verifyAndApplySscPayload eoh payload = do
     -- We can't trust payload from mempool, so we must call

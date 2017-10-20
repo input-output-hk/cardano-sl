@@ -34,7 +34,7 @@ import           Pos.Ssc.Core                    (CommitmentsMap (getCommitments
                                                   isCommitmentId, isOpeningId, isSharesId,
                                                   verifySignedCommitment, vssThreshold)
 import           Pos.Ssc.GodTossing.Toss.Base    (verifyEntriesGuardM)
-import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
+import           Pos.Ssc.VerifyError             (SscVerifyError (..))
 import           Pos.Ssc.Types                   (SscGlobalState (..))
 import qualified Pos.Ssc.GodTossing.VssCertData  as VCD
 import           Pos.Util.Util                   (Some)
@@ -72,7 +72,7 @@ hasVssCertificate id = VCD.member id . _sgsVssCertificates
 --
 -- We also do some general sanity checks.
 sanityChecksSscPayload
-    :: (HasConfiguration, MonadError TossVerFailure m)
+    :: (HasConfiguration, MonadError SscVerifyError m)
     => Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
 sanityChecksSscPayload eoh payload = case payload of
     CommitmentsPayload comms certs -> do

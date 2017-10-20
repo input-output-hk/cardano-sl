@@ -65,7 +65,7 @@ import           Pos.Ssc.Core                    (Commitment (..),
                                                   vssThreshold)
 import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossEnv (..),
                                                   MonadTossRead (..))
-import           Pos.Ssc.GodTossing.Toss.Failure (TossVerFailure (..))
+import           Pos.Ssc.VerifyError             (SscVerifyError (..))
 import           Pos.Util.Util                   (getKeys)
 
 ----------------------------------------------------------------------------
@@ -98,7 +98,7 @@ hasCertificateToss id = memberVss id <$> getVssCertificates
 
 -- | Get 'VssCertificatesMap' containing 'StakeholderId's and
 -- 'VssPublicKey's of participating nodes for given epoch.
-getParticipants :: (MonadError TossVerFailure m, MonadToss m, MonadTossEnv m)
+getParticipants :: (MonadError SscVerifyError m, MonadToss m, MonadTossEnv m)
                 => EpochIndex
                 -> m VssCertificatesMap
 getParticipants epoch = do
@@ -227,7 +227,7 @@ isDistrInaccuracyAcceptable coinsNDistr = runST $ do
     readSTRef isAcceptable
 
 computeSharesDistrPure
-    :: MonadError TossVerFailure m
+    :: MonadError SscVerifyError m
     => RichmenStakes
     -> CoinPortion             -- ^ MPC threshold, e.g. 'genesisMpcThd'
     -> m SharesDistribution
@@ -382,7 +382,7 @@ checkCommitmentShares (_, comm, _) = fromMaybe (pure False) $ do
 
 -- | Like 'computeSharesDistrPure', but uses MPC threshold from the database.
 computeSharesDistr
-    :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m)
+    :: (MonadToss m, MonadTossEnv m, MonadError SscVerifyError m)
     => RichmenStakes -> m SharesDistribution
 computeSharesDistr richmen =
     computeSharesDistrPure richmen =<< (bvdMpcThd <$> getAdoptedBVData)
@@ -400,7 +400,7 @@ computeSharesDistr richmen =
 --     proportions (according to 'computeSharesDistr')
 --   * shares in the commitment are valid
 checkCommitmentsPayload
-    :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m,
+    :: (MonadToss m, MonadTossEnv m, MonadError SscVerifyError m,
         MonadRandom m)
     => EpochIndex
     -> CommitmentsMap
@@ -428,7 +428,7 @@ checkCommitmentsPayload epoch (getCommitmentsMap -> comms) =
 --   * the opening matches the commitment (this check implies that previous
 --     one passes)
 checkOpeningsPayload
-    :: (MonadToss m, MonadError TossVerFailure m)
+    :: (MonadToss m, MonadError SscVerifyError m)
     => OpeningsMap
     -> m ()
 checkOpeningsPayload opens = do
@@ -446,7 +446,7 @@ checkOpeningsPayload opens = do
 --   * if encrypted shares (in commitments) are decrypted, they match
 --     decrypted shares
 checkSharesPayload
-    :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m)
+    :: (MonadToss m, MonadTossEnv m, MonadError SscVerifyError m)
     => EpochIndex
     -> SharesMap
     -> m ()
@@ -473,7 +473,7 @@ checkSharesPayload epoch shares = do
 -- duplicate VSS keys in payload itself, because this is detected at
 -- deserialization stage.
 checkCertificatesPayload
-    :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m)
+    :: (MonadToss m, MonadTossEnv m, MonadError SscVerifyError m)
     => EpochIndex
     -> VssCertificatesMap
     -> m ()
@@ -491,7 +491,7 @@ checkCertificatesPayload epoch certs = do
         (HM.toList (getVssCertificatesMap certs))
 
 checkPayload
-    :: (MonadToss m, MonadTossEnv m, MonadError TossVerFailure m,
+    :: (MonadToss m, MonadTossEnv m, MonadError SscVerifyError m,
         MonadRandom m)
     => EpochIndex
     -> SscPayload
@@ -516,10 +516,10 @@ checkPayload epoch payload = do
 -- fKey is needed for getting StakeholderId from entry.
 -- fValue is needed for getting value which must be tested by condition function.
 verifyEntriesGuardM
-    :: MonadError TossVerFailure m
+    :: MonadError SscVerifyError m
     => (entry -> key)
     -> (entry -> verificationVal)
-    -> (NonEmpty key -> TossVerFailure)
+    -> (NonEmpty key -> SscVerifyError)
     -> (verificationVal -> m Bool)
     -> [entry]
     -> m ()
@@ -534,32 +534,32 @@ verifyEntriesGuardM fKey fVal exception cond lst =
     maybeThrowError er (Just ne) = throwError $ er ne
 
 exceptGuard
-    :: MonadError TossVerFailure m
-    => (NonEmpty key -> TossVerFailure) -> (key -> Bool) -> [key] -> m ()
+    :: MonadError SscVerifyError m
+    => (NonEmpty key -> SscVerifyError) -> (key -> Bool) -> [key] -> m ()
 exceptGuard onFail f =
     verifyEntriesGuardM identity identity onFail (pure . f)
 
 exceptGuardM
-    :: MonadError TossVerFailure m
-    => (NonEmpty key -> TossVerFailure) -> (key -> m Bool) -> [key] -> m ()
+    :: MonadError SscVerifyError m
+    => (NonEmpty key -> SscVerifyError) -> (key -> m Bool) -> [key] -> m ()
 exceptGuardM =
     verifyEntriesGuardM identity identity
 
 exceptGuardSnd
-    :: MonadError TossVerFailure m
-    => (NonEmpty key -> TossVerFailure) -> (val -> Bool) -> [(key, val)] -> m ()
+    :: MonadError SscVerifyError m
+    => (NonEmpty key -> SscVerifyError) -> (val -> Bool) -> [(key, val)] -> m ()
 exceptGuardSnd onFail f =
     verifyEntriesGuardM fst snd onFail (pure . f)
 
 exceptGuardSndM
-    :: MonadError TossVerFailure m
-    => (NonEmpty key -> TossVerFailure) -> (val -> m Bool) -> [(key, val)] -> m ()
+    :: MonadError SscVerifyError m
+    => (NonEmpty key -> SscVerifyError) -> (val -> m Bool) -> [(key, val)] -> m ()
 exceptGuardSndM =
     verifyEntriesGuardM fst snd
 
 exceptGuardEntryM
-    :: MonadError TossVerFailure m
-    => (NonEmpty key -> TossVerFailure) -> ((key, val) -> m Bool) -> [(key, val)] -> m ()
+    :: MonadError SscVerifyError m
+    => (NonEmpty key -> SscVerifyError) -> ((key, val) -> m Bool) -> [(key, val)] -> m ()
 exceptGuardEntryM = verifyEntriesGuardM fst identity
 
 notM :: Monad m => (a -> m Bool) -> (a -> m Bool)

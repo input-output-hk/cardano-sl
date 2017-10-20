@@ -22,7 +22,7 @@ import           Pos.Core              (Coin, CoinPortion, StakeholderId, mkCoin
 import           Pos.Core.Coin         (applyCoinPortionDown, sumCoins)
 import           Pos.Lrc               (RichmenStakes, RichmenType (RTUsual),
                                         findRichmenPure)
-import           Pos.Ssc.GodTossing    (SharesDistribution, TossVerFailure,
+import           Pos.Ssc.GodTossing    (SharesDistribution, SscVerifyError,
                                         computeSharesDistrPure,
                                         isDistrInaccuracyAcceptable,
                                         sharesDistrMaxSumDistr)
@@ -95,7 +95,7 @@ data TestMpcThd
 instance Reifies TestMpcThd CoinPortion where
     reflect _ = testMpcThdPortition
 
-computeShares' :: RichmenStakes -> Either TossVerFailure SharesDistribution
+computeShares' :: RichmenStakes -> Either SscVerifyError SharesDistribution
 computeShares' stake = computeSharesDistrPure stake testMpcThdPortition
 
 testMpcThd :: Double
@@ -122,7 +122,7 @@ isDistrFair (HM.map unsafeGetCoin -> rs) sd = do
         let g = fromMaybe (error "Distribution isn't found") (HM.lookup stId sd)
         (r, g)
 
-isDistrReasonable :: Word16 -> RichmenStakes -> Either TossVerFailure SharesDistribution -> Bool
+isDistrReasonable :: Word16 -> RichmenStakes -> Either SscVerifyError SharesDistribution -> Bool
 isDistrReasonable _ _ (Left _) = False
 isDistrReasonable mx rs (Right sd) =
     -- (1) Each richman has at least @minStake@ coins and more than 0 coins.
@@ -137,7 +137,7 @@ isDistrReasonable mx rs (Right sd) =
     totalCoins = sumCoins $ HM.elems rs
     minStake = mkCoin . ceiling $ (fromIntegral totalCoins) * testMpcThd
 
-isDistrReasonableMax :: RichmenStakes -> Either TossVerFailure SharesDistribution -> Bool
+isDistrReasonableMax :: RichmenStakes -> Either SscVerifyError SharesDistribution -> Bool
 isDistrReasonableMax = isDistrReasonable $ sharesDistrMaxSumDistr testMpcThd
 
 maxCoin :: Coin

@@ -35,13 +35,14 @@ import qualified Pos.Ssc.GodTossing.DB            as DB
 import           Pos.Ssc.GodTossing.Functions     (getStableCertsPure)
 import           Pos.Ssc.GodTossing.Seed          (calculateSeed)
 import           Pos.Ssc.GodTossing.Toss          (MultiRichmenStakes, PureToss,
-                                                   TossVerFailure (..), applyGenesisBlock,
+                                                   applyGenesisBlock,
                                                    rollbackGT, runPureTossWithLogger,
                                                    supplyPureTossEnv,
                                                    verifyAndApplySscPayload)
 import           Pos.Ssc.Types                    (SscBlock (..), SscGlobalState (..), sgsCommitments,
                                                    sgsOpenings, sgsShares,
                                                    sgsVssCertificates)
+import           Pos.Ssc.VerifyError              (SscVerifyError (..))
 import qualified Pos.Ssc.GodTossing.VssCertData   as VCD
 import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.Util                    (_neHead, _neLast)
@@ -150,7 +151,7 @@ tossToUpdate action = do
     (identity .= newState) $> res
 
 tossToVerifier
-    :: ExceptT TossVerFailure PureToss a
+    :: ExceptT SscVerifyError PureToss a
     -> SscVerifier a
 tossToVerifier action = do
     oldState <- use identity

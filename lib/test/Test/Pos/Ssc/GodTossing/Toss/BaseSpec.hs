@@ -34,7 +34,7 @@ import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadSignedCommitm
                                         SscGlobalState (..), InnerSharesMap,
                                         MultiRichmenStakes, Opening, OpeningsMap,
                                         PureTossWithEnv, SharesMap, SignedCommitment,
-                                        TossVerFailure (..), VssCertData (..),
+                                        SscVerifyError (..), VssCertData (..),
                                         checkCertificatesPayload, checkCommitmentsPayload,
                                         checkOpeningsPayload, checkSharesPayload,
                                         deleteSignedCommitment, sgsCommitments, sgsOpenings,

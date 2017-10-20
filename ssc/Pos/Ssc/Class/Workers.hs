@@ -9,11 +9,10 @@ module Pos.Ssc.Class.Workers
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec)
 import           Pos.Lrc.Consumer           (LrcConsumer)
 import           Pos.Lrc.Mode               (LrcMode)
-import           Pos.Ssc.Class.Types        (Ssc (..))
 import           Pos.Ssc.Mode               (SscMode)
 
 -- | Class for @SSC@ workers.
-class Ssc => SscWorkersClass where
+class SscWorkersClass where
 
     -- | All workers specific to SSC.
     sscWorkers :: SscMode ctx m

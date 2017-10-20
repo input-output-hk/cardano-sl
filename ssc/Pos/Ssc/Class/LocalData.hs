@@ -17,7 +17,6 @@ import           Pos.Core            (BlockVersionData, EpochIndex, SlotId)
 import           Pos.DB.Class        (MonadDBRead)
 import           Pos.Lrc.Types       (RichmenStakes)
 import           Pos.Slotting.Class  (MonadSlots)
-import           Pos.Ssc.Class.Types (Ssc (..))
 import           Pos.Ssc.Core.Types  (SscPayload)
 import           Pos.Ssc.Types       (SscGlobalState, SscLocalData)
 
@@ -30,7 +29,7 @@ type LocalUpdate a = forall m . (MonadState SscLocalData m, WithLogger m, Rand.M
 
 -- | This type class abstracts local data used for SSC. Local means
 -- that it is not stored in blocks.
-class Ssc => SscLocalDataClass where
+class SscLocalDataClass where
     -- | Get local payload to be put into main block and for given
     -- 'SlotId'. If payload for given 'SlotId' can't be constructed,
     -- empty payload can be returned.

@@ -1,7 +1,7 @@
 -- | Possible failures in Toss.
 
-module Pos.Ssc.GodTossing.Toss.Failure
-       ( TossVerFailure (..)
+module Pos.Ssc.VerifyError
+       ( SscVerifyError (..)
        ) where
 
 import qualified Data.Text.Buildable
@@ -16,7 +16,8 @@ instance Buildable (StakeholderId, VssCertificate) where
 
 type NEStIds = NonEmpty StakeholderId
 
-data TossVerFailure
+-- | Type for verification error
+data SscVerifyError
     = NotCommitmentPhase !SlotId
     | NotOpeningPhase !SlotId
     | NotSharesPhase !SlotId
@@ -48,7 +49,7 @@ data TossVerFailure
     | TossInternallError !Text
     deriving (Show, Eq)
 
-instance Buildable TossVerFailure where
+instance Buildable SscVerifyError where
     build (NotCommitmentPhase slotId) =
         bprint (build%" doesn't belong commitment phase") slotId
     build (NotOpeningPhase slotId) =

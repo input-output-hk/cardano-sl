@@ -9,11 +9,11 @@ import           Universum
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Core                   (EpochIndex, IsMainHeader, LocalSlotIndex)
-import           Pos.Ssc.Class.Types        (Ssc (..))
 import           Pos.Ssc.Core.Types         (SscPayload)
+import           Pos.Ssc.VerifyError        (SscVerifyError)
 import           Pos.Util.Util              (Some)
 
-class Ssc => SscHelpersClass where
+class SscHelpersClass where
     sscVerifyPayload
         :: Either EpochIndex (Some IsMainHeader)
         -> SscPayload

@@ -48,13 +48,13 @@ import           Pos.Slotting.Class       (MonadSlots)
 import           Pos.Ssc.Class.Helpers    (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData  (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Storage    (SscGStateClass (..))
-import           Pos.Ssc.Class.Types      (Ssc (..))
 import           Pos.Ssc.Core             (SscPayload)
 import           Pos.Ssc.Extra.Class      (MonadSscMem, askSscMem)
-import           Pos.Ssc.Types            (SscBlock, SscState (sscGlobal, sscLocal))
+import           Pos.Ssc.Types            (SscBlock, SscState (sscGlobal, sscLocal),
+                                           SscGlobalState, SscLocalData)
 import           Pos.Ssc.RichmenComponent (getRichmenSsc)
 import           Pos.Ssc.SeedError        (SscSeedError)
-import           Pos.Ssc.Types            (SscGlobalState, SscLocalData)
+import           Pos.Ssc.VerifyError      (SscVerifyError)
 import           Pos.Util.Chrono          (NE, NewestFirst, OldestFirst)
 import           Pos.Util.Util            (Some, inAssertMode, _neHead, _neLast)
 
@@ -263,7 +263,7 @@ sscVerifyValidBlocks blocks =
 
 onVerifyFailedInApply
     :: forall m a.
-       (Ssc, WithLogger m, MonadThrow m)
+       (WithLogger m, MonadThrow m)
     => OldestFirst NE HeaderHash -> SscVerifyError -> m a
 onVerifyFailedInApply hashes e = assertionFailed msg
   where

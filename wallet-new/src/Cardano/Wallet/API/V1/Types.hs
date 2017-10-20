@@ -16,6 +16,7 @@ module Cardano.Wallet.API.V1.Types (
   -- * Error handling
   , WalletError (..)
   -- * Domain-specific types
+  , WalletId (..)
   , Account (..)
   , Address (..)
   ) where
@@ -33,7 +34,10 @@ import           Web.HttpApiData
 -- Swagger & REST-related types
 --
 
-newtype Page = Page Int deriving (Show, Eq, Ord, Num)
+-- | A `Page` is used in paginated endpoints to request access to a particular
+-- subset of a collection.
+newtype Page = Page Int
+             deriving (Show, Eq, Ord, Num)
 
 deriveJSON defaultOptions ''Page
 
@@ -49,13 +53,21 @@ instance FromHttpApiData Page where
 instance ToHttpApiData Page where
     toQueryParam (Page p) = fromString (show p)
 
-newtype PerPage = PerPage Int deriving (Show, Eq, Num, Ord)
+-- | A `PerPage` is used to specify the number of entries which should be returned
+-- as part of a paginated response.
+newtype PerPage = PerPage Int
+                deriving (Show, Eq, Num, Ord)
 
 deriveJSON defaultOptions ''PerPage
 
+-- | The maximum number of entries a paginated request can return on a single call.
+-- This value is currently arbitrary and it might need to be tweaked down to strike
+-- the right balance between number of requests and load of each of them on the system.
 maxPerPageEntries :: Int
 maxPerPageEntries = 500
 
+-- | If not specified otherwise, a default number of 10 entries from the collection will
+-- be returned as part of each paginated response.
 defaultPerPageEntries :: Int
 defaultPerPageEntries = 10
 
@@ -135,18 +147,18 @@ instance Arbitrary WalletError where
     arbitrary = WalletError <$> choose (1,999) <*> pure "The given AccountId is not correct."
 
 --
--- Domain-specific types
+-- Domain-specific types, mostly placeholders.
 --
 
--- | A wallet 'Account'.
-newtype Account = Account
-  { acc_id :: Text -- ^ A base58 Public Key.
-  } deriving (Show, Eq, Generic)
+newtype WalletId = WalletId Text deriving (Show, Eq, Generic)
 
-deriveJSON defaultOptions { fieldLabelModifier = drop 4 } ''Account
+deriveJSON defaultOptions ''WalletId
 
-instance Arbitrary Account where
-  arbitrary = Account . fromString <$> elements ["DEADBeef", "123456"]
+instance Arbitrary WalletId where
+  arbitrary = WalletId . fromString <$> elements ["1Z1F10ADD10F9872"]
+
+instance FromHttpApiData WalletId where
+    parseQueryParam = Right . WalletId
 
 -- Placeholder.
 newtype Address = Address
@@ -157,3 +169,23 @@ deriveJSON defaultOptions { fieldLabelModifier = drop 4 } ''Address
 
 instance Arbitrary Address where
   arbitrary = Address . fromString <$> elements ["DEADBeef", "123456"]
+
+-- | A wallet 'Account'.
+data Account = Account
+  { acc_id        :: Text
+  , acc_addresses :: [Address]
+  , acc_amount    :: !Int
+  -- | The Account name.
+  , acc_name      :: Text
+  -- | The parent Wallet Id.
+  , acc_wallet_id :: WalletId
+  } deriving (Show, Eq, Generic)
+
+deriveJSON defaultOptions { fieldLabelModifier = drop 4 } ''Account
+
+instance Arbitrary Account where
+  arbitrary = Account . fromString <$> elements ["DEADBeef", "123456"]
+                                   <*> listOf1 arbitrary
+                                   <*> fmap getPositive arbitrary
+                                   <*> fmap fromString arbitrary
+                                   <*> arbitrary

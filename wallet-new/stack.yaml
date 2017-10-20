@@ -3,9 +3,6 @@ resolver: lts-9.1
 packages:
 - '.'
 
-- location:
-    git: git@github.com:adinapoli-iohk/servant-quickcheck.git
-    commit: b0febe7c58e37ab36238e99cfc734ee4eab19d29
-
 extra-deps:
   - universum-0.7.0
+  - servant-quickcheck-0.0.3.1

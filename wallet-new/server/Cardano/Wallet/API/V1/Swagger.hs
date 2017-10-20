@@ -152,6 +152,8 @@ instance ToParamSchema Page where
     & default_ ?~ (Number 1) -- Always show the first page by default.
     & minimum_ ?~ 1
 
+instance ToParamSchema WalletId
+
 instance ToDocs APIVersion where
   annotate f p = do
     s <- f p
@@ -185,7 +187,16 @@ instance ToDocs Address where
     return $ s & (schema . description ?~ withExample p "An Address.")
                . (schema . example ?~ toJSON @Address genExample)
 
+instance ToDocs WalletId where
+  annotate f p = do
+    s <- f p
+    return $ s & (schema . description ?~ withExample p "A Wallet ID.")
+               . (schema . example ?~ toJSON @Address genExample)
+
 instance ToSchema Address where
+  declareNamedSchema = annotate fromArbitraryJSON
+
+instance ToSchema WalletId where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToSchema Metadata where

@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE TypeOperators     #-}
 module Cardano.Wallet.API.V1.Handlers.Accounts where
 
 import           Universum
@@ -8,6 +6,7 @@ import qualified Cardano.Wallet.API.V1.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Types
 
 import           Servant
+import           Test.QuickCheck                (arbitrary, generate, resize)
 
 handlers :: Server Accounts.API
 handlers =   deleteAccount
@@ -21,16 +20,17 @@ listAccounts :: Maybe Page
              -> Maybe Bool
              -> Maybe Text
              -> Handler (OneOf [Account] (ExtendedResponse [Account]))
-listAccounts _ _ mbExtended _ =
+listAccounts _ _ mbExtended _ = do
+  example <- liftIO $ generate (resize 3 arbitrary)
   case mbExtended of
     Just True  -> return $ OneOf $ Right $
       ExtendedResponse {
-        ext_data = [Account "deadBeef", Account "123AABBCC"]
+        ext_data = example
       , ext_meta = Metadata {
           meta_total_pages = 1
         , meta_page = 1
         , meta_per_page = 20
-        , meta_total_entries = 2
+        , meta_total_entries = 3
       }
       }
-    _ -> return $ OneOf $ Left  [Account "deadBeef", Account "123AABBCC"]
+    _ -> return $ OneOf $ Left example

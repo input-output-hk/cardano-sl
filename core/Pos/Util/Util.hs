@@ -264,8 +264,7 @@ instance Buildable Fortnight   where build = build @String . show
 instance Buildable Microsecond where
     build = build . (++ "mcs") . show . toMicroseconds
 
--- | This instance is needed because 'Ssc' puts the 'Buildable' constraint
--- on things.
+-- | This orphan instance is sometimes useful and why not have it?
 instance Buildable () where
     build _ = "()"
 

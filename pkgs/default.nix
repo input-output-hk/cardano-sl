@@ -2964,14 +2964,14 @@ self: {
           description = "Difference lists";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      dns = callPackage ({ attoparsec, base, base64-bytestring, binary, bytestring, bytestring-builder, conduit, conduit-extra, containers, fetchgit, iproute, mkDerivation, mtl, network, random, resourcet, safe, stdenv, text }:
+      dns = callPackage ({ attoparsec, base, base64-bytestring, binary, bytestring, bytestring-builder, conduit, conduit-extra, containers, fetchgit, iproute, mkDerivation, mtl, network, random, resourcet, safe, stdenv }:
       mkDerivation {
           pname = "dns";
           version = "3.0.0";
           src = fetchgit {
             url = "https://github.com/kazu-yamamoto/dns.git";
-            sha256 = "1scbzbbykypcnjp9n5pdvlddgijijz834hwq49p4swvg9p1gypv2";
-            rev = "08df7fe6a9242f7d76aa5040221702e26ab610f6";
+            sha256 = "0fx57y06c6dsypbdf4820nlzfpvzb0xf0c9cjpy621acxms3wwmc";
+            rev = "b106470f0a93672af22cbc7ed6564b53c0f249ed";
           };
           libraryHaskellDepends = [
             attoparsec
@@ -2989,7 +2989,6 @@ self: {
             random
             resourcet
             safe
-            text
           ];
           doHaddock = false;
           doCheck = false;

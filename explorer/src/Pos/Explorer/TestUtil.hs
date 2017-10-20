@@ -80,12 +80,6 @@ basicBlock
     -> Either Text MainBlock
 basicBlock prevHeader sk slotId =
     producePureBlock infLimit prevHeader [] Nothing slotId def (defGTP slotId) def sk
-  where
-    defGTP :: HasConfiguration => SlotId -> GtPayload
-    defGTP sId = sscDefaultPayload @SscGodTossing $ siSlot sId
-
-    infLimit :: Byte
-    infLimit = convertUnit @Gigabyte @Byte 1
 
 emptyBlk
     :: (HasConfiguration, HasUpdateConfiguration, Testable p)
@@ -95,12 +89,12 @@ emptyBlk testableBlock =
     forAll arbitrary $ \(sk, prevHeader, slotId) ->
     testableBlock
         $ producePureBlock infLimit prevHeader [] Nothing slotId def (defGTP slotId) def sk
-  where
-    defGTP :: HasConfiguration => SlotId -> GtPayload
-    defGTP sId = sscDefaultPayload @SscGodTossing $ siSlot sId
 
-    infLimit :: Byte
-    infLimit = convertUnit @Gigabyte @Byte 1
+defGTP :: HasConfiguration => SlotId -> GtPayload
+defGTP sId = sscDefaultPayload @SscGodTossing $ siSlot sId
+
+infLimit :: Byte
+infLimit = convertUnit @Gigabyte @Byte 1
 
 producePureBlock
     :: (HasConfiguration, HasUpdateConfiguration)

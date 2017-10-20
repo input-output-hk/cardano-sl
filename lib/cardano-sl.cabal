@@ -170,8 +170,7 @@ library
                         Test.Pos.Util
                         Test.Pos.Configuration
 
-  -- Explorer (TODO: move into cardano-explorer)
-  exposed-modules:
+                        -- Explorer (TODO: move into cardano-explorer)
                         Pos.Explorer
 
                         -- Needed for testing
@@ -510,7 +509,6 @@ test-suite cardano-test
                        -- Everything else
                        Test.Pos.CborSpec
                        Test.Pos.Communication.Identity.BinarySpec
-                       Test.Pos.Configuration
                        Test.Pos.ConstantsSpec
                        Test.Pos.Core.AddressSpec
                        Test.Pos.CryptoSpec

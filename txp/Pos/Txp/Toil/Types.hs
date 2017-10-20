@@ -135,7 +135,7 @@ type UndoMap = HashMap TxId TxUndo
 type AddrCoinMap = HashMap Address Coin
 
 utxoToModifier :: Utxo -> UtxoModifier
-utxoToModifier = foldr (uncurry MM.insert) mempty . M.toList
+utxoToModifier = foldl' (flip $ uncurry MM.insert) mempty . M.toList
 
 -- | Takes utxo modifier and address-coin map with correspodning utxo
 -- and applies utxo modifier to map.
@@ -144,18 +144,41 @@ applyUtxoModToAddrCoinMap
     :: UtxoModifier
     -> (AddrCoinMap, Utxo)
     -> AddrCoinMap
-applyUtxoModToAddrCoinMap modifier (addrCoins, utxo) =
-    let outToPair = view _TxOut . toaOut in
-    let resolvedAddrs =
-          mapMaybe (fmap outToPair . flip M.lookup utxo)
-                   (MM.deletions modifier) in
-    let subAddress r c = if r < c then Just (c `unsafeSubCoin` r) else Nothing in
-    let updateHM (ad, coins) = HM.update (subAddress coins) ad in
-    let addrCoinsRest = foldr updateHM addrCoins resolvedAddrs in
-    -- We remove such TxIn which are already in wallet utxo.
-    let insertionsNotInUtxo = filter (not . flip M.member utxo . fst) (MM.insertions modifier) in
-    let modAddrCoins = map (outToPair . snd) insertionsNotInUtxo in
-    foldr (uncurry $ HM.insertWith unsafeAddCoin) addrCoinsRest modAddrCoins
+applyUtxoModToAddrCoinMap modifier (addrCoins, utxo) = result
+  where
+    outToPair :: TxOutAux -> (Address, Coin)
+    outToPair = view _TxOut . toaOut
+
+    -- Resolve TxOut for every TxIn and convert TxOuts
+    -- to pairs (Address, Coin)
+    resolvedAddrs :: [(Address, Coin)]
+    resolvedAddrs =
+        mapMaybe (fmap outToPair . flip M.lookup utxo)
+                 (MM.deletions modifier)
+
+    -- subAddress and updateHM are used to do
+    -- hashMap[address] = hashMap[address] - coins
+    subAddress :: Coin -> Coin -> Maybe Coin
+    subAddress r c = if r < c then Just (c `unsafeSubCoin` r) else Nothing
+
+    updateHM :: HashMap Address Coin -> (Address, Coin) -> HashMap Address Coin
+    updateHM hm (ad, coins) = HM.update (subAddress coins) ad hm
+
+    -- Substract coins from current balances
+    addrCoinsRest :: HashMap Address Coin
+    addrCoinsRest = foldl' updateHM addrCoins resolvedAddrs
+
+    -- Remove such TxIns which are already in wallet utxo.
+    insertionsNotInUtxo :: [(TxIn, TxOutAux)]
+    insertionsNotInUtxo = filter (not . flip M.member utxo . fst) (MM.insertions modifier)
+
+    -- Convert TxOuts of insertionsNotInUtxo to [(Address, Coin)]
+    addrCoinsAdditions :: [(Address, Coin)]
+    addrCoinsAdditions = map (outToPair . snd) insertionsNotInUtxo
+
+    -- Add coins to balances
+    result :: HashMap Address Coin
+    result = foldl' (flip $ uncurry $ HM.insertWith unsafeAddCoin) addrCoinsRest addrCoinsAdditions
 
 instance Default UndoMap where
     def = mempty

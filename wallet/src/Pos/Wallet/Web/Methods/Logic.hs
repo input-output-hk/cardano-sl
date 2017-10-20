@@ -44,9 +44,10 @@ import           Pos.Wallet.Web.Account     (AddrGenSeed, genUniqueAccountId,
                                              genUniqueAddress, getAddrIdx, getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..),
                                              CAccountInit (..), CAccountMeta (..),
-                                             CAddress (..), CId, CWAddressMeta (..),
-                                             CWallet (..), CWalletMeta (..), Wal,
-                                             addrMetaToAccount, encToCId, mkCCoin)
+                                             CAddress (..), CCoin, CId,
+                                             CWAddressMeta (..), CWallet (..),
+                                             CWalletMeta (..), Wal, addrMetaToAccount,
+                                             encToCId, mkCCoin)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
 import           Pos.Wallet.Web.State       (AddressLookupMode (Existing),
@@ -73,7 +74,10 @@ import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsO
 getWAddressBalance :: MonadWalletWebMode m => CWAddressMeta -> m Coin
 getWAddressBalance addr = getBalance <=< decodeCTypeOrFail $ cwamId addr
 
--- BE CAREFUL: this function works for O(number of used and change addresses)
+sumCCoin :: MonadThrow m => [CCoin] -> m CCoin
+sumCCoin ccoins = mkCCoin . unsafeIntegerToCoin . sumCoins <$> mapM decodeCTypeOrFail ccoins
+
+-- BE CAREFUL: this function has complexity O(number of used and change addresses)
 getWAddress
     :: MonadWalletWebMode m
     => CachedCAccModifier -> CWAddressMeta -> m CAddress
@@ -95,8 +99,7 @@ getAccount accMod accId = do
     dbAddrs    <- getAccountAddrsOrThrow Existing accId
     let allAddrIds = gatherAddresses (camAddresses accMod) dbAddrs
     allAddrs <- mapM (getWAddress accMod) allAddrIds
-    balance <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
-               mapM (decodeCTypeOrFail . cadAmount) allAddrs
+    balance <- sumCCoin (map cadAmount allAddrs)
     meta <- getAccountMeta accId >>= maybeThrow noAccount
     pure $ CAccount (encodeCType accId) meta allAddrs balance
   where
@@ -135,8 +138,7 @@ getWalletIncludeUnready includeUnready cAddr = do
     meta       <- getWalletMetaIncludeUnready includeUnready cAddr >>= maybeThrow noWallet
     accounts   <- getAccountsIncludeUnready includeUnready (Just cAddr)
     let accountsNum = length accounts
-    balance    <- mkCCoin . unsafeIntegerToCoin . sumCoins <$>
-                     mapM (decodeCTypeOrFail . caAmount) accounts
+    balance    <- sumCCoin (map caAmount accounts)
     hasPass    <- isNothing . checkPassMatches emptyPassphrase <$> getSKById cAddr
     passLU     <- getWalletPassLU cAddr >>= maybeThrow noWallet
     pure $ CWallet cAddr meta accountsNum balance hasPass passLU

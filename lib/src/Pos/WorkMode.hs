@@ -56,7 +56,6 @@ import           Pos.Slotting.Impl.Sum   (currentTimeSlottingSum,
                                           getCurrentSlotBlockingSum,
                                           getCurrentSlotInaccurateSum, getCurrentSlotSum)
 import           Pos.Slotting.MemState   (HasSlottingVar (..), MonadSlotsData)
-import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
 import           Pos.Ssc.Class.Types     (SscBlock)
 import           Pos.Ssc.Extra           (SscMemTag, SscState)
 import           Pos.Txp                 (GenericTxpLocalData, MempoolExt,
@@ -183,7 +182,7 @@ instance MonadBListener (RealMode ext) where
     onRollbackBlocks = onRollbackBlocksStub
 
 instance
-    (HasConfiguration, SscHelpersClass) =>
+    HasConfiguration =>
     MonadBlockDBGeneric BlockHeader Block Undo (RealMode ext)
   where
     dbGetBlock  = dbGetBlockDefault

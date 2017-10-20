@@ -29,7 +29,6 @@ import           Pos.Crypto                 (ProxySignature (..), SignTag (..), 
                                              hash, isSelfSignedPsk, proxyVerify)
 import           Pos.Delegation.Helpers     (dlgVerifyPayload)
 import           Pos.Ssc.Class.Helpers      (SscHelpersClass (..))
-import           Pos.Ssc.Class.Types        (Ssc (..))
 import           Pos.Util.Util              (Some (Some))
 import           Pos.Ssc.GodTossing.Instance ()
 
@@ -49,7 +48,7 @@ instance ( Bi BlockHeader
             throwError "Hash of extra body data is not equal to it's representation in the header."
 
 verifyMainBlockHeader ::
-       (HasConfiguration, Ssc, MonadError Text m, Bi (BodyProof MainBlockchain))
+       (HasConfiguration, MonadError Text m, Bi (BodyProof MainBlockchain))
     => MainBlockHeader
     -> m ()
 verifyMainBlockHeader mbh = do

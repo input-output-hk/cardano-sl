@@ -41,9 +41,6 @@ import           Pos.Reporting               (HasReportingContext)
 import           Pos.Security.Params         (SecurityParams)
 import           Pos.Shutdown                (HasShutdownContext)
 import           Pos.Slotting.Class          (MonadSlots)
-import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
-import           Pos.Ssc.Class.Storage       (SscGStateClass)
-import           Pos.Ssc.Class.Workers       (SscWorkersClass)
 import           Pos.Ssc.Extra               (MonadSscMem)
 import           Pos.Ssc.GodTossing          (HasGtConfiguration)
 import           Pos.StateLock               (StateLock, StateLockMetrics)
@@ -71,9 +68,6 @@ type WorkMode ctx m
       , MonadTxpMem (MempoolExt m) ctx m
       , MonadDelegation ctx m
       , MonadSscMem ctx m
-      , SscGStateClass
-      , SscLocalDataClass
-      , SscWorkersClass
       , MonadRecoveryInfo m
       , MonadRecoveryHeader ctx m
       , MonadProgressHeader ctx m

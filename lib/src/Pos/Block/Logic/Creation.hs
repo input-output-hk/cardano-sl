@@ -49,8 +49,7 @@ import           Pos.Exception              (assertionFailed, reportFatalError)
 import           Pos.Lrc                    (HasLrcContext, LrcModeFull, lrcSingleShot)
 import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Reporting              (reportError)
-import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefaultPayload, sscStripPayload),
-                                             SscLocalDataClass)
+import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefaultPayload, sscStripPayload))
 import           Pos.Ssc.Extra              (MonadSscMem, sscGetLocalPayload,
                                              sscResetLocal)
 import           Pos.StateLock              (Priority (..), StateLock, StateLockMetrics,
@@ -88,7 +87,6 @@ type MonadCreateBlock ctx m
        , MonadTxpLocal m
        , HasLens UpdateContext ctx UpdateContext
        , MonadSscMem ctx m
-       , SscLocalDataClass
        )
 
 ----------------------------------------------------------------------------
@@ -421,7 +419,7 @@ getRawPayload tip slotId = do
 -- Given limit applies only to body, not to other data from block.
 createMainBody
     :: forall m .
-       (MonadError Text m, SscHelpersClass, HasConfiguration)
+       (MonadError Text m, HasConfiguration)
     => Byte  -- ^ Body limit
     -> SlotId
     -> RawPayload

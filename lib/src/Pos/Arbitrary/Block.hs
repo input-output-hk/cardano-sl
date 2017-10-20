@@ -41,7 +41,7 @@ newtype BodyDependsOnSlot b = BodyDependsOnSlot
 -- Arbitrary instances for Blockchain related types
 ------------------------------------------------------------------------------------------
 
-instance (HasConfiguration, Arbitrary SscProof, Ssc) =>
+instance (HasConfiguration, Arbitrary SscProof) =>
     Arbitrary T.BlockSignature where
     arbitrary = genericArbitrary
     shrink = genericShrink
@@ -120,7 +120,7 @@ instance (HasConfiguration, Arbitrary SscProof) =>
             shrink (mpTxProof, mpMpcProof, mpProxySKsProof, mpUpdateProof)
         ]
 
-instance (HasConfiguration, Arbitrary SscProof, Ssc) =>
+instance (HasConfiguration, Arbitrary SscProof) =>
     Arbitrary (T.ConsensusData T.MainBlockchain) where
     arbitrary = genericArbitrary
     shrink = genericShrink

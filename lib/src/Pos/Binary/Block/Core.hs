@@ -18,7 +18,6 @@ import qualified Pos.Block.Core.Main.Types    as BC
 import           Pos.Core                     (BlockVersion, SoftwareVersion, HasConfiguration)
 import qualified Pos.Core.Block               as Core
 import           Pos.Crypto                   (Hash)
-import           Pos.Ssc.Class.Types          (Ssc (..))
 import           Pos.Ssc.GodTossing.Instance  ()
 
 ----------------------------------------------------------------------------
@@ -65,7 +64,7 @@ instance HasConfiguration => Bi (BC.ConsensusData BC.MainBlockchain) where
                              decode <*>
                              decode
 
-instance (HasConfiguration, Ssc) => Bi (BC.Body BC.MainBlockchain) where
+instance HasConfiguration => Bi (BC.Body BC.MainBlockchain) where
   encode bc =  encodeListLen 4
             <> encode (BC._mbTxPayload  bc)
             <> encode (BC._mbSscPayload bc)
@@ -91,7 +90,7 @@ deriveSimpleBi ''BC.MainExtraBodyData [
         Field [| BC._mebAttributes :: BC.BlockBodyAttributes |]
     ]]
 
-instance (HasConfiguration, Ssc) => Bi BC.MainToSign where
+instance HasConfiguration => Bi BC.MainToSign where
   encode mts = encodeListLen 5
              <> encode (BC._msHeaderHash mts)
              <> encode (BC._msBodyProof mts)

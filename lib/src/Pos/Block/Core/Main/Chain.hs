@@ -25,12 +25,12 @@ import           Pos.Core                   (Blockchain (..), ChainDifficulty,
 import           Pos.Crypto                 (Hash, PublicKey, hash)
 import           Pos.Delegation.Types       (DlgPayload)
 import           Pos.Ssc.Class.Types        (Ssc (..))
+import           Pos.Ssc.GodTossing.Instance ()
 import           Pos.Txp.Core               (TxPayload, TxProof, mkTxProof)
 import           Pos.Update.Core.Types      (UpdatePayload, UpdateProof, mkUpdateProof)
 
 instance ( HasConfiguration
          , Bi BlockHeader
-         , Ssc
          , Bi (BodyProof MainBlockchain)
          , IsMainHeader (GenericBlockHeader MainBlockchain)) =>
          Blockchain MainBlockchain where

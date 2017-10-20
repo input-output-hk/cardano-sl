@@ -42,7 +42,6 @@ import qualified Pos.GState                      as GS
 import qualified Pos.Lrc.DB                      as LrcDB
 import           Pos.Network.Types               (Bucket (BucketSubscriptionListener),
                                                   Topology, topologyMaxBucketSize)
-import           Pos.Ssc.Class                   (SscConstraint)
 import           Pos.Ssc.GodTossing              (gtcParticipateSsc)
 import           Pos.Txp                         (TxOut (..), toaOut)
 import           Pos.Txp.MemState                (GenericTxpLocalData, MempoolExt,
@@ -60,10 +59,8 @@ import           Pos.Web.Types                   (TlsParams (..))
 -- Top level functionality
 ----------------------------------------------------------------------------
 
--- [CSL-152]: I want SscConstraint to be part of WorkMode.
 type MyWorkMode ctx m =
     ( WorkMode ctx m
-    , SscConstraint
     , HasNodeContext ctx -- for ConvertHandler
     , Default (MempoolExt m)
     )

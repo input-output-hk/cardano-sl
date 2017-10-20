@@ -209,7 +209,7 @@ instance ( SafeCopy (BHeaderHash b)
 
 deriveSafeCopySimple 0 'base ''ChainDifficulty
 
-instance (Ssc, SafeCopy SscProof) =>
+instance SafeCopy SscProof =>
          SafeCopy (BodyProof MainBlockchain) where
     getCopy = contain $ do
         mpTxProof <- safeGet
@@ -268,7 +268,7 @@ instance SafeCopy (ConsensusData GenesisBlockchain) where
         do safePut _gcdEpoch
            safePut _gcdDifficulty
 
-instance (Ssc, SafeCopy SscPayload) =>
+instance SafeCopy SscPayload =>
          SafeCopy (Body MainBlockchain) where
     getCopy = contain $ do
         _mbTxPayload     <- safeGet

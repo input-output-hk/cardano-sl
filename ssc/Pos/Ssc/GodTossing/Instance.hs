@@ -14,7 +14,6 @@ import           Pos.Ssc.Class.Helpers              (SscHelpersClass (..))
 import           Pos.Ssc.Class.Types                (Ssc (..))
 import           Pos.Ssc.Core                       (defaultSscPayload,
                                                      stripSscPayload)
-import           Pos.Ssc.GodTossing.Error           (SeedError)
 import           Pos.Ssc.GodTossing.Functions       (sanityChecksSscPayload)
 import           Pos.Ssc.GodTossing.LocalData.Types (GtLocalData)
 import           Pos.Ssc.GodTossing.Toss.Failure    (TossVerFailure (..))
@@ -24,7 +23,6 @@ import           Pos.Ssc.GodTossing.Types.Types     (GtContext, GtGlobalState, G
 instance HasConfiguration => Ssc where
     type SscLocalData   = GtLocalData
     type SscGlobalState = GtGlobalState
-    type SscSeedError   = SeedError
     type SscNodeContext = GtContext
     type SscParams      = GtParams
     type SscVerifyError = TossVerFailure

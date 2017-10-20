@@ -21,9 +21,7 @@ import           Pos.Ssc.Core.Types  (SscPayload(..), SscProof(..))
 
 -- | Main Shared Seed Calculation type class. Stores all needed type
 -- parameters for general implementation of SSC.
-class ( Typeable SscSeedError
-      , Eq SscGlobalState
-      , Buildable SscSeedError
+class ( Eq SscGlobalState
       , Buildable SscVerifyError
       , Buildable SscGlobalState
       , Bi SscProof
@@ -35,8 +33,6 @@ class ( Typeable SscSeedError
     type SscLocalData
     -- | Global state, which is formed from all known blocks
     type SscGlobalState
-    -- | Error that can happen when calculating the seed
-    type SscSeedError
     -- | SSC specific context in NodeContext
     type SscNodeContext
     -- | Needed options for creating SscNodeContext

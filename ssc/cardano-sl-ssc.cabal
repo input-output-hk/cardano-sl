@@ -17,6 +17,8 @@ library
     Pos.Ssc.Core.Types
     Pos.Ssc.Core.Functions
 
+    Pos.Ssc.SeedError
+
     -- SSC
     Pos.Arbitrary.Ssc
 
@@ -65,7 +67,6 @@ library
     Pos.Ssc.GodTossing.LocalData.Logic
 
     Pos.Ssc.GodTossing.VssCertData
-    Pos.Ssc.GodTossing.Error
     Pos.Ssc.GodTossing.SecretStorage
     Pos.Ssc.GodTossing.Functions
     Pos.Ssc.GodTossing.Instance

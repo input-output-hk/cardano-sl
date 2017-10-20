@@ -23,7 +23,7 @@ import           Pos.Ssc.Core             (Commitment (..), CommitmentsMap (..),
                                            SignedCommitment, getCommShares,
                                            secretToSharedSeed, verifyOpening,
                                            vssThreshold)
-import           Pos.Ssc.GodTossing.Error (SeedError (..))
+import           Pos.Ssc.SeedError        (SscSeedError (..))
 import           Pos.Util.Util            (getKeys)
 
 -- | Calculate SharedSeed. SharedSeed is a random bytestring that all
@@ -43,7 +43,7 @@ calculateSeed
     -> OpeningsMap                            -- ^ Openings sent by the nodes
     -> SharesMap                              -- ^ Decrypted shares
     -> RichmenStakes                          -- ^ How much stake nodes have
-    -> Either SeedError SharedSeed
+    -> Either SscSeedError SharedSeed
 calculateSeed commitments' binVssKeys openings lShares richmen = do
     let commitments :: HashMap StakeholderId SignedCommitment
         commitments = getCommitmentsMap commitments' -- just unwrapping

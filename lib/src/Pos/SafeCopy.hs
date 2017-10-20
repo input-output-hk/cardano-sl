@@ -49,7 +49,6 @@ import           Pos.Data.Attributes             (Attributes (..), UnparsedField
 import           Pos.Delegation.Types            (DlgPayload (..))
 import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (..),
                                                   MerkleTree (..))
-import           Pos.Ssc.Class.Types             (Ssc (..))
 import           Pos.Ssc.Core                    (Commitment (..), CommitmentsMap,
                                                   SscPayload (..), SscProof (..),
                                                   Opening (..))

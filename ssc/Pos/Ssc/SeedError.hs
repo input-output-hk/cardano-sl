@@ -1,7 +1,7 @@
 -- | Error which can arise during seed calculation.
 
-module Pos.Ssc.GodTossing.Error
-       ( SeedError (..)
+module Pos.Ssc.SeedError
+       ( SscSeedError (..)
        ) where
 
 import           Universum
@@ -11,8 +11,8 @@ import           Serokell.Util       (listBuilderJSON)
 
 import           Pos.Core.Types      (Coin, StakeholderId)
 
--- | Data type for error during seed calculation.
-data SeedError
+-- | Error that can happen when calculating the seed
+data SscSeedError
     -- | Some nodes in the 'OpeningsMap' aren't in the set of participants
     = ExtraOpenings !(HashSet StakeholderId)
     -- | Some nodes in the 'SharesMap' aren't in the set of participants
@@ -43,7 +43,7 @@ data SeedError
     | CommitmentDistrError !Text
     deriving (Eq, Show)
 
-instance Buildable SeedError where
+instance Buildable SscSeedError where
     build (ExtraOpenings ks) =
         "ExtraOpenings " <> listBuilderJSON ks
     build (ExtraShares ks) =

@@ -19,6 +19,7 @@ import           Pos.Core             (BlockVersionData, EpochIndex, SharedSeed)
 import           Pos.DB               (MonadDBRead, SomeBatchOp)
 import           Pos.Lrc.Types        (RichmenStakes)
 import           Pos.Ssc.Class.Types  (Ssc (..), SscBlock)
+import           Pos.Ssc.SeedError    (SscSeedError)
 import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
 
 ----------------------------------------------------------------------------

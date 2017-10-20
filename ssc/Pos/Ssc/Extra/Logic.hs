@@ -53,6 +53,7 @@ import           Pos.Ssc.Core             (SscPayload)
 import           Pos.Ssc.Extra.Class      (MonadSscMem, askSscMem)
 import           Pos.Ssc.Extra.Types      (SscState (sscGlobal, sscLocal))
 import           Pos.Ssc.RichmenComponent (getRichmenSsc)
+import           Pos.Ssc.SeedError        (SscSeedError)
 import           Pos.Util.Chrono          (NE, NewestFirst, OldestFirst)
 import           Pos.Util.Util            (Some, inAssertMode, _neHead, _neLast)
 

@@ -11,7 +11,7 @@ module Pos.Ssc.GodTossing
        ( module Pos.Arbitrary.Ssc.GodTossing
        , module Pos.Ssc.GodTossing.Configuration
        , module Pos.Ssc.Core
-       , module Pos.Ssc.GodTossing.Error
+       , module Pos.Ssc.SeedError
        , module Pos.Ssc.GodTossing.Functions
        , module Pos.Ssc.GodTossing.LocalData
        , module Pos.Ssc.GodTossing.SecretStorage
@@ -26,7 +26,7 @@ import           Pos.Arbitrary.Ssc.GodTossing
 import           Pos.Binary.Ssc                   ()
 import           Pos.Ssc.GodTossing.Configuration
 import           Pos.Ssc.Core
-import           Pos.Ssc.GodTossing.Error
+import           Pos.Ssc.SeedError
 import           Pos.Ssc.GodTossing.Functions
 import           Pos.Ssc.GodTossing.GState
 import           Pos.Ssc.GodTossing.Listeners     ()

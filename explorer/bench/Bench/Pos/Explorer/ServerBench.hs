@@ -87,13 +87,6 @@ getBlocksTotalMock genTestArgs = do
     testParams <- testParamsGen
     runBlockTestMode testParams $ getBlocksTotalEMode mode
   where
-    -- TODO(ks): Temporary test params, will be removed.
-    testParamsGen :: IO TestParams
-    testParamsGen = generate arbitrary
-
-    defaultInstance :: ExplorerMockMode BlockTestMode
-    defaultInstance = def
-
     -- The mocked CSL function interfaces
     mode :: ExplorerMockMode BlockTestMode
     mode = defaultInstance { emmGetTipBlock = pure $ genTestArgs ^. gtaTipBlock }
@@ -108,16 +101,9 @@ getBlocksPageMock genTestArgs = do
     testParams <- testParamsGen -- TODO(ks): Temporary test params, will be removed.
     runBlockTestMode testParams $ getBlocksPageEMode mode pageNumber (Just 10)
   where
-    -- TODO(ks): Temporary test params, will be removed.
-    testParamsGen :: IO TestParams
-    testParamsGen = generate arbitrary
-
     -- The page number we send to the function
     pageNumber :: Maybe Word
     pageNumber = genTestArgs ^. gtaPageNumber
-
-    defaultInstance :: ExplorerMockMode BlockTestMode
-    defaultInstance = def
 
     -- The mocked CSL function interfaces
     mode :: ExplorerMockMode BlockTestMode
@@ -128,6 +114,14 @@ getBlocksPageMock genTestArgs = do
         emmGetSlotStart           = \_ -> pure $ Just $ genTestArgs ^. gtaSlotStart,
         emmGetLeadersFromEpoch    = \_ -> pure $ Just $ genTestArgs ^. gtaSlotLeaders
     }
+
+-- TODO(ks): Temporary test params, will be removed.
+testParamsGen :: IO TestParams
+testParamsGen = generate arbitrary
+
+defaultInstance :: ExplorerMockMode BlockTestMode
+defaultInstance = def
+
 
 ----------------------------------------------------------------
 -- Time benchmark

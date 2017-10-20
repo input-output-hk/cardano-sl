@@ -41,6 +41,8 @@ import           Test.Pos.Util                (withDefConfigurations)
 -- Spec
 ----------------------------------------------------------------
 
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+
 -- sack test cardano-sl-explorer --fast --test-arguments "-m Test.Pos.Explorer.Web.ServerSpec"
 spec :: Spec
 spec = withDefConfigurations $ do

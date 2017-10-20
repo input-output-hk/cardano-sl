@@ -69,6 +69,7 @@ selectDistinct n0 p@(a, b)
 -- taken from given range [a, b]
 selectSomeFromList :: MonadRandom m => (Int, Int) -> [a] -> m [a]
 selectSomeFromList p@(a, b0) ls
+    | l == 0 = error "selectSomeFromList: empty list passed"
     | l < a = error $
               "selectSomeFromList: list length < a (" <>
               show l <> " < " <> show a <> ")"
@@ -187,8 +188,11 @@ genTxPayload = do
         let maxInputAddrsN = max 1 $ min 3 $ length addrsWithMoney - 1
         inputAddrs <- selectSomeFromList (1, maxInputAddrsN) addrsWithMoney
         -- Output addresses should differ from input addresses
-        outputAddrs <- selectSomeFromList (1, maxOutputsN) $
-            filter (`notElem` inputAddrs) utxoAddresses
+        let notInputs = filter (`notElem` inputAddrs) utxoAddresses
+        when (null notInputs) $ throwM $ BGInternal $
+            "Payload generator: no available outputs, probably utxo size is 1"
+        outputAddrs <- selectSomeFromList (1, maxOutputsN) notInputs
+
         let outputsN = length outputAddrs
 
         -- Select UTXOs belonging to one of input addresses and determine

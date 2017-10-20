@@ -497,7 +497,9 @@ instance Arbitrary Fee.TxFeePolicy where
 
 instance HasGenesisBlockVersionData => Arbitrary G.TestnetBalanceOptions where
     arbitrary = do
-        tboPoors <- choose (0, 100)
+        -- We have at least 2 owned addresses in system so we can send
+        -- transactions in block-gen/tests.
+        tboPoors <- choose (1, 100)
         tboRichmen <- choose (1, 12)
         tboTotalBalance <- choose (1000, maxCoinVal)
         tboRichmenShare <- choose (0.55, 0.996)

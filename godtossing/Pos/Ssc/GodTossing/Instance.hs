@@ -1,12 +1,10 @@
 {-# LANGUAGE TypeFamilies #-}
 
-module Pos.Ssc.GodTossing.Type
-       ( SscGodTossing
-         -- * Instances
-         -- ** instance Ssc SscGodTossing
+module Pos.Ssc.GodTossing.Instance
+       ( -- * Instances
+         -- ** instance Ssc
        ) where
 
-import           Data.Tagged                        (Tagged (..))
 import           Universum
 
 import           Pos.Binary.Core                    ()
@@ -23,27 +21,19 @@ import           Pos.Ssc.GodTossing.Toss.Failure    (TossVerFailure (..))
 import           Pos.Ssc.GodTossing.Types.Types     (GtContext, GtGlobalState, GtParams,
                                                      createGtContext)
 
--- | Data type which represents shared seed calculation tag
--- in -XTypeApplication hacks with type families.
-data SscGodTossing
-    deriving (Generic)
+instance HasConfiguration => Ssc where
+    type SscLocalData   = GtLocalData
+    type SscPayload     = GtPayload
+    type SscGlobalState = GtGlobalState
+    type SscProof       = GtProof
+    type SscSeedError   = SeedError
+    type SscNodeContext = GtContext
+    type SscParams      = GtParams
+    type SscVerifyError = TossVerFailure
+    mkSscProof = mkGtProof
+    sscCreateNodeContext = createGtContext
 
-deriving instance Show SscGodTossing
-deriving instance Eq SscGodTossing
-
-instance (HasConfiguration, ssc ~ SscGodTossing) => Ssc ssc where
-    type SscLocalData   ssc = GtLocalData
-    type SscPayload     ssc = GtPayload
-    type SscGlobalState ssc = GtGlobalState
-    type SscProof       ssc = GtProof
-    type SscSeedError   ssc = SeedError
-    type SscNodeContext ssc = GtContext
-    type SscParams      ssc = GtParams
-    type SscVerifyError ssc = TossVerFailure
-    mkSscProof = Tagged mkGtProof
-    sscCreateNodeContext = Tagged createGtContext
-
-instance (HasConfiguration, ssc ~ SscGodTossing) => SscHelpersClass ssc where
+instance HasConfiguration => SscHelpersClass where
     sscVerifyPayload = sanityChecksGtPayload
     sscStripPayload = stripGtPayload
     sscDefaultPayload = defaultGtPayload

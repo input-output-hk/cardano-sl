@@ -52,7 +52,6 @@ import           Pos.Slotting.Impl.Sum   (SlottingContextSum, currentTimeSlottin
                                           getCurrentSlotInaccurateSum, getCurrentSlotSum)
 import           Pos.Slotting.MemState   (MonadSlotsData)
 import           Pos.Ssc.Class.Types     (SscBlock)
-import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 import           Pos.Util                (Some (..))
 import           Pos.Util.Util           (postfixLFields)
 
@@ -110,7 +109,7 @@ instance
 
 instance
     HasConfiguration =>
-    MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () InitMode
+    MonadBlockDBGeneric (Some IsHeader) SscBlock () InitMode
   where
     dbGetBlock  = dbGetBlockSscDefault
     dbGetUndo   = dbGetUndoSscDefault

@@ -81,7 +81,6 @@ import           Pos.Crypto                (Hash, PublicKey)
 import           Pos.Delegation.Types      (DlgPayload)
 import           Pos.Merkle                (MerkleTree)
 import           Pos.Ssc.Class.Types       (Ssc (..))
-import           Pos.Ssc.GodTossing.Type   (SscGodTossing)
 import           Pos.Txp.Core              (Tx, TxPayload, TxWitness, txpTxs,
                                             txpWitnesses)
 import           Pos.Update.Core.Types     (UpdatePayload)
@@ -115,7 +114,7 @@ mainHeaderPrevBlock = gbhPrevBlock
 
 -- | Lens from 'MainBlockHeader' to 'MainProof'.
 mainHeaderProof ::
-       Lens' MainBlockHeader (BodyProof $ MainBlockchain SscGodTossing)
+       Lens' MainBlockHeader (BodyProof MainBlockchain)
 mainHeaderProof = gbhBodyProof
 
 -- | Lens from 'MainBlockHeader' to 'SlotId'.
@@ -131,7 +130,7 @@ mainHeaderDifficulty :: Lens' MainBlockHeader ChainDifficulty
 mainHeaderDifficulty = gbhConsensus . mcdDifficulty
 
 -- | Lens from 'MainBlockHeader' to 'Signature'.
-mainHeaderSignature :: Lens' MainBlockHeader (BlockSignature SscGodTossing)
+mainHeaderSignature :: Lens' MainBlockHeader BlockSignature
 mainHeaderSignature = gbhConsensus . mcdSignature
 
 -- | Lens from 'MainBlockHeader' to 'BlockVersion'.
@@ -161,11 +160,11 @@ mainHeaderEBDataProof = gbhExtra . mehEBDataProof
 makeLenses 'MainBody
 
 -- | Lens for transaction tree in main block body.
-mbTxs :: Lens' (Body (MainBlockchain ssc)) (MerkleTree Tx)
+mbTxs :: Lens' (Body MainBlockchain) (MerkleTree Tx)
 mbTxs = mbTxPayload . txpTxs
 
 -- | Lens for witness list in main block body.
-mbWitnesses :: Lens' (Body (MainBlockchain ssc)) [TxWitness]
+mbWitnesses :: Lens' (Body MainBlockchain) [TxWitness]
 mbWitnesses = mbTxPayload . txpWitnesses
 
 ----------------------------------------------------------------------------
@@ -177,7 +176,7 @@ mainBlockPrevBlock :: Lens' MainBlock HeaderHash
 mainBlockPrevBlock = gbPrevBlock
 
 -- | Lens from 'MainBlock' to 'MainProof'.
-mainBlockProof :: Lens' MainBlock (BodyProof $ MainBlockchain SscGodTossing)
+mainBlockProof :: Lens' MainBlock (BodyProof MainBlockchain)
 mainBlockProof = gbHeader . mainHeaderProof
 
 -- | Lens from 'MainBlock' to 'SlotId'.
@@ -193,7 +192,7 @@ mainBlockDifficulty :: Lens' MainBlock ChainDifficulty
 mainBlockDifficulty = gbHeader . mainHeaderDifficulty
 
 -- | Lens from 'MainBlock' to 'Signature'.
-mainBlockSignature :: Lens' MainBlock (BlockSignature SscGodTossing)
+mainBlockSignature :: Lens' MainBlock BlockSignature
 mainBlockSignature = gbHeader . mainHeaderSignature
 
 -- | Lens from 'MainBlock' to 'BlockVersion'.
@@ -221,7 +220,7 @@ mainBlockTxPayload :: Lens' MainBlock TxPayload
 mainBlockTxPayload = gbBody . mbTxPayload
 
 -- | Lens from 'MainBlock' to 'SscPayload'.
-mainBlockSscPayload :: Lens' MainBlock (SscPayload SscGodTossing)
+mainBlockSscPayload :: Lens' MainBlock SscPayload
 mainBlockSscPayload = gbBody . mbSscPayload
 
 -- | Lens from 'MainBlock' to 'UpdatePayload'.

@@ -29,7 +29,7 @@ import           Pos.Core                   (BlockVersionData (bvdMaxBlockSize),
 import           Pos.Crypto                 (SecretKey)
 import           Pos.Delegation             (DlgPayload, ProxySKBlockInfo)
 import           Pos.Ssc.Class              (Ssc (..), sscDefaultPayload)
-import           Pos.Ssc.GodTossing         (GtPayload (..), SscGodTossing,
+import           Pos.Ssc.GodTossing         (GtPayload (..),
                                              commitmentMapEpochGen,
                                              vssCertificateEpochGen)
 import           Pos.Txp.Core               (TxAux)
@@ -107,7 +107,7 @@ spec = withDefConfiguration $ withDefUpdateConfiguration $
                    leftToCounter blk2 (const True)
   where
     defGTP :: HasConfiguration => SlotId -> GtPayload
-    defGTP sId = sscDefaultPayload @SscGodTossing $ siSlot sId
+    defGTP sId = sscDefaultPayload $ siSlot sId
 
     infLimit = convertUnit @Gigabyte @Byte 1
 
@@ -145,7 +145,7 @@ spec = withDefConfiguration $ withDefUpdateConfiguration $
         -> ProxySKBlockInfo
         -> SlotId
         -> DlgPayload
-        -> SscPayload SscGodTossing
+        -> SscPayload
         -> UpdatePayload
         -> SecretKey
         -> Either Text MainBlock

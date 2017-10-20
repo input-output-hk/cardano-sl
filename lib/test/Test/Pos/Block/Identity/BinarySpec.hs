@@ -12,7 +12,6 @@ import           Pos.Arbitrary.Block ()
 import qualified Pos.Block.Core      as BT
 import qualified Pos.Block.Network   as BT
 import qualified Pos.Communication   ()
-import           Pos.Ssc.GodTossing  (SscGodTossing)
 
 import           Test.Pos.Util       (binaryTest, withDefConfiguration)
 
@@ -38,22 +37,22 @@ spec = withDefConfiguration $ describe "Block types" $ do
                 describe "BodyProof" $ do
                     binaryTest @BT.GenesisExtraHeaderData
                     binaryTest @BT.GenesisExtraBodyData
-                    binaryTest @(BT.BodyProof (BT.GenesisBlockchain SscGodTossing))
+                    binaryTest @(BT.BodyProof BT.GenesisBlockchain)
                 describe "ConsensusData" $ do
-                    binaryTest @(BT.ConsensusData (BT.GenesisBlockchain SscGodTossing))
+                    binaryTest @(BT.ConsensusData BT.GenesisBlockchain)
                 describe "Body" $ do
-                    binaryTest @(BT.Body (BT.GenesisBlockchain SscGodTossing))
+                    binaryTest @(BT.Body BT.GenesisBlockchain)
             describe "MainBlockchain" $ do
                 describe "BodyProof" $ do
-                    binaryTest @(BT.BodyProof (BT.MainBlockchain SscGodTossing))
+                    binaryTest @(BT.BodyProof BT.MainBlockchain)
                 describe "BlockSignature" $ do
-                    binaryTest @(BT.BlockSignature SscGodTossing)
+                    binaryTest @BT.BlockSignature
                 describe "ConsensusData" $ do
-                    binaryTest @(BT.ConsensusData (BT.MainBlockchain SscGodTossing))
+                    binaryTest @(BT.ConsensusData BT.MainBlockchain)
                 describe "Body" $ do
-                    binaryTest @(BT.Body (BT.MainBlockchain SscGodTossing))
+                    binaryTest @(BT.Body BT.MainBlockchain)
                 describe "MainToSign" $ do
-                    binaryTest @(BT.MainToSign SscGodTossing)
+                    binaryTest @BT.MainToSign
                 describe "Extra data" $ do
                     binaryTest @BT.MainExtraHeaderData
                     binaryTest @BT.MainExtraBodyData

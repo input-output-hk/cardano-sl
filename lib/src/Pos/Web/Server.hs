@@ -43,7 +43,7 @@ import qualified Pos.Lrc.DB                      as LrcDB
 import           Pos.Network.Types               (Bucket (BucketSubscriptionListener),
                                                   Topology, topologyMaxBucketSize)
 import           Pos.Ssc.Class                   (SscConstraint)
-import           Pos.Ssc.GodTossing              (SscGodTossing, gtcParticipateSsc)
+import           Pos.Ssc.GodTossing              (gtcParticipateSsc)
 import           Pos.Txp                         (TxOut (..), toaOut)
 import           Pos.Txp.MemState                (GenericTxpLocalData, MempoolExt,
                                                   askTxpMem, getLocalTxs)
@@ -61,30 +61,30 @@ import           Pos.Web.Types                   (TlsParams (..))
 ----------------------------------------------------------------------------
 
 -- [CSL-152]: I want SscConstraint to be part of WorkMode.
-type MyWorkMode ssc ctx m =
+type MyWorkMode ctx m =
     ( WorkMode ctx m
-    , SscConstraint ssc
-    , HasNodeContext ssc ctx -- for ConvertHandler
+    , SscConstraint
+    , HasNodeContext ctx -- for ConvertHandler
     , Default (MempoolExt m)
     )
 
-serveWebBase :: MyWorkMode ssc ctx m => Word16 -> Maybe TlsParams -> m ()
+serveWebBase :: MyWorkMode ctx m => Word16 -> Maybe TlsParams -> m ()
 serveWebBase = serveImpl applicationBase "127.0.0.1"
 
-applicationBase :: MyWorkMode ssc ctx m => m Application
+applicationBase :: MyWorkMode ctx m => m Application
 applicationBase = do
     server <- servantServerBase
     return $ serve baseNodeApi server
 
-route53HealthCheckApplication :: MyWorkMode ssc ctx m => Topology t -> OQ m -> m Application
+route53HealthCheckApplication :: MyWorkMode ctx m => Topology t -> OQ m -> m Application
 route53HealthCheckApplication topology oq = do
     server <- servantServerHealthCheck topology oq
     return $ serve healthCheckApi server
 
-serveWebGT :: MyWorkMode SscGodTossing ctx m => Word16 -> Maybe TlsParams -> m ()
+serveWebGT :: MyWorkMode ctx m => Word16 -> Maybe TlsParams -> m ()
 serveWebGT = serveImpl applicationGT "127.0.0.1"
 
-applicationGT :: MyWorkMode SscGodTossing ctx m => m Application
+applicationGT :: MyWorkMode ctx m => m Application
 applicationGT = do
     server <- servantServerGT
     return $ serve gtNodeApi server
@@ -108,11 +108,11 @@ tlsParamsToWai TlsParams{..} = tlsSettingsChain tpCertPath [tpCaPath] tpKeyPath
 ----------------------------------------------------------------------------
 
 convertHandler
-    :: forall ssc ext a.
-       NodeContext ssc
+    :: forall ext a.
+       NodeContext
     -> DB.NodeDBs
     -> GenericTxpLocalData ext
-    -> WebMode ssc ext a
+    -> WebMode ext a
     -> Handler a
 convertHandler nc nodeDBs txpData handler =
     liftIO
@@ -126,31 +126,31 @@ convertHandler nc nodeDBs txpData handler =
     catchServant = throwError
 
 nat
-    :: forall ssc ext ctx m .
-    ( MyWorkMode ssc ctx m, MempoolExt m ~ ext)
-    => m (WebMode ssc ext :~> Handler)
+    :: forall ext ctx m .
+    ( MyWorkMode ctx m, MempoolExt m ~ ext)
+    => m (WebMode ext :~> Handler)
 nat = do
     nc <- view nodeContext
     nodeDBs <- DB.getNodeDBs
     txpLocalData <- askTxpMem
     return $ NT (convertHandler nc nodeDBs txpLocalData)
 
-servantServerBase :: forall ssc ctx m . MyWorkMode ssc ctx m => m (Server (BaseNodeApi ssc))
-servantServerBase = flip enter baseServantHandlers <$> (nat @ssc @(MempoolExt m) @ctx @m)
+servantServerBase :: forall ctx m . MyWorkMode ctx m => m (Server BaseNodeApi)
+servantServerBase = flip enter baseServantHandlers <$> (nat @(MempoolExt m) @ctx @m)
 
-servantServerHealthCheck :: forall ssc ctx t m . MyWorkMode ssc ctx m => Topology t -> OQ m -> m (Server HealthCheckApi)
+servantServerHealthCheck :: forall ctx t m . MyWorkMode ctx m => Topology t -> OQ m -> m (Server HealthCheckApi)
 servantServerHealthCheck topology oq =
-    flip enter (healthCheckServantHandlers topology oq) <$> (nat @ssc @(MempoolExt m) @ctx @m)
+    flip enter (healthCheckServantHandlers topology oq) <$> (nat @(MempoolExt m) @ctx @m)
 
-servantServerGT :: forall ctx m . MyWorkMode SscGodTossing ctx m => m (Server GtNodeApi)
+servantServerGT :: forall ctx m . MyWorkMode ctx m => m (Server GtNodeApi)
 servantServerGT = flip enter (baseServantHandlers :<|> gtServantHandlers) <$>
-    (nat @SscGodTossing @(MempoolExt m) @ctx @m)
+    (nat @(MempoolExt m) @ctx @m)
 
 ----------------------------------------------------------------------------
 -- Base handlers
 ----------------------------------------------------------------------------
 
-baseServantHandlers :: (HasConfiguration, Default ext) => ServerT (BaseNodeApi ssc) (WebMode ssc ext)
+baseServantHandlers :: (HasConfiguration, Default ext) => ServerT BaseNodeApi (WebMode ext)
 baseServantHandlers =
     getLeaders
     :<|>
@@ -162,7 +162,7 @@ baseServantHandlers =
     :<|>
     getLocalTxsNum
 
-getLeaders :: HasConfiguration => Maybe EpochIndex -> WebMode ssc ext SlotLeaders
+getLeaders :: HasConfiguration => Maybe EpochIndex -> WebMode ext SlotLeaders
 getLeaders maybeEpoch = do
     -- epoch <- maybe (siEpoch <$> getCurrentSlot) pure maybeEpoch
     epoch <- maybe (pure 0) pure maybeEpoch
@@ -170,21 +170,21 @@ getLeaders maybeEpoch = do
   where
     err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
 
-getUtxo :: HasConfiguration => WebMode ssc ext [TxOut]
+getUtxo :: HasConfiguration => WebMode ext [TxOut]
 getUtxo = map toaOut . toList <$> GS.getAllPotentiallyHugeUtxo
 
-getLocalTxsNum :: Default ext => WebMode ssc ext Word
+getLocalTxsNum :: Default ext => WebMode ext Word
 getLocalTxsNum = fromIntegral . length <$> getLocalTxs
 
 ----------------------------------------------------------------------------
 -- HealthCheck handlers
 ----------------------------------------------------------------------------
 
-healthCheckServantHandlers :: Topology t -> OQ m -> ServerT HealthCheckApi (WebMode ssc ext)
+healthCheckServantHandlers :: Topology t -> OQ m -> ServerT HealthCheckApi (WebMode ext)
 healthCheckServantHandlers topology oq =
     getRoute53HealthCheck topology oq
 
-getRoute53HealthCheck :: Topology t -> OQ m -> ServerT HealthCheckApi (WebMode ssc ext)
+getRoute53HealthCheck :: Topology t -> OQ m -> ServerT HealthCheckApi (WebMode ext)
 getRoute53HealthCheck (topologyMaxBucketSize -> getSize) oq = do
     let maxCapacityTxt = case getSize BucketSubscriptionListener of
                              OQ.BucketSizeUnlimited -> "unlimited"
@@ -202,7 +202,7 @@ getRoute53HealthCheck (topologyMaxBucketSize -> getSize) oq = do
 -- GodTossing handlers
 ----------------------------------------------------------------------------
 
-type GtWebMode ext = WebMode SscGodTossing ext
+type GtWebMode ext = WebMode ext
 
 gtServantHandlers :: ServerT GodTossingApi (GtWebMode ext)
 gtServantHandlers =

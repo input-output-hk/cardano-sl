@@ -20,15 +20,15 @@ import           Pos.Crypto               (DecShare, EncShare, VssKeyPair, VssPu
 import           Pos.Ssc.Class.Storage    (SscGlobalQuery)
 import           Pos.Ssc.Extra            (MonadSscMem, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Core  (Commitment (..), getCommitmentsMap)
-import           Pos.Ssc.GodTossing.Type  (SscGodTossing)
 import           Pos.Ssc.GodTossing.Types (gsCommitments, gsOpenings)
+import           Pos.Ssc.GodTossing.Instance ()
 
-type GSQuery a = SscGlobalQuery SscGodTossing a
+type GSQuery a = SscGlobalQuery a
 
 -- | Decrypt shares (in commitments) that are intended for us and that we can
 -- decrypt.
 getOurShares
-    :: (MonadSscMem SscGodTossing ctx m, MonadIO m, WithLogger m)
+    :: (MonadSscMem ctx m, MonadIO m, WithLogger m)
     => VssKeyPair -> m (HashMap StakeholderId (NonEmpty DecShare))
 getOurShares ourKey = do
     randSeed <- liftIO seedNew

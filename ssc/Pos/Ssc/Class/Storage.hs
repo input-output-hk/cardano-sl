@@ -12,7 +12,6 @@ module Pos.Ssc.Class.Storage
 
 import           Control.Monad.Except (MonadError)
 import qualified Crypto.Random        as Rand
-import           Data.Tagged          (Tagged)
 import           System.Wlog          (WithLogger)
 import           Universum
 
@@ -26,40 +25,40 @@ import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
 -- Modern
 ----------------------------------------------------------------------------
 
-type SscGlobalQuery ssc a =
-    forall m . (MonadReader (SscGlobalState ssc) m, WithLogger m) => m a
+type SscGlobalQuery a =
+    forall m . (MonadReader SscGlobalState m, WithLogger m) => m a
 
-type SscGlobalUpdate ssc a =
-    forall m . (MonadState (SscGlobalState ssc) m, WithLogger m, Rand.MonadRandom m) => m a
+type SscGlobalUpdate a =
+    forall m . (MonadState SscGlobalState m, WithLogger m, Rand.MonadRandom m) => m a
 
-type SscVerifyMode ssc m =
-    ( MonadState (SscGlobalState ssc) m
+type SscVerifyMode m =
+    ( MonadState SscGlobalState m
     , WithLogger m
-    , MonadError (SscVerifyError ssc) m
+    , MonadError SscVerifyError m
     , Rand.MonadRandom m
     )
 
-type SscVerifier ssc a = forall m . SscVerifyMode ssc m => m a
+type SscVerifier a = forall m . SscVerifyMode m => m a
 
-class Ssc ssc => SscGStateClass ssc where
+class Ssc => SscGStateClass where
     -- | Load global state from DB by recreating it from recent blocks.
     sscLoadGlobalState
         :: (MonadDBRead m, WithLogger m)
-        => m (SscGlobalState ssc)
+        => m SscGlobalState
     -- | Dump global state to DB.
-    sscGlobalStateToBatch :: SscGlobalState ssc -> Tagged ssc [SomeBatchOp]
+    sscGlobalStateToBatch :: SscGlobalState -> [SomeBatchOp]
     -- | Rollback application of blocks.
-    sscRollbackU :: NewestFirst NE (SscBlock ssc) -> SscGlobalUpdate ssc ()
+    sscRollbackU :: NewestFirst NE SscBlock -> SscGlobalUpdate ()
     -- | Verify SSC-related part of given blocks with respect to
     -- current GState and apply them on success.
     -- Blocks must be from the same epoch.
     sscVerifyAndApplyBlocks
         :: RichmenStakes
         -> BlockVersionData
-        -> OldestFirst NE (SscBlock ssc)
-        -> SscVerifier ssc ()
+        -> OldestFirst NE SscBlock
+        -> SscVerifier ()
     -- | Calculate 'SharedSeed' for given epoch using 'SscGlobalState'.
     sscCalculateSeedQ
         :: EpochIndex
         -> RichmenStakes
-        -> SscGlobalQuery ssc (Either (SscSeedError ssc) SharedSeed)
+        -> SscGlobalQuery (Either SscSeedError SharedSeed)

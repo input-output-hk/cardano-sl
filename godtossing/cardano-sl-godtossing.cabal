@@ -43,7 +43,7 @@ library
     Pos.Ssc.GodTossing.Error
     Pos.Ssc.GodTossing.SecretStorage
     Pos.Ssc.GodTossing.Functions
-    Pos.Ssc.GodTossing.Type
+    Pos.Ssc.GodTossing.Instance
     Pos.Ssc.GodTossing.DB
     Pos.Ssc.GodTossing.GState
     Pos.Ssc.GodTossing.Richmen

@@ -11,8 +11,6 @@ module Pos.Block.Core.Main.Chain
 
 import           Universum
 
-import           Data.Tagged                (untag)
-
 import           Pos.Binary.Class           (Bi)
 import           Pos.Binary.Core            ()
 import           Pos.Binary.Delegation      ()
@@ -27,25 +25,25 @@ import           Pos.Core                   (Blockchain (..), ChainDifficulty,
 import           Pos.Crypto                 (Hash, PublicKey, hash)
 import           Pos.Delegation.Types       (DlgPayload)
 import           Pos.Ssc.Class.Types        (Ssc (..))
-import           Pos.Ssc.GodTossing.Type    (SscGodTossing)
 import           Pos.Txp.Core               (TxPayload, TxProof, mkTxProof)
 import           Pos.Update.Core.Types      (UpdatePayload, UpdateProof, mkUpdateProof)
 
 instance ( HasConfiguration
          , Bi BlockHeader
-         , Ssc ssc
-         , Bi $ BodyProof $ MainBlockchain ssc
-         , IsMainHeader (GenericBlockHeader $ MainBlockchain ssc)) =>
-         Blockchain (MainBlockchain ssc) where
+         , Ssc
+         , Bi (BodyProof MainBlockchain)
+         , IsMainHeader (GenericBlockHeader MainBlockchain)) =>
+         Blockchain MainBlockchain where
 
     -- | Proof of everything contained in the payload.
-    data BodyProof (MainBlockchain ssc) = MainProof
+    data BodyProof MainBlockchain = MainProof
         { mpTxProof       :: !TxProof
-        , mpMpcProof      :: !(SscProof ssc)
+        , mpMpcProof      :: !SscProof
         , mpProxySKsProof :: !(Hash DlgPayload)
         , mpUpdateProof   :: !UpdateProof
-        } deriving (Generic)
-    data ConsensusData (MainBlockchain ssc) = MainConsensusData
+        } deriving (Eq, Show, Generic)
+
+    data ConsensusData MainBlockchain = MainConsensusData
         { -- | Id of the slot for which this block was generated.
           _mcdSlot       :: !SlotId
         , -- | Public key of the slot leader. It's essential to have it here,
@@ -54,45 +52,40 @@ instance ( HasConfiguration
         , -- | Difficulty of chain ending in this block.
           _mcdDifficulty :: !ChainDifficulty
         , -- | Signature given by slot leader.
-          _mcdSignature  :: !(BlockSignature ssc)
+          _mcdSignature  :: !BlockSignature
         } deriving (Generic, Show, Eq)
-    type BBlockHeader (MainBlockchain ssc) = BlockHeader
-    type ExtraHeaderData (MainBlockchain ssc) = MainExtraHeaderData
+
+    type BBlockHeader MainBlockchain = BlockHeader
+    type ExtraHeaderData MainBlockchain = MainExtraHeaderData
 
     -- | In our cryptocurrency, body consists of payloads of all block
     -- components.
-    data Body (MainBlockchain ssc) = MainBody
+    data Body MainBlockchain = MainBody
         { -- | Txp payload.
           _mbTxPayload :: !TxPayload
         , -- | Ssc payload.
-          _mbSscPayload :: !(SscPayload ssc)
+          _mbSscPayload :: !SscPayload
         , -- | Heavyweight delegation payload (no-ttl certificates).
           _mbDlgPayload :: !DlgPayload
           -- | Additional update information for the update system.
         , _mbUpdatePayload :: !UpdatePayload
-        } deriving (Generic, Typeable)
+        } deriving (Eq, Show, Generic, Typeable)
 
-    type ExtraBodyData (MainBlockchain ssc) = MainExtraBodyData
-    type BBlock (MainBlockchain ssc) = Block
+    type ExtraBodyData MainBlockchain = MainExtraBodyData
+    type BBlock MainBlockchain = Block
 
     mkBodyProof MainBody{..} =
         MainProof
         { mpTxProof = mkTxProof _mbTxPayload
-        , mpMpcProof = untag @ssc mkSscProof _mbSscPayload
+        , mpMpcProof = mkSscProof _mbSscPayload
         , mpProxySKsProof = hash _mbDlgPayload
         , mpUpdateProof = mkUpdateProof _mbUpdatePayload
         }
 
-deriving instance Ssc ssc => Show (Body (MainBlockchain ssc))
-deriving instance (Eq (SscPayload ssc), Ssc ssc) => Eq (Body (MainBlockchain ssc))
-deriving instance Ssc ssc => Show (BodyProof (MainBlockchain ssc))
-deriving instance Ssc ssc => Eq (BodyProof (MainBlockchain ssc))
--- The two previous instances are required for the following two
+deriving instance Show MainToSign
+deriving instance Eq MainToSign
 
-deriving instance Ssc ssc => Show (MainToSign ssc)
-deriving instance Ssc ssc => Eq (MainToSign ssc)
-
-instance (Ssc ssc) => NFData (BodyProof (MainBlockchain ssc))
-instance (Ssc ssc) => NFData (ConsensusData (MainBlockchain ssc))
-instance (Ssc ssc) => NFData (Body (MainBlockchain ssc))
-instance (Ssc SscGodTossing) => NFData MainBlock
+instance NFData (BodyProof MainBlockchain)
+instance NFData (ConsensusData MainBlockchain)
+instance NFData (Body MainBlockchain)
+instance NFData MainBlock

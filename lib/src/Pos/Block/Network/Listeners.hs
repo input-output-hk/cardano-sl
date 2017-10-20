@@ -27,7 +27,6 @@ import           Pos.Network.Types               (Bucket, NodeId)
 import           Pos.Ssc.Class                   (SscWorkersClass)
 import           Pos.Util.Chrono                 (NewestFirst (..))
 import           Pos.WorkMode.Class              (WorkMode)
-import           Pos.Ssc.GodTossing.Type         (SscGodTossing)
 
 blockListeners
     :: WorkMode ctx m
@@ -94,7 +93,7 @@ handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
 -- | Handles MsgHeaders request, unsolicited usecase
 handleBlockHeaders
     :: forall pack ctx m.
-       (SscWorkersClass SscGodTossing, WorkMode ctx m)
+       (SscWorkersClass, WorkMode ctx m)
     => OQ.OutboundQ pack NodeId Bucket
     -> (ListenerSpec m, OutSpecs)
 handleBlockHeaders oq = listenerConv @MsgGetHeaders oq $ \__ourVerInfo nodeId conv -> do

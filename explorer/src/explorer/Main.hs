@@ -36,7 +36,6 @@ import           Pos.Launcher              (ConfigurationOptions (..), HasConfig
                                             bracketNodeResources, hoistNodeResources,
                                             loggerBracket, runNode, runRealBasedMode,
                                             withConfigurations)
-import           Pos.Ssc.GodTossing        (SscGodTossing)
 import           Pos.Ssc.SscAlgo           (SscAlgo (..))
 import           Pos.Types                 (Timestamp (Timestamp))
 import           Pos.Update                (updateTriggerWorker)
@@ -93,7 +92,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
 
     runExplorerRealMode
         :: (HasConfigurations,HasCompileInfo)
-        => NodeResources SscGodTossing ExplorerExtra ExplorerProd
+        => NodeResources ExplorerExtra ExplorerProd
         -> (WorkerSpec ExplorerProd, OutSpecs)
         -> Production ()
     runExplorerRealMode nr@NodeResources{..} =

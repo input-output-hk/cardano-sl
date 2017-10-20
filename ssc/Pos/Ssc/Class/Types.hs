@@ -9,7 +9,6 @@ module Pos.Ssc.Class.Types
        ) where
 
 import           Control.Lens        (choosing, makeWrapped, _Wrapped)
-import           Data.Tagged         (Tagged)
 import           Data.Text.Buildable (Buildable)
 import           Universum
 
@@ -21,48 +20,47 @@ import           Pos.Util.Util       (Some)
 
 -- | Main Shared Seed Calculation type class. Stores all needed type
 -- parameters for general implementation of SSC.
-class ( Typeable ssc
-      , Typeable (SscPayload ssc)
-      , Typeable (SscProof ssc)
-      , Typeable (SscSeedError ssc)
-      , Eq (SscProof ssc)
-      , Eq (SscGlobalState ssc)
-      , Show (SscProof ssc)
-      , Show (SscPayload ssc)
-      , Buildable (SscPayload ssc)
-      , Buildable (SscSeedError ssc)
-      , Buildable (SscVerifyError ssc)
-      , Buildable (SscGlobalState ssc)
-      , Bi (SscProof ssc)
-      , Bi (SscPayload ssc)
-      , NFData (SscPayload ssc)
-      , NFData (SscProof ssc)
+class ( Typeable SscPayload
+      , Typeable SscProof
+      , Typeable SscSeedError
+      , Eq SscProof
+      , Eq SscGlobalState
+      , Show SscProof
+      , Show SscPayload
+      , Buildable SscPayload
+      , Buildable SscSeedError
+      , Buildable SscVerifyError
+      , Buildable SscGlobalState
+      , Bi SscProof
+      , Bi SscPayload
+      , NFData SscPayload
+      , NFData SscProof
       ) =>
-      Ssc ssc where
+      Ssc where
 
     -- | Internal SSC state stored in memory
-    type SscLocalData ssc
+    type SscLocalData
     -- | Payload which will be stored in main blocks
-    type SscPayload ssc
+    type SscPayload
     -- | Global state, which is formed from all known blocks
-    type SscGlobalState ssc
+    type SscGlobalState
     -- | Proof that SSC payload is correct (it'll be included into block
     -- header)
-    type SscProof ssc
+    type SscProof
     -- | Error that can happen when calculating the seed
-    type SscSeedError ssc
+    type SscSeedError
     -- | SSC specific context in NodeContext
-    type SscNodeContext ssc
+    type SscNodeContext
     -- | Needed options for creating SscNodeContext
-    type SscParams ssc
+    type SscParams
     -- | Type for verification error
-    type SscVerifyError ssc
+    type SscVerifyError
 
     -- | Create proof (for inclusion into block header) from payload
-    mkSscProof :: Tagged ssc (SscPayload ssc -> SscProof ssc)
+    mkSscProof :: SscPayload -> SscProof
 
     -- | Create SscNodeContext
-    sscCreateNodeContext :: MonadIO m => Tagged ssc (SscParams ssc -> m (SscNodeContext ssc))
+    sscCreateNodeContext :: MonadIO m => SscParams -> m SscNodeContext
 
 -- [CSL-1156] Find a better way for this
 --
@@ -74,21 +72,21 @@ class ( Typeable ssc
 --
 -- (Which is actually pretty fair – SscPayload isn't injective and so the
 -- whole SscBlock isn't either.)
-newtype SscBlock ssc = SscBlock
+newtype SscBlock = SscBlock
     { getSscBlock :: Either (Some IsGenesisHeader)
-                            (Some IsMainHeader, SscPayload ssc)
+                            (Some IsMainHeader, SscPayload)
     }
 
 makeWrapped ''SscBlock
 
-instance HasDifficulty (SscBlock ssc) where
+instance HasDifficulty SscBlock where
     difficultyL = _Wrapped . choosing difficultyL (_1 . difficultyL)
-instance HasEpochIndex (SscBlock ssc) where
+instance HasEpochIndex SscBlock where
     epochIndexL = _Wrapped . choosing epochIndexL (_1 . epochIndexL)
-instance HasHeaderHash (SscBlock ssc) where
+instance HasHeaderHash SscBlock where
     headerHash     = either headerHash (headerHash . fst) . getSscBlock
-instance HasEpochOrSlot (SscBlock ssc) where
+instance HasEpochOrSlot SscBlock where
     getEpochOrSlot = either getEpochOrSlot (getEpochOrSlot . fst) . getSscBlock
 
-class HasSscContext ssc ctx | ctx -> ssc where
-    sscContext :: Lens' ctx (SscNodeContext ssc)
+class HasSscContext ctx where
+    sscContext :: Lens' ctx SscNodeContext

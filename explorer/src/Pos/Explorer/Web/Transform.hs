@@ -26,7 +26,6 @@ import           Pos.Configuration                (HasNodeConfiguration)
 import           Pos.Core                         (HasConfiguration)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.Recovery                     ()
-import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                          (MempoolExt, MonadTxpLocal (..))
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
@@ -47,7 +46,7 @@ import           Pos.Explorer.Web.Server          (explorerApp, explorerHandlers
 -- Transformation to `Handler`
 -----------------------------------------------------------------
 
-type RealModeE = RealMode SscGodTossing ExplorerExtra
+type RealModeE = RealMode ExplorerExtra
 type ExplorerProd = ExtraContextT (ExplorerBListener RealModeE)
 
 type instance MempoolExt ExplorerProd = ExplorerExtra
@@ -116,7 +115,7 @@ nat = do
 
 convertHandler
     :: HasConfiguration
-    => RealModeContext SscGodTossing ExplorerExtra
+    => RealModeContext ExplorerExtra
     -> ExplorerProd a
     -> Handler a
 convertHandler rctx handler =

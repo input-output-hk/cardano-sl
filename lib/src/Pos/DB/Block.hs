@@ -92,7 +92,6 @@ import           Pos.DB.Rocks            (MonadRealDB, blockDataDir, getBlockInd
 import           Pos.DB.Sum              (MonadDBSum, eitherDB)
 import           Pos.Delegation.Types    (DlgUndo (..))
 import           Pos.Ssc.Class.Types     (SscBlock)
-import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 import           Pos.Ssc.Util            (toSscBlock)
 import           Pos.Util                (Some (..), maybeThrow)
 import           Pos.Util.Chrono         (NewestFirst (..))
@@ -274,7 +273,7 @@ type MonadBlockDB m
      = ( MonadBlockDBGeneric BlockHeader Block Undo m )
 
 type MonadSscBlockDB m
-     = ( MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () m )
+     = ( MonadBlockDBGeneric (Some IsHeader) SscBlock () m )
 
 -- | 'MonadBlockDB' with write options
 type MonadBlockDBWrite m
@@ -336,7 +335,7 @@ dbPutBlundPureDefault (blk,undo) = do
 dbGetBlockSscPureDefault ::
        (HasConfiguration, MonadPureDB ctx m)
     => HeaderHash
-    -> m (Maybe (SscBlock SscGodTossing))
+    -> m (Maybe SscBlock)
 dbGetBlockSscPureDefault = fmap (toSscBlock <$>) . dbGetBlockPureDefault
 
 dbGetUndoSscPureDefault ::
@@ -383,7 +382,7 @@ dbGetHeaderDefault = blkGetHeader
 dbGetBlockSscDefault ::
        forall ctx m. (BlockDBGenericDefaultEnv ctx m)
     => HeaderHash
-    -> m (Maybe (SscBlock SscGodTossing))
+    -> m (Maybe SscBlock)
 dbGetBlockSscDefault = fmap (toSscBlock <$>) . getBlock
 
 dbGetUndoSscDefault ::
@@ -433,7 +432,7 @@ dbGetHeaderSumDefault hh = eitherDB (dbGetHeaderDefault hh) (dbGetHeaderPureDefa
 
 dbGetBlockSscSumDefault
     :: forall ctx m. (DBSumDefaultEnv ctx m)
-    => HeaderHash -> m (Maybe (SscBlock SscGodTossing))
+    => HeaderHash -> m (Maybe SscBlock)
 dbGetBlockSscSumDefault hh =
     eitherDB (dbGetBlockSscDefault hh) (dbGetBlockSscPureDefault hh)
 

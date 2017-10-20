@@ -16,8 +16,10 @@ module Cardano.Wallet.API.V1.Types (
   -- * Error handling
   , WalletError (..)
   -- * Domain-specific types
+  , Wallet (..)
   , WalletId (..)
   , Account (..)
+  , AccountId
   , Address (..)
   ) where
 
@@ -25,6 +27,7 @@ import           Universum
 
 import           Data.Aeson
 import           Data.Aeson.TH
+import           Data.Char       (toLower)
 import           Data.Text       (Text)
 import           GHC.Generics    (Generic)
 import           Test.QuickCheck
@@ -150,6 +153,18 @@ instance Arbitrary WalletError where
 -- Domain-specific types, mostly placeholders.
 --
 
+type BackupPhrase = Text
+
+data WalletAssurance = AssuranceNormal
+                     | AssuranceStrict
+                     deriving (Eq, Show, Enum, Bounded)
+
+instance Arbitrary WalletAssurance where
+    arbitrary = elements [minBound .. maxBound]
+
+deriveJSON defaultOptions { constructorTagModifier = map toLower . drop 9 } ''WalletAssurance
+
+-- | A Wallet ID.
 newtype WalletId = WalletId Text deriving (Show, Eq, Generic)
 
 deriveJSON defaultOptions ''WalletId
@@ -159,6 +174,23 @@ instance Arbitrary WalletId where
 
 instance FromHttpApiData WalletId where
     parseQueryParam = Right . WalletId
+
+
+-- | A Wallet.
+data Wallet = Wallet {
+      wal_id           :: WalletId
+    , wal_backupPhrase :: BackupPhrase
+    , wal_unit         :: !Int
+    , wal_assurance    :: WalletAssurance
+    }
+
+deriveJSON defaultOptions { fieldLabelModifier = drop 4 } ''Wallet
+
+instance Arbitrary Wallet where
+  arbitrary = Wallet <$> arbitrary
+                     <*> pure "MyBackupPhraseHashed"
+                     <*> fmap getPositive arbitrary
+                     <*> arbitrary
 
 -- Placeholder.
 newtype Address = Address
@@ -170,15 +202,17 @@ deriveJSON defaultOptions { fieldLabelModifier = drop 4 } ''Address
 instance Arbitrary Address where
   arbitrary = Address . fromString <$> elements ["DEADBeef", "123456"]
 
+type AccountId = Text
+
 -- | A wallet 'Account'.
 data Account = Account
-  { acc_id        :: Text
+  { acc_id        :: !AccountId
   , acc_addresses :: [Address]
   , acc_amount    :: !Int
   -- | The Account name.
-  , acc_name      :: Text
+  , acc_name      :: !Text
   -- | The parent Wallet Id.
-  , acc_wallet_id :: WalletId
+  , acc_walletId  :: WalletId
   } deriving (Show, Eq, Generic)
 
 deriveJSON defaultOptions { fieldLabelModifier = drop 4 } ''Account

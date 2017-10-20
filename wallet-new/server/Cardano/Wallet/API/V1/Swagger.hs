@@ -10,6 +10,7 @@ import           Universum
 
 import           Cardano.Wallet.API
 import           Cardano.Wallet.API.Types
+import qualified Cardano.Wallet.API.V1.Errors     as Errors
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
 
@@ -166,20 +167,17 @@ instance ToDocs WalletVersion where
     return $ s & (schema . description ?~ (withExample p "The Wallet version, including the API version and the Git revision."))
                . (schema . example ?~ toJSON @WalletVersion genExample)
 
-instance ToSchema APIVersion where
-  declareNamedSchema = annotate fromArbitraryJSON
-
-instance ToSchema WalletVersion where
-  declareNamedSchema = annotate fromArbitraryJSON
+instance ToDocs Metadata where
+  annotate f p = do
+    s <- f p
+    return $ s & (schema . description ?~ withExample p "Metadata returned as part of an <b>ExtendedResponse</b>.")
+               . (schema . example ?~ toJSON @Metadata genExample)
 
 instance ToDocs Account where
   annotate f p = do
     s <- f p
-    return $ s & (schema . description ?~ "An Account")
+    return $ s & (schema . description ?~ withExample p "An Account.")
                . (schema . example ?~ toJSON @Account genExample)
-
-instance ToSchema Account where
-  declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToDocs Address where
   annotate f p = do
@@ -191,7 +189,22 @@ instance ToDocs WalletId where
   annotate f p = do
     s <- f p
     return $ s & (schema . description ?~ withExample p "A Wallet ID.")
-               . (schema . example ?~ toJSON @Address genExample)
+               . (schema . example ?~ toJSON @WalletId genExample)
+
+instance ToDocs Wallet where
+  annotate f p = do
+    s <- f p
+    return $ s & (schema . description ?~ withExample p "A Wallet.")
+               . (schema . example ?~ toJSON @Wallet genExample)
+
+instance ToSchema APIVersion where
+  declareNamedSchema = annotate fromArbitraryJSON
+
+instance ToSchema WalletVersion where
+  declareNamedSchema = annotate fromArbitraryJSON
+
+instance ToSchema Account where
+  declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToSchema Address where
   declareNamedSchema = annotate fromArbitraryJSON
@@ -200,7 +213,10 @@ instance ToSchema WalletId where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToSchema Metadata where
-  declareNamedSchema = fromArbitraryJSON
+  declareNamedSchema = annotate fromArbitraryJSON
+
+instance ToSchema Wallet where
+  declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToDocs a => ToDocs (ExtendedResponse a) where
   annotate f p = (f p)
@@ -318,7 +334,7 @@ api = toSwagger walletAPI
   & info.title   .~ "Cardano Wallet API"
   & info.version .~ "2.0"
   & info.description ?~ (highLevelDescription $ DescriptionEnvironment {
-      errorExample = toS $ encodePretty (genExample @WalletError)
+      errorExample = toS $ encodePretty Errors.walletNotFound
     , defaultPerPage = fromString (show defaultPerPageEntries)
     , accountExample = toS $ encodePretty (genExample @[Account])
     , accountExtendedExample = toS $ encodePretty (genExample @(ExtendedResponse [Account]))

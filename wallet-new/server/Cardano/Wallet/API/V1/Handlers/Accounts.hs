@@ -10,10 +10,15 @@ import           Test.QuickCheck                (arbitrary, generate, resize)
 
 handlers :: Server Accounts.API
 handlers =   deleteAccount
+       :<|>  getAccount
        :<|>  listAccounts
 
 deleteAccount :: Text -> Handler NoContent
 deleteAccount _ = return NoContent
+
+getAccount :: AccountId
+           -> Handler Account
+getAccount _ = liftIO $ generate arbitrary
 
 listAccounts :: Maybe Page
              -> Maybe PerPage

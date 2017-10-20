@@ -20,6 +20,7 @@ library
                        Cardano.Wallet.API.V1.Addresses
                        Cardano.Wallet.API.V1.Accounts
                        Cardano.Wallet.API.V1.Wallets
+                       Cardano.Wallet.API.V1.Errors
                        Cardano.Wallet.API.V0
                        Cardano.Wallet.API.V0.Types
   ghc-options:         -Wall
@@ -68,6 +69,7 @@ executable wallet-new-server
                      , cardano-sl-wallet-new
                      , containers
                      , http-api-data
+                     , http-types
                      , lens
                      , neat-interpolation
                      , servant

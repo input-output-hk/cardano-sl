@@ -13,7 +13,6 @@ import           Data.Aeson
 import           Data.Aeson.TH
 import qualified Data.Text       as T
 import           GHC.TypeLits
-import qualified Prelude
 import           Servant
 import           Servant.API.Sub ((:>))
 import           Test.QuickCheck
@@ -34,7 +33,7 @@ data Tags (tags :: [Symbol])
 -- in use.
 data APIVersion = V0
                 | V1
-                deriving (Eq, Enum, Bounded)
+                deriving (Eq, Show, Enum, Bounded)
 
 data WalletVersion = WalletVersion {
       ver_version :: APIVersion
@@ -61,12 +60,9 @@ instance (HasServer subApi context) => HasServer (Tags tags :> subApi) context w
 instance Arbitrary APIVersion where
   arbitrary = elements [minBound .. maxBound]
 
-instance Show APIVersion where
-  show V0 = "v0"
-  show V1 = "v1"
-
 instance ToJSON APIVersion where
-    toJSON = String . fromString . show
+    toJSON V0 = String "v0"
+    toJSON V1 = String "v1"
 
 deriveToJSON defaultOptions { fieldLabelModifier = drop 4 } ''WalletVersion
 

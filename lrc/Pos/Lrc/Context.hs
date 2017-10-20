@@ -3,6 +3,7 @@
 module Pos.Lrc.Context
        ( LrcSyncData(..)
        , LrcContext(..)
+       , HasLrcContext
        , cloneLrcContext
        , mkLrcSyncData
 
@@ -22,12 +23,14 @@ import           Pos.Exception       (reportFatalError)
 import           Pos.Lrc.DB.Common   (getEpoch)
 import           Pos.Lrc.Error       (LrcError (..))
 import           Pos.Util.Concurrent (readTVarConditional)
-import           Pos.Util.Util       (HasLens (..), maybeThrow)
+import           Pos.Util.Util       (HasLens (..), HasLens', maybeThrow)
 
 data LrcContext = LrcContext
     { -- | Primitive for synchronization with LRC.
       lcLrcSync :: !(TVar LrcSyncData)
     }
+
+type HasLrcContext ctx = HasLens' ctx LrcContext
 
 -- | Create a new 'LrcContext' with the same contents as the given
 -- context has.
@@ -59,14 +62,14 @@ mkLrcSyncData = LrcSyncData True <$> getEpoch
 
 -- | Block until LRC data is available for given epoch.
 waitLrc
-    :: (MonadIO m, MonadReader ctx m, HasLens LrcContext ctx LrcContext)
+    :: (MonadIO m, MonadReader ctx m, HasLrcContext ctx)
     => EpochIndex -> m ()
 waitLrc epoch = do
     sync <- views (lensOf @LrcContext) lcLrcSync
     () <$ readTVarConditional ((>= epoch) . lastEpochWithLrc) sync
 
 lrcActionOnEpoch
-    :: (MonadIO m, MonadReader ctx m, HasLens LrcContext ctx LrcContext, MonadThrow m)
+    :: (MonadIO m, MonadReader ctx m, HasLrcContext ctx, MonadThrow m)
     => EpochIndex
     -> (EpochIndex -> m (Maybe a))
     -> m a
@@ -76,7 +79,7 @@ lrcActionOnEpoch epoch =
         "action on lrcCallOnEpoch couldn't be performed properly"
 
 lrcActionOnEpochReason
-    :: (MonadIO m, MonadReader ctx m, HasLens LrcContext ctx LrcContext, MonadThrow m)
+    :: (MonadIO m, MonadReader ctx m, HasLrcContext ctx, MonadThrow m)
     => EpochIndex
     -> Text
     -> (EpochIndex -> m (Maybe a))

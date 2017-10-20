@@ -42,10 +42,10 @@ import qualified Pos.DB.Block              as DB
 import qualified Pos.DB.DB                 as DB
 import           Pos.Delegation.Cede       (dlgVerifyHeader, runDBCede)
 import qualified Pos.GState                as GS
-import           Pos.Lrc.Context           (LrcContext)
+import           Pos.Lrc.Context           (HasLrcContext)
 import qualified Pos.Lrc.DB                as LrcDB
 import           Pos.Slotting.Class        (MonadSlots (getCurrentSlot))
-import           Pos.Util                  (HasLens', _neHead, _neLast)
+import           Pos.Util                  (_neHead, _neLast)
 import           Pos.Util.Chrono           (NE, NewestFirst (..), OldestFirst (..),
                                             toNewestFirst, toOldestFirst, _NewestFirst,
                                             _OldestFirst)
@@ -79,7 +79,7 @@ classifyNewHeader
     , MonadSlots ctx m
     , DB.MonadBlockDB m
     , MonadSlots ctx m
-    , HasLens' ctx LrcContext
+    , HasLrcContext ctx
     )
     => BlockHeader -> m ClassifyHeaderRes
 -- Genesis headers seem useless, we can create them by ourselves.
@@ -167,7 +167,7 @@ classifyHeaders ::
        forall ctx m.
        ( DB.MonadBlockDB m
        , MonadCatch m
-       , HasLens' ctx LrcContext
+       , HasLrcContext ctx
        , MonadSlots ctx m
        , WithLogger m
        , HasConfiguration

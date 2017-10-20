@@ -7,6 +7,7 @@
 module Pos.Generator.Block.Mode
        ( MonadBlockGenBase
        , MonadBlockGen
+       , MonadBlockGenInit
        , BlockGenContext (..)
        , BlockGenMode
        , BlockGenRandMode
@@ -57,7 +58,7 @@ import           Pos.Generator.Block.Param        (BlockGenParams (..),
 import qualified Pos.GState                       as GS
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.KnownPeers                   (MonadFormatPeers)
-import           Pos.Lrc                          (LrcContext (..))
+import           Pos.Lrc                          (HasLrcContext, LrcContext (..))
 import           Pos.Network.Types                (HasNodeType (..), NodeType (..))
 import           Pos.Reporting                    (HasReportingContext (..),
                                                    ReportingContext,
@@ -119,10 +120,17 @@ type MonadBlockGenBase m
 type MonadBlockGen ctx m
      = ( MonadBlockGenBase m
        , MonadReader ctx m
-       , GS.HasGStateContext ctx
-       , HasSlottingVar ctx
-       -- 'MonadRandom' for crypto.
        , Rand.MonadRandom m
+
+       , HasSlottingVar ctx
+       , HasSlogGState ctx
+       , HasLrcContext ctx
+       )
+
+-- | MonadBlockGen extended with the specific GStateContext.
+type MonadBlockGenInit ctx m
+     = ( MonadBlockGen ctx m
+       , GS.HasGStateContext ctx
        )
 
 ----------------------------------------------------------------------------
@@ -176,7 +184,7 @@ instance MonadThrow m => MonadThrow (RandT g m) where
 -- recreated.
 mkBlockGenContext
     :: forall ext ctx m.
-       ( MonadBlockGen ctx m
+       ( MonadBlockGenInit ctx m
        , HasGtConfiguration
        , HasNodeConfiguration
        , Default ext

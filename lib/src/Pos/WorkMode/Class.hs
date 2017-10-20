@@ -34,7 +34,7 @@ import           Pos.Delegation.Class        (MonadDelegation)
 import           Pos.DHT.Real.Types          (KademliaDHTInstance)
 import           Pos.Infra.Configuration     (HasInfraConfiguration)
 import           Pos.KnownPeers              (MonadFormatPeers, MonadKnownPeers)
-import           Pos.Lrc.Context             (LrcContext)
+import           Pos.Lrc.Context             (HasLrcContext)
 import           Pos.Network.Types           (HasNodeType, NetworkConfig)
 import           Pos.Recovery.Info           (MonadRecoveryInfo)
 import           Pos.Reporting               (HasReportingContext)
@@ -45,15 +45,15 @@ import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
 import           Pos.Ssc.Class.Storage       (SscGStateClass)
 import           Pos.Ssc.Class.Workers       (SscWorkersClass)
 import           Pos.Ssc.Extra               (MonadSscMem)
-import           Pos.Ssc.GodTossing          (SscGodTossing, HasGtConfiguration)
+import           Pos.Ssc.GodTossing          (HasGtConfiguration, SscGodTossing)
 import           Pos.StateLock               (StateLock, StateLockMetrics)
 import           Pos.Txp.MemState            (MempoolExt, MonadTxpLocal, MonadTxpMem)
 import           Pos.Update.Configuration    (HasUpdateConfiguration)
 import           Pos.Update.Context          (UpdateContext)
 import           Pos.Update.Params           (UpdateParams)
+import           Pos.Util                    (HasLens, HasLens')
 import           Pos.Util.CompileInfo        (HasCompileInfo)
 import           Pos.Util.TimeWarp           (CanJsonLog)
-import           Pos.Util.Util               (HasLens, HasLens')
 
 -- | Bunch of constraints to perform work for real world distributed system.
 type WorkMode ctx m
@@ -85,13 +85,13 @@ type WorkMode ctx m
       , HasLens' ctx StartTime
       , HasLens' ctx StateLock
       , HasLens' ctx StateLockMetrics
-      , HasLens LrcContext ctx LrcContext
-      , HasLens UpdateContext ctx UpdateContext
-      , HasLens UpdateParams ctx UpdateParams
-      , HasLens SecurityParams ctx SecurityParams
-      , HasLens TxpGlobalSettings ctx TxpGlobalSettings
-      , HasLens BlockRetrievalQueueTag ctx BlockRetrievalQueue
+      , HasLens' ctx UpdateContext
+      , HasLens' ctx UpdateParams
+      , HasLens' ctx SecurityParams
+      , HasLens' ctx TxpGlobalSettings
       , HasLens' ctx (NetworkConfig KademliaDHTInstance)
+      , HasLens BlockRetrievalQueueTag ctx BlockRetrievalQueue
+      , HasLrcContext ctx
       , HasSscContext SscGodTossing ctx
       , HasReportingContext ctx
       , HasPrimaryKey ctx

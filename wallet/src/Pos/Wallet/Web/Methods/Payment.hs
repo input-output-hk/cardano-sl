@@ -12,8 +12,6 @@ import           Universum
 
 import           Control.Exception              (throw)
 import           Control.Monad.Except           (runExcept)
-import           Formatting                     (sformat, (%))
-import qualified Formatting                     as F
 
 import           Pos.Client.KeyStorage          (getSecretKeys)
 import           Pos.Client.Txp.Addresses       (MonadAddresses)
@@ -21,7 +19,7 @@ import           Pos.Client.Txp.Balances        (MonadBalances (..))
 import           Pos.Client.Txp.History         (TxHistoryEntry (..))
 import           Pos.Client.Txp.Util            (computeTxFee, runTxCreator)
 import           Pos.Communication              (prepareMTx)
-import           Pos.Core                       (Coin, addressF, getCurrentTimestamp)
+import           Pos.Core                       (Coin, getCurrentTimestamp)
 import           Pos.Crypto                     (PassPhrase, ShouldCheckPassphrase (..),
                                                  checkPassMatches, hash,
                                                  withSafeSignerUnsafe)
@@ -29,7 +27,6 @@ import           Pos.DB                         (MonadGState)
 import           Pos.Txp                        (TxFee (..), Utxo, _txOutputs)
 import           Pos.Txp.Core                   (TxAux (..), TxOut (..))
 import           Pos.Util                       (eitherToThrow, maybeThrow)
-import           Pos.Util.LogSafe               (logInfoS)
 import           Pos.Util.Servant               (encodeCType)
 import           Pos.Wallet.Aeson.ClientTypes   ()
 import           Pos.Wallet.Aeson.WalletBackup  ()
@@ -153,34 +150,22 @@ sendMoney passphrase moneySource dstDistr = do
 
     relatedAccount <- getSomeMoneySourceAccount moneySource
     outputs <- coinDistrToOutputs dstDistr
-    (th, dstAddrs) <-
-        rewrapTxError "Cannot send transaction" $ do
-            (txAux, inpTxOuts') <-
-                prepareMTx getSinger srcAddrs outputs (relatedAccount, passphrase)
+    th <- rewrapTxError "Cannot send transaction" $ do
+        (txAux, inpTxOuts') <-
+            prepareMTx getSinger srcAddrs outputs (relatedAccount, passphrase)
 
-            ts <- Just <$> getCurrentTimestamp
-            let tx = taTx txAux
-                txHash = hash tx
-                inpTxOuts = toList inpTxOuts'
-                dstAddrs  = map txOutAddress . toList $
-                            _txOutputs tx
-                th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
-            ptx <- mkPendingTx srcWallet txHash txAux th
+        ts <- Just <$> getCurrentTimestamp
+        let tx = taTx txAux
+            txHash = hash tx
+            inpTxOuts = toList inpTxOuts'
+            dstAddrs  = map txOutAddress . toList $
+                        _txOutputs tx
+            th = THEntry txHash tx Nothing inpTxOuts dstAddrs ts
+        ptx <- mkPendingTx srcWallet txHash txAux th
 
-            (th, dstAddrs) <$ submitAndSaveNewPtx ptx
-
-    logInfoS $
-        sformat ("Successfully spent money from "%
-                    listF ", " addressF % " addresses on " %
-                    listF ", " addressF)
-        (toList srcAddrs)
-        dstAddrs
+        th <$ submitAndSaveNewPtx ptx
 
     addHistoryTx srcWallet th
     srcWalletAddrs <- getWalletAddrsSet Ever srcWallet
     diff <- getCurChainDifficulty
     fst <$> constructCTx srcWallet srcWalletAddrs diff th
-  where
-     -- TODO eliminate copy-paste
-     listF separator formatter =
-         F.later $ fold . intersperse separator . fmap (F.bprint formatter)

@@ -21,11 +21,13 @@ module Mode
 
 import           Universum
 
-import           Control.Lens                     (lens, makeLensesWith)
+import qualified Control.Concurrent.STM           as STM
+import           Control.Lens                     (lens, makeLensesWith, (<%=))
 import           Control.Monad.Morph              (hoist)
 import           Control.Monad.Reader             (withReaderT)
 import           Data.Default                     (def)
 import           Mockable                         (Production)
+import           Serokell.Util                    (modifyTVarS)
 import           System.Wlog                      (HasLoggerName (..))
 
 import           Pos.Block.BListener              (MonadBListener (..))
@@ -33,6 +35,7 @@ import           Pos.Block.Core                   (Block, BlockHeader)
 import           Pos.Block.Slog                   (HasSlogContext (..),
                                                    HasSlogGState (..))
 import           Pos.Block.Types                  (Undo)
+import           Pos.Client.KeyStorage            (MonadKeys (..))
 import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
 import           Pos.Client.Txp.Balances          (MonadBalances (..), getBalanceFromUtxo,
                                                    getOwnUtxosGenesis)
@@ -79,7 +82,7 @@ import           Pos.Util.JsonLog                 (HasJsonLogConfig (..))
 import           Pos.Util.LoggerName              (HasLoggerName' (..))
 import qualified Pos.Util.OutboundQueue           as OQ.Reader
 import           Pos.Util.TimeWarp                (CanJsonLog (..))
-import           Pos.Util.UserSecret              (HasUserSecret (..))
+import           Pos.Util.UserSecret              (HasUserSecret (..), writeUserSecret)
 import           Pos.Util.Util                    (HasLens (..), postfixLFields)
 import           Pos.WorkMode                     (EmptyMempoolExt, RealMode,
                                                    RealModeContext (..))
@@ -250,6 +253,14 @@ instance (HasConfiguration, HasInfraConfiguration) =>
         gsIsBootstrapEra epochIndex <&> \case
             False -> largestPubKeyAddressBoot
             True -> largestPubKeyAddressSingleKey
+
+
+instance MonadKeys AuxxMode where
+    getSecret = view userSecret >>= atomically . STM.readTVar
+    modifySecret f = do
+        us <- view userSecret
+        new <- atomically $ modifyTVarS us (identity <%= f)
+        writeUserSecret new
 
 type instance MempoolExt AuxxMode = EmptyMempoolExt
 

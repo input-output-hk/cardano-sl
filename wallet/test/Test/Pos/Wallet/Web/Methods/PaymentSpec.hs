@@ -91,7 +91,7 @@ oneNewPaymentSpec = walletPropertySpec oneNewPaymentDesc $ do
         lift . decodeCTypeOrFail . cwamId =<< expectedOne =<< lift (getAccountAddrsOrThrow WS.Existing srcAccId)
     expectedOne :: [a] -> WalletProperty a
     expectedOne []     = stopProperty "expected at least one element, but list empty"
-    expectedOne (x:[]) = pure x
+    expectedOne [x] = pure x
     expectedOne (_:_)  = stopProperty "expected one element, but list contains more elements"
 
     oneNewPaymentDesc =

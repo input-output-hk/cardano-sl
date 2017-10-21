@@ -21,7 +21,6 @@ import           Unsafe                         (unsafeHead)
 import           Control.Concurrent.STM         (putTMVar, tryTakeTMVar, writeTVar)
 import           Control.Monad.Random.Strict    (evalRandT)
 import           Data.List                      ((!!))
-import qualified Data.List.NonEmpty             as NE
 import qualified Data.Map                       as M
 import           Formatting                     (build, sformat, (%))
 import           Test.QuickCheck                (Arbitrary (..), choose, sublistOf,
@@ -76,7 +75,7 @@ wpGenBlocks blkCnt enTxPayload inplaceDB = do
     g <- pick $ MkGen $ \qc _ -> qc
     lift $ modifyStateLock HighPriority "wpGenBlocks" $ \prevTip -> do
         blunds <- evalRandT (genBlocks params) g
-        case NE.nonEmpty $ getOldestFirst blunds of
+        case nonEmpty $ getOldestFirst blunds of
             Just nonEmptyBlunds -> do
                 let tipBlockHeader = nonEmptyBlunds ^. _neLast . _1 . blockHeader
                 lastKnownHeader <- view (lensOf @LastKnownHeaderTag)
@@ -116,7 +115,7 @@ importSomeWallets = do
     let wuses = map mkGenesisWalletUserSecret encSecrets
     lift $ mapM_ (uncurry importWalletDo) (zip passphrases wuses)
     skeys <- lift getSecretKeysPlain
-    assert (length skeys > 0)
+    assertProperty (not (null skeys)) "Empty set of imported keys"
     pure passphrases
 
 -- | Take passphrases of our wallets

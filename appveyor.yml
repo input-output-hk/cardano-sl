@@ -109,6 +109,8 @@ test_script:
   # Build the bridge
   - cd daedalus
   - Echo %APPVEYOR_BUILD_VERSION% > build-id
+  - Echo %APPVEYOR_REPO_COMMIT% > commit-id
+  - Echo https://ci.appveyor.com/project/%APPVEYOR_ACCOUNT_NAME%/%APPVEYOR_PROJECT_SLUG%/build/%APPVEYOR_BUILD_VERSION% > ci-url
   - ps: Install-Product node 7
   - ..\scripts\ci\appveyor-retry call npm install
   - npm run build:prod

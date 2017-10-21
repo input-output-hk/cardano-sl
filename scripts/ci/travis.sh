@@ -49,6 +49,7 @@ pushd daedalus
   nix-shell --run "npm install && npm run build:prod"
   echo $TRAVIS_BUILD_NUMBER > build-id
   echo $TRAVIS_COMMIT > commit-id
+  echo https://travis-ci.org/${TRAVIS_REPO_SLUG}/jobs/$TRAVIS_JOB_ID > ci-url
   cp ../log-config-prod.yaml .
   cp ../lib/configuration.yaml .
   cp ../lib/*genesis*.json .

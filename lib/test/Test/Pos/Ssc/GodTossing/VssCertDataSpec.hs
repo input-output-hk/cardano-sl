@@ -22,8 +22,8 @@ import           Pos.Core              (EpochIndex (..), EpochOrSlot (..),
                                         getVssCertificatesMap, mkVssCertificate,
                                         slotSecurityParam)
 import           Pos.Core.Slotting     (flattenEpochOrSlot, unflattenSlotId)
-import           Pos.Ssc.GodTossing    (GtGlobalState (..), VssCertData (..), delete,
-                                        empty, expiryEoS, filter, gsVssCertificates,
+import           Pos.Ssc.GodTossing    (SscGlobalState (..), VssCertData (..), delete,
+                                        empty, expiryEoS, filter, sgsVssCertificates,
                                         insert, keys, lookup, member, rollbackGT,
                                         runPureToss, setLastKnownSlot)
 import           Pos.Util.Chrono       (NewestFirst (..))
@@ -168,7 +168,7 @@ verifyDeleteAndFilter (getVssCertData -> vcd@VssCertData{..}) =
         resultCorrectVcd    = CorrectVssCertData resultVcd
     in isConsistent resultCorrectVcd
 
-data RollbackData = Rollback GtGlobalState EpochOrSlot [VssCertificate]
+data RollbackData = Rollback SscGlobalState EpochOrSlot [VssCertificate]
     deriving (Show, Eq)
 
 instance HasConfiguration => Arbitrary RollbackData where
@@ -187,18 +187,18 @@ instance HasConfiguration => Arbitrary RollbackData where
                 return $ mkVssCertificate sk binVssPK thisEpoch
         certsToRollback <- nubOrdOn vcVssKey <$>
             vectorOf @VssCertificate certsToRollbackN rollbackGen
-        return $ Rollback (GtGlobalState mempty mempty mempty goodVssCertData)
+        return $ Rollback (SscGlobalState mempty mempty mempty goodVssCertData)
                           lastKnownEoS
                           certsToRollback
 
 verifyRollback
     :: HasConfiguration => RollbackData -> Gen Property
-verifyRollback (Rollback oldGtGlobalState rollbackEoS vssCerts) = do
+verifyRollback (Rollback oldSscGlobalState rollbackEoS vssCerts) = do
     let certAdder vcd = foldl' (flip insert) vcd vssCerts
-        newGtGlobalState@(GtGlobalState _ _ _ newVssCertData) =
-            oldGtGlobalState & gsVssCertificates %~ certAdder
-    (_, GtGlobalState _ _ _ rolledVssCertData, _) <-
-        runPureToss newGtGlobalState $
+        newSscGlobalState@(SscGlobalState _ _ _ newVssCertData) =
+            oldSscGlobalState & sgsVssCertificates %~ certAdder
+    (_, SscGlobalState _ _ _ rolledVssCertData, _) <-
+        runPureToss newSscGlobalState $
         rollbackGT rollbackEoS (NewestFirst [])
     pure $ conjoin $ vssCerts <&> \cert ->
         let id = getCertId cert in

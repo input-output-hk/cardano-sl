@@ -24,7 +24,6 @@ set -o pipefail
 #   Project argument                Package name
 #   :
 #   core, db, etc.                  cardano-sl-{core,db,etc.}
-#   gt                              cardano-sl-godtossing (just an alias)
 #   sl                              cardano-sl
 #   sl+                             cardano-sl and everything dependent on it
 
@@ -40,7 +39,7 @@ set -o pipefail
 # * Pass --bench-mode to use the configuration used by modern benchmarks.
 
 # We can't have auxx, wallet or explorer here, because it depends on 'cardano-sl'.
-projects="core db lrc infra update ssc godtossing txp"
+projects="core db lrc infra update ssc txp"
 
 args=''
 
@@ -119,13 +118,10 @@ do
     asserts=false
     explorer=false
   # project name = build only the project
-  # (for “godtossing” we allow “gt” as an alias)
   elif [[ $var == "sl" ]] || [[ $var == "sl+" ]] || [[ $var == "all" ]]; then
     spec_prj="all"
   elif [[ $var == "lib" ]]; then
     spec_prj="lib"
-  elif [[ $var == "gt" ]]; then
-    spec_prj="godtossing"
   elif [[ $var == "auxx" ]]; then
     spec_prj="auxx"
   elif [[ $var == "wallet" ]]; then

@@ -45,13 +45,15 @@ import           Pos.Lrc.Context          (HasLrcContext, lrcActionOnEpochReason
 import           Pos.Lrc.Types            (RichmenStakes)
 import           Pos.Reporting            (MonadReporting, reportError)
 import           Pos.Slotting.Class       (MonadSlots)
-import           Pos.Ssc.Class.Helpers    (SscHelpersClass (..))
 import           Pos.Ssc.Class.LocalData  (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Storage    (SscGStateClass (..))
-import           Pos.Ssc.Class.Types      (Ssc (..), SscBlock)
+import           Pos.Ssc.Core             (SscPayload)
 import           Pos.Ssc.Extra.Class      (MonadSscMem, askSscMem)
-import           Pos.Ssc.Extra.Types      (SscState (sscGlobal, sscLocal))
+import           Pos.Ssc.Types            (SscBlock, SscState (sscGlobal, sscLocal),
+                                           SscGlobalState, SscLocalData)
 import           Pos.Ssc.RichmenComponent (getRichmenSsc)
+import           Pos.Ssc.SeedError        (SscSeedError)
+import           Pos.Ssc.VerifyError      (SscVerifyError, sscIsCriticalError)
 import           Pos.Util.Chrono          (NE, NewestFirst, OldestFirst)
 import           Pos.Util.Util            (Some, inAssertMode, _neHead, _neLast)
 
@@ -148,7 +150,6 @@ sscNormalize
        , SscLocalDataClass
        , MonadReader ctx m
        , HasLrcContext ctx
-       , SscHelpersClass
        , WithLogger m
        , MonadIO m
        , Rand.MonadRandom m
@@ -195,7 +196,7 @@ sscResetLocal = do
 -- 'MonadIO' is needed only for 'TVar' (@gromak hopes).
 -- 'MonadRandom' is needed for crypto (@neongreen hopes).
 type SscGlobalVerifyMode ctx m =
-    (MonadSscMem ctx m, SscHelpersClass, SscGStateClass,
+    (MonadSscMem ctx m, SscGStateClass,
      MonadReader ctx m, HasLrcContext ctx,
      MonadDBRead m, MonadGState m, WithLogger m, MonadReporting ctx m,
      MonadIO m, Rand.MonadRandom m)
@@ -260,7 +261,7 @@ sscVerifyValidBlocks blocks =
 
 onVerifyFailedInApply
     :: forall m a.
-       (Ssc, WithLogger m, MonadThrow m)
+       (WithLogger m, MonadThrow m)
     => OldestFirst NE HeaderHash -> SscVerifyError -> m a
 onVerifyFailedInApply hashes e = assertionFailed msg
   where

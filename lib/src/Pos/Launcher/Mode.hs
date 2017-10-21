@@ -51,7 +51,7 @@ import           Pos.Slotting.Impl.Sum   (SlottingContextSum, currentTimeSlottin
                                           getCurrentSlotBlockingSum,
                                           getCurrentSlotInaccurateSum, getCurrentSlotSum)
 import           Pos.Slotting.MemState   (MonadSlotsData)
-import           Pos.Ssc.Class.Types     (SscBlock)
+import           Pos.Ssc.Types           (SscBlock)
 import           Pos.Util                (Some (..))
 import           Pos.Util.Util           (postfixLFields)
 

@@ -37,7 +37,6 @@ import           Pos.NtpCheck             (NtpStatus (..), ntpSettings, withNtpC
 import           Pos.Reporting            (reportError)
 import           Pos.Shutdown             (waitForShutdown)
 import           Pos.Slotting             (waitSystemStart)
-import           Pos.Ssc.Class            (SscConstraint)
 import           Pos.Txp                  (bootDustThreshold)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
                                            lastKnownBlockVersion, ourSystemTag)
@@ -129,9 +128,7 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
 runNode ::
-       ( SscConstraint
-       , WorkMode ctx m
-       )
+       WorkMode ctx m
     => NodeResources ext m
     -> ([WorkerSpec m], OutSpecs)
     -> (WorkerSpec m, OutSpecs)

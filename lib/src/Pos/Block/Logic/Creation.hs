@@ -49,8 +49,7 @@ import           Pos.Exception              (assertionFailed, reportFatalError)
 import           Pos.Lrc                    (HasLrcContext, LrcModeFull, lrcSingleShot)
 import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Reporting              (reportError)
-import           Pos.Ssc.Class              (Ssc (..), SscHelpersClass (sscDefaultPayload, sscStripPayload),
-                                             SscLocalDataClass)
+import           Pos.Ssc.Core               (SscPayload, defaultSscPayload, stripSscPayload)
 import           Pos.Ssc.Extra              (MonadSscMem, sscGetLocalPayload,
                                              sscResetLocal)
 import           Pos.StateLock              (Priority (..), StateLock, StateLockMetrics,
@@ -88,7 +87,6 @@ type MonadCreateBlock ctx m
        , MonadTxpLocal m
        , HasLens UpdateContext ctx UpdateContext
        , MonadSscMem ctx m
-       , SscLocalDataClass
        )
 
 ----------------------------------------------------------------------------
@@ -313,7 +311,7 @@ createMainBlockPure limit prevHeader pske sId sk rawPayload = do
   where
     -- default ssc to put in case we won't fit a normal one
     defSsc :: SscPayload
-    defSsc = sscDefaultPayload (siSlot sId)
+    defSsc = defaultSscPayload (siSlot sId)
     computeBodyLimit :: StateT Byte m ()
     computeBodyLimit = do
         -- account for block header and serialization overhead, etc;
@@ -421,7 +419,7 @@ getRawPayload tip slotId = do
 -- Given limit applies only to body, not to other data from block.
 createMainBody
     :: forall m .
-       (MonadError Text m, SscHelpersClass, HasConfiguration)
+       (MonadError Text m, HasConfiguration)
     => Byte  -- ^ Body limit
     -> SlotId
     -> RawPayload
@@ -429,12 +427,12 @@ createMainBody
 createMainBody bodyLimit sId payload =
     flip evalStateT bodyLimit $ do
         let defSsc :: SscPayload
-            defSsc = sscDefaultPayload (siSlot sId)
+            defSsc = defaultSscPayload (siSlot sId)
         -- include ssc data limited with max half of block space if it's possible
         sscPayload <- ifM (uses identity (<= biSize defSsc)) (pure defSsc) $ do
             halfLeft <- uses identity (`div` 2)
-            -- halfLeft > 0, otherwize sscStripPayload may fail
-            let sscPayload = sscStripPayload halfLeft sscData
+            -- halfLeft > 0, otherwize stripSscPayload may fail
+            let sscPayload = stripSscPayload halfLeft sscData
             flip (maybe $ pure defSsc) sscPayload $ \sscP -> do
                 -- we subtract size of empty map because it's
                 -- already included in musthaveBlock

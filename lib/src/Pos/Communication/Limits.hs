@@ -38,7 +38,7 @@ import           Pos.Crypto                         (AbstractHash, DecShare, Enc
                                                      Signature (..), VssPublicKey)
 import qualified Pos.DB.Class                       as DB
 import           Pos.Delegation.Types               (ProxySKLightConfirmation)
-import           Pos.Ssc.GodTossing.Core.Types      (Commitment (..), InnerSharesMap,
+import           Pos.Ssc.Core                       (Commitment (..), InnerSharesMap,
                                                      Opening (..), SignedCommitment)
 import           Pos.Ssc.GodTossing.Types.Message   (MCCommitment (..), MCOpening (..),
                                                      MCShares (..), MCVssCertificate (..))

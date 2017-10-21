@@ -51,7 +51,7 @@ import           Pos.Reporting.MemState   (HasLoggerConfig (..), HasReportServer
 import           Pos.Shutdown             (HasShutdownContext (..), ShutdownContext (..))
 import           Pos.Slotting             (HasSlottingVar (..), SlottingContextSum,
                                            SlottingData)
-import           Pos.Ssc.Class.Types      (HasSscContext (..), Ssc (SscNodeContext))
+import           Pos.Ssc.Types            (HasSscContext (..), SscContext)
 import           Pos.StateLock            (StateLock, StateLockMetrics)
 import           Pos.Txp.Settings         (TxpGlobalSettings)
 import           Pos.Update.Context       (UpdateContext)
@@ -84,7 +84,7 @@ data SscContextTag
 
 -- | NodeContext contains runtime context of node.
 data NodeContext = NodeContext
-    { ncSscContext          :: !SscNodeContext
+    { ncSscContext          :: !SscContext
     -- @georgeee please add documentation when you see this comment
     , ncUpdateContext       :: !UpdateContext
     -- ^ Context needed for the update system

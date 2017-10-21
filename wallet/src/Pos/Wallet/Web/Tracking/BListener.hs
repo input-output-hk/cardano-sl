@@ -134,10 +134,9 @@ onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
         -> CId Wal
         -> m ()
     syncWallet curTip newTip txs wid = walletGuard curTip wid $ do
-        allAddresses <- getWalletAddrMetas WS.Ever wid
         encSK <- getSKById wid
         blkHeaderTs <- blkHeaderTsGetter
-
+        allAddresses <- getWalletAddrMetas WS.Ever wid
         let mapModifier = trackingRollbackTxs encSK allAddresses gbDiff blkHeaderTs txs
         rollbackModifierFromWallet wid newTip mapModifier
         logMsg "Rolled back" (getNewestFirst blunds) wid mapModifier

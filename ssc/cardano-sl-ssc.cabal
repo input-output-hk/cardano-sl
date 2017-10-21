@@ -27,7 +27,6 @@ library
 
     Pos.Ssc.Class
     Pos.Ssc.Class.LocalData
-    Pos.Ssc.Class.Helpers
     Pos.Ssc.Class.Storage
     Pos.Ssc.Class.Listeners
     Pos.Ssc.Class.Workers
@@ -66,7 +65,6 @@ library
     Pos.Ssc.GodTossing.VssCertData
     Pos.Ssc.GodTossing.SecretStorage
     Pos.Ssc.GodTossing.Functions
-    Pos.Ssc.GodTossing.Instance
     Pos.Ssc.GodTossing.DB
     Pos.Ssc.GodTossing.GState
     Pos.Ssc.GodTossing.Richmen

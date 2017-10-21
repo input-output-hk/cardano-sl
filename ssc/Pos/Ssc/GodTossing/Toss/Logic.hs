@@ -29,12 +29,11 @@ import           Pos.Ssc.Core                     (CommitmentsMap (..), SscPaylo
                                                    InnerSharesMap, Opening,
                                                    SignedCommitment, getCommitmentsMap,
                                                    spVss, mkCommitmentsMapUnsafe)
-import           Pos.Ssc.GodTossing.Functions     (sanityChecksSscPayload)
+import           Pos.Ssc.GodTossing.Functions     (verifySscPayload)
 import           Pos.Ssc.GodTossing.Toss.Base     (checkPayload)
 import           Pos.Ssc.GodTossing.Toss.Class    (MonadToss (..), MonadTossEnv (..))
 import           Pos.Ssc.VerifyError              (SscVerifyError (..))
 import           Pos.Ssc.GodTossing.Toss.Types    (TossModifier (..))
-import           Pos.Ssc.GodTossing.Instance      ()
 import           Pos.Util.Chrono                  (NewestFirst (..))
 import           Pos.Util.Util                    (Some, inAssertMode, sortWithMDesc)
 
@@ -47,12 +46,12 @@ verifyAndApplySscPayload
     => Either EpochIndex (Some IsMainHeader) -> SscPayload -> m ()
 verifyAndApplySscPayload eoh payload = do
     -- We can't trust payload from mempool, so we must call
-    -- @sanityChecksSscPayload@.
-    whenLeft eoh $ const $ sanityChecksSscPayload eoh payload
-    -- We perform @sanityChecksSscPayload@ for block when we construct it
+    -- @verifySscPayload@.
+    whenLeft eoh $ const $ verifySscPayload eoh payload
+    -- We perform @verifySscPayload@ for block when we construct it
     -- (in the 'recreateGenericBlock').  So this check is just in case.
     inAssertMode $
-        whenRight eoh $ const $ sanityChecksSscPayload eoh payload
+        whenRight eoh $ const $ verifySscPayload eoh payload
     let blockCerts = spVss payload
     let curEpoch = either identity (^. epochIndexL) eoh
     checkPayload curEpoch payload

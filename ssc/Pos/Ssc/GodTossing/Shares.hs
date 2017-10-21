@@ -21,7 +21,6 @@ import           Pos.Ssc.Class.Storage    (SscGlobalQuery)
 import           Pos.Ssc.Extra            (MonadSscMem, sscRunGlobalQuery)
 import           Pos.Ssc.Core             (Commitment (..), getCommitmentsMap)
 import           Pos.Ssc.Types            (sgsCommitments, sgsOpenings)
-import           Pos.Ssc.GodTossing.Instance ()
 
 type GSQuery a = SscGlobalQuery a
 

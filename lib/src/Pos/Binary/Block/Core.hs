@@ -18,7 +18,6 @@ import qualified Pos.Block.Core.Main.Types    as BC
 import           Pos.Core                     (BlockVersion, SoftwareVersion, HasConfiguration)
 import qualified Pos.Core.Block               as Core
 import           Pos.Crypto                   (Hash)
-import           Pos.Ssc.GodTossing.Instance  ()
 
 ----------------------------------------------------------------------------
 -- MainBlock

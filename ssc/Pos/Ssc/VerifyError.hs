@@ -1,7 +1,8 @@
--- | Possible failures in Toss.
+-- | Possible failures during SSC.
 
 module Pos.Ssc.VerifyError
        ( SscVerifyError (..)
+       , sscIsCriticalError
        ) where
 
 import qualified Data.Text.Buildable
@@ -105,3 +106,10 @@ instance Buildable SscVerifyError where
         bprint ("some VSS certificates have VSS keys that already belong to other certificates: "%listJson) stks
     build (TossInternallError msg) =
         bprint ("internal error: "%stext) msg
+
+-- | Returns 'True' if the error must be reported.
+sscIsCriticalError :: SscVerifyError -> Bool
+sscIsCriticalError =
+    \case
+        TossInternallError {} -> True
+        _ -> False

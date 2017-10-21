@@ -37,7 +37,6 @@ import           Pos.Ssc.GodTossing.LocalData
 import           Pos.Ssc.GodTossing.SecretStorage
 import           Pos.Ssc.GodTossing.Seed
 import           Pos.Ssc.GodTossing.Toss
-import           Pos.Ssc.GodTossing.Instance      ()
 import           Pos.Ssc.Types
 import           Pos.Ssc.GodTossing.Types.Message
 import           Pos.Ssc.GodTossing.VssCertData

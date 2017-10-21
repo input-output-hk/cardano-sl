@@ -255,7 +255,9 @@ mkSscProof payload =
         proof constr hm cert =
             constr (hash hm) (hash cert)
 
--- | Transforms SscPayload to fit under size limit.
+-- | Removes parts of payload so its binary representation length
+-- fits into passed limit. If limit is too low (0), we can return
+-- 'Nothing'.
 stripSscPayload :: HasConfiguration => Byte -> SscPayload -> Maybe SscPayload
 stripSscPayload lim payload | biSize payload <= lim = Just payload
 stripSscPayload lim payload = case payload of

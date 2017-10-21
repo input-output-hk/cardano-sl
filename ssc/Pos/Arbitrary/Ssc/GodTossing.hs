@@ -41,7 +41,6 @@ import           Pos.Ssc.GodTossing.Types.Message  (GtTag (..), MCCommitment (..
 import           Pos.Ssc.Types                     (SscGlobalState (..),
                                                     SscSecretStorage (..))
 import           Pos.Ssc.GodTossing.VssCertData    (VssCertData (..))
-import           Pos.Ssc.GodTossing.Instance       ()
 import           Pos.Util.Arbitrary                (Nonrepeating (..), makeSmall,
                                                     sublistN)
 

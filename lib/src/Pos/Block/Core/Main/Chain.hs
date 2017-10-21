@@ -25,7 +25,6 @@ import           Pos.Core                   (Blockchain (..), ChainDifficulty,
 import           Pos.Crypto                 (Hash, PublicKey, hash)
 import           Pos.Delegation.Types       (DlgPayload)
 import           Pos.Ssc.Core               (SscPayload, SscProof, mkSscProof)
-import           Pos.Ssc.GodTossing.Instance ()
 import           Pos.Txp.Core               (TxPayload, TxProof, mkTxProof)
 import           Pos.Update.Core.Types      (UpdatePayload, UpdateProof, mkUpdateProof)
 

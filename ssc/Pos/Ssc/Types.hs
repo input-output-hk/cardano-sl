@@ -197,14 +197,8 @@ data SscState =
 
 -- [CSL-1156] Find a better way for this
 --
--- NB. It must be a newtype instead of a type (unlike e.g. 'TxpBlock' and
--- 'UpdateBlock'), because otherwise we can't write a 'MonadBlockDBGeneric'
--- instance for it. If you try, you'll get the following error:
---
---     Illegal type synonym family application in instance: SscBlock ssc
---
--- (Which is actually pretty fair – SscPayload isn't injective and so the
--- whole SscBlock isn't either.)
+-- NB. there are plans to make it a 'type' (like 'TxpBlock' and
+-- 'UpdateBlock'). Previously it wasn't possible, but now it is.
 newtype SscBlock = SscBlock
     { getSscBlock :: Either (Some IsGenesisHeader)
                             (Some IsMainHeader, SscPayload)

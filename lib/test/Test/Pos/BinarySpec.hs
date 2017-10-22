@@ -16,7 +16,7 @@ import           Universum
 
 import qualified Pos.Binary            as B
 
-import           Test.Pos.Util         (binaryEncodeDecode, binaryTest,
+import           Test.Pos.Helpers      (binaryEncodeDecode, binaryTest,
                                         shouldThrowException)
 
 spec :: Spec

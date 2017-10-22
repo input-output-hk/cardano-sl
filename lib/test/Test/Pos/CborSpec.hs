@@ -41,7 +41,8 @@ import           Pos.Core.Types                    (ScriptVersion)
 import           Pos.Data.Attributes               (Attributes (..), decodeAttributes,
                                                     encodeAttributes)
 
-import           Test.Pos.Util                     (binaryTest, withDefConfiguration)
+import           Test.Pos.Helpers                  (binaryTest)
+import           Test.Pos.Util                     (withDefConfiguration)
 
 ----------------------------------------
 

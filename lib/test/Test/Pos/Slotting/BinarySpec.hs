@@ -7,7 +7,7 @@ import           Test.Hspec          (Spec, describe)
 import           Pos.Arbitrary.Infra ()
 import           Pos.Slotting.Types  (SlottingData)
 
-import           Test.Pos.Util       (binaryTest)
+import           Test.Pos.Helpers    (binaryTest)
 
 
 spec :: Spec

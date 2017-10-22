@@ -14,7 +14,6 @@ import           Universum
 
 import qualified Data.List.NonEmpty         as NE
 import           Formatting                 (build, sformat, stext, (%))
-import           Pos.Communication          (EnqueueMsg)
 
 import           Pos.Client.Txp.Util        (isCheckedTxError)
 import           Pos.Core.Types             (Coin)
@@ -22,6 +21,7 @@ import           Pos.Txp                    (TxOut (..), TxOutAux (..))
 import           Pos.Wallet.Web.ClientTypes (Addr, CId)
 import           Pos.Wallet.Web.Error       (WalletError (..), rewrapToWalletError)
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
+import           Pos.Wallet.Web.Networking  (MonadWalletSendActions)
 import           Pos.Wallet.Web.Pending     (PendingTx, ptxFirstSubmissionHandler,
                                              submitAndSavePtx)
 import           Pos.Wallet.Web.Util        (decodeCTypeOrFail)
@@ -51,7 +51,7 @@ coinDistrToOutputs distr = do
 -- | Like 'submitAndSaveTx', but suppresses errors which can get gone
 -- by the time of resubmission.
 submitAndSaveNewPtx
-    :: MonadWalletWebMode m
-    => EnqueueMsg m -> PendingTx -> m ()
+    :: (MonadWalletWebMode ctx m, MonadWalletSendActions m)
+    => PendingTx -> m ()
 submitAndSaveNewPtx = submitAndSavePtx ptxFirstSubmissionHandler
 

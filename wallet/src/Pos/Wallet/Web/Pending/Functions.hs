@@ -36,7 +36,7 @@ isPtxInBlocks :: PtxCondition -> Bool
 isPtxInBlocks = isNothing . ptxPoolInfo
 
 mkPendingTx
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => CId Wal -> TxId -> TxAux -> TxHistoryEntry -> m PendingTx
 mkPendingTx wid _ptxTxId _ptxTxAux th = do
     void $ maybeThrow noWallet =<< getWalletMeta wid

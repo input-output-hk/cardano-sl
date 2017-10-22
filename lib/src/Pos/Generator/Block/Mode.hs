@@ -32,8 +32,7 @@ import           Mockable                         (Async, Catch, Concurrently,
                                                    Throw)
 import           System.Wlog                      (WithLogger, logWarning)
 
-import           Pos.Block.BListener              (MonadBListener (..), onApplyBlocksStub,
-                                                   onRollbackBlocksStub)
+import           Pos.Block.BListener              (MonadBListener (..))
 import           Pos.Block.Core                   (Block, BlockHeader)
 import           Pos.Block.Slog                   (HasSlogGState (..))
 import           Pos.Block.Types                  (Undo)
@@ -120,6 +119,7 @@ type MonadBlockGen ctx m
        , HasSlottingVar ctx
        , HasSlogGState ctx
        , HasLrcContext ctx
+       , MonadBListener m
        )
 
 -- | MonadBlockGen extended with the specific GStateContext.
@@ -367,9 +367,10 @@ instance (MonadBlockGenBase m, MonadSlotsData ctx (BlockGenMode ext m))
 instance MonadBlockGenBase m => DB.MonadGState (BlockGenMode ext m) where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
-instance MonadBlockGenBase m => MonadBListener (BlockGenMode ext m) where
-    onApplyBlocks = onApplyBlocksStub
-    onRollbackBlocks = onRollbackBlocksStub
+instance MonadBListener m => MonadBListener (BlockGenMode ext m) where
+    onApplyBlocks = lift . onApplyBlocks
+    onRollbackBlocks = lift . onRollbackBlocks
+
 
 instance Monad m => MonadAddresses (BlockGenMode ext m) where
     type AddrData (BlockGenMode ext m) = Address

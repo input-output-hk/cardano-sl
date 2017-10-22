@@ -4,12 +4,13 @@ module Test.Pos.Update.Identity.SafeCopySpec
        ( spec
        ) where
 
-import           Test.Hspec    (Spec, describe)
+import           Test.Hspec       (Spec, describe)
 import           Universum
 
-import qualified Pos.Update    as U
+import qualified Pos.Update       as U
 
-import           Test.Pos.Util (safeCopyTest, withDefConfiguration)
+import           Test.Pos.Helpers (safeCopyTest)
+import           Test.Pos.Util    (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Update system" $ do

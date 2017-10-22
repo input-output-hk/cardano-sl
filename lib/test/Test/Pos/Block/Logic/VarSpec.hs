@@ -46,12 +46,12 @@ import           Pos.Util.CompileInfo         (HasCompileInfo, withCompileInfo)
 import           Test.Pos.Block.Logic.Event   (BlockScenarioResult (..),
                                                DbNotEquivalentToSnapshot (..),
                                                runBlockScenario)
-import           Test.Pos.Block.Logic.Mode    (BlockProperty, BlockTestMode,
-                                               blockPropertySpec)
+import           Test.Pos.Block.Logic.Mode    (BlockProperty, BlockTestMode)
 import           Test.Pos.Block.Logic.Util    (EnableTxPayload (..), InplaceDB (..),
                                                bpGenBlock, bpGenBlocks,
                                                bpGoToArbitraryState, getAllSecrets,
                                                satisfySlotCheck)
+import           Test.Pos.Helpers             (blockPropertySpec)
 import           Test.Pos.Util                (HasStaticConfigurations, splitIntoChunks,
                                                stopProperty, withStaticConfigurations)
 

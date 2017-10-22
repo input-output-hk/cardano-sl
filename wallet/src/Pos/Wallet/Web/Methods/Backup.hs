@@ -30,7 +30,7 @@ import           Pos.Wallet.Web.Tracking      (syncWalletOnImport)
 
 import           Pos.Crypto                   (emptyPassphrase, firstHardened)
 
-restoreWalletFromBackup :: MonadWalletWebMode m => WalletBackup -> m CWallet
+restoreWalletFromBackup :: MonadWalletWebMode ctx m => WalletBackup -> m CWallet
 restoreWalletFromBackup WalletBackup {..} = do
     let wId = encToCId wbSecretKey
     wExists <- isJust <$> getWalletMeta wId
@@ -66,7 +66,7 @@ restoreWalletFromBackup WalletBackup {..} = do
             -- Get wallet again to return correct balance and stuff
             L.getWallet wId
 
-importWalletJSON :: MonadWalletWebMode m => Text -> m CWallet
+importWalletJSON :: MonadWalletWebMode ctx m => Text -> m CWallet
 importWalletJSON (toString -> fp) = do
     contents <- liftIO $ BSL.readFile fp
     TotalBackup wBackup <- either parseErr pure $ A.eitherDecode contents
@@ -76,7 +76,7 @@ importWalletJSON (toString -> fp) = do
         sformat ("Error while reading JSON backup file: "%stext) $
         toText err
 
-exportWalletJSON :: MonadWalletWebMode m => CId Wal -> Text -> m ()
+exportWalletJSON :: MonadWalletWebMode ctx m => CId Wal -> Text -> m ()
 exportWalletJSON wid (toString -> fp) = do
     wBackup <- TotalBackup <$> getWalletBackup wid
     liftIO $ BSL.writeFile fp $ A.encode wBackup

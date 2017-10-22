@@ -27,8 +27,9 @@ import           Pos.Core                          (EpochIndex (..), HasConfigur
                                                     SlotLeaders, StakeholderId, ChainDifficulty (..), BlockCount (..), difficultyL)
 import           Pos.Crypto                        (SecretKey)
 import           Pos.Delegation                    (DlgPayload, DlgUndo, ProxySKBlockInfo)
-import           Pos.Ssc.Class                     (Ssc (..), sscDefaultPayload)
-import           Pos.Ssc.GodTossing                (GtPayload (..), SscGodTossing)
+-- import           Pos.Ssc.Class                     (Ssc (..), sscDefaultPayload)
+import           Pos.Ssc.Core                      (SscPayload, defaultSscPayload)
+-- import           Pos.Ssc.GodTossing                (GtPayload (..), SscGodTossing)
 import           Pos.Txp.Core                      (TxAux)
 import           Pos.Update.Configuration          (HasUpdateConfiguration)
 import           Pos.Update.Core                   (UpdatePayload (..))
@@ -90,8 +91,8 @@ emptyBlk testableBlock =
     testableBlock
         $ producePureBlock infLimit prevHeader [] Nothing slotId def (defGTP slotId) def sk
 
-defGTP :: HasConfiguration => SlotId -> GtPayload
-defGTP sId = sscDefaultPayload @SscGodTossing $ siSlot sId
+defGTP :: HasConfiguration => SlotId -> SscPayload
+defGTP sId = defaultSscPayload $ siSlot sId
 
 infLimit :: Byte
 infLimit = convertUnit @Gigabyte @Byte 1
@@ -104,7 +105,7 @@ producePureBlock
     -> ProxySKBlockInfo
     -> SlotId
     -> DlgPayload
-    -> SscPayload SscGodTossing
+    -> SscPayload
     -> UpdatePayload
     -> SecretKey
     -> Either Text MainBlock

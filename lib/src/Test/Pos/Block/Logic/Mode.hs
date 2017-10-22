@@ -84,9 +84,9 @@ import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots
                                                  getCurrentSlotSimple,
                                                  mkSimpleSlottingVar)
 import           Pos.Slotting.MemState          (MonadSlotsData)
-import           Pos.Ssc.Class                  (SscBlock)
+import           Pos.Ssc.Types                  (SscBlock)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState)
-import           Pos.Ssc.GodTossing             (HasGtConfiguration, SscGodTossing)
+import           Pos.Ssc.GodTossing             (HasGtConfiguration,)
 import           Pos.Txp                        (GenericTxpLocalData, MempoolExt,
                                                  MonadTxpLocal (..), TxpGlobalSettings,
                                                  TxpHolderTag, mkTxpLocalData,
@@ -201,7 +201,7 @@ data BlockTestContext = BlockTestContext
     , btcLoggerName        :: !LoggerName
     , btcSSlottingVar      :: !SimpleSlottingVar
     , btcUpdateContext     :: !UpdateContext
-    , btcSscState          :: !(SscState SscGodTossing)
+    , btcSscState          :: !SscState
     , btcTxpMem            :: !(GenericTxpLocalData EmptyMempoolExt)
     , btcTxpGlobalSettings :: !TxpGlobalSettings
     , btcSlotId            :: !(Maybe SlotId)
@@ -253,7 +253,7 @@ initBlockTestContext tp@TestParams {..} callback = do
             let _gscLrcContext = LrcContext {..}
             putLrcCtx _gscLrcContext
             btcUpdateContext <- mkUpdateContext
-            btcSscState <- mkSscState @SscGodTossing
+            btcSscState <- mkSscState
             _gscSlogGState <- mkSlogGState
             btcTxpMem <- mkTxpLocalData
             let btcTxpGlobalSettings = txpGlobalSettings
@@ -376,7 +376,7 @@ instance
 
 instance
     HasConfiguration =>
-    MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () TestInitMode
+    MonadBlockDBGeneric (Some IsHeader) SscBlock () TestInitMode
   where
     dbGetBlock  = DB.dbGetBlockSscPureDefault
     dbGetUndo   = DB.dbGetUndoSscPureDefault
@@ -420,7 +420,7 @@ instance HasLens LrcContext BlockTestContext LrcContext where
 instance HasLens UpdateContext BlockTestContext UpdateContext where
       lensOf = btcUpdateContext_L
 
-instance HasLens SscMemTag BlockTestContext (SscState SscGodTossing) where
+instance HasLens SscMemTag BlockTestContext SscState where
       lensOf = btcSscState_L
 
 instance HasLens TxpGlobalSettings BlockTestContext TxpGlobalSettings where
@@ -491,7 +491,7 @@ instance HasConfiguration =>
     dbGetUndo = DB.dbGetUndoPureDefault
     dbGetHeader = DB.dbGetHeaderPureDefault
 
-instance HasConfiguration => MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () BlockTestMode
+instance HasConfiguration => MonadBlockDBGeneric (Some IsHeader) SscBlock () BlockTestMode
   where
     dbGetBlock = DB.dbGetBlockSscPureDefault
     dbGetUndo = DB.dbGetUndoSscPureDefault

@@ -23,8 +23,7 @@ import           Pos.Util.Util              (maybeThrow)
 import           Pos.Wallet.Web.Assurance   (AssuranceLevel (HighAssurance),
                                              assuredBlockDepth)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
-                                             CWAddressMeta (..), Wal,
-                                             cwAssurance)
+                                             CWAddressMeta (..), Wal, cwAssurance)
 
 
 import           Pos.Wallet.Web.Error       (WalletError (..))

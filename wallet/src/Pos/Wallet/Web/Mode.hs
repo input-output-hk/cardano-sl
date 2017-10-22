@@ -3,13 +3,13 @@
 {-# LANGUAGE TypeOperators       #-}
 
 module Pos.Wallet.Web.Mode
-       ( WalletWebMode
+       ( WalletMempoolExt
+       , WalletWebMode
        , WalletWebModeContextTag
        , WalletWebModeContext(..)
        , MonadWalletWebMode
        , MonadWalletWebSockets
        , MonadFullWalletWebMode
-       , EmptyMempoolExt
 
        , getOwnUtxosDefault
        ) where
@@ -44,7 +44,7 @@ import           Pos.Communication                 (SendActions (..), submitTxRa
 import           Pos.Context                       (HasNodeContext (..))
 import           Pos.Core                          (Address, HasConfiguration,
                                                     HasPrimaryKey (..), IsHeader,
-                                                    isRedeemAddress)
+                                                    isRedeemAddress, largestHDAddressBoot)
 import           Pos.Crypto                        (PassPhrase)
 import           Pos.DB                            (MonadGState (..))
 import           Pos.DB.Block                      (MonadBlockDB, dbGetBlockDefault,
@@ -96,8 +96,8 @@ import           Pos.Util.TimeWarp                 (CanJsonLog (..))
 import           Pos.Util.UserSecret               (HasUserSecret (..))
 import           Pos.Util.Util                     (postfixLFields)
 import           Pos.Wallet.Web.Networking         (MonadWalletSendActions (..))
-import           Pos.WorkMode                      (EmptyMempoolExt, MinWorkMode,
-                                                    RealModeContext (..))
+import           Pos.Wallet.Web.Util               (decodeCTypeOrFail)
+import           Pos.WorkMode                      (MinWorkMode, RealModeContext (..))
 
 import           Pos.Wallet.Redirect               (MonadBlockchainInfo (..),
                                                     MonadUpdates (..),
@@ -107,8 +107,10 @@ import           Pos.Wallet.Redirect               (MonadBlockchainInfo (..),
                                                     localChainDifficultyWebWallet,
                                                     networkChainDifficultyWebWallet,
                                                     waitForUpdateWebWallet)
-import           Pos.Wallet.Web.Account            (AccountMode)
-import           Pos.Wallet.Web.ClientTypes        (AccountId)
+import           Pos.Wallet.WalletMode             (WalletMempoolExt)
+import           Pos.Wallet.Web.Account            (AccountMode, GenSeed (RandomSeed))
+import           Pos.Wallet.Web.ClientTypes        (AccountId, cadId)
+import           Pos.Wallet.Web.Methods            (newAddress)
 import           Pos.Wallet.Web.Sockets.Connection (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.ConnSet    (ConnectionsVar)
 import           Pos.Wallet.Web.State              (WalletState, WebWalletModeDB,
@@ -121,7 +123,7 @@ data WalletWebModeContext = WalletWebModeContext
     { wwmcWalletState     :: !WalletState
     , wwmcConnectionsVar  :: !ConnectionsVar
     , wwmcSendActions     :: !(STM.TMVar (SendActions WalletWebMode))
-    , wwmcRealModeContext :: !(RealModeContext EmptyMempoolExt)
+    , wwmcRealModeContext :: !(RealModeContext WalletMempoolExt)
     }
 
 -- It's here because of TH for lens
@@ -158,7 +160,7 @@ instance HasLens ConnectionsVar WalletWebModeContext ConnectionsVar where
     lensOf = wwmcConnectionsVar_L
 
 instance {-# OVERLAPPABLE #-}
-    HasLens tag (RealModeContext EmptyMempoolExt) r =>
+    HasLens tag (RealModeContext WalletMempoolExt) r =>
     HasLens tag WalletWebModeContext r
   where
     lensOf = wwmcRealModeContext_L . lensOf @tag
@@ -194,7 +196,7 @@ type MonadWalletWebMode ctx m =
     , MonadSlots ctx m
     , MonadGState m
     , MonadBlockDB m
-    , MonadTxpMem (MempoolExt m) ctx m
+    , MonadTxpMem WalletMempoolExt ctx m
     , MonadRecoveryInfo m
     , MonadBListener m
     , MonadReader ctx m
@@ -323,7 +325,7 @@ instance MonadKnownPeers WalletWebMode where
 instance MonadFormatPeers WalletWebMode where
     formatKnownPeers = OQ.Reader.formatKnownPeersReader (rmcOutboundQ . wwmcRealModeContext)
 
-type instance MempoolExt WalletWebMode = EmptyMempoolExt
+type instance MempoolExt WalletWebMode = WalletMempoolExt
 
 instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo) =>
          MonadTxpLocal WalletWebMode where
@@ -340,3 +342,14 @@ instance HasConfigurations => MonadWalletSendActions WalletWebMode where
         saMB <- atomically $ STM.tryReadTMVar saVar
         let sa = fromMaybe (error "Wallet's SendActions isn't initialized") saMB
         submitTxRaw (enqueueMsg sa) tx
+
+instance (HasConfigurations, HasCompileInfo)
+      => MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode where
+    type AddrData Pos.Wallet.Web.Mode.WalletWebMode = (AccountId, PassPhrase)
+    -- We rely on the fact that Daedalus always uses HD addresses with
+    -- BootstrapEra distribution.
+    getFakeChangeAddress = pure largestHDAddressBoot
+    getNewAddress (accId, passphrase) = do
+        clientAddress <- newAddress RandomSeed passphrase accId
+        decodeCTypeOrFail (cadId clientAddress)
+

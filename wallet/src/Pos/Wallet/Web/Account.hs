@@ -40,7 +40,7 @@ import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), WebWallet
                                              doesWAddressExist, getAccountMeta)
 
 type AccountMode ctx m =
-    ( MonadCatch m
+    ( MonadThrow m
     , WithLogger m
     , MonadKeys m
     , WebWalletModeDB ctx m

@@ -9,6 +9,7 @@ module Pos.Wallet.Web.Pending.Submission
     , ptxFirstSubmissionHandler
     , ptxResubmissionHandler
 
+    , TxSubmissionMode
     , submitAndSavePtx
     ) where
 
@@ -106,10 +107,16 @@ ptxResubmissionHandler PendingTx{..} =
             \this transaction has unexpected condition "%build)
             _ptxTxId _ptxCond
 
+type TxSubmissionMode ctx m =
+    ( TxMode m
+    , MonadWalletSendActions m
+    , MonadWalletWebDB ctx m
+    )
+
 -- | Like 'Pos.Communication.Tx.submitAndSaveTx',
 -- but treats tx as future /pending/ transaction.
 submitAndSavePtx
-    :: (TxMode m, MonadWalletSendActions m, MonadWalletWebDB ctx m)
+    :: TxSubmissionMode ctx m
     => PtxSubmissionHandlers m -> PendingTx -> m ()
 submitAndSavePtx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
     ack <- sendTxToNetwork _ptxTxAux

@@ -8,6 +8,7 @@ module Pos.Wallet.WalletMode
        , MonadBlockchainInfo (..)
        , MonadUpdates (..)
        , MonadWallet
+       , WalletMempoolExt
        ) where
 
 import           Universum
@@ -22,6 +23,7 @@ import           Pos.Communication       (TxMode)
 import           Pos.Core                (ChainDifficulty)
 import           Pos.Update              (ConfirmedProposalState (..))
 import           Pos.Util.TimeWarp       (CanJsonLog)
+import           Pos.WorkMode            (EmptyMempoolExt)
 
 class Monad m => MonadBlockchainInfo m where
     networkChainDifficulty :: m (Maybe ChainDifficulty)
@@ -50,11 +52,13 @@ instance {-# OVERLAPPABLE #-}
     waitForUpdate = lift waitForUpdate
     applyLastUpdate = lift applyLastUpdate
 
+type WalletMempoolExt = EmptyMempoolExt
+
 ---------------------------------------------------------------
 -- Composite restrictions
 ---------------------------------------------------------------
 
-type MonadWallet  m
+type MonadWallet m
     = ( TxMode m
       , MonadKeys m
       , MonadBlockchainInfo m

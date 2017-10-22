@@ -20,30 +20,31 @@ module Pos.Wallet.Web.Methods.Misc
 
 import           Universum
 
+import           Mockable                   (MonadMockable)
+
 import           Pos.Client.KeyStorage      (MonadKeys, deleteSecretKey, getSecretKeys)
 import           Pos.Core                   (SoftwareVersion (..), decodeTextAddress)
-import           Pos.NtpCheck               (NtpStatus (..), mkNtpStatusVar)
-import           Pos.Update.Configuration   (curSoftwareVersion)
+import           Pos.NtpCheck               (NtpCheckMonad, NtpStatus (..),
+                                             mkNtpStatusVar)
+import           Pos.Update.Configuration   (HasUpdateConfiguration, curSoftwareVersion)
 import           Pos.Util                   (maybeThrow)
 
-import           Pos.Wallet.WalletMode      (applyLastUpdate, connectedPeers,
-                                             localChainDifficulty, networkChainDifficulty)
+import           Pos.Wallet.WalletMode      (MonadBlockchainInfo (..), MonadUpdates (..))
 import           Pos.Wallet.Web.ClientTypes (CProfile (..), CUpdateInfo (..),
                                              SyncProgress (..))
 import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
-import           Pos.Wallet.Web.State       (getNextUpdate, getProfile, removeNextUpdate,
-                                             setProfile, testReset)
+import           Pos.Wallet.Web.State       (MonadWalletWebDB, getNextUpdate, getProfile,
+                                             removeNextUpdate, setProfile, testReset)
 
 
 ----------------------------------------------------------------------------
 -- Profile
 ----------------------------------------------------------------------------
 
-getUserProfile :: MonadWalletWebMode ctx m => m CProfile
+getUserProfile :: MonadWalletWebDB ctx m => m CProfile
 getUserProfile = getProfile
 
-updateUserProfile :: MonadWalletWebMode ctx m => CProfile -> m CProfile
+updateUserProfile :: MonadWalletWebDB ctx m => CProfile -> m CProfile
 updateUserProfile profile = setProfile profile >> getUserProfile
 
 ----------------------------------------------------------------------------
@@ -51,7 +52,7 @@ updateUserProfile profile = setProfile profile >> getUserProfile
 ----------------------------------------------------------------------------
 
 -- NOTE: later we will have `isValidAddress :: CId -> m Bool` which should work for arbitrary crypto
-isValidAddress :: MonadWalletWebMode ctx m => Text -> m Bool
+isValidAddress :: Monad m => Text -> m Bool
 isValidAddress sAddr =
     pure . isRight $ decodeTextAddress sAddr
 
@@ -60,7 +61,9 @@ isValidAddress sAddr =
 ----------------------------------------------------------------------------
 
 -- | Get last update info
-nextUpdate :: MonadWalletWebMode ctx m => m CUpdateInfo
+nextUpdate
+    :: (MonadThrow m, MonadWalletWebDB ctx m, HasUpdateConfiguration)
+    => m CUpdateInfo
 nextUpdate = do
     updateInfo <- getNextUpdate >>= maybeThrow noUpdates
     if isUpdateActual (cuiSoftwareVersion updateInfo)
@@ -73,18 +76,18 @@ nextUpdate = do
     noUpdates = RequestError "No updates available"
 
 -- | Postpone next update after restart
-postponeUpdate :: MonadWalletWebMode ctx m => m ()
+postponeUpdate :: MonadWalletWebDB ctx m => m ()
 postponeUpdate = removeNextUpdate
 
 -- | Delete next update info and restart immediately
-applyUpdate :: MonadWalletWebMode ctx m => m ()
+applyUpdate :: (MonadWalletWebDB ctx m, MonadUpdates m) => m ()
 applyUpdate = removeNextUpdate >> applyLastUpdate
 
 ----------------------------------------------------------------------------
 -- Sync progress
 ----------------------------------------------------------------------------
 
-syncProgress :: MonadWalletWebMode ctx m => m SyncProgress
+syncProgress :: MonadBlockchainInfo m => m SyncProgress
 syncProgress =
     SyncProgress
     <$> localChainDifficulty
@@ -95,7 +98,7 @@ syncProgress =
 -- NTP (Network Time Protocol) based time difference
 ----------------------------------------------------------------------------
 
-localTimeDifference :: MonadWalletWebMode ctx m => m Word
+localTimeDifference :: (NtpCheckMonad m, MonadMockable m) => m Word
 localTimeDifference =
     mkNtpStatusVar >>= readMVar >>= pure . diff
   where
@@ -110,7 +113,7 @@ localTimeDifference =
 -- Reset
 ----------------------------------------------------------------------------
 
-testResetAll :: MonadWalletWebMode ctx m => m ()
+testResetAll :: (MonadWalletWebDB ctx m, MonadKeys m) => m ()
 testResetAll = deleteAllKeys >> testReset
   where
     deleteAllKeys :: MonadKeys m => m ()

@@ -23,6 +23,7 @@ module Pos.Wallet.Web.Tracking.Sync
        , applyModifierToWallet
        , rollbackModifierFromWallet
        , BlockLockMode
+       , WalletTrackingEnv
 
        , syncWalletOnImport
        , txMempoolToModifier
@@ -84,6 +85,7 @@ import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
 import qualified Pos.Util.Modifier                as MM
 import           Pos.Util.Servant                 (encodeCType)
 
+import           Pos.Wallet.WalletMode            (WalletMempoolExt)
 import           Pos.Wallet.Web.Account           (MonadKeySearch (..))
 import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CTxMeta (..),
                                                    CWAddressMeta (..), Wal, encToCId,
@@ -108,20 +110,20 @@ type BlockLockMode ctx m =
      , MonadMask m
      )
 
-type WalletTrackingEnv ext ctx m =
+type WalletTrackingEnv ctx m =
      ( BlockLockMode ctx m
      , WebWalletModeDB ctx m
-     , MonadTxpMem ext ctx m
+     , MonadTxpMem WalletMempoolExt ctx m
      , WS.MonadWalletWebDB ctx m
      , MonadSlotsData ctx m
      , WithLogger m
      , HasConfiguration
      )
 
-syncWalletOnImport :: WalletTrackingEnv ext ctx m => EncryptedSecretKey -> m ()
+syncWalletOnImport :: WalletTrackingEnv ctx m => EncryptedSecretKey -> m ()
 syncWalletOnImport = syncWalletsWithGState . one
 
-txMempoolToModifier :: WalletTrackingEnv ext ctx m => EncryptedSecretKey -> m CAccModifier
+txMempoolToModifier :: WalletTrackingEnv ctx m => EncryptedSecretKey -> m CAccModifier
 txMempoolToModifier encSK = do
     let wHash (i, TxAux {..}, _) = WithHash taTx i
         wId = encToCId encSK
@@ -516,14 +518,14 @@ decryptAddress (hdPass, wCId) addr = do
 -- | Evaluates `txMempoolToModifier` and provides result as a parameter
 -- to given function.
 fixingCachedAccModifier
-    :: (WalletTrackingEnv ext ctx m, MonadKeySearch key m)
+    :: (WalletTrackingEnv ctx m, MonadKeySearch key m)
     => (CachedCAccModifier -> key -> m a)
     -> key -> m a
 fixingCachedAccModifier action key =
     findKey key >>= txMempoolToModifier >>= flip action key
 
 fixCachedAccModifierFor
-    :: (WalletTrackingEnv ext ctx m, MonadKeySearch key m)
+    :: (WalletTrackingEnv ctx m, MonadKeySearch key m)
     => key
     -> (CachedCAccModifier -> m a)
     -> m a

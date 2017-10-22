@@ -5,8 +5,10 @@ module Pos.Client.CLI.Secrets
        , userSecretWithGenesisKey
        ) where
 
-import           Data.List                  ((!!))
 import           Universum
+
+import           Data.List                  ((!!))
+import           System.Wlog                (WithLogger, logInfo)
 
 import           Pos.Core                   (HasConfiguration, generatedSecrets,
                                              genesisSecrets)
@@ -18,7 +20,8 @@ import           Pos.Util.UserSecret        (UserSecret, usPrimKey, usVss,
 import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..))
 
 userSecretWithGenesisKey
-    :: (HasConfiguration, MonadIO m) => CommonNodeArgs -> UserSecret -> m (SecretKey, UserSecret)
+    :: (HasConfiguration, MonadIO m, WithLogger m)
+    => CommonNodeArgs -> UserSecret -> m (SecretKey, UserSecret)
 userSecretWithGenesisKey CommonNodeArgs{..} userSecret
     | Just i <- devGenesisSecretI,
       Just secretKeys <- genesisSecrets = do
@@ -32,7 +35,8 @@ userSecretWithGenesisKey CommonNodeArgs{..} userSecret
     | otherwise = fetchPrimaryKey userSecret
 
 updateUserSecretVSS
-    :: (HasConfiguration, MonadIO m) => CommonNodeArgs -> UserSecret -> m UserSecret
+    :: (HasConfiguration, MonadIO m, WithLogger m)
+    => CommonNodeArgs -> UserSecret -> m UserSecret
 updateUserSecretVSS CommonNodeArgs{..} us
     | Just i <- devGenesisSecretI,
       Just secretKeys <- genesisSecrets =
@@ -42,21 +46,21 @@ updateUserSecretVSS CommonNodeArgs{..} us
               \Try to change initializer in genesis spec"
     | otherwise = fillUserSecretVSS us
 
-fetchPrimaryKey :: (MonadIO m) => UserSecret -> m (SecretKey, UserSecret)
+fetchPrimaryKey :: (MonadIO m, WithLogger m) => UserSecret -> m (SecretKey, UserSecret)
 fetchPrimaryKey userSecret = case userSecret ^. usPrimKey of
     Just sk -> return (sk, userSecret)
     Nothing -> do
-        putText "Found no signing keys in keyfile, generating random one..."
+        logInfo "Found no signing keys in keyfile, generating random one..."
         sk <- snd <$> liftIO (runSecureRandom keyGen)
         let us = userSecret & usPrimKey .~ Just sk
         writeUserSecret us
         return (sk, us)
 
-fillUserSecretVSS :: (MonadIO m) => UserSecret -> m UserSecret
+fillUserSecretVSS :: (MonadIO m, WithLogger m) => UserSecret -> m UserSecret
 fillUserSecretVSS userSecret = case userSecret ^. usVss of
     Just _  -> return userSecret
     Nothing -> do
-        putText "Found no VSS keypair in keyfile, generating random one..."
+        logInfo "Found no VSS keypair in keyfile, generating random one..."
         vss <- liftIO (runSecureRandom vssKeyGen)
         let us = userSecret & usVss .~ Just vss
         writeUserSecret us

@@ -76,8 +76,8 @@ readLoggerConfig :: MonadIO m => Maybe FilePath -> m LoggerConfig
 readLoggerConfig = maybe (return defaultLoggerConfig) parseLoggerConfig
 
 -- | Dump our 'GenesisData' into a file.
-dumpGenesisData :: (HasConfiguration, MonadIO m) => FilePath -> m ()
+dumpGenesisData :: (HasConfiguration, MonadIO m, WithLogger m) => FilePath -> m ()
 dumpGenesisData path = do
     let (canonicalJsonBytes, jsonHash) = canonicalGenesisJson genesisData
-    putText $ sformat ("Writing JSON with hash "%shown%" to "%shown) jsonHash path
+    logInfo $ sformat ("Writing JSON with hash "%shown%" to "%shown) jsonHash path
     liftIO $ BSL.writeFile path canonicalJsonBytes

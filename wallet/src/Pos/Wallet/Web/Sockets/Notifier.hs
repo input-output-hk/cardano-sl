@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds     #-}
 {-# LANGUAGE GADTs         #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -16,22 +17,30 @@ import           Data.Time.Units                   (Microsecond, Second)
 import           Serokell.Util                     (threadDelay)
 import           Servant.Server                    (Handler, runHandler)
 import           Servant.Utils.Enter               ((:~>) (..))
-import           System.Wlog                       (logDebug)
+import           System.Wlog                       (WithLogger, logDebug)
 
 import           Pos.DB                            (MonadGState (..))
-import           Pos.Wallet.WalletMode             (connectedPeers, localChainDifficulty,
-                                                    networkChainDifficulty, waitForUpdate)
+import           Pos.Wallet.WalletMode             (MonadBlockchainInfo (..),
+                                                    MonadUpdates (..))
 import           Pos.Wallet.Web.ClientTypes        (spLocalCD, spNetworkCD, spPeers,
                                                     toCUpdateInfo)
-import           Pos.Wallet.Web.Mode               (MonadWalletWebMode,
-                                                    MonadWalletWebSockets)
+import           Pos.Wallet.Web.Mode               (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.Connection (notifyAll)
 import           Pos.Wallet.Web.Sockets.Types      (NotifyEvent (..))
-import           Pos.Wallet.Web.State              (addUpdate)
+import           Pos.Wallet.Web.State              (MonadWalletWebDB, addUpdate)
+
+type MonadNotifier ctx m =
+    ( WithLogger m
+    , MonadWalletWebDB ctx m
+    , MonadWalletWebSockets ctx m
+    , MonadBlockchainInfo m
+    , MonadUpdates m
+    , MonadGState m
+    )
 
 -- FIXME: this is really inefficient. Temporary solution
 launchNotifier
-    :: (MonadWalletWebMode ctx m, MonadWalletWebSockets ctx m)
+    :: MonadNotifier ctx m
     => (m :~> Handler) -> m ()
 launchNotifier nat =
     void . liftIO $ mapM startForking

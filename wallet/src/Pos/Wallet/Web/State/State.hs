@@ -81,8 +81,7 @@ module Pos.Wallet.Web.State.State
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
                                                UpdateEvent)
 import qualified Data.Map                     as Map
-import           Ether.Internal               (HasLens (..))
-import           Mockable                     (MonadMockable)
+import           Ether.Internal               (lensOf)
 import           Universum
 
 import           Pos.Client.Txp.History       (TxHistoryEntry)
@@ -90,6 +89,7 @@ import           Pos.Core.Configuration       (HasConfiguration)
 import           Pos.Txp                      (TxId, Utxo)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Util.Servant             (encodeCType)
+import           Pos.Util.Util                (HasLens')
 import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CId,
                                                CProfile, CTxId, CTxMeta, CUpdateInfo,
                                                CWAddressMeta, CWalletMeta, PassPhraseLU,
@@ -105,7 +105,7 @@ import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..),
 -- | MonadWalletWebDB stands for monad which is able to get web wallet state
 type MonadWalletWebDB ctx m =
     ( MonadReader ctx m
-    , HasLens WalletState ctx WalletState
+    , HasLens' ctx WalletState
     , HasConfiguration
     )
 
@@ -113,7 +113,7 @@ getWalletWebState :: MonadWalletWebDB ctx m => m WalletState
 getWalletWebState = view (lensOf @WalletState)
 
 -- | Constraint for working with web wallet DB
-type WebWalletModeDB ctx m = (MonadWalletWebDB ctx m, MonadIO m, MonadMockable m)
+type WebWalletModeDB ctx m = (MonadWalletWebDB ctx m, MonadIO m)
 
 queryDisk
     :: (EventState event ~ WalletStorage, QueryEvent event, WebWalletModeDB ctx m)

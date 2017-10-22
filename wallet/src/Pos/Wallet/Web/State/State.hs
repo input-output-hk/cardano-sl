@@ -104,7 +104,8 @@ import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..),
 
 -- | MonadWalletWebDB stands for monad which is able to get web wallet state
 type MonadWalletWebDB ctx m =
-    ( MonadReader ctx m
+    ( MonadIO m
+    , MonadReader ctx m
     , HasLens' ctx WalletState
     , HasConfiguration
     )
@@ -112,8 +113,10 @@ type MonadWalletWebDB ctx m =
 getWalletWebState :: MonadWalletWebDB ctx m => m WalletState
 getWalletWebState = view (lensOf @WalletState)
 
+-- TODO [CSM-407]: get rid of this thing
+-- (it's not done yet to prevent conflicts with release branch)
 -- | Constraint for working with web wallet DB
-type WebWalletModeDB ctx m = (MonadWalletWebDB ctx m, MonadIO m)
+type WebWalletModeDB ctx m = (MonadWalletWebDB ctx m)
 
 queryDisk
     :: (EventState event ~ WalletStorage, QueryEvent event, WebWalletModeDB ctx m)

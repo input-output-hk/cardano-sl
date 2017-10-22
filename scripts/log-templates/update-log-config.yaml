@@ -1,20 +1,9 @@
-# Same as log-template.yaml, but without files, 
+# Same as log-template-demo.yaml, but without files,
 # ready to use if you're too lazy to use sed to clean up files
 # manually.
 
 severity: Debug
 termSeverity: Debug
-smart-wallet:
-    severity: Error
 node:
     severity: Debug
     file: [update-node-tmp.log, pub/update-node-tmp.log.pub]
-    comm:
-        severity: Info
-    dht:
-        severity: Info
-smart-gen:
-    severity: Info
-dht:
-    severity: Info
-

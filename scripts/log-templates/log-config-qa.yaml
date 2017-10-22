@@ -1,3 +1,5 @@
+# This template is used in scripts to connect to a running cluster.
+
 rotation:
     logLimit: 2097152 # 2MB
     keepFiles: 20
@@ -9,10 +11,3 @@ node:
       - file: node.pub
         round: 5
       - file: node
-    comm:
-        severity: Debug
-    dht:
-        severity: Info
-    worker:
-      us:
-        severity: Debug

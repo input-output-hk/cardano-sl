@@ -1,8 +1,7 @@
 -- | Union of blockchain types.
 
 module Pos.Block.Core.Union.Types
-       ( BiSsc
-       , BlockHeader
+       ( BlockHeader
        , Block
 
        , blockHeaderHash
@@ -26,12 +25,6 @@ import           Pos.Core.Block
 ----------------------------------------------------------------------------
 -- GenesisBlock ∪ MainBlock
 ----------------------------------------------------------------------------
-
--- | Ssc w/ buildable blockchain
-type BiSsc =
-    ( Bi GenesisBlockHeader
-    , Bi MainBlockHeader
-    )
 
 -- | Either header of ordinary main block or genesis block.
 type BlockHeader = Either GenesisBlockHeader MainBlockHeader

@@ -9,7 +9,6 @@ import           Universum
 
 import           Pos.Arbitrary.Block ()
 import qualified Pos.Block.Core      as BT
-import           Pos.Ssc.GodTossing  (SscGodTossing)
 
 import           Test.Pos.Util       (safeCopyTest, withDefConfiguration)
 
@@ -23,19 +22,19 @@ spec = withDefConfiguration $ describe "Block types" $ do
                 safeCopyTest @BT.MainBlockHeader
         describe "GenesisBlockchain" $ do
             describe "BodyProof" $ do
-                safeCopyTest @(BT.BodyProof (BT.GenesisBlockchain SscGodTossing))
+                safeCopyTest @(BT.BodyProof BT.GenesisBlockchain)
             describe "ConsensusData" $ do
-                safeCopyTest @(BT.ConsensusData (BT.GenesisBlockchain SscGodTossing))
+                safeCopyTest @(BT.ConsensusData BT.GenesisBlockchain)
             describe "Body" $ do
-                safeCopyTest @(BT.Body (BT.GenesisBlockchain SscGodTossing))
+                safeCopyTest @(BT.Body BT.GenesisBlockchain)
         describe "MainBlockchain" $ do
             safeCopyTest @BT.MainExtraHeaderData
             safeCopyTest @BT.MainExtraBodyData
             describe "BodyProof" $ do
-                safeCopyTest @(BT.BodyProof (BT.MainBlockchain SscGodTossing))
+                safeCopyTest @(BT.BodyProof BT.MainBlockchain)
             describe "BlockSignature" $ do
-                safeCopyTest @(BT.BlockSignature SscGodTossing)
+                safeCopyTest @BT.BlockSignature
             describe "ConsensusData" $ do
-                safeCopyTest @(BT.ConsensusData (BT.MainBlockchain SscGodTossing))
+                safeCopyTest @(BT.ConsensusData BT.MainBlockchain)
             describe "Body" $ do
-                safeCopyTest @(BT.Body (BT.MainBlockchain SscGodTossing))
+                safeCopyTest @(BT.Body BT.MainBlockchain)

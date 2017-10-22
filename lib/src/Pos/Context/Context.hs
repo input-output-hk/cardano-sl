@@ -51,7 +51,7 @@ import           Pos.Reporting.MemState   (HasLoggerConfig (..), HasReportServer
 import           Pos.Shutdown             (HasShutdownContext (..), ShutdownContext (..))
 import           Pos.Slotting             (HasSlottingVar (..), SlottingContextSum,
                                            SlottingData)
-import           Pos.Ssc.Class.Types      (HasSscContext (..), Ssc (SscNodeContext))
+import           Pos.Ssc.Types            (HasSscContext (..), SscContext)
 import           Pos.StateLock            (StateLock, StateLockMetrics)
 import           Pos.Txp.Settings         (TxpGlobalSettings)
 import           Pos.Update.Context       (UpdateContext)
@@ -83,8 +83,8 @@ newtype StartTime = StartTime { unStartTime :: UTCTime }
 data SscContextTag
 
 -- | NodeContext contains runtime context of node.
-data NodeContext ssc = NodeContext
-    { ncSscContext          :: !(SscNodeContext ssc)
+data NodeContext = NodeContext
+    { ncSscContext          :: !SscContext
     -- @georgeee please add documentation when you see this comment
     , ncUpdateContext       :: !UpdateContext
     -- ^ Context needed for the update system
@@ -138,83 +138,83 @@ data NodeContext ssc = NodeContext
 
 makeLensesWith postfixLFields ''NodeContext
 
-class HasNodeContext ssc ctx | ctx -> ssc where
-    nodeContext :: Lens' ctx (NodeContext ssc)
+class HasNodeContext ctx where
+    nodeContext :: Lens' ctx NodeContext
 
-instance HasNodeContext ssc (NodeContext ssc) where
+instance HasNodeContext NodeContext where
     nodeContext = identity
 
-instance HasSscContext ssc (NodeContext ssc) where
+instance HasSscContext NodeContext where
     sscContext = ncSscContext_L
 
-instance HasSlottingVar (NodeContext ssc) where
+instance HasSlottingVar NodeContext where
     slottingTimestamp = ncSlottingVar_L . _1
     slottingVar = ncSlottingVar_L . _2
 
-instance HasSlogContext (NodeContext ssc) where
+instance HasSlogContext NodeContext where
     slogContext = ncSlogContext_L
 
-instance HasSlogGState (NodeContext ssc) where
+instance HasSlogGState NodeContext where
     slogGState = ncSlogContext_L . slogGState
 
-instance HasLens SlottingContextSum (NodeContext ssc) SlottingContextSum where
+instance HasLens SlottingContextSum NodeContext SlottingContextSum where
     lensOf = ncSlottingContext_L
 
-instance HasLens ProgressHeaderTag (NodeContext ssc) ProgressHeader where
+instance HasLens ProgressHeaderTag NodeContext ProgressHeader where
     lensOf = ncProgressHeader_L
 
-instance HasLens StateLock (NodeContext ssc) StateLock where
+instance HasLens StateLock NodeContext StateLock where
     lensOf = ncStateLock_L
 
-instance HasLens StateLockMetrics (NodeContext ssc) StateLockMetrics where
+instance HasLens StateLockMetrics NodeContext StateLockMetrics where
     lensOf = ncStateLockMetrics_L
 
-instance HasLens LastKnownHeaderTag (NodeContext ssc) LastKnownHeader where
+instance HasLens LastKnownHeaderTag NodeContext LastKnownHeader where
     lensOf = ncLastKnownHeader_L
 
-instance HasShutdownContext (NodeContext ssc) where
+instance HasShutdownContext NodeContext where
     shutdownContext = ncShutdownContext_L
 
-instance HasLens UpdateContext (NodeContext ssc) UpdateContext where
+instance HasLens UpdateContext NodeContext UpdateContext where
     lensOf = ncUpdateContext_L
 
-instance HasUserSecret (NodeContext ssc) where
+instance HasUserSecret NodeContext where
     userSecret = ncUserSecret_L
 
-instance HasLens RecoveryHeaderTag (NodeContext ssc) RecoveryHeader where
+instance HasLens RecoveryHeaderTag NodeContext RecoveryHeader where
     lensOf = ncRecoveryHeader_L
 
-instance HasLens ConnectedPeers (NodeContext ssc) ConnectedPeers where
+instance HasLens ConnectedPeers NodeContext ConnectedPeers where
     lensOf = ncConnectedPeers_L
 
-instance HasLens BlockRetrievalQueueTag (NodeContext ssc) BlockRetrievalQueue where
+instance HasLens BlockRetrievalQueueTag NodeContext BlockRetrievalQueue where
     lensOf = ncBlockRetrievalQueue_L
 
-instance HasLens StartTime (NodeContext ssc) StartTime where
+instance HasLens StartTime NodeContext StartTime where
     lensOf = ncStartTime_L
 
-instance HasLens LrcContext (NodeContext ssc) LrcContext where
+instance HasLens LrcContext NodeContext LrcContext where
     lensOf = ncLrcContext_L
 
-instance HasLens TxpGlobalSettings (NodeContext ssc) TxpGlobalSettings where
+instance HasLens TxpGlobalSettings NodeContext TxpGlobalSettings where
     lensOf = ncTxpGlobalSettings_L
 
 instance {-# OVERLAPPABLE #-}
     HasLens tag NodeParams r =>
-    HasLens tag (NodeContext ssc) r
+    HasLens tag NodeContext r
   where
     lensOf = ncNodeParams_L . lensOf @tag
 
-instance HasReportServers (NodeContext ssc) where
+instance HasReportServers NodeContext where
     reportServers = ncNodeParams_L . reportServers
 
-instance HasLoggerConfig (NodeContext ssc) where
+instance HasLoggerConfig NodeContext where
     loggerConfig = ncLoggerConfig_L
 
-instance HasPrimaryKey (NodeContext ssc) where
+instance HasPrimaryKey NodeContext where
     primaryKey = ncNodeParams_L . primaryKey
 
-instance HasReportingContext (NodeContext ssc) where
+instance HasReportingContext NodeContext where
     reportingContext = lens getter (flip setter)
       where
         getter nc =
@@ -225,5 +225,5 @@ instance HasReportingContext (NodeContext ssc) where
             set reportServers (rc ^. reportServers) .
             set loggerConfig  (rc ^. loggerConfig)
 
-instance HasLens (NetworkConfig KademliaDHTInstance) (NodeContext scc) (NetworkConfig KademliaDHTInstance) where
+instance HasLens (NetworkConfig KademliaDHTInstance) NodeContext (NetworkConfig KademliaDHTInstance) where
     lensOf = ncNetworkConfig_L

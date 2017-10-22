@@ -13,7 +13,6 @@ module Pos.Communication.Server
 
 import           Universum
 
-import           Data.Tagged                     (untag)
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           System.Wlog                     (LoggerName)
 
@@ -30,18 +29,17 @@ import           Pos.Subscription.Common         (subscriptionListeners)
 import           Pos.Txp                         (txRelays)
 import           Pos.Update                      (usRelays)
 import           Pos.WorkMode.Class              (WorkMode)
-import           Pos.Ssc.GodTossing.Type         (SscGodTossing)
 
 -- | All listeners running on one node.
 allListeners
-    :: (SscListenersClass SscGodTossing, WorkMode ctx m)
+    :: WorkMode ctx m
     => OQ.OutboundQ pack NodeId Bucket
     -> Topology kademlia -> EnqueueMsg m -> MkListeners m
 allListeners oq topology enqueue = mconcat $
         -- TODO blockListeners should use 'enqueue' rather than its own
         -- block retrieval queue, no?
         [ modifier "block"        $ blockListeners oq
-        , modifier "ssc"          $ relayListeners oq enqueue (untag sscRelays)
+        , modifier "ssc"          $ relayListeners oq enqueue sscRelays
         , modifier "tx"           $ relayListeners oq enqueue txRelays
         , modifier "delegation"   $ relayListeners oq enqueue delegationRelays
         , modifier "update"       $ relayListeners oq enqueue usRelays

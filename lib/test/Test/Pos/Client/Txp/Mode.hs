@@ -25,8 +25,8 @@ import           Pos.Block.Types                  (Undo)
 import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
 import           Pos.Client.Txp.Util              (TxCreateMode)
 import           Pos.Configuration                (HasNodeConfiguration)
-import           Pos.Core                         (HasConfiguration, IsHeader, SlotId,
-                                                   Timestamp (..))
+import           Pos.Core                         (Address, HasConfiguration, IsHeader,
+                                                   SlotId, Timestamp (..))
 import           Pos.DB                           (MonadGState (..))
 import qualified Pos.DB                           as DB
 import qualified Pos.DB.Block                     as DB
@@ -38,8 +38,7 @@ import           Pos.Slotting                     (HasSlottingVar (..), MonadSlo
                                                    MonadSlotsData, SimpleSlottingVar,
                                                    mkSimpleSlottingVar)
 import qualified Pos.Slotting                     as Slot
-import           Pos.Ssc.Class                    (SscBlock)
-import           Pos.Ssc.GodTossing               (SscGodTossing)
+import           Pos.Ssc.Types                    (SscBlock)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util.Util                    (Some, postfixLFields)
@@ -169,7 +168,7 @@ instance
 
 instance
     HasTxpConfigurations =>
-    DB.MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () TxpTestInitMode
+    DB.MonadBlockDBGeneric (Some IsHeader) SscBlock () TxpTestInitMode
   where
     dbGetBlock  = DB.dbGetBlockSscPureDefault
     dbGetUndo   = DB.dbGetUndoSscPureDefault
@@ -238,11 +237,15 @@ instance HasTxpConfigurations => DB.MonadDB TxpTestMode where
 
 instance HasTxpConfigurations => MonadAddresses TxpTestMode where
     type AddrData TxpTestMode = ()
-    getNewAddress _ = pure address
-      where
-        -- seed for address generation is a ByteString with 32 255's
-        seed = BS.replicate seedSize (255 :: Word8)
-        (_, address) = generateAddressWithKey seed
+    getNewAddress _ = pure fakeAddressForMonadAddresses
+    getFakeChangeAddress = pure fakeAddressForMonadAddresses
+
+fakeAddressForMonadAddresses :: Address
+fakeAddressForMonadAddresses = address
+  where
+    -- seed for address generation is a ByteString with 32 255's
+    seed = BS.replicate seedSize (255 :: Word8)
+    (_, address) = generateAddressWithKey seed
 
 
 ----------------------------------------------------------------------------
@@ -256,6 +259,7 @@ type TxpTestProperty = PropertyM TxpTestMode
 instance HasTxpConfigurations => MonadAddresses TxpTestProperty where
     type AddrData TxpTestProperty = AddrData TxpTestMode
     getNewAddress = lift . getNewAddress
+    getFakeChangeAddress = lift getFakeChangeAddress
 
 txCreatePropertyToProperty
     :: HasTxpConfigurations

@@ -11,6 +11,8 @@ module Pos.Util.Arbitrary
        , runGen
        ) where
 
+import           Universum
+
 import qualified Crypto.Random          as Rand
 import           Data.ByteString        (pack)
 import qualified Data.ByteString.Lazy   as BL (ByteString, pack)
@@ -21,9 +23,9 @@ import           Test.QuickCheck        (Arbitrary (..), Gen, listOf, scale, shu
                                          vector)
 import           Test.QuickCheck.Gen    (unGen)
 import           Test.QuickCheck.Random (mkQCGen)
-import           Universum
 
 import           Pos.Crypto.Random      (randomNumberInRange)
+import           Pos.Util.Util          ()
 
 makeSmall :: Gen a -> Gen a
 makeSmall = scale f

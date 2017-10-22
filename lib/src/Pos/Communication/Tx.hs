@@ -38,10 +38,10 @@ import           Pos.Txp.Network.Types      (TxMsgContents (..))
 import           Pos.Util.Util              (eitherToThrow)
 import           Pos.WorkMode.Class         (MinWorkMode)
 
-type TxMode ssc m
+type TxMode m
     = ( MinWorkMode m
       , MonadBalances m
-      , MonadTxHistory ssc m
+      , MonadTxHistory m
       , MonadMockable m
       , MonadMask m
       , MonadThrow m
@@ -49,7 +49,7 @@ type TxMode ssc m
       )
 
 submitAndSave
-    :: TxMode ssc m
+    :: TxMode m
     => EnqueueMsg m -> TxAux -> m Bool
 submitAndSave enqueue txAux@TxAux {..} = do
     let txId = hash taTx
@@ -59,7 +59,7 @@ submitAndSave enqueue txAux@TxAux {..} = do
 
 -- | Construct Tx using multiple secret keys and given list of desired outputs.
 prepareMTx
-    :: TxMode ssc m
+    :: TxMode m
     => (Address -> SafeSigner)
     -> NonEmpty Address
     -> NonEmpty TxOutAux
@@ -71,7 +71,7 @@ prepareMTx hdwSigners addrs outputs addrData = do
 
 -- | Construct redemption Tx using redemption secret key and a output address
 prepareRedemptionTx
-    :: TxMode ssc m
+    :: TxMode m
     => RedeemSecretKey
     -> Address
     -> m (TxAux, Address, Coin)
@@ -102,7 +102,7 @@ sendTxOuts = createOutSpecs (Proxy :: Proxy (InvOrDataTK TxId TxMsgContents))
 -- | Construct Tx using secret key and given list of desired outputs
 -- BE CAREFUL! Doesn't consider HD wallet addresses
 submitTx
-    :: TxMode ssc m
+    :: TxMode m
     => EnqueueMsg m
     -> SafeSigner
     -> NonEmpty TxOutAux

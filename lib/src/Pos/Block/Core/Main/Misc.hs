@@ -31,7 +31,7 @@ import           Pos.Block.Core.Main.Types   (BlockSignature (..), MainBlock,
                                               MainBlockHeader, MainBlockchain,
                                               MainExtraBodyData (..),
                                               MainExtraHeaderData (..), MainToSign (..))
-import           Pos.Block.Core.Union.Types  (BiSsc, BlockHeader, blockHeaderHash)
+import           Pos.Block.Core.Union.Types  (BlockHeader, blockHeaderHash)
 import           Pos.Core                    (EpochOrSlot (..), GenericBlock (..),
                                               GenericBlockHeader (..),
                                               HasBlockVersion (..), HasDifficulty (..),
@@ -46,15 +46,14 @@ import           Pos.Crypto                  (ProxySecretKey (..), SecretKey,
                                               sign, toPublic)
 import           Pos.Data.Attributes         (mkAttributes)
 import           Pos.Delegation.Types        (ProxySKBlockInfo)
-import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
-import           Pos.Ssc.GodTossing.Type     (SscGodTossing)
+import           Pos.Ssc.Core                (defaultSscPayload)
 import           Pos.Txp.Core                (emptyTxPayload)
 import           Pos.Update.Configuration    (HasUpdateConfiguration, curSoftwareVersion,
                                               lastKnownBlockVersion)
 import           Pos.Util.Util               (leftToPanic)
 
 
-instance BiSsc => Buildable MainBlockHeader where
+instance Bi BlockHeader => Buildable MainBlockHeader where
     build gbh@UnsafeGenericBlockHeader {..} =
         bprint
             ("MainBlockHeader:\n"%
@@ -78,7 +77,7 @@ instance BiSsc => Buildable MainBlockHeader where
         gbhHeaderHash = blockHeaderHash $ Right gbh
         MainConsensusData {..} = _gbhConsensus
 
-instance (HasConfiguration, BiSsc) => Buildable MainBlock where
+instance (HasConfiguration, Bi BlockHeader) => Buildable MainBlock where
     build UnsafeGenericBlock {..} =
         bprint
             (stext%":\n"%
@@ -125,7 +124,7 @@ instance Bi BlockHeader =>
          HasHeaderHash MainBlock where
     headerHash = blockHeaderHash . Right . _gbHeader
 
-instance HasDifficulty (ConsensusData $ MainBlockchain ssc) where
+instance HasDifficulty (ConsensusData MainBlockchain) where
     difficultyL = mcdDifficulty
 
 instance HasDifficulty MainBlockHeader where
@@ -163,8 +162,7 @@ instance Bi BlockHeader => IsMainHeader MainBlockHeader where
 ----------------------------------------------------------------------------
 
 type SanityConstraint
-     = ( BiSsc
-       , HasDifficulty BlockHeader
+     = ( HasDifficulty BlockHeader
        , HasHeaderHash BlockHeader
        , HasConfiguration
        )
@@ -176,7 +174,7 @@ mkMainHeader
     -> SlotId
     -> SecretKey
     -> ProxySKBlockInfo
-    -> Body (MainBlockchain SscGodTossing)
+    -> Body MainBlockchain
     -> MainExtraHeaderData
     -> MainBlockHeader
 mkMainHeader prevHeader slotId sk pske body extra =
@@ -214,7 +212,7 @@ mkMainBlock
     -> SlotId
     -> SecretKey
     -> ProxySKBlockInfo
-    -> Body (MainBlockchain SscGodTossing)
+    -> Body MainBlockchain
     -> m MainBlock
 mkMainBlock prevHeader slotId sk pske body =
     recreateGenericBlock
@@ -234,13 +232,13 @@ mkMainBlock prevHeader slotId sk pske body =
 
 -- | Empty (i. e. no payload) body of main block for given local slot index.
 emptyMainBody ::
-       forall ssc. SscHelpersClass ssc
+       HasConfiguration
     => LocalSlotIndex
-    -> Body (MainBlockchain ssc)
+    -> Body MainBlockchain
 emptyMainBody slot =
     MainBody
     { _mbTxPayload = emptyTxPayload
-    , _mbSscPayload = sscDefaultPayload @ssc slot
+    , _mbSscPayload = defaultSscPayload slot
     , _mbDlgPayload = def
     , _mbUpdatePayload = def
     }

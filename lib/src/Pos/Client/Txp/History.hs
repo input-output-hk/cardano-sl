@@ -59,7 +59,6 @@ import qualified Pos.GState                   as GS
 import           Pos.Reporting                (MonadReporting)
 import           Pos.Slotting                 (MonadSlots, getSlotStartPure,
                                                getSystemStartM)
-import           Pos.Ssc.Class                (SscHelpersClass)
 import           Pos.StateLock                (StateLock, StateLockMetrics)
 import           Pos.Txp                      (MempoolExt, MonadTxpLocal, MonadTxpMem,
                                                MonadUtxo, MonadUtxoRead, ToilT, Tx (..),
@@ -192,30 +191,29 @@ instance (Monad m, HasConfiguration) =>
 ----------------------------------------------------------------------------
 
 -- | A class which have methods to get transaction history
-class (Monad m, SscHelpersClass ssc) => MonadTxHistory ssc m | m -> ssc where
+class (Monad m, HasConfiguration) => MonadTxHistory m where
     getBlockHistory
-        :: SscHelpersClass ssc
-        => [Address] -> m (Map TxId TxHistoryEntry)
+        :: [Address] -> m (Map TxId TxHistoryEntry)
     getLocalHistory
         :: [Address] -> m (Map TxId TxHistoryEntry)
     saveTx :: (TxId, TxAux) -> m ()
 
     default getBlockHistory
-        :: (MonadTrans t, MonadTxHistory ssc m', t m' ~ m)
+        :: (MonadTrans t, MonadTxHistory m', t m' ~ m)
         => [Address] -> m (Map TxId TxHistoryEntry)
     getBlockHistory = lift . getBlockHistory
 
     default getLocalHistory
-        :: (MonadTrans t, MonadTxHistory ssc m', t m' ~ m)
+        :: (MonadTrans t, MonadTxHistory m', t m' ~ m)
         => [Address] -> m (Map TxId TxHistoryEntry)
     getLocalHistory = lift . getLocalHistory
 
-    default saveTx :: (MonadTrans t, MonadTxHistory ssc m', t m' ~ m) => (TxId, TxAux) -> m ()
+    default saveTx :: (MonadTrans t, MonadTxHistory m', t m' ~ m) => (TxId, TxAux) -> m ()
     saveTx = lift . saveTx
 
 instance {-# OVERLAPPABLE #-}
-    (MonadTxHistory ssc m, MonadTrans t, Monad (t m)) =>
-        MonadTxHistory ssc (t m)
+    (MonadTxHistory m, MonadTrans t, Monad (t m)) =>
+        MonadTxHistory (t m)
 
 type TxHistoryEnv ctx m =
     ( MonadRealDB ctx m

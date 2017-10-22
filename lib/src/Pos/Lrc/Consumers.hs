@@ -12,12 +12,12 @@ import           Pos.Delegation.Lrc    (delegationLrcConsumer)
 import           Pos.Lrc.Consumer      (LrcConsumer)
 import           Pos.Lrc.Mode          (LrcMode)
 import           Pos.Ssc.Class.Workers (SscWorkersClass (sscLrcConsumers))
+import           Pos.Ssc.GodTossing.Workers ()
+import           Pos.Ssc.GodTossing.Network.Constraint (GtMessageConstraints)
 import           Pos.Update.Lrc        (usLrcConsumer)
-import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 
 allLrcConsumers
-    :: forall ctx m.
-       (LrcMode ctx m, SscWorkersClass SscGodTossing)
+    :: forall ctx m. (GtMessageConstraints, LrcMode ctx m)
     => [LrcConsumer m]
 allLrcConsumers = [delegationLrcConsumer, usLrcConsumer] ++
-                  sscLrcConsumers @SscGodTossing
+                  sscLrcConsumers

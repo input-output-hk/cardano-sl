@@ -21,7 +21,7 @@ import           Pos.Block.Core.Genesis.Types (GenesisBlock, GenesisBlockHeader,
                                                GenesisBlockchain,
                                                GenesisExtraBodyData (..),
                                                GenesisExtraHeaderData (..))
-import           Pos.Block.Core.Union.Types   (BiSsc, BlockHeader, blockHeaderHash)
+import           Pos.Block.Core.Union.Types   (BlockHeader, blockHeaderHash)
 import           Pos.Core                     (EpochIndex, EpochOrSlot (..),
                                                GenericBlock (..), GenericBlockHeader (..),
                                                HasConfiguration, HasDifficulty (..),
@@ -32,14 +32,13 @@ import           Pos.Core                     (EpochIndex, EpochOrSlot (..),
                                                recreateGenericBlock)
 import           Pos.Crypto                   (hashHexF)
 import           Pos.Data.Attributes          (mkAttributes)
-import           Pos.Ssc.GodTossing.Type      (SscGodTossing)
 import           Pos.Util.Util                (leftToPanic)
 
 ----------------------------------------------------------------------------
 -- Buildable
 ----------------------------------------------------------------------------
 
-instance BiSsc => Buildable GenesisBlockHeader where
+instance Bi BlockHeader => Buildable GenesisBlockHeader where
     build gbh@UnsafeGenericBlockHeader {..} =
         bprint
             ("GenesisBlockHeader:\n"%
@@ -57,7 +56,7 @@ instance BiSsc => Buildable GenesisBlockHeader where
         gbhHeaderHash = blockHeaderHash $ Left gbh
         GenesisConsensusData {..} = _gbhConsensus
 
-instance BiSsc => Buildable GenesisBlock where
+instance Bi BlockHeader => Buildable GenesisBlock where
     build UnsafeGenericBlock {..} =
         bprint
             (stext%":\n"%
@@ -101,7 +100,7 @@ instance Bi BlockHeader =>
          HasHeaderHash GenesisBlock where
     headerHash = blockHeaderHash . Left . _gbHeader
 
-instance HasDifficulty (ConsensusData (GenesisBlockchain SscGodTossing)) where
+instance HasDifficulty (ConsensusData GenesisBlockchain) where
     difficultyL = gcdDifficulty
 
 instance HasDifficulty GenesisBlockHeader where
@@ -128,7 +127,7 @@ mkGenesisHeader
     :: SanityConstraint
     => Maybe BlockHeader
     -> EpochIndex
-    -> Body (GenesisBlockchain SscGodTossing)
+    -> Body GenesisBlockchain
     -> GenesisBlockHeader
 mkGenesisHeader prevHeader epoch body =
     -- here we know that genesis header construction can not fail

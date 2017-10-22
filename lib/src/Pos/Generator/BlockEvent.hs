@@ -76,8 +76,6 @@ import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestF
                                                    _OldestFirst)
 import           Pos.Util.Util                    (lensOf')
 
-type BlundDefault = Blund
-
 ----------------------------------------------------------------------------
 -- Blockchain tree
 ----------------------------------------------------------------------------
@@ -165,7 +163,7 @@ genBlocksInForest
     => AllSecrets
     -> GenesisWStakeholders
     -> BlockchainForest BlockDesc
-    -> RandT g m (BlockchainForest BlundDefault)
+    -> RandT g m (BlockchainForest Blund)
 genBlocksInForest secrets bootStakeholders =
     traverse $ mapRandT withClonedGState .
     genBlocksInTree secrets bootStakeholders
@@ -175,7 +173,7 @@ genBlocksInTree
     => AllSecrets
     -> GenesisWStakeholders
     -> BlockchainTree BlockDesc
-    -> RandT g m (BlockchainTree BlundDefault)
+    -> RandT g m (BlockchainTree Blund)
 genBlocksInTree secrets bootStakeholders blockchainTree = do
     txpSettings <- view (lensOf' @TxpGlobalSettings)
     let BlockchainTree blockDesc blockchainForest = blockchainTree
@@ -205,7 +203,7 @@ genBlocksInStructure ::
     -> GenesisWStakeholders
     -> Map Path BlockDesc
     -> t Path
-    -> RandT g m (t BlundDefault)
+    -> RandT g m (t Blund)
 genBlocksInStructure secrets bootStakeholders annotations s = do
     let
         getAnnotation :: Path -> BlockDesc
@@ -215,10 +213,10 @@ genBlocksInStructure secrets bootStakeholders annotations s = do
         paths = toListOf (folded . to (\path -> (path, getAnnotation path))) s
         descForest :: BlockchainForest BlockDesc
         descForest = buildBlockchainForest BlockDescDefault paths
-    blockForest :: BlockchainForest BlundDefault <-
+    blockForest :: BlockchainForest Blund <-
         genBlocksInForest secrets bootStakeholders descForest
     let
-        getBlock :: Path -> BlundDefault
+        getBlock :: Path -> Blund
         getBlock path = Map.findWithDefault
             (error "genBlocksInStructure: impossible happened")
             path
@@ -244,7 +242,7 @@ data BlockEventApply' blund = BlockEventApply
 
 makeLenses ''BlockEventApply'
 
-type BlockEventApply = BlockEventApply' BlundDefault
+type BlockEventApply = BlockEventApply' Blund
 
 -- | The type of failure that we expect from a rollback.
 -- Extend this data type as necessary if you need to check for
@@ -265,7 +263,7 @@ data BlockEventRollback' blund = BlockEventRollback
 
 makeLenses ''BlockEventRollback'
 
-type BlockEventRollback = BlockEventRollback' BlundDefault
+type BlockEventRollback = BlockEventRollback' Blund
 
 newtype SnapshotId = SnapshotId Text
     deriving (Eq, Ord, IsString)
@@ -299,7 +297,7 @@ instance Buildable blund => Buildable (BlockEvent' blund) where
         BlkEvRollback ev -> bprint ("Rollback blocks: "%listJson) (getNewestFirst $ ev ^. berInput)
         BlkEvSnap s -> bprint build s
 
-type BlockEvent = BlockEvent' BlundDefault
+type BlockEvent = BlockEvent' Blund
 
 newtype BlockScenario' blund = BlockScenario [BlockEvent' blund]
     deriving (Show, Functor, Foldable)
@@ -307,7 +305,7 @@ newtype BlockScenario' blund = BlockScenario [BlockEvent' blund]
 instance Buildable blund => Buildable (BlockScenario' blund) where
     build (BlockScenario xs) = bprint listJson xs
 
-type BlockScenario = BlockScenario' BlundDefault
+type BlockScenario = BlockScenario' Blund
 
 makePrisms ''BlockScenario'
 

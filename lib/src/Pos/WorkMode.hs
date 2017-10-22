@@ -56,8 +56,7 @@ import           Pos.Slotting.Impl.Sum   (currentTimeSlottingSum,
                                           getCurrentSlotBlockingSum,
                                           getCurrentSlotInaccurateSum, getCurrentSlotSum)
 import           Pos.Slotting.MemState   (HasSlottingVar (..), MonadSlotsData)
-import           Pos.Ssc.Class.Helpers   (SscHelpersClass)
-import           Pos.Ssc.Class.Types     (SscBlock)
+import           Pos.Ssc.Types           (SscBlock)
 import           Pos.Ssc.Extra           (SscMemTag, SscState)
 import           Pos.Txp                 (GenericTxpLocalData, MempoolExt,
                                           MonadTxpLocal (..), TxpHolderTag, txNormalize,
@@ -74,118 +73,117 @@ import           Pos.Util.TimeWarp       (CanJsonLog (..))
 import           Pos.Util.UserSecret     (HasUserSecret (..))
 import           Pos.Util.Util           (postfixLFields)
 import           Pos.WorkMode.Class      (MinWorkMode, WorkMode)
-import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 
 
-data RealModeContext ssc ext = RealModeContext
+data RealModeContext ext = RealModeContext
     { rmcNodeDBs       :: !NodeDBs
-    , rmcSscState      :: !(SscState ssc)
+    , rmcSscState      :: !SscState
     , rmcTxpLocalData  :: !(GenericTxpLocalData ext)
     , rmcDelegationVar :: !DelegationVar
     , rmcJsonLogConfig :: !JsonLogConfig
     , rmcLoggerName    :: !LoggerName
-    , rmcNodeContext   :: !(NodeContext ssc)
-    , rmcOutboundQ     :: !(OQ (RealMode ssc ext))
+    , rmcNodeContext   :: !NodeContext
+    , rmcOutboundQ     :: !(OQ (RealMode ext))
     }
 
 type EmptyMempoolExt = ()
 
-type RealMode ssc ext = Mtl.ReaderT (RealModeContext ssc ext) Production
+type RealMode ext = Mtl.ReaderT (RealModeContext ext) Production
 
 makeLensesWith postfixLFields ''RealModeContext
 
-instance HasLens NodeDBs (RealModeContext ssc ext) NodeDBs where
+instance HasLens NodeDBs (RealModeContext ext) NodeDBs where
     lensOf = rmcNodeDBs_L
 
-instance HasLens NodeContext (RealModeContext ssc ext) (NodeContext ssc) where
+instance HasLens NodeContext (RealModeContext ext) NodeContext where
     lensOf = rmcNodeContext_L
 
-instance HasLens SscMemTag (RealModeContext ssc ext) (SscState ssc) where
+instance HasLens SscMemTag (RealModeContext ext) SscState where
     lensOf = rmcSscState_L
 
-instance HasLens TxpHolderTag (RealModeContext ssc ext) (GenericTxpLocalData ext) where
+instance HasLens TxpHolderTag (RealModeContext ext) (GenericTxpLocalData ext) where
     lensOf = rmcTxpLocalData_L
 
-instance HasLens DelegationVar (RealModeContext ssc ext) DelegationVar where
+instance HasLens DelegationVar (RealModeContext ext) DelegationVar where
     lensOf = rmcDelegationVar_L
 
-instance HasNodeType (RealModeContext ssc ext) where
+instance HasNodeType (RealModeContext ext) where
     getNodeType = getNodeTypeDefault @KademliaDHTInstance
 
 instance {-# OVERLAPPABLE #-}
-    HasLens tag (NodeContext ssc) r =>
-    HasLens tag (RealModeContext ssc ext) r
+    HasLens tag NodeContext r =>
+    HasLens tag (RealModeContext ext) r
   where
     lensOf = rmcNodeContext_L . lensOf @tag
 
-instance HasSscContext ssc (RealModeContext ssc ext) where
+instance HasSscContext (RealModeContext ext) where
     sscContext = rmcNodeContext_L . sscContext
 
-instance HasPrimaryKey (RealModeContext ssc ext) where
+instance HasPrimaryKey (RealModeContext ext) where
     primaryKey = rmcNodeContext_L . primaryKey
 
-instance HasReportingContext (RealModeContext ssc ext) where
+instance HasReportingContext (RealModeContext ext) where
     reportingContext = rmcNodeContext_L . reportingContext
 
-instance HasUserSecret (RealModeContext ssc ext) where
+instance HasUserSecret (RealModeContext ext) where
     userSecret = rmcNodeContext_L . userSecret
 
-instance HasShutdownContext (RealModeContext ssc ext) where
+instance HasShutdownContext (RealModeContext ext) where
     shutdownContext = rmcNodeContext_L . shutdownContext
 
-instance HasSlottingVar (RealModeContext ssc ext) where
+instance HasSlottingVar (RealModeContext ext) where
     slottingTimestamp = rmcNodeContext_L . slottingTimestamp
     slottingVar = rmcNodeContext_L . slottingVar
 
-instance HasSlogContext (RealModeContext ssc ext) where
+instance HasSlogContext (RealModeContext ext) where
     slogContext = rmcNodeContext_L . slogContext
 
-instance HasSlogGState (RealModeContext ssc ext) where
+instance HasSlogGState (RealModeContext ext) where
     slogGState = slogContext . scGState
 
-instance HasNodeContext ssc (RealModeContext ssc ext) where
+instance HasNodeContext (RealModeContext ext) where
     nodeContext = rmcNodeContext_L
 
-instance HasLoggerName' (RealModeContext ssc ext) where
+instance HasLoggerName' (RealModeContext ext) where
     loggerName = rmcLoggerName_L
 
-instance HasJsonLogConfig (RealModeContext ssc ext) where
+instance HasJsonLogConfig (RealModeContext ext) where
     jsonLogConfig = rmcJsonLogConfig_L
 
-instance {-# OVERLAPPING #-} HasLoggerName (RealMode ssc ext) where
+instance {-# OVERLAPPING #-} HasLoggerName (RealMode ext) where
     getLoggerName = getLoggerNameDefault
     modifyLoggerName = modifyLoggerNameDefault
 
-instance {-# OVERLAPPING #-} CanJsonLog (RealMode ssc ext) where
+instance {-# OVERLAPPING #-} CanJsonLog (RealMode ext) where
     jsonLog = jsonLogDefault
 
-instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx (RealMode ssc ext))
-      => MonadSlots ctx (RealMode ssc ext)
+instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx (RealMode ext))
+      => MonadSlots ctx (RealMode ext)
   where
     getCurrentSlot = getCurrentSlotSum
     getCurrentSlotBlocking = getCurrentSlotBlockingSum
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
     currentTimeSlotting = currentTimeSlottingSum
 
-instance HasConfiguration => MonadGState (RealMode ssc ext) where
+instance HasConfiguration => MonadGState (RealMode ext) where
     gsAdoptedBVData = gsAdoptedBVDataDefault
 
-instance HasConfiguration => MonadDBRead (RealMode ssc ext) where
+instance HasConfiguration => MonadDBRead (RealMode ext) where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
 
-instance HasConfiguration => MonadDB (RealMode ssc ext) where
+instance HasConfiguration => MonadDB (RealMode ext) where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
 
-instance MonadBListener (RealMode ssc ext) where
+instance MonadBListener (RealMode ext) where
     onApplyBlocks = onApplyBlocksStub
     onRollbackBlocks = onRollbackBlocksStub
 
 instance
-    (HasConfiguration, SscHelpersClass ssc) =>
-    MonadBlockDBGeneric BlockHeader Block Undo (RealMode ssc ext)
+    HasConfiguration =>
+    MonadBlockDBGeneric BlockHeader Block Undo (RealMode ext)
   where
     dbGetBlock  = dbGetBlockDefault
     dbGetUndo   = dbGetUndoDefault
@@ -193,7 +191,7 @@ instance
 
 instance
     HasConfiguration =>
-    MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () (RealMode SscGodTossing ext)
+    MonadBlockDBGeneric (Some IsHeader) SscBlock () (RealMode ext)
   where
     dbGetBlock  = dbGetBlockSscDefault
     dbGetUndo   = dbGetUndoSscDefault
@@ -201,19 +199,19 @@ instance
 
 instance
     HasConfiguration =>
-    MonadBlockDBGenericWrite BlockHeader Block Undo (RealMode SscGodTossing ext)
+    MonadBlockDBGenericWrite BlockHeader Block Undo (RealMode ext)
   where
     dbPutBlund = dbPutBlundDefault
 
-instance MonadKnownPeers (RealMode ssc ext) where
+instance MonadKnownPeers (RealMode ext) where
     updatePeersBucket = OQ.Reader.updatePeersBucketReader rmcOutboundQ
 
-instance MonadFormatPeers (RealMode scc ext) where
+instance MonadFormatPeers (RealMode ext) where
     formatKnownPeers = OQ.Reader.formatKnownPeersReader rmcOutboundQ
 
-type instance MempoolExt (RealMode ssc ext) = ext
+type instance MempoolExt (RealMode ext) = ext
 
 instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo) =>
-         MonadTxpLocal (RealMode ssc ()) where
+         MonadTxpLocal (RealMode ()) where
     txpNormalize = txNormalize
     txpProcessTx = txProcessTransaction

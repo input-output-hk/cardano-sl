@@ -64,16 +64,10 @@ instance Buildable MsgGetBlocks where
 data MsgHeaders
     = MsgHeaders (NewestFirst NE BlockHeader)
     | MsgNoHeaders Text
-    deriving (Generic)
-
-deriving instance Eq BlockHeader => Eq MsgHeaders
-deriving instance Show BlockHeader => Show MsgHeaders
+    deriving (Eq, Show, Generic)
 
 -- | 'Block' message (see protocol specification).
 data MsgBlock
     = MsgBlock Block
     | MsgNoBlock Text
-    deriving (Generic)
-
-deriving instance Eq Block => Eq MsgBlock
-deriving instance Show Block => Show MsgBlock
+    deriving (Eq, Show, Generic)

@@ -45,6 +45,8 @@ import           Pos.Core                         (Address, HasConfiguration,
                                                    HasPrimaryKey (..),
                                                    IsBootstrapEraAddr (..), IsHeader,
                                                    deriveFirstHDAddress,
+                                                   largestPubKeyAddressBoot,
+                                                   largestPubKeyAddressSingleKey,
                                                    makePubKeyAddress, siEpoch)
 import           Pos.Crypto                       (EncryptedSecretKey, PublicKey,
                                                    emptyPassphrase)
@@ -65,8 +67,7 @@ import           Pos.Reporting                    (HasReportingContext (..))
 import           Pos.Shutdown                     (HasShutdownContext (..))
 import           Pos.Slotting.Class               (MonadSlots (..))
 import           Pos.Slotting.MemState            (HasSlottingVar (..), MonadSlotsData)
-import           Pos.Ssc.Class                    (HasSscContext (..), SscBlock)
-import           Pos.Ssc.GodTossing               (SscGodTossing)
+import           Pos.Ssc.Types                    (HasSscContext (..), SscBlock)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                          (MempoolExt, MonadTxpLocal (..),
                                                    txNormalize, txProcessTransaction,
@@ -91,7 +92,7 @@ data CmdCtx = CmdCtx
 type AuxxMode = ReaderT AuxxContext Production
 
 data AuxxContext = AuxxContext
-    { acRealModeContext :: !(RealModeContext SscGodTossing EmptyMempoolExt)
+    { acRealModeContext :: !(RealModeContext EmptyMempoolExt)
     , acCmdCtx          :: !CmdCtx
     , acTempDbUsed      :: !Bool
     }
@@ -110,7 +111,7 @@ isTempDbUsed :: AuxxMode Bool
 isTempDbUsed = view acTempDbUsed_L
 
 -- | Turn 'RealMode' action into 'AuxxMode' action.
-realModeToAuxx :: RealMode SscGodTossing EmptyMempoolExt a -> AuxxMode a
+realModeToAuxx :: RealMode EmptyMempoolExt a -> AuxxMode a
 realModeToAuxx = withReaderT acRealModeContext
 
 ----------------------------------------------------------------------------
@@ -128,7 +129,7 @@ instance HasLens DBSum AuxxContext DBSum where
 instance HasGStateContext AuxxContext where
     gStateContext = getGStateImplicit
 
-instance HasSscContext SscGodTossing AuxxContext where
+instance HasSscContext AuxxContext where
     sscContext = acRealModeContext_L . sscContext
 
 instance HasPrimaryKey AuxxContext where
@@ -143,7 +144,7 @@ instance HasUserSecret AuxxContext where
 instance HasShutdownContext AuxxContext where
     shutdownContext = acRealModeContext_L . shutdownContext
 
-instance HasNodeContext SscGodTossing AuxxContext where
+instance HasNodeContext AuxxContext where
     nodeContext = acRealModeContext_L . nodeContext
 
 instance HasSlottingVar AuxxContext where
@@ -154,7 +155,7 @@ instance HasNodeType AuxxContext where
     getNodeType _ = NodeEdge
 
 instance {-# OVERLAPPABLE #-}
-    HasLens tag (RealModeContext SscGodTossing EmptyMempoolExt) r =>
+    HasLens tag (RealModeContext EmptyMempoolExt) r =>
     HasLens tag AuxxContext r
   where
     lensOf = acRealModeContext_L . lensOf @tag
@@ -183,7 +184,7 @@ instance {-# OVERLAPPING #-} HasLoggerName AuxxMode where
     getLoggerName = realModeToAuxx getLoggerName
     modifyLoggerName f action = do
         auxxCtx <- ask
-        let auxxToRealMode :: AuxxMode a -> RealMode SscGodTossing EmptyMempoolExt a
+        let auxxToRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
             auxxToRealMode = withReaderT (\realCtx -> set acRealModeContext_L realCtx auxxCtx)
         realModeToAuxx $ modifyLoggerName f $ auxxToRealMode action
 
@@ -211,11 +212,11 @@ instance (HasConfiguration, HasGtConfiguration) =>
     dbGetHeader = realModeToAuxx ... dbGetHeader @BlockHeader @Block @Undo
 
 instance (HasConfiguration, HasGtConfiguration) =>
-         MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () AuxxMode
+         MonadBlockDBGeneric (Some IsHeader) SscBlock () AuxxMode
   where
     dbGetBlock  = realModeToAuxx ... dbGetBlock
-    dbGetUndo   = realModeToAuxx ... dbGetUndo @(Some IsHeader) @(SscBlock SscGodTossing) @()
-    dbGetHeader = realModeToAuxx ... dbGetHeader @(Some IsHeader) @(SscBlock SscGodTossing) @()
+    dbGetUndo   = realModeToAuxx ... dbGetUndo @(Some IsHeader) @SscBlock @()
+    dbGetHeader = realModeToAuxx ... dbGetHeader @(Some IsHeader) @SscBlock @()
 
 instance HasConfiguration => MonadGState AuxxMode where
     gsAdoptedBVData = realModeToAuxx ... gsAdoptedBVData
@@ -229,7 +230,7 @@ instance HasConfiguration => MonadBalances AuxxMode where
     getBalance = getBalanceFromUtxo
 
 instance (HasConfiguration, HasInfraConfiguration, HasGtConfiguration, HasCompileInfo) =>
-         MonadTxHistory SscGodTossing AuxxMode where
+         MonadTxHistory AuxxMode where
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault
@@ -240,9 +241,15 @@ instance MonadKnownPeers AuxxMode where
 instance MonadFormatPeers AuxxMode where
     formatKnownPeers = OQ.Reader.formatKnownPeersReader (rmcOutboundQ . acRealModeContext)
 
-instance (HasConfiguration, HasInfraConfiguration) => MonadAddresses AuxxMode where
+instance (HasConfiguration, HasInfraConfiguration) =>
+         MonadAddresses AuxxMode where
     type AddrData AuxxMode = PublicKey
-    getNewAddress = withCompileInfo def $ makePubKeyAddressAuxx
+    getNewAddress = makePubKeyAddressAuxx
+    getFakeChangeAddress = do
+        epochIndex <- siEpoch <$> getCurrentSlotInaccurate
+        gsIsBootstrapEra epochIndex <&> \case
+            False -> largestPubKeyAddressBoot
+            True -> largestPubKeyAddressSingleKey
 
 type instance MempoolExt AuxxMode = EmptyMempoolExt
 
@@ -259,7 +266,7 @@ instance (HasConfigurations) =>
 -- choose suitable stake distribution. We want to pick it based on
 -- whether we are currently in bootstrap era.
 makePubKeyAddressAuxx ::
-       (HasConfiguration, HasInfraConfiguration, HasCompileInfo)
+       (HasConfiguration, HasInfraConfiguration)
     => PublicKey
     -> AuxxMode Address
 makePubKeyAddressAuxx pk = do
@@ -269,7 +276,7 @@ makePubKeyAddressAuxx pk = do
 
 -- | Similar to @makePubKeyAddressAuxx@ but create HD address.
 deriveHDAddressAuxx ::
-       (HasConfiguration, HasInfraConfiguration, HasCompileInfo)
+       (HasConfiguration, HasInfraConfiguration)
     => EncryptedSecretKey
     -> AuxxMode Address
 deriveHDAddressAuxx hdwSk = do

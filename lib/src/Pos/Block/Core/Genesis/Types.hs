@@ -17,7 +17,6 @@ import           Formatting          (bprint, build, (%))
 
 import           Pos.Core.Block      (GenericBlock (..), GenericBlockHeader (..))
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
-import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 
 -- | Represents genesis block header attributes.
 type GenesisHeaderAttributes = Attributes ()
@@ -56,10 +55,10 @@ instance Buildable GenesisExtraBodyData where
 -- necessary. However, it is good idea to store list of leaders
 -- explicitly, because calculating it may be expensive operation. For
 -- example, it is useful for SPV-clients.
-data GenesisBlockchain ssc
+data GenesisBlockchain
 
 -- | Header of Genesis block.
-type GenesisBlockHeader = GenericBlockHeader (GenesisBlockchain SscGodTossing)
+type GenesisBlockHeader = GenericBlockHeader GenesisBlockchain
 
 -- | Genesis block parametrized by 'GenesisBlockchain'.
-type GenesisBlock = GenericBlock (GenesisBlockchain SscGodTossing)
+type GenesisBlock = GenericBlock GenesisBlockchain

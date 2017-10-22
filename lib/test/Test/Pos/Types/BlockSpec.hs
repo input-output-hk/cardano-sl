@@ -22,7 +22,6 @@ import           Pos.Crypto            (ProxySecretKey (pskIssuerPk), SecretKey,
                                         SignTag (..), createPsk, proxySign, sign,
                                         toPublic)
 import           Pos.Data.Attributes   (mkAttributes)
-import           Pos.Ssc.GodTossing    (SscGodTossing)
 import qualified Pos.Types             as T
 import           Pos.Util.Chrono       (NewestFirst (..))
 import           Pos.Util.Util         (leftToPanic)
@@ -65,7 +64,7 @@ genesisHeaderFormation
     :: HasConfiguration
     => Maybe T.BlockHeader
     -> T.EpochIndex
-    -> T.Body (T.GenesisBlockchain SscGodTossing)
+    -> T.Body T.GenesisBlockchain
     -> Property
 genesisHeaderFormation prevHeader epoch body =
     header === manualHeader
@@ -89,7 +88,7 @@ mainHeaderFormation
     => Maybe T.BlockHeader
     -> T.SlotId
     -> Either SecretKey (SecretKey, SecretKey, Bool)
-    -> T.Body (T.MainBlockchain SscGodTossing)
+    -> T.Body T.MainBlockchain
     -> T.MainExtraHeaderData
     -> Property
 mainHeaderFormation prevHeader slotId signer body extra =

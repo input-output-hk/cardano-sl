@@ -27,8 +27,7 @@ import           Pos.Launcher         (ConfigurationOptions (..), HasConfigurati
                                        NodeParams (..), NodeResources (..),
                                        bracketNodeResources, loggerBracket, runNode,
                                        withConfigurations)
-import           Pos.Ssc.Class        (SscParams)
-import           Pos.Ssc.GodTossing   (SscGodTossing)
+import           Pos.Ssc.Types        (SscParams)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Txp              (txpGlobalSettings)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,
@@ -54,7 +53,7 @@ actionWithWallet ::
        ( HasConfigurations
        , HasCompileInfo
        )
-    => SscParams SscGodTossing
+    => SscParams
     -> NodeParams
     -> WalletArgs
     -> Production ()
@@ -110,7 +109,7 @@ walletProd WalletArgs {..} = first pure $ worker walletServerOuts $ \sendActions
 
 pluginsGT ::
     ( WorkMode ctx m
-    , HasNodeContext SscGodTossing ctx
+    , HasNodeContext ctx
     , HasConfigurations
     , HasCompileInfo
     ) => WalletArgs -> [m ()]

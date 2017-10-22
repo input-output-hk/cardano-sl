@@ -17,10 +17,8 @@ import           Pos.Launcher.Resource            (NodeResources (..),
                                                    bracketNodeResources)
 import           Pos.Launcher.Runner              (runRealMode)
 import           Pos.Launcher.Scenario            (runNode)
-import           Pos.Ssc.Class                    (SscConstraint)
-import           Pos.Ssc.Class.Types              (SscParams)
+import           Pos.Ssc.Types                    (SscParams)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Ssc.GodTossing.Type          (SscGodTossing)
 import           Pos.Txp                          (txpGlobalSettings)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo             (HasCompileInfo)
@@ -32,8 +30,7 @@ import           Pos.WorkMode                     (EmptyMempoolExt, RealMode)
 
 -- | Run full node in real mode.
 runNodeReal
-    :: ( SscConstraint SscGodTossing
-       , HasConfiguration
+    :: ( HasConfiguration
        , HasUpdateConfiguration
        , HasInfraConfiguration
        , HasGtConfiguration
@@ -41,12 +38,12 @@ runNodeReal
        , HasCompileInfo
        )
     => NodeParams
-    -> SscParams SscGodTossing
-    -> ([WorkerSpec (RealMode SscGodTossing EmptyMempoolExt)], OutSpecs)
+    -> SscParams
+    -> ([WorkerSpec (RealMode EmptyMempoolExt)], OutSpecs)
     -> Production ()
 runNodeReal np sscnp plugins = bracketNodeResources np sscnp txpGlobalSettings initNodeDBs action
   where
-    action :: HasConfiguration => NodeResources SscGodTossing EmptyMempoolExt (RealMode SscGodTossing EmptyMempoolExt) -> Production ()
+    action :: HasConfiguration => NodeResources EmptyMempoolExt (RealMode EmptyMempoolExt) -> Production ()
     action nr@NodeResources {..} =
         runRealMode
             nr

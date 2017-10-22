@@ -41,11 +41,8 @@ import           Pos.Reporting               (HasReportingContext)
 import           Pos.Security.Params         (SecurityParams)
 import           Pos.Shutdown                (HasShutdownContext)
 import           Pos.Slotting.Class          (MonadSlots)
-import           Pos.Ssc.Class.LocalData     (SscLocalDataClass)
-import           Pos.Ssc.Class.Storage       (SscGStateClass)
-import           Pos.Ssc.Class.Workers       (SscWorkersClass)
 import           Pos.Ssc.Extra               (MonadSscMem)
-import           Pos.Ssc.GodTossing          (HasGtConfiguration, SscGodTossing)
+import           Pos.Ssc.GodTossing          (HasGtConfiguration)
 import           Pos.StateLock               (StateLock, StateLockMetrics)
 import           Pos.Txp.MemState            (MempoolExt, MonadTxpLocal, MonadTxpMem)
 import           Pos.Update.Configuration    (HasUpdateConfiguration)
@@ -70,10 +67,7 @@ type WorkMode ctx m
       , MonadBlockDBWrite m
       , MonadTxpMem (MempoolExt m) ctx m
       , MonadDelegation ctx m
-      , MonadSscMem SscGodTossing ctx m
-      , SscGStateClass SscGodTossing
-      , SscLocalDataClass SscGodTossing
-      , SscWorkersClass SscGodTossing
+      , MonadSscMem ctx m
       , MonadRecoveryInfo m
       , MonadRecoveryHeader ctx m
       , MonadProgressHeader ctx m
@@ -92,7 +86,7 @@ type WorkMode ctx m
       , HasLens' ctx (NetworkConfig KademliaDHTInstance)
       , HasLens BlockRetrievalQueueTag ctx BlockRetrievalQueue
       , HasLrcContext ctx
-      , HasSscContext SscGodTossing ctx
+      , HasSscContext ctx
       , HasReportingContext ctx
       , HasPrimaryKey ctx
       , HasShutdownContext ctx

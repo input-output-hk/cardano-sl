@@ -337,8 +337,8 @@ data BlockVersionData = BlockVersionData
 -- HeaderHash
 ----------------------------------------------------------------------------
 
--- | 'Hash' of block header. This should be @Hash (BlockHeader ssc)@
--- but we don't want to have @ssc@ in 'HeaderHash' type.
+-- | 'Hash' of block header. This should be @Hash BlockHeader@
+-- but 'BlockHeader' is not defined in core.
 type HeaderHash = Hash BlockHeaderStub
 data BlockHeaderStub
 

@@ -11,11 +11,11 @@ module Pos.Ssc.Extra.Class
 import           Ether.Internal      (HasLens (..))
 import           Universum
 
-import           Pos.Ssc.Extra.Types (SscState)
+import           Pos.Ssc.Types       (SscState)
 
 data SscMemTag
 
-type MonadSscMem ssc ctx m = (MonadReader ctx m, HasLens SscMemTag ctx (SscState ssc))
+type MonadSscMem ctx m = (MonadReader ctx m, HasLens SscMemTag ctx SscState)
 
-askSscMem :: MonadSscMem ssc ctx m => m (SscState ssc)
+askSscMem :: MonadSscMem ctx m => m SscState
 askSscMem = view (lensOf @SscMemTag)

@@ -16,7 +16,7 @@ fi
 
 # TODO: CSL-1133: Add test coverage to CI. To be reenabled when build times
 # become smaller and allow coverage report to be built.
-#projects="core db lrc infra update ssc godtossing txp"
+#projects="core db lrc infra update ssc txp"
 #to_build=''
 
 #for prj in $projects; do

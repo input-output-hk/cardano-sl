@@ -23,8 +23,7 @@ import           Pos.Communication    (OutSpecs, WorkerSpec)
 import           Pos.Core             (GenesisData (..), Timestamp (..), genesisData)
 import           Pos.Launcher         (HasConfigurations, NodeParams (..), loggerBracket,
                                        runNodeReal, withConfigurations)
-import           Pos.Ssc.Class        (SscConstraint, SscParams)
-import           Pos.Ssc.GodTossing   (SscGodTossing)
+import           Pos.Ssc.Types        (SscParams)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Update           (updateTriggerWorker)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,
@@ -34,17 +33,16 @@ import           Pos.WorkMode         (EmptyMempoolExt, RealMode)
 
 
 actionWithoutWallet
-    :: ( SscConstraint SscGodTossing
-       , HasConfigurations
+    :: ( HasConfigurations
        , HasCompileInfo
        )
-    => SscParams SscGodTossing
+    => SscParams
     -> NodeParams
     -> Production ()
 actionWithoutWallet sscParams nodeParams =
     runNodeReal nodeParams sscParams plugins
   where
-    plugins :: ([WorkerSpec (RealMode SscGodTossing EmptyMempoolExt)], OutSpecs)
+    plugins :: ([WorkerSpec (RealMode EmptyMempoolExt)], OutSpecs)
     plugins = updateTriggerWorker
 
 action

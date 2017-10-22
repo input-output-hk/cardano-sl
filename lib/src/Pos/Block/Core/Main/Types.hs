@@ -26,18 +26,17 @@ import           Pos.Core.Types      (BlockVersion, ChainDifficulty, HeaderHash,
                                       SoftwareVersion)
 import           Pos.Crypto          (Hash, Signature)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
-import           Pos.Ssc.GodTossing.Type (SscGodTossing)
 
 -- | Represents blockchain consisting of main blocks, i. e. blocks
 -- with actual payload (transactions, SSC, update system, etc.).
-data MainBlockchain ssc
+data MainBlockchain
 
 -- | Data to be signed in main block.
-data MainToSign ssc
+data MainToSign
     = MainToSign
     { _msHeaderHash  :: !HeaderHash  -- ^ Hash of previous header
                                      --    in the chain
-    , _msBodyProof   :: !(BodyProof (MainBlockchain ssc))
+    , _msBodyProof   :: !(BodyProof MainBlockchain)
     , _msSlot        :: !SlotId
     , _msChainDiff   :: !ChainDifficulty
     , _msExtraHeader :: !MainExtraHeaderData
@@ -47,15 +46,15 @@ data MainToSign ssc
 -- issuer or delegated signature having a constraint on epoch indices
 -- (it means the signature is valid only if block's slot id has epoch
 -- inside the constrained interval).
-data BlockSignature ssc
-    = BlockSignature (Signature (MainToSign ssc))
-    | BlockPSignatureLight (ProxySigLight (MainToSign ssc))
-    | BlockPSignatureHeavy (ProxySigHeavy (MainToSign ssc))
+data BlockSignature
+    = BlockSignature (Signature MainToSign)
+    | BlockPSignatureLight (ProxySigLight MainToSign)
+    | BlockPSignatureHeavy (ProxySigHeavy MainToSign)
     deriving (Show, Eq, Generic)
 
-instance NFData (BodyProof (MainBlockchain ssc)) => NFData (BlockSignature ssc)
+instance NFData (BodyProof MainBlockchain) => NFData BlockSignature
 
-instance Buildable (BlockSignature ssc) where
+instance Buildable BlockSignature where
     build (BlockSignature s)       = bprint ("BlockSignature: "%build) s
     build (BlockPSignatureLight s) = bprint ("BlockPSignatureLight: "%build) s
     build (BlockPSignatureHeavy s) = bprint ("BlockPSignatureHeavy: "%build) s
@@ -109,8 +108,8 @@ instance Buildable MainExtraBodyData where
         | otherwise = bprint ("extra data has attributes: "%build) attrs
 
 -- | Header of generic main block.
-type MainBlockHeader = GenericBlockHeader (MainBlockchain SscGodTossing)
+type MainBlockHeader = GenericBlockHeader MainBlockchain
 
 -- | MainBlock is a block with transactions and MPC messages. It's the
 -- main part of our consensus algorithm.
-type MainBlock = GenericBlock (MainBlockchain SscGodTossing)
+type MainBlock = GenericBlock MainBlockchain

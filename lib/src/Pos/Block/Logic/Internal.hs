@@ -51,11 +51,9 @@ import           Pos.Exception           (assertionFailed)
 import qualified Pos.GState              as GS
 import           Pos.Lrc.Context         (HasLrcContext)
 import           Pos.Reporting           (MonadReporting)
-import           Pos.Ssc.Class.LocalData (SscLocalDataClass)
-import           Pos.Ssc.Class.Storage   (SscGStateClass)
 import           Pos.Ssc.Extra           (MonadSscMem, sscApplyBlocks, sscNormalize,
                                           sscRollbackBlocks)
-import           Pos.Ssc.GodTossing.Type (SscGodTossing)
+import           Pos.Ssc.GodTossing      (HasGtConfiguration)
 import           Pos.Ssc.Util            (toSscBlock)
 import           Pos.Txp.Core            (TxPayload)
 import           Pos.Txp.MemState        (MonadTxpLocal (..))
@@ -71,7 +69,7 @@ import           Pos.Util.Chrono         (NE, NewestFirst (..), OldestFirst (..)
 type MonadBlockBase ctx m
      = ( MonadSlogBase ctx m
        -- Needed because SSC state is fully stored in memory.
-       , MonadSscMem SscGodTossing ctx m
+       , MonadSscMem ctx m
        -- Needed to load blocks (at least delegation does it).
        , MonadBlockDB m
        , MonadSscBlockDB m
@@ -80,12 +78,12 @@ type MonadBlockBase ctx m
        -- This constraints define block components' global logic.
        , HasLrcContext ctx
        , HasLens' ctx TxpGlobalSettings
-       , SscGStateClass SscGodTossing
        , MonadDelegation ctx m
        -- 'MonadRandom' for crypto.
        , Rand.MonadRandom m
        -- To report bad things.
        , MonadReporting ctx m
+       , HasGtConfiguration
        )
 
 -- | Set of constraints necessary for high-level block verification.
@@ -109,8 +107,7 @@ type MonadBlockApply ctx m
 type MonadMempoolNormalization ctx m
     = ( MonadSlogBase ctx m
       , MonadTxpLocal m
-      , SscLocalDataClass SscGodTossing
-      , MonadSscMem SscGodTossing ctx m
+      , MonadSscMem ctx m
       , HasLrcContext ctx
       , HasLens' ctx UpdateContext
       -- Needed to load useful information from db
@@ -122,6 +119,7 @@ type MonadMempoolNormalization ctx m
       -- 'MonadRandom' for crypto.
       , Rand.MonadRandom m
       , Mockable CurrentTime m
+      , HasGtConfiguration
       )
 
 -- | Normalize mempool.
@@ -132,7 +130,7 @@ normalizeMempool = do
     -- We normalize all mempools except the delegation one.
     -- That's because delegation mempool normalization is harder and is done
     -- within block application.
-    sscNormalize @SscGodTossing
+    sscNormalize
     txpNormalize
     usNormalize
 

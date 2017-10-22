@@ -62,9 +62,8 @@ import           Pos.Slotting.Impl.Sum            (currentTimeSlottingSum,
                                                    getCurrentSlotInaccurateSum,
                                                    getCurrentSlotSum)
 import           Pos.Slotting.MemState            (HasSlottingVar (..), MonadSlotsData)
-import           Pos.Ssc.Class.Types              (HasSscContext (..), SscBlock)
-import           Pos.Ssc.GodTossing               (HasGtConfiguration,
-                                                   SscGodTossing)
+import           Pos.Ssc.Types                    (SscBlock, HasSscContext (..))
+import           Pos.Ssc.GodTossing               (HasGtConfiguration)
 import           Pos.Txp                          (MempoolExt, MonadTxpLocal (..),
                                                    addrBelongsToSet, getUtxoModifier,
                                                    txNormalize, txProcessTransaction)
@@ -97,12 +96,12 @@ import           Pos.WorkMode                     (EmptyMempoolExt, RealModeCont
 data WalletWebModeContext = WalletWebModeContext
     { wwmcWalletState     :: !WalletState
     , wwmcConnectionsVar  :: !ConnectionsVar
-    , wwmcRealModeContext :: !(RealModeContext SscGodTossing EmptyMempoolExt)
+    , wwmcRealModeContext :: !(RealModeContext EmptyMempoolExt)
     }
 
 makeLensesWith postfixLFields ''WalletWebModeContext
 
-instance HasSscContext SscGodTossing WalletWebModeContext where
+instance HasSscContext WalletWebModeContext where
     sscContext = wwmcRealModeContext_L . sscContext
 
 instance HasPrimaryKey WalletWebModeContext where
@@ -117,7 +116,7 @@ instance HasUserSecret WalletWebModeContext where
 instance HasShutdownContext WalletWebModeContext where
     shutdownContext = wwmcRealModeContext_L . shutdownContext
 
-instance HasNodeContext SscGodTossing WalletWebModeContext where
+instance HasNodeContext WalletWebModeContext where
     nodeContext = wwmcRealModeContext_L . nodeContext
 
 instance HasSlottingVar WalletWebModeContext where
@@ -131,7 +130,7 @@ instance HasLens ConnectionsVar WalletWebModeContext ConnectionsVar where
     lensOf = wwmcConnectionsVar_L
 
 instance {-# OVERLAPPABLE #-}
-    HasLens tag (RealModeContext SscGodTossing EmptyMempoolExt) r =>
+    HasLens tag (RealModeContext EmptyMempoolExt) r =>
     HasLens tag WalletWebModeContext r
   where
     lensOf = wwmcRealModeContext_L . lensOf @tag
@@ -206,7 +205,7 @@ instance (HasConfiguration, HasGtConfiguration) =>
     dbGetHeader = dbGetHeaderDefault
 
 instance (HasConfiguration, HasGtConfiguration) =>
-         MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () WalletWebMode
+         MonadBlockDBGeneric (Some IsHeader) SscBlock () WalletWebMode
   where
     dbGetBlock  = dbGetBlockSscDefault
     dbGetUndo   = dbGetUndoSscDefault
@@ -252,7 +251,7 @@ instance ( HasConfiguration
          , HasInfraConfiguration
          , HasCompileInfo
          ) =>
-         MonadTxHistory SscGodTossing WalletWebMode where
+         MonadTxHistory WalletWebMode where
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault
     saveTx = saveTxDefault

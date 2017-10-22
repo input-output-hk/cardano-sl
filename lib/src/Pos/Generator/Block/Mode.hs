@@ -42,7 +42,8 @@ import           Pos.Configuration                (HasNodeConfiguration)
 import           Pos.Core                         (Address, GenesisWStakeholders (..),
                                                    HasConfiguration, HasPrimaryKey (..),
                                                    IsHeader, SlotId (..), Timestamp,
-                                                   epochOrSlotToSlot, getEpochOrSlot)
+                                                   epochOrSlotToSlot, getEpochOrSlot,
+                                                   largestPubKeyAddressBoot)
 import           Pos.Crypto                       (SecretKey)
 import           Pos.DB                           (DBSum, MonadBlockDBGeneric (..),
                                                    MonadBlockDBGenericWrite (..), MonadDB,
@@ -66,9 +67,8 @@ import           Pos.Reporting                    (HasReportingContext (..),
 import           Pos.Slotting                     (HasSlottingVar (..), MonadSlots (..),
                                                    MonadSlotsData, SlottingData,
                                                    currentTimeSlottingSimple)
-import           Pos.Ssc.Class                    (SscBlock)
+import           Pos.Ssc.Types                    (SscBlock)
 import           Pos.Ssc.Extra                    (SscMemTag, SscState, mkSscState)
-import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                          (GenericTxpLocalData, MempoolExt,
                                                    TxpGlobalSettings, TxpHolderTag,
@@ -151,7 +151,7 @@ data BlockGenContext ext = BlockGenContext
     , bgcGenStakeholders   :: !GenesisWStakeholders
     , bgcTxpMem            :: !(GenericTxpLocalData ext)
     , bgcUpdateContext     :: !UpdateContext
-    , bgcSscState          :: !(SscState SscGodTossing)
+    , bgcSscState          :: !SscState
     , bgcSlotId            :: !(Maybe SlotId)
     -- ^ During block generation we don't want to use real time, but
     -- rather want to set current slot (fake one) by ourselves.
@@ -207,7 +207,7 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
     usingReaderT initCtx $ do
         tipEOS <- getEpochOrSlot <$> getTipHeader
         putInitSlot (epochOrSlotToSlot tipEOS)
-        bgcSscState <- mkSscState @SscGodTossing
+        bgcSscState <- mkSscState
         bgcUpdateContext <- mkUpdateContext
         bgcTxpMem <- mkTxpLocalData
         bgcDelegation <- mkDelegationVar
@@ -307,7 +307,7 @@ instance HasSlogGState (BlockGenContext ext) where
 instance HasLens TxpHolderTag (BlockGenContext ext) (GenericTxpLocalData ext) where
     lensOf = bgcTxpMem_L
 
-instance HasLens SscMemTag (BlockGenContext ext) (SscState SscGodTossing) where
+instance HasLens SscMemTag (BlockGenContext ext) SscState where
     lensOf = bgcSscState_L
 
 instance HasLens TxpGlobalSettings (BlockGenContext ext) TxpGlobalSettings where
@@ -339,7 +339,7 @@ instance (HasGtConfiguration, MonadBlockGenBase m) =>
     dbGetHeader = BDB.dbGetHeaderSumDefault
 
 instance (HasGtConfiguration, MonadBlockGenBase m) =>
-    MonadBlockDBGeneric (Some IsHeader) (SscBlock SscGodTossing) () (BlockGenMode ext m)
+    MonadBlockDBGeneric (Some IsHeader) SscBlock () (BlockGenMode ext m)
   where
     dbGetBlock = BDB.dbGetBlockSscSumDefault
     dbGetUndo = BDB.dbGetUndoSscSumDefault
@@ -374,6 +374,12 @@ instance MonadBlockGenBase m => MonadBListener (BlockGenMode ext m) where
 instance Monad m => MonadAddresses (BlockGenMode ext m) where
     type AddrData (BlockGenMode ext m) = Address
     getNewAddress = pure
+    -- It must be consistent with the way we construct address in
+    -- block-gen. If it's changed, tests will fail, so we will notice
+    -- it.
+    -- N.B. Currently block-gen uses only PubKey addresses with BootstrapEra
+    -- distribution.
+    getFakeChangeAddress = pure largestPubKeyAddressBoot
 
 type instance MempoolExt (BlockGenMode ext m) = ext
 

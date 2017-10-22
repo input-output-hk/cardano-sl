@@ -12,6 +12,7 @@ import           Universum
 
 import           Control.Monad.ST
 import qualified Data.ByteString.Lazy as LBS
+import           Data.Default         (def)
 
 import           Node.Message.Class   (Packing (..), PackingType (..), Serializable (..))
 import qualified Node.Message.Decoder as TW
@@ -36,7 +37,9 @@ biPackMsg :: Bi.Encoding -> LBS.ByteString
 biPackMsg = Bi.toLazyByteString
 
 biUnpackMsg :: Bi t => Bi.Decoder RealWorld t -> TW.Decoder (UnpackM BiP) t
-biUnpackMsg decoder = TW.Decoder (fromBiDecoder Proxy (Bi.deserialiseIncremental decoder))
+biUnpackMsg decoder =
+    -- We assume that default DecoderConfig is enough for testing.
+    TW.Decoder (fromBiDecoder Proxy (Bi.deserialiseIncremental $ runReaderT decoder def))
 
 instance  Bi t => Serializable BiP t where
     packMsg _   = pure . biPackMsg . Bi.encode

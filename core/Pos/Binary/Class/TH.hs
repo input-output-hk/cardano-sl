@@ -1,4 +1,3 @@
-
 {-
 TH helpers for Bi.
 
@@ -226,7 +225,7 @@ deriveSimpleBiInternal predsMB headTy constrs = do
         []     ->
             failText $ sformat ("Attempting to decode type without constructors "%shown) headTy
         [cons] -> do
-          doE [ bindS (varP actualLen)  [| Cbor.decodeListLenCanonical |]
+          doE [ bindS (varP actualLen)  [| Bi.toDecoder Cbor.decodeListLenCanonical |]
               , noBindS (biDecodeConstr cons) -- There is one constructor
               ]
         _      -> do
@@ -237,7 +236,7 @@ deriveSimpleBiInternal predsMB headTy constrs = do
                     match wildP (normalB
                         [| fail $ toString ("Found invalid tag while decoding " <> shortNameTy) |]) []
             doE
-                [ bindS (varP actualLen)  [| Cbor.decodeListLenCanonical |]
+                [ bindS (varP actualLen)  [| Bi.toDecoder Cbor.decodeListLenCanonical |]
                 , bindS (varP tagName)    [| Bi.decode |]
                 , noBindS (caseE
                                 (sigE (varE tagName) tagType)

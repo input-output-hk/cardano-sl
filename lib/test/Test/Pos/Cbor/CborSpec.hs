@@ -15,6 +15,7 @@ module Test.Pos.Cbor.CborSpec
 import           Universum
 
 import qualified Data.ByteString                   as BS
+import           Data.Default                      (def)
 import           Test.Hspec                        (Arg, Expectation, Spec, SpecWith,
                                                     describe, it, pendingWith, shouldBe)
 import           Test.Hspec.QuickCheck             (modifyMaxSuccess, modifyMaxSize, prop)
@@ -299,7 +300,7 @@ testAgainstFile name x expected =
             let actual = CBOR.toFlatTerm $ encode x
             expected `shouldBe` actual
       it "deserialise" $ do
-            case CBOR.fromFlatTerm decode expected of
+            case CBOR.fromFlatTerm (runReaderT decode def) expected of
               Left err     -> fail err
               Right actual -> x `shouldBe` actual
 

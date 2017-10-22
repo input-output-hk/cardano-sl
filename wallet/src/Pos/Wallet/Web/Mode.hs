@@ -12,6 +12,7 @@ module Pos.Wallet.Web.Mode
        , MonadFullWalletWebMode
 
        , getOwnUtxosDefault
+       , getNewAddressWebWallet
        ) where
 
 import           Universum
@@ -110,7 +111,7 @@ import           Pos.Wallet.Redirect               (MonadBlockchainInfo (..),
 import           Pos.Wallet.WalletMode             (WalletMempoolExt)
 import           Pos.Wallet.Web.Account            (AccountMode, GenSeed (RandomSeed))
 import           Pos.Wallet.Web.ClientTypes        (AccountId, cadId)
-import           Pos.Wallet.Web.Methods            (newAddress)
+import           Pos.Wallet.Web.Methods            (MonadWalletLogic, newAddress)
 import           Pos.Wallet.Web.Sockets.Connection (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.ConnSet    (ConnectionsVar)
 import           Pos.Wallet.Web.State              (WalletState, WebWalletModeDB,
@@ -343,13 +344,18 @@ instance HasConfigurations => MonadWalletSendActions WalletWebMode where
         let sa = fromMaybe (error "Wallet's SendActions isn't initialized") saMB
         submitTxRaw (enqueueMsg sa) tx
 
+getNewAddressWebWallet
+    :: MonadWalletLogic ctx m
+    => (AccountId, PassPhrase) -> m Address
+getNewAddressWebWallet (accId, passphrase) = do
+    clientAddress <- newAddress RandomSeed passphrase accId
+    decodeCTypeOrFail (cadId clientAddress)
+
 instance (HasConfigurations, HasCompileInfo)
       => MonadAddresses Pos.Wallet.Web.Mode.WalletWebMode where
     type AddrData Pos.Wallet.Web.Mode.WalletWebMode = (AccountId, PassPhrase)
     -- We rely on the fact that Daedalus always uses HD addresses with
     -- BootstrapEra distribution.
     getFakeChangeAddress = pure largestHDAddressBoot
-    getNewAddress (accId, passphrase) = do
-        clientAddress <- newAddress RandomSeed passphrase accId
-        decodeCTypeOrFail (cadId clientAddress)
+    getNewAddress = getNewAddressWebWallet
 

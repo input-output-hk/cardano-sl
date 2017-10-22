@@ -107,8 +107,9 @@ import           Pos.Wallet.Web.Networking         (MonadWalletSendActions (..))
 import           Pos.Wallet.WalletMode             (MonadBlockchainInfo (..),
                                                     MonadUpdates (..))
 import           Pos.Wallet.Web.ClientTypes        (AccountId)
-import           Pos.Wallet.Web.Methods.Payment    (getNewAddressWebWallet)
-import           Pos.Wallet.Web.Mode               (EmptyMempoolExt, getOwnUtxosDefault)
+import           Pos.Wallet.Web.Mode               (WalletMempoolExt,
+                                                    getNewAddressWebWallet,
+                                                    getOwnUtxosDefault)
 import           Pos.Wallet.Web.State              (WalletState, openMemState)
 import           Pos.Wallet.Web.Tracking.BListener (onApplyBlocksWebWallet,
                                                     onRollbackBlocksWebWallet)
@@ -309,7 +310,7 @@ instance {-# OVERLAPPING #-} CanJsonLog WalletTestMode where
 instance HasLoggerName' WalletTestContext where
     loggerName = wtcBlockTestContext_L . lensOf @LoggerName
 
-instance HasLens TxpHolderTag WalletTestContext (GenericTxpLocalData EmptyMempoolExt) where
+instance HasLens TxpHolderTag WalletTestContext (GenericTxpLocalData WalletMempoolExt) where
     lensOf = wtcBlockTestContext_L . btcTxpMemL
 
 instance {-# OVERLAPPING #-} HasLoggerName WalletTestMode where
@@ -398,7 +399,7 @@ instance HasLens StateLockMetrics WalletTestContext StateLockMetrics where
 
 -- TODO remove HasCompileInfo here
 -- when getNewAddressWebWallet won't require MonadWalletWebMode
-instance (HasCompileInfo, HasConfigurations) => MonadAddresses WalletTestMode where
+instance HasConfigurations => MonadAddresses WalletTestMode where
     type AddrData WalletTestMode = (AccountId, PassPhrase)
     getNewAddress = getNewAddressWebWallet
     getFakeChangeAddress = pure largestHDAddressBoot
@@ -430,10 +431,10 @@ instance HasConfiguration => MonadBlockchainInfo WalletTestMode where
     blockchainSlotDuration = blockchainSlotDurationWebWallet
     connectedPeers = connectedPeersWebWallet
 
-type instance MempoolExt WalletTestMode = EmptyMempoolExt
+type instance MempoolExt WalletTestMode = WalletMempoolExt
 
 instance (HasCompileInfo, HasConfigurations)
-        => MonadTxpLocal (BlockGenMode EmptyMempoolExt WalletTestMode) where
+        => MonadTxpLocal (BlockGenMode WalletMempoolExt WalletTestMode) where
     txpNormalize = txNormalize
     txpProcessTx = txProcessTransactionNoLock
 

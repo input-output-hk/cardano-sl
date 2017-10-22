@@ -23,13 +23,16 @@ import           Pos.Wallet.WalletMode             (connectedPeers, localChainDi
                                                     networkChainDifficulty, waitForUpdate)
 import           Pos.Wallet.Web.ClientTypes        (spLocalCD, spNetworkCD, spPeers,
                                                     toCUpdateInfo)
-import           Pos.Wallet.Web.Mode               (MonadWalletWebMode, MonadWebSockets)
+import           Pos.Wallet.Web.Mode               (MonadWalletWebMode,
+                                                    MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.Connection (notifyAll)
 import           Pos.Wallet.Web.Sockets.Types      (NotifyEvent (..))
 import           Pos.Wallet.Web.State              (addUpdate)
 
 -- FIXME: this is really inefficient. Temporary solution
-launchNotifier :: (MonadWalletWebMode ctx m, MonadWebSockets ctx) => (m :~> Handler) -> m ()
+launchNotifier
+    :: (MonadWalletWebMode ctx m, MonadWalletWebSockets ctx m)
+    => (m :~> Handler) -> m ()
 launchNotifier nat =
     void . liftIO $ mapM startForking
         [ dificultyNotifier

@@ -18,7 +18,9 @@ import           Universum
 import           Pos.Core             (BlockVersionData, EpochIndex, SharedSeed)
 import           Pos.DB               (MonadDBRead, SomeBatchOp)
 import           Pos.Lrc.Types        (RichmenStakes)
-import           Pos.Ssc.Class.Types  (Ssc (..), SscBlock)
+import           Pos.Ssc.SeedError    (SscSeedError)
+import           Pos.Ssc.VerifyError  (SscVerifyError)
+import           Pos.Ssc.Types        (SscBlock, SscGlobalState)
 import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
 
 ----------------------------------------------------------------------------
@@ -40,7 +42,7 @@ type SscVerifyMode m =
 
 type SscVerifier a = forall m . SscVerifyMode m => m a
 
-class Ssc => SscGStateClass where
+class SscGStateClass where
     -- | Load global state from DB by recreating it from recent blocks.
     sscLoadGlobalState
         :: (MonadDBRead m, WithLogger m)

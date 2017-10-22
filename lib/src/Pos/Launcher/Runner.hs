@@ -62,7 +62,6 @@ import           Pos.Launcher.Resource           (NodeResources (..), hoistNodeR
 import           Pos.Network.Types               (NetworkConfig (..), NodeId, initQueue,
                                                   topologyRoute53HealthCheckEnabled)
 import           Pos.Recovery.Instance           ()
-import           Pos.Ssc.Class                   (SscConstraint)
 import           Pos.Ssc.GodTossing              (HasGtConfiguration)
 import           Pos.Statistics                  (EkgParams (..), StatsdParams (..))
 import           Pos.Txp                         (MonadTxpLocal)
@@ -83,7 +82,7 @@ import           Pos.WorkMode                    (EnqueuedConversation (..), OQ,
 -- | Run activity in 'RealMode'.
 runRealMode
     :: forall ext ctx a.
-       (HasCompileInfo, SscConstraint, WorkMode ctx (RealMode ext))
+       (HasCompileInfo, WorkMode ctx (RealMode ext))
     => NodeResources ext (RealMode ext)
     -> (ActionSpec (RealMode ext) a, OutSpecs)
     -> Production a
@@ -93,7 +92,6 @@ runRealMode = runRealBasedMode @ext @ctx identity identity
 runRealBasedMode
     :: forall ext ctx m a.
        ( HasCompileInfo
-       , SscConstraint
        , WorkMode ctx m
        , Default ext
        , MonadTxpLocal (RealMode ext)
@@ -121,7 +119,6 @@ runRealModeDo
        , HasNodeConfiguration
        , HasGtConfiguration
        , HasCompileInfo
-       , SscConstraint
        , Default ext
        , MonadTxpLocal (RealMode ext)
        )

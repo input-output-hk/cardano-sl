@@ -46,7 +46,7 @@ import           Pos.Crypto                  (ProxySecretKey (..), SecretKey,
                                               sign, toPublic)
 import           Pos.Data.Attributes         (mkAttributes)
 import           Pos.Delegation.Types        (ProxySKBlockInfo)
-import           Pos.Ssc.Class.Helpers       (SscHelpersClass (..))
+import           Pos.Ssc.Core                (defaultSscPayload)
 import           Pos.Txp.Core                (emptyTxPayload)
 import           Pos.Update.Configuration    (HasUpdateConfiguration, curSoftwareVersion,
                                               lastKnownBlockVersion)
@@ -232,13 +232,13 @@ mkMainBlock prevHeader slotId sk pske body =
 
 -- | Empty (i. e. no payload) body of main block for given local slot index.
 emptyMainBody ::
-       SscHelpersClass
+       HasConfiguration
     => LocalSlotIndex
     -> Body MainBlockchain
 emptyMainBody slot =
     MainBody
     { _mbTxPayload = emptyTxPayload
-    , _mbSscPayload = sscDefaultPayload slot
+    , _mbSscPayload = defaultSscPayload slot
     , _mbDlgPayload = def
     , _mbUpdatePayload = def
     }

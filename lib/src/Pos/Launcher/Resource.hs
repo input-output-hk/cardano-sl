@@ -65,8 +65,8 @@ import           Pos.Network.Types                (NetworkConfig (..), Topology 
 import           Pos.Shutdown.Types               (ShutdownContext (..))
 import           Pos.Slotting                     (SlottingContextSum (..), SlottingData,
                                                    mkNtpSlottingVar, mkSimpleSlottingVar)
-import           Pos.Ssc.Class                    (SscConstraint, SscParams,
-                                                   sscCreateNodeContext)
+import           Pos.Ssc.Types                    (SscParams,
+                                                   createSscContext)
 import           Pos.Ssc.Extra                    (SscState, mkSscState)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.StateLock                    (newStateLock)
@@ -121,8 +121,7 @@ hoistNodeResources nat nr =
 -- | Allocate all resources used by node. They must be released eventually.
 allocateNodeResources
     :: forall ext m.
-       ( SscConstraint
-       , Default ext
+       ( Default ext
        , HasConfiguration
        , HasNodeConfiguration
        , HasInfraConfiguration
@@ -203,8 +202,7 @@ releaseNodeResources NodeResources {..} = do
 -- | Run computation which requires 'NodeResources' ensuring that
 -- resources will be released eventually.
 bracketNodeResources :: forall ext m a.
-      ( SscConstraint
-      , Default ext
+      ( Default ext
       , MonadIO m
       , HasConfiguration
       , HasNodeConfiguration
@@ -264,7 +262,7 @@ data AllocateNodeContextData ext = AllocateNodeContextData
 
 allocateNodeContext
     :: forall ext .
-      (HasConfiguration, HasNodeConfiguration, HasInfraConfiguration, SscConstraint)
+      (HasConfiguration, HasNodeConfiguration, HasInfraConfiguration)
     => AllocateNodeContextData ext
     -> TxpGlobalSettings
     -> InitMode NodeContext
@@ -294,7 +292,7 @@ allocateNodeContext ancd txpSettings = do
     ncStartTime <- StartTime <$> liftIO Time.getCurrentTime
     ncLastKnownHeader <- newTVarIO Nothing
     ncUpdateContext <- mkUpdateContext
-    ncSscContext <- sscCreateNodeContext sscnp
+    ncSscContext <- createSscContext sscnp
     ncSlogContext <- mkSlogContext store
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.

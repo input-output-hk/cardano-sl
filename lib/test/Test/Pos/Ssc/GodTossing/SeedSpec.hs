@@ -27,7 +27,7 @@ import           Pos.Crypto               (DecShare, PublicKey, SecretKey,
                                            VssKeyPair, VssPublicKey, decryptShare, sign,
                                            toPublic, toVssPublicKey)
 import           Pos.Ssc.GodTossing       (Commitment (..), CommitmentsMap, Opening (..),
-                                           SeedError (..), calculateSeed,
+                                           SscSeedError (..), calculateSeed,
                                            genCommitmentAndOpening, getCommShares,
                                            getCommitmentsMap, mkCommitmentsMap,
                                            secretToSharedSeed, vssThreshold)

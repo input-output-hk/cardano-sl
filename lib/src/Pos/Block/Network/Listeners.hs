@@ -24,7 +24,6 @@ import           Pos.Communication.Protocol      (ConversationActions (..),
 import qualified Pos.DB.Block                    as DB
 import           Pos.DB.Error                    (DBError (DBMalformed))
 import           Pos.Network.Types               (Bucket, NodeId)
-import           Pos.Ssc.Class                   (SscWorkersClass)
 import           Pos.Util.Chrono                 (NewestFirst (..))
 import           Pos.WorkMode.Class              (WorkMode)
 
@@ -93,7 +92,7 @@ handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
 -- | Handles MsgHeaders request, unsolicited usecase
 handleBlockHeaders
     :: forall pack ctx m.
-       (SscWorkersClass, WorkMode ctx m)
+       WorkMode ctx m
     => OQ.OutboundQ pack NodeId Bucket
     -> (ListenerSpec m, OutSpecs)
 handleBlockHeaders oq = listenerConv @MsgGetHeaders oq $ \__ourVerInfo nodeId conv -> do

@@ -71,7 +71,7 @@ import           Pos.Reporting                    (HasReportingContext (..))
 import           Pos.Shutdown                     (HasShutdownContext (..))
 import           Pos.Slotting.Class               (MonadSlots (..))
 import           Pos.Slotting.MemState            (HasSlottingVar (..), MonadSlotsData)
-import           Pos.Ssc.Class                    (HasSscContext (..), SscBlock)
+import           Pos.Ssc.Types                    (HasSscContext (..), SscBlock)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Txp                          (MempoolExt, MonadTxpLocal (..),
                                                    txNormalize, txProcessTransaction,

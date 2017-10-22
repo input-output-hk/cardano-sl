@@ -103,7 +103,7 @@ import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots
                                                  getCurrentSlotSimple,
                                                  mkSimpleSlottingVar)
 import           Pos.Slotting.MemState          (MonadSlotsData)
-import           Pos.Ssc.Class                  (SscBlock)
+import           Pos.Ssc.Types                  (SscBlock)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing             (HasGtConfiguration)
 import           Pos.Txp                        (GenericTxpLocalData, MempoolExt,

@@ -61,7 +61,6 @@ import           Pos.Network.Types            (HasNodeType)
 import           Pos.Reporting                (HasReportingContext)
 import           Pos.Slotting                 (MonadSlots, getSlotStartPure,
                                                getSystemStartM)
-import           Pos.Ssc.Class                (SscHelpersClass)
 import           Pos.StateLock                (StateLock, StateLockMetrics)
 import           Pos.Txp                      (MempoolExt, MonadTxpLocal, MonadTxpMem,
                                                MonadUtxo, MonadUtxoRead, ToilT, Tx (..),
@@ -194,10 +193,9 @@ instance (Monad m, HasConfiguration) =>
 ----------------------------------------------------------------------------
 
 -- | A class which have methods to get transaction history
-class (Monad m, SscHelpersClass) => MonadTxHistory m where
+class (Monad m, HasConfiguration) => MonadTxHistory m where
     getBlockHistory
-        :: SscHelpersClass
-        => [Address] -> m (Map TxId TxHistoryEntry)
+        :: [Address] -> m (Map TxId TxHistoryEntry)
     getLocalHistory
         :: [Address] -> m (Map TxId TxHistoryEntry)
     saveTx :: (TxId, TxAux) -> m ()

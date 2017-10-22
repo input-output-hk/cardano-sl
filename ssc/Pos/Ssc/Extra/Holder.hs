@@ -20,7 +20,7 @@ import           Pos.Slotting.Class      (MonadSlots)
 import           Pos.Ssc.Class.LocalData (SscLocalDataClass (sscNewLocalData))
 import           Pos.Ssc.Class.Storage   (SscGStateClass (sscLoadGlobalState))
 import           Pos.Ssc.Extra.Class     (SscMemTag)
-import           Pos.Ssc.Extra.Types     (SscState (..))
+import           Pos.Ssc.Types           (SscState (..))
 
 mkSscState
     :: forall ctx m .

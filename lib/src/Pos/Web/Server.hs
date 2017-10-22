@@ -42,8 +42,7 @@ import qualified Pos.GState                      as GS
 import qualified Pos.Lrc.DB                      as LrcDB
 import           Pos.Network.Types               (Bucket (BucketSubscriptionListener),
                                                   Topology, topologyMaxBucketSize)
-import           Pos.Ssc.Class                   (SscConstraint)
-import           Pos.Ssc.GodTossing              (gtcParticipateSsc)
+import           Pos.Ssc.GodTossing              (scParticipateSsc)
 import           Pos.Txp                         (TxOut (..), toaOut)
 import           Pos.Txp.MemState                (GenericTxpLocalData, MempoolExt,
                                                   askTxpMem, getLocalTxs)
@@ -60,10 +59,8 @@ import           Pos.Web.Types                   (TlsParams (..))
 -- Top level functionality
 ----------------------------------------------------------------------------
 
--- [CSL-152]: I want SscConstraint to be part of WorkMode.
 type MyWorkMode ctx m =
     ( WorkMode ctx m
-    , SscConstraint
     , HasNodeContext ctx -- for ConvertHandler
     , Default (MempoolExt m)
     )
@@ -211,7 +208,7 @@ gtServantHandlers =
 toggleGtParticipation :: Bool -> GtWebMode ext ()
 toggleGtParticipation enable =
     view sscContext >>=
-    atomically . flip writeTVar enable . gtcParticipateSsc
+    atomically . flip writeTVar enable . scParticipateSsc
 
 -- gtHasSecret :: GtWebHandler Bool
 -- gtHasSecret = isJust <$> getSecret

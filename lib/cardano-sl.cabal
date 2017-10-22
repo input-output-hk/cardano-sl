@@ -296,7 +296,6 @@ library
                       , cardano-report-server >= 0.2.1
                       , cardano-sl-core
                       , cardano-sl-db
-                      , cardano-sl-godtossing
                       , cardano-sl-infra
                       , cardano-sl-lrc
                       , cardano-sl-ssc
@@ -499,7 +498,6 @@ test-suite cardano-test
                      , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-db
-                     , cardano-sl-godtossing
                      , cardano-sl-infra
                      , cardano-sl-lrc
                      , cardano-sl-ssc

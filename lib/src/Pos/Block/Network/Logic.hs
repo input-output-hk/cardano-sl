@@ -69,7 +69,6 @@ import           Pos.Exception              (cardanoExceptionFromException,
 import           Pos.Lrc.Error              (LrcError (UnknownBlocksForLrc))
 import           Pos.Lrc.Worker             (lrcSingleShot)
 import           Pos.Reporting.Methods      (reportMisbehaviour)
-import           Pos.Ssc.Class              (SscWorkersClass)
 import           Pos.StateLock              (Priority (..), modifyStateLock,
                                              withStateLockNoMetrics)
 import           Pos.Util                   (inAssertMode, _neHead, _neLast)
@@ -175,7 +174,7 @@ mkHeadersRequest upto = do
 
 -- Second case of 'handleBlockheaders'
 handleUnsolicitedHeaders
-    :: (SscWorkersClass, WorkMode ctx m)
+    :: WorkMode ctx m
     => NonEmpty BlockHeader
     -> NodeId
     -> m ()
@@ -187,7 +186,7 @@ handleUnsolicitedHeaders (h:|hs) _ = do
     logWarning $ sformat ("Here they are: "%listJson) (h:hs)
 
 handleUnsolicitedHeader
-    :: (SscWorkersClass, WorkMode ctx m)
+    :: WorkMode ctx m
     => BlockHeader
     -> NodeId
     -> m ()

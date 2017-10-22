@@ -76,9 +76,9 @@ import           Pos.Shutdown                      (HasShutdownContext (..),
                                                     ShutdownContext (..))
 import           Pos.Slotting                      (HasSlottingVar (..), MonadSlots (..),
                                                     MonadSlotsData)
-import           Pos.Ssc.Class                     (SscBlock)
 import           Pos.Ssc.Extra                     (SscMemTag, SscState)
 import           Pos.Ssc.GodTossing.Configuration  (HasGtConfiguration)
+import           Pos.Ssc.Types                     (SscBlock)
 import           Pos.StateLock                     (StateLock, StateLockMetrics (..),
                                                     newStateLock)
 import           Pos.Txp                           (GenericTxpLocalData, MempoolExt,

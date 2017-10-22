@@ -45,8 +45,7 @@ module Test.Pos.Block.Logic.Mode
 
 import           Universum
 
-import           Control.Lens                   (lens, makeClassy, makeLensesFor,
-                                                 makeLensesWith)
+import           Control.Lens                   (lens, makeClassy, makeLensesWith)
 import           Data.Default                   (def)
 import qualified Data.Map                       as Map
 import qualified Data.Text.Buildable
@@ -113,7 +112,8 @@ import           Pos.Txp                        (GenericTxpLocalData, MempoolExt
                                                  txNormalize, txProcessTransactionNoLock,
                                                  txpGlobalSettings)
 import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
-import           Pos.Util                       (Some, newInitFuture, postfixLFields)
+import           Pos.Util                       (Some, newInitFuture, postfixLFields,
+                                                 postfixLFields2)
 import           Pos.Util.CompileInfo           (withCompileInfo)
 import           Pos.Util.LoggerName            (HasLoggerName' (..),
                                                  getLoggerNameDefault,
@@ -234,22 +234,8 @@ data BlockTestContext = BlockTestContext
     , btcAllSecrets        :: !AllSecrets
     }
 
-flip makeLensesFor ''BlockTestContext
-    [ ("btcGState", "btcGStateL")
-    , ("btcSystemStart", "btcSystemStartL")
-    , ("btcLoggerName", "btcLoggerNameL")
-    , ("btcSSlottingVar", "btcSSlottingVarL")
-    , ("btcUpdateContext", "btcUpdateContextL")
-    , ("btcSscState", "btcSscStateL")
-    , ("btcTxpMem", "btcTxpMemL")
-    , ("btcTxpGlobalSettings", "btcTxpGlobalSettingsL")
-    , ("btcSlotId", "btcSlotIdL")
-    , ("btcParams", "btcParamsL")
-    , ("btcReportingContext", "btcReportingContextL")
-    , ("btcDelegation", "btcDelegationL")
-    , ("btcPureDBSnapshots", "btcPureDBSnapshotsL")
-    , ("btcAllSecrets", "btcAllSecretsL")
-    ]
+
+makeLensesWith postfixLFields2 ''BlockTestContext
 
 instance HasTestParams BlockTestContext where
     testParams = btcParamsL

@@ -32,6 +32,7 @@ module Pos.Util.Util
        , _neTail
        , _neLast
        , postfixLFields
+       , postfixLFields2
 
        -- * Ether
        , ether
@@ -482,6 +483,9 @@ dumpSplices x = do
 
 postfixLFields :: LensRules
 postfixLFields = lensRules & lensField .~ mappingNamer (\s -> [s++"_L"])
+
+postfixLFields2 :: LensRules
+postfixLFields2 = lensRules & lensField .~ mappingNamer (\s -> [s++"L"])
 
 -- | Count elements in a list.
 histogram :: forall a. Ord a => [a] -> Map a Int

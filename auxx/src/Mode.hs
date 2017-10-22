@@ -35,7 +35,8 @@ import           Pos.Block.Core                   (Block, BlockHeader)
 import           Pos.Block.Slog                   (HasSlogContext (..),
                                                    HasSlogGState (..))
 import           Pos.Block.Types                  (Undo)
-import           Pos.Client.KeyStorage            (MonadKeys (..))
+import           Pos.Client.KeyStorage            (MonadKeys (..), getSecretDefault,
+                                                   modifySecretDefault)
 import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
 import           Pos.Client.Txp.Balances          (MonadBalances (..), getBalanceFromUtxo,
                                                    getOwnUtxosGenesis)
@@ -256,11 +257,8 @@ instance (HasConfiguration, HasInfraConfiguration) =>
 
 
 instance MonadKeys AuxxMode where
-    getSecret = view userSecret >>= atomically . STM.readTVar
-    modifySecret f = do
-        us <- view userSecret
-        new <- atomically $ modifyTVarS us (identity <%= f)
-        writeUserSecret new
+    getSecret = getSecretDefault
+    modifySecret = modifySecretDefault
 
 type instance MempoolExt AuxxMode = EmptyMempoolExt
 

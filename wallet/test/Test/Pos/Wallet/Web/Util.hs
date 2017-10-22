@@ -106,7 +106,6 @@ importSomeWallets = do
             map (view _2) .
             gsSecretKeysPoor .
             fromMaybe (error "Generated secrets are unknown") $ generatedSecrets
-    -- pva701: does sublistOf generate non-empty list?
     (encSecrets, passphrases) <- pick $ do
         seks <- take 10 <$> sublistOf secrets
         let l = length seks
@@ -206,5 +205,5 @@ newtype DerivingIndex = DerivingIndex
     } deriving (Eq, Num, Ord)
 
 instance Arbitrary DerivingIndex where
-    arbitrary = DerivingIndex <$> choose (0, firstHardened - 1)
+    arbitrary = DerivingIndex <$> choose (firstHardened, firstHardened + (firstHardened - 1))
 

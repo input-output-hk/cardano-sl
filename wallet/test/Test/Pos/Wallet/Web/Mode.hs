@@ -40,7 +40,8 @@ import           Pos.Block.BListener               (MonadBListener (..))
 import           Pos.Block.Core                    (Block, BlockHeader)
 import           Pos.Block.Slog                    (HasSlogGState (..))
 import           Pos.Block.Types                   (Undo)
-import           Pos.Client.KeyStorage             (MonadKeys (..))
+import           Pos.Client.KeyStorage             (MonadKeys (..), getSecretDefault,
+                                                    modifySecretPureDefault)
 import           Pos.Client.Txp.Addresses          (MonadAddresses (..))
 import           Pos.Client.Txp.Balances           (MonadBalances (..), getBalanceDefault)
 import           Pos.Client.Txp.History            (MonadTxHistory (..),
@@ -93,7 +94,7 @@ import           Pos.Util.LoggerName               (HasLoggerName' (..),
                                                     getLoggerNameDefault,
                                                     modifyLoggerNameDefault)
 import           Pos.Util.TimeWarp                 (CanJsonLog (..))
-import           Pos.Util.UserSecret               (UserSecret)
+import           Pos.Util.UserSecret               (HasUserSecret (..), UserSecret)
 import           Pos.Util.Util                     (Some, postfixLFields)
 import           Pos.Wallet.Redirect               (applyLastUpdateWebWallet,
                                                     blockchainSlotDurationWebWallet,
@@ -284,11 +285,14 @@ instance HasLens SscMemTag WalletTestContext SscState where
     lensOf = wtcBlockTestContext_L . lensOf @SscMemTag
 
 instance (HasConfiguration, MonadSlotsData ctx WalletTestMode)
-        => MonadSlots ctx WalletTestMode where
+       => MonadSlots ctx WalletTestMode where
     getCurrentSlot = getCurrentSlotTestDefault
     getCurrentSlotBlocking = getCurrentSlotBlockingTestDefault
     getCurrentSlotInaccurate = getCurrentSlotInaccurateTestDefault
     currentTimeSlotting = currentTimeSlottingTestDefault
+
+instance HasUserSecret WalletTestContext where
+    userSecret = wtcUserSecret_L
 
 instance HasLens UpdateContext WalletTestContext UpdateContext where
       lensOf = wtcBlockTestContext_L . lensOf @UpdateContext
@@ -400,10 +404,8 @@ instance (HasCompileInfo, HasConfigurations) => MonadAddresses WalletTestMode wh
     getFakeChangeAddress = pure largestHDAddressBoot
 
 instance MonadKeys WalletTestMode where
-    getSecret = view wtcUserSecret_L >>= atomically . STM.readTVar
-    modifySecret f = do
-        us <- view wtcUserSecret_L
-        void $ atomically $ STM.modifyTVar us f
+    getSecret = getSecretDefault
+    modifySecret = modifySecretPureDefault
 
 instance (HasCompileInfo, HasConfigurations) => MonadTxHistory WalletTestMode where
     getBlockHistory = getBlockHistoryDefault

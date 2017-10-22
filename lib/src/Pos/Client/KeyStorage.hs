@@ -4,6 +4,10 @@
 
 module Pos.Client.KeyStorage
        ( MonadKeys (..)
+       , getSecretDefault
+       , modifySecretPureDefault
+       , modifySecretDefault
+
        , getPrimaryKey
        , getSecretKeys
        , getSecretKeysPlain
@@ -19,24 +23,49 @@ module Pos.Client.KeyStorage
 import           Universum
 
 import qualified Control.Concurrent.STM as STM
-import           Control.Lens           ((<>~))
+import           Control.Lens           ((<%=), (<>~))
+import           Serokell.Util          (modifyTVarS)
 import           System.Wlog            (WithLogger)
 
 import           Pos.Binary.Crypto      ()
 import           Pos.Crypto             (EncryptedSecretKey, PassPhrase, SecretKey, hash,
                                          runSecureRandom, safeKeyGen)
-import           Pos.Util               ()
-import           Pos.Util.UserSecret    (UserSecret, peekUserSecret, usKeys, usPrimKey)
+import           Pos.Util.UserSecret    (HasUserSecret (..), UserSecret, peekUserSecret,
+                                         usKeys, usPrimKey, writeUserSecret)
 
 type KeyData = TVar UserSecret
 
 ----------------------------------------------------------------------
--- MonadKeys class and abstract functions
+-- MonadKeys class and default functions
 ----------------------------------------------------------------------
 
 class Monad m => MonadKeys m where
     getSecret :: m UserSecret
     modifySecret :: (UserSecret -> UserSecret) -> m ()
+
+type HasKeysContext ctx m =
+    ( MonadReader ctx m
+    , HasUserSecret ctx
+    , MonadIO m
+    )
+
+getSecretDefault :: HasKeysContext ctx m => m UserSecret
+getSecretDefault = view userSecret >>= atomically . STM.readTVar
+
+modifySecretPureDefault :: HasKeysContext ctx m => (UserSecret -> UserSecret) -> m ()
+modifySecretPureDefault f = do
+    us <- view userSecret
+    void $ atomically $ modifyTVarS us (identity <%= f)
+
+modifySecretDefault :: HasKeysContext ctx m => (UserSecret -> UserSecret) -> m ()
+modifySecretDefault f = do
+    us <- view userSecret
+    new <- atomically $ modifyTVarS us (identity <%= f)
+    writeUserSecret new
+
+----------------------------------------------------------------------
+-- Helpers
+----------------------------------------------------------------------
 
 getPrimaryKey :: MonadKeys m => m (Maybe SecretKey)
 getPrimaryKey = view usPrimKey <$> getSecret

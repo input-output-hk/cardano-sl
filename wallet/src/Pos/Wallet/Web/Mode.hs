@@ -17,7 +17,7 @@ module Pos.Wallet.Web.Mode
 import           Universum
 
 import qualified Control.Concurrent.STM           as STM
-import           Control.Lens                     (makeLensesWith, (<%=))
+import           Control.Lens                     (makeLensesWith)
 import           Control.Monad.Catch              (MonadMask)
 import qualified Control.Monad.Reader             as Mtl
 import           Control.Monad.Trans.Control      (MonadBaseControl)
@@ -27,14 +27,14 @@ import           Data.List                        (partition)
 import qualified Data.Map.Strict                  as M
 import           Ether.Internal                   (HasLens (..))
 import           Mockable                         (Production)
-import           Serokell.Util                    (modifyTVarS)
 import           System.Wlog                      (HasLoggerName (..))
 
 import           Pos.Block.Core                   (Block, BlockHeader)
 import           Pos.Block.Slog                   (HasSlogContext (..),
                                                    HasSlogGState (..))
 import           Pos.Block.Types                  (Undo)
-import           Pos.Client.KeyStorage            (MonadKeys (..))
+import           Pos.Client.KeyStorage            (MonadKeys (..), getSecretDefault,
+                                                   modifySecretDefault)
 import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
 import           Pos.Client.Txp.Balances          (MonadBalances (..), getBalanceDefault)
 import           Pos.Client.Txp.History           (MonadTxHistory (..),
@@ -93,7 +93,7 @@ import           Pos.Util.LoggerName              (HasLoggerName' (..),
 import qualified Pos.Util.Modifier                as MM
 import qualified Pos.Util.OutboundQueue           as OQ.Reader
 import           Pos.Util.TimeWarp                (CanJsonLog (..))
-import           Pos.Util.UserSecret              (HasUserSecret (..), writeUserSecret)
+import           Pos.Util.UserSecret              (HasUserSecret (..))
 import           Pos.Util.Util                    (HasLens', postfixLFields)
 import           Pos.Wallet.Web.Networking        (MonadWalletSendActions (..))
 import           Pos.WorkMode                     (EmptyMempoolExt, MinWorkMode,
@@ -336,11 +336,8 @@ instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo) =>
     txpProcessTx = txProcessTransaction
 
 instance MonadKeys WalletWebMode where
-    getSecret = view userSecret >>= atomically . STM.readTVar
-    modifySecret f = do
-        us <- view userSecret
-        new <- atomically $ modifyTVarS us (identity <%= f)
-        writeUserSecret new
+    getSecret = getSecretDefault
+    modifySecret = modifySecretDefault
 
 instance HasConfigurations => MonadWalletSendActions WalletWebMode where
     sendTxToNetwork tx = do

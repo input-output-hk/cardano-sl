@@ -38,7 +38,6 @@ import           Universum
 import           Control.Lens             (makeLenses, (%=), (.=))
 import           Control.Monad.Except     (ExceptT, MonadError (throwError), runExceptT)
 import           Data.Fixed               (Fixed, HasResolution)
-import qualified Data.HashSet             as HS
 import           Data.List                (tail)
 import qualified Data.List.NonEmpty       as NE
 import qualified Data.Map                 as M
@@ -54,7 +53,7 @@ import           Pos.Core                 (TxFeePolicy (..), TxSizeLinear (..),
                                            bvdTxFeePolicy, calculateTxSizeLinear,
                                            coinToInteger, integerToCoin, isRedeemAddress,
                                            txSizeLinearMinValue, unsafeAddCoin,
-                                           unsafeIntegerToCoin, unsafeSubCoin)
+                                           unsafeSubCoin)
 import           Pos.Core.Configuration   (HasConfiguration)
 import           Pos.Crypto               (RedeemSecretKey, SafeSigner,
                                            SignTag (SignRedeemTx, SignTx),
@@ -236,30 +235,9 @@ makeRedemptionTx rsk txInputs = makeAbstractTx mkWit (map ((), ) txInputs)
 
 type FlatUtxo = [(TxIn, TxOutAux)]
 
--- | Group of unspent transaction outputs which belongs
--- to one address
-data UtxoGroup = UtxoGroup
-    { ugAddr       :: !Address
-    , ugTotalMoney :: !Coin
-    , ugUtxo       :: !(NonEmpty (TxIn, TxOutAux))
-    } deriving (Show)
-
 -- | Helper for summing values of `TxOutAux`s
 sumTxOutCoins :: NonEmpty TxOutAux -> Integer
 sumTxOutCoins = sumCoins . map (txOutValue . toaOut)
-
--- | Group unspent outputs by addresses
-groupUtxo :: Utxo -> [UtxoGroup]
-groupUtxo utxo =
-    map mkUtxoGroup preUtxoGroups
-  where
-    futxo = M.toList utxo
-    preUtxoGroups = NE.groupAllWith (txOutAddress . toaOut . snd) futxo
-    mkUtxoGroup ugUtxo@(sample :| _) =
-        let ugAddr = txOutAddress . toaOut . snd $ sample
-            ugTotalMoney = unsafeIntegerToCoin . sumTxOutCoins $
-                map snd ugUtxo
-        in UtxoGroup {..}
 
 integerToFee :: MonadError TxError m => Integer -> m TxFee
 integerToFee =
@@ -271,8 +249,8 @@ fixedToFee :: (MonadError TxError m, HasResolution a) => Fixed a -> m TxFee
 fixedToFee = integerToFee . ceiling
 
 data InputPickerState = InputPickerState
-    { _ipsMoneyLeft             :: !Coin
-    , _ipsAvailableOutputGroups :: ![UtxoGroup]
+    { _ipsMoneyLeft        :: !Coin
+    , _ipsAvailableOutputs :: !FlatUtxo
     }
 
 makeLenses ''InputPickerState
@@ -297,7 +275,7 @@ prepareTxRaw utxo outputs (TxFee fee) = do
 
     let totalMoneyWithFee = totalMoney `unsafeAddCoin` fee
     futxo <- either throwError pure $
-        evalStateT (pickInputs []) (InputPickerState totalMoneyWithFee sortedGroups)
+        evalStateT (pickInputs []) (InputPickerState totalMoneyWithFee sortedUnspent)
     case nonEmpty futxo of
         Nothing       -> throwError $ GeneralTxError "Failed to prepare inputs!"
         Just inputsNE -> do
@@ -309,14 +287,9 @@ prepareTxRaw utxo outputs (TxFee fee) = do
   where
     sumTxOuts = either (throwError . GeneralTxError) pure .
         integerToCoin . sumTxOutCoins
-    gUtxo = groupUtxo utxo
-    outputAddrsSet = foldl' (flip HS.insert) mempty $
-        map (txOutAddress . toaOut) outputs
-    isOutputAddr = flip HS.member outputAddrsSet
-    sortedGroups = sortOn (Down . ugTotalMoney) $
-        filter (not . isOutputAddr . ugAddr) gUtxo
-    disallowedInputGroups = filter (isOutputAddr . ugAddr) gUtxo
-    disallowedMoney = sumCoins $ map ugTotalMoney disallowedInputGroups
+    allUnspent = M.toList utxo
+    sortedUnspent =
+        sortOn (Down . txOutValue . toaOut . snd) allUnspent
 
     pickInputs :: FlatUtxo -> InputPicker FlatUtxo
     pickInputs inps = do
@@ -324,15 +297,13 @@ prepareTxRaw utxo outputs (TxFee fee) = do
         if moneyLeft == mkCoin 0
             then return inps
             else do
-                mNextOutGroup <- head <$> use ipsAvailableOutputGroups
-                case mNextOutGroup of
-                    Nothing -> if disallowedMoney >= coinToInteger moneyLeft
-                        then throwError $ NotEnoughAllowedMoney moneyLeft
-                        else throwError $ NotEnoughMoney moneyLeft
-                    Just UtxoGroup {..} -> do
-                        ipsMoneyLeft .= unsafeSubCoin moneyLeft (min ugTotalMoney moneyLeft)
-                        ipsAvailableOutputGroups %= tail
-                        pickInputs (toList ugUtxo ++ inps)
+                mNextOut <- head <$> use ipsAvailableOutputs
+                case mNextOut of
+                    Nothing -> throwError $ NotEnoughMoney moneyLeft
+                    Just inp@(_, (TxOutAux (TxOut {..}))) -> do
+                        ipsMoneyLeft .= unsafeSubCoin moneyLeft (min txOutValue moneyLeft)
+                        ipsAvailableOutputs %= tail
+                        pickInputs (inp : inps)
 
     formTxInputs (inp, TxOutAux txOut) = (txOut, inp)
 
@@ -534,7 +505,7 @@ stabilizeTxFee linearPolicy utxo outputs = do
         Nothing -> throwError FailedToStabilize
         Just tx -> pure $ tx & \(S.Min (S.Arg _ txRaw)) -> txRaw
   where
-    firstStageAttempts = 2 * length (groupUtxo utxo) + 5
+    firstStageAttempts = 2 * length utxo + 5
     secondStageAttempts = 10
 
     stabilizeTxFeeDo :: (Bool, Int)

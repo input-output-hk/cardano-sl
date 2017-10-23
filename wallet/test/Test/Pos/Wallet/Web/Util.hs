@@ -24,7 +24,7 @@ import           Data.List                      ((!!))
 import qualified Data.Map                       as M
 import           Formatting                     (build, sformat, (%))
 import           Test.QuickCheck                (Arbitrary (..), choose, sublistOf,
-                                                 vectorOf)
+                                                 suchThat, vectorOf)
 import           Test.QuickCheck.Gen            (Gen (MkGen))
 import           Test.QuickCheck.Monadic        (assert, pick)
 
@@ -107,7 +107,7 @@ importSomeWallets = do
             gsSecretKeysPoor .
             fromMaybe (error "Generated secrets are unknown") $ generatedSecrets
     (encSecrets, passphrases) <- pick $ do
-        seks <- take 10 <$> sublistOf secrets
+        seks <- take 10 <$> sublistOf secrets `suchThat` (not . null)
         let l = length seks
         passwds <- vectorOf l arbitrary
         pure (seks, passwds)

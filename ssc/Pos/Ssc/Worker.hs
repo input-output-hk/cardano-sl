@@ -1,10 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 
--- | Instance of SscWorkersClass.
-
-module Pos.Ssc.GodTossing.Workers
-       ( -- * Instances
-         -- ** instance SscWorkersClass
+module Pos.Ssc.Worker
+       ( sscWorkers
        ) where
 
 import           Universum
@@ -63,7 +60,6 @@ import           Pos.Reporting                         (reportMisbehaviour)
 import           Pos.Slotting                          (getCurrentSlot,
                                                         getSlotStartEmpatically,
                                                         onNewSlot)
-import           Pos.Ssc.Class                         (SscWorkersClass (..))
 import           Pos.Ssc.GodTossing.Behavior           (GtBehavior (..),
                                                         GtOpeningParams (..),
                                                         GtSharesParams (..))
@@ -85,7 +81,6 @@ import           Pos.Ssc.GodTossing.LocalData          (localOnNewSlot,
                                                         sscProcessOpening,
                                                         sscProcessShares)
 import           Pos.Ssc.GodTossing.Network.Constraint (GtMessageConstraints)
-import           Pos.Ssc.GodTossing.Richmen            (gtLrcConsumer)
 import qualified Pos.Ssc.GodTossing.SecretStorage      as SS
 import           Pos.Ssc.GodTossing.Shares             (getOurShares)
 import           Pos.Ssc.GodTossing.Toss               (computeParticipants,
@@ -103,11 +98,12 @@ import           Pos.Util.LogSafe                      (logDebugS, logErrorS, lo
 import           Pos.Util.Util                         (getKeys, inAssertMode,
                                                         leftToPanic)
 
-instance GtMessageConstraints => SscWorkersClass where
-    sscWorkers = merge [onNewSlotSsc, checkForIgnoredCommitmentsWorker]
-      where
-        merge = mconcat . map (first pure)
-    sscLrcConsumers = [gtLrcConsumer]
+sscWorkers
+  :: (GtMessageConstraints, SscMode ctx m)
+  => ([WorkerSpec m], OutSpecs)
+sscWorkers = merge [onNewSlotSsc, checkForIgnoredCommitmentsWorker]
+  where
+    merge = mconcat . map (first pure)
 
 shouldParticipate :: (SscMode ctx m) => EpochIndex -> m Bool
 shouldParticipate epoch = do

@@ -6,8 +6,6 @@ node_modules/*
 
 # Config files
 .ghci
-.hindent.yaml
-.stylish-haskell.yaml
 
 # Our custom build script (util-scripts/build.sh)
 b

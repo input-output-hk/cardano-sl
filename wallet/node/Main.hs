@@ -27,7 +27,6 @@ import           Pos.Launcher         (ConfigurationOptions (..), HasConfigurati
                                        NodeParams (..), NodeResources (..),
                                        bracketNodeResources, loggerBracket, runNode,
                                        withConfigurations)
-import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Ssc.Types        (SscParams)
 import           Pos.Txp              (txpGlobalSettings)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,
@@ -134,7 +133,7 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
         actionWithWallet gtParams currentParams wArgs
   where
     nodeArgs :: NodeArgs
-    nodeArgs = NodeArgs { sscAlgo = GodTossingAlgo, behaviorConfigPath = Nothing }
+    nodeArgs = NodeArgs { behaviorConfigPath = Nothing }
 
     conf :: ConfigurationOptions
     conf = CLI.configurationOptions $ CLI.commonArgs cArgs

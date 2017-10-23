@@ -36,7 +36,6 @@ import           Pos.Launcher              (ConfigurationOptions (..), HasConfig
                                             bracketNodeResources, hoistNodeResources,
                                             loggerBracket, runNode, runRealBasedMode,
                                             withConfigurations)
-import           Pos.Ssc.SscAlgo           (SscAlgo (..))
 import           Pos.Types                 (Timestamp (Timestamp))
 import           Pos.Update                (updateTriggerWorker)
 import           Pos.Util                  (mconcatPair)
@@ -100,4 +99,4 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
         in runRealBasedMode (runExplorerProd extraCtx) liftToExplorerProd nr
 
     nodeArgs :: NodeArgs
-    nodeArgs = NodeArgs { sscAlgo = GodTossingAlgo, behaviorConfigPath = Nothing }
+    nodeArgs = NodeArgs { behaviorConfigPath = Nothing }

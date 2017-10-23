@@ -21,7 +21,6 @@ import           Pos.Launcher          (HasConfigurations, NodeParams (..), Node
 import           Pos.Network.Types     (NetworkConfig (..), Topology (..),
                                         topologyDequeuePolicy, topologyEnqueuePolicy,
                                         topologyFailurePolicy)
-import           Pos.Ssc.SscAlgo       (SscAlgo (GodTossingAlgo))
 import           Pos.Txp               (txpGlobalSettings)
 import           Pos.Util.CompileInfo  (HasCompileInfo, retrieveCompileTimeInfo,
                                         withCompileInfo)
@@ -101,7 +100,7 @@ action opts@AuxxOptions {..} command = withConfigurations conf $ do
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)
     nArgs =
-        CLI.NodeArgs {sscAlgo = GodTossingAlgo, behaviorConfigPath = Nothing}
+        CLI.NodeArgs {behaviorConfigPath = Nothing}
     cmdCtx = CmdCtx {ccPeers = aoPeers}
 
 main :: IO ()

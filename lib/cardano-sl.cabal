@@ -74,7 +74,6 @@ library
 
                         -- SSC
                         Pos.Ssc.GodTossing
-                        Pos.Ssc.SscAlgo
 
                         -- Statistics
                         Pos.Statistics

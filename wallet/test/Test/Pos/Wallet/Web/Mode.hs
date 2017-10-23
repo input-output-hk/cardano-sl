@@ -102,6 +102,8 @@ import           Pos.Wallet.Redirect               (applyLastUpdateWebWallet,
                                                     connectedPeersWebWallet,
                                                     localChainDifficultyWebWallet,
                                                     networkChainDifficultyWebWallet,
+                                                    txpNormalizeWebWallet,
+                                                    txpProcessTxWebWallet,
                                                     waitForUpdateWebWallet)
 import           Pos.Wallet.Web.Networking         (MonadWalletSendActions (..))
 
@@ -445,8 +447,8 @@ instance (HasCompileInfo, HasConfigurations)
 
 
 instance (HasCompileInfo, HasConfigurations) => MonadTxpLocal WalletTestMode where
-    txpNormalize = txNormalize
-    txpProcessTx = txProcessTransactionNoLock
+    txpNormalize = txpNormalizeWebWallet
+    txpProcessTx = txpProcessTxWebWallet
 
 instance MonadWalletSendActions WalletTestMode where
     sendTxToNetwork txAux = True <$ (asks wtcSentTxs >>= atomically . flip STM.modifyTVar (txAux:))

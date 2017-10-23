@@ -35,7 +35,7 @@ import           Pos.Wallet.Web.ClientTypes     (AccountId (..), Addr, CCoin, CI
                                                  CTx (..), CWAddressMeta (..), Wal,
                                                  addrMetaToAccount)
 import           Pos.Wallet.Web.Error           (WalletError (..))
-import           Pos.Wallet.Web.Methods.History (addHistoryTx, constructCTx,
+import           Pos.Wallet.Web.Methods.History (addHistoryTxMeta, constructCTx,
                                                  getCurChainDifficulty)
 import           Pos.Wallet.Web.Methods.Txp     (MonadWalletTxFull, coinDistrToOutputs,
                                                  rewrapTxError, submitAndSaveNewPtx)
@@ -165,7 +165,9 @@ sendMoney passphrase moneySource dstDistr = do
 
         th <$ submitAndSaveNewPtx ptx
 
-    addHistoryTx srcWallet th
+    -- We add TxHistoryEntry's meta created by us in advance
+    -- to make TxHistoryEntry in CTx consistent with entry in history.
+    addHistoryTxMeta srcWallet th
     srcWalletAddrs <- getWalletAddrsSet Ever srcWallet
     diff <- getCurChainDifficulty
     fst <$> constructCTx srcWallet srcWalletAddrs diff th

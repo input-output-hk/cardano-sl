@@ -21,13 +21,11 @@ module Mode
 
 import           Universum
 
-import qualified Control.Concurrent.STM           as STM
-import           Control.Lens                     (lens, makeLensesWith, (<%=))
+import           Control.Lens                     (lens, makeLensesWith)
 import           Control.Monad.Morph              (hoist)
 import           Control.Monad.Reader             (withReaderT)
 import           Data.Default                     (def)
 import           Mockable                         (Production)
-import           Serokell.Util                    (modifyTVarS)
 import           System.Wlog                      (HasLoggerName (..))
 
 import           Pos.Block.BListener              (MonadBListener (..))
@@ -71,8 +69,8 @@ import           Pos.Reporting                    (HasReportingContext (..))
 import           Pos.Shutdown                     (HasShutdownContext (..))
 import           Pos.Slotting.Class               (MonadSlots (..))
 import           Pos.Slotting.MemState            (HasSlottingVar (..), MonadSlotsData)
-import           Pos.Ssc.Types                    (HasSscContext (..), SscBlock)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.Types                    (HasSscContext (..), SscBlock)
 import           Pos.Txp                          (MempoolExt, MonadTxpLocal (..),
                                                    txNormalize, txProcessTransaction,
                                                    txProcessTransactionNoLock)
@@ -83,7 +81,7 @@ import           Pos.Util.JsonLog                 (HasJsonLogConfig (..))
 import           Pos.Util.LoggerName              (HasLoggerName' (..))
 import qualified Pos.Util.OutboundQueue           as OQ.Reader
 import           Pos.Util.TimeWarp                (CanJsonLog (..))
-import           Pos.Util.UserSecret              (HasUserSecret (..), writeUserSecret)
+import           Pos.Util.UserSecret              (HasUserSecret (..))
 import           Pos.Util.Util                    (HasLens (..), postfixLFields)
 import           Pos.WorkMode                     (EmptyMempoolExt, RealMode,
                                                    RealModeContext (..))

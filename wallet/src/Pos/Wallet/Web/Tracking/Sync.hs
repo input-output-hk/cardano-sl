@@ -93,8 +93,8 @@ import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CTxMeta (..),
 import           Pos.Wallet.Web.Error.Types       (WalletError (..))
 import           Pos.Wallet.Web.Pending.Types     (PtxBlockInfo, PtxCondition (PtxApplying, PtxInNewestBlocks))
 import           Pos.Wallet.Web.State             (AddressLookupMode (..),
-                                                   CustomAddressType (..), WalletTip (..),
-                                                   WebWalletModeDB)
+                                                   CustomAddressType (..), MonadWalletDB,
+                                                   WalletTip (..))
 import qualified Pos.Wallet.Web.State             as WS
 import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..), CachedCAccModifier,
                                                    deleteAndInsertIMM, deleteAndInsertMM,
@@ -110,20 +110,24 @@ type BlockLockMode ctx m =
      , MonadMask m
      )
 
-type WalletTrackingEnv ctx m =
+type WalletTrackingEnvRead ctx m =
      ( BlockLockMode ctx m
-     , WebWalletModeDB ctx m
      , MonadTxpMem WalletMempoolExt ctx m
-     , WS.MonadWalletWebDB ctx m
+     , WS.MonadWalletDBRead ctx m
      , MonadSlotsData ctx m
      , WithLogger m
      , HasConfiguration
      )
 
+type WalletTrackingEnv ctx m =
+     ( WalletTrackingEnvRead ctx m
+     , MonadWalletDB ctx m
+     )
+
 syncWalletOnImport :: WalletTrackingEnv ctx m => EncryptedSecretKey -> m ()
 syncWalletOnImport = syncWalletsWithGState . one
 
-txMempoolToModifier :: WalletTrackingEnv ctx m => EncryptedSecretKey -> m CAccModifier
+txMempoolToModifier :: WalletTrackingEnvRead ctx m => EncryptedSecretKey -> m CAccModifier
 txMempoolToModifier encSK = do
     let wHash (i, TxAux {..}, _) = WithHash taTx i
         wId = encToCId encSK
@@ -154,7 +158,7 @@ txMempoolToModifier encSK = do
 -- Iterate over blocks (using forward links) and actualize our accounts.
 syncWalletsWithGState
     :: forall ctx m.
-    ( WebWalletModeDB ctx m
+    ( MonadWalletDB ctx m
     , BlockLockMode ctx m
     , MonadSlotsData ctx m
     , HasConfiguration
@@ -209,7 +213,7 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAll (onErr encSK) 
 -- BE CAREFUL! This function iterates over blockchain, the blockchain can be large.
 syncWalletWithGStateUnsafe
     :: forall ctx m .
-    ( WebWalletModeDB ctx m
+    ( MonadWalletDB ctx m
     , DB.MonadBlockDB m
     , WithLogger m
     , MonadSlotsData ctx m
@@ -301,7 +305,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
 
 -- TODO: @pva701: maybe it would be needed, dunno
 -- runWithWalletUtxo
---     :: (MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo, WebWalletModeDB ctx m)
+--     :: (MonadReader ctx m, HasLens GenesisUtxo ctx GenesisUtxo, MonadWalletDB ctx m)
 --     => ToilT () (DBToil m) a
 --     -> m a
 -- runWithWalletUtxo action = do
@@ -433,7 +437,7 @@ trackingRollbackTxs (getEncInfo -> encInfo) allAddress getDiff getTs txs =
             deletedPtxCandidates
 
 applyModifierToWallet
-    :: WebWalletModeDB ctx m
+    :: MonadWalletDB ctx m
     => CId Wal
     -> HeaderHash
     -> CAccModifier
@@ -457,7 +461,7 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     WS.setWalletSyncTip wid newTip
 
 rollbackModifierFromWallet
-    :: (WebWalletModeDB ctx m, MonadSlots ctx m)
+    :: (MonadWalletDB ctx m, MonadSlots ctx m)
     => CId Wal
     -> HeaderHash
     -> CAccModifier
@@ -518,14 +522,14 @@ decryptAddress (hdPass, wCId) addr = do
 -- | Evaluates `txMempoolToModifier` and provides result as a parameter
 -- to given function.
 fixingCachedAccModifier
-    :: (WalletTrackingEnv ctx m, MonadKeySearch key m)
+    :: (WalletTrackingEnvRead ctx m, MonadKeySearch key m)
     => (CachedCAccModifier -> key -> m a)
     -> key -> m a
 fixingCachedAccModifier action key =
     findKey key >>= txMempoolToModifier >>= flip action key
 
 fixCachedAccModifierFor
-    :: (WalletTrackingEnv ctx m, MonadKeySearch key m)
+    :: (WalletTrackingEnvRead ctx m, MonadKeySearch key m)
     => key
     -> (CachedCAccModifier -> m a)
     -> m a

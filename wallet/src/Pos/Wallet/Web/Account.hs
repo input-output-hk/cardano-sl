@@ -36,14 +36,14 @@ import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWAddressMeta (..), Wal,
                                              addrMetaToAccount, addressToCId, encToCId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), WebWalletModeDB,
+import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), MonadWalletDBRead,
                                              doesWAddressExist, getAccountMeta)
 
 type AccountMode ctx m =
     ( MonadThrow m
     , WithLogger m
     , MonadKeys m
-    , WebWalletModeDB ctx m
+    , MonadWalletDBRead ctx m
     )
 
 myRootAddresses :: MonadKeys m => m [CId Wal]

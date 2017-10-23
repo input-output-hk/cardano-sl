@@ -16,7 +16,8 @@ import           Formatting                     (sformat, (%))
 import qualified Formatting                     as F
 
 import           Pos.Client.KeyStorage          (getSecretKeys)
-import           Pos.Client.Txp.Balances        (getOwnUtxos)
+import           Pos.Client.Txp.Addresses       (MonadAddresses)
+import           Pos.Client.Txp.Balances        (MonadBalances (..))
 import           Pos.Client.Txp.History         (TxHistoryEntry (..))
 import           Pos.Client.Txp.Util            (computeTxFee, runTxCreator)
 import           Pos.Communication              (prepareMTx)
@@ -24,6 +25,7 @@ import           Pos.Core                       (Coin, addressF, getCurrentTimes
 import           Pos.Crypto                     (PassPhrase, ShouldCheckPassphrase (..),
                                                  checkPassMatches, hash,
                                                  withSafeSignerUnsafe)
+import           Pos.DB                         (MonadGState)
 import           Pos.Txp                        (TxFee (..), Utxo, _txOutputs)
 import           Pos.Txp.Core                   (TxAux (..), TxOut (..))
 import           Pos.Util                       (eitherToThrow, maybeThrow)
@@ -41,7 +43,8 @@ import           Pos.Wallet.Web.Methods.History (addHistoryTx, constructCTx,
 import           Pos.Wallet.Web.Methods.Txp     (MonadWalletTxFull, coinDistrToOutputs,
                                                  rewrapTxError, submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Pending         (mkPendingTx)
-import           Pos.Wallet.Web.State           (AddressLookupMode (Ever, Existing))
+import           Pos.Wallet.Web.State           (AddressLookupMode (Ever, Existing),
+                                                 MonadWalletDBRead)
 import           Pos.Wallet.Web.Util            (decodeCTypeOrFail,
                                                  getAccountAddrsOrThrow,
                                                  getWalletAccountIds, getWalletAddrsSet)
@@ -59,8 +62,16 @@ newPayment passphrase srcAccount dstAddress coin =
         (AccountMoneySource srcAccount)
         (one (dstAddress, coin))
 
+type MonadFees ctx m =
+    ( MonadCatch m
+    , MonadGState m
+    , MonadWalletDBRead ctx m
+    , MonadAddresses m
+    , MonadBalances m
+    )
+
 getTxFee
-     :: MonadWalletTxFull ctx m
+     :: MonadFees ctx m
      => AccountId
      -> CId Addr
      -> Coin
@@ -78,7 +89,9 @@ data MoneySource
     | AddressMoneySource CWAddressMeta
     deriving (Show, Eq)
 
-getMoneySourceAddresses :: MonadWalletTxFull ctx m => MoneySource -> m [CWAddressMeta]
+getMoneySourceAddresses
+    :: (MonadThrow m, MonadWalletDBRead ctx m)
+    => MoneySource -> m [CWAddressMeta]
 getMoneySourceAddresses (AddressMoneySource addrId) = return $ one addrId
 getMoneySourceAddresses (AccountMoneySource accId) =
     getAccountAddrsOrThrow Existing accId
@@ -86,7 +99,9 @@ getMoneySourceAddresses (WalletMoneySource wid) =
     getWalletAccountIds wid >>=
     concatMapM (getMoneySourceAddresses . AccountMoneySource)
 
-getSomeMoneySourceAccount :: MonadWalletTxFull ctx m => MoneySource -> m AccountId
+getSomeMoneySourceAccount
+    :: (MonadThrow m, MonadWalletDBRead ctx m)
+    => MoneySource -> m AccountId
 getSomeMoneySourceAccount (AddressMoneySource addrId) =
     return $ addrMetaToAccount addrId
 getSomeMoneySourceAccount (AccountMoneySource accId) = return accId
@@ -101,7 +116,9 @@ getMoneySourceWallet (AddressMoneySource addrId) = cwamWId addrId
 getMoneySourceWallet (AccountMoneySource accId)  = aiWId accId
 getMoneySourceWallet (WalletMoneySource wid)     = wid
 
-getMoneySourceUtxo :: MonadWalletTxFull ctx m => MoneySource -> m Utxo
+getMoneySourceUtxo
+    :: (MonadThrow m, MonadWalletDBRead ctx m, MonadBalances m)
+    => MoneySource -> m Utxo
 getMoneySourceUtxo =
     getMoneySourceAddresses >=>
     mapM (decodeCTypeOrFail . cwamId) >=>

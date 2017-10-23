@@ -110,7 +110,8 @@ import           Pos.Wallet.Web.ClientTypes        (AccountId)
 import           Pos.Wallet.Web.Mode               (WalletMempoolExt,
                                                     getNewAddressWebWallet,
                                                     getOwnUtxosDefault)
-import           Pos.Wallet.Web.State              (WalletState, openMemState)
+import           Pos.Wallet.Web.State              (MonadWalletDB, WalletState,
+                                                    openMemState)
 import           Pos.Wallet.Web.Tracking.BListener (onApplyBlocksWebWallet,
                                                     onRollbackBlocksWebWallet)
 
@@ -397,6 +398,8 @@ instance HasLens StateLockMetrics WalletTestContext StateLockMetrics where
             , slmRelease = const $ pure ()
             }
 
+instance HasConfigurations => MonadWalletDB WalletTestContext WalletTestMode
+
 -- TODO remove HasCompileInfo here
 -- when getNewAddressWebWallet won't require MonadWalletWebMode
 instance HasConfigurations => MonadAddresses WalletTestMode where
@@ -421,7 +424,7 @@ instance MonadUpdates WalletTestMode where
     waitForUpdate = waitForUpdateWebWallet
     applyLastUpdate = applyLastUpdateWebWallet
 
-instance (HasCompileInfo, HasConfiguration) => MonadBListener WalletTestMode where
+instance (HasCompileInfo, HasConfigurations) => MonadBListener WalletTestMode where
     onApplyBlocks = onApplyBlocksWebWallet
     onRollbackBlocks = onRollbackBlocksWebWallet
 

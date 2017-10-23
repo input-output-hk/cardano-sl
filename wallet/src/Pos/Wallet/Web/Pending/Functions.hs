@@ -24,7 +24,7 @@ import           Pos.Wallet.Web.Error         (WalletError (RequestError))
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..),
                                                PtxPoolInfo)
 import           Pos.Wallet.Web.Pending.Util  (mkPtxSubmitTiming)
-import           Pos.Wallet.Web.State         (MonadWalletWebDB, getWalletMeta)
+import           Pos.Wallet.Web.State         (MonadWalletDBRead, getWalletMeta)
 
 ptxPoolInfo :: PtxCondition -> Maybe PtxPoolInfo
 ptxPoolInfo (PtxApplying i)    = Just i
@@ -35,7 +35,7 @@ isPtxInBlocks :: PtxCondition -> Bool
 isPtxInBlocks = isNothing . ptxPoolInfo
 
 mkPendingTx
-    :: (MonadThrow m, MonadIO m, MonadWalletWebDB ctx m, MonadSlots ctx m)
+    :: (MonadThrow m, MonadIO m, MonadWalletDBRead ctx m, MonadSlots ctx m)
     => CId Wal -> TxId -> TxAux -> TxHistoryEntry -> m PendingTx
 mkPendingTx wid _ptxTxId _ptxTxAux th = do
     void $ maybeThrow noWallet =<< getWalletMeta wid

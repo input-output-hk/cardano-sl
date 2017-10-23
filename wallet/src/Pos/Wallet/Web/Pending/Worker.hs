@@ -40,7 +40,7 @@ import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler,
                                                     submitAndSavePtx)
 import           Pos.Wallet.Web.Pending.Types      (PendingTx (..), PtxCondition (..),
                                                     ptxNextSubmitSlot, _PtxApplying)
-import           Pos.Wallet.Web.State              (MonadWalletWebDB,
+import           Pos.Wallet.Web.State              (MonadWalletDB,
                                                     PtxMetaUpdate (PtxIncSubmitTiming),
                                                     casPtxCondition, getPendingTx,
                                                     getPendingTxs, ptxUpdateMeta)
@@ -55,7 +55,7 @@ type MonadPendings ctx m =
     , HasShutdownContext ctx
     , MonadSlots ctx m
     , MonadWalletSendActions m
-    , MonadWalletWebDB ctx m
+    , MonadWalletDB ctx m
     , HasConfiguration
     , HasNodeConfiguration
     )

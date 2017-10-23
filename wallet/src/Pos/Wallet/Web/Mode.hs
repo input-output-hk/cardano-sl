@@ -114,8 +114,8 @@ import           Pos.Wallet.Web.ClientTypes        (AccountId, cadId)
 import           Pos.Wallet.Web.Methods            (MonadWalletLogic, newAddress)
 import           Pos.Wallet.Web.Sockets.Connection (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.ConnSet    (ConnectionsVar)
-import           Pos.Wallet.Web.State              (WalletState, WebWalletModeDB,
-                                                    getWalletUtxo)
+import           Pos.Wallet.Web.State              (MonadWalletDB, MonadWalletDBRead,
+                                                    WalletState, getWalletUtxo)
 import           Pos.Wallet.Web.Tracking           (MonadBListener (..),
                                                     onApplyBlocksWebWallet,
                                                     onRollbackBlocksWebWallet)
@@ -159,6 +159,8 @@ instance HasLens WalletState WalletWebModeContext WalletState where
 
 instance HasLens ConnectionsVar WalletWebModeContext ConnectionsVar where
     lensOf = wwmcConnectionsVar_L
+
+instance HasConfiguration => MonadWalletDB WalletWebModeContext WalletWebMode
 
 instance {-# OVERLAPPABLE #-}
     HasLens tag (RealModeContext WalletMempoolExt) r =>
@@ -212,6 +214,7 @@ type MonadWalletWebMode ctx m =
     , MonadBalances m
     , MonadUpdates m
     , MonadTxHistory m
+    , MonadWalletDB ctx m
     , MonadAddresses m
     , MonadRandom m
     , AddrData m ~ (AccountId, PassPhrase)
@@ -292,7 +295,7 @@ instance (HasConfiguration, HasGtConfiguration, HasInfraConfiguration) =>
 type BalancesEnv ext ctx m =
     ( MonadDBRead m
     , MonadGState m
-    , WebWalletModeDB ctx m
+    , MonadWalletDBRead ctx m
     , MonadMask m
     , MonadTxpMem ext ctx m)
 

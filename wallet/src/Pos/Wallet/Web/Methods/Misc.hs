@@ -33,18 +33,19 @@ import           Pos.Wallet.WalletMode      (MonadBlockchainInfo (..), MonadUpda
 import           Pos.Wallet.Web.ClientTypes (CProfile (..), CUpdateInfo (..),
                                              SyncProgress (..))
 import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.State       (MonadWalletWebDB, getNextUpdate, getProfile,
-                                             removeNextUpdate, setProfile, testReset)
+import           Pos.Wallet.Web.State       (MonadWalletDB, MonadWalletDBRead,
+                                             getNextUpdate, getProfile, removeNextUpdate,
+                                             setProfile, testReset)
 
 
 ----------------------------------------------------------------------------
 -- Profile
 ----------------------------------------------------------------------------
 
-getUserProfile :: MonadWalletWebDB ctx m => m CProfile
+getUserProfile :: MonadWalletDBRead ctx m => m CProfile
 getUserProfile = getProfile
 
-updateUserProfile :: MonadWalletWebDB ctx m => CProfile -> m CProfile
+updateUserProfile :: MonadWalletDB ctx m => CProfile -> m CProfile
 updateUserProfile profile = setProfile profile >> getUserProfile
 
 ----------------------------------------------------------------------------
@@ -62,7 +63,7 @@ isValidAddress sAddr =
 
 -- | Get last update info
 nextUpdate
-    :: (MonadThrow m, MonadWalletWebDB ctx m, HasUpdateConfiguration)
+    :: (MonadThrow m, MonadWalletDB ctx m, HasUpdateConfiguration)
     => m CUpdateInfo
 nextUpdate = do
     updateInfo <- getNextUpdate >>= maybeThrow noUpdates
@@ -76,11 +77,11 @@ nextUpdate = do
     noUpdates = RequestError "No updates available"
 
 -- | Postpone next update after restart
-postponeUpdate :: MonadWalletWebDB ctx m => m ()
+postponeUpdate :: MonadWalletDB ctx m => m ()
 postponeUpdate = removeNextUpdate
 
 -- | Delete next update info and restart immediately
-applyUpdate :: (MonadWalletWebDB ctx m, MonadUpdates m) => m ()
+applyUpdate :: (MonadWalletDB ctx m, MonadUpdates m) => m ()
 applyUpdate = removeNextUpdate >> applyLastUpdate
 
 ----------------------------------------------------------------------------
@@ -113,7 +114,7 @@ localTimeDifference =
 -- Reset
 ----------------------------------------------------------------------------
 
-testResetAll :: (MonadWalletWebDB ctx m, MonadKeys m) => m ()
+testResetAll :: (MonadWalletDB ctx m, MonadKeys m) => m ()
 testResetAll = deleteAllKeys >> testReset
   where
     deleteAllKeys :: MonadKeys m => m ()

@@ -26,7 +26,7 @@ import           Pos.Wallet.Web.Networking        (MonadWalletSendActions (..))
 import           Pos.Wallet.Web.Pending.Functions (isReclaimableFailure)
 import           Pos.Wallet.Web.Pending.Types     (PendingTx (..), PtxCondition (..),
                                                    PtxPoolInfo)
-import           Pos.Wallet.Web.State             (MonadWalletWebDB,
+import           Pos.Wallet.Web.State             (MonadWalletDB,
                                                    PtxMetaUpdate (PtxMarkAcknowledged),
                                                    addOnlyNewPendingTx, casPtxCondition,
                                                    ptxUpdateMeta)
@@ -62,7 +62,7 @@ ptxFirstSubmissionHandler =
                 \transaction made"
 
 ptxResubmissionHandler
-    :: forall ctx m. (MonadThrow m, WithLogger m, MonadWalletWebDB ctx m)
+    :: forall ctx m. (MonadThrow m, WithLogger m, MonadWalletDB ctx m)
     => PendingTx -> PtxSubmissionHandlers m
 ptxResubmissionHandler PendingTx{..} =
     PtxSubmissionHandlers
@@ -110,7 +110,7 @@ ptxResubmissionHandler PendingTx{..} =
 type TxSubmissionMode ctx m =
     ( TxMode m
     , MonadWalletSendActions m
-    , MonadWalletWebDB ctx m
+    , MonadWalletDB ctx m
     )
 
 -- | Like 'Pos.Communication.Tx.submitAndSaveTx',

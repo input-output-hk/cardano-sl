@@ -27,11 +27,11 @@ import           Pos.Wallet.Web.ClientTypes        (spLocalCD, spNetworkCD, spPe
 import           Pos.Wallet.Web.Mode               (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.Connection (notifyAll)
 import           Pos.Wallet.Web.Sockets.Types      (NotifyEvent (..))
-import           Pos.Wallet.Web.State              (MonadWalletWebDB, addUpdate)
+import           Pos.Wallet.Web.State              (MonadWalletDB, addUpdate)
 
 type MonadNotifier ctx m =
     ( WithLogger m
-    , MonadWalletWebDB ctx m
+    , MonadWalletDB ctx m
     , MonadWalletWebSockets ctx m
     , MonadBlockchainInfo m
     , MonadUpdates m

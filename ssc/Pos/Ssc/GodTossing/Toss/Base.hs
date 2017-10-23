@@ -235,11 +235,11 @@ computeSharesDistrPure richmen threshold
     | null richmen = pure mempty
     | otherwise = do
         when (totalCoins == 0) $
-            throwError $ TossInternallError "Richmen total stake equals zero"
+            throwError $ TossInternalError "Richmen total stake equals zero"
 
         let mpcThreshold = toRational (getCoinPortion threshold) / toRational coinPortionDenominator
         unless (all ((>= mpcThreshold) . toRational) portions) $
-            throwError $ TossInternallError "Richmen stakes less than threshsold"
+            throwError $ TossInternalError "Richmen stakes less than threshsold"
 
         let fromX = ceiling $ 1 / minimum portions
         let toX = sharesDistrMaxSumDistr mpcThreshold

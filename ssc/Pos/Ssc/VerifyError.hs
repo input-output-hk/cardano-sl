@@ -47,7 +47,7 @@ data SscVerifyError
     | CertificateInvalidSign !(NonEmpty (StakeholderId, VssCertificate))
     | CertificateInvalidTTL !(NonEmpty VssCertificate)
 
-    | TossInternallError !Text
+    | TossInternalError !Text
     deriving (Show, Eq)
 
 instance Buildable SscVerifyError where
@@ -104,12 +104,12 @@ instance Buildable SscVerifyError where
         bprint ("some VSS certificates users are not passing stake threshold: "%listJson) stks
     build (CertificateDuplicateVssKey stks) =
         bprint ("some VSS certificates have VSS keys that already belong to other certificates: "%listJson) stks
-    build (TossInternallError msg) =
+    build (TossInternalError msg) =
         bprint ("internal error: "%stext) msg
 
 -- | Returns 'True' if the error must be reported.
 sscIsCriticalError :: SscVerifyError -> Bool
 sscIsCriticalError =
     \case
-        TossInternallError {} -> True
+        TossInternalError {} -> True
         _ -> False

@@ -82,7 +82,7 @@ import           Pos.WorkMode                    (EnqueuedConversation (..), OQ,
 -- | Run activity in 'RealMode'.
 runRealMode
     :: forall ext ctx a.
-       WorkMode ctx (RealMode ext)
+       (HasCompileInfo, WorkMode ctx (RealMode ext))
     => NodeResources ext (RealMode ext)
     -> (ActionSpec (RealMode ext) a, OutSpecs)
     -> Production a
@@ -91,7 +91,8 @@ runRealMode = runRealBasedMode @ext @ctx identity identity
 -- | Run activity in something convertible to 'RealMode' and back.
 runRealBasedMode
     :: forall ext ctx m a.
-       ( WorkMode ctx m
+       ( HasCompileInfo
+       , WorkMode ctx m
        , Default ext
        , MonadTxpLocal (RealMode ext)
        -- MonadTxpLocal is meh,

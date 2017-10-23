@@ -20,12 +20,12 @@ module Pos.Wallet.Web.Methods.Misc
 
 import           Universum
 
+import           Pos.Client.KeyStorage      (MonadKeys, deleteSecretKey, getSecretKeys)
 import           Pos.Core                   (SoftwareVersion (..), decodeTextAddress)
-import           Pos.NtpCheck               (NtpStatus(..), mkNtpStatusVar)
+import           Pos.NtpCheck               (NtpStatus (..), mkNtpStatusVar)
 import           Pos.Update.Configuration   (curSoftwareVersion)
 import           Pos.Util                   (maybeThrow)
 
-import           Pos.Client.KeyStorage      (deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.WalletMode      (applyLastUpdate, connectedPeers,
                                              localChainDifficulty, networkChainDifficulty)
 import           Pos.Wallet.Web.ClientTypes (CProfile (..), CUpdateInfo (..),
@@ -40,10 +40,10 @@ import           Pos.Wallet.Web.State       (getNextUpdate, getProfile, removeNe
 -- Profile
 ----------------------------------------------------------------------------
 
-getUserProfile :: MonadWalletWebMode m => m CProfile
+getUserProfile :: MonadWalletWebMode ctx m => m CProfile
 getUserProfile = getProfile
 
-updateUserProfile :: MonadWalletWebMode m => CProfile -> m CProfile
+updateUserProfile :: MonadWalletWebMode ctx m => CProfile -> m CProfile
 updateUserProfile profile = setProfile profile >> getUserProfile
 
 ----------------------------------------------------------------------------
@@ -51,7 +51,7 @@ updateUserProfile profile = setProfile profile >> getUserProfile
 ----------------------------------------------------------------------------
 
 -- NOTE: later we will have `isValidAddress :: CId -> m Bool` which should work for arbitrary crypto
-isValidAddress :: MonadWalletWebMode m => Text -> m Bool
+isValidAddress :: MonadWalletWebMode ctx m => Text -> m Bool
 isValidAddress sAddr =
     pure . isRight $ decodeTextAddress sAddr
 
@@ -60,7 +60,7 @@ isValidAddress sAddr =
 ----------------------------------------------------------------------------
 
 -- | Get last update info
-nextUpdate :: MonadWalletWebMode m => m CUpdateInfo
+nextUpdate :: MonadWalletWebMode ctx m => m CUpdateInfo
 nextUpdate = do
     updateInfo <- getNextUpdate >>= maybeThrow noUpdates
     if isUpdateActual (cuiSoftwareVersion updateInfo)
@@ -72,20 +72,19 @@ nextUpdate = do
         && svNumber ver > svNumber curSoftwareVersion
     noUpdates = RequestError "No updates available"
 
-
 -- | Postpone next update after restart
-postponeUpdate :: MonadWalletWebMode m => m ()
+postponeUpdate :: MonadWalletWebMode ctx m => m ()
 postponeUpdate = removeNextUpdate
 
 -- | Delete next update info and restart immediately
-applyUpdate :: MonadWalletWebMode m => m ()
+applyUpdate :: MonadWalletWebMode ctx m => m ()
 applyUpdate = removeNextUpdate >> applyLastUpdate
 
 ----------------------------------------------------------------------------
 -- Sync progress
 ----------------------------------------------------------------------------
 
-syncProgress :: MonadWalletWebMode m => m SyncProgress
+syncProgress :: MonadWalletWebMode ctx m => m SyncProgress
 syncProgress =
     SyncProgress
     <$> localChainDifficulty
@@ -96,7 +95,7 @@ syncProgress =
 -- NTP (Network Time Protocol) based time difference
 ----------------------------------------------------------------------------
 
-localTimeDifference :: MonadWalletWebMode m => m Word
+localTimeDifference :: MonadWalletWebMode ctx m => m Word
 localTimeDifference =
     mkNtpStatusVar >>= readMVar >>= pure . diff
   where
@@ -111,9 +110,10 @@ localTimeDifference =
 -- Reset
 ----------------------------------------------------------------------------
 
-testResetAll :: MonadWalletWebMode m => m ()
+testResetAll :: MonadWalletWebMode ctx m => m ()
 testResetAll = deleteAllKeys >> testReset
   where
+    deleteAllKeys :: MonadKeys m => m ()
     deleteAllKeys = do
         keyNum <- length <$> getSecretKeys
         replicateM_ keyNum $ deleteSecretKey 0

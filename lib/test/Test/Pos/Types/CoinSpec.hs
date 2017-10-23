@@ -16,7 +16,7 @@ import qualified Pos.Arbitrary.Core    as C
 import qualified Pos.Core.Types        as C
 import qualified Pos.Types             as C
 
-import           Test.Pos.Util         (shouldThrowException, (.=.), (>=.))
+import           Test.Pos.Helpers      (shouldThrowException, (.=.), (>=.))
 
 spec :: Spec
 spec = describe "Coin properties" $ do

@@ -17,8 +17,8 @@ import qualified Pos.Txp                 as T
 import           Pos.Util                (SmallGenerator)
 
 import           Test.Pos.CborSpec       (extensionProperty)
-import           Test.Pos.Util           (binaryTest, msgLenLimitedTest,
-                                          withDefConfiguration, withDefInfraConfiguration)
+import           Test.Pos.Helpers        (binaryTest, msgLenLimitedTest)
+import           Test.Pos.Util           (withDefConfiguration, withDefInfraConfiguration)
 
 spec :: Spec
 spec = withDefInfraConfiguration $ withDefConfiguration $

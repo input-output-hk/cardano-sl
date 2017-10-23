@@ -12,14 +12,35 @@ module Test.Pos.Block.Logic.Mode
        , BlockTestContextTag
        , PureDBSnapshotsVar(..)
        , BlockTestContext(..)
-       , btcSlotId_L
        , BlockTestMode
        , runBlockTestMode
+       , initBlockTestContext
 
        , BlockProperty
        , blockPropertyToProperty
        , blockPropertyTestable
-       , blockPropertySpec
+
+       -- Lens
+       , btcGStateL
+       , btcSystemStartL
+       , btcLoggerNameL
+       , btcSSlottingVarL
+       , btcUpdateContextL
+       , btcSscStateL
+       , btcTxpMemL
+       , btcTxpGlobalSettingsL
+       , btcSlotIdL
+       , btcParamsL
+       , btcReportingContextL
+       , btcDelegationL
+       , btcPureDBSnapshotsL
+       , btcAllSecretsL
+
+       -- MonadSlots
+       , getCurrentSlotTestDefault
+       , getCurrentSlotBlockingTestDefault
+       , getCurrentSlotInaccurateTestDefault
+       , currentTimeSlottingTestDefault
        ) where
 
 import           Universum
@@ -35,8 +56,6 @@ import           Formatting                     (bprint, build, formatToString, 
 import           Mockable                       (Production, currentTime, runProduction)
 import qualified Prelude
 import           System.Wlog                    (HasLoggerName (..), LoggerName)
-import           Test.Hspec                     (Spec)
-import           Test.Hspec.QuickCheck          (prop)
 import           Test.QuickCheck                (Arbitrary (..), Gen, Property, forAll,
                                                  ioProperty)
 import           Test.QuickCheck.Monadic        (PropertyM, monadic)
@@ -77,8 +96,8 @@ import           Pos.Network.Types              (HasNodeType (..), NodeType (..)
 import           Pos.Reporting                  (HasReportingContext (..),
                                                  ReportingContext, emptyReportingContext)
 import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots (..),
-                                                 SimpleSlottingVar, SlottingData,
-                                                 currentTimeSlottingSimple,
+                                                 SimpleSlottingMode, SimpleSlottingVar,
+                                                 SlottingData, currentTimeSlottingSimple,
                                                  getCurrentSlotBlockingSimple,
                                                  getCurrentSlotInaccurateSimple,
                                                  getCurrentSlotSimple,
@@ -86,14 +105,15 @@ import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots
 import           Pos.Slotting.MemState          (MonadSlotsData)
 import           Pos.Ssc.Types                  (SscBlock)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState)
-import           Pos.Ssc.GodTossing             (HasGtConfiguration,)
+import           Pos.Ssc.GodTossing             (HasGtConfiguration)
 import           Pos.Txp                        (GenericTxpLocalData, MempoolExt,
                                                  MonadTxpLocal (..), TxpGlobalSettings,
                                                  TxpHolderTag, mkTxpLocalData,
                                                  txNormalize, txProcessTransactionNoLock,
                                                  txpGlobalSettings)
 import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
-import           Pos.Util                       (Some, newInitFuture, postfixLFields)
+import           Pos.Util                       (Some, newInitFuture, postfixLFields,
+                                                 postfixLFields2)
 import           Pos.Util.CompileInfo           (withCompileInfo)
 import           Pos.Util.LoggerName            (HasLoggerName' (..),
                                                  getLoggerNameDefault,
@@ -214,13 +234,14 @@ data BlockTestContext = BlockTestContext
     , btcAllSecrets        :: !AllSecrets
     }
 
-makeLensesWith postfixLFields ''BlockTestContext
+
+makeLensesWith postfixLFields2 ''BlockTestContext
 
 instance HasTestParams BlockTestContext where
-    testParams = btcParams_L
+    testParams = btcParamsL
 
 instance HasAllSecrets BlockTestContext where
-    allSecrets = btcAllSecrets_L
+    allSecrets = btcAllSecretsL
 
 ----------------------------------------------------------------------------
 -- Initialization
@@ -323,19 +344,9 @@ blockPropertyToProperty tpGen blockProperty =
 --     property = blockPropertyToProperty arbitrary
 blockPropertyTestable ::
        (HasNodeConfiguration, HasGtConfiguration)
-    => (HasConfiguration =>
-            BlockProperty a)
+    => (HasConfiguration => BlockProperty a)
     -> Property
 blockPropertyTestable = blockPropertyToProperty arbitrary
-
--- | Specialized version of 'prop' function from 'hspec'.
-blockPropertySpec ::
-       (HasNodeConfiguration, HasGtConfiguration)
-    => String
-    -> (HasConfiguration =>
-            BlockProperty a)
-    -> Spec
-blockPropertySpec description bp = prop description (blockPropertyTestable bp)
 
 ----------------------------------------------------------------------------
 -- Boilerplate TestInitContext instances
@@ -395,7 +406,7 @@ instance (HasConfiguration, MonadSlotsData ctx TestInitMode)
 ----------------------------------------------------------------------------
 
 instance GS.HasGStateContext BlockTestContext where
-    gStateContext = btcGState_L
+    gStateContext = btcGStateL
 
 instance HasLens DBPureVar BlockTestContext DBPureVar where
     lensOf = GS.gStateContext . GS.gscDB . pureDBLens
@@ -409,44 +420,44 @@ instance HasLens DBPureVar BlockTestContext DBPureVar where
         realDBInTestsError = error "You are using real db in tests"
 
 instance HasLens PureDBSnapshotsVar BlockTestContext PureDBSnapshotsVar where
-    lensOf = btcPureDBSnapshots_L
+    lensOf = btcPureDBSnapshotsL
 
 instance HasLens LoggerName BlockTestContext LoggerName where
-      lensOf = btcLoggerName_L
+      lensOf = btcLoggerNameL
 
 instance HasLens LrcContext BlockTestContext LrcContext where
     lensOf = GS.gStateContext . GS.gscLrcContext
 
 instance HasLens UpdateContext BlockTestContext UpdateContext where
-      lensOf = btcUpdateContext_L
+      lensOf = btcUpdateContextL
 
 instance HasLens SscMemTag BlockTestContext SscState where
-      lensOf = btcSscState_L
+      lensOf = btcSscStateL
 
 instance HasLens TxpGlobalSettings BlockTestContext TxpGlobalSettings where
-      lensOf = btcTxpGlobalSettings_L
+      lensOf = btcTxpGlobalSettingsL
 
 instance HasLens TestParams BlockTestContext TestParams where
-      lensOf = btcParams_L
+      lensOf = btcParamsL
 
 instance HasLens SimpleSlottingVar BlockTestContext SimpleSlottingVar where
-      lensOf = btcSSlottingVar_L
+      lensOf = btcSSlottingVarL
 
 instance HasReportingContext BlockTestContext where
-    reportingContext = btcReportingContext_L
+    reportingContext = btcReportingContextL
 
 instance HasSlottingVar BlockTestContext where
-    slottingTimestamp = btcSystemStart_L
+    slottingTimestamp = btcSystemStartL
     slottingVar = GS.gStateContext . GS.gscSlottingVar
 
 instance HasSlogGState BlockTestContext where
     slogGState = GS.gStateContext . GS.gscSlogGState
 
 instance HasLens DelegationVar BlockTestContext DelegationVar where
-    lensOf = btcDelegation_L
+    lensOf = btcDelegationL
 
 instance HasLens TxpHolderTag BlockTestContext (GenericTxpLocalData EmptyMempoolExt) where
-    lensOf = btcTxpMem_L
+    lensOf = btcTxpMemL
 
 instance HasLoggerName' BlockTestContext where
     loggerName = lensOf @LoggerName
@@ -458,22 +469,40 @@ instance {-# OVERLAPPING #-} HasLoggerName BlockTestMode where
     getLoggerName = getLoggerNameDefault
     modifyLoggerName = modifyLoggerNameDefault
 
+type TestSlottingContext ctx m =
+    ( SimpleSlottingMode ctx m
+    , HasLens BlockTestContextTag ctx BlockTestContext
+    )
+
+testSlottingHelper
+    :: TestSlottingContext ctx m
+    => (SimpleSlottingVar -> m a)
+    -> (SlotId -> a)
+    -> m a
+testSlottingHelper targetF alternative = do
+    BlockTestContext{..} <- view (lensOf @BlockTestContextTag)
+    case btcSlotId of
+        Nothing   -> targetF btcSSlottingVar
+        Just slot -> pure $ alternative slot
+
+getCurrentSlotTestDefault :: TestSlottingContext ctx m => m (Maybe SlotId)
+getCurrentSlotTestDefault = testSlottingHelper getCurrentSlotSimple Just
+
+getCurrentSlotBlockingTestDefault :: TestSlottingContext ctx m => m SlotId
+getCurrentSlotBlockingTestDefault = testSlottingHelper getCurrentSlotBlockingSimple identity
+
+getCurrentSlotInaccurateTestDefault :: TestSlottingContext ctx m => m SlotId
+getCurrentSlotInaccurateTestDefault = testSlottingHelper getCurrentSlotInaccurateSimple identity
+
+currentTimeSlottingTestDefault :: SimpleSlottingMode ctx m => m Timestamp
+currentTimeSlottingTestDefault = currentTimeSlottingSimple
+
 instance (HasConfiguration, MonadSlotsData ctx BlockTestMode)
-      => MonadSlots ctx BlockTestMode
-  where
-    getCurrentSlot = do
-        view btcSlotId_L >>= \case
-            Nothing -> getCurrentSlotSimple =<< view btcSSlottingVar_L
-            Just slot -> pure (Just slot)
-    getCurrentSlotBlocking =
-        view btcSlotId_L >>= \case
-            Nothing -> getCurrentSlotBlockingSimple =<< view btcSSlottingVar_L
-            Just slot -> pure slot
-    getCurrentSlotInaccurate =
-        view btcSlotId_L >>= \case
-            Nothing -> getCurrentSlotInaccurateSimple =<< view btcSSlottingVar_L
-            Just slot -> pure slot
-    currentTimeSlotting = currentTimeSlottingSimple
+        => MonadSlots ctx BlockTestMode where
+    getCurrentSlot = getCurrentSlotTestDefault
+    getCurrentSlotBlocking = getCurrentSlotBlockingTestDefault
+    getCurrentSlotInaccurate = getCurrentSlotInaccurateTestDefault
+    currentTimeSlotting = currentTimeSlottingTestDefault
 
 instance HasConfiguration => MonadDBRead BlockTestMode where
     dbGet = DB.dbGetPureDefault

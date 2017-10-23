@@ -14,8 +14,9 @@ import           Pos.Binary              ()
 import qualified Pos.Communication.Relay as R
 import           Pos.Core                (StakeholderId)
 import qualified Pos.Ssc.GodTossing      as GT
-import           Test.Pos.Util           (binaryTest, msgLenLimitedTest,
-                                          withDefConfiguration, withDefInfraConfiguration)
+
+import           Test.Pos.Helpers        (binaryTest, msgLenLimitedTest)
+import           Test.Pos.Util           (withDefConfiguration, withDefInfraConfiguration)
 
 spec :: Spec
 spec = withDefInfraConfiguration $ withDefConfiguration $

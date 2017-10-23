@@ -10,7 +10,8 @@ import           Universum
 import           Pos.Arbitrary.Block ()
 import qualified Pos.Block.Core      as BT
 
-import           Test.Pos.Util       (safeCopyTest, withDefConfiguration)
+import           Test.Pos.Helpers    (safeCopyTest)
+import           Test.Pos.Util       (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Block types" $ do

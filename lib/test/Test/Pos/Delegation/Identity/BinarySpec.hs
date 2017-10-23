@@ -14,7 +14,8 @@ import           Pos.Communication.Types.Relay (DataMsg (..))
 import           Pos.Core                      (ProxySKHeavy, ProxySKLight)
 import           Pos.Delegation                (DlgPayload, ProxySKLightConfirmation)
 
-import           Test.Pos.Util                 (binaryTest, withDefConfiguration)
+import           Test.Pos.Helpers              (binaryTest)
+import           Test.Pos.Util                 (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Delegation types" $ do

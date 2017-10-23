@@ -143,6 +143,8 @@ library
                         Test.Pos.Util
                         Test.Pos.Configuration
 
+ -- Explorer (TODO: move into cardano-explorer)
+  exposed-modules:
                         Pos.Util.Servant
 
                         -- Needed for testing / genesis creation
@@ -488,7 +490,7 @@ test-suite cardano-test
                        Test.Pos.Update.Identity.SafeCopySpec
                        Test.Pos.Update.MemStateSpec
                        Test.Pos.Update.PollSpec
-
+                       Test.Pos.Helpers
                        Test.Pos.Util.LimitsSpec
                        Test.Pos.Util.ModifierSpec
                        Test.Pos.UtilSpec

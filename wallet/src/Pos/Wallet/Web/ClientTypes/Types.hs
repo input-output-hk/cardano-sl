@@ -183,7 +183,7 @@ instance Default CWalletMeta where
 -- Includes data which are not provided by Cardano
 data CAccountMeta = CAccountMeta
     { caName      :: !Text
-    } deriving (Show, Generic)
+    } deriving (Eq, Show, Generic)
 
 instance Buildable CAccountMeta where
     build CAccountMeta{..} = "<meta>"
@@ -336,7 +336,7 @@ type CPwHash = Text -- or Base64 or something else
 -- TODO: Newtype?
 data CProfile = CProfile
     { cpLocale      :: Text
-    } deriving (Show, Generic, Typeable)
+    } deriving (Eq, Show, Generic, Typeable)
 
 instance Buildable CProfile where
     build CProfile{..} =
@@ -354,7 +354,7 @@ instance Default CProfile where
 -- | meta data of transactions
 data CTxMeta = CTxMeta
     { ctmDate        :: POSIXTime
-    } deriving (Show, Generic)
+    } deriving (Eq, Show, Generic)
 
 instance Buildable CTxMeta where
     build CTxMeta{..} = bprint ("{ date="%build%" }") ctmDate
@@ -439,7 +439,7 @@ data CUpdateInfo = CUpdateInfo
     , cuiVotesAgainst    :: !Int
     , cuiPositiveStake   :: !CCoin
     , cuiNegativeStake   :: !CCoin
-    } deriving (Show, Generic, Typeable)
+    } deriving (Eq, Show, Generic, Typeable)
 
 instance Buildable CUpdateInfo where
     build CUpdateInfo{..} =

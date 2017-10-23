@@ -22,13 +22,14 @@ library
 
     Pos.Ssc.Types
 
+    Pos.Ssc.Listeners
+
     -- SSC
     Pos.Arbitrary.Ssc
 
     Pos.Ssc.Class
     Pos.Ssc.Class.LocalData
     Pos.Ssc.Class.Storage
-    Pos.Ssc.Class.Listeners
     Pos.Ssc.Class.Workers
 
     Pos.Ssc.Extra
@@ -70,7 +71,6 @@ library
     Pos.Ssc.GodTossing.Richmen
     Pos.Ssc.GodTossing.Seed
     Pos.Ssc.GodTossing.Shares
-    Pos.Ssc.GodTossing.Listeners
     Pos.Ssc.GodTossing.Workers
     Pos.Ssc.GodTossing.Network.Constraint
 

@@ -1,10 +1,9 @@
 {-# LANGUAGE DataKinds #-}
 
--- | Instance of SscListenersClass
+-- | All SSC listeners.
 
-module Pos.Ssc.GodTossing.Listeners
-       ( -- * Instances
-         -- ** instance SscListenersClass
+module Pos.Ssc.Listeners
+       ( sscRelays
        ) where
 
 import           Universum
@@ -28,7 +27,6 @@ import           Pos.Communication.Types.Protocol      (MsgType (..))
 import           Pos.Core                              (HasConfiguration, StakeholderId,
                                                         addressHash, getCertId, lookupVss)
 import           Pos.Security.Util                     (shouldIgnorePkAddress)
-import           Pos.Ssc.Class.Listeners               (SscListenersClass (..))
 import           Pos.Ssc.Extra                         (sscRunLocalQuery)
 import           Pos.Ssc.GodTossing.Configuration      (HasGtConfiguration)
 import           Pos.Ssc.Core                          (getCommitmentsMap)
@@ -47,13 +45,15 @@ import           Pos.Ssc.GodTossing.Types.Message      (MCCommitment (..), MCOpe
                                                         MCVssCertificate (..))
 import           Pos.Ssc.Mode                          (SscMode)
 
-instance GtMessageConstraints => SscListenersClass where
-    sscRelays =
-        [ commitmentRelay
-        , openingRelay
-        , sharesRelay
-        , vssCertRelay
-        ]
+sscRelays
+    :: (GtMessageConstraints, SscMode ctx m)
+    => [Relay m]
+sscRelays =
+    [ commitmentRelay
+    , openingRelay
+    , sharesRelay
+    , vssCertRelay
+    ]
 
 commitmentRelay
     :: (GtMessageConstraints, SscMode ctx m)

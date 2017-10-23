@@ -55,7 +55,7 @@ submitAndSave enqueue txAux@TxAux {..} = do
     let txId = hash taTx
     accepted <- submitTxRaw enqueue txAux
     saveTx (txId, txAux)
-    return accepted
+    pure accepted
 
 -- | Construct Tx using multiple secret keys and given list of desired outputs.
 prepareMTx

@@ -32,6 +32,7 @@ module Pos.Util.Util
        , _neTail
        , _neLast
        , postfixLFields
+       , postfixLFields2
 
        -- * Ether
        , ether
@@ -264,8 +265,7 @@ instance Buildable Fortnight   where build = build @String . show
 instance Buildable Microsecond where
     build = build . (++ "mcs") . show . toMicroseconds
 
--- | This instance is needed because 'Ssc' puts the 'Buildable' constraint
--- on things.
+-- | This orphan instance is sometimes useful and why not have it?
 instance Buildable () where
     build _ = "()"
 
@@ -482,6 +482,9 @@ dumpSplices x = do
 
 postfixLFields :: LensRules
 postfixLFields = lensRules & lensField .~ mappingNamer (\s -> [s++"_L"])
+
+postfixLFields2 :: LensRules
+postfixLFields2 = lensRules & lensField .~ mappingNamer (\s -> [s++"L"])
 
 -- | Count elements in a list.
 histogram :: forall a. Ord a => [a] -> Map a Int

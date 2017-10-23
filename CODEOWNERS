@@ -33,7 +33,7 @@ Wallet/                         @akegalj @flyingleafe
 txp/                            @gromakovsky @pva701 @neongreen
 update/                         @gromakovsky @pva701
 lrc/                            @pva701
-godtossing/                     @neongreen
+ssc/                            @neongreen
 
 core/Pos/Binary/                @neongreen
 core/Pos/Crypto/                @neongreen
@@ -60,5 +60,8 @@ scripts/bench                   @kantp @avieth
 wallet/src                      @martoon @flyingleafe @akegalj
 wallet/purescript               @akegalj
 wallet/web-api-swagger          @martoon
+
+## Auxx
+auxx                            @int-index
 
 genesis-info/                   @georgeee

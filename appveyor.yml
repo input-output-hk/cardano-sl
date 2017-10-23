@@ -66,6 +66,7 @@ before_test:
 # CSL-1509: After moving the 'cardano-sl' project itself into a separate folder ('lib/'), the 'cardano-text.exe' executable fails on AppVeyor CI.
 # After some investigation, it was discovered that this was because 'rocksdb.dll' has to be located in this folder as well, or else the test executable doesn't work.
 - copy rocksdb.dll lib
+- copy rocksdb.dll wallet
 
 test_script:
   - cd "%WORK_DIR%"
@@ -82,7 +83,7 @@ test_script:
       --extra-lib-dirs="%WORK_DIR%"
 #   TODO: CSL-1133. To be reenabled.
 #   - stack test --coverage
-#   - stack hpc report cardano-sl cardano-sl-txp cardano-sl-core cardano-sl-db cardano-sl-update cardano-sl-godtossing cardano-sl-infra cardano-sl-lrc cardano-sl-ssc
+#   - stack hpc report cardano-sl cardano-sl-txp cardano-sl-core cardano-sl-db cardano-sl-update cardano-sl-infra cardano-sl-lrc cardano-sl-ssc
 # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
   # We intentionally don't build auxx here, because this build is for installer.
   - scripts\ci\appveyor-retry call stack install cardano-sl cardano-sl-tools cardano-sl-wallet

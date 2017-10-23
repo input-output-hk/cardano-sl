@@ -14,8 +14,9 @@ import           Pos.Binary              ()
 import qualified Pos.Communication.Relay as R
 import           Pos.Core                (StakeholderId)
 import qualified Pos.Ssc.GodTossing      as GT
-import           Test.Pos.Util           (binaryTest, msgLenLimitedTest,
-                                          withDefConfiguration, withDefInfraConfiguration)
+
+import           Test.Pos.Helpers        (binaryTest, msgLenLimitedTest)
+import           Test.Pos.Util           (withDefConfiguration, withDefInfraConfiguration)
 
 spec :: Spec
 spec = withDefInfraConfiguration $ withDefConfiguration $
@@ -24,8 +25,8 @@ spec = withDefInfraConfiguration $ withDefConfiguration $
         binaryTest @GT.Commitment
         binaryTest @GT.CommitmentsMap
         binaryTest @GT.Opening
-        binaryTest @GT.GtPayload
-        binaryTest @GT.GtProof
+        binaryTest @GT.SscPayload
+        binaryTest @GT.SscProof
         binaryTest @(R.InvMsg (Tagged GT.MCCommitment StakeholderId))
         binaryTest @(R.ReqMsg (Tagged GT.MCCommitment StakeholderId))
         binaryTest @(R.MempoolMsg GT.MCCommitment)
@@ -36,8 +37,8 @@ spec = withDefInfraConfiguration $ withDefConfiguration $
         binaryTest @GT.GtTag
         binaryTest @GT.TossModifier
         binaryTest @GT.VssCertData
-        binaryTest @GT.GtGlobalState
-        binaryTest @GT.GtSecretStorage
+        binaryTest @GT.SscGlobalState
+        binaryTest @GT.SscSecretStorage
     describe "Message length limit" $ do
         msgLenLimitedTest @GT.Opening
         msgLenLimitedTest @(R.InvMsg (Tagged GT.MCCommitment StakeholderId))

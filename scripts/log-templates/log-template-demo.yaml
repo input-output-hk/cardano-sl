@@ -1,0 +1,12 @@
+# This template is used in local demo.
+
+rotation:
+    logLimit: 104857600 # 100 MB
+    keepFiles: 20
+severity: Debug
+termSeverity: Debug
+node:
+    handlers:
+      - file: {{file}}.pub
+        round: 5
+      - file: {{file}}

@@ -8,7 +8,7 @@ import           Universum
 
 import           Test.Hspec            (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.Pos.Util         (formsCommutativeMonoid)
+import           Test.Pos.Helpers      (formsCommutativeMonoid)
 import           Test.QuickCheck       (Property, (.&&.))
 
 import           Pos.Types             (SharedSeed)

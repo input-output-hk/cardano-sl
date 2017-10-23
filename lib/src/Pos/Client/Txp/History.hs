@@ -53,13 +53,14 @@ import           Pos.Core                     (Address, ChainDifficulty, HasConf
                                                HeaderHash, Timestamp (..), difficultyL,
                                                headerHash)
 import           Pos.Crypto                   (WithHash (..), withHash)
-import           Pos.DB                       (MonadDBRead, MonadGState, MonadRealDB)
+import           Pos.DB                       (MonadDBRead, MonadGState)
 import           Pos.DB.Block                 (MonadBlockDB)
 import qualified Pos.GState                   as GS
-import           Pos.Reporting                (MonadReporting)
+import           Pos.KnownPeers               (MonadFormatPeers (..))
+import           Pos.Network.Types            (HasNodeType)
+import           Pos.Reporting                (HasReportingContext)
 import           Pos.Slotting                 (MonadSlots, getSlotStartPure,
                                                getSystemStartM)
-import           Pos.Ssc.Class                (SscHelpersClass)
 import           Pos.StateLock                (StateLock, StateLockMetrics)
 import           Pos.Txp                      (MempoolExt, MonadTxpLocal, MonadTxpMem,
                                                MonadUtxo, MonadUtxoRead, ToilT, Tx (..),
@@ -192,10 +193,9 @@ instance (Monad m, HasConfiguration) =>
 ----------------------------------------------------------------------------
 
 -- | A class which have methods to get transaction history
-class (Monad m, SscHelpersClass) => MonadTxHistory m where
+class (Monad m, HasConfiguration) => MonadTxHistory m where
     getBlockHistory
-        :: SscHelpersClass
-        => [Address] -> m (Map TxId TxHistoryEntry)
+        :: [Address] -> m (Map TxId TxHistoryEntry)
     getLocalHistory
         :: [Address] -> m (Map TxId TxHistoryEntry)
     saveTx :: (TxId, TxAux) -> m ()
@@ -218,8 +218,7 @@ instance {-# OVERLAPPABLE #-}
         MonadTxHistory (t m)
 
 type TxHistoryEnv ctx m =
-    ( MonadRealDB ctx m
-    , MonadDBRead m
+    ( MonadDBRead m
     , MonadGState m
     , MonadTxpLocal m
     , MonadMask m
@@ -229,9 +228,11 @@ type TxHistoryEnv ctx m =
     , MonadTxpMem (MempoolExt m) ctx m
     , HasLens' ctx StateLock
     , HasLens' ctx StateLockMetrics
+    , HasReportingContext ctx
     , MonadBaseControl IO m
     , Mockable CurrentTime m
-    , MonadReporting ctx m
+    , MonadFormatPeers m
+    , HasNodeType ctx
     )
 
 type TxHistoryEnv' ctx m =

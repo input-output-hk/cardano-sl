@@ -15,8 +15,8 @@ import qualified Pos.Communication.Relay as R
 import qualified Pos.Update              as U
 
 import           Test.Pos.CborSpec       (U)
-import           Test.Pos.Util           (binaryTest, msgLenLimitedTest,
-                                          withDefConfiguration, withDefInfraConfiguration)
+import           Test.Pos.Helpers        (binaryTest, msgLenLimitedTest)
+import           Test.Pos.Util           (withDefConfiguration, withDefInfraConfiguration)
 
 type VoteId' = Tagged U.UpdateVote U.VoteId
 type UpId' = Tagged (U.UpdateProposal, [U.UpdateVote])U.UpId

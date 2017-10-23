@@ -218,8 +218,8 @@ send sendActions idx outputs = do
         (txAux,_) <- lift $ prepareMTx getSigner (NE.fromList allAddresses) (map TxOutAux outputs) curPk
         txAux <$ (ExceptT $ try $ submitTxRaw (immediateConcurrentConversations sendActions ccPeers) txAux)
     case etx of
-        Left err -> putText $ sformat ("Error: "%stext) (toText $ displayException err)
-        Right tx -> putText $ sformat ("Submitted transaction: "%txaF) tx
+        Left err -> logError $ sformat ("Error: "%stext) (toText $ displayException err)
+        Right tx -> logInfo $ sformat ("Submitted transaction: "%txaF) tx
   where
     takeSecret :: AuxxMode EncryptedSecretKey
     takeSecret

@@ -72,12 +72,12 @@ import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsO
 -- Getters
 ----------------------------------------------------------------------------
 
-getWAddressBalance :: MonadWalletWebMode m => CWAddressMeta -> m Coin
+getWAddressBalance :: MonadWalletWebMode ctx m => CWAddressMeta -> m Coin
 getWAddressBalance addr =
     getBalance <=< decodeCTypeOrFail $ cwamId addr
 
 getWAddress
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => CachedCAccModifier -> CWAddressMeta -> m CAddress
 getWAddress cachedAccModifier cAddr = do
     let aId = cwamId cAddr
@@ -92,7 +92,7 @@ getWAddress cachedAccModifier cAddr = do
     isChange <- getFlag ChangeAddr camChange
     return $ CAddress aId (encodeCType balance) isUsed isChange
 
-getAccount :: MonadWalletWebMode m => CachedCAccModifier -> AccountId -> m CAccount
+getAccount :: MonadWalletWebMode ctx m => CachedCAccModifier -> AccountId -> m CAccount
 getAccount accMod accId = do
     dbAddrs    <- getAccountAddrsOrThrow Existing accId
     let modifier   = camAddresses accMod
@@ -112,7 +112,7 @@ getAccount accMod accId = do
             unknownMemAddrs = filter (`notElem` dbAddrs) relatedMemAddrs
         dbAddrs <> unknownMemAddrs
 
-getWalletIncludeUnready :: MonadWalletWebMode m => Bool -> CId Wal -> m CWallet
+getWalletIncludeUnready :: MonadWalletWebMode ctx m => Bool -> CId Wal -> m CWallet
 getWalletIncludeUnready includeUnready cAddr = do
     meta       <- getWalletMetaIncludeUnready includeUnready cAddr >>= maybeThrow noWSet
     wallets    <- getAccountsIncludeUnready includeUnready (Just cAddr)
@@ -126,11 +126,11 @@ getWalletIncludeUnready includeUnready cAddr = do
     noWSet = RequestError $
         sformat ("No wallet with address "%build%" found") cAddr
 
-getWallet :: MonadWalletWebMode m => CId Wal -> m CWallet
+getWallet :: MonadWalletWebMode ctx m => CId Wal -> m CWallet
 getWallet = getWalletIncludeUnready False
 
 getAccountsIncludeUnready
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => Bool -> Maybe (CId Wal) -> m [CAccount]
 getAccountsIncludeUnready includeUnready mCAddr = do
     whenJust mCAddr $ \cAddr -> getWalletMetaIncludeUnready includeUnready cAddr `whenNothingM_` noWSet cAddr
@@ -144,11 +144,11 @@ getAccountsIncludeUnready includeUnready mCAddr = do
         sformat ("No account with id "%build%" found") cAddr
 
 getAccounts
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => Maybe (CId Wal) -> m [CAccount]
 getAccounts = getAccountsIncludeUnready False
 
-getWallets :: MonadWalletWebMode m => m [CWallet]
+getWallets :: MonadWalletWebMode ctx m => m [CWallet]
 getWallets = getWalletAddresses >>= mapM getWallet
 
 ----------------------------------------------------------------------------
@@ -156,7 +156,7 @@ getWallets = getWalletAddresses >>= mapM getWallet
 ----------------------------------------------------------------------------
 
 newAddress
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => AddrGenSeed
     -> PassPhrase
     -> AccountId
@@ -171,7 +171,7 @@ newAddress addGenSeed passphrase accId =
         getWAddress accMod cAccAddr
 
 newAccountIncludeUnready
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => Bool -> AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
 newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} =
     fixCachedAccModifierFor caInitWId $ \accMod -> do
@@ -184,12 +184,12 @@ newAccountIncludeUnready includeUnready addGenSeed passphrase CAccountInit {..} 
         getAccount accMod cAddr
 
 newAccount
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => AddrGenSeed -> PassPhrase -> CAccountInit -> m CAccount
 newAccount = newAccountIncludeUnready False
 
 createWalletSafe
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => CId Wal -> CWalletMeta -> Bool -> m CWallet
 createWalletSafe cid wsMeta isReady = do
     -- Disallow duplicate wallets (including unready wallets)
@@ -202,7 +202,7 @@ createWalletSafe cid wsMeta isReady = do
     getWalletIncludeUnready True cid
 
 markWalletReady
-  :: MonadWalletWebMode m
+  :: MonadWalletWebMode ctx m
   => CId Wal -> Bool -> m ()
 markWalletReady cid isReady = do
     _ <- getWalletMetaIncludeUnready True cid >>= maybeThrow noWSet
@@ -216,7 +216,7 @@ markWalletReady cid isReady = do
 -- Deleters
 ----------------------------------------------------------------------------
 
-deleteWallet :: MonadWalletWebMode m => CId Wal -> m ()
+deleteWallet :: MonadWalletWebMode ctx m => CId Wal -> m ()
 deleteWallet wid = do
     accounts <- getAccounts (Just wid)
     mapM_ (deleteAccount <=< decodeCTypeOrFail . caId) accounts
@@ -225,25 +225,25 @@ deleteWallet wid = do
     removeHistoryCache wid
     deleteSecretKey . fromIntegral =<< getAddrIdx wid
 
-deleteAccount :: MonadWalletWebMode m => AccountId -> m ()
+deleteAccount :: MonadWalletWebMode ctx m => AccountId -> m ()
 deleteAccount = removeAccount
 
 ----------------------------------------------------------------------------
 -- Modifiers
 ----------------------------------------------------------------------------
 
-updateWallet :: MonadWalletWebMode m => CId Wal -> CWalletMeta -> m CWallet
+updateWallet :: MonadWalletWebMode ctx m => CId Wal -> CWalletMeta -> m CWallet
 updateWallet wId wMeta = do
     setWalletMeta wId wMeta
     getWallet wId
 
-updateAccount :: MonadWalletWebMode m => AccountId -> CAccountMeta -> m CAccount
+updateAccount :: MonadWalletWebMode ctx m => AccountId -> CAccountMeta -> m CAccount
 updateAccount accId wMeta = do
     setAccountMeta accId wMeta
     fixingCachedAccModifier getAccount accId
 
 changeWalletPassphrase
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => CId Wal -> PassPhrase -> PassPhrase -> m ()
 changeWalletPassphrase wid oldPass newPass = do
     oldSK <- getSKById wid

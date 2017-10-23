@@ -127,10 +127,10 @@ hashFile Nothing  = pure dummyHash
 hashFile (Just filename) = do
     fileData <- liftIO $ BSL.readFile filename
     let h = installerHash fileData
-    putText $ sformat ("Read file "%string%" succesfuly, its hash: "%hashHexF) filename h
+    logInfo $ sformat ("Read file "%string%" succesfuly, its hash: "%hashHexF) filename h
     pure h
 
 hashInstaller :: FilePath -> AuxxMode ()
 hashInstaller path = do
     h <- installerHash <$> liftIO (BSL.readFile path)
-    putText $ sformat ("Hash of installer '"%string%"' is "%hashHexF) path h
+    logInfo $ sformat ("Hash of installer '"%string%"' is "%hashHexF) path h

@@ -42,11 +42,11 @@ import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), WebWallet
 type AccountMode ctx m =
     ( MonadCatch m
     , WithLogger m
-    , MonadKeys ctx m
+    , MonadKeys m
     , WebWalletModeDB ctx m
     )
 
-myRootAddresses :: MonadKeys ctx m => m [CId Wal]
+myRootAddresses :: MonadKeys m => m [CId Wal]
 myRootAddresses = encToCId <<$>> getSecretKeysPlain
 
 getAddrIdx :: AccountMode ctx m => CId Wal -> m Int
@@ -171,6 +171,7 @@ genUniqueAddress
 genUniqueAddress genSeed passphrase wCAddr@AccountId{..} =
     generateUnique "address generation" genSeed mkAddress notFit
   where
+    mkAddress :: AccountMode ctx m => Word32 -> m CWAddressMeta
     mkAddress cwamAddressIndex =
         deriveAddress passphrase wCAddr cwamAddressIndex
     notFit _idx addr = doesWAddressExist Ever addr

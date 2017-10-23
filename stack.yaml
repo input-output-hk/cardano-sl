@@ -15,7 +15,6 @@ packages:
 - lrc
 - auxx
 - ssc
-- godtossing
 - txp
 - node
 - tools
@@ -82,10 +81,10 @@ packages:
     - engine-io
     - engine-io-wai
 
-# Forked version of "dns" with proper Windows & Unix multiple-nameservers support
+# Version of "dns" with proper Windows & Unix multiple-nameservers support
 - location:
     git: https://github.com/kazu-yamamoto/dns.git
-    commit: 08df7fe6a9242f7d76aa5040221702e26ab610f6
+    commit: b106470f0a93672af22cbc7ed6564b53c0f249ed
   extra-dep: true
 
 - location:
@@ -135,7 +134,6 @@ ghc-options:
   cardano-sl-infra:      -Werror
   cardano-sl-lrc:        -Werror
   cardano-sl-update:     -Werror
-  cardano-sl-godtossing: -Werror
   cardano-sl-txp:        -Werror
   cardano-sl:            -Werror
   cardano-sl-tools:      -Werror

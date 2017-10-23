@@ -38,7 +38,7 @@ import           Pos.Slotting                     (HasSlottingVar (..), MonadSlo
                                                    MonadSlotsData, SimpleSlottingVar,
                                                    mkSimpleSlottingVar)
 import qualified Pos.Slotting                     as Slot
-import           Pos.Ssc.Class                    (SscBlock)
+import           Pos.Ssc.Types                    (SscBlock)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util.Util                    (Some, postfixLFields)

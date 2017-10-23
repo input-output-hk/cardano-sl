@@ -75,6 +75,7 @@ module Pos.Wallet.Web.State.State
        , ptxUpdateMeta
        , addOnlyNewPendingTx
        , flushWalletStorage
+       , getWalletStorage
        ) where
 
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
@@ -318,3 +319,6 @@ addOnlyNewPendingTx = updateDisk ... A.AddOnlyNewPendingTx
 
 flushWalletStorage :: WebWalletModeDB ctx m => m ()
 flushWalletStorage = updateDisk A.FlushWalletStorage
+
+getWalletStorage :: WebWalletModeDB ctx m => m WalletStorage
+getWalletStorage = queryDisk A.GetWalletStorage

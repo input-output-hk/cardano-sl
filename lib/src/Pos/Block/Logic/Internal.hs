@@ -51,10 +51,9 @@ import           Pos.Exception           (assertionFailed)
 import qualified Pos.GState              as GS
 import           Pos.Lrc.Context         (HasLrcContext)
 import           Pos.Reporting           (MonadReporting)
-import           Pos.Ssc.Class.LocalData (SscLocalDataClass)
-import           Pos.Ssc.Class.Storage   (SscGStateClass)
 import           Pos.Ssc.Extra           (MonadSscMem, sscApplyBlocks, sscNormalize,
                                           sscRollbackBlocks)
+import           Pos.Ssc.GodTossing      (HasGtConfiguration)
 import           Pos.Ssc.Util            (toSscBlock)
 import           Pos.Txp.Core            (TxPayload)
 import           Pos.Txp.MemState        (MonadTxpLocal (..))
@@ -79,12 +78,12 @@ type MonadBlockBase ctx m
        -- This constraints define block components' global logic.
        , HasLrcContext ctx
        , HasLens' ctx TxpGlobalSettings
-       , SscGStateClass
        , MonadDelegation ctx m
        -- 'MonadRandom' for crypto.
        , Rand.MonadRandom m
        -- To report bad things.
        , MonadReporting ctx m
+       , HasGtConfiguration
        )
 
 -- | Set of constraints necessary for high-level block verification.
@@ -108,7 +107,6 @@ type MonadBlockApply ctx m
 type MonadMempoolNormalization ctx m
     = ( MonadSlogBase ctx m
       , MonadTxpLocal m
-      , SscLocalDataClass
       , MonadSscMem ctx m
       , HasLrcContext ctx
       , HasLens' ctx UpdateContext
@@ -121,6 +119,7 @@ type MonadMempoolNormalization ctx m
       -- 'MonadRandom' for crypto.
       , Rand.MonadRandom m
       , Mockable CurrentTime m
+      , HasGtConfiguration
       )
 
 -- | Normalize mempool.

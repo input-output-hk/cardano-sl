@@ -34,9 +34,7 @@ import           Pos.WorkMode            (WorkMode)
 -- | All, but in reality not all, workers used by full node.
 allWorkers
     :: forall ext ctx m .
-       ( SscListenersClass
-       , WorkMode ctx m
-       )
+       WorkMode ctx m
     => NodeResources ext m -> ([WorkerSpec m], OutSpecs)
 allWorkers NodeResources {..} = mconcatPair
     [

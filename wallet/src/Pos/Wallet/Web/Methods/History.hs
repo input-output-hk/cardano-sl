@@ -40,7 +40,7 @@ import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsO
                                              getWalletAddrsSet)
 
 
-getFullWalletHistory :: MonadWalletWebMode m => CId Wal -> m (Map TxId (CTx, POSIXTime), Word)
+getFullWalletHistory :: MonadWalletWebMode ctx m => CId Wal -> m (Map TxId (CTx, POSIXTime), Word)
 getFullWalletHistory cWalId = do
     addrs <- mapM decodeCTypeOrFail =<< getWalletAddrs Ever cWalId
 
@@ -71,7 +71,7 @@ getFullWalletHistory cWalId = do
     pure (cHistory, fromIntegral $ Map.size cHistory)
 
 getHistory
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => CId Wal
     -> [AccountId]
     -> Maybe (CId Addr)
@@ -108,7 +108,7 @@ getHistory cWalId accIds mAddrId = do
         "Specified wallet/account does not contain specified address"
 
 getHistoryLimited
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => Maybe (CId Wal)
     -> Maybe AccountId
     -> Maybe (CId Addr)
@@ -143,7 +143,7 @@ getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
         "Please do not specify both walletId and accountId at the same time"
 
 addHistoryTx
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => CId Wal
     -> TxHistoryEntry
     -> m ()
@@ -152,7 +152,7 @@ addHistoryTx cWalId = addHistoryTxs cWalId . txHistoryListToMap . one
 -- This functions is helper to do @addHistoryTx@ for
 -- all txs from mempool as one Acidic transaction.
 addHistoryTxs
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => CId Wal
     -> Map TxId TxHistoryEntry
     -> m ()
@@ -165,7 +165,7 @@ addHistoryTxs cWalId historyEntries = do
         Just ts -> pure $ timestampToPosix ts
 
 constructCTx
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => CId Wal
     -> Set (CId Addr)
     -> ChainDifficulty
@@ -179,15 +179,15 @@ constructCTx cWalId walAddrsSet diff wtx@THEntry{..} = do
     either (throwM . InternalError) (pure . (, ctmDate meta)) $
         mkCTx diff wtx meta ptxCond walAddrsSet
 
-getCurChainDifficulty :: MonadWalletWebMode m => m ChainDifficulty
+getCurChainDifficulty :: MonadWalletWebMode ctx m => m ChainDifficulty
 getCurChainDifficulty = maybe localChainDifficulty pure =<< networkChainDifficulty
 
-updateTransaction :: MonadWalletWebMode m => AccountId -> CTxId -> CTxMeta -> m ()
+updateTransaction :: MonadWalletWebMode ctx m => AccountId -> CTxId -> CTxMeta -> m ()
 updateTransaction accId txId txMeta = do
     setWalletTxMeta (aiWId accId) txId txMeta
 
 addRecentPtxHistory
-    :: MonadWalletWebMode m
+    :: MonadWalletWebMode ctx m
     => CId Wal -> Map TxId TxHistoryEntry -> m (Map TxId TxHistoryEntry)
 addRecentPtxHistory wid currentHistory = do
     pendingTxs <- getWalletPendingTxs wid

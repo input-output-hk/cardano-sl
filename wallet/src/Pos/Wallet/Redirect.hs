@@ -25,7 +25,6 @@ import           System.Wlog           (WithLogger)
 import           Pos.Block.Core        (BlockHeader)
 import qualified Pos.Context           as PC
 import           Pos.Core              (ChainDifficulty, HasConfiguration, difficultyL)
-import           Pos.DB                (MonadRealDB)
 import           Pos.DB.Block          (MonadBlockDB)
 import           Pos.DB.DB             (getTipHeader)
 import qualified Pos.GState            as GS
@@ -52,7 +51,6 @@ type BlockchainInfoEnv ctx m =
     , MonadReader ctx m
     , HasLens PC.ConnectedPeers ctx PC.ConnectedPeers
     , MonadIO m
-    , MonadRealDB ctx m
     , MonadSlots ctx m
     , HasConfiguration
     )

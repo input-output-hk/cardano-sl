@@ -67,7 +67,6 @@ import           Pos.Crypto                       (EncryptedSecretKey, HDPassphr
                                                    unpackHDAddressAttr)
 import qualified Pos.DB.Block                     as DB
 import qualified Pos.DB.DB                        as DB
-import           Pos.DB.Rocks                     (MonadRealDB)
 import qualified Pos.GState                       as GS
 import           Pos.GState.BlockExtra            (foldlUpWhileM, resolveForwardLink)
 import           Pos.Slotting                     (MonadSlots (..), MonadSlotsData,
@@ -105,7 +104,6 @@ type BlockLockMode ctx m =
      ( WithLogger m
      , MonadReader ctx m
      , HasLens StateLock ctx StateLock
-     , MonadRealDB ctx m
      , DB.MonadBlockDB m
      , MonadMask m
      )

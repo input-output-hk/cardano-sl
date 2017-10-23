@@ -32,7 +32,7 @@ import           Pos.WorkMode.Class              (WorkMode)
 
 -- | All listeners running on one node.
 allListeners
-    :: (SscListenersClass, WorkMode ctx m)
+    :: WorkMode ctx m
     => OQ.OutboundQ pack NodeId Bucket
     -> Topology kademlia -> EnqueueMsg m -> MkListeners m
 allListeners oq topology enqueue = mconcat $

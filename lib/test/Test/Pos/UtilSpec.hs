@@ -21,7 +21,7 @@ import           Pos.Util.Chrono       (Chrono (..), NewestFirst (..), OldestFir
 
 import           Test.Hspec            (Expectation, Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.Pos.Util         ((.=.))
+import           Test.Pos.Helpers      ((.=.))
 import           Test.QuickCheck       (Arbitrary, Property)
 import           Universum
 

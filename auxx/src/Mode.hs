@@ -33,6 +33,8 @@ import           Pos.Block.Core                   (Block, BlockHeader)
 import           Pos.Block.Slog                   (HasSlogContext (..),
                                                    HasSlogGState (..))
 import           Pos.Block.Types                  (Undo)
+import           Pos.Client.KeyStorage            (MonadKeys (..), getSecretDefault,
+                                                   modifySecretDefault)
 import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
 import           Pos.Client.Txp.Balances          (MonadBalances (..), getBalanceFromUtxo,
                                                    getOwnUtxosGenesis)
@@ -67,8 +69,8 @@ import           Pos.Reporting                    (HasReportingContext (..))
 import           Pos.Shutdown                     (HasShutdownContext (..))
 import           Pos.Slotting.Class               (MonadSlots (..))
 import           Pos.Slotting.MemState            (HasSlottingVar (..), MonadSlotsData)
-import           Pos.Ssc.Class                    (HasSscContext (..), SscBlock)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.Types                    (HasSscContext (..), SscBlock)
 import           Pos.Txp                          (MempoolExt, MonadTxpLocal (..),
                                                    txNormalize, txProcessTransaction,
                                                    txProcessTransactionNoLock)
@@ -250,6 +252,11 @@ instance (HasConfiguration, HasInfraConfiguration) =>
         gsIsBootstrapEra epochIndex <&> \case
             False -> largestPubKeyAddressBoot
             True -> largestPubKeyAddressSingleKey
+
+
+instance MonadKeys AuxxMode where
+    getSecret = getSecretDefault
+    modifySecret = modifySecretDefault
 
 type instance MempoolExt AuxxMode = EmptyMempoolExt
 

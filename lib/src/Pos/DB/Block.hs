@@ -91,7 +91,7 @@ import           Pos.DB.Rocks            (MonadRealDB, blockDataDir, getBlockInd
                                           getNodeDBs, rocksDelete, rocksPutBi)
 import           Pos.DB.Sum              (MonadDBSum, eitherDB)
 import           Pos.Delegation.Types    (DlgUndo (..))
-import           Pos.Ssc.Class.Types     (SscBlock)
+import           Pos.Ssc.Types           (SscBlock)
 import           Pos.Ssc.Util            (toSscBlock)
 import           Pos.Util                (Some (..), maybeThrow)
 import           Pos.Util.Chrono         (NewestFirst (..))

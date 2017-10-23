@@ -35,8 +35,8 @@ import           Pos.Block.Core                   (Block, BlockHeader)
 import           Pos.Block.Slog                   (HasSlogContext (..),
                                                    HasSlogGState (..))
 import           Pos.Block.Types                  (Undo)
-import           Pos.Client.KeyStorage            (MonadKeys (..), getSecretDefault,
-                                                   modifySecretDefault)
+import           Pos.Client.KeyStorage            (MonadKeys (..), MonadKeysRead (..),
+                                                   getSecretDefault, modifySecretDefault)
 import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
 import           Pos.Client.Txp.Balances          (MonadBalances (..), getBalanceFromUtxo,
                                                    getOwnUtxosGenesis)
@@ -256,8 +256,10 @@ instance (HasConfiguration, HasInfraConfiguration) =>
             True -> largestPubKeyAddressSingleKey
 
 
-instance MonadKeys AuxxMode where
+instance MonadKeysRead AuxxMode where
     getSecret = getSecretDefault
+
+instance MonadKeys AuxxMode where
     modifySecret = modifySecretDefault
 
 type instance MempoolExt AuxxMode = EmptyMempoolExt

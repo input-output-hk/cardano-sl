@@ -36,7 +36,7 @@ import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (build, sformat, (%))
 import           System.Wlog                (WithLogger)
 
-import           Pos.Client.KeyStorage      (MonadKeys (..), addSecretKey,
+import           Pos.Client.KeyStorage      (MonadKeys (..), MonadKeysRead, addSecretKey,
                                              deleteSecretKey, getSecretKeysPlain)
 import           Pos.Core                   (Coin, sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Configuration     (HasConfiguration)
@@ -85,7 +85,7 @@ type MonadWalletLogicRead ctx m =
     , MonadBlockDB m
     , MonadBalances m
     , MonadWalletDBRead ctx m
-    , MonadKeys m
+    , MonadKeysRead m
     , MonadTxpMem WalletMempoolExt ctx m  -- TODO: remove these two once 'fixingCachedAccModifier' becomes useless
     , BlockLockMode ctx m
     , HasConfiguration
@@ -94,6 +94,7 @@ type MonadWalletLogicRead ctx m =
 type MonadWalletLogic ctx m =
     ( MonadWalletLogicRead ctx m
     , MonadWalletDB ctx m
+    , MonadKeys m
     )
 
 ----------------------------------------------------------------------------

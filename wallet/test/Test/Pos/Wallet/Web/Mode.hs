@@ -40,7 +40,8 @@ import           Pos.Block.BListener               (MonadBListener (..))
 import           Pos.Block.Core                    (Block, BlockHeader)
 import           Pos.Block.Slog                    (HasSlogGState (..))
 import           Pos.Block.Types                   (Undo)
-import           Pos.Client.KeyStorage             (MonadKeys (..), getSecretDefault,
+import           Pos.Client.KeyStorage             (MonadKeys (..), MonadKeysRead (..),
+                                                    getSecretDefault,
                                                     modifySecretPureDefault)
 import           Pos.Client.Txp.Addresses          (MonadAddresses (..))
 import           Pos.Client.Txp.Balances           (MonadBalances (..), getBalanceDefault)
@@ -407,8 +408,10 @@ instance HasConfigurations => MonadAddresses WalletTestMode where
     getNewAddress = getNewAddressWebWallet
     getFakeChangeAddress = pure largestHDAddressBoot
 
-instance MonadKeys WalletTestMode where
+instance MonadKeysRead WalletTestMode where
     getSecret = getSecretDefault
+
+instance MonadKeys WalletTestMode where
     modifySecret = modifySecretPureDefault
 
 instance (HasCompileInfo, HasConfigurations) => MonadTxHistory WalletTestMode where

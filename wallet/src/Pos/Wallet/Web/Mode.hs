@@ -34,8 +34,8 @@ import           Pos.Block.Core                    (Block, BlockHeader)
 import           Pos.Block.Slog                    (HasSlogContext (..),
                                                     HasSlogGState (..))
 import           Pos.Block.Types                   (Undo)
-import           Pos.Client.KeyStorage             (MonadKeys (..), getSecretDefault,
-                                                    modifySecretDefault)
+import           Pos.Client.KeyStorage             (MonadKeys (..), MonadKeysRead (..),
+                                                    getSecretDefault, modifySecretDefault)
 import           Pos.Client.Txp.Addresses          (MonadAddresses (..))
 import           Pos.Client.Txp.Balances           (MonadBalances (..), getBalanceDefault)
 import           Pos.Client.Txp.History            (MonadTxHistory (..),
@@ -215,6 +215,7 @@ type MonadWalletWebMode ctx m =
     , MonadUpdates m
     , MonadTxHistory m
     , MonadWalletDB ctx m
+    , MonadKeys m
     , MonadAddresses m
     , MonadRandom m
     , AddrData m ~ (AccountId, PassPhrase)
@@ -336,8 +337,10 @@ instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo) =>
     txpNormalize = txNormalize
     txpProcessTx = txProcessTransaction
 
-instance MonadKeys WalletWebMode where
+instance MonadKeysRead WalletWebMode where
     getSecret = getSecretDefault
+
+instance MonadKeys WalletWebMode where
     modifySecret = modifySecretDefault
 
 instance HasConfigurations => MonadWalletSendActions WalletWebMode where

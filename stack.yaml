@@ -47,8 +47,9 @@ packages:
     commit: 69583b607dd841b0de1ef660388172a94c660c84 # master
   extra-dep: true
 - location:
-    git: https://github.com/serokell/time-warp-nt.git
-    commit: 630b23847ea39778f5616134a4f416b473639a15 # master
+    git: https://github.com/arybczak/time-warp-nt.git
+    # master + https://github.com/serokell/time-warp-nt/pull/110
+    commit: 74acf3c98ec402490e4ae086a60227560cde166d
   extra-dep: true
 # These two are needed for time-warp-nt
 - location:
@@ -96,6 +97,7 @@ nix:
   shell-file: shell.nix
 
 extra-deps:
+- transformers-0.5.5.0            # https://hub.darcs.net/ross/transformers/issue/33#comment-20171004T152940
 - universum-0.6.1
 - serokell-util-0.5.0
 - pvss-0.2.0
@@ -117,6 +119,8 @@ extra-deps:
 - systemd-1.1.2
 # ekg-statsd version without the unnecessary diffing optimisation
 - ekg-statsd-0.2.2.0
+# https://github.com/fpco/lts-haskell/issues/70
+- fgl-5.5.3.1
 
 # This is for CI to pass --fast to all dependencies
 apply-ghc-options: everything

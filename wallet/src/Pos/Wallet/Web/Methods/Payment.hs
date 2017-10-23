@@ -14,7 +14,6 @@ import           Control.Exception                (throw)
 import           Control.Monad.Except             (runExcept)
 import           Formatting                       (sformat, (%))
 import qualified Formatting                       as F
-import           System.Wlog                      (logInfo)
 
 import           Pos.Aeson.ClientTypes            ()
 import           Pos.Aeson.WalletBackup           ()
@@ -35,6 +34,7 @@ import           Pos.Txp                          (TxFee (..), Utxo, _txOutputs)
 import           Pos.Txp.Core                     (TxAux (..), TxOut (..))
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util                         (eitherToThrow, maybeThrow)
+import           Pos.Util.LogSafe                 (logInfoS)
 import           Pos.Wallet.KeyStorage            (getSecretKeys)
 import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAddressPure,
                                                    getSKById)
@@ -183,7 +183,7 @@ sendMoney SendActions{..} passphrase moneySource dstDistr = do
 
             (th, dstAddrs) <$ submitAndSaveNewPtx enqueueMsg ptx
 
-    logInfo $
+    logInfoS $
         sformat ("Successfully spent money from "%
                     listF ", " addressF % " addresses on " %
                     listF ", " addressF)

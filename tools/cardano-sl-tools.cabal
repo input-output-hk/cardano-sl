@@ -1,5 +1,5 @@
 name:                cardano-sl-tools
-version:             1.0.1
+version:             1.0.2
 synopsis:            Cardano SL - Tools
 description:         Cardano SL - Tools
 license:             MIT
@@ -275,16 +275,20 @@ executable cardano-launcher
                      , data-default
                      , directory
                      , filepath
+                     , formatting
                      , lens
+                     , lifted-async
                      , log-warper
                      , neat-interpolation
                      , optparse-applicative
-                     , formatting
                      , process
+                     , safe-exceptions
                      , system-filepath
                      , text
                      , time-units
                      , universum
+  if !os(windows)
+    build-depends:     unix
   default-language:    Haskell2010
   ghc-options:         -threaded
                        -Wall

@@ -45,6 +45,7 @@ import           Pos.DHT.Model.Types       (DHTData, DHTException (..), DHTKey,
 import           Pos.DHT.Real.Param        (KademliaParams (..))
 import           Pos.DHT.Real.Types        (KademliaDHTInstance (..))
 import           Pos.Infra.Configuration   (HasInfraConfiguration)
+import           Pos.Util.LogSafe          (logInfoS)
 import           Pos.Util.TimeLimit        (runWithRandomIntervals')
 import           Pos.Util.TimeWarp         (NetworkAddress)
 
@@ -90,7 +91,7 @@ startDHTInstance kconf@KademliaParams {..} defaultBind = do
         extAddr  = maybe bindAddr (first B8.unpack) kpExternalAddress
     logInfo "Generating dht key.."
     kdiKey <- maybe randomDHTKey pure kpKey
-    logInfo $ sformat ("Generated dht key "%build) kdiKey
+    logInfoS $ sformat ("Generated dht key "%build) kdiKey
     kdiDumpPath <- case kpDumpFile of
         Nothing -> pure Nothing
         Just fp -> do

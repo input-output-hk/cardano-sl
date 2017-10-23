@@ -24,8 +24,7 @@ import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB.Class           (MonadDBRead, MonadGState (..))
 import qualified Pos.Explorer.DB        as ExDB
 import qualified Pos.GState             as GS
-import           Pos.KnownPeers         (MonadFormatPeers)
-import           Pos.Reporting          (HasReportingContext, reportError)
+import           Pos.Reporting          (MonadReporting, reportError)
 import           Pos.Slotting           (MonadSlots (getCurrentSlot), getSlotStart)
 import           Pos.StateLock          (Priority (..), StateLock, StateLockMetrics,
                                          withStateLock)
@@ -56,8 +55,7 @@ type ETxpLocalWorkMode ctx m =
     , MonadSlots ctx m
     , Mockable CurrentTime m
     , MonadMask m
-    , MonadFormatPeers m
-    , HasReportingContext ctx
+    , MonadReporting ctx m
     )
 
 type ETxpLocalDataPure = GenericTxpLocalDataPure ExplorerExtra
@@ -90,6 +88,8 @@ instance MonadTxExtraRead EProcessTxMode where
         view eptcExtraBase
     getAddrBalance addr =
         HM.lookup addr . eetAddrBalances <$> view eptcExtraBase
+    getUtxoSum =
+        eetUtxoSum <$> view eptcExtraBase
 
 eTxProcessTransaction
     :: (ETxpLocalWorkMode ctx m, MonadMask m,
@@ -140,11 +140,12 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $
     hmHistories <-
         buildMap allAddrs <$> mapM (fmap Just . ExDB.getAddrHistory) allAddrs
     hmBalances <- buildMap allAddrs <$> mapM ExDB.getAddrBalance allAddrs
+    utxoSum <- ExDB.getUtxoSum
     -- `eet` is passed to `processTxDo` where it is used in a ReaderT environment
     -- to provide underlying functions (`modifyAddrHistory` and `modifyAddrBalance`)
     -- with data to update. In case of `TxExtra` data is only added, but never updated,
     -- hence `mempty` here.
-    let eet = ExplorerExtraTxp mempty hmHistories hmBalances
+    let eet = ExplorerExtraTxp mempty hmHistories hmBalances utxoSum
     let ctx =
             EProcessTxContext
             { _eptcExtraBase = eet

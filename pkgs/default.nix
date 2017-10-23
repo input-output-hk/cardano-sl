@@ -4978,9 +4978,9 @@ self: {
           pname = "node-sketch";
           version = "0.2.0.0";
           src = fetchgit {
-            url = "https://github.com/serokell/time-warp-nt.git";
-            sha256 = "13avvcni90crjrq10xdpz8d6v5gawm1nw5rvj8lg6vkmcsy44zni";
-            rev = "630b23847ea39778f5616134a4f416b473639a15";
+            url = "https://github.com/arybczak/time-warp-nt.git";
+            sha256 = "0aijj6wq14k0ralji2rn0qiyq8rplcpvgnv43w3vqdxikbxsg85s";
+            rev = "74acf3c98ec402490e4ae086a60227560cde166d";
           };
           isLibrary = true;
           isExecutable = true;

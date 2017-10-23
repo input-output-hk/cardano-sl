@@ -99,16 +99,16 @@ You also can combine importing and sending a proposal in one command for your co
 
 
 ```
-stack exec -- cardano-auxx $COMMONOPTS $AUXXOPTS cmd --commands "add-key key0.sk primary, add-key key1.sk primary, add-key key2.sk primary, add-key key3.sk primary, propose-update 0 vote-all 0.0.0 0 20 2000000 csl-daedalus:1 win64 ${WIN64_INSTALLER} none macos64 ${DARWIN_INSTALLER} none"
+stack exec -- cardano-auxx $COMMONOPTS $AUXXOPTS cmd --commands "add-key key0.sk primary, add-key key1.sk primary, add-key key2.sk primary, add-key key3.sk primary, propose-update 0 vote-all 0.0.0 65536 70000 csl-daedalus:1 win64 ${WIN64_INSTALLER} none macos64 ${DARWIN_INSTALLER} none"
 ```
 
 Let's break down the invocation of `propose-update`. First come arguments that you almost certainly won't need to modify:
 
 * `0` is the index of key that will be used to sign the update.
 * `0.0.0` is block version to be used after the update. Currently it's `0.0.0` as well and so the update won't change the block version.
-* `0` is new script version. Again, it's the same as the current one.
-* `20` is new slot duration (in seconds). Unchanged.
-* `2000000` is new maximum block size (in bytes). Unchanged.
+* `65536` is maximal tx size. Should be set to this value (`65536`) in `0.1.0`.
+* `70000` is maximal size of update proposal. Should be set to this
+  value (`70000`) in `0.1.0`.
 
 The next argument (`csl-daedalus:1`) is software version description. You should substitute `1` (version) with the integer provided along with installers (see *Prerequisites* section).
 

@@ -13,23 +13,20 @@ import           Universum
 import qualified Data.ByteString.Lazy     as BSL
 import qualified Data.HashMap.Strict      as HM
 import           Data.List                ((!!))
-import           Data.Time.Units          (convertUnit)
 import           Formatting               (sformat, string, (%))
-import           Serokell.Util            (sec)
 import           System.Wlog              (logDebug)
 
 import           Pos.Binary               (Raw)
 import           Pos.Communication        (SendActions, immediateConcurrentConversations,
                                            submitUpdateProposal, submitVote)
 import           Pos.Configuration        (HasNodeConfiguration)
-import           Pos.Core.Configuration   (HasConfiguration, genesisBlockVersionData)
+import           Pos.Core.Configuration   (HasConfiguration)
 import           Pos.Crypto               (Hash, SignTag (SignUSVote), emptyPassphrase,
                                            encToPublic, hash, hashHexF, safeSign,
                                            unsafeHash, withSafeSigner, withSafeSigners)
 import           Pos.Data.Attributes      (mkAttributes)
 import           Pos.Infra.Configuration  (HasInfraConfiguration)
-import           Pos.Update               (BlockVersionData (..),
-                                           BlockVersionModifier (..), SystemTag, UpId,
+import           Pos.Update               (BlockVersionModifier (..), SystemTag, UpId,
                                            UpdateData (..), UpdateVote (..),
                                            installerHash, mkUpdateProposalWSign)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
@@ -92,20 +89,19 @@ propose sendActions ProposeUpdateParams{..} = do
     CmdCtx{ccPeers} <- getCmdCtx
     logDebug "Proposing update..."
     skey <- (!! puIdx) <$> getSecretKeysPlain
-    let BlockVersionData {..} = genesisBlockVersionData
     let bvm =
             BlockVersionModifier
-            { bvmScriptVersion     = Just puScriptVersion
-            , bvmSlotDuration      = Just $ convertUnit (sec puSlotDurationSec)
-            , bvmMaxBlockSize      = Just puMaxBlockSize
-            , bvmMaxHeaderSize     = Just bvdMaxHeaderSize
-            , bvmMaxTxSize         = Just bvdMaxTxSize
-            , bvmMaxProposalSize   = Just bvdMaxProposalSize
-            , bvmMpcThd            = Just bvdMpcThd
-            , bvmHeavyDelThd       = Just bvdHeavyDelThd
-            , bvmUpdateVoteThd     = Just bvdUpdateVoteThd
-            , bvmUpdateProposalThd = Just bvdUpdateProposalThd
-            , bvmUpdateImplicit    = Just bvdUpdateImplicit
+            { bvmScriptVersion     = Nothing
+            , bvmSlotDuration      = Nothing
+            , bvmMaxBlockSize      = Nothing
+            , bvmMaxHeaderSize     = Nothing
+            , bvmMaxTxSize         = Just puMaxTxSize
+            , bvmMaxProposalSize   = Just puMaxProposalSize
+            , bvmMpcThd            = Nothing
+            , bvmHeavyDelThd       = Nothing
+            , bvmUpdateVoteThd     = Nothing
+            , bvmUpdateProposalThd = Nothing
+            , bvmUpdateImplicit    = Nothing
             , bvmSoftforkRule      = Nothing
             , bvmTxFeePolicy       = Nothing
             , bvmUnlockStakeEpoch  = Nothing

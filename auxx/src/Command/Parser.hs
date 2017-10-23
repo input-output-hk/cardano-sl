@@ -130,7 +130,6 @@ proposeUpdateParams =
     lexeme parseBlockVersion <*>
     lexeme parseIntegralSafe <*>
     lexeme parseIntegralSafe <*>
-    lexeme parseIntegralSafe <*>
     lexeme parseSoftwareVersion <*>
     many1 parseProposeUpdateSystem
 

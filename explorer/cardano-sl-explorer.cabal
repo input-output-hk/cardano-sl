@@ -13,7 +13,9 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:      Pos.Explorer.Core
+  exposed-modules:      Pos.Explorer.ExplorerMode
+
+                        Pos.Explorer.Core
                         Pos.Explorer.DB
                         Pos.Explorer.ExtraContext
                         Pos.Explorer.Socket

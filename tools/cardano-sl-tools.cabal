@@ -275,20 +275,16 @@ executable cardano-launcher
                      , data-default
                      , directory
                      , filepath
-                     , formatting
                      , lens
-                     , lifted-async
                      , log-warper
                      , neat-interpolation
                      , optparse-applicative
+                     , formatting
                      , process
-                     , safe-exceptions
                      , system-filepath
                      , text
                      , time-units
                      , universum
-  if !os(windows)
-    build-depends:     unix
   default-language:    Haskell2010
   ghc-options:         -threaded
                        -Wall

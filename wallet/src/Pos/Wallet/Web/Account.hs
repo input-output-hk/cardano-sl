@@ -25,8 +25,9 @@ import           System.Random              (randomIO)
 import           System.Wlog                (WithLogger)
 import           Universum
 
-import           Pos.Client.KeyStorage      (AllUserSecrets (..), MonadKeys, addSecretKey,
-                                             getSecretKeys, getSecretKeysPlain)
+import           Pos.Client.KeyStorage      (AllUserSecrets (..), MonadKeys,
+                                             MonadKeysRead, addSecretKey, getSecretKeys,
+                                             getSecretKeysPlain)
 import           Pos.Core                   (Address (..), IsBootstrapEraAddr (..),
                                              deriveLvl2KeyPair)
 import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase,
@@ -36,17 +37,17 @@ import           Pos.Util.BackupPhrase      (BackupPhrase, safeKeysFromPhrase)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CId, CWAddressMeta (..), Wal,
                                              addrMetaToAccount, addressToCId, encToCId)
 import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), WebWalletModeDB,
+import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), MonadWalletDBRead,
                                              doesWAddressExist, getAccountMeta)
 
 type AccountMode ctx m =
-    ( MonadCatch m
+    ( MonadThrow m
     , WithLogger m
-    , MonadKeys m
-    , WebWalletModeDB ctx m
+    , MonadKeysRead m
+    , MonadWalletDBRead ctx m
     )
 
-myRootAddresses :: MonadKeys m => m [CId Wal]
+myRootAddresses :: MonadKeysRead m => m [CId Wal]
 myRootAddresses = encToCId <<$>> getSecretKeysPlain
 
 getAddrIdx :: AccountMode ctx m => CId Wal -> m Int
@@ -103,7 +104,7 @@ getSKByAddressPure secrets scp passphrase addrMeta@CWAddressMeta {..} = do
         else pure addressKey
 
 genSaveRootKey
-    :: AccountMode ctx m
+    :: (AccountMode ctx m, MonadKeys m)
     => PassPhrase
     -> BackupPhrase
     -> m EncryptedSecretKey

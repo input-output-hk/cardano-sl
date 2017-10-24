@@ -12,7 +12,6 @@ import           Universum
 import           Data.ByteString.Base58         (bitcoinAlphabet, decodeBase58)
 import qualified Serokell.Util.Base64           as B64
 
-import           Pos.Client.Txp.Addresses       (MonadAddresses)
 import           Pos.Client.Txp.History         (TxHistoryEntry (..))
 import           Pos.Communication              (prepareRedemptionTx)
 import           Pos.Core                       (getCurrentTimestamp)
@@ -30,9 +29,8 @@ import           Pos.Wallet.Web.Error           (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTx, constructCTx,
                                                  getCurChainDifficulty)
 import qualified Pos.Wallet.Web.Methods.Logic   as L
-import           Pos.Wallet.Web.Methods.Txp     (rewrapTxError, submitAndSaveNewPtx)
-import           Pos.Wallet.Web.Mode            (MonadWalletWebMode)
-import           Pos.Wallet.Web.Networking      (MonadWalletSendActions)
+import           Pos.Wallet.Web.Methods.Txp     (MonadWalletTxFull, rewrapTxError,
+                                                 submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Pending         (mkPendingTx)
 import           Pos.Wallet.Web.State           (AddressLookupMode (Ever))
 import           Pos.Wallet.Web.Tracking        (fixingCachedAccModifier)
@@ -40,7 +38,7 @@ import           Pos.Wallet.Web.Util            (decodeCTypeOrFail, getWalletAdd
 
 
 redeemAda
-    :: (MonadWalletWebMode ctx m, MonadAddresses m, MonadWalletSendActions m)
+    :: MonadWalletTxFull ctx m
     => PassPhrase -> CWalletRedeem -> m CTx
 redeemAda passphrase CWalletRedeem {..} = do
     seedBs <- maybe invalidBase64 pure
@@ -55,7 +53,7 @@ redeemAda passphrase CWalletRedeem {..} = do
 --  * https://github.com/input-output-hk/postvend-app/blob/master/src/CertGen.hs#L205
 --  * https://github.com/input-output-hk/postvend-app/blob/master/src/CertGen.hs#L160
 redeemAdaPaperVend
-    :: (MonadWalletWebMode ctx m, MonadAddresses m, MonadWalletSendActions m)
+    :: MonadWalletTxFull ctx m
     => PassPhrase
     -> CPaperVendWalletRedeem
     -> m CTx
@@ -76,7 +74,7 @@ redeemAdaPaperVend passphrase CPaperVendWalletRedeem {..} = do
         throwM . RequestError $ "Decryption failed: " <> show e
 
 redeemAdaInternal
-    :: (MonadWalletWebMode ctx m, MonadAddresses m, MonadWalletSendActions m)
+    :: MonadWalletTxFull ctx m
     => PassPhrase
     -> CAccountId
     -> ByteString

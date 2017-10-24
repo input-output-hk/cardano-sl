@@ -65,6 +65,7 @@ walletGuard curTip wAddr action = WS.getWalletSyncTip wAddr >>= \case
 onApplyBlocksWebWallet
     :: forall ctx m .
     ( AccountMode ctx m
+    , WS.MonadWalletDB ctx m
     , MonadSlotsData ctx m
     , MonadDBRead m
     , MonadReporting ctx m
@@ -105,6 +106,7 @@ onApplyBlocksWebWallet blunds = setLogger $ do
 onRollbackBlocksWebWallet
     :: forall ctx m .
     ( AccountMode ctx m
+    , WS.MonadWalletDB ctx m
     , MonadDBRead m
     , MonadSlots ctx m
     , MonadReporting ctx m

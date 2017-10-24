@@ -3,7 +3,8 @@
 -- | Wallet history
 
 module Pos.Wallet.Web.Methods.History
-       ( getHistoryLimited
+       ( MonadWalletHistory
+       , getHistoryLimited
        , addHistoryTx
        , constructCTx
        , getCurChainDifficulty
@@ -12,35 +13,45 @@ module Pos.Wallet.Web.Methods.History
 
 import           Universum
 
-import           Control.Exception          (throw)
-import qualified Data.Map.Strict            as Map
-import qualified Data.Set                   as S
-import           Data.Time.Clock.POSIX      (POSIXTime, getPOSIXTime)
-import           Formatting                 (build, sformat, stext, (%))
-import           Serokell.Util              (listJson)
-import           System.Wlog                (WithLogger, logWarning)
+import           Control.Exception            (throw)
+import qualified Data.Map.Strict              as Map
+import qualified Data.Set                     as S
+import           Data.Time.Clock.POSIX        (POSIXTime, getPOSIXTime)
+import           Formatting                   (build, sformat, stext, (%))
+import           Serokell.Util                (listJson)
+import           System.Wlog                  (WithLogger, logWarning)
 
-import           Pos.Client.Txp.History     (TxHistoryEntry (..), txHistoryListToMap)
-import           Pos.Core                   (ChainDifficulty, timestampToPosix)
-import           Pos.Txp.Core.Types         (TxId)
-import           Pos.Util.LogSafe           (logInfoS)
-import           Pos.Util.Servant           (encodeCType)
-import           Pos.Wallet.WalletMode      (getLocalHistory, localChainDifficulty,
-                                             networkChainDifficulty)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..), CTxId,
-                                             CTxMeta (..), CWAddressMeta (..), Wal, mkCTx)
-import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
-import           Pos.Wallet.Web.Pending     (PendingTx (..), ptxPoolInfo)
-import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), addOnlyNewTxMetas,
-                                             getHistoryCache, getPendingTx, getTxMeta,
-                                             getWalletPendingTxs, setWalletTxMeta)
-import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
-                                             getWalletAccountIds, getWalletAddrs,
-                                             getWalletAddrsSet)
+import           Pos.Client.Txp.History       (MonadTxHistory, TxHistoryEntry (..),
+                                               txHistoryListToMap)
+import           Pos.Core                     (ChainDifficulty, timestampToPosix)
+import           Pos.Txp.Core.Types           (TxId)
+import           Pos.Util.LogSafe             (logInfoS)
+import           Pos.Util.Servant             (encodeCType)
+import           Pos.Wallet.WalletMode        (MonadBlockchainInfo (..), getLocalHistory)
+import           Pos.Wallet.Web.ClientTypes   (AccountId (..), Addr, CId, CTx (..), CTxId,
+                                               CTxMeta (..), CWAddressMeta (..), Wal,
+                                               mkCTx)
+import           Pos.Wallet.Web.Error         (WalletError (..))
+import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic)
+import           Pos.Wallet.Web.Pending       (PendingTx (..), ptxPoolInfo)
+import           Pos.Wallet.Web.State         (AddressLookupMode (Ever), MonadWalletDB,
+                                               MonadWalletDBRead, addOnlyNewTxMetas,
+                                               getHistoryCache, getPendingTx, getTxMeta,
+                                               getWalletPendingTxs, setWalletTxMeta)
+import           Pos.Wallet.Web.Util          (decodeCTypeOrFail, getAccountAddrsOrThrow,
+                                               getWalletAccountIds, getWalletAddrs,
+                                               getWalletAddrsSet)
 
 
-getFullWalletHistory :: MonadWalletWebMode ctx m => CId Wal -> m (Map TxId (CTx, POSIXTime), Word)
+type MonadWalletHistory ctx m =
+    ( MonadWalletLogic ctx m
+    , MonadBlockchainInfo m
+    , MonadTxHistory m
+    )
+
+getFullWalletHistory
+    :: MonadWalletHistory ctx m
+    => CId Wal -> m (Map TxId (CTx, POSIXTime), Word)
 getFullWalletHistory cWalId = do
     addrs <- mapM decodeCTypeOrFail =<< getWalletAddrs Ever cWalId
 
@@ -71,7 +82,7 @@ getFullWalletHistory cWalId = do
     pure (cHistory, fromIntegral $ Map.size cHistory)
 
 getHistory
-    :: MonadWalletWebMode ctx m
+    :: MonadWalletHistory ctx m
     => CId Wal
     -> [AccountId]
     -> Maybe (CId Addr)
@@ -108,7 +119,7 @@ getHistory cWalId accIds mAddrId = do
         "Specified wallet/account does not contain specified address"
 
 getHistoryLimited
-    :: MonadWalletWebMode ctx m
+    :: MonadWalletHistory ctx m
     => Maybe (CId Wal)
     -> Maybe AccountId
     -> Maybe (CId Addr)
@@ -143,7 +154,7 @@ getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
         "Please do not specify both walletId and accountId at the same time"
 
 addHistoryTx
-    :: MonadWalletWebMode ctx m
+    :: MonadWalletDB ctx m
     => CId Wal
     -> TxHistoryEntry
     -> m ()
@@ -152,7 +163,7 @@ addHistoryTx cWalId = addHistoryTxs cWalId . txHistoryListToMap . one
 -- This functions is helper to do @addHistoryTx@ for
 -- all txs from mempool as one Acidic transaction.
 addHistoryTxs
-    :: MonadWalletWebMode ctx m
+    :: MonadWalletDB ctx m
     => CId Wal
     -> Map TxId TxHistoryEntry
     -> m ()
@@ -165,7 +176,7 @@ addHistoryTxs cWalId historyEntries = do
         Just ts -> pure $ timestampToPosix ts
 
 constructCTx
-    :: MonadWalletWebMode ctx m
+    :: (MonadThrow m, MonadWalletDBRead ctx m)
     => CId Wal
     -> Set (CId Addr)
     -> ChainDifficulty
@@ -179,15 +190,15 @@ constructCTx cWalId walAddrsSet diff wtx@THEntry{..} = do
     either (throwM . InternalError) (pure . (, ctmDate meta)) $
         mkCTx diff wtx meta ptxCond walAddrsSet
 
-getCurChainDifficulty :: MonadWalletWebMode ctx m => m ChainDifficulty
+getCurChainDifficulty :: MonadBlockchainInfo m => m ChainDifficulty
 getCurChainDifficulty = maybe localChainDifficulty pure =<< networkChainDifficulty
 
-updateTransaction :: MonadWalletWebMode ctx m => AccountId -> CTxId -> CTxMeta -> m ()
+updateTransaction :: MonadWalletDB ctx m => AccountId -> CTxId -> CTxMeta -> m ()
 updateTransaction accId txId txMeta = do
     setWalletTxMeta (aiWId accId) txId txMeta
 
 addRecentPtxHistory
-    :: MonadWalletWebMode ctx m
+    :: (WithLogger m, MonadWalletDB ctx m)
     => CId Wal -> Map TxId TxHistoryEntry -> m (Map TxId TxHistoryEntry)
 addRecentPtxHistory wid currentHistory = do
     pendingTxs <- getWalletPendingTxs wid

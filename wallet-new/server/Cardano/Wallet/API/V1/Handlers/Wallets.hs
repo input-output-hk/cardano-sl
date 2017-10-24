@@ -25,7 +25,13 @@ toError err@ServantErr{..} we =
 handlers :: Server Wallets.API
 handlers =   newWallet
         :<|> listWallets
-        :<|> newAccount
+        :<|> (\walletId -> do
+                     newAccount walletId
+                :<|> updatePassword walletId
+                :<|> deleteWallet walletId
+                :<|> getWallet walletId
+                :<|> updateWallet walletId
+             )
 
 newWallet :: Wallet -> Handler Wallet
 newWallet = return . identity
@@ -72,3 +78,15 @@ newAccount w@(WalletId wId) _ Account{..} = do
            , accName = accName
            , accWalletId = w
            }
+
+updatePassword :: WalletId -> PasswordUpdate -> Handler Wallet
+updatePassword _ _ = liftIO $ generate arbitrary
+
+deleteWallet :: WalletId -> Handler NoContent
+deleteWallet _ = return NoContent
+
+getWallet :: WalletId -> Handler Wallet
+getWallet _ = liftIO $ generate arbitrary
+
+updateWallet :: WalletId -> Wallet -> Handler Wallet
+updateWallet _ _ = liftIO $ generate arbitrary

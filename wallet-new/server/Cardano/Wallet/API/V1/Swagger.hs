@@ -197,6 +197,12 @@ instance ToDocs Wallet where
     return $ s & (schema . description ?~ withExample p "A Wallet.")
                . (schema . example ?~ toJSON @Wallet genExample)
 
+instance ToDocs PasswordUpdate where
+  annotate f p = do
+    s <- f p
+    return $ s & (schema . description ?~ withExample p "A PasswordUpdate incapsulate a request for changing a password.")
+               . (schema . example ?~ toJSON @PasswordUpdate genExample)
+
 instance ToSchema APIVersion where
   declareNamedSchema = annotate fromArbitraryJSON
 
@@ -216,6 +222,9 @@ instance ToSchema Metadata where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToSchema Wallet where
+  declareNamedSchema = annotate fromArbitraryJSON
+
+instance ToSchema PasswordUpdate where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToDocs a => ToDocs (ExtendedResponse a) where

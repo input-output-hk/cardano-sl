@@ -21,6 +21,7 @@ module Cardano.Wallet.API.V1.Types (
   , Account (..)
   , AccountId
   , Address (..)
+  , PasswordUpdate (..)
   ) where
 
 import           Universum
@@ -223,3 +224,17 @@ instance Arbitrary Account where
                                    <*> fmap getPositive arbitrary
                                    <*> fmap fromString arbitrary
                                    <*> arbitrary
+
+-- | A type incapsulating a password update request.
+data PasswordUpdate = PasswordUpdate
+  { -- | The old password.
+    pwdOld :: !Text
+    -- | The new password.
+  , pwdNew :: !Text
+  } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''PasswordUpdate
+
+instance Arbitrary PasswordUpdate where
+  arbitrary = PasswordUpdate <$> fmap fromString arbitrary
+                             <*> fmap fromString arbitrary

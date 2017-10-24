@@ -20,4 +20,14 @@ type API =
                                    :> Summary "Creates a new Account for the given Wallet."
                                    :> ReqBody '[JSON] Account
                                    :> Post '[JSON] Account
+                   :<|> "password" :> Summary "Updates the password for the given Wallet."
+                                   :> ReqBody '[JSON] PasswordUpdate
+                                   :> Put '[JSON] Wallet
+                   :<|> Summary "Deletes the given Wallet and all its accounts."
+                        :> DeleteNoContent '[JSON] NoContent
+                   :<|> Summary "Returns the Wallet identified by the given walletId."
+                        :> Get '[JSON] Wallet
+                   :<|> Summary "Update the Wallet identified by the given walletId."
+                        :> ReqBody '[JSON] Wallet
+                        :> Put '[JSON] Wallet
                    )

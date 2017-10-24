@@ -240,9 +240,129 @@
             },
             "type": "array",
             "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Wallet] or [Wallet] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"backupPhrase\": \"MyBackupPhraseHashed\",\n        \"assurance\": \"assuranceStrict\",\n        \"id\": \"1Z1F10ADD10F9872\",\n        \"unit\": 3\n    },\n    {\n        \"backupPhrase\": \"MyBackupPhraseHashed\",\n        \"assurance\": \"assuranceStrict\",\n        \"id\": \"1Z1F10ADD10F9872\",\n        \"unit\": 3\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"backupPhrase\": \"MyBackupPhraseHashed\",\n            \"assurance\": \"assuranceNormal\",\n            \"id\": \"1Z1F10ADD10F9872\",\n            \"unit\": 3\n        },\n        {\n            \"backupPhrase\": \"MyBackupPhraseHashed\",\n            \"assurance\": \"assuranceStrict\",\n            \"id\": \"1Z1F10ADD10F9872\",\n            \"unit\": 3\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}</pre>"
+        },
+        "PasswordUpdate": {
+            "example": {
+                "old": "Vç",
+                "new": "¯"
+            },
+            "required": [
+                "old",
+                "new"
+            ],
+            "type": "object",
+            "description": "A PasswordUpdate incapsulate a request for changing a password. Here's an example:<br><br><pre>{\n    \"old\": \"Vç\",\n    \"new\": \"¯\"\n}</pre>",
+            "properties": {
+                "old": {
+                    "type": "string"
+                },
+                "new": {
+                    "type": "string"
+                }
+            }
         }
     },
     "paths": {
+        "/api/v1/wallets/{walletId}": {
+            "get": {
+                "summary": "Returns the Wallet identified by the given walletId.",
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/Wallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "V1",
+                    "Wallets"
+                ]
+            },
+            "delete": {
+                "summary": "Deletes the given Wallet and all its accounts.",
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "204": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "V1",
+                    "Wallets"
+                ]
+            },
+            "put": {
+                "summary": "Update the Wallet identified by the given walletId.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/Wallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/Wallet"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "V1",
+                    "Wallets"
+                ]
+            }
+        },
         "/api/v1/accounts/{accountId}": {
             "get": {
                 "summary": "Retrieves a specific Account, given its Id.",
@@ -487,6 +607,51 @@
                         "name": "Daedalus-Response-Format",
                         "type": "string",
                         "description": "It has the same effect of setting `extended=true` in the URL as a query parameter.\nIf the header `Daedalus-Response-Format` is present in the HTTP request with a value set to\n`extended`, the fetched data will be wrapped in an `ExtendedResponse`.\n"
+                    }
+                ],
+                "tags": [
+                    "V1",
+                    "Wallets"
+                ]
+            }
+        },
+        "/api/v1/wallets/{walletId}/password": {
+            "put": {
+                "summary": "Updates the password for the given Wallet.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/Wallet"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/PasswordUpdate"
+                        },
+                        "in": "body",
+                        "name": "body"
                     }
                 ],
                 "tags": [

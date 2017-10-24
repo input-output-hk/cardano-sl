@@ -19,6 +19,7 @@ library
                        Cardano.Wallet.API.V1.Parameters
                        Cardano.Wallet.API.V1.Addresses
                        Cardano.Wallet.API.V1.Accounts
+                       Cardano.Wallet.API.V1.Payments
                        Cardano.Wallet.API.V1.Wallets
                        Cardano.Wallet.API.V1.Errors
                        Cardano.Wallet.API.V0
@@ -59,6 +60,7 @@ executable wallet-new-server
                        Cardano.Wallet.API.V1.Handlers
                        Cardano.Wallet.API.V1.Handlers.Accounts
                        Cardano.Wallet.API.V1.Handlers.Addresses
+                       Cardano.Wallet.API.V1.Handlers.Payments
                        Cardano.Wallet.API.V1.Handlers.Wallets
                        Cardano.Wallet.API.V1.Swagger
                        Cardano.Wallet.Server

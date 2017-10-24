@@ -40,6 +40,89 @@
                 }
             }
         },
+        "Payment": {
+            "example": {
+                "sourceAccount": {
+                    "amount": 2,
+                    "addresses": [
+                        {
+                            "id": "DEADBeef"
+                        },
+                        {
+                            "id": "123456"
+                        }
+                    ],
+                    "name": "õ",
+                    "walletId": "1Z1F10ADD10F9872",
+                    "id": "DEADBeef"
+                },
+                "amount": -1,
+                "destinationAddress": {
+                    "id": "DEADBeef"
+                }
+            },
+            "required": [
+                "sourceAccount",
+                "amount",
+                "destinationAddress"
+            ],
+            "type": "object",
+            "description": "A request for exchange of `Coins` from one entity to another. Here's an example:<br><br><pre>{\n    \"sourceAccount\": {\n        \"amount\": 2,\n        \"addresses\": [\n            {\n                \"id\": \"DEADBeef\"\n            },\n            {\n                \"id\": \"123456\"\n            }\n        ],\n        \"name\": \"õ\",\n        \"walletId\": \"1Z1F10ADD10F9872\",\n        \"id\": \"DEADBeef\"\n    },\n    \"amount\": -1,\n    \"destinationAddress\": {\n        \"id\": \"DEADBeef\"\n    }\n}</pre>",
+            "properties": {
+                "sourceAccount": {
+                    "required": [
+                        "amount",
+                        "addresses",
+                        "name",
+                        "walletId",
+                        "id"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "amount": {
+                            "type": "number"
+                        },
+                        "addresses": {
+                            "items": {
+                                "required": [
+                                    "id"
+                                ],
+                                "type": "object",
+                                "properties": {
+                                    "id": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
+                            "type": "array"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "walletId": {
+                            "type": "string"
+                        },
+                        "id": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "amount": {
+                    "type": "number"
+                },
+                "destinationAddress": {
+                    "required": [
+                        "id"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "id": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "WalletVersion": {
             "example": {
                 "gitRev": "6f1131adca2f0bc6d24c9181cabd2b9e0704fd79",
@@ -203,6 +286,61 @@
                 },
                 "id": {
                     "type": "string"
+                }
+            }
+        },
+        "Transaction": {
+            "example": {
+                "sourceAccount": {
+                    "amount": 2,
+                    "addresses": [
+                        {
+                            "id": "DEADBeef"
+                        },
+                        {
+                            "id": "123456"
+                        }
+                    ],
+                    "name": "õ",
+                    "walletId": "1Z1F10ADD10F9872",
+                    "id": "DEADBeef"
+                },
+                "amount": -1,
+                "destinationAddress": {
+                    "id": "DEADBeef"
+                }
+            },
+            "required": [
+                "amount",
+                "confirmations",
+                "id"
+            ],
+            "type": "object",
+            "description": "A Wallet Transaction. Here's an example:<br><br><pre>{\n    \"amount\": 1,\n    \"confirmations\": 3,\n    \"id\": \"U\"\n}</pre>",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "confirmations": {
+                    "type": "number"
+                },
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
+        "EstimatedFees": {
+            "example": {
+                "estimatedAmount": 4
+            },
+            "required": [
+                "estimatedAmount"
+            ],
+            "type": "object",
+            "description": "Estimated fees for a `Payment`. Here's an example:<br><br><pre>{\n    \"estimatedAmount\": 4\n}</pre>",
+            "properties": {
+                "estimatedAmount": {
+                    "type": "number"
                 }
             }
         },
@@ -508,6 +646,42 @@
                 ]
             }
         },
+        "/api/v1/payments/fees": {
+            "post": {
+                "summary": "Estimate the fees which would originate from the payment.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/EstimatedFees"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/Payment"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "Payments",
+                    "V1"
+                ]
+            }
+        },
         "/api/v0/version": {
             "get": {
                 "summary": "Returns the version for this API.",
@@ -524,6 +698,42 @@
                 ],
                 "tags": [
                     "V0"
+                ]
+            }
+        },
+        "/api/v1/payments": {
+            "post": {
+                "summary": "Generates a new payment from the source Account to the target Address.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/Transaction"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/Payment"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "Payments",
+                    "V1"
                 ]
             }
         },

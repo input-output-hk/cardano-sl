@@ -203,6 +203,24 @@ instance ToDocs PasswordUpdate where
     return $ s & (schema . description ?~ withExample p "A PasswordUpdate incapsulate a request for changing a password.")
                . (schema . example ?~ toJSON @PasswordUpdate genExample)
 
+instance ToDocs EstimatedFees where
+  annotate f p = do
+    s <- f p
+    return $ s & (schema . description ?~ withExample p "Estimated fees for a `Payment`.")
+               . (schema . example ?~ toJSON @EstimatedFees genExample)
+
+instance ToDocs Payment where
+  annotate f p = do
+    s <- f p
+    return $ s & (schema . description ?~ withExample p "A request for exchange of `Coins` from one entity to another.")
+               . (schema . example ?~ toJSON @Payment genExample)
+
+instance ToDocs Transaction where
+  annotate f p = do
+    s <- f p
+    return $ s & (schema . description ?~ withExample p "A Wallet Transaction.")
+               . (schema . example ?~ toJSON @Transaction genExample)
+
 instance ToSchema APIVersion where
   declareNamedSchema = annotate fromArbitraryJSON
 
@@ -225,6 +243,15 @@ instance ToSchema Wallet where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToSchema PasswordUpdate where
+  declareNamedSchema = annotate fromArbitraryJSON
+
+instance ToSchema EstimatedFees where
+  declareNamedSchema = annotate fromArbitraryJSON
+
+instance ToSchema Transaction where
+  declareNamedSchema = annotate fromArbitraryJSON
+
+instance ToSchema Payment where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToDocs a => ToDocs (ExtendedResponse a) where

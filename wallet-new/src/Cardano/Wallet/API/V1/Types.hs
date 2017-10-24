@@ -22,6 +22,9 @@ module Cardano.Wallet.API.V1.Types (
   , AccountId
   , Address (..)
   , PasswordUpdate (..)
+  , Payment (..)
+  , Transaction (..)
+  , EstimatedFees (..)
   ) where
 
 import           Universum
@@ -176,6 +179,7 @@ instance Arbitrary WalletId where
 instance FromHttpApiData WalletId where
     parseQueryParam = Right . WalletId
 
+type Coins = Int
 
 -- | A Wallet.
 data Wallet = Wallet {
@@ -209,7 +213,7 @@ type AccountId = Text
 data Account = Account
   { accId        :: !AccountId
   , accAddresses :: [Address]
-  , accAmount    :: !Int
+  , accAmount    :: !Coins
   -- | The Account name.
   , accName      :: !Text
   -- | The parent Wallet Id.
@@ -238,3 +242,51 @@ deriveJSON Serokell.defaultOptions ''PasswordUpdate
 instance Arbitrary PasswordUpdate where
   arbitrary = PasswordUpdate <$> fmap fromString arbitrary
                              <*> fmap fromString arbitrary
+
+-- | `EstimatedFees` represents the fees which would be generated
+-- for a payment in case the latter would actually be performed.
+data EstimatedFees = EstimatedFees
+  { -- | The estimated fees, as coins.
+    feeEstimatedAmount :: !Coins
+  } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''EstimatedFees
+
+instance Arbitrary EstimatedFees where
+  arbitrary = EstimatedFees <$> fmap getPositive arbitrary
+
+-- | Stub type for a `Payment`.
+data Payment = Payment
+  { -- | The source Account.
+    pmtSourceAccount      :: !Account
+    -- | The destination Address.
+  , pmtDestinationAddress :: !Address
+    -- | The amount for this payment.
+  , pmtAmount             :: !Coins
+  } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''Payment
+
+instance Arbitrary Payment where
+  arbitrary = Payment <$> arbitrary
+                      <*> arbitrary
+                      <*> fmap getPositive arbitrary
+
+type TxId = Text
+
+-- | A Wallet Transaction.
+data Transaction = Transaction
+  { -- | The Tx Id.
+    txId            :: TxId
+    -- | The number of confirmations.
+  , txConfirmations :: !Int
+    -- | The coins moved as part of this transaction.
+  , txAmount        :: !Coins
+  } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''Transaction
+
+instance Arbitrary Transaction where
+  arbitrary = Transaction <$> fmap fromString arbitrary
+                          <*> fmap getPositive arbitrary
+                          <*> fmap getPositive arbitrary

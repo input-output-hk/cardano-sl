@@ -31,9 +31,9 @@ import           Pos.Launcher.Resource          (NodeResources)
 import           Pos.Launcher.Runner            (runRealBasedMode)
 import           Pos.Util.CompileInfo           (HasCompileInfo)
 import           Pos.Util.TimeWarp              (NetworkAddress)
+import           Pos.Wallet.WalletMode          (WalletMempoolExt)
 import           Pos.Wallet.Web.Methods         (addInitialRichAccount)
-import           Pos.Wallet.Web.Mode            (WalletMempoolExt, WalletWebMode,
-                                                 WalletWebModeContext (..),
+import           Pos.Wallet.Web.Mode            (WalletWebMode, WalletWebModeContext (..),
                                                  WalletWebModeContextTag)
 import           Pos.Wallet.Web.Server.Launcher (walletApplication, walletServeImpl,
                                                  walletServer)

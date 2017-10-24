@@ -106,10 +106,9 @@ import           Pos.Wallet.Redirect               (applyLastUpdateWebWallet,
 import           Pos.Wallet.Web.Networking         (MonadWalletSendActions (..))
 
 import           Pos.Wallet.WalletMode             (MonadBlockchainInfo (..),
-                                                    MonadUpdates (..))
+                                                    MonadUpdates (..), WalletMempoolExt)
 import           Pos.Wallet.Web.ClientTypes        (AccountId)
-import           Pos.Wallet.Web.Mode               (WalletMempoolExt,
-                                                    getNewAddressWebWallet,
+import           Pos.Wallet.Web.Mode               (getNewAddressWebWallet,
                                                     getOwnUtxosDefault)
 import           Pos.Wallet.Web.State              (MonadWalletDB, WalletState,
                                                     openMemState)

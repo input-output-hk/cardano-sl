@@ -3,8 +3,7 @@
 {-# LANGUAGE TypeOperators       #-}
 
 module Pos.Wallet.Web.Mode
-       ( WalletMempoolExt
-       , WalletWebMode
+       ( WalletWebMode
        , WalletWebModeContextTag
        , WalletWebModeContext(..)
        , MonadWalletWebMode

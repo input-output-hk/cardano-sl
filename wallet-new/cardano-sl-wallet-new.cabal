@@ -83,7 +83,9 @@ executable wallet-new-server
                      , text
                      , universum
                      , warp
+                     , wai
                      , wai-extra
+                     , wai-cors
   default-language:    Haskell2010
   default-extensions: TypeOperators
                       DataKinds

@@ -12,7 +12,12 @@ import           Data.Aeson.Encode.Pretty             (encodePretty)
 import qualified Data.ByteString.Lazy.Char8           as BL8
 import           Data.Function                        ((&))
 import           Data.String                          (fromString)
+import           Network.Wai                          (Middleware)
 import qualified Network.Wai.Handler.Warp             as Warp
+import           Network.Wai.Middleware.Cors          (cors, corsMethods,
+                                                       corsRequestHeaders,
+                                                       simpleCorsResourcePolicy,
+                                                       simpleMethods)
 import           Network.Wai.Middleware.RequestLogger (logStdout)
 import           Servant
 
@@ -30,9 +35,17 @@ data ServerConfig = ServerConfig
 runWalletServer :: MonadIO m => ServerConfig -> m ()
 runWalletServer ServerConfig{..} = do
   let app = serve API.walletAPI Server.walletServer
-  liftIO $ Warp.runSettings warpSettings (logStdout app)
+  let middleware = corsMiddleware . logStdout
+  liftIO $ Warp.runSettings warpSettings (middleware app)
   where
     warpSettings = Warp.defaultSettings & Warp.setPort configPort & Warp.setHost (fromString configHost)
+
+corsMiddleware :: Middleware
+corsMiddleware = cors (const $ Just policy)
+    where
+      policy = simpleCorsResourcePolicy
+        { corsRequestHeaders = ["Content-Type"]
+        , corsMethods = "PUT" : simpleMethods }
 
 main :: IO ()
 main = do

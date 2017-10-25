@@ -187,6 +187,8 @@ data Wallet = Wallet {
     , walBackupPhrase :: BackupPhrase
     , walUnit         :: !Int
     , walAssurance    :: WalletAssurance
+    -- | The name for this wallet.
+    , walName         :: Text
     }
 
 deriveJSON Serokell.defaultOptions  ''Wallet
@@ -196,6 +198,7 @@ instance Arbitrary Wallet where
                      <*> pure "MyBackupPhraseHashed"
                      <*> fmap getPositive arbitrary
                      <*> arbitrary
+                     <*> pure "My wallet"
 
 -- Placeholder.
 newtype Address = Address

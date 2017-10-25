@@ -13,20 +13,25 @@
         "Wallet": {
             "example": {
                 "backupPhrase": "MyBackupPhraseHashed",
-                "assurance": "assuranceStrict",
+                "name": "My wallet",
+                "assurance": "assuranceNormal",
                 "id": "1Z1F10ADD10F9872",
                 "unit": 3
             },
             "required": [
                 "backupPhrase",
+                "name",
                 "assurance",
                 "id",
                 "unit"
             ],
             "type": "object",
-            "description": "A Wallet. Here's an example:<br><br><pre>{\n    \"backupPhrase\": \"MyBackupPhraseHashed\",\n    \"assurance\": \"assuranceStrict\",\n    \"id\": \"1Z1F10ADD10F9872\",\n    \"unit\": 3\n}</pre>",
+            "description": "A Wallet. Here's an example:<br><br><pre>{\n    \"backupPhrase\": \"MyBackupPhraseHashed\",\n    \"name\": \"My wallet\",\n    \"assurance\": \"assuranceNormal\",\n    \"id\": \"1Z1F10ADD10F9872\",\n    \"unit\": 3\n}</pre>",
             "properties": {
                 "backupPhrase": {
+                    "type": "string"
+                },
+                "name": {
                     "type": "string"
                 },
                 "assurance": {
@@ -56,7 +61,7 @@
                     "walletId": "1Z1F10ADD10F9872",
                     "id": "DEADBeef"
                 },
-                "amount": -1,
+                "amount": 1,
                 "destinationAddress": {
                     "id": "DEADBeef"
                 }
@@ -67,7 +72,7 @@
                 "destinationAddress"
             ],
             "type": "object",
-            "description": "A request for exchange of `Coins` from one entity to another. Here's an example:<br><br><pre>{\n    \"sourceAccount\": {\n        \"amount\": 2,\n        \"addresses\": [\n            {\n                \"id\": \"DEADBeef\"\n            },\n            {\n                \"id\": \"123456\"\n            }\n        ],\n        \"name\": \"õ\",\n        \"walletId\": \"1Z1F10ADD10F9872\",\n        \"id\": \"DEADBeef\"\n    },\n    \"amount\": -1,\n    \"destinationAddress\": {\n        \"id\": \"DEADBeef\"\n    }\n}</pre>",
+            "description": "A request for exchange of `Coins` from one entity to another. Here's an example:<br><br><pre>{\n    \"sourceAccount\": {\n        \"amount\": 2,\n        \"addresses\": [\n            {\n                \"id\": \"DEADBeef\"\n            },\n            {\n                \"id\": \"123456\"\n            }\n        ],\n        \"name\": \"õ\",\n        \"walletId\": \"1Z1F10ADD10F9872\",\n        \"id\": \"DEADBeef\"\n    },\n    \"amount\": 1,\n    \"destinationAddress\": {\n        \"id\": \"DEADBeef\"\n    }\n}</pre>",
             "properties": {
                 "sourceAccount": {
                     "required": [
@@ -291,24 +296,9 @@
         },
         "Transaction": {
             "example": {
-                "sourceAccount": {
-                    "amount": 2,
-                    "addresses": [
-                        {
-                            "id": "DEADBeef"
-                        },
-                        {
-                            "id": "123456"
-                        }
-                    ],
-                    "name": "õ",
-                    "walletId": "1Z1F10ADD10F9872",
-                    "id": "DEADBeef"
-                },
-                "amount": -1,
-                "destinationAddress": {
-                    "id": "DEADBeef"
-                }
+                "amount": 1,
+                "confirmations": 3,
+                "id": "U"
             },
             "required": [
                 "amount",
@@ -348,7 +338,8 @@
             "example": [
                 {
                     "backupPhrase": "MyBackupPhraseHashed",
-                    "assurance": "assuranceNormal",
+                    "name": "My wallet",
+                    "assurance": "assuranceStrict",
                     "id": "1Z1F10ADD10F9872",
                     "unit": 3
                 }
@@ -356,6 +347,7 @@
             "items": {
                 "required": [
                     "backupPhrase",
+                    "name",
                     "assurance",
                     "id",
                     "unit"
@@ -363,6 +355,9 @@
                 "type": "object",
                 "properties": {
                     "backupPhrase": {
+                        "type": "string"
+                    },
+                    "name": {
                         "type": "string"
                     },
                     "assurance": {
@@ -377,7 +372,7 @@
                 }
             },
             "type": "array",
-            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Wallet] or [Wallet] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"backupPhrase\": \"MyBackupPhraseHashed\",\n        \"assurance\": \"assuranceStrict\",\n        \"id\": \"1Z1F10ADD10F9872\",\n        \"unit\": 3\n    },\n    {\n        \"backupPhrase\": \"MyBackupPhraseHashed\",\n        \"assurance\": \"assuranceStrict\",\n        \"id\": \"1Z1F10ADD10F9872\",\n        \"unit\": 3\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"backupPhrase\": \"MyBackupPhraseHashed\",\n            \"assurance\": \"assuranceNormal\",\n            \"id\": \"1Z1F10ADD10F9872\",\n            \"unit\": 3\n        },\n        {\n            \"backupPhrase\": \"MyBackupPhraseHashed\",\n            \"assurance\": \"assuranceStrict\",\n            \"id\": \"1Z1F10ADD10F9872\",\n            \"unit\": 3\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}</pre>"
+            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Wallet] or [Wallet] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"backupPhrase\": \"MyBackupPhraseHashed\",\n        \"name\": \"My wallet\",\n        \"assurance\": \"assuranceStrict\",\n        \"id\": \"1Z1F10ADD10F9872\",\n        \"unit\": 1\n    },\n    {\n        \"backupPhrase\": \"MyBackupPhraseHashed\",\n        \"name\": \"My wallet\",\n        \"assurance\": \"assuranceNormal\",\n        \"id\": \"1Z1F10ADD10F9872\",\n        \"unit\": 3\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"backupPhrase\": \"MyBackupPhraseHashed\",\n            \"name\": \"My wallet\",\n            \"assurance\": \"assuranceNormal\",\n            \"id\": \"1Z1F10ADD10F9872\",\n            \"unit\": 2\n        },\n        {\n            \"backupPhrase\": \"MyBackupPhraseHashed\",\n            \"name\": \"My wallet\",\n            \"assurance\": \"assuranceStrict\",\n            \"id\": \"1Z1F10ADD10F9872\",\n            \"unit\": 2\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}</pre>"
         },
         "PasswordUpdate": {
             "example": {

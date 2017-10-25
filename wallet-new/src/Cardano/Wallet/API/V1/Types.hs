@@ -13,18 +13,21 @@ module Cardano.Wallet.API.V1.Types (
   , maxPerPageEntries
   , defaultPerPageEntries
   , OneOf (..)
+  , PasswordUpdate (..)
   -- * Error handling
   , WalletError (..)
   -- * Domain-specific types
   , Wallet (..)
   , WalletId (..)
+  , Address (..)
   , Account (..)
   , AccountId
-  , Address (..)
-  , PasswordUpdate (..)
+  -- * Payments
   , Payment (..)
   , Transaction (..)
   , EstimatedFees (..)
+  -- * Updates
+  , WalletUpdate (..)
   ) where
 
 import           Universum
@@ -295,3 +298,18 @@ instance Arbitrary Transaction where
   arbitrary = Transaction <$> fmap fromString arbitrary
                           <*> fmap getPositive arbitrary
                           <*> fmap getPositive arbitrary
+
+-- | A type representing an upcoming wallet update.
+data WalletUpdate = WalletUpdate
+  { updSoftwareVersion   :: !Text
+  , updBlockchainVersion :: !Text
+  , updScriptVersion     :: !Int
+  -- Other types omitted for now.
+  } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''WalletUpdate
+
+instance Arbitrary WalletUpdate where
+  arbitrary = WalletUpdate <$> fmap fromString arbitrary
+                           <*> fmap fromString arbitrary
+                           <*> fmap getPositive arbitrary

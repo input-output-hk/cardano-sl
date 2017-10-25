@@ -7,8 +7,7 @@ import           Cardano.Wallet.API.V1.Types
 import qualified Cardano.Wallet.API.V1.Wallets           as Wallets
 
 import           Servant
-import           Test.QuickCheck                         (arbitrary, generate, listOf1,
-                                                          resize)
+import           Test.QuickCheck                         (arbitrary, generate, resize)
 
 handlers :: Server Wallets.API
 handlers =   newWallet

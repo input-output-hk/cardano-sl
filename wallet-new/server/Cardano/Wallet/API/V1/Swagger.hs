@@ -221,6 +221,12 @@ instance ToDocs Transaction where
     return $ s & (schema . description ?~ withExample p "A Wallet Transaction.")
                . (schema . example ?~ toJSON @Transaction genExample)
 
+instance ToDocs WalletUpdate where
+  annotate f p = do
+    s <- f p
+    return $ s & (schema . description ?~ withExample p "A programmed update to the system.")
+               . (schema . example ?~ toJSON @WalletUpdate genExample)
+
 instance ToSchema APIVersion where
   declareNamedSchema = annotate fromArbitraryJSON
 
@@ -252,6 +258,9 @@ instance ToSchema Transaction where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToSchema Payment where
+  declareNamedSchema = annotate fromArbitraryJSON
+
+instance ToSchema WalletUpdate where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToDocs a => ToDocs (ExtendedResponse a) where

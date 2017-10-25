@@ -238,6 +238,31 @@
                 }
             }
         },
+        "WalletUpdate": {
+            "example": {
+                "scriptVersion": 1,
+                "blockchainVersion": "",
+                "softwareVersion": "U"
+            },
+            "required": [
+                "scriptVersion",
+                "blockchainVersion",
+                "softwareVersion"
+            ],
+            "type": "object",
+            "description": "A programmed update to the system. Here's an example:<br><br><pre>{\n    \"scriptVersion\": 1,\n    \"blockchainVersion\": \"\",\n    \"softwareVersion\": \"U\"\n}</pre>",
+            "properties": {
+                "scriptVersion": {
+                    "type": "number"
+                },
+                "blockchainVersion": {
+                    "type": "string"
+                },
+                "softwareVersion": {
+                    "type": "string"
+                }
+            }
+        },
         "Account": {
             "example": {
                 "amount": 3,
@@ -628,6 +653,26 @@
                 ]
             }
         },
+        "/api/v1/updates": {
+            "post": {
+                "summary": "Applies the update. Returns info about the update being applied.",
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/WalletUpdate"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "Updates",
+                    "V1"
+                ]
+            }
+        },
         "/api/version": {
             "get": {
                 "summary": "Returns the version for this API.",
@@ -748,7 +793,7 @@
                     "400": {
                         "description": "Invalid `body`"
                     },
-                    "200": {
+                    "201": {
                         "schema": {
                             "$ref": "#/definitions/Wallet"
                         },
@@ -939,6 +984,26 @@
                     "Accounts",
                     "V1",
                     "Wallets"
+                ]
+            }
+        },
+        "/api/v1/updates/next": {
+            "get": {
+                "summary": "Requests information about the next scheduled update.",
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/WalletUpdate"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "Updates",
+                    "V1"
                 ]
             }
         },

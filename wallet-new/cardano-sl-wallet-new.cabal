@@ -22,6 +22,7 @@ library
                        Cardano.Wallet.API.V1.Payments
                        Cardano.Wallet.API.V1.Wallets
                        Cardano.Wallet.API.V1.Errors
+                       Cardano.Wallet.API.V1.Updates
                        Cardano.Wallet.API.V0
                        Cardano.Wallet.API.V0.Types
   ghc-options:         -Wall
@@ -62,6 +63,7 @@ executable wallet-new-server
                        Cardano.Wallet.API.V1.Handlers.Addresses
                        Cardano.Wallet.API.V1.Handlers.Payments
                        Cardano.Wallet.API.V1.Handlers.Wallets
+                       Cardano.Wallet.API.V1.Handlers.Updates
                        Cardano.Wallet.API.V1.Swagger
                        Cardano.Wallet.Server
   build-depends:       base

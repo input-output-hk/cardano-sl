@@ -36,35 +36,38 @@ module Test.Pos.Helpers
 
 import           Universum
 
-import           Codec.CBOR.FlatTerm              (toFlatTerm, validFlatTerm)
-import qualified Data.ByteString                  as BS
-import qualified Data.ByteString.Lazy             as BSL
-import           Data.SafeCopy                    (SafeCopy, safeGet, safePut)
-import qualified Data.Semigroup                   as Semigroup
-import           Data.Serialize                   (runGet, runPut)
-import           Data.Typeable                    (typeRep)
-import           Formatting                       (formatToString, int, (%))
-import           Prelude                          (read)
-import           Test.Hspec                       (Expectation, Selector, Spec, describe,
-                                                   shouldThrow)
-import           Test.Hspec.QuickCheck            (modifyMaxSuccess, prop)
-import           Test.QuickCheck                  (Arbitrary (arbitrary), Property,
-                                                   conjoin, counterexample, forAll,
-                                                   property, resize, suchThat, vectorOf,
-                                                   (.&&.), (===))
-import           Test.QuickCheck.Gen              (choose)
-import           Test.QuickCheck.Monadic          (PropertyM, pick)
-import qualified Text.JSON.Canonical              as CanonicalJSON
+import           Codec.CBOR.FlatTerm                   (toFlatTerm, validFlatTerm)
+import qualified Data.ByteString                       as BS
+import qualified Data.ByteString.Lazy                  as BSL
+import           Data.SafeCopy                         (SafeCopy, safeGet, safePut)
+import qualified Data.Semigroup                        as Semigroup
+import           Data.Serialize                        (runGet, runPut)
+import           Data.Typeable                         (typeRep)
+import           Formatting                            (formatToString, int, (%))
+import           Prelude                               (read)
+import           Test.Hspec                            (Expectation, Selector, Spec,
+                                                        describe, shouldThrow)
+import           Test.Hspec.QuickCheck                 (modifyMaxSuccess, prop)
+import           Test.QuickCheck                       (Arbitrary (arbitrary), Property,
+                                                        conjoin, counterexample, forAll,
+                                                        property, resize, suchThat,
+                                                        vectorOf, (.&&.), (===))
+import           Test.QuickCheck.Gen                   (choose)
+import           Test.QuickCheck.Monadic               (PropertyM, pick)
+import qualified Text.JSON.Canonical                   as CanonicalJSON
 
-import           Pos.Binary                       (AsBinaryClass (..), Bi (..), serialize,
-                                                   serialize', unsafeDeserialize,
-                                                   decodeFull)
-import           Pos.Communication                (Limit (..), MessageLimitedPure (..))
-import           Pos.Configuration                (HasNodeConfiguration)
-import           Pos.Core                         (HasConfiguration)
-import           Pos.Ssc.Configuration            (HasSscConfiguration)
-import           Test.Pos.Block.Logic.Mode        (BlockProperty, blockPropertyTestable)
-import           Test.Pos.Cbor.Canonicity         (perturbCanonicity)
+import           Pos.Binary                            (AsBinaryClass (..), Bi (..),
+                                                        decodeFull, deserializeOrFail,
+                                                        serialize, serialize',
+                                                        unsafeDeserialize)
+import           Pos.Communication                     (Limit (..),
+                                                        MessageLimitedPure (..))
+import           Pos.Configuration                     (HasNodeConfiguration)
+import           Pos.Core                              (HasConfiguration)
+import           Pos.Ssc.Configuration                 (HasSscConfiguration)
+import           Test.Pos.Block.Logic.Mode             (BlockProperty,
+                                                        blockPropertyTestable)
+import           Test.Pos.Cbor.Canonicity              (perturbCanonicity)
 import qualified Test.Pos.Cbor.ReferenceImplementation as R
 
 ----------------------------------------------------------------------------
@@ -73,7 +76,8 @@ import qualified Test.Pos.Cbor.ReferenceImplementation as R
 
 -- | Basic binary serialization/deserialization identity.
 binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
-binaryEncodeDecode a = (unsafeDeserialize . serialize $ a) === a
+binaryEncodeDecode a =
+    (unsafeDeserialize . deserializeOrFail . serialize $ a) === a
 
 -- | Machinery to test we perform "flat" encoding.
 cborFlatTermValid :: (Show a, Bi a) => a -> Property

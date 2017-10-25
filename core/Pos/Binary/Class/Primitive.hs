@@ -1,17 +1,26 @@
 -- | Useful functions for serialization/deserialization.
 
 module Pos.Binary.Class.Primitive
-       ( serialize
+       (
+       -- * Serialization
+         serialize
        , serialize'
+
        -- * Deserialize inside the Decoder monad
        , deserialize
        , deserialize'
+       -- * Low-level, fine-grained functions
+       , deserializeOrFail
+       , deserializeOrFailNocheck
        -- * Unsafe deserialization
        , unsafeDeserialize
-       , unsafeDeserialize'
-       , CBOR.Write.toStrictByteString
+       -- * Backward-compatible functions
+       , decodeFull
+
+       -- * Safecopy
        , putCopyBi
        , getCopyBi
+       -- * Bytestring wrapper
        , Raw(..)
        -- * Binary serialization
        , AsBinary (..)
@@ -19,16 +28,13 @@ module Pos.Binary.Class.Primitive
        , fromBinaryM
        -- * Temporary functions
        , biSize
-       -- * Backward-compatible functions
-       , decodeFull
-       -- * Low-level, fine-grained functions
-       , deserializeOrFail
-       , deserializeOrFail'
+
        -- * CBOR in CBOR
        , encodeKnownCborDataItem
        , encodeUnknownCborDataItem
        , decodeKnownCborDataItem
        , decodeUnknownCborDataItem
+
        -- * Cyclic redundancy check
        , encodeCrcProtected
        , decodeCrcProtected
@@ -51,15 +57,20 @@ import           Data.Typeable                 (typeOf)
 
 import           Data.Digest.CRC32             (CRC32 (..))
 import           Formatting                    (formatToString, shown, (%))
-import           Pos.Binary.Class.Core         (Bi (..), Decoder, enforceSize, toDecoder)
+import           Pos.Binary.Class.Core         (Bi (..), Decoder, DecoderConfig (..),
+                                                enforceSize, toDecoder)
 import           Serokell.Data.Memory.Units    (Byte)
 import           Universum
 
+----------------------------------------------------------------------------
+-- Serialization
+----------------------------------------------------------------------------
+
 -- | Serialize a Haskell value to an external binary representation.
 --
--- The output is represented as a lazy 'BSL.ByteString' and is constructed
+-- The output is represented as a lazy 'LByteString' and is constructed
 -- incrementally.
-serialize :: Bi a => a -> BSL.ByteString
+serialize :: Bi a => a -> LByteString
 serialize = CBOR.Write.toLazyByteString . encode
 
 -- | Serialize a Haskell value to an external binary representation.
@@ -68,55 +79,32 @@ serialize = CBOR.Write.toLazyByteString . encode
 serialize' :: Bi a => a -> BS.ByteString
 serialize' = BSL.toStrict . serialize
 
--- | Deserialize a Haskell value from the external binary representation
--- (which must have been made using 'serialize' or related function).
---
--- /Throws/: @'CBOR.Read.DeserialiseFailure'@ if the given external
--- representation is invalid or does not correspond to a value of the
--- expected type.
-unsafeDeserialize :: Bi a => BSL.ByteString -> a
-unsafeDeserialize = either throw identity . bimap fst fst . deserializeOrFail
-
--- | Strict variant of 'deserialize'.
-unsafeDeserialize' :: Bi a => BS.ByteString -> a
-unsafeDeserialize' = unsafeDeserialize . BSL.fromStrict
+----------------------------------------------------------------------------
+-- Deserialization
+----------------------------------------------------------------------------
 
 -- | Run `decodeFull` in the `Decoder` monad, failing (using Decoder.fail) in
 -- case the process failed or not the whole input was consumed.
 -- We are not generalising this function to any monad as doing so would allow
 -- us to cheat, as not all the monads have a sensible `fail` implementation.
 -- Expect the whole input to be consumed.
-deserialize :: Bi a => BSL.ByteString -> Decoder s a
+deserialize :: Bi a => LByteString -> Decoder s a
 deserialize = either (fail . toString) return . decodeFull . BSL.toStrict
 
 -- | Strict version of `deserialize`.
 deserialize' :: Bi a => BS.ByteString -> Decoder s a
 deserialize' = deserialize . BSL.fromStrict
 
--- | Deserialize a Haskell value from the external binary representation,
--- failing if there are leftovers. In a nutshell, the `full` here implies
--- the contract of this function is that what you feed as input needs to
--- be consumed entirely.
-decodeFull :: forall a. Bi a => BS.ByteString -> Either Text a
-decodeFull bs0 = case deserializeOrFail' bs0 of
-    Right (x, leftover) -> case BS.null leftover of
-        True  -> pure x
-        False ->
-            let msg = "decodeFull failed for " <> label (Proxy @a) <>
-                      "! Leftover found: " <> show leftover
-            in Left $ fromString msg
-    Left  (e, _) ->
-        Left $ fromString $ "decodeFull failed for " <> label (Proxy @a) <>
-                            ": " <> show e
 
 -- Deserialize a Haskell value from the external binary representation,
 -- returning either (leftover, value) or a (leftover, @'DeserialiseFailure'@).
-deserializeOrFail
+deserializeOrFailRaw
     :: Bi a
-    => BSL.ByteString
+    => DecoderConfig
+    -> LByteString
     -> Either (CBOR.Read.DeserialiseFailure, BS.ByteString)
               (a, BS.ByteString)
-deserializeOrFail bs0 =
+deserializeOrFailRaw dc bs0 =
     runST (supplyAllInput bs0 =<< deserializeIncremental)
   where
     supplyAllInput _bs (CBOR.Read.Done bs _ x) = return (Right (x, bs))
@@ -137,15 +125,41 @@ deserializeOrFail bs0 =
     deserializeIncremental :: Bi a => ST s (CBOR.Read.IDecode s a)
     deserializeIncremental =
         -- CSL-1399 add actual implementation
-        CBOR.Read.deserialiseIncremental (runReaderT decode def)
+        CBOR.Read.deserialiseIncremental (runReaderT decode dc)
 
--- | Strict variant of 'deserializeOrFail'.
-deserializeOrFail'
-    :: Bi a
-    => BS.ByteString
-    -> Either (CBOR.Read.DeserialiseFailure, BS.ByteString)
-              (a, BS.ByteString)
-deserializeOrFail' = deserializeOrFail . BSL.fromStrict
+deserializeOrFail, deserializeOrFailNocheck ::
+       Bi a
+    => LByteString
+    -> Either (CBOR.Read.DeserialiseFailure, BS.ByteString) (a, BS.ByteString)
+deserializeOrFail = deserializeOrFailRaw def
+deserializeOrFailNocheck = deserializeOrFailRaw $ DecoderConfig False
+
+-- | Convert result of deserialization to the real object or fail.
+--
+-- /Throws/: @'CBOR.Read.DeserialiseFailure'@ if the given external
+-- representation is invalid or does not correspond to a value of the
+-- expected type.
+unsafeDeserialize ::
+       Either (CBOR.Read.DeserialiseFailure, BS.ByteString) (a, BS.ByteString)
+    -> a
+unsafeDeserialize = either throw identity . bimap fst fst
+
+-- Obsolete? Is it?
+-- | Deserialize a Haskell value from the external binary representation,
+-- failing if there are leftovers. In a nutshell, the `full` here implies
+-- the contract of this function is that what you feed as input needs to
+-- be consumed entirely.
+decodeFull :: forall a. Bi a => BS.ByteString -> Either Text a
+decodeFull bs0 = case deserializeOrFail (BSL.fromStrict bs0) of
+    Right (x, leftover) -> case BS.null leftover of
+        True  -> pure x
+        False ->
+            let msg = "decodeFull failed for " <> label (Proxy @a) <>
+                      "! Leftover found: " <> show leftover
+            in Left $ fromString msg
+    Left  (e, _) ->
+        Left $ fromString $ "decodeFull failed for " <> label (Proxy @a) <>
+                            ": " <> show e
 
 ----------------------------------------------------------------------------
 -- SafeCopy
@@ -248,6 +262,10 @@ decodeUnknownCborDataItem :: Decoder s ByteString
 decodeUnknownCborDataItem = do
     decodeCborDataItemTag
     toDecoder D.decodeBytes
+
+----------------------------------------------------------------------------
+-- CRC
+----------------------------------------------------------------------------
 
 -- | Encodes a type `a` , protecting it from tampering/network-transport-alteration by
 -- protecting it with a CRC.

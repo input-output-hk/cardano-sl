@@ -14,37 +14,47 @@ module Test.Pos.Cbor.CborSpec
 
 import           Universum
 
-import qualified Data.ByteString                   as BS
-import           Data.Default                      (def)
-import           Test.Hspec                        (Arg, Expectation, Spec, SpecWith,
-                                                    describe, it, pendingWith, shouldBe)
-import           Test.Hspec.QuickCheck             (modifyMaxSuccess, modifyMaxSize, prop)
+import qualified Data.ByteString                       as BS
+import qualified Data.ByteString.Lazy                  as BSL
+import           Data.Default                          (def)
+import           Test.Hspec                            (Arg, Expectation, Spec, SpecWith,
+                                                        describe, it, pendingWith,
+                                                        shouldBe)
+import           Test.Hspec.QuickCheck                 (modifyMaxSize, modifyMaxSuccess,
+                                                        prop)
 import           Test.QuickCheck
-import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
+import           Test.QuickCheck.Arbitrary.Generic     (genericArbitrary, genericShrink)
 
-import qualified Codec.CBOR.FlatTerm               as CBOR
+import qualified Codec.CBOR.FlatTerm                   as CBOR
 
-import           Pos.Arbitrary.Block               ()
-import           Pos.Arbitrary.Core                ()
-import           Pos.Arbitrary.Delegation          ()
-import           Pos.Arbitrary.Infra               ()
-import           Pos.Arbitrary.Slotting            ()
-import           Pos.Arbitrary.Ssc                 ()
-import           Pos.Arbitrary.Update              ()
-import           Pos.Binary.Class
-import           Pos.Binary.Communication          ()
-import           Pos.Binary.Core.Fee               ()
-import           Pos.Binary.Core.Script            ()
-import           Pos.Binary.Crypto                 ()
-import           Pos.Binary.Ssc                    ()
-import           Pos.Binary.Infra                  ()
-import           Pos.Binary.Relay                  ()
-import           Pos.Core.Types                    (ScriptVersion)
-import           Pos.Data.Attributes               (Attributes (..), decodeAttributes,
-                                                    encodeAttributes)
+import           Pos.Arbitrary.Block                   ()
+import           Pos.Arbitrary.Core                    ()
+import           Pos.Arbitrary.Delegation              ()
+import           Pos.Arbitrary.Infra                   ()
+import           Pos.Arbitrary.Slotting                ()
+import           Pos.Arbitrary.Update                  ()
+import           Pos.Binary.Class                      (Bi (..), Cons (..), Field (..),
+                                                        decodeListLenCanonicalOf,
+                                                        decodeUnknownCborDataItem,
+                                                        deriveSimpleBi, deserialize',
+                                                        deserializeOrFail, encodeListLen,
+                                                        encodeUnknownCborDataItem,
+                                                        genericDecode, genericEncode,
+                                                        serialize, serialize',
+                                                        unsafeDeserialize)
+import           Pos.Binary.Communication              ()
+import           Pos.Binary.Core.Fee                   ()
+import           Pos.Binary.Core.Script                ()
+import           Pos.Binary.Crypto                     ()
+import           Pos.Binary.Infra                      ()
+import           Pos.Binary.Relay                      ()
+import           Pos.Binary.Ssc                        ()
+import           Pos.Core.Types                        (ScriptVersion)
+import           Pos.Data.Attributes                   (Attributes (..), decodeAttributes,
+                                                        encodeAttributes)
 import qualified Test.Pos.Cbor.ReferenceImplementation as R
-import           Test.Pos.Helpers                  (binaryTest)
-import           Test.Pos.Util                     (withDefConfiguration)
+import           Test.Pos.Helpers                      (binaryTest)
+import           Test.Pos.Util                         (withDefConfiguration)
 
 data User
     = Login { login :: String
@@ -162,6 +172,9 @@ instance Bi U24 where
 
 ----------------------------------------
 
+deserUnsafe :: (Bi a) => LByteString -> a
+deserUnsafe = unsafeDeserialize . deserializeOrFail
+
 data X1 = X1 { x1A :: Int }
     deriving (Eq, Ord, Show, Generic)
 
@@ -179,14 +192,14 @@ instance Arbitrary X2 where
 instance Bi (Attributes X1) where
     encode = encodeAttributes [(0, serialize' . x1A)]
     decode = decodeAttributes (X1 0) $ \n v acc -> case n of
-        0 -> pure $ Just $ acc { x1A = unsafeDeserialize' v }
+        0 -> pure $ Just $ acc { x1A = deserUnsafe $ BSL.fromStrict v }
         _ -> pure $ Nothing
 
 instance Bi (Attributes X2) where
     encode = encodeAttributes [(0, serialize' . x2A), (1, serialize' . x2B)]
     decode = decodeAttributes (X2 0 []) $ \n v acc -> case n of
-        0 -> return $ Just $ acc { x2A = unsafeDeserialize' v }
-        1 -> return $ Just $ acc { x2B = unsafeDeserialize' v }
+        0 -> return $ Just $ acc { x2A = deserUnsafe $ BSL.fromStrict v }
+        1 -> return $ Just $ acc { x2B = deserUnsafe $ BSL.fromStrict v }
         _ -> return $ Nothing
 
 ----------------------------------------
@@ -216,7 +229,7 @@ extensionProperty = forAll @a (arbitrary :: Gen a) $ \input ->
 
       <tag :: Word32><Tag24><CborDataItem :: ByteString>
 
-   2. Now, when we call `unsafeDeserialize serialized`, we are effectively asking to produce as
+   2. Now, when we call `unsafeDeser serialized`, we are effectively asking to produce as
       output a value of type `U`. `U` is defined by only 1 constructor, it
       being `U Word8 ByteString`, but this is still compatible with our `tag + cborDataItem`
       format. So now we will have something like:
@@ -225,7 +238,7 @@ extensionProperty = forAll @a (arbitrary :: Gen a) $ \input ->
 
       (The <Tag24> has been removed as part of the decoding process).
 
-   3. We now call `unsafeDeserialize (serialize u)`, which means: Can you produce a CBOR binary
+   3. We now call `unsafeDeser (serialize u)`, which means: Can you produce a CBOR binary
       from `U`, and finally try to decode it into a value of type `a`? This will work because
       our intermediate encoding into `U` didn't touch the inital `<tag :: Word32>`, so we will
       be able to reconstruct the original object back.
@@ -239,9 +252,9 @@ extensionProperty = forAll @a (arbitrary :: Gen a) $ \input ->
       remove the <Tag24> token and finally proceed to deserialise the rest.
 
 -}
-    let serialized      = serialize input             -- Step 1
-        (u :: U)        = unsafeDeserialize serialized      -- Step 2
-        (encoded :: a)  = unsafeDeserialize (serialize u)   -- Step 3
+    let serialized      = serialize input                   -- Step 1
+        (u :: U)        = deserUnsafe serialized      -- Step 2
+        (encoded :: a)  = deserUnsafe (serialize u)   -- Step 3
     in encoded === input
 
 soundSerializationAttributesOfAsProperty
@@ -250,8 +263,8 @@ soundSerializationAttributesOfAsProperty
     => Property
 soundSerializationAttributesOfAsProperty = forAll arbitraryAttrs $ \input ->
     let serialized      = serialize input
-        (middle  :: ab) = unsafeDeserialize serialized
-        (encoded :: aa) = unsafeDeserialize $ serialize middle
+        (middle  :: ab) = deserUnsafe serialized
+        (encoded :: aa) = deserUnsafe $ serialize middle
     in encoded === input
   where
     arbitraryAttrs :: Gen aa
@@ -327,7 +340,7 @@ spec = withDefConfiguration $ do
 
     describe "Cbor.Bi instances" $ modifyMaxSuccess (const 1000) $ do
         describe "Test instances" $ do
-            prop "User" (let u1 = Login "asd" 34 in (unsafeDeserialize $ serialize u1) === u1)
+            prop "User" (let u1 = Login "asd" 34 in (deserUnsafe $ serialize u1) === u1)
             binaryTest @MyScript
             prop "X2" (soundSerializationAttributesOfAsProperty @X2 @X1)
         describe "Generic deriving" $ do

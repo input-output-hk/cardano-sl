@@ -7,7 +7,7 @@
 module Pos.Binary.Class.Core
     ( Bi (..)
     , DecoderConfig (..)
-    , dcUnsafe
+    , dcNocheck
     , Decoder
     , toDecoder
     , encodeBinary
@@ -59,13 +59,13 @@ import           Universum
 
 -- | Extra configuration for decoder.
 data DecoderConfig = DecoderConfig
-    { _dcUnsafe :: Bool
+    { _dcNocheck :: Bool
     } deriving Show
 
 makeLenses ''DecoderConfig
 
 instance Default DecoderConfig where
-    def = DecoderConfig { _dcUnsafe = False }
+    def = DecoderConfig { _dcNocheck = False }
 
 type Decoder s a = ReaderT DecoderConfig (D.Decoder s) a
 

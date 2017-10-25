@@ -25,7 +25,7 @@ import           Pos.Configuration        (HasNodeConfiguration)
 import           Pos.Core.Configuration   (HasConfiguration, genesisBlockVersionData)
 import           Pos.Crypto               (Hash, SignTag (SignUSVote), emptyPassphrase,
                                            encToPublic, hash, hashHexF, safeSign,
-                                           unsafeHash, withSafeSigner, withSafeSigners)
+                                           unsafeHash, withSafeSigner)
 import           Pos.Data.Attributes      (mkAttributes)
 import           Pos.Infra.Configuration  (HasInfraConfiguration)
 import           Pos.Update               (BlockVersionData (..),
@@ -113,31 +113,24 @@ propose sendActions ProposeUpdateParams{..} = do
     updateData <- mapM updateDataElement puUpdates
     let udata = HM.fromList updateData
     let whenCantCreate = error . mappend "Failed to create update proposal: "
-
-    skeys <- if not puVoteAll then pure [skey]
-             else getSecretKeysPlain
-    withSafeSigners skeys (pure emptyPassphrase) $ \ss -> do
-        unless (length skeys == length ss) $
-            error $ "Number of safe signers: " <> show (length ss) <> ", expected " <> show (length skeys)
-        let publisherSS = ss !! if not puVoteAll then 0 else puIdx
-        let updateProposal = either whenCantCreate identity $
-                mkUpdateProposalWSign
-                    puBlockVersion
-                    bvm
-                    puSoftwareVersion
-                    udata
-                    (mkAttributes ())
-                    publisherSS
-        if null ccPeers
-            then putText "Error: no addresses specified"
-            else do
-                let upid = hash updateProposal
-                let enqueue = immediateConcurrentConversations sendActions ccPeers
-                submitUpdateProposal enqueue ss updateProposal
-                if not puVoteAll then
-                    putText (sformat ("Update proposal submitted, upId: "%hashHexF) upid)
-                else
-                    putText (sformat ("Update proposal submitted along with votes, upId: "%hashHexF) upid)
+    withSafeSigner skey (pure emptyPassphrase) $ \case
+        Nothing -> putText "Invalid passphrase"
+        Just ss -> do
+            let updateProposal = either whenCantCreate identity $
+                    mkUpdateProposalWSign
+                        puBlockVersion
+                        bvm
+                        puSoftwareVersion
+                        udata
+                        (mkAttributes ())
+                        ss
+            if null ccPeers
+                then putText "Error: no addresses specified"
+                else do
+                    submitUpdateProposal (immediateConcurrentConversations sendActions ccPeers) ss updateProposal
+                    let id = hash updateProposal
+                    putText $
+                      sformat ("Update proposal submitted, upId: "%hashHexF) id
 
 updateDataElement :: MonadIO m => ProposeUpdateSystem -> m (SystemTag, UpdateData)
 updateDataElement ProposeUpdateSystem{..} = do

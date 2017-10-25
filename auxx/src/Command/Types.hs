@@ -38,8 +38,7 @@ data SendToAllGenesisParams = SendToAllGenesisParams
 
 -- | Parameters for 'ProposeUpdate' command.
 data ProposeUpdateParams = ProposeUpdateParams
-    { puIdx             :: Int
-    , puVoteAll         :: Bool
+    { puIdx             :: Int -- TODO: what is this? rename
     , puBlockVersion    :: BlockVersion
     , puScriptVersion   :: ScriptVersion
     , puSlotDurationSec :: Int
@@ -64,7 +63,7 @@ data Command
      -- ^ From whom, to whom, ttl epoch, last argument is current
      -- epoch, dry mode
     | AddKeyFromPool !Int
-    | AddKeyFromFile !FilePath !Bool
+    | AddKeyFromFile !FilePath
     | AddrDistr !PublicKey !AddrStakeDistribution
     | Rollback !Word !FilePath
     | SendTxsFromFile !FilePath

@@ -81,10 +81,10 @@ genBlocks params inj = do
 
     genOneBlock t eos = ((t <>) . inj) <$> genBlock eos
 
-    foldM' _ !base [] = return base
-    foldM' combine !base (x : xs) = do
-      it <- combine base x
-      foldM' combine it xs
+    foldM' combine = go
+      where
+      go !base [] = return base
+      go !base (x:xs) = combine base x >>= flip go xs
 
 -- Generate a valid 'Block' for the given epoch or slot (genesis block
 -- in the former case and main block the latter case) and apply it.

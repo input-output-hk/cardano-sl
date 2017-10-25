@@ -26,6 +26,7 @@ import           Pos.Core.Configuration   (HasConfiguration)
 import           Pos.Crypto               (Hash, SignTag (SignUSVote), emptyPassphrase,
                                            encToPublic, hash, hashHexF, safeSign,
                                            unsafeHash, withSafeSigner)
+import           Pos.Exception            (reportFatalError)
 import           Pos.Infra.Configuration  (HasInfraConfiguration)
 import           Pos.Update               (SystemTag, UpId, UpdateData (..),
                                            UpdateVote (..), installerHash,
@@ -33,7 +34,7 @@ import           Pos.Update               (SystemTag, UpId, UpdateData (..),
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo     (HasCompileInfo)
 
-import           Command.Types            (ProposeUpdateParams (..),
+import           Lang.Value               (ProposeUpdateParams (..),
                                            ProposeUpdateSystem (..))
 import           Mode                     (AuxxMode, CmdCtx (..), getCmdCtx)
 
@@ -87,7 +88,7 @@ propose
        )
     => SendActions AuxxMode
     -> ProposeUpdateParams
-    -> AuxxMode ()
+    -> AuxxMode UpId
 propose sendActions ProposeUpdateParams{..} = do
     CmdCtx{ccPeers} <- getCmdCtx
     logDebug "Proposing update..."
@@ -96,7 +97,7 @@ propose sendActions ProposeUpdateParams{..} = do
     let udata = HM.fromList updateData
     let whenCantCreate = error . mappend "Failed to create update proposal: "
     withSafeSigner skey (pure emptyPassphrase) $ \case
-        Nothing -> logError "Invalid passphrase"
+        Nothing -> reportFatalError "Invalid passphrase"
         Just ss -> do
             let updateProposal = either whenCantCreate identity $
                     mkUpdateProposalWSign
@@ -107,11 +108,12 @@ propose sendActions ProposeUpdateParams{..} = do
                         def
                         ss
             if null ccPeers
-                then logError "Error: no addresses specified"
+                then reportFatalError "Error: no addresses specified"
                 else do
                     submitUpdateProposal (immediateConcurrentConversations sendActions ccPeers) ss updateProposal
                     let id = hash updateProposal
                     logInfo $ sformat ("Update proposal submitted, upId: "%hashHexF) id
+                    return id
 
 updateDataElement :: ProposeUpdateSystem -> AuxxMode (SystemTag, UpdateData)
 updateDataElement ProposeUpdateSystem{..} = do

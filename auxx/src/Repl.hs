@@ -18,10 +18,9 @@ alternating between user interaction and command execution in a single thread:
 
 IF YOU WANT TO MODIFY THIS MODULE, a note on architecture: I made this module as
 independent as possible from other parts of Cardano (including auxx). It doesn't
-know how commands are executed, but knows what commands there are (the
-'Command') type, how to parse them ('parseCommand'), and what the help message
-is. I find this rather nice, as it's possible to reason about the REPL in
-separation from the rest of the system.
+know how commands are executed, what commands there are, or how to parse them.
+It only knows what the help message is. I find this rather nice, as it's possible to
+reason about the REPL in separation from the rest of the system.
 
 -}
 
@@ -29,19 +28,23 @@ module Repl
        ( WithCommandAction(..)
        , createAuxxRepl
        , withAuxxRepl
+       , PrintAction
        ) where
 
 import           Universum
 
 import           Control.Concurrent.Async (race_)
 import           Control.Exception        (Exception (..))
+import           Data.Text                (strip)
 import           Mockable                 (Catch, Mockable, handle)
 import           System.Console.Haskeline (InputT)
 import qualified System.Console.Haskeline as Haskeline
 
 import           Command.Help             (helpMessage)
-import           Command.Parser           (parseCommand)
-import           Command.Types            (Command (..), PrintAction)
+
+-- | An action used to print messages to the terminal. We can't hardcode
+-- 'putText' because Haskeline defines its own printing method.
+type PrintAction m = Text -> m ()
 
 -- | The resurt of executing a command. In case there are no exceptions thrown,
 -- the result is 'CommandSuccess', otherwise it's 'CommandFailure' with the
@@ -56,7 +59,7 @@ data CommandResult
 -- commands to execute (via 'withCommand') and get the Haskeline-compatible
 -- printing action (via 'getPrintAction').
 data WithCommandAction m = WithCommandAction
-    { withCommand    :: (Command -> m ()) -> m ()
+    { withCommand    :: (Text -> m ()) -> m ()
         -- ^ Get the next command to execute. Rather than using simple @m
         -- 'Command'@ method, we use a CPS-ed version to guarantee valid
         -- exception handling, automate 'CommandResult' detection, and avoid
@@ -75,7 +78,7 @@ data WithCommandAction m = WithCommandAction
 -- | The action to post a command to be executed by the auxx plugin and wait for
 -- its result. This action blocks until the result is available: that is, until
 -- command execution completes or an exception is thrown.
-type PutCommandAction = Command -> AuxxRepl CommandResult
+type PutCommandAction = Text -> AuxxRepl CommandResult
 
 -- | Create the auxx REPL (as an abstract @'IO' ()@ action) and the interface to
 -- interact with it ('WithCommandAction'). You are supposed to fork the REPL
@@ -145,18 +148,18 @@ prompt :: PutCommandAction -> AuxxRepl LoopDecision
 prompt putCommand = do
     getInputTextLine "auxx> " >>= \case
         Nothing -> return Stop
-        Just line -> case parseCommand line of
-            Left err -> Continue <$ do
-                outputTextLn $ "Not a valid command"
-                outputTextLn err
-            Right Quit -> return Stop
-            Right cmd -> Continue <$ do
-                res <- putCommand cmd
+        Just line -> if isQuitCommand line
+            then return Stop
+            else Continue <$ do
+                res <- putCommand line
                 case res of
                     CommandSuccess -> return ()
                     CommandFailure exc -> do
                         outputTextLn $ "Command failed: "
                         Haskeline.outputStrLn $ displayException exc
+
+isQuitCommand :: Text -> Bool
+isQuitCommand t = strip t `elem` ["quit", "q", ":quit", ":q"]
 
 ------- Util ---------
 

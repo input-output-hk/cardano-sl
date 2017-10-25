@@ -22,6 +22,7 @@ import           Universum
 
 import qualified Data.ByteString                   as BS (pack)
 import qualified Data.HashMap.Strict               as HM
+import           Data.List                         ((!!))
 import qualified Data.Map                          as M
 import           Data.Time.Units                   (Microsecond, Millisecond, Second,
                                                     TimeUnit (..), convertUnit)
@@ -452,9 +453,11 @@ instance Arbitrary Types.ApplicationName where
     arbitrary =
         either (error . mappend "arbitrary @ApplicationName failed: ") identity .
         Types.mkApplicationName .
-        toText . map (chr . flip mod 128) . take Types.applicationNameMaxLength <$>
+        toText . map selectAlpha . take Types.applicationNameMaxLength <$>
         arbitrary
-    shrink = genericShrink
+      where
+        selectAlpha n = alphabet !! (n `mod` length alphabet)
+        alphabet = "-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 instance Arbitrary Types.BlockVersion where
     arbitrary = genericArbitrary

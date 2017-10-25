@@ -12,6 +12,7 @@ module Pos.Crypto.Signing.Types.Signing
        , fullPublicKeyHexF
        , shortPublicKeyHexF
        , parseFullPublicKey
+       , parseFullPublicKeyHex
 
        -- * Signing and verification
        , Signature (..)
@@ -31,8 +32,7 @@ import           Data.Hashable          (Hashable)
 import qualified Data.Hashable          as Hashable
 import qualified Data.Text.Buildable    as B
 import           Data.Text.Lazy.Builder (Builder)
-import           Formatting             (Format, bprint, build, fitLeft, later,
-                                         (%), (%.))
+import           Formatting             (Format, bprint, build, fitLeft, later, (%), (%.))
 import           Prelude                (show)
 import qualified Serokell.Util.Base16   as B16
 import qualified Serokell.Util.Base64   as Base64 (decode, formatBase64)
@@ -109,6 +109,12 @@ shortPublicKeyHexF = fitLeft 8 %. fullPublicKeyHexF
 parseFullPublicKey :: Text -> Either Text PublicKey
 parseFullPublicKey s = do
     b <- Base64.decode s
+    PublicKey <$> first fromString (CC.xpub b)
+
+-- | Parse 'PublicKey' from base16 encoded string.
+parseFullPublicKeyHex :: Text -> Either Text PublicKey
+parseFullPublicKeyHex s = do
+    b <- B16.decode s
     PublicKey <$> first fromString (CC.xpub b)
 
 ----------------------------------------------------------------------------

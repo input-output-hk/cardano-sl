@@ -311,7 +311,7 @@ data SoftforkRule = SoftforkRule
     -- this one).
     , srThdDecrement :: !CoinPortion
     -- ^ Theshold will be decreased by this value after each epoch.
-    } deriving (Show, Eq, Generic)
+    } deriving (Show, Eq, Ord, Generic)
 
 instance Hashable SoftforkRule
 
@@ -331,7 +331,7 @@ data BlockVersionData = BlockVersionData
     , bvdSoftforkRule      :: !SoftforkRule
     , bvdTxFeePolicy       :: !TxFeePolicy
     , bvdUnlockStakeEpoch  :: !EpochIndex
-    } deriving (Show, Eq, Generic, Typeable)
+    } deriving (Show, Eq, Ord, Generic, Typeable)
 
 ----------------------------------------------------------------------------
 -- HeaderHash

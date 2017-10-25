@@ -4,29 +4,33 @@ module Pos.Arbitrary.Crypto.Unsafe () where
 
 import           Universum
 
-import           Test.QuickCheck           (Arbitrary (..), choose)
-import           Test.QuickCheck.Instances ()
+import qualified Data.ByteString.Lazy            as BSL
+import           Test.QuickCheck                 (Arbitrary (..), choose)
+import           Test.QuickCheck.Instances       ()
 
-import           Pos.Binary.Class          (Bi)
-import qualified Pos.Binary.Class          as Bi
+import           Pos.Binary.Class                (Bi)
+import qualified Pos.Binary.Class                as Bi
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
-import           Pos.Crypto.Hashing        (AbstractHash, HashAlgorithm,
-                                            unsafeAbstractHash)
-import           Pos.Crypto.SecretSharing  (VssKeyPair, VssPublicKey,
-                                            deterministicVssKeyGen, toVssPublicKey)
-import           Pos.Crypto.Signing        (PublicKey, SecretKey, Signature, Signed,
-                                            mkSigned)
-import           Pos.Crypto.Signing.Types.Tag (SignTag)
-import           Pos.Util.Arbitrary        (ArbitraryUnsafe (..), arbitrarySizedS)
+import           Pos.Crypto.Hashing              (AbstractHash, HashAlgorithm,
+                                                  unsafeAbstractHash)
+import           Pos.Crypto.SecretSharing        (VssKeyPair, VssPublicKey,
+                                                  deterministicVssKeyGen, toVssPublicKey)
+import           Pos.Crypto.Signing              (PublicKey, SecretKey, Signature, Signed,
+                                                  mkSigned)
+import           Pos.Crypto.Signing.Types.Tag    (SignTag)
+import           Pos.Util.Arbitrary              (ArbitraryUnsafe (..), arbitrarySizedS)
+
+deserUnsafe :: (Bi a) => ByteString -> a
+deserUnsafe = Bi.unsafeDeserialize . Bi.deserializeOrFail . BSL.fromStrict
 
 instance Bi PublicKey => ArbitraryUnsafe PublicKey where
-    arbitraryUnsafe = Bi.unsafeDeserialize' <$> arbitrarySizedS 32
+    arbitraryUnsafe = deserUnsafe <$> arbitrarySizedS 32
 
 instance Bi SecretKey => ArbitraryUnsafe SecretKey where
-    arbitraryUnsafe = Bi.unsafeDeserialize' <$> arbitrarySizedS 64
+    arbitraryUnsafe = deserUnsafe <$> arbitrarySizedS 64
 
 instance Bi (Signature a) => ArbitraryUnsafe (Signature a) where
-    arbitraryUnsafe = Bi.unsafeDeserialize' <$> arbitrarySizedS 64
+    arbitraryUnsafe = deserUnsafe <$> arbitrarySizedS 64
 
 -- Generating invalid `Signed` objects doesn't make sense even in
 -- benchmarks

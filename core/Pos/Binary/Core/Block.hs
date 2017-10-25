@@ -6,7 +6,7 @@ module Pos.Binary.Core.Block
 
 import           Universum
 
-import           Pos.Binary.Class                (Bi (..), dcUnsafe, encodeListLen,
+import           Pos.Binary.Class                (Bi (..), dcNocheck, encodeListLen,
                                                   enforceSize)
 import qualified Pos.Core.Block                  as T
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants, protocolMagic)
@@ -44,9 +44,9 @@ instance ( Typeable b
         bodyProof <- decode
         consensus <- decode
         extra     <- decode
-        ifM (view dcUnsafe)
-            (eitherToFail $ T.recreateGenericHeader prevBlock bodyProof consensus extra)
+        ifM (view dcNocheck)
             (pure $ T.UnsafeGenericBlockHeader prevBlock bodyProof consensus extra)
+            (eitherToFail $ T.recreateGenericHeader prevBlock bodyProof consensus extra)
 
 instance ( Typeable b
          , Bi (T.BHeaderHash b)
@@ -68,6 +68,6 @@ instance ( Typeable b
         header <- decode
         body   <- decode
         extra  <- decode
-        ifM (view dcUnsafe)
-            (eitherToFail $ T.recreateGenericBlock header body extra)
+        ifM (view dcNocheck)
             (pure $ T.UnsafeGenericBlock header body extra)
+            (eitherToFail $ T.recreateGenericBlock header body extra)

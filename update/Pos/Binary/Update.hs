@@ -9,7 +9,7 @@ import           Data.Time.Units            (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Raw,
-                                             decodeListLen, deriveSimpleBi,
+                                             decodeListLenCanonical, deriveSimpleBi,
                                              deriveSimpleBiCxt, encodeListLen,
                                              enforceSize)
 import           Pos.Binary.Infra           ()
@@ -119,7 +119,7 @@ instance Bi a => Bi (U.PrevValue a) where
   encode (U.PrevValue a) = encodeListLen 1 <> encode a
   encode U.NoExist       = encodeListLen 0
   decode = do
-    len <- decodeListLen
+    len <- decodeListLenCanonical
     case len of
       1 -> U.PrevValue <$> decode
       0 -> pure U.NoExist

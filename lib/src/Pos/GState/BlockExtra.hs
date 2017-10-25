@@ -24,16 +24,15 @@ import           Formatting           (bprint, build, (%))
 import           Serokell.Util.Text   (listJson)
 
 import           Pos.Binary.Class     (serialize')
-import           Pos.Block.Core       (Block, BlockHeader, blockHeader)
+import           Pos.Block.Core       (Block, BlockHeader)
 import           Pos.Block.Slog.Types (LastBlkSlots, noLastBlkSlots)
-import           Pos.Block.Types      (Blund)
 import           Pos.Core             (FlatSlotId, HasConfiguration, HasHeaderHash,
                                        HeaderHash, genesisHash, headerHash, slotIdF,
                                        unflattenSlotId)
 import           Pos.Crypto           (shortHashF)
 import           Pos.DB               (DBError (..), MonadDB, MonadDBRead,
                                        RocksBatchOp (..), dbSerializeValue)
-import           Pos.DB.Block         (MonadBlockDB, blkGetBlund)
+import           Pos.DB.Block         (MonadBlockDB, blkGetBlock, blkGetHeader)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
 import           Pos.Util.Chrono      (OldestFirst (..))
 import           Pos.Util.Util        (maybeThrow)
@@ -113,21 +112,20 @@ instance HasConfiguration => RocksBatchOp BlockExtraOp where
 ----------------------------------------------------------------------------
 
 foldlUpWhileM
-    :: forall a b m r .
-    ( MonadBlockDB m
-    , HasHeaderHash a
-    )
-    => (Blund -> m b)
+    :: forall a b datum m r .
+       (HasHeaderHash a, MonadDBRead m)
+    => (HeaderHash -> m (Maybe datum))
+    -> (datum -> m b)
     -> a
-    -> ((Blund, b) -> Int -> Bool)
+    -> ((datum, b) -> Int -> Bool)
     -> (r -> b -> m r)
     -> r
     -> m r
-foldlUpWhileM morphM start condition accM init =
+foldlUpWhileM getDatum morphM start condition accM init =
     loadUpWhileDo (headerHash start) 0 init
   where
     loadUpWhileDo :: HeaderHash -> Int -> r -> m r
-    loadUpWhileDo curH height !res = blkGetBlund curH >>= \case
+    loadUpWhileDo curH height !res = getDatum curH >>= \case
         Nothing -> pure res
         Just x -> do
             curB <- morphM x
@@ -140,13 +138,16 @@ foldlUpWhileM morphM start condition accM init =
 
 -- Loads something from old to new.
 loadUpWhile
-    :: forall a b m . (MonadBlockDB m, HasHeaderHash a)
-    => (Blund -> b)
+    :: forall a b datum m .
+       (HasHeaderHash a, MonadDBRead m)
+    => (HeaderHash -> m (Maybe datum))
+    -> (datum -> b)
     -> a
     -> (b -> Int -> Bool)
     -> m (OldestFirst [] b)
-loadUpWhile morph start condition = OldestFirst . reverse <$>
+loadUpWhile getDatum morph start condition = OldestFirst . reverse <$>
     foldlUpWhileM
+        getDatum
         (pure . morph)
         start
         (\b h -> condition (snd b) h)
@@ -160,7 +161,7 @@ loadHeadersUpWhile
     -> (BlockHeader -> Int -> Bool)
     -> m (OldestFirst [] BlockHeader)
 loadHeadersUpWhile start condition =
-    loadUpWhile (view blockHeader . fst) start condition
+    loadUpWhile blkGetHeader identity start condition
 
 -- | Returns blocks loaded up.
 loadBlocksUpWhile
@@ -168,7 +169,7 @@ loadBlocksUpWhile
     => a
     -> (Block -> Int -> Bool)
     -> m (OldestFirst [] Block)
-loadBlocksUpWhile start condition = loadUpWhile fst start condition
+loadBlocksUpWhile start condition = loadUpWhile blkGetBlock identity start condition
 
 ----------------------------------------------------------------------------
 -- Initialization

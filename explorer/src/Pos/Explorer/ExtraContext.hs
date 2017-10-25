@@ -3,7 +3,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 module Pos.Explorer.ExtraContext
-    ( ExtraContext
+    ( ExtraContext (..)
     , ExtraContextT
     , runExtraContextT
     , makeExtraCtx
@@ -11,9 +11,12 @@ module Pos.Explorer.ExtraContext
     , HasGenesisRedeemAddressInfo (..)
     , GenesisRedeemAddressInfo
     -- ^ Genesis address info
+
     , HasExplorerCSLInterface (..)
     , ExplorerMockMode (..)
+    , makeMockExtraCtx
     -- ^ Explorer mock interface
+
     ) where
 
 import           Universum
@@ -59,6 +62,14 @@ makeExtraCtx =
     in ExtraContext
         { ecAddressCoinPairs = V.fromList redeemOnly
         , ecExplorerMockMode = prodMode
+        }
+
+-- | For mocking we mostly need to replace just the external CSL functions.
+makeMockExtraCtx :: HasConfiguration => ExplorerMockMode -> ExtraContext
+makeMockExtraCtx explorerMockMode =
+    ExtraContext
+        { ecAddressCoinPairs = V.empty
+        , ecExplorerMockMode = explorerMockMode
         }
 
 -------------------------------------------------------------------------------------
@@ -138,6 +149,7 @@ class HasExplorerCSLInterface m where
 -- | The instance for external CSL functions.
 instance (Monad m, MonadBlockDB m, MonadDBRead m, MonadSlotsData ctx m) =>
     HasExplorerCSLInterface (ExtraContextT m) where
+
     getTipBlockCSLI = do
         extraCtx <- Ether.ask @ExtraContext
         let explorerMockMode = ecExplorerMockMode extraCtx

@@ -20,15 +20,18 @@ import           Pos.Arbitrary.Txp.Unsafe     ()
 import           Pos.Block.Core               (Block)
 import           Pos.Block.Types              (Blund)
 import           Pos.Launcher.Configuration   (HasConfigurations)
-import           Test.Pos.Util                (withDefConfigurations)
 import           Pos.Types                    (HeaderHash, SlotLeaders, Timestamp)
+import           Test.Pos.Util                (withDefConfigurations)
 
+import           Pos.Explorer.ExplorerMode    (ExplorerTestParams, runExplorerTestMode)
+import           Pos.Explorer.ExtraContext    (ExplorerMockMode (..), ExtraContext (..),
+                                               makeMockExtraCtx)
 import           Pos.Explorer.TestUtil        (produceBlocksByBlockNumberAndSlots,
                                                produceSecretKeys, produceSlotLeaders)
-import           Pos.Explorer.Web.ClientTypes (CBlockEntry, ExplorerMockMode (..))
-import           Pos.Explorer.Web.Server      (getBlocksTotalEMode, getBlocksPageEMode)
-import           Test.Pos.Block.Logic.Mode    (BlockTestMode, TestParams,
-                                               runBlockTestMode)
+import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
+import           Pos.Explorer.Web.Server      (getBlocksPage, getBlocksTotal)
+
+
 
 ----------------------------------------------------------------
 -- Function mocks
@@ -49,7 +52,7 @@ makeLenses ''GeneratedTestArguments
 
 instance HasConfigurations => NFData GeneratedTestArguments
 
--- | More predictable generated arguments.
+-- | More predictable generation that doesn't violate the invariants.
 genArgs :: Word -> Word -> Word -> IO GeneratedTestArguments
 genArgs blocksNumber slotsPerEpoch pageNumber = do
 
@@ -85,11 +88,16 @@ getBlocksTotalMock
     -> IO Integer
 getBlocksTotalMock genTestArgs = do
     testParams <- testParamsGen
-    runBlockTestMode testParams $ getBlocksTotalEMode mode
-  where
-    -- The mocked CSL function interfaces
-    mode :: ExplorerMockMode BlockTestMode
-    mode = defaultInstance { emmGetTipBlock = pure $ genTestArgs ^. gtaTipBlock }
+
+    -- We replace the "real" database with our custom data.
+    let mode :: ExplorerMockMode
+        mode = def { emmGetTipBlock = pure $ genTestArgs ^. gtaTipBlock }
+
+    -- The extra context so we can mock the functions.
+    let extraContext :: ExtraContext
+        extraContext = makeMockExtraCtx mode
+
+    runExplorerTestMode testParams extraContext getBlocksTotal
 
 
 -- | The actual benched function.
@@ -99,29 +107,31 @@ getBlocksPageMock
     -> IO (Integer, [CBlockEntry])
 getBlocksPageMock genTestArgs = do
     testParams <- testParamsGen -- TODO(ks): Temporary test params, will be removed.
-    runBlockTestMode testParams $ getBlocksPageEMode mode pageNumber (Just 10)
+
+        -- We replace the "real" database with our custom data.
+    let mode :: ExplorerMockMode
+        mode = def {
+            emmGetTipBlock         = pure $ genTestArgs ^. gtaTipBlock,
+            emmGetPageBlocks       = \_ -> pure $ Just $ genTestArgs ^. gtaBlockHeaderHashes,
+            emmGetBlundFromHH      = \_ -> pure $ Just $ genTestArgs ^. gtaBlundsFromHeaderHashes,
+            emmGetSlotStart        = \_ -> pure $ Just $ genTestArgs ^. gtaSlotStart,
+            emmGetLeadersFromEpoch = \_ -> pure $ Just $ genTestArgs ^. gtaSlotLeaders
+        }
+
+    -- The extra context so we can mock the functions.
+    let extraContext :: ExtraContext
+        extraContext = makeMockExtraCtx mode
+
+    runExplorerTestMode testParams extraContext $ getBlocksPage pageNumber (Just 10)
   where
     -- The page number we send to the function
     pageNumber :: Maybe Word
     pageNumber = genTestArgs ^. gtaPageNumber
 
-    -- The mocked CSL function interfaces
-    mode :: ExplorerMockMode BlockTestMode
-    mode = defaultInstance {
-        emmGetTipBlock            = pure $ genTestArgs ^. gtaTipBlock,
-        emmGetPageBlocks          = \_ -> pure $ Just $ genTestArgs ^. gtaBlockHeaderHashes,
-        emmGetBlundFromHH         = \_ -> pure $ Just $ genTestArgs ^. gtaBlundsFromHeaderHashes,
-        emmGetSlotStart           = \_ -> pure $ Just $ genTestArgs ^. gtaSlotStart,
-        emmGetLeadersFromEpoch    = \_ -> pure $ Just $ genTestArgs ^. gtaSlotLeaders
-    }
 
 -- TODO(ks): Temporary test params, will be removed.
-testParamsGen :: IO TestParams
+testParamsGen :: IO ExplorerTestParams
 testParamsGen = generate arbitrary
-
-defaultInstance :: ExplorerMockMode BlockTestMode
-defaultInstance = def
-
 
 ----------------------------------------------------------------
 -- Time benchmark

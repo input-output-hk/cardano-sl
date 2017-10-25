@@ -15,23 +15,22 @@ import           Test.Hspec.QuickCheck        (modifyMaxSuccess, prop)
 import           Test.QuickCheck              (arbitrary, counterexample, forAll, (==>))
 import           Test.QuickCheck.Monadic      (assert, monadicIO, run)
 
-import           Test.Pos.Block.Logic.Mode    (BlockTestMode, runBlockTestMode)
-
 import           Pos.Arbitrary.Block          ()
 import           Pos.Block.Core               (Block)
 import qualified Pos.Communication            ()
 import           Pos.Core                     (EpochIndex (..), HasConfiguration,
                                                LocalSlotIndex (..), SlotId (..))
 import           Pos.DB.Block                 (MonadBlockDB)
+import           Pos.Explorer.ExplorerMode    (runExplorerTestMode)
+import           Pos.Explorer.ExtraContext    (ExplorerMockMode (..), ExtraContext (..),
+                                               makeExtraCtx, makeMockExtraCtx)
 import           Pos.Explorer.TestUtil        (basicBlockGenericUnsafe, emptyBlk,
                                                leftToCounter)
-import           Pos.Explorer.Web.ClientTypes (CBlockEntry, ExplorerMockMode (..))
-import           Pos.Explorer.Web.Server      (getBlocksLastPageEMode, getBlocksPageEMode,
-                                               getBlocksPagesTotalEMode, getBlocksTotal,
-                                               getBlocksTotalEMode,
+import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
+import           Pos.Explorer.Web.Server      (getBlocksLastPage, getBlocksPage,
+                                               getBlocksPagesTotal, getBlocksTotal,
                                                pureGetBlocksPagesTotal,
                                                pureGetBlocksTotal)
-
 import           Pos.Launcher.Configuration   (HasConfigurations)
 import           Test.Pos.Util                (withDefConfigurations)
 
@@ -99,18 +98,18 @@ blocksTotalUnitSpec =
                   let testBlock :: MonadBlockDB m => m Block
                       testBlock = pure $ basicBlockGenericUnsafe prevHeader sk slotId
 
-                  -- The default @ExplorerMockMode@ instance that has no implementation.
-                  let defaultInstance :: ExplorerMockMode BlockTestMode
-                      defaultInstance = def
-
                   -- We replace the "real" database with our custom data.
-                  let mode :: ExplorerMockMode BlockTestMode
-                      mode = defaultInstance { emmGetTipBlock = testBlock }
+                  let mode :: ExplorerMockMode
+                      mode = def { emmGetTipBlock = testBlock }
+
+                  -- The extra context so we can mock the functions.
+                  let extraContext :: ExtraContext
+                      extraContext = makeMockExtraCtx mode
 
                   -- We run the function in @BlockTestMode@ so we don't need to define
                   -- a million instances.
                   let blockExecution :: IO Integer
-                      blockExecution = runBlockTestMode testParams $ getBlocksTotalEMode mode
+                      blockExecution = runExplorerTestMode testParams extraContext getBlocksTotal
 
                   -- We finally run it as @PropertyM@ and check if it holds.
                   blocksTotal <- run blockExecution
@@ -130,20 +129,20 @@ blocksPagesTotalUnitSpec =
                   let testBlock :: MonadBlockDB m => m Block
                       testBlock = pure $ basicBlockGenericUnsafe prevHeader sk slotId
 
-                  -- The default @ExplorerMockMode@ instance that has no implementation.
-                  let defaultInstance :: ExplorerMockMode BlockTestMode
-                      defaultInstance = def
-
                   -- We replace the "real" database with our custom data.
-                  let mode :: ExplorerMockMode BlockTestMode
-                      mode = defaultInstance { emmGetTipBlock = testBlock }
+                  let mode :: ExplorerMockMode
+                      mode = def { emmGetTipBlock = testBlock }
+
+                  -- The extra context so we can mock the functions.
+                  let extraContext :: ExtraContext
+                      extraContext = makeMockExtraCtx mode
 
                   -- We run the function in @BlockTestMode@ so we don't need to define
                   -- a million instances.
                   let blockExecution :: IO Integer
                       blockExecution =
-                          runBlockTestMode testParams
-                          $ getBlocksPagesTotalEMode mode (Just 10)
+                          runExplorerTestMode testParams extraContext
+                              $ getBlocksPagesTotal (Just 10)
 
                   -- We finally run it as @PropertyM@ and check if it holds.
                   blocksTotal <- run blockExecution
@@ -172,13 +171,9 @@ blocksPageUnitSpec =
                   let testBlock :: MonadBlockDB m => m Block
                       testBlock = pure $ basicBlockGenericUnsafe prevHeader sk mockSlotId
 
-                  -- The default @ExplorerMockMode@ instance that has no implementation.
-                  let defaultInstance :: ExplorerMockMode BlockTestMode
-                      defaultInstance = def
-
                   -- We replace the "real" functions with our custom functions.
-                  let mode :: ExplorerMockMode BlockTestMode
-                      mode = defaultInstance {
+                  let mode :: ExplorerMockMode
+                      mode = def {
                           emmGetTipBlock            = testBlock,
                           emmGetPageBlocks          = \_   -> pure $ Just hh,
                           emmGetBlundFromHH         = \_   -> pure $ Just blund,
@@ -187,12 +182,16 @@ blocksPageUnitSpec =
                               pure . Just . fromList $ [leader]
                       }
 
+                  -- The extra context so we can mock the functions.
+                  let extraContext :: ExtraContext
+                      extraContext = makeMockExtraCtx mode
+
                   -- We run the function in @BlockTestMode@ so we don't need to define
                   -- a million instances.
                   let blockExecution :: IO (Integer, [CBlockEntry])
                       blockExecution =
-                          runBlockTestMode testParams
-                          $ getBlocksPageEMode mode Nothing (Just 10)
+                          runExplorerTestMode testParams extraContext
+                              $ getBlocksPage Nothing (Just 10)
 
                   -- We finally run it as @PropertyM@ and check if it holds.
                   blocksTotal <- fst <$> run blockExecution
@@ -214,13 +213,9 @@ blocksLastPageUnitSpec =
                   let testBlock :: MonadBlockDB m => m Block
                       testBlock = pure $ basicBlockGenericUnsafe prevHeader sk slotId
 
-                  -- The default @ExplorerMockMode@ instance that has no implementation.
-                  let defaultInstance :: ExplorerMockMode BlockTestMode
-                      defaultInstance = def
-
                   -- We replace the "real" functions with our custom functions.
-                  let mode :: ExplorerMockMode BlockTestMode
-                      mode = defaultInstance {
+                  let mode :: ExplorerMockMode
+                      mode = def {
                           emmGetTipBlock            = testBlock,
                           emmGetPageBlocks          = \_   -> pure $ Just hh,
                           emmGetBlundFromHH         = \_   -> pure $ Just blund,
@@ -228,11 +223,15 @@ blocksLastPageUnitSpec =
                           emmGetLeadersFromEpoch    = \_   -> pure $ Just leader
                       }
 
+                  -- The extra context so we can mock the functions.
+                  let extraContext :: ExtraContext
+                      extraContext = makeMockExtraCtx mode
+
                   -- We run the function in @BlockTestMode@ so we don't need to define
                   -- a million instances.
                   let blockExecution :: IO (Integer, [CBlockEntry])
                       blockExecution =
-                          runBlockTestMode testParams $ getBlocksLastPageEMode mode
+                          runExplorerTestMode testParams extraContext getBlocksLastPage
 
                   -- We finally run it as @PropertyM@ and check if it holds.
                   blocksTotal <- fst <$> run blockExecution
@@ -250,10 +249,15 @@ blocksTotalFunctionalSpec =
             forAll arbitrary $ \testParams ->
                 monadicIO $ do
 
+                  -- The extra context so we can mock the functions.
+                  let extraContext :: ExtraContext
+                      extraContext = makeExtraCtx
+
                   -- We run the function in @BlockTestMode@ so we don't need to define
                   -- a million instances.
                   let blockExecution :: IO Integer
-                      blockExecution = runBlockTestMode testParams getBlocksTotal
+                      blockExecution =
+                          runExplorerTestMode testParams extraContext getBlocksTotal
 
                   -- We finally run it as @PropertyM@ and check if it holds.
                   blocksTotal <- run blockExecution

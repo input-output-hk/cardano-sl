@@ -23,6 +23,7 @@ module Pos.Explorer.Web.Server
        -- api functions
        , getBlocksTotal
        , getBlocksPagesTotal
+       , getBlocksPage
 
        -- function useful for socket-io server
        , topsortTxsOrFail

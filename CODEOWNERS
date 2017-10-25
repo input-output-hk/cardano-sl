@@ -61,4 +61,7 @@ wallet/src                      @martoon @flyingleafe @akegalj
 wallet/purescript               @akegalj
 wallet/web-api-swagger          @martoon
 
+## Auxx
+auxx                            @int-index
+
 genesis-info/                   @georgeee

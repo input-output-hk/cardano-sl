@@ -9,6 +9,7 @@ module Pos.Wallet.Web.Pending.Submission
     , ptxFirstSubmissionHandler
     , ptxResubmissionHandler
 
+    , TxSubmissionMode
     , submitAndSavePtx
     ) where
 
@@ -19,13 +20,14 @@ import           Formatting                       (build, sformat, shown, stext,
 import           System.Wlog                      (WithLogger, logInfo)
 
 import           Pos.Client.Txp.History           (saveTx)
+import           Pos.Communication                (TxMode)
 import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
-import           Pos.Wallet.Web.Mode              (MonadWalletWebMode)
 import           Pos.Wallet.Web.Networking        (MonadWalletSendActions (..))
 import           Pos.Wallet.Web.Pending.Functions (isReclaimableFailure)
 import           Pos.Wallet.Web.Pending.Types     (PendingTx (..), PtxCondition (..),
                                                    PtxPoolInfo)
-import           Pos.Wallet.Web.State             (PtxMetaUpdate (PtxMarkAcknowledged),
+import           Pos.Wallet.Web.State             (MonadWalletDB,
+                                                   PtxMetaUpdate (PtxMarkAcknowledged),
                                                    addOnlyNewPendingTx, casPtxCondition,
                                                    ptxUpdateMeta)
 
@@ -60,7 +62,7 @@ ptxFirstSubmissionHandler =
                 \transaction made"
 
 ptxResubmissionHandler
-    :: forall ctx m. MonadWalletWebMode ctx m
+    :: forall ctx m. (MonadThrow m, WithLogger m, MonadWalletDB ctx m)
     => PendingTx -> PtxSubmissionHandlers m
 ptxResubmissionHandler PendingTx{..} =
     PtxSubmissionHandlers
@@ -105,10 +107,16 @@ ptxResubmissionHandler PendingTx{..} =
             \this transaction has unexpected condition "%build)
             _ptxTxId _ptxCond
 
+type TxSubmissionMode ctx m =
+    ( TxMode m
+    , MonadWalletSendActions m
+    , MonadWalletDB ctx m
+    )
+
 -- | Like 'Pos.Communication.Tx.submitAndSaveTx',
 -- but treats tx as future /pending/ transaction.
 submitAndSavePtx
-    :: (MonadWalletWebMode ctx m, MonadWalletSendActions m)
+    :: TxSubmissionMode ctx m
     => PtxSubmissionHandlers m -> PendingTx -> m ()
 submitAndSavePtx PtxSubmissionHandlers{..} ptx@PendingTx{..} = do
     ack <- sendTxToNetwork _ptxTxAux

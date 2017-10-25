@@ -18,34 +18,44 @@ import           Serokell.Util.Text                (listJson)
 import           System.Wlog                       (logInfo, modifyLoggerName)
 
 import           Pos.Client.Txp.Addresses          (MonadAddresses)
+import           Pos.Communication                 (TxMode)
 import           Pos.Configuration                 (HasNodeConfiguration,
                                                     pendingTxResubmitionPeriod)
 import           Pos.Core                          (ChainDifficulty (..), SlotId (..),
                                                     difficultyL)
 import           Pos.Core.Configuration            (HasConfiguration)
 import           Pos.Crypto                        (WithHash (..))
+import           Pos.DB.Block                      (MonadBlockDB)
 import           Pos.DB.DB                         (getTipHeader)
+import           Pos.Recovery.Info                 (MonadRecoveryInfo)
 import           Pos.Reporting                     (MonadReporting)
-import           Pos.Slotting                      (getNextEpochSlotDuration, onNewSlot)
+import           Pos.Shutdown                      (HasShutdownContext)
+import           Pos.Slotting                      (MonadSlots, getNextEpochSlotDuration,
+                                                    onNewSlot)
 import           Pos.Txp                           (TxAux (..), topsortTxs)
 import           Pos.Util.LogSafe                  (logInfoS)
-import           Pos.Wallet.Web.Mode               (MonadWalletWebMode)
 import           Pos.Wallet.Web.Networking         (MonadWalletSendActions)
 import           Pos.Wallet.Web.Pending.Functions  (usingPtxCoords)
 import           Pos.Wallet.Web.Pending.Submission (ptxResubmissionHandler,
                                                     submitAndSavePtx)
 import           Pos.Wallet.Web.Pending.Types      (PendingTx (..), PtxCondition (..),
                                                     ptxNextSubmitSlot, _PtxApplying)
-import           Pos.Wallet.Web.State              (PtxMetaUpdate (PtxIncSubmitTiming),
+import           Pos.Wallet.Web.State              (MonadWalletDB,
+                                                    PtxMetaUpdate (PtxIncSubmitTiming),
                                                     casPtxCondition, getPendingTx,
                                                     getPendingTxs, ptxUpdateMeta)
 import           Pos.Wallet.Web.Util               (getWalletAssuredDepth)
 
 type MonadPendings ctx m =
-    ( MonadWalletWebMode ctx m
+    ( TxMode m
     , MonadAddresses m
+    , MonadBlockDB m
+    , MonadRecoveryInfo m
     , MonadReporting ctx m
+    , HasShutdownContext ctx
+    , MonadSlots ctx m
     , MonadWalletSendActions m
+    , MonadWalletDB ctx m
     , HasConfiguration
     , HasNodeConfiguration
     )

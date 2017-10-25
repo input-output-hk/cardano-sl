@@ -3,6 +3,7 @@ module Cardano.Wallet.API.V1.Wallets where
 import           Universum
 
 import           Cardano.Wallet.API.Types
+import qualified Cardano.Wallet.API.V1.Accounts   as Accounts
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
 
@@ -16,11 +17,7 @@ type API =
                    :> WalletRequestParams
                    :> Get '[JSON] (OneOf [Wallet] (ExtendedResponse [Wallet]))
     :<|> "wallets" :> Capture "walletId" WalletId
-                   :> ( "accounts" :> Header  "Daedalus-Passphrase" Text
-                                   :> Summary "Creates a new Account for the given Wallet."
-                                   :> ReqBody '[JSON] Account
-                                   :> Post '[JSON] Account
-                   :<|> "password" :> Summary "Updates the password for the given Wallet."
+                   :> ( "password" :> Summary "Updates the password for the given Wallet."
                                    :> ReqBody '[JSON] PasswordUpdate
                                    :> Put '[JSON] Wallet
                    :<|> Summary "Deletes the given Wallet and all its accounts."
@@ -30,4 +27,6 @@ type API =
                    :<|> Summary "Update the Wallet identified by the given walletId."
                         :> ReqBody '[JSON] Wallet
                         :> Put '[JSON] Wallet
+                   -- Nest the Accounts API
+                   :<|> Tags '["Accounts"] :> Accounts.API
                    )

@@ -174,7 +174,9 @@ newtype WalletId = WalletId Text deriving (Show, Eq, Generic)
 deriveJSON Serokell.defaultOptions ''WalletId
 
 instance Arbitrary WalletId where
-  arbitrary = WalletId . fromString <$> elements ["1Z1F10ADD10F9872"]
+  arbitrary =
+      let wid = "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
+          in WalletId . fromString <$> elements [wid]
 
 instance FromHttpApiData WalletId where
     parseQueryParam = Right . WalletId

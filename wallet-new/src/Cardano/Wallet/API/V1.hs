@@ -13,7 +13,6 @@ import           Servant
 type API = "version"
            :> Summary "Returns the version for this API."
            :> Get '[JSON] WalletVersion
-       :<|> Tags '["Accounts"]  :> Accounts.API
        :<|> Tags '["Addresses"] :> Addresses.API
        :<|> Tags '["Wallets"]   :> Wallets.API
        :<|> Tags '["Payments"]  :> Payments.API

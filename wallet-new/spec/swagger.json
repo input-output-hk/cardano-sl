@@ -7,7 +7,7 @@
             "url": "http://mit.com",
             "name": "MIT"
         },
-        "description": "This is the specification for the Cardano Wallet API, automatically generated\nas a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API\nof [Cardano](https://github.com/input-output-hk/cardano-sl).\n\n### Request format (all versions)\n\nIssuing requests against this API is conceptually not very different from any other web service out there. The API\nis versioned, meaning is possible to access different versions of the latter by changing the _version number_ in the URL.\n\nFor example, _omitting_ the version number of passing `v0` would call the version 0 of the API. Examples:\n\n```\n/api/version\n/api/v0/version\n```\n\nBoth URL above will return the same result. Compatibility between major versions is not _guaranteed_, i.e. the\nrequest & response formats might differ.\n\n### Response format (V1 onwards)\n\n**All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is\nthe best way of ensuring the performance of GET requests is not affected by the size of the data storage.\n\nVersion `V1` introduced a different way of requesting information to the API. In particular, GET requests\nwhich returns a _collection_ (i.e. typically a JSON array of resources) lists extra parameters which can be\nused to modify the shape of the response. In particular, those are:\n\n* `page`: (Default value: **1**).\n* `per_page`: (Default value: **10**)\n* `extended`: (Default value: `false`)\n* `Daedalus-Response-Format`: (Default value: `null`)\n\nFor a more accurate description, see the section `Parameters` of each GET request, but as a brief overview\nthe first two control how many results and which results to access in a paginated request. The other two\n(one to be passed as a query parameter, the other as an HTTP Header) controls the response format. By omitting\nboth, the \"naked\" collection will be returned. For example, requesting for a list of _Accounts_ might issue,\nin this case:\n\n``` json\n[\n    {\n        \"amount\": 1,\n        \"addresses\": [\n            {\n                \"id\": \"DEADBeef\"\n            },\n            {\n                \"id\": \"DEADBeef\"\n            }\n        ],\n        \"name\": \"¼ýI\",\n        \"walletId\": \"1Z1F10ADD10F9872\",\n        \"id\": \"123456\"\n    },\n    {\n        \"amount\": 3,\n        \"addresses\": [\n            {\n                \"id\": \"DEADBeef\"\n            }\n        ],\n        \"name\": \"\",\n        \"walletId\": \"1Z1F10ADD10F9872\",\n        \"id\": \"DEADBeef\"\n    }\n]\n```\n\nIn the second case, instead:\n\n``` json\n{\n    \"data\": [\n        {\n            \"amount\": 2,\n            \"addresses\": [\n                {\n                    \"id\": \"DEADBeef\"\n                }\n            ],\n            \"name\": \"\",\n            \"walletId\": \"1Z1F10ADD10F9872\",\n            \"id\": \"DEADBeef\"\n        },\n        {\n            \"amount\": 2,\n            \"addresses\": [\n                {\n                    \"id\": \"DEADBeef\"\n                },\n                {\n                    \"id\": \"123456\"\n                }\n            ],\n            \"name\": \"&\\u001aV\",\n            \"walletId\": \"1Z1F10ADD10F9872\",\n            \"id\": \"123456\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}\n```\n\n### Dealing with errors (V1 onwards)\n\nIn case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a\n[JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together\nwith a numeric error code which can be used by API consumers to implement proper error handling in their\napplication. For example, here's a typical error which might be issued:\n\n``` json\n{\n    \"status\": \"error\",\n    \"code\": 600,\n    \"message\": \"The requested Wallet cannot be found.\"\n}\n```\n"
+        "description": "This is the specification for the Cardano Wallet API, automatically generated\nas a [Swagger](https://swagger.io/) spec from the [Servant](http://haskell-servant.readthedocs.io/en/stable/) API\nof [Cardano](https://github.com/input-output-hk/cardano-sl).\n\n### Request format (all versions)\n\nIssuing requests against this API is conceptually not very different from any other web service out there. The API\nis versioned, meaning is possible to access different versions of the latter by changing the _version number_ in the URL.\n\nFor example, _omitting_ the version number of passing `v0` would call the version 0 of the API. Examples:\n\n```\n/api/version\n/api/v0/version\n```\n\nBoth URL above will return the same result. Compatibility between major versions is not _guaranteed_, i.e. the\nrequest & response formats might differ.\n\n### Response format (V1 onwards)\n\n**All GET requests of the API are paginated by default**. Whilst this can be a source of surprise, is\nthe best way of ensuring the performance of GET requests is not affected by the size of the data storage.\n\nVersion `V1` introduced a different way of requesting information to the API. In particular, GET requests\nwhich returns a _collection_ (i.e. typically a JSON array of resources) lists extra parameters which can be\nused to modify the shape of the response. In particular, those are:\n\n* `page`: (Default value: **1**).\n* `per_page`: (Default value: **10**)\n* `extended`: (Default value: `false`)\n* `Daedalus-Response-Format`: (Default value: `null`)\n\nFor a more accurate description, see the section `Parameters` of each GET request, but as a brief overview\nthe first two control how many results and which results to access in a paginated request. The other two\n(one to be passed as a query parameter, the other as an HTTP Header) controls the response format. By omitting\nboth, the \"naked\" collection will be returned. For example, requesting for a list of _Accounts_ might issue,\nin this case:\n\n``` json\n[\n    {\n        \"amount\": 1,\n        \"addresses\": [\n            {\n                \"id\": \"DEADBeef\"\n            },\n            {\n                \"id\": \"DEADBeef\"\n            }\n        ],\n        \"name\": \"¼ýI\",\n        \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"id\": \"123456\"\n    },\n    {\n        \"amount\": 3,\n        \"addresses\": [\n            {\n                \"id\": \"DEADBeef\"\n            }\n        ],\n        \"name\": \"\",\n        \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"id\": \"DEADBeef\"\n    }\n]\n```\n\nIn the second case, instead:\n\n``` json\n{\n    \"data\": [\n        {\n            \"amount\": 2,\n            \"addresses\": [\n                {\n                    \"id\": \"DEADBeef\"\n                }\n            ],\n            \"name\": \"\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": \"DEADBeef\"\n        },\n        {\n            \"amount\": 2,\n            \"addresses\": [\n                {\n                    \"id\": \"DEADBeef\"\n                },\n                {\n                    \"id\": \"123456\"\n                }\n            ],\n            \"name\": \"&\\u001aV\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": \"123456\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}\n```\n\n### Dealing with errors (V1 onwards)\n\nIn case a request cannot be served by the API, a non-2xx HTTP response will be issue, together with a\n[JSend-compliant](https://labs.omniti.com/labs/jsend) JSON Object describing the error in detail together\nwith a numeric error code which can be used by API consumers to implement proper error handling in their\napplication. For example, here's a typical error which might be issued:\n\n``` json\n{\n    \"status\": \"error\",\n    \"code\": 600,\n    \"message\": \"The requested Wallet cannot be found.\"\n}\n```\n"
     },
     "definitions": {
         "Wallet": {
@@ -15,7 +15,7 @@
                 "backupPhrase": "MyBackupPhraseHashed",
                 "name": "My wallet",
                 "assurance": "assuranceNormal",
-                "id": "1Z1F10ADD10F9872",
+                "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
                 "unit": 3
             },
             "required": [
@@ -26,7 +26,7 @@
                 "unit"
             ],
             "type": "object",
-            "description": "A Wallet. Here's an example:<br><br><pre>{\n    \"backupPhrase\": \"MyBackupPhraseHashed\",\n    \"name\": \"My wallet\",\n    \"assurance\": \"assuranceNormal\",\n    \"id\": \"1Z1F10ADD10F9872\",\n    \"unit\": 3\n}</pre>",
+            "description": "A Wallet. Here's an example:<br><br><pre>{\n    \"backupPhrase\": \"MyBackupPhraseHashed\",\n    \"name\": \"My wallet\",\n    \"assurance\": \"assuranceNormal\",\n    \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n    \"unit\": 3\n}</pre>",
             "properties": {
                 "backupPhrase": {
                     "type": "string"
@@ -58,7 +58,7 @@
                         }
                     ],
                     "name": "õ",
-                    "walletId": "1Z1F10ADD10F9872",
+                    "walletId": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
                     "id": "DEADBeef"
                 },
                 "amount": 1,
@@ -72,7 +72,7 @@
                 "destinationAddress"
             ],
             "type": "object",
-            "description": "A request for exchange of `Coins` from one entity to another. Here's an example:<br><br><pre>{\n    \"sourceAccount\": {\n        \"amount\": 2,\n        \"addresses\": [\n            {\n                \"id\": \"DEADBeef\"\n            },\n            {\n                \"id\": \"123456\"\n            }\n        ],\n        \"name\": \"õ\",\n        \"walletId\": \"1Z1F10ADD10F9872\",\n        \"id\": \"DEADBeef\"\n    },\n    \"amount\": 1,\n    \"destinationAddress\": {\n        \"id\": \"DEADBeef\"\n    }\n}</pre>",
+            "description": "A request for exchange of `Coins` from one entity to another. Here's an example:<br><br><pre>{\n    \"sourceAccount\": {\n        \"amount\": 2,\n        \"addresses\": [\n            {\n                \"id\": \"DEADBeef\"\n            },\n            {\n                \"id\": \"123456\"\n            }\n        ],\n        \"name\": \"õ\",\n        \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"id\": \"DEADBeef\"\n    },\n    \"amount\": 1,\n    \"destinationAddress\": {\n        \"id\": \"DEADBeef\"\n    }\n}</pre>",
             "properties": {
                 "sourceAccount": {
                     "required": [
@@ -158,7 +158,7 @@
                         }
                     ],
                     "name": "\"¢å",
-                    "walletId": "1Z1F10ADD10F9872",
+                    "walletId": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
                     "id": "DEADBeef"
                 }
             ],
@@ -201,7 +201,7 @@
                 }
             },
             "type": "array",
-            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Account] or [Account] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"amount\": 1,\n        \"addresses\": [\n            {\n                \"id\": \"DEADBeef\"\n            },\n            {\n                \"id\": \"DEADBeef\"\n            }\n        ],\n        \"name\": \"¼ýI\",\n        \"walletId\": \"1Z1F10ADD10F9872\",\n        \"id\": \"123456\"\n    },\n    {\n        \"amount\": 3,\n        \"addresses\": [\n            {\n                \"id\": \"DEADBeef\"\n            }\n        ],\n        \"name\": \"\",\n        \"walletId\": \"1Z1F10ADD10F9872\",\n        \"id\": \"DEADBeef\"\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"amount\": 2,\n            \"addresses\": [\n                {\n                    \"id\": \"DEADBeef\"\n                }\n            ],\n            \"name\": \"\",\n            \"walletId\": \"1Z1F10ADD10F9872\",\n            \"id\": \"DEADBeef\"\n        },\n        {\n            \"amount\": 2,\n            \"addresses\": [\n                {\n                    \"id\": \"DEADBeef\"\n                },\n                {\n                    \"id\": \"123456\"\n                }\n            ],\n            \"name\": \"&\\u001aV\",\n            \"walletId\": \"1Z1F10ADD10F9872\",\n            \"id\": \"123456\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}</pre>"
+            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Account] or [Account] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"amount\": 1,\n        \"addresses\": [\n            {\n                \"id\": \"DEADBeef\"\n            },\n            {\n                \"id\": \"DEADBeef\"\n            }\n        ],\n        \"name\": \"¼ýI\",\n        \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"id\": \"123456\"\n    },\n    {\n        \"amount\": 3,\n        \"addresses\": [\n            {\n                \"id\": \"DEADBeef\"\n            }\n        ],\n        \"name\": \"\",\n        \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"id\": \"DEADBeef\"\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"amount\": 2,\n            \"addresses\": [\n                {\n                    \"id\": \"DEADBeef\"\n                }\n            ],\n            \"name\": \"\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": \"DEADBeef\"\n        },\n        {\n            \"amount\": 2,\n            \"addresses\": [\n                {\n                    \"id\": \"DEADBeef\"\n                },\n                {\n                    \"id\": \"123456\"\n                }\n            ],\n            \"name\": \"&\\u001aV\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": \"123456\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}</pre>"
         },
         "OneOf [Address] (ExtendedResponse [Address])": {
             "example": [
@@ -253,7 +253,7 @@
                     }
                 ],
                 "name": "",
-                "walletId": "1Z1F10ADD10F9872",
+                "walletId": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
                 "id": "DEADBeef"
             },
             "required": [
@@ -264,7 +264,7 @@
                 "id"
             ],
             "type": "object",
-            "description": "An Account. Here's an example:<br><br><pre>{\n    \"amount\": 3,\n    \"addresses\": [\n        {\n            \"id\": \"123456\"\n        },\n        {\n            \"id\": \"DEADBeef\"\n        },\n        {\n            \"id\": \"DEADBeef\"\n        }\n    ],\n    \"name\": \"\",\n    \"walletId\": \"1Z1F10ADD10F9872\",\n    \"id\": \"DEADBeef\"\n}</pre>",
+            "description": "An Account. Here's an example:<br><br><pre>{\n    \"amount\": 3,\n    \"addresses\": [\n        {\n            \"id\": \"123456\"\n        },\n        {\n            \"id\": \"DEADBeef\"\n        },\n        {\n            \"id\": \"DEADBeef\"\n        }\n    ],\n    \"name\": \"\",\n    \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n    \"id\": \"DEADBeef\"\n}</pre>",
             "properties": {
                 "amount": {
                     "type": "number"
@@ -340,7 +340,7 @@
                     "backupPhrase": "MyBackupPhraseHashed",
                     "name": "My wallet",
                     "assurance": "assuranceStrict",
-                    "id": "1Z1F10ADD10F9872",
+                    "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
                     "unit": 3
                 }
             ],
@@ -372,7 +372,7 @@
                 }
             },
             "type": "array",
-            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Wallet] or [Wallet] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"backupPhrase\": \"MyBackupPhraseHashed\",\n        \"name\": \"My wallet\",\n        \"assurance\": \"assuranceStrict\",\n        \"id\": \"1Z1F10ADD10F9872\",\n        \"unit\": 1\n    },\n    {\n        \"backupPhrase\": \"MyBackupPhraseHashed\",\n        \"name\": \"My wallet\",\n        \"assurance\": \"assuranceNormal\",\n        \"id\": \"1Z1F10ADD10F9872\",\n        \"unit\": 3\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"backupPhrase\": \"MyBackupPhraseHashed\",\n            \"name\": \"My wallet\",\n            \"assurance\": \"assuranceNormal\",\n            \"id\": \"1Z1F10ADD10F9872\",\n            \"unit\": 2\n        },\n        {\n            \"backupPhrase\": \"MyBackupPhraseHashed\",\n            \"name\": \"My wallet\",\n            \"assurance\": \"assuranceStrict\",\n            \"id\": \"1Z1F10ADD10F9872\",\n            \"unit\": 2\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}</pre>"
+            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Wallet] or [Wallet] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"backupPhrase\": \"MyBackupPhraseHashed\",\n        \"name\": \"My wallet\",\n        \"assurance\": \"assuranceStrict\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"unit\": 1\n    },\n    {\n        \"backupPhrase\": \"MyBackupPhraseHashed\",\n        \"name\": \"My wallet\",\n        \"assurance\": \"assuranceNormal\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"unit\": 3\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"backupPhrase\": \"MyBackupPhraseHashed\",\n            \"name\": \"My wallet\",\n            \"assurance\": \"assuranceNormal\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"unit\": 2\n        },\n        {\n            \"backupPhrase\": \"MyBackupPhraseHashed\",\n            \"name\": \"My wallet\",\n            \"assurance\": \"assuranceStrict\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"unit\": 2\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}</pre>"
         },
         "PasswordUpdate": {
             "example": {
@@ -496,63 +496,6 @@
                 ]
             }
         },
-        "/api/v1/accounts/{accountId}": {
-            "get": {
-                "summary": "Retrieves a specific Account, given its Id.",
-                "responses": {
-                    "404": {
-                        "description": "`accountId` not found"
-                    },
-                    "200": {
-                        "schema": {
-                            "$ref": "#/definitions/Account"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "parameters": [
-                    {
-                        "required": true,
-                        "in": "path",
-                        "name": "accountId",
-                        "type": "string"
-                    }
-                ],
-                "tags": [
-                    "Accounts",
-                    "V1"
-                ]
-            },
-            "delete": {
-                "summary": "Deletes an Account.",
-                "responses": {
-                    "404": {
-                        "description": "`accountId` not found"
-                    },
-                    "204": {
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "parameters": [
-                    {
-                        "required": true,
-                        "in": "path",
-                        "name": "accountId",
-                        "type": "string"
-                    }
-                ],
-                "tags": [
-                    "Accounts",
-                    "V1"
-                ]
-            }
-        },
         "/api/v1/wallets/{walletId}/accounts": {
             "post": {
                 "summary": "Creates a new Account for the given Wallet.",
@@ -598,6 +541,69 @@
                     }
                 ],
                 "tags": [
+                    "Accounts",
+                    "V1",
+                    "Wallets"
+                ]
+            },
+            "get": {
+                "summary": "Retrieves the full list of Accounts.",
+                "responses": {
+                    "404": {
+                        "description": "`walletId` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `Daedalus-Response-Format` or `extended` or `per_page` or `page`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/OneOf [Account] (ExtendedResponse [Account])"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "default": 1,
+                        "minimum": 1,
+                        "in": "query",
+                        "name": "page",
+                        "type": "integer",
+                        "description": "The page number to fetch for this request. The minimum is **1**.\nIf nothing is specified, **this value defaults to 1** and always shows the first\nentries in the requested collection.\n"
+                    },
+                    {
+                        "maximum": 500,
+                        "default": 10,
+                        "minimum": 1,
+                        "in": "query",
+                        "name": "per_page",
+                        "type": "integer",
+                        "description": "The number of entries to display for each page. The minimum is **1**, whereas the maximum\nis **500**. If nothing is specified, **this value defaults to 10**.\n"
+                    },
+                    {
+                        "in": "query",
+                        "name": "extended",
+                        "type": "boolean",
+                        "description": "Informs the backend that the fetched data should be wrapped in an `ExtendedResponse`\n(see the Models section). An `ExtendedResponse` includes useful metadata\nwhich can be used by clients to support pagination.\n"
+                    },
+                    {
+                        "in": "header",
+                        "name": "Daedalus-Response-Format",
+                        "type": "string",
+                        "description": "It has the same effect of setting `extended=true` in the URL as a query parameter.\nIf the header `Daedalus-Response-Format` is present in the HTTP request with a value set to\n`extended`, the fetched data will be wrapped in an `ExtendedResponse`.\n"
+                    }
+                ],
+                "tags": [
+                    "Accounts",
                     "V1",
                     "Wallets"
                 ]
@@ -865,16 +871,16 @@
                 ]
             }
         },
-        "/api/v1/accounts": {
+        "/api/v1/wallets/{walletId}/accounts/{accountId}": {
             "get": {
-                "summary": "Retrieves the full list of Accounts.",
+                "summary": "Retrieves a specific Account, given its Id.",
                 "responses": {
-                    "400": {
-                        "description": "Invalid `Daedalus-Response-Format` or `extended` or `per_page` or `page`"
+                    "404": {
+                        "description": "`walletId` or `accountId` not found"
                     },
                     "200": {
                         "schema": {
-                            "$ref": "#/definitions/OneOf [Account] (ExtendedResponse [Account])"
+                            "$ref": "#/definitions/Account"
                         },
                         "description": ""
                     }
@@ -884,38 +890,55 @@
                 ],
                 "parameters": [
                     {
-                        "default": 1,
-                        "minimum": 1,
-                        "in": "query",
-                        "name": "page",
-                        "type": "integer",
-                        "description": "The page number to fetch for this request. The minimum is **1**.\nIf nothing is specified, **this value defaults to 1** and always shows the first\nentries in the requested collection.\n"
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
                     },
                     {
-                        "maximum": 500,
-                        "default": 10,
-                        "minimum": 1,
-                        "in": "query",
-                        "name": "per_page",
-                        "type": "integer",
-                        "description": "The number of entries to display for each page. The minimum is **1**, whereas the maximum\nis **500**. If nothing is specified, **this value defaults to 10**.\n"
-                    },
-                    {
-                        "in": "query",
-                        "name": "extended",
-                        "type": "boolean",
-                        "description": "Informs the backend that the fetched data should be wrapped in an `ExtendedResponse`\n(see the Models section). An `ExtendedResponse` includes useful metadata\nwhich can be used by clients to support pagination.\n"
-                    },
-                    {
-                        "in": "header",
-                        "name": "Daedalus-Response-Format",
-                        "type": "string",
-                        "description": "It has the same effect of setting `extended=true` in the URL as a query parameter.\nIf the header `Daedalus-Response-Format` is present in the HTTP request with a value set to\n`extended`, the fetched data will be wrapped in an `ExtendedResponse`.\n"
+                        "required": true,
+                        "in": "path",
+                        "name": "accountId",
+                        "type": "string"
                     }
                 ],
                 "tags": [
                     "Accounts",
-                    "V1"
+                    "V1",
+                    "Wallets"
+                ]
+            },
+            "delete": {
+                "summary": "Deletes an Account.",
+                "responses": {
+                    "404": {
+                        "description": "`walletId` or `accountId` not found"
+                    },
+                    "204": {
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "accountId",
+                        "type": "string"
+                    }
+                ],
+                "tags": [
+                    "Accounts",
+                    "V1",
+                    "Wallets"
                 ]
             }
         },

@@ -77,6 +77,8 @@ executable wallet-new-server
                      , http-types
                      , lens
                      , neat-interpolation
+                     , insert-ordered-containers
+                     , unordered-containers
                      , servant
                      , servant-server
                      , servant-swagger

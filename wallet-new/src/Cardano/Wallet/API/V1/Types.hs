@@ -1,8 +1,10 @@
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeFamilies               #-}
 
 module Cardano.Wallet.API.V1.Types (
   -- * Swagger & REST-related types
@@ -14,6 +16,8 @@ module Cardano.Wallet.API.V1.Types (
   , defaultPerPageEntries
   , OneOf (..)
   , PasswordUpdate (..)
+  , ReadOnlyAccount (..)
+  , ReadOnly
   -- * Error handling
   , WalletError (..)
   -- * Domain-specific types
@@ -237,6 +241,15 @@ instance Arbitrary Account where
                                    <*> fmap fromString arbitrary
                                    <*> arbitrary
 
+data ReadOnlyAccount = ReadOnlyAccount
+  { roaccName      :: !Text
+  } deriving (Show, Eq, Generic)
+
+deriveJSON Serokell.defaultOptions ''ReadOnlyAccount
+
+instance Arbitrary ReadOnlyAccount where
+  arbitrary = ReadOnlyAccount . fromString <$> pure "myAccount"
+
 -- | A type incapsulating a password update request.
 data PasswordUpdate = PasswordUpdate
   { -- | The old password.
@@ -313,3 +326,10 @@ instance Arbitrary WalletUpdate where
   arbitrary = WalletUpdate <$> fmap fromString arbitrary
                            <*> fmap fromString arbitrary
                            <*> fmap getPositive arbitrary
+
+--
+-- ReadOnly isomorphisms
+--
+
+type family ReadOnly (original :: *) :: * where
+  ReadOnly Account = ReadOnlyAccount

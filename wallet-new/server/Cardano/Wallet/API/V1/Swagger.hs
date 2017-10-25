@@ -1,6 +1,7 @@
 {-# LANGUAGE DataKinds         #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE QuasiQuotes       #-}
+{-# LANGUAGE RankNTypes        #-}
 {-# LANGUAGE TypeFamilies      #-}
 {-# LANGUAGE ViewPatterns      #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
@@ -15,10 +16,14 @@ import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
 
 import           Control.Lens                     ((?~))
-import           Data.Aeson
+import           Data.Aeson                       (ToJSON (..), Value (Number, Object))
 import           Data.Aeson.Encode.Pretty
+import qualified Data.HashMap.Strict              as HM
+import           Data.HashMap.Strict.InsOrd       (InsOrdHashMap)
+import qualified Data.HashMap.Strict.InsOrd       as InsOrdHM
 import           Data.Map                         (Map)
 import qualified Data.Map.Strict                  as M
+import           Data.Set                         (Set)
 import qualified Data.Set                         as Set
 import           Data.String.Conv
 import           Data.Swagger                     hiding (Header)
@@ -55,6 +60,13 @@ withExample :: (ToJSON a, Arbitrary a) => proxy a -> T.Text -> T.Text
 withExample (_ :: proxy a) desc =
   desc <> " Here's an example:<br><br><pre>" <> toS (encodePretty $ toJSON @a genExample) <> "</pre>"
 
+readOnlyFieldsFromJSON :: forall a b proxy. (ReadOnly a ~ b, Arbitrary a, ToJSON a, Arbitrary b, ToJSON b)
+                       => proxy a -> Set T.Text
+readOnlyFieldsFromJSON _ =
+    case (toJSON (genExample @a), toJSON (genExample @b)) of
+        (Object o1, Object o2) -> (Set.fromList $ HM.keys o1) `Set.difference` (Set.fromList $ HM.keys o2)
+        _                      -> mempty
+
 --
 -- Extra Typeclasses
 --
@@ -64,6 +76,9 @@ class (ToJSON a, Typeable a, Arbitrary a) => ToDocs a where
   annotate :: (proxy a -> Declare (Definitions Schema) NamedSchema)
            -> proxy a
            -> Declare (Definitions Schema) NamedSchema
+
+  readOnlyFields :: proxy a -> Set T.Text
+  readOnlyFields _ = mempty
 
 -- | Shamelessly copied from:
 -- <https://stackoverflow.com/questions/37364835/how-to-get-the-type-level-values-of-string-in-haskell>
@@ -158,73 +173,88 @@ instance ToParamSchema WalletId
 instance ToDocs APIVersion where
   annotate f p = do
     s <- f p
-    return $ s & (schema . description ?~ (withExample p "The API version. We currently support v0 and v1."))
+    return $ s & (schema . description ?~ "The API version. We currently support v0 and v1.")
                . (schema . example ?~ toJSON @APIVersion genExample)
 
 instance ToDocs WalletVersion where
   annotate f p = do
     s <- f p
-    return $ s & (schema . description ?~ (withExample p "The Wallet version, including the API version and the Git revision."))
+    return $ s & (schema . description ?~ "The Wallet version, including the API version and the Git revision.")
                . (schema . example ?~ toJSON @WalletVersion genExample)
 
 instance ToDocs Metadata where
   annotate f p = do
     s <- f p
-    return $ s & (schema . description ?~ withExample p "Metadata returned as part of an <b>ExtendedResponse</b>.")
+    return $ s & (schema . description ?~ "Metadata returned as part of an <b>ExtendedResponse</b>.")
                . (schema . example ?~ toJSON @Metadata genExample)
 
 instance ToDocs Account where
+  readOnlyFields = readOnlyFieldsFromJSON
   annotate f p = do
     s <- f p
-    return $ s & (schema . description ?~ withExample p "An Account.")
-               . (schema . example ?~ toJSON @Account genExample)
+    return $ s & (schema . description ?~ "An Account.")
+               . (schema . example ?~ toJSON @(ReadOnly Account) genExample)
+               . (over (schema . properties) (setReadOnlyFields p))
+
+setReadOnlyFields :: ToDocs a
+                  => proxy a
+                  -> (InsOrdHashMap Text (Referenced Schema))
+                  -> (InsOrdHashMap Text (Referenced Schema))
+setReadOnlyFields p hm =
+  let fields = readOnlyFields p
+  in InsOrdHM.mapWithKey (setRO fields) hm
+  where
+    setRO :: Set (T.Text) -> T.Text -> Referenced Schema -> Referenced Schema
+    setRO _ _  r@(Ref _)    = r
+    setRO flds f r@(Inline s) =
+      if f `Set.member` flds then Inline (s & readOnly ?~ (f `Set.member` flds)) else r
 
 instance ToDocs Address where
   annotate f p = do
     s <- f p
-    return $ s & (schema . description ?~ withExample p "An Address.")
+    return $ s & (schema . description ?~ "An Address.")
                . (schema . example ?~ toJSON @Address genExample)
 
 instance ToDocs WalletId where
   annotate f p = do
     s <- f p
-    return $ s & (schema . description ?~ withExample p "A Wallet ID.")
+    return $ s & (schema . description ?~ "A Wallet ID.")
                . (schema . example ?~ toJSON @WalletId genExample)
 
 instance ToDocs Wallet where
   annotate f p = do
     s <- f p
-    return $ s & (schema . description ?~ withExample p "A Wallet.")
+    return $ s & (schema . description ?~ "A Wallet.")
                . (schema . example ?~ toJSON @Wallet genExample)
 
 instance ToDocs PasswordUpdate where
   annotate f p = do
     s <- f p
-    return $ s & (schema . description ?~ withExample p "A PasswordUpdate incapsulate a request for changing a password.")
+    return $ s & (schema . description ?~ "A PasswordUpdate incapsulate a request for changing a password.")
                . (schema . example ?~ toJSON @PasswordUpdate genExample)
 
 instance ToDocs EstimatedFees where
   annotate f p = do
     s <- f p
-    return $ s & (schema . description ?~ withExample p "Estimated fees for a `Payment`.")
+    return $ s & (schema . description ?~ "Estimated fees for a `Payment`.")
                . (schema . example ?~ toJSON @EstimatedFees genExample)
 
 instance ToDocs Payment where
   annotate f p = do
     s <- f p
-    return $ s & (schema . description ?~ withExample p "A request for exchange of `Coins` from one entity to another.")
+    return $ s & (schema . description ?~ "A request for exchange of `Coins` from one entity to another.")
                . (schema . example ?~ toJSON @Payment genExample)
 
 instance ToDocs Transaction where
   annotate f p = do
     s <- f p
-    return $ s & (schema . description ?~ withExample p "A Wallet Transaction.")
+    return $ s & (schema . description ?~ "A Wallet Transaction.")
                . (schema . example ?~ toJSON @Transaction genExample)
 
 instance ToDocs WalletUpdate where
   annotate f p = do
     s <- f p
-    return $ s & (schema . description ?~ withExample p "A programmed update to the system.")
+    return $ s & (schema . description ?~ "A programmed update to the system.")
                . (schema . example ?~ toJSON @WalletUpdate genExample)
 
 instance ToSchema APIVersion where
@@ -263,6 +293,9 @@ instance ToSchema Payment where
 instance ToSchema WalletUpdate where
   declareNamedSchema = annotate fromArbitraryJSON
 
+instance ToSchema ReadOnlyAccount where
+  declareNamedSchema _ = (declareNamedSchema (Proxy @ Account))
+
 instance ToDocs a => ToDocs (ExtendedResponse a) where
   annotate f p = (f p)
 
@@ -272,7 +305,7 @@ instance (ToJSON a, ToDocs a, Typeable a, Arbitrary a) => ToSchema (ExtendedResp
 instance (ToDocs a) => ToDocs [a] where
   annotate f p = do
     s <- f p
-    return $ s & (schema . description ?~ withExample p ("A list of " <> fromString (show $ typeOf (genExample @ a)) <> "."))
+    return $ s & (schema . description ?~ "A list of " <> fromString (show $ typeOf (genExample @ a)) <> ".")
 
 instance (ToDocs a, ToDocs b) => ToDocs (OneOf a b) where
   annotate f p = do
@@ -295,7 +328,7 @@ instance (ToDocs a, ToDocs b) => ToDocs (OneOf a b) where
              (withExample (Proxy @ a) " response format, an <b>a</b> will be returned.") <>
              (withExample (Proxy @ b) " In case the user selected the extended format, a full 'ExtendedResponse' will be yielded.")
 
-instance ( ToDocs a, ToDocs b) => ToSchema (OneOf a b) where
+instance (ToDocs a, ToDocs b) => ToSchema (OneOf a b) where
   declareNamedSchema = annotate fromArbitraryJSON
 
 --

@@ -26,7 +26,7 @@
                 "unit"
             ],
             "type": "object",
-            "description": "A Wallet. Here's an example:<br><br><pre>{\n    \"backupPhrase\": \"MyBackupPhraseHashed\",\n    \"name\": \"My wallet\",\n    \"assurance\": \"assuranceNormal\",\n    \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n    \"unit\": 3\n}</pre>",
+            "description": "A Wallet.",
             "properties": {
                 "backupPhrase": {
                     "type": "string"
@@ -72,7 +72,7 @@
                 "destinationAddress"
             ],
             "type": "object",
-            "description": "A request for exchange of `Coins` from one entity to another. Here's an example:<br><br><pre>{\n    \"sourceAccount\": {\n        \"amount\": 2,\n        \"addresses\": [\n            {\n                \"id\": \"DEADBeef\"\n            },\n            {\n                \"id\": \"123456\"\n            }\n        ],\n        \"name\": \"õ\",\n        \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"id\": \"DEADBeef\"\n    },\n    \"amount\": 1,\n    \"destinationAddress\": {\n        \"id\": \"DEADBeef\"\n    }\n}</pre>",
+            "description": "A request for exchange of `Coins` from one entity to another.",
             "properties": {
                 "sourceAccount": {
                     "required": [
@@ -138,7 +138,7 @@
                 "version"
             ],
             "type": "object",
-            "description": "The Wallet version, including the API version and the Git revision. Here's an example:<br><br><pre>{\n    \"gitRev\": \"6f1131adca2f0bc6d24c9181cabd2b9e0704fd79\",\n    \"version\": \"v0\"\n}</pre>",
+            "description": "The Wallet version, including the API version and the Git revision.",
             "properties": {
                 "gitRev": {
                     "type": "string"
@@ -231,7 +231,7 @@
                 "id"
             ],
             "type": "object",
-            "description": "An Address. Here's an example:<br><br><pre>{\n    \"id\": \"DEADBeef\"\n}</pre>",
+            "description": "An Address.",
             "properties": {
                 "id": {
                     "type": "string"
@@ -250,7 +250,7 @@
                 "softwareVersion"
             ],
             "type": "object",
-            "description": "A programmed update to the system. Here's an example:<br><br><pre>{\n    \"scriptVersion\": 1,\n    \"blockchainVersion\": \"\",\n    \"softwareVersion\": \"U\"\n}</pre>",
+            "description": "A programmed update to the system.",
             "properties": {
                 "scriptVersion": {
                     "type": "number"
@@ -265,21 +265,7 @@
         },
         "Account": {
             "example": {
-                "amount": 3,
-                "addresses": [
-                    {
-                        "id": "123456"
-                    },
-                    {
-                        "id": "DEADBeef"
-                    },
-                    {
-                        "id": "DEADBeef"
-                    }
-                ],
-                "name": "",
-                "walletId": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
-                "id": "DEADBeef"
+                "name": "myAccount"
             },
             "required": [
                 "amount",
@@ -289,10 +275,11 @@
                 "id"
             ],
             "type": "object",
-            "description": "An Account. Here's an example:<br><br><pre>{\n    \"amount\": 3,\n    \"addresses\": [\n        {\n            \"id\": \"123456\"\n        },\n        {\n            \"id\": \"DEADBeef\"\n        },\n        {\n            \"id\": \"DEADBeef\"\n        }\n    ],\n    \"name\": \"\",\n    \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n    \"id\": \"DEADBeef\"\n}</pre>",
+            "description": "An Account.",
             "properties": {
                 "amount": {
-                    "type": "number"
+                    "type": "number",
+                    "readOnly": true
                 },
                 "addresses": {
                     "items": {
@@ -306,16 +293,19 @@
                             }
                         }
                     },
-                    "type": "array"
+                    "type": "array",
+                    "readOnly": true
                 },
                 "name": {
                     "type": "string"
                 },
                 "walletId": {
-                    "type": "string"
+                    "type": "string",
+                    "readOnly": true
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "readOnly": true
                 }
             }
         },
@@ -331,7 +321,7 @@
                 "id"
             ],
             "type": "object",
-            "description": "A Wallet Transaction. Here's an example:<br><br><pre>{\n    \"amount\": 1,\n    \"confirmations\": 3,\n    \"id\": \"U\"\n}</pre>",
+            "description": "A Wallet Transaction.",
             "properties": {
                 "amount": {
                     "type": "number"
@@ -352,7 +342,7 @@
                 "estimatedAmount"
             ],
             "type": "object",
-            "description": "Estimated fees for a `Payment`. Here's an example:<br><br><pre>{\n    \"estimatedAmount\": 4\n}</pre>",
+            "description": "Estimated fees for a `Payment`.",
             "properties": {
                 "estimatedAmount": {
                     "type": "number"
@@ -409,7 +399,7 @@
                 "new"
             ],
             "type": "object",
-            "description": "A PasswordUpdate incapsulate a request for changing a password. Here's an example:<br><br><pre>{\n    \"old\": \"Vç\",\n    \"new\": \"¯\"\n}</pre>",
+            "description": "A PasswordUpdate incapsulate a request for changing a password.",
             "properties": {
                 "old": {
                     "type": "string"

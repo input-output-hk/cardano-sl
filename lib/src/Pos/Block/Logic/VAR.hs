@@ -241,8 +241,14 @@ applyWithRollback toRollback toApply = runExceptT $ do
     tip <- GS.getTip
     when (tip /= newestToRollback) $
         throwError $ ApplyBlocksTipMismatch "applyWithRollback/rollback" tip newestToRollback
-    lift $ rollbackBlocksUnsafe (BypassSecurityCheck False) (ShouldCallBListener True) toRollback
-    ExceptT $ bracketOnError (pure ()) (\_ -> applyBack) $ \_ -> do
+
+    let doRollback = rollbackBlocksUnsafe
+            (BypassSecurityCheck False)
+            (ShouldCallBListener True)
+            toRollback
+    -- We want to make sure that if we successfully perform a
+    -- rollback, we will eventually apply old or new blocks.
+    ExceptT $ bracketOnError doRollback (\_ -> applyBack) $ \_ -> do
         tipAfterRollback <- GS.getTip
         if tipAfterRollback /= expectedTipApply
             then onBadRollback tip

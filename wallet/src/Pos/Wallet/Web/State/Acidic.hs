@@ -12,7 +12,7 @@ module Pos.Wallet.Web.State.Acidic
        , update
 
        , GetProfile (..)
-       , GetAccountIds (..)
+       , GetWalletAccountIds (..)
        , GetAccountMetas (..)
        , GetAccountMeta (..)
        , GetWalletMetas (..)
@@ -27,17 +27,17 @@ module Pos.Wallet.Web.State.Acidic
        , SetWalletUtxo (..)
        , GetAccountWAddresses (..)
        , DoesWAddressExist (..)
-       , GetTxMeta (..)
+       , GetTxHistoryMeta (..)
        , GetUpdates (..)
        , GetNextUpdate (..)
        , TestReset (..)
        , GetHistoryCache (..)
-       , GetCustomAddresses (..)
-       , GetCustomAddress (..)
        , GetPendingTxs (..)
        , GetWalletPendingTxs (..)
        , GetPendingTx (..)
        , AddCustomAddress (..)
+       , GetCustomAddress (..)
+       , GetCustomAddresses (..)
        , CreateAccount (..)
        , AddWAddress (..)
        , AddRemovedAccount (..)
@@ -51,7 +51,7 @@ module Pos.Wallet.Web.State.Acidic
        , SetWalletTxMeta (..)
        , AddOnlyNewTxMetas (..)
        , SetWalletTxHistory (..)
-       , GetWalletTxHistory (..)
+       , GetWalletTxHistoryMetas (..)
        , AddOnlyNewTxMeta (..)
        , RemoveWallet (..)
        , RemoveTxMetas (..)
@@ -118,7 +118,7 @@ makeAcidic ''WalletStorage
     [
       'WS.testReset
     , 'WS.getProfile
-    , 'WS.getAccountIds
+    , 'WS.getWalletAccountIds
     , 'WS.getAccountMetas
     , 'WS.getAccountMeta
     , 'WS.getWalletMetas
@@ -131,14 +131,14 @@ makeAcidic ''WalletStorage
     , 'WS.getWalletBalancesAndUtxo
     , 'WS.updateWalletBalancesAndUtxo
     , 'WS.setWalletUtxo
+    , 'WS.getCustomAddress
+    , 'WS.getCustomAddresses
     , 'WS.getAccountWAddresses
     , 'WS.doesWAddressExist
-    , 'WS.getTxMeta
+    , 'WS.getTxHistoryMeta
     , 'WS.getUpdates
     , 'WS.getNextUpdate
     , 'WS.getHistoryCache
-    , 'WS.getCustomAddresses
-    , 'WS.getCustomAddress
     , 'WS.getPendingTxs
     , 'WS.getWalletPendingTxs
     , 'WS.getPendingTx
@@ -157,7 +157,7 @@ makeAcidic ''WalletStorage
     , 'WS.setWalletTxMeta
     , 'WS.addOnlyNewTxMetas
     , 'WS.setWalletTxHistory
-    , 'WS.getWalletTxHistory
+    , 'WS.getWalletTxHistoryMetas
     , 'WS.addOnlyNewTxMeta
     , 'WS.removeWallet
     , 'WS.removeTxMetas

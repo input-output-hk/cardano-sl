@@ -37,10 +37,10 @@ import           Pos.Wallet.Web.Pending       (PendingTx (..), ptxPoolInfo)
 import           Pos.Wallet.Web.State         (AddressLookupMode (Ever), MonadWalletDB,
                                                MonadWalletDBRead, addOnlyNewTxMetas,
                                                getHistoryCache, getPendingTx, getTxMeta,
-                                               getWalletPendingTxs, setWalletTxMeta)
+                                               getWalletAccountIds, getWalletPendingTxs,
+                                               setWalletTxMeta)
 import           Pos.Wallet.Web.Util          (decodeCTypeOrFail, getAccountAddrsOrThrow,
-                                               getWalletAccountIds, getWalletAddrs,
-                                               getWalletAddrsSet)
+                                               getWalletAddrs, getWalletAddrsSet)
 
 
 type MonadWalletHistory ctx m =

@@ -28,7 +28,6 @@ module Pos.Wallet.Web.Methods.Logic
 import           Universum
 
 import           Crypto.Random              (MonadRandom)
-import qualified Data.HashMap.Strict        as HM
 import           Data.List                  (findIndex)
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (build, sformat, (%))
@@ -61,7 +60,7 @@ import           Pos.Wallet.Web.State       (AddressLookupMode (Existing),
                                              CustomAddressType (ChangeAddr, UsedAddr),
                                              MonadWalletDB, MonadWalletDBRead,
                                              addWAddress, createAccount, createWallet,
-                                             getAccountIds, getAccountMeta,
+                                             getAccountMeta, getWalletAccountIds,
                                              getWalletAddresses,
                                              getWalletMetaIncludeUnready, getWalletPassLU,
                                              isCustomAddress, removeAccount,
@@ -71,8 +70,7 @@ import           Pos.Wallet.Web.State       (AddressLookupMode (Existing),
 import           Pos.Wallet.Web.Tracking    (BlockLockMode, CachedWalletModifier,
                                              WalletModifier (..), fixCachedAccModifierFor,
                                              fixingCachedAccModifier, sortedInsertions)
-import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
-                                             getWalletAccountIds)
+import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow)
 
 
 type MonadWalletLogicRead ctx m =
@@ -146,16 +144,15 @@ getAccountsIncludeUnready
     :: MonadWalletLogicRead ctx m
     => Bool -> Maybe (CId Wal) -> m [CAccount]
 getAccountsIncludeUnready includeUnready mCAddr = do
-    whenJust mCAddr $ \cAddr -> getWalletMetaIncludeUnready includeUnready cAddr `whenNothingM_` noWallet cAddr
-    accIds <- maybe getAccountIds getWalletAccountIds mCAddr
-    let groupedAccIds = fmap reverse $ HM.fromListWith mappend $
-                        accIds <&> \acc -> (aiWId acc, [acc])
-    concatForM (HM.toList groupedAccIds) $ \(wid, walAccIds) ->
-         fixCachedAccModifierFor wid $ forM walAccIds . getAccount
+    whenJust mCAddr $ \cAddr ->
+        getWalletMetaIncludeUnready includeUnready cAddr `whenNothingM_` noWSet cAddr
+    -- TODO [CSM-515] remove mempool from getAccount
+    maybe getAccountIds getWalletAccountIds mCAddr >>= mapM (getAccount mempty)
   where
-    noWallet cAddr = throwM . RequestError $
-        -- TODO No WALLET with id ...
-        -- dunno whether I can fix and not break compatible w/ daedalus
+    getAccountIds = do
+        walIds <- getWalletAddresses
+        concatMapM getWalletAccountIds walIds
+    noWSet cAddr = throwM . RequestError $
         sformat ("No account with id "%build%" found") cAddr
 
 getAccounts

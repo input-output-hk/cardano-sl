@@ -19,7 +19,7 @@ module Pos.Wallet.Web.State.Storage
        , flushWalletStorage
        , getProfile
        , setProfile
-       , getAccountIds
+       , getWalletAccountIds
        , getAccountMetas
        , getAccountMeta
        , getWalletMetas
@@ -30,12 +30,12 @@ module Pos.Wallet.Web.State.Storage
        , getWalletAddresses
        , getAccountWAddresses
        , doesWAddressExist
-       , getTxMeta
+       , getTxHistoryMeta
        , getUpdates
        , getNextUpdate
        , getHistoryCache
-       , getCustomAddresses
        , getCustomAddress
+       , getCustomAddresses
        , getPendingTxs
        , getWalletPendingTxs
        , getPendingTx
@@ -51,7 +51,7 @@ module Pos.Wallet.Web.State.Storage
        , setWalletPassLU
        , setWalletSyncTip
        , setWalletTxHistory
-       , getWalletTxHistory
+       , getWalletTxHistoryMetas
        , getWalletUtxo
        , getWalletBalancesAndUtxo
        , updateWalletBalancesAndUtxo
@@ -106,6 +106,7 @@ import           Pos.Types                        (HeaderHash)
 import           Pos.Util.BackupPhrase            (BackupPhrase)
 import qualified Pos.Util.Modifier                as MM
 import           Pos.Util.Servant                 (encodeCType)
+
 import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAccountMeta,
                                                    CCoin, CHash, CId, CProfile, CTxId,
                                                    CTxMeta (..), CUpdateInfo,
@@ -225,8 +226,8 @@ getProfile = view wsProfile
 setProfile :: CProfile -> Update ()
 setProfile cProfile = wsProfile .= cProfile
 
-getAccountIds :: Query [AccountId]
-getAccountIds = HM.keys <$> view wsAccountInfos
+getWalletAccountIds :: CId Wal -> Query [AccountId]
+getWalletAccountIds walId = filter ((== walId) . aiWId) . HM.keys <$> view wsAccountInfos
 
 getAccountMetas :: Query [CAccountMeta]
 getAccountMetas = map (view aiMeta) . toList <$> view wsAccountInfos
@@ -282,11 +283,11 @@ doesWAddressExist mode addrMeta@(addrMetaToAccount -> wAddr) =
         Any . isJust <$>
         preview (wsAccountInfos . ix wAddr . which . ix (cwamId addrMeta))
 
-getTxMeta :: CId Wal -> CTxId -> Query (Maybe CTxMeta)
-getTxMeta cid ctxId = preview $ wsTxHistory . ix cid . ix ctxId
+getTxHistoryMeta :: CId Wal -> CTxId -> Query (Maybe CTxMeta)
+getTxHistoryMeta cid ctxId = preview $ wsTxHistory . ix cid . ix ctxId
 
-getWalletTxHistory :: CId Wal -> Query (Maybe [CTxMeta])
-getWalletTxHistory cWalId = toList <<$>> preview (wsTxHistory . ix cWalId)
+getWalletTxHistoryMetas :: CId Wal -> Query (Maybe [CTxMeta])
+getWalletTxHistoryMetas cWalId = toList <<$>> preview (wsTxHistory . ix cWalId)
 
 getWalletUtxo :: Query Utxo
 getWalletUtxo = view wsUtxo
@@ -314,11 +315,11 @@ getNextUpdate = preview (wsReadyUpdates . _head)
 getHistoryCache :: CId Wal -> Query (Maybe (Map TxId TxHistoryEntry))
 getHistoryCache cWalId = view $ wsHistoryCache . at cWalId
 
-getCustomAddresses :: CustomAddressType -> Query [CId Addr]
-getCustomAddresses t = HM.keys <$> view (customAddressL t)
-
 getCustomAddress :: CustomAddressType -> CId Addr -> Query (Maybe HeaderHash)
 getCustomAddress t addr = view $ customAddressL t . at addr
+
+getCustomAddresses :: CustomAddressType -> Query [CId Addr]
+getCustomAddresses t = HM.keys <$> view (customAddressL t)
 
 getPendingTxs :: Query [PendingTx]
 getPendingTxs = asks $ toListOf (wsWalletInfos . traversed . wsPendingTxs . traversed)

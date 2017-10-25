@@ -41,10 +41,10 @@ import           Pos.Wallet.Web.Methods.Txp     (MonadWalletTxFull, coinDistrToO
                                                  rewrapTxError, submitAndSaveNewPtx)
 import           Pos.Wallet.Web.Pending         (mkPendingTx)
 import           Pos.Wallet.Web.State           (AddressLookupMode (Ever, Existing),
-                                                 MonadWalletDBRead)
+                                                 MonadWalletDBRead, getWalletAccountIds)
 import           Pos.Wallet.Web.Util            (decodeCTypeOrFail,
                                                  getAccountAddrsOrThrow,
-                                                 getWalletAccountIds, getWalletAddrsSet)
+                                                 getWalletAddrsSet)
 
 newPayment
     :: MonadWalletTxFull ctx m

@@ -3,8 +3,7 @@
 -- | Different utils for wallets
 
 module Pos.Wallet.Web.Util
-    ( getWalletAccountIds
-    , getAccountAddrsOrThrow
+    ( getAccountAddrsOrThrow
     , getWalletAddrMetas
     , getWalletAddrs
     , getWalletAddrsSet
@@ -25,22 +24,18 @@ import           Pos.Wallet.Web.Assurance   (AssuranceLevel (HighAssurance),
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId,
                                              CWAddressMeta (..), Wal, cwAssurance)
 
-
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (AddressLookupMode, MonadWalletDBRead,
-                                             getAccountIds, getAccountWAddresses,
+                                             getAccountWAddresses, getWalletAccountIds,
                                              getWalletMeta)
-
-getWalletAccountIds :: MonadWalletDBRead ctx m => CId Wal -> m [AccountId]
-getWalletAccountIds cWalId = filter ((== cWalId) . aiWId) <$> getAccountIds
 
 getAccountAddrsOrThrow
     :: (MonadWalletDBRead ctx m, MonadThrow m)
     => AddressLookupMode -> AccountId -> m [CWAddressMeta]
 getAccountAddrsOrThrow mode accId =
-    getAccountWAddresses mode accId >>= maybeThrow noWallet
+    getAccountWAddresses mode accId >>= maybeThrow noAccount
   where
-    noWallet =
+    noAccount =
         RequestError $
         sformat ("No account with id "%build%" found") accId
 

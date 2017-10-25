@@ -18,8 +18,8 @@ import           Pos.Wallet.Web.Account     (AccountMode, getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountMeta (..), CId,
                                              CWalletMeta (..), Wal)
 import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.State       (getAccountMeta, getWalletMeta)
-import           Pos.Wallet.Web.Util        (getWalletAccountIds)
+import           Pos.Wallet.Web.State       (getAccountMeta, getWalletAccountIds,
+                                             getWalletMeta)
 
 currentBackupFormatVersion :: V.Version
 currentBackupFormatVersion = V.initial & V.major .~ 1

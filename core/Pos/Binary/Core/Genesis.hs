@@ -19,4 +19,7 @@ instance Bi GenesisWStakeholders where
 
 instance Bi GenesisDelegation where
     encode (unGenesisDelegation -> m) = encode (toList m)
-    decode = eitherToFail . mkGenesisDelegation =<< decode
+    decode =
+        -- dcNocheck is not used here as genesis delegation is
+        -- constructed once only so these checks are cheap anyway.
+        eitherToFail . mkGenesisDelegation =<< decode

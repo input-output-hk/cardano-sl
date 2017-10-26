@@ -212,6 +212,7 @@ instance Bi PassPhrase where
     decode = do
         bs <- decode @ByteString
         let bl = BS.length bs
+        -- This check is simple so it doesn't use noCheck.
         -- Currently passphrase may be either 32-byte long or empty (for
         -- unencrypted keys).
         if bl == 0 || bl == passphraseLength

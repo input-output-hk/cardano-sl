@@ -29,64 +29,64 @@ instance Bi PLCore.Program => SafeCopy PLCore.Program where
     putCopy = putCopyBi
 
 instance Bi Vars.FreeVar where
-  encode = genericEncode
-  decode = genericDecode
+    encode = genericEncode
+    decode = genericDecode
 
 instance Bi Vars.MetaVar where
-  encode = genericEncode
-  decode = genericDecode
+    encode = genericEncode
+    decode = genericDecode
 
 instance Bi Vars.BoundVar where
-  encode = genericEncode
-  decode = genericDecode
+    encode = genericEncode
+    decode = genericDecode
 
 instance Bi PLTypes.TyConSig where
-  encode = genericEncode
-  decode = genericDecode
+    encode = genericEncode
+    decode = genericDecode
 
 instance Bi PLTypes.ConSig where
-  encode = genericEncode
-  decode = genericDecode
+    encode = genericEncode
+    decode = genericDecode
 
 instance Bi a => Bi (Names.Sourced a) where
-  encode = genericEncode
-  decode = genericDecode
+    encode = genericEncode
+    decode = genericDecode
 
 instance Bi ABT.Variable where
-  encode = genericEncode
-  decode = genericDecode
+    encode = genericEncode
+    decode = genericDecode
 
 instance (Typeable f, Bi (f (ABT.Scope f))) => Bi (ABT.ABT f) where
-  encode = genericEncode
-  decode = genericDecode
+    encode = genericEncode
+    decode = genericDecode
 
 instance (Typeable f, Bi (f (ABT.Scope f))) => Bi (ABT.Scope f) where
-  encode = genericEncode
-  decode = genericDecode
+    encode = genericEncode
+    decode = genericDecode
 
 instance (Typeable r, Bi r) => Bi (PLCore.ClauseF r) where
-  encode = genericEncode
-  decode = genericDecode
+    encode = genericEncode
+    decode = genericDecode
 
 instance Bi a => Bi (PLCore.TermF a) where
-  encode = genericEncode
-  decode = genericDecode
+    encode = genericEncode
+    decode = genericDecode
 
 instance Bi a => Bi (PLTypes.TypeF a) where
-  encode = genericEncode
-  decode = genericDecode
+    encode = genericEncode
+    decode = genericDecode
 
 instance Bi PLCore.SimplePattern where
-  encode = genericEncode
-  decode = genericDecode
+    encode = genericEncode
+    decode = genericDecode
 
 instance Bi PLCore.PrimData where
-  encode = genericEncode
-  decode = genericDecode
+    encode = genericEncode
+    decode = genericDecode
 
 instance Bi PLCore.Program where
-  encode = genericEncode
-  decode = genericDecode
+    encode = genericEncode
+    decode = genericDecode
 
 deriveSimpleBi ''Script [
     Cons 'Script [

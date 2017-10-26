@@ -18,18 +18,18 @@ module Pos.Core.Slotting
 
 import           Universum
 
-import           Control.Lens           (Iso', iso, lens)
-import           Control.Monad.Except   (MonadError (throwError))
-import           System.Random          (Random (..))
+import           Control.Lens                    (Iso', iso, lens)
+import           Control.Monad.Except            (MonadError (throwError))
+import           System.Random                   (Random (..))
 
+import           Pos.Core.Class                  (HasEpochIndex (..), HasEpochOrSlot (..),
+                                                  getEpochOrSlot)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants, epochSlots,
                                                   slotSecurityParam)
-import           Pos.Core.Class         (HasEpochIndex (..), HasEpochOrSlot (..),
-                                         getEpochOrSlot)
-import           Pos.Core.Types         (EpochIndex (..), EpochOrSlot (..), FlatSlotId,
-                                         LocalSlotIndex (..), SlotCount, SlotId (..),
-                                         getSlotIndex)
-import           Pos.Util.Util          (leftToPanic)
+import           Pos.Core.Types                  (EpochIndex (..), EpochOrSlot (..),
+                                                  FlatSlotId, LocalSlotIndex (..),
+                                                  SlotCount, SlotId (..), getSlotIndex)
+import           Pos.Util.Util                   (leftToPanic)
 
 -- | Flatten 'SlotId' (which is basically pair of integers) into a single number.
 flattenSlotId :: HasProtocolConstants => SlotId -> FlatSlotId

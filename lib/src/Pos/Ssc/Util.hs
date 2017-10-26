@@ -4,13 +4,13 @@ module Pos.Ssc.Util
 
 import           Universum
 
-import           Pos.Binary.Block      ()
-import           Pos.Block.Core        (Block, GenesisBlock, MainBlock, mbSscPayload)
-import           Pos.Core              (HasConfiguration, IsGenesisHeader, IsMainHeader,
-                                        gbBody, gbHeader)
-import           Pos.Ssc.Types         (SscBlock (..))
-import           Pos.Ssc.Core          (SscPayload)
-import           Pos.Util              (Some (..))
+import           Pos.Binary.Block ()
+import           Pos.Block.Core   (Block, GenesisBlock, MainBlock, mbSscPayload)
+import           Pos.Core         (HasConfiguration, IsGenesisHeader, IsMainHeader,
+                                   gbBody, gbHeader)
+import           Pos.Core.Ssc     (SscPayload)
+import           Pos.Ssc.Types    (SscBlock (..))
+import           Pos.Util         (Some (..))
 
 -- [CSL-1156] Totally need something more elegant
 toSscBlock

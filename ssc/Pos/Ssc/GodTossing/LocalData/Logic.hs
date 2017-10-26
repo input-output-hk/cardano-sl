@@ -20,48 +20,48 @@ module Pos.Ssc.GodTossing.LocalData.Logic
 
 import           Universum
 
-import           Control.Lens                       ((+=), (.=))
-import           Control.Monad.Except               (MonadError (throwError), runExceptT)
-import           Control.Monad.Morph                (hoist)
-import qualified Crypto.Random                      as Rand
-import qualified Data.HashMap.Strict                as HM
-import           Formatting                         (int, sformat, (%))
-import           Serokell.Util                      (magnify')
-import           System.Wlog                        (WithLogger, logWarning)
+import           Control.Lens                     ((+=), (.=))
+import           Control.Monad.Except             (MonadError (throwError), runExceptT)
+import           Control.Monad.Morph              (hoist)
+import qualified Crypto.Random                    as Rand
+import qualified Data.HashMap.Strict              as HM
+import           Formatting                       (int, sformat, (%))
+import           Serokell.Util                    (magnify')
+import           System.Wlog                      (WithLogger, logWarning)
 
-import           Pos.Binary.Class                   (biSize)
-import           Pos.Binary.GodTossing              ()
-import           Pos.Core                           (BlockVersionData (..), EpochIndex,
-                                                     HasConfiguration, SlotId (..),
-                                                     StakeholderId, VssCertificate,
-                                                     mkVssCertificatesMapSingleton)
-import           Pos.DB                             (MonadDBRead,
-                                                     MonadGState (gsAdoptedBVData))
-import           Pos.Lrc.Types                      (RichmenStakes)
-import           Pos.Slotting                       (MonadSlots (getCurrentSlot))
-import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate,
-                                                     SscLocalDataClass (..))
-import           Pos.Ssc.Extra                      (MonadSscMem, sscRunGlobalQuery,
-                                                     sscRunLocalQuery, sscRunLocalSTM)
-import           Pos.Ssc.GodTossing.Configuration   (HasGtConfiguration)
-import           Pos.Ssc.Core                       (SscPayload (..), InnerSharesMap,
-                                                     Opening, SignedCommitment,
-                                                     isCommitmentIdx, isOpeningIdx,
-                                                     isSharesIdx, mkCommitmentsMap)
-import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossT,
-                                                     evalPureTossWithLogger, evalTossT,
-                                                     execTossT, hasCertificateToss,
-                                                     hasCommitmentToss, hasOpeningToss,
-                                                     hasSharesToss, isGoodSlotForTag,
-                                                     normalizeToss, refreshToss,
-                                                     supplyPureTossEnv, tmCertificates,
-                                                     tmCommitments, tmOpenings, tmShares,
-                                                     verifyAndApplySscPayload)
-import           Pos.Ssc.Types                      (SscLocalData (..),
-                                                     SscGlobalState, ldEpoch,
-                                                     ldModifier, ldSize)
-import           Pos.Ssc.VerifyError                (SscVerifyError (..))
-import           Pos.Ssc.RichmenComponent           (getRichmenSsc)
+import           Pos.Binary.Class                 (biSize)
+import           Pos.Binary.GodTossing            ()
+import           Pos.Core                         (BlockVersionData (..), EpochIndex,
+                                                   HasConfiguration, SlotId (..),
+                                                   StakeholderId, VssCertificate,
+                                                   mkVssCertificatesMapSingleton)
+import           Pos.Core.Ssc                     (InnerSharesMap, Opening,
+                                                   SignedCommitment, SscPayload (..),
+                                                   mkCommitmentsMap)
+import           Pos.DB                           (MonadDBRead,
+                                                   MonadGState (gsAdoptedBVData))
+import           Pos.Lrc.Types                    (RichmenStakes)
+import           Pos.Slotting                     (MonadSlots (getCurrentSlot))
+import           Pos.Ssc.Base                     (isCommitmentIdx, isOpeningIdx,
+                                                   isSharesIdx)
+import           Pos.Ssc.Class.LocalData          (LocalQuery, LocalUpdate,
+                                                   SscLocalDataClass (..))
+import           Pos.Ssc.Extra                    (MonadSscMem, sscRunGlobalQuery,
+                                                   sscRunLocalQuery, sscRunLocalSTM)
+import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.GodTossing.Toss          (GtTag (..), PureToss, TossT,
+                                                   evalPureTossWithLogger, evalTossT,
+                                                   execTossT, hasCertificateToss,
+                                                   hasCommitmentToss, hasOpeningToss,
+                                                   hasSharesToss, isGoodSlotForTag,
+                                                   normalizeToss, refreshToss,
+                                                   supplyPureTossEnv, tmCertificates,
+                                                   tmCommitments, tmOpenings, tmShares,
+                                                   verifyAndApplySscPayload)
+import           Pos.Ssc.RichmenComponent         (getRichmenSsc)
+import           Pos.Ssc.Types                    (SscGlobalState, SscLocalData (..),
+                                                   ldEpoch, ldModifier, ldSize)
+import           Pos.Ssc.VerifyError              (SscVerifyError (..))
 
 ----------------------------------------------------------------------------
 -- Methods from type class

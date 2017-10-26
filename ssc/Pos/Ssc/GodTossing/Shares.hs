@@ -6,21 +6,21 @@ module Pos.Ssc.GodTossing.Shares
        ( getOurShares
        ) where
 
-import           Crypto.Random            (drgNewSeed, seedNew, withDRG)
-import qualified Data.HashMap.Strict      as HM
-import           Formatting               (build, sformat, (%))
-import           System.Wlog              (WithLogger, launchNamedPureLog, logWarning)
+import           Crypto.Random         (drgNewSeed, seedNew, withDRG)
+import qualified Data.HashMap.Strict   as HM
+import           Formatting            (build, sformat, (%))
+import           System.Wlog           (WithLogger, launchNamedPureLog, logWarning)
 import           Universum
 
-import           Pos.Binary.Class         (AsBinary, asBinary, fromBinaryM)
-import           Pos.Core.Address         (addressHash)
-import           Pos.Core.Types           (StakeholderId)
-import           Pos.Crypto               (DecShare, EncShare, VssKeyPair, VssPublicKey,
-                                           decryptShare, toVssPublicKey)
-import           Pos.Ssc.Class.Storage    (SscGlobalQuery)
-import           Pos.Ssc.Extra            (MonadSscMem, sscRunGlobalQuery)
-import           Pos.Ssc.Core             (Commitment (..), getCommitmentsMap)
-import           Pos.Ssc.Types            (sgsCommitments, sgsOpenings)
+import           Pos.Binary.Class      (AsBinary, asBinary, fromBinaryM)
+import           Pos.Core.Address      (addressHash)
+import           Pos.Core.Ssc          (Commitment (..), getCommitmentsMap)
+import           Pos.Core.Types        (StakeholderId)
+import           Pos.Crypto            (DecShare, EncShare, VssKeyPair, VssPublicKey,
+                                        decryptShare, toVssPublicKey)
+import           Pos.Ssc.Class.Storage (SscGlobalQuery)
+import           Pos.Ssc.Extra         (MonadSscMem, sscRunGlobalQuery)
+import           Pos.Ssc.Types         (sgsCommitments, sgsOpenings)
 
 type GSQuery a = SscGlobalQuery a
 

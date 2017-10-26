@@ -13,10 +13,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
-    Pos.Ssc.Core
-    Pos.Ssc.Core.Types
-    Pos.Ssc.Core.Functions
-
+    Pos.Ssc.Base
     Pos.Ssc.SeedError
     Pos.Ssc.VerifyError
 
@@ -75,7 +72,6 @@ library
     Pos.Ssc.GodTossing.Network.Constraint
 
     Pos.Binary.GodTossing
-    Pos.Binary.GodTossing.Core
     Pos.Binary.GodTossing.Types
     Pos.Binary.GodTossing.Toss
     Pos.Binary.GodTossing.Relay

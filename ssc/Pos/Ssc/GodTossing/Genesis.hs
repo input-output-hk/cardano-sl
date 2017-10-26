@@ -16,12 +16,12 @@ import           Universum
 import           Pos.Binary.Class                  (asBinary)
 import           Pos.Core                          (EpochIndex (..), genesisDevKeyPairs)
 import           Pos.Core.Constants                (genesisKeysN, isDevelopment)
+import           Pos.Core.Ssc                      (VssCertificatesMap, mkVssCertificate,
+                                                    mkVssCertificatesMap)
 import           Pos.Crypto                        (VssKeyPair, VssPublicKey,
                                                     deterministicVssKeyGen,
                                                     toVssPublicKey)
 import           Pos.Ssc.GodTossing.Constants      (vssMaxTTL, vssMinTTL)
-import           Pos.Ssc.Core.Types                (VssCertificatesMap, mkVssCertificate,
-                                                    mkVssCertificatesMap)
 
 -- reexports
 import           Pos.Ssc.GodTossing.Genesis.Parser

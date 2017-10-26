@@ -8,9 +8,9 @@ import           Universum
 
 import           Pos.Binary.GodTossing.Types ()
 import           Pos.Core                    (EpochIndex)
+import           Pos.Core.Ssc                (Opening, SignedCommitment)
 import           Pos.DB                      (MonadDB, MonadDBRead)
 import           Pos.DB.Misc.Common          (miscGetBi, miscPutBi)
-import           Pos.Ssc.Core                (Opening, SignedCommitment)
 import           Pos.Ssc.Types               (SscSecretStorage (..))
 
 -- | Get our commitment for given epoch if it's known.

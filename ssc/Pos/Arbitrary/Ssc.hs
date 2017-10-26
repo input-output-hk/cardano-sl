@@ -4,10 +4,10 @@ module Pos.Arbitrary.Ssc
 
 import           Universum
 
-import           Test.QuickCheck     (Gen)
+import           Test.QuickCheck (Gen)
 
-import           Pos.Ssc.Core.Types  (SscPayload)
-import           Pos.Core            (SlotId)
+import           Pos.Core        (SlotId)
+import           Pos.Core.Ssc    (SscPayload)
 
 newtype SscPayloadDependsOnSlot = SscPayloadDependsOnSlot
     { genPayloadDependsOnSlot :: SlotId -> Gen SscPayload

@@ -9,16 +9,16 @@ module Pos.Ssc.Class.LocalData
        , SscLocalDataClass (..)
        ) where
 
-import qualified Crypto.Random       as Rand
-import           System.Wlog         (WithLogger)
+import qualified Crypto.Random      as Rand
+import           System.Wlog        (WithLogger)
 import           Universum
 
-import           Pos.Core            (BlockVersionData, EpochIndex, SlotId)
-import           Pos.DB.Class        (MonadDBRead)
-import           Pos.Lrc.Types       (RichmenStakes)
-import           Pos.Slotting.Class  (MonadSlots)
-import           Pos.Ssc.Core.Types  (SscPayload)
-import           Pos.Ssc.Types       (SscGlobalState, SscLocalData)
+import           Pos.Core           (BlockVersionData, EpochIndex, SlotId)
+import           Pos.Core.Ssc       (SscPayload)
+import           Pos.DB.Class       (MonadDBRead)
+import           Pos.Lrc.Types      (RichmenStakes)
+import           Pos.Slotting.Class (MonadSlots)
+import           Pos.Ssc.Types      (SscGlobalState, SscLocalData)
 
 ----------------------------------------------------------------------------
 -- Modern

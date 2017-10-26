@@ -22,11 +22,12 @@ import           Pos.Block.Core.Union.Types (Block, BlockHeader, BlockSignature 
 import           Pos.Core                   (Blockchain (..), ChainDifficulty,
                                              GenericBlockHeader (..), HasConfiguration,
                                              IsMainHeader (..), SlotId (..))
+import           Pos.Core.Ssc               (SscPayload, SscProof)
 import           Pos.Core.Txp               (TxPayload, TxProof, mkTxProof)
 import           Pos.Core.Update            (UpdatePayload, UpdateProof, mkUpdateProof)
 import           Pos.Crypto                 (Hash, PublicKey, hash)
 import           Pos.Delegation.Types       (DlgPayload)
-import           Pos.Ssc.Core               (SscPayload, SscProof, mkSscProof)
+import           Pos.Ssc.Base               (mkSscProof)
 
 instance ( HasConfiguration
          , Bi BlockHeader

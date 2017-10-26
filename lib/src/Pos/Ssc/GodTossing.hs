@@ -10,7 +10,7 @@
 module Pos.Ssc.GodTossing
        ( module Pos.Arbitrary.Ssc.GodTossing
        , module Pos.Ssc.GodTossing.Configuration
-       , module Pos.Ssc.Core
+       , module Pos.Core.Ssc
        , module Pos.Ssc.SeedError
        , module Pos.Ssc.VerifyError
        , module Pos.Ssc.GodTossing.Functions
@@ -26,10 +26,8 @@ module Pos.Ssc.GodTossing
 
 import           Pos.Arbitrary.Ssc.GodTossing
 import           Pos.Binary.Ssc                   ()
+import           Pos.Core.Ssc
 import           Pos.Ssc.GodTossing.Configuration
-import           Pos.Ssc.Core
-import           Pos.Ssc.SeedError
-import           Pos.Ssc.VerifyError
 import           Pos.Ssc.GodTossing.Functions
 import           Pos.Ssc.GodTossing.GState
 import           Pos.Ssc.GodTossing.Listeners     ()
@@ -37,7 +35,9 @@ import           Pos.Ssc.GodTossing.LocalData
 import           Pos.Ssc.GodTossing.SecretStorage
 import           Pos.Ssc.GodTossing.Seed
 import           Pos.Ssc.GodTossing.Toss
-import           Pos.Ssc.Types
 import           Pos.Ssc.GodTossing.Types.Message
 import           Pos.Ssc.GodTossing.VssCertData
 import           Pos.Ssc.GodTossing.Workers       ()
+import           Pos.Ssc.SeedError
+import           Pos.Ssc.Types
+import           Pos.Ssc.VerifyError

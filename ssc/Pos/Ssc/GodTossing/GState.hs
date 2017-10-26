@@ -25,25 +25,25 @@ import           Pos.Core                         (BlockVersionData, EpochIndex 
                                                    HasConfiguration, SlotId (..),
                                                    VssCertificatesMap (..), epochIndexL,
                                                    epochOrSlotG, vcVssKey)
+import           Pos.Core.Ssc                     (SscPayload (..))
 import           Pos.DB                           (MonadDBRead, SomeBatchOp (..))
 import           Pos.Lrc.Types                    (RichmenStakes)
 import           Pos.Ssc.Class.Storage            (SscGStateClass (..), SscVerifier)
 import           Pos.Ssc.Extra                    (MonadSscMem, sscRunGlobalQuery)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Ssc.Core                     (SscPayload (..))
 import qualified Pos.Ssc.GodTossing.DB            as DB
 import           Pos.Ssc.GodTossing.Functions     (getStableCertsPure)
 import           Pos.Ssc.GodTossing.Seed          (calculateSeed)
 import           Pos.Ssc.GodTossing.Toss          (MultiRichmenStakes, PureToss,
-                                                   applyGenesisBlock,
-                                                   rollbackGT, runPureTossWithLogger,
+                                                   applyGenesisBlock, rollbackGT,
+                                                   runPureTossWithLogger,
                                                    supplyPureTossEnv,
                                                    verifyAndApplySscPayload)
-import           Pos.Ssc.Types                    (SscBlock (..), SscGlobalState (..), sgsCommitments,
-                                                   sgsOpenings, sgsShares,
+import qualified Pos.Ssc.GodTossing.VssCertData   as VCD
+import           Pos.Ssc.Types                    (SscBlock (..), SscGlobalState (..),
+                                                   sgsCommitments, sgsOpenings, sgsShares,
                                                    sgsVssCertificates)
 import           Pos.Ssc.VerifyError              (SscVerifyError (..))
-import qualified Pos.Ssc.GodTossing.VssCertData   as VCD
 import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.Util                    (_neHead, _neLast)
 

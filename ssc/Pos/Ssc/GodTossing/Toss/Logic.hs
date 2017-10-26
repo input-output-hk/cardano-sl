@@ -24,16 +24,16 @@ import           Pos.Core                         (EpochIndex, EpochOrSlot (..),
                                                    getVssCertificatesMap, headerSlotL,
                                                    mkCoin, mkVssCertificatesMapSingleton,
                                                    slotSecurityParam)
+import           Pos.Core.Ssc                     (CommitmentsMap (..), InnerSharesMap,
+                                                   Opening, SignedCommitment,
+                                                   SscPayload (..), getCommitmentsMap,
+                                                   mkCommitmentsMapUnsafe, spVss)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Ssc.Core                     (CommitmentsMap (..), SscPayload (..),
-                                                   InnerSharesMap, Opening,
-                                                   SignedCommitment, getCommitmentsMap,
-                                                   spVss, mkCommitmentsMapUnsafe)
 import           Pos.Ssc.GodTossing.Functions     (verifySscPayload)
 import           Pos.Ssc.GodTossing.Toss.Base     (checkPayload)
 import           Pos.Ssc.GodTossing.Toss.Class    (MonadToss (..), MonadTossEnv (..))
-import           Pos.Ssc.VerifyError              (SscVerifyError (..))
 import           Pos.Ssc.GodTossing.Toss.Types    (TossModifier (..))
+import           Pos.Ssc.VerifyError              (SscVerifyError (..))
 import           Pos.Util.Chrono                  (NewestFirst (..))
 import           Pos.Util.Util                    (Some, inAssertMode, sortWithMDesc)
 

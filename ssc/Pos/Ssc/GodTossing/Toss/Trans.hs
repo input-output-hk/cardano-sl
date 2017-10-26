@@ -17,7 +17,7 @@ import           Mockable                      (ChannelT, Promise, SharedAtomicT
                                                 ThreadId)
 
 import           Pos.Core.Vss                  (insertVss)
-import           Pos.Ssc.Core                  (deleteSignedCommitment,
+import           Pos.Ssc.Base                  (deleteSignedCommitment,
                                                 insertSignedCommitment)
 import           Pos.Ssc.GodTossing.Toss.Class (MonadToss (..), MonadTossEnv (..),
                                                 MonadTossRead (..))

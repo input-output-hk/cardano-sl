@@ -2,7 +2,7 @@
 
 -- | Core types of SSC.
 
-module Pos.Ssc.Core.Types
+module Pos.Core.Ssc
        (
        -- * Commitments
          Commitment (..)
@@ -32,23 +32,21 @@ module Pos.Ssc.Core.Types
 
 import           Universum
 
-import           Control.Lens        (each, traverseOf)
-import           Data.Hashable       (Hashable (..))
-import           Data.HashMap.Strict (HashMap)
-import qualified Data.HashMap.Strict as HM
+import           Control.Lens           (each, traverseOf)
+import           Data.Hashable          (Hashable (..))
+import           Data.HashMap.Strict    (HashMap)
+import qualified Data.HashMap.Strict    as HM
 import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder (Builder)
-import           Formatting          (Format, bprint, build, int, (%))
-import           Serokell.Util       (listJson)
+import           Formatting             (Format, bprint, build, int, (%))
+import           Serokell.Util          (listJson)
 
-import           Pos.Binary.Class    (AsBinary (..), fromBinaryM, serialize')
-import           Pos.Binary.Core     ()
-import           Pos.Core.Address    (addressHash)
-import           Pos.Core.Types      (EpochIndex, StakeholderId)
-import           Pos.Core.Vss        (VssCertificatesMap(..), vcExpiryEpoch)
-import           Pos.Crypto          (DecShare, EncShare, Hash, PublicKey, Secret,
-                                      SecretProof, Signature, VssPublicKey,
-                                      shortHashF)
+import           Pos.Binary.Class       (AsBinary (..), fromBinaryM, serialize')
+import           Pos.Core.Address       (addressHash)
+import           Pos.Core.Types         (EpochIndex, StakeholderId)
+import           Pos.Core.Vss           (VssCertificatesMap (..), vcExpiryEpoch)
+import           Pos.Crypto             (DecShare, EncShare, Hash, PublicKey, Secret,
+                                         SecretProof, Signature, VssPublicKey, shortHashF)
 
 type NodeSet = HashSet StakeholderId
 
@@ -112,7 +110,7 @@ mkCommitmentsMapUnsafe = CommitmentsMap
 
 -- | Opening reveals secret.
 newtype Opening = Opening
-    { getOpening :: (AsBinary Secret)
+    { getOpening :: AsBinary Secret
     } deriving (Show, Eq, Generic, Buildable, NFData)
 
 type OpeningsMap = HashMap StakeholderId Opening

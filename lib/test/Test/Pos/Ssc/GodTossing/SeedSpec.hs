@@ -26,11 +26,11 @@ import           Pos.Crypto               (DecShare, PublicKey, SecretKey,
                                            SignTag (SignCommitment), Threshold,
                                            VssKeyPair, VssPublicKey, decryptShare, sign,
                                            toPublic, toVssPublicKey)
+import           Pos.Ssc.Base             (genCommitmentAndOpening, secretToSharedSeed)
 import           Pos.Ssc.GodTossing       (Commitment (..), CommitmentsMap, Opening (..),
                                            SscSeedError (..), calculateSeed,
-                                           genCommitmentAndOpening, getCommShares,
-                                           getCommitmentsMap, mkCommitmentsMap,
-                                           secretToSharedSeed, vssThreshold)
+                                           getCommShares, getCommitmentsMap,
+                                           mkCommitmentsMap, vssThreshold)
 import           Pos.Types                (SharedSeed (..), StakeholderId, mkCoin)
 import           Pos.Util                 (nonrepeating, sublistN)
 

@@ -46,7 +46,7 @@ import           Pos.Crypto                  (ProxySecretKey (..), SecretKey,
                                               sign, toPublic)
 import           Pos.Data.Attributes         (mkAttributes)
 import           Pos.Delegation.Types        (ProxySKBlockInfo)
-import           Pos.Ssc.Core                (defaultSscPayload)
+import           Pos.Ssc.Base                (defaultSscPayload)
 import           Pos.Txp.Base                (emptyTxPayload)
 import           Pos.Update.Configuration    (HasUpdateConfiguration, curSoftwareVersion,
                                               lastKnownBlockVersion)

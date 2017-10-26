@@ -31,6 +31,8 @@ import           Pos.Configuration                  (HasNodeConfiguration,
 import           Pos.Core                           (BlockVersionData (..),
                                                      VssCertificate, coinPortionToDouble)
 import           Pos.Core.Configuration             (HasConfiguration, blkSecurityParam)
+import           Pos.Core.Ssc                       (Commitment (..), InnerSharesMap,
+                                                     Opening (..), SignedCommitment)
 import           Pos.Core.Txp                       (TxAux)
 import           Pos.Core.Update                    (UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto                         (AbstractHash, DecShare, EncShare,
@@ -40,8 +42,6 @@ import           Pos.Crypto                         (AbstractHash, DecShare, Enc
                                                      Signature (..), VssPublicKey)
 import qualified Pos.DB.Class                       as DB
 import           Pos.Delegation.Types               (ProxySKLightConfirmation)
-import           Pos.Ssc.Core                       (Commitment (..), InnerSharesMap,
-                                                     Opening (..), SignedCommitment)
 import           Pos.Ssc.GodTossing.Types.Message   (MCCommitment (..), MCOpening (..),
                                                      MCShares (..), MCVssCertificate (..))
 import           Pos.Txp.Network.Types              (TxMsgContents (..))

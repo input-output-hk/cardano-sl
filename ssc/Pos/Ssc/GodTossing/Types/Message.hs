@@ -18,8 +18,9 @@ import qualified Data.Text.Buildable           as Buildable
 import           Formatting                    (bprint, build, (%))
 import           Universum
 
-import           Pos.Core                      (StakeholderId, addressHash, VssCertificate, getCertId)
-import           Pos.Ssc.Core                  (InnerSharesMap, Opening, SignedCommitment)
+import           Pos.Core                      (StakeholderId, VssCertificate,
+                                                addressHash, getCertId)
+import           Pos.Core.Ssc                  (InnerSharesMap, Opening, SignedCommitment)
 import           Pos.Ssc.GodTossing.Toss.Types (GtTag (..))
 
 class HasGtTag a where

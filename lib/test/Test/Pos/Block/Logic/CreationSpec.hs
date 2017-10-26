@@ -30,7 +30,7 @@ import           Pos.Core.Txp               (TxAux)
 import           Pos.Core.Update            (UpdatePayload (..))
 import           Pos.Crypto                 (SecretKey)
 import           Pos.Delegation             (DlgPayload, ProxySKBlockInfo)
-import           Pos.Ssc.Core               (defaultSscPayload)
+import           Pos.Ssc.Base               (defaultSscPayload)
 import           Pos.Ssc.GodTossing         (SscPayload (..), commitmentMapEpochGen,
                                              vssCertificateEpochGen)
 import           Pos.Update.Configuration   (HasUpdateConfiguration)

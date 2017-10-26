@@ -8,23 +8,22 @@ module Pos.Ssc.GodTossing.Seed
 
 import           Universum
 
-import           Control.Lens             (_Left)
-import qualified Data.HashMap.Strict      as HM
-import qualified Data.HashSet             as HS
+import           Control.Lens        (_Left)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet        as HS
 
-import           Pos.Binary.Class         (AsBinary, fromBinaryM)
-import           Pos.Core                 (SharedSeed, StakeholderId, addressHash, mkCoin,
-                                           sumCoins, unsafeIntegerToCoin)
-import           Pos.Crypto               (DecShare, Secret, VssPublicKey, recoverSecret,
-                                           verifySecret)
-import           Pos.Lrc.Types            (RichmenStakes)
-import           Pos.Ssc.Core             (Commitment (..), CommitmentsMap (..),
-                                           Opening (..), OpeningsMap, SharesMap,
-                                           SignedCommitment, getCommShares,
-                                           secretToSharedSeed, verifyOpening,
-                                           vssThreshold)
-import           Pos.Ssc.SeedError        (SscSeedError (..))
-import           Pos.Util.Util            (getKeys)
+import           Pos.Binary.Class    (AsBinary, fromBinaryM)
+import           Pos.Core            (SharedSeed, StakeholderId, addressHash, mkCoin,
+                                      sumCoins, unsafeIntegerToCoin)
+import           Pos.Core.Ssc        (Commitment (..), CommitmentsMap (..), Opening (..),
+                                      OpeningsMap, SharesMap, SignedCommitment,
+                                      getCommShares)
+import           Pos.Crypto          (DecShare, Secret, VssPublicKey, recoverSecret,
+                                      verifySecret)
+import           Pos.Lrc.Types       (RichmenStakes)
+import           Pos.Ssc.Base        (secretToSharedSeed, verifyOpening, vssThreshold)
+import           Pos.Ssc.SeedError   (SscSeedError (..))
+import           Pos.Util.Util       (getKeys)
 
 -- | Calculate SharedSeed. SharedSeed is a random bytestring that all
 -- nodes generate together and agree on.

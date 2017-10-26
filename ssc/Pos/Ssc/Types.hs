@@ -1,7 +1,7 @@
 {-# LANGUAGE TypeFamilies #-}
 
 -- | Some types related to GodTossing. There are also types in
--- "Pos.Ssc.Core.Types".
+-- "Pos.Core.Ssc".
 
 module Pos.Ssc.Types
        (
@@ -30,30 +30,27 @@ module Pos.Ssc.Types
        , createSscContext
        ) where
 
-import           Control.Lens                   (_Wrapped, choosing,
-                                                 makeLenses, makeWrapped)
+import           Control.Lens                   (choosing, makeLenses, makeWrapped,
+                                                 _Wrapped)
 import           Data.Default                   (Default, def)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.Text                      as T
 import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder         (Builder, fromText)
 import           Formatting                     (sformat, (%))
-import           Serokell.Util                  (listJson)
 import           Serokell.Data.Memory.Units     (Byte)
+import           Serokell.Util                  (listJson)
 import           Universum
 
-import           Pos.Core                       (HasDifficulty (..),
-                                                 HasEpochIndex (..),
-                                                 HasEpochOrSlot (..),
-                                                 HasHeaderHash (..),
-                                                 IsGenesisHeader,
-                                                 IsMainHeader,
-                                                 EpochIndex)
-import           Pos.Crypto                     (VssKeyPair)
-import           Pos.Ssc.GodTossing.Behavior    (GtBehavior)
-import           Pos.Ssc.Core                   (CommitmentsMap (getCommitmentsMap),
+import           Pos.Core                       (EpochIndex, HasDifficulty (..),
+                                                 HasEpochIndex (..), HasEpochOrSlot (..),
+                                                 HasHeaderHash (..), IsGenesisHeader,
+                                                 IsMainHeader)
+import           Pos.Core.Ssc                   (CommitmentsMap (getCommitmentsMap),
                                                  Opening, OpeningsMap, SharesMap,
                                                  SignedCommitment, SscPayload)
+import           Pos.Crypto                     (VssKeyPair)
+import           Pos.Ssc.GodTossing.Behavior    (GtBehavior)
 import           Pos.Ssc.GodTossing.Toss.Types  (TossModifier)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
 import           Pos.Util.Util                  (Some)

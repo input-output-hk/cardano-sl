@@ -24,23 +24,23 @@ import           Pos.Core                          (EpochIndex, HasConfiguration
                                                     VssCertificatesMap, mkVssCertificate,
                                                     mkVssCertificatesMapLossy, vssMaxTTL,
                                                     vssMinTTL)
+import           Pos.Core.Ssc                      (Commitment (..), CommitmentsMap,
+                                                    Opening (..), SignedCommitment,
+                                                    SscPayload (..), SscProof (..),
+                                                    mkCommitmentsMap)
 import           Pos.Crypto                        (SecretKey, deterministic,
                                                     randomNumberInRange, toVssPublicKey,
                                                     vssKeyGen)
-import           Pos.Ssc.Core                      (Commitment (..), CommitmentsMap,
-                                                    SscPayload (..), SscProof (..),
-                                                    Opening (..), SignedCommitment,
-                                                    genCommitmentAndOpening,
+import           Pos.Ssc.Base                      (genCommitmentAndOpening,
                                                     isCommitmentId, isOpeningId,
-                                                    isSharesId, mkCommitmentsMap,
-                                                    mkCommitmentsMap, mkSignedCommitment)
+                                                    isSharesId, mkSignedCommitment)
 import           Pos.Ssc.GodTossing.Toss.Types     (TossModifier (..))
 import           Pos.Ssc.GodTossing.Types.Message  (GtTag (..), MCCommitment (..),
                                                     MCOpening (..), MCShares (..),
                                                     MCVssCertificate (..))
+import           Pos.Ssc.GodTossing.VssCertData    (VssCertData (..))
 import           Pos.Ssc.Types                     (SscGlobalState (..),
                                                     SscSecretStorage (..))
-import           Pos.Ssc.GodTossing.VssCertData    (VssCertData (..))
 import           Pos.Util.Arbitrary                (Nonrepeating (..), makeSmall,
                                                     sublistN)
 

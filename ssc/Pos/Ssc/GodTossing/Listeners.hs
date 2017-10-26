@@ -27,12 +27,11 @@ import           Pos.Communication.Relay               (DataMsg, InvOrData,
 import           Pos.Communication.Types.Protocol      (MsgType (..))
 import           Pos.Core                              (HasConfiguration, StakeholderId,
                                                         addressHash, getCertId, lookupVss)
+import           Pos.Core.Ssc                          (getCommitmentsMap)
 import           Pos.Security.Util                     (shouldIgnorePkAddress)
 import           Pos.Ssc.Class.Listeners               (SscListenersClass (..))
 import           Pos.Ssc.Extra                         (sscRunLocalQuery)
 import           Pos.Ssc.GodTossing.Configuration      (HasGtConfiguration)
-import           Pos.Ssc.Core                          (getCommitmentsMap)
-import           Pos.Ssc.Types                         (ldModifier)
 import           Pos.Ssc.GodTossing.LocalData          (sscIsDataUseful,
                                                         sscProcessCertificate,
                                                         sscProcessCommitment,
@@ -46,6 +45,7 @@ import           Pos.Ssc.GodTossing.Types.Message      (MCCommitment (..), MCOpe
                                                         MCShares (..),
                                                         MCVssCertificate (..))
 import           Pos.Ssc.Mode                          (SscMode)
+import           Pos.Ssc.Types                         (ldModifier)
 
 instance GtMessageConstraints => SscListenersClass where
     sscRelays =

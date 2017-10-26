@@ -28,21 +28,20 @@ import           Pos.Core              (Coin, EpochIndex, EpochOrSlot (..),
 import           Pos.Crypto            (DecShare, PublicKey, SecretKey,
                                         SignTag (SignCommitment), sign, toPublic)
 import           Pos.Lrc.Types         (RichmenStakes)
+import           Pos.Ssc.Base          (deleteSignedCommitment, verifyCommitment,
+                                        verifyCommitmentSignature, verifyOpening)
 import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadSignedCommitment (..),
                                         Commitment, CommitmentOpening (..),
                                         CommitmentSignature, CommitmentsMap (..),
-                                        SscGlobalState (..), InnerSharesMap,
-                                        MultiRichmenStakes, Opening, OpeningsMap,
-                                        PureTossWithEnv, SharesMap, SignedCommitment,
+                                        InnerSharesMap, MultiRichmenStakes, Opening,
+                                        OpeningsMap, PureTossWithEnv, SharesMap,
+                                        SignedCommitment, SscGlobalState (..),
                                         SscVerifyError (..), VssCertData (..),
                                         checkCertificatesPayload, checkCommitmentsPayload,
                                         checkOpeningsPayload, checkSharesPayload,
-                                        deleteSignedCommitment, sgsCommitments, sgsOpenings,
-                                        sgsShares, sgsVssCertificates,
                                         mkCommitmentsMapUnsafe, runPureToss,
-                                        supplyPureTossEnv, verifyCommitment,
-                                        verifyCommitmentSignature, verifyOpening)
-
+                                        sgsCommitments, sgsOpenings, sgsShares,
+                                        sgsVssCertificates, supplyPureTossEnv)
 import           Test.Pos.Util         (qcElem, qcFail, qcIsRight, withDefConfiguration)
 
 spec :: Spec

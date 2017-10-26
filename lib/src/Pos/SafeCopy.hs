@@ -21,6 +21,9 @@ import qualified Pos.Binary.Class                as Bi
 import           Pos.Block.Core
 import           Pos.Core.Fee                    (Coeff (..), TxFeePolicy (..),
                                                   TxSizeLinear (..))
+import           Pos.Core.Ssc                    (Commitment (..), CommitmentsMap,
+                                                  Opening (..), SscPayload (..),
+                                                  SscProof (..))
 import           Pos.Core.Txp                    (Tx (..), TxIn (..), TxInWitness (..),
                                                   TxOut (..), TxOutAux (..),
                                                   TxPayload (..), TxProof (..))
@@ -56,9 +59,6 @@ import           Pos.Data.Attributes             (Attributes (..), UnparsedField
 import           Pos.Delegation.Types            (DlgPayload (..))
 import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (..),
                                                   MerkleTree (..))
-import           Pos.Ssc.Core                    (Commitment (..), CommitmentsMap,
-                                                  Opening (..), SscPayload (..),
-                                                  SscProof (..))
 
 
 ----------------------------------------------------------------------------

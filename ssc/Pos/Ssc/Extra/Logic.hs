@@ -37,6 +37,7 @@ import           System.Wlog              (NamedPureLogger, WithLogger,
 
 import           Pos.Core                 (EpochIndex, HeaderHash, IsHeader, SharedSeed,
                                            SlotId, epochIndexL, headerHash)
+import           Pos.Core.Ssc             (SscPayload)
 import           Pos.DB                   (MonadBlockDBGeneric, MonadDBRead, MonadGState,
                                            SomeBatchOp, gsAdoptedBVData)
 import           Pos.DB.GState.Common     (getTipHeaderGeneric)
@@ -47,12 +48,11 @@ import           Pos.Reporting            (MonadReporting, reportError)
 import           Pos.Slotting.Class       (MonadSlots)
 import           Pos.Ssc.Class.LocalData  (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Storage    (SscGStateClass (..))
-import           Pos.Ssc.Core             (SscPayload)
 import           Pos.Ssc.Extra.Class      (MonadSscMem, askSscMem)
-import           Pos.Ssc.Types            (SscBlock, SscState (sscGlobal, sscLocal),
-                                           SscGlobalState, SscLocalData)
 import           Pos.Ssc.RichmenComponent (getRichmenSsc)
 import           Pos.Ssc.SeedError        (SscSeedError)
+import           Pos.Ssc.Types            (SscBlock, SscGlobalState, SscLocalData,
+                                           SscState (sscGlobal, sscLocal))
 import           Pos.Ssc.VerifyError      (SscVerifyError, sscIsCriticalError)
 import           Pos.Util.Chrono          (NE, NewestFirst, OldestFirst)
 import           Pos.Util.Util            (Some, inAssertMode, _neHead, _neLast)

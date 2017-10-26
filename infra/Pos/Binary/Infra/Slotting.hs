@@ -26,7 +26,7 @@ instance Bi SlottingData where
     decode = checkIfSlottindDataValid $ decode
       where
         -- We first check if the data we are trying to decode is
-        -- valid. We don't want to throw a runtime error. dcNocheck
+        -- valid. We don't want to throw a runtime error. dcNoCheck
         -- is not used here because we don't store SlottingData in db.
         checkIfSlottindDataValid slottingDataM = do
             slottingData <- slottingDataM

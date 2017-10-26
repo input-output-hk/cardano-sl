@@ -6,7 +6,7 @@ module Pos.Binary.Txp.Core
 
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..), dcNocheck,
+import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..), dcNoCheck,
                                      decodeKnownCborDataItem, decodeListLenCanonical,
                                      decodeUnknownCborDataItem, deriveSimpleBi,
                                      encodeKnownCborDataItem, encodeListLen,
@@ -58,7 +58,7 @@ instance Bi T.Tx where
         outputs <- decode
         attrs <- decode
 
-        ifM (view dcNocheck)
+        ifM (view dcNoCheck)
             (pure $ T.UnsafeTx inputs outputs attrs)
             (T.mkTx inputs outputs attrs)
 

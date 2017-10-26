@@ -9,7 +9,7 @@ import           Data.Time.Units            (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Raw,
-                                             dcNocheck, decodeListLenCanonical,
+                                             dcNoCheck, decodeListLenCanonical,
                                              deriveSimpleBi, deriveSimpleBiCxt,
                                              encodeListLen, enforceSize)
 import           Pos.Binary.Infra           ()
@@ -28,7 +28,7 @@ instance Bi U.SystemTag where
     encode = encode . U.getSystemTag
     decode = do
         tag <- decode
-        ifM (view dcNocheck)
+        ifM (view dcNoCheck)
             (pure $ U.UnsafeSystemTag tag)
             (U.mkSystemTag tag)
 
@@ -44,7 +44,7 @@ instance HasConfiguration => Bi U.UpdateVote where
         p <- decode
         d <- decode
         s <- decode
-        noCheck <- view dcNocheck
+        noCheck <- view dcNoCheck
         let sigValid = checkSig SignUSVote k (p, d) s
         unless (noCheck || sigValid) $ fail "Pos.Binary.Update: UpdateVote: invalid signature"
         return $ U.UpdateVote k p d s
@@ -95,7 +95,7 @@ instance HasConfiguration => Bi U.UpdateProposal where
         upFrom            <- decode
         upSignature       <- decode
 
-        ifM (view dcNocheck)
+        ifM (view dcNoCheck)
             (pure $ U.UnsafeUpdateProposal {..})
             (U.mkUpdateProposal
                  upBlockVersion

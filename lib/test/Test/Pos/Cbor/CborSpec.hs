@@ -37,11 +37,10 @@ import           Pos.Binary.Class                      (Bi (..), Cons (..), Fiel
                                                         decodeListLenCanonicalOf,
                                                         decodeUnknownCborDataItem,
                                                         deriveSimpleBi, deserialize',
-                                                        deserializeOrFail, encodeListLen,
+                                                        deserializeThrow, encodeListLen,
                                                         encodeUnknownCborDataItem,
                                                         genericDecode, genericEncode,
-                                                        serialize, serialize',
-                                                        unsafeDeserialize)
+                                                        serialize, serialize')
 import           Pos.Binary.Communication              ()
 import           Pos.Binary.Core.Fee                   ()
 import           Pos.Binary.Core.Script                ()
@@ -55,6 +54,7 @@ import           Pos.Data.Attributes                   (Attributes (..), decodeA
 import qualified Test.Pos.Cbor.ReferenceImplementation as R
 import           Test.Pos.Helpers                      (binaryTest)
 import           Test.Pos.Util                         (withDefConfiguration)
+
 
 data User
     = Login { login :: String
@@ -172,9 +172,6 @@ instance Bi U24 where
 
 ----------------------------------------
 
-deserUnsafe :: (Bi a) => LByteString -> a
-deserUnsafe = unsafeDeserialize . deserializeOrFail
-
 data X1 = X1 { x1A :: Int }
     deriving (Eq, Ord, Show, Generic)
 
@@ -192,14 +189,14 @@ instance Arbitrary X2 where
 instance Bi (Attributes X1) where
     encode = encodeAttributes [(0, serialize' . x1A)]
     decode = decodeAttributes (X1 0) $ \n v acc -> case n of
-        0 -> pure $ Just $ acc { x1A = deserUnsafe $ BSL.fromStrict v }
+        0 -> pure $ Just $ acc { x1A = deserializeThrow $ BSL.fromStrict v }
         _ -> pure $ Nothing
 
 instance Bi (Attributes X2) where
     encode = encodeAttributes [(0, serialize' . x2A), (1, serialize' . x2B)]
     decode = decodeAttributes (X2 0 []) $ \n v acc -> case n of
-        0 -> return $ Just $ acc { x2A = deserUnsafe $ BSL.fromStrict v }
-        1 -> return $ Just $ acc { x2B = deserUnsafe $ BSL.fromStrict v }
+        0 -> return $ Just $ acc { x2A = deserializeThrow $ BSL.fromStrict v }
+        1 -> return $ Just $ acc { x2B = deserializeThrow $ BSL.fromStrict v }
         _ -> return $ Nothing
 
 ----------------------------------------
@@ -248,13 +245,13 @@ extensionProperty = forAll @a (arbitrary :: Gen a) $ \input ->
 
       (The <Tag24> has been added as part of the encoding process).
 
-      `unsafeDeserialize` would then consume the tag (to understand which type constructor this corresponds to),
+      `deserializeThrow` would then consume the tag (to understand which type constructor this corresponds to),
       remove the <Tag24> token and finally proceed to deserialise the rest.
 
 -}
     let serialized      = serialize input                   -- Step 1
-        (u :: U)        = deserUnsafe serialized      -- Step 2
-        (encoded :: a)  = deserUnsafe (serialize u)   -- Step 3
+        (u :: U)        = deserializeThrow serialized      -- Step 2
+        (encoded :: a)  = deserializeThrow (serialize u)   -- Step 3
     in encoded === input
 
 soundSerializationAttributesOfAsProperty
@@ -263,8 +260,8 @@ soundSerializationAttributesOfAsProperty
     => Property
 soundSerializationAttributesOfAsProperty = forAll arbitraryAttrs $ \input ->
     let serialized      = serialize input
-        (middle  :: ab) = deserUnsafe serialized
-        (encoded :: aa) = deserUnsafe $ serialize middle
+        (middle  :: ab) = deserializeThrow serialized
+        (encoded :: aa) = deserializeThrow $ serialize middle
     in encoded === input
   where
     arbitraryAttrs :: Gen aa
@@ -340,7 +337,7 @@ spec = withDefConfiguration $ do
 
     describe "Cbor.Bi instances" $ modifyMaxSuccess (const 1000) $ do
         describe "Test instances" $ do
-            prop "User" (let u1 = Login "asd" 34 in (deserUnsafe $ serialize u1) === u1)
+            prop "User" (let u1 = Login "asd" 34 in (deserializeThrow $ serialize u1) === u1)
             binaryTest @MyScript
             prop "X2" (soundSerializationAttributesOfAsProperty @X2 @X1)
         describe "Generic deriving" $ do

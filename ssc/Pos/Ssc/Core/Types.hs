@@ -32,23 +32,23 @@ module Pos.Ssc.Core.Types
 
 import           Universum
 
-import           Control.Lens        (each, traverseOf)
-import           Data.Hashable       (Hashable (..))
-import           Data.HashMap.Strict (HashMap)
-import qualified Data.HashMap.Strict as HM
+import           Control.Lens           (each, traverseOf)
+import           Data.Hashable          (Hashable (..))
+import           Data.HashMap.Strict    (HashMap)
+import qualified Data.HashMap.Strict    as HM
 import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder (Builder)
-import           Formatting          (Format, bprint, build, int, (%))
-import           Serokell.Util       (listJson)
+import           Fmt                    (genericF)
+import           Formatting             (Format, bprint, build, int, (%))
+import           Serokell.Util          (listJson)
 
-import           Pos.Binary.Class    (AsBinary (..), fromBinaryM, serialize')
-import           Pos.Binary.Core     ()
-import           Pos.Core.Address    (addressHash)
-import           Pos.Core.Types      (EpochIndex, StakeholderId)
-import           Pos.Core.Vss        (VssCertificatesMap(..), vcExpiryEpoch)
-import           Pos.Crypto          (DecShare, EncShare, Hash, PublicKey, Secret,
-                                      SecretProof, Signature, VssPublicKey,
-                                      shortHashF)
+import           Pos.Binary.Class       (AsBinary (..), fromBinaryM, serialize')
+import           Pos.Binary.Core        ()
+import           Pos.Core.Address       (addressHash)
+import           Pos.Core.Types         (EpochIndex, StakeholderId)
+import           Pos.Core.Vss           (VssCertificatesMap (..), vcExpiryEpoch)
+import           Pos.Crypto             (DecShare, EncShare, Hash, PublicKey, Secret,
+                                         SecretProof, Signature, VssPublicKey, shortHashF)
 
 type NodeSet = HashSet StakeholderId
 
@@ -190,6 +190,9 @@ data SscProof
     | CertificatesProof
         { sprVss    :: !(Hash VssCertificatesMap) }
     deriving (Eq, Show, Generic)
+
+instance Buildable SscProof where
+    build = genericF
 
 instance NFData SscPayload
 instance NFData SscProof

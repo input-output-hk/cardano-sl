@@ -46,6 +46,7 @@ import           Control.Lens         (makeLenses, makePrisms)
 import           Data.Hashable        (Hashable)
 import qualified Data.Text.Buildable  as Buildable
 import           Data.Vector          (Vector)
+import           Fmt                  (genericF)
 import           Formatting           (Format, bprint, build, builder, formatToString,
                                        int, later, sformat, (%))
 import           Serokell.Util.Base16 (base16F)
@@ -248,6 +249,9 @@ data TxProof = TxProof
     , txpRoot          :: !(MerkleRoot Tx)
     , txpWitnessesHash :: !(Hash [TxWitness])
     } deriving (Show, Eq, Generic)
+
+instance Buildable TxProof where
+    build = genericF
 
 instance NFData TxProof
 

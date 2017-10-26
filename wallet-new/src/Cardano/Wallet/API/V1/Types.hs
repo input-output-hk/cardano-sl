@@ -238,7 +238,7 @@ instance Arbitrary Account where
   arbitrary = Account . fromString <$> elements ["DEADBeef", "123456"]
                                    <*> listOf1 arbitrary
                                    <*> fmap getPositive arbitrary
-                                   <*> fmap fromString arbitrary
+                                   <*> pure "My account"
                                    <*> arbitrary
 
 data ReadOnlyAccount = ReadOnlyAccount

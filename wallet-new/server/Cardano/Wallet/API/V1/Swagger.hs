@@ -55,17 +55,44 @@ fromArbitraryJSON (_ :: proxy a) = do
     let (randomSample :: a) = genExample
     return $ NamedSchema (Just $ fromString $ show $ typeOf randomSample) (sketchSchema randomSample)
 
+-- | Renders the inner type of a proxy as a `Text`, using Typeable's `typeRep` internally.
+renderType :: Typeable a => proxy a -> T.Text
+renderType = fromString . show . typeRep
+
 -- | Adds a randomly-generated but valid example to the spec, formatted as a JSON.
 withExample :: (ToJSON a, Arbitrary a) => proxy a -> T.Text -> T.Text
 withExample (_ :: proxy a) desc =
   desc <> " Here's an example:<br><br><pre>" <> toS (encodePretty $ toJSON @a genExample) <> "</pre>"
 
+-- | Generates a description suitable to be used for "ReadOnly" types.
+readOnlyDescr :: Typeable a => proxy a -> T.Text
+readOnlyDescr (p :: proxy a) =
+    "A simpler version of an " <> renderType p <> " showing only the fields modifiable as part of " <>
+    "the REST operations. You can still pass an entire " <> renderType p <> " as input, and extra " <>
+    "fields will simply be ignored."
+
+-- | Automatically derives the subset of readOnly fields by diffing the JSON representations of the
+-- given types.
 readOnlyFieldsFromJSON :: forall a b proxy. (ReadOnly a ~ b, Arbitrary a, ToJSON a, Arbitrary b, ToJSON b)
                        => proxy a -> Set T.Text
 readOnlyFieldsFromJSON _ =
     case (toJSON (genExample @a), toJSON (genExample @b)) of
         (Object o1, Object o2) -> (Set.fromList $ HM.keys o1) `Set.difference` (Set.fromList $ HM.keys o2)
         _                      -> mempty
+
+-- | Enrich a Swagger `Schema` with a list of readOnly fields.
+setReadOnlyFields :: ToDocs a
+                  => proxy a
+                  -> (InsOrdHashMap Text (Referenced Schema))
+                  -> (InsOrdHashMap Text (Referenced Schema))
+setReadOnlyFields p hm =
+  let fields = readOnlyFields p
+  in InsOrdHM.mapWithKey (setRO fields) hm
+  where
+    setRO :: Set (T.Text) -> T.Text -> Referenced Schema -> Referenced Schema
+    setRO _ _  r@(Ref _)    = r
+    setRO flds f r@(Inline s) =
+      if f `Set.member` flds then Inline (s & readOnly ?~ (f `Set.member` flds)) else r
 
 --
 -- Extra Typeclasses
@@ -193,21 +220,14 @@ instance ToDocs Account where
   annotate f p = do
     s <- f p
     return $ s & (schema . description ?~ "An Account.")
-               . (schema . example ?~ toJSON @(ReadOnly Account) genExample)
+               . (schema . example ?~ toJSON @Account genExample)
                . (over (schema . properties) (setReadOnlyFields p))
 
-setReadOnlyFields :: ToDocs a
-                  => proxy a
-                  -> (InsOrdHashMap Text (Referenced Schema))
-                  -> (InsOrdHashMap Text (Referenced Schema))
-setReadOnlyFields p hm =
-  let fields = readOnlyFields p
-  in InsOrdHM.mapWithKey (setRO fields) hm
-  where
-    setRO :: Set (T.Text) -> T.Text -> Referenced Schema -> Referenced Schema
-    setRO _ _  r@(Ref _)    = r
-    setRO flds f r@(Inline s) =
-      if f `Set.member` flds then Inline (s & readOnly ?~ (f `Set.member` flds)) else r
+instance ToDocs ReadOnlyAccount where
+  annotate f p = do
+    s <- f p
+    return $ s & (schema . description ?~ readOnlyDescr (Proxy @Account))
+               . (schema . example ?~ toJSON @ReadOnlyAccount genExample)
 
 instance ToDocs Address where
   annotate f p = do
@@ -266,6 +286,9 @@ instance ToSchema WalletVersion where
 instance ToSchema Account where
   declareNamedSchema = annotate fromArbitraryJSON
 
+instance ToSchema ReadOnlyAccount where
+  declareNamedSchema = annotate fromArbitraryJSON
+
 instance ToSchema Address where
   declareNamedSchema = annotate fromArbitraryJSON
 
@@ -293,9 +316,6 @@ instance ToSchema Payment where
 instance ToSchema WalletUpdate where
   declareNamedSchema = annotate fromArbitraryJSON
 
-instance ToSchema ReadOnlyAccount where
-  declareNamedSchema _ = (declareNamedSchema (Proxy @ Account))
-
 instance ToDocs a => ToDocs (ExtendedResponse a) where
   annotate f p = (f p)
 
@@ -305,7 +325,7 @@ instance (ToJSON a, ToDocs a, Typeable a, Arbitrary a) => ToSchema (ExtendedResp
 instance (ToDocs a) => ToDocs [a] where
   annotate f p = do
     s <- f p
-    return $ s & (schema . description ?~ "A list of " <> fromString (show $ typeOf (genExample @ a)) <> ".")
+    return $ s & (schema . description ?~ "A list of " <> renderType p <> ".")
 
 instance (ToDocs a, ToDocs b) => ToDocs (OneOf a b) where
   annotate f p = do
@@ -313,10 +333,8 @@ instance (ToDocs a, ToDocs b) => ToDocs (OneOf a b) where
     return $ s & (schema . description ?~ desc)
     where
       typeOfA, typeOfB :: T.Text
-      typeOfA = fromString (show $ typeOf @b exampleOfB)
-      typeOfB = fromString (show $ typeOf @a exampleOfA)
-      exampleOfA = genExample
-      exampleOfB = genExample
+      typeOfA = renderType (Proxy @b)
+      typeOfB = renderType (Proxy @a)
 
       desc :: T.Text
       desc = "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning " <>

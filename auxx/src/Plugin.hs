@@ -13,7 +13,7 @@ import           Universum
 import           System.Exit                (ExitCode (ExitSuccess))
 import           System.Posix.Process       (exitImmediately)
 #endif
-import           Formatting                 (int, sformat, stext, (%))
+import           Formatting                 (float, int, sformat, stext, (%))
 import           Mockable                   (delay)
 import           Node.Conversation          (ConversationActions (..))
 import           Node.Message.Class         (Message (..))
@@ -85,7 +85,7 @@ runWalletCmd line sendActions = do
 withValueText :: Monad m => (Text -> m ()) -> Lang.Value -> m ()
 withValueText cont = \case
     Lang.ValueUnit -> return ()
-    Lang.ValueNumber n -> cont (show n)
+    Lang.ValueNumber n -> cont (sformat float n)
     Lang.ValueString s -> cont (toText s)
     Lang.ValueBool b -> cont (pretty b)
     Lang.ValueAddress a -> cont (pretty a)
@@ -96,6 +96,7 @@ withValueText cont = \case
     Lang.ValueBlockVersion v -> cont (pretty v)
     Lang.ValueSoftwareVersion v -> cont (pretty v)
     Lang.ValueBlockVersionModifier bvm -> cont (pretty bvm)
+    Lang.ValueBlockVersionData bvd -> cont (pretty bvd)
     Lang.ValueProposeUpdateSystem pus -> cont (show pus)
     Lang.ValueAddrDistrPart adp -> cont (show adp)
     Lang.ValueAddrStakeDistribution asd -> cont (pretty asd)

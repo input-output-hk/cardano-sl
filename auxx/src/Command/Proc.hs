@@ -17,16 +17,18 @@ import           Pos.Client.KeyStorage      (addSecretKey, getSecretKeysPlain)
 import           Pos.Client.Txp.Balances    (getBalance)
 import           Pos.Communication          (MsgType (..), Origin (..), SendActions,
                                              dataFlow, immediateConcurrentConversations)
-import           Pos.Core                   (AddrStakeDistribution (..), StakeholderId,
-                                             addressHash, coinF, mkMultiKeyDistr)
+import           Pos.Core                   (AddrStakeDistribution (..), Address,
+                                             StakeholderId, addressHash, mkMultiKeyDistr,
+                                             unsafeGetCoin)
 import           Pos.Core.Address           (makeAddress)
-import           Pos.Core.Configuration     (genesisSecretKeys)
+import           Pos.Core.Configuration     (HasConfiguration, genesisSecretKeys)
 import           Pos.Core.Types             (AddrAttributes (..), AddrSpendingData (..))
 import           Pos.Crypto                 (PublicKey, emptyPassphrase, encToPublic,
                                              fullPublicKeyHexF, hashHexF, noPassEncrypt,
                                              safeCreatePsk, unsafeCheatingHashCoerce,
                                              withSafeSigner)
 import           Pos.DB.Class               (MonadGState (..))
+import           Pos.Infra.Configuration    (HasInfraConfiguration)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Txp                    (TxOut (..))
 import           Pos.Update                 (BlockVersionModifier (..))
@@ -36,7 +38,7 @@ import           Pos.Util.UserSecret        (WalletUserSecret (..), readUserSecr
 import           Pos.Util.Util              (eitherToFail)
 
 import           Command.BlockGen           (generateBlocks)
-import           Command.Help               (helpMessage)
+import           Command.Help               (mkHelpMessage)
 import qualified Command.Rollback           as Rollback
 import qualified Command.Tx                 as Tx
 import           Command.TyProjection       (tyAddrDistrPart, tyAddrStakeDistr, tyAddress,
@@ -66,39 +68,44 @@ createCommandProcs ::
     => PrintAction AuxxMode
     -> SendActions AuxxMode
     -> [CommandProc AuxxMode]
-createCommandProcs printAction sendActions = [
+createCommandProcs printAction sendActions = fix $ \commands -> [
+
     CommandProc
     { cpName = "L"
     , cpArgumentConsumer = getArgMany tyValue "elem"
     , cpExec = return . ValueList
+    , cpHelp = "construct a list"
     },
 
     CommandProc
     { cpName = "pk"
     , cpArgumentConsumer = getArg tyInt "i"
-    , cpExec = fmap ValuePublicKey . getPublicKeyFromIndex
+    , cpExec = fmap ValuePublicKey . toLeft . Right
+    , cpHelp = "public key for secret #i"
     },
 
     CommandProc
     { cpName = "s"
-    , cpArgumentConsumer = getArg (tyEither tyPublicKey tyInt) "pk"
-    , cpExec = \pkOrI -> do
-        pk <- either return getPublicKeyFromIndex pkOrI
-        return $ ValueStakeholderId (addressHash pk)
+    , cpArgumentConsumer = getArg (tyPublicKey `tyEither` tyInt) "pk"
+    , cpExec = fmap ValueStakeholderId . toLeft . Right
+    , cpHelp = "stakeholder id (hash) of the specified public key"
     },
 
     CommandProc
     { cpName = "addr"
     , cpArgumentConsumer =
-        (,) <$> getArg (tyEither tyPublicKey tyInt) "pk"
+        (,) <$> getArg (tyPublicKey `tyEither` tyInt) "pk"
             <*> getArgOpt tyAddrStakeDistr "distr"
-    , cpExec = \(pkOrI, mDistr) -> do
-        pk <- either return getPublicKeyFromIndex pkOrI
+    , cpExec = \(pk', mDistr) -> do
+        pk <- toLeft pk'
         addr <- case mDistr of
             Nothing -> makePubKeyAddressAuxx pk
             Just distr -> return $
                 makeAddress (PubKeyASD pk) (AddrAttributes Nothing distr)
         return $ ValueAddress addr
+    , cpHelp = "address for the specified public key. a stake distribution \
+               \ can be specified manually (by default it uses the current epoch \
+               \ to determine whether we want to use bootstrap distr)"
     },
 
     CommandProc
@@ -109,6 +116,7 @@ createCommandProcs printAction sendActions = [
         sk <- evaluateWHNF (sks !! i)
         addrHD <- deriveHDAddressAuxx sk
         return $ ValueAddress addrHD
+    , cpHelp = "address of the HD wallet for the specified public key"
     },
 
     CommandProc
@@ -118,17 +126,19 @@ createCommandProcs printAction sendActions = [
         txOutValue <- getArg tyCoin "value"
         return TxOut{..}
     , cpExec = return . ValueTxOut
+    , cpHelp = "construct a transaction output"
     },
 
     CommandProc
     { cpName = "dp"
     , cpArgumentConsumer = do
-        adpStakeholderId <- getArg (tyEither tyStakeholderId tyInt) "s"
+        adpStakeholderId <- getArg (tyStakeholderId `tyEither` tyPublicKey `tyEither` tyInt) "s"
         adpCoinPortion <- getArg tyCoinPortion "p"
         return (adpStakeholderId, adpCoinPortion)
-    , cpExec = \(sIdOrI, cp) -> do
-        sId <- either return getStakeholderIdFromIndex sIdOrI
+    , cpExec = \(sId', cp) -> do
+        sId <- toLeft sId'
         return $ ValueAddrDistrPart (AddrDistrPart sId cp)
+    , cpHelp = "construct an address distribution part"
     },
 
     CommandProc
@@ -144,6 +154,7 @@ createCommandProcs printAction sendActions = [
                  map (\(AddrDistrPart s cp) -> (s, cp)) $
                  toList parts
         return $ ValueAddrStakeDistribution distr
+    , cpHelp = "construct an address distribution (use 'dp' for each part)"
     },
 
     procConst "neighbours" $ ValueSendMode SendNeighbours,
@@ -157,20 +168,19 @@ createCommandProcs printAction sendActions = [
 
     CommandProc
     { cpName = "balance"
-    , cpArgumentConsumer = getArg tyAddress "addr"
-    , cpExec = \addr -> do
+    , cpArgumentConsumer = getArg (tyAddress `tyEither` tyPublicKey `tyEither` tyInt) "addr"
+    , cpExec = \addr' -> do
+        addr <- toLeft addr'
         balance <- getBalance addr
-        printAction $ sformat ("Current balance: "%coinF) balance
-        return ValueUnit
+        return $ ValueNumber (fromIntegral . unsafeGetCoin $ balance)
+    , cpHelp = "check the amount of coins on the specified address"
     },
 
     CommandProc
-    { cpName = "print-bvd"
+    { cpName = "bvd"
     , cpArgumentConsumer = do pure ()
-    , cpExec = \() -> do
-        bvd <- gsAdoptedBVData
-        printAction $ pretty bvd
-        return ValueUnit
+    , cpExec = \() -> ValueBlockVersionData <$> gsAdoptedBVData
+    , cpHelp = "return current (adopted) BlockVersionData"
     },
 
     CommandProc
@@ -185,6 +195,10 @@ createCommandProcs printAction sendActions = [
     , cpExec = \stagp -> do
         Tx.sendToAllGenesis sendActions stagp
         return ValueUnit
+    , cpHelp = "create and send transactions from all genesis addresses \
+               \ for <duration> seconds, <delay> in ms. <conc> is the \
+               \ number of threads that send transactions concurrently. \
+               \ <mode> is either 'neighbours', 'round-robin', or 'send-random'"
     },
 
     CommandProc
@@ -193,6 +207,7 @@ createCommandProcs printAction sendActions = [
     , cpExec = \filePath -> do
         Tx.sendTxsFromFile sendActions filePath
         return ValueUnit
+    , cpHelp = ""
     },
 
     CommandProc
@@ -203,6 +218,8 @@ createCommandProcs printAction sendActions = [
     , cpExec = \(i, outputs) -> do
         Tx.send sendActions i outputs
         return ValueUnit
+    , cpHelp = "send from #i to specified transaction outputs \
+               \ (use 'tx-out' to build them)"
     },
 
     CommandProc
@@ -214,6 +231,9 @@ createCommandProcs printAction sendActions = [
     , cpExec = \(i, decision, upId) -> do
         Update.vote sendActions i decision upId
         return ValueUnit
+    , cpHelp = "send vote for update proposal <up-id> and \
+               \ decision <agree> ('true' or 'false'), \
+               \ using secret key #i"
     },
 
     CommandProc
@@ -235,6 +255,7 @@ createCommandProcs printAction sendActions = [
         bvmUnlockStakeEpoch <- getArgOpt tyEpochIndex "unlock-stake-epoch"
         pure BlockVersionModifier{..}
     , cpExec = return . ValueBlockVersionModifier
+    , cpHelp = "construct a BlockVersionModifier"
     },
 
     CommandProc
@@ -245,6 +266,7 @@ createCommandProcs printAction sendActions = [
         pusBinDiffPath <- getArgOpt tyFilePath "bin-diff-path"
         pure ProposeUpdateSystem{..}
     , cpExec = return . ValueProposeUpdateSystem
+    , cpHelp = "construct a part of the update proposal for binary update"
     },
 
     CommandProc
@@ -261,6 +283,8 @@ createCommandProcs printAction sendActions = [
         -- is to have two ValueHash constructors, one with universal and
         -- one with existential (relevant via singleton-style GADT) quantification.
         ValueHash . unsafeCheatingHashCoerce <$> Update.propose sendActions params
+    , cpHelp = "propose an update with one positive vote for it \
+               \ using secret key #i"
     },
 
     CommandProc
@@ -269,6 +293,7 @@ createCommandProcs printAction sendActions = [
     , cpExec = \filePath -> do
         Update.hashInstaller filePath
         return ValueUnit
+    , cpHelp = ""
     },
 
     CommandProc
@@ -291,6 +316,7 @@ createCommandProcs printAction sendActions = [
                     (MsgTransaction OriginSender) psk
                 logInfo "Sent lightweight cert"
         return ValueUnit
+    , cpHelp = ""
     },
 
     CommandProc
@@ -324,6 +350,7 @@ createCommandProcs printAction sendActions = [
                         psk
                     logInfo "Sent heavyweight cert"
         return ValueUnit
+    , cpHelp = ""
     },
 
     CommandProc
@@ -335,6 +362,7 @@ createCommandProcs printAction sendActions = [
     , cpExec = \params -> do
         generateBlocks params
         return ValueUnit
+    , cpHelp = "generate <n> blocks"
     },
 
     CommandProc
@@ -347,6 +375,7 @@ createCommandProcs printAction sendActions = [
         evaluateNF_ key
         addSecretKey $ noPassEncrypt key
         return ValueUnit
+    , cpHelp = ""
     },
 
     CommandProc
@@ -356,6 +385,7 @@ createCommandProcs printAction sendActions = [
         secret <- readUserSecret filePath
         mapM_ addSecretKey $ secret ^. usKeys
         return ValueUnit
+    , cpHelp = ""
     },
 
     CommandProc
@@ -367,6 +397,7 @@ createCommandProcs printAction sendActions = [
     , cpExec = \RollbackParams{..} -> do
         Rollback.rollbackAndDump rpNum rpDumpPath
         return ValueUnit
+    , cpHelp = ""
     },
 
     CommandProc
@@ -393,14 +424,16 @@ createCommandProcs printAction sendActions = [
                          "          HD addr:   "%build)
                     addrHD
         return ValueUnit
+    , cpHelp = ""
     },
 
     CommandProc
     { cpName = "help"
     , cpArgumentConsumer = do pure ()
     , cpExec = \() -> do
-        printAction helpMessage
+        printAction (mkHelpMessage commands)
         return ValueUnit
+    , cpHelp = "display this message"
     }]
 
 procConst :: Applicative m => Name -> Value -> CommandProc m
@@ -409,7 +442,23 @@ procConst name value =
     { cpName = name
     , cpArgumentConsumer = pure ()
     , cpExec = \() -> pure value
+    , cpHelp = "constant"
     }
+
+class ToLeft a b where
+    toLeft :: Either a b -> AuxxMode a
+
+instance (ToLeft a b, ToLeft b c) => ToLeft a (Either b c) where
+    toLeft = toLeft <=< traverse toLeft
+
+instance ToLeft PublicKey Int where
+    toLeft = either return getPublicKeyFromIndex
+
+instance ToLeft StakeholderId PublicKey where
+    toLeft = return . either identity addressHash
+
+instance (HasConfiguration, HasInfraConfiguration) => ToLeft Address PublicKey where
+    toLeft = either return makePubKeyAddressAuxx
 
 getPublicKeyFromIndex :: Int -> AuxxMode PublicKey
 getPublicKeyFromIndex i = do
@@ -417,8 +466,3 @@ getPublicKeyFromIndex i = do
     let sk = sks !! i
         pk = encToPublic sk
     evaluateNF pk
-
-getStakeholderIdFromIndex :: Int -> AuxxMode StakeholderId
-getStakeholderIdFromIndex i = do
-    pk <- getPublicKeyFromIndex i
-    return $ addressHash pk

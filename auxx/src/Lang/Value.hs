@@ -14,6 +14,7 @@ module Lang.Value
        , _ValueHash
        , _ValueBlockVersion
        , _ValueSoftwareVersion
+       , _ValueBlockVersionData
        , _ValueBlockVersionModifier
        , _ValueProposeUpdateSystem
        , _ValueAddrDistrPart
@@ -40,7 +41,7 @@ import           Pos.Crypto      (AHash, PublicKey)
 import           Pos.Txp         (TxOut)
 import           Pos.Types       (AddrStakeDistribution, Address, BlockVersion,
                                   CoinPortion, SoftwareVersion, StakeholderId)
-import           Pos.Update      (BlockVersionModifier, SystemTag)
+import           Pos.Update      (BlockVersionData, BlockVersionModifier, SystemTag)
 
 -- | Specify how transactions are sent to the network during
 -- benchmarks using 'SendToAllGenesis'.
@@ -96,6 +97,7 @@ data Value
     | ValueBlockVersion BlockVersion
     | ValueSoftwareVersion SoftwareVersion
     | ValueBlockVersionModifier BlockVersionModifier
+    | ValueBlockVersionData BlockVersionData
     | ValueProposeUpdateSystem ProposeUpdateSystem
     | ValueAddrDistrPart AddrDistrPart
     | ValueAddrStakeDistribution AddrStakeDistribution

@@ -19,8 +19,8 @@ alternating between user interaction and command execution in a single thread:
 IF YOU WANT TO MODIFY THIS MODULE, a note on architecture: I made this module as
 independent as possible from other parts of Cardano (including auxx). It doesn't
 know how commands are executed, what commands there are, or how to parse them.
-It only knows what the help message is. I find this rather nice, as it's possible to
-reason about the REPL in separation from the rest of the system.
+I find this rather nice, as it's possible to reason about the REPL in separation
+from the rest of the system.
 
 -}
 
@@ -39,8 +39,6 @@ import           Data.Text                (strip)
 import           Mockable                 (Catch, Mockable, handle)
 import           System.Console.Haskeline (InputT)
 import qualified System.Console.Haskeline as Haskeline
-
-import           Command.Help             (helpMessage)
 
 -- | An action used to print messages to the terminal. We can't hardcode
 -- 'putText' because Haskeline defines its own printing method.
@@ -125,9 +123,7 @@ auxxReplOn printActionVar putCommand = Haskeline.runInputT settings $ do
     greetings
     loop (prompt putCommand)
   where
-    greetings = do
-        outputTextLn "Welcome to Cardano SL Auxx REPL"
-        outputTextLn helpMessage
+    greetings = outputTextLn "Welcome to Cardano SL Auxx REPL"
     settings = Haskeline.Settings
         { Haskeline.complete       = Haskeline.noCompletion
         , Haskeline.historyFile    = Nothing -- TODO: CSL-1779, pass it from CLI

@@ -38,19 +38,17 @@ import           Serokell.Util              (sec)
 import           Pos.Core                   (AddrStakeDistribution (..), Address,
                                              BlockVersion, Coin, CoinPortion, EpochIndex,
                                              ScriptVersion, SoftwareVersion,
-                                             StakeholderId, addressHash, mkCoin,
-                                             unsafeCoinPortionFromDouble,
-                                             unsafeGetCoin)
+                                             StakeholderId, mkCoin,
+                                             unsafeCoinPortionFromDouble, unsafeGetCoin)
 import           Pos.Crypto                 (AHash (..), Hash, PublicKey)
 import           Pos.Txp                    (TxOut (..))
 import           Pos.Update                 (BlockVersionModifier (..), SystemTag (..),
                                              mkSystemTag)
 
 import           Lang.Argument              (TyProjection (..), TypeName (..))
-import           Lang.Value                 (AddrDistrPart (..),
-                                             ProposeUpdateSystem (..),
-                                             SendMode (..),
-                                             Value (..), _ValueAddrDistrPart,
+import           Lang.Value                 (AddrDistrPart (..), ProposeUpdateSystem (..),
+                                             SendMode (..), Value (..),
+                                             _ValueAddrDistrPart,
                                              _ValueAddrStakeDistribution, _ValueAddress,
                                              _ValueBlockVersion,
                                              _ValueBlockVersionModifier, _ValueBool,
@@ -62,6 +60,8 @@ import           Lang.Value                 (AddrDistrPart (..),
 
 tyValue :: TyProjection Value
 tyValue = TyProjection "Value" Just
+
+infixr `tyEither`
 
 tyEither :: TyProjection a -> TyProjection b -> TyProjection (Either a b)
 tyEither tpa tpb = TyProjection
@@ -136,9 +136,7 @@ tyCoinPortion :: TyProjection CoinPortion
 tyCoinPortion = TyProjection "CoinPortion" (coinPortionFromDouble . toRealFloat <=< preview _ValueNumber)
 
 tyStakeholderId :: TyProjection StakeholderId
-tyStakeholderId = TyProjection "StakeholderId" $ \v ->
-    preview _ValueStakeholderId v <|>
-    addressHash <$> tpMatcher tyPublicKey v
+tyStakeholderId = TyProjection "StakeholderId" (preview _ValueStakeholderId)
 
 tyAddrDistrPart :: TyProjection AddrDistrPart
 tyAddrDistrPart = TyProjection "AddrDistrPart" (preview _ValueAddrDistrPart)

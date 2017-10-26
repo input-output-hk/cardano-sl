@@ -1,7 +1,8 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE DeriveFunctor       #-}
-{-# LANGUAGE GADTs               #-}
-{-# LANGUAGE RankNTypes          #-}
+{-# LANGUAGE AllowAmbiguousTypes       #-}
+{-# LANGUAGE DeriveFunctor             #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE GADTs                     #-}
+{-# LANGUAGE RankNTypes                #-}
 
 module Lang.Argument
        ( ArgumentError(..)
@@ -13,10 +14,13 @@ module Lang.Argument
        , isEmptyProcError
        , ArgumentConsumer
        , consumeArguments
+       , ArgCardinality(..)
+       , SomeArgCardinality(..)
        , getArg
        , getArgOpt
        , getArgMany
        , getArgSome
+       , getParameters
        ) where
 
 import           Universum
@@ -78,6 +82,8 @@ data ArgCardinality f where
   ArgCardOpt :: ArgCardinality Maybe
   ArgCardMany :: ArgCardinality []
   ArgCardSome :: ArgCardinality NonEmpty
+
+data SomeArgCardinality = forall f. SomeArgCardinality (ArgCardinality f)
 
 argCardC :: forall c f r.
      (c Identity, c Maybe, c [], c NonEmpty)
@@ -231,3 +237,9 @@ toIrrelevanceError :: [Arg Value] -> ArgumentError
 toIrrelevanceError = foldMap $ \case
     ArgPos _ -> mempty { aeIrrelevantPos = 1 }
     ArgKw key _ -> mempty { aeIrrelevantKeys = Set.singleton key }
+
+getParameters :: ArgumentConsumer a -> [(Name, TypeName, SomeArgCardinality)]
+getParameters = \case
+    GetArg ac tp name -> [(name, tpTypeName tp, SomeArgCardinality ac)]
+    AcPure _ -> []
+    AcAp f x -> getParameters f <> getParameters x

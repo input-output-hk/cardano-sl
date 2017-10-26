@@ -19,7 +19,6 @@ library
     Pos.Txp.Core
     Pos.Txp.Core.Core
     Pos.Txp.Core.Tx
-    Pos.Txp.Core.Types
 
     Pos.Txp.DB
     Pos.Txp.DB.Stakes
@@ -58,8 +57,6 @@ library
 
     Pos.Script
     Pos.Script.Examples
-
-    Pos.Binary.Txp.Core
 
   build-depends:       QuickCheck
                      , aeson

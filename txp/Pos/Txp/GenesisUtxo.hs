@@ -13,8 +13,8 @@ import qualified Data.Map.Strict     as Map
 import           Pos.Core            (Address, Coin, GenesisData (..), HasConfiguration,
                                       StakesMap, genesisData, getGenesisAvvmBalances,
                                       getGenesisNonAvvmBalances, makeRedeemAddress)
+import           Pos.Core.Txp        (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Crypto          (unsafeHash)
-import           Pos.Txp.Core        (TxIn (..), TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil        (GenesisUtxo (..), utxoToStakes)
 
 

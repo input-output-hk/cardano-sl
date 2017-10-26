@@ -19,8 +19,8 @@ import           Servant.Multipart                (FromMultipart (..), lookupFil
 
 import           Pos.Core                         (Address, Coin, decodeTextAddress,
                                                    mkCoin, unsafeGetCoin)
+import           Pos.Core.Txp                     (TxId)
 import           Pos.Crypto                       (PassPhrase, hashHexF, passphraseLength)
-import           Pos.Txp.Core.Types               (TxId)
 import           Pos.Util.Servant                 (FromCType (..),
                                                    HasTruncateLogPolicy (..), OriginType,
                                                    ToCType (..), WithTruncatedLog (..))

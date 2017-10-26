@@ -1,7 +1,7 @@
 -- | Core types of Txp component, i. e. types which actually form
 -- block or are used by other components.
 
-module Pos.Txp.Core.Types
+module Pos.Core.Txp
        ( TxId
 
        -- * Witness
@@ -30,6 +30,7 @@ module Pos.Txp.Core.Types
 
        -- * Payload and proof
        , TxProof (..)
+       , mkTxProof
        , TxPayload (..)
        , mkTxPayload
        , txpTxs
@@ -42,26 +43,27 @@ module Pos.Txp.Core.Types
        -- * Block message
        ) where
 
-import           Control.Lens         (makeLenses, makePrisms)
-import           Data.Hashable        (Hashable)
-import qualified Data.Text.Buildable  as Buildable
-import           Data.Vector          (Vector)
-import           Formatting           (Format, bprint, build, builder, formatToString,
-                                       int, later, sformat, (%))
-import           Serokell.Util.Base16 (base16F)
-import           Serokell.Util.Text   (listJson, listJsonIndent)
-import           Serokell.Util.Verify (VerificationRes (..), verResSingleF, verifyGeneric)
+import           Control.Lens            (makeLenses, makePrisms)
+import           Data.Hashable           (Hashable)
+import qualified Data.Text.Buildable     as Buildable
+import           Data.Vector             (Vector)
+import           Formatting              (Format, bprint, build, builder, formatToString,
+                                          int, later, sformat, (%))
+import           Serokell.Util.Base16    (base16F)
+import           Serokell.Util.Text      (listJson, listJsonIndent)
+import           Serokell.Util.Verify    (VerificationRes (..), verResSingleF,
+                                          verifyGeneric)
 import           Universum
 
-import           Pos.Binary.Class     (Bi)
-import           Pos.Binary.Core      ()
-import           Pos.Binary.Crypto    ()
-import           Pos.Core             (Address (..), Coin, Script, addressHash, coinF,
-                                       mkCoin)
-import           Pos.Crypto           (Hash, PublicKey, RedeemPublicKey, RedeemSignature,
-                                       Signature, hash, shortHashF)
-import           Pos.Data.Attributes  (Attributes, areAttributesKnown)
-import           Pos.Merkle           (MerkleRoot, MerkleTree, mkMerkleTree)
+import           Pos.Binary.Class        (Bi)
+import           Pos.Binary.Core.Address ()
+import           Pos.Binary.Crypto       ()
+import           Pos.Core.Address        (Address (..), addressHash)
+import           Pos.Core.Types          (Coin, Script, coinF, mkCoin)
+import           Pos.Crypto              (Hash, PublicKey, RedeemPublicKey,
+                                          RedeemSignature, Signature, hash, shortHashF)
+import           Pos.Data.Attributes     (Attributes, areAttributesKnown)
+import           Pos.Merkle              (MerkleRoot, MerkleTree, mkMerkleTree, mtRoot)
 
 -- | Represents transaction identifier as 'Hash' of 'Tx'.
 type TxId = Hash Tx
@@ -250,6 +252,15 @@ data TxProof = TxProof
     } deriving (Show, Eq, Generic)
 
 instance NFData TxProof
+
+-- | Construct 'TxProof' which proves given 'TxPayload'.
+mkTxProof :: Bi TxInWitness => TxPayload -> TxProof
+mkTxProof UnsafeTxPayload {..} =
+    TxProof
+    { txpNumber = fromIntegral (length _txpTxs)
+    , txpRoot = mtRoot _txpTxs
+    , txpWitnessesHash = hash _txpWitnesses
+    }
 
 -- | Payload of Txp component which is part of main block. Constructor
 -- is unsafe, because it lets one create invalid payload, for example

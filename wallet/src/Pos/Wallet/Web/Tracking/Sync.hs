@@ -62,6 +62,9 @@ import           Pos.Core                         (Address (..), BlockHeaderStub
                                                    headerHash, headerSlotL,
                                                    makeRootPubKeyAddress,
                                                    timestampToPosix)
+import           Pos.Core.Txp                     (Tx (..), TxAux (..), TxIn (..),
+                                                   TxOutAux (..), TxUndo, toaOut,
+                                                   txOutAddress)
 import           Pos.Crypto                       (EncryptedSecretKey, HDPassphrase,
                                                    WithHash (..), deriveHDPassphrase,
                                                    encToPublic, hash, shortHashF,
@@ -74,12 +77,9 @@ import           Pos.Slotting                     (MonadSlots (..), MonadSlotsDa
                                                    getSlotStartPure, getSystemStartM)
 import           Pos.StateLock                    (Priority (..), StateLock,
                                                    withStateLockNoMetrics)
-import           Pos.Txp                          (MonadTxpMem, genesisUtxo,
-                                                   getLocalTxsNUndo, unGenesisUtxo)
-import           Pos.Txp.Core                     (Tx (..), TxAux (..), TxIn (..),
-                                                   TxOutAux (..), TxUndo,
-                                                   flattenTxPayload, toaOut, topsortTxs,
-                                                   txOutAddress)
+import           Pos.Txp                          (MonadTxpMem, flattenTxPayload,
+                                                   genesisUtxo, getLocalTxsNUndo,
+                                                   topsortTxs, unGenesisUtxo)
 import           Pos.Util.Chrono                  (getNewestFirst)
 import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
 import qualified Pos.Util.Modifier                as MM

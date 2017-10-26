@@ -17,21 +17,21 @@ import           Serokell.Util             (VerificationRes, allDistinct, enumer
                                             formatFirstError, verResToMonadError,
                                             verifyGeneric)
 
-import           Pos.Binary.Txp.Core       ()
+import           Pos.Binary.Core.Txp       ()
 import           Pos.Core                  (AddrType (..), Address (..), HasConfiguration,
                                             addressF, integerToCoin, isRedeemAddress,
                                             isUnknownAddressType, sumCoins)
 import           Pos.Core.Address          (checkPubKeyAddress, checkRedeemAddress,
                                             checkScriptAddress)
+import           Pos.Core.Txp              (Tx (..), TxAttributes, TxAux (..), TxIn (..),
+                                            TxInWitness (..), TxOut (..), TxOutAux (..),
+                                            TxSigData (..), TxUndo, TxWitness,
+                                            isTxInUnknown)
 import           Pos.Crypto                (SignTag (SignRedeemTx, SignTx), WithHash (..),
                                             checkSig, hash, redeemCheckSig)
 import           Pos.Data.Attributes       (Attributes (attrRemain), areAttributesKnown)
 import           Pos.Script                (Script (..), isKnownScriptVersion,
                                             txScriptCheck)
-import           Pos.Txp.Core              (Tx (..), TxAttributes, TxAux (..), TxIn (..),
-                                            TxInWitness (..), TxOut (..), TxOutAux (..),
-                                            TxSigData (..), TxUndo, TxWitness,
-                                            isTxInUnknown)
 import           Pos.Txp.Toil.Class        (MonadUtxo (..), MonadUtxoRead (..), utxoDel,
                                             utxoPut)
 import           Pos.Txp.Toil.Failure      (ToilVerFailure (..), WitnessVerFailure (..))

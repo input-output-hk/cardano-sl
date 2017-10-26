@@ -24,7 +24,7 @@ import qualified Ether
 import           Fmt                       ((+|), (|+))
 
 import           Pos.Core                  (Coin, HasConfiguration, StakeholderId)
-import           Pos.Txp.Core.Types        (TxAux, TxId, TxIn, TxOutAux, TxUndo)
+import           Pos.Core.Txp              (TxAux, TxId, TxIn, TxOutAux, TxUndo)
 import           Pos.Txp.Toil.Types        (Utxo)
 import           Pos.Util.Util             (HasLens', ether, lensOf)
 

@@ -2,5 +2,5 @@
 
 module Pos.Binary.Txp () where
 
-import           Pos.Binary.Txp.Core    ()
+import           Pos.Binary.Core.Txp    ()
 import           Pos.Binary.Txp.Network ()

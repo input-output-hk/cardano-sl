@@ -49,6 +49,7 @@ library
                        Pos.Core.SharedSeed
                        Pos.Core.Slotting
                        Pos.Core.Timestamp
+                       Pos.Core.Txp
                        Pos.Core.Types
                        Pos.Core.Version
                        Pos.Core.Vss
@@ -96,6 +97,7 @@ library
                        Pos.Binary.Core.Coin
                        Pos.Binary.Core.Fee
                        Pos.Binary.Core.Script
+                       Pos.Binary.Core.Txp
                        Pos.Binary.Core.Types
                        Pos.Binary.Core.Version
                        Pos.Binary.Core.Genesis

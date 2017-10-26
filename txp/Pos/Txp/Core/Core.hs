@@ -5,7 +5,6 @@ module Pos.Txp.Core.Core
        , addrBelongsToSet
        , emptyTxPayload
        , flattenTxPayload
-       , mkTxProof
        , txOutStake
        , bootDustThreshold
        ) where
@@ -19,8 +18,8 @@ import           Data.List           (zipWith)
 import qualified Data.Map.Strict     as M
 
 import           Pos.Binary.Core     ()
+import           Pos.Binary.Core.Txp ()
 import           Pos.Binary.Crypto   ()
-import           Pos.Binary.Txp.Core ()
 import           Pos.Core            (AddrStakeDistribution (..), Address (..), Coin,
                                       CoinPortion, GenesisData (..), HasGenesisData,
                                       StakeholderId, StakesList, aaStakeDistribution,
@@ -28,11 +27,10 @@ import           Pos.Core            (AddrStakeDistribution (..), Address (..), 
                                       coinToInteger, genesisData, mkCoin, sumCoins,
                                       unsafeAddCoin, unsafeGetCoin, unsafeIntegerToCoin)
 import           Pos.Core.Genesis    (GenesisWStakeholders (..))
+import           Pos.Core.Txp        (TxAux (..), TxOut (..), TxOutAux (..),
+                                      TxPayload (..), mkTxPayload)
 import           Pos.Crypto          (hash)
 import           Pos.Crypto.Random   (deterministic, randomNumber)
-import           Pos.Merkle          (mtRoot)
-import           Pos.Txp.Core.Types  (TxAux (..), TxOut (..), TxOutAux (..),
-                                      TxPayload (..), TxProof (..), mkTxPayload)
 
 -- | A predicate for `TxOutAux` which checks whether given address
 -- belongs to it.
@@ -70,15 +68,6 @@ txOutStake TxOut {..} =
         in (headStakeholder, unsafeIntegerToCoin headStake) : restDistr
     computeMultiKeyDistrRest :: [(StakeholderId, CoinPortion)] -> StakesList
     computeMultiKeyDistrRest = map (second (`applyCoinPortionDown` txOutValue))
-
--- | Construct 'TxProof' which proves given 'TxPayload'.
-mkTxProof :: TxPayload -> TxProof
-mkTxProof UnsafeTxPayload {..} =
-    TxProof
-    { txpNumber = fromIntegral (length _txpTxs)
-    , txpRoot = mtRoot _txpTxs
-    , txpWitnessesHash = hash _txpWitnesses
-    }
 
 -- | Convert 'TxPayload' into a flat list of `TxAux`s.
 flattenTxPayload :: TxPayload -> [TxAux]

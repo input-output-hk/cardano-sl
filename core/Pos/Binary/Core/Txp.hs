@@ -1,20 +1,21 @@
 -- | Binary serialization of core Txp types.
 
-module Pos.Binary.Txp.Core
+module Pos.Binary.Core.Txp
        (
        ) where
 
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..),
-                                     decodeKnownCborDataItem, decodeListLenCanonical,
-                                     decodeUnknownCborDataItem, deriveSimpleBi,
-                                     encodeKnownCborDataItem, encodeListLen,
-                                     encodeUnknownCborDataItem, enforceSize, matchSize)
-import           Pos.Binary.Core    ()
-import           Pos.Binary.Merkle  ()
-import qualified Pos.Core.Types     as T
-import qualified Pos.Txp.Core.Types as T
+import           Pos.Binary.Class        (Bi (..), Cons (..), Field (..),
+                                          decodeKnownCborDataItem, decodeListLenCanonical,
+                                          decodeUnknownCborDataItem, deriveSimpleBi,
+                                          encodeKnownCborDataItem, encodeListLen,
+                                          encodeUnknownCborDataItem, enforceSize,
+                                          matchSize)
+import           Pos.Binary.Core.Address ()
+import           Pos.Binary.Merkle       ()
+import qualified Pos.Core.Txp            as T
+import qualified Pos.Core.Types          as T
 
 ----------------------------------------------------------------------------
 -- Core

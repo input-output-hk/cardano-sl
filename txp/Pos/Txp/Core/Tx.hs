@@ -12,9 +12,9 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.HashSet        as HS
 import           Data.List           (nub, tail)
 
-import           Pos.Binary.Txp.Core ()
+import           Pos.Binary.Core.Txp ()
+import           Pos.Core.Txp        (Tx (..), TxAux (..), TxIn (..), txInputs)
 import           Pos.Crypto          (Hash, WithHash (..), withHash)
-import           Pos.Txp.Core.Types  (Tx (..), TxAux (..), TxIn (..), txInputs)
 
 ----------------------------------------------------------------------------
 -- Topsorting

@@ -17,8 +17,8 @@ import           Pos.Block.Core        (Block)
 import           Pos.Block.Slog.Types  (SlogUndo (..))
 import           Pos.Core              (HasConfiguration, HasDifficulty (..),
                                         HasHeaderHash (..))
+import           Pos.Core.Txp          (TxpUndo)
 import           Pos.Delegation.Types  (DlgUndo)
-import           Pos.Txp.Core          (TxpUndo)
 import           Pos.Update.Poll.Types (USUndo)
 
 -- | Structure for undo block during rollback

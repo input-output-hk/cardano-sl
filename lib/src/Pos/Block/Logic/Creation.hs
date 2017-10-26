@@ -39,6 +39,7 @@ import           Pos.Core                   (Blockchain (..), EpochIndex,
                                              chainQualityThreshold, epochIndexL,
                                              epochSlots, flattenSlotId, getEpochOrSlot,
                                              headerHash)
+import           Pos.Core.Txp               (TxAux (..), mkTxPayload)
 import           Pos.Crypto                 (SecretKey)
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
@@ -49,14 +50,15 @@ import           Pos.Exception              (assertionFailed, reportFatalError)
 import           Pos.Lrc                    (HasLrcContext, LrcModeFull, lrcSingleShot)
 import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Reporting              (reportError)
-import           Pos.Ssc.Core               (SscPayload, defaultSscPayload, stripSscPayload)
+import           Pos.Ssc.Core               (SscPayload, defaultSscPayload,
+                                             stripSscPayload)
 import           Pos.Ssc.Extra              (MonadSscMem, sscGetLocalPayload,
                                              sscResetLocal)
 import           Pos.StateLock              (Priority (..), StateLock, StateLockMetrics,
                                              modifyStateLock)
 import           Pos.Txp                    (MempoolExt, MonadTxpLocal (..), MonadTxpMem,
                                              clearTxpMemPool, txGetPayload)
-import           Pos.Txp.Core               (TxAux (..), emptyTxPayload, mkTxPayload)
+import           Pos.Txp.Core               (emptyTxPayload)
 import           Pos.Update                 (UpdateContext)
 import           Pos.Update.Configuration   (HasUpdateConfiguration)
 import           Pos.Update.Core            (UpdatePayload (..))

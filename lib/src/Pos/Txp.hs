@@ -1,7 +1,8 @@
 -- | Txp system reexports.
 
 module Pos.Txp
-       ( module Pos.Txp.Core
+       ( module Pos.Core.Txp
+       , module Pos.Txp.Core
        , module Pos.Txp.Error
        , module Pos.Txp.Logic
        , module Pos.Txp.MemState
@@ -12,6 +13,7 @@ module Pos.Txp
        ) where
 
 import           Pos.Arbitrary.Txp   ()
+import           Pos.Core.Txp
 import           Pos.Txp.Core
 import           Pos.Txp.Error
 import           Pos.Txp.GenesisUtxo

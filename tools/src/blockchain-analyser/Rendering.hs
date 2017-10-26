@@ -17,10 +17,10 @@ import           Pos.Block.Core             (Block, BlockHeader, blockHeaderHash
 import           Pos.Block.Types            (Undo)
 import           Pos.Core                   (EpochIndex, EpochOrSlot (..),
                                              HasConfiguration, LocalSlotIndex (..),
-                                             SlotId (..), getEpochIndex, getEpochOrSlot)
+                                             SlotId (..), Tx, getEpochIndex,
+                                             getEpochOrSlot)
 import           Pos.Crypto                 (PublicKey)
 import           Pos.Merkle                 (MerkleTree (..))
-import           Pos.Txp.Core               (Tx)
 import           Serokell.Data.Memory.Units (Byte, fromBytes, memory, toBytes)
 import           Text.Tabl                  (Alignment (..), Decoration (..),
                                              Environment (EnvAscii), tabl)

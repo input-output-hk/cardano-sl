@@ -9,7 +9,7 @@ import           Formatting          (bprint, (%))
 import           Universum
 
 import           Pos.Binary.Core     ()
-import           Pos.Txp.Core        (TxAux (..), txaF)
+import           Pos.Core.Txp        (TxAux (..), txaF)
 
 -- | Data message. Can be used to send one transaction per message.
 -- Transaction is sent with auxilary data.

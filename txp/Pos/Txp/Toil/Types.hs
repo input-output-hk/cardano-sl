@@ -40,7 +40,7 @@ import           Formatting             (Format, later)
 import           Serokell.Util.Text     (mapBuilderJson)
 
 import           Pos.Core               (Coin, StakeholderId)
-import           Pos.Txp.Core           (TxAux, TxId, TxIn, TxOutAux (..), TxUndo)
+import           Pos.Core.Txp           (TxAux, TxId, TxIn, TxOutAux (..), TxUndo)
 import qualified Pos.Util.Modifier      as MM
 
 ----------------------------------------------------------------------------

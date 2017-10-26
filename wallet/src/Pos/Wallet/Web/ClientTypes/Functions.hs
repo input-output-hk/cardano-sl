@@ -20,9 +20,9 @@ import           Data.Text                            (Text)
 import           Formatting                           (build, sformat)
 
 import           Pos.Client.Txp.History               (TxHistoryEntry (..))
-import           Pos.Crypto                           (EncryptedSecretKey, encToPublic)
-import           Pos.Txp.Core.Types                   (Tx (..), TxOut (..), txOutAddress,
+import           Pos.Core.Txp                         (Tx (..), TxOut (..), txOutAddress,
                                                        txOutValue)
+import           Pos.Crypto                           (EncryptedSecretKey, encToPublic)
 import           Pos.Types                            (Address, ChainDifficulty,
                                                        decodeTextAddress,
                                                        makePubKeyAddressBoot, sumCoins,

@@ -33,11 +33,12 @@ import           Pos.Core                   (AddrAttributes (..),
 import           Pos.Core.Coin              (integerToCoin)
 import           Pos.Core.Configuration     (HasConfiguration, memPoolLimitTx)
 import qualified Pos.Core.Fee               as Fee
+import           Pos.Core.Txp               (Tx (..), TxAux (..), TxId, TxOut (..),
+                                             TxUndo, TxpUndo, toaOut, txInputs,
+                                             txOutAddress)
 import           Pos.Crypto                 (WithHash (..), hash)
 import           Pos.DB.Class               (MonadGState (..), gsIsBootstrapEra)
-import           Pos.Txp.Core               (Tx (..), TxAux (..), TxId, TxOut (..),
-                                             TxUndo, TxpUndo, toaOut, topsortTxs,
-                                             txInputs, txOutAddress)
+import           Pos.Txp.Core               (topsortTxs)
 import           Pos.Txp.Toil.Class         (MonadStakes (..), MonadTxPool (..),
                                              MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure       (ToilVerFailure (..))

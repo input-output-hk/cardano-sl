@@ -21,6 +21,7 @@ import           System.Wlog            (NamedPureLogger, WithLogger, logDebug)
 import           Pos.Core               (BlockVersionData, EpochIndex, HeaderHash,
                                          Timestamp, siEpoch)
 import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Txp           (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
 import           Pos.DB.Class           (MonadDBRead, MonadGState (..))
 import qualified Pos.Explorer.DB        as ExDB
 import qualified Pos.GState             as GS
@@ -28,7 +29,6 @@ import           Pos.Reporting          (MonadReporting, reportError)
 import           Pos.Slotting           (MonadSlots (getCurrentSlot), getSlotStart)
 import           Pos.StateLock          (Priority (..), StateLock, StateLockMetrics,
                                          withStateLock)
-import           Pos.Txp.Core           (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
 import           Pos.Txp.MemState       (GenericTxpLocalDataPure, MonadTxpMem,
                                          getLocalTxsMap, getTxpExtra, getUtxoModifier,
                                          modifyTxpLocalData, setTxpLocalData)

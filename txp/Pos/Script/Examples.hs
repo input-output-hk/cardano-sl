@@ -36,12 +36,11 @@ import           Serokell.Util.Base16 (base16F)
 import           Universum
 
 import           Pos.Binary.Core      ()
-import           Pos.Core             (HasConfiguration, StakeholderId)
+import           Pos.Core             (HasConfiguration, StakeholderId, TxSigData)
 import           Pos.Crypto           (SafeSigner, SignTag (SignTx), deterministicKeyGen,
                                        fullPublicKeyHexF, fullSignatureHexF, hashHexF,
                                        safeSign, safeToPublic, signRaw, signTag)
 import           Pos.Script           (Script, parseRedeemer, parseValidator)
-import           Pos.Txp.Core.Types   (TxSigData)
 
 fromE :: Either String Script -> Script
 fromE = either (error . toText) identity

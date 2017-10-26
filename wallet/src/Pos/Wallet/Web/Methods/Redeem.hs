@@ -14,10 +14,10 @@ import qualified Serokell.Util.Base64           as B64
 
 import           Pos.Client.Txp.History         (TxHistoryEntry (..))
 import           Pos.Communication              (prepareRedemptionTx)
-import           Pos.Core                       (getCurrentTimestamp)
+import           Pos.Core                       (TxAux (..), TxOut (..),
+                                                 getCurrentTimestamp)
 import           Pos.Crypto                     (PassPhrase, aesDecrypt, deriveAesKeyBS,
                                                  hash, redeemDeterministicKeyGen)
-import           Pos.Txp.Core                   (TxAux (..), TxOut (..))
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.BackupPhrase          (toSeed)
 import           Pos.Wallet.Web.Account         (GenSeed (..))

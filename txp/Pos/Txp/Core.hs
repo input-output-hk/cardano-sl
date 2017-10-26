@@ -2,4 +2,4 @@
 
 {-# OPTIONS_GHC -F -pgmF autoexporter #-}
 
-import           Pos.Binary.Txp.Core ()
+import           Pos.Binary.Core.Txp ()

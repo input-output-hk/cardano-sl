@@ -21,6 +21,9 @@ import qualified Pos.Binary.Class                as Bi
 import           Pos.Block.Core
 import           Pos.Core.Fee                    (Coeff (..), TxFeePolicy (..),
                                                   TxSizeLinear (..))
+import           Pos.Core.Txp                    (Tx (..), TxIn (..), TxInWitness (..),
+                                                  TxOut (..), TxOutAux (..),
+                                                  TxPayload (..), TxProof (..))
 import           Pos.Core.Types                  (AddrAttributes (..),
                                                   AddrSpendingData (..),
                                                   AddrStakeDistribution (..),
@@ -50,11 +53,8 @@ import           Pos.Delegation.Types            (DlgPayload (..))
 import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (..),
                                                   MerkleTree (..))
 import           Pos.Ssc.Core                    (Commitment (..), CommitmentsMap,
-                                                  SscPayload (..), SscProof (..),
-                                                  Opening (..))
-import           Pos.Txp.Core.Types              (Tx (..), TxIn (..), TxInWitness (..),
-                                                  TxOut (..), TxOutAux (..),
-                                                  TxPayload (..), TxProof (..))
+                                                  Opening (..), SscPayload (..),
+                                                  SscProof (..))
 import           Pos.Update.Core.Types           (BlockVersionModifier (..),
                                                   SystemTag (..), UpdateData (..),
                                                   UpdatePayload (..), UpdateProposal (..),

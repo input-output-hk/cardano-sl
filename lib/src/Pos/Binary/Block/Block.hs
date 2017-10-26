@@ -10,9 +10,8 @@ import           Pos.Binary.Core       ()
 import           Pos.Binary.Update     ()
 import           Pos.Block.Slog.Types  (SlogUndo)
 import           Pos.Block.Types       (Undo (..))
-import           Pos.Core              (HasConfiguration)
+import           Pos.Core              (HasConfiguration, TxpUndo)
 import           Pos.Delegation.Types  (DlgUndo)
-import           Pos.Txp.Core.Types    (TxpUndo)
 import           Pos.Update.Poll.Types (USUndo)
 
 deriveSimpleBiCxt [t|HasConfiguration|] ''Undo [

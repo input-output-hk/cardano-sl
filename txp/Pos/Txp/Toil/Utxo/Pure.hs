@@ -17,8 +17,8 @@ import           Universum
 
 import           Pos.Binary.Core             ()
 import           Pos.Core.Configuration      (HasConfiguration)
+import           Pos.Core.Txp                (Tx, TxAux, TxUndo)
 import           Pos.Crypto                  (WithHash (..))
-import           Pos.Txp.Core                (Tx, TxAux, TxUndo)
 import           Pos.Txp.Toil.Failure        (ToilVerFailure)
 import           Pos.Txp.Toil.Types          (TxFee, Utxo)
 import           Pos.Txp.Toil.Utxo.Functions (VTxContext, applyTxToUtxo, verifyTxUtxo)

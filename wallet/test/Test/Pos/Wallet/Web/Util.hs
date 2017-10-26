@@ -38,13 +38,13 @@ import           Pos.Core                       (Address, BlockCount, Coin,
                                                  gsSecretKeysPoor, headerHashG)
 import           Pos.Core.Address               (IsBootstrapEraAddr (..),
                                                  deriveLvl2KeyPair)
+import           Pos.Core.Txp                   (TxIn, TxOut (..), TxOutAux (..))
 import           Pos.Crypto                     (EncryptedSecretKey, PassPhrase,
                                                  ShouldCheckPassphrase (..),
                                                  firstHardened)
 import           Pos.Generator.Block            (genBlocks)
 import           Pos.Launcher                   (HasConfigurations)
 import           Pos.StateLock                  (Priority (..), modifyStateLock)
-import           Pos.Txp.Core                   (TxIn, TxOut (..), TxOutAux (..))
 import           Pos.Txp.Toil                   (Utxo)
 import           Pos.Util.Chrono                (OldestFirst (..))
 import           Pos.Util.CompileInfo           (HasCompileInfo)

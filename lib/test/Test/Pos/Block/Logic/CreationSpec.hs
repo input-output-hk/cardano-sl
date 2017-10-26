@@ -26,13 +26,12 @@ import           Pos.Core                   (BlockVersionData (bvdMaxBlockSize),
                                              blkSecurityParam, genesisBlockVersionData,
                                              mkVssCertificatesMapLossy,
                                              unsafeMkLocalSlotIndex)
+import           Pos.Core.Txp               (TxAux)
 import           Pos.Crypto                 (SecretKey)
 import           Pos.Delegation             (DlgPayload, ProxySKBlockInfo)
 import           Pos.Ssc.Core               (defaultSscPayload)
-import           Pos.Ssc.GodTossing         (SscPayload (..),
-                                             commitmentMapEpochGen,
+import           Pos.Ssc.GodTossing         (SscPayload (..), commitmentMapEpochGen,
                                              vssCertificateEpochGen)
-import           Pos.Txp.Core               (TxAux)
 import           Pos.Update.Configuration   (HasUpdateConfiguration)
 import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Util                   (SmallGenerator (..), makeSmall)

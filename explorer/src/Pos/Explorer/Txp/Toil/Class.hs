@@ -12,14 +12,13 @@ import           Universum
 import           Control.Lens                (at, (%=), (.=))
 import           Control.Monad.Trans.Class   (MonadTrans)
 
-import           Pos.Core                    (Address, Coin)
+import           Pos.Core                    (Address, Coin, TxId)
 import           Pos.DB.Class                (MonadDBRead)
 import           Pos.Explorer.Core           (AddrHistory, TxExtra)
 import qualified Pos.Explorer.DB             as DB
 import           Pos.Explorer.Txp.Toil.Types (ExplorerExtra, eeAddrBalances,
                                               eeAddrHistories, eeLocalTxsExtra,
                                               eeNewUtxoSum)
-import           Pos.Txp.Core                (TxId)
 import           Pos.Txp.Toil                (DBToil, ToilT, tmExtra)
 import           Pos.Util                    (ether)
 import qualified Pos.Util.Modifier           as MM

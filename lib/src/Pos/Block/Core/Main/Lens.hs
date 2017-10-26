@@ -77,12 +77,12 @@ import           Pos.Core                  (BlockVersion, ChainDifficulty, Heade
                                             SlotId, SoftwareVersion, gbBody, gbExtra,
                                             gbHeader, gbPrevBlock, gbhBodyProof,
                                             gbhConsensus, gbhExtra, gbhPrevBlock)
+import           Pos.Core.Txp              (Tx, TxPayload, TxWitness, txpTxs,
+                                            txpWitnesses)
 import           Pos.Crypto                (Hash, PublicKey)
 import           Pos.Delegation.Types      (DlgPayload)
 import           Pos.Merkle                (MerkleTree)
 import           Pos.Ssc.Core              (SscPayload)
-import           Pos.Txp.Core              (Tx, TxPayload, TxWitness, txpTxs,
-                                            txpWitnesses)
 import           Pos.Update.Core.Types     (UpdatePayload)
 
 ----------------------------------------------------------------------------

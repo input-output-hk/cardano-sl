@@ -45,8 +45,8 @@ import           Pos.Communication.Relay.Logic (InvReqDataFlowLog)
 import           Pos.Core                      (HasConfiguration, SlotId (..), gbHeader,
                                                 gbhPrevBlock, getSlotIndex, headerHash,
                                                 mkLocalSlotIndex)
+import           Pos.Core.Txp                  (txpTxs)
 import           Pos.Crypto                    (hash, hashHexF)
-import           Pos.Txp.Core                  (txpTxs)
 import           Pos.Txp.MemState.Types        (MemPoolModifyReason)
 import           Pos.Types                     (EpochIndex (..), HeaderHash, headerHashF)
 

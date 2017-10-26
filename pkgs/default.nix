@@ -3031,8 +3031,8 @@ self: {
       ekg-core = callPackage ({ base, containers, ghc-prim, mkDerivation, stdenv, text, unordered-containers }:
       mkDerivation {
           pname = "ekg-core";
-          version = "0.1.1.2";
-          sha256 = "35eb78e4cdabab2562ddf477bf55fa2cf1c0489984c6adb360ef187b6979f805";
+          version = "0.1.1.3";
+          sha256 = "ac56e2d0f6bf0b76aa3b69beddbb7d0811e8991c98a379bc24ec808049fb89e3";
           libraryHaskellDepends = [
             base
             containers

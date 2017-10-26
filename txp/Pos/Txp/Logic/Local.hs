@@ -9,6 +9,10 @@ module Pos.Txp.Logic.Local
        , txProcessTransactionNoLock
        , txNormalize
        , txGetPayload
+
+       -- Utils to process tx
+       , ProcessTxContext (..)
+       , buildProccessTxContext
        ) where
 
 import           Universum
@@ -26,7 +30,7 @@ import           System.Wlog          (NamedPureLogger, WithLogger, logDebug, lo
 import           Pos.Core             (BlockVersionData, EpochIndex, HasConfiguration,
                                        HeaderHash, siEpoch)
 import           Pos.Crypto           (WithHash (..))
-import           Pos.DB.Class         (MonadGState (..))
+import           Pos.DB.Class         (MonadDBRead, MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
 import           Pos.Reporting        (reportError)
 import           Pos.Slotting         (MonadSlots (..))
@@ -86,7 +90,6 @@ txProcessTransactionNoLock
        )
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
-    let UnsafeTx {..} = taTx txAux
     -- Note: we need to read tip from the DB and check that it's the
     -- same as the one in mempool. That's because mempool state is
     -- valid only with respect to the tip stored there. Normally tips
@@ -102,22 +105,8 @@ txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ 
     -- sure that GState won't change, because changing it requires
     -- 'StateLock' which we own inside this function.
     tipDB <- GS.getTip
-    bvd <- gsAdoptedBVData
     epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)
-    localUM <- lift $ getUtxoModifier @()
-    let runUM um = runToilTLocal um def mempty
-    (resolvedOuts, _) <- runDBToil $ runUM localUM $ mapM utxoGet _txInputs
-    -- Resolved are unspent transaction outputs corresponding to input
-    -- of given transaction.
-    let resolved =
-            M.fromList $
-            catMaybes $
-            toList $ NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
-    let ctx =
-            ProcessTxContext
-            { _ptcAdoptedBVData = bvd
-            , _ptcUtxoBase = resolved
-            }
+    ctx <- lift $ buildProccessTxContext txAux
     pRes <-
         lift $
         modifyTxpLocalData $
@@ -158,6 +147,32 @@ txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ 
         res <$ case res of
             (Left err@(ToilTipsMismatch {})) -> reportError (pretty err)
             _                                -> pass
+
+buildProccessTxContext
+    :: forall m ctx.
+       ( MonadIO m
+       , MonadDBRead m
+       , MonadGState m
+       , MonadTxpMem (MempoolExt m) ctx m
+       )
+    => TxAux -> m ProcessTxContext
+buildProccessTxContext txAux = do
+    let UnsafeTx {..} = taTx txAux
+    bvd <- gsAdoptedBVData
+    localUM <- getUtxoModifier @(MempoolExt m)
+    let runUM um = runToilTLocal um def mempty
+    (resolvedOuts, _) <- runDBToil $ runUM localUM $ mapM utxoGet _txInputs
+    -- Resolved are unspent transaction outputs corresponding to input
+    -- of given transaction.
+    let resolved =
+            M.fromList $
+            catMaybes $
+            toList $ NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
+    pure $
+        ProcessTxContext
+        { _ptcAdoptedBVData = bvd
+        , _ptcUtxoBase = resolved
+        }
 
 -- | 1. Recompute UtxoView by current MemPool
 -- | 2. Remove invalid transactions from MemPool

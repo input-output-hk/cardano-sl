@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies #-}
+
 -- | Explorer's local Txp.
 
 module Pos.Explorer.Txp.Local
@@ -13,10 +15,8 @@ import           Control.Monad.Except   (MonadError (..))
 import           Data.Default           (def)
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.List.NonEmpty     as NE
-import qualified Data.Map               as M (fromList)
 import           Formatting             (build, sformat, (%))
-import           Mockable               (CurrentTime, Mockable)
-import           System.Wlog            (NamedPureLogger, WithLogger, logDebug)
+import           System.Wlog            (NamedPureLogger, logDebug)
 
 import           Pos.Core               (BlockVersionData, EpochIndex, HeaderHash,
                                          Timestamp, siEpoch)
@@ -24,13 +24,14 @@ import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB.Class           (MonadDBRead, MonadGState (..))
 import qualified Pos.Explorer.DB        as ExDB
 import qualified Pos.GState             as GS
-import           Pos.Reporting          (MonadReporting, reportError)
+import           Pos.Reporting          (reportError)
 import           Pos.Slotting           (MonadSlots (getCurrentSlot), getSlotStart)
 import           Pos.StateLock          (Priority (..), StateLock, StateLockMetrics,
                                          withStateLock)
 import           Pos.Txp.Core           (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
-import           Pos.Txp.MemState       (GenericTxpLocalDataPure, MonadTxpMem,
-                                         getLocalTxsMap, getTxpExtra, getUtxoModifier,
+import           Pos.Txp.Logic.Local    (ProcessTxContext (..), buildProccessTxContext)
+import           Pos.Txp.MemState       (GenericTxpLocalDataPure, MempoolExt, MonadTxpMem,
+                                         TxpLocalWorkMode, getLocalTxsMap, getTxpExtra,
                                          modifyTxpLocalData, setTxpLocalData)
 import           Pos.Txp.Toil           (GenericToilModifier (..), MonadUtxoRead (..),
                                          ToilT, ToilVerFailure (..), Utxo, runDBToil,
@@ -47,15 +48,8 @@ import           Pos.Explorer.Txp.Toil  (ExplorerExtra, ExplorerExtraTxp (..),
 
 
 type ETxpLocalWorkMode ctx m =
-    ( MonadIO m
-    , MonadDBRead m
-    , MonadGState m
-    , MonadTxpMem ExplorerExtra ctx m
-    , WithLogger m
-    , MonadSlots ctx m
-    , Mockable CurrentTime m
-    , MonadMask m
-    , MonadReporting ctx m
+    ( TxpLocalWorkMode ctx m
+    , MempoolExt m ~ ExplorerExtra
     )
 
 type ETxpLocalDataPure = GenericTxpLocalDataPure ExplorerExtra
@@ -99,59 +93,16 @@ eTxProcessTransaction itw =
     withStateLock LowPriority "eTxProcessTransaction" $ \__tip -> eTxProcessTransactionNoLock itw
 
 eTxProcessTransactionNoLock
-    :: (ETxpLocalWorkMode ctx m)
+    :: ETxpLocalWorkMode ctx m
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
 eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
-    let UnsafeTx {..} = taTx txAux
-    -- Note: we need to read tip from the DB and check that it's the
-    -- same as the one in mempool. That's because mempool state is
-    -- valid only with respect to the tip stored there. Normally tips
-    -- will match, because whenever we apply/rollback blocks we
-    -- normalize mempool. However, there is a corner case when we
-    -- receive an unexpected exception after modifying GState and
-    -- before normalization. In this case normalization can fail and
-    -- tips will differ. Rejecting transactions in this case should be
-    -- fine, because the fact that we receive exceptions likely
-    -- indicates that something is bad and we have more serious issues.
-    --
-    -- Also note that we don't need to use a snapshot here and can be
-    -- sure that GState won't change, because changing it requires
-    -- 'StateLock' which we own inside this function.
     tipBefore <- GS.getTip
-    localUM <- lift getUtxoModifier
-    bvd <- gsAdoptedBVData
-    (resolvedOuts, _) <- runDBToil $ runUM localUM $ mapM utxoGet _txInputs
-    -- Resolved are unspent transaction outputs corresponding to input
-    -- of given transaction.
-    let resolved =
-            M.fromList $
-            catMaybes $
-            toList $ NE.zipWith (liftM2 (,) . Just) _txInputs resolvedOuts
+    slot         <- note ToilSlotUnknown =<< getCurrentSlot
     -- First get the current @SlotId@ so we can calculate the time.
     -- Then get when that @SlotId@ started and use that as a time for @Tx@.
-    slot         <- note ToilSlotUnknown =<< getCurrentSlot
     let epoch     = siEpoch slot
     mTxTimestamp <- getSlotStart slot
-
-    let txInAddrs =
-            map (txOutAddress . toaOut) $ catMaybes $ toList resolvedOuts
-        txOutAddrs = toList $ map txOutAddress _txOutputs
-        allAddrs = ordNub $ txInAddrs <> txOutAddrs
-    hmHistories <-
-        buildMap allAddrs <$> mapM (fmap Just . ExDB.getAddrHistory) allAddrs
-    hmBalances <- buildMap allAddrs <$> mapM ExDB.getAddrBalance allAddrs
-    utxoSum <- ExDB.getUtxoSum
-    -- `eet` is passed to `processTxDo` where it is used in a ReaderT environment
-    -- to provide underlying functions (`modifyAddrHistory` and `modifyAddrBalance`)
-    -- with data to update. In case of `TxExtra` data is only added, but never updated,
-    -- hence `mempty` here.
-    let eet = ExplorerExtraTxp mempty hmHistories hmBalances utxoSum
-    let ctx =
-            EProcessTxContext
-            { _eptcExtraBase = eet
-            , _eptcAdoptedBVData = bvd
-            , _eptcUtxoBase = resolved
-            }
+    ctx <- lift $ buildEProcessTxContext txAux
     pRes <-
         lift $
         modifyTxpLocalData $
@@ -182,13 +133,15 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $
                     => ToilT ExplorerExtra m a
                     -> m (a, GenericToilModifier ExplorerExtra)
                 runToil = runToilTLocalExtra uv mp undo extra
+
+                -- NE.fromList is safe here, because if `resolved` is empty, `processTx`
+                -- wouldn't save extra value, thus wouldn't reduce it to NF
+                txUndo = NE.fromList $ map Just $ toList _eptcUtxoBase
+
                 -- We strictly rely on verifyAllIsKnown = True here
                 action ::
                        ExceptT ToilVerFailure (ToilT ExplorerExtra EProcessTxMode) ()
                 action = eProcessTx curEpoch tx (TxExtra Nothing mTxTimestamp txUndo)
-                -- NE.fromList is safe here, because if `resolved` is empty, `processTx`
-                -- wouldn't save extra value, thus wouldn't reduce it to NF
-                txUndo = NE.fromList $ map Just $ toList _eptcUtxoBase
             res :: ( Either ToilVerFailure (), GenericToilModifier ExplorerExtra) <-
                     flip runReaderT ctx $
                     runToil $ runExceptT action
@@ -197,17 +150,47 @@ eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $
                 (Right (), ToilModifier {..}) -> pure
                     ( Right ()
                     , (_tmUtxo, _tmMemPool, _tmUndos, tip, _tmExtra))
-    runUM um = runToilTLocalExtra um def mempty (def @ExplorerExtra)
-    buildMap :: (Eq a, Hashable a) => [a] -> [Maybe b] -> HM.HashMap a b
-    buildMap keys maybeValues =
-        HM.fromList $
-        catMaybes $ toList $ zipWith (liftM2 (,) . Just) keys maybeValues
     -- REPORT:ERROR Tips mismatch in txp.
     reportTipMismatch action = do
         res <- action
         res <$ case res of
             (Left err@(ToilTipsMismatch {})) -> reportError (pretty err)
             _                                -> pass
+
+buildEProcessTxContext
+    :: forall m ctx.
+       ( MonadIO m
+       , MonadDBRead m
+       , MonadGState m
+       , MonadTxpMem (MempoolExt m) ctx m
+       )
+    => TxAux -> m EProcessTxContext
+buildEProcessTxContext txAux = do
+    ProcessTxContext{..} <- buildProccessTxContext txAux
+    let UnsafeTx {..} = taTx txAux
+    let txInAddrs = map (txOutAddress . toaOut) $ toList _ptcUtxoBase
+        txOutAddrs = toList $ map txOutAddress _txOutputs
+        allAddrs = ordNub $ txInAddrs <> txOutAddrs
+    hmHistories <-
+        buildMap allAddrs <$> mapM (fmap Just . ExDB.getAddrHistory) allAddrs
+    hmBalances <- buildMap allAddrs <$> mapM ExDB.getAddrBalance allAddrs
+    utxoSum <- ExDB.getUtxoSum
+    -- `eet` is passed to `processTxDo` where it is used in a ReaderT environment
+    -- to provide underlying functions (`modifyAddrHistory` and `modifyAddrBalance`)
+    -- with data to update. In case of `TxExtra` data is only added, but never updated,
+    -- hence `mempty` here.
+    let eet = ExplorerExtraTxp mempty hmHistories hmBalances utxoSum
+    pure $
+        EProcessTxContext
+        { _eptcExtraBase = eet
+        , _eptcAdoptedBVData = _ptcAdoptedBVData
+        , _eptcUtxoBase = _ptcUtxoBase
+        }
+  where
+    buildMap :: (Eq a, Hashable a) => [a] -> [Maybe b] -> HM.HashMap a b
+    buildMap keys maybeValues =
+        HM.fromList $
+        catMaybes $ toList $ zipWith (liftM2 (,) . Just) keys maybeValues
 
 -- | 1. Recompute UtxoView by current MemPool
 --   2. Remove invalid transactions from MemPool

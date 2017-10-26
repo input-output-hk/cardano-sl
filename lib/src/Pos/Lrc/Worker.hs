@@ -12,46 +12,55 @@ module Pos.Lrc.Worker
 
 import           Universum
 
-import           Control.Lens             (views)
-import           Control.Monad.Catch      (bracketOnError)
-import           Control.Monad.STM        (retry)
-import           Data.Coerce              (coerce)
-import           Data.Conduit             (runConduitRes, (.|))
-import qualified Data.HashMap.Strict      as HM
-import qualified Data.HashSet             as HS
-import           Ether.Internal           (HasLens (..))
-import           Formatting               (build, ords, sformat, (%))
-import           Mockable                 (forConcurrently)
-import           Serokell.Util.Exceptions ()
-import           System.Wlog              (logDebug, logInfo, logWarning)
+import           Control.Lens                          (views)
+import           Control.Monad.Catch                   (bracketOnError)
+import           Control.Monad.STM                     (retry)
+import           Data.Coerce                           (coerce)
+import           Data.Conduit                          (runConduitRes, (.|))
+import qualified Data.HashMap.Strict                   as HM
+import qualified Data.HashSet                          as HS
+import           Ether.Internal                        (HasLens (..))
+import           Formatting                            (build, ords, sformat, (%))
+import           Mockable                              (forConcurrently)
+import           Serokell.Util.Exceptions              ()
+import           System.Wlog                           (logDebug, logInfo, logWarning)
 
-import           Pos.Binary.Communication ()
-import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
-                                           applyBlocksUnsafe, rollbackBlocksUnsafe)
-import           Pos.Block.Slog.Logic     (ShouldCallBListener (..))
-import           Pos.Core                 (Coin, EpochIndex, EpochOrSlot (..),
-                                           EpochOrSlot (..), SharedSeed, StakeholderId,
-                                           crucialSlot, epochIndexL, getEpochOrSlot)
-import qualified Pos.DB.DB                as DB
-import qualified Pos.GState               as GS
-import           Pos.Lrc.Consumer         (LrcConsumer (..))
-import           Pos.Lrc.Consumers        (allLrcConsumers)
-import           Pos.Lrc.Context          (LrcContext (lcLrcSync), LrcSyncData (..))
-import           Pos.Lrc.DB               (IssuersStakes, getLeaders, getSeed, putEpoch,
-                                           putIssuersStakes, putLeaders, putSeed)
-import           Pos.Lrc.Error            (LrcError (..))
-import           Pos.Lrc.Fts              (followTheSatoshiM)
-import           Pos.Lrc.Logic            (findAllRichmenMaybe)
-import           Pos.Lrc.Mode             (LrcMode)
-import           Pos.Reporting            (reportMisbehaviour)
-import           Pos.Slotting             (MonadSlots)
-import           Pos.Ssc.Extra            (MonadSscMem, sscCalculateSeed)
-import           Pos.Ssc.GodTossing       (noReportNoSecretsForEpoch1)
+import           Pos.Binary.Communication              ()
+import           Pos.Block.Logic.Internal              (BypassSecurityCheck (..),
+                                                        MonadBlockApply,
+                                                        applyBlocksUnsafe,
+                                                        rollbackBlocksUnsafe)
+import           Pos.Block.Slog.Logic                  (ShouldCallBListener (..))
+import           Pos.Core                              (Coin, EpochIndex,
+                                                        EpochOrSlot (..),
+                                                        EpochOrSlot (..), SharedSeed,
+                                                        StakeholderId, blkSecurityParam,
+                                                        crucialSlot, epochIndexL,
+                                                        getEpochOrSlot)
+import qualified Pos.DB.DB                             as DB
+import qualified Pos.GState                            as GS
+import           Pos.Lrc.Consumer                      (LrcConsumer (..))
+import           Pos.Lrc.Consumers                     (allLrcConsumers)
+import           Pos.Lrc.Context                       (LrcContext (lcLrcSync),
+                                                        LrcSyncData (..))
+import           Pos.Lrc.DB                            (IssuersStakes, getLeaders,
+                                                        getSeed, putEpoch,
+                                                        putIssuersStakes, putLeaders,
+                                                        putSeed)
+import           Pos.Lrc.Error                         (LrcError (..))
+import           Pos.Lrc.Fts                           (followTheSatoshiM)
+import           Pos.Lrc.Logic                         (findAllRichmenMaybe)
+import           Pos.Lrc.Mode                          (LrcMode)
+import           Pos.Reporting                         (reportMisbehaviour)
+import           Pos.Slotting                          (MonadSlots)
+import           Pos.Ssc.Extra                         (MonadSscMem, sscCalculateSeed)
+import           Pos.Ssc.GodTossing                    (noReportNoSecretsForEpoch1)
 import           Pos.Ssc.GodTossing.Network.Constraint (GtMessageConstraints)
-import           Pos.Update.DB            (getCompetingBVStates)
-import           Pos.Update.Poll.Types    (BlockVersionState (..))
-import           Pos.Util                 (logWarningWaitLinear, maybeThrow)
-import           Pos.Util.Chrono          (NE, NewestFirst (..), toOldestFirst)
+import           Pos.Update.DB                         (getCompetingBVStates)
+import           Pos.Update.Poll.Types                 (BlockVersionState (..))
+import           Pos.Util                              (logWarningWaitLinear, maybeThrow)
+import           Pos.Util.Chrono                       (NE, NewestFirst (..),
+                                                        toOldestFirst)
 
 
 ----------------------------------------------------------------------------
@@ -141,7 +150,7 @@ lrcDo epoch consumers = do
     -- blocks, it doesn't make sense to do it).
     blundsToRollback <- DB.loadBlundsFromTipWhile whileAfterCrucial
     blundsToRollbackNE <-
-        maybeThrow UnknownBlocksForLrc (nonEmptyNewestFirst blundsToRollback)
+        maybeThrow UnknownBlocksForLrc (atLeastKNewestFirst blundsToRollback)
     seed <- sscCalculateSeed epoch >>= \case
         Right s -> do
             logInfo $ sformat
@@ -167,8 +176,12 @@ lrcDo epoch consumers = do
         DB.sanityCheckDB
         leadersComputationDo epoch seed
   where
-    nonEmptyNewestFirst :: forall a. NewestFirst [] a -> Maybe (NewestFirst NE a)
-    nonEmptyNewestFirst = coerce (nonEmpty @a)
+    atLeastKNewestFirst :: forall a. NewestFirst [] a -> Maybe (NewestFirst NE a)
+    atLeastKNewestFirst l =
+        if length l >= fromIntegral blkSecurityParam
+        then coerce (nonEmpty @a) l
+        else Nothing
+
     applyBack blunds = applyBlocksUnsafe scb blunds Nothing
     upToGenesis b = b ^. epochIndexL >= epoch
     whileAfterCrucial b = getEpochOrSlot b > crucial

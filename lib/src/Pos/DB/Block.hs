@@ -71,7 +71,7 @@ import           System.IO              (IOMode (WriteMode), hClose, hFlush,
 import           System.IO.Error        (IOError, isDoesNotExistError)
 
 import           Pos.Binary.Block       ()
-import           Pos.Binary.Class       (Bi, decodeFull, serialize')
+import           Pos.Binary.Class       (Bi, decodeFullNoCheck, serialize')
 import           Pos.Block.Core         (Block, BlockHeader, GenesisBlock)
 import qualified Pos.Block.Core         as BC
 import           Pos.Block.Types        (Blund, SlogUndo (..), Undo (..))
@@ -286,12 +286,6 @@ type MonadBlockDBWrite m
 -- Pure implementation
 ----------------------------------------------------------------------------
 
-decodeOrFailPureDB
-    :: HasConfiguration
-    => ByteString
-    -> Either Text (Block, Undo)
-decodeOrFailPureDB = decodeFull
-
 dbGetBlundPure ::
        (HasConfiguration, MonadPureDB ctx m)
     => HeaderHash
@@ -299,7 +293,7 @@ dbGetBlundPure ::
 dbGetBlundPure h = do
     (blund :: Maybe ByteString) <-
         view (pureBlocksStorage . at h) <$> (view (lensOf @DBPureVar) >>= readIORef)
-    case decodeOrFailPureDB <$> blund of
+    case decodeFullNoCheck <$> blund of
         Nothing        -> pure Nothing
         Just (Left e)  -> throwM (DBMalformed e)
         Just (Right v) -> pure (Just v)
@@ -488,7 +482,7 @@ delete k = rocksDelete k =<< getBlockIndexDB
 
 getData ::  forall m v . (MonadIO m, MonadCatch m, Bi v) => FilePath -> m (Maybe v)
 getData fp = handle handler $ liftIO $
-    either onDecodeError (pure . Just) . decodeFull =<< BS.readFile fp
+    either onDecodeError (pure . Just) . decodeFullNoCheck =<< BS.readFile fp
   where
     onDecodeError :: Text -> IO a
     onDecodeError err =

@@ -52,7 +52,7 @@ module Pos.Core.Types
        , SlotLeaders
 
        -- * Coin
-       , Coin
+       , Coin (..)
        , CoinPortion
        , coinF
        , unsafeGetCoin
@@ -388,16 +388,16 @@ type SlotLeaders = NonEmpty StakeholderId
 ----------------------------------------------------------------------------
 
 -- | Coin is the least possible unit of currency.
-newtype Coin = Coin
+newtype Coin = UnsafeCoin
     { getCoin :: Word64
     } deriving (Show, Ord, Eq, Generic, Hashable, Data, NFData)
 
 instance Buildable Coin where
-    build (Coin n) = bprint (int%" coin(s)") n
+    build (UnsafeCoin n) = bprint (int%" coin(s)") n
 
 instance Bounded Coin where
-    minBound = Coin 0
-    maxBound = Coin maxCoinVal
+    minBound = UnsafeCoin 0
+    maxBound = UnsafeCoin maxCoinVal
 
 -- | Maximal possible value of 'Coin'.
 maxCoinVal :: Word64
@@ -406,7 +406,7 @@ maxCoinVal = 45000000000000000
 -- | Make Coin from Word64.
 mkCoin :: Word64 -> Coin
 mkCoin c
-    | c <= maxCoinVal = Coin c
+    | c <= maxCoinVal = UnsafeCoin c
     | otherwise       = error $ "mkCoin: " <> show c <> " is too large"
 {-# INLINE mkCoin #-}
 
@@ -479,9 +479,6 @@ newtype EpochIndex = EpochIndex
 
 instance Buildable EpochIndex where
     build = bprint ("epoch #"%int)
-
--- instance Buildable (EpochIndex,EpochIndex) where
---     build = bprint ("epochIndices: "%pairF)
 
 -- | Index of slot inside a concrete epoch.
 newtype LocalSlotIndex = UnsafeLocalSlotIndex

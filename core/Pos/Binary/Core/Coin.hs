@@ -2,8 +2,8 @@ module Pos.Binary.Core.Coin () where
 
 import           Universum
 
-import           Pos.Binary.Class (Bi (..))
-import           Pos.Core.Types   (Coin, mkCoin, unsafeGetCoin)
+import           Pos.Binary.Class (Bi (..), dcNocheck)
+import           Pos.Core.Types   (Coin (..), mkCoin, unsafeGetCoin)
 
 -- number of total coins is 45*10^9 * 10^6
 --
@@ -22,11 +22,11 @@ import           Pos.Core.Types   (Coin, mkCoin, unsafeGetCoin)
 
 instance Bi Coin where
     encode = encode . unsafeGetCoin
-    decode =
-        decode >>= \case
-            number
-                | number > unsafeGetCoin maxBound ->
+    decode = do
+        v <- decode
+        ifM (view dcNocheck)
+            (pure $ UnsafeCoin v)
+            (do when (v > unsafeGetCoin maxBound) $
                     fail $
-                    "decode@Coin: number is greater than limit: " <>
-                    show number
-                | otherwise -> pure (mkCoin number)
+                    "decode@Coin: number is greater than limit: " <> show v
+                pure $ mkCoin v)

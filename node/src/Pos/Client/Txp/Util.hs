@@ -1,12 +1,16 @@
-{-# LANGUAGE TypeFamilies  #-}
-{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE TypeFamilies        #-}
+{-# LANGUAGE TypeOperators       #-}
 
 -- | Pure functions for operations with transactions
 
 module Pos.Client.Txp.Util
        (
+       -- * Tx creation params
+         InputSelectionPolicy (..)
+
        -- * Tx creation
-         TxCreateMode
+       , TxCreateMode
        , makeAbstractTx
        , runTxCreator
        , makePubKeyTx
@@ -37,6 +41,7 @@ import           Universum
 
 import           Control.Lens             (makeLenses, (%=), (.=))
 import           Control.Monad.Except     (ExceptT, MonadError (throwError), runExceptT)
+import           Data.Default             (Default (..))
 import           Data.Fixed               (Fixed, HasResolution)
 import qualified Data.HashSet             as HS
 import           Data.List                (tail)
@@ -69,6 +74,7 @@ import           Pos.Txp                  (Tx (..), TxAux (..), TxFee (..), TxIn
                                            TxInWitness (..), TxOut (..), TxOutAux (..),
                                            TxSigData (..), Utxo)
 import           Pos.Types                (Address, Coin, StakeholderId, mkCoin, sumCoins)
+import           Pos.Util.LogSafe         (SecureLog, buildUnsecure)
 
 type TxInputs = NonEmpty TxIn
 type TxOwnedInputs owner = NonEmpty (owner, TxIn)
@@ -141,6 +147,23 @@ isCheckedTxError = \case
 -- Tx creation
 -----------------------------------------------------------------------------
 
+-- | Specifies the way Uxtos are going to be grouped.
+data InputSelectionPolicy
+    = OptimizeForSecurity  -- ^ Spend everything from the address
+    | OptimizeForSize      -- ^ No grouping
+    deriving (Show, Eq, Generic)
+
+instance Buildable InputSelectionPolicy where
+    build = \case
+        OptimizeForSecurity -> "securely"
+        OptimizeForSize -> "simple"
+
+instance Buildable (SecureLog InputSelectionPolicy) where
+    build = buildUnsecure
+
+instance Default InputSelectionPolicy where
+    def = OptimizeForSecurity
+
 -- | Mode for creating transactions. We need to know fee policy.
 type TxDistrMode m
      = ( MonadGState m
@@ -172,7 +195,8 @@ makeAbstractTx mkWit txInputs outputs = TxAux tx txWitness
 -- | Datatype which contains all data from DB which is necessary
 -- to create transactions
 data TxCreatorData = TxCreatorData
-    { _tcdFeePolicy    :: !TxFeePolicy
+    { _tcdFeePolicy            :: !TxFeePolicy
+    , _tcdInputSelectionPolicy :: !InputSelectionPolicy
     }
 
 makeLenses ''TxCreatorData
@@ -182,10 +206,12 @@ type TxCreator m = ReaderT TxCreatorData (ExceptT TxError m)
 
 runTxCreator
     :: TxDistrMode m
-    => TxCreator m a
+    => InputSelectionPolicy
+    -> TxCreator m a
     -> m (Either TxError a)
-runTxCreator action = runExceptT $ do
+runTxCreator inputSelectionPolicy action = runExceptT $ do
     _tcdFeePolicy <- bvdTxFeePolicy <$> gsAdoptedBVData
+    let _tcdInputSelectionPolicy = inputSelectionPolicy
     runReaderT action TxCreatorData{..}
 
 -- | Like 'makePubKeyTx', but allows usage of different signers
@@ -395,9 +421,13 @@ prepareTxRaw
     -> TxOutputs
     -> TxFee
     -> TxCreator m TxRaw
-prepareTxRaw =
-    let inputPicker = const groupedInputPicker plainInputPicker
-    in  prepareTxRawWithPicker inputPicker
+prepareTxRaw utxo outputs fee = do
+    inputSelectionPolicy <- view tcdInputSelectionPolicy
+    let inputPicker =
+          case inputSelectionPolicy of
+            OptimizeForSize     -> plainInputPicker
+            OptimizeForSecurity -> groupedInputPicker
+    prepareTxRawWithPicker inputPicker utxo outputs fee
 
 -- Returns set of tx outputs including change output (if it's necessary)
 mkOutputsWithRem
@@ -426,17 +456,20 @@ prepareInpsOuts utxo outputs addrData = do
 createGenericTx
     :: TxCreateMode m
     => (TxOwnedInputs TxOut -> TxOutputs -> TxAux)
+    -> InputSelectionPolicy
     -> Utxo
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createGenericTx creator utxo outputs addrData = runTxCreator $ do
-    (inps, outs) <- prepareInpsOuts utxo outputs addrData
-    pure (creator inps outs, map fst inps)
+createGenericTx creator inputSelectionPolicy utxo outputs addrData =
+    runTxCreator inputSelectionPolicy $ do
+        (inps, outs) <- prepareInpsOuts utxo outputs addrData
+        pure (creator inps outs, map fst inps)
 
 createGenericTxSingle
     :: TxCreateMode m
     => (TxInputs -> TxOutputs -> TxAux)
+    -> InputSelectionPolicy
     -> Utxo
     -> TxOutputs
     -> AddrData m
@@ -447,14 +480,15 @@ createGenericTxSingle creator = createGenericTx (creator . map snd)
 -- Currently used for HD wallets only, thus `HDAddressPayload` is required
 createMTx
     :: TxCreateMode m
-    => Utxo
+    => InputSelectionPolicy
+    -> Utxo
     -> (Address -> SafeSigner)
     -> TxOutputs
     -> AddrData m
     -> m (Either TxError TxWithSpendings)
-createMTx utxo hdwSigners outputs addrData =
+createMTx groupInputs utxo hdwSigners outputs addrData =
     createGenericTx (makeMPubKeyTxAddrs hdwSigners)
-    utxo outputs addrData
+    groupInputs utxo outputs addrData
 
 -- | Make a multi-transaction using given secret key and info for
 -- outputs.
@@ -467,7 +501,7 @@ createTx
     -> m (Either TxError TxWithSpendings)
 createTx utxo ss outputs addrData =
     createGenericTxSingle (makePubKeyTx ss)
-    utxo outputs addrData
+    OptimizeForSecurity utxo outputs addrData
 
 -- | Make a transaction, using M-of-N script as a source
 createMOfNTx
@@ -479,7 +513,7 @@ createMOfNTx
     -> m (Either TxError TxWithSpendings)
 createMOfNTx utxo keys outputs addrData =
     createGenericTxSingle (makeMOfNTx validator sks)
-    utxo outputs addrData
+    OptimizeForSecurity utxo outputs addrData
   where
     ids = map fst keys
     sks = map snd keys
@@ -493,10 +527,14 @@ createRedemptionTx
     -> RedeemSecretKey
     -> TxOutputs
     -> m (Either TxError TxAux)
-createRedemptionTx utxo rsk outputs = runTxCreator $ do
-    TxRaw {..} <- prepareTxRaw utxo outputs (TxFee $ mkCoin 0)
-    let bareInputs = snd <$> trInputs
-    pure $ makeRedemptionTx rsk bareInputs trOutputs
+createRedemptionTx utxo rsk outputs =
+    runTxCreator whetherGroupedInputs $ do
+        TxRaw {..} <- prepareTxRaw utxo outputs (TxFee $ mkCoin 0)
+        let bareInputs = snd <$> trInputs
+        pure $ makeRedemptionTx rsk bareInputs trOutputs
+  where
+    -- always spend redeem address fully
+    whetherGroupedInputs = OptimizeForSize
 
 -----------------------------------------------------------------------------
 -- Fees logic
@@ -541,18 +579,18 @@ computeTxFee utxo outputs = do
 -- Stabilisation is simple iterative algorithm which performs
 -- @ fee <- minFee( tx(fee) ) @ per iteration step.
 -- It does *not* guarantee to find minimal possible fee, but is expected
--- to converge in O(|utxoAddrs|) steps, where @ utxoAddrs @ is a set of addresses
+-- to converge in O(|utxo|) steps, where @ utxo @ a set of addresses
 -- encountered in utxo.
 --
 -- Alogrithm consists of two stages:
 --
 -- 1. Iterate until @ fee_{i+1} <= fee_i @.
--- It can last for no more than @ ~2 * |utxoAddrs| @ iterations. Really, let's
+-- It can last for no more than @ ~2 * |utxo| @ iterations. Really, let's
 -- consider following cases:
 --
 --     * Number of used input addresses increased at i-th iteration, i.e.
 --       @ |inputs(tx(fee_i))| > |inputs(tx(fee_{i-1}))| @,
---       which can happen no more than |utxoAddrs| times.
+--       which can happen no more than |utxo| times.
 --
 --     * Number of tx input addresses stayed the same, i.e.
 --       @ |inputs(tx(fee_i))| = |inputs(tx(fee_{i-1}))| @.
@@ -572,9 +610,9 @@ computeTxFee utxo outputs = do
 --       size of single input is much greater than any fluctuations of
 --       remainder size (in bytes).
 --
--- In total, case (1) occurs no more than |utxoAddrs| times, case (2) is always
+-- In total, case (1) occurs no more than |utxo| times, case (2) is always
 -- followed by case (1), and case (3) terminates current stage immediatelly,
--- thus stage 1 takes no more than, approximatelly, @ 2 * |utxoAddrs| @ iterations.
+-- thus stage 1 takes no more than, approximatelly, @ 2 * |utxo| @ iterations.
 --
 -- 2. Once we find such @ i @ for which @ fee_{i+1} <= fee_i @, we can return
 -- @ tx(fee_i) @ as answer, but it may contain overestimated fee (which is still

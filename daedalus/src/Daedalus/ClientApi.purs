@@ -565,7 +565,7 @@ newPayment = mkEffFn5 cNewPayment
         let accountId   = mkCAccountId wFrom
         let cId         = mkCId addrTo
         let cAmount     = mkCCoin amount
-        let newCPayment = B.newPayment tls pass accountId cId cAmount
+        let newCPayment = B.newPayment tls pass accountId cId cAmount Nothing
 
         fromAff <<< map encodeJson $ newCPayment
 
@@ -591,7 +591,7 @@ txFee = mkEffFn4 cTxFee
         let accountId   = mkCAccountId wFrom
         let cId         = mkCId addrTo
         let cAmount     = mkCCoin amount
-        let txFee'      = B.txFee tls accountId cId cAmount
+        let txFee'      = B.txFee tls accountId cId cAmount Nothing
 
         fromAff <<< map encodeJson $ txFee'
 

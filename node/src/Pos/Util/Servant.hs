@@ -30,6 +30,7 @@ module Pos.Util.Servant
     , CQueryParam
     , CCapture
     , CReqBody
+    , DReqBody
     , DCQueryParam
 
     , serverHandlerL
@@ -172,7 +173,6 @@ instance ( ReportDecodeError res
          ) =>
          ReportDecodeError (argType a :> res) where
     reportDecodeError _ err = \_ -> reportDecodeError (Proxy @res) err
-
 
 -- | Wrapper over API argument specifier which says to decode specified argument
 -- with 'decodeCType'.
@@ -358,7 +358,9 @@ class ApiHasArgClass apiType a =>
     toLogParamInfo _ = pretty
 
 instance KnownSymbol s => ApiCanLogArg (Capture s) a
+
 instance ApiCanLogArg (ReqBody ct) a
+
 instance KnownSymbol cs => ApiCanLogArg (QueryParam cs) a where
     type ApiArgToLog (QueryParam cs) a = a
     toLogParamInfo _ = maybe noEntry pretty
@@ -508,5 +510,7 @@ instance ReportDecodeError api =>
 type CQueryParam s a = CDecodeApiArg (QueryParam s) a
 type CCapture s a    = CDecodeApiArg (Capture s) a
 type CReqBody c a    = CDecodeApiArg (ReqBody c) a
+
+type DReqBody c a    = WithDefaultApiArg (ReqBody c) a
 
 type DCQueryParam s a = WithDefaultApiArg (CDecodeApiArg $ QueryParam s) a

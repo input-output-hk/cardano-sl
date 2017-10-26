@@ -1,15 +1,17 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Test.Pos.Cbor.Canonicity (
-    perturbCanonicity,
-    ) where
+module Test.Pos.Cbor.Canonicity
+       ( perturbCanonicity
+       ) where
 
-import           Numeric.Half           (Half(..))
-import           GHC.Float              (RealFloat(..))
-import qualified Control.Monad.State    as S
-import           Test.Pos.Cbor.ReferenceImplementation (UInt(..), Term(..), canonicalNaN)
-import           Test.QuickCheck.Gen    (Gen, choose, sized, shuffle, oneof, elements)
 import           Universum
+
+import qualified Control.Monad.State   as S
+import           GHC.Float             (RealFloat (..))
+import           Numeric.Half          (Half (..))
+
+import           Test.Pos.Cbor.RefImpl (Term (..), UInt (..), canonicalNaN)
+import           Test.QuickCheck.Gen   (Gen, choose, elements, oneof, shuffle, sized)
 
 -- | Traverse elements of a Term which can be represented in multiple ways and
 -- apply appropriate functions to them. We assume that Term is obtained from
@@ -82,12 +84,12 @@ traverseCanonicalBits tuint tnint tbigint ttag tmapset tnan16 = go
 -- non-canonical representation.
 countCanonicalBits :: Term -> Int
 countCanonicalBits = (`execState` 0) . traverseCanonicalBits
-  (\n -> add >> pure (TUInt n))
-  (\n -> add >> pure (TNInt n))
-  dummyAdd
-  dummyAdd
-  dummyAdd
-  dummyAdd
+    (\n -> add >> pure (TUInt n))
+    (\n -> add >> pure (TNInt n))
+    dummyAdd
+    dummyAdd
+    dummyAdd
+    dummyAdd
   where
     add :: State Int ()
     add = S.modify' (+1)

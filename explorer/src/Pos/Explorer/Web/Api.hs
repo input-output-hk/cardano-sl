@@ -21,7 +21,7 @@ import           Universum
 import           Data.Proxy                   (Proxy (Proxy))
 
 import           Pos.Explorer.Web.ClientTypes (Byte, CAda, CAddress, CAddressSummary,
-                                               CBlockEntry, CBlockSummary,
+                                               CAddressesFilter, CBlockEntry, CBlockSummary,
                                                CGenesisAddressInfo, CGenesisSummary,
                                                CHash, CTxBrief, CTxEntry, CTxId,
                                                CTxSummary)
@@ -104,6 +104,7 @@ type GenesisPagesTotal = API
     :> "pages"
     :> "total"
     :> QueryParam "pageSize" Word
+    :> QueryParam "filter" CAddressesFilter
     :> Get '[JSON] (Either ExplorerError PageNumber)
 
 type GenesisAddressInfo = API
@@ -111,6 +112,7 @@ type GenesisAddressInfo = API
     :> "address"
     :> QueryParam "page" Word
     :> QueryParam "pageSize" Word
+    :> QueryParam "filter" CAddressesFilter
     :> Get '[JSON] (Either ExplorerError [CGenesisAddressInfo])
 
 type TxsStats = (PageNumber, [(CTxId, Byte)])

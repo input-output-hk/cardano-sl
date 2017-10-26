@@ -42,6 +42,7 @@ main = do
       , mkSumType (Proxy @CT.LocalSlotIndex)
       , mkSumType (Proxy @CT.CGenesisSummary)
       , mkSumType (Proxy @CT.CGenesisAddressInfo)
+      , mkSumType (Proxy @CT.CAddressesFilter)
       ]
   where
       customBridge =

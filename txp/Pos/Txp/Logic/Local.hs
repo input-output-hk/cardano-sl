@@ -12,6 +12,7 @@ module Pos.Txp.Logic.Local
 
        -- Utils to process tx
        , ProcessTxContext (..)
+       , ptcExtra
        , buildProccessTxContext
        , TxProcessingMode
        , txProcessTransactionAbstract
@@ -50,23 +51,24 @@ import           Pos.Txp.Toil         (GenericToilModifier (..), MonadUtxoRead (
 import           Pos.Util.Util        (HasLens (..), HasLens')
 
 -- Base context for tx processing in.
-data ProcessTxContext = ProcessTxContext
+data ProcessTxContext ext = ProcessTxContext
     { _ptcAdoptedBVData :: !BlockVersionData
     , _ptcUtxoBase      :: !Utxo
+    , _ptcExtra         :: ext
     }
 
 makeLenses ''ProcessTxContext
 
-instance HasLens Utxo ProcessTxContext Utxo where
+instance HasLens Utxo (ProcessTxContext ext) Utxo where
     lensOf = ptcUtxoBase
 
---- Base monad for tx processing in.
-type ProcessTxMode = ReaderT ProcessTxContext (NamedPureLogger Identity)
+-- Base monad for tx processing in.
+type ProcessTxMode ext = ReaderT (ProcessTxContext ext) (NamedPureLogger Identity)
 
-instance HasConfiguration => MonadUtxoRead ProcessTxMode where
+instance HasConfiguration => MonadUtxoRead (ProcessTxMode ext) where
     utxoGet = utxoGetReader
 
-instance MonadGState ProcessTxMode where
+instance MonadGState (ProcessTxMode ext) where
     gsAdoptedBVData = view ptcAdoptedBVData
 
 -- | Process transaction. 'TxId' is expected to be the hash of
@@ -96,20 +98,20 @@ txProcessTransactionNoLock =
         buildProccessTxContext
         processTx
 
-type TxProcessingMode pctx ext =
+type TxProcessingMode pext ext =
     ExceptT ToilVerFailure (
         ToilT ext (
-            ReaderT pctx (
+            ReaderT (ProcessTxContext pext) (
                 NamedPureLogger Identity
     )))
 
 txProcessTransactionAbstract
-    :: forall pctx ext ctx m a .
+    :: forall pext ext ctx m a .
        ( TxpLocalWorkMode ctx m
        , MempoolExt m ~ ext
        )
-    => (TxAux -> m pctx)
-    -> (EpochIndex -> (TxId, TxAux) -> TxProcessingMode pctx ext a)
+    => (TxAux -> m (ProcessTxContext pext))
+    -> (EpochIndex -> (TxId, TxAux) -> TxProcessingMode pext ext a)
     -> (TxId, TxAux)
     -> m (Either ToilVerFailure ())
 txProcessTransactionAbstract buildPTxContext txAction itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
@@ -146,7 +148,7 @@ txProcessTransactionAbstract buildPTxContext txAction itw@(txId, txAux) = report
   where
     processTransactionPure
         :: EpochIndex
-        -> pctx
+        -> ProcessTxContext pext
         -> HeaderHash
         -> (TxId, TxAux)
         -> GenericTxpLocalDataPure ext
@@ -178,7 +180,7 @@ buildProccessTxContext
        , MonadGState m
        , MonadTxpMem (MempoolExt m) ctx m
        )
-    => TxAux -> m ProcessTxContext
+    => TxAux -> m (ProcessTxContext ())
 buildProccessTxContext txAux = do
     let UnsafeTx {..} = taTx txAux
     bvd <- gsAdoptedBVData
@@ -195,6 +197,7 @@ buildProccessTxContext txAux = do
         ProcessTxContext
         { _ptcAdoptedBVData = bvd
         , _ptcUtxoBase = resolved
+        , _ptcExtra    = ()
         }
 
 -- | 1. Recompute UtxoView by current MemPool

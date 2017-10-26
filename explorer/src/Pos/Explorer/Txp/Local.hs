@@ -10,35 +10,32 @@ module Pos.Explorer.Txp.Local
 
 import           Universum
 
-import           Control.Lens           (makeLenses)
-import           Data.Default           (def)
-import qualified Data.HashMap.Strict    as HM
-import           System.Wlog            (NamedPureLogger)
+import           Data.Default          (def)
+import qualified Data.HashMap.Strict   as HM
+import           System.Wlog           (NamedPureLogger)
 
-import           Pos.Core               (BlockVersionData, siEpoch)
-import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.DB.Class           (MonadDBRead, MonadGState (..))
-import qualified Pos.Explorer.DB        as ExDB
-import qualified Pos.GState             as GS
-import           Pos.Slotting           (MonadSlots (getCurrentSlot), getSlotStart)
-import           Pos.StateLock          (Priority (..), StateLock, StateLockMetrics,
-                                         withStateLock)
-import           Pos.Txp.Core           (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
-import           Pos.Txp.Logic.Local    (ProcessTxContext (..), buildProccessTxContext,
-                                         txProcessTransactionAbstract)
-import           Pos.Txp.MemState       (MempoolExt, MonadTxpMem, TxpLocalWorkMode,
-                                         getLocalTxsMap, getTxpExtra, setTxpLocalData)
-import           Pos.Txp.Toil           (GenericToilModifier (..), MonadUtxoRead (..),
-                                         ToilVerFailure (..), Utxo, runDBToil, runDBToil,
-                                         runToilTLocalExtra, utxoGet, utxoGetReader)
-import           Pos.Util.Chrono        (NewestFirst (..))
-import qualified Pos.Util.Modifier      as MM
-import           Pos.Util.Util          (HasLens (..), HasLens')
+import           Pos.Core              (siEpoch)
+import           Pos.DB.Class          (MonadDBRead, MonadGState (..))
+import qualified Pos.Explorer.DB       as ExDB
+import qualified Pos.GState            as GS
+import           Pos.Slotting          (MonadSlots (getCurrentSlot), getSlotStart)
+import           Pos.StateLock         (Priority (..), StateLock, StateLockMetrics,
+                                        withStateLock)
+import           Pos.Txp.Core          (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
+import           Pos.Txp.Logic.Local   (ProcessTxContext (..), buildProccessTxContext,
+                                        ptcExtra, txProcessTransactionAbstract)
+import           Pos.Txp.MemState      (MempoolExt, MonadTxpMem, TxpLocalWorkMode,
+                                        getLocalTxsMap, getTxpExtra, setTxpLocalData)
+import           Pos.Txp.Toil          (GenericToilModifier (..), ToilVerFailure (..),
+                                        runDBToil, runToilTLocalExtra)
+import           Pos.Util.Chrono       (NewestFirst (..))
+import qualified Pos.Util.Modifier     as MM
+import           Pos.Util.Util         (HasLens')
 
-import           Pos.Explorer.Core      (TxExtra (..))
-import           Pos.Explorer.Txp.Toil  (ExplorerExtra, ExplorerExtraTxp (..),
-                                         MonadTxExtraRead (..), eNormalizeToil,
-                                         eProcessTx, eeLocalTxsExtra)
+import           Pos.Explorer.Core     (TxExtra (..))
+import           Pos.Explorer.Txp.Toil (ExplorerExtra, ExplorerExtraTxp (..),
+                                        MonadTxExtraRead (..), eNormalizeToil, eProcessTx,
+                                        eeLocalTxsExtra)
 
 
 type ETxpLocalWorkMode ctx m =
@@ -47,35 +44,20 @@ type ETxpLocalWorkMode ctx m =
     )
 
 -- Base context for tx processing in explorer.
-data EProcessTxContext = EProcessTxContext
-    { _eptcExtraBase     :: !ExplorerExtraTxp
-    , _eptcAdoptedBVData :: !BlockVersionData
-    , _eptcUtxoBase      :: !Utxo
-    }
-
-makeLenses ''EProcessTxContext
-
-instance HasLens Utxo EProcessTxContext Utxo where
-    lensOf = eptcUtxoBase
+type EProcessTxContext = ProcessTxContext ExplorerExtraTxp
 
 -- Base monad for tx processing in explorer.
 type EProcessTxMode = ReaderT EProcessTxContext (NamedPureLogger Identity)
 
-instance HasConfiguration => MonadUtxoRead EProcessTxMode where
-    utxoGet = utxoGetReader
-
-instance MonadGState EProcessTxMode where
-    gsAdoptedBVData = view eptcAdoptedBVData
-
 instance MonadTxExtraRead EProcessTxMode where
-    getTxExtra txId = HM.lookup txId . eetTxExtra <$> view eptcExtraBase
+    getTxExtra txId = HM.lookup txId . eetTxExtra <$> view ptcExtra
     getAddrHistory addr =
         HM.lookupDefault (NewestFirst []) addr . eetAddrHistories <$>
-        view eptcExtraBase
+        view ptcExtra
     getAddrBalance addr =
-        HM.lookup addr . eetAddrBalances <$> view eptcExtraBase
+        HM.lookup addr . eetAddrBalances <$> view ptcExtra
     getUtxoSum =
-        eetUtxoSum <$> view eptcExtraBase
+        eetUtxoSum <$> view ptcExtra
 
 eTxProcessTransaction
     :: (ETxpLocalWorkMode ctx m, MonadMask m,
@@ -121,12 +103,7 @@ buildEProcessTxContext txAux = do
     -- with data to update. In case of `TxExtra` data is only added, but never updated,
     -- hence `mempty` here.
     let eet = ExplorerExtraTxp mempty hmHistories hmBalances utxoSum
-    pure $
-        EProcessTxContext
-        { _eptcExtraBase = eet
-        , _eptcAdoptedBVData = _ptcAdoptedBVData
-        , _eptcUtxoBase = _ptcUtxoBase
-        }
+    pure $ ProcessTxContext _ptcAdoptedBVData _ptcUtxoBase eet
   where
     buildMap :: (Eq a, Hashable a) => [a] -> [Maybe b] -> HM.HashMap a b
     buildMap keys maybeValues =

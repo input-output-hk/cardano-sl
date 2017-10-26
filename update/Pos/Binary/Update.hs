@@ -9,13 +9,13 @@ import           Data.Time.Units            (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Raw,
-                                             decodeListLenCanonical, deriveSimpleBi,
-                                             deriveSimpleBiCxt, encodeListLen,
-                                             enforceSize)
+                                             dcNocheck, decodeListLenCanonical,
+                                             deriveSimpleBi, deriveSimpleBiCxt,
+                                             encodeListLen, enforceSize)
 import           Pos.Binary.Infra           ()
-import           Pos.Core                   (ApplicationName, BlockVersion, HasConfiguration,
+import           Pos.Core                   (ApplicationName, BlockVersion,
                                              ChainDifficulty, Coin, CoinPortion,
-                                             EpochIndex, FlatSlotId,
+                                             EpochIndex, FlatSlotId, HasConfiguration,
                                              HeaderHash, NumSoftwareVersion,
                                              ScriptVersion, SlotId, SoftforkRule,
                                              SoftwareVersion, StakeholderId, TxFeePolicy)
@@ -25,26 +25,29 @@ import qualified Pos.Update.Core.Types      as U
 import qualified Pos.Update.Poll.Types      as U
 
 instance Bi U.SystemTag where
-  encode = encode . U.getSystemTag
-  decode = decode >>= \decoded -> case U.mkSystemTag decoded of
-    Left e   -> fail e
-    Right st -> pure st
+    encode = encode . U.getSystemTag
+    decode = do
+        tag <- decode
+        ifM (view dcNocheck)
+            (pure $ U.UnsafeSystemTag tag)
+            (U.mkSystemTag tag)
 
 instance HasConfiguration => Bi U.UpdateVote where
-  encode uv =  encodeListLen 4
-            <> encode (U.uvKey uv)
-            <> encode (U.uvProposalId uv)
-            <> encode (U.uvDecision uv)
-            <> encode (U.uvSignature uv)
-  decode = do
-    enforceSize "UpdateVote" 4
-    k <- decode
-    p <- decode
-    d <- decode
-    s <- decode
-    let sigValid = checkSig SignUSVote k (p, d) s
-    unless sigValid $ fail "Pos.Binary.Update: UpdateVote: invalid signature"
-    return $ U.UpdateVote k p d s
+    encode uv =  encodeListLen 4
+              <> encode (U.uvKey uv)
+              <> encode (U.uvProposalId uv)
+              <> encode (U.uvDecision uv)
+              <> encode (U.uvSignature uv)
+    decode = do
+        enforceSize "UpdateVote" 4
+        k <- decode
+        p <- decode
+        d <- decode
+        s <- decode
+        noCheck <- view dcNocheck
+        let sigValid = checkSig SignUSVote k (p, d) s
+        unless (noCheck || sigValid) $ fail "Pos.Binary.Update: UpdateVote: invalid signature"
+        return $ U.UpdateVote k p d s
 
 deriveSimpleBi ''U.UpdateData [
     Cons 'U.UpdateData [
@@ -73,26 +76,35 @@ deriveSimpleBi ''U.BlockVersionModifier [
     ]]
 
 instance HasConfiguration => Bi U.UpdateProposal where
-  encode up =  encodeListLen 7
-            <> encode (U.upBlockVersion up)
-            <> encode (U.upBlockVersionMod up)
-            <> encode (U.upSoftwareVersion up)
-            <> encode (U.upData up)
-            <> encode (U.upAttributes up)
-            <> encode (U.upFrom up)
-            <> encode (U.upSignature up)
-  decode = do
-    enforceSize "UpdateProposal" 7
-    up <- U.mkUpdateProposal <$> decode
-                             <*> decode
-                             <*> decode
-                             <*> decode
-                             <*> decode
-                             <*> decode
-                             <*> decode
-    case up of
-      Left e  -> fail e
-      Right p -> pure p
+    encode up =  encodeListLen 7
+              <> encode (U.upBlockVersion up)
+              <> encode (U.upBlockVersionMod up)
+              <> encode (U.upSoftwareVersion up)
+              <> encode (U.upData up)
+              <> encode (U.upAttributes up)
+              <> encode (U.upFrom up)
+              <> encode (U.upSignature up)
+    decode = do
+        enforceSize "UpdateProposal" 7
+
+        upBlockVersion    <- decode
+        upBlockVersionMod <- decode
+        upSoftwareVersion <- decode
+        upData            <- decode
+        upAttributes      <- decode
+        upFrom            <- decode
+        upSignature       <- decode
+
+        ifM (view dcNocheck)
+            (pure $ U.UnsafeUpdateProposal {..})
+            (U.mkUpdateProposal
+                 upBlockVersion
+                 upBlockVersionMod
+                 upSoftwareVersion
+                 upData
+                 upAttributes
+                 upFrom
+                 upSignature)
 
 deriveSimpleBi ''U.UpdateProposalToSign [
     Cons 'U.UpdateProposalToSign [
@@ -116,14 +128,14 @@ deriveSimpleBi ''U.VoteState [
     Cons 'U.NegativeRevote []]
 
 instance Bi a => Bi (U.PrevValue a) where
-  encode (U.PrevValue a) = encodeListLen 1 <> encode a
-  encode U.NoExist       = encodeListLen 0
-  decode = do
-    len <- decodeListLenCanonical
-    case len of
-      1 -> U.PrevValue <$> decode
-      0 -> pure U.NoExist
-      _ -> fail $ "decode@PrevValue: invalid len: " <> show len
+    encode (U.PrevValue a) = encodeListLen 1 <> encode a
+    encode U.NoExist       = encodeListLen 0
+    decode = do
+        len <- decodeListLenCanonical
+        case len of
+            1 -> U.PrevValue <$> decode
+            0 -> pure U.NoExist
+            _ -> fail $ "decode@PrevValue: invalid len: " <> show len
 
 deriveSimpleBiCxt [t|HasConfiguration|] ''U.USUndo [
     Cons 'U.USUndo [

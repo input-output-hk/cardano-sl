@@ -22,7 +22,8 @@ module Pos.Ssc.Core.Types
        , SharesMap
        , SharesDistribution
 
-       -- * Payload
+       -- * Payload and proof
+       , VssCertificatesHash
        , SscPayload (..)
        , SscProof (..)
 
@@ -46,7 +47,8 @@ import           Pos.Binary.Class       (AsBinary (..), fromBinaryM, serialize')
 import           Pos.Binary.Core        ()
 import           Pos.Core.Address       (addressHash)
 import           Pos.Core.Types         (EpochIndex, StakeholderId)
-import           Pos.Core.Vss           (VssCertificatesMap (..), vcExpiryEpoch)
+import           Pos.Core.Vss           (VssCertificate, VssCertificatesMap (..),
+                                         vcExpiryEpoch)
 import           Pos.Crypto             (DecShare, EncShare, Hash, PublicKey, Secret,
                                          SecretProof, Signature, VssPublicKey, shortHashF)
 
@@ -176,19 +178,28 @@ data SscPayload
         { spVss    :: !VssCertificatesMap }
     deriving (Eq, Show, Generic)
 
+-- Note: we can't use 'VssCertificatesMap', because we serialize it as
+-- a 'HashSet', but in the very first version of mainnet this map was
+-- serialized as a 'HashMap' (and 'VssCertificatesMap' was just a type
+-- alias for that 'HashMap').
+--
+-- Alternative approach would be to keep 'instance Bi VssCertificatesMap'
+-- the same as it was in mainnet.
+type VssCertificatesHash = Hash (HashMap StakeholderId VssCertificate)
+
 -- | Proof that SSC payload is correct (it's included into block header)
 data SscProof
     = CommitmentsProof
         { sprComms :: !(Hash CommitmentsMap)
-        , sprVss   :: !(Hash VssCertificatesMap) }
+        , sprVss   :: !VssCertificatesHash }
     | OpeningsProof
         { sprOpenings :: !(Hash OpeningsMap)
-        , sprVss      :: !(Hash VssCertificatesMap) }
+        , sprVss      :: !VssCertificatesHash }
     | SharesProof
         { sprShares :: !(Hash SharesMap)
-        , sprVss    :: !(Hash VssCertificatesMap) }
+        , sprVss    :: !VssCertificatesHash }
     | CertificatesProof
-        { sprVss    :: !(Hash VssCertificatesMap) }
+        { sprVss    :: !VssCertificatesHash }
     deriving (Eq, Show, Generic)
 
 instance Buildable SscProof where

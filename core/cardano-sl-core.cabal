@@ -44,6 +44,7 @@ library
                        Pos.Core.Constants
                        Pos.Core.Coin
                        Pos.Core.Context
+                       Pos.Core.Delegation
                        Pos.Core.Fee
                        Pos.Core.Update
                        Pos.Core.Script
@@ -96,6 +97,7 @@ library
                        Pos.Binary.Core.Address
                        Pos.Binary.Core.Block
                        Pos.Binary.Core.Coin
+                       Pos.Binary.Core.Delegation
                        Pos.Binary.Core.Fee
                        Pos.Binary.Core.Script
                        Pos.Binary.Core.Txp

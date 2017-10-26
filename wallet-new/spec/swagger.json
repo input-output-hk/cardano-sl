@@ -1,5 +1,6 @@
 {
     "swagger": "2.0",
+    "host": "127.0.0.1:8090",
     "info": {
         "version": "2.0",
         "title": "Cardano Wallet API",
@@ -12,14 +13,12 @@
     "definitions": {
         "Wallet": {
             "example": {
-                "backupPhrase": "MyBackupPhraseHashed",
                 "name": "My wallet",
                 "assurance": "assuranceNormal",
                 "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
                 "unit": 3
             },
             "required": [
-                "backupPhrase",
                 "name",
                 "assurance",
                 "id",
@@ -28,9 +27,6 @@
             "type": "object",
             "description": "A Wallet.",
             "properties": {
-                "backupPhrase": {
-                    "type": "string"
-                },
                 "name": {
                     "type": "string"
                 },
@@ -338,6 +334,26 @@
                 }
             }
         },
+        "UninitialisedWallet": {
+            "example": {
+                "passphrase": null,
+                "backupPhrase": "MyBackupPhraseHashed"
+            },
+            "required": [
+                "passphrase",
+                "backupPhrase"
+            ],
+            "type": "object",
+            "description": "A type representing the request for a new Wallet.",
+            "properties": {
+                "passphrase": {
+                    "type": "null"
+                },
+                "backupPhrase": {
+                    "type": "string"
+                }
+            }
+        },
         "Transaction": {
             "example": {
                 "amount": 1,
@@ -381,7 +397,6 @@
         "OneOf [Wallet] (ExtendedResponse [Wallet])": {
             "example": [
                 {
-                    "backupPhrase": "MyBackupPhraseHashed",
                     "name": "My wallet",
                     "assurance": "assuranceStrict",
                     "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
@@ -390,7 +405,6 @@
             ],
             "items": {
                 "required": [
-                    "backupPhrase",
                     "name",
                     "assurance",
                     "id",
@@ -398,9 +412,6 @@
                 ],
                 "type": "object",
                 "properties": {
-                    "backupPhrase": {
-                        "type": "string"
-                    },
                     "name": {
                         "type": "string"
                     },
@@ -416,7 +427,7 @@
                 }
             },
             "type": "array",
-            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Wallet] or [Wallet] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"backupPhrase\": \"MyBackupPhraseHashed\",\n        \"name\": \"My wallet\",\n        \"assurance\": \"assuranceStrict\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"unit\": 1\n    },\n    {\n        \"backupPhrase\": \"MyBackupPhraseHashed\",\n        \"name\": \"My wallet\",\n        \"assurance\": \"assuranceNormal\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"unit\": 3\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"backupPhrase\": \"MyBackupPhraseHashed\",\n            \"name\": \"My wallet\",\n            \"assurance\": \"assuranceNormal\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"unit\": 2\n        },\n        {\n            \"backupPhrase\": \"MyBackupPhraseHashed\",\n            \"name\": \"My wallet\",\n            \"assurance\": \"assuranceStrict\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"unit\": 2\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}</pre>"
+            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Wallet] or [Wallet] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"name\": \"My wallet\",\n        \"assurance\": \"assuranceStrict\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"unit\": 1\n    },\n    {\n        \"name\": \"My wallet\",\n        \"assurance\": \"assuranceNormal\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"unit\": 3\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"name\": \"My wallet\",\n            \"assurance\": \"assuranceNormal\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"unit\": 2\n        },\n        {\n            \"name\": \"My wallet\",\n            \"assurance\": \"assuranceStrict\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"unit\": 2\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}</pre>"
         },
         "PasswordUpdate": {
             "example": {
@@ -826,7 +837,7 @@
                     {
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/Wallet"
+                            "$ref": "#/definitions/UninitialisedWallet"
                         },
                         "in": "body",
                         "name": "body"

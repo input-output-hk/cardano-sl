@@ -15,6 +15,7 @@ module Cardano.Wallet.API.V1.Types (
   , maxPerPageEntries
   , defaultPerPageEntries
   , OneOf (..)
+  , UninitialisedWallet (..)
   , PasswordUpdate (..)
   , ReadOnlyAccount (..)
   , ReadOnly
@@ -165,6 +166,7 @@ instance Arbitrary WalletError where
 --
 
 type BackupPhrase = Text
+type Passphrase   = Text
 
 data WalletAssurance = AssuranceNormal
                      | AssuranceStrict
@@ -190,21 +192,31 @@ instance FromHttpApiData WalletId where
 
 type Coins = Int
 
+-- | A type modelling the request for a new wallet.
+data UninitialisedWallet = UninitialisedWallet {
+      newwalBackupPhrase :: BackupPhrase
+    , newwalPassphrase   :: Maybe Passphrase
+    } deriving (Eq, Generic)
+
+deriveJSON Serokell.defaultOptions  ''UninitialisedWallet
+
+instance Arbitrary UninitialisedWallet where
+  arbitrary = UninitialisedWallet <$> pure "MyBackupPhraseHashed"
+                                  <*> pure (Just "My passphrase")
+
 -- | A Wallet.
 data Wallet = Wallet {
-      walId           :: WalletId
-    , walBackupPhrase :: BackupPhrase
-    , walUnit         :: !Int
-    , walAssurance    :: WalletAssurance
+      walId        :: WalletId
+    , walUnit      :: !Int
+    , walAssurance :: WalletAssurance
     -- | The name for this wallet.
-    , walName         :: Text
+    , walName      :: Text
     }
 
 deriveJSON Serokell.defaultOptions  ''Wallet
 
 instance Arbitrary Wallet where
   arbitrary = Wallet <$> arbitrary
-                     <*> pure "MyBackupPhraseHashed"
                      <*> fmap getPositive arbitrary
                      <*> arbitrary
                      <*> pure "My wallet"

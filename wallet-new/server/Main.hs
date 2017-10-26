@@ -49,7 +49,7 @@ corsMiddleware = cors (const $ Just policy)
 
 main :: IO ()
 main = do
-  let cfg@ServerConfig{..} = ServerConfig "127.0.0.1" 3000
+  let cfg@ServerConfig{..} = ServerConfig "127.0.0.1" 8090
   putStrLn $ "Wallet listening on " <> configHost <> ":" <> show configPort <> " ..."
   -- Generates the updated spec and store it in the appropriate folder.
   -- the reason why we don't generate a yaml file is because for swagger-ui is actually

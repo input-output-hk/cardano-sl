@@ -241,6 +241,12 @@ instance ToDocs WalletId where
     return $ s & (schema . description ?~ "A Wallet ID.")
                . (schema . example ?~ toJSON @WalletId genExample)
 
+instance ToDocs UninitialisedWallet where
+  annotate f p = do
+    s <- f p
+    return $ s & (schema . description ?~ "A type representing the request for a new Wallet.")
+               . (schema . example ?~ toJSON @UninitialisedWallet genExample)
+
 instance ToDocs Wallet where
   annotate f p = do
     s <- f p
@@ -314,6 +320,9 @@ instance ToSchema Payment where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToSchema WalletUpdate where
+  declareNamedSchema = annotate fromArbitraryJSON
+
+instance ToSchema UninitialisedWallet where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToDocs a => ToDocs (ExtendedResponse a) where
@@ -429,6 +438,7 @@ api :: Swagger
 api = toSwagger walletAPI
   & info.title   .~ "Cardano Wallet API"
   & info.version .~ "2.0"
+  & host ?~ "127.0.0.1:8090"
   & info.description ?~ (highLevelDescription $ DescriptionEnvironment {
       errorExample = toS $ encodePretty Errors.walletNotFound
     , defaultPerPage = fromString (show defaultPerPageEntries)

@@ -11,7 +11,7 @@ import           Servant
 
 type API =
          "wallets" :> Summary "Creates a new Wallet."
-                   :> ReqBody '[JSON] Wallet
+                   :> ReqBody '[JSON] UninitialisedWallet
                    :> PostCreated '[JSON] Wallet
     :<|> "wallets" :> Summary "Returns all the available wallets."
                    :> WalletRequestParams

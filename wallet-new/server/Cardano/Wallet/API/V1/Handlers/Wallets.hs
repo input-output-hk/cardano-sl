@@ -20,8 +20,8 @@ handlers =   newWallet
                 :<|> Accounts.handlers walletId
              )
 
-newWallet :: Wallet -> Handler Wallet
-newWallet = return . identity
+newWallet :: UninitialisedWallet -> Handler Wallet
+newWallet _ = liftIO $ generate arbitrary
 
 listWallets :: Maybe Page
             -> Maybe PerPage

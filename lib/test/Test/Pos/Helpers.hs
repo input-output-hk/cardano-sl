@@ -57,9 +57,8 @@ import           Test.QuickCheck.Monadic               (PropertyM, pick)
 import qualified Text.JSON.Canonical                   as CanonicalJSON
 
 import           Pos.Binary                            (AsBinaryClass (..), Bi (..),
-                                                        decodeFull, deserializeOrFail,
-                                                        serialize, serialize',
-                                                        unsafeDeserialize)
+                                                        decodeFull, deserializeThrow,
+                                                        serialize, serialize')
 import           Pos.Communication                     (Limit (..),
                                                         MessageLimitedPure (..))
 import           Pos.Configuration                     (HasNodeConfiguration)
@@ -76,8 +75,7 @@ import qualified Test.Pos.Cbor.ReferenceImplementation as R
 
 -- | Basic binary serialization/deserialization identity.
 binaryEncodeDecode :: (Show a, Eq a, Bi a) => a -> Property
-binaryEncodeDecode a =
-    (unsafeDeserialize . deserializeOrFail . serialize $ a) === a
+binaryEncodeDecode a = (deserializeThrow . serialize $ a) === a
 
 -- | Machinery to test we perform "flat" encoding.
 cborFlatTermValid :: (Show a, Bi a) => a -> Property

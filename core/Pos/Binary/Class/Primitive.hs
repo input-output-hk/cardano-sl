@@ -7,15 +7,13 @@ module Pos.Binary.Class.Primitive
        , serialize'
 
        -- * Deserialize inside the Decoder monad
-       , deserialize
        , deserialize'
        -- * Low-level, fine-grained functions
-       , deserializeOrFail
-       , deserializeOrFailNocheck
-       -- * Unsafe deserialization
-       , unsafeDeserialize
+       , deserializeOrFailRaw
+       , deserializeThrow
        -- * Backward-compatible functions
        , decodeFull
+       , decodeFullNoCheck
 
        -- * Safecopy
        , putCopyBi
@@ -88,13 +86,8 @@ serialize' = BSL.toStrict . serialize
 -- We are not generalising this function to any monad as doing so would allow
 -- us to cheat, as not all the monads have a sensible `fail` implementation.
 -- Expect the whole input to be consumed.
-deserialize :: Bi a => LByteString -> Decoder s a
-deserialize = either (fail . toString) return . decodeFull . BSL.toStrict
-
--- | Strict version of `deserialize`.
 deserialize' :: Bi a => BS.ByteString -> Decoder s a
-deserialize' = deserialize . BSL.fromStrict
-
+deserialize' = either (fail . toString) return . decodeFull
 
 -- Deserialize a Haskell value from the external binary representation,
 -- returning either (leftover, value) or a (leftover, @'DeserialiseFailure'@).
@@ -124,33 +117,22 @@ deserializeOrFailRaw dc bs0 =
     -- whole, not incrementally.
     deserializeIncremental :: Bi a => ST s (CBOR.Read.IDecode s a)
     deserializeIncremental =
-        -- CSL-1399 add actual implementation
         CBOR.Read.deserialiseIncremental (runReaderT decode dc)
 
-deserializeOrFail, deserializeOrFailNocheck ::
-       Bi a
-    => LByteString
-    -> Either (CBOR.Read.DeserialiseFailure, BS.ByteString) (a, BS.ByteString)
-deserializeOrFail = deserializeOrFailRaw def
-deserializeOrFailNocheck = deserializeOrFailRaw $ DecoderConfig False
-
--- | Convert result of deserialization to the real object or fail.
+-- | Try to deserialize value or fail.
 --
 -- /Throws/: @'CBOR.Read.DeserialiseFailure'@ if the given external
 -- representation is invalid or does not correspond to a value of the
 -- expected type.
-unsafeDeserialize ::
-       Either (CBOR.Read.DeserialiseFailure, BS.ByteString) (a, BS.ByteString)
-    -> a
-unsafeDeserialize = either throw identity . bimap fst fst
+deserializeThrow :: (Bi a) => LByteString -> a
+deserializeThrow =
+    either throw identity . bimap fst fst . deserializeOrFailRaw def
 
--- Obsolete? Is it?
--- | Deserialize a Haskell value from the external binary representation,
--- failing if there are leftovers. In a nutshell, the `full` here implies
--- the contract of this function is that what you feed as input needs to
--- be consumed entirely.
-decodeFull :: forall a. Bi a => BS.ByteString -> Either Text a
-decodeFull bs0 = case deserializeOrFail (BSL.fromStrict bs0) of
+decodeFullProcess ::
+       forall a. (Bi a)
+    => Either (CBOR.Read.DeserialiseFailure, BS.ByteString) (a, BS.ByteString)
+    -> Either Text a
+decodeFullProcess = \case
     Right (x, leftover) -> case BS.null leftover of
         True  -> pure x
         False ->
@@ -161,6 +143,17 @@ decodeFull bs0 = case deserializeOrFail (BSL.fromStrict bs0) of
         Left $ fromString $ "decodeFull failed for " <> label (Proxy @a) <>
                             ": " <> show e
 
+-- | Deserialize a Haskell value from the external binary representation,
+-- failing if there are leftovers. In a nutshell, the `full` here implies
+-- the contract of this function is that what you feed as input needs to
+-- be consumed entirely. NoCheck version corresponds to passing @dcNocheck@
+-- to decoder parser.
+decodeFull, decodeFullNoCheck :: forall a. Bi a => BS.ByteString -> Either Text a
+decodeFull =
+    decodeFullProcess . deserializeOrFailRaw def . BSL.fromStrict
+decodeFullNoCheck =
+    decodeFullProcess . deserializeOrFailRaw (DecoderConfig True). BSL.fromStrict
+
 ----------------------------------------------------------------------------
 -- SafeCopy
 ----------------------------------------------------------------------------
@@ -168,10 +161,11 @@ decodeFull bs0 = case deserializeOrFail (BSL.fromStrict bs0) of
 putCopyBi :: Bi a => a -> Contained Cereal.Put
 putCopyBi = contain . safePut . serialize
 
+-- Should there be a nocheck version of this function too?
 getCopyBi :: forall a. Bi a => Contained (Cereal.Get a)
 getCopyBi = contain $ do
     bs <- safeGet
-    case deserializeOrFail bs of
+    case deserializeOrFailRaw def bs of
         Left (err, _) -> fail $ "getCopy@" ++ (label (Proxy @a)) <> ": " <> show err
         Right (x, _)  -> return x
 

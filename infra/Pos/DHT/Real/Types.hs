@@ -9,22 +9,20 @@ module Pos.DHT.Real.Types
 import           Universum              hiding (fromStrict, toStrict)
 
 import           Control.Concurrent.STM (TVar)
-import qualified Data.ByteString.Lazy   as BSL
 import qualified Network.Kademlia       as K
 
-import           Data.Bifunctor         (bimap)
-import           Pos.Binary.Class       (Bi (..), deserializeOrFail, serialize')
+import           Pos.Binary.Class       (Bi (..), decodeFull, serialize')
 import           Pos.DHT.Model.Types    (DHTData, DHTKey)
 import           Pos.Util.TimeWarp      (NetworkAddress)
 
 
 instance Bi DHTData => K.Serialize DHTData where
-  toBS   = serialize'
-  fromBS = bimap (show . fst) identity . deserializeOrFail . BSL.fromStrict
+    toBS   = serialize'
+    fromBS = first toString . decodeFull
 
 instance Bi DHTKey => K.Serialize DHTKey where
-  toBS   = serialize'
-  fromBS = bimap (show . fst) identity . deserializeOrFail . BSL.fromStrict
+    toBS   = serialize'
+    fromBS = first toString . decodeFull
 
 type DHTHandle = K.KademliaInstance DHTKey DHTData
 

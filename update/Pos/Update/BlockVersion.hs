@@ -1,7 +1,7 @@
 -- | Update system-specific functionality related to 'BlockVersion',
 -- 'BlockVersionData', 'BlockVersionModifier'.
 
-module Pos.Update.Core.BlockVersion
+module Pos.Update.BlockVersion
        ( applyBVM
        ) where
 

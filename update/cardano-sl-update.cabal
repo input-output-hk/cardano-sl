@@ -18,10 +18,7 @@ library
 
                        Pos.Aeson.Update
 
-                       -- Core
-                       Pos.Update.Core
-                       Pos.Update.Core.BlockVersion
-                       Pos.Update.Core.Types
+                       Pos.Update.BlockVersion
 
                        Pos.Update.Mode
                        Pos.Update.DB

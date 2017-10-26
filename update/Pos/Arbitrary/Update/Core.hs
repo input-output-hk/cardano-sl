@@ -23,7 +23,7 @@ import           Pos.Core.Update                   (BlockVersionModifier, System
 import           Pos.Crypto                        (SignTag (SignUSVote), fakeSigner,
                                                     sign, toPublic)
 import           Pos.Data.Attributes               (mkAttributes)
-import           Pos.Update.Core                   (VoteState (..))
+import           Pos.Update.Poll                   (VoteState (..))
 
 instance Arbitrary BlockVersionModifier where
     arbitrary = genericArbitrary

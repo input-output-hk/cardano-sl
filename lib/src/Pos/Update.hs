@@ -2,8 +2,8 @@
 
 module Pos.Update
        ( module Pos.Core.Update
+       , module Pos.Update.BlockVersion
        , module Pos.Update.Context
-       , module Pos.Update.Core
        , module Pos.Update.Download
        , module Pos.Update.Logic
        , module Pos.Update.Lrc
@@ -14,10 +14,10 @@ module Pos.Update
        , module Pos.Update.Worker
        ) where
 
-import           Pos.Arbitrary.Update ()
+import           Pos.Arbitrary.Update    ()
 import           Pos.Core.Update
+import           Pos.Update.BlockVersion
 import           Pos.Update.Context
-import           Pos.Update.Core
 import           Pos.Update.Download
 import           Pos.Update.Logic
 import           Pos.Update.Lrc

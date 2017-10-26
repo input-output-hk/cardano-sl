@@ -55,14 +55,14 @@ import           Pos.Crypto              (PublicKey, hash, shortHashF)
 import           Pos.Slotting            (EpochSlottingData (..), SlottingData,
                                           addEpochSlottingData, getCurrentEpochIndex,
                                           getNextEpochSlottingData)
-import           Pos.Update.Core         (combineVotes, isPositiveVote, newVoteState)
 import           Pos.Update.Poll.Class   (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure (PollVerFailure (..))
 import           Pos.Update.Poll.Types   (BlockVersionState (..),
                                           ConfirmedProposalState (..),
                                           DecidedProposalState (..), DpsExtra (..),
                                           ProposalState (..), UndecidedProposalState (..),
-                                          UpsExtra (..), bvsIsConfirmed, cpsBlockVersion)
+                                          UpsExtra (..), bvsIsConfirmed, combineVotes,
+                                          cpsBlockVersion, isPositiveVote, newVoteState)
 import           Pos.Util.Util           (leftToPanic)
 
 

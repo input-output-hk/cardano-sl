@@ -23,7 +23,7 @@ import           Pos.Core                          (ApplicationName, BlockVersio
 import           Pos.Core.Update                   (UpId, UpdateProposal (..))
 import           Pos.Crypto                        (hash)
 import           Pos.Slotting.Types                (SlottingData)
-import           Pos.Update.Core                   (applyBVM)
+import           Pos.Update.BlockVersion           (applyBVM)
 import qualified Pos.Update.Poll                   as Poll
 import qualified Pos.Util.Modifier                 as MM
 

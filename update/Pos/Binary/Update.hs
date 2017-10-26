@@ -22,7 +22,6 @@ import           Pos.Core                   (ApplicationName, BlockVersion,
 import qualified Pos.Core.Update            as U
 import           Pos.Crypto                 (Hash, SignTag (SignUSVote), checkSig)
 import           Pos.Slotting.Types         (SlottingData)
-import qualified Pos.Update.Core            as U
 import qualified Pos.Update.Poll.Types      as U
 
 instance Bi U.SystemTag where

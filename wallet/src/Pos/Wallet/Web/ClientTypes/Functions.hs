@@ -30,8 +30,8 @@ import           Pos.Types                            (Address, ChainDifficulty,
                                                        decodeTextAddress,
                                                        makePubKeyAddressBoot, sumCoins,
                                                        unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Update.Core                      (StakeholderVotes, isPositiveVote)
-import           Pos.Update.Poll                      (ConfirmedProposalState (..))
+import           Pos.Update.Poll                      (ConfirmedProposalState (..),
+                                                       StakeholderVotes, isPositiveVote)
 import           Pos.Util.Servant
 import           Pos.Wallet.Web.ClientTypes.Instances ()
 import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), Addr, CCoin,

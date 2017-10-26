@@ -10,12 +10,13 @@ module Pos.Txp.Logic.Local
        , txNormalize
        , txGetPayload
 
-       -- Utils to process tx
+       -- Utils to processing and nomralization tx
        , ProcessTxContext (..)
        , ptcExtra
        , buildProccessTxContext
        , TxProcessingMode
        , txProcessTransactionAbstract
+       , txNormalizeAbstract
        ) where
 
 import           Universum
@@ -42,12 +43,13 @@ import           Pos.StateLock        (Priority (..), StateLock, StateLockMetric
 import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId, topsortTxs)
 import           Pos.Txp.MemState     (GenericTxpLocalData (..), GenericTxpLocalDataPure,
                                        MempoolExt, MonadTxpMem, TxpLocalWorkMode,
-                                       askTxpMem, getLocalTxs, getUtxoModifier,
+                                       askTxpMem, getLocalTxsMap, getUtxoModifier,
                                        modifyTxpLocalData, setTxpLocalData)
-import           Pos.Txp.Toil         (GenericToilModifier (..), MonadUtxoRead (..),
-                                       ToilT, ToilVerFailure (..), Utxo, execToilTLocal,
-                                       mpLocalTxs, normalizeToil, processTx, runDBToil,
-                                       runToilTLocal, runToilTLocalExtra, utxoGetReader)
+import           Pos.Txp.Toil         (DBToil, GenericToilModifier (..),
+                                       MonadUtxoRead (..), ToilT, ToilVerFailure (..),
+                                       Utxo, mpLocalTxs, normalizeToil, processTx,
+                                       runDBToil, runToilTLocal, runToilTLocalExtra,
+                                       utxoGetReader)
 import           Pos.Util.Util        (HasLens (..), HasLens')
 
 -- Base context for tx processing in.
@@ -209,16 +211,27 @@ txNormalize
        , MempoolExt m ~ ()
        )
     => m ()
-txNormalize = getCurrentSlot >>= \case
+txNormalize = txNormalizeAbstract (\e txs -> normalizeToil e (HM.toList txs))
+
+txNormalizeAbstract
+    :: ( TxpLocalWorkMode ctx m
+       , MonadSlots ctx m
+       , Default (MempoolExt m)
+       )
+    => (EpochIndex -> HashMap TxId TxAux -> ToilT (MempoolExt m) (DBToil m) ())
+    -> m ()
+txNormalizeAbstract normalizeAction = getCurrentSlot >>= \case
     Nothing -> do
         tip <- GS.getTip
         -- Clear and update tip
         setTxpLocalData (mempty, def, mempty, tip, def)
     Just (siEpoch -> epoch) -> do
         utxoTip <- GS.getTip
-        localTxs <- getLocalTxs
+        localTxs <- getLocalTxsMap
         ToilModifier {..} <-
-            runDBToil $ execToilTLocal mempty def mempty $ normalizeToil epoch localTxs
+            runDBToil $
+            snd <$> runToilTLocalExtra mempty def mempty def
+            (normalizeAction epoch localTxs)
         setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
 
 -- | Get 'TxPayload' from mempool to include into a new block which

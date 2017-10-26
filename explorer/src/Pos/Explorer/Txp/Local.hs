@@ -10,24 +10,21 @@ module Pos.Explorer.Txp.Local
 
 import           Universum
 
-import           Data.Default          (def)
 import qualified Data.HashMap.Strict   as HM
 import           System.Wlog           (NamedPureLogger)
 
-import           Pos.Core              (siEpoch)
 import           Pos.DB.Class          (MonadDBRead, MonadGState (..))
 import qualified Pos.Explorer.DB       as ExDB
-import qualified Pos.GState            as GS
 import           Pos.Slotting          (MonadSlots (getCurrentSlot), getSlotStart)
 import           Pos.StateLock         (Priority (..), StateLock, StateLockMetrics,
                                         withStateLock)
 import           Pos.Txp.Core          (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
 import           Pos.Txp.Logic.Local   (ProcessTxContext (..), buildProccessTxContext,
-                                        ptcExtra, txProcessTransactionAbstract)
+                                        ptcExtra, txNormalizeAbstract,
+                                        txProcessTransactionAbstract)
 import           Pos.Txp.MemState      (MempoolExt, MonadTxpMem, TxpLocalWorkMode,
-                                        getLocalTxsMap, getTxpExtra, setTxpLocalData)
-import           Pos.Txp.Toil          (GenericToilModifier (..), ToilVerFailure (..),
-                                        runDBToil, runToilTLocalExtra)
+                                        getTxpExtra)
+import           Pos.Txp.Toil          (ToilVerFailure (..))
 import           Pos.Util.Chrono       (NewestFirst (..))
 import qualified Pos.Util.Modifier     as MM
 import           Pos.Util.Util         (HasLens')
@@ -118,19 +115,9 @@ eTxNormalize ::
        , MonadSlots ctx m
        )
     => m ()
-eTxNormalize = getCurrentSlot >>= \case
-    Nothing -> do
-        tip <- GS.getTip
-        -- Clear and update tip
-        setTxpLocalData (mempty, def, mempty, tip, def)
-    Just (siEpoch -> epoch) -> do
-        utxoTip <- GS.getTip
-        localTxs <- getLocalTxsMap
-        extra <- getTxpExtra
-        let extras = MM.insertionsMap $ extra ^. eeLocalTxsExtra
+eTxNormalize = do
+    extra <- getTxpExtra
+    let extras = MM.insertionsMap $ extra ^. eeLocalTxsExtra
+    txNormalizeAbstract $ \e localTxs -> do
         let toNormalize = HM.toList $ HM.intersectionWith (,) localTxs extras
-        ToilModifier {..} <-
-            runDBToil $
-            snd <$>
-            runToilTLocalExtra mempty def mempty def (eNormalizeToil epoch toNormalize)
-        setTxpLocalData (_tmUtxo, _tmMemPool, _tmUndos, utxoTip, _tmExtra)
+        eNormalizeToil e toNormalize

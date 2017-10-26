@@ -4,59 +4,64 @@ module Pos.Binary.Ssc.Core
        (
        ) where
 
-import qualified Data.HashSet           as HS
 import           Universum
 
+import qualified Data.HashMap.Strict    as HM
+import qualified Data.HashSet           as HS
+import           Serokell.Util          (allDistinct)
+
 import           Pos.Binary.Class       (Bi (..), Cons (..), Decoder, Encoding,
-                                         Field (..), deriveSimpleBi, deriveSimpleBiCxt,
-                                         encodeListLen, enforceSize)
+                                         Field (..), dcNocheck, deriveSimpleBi,
+                                         deriveSimpleBiCxt, encodeListLen, enforceSize)
 import           Pos.Binary.Crypto      ()
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Vss           (VssCertificate (..), VssCertificatesMap (..),
-                                         mkVssCertificatesMap, recreateVssCertificate)
+                                         getCertId, mkVssCertificatesMap,
+                                         recreateVssCertificate)
 import           Pos.Crypto             (Hash, PublicKey)
 import           Pos.Ssc.Core.Types     (Commitment (..), CommitmentsMap (..),
                                          Opening (..), OpeningsMap, SharesMap,
                                          SignedCommitment, SscPayload (..), SscProof (..),
                                          VssCertificatesHash, mkCommitmentsMap)
-import           Serokell.Util          (allDistinct)
+
+
 
 instance Bi Commitment where
-  encode Commitment{..} = encodeListLen 2 <> encode commShares
-                                          <> encode commProof
-  decode = do
-    enforceSize "Commitment" 2
-    commShares <- decode
-    when (null commShares) $ fail "decode@Commitment: no shares"
-    commProof <- decode
-    return $ Commitment commProof commShares
+    encode Commitment{..} = encodeListLen 2 <> encode commShares
+                                            <> encode commProof
+    decode = do
+        enforceSize "Commitment" 2
+        commShares <- decode
+        when (null commShares) $ fail "decode@Commitment: no shares"
+        commProof <- decode
+        return $ Commitment commProof commShares
 
 instance Bi CommitmentsMap where
-  encode = encodeCommitments
-  decode = decodeCommitments
+    encode = encodeCommitments
+    decode = decodeCommitments
 
 instance HasConfiguration => Bi VssCertificate where
-  encode vssCert = encodeListLen 4 <> encode (vcVssKey vssCert)
-                                   <> encode (vcExpiryEpoch vssCert)
-                                   <> encode (vcSignature vssCert)
-                                   <> encode (vcSigningKey vssCert)
-  decode = do
-    enforceSize "VssCertificate" 4
-    key <- decode
-    epo <- decode
-    sig <- decode
-    sky <- decode
-    case recreateVssCertificate key epo sig sky of
-      Left e  -> fail e
-      Right v -> pure v
+    encode vssCert = encodeListLen 4 <> encode (vcVssKey vssCert)
+                                     <> encode (vcExpiryEpoch vssCert)
+                                     <> encode (vcSignature vssCert)
+                                     <> encode (vcSigningKey vssCert)
+    decode = do
+        enforceSize "VssCertificate" 4
+        key <- decode
+        epo <- decode
+        sig <- decode
+        pk <- decode
+        ifM (view dcNocheck)
+            (pure $ VssCertificate key epo sig pk)
+            (recreateVssCertificate key epo sig pk)
 
 instance HasConfiguration => Bi VssCertificatesMap where
-  encode = encodeVssCertificates
-  decode = decodeVssCertificates
+    encode = encodeVssCertificates
+    decode = decodeVssCertificates
 
 instance Bi Opening where
-  encode = encode . getOpening
-  decode = Opening <$> decode
+    encode = encode . getOpening
+    decode = Opening <$> decode
 
 ----------------------------------------------------------------------------
 -- Maps encoding/decoding
@@ -87,7 +92,9 @@ decodeVssCertificates = do
     -- one cert will be present in resulting map and the attacker can set
     -- the other cert to be anything at all). 'mkVssCertificatesMap' checks
     -- that all certificates have distinct keys, so we can safely use it.
-    mkVssCertificatesMap certs
+    ifM (view dcNocheck)
+        (pure $ UnsafeVssCertificatesMap $ HM.fromList $ map (\vc -> (getCertId vc,vc)) certs)
+        (mkVssCertificatesMap certs)
 
 encodeCommitments :: CommitmentsMap -> Encoding
 encodeCommitments = encode . HS.fromList . toList
@@ -95,7 +102,8 @@ encodeCommitments = encode . HS.fromList . toList
 decodeCommitments :: Decoder s CommitmentsMap
 decodeCommitments = do
     comms <- toList <$> decode @(HashSet SignedCommitment)
-    unless (allDistinct (map (view _1) comms :: [PublicKey])) $
+    noCheck <- view dcNocheck
+    unless (noCheck || allDistinct (map (view _1) comms :: [PublicKey])) $
         fail "decodeCommitments: two commitments have the same signing key"
     pure (mkCommitmentsMap comms)
 

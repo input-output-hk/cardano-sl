@@ -12,7 +12,7 @@ module Pos.Update.Core.Types
        , UpdateData (..)
        , UpdateProposalToSign (..)
        , BlockVersionData (..)
-       , SystemTag (getSystemTag)
+       , SystemTag (..)
        , mkUpdateProposal
        , mkUpdateProposalWSign
        , mkSystemTag
@@ -155,7 +155,7 @@ instance Buildable BlockVersionModifier where
         bmodifier b = later $ maybe "no change" (bprint b)
 
 -- | Tag of system for which update data is purposed, e.g. win64, mac32
-newtype SystemTag = SystemTag { getSystemTag :: Text }
+newtype SystemTag = UnsafeSystemTag { getSystemTag :: Text }
   deriving (Eq, Ord, Show, Generic, Buildable, Hashable, Lift, Typeable)
 
 systemTagMaxLength :: Integral i => i
@@ -167,7 +167,7 @@ mkSystemTag tag | T.length tag > systemTagMaxLength
                 | T.any (not . isAscii) tag
                     = fail "SystemTag: not ascii string passed"
                 | otherwise
-                    = pure $ SystemTag tag
+                    = pure $ UnsafeSystemTag tag
 
 -- | ID of software update proposal
 type UpId = Hash UpdateProposal

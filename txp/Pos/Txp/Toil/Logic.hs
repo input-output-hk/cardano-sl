@@ -38,13 +38,13 @@ import           Pos.Core.Txp               (Tx (..), TxAux (..), TxId, TxOut (.
                                              txOutAddress)
 import           Pos.Crypto                 (WithHash (..), hash)
 import           Pos.DB.Class               (MonadGState (..), gsIsBootstrapEra)
-import           Pos.Txp.Core               (topsortTxs)
 import           Pos.Txp.Toil.Class         (MonadStakes (..), MonadTxPool (..),
                                              MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Failure       (ToilVerFailure (..))
 import           Pos.Txp.Toil.Stakes        (applyTxsToStakes, rollbackTxsStakes)
 import           Pos.Txp.Toil.Types         (TxFee (..))
 import qualified Pos.Txp.Toil.Utxo          as Utxo
+import           Pos.Txp.Topsort            (topsortTxs)
 
 ----------------------------------------------------------------------------
 -- Global

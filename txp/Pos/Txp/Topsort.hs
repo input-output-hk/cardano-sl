@@ -1,6 +1,6 @@
 -- | Transaction related functions.
 
-module Pos.Txp.Core.Tx
+module Pos.Txp.Topsort
        ( topsortTxs
        , topsortTxAuxes
        ) where

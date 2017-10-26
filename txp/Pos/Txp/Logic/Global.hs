@@ -24,7 +24,7 @@ import           Pos.Core.Configuration  (HasConfiguration)
 import           Pos.Core.Txp            (TxAux, TxUndo, TxpUndo)
 import           Pos.DB                  (MonadDBRead, SomeBatchOp (..))
 import           Pos.Exception           (assertionFailed)
-import           Pos.Txp.Core            (flattenTxPayload)
+import           Pos.Txp.Base            (flattenTxPayload)
 import qualified Pos.Txp.DB              as DB
 import           Pos.Txp.Settings.Global (TxpBlock, TxpBlund, TxpGlobalApplyMode,
                                           TxpGlobalRollbackMode, TxpGlobalSettings (..),

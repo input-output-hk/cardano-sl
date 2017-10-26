@@ -52,7 +52,7 @@ import           Pos.DB                       (DBError (..), DBIteratorClass (..
                                                dbIterSource, dbSerializeValue,
                                                encodeWithKeyPrefix)
 import           Pos.DB.GState.Common         (gsGetBi, writeBatchGState)
-import           Pos.Txp.Core                 (addrBelongsToSet, txOutStake)
+import           Pos.Txp.Base                 (addrBelongsToSet, txOutStake)
 import           Pos.Txp.Toil.Types           (GenesisUtxo (..), Utxo)
 
 ----------------------------------------------------------------------------

@@ -18,7 +18,7 @@ import           System.Wlog         (WithLogger, logDebug)
 import           Pos.Core            (HasGenesisData, StakesList, coinToInteger, mkCoin,
                                       sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Txp        (Tx (..), TxAux (..), TxOutAux (..), TxUndo)
-import           Pos.Txp.Core        (txOutStake)
+import           Pos.Txp.Base        (txOutStake)
 import           Pos.Txp.Toil.Class  (MonadStakes (..), MonadStakesRead (..))
 
 type StakesMode m

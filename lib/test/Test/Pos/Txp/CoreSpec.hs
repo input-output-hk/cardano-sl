@@ -22,7 +22,7 @@ import           Pos.Arbitrary.Txp     ()
 import           Pos.Core.Txp          (Tx (..), TxIn (..), TxOut (..), mkTx)
 import           Pos.Crypto            (hash, whData, withHash)
 import           Pos.Data.Attributes   (mkAttributes)
-import           Pos.Txp.Core          (topsortTxs)
+import           Pos.Txp.Topsort       (topsortTxs)
 import           Pos.Types             (mkCoin)
 import           Pos.Util              (sublistN, _neHead)
 

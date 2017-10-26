@@ -29,9 +29,9 @@ import           Pos.Core.Txp                (Tx (..), TxAux (..), TxId, TxOut (
 import           Pos.Crypto                  (WithHash (..), hash)
 import           Pos.Explorer.Core           (AddrHistory, TxExtra (..))
 import           Pos.Explorer.Txp.Toil.Class (MonadTxExtra (..), MonadTxExtraRead (..))
-import           Pos.Txp.Core                (topsortTxs)
 import           Pos.Txp.Toil                (ToilVerFailure (..))
 import qualified Pos.Txp.Toil                as Txp
+import           Pos.Txp.Topsort             (topsortTxs)
 import           Pos.Util.Chrono             (NewestFirst (..))
 import           Pos.Util.Util               (Sign (..))
 

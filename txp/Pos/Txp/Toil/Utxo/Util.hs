@@ -18,7 +18,7 @@ import           Pos.Binary.Core     ()
 import           Pos.Core            (Address, Coin, HasGenesisData, StakesMap, sumCoins,
                                       unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Core.Txp        (TxOut (txOutValue), TxOutAux (..), _TxOut)
-import           Pos.Txp.Core        (addrBelongsTo, addrBelongsToSet, txOutStake)
+import           Pos.Txp.Base        (addrBelongsTo, addrBelongsToSet, txOutStake)
 import           Pos.Txp.Toil.Types  (Utxo)
 
 -- | Select only TxOuts for given address

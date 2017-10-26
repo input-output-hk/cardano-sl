@@ -1,6 +1,6 @@
 -- | Helper for core types.
 
-module Pos.Txp.Core.Core
+module Pos.Txp.Base
        ( addrBelongsTo
        , addrBelongsToSet
        , emptyTxPayload

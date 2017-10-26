@@ -16,10 +16,6 @@ library
     Pos.Arbitrary.Txp
     Pos.Arbitrary.Txp.Unsafe
 
-    Pos.Txp.Core
-    Pos.Txp.Core.Core
-    Pos.Txp.Core.Tx
-
     Pos.Txp.DB
     Pos.Txp.DB.Stakes
     Pos.Txp.DB.Utxo
@@ -53,7 +49,9 @@ library
     Pos.Txp.Settings
     Pos.Txp.Settings.Global
 
+    Pos.Txp.Base
     Pos.Txp.Error
+    Pos.Txp.Topsort
 
     Pos.Script
     Pos.Script.Examples

@@ -36,7 +36,7 @@ import           Pos.Reporting                    (MonadReporting, reportOrLogW)
 import           Pos.Slotting                     (MonadSlots, MonadSlotsData,
                                                    getCurrentEpochSlotDuration,
                                                    getSlotStartPure, getSystemStartM)
-import           Pos.Txp.Core                     (flattenTxPayload)
+import           Pos.Txp.Base                     (flattenTxPayload)
 import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
 import           Pos.Util.TimeLimit               (CanLogInParallel, logWarningWaitInf)

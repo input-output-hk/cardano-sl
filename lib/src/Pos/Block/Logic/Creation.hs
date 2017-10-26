@@ -58,7 +58,7 @@ import           Pos.StateLock              (Priority (..), StateLock, StateLock
                                              modifyStateLock)
 import           Pos.Txp                    (MempoolExt, MonadTxpLocal (..), MonadTxpMem,
                                              clearTxpMemPool, txGetPayload)
-import           Pos.Txp.Core               (emptyTxPayload)
+import           Pos.Txp.Base               (emptyTxPayload)
 import           Pos.Update                 (UpdateContext)
 import           Pos.Update.Configuration   (HasUpdateConfiguration)
 import           Pos.Update.Core            (UpdatePayload (..))

@@ -33,7 +33,6 @@ import           Pos.Reporting        (reportError)
 import           Pos.Slotting         (MonadSlots (..))
 import           Pos.StateLock        (Priority (..), StateLock, StateLockMetrics,
                                        withStateLock)
-import           Pos.Txp.Core         (topsortTxs)
 import           Pos.Txp.MemState     (GenericTxpLocalData (..), MempoolExt, MonadTxpMem,
                                        TxpLocalDataPure, TxpLocalWorkMode, askTxpMem,
                                        getLocalTxs, getUtxoModifier, modifyTxpLocalData,
@@ -42,6 +41,7 @@ import           Pos.Txp.Toil         (GenericToilModifier (..), MonadUtxoRead (
                                        ToilModifier, ToilT, ToilVerFailure (..), Utxo,
                                        execToilTLocal, mpLocalTxs, normalizeToil,
                                        processTx, runDBToil, runToilTLocal, utxoGetReader)
+import           Pos.Txp.Topsort      (topsortTxs)
 import           Pos.Util.Util        (HasLens (..), HasLens')
 
 -- Base context for tx processing in.

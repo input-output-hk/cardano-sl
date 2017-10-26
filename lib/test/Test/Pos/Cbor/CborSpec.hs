@@ -14,46 +14,43 @@ module Test.Pos.Cbor.CborSpec
 
 import           Universum
 
-import qualified Data.ByteString                       as BS
-import qualified Data.ByteString.Lazy                  as BSL
-import           Data.Default                          (def)
-import           Test.Hspec                            (Arg, Expectation, Spec, SpecWith,
-                                                        describe, it, pendingWith,
-                                                        shouldBe)
-import           Test.Hspec.QuickCheck                 (modifyMaxSize, modifyMaxSuccess,
-                                                        prop)
+import qualified Codec.CBOR.FlatTerm               as CBOR
+import qualified Data.ByteString                   as BS
+import qualified Data.ByteString.Lazy              as BSL
+import           Data.Default                      (def)
+import           Test.Hspec                        (Arg, Expectation, Spec, SpecWith,
+                                                    describe, it, pendingWith, shouldBe)
+import           Test.Hspec.QuickCheck             (modifyMaxSize, modifyMaxSuccess, prop)
 import           Test.QuickCheck
-import           Test.QuickCheck.Arbitrary.Generic     (genericArbitrary, genericShrink)
+import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import qualified Codec.CBOR.FlatTerm                   as CBOR
-
-import           Pos.Arbitrary.Block                   ()
-import           Pos.Arbitrary.Core                    ()
-import           Pos.Arbitrary.Delegation              ()
-import           Pos.Arbitrary.Infra                   ()
-import           Pos.Arbitrary.Slotting                ()
-import           Pos.Arbitrary.Update                  ()
-import           Pos.Binary.Class                      (Bi (..), Cons (..), Field (..),
-                                                        decodeListLenCanonicalOf,
-                                                        decodeUnknownCborDataItem,
-                                                        deriveSimpleBi, deserialize',
-                                                        deserializeThrow, encodeListLen,
-                                                        encodeUnknownCborDataItem,
-                                                        genericDecode, genericEncode,
-                                                        serialize, serialize')
-import           Pos.Binary.Communication              ()
-import           Pos.Binary.Core.Fee                   ()
-import           Pos.Binary.Core.Script                ()
-import           Pos.Binary.Crypto                     ()
-import           Pos.Binary.Infra                      ()
-import           Pos.Binary.Relay                      ()
-import           Pos.Binary.Ssc                        ()
-import           Pos.Core.Types                        (ScriptVersion)
-import           Pos.Data.Attributes                   (Attributes (..), decodeAttributes,
-                                                        encodeAttributes)
-import qualified Test.Pos.Cbor.ReferenceImplementation as R
-import           Test.Pos.Helpers                      (binaryTest)
-import           Test.Pos.Util                         (withDefConfiguration)
+import           Pos.Arbitrary.Block               ()
+import           Pos.Arbitrary.Core                ()
+import           Pos.Arbitrary.Delegation          ()
+import           Pos.Arbitrary.Infra               ()
+import           Pos.Arbitrary.Slotting            ()
+import           Pos.Arbitrary.Update              ()
+import           Pos.Binary.Class                  (Bi (..), Cons (..), Field (..),
+                                                    decodeListLenCanonicalOf,
+                                                    decodeUnknownCborDataItem,
+                                                    deriveSimpleBi, deserialize',
+                                                    deserializeThrow, encodeListLen,
+                                                    encodeUnknownCborDataItem,
+                                                    genericDecode, genericEncode,
+                                                    serialize, serialize')
+import           Pos.Binary.Communication          ()
+import           Pos.Binary.Core.Fee               ()
+import           Pos.Binary.Core.Script            ()
+import           Pos.Binary.Crypto                 ()
+import           Pos.Binary.Infra                  ()
+import           Pos.Binary.Relay                  ()
+import           Pos.Binary.Ssc                    ()
+import           Pos.Core.Types                    (ScriptVersion)
+import           Pos.Data.Attributes               (Attributes (..), decodeAttributes,
+                                                    encodeAttributes)
+import qualified Test.Pos.Cbor.RefImpl             as R
+import           Test.Pos.Helpers                  (binaryTest)
+import           Test.Pos.Util                     (withDefConfiguration)
 
 
 data User

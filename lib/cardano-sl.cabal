@@ -456,7 +456,7 @@ test-suite cardano-test
                        -- Everything else
                        Test.Pos.Cbor.Canonicity
                        Test.Pos.Cbor.CborSpec
-                       Test.Pos.Cbor.ReferenceImplementation
+                       Test.Pos.Cbor.RefImpl
                        Test.Pos.Communication.Identity.BinarySpec
                        Test.Pos.ConstantsSpec
                        Test.Pos.Core.AddressSpec

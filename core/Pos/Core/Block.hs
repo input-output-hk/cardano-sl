@@ -34,12 +34,14 @@ module Pos.Core.Block
 
 import           Universum
 
-import           Control.Lens         (makeLenses)
-import           Control.Monad.Except (MonadError (throwError))
+import           Control.Lens                       (makeLenses)
+import           Control.Monad.Except               (MonadError (throwError))
+import           Formatting                         (build, sformat, (%))
 
+import           Pos.Core.Class                     (HasHeaderHash (..),
+                                                     HasPrevBlock (..))
 import           Pos.Core.Configuration.GenesisHash (HasGenesisHash, genesisHash)
-import           Pos.Core.Class       (HasHeaderHash (..), HasPrevBlock (..))
-import           Pos.Core.Types       (HeaderHash)
+import           Pos.Core.Types                     (HeaderHash)
 
 ----------------------------------------------------------------------------
 -- Blockchain class
@@ -72,9 +74,20 @@ class Blockchain p where
     type BBlock p = GenericBlock p
 
     mkBodyProof :: Body p -> BodyProof p
-    checkBodyProof :: Body p -> BodyProof p -> Bool
-    default checkBodyProof :: Eq (BodyProof p) => Body p -> BodyProof p -> Bool
-    checkBodyProof body proof = mkBodyProof body == proof
+
+    -- | Check whether 'BodyProof' corresponds to 'Body.
+    checkBodyProof :: MonadError Text m => Body p -> BodyProof p -> m ()
+    default checkBodyProof ::
+        (MonadError Text m, Buildable (BodyProof p), Eq (BodyProof p)) =>
+        Body p -> BodyProof p -> m ()
+    checkBodyProof body proof = do
+        let calculatedProof = mkBodyProof body
+        let errMsg =
+                sformat ("Incorrect proof of body. "%
+                         "Proof in header: "%build%
+                         ", calculated proof: "%build)
+                proof calculatedProof
+        unless (calculatedProof == proof) $ throwError errMsg
 
 -- | Extension of 'Blockchain' type class with helper functions.
 class Blockchain p => BlockchainHelpers p where
@@ -234,8 +247,7 @@ recreateGenericBlock
     -> ExtraBodyData b
     -> m (GenericBlock b)
 recreateGenericBlock _gbHeader _gbBody _gbExtra = do
-    unless (checkBodyProof _gbBody (_gbhBodyProof _gbHeader)) $
-        throwError "mkGenericBlock: incorrect proof of body"
+    checkBodyProof _gbBody (_gbhBodyProof _gbHeader)
     let res = UnsafeGenericBlock {..}
     res <$ verifyBBlock res
 

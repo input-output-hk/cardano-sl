@@ -38,36 +38,36 @@ module Pos.Ssc.Core.Functions
 
 import           Universum
 
-import qualified Crypto.Random                 as Rand
-import qualified Data.HashMap.Strict           as HM
-import           Data.Ix                       (inRange)
-import qualified Data.List.NonEmpty            as NE
-import           Formatting                    (build, sformat, (%))
-import           Serokell.Data.Memory.Units    (Byte)
-import           Serokell.Util                 (VerificationRes, verifyGeneric)
+import qualified Crypto.Random              as Rand
+import qualified Data.HashMap.Strict        as HM
+import           Data.Ix                    (inRange)
+import qualified Data.List.NonEmpty         as NE
+import           Formatting                 (build, sformat, (%))
+import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util              (VerificationRes, verifyGeneric)
 
-import           Pos.Binary.Class              (Bi, asBinary, biSize, fromBinaryM)
-import           Pos.Binary.Crypto             ()
-import           Pos.Binary.GodTossing.Core    ()
-import           Pos.Core                      (EpochIndex (..), LocalSlotIndex,
-                                                SharedSeed (..), SlotCount, SlotId (..),
-                                                StakeholderId, unsafeMkLocalSlotIndex)
-import           Pos.Core.Address              (addressHash)
-import           Pos.Core.Configuration        (HasConfiguration, slotSecurityParam,
-                                                vssMaxTTL, vssMinTTL)
-import           Pos.Core.Vss                  (VssCertificate (vcExpiryEpoch),
-                                                VssCertificatesMap (..))
-import           Pos.Crypto                    (Secret, SecretKey,
-                                                SignTag (SignCommitment), Threshold,
-                                                VssPublicKey, checkSig, genSharedSecret,
-                                                getDhSecret, hash, secretToDhSecret,
-                                                sign, toPublic, verifySecret)
-import           Pos.Ssc.Core.Types            (Commitment (..),
-                                                CommitmentsMap (getCommitmentsMap),
-                                                SscPayload (..), SscProof (..),
-                                                Opening (..), SignedCommitment,
-                                                mkCommitmentsMapUnsafe)
-import           Pos.Util.Limits               (stripHashMap)
+import           Pos.Binary.Class           (Bi, asBinary, biSize, fromBinaryM)
+import           Pos.Binary.Crypto          ()
+import           Pos.Binary.GodTossing.Core ()
+import           Pos.Core                   (EpochIndex (..), LocalSlotIndex,
+                                             SharedSeed (..), SlotCount, SlotId (..),
+                                             StakeholderId, unsafeMkLocalSlotIndex)
+import           Pos.Core.Address           (addressHash)
+import           Pos.Core.Configuration     (HasConfiguration, slotSecurityParam,
+                                             vssMaxTTL, vssMinTTL)
+import           Pos.Core.Vss               (VssCertificate (vcExpiryEpoch),
+                                             VssCertificatesMap (..))
+import           Pos.Crypto                 (Secret, SecretKey, SignTag (SignCommitment),
+                                             Threshold, VssPublicKey, checkSig,
+                                             genSharedSecret, getDhSecret, hash,
+                                             secretToDhSecret, sign, toPublic,
+                                             verifySecret)
+import           Pos.Ssc.Core.Types         (Commitment (..),
+                                             CommitmentsMap (getCommitmentsMap),
+                                             Opening (..), SignedCommitment,
+                                             SscPayload (..), SscProof (..),
+                                             mkCommitmentsMapUnsafe)
+import           Pos.Util.Limits            (stripHashMap)
 
 -- | Convert Secret to SharedSeed.
 secretToSharedSeed :: Secret -> SharedSeed
@@ -250,10 +250,10 @@ mkSscProof payload =
         SharesPayload shares certs     ->
             proof SharesProof shares certs
         CertificatesPayload certs      ->
-            CertificatesProof $ hash certs
+            CertificatesProof $ hash (getVssCertificatesMap certs)
       where
-        proof constr hm cert =
-            constr (hash hm) (hash cert)
+        proof constr hm (getVssCertificatesMap -> certs) =
+            constr (hash hm) (hash certs)
 
 -- | Removes parts of payload so its binary representation length
 -- fits into passed limit. If limit is too low (0), we can return

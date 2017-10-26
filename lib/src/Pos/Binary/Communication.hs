@@ -66,26 +66,28 @@ instance HasConfiguration => Bi MsgBlock where
 -- "fake" deriving as per `MempoolMsg`.
 -- TODO: Shall we encode this as `CBOR` TkNull?
 instance Bi MsgSubscribe where
-  encode MsgSubscribe = encode (42 :: Word8)
-  decode = do
-    x <- decode @Word8
-    when (x /= 42) $ fail "wrong byte"
-    pure MsgSubscribe
+    encode MsgSubscribe = encode (42 :: Word8)
+    decode = do
+        x <- decode @Word8
+        when (x /= 42) $ fail "wrong byte"
+        pure MsgSubscribe
 
 ----------------------------------------------------------------------------
 -- Protocol version info and related
 ----------------------------------------------------------------------------
 
 instance Bi HandlerSpec where
-  encode input = case input of
-    ConvHandler mname        -> encodeListLen 2 <> encode (0 :: Word8) <> encodeKnownCborDataItem mname
-    UnknownHandler word8 bs  -> encodeListLen 2 <> encode word8 <> encodeUnknownCborDataItem bs
-  decode = do
-    enforceSize "HandlerSpec" 2
-    tag <- decode @Word8
-    case tag of
-      0 -> ConvHandler        <$> decodeKnownCborDataItem
-      _ -> UnknownHandler tag <$> decodeUnknownCborDataItem
+    encode input = case input of
+        ConvHandler mname        ->
+            encodeListLen 2 <> encode (0 :: Word8) <> encodeKnownCborDataItem mname
+        UnknownHandler word8 bs  ->
+            encodeListLen 2 <> encode word8 <> encodeUnknownCborDataItem bs
+    decode = do
+        enforceSize "HandlerSpec" 2
+        tag <- decode @Word8
+        case tag of
+            0 -> ConvHandler        <$> decodeKnownCborDataItem
+            _ -> UnknownHandler tag <$> decodeUnknownCborDataItem
 
 deriveSimpleBi ''VerInfo [
     Cons 'VerInfo [

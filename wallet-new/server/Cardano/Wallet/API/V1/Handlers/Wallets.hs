@@ -53,4 +53,4 @@ getWallet :: WalletId -> Handler Wallet
 getWallet _ = liftIO $ generate arbitrary
 
 updateWallet :: WalletId -> Wallet -> Handler Wallet
-updateWallet _ _ = liftIO $ generate arbitrary
+updateWallet _ w = return w

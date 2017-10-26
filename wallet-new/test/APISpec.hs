@@ -51,18 +51,6 @@ deleteReqShouldReturn204 = RequestPredicate $ \req mgr ->
          return [resp]
        else return []
 
--- | Checks that every PUT request should return a 201 Created
-putReqShouldReturn201 :: RequestPredicate
-putReqShouldReturn201 = RequestPredicate $ \req mgr ->
-     if (method req == methodPut)
-       then do
-         resp <- httpLbs req mgr
-         let status = responseStatus resp
-         when (statusIsSuccessful status && status /= status201) $
-           throw $ PredicateFailure "putReqShouldReturn201" (Just req) resp
-         return [resp]
-       else return []
-
 -- | Checks that every PUT request is idempotent. Calling an endpoint with a PUT
 -- twice should return the same result.
 putIdempotency :: RequestPredicate
@@ -98,7 +86,6 @@ spec = describe "Servant API Properties" $ do
    withServantServer walletAPI (return walletServer) $ \burl ->
      serverSatisfies walletAPI burl stdArgs (not500
                                    <%> deleteReqShouldReturn204
-                                   <%> putReqShouldReturn201
                                    <%> putIdempotency
                                    <%> noEmptyBody
                                    <%> mempty)

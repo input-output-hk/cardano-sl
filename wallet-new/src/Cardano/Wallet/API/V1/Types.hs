@@ -190,13 +190,16 @@ instance Arbitrary WalletId where
 instance FromHttpApiData WalletId where
     parseQueryParam = Right . WalletId
 
+instance ToHttpApiData WalletId where
+    toQueryParam (WalletId wid) = wid
+
 type Coins = Int
 
 -- | A type modelling the request for a new wallet.
 data UninitialisedWallet = UninitialisedWallet {
       newwalBackupPhrase :: BackupPhrase
     , newwalPassphrase   :: Maybe Passphrase
-    } deriving (Eq, Generic)
+    } deriving (Eq, Show, Generic)
 
 deriveJSON Serokell.defaultOptions  ''UninitialisedWallet
 
@@ -211,7 +214,7 @@ data Wallet = Wallet {
     , walAssurance :: WalletAssurance
     -- | The name for this wallet.
     , walName      :: Text
-    }
+    } deriving (Eq, Show, Generic)
 
 deriveJSON Serokell.defaultOptions  ''Wallet
 

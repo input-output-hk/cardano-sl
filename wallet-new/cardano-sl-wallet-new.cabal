@@ -118,6 +118,8 @@ test-suite wallet-new-specs
                   , http-types
                   , lens
                   , neat-interpolation
+                  , insert-ordered-containers
+                  , unordered-containers
                   , quickcheck-instances
                   , servant
                   , servant-quickcheck

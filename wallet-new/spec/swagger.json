@@ -336,7 +336,7 @@
         },
         "UninitialisedWallet": {
             "example": {
-                "passphrase": null,
+                "passphrase": "My passphrase",
                 "backupPhrase": "MyBackupPhraseHashed"
             },
             "required": [
@@ -347,7 +347,7 @@
             "description": "A type representing the request for a new Wallet.",
             "properties": {
                 "passphrase": {
-                    "type": "null"
+                    "type": "string"
                 },
                 "backupPhrase": {
                     "type": "string"

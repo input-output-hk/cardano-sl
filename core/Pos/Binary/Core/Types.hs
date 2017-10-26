@@ -6,7 +6,7 @@ import           Data.Time.Units                 (Millisecond)
 import           Serokell.Data.Memory.Units      (Byte)
 
 import           Pos.Binary.Class                (Bi (..), Cons (..), Field (..),
-                                                  dcNocheck, deriveSimpleBi,
+                                                  dcNoCheck, deriveSimpleBi,
                                                   deriveSimpleBiCxt)
 import           Pos.Binary.Core.Coin            ()
 import           Pos.Binary.Core.Fee             ()
@@ -49,7 +49,7 @@ instance HasProtocolConstants => Bi T.LocalSlotIndex where
     encode = encode . T.getSlotIndex
     decode = do
         word16 <- decode @Word16
-        ifM (view dcNocheck)
+        ifM (view dcNoCheck)
             (pure $ T.UnsafeLocalSlotIndex word16)
             (case T.mkLocalSlotIndex word16 of
                  Left err        -> fail ("decode@LocalSlotIndex: " <> toString err)

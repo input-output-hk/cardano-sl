@@ -11,7 +11,7 @@ import qualified Data.HashSet           as HS
 import           Serokell.Util          (allDistinct)
 
 import           Pos.Binary.Class       (Bi (..), Cons (..), Decoder, Encoding,
-                                         Field (..), dcNocheck, deriveSimpleBi,
+                                         Field (..), dcNoCheck, deriveSimpleBi,
                                          deriveSimpleBiCxt, encodeListLen, enforceSize)
 import           Pos.Binary.Crypto      ()
 import           Pos.Core.Configuration (HasConfiguration)
@@ -23,8 +23,6 @@ import           Pos.Ssc.Core.Types     (Commitment (..), CommitmentsMap (..),
                                          Opening (..), OpeningsMap, SharesMap,
                                          SignedCommitment, SscPayload (..), SscProof (..),
                                          VssCertificatesHash, mkCommitmentsMap)
-
-
 
 instance Bi Commitment where
     encode Commitment{..} = encodeListLen 2 <> encode commShares
@@ -51,7 +49,7 @@ instance HasConfiguration => Bi VssCertificate where
         epo <- decode
         sig <- decode
         pk <- decode
-        ifM (view dcNocheck)
+        ifM (view dcNoCheck)
             (pure $ VssCertificate key epo sig pk)
             (recreateVssCertificate key epo sig pk)
 
@@ -92,7 +90,7 @@ decodeVssCertificates = do
     -- one cert will be present in resulting map and the attacker can set
     -- the other cert to be anything at all). 'mkVssCertificatesMap' checks
     -- that all certificates have distinct keys, so we can safely use it.
-    ifM (view dcNocheck)
+    ifM (view dcNoCheck)
         (pure $ UnsafeVssCertificatesMap $ HM.fromList $ map (\vc -> (getCertId vc,vc)) certs)
         (mkVssCertificatesMap certs)
 
@@ -102,7 +100,7 @@ encodeCommitments = encode . HS.fromList . toList
 decodeCommitments :: Decoder s CommitmentsMap
 decodeCommitments = do
     comms <- toList <$> decode @(HashSet SignedCommitment)
-    noCheck <- view dcNocheck
+    noCheck <- view dcNoCheck
     unless (noCheck || allDistinct (map (view _1) comms :: [PublicKey])) $
         fail "decodeCommitments: two commitments have the same signing key"
     pure (mkCommitmentsMap comms)

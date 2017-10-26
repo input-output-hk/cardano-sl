@@ -128,6 +128,9 @@ deserializeThrow :: (Bi a) => LByteString -> a
 deserializeThrow =
     either throw identity . bimap fst fst . deserializeOrFailRaw def
 
+-- This is intermediate function that inspects deserialization result
+-- and fails even if we've managed to parse string prefix (there's a
+-- nonzero leftover).
 decodeFullProcess ::
        forall a. (Bi a)
     => Either (CBOR.Read.DeserialiseFailure, BS.ByteString) (a, BS.ByteString)
@@ -146,13 +149,18 @@ decodeFullProcess = \case
 -- | Deserialize a Haskell value from the external binary representation,
 -- failing if there are leftovers. In a nutshell, the `full` here implies
 -- the contract of this function is that what you feed as input needs to
--- be consumed entirely. NoCheck version corresponds to passing @dcNocheck@
+-- be consumed entirely. NoCheck version corresponds to passing @dcNoCheck@
 -- to decoder parser.
-decodeFull, decodeFullNoCheck :: forall a. Bi a => BS.ByteString -> Either Text a
+decodeFull :: forall a. Bi a => BS.ByteString -> Either Text a
 decodeFull =
     decodeFullProcess . deserializeOrFailRaw def . BSL.fromStrict
+
+-- | Same as 'decodeFull', bot doesn't perform extra checks. See 'dcNoCheck'.
+decodeFullNoCheck :: forall a. Bi a => BS.ByteString -> Either Text a
 decodeFullNoCheck =
-    decodeFullProcess . deserializeOrFailRaw (DecoderConfig True). BSL.fromStrict
+    decodeFullProcess .
+    deserializeOrFailRaw (def { _dcNoCheck = True }) .
+    BSL.fromStrict
 
 ----------------------------------------------------------------------------
 -- SafeCopy

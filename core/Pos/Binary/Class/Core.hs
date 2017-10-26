@@ -7,7 +7,7 @@
 module Pos.Binary.Class.Core
     ( Bi (..)
     , DecoderConfig (..)
-    , dcNocheck
+    , dcNoCheck
     , Decoder
     , toDecoder
     , encodeBinary
@@ -59,13 +59,18 @@ import           Universum
 
 -- | Extra configuration for decoder.
 data DecoderConfig = DecoderConfig
-    { _dcNocheck :: Bool
+    { _dcNoCheck :: Bool
+      -- ^ If this flag is set to 'True' decoder should try avoiding
+      -- all the datatype integrity checks. It's mostly done to speed
+      -- up deserialiation for objects that we deserialized securely
+      -- before (e.g. something we put into base was in memory once,
+      -- so it must be correct).
     } deriving Show
 
 makeLenses ''DecoderConfig
 
 instance Default DecoderConfig where
-    def = DecoderConfig { _dcNocheck = False }
+    def = DecoderConfig { _dcNoCheck = False }
 
 type Decoder s a = ReaderT DecoderConfig (D.Decoder s) a
 

@@ -223,7 +223,7 @@ extensionProperty = forAll @a (arbitrary :: Gen a) $ \input ->
 
       <tag :: Word32><Tag24><CborDataItem :: ByteString>
 
-   2. Now, when we call `unsafeDeser serialized`, we are effectively asking to produce as
+   2. Now, when we call `deserializeThrow serialized`, we are effectively asking to produce as
       output a value of type `U`. `U` is defined by only 1 constructor, it
       being `U Word8 ByteString`, but this is still compatible with our `tag + cborDataItem`
       format. So now we will have something like:
@@ -232,7 +232,7 @@ extensionProperty = forAll @a (arbitrary :: Gen a) $ \input ->
 
       (The <Tag24> has been removed as part of the decoding process).
 
-   3. We now call `unsafeDeser (serialize u)`, which means: Can you produce a CBOR binary
+   3. We now call `deserializeThrow (serialize u)`, which means: Can you produce a CBOR binary
       from `U`, and finally try to decode it into a value of type `a`? This will work because
       our intermediate encoding into `U` didn't touch the inital `<tag :: Word32>`, so we will
       be able to reconstruct the original object back.

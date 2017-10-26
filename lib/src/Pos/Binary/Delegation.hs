@@ -6,7 +6,7 @@ module Pos.Binary.Delegation
 
 import           Universum
 
-import           Pos.Binary.Class     (Bi (..), Cons (..), Field (..), dcNocheck,
+import           Pos.Binary.Class     (Bi (..), Cons (..), Field (..), dcNoCheck,
                                        deriveSimpleBi)
 import           Pos.Binary.Core      ()
 import           Pos.Binary.Crypto    ()
@@ -18,7 +18,7 @@ instance HasConfiguration => Bi DlgPayload where
     encode = encode . getDlgPayload
     decode = do
         psks <- decode
-        ifM (view dcNocheck)
+        ifM (view dcNoCheck)
             (pure $ UnsafeDlgPayload psks)
             (eitherToFail $ mkDlgPayload psks)
 

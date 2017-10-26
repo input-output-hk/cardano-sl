@@ -2,7 +2,7 @@ module Pos.Binary.Core.Coin () where
 
 import           Universum
 
-import           Pos.Binary.Class (Bi (..), dcNocheck)
+import           Pos.Binary.Class (Bi (..), dcNoCheck)
 import           Pos.Core.Types   (Coin (..), mkCoin, unsafeGetCoin)
 
 -- number of total coins is 45*10^9 * 10^6
@@ -24,7 +24,7 @@ instance Bi Coin where
     encode = encode . unsafeGetCoin
     decode = do
         v <- decode
-        ifM (view dcNocheck)
+        ifM (view dcNoCheck)
             (pure $ UnsafeCoin v)
             (do when (v > unsafeGetCoin maxBound) $
                     fail $

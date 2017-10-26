@@ -12,8 +12,8 @@ module Pos.Binary.Class.Core
     , matchSize
     -- * CBOR re-exports
     , E.encodeListLen
-    , D.decodeListLen
-    , D.decodeListLenOf
+    , D.decodeListLenCanonical
+    , D.decodeListLenCanonicalOf
     , E.Encoding
     , D.Decoder
     , CBOR.Read.deserialiseIncremental
@@ -58,9 +58,10 @@ decodeBinary = do
             | BS.Lazy.null bs -> pure res
             | otherwise       -> fail "decodeBinary: unconsumed input"
 
--- | Enforces that the input size is the same as the decoded one, failing in case it's not.
+-- | Enforces that the input size is the same as the decoded one, failing in
+-- case it's not.
 enforceSize :: String -> Int -> D.Decoder s ()
-enforceSize lbl requestedSize = D.decodeListLen >>= matchSize requestedSize lbl
+enforceSize lbl requestedSize = D.decodeListLenCanonical >>= matchSize requestedSize lbl
 
 -- | Compare two sizes, failing if they are not equal.
 matchSize :: Int -> String -> Int -> D.Decoder s ()
@@ -124,47 +125,47 @@ instance Bi Char where
 
 instance Bi Integer where
     encode = E.encodeInteger
-    decode = D.decodeInteger
+    decode = D.decodeIntegerCanonical
 
 instance Bi Word where
     encode = E.encodeWord
-    decode = D.decodeWord
+    decode = D.decodeWordCanonical
 
 instance Bi Word8 where
     encode = E.encodeWord8
-    decode = D.decodeWord8
+    decode = D.decodeWord8Canonical
 
 instance Bi Word16 where
     encode = E.encodeWord16
-    decode = D.decodeWord16
+    decode = D.decodeWord16Canonical
 
 instance Bi Word32 where
     encode = E.encodeWord32
-    decode = D.decodeWord32
+    decode = D.decodeWord32Canonical
 
 instance Bi Word64 where
     encode = E.encodeWord64
-    decode = D.decodeWord64
+    decode = D.decodeWord64Canonical
 
 instance Bi Int where
     encode = E.encodeInt
-    decode = D.decodeInt
+    decode = D.decodeIntCanonical
 
 instance Bi Float where
     encode = E.encodeFloat
-    decode = D.decodeFloat
+    decode = D.decodeFloatCanonical
 
 instance Bi Int32 where
     encode = E.encodeInt32
-    decode = D.decodeInt32
+    decode = D.decodeInt32Canonical
 
 instance Bi Int64 where
     encode = E.encodeInt64
-    decode = D.decodeInt64
+    decode = D.decodeInt64Canonical
 
 instance Bi Nano where
-    encode (MkFixed resolution) = E.encodeInteger resolution
-    decode = MkFixed <$> D.decodeInteger
+    encode (MkFixed resolution) = encode resolution
+    decode = MkFixed <$> decode
 
 instance Bi Void where
     decode = fail "instance Bi Void: you shouldn't try to deserialize Void"
@@ -186,7 +187,7 @@ instance (Bi a, Bi b) => Bi (a,b) where
     encode (a,b) = E.encodeListLen 2
                 <> encode a
                 <> encode b
-    decode = do D.decodeListLenOf 2
+    decode = do D.decodeListLenCanonicalOf 2
                 !x <- decode
                 !y <- decode
                 return (x, y)
@@ -197,7 +198,7 @@ instance (Bi a, Bi b, Bi c) => Bi (a,b,c) where
                   <> encode b
                   <> encode c
 
-    decode = do D.decodeListLenOf 3
+    decode = do D.decodeListLenCanonicalOf 3
                 !x <- decode
                 !y <- decode
                 !z <- decode
@@ -210,7 +211,7 @@ instance (Bi a, Bi b, Bi c, Bi d) => Bi (a,b,c,d) where
                     <> encode c
                     <> encode d
 
-    decode = do D.decodeListLenOf 4
+    decode = do D.decodeListLenCanonicalOf 4
                 !a <- decode
                 !b <- decode
                 !c <- decode
@@ -237,8 +238,8 @@ instance (Bi a, Bi b) => Bi (Either a b) where
     encode (Left  x) = E.encodeListLen 2 <> E.encodeWord 0 <> encode x
     encode (Right x) = E.encodeListLen 2 <> E.encodeWord 1 <> encode x
 
-    decode = do D.decodeListLenOf 2
-                t <- D.decodeWord
+    decode = do D.decodeListLenCanonicalOf 2
+                t <- D.decodeWordCanonical
                 case t of
                   0 -> do !x <- decode
                           return (Left x)
@@ -258,7 +259,7 @@ instance Bi a => Bi (Maybe a) where
     encode Nothing  = E.encodeListLen 0
     encode (Just x) = E.encodeListLen 1 <> encode x
 
-    decode = do n <- D.decodeListLen
+    decode = do n <- D.decodeListLenCanonical
                 case n of
                   0 -> return Nothing
                   1 -> do !x <- decode
@@ -325,7 +326,7 @@ encodeMapSkel size foldrWithKey =
 -- "[..]The keys in every map must be sorted lowest value to highest.[...]"
 decodeMapSkel :: (Ord k, Bi k, Bi v) => ([(k,v)] -> m) -> D.Decoder s m
 decodeMapSkel fromDistinctAscList = do
-  n <- D.decodeMapLen
+  n <- D.decodeMapLenCanonical
   case n of
       0 -> return (fromDistinctAscList [])
       _ -> do
@@ -374,12 +375,13 @@ encodeSetSkel size foldFunction =
     mappend encodeSetTag . encodeContainerSkel E.encodeListLen size foldFunction (\a b -> encode a <> b)
 {-# INLINE encodeSetSkel #-}
 
--- We stitch a `258` in from of a (Hash)Set, so that tools which programmatically checks for
--- canonicity can recognise it from a normal array. Why 258? This will be formalised pretty
--- soon, but IANA allocated 256...18446744073709551615 to "First come, first served":
--- https://www.iana.org/assignments/cbor-tags/cbor-tags.xhtml
--- Currently `258` is the first unassigned tag and as it requires 2 bytes to be encoded, it
--- sounds like the best fit.
+-- We stitch a `258` in from of a (Hash)Set, so that tools which
+-- programmatically check for canonicity can recognise it from a normal
+-- array. Why 258? This will be formalised pretty soon, but IANA allocated
+-- 256...18446744073709551615 to "First come, first served":
+-- https://www.iana.org/assignments/cbor-tags/cbor-tags.xhtml Currently `258` is
+-- the first unassigned tag and as it requires 2 bytes to be encoded, it sounds
+-- like the best fit.
 setTag :: Word
 setTag = 258
 
@@ -388,13 +390,13 @@ encodeSetTag = E.encodeTag setTag
 
 decodeSetTag :: D.Decoder s ()
 decodeSetTag = do
-    t <- D.decodeTag
+    t <- D.decodeTagCanonical
     when (t /= setTag) $ fail ("decodeSetTag: this doesn't appear to be a Set. Found tag: " <> show t)
 
 decodeSetSkel :: (Ord a, Bi a) => ([a] -> c) -> D.Decoder s c
 decodeSetSkel fromDistinctAscList = do
   decodeSetTag
-  n <- D.decodeListLen
+  n <- D.decodeListLenCanonical
   case n of
       0 -> return (fromDistinctAscList [])
       _ -> do
@@ -440,7 +442,7 @@ encodeVector = encodeContainerSkel
 decodeVector :: (Bi a, Vector.Generic.Vector v a)
              => D.Decoder s (v a)
 decodeVector = decodeContainerSkelWithReplicate
-    D.decodeListLen
+    D.decodeListLenCanonical
     Vector.Generic.replicateM
     Vector.Generic.concat
 {-# INLINE decodeVector #-}
@@ -496,7 +498,7 @@ instance GSerialiseEncode G.U1 where
 
 instance GSerialiseDecode G.U1 where
     gdecode   = do
-      n <- D.decodeListLen
+      n <- D.decodeListLenCanonical
       when (n /= 0) $ fail "expect list of length 0"
       return G.U1
 
@@ -515,7 +517,7 @@ instance Bi a => GSerialiseEncode (G.K1 i a) where
 
 instance Bi a => GSerialiseDecode (G.K1 i a) where
     gdecode = do
-      n <- D.decodeListLen
+      n <- D.decodeListLenCanonical
       when (n /= 1) $
         fail "expect list of length 1"
       G.K1 <$> decode
@@ -530,7 +532,7 @@ instance (GSerialiseProd f, GSerialiseProd g) => GSerialiseEncode (f G.:*: g) wh
 instance (GSerialiseProd f, GSerialiseProd g) => GSerialiseDecode (f G.:*: g) where
     gdecode = do
       let nF = nFields (Proxy :: Proxy (f G.:*: g))
-      n <- D.decodeListLen
+      n <- D.decodeListLenCanonical
       -- TODO FIXME: signedness of list length
       when (fromIntegral n /= nF) $
         fail $ "Wrong number of fields: expected="++show (nF)++" got="++show n
@@ -547,11 +549,11 @@ instance (GSerialiseSum f, GSerialiseSum g) => GSerialiseEncode (f G.:+: g) wher
 
 instance (GSerialiseSum f, GSerialiseSum g) => GSerialiseDecode (f G.:+: g) where
     gdecode = do
-        n <- D.decodeListLen
+        n <- D.decodeListLenCanonical
         -- TODO FIXME: Again signedness
         when (n == 0) $
           fail "Empty list encountered for sum type"
-        nCon  <- D.decodeWord
+        nCon  <- D.decodeWordCanonical
         trueN <- fieldsForCon (Proxy :: Proxy (f G.:+: g)) nCon
         when (n-1 /= fromIntegral trueN ) $
           fail $ "Number of fields mismatch: expected="++show trueN++" got="++show n

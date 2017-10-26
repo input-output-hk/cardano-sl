@@ -74,7 +74,7 @@ wpGenBlocks blkCnt enTxPayload inplaceDB = do
     params <- genBlockGenParams blkCnt enTxPayload inplaceDB
     g <- pick $ MkGen $ \qc _ -> qc
     lift $ modifyStateLock HighPriority "wpGenBlocks" $ \prevTip -> do
-        blunds <- evalRandT (genBlocks params) g
+        blunds <- OldestFirst <$> evalRandT (genBlocks params maybeToList) g
         case nonEmpty $ getOldestFirst blunds of
             Just nonEmptyBlunds -> do
                 let tipBlockHeader = nonEmptyBlunds ^. _neLast . _1 . blockHeader

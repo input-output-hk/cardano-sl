@@ -452,7 +452,9 @@ test-suite cardano-test
                        Test.Pos.Client.Txp.UtilSpec
 
                        -- Everything else
-                       Test.Pos.CborSpec
+                       Test.Pos.Cbor.Canonicity
+                       Test.Pos.Cbor.CborSpec
+                       Test.Pos.Cbor.ReferenceImplementation
                        Test.Pos.Communication.Identity.BinarySpec
                        Test.Pos.ConstantsSpec
                        Test.Pos.Core.AddressSpec
@@ -514,6 +516,7 @@ test-suite cardano-test
                      , fmt
                      , formatting
                      , generic-arbitrary
+                     , half
                      , hspec
                      , kademlia
                      , lens

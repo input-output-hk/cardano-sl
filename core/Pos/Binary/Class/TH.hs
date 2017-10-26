@@ -39,7 +39,7 @@ instance Bi User where
                                           <> encode (firstName val)
                                           <> encode (sex val)
     decode = do
-        expectedLen <- decodeListLen
+        expectedLen <- decodeListLenCanonical
         tag <- decode @Word8
         case tag of
             0 -> do
@@ -226,7 +226,7 @@ deriveSimpleBiInternal predsMB headTy constrs = do
         []     ->
             failText $ sformat ("Attempting to decode type without constructors "%shown) headTy
         [cons] -> do
-          doE [ bindS (varP actualLen)  [| Cbor.decodeListLen |]
+          doE [ bindS (varP actualLen)  [| Cbor.decodeListLenCanonical |]
               , noBindS (biDecodeConstr cons) -- There is one constructor
               ]
         _      -> do
@@ -237,7 +237,7 @@ deriveSimpleBiInternal predsMB headTy constrs = do
                     match wildP (normalB
                         [| fail $ toString ("Found invalid tag while decoding " <> shortNameTy) |]) []
             doE
-                [ bindS (varP actualLen)  [| Cbor.decodeListLen |]
+                [ bindS (varP actualLen)  [| Cbor.decodeListLenCanonical |]
                 , bindS (varP tagName)    [| Bi.decode |]
                 , noBindS (caseE
                                 (sigE (varE tagName) tagType)

@@ -3,7 +3,8 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module Pos.Client.KeyStorage
-       ( MonadKeys (..)
+       ( MonadKeysRead (..)
+       , MonadKeys (..)
        , getSecretDefault
        , modifySecretPureDefault
        , modifySecretDefault
@@ -39,8 +40,10 @@ type KeyData = TVar UserSecret
 -- MonadKeys class and default functions
 ----------------------------------------------------------------------
 
-class Monad m => MonadKeys m where
+class Monad m => MonadKeysRead m where
     getSecret :: m UserSecret
+
+class MonadKeysRead m => MonadKeys m where
     modifySecret :: (UserSecret -> UserSecret) -> m ()
 
 type HasKeysContext ctx m =
@@ -67,7 +70,7 @@ modifySecretDefault f = do
 -- Helpers
 ----------------------------------------------------------------------
 
-getPrimaryKey :: MonadKeys m => m (Maybe SecretKey)
+getPrimaryKey :: MonadKeysRead m => m (Maybe SecretKey)
 getPrimaryKey = view usPrimKey <$> getSecret
 
 newtype AllUserSecrets = AllUserSecrets
@@ -76,10 +79,10 @@ newtype AllUserSecrets = AllUserSecrets
 
 type instance Element AllUserSecrets = EncryptedSecretKey
 
-getSecretKeys :: MonadKeys m => m AllUserSecrets
+getSecretKeys :: MonadKeysRead m => m AllUserSecrets
 getSecretKeys = AllUserSecrets . view usKeys <$> getSecret
 
-getSecretKeysPlain :: MonadKeys m => m [EncryptedSecretKey]
+getSecretKeysPlain :: MonadKeysRead m => m [EncryptedSecretKey]
 getSecretKeysPlain = view usKeys <$> getSecret
 
 addSecretKey :: MonadKeys m => EncryptedSecretKey -> m ()

@@ -22,6 +22,13 @@ packages:
 - explorer
 
 - location:
+    git: https://github.com/well-typed/cborg
+    # Has support for canonical cbor
+    commit: c7db82bfd93923f5b08ed51a4cd53e30bd445924
+  subdirs:
+  - cborg
+  extra-dep: true
+- location:
     git: https://github.com/serokell/time-units.git
     commit: 6c3747c1ac794f952de996dd7ba8a2f6d63bf132
   extra-dep: true
@@ -114,7 +121,6 @@ extra-deps:
 - generic-arbitrary-0.1.0
 - happy-1.19.5                    # https://github.com/commercialhaskell/stack/issues/3151
 - entropy-0.3.7                   # https://github.com/commercialhaskell/stack/issues/3151
-- cborg-0.1.1.0
 - fmt-0.5.0.0
 - systemd-1.1.2
 - tabl-1.0.3

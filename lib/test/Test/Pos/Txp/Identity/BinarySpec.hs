@@ -16,7 +16,7 @@ import           Pos.Communication.Relay as R
 import qualified Pos.Txp                 as T
 import           Pos.Util                (SmallGenerator)
 
-import           Test.Pos.CborSpec       (extensionProperty)
+import           Test.Pos.Cbor.CborSpec  (extensionProperty)
 import           Test.Pos.Helpers        (binaryTest, msgLenLimitedTest)
 import           Test.Pos.Util           (withDefConfiguration, withDefInfraConfiguration)
 

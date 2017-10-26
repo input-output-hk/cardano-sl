@@ -39,7 +39,6 @@ import           Pos.Wallet.Web.ClientTypes   (AccountId (..), CAccountInit (..)
                                                encToCId)
 import           Pos.Wallet.Web.Error         (WalletError (..), rewrapToWalletError)
 import qualified Pos.Wallet.Web.Methods.Logic as L
-import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
 import           Pos.Wallet.Web.State         (createAccount, removeHistoryCache,
                                                setWalletSyncTip)
 import           Pos.Wallet.Web.Tracking      (syncWalletOnImport)
@@ -51,7 +50,7 @@ initialAccAddrIdxs :: Word32
 initialAccAddrIdxs = firstHardened
 
 newWalletFromBackupPhrase
-    :: MonadWalletWebMode ctx m
+    :: L.MonadWalletLogic ctx m
     => PassPhrase -> CWalletInit -> Bool -> m (EncryptedSecretKey, CId Wal)
 newWalletFromBackupPhrase passphrase CWalletInit {..} isReady = do
     let CWalletMeta {..} = cwInitMeta
@@ -68,7 +67,7 @@ newWalletFromBackupPhrase passphrase CWalletInit {..} isReady = do
 
     return (skey, cAddr)
 
-newWallet :: MonadWalletWebMode ctx m => PassPhrase -> CWalletInit -> m CWallet
+newWallet :: L.MonadWalletLogic ctx m => PassPhrase -> CWalletInit -> m CWallet
 newWallet passphrase cwInit = do
     -- A brand new wallet doesn't need any syncing, so we mark isReady=True
     (_, wId) <- newWalletFromBackupPhrase passphrase cwInit True
@@ -78,7 +77,7 @@ newWallet passphrase cwInit = do
     withStateLockNoMetrics HighPriority $ \tip -> setWalletSyncTip wId tip
     L.getWallet wId
 
-restoreWallet :: MonadWalletWebMode ctx m => PassPhrase -> CWalletInit -> m CWallet
+restoreWallet :: L.MonadWalletLogic ctx m => PassPhrase -> CWalletInit -> m CWallet
 restoreWallet passphrase cwInit = do
     -- Restoring a wallet may take a long time.
     -- Hence we mark the wallet as "not ready" until `syncWalletOnImport` completes.
@@ -88,7 +87,7 @@ restoreWallet passphrase cwInit = do
     L.getWallet wId
 
 importWallet
-    :: MonadWalletWebMode ctx m
+    :: L.MonadWalletLogic ctx m
     => PassPhrase
     -> Text
     -> m CWallet
@@ -106,7 +105,7 @@ importWallet passphrase (toString -> fp) = do
 
 -- Do the all concrete logic of importing here.
 importWalletDo
-    :: MonadWalletWebMode ctx m
+    :: L.MonadWalletLogic ctx m
     => PassPhrase
     -> WalletUserSecret
     -> m CWallet
@@ -116,7 +115,7 @@ importWalletDo passphrase wSecret = do
     L.getWallet wId
 
 importWalletSecret
-    :: MonadWalletWebMode ctx m
+    :: L.MonadWalletLogic ctx m
     => PassPhrase
     -> WalletUserSecret
     -> m CWallet
@@ -146,7 +145,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
 
 -- | Creates wallet with given genesis hd-wallet key.
 -- For debug purposes
-addInitialRichAccount :: MonadWalletWebMode ctx m => Int -> m ()
+addInitialRichAccount :: L.MonadWalletLogic ctx m => Int -> m ()
 addInitialRichAccount keyId =
     E.handleAll wSetExistsHandler $ do
         let hdwSecretKeys = fromMaybe (error "Hdw secrets keys are unknown") genesisHdwSecretKeys

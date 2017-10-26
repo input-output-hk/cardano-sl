@@ -1,12 +1,12 @@
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE TypeFamilies        #-}
 
 -- | Module for websockets implementation of Daedalus API.
 -- This implements unidirectional sockets from server to client.
 -- Every message received from client will be ignored.
 
 module Pos.Wallet.Web.Sockets.Connection
-       ( WebWalletSockets
-       , MonadWalletWebSockets
+       ( MonadWalletWebSockets
        , getWalletWebSockets
        , initWSConnections
        , closeWSConnections
@@ -26,6 +26,7 @@ import           Network.Wai.Handler.WebSockets (websocketsOr)
 import qualified Network.WebSockets             as WS
 import           System.Wlog                    (logError, logNotice, usingLoggerName)
 
+import           Pos.Util.Util                  (HasLens')
 import           Pos.Wallet.Aeson               ()
 import qualified Pos.Wallet.Web.Sockets.ConnSet as CS
 import           Pos.Wallet.Web.Sockets.Types   (NotifyEvent (ConnectionClosed, ConnectionOpened),
@@ -88,16 +89,15 @@ instance WS.WebSocketsData NotifyEvent where
 
 -- | MonadWalletWebSockets stands for monad which is able to get web wallet sockets
 type MonadWalletWebSockets ctx m =
-    ( MonadReader ctx m
-    , HasLens CS.ConnectionsVar ctx CS.ConnectionsVar
+    ( MonadIO m
+    , MonadReader ctx m
+    , HasLens' ctx CS.ConnectionsVar
     )
 
 getWalletWebSockets :: MonadWalletWebSockets ctx m => m CS.ConnectionsVar
 getWalletWebSockets = view (lensOf @CS.ConnectionsVar)
 
-type WebWalletSockets ctx m = (MonadWalletWebSockets ctx m, MonadIO m)
-
-notifyAll :: WebWalletSockets ctx m => NotifyEvent -> m ()
+notifyAll :: MonadWalletWebSockets ctx m => NotifyEvent -> m ()
 notifyAll msg = do
   var <- getWalletWebSockets
   conns <- readTVarIO var

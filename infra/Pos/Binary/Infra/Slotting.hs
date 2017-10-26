@@ -25,10 +25,11 @@ instance Bi SlottingData where
     encode slottingData = encode $ getSlottingDataMap slottingData
     decode = checkIfSlottindDataValid $ decode
       where
-        -- We first check if the data we are trying to decode is valid.
-        -- We don't want to throw a runtime error.
+        -- We first check if the data we are trying to decode is
+        -- valid. We don't want to throw a runtime error. dcNocheck
+        -- is not used here because we don't store SlottingData in db.
         checkIfSlottindDataValid slottingDataM = do
             slottingData <- slottingDataM
-            if isValidSlottingDataMap slottingData
-                then pure $ createSlottingDataUnsafe slottingData
-                else fail "Invalid slotting data state!"
+            unless (isValidSlottingDataMap slottingData) $
+                fail "Invalid slotting data state!"
+            pure $ createSlottingDataUnsafe slottingData

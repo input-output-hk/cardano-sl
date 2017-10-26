@@ -6,7 +6,7 @@ module Pos.Binary.Txp.Core
 
 import           Universum
 
-import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..),
+import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..), dcNocheck,
                                      decodeKnownCborDataItem, decodeListLenCanonical,
                                      decodeUnknownCborDataItem, deriveSimpleBi,
                                      encodeKnownCborDataItem, encodeListLen,
@@ -54,10 +54,13 @@ instance Bi T.Tx where
                 <> encode (T._txAttributes tx)
     decode = do
         enforceSize "Tx" 3
-        res <- T.mkTx <$> decode <*> decode <*> decode
-        case res of
-            Left e   -> fail e
-            Right tx -> pure tx
+        inputs <- decode
+        outputs <- decode
+        attrs <- decode
+
+        ifM (view dcNocheck)
+            (pure $ T.UnsafeTx inputs outputs attrs)
+            (T.mkTx inputs outputs attrs)
 
 instance Bi T.TxInWitness where
     encode input = case input of
@@ -105,16 +108,21 @@ deriveSimpleBi ''T.TxAux [
     ]]
 
 instance Bi T.TxProof where
-  encode proof =  encodeListLen 3
-               <> encode (T.txpNumber proof)
-               <> encode (T.txpRoot proof)
-               <> encode (T.txpWitnessesHash proof)
-  decode = do
-    enforceSize "TxProof" 3
-    T.TxProof <$> decode <*>
-                  decode <*>
-                  decode
+    encode proof =  encodeListLen 3
+                 <> encode (T.txpNumber proof)
+                 <> encode (T.txpRoot proof)
+                 <> encode (T.txpWitnessesHash proof)
+    decode = do
+      enforceSize "TxProof" 3
+      T.TxProof <$> decode <*>
+                    decode <*>
+                    decode
 
 instance Bi T.TxPayload where
     encode T.UnsafeTxPayload {..} = encode $ zip (toList _txpTxs) _txpWitnesses
-    decode = T.mkTxPayload <$> decode
+    decode =
+        -- It's not possible to speed up serialization here as we lose
+        -- info on serialization and build it back when
+        -- deserializing. Without changing serialization protocol of
+        -- course.
+        T.mkTxPayload <$> decode

@@ -234,7 +234,62 @@ makeRedemptionTx rsk txInputs = makeAbstractTx mkWit (map ((), ) txInputs)
             , twRedeemSig = redeemSign SignRedeemTx rsk sigData
             }
 
+-- | Helper for summing values of `TxOutAux`s
+sumTxOutCoins :: NonEmpty TxOutAux -> Integer
+sumTxOutCoins = sumCoins . map (txOutValue . toaOut)
+
+integerToFee :: MonadError TxError m => Integer -> m TxFee
+integerToFee =
+    either (throwError . invalidFee) (pure . TxFee) . integerToCoin
+  where
+    invalidFee reason = GeneralTxError ("Invalid fee: " <> reason)
+
+fixedToFee :: (MonadError TxError m, HasResolution a) => Fixed a -> m TxFee
+fixedToFee = integerToFee . ceiling
+
 type FlatUtxo = [(TxIn, TxOutAux)]
+type InputPickingWay = Utxo -> TxOutputs -> Coin -> Either TxError FlatUtxo
+
+-- TODO [CSM-526] Scatter on submodules
+
+-------------------------------------------------------------------------
+-- Simple inputs picking
+-------------------------------------------------------------------------
+
+data InputPickerState = InputPickerState
+    { _ipsMoneyLeft        :: !Coin
+    , _ipsAvailableOutputs :: !FlatUtxo
+    }
+
+makeLenses ''InputPickerState
+
+type InputPicker = StateT InputPickerState (Either TxError)
+
+plainInputPicker :: InputPickingWay
+plainInputPicker utxo _outputs moneyToSpent =
+    evalStateT (pickInputs []) (InputPickerState moneyToSpent sortedUnspent)
+  where
+    allUnspent = M.toList utxo
+    sortedUnspent =
+        sortOn (Down . txOutValue . toaOut . snd) allUnspent
+
+    pickInputs :: FlatUtxo -> InputPicker FlatUtxo
+    pickInputs inps = do
+        moneyLeft <- use ipsMoneyLeft
+        if moneyLeft == mkCoin 0
+            then return inps
+            else do
+            mNextOut <- head <$> use ipsAvailableOutputs
+            case mNextOut of
+                Nothing -> throwError $ NotEnoughMoney moneyLeft
+                Just inp@(_, (TxOutAux (TxOut {..}))) -> do
+                    ipsMoneyLeft .= unsafeSubCoin moneyLeft (min txOutValue moneyLeft)
+                    ipsAvailableOutputs %= tail
+                    pickInputs (inp : inps)
+
+-------------------------------------------------------------------------
+-- Grouped inputs picking
+-------------------------------------------------------------------------
 
 -- | Group of unspent transaction outputs which belongs
 -- to one address
@@ -243,10 +298,6 @@ data UtxoGroup = UtxoGroup
     , ugTotalMoney :: !Coin
     , ugUtxo       :: !(NonEmpty (TxIn, TxOutAux))
     } deriving (Show)
-
--- | Helper for summing values of `TxOutAux`s
-sumTxOutCoins :: NonEmpty TxOutAux -> Integer
-sumTxOutCoins = sumCoins . map (txOutValue . toaOut)
 
 -- | Group unspent outputs by addresses
 groupUtxo :: Utxo -> [UtxoGroup]
@@ -261,54 +312,19 @@ groupUtxo utxo =
                 map snd ugUtxo
         in UtxoGroup {..}
 
-integerToFee :: MonadError TxError m => Integer -> m TxFee
-integerToFee =
-    either (throwError . invalidFee) (pure . TxFee) . integerToCoin
-  where
-    invalidFee reason = GeneralTxError ("Invalid fee: " <> reason)
-
-fixedToFee :: (MonadError TxError m, HasResolution a) => Fixed a -> m TxFee
-fixedToFee = integerToFee . ceiling
-
-data InputPickerState = InputPickerState
-    { _ipsMoneyLeft             :: !Coin
-    , _ipsAvailableOutputGroups :: ![UtxoGroup]
+data GroupedInputPickerState = GroupedInputPickerState
+    { _gipsMoneyLeft             :: !Coin
+    , _gipsAvailableOutputGroups :: ![UtxoGroup]
     }
 
-makeLenses ''InputPickerState
+makeLenses ''GroupedInputPickerState
 
-type InputPicker = StateT InputPickerState (Either TxError)
+type GroupedInputPicker = StateT GroupedInputPickerState (Either TxError)
 
--- | Given filtered Utxo, desired outputs and fee size,
--- prepare correct inputs and outputs for transaction
--- (and tell how much to send to remaining address)
-prepareTxRaw
-    :: Monad m
-    => Utxo
-    -> TxOutputs
-    -> TxFee
-    -> TxCreator m TxRaw
-prepareTxRaw utxo outputs (TxFee fee) = do
-    mapM_ (checkIsNotRedeemAddr . txOutAddress . toaOut) outputs
-
-    totalMoney <- sumTxOuts outputs
-    when (totalMoney == mkCoin 0) $
-        throwError $ GeneralTxError "Attempted to send 0 money"
-
-    let totalMoneyWithFee = totalMoney `unsafeAddCoin` fee
-    futxo <- either throwError pure $
-        evalStateT (pickInputs []) (InputPickerState totalMoneyWithFee sortedGroups)
-    case nonEmpty futxo of
-        Nothing       -> throwError $ GeneralTxError "Failed to prepare inputs!"
-        Just inputsNE -> do
-            totalTxAmount <- sumTxOuts $ map snd inputsNE
-            let trInputs = map formTxInputs inputsNE
-                trRemainingMoney = totalTxAmount `unsafeSubCoin` totalMoneyWithFee
-            let trOutputs = outputs
-            pure TxRaw {..}
+groupedInputPicker :: InputPickingWay
+groupedInputPicker utxo outputs moneyToSpent =
+    evalStateT (pickInputs []) (GroupedInputPickerState moneyToSpent sortedGroups)
   where
-    sumTxOuts = either (throwError . GeneralTxError) pure .
-        integerToCoin . sumTxOutCoins
     gUtxo = groupUtxo utxo
     outputAddrsSet = foldl' (flip HS.insert) mempty $
         map (txOutAddress . toaOut) outputs
@@ -318,27 +334,70 @@ prepareTxRaw utxo outputs (TxFee fee) = do
     disallowedInputGroups = filter (isOutputAddr . ugAddr) gUtxo
     disallowedMoney = sumCoins $ map ugTotalMoney disallowedInputGroups
 
-    pickInputs :: FlatUtxo -> InputPicker FlatUtxo
+    pickInputs :: FlatUtxo -> GroupedInputPicker FlatUtxo
     pickInputs inps = do
-        moneyLeft <- use ipsMoneyLeft
+        moneyLeft <- use gipsMoneyLeft
         if moneyLeft == mkCoin 0
             then return inps
             else do
-                mNextOutGroup <- head <$> use ipsAvailableOutputGroups
+                mNextOutGroup <- head <$> use gipsAvailableOutputGroups
                 case mNextOutGroup of
                     Nothing -> if disallowedMoney >= coinToInteger moneyLeft
                         then throwError $ NotEnoughAllowedMoney moneyLeft
                         else throwError $ NotEnoughMoney moneyLeft
                     Just UtxoGroup {..} -> do
-                        ipsMoneyLeft .= unsafeSubCoin moneyLeft (min ugTotalMoney moneyLeft)
-                        ipsAvailableOutputGroups %= tail
+                        gipsMoneyLeft .= unsafeSubCoin moneyLeft (min ugTotalMoney moneyLeft)
+                        gipsAvailableOutputGroups %= tail
                         pickInputs (toList ugUtxo ++ inps)
 
-    formTxInputs (inp, TxOutAux txOut) = (txOut, inp)
+-------------------------------------------------------------------------
+-- Further logic
+-------------------------------------------------------------------------
 
+-- | Given filtered Utxo, desired outputs and fee size,
+-- prepare correct inputs and outputs for transaction
+-- (and tell how much to send to remaining address)
+prepareTxRawWithPicker
+    :: Monad m
+    => InputPickingWay
+    -> Utxo
+    -> TxOutputs
+    -> TxFee
+    -> TxCreator m TxRaw
+prepareTxRawWithPicker inputPicker utxo outputs (TxFee fee) = do
+    mapM_ (checkIsNotRedeemAddr . txOutAddress . toaOut) outputs
+
+    totalMoney <- sumTxOuts outputs
+    when (totalMoney == mkCoin 0) $
+        throwError $ GeneralTxError "Attempted to send 0 money"
+
+    let moneyToSpent = totalMoney `unsafeAddCoin` fee
+    futxo <- either throwError pure $ inputPicker utxo outputs moneyToSpent
+    case nonEmpty futxo of
+        Nothing       -> throwError $ GeneralTxError "Failed to prepare inputs!"
+        Just inputsNE -> do
+            totalTxAmount <- sumTxOuts $ map snd inputsNE
+            let trInputs = map formTxInputs inputsNE
+                trRemainingMoney = totalTxAmount `unsafeSubCoin` moneyToSpent
+            let trOutputs = outputs
+            pure TxRaw {..}
+  where
+    sumTxOuts = either (throwError . GeneralTxError) pure .
+        integerToCoin . sumTxOutCoins
+    formTxInputs (inp, TxOutAux txOut) = (txOut, inp)
     checkIsNotRedeemAddr outAddr =
         when (isRedeemAddress outAddr) $
             throwError $ OutputIsRedeem outAddr
+
+prepareTxRaw
+    :: Monad m
+    => Utxo
+    -> TxOutputs
+    -> TxFee
+    -> TxCreator m TxRaw
+prepareTxRaw =
+    let inputPicker = const groupedInputPicker plainInputPicker
+    in  prepareTxRawWithPicker inputPicker
 
 -- Returns set of tx outputs including change output (if it's necessary)
 mkOutputsWithRem
@@ -534,7 +593,7 @@ stabilizeTxFee linearPolicy utxo outputs = do
         Nothing -> throwError FailedToStabilize
         Just tx -> pure $ tx & \(S.Min (S.Arg _ txRaw)) -> txRaw
   where
-    firstStageAttempts = 2 * length (groupUtxo utxo) + 5
+    firstStageAttempts = 2 * length utxo + 5
     secondStageAttempts = 10
 
     stabilizeTxFeeDo :: (Bool, Int)

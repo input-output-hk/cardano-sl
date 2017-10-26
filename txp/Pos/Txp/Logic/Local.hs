@@ -13,6 +13,8 @@ module Pos.Txp.Logic.Local
        -- Utils to process tx
        , ProcessTxContext (..)
        , buildProccessTxContext
+       , TxProcessingMode
+       , txProcessTransactionAbstract
        ) where
 
 import           Universum
@@ -36,15 +38,15 @@ import           Pos.Reporting        (reportError)
 import           Pos.Slotting         (MonadSlots (..))
 import           Pos.StateLock        (Priority (..), StateLock, StateLockMetrics,
                                        withStateLock)
-import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId, TxUndo, topsortTxs)
-import           Pos.Txp.MemState     (GenericTxpLocalData (..), MempoolExt, MonadTxpMem,
-                                       TxpLocalDataPure, TxpLocalWorkMode, askTxpMem,
-                                       getLocalTxs, getUtxoModifier, modifyTxpLocalData,
-                                       setTxpLocalData)
+import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId, topsortTxs)
+import           Pos.Txp.MemState     (GenericTxpLocalData (..), GenericTxpLocalDataPure,
+                                       MempoolExt, MonadTxpMem, TxpLocalWorkMode,
+                                       askTxpMem, getLocalTxs, getUtxoModifier,
+                                       modifyTxpLocalData, setTxpLocalData)
 import           Pos.Txp.Toil         (GenericToilModifier (..), MonadUtxoRead (..),
-                                       ToilModifier, ToilT, ToilVerFailure (..), Utxo,
-                                       execToilTLocal, mpLocalTxs, normalizeToil,
-                                       processTx, runDBToil, runToilTLocal, utxoGetReader)
+                                       ToilT, ToilVerFailure (..), Utxo, execToilTLocal,
+                                       mpLocalTxs, normalizeToil, processTx, runDBToil,
+                                       runToilTLocal, runToilTLocalExtra, utxoGetReader)
 import           Pos.Util.Util        (HasLens (..), HasLens')
 
 -- Base context for tx processing in.
@@ -58,7 +60,7 @@ makeLenses ''ProcessTxContext
 instance HasLens Utxo ProcessTxContext Utxo where
     lensOf = ptcUtxoBase
 
--- Base monad for tx processing in.
+--- Base monad for tx processing in.
 type ProcessTxMode = ReaderT ProcessTxContext (NamedPureLogger Identity)
 
 instance HasConfiguration => MonadUtxoRead ProcessTxMode where
@@ -89,7 +91,28 @@ txProcessTransactionNoLock
        , MempoolExt m ~ ()
        )
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
-txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
+txProcessTransactionNoLock =
+    txProcessTransactionAbstract
+        buildProccessTxContext
+        processTx
+
+type TxProcessingMode pctx ext =
+    ExceptT ToilVerFailure (
+        ToilT ext (
+            ReaderT pctx (
+                NamedPureLogger Identity
+    )))
+
+txProcessTransactionAbstract
+    :: forall pctx ext ctx m a .
+       ( TxpLocalWorkMode ctx m
+       , MempoolExt m ~ ext
+       )
+    => (TxAux -> m pctx)
+    -> (EpochIndex -> (TxId, TxAux) -> TxProcessingMode pctx ext a)
+    -> (TxId, TxAux)
+    -> m (Either ToilVerFailure ())
+txProcessTransactionAbstract buildPTxContext txAction itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
     -- Note: we need to read tip from the DB and check that it's the
     -- same as the one in mempool. That's because mempool state is
     -- valid only with respect to the tip stored there. Normally tips
@@ -106,11 +129,11 @@ txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ 
     -- 'StateLock' which we own inside this function.
     tipDB <- GS.getTip
     epoch <- siEpoch <$> (note ToilSlotUnknown =<< getCurrentSlot)
-    ctx <- lift $ buildProccessTxContext txAux
+    pctx <- lift $ buildPTxContext txAux
     pRes <-
         lift $
         modifyTxpLocalData $
-        processTxDo epoch ctx tipDB itw
+        processTransactionPure epoch pctx tipDB itw
     -- We report 'ToilTipsMismatch' as an error, because usually it
     -- should't happen. If it happens, it's better to look at logs.
     case pRes of
@@ -121,21 +144,21 @@ txProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ 
             logDebug
                 (sformat ("Transaction is processed successfully: " %build) txId)
   where
-    processTxDo
+    processTransactionPure
         :: EpochIndex
-        -> ProcessTxContext
+        -> pctx
         -> HeaderHash
         -> (TxId, TxAux)
-        -> TxpLocalDataPure
-        -> NamedPureLogger Identity (Either ToilVerFailure (), TxpLocalDataPure)
-    processTxDo curEpoch ctx tipDB tx txld@(uv, mp, undo, tip, ())
+        -> GenericTxpLocalDataPure ext
+        -> NamedPureLogger Identity (Either ToilVerFailure (), GenericTxpLocalDataPure ext)
+    processTransactionPure curEpoch pctx tipDB tx txld@(uv, mp, undo, tip, extra)
         | tipDB /= tip = pure (Left $ ToilTipsMismatch tipDB tip, txld)
         | otherwise = do
-            let action :: ExceptT ToilVerFailure (ToilT () ProcessTxMode) TxUndo
-                action = processTx curEpoch tx
-            res :: (Either ToilVerFailure TxUndo, ToilModifier) <-
-                    flip runReaderT ctx $
-                    runToilTLocal uv mp undo $ runExceptT action
+            res :: (Either ToilVerFailure a, GenericToilModifier ext) <-
+                    flip runReaderT pctx $
+                    runToilTLocalExtra uv mp undo extra $
+                    runExceptT $
+                    txAction curEpoch tx
             case res of
                 (Left er, _) -> pure (Left er, txld)
                 (Right _, ToilModifier {..}) -> pure

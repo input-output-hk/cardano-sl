@@ -11,32 +11,26 @@ module Pos.Explorer.Txp.Local
 import           Universum
 
 import           Control.Lens           (makeLenses)
-import           Control.Monad.Except   (MonadError (..))
 import           Data.Default           (def)
 import qualified Data.HashMap.Strict    as HM
-import qualified Data.List.NonEmpty     as NE
-import           Formatting             (build, sformat, (%))
-import           System.Wlog            (NamedPureLogger, logDebug)
+import           System.Wlog            (NamedPureLogger)
 
-import           Pos.Core               (BlockVersionData, EpochIndex, HeaderHash,
-                                         Timestamp, siEpoch)
+import           Pos.Core               (BlockVersionData, siEpoch)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB.Class           (MonadDBRead, MonadGState (..))
 import qualified Pos.Explorer.DB        as ExDB
 import qualified Pos.GState             as GS
-import           Pos.Reporting          (reportError)
 import           Pos.Slotting           (MonadSlots (getCurrentSlot), getSlotStart)
 import           Pos.StateLock          (Priority (..), StateLock, StateLockMetrics,
                                          withStateLock)
 import           Pos.Txp.Core           (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
-import           Pos.Txp.Logic.Local    (ProcessTxContext (..), buildProccessTxContext)
-import           Pos.Txp.MemState       (GenericTxpLocalDataPure, MempoolExt, MonadTxpMem,
-                                         TxpLocalWorkMode, getLocalTxsMap, getTxpExtra,
-                                         modifyTxpLocalData, setTxpLocalData)
+import           Pos.Txp.Logic.Local    (ProcessTxContext (..), buildProccessTxContext,
+                                         txProcessTransactionAbstract)
+import           Pos.Txp.MemState       (MempoolExt, MonadTxpMem, TxpLocalWorkMode,
+                                         getLocalTxsMap, getTxpExtra, setTxpLocalData)
 import           Pos.Txp.Toil           (GenericToilModifier (..), MonadUtxoRead (..),
-                                         ToilT, ToilVerFailure (..), Utxo, runDBToil,
-                                         runDBToil, runToilTLocalExtra, utxoGet,
-                                         utxoGetReader)
+                                         ToilVerFailure (..), Utxo, runDBToil, runDBToil,
+                                         runToilTLocalExtra, utxoGet, utxoGetReader)
 import           Pos.Util.Chrono        (NewestFirst (..))
 import qualified Pos.Util.Modifier      as MM
 import           Pos.Util.Util          (HasLens (..), HasLens')
@@ -51,8 +45,6 @@ type ETxpLocalWorkMode ctx m =
     ( TxpLocalWorkMode ctx m
     , MempoolExt m ~ ExplorerExtra
     )
-
-type ETxpLocalDataPure = GenericTxpLocalDataPure ExplorerExtra
 
 -- Base context for tx processing in explorer.
 data EProcessTxContext = EProcessTxContext
@@ -95,67 +87,16 @@ eTxProcessTransaction itw =
 eTxProcessTransactionNoLock
     :: ETxpLocalWorkMode ctx m
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
-eTxProcessTransactionNoLock itw@(txId, txAux) = reportTipMismatch $ runExceptT $ do
-    tipBefore <- GS.getTip
-    slot         <- note ToilSlotUnknown =<< getCurrentSlot
-    -- First get the current @SlotId@ so we can calculate the time.
-    -- Then get when that @SlotId@ started and use that as a time for @Tx@.
-    let epoch     = siEpoch slot
-    mTxTimestamp <- getSlotStart slot
-    ctx <- lift $ buildEProcessTxContext txAux
-    pRes <-
-        lift $
-        modifyTxpLocalData $
-        processTxDo epoch ctx tipBefore itw mTxTimestamp
-    -- We report 'ToilTipsMismatch' as an error, because usually it
-    -- should't happen. If it happens, it's better to look at logs.
-    case pRes of
-        Left er -> do
-            logDebug $ sformat ("Transaction processing failed: " %build) txId
-            throwError er
-        Right _ ->
-            logDebug
-                (sformat ("Transaction is processed successfully: " %build) txId)
-  where
-    processTxDo ::
-           EpochIndex
-        -> EProcessTxContext
-        -> HeaderHash
-        -> (TxId, TxAux)
-        -> Maybe Timestamp
-        -> ETxpLocalDataPure
-        -> NamedPureLogger Identity (Either ToilVerFailure (), ETxpLocalDataPure)
-    processTxDo curEpoch ctx@EProcessTxContext {..} tipBefore tx mTxTimestamp txld@(uv, mp, undo, tip, extra)
-        | tipBefore /= tip = pure (Left $ ToilTipsMismatch tipBefore tip, txld)
-        | otherwise = do
-            let runToil ::
-                       Functor m
-                    => ToilT ExplorerExtra m a
-                    -> m (a, GenericToilModifier ExplorerExtra)
-                runToil = runToilTLocalExtra uv mp undo extra
-
-                -- NE.fromList is safe here, because if `resolved` is empty, `processTx`
-                -- wouldn't save extra value, thus wouldn't reduce it to NF
-                txUndo = NE.fromList $ map Just $ toList _eptcUtxoBase
-
-                -- We strictly rely on verifyAllIsKnown = True here
-                action ::
-                       ExceptT ToilVerFailure (ToilT ExplorerExtra EProcessTxMode) ()
-                action = eProcessTx curEpoch tx (TxExtra Nothing mTxTimestamp txUndo)
-            res :: ( Either ToilVerFailure (), GenericToilModifier ExplorerExtra) <-
-                    flip runReaderT ctx $
-                    runToil $ runExceptT action
-            case res of
-                (Left er, _) -> pure (Left er, txld)
-                (Right (), ToilModifier {..}) -> pure
-                    ( Right ()
-                    , (_tmUtxo, _tmMemPool, _tmUndos, tip, _tmExtra))
-    -- REPORT:ERROR Tips mismatch in txp.
-    reportTipMismatch action = do
-        res <- action
-        res <$ case res of
-            (Left err@(ToilTipsMismatch {})) -> reportError (pretty err)
-            _                                -> pass
+eTxProcessTransactionNoLock itw = getCurrentSlot >>= \case
+    Nothing   -> pure $ Left ToilSlotUnknown
+    Just slot -> do
+        -- First get the current @SlotId@ so we can calculate the time.
+        -- Then get when that @SlotId@ started and use that as a time for @Tx@.
+        mTxTimestamp <- getSlotStart slot
+        txProcessTransactionAbstract
+            buildEProcessTxContext
+            (\e tx -> eProcessTx e tx (TxExtra Nothing mTxTimestamp))
+            itw
 
 buildEProcessTxContext
     :: forall m ctx.

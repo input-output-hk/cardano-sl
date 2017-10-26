@@ -13,15 +13,16 @@ import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Raw
                                              deriveSimpleBiCxt, encodeListLen,
                                              enforceSize)
 import           Pos.Binary.Infra           ()
-import           Pos.Core                   (ApplicationName, BlockVersion, HasConfiguration,
+import           Pos.Core                   (ApplicationName, BlockVersion,
                                              ChainDifficulty, Coin, CoinPortion,
-                                             EpochIndex, FlatSlotId,
+                                             EpochIndex, FlatSlotId, HasConfiguration,
                                              HeaderHash, NumSoftwareVersion,
                                              ScriptVersion, SlotId, SoftforkRule,
                                              SoftwareVersion, StakeholderId, TxFeePolicy)
+import qualified Pos.Core.Update            as U
 import           Pos.Crypto                 (Hash, SignTag (SignUSVote), checkSig)
 import           Pos.Slotting.Types         (SlottingData)
-import qualified Pos.Update.Core.Types      as U
+import qualified Pos.Update.Core            as U
 import qualified Pos.Update.Poll.Types      as U
 
 instance Bi U.SystemTag where

@@ -40,6 +40,7 @@ import           Pos.Core                   (Blockchain (..), EpochIndex,
                                              epochSlots, flattenSlotId, getEpochOrSlot,
                                              headerHash)
 import           Pos.Core.Txp               (TxAux (..), mkTxPayload)
+import           Pos.Core.Update            (UpdatePayload (..))
 import           Pos.Crypto                 (SecretKey)
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB
@@ -61,7 +62,6 @@ import           Pos.Txp                    (MempoolExt, MonadTxpLocal (..), Mon
 import           Pos.Txp.Base               (emptyTxPayload)
 import           Pos.Update                 (UpdateContext)
 import           Pos.Update.Configuration   (HasUpdateConfiguration)
-import           Pos.Update.Core            (UpdatePayload (..))
 import qualified Pos.Update.DB              as UDB
 import           Pos.Update.Logic           (clearUSMemPool, usCanCreateBlock,
                                              usPreparePayload)

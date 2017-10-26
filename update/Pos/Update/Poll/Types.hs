@@ -59,10 +59,11 @@ import           Pos.Core.Types             (ApplicationName, BlockVersion,
                                              HeaderHash, NumSoftwareVersion,
                                              ScriptVersion, SlotId, SoftwareVersion,
                                              StakeholderId, mkCoin)
+import           Pos.Core.Update            (BlockVersionData (..),
+                                             BlockVersionModifier (..), UpId,
+                                             UpdateProposal (..))
 import           Pos.Slotting.Types         (SlottingData)
-import           Pos.Update.Core            (BlockVersionData (..),
-                                             BlockVersionModifier (..), StakeholderVotes,
-                                             UpId, UpdateProposal (..))
+import           Pos.Update.Core            (StakeholderVotes)
 import           Pos.Util.Modifier          (MapModifier)
 
 ----------------------------------------------------------------------------

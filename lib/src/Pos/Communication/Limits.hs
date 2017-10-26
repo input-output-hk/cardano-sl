@@ -32,6 +32,7 @@ import           Pos.Core                           (BlockVersionData (..),
                                                      VssCertificate, coinPortionToDouble)
 import           Pos.Core.Configuration             (HasConfiguration, blkSecurityParam)
 import           Pos.Core.Txp                       (TxAux)
+import           Pos.Core.Update                    (UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto                         (AbstractHash, DecShare, EncShare,
                                                      ProxyCert (..), ProxySecretKey (..),
                                                      ProxySignature (..), PublicKey,
@@ -45,7 +46,6 @@ import           Pos.Ssc.GodTossing.Types.Message   (MCCommitment (..), MCOpenin
                                                      MCShares (..), MCVssCertificate (..))
 import           Pos.Txp.Network.Types              (TxMsgContents (..))
 import           Pos.Types                          (EpochIndex)
-import           Pos.Update.Core.Types              (UpdateProposal (..), UpdateVote (..))
 
 -- Reexports
 import           Pos.Communication.Limits.Instances ()

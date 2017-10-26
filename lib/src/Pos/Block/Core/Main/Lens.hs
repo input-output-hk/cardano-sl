@@ -79,11 +79,11 @@ import           Pos.Core                  (BlockVersion, ChainDifficulty, Heade
                                             gbhConsensus, gbhExtra, gbhPrevBlock)
 import           Pos.Core.Txp              (Tx, TxPayload, TxWitness, txpTxs,
                                             txpWitnesses)
+import           Pos.Core.Update           (UpdatePayload)
 import           Pos.Crypto                (Hash, PublicKey)
 import           Pos.Delegation.Types      (DlgPayload)
 import           Pos.Merkle                (MerkleTree)
 import           Pos.Ssc.Core              (SscPayload)
-import           Pos.Update.Core.Types     (UpdatePayload)
 
 ----------------------------------------------------------------------------
 -- MainToSign

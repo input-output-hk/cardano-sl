@@ -12,13 +12,13 @@ import           Universum
 
 import           Pos.Binary.Communication  ()
 import           Pos.Binary.Relay          ()
-import           Pos.Communication.Types   (MsgType (..))
 import           Pos.Communication.Limits  ()
 import           Pos.Communication.Message ()
 import           Pos.Communication.Relay   (InvReqDataParams (..), MempoolParams (..),
                                             Relay (..))
+import           Pos.Communication.Types   (MsgType (..))
+import           Pos.Core.Update           (UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto                (hash)
-import           Pos.Update.Core           (UpdateProposal (..), UpdateVote (..))
 import           Pos.Update.Logic.Local    (getLocalProposalNVotes, getLocalVote,
                                             isProposalNeeded, isVoteNeeded,
                                             processProposal, processVote)

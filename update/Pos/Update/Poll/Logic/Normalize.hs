@@ -19,10 +19,10 @@ import           System.Wlog                 (logWarning)
 import           Pos.Core                    (Coin, EpochIndex, HasConfiguration,
                                               SlotId (siEpoch), addressHash,
                                               applyCoinPortionUp, mkCoin, unsafeAddCoin)
+import           Pos.Core.Update             (UpId, UpdateProposal, UpdateProposals,
+                                              UpdateVote (..), bvdUpdateProposalThd)
 import           Pos.Crypto                  (PublicKey, hash)
-import           Pos.Update.Core             (LocalVotes, UpId, UpdateProposal,
-                                              UpdateProposals, UpdateVote (..),
-                                              bvdUpdateProposalThd)
+import           Pos.Update.Core             (LocalVotes)
 import           Pos.Update.Poll.Class       (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure     (PollVerFailure (..))
 import           Pos.Update.Poll.Logic.Apply (verifyAndApplyProposal,

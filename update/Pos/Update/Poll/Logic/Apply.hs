@@ -25,11 +25,11 @@ import           Pos.Core                      (ChainDifficulty (..), Coin, Epoc
                                                 headerSlotL, sumCoins, unflattenSlotId,
                                                 unsafeIntegerToCoin)
 import           Pos.Core.Configuration        (HasConfiguration, blkSecurityParam)
-import           Pos.Crypto                    (hash, shortHashF)
-import           Pos.Data.Attributes           (areAttributesKnown)
-import           Pos.Update.Core               (BlockVersionData (..), UpId,
+import           Pos.Core.Update               (BlockVersionData (..), UpId,
                                                 UpdatePayload (..), UpdateProposal (..),
                                                 UpdateVote (..), bvdUpdateProposalThd)
+import           Pos.Crypto                    (hash, shortHashF)
+import           Pos.Data.Attributes           (areAttributesKnown)
 import           Pos.Update.Poll.Class         (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure       (PollVerFailure (..))
 import           Pos.Update.Poll.Logic.Base    (canBeAdoptedBV, canCreateBlockBV,

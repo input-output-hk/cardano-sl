@@ -19,8 +19,9 @@ import           Universum
 
 import           Pos.Binary.Update     ()
 import           Pos.Core              (SoftwareVersion (..), addressHash)
+import           Pos.Core.Update       (UpdateProposal (..))
 import           Pos.Crypto            (hash)
-import           Pos.Update.Core       (UpdateProposal (..), applyBVM)
+import           Pos.Update.Core       (applyBVM)
 import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Types (BlockVersionState (..), DecidedProposalState (..),
                                         PollModifier (..), ProposalState (..),

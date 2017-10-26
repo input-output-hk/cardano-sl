@@ -4,16 +4,16 @@ module Pos.Binary.Relay () where
 
 import           Universum
 
-import           Pos.Binary.Class                 (Bi (..))
-import           Pos.Binary.Crypto                ()
-import           Pos.Binary.Ssc                   ()
-import           Pos.Binary.Update                ()
-import           Pos.Communication.Types.Relay    (DataMsg (..))
-import           Pos.Core.Configuration           (HasConfiguration)
-import           Pos.Crypto                       (hash)
-import           Pos.Delegation.Types             (ProxySKLightConfirmation)
-import           Pos.Types                        (ProxySKHeavy, ProxySKLight)
-import           Pos.Update.Core                  (UpdateProposal, UpdateVote (..))
+import           Pos.Binary.Class              (Bi (..))
+import           Pos.Binary.Crypto             ()
+import           Pos.Binary.Ssc                ()
+import           Pos.Binary.Update             ()
+import           Pos.Communication.Types.Relay (DataMsg (..))
+import           Pos.Core.Configuration        (HasConfiguration)
+import           Pos.Core.Update               (UpdateProposal, UpdateVote (..))
+import           Pos.Crypto                    (hash)
+import           Pos.Delegation.Types          (ProxySKLightConfirmation)
+import           Pos.Types                     (ProxySKHeavy, ProxySKLight)
 
 instance HasConfiguration => Bi (DataMsg (UpdateProposal, [UpdateVote])) where
   encode = encode . dmContents

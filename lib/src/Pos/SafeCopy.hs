@@ -37,6 +37,10 @@ import           Pos.Core.Types                  (AddrAttributes (..),
                                                   Script (..), SharedSeed (..),
                                                   SlotCount (..), SlotId (..),
                                                   SoftforkRule (..), SoftwareVersion (..))
+import           Pos.Core.Update                 (BlockVersionModifier (..),
+                                                  SystemTag (..), UpdateData (..),
+                                                  UpdatePayload (..), UpdateProposal (..),
+                                                  UpdateVote (..))
 import           Pos.Core.Vss                    (VssCertificate (..), VssCertificatesMap)
 import           Pos.Crypto.Hashing              (AbstractHash (..))
 import           Pos.Crypto.HD                   (HDAddressPayload (..))
@@ -55,10 +59,6 @@ import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (.
 import           Pos.Ssc.Core                    (Commitment (..), CommitmentsMap,
                                                   Opening (..), SscPayload (..),
                                                   SscProof (..))
-import           Pos.Update.Core.Types           (BlockVersionModifier (..),
-                                                  SystemTag (..), UpdateData (..),
-                                                  UpdatePayload (..), UpdateProposal (..),
-                                                  UpdateVote (..))
 
 
 ----------------------------------------------------------------------------

@@ -15,11 +15,12 @@ import           Universum
 import           Data.Default               (Default (def))
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Core                   (HasConfiguration, HeaderHash, SlotId (..))
+import           Pos.Core                   (HasConfiguration, HeaderHash, SlotId (..),
+                                             UpdateProposals)
 import           Pos.DB.Class               (MonadDBRead)
 import           Pos.DB.GState.Common       (getTip)
 import           Pos.Slotting               (MonadSlots (getCurrentSlot))
-import           Pos.Update.Core            (LocalVotes, UpdateProposals)
+import           Pos.Update.Core            (LocalVotes)
 import           Pos.Update.Poll.Modifier   ()
 import           Pos.Update.Poll.Types      (PollModifier)
 

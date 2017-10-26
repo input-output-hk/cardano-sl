@@ -35,6 +35,8 @@ import           Pos.Binary.Class         (biSize)
 import           Pos.Core                 (BlockVersionData (bvdMaxBlockSize),
                                            HasConfiguration, HeaderHash, SlotId (..),
                                            slotIdF)
+import           Pos.Core.Update          (UpId, UpdatePayload (..), UpdateProposal,
+                                           UpdateVote (..))
 import           Pos.Crypto               (PublicKey, shortHashF)
 import           Pos.DB.Class             (MonadDBRead)
 import qualified Pos.DB.GState.Common     as DB
@@ -43,8 +45,7 @@ import           Pos.Reporting            (MonadReporting)
 import           Pos.StateLock            (StateLock)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context       (UpdateContext (..))
-import           Pos.Update.Core          (UpId, UpdatePayload (..), UpdateProposal,
-                                           UpdateVote (..), canCombineVotes)
+import           Pos.Update.Core          (canCombineVotes)
 import qualified Pos.Update.DB            as DB
 import           Pos.Update.MemState      (LocalVotes, MemPool (..), MemState (..),
                                            MemVar (mvState), UpdateProposals,

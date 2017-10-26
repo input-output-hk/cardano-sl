@@ -13,11 +13,11 @@ import qualified Data.HashMap.Strict       as HM
 import           Pos.Binary.Class          (biSize)
 import           Pos.Binary.Update         ()
 import           Pos.Core.Configuration    (HasConfiguration)
+import           Pos.Core.Update           (UpdatePayload (..), UpdateVote (..))
 import           Pos.Crypto                (PublicKey, hash)
-import           Pos.StateLock             (Priority (..), StateLock
-                                           , withStateLockNoMetrics)
-import           Pos.Update.Core.Types     (LocalVotes, UpdatePayload (..),
-                                            UpdateVote (..))
+import           Pos.StateLock             (Priority (..), StateLock,
+                                            withStateLockNoMetrics)
+import           Pos.Update.Core           (LocalVotes)
 import           Pos.Update.MemState.Types (MemPool (..))
 import           Pos.Util.Util             (HasLens')
 

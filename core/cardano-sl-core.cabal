@@ -45,6 +45,7 @@ library
                        Pos.Core.Coin
                        Pos.Core.Context
                        Pos.Core.Fee
+                       Pos.Core.Update
                        Pos.Core.Script
                        Pos.Core.SharedSeed
                        Pos.Core.Slotting

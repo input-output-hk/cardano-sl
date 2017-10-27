@@ -196,6 +196,11 @@ Command example:
 
 main :: IO ()
 main = do
+    IO.hSetEncoding stdout IO.utf8
+    IO.hSetEncoding stderr IO.utf8
+    IO.hSetBuffering IO.stdout IO.NoBuffering
+    IO.hSetBuffering IO.stderr IO.NoBuffering
+    putText "hello world!"
     writeFile "debuglog" ""
     appendFile "debuglog" "==> beginning of 'main'"
     LO {..} <- getLauncherOptions
@@ -211,8 +216,11 @@ main = do
             & lcTree %~ case loLauncherLogsPrefix of
                   Nothing -> identity
                   Just _  -> ltFiles .~ [HandlerWrap "launcher" Nothing]
+    putText "this is right before starting logging"
     usingLoggerName "launcher" $
-        withConfigurations loConfiguration $
+      withConfigurations loConfiguration $ do
+        putText "this is right after starting logging"
+        logInfo "hi!"
         case loWalletPath of
             Nothing -> do
                 appendFile "debuglog" "Running in the server scenario"

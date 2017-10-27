@@ -59,19 +59,18 @@ instance (Eq a, Hashable a) => Monoid (IndexedMapModifier a) where
 
 data WalletModifier = WalletModifier
     { wmAddresses            :: !(IndexedMapModifier CWAddressMeta)
+    , wmHistoryEntries       :: !(MapModifier TxId TxHistoryEntry)
     , wmUsed                 :: !(VoidModifier (CId Addr, HeaderHash))
     , wmChange               :: !(VoidModifier (CId Addr, HeaderHash))
     , wmUtxo                 :: !UtxoModifier
-    , wmAddedHistory         :: !(DList TxHistoryEntry)
-    , wmDeletedHistory       :: !(DList TxHistoryEntry)
     , wmAddedPtxCandidates   :: !(DList (TxId, PtxBlockInfo))
     , wmDeletedPtxCandidates :: !(DList (TxId, TxHistoryEntry))
     }
 
 instance Monoid WalletModifier where
-    mempty = WalletModifier mempty mempty mempty mempty mempty mempty mempty mempty
-    (WalletModifier a b c d ah dh aptx dptx) `mappend` (WalletModifier a1 b1 c1 d1 ah1 dh1 aptx1 dptx1) =
-        WalletModifier (a <> a1) (b <> b1) (c <> c1) (d <> d1) (ah1 <> ah) (dh <> dh1) (aptx <> aptx1) (dptx <> dptx1)
+    mempty = WalletModifier mempty mempty mempty mempty mempty mempty mempty
+    (WalletModifier a b c d e f g) `mappend` (WalletModifier a1 b1 c1 d1 e1 f1 g1) =
+        WalletModifier (a <> a1) (b <> b1) (c <> c1) (d <> d1) (e <> e1) (f <> f1) (g <> g1)
 
 instance Buildable WalletModifier where
     build WalletModifier{..} =
@@ -90,8 +89,8 @@ instance Buildable WalletModifier where
         (map (fst . fst) $ MM.insertions wmUsed)
         (map (fst . fst) $ MM.insertions wmChange)
         wmUtxo
-        wmAddedHistory
-        wmDeletedHistory
+        (map snd $ MM.insertions wmHistoryEntries)
+        (MM.deletions wmHistoryEntries)
         (map fst wmAddedPtxCandidates)
         (map fst wmDeletedPtxCandidates)
 

@@ -307,13 +307,13 @@ insertIntoHistoryCache cWalId cTxs
   | Map.null cTxs = return ()
   | otherwise     = updateDisk (A.InsertIntoHistoryCache cWalId cTxs)
 
-removeFromHistoryCache :: MonadWalletDB ctx m => CId Wal -> Map TxId a -> m ()
+removeFromHistoryCache :: MonadWalletDB ctx m => CId Wal -> [TxId] -> m ()
 removeFromHistoryCache cWalId cTxs
-  | Map.null cTxs = return ()
-  | otherwise     = updateDisk (A.RemoveFromHistoryCache cWalId cTxs')
+  | null cTxs = return ()
+  | otherwise = updateDisk (A.RemoveFromHistoryCache cWalId cTxs')
   where
     cTxs' :: Map TxId ()
-    cTxs' = Map.map (const ()) cTxs
+    cTxs' = Map.fromList $ zip cTxs (repeat ())
 
 setPtxCondition
     :: MonadWalletDB ctx m

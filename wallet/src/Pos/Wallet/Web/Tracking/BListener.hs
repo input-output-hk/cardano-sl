@@ -99,8 +99,9 @@ onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
         blkHeaderTs <- blkHeaderTsGetter
         allAddresses <- getWalletAddrMetas WS.Ever wAddr
         encSK <- getSKById wAddr
+        let fInfo bh = (gbDiff bh, blkHeaderTs bh, ptxBlkInfo bh)
         let mapModifier =
-                trackingApplyTxs encSK allAddresses gbDiff blkHeaderTs ptxBlkInfo blkTxsWUndo
+                trackingApplyTxs encSK allAddresses fInfo blkTxsWUndo
         applyModifierToWallet wAddr (headerHash newTipH) mapModifier
         logMsg "Applied" (getOldestFirst blunds) wAddr mapModifier
 

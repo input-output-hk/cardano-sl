@@ -24,7 +24,7 @@ import           Pos.Block.BListener              (MonadBListener (..))
 import           Pos.Block.Core                   (BlockHeader, blockHeader,
                                                    getBlockHeader, mainBlockTxPayload)
 import           Pos.Block.Types                  (Blund, undoTx)
-import           Pos.Core                         (HasConfiguration, HeaderHash,
+import           Pos.Core                         (HasConfiguration, HeaderHash, SlotId,
                                                    Timestamp, difficultyL, headerHash,
                                                    headerSlotL, prevBlockL)
 import           Pos.DB.BatchOp                   (SomeBatchOp)
@@ -33,6 +33,7 @@ import qualified Pos.GState                       as GS
 import           Pos.Reporting                    (MonadReporting, reportOrLogW)
 import           Pos.Slotting                     (MonadSlots, MonadSlotsData,
                                                    getCurrentEpochSlotDuration,
+                                                   getCurrentSlotInaccurate,
                                                    getSlotStartPure, getSystemStartM)
 import           Pos.Txp.Core                     (TxAux (..), TxUndo, flattenTxPayload)
 import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..))
@@ -43,9 +44,7 @@ import           Pos.Wallet.Web.Account           (AccountMode, getSKById)
 import           Pos.Wallet.Web.ClientTypes       (CId, Wal)
 import qualified Pos.Wallet.Web.State             as WS
 import           Pos.Wallet.Web.Tracking.Modifier (WalletModifier (..))
-import           Pos.Wallet.Web.Tracking.Sync     (applyModifierToWallet,
-                                                   rollbackModifierFromWallet,
-                                                   trackingApplyTxs, trackingRollbackTxs)
+import           Pos.Wallet.Web.Tracking.Sync     (trackingApplyTxs, trackingRollbackTxs)
 import           Pos.Wallet.Web.Util              (getWalletAddrMetas)
 
 walletGuard ::
@@ -102,7 +101,7 @@ onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
         let fInfo bh = (gbDiff bh, blkHeaderTs bh, ptxBlkInfo bh)
         let mapModifier =
                 trackingApplyTxs encSK allAddresses fInfo blkTxsWUndo
-        applyModifierToWallet wAddr (headerHash newTipH) mapModifier
+        WS.applyModifierToWallet wAddr (headerHash newTipH) mapModifier
         logMsg "Applied" (getOldestFirst blunds) wAddr mapModifier
 
     gbDiff = Just . view difficultyL
@@ -124,8 +123,9 @@ onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
     let newestFirst = getNewestFirst blunds
         txs = concatMap (reverse . gbTxsWUndo) newestFirst
         newTip = (NE.last newestFirst) ^. prevBlockL
+    curSlot <- getCurrentSlotInaccurate
     currentTipHH <- GS.getTip
-    mapM_ (catchInSync "rollback" $ syncWallet currentTipHH newTip txs)
+    mapM_ (catchInSync "rollback" $ syncWallet curSlot currentTipHH newTip txs)
         =<< WS.getWalletAddresses
 
     -- It's silly, but when the wallet is migrated to RocksDB, we can write
@@ -133,18 +133,19 @@ onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
     pure mempty
   where
     syncWallet
-        :: HeaderHash
+        :: SlotId
+        -> HeaderHash
         -> HeaderHash
         -> [(TxAux, TxUndo, BlockHeader)]
         -> CId Wal
         -> m ()
-    syncWallet curTip newTip txs wid = walletGuard curTip wid $ do
+    syncWallet curSlot curTip newTip txs wid = walletGuard curTip wid $ do
         allAddresses <- getWalletAddrMetas WS.Ever wid
         encSK <- getSKById wid
         blkHeaderTs <- blkHeaderTsGetter
 
-        let mapModifier = trackingRollbackTxs encSK allAddresses gbDiff blkHeaderTs txs
-        rollbackModifierFromWallet wid newTip mapModifier
+        let mapModifier = trackingRollbackTxs encSK allAddresses (\bh -> (gbDiff bh, blkHeaderTs bh)) txs
+        WS.rollbackModifierFromWallet curSlot wid newTip mapModifier
         logMsg "Rolled back" (getNewestFirst blunds) wid mapModifier
 
     gbDiff = Just . view difficultyL

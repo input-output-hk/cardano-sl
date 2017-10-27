@@ -49,7 +49,6 @@ module Pos.Wallet.Web.State.State
        , createWallet
        , addRemovedAccount
        , addWAddress
-       , addCustomAddress
        , setProfile
        , setAccountMeta
        , setWalletMeta
@@ -61,50 +60,47 @@ module Pos.Wallet.Web.State.State
        , setWalletTxHistory
        , addOnlyNewTxMeta
        , removeWallet
-       , removeWalletTxMetas
        , removeTxMetas
        , removeHistoryCache
        , removeAccount
-       , removeWAddress
-       , removeCustomAddress
        , totallyRemoveWAddress
        , addUpdate
        , removeNextUpdate
-       , insertIntoHistoryCache
-       , removeFromHistoryCache
-       , setWalletUtxo
-       , setPtxCondition
        , casPtxCondition
        , ptxUpdateMeta
        , addOnlyNewPendingTx
        , getWalletStorage
        , flushWalletStorage
+       , applyModifierToWallet
+       , rollbackModifierFromWallet
        ) where
 
-import           Data.Acid                    (EventResult, EventState, QueryEvent,
-                                               UpdateEvent)
-import qualified Data.Map                     as Map
-import           Ether.Internal               (lensOf)
+import           Data.Acid                        (EventResult, EventState, QueryEvent,
+                                                   UpdateEvent)
+import qualified Data.Map                         as Map
+import           Ether.Internal                   (lensOf)
 import           Universum
 
-import           Pos.Client.Txp.History       (TxHistoryEntry)
-import           Pos.Core.Configuration       (HasConfiguration)
-import           Pos.Txp                      (TxId, Utxo, UtxoModifier)
-import           Pos.Types                    (HeaderHash)
-import           Pos.Util.Servant             (encodeCType)
-import           Pos.Util.Util                (HasLens')
-import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CId,
-                                               CProfile, CTxId, CTxMeta, CUpdateInfo,
-                                               CWAddressMeta, CWalletMeta, PassPhraseLU,
-                                               Wal)
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition)
-import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemState,
-                                               openState)
-import           Pos.Wallet.Web.State.Acidic  as A
-import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..),
-                                               CustomAddressType (..), PtxMetaUpdate (..),
-                                               WalletBalances, WalletStorage,
-                                               WalletTip (..))
+import           Pos.Client.Txp.History           (TxHistoryEntry)
+import           Pos.Core                         (SlotId)
+import           Pos.Core.Configuration           (HasConfiguration)
+import           Pos.Txp                          (TxId, Utxo, UtxoModifier)
+import           Pos.Types                        (HeaderHash)
+import           Pos.Util.Servant                 (encodeCType)
+import           Pos.Util.Util                    (HasLens')
+import           Pos.Wallet.Web.ClientTypes       (AccountId, Addr, CAccountMeta, CId,
+                                                   CProfile, CTxId, CTxMeta, CUpdateInfo,
+                                                   CWAddressMeta, CWalletMeta,
+                                                   PassPhraseLU, Wal)
+import           Pos.Wallet.Web.Pending.Types     (PendingTx (..), PtxCondition)
+import           Pos.Wallet.Web.State.Acidic      (WalletState, closeState, openMemState,
+                                                   openState)
+import           Pos.Wallet.Web.State.Acidic      as A
+import           Pos.Wallet.Web.State.Storage     (AddressLookupMode (..),
+                                                   CustomAddressType (..),
+                                                   PtxMetaUpdate (..), WalletBalances,
+                                                   WalletStorage, WalletTip (..))
+import           Pos.Wallet.Web.Tracking.Modifier (WalletModifier (..))
 
 -- | No read or write, just access to state handler
 type MonadWalletDBAccess ctx m =
@@ -217,9 +213,6 @@ createWallet cWalId cwMeta isReady = updateDisk . A.CreateWallet cWalId cwMeta i
 addWAddress :: MonadWalletDB ctx m => CWAddressMeta -> m ()
 addWAddress addr = updateDisk $ A.AddWAddress addr
 
-addCustomAddress :: MonadWalletDB ctx m => CustomAddressType -> (CId Addr, HeaderHash) -> m Bool
-addCustomAddress = updateDisk ... A.AddCustomAddress
-
 addRemovedAccount :: MonadWalletDB ctx m => CWAddressMeta -> m ()
 addRemovedAccount addr = updateDisk $ A.AddRemovedAccount addr
 
@@ -258,11 +251,11 @@ getWalletUtxo = queryDisk A.GetWalletUtxo
 getWalletBalancesAndUtxo :: MonadWalletDBRead ctx m => m (WalletBalances, Utxo)
 getWalletBalancesAndUtxo = queryDisk A.GetWalletBalancesAndUtxo
 
+getWalletStorage :: MonadWalletDBRead ctx m => m WalletStorage
+getWalletStorage = queryDisk A.GetWalletStorage
+
 updateWalletBalancesAndUtxo :: MonadWalletDB ctx m => UtxoModifier -> m ()
 updateWalletBalancesAndUtxo = updateDisk . A.UpdateWalletBalancesAndUtxo
-
-setWalletUtxo :: MonadWalletDB ctx m => Utxo -> m ()
-setWalletUtxo = updateDisk . A.SetWalletUtxo
 
 addOnlyNewTxMeta :: MonadWalletDB ctx m => CId Wal -> CTxId -> CTxMeta -> m ()
 addOnlyNewTxMeta cWalId cTxId = updateDisk . A.AddOnlyNewTxMeta cWalId cTxId
@@ -273,25 +266,14 @@ removeWallet = updateDisk . A.RemoveWallet
 removeTxMetas :: MonadWalletDB ctx m => CId Wal -> m ()
 removeTxMetas = updateDisk . A.RemoveTxMetas
 
-removeWalletTxMetas :: MonadWalletDB ctx m => CId Wal -> [CTxId] -> m ()
-removeWalletTxMetas = updateDisk ... A.RemoveWalletTxMetas
-
 removeHistoryCache :: MonadWalletDB ctx m => CId Wal -> m ()
 removeHistoryCache = updateDisk . A.RemoveHistoryCache
 
 removeAccount :: MonadWalletDB ctx m => AccountId -> m ()
 removeAccount = updateDisk . A.RemoveAccount
 
-removeWAddress :: MonadWalletDB ctx m => CWAddressMeta -> m ()
-removeWAddress = updateDisk . A.RemoveWAddress
-
 totallyRemoveWAddress :: MonadWalletDB ctx m => CWAddressMeta -> m ()
 totallyRemoveWAddress = updateDisk . A.TotallyRemoveWAddress
-
-removeCustomAddress
-    :: MonadWalletDB ctx m
-    => CustomAddressType -> (CId Addr, HeaderHash) -> m Bool
-removeCustomAddress = updateDisk ... A.RemoveCustomAddress
 
 addUpdate :: MonadWalletDB ctx m => CUpdateInfo -> m ()
 addUpdate = updateDisk . A.AddUpdate
@@ -301,24 +283,6 @@ removeNextUpdate = updateDisk A.RemoveNextUpdate
 
 testReset :: MonadWalletDB ctx m => m ()
 testReset = updateDisk A.TestReset
-
-insertIntoHistoryCache :: MonadWalletDB ctx m => CId Wal -> Map TxId TxHistoryEntry -> m ()
-insertIntoHistoryCache cWalId cTxs
-  | Map.null cTxs = return ()
-  | otherwise     = updateDisk (A.InsertIntoHistoryCache cWalId cTxs)
-
-removeFromHistoryCache :: MonadWalletDB ctx m => CId Wal -> [TxId] -> m ()
-removeFromHistoryCache cWalId cTxs
-  | null cTxs = return ()
-  | otherwise = updateDisk (A.RemoveFromHistoryCache cWalId cTxs')
-  where
-    cTxs' :: Map TxId ()
-    cTxs' = Map.fromList $ zip cTxs (repeat ())
-
-setPtxCondition
-    :: MonadWalletDB ctx m
-    => CId Wal -> TxId -> PtxCondition -> m ()
-setPtxCondition = updateDisk ... A.SetPtxCondition
 
 casPtxCondition
     :: MonadWalletDB ctx m
@@ -336,5 +300,8 @@ addOnlyNewPendingTx = updateDisk ... A.AddOnlyNewPendingTx
 flushWalletStorage :: MonadWalletDB ctx m => m ()
 flushWalletStorage = updateDisk A.FlushWalletStorage
 
-getWalletStorage :: MonadWalletDBRead ctx m => m WalletStorage
-getWalletStorage = queryDisk A.GetWalletStorage
+applyModifierToWallet :: MonadWalletDB ctx m => CId Wal -> HeaderHash -> WalletModifier -> m ()
+applyModifierToWallet = updateDisk ... A.ApplyModifierToWallet
+
+rollbackModifierFromWallet :: MonadWalletDB ctx m => SlotId -> CId Wal -> HeaderHash -> WalletModifier -> m ()
+rollbackModifierFromWallet = updateDisk ... A.RollbackModifierFromWallet

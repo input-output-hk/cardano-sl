@@ -76,40 +76,52 @@ module Pos.Wallet.Web.State.Storage
        , casPtxCondition
        , ptxUpdateMeta
        , addOnlyNewPendingTx
+       , applyModifierToWallet
+       , rollbackModifierFromWallet
        ) where
 
 import           Universum
 
-import           Control.Lens                 (at, ix, makeClassy, makeLenses, non', to,
-                                               toListOf, traversed, (%=), (+=), (.=),
-                                               (<<.=), (?=), _Empty, _head)
-import           Control.Monad.State.Class    (put)
-import           Data.Default                 (Default, def)
-import qualified Data.HashMap.Strict          as HM
-import qualified Data.Map                     as M
-import           Data.SafeCopy                (Migrate (..), base, deriveSafeCopySimple,
-                                               extension)
-import           Data.Time.Clock.POSIX        (POSIXTime)
+import           Control.Lens                     (at, ix, makeClassy, makeLenses, non',
+                                                   to, toListOf, traversed, (%=), (+=),
+                                                   (.=), (<<.=), (?=), _Empty, _head)
+import           Control.Monad.State.Class        (put)
+import           Data.Default                     (Default, def)
+import qualified Data.HashMap.Strict              as HM
+import qualified Data.Map                         as M
+import           Data.SafeCopy                    (Migrate (..), SafeCopy (..), base,
+                                                   contain, deriveSafeCopySimple,
+                                                   extension, safeGet, safePut)
+import           Data.Time.Clock.POSIX            (POSIXTime)
 
-import           Pos.Client.Txp.History       (TxHistoryEntry, txHistoryListToMap)
-import           Pos.Core.Configuration       (HasConfiguration)
-import           Pos.Core.Types               (SlotId, Timestamp)
-import           Pos.Txp                      (AddrCoinMap, TxAux, TxId, Utxo,
-                                               UtxoModifier, applyUtxoModToAddrCoinMap,
-                                               utxoToAddressCoinMap)
-import           Pos.Types                    (HeaderHash)
-import           Pos.Util.BackupPhrase        (BackupPhrase)
-import qualified Pos.Util.Modifier            as MM
-import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CCoin,
-                                               CHash, CId, CProfile, CTxId, CTxMeta,
-                                               CUpdateInfo, CWAddressMeta (..),
-                                               CWalletAssurance, CWalletMeta,
-                                               PassPhraseLU, Wal, addrMetaToAccount)
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition,
-                                               PtxSubmitTiming (..), ptxCond,
-                                               ptxSubmitTiming)
-import           Pos.Wallet.Web.Pending.Util  (incPtxSubmitTimingPure, mkPtxSubmitTiming,
-                                               ptxMarkAcknowledgedPure)
+import           Pos.Client.Txp.History           (TxHistoryEntry (..),
+                                                   txHistoryListToMap)
+import           Pos.Core.Configuration           (HasConfiguration)
+import           Pos.Core.Timestamp               (timestampToPosix)
+import           Pos.Core.Types                   (SlotId, Timestamp)
+import           Pos.Txp                          (AddrCoinMap, TxAux, TxId, Utxo,
+                                                   UtxoModifier,
+                                                   applyUtxoModToAddrCoinMap,
+                                                   utxoToAddressCoinMap)
+import           Pos.Types                        (HeaderHash)
+import           Pos.Util.BackupPhrase            (BackupPhrase)
+import qualified Pos.Util.Modifier                as MM
+import           Pos.Util.Servant                 (encodeCType)
+import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAccountMeta,
+                                                   CCoin, CHash, CId, CProfile, CTxId,
+                                                   CTxMeta (..), CUpdateInfo,
+                                                   CWAddressMeta (..), CWalletAssurance,
+                                                   CWalletMeta, PassPhraseLU, Wal,
+                                                   addrMetaToAccount)
+import           Pos.Wallet.Web.Pending.Types     (PendingTx (..), PtxCondition (..),
+                                                   PtxSubmitTiming (..), ptxCond,
+                                                   ptxSubmitTiming)
+import           Pos.Wallet.Web.Pending.Util      (incPtxSubmitTimingPure,
+                                                   mkPtxSubmitTiming,
+                                                   ptxMarkAcknowledgedPure)
+import           Pos.Wallet.Web.Tracking.Modifier (IndexedMapModifier (..),
+                                                   WalletModifier (..), indexedDeletions,
+                                                   sortedInsertions)
 
 type AddressSortingKey = Int
 
@@ -510,6 +522,47 @@ flushWalletStorage = modify flushDo
                             , _wiIsReady = False
                             }
 
+applyModifierToWallet
+    :: CId Wal
+    -> HeaderHash
+    -> WalletModifier
+    -> Update ()
+applyModifierToWallet wid newTip WalletModifier{..} = do
+    mapM_ addWAddress (sortedInsertions wmAddresses)
+    mapM_ (addCustomAddress UsedAddr . fst) (MM.insertions wmUsed)
+    mapM_ (addCustomAddress ChangeAddr . fst) (MM.insertions wmChange)
+    utxo <- use wsUtxo
+    setWalletUtxo (MM.modifyMap wmUtxo utxo)
+    let cMetas = mapMaybe (\(_, THEntry {..}) ->
+                             (\mts -> (encodeCType _thTxId, CTxMeta . timestampToPosix $ mts)) <$> _thTimestamp)
+                 $ MM.insertions wmHistoryEntries
+    addOnlyNewTxMetas wid cMetas
+    let addedHistory = txHistoryListToMap $ map snd $ MM.insertions wmHistoryEntries
+    insertIntoHistoryCache wid addedHistory
+    forM_ wmAddedPtxCandidates $ \(txid, ptxBlkInfo) ->
+        setPtxCondition wid txid (PtxInNewestBlocks ptxBlkInfo)
+    setWalletSyncTip wid newTip
+
+rollbackModifierFromWallet
+    :: SlotId
+    -> CId Wal
+    -> HeaderHash
+    -> WalletModifier
+    -> Update ()
+rollbackModifierFromWallet curSlot wid newTip WalletModifier{..} = do
+    mapM_ removeWAddress (indexedDeletions wmAddresses)
+    mapM_ (removeCustomAddress UsedAddr) (MM.deletions wmUsed)
+    mapM_ (removeCustomAddress ChangeAddr) (MM.deletions wmChange)
+    utxo <- use wsUtxo
+    setWalletUtxo (MM.modifyMap wmUtxo utxo)
+    forM_ wmDeletedPtxCandidates $ \(txid, poolInfo) -> do
+        ptxUpdateMeta wid txid (PtxResetSubmitTiming curSlot)
+        setPtxCondition wid txid (PtxApplying poolInfo)
+    let deletedHistory = MM.deletions wmHistoryEntries
+    removeFromHistoryCache wid (M.fromList $ zip deletedHistory $ repeat ())
+    removeWalletTxMetas wid (map encodeCType deletedHistory)
+    setWalletSyncTip wid newTip
+
 deriveSafeCopySimple 0 'base ''CCoin
 deriveSafeCopySimple 0 'base ''CProfile
 deriveSafeCopySimple 0 'base ''CHash
@@ -538,6 +591,12 @@ deriveSafeCopySimple 0 'base ''AddressInfo
 deriveSafeCopySimple 0 'base ''AccountInfo
 deriveSafeCopySimple 0 'base ''WalletTip
 deriveSafeCopySimple 0 'base ''WalletInfo
+
+instance (SafeCopy k, Eq k, Hashable k) => SafeCopy (IndexedMapModifier k) where
+    getCopy = contain $ IndexedMapModifier <$> safeGet <*> safeGet
+    putCopy mm = contain $ safePut (immModifier mm) >> safePut (immCounter mm)
+
+deriveSafeCopySimple 0 'base ''WalletModifier
 
 -- Legacy versions, for migrations
 

@@ -10,6 +10,7 @@ import qualified Cardano.Crypto.Wallet           as CC
 import qualified Cardano.Crypto.Wallet.Encrypted as CC
 import qualified Crypto.ECC.Edwards25519         as ED25519
 import qualified Crypto.Sign.Ed25519             as EDS25519
+import qualified Data.DList                      as DL
 import           Data.SafeCopy                   (SafeCopy (..), base, contain,
                                                   deriveSafeCopySimple, safeGet, safePut)
 import qualified Data.Serialize                  as Cereal (Serialize (..), getWord8,
@@ -354,3 +355,7 @@ instance SafeCopy Byte
 instance (SafeCopy k, SafeCopy v, Eq k, Hashable k) => SafeCopy (MM.MapModifier k v) where
     getCopy = contain $ MM.fromHashMap <$> safeGet
     putCopy mm = contain $ safePut (MM.toHashMap mm)
+
+instance SafeCopy a => SafeCopy (DL.DList a) where
+    getCopy = contain $ DL.fromList <$> safeGet
+    putCopy dl = contain $ safePut (DL.toList dl)

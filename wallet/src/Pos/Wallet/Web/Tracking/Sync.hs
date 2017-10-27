@@ -20,8 +20,6 @@ module Pos.Wallet.Web.Tracking.Sync
        ( syncWalletsWithGState
        , trackingApplyTxs
        , trackingRollbackTxs
-       , applyModifierToWallet
-       , rollbackModifierFromWallet
        , BlockLockMode
        , WalletTrackingEnv
 
@@ -52,22 +50,18 @@ import           System.Wlog                      (HasLoggerName, WithLogger, lo
 import           Pos.Block.Core                   (BlockHeader, getBlockHeader,
                                                    mainBlockTxPayload)
 import           Pos.Block.Types                  (Blund, undoTx)
-import           Pos.Client.Txp.History           (TxHistoryEntry (..),
-                                                   txHistoryListToMap)
 import           Pos.Core                         (BlockHeaderStub, ChainDifficulty,
                                                    HasConfiguration, HasDifficulty (..),
-                                                   HeaderHash, Timestamp,
-                                                   blkSecurityParam, genesisHash,
-                                                   headerHash, headerSlotL,
-                                                   timestampToPosix)
+                                                   Timestamp, blkSecurityParam,
+                                                   genesisHash, headerHash, headerSlotL)
 import           Pos.Crypto                       (EncryptedSecretKey, WithHash (..),
                                                    shortHashF, withHash)
 import qualified Pos.DB.Block                     as DB
 import qualified Pos.DB.DB                        as DB
 import qualified Pos.GState                       as GS
 import           Pos.GState.BlockExtra            (foldlUpWhileM, resolveForwardLink)
-import           Pos.Slotting                     (MonadSlots (..), MonadSlotsData,
-                                                   getSlotStartPure, getSystemStartM)
+import           Pos.Slotting                     (MonadSlotsData, getSlotStartPure,
+                                                   getSystemStartM)
 import           Pos.StateLock                    (Priority (..), StateLock,
                                                    withStateLockNoMetrics)
 import           Pos.Txp                          (GenesisUtxo (..), TxAux (..),
@@ -79,18 +73,15 @@ import           Pos.Txp.MemState.Class           (MonadTxpMem, getLocalTxsNUndo
 import           Pos.Util.Chrono                  (getNewestFirst)
 import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
 import qualified Pos.Util.Modifier                as MM
-import           Pos.Util.Servant                 (encodeCType)
 
 import           Pos.Client.Txp.History           (_thTxId)
 import           Pos.Wallet.WalletMode            (WalletMempoolExt)
 import           Pos.Wallet.Web.Account           (MonadKeySearch (..))
-import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CTxMeta (..),
-                                                   CWAddressMeta (..), Wal, encToCId,
-                                                   isTxLocalAddress)
+import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CWAddressMeta (..),
+                                                   encToCId, isTxLocalAddress)
 import           Pos.Wallet.Web.Error.Types       (WalletError (..))
-import           Pos.Wallet.Web.Pending.Types     (PtxBlockInfo, PtxCondition (PtxApplying, PtxInNewestBlocks))
-import           Pos.Wallet.Web.State             (AddressLookupMode (..),
-                                                   CustomAddressType (..), MonadWalletDB,
+import           Pos.Wallet.Web.Pending.Types     (PtxBlockInfo)
+import           Pos.Wallet.Web.State             (AddressLookupMode (..), MonadWalletDB,
                                                    WalletTip (..))
 import qualified Pos.Wallet.Web.State             as WS
 import           Pos.Wallet.Web.Tracking.Decrypt  (THEntryExtra (..), buildTHEntryExtra,
@@ -100,8 +91,7 @@ import           Pos.Wallet.Web.Tracking.Decrypt  (THEntryExtra (..), buildTHEnt
 import           Pos.Wallet.Web.Tracking.Modifier (CachedWalletModifier,
                                                    WalletModifier (..),
                                                    deleteAndInsertIMM, deleteAndInsertMM,
-                                                   deleteAndInsertVM, indexedDeletions,
-                                                   sortedInsertions)
+                                                   deleteAndInsertVM)
 import           Pos.Wallet.Web.Util              (getWalletAddrMetas)
 
 type BlockLockMode ctx m =
@@ -243,16 +233,14 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
         -- assuming that transactions are not created until syncing is complete
         ptxBlkInfo = const Nothing
 
-        fInfo bh = (mDiff bh, blkHeaderTs bh, ptxBlkInfo bh)
-
         rollbackBlock :: [CWAddressMeta] -> Blund -> WalletModifier
         rollbackBlock allAddresses (b, u) =
-            trackingRollbackTxs encSK allAddresses mDiff blkHeaderTs $
+            trackingRollbackTxs encSK allAddresses (\bh -> (mDiff bh, blkHeaderTs bh)) $
             zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
 
         applyBlock :: [CWAddressMeta] -> Blund -> m WalletModifier
         applyBlock allAddresses (b, u) = pure $
-            trackingApplyTxs encSK allAddresses fInfo $
+            trackingApplyTxs encSK allAddresses (\bh -> (mDiff bh, blkHeaderTs bh, ptxBlkInfo bh)) $
             zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
 
         computeAccModifier :: BlockHeader -> m WalletModifier
@@ -292,7 +280,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
 
     startFromH <- maybe firstGenesisHeader pure wTipHeader
     mapModifier@WalletModifier{..} <- computeAccModifier startFromH
-    applyModifierToWallet wAddr gstateHHash mapModifier
+    WS.applyModifierToWallet wAddr gstateHHash mapModifier
     -- Mark the wallet as ready, so it will be available from api endpoints.
     WS.setWalletReady wAddr True
     logInfoS $
@@ -362,11 +350,11 @@ trackingRollbackTxs
     :: HasConfiguration
     => EncryptedSecretKey -- ^ Wallet's secret key
     -> [CWAddressMeta]    -- ^ All addresses
-    -> (BlockHeader -> Maybe ChainDifficulty)  -- ^ Function to determine tx chain difficulty
-    -> (BlockHeader -> Maybe Timestamp)        -- ^ Function to determine tx timestamp in history
+    -> (BlockHeader
+      -> (Maybe ChainDifficulty, Maybe Timestamp))  -- ^ Function to determine tx chain difficulty and timestamp
     -> [(TxAux, TxUndo, BlockHeader)] -- ^ Txs of blocks and corresponding header hash
     -> WalletModifier
-trackingRollbackTxs (eskToWalletDecrCredentials -> wdc) allAddress getDiff getTs txs =
+trackingRollbackTxs (eskToWalletDecrCredentials -> wdc) allAddress fInfo txs =
     foldl' rollbackTx mempty txs
   where
     rollbackTx :: WalletModifier -> (TxAux, TxUndo, BlockHeader) -> WalletModifier
@@ -375,7 +363,7 @@ trackingRollbackTxs (eskToWalletDecrCredentials -> wdc) allAddress getDiff getTs
             hh = headerHash blkHeader
             hhs = repeat hh
             thee@THEntryExtra{..} =
-                buildTHEntryExtra wdc (wh, undo) (getDiff blkHeader, getTs blkHeader)
+                buildTHEntryExtra wdc (wh, undo) (fInfo blkHeader)
 
             ownTxOutIns = map (fst . fst) theeOutputs
             historyModifier =
@@ -396,51 +384,6 @@ trackingRollbackTxs (eskToWalletDecrCredentials -> wdc) allAddress getDiff getTs
             (deleteAndInsertMM ownTxOutIns (map fst theeInputs) wmUtxo)
             wmAddedPtxCandidates
             deletedPtxCandidates
-
-applyModifierToWallet
-    :: MonadWalletDB ctx m
-    => CId Wal
-    -> HeaderHash
-    -> WalletModifier
-    -> m ()
-applyModifierToWallet wid newTip WalletModifier{..} = do
-    -- TODO maybe do it as one acid-state transaction.
-    mapM_ WS.addWAddress (sortedInsertions wmAddresses)
-    mapM_ (WS.addCustomAddress UsedAddr . fst) (MM.insertions wmUsed)
-    mapM_ (WS.addCustomAddress ChangeAddr . fst) (MM.insertions wmChange)
-    WS.updateWalletBalancesAndUtxo wmUtxo
-    let cMetas = M.fromList
-               $ mapMaybe (\(_, THEntry {..}) -> (\mts -> (_thTxId, CTxMeta . timestampToPosix $ mts)) <$> _thTimestamp)
-               $ MM.insertions wmHistoryEntries
-    WS.addOnlyNewTxMetas wid cMetas
-    let addedHistory = txHistoryListToMap $ map snd $ MM.insertions wmHistoryEntries
-    WS.insertIntoHistoryCache wid addedHistory
-    -- resubmitting worker can change ptx in db nonatomically, but
-    -- tracker has priority over the resubmiter, thus do not use CAS here
-    forM_ wmAddedPtxCandidates $ \(txid, ptxBlkInfo) ->
-        WS.setPtxCondition wid txid (PtxInNewestBlocks ptxBlkInfo)
-    WS.setWalletSyncTip wid newTip
-
-rollbackModifierFromWallet
-    :: (MonadWalletDB ctx m, MonadSlots ctx m)
-    => CId Wal
-    -> HeaderHash
-    -> WalletModifier
-    -> m ()
-rollbackModifierFromWallet wid newTip WalletModifier{..} = do
-    -- TODO maybe do it as one acid-state transaction.
-    mapM_ WS.removeWAddress (indexedDeletions wmAddresses)
-    mapM_ (WS.removeCustomAddress UsedAddr) (MM.deletions wmUsed)
-    mapM_ (WS.removeCustomAddress ChangeAddr) (MM.deletions wmChange)
-    WS.updateWalletBalancesAndUtxo wmUtxo
-    forM_ wmDeletedPtxCandidates $ \(txid, poolInfo) -> do
-        curSlot <- getCurrentSlotInaccurate
-        WS.ptxUpdateMeta wid txid (WS.PtxResetSubmitTiming curSlot)
-        WS.setPtxCondition wid txid (PtxApplying poolInfo)
-        let deletedHistory = MM.deletions wmHistoryEntries
-        WS.removeFromHistoryCache wid deletedHistory
-        WS.removeWalletTxMetas wid (map encodeCType deletedHistory)
-    WS.setWalletSyncTip wid newTip
 
 evalChange
     :: [CWAddressMeta] -- ^ All adresses

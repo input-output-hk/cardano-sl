@@ -30,6 +30,7 @@ handlers walletId =
     :<|>  getAccount walletId
     :<|>  listAccounts
     :<|>  newAccount walletId
+    :<|>  updateAccount walletId
 
 deleteAccount :: WalletId -> AccountId -> Handler NoContent
 deleteAccount _ _ = return NoContent
@@ -66,8 +67,8 @@ listAccounts _ _ mbExtended _ = do
 -- NOTE: This will probably change drastically as soon as we start using our
 -- custom monad as a base of the Handler stack, so the example here is just to
 -- give the idea of how it will look like on Swagger.
-newAccount :: WalletId -> Maybe Text -> ReadOnlyAccount -> Handler Account
-newAccount w@(WalletId wId) _ ReadOnlyAccount{..} = do
+newAccount :: WalletId -> Maybe Text -> AccountUpdate -> Handler Account
+newAccount w@(WalletId wId) _ AccountUpdate{..} = do
     when (wId /= "testwallet") $ throwError (toError err404 Errors.walletNotFound)
     -- In real code we would generate things like addresses (if needed) or
     -- any other form of Id/data.
@@ -76,6 +77,9 @@ newAccount w@(WalletId wId) _ ReadOnlyAccount{..} = do
              accId = fromString newId
            , accAmount = 0
            , accAddresses = mempty
-           , accName = roaccName
+           , accName = uaccName
            , accWalletId = w
            }
+
+updateAccount :: WalletId -> AccountId -> AccountUpdate -> Handler Account
+updateAccount w@(WalletId wId) _ u = newAccount w Nothing u

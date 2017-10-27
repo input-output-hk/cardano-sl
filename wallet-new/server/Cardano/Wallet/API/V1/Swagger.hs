@@ -64,16 +64,23 @@ withExample :: (ToJSON a, Arbitrary a) => proxy a -> T.Text -> T.Text
 withExample (_ :: proxy a) desc =
   desc <> " Here's an example:<br><br><pre>" <> toS (encodePretty $ toJSON @a genExample) <> "</pre>"
 
--- | Generates a description suitable to be used for "ReadOnly" types.
-readOnlyDescr :: Typeable a => proxy a -> T.Text
-readOnlyDescr (p :: proxy a) =
-    "A simpler version of an " <> renderType p <> " showing only the fields modifiable as part of " <>
-    "the REST operations. You can still pass an entire " <> renderType p <> " as input, and extra " <>
-    "fields will simply be ignored."
+-- | Generates a description suitable to be used for "Update" types.
+updateDescr :: Typeable a => proxy a -> T.Text
+updateDescr (p :: proxy a) =
+    "A type represending an update for an existing " <> renderType p <>
+    ".You can still pass an entire " <> renderType p <> " as input, and extra " <>
+    " fields (which are not meant to be controlled by user) will simply be ignored."
+
+-- | Generates a description suitable to be used for "New" types.
+newDescr :: Typeable a => proxy a -> T.Text
+newDescr (p :: proxy a) =
+    "A type represending an request for creating a(n) " <> renderType p <>
+    ". You can still pass an entire " <> renderType p <> " as input, and extra " <>
+    " fields (which are not meant to be controlled by user) will simply be ignored."
 
 -- | Automatically derives the subset of readOnly fields by diffing the JSON representations of the
 -- given types.
-readOnlyFieldsFromJSON :: forall a b proxy. (ReadOnly a ~ b, Arbitrary a, ToJSON a, Arbitrary b, ToJSON b)
+readOnlyFieldsFromJSON :: forall a b proxy. (Update a ~ b, Arbitrary a, ToJSON a, Arbitrary b, ToJSON b)
                        => proxy a -> Set T.Text
 readOnlyFieldsFromJSON _ =
     case (toJSON (genExample @a), toJSON (genExample @b)) of
@@ -103,6 +110,14 @@ class (ToJSON a, Typeable a, Arbitrary a) => ToDocs a where
   annotate :: (proxy a -> Declare (Definitions Schema) NamedSchema)
            -> proxy a
            -> Declare (Definitions Schema) NamedSchema
+  annotate f p = do
+    s <- f p
+    return $ s & (schema . description ?~ descriptionFor p)
+               . (schema . example ?~ toJSON @a genExample)
+               . (over (schema . properties) (setReadOnlyFields p))
+
+  descriptionFor :: proxy a -> T.Text
+  descriptionFor p = "A " <> renderType p <> "."
 
   readOnlyFields :: proxy a -> Set T.Text
   readOnlyFields _ = mempty
@@ -198,90 +213,52 @@ instance ToParamSchema Page where
 instance ToParamSchema WalletId
 
 instance ToDocs APIVersion where
-  annotate f p = do
-    s <- f p
-    return $ s & (schema . description ?~ "The API version. We currently support v0 and v1.")
-               . (schema . example ?~ toJSON @APIVersion genExample)
+  descriptionFor _ = "The API version. We currently support v0 and v1."
 
 instance ToDocs WalletVersion where
-  annotate f p = do
-    s <- f p
-    return $ s & (schema . description ?~ "The Wallet version, including the API version and the Git revision.")
-               . (schema . example ?~ toJSON @WalletVersion genExample)
+  descriptionFor _ = "The Wallet version, including the API version and the Git revision."
 
 instance ToDocs Metadata where
-  annotate f p = do
-    s <- f p
-    return $ s & (schema . description ?~ "Metadata returned as part of an <b>ExtendedResponse</b>.")
-               . (schema . example ?~ toJSON @Metadata genExample)
+  descriptionFor _ = "Metadata returned as part of an <b>ExtendedResponse</b>."
 
 instance ToDocs Account where
-  readOnlyFields = readOnlyFieldsFromJSON
-  annotate f p = do
-    s <- f p
-    return $ s & (schema . description ?~ "An Account.")
-               . (schema . example ?~ toJSON @Account genExample)
-               . (over (schema . properties) (setReadOnlyFields p))
+  readOnlyFields   = readOnlyFieldsFromJSON
+  descriptionFor _ = "An Account."
 
-instance ToDocs ReadOnlyAccount where
-  annotate f p = do
-    s <- f p
-    return $ s & (schema . description ?~ readOnlyDescr (Proxy @Account))
-               . (schema . example ?~ toJSON @ReadOnlyAccount genExample)
+instance ToDocs AccountUpdate where
+  descriptionFor _ = updateDescr (Proxy @Account)
 
 instance ToDocs Address where
-  annotate f p = do
-    s <- f p
-    return $ s & (schema . description ?~ "An Address.")
-               . (schema . example ?~ toJSON @Address genExample)
+  descriptionFor _ = "An Address."
 
 instance ToDocs WalletId where
-  annotate f p = do
-    s <- f p
-    return $ s & (schema . description ?~ "A Wallet ID.")
-               . (schema . example ?~ toJSON @WalletId genExample)
-
-instance ToDocs UninitialisedWallet where
-  annotate f p = do
-    s <- f p
-    return $ s & (schema . description ?~ "A type representing the request for a new Wallet.")
-               . (schema . example ?~ toJSON @UninitialisedWallet genExample)
+  descriptionFor _ = "A Wallet ID."
 
 instance ToDocs Wallet where
-  annotate f p = do
-    s <- f p
-    return $ s & (schema . description ?~ "A Wallet.")
-               . (schema . example ?~ toJSON @Wallet genExample)
+  readOnlyFields = readOnlyFieldsFromJSON
 
-instance ToDocs PasswordUpdate where
-  annotate f p = do
-    s <- f p
-    return $ s & (schema . description ?~ "A PasswordUpdate incapsulate a request for changing a password.")
-               . (schema . example ?~ toJSON @PasswordUpdate genExample)
-
-instance ToDocs EstimatedFees where
-  annotate f p = do
-    s <- f p
-    return $ s & (schema . description ?~ "Estimated fees for a `Payment`.")
-               . (schema . example ?~ toJSON @EstimatedFees genExample)
-
-instance ToDocs Payment where
-  annotate f p = do
-    s <- f p
-    return $ s & (schema . description ?~ "A request for exchange of `Coins` from one entity to another.")
-               . (schema . example ?~ toJSON @Payment genExample)
-
-instance ToDocs Transaction where
-  annotate f p = do
-    s <- f p
-    return $ s & (schema . description ?~ "A Wallet Transaction.")
-               . (schema . example ?~ toJSON @Transaction genExample)
+instance ToDocs NewWallet where
+  descriptionFor _ = newDescr (Proxy @Wallet)
 
 instance ToDocs WalletUpdate where
-  annotate f p = do
-    s <- f p
-    return $ s & (schema . description ?~ "A programmed update to the system.")
-               . (schema . example ?~ toJSON @WalletUpdate genExample)
+  descriptionFor _ = updateDescr (Proxy @Wallet)
+
+instance ToDocs PasswordUpdate where
+  descriptionFor _ = "A PasswordUpdate incapsulate a request for changing a Wallet's password."
+
+instance ToDocs EstimatedFees where
+  descriptionFor _ = "Estimated fees for a `Payment`."
+
+instance ToDocs Payment where
+  descriptionFor _ = "A request for exchange of `Coins` from one entity to another."
+
+instance ToDocs Transaction where
+  descriptionFor _ = "A Wallet Transaction."
+
+instance ToDocs WalletSoftwareUpdate where
+  descriptionFor _ = "A programmed update to the system."
+
+-- ToSchema instances
 
 instance ToSchema APIVersion where
   declareNamedSchema = annotate fromArbitraryJSON
@@ -292,7 +269,7 @@ instance ToSchema WalletVersion where
 instance ToSchema Account where
   declareNamedSchema = annotate fromArbitraryJSON
 
-instance ToSchema ReadOnlyAccount where
+instance ToSchema AccountUpdate where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToSchema Address where
@@ -307,6 +284,12 @@ instance ToSchema Metadata where
 instance ToSchema Wallet where
   declareNamedSchema = annotate fromArbitraryJSON
 
+instance ToSchema NewWallet where
+  declareNamedSchema = annotate fromArbitraryJSON
+
+instance ToSchema WalletUpdate where
+  declareNamedSchema = annotate fromArbitraryJSON
+
 instance ToSchema PasswordUpdate where
   declareNamedSchema = annotate fromArbitraryJSON
 
@@ -319,10 +302,7 @@ instance ToSchema Transaction where
 instance ToSchema Payment where
   declareNamedSchema = annotate fromArbitraryJSON
 
-instance ToSchema WalletUpdate where
-  declareNamedSchema = annotate fromArbitraryJSON
-
-instance ToSchema UninitialisedWallet where
+instance ToSchema WalletSoftwareUpdate where
   declareNamedSchema = annotate fromArbitraryJSON
 
 instance ToDocs a => ToDocs (ExtendedResponse a) where

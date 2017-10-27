@@ -11,7 +11,7 @@ import           Servant
 
 type API =
          "wallets" :> Summary "Creates a new Wallet."
-                   :> ReqBody '[JSON] UninitialisedWallet
+                   :> ReqBody '[JSON] (New Wallet)
                    :> PostCreated '[JSON] Wallet
     :<|> "wallets" :> Summary "Returns all the available wallets."
                    :> WalletRequestParams
@@ -25,7 +25,7 @@ type API =
                    :<|> Summary "Returns the Wallet identified by the given walletId."
                         :> Get '[JSON] Wallet
                    :<|> Summary "Update the Wallet identified by the given walletId."
-                        :> ReqBody '[JSON] Wallet
+                        :> ReqBody '[JSON] (Update Wallet)
                         :> Put '[JSON] Wallet
                    -- Nest the Accounts API
                    :<|> Tags '["Accounts"] :> Accounts.API

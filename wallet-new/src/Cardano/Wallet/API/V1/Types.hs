@@ -15,14 +15,16 @@ module Cardano.Wallet.API.V1.Types (
   , maxPerPageEntries
   , defaultPerPageEntries
   , OneOf (..)
-  , UninitialisedWallet (..)
   , PasswordUpdate (..)
-  , ReadOnlyAccount (..)
-  , ReadOnly
+  , AccountUpdate (..)
+  , Update
+  , New
   -- * Error handling
   , WalletError (..)
   -- * Domain-specific types
   , Wallet (..)
+  , NewWallet (..)
+  , WalletUpdate (..)
   , WalletId (..)
   , Address (..)
   , Account (..)
@@ -32,7 +34,7 @@ module Cardano.Wallet.API.V1.Types (
   , Transaction (..)
   , EstimatedFees (..)
   -- * Updates
-  , WalletUpdate (..)
+  , WalletSoftwareUpdate (..)
   ) where
 
 import           Universum
@@ -196,16 +198,30 @@ instance ToHttpApiData WalletId where
 type Coins = Int
 
 -- | A type modelling the request for a new wallet.
-data UninitialisedWallet = UninitialisedWallet {
+data NewWallet = NewWallet {
       newwalBackupPhrase :: BackupPhrase
     , newwalPassphrase   :: Maybe Passphrase
     } deriving (Eq, Show, Generic)
 
-deriveJSON Serokell.defaultOptions  ''UninitialisedWallet
+deriveJSON Serokell.defaultOptions  ''NewWallet
 
-instance Arbitrary UninitialisedWallet where
-  arbitrary = UninitialisedWallet <$> pure "MyBackupPhraseHashed"
-                                  <*> pure (Just "My passphrase")
+instance Arbitrary NewWallet where
+  arbitrary = NewWallet <$> pure "MyBackupPhraseHashed"
+                        <*> pure (Just "My passphrase")
+
+-- | A type modelling the update of an existing wallet.
+data WalletUpdate = WalletUpdate {
+      uwalUnit      :: !Int
+    , uwalAssurance :: WalletAssurance
+    , uwalName      :: Text
+    } deriving (Eq, Show, Generic)
+
+deriveJSON Serokell.defaultOptions  ''WalletUpdate
+
+instance Arbitrary WalletUpdate where
+  arbitrary = WalletUpdate <$> fmap getPositive arbitrary
+                           <*> arbitrary
+                           <*> fmap fromString arbitrary
 
 -- | A Wallet.
 data Wallet = Wallet {
@@ -256,14 +272,14 @@ instance Arbitrary Account where
                                    <*> pure "My account"
                                    <*> arbitrary
 
-data ReadOnlyAccount = ReadOnlyAccount
-  { roaccName      :: !Text
+data AccountUpdate = AccountUpdate
+  { uaccName      :: !Text
   } deriving (Show, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''ReadOnlyAccount
+deriveJSON Serokell.defaultOptions ''AccountUpdate
 
-instance Arbitrary ReadOnlyAccount where
-  arbitrary = ReadOnlyAccount . fromString <$> pure "myAccount"
+instance Arbitrary AccountUpdate where
+  arbitrary = AccountUpdate . fromString <$> pure "myAccount"
 
 -- | A type incapsulating a password update request.
 data PasswordUpdate = PasswordUpdate
@@ -328,23 +344,28 @@ instance Arbitrary Transaction where
                           <*> fmap getPositive arbitrary
 
 -- | A type representing an upcoming wallet update.
-data WalletUpdate = WalletUpdate
+data WalletSoftwareUpdate = WalletSoftwareUpdate
   { updSoftwareVersion   :: !Text
   , updBlockchainVersion :: !Text
   , updScriptVersion     :: !Int
   -- Other types omitted for now.
   } deriving (Show, Eq, Generic)
 
-deriveJSON Serokell.defaultOptions ''WalletUpdate
+deriveJSON Serokell.defaultOptions ''WalletSoftwareUpdate
 
-instance Arbitrary WalletUpdate where
-  arbitrary = WalletUpdate <$> fmap fromString arbitrary
-                           <*> fmap fromString arbitrary
-                           <*> fmap getPositive arbitrary
+instance Arbitrary WalletSoftwareUpdate where
+  arbitrary = WalletSoftwareUpdate <$> fmap fromString arbitrary
+                                   <*> fmap fromString arbitrary
+                                   <*> fmap getPositive arbitrary
 
 --
--- ReadOnly isomorphisms
+-- POST/PUT requests isomorphisms
 --
 
-type family ReadOnly (original :: *) :: * where
-  ReadOnly Account = ReadOnlyAccount
+type family Update (original :: *) :: * where
+  Update Wallet  = WalletUpdate
+  Update Account = AccountUpdate
+
+type family New (original :: *) :: * where
+  New Wallet  = NewWallet
+  New Account = AccountUpdate -- POST == PUT

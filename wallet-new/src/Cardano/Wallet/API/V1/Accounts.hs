@@ -16,7 +16,7 @@ import           Cardano.Wallet.API.V1.Types
 import           Servant
 
 type API
-    =    "accounts" :> Capture "accountId" Text
+    =    "accounts" :> Capture "accountId" AccountId
                     :> Summary "Deletes an Account."
                     :> DeleteNoContent '[JSON] NoContent
     :<|> "accounts" :> Capture "accountId" Text
@@ -27,5 +27,9 @@ type API
                     :> Get '[JSON] (OneOf [Account] (ExtendedResponse [Account]))
     :<|> "accounts" :> Header  "Daedalus-Passphrase" Text
                     :> Summary "Creates a new Account for the given Wallet."
-                    :> ReqBody '[JSON] (ReadOnly Account)
+                    :> ReqBody '[JSON] (New Account)
                     :> Post '[JSON] Account
+    :<|> "accounts" :> Capture "accountId" AccountId
+                    :> Summary "Update an Account for the given Wallet."
+                    :> ReqBody '[JSON] (Update Account)
+                    :> Put '[JSON] Account

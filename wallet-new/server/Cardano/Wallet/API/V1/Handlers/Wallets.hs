@@ -20,7 +20,7 @@ handlers =   newWallet
                 :<|> Accounts.handlers walletId
              )
 
-newWallet :: UninitialisedWallet -> Handler Wallet
+newWallet :: NewWallet -> Handler Wallet
 newWallet _ = liftIO $ generate arbitrary
 
 listWallets :: Maybe Page
@@ -52,5 +52,5 @@ deleteWallet _ = return NoContent
 getWallet :: WalletId -> Handler Wallet
 getWallet _ = liftIO $ generate arbitrary
 
-updateWallet :: WalletId -> Wallet -> Handler Wallet
-updateWallet _ w = return w
+updateWallet :: WalletId -> WalletUpdate -> Handler Wallet
+updateWallet _ _ = liftIO $ generate arbitrary

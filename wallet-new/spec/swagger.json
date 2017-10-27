@@ -34,25 +34,11 @@
                     "type": "string"
                 },
                 "id": {
-                    "type": "string"
+                    "type": "string",
+                    "readOnly": true
                 },
                 "unit": {
                     "type": "number"
-                }
-            }
-        },
-        "ReadOnlyAccount": {
-            "example": {
-                "name": "myAccount"
-            },
-            "required": [
-                "name"
-            ],
-            "type": "object",
-            "description": "A simpler version of an Account showing only the fields modifiable as part of the REST operations. You can still pass an entire Account as input, and extra fields will simply be ignored.",
-            "properties": {
-                "name": {
-                    "type": "string"
                 }
             }
         },
@@ -251,26 +237,26 @@
         },
         "WalletUpdate": {
             "example": {
-                "scriptVersion": 1,
-                "blockchainVersion": "",
-                "softwareVersion": "U"
+                "name": "¯",
+                "assurance": "assuranceNormal",
+                "unit": 3
             },
             "required": [
-                "scriptVersion",
-                "blockchainVersion",
-                "softwareVersion"
+                "name",
+                "assurance",
+                "unit"
             ],
             "type": "object",
-            "description": "A programmed update to the system.",
+            "description": "A type represending an update for an existing Wallet.You can still pass an entire Wallet as input, and extra  fields (which are not meant to be controlled by user) will simply be ignored.",
             "properties": {
-                "scriptVersion": {
+                "name": {
+                    "type": "string"
+                },
+                "assurance": {
+                    "type": "string"
+                },
+                "unit": {
                     "type": "number"
-                },
-                "blockchainVersion": {
-                    "type": "string"
-                },
-                "softwareVersion": {
-                    "type": "string"
                 }
             }
         },
@@ -334,26 +320,6 @@
                 }
             }
         },
-        "UninitialisedWallet": {
-            "example": {
-                "passphrase": "My passphrase",
-                "backupPhrase": "MyBackupPhraseHashed"
-            },
-            "required": [
-                "passphrase",
-                "backupPhrase"
-            ],
-            "type": "object",
-            "description": "A type representing the request for a new Wallet.",
-            "properties": {
-                "passphrase": {
-                    "type": "string"
-                },
-                "backupPhrase": {
-                    "type": "string"
-                }
-            }
-        },
         "Transaction": {
             "example": {
                 "amount": 1,
@@ -394,6 +360,21 @@
                 }
             }
         },
+        "AccountUpdate": {
+            "example": {
+                "name": "myAccount"
+            },
+            "required": [
+                "name"
+            ],
+            "type": "object",
+            "description": "A type represending an update for an existing Account.You can still pass an entire Account as input, and extra  fields (which are not meant to be controlled by user) will simply be ignored.",
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
         "OneOf [Wallet] (ExtendedResponse [Wallet])": {
             "example": [
                 {
@@ -429,6 +410,26 @@
             "type": "array",
             "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Wallet] or [Wallet] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"name\": \"My wallet\",\n        \"assurance\": \"assuranceStrict\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"unit\": 1\n    },\n    {\n        \"name\": \"My wallet\",\n        \"assurance\": \"assuranceNormal\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"unit\": 3\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"name\": \"My wallet\",\n            \"assurance\": \"assuranceNormal\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"unit\": 2\n        },\n        {\n            \"name\": \"My wallet\",\n            \"assurance\": \"assuranceStrict\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"unit\": 2\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}</pre>"
         },
+        "NewWallet": {
+            "example": {
+                "passphrase": "My passphrase",
+                "backupPhrase": "MyBackupPhraseHashed"
+            },
+            "required": [
+                "passphrase",
+                "backupPhrase"
+            ],
+            "type": "object",
+            "description": "A type represending an request for creating a(n) Wallet. You can still pass an entire Wallet as input, and extra  fields (which are not meant to be controlled by user) will simply be ignored.",
+            "properties": {
+                "passphrase": {
+                    "type": "string"
+                },
+                "backupPhrase": {
+                    "type": "string"
+                }
+            }
+        },
         "PasswordUpdate": {
             "example": {
                 "old": "Vç",
@@ -439,7 +440,7 @@
                 "new"
             ],
             "type": "object",
-            "description": "A PasswordUpdate incapsulate a request for changing a password.",
+            "description": "A PasswordUpdate incapsulate a request for changing a Wallet's password.",
             "properties": {
                 "old": {
                     "type": "string"
@@ -539,7 +540,7 @@
                     {
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/Wallet"
+                            "$ref": "#/definitions/WalletUpdate"
                         },
                         "in": "body",
                         "name": "body"
@@ -589,7 +590,7 @@
                     {
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/ReadOnlyAccount"
+                            "$ref": "#/definitions/AccountUpdate"
                         },
                         "in": "body",
                         "name": "body"
@@ -837,7 +838,7 @@
                     {
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/UninitialisedWallet"
+                            "$ref": "#/definitions/NewWallet"
                         },
                         "in": "body",
                         "name": "body"
@@ -1008,6 +1009,56 @@
                         "in": "path",
                         "name": "accountId",
                         "type": "string"
+                    }
+                ],
+                "tags": [
+                    "Accounts",
+                    "V1",
+                    "Wallets"
+                ]
+            },
+            "put": {
+                "summary": "Update an Account for the given Wallet.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "404": {
+                        "description": "`walletId` or `accountId` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/Account"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "walletId",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "in": "path",
+                        "name": "accountId",
+                        "type": "string"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/AccountUpdate"
+                        },
+                        "in": "body",
+                        "name": "body"
                     }
                 ],
                 "tags": [

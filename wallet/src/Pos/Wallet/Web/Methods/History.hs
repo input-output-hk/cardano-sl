@@ -30,7 +30,8 @@ import           Pos.Util.Servant           (encodeCType)
 import           Pos.Wallet.WalletMode      (getLocalHistory, localChainDifficulty,
                                              networkChainDifficulty)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..), CTxId,
-                                             CTxMeta (..), CWAddressMeta (..), Wal, mkCTx)
+                                             CTxMeta (..), CWAddressMeta (..),
+                                             ScrollLimit, ScrollOffset, Wal, mkCTx)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
 import           Pos.Wallet.Web.Pending     (PendingTx (..), ptxPoolInfo)
@@ -114,8 +115,8 @@ getHistoryLimited
     => Maybe (CId Wal)
     -> Maybe AccountId
     -> Maybe (CId Addr)
-    -> Maybe Word
-    -> Maybe Word
+    -> Maybe ScrollOffset
+    -> Maybe ScrollLimit
     -> m ([CTx], Word)
 getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
     (cWalId, accIds) <- case (mCWalId, mAccId) of

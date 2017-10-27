@@ -21,9 +21,9 @@ import           System.Wlog                  (logDebug)
 import           Pos.Aeson.ClientTypes        ()
 import           Pos.Aeson.WalletBackup       ()
 import           Pos.Constants                (isDevelopment)
+import           Pos.Core.Configuration       (genesisHdwSecretKeys)
 import           Pos.Crypto                   (EncryptedSecretKey, PassPhrase,
                                                emptyPassphrase, firstHardened)
-import           Pos.Core.Configuration       (genesisHdwSecretKeys)
 import           Pos.StateLock                (Priority (..), withStateLockNoMetrics)
 import           Pos.Util                     (maybeThrow)
 import           Pos.Util.UserSecret          (UserSecretDecodingError (..),
@@ -32,9 +32,9 @@ import           Pos.Wallet.KeyStorage        (addSecretKey)
 import           Pos.Wallet.Web.Account       (GenSeed (..), genSaveRootKey,
                                                genUniqueAccountId)
 import           Pos.Wallet.Web.ClientTypes   (AccountId (..), CAccountInit (..),
-                                               CAccountMeta (..), CId, CWallet (..),
-                                               CWalletInit (..), CWalletMeta (..), Wal,
-                                               encToCId)
+                                               CAccountMeta (..), CFilePath (..), CId,
+                                               CWallet (..), CWalletInit (..),
+                                               CWalletMeta (..), Wal, encToCId)
 import           Pos.Wallet.Web.Error         (WalletError (..), rewrapToWalletError)
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.Mode          (MonadWalletWebMode)
@@ -91,9 +91,9 @@ restoreWallet passphrase cwInit = do
 importWallet
     :: MonadWalletWebMode m
     => PassPhrase
-    -> Text
+    -> CFilePath
     -> m CWallet
-importWallet passphrase (toString -> fp) = do
+importWallet passphrase (CFilePath (toString -> fp)) = do
     secret <-
         rewrapToWalletError isDoesNotExistError noFile $
         rewrapToWalletError (\UserSecretDecodingError{} -> True) decodeFailed $

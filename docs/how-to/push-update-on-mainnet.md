@@ -277,27 +277,6 @@ Upload installers to S3 bucket:
 Download server URL is passed to the launcher/node in the following way:
 https://github.com/input-output-hk/daedalus/blob/eb713a66eb2c0445fbe8c2faa59f0884edd83712/installers/Launcher.hs#L68
 
-Voting for proposal
-===================
-
-Variables:
-
-```
-PROPOSAL_ID=4a57dd56563149eb4429024e51709807b88d6306b81eb2f9aa5fa303bc7bbf44
-```
-
-Command:
-
-```
-for idx in {1..3}; do
-  stack exec -- cardano-auxx $COMMONOPTS $AUXXOPTS cmd --commands "vote ${idx} y ${PROPOSAL_ID}"
-done
-```
-
-`y` stands for “vote ‘yes’”. Successfull output ends in "submitted a vote".
-Votes will be sent to the network, software update will apply soon (after
-`k` blocks, for more details read cardanodocs, links are in prerequisites).
-
 Deleting artefacts
 ===================
 

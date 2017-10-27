@@ -58,7 +58,37 @@ Electron-based wallet called “Daedalus”.
 The source code for both Cardano SL and Daedalus Bridge can be obtained
 from the [official repository](https://github.com/input-output-hk/cardano-sl).
 
-The [Haskell Tool Stack](https://haskellstack.org) is required to build Cardano SL. Furthermore, we strongly suggest using [Nix package manager](https://nixos.org/nix/download.html) to get the correct dependencies for building Cardano SL. It will fetch the correct `openssl` version, but won't override the system-installed version. The following commands assume that you already has `stack` and `nix-*` programs.
+### Building Cardano with Nix on Linux/OS X
+
+Cardano SL binaries for Linux and OS X can be obtained from the IOHK binary cache
+repositories entirely using the Nix package manager.  Following steps are
+required:
+
+  1. Installation of the Nix package manager, which is not covered here -- for
+     that, please refer to [its download page](https://nixos.org/nix/download.html).
+
+     You can validate a correct Nix installation by checking that the `nix-build`
+     binary is available.
+
+  2. Configuration of the Nix package manager to use the IOHK-provided binary cache:
+
+        sudo mkdir -p /etc/nix
+        sudo vi /etc/nix/nix.conf       # ..or any other editor, if you prefer
+
+     ..and then add two following lines:
+
+        binary-caches             = https://cache.nixos.org https://hydra.iohk.io
+        binary-caches-public-keys = hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ=
+
+   3. Actually building Cardano SL (or, most likely, simply obtaining it from the
+      IOHK's binary caches) can be performed by:
+
+        git checkout cardano-sl-1.0     # The branch you want may vary.
+        nix-build -A cardano-sl-static --cores 0 --jobs 2 --no-build-output --out-link cardano-sl-1.0
+
+### Building Cardano with Stack
+
+The [Haskell Tool Stack](https://haskellstack.org) can also be used to build Cardano SL. Furthermore, we strongly suggest using [Nix package manager](https://nixos.org/nix/download.html) to get the correct dependencies for building Cardano SL. It will fetch the correct `openssl` version, but won't override the system-installed version. The following commands assume that you already has `stack` and `nix-*` programs.
 
 ### Binaries
 

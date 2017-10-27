@@ -94,12 +94,9 @@ delegateL =
 delegateH =
     DelegateHeavy <$> num <*> base58PkParser <*> num <*> dumpFlag
 
-primaryKeyFlag :: Parser Bool
-primaryKeyFlag = (True <$ lexeme (try $ string "primary")) <|> pure False
-
 addKeyFromPool, addKeyFromFile :: Parser Command
 addKeyFromPool = AddKeyFromPool <$> num
-addKeyFromFile = AddKeyFromFile <$> filePath <*> primaryKeyFlag
+addKeyFromFile = AddKeyFromFile <$> filePath
 
 send :: Parser Command
 send = Send <$> num <*> (NE.fromList <$> many1 txout)
@@ -119,14 +116,10 @@ sendToAllGenesis = SendToAllGenesis <$> sendToAllGenesisParams
 vote :: Parser Command
 vote = Vote <$> num <*> switch <*> hash
 
-voteAllFlag :: Parser Bool
-voteAllFlag = (True <$ lexeme (try $ string "vote-all")) <|> pure False
-
 proposeUpdateParams :: Parser ProposeUpdateParams
 proposeUpdateParams =
     ProposeUpdateParams <$>
     num <*>
-    voteAllFlag <*>
     lexeme parseBlockVersion <*>
     lexeme parseIntegralSafe <*>
     lexeme parseIntegralSafe <*>

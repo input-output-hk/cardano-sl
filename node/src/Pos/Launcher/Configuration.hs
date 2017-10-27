@@ -88,8 +88,10 @@ withConfigurations
     -> (HasConfigurations => m r)
     -> m r
 withConfigurations co@ConfigurationOptions{..} act = do
+    appendFile "debuglog" $ "==> withConfigurations: " <> show (show co :: Text)
     putText $ show co
     Configuration{..} <- parseYamlConfig cfoFilePath cfoKey
+    appendFile "debuglog" $ "==> withConfigurations: parsed YAML config"
     let configurationDir = takeDirectory cfoFilePath
     withCoreConfigurations ccCore configurationDir cfoSystemStart $
         withInfraConfiguration ccInfra $

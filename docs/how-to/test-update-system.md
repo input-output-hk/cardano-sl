@@ -50,13 +50,13 @@ stack exec -- cardano-auxx --system-start 0 --log-config log-config-prod.yaml --
 
 Then you will appear in `repl` mode and would need to perform few actions:
 
-#### Import secret keys
+#### Import keys
 
 ```
-add-key nodes2/testnet1.key primary
-add-key nodes2/testnet2.key primary
-add-key nodes2/testnet3.key primary
-add-key nodes2/testnet4.key primary
+add-key nodes2/testnet1.key
+add-key nodes2/testnet2.key
+add-key nodes2/testnet3.key
+add-key nodes2/testnet4.key
 ```
 
 Then if you execute

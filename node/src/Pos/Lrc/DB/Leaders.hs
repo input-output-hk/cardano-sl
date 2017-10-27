@@ -77,14 +77,13 @@ prepareLrcLeaders =
         putInitFlag
   where
     initLeaders :: MonadDB m => EpochIndex -> m ()
-    initLeaders i =
-        whenNothingM_ (getLeader $ SlotId i minBound) $ do
-            maybeLeaders <- getLeadersForEpoch i
-            case maybeLeaders of
-                Just leaders -> do
-                    putBatchBi $ putLeadersForEpochSeparatelyOps i leaders
-                    initLeaders (i + 1)
-                Nothing -> pure ()
+    initLeaders i = do
+        maybeLeaders <- getLeadersForEpoch i
+        case maybeLeaders of
+            Just leaders -> do
+                putBatchBi $ putLeadersForEpochSeparatelyOps i leaders
+                initLeaders (i + 1)
+            Nothing -> pure ()
 
 isLrcDbInitialized :: MonadDB m => m Bool
 isLrcDbInitialized = dbHasKey lrcDbLeadersInitFlag

@@ -46,7 +46,6 @@ module Pos.Wallet.Web.State.State
        , testReset
        , createAccount
        , createWallet
-       , addRemovedAccount
        , addWAddress
        , setProfile
        , setAccountMeta
@@ -56,7 +55,6 @@ module Pos.Wallet.Web.State.State
        , setWalletSyncTip
        , setWalletTxMeta
        , addOnlyNewTxMetas
-       , setWalletTxHistory
        , addOnlyNewTxMeta
        , removeWallet
        , removeTxMetas
@@ -229,11 +227,11 @@ createAccount accId = updateDisk . A.CreateAccount accId
 createWallet :: MonadWalletDB ctx m => CId Wal -> CWalletMeta -> Bool -> PassPhraseLU -> m ()
 createWallet cWalId cwMeta isReady = updateDisk . A.CreateWallet cWalId cwMeta isReady
 
+removeTxMetas :: MonadWalletDB ctx m => CId Wal -> m ()
+removeTxMetas = updateDisk . A.RemoveTxMetas
+
 addWAddress :: MonadWalletDB ctx m => CWAddressMeta -> m ()
 addWAddress addr = updateDisk $ A.AddWAddress addr
-
-addRemovedAccount :: MonadWalletDB ctx m => CWAddressMeta -> m ()
-addRemovedAccount addr = updateDisk $ A.AddRemovedAccount addr
 
 setAccountMeta :: MonadWalletDB ctx m => AccountId -> CAccountMeta -> m ()
 setAccountMeta accId = updateDisk . A.SetAccountMeta accId
@@ -261,9 +259,6 @@ addOnlyNewTxMetas cWalId cTxMetas = updateDisk (A.AddOnlyNewTxMetas cWalId cTxMe
     where
       cTxMetaList = [ (encodeCType txId, cTxMeta) | (txId, cTxMeta) <- Map.toList cTxMetas ]
 
-setWalletTxHistory :: MonadWalletDB ctx m => CId Wal -> [(CTxId, CTxMeta)] -> m ()
-setWalletTxHistory cWalId = updateDisk . A.SetWalletTxHistory cWalId
-
 updateWalletBalancesAndUtxo :: MonadWalletDB ctx m => UtxoModifier -> m ()
 updateWalletBalancesAndUtxo = updateDisk . A.UpdateWalletBalancesAndUtxo
 
@@ -272,9 +267,6 @@ addOnlyNewTxMeta cWalId cTxId = updateDisk . A.AddOnlyNewTxMeta cWalId cTxId
 
 removeWallet :: MonadWalletDB ctx m => CId Wal -> m ()
 removeWallet = updateDisk . A.RemoveWallet
-
-removeTxMetas :: MonadWalletDB ctx m => CId Wal -> m ()
-removeTxMetas = updateDisk . A.RemoveTxMetas
 
 removeHistoryCache :: MonadWalletDB ctx m => CId Wal -> m ()
 removeHistoryCache = updateDisk . A.RemoveHistoryCache

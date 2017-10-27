@@ -2061,6 +2061,7 @@ self: {
             stm-containers
             string-qq
             swagger2
+            text
             text-format
             time
             time-units

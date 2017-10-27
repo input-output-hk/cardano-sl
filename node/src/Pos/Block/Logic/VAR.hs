@@ -31,7 +31,8 @@ import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockA
                                            applyBlocksUnsafe, normalizeMempool,
                                            rollbackBlocksUnsafe, toTxpBlock,
                                            toUpdateBlock)
-import           Pos.Block.Slog           (mustDataBeKnown, slogVerifyBlocks)
+import           Pos.Block.Slog           (ShouldCallBListener (..), mustDataBeKnown,
+                                           slogVerifyBlocks)
 import           Pos.Block.Types          (Blund, Undo (..))
 import           Pos.Core                 (HeaderHash, epochIndexL, headerHashG,
                                            prevBlockL)
@@ -131,7 +132,7 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
             Left (ApplyBlocksVerifyFailure -> e') ->
                 applyAMAP e' (OldestFirst []) nothingApplied
             Right (OldestFirst (undo :| []), pModifier) -> do
-                lift $ applyBlocksUnsafe (one (block, undo)) (Just pModifier)
+                lift $ applyBlocksUnsafe (ShouldCallBListener True) (one (block, undo)) (Just pModifier)
                 applyAMAP e (OldestFirst xs) False
             Right _ -> error "verifyAndApplyBlocksInternal: applyAMAP: \
                              \verification of one block produced more than one undo"
@@ -172,7 +173,7 @@ verifyAndApplyBlocks rollback blocks = runExceptT $ do
                 let newBlunds = OldestFirst $ getOldestFirst prefix `NE.zip`
                                               getOldestFirst undos
                 logDebug "Rolling: Verification done, applying unsafe block"
-                lift $ applyBlocksUnsafe newBlunds (Just pModifier)
+                lift $ applyBlocksUnsafe (ShouldCallBListener True) newBlunds (Just pModifier)
                 case getOldestFirst suffix of
                     [] -> GS.getTip
                     (genesis:xs) -> do
@@ -195,7 +196,7 @@ applyBlocks calculateLrc pModifier blunds = do
         -- caller most definitely should have computed lrc to verify
         -- the sequence beforehand.
         lrcSingleShot (prefixHead ^. epochIndexL)
-    applyBlocksUnsafe prefix pModifier
+    applyBlocksUnsafe (ShouldCallBListener True) prefix pModifier
     case getOldestFirst suffix of
         []           -> pass
         (genesis:xs) -> applyBlocks calculateLrc pModifier (OldestFirst (genesis:|xs))
@@ -219,7 +220,7 @@ rollbackBlocks blunds = do
     let firstToRollback = blunds ^. _Wrapped . _neHead . _1 . headerHashG
     when (tip /= firstToRollback) $
         throwM $ RollbackTipMismatch tip firstToRollback
-    rollbackBlocksUnsafe (BypassSecurityCheck False) blunds
+    rollbackBlocksUnsafe (BypassSecurityCheck False) (ShouldCallBListener True) blunds
 
 -- | Rollbacks some blocks and then applies some blocks.
 applyWithRollback
@@ -231,7 +232,7 @@ applyWithRollback toRollback toApply = runExceptT $ do
     tip <- GS.getTip
     when (tip /= newestToRollback) $
         throwError $ ApplyBlocksTipMismatch "applyWithRollback/rollback" tip newestToRollback
-    lift $ rollbackBlocksUnsafe (BypassSecurityCheck False) toRollback
+    lift $ rollbackBlocksUnsafe (BypassSecurityCheck False) (ShouldCallBListener True) toRollback
     ExceptT $ bracketOnError (pure ()) (\_ -> applyBack) $ \_ -> do
         tipAfterRollback <- GS.getTip
         if tipAfterRollback /= expectedTipApply

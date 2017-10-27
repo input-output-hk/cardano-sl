@@ -36,6 +36,8 @@ module Pos.Wallet.Web.State.State
        , getCustomAddress
        , isCustomAddress
        , getWalletUtxo
+       , getWalletBalancesAndUtxo
+       , updateWalletBalancesAndUtxo
        , getPendingTxs
        , getWalletPendingTxs
        , getPendingTx
@@ -74,6 +76,7 @@ module Pos.Wallet.Web.State.State
        , casPtxCondition
        , ptxUpdateMeta
        , addOnlyNewPendingTx
+       , getWalletStorage
        , flushWalletStorage
        ) where
 
@@ -86,7 +89,7 @@ import           Universum
 
 import           Pos.Client.Txp.History       (TxHistoryEntry)
 import           Pos.Core.Configuration       (HasConfiguration)
-import           Pos.Txp                      (TxId, Utxo)
+import           Pos.Txp                      (TxId, Utxo, UtxoModifier)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Util.Servant             (encodeCType)
 import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CId,
@@ -99,7 +102,8 @@ import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemS
 import           Pos.Wallet.Web.State.Acidic  as A
 import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..),
                                                CustomAddressType (..), PtxMetaUpdate (..),
-                                               WalletStorage, WalletTip (..))
+                                               WalletBalances, WalletStorage,
+                                               WalletTip (..))
 
 -- | MonadWalletWebDB stands for monad which is able to get web wallet state
 type MonadWalletWebDB ctx m =
@@ -244,6 +248,12 @@ setWalletTxHistory cWalId = updateDisk . A.SetWalletTxHistory cWalId
 getWalletUtxo :: WebWalletModeDB ctx m => m Utxo
 getWalletUtxo = queryDisk A.GetWalletUtxo
 
+getWalletBalancesAndUtxo :: WebWalletModeDB ctx m => m (WalletBalances, Utxo)
+getWalletBalancesAndUtxo = queryDisk A.GetWalletBalancesAndUtxo
+
+updateWalletBalancesAndUtxo :: WebWalletModeDB ctx m => UtxoModifier -> m ()
+updateWalletBalancesAndUtxo = updateDisk . A.UpdateWalletBalancesAndUtxo
+
 setWalletUtxo :: WebWalletModeDB ctx m => Utxo -> m ()
 setWalletUtxo = updateDisk . A.SetWalletUtxo
 
@@ -318,3 +328,6 @@ addOnlyNewPendingTx = updateDisk ... A.AddOnlyNewPendingTx
 
 flushWalletStorage :: WebWalletModeDB ctx m => m ()
 flushWalletStorage = updateDisk A.FlushWalletStorage
+
+getWalletStorage :: WebWalletModeDB ctx m => m WalletStorage
+getWalletStorage = queryDisk A.GetWalletStorage

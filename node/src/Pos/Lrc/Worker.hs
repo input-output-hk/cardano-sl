@@ -27,6 +27,7 @@ import           System.Wlog              (logDebug, logInfo, logWarning)
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
                                            applyBlocksUnsafe, rollbackBlocksUnsafe)
+import           Pos.Block.Slog.Logic     (ShouldCallBListener (..))
 import           Pos.Core                 (Coin, EpochIndex, EpochOrSlot (..),
                                            EpochOrSlot (..), SharedSeed, StakeholderId,
                                            crucialSlot, epochIndexL, getEpochOrSlot)
@@ -153,7 +154,7 @@ lrcDo epoch consumers = do
                 DB.sanityCheckDB
                 leadersComputationDo epoch seed
   where
-    applyBack blunds = applyBlocksUnsafe blunds Nothing
+    applyBack blunds = applyBlocksUnsafe scb blunds Nothing
     upToGenesis b = b ^. epochIndexL >= epoch
     whileAfterCrucial b = getEpochOrSlot b > crucial
     crucial = EpochOrSlot $ Right $ crucialSlot epoch
@@ -162,8 +163,13 @@ lrcDo epoch consumers = do
         -- time of the crucial slot. The crucial slot may be further than 'blkSecurityParam'
         -- slots from the current one, so the security check must be disabled.
         BypassSecurityCheck True
+    scb =
+        -- We don't want to trigger BListener callback because
+        -- LRC computation via rollback is an artificial solution
+        -- and outer viewers mustn't know about it.
+        ShouldCallBListener False
     withBlocksRolledBack blunds =
-        bracket_ (rollbackBlocksUnsafe bsc blunds)
+        bracket_ (rollbackBlocksUnsafe bsc scb blunds)
                  (applyBack (toOldestFirst blunds))
 
 issuersComputationDo :: forall ssc ctx m . LrcMode ssc ctx m => EpochIndex -> m ()

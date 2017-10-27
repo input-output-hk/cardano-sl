@@ -25,6 +25,7 @@ import           Test.QuickCheck.Monadic   (pick)
 import           Pos.AllSecrets            (HasAllSecrets (..))
 import           Pos.Block.Core            (mainBlockTxPayload)
 import           Pos.Block.Logic           (applyBlocksUnsafe)
+import           Pos.Block.Slog            (ShouldCallBListener (..))
 import           Pos.Core                  (Coin, EpochIndex, GenesisData (..),
                                             StakeholderId, addressHash, blkSecurityParam,
                                             coinF, genesisData)
@@ -200,7 +201,7 @@ genAndApplyBlockFixedTxs txs = do
     let txPayload = mkTxPayload txs
     emptyBlund <- bpGenBlock (EnableTxPayload False) (InplaceDB False)
     let blund = emptyBlund & _1 . _Right . mainBlockTxPayload .~ txPayload
-    lift $ applyBlocksUnsafe (one blund) Nothing
+    lift $ applyBlocksUnsafe (ShouldCallBListener False)(one blund) Nothing
 
 -- TODO: we can't change stake in bootstrap era!
 -- This part should be implemented in CSL-1450.

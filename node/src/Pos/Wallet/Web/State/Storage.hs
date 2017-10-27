@@ -1,16 +1,21 @@
+{-# LANGUAGE Rank2Types   #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE Rank2Types #-}
 
 -- @jens: this document is inspired by https://github.com/input-output-hk/rscoin-haskell/blob/master/src/RSCoin/Explorer/Storage.hs
 module Pos.Wallet.Web.State.Storage
        (
          WalletStorage (..)
+       , WalletInfo (..)
+       , AccountInfo (..)
+       , AddressInfo (..)
        , AddressLookupMode (..)
        , CustomAddressType (..)
+       , WalletBalances
        , WalletTip (..)
        , PtxMetaUpdate (..)
        , Query
        , Update
+       , getWalletStorage
        , flushWalletStorage
        , getProfile
        , setProfile
@@ -48,6 +53,8 @@ module Pos.Wallet.Web.State.Storage
        , setWalletTxHistory
        , getWalletTxHistory
        , getWalletUtxo
+       , getWalletBalancesAndUtxo
+       , updateWalletBalancesAndUtxo
        , setWalletUtxo
        , addOnlyNewTxMeta
        , setWalletTxMeta
@@ -80,15 +87,19 @@ import           Control.Monad.State.Class      (put)
 import           Data.Default                   (Default, def)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.Map                       as M
-import           Data.SafeCopy                  (Migrate (..), extension, base, deriveSafeCopySimple)
+import           Data.SafeCopy                  (Migrate (..), base, deriveSafeCopySimple,
+                                                 extension)
 import           Data.Time.Clock.POSIX          (POSIXTime)
 
 import           Pos.Client.Txp.History         (TxHistoryEntry, txHistoryListToMap)
 import           Pos.Core.Configuration         (HasConfiguration)
 import           Pos.Core.Types                 (SlotId, Timestamp)
-import           Pos.Txp                        (TxAux, TxId, Utxo)
+import           Pos.Txp                        (AddrCoinMap, TxAux, TxId, Utxo,
+                                                 UtxoModifier, applyUtxoModToAddrCoinMap,
+                                                 utxoToAddressCoinMap)
 import           Pos.Types                      (HeaderHash)
 import           Pos.Util.BackupPhrase          (BackupPhrase)
+import qualified Pos.Util.Modifier              as MM
 import           Pos.Wallet.Web.ClientTypes     (AccountId, Addr, CAccountMeta, CCoin,
                                                  CHash, CId, CProfile, CTxId, CTxMeta,
                                                  CUpdateInfo, CWAddressMeta (..),
@@ -139,6 +150,7 @@ makeLenses ''WalletInfo
 
 -- | Maps addresses to their first occurrence in the blockchain
 type CustomAddresses = HashMap (CId Addr) HeaderHash
+type WalletBalances = AddrCoinMap
 
 data WalletStorage = WalletStorage
     { _wsWalletInfos     :: !(HashMap (CId Wal) WalletInfo)
@@ -148,6 +160,9 @@ data WalletStorage = WalletStorage
     , _wsTxHistory       :: !(HashMap (CId Wal) (HashMap CTxId CTxMeta))
     , _wsHistoryCache    :: !(HashMap (CId Wal) (Map TxId TxHistoryEntry))
     , _wsUtxo            :: !Utxo
+    -- @_wsBalances@ depends on @_wsUtxo@,
+    -- it's forbidden to update @_wsBalances@ without @_wsUtxo@
+    , _wsBalances        :: !WalletBalances
     , _wsUsedAddresses   :: !CustomAddresses
     , _wsChangeAddresses :: !CustomAddresses
     }
@@ -166,6 +181,7 @@ instance Default WalletStorage where
         , _wsUsedAddresses   = mempty
         , _wsChangeAddresses = mempty
         , _wsUtxo            = mempty
+        , _wsBalances        = mempty
         }
 
 type Query a = forall m. (MonadReader WalletStorage m) => m a
@@ -263,8 +279,19 @@ getWalletTxHistory cWalId = toList <<$>> preview (wsTxHistory . ix cWalId)
 getWalletUtxo :: Query Utxo
 getWalletUtxo = view wsUtxo
 
+getWalletBalancesAndUtxo :: Query (WalletBalances, Utxo)
+getWalletBalancesAndUtxo = (,) <$> view wsBalances <*> view wsUtxo
+
+updateWalletBalancesAndUtxo :: UtxoModifier -> Update ()
+updateWalletBalancesAndUtxo modifier = do
+    balAndUtxo <- (,) <$> use wsBalances <*> use wsUtxo
+    wsBalances .= applyUtxoModToAddrCoinMap modifier balAndUtxo
+    wsUtxo %= MM.modifyMap modifier
+
 setWalletUtxo :: Utxo -> Update ()
-setWalletUtxo utxo = wsUtxo .= utxo
+setWalletUtxo utxo = do
+    wsUtxo .= utxo
+    wsBalances .= utxoToAddressCoinMap utxo
 
 getUpdates :: Query [CUpdateInfo]
 getUpdates = view wsReadyUpdates
@@ -463,6 +490,10 @@ addOnlyNewPendingTx ptx =
     wsWalletInfos . ix (_ptxWallet ptx) .
     wsPendingTxs . at (_ptxTxId ptx) %= (<|> Just ptx)
 
+
+getWalletStorage :: Query WalletStorage
+getWalletStorage = ask
+
 -- | Flushes data in wallet storage
 -- Preserves all metadata, wallets, accounts and addresses
 -- Flushes all data that can be rebuild from blockchain (tx history and etc.)
@@ -509,7 +540,6 @@ deriveSafeCopySimple 0 'base ''AccountInfo
 deriveSafeCopySimple 0 'base ''WalletTip
 deriveSafeCopySimple 0 'base ''WalletInfo
 
-
 -- Legacy versions, for migrations
 
 data WalletStorage_v0 = WalletStorage_v0
@@ -524,19 +554,47 @@ data WalletStorage_v0 = WalletStorage_v0
     , _v0_wsChangeAddresses :: !CustomAddresses
     }
 
+data WalletStorage_v1 = WalletStorage_v1
+    { _v1_wsWalletInfos     :: !(HashMap (CId Wal) WalletInfo)
+    , _v1_wsAccountInfos    :: !(HashMap AccountId AccountInfo)
+    , _v1_wsProfile         :: !CProfile
+    , _v1_wsReadyUpdates    :: [CUpdateInfo]
+    , _v1_wsTxHistory       :: !(HashMap (CId Wal) (HashMap CTxId CTxMeta))
+    , _v1_wsHistoryCache    :: !(HashMap (CId Wal) (Map TxId TxHistoryEntry))
+    , _v1_wsUtxo            :: !Utxo
+    , _v1_wsUsedAddresses   :: !CustomAddresses
+    , _v1_wsChangeAddresses :: !CustomAddresses
+    }
+
 deriveSafeCopySimple 0 'base ''WalletStorage_v0
-deriveSafeCopySimple 1 'extension ''WalletStorage
+deriveSafeCopySimple 1 'extension ''WalletStorage_v1
+deriveSafeCopySimple 2 'extension ''WalletStorage
+
+instance Migrate WalletStorage_v1 where
+    type MigrateFrom WalletStorage_v1 = WalletStorage_v0
+    migrate WalletStorage_v0{..} = WalletStorage_v1
+        { _v1_wsWalletInfos     = _v0_wsWalletInfos
+        , _v1_wsAccountInfos    = _v0_wsAccountInfos
+        , _v1_wsProfile         = _v0_wsProfile
+        , _v1_wsReadyUpdates    = _v0_wsReadyUpdates
+        , _v1_wsTxHistory       = _v0_wsTxHistory
+        , _v1_wsHistoryCache    = HM.map txHistoryListToMap _v0_wsHistoryCache
+        , _v1_wsUtxo            = _v0_wsUtxo
+        , _v1_wsUsedAddresses   = _v0_wsUsedAddresses
+        , _v1_wsChangeAddresses = _v0_wsChangeAddresses
+        }
 
 instance Migrate WalletStorage where
-    type MigrateFrom WalletStorage = WalletStorage_v0
-    migrate WalletStorage_v0{..} = WalletStorage
-        { _wsWalletInfos     = _v0_wsWalletInfos
-        , _wsAccountInfos    = _v0_wsAccountInfos
-        , _wsProfile         = _v0_wsProfile
-        , _wsReadyUpdates    = _v0_wsReadyUpdates
-        , _wsTxHistory       = _v0_wsTxHistory
-        , _wsHistoryCache    = HM.map txHistoryListToMap _v0_wsHistoryCache
-        , _wsUtxo            = _v0_wsUtxo
-        , _wsUsedAddresses   = _v0_wsUsedAddresses
-        , _wsChangeAddresses = _v0_wsChangeAddresses
+    type MigrateFrom WalletStorage = WalletStorage_v1
+    migrate WalletStorage_v1{..} = WalletStorage
+        { _wsWalletInfos     = _v1_wsWalletInfos
+        , _wsAccountInfos    = _v1_wsAccountInfos
+        , _wsProfile         = _v1_wsProfile
+        , _wsReadyUpdates    = _v1_wsReadyUpdates
+        , _wsTxHistory       = _v1_wsTxHistory
+        , _wsHistoryCache    = _v1_wsHistoryCache
+        , _wsUtxo            = _v1_wsUtxo
+        , _wsBalances        = utxoToAddressCoinMap _v1_wsUtxo
+        , _wsUsedAddresses   = _v1_wsUsedAddresses
+        , _wsChangeAddresses = _v1_wsChangeAddresses
         }

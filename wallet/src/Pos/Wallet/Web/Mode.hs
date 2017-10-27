@@ -46,6 +46,7 @@ import           Pos.Infra.Configuration        (HasInfraConfiguration)
 import           Pos.KnownPeers                 (MonadFormatPeers (..),
                                                  MonadKnownPeers (..))
 import           Pos.Reporting                  (HasReportingContext (..))
+import           Pos.Network.Types              (HasNodeType (..))
 import           Pos.Shutdown                   (HasShutdownContext (..))
 import           Pos.Slotting.Class             (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum          (currentTimeSlottingSum,
@@ -136,6 +137,9 @@ instance HasSlogGState WalletWebModeContext where
 
 instance HasJsonLogConfig WalletWebModeContext where
     jsonLogConfig = wwmcRealModeContext_L . jsonLogConfig
+
+instance HasNodeType WalletWebModeContext where
+    getNodeType = getNodeType . wwmcRealModeContext
 
 data WalletWebModeContextTag
 

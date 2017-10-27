@@ -120,6 +120,13 @@ translation =
     , genesisBlock:
         { gblNotFound: "Genesis block not found."
         , gblNumberRedeemedAddresses: "Redeemed addresses"
+        , gblNumberNotRedeemedAddresses: "Addresses left to redeem"
+        , gblNumberAddressesToRedeem: "Redeem addresses"
+        , gblRedeemedAmountTotal: "Redeemed amount"
+        , gblNonRedeemedAmountTotal: "Amount left to redeem"
+        , gblFilterAll: "All"
+        , gblFilterRedeemed: "Redeemed"
+        , gblFilterNonRedeemed: "Not redeemed"
         , gblAddressesNotFound: "Addresses do not exists."
         , gblAddressesError: "Error while trying to load addresses."
         , gblAddressRedeemAmount: "Redeemed amount"

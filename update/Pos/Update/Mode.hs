@@ -11,9 +11,8 @@ import           System.Wlog         (WithLogger)
 
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB.Class        (MonadDB, MonadGState)
-import           Pos.KnownPeers      (MonadFormatPeers)
 import           Pos.Lrc.Context     (LrcContext)
-import           Pos.Reporting       (HasReportingContext)
+import           Pos.Reporting       (MonadReporting)
 import           Pos.StateLock       (StateLock)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context  (UpdateContext)
@@ -33,6 +32,5 @@ type UpdateMode ctx m
       , HasLens StateLock ctx StateLock
       , HasConfiguration
       , HasUpdateConfiguration
-      , HasReportingContext ctx
-      , MonadFormatPeers m
+      , MonadReporting ctx m
       )

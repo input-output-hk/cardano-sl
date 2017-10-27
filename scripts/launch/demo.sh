@@ -51,6 +51,12 @@ if [[ "$NUM_TXS" == "" ]]; then
   NUM_TXS=3000
 fi
 
+wallet_flush=""
+# Argument for testing wallet db flushing
+if [[ "$WALLET_FLUSH" != "" ]]; then
+  wallet_flush="--flush-wallet-db"
+fi
+
 # System start time in seconds (time since epoch).
 # An extra second is added so that the nodes have extra time to start up
 # and start processing the first slot.
@@ -83,7 +89,7 @@ while [[ $i -lt $panesCnt ]]; do
   exec_name='cardano-node-simple'
   if [[ $WALLET_TEST != "" ]]; then
       if (( $i == $n - 1 )); then
-          wallet_args=" --tlscert $base/../tls-files/server.crt --tlskey $base/../tls-files/server.key --tlsca $base/../tls-files/ca.crt " # --wallet-rebuild-db'
+          wallet_args=" --tlscert $base/../tls-files/server.crt --tlskey $base/../tls-files/server.key --tlsca $base/../tls-files/ca.crt $wallet_flush" # --wallet-rebuild-db'
           exec_name='cardano-node'
           if [[ $WALLET_DEBUG != "" ]]; then
               wallet_args="$wallet_args --wallet-debug"

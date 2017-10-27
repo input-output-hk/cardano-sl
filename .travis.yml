@@ -23,10 +23,12 @@ install:
 - source scripts/set_nixpath.sh
 
 script:
+# this is to make stack2nix happy for now
+- travis_wait 30 sleep 1800 &
 - if [[ "$MODE" == "hlint" ]]; then
     nix-shell -p hlint moreutils --run "scripts/haskell/lint.sh | ts";
   elif [[ "$MODE" == "stack2nix" ]]; then
-    nix-shell -p cabal2nix stack cabal-install ghc moreutils -Q -j 4 --run "scripts/check-stack2nix.sh | ts";
+    nix-shell -p cabal2nix stack cabal-install ghc moreutils expect -Q -j 4 --run "unbuffer scripts/check-stack2nix.sh | ts";
   else
     nix-shell -p moreutils expect --run "unbuffer ./scripts/ci/travis.sh | ts";
   fi

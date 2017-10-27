@@ -14,6 +14,7 @@ import           Universum
 
 import           Control.Lens                     (to)
 import qualified Data.List.NonEmpty               as NE
+import           Data.Time.Units                  (convertUnit)
 import           Formatting                       (build, sformat, (%))
 import           System.Wlog                      (HasLoggerName (modifyLoggerName),
                                                    WithLogger)
@@ -30,12 +31,14 @@ import           Pos.DB.Class                     (MonadDBRead)
 import qualified Pos.GState                       as GS
 import           Pos.Reporting                    (MonadReporting, reportOrLogW)
 import           Pos.Slotting                     (MonadSlots, MonadSlotsData,
+                                                   getCurrentEpochSlotDuration,
                                                    getSlotStartPure, getSystemStartM)
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Txp.Core                     (TxAux (..), TxUndo, flattenTxPayload)
 import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..))
-
 import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
+import           Pos.Util.TimeLimit               (CanLogInParallel, logWarningWaitInf)
+
 import           Pos.Wallet.Web.Account           (AccountMode, getSKById)
 import           Pos.Wallet.Web.ClientTypes       (CId, Wal)
 import qualified Pos.Wallet.Web.State             as WS
@@ -73,7 +76,7 @@ onApplyTracking
     , HasConfiguration
     )
     => OldestFirst NE (Blund ssc) -> m SomeBatchOp
-onApplyTracking blunds = setLogger $ do
+onApplyTracking blunds = setLogger . reportTimeouts "apply" $ do
     let oldestFirst = getOldestFirst blunds
         txsWUndo = concatMap gbTxsWUndo oldestFirst
         newTipH = NE.last oldestFirst ^. _1 . blockHeader
@@ -115,7 +118,7 @@ onRollbackTracking
     , HasConfiguration
     )
     => NewestFirst NE (Blund ssc) -> m SomeBatchOp
-onRollbackTracking blunds = setLogger $ do
+onRollbackTracking blunds = setLogger . reportTimeouts "rollback" $ do
     let newestFirst = getNewestFirst blunds
         txs = concatMap (reverse . gbTxsWUndo) newestFirst
         newTip = (NE.last newestFirst) ^. prevBlockL
@@ -167,6 +170,16 @@ gbTxsWUndo (blk@(Right mb), undo) =
 
 setLogger :: HasLoggerName m => m a -> m a
 setLogger = modifyLoggerName (<> "wallet" <> "blistener")
+
+reportTimeouts
+    :: (MonadSlotsData ctx m, CanLogInParallel m)
+    => Text -> m a -> m a
+reportTimeouts desc action = do
+    slotDuration <- getCurrentEpochSlotDuration
+    let firstWarningTime = convertUnit slotDuration `div` 2
+    logWarningWaitInf firstWarningTime tag action
+  where
+    tag = "Wallet blistener " <> desc
 
 logMsg
     :: (MonadIO m, WithLogger m)

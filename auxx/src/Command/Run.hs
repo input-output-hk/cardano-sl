@@ -29,8 +29,8 @@ import           Pos.Crypto                 (emptyPassphrase, encToPublic,
                                              fullPublicKeyHexF, hashHexF, noPassEncrypt,
                                              safeCreatePsk, withSafeSigner)
 import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Util.UserSecret        (readUserSecret, usKeys)
-import           Pos.Wallet                 (addSecretKey, getBalance, getSecretKeys)
+import           Pos.Util.UserSecret        (readUserSecret, usKeys, usPrimKey)
+import           Pos.Wallet                 (addSecretKey, getBalance, getSecretKeysPlain)
 
 import qualified Command.Rollback           as Rollback
 import qualified Command.Tx                 as Tx
@@ -52,9 +52,10 @@ Avaliable commands:
                                      "round-robin", and "send-random".
    vote <N> <decision> <upid>     -- send vote with given hash of proposal id (in base16) and
                                      decision, from own address #N
-   propose-update <N> <block ver> <script ver> <slot duration> <max block size> <software ver> <propose_file>?
+   propose-update <N> [vote-all] <block ver> <script ver> <slot duration> <max block size> <software ver> <propose_file>?
                                   -- propose an update with given versions and other data
                                      with one positive vote for it, from own address #N
+                                     if vote-all flag is set then votes from all secret keys also will be sent
    listaddr                       -- list own addresses
    delegate-light <N> <M> <eStart> <eEnd>?
                                   -- delegate secret key #N to pk <M> light version (M is encoded in base58),
@@ -62,7 +63,7 @@ Avaliable commands:
    delegate-heavy <N> <M> <e>     -- delegate secret key #N to pk <M> heavyweight (M is encoded in base58),
                                      e is current epoch.
    add-key-pool <N>               -- add key from intial pool
-   add-key <file>                 -- add key from file
+   add-key <file> [primary]       -- add key from file, if primary flag is set then add only primary key
 
    addr-distr <N> boot
    addr-distr <N> [<M>:<coinPortion>]+
@@ -97,9 +98,10 @@ runCmd sendActions (Vote idx decision upId) =
     Update.vote sendActions idx decision upId
 runCmd sendActions (ProposeUpdate params) =
     Update.propose sendActions params
+runCmd _ (HashInstaller path) = Update.hashInstaller path
 runCmd _ Help = putText helpMsg
 runCmd _ ListAddresses = do
-   addrs <- map encToPublic <$> getSecretKeys
+   addrs <- map encToPublic <$> getSecretKeysPlain
    putText "Available addresses:"
    for_ (zip [0 :: Int ..] addrs) $ \(i, pk) -> do
        addr <- makePubKeyAddressAuxx pk
@@ -112,7 +114,7 @@ runCmd _ ListAddresses = do
     toBase58Text = decodeUtf8 . encodeBase58 bitcoinAlphabet . serialize'
 runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM dry) = do
     CmdCtx{ccPeers} <- getCmdCtx
-    issuerSk <- (!! i) <$> getSecretKeys
+    issuerSk <- (!! i) <$> getSecretKeysPlain
     withSafeSigner issuerSk (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
@@ -128,7 +130,7 @@ runCmd sendActions (DelegateLight i delegatePk startEpoch lastEpochM dry) = do
                 putText "Sent lightweight cert"
 runCmd sendActions (DelegateHeavy i delegatePk curEpoch dry) = do
     CmdCtx {ccPeers} <- getCmdCtx
-    issuerSk <- (!! i) <$> getSecretKeys
+    issuerSk <- (!! i) <$> getSecretKeysPlain
     withSafeSigner issuerSk (pure emptyPassphrase) $ \case
         Nothing -> putText "Invalid passphrase"
         Just ss -> do
@@ -155,9 +157,13 @@ runCmd _ (AddKeyFromPool i) = do
     let secrets = fromMaybe (error "Secret keys are unknown") genesisSecretKeys
     let key = secrets !! i
     addSecretKey $ noPassEncrypt key
-runCmd _ (AddKeyFromFile f) = do
+runCmd _ (AddKeyFromFile f primary) = do
     secret <- readUserSecret f
-    mapM_ addSecretKey $ secret ^. usKeys
+    if primary then do
+        let primSk = fromMaybe (error "Primary key not found") (secret ^. usPrimKey)
+        addSecretKey $ noPassEncrypt primSk
+    else
+        mapM_ addSecretKey $ secret ^. usKeys
 runCmd _ (AddrDistr pk asd) = do
     putText $ pretty addr
   where

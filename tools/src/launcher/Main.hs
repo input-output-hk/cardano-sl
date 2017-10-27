@@ -390,9 +390,9 @@ spawnNode (path, args, mbLogPath) = do
                  }
     phvar <- newEmptyMVar
     asc <- async (system' phvar cr mempty)
-    mbPh <- liftIO $ timeout 5000000 (takeMVar phvar)
+    mbPh <- liftIO $ timeout 10000000 (takeMVar phvar)
     case mbPh of
-        Nothing -> error "couldn't run the node (it didn't start after 5s)"
+        Nothing -> error "couldn't run the node (it didn't start after 10s)"
         Just ph -> do
             putText "Node started"
             return (ph, asc, logPath)

@@ -27,8 +27,7 @@ import           Pos.Core             (BlockVersionData, EpochIndex, HasConfigur
 import           Pos.Crypto           (WithHash (..))
 import           Pos.DB.Class         (MonadDBRead, MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
-import           Pos.KnownPeers       (MonadFormatPeers)
-import           Pos.Reporting        (HasReportingContext, reportError)
+import           Pos.Reporting        (MonadReporting, reportError)
 import           Pos.Slotting         (MonadSlots (..))
 import           Pos.StateLock        (Priority (..), StateLock, StateLockMetrics,
                                        withStateLock)
@@ -52,8 +51,7 @@ type TxpLocalWorkMode ctx m =
     , WithLogger m
     , Mockable CurrentTime m
     , MonadMask m
-    , MonadFormatPeers m
-    , HasReportingContext ctx
+    , MonadReporting ctx m
     , HasConfiguration
     )
 

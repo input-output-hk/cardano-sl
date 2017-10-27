@@ -24,8 +24,7 @@ import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB.Class           (MonadDBRead, MonadGState (..))
 import qualified Pos.Explorer.DB        as ExDB
 import qualified Pos.GState             as GS
-import           Pos.KnownPeers         (MonadFormatPeers)
-import           Pos.Reporting          (HasReportingContext, reportError)
+import           Pos.Reporting          (MonadReporting, reportError)
 import           Pos.Slotting           (MonadSlots (getCurrentSlot), getSlotStart)
 import           Pos.StateLock          (Priority (..), StateLock, StateLockMetrics,
                                          withStateLock)
@@ -56,8 +55,7 @@ type ETxpLocalWorkMode ctx m =
     , MonadSlots ctx m
     , Mockable CurrentTime m
     , MonadMask m
-    , MonadFormatPeers m
-    , HasReportingContext ctx
+    , MonadReporting ctx m
     )
 
 type ETxpLocalDataPure = GenericTxpLocalDataPure ExplorerExtra

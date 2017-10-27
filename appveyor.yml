@@ -15,6 +15,8 @@ init:
   - SET BRANCH_CACHE_DIR=%CACHE_DIR%\%APPVEYOR_REPO_BRANCH:/=_%
   - SET CACHED_STACK_ROOT=%BRANCH_CACHE_DIR%\sr
   - SET CACHED_STACK_WORK=%BRANCH_CACHE_DIR%\sw
+  - ps: $env:VERSION = ($env:APPVEYOR_BUILD_VERSION).split(".")[0] + "." + ($env:APPVEYOR_BUILD_VERSION).split(".")[1]
+  - echo VERSION=%VERSION%
 
 cache:
   # TODO: https://github.com/commercialhaskell/stack/issues/1176#issuecomment-269520803
@@ -36,7 +38,7 @@ cache:
   # different branch is built.
   - "%BRANCH_CACHE_DIR%"        # e.g. C:\cache\feature_abc123
   - "%CACHE_DIR%\\master"
-  - "%CACHE_DIR%\\cardano-sl-0.4"
+  - "%CACHE_DIR%\\cardano-sl-%VERSION%"
   # Add more "%CACHE_DIR%\\<branch_name>" directories as needed
 
 before_test:
@@ -71,7 +73,7 @@ test_script:
   - cd "%WORK_DIR%"
   - stack --verbosity warn setup --no-reinstall > nul
   # Install happy separately: https://github.com/commercialhaskell/stack/issues/3151#issuecomment-310642487. Also install cpphs because it's a build-tool and Stack can't figure out by itself that it should be installed
-  - stack --verbosity warn install happy cpphs
+  - scripts\ci\appveyor-retry call stack --verbosity warn install happy cpphs
       -j 2
       --no-terminal
       --local-bin-path %SYSTEMROOT%\system32
@@ -88,7 +90,7 @@ test_script:
   - scripts\ci\appveyor-retry call stack install cardano-sl cardano-sl-tools cardano-sl-wallet
       -j 2
       --no-terminal
-      --local-bin-path daedalus
+      --local-bin-path %WORK_DIR%
       --test
       --no-haddock-deps
       --work-dir %STACK_WORK%
@@ -103,16 +105,28 @@ test_script:
       --extra-include-dirs="%WORK_DIR%\rocksdb\include"
       --extra-lib-dirs="%WORK_DIR%"
   - stack exec --work-dir %STACK_WORK% -- cardano-wallet-hs2purs
-  - copy log-config-prod.yaml daedalus\log-config-prod.yaml
+  # Prepare files for frontend build
+  - copy log-config-prod.yaml daedalus\
+  - copy node\configuration.yaml daedalus\
+  - copy node\*genesis*.json daedalus\
+  - copy cardano-launcher.exe daedalus\
+  - copy cardano-node.exe daedalus\
+  # Build the bridge
   - cd daedalus
   - Echo %APPVEYOR_BUILD_VERSION% > build-id
   - ps: Install-Product node 7
   - ..\scripts\ci\appveyor-retry call npm install
   - npm run build:prod
   - dir "%WORK_DIR%\daedalus\"
-  - ps: foreach ($x in @("cardano-addr-convert.exe", "cardano-genupdate.exe", "cardano-launcher.exe", "cardano-node.exe", "cardano-wallet-hs2purs.exe")) { if (-NOT (Test-Path "$($env:WORK_DIR)\daedalus\$x")) { throw "ERROR... Missing $x" }}
+  - ps: foreach ($x in @("cardano-launcher.exe", "cardano-node.exe")) { if (-NOT (Test-Path "$($env:WORK_DIR)\daedalus\$x")) { throw "ERROR... Missing $x" }}
+  - echo Stack cache content
+  - dir "%WORK_DIR%\%STACK_WORK%"
+  - ps: if (-NOT (Test-Path "$($env:WORK_DIR)\$env:STACK_WORK")) { throw "ERROR... Stack cache absent $x" }
 
 after_test:
+ # As per https://github.com/input-output-hk/cardano-sl/pull/1773#issue-265730372:
+ # > STACK_WORK, as well as CACHED_STACK_WORK are relative directories, since stack doesn't support absolute ones.
+ - cd "%WORK_DIR%"
  - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_ROOT% xcopy /q /s /e /r /k /i /v /h /y %STACK_ROOT% %CACHED_STACK_ROOT%
  - IF NOT DEFINED APPVEYOR_PULL_REQUEST_NUMBER IF EXIST %STACK_WORK% xcopy /q /s /e /r /k /i /v /h /y %STACK_WORK% %CACHED_STACK_WORK%
  - xcopy /q /s /e /r /k /i /v /h /y "%WORK_DIR%\daedalus" C:\projects\cardano-sl\daedalus

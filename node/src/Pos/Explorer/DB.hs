@@ -184,7 +184,7 @@ prepareExplorerDB = do
     blockEpochPagesInitializedM = isNothing <$> dbGet GStateDB existingOldEpochBlocks
       where
         existingOldEpochBlocks :: ByteString
-        existingOldEpochBlocks = previousEpochBlocksPrefix $ EpochIndex minBound
+        existingOldEpochBlocks = oldEpochBlocksPrefix $ EpochIndex minBound
 
     -- | This is where we convert the old format of @Epoch@ which has 21600 blocks to the
     -- new and shiny one with @Page@s added.
@@ -415,10 +415,10 @@ blockPagePrefix page = "e/page/" <> encodedPage
     encodedPage = serialize' $ UnsignedVarInt page
 
 -- | TODO(ks): To remove in the next version.
-previousEpochBlocksPrefix :: Epoch -> ByteString
-previousEpochBlocksPrefix epoch = "e/epoch/" <> serialize' epoch
+oldEpochBlocksPrefix :: Epoch -> ByteString
+oldEpochBlocksPrefix epoch = "e/epoch/" <> serialize' epoch
 
--- | Before we had - @previousEpochBlocksPrefix@.
+-- | Before we had - @oldEpochBlocksPrefix@.
 blockEpochPagePrefix :: Epoch -> Page -> ByteString
 blockEpochPagePrefix epoch page = "e/epochs/" <> serialize' epoch <> "/" <> encodedPage
   where

@@ -108,7 +108,7 @@ semantics can be changed). Examples are:
   and old software will treat it as unparsed fields.
 * Unknown address type. Each valid address in Cardano-SL has a
   type. It can be one of fixed address types or unknown address type
-  which can't be interprted by current version of software.
+  which can't be interpreted by current version of software.
 
 There are few more examples, but these three should demonstrate the
 general idea. If we encounter unknown data (unparsed fields, unknown
@@ -168,9 +168,9 @@ must be the same as number of witnesses for this transaction.
 
 If `verifyAllIsKnown` is `True`, transaction's attributes must be known.
 
-### Inputs checks
+### Inputs-dependent checks
 
-Other checks heavily depend on whether there is at least one input
+Some checks heavily depend on whether there is at least one input
 with unknown type. There are three cases:
 
 1. There is such input and `verifyAllIsKnown` is `True`. In this case
@@ -186,16 +186,22 @@ with unknown type. There are three cases:
    because `verifyAllIsKnown` is `False`.
 3. All inputs have known format (i. e. `TxInUtxo`). In this case
    (which should be the most common one) we can check all inputs'
-   legitimacy, compare input and output sums, check fee, etc. All
-   inputs must exist in UTXO. In the following we describe the case
-   when all inputs have `TxInUtxo` type and we assume that for each
-   input we know corresponding unspent output (if we don't,
-   transaction is invalid).
+   legitimacy, compare input and output sums, check fee, etc.
+   These checks are described in more details below.
+
+In the following (until [tx size check section](#tx-size-check)) we
+consider case (3), when all inputs are `TxInUtxo`. The next step is to
+lookup all inputs in UTXO. If at least one input is not found,
+transaction is invalid. We further assume that for each input we know
+corresponding unspent output.  All inputs must exist in UTXO. In the
+following we describe the case when all inputs have `TxInUtxo` type
+and we assume that for each input we know corresponding unspent output
+(if we don't, transaction is invalid).
 
 All inputs of a transaction must be different and each input must be
 properly certified by its witness.
 
-### Witness checks
+#### Witness checks
 
 Witness checks consist of two parts: we need to check that witness
 corresponds to the address from the output we want to spend and we
@@ -229,13 +235,13 @@ need to check that witness itself is correct.
   `verifyAllIsKnown` is `False`.
 
 Note: even though address doesn't contain its spending data, it's easy
-to check whether given spending data corresponds to given address. In
-order to do it we construct `Address'` from address type and address
-spending data (which are known from `Address` itself) and
-`AddrSpendingData` (which we want to check). Then we hash this
-`Address'` and compare it with the hash from `Address`.
+to check whether given spending data corresponds to given
+address. Suppose we have an address `addr` and spending data
+`asd`. Let's say that `addr` has attributes `attrs` and type `t`. We
+can construct `Address'` from `attrs`, `t` and `asd` and compare its
+hash with the one from `addr`.
 
-### Sums check
+#### Sums check
 
 Recall that at this step we assume that all inputs are known and
 have been resolved into corresponding unspent outputs of previous
@@ -245,15 +251,10 @@ inputs, tx is considered invalid. Otherwise this check succeeds and
 the difference between sum of inputs and sum of outputs is considered
 to be transaction fee.
 
-### Tx size check
+#### Fee check
 
-We compute transaction size as number of bytes in serialized `TxAux`
-(which contains transaction and its witness). Transaction size limit
-is part of `BlockVersionData`. If the size of transaction is greater
-than the limit from the adopted `BlockVersionData`, transaction is
-invalid.
-
-### Fee check
+Fee check is performed for all transactions except those where all
+inputs correspond to `Redeem` addresses. So it's free to redeem ADA.
 
 By this time we already know how much fee the transaction includes. We
 also know transaction's size. Fee check depends on the currently
@@ -273,9 +274,13 @@ options:
    policy). It's questionable which behavior we want in this case, but
    currently it's implemented this way.
 
-Note: if all unspent outputs corresponding to inputs of transaction
-have `Redeem` addresses, such transaction doesn't need to adhere to
-fee policy (i. e. it's free to redeem ADA).
+### Tx size check
+
+We compute transaction size as number of bytes in serialized `TxAux`
+(which contains transaction and its witness). Transaction size limit
+is part of `BlockVersionData`. If the size of transaction is greater
+than the limit from the adopted `BlockVersionData`, transaction is
+invalid.
 
 ### Bootstrap era check
 
@@ -296,12 +301,25 @@ Stakes modification is a bit more complex, but is also very
 intuitive. We have `TxOut`s corresponding to inputs and outputs of
 transaction. Each `TxOut` can be converted to a list of
 `(StakeholderId, Coin)` pairs. It depends on `AddrStakeDistribution`
-of given address. For `BootstrapEraDistr` the value of `TxOut` is
-distributed among bootstrap stakeholders proportional to their weights.
-If distribution is `SingleKeyDistr id`, then the value of `TxOut` will
-be assigned to `id`. In case of `MultiKeyDistr` stake will be
-distributed among multiple stakeholders according to specified
-portions. These lists are concatenated and we have two lists of
+of given address.
+* For `BootstrapEraDistr` the value of `TxOut` is distributed among
+bootstrap stakeholders proportional to their weights. The behavior
+depends on whether the value is less than the sum of weights of all
+stakeholders (this sum is called `bootDustThreshold`). If it's greater
+than or equal to `bootDustThreshold`, then each stakeholder receives
+`val / weights_sum` coins (`val` is the value of `TxOut`) and one
+stakeholder also receives the remainder (the choice is
+deterministc). If it's less than `bootDustThreshold`, then some
+stakeholders will receive the same stake as their weights, one
+stakeholder may receive less then their weight and other stakeholders
+won't receive anything.
+* If distribution is `SingleKeyDistr id`, then the value of `TxOut` will
+be assigned to `id`.
+* In case of `MultiKeyDistr` stake will be distributed among multiple
+stakeholders according to specified portions. The first stakeholder
+may receive slightly more than others due to rounding.
+
+Then these lists are concatenated and we have two lists of
 `(StakeholderId, Coin)` pairs: the first one is how much stake each
 stakeholder should gain, the second one is how much stake each
 stakeholder should lose. Then stakes of all mentioned stakeholders are

@@ -23,8 +23,8 @@ import           Pos.Communication    (OutSpecs, WorkerSpec)
 import           Pos.Core             (GenesisData (..), Timestamp (..), genesisData)
 import           Pos.Launcher         (HasConfigurations, NodeParams (..), loggerBracket,
                                        runNodeReal, withConfigurations)
-import           Pos.Ssc.Types        (SscParams)
 import           Pos.Ssc.SscAlgo      (SscAlgo (..))
+import           Pos.Ssc.Types        (SscParams)
 import           Pos.Update           (updateTriggerWorker)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,
                                        withCompileInfo)

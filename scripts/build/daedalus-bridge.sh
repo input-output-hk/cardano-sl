@@ -20,3 +20,6 @@ echo "3. Building Bridge..."
 cd daedalus
 npm install
 npm run build:prod
+
+echo "4. Linking Bridge..."
+npm link

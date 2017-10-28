@@ -20,15 +20,15 @@ module Pos.Wallet.Web.Methods.Misc
 import           Universum
 
 import           Pos.Aeson.ClientTypes      ()
-import           Pos.Core                   (SoftwareVersion (..), decodeTextAddress)
+import           Pos.Core                   (SoftwareVersion (..))
 import           Pos.Update.Configuration   (curSoftwareVersion)
 import           Pos.Util                   (maybeThrow)
 
 import           Pos.Wallet.KeyStorage      (deleteSecretKey, getSecretKeys)
 import           Pos.Wallet.WalletMode      (applyLastUpdate, connectedPeers,
                                              localChainDifficulty, networkChainDifficulty)
-import           Pos.Wallet.Web.ClientTypes (CProfile (..), CUpdateInfo (..),
-                                             SyncProgress (..))
+import           Pos.Wallet.Web.ClientTypes (Addr, CId, CProfile (..), CUpdateInfo (..),
+                                             SyncProgress (..), cIdToAddress)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.Mode        (MonadWalletWebMode)
 import           Pos.Wallet.Web.State       (getNextUpdate, getProfile, removeNextUpdate,
@@ -49,10 +49,8 @@ updateUserProfile profile = setProfile profile >> getUserProfile
 -- Address
 ----------------------------------------------------------------------------
 
--- NOTE: later we will have `isValidAddress :: CId -> m Bool` which should work for arbitrary crypto
-isValidAddress :: MonadWalletWebMode m => Text -> m Bool
-isValidAddress sAddr =
-    pure . isRight $ decodeTextAddress sAddr
+isValidAddress :: MonadWalletWebMode m => CId Addr -> m Bool
+isValidAddress = pure . isRight . cIdToAddress
 
 ----------------------------------------------------------------------------
 -- Updates

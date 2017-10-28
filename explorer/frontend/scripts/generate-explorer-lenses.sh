@@ -28,8 +28,8 @@ echo "Generating $DIR_GENERATED_WEB lenses."
 purescript-derive-lenses \
     < $DIR_GENERATED_WEB/../ClientTypes.purs \
     --moduleName Pos.Explorer.Web.Lenses.ClientTypes \
-    --moduleImports "import Data.Maybe" \
-    --moduleImports "import Data.Tuple" \
+    --moduleImports "import Data.Maybe (Maybe)" \
+    --moduleImports "import Data.Tuple (Tuple)" \
     --moduleImports "import Data.Time.NominalDiffTime (NominalDiffTime(..))" \
     > $DIR_GENERATED_WEB/ClientTypes.purs
 
@@ -63,6 +63,7 @@ purescript-derive-lenses \
   --moduleImports "import Explorer.Api.Types (SocketSubscription, SocketSubscriptionData)" \
   --moduleImports "import Waypoints (Waypoint)" \
   --moduleImports "import Explorer.Routes (Route)" \
+  --moduleImports "import Pos.Explorer.Web.ClientTypes (CAddressesFilter(..))" \
   > $DIR_TYPES_LENSES/State.purs
 
 # - - - - - - - - - - -

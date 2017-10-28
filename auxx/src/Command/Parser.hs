@@ -94,9 +94,12 @@ delegateL =
 delegateH =
     DelegateHeavy <$> num <*> base58PkParser <*> num <*> dumpFlag
 
+primaryKeyFlag :: Parser Bool
+primaryKeyFlag = (True <$ lexeme (try $ string "primary")) <|> pure False
+
 addKeyFromPool, addKeyFromFile :: Parser Command
 addKeyFromPool = AddKeyFromPool <$> num
-addKeyFromFile = AddKeyFromFile <$> filePath
+addKeyFromFile = AddKeyFromFile <$> filePath <*> primaryKeyFlag
 
 send :: Parser Command
 send = Send <$> num <*> (NE.fromList <$> many1 txout)
@@ -116,10 +119,14 @@ sendToAllGenesis = SendToAllGenesis <$> sendToAllGenesisParams
 vote :: Parser Command
 vote = Vote <$> num <*> switch <*> hash
 
+voteAllFlag :: Parser Bool
+voteAllFlag = (True <$ lexeme (try $ string "vote-all")) <|> pure False
+
 proposeUpdateParams :: Parser ProposeUpdateParams
 proposeUpdateParams =
     ProposeUpdateParams <$>
     num <*>
+    voteAllFlag <*>
     lexeme parseBlockVersion <*>
     lexeme parseIntegralSafe <*>
     lexeme parseIntegralSafe <*>
@@ -129,6 +136,9 @@ proposeUpdateParams =
 
 proposeUpdate :: Parser Command
 proposeUpdate = ProposeUpdate <$> proposeUpdateParams
+
+hashInstaller :: Parser Command
+hashInstaller = HashInstaller <$> filePath
 
 coinPortionP :: Parser CoinPortion
 coinPortionP = do
@@ -182,6 +192,7 @@ command = try (text "balance") *> balance <|>
           try (text "send") *> send <|>
           try (text "vote") *> vote <|>
           try (text "propose-update") *> proposeUpdate <|>
+          try (text "hash-installer") *> hashInstaller <|>
           try (text "delegate-light") *> delegateL <|>
           try (text "delegate-heavy") *> delegateH <|>
           try (text "add-key-pool") *> addKeyFromPool <|>

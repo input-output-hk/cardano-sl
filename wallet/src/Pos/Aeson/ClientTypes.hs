@@ -2,18 +2,19 @@ module Pos.Aeson.ClientTypes
        (
        ) where
 
+import           Data.Aeson                   (FromJSON)
 import           Data.Aeson.TH                (defaultOptions, deriveJSON, deriveToJSON)
 import           Pos.Core.Types               (SoftwareVersion (..))
 import           Pos.Util.BackupPhrase        (BackupPhrase)
 import           Pos.Wallet.Web.ClientTypes   (Addr, CAccount, CAccountId, CAccountInit,
-                                               CAccountMeta, CAddress, CCoin, CHash, CId,
-                                               CInitialized, CInitialized,
-                                               CPaperVendWalletRedeem, CProfile, CProfile,
-                                               CPtxCondition, CTExMeta, CTx, CTxId,
-                                               CTxMeta, CUpdateInfo, CWAddressMeta,
-                                               CWallet, CWalletAssurance, CWalletInit,
-                                               CWalletMeta, CWalletRedeem, SyncProgress,
-                                               Wal)
+                                               CAccountMeta, CAddress, CCoin,
+                                               CFilePath (..), CHash, CId, CInitialized,
+                                               CInitialized, CPaperVendWalletRedeem,
+                                               CProfile, CProfile, CPtxCondition,
+                                               CTExMeta, CTx, CTxId, CTxMeta, CUpdateInfo,
+                                               CWAddressMeta, CWallet, CWalletAssurance,
+                                               CWalletInit, CWalletMeta, CWalletRedeem,
+                                               SyncProgress, Wal)
 import           Pos.Wallet.Web.Error         (WalletError)
 import           Pos.Wallet.Web.Sockets.Types (NotifyEvent)
 
@@ -48,3 +49,7 @@ deriveToJSON defaultOptions ''CTx
 deriveToJSON defaultOptions ''CTExMeta
 deriveToJSON defaultOptions ''SoftwareVersion
 deriveToJSON defaultOptions ''CUpdateInfo
+
+-- For backward compatibility.
+-- Guys /really/ want it to be normal JSON
+deriving instance FromJSON CFilePath

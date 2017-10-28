@@ -99,6 +99,7 @@ instance ToSchema      C.CGenesisSummary
 instance ToSchema      C.CGenesisAddressInfo
 instance ToSchema      C.Byte
 instance ToSchema      ExplorerError
+instance ToParamSchema C.CAddressesFilter
 
 deriving instance Generic Micro
 instance ToSchema      Micro

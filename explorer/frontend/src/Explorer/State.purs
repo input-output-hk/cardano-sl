@@ -10,11 +10,12 @@ import Data.Tuple (Tuple(..))
 import Explorer.Api.Types (SocketSubscription, SocketSubscriptionData)
 import Explorer.I18n.Lang (Language(..))
 import Explorer.Routes (Route(..))
-import Explorer.Types.State (DashboardAPICode(..), PageNumber(..), Search(..), SearchEpochSlotQuery, SocketSubscriptionItem(..), State)
+import Explorer.Types.State (AddressesFilter(..), DashboardAPICode(..), PageNumber(..), Search(..), SearchEpochSlotQuery, SocketSubscriptionItem(..), State)
 import Explorer.Util.Config (SyncAction(..))
 import Explorer.Util.Factory (mkCAddress)
 import Network.RemoteData (RemoteData(..))
 import Partial.Unsafe (unsafePartial)
+import Pos.Explorer.Web.ClientTypes (CAddressesFilter(..))
 
 initialState :: State
 initialState =
@@ -65,6 +66,7 @@ initialState =
             , gblMaxAddressInfosPagination: NotAsked
             , gblAddressInfosPaginationEditable: false
             , gblLoadingAddressInfosPagination: false
+            , gblAddressFilter: AddressesFilter AllAddresses
             }
         }
     , latestBlocks: NotAsked

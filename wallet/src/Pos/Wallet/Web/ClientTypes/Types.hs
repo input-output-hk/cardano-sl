@@ -75,7 +75,7 @@ import           Servant.Multipart     (FileData)
 import           Pos.Core.Types        (ScriptVersion)
 import           Pos.Types             (BlockVersion, ChainDifficulty, SoftwareVersion)
 import           Pos.Util.BackupPhrase (BackupPhrase)
-import           Pos.Util.LogSafe      (SecureLog, buildUnsecure)
+import           Pos.Util.LogSafe      (SecureLog (..), buildUnsecure)
 import           Pos.Util.Servant      (HasTruncateLogPolicy, WithTruncatedLog (..))
 
 data SyncProgress = SyncProgress
@@ -110,6 +110,9 @@ instance Hashable CHash where
 newtype CId w = CId CHash
     deriving (Show, Eq, Ord, Generic, Hashable, Buildable)
 
+instance Buildable (SecureLog $ CId w) where
+    build _ = "<id>"
+
 -- | Marks address as belonging to wallet set.
 data Wal = Wal
     deriving (Show, Generic)
@@ -122,6 +125,9 @@ data Addr = Addr
 newtype CTxId = CTxId CHash
     deriving (Show, Eq, Generic, Hashable, Buildable)
 
+instance Buildable (SecureLog CTxId) where
+    build _ = "<tx id>"
+
 mkCTxId :: Text -> CTxId
 mkCTxId = CTxId . CHash
 
@@ -133,6 +139,9 @@ instance Show CPassPhrase where
 
 newtype CAccountId = CAccountId Text
     deriving (Eq, Show, Generic, Buildable)
+
+instance Buildable (SecureLog CAccountId) where
+    build _ = "<account id>"
 
 newtype CCoin = CCoin
     { getCCoin :: Text
@@ -162,7 +171,7 @@ instance Buildable (SecureLog AccountId) where
     build _ = "<account id>"
 
 instance Buildable (SecureLog (Maybe AccountId)) where
-    build = buildUnsecure
+    build (SecureLog mAccId) = maybe "-" (const "<account id>") mAccId
 
 -- TODO: extract first three fields as @Coordinates@ and use only it where
 -- required (maybe nowhere)
@@ -206,6 +215,9 @@ instance Buildable CWalletMeta where
         bprint ("("%build%"/"%build%")")
                cwAssurance cwUnit
 
+instance Buildable (SecureLog CWalletMeta) where
+    build = buildUnsecure
+
 instance Default CWalletMeta where
     def = CWalletMeta "Personal Wallet Set" CWANormal 0
 
@@ -215,7 +227,11 @@ data CAccountMeta = CAccountMeta
     } deriving (Eq, Show, Generic)
 
 instance Buildable CAccountMeta where
+    -- can't log for now, names are dangerous
     build CAccountMeta{..} = "<meta>"
+
+instance Buildable (SecureLog CAccountMeta) where
+    build (SecureLog CAccountMeta{..}) = "<meta>"
 
 instance Default CAccountMeta where
     def = CAccountMeta "Personal Wallet"
@@ -235,6 +251,9 @@ instance Buildable CWalletInit where
         bprint (build%" / "%build)
                cwBackupPhrase cwInitMeta
 
+instance Buildable (SecureLog CWalletInit) where
+    build _ = "<wallet init>"
+
 -- | Query data for redeem
 data CWalletRedeem = CWalletRedeem
     { crWalletId :: !CAccountId
@@ -242,9 +261,10 @@ data CWalletRedeem = CWalletRedeem
     } deriving (Show, Generic)
 
 instance Buildable CWalletRedeem where
-    build CWalletRedeem{..} =
-        bprint (build%" <- "%build)
-               crWalletId crSeed
+    build _ = "<wallet redeem info>"
+
+instance Buildable (SecureLog CWalletRedeem) where
+    build _ = "<wallet redeem info>"
 
 -- | Query data for redeem
 data CPaperVendWalletRedeem = CPaperVendWalletRedeem
@@ -254,9 +274,10 @@ data CPaperVendWalletRedeem = CPaperVendWalletRedeem
     } deriving (Show, Generic)
 
 instance Buildable CPaperVendWalletRedeem where
-    build CPaperVendWalletRedeem{..} =
-        bprint (build%" <- "%build%" / "%build)
-               pvWalletId pvSeed pvBackupPhrase
+    build _ = "<paper vend wallet redeem info>"
+
+instance Buildable (SecureLog CPaperVendWalletRedeem) where
+    build _ = "<papervend wallet redeem info>"
 
 -- | Query data for account creation
 data CAccountInit = CAccountInit
@@ -268,6 +289,9 @@ instance Buildable CAccountInit where
     build CAccountInit{..} =
         bprint (build%" / "%build)
                caInitWId caInitMeta
+
+instance Buildable (SecureLog CAccountInit) where
+    build _ = "<account init>"
 
 ----------------------------------------------------------------------------
 -- Wallet struture - responses
@@ -371,6 +395,9 @@ instance Buildable CProfile where
     build CProfile{..} =
         bprint ("{ cpLocale="%build%" }") cpLocale
 
+instance Buildable (SecureLog CProfile) where
+    build = buildUnsecure
+
 -- | Added default instance for `testReset`, we need an inital state for
 -- @CProfile@
 instance Default CProfile where
@@ -387,6 +414,9 @@ data CTxMeta = CTxMeta
 
 instance Buildable CTxMeta where
     build CTxMeta{..} = bprint ("{ date="%build%" }") ctmDate
+
+instance Buildable (SecureLog CTxMeta) where
+    build _ = "<tx meta>"
 
 -- | State of transaction, corresponding to
 -- 'Pos.Wallet.Web.Pending.Types.PtxCondition'.
@@ -508,6 +538,9 @@ instance Buildable CInitialized where
         bprint (build%"/"%build)
                cPreInit cTotalTime
 
+instance Buildable (SecureLog CInitialized) where
+    build = buildUnsecure
+
 data CElectronCrashReport = CElectronCrashReport
     { cecVersion     :: Text
     , cecPlatform    :: Text
@@ -532,5 +565,14 @@ newtype ScrollLimit = ScrollLimit Word
     deriving (Eq, Ord, Show, Enum, Num, Real, Integral, Generic, Typeable,
               Buildable)
 
+instance Buildable (SecureLog ScrollOffset) where
+    build = buildUnsecure
+
+instance Buildable (SecureLog ScrollLimit) where
+    build = buildUnsecure
+
 newtype CFilePath = CFilePath Text
     deriving (Eq, Ord, Generic, Typeable, Buildable)
+
+instance Buildable (SecureLog CFilePath) where
+    build _ = "<filepath>"

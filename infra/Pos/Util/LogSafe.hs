@@ -66,7 +66,7 @@ import           Pos.Crypto             (PassPhrase)
 -- Logging
 ----------------------------------------------------------------------------
 
--- | Modifies logging so that it writes only to files specified by @ s @ type.
+-- | Modifies logging so that it writes only to files specified by @s@ type.
 newtype SelectiveLogWrapped s m a = SelectiveLogWrapped
     { getSecureLogWrapped :: m a
     } deriving (Functor, Applicative, Monad, MonadIO)

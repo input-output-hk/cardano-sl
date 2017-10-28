@@ -21,17 +21,19 @@ module Pos.Wallet.Web.Methods.Misc
 import           Universum
 
 import           Mockable                   (MonadMockable)
-
-import           Pos.Client.KeyStorage      (MonadKeys, deleteSecretKey, getSecretKeys)
-import           Pos.Core                   (SoftwareVersion (..), decodeTextAddress)
-import           Pos.NtpCheck               (NtpCheckMonad, NtpStatus (..),
-                                             mkNtpStatusVar)
+import           Pos.Core                   (SoftwareVersion (..))
 import           Pos.Update.Configuration   (HasUpdateConfiguration, curSoftwareVersion)
 import           Pos.Util                   (maybeThrow)
 
-import           Pos.Wallet.WalletMode      (MonadBlockchainInfo (..), MonadUpdates (..))
-import           Pos.Wallet.Web.ClientTypes (CProfile (..), CUpdateInfo (..),
-                                             SyncProgress (..))
+import           Pos.Client.KeyStorage      (MonadKeys (..), deleteSecretKey,
+                                             getSecretKeys)
+import           Pos.NtpCheck               (NtpCheckMonad, NtpStatus (..),
+                                             mkNtpStatusVar)
+import           Pos.Wallet.WalletMode      (MonadBlockchainInfo (..), MonadUpdates (..),
+                                             applyLastUpdate, connectedPeers,
+                                             localChainDifficulty, networkChainDifficulty)
+import           Pos.Wallet.Web.ClientTypes (Addr, CId, CProfile (..), CUpdateInfo (..),
+                                             SyncProgress (..), cIdToAddress)
 import           Pos.Wallet.Web.Error       (WalletError (..))
 import           Pos.Wallet.Web.State       (MonadWalletDB, MonadWalletDBRead,
                                              getNextUpdate, getProfile, removeNextUpdate,
@@ -52,10 +54,8 @@ updateUserProfile profile = setProfile profile >> getUserProfile
 -- Address
 ----------------------------------------------------------------------------
 
--- NOTE: later we will have `isValidAddress :: CId -> m Bool` which should work for arbitrary crypto
-isValidAddress :: Monad m => Text -> m Bool
-isValidAddress sAddr =
-    pure . isRight $ decodeTextAddress sAddr
+isValidAddress :: Monad m => CId Addr -> m Bool
+isValidAddress = pure . isRight . cIdToAddress
 
 ----------------------------------------------------------------------------
 -- Updates

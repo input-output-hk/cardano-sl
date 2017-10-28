@@ -1,9 +1,9 @@
 {-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE GADTs               #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeOperators       #-}
-{-# LANGUAGE GADTs               #-}
 
 -- API server logic
 
@@ -97,7 +97,6 @@ import           Pos.Explorer.Web.ClientTypes         (Byte, CAda (..), CAddress
                                                        toCAddress, toCHash, toCTxId,
                                                        toTxBrief)
 import           Pos.Explorer.Web.Error               (ExplorerError (..))
-
 
 ----------------------------------------------------------------
 -- Top level functionality
@@ -601,7 +600,6 @@ getGenesisPagesTotal mPageSize addrFilt = do
     pure $ fromIntegral $ (length filteredGrai + pageSize - 1) `div` pageSize
   where
     pageSize = fromIntegral $ toPageSize mPageSize
-
 
 -- | Search the blocks by epoch and slot. Slot is optional.
 epochSlotSearch

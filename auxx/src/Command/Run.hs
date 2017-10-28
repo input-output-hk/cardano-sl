@@ -31,7 +31,7 @@ import           Pos.DB.Class               (MonadGState (..))
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo       (HasCompileInfo)
 import           Pos.Util.UserSecret        (WalletUserSecret (..), readUserSecret,
-                                             usKeys, usWallet, userSecret)
+                                             usKeys, usPrimKey, usWallet, userSecret)
 
 import           Command.BlockGen           (generateBlocks)
 import           Command.Help               (helpMessage)
@@ -145,9 +145,13 @@ runCmd cmd printAction sendActions = case cmd of
         let key = secrets !! i
         addSecretKey $ noPassEncrypt key
 
-    AddKeyFromFile f -> do
+    AddKeyFromFile f primary -> do
         secret <- readUserSecret f
-        mapM_ addSecretKey $ secret ^. usKeys
+        if primary then do
+            let primSk = fromMaybe (error "Primary key not found") (secret ^. usPrimKey)
+            addSecretKey $ noPassEncrypt primSk
+        else
+            mapM_ addSecretKey $ secret ^. usKeys
 
     AddrDistr pk asd -> do
         let addr = makeAddress (PubKeyASD pk) (AddrAttributes Nothing asd)

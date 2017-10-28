@@ -2,8 +2,13 @@
 
 -- | Types representing client (wallet) requests on wallet API.
 module Pos.Wallet.Web.ClientTypes.Types
-      ( -- * Identifiers & primitives
-        CId (..)
+      ( SyncProgress (..)
+      , spLocalCD
+      , spNetworkCD
+      , spPeers
+
+        -- * Identifiers & primitives
+      , CId (..)
       , CHash (..)
       , CPassPhrase (..)
       , CTxId (..)
@@ -49,10 +54,9 @@ module Pos.Wallet.Web.ClientTypes.Types
       , CElectronCrashReport (..)
 
         -- * Misc
-      , SyncProgress (..)
-      , spLocalCD
-      , spNetworkCD
-      , spPeers
+      , ScrollOffset (..)
+      , ScrollLimit (..)
+      , CFilePath (..)
       ) where
 
 import           Universum
@@ -71,7 +75,24 @@ import           Servant.Multipart     (FileData)
 import           Pos.Core.Types        (ScriptVersion)
 import           Pos.Types             (BlockVersion, ChainDifficulty, SoftwareVersion)
 import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Util.LogSafe      (SecureLog, buildUnsecure)
 import           Pos.Util.Servant      (HasTruncateLogPolicy, WithTruncatedLog (..))
+
+data SyncProgress = SyncProgress
+    { _spLocalCD   :: ChainDifficulty
+    , _spNetworkCD :: Maybe ChainDifficulty
+    , _spPeers     :: Word
+    } deriving (Show, Generic, Typeable)
+
+makeLenses ''SyncProgress
+
+instance Buildable SyncProgress where
+    build SyncProgress{..} =
+        bprint ("progress="%build%"/"%build%" peers="%build)
+               _spLocalCD _spNetworkCD _spPeers
+
+instance Default SyncProgress where
+    def = SyncProgress 0 mzero 0
 
 ----------------------------------------------------------------------------
 -- Identifiers & primitives
@@ -137,6 +158,14 @@ instance Buildable AccountId where
     build AccountId{..} =
         bprint (build%"@"%build) aiWId aiIndex
 
+instance Buildable (SecureLog AccountId) where
+    build _ = "<account id>"
+
+instance Buildable (SecureLog (Maybe AccountId)) where
+    build = buildUnsecure
+
+-- TODO: extract first three fields as @Coordinates@ and use only it where
+-- required (maybe nowhere)
 -- | Account identifier
 data CWAddressMeta = CWAddressMeta
     { -- | Address of wallet this account belongs to
@@ -495,18 +524,13 @@ data CElectronCrashReport = CElectronCrashReport
 -- Misc
 ----------------------------------------------------------------------------
 
-data SyncProgress = SyncProgress
-    { _spLocalCD   :: ChainDifficulty
-    , _spNetworkCD :: Maybe ChainDifficulty
-    , _spPeers     :: Word
-    } deriving (Show, Generic, Typeable)
+newtype ScrollOffset = ScrollOffset Word
+    deriving (Eq, Ord, Show, Enum, Num, Real, Integral, Generic, Typeable,
+              Buildable)
 
-makeLenses ''SyncProgress
+newtype ScrollLimit = ScrollLimit Word
+    deriving (Eq, Ord, Show, Enum, Num, Real, Integral, Generic, Typeable,
+              Buildable)
 
-instance Buildable SyncProgress where
-    build SyncProgress{..} =
-        bprint ("progress="%build%"/"%build%" peers="%build)
-               _spLocalCD _spNetworkCD _spPeers
-
-instance Default SyncProgress where
-    def = SyncProgress 0 mzero 0
+newtype CFilePath = CFilePath Text
+    deriving (Eq, Ord, Generic, Typeable, Buildable)

@@ -69,30 +69,8 @@ COMMONOPTS="--system-start 0 --configuration-file ../cardano-sl/node/configurati
 AUXXOPTS="--log-config ../cardano-sl/scripts/log-templates/log-config-qa.yaml --logs-prefix logs/aux-update.1.0.1 --db-path aux-update-1.0.1 --peer ${RELAY_PEER}"
 ```
 
-Rearranging the keys
---------------------
-
-Apply `cardano-keygen rearrange` to the keys to make them usable for proposing an update and voting:
-
-```
-for idx in {0..6}; do
-  stack exec -- cardano-keygen $COMMONOPTS rearrange --mask key${idx}.sk
-done
-```
-
-Importing the keys
-------------------
-
-Import secret keys: only 4 of 7 is needed (extra votes will be ignored). Cluster nodes all have equal stake and more than a half stake's votes is needed to make a decision about update (approve/dismiss). Imported keys are stored locally in `secret.key` which you **must** delete after completing this guide (unless there's a good valid reason not to).
-
-```
-stack exec -- cardano-auxx $COMMONOPTS $AUXXOPTS cmd --commands "add-key key0.sk, add-key key1.sk, add-key key2.sk, add-key key3.sk, listaddr"
-```
-
-If the `listaddr` command hasn't printed the addresses belonging to the four keys, you did something wrong. Maybe you forgot to rearrange the keys?
-
 Sending an update proposal
---------------------------
+------------------
 
 Let's say that you want to push an update with the following Windows/macOS installers (note: it's important that the installers might be in current directory, i.e. there must be no slashes):
 
@@ -101,10 +79,27 @@ WIN64_INSTALLER=daedalus-win64-1.0.3350.0-installer.exe
 DARWIN_INSTALLER=Daedalus-installer-1.0-rc.3202.pkg
 ```
 
-To create and send an update proposal, you need to run this command:
+First of all you have to import secret keys. Import secret keys: only 4 of 7 is needed (extra votes will be ignored). Cluster nodes all have equal stake and more than a half stake's votes is needed to make a decision about update (approve/dismiss). Imported keys are stored locally in `secret.key` which you **must** delete after completing this guide (unless there's a good valid reason not to).
 
 ```
-stack exec -- cardano-auxx $COMMONOPTS $AUXXOPTS cmd --commands "propose-update 0 0.0.0 csl-daedalus:1 0 20 2000000 win64 ${WIN64_INSTALLER} none macos64 ${DARWIN_INSTALLER} none"
+stack exec -- cardano-auxx $COMMONOPTS $AUXXOPTS cmd --commands "add-key key0.sk primary, add-key key1.sk primary, add-key key2.sk primary, add-key key3.sk primary, listaddr"
+```
+
+Flag `primary` indicates that signing secret key will be added.
+
+If the listaddr command hasn't printed the addresses belonging to the four keys, you did something wrong.
+
+To create and send an update proposal with votes from all imported secret keys, you need to run this command:
+
+```
+stack exec -- cardano-auxx $COMMONOPTS $AUXXOPTS cmd --commands "propose-update 0 vote-all 0.0.0 0 20 2000000 csl-daedalus:1 win64 ${WIN64_INSTALLER} none macos64 ${DARWIN_INSTALLER} none"
+```
+
+You also can combine importing and sending a proposal in one command for your convenience:
+
+
+```
+stack exec -- cardano-auxx $COMMONOPTS $AUXXOPTS cmd --commands "add-key key0.sk primary, add-key key1.sk primary, add-key key2.sk primary, add-key key3.sk primary, propose-update 0 vote-all 0.0.0 0 20 2000000 csl-daedalus:1 win64 ${WIN64_INSTALLER} none macos64 ${DARWIN_INSTALLER} none"
 ```
 
 Let's break down the invocation of `propose-update`. First come arguments that you almost certainly won't need to modify:

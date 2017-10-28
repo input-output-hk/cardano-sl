@@ -38,6 +38,7 @@ data SendToAllGenesisParams = SendToAllGenesisParams
 -- | Parameters for 'ProposeUpdate' command.
 data ProposeUpdateParams = ProposeUpdateParams
     { puSecretKeyIdx         :: !Int -- the node that creates/signs the proposal
+    , puVoteAll              :: Bool
     , puBlockVersion         :: !BlockVersion
     , puSoftwareVersion      :: !SoftwareVersion
     , puBlockVersionModifier :: !BlockVersionModifier
@@ -66,7 +67,7 @@ data Command
      -- ^ From whom, to whom, ttl epoch, last argument is current
      -- epoch, dry mode
     | AddKeyFromPool !Int
-    | AddKeyFromFile !FilePath
+    | AddKeyFromFile !FilePath !Bool
     | AddrDistr !PublicKey !AddrStakeDistribution
     | Rollback !Word !FilePath
     | GenBlocks !GenBlocksParams

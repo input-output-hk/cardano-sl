@@ -1870,7 +1870,6 @@ self: {
             graphviz
             kademlia
             lens
-            lifted-async
             log-warper
             MonadRandom
             mtl
@@ -1896,7 +1895,6 @@ self: {
             time
             time-units
             universum
-            unix
             unix-compat
             unordered-containers
             vector
@@ -2455,27 +2453,6 @@ self: {
           homepage = "http://github.com/vincenthz/hs-connection";
           description = "Simple and easy network connections API";
           license = stdenv.lib.licenses.bsd3;
-        }) {};
-      constraints = callPackage ({ base, binary, deepseq, ghc-prim, hashable, mkDerivation, mtl, stdenv, transformers, transformers-compat }:
-      mkDerivation {
-          pname = "constraints";
-          version = "0.9.1";
-          sha256 = "276e012838861145fca65d065dd9839f7cbd71236032b557194389180a30a785";
-          libraryHaskellDepends = [
-            base
-            binary
-            deepseq
-            ghc-prim
-            hashable
-            mtl
-            transformers
-            transformers-compat
-          ];
-          doHaddock = false;
-          doCheck = false;
-          homepage = "http://github.com/ekmett/constraints/";
-          description = "Constraint manipulation";
-          license = stdenv.lib.licenses.bsd2;
         }) {};
       containers = callPackage ({ array, base, deepseq, ghc-prim, mkDerivation, stdenv }:
       mkDerivation {
@@ -3114,8 +3091,8 @@ self: {
       ekg-core = callPackage ({ base, containers, ghc-prim, mkDerivation, stdenv, text, unordered-containers }:
       mkDerivation {
           pname = "ekg-core";
-          version = "0.1.1.2";
-          sha256 = "35eb78e4cdabab2562ddf477bf55fa2cf1c0489984c6adb360ef187b6979f805";
+          version = "0.1.1.3";
+          sha256 = "ac56e2d0f6bf0b76aa3b69beddbb7d0811e8991c98a379bc24ec808049fb89e3";
           libraryHaskellDepends = [
             base
             containers
@@ -4515,25 +4492,6 @@ self: {
           description = "Lenses, Folds and Traversals";
           license = stdenv.lib.licenses.bsd2;
         }) {};
-      lifted-async = callPackage ({ async, base, constraints, lifted-base, mkDerivation, monad-control, stdenv, transformers-base }:
-      mkDerivation {
-          pname = "lifted-async";
-          version = "0.9.3";
-          sha256 = "97978307f34c8ab1d765724d723a13fede4112a94fe5fbf3494f00378961b461";
-          libraryHaskellDepends = [
-            async
-            base
-            constraints
-            lifted-base
-            monad-control
-            transformers-base
-          ];
-          doHaddock = false;
-          doCheck = false;
-          homepage = "https://github.com/maoe/lifted-async";
-          description = "Run lifted IO operations asynchronously and wait for their results";
-          license = stdenv.lib.licenses.bsd3;
-        }) {};
       lifted-base = callPackage ({ base, mkDerivation, monad-control, stdenv, transformers-base }:
       mkDerivation {
           pname = "lifted-base";
@@ -5085,9 +5043,9 @@ self: {
           pname = "node-sketch";
           version = "0.2.0.0";
           src = fetchgit {
-            url = "https://github.com/serokell/time-warp-nt.git";
-            sha256 = "046kqk7m2rhzxk3960fd4jcvar8hcczbg7lv13jpw1g5wvl431fn";
-            rev = "48cb189a412c5a606888285944b9a8f32fcd0d30";
+            url = "https://github.com/arybczak/time-warp-nt.git";
+            sha256 = "0aijj6wq14k0ralji2rn0qiyq8rplcpvgnv43w3vqdxikbxsg85s";
+            rev = "74acf3c98ec402490e4ae086a60227560cde166d";
           };
           isLibrary = true;
           isExecutable = true;

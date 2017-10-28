@@ -11,6 +11,19 @@ category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
 
+executable cardano-hash-installer
+  hs-source-dirs:      src
+  main-is:             HashInstaller.hs
+  build-depends:       base
+                       , bytestring
+                       , formatting
+                       , cardano-sl-core
+                       , cardano-sl
+                       , universum
+  default-extensions:   OverloadedStrings
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+
 executable cardano-auxx
   hs-source-dirs:      src
   main-is:             Main.hs

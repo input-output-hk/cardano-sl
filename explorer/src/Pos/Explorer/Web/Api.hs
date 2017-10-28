@@ -1,7 +1,7 @@
 {-# LANGUAGE DataKinds     #-}
 {-# LANGUAGE InstanceSigs  #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies  #-}
+{-# LANGUAGE TypeOperators #-}
 
 -- | Servant API for explorer
 
@@ -23,14 +23,14 @@ import           Universum
 import           Control.Monad.Catch          (try)
 import           Data.Proxy                   (Proxy (Proxy))
 
-import           Pos.Explorer.Web.ClientTypes (Byte, CAda, CAddress, CAddressesFilter,
-                                               CAddressSummary, CBlockEntry, CBlockSummary,
-                                               CGenesisAddressInfo, CGenesisSummary,
-                                               CHash, CTxBrief, CTxEntry, CTxId,
-                                               CTxSummary)
+import           Pos.Explorer.Web.ClientTypes (Byte, CAda, CAddress, CAddressSummary,
+                                               CAddressesFilter, CBlockEntry,
+                                               CBlockSummary, CGenesisAddressInfo,
+                                               CGenesisSummary, CHash, CTxBrief, CTxEntry,
+                                               CTxId, CTxSummary)
 import           Pos.Explorer.Web.Error       (ExplorerError)
 import           Pos.Types                    (EpochIndex)
-import           Pos.Util.Servant             (ModifiesApiRes (..), VerbMod, DQueryParam)
+import           Pos.Util.Servant             (DQueryParam, ModifiesApiRes (..), VerbMod)
 import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON,
                                                QueryParam)
 import           Servant.Server               (ServantErr (..))

@@ -21,9 +21,10 @@ Avaliable commands:
                                      "round-robin", and "send-random".
    vote <N> <decision> <upid>     -- send vote with given hash of proposal id (in base16) and
                                      decision, from own address #N
-   propose-update <N> <block ver> <software ver> <script ver> <slot duration> <max block size> <propose_file>?
+   propose-update <N> [vote-all] <block ver> <software ver> <script ver> <slot duration> <max block size> <propose_file>?
                                   -- propose an update with given versions and other data
                                      with one positive vote for it, from own address #N
+                                     if vote-all flag is set then votes from all secret keys also will be sent
 
    propose-unlock-stake-epoch <N> <block ver> <software ver> <epoch>
                                   -- propose an update with the specified unlock stake epoch,
@@ -36,7 +37,7 @@ Avaliable commands:
    delegate-heavy <N> <M> <e>     -- delegate secret key #N to pk <M> heavyweight (M is encoded in base58),
                                      e is current epoch.
    add-key-pool <N>               -- add key from intial pool
-   add-key <file>                 -- add key from file
+   add-key <file> [primary]       -- add key from file, if primary flag is set then add only primary key
 
    addr-distr <N> boot
    addr-distr <N> [<M>:<coinPortion>]+

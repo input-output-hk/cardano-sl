@@ -20,6 +20,7 @@ module Pos.Communication.Protocol
        , hoistMkListeners
        , makeSendActions
        , makeEnqueueMsg
+       , checkProtocolMagic
        , checkingInSpecs
        , constantListeners
 
@@ -127,13 +128,16 @@ alternativeConversations
     -> VerInfo -- ^ Theirs
     -> NonEmpty (Conversation m t)
     -> N.Conversation PackingType m t
-alternativeConversations nid ourVerInfo theirVerInfo convs =
-    let alts = map (checkingOutSpecs' nid (vIInHandlers theirVerInfo)) convs
-    in  case sequence alts of
-            Left (Conversation l) -> N.Conversation $ \conv -> do
-                mapM_ logOSNR alts
-                l conv
-            Right errs -> throwErrs errs (NE.head convs)
+alternativeConversations nid ourVerInfo theirVerInfo convs
+    | vIMagic ourVerInfo /= vIMagic theirVerInfo =
+        throwErrs (one $ MismatchedProtocolMagic (vIMagic ourVerInfo) (vIMagic theirVerInfo)) (NE.head convs)
+    | otherwise =
+        let alts = map (checkingOutSpecs' nid (vIInHandlers theirVerInfo)) convs
+        in  case sequence alts of
+                Left (Conversation l) -> N.Conversation $ \conv -> do
+                    mapM_ logOSNR alts
+                    l conv
+                Right errs -> throwErrs errs (NE.head convs)
   where
 
     ourOutSpecs = vIOutHandlers ourVerInfo
@@ -204,6 +208,17 @@ instance Buildable SpecError where
           ("Attempting to send to "%build%": endpoint unsupported by peer "%build%". In specs: "%build)
           spec nodeId inSpecs
 
+data MismatchedProtocolMagic
+    = MismatchedProtocolMagic Int32 Int32
+    deriving (Generic, Show)
+
+instance Exception MismatchedProtocolMagic
+
+instance Buildable MismatchedProtocolMagic where
+    build (MismatchedProtocolMagic ourMagic theirMagic) =
+        bprint
+          ("Mismatched protocolMagic, our: "%build%", their: "%build) ourMagic theirMagic
+
 toAction
     :: (SendActions m -> m a) -> ActionSpec m a
 toAction h = ActionSpec $ const h
@@ -262,6 +277,18 @@ localWorker = localSpecs
 
 localSpecs :: m a -> (ActionSpec m a, OutSpecs)
 localSpecs h = (ActionSpec $ \__vI __sA -> h, mempty)
+
+checkProtocolMagic
+    :: WithLogger m
+    => VerInfo
+    -> VerInfo
+    -> m ()
+    -> m ()
+checkProtocolMagic (vIMagic -> ourMagic) (vIMagic -> theirMagic) action
+    -- Check that protocolMagic is the same
+    | ourMagic == theirMagic = action
+    | otherwise =
+        logWarning $ sformat ("Mismatched protocolMagic, our: "%build%", their: "%build) ourMagic theirMagic
 
 checkingInSpecs
     :: WithLogger m

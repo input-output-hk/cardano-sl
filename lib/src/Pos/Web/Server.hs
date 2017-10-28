@@ -4,12 +4,7 @@
 -- | Web server.
 
 module Pos.Web.Server
-       ( MyWorkMode
-       , WebMode
-       , serveImpl
-       , nat
-       , serveWebBase
-       , applicationBase
+       ( serveImpl
        , route53HealthCheckApplication
        , serveWebGT
        , applicationGT
@@ -20,6 +15,7 @@ import           Universum
 import qualified Control.Monad.Catch             as Catch
 import           Control.Monad.Except            (MonadError (throwError))
 import qualified Control.Monad.Reader            as Mtl
+import           Data.Aeson.TH                   (defaultOptions, deriveToJSON)
 import           Data.Default                    (Default)
 import           Mockable                        (Production (runProduction))
 import           Network.Wai                     (Application)
@@ -37,6 +33,7 @@ import           Pos.Context                     (HasNodeContext (..), HasSscCon
                                                   NodeContext, getOurPublicKey)
 import           Pos.Core                        (EpochIndex (..), SlotLeaders)
 import           Pos.Core.Configuration          (HasConfiguration)
+import           Pos.DB                          (MonadDBRead)
 import qualified Pos.DB                          as DB
 import qualified Pos.GState                      as GS
 import qualified Pos.Lrc.DB                      as LrcDB
@@ -46,14 +43,16 @@ import           Pos.Ssc.GodTossing              (scParticipateSsc)
 import           Pos.Txp                         (TxOut (..), toaOut)
 import           Pos.Txp.MemState                (GenericTxpLocalData, MempoolExt,
                                                   askTxpMem, getLocalTxs)
+import           Pos.Update.Configuration        (HasUpdateConfiguration)
 import           Pos.Web.Mode                    (WebMode, WebModeContext (..))
 import           Pos.WorkMode                    (OQ)
 import           Pos.WorkMode.Class              (WorkMode)
 
 import           Pos.Web.Api                     (BaseNodeApi, GodTossingApi, GtNodeApi,
-                                                  HealthCheckApi, baseNodeApi, gtNodeApi,
+                                                  HealthCheckApi, gtNodeApi,
                                                   healthCheckApi)
-import           Pos.Web.Types                   (TlsParams (..))
+import           Pos.Web.Types                   (CConfirmedProposalState (..),
+                                                  TlsParams (..))
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -64,14 +63,6 @@ type MyWorkMode ctx m =
     , HasNodeContext ctx -- for ConvertHandler
     , Default (MempoolExt m)
     )
-
-serveWebBase :: MyWorkMode ctx m => Word16 -> Maybe TlsParams -> m ()
-serveWebBase = serveImpl applicationBase "127.0.0.1"
-
-applicationBase :: MyWorkMode ctx m => m Application
-applicationBase = do
-    server <- servantServerBase
-    return $ serve baseNodeApi server
 
 route53HealthCheckApplication :: MyWorkMode ctx m => Topology t -> OQ m -> m Application
 route53HealthCheckApplication topology oq = do
@@ -132,9 +123,6 @@ nat = do
     txpLocalData <- askTxpMem
     return $ NT (convertHandler nc nodeDBs txpLocalData)
 
-servantServerBase :: forall ctx m . MyWorkMode ctx m => m (Server BaseNodeApi)
-servantServerBase = flip enter baseServantHandlers <$> (nat @(MempoolExt m) @ctx @m)
-
 servantServerHealthCheck :: forall ctx t m . MyWorkMode ctx m => Topology t -> OQ m -> m (Server HealthCheckApi)
 servantServerHealthCheck topology oq =
     flip enter (healthCheckServantHandlers topology oq) <$> (nat @(MempoolExt m) @ctx @m)
@@ -147,7 +135,9 @@ servantServerGT = flip enter (baseServantHandlers :<|> gtServantHandlers) <$>
 -- Base handlers
 ----------------------------------------------------------------------------
 
-baseServantHandlers :: (HasConfiguration, Default ext) => ServerT BaseNodeApi (WebMode ext)
+baseServantHandlers
+    :: (HasConfiguration, HasUpdateConfiguration, Default ext)
+    => ServerT BaseNodeApi (WebMode ext)
 baseServantHandlers =
     getLeaders
     :<|>
@@ -158,6 +148,8 @@ baseServantHandlers =
     GS.getTip
     :<|>
     getLocalTxsNum
+    :<|>
+    confirmedProposals
 
 getLeaders :: HasConfiguration => Maybe EpochIndex -> WebMode ext SlotLeaders
 getLeaders maybeEpoch = do
@@ -172,6 +164,14 @@ getUtxo = map toaOut . toList <$> GS.getAllPotentiallyHugeUtxo
 
 getLocalTxsNum :: Default ext => WebMode ext Word
 getLocalTxsNum = fromIntegral . length <$> getLocalTxs
+
+-- | Get info on all confirmed proposals
+confirmedProposals
+    :: (HasUpdateConfiguration, MonadDBRead m)
+    => m [CConfirmedProposalState]
+confirmedProposals = do
+    proposals <- GS.getConfirmedProposals Nothing
+    pure $ map (CConfirmedProposalState . show) proposals
 
 ----------------------------------------------------------------------------
 -- HealthCheck handlers
@@ -237,3 +237,4 @@ toggleGtParticipation enable =
 ----------------------------------------------------------------------------
 
 deriving instance FromHttpApiData EpochIndex
+deriveToJSON defaultOptions ''CConfirmedProposalState

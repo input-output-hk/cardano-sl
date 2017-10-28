@@ -15,7 +15,6 @@ import           Universum
 
 import           Control.Lens                     (to)
 import qualified Data.List.NonEmpty               as NE
-import           Data.Time.Units                  (convertUnit)
 import           Formatting                       (build, sformat, (%))
 import           Mockable                         (Async, Delay, Mockables)
 import           System.Wlog                      (HasLoggerName (modifyLoggerName),
@@ -33,13 +32,11 @@ import           Pos.DB.Class                     (MonadDBRead)
 import qualified Pos.GState                       as GS
 import           Pos.Reporting                    (MonadReporting, reportOrLogW)
 import           Pos.Slotting                     (MonadSlots, MonadSlotsData,
-                                                   getCurrentEpochSlotDuration,
                                                    getSlotStartPure, getSystemStartM)
 import           Pos.Txp.Core                     (TxAux (..), TxUndo, flattenTxPayload)
 import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
-import           Pos.Util.TimeLimit               (CanLogInParallel, logWarningWaitInf)
 
+import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
 import           Pos.Wallet.Web.Account           (AccountMode, getSKById)
 import           Pos.Wallet.Web.ClientTypes       (CId, Wal)
 import qualified Pos.Wallet.Web.State             as WS
@@ -78,7 +75,7 @@ onApplyBlocksWebWallet
     , HasConfiguration
     )
     => OldestFirst NE Blund -> m SomeBatchOp
-onApplyBlocksWebWallet blunds = setLogger . reportTimeouts "apply" $ do
+onApplyBlocksWebWallet blunds = setLogger $ do
     let oldestFirst = getOldestFirst blunds
         txsWUndo = concatMap gbTxsWUndo oldestFirst
         newTipH = NE.last oldestFirst ^. _1 . blockHeader
@@ -120,7 +117,7 @@ onRollbackBlocksWebWallet
     , HasConfiguration
     )
     => NewestFirst NE Blund -> m SomeBatchOp
-onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
+onRollbackBlocksWebWallet blunds = setLogger $ do
     let newestFirst = getNewestFirst blunds
         txs = concatMap (reverse . gbTxsWUndo) newestFirst
         newTip = (NE.last newestFirst) ^. prevBlockL
@@ -171,16 +168,6 @@ gbTxsWUndo (blk@(Right mb), undo) =
 
 setLogger :: HasLoggerName m => m a -> m a
 setLogger = modifyLoggerName (<> "wallet" <> "blistener")
-
-reportTimeouts
-    :: (MonadSlotsData ctx m, CanLogInParallel m)
-    => Text -> m a -> m a
-reportTimeouts desc action = do
-    slotDuration <- getCurrentEpochSlotDuration
-    let firstWarningTime = convertUnit slotDuration `div` 2
-    logWarningWaitInf firstWarningTime tag action
-  where
-    tag = "Wallet blistener " <> desc
 
 logMsg
     :: (MonadIO m, WithLogger m)

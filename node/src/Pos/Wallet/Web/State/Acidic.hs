@@ -22,6 +22,8 @@ module Pos.Wallet.Web.State.Acidic
        , GetWalletSyncTip (..)
        , GetWalletAddresses (..)
        , GetWalletUtxo (..)
+       , GetWalletBalancesAndUtxo (..)
+       , UpdateWalletBalancesAndUtxo (..)
        , SetWalletUtxo (..)
        , GetAccountWAddresses (..)
        , DoesWAddressExist (..)
@@ -125,6 +127,8 @@ makeAcidic ''WalletStorage
     , 'WS.getWalletSyncTip
     , 'WS.getWalletAddresses
     , 'WS.getWalletUtxo
+    , 'WS.getWalletBalancesAndUtxo
+    , 'WS.updateWalletBalancesAndUtxo
     , 'WS.setWalletUtxo
     , 'WS.getAccountWAddresses
     , 'WS.doesWAddressExist

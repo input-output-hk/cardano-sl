@@ -11,8 +11,9 @@ import qualified Data.ByteString                      as BS
 import           Data.List                            (intersperse, partition)
 import           Data.Text                            (splitOn)
 import qualified Data.Text.Buildable
+import           Data.Version                         (showVersion)
 import           Formatting                           (bprint, build, builder, int,
-                                                       sformat, shown, (%))
+                                                       sformat, shown, string, (%))
 import           Serokell.Util                        (listJsonIndent)
 import qualified Serokell.Util.Base16                 as Base16
 import           Servant.API                          (FromHttpApiData (..))
@@ -23,6 +24,7 @@ import           Pos.Core                             (Address, Coin, decodeText
                                                        mkCoin)
 import           Pos.Crypto                           (PassPhrase, passphraseLength)
 import           Pos.Txp.Core.Types                   (TxId)
+import           Pos.Util.LogSafe                     (SecureLog (..), buildUnsecure)
 import           Pos.Util.Servant                     (FromCType (..),
                                                        HasTruncateLogPolicy (..),
                                                        OriginType, ToCType (..),
@@ -30,20 +32,24 @@ import           Pos.Util.Servant                     (FromCType (..),
 import           Pos.Wallet.Web.ClientTypes.Functions (addressToCId, cIdToAddress,
                                                        mkCCoin, mkCTxId,
                                                        ptxCondToCPtxCond, txIdToCTxId)
-import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), CAccount (..),
-                                                       CAccountId (..), CAccountInit (..),
+import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), ApiVersion (..),
+                                                       CAccount (..), CAccountId (..),
+                                                       CAccountInit (..),
                                                        CAccountMeta (..), CAddress (..),
                                                        CCoin (..),
                                                        CElectronCrashReport (..),
+                                                       CFilePath (..), CHash (..),
                                                        CId (..), CInitialized (..),
                                                        CPaperVendWalletRedeem (..),
                                                        CPassPhrase (..), CProfile (..),
                                                        CPtxCondition, CTx (..),
-                                                       CTxId (..), CTxId, CTxMeta (..),
+                                                       CTxId (..), CTxMeta (..),
                                                        CUpdateInfo (..), CWallet (..),
                                                        CWallet, CWalletAssurance,
                                                        CWalletInit (..), CWalletMeta (..),
                                                        CWalletRedeem (..),
+                                                       ClientInfo (..), ScrollLimit (..),
+                                                       ScrollOffset (..),
                                                        SyncProgress (..))
 import           Pos.Wallet.Web.Pending.Types         (PtxCondition)
 
@@ -58,6 +64,15 @@ import           Pos.Wallet.Web.Pending.Types         (PtxCondition)
 -- I don't want to do it now because we have pending refactoring which reordered
 -- everything where
 
+instance Buildable (SecureLog (CId __)) where
+    build _ = "<id>"
+
+instance Buildable (SecureLog CAccountId) where
+    build _ = "<account id>"
+
+instance Buildable (SecureLog CTxId) where
+    build _ = "<tx id>"
+
 instance Buildable CWalletAssurance where
     build = bprint shown
 
@@ -66,10 +81,14 @@ instance Buildable CWalletMeta where
         bprint ("("%build%"/"%build%")")
                cwAssurance cwUnit
 
-instance Buildable CWalletInit where
-    build CWalletInit{..} =
-        bprint (build%" / "%build)
-               cwBackupPhrase cwInitMeta
+instance Buildable (SecureLog CWalletMeta) where
+    build = buildUnsecure
+
+instance Buildable (CWalletInit) where
+    build CWalletInit{..} = "<wallet init>"
+
+instance Buildable (SecureLog CWalletInit) where
+    build _ = "<wallet init>"
 
 instance Buildable CWallet where
     build CWallet{..} =
@@ -90,10 +109,19 @@ instance Buildable CWallet where
 instance Buildable CAccountMeta where
     build CAccountMeta{..} = "<meta>"
 
+instance Buildable (SecureLog CAccountMeta) where
+    build _ = "<meta>"
+
 instance Buildable CAccountInit where
     build CAccountInit{..} =
-        bprint (build%" / "%build)
-               caInitWId caInitMeta
+        bprint ("{ id="%build
+                %" meta="%build
+                %" }")
+        caInitWId
+        caInitMeta
+
+instance Buildable (SecureLog CAccountInit) where
+    build _ = "<account init>"
 
 instance Buildable CAccount where
     build CAccount{..} =
@@ -121,6 +149,9 @@ instance Buildable CAddress where
 
 instance Buildable CTxMeta where
     build CTxMeta{..} = bprint ("{ date="%build%" }") ctmDate
+
+instance Buildable (SecureLog CTxMeta) where
+    build _ = "<tx meta>"
 
 instance Buildable CPtxCondition where
     build = bprint shown
@@ -155,6 +186,9 @@ instance Buildable CProfile where
     build CProfile{..} =
         bprint ("{ cpLocale="%build%" }") cpLocale
 
+instance Buildable (SecureLog CProfile) where
+    build = buildUnsecure
+
 instance Buildable CUpdateInfo where
     build CUpdateInfo{..} =
         bprint ("{ softver="%build
@@ -182,18 +216,35 @@ instance Buildable SyncProgress where
 
 instance Buildable CWalletRedeem where
     build CWalletRedeem{..} =
-        bprint (build%" <- "%build)
-               crWalletId crSeed
+        bprint (build%" -> "%build) crSeed crWalletId
+
+instance Buildable (SecureLog CWalletRedeem) where
+    build _ = "<wallet redeem info>"
 
 instance Buildable CPaperVendWalletRedeem where
     build CPaperVendWalletRedeem{..} =
-        bprint (build%" <- "%build%" / "%build)
-               pvWalletId pvSeed pvBackupPhrase
+        bprint (build%" -> "%build) pvSeed pvWalletId
+
+instance Buildable (SecureLog CPaperVendWalletRedeem) where
+    build (SecureLog CPaperVendWalletRedeem{..}) =
+        "<papervend wallet redeem info>"
 
 instance Buildable CInitialized where
     build CInitialized{..} =
         bprint (build%"/"%build)
                cPreInit cTotalTime
+
+instance Buildable (SecureLog CInitialized) where
+    build = buildUnsecure
+
+instance Buildable (SecureLog ScrollOffset) where
+    build = buildUnsecure
+
+instance Buildable (SecureLog ScrollLimit) where
+    build = buildUnsecure
+
+instance Buildable (SecureLog CFilePath) where
+    build _ = "<filepath>"
 
 ----------------------------------------------------------------------------
 -- Convertions
@@ -277,7 +328,7 @@ instance FromHttpApiData Address where
     parseUrlPiece = decodeTextAddress
 
 instance FromHttpApiData (CId w) where
-    parseUrlPiece = fmap addressToCId . decodeTextAddress
+    parseUrlPiece = pure . CId . CHash
 
 instance FromHttpApiData CAccountId where
     parseUrlPiece = fmap CAccountId . parseUrlPiece
@@ -290,6 +341,11 @@ instance FromHttpApiData CTxId where
 instance FromHttpApiData CPassPhrase where
     parseUrlPiece = pure . CPassPhrase
 
+instance FromHttpApiData ScrollOffset where
+    parseUrlPiece = fmap ScrollOffset . parseUrlPiece
+
+instance FromHttpApiData ScrollLimit where
+    parseUrlPiece = fmap ScrollLimit . parseUrlPiece
 
 instance FromMultipart CElectronCrashReport where
     fromMultipart form = do
@@ -359,3 +415,18 @@ instance (Buildable e, Buildable (WithTruncatedLog a)) =>
         case x of
             Left e  -> bprint ("Failure: "%build) e
             Right a -> bprint build (WithTruncatedLog a)
+
+instance Buildable ApiVersion where
+    build ApiVersion0 = "ApiVersion0"
+
+instance Buildable ClientInfo where
+    build ClientInfo {..} =
+        bprint ("{ gitRevision="%build
+                %" apiVersion="%build
+                %" softwareVersion="%build
+                %" cabalVersion="%string
+                %" }")
+        ciGitRevision
+        ciApiVersion
+        ciSoftwareVersion
+        (showVersion ciCabalVersion)

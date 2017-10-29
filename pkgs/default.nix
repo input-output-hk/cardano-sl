@@ -3032,8 +3032,8 @@ self: {
       ekg-core = callPackage ({ base, containers, ghc-prim, mkDerivation, stdenv, text, unordered-containers }:
       mkDerivation {
           pname = "ekg-core";
-          version = "0.1.1.2";
-          sha256 = "35eb78e4cdabab2562ddf477bf55fa2cf1c0489984c6adb360ef187b6979f805";
+          version = "0.1.1.3";
+          sha256 = "ac56e2d0f6bf0b76aa3b69beddbb7d0811e8991c98a379bc24ec808049fb89e3";
           libraryHaskellDepends = [
             base
             containers
@@ -4466,11 +4466,11 @@ self: {
           description = "ListT done right";
           license = stdenv.lib.licenses.mit;
         }) {};
-      log-warper = callPackage ({ aeson, ansi-terminal, base, containers, directory, dlist, errors, exceptions, extra, filepath, formatting, hashable, lens, mkDerivation, mmorph, monad-control, monad-loops, mtl, network, safecopy, stdenv, text, text-format, time, transformers, transformers-base, universum, unix, unordered-containers, yaml }:
+      log-warper = callPackage ({ aeson, ansi-terminal, base, containers, deepseq, directory, dlist, errors, exceptions, extra, filepath, formatting, hashable, lens, mkDerivation, mmorph, monad-control, monad-loops, mtl, network, safecopy, stdenv, text, text-format, time, transformers, transformers-base, universum, unix, unordered-containers, yaml }:
       mkDerivation {
           pname = "log-warper";
-          version = "1.2.2";
-          sha256 = "2b558bad636dc3b25383585667bcadda00251ef0f1a31da2267a9bfb8704bc43";
+          version = "1.2.3.1";
+          sha256 = "47dd0a5a3209290527d9d4c329267a1ac8dcd976f1e2bd6a4062a2ff810a163b";
           isLibrary = true;
           isExecutable = true;
           libraryHaskellDepends = [
@@ -4478,6 +4478,7 @@ self: {
             ansi-terminal
             base
             containers
+            deepseq
             directory
             dlist
             errors
@@ -4937,9 +4938,9 @@ self: {
           pname = "node-sketch";
           version = "0.2.0.0";
           src = fetchgit {
-            url = "https://github.com/serokell/time-warp-nt.git";
-            sha256 = "13avvcni90crjrq10xdpz8d6v5gawm1nw5rvj8lg6vkmcsy44zni";
-            rev = "630b23847ea39778f5616134a4f416b473639a15";
+            url = "https://github.com/arybczak/time-warp-nt.git";
+            sha256 = "0aijj6wq14k0ralji2rn0qiyq8rplcpvgnv43w3vqdxikbxsg85s";
+            rev = "74acf3c98ec402490e4ae086a60227560cde166d";
           };
           isLibrary = true;
           isExecutable = true;

@@ -60,6 +60,8 @@ module Pos.Wallet.Web.Api
        , ImportBackupJSON
        , ExportBackupJSON
 
+       , GetClientInfo
+
        , WalletSwaggerApi
        , swaggerWalletApi
        ) where
@@ -85,12 +87,12 @@ import           Pos.Util.Servant           (ApiLoggingConfig, CCapture, CQueryP
                                              applyLoggingToHandler, inRouteServer,
                                              serverHandlerL')
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit,
-                                             CAccountMeta, CAddress, CCoin, CId,
-                                             CInitialized, CPaperVendWalletRedeem,
+                                             CAccountMeta, CAddress, CCoin, CFilePath, ClientInfo,
+                                             CId, CInitialized, CPaperVendWalletRedeem,
                                              CPassPhrase, CProfile, CTx, CTxId, CTxMeta,
                                              CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, SyncProgress,
-                                             Wal)
+                                             CWalletMeta, CWalletRedeem, ScrollLimit,
+                                             ScrollOffset, SyncProgress, Wal)
 import           Pos.Wallet.Web.Error       (WalletError (DecodeError),
                                              catchEndpointErrors)
 import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
@@ -190,7 +192,7 @@ type ImportWallet =
        "wallets"
     :> "keys"
     :> DCQueryParam "passphrase" CPassPhrase
-    :> ReqBody '[JSON] Text
+    :> ReqBody '[JSON] CFilePath
     :> WRes Post CWallet
 
 type ChangeWalletPassphrase =
@@ -248,7 +250,7 @@ type NewAddress =
 
 type IsValidAddress =
        "addresses"
-    :> Capture "address" Text
+    :> Capture "address" (CId Addr)  -- exact type of 'CId' shouldn't matter
     :> WRes Get Bool
 
 -------------------------------------------------------------------------
@@ -299,8 +301,8 @@ type GetHistory =
     :> QueryParam "walletId" (CId Wal)
     :> CQueryParam "accountId" CAccountId
     :> QueryParam "address" (CId Addr)
-    :> QueryParam "skip" Word
-    :> QueryParam "limit" Word
+    :> QueryParam "skip" ScrollOffset
+    :> QueryParam "limit" ScrollLimit
     :> WRes Get ([CTx], Word)
 
 -------------------------------------------------------------------------
@@ -378,15 +380,23 @@ type GetSyncProgress =
 type ImportBackupJSON =
        "backup"
     :> "import"
-    :> ReqBody '[JSON] Text
+    :> ReqBody '[JSON] CFilePath
     :> WRes Post CWallet
 
 type ExportBackupJSON =
        "backup"
     :> "export"
     :> Capture "walletId" (CId Wal)
-    :> ReqBody '[JSON] Text
+    :> ReqBody '[JSON] CFilePath
     :> WRes Post ()
+
+-------------------------------------------------------------------------
+-- Settings
+-------------------------------------------------------------------------
+
+type GetClientInfo =
+       "info"
+    :> WRes Get ClientInfo
 
 -- | Servant API which provides access to wallet.
 -- TODO: Should be composed depending on the resource - wallets, txs, ... http://haskell-servant.github.io/tutorial/0.4/server.html#nested-apis
@@ -497,6 +507,11 @@ type WalletApi = ApiPrefix :> (
      ImportBackupJSON
     :<|>
      ExportBackupJSON
+    :<|>
+     -------------------------------------------------------------------------
+     -- Client info: various versions
+     -------------------------------------------------------------------------
+     GetClientInfo
     )
 
 -- | Helper Proxy.

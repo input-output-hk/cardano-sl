@@ -52,7 +52,8 @@ import           Pos.Core                         (AddrType (..), Address (..), 
                                                    isRedeemAddress, isUnknownAddressType,
                                                    makeRedeemAddress, mkCoin, siEpoch,
                                                    siSlot, sumCoins, timestampToPosix,
-                                                   unsafeIntegerToCoin, unsafeSubCoin)
+                                                   unsafeAddCoin, unsafeIntegerToCoin,
+                                                   unsafeSubCoin)
 import           Pos.DB.Class                     (MonadDBRead)
 import           Pos.Slotting                     (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing               (SscGodTossing)
@@ -77,8 +78,9 @@ import           Pos.Explorer.Aeson.ClientTypes   ()
 import           Pos.Explorer.Web.Api             (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes     (Byte, CAda (..), CAddress (..),
                                                    CAddressSummary (..),
-                                                   CAddressType (..), CBlockEntry (..),
-                                                   CBlockSummary,
+                                                   CAddressType (..),
+                                                   CAddressesFilter (..),
+                                                   CBlockEntry (..), CBlockSummary (..),
                                                    CGenesisAddressInfo (..),
                                                    CGenesisSummary (..), CHash,
                                                    CTxBrief (..), CTxEntry (..),
@@ -176,18 +178,21 @@ explorerHandlers _sendActions =
     tryEpochSlotSearch epoch maybeSlot =
         catchExplorerError $ epochSlotSearch epoch maybeSlot
 
-    getGenesisPagesTotalDefault size =
-        catchExplorerError $ getGenesisPagesTotal (defaultPageSize size)
+    getGenesisPagesTotalDefault size addrFilt =
+        catchExplorerError $
+            getGenesisPagesTotal (defaultPageSize size) (defaultAddressesFilter addrFilt)
 
-    getGenesisAddressInfoDefault page size =
-        catchExplorerError $ getGenesisAddressInfo page (defaultPageSize size)
+    getGenesisAddressInfoDefault page size addrFilt =
+        catchExplorerError $
+            getGenesisAddressInfo page (defaultPageSize size) (defaultAddressesFilter addrFilt)
 
     getStatsTxsDefault page =
         catchExplorerError $ getStatsTxs page
 
-    defaultPageSize size = (fromIntegral $ fromMaybe 10 size)
-    defaultLimit limit   = (fromIntegral $ fromMaybe 10 limit)
-    defaultSkip  skip    = (fromIntegral $ fromMaybe 0  skip)
+    defaultPageSize size   = (fromIntegral $ fromMaybe 10 size)
+    defaultLimit limit     = (fromIntegral $ fromMaybe 10 limit)
+    defaultSkip  skip      = (fromIntegral $ fromMaybe 0  skip)
+    defaultAddressesFilter = fromMaybe AllAddresses
 
 ----------------------------------------------------------------
 -- API Functions
@@ -543,34 +548,83 @@ getRedeemAddressCoinPairs = do
 
     pure redeemOnly
 
-isAddressRedeemed :: MonadDBRead m => Address -> Coin -> m Bool
-isAddressRedeemed address initialBalance = do
-  currentBalance <- fromMaybe (mkCoin 0) <$> EX.getAddrBalance address
-  pure $ currentBalance /= initialBalance
-
 getGenesisSummary
     :: ExplorerMode ctx m
     => m CGenesisSummary
 getGenesisSummary = do
     redeemAddressCoinPairs <- getRedeemAddressCoinPairs
-    cgsNumRedeemed <- length <$> filterM (uncurry isAddressRedeemed) redeemAddressCoinPairs
-    pure CGenesisSummary {cgsNumTotal = length redeemAddressCoinPairs, ..}
+    redeemAddressInfo <- mapM (uncurry getRedeemAddressInfo) redeemAddressCoinPairs
+    let (cgsNumRedeemed, redeemedAmountTotal, nonRedeemedAmountTotal) =
+            foldr folder (0, mkCoin 0, mkCoin 0) redeemAddressInfo
+    let cgsNumTotal = length redeemAddressCoinPairs
+    pure CGenesisSummary
+        { cgsNumNotRedeemed = cgsNumTotal - cgsNumRedeemed
+        , cgsRedeemedAmountTotal = mkCCoin redeemedAmountTotal
+        , cgsNonRedeemedAmountTotal = mkCCoin nonRedeemedAmountTotal
+        , ..
+        }
+  where
+    getRedeemAddressInfo
+        :: (MonadDBRead m, MonadThrow m)
+        => Address -> Coin -> m (Bool, Coin, Coin)
+    getRedeemAddressInfo address initialBalance = do
+        currentBalance <- fromMaybe (mkCoin 0) <$> EX.getAddrBalance address
+        if currentBalance > initialBalance then
+            throwM $ Internal $ sformat
+                ("Redeem address "%build%" had "%build%" at genesis, but now has "%build)
+                address initialBalance currentBalance
+        else
+            let isRedeemed = currentBalance == mkCoin 0
+                redeemedAmount = initialBalance `unsafeSubCoin` currentBalance
+                amountLeft = currentBalance
+            in pure $ (isRedeemed, redeemedAmount, amountLeft)
+    folder
+        :: (Bool, Coin, Coin)
+        -> (Int, Coin, Coin)
+        -> (Int, Coin, Coin)
+    folder
+        (isRedeemed, redeemedAmount, amountLeft)
+        (numRedeemed, redeemedAmountTotal, nonRedeemedAmountTotal) = (
+              numRedeemed + (if isRedeemed then 1 else 0)
+            , redeemedAmountTotal `unsafeAddCoin` redeemedAmount
+            , nonRedeemedAmountTotal `unsafeAddCoin` amountLeft
+            )
+
+isAddressRedeemed :: MonadDBRead m => Address -> m Bool
+isAddressRedeemed address = do
+    currentBalance <- fromMaybe (mkCoin 0) <$> EX.getAddrBalance address
+    pure $ currentBalance == mkCoin 0
+
+getFilteredPairs :: ExplorerMode ctx m => CAddressesFilter -> m [(Address, Coin)]
+getFilteredPairs addrFilt = do
+    redeemAddressCoinPairs <- getRedeemAddressCoinPairs
+    case addrFilt of
+            AllAddresses         ->
+                pure redeemAddressCoinPairs
+            RedeemedAddresses    ->
+                filterM (isAddressRedeemed . fst) redeemAddressCoinPairs
+            NonRedeemedAddresses ->
+                filterM (isAddressNotRedeemed . fst) redeemAddressCoinPairs
+  where
+    isAddressNotRedeemed :: MonadDBRead m => Address -> m Bool
+    isAddressNotRedeemed = fmap not . isAddressRedeemed
 
 getGenesisAddressInfo
     :: (ExplorerMode ctx m)
     => Maybe Word  -- ^ pageNumber
     -> Word        -- ^ pageSize
+    -> CAddressesFilter
     -> m [CGenesisAddressInfo]
-getGenesisAddressInfo (fmap fromIntegral -> mPage) (fromIntegral -> pageSize) = do
-    redeemAddressCoinPairs <- getRedeemAddressCoinPairs
+getGenesisAddressInfo (fmap fromIntegral -> mPage) (fromIntegral -> pageSize) addrFilt = do
+    filteredPairs <- getFilteredPairs addrFilt
     let pageNumber    = fromMaybe 1 mPage
         skipItems     = (pageNumber - 1) * pageSize
-        requestedPage = take pageSize $ drop skipItems redeemAddressCoinPairs
+        requestedPage = take pageSize $ drop skipItems filteredPairs
     mapM toGenesisAddressInfo requestedPage
   where
     toGenesisAddressInfo :: ExplorerMode ctx m => (Address, Coin) -> m CGenesisAddressInfo
     toGenesisAddressInfo (address, coin) = do
-        cgaiIsRedeemed <- isAddressRedeemed address coin
+        cgaiIsRedeemed <- isAddressRedeemed address
         -- Commenting out RSCoin address until it can actually be displayed.
         -- See comment in src/Pos/Explorer/Web/ClientTypes.hs for more information.
         pure CGenesisAddressInfo
@@ -583,10 +637,11 @@ getGenesisAddressInfo (fmap fromIntegral -> mPage) (fromIntegral -> pageSize) = 
 getGenesisPagesTotal
     :: ExplorerMode ctx m
     => Word
+    -> CAddressesFilter
     -> m Integer
-getGenesisPagesTotal (fromIntegral -> pageSize) = do
-    redeemAddressCoinPairs <- getRedeemAddressCoinPairs
-    pure $ fromIntegral $ (length redeemAddressCoinPairs + pageSize - 1) `div` pageSize
+getGenesisPagesTotal (fromIntegral -> pageSize) addrFilt = do
+    filteredPairs <- getFilteredPairs addrFilt
+    pure $ fromIntegral $ (length filteredPairs + pageSize - 1) `div` pageSize
 
 -- | Search the blocks by epoch and slot. Slot is optional.
 epochSlotSearch

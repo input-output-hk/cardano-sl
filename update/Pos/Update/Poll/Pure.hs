@@ -17,7 +17,7 @@ import           System.Wlog               (CanLog, HasLoggerName (..), LogEvent
                                             runNamedPureLog)
 
 import           Pos.Binary.Class          (Bi)
-import           Pos.Core                  (SoftwareVersion (..), HasConfiguration)
+import           Pos.Core                  (HasConfiguration, SoftwareVersion (..))
 import           Pos.Crypto                (hash)
 import           Pos.Update.Core           (UpdateProposal (..), applyBVM)
 import           Pos.Update.Poll.Class     (MonadPoll (..), MonadPollRead (..))
@@ -29,12 +29,13 @@ import           Pos.Update.Poll.Types     (BlockVersionState (..),
                                             psProposal)
 
 newtype PurePoll a = PurePoll
-    { getPurePoll :: NamedPureLogger (State Poll.PollState) a
-    } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName)
+    { getPurePoll :: StateT Poll.PollState (NamedPureLogger Identity) a
+    } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName, MonadState Poll.PollState)
 
 runPurePollWithLogger :: Poll.PollState -> PurePoll a -> (a, Poll.PollState, [LogEvent])
-runPurePollWithLogger ps =
-    (\((a, c), b) -> (a, b, c)) . flip runState ps . runNamedPureLog . getPurePoll
+runPurePollWithLogger ps pp =
+    let innerMonad = usingStateT ps . getPurePoll $ pp
+    in  (\((a, finalState), logs) -> (a, finalState, logs)) . runIdentity . runNamedPureLog $ innerMonad
 
 evalPurePollWithLogger :: Poll.PollState -> PurePoll a -> a
 evalPurePollWithLogger r = view _1 . runPurePollWithLogger r

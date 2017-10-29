@@ -29,7 +29,7 @@ import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchGenesisAddressInfo, fetchGenesisAddressInfoTotalPages, fetchGenesisSummary, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, searchEpoch)
 import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
-import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentCGenesisAddressInfos, currentCGenesisSummary, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gWaypoints, gblAddressInfosPagination, gblAddressInfosPaginationEditable, gblLoadingAddressInfosPagination, gblMaxAddressInfosPagination, genesisBlockViewState, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
+import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentCGenesisAddressInfos, currentCGenesisSummary, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gWaypoints, gblAddressInfosPagination, gblAddressInfosPaginationEditable, gblAddressFilter, gblLoadingAddressInfosPagination, gblMaxAddressInfosPagination, genesisBlockViewState, globalViewState, lang, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
 import Explorer.Routes (Route(..), match, toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, headerSearchContainerId, heroSearchContainerId, minPagination, mkSocketSubscriptionItem, mobileMenuSearchContainerId)
 import Explorer.Types.Actions (Action(..))
@@ -320,9 +320,11 @@ update (GenesisBlockPaginateAddresses mEvent pageNumber) state =
     , effects:
         [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
         -- ^ blur element - needed by iOS to close native keyboard
-        , pure <<< Just $ RequestPaginatedAddressInfo pageNumber (PageSize maxAddressInfoRows)
+        , pure <<< Just $ RequestPaginatedAddressInfo pageNumber (PageSize maxAddressInfoRows) addrFilter
         ]
     }
+    where
+        addrFilter = state ^. (viewStates <<< genesisBlockViewState <<< gblAddressFilter)
 
 update (GenesisBlockEditAddressesPageNumber event editable) state =
     { state:
@@ -339,6 +341,14 @@ update (GenesisBlockInvalidAddressesPageNumber event) state =
           set (viewStates <<< genesisBlockViewState <<< gblAddressInfosPaginationEditable) false state
       , effects:
           [ pure <<< Just $ BlurElement $ nodeToHTMLElement (target event)
+          ]
+    }
+
+update (GenesisBlockFilterAddresses addrFilter) state =
+    { state:
+          set (viewStates <<< genesisBlockViewState <<< gblAddressFilter) addrFilter state
+      , effects:
+          [ pure <<< Just $ RequestGenesisAddressInfoTotalPages addrFilter
           ]
     }
 
@@ -773,12 +783,12 @@ update (ReceiveGenesisSummary (Left error)) state =
     over errors (\errors' -> (show error) : errors') state
 
 
-update RequestGenesisAddressInfoTotalPages state =
+update (RequestGenesisAddressInfoTotalPages addrFilter) state =
     { state:
           set loading true $
           set (viewStates <<< genesisBlockViewState <<< gblMaxAddressInfosPagination) Loading
           state
-    , effects: [ attempt (fetchGenesisAddressInfoTotalPages (PageSize maxAddressInfoRows))
+    , effects: [ attempt (fetchGenesisAddressInfoTotalPages (PageSize maxAddressInfoRows) addrFilter)
                     >>= pure <<< Just <<< ReceiveGenesisAddressInfoTotalPages
                ]
     }
@@ -789,11 +799,17 @@ update (ReceiveGenesisAddressInfoTotalPages (Right totalPages)) state =
           set (viewStates <<< genesisBlockViewState <<< gblMaxAddressInfosPagination)
               (Success $ PageNumber totalPages) state
     , effects:
-        [ pure <<< Just $ GenesisBlockPaginateAddresses
-                              Nothing
-                              (state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination))
+        [ pure <<< Just $ GenesisBlockPaginateAddresses Nothing nextPageNumber
         ]
     }
+    where
+        currentPageNumber = state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination)
+        totalPageNumber = PageNumber totalPages
+        nextPageNumber = if currentPageNumber > totalPageNumber
+                            then totalPageNumber
+                            else currentPageNumber
+                            -- ^ Make sure that current page number isn't greater than number of total pages
+                            -- which could be happened while switching filter of genesis addresses
 
 update (ReceiveGenesisAddressInfoTotalPages (Left error)) state =
     noEffects $
@@ -802,7 +818,7 @@ update (ReceiveGenesisAddressInfoTotalPages (Left error)) state =
         (Failure error) $
     over errors (\errors' -> (show error) : errors') state
 
-update (RequestPaginatedAddressInfo pageNumber pageSize) state =
+update (RequestPaginatedAddressInfo pageNumber pageSize addrFilter) state =
     { state:
           set loading true $
           -- Note: Set `Loading` for first request only!
@@ -815,7 +831,7 @@ update (RequestPaginatedAddressInfo pageNumber pageSize) state =
               else set (viewStates <<< genesisBlockViewState <<< gblLoadingAddressInfosPagination) true
           )
           state
-    , effects:  [ attempt (fetchGenesisAddressInfo pageNumber pageSize)
+    , effects:  [ attempt (fetchGenesisAddressInfo pageNumber pageSize addrFilter)
                       >>= pure <<< Just <<< ReceivePaginatedAddressInfo
                 ]
     }
@@ -959,17 +975,11 @@ update (UpdateView r@(GenesisBlock)) state =
         , pure $ Just ClearWaypoints
         , pure $ Just SocketClearSubscriptions
         , pure $ Just RequestGenesisSummary
-        , pure $ (  if isNotAsked $ state ^. (viewStates <<< genesisBlockViewState <<< gblMaxAddressInfosPagination)
-                        -- ^ Before we can get data of `CGenesisAddressInfos`,
-                        -- we have to check if we do need
-                        -- to load data of `gblMaxAddressInfosPagination` before
-                        then Just RequestGenesisAddressInfoTotalPages
-                        else Just $ GenesisBlockPaginateAddresses
-                                        Nothing
-                                        (state ^. (viewStates <<< genesisBlockViewState <<< gblAddressInfosPagination))
-                  )
+        , pure <<< Just $ RequestGenesisAddressInfoTotalPages addrFilter
         ]
     }
+    where
+        addrFilter = state ^. (viewStates <<< genesisBlockViewState <<< gblAddressFilter)
 
 update (UpdateView r@(Playground)) state =
     { state: set route r state

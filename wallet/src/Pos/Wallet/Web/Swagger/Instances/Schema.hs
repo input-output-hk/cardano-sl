@@ -17,6 +17,7 @@ import           Data.Swagger                (NamedSchema (..), SwaggerType (..)
                                               genericDeclareNamedSchema, name, properties,
                                               required, type_)
 import           Data.Typeable               (Typeable, typeRep)
+import           Data.Version                (Version)
 import           Servant.Multipart           (FileData (..))
 
 import           Pos.Types                   (ApplicationName, BlockCount (..),
@@ -78,6 +79,12 @@ instance ToSchema      ChainDifficulty
 instance ToSchema      BlockVersion
 instance ToSchema      BackupPhrase
 instance ToParamSchema CT.CPassPhrase
+instance ToParamSchema CT.ScrollOffset
+instance ToParamSchema CT.ScrollLimit
+instance ToSchema      CT.CFilePath
+instance ToSchema      CT.ApiVersion
+instance ToSchema      Version
+instance ToSchema      CT.ClientInfo
 
 instance ToSchema WalletStateSnapshot where
     declareNamedSchema _ = pure $ NamedSchema (Just "WalletStateSnapshot") mempty

@@ -77,7 +77,8 @@ import           Pos.StateLock                    (Priority (..), StateLock,
 import           Pos.Txp                          (GenesisUtxo (..), Tx (..), TxAux (..),
                                                    TxIn (..), TxOut, TxOutAux (..),
                                                    TxUndo, flattenTxPayload, genesisUtxo,
-                                                   toaOut, topsortTxs, txOutAddress)
+                                                   toaOut, topsortTxs, txOutAddress,
+                                                   utxoToModifier)
 import           Pos.Txp.MemState.Class           (MonadTxpMem, getLocalTxsNUndo)
 import           Pos.Util.Chrono                  (getNewestFirst)
 import qualified Pos.Util.Modifier                as MM
@@ -144,7 +145,7 @@ txMempoolToModifier encSK = do
     tipH <- DB.getTipHeader @WalletSscType
     allAddresses <- getWalletAddrMetas Ever wId
     case topsortTxs wHash txsWUndo of
-        Nothing -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
+        Nothing      -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
         Just ordered -> pure $
             trackingApplyTxs @WalletSscType encSK allAddresses getDiff getTs getPtxBlkInfo $
             map (\(_, tx, undo) -> (tx, undo, tipH)) ordered
@@ -284,7 +285,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
             ownGenesisUtxo = M.fromList $ map fst ownGenesisData
             ownGenesisAddrs = map snd ownGenesisData
         mapM_ WS.addWAddress ownGenesisAddrs
-        WS.getWalletUtxo >>= WS.setWalletUtxo . (ownGenesisUtxo <>)
+        WS.updateWalletBalancesAndUtxo (utxoToModifier ownGenesisUtxo)
 
     startFromH <- maybe firstGenesisHeader pure wTipHeader
     mapModifier@CAccModifier{..} <- computeAccModifier startFromH
@@ -353,7 +354,7 @@ trackingApplyTxs (getEncInfo -> encInfo) allAddresses getDiff getTs getPtxBlkInf
             camDeletedPtxCandidates
 
 -- Process transactions on block rollback.
--- Like @trackingApplyTx@, but vise versa.
+-- Like @trackingApplyTxs@, but vise versa.
 trackingRollbackTxs
     :: forall ssc . (HasConfiguration, SscHelpersClass ssc)
     => EncryptedSecretKey -- ^ Wallet's secret key
@@ -431,7 +432,7 @@ applyModifierToWallet wid newTip CAccModifier{..} = do
     mapM_ WS.addWAddress (sortedInsertions camAddresses)
     mapM_ (WS.addCustomAddress UsedAddr . fst) (MM.insertions camUsed)
     mapM_ (WS.addCustomAddress ChangeAddr . fst) (MM.insertions camChange)
-    WS.getWalletUtxo >>= WS.setWalletUtxo . MM.modifyMap camUtxo
+    WS.updateWalletBalancesAndUtxo camUtxo
     let cMetas = M.fromList
                $ mapMaybe (\THEntry {..} -> (\mts -> (_thTxId, CTxMeta . timestampToPosix $ mts)) <$> _thTimestamp)
                $ DL.toList camAddedHistory
@@ -455,7 +456,7 @@ rollbackModifierFromWallet wid newTip CAccModifier{..} = do
     mapM_ WS.removeWAddress (indexedDeletions camAddresses)
     mapM_ (WS.removeCustomAddress UsedAddr) (MM.deletions camUsed)
     mapM_ (WS.removeCustomAddress ChangeAddr) (MM.deletions camChange)
-    WS.getWalletUtxo >>= WS.setWalletUtxo . MM.modifyMap camUtxo
+    WS.updateWalletBalancesAndUtxo camUtxo
     forM_ camDeletedPtxCandidates $ \(txid, poolInfo) -> do
         curSlot <- getCurrentSlotInaccurate
         WS.ptxUpdateMeta wid txid (WS.PtxResetSubmitTiming curSlot)

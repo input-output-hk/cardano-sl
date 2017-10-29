@@ -36,6 +36,11 @@ module Pos.Wallet.Web.ClientTypes.Types
       , CElectronCrashReport (..)
       , Wal (..)
       , Addr (..)
+      , ScrollOffset (..)
+      , ScrollLimit (..)
+      , CFilePath (..)
+      , ApiVersion (..)
+      , ClientInfo (..)
       ) where
 
 import           Universum
@@ -47,6 +52,7 @@ import           Data.Text             (Text)
 import           Data.Text.Buildable   (build)
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable         (Typeable)
+import           Data.Version          (Version)
 import           Formatting            (bprint, (%))
 import qualified Formatting            as F
 import qualified Prelude
@@ -56,6 +62,7 @@ import           Pos.Aeson.Types       ()
 import           Pos.Core.Types        (ScriptVersion)
 import           Pos.Types             (BlockVersion, ChainDifficulty, SoftwareVersion)
 import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Util.LogSafe      (SecureLog, buildUnsecure)
 
 -- TODO [CSM-407] Structurize this mess
 
@@ -117,6 +124,12 @@ instance Hashable AccountId
 instance Buildable AccountId where
     build AccountId{..} =
         bprint (F.build%"@"%F.build) aiWId aiIndex
+
+instance Buildable (SecureLog AccountId) where
+    build _ = "<account id>"
+
+instance Buildable (SecureLog (Maybe AccountId)) where
+    build = buildUnsecure
 
 newtype CAccountId = CAccountId Text
     deriving (Eq, Show, Generic, Buildable)
@@ -331,4 +344,41 @@ data CElectronCrashReport = CElectronCrashReport
     , cecProd        :: Text
     , cecCompanyName :: Text
     , cecUploadDump  :: FileData
+    } deriving (Show, Generic)
+
+----------------------------------------------------------------------------
+-- Misc
+----------------------------------------------------------------------------
+
+newtype ScrollOffset = ScrollOffset Word
+    deriving (Eq, Ord, Show, Enum, Num, Real, Integral, Generic, Typeable,
+              Buildable)
+
+newtype ScrollLimit = ScrollLimit Word
+    deriving (Eq, Ord, Show, Enum, Num, Real, Integral, Generic, Typeable,
+              Buildable)
+
+newtype CFilePath = CFilePath Text
+    deriving (Eq, Ord, Generic, Typeable, Buildable)
+
+----------------------------------------------------------------------------
+-- Version and client info
+----------------------------------------------------------------------------
+
+-- | Version of wallet API. Currently we have only 0-th version. We
+-- will add new constructors when new versions appear.
+data ApiVersion =
+    ApiVersion0
+    deriving (Show, Generic)
+
+-- | Information about this client.
+data ClientInfo = ClientInfo
+    { ciApiVersion      :: !ApiVersion
+    -- ^ Version of wallet API.
+    , ciSoftwareVersion :: !SoftwareVersion
+    -- ^ Software version (from the blockchain's point of view).
+    , ciCabalVersion    :: !Version
+    -- ^ Version specified in cabal file.
+    , ciGitRevision     :: !Text
+    -- ^ Git revision from which this software was built.
     } deriving (Show, Generic)

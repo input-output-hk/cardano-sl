@@ -2,18 +2,23 @@ module Pos.Aeson.ClientTypes
        (
        ) where
 
+import           Universum
+
+import           Data.Aeson                   (FromJSON (..), ToJSON (..), object, (.=))
 import           Data.Aeson.TH                (defaultOptions, deriveJSON, deriveToJSON)
+import           Data.Version                 (showVersion)
+
 import           Pos.Core.Types               (SoftwareVersion (..))
 import           Pos.Util.BackupPhrase        (BackupPhrase)
-import           Pos.Wallet.Web.ClientTypes   (Addr, CAccount, CAccountId, CAccountInit,
-                                               CAccountMeta, CAddress, CCoin, CHash, CId,
-                                               CInitialized, CInitialized,
-                                               CPaperVendWalletRedeem, CProfile, CProfile,
-                                               CPtxCondition, CTExMeta, CTx, CTxId,
-                                               CTxMeta, CUpdateInfo, CWAddressMeta,
+import           Pos.Wallet.Web.ClientTypes   (Addr, ApiVersion (..), CAccount,
+                                               CAccountId, CAccountInit, CAccountMeta,
+                                               CAddress, CCoin, CFilePath (..), CHash,
+                                               CId, CInitialized, CPaperVendWalletRedeem,
+                                               CProfile, CPtxCondition, CTExMeta, CTx,
+                                               CTxId, CTxMeta, CUpdateInfo, CWAddressMeta,
                                                CWallet, CWalletAssurance, CWalletInit,
-                                               CWalletMeta, CWalletRedeem, SyncProgress,
-                                               Wal)
+                                               CWalletMeta, CWalletRedeem,
+                                               ClientInfo (..), SyncProgress, Wal)
 import           Pos.Wallet.Web.Error         (WalletError)
 import           Pos.Wallet.Web.Sockets.Types (NotifyEvent)
 
@@ -49,3 +54,19 @@ deriveJSON defaultOptions ''CUpdateInfo
 deriveToJSON defaultOptions ''SyncProgress
 deriveToJSON defaultOptions ''NotifyEvent
 deriveToJSON defaultOptions ''WalletError
+
+-- For backward compatibility.
+-- Guys /really/ want it to be normal JSON
+deriving instance FromJSON CFilePath
+
+instance ToJSON ApiVersion where
+    toJSON ApiVersion0 = "v0"
+
+instance ToJSON ClientInfo where
+    toJSON ClientInfo {..} =
+        object
+            [ "gitRevision" .= ciGitRevision
+            , "softwareVersion" .= pretty ciSoftwareVersion
+            , "cabalVersion" .= showVersion ciCabalVersion
+            , "apiVersion" .= ciApiVersion
+            ]

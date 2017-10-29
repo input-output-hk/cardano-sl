@@ -22,7 +22,7 @@ import           Pos.StateLock               (Priority (..), withStateLock)
 import           Pos.Txp                     (txpGlobalSettings)
 import           Pos.Util.CompileInfo        (withCompileInfo)
 
-import           Command.Types               (GenBlocksParams (..))
+import           Lang.Value                  (GenBlocksParams (..))
 import           Mode                        (AuxxMode)
 
 

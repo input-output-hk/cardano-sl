@@ -14,11 +14,14 @@ import           Test.QuickCheck                   (Arbitrary (..), elements, on
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Crypto.Unsafe       ()
-import           Pos.Binary.Class                  (AsBinary (..), AsBinaryClass (..), Bi)
+import           Pos.Binary.Class                  (AsBinary (..), AsBinaryClass (..), Bi,
+                                                    Raw)
 import           Pos.Binary.Crypto                 ()
 import           Pos.Core.Configuration.Protocol   (HasProtocolConstants)
 import           Pos.Crypto.AsBinary               ()
-import           Pos.Crypto.Hashing                (AbstractHash, HashAlgorithm)
+import           Pos.Crypto.Hashing                (AHash (..), AbstractHash (..),
+                                                    HashAlgorithm,
+                                                    unsafeCheatingHashCoerce)
 import           Pos.Crypto.HD                     (HDAddressPayload, HDPassphrase (..))
 import           Pos.Crypto.Random                 (deterministic, randomNumberInRange)
 import           Pos.Crypto.SecretSharing          (DecShare, EncShare, Secret,
@@ -204,6 +207,9 @@ instance Arbitrary SharedSecrets where
 
 instance (HashAlgorithm algo, Bi a) => Arbitrary (AbstractHash algo a) where
     arbitrary = arbitraryUnsafe
+
+instance Arbitrary AHash where
+    arbitrary = unsafeCheatingHashCoerce @Raw <$> arbitrary
 
 ----------------------------------------------------------------------------
 -- Arbitrary passphrases

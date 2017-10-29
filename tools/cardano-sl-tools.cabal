@@ -283,6 +283,7 @@ executable cardano-launcher
                      , optparse-applicative
                      , process
                      , safe-exceptions
+                     , silently
                      , system-filepath
                      , text
                      , time-units

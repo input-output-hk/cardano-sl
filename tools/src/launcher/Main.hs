@@ -33,12 +33,14 @@ import qualified System.IO                    as IO
 import           System.Process               (ProcessHandle, readProcessWithExitCode)
 import qualified System.Process               as Process
 import           System.Timeout               (timeout)
-import           System.Wlog                  (HandlerWrap (..), LoggerNameBox,
-                                               Severity (Debug), lcFilePrefix,
-                                               lcTermSeverity, lcTree, logError, logInfo,
-                                               logNotice, logWarning, ltFiles,
-                                               productionB, setupLogging, usingLoggerName)
+import           System.Wlog                  (logNotice, logInfo,
+                                               logWarning, logError)
+import qualified System.Wlog                  as Log
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
+
+#ifdef mingw32_HOST_OS
+import qualified System.IO.Silently           as Silently
+#endif
 
 #ifndef mingw32_HOST_OS
 import           System.Posix.Signals         (sigKILL, signalProcess)
@@ -74,12 +76,14 @@ data LauncherOptions = LO
     , loNodeTimeoutSec      :: !Int
     , loReportServer        :: !(Maybe String)
     , loConfiguration       :: !ConfigurationOptions
-    -- | Launcher logs will be written into this directory
+    -- | Launcher logs will be written into this directory (as well as to
+    -- console, except on Windows where we don't output anything to console
+    -- because it crashes).
     , loLauncherLogsPrefix  :: !(Maybe FilePath)
     }
 
 -- | The concrete monad where everything happens
-type M a = HasConfigurations => LoggerNameBox IO a
+type M a = HasConfigurations => Log.LoggerNameBox IO a
 
 optionsParser :: Parser LauncherOptions
 optionsParser = do
@@ -195,20 +199,27 @@ Command example:
     --update-archive updateDownloaded.tar|]
 
 main :: IO ()
-main = do
+main =
+#ifdef mingw32_HOST_OS
+  -- We don't output anything to console on Windows because on Windows the
+  -- launcher is considered a “GUI application” and so stdout and stderr
+  -- don't even exist.
+  Silently.hSilence [stdout, stderr] $
+#endif
+  do
     LO {..} <- getLauncherOptions
     let realNodeArgs = addConfigurationOptions loConfiguration $
             case loNodeLogConfig of
                 Nothing -> loNodeArgs
                 Just lc -> loNodeArgs ++ ["--log-config", toText lc]
-    setupLogging $
-        productionB
-            & lcTermSeverity .~ Just Debug
-            & lcFilePrefix .~ loLauncherLogsPrefix
-            & lcTree %~ case loLauncherLogsPrefix of
+    Log.setupLogging $
+        Log.productionB
+            & Log.lcTermSeverity .~ Just Log.Debug
+            & Log.lcFilePrefix .~ loLauncherLogsPrefix
+            & Log.lcTree %~ case loLauncherLogsPrefix of
                   Nothing -> identity
-                  Just _  -> ltFiles .~ [HandlerWrap "launcher" Nothing]
-    usingLoggerName "launcher" $
+                  Just _  -> Log.ltFiles .~ [Log.HandlerWrap "launcher" Nothing]
+    Log.usingLoggerName "launcher" $
         withConfigurations loConfiguration $
         case loWalletPath of
             Nothing -> do
@@ -464,7 +475,7 @@ reportNodeCrash
 reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
     logConfig <- readLoggerConfig (toString <$> logConfPath)
     let logFileNames =
-            map ((fromMaybe "" (logConfig ^. lcFilePrefix) </>) . snd) $
+            map ((fromMaybe "" (logConfig ^. Log.lcFilePrefix) </>) . snd) $
             retrieveLogFiles logConfig
     let logFiles = filter (".pub" `isSuffixOf`) logFileNames
     let ec = case exitCode of

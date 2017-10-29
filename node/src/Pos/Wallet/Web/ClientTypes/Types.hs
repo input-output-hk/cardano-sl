@@ -39,6 +39,8 @@ module Pos.Wallet.Web.ClientTypes.Types
       , ScrollOffset (..)
       , ScrollLimit (..)
       , CFilePath (..)
+      , ApiVersion (..)
+      , ClientInfo (..)
       ) where
 
 import           Universum
@@ -50,6 +52,7 @@ import           Data.Text             (Text)
 import           Data.Text.Buildable   (build)
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable         (Typeable)
+import           Data.Version          (Version)
 import           Formatting            (bprint, (%))
 import qualified Formatting            as F
 import qualified Prelude
@@ -357,3 +360,25 @@ newtype ScrollLimit = ScrollLimit Word
 
 newtype CFilePath = CFilePath Text
     deriving (Eq, Ord, Generic, Typeable, Buildable)
+
+----------------------------------------------------------------------------
+-- Version and client info
+----------------------------------------------------------------------------
+
+-- | Version of wallet API. Currently we have only 0-th version. We
+-- will add new constructors when new versions appear.
+data ApiVersion =
+    ApiVersion0
+    deriving (Show, Generic)
+
+-- | Information about this client.
+data ClientInfo = ClientInfo
+    { ciApiVersion      :: !ApiVersion
+    -- ^ Version of wallet API.
+    , ciSoftwareVersion :: !SoftwareVersion
+    -- ^ Software version (from the blockchain's point of view).
+    , ciCabalVersion    :: !Version
+    -- ^ Version specified in cabal file.
+    , ciGitRevision     :: !Text
+    -- ^ Git revision from which this software was built.
+    } deriving (Show, Generic)

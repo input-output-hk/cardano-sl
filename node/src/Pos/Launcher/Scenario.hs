@@ -8,6 +8,7 @@ module Pos.Launcher.Scenario
        , initSemaphore
        , runNode'
        , nodeStartMsg
+       , gitRev
        ) where
 
 import           Universum

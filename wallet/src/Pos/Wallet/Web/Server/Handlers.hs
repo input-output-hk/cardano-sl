@@ -91,11 +91,13 @@ servantHandlers sendActions =
     :<|>
 
      (blockchainSlotDuration <&> fromIntegral)
-    :<|>
-     pure curSoftwareVersion
+    :<|> pure curSoftwareVersion
     :<|>
      M.syncProgress
     :<|>
      M.importWalletJSON
     :<|>
      M.exportWalletJSON
+
+    :<|>
+     M.getClientInfo

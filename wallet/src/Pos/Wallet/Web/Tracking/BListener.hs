@@ -17,7 +17,6 @@ import           Control.Lens                     (to)
 import qualified Data.List.NonEmpty               as NE
 import           Data.Time.Units                  (convertUnit)
 import           Formatting                       (build, sformat, (%))
-import           Mockable                         (Async, Delay, Mockables)
 import           System.Wlog                      (HasLoggerName (modifyLoggerName),
                                                    WithLogger)
 
@@ -74,7 +73,7 @@ onApplyBlocksWebWallet
     , MonadSlotsData ctx m
     , MonadDBRead m
     , MonadReporting ctx m
-    , Mockables m [Delay, Async]
+    , CanLogInParallel m
     , HasConfiguration
     )
     => OldestFirst NE Blund -> m SomeBatchOp
@@ -116,7 +115,7 @@ onRollbackBlocksWebWallet
     , MonadDBRead m
     , MonadSlots ctx m
     , MonadReporting ctx m
-    , Mockables m [Delay, Async]
+    , CanLogInParallel m
     , HasConfiguration
     )
     => NewestFirst NE Blund -> m SomeBatchOp

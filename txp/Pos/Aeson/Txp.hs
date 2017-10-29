@@ -59,18 +59,18 @@ instance ToJSON TxInWitness where
     toJSON = \case
         PkWitness{..} -> object
             [ "tag" .= ("PkWitness" :: Text)
-            , "twKey" .= twKey
-            , "twSig" .= twSig
+            , "key" .= twKey
+            , "sig" .= twSig
             ]
         ScriptWitness{..} -> object
             [ "tag" .= ("ScriptWitness" :: Text)
-            , "twValidator" .= twValidator
-            , "twRedeemer" .= twRedeemer
+            , "validator" .= twValidator
+            , "redeemer" .= twRedeemer
             ]
         RedeemWitness{..} -> object
             [ "tag" .= ("RedeemWitness" :: Text)
-            , "twRedeemKey" .= twRedeemKey
-            , "twRedeemSig" .= twRedeemSig
+            , "redeemKey" .= twRedeemKey
+            , "redeemSig" .= twRedeemSig
             ]
         UnknownWitnessType a b -> object
             [ "tag" .= ("UnknownWitnessType" :: Text)
@@ -81,11 +81,11 @@ instance FromJSON TxInWitness where
     parseJSON = withObject "TxInWitness" $ \o ->
         (o .: "tag") >>= \case
             ("PkWitness"::Text) ->
-                PkWitness <$> (o .: "twKey") <*> (o .: "twSig")
+                PkWitness <$> (o .: "key") <*> (o .: "sig")
             "ScriptWitness" ->
-                ScriptWitness <$> (o .: "twValidator") <*> (o .: "twRedeemer")
+                ScriptWitness <$> (o .: "validator") <*> (o .: "redeemer")
             "RedeemWitness" ->
-                RedeemWitness <$> (o .: "twRedeemKey") <*> (o .: "twRedeemSig")
+                RedeemWitness <$> (o .: "redeemKey") <*> (o .: "redeemSig")
             "UnknownWitnessType" -> do
                 (o .: "contents") >>= \case
                     [a, b] -> UnknownWitnessType <$> parseJSON a <*> (getJsonByteString <$> parseJSON b)

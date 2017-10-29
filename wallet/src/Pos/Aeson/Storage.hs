@@ -1,7 +1,9 @@
 -- | These instances are used for `test/printDB` method.
 -- Only for debugging and testing purposes.
 
-module Pos.Aeson.Storage where
+module Pos.Aeson.Storage
+       (
+       ) where
 
 import           Universum
 

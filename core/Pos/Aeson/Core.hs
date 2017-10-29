@@ -63,21 +63,15 @@ deriveToJSON   S.defaultOptions ''Microsecond
 deriving instance FromJSON Timestamp
 deriving instance ToJSON Timestamp
 
--- Instances needed for wallet
-deriveFromJSON defaultOptions ''SlotId
-deriveFromJSON defaultOptions ''BlockCount
-deriveFromJSON defaultOptions ''LocalSlotIndex
-deriveFromJSON defaultOptions ''ChainDifficulty
-
 instance ToJSON Script where
     toJSON Script{..} = object [
-        "scrVersion"    .= scrVersion,
-        "scrScript" .= JsonByteString scrScript ]
+        "rersion"    .= scrVersion,
+        "script" .= JsonByteString scrScript ]
 
 instance FromJSON Script where
-    parseJSON = withObject "Script" $ \o -> do
-        scrVersion <- o .: "scrVersion"
-        scrScript  <- getJsonByteString <$> o .: "scrScript"
+    parseJSON = withObject "Script" $ \obj -> do
+        scrVersion <- obj .: "version"
+        scrScript  <- getJsonByteString <$> obj .: "script"
         pure $ Script {..}
 
 instance FromJSON UnparsedFields where
@@ -106,7 +100,7 @@ instance ToJSON Address where
 -- If datatype is used on frontend, please use this instead of
 -- any other way of deriving if possible.
 
-deriveToJSON defaultOptions ''BlockCount
+deriveJSON defaultOptions ''BlockCount
 
 instance FromJSON ApplicationName where
     -- mkApplicationName will fail if the parsed text isn't appropriate.
@@ -117,9 +111,9 @@ instance FromJSON ApplicationName where
 
 deriveToJSON defaultOptions ''ApplicationName
 
-deriveToJSON defaultOptions ''ChainDifficulty
-deriveToJSON defaultOptions ''SlotId
-deriveToJSON defaultOptions ''LocalSlotIndex
+deriveJSON defaultOptions ''ChainDifficulty
+deriveJSON defaultOptions ''SlotId
+deriveJSON defaultOptions ''LocalSlotIndex
 deriveJSON defaultOptions ''BlockVersion
 
 instance FromJSON Coin where

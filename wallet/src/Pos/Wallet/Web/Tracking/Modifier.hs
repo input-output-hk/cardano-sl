@@ -103,6 +103,9 @@ type CachedCAccModifier = CAccModifier
 -- Funcs
 ----------------------------------------------------------------------------
 
+-- | This function is alternative for MapModifier's @delete@.
+-- It doesn't add removable element to delete set
+-- if it was inserted before (in contrast with @delete@)
 deleteNotDeep :: (Eq k, Hashable k) => k -> MapModifier k v -> MapModifier k v
 deleteNotDeep = MM.alter alterDelF
   where

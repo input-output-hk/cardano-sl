@@ -176,13 +176,13 @@ alter
     -> MapModifier k v
 alter f key (MapModifier mm) = MapModifier $ HM.alter transformedF key mm
   where
-    kiToMaybe KeyNotFound     = Nothing
-    kiToMaybe KeyDeleted      = Just Nothing
-    kiToMaybe (KeyInserted v) = Just $ Just v
+    toMaybe KeyNotFound     = Nothing
+    toMaybe KeyDeleted      = Just Nothing
+    toMaybe (KeyInserted v) = Just $ Just v
 
-    transformedF Nothing         = kiToMaybe $ f KeyNotFound
-    transformedF (Just Nothing)  = kiToMaybe $ f KeyDeleted
-    transformedF (Just (Just v)) = kiToMaybe $ f (KeyInserted v)
+    transformedF Nothing         = toMaybe $ f KeyNotFound
+    transformedF (Just Nothing)  = toMaybe $ f KeyDeleted
+    transformedF (Just (Just v)) = toMaybe $ f (KeyInserted v)
 
 -- | Transform this modifier in Functor context by applying a function to every
 -- insertion and retaining only some of them. Underlying map should be already

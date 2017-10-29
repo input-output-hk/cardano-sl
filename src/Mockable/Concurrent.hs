@@ -28,6 +28,7 @@ module Mockable.Concurrent (
   , async
   , asyncWithUnmask
   , withAsync
+  , withAsyncWithUnmask
   , wait
   , cancelWith
   , cancel
@@ -45,10 +46,10 @@ module Mockable.Concurrent (
 
   ) where
 
+import           Control.Exception  (AsyncException (ThreadKilled), Exception)
 import           Data.Time.Units    (TimeUnit)
 import           Mockable.Class
 import           Mockable.Exception
-import           Control.Exception (Exception, AsyncException(ThreadKilled))
 
 type family ThreadId (m :: * -> *) :: *
 
@@ -133,6 +134,12 @@ asyncWithUnmask f = async (f unsafeUnmask)
 {-# INLINE withAsync #-}
 withAsync :: ( Mockable Async m ) => m t -> (Promise m t -> m r) -> m r
 withAsync mterm k = liftMockable $ WithAsync mterm k
+
+{-# INLINE withAsyncWithUnmask #-}
+withAsyncWithUnmask
+    :: ( Mockable Async m, Mockable Bracket m )
+    => ((forall a. m a -> m a) -> m t) -> (Promise m t -> m r) -> m r
+withAsyncWithUnmask f = withAsync (f unsafeUnmask)
 
 {-# INLINE wait #-}
 wait :: ( Mockable Async m ) => Promise m t -> m t

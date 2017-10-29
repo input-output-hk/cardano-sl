@@ -15,6 +15,7 @@ import           Universum                      hiding (on)
 
 import qualified Control.Concurrent.STM         as STM
 import           Control.Lens                   ((<<.=))
+import           Control.Monad.State.Class      (MonadState (..))
 import qualified Data.Set                       as S
 import           Data.Time.Units                (Millisecond)
 import           Ether.TaggedTrans              ()
@@ -27,17 +28,17 @@ import           Network.SocketIO               (RoutingTable, Socket,
                                                  appendDisconnectHandler, initialize,
                                                  socketId)
 import           Network.Wai                    (Application, Middleware, Request,
-                                                 Response, pathInfo,
-                                                 responseLBS)
+                                                 Response, pathInfo, responseLBS)
 import           Network.Wai.Handler.Warp       (Settings, defaultSettings, runSettings,
                                                  setPort)
 import           Network.Wai.Middleware.Cors    (CorsResourcePolicy, cors, corsOrigins,
                                                  simpleCorsResourcePolicy)
-import           System.Wlog                    (CanLog, LoggerName, NamedPureLogger,
-                                                 WithLogger, getLoggerName, logDebug,
-                                                 logInfo, logWarning, modifyLoggerName,
-                                                 usingLoggerName)
 import           Serokell.Util.Text             (listJson)
+import           System.Wlog                    (CanLog, HasLoggerName, LoggerName,
+                                                 NamedPureLogger, WithLogger,
+                                                 getLoggerName, logDebug, logInfo,
+                                                 logWarning, modifyLoggerName,
+                                                 usingLoggerName)
 
 import           Pos.Block.Types                (Blund)
 import           Pos.Core                       (addressF)
@@ -74,6 +75,13 @@ toConfig :: NotifierSettings -> LoggerName -> Settings
 toConfig NotifierSettings{..} _ =
    setPort (fromIntegral nsPort) defaultSettings
 
+newtype NotifierLogger a = NotifierLogger { runNotifierLogger :: NamedPureLogger (StateT ConnectionsState STM) a }
+                         deriving (Functor, Applicative, Monad, CanLog, HasLoggerName, MonadThrow)
+
+instance MonadState ConnectionsState NotifierLogger where
+    get = NotifierLogger $ lift get
+    put newState = NotifierLogger $ lift (put newState)
+
 notifierHandler
     :: (MonadState RoutingTable m, MonadReader Socket m, CanLog m, MonadIO m)
     => ConnectionsVar -> LoggerName -> m ()
@@ -91,7 +99,7 @@ notifierHandler connVar loggerName = do
  where
     -- handlers provide context for logging and `ConnectionsVar` changes
     asHandler
-        :: (a -> SocketId -> (NamedPureLogger $ StateT ConnectionsState STM) ())
+        :: (a -> SocketId -> NotifierLogger ())
         -> a
         -> ReaderT Socket IO ()
     asHandler f arg = inHandlerCtx . f arg . socketId =<< ask
@@ -100,11 +108,11 @@ notifierHandler connVar loggerName = do
 
     inHandlerCtx
         :: (MonadIO m, CanLog m)
-        => NamedPureLogger (StateT ConnectionsState STM) a
+        => NotifierLogger a
         -> m ()
     inHandlerCtx =
         -- currently @NotifierError@s aren't caught
-        void . usingLoggerName loggerName . withConnState connVar
+        void . usingLoggerName loggerName . withConnState connVar . runNotifierLogger
 
 notifierServer
     :: (MonadIO m, WithLogger m, MonadCatch m, WithLogger m)

@@ -7,15 +7,14 @@ module Test.Auxx.Lang.ArgumentSpec
 
 import           Universum
 
-import           Test.Hspec      (Expectation, Spec, describe, it, shouldBe)
+import           Test.Hspec           (Expectation, Spec, describe, it, shouldBe)
 
-import           Data.Scientific (toBoundedInteger)
-
-import           Lang.Argument   (ArgumentConsumer, ArgumentError (..), ProcError (..),
-                                  TyProjection (..), TypeError (..), consumeArguments,
-                                  getArg)
-import           Lang.Syntax     (Arg (..))
-import           Lang.Value      (Value (..), _ValueNumber, _ValueString)
+import           Command.TyProjection (tyInt, tyString)
+import           Lang.Argument        (ArgumentConsumer, ArgumentError (..),
+                                       ProcError (..), TypeError (..), consumeArguments,
+                                       getArg)
+import           Lang.Syntax          (Arg (..))
+import           Lang.Value           (Value (..))
 
 spec :: Spec
 spec = describe "Auxx.Lang.Argument" $ do
@@ -60,9 +59,3 @@ acExample1 = do
     x <- getArg tyString "s"
     y <- getArg tyInt "i"
     return (x, y)
-
-tyString :: TyProjection String
-tyString = TyProjection "String" (preview _ValueString)
-
-tyInt :: TyProjection Int
-tyInt = TyProjection "Int" (toBoundedInteger <=< preview _ValueNumber)

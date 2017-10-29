@@ -12,7 +12,6 @@ module Pos.Crypto.Signing.Types.Signing
        , fullPublicKeyHexF
        , shortPublicKeyHexF
        , parseFullPublicKey
-       , parseFullPublicKeyHex
 
        -- * Signing and verification
        , Signature (..)
@@ -109,12 +108,6 @@ shortPublicKeyHexF = fitLeft 8 %. fullPublicKeyHexF
 parseFullPublicKey :: Text -> Either Text PublicKey
 parseFullPublicKey s = do
     b <- Base64.decode s
-    PublicKey <$> first fromString (CC.xpub b)
-
--- | Parse 'PublicKey' from base16 encoded string.
-parseFullPublicKeyHex :: Text -> Either Text PublicKey
-parseFullPublicKeyHex s = do
-    b <- B16.decode s
     PublicKey <$> first fromString (CC.xpub b)
 
 ----------------------------------------------------------------------------

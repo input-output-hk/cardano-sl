@@ -24,7 +24,7 @@ import           Pos.Core.Address           (makeAddress)
 import           Pos.Core.Configuration     (HasConfiguration, genesisSecretKeys)
 import           Pos.Core.Types             (AddrAttributes (..), AddrSpendingData (..))
 import           Pos.Crypto                 (PublicKey, emptyPassphrase, encToPublic,
-                                             fullPublicKeyHexF, hashHexF, noPassEncrypt,
+                                             fullPublicKeyF, hashHexF, noPassEncrypt,
                                              safeCreatePsk, unsafeCheatingHashCoerce,
                                              withSafeSigner)
 import           Pos.DB.Class               (MonadGState (..))
@@ -113,7 +113,9 @@ createCommandProcs printAction sendActions = fix $ \commands -> [
     , cpArgumentConsumer = getArg tyInt "i"
     , cpExec = \i -> do
         sks <- getSecretKeysPlain
-        sk <- evaluateWHNF (sks !! i)
+        sk <- evaluateWHNF (sks !! i) -- WHNF is sufficient to force possible errors
+                                      -- from using (!!). I'd use NF but there's no
+                                      -- NFData instance for secret keys.
         addrHD <- deriveHDAddressAuxx sk
         return $ ValueAddress addrHD
     , cpHelp = "address of the HD wallet for the specified public key"
@@ -412,7 +414,7 @@ createCommandProcs printAction sendActions = fix $ \commands -> [
             addrHD <- deriveHDAddressAuxx sk
             printAction $
                 sformat ("    #"%int%":   addr:      "%build%"\n"%
-                         "          pk hex:    "%fullPublicKeyHexF%"\n"%
+                         "          pk:        "%fullPublicKeyF%"\n"%
                          "          pk hash:   "%hashHexF%"\n"%
                          "          HD addr:   "%build)
                     i addr pk (addressHash pk) addrHD

@@ -10,7 +10,7 @@ import           Test.QuickCheck       (Property, property)
 
 import           Pos.Core              (BlockVersion (..), SoftwareVersion (..),
                                         decodeTextAddress, mkApplicationName)
-import           Pos.Crypto            (decodeAbstractHash, parseFullPublicKeyHex,
+import           Pos.Crypto            (decodeAbstractHash, parseFullPublicKey,
                                         unsafeCheatingHashCoerce)
 
 import           Lang.Lexer            (BracketSide (..), Token (..), detokenize,
@@ -52,7 +52,7 @@ unitLexerSample2 :: Expectation
 unitLexerSample2 = tokenize input `shouldBe` output
   where
     input =
-        " a3219c1ac77f157dd997df0f3edfe313f9a8fba333fc7c5a55c1f186bb7187a32b064062d94e21d29c1a3c3856528f8881c1b3978c4b3aa928078b2ea23b8d50 \
+        " oyGcGsd/FX3Zl98PPt/jE/mo+6Mz/HxaVcHxhrtxh6MrBkBi2U4h0pwaPDhWUo+IgcGzl4xLOqkoB4suojuNUA== \
         \ 5f53e01e1366aeda8811c2a630f0e037077a7b651093d2bdc4ef7200 \
         \ 04f2bf626c4e92d97683592c5af70ec243a5a5508a0bbb0adf7af49483cc9894 \
         \ 1.22.3 \
@@ -60,8 +60,8 @@ unitLexerSample2 = tokenize input `shouldBe` output
         \ Ae2tdPwUPEZ3Fd8HkQabvTJo3Ues7o2kNXXcK6LgGBfYwTM3pxpn5pijrBu \
         \ "
     output =
-        [ TokenPublicKey . discardErrorText . parseFullPublicKeyHex $
-            "a3219c1ac77f157dd997df0f3edfe313f9a8fba333fc7c5a55c1f186bb7187a32b064062d94e21d29c1a3c3856528f8881c1b3978c4b3aa928078b2ea23b8d50"
+        [ TokenPublicKey . discardErrorText . parseFullPublicKey $
+            "oyGcGsd/FX3Zl98PPt/jE/mo+6Mz/HxaVcHxhrtxh6MrBkBi2U4h0pwaPDhWUo+IgcGzl4xLOqkoB4suojuNUA=="
         , TokenStakeholderId . discardErrorText . decodeAbstractHash $
             "5f53e01e1366aeda8811c2a630f0e037077a7b651093d2bdc4ef7200"
         , TokenHash . unsafeCheatingHashCoerce . discardErrorText . decodeAbstractHash $

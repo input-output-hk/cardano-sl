@@ -25,7 +25,7 @@ import           Pos.Communication          (Conversation (..), OutSpecs (..),
                                              SendActions (..), Worker, WorkerSpec,
                                              delegationRelays, relayPropagateOut,
                                              txRelays, usRelays, worker)
-import           Pos.Crypto                 (AHash (..), fullPublicKeyHexF, hashHexF)
+import           Pos.Crypto                 (AHash (..), fullPublicKeyF, hashHexF)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Txp                    (genesisUtxo, unGenesisUtxo)
 import           Pos.Util.CompileInfo       (HasCompileInfo)
@@ -89,7 +89,7 @@ withValueText cont = \case
     Lang.ValueString s -> cont (toText s)
     Lang.ValueBool b -> cont (pretty b)
     Lang.ValueAddress a -> cont (pretty a)
-    Lang.ValuePublicKey pk -> cont (sformat fullPublicKeyHexF pk)
+    Lang.ValuePublicKey pk -> cont (sformat fullPublicKeyF pk)
     Lang.ValueTxOut txOut -> cont (pretty txOut)
     Lang.ValueStakeholderId sId -> cont (sformat hashHexF sId)
     Lang.ValueHash h -> cont (sformat hashHexF (getAHash h))

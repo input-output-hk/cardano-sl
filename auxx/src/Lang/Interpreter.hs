@@ -43,6 +43,9 @@ eval = \case
     ExprProcCall procCall ->
         evalProcCall =<< traverse eval procCall
 
+-- | Evaluage a group of expressions and take the result
+-- of the last one. Equivalent to @fmap NE.last . traverse eval@,
+-- but is single-pass.
 evalExprGroup :: NonEmpty Expr -> T m Value
 evalExprGroup (x :| xs) = case nonEmpty xs of
     Nothing  -> eval x

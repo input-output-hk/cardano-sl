@@ -25,6 +25,7 @@ module Command.TyProjection
        , tyBlockVersionModifier
        , tyProposeUpdateSystem
        , tySystemTag
+       , tyString
        ) where
 
 import           Universum
@@ -164,3 +165,6 @@ tySystemTag = TyProjection "SystemTag" (mkSystemTag' <=< preview _ValueString)
 
 mkSystemTag' :: String -> Maybe SystemTag
 mkSystemTag' = either (\(_::String) -> Nothing) Just . mkSystemTag . fromString
+
+tyString :: TyProjection String
+tyString = TyProjection "String" (preview _ValueString)

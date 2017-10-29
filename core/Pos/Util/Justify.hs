@@ -6,7 +6,7 @@ import           Universum          hiding ((<>))
 
 import qualified Data.List          as List
 import qualified Data.List.NonEmpty as NonEmpty
-import           Data.Semigroup
+import           Data.Semigroup     ((<>))
 import qualified Data.Text          as Text
 
 data Line = Line

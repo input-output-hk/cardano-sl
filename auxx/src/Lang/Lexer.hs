@@ -44,7 +44,7 @@ import qualified Test.QuickCheck.Gen                      as QC
 import           Test.QuickCheck.Instances                ()
 import           Text.Megaparsec                          (Parsec, between, choice, eof,
                                                            manyTill, notFollowedBy,
-                                                           parseMaybe, skipMany,
+                                                           parseMaybe, skipMany, takeP,
                                                            takeWhile1P, try, (<?>))
 import           Text.Megaparsec.Char                     (anyChar, char, satisfy,
                                                            spaceChar, string)
@@ -56,8 +56,8 @@ import           Lang.Name                                (Letter, Name (..),
 import           Pos.Arbitrary.Core                       ()
 import           Pos.Crypto                               (AHash (..), PublicKey,
                                                            decodeAbstractHash,
-                                                           fullPublicKeyHexF, hashHexF,
-                                                           parseFullPublicKeyHex,
+                                                           fullPublicKeyF, hashHexF,
+                                                           parseFullPublicKey,
                                                            unsafeCheatingHashCoerce)
 import           Pos.Types                                (Address, BlockVersion (..),
                                                            SoftwareVersion (..),
@@ -137,7 +137,7 @@ tokenRender = \case
     TokenString s -> show s
     TokenNumber n -> show n
     TokenAddress a -> pretty a
-    TokenPublicKey pk -> sformat fullPublicKeyHexF pk
+    TokenPublicKey pk -> sformat fullPublicKeyF pk
     TokenStakeholderId sId -> sformat hashHexF sId
     TokenHash h -> sformat hashHexF (getAHash h)
     TokenBlockVersion v -> pretty v
@@ -216,9 +216,9 @@ pAddress = do
 
 pPublicKey :: Lexer PublicKey
 pPublicKey = do
-    str <- pSomeAlphaNum
+    str <- (<>) <$> takeP (Just "base64") 86 <*> string "=="
     either (fail . toString) return $
-        parseFullPublicKeyHex str
+        parseFullPublicKey str
 
 pStakeholderId :: Lexer StakeholderId
 pStakeholderId = do

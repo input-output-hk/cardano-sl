@@ -167,6 +167,7 @@ genGenesisInitializer :: HasGenesisBlockVersionData => Gen GenesisInitializer
 genGenesisInitializer = do
     tiTestBalance <- arbitrary
     tiFakeAvvmBalance <- arbitrary
+    tiAvvmBalanceFactor <- arbitrary
     tiSeed <- arbitrary
     return TestnetInitializer {..}
 

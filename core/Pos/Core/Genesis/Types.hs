@@ -33,8 +33,10 @@ import           Formatting               (bprint, build, fixed, int, (%))
 import           Serokell.Util            (allDistinct, mapJson)
 
 import           Pos.Binary.Crypto        ()
-import           Pos.Core.Types           (Address, BlockVersionData, Coin, ProxySKHeavy,
-                                           SharedSeed, StakeholderId, Timestamp)
+import           Pos.Core.Coin            ()
+import           Pos.Core.Types           (Address, BlockVersionData, Coin, CoinPortion,
+                                           ProxySKHeavy, SharedSeed, StakeholderId,
+                                           Timestamp)
 import           Pos.Core.Vss.Types       (VssCertificatesMap, getVssCertificatesMap)
 import           Pos.Crypto.Signing.Types (RedeemPublicKey)
 
@@ -125,9 +127,11 @@ instance Buildable FakeAvvmOptions where
 -- on whether we want genesis for mainnet or testnet.
 data GenesisInitializer
     = TestnetInitializer {
-      tiTestBalance     :: !TestnetBalanceOptions
-    , tiFakeAvvmBalance :: !FakeAvvmOptions
-    , tiSeed            :: !Integer
+      tiTestBalance       :: !TestnetBalanceOptions
+    , tiFakeAvvmBalance   :: !FakeAvvmOptions
+    , tiAvvmBalanceFactor :: !CoinPortion
+    -- ^ Avvm balances will be multiplied by this factor.
+    , tiSeed              :: !Integer
       -- ^ Seed to use to generate secret data. It's used only in
       -- testnet, shouldn't be used for anything important.
     }
@@ -147,12 +151,14 @@ instance (Hashable Address, Buildable Address) =>
                     ("TestnetInitializer {\n"%
                      "  "%build%"\n"%
                      "  "%build%"\n"%
+                     "  avvm balance factor: "%build%"\n"%
                      "  seed: "%int%"\n"%
                      "}\n"
                     )
 
                     tiTestBalance
                     tiFakeAvvmBalance
+                    tiAvvmBalanceFactor
                     tiSeed
             MainnetInitializer {..} ->
                 bprint

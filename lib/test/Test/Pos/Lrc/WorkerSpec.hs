@@ -76,6 +76,7 @@ genGenesisInitializer :: Gen GenesisInitializer
 genGenesisInitializer = do
     tiTestBalance <- genTestnetBalanceOptions
     tiFakeAvvmBalance <- arbitrary
+    tiAvvmBalanceFactor <- arbitrary
     tiSeed <- arbitrary
     return TestnetInitializer {..}
   where

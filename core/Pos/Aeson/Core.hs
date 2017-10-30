@@ -65,7 +65,7 @@ deriving instance ToJSON Timestamp
 
 instance ToJSON Script where
     toJSON Script{..} = object [
-        "rersion"    .= scrVersion,
+        "version"    .= scrVersion,
         "script" .= JsonByteString scrScript ]
 
 instance FromJSON Script where

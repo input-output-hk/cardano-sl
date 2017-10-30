@@ -10,7 +10,6 @@ module Pos.Core.Genesis.Types
          -- * GenesisSpec
        , TestnetBalanceOptions (..)
        , FakeAvvmOptions (..)
-       , TestnetDistribution (..)
        , GenesisInitializer (..)
        , GenesisAvvmBalances (..)
        , GenesisNonAvvmBalances (..)
@@ -122,29 +121,12 @@ data FakeAvvmOptions = FakeAvvmOptions
 instance Buildable FakeAvvmOptions where
     build = genericF
 
--- | This data type determines how to generate bootstrap stakeholders
--- in testnet.
-data TestnetDistribution
-    = TestnetRichmenStakeDistr
-    -- ^ Rich nodes will be bootstrap stakeholders with equal weights.
-    | TestnetCustomStakeDistr
-    { tcsdBootStakeholders :: !GenesisWStakeholders
-    -- ^ Bootstrap stakeholders and their weights are provided explicitly.
-    , tcsdVssCerts         :: !GenesisVssCertificatesMap
-    -- ^ Vss certificates are provided explicitly too, because they
-    -- can't be generated automatically in this case.
-    } deriving (Show, Generic)
-
-instance Buildable TestnetDistribution where
-    build = genericF
-
 -- | This data type contains various options presense of which depends
 -- on whether we want genesis for mainnet or testnet.
 data GenesisInitializer
     = TestnetInitializer {
       tiTestBalance     :: !TestnetBalanceOptions
     , tiFakeAvvmBalance :: !FakeAvvmOptions
-    , tiDistribution    :: !TestnetDistribution
     , tiSeed            :: !Integer
       -- ^ Seed to use to generate secret data. It's used only in
       -- testnet, shouldn't be used for anything important.
@@ -165,14 +147,12 @@ instance (Hashable Address, Buildable Address) =>
                     ("TestnetInitializer {\n"%
                      "  "%build%"\n"%
                      "  "%build%"\n"%
-                     "  "%build%"\n"%
                      "  seed: "%int%"\n"%
                      "}\n"
                     )
 
                     tiTestBalance
                     tiFakeAvvmBalance
-                    tiDistribution
                     tiSeed
             MainnetInitializer {..} ->
                 bprint

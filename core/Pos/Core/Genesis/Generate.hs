@@ -33,8 +33,7 @@ import           Pos.Core.Genesis.Types                  (FakeAvvmOptions (..),
                                                           GenesisNonAvvmBalances (..),
                                                           GenesisVssCertificatesMap (..),
                                                           GenesisWStakeholders (..),
-                                                          TestnetBalanceOptions (..),
-                                                          TestnetDistribution (..))
+                                                          TestnetBalanceOptions (..))
 import           Pos.Core.Types                          (Coin)
 import           Pos.Core.Vss                            (VssCertificate,
                                                           mkVssCertificate,
@@ -108,15 +107,10 @@ generateGenesisData (TestnetInitializer{..}) maxTnBalance = deterministic (seria
 
     let toStakeholders = Map.fromList . map ((,1) . addressHash . toPublic . fst)
     let toVss = either error identity . mkVssCertificatesMap . map snd
+    let bootStakeholders = toStakeholders richSkVssCerts
+    let vssCerts = GenesisVssCertificatesMap $ toVss richSkVssCerts
 
-    let (bootStakeholders, vssCerts) =
-            case tiDistribution of
-                TestnetRichmenStakeDistr    ->
-                    (toStakeholders richSkVssCerts, GenesisVssCertificatesMap $ toVss richSkVssCerts)
-                TestnetCustomStakeDistr{..} ->
-                    (getGenesisWStakeholders tcsdBootStakeholders, tcsdVssCerts)
-
-    pure $ GeneratedGenesisData
+    pure GeneratedGenesisData
         { ggdNonAvvm = GenesisNonAvvmBalances nonAvvmDistr
         , ggdAvvm = fakeAvvmDistr
         , ggdBootStakeholders = GenesisWStakeholders bootStakeholders

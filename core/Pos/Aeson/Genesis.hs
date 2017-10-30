@@ -21,7 +21,7 @@ import           Pos.Core.Genesis.Types   (FakeAvvmOptions, GenesisAvvmBalances 
                                            GenesisNonAvvmBalances, GenesisSpec,
                                            GenesisVssCertificatesMap (..),
                                            GenesisWStakeholders (..), ProtocolConstants,
-                                           TestnetBalanceOptions, TestnetDistribution)
+                                           TestnetBalanceOptions)
 import           Pos.Core.Types           (ProxySKHeavy, StakeholderId)
 import           Pos.Core.Vss             (VssCertificatesMap (..),
                                            validateVssCertificatesMap)
@@ -51,7 +51,6 @@ instance FromJSON GenesisDelegation where
         (elems :: HashMap StakeholderId ProxySKHeavy) <- mapM parseJSON v
         eitherToFail $ mkGenesisDelegation elems
 
-deriveFromJSON defaultOptions ''TestnetDistribution
 deriveFromJSON defaultOptions ''FakeAvvmOptions
 deriveFromJSON defaultOptions ''TestnetBalanceOptions
 deriveFromJSON defaultOptions ''GenesisInitializer

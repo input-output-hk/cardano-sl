@@ -241,7 +241,7 @@ getDeepProposals cd =
              , proposalDifficulty <= cd = Just u
     isDeep _                 = Nothing
 
--- | Get states of all active 'UpdateProposal's for given 'ApplicationName'.
+-- | Get states of all competing 'UpdateProposal's for given 'ApplicationName'.
 getProposalsByApp :: (HasConfiguration, MonadDBRead m) => ApplicationName -> m [ProposalState]
 getProposalsByApp appName =
     runConduitRes $ mapOutput snd proposalSource .| CL.filter matchesName .| CL.consume

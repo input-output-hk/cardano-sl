@@ -17,13 +17,15 @@ module Pos.Web.Api
        , gtNodeApi
        ) where
 
-import           Servant.API        ((:<|>), (:>), Capture, Get, JSON, PlainText, Post,
-                                     QueryParam)
 import           Universum
 
-import           Pos.Crypto         (PublicKey)
-import           Pos.Txp            (TxOut)
-import           Pos.Types          (EpochIndex, HeaderHash, SlotLeaders)
+import           Servant.API   ((:<|>), (:>), Capture, Get, JSON, PlainText, Post,
+                                QueryParam)
+
+import           Pos.Crypto    (PublicKey)
+import           Pos.Txp       (TxOut)
+import           Pos.Types     (EpochIndex, HeaderHash, SlotLeaders)
+import           Pos.Web.Types (CConfirmedProposalState)
 
 -- | Servant API which provides access to full node internals.
 --
@@ -48,6 +50,9 @@ type BaseNodeApi =
     :<|>
     "local_txs_num"
         :> Get '[JSON] Word
+    :<|>
+    "confirmed_proposals"
+        :> Get '[JSON] [CConfirmedProposalState]
 
 -- | Helper Proxy.
 healthCheckApi :: Proxy HealthCheckApi

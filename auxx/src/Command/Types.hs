@@ -12,7 +12,6 @@ import           Universum
 
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Core.Types             (ScriptVersion)
 import           Pos.Crypto                 (PublicKey)
 import           Pos.Txp                    (TxOut)
 import           Pos.Types                  (AddrStakeDistribution, Address, BlockVersion,
@@ -41,9 +40,8 @@ data ProposeUpdateParams = ProposeUpdateParams
     { puIdx             :: Int
     , puVoteAll         :: Bool
     , puBlockVersion    :: BlockVersion
-    , puScriptVersion   :: ScriptVersion
-    , puSlotDurationSec :: Int
-    , puMaxBlockSize    :: Byte
+    , puMaxTxSize       :: Byte
+    , puMaxProposalSize :: Byte
     , puSoftwareVersion :: SoftwareVersion
     , puUpdates         :: [ProposeUpdateSystem]
     } deriving (Show)

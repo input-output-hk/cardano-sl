@@ -77,6 +77,8 @@ genGenesisInitializer = do
     tiTestBalance <- genTestnetBalanceOptions
     tiFakeAvvmBalance <- arbitrary
     tiAvvmBalanceFactor <- arbitrary
+    -- Currently these tests don't work well with genesis delegation.
+    let tiUseHeavyDlg = False
     tiSeed <- arbitrary
     return TestnetInitializer {..}
   where

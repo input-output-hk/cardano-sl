@@ -168,6 +168,7 @@ genGenesisInitializer = do
     tiTestBalance <- arbitrary
     tiFakeAvvmBalance <- arbitrary
     tiAvvmBalanceFactor <- arbitrary
+    tiUseHeavyDlg <- arbitrary
     tiSeed <- arbitrary
     return TestnetInitializer {..}
 

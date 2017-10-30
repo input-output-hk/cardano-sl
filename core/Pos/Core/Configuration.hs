@@ -33,6 +33,7 @@ import           Pos.Core.Configuration.Protocol         as E
 import           Pos.Core.Genesis.Canonical              ()
 import           Pos.Core.Genesis.Generate               (GeneratedGenesisData (..),
                                                           generateGenesisData)
+import           Pos.Core.Genesis.Helpers                (mkGenesisDelegation)
 import           Pos.Core.Genesis.Types                  (GenesisAvvmBalances (..),
                                                           GenesisData (..),
                                                           GenesisInitializer (..),
@@ -40,6 +41,7 @@ import           Pos.Core.Genesis.Types                  (GenesisAvvmBalances (.
                                                           getGenesisAvvmBalances)
 import           Pos.Core.Types                          (Coin, Timestamp)
 import           Pos.Crypto.Hashing                      (Hash, hashRaw, unsafeHash)
+import           Pos.Util.Util                           (leftToPanic)
 
 -- | Coarse catch-all configuration constraint for use by depending modules.
 type HasConfiguration =
@@ -148,10 +150,14 @@ withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis o
                 finalAvvmDistr =
                     ggdAvvm <> gsAvvmDistr spec & over coerced applyAvvmBalanceFactor
 
+                finalHeavyDelegation =
+                    leftToPanic "withGenesisSpec" $ mkGenesisDelegation $
+                    (toList $ gsHeavyDelegation spec) <> toList ggdDelegation
+
                 theGenesisData =
                    GenesisData
                       { gdBootStakeholders = ggdBootStakeholders
-                      , gdHeavyDelegation  = gsHeavyDelegation spec
+                      , gdHeavyDelegation  = finalHeavyDelegation
                       , gdStartTime        = theSystemStart
                       , gdVssCerts         = ggdVssCerts
                       , gdNonAvvmBalances  = ggdNonAvvm

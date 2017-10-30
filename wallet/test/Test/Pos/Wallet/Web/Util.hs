@@ -34,8 +34,8 @@ import           Pos.Client.KeyStorage          (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances        (getBalance)
 import           Pos.Context                    (LastKnownHeaderTag, ProgressHeaderTag)
 import           Pos.Core                       (Address, BlockCount, Coin,
-                                                 HasConfiguration, generatedSecrets,
-                                                 gsSecretKeysPoor, headerHashG)
+                                                 HasConfiguration, genesisSecretsPoor,
+                                                 headerHashG)
 import           Pos.Core.Address               (IsBootstrapEraAddr (..),
                                                  deriveLvl2KeyPair)
 import           Pos.Crypto                     (EncryptedSecretKey, PassPhrase,
@@ -103,9 +103,7 @@ wpGenBlock = fmap (unsafeHead . toList) ... wpGenBlocks (Just 1)
 importSomeWallets :: (HasConfigurations, HasCompileInfo) => WalletProperty [PassPhrase]
 importSomeWallets = do
     let secrets =
-            map (view _2) .
-            gsSecretKeysPoor .
-            fromMaybe (error "Generated secrets are unknown") $ generatedSecrets
+            fromMaybe (error "Generated secrets are unknown") genesisSecretsPoor
     (encSecrets, passphrases) <- pick $ do
         seks <- take 10 <$> sublistOf secrets `suchThat` (not . null)
         let l = length seks
@@ -207,4 +205,3 @@ newtype DerivingIndex = DerivingIndex
 
 instance Arbitrary DerivingIndex where
     arbitrary = DerivingIndex <$> choose (firstHardened, firstHardened + (firstHardened - 1))
-

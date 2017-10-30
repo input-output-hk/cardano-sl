@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies #-}
+
 -- | Types related to genesis core data.
 
 module Pos.Core.Genesis.Types
@@ -74,7 +76,9 @@ instance Buildable GenesisVssCertificatesMap where
 --    It's not needed in genesis, it can always be reduced.
 newtype GenesisDelegation = UnsafeGenesisDelegation
     { unGenesisDelegation :: HashMap StakeholderId ProxySKHeavy
-    } deriving (Show, Eq)
+    } deriving (Show, Eq, Container, NontrivialContainer)
+
+type instance Element GenesisDelegation = ProxySKHeavy
 
 -- | Empty 'GenesisDelegation'.
 noGenesisDelegation :: GenesisDelegation
@@ -131,6 +135,9 @@ data GenesisInitializer
     , tiFakeAvvmBalance   :: !FakeAvvmOptions
     , tiAvvmBalanceFactor :: !CoinPortion
     -- ^ Avvm balances will be multiplied by this factor.
+    , tiUseHeavyDlg       :: !Bool
+    -- ^ Whether to use heavyweight delegation for bootstrap era
+    -- stakeholders.
     , tiSeed              :: !Integer
       -- ^ Seed to use to generate secret data. It's used only in
       -- testnet, shouldn't be used for anything important.
@@ -152,6 +159,7 @@ instance (Hashable Address, Buildable Address) =>
                      "  "%build%"\n"%
                      "  "%build%"\n"%
                      "  avvm balance factor: "%build%"\n"%
+                     "  heavyDlg: "%build%"\n"%
                      "  seed: "%int%"\n"%
                      "}\n"
                     )
@@ -159,6 +167,7 @@ instance (Hashable Address, Buildable Address) =>
                     tiTestBalance
                     tiFakeAvvmBalance
                     tiAvvmBalanceFactor
+                    tiUseHeavyDlg
                     tiSeed
             MainnetInitializer {..} ->
                 bprint
@@ -212,7 +221,9 @@ data GenesisSpec = UnsafeGenesisSpec
     , gsFtsSeed           :: !SharedSeed
     -- ^ Seed for FTS for 0-th epoch.
     , gsHeavyDelegation   :: !GenesisDelegation
-    -- ^ Genesis state of heavyweight delegation.
+    -- ^ Genesis state of heavyweight delegation. Will be concatenated
+    -- with genesis delegation for bootstrap stakeholders if
+    -- 'tiUseHeavyDlg' is 'True'.
     , gsBlockVersionData  :: !BlockVersionData
     -- ^ Genesis 'BlockVersionData'.
     , gsProtocolConstants :: !ProtocolConstants

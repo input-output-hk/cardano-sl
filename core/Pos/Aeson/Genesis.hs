@@ -15,7 +15,7 @@ import           Pos.Aeson.Core           ()
 import           Pos.Aeson.Crypto         ()
 import           Pos.Binary.Core.Address  ()
 import           Pos.Core.Genesis.Helpers (convertNonAvvmDataToBalances,
-                                           mkGenesisDelegation)
+                                           recreateGenesisDelegation)
 import           Pos.Core.Genesis.Types   (FakeAvvmOptions, GenesisAvvmBalances (..),
                                            GenesisDelegation, GenesisInitializer,
                                            GenesisNonAvvmBalances, GenesisSpec,
@@ -49,7 +49,7 @@ instance FromJSON GenesisVssCertificatesMap where
 instance FromJSON GenesisDelegation where
     parseJSON = parseJSON >=> \v -> do
         (elems :: HashMap StakeholderId ProxySKHeavy) <- mapM parseJSON v
-        eitherToFail $ mkGenesisDelegation elems
+        eitherToFail $ recreateGenesisDelegation elems
 
 deriveFromJSON defaultOptions ''FakeAvvmOptions
 deriveFromJSON defaultOptions ''TestnetBalanceOptions

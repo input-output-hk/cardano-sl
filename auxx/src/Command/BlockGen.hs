@@ -18,15 +18,16 @@ import           Pos.Crypto                  (encToSecret)
 import           Pos.Generator.Block         (BlockGenParams (..), genBlocks,
                                               tgpTxCountRange)
 import           Pos.Launcher                (HasConfigurations)
+import           Pos.StateLock               (Priority (..), withStateLock)
 import           Pos.Txp                     (txpGlobalSettings)
 import           Pos.Util.CompileInfo        (withCompileInfo)
 
-import           Command.Types               (GenBlocksParams (..))
+import           Lang.Value                  (GenBlocksParams (..))
 import           Mode                        (AuxxMode)
 
 
 generateBlocks :: HasConfigurations => GenBlocksParams -> AuxxMode ()
-generateBlocks GenBlocksParams{..} = do
+generateBlocks GenBlocksParams{..} = withStateLock HighPriority "auxx" $ \_ -> do
     seed <- liftIO $ maybe randomIO pure bgoSeed
     logInfo $ "Generating with seed " <> show seed
 

@@ -83,9 +83,9 @@ generateGenesisData (TestnetInitializer{..}) maxTnBalance = deterministic (seria
     (fakeAvvmDistr, seeds, fakeAvvmBalance) <- generateFakeAvvmGenesis tiFakeAvvmBalance
     (richmenList, poorsList) <-
         (,) <$> replicateM (fromIntegral tboRichmen)
-                           (generateSecretsAndAddress Nothing tboUseHDAddresses)
+                           (generateSecretsAndAddress tboUseHDAddresses)
             <*> replicateM (fromIntegral tboPoors)
-                           (generateSecretsAndAddress Nothing tboUseHDAddresses)
+                           (generateSecretsAndAddress tboUseHDAddresses)
 
     let richSkVssCerts = map (\(sk, _, _, vc, _) -> (sk, vc)) $ richmenList
         toSecretKeys (sk, hdwSk, vssSk, _, _) = (sk, hdwSk, vssSk)
@@ -153,13 +153,12 @@ generateFakeAvvmGenesis FakeAvvmOptions{..} = do
 
 generateSecretsAndAddress
     :: (HasProtocolConstants, MonadRandom m)
-    => Maybe (SecretKey, EncryptedSecretKey)  -- ^ plain key & hd wallet root key
-    -> Bool                                   -- ^ whether address contains hd payload
+    => Bool                                   -- ^ whether address contains hd payload
     -> m (SecretKey, EncryptedSecretKey, VssKeyPair, VssCertificate, Address)
     -- ^ secret key, vss key pair, vss certificate,
     -- hd wallet account address with bootstrap era distribution
-generateSecretsAndAddress mbSk hasHDPayload= do
-    (sk, hdwSk, vss) <- generateSecrets mbSk
+generateSecretsAndAddress hasHDPayload= do
+    (sk, hdwSk, vss) <- generateSecrets
 
     expiry <- fromInteger <$>
         randomNumberInRange (vssMinTTL - 1) (vssMaxTTL - 1)
@@ -182,18 +181,13 @@ generateFakeAvvm = do
             redeemDeterministicKeyGen seed
     pure (pk, seed)
 
-generateSecrets
-    :: (MonadRandom m)
-    => Maybe (SecretKey, EncryptedSecretKey)
-    -> m (SecretKey, EncryptedSecretKey, VssKeyPair)
-generateSecrets mbSk = do
-    -- plain key & hd wallet root key
-    (sk, hdwSk) <-
-        case mbSk of
-            Just x -> return x
-            Nothing ->
-                (,) <$> (snd <$> keyGen) <*>
-                (snd <$> safeKeyGen emptyPassphrase)
+generateSecrets ::
+       (MonadRandom m) => m (SecretKey, EncryptedSecretKey, VssKeyPair)
+generateSecrets = do
+    -- plain key
+    sk <- snd <$> keyGen
+    -- hd wallet root key
+    hdwSk <- snd <$> safeKeyGen emptyPassphrase
     vss <- vssKeyGen
     pure (sk, hdwSk, vss)
 

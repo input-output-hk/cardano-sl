@@ -59,7 +59,7 @@ rearrange msk = mapM_ rearrangeKeyfile =<< liftIO (glob msk)
 
 genPrimaryKey :: (HasConfigurations, MonadIO m, MonadThrow m, WithLogger m, MonadRandom m) => FilePath -> m ()
 genPrimaryKey path = do
-    sk <- liftIO $ generateSecrets Nothing
+    sk <- liftIO generateSecrets
     void $ dumpKeyfile True path sk
     logInfo $ "Successfully generated primary key " <> (toText path)
 

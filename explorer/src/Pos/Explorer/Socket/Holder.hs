@@ -27,16 +27,16 @@ module Pos.Explorer.Socket.Holder
        , ccConnection
        ) where
 
-import           Control.Lens     (makeClassy)
-import qualified Data.Map.Strict  as M
-import qualified Data.Set         as S
-import           Network.EngineIO (SocketId)
-import           Network.SocketIO (Socket)
-import           System.Wlog      (NamedPureLogger, WithLogger, dispatchEvents,
-                                   getLoggerName, runNamedPureLogger, runPureLog,
-                                   usingLoggerName)
+import           Control.Lens             (makeClassy)
+import qualified Data.Map.Strict          as M
+import qualified Data.Set                 as S
+import           Network.EngineIO         (SocketId)
+import           Network.SocketIO         (Socket)
+import           Serokell.Util.Concurrent (modifyTVarS)
+import           System.Wlog              (NamedPureLogger, WithLogger,
+                                           launchNamedPureLog)
 
-import           Pos.Types        (Address)
+import           Pos.Types                (Address)
 import           Universum
 
 data ClientContext = ClientContext
@@ -83,16 +83,9 @@ mkConnectionsState =
 withConnState
     :: (MonadIO m, WithLogger m)
     => ConnectionsVar
-    -> StateT ConnectionsState (NamedPureLogger STM) a
+    -> NamedPureLogger (StateT ConnectionsState STM) a
     -> m a
-withConnState var m = do
-    loggerName <- getLoggerName
-    let runLog = usingLoggerName loggerName . runPureLog . runNamedPureLogger
-    (a, logs) <- atomically $ do
-        s <- readTVar var
-        ((a, s'), logs) <- runLog $ runStateT m s
-        (a, logs) <$ writeTVar var s'
-    a <$ dispatchEvents logs
+withConnState var = launchNamedPureLog $ liftIO . atomically . modifyTVarS var
 
 askingConnState
     :: MonadIO m

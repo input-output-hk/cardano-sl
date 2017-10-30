@@ -14,6 +14,7 @@ module Pos.Wallet.Web.ClientTypes.Types
       , CTxId (..)
       , CAccountId (..)
       , CCoin (..)
+      , mkCCoin
       , Wal (..)
       , Addr (..)
       , PassPhraseLU
@@ -57,6 +58,8 @@ module Pos.Wallet.Web.ClientTypes.Types
       , ScrollOffset (..)
       , ScrollLimit (..)
       , CFilePath (..)
+      , ApiVersion (..)
+      , ClientInfo (..)
       ) where
 
 import           Universum
@@ -67,12 +70,13 @@ import           Data.Hashable         (Hashable (..))
 import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable         (Typeable)
+import           Data.Version          (Version)
 import           Formatting            (bprint, build, builder, shown, (%))
 import qualified Prelude
 import           Serokell.Util         (listJsonIndent)
 import           Servant.Multipart     (FileData)
 
-import           Pos.Core.Types        (ScriptVersion)
+import           Pos.Core.Types        (Coin, ScriptVersion, unsafeGetCoin)
 import           Pos.Types             (BlockVersion, ChainDifficulty, SoftwareVersion)
 import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Util.LogSafe      (SecureLog (..), buildUnsecure)
@@ -146,6 +150,9 @@ instance Buildable (SecureLog CAccountId) where
 newtype CCoin = CCoin
     { getCCoin :: Text
     } deriving (Show, Eq, Generic, Buildable)
+
+mkCCoin :: Coin -> CCoin
+mkCCoin = CCoin . show . unsafeGetCoin
 
 -- | Passphrase last update time
 type PassPhraseLU = POSIXTime
@@ -576,3 +583,40 @@ newtype CFilePath = CFilePath Text
 
 instance Buildable (SecureLog CFilePath) where
     build _ = "<filepath>"
+
+----------------------------------------------------------------------------
+-- Version and client info
+----------------------------------------------------------------------------
+
+-- | Version of wallet API. Currently we have only 0-th version. We
+-- will add new constructors when new versions appear.
+data ApiVersion =
+    ApiVersion0
+    deriving (Show, Generic)
+
+-- | Information about this client.
+data ClientInfo = ClientInfo
+    { ciApiVersion      :: !ApiVersion
+    -- ^ Version of wallet API.
+    , ciSoftwareVersion :: !SoftwareVersion
+    -- ^ Software version (from the blockchain's point of view).
+    , ciCabalVersion    :: !Version
+    -- ^ Version specified in cabal file.
+    , ciGitRevision     :: !Text
+    -- ^ Git revision from which this software was built.
+    } deriving (Show, Generic)
+
+instance Buildable Version where
+    build v = bprint shown v
+
+instance Buildable ApiVersion where
+    build ApiVersion0 = bprint "API v0"
+
+instance Buildable ClientInfo where
+    build ClientInfo{..} =
+        bprint ("ClientInfo\n"%
+                "    apiVersion: "%build%
+                "    softwareVersion:"%build%
+                "    cabalVersion: "%build%
+                "    ciGitRevision: "%build)
+            ciApiVersion ciSoftwareVersion ciCabalVersion ciGitRevision

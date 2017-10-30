@@ -32,7 +32,7 @@ import           Servant.Server                  (Handler, ServantErr (errBody),
 import           Servant.Utils.Enter             ((:~>) (NT), enter)
 
 import qualified Network.Broadcast.OutboundQueue as OQ
-import           Pos.Aeson.Types                 ()
+import           Pos.Aeson.Txp                   ()
 import           Pos.Context                     (HasNodeContext (..), HasSscContext (..),
                                                   NodeContext, getOurPublicKey)
 import           Pos.Core                        (EpochIndex (..), SlotLeaders)

@@ -13,6 +13,8 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+    Pos.Aeson.Txp
+
     Pos.Arbitrary.Txp
     Pos.Arbitrary.Txp.Unsafe
 

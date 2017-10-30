@@ -40,19 +40,20 @@ deriveJSON defaultOptions ''Addr
 deriveJSON defaultOptions ''CHash
 deriveJSON defaultOptions ''CInitialized
 
-deriveToJSON defaultOptions ''CCoin
+deriveJSON defaultOptions ''CCoin
+deriveJSON defaultOptions ''CTxId
+deriveJSON defaultOptions ''CAddress
+deriveJSON defaultOptions ''CAccount
+deriveJSON defaultOptions ''CWallet
+deriveJSON defaultOptions ''CPtxCondition
+deriveJSON defaultOptions ''CTx
+deriveJSON defaultOptions ''CTExMeta
+deriveJSON defaultOptions ''SoftwareVersion
+deriveJSON defaultOptions ''CUpdateInfo
+
 deriveToJSON defaultOptions ''SyncProgress
 deriveToJSON defaultOptions ''NotifyEvent
 deriveToJSON defaultOptions ''WalletError
-deriveToJSON defaultOptions ''CTxId
-deriveToJSON defaultOptions ''CAddress
-deriveToJSON defaultOptions ''CAccount
-deriveToJSON defaultOptions ''CWallet
-deriveToJSON defaultOptions ''CPtxCondition
-deriveToJSON defaultOptions ''CTx
-deriveToJSON defaultOptions ''CTExMeta
-deriveToJSON defaultOptions ''SoftwareVersion
-deriveToJSON defaultOptions ''CUpdateInfo
 
 -- For backward compatibility.
 -- Guys /really/ want it to be normal JSON

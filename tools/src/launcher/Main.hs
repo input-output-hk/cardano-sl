@@ -217,8 +217,11 @@ main =
             & Log.lcTermSeverity .~ Just Log.Debug
             & Log.lcFilePrefix .~ loLauncherLogsPrefix
             & Log.lcTree %~ case loLauncherLogsPrefix of
-                  Nothing -> identity
-                  Just _  -> Log.ltFiles .~ [Log.HandlerWrap "launcher" Nothing]
+                  Nothing ->
+                      identity
+                  Just _  ->
+                      set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
+                      set Log.ltSeverity (Just Log.Debug)
     Log.usingLoggerName "launcher" $
         withConfigurations loConfiguration $
         case loWalletPath of

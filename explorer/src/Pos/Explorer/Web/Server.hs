@@ -27,7 +27,6 @@ import qualified Data.ByteString                      as BS
 import qualified Data.HashMap.Strict                  as HM
 import qualified Data.List.NonEmpty                   as NE
 import           Data.Maybe                           (fromMaybe)
-import qualified Data.Vector                          as V
 import           Formatting                           (build, int, sformat, (%))
 import           Network.Wai                          (Application)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
@@ -79,7 +78,6 @@ import qualified Pos.Explorer                         as EX (getAddrBalance,
                                                              getAddrHistory, getTxExtra,
                                                              getUtxoSum)
 import           Pos.Explorer.Aeson.ClientTypes       ()
-import           Pos.Explorer.ExtraContext            (HasGenesisRedeemAddressInfo (..))
 import           Pos.Explorer.Web.Api                 (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes         (Byte, CAda (..), CAddress (..),
                                                        CAddressSummary (..),

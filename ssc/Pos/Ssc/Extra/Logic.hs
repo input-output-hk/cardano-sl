@@ -12,15 +12,14 @@ module Pos.Ssc.Extra.Logic
          -- * Seed calculation
        , sscCalculateSeed
 
-         -- * Local Data
-       , sscGetLocalPayload
-       , sscNormalize
-       , sscResetLocal
-
          -- * GState
        , sscApplyBlocks
        , sscRollbackBlocks
        , sscVerifyBlocks
+
+         -- * Misc
+       , getRichmenFromLrc
+       , syncingStateWith
        ) where
 
 import           Universum
@@ -35,19 +34,15 @@ import           Serokell.Util            (listJson)
 import           System.Wlog              (NamedPureLogger, WithLogger,
                                            launchNamedPureLog, logDebug)
 
-import           Pos.Core                 (EpochIndex, HeaderHash, IsHeader, SharedSeed,
-                                           SlotId, epochIndexL, headerHash)
-import           Pos.DB                   (MonadBlockDBGeneric, MonadDBRead, MonadGState,
+import           Pos.Core                 (EpochIndex, HeaderHash, SharedSeed,
+                                           epochIndexL, headerHash)
+import           Pos.DB                   (MonadDBRead, MonadGState,
                                            SomeBatchOp, gsAdoptedBVData)
-import           Pos.DB.GState.Common     (getTipHeaderGeneric)
 import           Pos.Exception            (assertionFailed)
 import           Pos.Lrc.Context          (HasLrcContext, lrcActionOnEpochReason)
 import           Pos.Lrc.Types            (RichmenStakes)
 import           Pos.Reporting            (MonadReporting, reportError)
-import           Pos.Slotting.Class       (MonadSlots)
-import           Pos.Ssc.Class.LocalData  (SscLocalDataClass (..))
 import           Pos.Ssc.Class.Storage    (SscGStateClass (..))
-import           Pos.Ssc.Core             (SscPayload)
 import           Pos.Ssc.Extra.Class      (MonadSscMem, askSscMem)
 import           Pos.Ssc.Types            (SscBlock, SscState (sscGlobal, sscLocal),
                                            SscGlobalState, SscLocalData)
@@ -55,7 +50,7 @@ import           Pos.Ssc.RichmenComponent (getRichmenSsc)
 import           Pos.Ssc.SeedError        (SscSeedError)
 import           Pos.Ssc.VerifyError      (SscVerifyError, sscIsCriticalError)
 import           Pos.Util.Chrono          (NE, NewestFirst, OldestFirst)
-import           Pos.Util.Util            (Some, inAssertMode, _neHead, _neLast)
+import           Pos.Util.Util            (inAssertMode, _neHead, _neLast)
 
 ----------------------------------------------------------------------------
 -- Utilities
@@ -126,68 +121,6 @@ sscCalculateSeed epoch = do
     -- N-th epoch.
     richmen <- getRichmenFromLrc "sscCalculateSeed" (epoch - 1)
     sscRunGlobalQuery $ sscCalculateSeedQ epoch richmen
-
-----------------------------------------------------------------------------
--- Local Data
-----------------------------------------------------------------------------
-
--- | Get 'SscPayload' for inclusion into main block with given 'SlotId'.
-sscGetLocalPayload
-    :: forall ctx m.
-       (MonadIO m, MonadSscMem ctx m, SscLocalDataClass, WithLogger m)
-    => SlotId -> m SscPayload
-sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ
-
--- | Update local data to be valid for current global state.  This
--- function is assumed to be called after applying block and before
--- releasing lock on block application.
-sscNormalize
-    :: forall ctx m.
-       ( MonadDBRead m
-       , MonadGState m
-       , MonadBlockDBGeneric (Some IsHeader) SscBlock () m
-       , MonadSscMem ctx m
-       , SscLocalDataClass
-       , MonadReader ctx m
-       , HasLrcContext ctx
-       , WithLogger m
-       , MonadIO m
-       , Rand.MonadRandom m
-       )
-    => m ()
-sscNormalize = do
-    tipEpoch <- view epochIndexL <$> getTipHeaderGeneric @SscBlock
-    richmenData <- getRichmenFromLrc "sscNormalize" tipEpoch
-    bvd <- gsAdoptedBVData
-    globalVar <- sscGlobal <$> askSscMem
-    localVar <- sscLocal <$> askSscMem
-    gs <- atomically $ readTVar globalVar
-    seed <- Rand.drgNew
-
-    launchNamedPureLog atomically $
-        syncingStateWith localVar $
-        executeMonadBaseRandom seed $
-        sscNormalizeU (tipEpoch, richmenData) bvd gs
-  where
-    -- (... MonadPseudoRandom) a -> (... n) a
-    executeMonadBaseRandom seed = hoist $ hoist (pure . fst . Rand.withDRG seed)
-
--- | Reset local data to empty state.  This function can be used when
--- we detect that something is really bad. In this case it makes sense
--- to remove all local data to be sure it's valid.
-sscResetLocal ::
-       forall ctx m.
-       ( MonadDBRead m
-       , MonadSscMem ctx m
-       , SscLocalDataClass
-       , MonadSlots ctx m
-       , MonadIO m
-       )
-    => m ()
-sscResetLocal = do
-    emptyLD <- sscNewLocalData
-    localVar <- sscLocal <$> askSscMem
-    atomically $ writeTVar localVar emptyLD
 
 ----------------------------------------------------------------------------
 -- GState

@@ -26,11 +26,12 @@ library
     Pos.Ssc.Worker
     Pos.Ssc.Lrc
 
+    Pos.Ssc.LocalData
+
     -- SSC
     Pos.Arbitrary.Ssc
 
     Pos.Ssc.Class
-    Pos.Ssc.Class.LocalData
     Pos.Ssc.Class.Storage
 
     Pos.Ssc.Extra
@@ -60,9 +61,6 @@ library
     Pos.Ssc.GodTossing.Toss.Class
     Pos.Ssc.GodTossing.Toss.Trans
     Pos.Ssc.GodTossing.Toss.Types
-
-    Pos.Ssc.GodTossing.LocalData
-    Pos.Ssc.GodTossing.LocalData.Logic
 
     Pos.Ssc.GodTossing.VssCertData
     Pos.Ssc.GodTossing.SecretStorage

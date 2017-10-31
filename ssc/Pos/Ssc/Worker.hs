@@ -75,7 +75,7 @@ import           Pos.Ssc.GodTossing.Functions          (hasCommitment, hasOpenin
                                                         hasShares, vssThreshold)
 import           Pos.Ssc.GodTossing.GState             (getGlobalCerts, getStableCerts,
                                                         gtGetGlobalState)
-import           Pos.Ssc.GodTossing.LocalData          (localOnNewSlot,
+import           Pos.Ssc.LocalData                     (localOnNewSlot,
                                                         sscProcessCertificate,
                                                         sscProcessCommitment,
                                                         sscProcessOpening,

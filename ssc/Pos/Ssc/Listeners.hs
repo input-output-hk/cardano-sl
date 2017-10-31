@@ -31,7 +31,7 @@ import           Pos.Ssc.Extra                         (sscRunLocalQuery)
 import           Pos.Ssc.GodTossing.Configuration      (HasGtConfiguration)
 import           Pos.Ssc.Core                          (getCommitmentsMap)
 import           Pos.Ssc.Types                         (ldModifier)
-import           Pos.Ssc.GodTossing.LocalData          (sscIsDataUseful,
+import           Pos.Ssc.LocalData                     (sscIsDataUseful,
                                                         sscProcessCertificate,
                                                         sscProcessCommitment,
                                                         sscProcessOpening,

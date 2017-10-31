@@ -1,11 +1,16 @@
 {-# LANGUAGE Rank2Types #-}
 
--- | This module defines methods which operate on SscLocalData.
+-- | This module defines methods which operate on 'SscLocalData'.
 
-module Pos.Ssc.GodTossing.LocalData.Logic
+module Pos.Ssc.LocalData
        (
+         sscResetLocal
+       , sscNewLocalData
+       , sscGetLocalPayload
+       , sscNormalize
+
          -- * 'Inv|Req|Data' processing.
-         sscIsDataUseful
+       , sscIsDataUseful
        , sscProcessCommitment
        , sscProcessOpening
        , sscProcessShares
@@ -13,9 +18,6 @@ module Pos.Ssc.GodTossing.LocalData.Logic
 
          -- * Garbage collection worker
        , localOnNewSlot
-
-         -- * Instances
-         -- ** instance SscLocalDataClass
        ) where
 
 import           Universum
@@ -27,22 +29,29 @@ import qualified Crypto.Random                      as Rand
 import qualified Data.HashMap.Strict                as HM
 import           Formatting                         (int, sformat, (%))
 import           Serokell.Util                      (magnify')
-import           System.Wlog                        (WithLogger, logWarning)
+import           System.Wlog                        (WithLogger, logWarning,
+                                                     launchNamedPureLog)
 
 import           Pos.Binary.Class                   (biSize)
 import           Pos.Binary.GodTossing              ()
 import           Pos.Core                           (BlockVersionData (..), EpochIndex,
                                                      HasConfiguration, SlotId (..),
-                                                     StakeholderId, VssCertificate,
-                                                     mkVssCertificatesMapSingleton)
+                                                     IsHeader, StakeholderId,
+                                                     VssCertificate,
+                                                     mkVssCertificatesMapSingleton,
+                                                     epochIndexL)
 import           Pos.DB                             (MonadDBRead,
-                                                     MonadGState (gsAdoptedBVData))
+                                                     MonadGState (gsAdoptedBVData),
+                                                     MonadBlockDBGeneric)
+import           Pos.DB.GState.Common               (getTipHeaderGeneric)
+import           Pos.Lrc.Context                    (HasLrcContext)
 import           Pos.Lrc.Types                      (RichmenStakes)
 import           Pos.Slotting                       (MonadSlots (getCurrentSlot))
-import           Pos.Ssc.Class.LocalData            (LocalQuery, LocalUpdate,
-                                                     SscLocalDataClass (..))
-import           Pos.Ssc.Extra                      (MonadSscMem, sscRunGlobalQuery,
-                                                     sscRunLocalQuery, sscRunLocalSTM)
+import           Pos.Ssc.Extra.Class                (MonadSscMem, askSscMem)
+import           Pos.Ssc.Extra.Logic                (sscRunGlobalQuery,
+                                                     sscRunLocalQuery, sscRunLocalSTM,
+                                                     getRichmenFromLrc,
+                                                     syncingStateWith)
 import           Pos.Ssc.GodTossing.Configuration   (HasGtConfiguration)
 import           Pos.Ssc.Core                       (SscPayload (..), InnerSharesMap,
                                                      Opening, SignedCommitment,
@@ -58,26 +67,52 @@ import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossT
                                                      tmCommitments, tmOpenings, tmShares,
                                                      verifyAndApplySscPayload)
 import           Pos.Ssc.Types                      (SscLocalData (..),
-                                                     SscGlobalState, ldEpoch,
-                                                     ldModifier, ldSize)
+                                                     SscGlobalState, SscBlock,
+                                                     ldEpoch, ldModifier, ldSize,
+                                                     sscGlobal, sscLocal)
 import           Pos.Ssc.VerifyError                (SscVerifyError (..))
 import           Pos.Ssc.RichmenComponent           (getRichmenSsc)
+import           Pos.Util.Util                      (Some)
 
-----------------------------------------------------------------------------
--- Methods from type class
-----------------------------------------------------------------------------
+-- | Reset local data to empty state.  This function can be used when
+-- we detect that something is really bad. In this case it makes sense
+-- to remove all local data to be sure it's valid.
+sscResetLocal ::
+       forall ctx m.
+       ( MonadDBRead m
+       , MonadSscMem ctx m
+       , MonadSlots ctx m
+       , MonadIO m
+       )
+    => m ()
+sscResetLocal = do
+    emptyLD <- sscNewLocalData
+    localVar <- sscLocal <$> askSscMem
+    atomically $ writeTVar localVar emptyLD
 
-instance (HasGtConfiguration, HasConfiguration) => SscLocalDataClass where
-    sscGetLocalPayloadQ = getLocalPayload
-    sscNormalizeU = normalize
-    sscNewLocalData =
-        SscLocalData mempty . siEpoch . fromMaybe slot0 <$> getCurrentSlot <*>
-        pure 1
-      where
-        slot0 = SlotId 0 minBound
+-- | Create new (empty) local data. We are using this function instead of
+-- 'Default' class, because it gives more flexibility. For instance, one
+-- can read something from DB or get current slot.
+sscNewLocalData :: (MonadSlots ctx m, MonadDBRead m) => m SscLocalData
+sscNewLocalData =
+    SscLocalData mempty . siEpoch . fromMaybe slot0 <$> getCurrentSlot <*>
+    pure 1
+  where
+    slot0 = SlotId 0 minBound
 
-getLocalPayload :: HasConfiguration => SlotId -> LocalQuery SscPayload
-getLocalPayload SlotId {..} = do
+-- | Get local payload to be put into main block and for given
+-- 'SlotId'. If payload for given 'SlotId' can't be constructed,
+-- empty payload can be returned.
+sscGetLocalPayload
+    :: forall ctx m.
+       (HasConfiguration, MonadIO m, MonadSscMem ctx m, WithLogger m)
+    => SlotId -> m SscPayload
+sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ
+
+sscGetLocalPayloadQ
+  :: (HasConfiguration, MonadReader SscLocalData m, WithLogger m)
+  => SlotId -> m SscPayload
+sscGetLocalPayloadQ SlotId {..} = do
     expectedEpoch <- view ldEpoch
     let warningMsg = sformat warningFmt siEpoch expectedEpoch
     isExpected <-
@@ -86,7 +121,8 @@ getLocalPayload SlotId {..} = do
     magnify' ldModifier $
         getPayload isExpected <*> getCertificates isExpected
   where
-    warningFmt = "getLocalPayload: unexpected epoch ("%int%", stored one is "%int%")"
+    warningFmt = "sscGetLocalPayloadQ: unexpected epoch ("%int%
+                 ", stored one is "%int%")"
     getPayload True
         | isCommitmentIdx siSlot = CommitmentsPayload <$> view tmCommitments
         | isOpeningIdx siSlot = OpeningsPayload <$> view tmOpenings
@@ -96,13 +132,48 @@ getLocalPayload SlotId {..} = do
         | isExpected = view tmCertificates
         | otherwise = pure mempty
 
-normalize
-    :: (HasGtConfiguration, HasConfiguration)
+-- | Make 'SscLocalData' valid for given epoch, richmen and global state. of
+-- best known chain. This function is assumed to be called after applying
+-- block and before releasing lock on block application.
+sscNormalize
+    :: forall ctx m.
+       ( MonadDBRead m
+       , MonadGState m
+       , MonadBlockDBGeneric (Some IsHeader) SscBlock () m
+       , MonadSscMem ctx m
+       , MonadReader ctx m
+       , HasLrcContext ctx
+       , WithLogger m
+       , MonadIO m
+       , Rand.MonadRandom m
+       , HasGtConfiguration
+       )
+    => m ()
+sscNormalize = do
+    tipEpoch <- view epochIndexL <$> getTipHeaderGeneric @SscBlock
+    richmenData <- getRichmenFromLrc "sscNormalize" tipEpoch
+    bvd <- gsAdoptedBVData
+    globalVar <- sscGlobal <$> askSscMem
+    localVar <- sscLocal <$> askSscMem
+    gs <- atomically $ readTVar globalVar
+    seed <- Rand.drgNew
+
+    launchNamedPureLog atomically $
+        syncingStateWith localVar $
+        executeMonadBaseRandom seed $
+        sscNormalizeU (tipEpoch, richmenData) bvd gs
+  where
+    -- (... MonadPseudoRandom) a -> (... n) a
+    executeMonadBaseRandom seed = hoist $ hoist (pure . fst . Rand.withDRG seed)
+
+sscNormalizeU
+    :: (HasGtConfiguration, HasConfiguration, MonadState SscLocalData m,
+        WithLogger m, Rand.MonadRandom m)
     => (EpochIndex, RichmenStakes)
     -> BlockVersionData
     -> SscGlobalState
-    -> LocalUpdate ()
-normalize (epoch, stake) bvd gs = do
+    -> m ()
+sscNormalizeU (epoch, stake) bvd gs = do
     oldModifier <- use ldModifier
     let multiRichmen = HM.fromList [(epoch, stake)]
     newModifier <-

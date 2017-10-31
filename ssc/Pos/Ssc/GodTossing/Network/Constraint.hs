@@ -14,7 +14,7 @@ import           Pos.Communication.Types.Relay    (DataMsg, InvOrData, ReqMsg, R
 import           Pos.Core                         (HasConfiguration, StakeholderId)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.Ssc.Configuration            (HasSscConfiguration)
-import           Pos.Ssc.GodTossing.Types.Message (MCCommitment, MCOpening, MCShares,
+import           Pos.Ssc.Types.Message            (MCCommitment, MCOpening, MCShares,
                                                    MCVssCertificate)
 
 -- TODO: someone who knows networking should take a look because this really

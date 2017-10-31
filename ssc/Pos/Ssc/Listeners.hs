@@ -40,7 +40,7 @@ import           Pos.Ssc.GodTossing.Network.Constraint (GtMessageConstraints)
 import           Pos.Ssc.GodTossing.Toss               (GtTag (..), TossModifier,
                                                         tmCertificates, tmCommitments,
                                                         tmOpenings, tmShares)
-import           Pos.Ssc.GodTossing.Types.Message      (MCCommitment (..), MCOpening (..),
+import           Pos.Ssc.Types.Message                 (MCCommitment (..), MCOpening (..),
                                                         MCShares (..),
                                                         MCVssCertificate (..))
 import           Pos.Ssc.Mode                          (SscMode)

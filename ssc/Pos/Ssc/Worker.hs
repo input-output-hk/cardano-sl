@@ -71,7 +71,7 @@ import           Pos.Ssc.Core                          (Commitment (..), SignedC
                                                         getCommitmentsMap,
                                                         isCommitmentIdx, isOpeningIdx,
                                                         isSharesIdx, mkSignedCommitment)
-import           Pos.Ssc.GodTossing.Functions          (hasCommitment, hasOpening,
+import           Pos.Ssc.Functions                     (hasCommitment, hasOpening,
                                                         hasShares, vssThreshold)
 import           Pos.Ssc.GState                        (getGlobalCerts, getStableCerts,
                                                         gtGetGlobalState)
@@ -81,14 +81,14 @@ import           Pos.Ssc.LocalData                     (localOnNewSlot,
                                                         sscProcessOpening,
                                                         sscProcessShares)
 import           Pos.Ssc.GodTossing.Network.Constraint (GtMessageConstraints)
-import qualified Pos.Ssc.GodTossing.SecretStorage      as SS
+import qualified Pos.Ssc.SecretStorage                 as SS
 import           Pos.Ssc.GodTossing.Shares             (getOurShares)
 import           Pos.Ssc.GodTossing.Toss               (computeParticipants,
                                                         computeSharesDistrPure)
 import           Pos.Ssc.Types                         (HasSscContext (..),
                                                         sgsCommitments, scBehavior,
                                                         scParticipateSsc, scVssKeyPair)
-import           Pos.Ssc.GodTossing.Types.Message      (GtTag (..), MCCommitment (..),
+import           Pos.Ssc.Types.Message                 (GtTag (..), MCCommitment (..),
                                                         MCOpening (..), MCShares (..),
                                                         MCVssCertificate (..))
 import           Pos.Ssc.Mode                          (SscMode)

@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 
-module Pos.Ssc.GodTossing.Functions
+module Pos.Ssc.Functions
        ( hasCommitment
        , hasOpening
        , hasShares
@@ -36,7 +36,7 @@ import           Pos.Ssc.Core                    (CommitmentsMap (getCommitments
 import           Pos.Ssc.GodTossing.Toss.Base    (verifyEntriesGuardM)
 import           Pos.Ssc.VerifyError             (SscVerifyError (..))
 import           Pos.Ssc.Types                   (SscGlobalState (..))
-import qualified Pos.Ssc.GodTossing.VssCertData  as VCD
+import qualified Pos.Ssc.VssCertData             as VCD
 import           Pos.Util.Util                   (Some)
 
 ----------------------------------------------------------------------------

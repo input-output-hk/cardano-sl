@@ -29,7 +29,7 @@ import           Pos.Ssc.Core                     (CommitmentsMap (..), SscPaylo
                                                    InnerSharesMap, Opening,
                                                    SignedCommitment, getCommitmentsMap,
                                                    spVss, mkCommitmentsMapUnsafe)
-import           Pos.Ssc.GodTossing.Functions     (verifySscPayload)
+import           Pos.Ssc.Functions                (verifySscPayload)
 import           Pos.Ssc.GodTossing.Toss.Base     (checkPayload)
 import           Pos.Ssc.GodTossing.Toss.Class    (MonadToss (..), MonadTossEnv (..))
 import           Pos.Ssc.VerifyError              (SscVerifyError (..))

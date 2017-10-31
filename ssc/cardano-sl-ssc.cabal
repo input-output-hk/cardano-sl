@@ -21,6 +21,7 @@ library
     Pos.Ssc.VerifyError
 
     Pos.Ssc.Types
+    Pos.Ssc.Types.Message
 
     Pos.Ssc.Listeners
     Pos.Ssc.Worker
@@ -29,6 +30,11 @@ library
     Pos.Ssc.LocalData
     Pos.Ssc.GState
     Pos.Ssc.Mem
+
+    Pos.Ssc.Functions
+    Pos.Ssc.SecretStorage
+    Pos.Ssc.VssCertData
+    Pos.Ssc.Seed
 
     -- SSC
     Pos.Arbitrary.Ssc
@@ -49,8 +55,6 @@ library
 
     Pos.Ssc.GodTossing.Behavior
 
-    Pos.Ssc.GodTossing.Types.Message
-
     Pos.Ssc.GodTossing.Toss
     Pos.Ssc.GodTossing.Toss.Logic
     Pos.Ssc.GodTossing.Toss.Pure
@@ -59,11 +63,7 @@ library
     Pos.Ssc.GodTossing.Toss.Trans
     Pos.Ssc.GodTossing.Toss.Types
 
-    Pos.Ssc.GodTossing.VssCertData
-    Pos.Ssc.GodTossing.SecretStorage
-    Pos.Ssc.GodTossing.Functions
     Pos.Ssc.GodTossing.DB
-    Pos.Ssc.GodTossing.Seed
     Pos.Ssc.GodTossing.Shares
     Pos.Ssc.GodTossing.Network.Constraint
 

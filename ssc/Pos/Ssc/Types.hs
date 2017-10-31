@@ -52,7 +52,7 @@ import           Pos.Ssc.Core                   (CommitmentsMap (getCommitmentsM
                                                  SignedCommitment, SscPayload)
 import           Pos.Ssc.GodTossing.Behavior    (GtBehavior)
 import           Pos.Ssc.GodTossing.Toss.Types  (TossModifier)
-import qualified Pos.Ssc.GodTossing.VssCertData as VCD
+import qualified Pos.Ssc.VssCertData            as VCD
 import           Pos.Util.Util                  (Some)
 
 ----------------------------------------------------------------------------

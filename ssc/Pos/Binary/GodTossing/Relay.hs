@@ -4,10 +4,10 @@ module Pos.Binary.GodTossing.Relay
 
 import           Universum
 
-import           Pos.Binary.Class              (Bi (..), enforceSize, encodeListLen)
-import           Pos.Core.Configuration        (HasConfiguration)
+import           Pos.Binary.Class              (Bi (..), encodeListLen, enforceSize)
 import           Pos.Communication.Types.Relay (DataMsg (..))
-import qualified Pos.Ssc.GodTossing.Types.Message as T
+import           Pos.Core.Configuration        (HasConfiguration)
+import qualified Pos.Ssc.Types.Message         as T
 
 instance Bi (DataMsg T.MCCommitment) where
   encode (DataMsg (T.MCCommitment signedComm)) = encode signedComm

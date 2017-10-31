@@ -1,4 +1,4 @@
-module Pos.Ssc.GodTossing.SecretStorage
+module Pos.Ssc.SecretStorage
        ( getOurCommitment
        , getOurOpening
        , putOurSecret

@@ -49,14 +49,14 @@ import           Pos.Reporting.Methods            (MonadReporting, reportError)
 import           Pos.Ssc.Core                     (SscPayload (..))
 import           Pos.Ssc.Configuration            (HasSscConfiguration)
 import qualified Pos.Ssc.GodTossing.DB            as DB
-import           Pos.Ssc.GodTossing.Functions     (getStableCertsPure)
-import           Pos.Ssc.GodTossing.Seed          (calculateSeed)
+import           Pos.Ssc.Functions                (getStableCertsPure)
+import           Pos.Ssc.Seed                     (calculateSeed)
 import           Pos.Ssc.GodTossing.Toss          (MultiRichmenStakes, PureToss,
                                                    applyGenesisBlock, rollbackGT,
                                                    runPureTossWithLogger,
                                                    supplyPureTossEnv,
                                                    verifyAndApplySscPayload)
-import qualified Pos.Ssc.GodTossing.VssCertData   as VCD
+import qualified Pos.Ssc.VssCertData              as VCD
 import           Pos.Ssc.Lrc                      (getSscRichmenFromLrc)
 import           Pos.Ssc.Mem                      (MonadSscMem, SscGlobalQuery,
                                                    SscGlobalUpdate, askSscMem,

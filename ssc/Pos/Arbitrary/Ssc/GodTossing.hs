@@ -35,12 +35,12 @@ import           Pos.Ssc.Core                      (Commitment (..), Commitments
                                                     isSharesId, mkCommitmentsMap,
                                                     mkCommitmentsMap, mkSignedCommitment)
 import           Pos.Ssc.GodTossing.Toss.Types     (TossModifier (..))
-import           Pos.Ssc.GodTossing.Types.Message  (GtTag (..), MCCommitment (..),
+import           Pos.Ssc.Types.Message             (GtTag (..), MCCommitment (..),
                                                     MCOpening (..), MCShares (..),
                                                     MCVssCertificate (..))
 import           Pos.Ssc.Types                     (SscGlobalState (..),
                                                     SscSecretStorage (..))
-import           Pos.Ssc.GodTossing.VssCertData    (VssCertData (..))
+import           Pos.Ssc.VssCertData               (VssCertData (..))
 import           Pos.Util.Arbitrary                (Nonrepeating (..), makeSmall,
                                                     sublistN)
 

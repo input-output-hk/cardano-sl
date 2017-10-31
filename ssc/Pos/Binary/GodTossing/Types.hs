@@ -12,7 +12,7 @@ import           Pos.Core.Vss                   (VssCertificate, VssCertificates
 import           Pos.Ssc.Core                   (CommitmentsMap, Opening, OpeningsMap,
                                                  SharesMap, SignedCommitment)
 import           Pos.Ssc.Types                  (SscGlobalState (..), SscSecretStorage (..))
-import           Pos.Ssc.GodTossing.VssCertData (VssCertData (..))
+import           Pos.Ssc.VssCertData            (VssCertData (..))
 
 deriveSimpleBiCxt [t|HasConfiguration|] ''VssCertData [
     Cons 'VssCertData [

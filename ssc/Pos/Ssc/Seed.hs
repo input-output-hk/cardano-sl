@@ -2,7 +2,7 @@
 
 -- | Calculate shared seed using info sent by nodes participating in the
 -- protocol.
-module Pos.Ssc.GodTossing.Seed
+module Pos.Ssc.Seed
        ( calculateSeed
        ) where
 

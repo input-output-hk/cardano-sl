@@ -1,4 +1,4 @@
-module Pos.Ssc.GodTossing.VssCertData
+module Pos.Ssc.VssCertData
        ( VssCertData (..)
        , empty
        , insert

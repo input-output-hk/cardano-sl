@@ -27,7 +27,7 @@ import           Pos.Communication.Types.Protocol      (MsgType (..))
 import           Pos.Core                              (HasConfiguration, StakeholderId,
                                                         addressHash, getCertId, lookupVss)
 import           Pos.Security.Util                     (shouldIgnorePkAddress)
-import           Pos.Ssc.Extra                         (sscRunLocalQuery)
+import           Pos.Ssc.Mem                           (sscRunLocalQuery)
 import           Pos.Ssc.GodTossing.Configuration      (HasGtConfiguration)
 import           Pos.Ssc.Core                          (getCommitmentsMap)
 import           Pos.Ssc.Types                         (ldModifier)

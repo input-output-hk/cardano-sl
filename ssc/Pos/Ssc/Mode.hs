@@ -20,8 +20,8 @@ import           Pos.Reporting       (MonadReporting)
 import           Pos.Security.Params (SecurityParams)
 import           Pos.Shutdown        (HasShutdownContext)
 import           Pos.Slotting        (MonadSlots)
+import           Pos.Ssc.Mem         (MonadSscMem)
 import           Pos.Ssc.Types       (HasSscContext)
-import           Pos.Ssc.Extra       (MonadSscMem)
 import           Pos.Util.TimeWarp   (CanJsonLog)
 
 -- | Mode used for all SSC listeners, workers, and the like.

@@ -51,8 +51,8 @@ import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Reporting              (reportError)
 import           Pos.Ssc.Core               (SscPayload, defaultSscPayload,
                                              stripSscPayload)
-import           Pos.Ssc.Extra              (MonadSscMem)
 import           Pos.Ssc.LocalData          (sscGetLocalPayload, sscResetLocal)
+import           Pos.Ssc.Mem                (MonadSscMem)
 import           Pos.StateLock              (Priority (..), StateLock, StateLockMetrics,
                                              modifyStateLock)
 import           Pos.Txp                    (MempoolExt, MonadTxpLocal (..), MonadTxpMem,

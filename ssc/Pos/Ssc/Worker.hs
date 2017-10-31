@@ -73,7 +73,7 @@ import           Pos.Ssc.Core                          (Commitment (..), SignedC
                                                         isSharesIdx, mkSignedCommitment)
 import           Pos.Ssc.GodTossing.Functions          (hasCommitment, hasOpening,
                                                         hasShares, vssThreshold)
-import           Pos.Ssc.GodTossing.GState             (getGlobalCerts, getStableCerts,
+import           Pos.Ssc.GState                        (getGlobalCerts, getStableCerts,
                                                         gtGetGlobalState)
 import           Pos.Ssc.LocalData                     (localOnNewSlot,
                                                         sscProcessCertificate,

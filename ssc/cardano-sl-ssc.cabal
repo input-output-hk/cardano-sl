@@ -27,17 +27,14 @@ library
     Pos.Ssc.Lrc
 
     Pos.Ssc.LocalData
+    Pos.Ssc.GState
+    Pos.Ssc.Mem
 
     -- SSC
     Pos.Arbitrary.Ssc
 
-    Pos.Ssc.Class
-    Pos.Ssc.Class.Storage
-
     Pos.Ssc.Extra
     Pos.Ssc.Extra.Holder
-    Pos.Ssc.Extra.Class
-    Pos.Ssc.Extra.Logic
 
     Pos.Ssc.Mode
     Pos.Ssc.RichmenComponent
@@ -66,7 +63,6 @@ library
     Pos.Ssc.GodTossing.SecretStorage
     Pos.Ssc.GodTossing.Functions
     Pos.Ssc.GodTossing.DB
-    Pos.Ssc.GodTossing.GState
     Pos.Ssc.GodTossing.Seed
     Pos.Ssc.GodTossing.Shares
     Pos.Ssc.GodTossing.Network.Constraint

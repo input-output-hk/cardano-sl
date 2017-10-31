@@ -47,11 +47,12 @@ import           Pos.DB.GState.Common               (getTipHeaderGeneric)
 import           Pos.Lrc.Context                    (HasLrcContext)
 import           Pos.Lrc.Types                      (RichmenStakes)
 import           Pos.Slotting                       (MonadSlots (getCurrentSlot))
-import           Pos.Ssc.Extra.Class                (MonadSscMem, askSscMem)
-import           Pos.Ssc.Extra.Logic                (sscRunGlobalQuery,
-                                                     sscRunLocalQuery, sscRunLocalSTM,
-                                                     getRichmenFromLrc,
+import           Pos.Ssc.Mem                        (MonadSscMem, askSscMem,
+                                                     sscRunGlobalQuery,
+                                                     sscRunLocalQuery,
+                                                     sscRunLocalSTM,
                                                      syncingStateWith)
+import           Pos.Ssc.Lrc                        (getSscRichmenFromLrc)
 import           Pos.Ssc.GodTossing.Configuration   (HasGtConfiguration)
 import           Pos.Ssc.Core                       (SscPayload (..), InnerSharesMap,
                                                      Opening, SignedCommitment,
@@ -151,7 +152,7 @@ sscNormalize
     => m ()
 sscNormalize = do
     tipEpoch <- view epochIndexL <$> getTipHeaderGeneric @SscBlock
-    richmenData <- getRichmenFromLrc "sscNormalize" tipEpoch
+    richmenData <- getSscRichmenFromLrc "sscNormalize" tipEpoch
     bvd <- gsAdoptedBVData
     globalVar <- sscGlobal <$> askSscMem
     localVar <- sscLocal <$> askSscMem

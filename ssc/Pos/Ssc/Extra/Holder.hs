@@ -17,8 +17,8 @@ import           System.Wlog             (WithLogger)
 import           Pos.DB                  (MonadDBRead)
 import           Pos.Lrc.Context         (LrcContext)
 import           Pos.Slotting.Class      (MonadSlots)
-import           Pos.Ssc.Class.Storage   (SscGStateClass (sscLoadGlobalState))
-import           Pos.Ssc.Extra.Class     (SscMemTag)
+import           Pos.Ssc.GState          (sscLoadGlobalState)
+import           Pos.Ssc.Mem             (SscMemTag)
 import           Pos.Ssc.Types           (SscState (..))
 import           Pos.Ssc.LocalData       (sscNewLocalData)
 
@@ -27,7 +27,6 @@ mkSscState
        ( WithLogger m
        , MonadReader ctx m
        , HasLens LrcContext ctx LrcContext
-       , SscGStateClass
        , MonadDBRead m
        , MonadIO m
        , MonadSlots ctx m

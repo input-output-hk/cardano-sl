@@ -17,12 +17,9 @@ import           Pos.Core.Address         (addressHash)
 import           Pos.Core.Types           (StakeholderId)
 import           Pos.Crypto               (DecShare, EncShare, VssKeyPair, VssPublicKey,
                                            decryptShare, toVssPublicKey)
-import           Pos.Ssc.Class.Storage    (SscGlobalQuery)
-import           Pos.Ssc.Extra            (MonadSscMem, sscRunGlobalQuery)
+import           Pos.Ssc.Mem              (SscGlobalQuery, MonadSscMem, sscRunGlobalQuery)
 import           Pos.Ssc.Core             (Commitment (..), getCommitmentsMap)
 import           Pos.Ssc.Types            (sgsCommitments, sgsOpenings)
-
-type GSQuery a = SscGlobalQuery a
 
 -- | Decrypt shares (in commitments) that are intended for us and that we can
 -- decrypt.
@@ -48,7 +45,7 @@ getOurShares ourKey = do
 -- | Decrypt shares (in commitments) that we can decrypt.
 decryptOurShares
     :: AsBinary VssPublicKey                           -- ^ Our VSS key
-    -> GSQuery (HashMap StakeholderId (NonEmpty (AsBinary EncShare)))
+    -> SscGlobalQuery (HashMap StakeholderId (NonEmpty (AsBinary EncShare)))
 decryptOurShares ourPK = do
     comms <- getCommitmentsMap <$> view sgsCommitments
     opens <- view sgsOpenings

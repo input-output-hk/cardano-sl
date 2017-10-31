@@ -64,9 +64,9 @@ import           Pos.Reporting                    (HasReportingContext (..),
 import           Pos.Slotting                     (HasSlottingVar (..), MonadSlots (..),
                                                    MonadSlotsData, SlottingData,
                                                    currentTimeSlottingSimple)
-import           Pos.Ssc.Extra                    (SscMemTag, SscState, mkSscState)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Ssc.Types                    (SscBlock)
+import           Pos.Ssc.GodTossing               (SscMemTag, SscState,
+                                                   HasGtConfiguration, SscBlock,
+                                                   mkSscState)
 import           Pos.Txp                          (GenericTxpLocalData, MempoolExt,
                                                    TxpGlobalSettings, TxpHolderTag,
                                                    mkTxpLocalData)

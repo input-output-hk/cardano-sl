@@ -28,7 +28,7 @@ import           Pos.Core                              (HasConfiguration, Stakeh
                                                         addressHash, getCertId, lookupVss)
 import           Pos.Security.Util                     (shouldIgnorePkAddress)
 import           Pos.Ssc.Mem                           (sscRunLocalQuery)
-import           Pos.Ssc.GodTossing.Configuration      (HasGtConfiguration)
+import           Pos.Ssc.Configuration                 (HasSscConfiguration)
 import           Pos.Ssc.Core                          (getCommitmentsMap)
 import           Pos.Ssc.Types                         (ldModifier)
 import           Pos.Ssc.LocalData                     (sscIsDataUseful,
@@ -102,7 +102,7 @@ sscRelay
        , Message (ReqOrRes (Tagged contents StakeholderId))
        , Message (ReqMsg (Tagged contents StakeholderId))
        , HasConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        )
     => GtTag
     -> (contents -> StakeholderId)

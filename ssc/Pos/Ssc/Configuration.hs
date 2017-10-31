@@ -1,10 +1,10 @@
 {-# LANGUAGE Rank2Types #-}
 
-module Pos.Ssc.GodTossing.Configuration
-    ( GtConfiguration (..)
-    , HasGtConfiguration
-    , gtConfiguration
-    , withGtConfiguration
+module Pos.Ssc.Configuration
+    ( SscConfiguration (..)
+    , HasSscConfiguration
+    , sscConfiguration
+    , withSscConfiguration
     , mpcSendInterval
     , mdNoCommitmentsEpochThreshold
     , noReportNoSecretsForEpoch1
@@ -19,15 +19,15 @@ import           Serokell.Aeson.Options (defaultOptions)
 import           Data.Time.Units        (Microsecond)
 import           Serokell.Util          (sec)
 
-type HasGtConfiguration = Given GtConfiguration
+type HasSscConfiguration = Given SscConfiguration
 
-withGtConfiguration :: GtConfiguration -> (HasGtConfiguration => r) -> r
-withGtConfiguration = give
+withSscConfiguration :: SscConfiguration -> (HasSscConfiguration => r) -> r
+withSscConfiguration = give
 
-gtConfiguration :: HasGtConfiguration => GtConfiguration
-gtConfiguration = given
+sscConfiguration :: HasSscConfiguration => SscConfiguration
+sscConfiguration = given
 
-data GtConfiguration = GtConfiguration
+data SscConfiguration = SscConfiguration
     { -- | Length of interval for sending MPC message
       ccMpcSendInterval               :: !Word
       -- | Threshold of epochs for malicious activity detection
@@ -37,7 +37,7 @@ data GtConfiguration = GtConfiguration
     }
     deriving (Show, Generic)
 
-instance FromJSON GtConfiguration where
+instance FromJSON SscConfiguration where
     parseJSON = genericParseJSON defaultOptions
 
 ----------------------------------------------------------------------------
@@ -45,19 +45,19 @@ instance FromJSON GtConfiguration where
 ----------------------------------------------------------------------------
 
 -- | Length of interval during which node should send her MPC message.
-mpcSendInterval :: HasGtConfiguration => Microsecond
-mpcSendInterval = sec . fromIntegral . ccMpcSendInterval $ gtConfiguration
+mpcSendInterval :: HasSscConfiguration => Microsecond
+mpcSendInterval = sec . fromIntegral . ccMpcSendInterval $ sscConfiguration
 
 -- | Number of epochs used by malicious actions detection to check if
 -- our commitments are not included in blockchain.
-mdNoCommitmentsEpochThreshold :: (HasGtConfiguration, Integral i) => i
+mdNoCommitmentsEpochThreshold :: (HasSscConfiguration, Integral i) => i
 mdNoCommitmentsEpochThreshold =
-    fromIntegral . ccMdNoCommitmentsEpochThreshold $ gtConfiguration
+    fromIntegral . ccMdNoCommitmentsEpochThreshold $ sscConfiguration
 
 -- | In the first mainnet version we messed up the calculation of the
 -- initial richmen set, and the richmen weren't sending commitments. It has
 -- been fixed, but now and for eternity the node prints “SSC couldn't
 -- compute seed” after processing blocks from the first epoch. This flag
 -- silences that message.
-noReportNoSecretsForEpoch1 :: HasGtConfiguration => Bool
-noReportNoSecretsForEpoch1 = ccNoReportNoSecretsForEpoch1 $ gtConfiguration
+noReportNoSecretsForEpoch1 :: HasSscConfiguration => Bool
+noReportNoSecretsForEpoch1 = ccNoReportNoSecretsForEpoch1 $ sscConfiguration

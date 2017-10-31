@@ -29,7 +29,7 @@ import           Pos.Configuration
 import           Pos.Core.Configuration
 import           Pos.Core.Types                   (Timestamp)
 import           Pos.Infra.Configuration
-import           Pos.Ssc.GodTossing.Configuration
+import           Pos.Ssc.Configuration
 import           Pos.Update.Configuration
 import           Pos.Util.Config                  (parseYamlConfig)
 
@@ -38,7 +38,7 @@ data Configuration = Configuration
     { ccCore   :: !CoreConfiguration
     , ccInfra  :: !InfraConfiguration
     , ccUpdate :: !UpdateConfiguration
-    , ccGt     :: !GtConfiguration
+    , ccGt     :: !SscConfiguration
     , ccNode   :: !NodeConfiguration
     } deriving (Show, Generic)
 
@@ -49,7 +49,7 @@ type HasConfigurations =
     ( HasConfiguration
     , HasInfraConfiguration
     , HasUpdateConfiguration
-    , HasGtConfiguration
+    , HasSscConfiguration
     , HasNodeConfiguration
     )
 
@@ -88,5 +88,5 @@ withConfigurations co@ConfigurationOptions{..} act = do
     withCoreConfigurations ccCore configurationDir cfoSystemStart $
         withInfraConfiguration ccInfra $
         withUpdateConfiguration ccUpdate $
-        withGtConfiguration ccGt $
+        withSscConfiguration ccGt $
         withNodeConfiguration ccNode $ act

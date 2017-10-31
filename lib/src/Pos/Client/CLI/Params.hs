@@ -26,7 +26,7 @@ import           Pos.Launcher                     (BaseParams (..), LoggingParam
                                                    NodeParams (..))
 import           Pos.Network.CLI                  (intNetworkConfigOpts)
 import           Pos.Ssc.GodTossing               (SscParams (..))
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.Configuration            (HasSscConfiguration)
 import           Pos.Update.Params                (UpdateParams (..))
 import           Pos.Util.UserSecret              (peekUserSecret)
 
@@ -65,7 +65,7 @@ getNodeParams ::
        , Mockable Catch m
        , Mockable Throw m
        , HasConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        )
     => CommonNodeArgs
     -> NodeArgs

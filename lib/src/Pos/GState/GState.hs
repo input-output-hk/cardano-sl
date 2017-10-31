@@ -25,7 +25,7 @@ import           Pos.DB.Rocks                     (DB (..), MonadRealDB, NodeDBs
                                                    usingReadOptions, usingSnapshot)
 import           Pos.Delegation.DB                (initGStateDlg)
 import           Pos.GState.BlockExtra            (initGStateBlockExtra)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.Configuration            (HasSscConfiguration)
 import           Pos.Ssc.GodTossing.DB            (initGtDB)
 import           Pos.Txp.DB                       (initGStateStakes, initGStateUtxo,
                                                    sanityCheckStakes, sanityCheckUtxo)
@@ -38,7 +38,7 @@ prepareGStateDB ::
        ( MonadReader ctx m
        , MonadDB m
        , HasConfiguration
-       , HasGtConfiguration)
+       , HasSscConfiguration)
     => HeaderHash
     -> m ()
 prepareGStateDB initialTip = unlessM isInitialized $ do

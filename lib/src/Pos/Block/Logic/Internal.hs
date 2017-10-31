@@ -51,7 +51,7 @@ import           Pos.Exception        (assertionFailed)
 import qualified Pos.GState           as GS
 import           Pos.Lrc.Context      (HasLrcContext)
 import           Pos.Reporting        (MonadReporting)
-import           Pos.Ssc.GodTossing   (HasGtConfiguration, MonadSscMem, sscApplyBlocks,
+import           Pos.Ssc.GodTossing   (HasSscConfiguration, MonadSscMem, sscApplyBlocks,
                                        sscRollbackBlocks)
 import           Pos.Ssc.LocalData    (sscNormalize)
 import           Pos.Ssc.Util         (toSscBlock)
@@ -83,7 +83,7 @@ type MonadBlockBase ctx m
        , Rand.MonadRandom m
        -- To report bad things.
        , MonadReporting ctx m
-       , HasGtConfiguration
+       , HasSscConfiguration
        )
 
 -- | Set of constraints necessary for high-level block verification.
@@ -119,7 +119,7 @@ type MonadMempoolNormalization ctx m
       -- 'MonadRandom' for crypto.
       , Rand.MonadRandom m
       , Mockable CurrentTime m
-      , HasGtConfiguration
+      , HasSscConfiguration
       )
 
 -- | Normalize mempool.

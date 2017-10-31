@@ -62,7 +62,7 @@ import           Pos.Launcher.Resource           (NodeResources (..), hoistNodeR
 import           Pos.Network.Types               (NetworkConfig (..), NodeId, initQueue,
                                                   topologyRoute53HealthCheckEnabled)
 import           Pos.Recovery.Instance           ()
-import           Pos.Ssc.GodTossing              (HasGtConfiguration)
+import           Pos.Ssc.GodTossing              (HasSscConfiguration)
 import           Pos.Statistics                  (EkgParams (..), StatsdParams (..))
 import           Pos.Txp                         (MonadTxpLocal)
 import           Pos.Update.Configuration        (HasUpdateConfiguration,
@@ -117,7 +117,7 @@ runRealModeDo
        , HasInfraConfiguration
        , HasUpdateConfiguration
        , HasNodeConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        , HasCompileInfo
        , Default ext
        , MonadTxpLocal (RealMode ext)

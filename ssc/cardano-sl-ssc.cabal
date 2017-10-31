@@ -45,7 +45,7 @@ library
     -- GodTossing
     Pos.Arbitrary.Ssc.GodTossing
 
-    Pos.Ssc.GodTossing.Configuration
+    Pos.Ssc.Configuration
 
     Pos.Ssc.GodTossing.Behavior
 

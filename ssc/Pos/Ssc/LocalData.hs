@@ -53,7 +53,7 @@ import           Pos.Ssc.Mem                        (MonadSscMem, askSscMem,
                                                      sscRunLocalSTM,
                                                      syncingStateWith)
 import           Pos.Ssc.Lrc                        (getSscRichmenFromLrc)
-import           Pos.Ssc.GodTossing.Configuration   (HasGtConfiguration)
+import           Pos.Ssc.Configuration              (HasSscConfiguration)
 import           Pos.Ssc.Core                       (SscPayload (..), InnerSharesMap,
                                                      Opening, SignedCommitment,
                                                      isCommitmentIdx, isOpeningIdx,
@@ -147,7 +147,7 @@ sscNormalize
        , WithLogger m
        , MonadIO m
        , Rand.MonadRandom m
-       , HasGtConfiguration
+       , HasSscConfiguration
        )
     => m ()
 sscNormalize = do
@@ -168,7 +168,7 @@ sscNormalize = do
     executeMonadBaseRandom seed = hoist $ hoist (pure . fst . Rand.withDRG seed)
 
 sscNormalizeU
-    :: (HasGtConfiguration, HasConfiguration, MonadState SscLocalData m,
+    :: (HasSscConfiguration, HasConfiguration, MonadState SscLocalData m,
         WithLogger m, Rand.MonadRandom m)
     => (EpochIndex, RichmenStakes)
     -> BlockVersionData
@@ -201,7 +201,7 @@ sscIsDataUseful
        , MonadSscMem ctx m
        , Rand.MonadRandom m
        , HasConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        )
     => GtTag -> StakeholderId -> m Bool
 sscIsDataUseful tag id =
@@ -241,7 +241,7 @@ type GtDataProcessingMode ctx m =
     , MonadSscMem ctx m
     , MonadError SscVerifyError m
     , HasConfiguration
-    , HasGtConfiguration
+    , HasSscConfiguration
     )
 
 -- | Process 'SignedCommitment' received from network, checking it against
@@ -312,7 +312,7 @@ sscProcessData tag payload =
     executeMonadBaseRandom seed = hoist $ hoist (pure . fst . Rand.withDRG seed)
 
 sscProcessDataDo
-    :: (HasGtConfiguration, HasConfiguration, MonadState SscLocalData m,
+    :: (HasSscConfiguration, HasConfiguration, MonadState SscLocalData m,
         WithLogger m, Rand.MonadRandom m)
     => (EpochIndex, RichmenStakes)
     -> BlockVersionData

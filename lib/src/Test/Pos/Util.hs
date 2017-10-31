@@ -6,7 +6,7 @@ module Test.Pos.Util
        , withDefConfiguration
        , withDefInfraConfiguration
        , withDefNodeConfiguration
-       , withDefGtConfiguration
+       , withDefSscConfiguration
        , withDefUpdateConfiguration
        , withDefConfigurations
        , withStaticConfigurations
@@ -42,8 +42,8 @@ import           Pos.Core                         (HasConfiguration, withGenesis
 import           Pos.Infra.Configuration          (HasInfraConfiguration,
                                                    withInfraConfiguration)
 import           Pos.Launcher.Configuration       (Configuration (..), HasConfigurations)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration,
-                                                   withGtConfiguration)
+import           Pos.Ssc.Configuration            (HasSscConfiguration,
+                                                   withSscConfiguration)
 import           Pos.Update.Configuration         (HasUpdateConfiguration,
                                                    withUpdateConfiguration)
 
@@ -54,15 +54,15 @@ import           Test.Pos.Configuration           (defaultTestConf)
 type HasStaticConfigurations =
     ( HasInfraConfiguration
     , HasUpdateConfiguration
-    , HasGtConfiguration
+    , HasSscConfiguration
     , HasNodeConfiguration
     )
 
 withDefNodeConfiguration :: (HasNodeConfiguration => r) -> r
 withDefNodeConfiguration = withNodeConfiguration (ccNode defaultTestConf)
 
-withDefGtConfiguration :: (HasGtConfiguration => r) -> r
-withDefGtConfiguration = withGtConfiguration (ccGt defaultTestConf)
+withDefSscConfiguration :: (HasSscConfiguration => r) -> r
+withDefSscConfiguration = withSscConfiguration (ccGt defaultTestConf)
 
 withDefUpdateConfiguration :: (HasUpdateConfiguration => r) -> r
 withDefUpdateConfiguration = withUpdateConfiguration (ccUpdate defaultTestConf)
@@ -76,7 +76,7 @@ withDefConfiguration = withGenesisSpec 0 (ccCore defaultTestConf)
 withStaticConfigurations :: (HasStaticConfigurations => r) -> r
 withStaticConfigurations patak =
     withDefNodeConfiguration $
-    withDefGtConfiguration $
+    withDefSscConfiguration $
     withDefUpdateConfiguration $
     withDefInfraConfiguration patak
 

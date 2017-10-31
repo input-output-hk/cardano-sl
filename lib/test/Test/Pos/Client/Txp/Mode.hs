@@ -39,7 +39,7 @@ import           Pos.Slotting                     (HasSlottingVar (..), MonadSlo
                                                    mkSimpleSlottingVar)
 import qualified Pos.Slotting                     as Slot
 import           Pos.Ssc.Types                    (SscBlock)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.Configuration            (HasSscConfiguration)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util.Util                    (Some, postfixLFields)
 
@@ -58,7 +58,7 @@ type TxpTestParams = TestParams
 
 type HasTxpConfigurations =
        ( HasNodeConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        , HasConfiguration
        , HasInfraConfiguration
        , HasUpdateConfiguration

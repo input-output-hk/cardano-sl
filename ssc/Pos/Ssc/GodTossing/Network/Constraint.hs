@@ -13,7 +13,7 @@ import           Pos.Communication.Limits.Types   (MessageLimited)
 import           Pos.Communication.Types.Relay    (DataMsg, InvOrData, ReqMsg, ReqOrRes)
 import           Pos.Core                         (HasConfiguration, StakeholderId)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.Configuration            (HasSscConfiguration)
 import           Pos.Ssc.GodTossing.Types.Message (MCCommitment, MCOpening, MCShares,
                                                    MCVssCertificate)
 
@@ -41,6 +41,6 @@ type GtMessageConstraints =
         , ReqOrRes (Tagged MCShares         StakeholderId)
         , ReqOrRes (Tagged MCVssCertificate StakeholderId) ]
     , HasConfiguration
-    , HasGtConfiguration
+    , HasSscConfiguration
     , HasInfraConfiguration
     )

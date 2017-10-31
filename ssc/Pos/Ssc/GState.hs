@@ -47,7 +47,7 @@ import           Pos.Lrc.Context                  (HasLrcContext)
 import           Pos.Lrc.Types                    (RichmenStakes)
 import           Pos.Reporting.Methods            (MonadReporting, reportError)
 import           Pos.Ssc.Core                     (SscPayload (..))
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.Configuration            (HasSscConfiguration)
 import qualified Pos.Ssc.GodTossing.DB            as DB
 import           Pos.Ssc.GodTossing.Functions     (getStableCertsPure)
 import           Pos.Ssc.GodTossing.Seed          (calculateSeed)
@@ -90,7 +90,7 @@ getGlobalCerts sl =
 
 -- | Get stable VSS certificates for given epoch.
 getStableCerts
-    :: (HasGtConfiguration, HasConfiguration, MonadSscMem ctx m, MonadIO m)
+    :: (HasSscConfiguration, HasConfiguration, MonadSscMem ctx m, MonadIO m)
     => EpochIndex -> m VssCertificatesMap
 getStableCerts epoch =
     getStableCertsPure epoch <$> sscRunGlobalQuery (view sgsVssCertificates)
@@ -153,7 +153,7 @@ sscRollbackBlocks blocks = sscRunGlobalUpdate $ do
     sscGlobalStateToBatch <$> get
 
 sscRollbackU
-  :: (HasGtConfiguration, HasConfiguration)
+  :: (HasSscConfiguration, HasConfiguration)
   => NewestFirst NE SscBlock -> SscGlobalUpdate ()
 sscRollbackU blocks = tossToUpdate $ rollbackGT oldestEOS payloads
   where
@@ -164,7 +164,7 @@ sscRollbackU blocks = tossToUpdate $ rollbackGT oldestEOS payloads
 -- | Verify SSC-related part of given blocks with respect to current GState
 -- and apply them on success. Blocks must be from the same epoch.
 sscVerifyAndApplyBlocks
-    :: (HasGtConfiguration, HasConfiguration)
+    :: (HasSscConfiguration, HasConfiguration)
     => RichmenStakes
     -> BlockVersionData
     -> OldestFirst NE SscBlock
@@ -176,7 +176,7 @@ sscVerifyAndApplyBlocks richmenStake bvd blocks =
     richmenData = HM.fromList [(epoch, richmenStake)]
 
 verifyAndApplyMultiRichmen
-    :: (HasGtConfiguration, HasConfiguration)
+    :: (HasSscConfiguration, HasConfiguration)
     => Bool
     -> (MultiRichmenStakes, BlockVersionData)
     -> OldestFirst NE SscBlock
@@ -333,7 +333,7 @@ sscVerifyBlocks blocks = do
 -- 'MonadIO' is needed only for 'TVar' (@gromak hopes).
 -- 'MonadRandom' is needed for crypto (@neongreen hopes).
 type SscGlobalVerifyMode ctx m =
-    (HasGtConfiguration,
+    (HasSscConfiguration,
      MonadSscMem ctx m,
      MonadReader ctx m, HasLrcContext ctx,
      MonadDBRead m, MonadGState m, WithLogger m, MonadReporting ctx m,

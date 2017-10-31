@@ -63,7 +63,7 @@ import           Pos.Slotting                          (getCurrentSlot,
 import           Pos.Ssc.GodTossing.Behavior           (GtBehavior (..),
                                                         GtOpeningParams (..),
                                                         GtSharesParams (..))
-import           Pos.Ssc.GodTossing.Configuration      (HasGtConfiguration,
+import           Pos.Ssc.Configuration                 (HasSscConfiguration,
                                                         mdNoCommitmentsEpochThreshold,
                                                         mpcSendInterval)
 import           Pos.Ssc.Core                          (Commitment (..), SignedCommitment,
@@ -314,7 +314,7 @@ sendOurData ::
     , Message (InvOrData (Tagged contents StakeholderId) contents)
     , Message (ReqOrRes (Tagged contents StakeholderId))
     , HasInfraConfiguration
-    , HasGtConfiguration
+    , HasSscConfiguration
     )
     => EnqueueMsg m
     -> GtTag
@@ -340,7 +340,7 @@ sendOurData enqueue msgTag ourId dt epoch slMultiplier = do
 -- synchronized).
 generateAndSetNewSecret
     :: forall ctx m.
-       (HasGtConfiguration, HasConfiguration, SscMode ctx m, Bi Commitment)
+       (HasSscConfiguration, HasConfiguration, SscMode ctx m, Bi Commitment)
     => SecretKey
     -> SlotId -- ^ Current slot
     -> m (Maybe SignedCommitment)
@@ -402,7 +402,7 @@ randomTimeInInterval interval =
     n = toInteger @Microsecond interval
 
 waitUntilSend
-    :: (HasInfraConfiguration, HasGtConfiguration, SscMode ctx m)
+    :: (HasInfraConfiguration, HasSscConfiguration, SscMode ctx m)
     => GtTag -> EpochIndex -> Word16 -> m ()
 waitUntilSend msgTag epoch slMultiplier = do
     let slot =
@@ -432,7 +432,7 @@ waitUntilSend msgTag epoch slMultiplier = do
 
 checkForIgnoredCommitmentsWorker
     :: forall ctx m.
-       (HasInfraConfiguration, HasGtConfiguration, SscMode ctx m)
+       (HasInfraConfiguration, HasSscConfiguration, SscMode ctx m)
     => (WorkerSpec m, OutSpecs)
 checkForIgnoredCommitmentsWorker = localWorker $ do
     counter <- newTVarIO 0
@@ -449,7 +449,7 @@ checkForIgnoredCommitmentsWorker = localWorker $ do
 -- detect unexpected absence of our commitment and is reset to 0 when
 -- our commitment appears in blocks.
 checkForIgnoredCommitmentsWorkerImpl
-    :: forall ctx m. (HasInfraConfiguration, HasGtConfiguration, SscMode ctx m)
+    :: forall ctx m. (HasInfraConfiguration, HasSscConfiguration, SscMode ctx m)
     => TVar Word -> SlotId -> m ()
 checkForIgnoredCommitmentsWorkerImpl counter SlotId {..}
     -- It's enough to do this check once per epoch near the end of the epoch.

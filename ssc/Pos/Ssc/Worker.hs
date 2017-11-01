@@ -60,9 +60,9 @@ import           Pos.Reporting                         (reportMisbehaviour)
 import           Pos.Slotting                          (getCurrentSlot,
                                                         getSlotStartEmpatically,
                                                         onNewSlot)
-import           Pos.Ssc.GodTossing.Behavior           (GtBehavior (..),
-                                                        GtOpeningParams (..),
-                                                        GtSharesParams (..))
+import           Pos.Ssc.Behavior                      (SscBehavior (..),
+                                                        SscOpeningParams (..),
+                                                        SscSharesParams (..))
 import           Pos.Ssc.Configuration                 (HasSscConfiguration,
                                                         mdNoCommitmentsEpochThreshold,
                                                         mpcSendInterval)
@@ -131,8 +131,8 @@ onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions ->
                 atomically . readTVar . scBehavior
             checkNSendOurCert sendActions
             onNewSlotCommitment slotId sendActions
-            onNewSlotOpening (gbSendOpening behavior) slotId sendActions
-            onNewSlotShares (gbSendShares behavior) slotId sendActions
+            onNewSlotOpening (sbSendOpening behavior) slotId sendActions
+            onNewSlotShares (sbSendShares behavior) slotId sendActions
   where
     outs = mconcat
         [ createOutSpecs (Proxy @(InvOrDataTK StakeholderId MCCommitment))
@@ -238,7 +238,7 @@ onNewSlotCommitment slotId@SlotId {..} sendActions
 -- Openings-related part of new slot processing
 onNewSlotOpening
     :: (GtMessageConstraints, SscMode ctx m)
-    => GtOpeningParams -> SlotId -> Worker m
+    => SscOpeningParams -> SlotId -> Worker m
 onNewSlotOpening params SlotId {..} sendActions
     | not $ isOpeningIdx siSlot = pass
     | otherwise = do
@@ -258,9 +258,9 @@ onNewSlotOpening params SlotId {..} sendActions
         "We don't know our opening, maybe we started recently"
     sendOpening ourId open = do
         mbOpen' <- case params of
-            GtOpeningNone   -> pure Nothing
-            GtOpeningNormal -> pure (Just open)
-            GtOpeningWrong  -> Just <$> liftIO (QC.generate QC.arbitrary)
+            SscOpeningNone   -> pure Nothing
+            SscOpeningNormal -> pure (Just open)
+            SscOpeningWrong  -> Just <$> liftIO (QC.generate QC.arbitrary)
         whenJust mbOpen' $ \open' -> do
             let msg = MCOpening ourId open'
             sscProcessOurMessage (sscProcessOpening ourId open')
@@ -269,7 +269,7 @@ onNewSlotOpening params SlotId {..} sendActions
 -- Shares-related part of new slot processing
 onNewSlotShares
     :: (GtMessageConstraints, SscMode ctx m)
-    => GtSharesParams -> SlotId -> Worker m
+    => SscSharesParams -> SlotId -> Worker m
 onNewSlotShares params SlotId {..} sendActions = do
     ourId <- getOurStakeholderId
     -- Send decrypted shares that others have sent us
@@ -282,9 +282,9 @@ onNewSlotShares params SlotId {..} sendActions = do
   where
     sendShares ourId shares = do
         let shares' = case params of
-                GtSharesNone   -> mempty
-                GtSharesNormal -> shares
-                GtSharesWrong  ->
+                SscSharesNone   -> mempty
+                SscSharesNormal -> shares
+                SscSharesWrong  ->
                     -- Take the list of items in the map, reverse it, put
                     -- items back. NB: this is different from “map reverse”!
                     -- We don't reverse lists of shares, we reassign those

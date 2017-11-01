@@ -50,7 +50,7 @@ import           Pos.Crypto                     (VssKeyPair)
 import           Pos.Ssc.Core                   (CommitmentsMap (getCommitmentsMap),
                                                  Opening, OpeningsMap, SharesMap,
                                                  SignedCommitment, SscPayload)
-import           Pos.Ssc.GodTossing.Behavior    (GtBehavior)
+import           Pos.Ssc.Behavior               (SscBehavior)
 import           Pos.Ssc.Toss.Types             (TossModifier)
 import qualified Pos.Ssc.VssCertData            as VCD
 import           Pos.Util.Util                  (Some)
@@ -123,7 +123,7 @@ data SscParams = SscParams
                                    --    SSC in case SSC requires
                                    --    participation.
     , spVssKeyPair :: !VssKeyPair  -- ^ Key pair used for secret sharing
-    , spBehavior   :: !GtBehavior  -- ^ Settings for the algorithm
+    , spBehavior   :: !SscBehavior -- ^ Settings for the algorithm
     }
 
 -- | SSC specific context in NodeContext
@@ -132,10 +132,10 @@ data SscContext = SscContext
       -- | Vss key pair used for MPC.
       scVssKeyPair     :: !VssKeyPair
     , -- | Flag which determines whether we want to participate in SSC.
-      -- TODO: consider putting it into GtBehavior?
+      -- TODO: consider putting it into SscBehavior?
       scParticipateSsc :: !(TVar Bool)
     , -- | Settings for the algorithm
-      scBehavior       :: !(TVar GtBehavior)
+      scBehavior       :: !(TVar SscBehavior)
     }
 
 createSscContext :: MonadIO m => SscParams -> m SscContext

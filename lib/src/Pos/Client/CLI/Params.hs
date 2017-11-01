@@ -48,7 +48,7 @@ gtSscParams CommonNodeArgs {..} vssSK BehaviorConfig{..} =
     SscParams
     { spSscEnabled = True
     , spVssKeyPair = vssSK
-    , spBehavior   = bcGtBehavior
+    , spBehavior   = bcSscBehavior
     }
 
 getKeyfilePath :: CommonNodeArgs -> FilePath

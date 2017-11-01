@@ -36,6 +36,7 @@ library
     Pos.Ssc.VssCertData
     Pos.Ssc.Seed
     Pos.Ssc.Configuration
+    Pos.Ssc.Behavior
 
     Pos.Ssc.Toss
     Pos.Ssc.Toss.Logic
@@ -59,8 +60,6 @@ library
 
     -- GodTossing
     Pos.Arbitrary.Ssc.GodTossing
-
-    Pos.Ssc.GodTossing.Behavior
 
     Pos.Ssc.GodTossing.DB
     Pos.Ssc.GodTossing.Shares

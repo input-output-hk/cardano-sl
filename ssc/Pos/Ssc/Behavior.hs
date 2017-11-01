@@ -1,7 +1,7 @@
-module Pos.Ssc.GodTossing.Behavior
-       ( GtBehavior (..)
-       , GtOpeningParams (..)
-       , GtSharesParams (..)
+module Pos.Ssc.Behavior
+       ( SscBehavior (..)
+       , SscOpeningParams (..)
+       , SscSharesParams (..)
        ) where
 
 import           Universum
@@ -23,47 +23,47 @@ import           Serokell.Aeson.Options (defaultOptions)
 --     sendOpening: Normal | None | Wrong
 --     sendShares: Normal | None | Wrong
 -- @
-data GtBehavior = GtBehavior
+data SscBehavior = SscBehavior
     { -- | Opening settings (e.g. whether to send the opening at all)
-      gbSendOpening :: !GtOpeningParams
+      sbSendOpening :: !SscOpeningParams
       -- | Shares settings (e.g. whether to send rubbish instead of shares)
-    , gbSendShares  :: !GtSharesParams
+    , sbSendShares  :: !SscSharesParams
     }
     deriving (Eq, Show, Generic)
 
-data GtOpeningParams
-    = GtOpeningNormal    -- ^ Normal mode of operation
-    | GtOpeningNone      -- ^ An opening is not sent to other nodes
-    | GtOpeningWrong     -- ^ An opening is generated at random and doesn't
-                         --    correspond to the commitment
+data SscOpeningParams
+    = SscOpeningNormal    -- ^ Normal mode of operation
+    | SscOpeningNone      -- ^ An opening is not sent to other nodes
+    | SscOpeningWrong     -- ^ An opening is generated at random and doesn't
+                          --    correspond to the commitment
     deriving (Eq, Show)
 
-data GtSharesParams
-    = GtSharesNormal     -- ^ Normal mode of operation
-    | GtSharesNone       -- ^ Decrypted shares are not sent to other nodes
-    | GtSharesWrong      -- ^ We randomly change contents of decrypted shares
+data SscSharesParams
+    = SscSharesNormal     -- ^ Normal mode of operation
+    | SscSharesNone       -- ^ Decrypted shares are not sent to other nodes
+    | SscSharesWrong      -- ^ We randomly change contents of decrypted shares
     deriving (Eq, Show)
 
 ----------------------------------------------------------------------------
 -- JSON/YAML parsing
 ----------------------------------------------------------------------------
 
-instance A.FromJSON GtBehavior where
+instance A.FromJSON SscBehavior where
     parseJSON = A.genericParseJSON defaultOptions
 
-instance A.FromJSON GtOpeningParams where
-    parseJSON = A.withText "GtOpeningParams" $ \case
-        "Normal" -> pure GtOpeningNormal
-        "None"   -> pure GtOpeningNone
-        "Wrong"  -> pure GtOpeningWrong
+instance A.FromJSON SscOpeningParams where
+    parseJSON = A.withText "SscOpeningParams" $ \case
+        "Normal" -> pure SscOpeningNormal
+        "None"   -> pure SscOpeningNone
+        "Wrong"  -> pure SscOpeningWrong
         other    -> fail ("invalid value " <> show other <>
                           ", acceptable values are Normal|None|Wrong")
 
-instance A.FromJSON GtSharesParams where
-    parseJSON = A.withText "GtSharesParams" $ \case
-        "Normal" -> pure GtSharesNormal
-        "None"   -> pure GtSharesNone
-        "Wrong"  -> pure GtSharesWrong
+instance A.FromJSON SscSharesParams where
+    parseJSON = A.withText "SscSharesParams" $ \case
+        "Normal" -> pure SscSharesNormal
+        "None"   -> pure SscSharesNone
+        "Wrong"  -> pure SscSharesWrong
         other    -> fail ("invalid value " <> show other <>
                           ", acceptable values are Normal|None|Wrong")
 
@@ -71,11 +71,11 @@ instance A.FromJSON GtSharesParams where
 -- Defaults
 ----------------------------------------------------------------------------
 
-instance Default GtBehavior where
-    def = GtBehavior def def
+instance Default SscBehavior where
+    def = SscBehavior def def
 
-instance Default GtOpeningParams where
-    def = GtOpeningNormal
+instance Default SscOpeningParams where
+    def = SscOpeningNormal
 
-instance Default GtSharesParams where
-    def = GtSharesNormal
+instance Default SscSharesParams where
+    def = SscSharesNormal

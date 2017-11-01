@@ -74,7 +74,7 @@ import           Pos.Ssc.Core                          (Commitment (..), SignedC
 import           Pos.Ssc.Functions                     (hasCommitment, hasOpening,
                                                         hasShares, vssThreshold)
 import           Pos.Ssc.GState                        (getGlobalCerts, getStableCerts,
-                                                        gtGetGlobalState)
+                                                        sscGetGlobalState)
 import           Pos.Ssc.LocalData                     (localOnNewSlot,
                                                         sscProcessCertificate,
                                                         sscProcessCommitment,
@@ -207,7 +207,7 @@ onNewSlotCommitment slotId@SlotId {..} sendActions
     | otherwise = do
         ourId <- getOurStakeholderId
         shouldSendCommitment <- andM
-            [ not . hasCommitment ourId <$> gtGetGlobalState
+            [ not . hasCommitment ourId <$> sscGetGlobalState
             , memberVss ourId <$> getStableCerts siEpoch]
         if shouldSendCommitment then
             logDebugS "We should send commitment"
@@ -243,7 +243,7 @@ onNewSlotOpening params SlotId {..} sendActions
     | not $ isOpeningIdx siSlot = pass
     | otherwise = do
         ourId <- getOurStakeholderId
-        globalData <- gtGetGlobalState
+        globalData <- sscGetGlobalState
         unless (hasOpening ourId globalData) $
             case globalData ^. sgsCommitments . to getCommitmentsMap . at ourId of
                 Nothing -> logDebugS noCommMsg
@@ -274,7 +274,7 @@ onNewSlotShares params SlotId {..} sendActions = do
     ourId <- getOurStakeholderId
     -- Send decrypted shares that others have sent us
     shouldSendShares <- do
-        sharesInBlockchain <- hasShares ourId <$> gtGetGlobalState
+        sharesInBlockchain <- hasShares ourId <$> sscGetGlobalState
         return $ isSharesIdx siSlot && not sharesInBlockchain
     when shouldSendShares $ do
         ourVss <- views sscContext scVssKeyPair
@@ -459,7 +459,7 @@ checkForIgnoredCommitmentsWorkerImpl counter SlotId {..}
         whenM (shouldParticipate siEpoch) $ do
             ourId <- getOurStakeholderId
             globalCommitments <-
-                getCommitmentsMap . view sgsCommitments <$> gtGetGlobalState
+                getCommitmentsMap . view sgsCommitments <$> sscGetGlobalState
             case globalCommitments ^. at ourId of
                 Nothing -> do
                     -- `modifyTVar'` returns (), hence not used

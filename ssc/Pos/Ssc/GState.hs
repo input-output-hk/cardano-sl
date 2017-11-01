@@ -14,7 +14,7 @@ module Pos.Ssc.GState
 
        -- * Global state
        , sscLoadGlobalState
-       , gtGetGlobalState
+       , sscGetGlobalState
 
        -- * Blocks
        , module Pos.Ssc.GState.BlockLogic
@@ -116,7 +116,7 @@ sscLoadGlobalState = do
     gs <- DB.getSscGlobalState
     gs <$ logInfo (sformat ("Loaded GodTossing state: " %build) gs)
 
-gtGetGlobalState
+sscGetGlobalState
     :: (MonadSscMem ctx m, MonadIO m)
     => m SscGlobalState
-gtGetGlobalState = sscRunGlobalQuery ask
+sscGetGlobalState = sscRunGlobalQuery ask

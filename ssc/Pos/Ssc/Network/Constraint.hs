@@ -1,6 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 
-module Pos.Ssc.GodTossing.Network.Constraint
+module Pos.Ssc.Network.Constraint
        ( GtMessageConstraints
        ) where
 

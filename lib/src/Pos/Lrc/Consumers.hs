@@ -10,7 +10,7 @@ import           Pos.Delegation.Lrc    (delegationLrcConsumer)
 import           Pos.Lrc.Consumer      (LrcConsumer)
 import           Pos.Lrc.Mode          (LrcMode)
 import           Pos.Ssc.Lrc           (sscLrcConsumer)
-import           Pos.Ssc.GodTossing.Network.Constraint (GtMessageConstraints)
+import           Pos.Ssc.Network.Constraint (GtMessageConstraints)
 import           Pos.Update.Lrc        (usLrcConsumer)
 
 allLrcConsumers

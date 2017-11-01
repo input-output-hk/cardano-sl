@@ -36,7 +36,7 @@ import           Pos.Ssc.LocalData                     (sscIsDataUseful,
                                                         sscProcessCommitment,
                                                         sscProcessOpening,
                                                         sscProcessShares)
-import           Pos.Ssc.GodTossing.Network.Constraint (GtMessageConstraints)
+import           Pos.Ssc.Network.Constraint            (GtMessageConstraints)
 import           Pos.Ssc.Toss                          (SscTag (..), TossModifier,
                                                         tmCertificates, tmCommitments,
                                                         tmOpenings, tmShares)

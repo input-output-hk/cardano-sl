@@ -1,6 +1,6 @@
 -- | DB operations for storing and dumping SscGlobalState.
 
-module Pos.Ssc.GodTossing.DB
+module Pos.Ssc.DB
        ( getSscGlobalState
        , gtGlobalStateToBatch
        , initGtDB

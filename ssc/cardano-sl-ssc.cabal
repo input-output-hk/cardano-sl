@@ -37,6 +37,9 @@ library
     Pos.Ssc.Seed
     Pos.Ssc.Configuration
     Pos.Ssc.Behavior
+    Pos.Ssc.Shares
+    Pos.Ssc.DB
+    Pos.Ssc.Network.Constraint
 
     Pos.Ssc.Toss
     Pos.Ssc.Toss.Logic
@@ -60,10 +63,6 @@ library
 
     -- GodTossing
     Pos.Arbitrary.Ssc.GodTossing
-
-    Pos.Ssc.GodTossing.DB
-    Pos.Ssc.GodTossing.Shares
-    Pos.Ssc.GodTossing.Network.Constraint
 
     Pos.Binary.GodTossing
     Pos.Binary.GodTossing.Core

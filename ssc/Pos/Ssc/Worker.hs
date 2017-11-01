@@ -80,9 +80,9 @@ import           Pos.Ssc.LocalData                     (localOnNewSlot,
                                                         sscProcessCommitment,
                                                         sscProcessOpening,
                                                         sscProcessShares)
-import           Pos.Ssc.GodTossing.Network.Constraint (GtMessageConstraints)
+import           Pos.Ssc.Network.Constraint            (GtMessageConstraints)
 import qualified Pos.Ssc.SecretStorage                 as SS
-import           Pos.Ssc.GodTossing.Shares             (getOurShares)
+import           Pos.Ssc.Shares                        (getOurShares)
 import           Pos.Ssc.Toss                          (computeParticipants,
                                                         computeSharesDistrPure)
 import           Pos.Ssc.Types                         (HasSscContext (..),

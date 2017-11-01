@@ -48,7 +48,7 @@ import           Pos.Lrc.Types                    (RichmenStakes)
 import           Pos.Reporting.Methods            (MonadReporting, reportError)
 import           Pos.Ssc.Core                     (SscPayload (..))
 import           Pos.Ssc.Configuration            (HasSscConfiguration)
-import qualified Pos.Ssc.GodTossing.DB            as DB
+import qualified Pos.Ssc.DB                       as DB
 import           Pos.Ssc.Functions                (getStableCertsPure)
 import           Pos.Ssc.Seed                     (calculateSeed)
 import           Pos.Ssc.Toss                     (MultiRichmenStakes, PureToss,

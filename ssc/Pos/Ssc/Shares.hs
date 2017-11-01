@@ -2,7 +2,7 @@
 
 -- | Logic of working with Shares.
 
-module Pos.Ssc.GodTossing.Shares
+module Pos.Ssc.Shares
        ( getOurShares
        ) where
 

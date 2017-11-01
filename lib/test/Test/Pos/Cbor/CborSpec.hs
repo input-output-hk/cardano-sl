@@ -28,7 +28,7 @@ import           Pos.Arbitrary.Core                ()
 import           Pos.Arbitrary.Delegation          ()
 import           Pos.Arbitrary.Infra               ()
 import           Pos.Arbitrary.Slotting            ()
-import           Pos.Arbitrary.Ssc.GodTossing      ()
+import           Pos.Arbitrary.Ssc                 ()
 import           Pos.Arbitrary.Update              ()
 import           Pos.Binary.Class
 import           Pos.Binary.Communication          ()

@@ -8,7 +8,7 @@
 -- Proof-of-Stake Blockchain Protocol”), section 4 for more details.
 
 module Pos.Ssc.GodTossing
-       ( module Pos.Arbitrary.Ssc.GodTossing
+       ( module Pos.Arbitrary.Ssc
        , module Pos.Ssc.Configuration
        , module Pos.Ssc.Core
        , module Pos.Ssc.Misc
@@ -30,7 +30,7 @@ module Pos.Ssc.GodTossing
        , module Pos.Ssc.Util
        ) where
 
-import           Pos.Arbitrary.Ssc.GodTossing
+import           Pos.Arbitrary.Ssc
 import           Pos.Binary.Ssc               ()
 import           Pos.Ssc.Configuration
 import           Pos.Ssc.Core

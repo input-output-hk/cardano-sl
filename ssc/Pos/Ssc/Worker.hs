@@ -21,7 +21,7 @@ import           Serokell.Util.Exceptions              ()
 import           Serokell.Util.Text                    (listJson)
 import qualified Test.QuickCheck                       as QC
 
-import           Pos.Arbitrary.Ssc.GodTossing          ()
+import           Pos.Arbitrary.Ssc                     ()
 import           Pos.Binary.Class                      (AsBinary, Bi, asBinary,
                                                         fromBinaryM)
 import           Pos.Binary.GodTossing                 ()

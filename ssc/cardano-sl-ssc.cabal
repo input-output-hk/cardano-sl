@@ -51,9 +51,9 @@ library
     Pos.Ssc.Toss.Trans
     Pos.Ssc.Toss.Types
 
-    -- SSC
     Pos.Arbitrary.Ssc
 
+    -- SSC
     Pos.Ssc.Mode
     Pos.Ssc.RichmenComponent
 
@@ -61,8 +61,6 @@ library
     Pos.Security.Util
 
     -- GodTossing
-    Pos.Arbitrary.Ssc.GodTossing
-
     Pos.Binary.GodTossing
     Pos.Binary.GodTossing.Core
     Pos.Binary.GodTossing.Types

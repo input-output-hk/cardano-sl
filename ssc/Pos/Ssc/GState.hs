@@ -51,7 +51,7 @@ import           Pos.Ssc.Configuration            (HasSscConfiguration)
 import qualified Pos.Ssc.GodTossing.DB            as DB
 import           Pos.Ssc.Functions                (getStableCertsPure)
 import           Pos.Ssc.Seed                     (calculateSeed)
-import           Pos.Ssc.GodTossing.Toss          (MultiRichmenStakes, PureToss,
+import           Pos.Ssc.Toss                     (MultiRichmenStakes, PureToss,
                                                    applyGenesisBlock, rollbackGT,
                                                    runPureTossWithLogger,
                                                    supplyPureTossEnv,

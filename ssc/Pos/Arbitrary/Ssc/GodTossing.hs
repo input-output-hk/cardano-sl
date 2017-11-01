@@ -34,7 +34,7 @@ import           Pos.Ssc.Core                      (Commitment (..), Commitments
                                                     isCommitmentId, isOpeningId,
                                                     isSharesId, mkCommitmentsMap,
                                                     mkCommitmentsMap, mkSignedCommitment)
-import           Pos.Ssc.GodTossing.Toss.Types     (TossModifier (..))
+import           Pos.Ssc.Toss.Types                (TossModifier (..))
 import           Pos.Ssc.Types.Message             (GtTag (..), MCCommitment (..),
                                                     MCOpening (..), MCShares (..),
                                                     MCVssCertificate (..))

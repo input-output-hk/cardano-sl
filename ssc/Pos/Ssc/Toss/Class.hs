@@ -2,7 +2,7 @@
 
 -- | Type classes for Toss abstraction.
 
-module Pos.Ssc.GodTossing.Toss.Class
+module Pos.Ssc.Toss.Class
        ( MonadTossRead (..)
        , MonadTossEnv (..)
        , MonadToss (..)

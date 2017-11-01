@@ -1,6 +1,6 @@
 -- | Main Toss logic.
 
-module Pos.Ssc.GodTossing.Toss.Logic
+module Pos.Ssc.Toss.Logic
        ( verifyAndApplySscPayload
        , applyGenesisBlock
        , rollbackGT
@@ -30,10 +30,10 @@ import           Pos.Ssc.Core                     (CommitmentsMap (..), SscPaylo
                                                    SignedCommitment, getCommitmentsMap,
                                                    spVss, mkCommitmentsMapUnsafe)
 import           Pos.Ssc.Functions                (verifySscPayload)
-import           Pos.Ssc.GodTossing.Toss.Base     (checkPayload)
-import           Pos.Ssc.GodTossing.Toss.Class    (MonadToss (..), MonadTossEnv (..))
+import           Pos.Ssc.Toss.Base                (checkPayload)
+import           Pos.Ssc.Toss.Class               (MonadToss (..), MonadTossEnv (..))
 import           Pos.Ssc.VerifyError              (SscVerifyError (..))
-import           Pos.Ssc.GodTossing.Toss.Types    (TossModifier (..))
+import           Pos.Ssc.Toss.Types               (TossModifier (..))
 import           Pos.Util.Chrono                  (NewestFirst (..))
 import           Pos.Util.Util                    (Some, inAssertMode, sortWithMDesc)
 

@@ -1,6 +1,6 @@
 -- | Types related to Toss.
 
-module Pos.Ssc.GodTossing.Toss.Types
+module Pos.Ssc.Toss.Types
        ( GtTag (..)
        , isGoodSlotForTag
        , isGoodSlotIdForTag

@@ -2,7 +2,7 @@
 
 -- | TossT monad transformer. Single-threaded.
 
-module Pos.Ssc.GodTossing.Toss.Trans
+module Pos.Ssc.Toss.Trans
        ( TossT
        , runTossT
        , evalTossT
@@ -19,9 +19,9 @@ import           Mockable                      (ChannelT, Promise, SharedAtomicT
 import           Pos.Core.Vss                  (insertVss)
 import           Pos.Ssc.Core                  (deleteSignedCommitment,
                                                 insertSignedCommitment)
-import           Pos.Ssc.GodTossing.Toss.Class (MonadToss (..), MonadTossEnv (..),
+import           Pos.Ssc.Toss.Class            (MonadToss (..), MonadTossEnv (..),
                                                 MonadTossRead (..))
-import           Pos.Ssc.GodTossing.Toss.Types (TossModifier (..), tmCertificates,
+import           Pos.Ssc.Toss.Types            (TossModifier (..), tmCertificates,
                                                 tmCommitments, tmOpenings, tmShares)
 import           Pos.Util.Util                 (ether)
 

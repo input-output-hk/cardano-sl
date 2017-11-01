@@ -21,7 +21,7 @@ import           Universum
 import           Pos.Core                      (StakeholderId, VssCertificate,
                                                 addressHash, getCertId)
 import           Pos.Ssc.Core                  (InnerSharesMap, Opening, SignedCommitment)
-import           Pos.Ssc.GodTossing.Toss.Types (GtTag (..))
+import           Pos.Ssc.Toss.Types            (GtTag (..))
 
 class HasGtTag a where
     toGtTag :: a -> GtTag

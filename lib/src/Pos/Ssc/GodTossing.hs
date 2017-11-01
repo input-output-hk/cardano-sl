@@ -23,7 +23,7 @@ module Pos.Ssc.GodTossing
        , module Pos.Ssc.SecretStorage
        , module Pos.Ssc.Seed
        , module Pos.Ssc.GState
-       , module Pos.Ssc.GodTossing.Toss
+       , module Pos.Ssc.Toss
        , module Pos.Ssc.Types
        , module Pos.Ssc.Types.Message
        , module Pos.Ssc.VssCertData
@@ -36,7 +36,7 @@ import           Pos.Ssc.Configuration
 import           Pos.Ssc.Core
 import           Pos.Ssc.Extra
 import           Pos.Ssc.Functions
-import           Pos.Ssc.GodTossing.Toss
+import           Pos.Ssc.Toss
 import           Pos.Ssc.GState
 import           Pos.Ssc.Listeners
 import           Pos.Ssc.LocalData

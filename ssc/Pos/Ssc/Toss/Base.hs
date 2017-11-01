@@ -2,7 +2,7 @@
 
 -- | Basic functionality from Toss.
 
-module Pos.Ssc.GodTossing.Toss.Base
+module Pos.Ssc.Toss.Base
        (
          -- * Trivial functions
          getCommitment
@@ -63,7 +63,7 @@ import           Pos.Ssc.Core                    (Commitment (..),
                                                   SignedCommitment, commShares,
                                                   getCommShares, spVss, verifyOpening,
                                                   vssThreshold)
-import           Pos.Ssc.GodTossing.Toss.Class   (MonadToss (..), MonadTossEnv (..),
+import           Pos.Ssc.Toss.Class              (MonadToss (..), MonadTossEnv (..),
                                                   MonadTossRead (..))
 import           Pos.Ssc.VerifyError             (SscVerifyError (..))
 import           Pos.Util.Util                   (getKeys)

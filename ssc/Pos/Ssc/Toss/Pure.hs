@@ -1,6 +1,6 @@
 -- | Pure Toss.
 
-module Pos.Ssc.GodTossing.Toss.Pure
+module Pos.Ssc.Toss.Pure
        ( PureToss (..)
        , PureTossWithEnv (..)
        , MultiRichmenStakes
@@ -26,7 +26,7 @@ import           Pos.Core                       (BlockVersionData, EpochIndex,
 import           Pos.Lrc.Types                  (RichmenSet, RichmenStakes)
 import           Pos.Ssc.Core                   (deleteSignedCommitment,
                                                  insertSignedCommitment)
-import           Pos.Ssc.GodTossing.Toss.Class  (MonadToss (..), MonadTossEnv (..),
+import           Pos.Ssc.Toss.Class             (MonadToss (..), MonadTossEnv (..),
                                                  MonadTossRead (..))
 import           Pos.Ssc.Types                  (SscGlobalState, sgsCommitments,
                                                  sgsOpenings, sgsShares,

@@ -35,6 +35,15 @@ library
     Pos.Ssc.SecretStorage
     Pos.Ssc.VssCertData
     Pos.Ssc.Seed
+    Pos.Ssc.Configuration
+
+    Pos.Ssc.Toss
+    Pos.Ssc.Toss.Logic
+    Pos.Ssc.Toss.Pure
+    Pos.Ssc.Toss.Base
+    Pos.Ssc.Toss.Class
+    Pos.Ssc.Toss.Trans
+    Pos.Ssc.Toss.Types
 
     -- SSC
     Pos.Arbitrary.Ssc
@@ -51,17 +60,7 @@ library
     -- GodTossing
     Pos.Arbitrary.Ssc.GodTossing
 
-    Pos.Ssc.Configuration
-
     Pos.Ssc.GodTossing.Behavior
-
-    Pos.Ssc.GodTossing.Toss
-    Pos.Ssc.GodTossing.Toss.Logic
-    Pos.Ssc.GodTossing.Toss.Pure
-    Pos.Ssc.GodTossing.Toss.Base
-    Pos.Ssc.GodTossing.Toss.Class
-    Pos.Ssc.GodTossing.Toss.Trans
-    Pos.Ssc.GodTossing.Toss.Types
 
     Pos.Ssc.GodTossing.DB
     Pos.Ssc.GodTossing.Shares

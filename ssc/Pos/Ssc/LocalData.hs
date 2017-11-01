@@ -58,7 +58,7 @@ import           Pos.Ssc.Core                       (SscPayload (..), InnerShare
                                                      Opening, SignedCommitment,
                                                      isCommitmentIdx, isOpeningIdx,
                                                      isSharesIdx, mkCommitmentsMap)
-import           Pos.Ssc.GodTossing.Toss            (GtTag (..), PureToss, TossT,
+import           Pos.Ssc.Toss                       (GtTag (..), PureToss, TossT,
                                                      evalPureTossWithLogger, evalTossT,
                                                      execTossT, hasCertificateToss,
                                                      hasCommitmentToss, hasOpeningToss,

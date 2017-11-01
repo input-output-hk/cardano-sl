@@ -159,15 +159,13 @@ import           Pos.Crypto.Signing.Types     (EncryptedSecretKey (..), PassPhra
                                                PublicKey (..), checkPassMatches)
 
 -- | Passphrase is a hash of root public key.
---- We don't use root public key to store money, we use its hash instead.
 data HDPassphrase = HDPassphrase !ByteString
     deriving Show
 
 -- | HDAddressPayload consists of
 --
--- * serialiazed and encrypted with symmetric scheme path from the
--- root key to given descendant key with passphrase (using
--- ChaChaPoly1305 algorithm)
+-- * serialiazed and encrypted using HDPassphrase derivation path from the
+-- root key to given descendant key (using ChaChaPoly1305 algorithm)
 --
 -- * cryptographic tag
 --
@@ -193,8 +191,8 @@ deriveHDPassphrase (PublicKey pk) = HDPassphrase $
     -- Password length in bytes
     passLen = 32
 
--- Direct children of node are numbered from 0 to 2^32-1. Children with
--- indices less than @firstHardened@ are non-hardened children.
+-- Direct children of node are numbered from 0 to 2^32-1.
+-- Children with indices less than @firstHardened@ are non-hardened children.
 firstHardened :: Word32
 firstHardened = 2 ^ (31 :: Word32)
 
@@ -217,7 +215,7 @@ deriveHDPublicKey (PublicKey xpub) childIndex
 -- | Whether to call @checkPassMatches@
 newtype ShouldCheckPassphrase = ShouldCheckPassphrase Bool
 
--- | Derive secret key from secret key.
+-- | Derive child's secret key from parent's secret key using user's passphrase.
 deriveHDSecretKey
     :: (Bi PassPhrase, Bi EncryptedPass)
     => ShouldCheckPassphrase
@@ -235,7 +233,7 @@ deriveHDSecretKey (ShouldCheckPassphrase checkPass) passPhrase encSK@(EncryptedS
 addrAttrNonce :: ByteString
 addrAttrNonce = "serokellfore"
 
--- | Serialize tree path and encrypt it using passphrase via ChaChaPoly1305.
+-- | Serialize tree path and encrypt it using HDPassphrase via ChaChaPoly1305.
 packHDAddressAttr :: HDPassphrase -> [Word32] -> HDAddressPayload
 packHDAddressAttr (HDPassphrase passphrase) path = do
     let !pathSer = serialize' path
@@ -249,6 +247,7 @@ packHDAddressAttr (HDPassphrase passphrase) path = do
         CryptoFailed er -> error $ "Error in packHDAddressAttr: " <> show er
         CryptoPassed p  -> HDAddressPayload p
 
+-- | Try to decrypt HDAddressPayload using HDPassphrase.
 unpackHDAddressAttr :: MonadFail m => HDPassphrase -> HDAddressPayload -> m [Word32]
 unpackHDAddressAttr (HDPassphrase passphrase) (HDAddressPayload payload) = do
     let !unpackCF =
@@ -265,7 +264,8 @@ unpackHDAddressAttr (HDPassphrase passphrase) (HDAddressPayload payload) = do
                 fail $ "Error in unpackHDAddressAttr, during deserialization: " <> show er
             Right path -> pure path
 
--- Wrapper around ChaChaPoly1305 module.
+-- | Take HDPassphrase as symmetric key and serialized derivation path
+-- and encrypt it using ChaChaPoly1305 scheme.
 encryptChaChaPoly
     :: ByteString -- Nonce (12 random bytes)
     -> ByteString -- Symmetric key (must be 32 bytes)
@@ -274,7 +274,7 @@ encryptChaChaPoly
                   -- but still want it to be part of tag digest.
                   -- So tag verifies validity of both encrypted data and unencrypted header.
     -> ByteString -- Input plaintext to be encrypted
-    -> CryptoFailable ByteString -- Ciphertext with a 128-bit tag attached
+    -> CryptoFailable ByteString -- Ciphertext with appended a 128-bit crypto-tag.
 encryptChaChaPoly nonce key header plaintext = do
     st1 <- C.nonce12 nonce >>= C.initialize key
     let st2 = C.finalizeAAD $ C.appendAAD header st1
@@ -286,13 +286,15 @@ toEither :: CryptoFailable a -> Either Text a
 toEither (CryptoPassed x)  = pure x
 toEither (CryptoFailed er) = Left $ show er
 
--- Wrapper around ChaChaPoly1305 module.
+-- | Take HDPassphrase as symmetric key and encrypted derivation path (aka HDPayload)
+-- and try to decrypt it.
+-- Verify that appended crypto-tag is the same as gotten in result of work ChaChaPoly1305.
 decryptChaChaPoly
     :: ByteString -- Nonce (12 random bytes)
     -> ByteString -- Symmetric key
     -> ByteString -- Encryption header, optional associated data.
     -> ByteString -- Input plaintext to be decrypted
-    -> Either Text ByteString -- Decrypted text
+    -> Either Text ByteString -- Decrypted text or error
 decryptChaChaPoly nonce key header encDataWithTag = do
     let tagSize = 16::Int
     let l = B.length encDataWithTag

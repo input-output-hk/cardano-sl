@@ -10,6 +10,7 @@ module Pos.Wallet.Web.Mode
        , MonadWalletWebSockets
        , MonadFullWalletWebMode
 
+       , getBalanceDefault
        , getOwnUtxosDefault
        , getNewAddressWebWallet
        ) where
@@ -378,4 +379,3 @@ instance (HasConfigurations, HasCompileInfo)
     -- BootstrapEra distribution.
     getFakeChangeAddress = pure largestHDAddressBoot
     getNewAddress = getNewAddressWebWallet
-

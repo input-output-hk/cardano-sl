@@ -44,7 +44,7 @@ import           Pos.Client.KeyStorage             (MonadKeys (..), MonadKeysRea
                                                     getSecretDefault,
                                                     modifySecretPureDefault)
 import           Pos.Client.Txp.Addresses          (MonadAddresses (..))
-import           Pos.Client.Txp.Balances           (MonadBalances (..), getBalanceDefault)
+import           Pos.Client.Txp.Balances           (MonadBalances (..))
 import           Pos.Client.Txp.History            (MonadTxHistory (..),
                                                     getBlockHistoryDefault,
                                                     getLocalHistoryDefault, saveTxDefault)
@@ -108,7 +108,7 @@ import           Pos.Wallet.Web.Networking         (MonadWalletSendActions (..))
 import           Pos.Wallet.WalletMode             (MonadBlockchainInfo (..),
                                                     MonadUpdates (..), WalletMempoolExt)
 import           Pos.Wallet.Web.ClientTypes        (AccountId)
-import           Pos.Wallet.Web.Mode               (getNewAddressWebWallet,
+import           Pos.Wallet.Web.Mode               (getBalanceDefault, getNewAddressWebWallet,
                                                     getOwnUtxosDefault)
 import           Pos.Wallet.Web.State              (MonadWalletDB, WalletState,
                                                     openMemState)

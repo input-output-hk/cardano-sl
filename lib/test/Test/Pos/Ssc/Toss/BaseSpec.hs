@@ -1,6 +1,6 @@
--- | Specification of Pos.Ssc.GodTossing.Toss.Base
+-- | Specification of Pos.Ssc.Toss.Base
 
-module Test.Pos.Ssc.GodTossing.Toss.BaseSpec
+module Test.Pos.Ssc.Toss.BaseSpec
        ( spec
        ) where
 
@@ -46,7 +46,7 @@ import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadSignedCommitm
 import           Test.Pos.Util         (qcElem, qcFail, qcIsRight, withDefConfiguration)
 
 spec :: Spec
-spec = withDefConfiguration $ describe "Ssc.GodTossing.Base" $ do
+spec = withDefConfiguration $ describe "Ssc.Base" $ do
     describe "verifyCommitment" $ do
         prop description_verifiesOkComm verifiesOkComm
     describe "verifyCommitmentSignature" $ do
@@ -250,7 +250,7 @@ checksBadCommsPayload
         someRichman =
             case res of
                 Just s -> s
-                _ -> error "Test.Pos.Ssc.GodTossing.Toss.BaseSpec.checkBadCommsPayload:\
+                _ -> error "Test.Pos.Ssc.Toss.BaseSpec.checkBadCommsPayload:\
                            \ empty commitments payload"
           where holders = HM.keys . getCommitmentsMap $ commsMap
                 randomIndex = fst $ randomR (0, length holders - 1) $ mkStdGen seed
@@ -519,8 +519,8 @@ instance HasConfiguration => Arbitrary GoodCertsPayload where
             gpMultiRichmenStakes :: MultiRichmenStakes
             gpMultiRichmenStakes = HM.insert gpEpoch richmen m
 
-        -- This is the list of participants in the 'GodTossing' protocol that will
-        -- have a certificate in the 'VssCertificatesMap' which'll be returned.
+        -- This is the list of participants in SSC that will have a
+        -- certificate in the 'VssCertificatesMap' which'll be returned.
         participants <- sublistOf $ HM.keys richmen
 
         -- This 'VssCertificatesMap' satisfies:

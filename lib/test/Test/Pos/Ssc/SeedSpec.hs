@@ -1,6 +1,6 @@
 -- | Specification of Pos.calculateSeed
 
-module Test.Pos.Ssc.GodTossing.SeedSpec
+module Test.Pos.Ssc.SeedSpec
        ( spec
        ) where
 

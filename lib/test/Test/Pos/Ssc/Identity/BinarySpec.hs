@@ -1,6 +1,6 @@
--- | This module tests Binary instances for Pos.Ssc.GodTossing types
+-- | This module tests Binary instances for Pos.Ssc types
 
-module Test.Pos.Ssc.GodTossing.Identity.BinarySpec
+module Test.Pos.Ssc.Identity.BinarySpec
        ( spec
        ) where
 
@@ -20,7 +20,7 @@ import           Test.Pos.Util           (withDefConfiguration, withDefInfraConf
 
 spec :: Spec
 spec = withDefInfraConfiguration $ withDefConfiguration $
-  describe "GodTossing" $ do
+  describe "Ssc" $ do
     describe "Bi instances" $ do
         binaryTest @GT.Commitment
         binaryTest @GT.CommitmentsMap

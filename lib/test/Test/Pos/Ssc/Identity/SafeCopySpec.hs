@@ -1,6 +1,6 @@
 -- | This module tests SafeCopy instances.
 
-module Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
+module Test.Pos.Ssc.Identity.SafeCopySpec
        ( spec
        ) where
 
@@ -13,7 +13,7 @@ import           Test.Pos.Helpers   (safeCopyTest)
 import           Test.Pos.Util      (withDefConfiguration)
 
 spec :: Spec
-spec = withDefConfiguration $ describe "GodTossing" $ do
+spec = withDefConfiguration $ describe "Ssc" $ do
     describe "SafeCopy instances" $ do
         safeCopyTest @GT.Commitment
         safeCopyTest @GT.CommitmentSignature

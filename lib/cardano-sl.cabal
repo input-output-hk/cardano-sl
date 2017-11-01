@@ -449,6 +449,14 @@ test-suite cardano-test
                        Test.Pos.Client.Txp.Util
                        Test.Pos.Client.Txp.UtilSpec
 
+                       -- Ssc
+                       Test.Pos.Ssc.ComputeSharesSpec
+                       Test.Pos.Ssc.Identity.BinarySpec
+                       Test.Pos.Ssc.Identity.SafeCopySpec
+                       Test.Pos.Ssc.SeedSpec
+                       Test.Pos.Ssc.Toss.BaseSpec
+                       Test.Pos.Ssc.VssCertDataSpec
+
                        -- Everything else
                        Test.Pos.Cbor.Canonicity
                        Test.Pos.Cbor.CborSpec
@@ -463,12 +471,6 @@ test-suite cardano-test
                        Test.Pos.MerkleSpec
                        Test.Pos.Slotting.TypesSpec
                        Test.Pos.Slotting.BinarySpec
-                       Test.Pos.Ssc.GodTossing.ComputeSharesSpec
-                       Test.Pos.Ssc.GodTossing.Identity.BinarySpec
-                       Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
-                       Test.Pos.Ssc.GodTossing.SeedSpec
-                       Test.Pos.Ssc.GodTossing.Toss.BaseSpec
-                       Test.Pos.Ssc.GodTossing.VssCertDataSpec
                        Test.Pos.Txp.CoreSpec
                        Test.Pos.Txp.Identity.BinarySpec
                        Test.Pos.Txp.Toil.UtxoSpec

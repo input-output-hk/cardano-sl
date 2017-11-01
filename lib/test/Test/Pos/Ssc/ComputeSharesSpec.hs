@@ -1,8 +1,8 @@
 {-# LANGUAGE RankNTypes #-}
 
--- | Specification of Pos.Ssc.GodTossing.Toss.Base.computeSharesdistr
+-- | Specification of Pos.Ssc.Toss.Base.computeSharesdistr
 
-module Test.Pos.Ssc.GodTossing.ComputeSharesSpec
+module Test.Pos.Ssc.ComputeSharesSpec
        ( spec
        ) where
 

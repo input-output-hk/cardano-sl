@@ -1,6 +1,6 @@
 -- | Tests for 'VssCertData': certificates with TTL.
 
-module Test.Pos.Ssc.GodTossing.VssCertDataSpec
+module Test.Pos.Ssc.VssCertDataSpec
        ( spec
        ) where
 
@@ -31,7 +31,7 @@ import           Pos.Util.Chrono       (NewestFirst (..))
 import           Test.Pos.Util         (qcIsJust, withDefConfiguration)
 
 spec :: Spec
-spec = withDefConfiguration $ describe "Ssc.GodTossing.VssCertData" $ do
+spec = withDefConfiguration $ describe "Ssc.VssCertData" $ do
     describe "verifyInsertVssCertData" $
         prop description_verifyInsertVssCertData verifyInsertVssCertData
     describe "verifyDeleteVssCertData" $

@@ -110,7 +110,7 @@ syncProgress =
 
 localTimeDifference :: (NtpCheckMonad m, MonadMockable m) => m Word
 localTimeDifference =
-    mkNtpStatusVar >>= readMVar >>= pure . diff
+    diff <$> (mkNtpStatusVar >>= readMVar)
   where
     diff :: NtpStatus -> Word
     diff = \case

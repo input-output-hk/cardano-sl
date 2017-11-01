@@ -85,7 +85,7 @@ withConnState
     => ConnectionsVar
     -> NamedPureLogger (StateT ConnectionsState STM) a
     -> m a
-withConnState var = launchNamedPureLog $ liftIO . atomically . modifyTVarS var
+withConnState var = launchNamedPureLog $ atomically . modifyTVarS var
 
 askingConnState
     :: MonadIO m

@@ -58,7 +58,7 @@ deserialise bytes =
 newtype Decoder a = Decoder { runDecoder :: [Word8] -> Maybe (a, [Word8]) }
 
 instance Functor Decoder where
-  fmap f a = a >>= return . f
+  fmap f a = f <$> a
 
 instance Applicative Decoder where
   pure  = return
@@ -71,7 +71,7 @@ instance Monad Decoder where
                                Just (x, ws') -> runDecoder (f x) ws')
 
 instance MonadFail Decoder where
-  fail _   = Decoder (\_ -> Nothing)
+  fail _   = Decoder (const Nothing)
 
 getByte :: Decoder Word8
 getByte =
@@ -375,7 +375,7 @@ packToken (TokenHeader mt ai) extra = case (mt, ai) of
     (MajorType7, AiValue (UInt16    w)) -> return (MT7_Float16 (wordToHalf w))
     (MajorType7, AiValue (UInt32    w)) -> return (MT7_Float32 (wordToFloat w))
     (MajorType7, AiValue (UInt64    w)) -> return (MT7_Float64 (wordToDouble w))
-    (MajorType7, AiIndefLen)            -> return (MT7_Break)
+    (MajorType7, AiIndefLen)            -> return MT7_Break
     _                                   -> Left "invalid token header"
 
 

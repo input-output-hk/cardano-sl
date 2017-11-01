@@ -152,7 +152,6 @@ library
                         Pos.Binary.Block.Core
                         Pos.Binary.Block.Slog
                         Pos.Binary.Delegation
-                        Pos.Binary.Ssc
                         Pos.Binary.Txp
                         Pos.Binary.Txp.Network
 

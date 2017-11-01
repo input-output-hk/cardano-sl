@@ -6,7 +6,7 @@ module Pos.Ssc.SecretStorage
 
 import           Universum
 
-import           Pos.Binary.GodTossing.Types ()
+import           Pos.Binary.Ssc.Types        ()
 import           Pos.Core                    (EpochIndex)
 import           Pos.DB                      (MonadDB, MonadDBRead)
 import           Pos.DB.Misc.Common          (miscGetBi, miscPutBi)

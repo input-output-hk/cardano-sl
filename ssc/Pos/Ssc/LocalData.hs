@@ -33,7 +33,7 @@ import           System.Wlog                        (WithLogger, logWarning,
                                                      launchNamedPureLog)
 
 import           Pos.Binary.Class                   (biSize)
-import           Pos.Binary.GodTossing              ()
+import           Pos.Binary.Ssc                     ()
 import           Pos.Core                           (BlockVersionData (..), EpochIndex,
                                                      HasConfiguration, SlotId (..),
                                                      IsHeader, StakeholderId,

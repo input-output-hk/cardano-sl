@@ -1,4 +1,4 @@
-module Pos.Binary.GodTossing.Relay
+module Pos.Binary.Ssc.Relay
        (
        ) where
 

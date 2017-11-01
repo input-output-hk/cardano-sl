@@ -16,7 +16,7 @@ import           System.Wlog                           (logDebug)
 
 import           Pos.Binary.Class                      (Bi)
 import           Pos.Binary.Crypto                     ()
-import           Pos.Binary.GodTossing                 ()
+import           Pos.Binary.Ssc                        ()
 import           Pos.Binary.Infra                      ()
 import           Pos.Communication.Limits.Types        (MessageLimited)
 import           Pos.Communication.Relay               (DataMsg, InvOrData,

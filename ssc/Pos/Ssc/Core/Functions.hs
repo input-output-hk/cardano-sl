@@ -48,7 +48,7 @@ import           Serokell.Util              (VerificationRes, verifyGeneric)
 
 import           Pos.Binary.Class           (Bi, asBinary, biSize, fromBinaryM)
 import           Pos.Binary.Crypto          ()
-import           Pos.Binary.GodTossing.Core ()
+import           Pos.Binary.Ssc.Core        ()
 import           Pos.Core                   (EpochIndex (..), LocalSlotIndex,
                                              SharedSeed (..), SlotCount, SlotId (..),
                                              StakeholderId, unsafeMkLocalSlotIndex)

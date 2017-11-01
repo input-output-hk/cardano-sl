@@ -22,7 +22,7 @@ import qualified Data.HashMap.Strict             as HM
 import           Serokell.Util.Verify            (isVerSuccess)
 
 import           Pos.Binary.Crypto               ()
-import           Pos.Binary.GodTossing.Core      ()
+import           Pos.Binary.Ssc.Core             ()
 import           Pos.Core                        (EpochIndex (..), HasConfiguration,
                                                   HasGenesisData, HasProtocolConstants,
                                                   IsMainHeader, SlotId (..),

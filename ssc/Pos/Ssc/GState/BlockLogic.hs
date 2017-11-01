@@ -18,7 +18,7 @@ import           Serokell.Util         (listJson)
 import           System.Wlog           (WithLogger, logDebug)
 import           Universum
 
-import           Pos.Binary.GodTossing ()
+import           Pos.Binary.Ssc        ()
 import           Pos.Core              (BlockVersionData, HasConfiguration, HeaderHash,
                                         epochIndexL, epochOrSlotG, headerHash)
 import           Pos.DB                (MonadDBRead, MonadGState, SomeBatchOp (..),

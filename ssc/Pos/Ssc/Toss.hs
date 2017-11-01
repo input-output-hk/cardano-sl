@@ -2,4 +2,4 @@
 
 {-# OPTIONS_GHC -F -pgmF autoexporter #-}
 
-import           Pos.Binary.GodTossing.Toss ()
+import           Pos.Binary.Ssc.Toss ()

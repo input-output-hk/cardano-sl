@@ -17,7 +17,7 @@ import           Test.QuickCheck                   (Arbitrary (..), Gen, choose,
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
 import           Pos.Arbitrary.Core.Unsafe         ()
-import           Pos.Binary.GodTossing             ()
+import           Pos.Binary.Ssc                    ()
 import           Pos.Communication.Types.Relay     (DataMsg (..))
 import           Pos.Core                          (EpochIndex, HasConfiguration,
                                                     SlotId (..), VssCertificate (..),

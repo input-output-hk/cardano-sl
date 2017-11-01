@@ -24,7 +24,7 @@ import qualified Test.QuickCheck                       as QC
 import           Pos.Arbitrary.Ssc                     ()
 import           Pos.Binary.Class                      (AsBinary, Bi, asBinary,
                                                         fromBinaryM)
-import           Pos.Binary.GodTossing                 ()
+import           Pos.Binary.Ssc                        ()
 import           Pos.Binary.Infra                      ()
 import           Pos.Communication.Protocol            (EnqueueMsg, Message, MsgType (..),
                                                         Origin (..), OutSpecs,

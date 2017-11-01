@@ -1,6 +1,6 @@
 -- | Binary instances for Toss types.
 
-module Pos.Binary.GodTossing.Toss
+module Pos.Binary.Ssc.Toss
        (
        ) where
 

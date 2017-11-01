@@ -13,7 +13,7 @@ import qualified Data.Text.Buildable
 import qualified Database.RocksDB               as Rocks
 import           Formatting                     (bprint, build, (%))
 
-import           Pos.Binary.GodTossing          ()
+import           Pos.Binary.Ssc                 ()
 import           Pos.Core                       (HasConfiguration, genesisVssCerts)
 import           Pos.DB                         (MonadDB, MonadDBRead, RocksBatchOp (..))
 import           Pos.DB.Error                   (DBError (DBMalformed))

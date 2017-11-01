@@ -53,19 +53,17 @@ library
 
     Pos.Arbitrary.Ssc
 
-    -- SSC
+    Pos.Binary.Ssc
+    Pos.Binary.Ssc.Core
+    Pos.Binary.Ssc.Types
+    Pos.Binary.Ssc.Toss
+    Pos.Binary.Ssc.Relay
+
     Pos.Ssc.Mode
     Pos.Ssc.RichmenComponent
 
     Pos.Security.Params
     Pos.Security.Util
-
-    -- GodTossing
-    Pos.Binary.GodTossing
-    Pos.Binary.GodTossing.Core
-    Pos.Binary.GodTossing.Types
-    Pos.Binary.GodTossing.Toss
-    Pos.Binary.GodTossing.Relay
 
   build-depends:       QuickCheck
                      , aeson

@@ -41,7 +41,7 @@ import           Pos.Reporting               (HasReportingContext, MonadReportin
 import           Pos.Security.Params         (SecurityParams)
 import           Pos.Shutdown                (HasShutdownContext)
 import           Pos.Slotting.Class          (MonadSlots)
-import           Pos.Ssc.GodTossing          (HasSscConfiguration)
+import           Pos.Ssc                     (HasSscConfiguration)
 import           Pos.Ssc.Mem                 (MonadSscMem)
 import           Pos.StateLock               (StateLock, StateLockMetrics)
 import           Pos.Txp.MemState            (MempoolExt, MonadTxpLocal, MonadTxpMem)

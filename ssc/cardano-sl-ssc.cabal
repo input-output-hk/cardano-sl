@@ -13,6 +13,8 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+    Pos.Ssc
+
     Pos.Ssc.Core
     Pos.Ssc.Core.Types
     Pos.Ssc.Core.Functions
@@ -23,13 +25,12 @@ library
     Pos.Ssc.Types
     Pos.Ssc.Types.Message
 
-    Pos.Ssc.Listeners
-    Pos.Ssc.Worker
-    Pos.Ssc.Lrc
-
     Pos.Ssc.GState
     Pos.Ssc.GState.BlockLogic
 
+    Pos.Ssc.Listeners
+    Pos.Ssc.Worker
+    Pos.Ssc.Lrc
     Pos.Ssc.LocalData
     Pos.Ssc.Mem
     Pos.Ssc.Functions
@@ -42,6 +43,8 @@ library
     Pos.Ssc.DB
     Pos.Ssc.Network.Constraint
     Pos.Ssc.Misc
+    Pos.Ssc.Mode
+    Pos.Ssc.RichmenComponent
 
     Pos.Ssc.Toss
     Pos.Ssc.Toss.Logic
@@ -58,9 +61,6 @@ library
     Pos.Binary.Ssc.Types
     Pos.Binary.Ssc.Toss
     Pos.Binary.Ssc.Relay
-
-    Pos.Ssc.Mode
-    Pos.Ssc.RichmenComponent
 
     Pos.Security.Params
     Pos.Security.Util

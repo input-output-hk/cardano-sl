@@ -20,7 +20,7 @@ import           Pos.Network.Types       (NetworkConfig (..), SubscriptionWorker
                                           topologyRunKademlia, topologySubscriptionWorker)
 import           Pos.Security.Workers    (securityWorkers)
 import           Pos.Slotting            (logNewSlotWorker, slottingWorkers)
-import           Pos.Ssc.GodTossing      (sscRelays)
+import           Pos.Ssc                 (sscRelays)
 import           Pos.Ssc.Worker          (sscWorkers)
 import           Pos.Subscription.Common (subscriptionWorker)
 import           Pos.Subscription.Dht    (dhtSubscriptionWorker)

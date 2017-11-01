@@ -28,8 +28,9 @@ import           Pos.Core              (Coin, EpochIndex, EpochOrSlot (..),
 import           Pos.Crypto            (DecShare, PublicKey, SecretKey,
                                         SignTag (SignCommitment), sign, toPublic)
 import           Pos.Lrc.Types         (RichmenStakes)
-import           Pos.Ssc.GodTossing    (BadCommAndOpening (..), BadSignedCommitment (..),
-                                        Commitment, CommitmentOpening (..),
+import           Pos.Arbitrary.Ssc     (BadCommAndOpening (..), BadSignedCommitment (..),
+                                        CommitmentOpening (..))
+import           Pos.Ssc               (Commitment,
                                         CommitmentSignature, CommitmentsMap (..),
                                         SscGlobalState (..), InnerSharesMap,
                                         MultiRichmenStakes, Opening, OpeningsMap,

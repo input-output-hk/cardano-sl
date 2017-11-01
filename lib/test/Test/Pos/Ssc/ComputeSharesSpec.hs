@@ -22,7 +22,7 @@ import           Pos.Core              (Coin, CoinPortion, StakeholderId, mkCoin
 import           Pos.Core.Coin         (applyCoinPortionDown, sumCoins)
 import           Pos.Lrc               (RichmenStakes, RichmenType (RTUsual),
                                         findRichmenPure)
-import           Pos.Ssc.GodTossing    (SharesDistribution, SscVerifyError,
+import           Pos.Ssc               (SharesDistribution, SscVerifyError,
                                         computeSharesDistrPure,
                                         isDistrInaccuracyAcceptable,
                                         sharesDistrMaxSumDistr)

@@ -39,7 +39,7 @@ import qualified Pos.GState                      as GS
 import qualified Pos.Lrc.DB                      as LrcDB
 import           Pos.Network.Types               (Bucket (BucketSubscriptionListener),
                                                   Topology, topologyMaxBucketSize)
-import           Pos.Ssc.GodTossing              (scParticipateSsc)
+import           Pos.Ssc                         (scParticipateSsc)
 import           Pos.Txp                         (TxOut (..), toaOut)
 import           Pos.Txp.MemState                (GenericTxpLocalData, MempoolExt,
                                                   askTxpMem, getLocalTxs)

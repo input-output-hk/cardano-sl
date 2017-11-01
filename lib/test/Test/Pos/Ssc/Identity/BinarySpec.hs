@@ -13,7 +13,7 @@ import           Pos.Arbitrary.Infra     ()
 import           Pos.Binary              ()
 import qualified Pos.Communication.Relay as R
 import           Pos.Core                (StakeholderId)
-import qualified Pos.Ssc.GodTossing      as Ssc
+import qualified Pos.Ssc                 as Ssc
 
 import           Test.Pos.Helpers        (binaryTest, msgLenLimitedTest)
 import           Test.Pos.Util           (withDefConfiguration, withDefInfraConfiguration)

@@ -39,7 +39,8 @@ import           Pos.Core                 (HeaderHash, epochIndexL, headerHashG,
 import           Pos.Delegation.Logic     (dlgVerifyBlocks)
 import qualified Pos.GState               as GS
 import           Pos.Lrc.Worker           (LrcModeFull, lrcSingleShot)
-import           Pos.Ssc.GodTossing       (sscVerifyBlocks, toSscBlock)
+import           Pos.Ssc                  (sscVerifyBlocks)
+import           Pos.Ssc.Util             (toSscBlock)
 import           Pos.Txp.Settings         (TxpGlobalSettings (..))
 import           Pos.Update.Logic         (usVerifyBlocks)
 import           Pos.Update.Poll          (PollModifier)

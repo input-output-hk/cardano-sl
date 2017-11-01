@@ -51,9 +51,8 @@ import           Pos.Exception        (assertionFailed)
 import qualified Pos.GState           as GS
 import           Pos.Lrc.Context      (HasLrcContext)
 import           Pos.Reporting        (MonadReporting)
-import           Pos.Ssc.GodTossing   (HasSscConfiguration, MonadSscMem, sscApplyBlocks,
-                                       sscRollbackBlocks)
-import           Pos.Ssc.LocalData    (sscNormalize)
+import           Pos.Ssc              (HasSscConfiguration, MonadSscMem, sscApplyBlocks,
+                                       sscNormalize, sscRollbackBlocks)
 import           Pos.Ssc.Util         (toSscBlock)
 import           Pos.Txp.Core         (TxPayload)
 import           Pos.Txp.MemState     (MonadTxpLocal (..))

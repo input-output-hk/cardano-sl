@@ -25,7 +25,7 @@ import           Pos.Delegation.Listeners        (delegationRelays)
 import           Pos.Network.Types               (Bucket, NodeId, Topology,
                                                   topologySubscribers)
 import           Pos.Subscription.Common         (subscriptionListeners)
-import           Pos.Ssc.GodTossing              (sscRelays)
+import           Pos.Ssc                         (sscRelays)
 import           Pos.Txp                         (txRelays)
 import           Pos.Update                      (usRelays)
 import           Pos.WorkMode.Class              (WorkMode)

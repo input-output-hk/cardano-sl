@@ -11,7 +11,7 @@ import           Universum
 import           Pos.Arbitrary.Txp.Unsafe ()
 import           Pos.Core                 (HasConfiguration)
 import           Pos.Crypto               (SecretKey, SignTag (SignTx), sign)
-import           Pos.Ssc.GodTossing       ()
+import           Pos.Ssc                  ()
 import           Pos.Txp                  (TxId, TxSig, TxSigData (..))
 import           Pos.Util                 (arbitraryUnsafe)
 

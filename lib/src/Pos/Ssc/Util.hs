@@ -8,8 +8,7 @@ import           Pos.Binary.Block      ()
 import           Pos.Block.Core        (Block, GenesisBlock, MainBlock, mbSscPayload)
 import           Pos.Core              (HasConfiguration, IsGenesisHeader, IsMainHeader,
                                         gbBody, gbHeader)
-import           Pos.Ssc.Types         (SscBlock (..))
-import           Pos.Ssc.Core          (SscPayload)
+import           Pos.Ssc               (SscBlock (..), SscPayload)
 import           Pos.Util              (Some (..))
 
 -- [CSL-1156] Totally need something more elegant

@@ -7,7 +7,7 @@ module Test.Pos.Ssc.Identity.SafeCopySpec
 import           Test.Hspec         (Spec, describe)
 import           Universum
 
-import qualified Pos.Ssc.GodTossing as Ssc
+import qualified Pos.Ssc            as Ssc
 
 import           Test.Pos.Helpers   (safeCopyTest)
 import           Test.Pos.Util      (withDefConfiguration)

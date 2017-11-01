@@ -22,7 +22,7 @@ import           Pos.Core              (EpochIndex (..), EpochOrSlot (..),
                                         getVssCertificatesMap, mkVssCertificate,
                                         slotSecurityParam)
 import           Pos.Core.Slotting     (flattenEpochOrSlot, unflattenSlotId)
-import           Pos.Ssc.GodTossing    (SscGlobalState (..), VssCertData (..), delete,
+import           Pos.Ssc               (SscGlobalState (..), VssCertData (..), delete,
                                         empty, expiryEoS, filter, sgsVssCertificates,
                                         insert, keys, lookup, member, rollbackGT,
                                         runPureToss, setLastKnownSlot)

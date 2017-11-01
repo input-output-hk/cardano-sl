@@ -53,7 +53,7 @@ import           Pos.Lrc.Logic                         (findAllRichmenMaybe)
 import           Pos.Lrc.Mode                          (LrcMode)
 import           Pos.Reporting                         (reportMisbehaviour)
 import           Pos.Slotting                          (MonadSlots)
-import           Pos.Ssc.GodTossing                    (MonadSscMem,
+import           Pos.Ssc                               (MonadSscMem,
                                                         noReportNoSecretsForEpoch1,
                                                         sscCalculateSeed)
 import           Pos.Ssc.Network.Constraint            (GtMessageConstraints)

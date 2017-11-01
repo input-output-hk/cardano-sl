@@ -72,9 +72,6 @@ library
                         Pos.Security
                         Pos.Security.Workers
 
-                        -- SSC
-                        Pos.Ssc.GodTossing
-
                         -- Statistics
                         Pos.Statistics
 
@@ -597,6 +594,7 @@ benchmark cardano-bench-criterion
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-txp
+                     , cardano-sl-ssc
                      , cardano-sl
                      , containers
                      , criterion

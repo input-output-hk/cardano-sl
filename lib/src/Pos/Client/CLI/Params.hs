@@ -25,7 +25,7 @@ import           Pos.Crypto                       (VssKeyPair)
 import           Pos.Launcher                     (BaseParams (..), LoggingParams (..),
                                                    NodeParams (..))
 import           Pos.Network.CLI                  (intNetworkConfigOpts)
-import           Pos.Ssc.GodTossing               (SscParams (..))
+import           Pos.Ssc                          (SscParams (..))
 import           Pos.Ssc.Configuration            (HasSscConfiguration)
 import           Pos.Update.Params                (UpdateParams (..))
 import           Pos.Util.UserSecret              (peekUserSecret)

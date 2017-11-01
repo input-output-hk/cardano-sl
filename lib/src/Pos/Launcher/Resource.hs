@@ -65,10 +65,8 @@ import           Pos.Network.Types                (NetworkConfig (..), Topology 
 import           Pos.Shutdown.Types               (ShutdownContext (..))
 import           Pos.Slotting                     (SlottingContextSum (..), SlottingData,
                                                    mkNtpSlottingVar, mkSimpleSlottingVar)
-import           Pos.Ssc.Types                    (SscParams,
-                                                   createSscContext)
-import           Pos.Ssc.Extra                    (SscState, mkSscState)
-import           Pos.Ssc.Configuration            (HasSscConfiguration)
+import           Pos.Ssc.GodTossing               (HasSscConfiguration, SscParams,
+                                                   SscState, createSscContext, mkSscState)
 import           Pos.StateLock                    (newStateLock)
 import           Pos.Txp                          (GenericTxpLocalData (..),
                                                    TxpGlobalSettings, mkTxpLocalData,

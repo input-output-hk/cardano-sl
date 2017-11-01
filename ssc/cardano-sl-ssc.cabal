@@ -30,7 +30,6 @@ library
     Pos.Ssc.LocalData
     Pos.Ssc.GState
     Pos.Ssc.Mem
-
     Pos.Ssc.Functions
     Pos.Ssc.SecretStorage
     Pos.Ssc.VssCertData
@@ -40,6 +39,7 @@ library
     Pos.Ssc.Shares
     Pos.Ssc.DB
     Pos.Ssc.Network.Constraint
+    Pos.Ssc.Misc
 
     Pos.Ssc.Toss
     Pos.Ssc.Toss.Logic
@@ -51,9 +51,6 @@ library
 
     -- SSC
     Pos.Arbitrary.Ssc
-
-    Pos.Ssc.Extra
-    Pos.Ssc.Extra.Holder
 
     Pos.Ssc.Mode
     Pos.Ssc.RichmenComponent

@@ -1,11 +1,9 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- | Monad transformer which stores SSC data.
+-- | Things without a place
 
-module Pos.Ssc.Extra.Holder
-       ( SscMemTag
-       , SscState
-       , mkSscState
+module Pos.Ssc.Misc
+       ( mkSscState
        ) where
 
 import           Universum
@@ -18,7 +16,6 @@ import           Pos.DB                  (MonadDBRead)
 import           Pos.Lrc.Context         (LrcContext)
 import           Pos.Slotting.Class      (MonadSlots)
 import           Pos.Ssc.GState          (sscLoadGlobalState)
-import           Pos.Ssc.Mem             (SscMemTag)
 import           Pos.Ssc.Types           (SscState (..))
 import           Pos.Ssc.LocalData       (sscNewLocalData)
 

@@ -260,9 +260,9 @@ createHDAddressH
     -> [Word32]
     -> Word32
     -> Maybe (Address, EncryptedSecretKey)
-createHDAddressH ibea scp passphrase walletPassphrase parent parentPath childIndex = do
+createHDAddressH ibea scp passphrase hdPassphrase parent parentPath childIndex = do
     derivedSK <- deriveHDSecretKey scp passphrase parent childIndex
-    let addressPayload = packHDAddressAttr walletPassphrase $ parentPath ++ [childIndex]
+    let addressPayload = packHDAddressAttr hdPassphrase $ parentPath ++ [childIndex]
     let pk = encToPublic derivedSK
     return (makePubKeyHdwAddress ibea addressPayload pk, derivedSK)
 

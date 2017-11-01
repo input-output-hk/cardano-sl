@@ -31,7 +31,7 @@ import           Pos.Crypto.Signing.Types.Signing (PublicKey (..), SecretKey (..
 
 -- | Encrypted HD secret key.
 data EncryptedSecretKey = EncryptedSecretKey
-    { eskPayload :: !CC.XPrv          -- ^ Secret key itself (unencrypted).
+    { eskPayload :: !CC.XPrv          -- ^ Secret key itself, encrypted by passphrase.
     , eskHash    :: !S.EncryptedPass  -- ^ Hash of passphrase used for key creation.
     }
 

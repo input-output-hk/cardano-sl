@@ -36,7 +36,7 @@ import           Pos.Ssc.Mem           (MonadSscMem, SscGlobalUpdate, askSscMem,
 import           Pos.Ssc.Toss          (MultiRichmenStakes, PureToss, applyGenesisBlock,
                                         rollbackGT, runPureTossWithLogger,
                                         supplyPureTossEnv, verifyAndApplySscPayload)
-import           Pos.Ssc.Types         (SscBlock (..), SscGlobalState (..), sscGlobal)
+import           Pos.Ssc.Types         (SscBlock, SscGlobalState (..), sscGlobal)
 import           Pos.Ssc.Error         (SscVerifyError (..), sscIsCriticalVerifyError)
 import           Pos.Util.Chrono       (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.Util         (inAssertMode, _neHead, _neLast)
@@ -190,7 +190,7 @@ verifyAndApplyMultiRichmen
     -> m ()
 verifyAndApplyMultiRichmen onlyCerts env =
     tossToVerifier . hoist (supplyPureTossEnv env) .
-    mapM_ (verifyAndApplyDo . getSscBlock)
+    mapM_ verifyAndApplyDo
   where
     verifyAndApplyDo (Left header) = applyGenesisBlock $ header ^. epochIndexL
     verifyAndApplyDo (Right (header, payload)) =
@@ -225,8 +225,7 @@ sscRollbackU
 sscRollbackU blocks = tossToUpdate $ rollbackGT oldestEOS payloads
   where
     oldestEOS = blocks ^. _Wrapped . _neLast . epochOrSlotG
-    payloads = over _Wrapped (map snd . rights . map getSscBlock . toList)
-                   blocks
+    payloads = over _Wrapped (map snd . rights . toList) blocks
 
 ----------------------------------------------------------------------------
 -- Utilities

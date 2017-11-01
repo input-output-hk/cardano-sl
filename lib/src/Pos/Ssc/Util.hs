@@ -8,14 +8,14 @@ import           Pos.Binary.Block      ()
 import           Pos.Block.Core        (Block, GenesisBlock, MainBlock, mbSscPayload)
 import           Pos.Core              (HasConfiguration, IsGenesisHeader, IsMainHeader,
                                         gbBody, gbHeader)
-import           Pos.Ssc               (SscBlock (..), SscPayload)
+import           Pos.Ssc               (SscBlock, SscPayload)
 import           Pos.Util              (Some (..))
 
 -- [CSL-1156] Totally need something more elegant
 toSscBlock
     :: HasConfiguration
     => Block -> SscBlock
-toSscBlock = SscBlock . bimap convertGenesis convertMain
+toSscBlock = bimap convertGenesis convertMain
   where
     convertGenesis :: GenesisBlock -> Some IsGenesisHeader
     convertGenesis = Some . view gbHeader

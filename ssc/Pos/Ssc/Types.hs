@@ -12,7 +12,7 @@ module Pos.Ssc.Types
        , SscSecretStorage (..)
        , SscLocalData (..)
        , SscState (..)
-       , SscBlock (..)
+       , SscBlock
 
        -- * Lenses
        -- ** SscGlobalState
@@ -30,8 +30,7 @@ module Pos.Ssc.Types
        , createSscContext
        ) where
 
-import           Control.Lens                   (choosing, makeLenses, makeWrapped,
-                                                 _Wrapped)
+import           Control.Lens                   (makeLenses)
 import           Data.Default                   (Default, def)
 import qualified Data.HashMap.Strict            as HM
 import qualified Data.Text                      as T
@@ -193,21 +192,16 @@ data SscState =
 ----------------------------------------------------------------------------
 
 -- [CSL-1156] Find a better way for this
---
--- NB. there are plans to make it a 'type' (like 'TxpBlock' and
--- 'UpdateBlock'). Previously it wasn't possible, but now it is.
-newtype SscBlock = SscBlock
-    { getSscBlock :: Either (Some IsGenesisHeader)
-                            (Some IsMainHeader, SscPayload)
-    }
+type SscBlock = Either (Some IsGenesisHeader) (Some IsMainHeader, SscPayload)
 
-makeWrapped ''SscBlock
+instance HasDifficulty (Some IsMainHeader, SscPayload) where
+    difficultyL = _1 . difficultyL
+instance HasEpochIndex (Some IsMainHeader, SscPayload) where
+    epochIndexL = _1 . epochIndexL
+instance HasHeaderHash (Some IsMainHeader, SscPayload) where
+    headerHash     = headerHash . fst
+instance HasEpochOrSlot (Some IsMainHeader, SscPayload) where
+    getEpochOrSlot = getEpochOrSlot . fst
 
-instance HasDifficulty SscBlock where
-    difficultyL = _Wrapped . choosing difficultyL (_1 . difficultyL)
-instance HasEpochIndex SscBlock where
-    epochIndexL = _Wrapped . choosing epochIndexL (_1 . epochIndexL)
 instance HasHeaderHash SscBlock where
-    headerHash     = either headerHash (headerHash . fst) . getSscBlock
-instance HasEpochOrSlot SscBlock where
-    getEpochOrSlot = either getEpochOrSlot (getEpochOrSlot . fst) . getSscBlock
+    headerHash     = either headerHash headerHash

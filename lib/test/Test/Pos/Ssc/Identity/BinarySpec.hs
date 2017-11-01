@@ -13,7 +13,7 @@ import           Pos.Arbitrary.Infra     ()
 import           Pos.Binary              ()
 import qualified Pos.Communication.Relay as R
 import           Pos.Core                (StakeholderId)
-import qualified Pos.Ssc.GodTossing      as GT
+import qualified Pos.Ssc.GodTossing      as Ssc
 
 import           Test.Pos.Helpers        (binaryTest, msgLenLimitedTest)
 import           Test.Pos.Util           (withDefConfiguration, withDefInfraConfiguration)
@@ -22,41 +22,41 @@ spec :: Spec
 spec = withDefInfraConfiguration $ withDefConfiguration $
   describe "Ssc" $ do
     describe "Bi instances" $ do
-        binaryTest @GT.Commitment
-        binaryTest @GT.CommitmentsMap
-        binaryTest @GT.Opening
-        binaryTest @GT.SscPayload
-        binaryTest @GT.SscProof
-        binaryTest @(R.InvMsg (Tagged GT.MCCommitment StakeholderId))
-        binaryTest @(R.ReqMsg (Tagged GT.MCCommitment StakeholderId))
-        binaryTest @(R.MempoolMsg GT.MCCommitment)
-        binaryTest @(R.DataMsg GT.MCCommitment)
-        binaryTest @(R.DataMsg GT.MCOpening)
-        binaryTest @(R.DataMsg GT.MCShares)
-        binaryTest @(R.DataMsg GT.MCVssCertificate)
-        binaryTest @GT.SscTag
-        binaryTest @GT.TossModifier
-        binaryTest @GT.VssCertData
-        binaryTest @GT.SscGlobalState
-        binaryTest @GT.SscSecretStorage
+        binaryTest @Ssc.Commitment
+        binaryTest @Ssc.CommitmentsMap
+        binaryTest @Ssc.Opening
+        binaryTest @Ssc.SscPayload
+        binaryTest @Ssc.SscProof
+        binaryTest @(R.InvMsg (Tagged Ssc.MCCommitment StakeholderId))
+        binaryTest @(R.ReqMsg (Tagged Ssc.MCCommitment StakeholderId))
+        binaryTest @(R.MempoolMsg Ssc.MCCommitment)
+        binaryTest @(R.DataMsg Ssc.MCCommitment)
+        binaryTest @(R.DataMsg Ssc.MCOpening)
+        binaryTest @(R.DataMsg Ssc.MCShares)
+        binaryTest @(R.DataMsg Ssc.MCVssCertificate)
+        binaryTest @Ssc.SscTag
+        binaryTest @Ssc.TossModifier
+        binaryTest @Ssc.VssCertData
+        binaryTest @Ssc.SscGlobalState
+        binaryTest @Ssc.SscSecretStorage
     describe "Message length limit" $ do
-        msgLenLimitedTest @GT.Opening
-        msgLenLimitedTest @(R.InvMsg (Tagged GT.MCCommitment StakeholderId))
-        msgLenLimitedTest @(R.ReqMsg (Tagged GT.MCCommitment StakeholderId))
-        msgLenLimitedTest @(R.MempoolMsg GT.MCCommitment)
-        -- msgLenLimitedTest' @(C.MaxSize (R.DataMsg GT.MCCommitment))
+        msgLenLimitedTest @Ssc.Opening
+        msgLenLimitedTest @(R.InvMsg (Tagged Ssc.MCCommitment StakeholderId))
+        msgLenLimitedTest @(R.ReqMsg (Tagged Ssc.MCCommitment StakeholderId))
+        msgLenLimitedTest @(R.MempoolMsg Ssc.MCCommitment)
+        -- msgLenLimitedTest' @(C.MaxSize (R.DataMsg Ssc.MCCommitment))
         --     (C.MaxSize . R.DataMsg <$> C.mcCommitmentMsgLenLimit)
         --     "MCCommitment"
-        --     (has GT._MCCommitment . R.dmContents . C.getOfMaxSize)
-        -- msgLenLimitedTest' @(R.DataMsg GT.MCOpening)
+        --     (has Ssc._MCCommitment . R.dmContents . C.getOfMaxSize)
+        -- msgLenLimitedTest' @(R.DataMsg Ssc.MCOpening)
         --     (R.DataMsg <$> C.mcOpeningLenLimit)
         --     "MCOpening"
-        --     (has GT._MCOpening . R.dmContents)
-        -- msgLenLimitedTest' @(C.MaxSize (R.DataMsg GT.MCShares))
+        --     (has Ssc._MCOpening . R.dmContents)
+        -- msgLenLimitedTest' @(C.MaxSize (R.DataMsg Ssc.MCShares))
         --     (C.MaxSize . R.DataMsg <$> C.mcSharesMsgLenLimit)
         --     "MCShares"
-        --     (has GT._MCShares . R.dmContents . C.getOfMaxSize)
-        -- msgLenLimitedTest' @(R.DataMsg GT.MCVssCertificate)
+        --     (has Ssc._MCShares . R.dmContents . C.getOfMaxSize)
+        -- msgLenLimitedTest' @(R.DataMsg Ssc.MCVssCertificate)
         --     (R.DataMsg <$> C.mcVssCertificateLenLimit)
         --     "MCVssCertificate"
-        --     (has GT._MCVssCertificate . R.dmContents)
+        --     (has Ssc._MCVssCertificate . R.dmContents)

@@ -7,7 +7,7 @@ module Test.Pos.Ssc.Identity.SafeCopySpec
 import           Test.Hspec         (Spec, describe)
 import           Universum
 
-import qualified Pos.Ssc.GodTossing as GT
+import qualified Pos.Ssc.GodTossing as Ssc
 
 import           Test.Pos.Helpers   (safeCopyTest)
 import           Test.Pos.Util      (withDefConfiguration)
@@ -15,9 +15,9 @@ import           Test.Pos.Util      (withDefConfiguration)
 spec :: Spec
 spec = withDefConfiguration $ describe "Ssc" $ do
     describe "SafeCopy instances" $ do
-        safeCopyTest @GT.Commitment
-        safeCopyTest @GT.CommitmentSignature
-        safeCopyTest @GT.SignedCommitment
-        safeCopyTest @GT.Opening
-        safeCopyTest @GT.SscPayload
-        safeCopyTest @GT.SscProof
+        safeCopyTest @Ssc.Commitment
+        safeCopyTest @Ssc.CommitmentSignature
+        safeCopyTest @Ssc.SignedCommitment
+        safeCopyTest @Ssc.Opening
+        safeCopyTest @Ssc.SscPayload
+        safeCopyTest @Ssc.SscProof

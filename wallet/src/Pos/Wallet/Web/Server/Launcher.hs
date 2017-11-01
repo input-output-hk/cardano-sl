@@ -25,6 +25,7 @@ import           Servant.Utils.Enter              ((:~>) (..))
 import qualified Data.ByteString.Char8            as BS8
 import           Pos.Communication                (OutSpecs, sendTxOuts)
 import           Pos.Launcher.Configuration       (HasConfigurations)
+import           Pos.Util.CompileInfo             (HasCompileInfo)
 import           Pos.Util.TimeWarp                (NetworkAddress)
 import           Pos.Wallet.Web.Account           (findKey, myRootAddresses)
 import           Pos.Wallet.Web.Api               (WalletSwaggerApi, swaggerWalletApi)
@@ -52,7 +53,7 @@ walletServeImpl
 walletServeImpl app (ip, port) = serveImpl app (BS8.unpack ip) port
 
 walletApplication
-    :: (MonadWalletWebMode ctx m, MonadWalletWebSockets ctx m)
+    :: (HasCompileInfo, MonadWalletWebMode ctx m, MonadWalletWebSockets ctx m)
     => m (Server WalletSwaggerApi)
     -> m Application
 walletApplication serv = do

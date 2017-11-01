@@ -10,6 +10,7 @@ module Pos.Wallet.Web.Mode
        , MonadWalletWebSockets
        , MonadFullWalletWebMode
 
+       , getBalanceDefault
        , getOwnUtxosDefault
        , getNewAddressWebWallet
        ) where
@@ -22,6 +23,7 @@ import           Control.Monad.Catch               (MonadMask)
 import qualified Control.Monad.Reader              as Mtl
 import           Control.Monad.Trans.Control       (MonadBaseControl)
 import           Crypto.Random                     (MonadRandom)
+import qualified Data.HashMap.Strict               as HM
 import qualified Data.HashSet                      as HS
 import           Data.List                         (partition)
 import qualified Data.Map.Strict                   as M
@@ -36,15 +38,16 @@ import           Pos.Block.Types                   (Undo)
 import           Pos.Client.KeyStorage             (MonadKeys (..), MonadKeysRead (..),
                                                     getSecretDefault, modifySecretDefault)
 import           Pos.Client.Txp.Addresses          (MonadAddresses (..))
-import           Pos.Client.Txp.Balances           (MonadBalances (..), getBalanceDefault)
+import           Pos.Client.Txp.Balances           (MonadBalances (..))
 import           Pos.Client.Txp.History            (MonadTxHistory (..),
                                                     getBlockHistoryDefault,
                                                     getLocalHistoryDefault, saveTxDefault)
 import           Pos.Communication                 (SendActions (..), submitTxRaw)
 import           Pos.Context                       (HasNodeContext (..))
-import           Pos.Core                          (Address, HasConfiguration,
+import           Pos.Core                          (Address, Coin, HasConfiguration,
                                                     HasPrimaryKey (..), IsHeader,
-                                                    isRedeemAddress, largestHDAddressBoot)
+                                                    isRedeemAddress, largestHDAddressBoot,
+                                                    mkCoin)
 import           Pos.Crypto                        (PassPhrase)
 import           Pos.DB                            (MonadGState (..))
 import           Pos.DB.Block                      (MonadBlockDB, dbGetBlockDefault,
@@ -81,6 +84,7 @@ import           Pos.Ssc.Types                     (HasSscContext (..), SscBlock
 import           Pos.StateLock                     (StateLock)
 import           Pos.Txp                           (MempoolExt, MonadTxpLocal (..),
                                                     MonadTxpMem, Utxo, addrBelongsToSet,
+                                                    applyUtxoModToAddrCoinMap,
                                                     getUtxoModifier, txNormalize,
                                                     txProcessTransaction)
 import qualified Pos.Txp.DB                        as DB
@@ -114,7 +118,8 @@ import           Pos.Wallet.Web.Methods            (MonadWalletLogic, newAddress
 import           Pos.Wallet.Web.Sockets.Connection (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.ConnSet    (ConnectionsVar)
 import           Pos.Wallet.Web.State              (MonadWalletDB, MonadWalletDBRead,
-                                                    WalletState, getWalletUtxo)
+                                                    WalletState, getWalletBalancesAndUtxo,
+                                                    getWalletUtxo)
 import           Pos.Wallet.Web.Tracking           (MonadBListener (..),
                                                     onApplyBlocksWebWallet,
                                                     onRollbackBlocksWebWallet)
@@ -313,6 +318,17 @@ getOwnUtxosDefault addrs = do
         addrsSet = HS.fromList addrs
     pure $ M.filter (`addrBelongsToSet` addrsSet) allUtxo
 
+-- | `BalanceDB` isn't used here anymore, because
+-- 1) It doesn't represent actual balances of addresses, but it represents _stakes_
+-- 2) Local utxo is now cached, and deriving balances from it is not
+--    so bad for performance now
+getBalanceDefault :: BalancesEnv ext ctx m => Address -> m Coin
+getBalanceDefault addr = do
+    balancesAndUtxo <- getWalletBalancesAndUtxo
+    fromMaybe (mkCoin 0) .
+        HM.lookup addr .
+        flip applyUtxoModToAddrCoinMap balancesAndUtxo <$> getUtxoModifier
+
 instance HasConfiguration => MonadBalances WalletWebMode where
     getOwnUtxos = getOwnUtxosDefault
     getBalance = getBalanceDefault
@@ -363,4 +379,3 @@ instance (HasConfigurations, HasCompileInfo)
     -- BootstrapEra distribution.
     getFakeChangeAddress = pure largestHDAddressBoot
     getNewAddress = getNewAddressWebWallet
-

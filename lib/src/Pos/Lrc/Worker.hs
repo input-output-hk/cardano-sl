@@ -62,7 +62,6 @@ import           Pos.Util                              (logWarningWaitLinear, ma
 import           Pos.Util.Chrono                       (NE, NewestFirst (..),
                                                         toOldestFirst)
 
-
 ----------------------------------------------------------------------------
 -- Single short
 ----------------------------------------------------------------------------

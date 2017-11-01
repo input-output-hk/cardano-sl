@@ -28,9 +28,10 @@ import           Pos.Ssc.Core                   (deleteSignedCommitment,
                                                  insertSignedCommitment)
 import           Pos.Ssc.GodTossing.Toss.Class  (MonadToss (..), MonadTossEnv (..),
                                                  MonadTossRead (..))
-import           Pos.Ssc.Types                  (SscGlobalState, sgsCommitments, sgsOpenings,
-                                                 sgsShares, sgsVssCertificates)
 import qualified Pos.Ssc.GodTossing.VssCertData as VCD
+import           Pos.Ssc.Types                  (SscGlobalState, sgsCommitments,
+                                                 sgsOpenings, sgsShares,
+                                                 sgsVssCertificates)
 
 type MultiRichmenStakes = HashMap EpochIndex RichmenStakes
 type MultiRichmenSet   = HashMap EpochIndex RichmenSet

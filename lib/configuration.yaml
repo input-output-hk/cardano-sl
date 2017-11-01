@@ -281,10 +281,10 @@ mainnet_base: &mainnet_base
 
   update: &mainnet_base_update
     applicationName: cardano-sl
-    applicationVersion: 2
+    applicationVersion: 0
     lastKnownBlockVersion:
       bvMajor: 0
-      bvMinor: 0
+      bvMinor: 1
       bvAlt: 0
     systemTag: none
 
@@ -14805,15 +14805,25 @@ mainnet_full: &mainnet_full
 mainnet_wallet_win64: &mainnet_wallet_win64
   <<: *mainnet_full
   update:
-    <<: *mainnet_base_update
+    <<:
     applicationName: csl-daedalus
+    applicationVersion: 3
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 1
+      bvAlt: 0
     systemTag: win64
 
 mainnet_wallet_macos64: &mainnet_wallet_macos64
   <<: *mainnet_full
   update:
-    <<: *mainnet_base_update
+    <<:
     applicationName: csl-daedalus
+    applicationVersion: 3
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 1
+      bvAlt: 0
     systemTag: macos64
 
 ##############################################################################
@@ -14834,15 +14844,25 @@ mainnet_dryrun_full: &mainnet_dryrun_full
 mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
   <<: *mainnet_dryrun_full
   update:
-    <<: *mainnet_base_update
+    <<:
     applicationName: csl-daedalus
+    applicationVersion: 3
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 1
+      bvAlt: 0
     systemTag: win64
 
 mainnet_dryrun_wallet_macos64: &mainnet_dryrun_wallet_macos64
   <<: *mainnet_dryrun_full
   update:
-    <<: *mainnet_base_update
+    <<:
     applicationName: csl-daedalus
+    applicationVersion: 3
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 1
+      bvAlt: 0
     systemTag: macos64
 
 ##############################################################################

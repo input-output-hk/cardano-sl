@@ -210,7 +210,7 @@ deriveHDPublicKey (PublicKey xpub) childIndex
         error "Wrong index for non-hardened derivation"
     | otherwise =
         maybe (error "deriveHDPublicKey: deriveXPub failed") PublicKey $
-          deriveXPub xpub (childIndex - 1)
+          deriveXPub xpub childIndex
 
 -- | Whether to call @checkPassMatches@
 newtype ShouldCheckPassphrase = ShouldCheckPassphrase Bool

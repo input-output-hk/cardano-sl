@@ -1395,6 +1395,8 @@ self: {
           ];
           libraryToolDepends = [ cpphs ];
           executableHaskellDepends = [
+            base
+            bytestring
             cardano-sl
             cardano-sl-core
             cardano-sl-infra

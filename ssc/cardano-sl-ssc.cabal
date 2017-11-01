@@ -27,8 +27,10 @@ library
     Pos.Ssc.Worker
     Pos.Ssc.Lrc
 
-    Pos.Ssc.LocalData
     Pos.Ssc.GState
+    Pos.Ssc.GState.BlockLogic
+
+    Pos.Ssc.LocalData
     Pos.Ssc.Mem
     Pos.Ssc.Functions
     Pos.Ssc.SecretStorage

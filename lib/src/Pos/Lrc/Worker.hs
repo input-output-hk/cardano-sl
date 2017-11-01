@@ -56,7 +56,7 @@ import           Pos.Slotting                          (MonadSlots)
 import           Pos.Ssc                               (MonadSscMem,
                                                         noReportNoSecretsForEpoch1,
                                                         sscCalculateSeed)
-import           Pos.Ssc.Network.Constraint            (GtMessageConstraints)
+import           Pos.Ssc.Message                       (GtMessageConstraints)
 import           Pos.Update.DB                         (getCompetingBVStates)
 import           Pos.Update.Poll.Types                 (BlockVersionState (..))
 import           Pos.Util                              (logWarningWaitLinear, maybeThrow)

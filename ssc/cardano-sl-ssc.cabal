@@ -23,11 +23,11 @@ library
     Pos.Ssc.VerifyError
 
     Pos.Ssc.Types
-    Pos.Ssc.Types.Message
 
     Pos.Ssc.GState
     Pos.Ssc.GState.BlockLogic
 
+    Pos.Ssc.Message
     Pos.Ssc.Listeners
     Pos.Ssc.Worker
     Pos.Ssc.Lrc
@@ -41,7 +41,6 @@ library
     Pos.Ssc.Behavior
     Pos.Ssc.Shares
     Pos.Ssc.DB
-    Pos.Ssc.Network.Constraint
     Pos.Ssc.Misc
     Pos.Ssc.Mode
     Pos.Ssc.RichmenComponent

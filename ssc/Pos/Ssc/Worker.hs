@@ -80,7 +80,6 @@ import           Pos.Ssc.LocalData                     (localOnNewSlot,
                                                         sscProcessCommitment,
                                                         sscProcessOpening,
                                                         sscProcessShares)
-import           Pos.Ssc.Network.Constraint            (GtMessageConstraints)
 import qualified Pos.Ssc.SecretStorage                 as SS
 import           Pos.Ssc.Shares                        (getOurShares)
 import           Pos.Ssc.Toss                          (computeParticipants,
@@ -88,9 +87,10 @@ import           Pos.Ssc.Toss                          (computeParticipants,
 import           Pos.Ssc.Types                         (HasSscContext (..),
                                                         sgsCommitments, scBehavior,
                                                         scParticipateSsc, scVssKeyPair)
-import           Pos.Ssc.Types.Message                 (SscTag (..), MCCommitment (..),
+import           Pos.Ssc.Message                       (SscTag (..), MCCommitment (..),
                                                         MCOpening (..), MCShares (..),
-                                                        MCVssCertificate (..))
+                                                        MCVssCertificate (..),
+                                                        GtMessageConstraints)
 import           Pos.Ssc.Mode                          (SscMode)
 import           Pos.Ssc.RichmenComponent              (getRichmenSsc)
 import           Pos.Util.LogSafe                      (logDebugS, logErrorS, logInfoS,

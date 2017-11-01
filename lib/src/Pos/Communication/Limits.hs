@@ -40,7 +40,7 @@ import qualified Pos.DB.Class                       as DB
 import           Pos.Delegation.Types               (ProxySKLightConfirmation)
 import           Pos.Ssc.Core                       (Commitment (..), InnerSharesMap,
                                                      Opening (..), SignedCommitment)
-import           Pos.Ssc.Types.Message              (MCCommitment (..), MCOpening (..),
+import           Pos.Ssc.Message                    (MCCommitment (..), MCOpening (..),
                                                      MCShares (..), MCVssCertificate (..))
 import           Pos.Txp.Core                       (TxAux)
 import           Pos.Txp.Network.Types              (TxMsgContents (..))

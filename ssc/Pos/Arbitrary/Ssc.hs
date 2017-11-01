@@ -35,7 +35,7 @@ import           Pos.Ssc.Core                      (Commitment (..), Commitments
                                                     isSharesId, mkCommitmentsMap,
                                                     mkCommitmentsMap, mkSignedCommitment)
 import           Pos.Ssc.Toss.Types                (TossModifier (..))
-import           Pos.Ssc.Types.Message             (SscTag (..), MCCommitment (..),
+import           Pos.Ssc.Message                   (SscTag (..), MCCommitment (..),
                                                     MCOpening (..), MCShares (..),
                                                     MCVssCertificate (..))
 import           Pos.Ssc.Types                     (SscGlobalState (..),

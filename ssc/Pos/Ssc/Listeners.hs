@@ -36,13 +36,13 @@ import           Pos.Ssc.LocalData                     (sscIsDataUseful,
                                                         sscProcessCommitment,
                                                         sscProcessOpening,
                                                         sscProcessShares)
-import           Pos.Ssc.Network.Constraint            (GtMessageConstraints)
 import           Pos.Ssc.Toss                          (SscTag (..), TossModifier,
                                                         tmCertificates, tmCommitments,
                                                         tmOpenings, tmShares)
-import           Pos.Ssc.Types.Message                 (MCCommitment (..), MCOpening (..),
+import           Pos.Ssc.Message                       (MCCommitment (..), MCOpening (..),
                                                         MCShares (..),
-                                                        MCVssCertificate (..))
+                                                        MCVssCertificate (..),
+                                                        GtMessageConstraints)
 import           Pos.Ssc.Mode                          (SscMode)
 
 sscRelays

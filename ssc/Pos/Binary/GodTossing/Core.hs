@@ -4,25 +4,22 @@ module Pos.Binary.GodTossing.Core
        (
        ) where
 
-import qualified Data.HashSet                  as HS
+import qualified Data.HashSet           as HS
 import           Universum
 
-import           Pos.Binary.Class              (Bi (..), Cons (..), Decoder, Encoding,
-                                                Field (..), deriveSimpleBi,
-                                                deriveSimpleBiCxt, encodeListLen,
-                                                enforceSize)
-import           Pos.Binary.Crypto             ()
-import           Pos.Core.Configuration        (HasConfiguration)
-import           Pos.Core.Vss                  (VssCertificate (..),
-                                                VssCertificatesMap (..),
-                                                mkVssCertificatesMap,
-                                                recreateVssCertificate)
-import           Pos.Crypto                    (Hash, PublicKey)
-import           Pos.Ssc.Core.Types            (Commitment (..), CommitmentsMap (..),
-                                                SscPayload (..), SscProof (..),
-                                                Opening (..), OpeningsMap, SharesMap,
-                                                SignedCommitment, mkCommitmentsMap)
-import           Serokell.Util                 (allDistinct)
+import           Pos.Binary.Class       (Bi (..), Cons (..), Decoder, Encoding,
+                                         Field (..), deriveSimpleBi, deriveSimpleBiCxt,
+                                         encodeListLen, enforceSize)
+import           Pos.Binary.Crypto      ()
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Vss           (VssCertificate (..), VssCertificatesMap (..),
+                                         mkVssCertificatesMap, recreateVssCertificate)
+import           Pos.Crypto             (Hash, PublicKey)
+import           Pos.Ssc.Core.Types     (Commitment (..), CommitmentsMap (..),
+                                         Opening (..), OpeningsMap, SharesMap,
+                                         SignedCommitment, SscPayload (..), SscProof (..),
+                                         VssCertificatesHash, mkCommitmentsMap)
+import           Serokell.Util          (allDistinct)
 
 instance Bi Commitment where
   encode Commitment{..} = encodeListLen 2 <> encode commShares
@@ -122,14 +119,14 @@ deriveSimpleBiCxt [t|HasConfiguration|] ''SscPayload [
 
 deriveSimpleBi ''SscProof [
     Cons 'CommitmentsProof [
-        Field [| sprComms    :: Hash CommitmentsMap     |],
-        Field [| sprVss      :: Hash VssCertificatesMap |] ],
+        Field [| sprComms    :: Hash CommitmentsMap |],
+        Field [| sprVss      :: VssCertificatesHash |] ],
     Cons 'OpeningsProof [
-        Field [| sprOpenings :: Hash OpeningsMap        |],
-        Field [| sprVss      :: Hash VssCertificatesMap |] ],
+        Field [| sprOpenings :: Hash OpeningsMap    |],
+        Field [| sprVss      :: VssCertificatesHash |] ],
     Cons 'SharesProof [
-        Field [| sprShares   :: Hash SharesMap          |],
-        Field [| sprVss      :: Hash VssCertificatesMap |] ],
+        Field [| sprShares   :: Hash SharesMap      |],
+        Field [| sprVss      :: VssCertificatesHash |] ],
     Cons 'CertificatesProof [
-        Field [| sprVss      :: Hash VssCertificatesMap |] ]
+        Field [| sprVss      :: VssCertificatesHash |] ]
     ]

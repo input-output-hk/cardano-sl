@@ -3,6 +3,7 @@
 module Pos.Web.Types
        ( GodTossingStage (..)
        , TlsParams (..)
+       , CConfirmedProposalState (..)
        ) where
 
 import           Universum
@@ -19,3 +20,6 @@ data TlsParams = TlsParams
     , tpCaPath   :: FilePath
     , tpKeyPath  :: FilePath
     } deriving (Show)
+
+newtype CConfirmedProposalState = CConfirmedProposalState Text
+    deriving (Show, Generic, Buildable)

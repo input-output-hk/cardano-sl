@@ -27,7 +27,7 @@ softforkRuleF = build
 
 instance Buildable BlockVersionData where
     build BlockVersionData {..} =
-      bprint ("{ scripts v"%build%
+      bprint ("{ script version: "%build%
               ", slot duration: "%int%" mcs"%
               ", block size limit: "%memory%
               ", header size limit: "%memory%

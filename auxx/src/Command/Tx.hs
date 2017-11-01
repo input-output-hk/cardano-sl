@@ -3,7 +3,8 @@
 -- | Tx sending functionality in Auxx.
 
 module Command.Tx
-       ( sendToAllGenesis
+       ( SendToAllGenesisParams (..)
+       , sendToAllGenesis
        , send
        , sendTxsFromFile
        ) where
@@ -58,14 +59,22 @@ import           Pos.Util.CompileInfo             (HasCompileInfo)
 import           Pos.Util.UserSecret              (usWallet, userSecret, wusRootKey)
 import           Pos.Util.Util                    (maybeThrow)
 
-import           Command.Types                    (SendMode (..),
-                                                   SendToAllGenesisParams (..))
+import           Lang.Value                       (SendMode (..))
 import           Mode                             (AuxxMode, CmdCtx (..), getCmdCtx,
                                                    makePubKeyAddressAuxx)
 
 ----------------------------------------------------------------------------
 -- Send to all genesis
 ----------------------------------------------------------------------------
+
+-- | Parameters for 'SendToAllGenesis' command.
+data SendToAllGenesisParams = SendToAllGenesisParams
+    { stagpDuration    :: !Int
+    , stagpConc        :: !Int
+    , stagpDelay       :: !Int
+    , stagpMode        :: !SendMode
+    , stagpTpsSentFile :: !FilePath
+    } deriving (Show)
 
 -- | Count submitted and failed transactions.
 --

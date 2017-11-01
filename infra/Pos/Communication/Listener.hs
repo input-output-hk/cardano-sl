@@ -15,7 +15,8 @@ import           Pos.Binary.Class                (Bi)
 import           Pos.Binary.Infra                ()
 import           Pos.Communication.Protocol      (ConversationActions, HandlerSpec (..),
                                                   ListenerSpec (..), Message, NodeId,
-                                                  OutSpecs, VerInfo, checkingInSpecs,
+                                                  OutSpecs, VerInfo (..),
+                                                  checkProtocolMagic, checkingInSpecs,
                                                   messageCode)
 import           Pos.Network.Types               (Bucket)
 
@@ -38,7 +39,7 @@ listenerConv oq h = (lspec, mempty)
     spec = (rcvMsgCode, ConvHandler sndMsgCode)
     lspec =
       flip ListenerSpec spec $ \ourVerInfo ->
-          N.Listener $ \peerVerInfo' nNodeId conv -> do
+          N.Listener $ \peerVerInfo' nNodeId conv -> checkProtocolMagic ourVerInfo peerVerInfo' $ do
               OQ.clearFailureOf oq nNodeId
               checkingInSpecs ourVerInfo peerVerInfo' spec nNodeId $
                   h ourVerInfo nNodeId conv

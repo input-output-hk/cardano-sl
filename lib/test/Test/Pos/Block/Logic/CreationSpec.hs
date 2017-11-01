@@ -68,11 +68,11 @@ spec = withDefConfiguration $ withDefUpdateConfiguration $
         prop "doesn't create blocks bigger than the limit" $
             forAll (choose (emptyBSize, emptyBSize * 10)) $ \(fromBytes -> limit) ->
             forAll arbitrary $ \(prevHeader, sk, updatePayload) ->
-            forAll validSscPayloadGen $ \(gtPayload, slotId) ->
+            forAll validSscPayloadGen $ \(sscPayload, slotId) ->
             forAll (genDlgPayload (siEpoch slotId)) $ \dlgPayload ->
             forAll (makeSmall $ listOf1 genTxAux) $ \txs ->
             let blk = producePureBlock limit prevHeader txs Nothing slotId
-                                       dlgPayload gtPayload updatePayload sk
+                                       dlgPayload sscPayload updatePayload sk
             in leftToCounter blk $ \b ->
                 let s = biSize b
                 in counterexample ("Real block size: " <> show s) $
@@ -91,12 +91,12 @@ spec = withDefConfiguration $ withDefUpdateConfiguration $
                    leftToCounter blk2 (const True)
         prop "strips ssc data when necessary" $
             forAll arbitrary $ \(prevHeader, sk) ->
-            forAll validSscPayloadGen $ \(gtPayload, slotId) ->
+            forAll validSscPayloadGen $ \(sscPayload, slotId) ->
             forAll (elements [0,0.5,0.9]) $ \(delta :: Double) ->
             let blk0 = producePureBlock infLimit prevHeader [] Nothing
                                         slotId def (defGTP slotId) def sk
                 withPayload lim =
-                    producePureBlock lim prevHeader [] Nothing slotId def gtPayload def sk
+                    producePureBlock lim prevHeader [] Nothing slotId def sscPayload def sk
                 blk1 = withPayload infLimit
             in leftToCounter ((,) <$> blk0 <*> blk1) $ \(b0,b1) ->
                 let s = biSize b0 +

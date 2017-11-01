@@ -40,7 +40,7 @@ import qualified Pos.Ssc.VssCertData             as VCD
 import           Pos.Util.Util                   (Some)
 
 ----------------------------------------------------------------------------
--- Simple predicates for GodTossing.Types.Base
+-- Simple predicates for SSC.Types
 ----------------------------------------------------------------------------
 
 hasCommitment :: StakeholderId -> SscGlobalState -> Bool

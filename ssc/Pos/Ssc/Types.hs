@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- | Some types related to GodTossing. There are also types in
+-- | Some types related to SSC. There are also types in
 -- "Pos.Ssc.Core.Types".
 
 module Pos.Ssc.Types
@@ -58,7 +58,7 @@ import           Pos.Util.Util                  (Some)
 -- SscGlobalState
 ----------------------------------------------------------------------------
 
--- | Global state of GodTossing, contains relevant SSC data from blocks.
+-- | Global state of SSC, contains relevant SSC data from blocks.
 data SscGlobalState = SscGlobalState
     { -- | Commitments are added during the first phase of epoch.
       _sgsCommitments     :: !CommitmentsMap
@@ -165,8 +165,8 @@ data SscSecretStorage = SscSecretStorage
 
 -- | Internal SSC state stored in memory
 data SscLocalData = SscLocalData
-    { -- | 'TossModifier' which also serves as mempool of GT data,
-      -- because for GodTossing modifier and mempool are same.
+    { -- | 'TossModifier' which also serves as mempool of SSC data,
+      -- because for SSC modifier and mempool are same.
       _ldModifier :: !TossModifier
     , -- | Epoch for which this mempool can be used to form payload.
       _ldEpoch    :: !EpochIndex

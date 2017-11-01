@@ -585,7 +585,7 @@ deriving instance Arbitrary a => Arbitrary (FixedSizeInt a)
 deriving instance Arbitrary TinyVarInt
 
 ----------------------------------------------------------------------------
--- GodTossing
+-- SSC
 ----------------------------------------------------------------------------
 
 instance HasProtocolConstants => Arbitrary VssCertificate where

@@ -10,11 +10,11 @@ module Pos.Web.Api
        , HealthCheckApi
        , healthCheckApi
 
-       , GodTossingApi
-       , godTossingApi
+       , SscApi
+       , sscApi
 
-       , GtNodeApi
-       , gtNodeApi
+       , SscNodeApi
+       , sscNodeApi
        ) where
 
 import           Universum
@@ -65,28 +65,27 @@ type HealthCheckApi =
 baseNodeApi :: Proxy BaseNodeApi
 baseNodeApi = Proxy
 
--- | GodTossing specific API.
-type GodTossingApi =
+-- | SSC specific API.
+type SscApi =
     "toggle"
         :> Capture "enable" Bool
         :> Post '[JSON] ()
     -- :<|>
     -- "has_secret" :> Get '[JSON] Bool :<|>
     -- "secret" :> Get '[JSON] SharedSeed :<|>
-    -- "stage" :> Get '[JSON] GodTossingStage
+    -- "stage" :> Get '[JSON] SscStage
 
 -- | Helper Proxy.
-godTossingApi :: Proxy GodTossingApi
-godTossingApi = Proxy
+sscApi :: Proxy SscApi
+sscApi = Proxy
 
--- | Servant API which provides access to full node internals with
--- GodTossing SSC.
-type GtNodeApi =
+-- | Servant API which provides access to full node internals with SSC.
+type SscNodeApi =
     BaseNodeApi
     :<|>
     "god_tossing"
-        :> GodTossingApi
+        :> SscApi
 
 -- | Helper Proxy.
-gtNodeApi :: Proxy GtNodeApi
-gtNodeApi = Proxy
+sscNodeApi :: Proxy SscNodeApi
+sscNodeApi = Proxy

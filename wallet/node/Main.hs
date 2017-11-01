@@ -128,9 +128,9 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
         logInfo $ sformat ("Using configs and genesis:\n"%shown) conf
 
         let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-        let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
+        let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-        actionWithWallet gtParams currentParams wArgs
+        actionWithWallet sscParams currentParams wArgs
   where
     nodeArgs :: NodeArgs
     nodeArgs = NodeArgs { behaviorConfigPath = Nothing }

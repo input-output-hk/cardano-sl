@@ -58,7 +58,7 @@ type NodeSet = HashSet StakeholderId
 -- Commitments
 ----------------------------------------------------------------------------
 
--- | Commitment is a message generated during the first stage of GodTossing.
+-- | Commitment is a message generated during the first stage of SSC.
 -- It contains encrypted shares and proof of secret.
 --
 -- There can be more than one share generated for a single participant.
@@ -216,7 +216,7 @@ isEmptySscPayload (CertificatesPayload certs)      = null certs
 
 instance Buildable SscPayload where
     build gp
-        | isEmptySscPayload gp = "  no GodTossing payload"
+        | isEmptySscPayload gp = "  no SSC payload"
         | otherwise =
             case gp of
                 CommitmentsPayload comms certs ->

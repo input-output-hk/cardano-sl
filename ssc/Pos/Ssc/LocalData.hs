@@ -231,7 +231,7 @@ sscIsDataUseful tag id =
 ---- Data processing
 ----------------------------------------------------------------------------
 
-type GtDataProcessingMode ctx m =
+type SscDataProcessingMode ctx m =
     ( WithLogger m
     , MonadIO m           -- STM at least
     , Rand.MonadRandom m  -- for crypto
@@ -248,7 +248,7 @@ type GtDataProcessingMode ctx m =
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessCommitment
     :: forall ctx m.
-       GtDataProcessingMode ctx m
+       SscDataProcessingMode ctx m
     => SignedCommitment -> m ()
 sscProcessCommitment comm =
     sscProcessData CommitmentMsg $
@@ -257,7 +257,7 @@ sscProcessCommitment comm =
 -- | Process 'Opening' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessOpening
-    :: GtDataProcessingMode ctx m
+    :: SscDataProcessingMode ctx m
     => StakeholderId -> Opening -> m ()
 sscProcessOpening id opening =
     sscProcessData OpeningMsg $
@@ -266,7 +266,7 @@ sscProcessOpening id opening =
 -- | Process 'InnerSharesMap' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessShares
-    :: GtDataProcessingMode ctx m
+    :: SscDataProcessingMode ctx m
     => StakeholderId -> InnerSharesMap -> m ()
 sscProcessShares id shares =
     sscProcessData SharesMsg $ SharesPayload (HM.fromList [(id, shares)]) mempty
@@ -274,7 +274,7 @@ sscProcessShares id shares =
 -- | Process 'VssCertificate' received from network, checking it against
 -- current state (global + local) and adding to local state if it's valid.
 sscProcessCertificate
-    :: GtDataProcessingMode ctx m
+    :: SscDataProcessingMode ctx m
     => VssCertificate -> m ()
 sscProcessCertificate cert =
     sscProcessData VssCertificateMsg $
@@ -282,7 +282,7 @@ sscProcessCertificate cert =
 
 sscProcessData
     :: forall ctx m.
-       GtDataProcessingMode ctx m
+       SscDataProcessingMode ctx m
     => SscTag -> SscPayload -> m ()
 sscProcessData tag payload =
     generalizeExceptT $ do
@@ -365,6 +365,6 @@ localOnNewSlot
     :: MonadSscMem ctx m
     => SlotId -> m ()
 localOnNewSlot _ = pass
--- unless (isCommitmentIdx slotIdx) $ gtLocalCommitments .= mempty
--- unless (isOpeningIdx slotIdx) $ gtLocalOpenings .= mempty
--- unless (isSharesIdx slotIdx) $ gtLocalShares .= mempty
+-- unless (isCommitmentIdx slotIdx) $ sscLocalCommitments .= mempty
+-- unless (isOpeningIdx slotIdx) $ sscLocalOpenings .= mempty
+-- unless (isSharesIdx slotIdx) $ sscLocalShares .= mempty

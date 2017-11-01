@@ -1,4 +1,4 @@
--- | Serialization of GodTossing types.
+-- | Serialization of SSC types.
 
 module Pos.Binary.Ssc.Types () where
 

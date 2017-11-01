@@ -251,4 +251,4 @@ tossToVerifier action = do
 
 -- | Dump global state to DB.
 sscGlobalStateToBatch :: HasConfiguration => SscGlobalState -> [SomeBatchOp]
-sscGlobalStateToBatch = one . SomeBatchOp . DB.gtGlobalStateToBatch
+sscGlobalStateToBatch = one . SomeBatchOp . DB.sscGlobalStateToBatch

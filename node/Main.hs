@@ -60,9 +60,9 @@ action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
     logInfo $ sformat ("Using configs and genesis:\n"%shown) (CLI.configurationOptions (CLI.commonArgs cArgs))
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-    let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
+    let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-    actionWithoutWallet gtParams currentParams
+    actionWithoutWallet sscParams currentParams
 
 main :: IO ()
 main = withCompileInfo $(retrieveCompileTimeInfo) $ do

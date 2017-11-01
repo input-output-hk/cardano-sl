@@ -22,7 +22,7 @@ import           Pos.Ssc.Core            (CommitmentsMap, OpeningsMap, SharesMap
                                           isCommitmentId, isCommitmentIdx, isOpeningId,
                                           isOpeningIdx, isSharesId, isSharesIdx)
 
--- | Tag corresponding to GodTossing data.
+-- | Tag corresponding to SSC data.
 data SscTag
     = CommitmentMsg
     | OpeningMsg

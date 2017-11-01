@@ -1,4 +1,4 @@
--- | A way to customize node's behavior (e.g. change GodTossing algorithm
+-- | A way to customize node's behavior (e.g. change SSC algorithm
 -- parameters).
 module Pos.Behavior
        ( BehaviorConfig(..)
@@ -14,7 +14,7 @@ import           Pos.Ssc.Behavior            (SscBehavior)
 
 data BehaviorConfig = BehaviorConfig
     { bcSecurityParams :: !SecurityParams    -- ^ network
-    , bcSscBehavior    :: !SscBehavior       -- ^ godtossing
+    , bcSscBehavior    :: !SscBehavior       -- ^ SSC (GodTossing)
     }
     deriving (Eq, Show)
 

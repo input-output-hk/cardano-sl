@@ -98,7 +98,7 @@ instance Bi SecretProof => SafeCopy SecretProof where
     putCopy = Bi.putCopyBi
 
 ----------------------------------------------------------------------------
--- God tossing
+-- SSC
 ----------------------------------------------------------------------------
 
 deriveSafeCopySimple 0 'base ''VssCertificate

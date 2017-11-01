@@ -14,7 +14,7 @@ import           Serokell.Aeson.Options (defaultOptions)
 -- Types for the behavior config
 ----------------------------------------------------------------------------
 
--- | Godtossing algorithm settings (a part of the behavior config).
+-- | SSC settings (a part of the behavior config).
 --
 -- The syntax of this config section is as follows:
 --

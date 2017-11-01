@@ -135,7 +135,7 @@ checkShares epoch (id, sh) = do
 -- Pure functions
 ----------------------------------------------------------------------------
 
--- | Compute 'VssCertificate's of GodTossing participants using set of
+-- | Compute 'VssCertificate's of SSC participants using set of
 -- richmen and stable certificates.
 computeParticipants :: RichmenSet -> VssCertificatesMap -> VssCertificatesMap
 computeParticipants (HS.toMap -> richmen) (UnsafeVssCertificatesMap certs) =

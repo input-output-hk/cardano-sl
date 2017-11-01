@@ -42,11 +42,11 @@ import           Pos.Ssc.Toss                          (SscTag (..), TossModifie
 import           Pos.Ssc.Message                       (MCCommitment (..), MCOpening (..),
                                                         MCShares (..),
                                                         MCVssCertificate (..),
-                                                        GtMessageConstraints)
+                                                        SscMessageConstraints)
 import           Pos.Ssc.Mode                          (SscMode)
 
 sscRelays
-    :: (GtMessageConstraints, SscMode ctx m)
+    :: (SscMessageConstraints, SscMode ctx m)
     => [Relay m]
 sscRelays =
     [ commitmentRelay
@@ -56,7 +56,7 @@ sscRelays =
     ]
 
 commitmentRelay
-    :: (GtMessageConstraints, SscMode ctx m)
+    :: (SscMessageConstraints, SscMode ctx m)
     => Relay m
 commitmentRelay =
     sscRelay CommitmentMsg
@@ -65,7 +65,7 @@ commitmentRelay =
              (\(MCCommitment comm) -> sscProcessCommitment comm)
 
 openingRelay
-    :: (GtMessageConstraints, SscMode ctx m)
+    :: (SscMessageConstraints, SscMode ctx m)
     => Relay m
 openingRelay =
     sscRelay OpeningMsg
@@ -74,7 +74,7 @@ openingRelay =
              (\(MCOpening key open) -> sscProcessOpening key open)
 
 sharesRelay
-    :: (GtMessageConstraints, SscMode ctx m)
+    :: (SscMessageConstraints, SscMode ctx m)
     => Relay m
 sharesRelay =
     sscRelay SharesMsg
@@ -83,7 +83,7 @@ sharesRelay =
              (\(MCShares key shares) -> sscProcessShares key shares)
 
 vssCertRelay
-    :: (GtMessageConstraints, SscMode ctx m)
+    :: (SscMessageConstraints, SscMode ctx m)
     => Relay m
 vssCertRelay =
     sscRelay VssCertificateMsg
@@ -109,12 +109,12 @@ sscRelay
     -> (StakeholderId -> TossModifier -> Maybe contents)
     -> (contents -> ExceptT err m ())
     -> Relay m
-sscRelay gtTag contentsToKey toContents processData =
+sscRelay sscTag contentsToKey toContents processData =
     InvReqData NoMempool $
         InvReqDataParams
           { invReqMsgType = MsgMPC
           , contentsToKey = pure . tagWith contentsProxy . contentsToKey
-          , handleInv = \_ -> sscIsDataUseful gtTag . unTagged
+          , handleInv = \_ -> sscIsDataUseful sscTag . unTagged
           , handleReq =
               \_ (Tagged addr) -> toContents addr . view ldModifier <$> sscRunLocalQuery ask
           , handleData = \_ dat -> do

@@ -8,24 +8,23 @@ module Pos.Ssc.Toss.Class
        , MonadToss (..)
        ) where
 
-import           Control.Monad.Except    (ExceptT)
-import           Control.Monad.Trans     (MonadTrans)
-import           System.Wlog             (WithLogger)
+import           Control.Monad.Except (ExceptT)
+import           Control.Monad.Trans  (MonadTrans)
+import           System.Wlog          (WithLogger)
 import           Universum
 
-import           Pos.Core                (BlockVersionData, EpochIndex, EpochOrSlot,
-                                          StakeholderId, VssCertificate,
-                                          VssCertificatesMap)
-import           Pos.Lrc.Types           (RichmenStakes)
-import           Pos.Ssc.Core            (CommitmentsMap, InnerSharesMap, Opening,
-                                          OpeningsMap, SharesMap, SignedCommitment)
+import           Pos.Core             (BlockVersionData, EpochIndex, EpochOrSlot,
+                                       StakeholderId, VssCertificate, VssCertificatesMap)
+import           Pos.Lrc.Types        (RichmenStakes)
+import           Pos.Ssc.Core         (CommitmentsMap, InnerSharesMap, Opening,
+                                       OpeningsMap, SharesMap, SignedCommitment)
 
 ----------------------------------------------------------------------------
 -- Read-only
 ----------------------------------------------------------------------------
 
 -- | Type class which provides functions necessary for read-only
--- verification of GodTossing data.
+-- verification of SSC data.
 class (Monad m, WithLogger m) =>
       MonadTossRead m where
     -- | Get 'CommitmentsMap' with all commitments.
@@ -96,7 +95,7 @@ instance MonadTossEnv m => MonadTossEnv (ExceptT s m)
 ----------------------------------------------------------------------------
 
 -- | Type class which provides function necessary for verification of
--- GodTossing data with ability to modify state.
+-- SSC data with ability to modify state.
 class MonadTossRead m =>
       MonadToss m where
     -- | Put 'SignedCommitment' into state.

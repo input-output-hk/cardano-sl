@@ -69,7 +69,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
         logInfo $ sformat ("Using configs and genesis:\n"%shown) conf
 
         let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-        let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
+        let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
         let plugins :: HasConfigurations => ([WorkerSpec ExplorerProd], OutSpecs)
             plugins = mconcatPair
@@ -77,7 +77,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
                 , notifierPlugin NotifierSettings{ nsPort = notifierPort }
                 , updateTriggerWorker
                 ]
-        bracketNodeResources currentParams gtParams
+        bracketNodeResources currentParams sscParams
             explorerTxpGlobalSettings
             explorerInitDB $ \nr@NodeResources {..} ->
             let extraCtx = makeExtraCtx

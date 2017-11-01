@@ -48,8 +48,8 @@ import           Pos.Web.Mode                    (WebMode, WebModeContext (..))
 import           Pos.WorkMode                    (OQ)
 import           Pos.WorkMode.Class              (WorkMode)
 
-import           Pos.Web.Api                     (BaseNodeApi, GodTossingApi, GtNodeApi,
-                                                  HealthCheckApi, gtNodeApi,
+import           Pos.Web.Api                     (BaseNodeApi, SscApi, SscNodeApi,
+                                                  HealthCheckApi, sscNodeApi,
                                                   healthCheckApi)
 import           Pos.Web.Types                   (CConfirmedProposalState (..),
                                                   TlsParams (..))
@@ -75,7 +75,7 @@ serveWebGT = serveImpl applicationGT "127.0.0.1"
 applicationGT :: MyWorkMode ctx m => m Application
 applicationGT = do
     server <- servantServerGT
-    return $ serve gtNodeApi server
+    return $ serve sscNodeApi server
 
 serveImpl
     :: (HasConfiguration, MonadIO m)
@@ -127,8 +127,8 @@ servantServerHealthCheck :: forall ctx t m . MyWorkMode ctx m => Topology t -> O
 servantServerHealthCheck topology oq =
     flip enter (healthCheckServantHandlers topology oq) <$> (nat @(MempoolExt m) @ctx @m)
 
-servantServerGT :: forall ctx m . MyWorkMode ctx m => m (Server GtNodeApi)
-servantServerGT = flip enter (baseServantHandlers :<|> gtServantHandlers) <$>
+servantServerGT :: forall ctx m . MyWorkMode ctx m => m (Server SscNodeApi)
+servantServerGT = flip enter (baseServantHandlers :<|> sscServantHandlers) <$>
     (nat @(MempoolExt m) @ctx @m)
 
 ----------------------------------------------------------------------------
@@ -196,24 +196,24 @@ getRoute53HealthCheck (topologyMaxBucketSize -> getSize) oq = do
         OQ.SpareCapacity sc           -> return $ show sc <> "/" <> maxCapacityTxt -- yields 200/OK
 
 ----------------------------------------------------------------------------
--- GodTossing handlers
+-- SSC handlers
 ----------------------------------------------------------------------------
 
-type GtWebMode ext = WebMode ext
+type SscWebMode ext = WebMode ext
 
-gtServantHandlers :: ServerT GodTossingApi (GtWebMode ext)
-gtServantHandlers =
-    toggleGtParticipation {- :<|> gtHasSecret :<|> getOurSecret :<|> getGtStage -}
+sscServantHandlers :: ServerT SscApi (SscWebMode ext)
+sscServantHandlers =
+    toggleSscParticipation {- :<|> gtHasSecret :<|> getOurSecret :<|> getGtStage -}
 
-toggleGtParticipation :: Bool -> GtWebMode ext ()
-toggleGtParticipation enable =
+toggleSscParticipation :: Bool -> SscWebMode ext ()
+toggleSscParticipation enable =
     view sscContext >>=
     atomically . flip writeTVar enable . scParticipateSsc
 
--- gtHasSecret :: GtWebHandler Bool
+-- gtHasSecret :: SscWebHandler Bool
 -- gtHasSecret = isJust <$> getSecret
 
--- getOurSecret :: GtWebHandler SharedSeed
+-- getOurSecret :: SscWebHandler SharedSeed
 -- getOurSecret = maybe (throw err) (pure . convertGtSecret) =<< getSecret
 --   where
 --     err = err404 { errBody = "I don't have secret" }
@@ -222,7 +222,7 @@ toggleGtParticipation enable =
 --         secretToSharedSeed .
 --         fromMaybe doPanic . fromBinaryM . getOpening . view _2
 
--- getGtStage :: GtWebHandler GodTossingStage
+-- getGtStage :: SscWebHandler SscStage
 -- getGtStage = do
 --     getGtStageImpl . siSlot <$> getCurrentSlot
 --   where

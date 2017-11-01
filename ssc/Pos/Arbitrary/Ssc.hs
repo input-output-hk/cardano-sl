@@ -1,4 +1,4 @@
--- | Arbitrary instances and generators for GodTossing types.
+-- | Arbitrary instances and generators for SSC types.
 
 module Pos.Arbitrary.Ssc
        ( SscPayloadDependsOnSlot (..)
@@ -138,7 +138,7 @@ vssCertificateEpochGen x = do
     mkVssCertificate <$> arbitrary <*> arbitrary <*> pure (e + x)
 
 ----------------------------------------------------------------------------
--- Gt (God Tossing) types
+-- SSC types
 ----------------------------------------------------------------------------
 
 instance HasConfiguration => Arbitrary SscProof where

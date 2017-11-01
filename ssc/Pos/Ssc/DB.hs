@@ -2,7 +2,7 @@
 
 module Pos.Ssc.DB
        ( getSscGlobalState
-       , gtGlobalStateToBatch
+       , sscGlobalStateToBatch
        , initGtDB
        ) where
 
@@ -25,14 +25,14 @@ import           Pos.Util.Util                  (maybeThrow)
 
 getSscGlobalState :: (MonadDBRead m) => m SscGlobalState
 getSscGlobalState =
-    maybeThrow (DBMalformed "GodTossing global state DB is not initialized") =<<
-    gsGetBi gtKey
+    maybeThrow (DBMalformed "SSC global state DB is not initialized") =<<
+    gsGetBi sscKey
 
-gtGlobalStateToBatch :: SscGlobalState -> GtOp
-gtGlobalStateToBatch = PutGlobalState
+sscGlobalStateToBatch :: SscGlobalState -> SscOp
+sscGlobalStateToBatch = PutGlobalState
 
 initGtDB :: (HasConfiguration, MonadDB m) => m ()
-initGtDB = gsPutBi gtKey (def {_sgsVssCertificates = vcd})
+initGtDB = gsPutBi sscKey (def {_sgsVssCertificates = vcd})
   where
     vcd = VCD.fromList . toList $ genesisVssCerts
 
@@ -40,18 +40,18 @@ initGtDB = gsPutBi gtKey (def {_sgsVssCertificates = vcd})
 -- Operation
 ----------------------------------------------------------------------------
 
-data GtOp
+data SscOp
     = PutGlobalState !SscGlobalState
 
-instance Buildable GtOp where
-    build (PutGlobalState gs) = bprint ("GtOp ("%build%")") gs
+instance Buildable SscOp where
+    build (PutGlobalState gs) = bprint ("SscOp ("%build%")") gs
 
-instance HasConfiguration => RocksBatchOp GtOp where
-    toBatchOp (PutGlobalState gs) = [Rocks.Put gtKey (dbSerializeValue gs)]
+instance HasConfiguration => RocksBatchOp SscOp where
+    toBatchOp (PutGlobalState gs) = [Rocks.Put sscKey (dbSerializeValue gs)]
 
 ----------------------------------------------------------------------------
 -- Key
 ----------------------------------------------------------------------------
 
-gtKey :: ByteString
-gtKey = "ssc/"
+sscKey :: ByteString
+sscKey = "ssc/"

@@ -1,6 +1,6 @@
 {-# LANGUAGE DataKinds #-}
 
--- | Messages used for communication in GodTossing SSC.
+-- | Messages used for communication in SSC.
 
 module Pos.Ssc.Message
        ( MCCommitment (..)
@@ -13,7 +13,7 @@ module Pos.Ssc.Message
        , _MCVssCertificate
        , HasSscTag (..)
        , SscTag (..)
-       , GtMessageConstraints
+       , SscMessageConstraints
        ) where
 
 import           Control.Lens                   (makePrisms)
@@ -84,7 +84,7 @@ instance HasSscTag MCVssCertificate where
 
 -- TODO: someone who knows networking should take a look because this really
 -- doesn't look like something that anyone should ever have to write
-type GtMessageConstraints =
+type SscMessageConstraints =
     ( Each '[MessageLimited]
         [ DataMsg MCCommitment
         , DataMsg MCOpening

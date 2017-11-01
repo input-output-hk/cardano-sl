@@ -59,7 +59,7 @@ data NodeParams = NodeParams
     , npEkgParams      :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring.
     , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend.
     , npNetworkConfig  :: !(NetworkConfig KademliaParams)
-    , npBehaviorConfig :: !BehaviorConfig       -- ^ Behavior (e.g. GodTossing settings)
+    , npBehaviorConfig :: !BehaviorConfig       -- ^ Behavior (e.g. SSC settings)
     } -- deriving (Show)
 
 makeLensesWith postfixLFields ''NodeParams

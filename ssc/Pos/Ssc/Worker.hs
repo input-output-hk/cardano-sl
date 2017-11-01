@@ -90,7 +90,7 @@ import           Pos.Ssc.Types                         (HasSscContext (..),
 import           Pos.Ssc.Message                       (SscTag (..), MCCommitment (..),
                                                         MCOpening (..), MCShares (..),
                                                         MCVssCertificate (..),
-                                                        GtMessageConstraints)
+                                                        SscMessageConstraints)
 import           Pos.Ssc.Mode                          (SscMode)
 import           Pos.Ssc.RichmenComponent              (getRichmenSsc)
 import           Pos.Util.LogSafe                      (logDebugS, logErrorS, logInfoS,
@@ -99,7 +99,7 @@ import           Pos.Util.Util                         (getKeys, inAssertMode,
                                                         leftToPanic)
 
 sscWorkers
-  :: (GtMessageConstraints, SscMode ctx m)
+  :: (SscMessageConstraints, SscMode ctx m)
   => ([WorkerSpec m], OutSpecs)
 sscWorkers = merge [onNewSlotSsc, checkForIgnoredCommitmentsWorker]
   where
@@ -121,10 +121,10 @@ shouldParticipate epoch = do
 -- CHECK: @onNewSlotSsc
 -- #checkNSendOurCert
 onNewSlotSsc
-    :: (GtMessageConstraints, SscMode ctx m)
+    :: (SscMessageConstraints, SscMode ctx m)
     => (WorkerSpec m, OutSpecs)
 onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions ->
-    recoveryCommGuard "onNewSlot worker in GodTossing" $ do
+    recoveryCommGuard "onNewSlot worker in SSC" $ do
         localOnNewSlot slotId
         whenM (shouldParticipate $ siEpoch slotId) $ do
             behavior <- view sscContext >>=
@@ -145,7 +145,7 @@ onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions ->
 -- Checks whether 'our' VSS certificate has been announced
 checkNSendOurCert
     :: forall ctx m.
-       (GtMessageConstraints, SscMode ctx m)
+       (SscMessageConstraints, SscMode ctx m)
     => Worker m
 checkNSendOurCert sendActions = do
     ourId <- getOurStakeholderId
@@ -200,7 +200,7 @@ getOurVssKeyPair = views sscContext scVssKeyPair
 
 -- Commitments-related part of new slot processing
 onNewSlotCommitment
-    :: (GtMessageConstraints, SscMode ctx m)
+    :: (SscMessageConstraints, SscMode ctx m)
     => SlotId -> Worker m
 onNewSlotCommitment slotId@SlotId {..} sendActions
     | not (isCommitmentIdx siSlot) = pass
@@ -225,7 +225,7 @@ onNewSlotCommitment slotId@SlotId {..} sendActions
         logDebugS $ sformat ("Generating secret for "%ords%" epoch") siEpoch
         generated <- generateAndSetNewSecret ourSk slotId
         case generated of
-            Nothing -> logWarningS "I failed to generate secret for GodTossing"
+            Nothing -> logWarningS "I failed to generate secret for SSC"
             Just comm -> do
               logInfoS (sformat ("Generated secret for "%ords%" epoch") siEpoch)
               sendOurCommitment comm ourId
@@ -237,7 +237,7 @@ onNewSlotCommitment slotId@SlotId {..} sendActions
 
 -- Openings-related part of new slot processing
 onNewSlotOpening
-    :: (GtMessageConstraints, SscMode ctx m)
+    :: (SscMessageConstraints, SscMode ctx m)
     => SscOpeningParams -> SlotId -> Worker m
 onNewSlotOpening params SlotId {..} sendActions
     | not $ isOpeningIdx siSlot = pass
@@ -268,7 +268,7 @@ onNewSlotOpening params SlotId {..} sendActions
 
 -- Shares-related part of new slot processing
 onNewSlotShares
-    :: (GtMessageConstraints, SscMode ctx m)
+    :: (SscMessageConstraints, SscMode ctx m)
     => SscSharesParams -> SlotId -> Worker m
 onNewSlotShares params SlotId {..} sendActions = do
     ourId <- getOurStakeholderId
@@ -438,12 +438,11 @@ checkForIgnoredCommitmentsWorker = localWorker $ do
     counter <- newTVarIO 0
     onNewSlot True (checkForIgnoredCommitmentsWorkerImpl counter)
 
--- This worker checks whether our commitments appear in blocks. This
--- check is done only if we actually should participate in
--- GodTossing. It's triggered if there are
--- 'mdNoCommitmentsEpochThreshold' consequent epochs during which we
--- had to participate in GodTossing, but our commitment didn't appear
--- in blocks. If check fails, it's reported as non-critical misbehavior.
+-- This worker checks whether our commitments appear in blocks. This check
+-- is done only if we actually should participate in SSC. It's triggered if
+-- there are 'mdNoCommitmentsEpochThreshold' consequent epochs during which
+-- we had to participate in SSC, but our commitment didn't appear in blocks.
+-- If check fails, it's reported as non-critical misbehavior.
 --
 -- The first argument is a counter which is incremented every time we
 -- detect unexpected absence of our commitment and is reset to 0 when

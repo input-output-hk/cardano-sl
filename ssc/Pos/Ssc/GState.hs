@@ -114,7 +114,7 @@ sscLoadGlobalState :: (HasConfiguration, MonadDBRead m, WithLogger m) => m SscGl
 sscLoadGlobalState = do
     logDebug "Loading SSC global state"
     gs <- DB.getSscGlobalState
-    gs <$ logInfo (sformat ("Loaded GodTossing state: " %build) gs)
+    gs <$ logInfo (sformat ("Loaded SSC state: " %build) gs)
 
 sscGetGlobalState
     :: (MonadSscMem ctx m, MonadIO m)

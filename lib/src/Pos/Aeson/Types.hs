@@ -4,7 +4,7 @@ module Pos.Aeson.Types
 
 import           Data.Aeson.TH (defaultOptions, deriveToJSON)
 
-import           Pos.Web.Types (GodTossingStage)
+import           Pos.Web.Types (SscStage)
 
 -- NOTE: some of these types are used on frontend (PureScript).
 -- We are automatically deriving instances there and they are
@@ -12,4 +12,4 @@ import           Pos.Web.Types (GodTossingStage)
 -- If datatype is used on frontend, please use this instead of
 -- any other way of deriving if possible.
 
-deriveToJSON defaultOptions ''GodTossingStage
+deriveToJSON defaultOptions ''SscStage

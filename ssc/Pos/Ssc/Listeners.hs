@@ -37,7 +37,7 @@ import           Pos.Ssc.LocalData                     (sscIsDataUseful,
                                                         sscProcessOpening,
                                                         sscProcessShares)
 import           Pos.Ssc.GodTossing.Network.Constraint (GtMessageConstraints)
-import           Pos.Ssc.Toss                          (GtTag (..), TossModifier,
+import           Pos.Ssc.Toss                          (SscTag (..), TossModifier,
                                                         tmCertificates, tmCommitments,
                                                         tmOpenings, tmShares)
 import           Pos.Ssc.Types.Message                 (MCCommitment (..), MCOpening (..),
@@ -104,7 +104,7 @@ sscRelay
        , HasConfiguration
        , HasSscConfiguration
        )
-    => GtTag
+    => SscTag
     -> (contents -> StakeholderId)
     -> (StakeholderId -> TossModifier -> Maybe contents)
     -> (contents -> ExceptT err m ())

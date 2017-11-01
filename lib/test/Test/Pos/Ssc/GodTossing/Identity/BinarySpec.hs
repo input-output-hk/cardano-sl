@@ -34,7 +34,7 @@ spec = withDefInfraConfiguration $ withDefConfiguration $
         binaryTest @(R.DataMsg GT.MCOpening)
         binaryTest @(R.DataMsg GT.MCShares)
         binaryTest @(R.DataMsg GT.MCVssCertificate)
-        binaryTest @GT.GtTag
+        binaryTest @GT.SscTag
         binaryTest @GT.TossModifier
         binaryTest @GT.VssCertData
         binaryTest @GT.SscGlobalState

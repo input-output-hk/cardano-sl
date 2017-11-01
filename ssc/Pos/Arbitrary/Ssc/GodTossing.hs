@@ -35,7 +35,7 @@ import           Pos.Ssc.Core                      (Commitment (..), Commitments
                                                     isSharesId, mkCommitmentsMap,
                                                     mkCommitmentsMap, mkSignedCommitment)
 import           Pos.Ssc.Toss.Types                (TossModifier (..))
-import           Pos.Ssc.Types.Message             (GtTag (..), MCCommitment (..),
+import           Pos.Ssc.Types.Message             (SscTag (..), MCCommitment (..),
                                                     MCOpening (..), MCShares (..),
                                                     MCVssCertificate (..))
 import           Pos.Ssc.Types                     (SscGlobalState (..),
@@ -198,7 +198,7 @@ instance HasConfiguration => Arbitrary TossModifier where
 -- Message types
 ------------------------------------------------------------------------------------------
 
-instance Arbitrary GtTag where
+instance Arbitrary SscTag where
     arbitrary = genericArbitrary
     shrink = genericShrink
 

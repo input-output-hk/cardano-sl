@@ -7,11 +7,11 @@ module Pos.Binary.GodTossing.Toss
 import           Pos.Binary.Class              (Cons (..), Field (..), deriveSimpleBi,
                                                 deriveSimpleBiCxt)
 import           Pos.Ssc.Core                  (CommitmentsMap, OpeningsMap, SharesMap)
-import           Pos.Ssc.Toss.Types            (GtTag (..), TossModifier (..))
+import           Pos.Ssc.Toss.Types            (SscTag (..), TossModifier (..))
 import           Pos.Core.Configuration        (HasConfiguration)
 import           Pos.Core.Vss                  (VssCertificatesMap)
 
-deriveSimpleBi ''GtTag [
+deriveSimpleBi ''SscTag [
     Cons 'CommitmentMsg [],
     Cons 'OpeningMsg [],
     Cons 'SharesMsg [],

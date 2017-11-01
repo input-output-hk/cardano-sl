@@ -58,7 +58,7 @@ import           Pos.Ssc.Core                       (SscPayload (..), InnerShare
                                                      Opening, SignedCommitment,
                                                      isCommitmentIdx, isOpeningIdx,
                                                      isSharesIdx, mkCommitmentsMap)
-import           Pos.Ssc.Toss                       (GtTag (..), PureToss, TossT,
+import           Pos.Ssc.Toss                       (SscTag (..), PureToss, TossT,
                                                      evalPureTossWithLogger, evalTossT,
                                                      execTossT, hasCertificateToss,
                                                      hasCommitmentToss, hasOpeningToss,
@@ -203,7 +203,7 @@ sscIsDataUseful
        , HasConfiguration
        , HasSscConfiguration
        )
-    => GtTag -> StakeholderId -> m Bool
+    => SscTag -> StakeholderId -> m Bool
 sscIsDataUseful tag id =
     ifM
         (maybe False (isGoodSlotForTag tag . siSlot) <$> getCurrentSlot)
@@ -283,7 +283,7 @@ sscProcessCertificate cert =
 sscProcessData
     :: forall ctx m.
        GtDataProcessingMode ctx m
-    => GtTag -> SscPayload -> m ()
+    => SscTag -> SscPayload -> m ()
 sscProcessData tag payload =
     generalizeExceptT $ do
         getCurrentSlot >>= checkSlot

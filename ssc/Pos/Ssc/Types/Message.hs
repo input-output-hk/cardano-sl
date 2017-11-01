@@ -9,8 +9,8 @@ module Pos.Ssc.Types.Message
        , _MCOpening
        , _MCShares
        , _MCVssCertificate
-       , HasGtTag (..)
-       , GtTag (..)
+       , HasSscTag (..)
+       , SscTag (..)
        ) where
 
 import           Control.Lens                  (makePrisms)
@@ -21,10 +21,10 @@ import           Universum
 import           Pos.Core                      (StakeholderId, VssCertificate,
                                                 addressHash, getCertId)
 import           Pos.Ssc.Core                  (InnerSharesMap, Opening, SignedCommitment)
-import           Pos.Ssc.Toss.Types            (GtTag (..))
+import           Pos.Ssc.Toss.Types            (SscTag (..))
 
-class HasGtTag a where
-    toGtTag :: a -> GtTag
+class HasSscTag a where
+    toSscTag :: a -> SscTag
 
 data MCCommitment = MCCommitment !SignedCommitment
     deriving (Show, Eq, Generic)
@@ -59,14 +59,14 @@ instance Buildable MCVssCertificate where
     build (MCVssCertificate c) =
         bprint ("VSS certificate contents from "%build) $ getCertId c
 
-instance HasGtTag MCCommitment where
-    toGtTag _ = CommitmentMsg
+instance HasSscTag MCCommitment where
+    toSscTag _ = CommitmentMsg
 
-instance HasGtTag MCOpening where
-    toGtTag _ = OpeningMsg
+instance HasSscTag MCOpening where
+    toSscTag _ = OpeningMsg
 
-instance HasGtTag MCShares where
-    toGtTag _ = SharesMsg
+instance HasSscTag MCShares where
+    toSscTag _ = SharesMsg
 
-instance HasGtTag MCVssCertificate where
-    toGtTag _ = VssCertificateMsg
+instance HasSscTag MCVssCertificate where
+    toSscTag _ = VssCertificateMsg

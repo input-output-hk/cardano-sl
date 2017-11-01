@@ -88,7 +88,7 @@ import           Pos.Ssc.Toss                          (computeParticipants,
 import           Pos.Ssc.Types                         (HasSscContext (..),
                                                         sgsCommitments, scBehavior,
                                                         scParticipateSsc, scVssKeyPair)
-import           Pos.Ssc.Types.Message                 (GtTag (..), MCCommitment (..),
+import           Pos.Ssc.Types.Message                 (SscTag (..), MCCommitment (..),
                                                         MCOpening (..), MCShares (..),
                                                         MCVssCertificate (..))
 import           Pos.Ssc.Mode                          (SscMode)
@@ -317,7 +317,7 @@ sendOurData ::
     , HasSscConfiguration
     )
     => EnqueueMsg m
-    -> GtTag
+    -> SscTag
     -> StakeholderId
     -> contents
     -> EpochIndex
@@ -403,7 +403,7 @@ randomTimeInInterval interval =
 
 waitUntilSend
     :: (HasInfraConfiguration, HasSscConfiguration, SscMode ctx m)
-    => GtTag -> EpochIndex -> Word16 -> m ()
+    => SscTag -> EpochIndex -> Word16 -> m ()
 waitUntilSend msgTag epoch slMultiplier = do
     let slot =
             leftToPanic "waitUntilSend: " $

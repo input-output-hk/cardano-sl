@@ -41,7 +41,7 @@ import qualified Pos.Ssc.VssCertData              as VCD
 import           Pos.Ssc.Lrc                      (getSscRichmenFromLrc)
 import           Pos.Ssc.Mem                      (MonadSscMem, SscGlobalQuery,
                                                    sscRunGlobalQuery)
-import           Pos.Ssc.SeedError                (SscSeedError)
+import           Pos.Ssc.Error                    (SscSeedError)
 import           Pos.Ssc.Types                    (SscGlobalState (..),
                                                    sgsCommitments, sgsOpenings, sgsShares,
                                                    sgsVssCertificates)

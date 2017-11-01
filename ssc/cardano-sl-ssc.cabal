@@ -19,8 +19,9 @@ library
     Pos.Ssc.Core.Types
     Pos.Ssc.Core.Functions
 
-    Pos.Ssc.SeedError
-    Pos.Ssc.VerifyError
+    Pos.Ssc.Error
+    Pos.Ssc.Error.Seed
+    Pos.Ssc.Error.Verify
 
     Pos.Ssc.Types
 

@@ -37,7 +37,7 @@ import           Pos.Ssc.Toss          (MultiRichmenStakes, PureToss, applyGenes
                                         rollbackGT, runPureTossWithLogger,
                                         supplyPureTossEnv, verifyAndApplySscPayload)
 import           Pos.Ssc.Types         (SscBlock (..), SscGlobalState (..), sscGlobal)
-import           Pos.Ssc.VerifyError   (SscVerifyError (..), sscIsCriticalError)
+import           Pos.Ssc.Error         (SscVerifyError (..), sscIsCriticalVerifyError)
 import           Pos.Util.Chrono       (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.Util         (inAssertMode, _neHead, _neLast)
 
@@ -94,7 +94,7 @@ sscVerifyBlocks blocks = do
             (execStateT (sscVerifyAndApplyBlocks richmenSet bvd blocks) gs)
     case res of
         Left e
-            | sscIsCriticalError e ->
+            | sscIsCriticalVerifyError e ->
                 reportError $ sformat ("Critical error in ssc: "%build) e
         _ -> pass
     return res

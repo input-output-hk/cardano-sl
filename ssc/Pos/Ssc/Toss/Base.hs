@@ -65,7 +65,7 @@ import           Pos.Ssc.Core                    (Commitment (..),
                                                   vssThreshold)
 import           Pos.Ssc.Toss.Class              (MonadToss (..), MonadTossEnv (..),
                                                   MonadTossRead (..))
-import           Pos.Ssc.VerifyError             (SscVerifyError (..))
+import           Pos.Ssc.Error                   (SscVerifyError (..))
 import           Pos.Util.Util                   (getKeys)
 
 ----------------------------------------------------------------------------

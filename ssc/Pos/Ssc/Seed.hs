@@ -23,7 +23,7 @@ import           Pos.Ssc.Core             (Commitment (..), CommitmentsMap (..),
                                            SignedCommitment, getCommShares,
                                            secretToSharedSeed, verifyOpening,
                                            vssThreshold)
-import           Pos.Ssc.SeedError        (SscSeedError (..))
+import           Pos.Ssc.Error            (SscSeedError (..))
 import           Pos.Util.Util            (getKeys)
 
 -- | Calculate SharedSeed. SharedSeed is a random bytestring that all

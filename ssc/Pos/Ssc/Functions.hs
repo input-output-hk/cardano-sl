@@ -34,7 +34,7 @@ import           Pos.Ssc.Core                    (CommitmentsMap (getCommitments
                                                   isCommitmentId, isOpeningId, isSharesId,
                                                   verifySignedCommitment, vssThreshold)
 import           Pos.Ssc.Toss.Base               (verifyEntriesGuardM)
-import           Pos.Ssc.VerifyError             (SscVerifyError (..))
+import           Pos.Ssc.Error                   (SscVerifyError (..))
 import           Pos.Ssc.Types                   (SscGlobalState (..))
 import qualified Pos.Ssc.VssCertData             as VCD
 import           Pos.Util.Util                   (Some)

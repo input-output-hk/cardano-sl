@@ -1,8 +1,8 @@
 -- | Possible failures during SSC.
 
-module Pos.Ssc.VerifyError
+module Pos.Ssc.Error.Verify
        ( SscVerifyError (..)
-       , sscIsCriticalError
+       , sscIsCriticalVerifyError
        ) where
 
 import qualified Data.Text.Buildable
@@ -108,8 +108,8 @@ instance Buildable SscVerifyError where
         bprint ("internal error: "%stext) msg
 
 -- | Returns 'True' if the error must be reported.
-sscIsCriticalError :: SscVerifyError -> Bool
-sscIsCriticalError =
+sscIsCriticalVerifyError :: SscVerifyError -> Bool
+sscIsCriticalVerifyError =
     \case
         TossInternalError {} -> True
         _ -> False

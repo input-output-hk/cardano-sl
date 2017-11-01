@@ -32,7 +32,7 @@ import           Pos.Ssc.Core                     (CommitmentsMap (..), SscPaylo
 import           Pos.Ssc.Functions                (verifySscPayload)
 import           Pos.Ssc.Toss.Base                (checkPayload)
 import           Pos.Ssc.Toss.Class               (MonadToss (..), MonadTossEnv (..))
-import           Pos.Ssc.VerifyError              (SscVerifyError (..))
+import           Pos.Ssc.Error                    (SscVerifyError (..))
 import           Pos.Ssc.Toss.Types               (TossModifier (..))
 import           Pos.Util.Chrono                  (NewestFirst (..))
 import           Pos.Util.Util                    (Some, inAssertMode, sortWithMDesc)

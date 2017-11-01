@@ -72,7 +72,7 @@ import           Pos.Ssc.Types                      (SscLocalData (..),
                                                      SscGlobalState, SscBlock,
                                                      ldEpoch, ldModifier, ldSize,
                                                      sscGlobal, sscLocal)
-import           Pos.Ssc.VerifyError                (SscVerifyError (..))
+import           Pos.Ssc.Error                      (SscVerifyError (..))
 import           Pos.Ssc.RichmenComponent           (getRichmenSsc)
 import           Pos.Util.Util                      (Some)
 

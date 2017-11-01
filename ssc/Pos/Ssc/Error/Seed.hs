@@ -1,6 +1,6 @@
 -- | Error which can arise during seed calculation.
 
-module Pos.Ssc.SeedError
+module Pos.Ssc.Error.Seed
        ( SscSeedError (..)
        ) where
 

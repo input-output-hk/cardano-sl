@@ -44,13 +44,13 @@ import Data.Argonaut.Core (fromString)
 import Data.Argonaut.Generic.Aeson (decodeJson)
 import Data.Array (length, filter)
 import Data.Either (either, Either(..))
-import Data.Foreign (F, Foreign, isNull, readString, readNull)
+import Data.Foreign (F, Foreign, isNull, readString)
 import Data.Int53 (fromInt)
 import Data.Maybe (Maybe(..))
 import Data.String (split, null, trim, joinWith, Pattern(..))
 import Data.Types (mkTime)
 import Pos.Util.BackupPhrase (BackupPhrase(..))
-import Pos.Wallet.Web.ClientTypes.Types (CId(..), CHash(..), CPassPhrase(..), CCoin(..), Wal(..), CAccountId(..), CWalletMeta(..))
+import Pos.Wallet.Web.ClientTypes.Types (CId(..), CHash(..), CPassPhrase(..), CCoin(..), Wal, CAccountId(..), CWalletMeta(..))
 
 space :: Pattern
 space = Pattern " "

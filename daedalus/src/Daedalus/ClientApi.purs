@@ -7,7 +7,10 @@ import Control.Monad.Eff.Exception (EXCEPTION)
 import Control.Monad.Eff.Uncurried (EffFn1, mkEffFn1, EffFn2, mkEffFn2, EffFn4, mkEffFn4, EffFn5, mkEffFn5, EffFn3, mkEffFn3, EffFn6, mkEffFn6)
 import Control.Monad.Error.Class (throwError)
 import Control.Promise (Promise, fromAff)
-import Daedalus.Types (getProfileLocale, mkBackupPhrase, mkCAccountId, mkCAccountInit, mkCAccountMeta, mkCCoin, mkCId, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCProfile, mkCTxId, mkCTxMeta, mkCWalletInit, mkCWalletMeta, mkCWalletRedeem, optionalString, CFilePath (..), ScrollOffset (..), ScrollLimit (..))
+import Daedalus.BackendApi as B
+import Daedalus.Types (getProfileLocale, mkBackupPhrase, mkCAccountId, mkCAccountInit, mkCAccountMeta, mkCCoin, mkCId, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCProfile, mkCTxId, mkCTxMeta, mkCWalletInit, mkCWalletMeta, mkCWalletRedeem, optionalString, CFilePath (..))
+import Daedalus.Crypto as Crypto
+import Daedalus.TLS (TLSOptions, FS, initTLS)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
 import Data.Array as A

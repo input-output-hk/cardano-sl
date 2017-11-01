@@ -47,7 +47,8 @@ import           Pos.DB.GState.Common               (getTipHeaderGeneric)
 import           Pos.Lrc.Context                    (HasLrcContext)
 import           Pos.Lrc.Types                      (RichmenStakes)
 import           Pos.Slotting                       (MonadSlots (getCurrentSlot))
-import           Pos.Ssc.Mem                        (MonadSscMem, askSscMem,
+import           Pos.Ssc.Mem                        (MonadSscMem, SscLocalQuery,
+                                                     SscLocalUpdate, askSscMem,
                                                      sscRunGlobalQuery,
                                                      sscRunLocalQuery,
                                                      sscRunLocalSTM,
@@ -111,8 +112,8 @@ sscGetLocalPayload
 sscGetLocalPayload = sscRunLocalQuery . sscGetLocalPayloadQ
 
 sscGetLocalPayloadQ
-  :: (HasConfiguration, MonadReader SscLocalData m, WithLogger m)
-  => SlotId -> m SscPayload
+  :: HasConfiguration
+  => SlotId -> SscLocalQuery SscPayload
 sscGetLocalPayloadQ SlotId {..} = do
     expectedEpoch <- view ldEpoch
     let warningMsg = sformat warningFmt siEpoch expectedEpoch
@@ -168,12 +169,11 @@ sscNormalize = do
     executeMonadBaseRandom seed = hoist $ hoist (pure . fst . Rand.withDRG seed)
 
 sscNormalizeU
-    :: (HasSscConfiguration, HasConfiguration, MonadState SscLocalData m,
-        WithLogger m, Rand.MonadRandom m)
+    :: (HasSscConfiguration, HasConfiguration)
     => (EpochIndex, RichmenStakes)
     -> BlockVersionData
     -> SscGlobalState
-    -> m ()
+    -> SscLocalUpdate ()
 sscNormalizeU (epoch, stake) bvd gs = do
     oldModifier <- use ldModifier
     let multiRichmen = HM.fromList [(epoch, stake)]

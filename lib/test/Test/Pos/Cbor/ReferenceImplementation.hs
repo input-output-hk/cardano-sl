@@ -58,7 +58,7 @@ deserialise bytes =
 newtype Decoder a = Decoder { runDecoder :: [Word8] -> Maybe (a, [Word8]) }
 
 instance Functor Decoder where
-  fmap f a = f <$> a
+  fmap f a = a >>= return . f
 
 instance Applicative Decoder where
   pure  = return

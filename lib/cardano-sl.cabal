@@ -582,8 +582,9 @@ test-suite cardano-test
 benchmark cardano-bench-criterion
   hs-source-dirs:      bench
   main-is:             Local/Criterion.hs
-  other-modules:       Bench.Pos.Criterion.FollowTheSatoshiBench
-                       Bench.Pos.Criterion.TxSigningBench
+  other-modules:       Bench.Pos.Criterion.FollowTheSatoshi
+                       Bench.Pos.Criterion.TxSigning
+                       Bench.Pos.Criterion.BlockSerialization
                        Bench.Configuration
   type:                exitcode-stdio-1.0
   build-depends:       QuickCheck
@@ -592,6 +593,7 @@ benchmark cardano-bench-criterion
                      , binary
                      , bytestring
                      , cardano-sl-core
+                     , cardano-sl-ssc
                      , cardano-sl-txp
                      , cardano-sl-ssc
                      , cardano-sl
@@ -601,7 +603,9 @@ benchmark cardano-bench-criterion
                      , formatting
                      , lens
                      , log-warper
+                     , node-sketch
                      , serokell-util >= 0.1.3.4
+                     , text
                      , text-format
                      , universum >= 0.1.11
                      , vector

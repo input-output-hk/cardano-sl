@@ -1,6 +1,6 @@
-module Bench.Pos.Criterion.FollowTheSatoshiBench
-    ( runBenchmark
-    ) where
+module Bench.Pos.Criterion.FollowTheSatoshi
+       ( runBenchmark
+       ) where
 
 import           Criterion.Main      (Benchmark, bench, defaultConfig, defaultMainWith,
                                       env, whnf)

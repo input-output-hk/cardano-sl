@@ -4,13 +4,15 @@ module Main
 
 import           Universum
 
-import           System.IO                          (hSetEncoding, stdout, utf8)
+import           System.IO                              (hSetEncoding, stdout, utf8)
 
--- import qualified Bench.Pos.Criterion.FollowTheSatoshiBench as FTS
-import qualified Bench.Pos.Criterion.TxSigningBench as TS
+-- import qualified Bench.Pos.Criterion.FollowTheSatoshi as FTS
+-- jimport qualified Bench.Pos.Criterion.TxSigning          as TS
+import qualified Bench.Pos.Criterion.BlockSerialization as BSR
 
 main :: IO ()
 main = do
     hSetEncoding stdout utf8
     -- FTS.runBenchmark
-    TS.runBenchmark
+    -- TS.runBenchmark
+    BSR.runBenchmark

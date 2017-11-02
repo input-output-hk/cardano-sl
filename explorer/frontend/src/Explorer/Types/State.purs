@@ -12,6 +12,7 @@ import Explorer.I18n.Lang (Language)
 import Explorer.Routes (Route)
 import Explorer.Util.Config (SyncAction)
 import Network.RemoteData (RemoteData)
+import Pos.Core.Types (EpochIndex(..))
 import Pos.Explorer.Web.ClientTypes (CAddress, CAddressesFilter, CAddressSummary, CBlockEntry, CBlockSummary, CGenesisAddressInfo, CGenesisSummary, CTxBrief, CTxEntry, CTxSummary)
 import Prelude (class Eq, class Ord, class Show)
 import Waypoints (Waypoint)
@@ -129,7 +130,10 @@ type AddressDetailViewState =
 
 type BlocksViewState =
     { blsViewPagination :: PageNumber
+    , blsViewMaxPagination :: PageNumber
     , blsViewPaginationEditable :: Boolean
+    , blsViewEpochIndex :: Maybe EpochIndex
+    , blsViewLoadingPagination :: Boolean
     }
 
 type GenesisBlockViewState =

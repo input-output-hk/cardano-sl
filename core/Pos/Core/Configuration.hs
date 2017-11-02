@@ -69,8 +69,9 @@ canonicalGenesisJson theGenesisData = (canonicalJsonBytes, jsonHash)
 --
 -- If the configuration gives a testnet genesis spec, then a start time must
 -- be provided, probably sourced from command line arguments.
-withCoreConfigurations
-    :: ( MonadThrow m
+withCoreConfigurations ::
+       forall m r.
+       ( MonadThrow m
        , WithLogger m
        , MonadIO m
        , Canonical.FromJSON (Either String) GenesisData
@@ -81,14 +82,21 @@ withCoreConfigurations
     -> Maybe Timestamp
     -- ^ Optional system start time.
     --   It must be given when the genesis spec uses a testnet initializer.
+    -> Maybe Integer
+    -- ^ Optional seed which overrides one from testnet initializer if
+    -- provided.
     -> (HasConfiguration => m r)
     -> m r
-withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart act = case ccGenesis of
+withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act = case ccGenesis of
     -- If a 'GenesisData' source file is given, we check its hash against the
     -- given expected hash, parse it, and use the GenesisData to fill in all of
     -- the obligations.
     GCSrc fp expectedHash -> do
         !bytes <- liftIO $ BS.readFile (confDir </> fp)
+
+        whenJust mSeed $ const $
+            throwM $ MeaninglessSeed
+                "Seed doesn't make sense when genesis data itself is provided"
 
         gdataJSON <- case Canonical.parseCanonicalJSON (BSL.fromStrict bytes) of
             Left str -> throwM $ GenesisDataParseFailure (fromString str)
@@ -127,7 +135,21 @@ withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart act = cas
                     logInfo $ sformat ("withConfiguration using genesis configured system start time "%shown) miStartTime
                     return miStartTime
 
-        withGenesisSpec theSystemStart conf act
+        -- Override seed if necessary
+        let overrideSeed :: Integer -> GenesisInitializer -> m GenesisInitializer
+            overrideSeed newSeed ti@TestnetInitializer{} = pure (ti {tiSeed = newSeed})
+            overrideSeed _ _ =
+                throwM $ MeaninglessSeed "Can't override seed for mainnet initializer"
+
+        theSpec <- case mSeed of
+             Nothing      -> pure spec
+             Just newSeed -> do
+                 newInitializer <- overrideSeed newSeed (gsInitializer spec)
+                 return spec { gsInitializer = newInitializer }
+
+        let theConf = conf {ccGenesis = GCSpec theSpec}
+
+        withGenesisSpec theSystemStart theConf act
 
 withGenesisSpec
     :: Timestamp
@@ -189,6 +211,9 @@ data ConfigurationError =
     | GenesisHashMismatch !Text !Text
 
     | ConfigurationInternalError !Text
+
+      -- | Custom seed was provided, but it doesn't make sense.
+    | MeaninglessSeed !Text
     deriving (Show)
 
 instance Exception ConfigurationError

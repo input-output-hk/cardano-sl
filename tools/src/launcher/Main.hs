@@ -220,15 +220,19 @@ main = do
     -- their choice. It doesn't cover all cases
     -- (e. g. `--system-start=10`), but it's better than nothing.
     addConfigurationOptions :: ConfigurationOptions -> [Text] -> [Text]
-    addConfigurationOptions (ConfigurationOptions path key systemStart) =
+    addConfigurationOptions (ConfigurationOptions path key systemStart seed) =
         addConfFileOption path .
-        addConfKeyOption key . addSystemStartOption systemStart
+        addConfKeyOption key .
+        addSystemStartOption systemStart .
+        addSeedOption seed
 
     addConfFileOption filePath =
         maybeAddOption "--configuration-file" (toText filePath)
     addConfKeyOption key = maybeAddOption "--configuration-key" key
     addSystemStartOption =
         maybe identity (maybeAddOption "--system-start" . timestampToText)
+    addSeedOption =
+        maybe identity (maybeAddOption "--configuration-seed" . show)
 
     maybeAddOption :: Text -> Text -> [Text] -> [Text]
     maybeAddOption optionName optionValue options

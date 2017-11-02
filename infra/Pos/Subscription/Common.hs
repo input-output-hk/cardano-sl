@@ -10,6 +10,7 @@ module Pos.Subscription.Common
     , subscriptionWorker
     ) where
 
+import           Data.Time.Units                       (Second)
 import qualified Network.Broadcast.OutboundQueue       as OQ
 import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
 import           Universum                             hiding (bracket)
@@ -18,7 +19,8 @@ import           Formatting                            (sformat, shown, (%))
 import           Mockable                              (Bracket, Catch, Mockable, Throw,
                                                         bracket, try)
 import           Node.Message.Class                    (Message)
-import           System.Wlog                           (WithLogger, logNotice)
+import           Serokell.Util                         (threadDelay)
+import           System.Wlog                           (WithLogger, logDebug, logNotice)
 
 import           Pos.Binary.Class                      (Bi)
 import           Pos.Communication.Limits.Types        (MessageLimited, recvLimited)
@@ -63,10 +65,14 @@ subscribeTo
     => SendActions m -> NodeId -> m SubscriptionTerminationReason
 subscribeTo sendActions peer = do
     logNotice $ msgSubscribingTo peer
-    outcome <- try $ withConnectionTo sendActions peer $ \_peerData ->
-           pure $ Conversation $ \conv -> do
-               send conv MsgSubscribe
-               recv conv 0 :: m (Maybe Void) -- Other side will never send
+    outcome <- try $ withConnectionTo sendActions peer $ \_peerData -> do
+        pure $ Conversation $ \(conv :: ConversationActions MsgSubscribe Void m) -> do
+            send conv MsgSubscribe
+            forever $ do
+                threadDelay (30 :: Second)
+                logDebug $ sformat ("subscriptionWorker: sending keep-alive to "%shown)
+                                    peer
+                send conv MsgSubscribeKeepAlive
     let reason = either Exceptional (maybe Normal absurd) outcome
     logNotice $ msgSubscriptionTerminated peer reason
     return reason
@@ -88,14 +94,18 @@ subscriptionListener
     -> (ListenerSpec m, OutSpecs)
 subscriptionListener oq nodeType = listenerConv @Void oq $ \__ourVerInfo nodeId conv -> do
     mbMsg <- recvLimited conv
-    whenJust mbMsg $ \MsgSubscribe -> do
-      let peers = simplePeers [(nodeType, nodeId)]
-      bracket
-        (updatePeersBucket BucketSubscriptionListener (<> peers))
-        (\added -> when added $
-          void $ updatePeersBucket BucketSubscriptionListener (removePeer nodeId))
-        (\added -> when added $
-          void $ recvLimited conv) -- if not added, close the conversation
+    whenJust mbMsg $ \case
+        MsgSubscribe -> do
+            let peers = simplePeers [(nodeType, nodeId)]
+            bracket
+              (updatePeersBucket BucketSubscriptionListener (<> peers))
+              (\added -> when added $
+                void $ updatePeersBucket BucketSubscriptionListener (removePeer nodeId))
+              (\added -> when added $
+                void $ recvLimited conv) -- if not added, close the conversation
+        MsgSubscribeKeepAlive -> logDebug $ sformat
+            ("subscriptionListener: received keep-alive from "%shown)
+            nodeId
 
 subscriptionListeners
     :: forall pack m.

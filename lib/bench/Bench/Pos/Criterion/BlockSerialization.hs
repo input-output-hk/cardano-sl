@@ -47,10 +47,10 @@ serializationBenchmark =
                   "Decoding (throw away value)"
                   [ bench
                         "verified"
-                        (nf (fmap (const ()) . decodeChecked) serialized)
+                        (nf (void . decodeChecked) serialized)
                   , bench
                         "unverified"
-                        (nf (fmap (const ()) . decodeUnchecked) serialized)
+                        (nf (void . decodeUnchecked) serialized)
                   ]
             ]
   where

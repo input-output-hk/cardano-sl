@@ -50,13 +50,14 @@ import           Pos.Ssc.Class              (SscWorkersClass)
 import           Pos.Util                   (_neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..),
                                              _NewestFirst, _OldestFirst)
+import           Pos.Util.Timer             (Timer, startTimer)
 import           Pos.WorkMode.Class         (WorkMode)
 
 retrievalWorker
     :: forall ssc ctx m.
        (SscWorkersClass ssc, WorkMode ssc ctx m)
-    => (WorkerSpec m, OutSpecs)
-retrievalWorker = worker outs retrievalWorkerImpl
+    => Timer -> (WorkerSpec m, OutSpecs)
+retrievalWorker keepAliveTimer = worker outs (retrievalWorkerImpl keepAliveTimer)
   where
     outs = announceBlockOuts <>
            toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
@@ -79,8 +80,8 @@ retrievalWorker = worker outs retrievalWorkerImpl
 retrievalWorkerImpl
     :: forall ssc ctx m.
        (SscWorkersClass ssc, WorkMode ssc ctx m)
-    => SendActions m -> m ()
-retrievalWorkerImpl SendActions {..} =
+    => Timer -> SendActions m -> m ()
+retrievalWorkerImpl keepAliveTimer SendActions {..} =
     handleAll mainLoopE $ do
         logDebug "Starting retrievalWorker loop"
         mainLoop
@@ -98,6 +99,10 @@ retrievalWorkerImpl SendActions {..} =
                     pure (handleBlockRetrievalFromQueue nodeId task)
                 (_, Just (nodeId, rHeader))  ->
                     pure (handleHeadersRecovery nodeId rHeader)
+        -- Restart the timer for sending keep-alive like packets to node(s)
+        -- we're subscribed to as when we keep receiving blocks from them it
+        -- means the connection is sound.
+        startTimer keepAliveTimer
         thingToDoNext
         mainLoop
     mainLoopE e = do

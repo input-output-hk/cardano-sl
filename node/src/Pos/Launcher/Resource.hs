@@ -82,6 +82,7 @@ import           Pos.Update.Context               (mkUpdateContext)
 import qualified Pos.Update.DB                    as GState
 import           Pos.Util                         (newInitFuture)
 import           Pos.WorkMode                     (TxpExtra_TMP)
+import           Pos.Util.Timer                   (newTimer)
 
 #ifdef linux_HOST_OS
 import qualified System.Systemd.Daemon            as Systemd
@@ -295,6 +296,7 @@ allocateNodeContext ancd = do
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.
     peersVar <- newTVarIO mempty
+    ncSubscriptionKeepAliveTimer <- newTimer $ 30 * 1000000 -- TODO: use slot duration
     let ctx shutdownQueue =
             NodeContext
             { ncConnectedPeers = ConnectedPeers peersVar

@@ -67,11 +67,13 @@ instance (HasConfiguration, SscHelpersClass ssc) => Bi (MsgBlock ssc) where
 -- "fake" deriving as per `MempoolMsg`.
 -- TODO: Shall we encode this as `CBOR` TkNull?
 instance Bi MsgSubscribe where
-  encode MsgSubscribe = encode (42 :: Word8)
-  decode = do
-    x <- decode @Word8
-    when (x /= 42) $ fail "wrong byte"
-    pure MsgSubscribe
+    encode = \case
+        MsgSubscribe          -> encode (42 :: Word8)
+        MsgSubscribeKeepAlive -> encode (43 :: Word8)
+    decode = decode @Word8 >>= \case
+        42 -> pure MsgSubscribe
+        43 -> pure MsgSubscribeKeepAlive
+        n  -> fail $ "MsgSubscribe wrong byte: " <> show n
 
 ----------------------------------------------------------------------------
 -- Protocol version info and related

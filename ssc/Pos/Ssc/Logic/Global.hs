@@ -44,13 +44,12 @@ sscCalculateSeed epoch = do
     -- calculating the seed for N+1-th epoch, we should still use data from
     -- N-th epoch.
     richmen <- getSscRichmenFromLrc "sscCalculateSeed" (epoch - 1)
-    sscRunGlobalQuery $ sscCalculateSeedQ epoch richmen
+    sscRunGlobalQuery $ sscCalculateSeedQ richmen
 
 sscCalculateSeedQ
-    :: EpochIndex
-    -> RichmenStakes
+    :: RichmenStakes
     -> SscGlobalQuery (Either SscSeedError SharedSeed)
-sscCalculateSeedQ _epoch richmen =
+sscCalculateSeedQ richmen =
     calculateSeed
     <$> view sgsCommitments
     <*> (map vcVssKey . getVssCertificatesMap . VCD.certs <$>

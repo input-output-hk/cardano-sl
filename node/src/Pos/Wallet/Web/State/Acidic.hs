@@ -69,6 +69,7 @@ module Pos.Wallet.Web.State.Acidic
        , CasPtxCondition (..)
        , PtxUpdateMeta (..)
        , AddOnlyNewPendingTx (..)
+       , GetWalletStorage (..)
        , FlushWalletStorage (..)
        -- * No longer used, just here for migrations and backwards compatibility
        , UpdateHistoryCache (..)
@@ -174,4 +175,5 @@ makeAcidic ''WalletStorage
     , 'WS.ptxUpdateMeta
     , 'WS.addOnlyNewPendingTx
     , 'WS.flushWalletStorage
+    , 'WS.getWalletStorage
     ]

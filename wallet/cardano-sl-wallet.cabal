@@ -1,5 +1,5 @@
 name:                cardano-sl-wallet
-version:             1.0.2
+version:             1.0.3
 synopsis:            Cardano SL - wallet
 description:         Cardano SL - wallet
 license:             MIT
@@ -21,6 +21,7 @@ Flag for-installer
 library
   hs-source-dirs:     src
   exposed-modules:    Pos.Aeson.ClientTypes
+                      Pos.Aeson.Storage
                       Pos.Aeson.WalletBackup
 
                       Pos.Wallet
@@ -112,6 +113,7 @@ library
                       , stm-containers
                       , swagger2
                       , text-format
+                      , text
                       , time
                       , time-units
                       , transformers

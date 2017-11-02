@@ -1,5 +1,5 @@
 name:                cardano-sl-txp
-version:             1.0.2
+version:             1.0.3
 synopsis:            Cardano SL - transaction processing
 description:         Cardano SL - transaction processing
 license:             MIT
@@ -13,6 +13,8 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+    Pos.Aeson.Txp
+
     Pos.Arbitrary.Txp
     Pos.Arbitrary.Txp.Unsafe
 

@@ -4,7 +4,10 @@
 -- @jens: this document is inspired by https://github.com/input-output-hk/rscoin-haskell/blob/master/src/RSCoin/Explorer/Storage.hs
 module Pos.Wallet.Web.State.Storage
        (
-         WalletStorage
+         WalletStorage (..)
+       , WalletInfo (..)
+       , AccountInfo (..)
+       , AddressInfo (..)
        , AddressLookupMode (..)
        , CustomAddressType (..)
        , WalletBalances
@@ -12,6 +15,7 @@ module Pos.Wallet.Web.State.Storage
        , PtxMetaUpdate (..)
        , Query
        , Update
+       , getWalletStorage
        , flushWalletStorage
        , getProfile
        , setProfile
@@ -485,6 +489,10 @@ addOnlyNewPendingTx :: PendingTx -> Update ()
 addOnlyNewPendingTx ptx =
     wsWalletInfos . ix (_ptxWallet ptx) .
     wsPendingTxs . at (_ptxTxId ptx) %= (<|> Just ptx)
+
+
+getWalletStorage :: Query WalletStorage
+getWalletStorage = ask
 
 -- | Flushes data in wallet storage
 -- Preserves all metadata, wallets, accounts and addresses

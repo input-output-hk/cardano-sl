@@ -6,26 +6,29 @@ module Command.Rollback
 
 import           Universum
 
-import           Control.Lens         (_Wrapped)
-import qualified Data.ByteString.Lazy as BSL
-import           Data.List            (genericTake)
-import           Formatting           (build, int, sformat, string, (%))
-import           System.Wlog          (logInfo)
+import           Control.Lens                     (_Wrapped)
+import qualified Data.ByteString.Lazy             as BSL
+import           Data.List                        (genericTake)
+import           Formatting                       (build, int, sformat, string, (%))
+import           System.Wlog                      (logInfo)
 
-import           Pos.Binary           (serialize)
-import           Pos.Block.Core       (mainBlockTxPayload)
-import           Pos.Block.Logic      (BypassSecurityCheck (..), rollbackBlocksUnsafe)
-import           Pos.Block.Types      (Blund)
-import           Pos.Core             (HasConfiguration, difficultyL, epochIndexL)
-import           Pos.DB.DB            (getTipHeader, loadBlundsFromTipByDepth)
-import           Pos.Infra.Configuration (HasInfraConfiguration)
-import           Pos.Ssc.GodTossing   (SscGodTossing)
+import           Pos.Binary                       (serialize)
+import           Pos.Block.Core                   (mainBlockTxPayload)
+import           Pos.Block.Logic                  (BypassSecurityCheck (..),
+                                                   rollbackBlocksUnsafe)
+import           Pos.Block.Slog                   (ShouldCallBListener (..))
+import           Pos.Block.Types                  (Blund)
+import           Pos.Core                         (HasConfiguration, difficultyL,
+                                                   epochIndexL)
+import           Pos.DB.DB                        (getTipHeader, loadBlundsFromTipByDepth)
+import           Pos.Infra.Configuration          (HasInfraConfiguration)
+import           Pos.Ssc.GodTossing               (SscGodTossing)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Txp              (TxAux, flattenTxPayload)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Pos.Util.Chrono      (NewestFirst, _NewestFirst)
+import           Pos.Txp                          (TxAux, flattenTxPayload)
+import           Pos.Update.Configuration         (HasUpdateConfiguration)
+import           Pos.Util.Chrono                  (NewestFirst, _NewestFirst)
 
-import           Mode                 (AuxxMode, AuxxSscType)
+import           Mode                             (AuxxMode, AuxxSscType)
 
 -- | Rollback given number of blocks from the DB and dump transactions
 -- from it to the given file.
@@ -55,7 +58,7 @@ rollbackAndDump numToRollback outFile = do
             liftIO $ BSL.writeFile outFile (serialize allTxs)
             logInfo $ sformat ("Dumped "%int%" transactions to "%string)
                       (length allTxs) (outFile)
-            rollbackBlocksUnsafe (BypassSecurityCheck True) blunds
+            rollbackBlocksUnsafe (BypassSecurityCheck True) (ShouldCallBListener True) blunds
             logInfo $ sformat ("Rolled back "%int%" blocks") (length blunds)
             printTipDifficulty
   where

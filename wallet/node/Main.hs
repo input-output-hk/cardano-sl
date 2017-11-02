@@ -37,7 +37,7 @@ import           Pos.Wallet.Web       (WalletWebMode, bracketWalletWS, bracketWa
                                        walletServeWebFull, walletServerOuts)
 import           Pos.Wallet.Web.State (cleanupAcidStatePeriodically, flushWalletStorage,
                                        getWalletAddresses)
-import           Pos.Web              (serveWebSsc)
+import           Pos.Web              (serveWeb)
 import           Pos.WorkMode         (WorkMode)
 
 import           NodeOptions          (WalletArgs (..), WalletNodeArgs (..),
@@ -113,7 +113,7 @@ pluginsSsc ::
     , HasCompileInfo
     ) => WalletArgs -> [m ()]
 pluginsSsc WalletArgs {..}
-    | enableWeb = [serveWebSsc webPort (Just walletTLSParams)]
+    | enableWeb = [serveWeb webPort (Just walletTLSParams)]
     | otherwise = []
 
 action :: HasCompileInfo => WalletNodeArgs -> Production ()

@@ -6,8 +6,8 @@
 module Pos.Web.Server
        ( serveImpl
        , route53HealthCheckApplication
-       , serveWebSsc
-       , applicationSsc
+       , serveWeb
+       , application
        ) where
 
 import           Universum
@@ -48,8 +48,8 @@ import           Pos.Web.Mode                    (WebMode, WebModeContext (..))
 import           Pos.WorkMode                    (OQ)
 import           Pos.WorkMode.Class              (WorkMode)
 
-import           Pos.Web.Api                     (BaseNodeApi, HealthCheckApi, SscApi,
-                                                  SscNodeApi, healthCheckApi, sscNodeApi)
+import           Pos.Web.Api                     (NodeApi, HealthCheckApi,
+                                                  healthCheckApi, nodeApi)
 import           Pos.Web.Types                   (CConfirmedProposalState (..),
                                                   TlsParams (..))
 
@@ -68,20 +68,19 @@ route53HealthCheckApplication topology oq = do
     server <- servantServerHealthCheck topology oq
     return $ serve healthCheckApi server
 
-serveWebSsc :: MyWorkMode ctx m => Word16 -> Maybe TlsParams -> m ()
-serveWebSsc = serveImpl applicationSsc "127.0.0.1"
+serveWeb :: MyWorkMode ctx m => Word16 -> Maybe TlsParams -> m ()
+serveWeb = serveImpl application "127.0.0.1"
 
-applicationSsc :: MyWorkMode ctx m => m Application
-applicationSsc = do
-    server <- servantServerSsc
-    return $ serve sscNodeApi server
+application :: MyWorkMode ctx m => m Application
+application = do
+    server <- servantServer
+    return $ serve nodeApi server
 
 serveImpl
     :: (HasConfiguration, MonadIO m)
     => m Application -> String -> Word16 -> Maybe TlsParams -> m ()
-serveImpl application host port walletTLSParams =
-    liftIO . maybe runSettings runTLS mTlsConfig mySettings
-        =<< application
+serveImpl app host port walletTLSParams =
+    liftIO . maybe runSettings runTLS mTlsConfig mySettings =<< app
   where
     mySettings = setHost (fromString host) $
                  setPort (fromIntegral port) defaultSettings
@@ -126,18 +125,18 @@ servantServerHealthCheck :: forall ctx t m . MyWorkMode ctx m => Topology t -> O
 servantServerHealthCheck topology oq =
     flip enter (healthCheckServantHandlers topology oq) <$> (nat @(MempoolExt m) @ctx @m)
 
-servantServerSsc :: forall ctx m . MyWorkMode ctx m => m (Server SscNodeApi)
-servantServerSsc = flip enter (baseServantHandlers :<|> sscServantHandlers) <$>
+servantServer :: forall ctx m . MyWorkMode ctx m => m (Server NodeApi)
+servantServer = flip enter nodeServantHandlers <$>
     (nat @(MempoolExt m) @ctx @m)
 
 ----------------------------------------------------------------------------
--- Base handlers
+-- Node handlers
 ----------------------------------------------------------------------------
 
-baseServantHandlers
+nodeServantHandlers
     :: (HasConfiguration, HasUpdateConfiguration, Default ext)
-    => ServerT BaseNodeApi (WebMode ext)
-baseServantHandlers =
+    => ServerT NodeApi (WebMode ext)
+nodeServantHandlers =
     getLeaders
     :<|>
     getUtxo
@@ -149,6 +148,11 @@ baseServantHandlers =
     getLocalTxsNum
     :<|>
     confirmedProposals
+    :<|>
+    toggleSscParticipation
+    -- :<|> sscHasSecret
+    -- :<|> getOurSecret
+    -- :<|> getSscStage
 
 getLeaders :: HasConfiguration => Maybe EpochIndex -> WebMode ext SlotLeaders
 getLeaders maybeEpoch = do
@@ -172,39 +176,7 @@ confirmedProposals = do
     proposals <- GS.getConfirmedProposals Nothing
     pure $ map (CConfirmedProposalState . show) proposals
 
-----------------------------------------------------------------------------
--- HealthCheck handlers
-----------------------------------------------------------------------------
-
-healthCheckServantHandlers :: Topology t -> OQ m -> ServerT HealthCheckApi (WebMode ext)
-healthCheckServantHandlers topology oq =
-    getRoute53HealthCheck topology oq
-
-getRoute53HealthCheck :: Topology t -> OQ m -> ServerT HealthCheckApi (WebMode ext)
-getRoute53HealthCheck (topologyMaxBucketSize -> getSize) oq = do
-    let maxCapacityTxt = case getSize BucketSubscriptionListener of
-                             OQ.BucketSizeUnlimited -> "unlimited"
-                             (OQ.BucketSizeMax x)   -> fromString (show x)
-    -- If the node doesn't have any more subscription slots available,
-    -- mark the node as "unhealthy" by returning a 503 "Service Unavailable".
-    spareCapacity <- OQ.bucketSpareCapacity oq BucketSubscriptionListener
-    case spareCapacity of
-        OQ.UnlimitedCapacity          ->
-            return maxCapacityTxt -- yields "unlimited" as it means the `BucketMaxSize` was unlimited.
-        OQ.SpareCapacity sc | sc == 0 -> throwM $ err503 { errBody = encodeUtf8 ("0/" <> maxCapacityTxt) }
-        OQ.SpareCapacity sc           -> return $ show sc <> "/" <> maxCapacityTxt -- yields 200/OK
-
-----------------------------------------------------------------------------
--- SSC handlers
-----------------------------------------------------------------------------
-
-type SscWebMode ext = WebMode ext
-
-sscServantHandlers :: ServerT SscApi (SscWebMode ext)
-sscServantHandlers =
-    toggleSscParticipation {- :<|> sscHasSecret :<|> getOurSecret :<|> getSscStage -}
-
-toggleSscParticipation :: Bool -> SscWebMode ext ()
+toggleSscParticipation :: Bool -> WebMode ext ()
 toggleSscParticipation enable =
     view sscContext >>=
     atomically . flip writeTVar enable . scParticipateSsc
@@ -230,6 +202,28 @@ toggleSscParticipation enable =
 --         | isOpeningIdx idx = OpeningStage
 --         | isSharesIdx idx = SharesStage
 --         | otherwise = OrdinaryStage
+
+----------------------------------------------------------------------------
+-- HealthCheck handlers
+----------------------------------------------------------------------------
+
+healthCheckServantHandlers :: Topology t -> OQ m -> ServerT HealthCheckApi (WebMode ext)
+healthCheckServantHandlers topology oq =
+    getRoute53HealthCheck topology oq
+
+getRoute53HealthCheck :: Topology t -> OQ m -> ServerT HealthCheckApi (WebMode ext)
+getRoute53HealthCheck (topologyMaxBucketSize -> getSize) oq = do
+    let maxCapacityTxt = case getSize BucketSubscriptionListener of
+                             OQ.BucketSizeUnlimited -> "unlimited"
+                             (OQ.BucketSizeMax x)   -> fromString (show x)
+    -- If the node doesn't have any more subscription slots available,
+    -- mark the node as "unhealthy" by returning a 503 "Service Unavailable".
+    spareCapacity <- OQ.bucketSpareCapacity oq BucketSubscriptionListener
+    case spareCapacity of
+        OQ.UnlimitedCapacity          ->
+            return maxCapacityTxt -- yields "unlimited" as it means the `BucketMaxSize` was unlimited.
+        OQ.SpareCapacity sc | sc == 0 -> throwM $ err503 { errBody = encodeUtf8 ("0/" <> maxCapacityTxt) }
+        OQ.SpareCapacity sc           -> return $ show sc <> "/" <> maxCapacityTxt -- yields 200/OK
 
 ----------------------------------------------------------------------------
 -- Orphan instances

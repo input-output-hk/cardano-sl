@@ -56,7 +56,7 @@ import           Pos.Delegation.Helpers      (isRevokePsk)
 import           Pos.Delegation.Logic        (getDlgTransPsk)
 import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.GState                  (getAdoptedBVData, getPskByIssuer)
-import           Pos.Lrc.DB                  (getLeaders)
+import qualified Pos.Lrc.DB                  as LrcDB (getLeadersForEpoch)
 import           Pos.Reporting               (MetricMonitor (..), MetricMonitorState,
                                               noReportMonitor, recordValue)
 import           Pos.Slotting                (currentTimeSlotting,
@@ -113,7 +113,7 @@ blockCreator (slotId@SlotId {..}) sendActions = do
     -- genesis block for current epoch, then we either have calculated
     -- it before and it implies presense of leaders in MVar or we have
     -- read leaders from DB during initialization.
-    leadersMaybe <- getLeaders siEpoch
+    leadersMaybe <- LrcDB.getLeadersForEpoch siEpoch
     case leadersMaybe of
         -- If we don't know leaders, we can't do anything.
         Nothing -> logWarning "Leaders are not known for new slot"

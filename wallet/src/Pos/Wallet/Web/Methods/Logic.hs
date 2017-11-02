@@ -4,6 +4,7 @@
 
 module Pos.Wallet.Web.Methods.Logic
        ( MonadWalletLogic
+       , MonadWalletLogicRead
 
        , getWallet
        , getWallets

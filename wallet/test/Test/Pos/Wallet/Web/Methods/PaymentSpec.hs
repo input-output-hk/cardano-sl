@@ -47,11 +47,11 @@ spec = withCompileInfo def $
 oneNewPaymentSpec :: (HasCompileInfo, HasConfigurations) => Spec
 oneNewPaymentSpec = walletPropertySpec oneNewPaymentDesc $ do
     passphrases <- importSomeWallets
-    dstCAddr <- deriveRandomAddress passphrases
+    (dstCAddr, dstWalId) <- deriveRandomAddress passphrases
     let l = length passphrases
-    rootsEnc <- lift myRootAddresses
+    rootsWIds <- lift myRootAddresses
     idx <- pick $ choose (0, l - 1)
-    let walId = rootsEnc !! idx
+    let walId = rootsWIds !! idx
     let pswd = passphrases !! idx
     let noOneAccount = sformat ("There is no one account for wallet: "%build) walId
     srcAccount <- maybeStopProperty noOneAccount =<< (lift $ head <$> getAccounts (Just walId))
@@ -67,12 +67,12 @@ oneNewPaymentSpec = walletPropertySpec oneNewPaymentDesc $ do
     txLinearPolicy <- lift $ (bvdTxFeePolicy <$> gsAdoptedBVData) <&> \case
         TxFeePolicyTxSizeLinear linear -> linear
         _                              -> error "unknown fee policy"
-    txAux <- expectedOne =<< lift getSentTxs
+    txAux <- expectedOne "sent TxAux" =<< lift getSentTxs
     TxFee fee <- lift (runExceptT $ txToLinearFee txLinearPolicy txAux) >>= \case
         Left er -> stopProperty $ "Couldn't compute tx fee by tx, reason: " <> pretty er
         Right x -> pure x
     let outAddresses = map (fst . view _TxOut) $ toList $ _txOutputs $ taTx txAux
-    changeAddr <- expectedOne (filter (/= dstAddr) outAddresses)
+    changeAddr <- expectedOne "expected one change address" (filter (/= dstAddr) outAddresses)
 
     -- Validate balances
     expectedAddrBalance dstAddr coins
@@ -81,6 +81,14 @@ oneNewPaymentSpec = walletPropertySpec oneNewPaymentDesc $ do
     assertProperty (changeBalance <= initBalance `unsafeSubCoin` fee) $
         "Minimal tx fee isn't satisfied"
 
+    -- Validate that tx meta was added when transaction was processed
+    when (walId /= dstWalId) $ do
+        txMetasSource <- maybeStopProperty "Source wallet doesn't exist" =<< lift (WS.getWalletTxHistory walId)
+        void $ expectedOne "TxMeta for source wallet" txMetasSource
+
+        txMetasDst <- maybeStopProperty "Dst wallet doesn't exist" =<< lift (WS.getWalletTxHistory dstWalId)
+        void $ expectedOne "TxMeta for dst wallet" txMetasDst
+
     -- Validate change and used address
     -- TODO implement it when access
     -- to these addresses will be provided considering mempool
@@ -88,11 +96,13 @@ oneNewPaymentSpec = walletPropertySpec oneNewPaymentDesc $ do
     -- expectedChangeAddresses
   where
     getAddress srcAccId =
-        lift . decodeCTypeOrFail . cwamId =<< expectedOne =<< lift (getAccountAddrsOrThrow WS.Existing srcAccId)
-    expectedOne :: [a] -> WalletProperty a
-    expectedOne []     = stopProperty "expected at least one element, but list empty"
-    expectedOne [x] = pure x
-    expectedOne (_:_)  = stopProperty "expected one element, but list contains more elements"
+        lift . decodeCTypeOrFail . cwamId =<<
+        expectedOne "address" =<<
+        lift (getAccountAddrsOrThrow WS.Existing srcAccId)
+    expectedOne :: Text -> [a] -> WalletProperty a
+    expectedOne what []     = stopProperty $ "expected at least one " <> what <> ", but list empty"
+    expectedOne _ [x]       = pure x
+    expectedOne what (_:_)  = stopProperty $ "expected one " <> what <> ", but list contains more elements"
 
     oneNewPaymentDesc =
         "Send money from one own address to another; " <>

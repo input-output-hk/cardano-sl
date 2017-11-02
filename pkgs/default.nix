@@ -5031,8 +5031,8 @@ self: {
           pname = "natural-transformation";
           version = "0.4";
           sha256 = "aac28e2c1147ed77c1ec0f0eb607a577fa26d0fd67474293ba860ec124efc8af";
-          revision = "1";
-          editedCabalFile = "1scwm1gs07znkj4ahfyxpwrksj4rdl1pa81xflcqhkqfgcndvgl3";
+          revision = "2";
+          editedCabalFile = "1j90pd1zznr18966axskad5w0kx4dvqg62r65rmw1ihqwxm1ndix";
           libraryHaskellDepends = [
             base
           ];

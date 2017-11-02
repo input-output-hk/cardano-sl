@@ -16,8 +16,10 @@ import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
 
 import           Control.Lens                     ((?~))
-import           Data.Aeson                       (ToJSON (..), Value (Number, Object))
+import           Data.Aeson                       (ToJSON (..),
+                                                   Value (Number, Object, String))
 import           Data.Aeson.Encode.Pretty
+import           Data.Default                     (Default (def))
 import qualified Data.HashMap.Strict              as HM
 import           Data.HashMap.Strict.InsOrd       (InsOrdHashMap)
 import qualified Data.HashMap.Strict.InsOrd       as InsOrdHM
@@ -30,6 +32,7 @@ import           Data.Swagger                     hiding (Header)
 import           Data.Swagger.Declare
 import qualified Data.Text                        as T
 import           Data.Typeable
+import           Formatting                       (build, sformat)
 import           GHC.TypeLits
 import           NeatInterpolation
 import           Servant.API.Sub
@@ -166,7 +169,7 @@ requestParameterToDescription :: Map T.Text T.Text
 requestParameterToDescription = M.fromList [
     ("page", pageDescription)
   , ("per_page", perPageDescription (fromString $ show maxPerPageEntries) (fromString $ show defaultPerPageEntries))
-  , ("extended", extendedDescription)
+  , ("response_type", responseTypeDescription)
   , ("Daedalus-Response-Format", responseFormatDescription)
   ]
 
@@ -183,18 +186,19 @@ The number of entries to display for each page. The minimum is **1**, whereas th
 is **$maxValue**. If nothing is specified, **this value defaults to $defaultValue**.
 |]
 
-extendedDescription :: T.Text
-extendedDescription = [text|
-Informs the backend that the fetched data should be wrapped in an `ExtendedResponse`
-(see the Models section). An `ExtendedResponse` includes useful metadata
-which can be used by clients to support pagination.
+responseTypeDescription :: T.Text
+responseTypeDescription = [text|
+Determines the response type. If set to `extended`, then fetched
+data should be wrapped in an `ExtendedResponse` (see the Models section).
+An `ExtendedResponse` includes useful metadata which can be used by clients
+to support pagination.
 |]
 
 responseFormatDescription :: T.Text
 responseFormatDescription = [text|
-It has the same effect of setting `extended=true` in the URL as a query parameter.
-If the header `Daedalus-Response-Format` is present in the HTTP request with a value set to
-`extended`, the fetched data will be wrapped in an `ExtendedResponse`.
+The same as URL parameter `response_type`. If the header `Daedalus-Response-Format`
+is present in the HTTP request with a value set to `extended`, the fetched data will
+be wrapped in an `ExtendedResponse`.
 |]
 
 instance ToParamSchema PerPage where
@@ -209,6 +213,17 @@ instance ToParamSchema Page where
     & type_ .~ SwaggerInteger
     & default_ ?~ (Number 1) -- Always show the first page by default.
     & minimum_ ?~ 1
+
+instance ToParamSchema ResponseType where
+    toParamSchema _ = mempty
+        & type_ .~ SwaggerString
+        & default_ ?~ (String $ rtToText def)
+        & enum_ ?~ map (String . rtToText) [minBound..maxBound]
+      where
+        rtToText :: ResponseType -> Text
+        rtToText = sformat build
+
+instance ToParamSchema ResponseFormat
 
 instance ToParamSchema WalletId
 

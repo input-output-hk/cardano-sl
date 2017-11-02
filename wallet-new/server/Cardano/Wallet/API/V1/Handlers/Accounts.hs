@@ -40,13 +40,13 @@ getAccount _ _ = liftIO $ generate arbitrary
 
 listAccounts :: Maybe Page
              -> Maybe PerPage
-             -> Maybe Bool
-             -> Maybe Text
+             -> Maybe ResponseType
+             -> Maybe ResponseFormat
              -> Handler (OneOf [Account] (ExtendedResponse [Account]))
 listAccounts _ _ mbExtended _ = do
   example <- liftIO $ generate (resize 3 arbitrary)
   case mbExtended of
-    Just True  -> return $ OneOf $ Right $
+    Just Extended -> return $ OneOf $ Right $
       ExtendedResponse {
         extData = example
       , extMeta = Metadata {

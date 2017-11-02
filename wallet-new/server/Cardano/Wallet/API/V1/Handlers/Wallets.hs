@@ -23,15 +23,16 @@ handlers =   newWallet
 newWallet :: NewWallet -> Handler Wallet
 newWallet _ = liftIO $ generate arbitrary
 
+
 listWallets :: Maybe Page
             -> Maybe PerPage
-            -> Maybe Bool
-            -> Maybe Text
+            -> Maybe ResponseType
+            -> Maybe ResponseFormat
             -> Handler (OneOf [Wallet] (ExtendedResponse [Wallet]))
 listWallets _ _ mbExtended _ = do
   example <- liftIO $ generate (resize 3 arbitrary)
   case mbExtended of
-    Just True  -> return $ OneOf $ Right $
+    Just Extended -> return $ OneOf $ Right $
       ExtendedResponse {
         extData = example
       , extMeta = Metadata {

@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE KindSignatures             #-}
+{-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TemplateHaskell            #-}
@@ -12,6 +13,8 @@ module Cardano.Wallet.API.V1.Types (
   , Metadata (..)
   , Page(..)
   , PerPage(..)
+  , ResponseType (..)
+  , PaginationParams (..)
   , maxPerPageEntries
   , defaultPerPageEntries
   , OneOf (..)
@@ -41,7 +44,10 @@ import           Universum
 
 import           Data.Aeson
 import           Data.Aeson.TH
+import           Data.Default           (Default (def))
 import           Data.Text              (Text)
+import qualified Data.Text.Buildable
+import           Formatting             (build, sformat, (%))
 import           GHC.Generics           (Generic)
 import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck
@@ -69,6 +75,10 @@ instance FromHttpApiData Page where
 
 instance ToHttpApiData Page where
     toQueryParam (Page p) = fromString (show p)
+
+-- | If not specified otherwise, return first page.
+instance Default Page where
+    def = Page 1
 
 -- | A `PerPage` is used to specify the number of entries which should be returned
 -- as part of a paginated response.
@@ -102,6 +112,9 @@ instance FromHttpApiData PerPage where
 instance ToHttpApiData PerPage where
     toQueryParam (PerPage p) = fromString (show p)
 
+instance Default PerPage where
+    def = PerPage defaultPerPageEntries
+
 -- | Extra information associated with an HTTP response.
 data Metadata = Metadata
   { metaTotalPages   :: Int     -- ^ The total pages returned by this query.
@@ -130,6 +143,36 @@ deriveJSON Serokell.defaultOptions ''ExtendedResponse
 
 instance Arbitrary a => Arbitrary (ExtendedResponse a) where
   arbitrary = ExtendedResponse <$> arbitrary <*> arbitrary
+
+-- | A `ResponseType` determines which type of response we want to return.
+-- For now there's only two response types - plain and extended with pagination data.
+data ResponseType = Plain | Extended
+    deriving (Show, Eq, Generic, Enum, Bounded)
+
+instance Buildable ResponseType where
+    build Plain    = "plain"
+    build Extended = "extended"
+
+instance FromHttpApiData ResponseType where
+    parseQueryParam qp = parseQueryParam @Text qp >>= \case
+        "plain"    -> Right Plain
+        "extended" -> Right Extended
+        _          -> Left "unknown response type"
+
+instance ToHttpApiData ResponseType where
+    toQueryParam = sformat build
+
+instance Default ResponseType where
+    def = Plain
+
+-- | `PaginationParams` is datatype which combines request params related
+-- to pagination together
+
+data PaginationParams = PaginationParams
+    { ppPage         :: Page
+    , ppPerPage      :: PerPage
+    , ppResponseType :: ResponseType
+    } deriving (Show, Eq, Generic)
 
 -- | Type introduced to mimick Swagger 3.0 'oneOf' keyword. It's used to model responses whose body can change
 -- depending from some query or header parameters. In this context, this represents an HTTP Response which can

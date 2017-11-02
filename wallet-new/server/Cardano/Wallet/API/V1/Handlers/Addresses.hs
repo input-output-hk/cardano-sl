@@ -15,12 +15,12 @@ handlers =  listAddresses
 
 listAddresses :: Maybe Page
               -> Maybe PerPage
-              -> Maybe Bool
-              -> Maybe Text
+              -> Maybe ResponseType
+              -> Maybe ResponseFormat
               -> Handler (OneOf [Address] (ExtendedResponse [Address]))
 listAddresses _ _ mbExtended _ =
   case mbExtended of
-    Just True  -> return $ OneOf $ Right $
+    Just Extended -> return $ OneOf $ Right $
       ExtendedResponse {
         extData = [Address "deadBeef", Address "123AABBCC"]
       , extMeta = Metadata {

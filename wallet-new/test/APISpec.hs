@@ -33,7 +33,7 @@ instance HasGenRequest sub => HasGenRequest (Summary sum :> sub) where
     genRequest (Proxy :: Proxy (Summary sum :> sub)) = genRequest (Proxy :: Proxy sub)
 
 instance HasGenRequest sub => HasGenRequest (WalletRequestParams :> sub) where
-    genRequest _ = genRequest (Proxy :: Proxy (WithWalletRequestParams sub))
+    genRequest _ = genRequest (Proxy @(WithWalletRequestParams sub))
 
 --
 -- RESTful-abiding predicates

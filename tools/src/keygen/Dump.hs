@@ -52,9 +52,9 @@ dumpKeyfiles (dir, pat) TestnetBalanceOptions{..} secrets = do
     let totalStakeholders = tboRichmen + tboPoors
     let (richmen, poors) = splitAt (fromIntegral tboRichmen) secrets
 
-    forM_ (zip richmen [1 .. tboRichmen]) $ \(sk, i) ->
+    forM_ (zip richmen [0 .. (tboRichmen - 1)]) $ \(sk, i) ->
         dumpKeyfile True (richDir </> applyPattern pat i) sk
-    forM_ (zip poors [1 .. tboPoors]) $ \(sk, i) ->
+    forM_ (zip poors [0 .. (tboPoors - 1)]) $ \(sk, i) ->
         dumpKeyfile False (poorDir </> applyPattern pat i) sk
 
     logInfo $ show totalStakeholders <> " keyfiles are generated"

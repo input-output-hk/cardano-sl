@@ -25,14 +25,19 @@ library
 
     Pos.Ssc.Types
 
-    Pos.Ssc.GState
-    Pos.Ssc.GState.BlockLogic
+    Pos.Ssc.Logic
+    Pos.Ssc.Logic.Local
+    Pos.Ssc.Logic.Global
+    Pos.Ssc.Logic.VAR
+
+    Pos.Ssc.State
+    Pos.Ssc.State.Local
+    Pos.Ssc.State.Global
 
     Pos.Ssc.Message
     Pos.Ssc.Listeners
     Pos.Ssc.Worker
     Pos.Ssc.Lrc
-    Pos.Ssc.LocalData
     Pos.Ssc.Mem
     Pos.Ssc.Functions
     Pos.Ssc.SecretStorage
@@ -42,7 +47,6 @@ library
     Pos.Ssc.Behavior
     Pos.Ssc.Shares
     Pos.Ssc.DB
-    Pos.Ssc.Misc
     Pos.Ssc.Mode
     Pos.Ssc.RichmenComponent
 

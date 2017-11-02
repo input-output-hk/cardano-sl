@@ -1,12 +1,8 @@
 {-# LANGUAGE Rank2Types #-}
 
--- | This module defines methods which operate on 'SscLocalData'.
-
-module Pos.Ssc.LocalData
+module Pos.Ssc.Logic.Local
        (
-         sscResetLocal
-       , sscNewLocalData
-       , sscGetLocalPayload
+         sscGetLocalPayload
        , sscNormalize
 
          -- * 'Inv|Req|Data' processing.
@@ -16,91 +12,55 @@ module Pos.Ssc.LocalData
        , sscProcessShares
        , sscProcessCertificate
 
-         -- * Garbage collection worker
-       , localOnNewSlot
+         -- * Garbage collection
+       , sscGarbageCollectLocalData
        ) where
 
 import           Universum
 
-import           Control.Lens                       ((+=), (.=))
-import           Control.Monad.Except               (MonadError (throwError), runExceptT)
-import           Control.Monad.Morph                (hoist)
-import qualified Crypto.Random                      as Rand
-import qualified Data.HashMap.Strict                as HM
-import           Formatting                         (int, sformat, (%))
-import           Serokell.Util                      (magnify')
-import           System.Wlog                        (WithLogger, logWarning,
-                                                     launchNamedPureLog)
+import           Control.Lens             ((+=), (.=))
+import           Control.Monad.Except     (MonadError (throwError), runExceptT)
+import           Control.Monad.Morph      (hoist)
+import qualified Crypto.Random            as Rand
+import qualified Data.HashMap.Strict      as HM
+import           Formatting               (int, sformat, (%))
+import           Serokell.Util            (magnify')
+import           System.Wlog              (WithLogger, launchNamedPureLog, logWarning)
 
-import           Pos.Binary.Class                   (biSize)
-import           Pos.Binary.Ssc                     ()
-import           Pos.Core                           (BlockVersionData (..), EpochIndex,
-                                                     HasConfiguration, SlotId (..),
-                                                     IsHeader, StakeholderId,
-                                                     VssCertificate,
-                                                     mkVssCertificatesMapSingleton,
-                                                     epochIndexL)
-import           Pos.DB                             (MonadDBRead,
-                                                     MonadGState (gsAdoptedBVData),
-                                                     MonadBlockDBGeneric)
-import           Pos.DB.GState.Common               (getTipHeaderGeneric)
-import           Pos.Lrc.Context                    (HasLrcContext)
-import           Pos.Lrc.Types                      (RichmenStakes)
-import           Pos.Slotting                       (MonadSlots (getCurrentSlot))
-import           Pos.Ssc.Mem                        (MonadSscMem, SscLocalQuery,
-                                                     SscLocalUpdate, askSscMem,
-                                                     sscRunGlobalQuery,
-                                                     sscRunLocalQuery,
-                                                     sscRunLocalSTM,
-                                                     syncingStateWith)
-import           Pos.Ssc.Lrc                        (getSscRichmenFromLrc)
-import           Pos.Ssc.Configuration              (HasSscConfiguration)
-import           Pos.Ssc.Core                       (SscPayload (..), InnerSharesMap,
-                                                     Opening, SignedCommitment,
-                                                     isCommitmentIdx, isOpeningIdx,
-                                                     isSharesIdx, mkCommitmentsMap)
-import           Pos.Ssc.Toss                       (SscTag (..), PureToss, TossT,
-                                                     evalPureTossWithLogger, evalTossT,
-                                                     execTossT, hasCertificateToss,
-                                                     hasCommitmentToss, hasOpeningToss,
-                                                     hasSharesToss, isGoodSlotForTag,
-                                                     normalizeToss, refreshToss,
-                                                     supplyPureTossEnv, tmCertificates,
-                                                     tmCommitments, tmOpenings, tmShares,
-                                                     verifyAndApplySscPayload)
-import           Pos.Ssc.Types                      (SscLocalData (..),
-                                                     SscGlobalState, SscBlock,
-                                                     ldEpoch, ldModifier, ldSize,
-                                                     sscGlobal, sscLocal)
-import           Pos.Ssc.Error                      (SscVerifyError (..))
-import           Pos.Ssc.RichmenComponent           (getRichmenSsc)
-import           Pos.Util.Util                      (Some)
-
--- | Reset local data to empty state.  This function can be used when
--- we detect that something is really bad. In this case it makes sense
--- to remove all local data to be sure it's valid.
-sscResetLocal ::
-       forall ctx m.
-       ( MonadDBRead m
-       , MonadSscMem ctx m
-       , MonadSlots ctx m
-       , MonadIO m
-       )
-    => m ()
-sscResetLocal = do
-    emptyLD <- sscNewLocalData
-    localVar <- sscLocal <$> askSscMem
-    atomically $ writeTVar localVar emptyLD
-
--- | Create new (empty) local data. We are using this function instead of
--- 'Default' class, because it gives more flexibility. For instance, one
--- can read something from DB or get current slot.
-sscNewLocalData :: (MonadSlots ctx m, MonadDBRead m) => m SscLocalData
-sscNewLocalData =
-    SscLocalData mempty . siEpoch . fromMaybe slot0 <$> getCurrentSlot <*>
-    pure 1
-  where
-    slot0 = SlotId 0 minBound
+import           Pos.Binary.Class         (biSize)
+import           Pos.Binary.Ssc           ()
+import           Pos.Core                 (BlockVersionData (..), EpochIndex,
+                                           HasConfiguration, IsHeader, SlotId (..),
+                                           StakeholderId, VssCertificate, epochIndexL,
+                                           mkVssCertificatesMapSingleton)
+import           Pos.DB                   (MonadBlockDBGeneric, MonadDBRead,
+                                           MonadGState (gsAdoptedBVData))
+import           Pos.DB.GState.Common     (getTipHeaderGeneric)
+import           Pos.Lrc.Context          (HasLrcContext)
+import           Pos.Lrc.Types            (RichmenStakes)
+import           Pos.Slotting             (MonadSlots (getCurrentSlot))
+import           Pos.Ssc.Configuration    (HasSscConfiguration)
+import           Pos.Ssc.Core             (InnerSharesMap, Opening, SignedCommitment,
+                                           SscPayload (..), isCommitmentIdx, isOpeningIdx,
+                                           isSharesIdx, mkCommitmentsMap)
+import           Pos.Ssc.Error            (SscVerifyError (..))
+import           Pos.Ssc.Lrc              (getSscRichmenFromLrc)
+import           Pos.Ssc.Mem              (MonadSscMem, SscLocalQuery, SscLocalUpdate,
+                                           askSscMem, sscRunGlobalQuery, sscRunLocalQuery,
+                                           sscRunLocalSTM, syncingStateWith)
+import           Pos.Ssc.RichmenComponent (getRichmenSsc)
+import           Pos.Ssc.Toss             (PureToss, SscTag (..), TossT,
+                                           evalPureTossWithLogger, evalTossT, execTossT,
+                                           hasCertificateToss, hasCommitmentToss,
+                                           hasOpeningToss, hasSharesToss,
+                                           isGoodSlotForTag, normalizeToss, refreshToss,
+                                           supplyPureTossEnv, tmCertificates,
+                                           tmCommitments, tmOpenings, tmShares,
+                                           verifyAndApplySscPayload)
+import           Pos.Ssc.Types            (SscBlock, SscGlobalState, SscLocalData (..),
+                                           ldEpoch, ldModifier, ldSize, sscGlobal,
+                                           sscLocal)
+import           Pos.Util.Util            (Some)
 
 -- | Get local payload to be put into main block and for given
 -- 'SlotId'. If payload for given 'SlotId' can't be constructed,
@@ -183,10 +143,6 @@ sscNormalizeU (epoch, stake) bvd gs = do
     ldModifier .= newModifier
     ldEpoch .= epoch
     ldSize .= biSize newModifier
-
-----------------------------------------------------------------------------
--- Data processing/retrieval
-----------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------
 ---- Inv processing
@@ -361,10 +317,10 @@ sscProcessDataDo richmenData bvd gs payload =
 -- This function is only needed for garbage collection, it doesn't affect
 -- validity of local data.
 -- Currently it does nothing, but maybe later we'll decide to do clean-up.
-localOnNewSlot
+sscGarbageCollectLocalData
     :: MonadSscMem ctx m
     => SlotId -> m ()
-localOnNewSlot _ = pass
+sscGarbageCollectLocalData _ = pass
 -- unless (isCommitmentIdx slotIdx) $ sscLocalCommitments .= mempty
 -- unless (isOpeningIdx slotIdx) $ sscLocalOpenings .= mempty
 -- unless (isSharesIdx slotIdx) $ sscLocalShares .= mempty

@@ -31,7 +31,7 @@ import           Pos.Ssc.Mem                           (sscRunLocalQuery)
 import           Pos.Ssc.Configuration                 (HasSscConfiguration)
 import           Pos.Ssc.Core                          (getCommitmentsMap)
 import           Pos.Ssc.Types                         (ldModifier)
-import           Pos.Ssc.LocalData                     (sscIsDataUseful,
+import           Pos.Ssc.Logic                         (sscIsDataUseful,
                                                         sscProcessCertificate,
                                                         sscProcessCommitment,
                                                         sscProcessOpening,

@@ -1,6 +1,7 @@
 {-# LANGUAGE RankNTypes #-}
 
-module Pos.Ssc.GState.BlockLogic
+-- | Block verification, application, and rollback.
+module Pos.Ssc.Logic.VAR
        (
          sscVerifyBlocks
        , sscApplyBlocks
@@ -30,6 +31,7 @@ import           Pos.Reporting.Methods (MonadReporting, reportError)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Core          (SscPayload (..))
 import qualified Pos.Ssc.DB            as DB
+import           Pos.Ssc.Error         (SscVerifyError (..), sscIsCriticalVerifyError)
 import           Pos.Ssc.Lrc           (getSscRichmenFromLrc)
 import           Pos.Ssc.Mem           (MonadSscMem, SscGlobalUpdate, askSscMem,
                                         sscRunGlobalUpdate)
@@ -37,7 +39,6 @@ import           Pos.Ssc.Toss          (MultiRichmenStakes, PureToss, applyGenes
                                         rollbackGT, runPureTossWithLogger,
                                         supplyPureTossEnv, verifyAndApplySscPayload)
 import           Pos.Ssc.Types         (SscBlock, SscGlobalState (..), sscGlobal)
-import           Pos.Ssc.Error         (SscVerifyError (..), sscIsCriticalVerifyError)
 import           Pos.Util.Chrono       (NE, NewestFirst (..), OldestFirst (..))
 import           Pos.Util.Util         (inAssertMode, _neHead, _neLast)
 

@@ -73,9 +73,9 @@ import           Pos.Ssc.Core                          (Commitment (..), SignedC
                                                         isSharesIdx, mkSignedCommitment)
 import           Pos.Ssc.Functions                     (hasCommitment, hasOpening,
                                                         hasShares, vssThreshold)
-import           Pos.Ssc.GState                        (getGlobalCerts, getStableCerts,
+import           Pos.Ssc.State                         (getGlobalCerts, getStableCerts,
                                                         sscGetGlobalState)
-import           Pos.Ssc.LocalData                     (localOnNewSlot,
+import           Pos.Ssc.Logic                         (sscGarbageCollectLocalData,
                                                         sscProcessCertificate,
                                                         sscProcessCommitment,
                                                         sscProcessOpening,
@@ -125,7 +125,7 @@ onNewSlotSsc
     => (WorkerSpec m, OutSpecs)
 onNewSlotSsc = onNewSlotWorker True outs $ \slotId sendActions ->
     recoveryCommGuard "onNewSlot worker in SSC" $ do
-        localOnNewSlot slotId
+        sscGarbageCollectLocalData slotId
         whenM (shouldParticipate $ siEpoch slotId) $ do
             behavior <- view sscContext >>=
                 atomically . readTVar . scBehavior

@@ -37,7 +37,7 @@ import           Pos.Wallet.Web       (WalletWebMode, bracketWalletWS, bracketWa
                                        walletServeWebFull, walletServerOuts)
 import           Pos.Wallet.Web.State (cleanupAcidStatePeriodically, flushWalletStorage,
                                        getWalletAddresses)
-import           Pos.Web              (serveWebGT)
+import           Pos.Web              (serveWebSsc)
 import           Pos.WorkMode         (WorkMode)
 
 import           NodeOptions          (WalletArgs (..), WalletNodeArgs (..),
@@ -83,7 +83,7 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
         sks <- getWalletAddresses >>= mapM getSKById
         syncWalletsWithGState sks
     plugins :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
-    plugins = mconcat [ convPlugins (pluginsGT wArgs)
+    plugins = mconcat [ convPlugins (pluginsSsc wArgs)
                       , walletProd wArgs
                       , acidCleanupWorker wArgs ]
 
@@ -106,14 +106,14 @@ walletProd WalletArgs {..} = first one $ worker walletServerOuts $ \sendActions 
         walletAddress
         (Just walletTLSParams)
 
-pluginsGT ::
+pluginsSsc ::
     ( WorkMode ctx m
     , HasNodeContext ctx
     , HasConfigurations
     , HasCompileInfo
     ) => WalletArgs -> [m ()]
-pluginsGT WalletArgs {..}
-    | enableWeb = [serveWebGT webPort (Just walletTLSParams)]
+pluginsSsc WalletArgs {..}
+    | enableWeb = [serveWebSsc webPort (Just walletTLSParams)]
     | otherwise = []
 
 action :: HasCompileInfo => WalletNodeArgs -> Production ()

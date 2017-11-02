@@ -36,7 +36,7 @@ import           Pos.Ssc.Lrc           (getSscRichmenFromLrc)
 import           Pos.Ssc.Mem           (MonadSscMem, SscGlobalUpdate, askSscMem,
                                         sscRunGlobalUpdate)
 import           Pos.Ssc.Toss          (MultiRichmenStakes, PureToss, applyGenesisBlock,
-                                        rollbackGT, runPureTossWithLogger,
+                                        rollbackSsc, runPureTossWithLogger,
                                         supplyPureTossEnv, verifyAndApplySscPayload)
 import           Pos.Ssc.Types         (SscBlock, SscGlobalState (..), sscGlobal)
 import           Pos.Util.Chrono       (NE, NewestFirst (..), OldestFirst (..))
@@ -223,7 +223,7 @@ sscRollbackBlocks blocks = sscRunGlobalUpdate $ do
 sscRollbackU
   :: (HasSscConfiguration, HasConfiguration)
   => NewestFirst NE SscBlock -> SscGlobalUpdate ()
-sscRollbackU blocks = tossToUpdate $ rollbackGT oldestEOS payloads
+sscRollbackU blocks = tossToUpdate $ rollbackSsc oldestEOS payloads
   where
     oldestEOS = blocks ^. _Wrapped . _neLast . epochOrSlotG
     payloads = over _Wrapped (map snd . rights . toList) blocks

@@ -38,7 +38,7 @@ data Configuration = Configuration
     { ccCore   :: !CoreConfiguration
     , ccInfra  :: !InfraConfiguration
     , ccUpdate :: !UpdateConfiguration
-    , ccGt     :: !SscConfiguration
+    , ccSsc    :: !SscConfiguration
     , ccNode   :: !NodeConfiguration
     } deriving (Show, Generic)
 
@@ -88,5 +88,5 @@ withConfigurations co@ConfigurationOptions{..} act = do
     withCoreConfigurations ccCore configurationDir cfoSystemStart $
         withInfraConfiguration ccInfra $
         withUpdateConfiguration ccUpdate $
-        withSscConfiguration ccGt $
+        withSscConfiguration ccSsc $
         withNodeConfiguration ccNode $ act

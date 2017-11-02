@@ -94,7 +94,7 @@ spec = withDefConfiguration $ withDefUpdateConfiguration $
             forAll validSscPayloadGen $ \(sscPayload, slotId) ->
             forAll (elements [0,0.5,0.9]) $ \(delta :: Double) ->
             let blk0 = producePureBlock infLimit prevHeader [] Nothing
-                                        slotId def (defGTP slotId) def sk
+                                        slotId def (defSscPld slotId) def sk
                 withPayload lim =
                     producePureBlock lim prevHeader [] Nothing slotId def sscPayload def sk
                 blk1 = withPayload infLimit
@@ -105,8 +105,8 @@ spec = withDefConfiguration $ withDefUpdateConfiguration $
                 in counterexample ("Tested with block size limit: " <> show s) $
                    leftToCounter blk2 (const True)
   where
-    defGTP :: HasConfiguration => SlotId -> SscPayload
-    defGTP sId = defaultSscPayload $ siSlot sId
+    defSscPld :: HasConfiguration => SlotId -> SscPayload
+    defSscPld sId = defaultSscPayload $ siSlot sId
 
     infLimit = convertUnit @Gigabyte @Byte 1
 
@@ -116,7 +116,7 @@ spec = withDefConfiguration $ withDefUpdateConfiguration $
     emptyBlk :: (HasConfiguration, HasUpdateConfiguration, Testable p) => (Either Text MainBlock -> p) -> Property
     emptyBlk foo =
         forAll arbitrary $ \(prevHeader, sk, slotId) ->
-        foo $ producePureBlock infLimit prevHeader [] Nothing slotId def (defGTP slotId) def sk
+        foo $ producePureBlock infLimit prevHeader [] Nothing slotId def (defSscPld slotId) def sk
 
     genTxAux :: HasConfiguration => Gen TxAux
     genTxAux =
@@ -134,7 +134,7 @@ spec = withDefConfiguration $ withDefUpdateConfiguration $
     noSscBlock limit prevHeader txs proxyCerts updatePayload sk =
         let neutralSId = SlotId 0 (unsafeMkLocalSlotIndex $ fromIntegral $ blkSecurityParam * 2)
         in producePureBlock
-            limit prevHeader txs Nothing neutralSId proxyCerts (defGTP neutralSId) updatePayload sk
+            limit prevHeader txs Nothing neutralSId proxyCerts (defSscPld neutralSId) updatePayload sk
 
     producePureBlock
         :: (HasConfiguration, HasUpdateConfiguration)

@@ -26,7 +26,7 @@ import           Pos.DB.Rocks                     (DB (..), MonadRealDB, NodeDBs
 import           Pos.Delegation.DB                (initGStateDlg)
 import           Pos.GState.BlockExtra            (initGStateBlockExtra)
 import           Pos.Ssc.Configuration            (HasSscConfiguration)
-import           Pos.Ssc.DB                       (initGtDB)
+import           Pos.Ssc.DB                       (initSscDB)
 import           Pos.Txp.DB                       (initGStateStakes, initGStateUtxo,
                                                    sanityCheckStakes, sanityCheckUtxo)
 import           Pos.Txp.GenesisUtxo              (genesisUtxo)
@@ -44,7 +44,7 @@ prepareGStateDB ::
 prepareGStateDB initialTip = unlessM isInitialized $ do
     initGStateCommon initialTip
     initGStateUtxo genesisUtxo
-    initGtDB
+    initSscDB
     initGStateStakes genesisUtxo
     initGStateUS
     initGStateDlg $ gdHeavyDelegation genesisData

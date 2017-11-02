@@ -62,7 +62,7 @@ withDefNodeConfiguration :: (HasNodeConfiguration => r) -> r
 withDefNodeConfiguration = withNodeConfiguration (ccNode defaultTestConf)
 
 withDefSscConfiguration :: (HasSscConfiguration => r) -> r
-withDefSscConfiguration = withSscConfiguration (ccGt defaultTestConf)
+withDefSscConfiguration = withSscConfiguration (ccSsc defaultTestConf)
 
 withDefUpdateConfiguration :: (HasUpdateConfiguration => r) -> r
 withDefUpdateConfiguration = withUpdateConfiguration (ccUpdate defaultTestConf)

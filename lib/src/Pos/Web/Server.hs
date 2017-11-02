@@ -6,8 +6,8 @@
 module Pos.Web.Server
        ( serveImpl
        , route53HealthCheckApplication
-       , serveWebGT
-       , applicationGT
+       , serveWebSsc
+       , applicationSsc
        ) where
 
 import           Universum
@@ -48,9 +48,8 @@ import           Pos.Web.Mode                    (WebMode, WebModeContext (..))
 import           Pos.WorkMode                    (OQ)
 import           Pos.WorkMode.Class              (WorkMode)
 
-import           Pos.Web.Api                     (BaseNodeApi, SscApi, SscNodeApi,
-                                                  HealthCheckApi, sscNodeApi,
-                                                  healthCheckApi)
+import           Pos.Web.Api                     (BaseNodeApi, HealthCheckApi, SscApi,
+                                                  SscNodeApi, healthCheckApi, sscNodeApi)
 import           Pos.Web.Types                   (CConfirmedProposalState (..),
                                                   TlsParams (..))
 
@@ -69,12 +68,12 @@ route53HealthCheckApplication topology oq = do
     server <- servantServerHealthCheck topology oq
     return $ serve healthCheckApi server
 
-serveWebGT :: MyWorkMode ctx m => Word16 -> Maybe TlsParams -> m ()
-serveWebGT = serveImpl applicationGT "127.0.0.1"
+serveWebSsc :: MyWorkMode ctx m => Word16 -> Maybe TlsParams -> m ()
+serveWebSsc = serveImpl applicationSsc "127.0.0.1"
 
-applicationGT :: MyWorkMode ctx m => m Application
-applicationGT = do
-    server <- servantServerGT
+applicationSsc :: MyWorkMode ctx m => m Application
+applicationSsc = do
+    server <- servantServerSsc
     return $ serve sscNodeApi server
 
 serveImpl
@@ -127,8 +126,8 @@ servantServerHealthCheck :: forall ctx t m . MyWorkMode ctx m => Topology t -> O
 servantServerHealthCheck topology oq =
     flip enter (healthCheckServantHandlers topology oq) <$> (nat @(MempoolExt m) @ctx @m)
 
-servantServerGT :: forall ctx m . MyWorkMode ctx m => m (Server SscNodeApi)
-servantServerGT = flip enter (baseServantHandlers :<|> sscServantHandlers) <$>
+servantServerSsc :: forall ctx m . MyWorkMode ctx m => m (Server SscNodeApi)
+servantServerSsc = flip enter (baseServantHandlers :<|> sscServantHandlers) <$>
     (nat @(MempoolExt m) @ctx @m)
 
 ----------------------------------------------------------------------------
@@ -203,30 +202,30 @@ type SscWebMode ext = WebMode ext
 
 sscServantHandlers :: ServerT SscApi (SscWebMode ext)
 sscServantHandlers =
-    toggleSscParticipation {- :<|> gtHasSecret :<|> getOurSecret :<|> getGtStage -}
+    toggleSscParticipation {- :<|> sscHasSecret :<|> getOurSecret :<|> getSscStage -}
 
 toggleSscParticipation :: Bool -> SscWebMode ext ()
 toggleSscParticipation enable =
     view sscContext >>=
     atomically . flip writeTVar enable . scParticipateSsc
 
--- gtHasSecret :: SscWebHandler Bool
--- gtHasSecret = isJust <$> getSecret
+-- sscHasSecret :: SscWebHandler Bool
+-- sscHasSecret = isJust <$> getSecret
 
 -- getOurSecret :: SscWebHandler SharedSeed
--- getOurSecret = maybe (throw err) (pure . convertGtSecret) =<< getSecret
+-- getOurSecret = maybe (throw err) (pure . convertSscSecret) =<< getSecret
 --   where
 --     err = err404 { errBody = "I don't have secret" }
 --     doPanic = panic "our secret is malformed"
---     convertGtSecret =
+--     convertSscSecret =
 --         secretToSharedSeed .
 --         fromMaybe doPanic . fromBinaryM . getOpening . view _2
 
--- getGtStage :: SscWebHandler SscStage
--- getGtStage = do
---     getGtStageImpl . siSlot <$> getCurrentSlot
+-- getSscStage :: SscWebHandler SscStage
+-- getSscStage = do
+--     getSscStageImpl . siSlot <$> getCurrentSlot
 --   where
---     getGtStageImpl idx
+--     getSscStageImpl idx
 --         | isCommitmentIdx idx = CommitmentStage
 --         | isOpeningIdx idx = OpeningStage
 --         | isSharesIdx idx = SharesStage

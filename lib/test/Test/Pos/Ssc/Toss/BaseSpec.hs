@@ -19,6 +19,8 @@ import           Test.QuickCheck       (Arbitrary (..), Gen, NonEmptyList (..), 
                                         vector, (.&&.), (===), (==>))
 
 import           Pos.Arbitrary.Lrc     (GenesisMpcThd, ValidRichmenStakes (..))
+import           Pos.Arbitrary.Ssc     (BadCommAndOpening (..), BadSignedCommitment (..),
+                                        CommitmentOpening (..))
 import           Pos.Binary            (AsBinary)
 import           Pos.Core              (Coin, EpochIndex, EpochOrSlot (..),
                                         HasConfiguration, StakeholderId,
@@ -28,21 +30,19 @@ import           Pos.Core              (Coin, EpochIndex, EpochOrSlot (..),
 import           Pos.Crypto            (DecShare, PublicKey, SecretKey,
                                         SignTag (SignCommitment), sign, toPublic)
 import           Pos.Lrc.Types         (RichmenStakes)
-import           Pos.Arbitrary.Ssc     (BadCommAndOpening (..), BadSignedCommitment (..),
-                                        CommitmentOpening (..))
-import           Pos.Ssc               (Commitment,
-                                        CommitmentSignature, CommitmentsMap (..),
-                                        SscGlobalState (..), InnerSharesMap,
+import           Pos.Ssc               (Commitment, CommitmentSignature,
+                                        CommitmentsMap (..), InnerSharesMap,
                                         MultiRichmenStakes, Opening, OpeningsMap,
                                         PureTossWithEnv, SharesMap, SignedCommitment,
-                                        SscVerifyError (..), VssCertData (..),
-                                        checkCertificatesPayload, checkCommitmentsPayload,
-                                        checkOpeningsPayload, checkSharesPayload,
-                                        deleteSignedCommitment, sgsCommitments, sgsOpenings,
-                                        sgsShares, sgsVssCertificates,
+                                        SscGlobalState (..), SscVerifyError (..),
+                                        VssCertData (..), checkCertificatesPayload,
+                                        checkCommitmentsPayload, checkOpeningsPayload,
+                                        checkSharesPayload, deleteSignedCommitment,
                                         mkCommitmentsMapUnsafe, runPureToss,
-                                        supplyPureTossEnv, verifyCommitment,
-                                        verifyCommitmentSignature, verifyOpening)
+                                        sgsCommitments, sgsOpenings, sgsShares,
+                                        sgsVssCertificates, supplyPureTossEnv,
+                                        verifyCommitment, verifyCommitmentSignature,
+                                        verifyOpening)
 
 import           Test.Pos.Util         (qcElem, qcFail, qcIsRight, withDefConfiguration)
 
@@ -581,10 +581,10 @@ checksBadCertsPayload (GoodPayload epoch sgs certsMap mrs) pk cert =
         -- it gets incremented internally and overflows
         cert' = cert { vcSigningKey = pk, vcExpiryEpoch = pred maxBound }
         (certsMap2, _) = insertVss cert' certsMap
-        newGtgs = sgs & sgsVssCertificates %~
+        newSgs = sgs & sgsVssCertificates %~
             \vcd -> vcd { certs = fst $ insertVss cert' (certs vcd) }
         certAlreadySent =
-            tossRunner mrs newGtgs $ checkCertificatesPayload epoch certsMap2
+            tossRunner mrs newSgs $ checkCertificatesPayload epoch certsMap2
         res2 = case certAlreadySent of
             Left (CertificateAlreadySent nes) -> sid `qcElem` nes
             _ -> qcFail $ "expected " <> show certAlreadySent <>

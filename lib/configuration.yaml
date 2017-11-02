@@ -104,8 +104,7 @@ dev: &dev
       bvAlt: 0
     systemTag: system
 
-  # SSC (formerly known as GodTossing)
-  gt: &dev_gt
+  ssc: &dev_ssc
     mpcSendInterval: 10 # must be less than (2 * k * slotDuration - networkDiameter)
     mdNoCommitmentsEpochThreshold: 3
     noReportNoSecretsForEpoch1: False
@@ -288,8 +287,8 @@ mainnet_base: &mainnet_base
       bvAlt: 0
     systemTag: none
 
-  # SSC (formerly known as GodTossing)
-  gt:
+  # SSC
+  ssc:
     mpcSendInterval: 100 # must be less than (2 * k * slotDuration - networkDiameter)
     mdNoCommitmentsEpochThreshold: 3
     noReportNoSecretsForEpoch1: True

@@ -3,7 +3,7 @@
 module Pos.Ssc.DB
        ( getSscGlobalState
        , sscGlobalStateToBatch
-       , initGtDB
+       , initSscDB
        ) where
 
 import           Universum
@@ -31,8 +31,8 @@ getSscGlobalState =
 sscGlobalStateToBatch :: SscGlobalState -> SscOp
 sscGlobalStateToBatch = PutGlobalState
 
-initGtDB :: (HasConfiguration, MonadDB m) => m ()
-initGtDB = gsPutBi sscKey (def {_sgsVssCertificates = vcd})
+initSscDB :: (HasConfiguration, MonadDB m) => m ()
+initSscDB = gsPutBi sscKey (def {_sgsVssCertificates = vcd})
   where
     vcd = VCD.fromList . toList $ genesisVssCerts
 

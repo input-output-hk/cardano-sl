@@ -3,7 +3,7 @@
 module Pos.Ssc.Toss.Logic
        ( verifyAndApplySscPayload
        , applyGenesisBlock
-       , rollbackGT
+       , rollbackSsc
        , normalizeToss
        , refreshToss
        ) where
@@ -94,22 +94,22 @@ applyGenesisBlock epoch = do
 
 -- | Rollback application of 'SscPayload's in 'Toss'. First argument is
 -- 'EpochOrSlot' of oldest block which is subject to rollback.
-rollbackGT :: (HasConfiguration, MonadToss m) => EpochOrSlot -> NewestFirst [] SscPayload -> m ()
-rollbackGT oldestEOS (NewestFirst payloads)
+rollbackSsc :: (HasConfiguration, MonadToss m) => EpochOrSlot -> NewestFirst [] SscPayload -> m ()
+rollbackSsc oldestEOS (NewestFirst payloads)
     | oldestEOS == toEnum 0 = do
-        logError "rollbackGT: most genesis block is passed to rollback"
+        logError "rollbackSsc: most genesis block is passed to rollback"
         setEpochOrSlot oldestEOS
         resetCO
         resetShares
     | otherwise = do
         setEpochOrSlot (pred oldestEOS)
-        mapM_ rollbackGTDo payloads
+        mapM_ rollbackSscDo payloads
   where
-    rollbackGTDo (CommitmentsPayload comms _) =
+    rollbackSscDo (CommitmentsPayload comms _) =
         mapM_ delCommitment $ HM.keys $ getCommitmentsMap comms
-    rollbackGTDo (OpeningsPayload opens _) = mapM_ delOpening $ HM.keys opens
-    rollbackGTDo (SharesPayload shares _) = mapM_ delShares $ HM.keys shares
-    rollbackGTDo (CertificatesPayload _) = pass
+    rollbackSscDo (OpeningsPayload opens _) = mapM_ delOpening $ HM.keys opens
+    rollbackSscDo (SharesPayload shares _) = mapM_ delShares $ HM.keys shares
+    rollbackSscDo (CertificatesPayload _) = pass
 
 -- | Apply as much data from given 'TossModifier' as possible.
 normalizeToss

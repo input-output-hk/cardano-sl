@@ -19,7 +19,7 @@ import           Serokell.Aeson.Options (defaultOptions)
 -- The syntax of this config section is as follows:
 --
 -- @
--- godTossing:
+-- ssc:
 --     sendOpening: Normal | None | Wrong
 --     sendShares: Normal | None | Wrong
 -- @

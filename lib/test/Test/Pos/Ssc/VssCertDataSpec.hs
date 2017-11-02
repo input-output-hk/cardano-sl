@@ -24,7 +24,7 @@ import           Pos.Core              (EpochIndex (..), EpochOrSlot (..),
 import           Pos.Core.Slotting     (flattenEpochOrSlot, unflattenSlotId)
 import           Pos.Ssc               (SscGlobalState (..), VssCertData (..), delete,
                                         empty, expiryEoS, filter, sgsVssCertificates,
-                                        insert, keys, lookup, member, rollbackGT,
+                                        insert, keys, lookup, member, rollbackSsc,
                                         runPureToss, setLastKnownSlot)
 import           Pos.Util.Chrono       (NewestFirst (..))
 
@@ -199,7 +199,7 @@ verifyRollback (Rollback oldSscGlobalState rollbackEoS vssCerts) = do
             oldSscGlobalState & sgsVssCertificates %~ certAdder
     (_, SscGlobalState _ _ _ rolledVssCertData, _) <-
         runPureToss newSscGlobalState $
-        rollbackGT rollbackEoS (NewestFirst [])
+        rollbackSsc rollbackEoS (NewestFirst [])
     pure $ conjoin $ vssCerts <&> \cert ->
         let id = getCertId cert in
         counterexample ("haven't found cert with id " <>

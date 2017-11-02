@@ -14,7 +14,7 @@ import           Pos.Ssc.Behavior            (SscBehavior)
 
 data BehaviorConfig = BehaviorConfig
     { bcSecurityParams :: !SecurityParams    -- ^ network
-    , bcSscBehavior    :: !SscBehavior       -- ^ SSC (GodTossing)
+    , bcSscBehavior    :: !SscBehavior       -- ^ SSC
     }
     deriving (Eq, Show)
 
@@ -24,5 +24,5 @@ instance Default BehaviorConfig where
 instance A.FromJSON BehaviorConfig where
     parseJSON = A.withObject "BehaviorConfig" $ \o -> do
         bcSecurityParams <- o A..: "networkAttacks"
-        bcSscBehavior    <- o A..: "godTossing"
+        bcSscBehavior    <- o A..: "ssc"
         pure BehaviorConfig{..}

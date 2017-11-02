@@ -9,14 +9,14 @@ This module provides basic operations under HD wallets.
     Each child node is identified by an index of this child,
     so child's public and secret keys can be _derived_ from parent
     by this index using parent's public-secret key pair.
-    On the other hand, a child can't know a parent in reasonable time
-    without some extra information.
+    On the other hand, one can't learn anything about parent
+    in reasonable time, unless one has some extra info.
 
-* Used structure of tree
-    In general case a structure of tree can be arbitrary but
+* Tree structure
+    In general case tree structure can be arbitrary but
     we use specific structure.
-    We have 2 layers tree, nodes of the first layer are called "accounts"
-    and nodes of the second layer are called "addresses" and are leaves of a tree.
+    We have two layered tree, nodes of the first layer are called "accounts"
+    and nodes of the second layer (leaves) are called "addresses" and are leaves of a tree.
     There can be potentially 2^32 accounts and each account can have 2^32 addresses,
     so wallet can have 2^64 addresses in total.
 
@@ -29,61 +29,54 @@ This module provides basic operations under HD wallets.
     (address[0][0] (pk, sk)) ... (address[0][2^32-1] (pk, sk)) ... (address[2^32-1][2^32-1] (pk, sk))
 
     So each address belongs to one account.
-    Addresses are addresses in common sense:
-    they can contain money, money can be spent from them,
-    address can be used as change address and so on.
+    Address can contain money, be used as change address and so on.
 
-    Accounts also reflect an intuition behind the word "account":
-    balance of each account can be computed as sum of balances of addresses which belong to it,
+    Balance of each account can be computed as sum of balances of addresses which belong to it,
     you can have different accounts for different purposes and so on.
 
 * Derivation process
     To derive secret key, parent secret key and passphrase are necessary.
-    @deriveHDSecretKey@ does it.
-    Description of underlying cryptography you can get here
-    https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#private-parent-key--private-child-key
+    Derivation is done using @deriveHDSecretKey@.
 
     The deriving of public key can be performed using just a public key of a parent node.
-    @deriveHDPublicKey@ does it, but we don't use it yet.
-    Description of underlying cryptography you can get here
-    https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#public-parent-key--public-child-key
+    Derivation is done using @deriveHDPublicKey@.
 
     It's not allowed to derive a public key from parent public key for
-    indicies which are greater than or equal to 2^31.
-    For these indicies secret key is required.
-    Such way to derive public keys is called "hardened derivation":
-    We also don't use it yet.
-    See more here
-    https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#private-parent-key--public-child-key
+    indicies which are greater than or equal to 2^31:
+    for these indicies parent secret key is required.
+    This feature is called "hardened derivation":
 
-    Note: all these functions don't require number of derivated level,
+    You can get description of underlying cryptography here
+    https://cardanolaunch.com/assets/Ed25519_BIP.pdf
+
+    Note: all these functions don't require derivation level number,
     only credential information (public key or secret key with passphrase)
     and index of a child.
     Also we can derive public and secret keys for any arbitrary number of levels.
 
 * HD address payload
-    There were mentioned "account" and "address" entities,
+    "Account" and "address" entities were mentioned,
     but only addresses appear in the blockchain.
-    When we create a transaction, for each TxOut we specify address and coins.
-    So neither transaction nor blocks know anything about accounts and wallets.
+    When we create a transaction, we specify address and coins for each TxOut.
+    So neither transaction or block knows anything about accounts and wallets.
 
     We want to be able to track our addresses in the blockchain
-    to compute balance of wallet and accounts,
-    but as said in _General scheme_ section we aren't able
-    to determine a parent without any additional info.
+    to compute balance of wallet and related accounts,
+    but as it is said in _General scheme_ section we're not able
+    to determine a parent without some particular info.
     So we can't determine account and wallet which address belongs to.
 
     For each leaf let's store path from the root to this leaf along with an address.
-    So path is a list of indexes of derivation on each level.
+    So path is a list of derivation indices on each level.
     To hide path from other parties we will encrypt it.
     This encrypted derivation path is called @HDAddressPayload@
     and stored in attributes of Address datatype.
 
     Note: length of derivation path in our case is 2: @[account index, address index]@.
 
-* Encryption of payload
+* Payload encryption
     To encrypt derivation path let's use AEAD scheme using ChaCha20 and Poly1305.
-    To see more information go to https://tools.ietf.org/html/rfc7539.
+    More information is available here https://tools.ietf.org/html/rfc7539.
     Hash of root public key is used as a symmetric key for ChaChaPoly1305.
     This hash called @HDPassphrase@ and function @deriveHDPassphrase@ generates
     it by root public key.
@@ -92,7 +85,7 @@ This module provides basic operations under HD wallets.
     derivation path and returns @HDAddressPayload@.
     It serializes derivation path using @Bi@ instance for it and then encrypts produced bytes sequence.
 
-* Decryption of payload
+* Payload decryption
     To decrypt encrypted derivation path we have to derive @HDPassphrase@ again
     from root public key and then try to decrypt @HDAddressPayload@.
     If it's successfully decrypted then it implies address belongs to our tree
@@ -100,8 +93,8 @@ This module provides basic operations under HD wallets.
 
     Note: publishing of root public key gives other parties opportunity to reveal
     all your addresses in the blockchain.
-    So it's not safe for the user to share his root public key (like he can do
-    it with a usual public key) because he loses his anonymity.
+    So it is unsafe to share root pk (like it can be done with a usual pk)
+    because it implies user deanonymization.
 
 * Recovery process
     So if we have a root secret key (or even root public key),
@@ -192,7 +185,7 @@ deriveHDPassphrase (PublicKey pk) = HDPassphrase $
     passLen = 32
 
 -- Direct children of node are numbered from 0 to 2^32-1.
--- Children with indices less than @firstHardened@ are non-hardened children.
+-- Indices less than @firstHardened@ are non-hardened indices.
 firstHardened :: Word32
 firstHardened = 2 ^ (31 :: Word32)
 
@@ -274,7 +267,7 @@ encryptChaChaPoly
                   -- but still want it to be part of tag digest.
                   -- So tag verifies validity of both encrypted data and unencrypted header.
     -> ByteString -- Input plaintext to be encrypted
-    -> CryptoFailable ByteString -- Ciphertext with appended a 128-bit crypto-tag.
+    -> CryptoFailable ByteString -- Ciphertext with a 128-bit crypto-tag appended.
 encryptChaChaPoly nonce key header plaintext = do
     st1 <- C.nonce12 nonce >>= C.initialize key
     let st2 = C.finalizeAAD $ C.appendAAD header st1
@@ -288,7 +281,7 @@ toEither (CryptoFailed er) = Left $ show er
 
 -- | Take HDPassphrase as symmetric key and encrypted derivation path (aka HDPayload)
 -- and try to decrypt it.
--- Verify that appended crypto-tag is the same as gotten in result of work ChaChaPoly1305.
+-- Verify that appended crypto-tag is the same as got in result of work ChaChaPoly1305 algorithm.
 decryptChaChaPoly
     :: ByteString -- Nonce (12 random bytes)
     -> ByteString -- Symmetric key

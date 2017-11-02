@@ -5175,11 +5175,11 @@ self: {
       node-sketch = callPackage ({ MonadRandom, QuickCheck, aeson, async, attoparsec, base, binary, bytestring, conduit, conduit-extra, containers, cryptonite, data-default, deepseq, ekg-core, exceptions, fetchgit, formatting, hashable, kademlia, lens, lifted-base, log-warper, mkDerivation, mmorph, monad-control, mtl, mwc-random, network, network-transport, network-transport-tcp, optparse-simple, random, resourcet, semigroups, serokell-util, statistics, stdenv, stm, tagged, text, text-format, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector }:
       mkDerivation {
           pname = "node-sketch";
-          version = "0.2.0.0";
+          version = "0.2.0.1";
           src = fetchgit {
             url = "https://github.com/serokell/time-warp-nt.git";
-            sha256 = "046kqk7m2rhzxk3960fd4jcvar8hcczbg7lv13jpw1g5wvl431fn";
-            rev = "48cb189a412c5a606888285944b9a8f32fcd0d30";
+            sha256 = "0g94b7j0r7lg8ihirq1kdcj33kiwyyhf236ghhi7813l7955napq";
+            rev = "7d97bbfb15f1f57f7d9db2aa09c5afe748b0b10d";
           };
           isLibrary = true;
           isExecutable = true;

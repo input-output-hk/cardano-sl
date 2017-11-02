@@ -27,9 +27,7 @@ import           Control.Monad.Random.Strict      (RandT)
 import           Control.Monad.Trans.Control      (MonadBaseControl)
 import qualified Crypto.Random                    as Rand
 import           Data.Default                     (Default)
-import           Mockable                         (Async, Catch, Concurrently,
-                                                   CurrentTime, Delay, Mockables, Promise,
-                                                   Throw)
+import           Mockable                         (MonadMockable, Promise)
 import           System.Wlog                      (WithLogger, logWarning)
 
 import           Pos.Block.BListener              (MonadBListener (..))
@@ -66,9 +64,9 @@ import           Pos.Reporting                    (HasReportingContext (..),
 import           Pos.Slotting                     (HasSlottingVar (..), MonadSlots (..),
                                                    MonadSlotsData, SlottingData,
                                                    currentTimeSlottingSimple)
-import           Pos.Ssc.Types                    (SscBlock)
 import           Pos.Ssc.Extra                    (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.Types                    (SscBlock)
 import           Pos.Txp                          (GenericTxpLocalData, MempoolExt,
                                                    TxpGlobalSettings, TxpHolderTag,
                                                    mkTxpLocalData)
@@ -93,14 +91,7 @@ type MonadBlockGenBase m
        , MonadIO m
        , MonadBaseControl IO m
        , MonadFormatPeers m
-       , Mockables m
-           [ CurrentTime
-           , Async
-           , Catch
-           , Throw
-           , Delay
-           , Concurrently
-           ]
+       , MonadMockable m
        , Eq (Promise m (Maybe ())) -- are you cereal boyz??1?
        , HasConfiguration
        , HasUpdateConfiguration

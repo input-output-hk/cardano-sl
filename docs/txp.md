@@ -193,10 +193,7 @@ In the following (until [tx size check section](#tx-size-check)) we
 consider case (3), when all inputs are `TxInUtxo`. The next step is to
 lookup all inputs in UTXO. If at least one input is not found,
 transaction is invalid. We further assume that for each input we know
-corresponding unspent output.  All inputs must exist in UTXO. In the
-following we describe the case when all inputs have `TxInUtxo` type
-and we assume that for each input we know corresponding unspent output
-(if we don't, transaction is invalid).
+corresponding unspent output. All inputs must exist in UTXO.
 
 All inputs of a transaction must be different and each input must be
 properly certified by its witness.
@@ -222,7 +219,7 @@ need to check that witness itself is correct.
   * If `verifyAllIsKnown` is `True`, script version (which is same for
     redeemer and validator) must be known. Currently it means that
     version must be equal to 0, it's the only version known to our software.
-  * Plutus validation script build from redeemer and validator for
+  * Plutus validation script built from redeemer and validator for
     given tx must return `True`.
 * If witness is `RedeemWitness` (which contains a redeem public key
   and a redeem signature), we require that address is a `Redeem`
@@ -307,7 +304,7 @@ bootstrap stakeholders proportional to their weights. The behavior
 depends on whether the value is less than the sum of weights of all
 stakeholders (this sum is called `bootDustThreshold`). If it's greater
 than or equal to `bootDustThreshold`, then each stakeholder receives
-`val / weights_sum` coins (`val` is the value of `TxOut`) and one
+`val * w_ᵢ / weights_sum` coins (`val` is the value of `TxOut`) and one
 stakeholder also receives the remainder (the choice is
 deterministc). If it's less than `bootDustThreshold`, then some
 stakeholders will receive the same stake as their weights, one
@@ -321,8 +318,8 @@ may receive slightly more than others due to rounding.
 
 Then these lists are concatenated and we have two lists of
 `(StakeholderId, Coin)` pairs: the first one is how much stake each
-stakeholder should gain, the second one is how much stake each
-stakeholder should lose. Then stakes of all mentioned stakeholders are
+stakeholder should lose, the second one is how much stake each
+stakeholder should gain. Then stakes of all mentioned stakeholders are
 updated appropriately. Also total stake is updated.
 
 ## Local transaction processing

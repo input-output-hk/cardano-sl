@@ -75,17 +75,17 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
             logInfo "Resyncing wallets with blockchain..."
             syncWallets
     runNodeWithInit init nr =
-        let (ActionSpec f, outs) = runNode nr plugins
+        let (ActionSpec f, outs) = runNode nr allPlugins
          in (ActionSpec $ \v s -> init >> f v s, outs)
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
     syncWallets :: WalletWebMode ()
     syncWallets = do
         sks <- getWalletAddresses >>= mapM getSKById
         syncWalletsWithGState sks
-    plugins :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
-    plugins = mconcat [ convPlugins (pluginsSsc wArgs)
-                      , walletProd wArgs
-                      , acidCleanupWorker wArgs ]
+    allPlugins :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
+    allPlugins = mconcat [ convPlugins (plugins wArgs)
+                         , walletProd wArgs
+                         , acidCleanupWorker wArgs ]
 
 acidCleanupWorker :: HasConfigurations => WalletArgs -> ([WorkerSpec WalletWebMode], OutSpecs)
 acidCleanupWorker WalletArgs{..} =
@@ -106,13 +106,13 @@ walletProd WalletArgs {..} = first one $ worker walletServerOuts $ \sendActions 
         walletAddress
         (Just walletTLSParams)
 
-pluginsSsc ::
+plugins ::
     ( WorkMode ctx m
     , HasNodeContext ctx
     , HasConfigurations
     , HasCompileInfo
     ) => WalletArgs -> [m ()]
-pluginsSsc WalletArgs {..}
+plugins WalletArgs {..}
     | enableWeb = [serveWeb webPort (Just walletTLSParams)]
     | otherwise = []
 

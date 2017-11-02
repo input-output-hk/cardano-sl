@@ -63,7 +63,7 @@ isReclaimableFailure = \case
     ToilSlotUnknown          -> True
     ToilOverwhelmed{}        -> True
     ToilNotUnspent{}         -> False
-    ToilOutSscIn{}           -> False
+    ToilOutGreaterThanIn{}   -> False
     ToilInconsistentTxAux{}  -> False
     ToilInvalidOutputs{}     -> False
     ToilUnknownInput{}       -> False

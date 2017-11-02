@@ -34,8 +34,8 @@ data ToilVerFailure
     | ToilOverwhelmed !Int -- ^ Local transaction storage is full --
                             -- can't accept more txs. Current limit is attached.
     | ToilNotUnspent !TxIn -- ^ Tx input is not a known unspent input.
-    | ToilOutSscIn { tInputSum  :: !Integer
-                   , tOutputSum :: !Integer}
+    | ToilOutGreaterThanIn { tInputSum  :: !Integer
+                           , tOutputSum :: !Integer}
     | ToilInconsistentTxAux !Text
     | ToilInvalidOutputs !Text  -- [CSL-1628] TODO: make it more informative
     | ToilUnknownInput !Word32 !TxIn
@@ -85,7 +85,7 @@ instance Buildable ToilVerFailure where
         bprint ("max size of the mem pool is reached which is "%shown) limit
     build (ToilNotUnspent txId) =
         bprint ("input is not a known unspent input: "%build) txId
-    build (ToilOutSscIn {..}) =
+    build (ToilOutGreaterThanIn {..}) =
         bprint ("sum of outputs is greater than sum of inputs ("%int%" < "%int%")")
         tInputSum tOutputSum
     build (ToilInconsistentTxAux msg) =

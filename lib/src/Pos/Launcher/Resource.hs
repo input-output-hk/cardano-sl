@@ -65,10 +65,8 @@ import           Pos.Network.Types                (NetworkConfig (..), Topology 
 import           Pos.Shutdown.Types               (ShutdownContext (..))
 import           Pos.Slotting                     (SlottingContextSum (..), SlottingData,
                                                    mkNtpSlottingVar, mkSimpleSlottingVar)
-import           Pos.Ssc.Types                    (SscParams,
-                                                   createSscContext)
-import           Pos.Ssc.Extra                    (SscState, mkSscState)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc                          (HasSscConfiguration, SscParams,
+                                                   SscState, createSscContext, mkSscState)
 import           Pos.StateLock                    (newStateLock)
 import           Pos.Txp                          (GenericTxpLocalData (..),
                                                    TxpGlobalSettings, mkTxpLocalData,
@@ -125,7 +123,7 @@ allocateNodeResources
        , HasConfiguration
        , HasNodeConfiguration
        , HasInfraConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        )
     => Transport m
     -> NetworkConfig KademliaDHTInstance
@@ -207,7 +205,7 @@ bracketNodeResources :: forall ext m a.
       , HasConfiguration
       , HasNodeConfiguration
       , HasInfraConfiguration
-      , HasGtConfiguration
+      , HasSscConfiguration
       )
     => NodeParams
     -> SscParams

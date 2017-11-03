@@ -5,7 +5,6 @@ module Pos.Client.Txp.Balances
        , getOwnUtxo
        , getBalanceFromUtxo
        , getOwnUtxosGenesis
-       , getBalanceDefault
        , getOwnUtxoForPk
        ) where
 
@@ -38,13 +37,6 @@ getBalanceFromUtxo addr = getTotalCoinsInUtxo <$> getOwnUtxo addr
 
 getOwnUtxosGenesis :: (HasConfiguration, Applicative m) => [Address] -> m Utxo
 getOwnUtxosGenesis addrs = pure $ filterUtxoByAddrs addrs (unGenesisUtxo genesisUtxo)
-
--- | `BalanceDB` isn't used here anymore, because
--- 1) It doesn't represent actual balances of addresses, but it represents _stakes_
--- 2) Local utxo is now cached, and deriving balances from it is not
---    so bad for performance now
-getBalanceDefault :: (MonadBalances m) => Address -> m Coin
-getBalanceDefault addr = getBalanceFromUtxo addr
 
 getOwnUtxo :: MonadBalances m => Address -> m Utxo
 getOwnUtxo = getOwnUtxos . one

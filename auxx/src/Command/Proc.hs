@@ -34,7 +34,7 @@ import           Pos.Txp                    (TxOut (..))
 import           Pos.Update                 (BlockVersionModifier (..))
 import           Pos.Util.CompileInfo       (HasCompileInfo)
 import           Pos.Util.UserSecret        (WalletUserSecret (..), readUserSecret,
-                                             usKeys, usWallet, userSecret)
+                                             usKeys, usPrimKey, usWallet, userSecret)
 import           Pos.Util.Util              (eitherToFail)
 
 import           Command.BlockGen           (generateBlocks)
@@ -54,7 +54,8 @@ import qualified Command.Update             as Update
 import           Lang.Argument              (getArg, getArgMany, getArgOpt, getArgSome)
 import           Lang.Command               (CommandProc (..))
 import           Lang.Name                  (Name)
-import           Lang.Value                 (AddrDistrPart (..), GenBlocksParams (..),
+import           Lang.Value                 (AddKeyParams (..), AddrDistrPart (..),
+                                             GenBlocksParams (..),
                                              ProposeUpdateParams (..),
                                              ProposeUpdateSystem (..),
                                              RollbackParams (..), SendMode (..),
@@ -275,6 +276,7 @@ createCommandProcs printAction sendActions = fix $ \commands -> [
     { cpName = "propose-update"
     , cpArgumentConsumer = do
         puSecretKeyIdx <- getArg tyInt "i"
+        puVoteAll <- getArg tyBool "vote-all"
         puBlockVersion <- getArg tyBlockVersion "block-version"
         puSoftwareVersion <- getArg tySoftwareVersion "software-version"
         puBlockVersionModifier <- getArg tyBlockVersionModifier "bvm"
@@ -382,10 +384,17 @@ createCommandProcs printAction sendActions = fix $ \commands -> [
 
     CommandProc
     { cpName = "add-key"
-    , cpArgumentConsumer = getArg tyFilePath "file"
-    , cpExec = \filePath -> do
-        secret <- readUserSecret filePath
-        mapM_ addSecretKey $ secret ^. usKeys
+    , cpArgumentConsumer = do
+        akpFile <- getArg tyFilePath "file"
+        akpPrimary <- getArg tyBool "primary"
+        return AddKeyParams {..}
+    , cpExec = \AddKeyParams {..} -> do
+        secret <- readUserSecret akpFile
+        if akpPrimary then do
+            let primSk = fromMaybe (error "Primary key not found") (secret ^. usPrimKey)
+            addSecretKey $ noPassEncrypt primSk
+        else
+            mapM_ addSecretKey $ secret ^. usKeys
         return ValueUnit
     , cpHelp = ""
     },

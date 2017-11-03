@@ -52,7 +52,6 @@ spec_prj=''
 no_nix=false
 ram=false
 prodMode=
-explorer=true
 no_code=false
 werror=false
 for_installer=false
@@ -95,9 +94,6 @@ do
   # -Werror = compile with -Werror
   elif [[ $var == "-Werror" ]]; then
     werror=true
-  # --no-explorer = build without Explorer (support)
-  elif [[ $var == "--no-explorer" ]]; then
-    explorer=false
   # --for-installer = build with for-installer flag
   elif [[ $var == "--for-installer" ]]; then
     for_installer=true
@@ -112,11 +108,9 @@ do
     # We want:
     # • --flag cardano-sl-core:-asserts ($asserts)
     # • compiler optimizations ($no_fast)
-    # • disable explorer ($explorer)
     bench_mode=true
     no_fast=true
     asserts=false
-    explorer=false
   # project name = build only the project
   elif [[ $var == "sl" ]] || [[ $var == "sl+" ]] || [[ $var == "all" ]]; then
     spec_prj="all"
@@ -157,10 +151,6 @@ norun='--no-run-tests --no-run-benchmarks'
 
 if [[ $no_nix == true ]]; then
   commonargs="$commonargs --no-nix"
-fi
-
-if [[ $explorer == false ]]; then
-  commonargs="$commonargs --flag cardano-sl:-with-explorer"
 fi
 
 if [[ $for_installer == true ]]; then
@@ -242,18 +232,11 @@ else
   to_build="cardano-sl-$spec_prj"
 fi
 
-# A warning for invalid flag usage when building explorer. This should not happen.
-if [[ $to_build == *"explorer"* && $explorer == false ]]; then
-  echo "You can't build output with explorer and not use explorer! Invalid flag '--no-explorer'."
-  exit
-fi
-
 if [[ $to_build == "" ]]; then
   echo "Going to build: everything, concurrently"
 else
   echo "Going to build: $to_build"
 fi
-echo "'explorer' flag: $explorer"
 
 for prj in $to_build; do
 

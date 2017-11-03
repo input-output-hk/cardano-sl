@@ -7,12 +7,11 @@ import Control.Monad.Eff.Exception (error, Error, EXCEPTION)
 import Control.Monad.Eff.Ref.Unsafe (unsafeRunRef)
 import Control.Monad.Eff.Ref (modifyRef, newRef, readRef)
 import Control.Monad.Error.Class (throwError)
-import Daedalus.Types (CId, _address, _ccoin, CAccount, CTx, CAccountMeta, CTxId, CTxMeta, _ctxIdValue, WalletError, CProfile, CAccountInit, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress, CInitialized, CPassPhrase, _passPhrase, CCoin, CPaperVendWalletRedeem, Wal, CWallet, CWalletInit, walletAddressToUrl, CAccountId, CAddress, Addr, CWalletMeta)
+import Daedalus.Types (CId, _address, _ccoin, CAccount, CTx, CAccountMeta, CTxId, CTxMeta, _ctxIdValue, WalletError, CProfile, CAccountInit, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress, CInitialized, CPassPhrase, _passPhrase, CCoin, CPaperVendWalletRedeem, Wal, CWallet, CWalletInit, walletAddressToUrl, CAccountId, CAddress, Addr, CWalletMeta, CFilePath (..))
 import Data.Argonaut.Parser (jsonParser)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
 import Data.Bifunctor (lmap)
 import Data.Either (either, Either(Left))
-import Data.Functor (void)
 import Data.FormURLEncoded (fromArray, encode)
 import Data.Generic (class Generic, gShow)
 import Data.HTTP.Method (Method(GET, POST, PUT, DELETE))
@@ -150,8 +149,8 @@ restoreWallet tls pass = postRBody tls $ queryParams ["wallets", "restore"] [qPa
 renameWalletSet :: forall eff. TLSOptions -> CId Wal -> String -> Aff (http :: HTTP, exception :: EXCEPTION | eff) CWallet
 renameWalletSet tls wSetId name = postR tls $ noQueryParam ["wallets", "rename", _address wSetId, name]
 
-importWallet :: forall eff. TLSOptions -> Maybe CPassPhrase -> FilePath -> Aff (http :: HTTP, exception :: EXCEPTION | eff) CWallet
-importWallet tls pass = postRBody tls $ queryParams ["wallets", "keys"] [qParam "passphrase" $ _passPhrase <$> pass]
+importWallet :: forall eff. TLSOptions -> Maybe CPassPhrase -> CFilePath -> Aff (http :: HTTP, exception :: EXCEPTION | eff) CWallet
+importWallet tls pass (CFilePath path) = postRBody tls (queryParams ["wallets", "keys"] [qParam "passphrase" $ _passPhrase <$> pass]) path
 
 changeWalletPass :: forall eff. TLSOptions -> CId Wal -> Maybe CPassPhrase -> Maybe CPassPhrase -> Aff (http :: HTTP, exception :: EXCEPTION | eff) Unit
 changeWalletPass tls wSetId old new = postR tls $ queryParams ["wallets", "password", _address wSetId] [qParam "old" $ _passPhrase <$> old, qParam "new" $ _passPhrase <$> new]
@@ -185,8 +184,8 @@ newAddress tls pass = postRBody tls $ queryParams ["addresses"] [qParam "passphr
 --------------------------------------------------------------------------------
 -- Addresses -------------------------------------------------------------------
 
-isValidAddress :: forall eff. TLSOptions -> String -> Aff (http :: HTTP, exception :: EXCEPTION | eff) Boolean
-isValidAddress tls addr = getR tls $ noQueryParam ["addresses", addr]
+isValidAddress :: forall eff. TLSOptions -> (CId Addr) -> Aff (http :: HTTP, exception :: EXCEPTION | eff) Boolean
+isValidAddress tls addr = getR tls $ noQueryParam ["addresses", _address addr]
 
 --------------------------------------------------------------------------------
 -- Profiles --------------------------------------------------------------------
@@ -269,8 +268,8 @@ localTimeDifference tls = getR tls $ noQueryParam ["settings", "time", "differen
 
 --------------------------------------------------------------------------------
 -- JSON BACKUP -----------------------------------------------------------------
-importBackupJSON :: forall eff. TLSOptions -> String -> Aff (http :: HTTP, exception :: EXCEPTION | eff) CWallet
-importBackupJSON tls = postRBody tls $ noQueryParam ["backup", "import"]
+importBackupJSON :: forall eff. TLSOptions -> CFilePath -> Aff (http :: HTTP, exception :: EXCEPTION | eff) CWallet
+importBackupJSON tls (CFilePath path) = postRBody tls (noQueryParam ["backup", "import"]) path
 
-exportBackupJSON :: forall eff. TLSOptions -> CId Wal -> String -> Aff (http :: HTTP, exception :: EXCEPTION | eff) Unit
-exportBackupJSON tls addr = postRBody tls $ noQueryParam ["backup", "export", _address addr]
+exportBackupJSON :: forall eff. TLSOptions -> CId Wal -> CFilePath -> Aff (http :: HTTP, exception :: EXCEPTION | eff) Unit
+exportBackupJSON tls addr (CFilePath path) = postRBody tls (noQueryParam ["backup", "export", _address addr]) path

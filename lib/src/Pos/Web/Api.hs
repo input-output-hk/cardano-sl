@@ -4,17 +4,11 @@
 -- | Web API exposed by node.
 
 module Pos.Web.Api
-       ( BaseNodeApi
-       , baseNodeApi
+       ( NodeApi
+       , nodeApi
 
        , HealthCheckApi
        , healthCheckApi
-
-       , GodTossingApi
-       , godTossingApi
-
-       , GtNodeApi
-       , gtNodeApi
        ) where
 
 import           Universum
@@ -27,11 +21,15 @@ import           Pos.Txp       (TxOut)
 import           Pos.Types     (EpochIndex, HeaderHash, SlotLeaders)
 import           Pos.Web.Types (CConfirmedProposalState)
 
+----------------------------------------------------------------------------
+-- Base
+----------------------------------------------------------------------------
+
 -- | Servant API which provides access to full node internals.
 --
 -- Implementations of these methods are in
 -- 'Pos.Web.Server.baseServantHandlers'.
-type BaseNodeApi =
+type NodeApi =
     -- "current_slot"
     --     :> Get '[JSON] SlotId
     -- :<|>
@@ -53,6 +51,24 @@ type BaseNodeApi =
     :<|>
     "confirmed_proposals"
         :> Get '[JSON] [CConfirmedProposalState]
+    :<|>
+    "ssc" :>
+        ("toggle"
+            :> Capture "enable" Bool
+            :> Post '[JSON] ()
+         -- :<|>
+         -- "has_secret" :> Get '[JSON] Bool :<|>
+         -- "secret" :> Get '[JSON] SharedSeed :<|>
+         -- "stage" :> Get '[JSON] SscStage
+        )
+
+-- | Helper Proxy.
+nodeApi :: Proxy NodeApi
+nodeApi = Proxy
+
+----------------------------------------------------------------------------
+-- HealthCheck
+----------------------------------------------------------------------------
 
 -- | Helper Proxy.
 healthCheckApi :: Proxy HealthCheckApi
@@ -60,33 +76,3 @@ healthCheckApi = Proxy
 
 type HealthCheckApi =
     "healthcheck" :> "route53" :> Get '[PlainText] String
-
--- | Helper Proxy.
-baseNodeApi :: Proxy BaseNodeApi
-baseNodeApi = Proxy
-
--- | GodTossing specific API.
-type GodTossingApi =
-    "toggle"
-        :> Capture "enable" Bool
-        :> Post '[JSON] ()
-    -- :<|>
-    -- "has_secret" :> Get '[JSON] Bool :<|>
-    -- "secret" :> Get '[JSON] SharedSeed :<|>
-    -- "stage" :> Get '[JSON] GodTossingStage
-
--- | Helper Proxy.
-godTossingApi :: Proxy GodTossingApi
-godTossingApi = Proxy
-
--- | Servant API which provides access to full node internals with
--- GodTossing SSC.
-type GtNodeApi =
-    BaseNodeApi
-    :<|>
-    "god_tossing"
-        :> GodTossingApi
-
--- | Helper Proxy.
-gtNodeApi :: Proxy GtNodeApi
-gtNodeApi = Proxy

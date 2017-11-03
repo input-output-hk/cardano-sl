@@ -1395,6 +1395,8 @@ self: {
           ];
           libraryToolDepends = [ cpphs ];
           executableHaskellDepends = [
+            base
+            bytestring
             cardano-sl
             cardano-sl-core
             cardano-sl-infra
@@ -3167,8 +3169,8 @@ self: {
       ekg-core = callPackage ({ base, containers, ghc-prim, mkDerivation, stdenv, text, unordered-containers }:
       mkDerivation {
           pname = "ekg-core";
-          version = "0.1.1.2";
-          sha256 = "35eb78e4cdabab2562ddf477bf55fa2cf1c0489984c6adb360ef187b6979f805";
+          version = "0.1.1.3";
+          sha256 = "ac56e2d0f6bf0b76aa3b69beddbb7d0811e8991c98a379bc24ec808049fb89e3";
           libraryHaskellDepends = [
             base
             containers
@@ -5031,8 +5033,8 @@ self: {
           pname = "natural-transformation";
           version = "0.4";
           sha256 = "aac28e2c1147ed77c1ec0f0eb607a577fa26d0fd67474293ba860ec124efc8af";
-          revision = "1";
-          editedCabalFile = "1scwm1gs07znkj4ahfyxpwrksj4rdl1pa81xflcqhkqfgcndvgl3";
+          revision = "2";
+          editedCabalFile = "1j90pd1zznr18966axskad5w0kx4dvqg62r65rmw1ihqwxm1ndix";
           libraryHaskellDepends = [
             base
           ];
@@ -5173,11 +5175,11 @@ self: {
       node-sketch = callPackage ({ MonadRandom, QuickCheck, aeson, async, attoparsec, base, binary, bytestring, conduit, conduit-extra, containers, cryptonite, data-default, deepseq, ekg-core, exceptions, fetchgit, formatting, hashable, kademlia, lens, lifted-base, log-warper, mkDerivation, mmorph, monad-control, mtl, mwc-random, network, network-transport, network-transport-tcp, optparse-simple, random, resourcet, semigroups, serokell-util, statistics, stdenv, stm, tagged, text, text-format, time, time-units, transformers, transformers-base, transformers-lift, universum, unordered-containers, vector }:
       mkDerivation {
           pname = "node-sketch";
-          version = "0.2.0.0";
+          version = "0.2.0.1";
           src = fetchgit {
             url = "https://github.com/serokell/time-warp-nt.git";
-            sha256 = "046kqk7m2rhzxk3960fd4jcvar8hcczbg7lv13jpw1g5wvl431fn";
-            rev = "48cb189a412c5a606888285944b9a8f32fcd0d30";
+            sha256 = "0g94b7j0r7lg8ihirq1kdcj33kiwyyhf236ghhi7813l7955napq";
+            rev = "7d97bbfb15f1f57f7d9db2aa09c5afe748b0b10d";
           };
           isLibrary = true;
           isExecutable = true;

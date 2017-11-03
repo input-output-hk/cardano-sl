@@ -25,8 +25,8 @@ import           Pos.Crypto                       (VssKeyPair)
 import           Pos.Launcher                     (BaseParams (..), LoggingParams (..),
                                                    NodeParams (..))
 import           Pos.Network.CLI                  (intNetworkConfigOpts)
-import           Pos.Ssc.GodTossing               (SscParams (..))
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc                          (SscParams (..))
+import           Pos.Ssc.Configuration            (HasSscConfiguration)
 import           Pos.Update.Params                (UpdateParams (..))
 import           Pos.Util.UserSecret              (peekUserSecret)
 
@@ -48,7 +48,7 @@ gtSscParams CommonNodeArgs {..} vssSK BehaviorConfig{..} =
     SscParams
     { spSscEnabled = True
     , spVssKeyPair = vssSK
-    , spBehavior   = bcGtBehavior
+    , spBehavior   = bcSscBehavior
     }
 
 getKeyfilePath :: CommonNodeArgs -> FilePath
@@ -65,7 +65,7 @@ getNodeParams ::
        , Mockable Catch m
        , Mockable Throw m
        , HasConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        )
     => CommonNodeArgs
     -> NodeArgs

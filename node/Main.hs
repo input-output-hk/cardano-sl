@@ -23,7 +23,6 @@ import           Pos.Communication    (OutSpecs, WorkerSpec)
 import           Pos.Core             (GenesisData (..), Timestamp (..), genesisData)
 import           Pos.Launcher         (HasConfigurations, NodeParams (..), loggerBracket,
                                        runNodeReal, withConfigurations)
-import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Ssc.Types        (SscParams)
 import           Pos.Update           (updateTriggerWorker)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,
@@ -57,18 +56,13 @@ action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
     t <- currentTime
     logInfo $ sformat ("Current time is " % shown) (Timestamp t)
     currentParams <- CLI.getNodeParams cArgs nArgs
-    logInfo $ "Running using " <> show sscAlgo
     logInfo "Wallet is disabled, because software is built w/o it"
     logInfo $ sformat ("Using configs and genesis:\n"%shown) (CLI.configurationOptions (CLI.commonArgs cArgs))
 
     let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-    let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
+    let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-    case sscAlgo of
-        NistBeaconAlgo ->
-            error "NistBeaconAlgo is not supported"
-        GodTossingAlgo ->
-            actionWithoutWallet gtParams currentParams
+    actionWithoutWallet sscParams currentParams
 
 main :: IO ()
 main = withCompileInfo $(retrieveCompileTimeInfo) $ do

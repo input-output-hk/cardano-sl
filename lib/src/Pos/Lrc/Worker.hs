@@ -53,15 +53,15 @@ import           Pos.Lrc.Logic                         (findAllRichmenMaybe)
 import           Pos.Lrc.Mode                          (LrcMode)
 import           Pos.Reporting                         (reportMisbehaviour)
 import           Pos.Slotting                          (MonadSlots)
-import           Pos.Ssc.Extra                         (MonadSscMem, sscCalculateSeed)
-import           Pos.Ssc.GodTossing                    (noReportNoSecretsForEpoch1)
-import           Pos.Ssc.GodTossing.Network.Constraint (GtMessageConstraints)
+import           Pos.Ssc                               (MonadSscMem,
+                                                        noReportNoSecretsForEpoch1,
+                                                        sscCalculateSeed)
+import           Pos.Ssc.Message                       (SscMessageConstraints)
 import           Pos.Update.DB                         (getCompetingBVStates)
 import           Pos.Update.Poll.Types                 (BlockVersionState (..))
 import           Pos.Util                              (logWarningWaitLinear, maybeThrow)
 import           Pos.Util.Chrono                       (NE, NewestFirst (..),
                                                         toOldestFirst)
-
 
 ----------------------------------------------------------------------------
 -- Single short
@@ -74,7 +74,7 @@ type LrcModeFull ctx m =
     , MonadSlots ctx m
     , MonadBlockApply ctx m
     , MonadReader ctx m
-    , GtMessageConstraints
+    , SscMessageConstraints
     )
 
 -- | Run leaders and richmen computation for given epoch. If stable

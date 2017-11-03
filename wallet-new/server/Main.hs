@@ -32,14 +32,11 @@ import           Servant
 
 import qualified Cardano.Wallet.API                   as API
 import qualified Cardano.Wallet.API.V1.Swagger        as Swagger
+import           Cardano.Wallet.CLI                   (WalletStartupOptions (..),
+                                                       getWalletNodeOptions)
 import qualified Cardano.Wallet.Server                as Server
+import qualified Pos.Client.CLI                       as CLI
 
-
--- | Server or client configuration, specifying the host and port to query or serve on.
-data ServerConfig = ServerConfig
-  { configHost :: String  -- ^ Hostname to serve on, e.g. "127.0.0.1"
-  , configPort :: Int      -- ^ Port to serve on, e.g. 8080
-  } deriving (Eq, Ord, Show, Read)
 
 {- V1 placeholders -}
 
@@ -71,17 +68,18 @@ toServantHandler ctx handler =
     excHandlers = [Catch.Handler throwError]
 
 -- | Run the Wallet server at the provided host and port.
-runWalletServer :: HasCompileInfo  => ServerConfig -> Production ()
-runWalletServer ServerConfig{..} = do
+runWalletServer :: HasCompileInfo  => WalletStartupOptions -> Production ()
+runWalletServer WalletStartupOptions{..} = do
   withConfigurations conf $ do
     let app = serve API.walletAPI Server.walletServer
     let middleware = corsMiddleware . logStdout
     liftIO $ Warp.runSettings warpSettings (middleware app)
   where
-    warpSettings = Warp.defaultSettings & Warp.setPort configPort & Warp.setHost (fromString configHost)
+    warpSettings = Warp.defaultSettings & Warp.setHost "127.0.0.1"
+                                        & Warp.setPort 8090
 
     conf :: ConfigurationOptions
-    conf = defaultConfigurationOptions
+    conf = CLI.configurationOptions $ CLI.commonArgs wsoNodeArgs
 
 corsMiddleware :: Middleware
 corsMiddleware = cors (const $ Just policy)
@@ -102,7 +100,7 @@ generateSwaggerDocumentation = do
 -- | The main entrypoint for the Wallet.
 main :: IO ()
 main = withCompileInfo $(retrieveCompileTimeInfo) $ do
-  let cfg@ServerConfig{..} = ServerConfig "127.0.0.1" 8090
-  putStrLn $ "Wallet listening on " <> configHost <> ":" <> show configPort <> " ..."
+  cfg <- getWalletNodeOptions
+  putText "Wallet is starting.."
   generateSwaggerDocumentation
   runProduction $ runWalletServer cfg

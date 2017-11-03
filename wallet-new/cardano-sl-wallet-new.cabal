@@ -67,6 +67,7 @@ executable wallet-new-server
                        Cardano.Wallet.API.V1.Handlers.Updates
                        Cardano.Wallet.API.V1.Swagger
                        Cardano.Wallet.Server
+                       Cardano.Wallet.CLI
   build-depends:       base
                      , QuickCheck
                      , aeson
@@ -97,6 +98,7 @@ executable wallet-new-server
                      , mtl
                      , node-sketch
                      , exceptions
+                     , optparse-applicative
   default-language:    Haskell2010
   default-extensions: TypeOperators
                       DataKinds

@@ -43,6 +43,7 @@ library
                      , universum
                      , serokell-util
                      , warp
+                     , cardano-sl-wallet
   default-language:    Haskell2010
   default-extensions: TypeOperators
                       DataKinds
@@ -72,6 +73,7 @@ executable wallet-new-server
                      , aeson-pretty
                      , bytestring
                      , cardano-sl-wallet-new
+                     , cardano-sl-wallet
                      , containers
                      , http-api-data
                      , http-types
@@ -90,6 +92,11 @@ executable wallet-new-server
                      , wai
                      , wai-extra
                      , wai-cors
+                     , cardano-sl
+                     , cardano-sl-core
+                     , mtl
+                     , node-sketch
+                     , exceptions
   default-language:    Haskell2010
   default-extensions: TypeOperators
                       DataKinds
@@ -97,6 +104,8 @@ executable wallet-new-server
                       OverloadedStrings
                       ScopedTypeVariables
                       TypeApplications
+                      TypeFamilies
+                      FlexibleContexts
                       TemplateHaskell
                       RecordWildCards
 

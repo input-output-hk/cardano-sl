@@ -28,7 +28,7 @@ import           Pos.Binary.Core.Address    ()
 import           Pos.Core.Address           (addressF, decodeTextAddress)
 import           Pos.Core.Fee               (Coeff (..), TxFeePolicy (..),
                                              TxSizeLinear (..))
-import           Pos.Core.Genesis.Helpers   (mkGenesisDelegation)
+import           Pos.Core.Genesis.Helpers   (recreateGenesisDelegation)
 import           Pos.Core.Genesis.Types     (GenesisAvvmBalances (..), GenesisData (..),
                                              GenesisDelegation (..),
                                              GenesisNonAvvmBalances (..),
@@ -419,7 +419,7 @@ instance ReportSchemaErrors m => FromJSON m GenesisWStakeholders where
 instance ReportSchemaErrors m => FromJSON m GenesisDelegation where
     fromJSON val = do
         psks <- fromJSON val
-        wrapConstructor $ mkGenesisDelegation psks
+        wrapConstructor $ recreateGenesisDelegation psks
 
 instance ReportSchemaErrors m => FromJSON m ProtocolConstants where
     fromJSON obj = do

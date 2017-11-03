@@ -72,8 +72,7 @@ import           Pos.Core                       (BlockVersionData, CoreConfigura
                                                  GenesisConfiguration (..),
                                                  GenesisInitializer (..),
                                                  GenesisSpec (..), HasConfiguration,
-                                                 IsHeader, SlotId,
-                                                 TestnetDistribution (..), Timestamp (..),
+                                                 IsHeader, SlotId, Timestamp (..),
                                                  genesisSecretKeys, withGenesisSpec)
 import           Pos.Core.Configuration         (HasGenesisBlockVersionData,
                                                  withGenesisBlockVersionData)
@@ -168,7 +167,8 @@ genGenesisInitializer :: HasGenesisBlockVersionData => Gen GenesisInitializer
 genGenesisInitializer = do
     tiTestBalance <- arbitrary
     tiFakeAvvmBalance <- arbitrary
-    let tiDistribution = TestnetRichmenStakeDistr
+    tiAvvmBalanceFactor <- arbitrary
+    tiUseHeavyDlg <- arbitrary
     tiSeed <- arbitrary
     return TestnetInitializer {..}
 

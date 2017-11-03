@@ -62,6 +62,9 @@ data ConfigurationOptions = ConfigurationOptions
       -- | An optional system start time override. Required when using a
       -- testnet genesis configuration.
     , cfoSystemStart :: !(Maybe Timestamp)
+      -- | Seed for secrets generation can be provided via CLI, in
+      -- this case it overrides one from configuration file.
+    , cfoSeed        :: !(Maybe Integer)
     } deriving (Show)
 
 defaultConfigurationOptions :: ConfigurationOptions
@@ -69,6 +72,7 @@ defaultConfigurationOptions = ConfigurationOptions
     { cfoFilePath    = "lib/configuration.yaml"
     , cfoKey         = "default"
     , cfoSystemStart = Nothing
+    , cfoSeed        = Nothing
     }
 
 instance Default ConfigurationOptions where
@@ -85,7 +89,7 @@ withConfigurations co@ConfigurationOptions{..} act = do
     logInfo $ show co
     Configuration{..} <- parseYamlConfig cfoFilePath cfoKey
     let configurationDir = takeDirectory cfoFilePath
-    withCoreConfigurations ccCore configurationDir cfoSystemStart $
+    withCoreConfigurations ccCore configurationDir cfoSystemStart cfoSeed $
         withInfraConfiguration ccInfra $
         withUpdateConfiguration ccUpdate $
         withSscConfiguration ccSsc $

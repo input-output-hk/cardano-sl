@@ -58,6 +58,7 @@ configurationOptionsParser = do
     cfoFilePath    <- filePathParser
     cfoKey         <- keyParser
     cfoSystemStart <- systemStartParser
+    cfoSeed        <- seedParser
     return ConfigurationOptions{..}
   where
     filePathParser :: Opt.Parser FilePath
@@ -78,6 +79,11 @@ configurationOptionsParser = do
         Opt.metavar "TIMESTAMP" <>
         Opt.help    "System start time. Format - seconds since Unix Epoch." <>
         Opt.value   (cfoSystemStart def)
+    seedParser :: Opt.Parser (Maybe Integer)
+    seedParser = Opt.optional $ Opt.option Opt.auto $
+        Opt.long    "configuration-seed" <>
+        Opt.metavar "INTEGER" <>
+        Opt.help    "Seed for genesis generation. Overrides one from configuration file."
 
 templateParser :: (HasName f, HasMetavar f) => String -> String -> String -> Opt.Mod f a
 templateParser long metavar help =

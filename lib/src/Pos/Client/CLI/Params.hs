@@ -18,8 +18,7 @@ import           System.Wlog                      (LoggerName, WithLogger)
 import           Pos.Behavior                     (BehaviorConfig (..))
 import           Pos.Client.CLI.NodeOptions       (CommonNodeArgs (..), NodeArgs (..))
 import           Pos.Client.CLI.Options           (CommonArgs (..))
-import           Pos.Client.CLI.Secrets           (updateUserSecretVSS,
-                                                   userSecretWithGenesisKey)
+import           Pos.Client.CLI.Secrets           (prepareUserSecret)
 import           Pos.Core.Configuration           (HasConfiguration)
 import           Pos.Crypto                       (VssKeyPair)
 import           Pos.Launcher                     (BaseParams (..), LoggingParams (..),
@@ -72,9 +71,7 @@ getNodeParams ::
     -> m NodeParams
 getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} = do
     (primarySK, userSecret) <-
-        userSecretWithGenesisKey cArgs =<<
-            updateUserSecretVSS cArgs =<<
-                peekUserSecret (getKeyfilePath cArgs)
+        prepareUserSecret cArgs =<< peekUserSecret (getKeyfilePath cArgs)
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
     npBehaviorConfig <- case behaviorConfigPath of
         Nothing -> pure def

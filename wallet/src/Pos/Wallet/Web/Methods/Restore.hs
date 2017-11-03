@@ -22,7 +22,7 @@ import           System.IO.Error              (isDoesNotExistError)
 import           System.Wlog                  (logDebug)
 
 import           Pos.Client.KeyStorage        (addSecretKey)
-import           Pos.Core.Configuration       (genesisHdwSecretKeys)
+import           Pos.Core.Configuration       (genesisSecretsPoor)
 import           Pos.Crypto                   (EncryptedSecretKey, PassPhrase,
                                                emptyPassphrase, firstHardened)
 import           Pos.StateLock                (Priority (..), withStateLockNoMetrics)
@@ -148,7 +148,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
 addInitialRichAccount :: L.MonadWalletLogic ctx m => Int -> m ()
 addInitialRichAccount keyId =
     E.handleAll wSetExistsHandler $ do
-        let hdwSecretKeys = fromMaybe (error "Hdw secrets keys are unknown") genesisHdwSecretKeys
+        let hdwSecretKeys = fromMaybe (error "Hdw secrets keys are unknown") genesisSecretsPoor
         key <- maybeThrow noKey (hdwSecretKeys ^? ix keyId)
         void $ importWalletSecret emptyPassphrase $
             mkGenesisWalletUserSecret key

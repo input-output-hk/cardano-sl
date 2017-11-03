@@ -98,7 +98,6 @@ library
                        Pos.Binary.Core.Script
                        Pos.Binary.Core.Types
                        Pos.Binary.Core.Version
-                       Pos.Binary.Core.Genesis
 
                        Pos.System.Metrics.Constants
 

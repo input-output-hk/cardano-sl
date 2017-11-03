@@ -16,9 +16,9 @@ import           Control.Exception          (throw)
 import qualified Data.Map.Strict            as Map
 import qualified Data.Set                   as S
 import           Data.Time.Clock.POSIX      (POSIXTime, getPOSIXTime)
-import           Formatting                 (build, sformat, stext, (%))
+import           Formatting                 (sformat, stext, (%))
 import           Serokell.Util              (listJson)
-import           System.Wlog                (WithLogger, logWarning)
+import           System.Wlog                (WithLogger)
 
 import           Pos.Aeson.ClientTypes      ()
 import           Pos.Aeson.WalletBackup     ()
@@ -39,24 +39,15 @@ import           Pos.Wallet.Web.State       (AddressLookupMode (Ever), addOnlyNe
                                              getHistoryCache, getPendingTx, getTxMeta,
                                              getWalletPendingTxs, setWalletTxMeta)
 import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
-                                             getWalletAccountIds, getWalletAddrsSet,
-                                             getWalletAddrs)
+                                             getWalletAccountIds, getWalletAddrs,
+                                             getWalletAddrsSet)
 
 
 getFullWalletHistory :: MonadWalletWebMode m => CId Wal -> m (Map TxId (CTx, POSIXTime), Word)
 getFullWalletHistory cWalId = do
     addrs <- mapM decodeCTypeOrFail =<< getWalletAddrs Ever cWalId
-
     unfilteredLocalHistory <- getLocalHistory addrs
-
-    blockHistory <- getHistoryCache cWalId >>= \case
-        Just hist -> pure hist
-        Nothing -> do
-            logWarning $
-                sformat ("getFullWalletHistory: history cache is empty for wallet #"%build)
-                cWalId
-            pure mempty
-
+    blockHistory <- getHistoryCache cWalId
     let localHistory = unfilteredLocalHistory `Map.difference` blockHistory
 
     logTxHistory "Block" blockHistory

@@ -12,29 +12,31 @@ module Cardano.Wallet.API.V1.Parameters where
 
 import           Universum
 
-import           Cardano.Wallet.API.Types    (DQueryParam)
+import           Cardano.Wallet.API.Types    (AlternativeApiArg, DQueryParam,
+                                              WithDefaultApiArg)
 import           Cardano.Wallet.API.V1.Types
 
 import           Data.Text                   (Text)
 import           Servant
 
+type ResponseTypeParam = WithDefaultApiArg
+    (AlternativeApiArg (QueryParam "response_type") (Header "Daedalus-Response-Format"))
+    ResponseType
 
 type WalletRequestParams =
-       QueryParam "page"     Page
-    :> QueryParam "per_page" PerPage
-    :> QueryParam "response_type"       ResponseType
-    :> Header "Daedalus-Response-Format" ResponseFormat
+       DQueryParam "page"     Page
+    :> DQueryParam "per_page" PerPage
+    :> ResponseTypeParam
 
 type family WithWalletRequestParams c :: * where
-  WithWalletRequestParams c = QueryParam "page"     Page
-                           :> QueryParam "per_page" PerPage
-                           :> QueryParam "response_type"       ResponseType
-                           :> Header "Daedalus-Response-Format" ResponseFormat
+  WithWalletRequestParams c = DQueryParam "page"     Page
+                           :> DQueryParam "per_page" PerPage
+                           :> ResponseTypeParam
                            :> c
 
 -- | Instance of `HasServer` which erases the `Tags` from its routing,
 -- as the latter is needed only for Swagger.
 instance (HasServer subApi context) => HasServer (WalletRequestParams :> subApi) context where
   type ServerT (WalletRequestParams :> subApi) m =
-      Maybe Page -> Maybe PerPage -> Maybe ResponseType -> Maybe ResponseFormat -> ServerT subApi m
+      Page -> PerPage -> ResponseType -> ServerT subApi m
   route _ = route (Proxy @(WithWalletRequestParams subApi))

@@ -38,15 +38,14 @@ deleteAccount _ _ = return NoContent
 getAccount :: WalletId -> AccountId -> Handler Account
 getAccount _ _ = liftIO $ generate arbitrary
 
-listAccounts :: Maybe Page
-             -> Maybe PerPage
-             -> Maybe ResponseType
-             -> Maybe ResponseFormat
+listAccounts :: Page
+             -> PerPage
+             -> ResponseType
              -> Handler (OneOf [Account] (ExtendedResponse [Account]))
-listAccounts _ _ mbExtended _ = do
+listAccounts _ _ responseType = do
   example <- liftIO $ generate (resize 3 arbitrary)
-  case mbExtended of
-    Just Extended -> return $ OneOf $ Right $
+  case responseType of
+    Extended -> return $ OneOf $ Right $
       ExtendedResponse {
         extData = example
       , extMeta = Metadata {

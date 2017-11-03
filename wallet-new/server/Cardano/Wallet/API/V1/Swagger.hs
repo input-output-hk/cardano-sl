@@ -223,8 +223,6 @@ instance ToParamSchema ResponseType where
         rtToText :: ResponseType -> Text
         rtToText = sformat build
 
-instance ToParamSchema ResponseFormat
-
 instance ToParamSchema WalletId
 
 instance ToDocs APIVersion where

@@ -657,9 +657,14 @@
                         "description": "Determines the response type. If set to `extended`, then fetched\ndata should be wrapped in an `ExtendedResponse` (see the Models section).\nAn `ExtendedResponse` includes useful metadata which can be used by clients\nto support pagination.\n"
                     },
                     {
+                        "default": "plain",
                         "in": "header",
                         "name": "Daedalus-Response-Format",
                         "type": "string",
+                        "enum": [
+                            "plain",
+                            "extended"
+                        ],
                         "description": "The same as URL parameter `response_type`. If the header `Daedalus-Response-Format`\nis present in the HTTP request with a value set to `extended`, the fetched data will\nbe wrapped in an `ExtendedResponse`.\n"
                     }
                 ],
@@ -900,9 +905,14 @@
                         "description": "Determines the response type. If set to `extended`, then fetched\ndata should be wrapped in an `ExtendedResponse` (see the Models section).\nAn `ExtendedResponse` includes useful metadata which can be used by clients\nto support pagination.\n"
                     },
                     {
+                        "default": "plain",
                         "in": "header",
                         "name": "Daedalus-Response-Format",
                         "type": "string",
+                        "enum": [
+                            "plain",
+                            "extended"
+                        ],
                         "description": "The same as URL parameter `response_type`. If the header `Daedalus-Response-Format`\nis present in the HTTP request with a value set to `extended`, the fetched data will\nbe wrapped in an `ExtendedResponse`.\n"
                     }
                 ],
@@ -1179,9 +1189,14 @@
                         "description": "Determines the response type. If set to `extended`, then fetched\ndata should be wrapped in an `ExtendedResponse` (see the Models section).\nAn `ExtendedResponse` includes useful metadata which can be used by clients\nto support pagination.\n"
                     },
                     {
+                        "default": "plain",
                         "in": "header",
                         "name": "Daedalus-Response-Format",
                         "type": "string",
+                        "enum": [
+                            "plain",
+                            "extended"
+                        ],
                         "description": "The same as URL parameter `response_type`. If the header `Daedalus-Response-Format`\nis present in the HTTP request with a value set to `extended`, the fetched data will\nbe wrapped in an `ExtendedResponse`.\n"
                     }
                 ],

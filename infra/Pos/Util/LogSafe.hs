@@ -39,7 +39,6 @@ module Pos.Util.LogSafe
        , secureF
        , plainOrSecureF
        , secretOnlyF
-       , secretOnlyF2
        , secureListF
 
        , buildSafe
@@ -195,11 +194,6 @@ buildSafe sl = plainOrSecureF sl build (secureF build)
 -- | Negates single-parameter formatter for public logs.
 secretOnlyF :: LogSecurityLevel -> Format r (a -> r) -> Format r (a -> r)
 secretOnlyF sl fmt = plainOrSecureF sl fmt (fconst "?")
-
--- | Negates 2-parameters formatter for public logs.
-secretOnlyF2
-    :: LogSecurityLevel -> Format r (a -> b -> r) -> Format r (a -> b -> r)
-secretOnlyF2 sl fmt = plainOrSecureF sl fmt (fconst "?"%fconst "?")
 
 -- | For public logs hides list content, showing only its size.
 secureListF

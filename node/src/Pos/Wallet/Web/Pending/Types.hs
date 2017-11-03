@@ -29,11 +29,14 @@ import           Universum
 
 import           Control.Lens                     (makeLenses, makePrisms)
 import qualified Data.Text.Buildable
+import           Data.Text.Lazy.Builder           (Builder)
 import           Formatting                       (bprint, build, (%))
 
 import           Pos.Client.Txp.History           (TxHistoryEntry)
 import           Pos.Core.Types                   (ChainDifficulty, FlatSlotId, SlotId)
 import           Pos.Txp.Core.Types               (TxAux, TxId)
+import           Pos.Util.LogSafe                 (LogSecurityLevel, SecureLog (..),
+                                                   secure, unsecure)
 import           Pos.Wallet.Web.ClientTypes.Types (CId, Wal)
 
 -- | Required information about block where given pending transaction is sited
@@ -78,16 +81,22 @@ data PtxCondition
 
 makePrisms ''PtxCondition
 
+buildPtxCondition :: LogSecurityLevel -> PtxCondition -> Builder
+buildPtxCondition _sl = \case
+    PtxApplying{} ->
+        "applying"
+    PtxInNewestBlocks cd ->
+        bprint ("in newest blocks (since "%build%" difficulty)") cd
+    PtxPersisted ->
+        "persisted"
+    PtxWontApply reason _ ->
+        bprint ("wont apply ("%build%")") reason
+
 instance Buildable PtxCondition where
-    build = \case
-        PtxApplying{} ->
-            "applying"
-        PtxInNewestBlocks cd ->
-            bprint ("in newest blocks (since "%build%" difficulty)") cd
-        PtxPersisted ->
-            "persisted"
-        PtxWontApply reason _ ->
-            bprint ("wont apply ("%build%")") reason
+    build = buildPtxCondition unsecure
+
+instance Buildable (SecureLog PtxCondition) where
+    build = buildPtxCondition secure . getSecureLog
 
 data PtxSubmitTiming = PtxSubmitTiming
     { _pstNextSlot  :: SlotId

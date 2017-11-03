@@ -36,7 +36,8 @@ import           Pos.Slotting                     (MonadSlots, MonadSlotsData,
 import           Pos.Ssc.Class.Helpers            (SscHelpersClass)
 import           Pos.Txp.Core                     (TxAux (..), TxUndo, flattenTxPayload)
 import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
+import           Pos.Util.LogSafe                 (buildSafe, logInfoSP, logWarningSP,
+                                                   secretOnlyF, secure)
 import           Pos.Util.TimeLimit               (CanLogInParallel, logWarningWaitInf)
 
 import           Pos.Wallet.Web.Account           (AccountMode, getSKById)
@@ -56,12 +57,12 @@ walletGuard ::
     -> m ()
     -> m ()
 walletGuard curTip wAddr action = WS.getWalletSyncTip wAddr >>= \case
-    Nothing -> logWarningS $ sformat ("There is no syncTip corresponding to wallet #"%build) wAddr
-    Just WS.NotSynced    -> logInfoS $ sformat ("Wallet #"%build%" hasn't been synced yet") wAddr
+    Nothing -> logWarningSP $ \sl -> sformat ("There is no syncTip corresponding to wallet #"%secretOnlyF sl build) wAddr
+    Just WS.NotSynced    -> logInfoSP $ \sl -> sformat ("Wallet #"%secretOnlyF sl build%" hasn't been synced yet") wAddr
     Just (WS.SyncedWith wTip)
         | wTip /= curTip ->
-            logWarningS $
-                sformat ("Skip wallet #"%build%", because of wallet's tip "%build
+            logWarningSP $ \sl ->
+                sformat ("Skip wallet #"%secretOnlyF sl build%", because of wallet's tip "%build
                          %" mismatched with current tip") wAddr wTip
         | otherwise -> action
 
@@ -189,16 +190,19 @@ logMsg
     -> CAccModifier
     -> m ()
 logMsg action (NE.length -> bNums) wid accModifier =
-    logInfoS $
-        sformat (build%" "%build%" block(s) to wallet "%build%", "%build)
+    logInfoSP $ \sl ->
+        sformat (build%" "%build%" block(s) to wallet "%secretOnlyF sl build%", "%buildSafe sl)
              action bNums wid accModifier
 
 catchInSync
     :: (MonadReporting ctx m)
     => Text -> (CId Wal -> m ()) -> CId Wal -> m ()
 catchInSync desc syncWallet wId =
-    syncWallet wId `catchAny` reportOrLogW prefix
+    syncWallet wId `catchAny` \e -> do
+        -- TODO: do not duplicate logging
+        logWarningSP $ \sl -> prefix sl <> show e
+        reportOrLogW (prefix secure) e
   where
     -- REPORT:ERROR 'reportOrLogW' in wallet sync.
-    fmt = "Failed to sync wallet "%build%" in BListener ("%build%"): "
-    prefix = sformat fmt wId desc
+    fmt sl = "Failed to sync wallet "%secretOnlyF sl build%" in BListener ("%build%"): "
+    prefix sl = sformat (fmt sl) wId desc

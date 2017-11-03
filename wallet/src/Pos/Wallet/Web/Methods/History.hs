@@ -25,7 +25,7 @@ import           Pos.Aeson.WalletBackup     ()
 import           Pos.Client.Txp.History     (TxHistoryEntry (..), txHistoryListToMap)
 import           Pos.Core                   (ChainDifficulty, timestampToPosix)
 import           Pos.Txp.Core.Types         (TxId)
-import           Pos.Util.LogSafe           (logInfoS)
+import           Pos.Util.LogSafe           (logInfoSP, secureListF)
 import           Pos.Util.Servant           (encodeCType)
 import           Pos.Wallet.WalletMode      (getLocalHistory, localChainDifficulty,
                                              networkChainDifficulty)
@@ -197,7 +197,7 @@ addRecentPtxHistory wid currentHistory = do
 logTxHistory
     :: (Container t, Element t ~ TxHistoryEntry, WithLogger m, MonadIO m)
     => Text -> t -> m ()
-logTxHistory desc =
-    logInfoS .
-    sformat (stext%" transactions history: "%listJson) desc .
-    map _thTxId . toList
+logTxHistory desc entries =
+    logInfoSP $ \sl ->
+        sformat (stext%" transactions history: "%secureListF sl listJson)
+        desc (map _thTxId $ toList entries)

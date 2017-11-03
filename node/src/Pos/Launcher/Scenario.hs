@@ -18,7 +18,6 @@ import           Data.Time.Units          (Second)
 import           Ether.Internal           (HasLens (..))
 import           Formatting               (build, int, sformat, shown, (%))
 import           Mockable                 (fork)
-import           Serokell.Util.Text       (listJson)
 import           System.Exit              (ExitCode (..))
 import           System.Wlog              (WithLogger, getLoggerName, logError, logInfo,
                                            logWarning)

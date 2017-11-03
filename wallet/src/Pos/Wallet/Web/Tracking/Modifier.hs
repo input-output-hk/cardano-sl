@@ -24,6 +24,7 @@ import           Universum
 
 import           Data.DList                   (DList)
 import qualified Data.Text.Buildable
+import           Data.Text.Lazy.Builder       (Builder)
 import           Formatting                   (bprint, build, (%))
 import           Serokell.Util                (listJson, listJsonIndent)
 
@@ -31,6 +32,8 @@ import           Pos.Client.Txp.History       (TxHistoryEntry (..))
 import           Pos.Core                     (HeaderHash)
 import           Pos.Txp.Core                 (TxId)
 import           Pos.Txp.Toil                 (UtxoModifier)
+import           Pos.Util.LogSafe             (LogSecurityLevel, SecureLog (..),
+                                               secretOnlyF, secure, secureListF, unsecure)
 import           Pos.Util.Modifier            (MapModifier)
 import qualified Pos.Util.Modifier            as MM
 
@@ -73,27 +76,33 @@ instance Monoid CAccModifier where
     (CAccModifier a b c d ah dh aptx dptx) `mappend` (CAccModifier a1 b1 c1 d1 ah1 dh1 aptx1 dptx1) =
         CAccModifier (a <> a1) (b <> b1) (c <> c1) (d <> d1) (ah1 <> ah) (dh <> dh1) (aptx <> aptx1) (dptx <> dptx1)
 
+buildCAccModifier :: LogSecurityLevel -> CAccModifier -> Builder
+buildCAccModifier sl CAccModifier{..} =
+    bprint
+        ( "\n    added addresses: "%secureListF sl (listJsonIndent 8)
+        %",\n    deleted addresses: "%secureListF sl (listJsonIndent 8)
+        %",\n    used addresses: "%secureListF sl listJson
+        %",\n    change addresses: "%secureListF sl listJson
+        %",\n    local utxo (difference): "%secretOnlyF sl build
+        %",\n    added history entries: "%secureListF sl (listJsonIndent 8)
+        %",\n    deleted history entries: "%secureListF sl (listJsonIndent 8)
+        %",\n    added pending candidates: "%secureListF sl listJson
+        %",\n    deleted pending candidates: "%secureListF sl listJson)
+    (sortedInsertions camAddresses)
+    (indexedDeletions camAddresses)
+    (map (fst . fst) $ MM.insertions camUsed)
+    (map (fst . fst) $ MM.insertions camChange)
+    camUtxo
+    camAddedHistory
+    camDeletedHistory
+    (map fst camAddedPtxCandidates)
+    (map fst camDeletedPtxCandidates)
+
 instance Buildable CAccModifier where
-    build CAccModifier{..} =
-        bprint
-            ( "\n    added addresses: "%listJsonIndent 8
-            %",\n    deleted addresses: "%listJsonIndent 8
-            %",\n    used addresses: "%listJson
-            %",\n    change addresses: "%listJson
-            %",\n    local utxo (difference): "%build
-            %",\n    added history entries: "%listJsonIndent 8
-            %",\n    deleted history entries: "%listJsonIndent 8
-            %",\n    added pending candidates: "%listJson
-            %",\n    deleted pending candidates: "%listJson)
-        (sortedInsertions camAddresses)
-        (indexedDeletions camAddresses)
-        (map (fst . fst) $ MM.insertions camUsed)
-        (map (fst . fst) $ MM.insertions camChange)
-        camUtxo
-        camAddedHistory
-        camDeletedHistory
-        (map fst camAddedPtxCandidates)
-        (map fst camDeletedPtxCandidates)
+    build = buildCAccModifier unsecure
+
+instance Buildable (SecureLog CAccModifier) where
+    build = buildCAccModifier secure . getSecureLog
 
 -- | `txMempoolToModifier`, once evaluated, is passed around under this type in
 -- scope of single request.

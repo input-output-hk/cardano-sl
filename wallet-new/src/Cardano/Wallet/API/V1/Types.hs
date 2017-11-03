@@ -47,7 +47,7 @@ import           Data.Aeson.TH
 import           Data.Default           (Default (def))
 import           Data.Text              (Text)
 import qualified Data.Text.Buildable
-import           Formatting             (build, sformat, (%))
+import           Formatting             (build, sformat)
 import           GHC.Generics           (Generic)
 import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck
@@ -164,6 +164,9 @@ instance ToHttpApiData ResponseType where
 
 instance Default ResponseType where
     def = Plain
+
+instance Arbitrary ResponseType where
+    arbitrary = oneof $ map pure [minBound..maxBound]
 
 -- | `PaginationParams` is datatype which combines request params related
 -- to pagination together

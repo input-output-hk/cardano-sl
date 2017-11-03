@@ -1,7 +1,9 @@
-{-# LANGUAGE FlexibleInstances   #-}
-{-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE OverloadedStrings    #-}
+{-# LANGUAGE ScopedTypeVariables  #-}
+{-# LANGUAGE TypeOperators        #-}
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module APISpec where
 
@@ -26,11 +28,19 @@ import           Cardano.Wallet.Server
 -- Instances to allow use of `servant-quickcheck`.
 --
 
+instance HasGenRequest (apiType a :> sub) =>
+         HasGenRequest (WithDefaultApiArg apiType a :> sub) where
+    genRequest _ = genRequest (Proxy @(apiType a :> sub))
+
+instance HasGenRequest (argA a :> argB a :> sub) =>
+         HasGenRequest (AlternativeApiArg argA argB a :> sub) where
+    genRequest _ = genRequest (Proxy @(argA a :> argB a :> sub))
+
 instance HasGenRequest sub => HasGenRequest (Tags tags :> sub) where
-    genRequest (Proxy :: Proxy (Tags tags :> sub)) = genRequest (Proxy :: Proxy sub)
+    genRequest _ = genRequest (Proxy :: Proxy sub)
 
 instance HasGenRequest sub => HasGenRequest (Summary sum :> sub) where
-    genRequest (Proxy :: Proxy (Summary sum :> sub)) = genRequest (Proxy :: Proxy sub)
+    genRequest _ = genRequest (Proxy :: Proxy sub)
 
 instance HasGenRequest sub => HasGenRequest (WalletRequestParams :> sub) where
     genRequest _ = genRequest (Proxy @(WithWalletRequestParams sub))

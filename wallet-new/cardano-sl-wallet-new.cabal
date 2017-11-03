@@ -120,6 +120,8 @@ test-suite wallet-new-specs
                   , aeson-pretty
                   , cardano-sl-wallet-new
                   , containers
+                  , data-default
+                  , formatting
                   , hspec
                   , http-client
                   , http-types

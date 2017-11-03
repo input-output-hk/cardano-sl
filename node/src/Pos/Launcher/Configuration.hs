@@ -20,7 +20,7 @@ import           Data.Aeson                       (FromJSON (..), genericParseJS
 import           Data.Default                     (Default (..))
 import           Serokell.Aeson.Options           (defaultOptions)
 import           System.FilePath                  (takeDirectory)
-import           System.Wlog                      (WithLogger)
+import           System.Wlog                      (WithLogger, logInfo)
 
 -- FIXME consistency on the locus of the JSON instances for configuration.
 -- Core keeps them separate, infra update and gt define them on-site.
@@ -88,7 +88,7 @@ withConfigurations
     -> (HasConfigurations => m r)
     -> m r
 withConfigurations co@ConfigurationOptions{..} act = do
-    putText $ show co
+    logInfo ("using configurations: " <> show co)
     Configuration{..} <- parseYamlConfig cfoFilePath cfoKey
     let configurationDir = takeDirectory cfoFilePath
     withCoreConfigurations ccCore configurationDir cfoSystemStart $

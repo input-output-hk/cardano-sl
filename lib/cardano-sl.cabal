@@ -443,7 +443,6 @@ test-suite cardano-test
 
                        -- Txp
                        Test.Pos.Client.Txp.Mode
-                       Test.Pos.Client.Txp.Util
                        Test.Pos.Client.Txp.UtilSpec
 
                        -- Ssc

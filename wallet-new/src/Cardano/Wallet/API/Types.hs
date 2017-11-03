@@ -23,7 +23,6 @@ import qualified Servant.Server.Internal as SI
 
 import           Servant
 import           Servant.API.Sub         ((:>))
-import           Servant.Swagger
 import           Test.QuickCheck
 
 --
@@ -114,10 +113,6 @@ instance ( HasServer (apiType a :> res) ctx
         inRouteServer @(apiType a :> res) route $
         \f a -> f $ fromMaybe def a
 
-instance HasSwagger (apiType a :> res) =>
-    HasSwagger (WithDefaultApiArg apiType a :> res) where
-    toSwagger _ = toSwagger (Proxy @(apiType a :> res))
-
 -- | Type aliases for query params and headers which have default values.
 type DQueryParam s a = WithDefaultApiArg (QueryParam s) a
 type DHeader s a = WithDefaultApiArg (Header s) a
@@ -150,10 +145,6 @@ instance ( HasServer (argA a :> argB a :> res) ctx
     route =
         inRouteServer @(argA a :> argB a :> res) route $
         \f a b -> f $ a <|> b
-
-instance HasSwagger (argA a :> argB a :> res) =>
-         HasSwagger (AlternativeApiArg argA argB a :> res) where
-    toSwagger _ = toSwagger (Proxy @(argA a :> argB a :> res))
 
 --
 -- Types

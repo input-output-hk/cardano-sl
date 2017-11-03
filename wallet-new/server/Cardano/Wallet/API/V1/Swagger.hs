@@ -1,9 +1,11 @@
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE QuasiQuotes       #-}
-{-# LANGUAGE RankNTypes        #-}
-{-# LANGUAGE TypeFamilies      #-}
-{-# LANGUAGE ViewPatterns      #-}
+{-# LANGUAGE DataKinds            #-}
+{-# LANGUAGE FlexibleContexts     #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE QuasiQuotes          #-}
+{-# LANGUAGE RankNTypes           #-}
+{-# LANGUAGE TypeFamilies         #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE ViewPatterns         #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 module Cardano.Wallet.API.V1.Swagger where
 
@@ -142,6 +144,14 @@ instance KnownSymbols ('[]) where
 instance (KnownSymbol a, KnownSymbols as) => KnownSymbols (a ': as) where
   symbolVals _ =
     symbolVal (Proxy :: Proxy a) : symbolVals (Proxy :: Proxy as)
+
+instance HasSwagger (apiType a :> res) =>
+         HasSwagger (WithDefaultApiArg apiType a :> res) where
+    toSwagger _ = toSwagger (Proxy @(apiType a :> res))
+
+instance HasSwagger (argA a :> argB a :> res) =>
+         HasSwagger (AlternativeApiArg argA argB a :> res) where
+    toSwagger _ = toSwagger (Proxy @(argA a :> argB a :> res))
 
 instance ( KnownSymbol summary , HasSwagger subApi) => HasSwagger (Summary summary :> subApi) where
     toSwagger _ =

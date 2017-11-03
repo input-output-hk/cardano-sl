@@ -37,6 +37,7 @@ data KeygenCommand
     | ReadKey FilePath
     | DumpAvvmSeeds DumpAvvmSeedsOptions
     | GenerateKeysBySpec GenKeysOptions
+    | DumpGenesisData !FilePath
     deriving (Show)
 
 data DumpAvvmSeedsOptions = DumpAvvmSeedsOptions
@@ -68,6 +69,9 @@ keygenCommandParser =
     , command "generate-keys-by-spec"
       (infoH (GenerateKeysBySpec <$> keysBySpecParser)
             (progDesc "Generate secret keys and avvm seed by genesis-spec.yaml"))
+    , command "dump-genesis-data"
+      (infoH dumpGenesisDataParser
+            (progDesc "Dump genesis data (as per configuration) in canonical json format"))
     ]
   where
     infoH a b = info (helper <*> a) b
@@ -87,6 +91,11 @@ keygenCommandParser =
         long "path" <>
         metavar "PATH" <>
         help "Dump the contents of this keyfile"
+    dumpGenesisDataParser = fmap DumpGenesisData . strOption $
+        long "path" <>
+        metavar "PATH" <>
+        value "genesis-data.json" <>
+        help "Path to file where genesis data should be dumped"
 
 dumpAvvmSeedsParser :: Parser DumpAvvmSeedsOptions
 dumpAvvmSeedsParser = do

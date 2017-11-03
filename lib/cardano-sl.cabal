@@ -266,7 +266,6 @@ library
                         Pos.Txp.Network
                         Pos.Txp.Network.Listeners
                         Pos.Txp.Network.Types
-                        Pos.Txp.Worker
 
                         -- Update System
                         Pos.Update.Download

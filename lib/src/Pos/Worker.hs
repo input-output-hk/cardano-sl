@@ -26,7 +26,6 @@ import           Pos.Subscription.Common (subscriptionWorker)
 import           Pos.Subscription.Dht    (dhtSubscriptionWorker)
 import           Pos.Subscription.Dns    (dnsSubscriptionWorker)
 import           Pos.Txp                 (txRelays)
-import           Pos.Txp.Worker          (txpWorkers)
 import           Pos.Update              (usRelays, usWorkers)
 import           Pos.Util                (mconcatPair)
 import           Pos.WorkMode            (WorkMode)
@@ -47,7 +46,6 @@ allWorkers NodeResources {..} = mconcatPair
 
       -- Have custom loggers
     , wrap' "block"      $ blkWorkers ncSubscriptionKeepAliveTimer
-    , wrap' "txp"        $ txpWorkers
     , wrap' "delegation" $ dlgWorkers
     , wrap' "slotting"   $ (properSlottingWorkers, mempty)
 

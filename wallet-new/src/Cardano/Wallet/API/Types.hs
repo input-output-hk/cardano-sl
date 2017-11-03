@@ -134,7 +134,6 @@ data AlternativeApiArg (argA :: * -> *) (argB :: * -> *) a
 
 instance ( ApiHasArgClass argA a
          , ApiHasArgClass argB a
-         , ApiArg argA a ~ Maybe b
          , ApiArg argA a ~ ApiArg argB a
          ) =>
          ApiHasArgClass (AlternativeApiArg argA argB) a where
@@ -142,7 +141,8 @@ instance ( ApiHasArgClass argA a
     apiArgName _ = apiArgName (Proxy @(argA a))
 
 instance ( HasServer (argA a :> argB a :> res) ctx
-         , Server (argA a :> argB a :> res) ~ (Maybe b -> Maybe b -> d)
+         , Server (argA a :> argB a :> res) ~ (t b -> t b -> d)
+         , Alternative t
          ) =>
          HasServer (AlternativeApiArg argA argB a :> res) ctx where
     type ServerT (AlternativeApiArg argA argB a :> res) m =

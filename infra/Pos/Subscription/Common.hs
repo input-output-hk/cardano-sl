@@ -93,19 +93,27 @@ subscriptionListener
     -> NodeType
     -> (ListenerSpec m, OutSpecs)
 subscriptionListener oq nodeType = listenerConv @Void oq $ \__ourVerInfo nodeId conv -> do
-    mbMsg <- recvLimited conv
-    whenJust mbMsg $ \case
-        MsgSubscribe -> do
+    recvLimited conv >>= \case
+        Just MsgSubscribe -> do
             let peers = simplePeers [(nodeType, nodeId)]
             bracket
               (updatePeersBucket BucketSubscriptionListener (<> peers))
               (\added -> when added $
                 void $ updatePeersBucket BucketSubscriptionListener (removePeer nodeId))
-              (\added -> when added $
-                void $ recvLimited conv) -- if not added, close the conversation
-        MsgSubscribeKeepAlive -> logDebug $ sformat
-            ("subscriptionListener: received keep-alive from "%shown)
-            nodeId
+              (\added -> when added . fix $ \loop -> recvLimited conv >>= \case
+                  Just MsgSubscribeKeepAlive -> do
+                      logDebug $ sformat
+                          ("subscriptionListener: received keep-alive from "%shown)
+                          nodeId
+                      loop
+                  msg -> logNotice $ expectedMsgFromGot MsgSubscribeKeepAlive
+                                                        nodeId msg
+              ) -- if not added, close the conversation
+        msg -> logNotice $ expectedMsgFromGot MsgSubscribe nodeId msg
+  where
+    expectedMsgFromGot = sformat
+            ("subscriptionListener: expected "%shown%" from "%shown%
+             ", got "%shown%", closing the connection")
 
 subscriptionListeners
     :: forall pack m.

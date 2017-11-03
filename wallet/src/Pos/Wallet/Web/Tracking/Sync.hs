@@ -49,8 +49,7 @@ import qualified Data.HashSet as HS
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Map as M
 import           Formatting (build, sformat, (%))
-import           System.Wlog (HasLoggerName, WithLogger, logError, logInfo, logWarning,
-                              modifyLoggerName)
+import           System.Wlog (HasLoggerName, WithLogger, logInfo, logWarning, modifyLoggerName)
 
 import           Pos.Block.Types (Blund, undoTx)
 import           Pos.Client.Txp.History (TxHistoryEntry (..), txHistoryListToMap)
@@ -71,7 +70,8 @@ import           Pos.StateLock (Priority (..), StateLock, withStateLockNoMetrics
 import           Pos.Txp (MonadTxpMem, flattenTxPayload, genesisUtxo, getLocalTxsNUndo, topsortTxs,
                           unGenesisUtxo, utxoToModifier, _txOutputs)
 import           Pos.Util.Chrono (getNewestFirst)
-import           Pos.Util.LogSafe (logInfoS, logWarningS)
+import           Pos.Util.LogSafe (buildSafe, logErrorSP, logInfoSP, logWarningSP, secretOnlyF,
+                                   secure)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Util.Util (HasLens (..), getKeys)
@@ -129,9 +129,9 @@ txMempoolToModifier encSK = do
     txsWUndo <- forM txs $ \(id, tx) -> case HM.lookup id undoMap of
         Just undo -> pure (id, tx, undo)
         Nothing -> do
-            let errMsg = sformat ("There is no undo corresponding to TxId #"%build%" from txp mempool") id
-            logError errMsg
-            throwM $ InternalError errMsg
+            let errMsg sl = sformat ("There is no undo corresponding to TxId #"%secretOnlyF sl build%" from txp mempool") id
+            logErrorSP errMsg
+            throwM $ InternalError (errMsg secure)
 
     case topsortTxs wHash txsWUndo of
         Nothing      -> mempty <$ logWarning "txMempoolToModifier: couldn't topsort mempool txs"
@@ -158,7 +158,7 @@ syncWalletsWithGState
 syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAny (onErr encSK) $ do
     let wAddr = encToCId encSK
     WS.getWalletSyncTip wAddr >>= \case
-        Nothing                -> logWarningS $ sformat ("There is no syncTip corresponding to wallet #"%build) wAddr
+        Nothing                -> logWarningSP $ \sl -> sformat ("There is no syncTip corresponding to wallet #"%secretOnlyF sl build) wAddr
         Just NotSynced         -> syncDo encSK Nothing
         Just (SyncedWith wTip) -> DB.getHeader wTip >>= \case
             Nothing ->
@@ -166,8 +166,8 @@ syncWalletsWithGState encSKs = forM_ encSKs $ \encSK -> handleAny (onErr encSK) 
                     sformat ("Couldn't get block header of wallet by last synced hh: "%build) wTip
             Just wHeader -> syncDo encSK (Just wHeader)
   where
-    onErr encSK = logWarningS . sformat fmt (encToCId encSK)
-    fmt = "Sync of wallet "%build%" failed: "%build
+    onErr encSK err = logWarningSP $ \sl -> sformat (fmt sl) (encToCId encSK) err
+    fmt sl = "Sync of wallet "%buildSafe sl%" failed: "%build
     syncDo :: EncryptedSecretKey -> Maybe BlockHeader -> m ()
     syncDo encSK wTipH = do
         let wdiff = maybe (0::Word32) (fromIntegral . ( ^. difficultyL)) wTipH
@@ -246,8 +246,8 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
         computeAccModifier :: BlockHeader -> m CAccModifier
         computeAccModifier wHeader = do
             dbUsed <- WS.getCustomAddresses WS.UsedAddr
-            logInfoS $
-                sformat ("Wallet "%build%" header: "%build%", current tip header: "%build)
+            logInfoSP $ \sl ->
+                sformat ("Wallet "%secretOnlyF sl build%" header: "%build%", current tip header: "%build)
                 wAddr wHeader gstateH
             if | diff gstateH > diff wHeader -> do
                      let loadCond (b,_undo) _ = b ^. difficultyL <= gstateH ^. difficultyL
@@ -272,7 +272,9 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
                      blunds <- getNewestFirst <$>
                          GS.loadBlundsWhile (\b -> getBlockHeader b /= gstateH) (headerHash wHeader)
                      pure $ foldl' (\r b -> r <> rollbackBlock dbUsed b) mempty blunds
-               | otherwise -> mempty <$ logInfoS (sformat ("Wallet "%build%" is already synced") wAddr)
+               | otherwise -> do
+                     logInfoSP $ \sl -> sformat ("Wallet "%secretOnlyF sl build%" is already synced") wAddr
+                     return mempty
 
     whenNothing_ wTipHeader $ do
         let wdc = eskToWalletDecrCredentials encSK
@@ -289,9 +291,9 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
     applyModifierToWallet wAddr (headerHash gstateH) mapModifier
     -- Mark the wallet as ready, so it will be available from api endpoints.
     WS.setWalletReady wAddr True
-    logInfoS $
-        sformat ("Wallet "%build%" has been synced with tip "
-                %shortHashF%", "%build)
+    logInfoSP $ \sl ->
+        sformat ("Wallet "%secretOnlyF sl build%" has been synced with tip "
+                %shortHashF%", "%buildSafe sl)
                 wAddr (maybe genesisHash headerHash wTipHeader) mapModifier
   where
     firstGenesisHeader :: m BlockHeader

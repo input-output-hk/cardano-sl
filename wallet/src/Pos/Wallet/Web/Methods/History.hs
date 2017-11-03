@@ -21,13 +21,13 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Set as S
 import           Data.Time.Clock.POSIX (POSIXTime, getPOSIXTime)
 import           Formatting (sformat, stext, (%))
-import           Serokell.Util (listJson, listJsonIndent)
-import           System.Wlog (WithLogger, logDebug, logInfo)
+import           Serokell.Util (listChunkedJson, listJsonIndent)
+import           System.Wlog (WithLogger, logDebug)
 
 import           Pos.Client.Txp.History (MonadTxHistory, TxHistoryEntry (..), txHistoryListToMap)
 import           Pos.Core (ChainDifficulty, timestampToPosix)
 import           Pos.Core.Txp (TxId)
-import           Pos.Util.LogSafe (logInfoS)
+import           Pos.Util.LogSafe (logInfoSP, secureListF)
 import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), getLocalHistory)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CId, CTx (..), CTxMeta (..),
@@ -80,7 +80,7 @@ getFullWalletHistory cWalId = do
     logDebug "getFullWalletHistory: fetched addresses and block/local histories"
     let localHistory = unfilteredLocalHistory `Map.difference` blockHistory
 
-    logTxHistory "Mempool" localHistory
+    logTxHistory "Mempool" (toList localHistory)
 
     fullHistory <- addPtxHistory cWalId $ localHistory `Map.union` blockHistory
     walAddrsDetector <- getWalletAddrsDetector Ever cWalId
@@ -229,21 +229,18 @@ addPtxHistory wid currentHistory = do
     let candidatesList = txHistoryListToMap (mapMaybe ptxPoolInfo conditions)
     return $ Map.union currentHistory candidatesList
 
--- FIXME: use @listChunkedJson k@ with appropriate @k@s, once available,
--- in these 2 functions
 logTxHistory
-    :: (Container t, Element t ~ TxHistoryEntry, WithLogger m, MonadIO m)
-    => Text -> t -> m ()
-logTxHistory desc = do
-    logInfoS
-        . sformat (stext%" transactions history: "%listJson) desc
-        . map _thTxId
-        . toList
+    :: (WithLogger m, MonadIO m)
+    => Text -> [TxHistoryEntry] -> m ()
+logTxHistory desc entries = do
+    logInfoSP $ \sl ->
+        sformat (stext%" transactions history: "%secureListF sl (listChunkedJson 5))
+        desc (map _thTxId entries)
 
 logCTxs
-    :: (Container t, Element t ~ CTx, WithLogger m)
-    => Text -> t -> m ()
-logCTxs desc =
-    logInfo .
-    sformat (stext%" transactions history: "%listJsonIndent 4) desc .
-    map ctId . toList
+    :: (WithLogger m, MonadIO m)
+    => Text -> [CTx] -> m ()
+logCTxs desc entries =
+    logInfoSP $ \sl ->
+        sformat (stext%" transactions history: "%secureListF sl (listJsonIndent 4))
+        desc (map ctId entries)

@@ -46,7 +46,7 @@ changeEncPassphrase
     -> m (Maybe EncryptedSecretKey)
 changeEncPassphrase oldPass newPass esk@(EncryptedSecretKey sk _)
     | isJust $ checkPassMatches oldPass esk =
-        Just <$> mkEncSecret newPass (CC.xPrvChangePass oldPass newPass sk)
+        Just <$> mkEncSecretUnsafe newPass (CC.xPrvChangePass oldPass newPass sk)
     | otherwise = return Nothing
 
 signRaw' :: HasProtocolConstants
@@ -91,7 +91,7 @@ safeDeterministicKeyGen
 safeDeterministicKeyGen seed pp =
     bimap
         PublicKey
-        (mkEncSecretWithSalt (S.mkSalt (hash seed)) pp)
+        (mkEncSecretWithSaltUnsafe (S.mkSalt (hash seed)) pp)
         (safeCreateKeypairFromSeed seed pp)
 
 safeSign :: (HasProtocolConstants, Bi a) => SignTag -> SafeSigner -> a -> Signature a

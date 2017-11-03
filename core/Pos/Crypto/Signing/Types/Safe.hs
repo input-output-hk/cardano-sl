@@ -6,8 +6,8 @@ module Pos.Crypto.Signing.Types.Safe
        , SafeSigner (..)
        , passphraseLength
        , emptyPassphrase
-       , mkEncSecretWithSalt
-       , mkEncSecret
+       , mkEncSecretWithSaltUnsafe
+       , mkEncSecretUnsafe
        , encToSecret
        , encToPublic
        , noPassEncrypt
@@ -79,18 +79,20 @@ passScryptParam =
 
 -- | Wrap raw secret key, attaching hash to it.
 -- Hash is evaluated using given salt.
-mkEncSecretWithSalt
+-- This function assumes that passphrase matches with secret key.
+mkEncSecretWithSaltUnsafe
     :: Bi PassPhrase
     => S.Salt -> PassPhrase -> CC.XPrv -> EncryptedSecretKey
-mkEncSecretWithSalt salt pp payload =
+mkEncSecretWithSaltUnsafe salt pp payload =
     EncryptedSecretKey payload $ S.encryptPassWithSalt passScryptParam salt pp
 
 -- | Wrap raw secret key, attachind hash to it.
 -- Hash is evaluated using generated salt.
-mkEncSecret
+-- This function assumes that passphrase matches with secret key.
+mkEncSecretUnsafe
     :: (Bi PassPhrase, MonadRandom m)
     => PassPhrase -> CC.XPrv -> m EncryptedSecretKey
-mkEncSecret pp payload =
+mkEncSecretUnsafe pp payload =
     EncryptedSecretKey payload <$> S.encryptPass passScryptParam pp
 
 -- | Generate a secret key from encrypted secret key.
@@ -107,7 +109,7 @@ noPassEncrypt
     :: Bi PassPhrase
     => SecretKey -> EncryptedSecretKey
 noPassEncrypt (SecretKey k) =
-    mkEncSecretWithSalt S.emptySalt emptyPassphrase k
+    mkEncSecretWithSaltUnsafe S.emptySalt emptyPassphrase k
 
 -- Here with types to avoid module import cycles:
 checkPassMatches

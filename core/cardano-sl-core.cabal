@@ -177,6 +177,7 @@ library
                      , scrypt >= 0.5
                      , semigroups
                      , serokell-util
+                     , split
                      , stm
                      , tagged
                      , template-haskell

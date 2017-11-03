@@ -43,7 +43,7 @@ import           Pos.Ssc.Class            (SscConstraint)
 import           Pos.StateLock            (StateLock (..))
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
                                            lastKnownBlockVersion)
-import           Pos.Util                 (inAssertMode)
+import           Pos.Util                 (inAssertMode, listChunkedJson)
 import           Pos.Util.LogSafe         (logInfoS)
 import           Pos.Worker               (allWorkers)
 import           Pos.WorkMode.Class       (WorkMode)
@@ -107,7 +107,7 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
     let onNoLeaders = logWarning "Couldn't retrieve last known leaders list"
     let onLeaders leaders =
             logInfo $
-            sformat ("Last known leaders for epoch "%build%" are: "%listJson)
+            sformat ("Last known leaders for epoch "%build%" are: "%listChunkedJson 5)
                     lastKnownEpoch leaders
     LrcDB.getLeadersForEpoch lastKnownEpoch >>= maybe onNoLeaders onLeaders
     tipHeader <- DB.getTipHeader @ssc

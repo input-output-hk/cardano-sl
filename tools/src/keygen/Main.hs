@@ -163,4 +163,4 @@ main = do
             ReadKey path            -> readKey path
             DumpAvvmSeeds opts      -> dumpAvvmSeeds opts
             GenerateKeysBySpec gkbg -> generateKeysByGenesis gkbg
-            DumpGenesisData path    -> CLI.dumpGenesisData path
+            DumpGenesisData {..}    -> CLI.dumpGenesisData dgdCanonical dgdPath

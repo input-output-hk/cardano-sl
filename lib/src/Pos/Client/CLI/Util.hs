@@ -25,7 +25,7 @@ import qualified Text.Parsec.Text       as P
 import           Pos.Binary.Core        ()
 import           Pos.Core               (StakeholderId)
 import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson,
-                                         genesisData)
+                                         genesisData, prettyGenesisJson)
 import           Pos.Crypto             (decodeAbstractHash)
 import           Pos.Security.Params    (AttackTarget (..), AttackType (..))
 import           Pos.Util               (eitherToFail, inAssertMode)
@@ -69,8 +69,12 @@ readLoggerConfig :: MonadIO m => Maybe FilePath -> m LoggerConfig
 readLoggerConfig = maybe (return defaultLoggerConfig) parseLoggerConfig
 
 -- | Dump our 'GenesisData' into a file.
-dumpGenesisData :: (HasConfiguration, MonadIO m, WithLogger m) => FilePath -> m ()
-dumpGenesisData path = do
+dumpGenesisData ::
+       (HasConfiguration, MonadIO m, WithLogger m) => Bool -> FilePath -> m ()
+dumpGenesisData canonical path = do
     let (canonicalJsonBytes, jsonHash) = canonicalGenesisJson genesisData
+    let prettyJsonStr = prettyGenesisJson genesisData
     logInfo $ sformat ("Writing JSON with hash "%shown%" to "%shown) jsonHash path
-    liftIO $ BSL.writeFile path canonicalJsonBytes
+    liftIO $ case canonical of
+        True  -> BSL.writeFile path canonicalJsonBytes
+        False -> writeFile path (toText prettyJsonStr)

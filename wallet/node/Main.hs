@@ -119,7 +119,7 @@ plugins WalletArgs {..}
 action :: HasCompileInfo => WalletNodeArgs -> Production ()
 action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
     withConfigurations conf $ do
-        whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData
+        whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData True
         logInfo $ sformat ("System start time is " % shown) $ gdStartTime genesisData
         t <- currentTime
         logInfo $ sformat ("Current time is " % shown) (Timestamp t)

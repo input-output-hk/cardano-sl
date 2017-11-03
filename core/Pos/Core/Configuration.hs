@@ -7,6 +7,7 @@ module Pos.Core.Configuration
        , withGenesisSpec
 
        , canonicalGenesisJson
+       , prettyGenesisJson
 
        , module E
        ) where
@@ -58,6 +59,14 @@ canonicalGenesisJson theGenesisData = (canonicalJsonBytes, jsonHash)
   where
     jsonHash = hashRaw $ BSL.toStrict canonicalJsonBytes
     canonicalJsonBytes = Canonical.renderCanonicalJSON $ runIdentity $ Canonical.toJSON theGenesisData
+
+-- | Encode 'GenesisData' in JSON format in a pretty way. JSON object
+-- is the same as in canonical JSON, but formatting doesn't adhere to
+-- canonical JSON rules.
+prettyGenesisJson :: GenesisData -> String
+prettyGenesisJson theGenesisData =
+    Canonical.prettyCanonicalJSON $
+    runIdentity $ Canonical.toJSON theGenesisData
 
 -- | Come up with a HasConfiguration constraint using a Configuration.
 -- The Configuration record can be parsed from JSON or Yaml, and used to

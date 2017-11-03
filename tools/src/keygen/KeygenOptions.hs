@@ -17,7 +17,7 @@ import           Data.Version           (showVersion)
 import           Options.Applicative    (Parser, auto, command, execParser, fullDesc,
                                          header, help, helper, info, infoOption, long,
                                          metavar, option, progDesc, short, strOption,
-                                         subparser, value)
+                                         subparser, switch, value)
 
 import           Pos.Client.CLI         (configurationOptionsParser)
 import           Pos.Core.Genesis.Types (FakeAvvmOptions (..), TestnetBalanceOptions (..))
@@ -37,7 +37,8 @@ data KeygenCommand
     | ReadKey FilePath
     | DumpAvvmSeeds DumpAvvmSeedsOptions
     | GenerateKeysBySpec GenKeysOptions
-    | DumpGenesisData !FilePath
+    | DumpGenesisData { dgdPath      :: !FilePath
+                      , dgdCanonical :: !Bool }
     deriving (Show)
 
 data DumpAvvmSeedsOptions = DumpAvvmSeedsOptions
@@ -71,7 +72,7 @@ keygenCommandParser =
             (progDesc "Generate secret keys and avvm seed by genesis-spec.yaml"))
     , command "dump-genesis-data"
       (infoH dumpGenesisDataParser
-            (progDesc "Dump genesis data (as per configuration) in canonical json format"))
+            (progDesc "Dump genesis data (as per configuration) in json format"))
     ]
   where
     infoH a b = info (helper <*> a) b
@@ -91,11 +92,16 @@ keygenCommandParser =
         long "path" <>
         metavar "PATH" <>
         help "Dump the contents of this keyfile"
-    dumpGenesisDataParser = fmap DumpGenesisData . strOption $
-        long "path" <>
-        metavar "PATH" <>
-        value "genesis-data.json" <>
-        help "Path to file where genesis data should be dumped"
+    dumpGenesisDataParser = do
+        dgdPath <- strOption $
+            long "path" <>
+            metavar "PATH" <>
+            value "genesis-data.json" <>
+            help "Path to file where genesis data should be dumped"
+        dgdCanonical <- switch $
+            long "canonical" <>
+            help "Whether genesis data should be in canonical json"
+        pure DumpGenesisData {..}
 
 dumpAvvmSeedsParser :: Parser DumpAvvmSeedsOptions
 dumpAvvmSeedsParser = do

@@ -10,7 +10,6 @@ module Pos.Subscription.Common
     , subscriptionWorker
     ) where
 
-import           Data.Time.Units                       (Second)
 import qualified Network.Broadcast.OutboundQueue       as OQ
 import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
 import           Universum                             hiding (bracket)
@@ -19,7 +18,6 @@ import           Formatting                            (sformat, shown, (%))
 import           Mockable                              (Bracket, Catch, Mockable, Throw,
                                                         bracket, try)
 import           Node.Message.Class                    (Message)
-import           Serokell.Util                         (threadDelay)
 import           System.Wlog                           (WithLogger, logDebug, logNotice)
 
 import           Pos.Binary.Class                      (Bi)
@@ -36,6 +34,7 @@ import           Pos.Communication.Protocol            (Conversation (..),
 import           Pos.DB.Class                          (MonadGState)
 import           Pos.KnownPeers                        (MonadKnownPeers (..))
 import           Pos.Network.Types                     (Bucket (..), NodeType)
+import           Pos.Util.Timer                        (Timer, waitTimer, startTimer)
 
 type SubscriptionMode m =
     ( MonadIO m
@@ -62,14 +61,15 @@ data SubscriptionTerminationReason =
 -- giving the reason. Notices will be logged before and after the subscription.
 subscribeTo
     :: forall m. (SubscriptionMode m)
-    => SendActions m -> NodeId -> m SubscriptionTerminationReason
-subscribeTo sendActions peer = do
+    => Timer -> SendActions m -> NodeId -> m SubscriptionTerminationReason
+subscribeTo keepAliveTimer sendActions peer = do
     logNotice $ msgSubscribingTo peer
     outcome <- try $ withConnectionTo sendActions peer $ \_peerData -> do
         pure $ Conversation $ \(conv :: ConversationActions MsgSubscribe Void m) -> do
             send conv MsgSubscribe
             forever $ do
-                threadDelay (30 :: Second)
+                startTimer keepAliveTimer
+                atomically $ waitTimer keepAliveTimer
                 logDebug $ sformat ("subscriptionWorker: sending keep-alive to "%shown)
                                     peer
                 send conv MsgSubscribeKeepAlive

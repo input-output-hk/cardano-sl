@@ -65,6 +65,7 @@ import           Pos.Util.Chrono             (OldestFirst (..))
 import           Pos.Util.JsonLog            (jlCreatedBlock)
 import           Pos.Util.LogSafe            (logDebugS, logInfoS, logWarningS)
 import           Pos.Util.TimeWarp           (CanJsonLog (..))
+import           Pos.Util.Timer              (Timer)
 import           Pos.WorkMode.Class          (WorkMode)
 
 ----------------------------------------------------------------------------
@@ -74,11 +75,11 @@ import           Pos.WorkMode.Class          (WorkMode)
 -- | All workers specific to block processing.
 blkWorkers
     :: WorkMode ctx m
-    => ([WorkerSpec m], OutSpecs)
-blkWorkers =
+    => Timer -> ([WorkerSpec m], OutSpecs)
+blkWorkers keepAliveTimer =
     merge $ [ blkCreatorWorker
             , blkMetricCheckerWorker
-            , retrievalWorker
+            , retrievalWorker keepAliveTimer
             ]
   where
     merge = mconcatPair . map (first pure)

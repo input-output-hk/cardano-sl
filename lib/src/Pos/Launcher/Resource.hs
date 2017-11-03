@@ -79,6 +79,7 @@ import           Pos.Launcher.Mode                (InitMode, InitModeContext (..
 import           Pos.Update.Context               (mkUpdateContext)
 import qualified Pos.Update.DB                    as GState
 import           Pos.Util                         (newInitFuture)
+import           Pos.Util.Timer                   (newTimer)
 
 import qualified System.Wlog                      as Logger
 
@@ -297,6 +298,7 @@ allocateNodeContext ancd txpSettings = do
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.
     peersVar <- newTVarIO mempty
+    ncSubscriptionKeepAliveTimer <- newTimer $ 30 * 1000000 -- TODO: use slot duration
     let ctx =
             NodeContext
             { ncConnectedPeers = ConnectedPeers peersVar

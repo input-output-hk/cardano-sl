@@ -62,7 +62,7 @@ data DecoderConfig = DecoderConfig
     { _dcNoCheck :: Bool
       -- ^ If this flag is set to 'True' decoder should try avoiding
       -- all the datatype integrity checks. It's mostly done to speed
-      -- up deserialiation for objects that we deserialized securely
+      -- up deserialiation for objects that we serialized securely
       -- before (e.g. something we put into base was in memory once,
       -- so it must be correct).
     } deriving Show
@@ -369,14 +369,16 @@ encodeMapSkel size foldrWithKey =
 -- See: https://tools.ietf.org/html/rfc7049#section-3.9
 -- "[..]The keys in every map must be sorted lowest value to highest.[...]"
 decodeMapSkel :: (Ord k, Bi k, Bi v) => ([(k,v)] -> m) -> Decoder s m
-decodeMapSkel fromDistinctAscList = do
-    n <- toDecoder D.decodeMapLenCanonical
-    case n of
+decodeMapSkel fromDistinctAscList =
+    toDecoder D.decodeMapLenCanonical >>= \case
         0 -> return (fromDistinctAscList [])
-        _ -> do
-            (firstKey, firstValue) <- decodeEntry
-            fromDistinctAscList <$> decodeEntries (n - 1) firstKey [(firstKey, firstValue)]
+        n -> ifM (view dcNoCheck) (decodeNoCheck n) (decodeWithCheck n)
   where
+    decodeNoCheck n = fromDistinctAscList <$> replicateM n decodeEntry
+    decodeWithCheck n = do
+        (firstKey, firstValue) <- decodeEntry
+        fromDistinctAscList <$> decodeEntries (n - 1) firstKey [(firstKey, firstValue)]
+
     -- Decode a single (k,v).
     decodeEntry :: (Bi k, Bi v) => Decoder s (k,v)
     decodeEntry = do
@@ -416,7 +418,8 @@ encodeSetSkel :: Bi a
               -> s
               -> E.Encoding
 encodeSetSkel size foldFunction =
-    mappend encodeSetTag . encodeContainerSkel E.encodeListLen size foldFunction (\a b -> encode a <> b)
+    mappend encodeSetTag .
+    encodeContainerSkel E.encodeListLen size foldFunction (\a b -> encode a <> b)
 {-# INLINE encodeSetSkel #-}
 
 -- We stitch a `258` in from of a (Hash)Set, so that tools which
@@ -441,13 +444,16 @@ decodeSetTag = do
 decodeSetSkel :: (Ord a, Bi a) => ([a] -> c) -> Decoder s c
 decodeSetSkel fromDistinctAscList = do
     decodeSetTag
-    n <- decodeListLenCanonical
-    case n of
+    decodeListLenCanonical >>= \case
         0 -> return (fromDistinctAscList [])
-        _ -> do
-            firstValue <- decode
-            fromDistinctAscList <$> decodeEntries (n - 1) firstValue [firstValue]
+        n -> ifM (view dcNoCheck) (decodeNoCheck n) (decodeWithCheck n)
   where
+    decodeNoCheck n =
+        fromDistinctAscList <$> replicateM n decode
+    decodeWithCheck n = do
+        firstValue <- decode
+        fromDistinctAscList <$> decodeEntries (n - 1) firstValue [firstValue]
+
     decodeEntries :: (Bi v, Ord v) => Int -> v -> [v] -> Decoder s [v]
     decodeEntries 0 _ acc = pure $ reverse acc
     decodeEntries !remainingEntries previousValue !acc = do

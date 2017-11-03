@@ -4,7 +4,7 @@ module Pos.Binary.Relay () where
 
 import           Universum
 
-import           Pos.Binary.Class              (Bi (..))
+import           Pos.Binary.Class              (Bi (..), dcNoCheck)
 import           Pos.Binary.Crypto             ()
 import           Pos.Binary.Ssc                ()
 import           Pos.Binary.Update             ()
@@ -20,7 +20,8 @@ instance HasConfiguration => Bi (DataMsg (UpdateProposal, [UpdateVote])) where
     decode = do
         c@(up, votes) <- decode
         let !id = hash up
-        unless (all ((id ==) . uvProposalId) votes) $
+        noCheck <- view dcNoCheck
+        unless (noCheck || all ((id ==) . uvProposalId) votes) $
             fail "decode@DataMsg@Update: vote's uvProposalId must be equal UpId"
         pure $ DataMsg c
 

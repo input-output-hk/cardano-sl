@@ -38,7 +38,8 @@ biPackMsg = Bi.toLazyByteString
 
 biUnpackMsg :: Bi t => Bi.Decoder RealWorld t -> TW.Decoder (UnpackM BiP) t
 biUnpackMsg decoder =
-    -- We assume that default DecoderConfig is enough for testing.
+    -- Network serialization always uses default DecoderConfig (we
+    -- want all checks to be performed).
     TW.Decoder (fromBiDecoder Proxy (Bi.deserialiseIncremental $ runReaderT decoder def))
 
 instance  Bi t => Serializable BiP t where

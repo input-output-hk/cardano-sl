@@ -24,13 +24,11 @@ newWallet :: NewWallet -> Handler Wallet
 newWallet _ = liftIO $ generate arbitrary
 
 
-listWallets :: Page
-            -> PerPage
-            -> ResponseType
+listWallets :: PaginationParams
             -> Handler (OneOf [Wallet] (ExtendedResponse [Wallet]))
-listWallets _ _ responseType = do
+listWallets PaginationParams {..} = do
   example <- liftIO $ generate (resize 3 arbitrary)
-  case responseType of
+  case ppResponseType of
     Extended -> return $ OneOf $ Right $
       ExtendedResponse {
         extData = example

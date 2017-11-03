@@ -13,12 +13,10 @@ handlers :: Server Addresses.API
 handlers =  listAddresses
        :<|> newAddress
 
-listAddresses :: Page
-              -> PerPage
-              -> ResponseType
+listAddresses :: PaginationParams
               -> Handler (OneOf [Address] (ExtendedResponse [Address]))
-listAddresses _ _ responseType =
-  case responseType of
+listAddresses PaginationParams {..} =
+  case ppResponseType of
     Extended -> return $ OneOf $ Right $
       ExtendedResponse {
         extData = [Address "deadBeef", Address "123AABBCC"]

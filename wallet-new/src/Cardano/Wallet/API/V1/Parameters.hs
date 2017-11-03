@@ -13,30 +13,33 @@ module Cardano.Wallet.API.V1.Parameters where
 import           Universum
 
 import           Cardano.Wallet.API.Types    (AlternativeApiArg, DQueryParam,
-                                              WithDefaultApiArg)
+                                              WithDefaultApiArg, inRouteServer)
 import           Cardano.Wallet.API.V1.Types
 
 import           Data.Text                   (Text)
 import           Servant
 
+-- | A special parameter which combines `response_type` query argument and
+-- `Daedalus-Response-Format` header (which have the same meaning) in one API argument.
 type ResponseTypeParam = WithDefaultApiArg
     (AlternativeApiArg (QueryParam "response_type") (Header "Daedalus-Response-Format"))
     ResponseType
 
-type WalletRequestParams =
+-- | Unpacked pagination parameters.
+type WithWalletRequestParams c =
        DQueryParam "page"     Page
     :> DQueryParam "per_page" PerPage
     :> ResponseTypeParam
+    :> c
 
-type family WithWalletRequestParams c :: * where
-  WithWalletRequestParams c = DQueryParam "page"     Page
-                           :> DQueryParam "per_page" PerPage
-                           :> ResponseTypeParam
-                           :> c
+-- | Stub datatype which is used as special API argument specifier for
+-- grouped pagination parameters.
+data WalletRequestParams
 
--- | Instance of `HasServer` which erases the `Tags` from its routing,
--- as the latter is needed only for Swagger.
-instance (HasServer subApi context) => HasServer (WalletRequestParams :> subApi) context where
-  type ServerT (WalletRequestParams :> subApi) m =
-      Page -> PerPage -> ResponseType -> ServerT subApi m
-  route _ = route (Proxy @(WithWalletRequestParams subApi))
+instance HasServer (WithWalletRequestParams subApi) ctx =>
+         HasServer (WalletRequestParams :> subApi) ctx where
+    type ServerT (WalletRequestParams :> subApi) m =
+        PaginationParams -> ServerT subApi m
+    route =
+        inRouteServer @(WithWalletRequestParams subApi) route $
+        \f ppPage ppPerPage ppResponseType -> f $ PaginationParams {..}

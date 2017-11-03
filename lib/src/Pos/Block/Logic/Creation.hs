@@ -49,9 +49,9 @@ import           Pos.Exception              (assertionFailed, reportFatalError)
 import           Pos.Lrc                    (HasLrcContext, LrcModeFull, lrcSingleShot)
 import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Reporting              (reportError)
-import           Pos.Ssc.Core               (SscPayload, defaultSscPayload, stripSscPayload)
-import           Pos.Ssc.Extra              (MonadSscMem, sscGetLocalPayload,
-                                             sscResetLocal)
+import           Pos.Ssc                    (MonadSscMem, SscPayload, defaultSscPayload,
+                                             sscGetLocalPayload, sscResetLocal,
+                                             stripSscPayload)
 import           Pos.StateLock              (Priority (..), StateLock, StateLockMetrics,
                                              modifyStateLock)
 import           Pos.Txp                    (MempoolExt, MonadTxpLocal (..), MonadTxpMem,

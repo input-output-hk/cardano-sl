@@ -40,7 +40,7 @@ import qualified Pos.DB.Class                       as DB
 import           Pos.Delegation.Types               (ProxySKLightConfirmation)
 import           Pos.Ssc.Core                       (Commitment (..), InnerSharesMap,
                                                      Opening (..), SignedCommitment)
-import           Pos.Ssc.GodTossing.Types.Message   (MCCommitment (..), MCOpening (..),
+import           Pos.Ssc.Message                    (MCCommitment (..), MCOpening (..),
                                                      MCShares (..), MCVssCertificate (..))
 import           Pos.Txp.Core                       (TxAux)
 import           Pos.Txp.Network.Types              (TxMsgContents (..))
@@ -127,11 +127,11 @@ instance MessageLimitedPure w => MessageLimited (ProxySignature w a)
 instance MessageLimited ProxySKLightConfirmation
 
 ----------------------------------------------------------------------------
----- GodTossing
+---- SSC
 ----------------------------------------------------------------------------
 
 -- | Upper bound on number of 'Scrape.Commitment's in single 'Commitment'.
--- Actually it's a maximum number of participants in GodTossing. So it also
+-- Actually it's a maximum number of participants in SSC. So it also
 -- limits number of shares, for instance.
 commitmentsNumLimit :: DB.MonadGState m => m Int
 commitmentsNumLimit =
@@ -315,8 +315,7 @@ instance MessageLimited MsgSubscribe
 -- this module), because currently it's quite messy (I think). @gromak
 -- By messy I mean at least that it contains some 'Arbitrary' stuff, which we
 -- usually put somewhere outside. Also I don't like that it knows about
--- GodTossing (I think instances for GodTossing should be in GodTossing),
--- but it can wait.
+-- SSC (I think instances for SSC should be in SSC), but it can wait.
 
 -- instance T.Arbitrary (MaxSize Commitment) where
 --     arbitrary = MaxSize <$>

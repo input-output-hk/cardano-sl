@@ -185,7 +185,6 @@ function node_cmd {
   local st=''
   local reb=''
   local no_ntp=''
-  local ssc_algo=''
   local web=''
   local config_key=''
 
@@ -196,9 +195,6 @@ function node_cmd {
       keys_args="--keyfile \"secrets/secret-$((i+1)).key\""
   fi
 
-  if [[ "$SSC_ALGO" != "" ]]; then
-    ssc_algo=" --ssc-algo $SSC_ALGO "
-  fi
   if [[ $NO_REBUILD == "" ]]; then
     reb=" --rebuild-db "
   fi
@@ -241,7 +237,6 @@ function node_cmd {
     echo -n " $config_key "
   fi
   echo -n " $(logs node$i.log) $time_lord $stats"
-  echo -n " $ssc_algo "
   echo -n " $web "
   echo -n " $report_server "
   echo -n " $wallet_args "

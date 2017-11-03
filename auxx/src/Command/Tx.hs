@@ -51,7 +51,7 @@ import           Pos.Crypto                       (EncryptedSecretKey, emptyPass
                                                    encToPublic, fakeSigner, safeToPublic,
                                                    toPublic, withSafeSigners)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.Configuration            (HasSscConfiguration)
 import           Pos.Txp                          (TxAux, TxOut (..), TxOutAux (..),
                                                    topsortTxAuxes, txaF)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
@@ -102,7 +102,7 @@ sendToAllGenesis
        , HasNodeConfiguration
        , HasInfraConfiguration
        , HasUpdateConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        , HasCompileInfo
        )
     => SendActions AuxxMode
@@ -203,7 +203,7 @@ send
        , HasNodeConfiguration
        , HasInfraConfiguration
        , HasUpdateConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        , HasCompileInfo
        )
     => SendActions AuxxMode
@@ -248,7 +248,7 @@ sendTxsFromFile
        , HasInfraConfiguration
        , HasUpdateConfiguration
        , HasNodeConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        , HasCompileInfo
        )
     => SendActions AuxxMode

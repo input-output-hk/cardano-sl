@@ -22,7 +22,7 @@ import           Pos.DHT.Real.Param          (KademliaParams)
 import           Pos.Network.Types           (NetworkConfig)
 import           Pos.Reporting.MemState      (HasReportServers (..))
 import           Pos.Security.Params         (SecurityParams)
-import           Pos.Ssc.GodTossing.Behavior (GtBehavior)
+import           Pos.Ssc.Behavior            (SscBehavior)
 import           Pos.Statistics              (EkgParams, StatsdParams)
 import           Pos.Update.Params           (UpdateParams)
 import           Pos.Util.TimeWarp           (NetworkAddress)
@@ -59,7 +59,7 @@ data NodeParams = NodeParams
     , npEkgParams      :: !(Maybe EkgParams)    -- ^ EKG statistics monitoring.
     , npStatsdParams   :: !(Maybe StatsdParams) -- ^ statsd statistics backend.
     , npNetworkConfig  :: !(NetworkConfig KademliaParams)
-    , npBehaviorConfig :: !BehaviorConfig       -- ^ Behavior (e.g. GodTossing settings)
+    , npBehaviorConfig :: !BehaviorConfig       -- ^ Behavior (e.g. SSC settings)
     } -- deriving (Show)
 
 makeLensesWith postfixLFields ''NodeParams
@@ -72,8 +72,8 @@ instance HasLens BehaviorConfig NodeParams BehaviorConfig where
     lensOf = npBehaviorConfig_L
 instance HasLens SecurityParams NodeParams SecurityParams where
     lensOf = npBehaviorConfig_L . bcSecurityParams_L
-instance HasLens GtBehavior NodeParams GtBehavior where
-    lensOf = npBehaviorConfig_L . bcGtBehavior_L
+instance HasLens SscBehavior NodeParams SscBehavior where
+    lensOf = npBehaviorConfig_L . bcSscBehavior_L
 
 instance HasLens (NetworkConfig KademliaParams) NodeParams (NetworkConfig KademliaParams) where
     lensOf = npNetworkConfig_L

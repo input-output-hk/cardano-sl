@@ -6,7 +6,6 @@ module Pos.Client.CLI.Util
        , attackTargetParser
        , defaultLoggerConfig
        , readLoggerConfig
-       , sscAlgoParser
        , stakeholderIdParser
        , dumpGenesisData
        ) where
@@ -29,18 +28,12 @@ import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson,
                                          genesisData)
 import           Pos.Crypto             (decodeAbstractHash)
 import           Pos.Security.Params    (AttackTarget (..), AttackType (..))
-import           Pos.Ssc.SscAlgo        (SscAlgo (..))
 import           Pos.Util               (eitherToFail, inAssertMode)
 import           Pos.Util.TimeWarp      (addrParser)
 
 printFlags :: WithLogger m => m ()
 printFlags = do
     inAssertMode $ logInfo "Asserts are ON"
-
--- | Decides which secret-sharing algorithm to use.
-sscAlgoParser :: P.Parser SscAlgo
-sscAlgoParser = GodTossingAlgo <$ (P.string "GodTossing") <|>
-                NistBeaconAlgo   <$ (P.string "NistBeacon")
 
 attackTypeParser :: P.Parser AttackType
 attackTypeParser = P.string "No" >>

@@ -26,7 +26,7 @@ import           Pos.Configuration                (HasNodeConfiguration)
 import           Pos.Core                         (HasConfiguration)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.Recovery                     ()
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.Configuration            (HasSscConfiguration)
 import           Pos.Txp                          (MempoolExt, MonadTxpLocal (..))
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo             (HasCompileInfo)
@@ -72,7 +72,7 @@ notifierPlugin
        , HasNodeConfiguration
        , HasInfraConfiguration
        , HasUpdateConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        , HasCompileInfo
        )
     => NotifierSettings
@@ -83,7 +83,7 @@ notifierPlugin = first pure . worker mempty .
 explorerPlugin
     :: ( HasConfiguration
        , HasNodeConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        , HasInfraConfiguration
        , HasUpdateConfiguration
        , HasCompileInfo
@@ -97,7 +97,7 @@ explorerPlugin port =
 explorerServeWebReal
     :: ( HasConfiguration
        , HasNodeConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        , HasInfraConfiguration
        , HasUpdateConfiguration
        , HasCompileInfo

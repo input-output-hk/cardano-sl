@@ -59,7 +59,7 @@ import           Pos.Core                             (AddrType (..), Address (.
                                                        unsafeSubCoin)
 import           Pos.DB.Class                         (MonadDBRead)
 import           Pos.Slotting                         (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.GodTossing.Configuration     (HasGtConfiguration)
+import           Pos.Ssc.Configuration                (HasSscConfiguration)
 import           Pos.Txp                              (MonadTxpMem, Tx (..), TxAux, TxId,
                                                        TxMap, TxOutAux (..), getLocalTxs,
                                                        getMemPool, mpLocalTxs, taTx,
@@ -107,7 +107,7 @@ type MainBlund = (MainBlock, Undo)
 type ExplorerMode ctx m =
     ( WorkMode ctx m
     , HasGenesisRedeemAddressInfo m
-    , HasGtConfiguration
+    , HasSscConfiguration
     )
 
 explorerServeImpl

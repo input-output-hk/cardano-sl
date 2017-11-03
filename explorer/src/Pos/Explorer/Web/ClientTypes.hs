@@ -71,7 +71,7 @@ import qualified Pos.GState                       as GS
 import           Pos.Lrc                          (getLeaders)
 import           Pos.Merkle                       (getMerkleRoot, mtRoot)
 import           Pos.Slotting                     (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.Configuration            (HasSscConfiguration)
 import           Pos.Txp                          (Tx (..), TxId, TxOut (..),
                                                    TxOutAux (..), TxUndo, txpTxs,
                                                    _txOutputs)
@@ -205,7 +205,7 @@ toBlockEntry
     , MonadSlots ctx m
     , MonadThrow m
     , HasConfiguration
-    , HasGtConfiguration
+    , HasSscConfiguration
     )
     => (MainBlock, Undo)
     -> m CBlockEntry
@@ -297,7 +297,7 @@ toBlockSummary
     , MonadSlots ctx m
     , MonadThrow m
     , HasConfiguration
-    , HasGtConfiguration
+    , HasSscConfiguration
     )
     => (MainBlock, Undo)
     -> m CBlockSummary

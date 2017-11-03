@@ -77,9 +77,9 @@ import           Pos.Shutdown                      (HasShutdownContext (..),
                                                     ShutdownContext (..))
 import           Pos.Slotting                      (HasSlottingVar (..), MonadSlots (..),
                                                     MonadSlotsData)
-import           Pos.Ssc.Extra                     (SscMemTag, SscState)
-import           Pos.Ssc.GodTossing.Configuration  (HasGtConfiguration)
-import           Pos.Ssc.Types                     (SscBlock)
+import           Pos.Ssc.Configuration             (HasSscConfiguration)
+import           Pos.Ssc.Mem                       (SscMemTag)
+import           Pos.Ssc.Types                     (SscBlock, SscState)
 import           Pos.StateLock                     (StateLock, StateLockMetrics (..),
                                                     newStateLock)
 import           Pos.Txp                           (GenericTxpLocalData, MempoolExt,
@@ -193,7 +193,7 @@ getSentTxs = atomically . readTVar =<< view wtcSentTxs_L
 ----------------------------------------------------------------------------
 
 initWalletTestContext
-    :: (HasConfiguration, HasGtConfiguration, HasNodeConfiguration)
+    :: (HasConfiguration, HasSscConfiguration, HasNodeConfiguration)
     => WalletTestParams
     -> (WalletTestContext -> Emulation a)
     -> Emulation a
@@ -215,7 +215,7 @@ initWalletTestContext WalletTestParams {..} callback =
         callback wtc
 
 runWalletTestMode
-    :: (HasConfiguration, HasGtConfiguration, HasNodeConfiguration)
+    :: (HasConfiguration, HasSscConfiguration, HasNodeConfiguration)
     => WalletTestParams
     -> WalletTestMode a
     -> IO a
@@ -234,7 +234,7 @@ type WalletProperty = PropertyM WalletTestMode
 -- | Convert 'WalletProperty' to 'Property' using given generator of
 -- 'WalletTestParams'.
 walletPropertyToProperty
-    :: (HasConfiguration, HasGtConfiguration, HasNodeConfiguration)
+    :: (HasConfiguration, HasSscConfiguration, HasNodeConfiguration)
     => Gen WalletTestParams
     -> WalletProperty a
     -> Property
@@ -242,12 +242,12 @@ walletPropertyToProperty wtpGen walletProperty =
     forAll wtpGen $ \wtp ->
         monadic (ioProperty . runWalletTestMode wtp) walletProperty
 
-instance (HasConfiguration, HasGtConfiguration, HasNodeConfiguration)
+instance (HasConfiguration, HasSscConfiguration, HasNodeConfiguration)
         => Testable (WalletProperty a) where
     property = walletPropertyToProperty arbitrary
 
 walletPropertySpec ::
-       (HasConfiguration, HasGtConfiguration, HasNodeConfiguration)
+       (HasConfiguration, HasSscConfiguration, HasNodeConfiguration)
     => String
     -> (HasConfiguration => WalletProperty a)
     -> Spec

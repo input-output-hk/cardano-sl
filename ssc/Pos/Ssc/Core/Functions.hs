@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- | Core functions from GodTossing SSC.
+-- | Core functions from SSC.
 
 module Pos.Ssc.Core.Functions
        (
@@ -48,7 +48,7 @@ import           Serokell.Util              (VerificationRes, verifyGeneric)
 
 import           Pos.Binary.Class           (Bi, asBinary, biSize, fromBinaryM)
 import           Pos.Binary.Crypto          ()
-import           Pos.Binary.GodTossing.Core ()
+import           Pos.Binary.Ssc.Core        ()
 import           Pos.Core                   (EpochIndex (..), LocalSlotIndex,
                                              SharedSeed (..), SlotCount, SlotId (..),
                                              StakeholderId, unsafeMkLocalSlotIndex)
@@ -284,7 +284,7 @@ stripSscPayload lim payload = case payload of
                  stripHashMap l .
                  getVssCertificatesMap
 
--- | Default godtossing payload depending on local slot index.
+-- | Default SSC payload depending on local slot index.
 defaultSscPayload :: HasConfiguration => LocalSlotIndex -> SscPayload
 defaultSscPayload lsi
     | isCommitmentIdx lsi = CommitmentsPayload mempty mempty

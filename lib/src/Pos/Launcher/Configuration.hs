@@ -22,14 +22,14 @@ import           System.FilePath                  (takeDirectory)
 import           System.Wlog                      (WithLogger, logInfo)
 
 -- FIXME consistency on the locus of the JSON instances for configuration.
--- Core keeps them separate, infra update and gt define them on-site.
+-- Core keeps them separate, infra update and ssc define them on-site.
 import           Pos.Aeson.Core.Configuration     ()
 
 import           Pos.Configuration
 import           Pos.Core.Configuration
 import           Pos.Core.Types                   (Timestamp)
 import           Pos.Infra.Configuration
-import           Pos.Ssc.GodTossing.Configuration
+import           Pos.Ssc.Configuration
 import           Pos.Update.Configuration
 import           Pos.Util.Config                  (parseYamlConfig)
 
@@ -38,7 +38,7 @@ data Configuration = Configuration
     { ccCore   :: !CoreConfiguration
     , ccInfra  :: !InfraConfiguration
     , ccUpdate :: !UpdateConfiguration
-    , ccGt     :: !GtConfiguration
+    , ccSsc    :: !SscConfiguration
     , ccNode   :: !NodeConfiguration
     } deriving (Show, Generic)
 
@@ -49,7 +49,7 @@ type HasConfigurations =
     ( HasConfiguration
     , HasInfraConfiguration
     , HasUpdateConfiguration
-    , HasGtConfiguration
+    , HasSscConfiguration
     , HasNodeConfiguration
     )
 
@@ -88,5 +88,5 @@ withConfigurations co@ConfigurationOptions{..} act = do
     withCoreConfigurations ccCore configurationDir cfoSystemStart $
         withInfraConfiguration ccInfra $
         withUpdateConfiguration ccUpdate $
-        withGtConfiguration ccGt $
+        withSscConfiguration ccSsc $
         withNodeConfiguration ccNode $ act

@@ -19,9 +19,11 @@
 module Pos.Wallet.Web.Tracking.Sync
        ( syncWalletsWithGState
        , trackingApplyTxs
+       , trackingApplyTxToModifierM
        , trackingRollbackTxs
        , BlockLockMode
        , WalletTrackingEnv
+       , WalletTrackingEnvRead
 
        , syncWalletOnImport
        , txMempoolToModifier
@@ -73,11 +75,13 @@ import           Pos.Txp.MemState.Class           (MonadTxpMem, getLocalTxsNUndo
 import           Pos.Util.Chrono                  (getNewestFirst)
 import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
 import qualified Pos.Util.Modifier                as MM
+import           Pos.Wallet.Web.Tracking.Decrypt  (WalletDecrCredentials)
 
 import           Pos.Client.Txp.History           (_thTxId)
 import           Pos.Wallet.WalletMode            (WalletMempoolExt)
-import           Pos.Wallet.Web.Account           (MonadKeySearch (..))
-import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CWAddressMeta (..),
+import           Pos.Wallet.Web.Account           (AccountMode, MonadKeySearch (..),
+                                                   getSKById)
+import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CWAddressMeta (..), Wal,
                                                    encToCId, isTxLocalAddress)
 import           Pos.Wallet.Web.Error.Types       (WalletError (..))
 import           Pos.Wallet.Web.Pending.Types     (PtxBlockInfo)
@@ -295,6 +299,21 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
 
 type TxInfoFunctor = BlockHeader -> (Maybe ChainDifficulty, Maybe Timestamp, Maybe PtxBlockInfo)
 
+trackingApplyTxToModifierM
+    :: ( AccountMode ctx m
+       , DB.MonadBlockDB m
+       )
+    => CId Wal         -- ^ Wallet's secret key
+    -> [CWAddressMeta] -- ^ All addresses in wallet
+    -> WalletModifier -- ^ Current wallet modifier
+    -> (TxAux, TxUndo) -- ^ Tx with undo
+    -> m WalletModifier
+trackingApplyTxToModifierM wId allAddresses walMod (txAux, txUndo) = do
+    wdc <- eskToWalletDecrCredentials <$> getSKById wId
+    tipH <- DB.getTipHeader
+    let fInfo = const (Nothing, Nothing, Nothing)
+    pure $ trackingApplyTxToModifier wdc allAddresses fInfo walMod (txAux, txUndo, tipH)
+
 -- Process transactions on block application,
 -- decrypt our addresses, and add/delete them to/from wallet-db.
 -- Addresses are used in TxIn's will be deleted,
@@ -307,42 +326,49 @@ trackingApplyTxs
     -> [(TxAux, TxUndo, BlockHeader)] -- ^ Txs of blocks and corresponding header hash
     -> WalletModifier
 trackingApplyTxs (eskToWalletDecrCredentials -> wdc) allAddresses fInfo txs =
-    foldl' applyTx mempty txs
-  where
-    applyTx :: WalletModifier -> (TxAux, TxUndo, BlockHeader) -> WalletModifier
-    applyTx WalletModifier{..} (tx, undo, blkHeader) = do
-        let hh = headerHash blkHeader
-            hhs = repeat hh
-            wh@(WithHash _ txId) = withHash (taTx tx)
-            (mDiff, mTs, mPtxBlkInfo) = fInfo blkHeader
-        let thee@THEntryExtra{..} =
-                buildTHEntryExtra wdc (wh, undo) (mDiff, mTs)
+    foldl' (trackingApplyTxToModifier wdc allAddresses fInfo) mempty txs
 
-            ownTxIns = map (fst . fst) theeInputs
-            ownTxOuts = map fst theeOutputs
+trackingApplyTxToModifier
+    :: HasConfiguration
+    => WalletDecrCredentials        -- ^ Wallet's decrypted credentials
+    -> [CWAddressMeta]              -- ^ All addresses in wallet
+    -> TxInfoFunctor                -- ^ Functions to determine tx chain difficulty, timestamp and header hash
+    -> WalletModifier              -- ^ Current CWalletModifier
+    -> (TxAux, TxUndo, BlockHeader) -- ^ Tx with undo and corresponding block header
+    -> WalletModifier
+trackingApplyTxToModifier wdc allAddresses fInfo WalletModifier{..} (tx, undo, blkHeader) = do
+    let hh = headerHash blkHeader
+        hhs = repeat hh
+        wh@(WithHash _ txId) = withHash (taTx tx)
+        (mDiff, mTs, mPtxBlkInfo) = fInfo blkHeader
+    let thee@THEntryExtra{..} =
+            buildTHEntryExtra wdc (wh, undo) (mDiff, mTs)
 
-            toPair th = (_thTxId th, th)
-            historyModifier =
-                maybe wmHistoryEntries
-                    (\(toPair -> (id, th)) -> MM.insert id th wmHistoryEntries)
-                    (isTxEntryInteresting thee)
+        ownTxIns = map (fst . fst) theeInputs
+        ownTxOuts = map fst theeOutputs
 
-            usedAddrs = map (cwamId . snd) theeOutputs
-            changeAddrs = evalChange allAddresses (map (cwamId . snd) theeInputs) usedAddrs
+        toPair th = (_thTxId th, th)
+        historyModifier =
+            maybe wmHistoryEntries
+                (\(toPair -> (id, th)) -> MM.insert id th wmHistoryEntries)
+                (isTxEntryInteresting thee)
 
-            addedPtxCandidates =
-                if | Just ptxBlkInfo <- mPtxBlkInfo
-                        -> DL.cons (txId, ptxBlkInfo) wmAddedPtxCandidates
-                    | otherwise
-                        -> wmAddedPtxCandidates
-        WalletModifier
-            (deleteAndInsertIMM [] (map snd theeOutputs) wmAddresses)
-            historyModifier
-            (deleteAndInsertVM [] (zip usedAddrs hhs) wmUsed)
-            (deleteAndInsertVM [] (zip changeAddrs hhs) wmChange)
-            (deleteAndInsertMM ownTxIns ownTxOuts wmUtxo)
-            addedPtxCandidates
-            wmDeletedPtxCandidates
+        usedAddrs = map (cwamId . snd) theeOutputs
+        changeAddrs = evalChange allAddresses (map (cwamId . snd) theeInputs) usedAddrs
+
+        addedPtxCandidates =
+            if | Just ptxBlkInfo <- mPtxBlkInfo
+                    -> DL.cons (txId, ptxBlkInfo) wmAddedPtxCandidates
+                | otherwise
+                    -> wmAddedPtxCandidates
+    WalletModifier
+        (deleteAndInsertIMM [] (map snd theeOutputs) wmAddresses)
+        historyModifier
+        (deleteAndInsertVM [] (zip usedAddrs hhs) wmUsed)
+        (deleteAndInsertVM [] (zip changeAddrs hhs) wmChange)
+        (deleteAndInsertMM ownTxIns ownTxOuts wmUtxo)
+        addedPtxCandidates
+        wmDeletedPtxCandidates
 
 -- Process transactions on block rollback.
 -- Like @trackingApplyTxs@, but vise versa.

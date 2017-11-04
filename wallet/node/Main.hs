@@ -61,12 +61,13 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
         bracketWalletWS $ \conn ->
             bracketNodeResources nodeParams sscParams
                 txpGlobalSettings
-                initNodeDBs $ \nr@NodeResources {..} ->
-                runWRealMode
-                    db
-                    conn
-                    nr
-                    (mainAction nr)
+                initNodeDBs $
+                \nr@NodeResources {..} ->
+                    runWRealMode
+                        db
+                        conn
+                        nr
+                        (mainAction nr)
   where
     mainAction = runNodeWithInit $ do
         when (walletFlushDb) $ do

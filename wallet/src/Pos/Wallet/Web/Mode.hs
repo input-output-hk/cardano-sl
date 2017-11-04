@@ -85,7 +85,7 @@ import           Pos.StateLock                     (StateLock)
 import           Pos.Txp                           (MempoolExt, MonadTxpLocal (..),
                                                     MonadTxpMem, Utxo, addrBelongsToSet,
                                                     applyUtxoModToAddrCoinMap,
-                                                    getUtxoModifier, getUtxoModifier)
+                                                    getUtxoModifier)
 import qualified Pos.Txp.DB                        as DB
 import           Pos.Util                          (Some (..))
 import           Pos.Util.CompileInfo              (HasCompileInfo)
@@ -121,15 +121,20 @@ import           Pos.Wallet.Web.Sockets.ConnSet    (ConnectionsVar)
 import           Pos.Wallet.Web.State              (MonadWalletDB, MonadWalletDBRead,
                                                     WalletState, getWalletBalancesAndUtxo,
                                                     getWalletUtxo)
-import           Pos.Wallet.Web.Tracking           (MonadBListener (..),
+import           Pos.Wallet.Web.State.Memory.Types (ExtStorageModifierVar,
+                                                    StorageModifier)
+import           Pos.Wallet.Web.Tracking           (BlocksStorageModifierVar,
+                                                    MonadBListener (..),
                                                     onApplyBlocksWebWallet,
                                                     onRollbackBlocksWebWallet)
 
 data WalletWebModeContext = WalletWebModeContext
-    { wwmcWalletState     :: !WalletState
-    , wwmcConnectionsVar  :: !ConnectionsVar
-    , wwmcSendActions     :: !(STM.TMVar (SendActions WalletWebMode))
-    , wwmcRealModeContext :: !(RealModeContext WalletMempoolExt)
+    { wwmcWalletState           :: !WalletState
+    , wwmcConnectionsVar        :: !ConnectionsVar
+    , wwmcSendActions           :: !(STM.TMVar (SendActions WalletWebMode))
+    , wwmcMemStorageModifier    :: !ExtStorageModifierVar
+    , wwmcBlocksStorageModifier :: !(TVar StorageModifier)
+    , wwmcRealModeContext       :: !(RealModeContext WalletMempoolExt)
     }
 
 -- It's here because of TH for lens
@@ -187,6 +192,12 @@ instance HasJsonLogConfig WalletWebModeContext where
 
 instance HasNodeType WalletWebModeContext where
     getNodeType = getNodeType . wwmcRealModeContext
+
+instance HasLens BlocksStorageModifierVar WalletWebModeContext BlocksStorageModifierVar where
+    lensOf = wwmcBlocksStorageModifier_L
+
+instance HasLens ExtStorageModifierVar WalletWebModeContext ExtStorageModifierVar where
+    lensOf = wwmcMemStorageModifier_L
 
 data WalletWebModeContextTag
 
@@ -348,7 +359,7 @@ instance MonadFormatPeers WalletWebMode where
 
 type instance MempoolExt WalletWebMode = WalletMempoolExt
 
-instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo) =>
+instance (HasConfiguration, HasInfraConfiguration, HasCompileInfo, HasSscConfiguration) =>
          MonadTxpLocal WalletWebMode where
     txpNormalize = txpNormalizeWebWallet
     txpProcessTx = txpProcessTxWebWallet

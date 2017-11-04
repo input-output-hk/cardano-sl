@@ -21,41 +21,50 @@ module Pos.Wallet.Redirect
 
 import           Universum
 
-import           Control.Lens                   (views)
-import qualified Data.HashMap.Strict            as HM
-import           Data.Time.Units                (Millisecond)
-import           Ether.Internal                 (HasLens (..))
-import           System.Wlog                    (WithLogger, logWarning)
+import           Control.Lens                      (views)
+import qualified Data.HashMap.Strict               as HM
+import           Data.Time.Units                   (Millisecond)
+import           Ether.Internal                    (HasLens (..))
+import           System.Wlog                       (WithLogger, logWarning)
 
-import           Pos.Block.Core                 (BlockHeader)
-import qualified Pos.Context                    as PC
-import           Pos.Core                       (ChainDifficulty, HasConfiguration,
-                                                 Timestamp, difficultyL,
-                                                 getCurrentTimestamp)
-import           Pos.Crypto                     (WithHash (..))
-import           Pos.DB.Block                   (MonadBlockDB)
-import           Pos.DB.DB                      (getTipHeader)
-import qualified Pos.GState                     as GS
-import           Pos.Shutdown                   (HasShutdownContext, triggerShutdown)
-import           Pos.Slotting                   (MonadSlots (..),
-                                                 getNextEpochSlotDuration)
-import           Pos.Txp                        (MonadTxpLocal (..), ToilVerFailure, Tx,
-                                                 TxAux (..), TxId, TxUndo,
-                                                 TxpNormalizeMempoolMode,
-                                                 TxpProcessTransactionMode,
-                                                 getLocalTxsNUndo, txNormalize,
-                                                 txProcessTransaction)
-import           Pos.Update.Context             (UpdateContext (ucDownloadedUpdate))
-import           Pos.Update.Poll.Types          (ConfirmedProposalState)
-import           Pos.Wallet.WalletMode          (MonadBlockchainInfo (..),
-                                                 MonadUpdates (..))
-import           Pos.Wallet.Web.Account         (AccountMode, getSKById)
-import           Pos.Wallet.Web.ClientTypes     (CId, Wal)
-import           Pos.Wallet.Web.Methods.History (addHistoryTxMeta)
-import qualified Pos.Wallet.Web.State           as WS
-import           Pos.Wallet.Web.Tracking        (THEntryExtra, buildTHEntryExtra,
-                                                 eskToWalletDecrCredentials,
-                                                 isTxEntryInteresting)
+import           Pos.Block.Core                    (BlockHeader)
+import qualified Pos.Context                       as PC
+import           Pos.Core                          (ChainDifficulty, HasConfiguration,
+                                                    Timestamp, difficultyL,
+                                                    getCurrentTimestamp)
+import           Pos.Crypto                        (WithHash (..))
+import           Pos.DB.Block                      (MonadBlockDB)
+import           Pos.DB.DB                         (getTipHeader)
+import qualified Pos.GState                        as GS
+import           Pos.Shutdown                      (HasShutdownContext, triggerShutdown)
+import           Pos.Slotting                      (MonadSlots (..),
+                                                    getNextEpochSlotDuration)
+import           Pos.StateLock                     (Priority (..), withStateLock)
+import           Pos.Txp                           (MonadTxpLocal (..), ToilVerFailure,
+                                                    Tx, TxAux (..), TxId, TxUndo,
+                                                    TxpNormalizeMempoolMode,
+                                                    TxpProcessTransactionMode,
+                                                    getLocalTxsNUndo, txNormalize,
+                                                    txProcessTransactionNoLock)
+import           Pos.Update.Context                (UpdateContext (ucDownloadedUpdate))
+import           Pos.Update.Poll.Types             (ConfirmedProposalState)
+import           Pos.Wallet.WalletMode             (MonadBlockchainInfo (..),
+                                                    MonadUpdates (..))
+import           Pos.Wallet.Web.Account            (AccountMode, getSKById)
+import           Pos.Wallet.Web.ClientTypes        (CId, Wal)
+import           Pos.Wallet.Web.Methods.History    (addHistoryTxMeta)
+import qualified Pos.Wallet.Web.State              as WS
+import           Pos.Wallet.Web.State.Memory.Logic (buildStorageModifier,
+                                                    updateStorageModifierOnTx)
+import           Pos.Wallet.Web.State.Memory.Types (ExtStorageModifierVar,
+                                                    HasExtStorageModifier)
+import           Pos.Wallet.Web.Tracking           (BlocksStorageModifierVar,
+                                                    HasBlocksStorageModifier,
+                                                    THEntryExtra,
+                                                    WalletTrackingMempoolEnv,
+                                                    buildTHEntryExtra,
+                                                    eskToWalletDecrCredentials,
+                                                    isTxEntryInteresting)
 
 ----------------------------------------------------------------------------
 -- BlockchainInfo
@@ -137,22 +146,31 @@ txpProcessTxWebWallet
     ( TxpProcessTransactionMode ctx m
     , AccountMode ctx m
     , WS.MonadWalletDB ctx m
+    , MonadBlockDB m
+    , HasExtStorageModifier ctx
     )
     => (TxId, TxAux) -> m (Either ToilVerFailure ())
-txpProcessTxWebWallet tx@(txId, txAux) = txProcessTransaction tx >>= traverse (const addTxToWallets)
+txpProcessTxWebWallet tx@(txId, txAux) =
+    withStateLock LowPriority "txpProcessTxWebWallet" $ \_ ->
+        txProcessTransactionNoLock tx >>= traverse (const walletLogic)
   where
-    addTxToWallets :: m ()
-    addTxToWallets = do
+    walletLogic :: m ()
+    walletLogic = do
         (_, txUndos) <- getLocalTxsNUndo
         case HM.lookup txId txUndos of
             Nothing ->
                 logWarning "Node processed a tx but corresponding tx undo not found"
             Just txUndo -> do
-                ts <- getCurrentTimestamp
-                let txWithUndo = (WithHash (taTx txAux) txId, txUndo)
-                thees <- mapM (toThee txWithUndo ts) =<< WS.getWalletAddresses
-                let interestingThees = mapMaybe (\ (id, t) -> (id,) <$> isTxEntryInteresting t) thees
-                mapM_ (uncurry addHistoryTxMeta) interestingThees
+                updateStorageModifierOnTx (txId, txAux, txUndo)
+                addTxToWallets txUndo
+
+    addTxToWallets :: TxUndo -> m ()
+    addTxToWallets txUndo = do
+        ts <- getCurrentTimestamp
+        let txWithUndo = (WithHash (taTx txAux) txId, txUndo)
+        thees <- mapM (toThee txWithUndo ts) =<< WS.getWalletAddresses
+        let interestingThees = mapMaybe (\ (id, t) -> (id,) <$> isTxEntryInteresting t) thees
+        mapM_ (uncurry addHistoryTxMeta) interestingThees
 
     toThee :: (WithHash Tx, TxUndo) -> Timestamp -> CId Wal -> m (CId Wal, THEntryExtra)
     toThee txWithUndo ts wId = do
@@ -160,5 +178,20 @@ txpProcessTxWebWallet tx@(txId, txAux) = txProcessTransaction tx >>= traverse (c
         pure (wId, buildTHEntryExtra wdc txWithUndo (Nothing, Just ts))
 
 txpNormalizeWebWallet
-    :: TxpNormalizeMempoolMode ctx m => m ()
-txpNormalizeWebWallet = txNormalize
+    :: ( TxpNormalizeMempoolMode ctx m
+       , WalletTrackingMempoolEnv ctx m
+       , AccountMode ctx m
+       , HasExtStorageModifier ctx
+       , HasBlocksStorageModifier ctx
+       ) => m ()
+txpNormalizeWebWallet = do
+    txNormalize
+    !memStorageMod <- buildStorageModifier
+    memTip <- atomically . readTVar =<< (txpTip <$> askTxpMem)
+    memStorageModifierVar <- view (lensOf @ExtStorageModifierVar)
+    blocksStorageModifierVar <- view (lensOf @BlocksStorageModifierVar)
+    blocksStorageModifier <- atomically $ getStorageModifier <$> readTVar blocksStorageModifierVar
+    mapM_ (\(wid, wmod) -> WS.applyModifierToWallet wid memTip wmod) blocksStorageModifierVar
+    atomically $ do
+        writeTVar memStorageModifierVar memStorageMod
+        writeTVar blocksStorageModifierVar mempty

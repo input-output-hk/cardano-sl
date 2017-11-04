@@ -118,6 +118,7 @@ executable cardano-auxx
                      , cardano-sl-auxx
                      , cardano-sl-core
                      , cardano-sl-infra
+                     , cardano-sl-txp
                      , log-warper
                      , temporary
                      , node-sketch

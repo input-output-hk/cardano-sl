@@ -20,7 +20,6 @@ library
                         -- Arbitrary instances
                         Pos.Arbitrary.Block
                         Pos.Arbitrary.Delegation
-                        Pos.Arbitrary.Txp.Network
 
                         Pos.Aeson
                         Pos.Binary
@@ -60,6 +59,8 @@ library
                         Pos.Behavior
 
                         -- Something
+                        Pos.Types
+
                         Pos.Launcher
                         Pos.Launcher.Configuration
                         Pos.Launcher.Resource
@@ -87,11 +88,6 @@ library
 
                         -- Client CLI
                         Pos.Client.CLI
-
-                        -- Txp
-                        Pos.Txp
-
-                        Pos.Types
 
                         -- Update system
                         Pos.Update
@@ -149,8 +145,6 @@ library
                         Pos.Binary.Block.Core
                         Pos.Binary.Block.Slog
                         Pos.Binary.Delegation
-                        Pos.Binary.Txp
-                        Pos.Binary.Txp.Network
 
                         -- Block processing
                         Pos.Block.Core.Genesis
@@ -261,11 +255,6 @@ library
                         -- Statistics
                         Pos.Statistics.Ekg
                         Pos.Statistics.Statsd
-
-                        -- Txp
-                        Pos.Txp.Network
-                        Pos.Txp.Network.Listeners
-                        Pos.Txp.Network.Types
 
                         -- Update System
                         Pos.Update.Download

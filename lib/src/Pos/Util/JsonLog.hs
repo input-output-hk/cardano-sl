@@ -46,8 +46,7 @@ import           Pos.Core                      (HasConfiguration, SlotId (..), g
                                                 gbhPrevBlock, getSlotIndex, headerHash,
                                                 mkLocalSlotIndex)
 import           Pos.Crypto                    (hash, hashHexF)
-import           Pos.Txp.Core                  (txpTxs)
-import           Pos.Txp.MemState.Types        (MemPoolModifyReason)
+import           Pos.Txp                       (JLTxR (..), MemPoolModifyReason, txpTxs)
 import           Pos.Types                     (EpochIndex (..), HeaderHash, headerHashF)
 
 type BlockId = Text
@@ -67,12 +66,6 @@ data JLTxS = JLTxS
     { jlsNodeId :: Text
     , jlsTxId   :: Text
     , jlsInvReq :: InvReqDataFlowLog
-    } deriving Show
-
--- | Json log of one transaction being received by a node.
-data JLTxR = JLTxR
-    { jlrTxId  :: Text
-    , jlrError :: Maybe Text
     } deriving Show
 
 -- | Get 'SlotId' from 'JLSlotId'.

@@ -39,7 +39,6 @@ import           Network.HTTP.Client (httpLbs, newManager, parseUrlThrow)
 import qualified Network.HTTP.Client.MultipartFormData as Form
 import           Network.HTTP.Client.TLS (tlsManagerSettings)
 import           Network.Info (IPv4 (..), getNetworkInterfaces, ipv4)
-import           Pos.ReportServer.Report (ReportInfo (..), ReportType (..))
 import           Serokell.Util.Text (listBuilderJSON)
 import           System.Directory (doesFileExist)
 import           System.FilePath (takeFileName)
@@ -58,6 +57,7 @@ import           Pos.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Reporting.Exceptions (ReportingError (..))
 import           Pos.Reporting.MemState (HasLoggerConfig (..), HasReportServers (..),
                                          HasReportingContext (..))
+import           Pos.ReportServer.Report (ReportInfo (..), ReportType (..))
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 import           Pos.Util.Util (maybeThrow, withSystemTempFile, (<//>))
 
@@ -78,37 +78,31 @@ import           Pos.Util.Util (maybeThrow, withSystemTempFile, (<//>))
 sendReport
     :: (HasConfiguration, HasCompileInfo, MonadIO m, MonadMask m)
     => [FilePath]                 -- ^ Log files to read from
-    -> [Text]                     -- ^ Raw log text (optional)
     -> ReportType
     -> Text
     -> String
     -> m ()
-sendReport logFiles rawLogs reportType appName reportServerUri = do
+sendReport logFiles reportType appName reportServerUri = do
     curTime <- liftIO getCurrentTime
     existingFiles <- filterM (liftIO . doesFileExist) logFiles
     when (null existingFiles && not (null logFiles)) $
         throwM $ CantRetrieveLogs logFiles
-    putText $ "Rawlogs size is: " <> show (length rawLogs)
-    withSystemTempFile "main.log" $ \tempFp tempHandle -> liftIO $ do
-        for_ rawLogs $ TIO.hPutStrLn tempHandle
-        hClose tempHandle
-        rq0 <- parseUrlThrow $ reportServerUri <//> "report"
-        let memlogFiles = bool [tempFp] [] (null rawLogs)
-        let memlogPart = map partFile' memlogFiles
-        let pathsPart = map partFile' existingFiles
-        let payloadPart =
-                Form.partLBS "payload"
-                (encode $ mkReportInfo curTime)
-        -- If performance will ever be a concern, moving to a global manager
-        -- should help a lot.
-        reportManager <- newManager tlsManagerSettings
 
-        -- Assemble the `Request` out of the Form data.
-        rq <- Form.formDataBody (payloadPart : (memlogPart ++ pathsPart)) rq0
+    rq0 <- parseUrlThrow $ reportServerUri <//> "report"
+    let pathsPart = map partFile' existingFiles
+    let payloadPart =
+            Form.partLBS "payload"
+            (encode $ mkReportInfo curTime)
+    -- If performance will ever be a concern, moving to a global manager
+    -- should help a lot.
+    reportManager <- liftIO $ newManager tlsManagerSettings
 
-        -- Actually perform the HTTP `Request`.
-        e  <- try $ httpLbs rq reportManager
-        whenLeft e $ \(e' :: SomeException) -> throwM $ SendingError e'
+    -- Assemble the `Request` out of the Form data.
+    rq <- Form.formDataBody (payloadPart : pathsPart) rq0
+
+    -- Actually perform the HTTP `Request`.
+    e  <- try $ liftIO $ httpLbs rq reportManager
+    whenLeft e $ \(e' :: SomeException) -> throwM $ SendingError e'
   where
     partFile' fp = Form.partFile (toFileName fp) fp
     toFileName = toText . takeFileName
@@ -125,6 +119,15 @@ sendReport logFiles rawLogs reportType appName reportServerUri = do
         , rDate = curTime
         , rReportType = reportType
         }
+
+-- | Creates a temp file from given text
+withTempLogFile :: (MonadIO m, MonadMask m) => Text -> (FilePath -> m a) -> m a
+withTempLogFile rawLogs action = do
+    withSystemTempFile "main.log" $ \tempFp tempHandle -> do
+        liftIO $ do
+            TIO.hPutStrLn tempHandle rawLogs
+            hClose tempHandle
+        action tempFp
 
 -- | Given logger config, retrieves all (logger name, filepath) for
 -- every logger that has file handle. Filepath inside does __not__
@@ -157,14 +160,23 @@ type MonadReporting ctx m =
 -- Common code across node sending: tries to send logs to at least one
 -- reporting server.
 sendReportNodeImpl
-    :: (MonadReporting ctx m)
-    => [Text] -> ReportType -> m ()
+    :: forall ctx m. (MonadReporting ctx m)
+    => Maybe Text -> ReportType -> m ()
 sendReportNodeImpl rawLogs reportType = do
     servers <- view (reportingContext . reportServers)
-    when (null servers) onNoServers
-    errors <- fmap lefts $ forM servers $ try .
-        sendReport [] rawLogs reportType "cardano-node" . toString
-    whenNotNull errors $ throwSE . NE.head
+    if null servers
+    then onNoServers
+    else do
+        let withPath :: ([FilePath] -> m ()) -> m ()
+            withPath =
+                maybe (\a -> a [])
+                      (\f cont -> withTempLogFile f $ \file -> cont [file])
+                      rawLogs
+        withPath $ \(logFile :: [FilePath]) -> do
+            errors <-
+                fmap lefts $ forM servers $
+                try . sendReport logFile reportType "cardano-node" . toString
+            whenNotNull errors $ throwSE . NE.head
   where
     onNoServers =
         logInfo $ "sendReportNodeImpl: not sending report " <>
@@ -191,7 +203,7 @@ sendReportNode reportType = do
             logContent <-
                 takeGlobalSize charsConst <$>
                 retrieveLogContent logFile (Just 5000)
-            sendReportNodeImpl (reverse logContent) reportType
+            sendReportNodeImpl (Just $ unlines $ reverse logContent) reportType
   where
     -- 2 megabytes, assuming we use chars which are ASCII mostly
     charsConst :: Int
@@ -208,7 +220,7 @@ sendReportNode reportType = do
 
 -- | Same as 'sendReportNode', but doesn't attach any logs.
 sendReportNodeNologs :: (MonadReporting ctx m) => ReportType -> m ()
-sendReportNodeNologs = sendReportNodeImpl []
+sendReportNodeNologs = sendReportNodeImpl Nothing
 
 -- Note that we are catching all synchronous exceptions, but don't
 -- catch async ones. If reporting is broken, we don't want it to

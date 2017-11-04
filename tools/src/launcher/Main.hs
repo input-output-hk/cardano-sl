@@ -487,7 +487,8 @@ reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
     let ec = case exitCode of
             ExitSuccess   -> 0
             ExitFailure n -> n
-    sendReport (normalise logPath:logFiles) [] (RCrash ec) "cardano-node" reportServ
+    -- TODO CSL-1732 Compress with tgz
+    sendReport (normalise logPath:logFiles) (RCrash ec) "cardano-node" reportServ
 
 -- Taken from the 'turtle' library and modified
 system'

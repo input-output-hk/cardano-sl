@@ -14866,6 +14866,54 @@ mainnet_dryrun_wallet_macos64: &mainnet_dryrun_wallet_macos64
 
 ##############################################################################
 ##                                                                          ##
+##   Mainnet staging with short epoch                                       ##
+##                                                                          ##
+##############################################################################
+
+mainnet_staging_short_epoch_full: &mainnet_staging_short_epoch_full
+  <<: *mainnet_base
+  core:
+    <<: *mainnet_base_core
+    genesis:
+      src:
+        file: mainnet-staging-short-epoch-genesis.json
+        hash: f73231256fe6784c408e8a31b7bb8250f80ce64fdbdec137ad1da2faa257a166
+  update:
+    <<:
+    applicationName: cardano-sl
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
+    systemTag: none
+
+mainnet_staging_short_epoch_wallet_win64:
+  <<: *mainnet_staging_short_epoch_full
+  update:
+    <<:
+    applicationName: csl-daedalus
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
+    systemTag: win64
+
+mainnet_staging_short_epoch_wallet_macos64:
+  <<: *mainnet_staging_short_epoch_full
+  update:
+    <<:
+    applicationName: csl-daedalus
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
+    systemTag: macos64
+
+##############################################################################
+##                                                                          ##
 ##   Configs for mainnet launch tooling                                     ##
 ##                                                                          ##
 ##############################################################################

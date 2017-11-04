@@ -19,6 +19,7 @@ import           System.Wlog            (Severity (Debug), WithLogger, consoleOu
 import qualified Text.JSON.Canonical    as CanonicalJSON
 
 import           Pos.Binary             (asBinary, serialize')
+import qualified Pos.Client.CLI         as CLI
 import           Pos.Core               (CoreConfiguration (..),
                                          GenesisConfiguration (..),
                                          GenesisInitializer (..), addressHash, ccGenesis,
@@ -162,3 +163,4 @@ main = do
             ReadKey path            -> readKey path
             DumpAvvmSeeds opts      -> dumpAvvmSeeds opts
             GenerateKeysBySpec gkbg -> generateKeysByGenesis gkbg
+            DumpGenesisData {..}    -> CLI.dumpGenesisData dgdCanonical dgdPath

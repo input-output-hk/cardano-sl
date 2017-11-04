@@ -42,7 +42,7 @@ import           Pos.Util.TimeLimit               (CanLogInParallel, logWarningW
 import           Pos.Wallet.Web.Account           (AccountMode, getSKById)
 import           Pos.Wallet.Web.ClientTypes       (CId, Wal)
 import qualified Pos.Wallet.Web.State             as WS
-import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..))
+import           Pos.Wallet.Web.Tracking.Modifier (WalletModifier (..))
 import           Pos.Wallet.Web.Tracking.Sync     (applyModifierToWallet,
                                                    rollbackModifierFromWallet,
                                                    trackingApplyTxs, trackingRollbackTxs)
@@ -186,7 +186,7 @@ logMsg
     => Text
     -> NonEmpty Blund
     -> CId Wal
-    -> CAccModifier
+    -> WalletModifier
     -> m ()
 logMsg action (NE.length -> bNums) wid accModifier =
     logInfoS $

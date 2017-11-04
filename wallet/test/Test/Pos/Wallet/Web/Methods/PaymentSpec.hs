@@ -58,7 +58,7 @@ oneNewPaymentSpec = walletPropertySpec oneNewPaymentDesc $ do
     srcAccId <- lift $ decodeCTypeOrFail (caId srcAccount)
 
     srcAddr <- getAddress srcAccId
-    -- Dunno how to get account's balances without CAccModifier
+    -- Dunno how to get account's balances without WalletModifier
     initBalance <- getBalance srcAddr
     -- `div` 2 to leave money for tx fee
     coins <- pick $ mkCoin <$> choose (1, unsafeGetCoin initBalance `div` 2)

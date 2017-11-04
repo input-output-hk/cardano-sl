@@ -5,8 +5,8 @@
 -- | Wallet info modifier
 
 module Pos.Wallet.Web.Tracking.Modifier
-       ( CAccModifier (..)
-       , CachedCAccModifier
+       ( WalletModifier (..)
+       , CachedWalletModifier
 
        , VoidModifier
        , deleteAndInsertVM
@@ -57,24 +57,24 @@ instance (Eq a, Hashable a) => Monoid (IndexedMapModifier a) where
     IndexedMapModifier m1 c1 `mappend` IndexedMapModifier m2 c2 =
         IndexedMapModifier (m1 <> fmap (+ c1) m2) (c1 + c2)
 
-data CAccModifier = CAccModifier
-    { camAddresses            :: !(IndexedMapModifier CWAddressMeta)
-    , camUsed                 :: !(VoidModifier (CId Addr, HeaderHash))
-    , camChange               :: !(VoidModifier (CId Addr, HeaderHash))
-    , camUtxo                 :: !UtxoModifier
-    , camAddedHistory         :: !(DList TxHistoryEntry)
-    , camDeletedHistory       :: !(DList TxHistoryEntry)
-    , camAddedPtxCandidates   :: !(DList (TxId, PtxBlockInfo))
-    , camDeletedPtxCandidates :: !(DList (TxId, TxHistoryEntry))
+data WalletModifier = WalletModifier
+    { wmAddresses            :: !(IndexedMapModifier CWAddressMeta)
+    , wmUsed                 :: !(VoidModifier (CId Addr, HeaderHash))
+    , wmChange               :: !(VoidModifier (CId Addr, HeaderHash))
+    , wmUtxo                 :: !UtxoModifier
+    , wmAddedHistory         :: !(DList TxHistoryEntry)
+    , wmDeletedHistory       :: !(DList TxHistoryEntry)
+    , wmAddedPtxCandidates   :: !(DList (TxId, PtxBlockInfo))
+    , wmDeletedPtxCandidates :: !(DList (TxId, TxHistoryEntry))
     }
 
-instance Monoid CAccModifier where
-    mempty = CAccModifier mempty mempty mempty mempty mempty mempty mempty mempty
-    (CAccModifier a b c d ah dh aptx dptx) `mappend` (CAccModifier a1 b1 c1 d1 ah1 dh1 aptx1 dptx1) =
-        CAccModifier (a <> a1) (b <> b1) (c <> c1) (d <> d1) (ah1 <> ah) (dh <> dh1) (aptx <> aptx1) (dptx <> dptx1)
+instance Monoid WalletModifier where
+    mempty = WalletModifier mempty mempty mempty mempty mempty mempty mempty mempty
+    (WalletModifier a b c d ah dh aptx dptx) `mappend` (WalletModifier a1 b1 c1 d1 ah1 dh1 aptx1 dptx1) =
+        WalletModifier (a <> a1) (b <> b1) (c <> c1) (d <> d1) (ah1 <> ah) (dh <> dh1) (aptx <> aptx1) (dptx <> dptx1)
 
-instance Buildable CAccModifier where
-    build CAccModifier{..} =
+instance Buildable WalletModifier where
+    build WalletModifier{..} =
         bprint
             ( "\n    added addresses: "%listJsonIndent 8
             %",\n    deleted addresses: "%listJsonIndent 8
@@ -85,19 +85,19 @@ instance Buildable CAccModifier where
             %",\n    deleted history entries: "%listJsonIndent 8
             %",\n    added pending candidates: "%listJson
             %",\n    deleted pending candidates: "%listJson)
-        (sortedInsertions camAddresses)
-        (indexedDeletions camAddresses)
-        (map (fst . fst) $ MM.insertions camUsed)
-        (map (fst . fst) $ MM.insertions camChange)
-        camUtxo
-        camAddedHistory
-        camDeletedHistory
-        (map fst camAddedPtxCandidates)
-        (map fst camDeletedPtxCandidates)
+        (sortedInsertions wmAddresses)
+        (indexedDeletions wmAddresses)
+        (map (fst . fst) $ MM.insertions wmUsed)
+        (map (fst . fst) $ MM.insertions wmChange)
+        wmUtxo
+        wmAddedHistory
+        wmDeletedHistory
+        (map fst wmAddedPtxCandidates)
+        (map fst wmDeletedPtxCandidates)
 
 -- | `txMempoolToModifier`, once evaluated, is passed around under this type in
 -- scope of single request.
-type CachedCAccModifier = CAccModifier
+type CachedWalletModifier = WalletModifier
 
 ----------------------------------------------------------------------------
 -- Funcs

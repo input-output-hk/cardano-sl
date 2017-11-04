@@ -68,8 +68,8 @@ import           Pos.Wallet.Web.State       (AddressLookupMode (Existing),
                                              removeHistoryCache, removeTxMetas,
                                              removeWallet, setAccountMeta, setWalletMeta,
                                              setWalletPassLU, setWalletReady)
-import           Pos.Wallet.Web.Tracking    (BlockLockMode, CAccModifier (..),
-                                             CachedCAccModifier, fixCachedAccModifierFor,
+import           Pos.Wallet.Web.Tracking    (BlockLockMode, CachedWalletModifier,
+                                             WalletModifier (..), fixCachedAccModifierFor,
                                              fixingCachedAccModifier, sortedInsertions)
 import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
                                              getWalletAccountIds)
@@ -110,7 +110,7 @@ sumCCoin ccoins = mkCCoin . unsafeIntegerToCoin . sumCoins <$> mapM decodeCTypeO
 -- BE CAREFUL: this function has complexity O(number of used and change addresses)
 getWAddress
     :: MonadWalletLogicRead ctx m
-    => CachedCAccModifier -> CWAddressMeta -> m CAddress
+    => CachedWalletModifier -> CWAddressMeta -> m CAddress
 getWAddress cachedAccModifier cAddr = do
     let aId = cwamId cAddr
     balance <- getWAddressBalance cAddr
@@ -120,14 +120,14 @@ getWAddress cachedAccModifier cAddr = do
             let checkMempool = elem aId . map (fst . fst) . toList $
                                MM.insertions $ accessMod cachedAccModifier
             return (checkDB || checkMempool)
-    isUsed   <- getFlag UsedAddr camUsed
-    isChange <- getFlag ChangeAddr camChange
+    isUsed   <- getFlag UsedAddr wmUsed
+    isChange <- getFlag ChangeAddr wmChange
     return $ CAddress aId (encodeCType balance) isUsed isChange
 
-getAccount :: MonadWalletLogicRead ctx m => CachedCAccModifier -> AccountId -> m CAccount
+getAccount :: MonadWalletLogicRead ctx m => CachedWalletModifier -> AccountId -> m CAccount
 getAccount accMod accId = do
     dbAddrs    <- getAccountAddrsOrThrow Existing accId
-    let allAddrIds = gatherAddresses (camAddresses accMod) dbAddrs
+    let allAddrIds = gatherAddresses (wmAddresses accMod) dbAddrs
     allAddrs <- mapM (getWAddress accMod) allAddrIds
     balance <- sumCCoin (map cadAmount allAddrs)
     meta <- getAccountMeta accId >>= maybeThrow noAccount

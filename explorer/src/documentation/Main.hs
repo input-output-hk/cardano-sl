@@ -129,7 +129,8 @@ swaggerSpecForExplorerApi = toSwagger A.explorerApi
     & txsLast           . description ?~ D.txsLastDescription
     & txsSummary        . description ?~ D.txsSummaryDescription
     & addressSummary    . description ?~ D.addressSummaryDescription
-    & epochSlotSearch   . description ?~ D.epochSlotSearchDescription
+    & epochPages        . description ?~ D.epochPagesDescription
+    & epochSlots        . description ?~ D.epochSlotsDescription
   where
     -- | SubOperations for all endpoints in 'explorerApi'.
     -- We need it to fill description sections in produced HTML-documentation.
@@ -140,4 +141,5 @@ swaggerSpecForExplorerApi = toSwagger A.explorerApi
     txsLast             = subOperations (Proxy @A.TxsLast) A.explorerApi :: Op
     txsSummary          = subOperations (Proxy @A.TxsSummary) A.explorerApi :: Op
     addressSummary      = subOperations (Proxy @A.AddressSummary) A.explorerApi :: Op
-    epochSlotSearch     = subOperations (Proxy @A.EpochSlotSearch) A.explorerApi :: Op
+    epochPages          = subOperations (Proxy @A.EpochPages) A.explorerApi :: Op
+    epochSlots          = subOperations (Proxy @A.EpochSlots) A.explorerApi :: Op

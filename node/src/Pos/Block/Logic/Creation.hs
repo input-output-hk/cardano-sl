@@ -159,7 +159,7 @@ createGenesisBlockDo epoch tip = do
     actuallyCreate tipHeader = do
         lrcSingleShot epoch
         leaders <- lrcActionOnEpochReason epoch "createGenesisBlockDo "
-            LrcDB.getLeaders
+            LrcDB.getLeadersForEpoch
         let blk = mkGenesisBlock (Just tipHeader) epoch leaders
         let newTip = headerHash blk
         verifyBlocksPrefix (one (Left blk)) >>= \case

@@ -36,8 +36,9 @@ import qualified Pos.GState               as GS
 import           Pos.Lrc.Consumer         (LrcConsumer (..))
 import           Pos.Lrc.Consumers        (allLrcConsumers)
 import           Pos.Lrc.Context          (LrcContext (lcLrcSync), LrcSyncData (..))
-import           Pos.Lrc.DB               (IssuersStakes, getLeaders, getSeed, putEpoch,
-                                           putIssuersStakes, putLeaders, putSeed)
+import           Pos.Lrc.DB               (IssuersStakes, getSeed, putEpoch,
+                                           putIssuersStakes, putSeed)
+import qualified Pos.Lrc.DB               as LrcDB (hasLeaders, putLeadersForEpoch)
 import           Pos.Lrc.Error            (LrcError (..))
 import           Pos.Lrc.Fts              (followTheSatoshiM)
 import           Pos.Lrc.Logic            (findAllRichmenMaybe)
@@ -82,7 +83,7 @@ lrcSingleShot epoch = do
             logWarningWaitLinear 5 "determining whether LRC is needed" $ do
                 expectedRichmenComp <-
                     filterM (flip lcIfNeedCompute epoch) consumers
-                needComputeLeaders <- isNothing <$> getLeaders epoch
+                needComputeLeaders <- not <$> LrcDB.hasLeaders epoch
                 let needComputeRichmen = not . null $ expectedRichmenComp
                 when needComputeLeaders $ logInfo "Need to compute leaders"
                 when needComputeRichmen $ logInfo "Need to compute richmen"
@@ -189,10 +190,10 @@ issuersComputationDo epochId = do
 
 leadersComputationDo :: LrcMode ssc ctx m => EpochIndex -> SharedSeed -> m ()
 leadersComputationDo epochId seed =
-    unlessM (isJust <$> getLeaders epochId) $ do
+    unlessM (LrcDB.hasLeaders epochId) $ do
         totalStake <- GS.getRealTotalStake
         leaders <- runConduitRes $ GS.stakeSource .| followTheSatoshiM seed totalStake
-        putLeaders epochId leaders
+        LrcDB.putLeadersForEpoch epochId leaders
 
 richmenComputationDo
     :: forall ssc ctx m.

@@ -40,9 +40,8 @@
 
   &__epoch {
     lost-column: 3/12;
-    /* [CSE-236] Disable epoch search */
-    /*button: standard-button;
-    button-color: var(--color8) var(--color5) var(--color5);*/
+    button: standard-button;
+    button-color: var(--color8) var(--color5) var(--color5);
   }
   &__slot {
     lost-column: 3/12;

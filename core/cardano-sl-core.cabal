@@ -104,6 +104,7 @@ library
                        Pos.Binary.Core.Ssc
                        Pos.Binary.Core.Txp
                        Pos.Binary.Core.Types
+                       Pos.Binary.Core.Update
                        Pos.Binary.Core.Version
                        Pos.Binary.Core.Genesis
 

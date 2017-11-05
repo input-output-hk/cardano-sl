@@ -26,8 +26,7 @@ import           Pos.Block.Logic           (applyBlocksUnsafe)
 import           Pos.Block.Slog            (ShouldCallBListener (..))
 import           Pos.Core                  (Coin, EpochIndex, GenesisData (..),
                                             GenesisInitializer (..), StakeholderId,
-                                            TestnetBalanceOptions (..),
-                                            TestnetDistribution (..), addressHash,
+                                            TestnetBalanceOptions (..), addressHash,
                                             blkSecurityParam, coinF, genesisData,
                                             genesisSecretKeysPoor, genesisSecretKeysRich)
 import           Pos.Crypto                (SecretKey, toPublic)
@@ -77,10 +76,9 @@ genGenesisInitializer :: Gen GenesisInitializer
 genGenesisInitializer = do
     tiTestBalance <- genTestnetBalanceOptions
     tiFakeAvvmBalance <- arbitrary
-    -- It's important to use 'TestnetRichmenStakeDistr' because later
-    -- we assert that all richmen according to 'TestnetBalanceOptions'
-    -- are indeed richmen according to LRC.
-    let tiDistribution = TestnetRichmenStakeDistr
+    tiAvvmBalanceFactor <- arbitrary
+    -- Currently these tests don't work well with genesis delegation.
+    let tiUseHeavyDlg = False
     tiSeed <- arbitrary
     return TestnetInitializer {..}
   where

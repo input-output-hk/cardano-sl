@@ -46,14 +46,15 @@ allWorkers NodeResources {..} = mconcatPair
     , wrap' "us"         $ usWorkers
 
       -- Have custom loggers
-    , wrap' "block"      $ blkWorkers
+    , wrap' "block"      $ blkWorkers ncSubscriptionKeepAliveTimer
     , wrap' "txp"        $ txpWorkers
     , wrap' "delegation" $ dlgWorkers
     , wrap' "slotting"   $ (properSlottingWorkers, mempty)
 
     , wrap' "subscription" $ case topologySubscriptionWorker (ncTopology ncNetworkConfig) of
         Just (SubscriptionWorkerBehindNAT dnsDomains) ->
-          subscriptionWorker (dnsSubscriptionWorker ncNetworkConfig dnsDomains)
+          subscriptionWorker (dnsSubscriptionWorker ncNetworkConfig dnsDomains
+                                                    ncSubscriptionKeepAliveTimer)
         Just (SubscriptionWorkerKademlia kinst nodeType valency fallbacks) ->
           subscriptionWorker (dhtSubscriptionWorker kinst nodeType valency fallbacks)
         Nothing ->

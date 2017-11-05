@@ -51,7 +51,7 @@ action
     => SimpleNodeArgs
     -> Production ()
 action (SimpleNodeArgs (cArgs@CommonNodeArgs {..}) (nArgs@NodeArgs {..})) = do
-    whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData
+    whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData True
     logInfo $ sformat ("System start time is " % shown) $ gdStartTime genesisData
     t <- currentTime
     logInfo $ sformat ("Current time is " % shown) (Timestamp t)

@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies #-}
+
 -- | Types related to genesis core data.
 
 module Pos.Core.Genesis.Types
@@ -10,7 +12,6 @@ module Pos.Core.Genesis.Types
          -- * GenesisSpec
        , TestnetBalanceOptions (..)
        , FakeAvvmOptions (..)
-       , TestnetDistribution (..)
        , GenesisInitializer (..)
        , GenesisAvvmBalances (..)
        , GenesisNonAvvmBalances (..)
@@ -34,8 +35,10 @@ import           Formatting               (bprint, build, fixed, int, (%))
 import           Serokell.Util            (allDistinct, mapJson)
 
 import           Pos.Binary.Crypto        ()
-import           Pos.Core.Types           (Address, BlockVersionData, Coin, ProxySKHeavy,
-                                           SharedSeed, StakeholderId, Timestamp)
+import           Pos.Core.Coin            ()
+import           Pos.Core.Types           (Address, BlockVersionData, Coin, CoinPortion,
+                                           ProxySKHeavy, SharedSeed, StakeholderId,
+                                           Timestamp)
 import           Pos.Core.Vss.Types       (VssCertificatesMap, getVssCertificatesMap)
 import           Pos.Crypto.Signing.Types (RedeemPublicKey)
 
@@ -73,7 +76,9 @@ instance Buildable GenesisVssCertificatesMap where
 --    It's not needed in genesis, it can always be reduced.
 newtype GenesisDelegation = UnsafeGenesisDelegation
     { unGenesisDelegation :: HashMap StakeholderId ProxySKHeavy
-    } deriving (Show, Eq)
+    } deriving (Show, Eq, Container, NontrivialContainer)
+
+type instance Element GenesisDelegation = ProxySKHeavy
 
 -- | Empty 'GenesisDelegation'.
 noGenesisDelegation :: GenesisDelegation
@@ -122,30 +127,18 @@ data FakeAvvmOptions = FakeAvvmOptions
 instance Buildable FakeAvvmOptions where
     build = genericF
 
--- | This data type determines how to generate bootstrap stakeholders
--- in testnet.
-data TestnetDistribution
-    = TestnetRichmenStakeDistr
-    -- ^ Rich nodes will be bootstrap stakeholders with equal weights.
-    | TestnetCustomStakeDistr
-    { tcsdBootStakeholders :: !GenesisWStakeholders
-    -- ^ Bootstrap stakeholders and their weights are provided explicitly.
-    , tcsdVssCerts         :: !GenesisVssCertificatesMap
-    -- ^ Vss certificates are provided explicitly too, because they
-    -- can't be generated automatically in this case.
-    } deriving (Show, Generic)
-
-instance Buildable TestnetDistribution where
-    build = genericF
-
 -- | This data type contains various options presense of which depends
 -- on whether we want genesis for mainnet or testnet.
 data GenesisInitializer
     = TestnetInitializer {
-      tiTestBalance     :: !TestnetBalanceOptions
-    , tiFakeAvvmBalance :: !FakeAvvmOptions
-    , tiDistribution    :: !TestnetDistribution
-    , tiSeed            :: !Integer
+      tiTestBalance       :: !TestnetBalanceOptions
+    , tiFakeAvvmBalance   :: !FakeAvvmOptions
+    , tiAvvmBalanceFactor :: !CoinPortion
+    -- ^ Avvm balances will be multiplied by this factor.
+    , tiUseHeavyDlg       :: !Bool
+    -- ^ Whether to use heavyweight delegation for bootstrap era
+    -- stakeholders.
+    , tiSeed              :: !Integer
       -- ^ Seed to use to generate secret data. It's used only in
       -- testnet, shouldn't be used for anything important.
     }
@@ -165,14 +158,16 @@ instance (Hashable Address, Buildable Address) =>
                     ("TestnetInitializer {\n"%
                      "  "%build%"\n"%
                      "  "%build%"\n"%
-                     "  "%build%"\n"%
+                     "  avvm balance factor: "%build%"\n"%
+                     "  heavyDlg: "%build%"\n"%
                      "  seed: "%int%"\n"%
                      "}\n"
                     )
 
                     tiTestBalance
                     tiFakeAvvmBalance
-                    tiDistribution
+                    tiAvvmBalanceFactor
+                    tiUseHeavyDlg
                     tiSeed
             MainnetInitializer {..} ->
                 bprint
@@ -226,7 +221,9 @@ data GenesisSpec = UnsafeGenesisSpec
     , gsFtsSeed           :: !SharedSeed
     -- ^ Seed for FTS for 0-th epoch.
     , gsHeavyDelegation   :: !GenesisDelegation
-    -- ^ Genesis state of heavyweight delegation.
+    -- ^ Genesis state of heavyweight delegation. Will be concatenated
+    -- with genesis delegation for bootstrap stakeholders if
+    -- 'tiUseHeavyDlg' is 'True'.
     , gsBlockVersionData  :: !BlockVersionData
     -- ^ Genesis 'BlockVersionData'.
     , gsProtocolConstants :: !ProtocolConstants

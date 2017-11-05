@@ -1,4 +1,4 @@
-module Bench.Pos.Criterion.TxSigningBench
+module Bench.Pos.Criterion.TxSigning
        ( runBenchmark
        ) where
 

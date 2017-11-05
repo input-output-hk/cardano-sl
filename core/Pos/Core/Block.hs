@@ -98,6 +98,7 @@ class Blockchain p => BlockchainHelpers p where
     -- all checks which can be done without any extra data.
     verifyBBlock :: MonadError Text m => GenericBlock p -> m ()
 
+
 ----------------------------------------------------------------------------
 -- Generic types
 ----------------------------------------------------------------------------

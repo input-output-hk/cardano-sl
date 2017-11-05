@@ -67,7 +67,8 @@ executable wallet-new-server
                        Cardano.Wallet.API.V1.Handlers.Updates
                        Cardano.Wallet.API.V1.Swagger
                        Cardano.Wallet.Server
-                       Cardano.Wallet.CLI
+                       Cardano.Wallet.Server.CLI
+                       Cardano.Wallet.Server.Plugins
   build-depends:       base
                      , QuickCheck
                      , aeson
@@ -75,6 +76,10 @@ executable wallet-new-server
                      , bytestring
                      , cardano-sl-wallet-new
                      , cardano-sl-wallet
+                     , cardano-sl
+                     , cardano-sl-core
+                     , cardano-sl-infra
+                     , cardano-sl-ssc
                      , containers
                      , http-api-data
                      , http-types
@@ -93,12 +98,14 @@ executable wallet-new-server
                      , wai
                      , wai-extra
                      , wai-cors
-                     , cardano-sl
-                     , cardano-sl-core
+                     , formatting
+                     , time-units
                      , mtl
                      , node-sketch
                      , exceptions
                      , optparse-applicative
+                     , log-warper
+                     , stm
   default-language:    Haskell2010
   default-extensions: TypeOperators
                       DataKinds

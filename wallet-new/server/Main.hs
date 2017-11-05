@@ -12,29 +12,47 @@ import qualified Control.Monad.Catch                  as Catch
 import           Control.Monad.Reader                 (MonadReader, ReaderT (..))
 import           Data.Aeson.Encode.Pretty             (encodePretty)
 import qualified Data.ByteString.Lazy.Char8           as BL8
-import           Data.Function                        ((&))
-import           Data.String                          (fromString)
-import           Mockable                             (Production (..))
+import           Data.Maybe                           (fromJust)
+import           Formatting                           (sformat, shown, (%))
+import           Mockable                             (Production (..), currentTime,
+                                                       runProduction)
 import           Network.Wai                          (Middleware)
-import qualified Network.Wai.Handler.Warp             as Warp
 import           Network.Wai.Middleware.Cors          (cors, corsMethods,
                                                        corsRequestHeaders,
                                                        simpleCorsResourcePolicy,
                                                        simpleMethods)
 import           Network.Wai.Middleware.RequestLogger (logStdout)
-import           Pos.Launcher                         (withConfigurations)
+import           Pos.Communication                    (ActionSpec (..))
+import           Pos.Core                             (Timestamp (..), gdStartTime,
+                                                       genesisData)
+import           Pos.DB.DB                            (initNodeDBs)
+import           Pos.Launcher                         (NodeParams (..),
+                                                       NodeResources (..),
+                                                       bracketNodeResources, runNode,
+                                                       withConfigurations)
 import           Pos.Launcher.Configuration           (ConfigurationOptions,
-                                                       defaultConfigurationOptions)
+                                                       HasConfigurations)
+import           Pos.Ssc.Types                        (SscParams)
+import           Pos.Txp                              (txpGlobalSettings)
 import           Pos.Util.CompileInfo                 (HasCompileInfo,
                                                        retrieveCompileTimeInfo,
                                                        withCompileInfo)
+import           Pos.Util.UserSecret                  (usVss)
+import           Pos.Wallet.Web                       (bracketWalletWS,
+                                                       bracketWalletWebDB, getSKById,
+                                                       getWalletAddresses, runWRealMode,
+                                                       syncWalletsWithGState)
+import           Pos.Wallet.Web.Mode                  (WalletWebMode)
+import           Pos.Wallet.Web.State                 (flushWalletStorage)
 import           Servant
+import           System.Wlog                          (logInfo)
 
-import qualified Cardano.Wallet.API                   as API
 import qualified Cardano.Wallet.API.V1.Swagger        as Swagger
-import           Cardano.Wallet.CLI                   (WalletStartupOptions (..),
+import           Cardano.Wallet.Server.CLI            (WalletBackendParams (..),
+                                                       WalletDBOptions (..),
+                                                       WalletStartupOptions (..),
                                                        getWalletNodeOptions)
-import qualified Cardano.Wallet.Server                as Server
+import qualified Cardano.Wallet.Server.Plugins        as Plugins
 import qualified Pos.Client.CLI                       as CLI
 
 
@@ -67,19 +85,80 @@ toServantHandler ctx handler =
 
     excHandlers = [Catch.Handler throwError]
 
--- | Run the Wallet server at the provided host and port.
-runWalletServer :: HasCompileInfo  => WalletStartupOptions -> Production ()
-runWalletServer WalletStartupOptions{..} = do
-  withConfigurations conf $ do
-    let app = serve API.walletAPI Server.walletServer
-    let middleware = corsMiddleware . logStdout
-    liftIO $ Warp.runSettings warpSettings (middleware app)
+{-
+   Most of the code below has been copied & adapted from wallet/node/Main.hs as a path
+   of least resistance to make the wallet-new prototype independent (to an extend)
+   from breaking changes to the current wallet.
+-}
+
+-- | The "workhorse" responsible for starting a Cardano edge node plus a number of extra plugins.
+actionWithWallet :: (HasConfigurations, HasCompileInfo)
+                 => SscParams
+                 -> NodeParams
+                 -> WalletBackendParams
+                 -> Production ()
+actionWithWallet sscParams nodeParams wArgs@WalletBackendParams {..} =
+    bracketWalletWebDB (walletDbPath walletDbOptions) (walletRebuildDb walletDbOptions) $ \db ->
+        bracketWalletWS $ \conn ->
+            bracketNodeResources nodeParams sscParams
+                txpGlobalSettings
+                initNodeDBs $ \nr@NodeResources {..} ->
+                runWRealMode db conn nr (mainAction nr)
   where
-    warpSettings = Warp.defaultSettings & Warp.setHost "127.0.0.1"
-                                        & Warp.setPort 8090
+    mainAction = runNodeWithInit $ do
+        when (walletFlushDb walletDbOptions) $ do
+            logInfo "Flushing wallet db..."
+            flushWalletStorage
+            logInfo "Resyncing wallets with blockchain..."
+            syncWallets
+
+    runNodeWithInit init nr =
+        let (ActionSpec f, outs) = runNode nr plugins
+         in (ActionSpec $ \v s -> init >> f v s, outs)
+
+    syncWallets :: WalletWebMode ()
+    syncWallets = do
+        sks <- getWalletAddresses >>= mapM getSKById
+        syncWalletsWithGState sks
+
+    plugins :: HasConfigurations => Plugins.Plugin WalletWebMode
+    plugins = mconcat [ Plugins.conversation wArgs
+                      , Plugins.walletBackend wArgs
+                      , Plugins.acidCleanupWorker wArgs
+                      ]
+
+-- | Runs an edge node plus its wallet backend API.
+startEdgeNode :: HasCompileInfo
+              => WalletStartupOptions
+              -> Production ()
+startEdgeNode WalletStartupOptions{..} = do
+  withConfigurations conf $ do
+    (sscParams, nodeParams) <- getParameters
+    actionWithWallet sscParams nodeParams wsoWalletBackendParams
+  where
+    getParameters :: HasConfigurations => Production (SscParams, NodeParams)
+    getParameters = do
+
+      whenJust (CLI.cnaDumpGenesisDataPath wsoNodeArgs) $ CLI.dumpGenesisData
+      t <- currentTime
+      currentParams <- CLI.getNodeParams wsoNodeArgs nodeArgs
+      let vssSK = fromJust $ npUserSecret currentParams ^. usVss
+      let gtParams = CLI.gtSscParams wsoNodeArgs vssSK (npBehaviorConfig currentParams)
+
+      mapM_ logInfo [
+            sformat ("System start time is " % shown) $ gdStartTime genesisData
+          , sformat ("Current time is " % shown) (Timestamp t)
+          , "Wallet is enabled!"
+          , sformat ("Using configs and genesis:\n"%shown) conf
+          ]
+
+      return (gtParams, currentParams)
 
     conf :: ConfigurationOptions
     conf = CLI.configurationOptions $ CLI.commonArgs wsoNodeArgs
+
+    nodeArgs :: CLI.NodeArgs
+    nodeArgs = CLI.NodeArgs { CLI.behaviorConfigPath = Nothing }
 
 corsMiddleware :: Middleware
 corsMiddleware = cors (const $ Just policy)
@@ -103,4 +182,7 @@ main = withCompileInfo $(retrieveCompileTimeInfo) $ do
   cfg <- getWalletNodeOptions
   putText "Wallet is starting.."
   generateSwaggerDocumentation
-  runProduction $ runWalletServer cfg
+  runProduction $ do
+      CLI.printFlags
+      logInfo "[Attention] Software is built with the wallet backend"
+      startEdgeNode cfg

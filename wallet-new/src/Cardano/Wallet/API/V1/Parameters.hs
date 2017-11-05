@@ -1,36 +1,45 @@
 {-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeApplications      #-}
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE UndecidableInstances  #-}
 {-# OPTIONS_GHC -fno-warn-orphans  #-}
 module Cardano.Wallet.API.V1.Parameters where
 
 import           Universum
 
+import           Cardano.Wallet.API.Types    (AlternativeApiArg, DQueryParam,
+                                              WithDefaultApiArg, inRouteServer)
 import           Cardano.Wallet.API.V1.Types
 
 import           Data.Text                   (Text)
 import           Servant
 
-type WalletRequestParams =
-       QueryParam "page"     Page
-    :> QueryParam "per_page" PerPage
-    :> QueryParam "extended" Bool
-    :> Header "Daedalus-Response-Format" Text
+-- | A special parameter which combines `response_type` query argument and
+-- `Daedalus-Response-Format` header (which have the same meaning) in one API argument.
+type ResponseTypeParam = WithDefaultApiArg
+    (AlternativeApiArg (QueryParam "response_type") (Header "Daedalus-Response-Format"))
+    ResponseType
 
-type family WithWalletRequestParams c :: * where
-  WithWalletRequestParams c =  QueryParam "page"     Page
-                            :> QueryParam "per_page" PerPage
-                            :> QueryParam "extended" Bool
-                            :> Header "Daedalus-Response-Format" Text
-                            :> c
+-- | Unpacked pagination parameters.
+type WithWalletRequestParams c =
+       DQueryParam "page"     Page
+    :> DQueryParam "per_page" PerPage
+    :> ResponseTypeParam
+    :> c
 
--- | Instance of `HasServer` which erases the `Tags` from its routing,
--- as the latter is needed only for Swagger.
-instance (HasServer subApi context) => HasServer (WalletRequestParams :> subApi) context where
-  type ServerT (WalletRequestParams :> subApi) m =
-      Maybe Page -> Maybe PerPage -> Maybe Bool -> Maybe Text -> ServerT subApi m
-  route _ = route (Proxy :: Proxy (WithWalletRequestParams subApi))
+-- | Stub datatype which is used as special API argument specifier for
+-- grouped pagination parameters.
+data WalletRequestParams
+
+instance HasServer (WithWalletRequestParams subApi) ctx =>
+         HasServer (WalletRequestParams :> subApi) ctx where
+    type ServerT (WalletRequestParams :> subApi) m =
+        PaginationParams -> ServerT subApi m
+    route =
+        inRouteServer @(WithWalletRequestParams subApi) route $
+        \f ppPage ppPerPage ppResponseType -> f $ PaginationParams {..}

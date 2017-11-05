@@ -30,6 +30,8 @@ library
                      , QuickCheck
                      , aeson
                      , containers
+                     , data-default
+                     , formatting
                      , http-api-data
                      , http-client
                      , http-types
@@ -39,6 +41,7 @@ library
                      , servant-client
                      , servant-server
                      , text
+                     , text-format
                      , transformers
                      , universum
                      , serokell-util
@@ -81,6 +84,8 @@ executable wallet-new-server
                      , cardano-sl-infra
                      , cardano-sl-ssc
                      , containers
+                     , data-default
+                     , formatting
                      , http-api-data
                      , http-types
                      , lens
@@ -93,6 +98,7 @@ executable wallet-new-server
                      , string-conv
                      , swagger2
                      , text
+                     , text-format
                      , universum
                      , warp
                      , wai
@@ -131,6 +137,8 @@ test-suite wallet-new-specs
                   , aeson-pretty
                   , cardano-sl-wallet-new
                   , containers
+                  , data-default
+                  , formatting
                   , hspec
                   , http-client
                   , http-types

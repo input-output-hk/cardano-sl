@@ -57,44 +57,45 @@ module Pos.DB.Block
 
 import           Universum
 
-import           Control.Lens            (at, _Wrapped)
-import           Data.ByteArray          (convert)
-import qualified Data.ByteString         as BS (hPut, readFile)
-import           Data.Default            (Default (def))
-import           Ether.Internal          (HasLens (..))
-import           Formatting              (build, formatToString, sformat, (%))
-import           System.Directory        (createDirectoryIfMissing, removeFile)
-import           System.FilePath         ((</>))
-import           System.IO               (IOMode (WriteMode), hClose, hFlush,
-                                          openBinaryFile)
-import           System.IO.Error         (isDoesNotExistError)
+import           Control.Lens           (at, _Wrapped)
+import           Data.ByteArray         (convert)
+import qualified Data.ByteString        as BS (hPut, readFile)
+import           Data.Default           (Default (def))
+import           Ether.Internal         (HasLens (..))
+import           Formatting             (build, formatToString, sformat, (%))
+import           System.Directory       (createDirectoryIfMissing, removeFile)
+import           System.FilePath        ((</>))
+import           System.IO              (IOMode (WriteMode), hClose, hFlush,
+                                         openBinaryFile)
+import           System.IO.Error        (isDoesNotExistError)
 
-import           Pos.Binary.Block        ()
-import           Pos.Binary.Class        (Bi, decodeFull, serialize')
-import           Pos.Block.Core          (Block, BlockHeader, GenesisBlock)
-import qualified Pos.Block.Core          as BC
-import           Pos.Block.Types         (Blund, SlogUndo (..), Undo (..))
-import           Pos.Core                (BlockCount, HasConfiguration,
-                                          HasDifficulty (difficultyL),
-                                          HasPrevBlock (prevBlockL), HeaderHash, IsHeader,
-                                          headerHash)
-import           Pos.Core.Configuration  (genesisHash)
-import           Pos.Crypto              (hashHexF, shortHashF)
-import           Pos.DB.Class            (DBTag (..), MonadBlockDBGeneric (..),
-                                          MonadBlockDBGenericWrite (..), MonadDBRead,
-                                          dbGetBlund)
-import           Pos.DB.Error            (DBError (..))
-import           Pos.DB.Functions        (dbGetBi, dbSerializeValue)
-import           Pos.DB.Pure             (DBPureVar, MonadPureDB, atomicModifyIORefPure,
-                                          pureBlockIndexDB, pureBlocksStorage)
-import           Pos.DB.Rocks            (MonadRealDB, blockDataDir, getBlockIndexDB,
-                                          getNodeDBs, rocksDelete, rocksPutBi)
-import           Pos.DB.Sum              (MonadDBSum, eitherDB)
-import           Pos.Delegation.Types    (DlgUndo (..))
-import           Pos.Ssc.Types           (SscBlock)
-import           Pos.Ssc.Util            (toSscBlock)
-import           Pos.Util                (Some (..), maybeThrow)
-import           Pos.Util.Chrono         (NewestFirst (..))
+import           Pos.Binary.Class       (Bi, decodeFull, serialize')
+import           Pos.Binary.Core.Block  ()
+import           Pos.Binary.Undo        ()
+import           Pos.Block.Types        (Blund, SlogUndo (..), Undo (..))
+import           Pos.Core               (BlockCount, HasConfiguration,
+                                         HasDifficulty (difficultyL),
+                                         HasPrevBlock (prevBlockL), HeaderHash, IsHeader,
+                                         headerHash)
+import           Pos.Core.Block         (Block, BlockHeader, GenesisBlock)
+import qualified Pos.Core.Block         as BC
+import           Pos.Core.Configuration (genesisHash)
+import           Pos.Crypto             (hashHexF, shortHashF)
+import           Pos.DB.Class           (DBTag (..), MonadBlockDBGeneric (..),
+                                         MonadBlockDBGenericWrite (..), MonadDBRead,
+                                         dbGetBlund)
+import           Pos.DB.Error           (DBError (..))
+import           Pos.DB.Functions       (dbGetBi, dbSerializeValue)
+import           Pos.DB.Pure            (DBPureVar, MonadPureDB, atomicModifyIORefPure,
+                                         pureBlockIndexDB, pureBlocksStorage)
+import           Pos.DB.Rocks           (MonadRealDB, blockDataDir, getBlockIndexDB,
+                                         getNodeDBs, rocksDelete, rocksPutBi)
+import           Pos.DB.Sum             (MonadDBSum, eitherDB)
+import           Pos.Delegation.Types   (DlgUndo (..))
+import           Pos.Ssc.Types          (SscBlock)
+import           Pos.Ssc.Util           (toSscBlock)
+import           Pos.Util               (Some (..), maybeThrow)
+import           Pos.Util.Chrono        (NewestFirst (..))
 
 ----------------------------------------------------------------------------
 -- Implementations for 'MonadRealDB'

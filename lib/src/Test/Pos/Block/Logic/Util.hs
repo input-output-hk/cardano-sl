@@ -22,11 +22,11 @@ import           Data.Default                (Default (def))
 import           Test.QuickCheck.Gen         (Gen (MkGen), sized)
 import           Test.QuickCheck.Monadic     (PropertyM, pick)
 
-import           Pos.Block.Core              (Block)
 import           Pos.Block.Types             (Blund)
 import           Pos.Core                    (BlockCount, GenesisData (..),
                                               HasConfiguration, HasGenesisData,
                                               SlotId (..), epochIndexL, genesisData)
+import           Pos.Core.Block              (Block)
 import           Pos.Generator.Block         (BlockGenMode, BlockGenParams (..),
                                               MonadBlockGenInit, genBlocks,
                                               tgpTxCountRange)

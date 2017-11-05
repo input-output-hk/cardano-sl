@@ -3,7 +3,7 @@
 
 -- | Definitions of the genesis blockchain ('Blockchain' class and related).
 
-module Pos.Block.Core.Genesis.Chain
+module Pos.Core.Block.Genesis.Chain
        ( BodyProof (..)
        , ConsensusData (..)
        , Body (..)
@@ -11,12 +11,12 @@ module Pos.Block.Core.Genesis.Chain
 
 import           Universum
 
-import           Pos.Block.Core.Genesis.Types (GenesisBlock, GenesisBlockchain,
+import           Pos.Core.Block.Blockchain    (Blockchain (..), BlockchainHelpers (..))
+import           Pos.Core.Block.Genesis.Types (GenesisBlock, GenesisBlockchain,
                                                GenesisExtraBodyData,
                                                GenesisExtraHeaderData)
-import           Pos.Block.Core.Union.Types   (Block, BlockHeader)
-import           Pos.Core                     (Blockchain (..), BlockchainHelpers (..),
-                                               ChainDifficulty, EpochIndex (..),
+import           Pos.Core.Block.Union.Types   (Block, BlockHeader)
+import           Pos.Core.Types               (ChainDifficulty, EpochIndex (..),
                                                SlotLeaders)
 import           Pos.Crypto                   (Hash, hash)
 

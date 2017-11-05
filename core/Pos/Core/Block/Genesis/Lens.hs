@@ -6,7 +6,7 @@
 -- small parts of it. It makes it clear what exactly is stored in
 -- 'GenesisBlock'. Similar fact is true for `genHeader' prefix.
 
-module Pos.Block.Core.Genesis.Lens
+module Pos.Core.Block.Genesis.Lens
        (
          -- * Extra types
          gehAttributes
@@ -40,17 +40,18 @@ import           Universum
 
 import           Control.Lens                 (makeLenses)
 
-import           Pos.Block.Core.Genesis.Chain (Body (..), BodyProof (..),
+import           Pos.Core.Block.Blockchain    (gbBody, gbExtra, gbHeader, gbPrevBlock,
+                                               gbhBodyProof, gbhConsensus, gbhExtra,
+                                               gbhPrevBlock)
+import           Pos.Core.Block.Genesis.Chain (Body (..), BodyProof (..),
                                                ConsensusData (..))
-import           Pos.Block.Core.Genesis.Types (GenesisBlock, GenesisBlockHeader,
+import           Pos.Core.Block.Genesis.Types (GenesisBlock, GenesisBlockHeader,
                                                GenesisBlockchain, GenesisBodyAttributes,
                                                GenesisExtraBodyData (..),
                                                GenesisExtraHeaderData (..),
                                                GenesisHeaderAttributes)
-import           Pos.Core                     (ChainDifficulty, EpochIndex (..),
-                                               HeaderHash, SlotLeaders, gbBody, gbExtra,
-                                               gbHeader, gbPrevBlock, gbhBodyProof,
-                                               gbhConsensus, gbhExtra, gbhPrevBlock)
+import           Pos.Core.Types               (ChainDifficulty, EpochIndex (..),
+                                               HeaderHash, SlotLeaders)
 
 ----------------------------------------------------------------------------
 -- Extra types

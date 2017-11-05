@@ -18,13 +18,14 @@ import           System.Random               (RandomGen (..))
 import           System.Wlog                 (logWarning)
 
 import           Pos.AllSecrets              (HasAllSecrets (..), unInvSecretsMap)
-import           Pos.Block.Core              (Block, mkGenesisBlock)
+import           Pos.Block.Base              (mkGenesisBlock)
 import           Pos.Block.Logic             (applyBlocksUnsafe, createMainBlockInternal,
                                               normalizeMempool, verifyBlocksPrefix)
 import           Pos.Block.Slog              (ShouldCallBListener (..))
 import           Pos.Block.Types             (Blund)
 import           Pos.Core                    (EpochOrSlot (..), SlotId (..), addressHash,
                                               epochIndexL, getEpochOrSlot, getSlotIndex)
+import           Pos.Core.Block              (Block)
 import           Pos.Crypto                  (pskDelegatePk)
 import           Pos.DB.DB                   (getTipHeader)
 import           Pos.Delegation.Logic        (getDlgTransPsk)
@@ -83,7 +84,7 @@ genBlocks params inj = do
 
     foldM' combine = go
       where
-      go !base [] = return base
+      go !base []     = return base
       go !base (x:xs) = combine base x >>= flip go xs
 
 -- Generate a valid 'Block' for the given epoch or slot (genesis block

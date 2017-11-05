@@ -25,7 +25,6 @@ import           System.Wlog                (logDebug, logError, logInfo, logWar
 
 import           Pos.Binary.Class           (biSize)
 import           Pos.Binary.Communication   ()
-import           Pos.Block.Core             (Block, BlockHeader, blockHeader)
 import           Pos.Block.Logic            (ClassifyHeaderRes (..), classifyNewHeader)
 import           Pos.Block.Network.Announce (announceBlockOuts)
 import           Pos.Block.Network.Logic    (BlockNetLogicException (DialogUnexpected),
@@ -43,6 +42,7 @@ import           Pos.Context                (BlockRetrievalQueueTag, ProgressHea
                                              RecoveryHeaderTag)
 import           Pos.Core                   (HasHeaderHash (..), HeaderHash, difficultyL,
                                              isMoreDifficult, prevBlockL)
+import           Pos.Core.Block             (Block, BlockHeader, blockHeader)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.Reporting              (reportOrLogE, reportOrLogW)
 import           Pos.Util                   (_neHead, _neLast)

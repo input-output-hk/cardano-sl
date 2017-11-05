@@ -1,26 +1,24 @@
 -- | Union of blockchain types.
 
-module Pos.Block.Core.Union.Types
+module Pos.Core.Block.Union.Types
        ( BlockHeader
        , Block
 
        , blockHeaderHash
 
-       , module Pos.Core.Block
-       , module Pos.Block.Core.Genesis.Types
-       , module Pos.Block.Core.Main.Types
+       , module Pos.Core.Block.Genesis.Types
+       , module Pos.Core.Block.Main.Types
        ) where
 
 import           Universum
 
 import           Pos.Binary.Class             (Bi)
-import           Pos.Core                     (HeaderHash)
+import           Pos.Core.Types               (HeaderHash)
 import           Pos.Crypto                   (unsafeHash)
 
 -- Re-exports
-import           Pos.Block.Core.Genesis.Types
-import           Pos.Block.Core.Main.Types
-import           Pos.Core.Block
+import           Pos.Core.Block.Genesis.Types
+import           Pos.Core.Block.Main.Types
 
 ----------------------------------------------------------------------------
 -- GenesisBlock ∪ MainBlock

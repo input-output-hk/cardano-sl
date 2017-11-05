@@ -1,9 +1,9 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE GADTs               #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
-{-# LANGUAGE GADTs               #-}
 
 -- | Logic of Explorer socket-io Server.
 
@@ -53,9 +53,9 @@ import qualified Data.Set                       as S
 import           Formatting                     (sformat, shown, stext, (%))
 import           Network.EngineIO               (SocketId)
 import           Network.SocketIO               (Socket, socketId)
-import           Pos.Block.Core                 (Block, mainBlockTxPayload)
 import qualified Pos.Block.Logic                as DB
 import           Pos.Block.Types                (Blund)
+import           Pos.Core.Block                 (Block, mainBlockTxPayload)
 import           Pos.Crypto                     (hash, withHash)
 import qualified Pos.DB.Block                   as DB
 import           Pos.DB.Class                   (MonadDBRead)

@@ -48,8 +48,6 @@ import           Serokell.Util                    (enumerate)
 import           System.Wlog                      (HasLoggerName, WithLogger, logError,
                                                    logInfo, logWarning, modifyLoggerName)
 
-import           Pos.Block.Core                   (BlockHeader, getBlockHeader,
-                                                   mainBlockTxPayload)
 import           Pos.Block.Types                  (Blund, undoTx)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..),
                                                    txHistoryListToMap)
@@ -62,6 +60,8 @@ import           Pos.Core                         (Address (..), BlockHeaderStub
                                                    headerHash, headerSlotL,
                                                    makeRootPubKeyAddress,
                                                    timestampToPosix)
+import           Pos.Core.Block                   (BlockHeader, getBlockHeader,
+                                                   mainBlockTxPayload)
 import           Pos.Core.Txp                     (Tx (..), TxAux (..), TxIn (..),
                                                    TxOutAux (..), TxUndo, toaOut,
                                                    txOutAddress)

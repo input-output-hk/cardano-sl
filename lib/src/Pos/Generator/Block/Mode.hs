@@ -33,7 +33,6 @@ import           Mockable                         (Async, Catch, Concurrently,
 import           System.Wlog                      (WithLogger, logWarning)
 
 import           Pos.Block.BListener              (MonadBListener (..))
-import           Pos.Block.Core                   (Block, BlockHeader)
 import           Pos.Block.Slog                   (HasSlogGState (..))
 import           Pos.Block.Types                  (Undo)
 import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
@@ -43,6 +42,7 @@ import           Pos.Core                         (Address, GenesisWStakeholders
                                                    IsHeader, SlotId (..), Timestamp,
                                                    epochOrSlotToSlot, getEpochOrSlot,
                                                    largestPubKeyAddressBoot)
+import           Pos.Core.Block                   (Block, BlockHeader)
 import           Pos.Crypto                       (SecretKey)
 import           Pos.DB                           (DBSum, MonadBlockDBGeneric (..),
                                                    MonadBlockDBGenericWrite (..), MonadDB,
@@ -66,9 +66,9 @@ import           Pos.Reporting                    (HasReportingContext (..),
 import           Pos.Slotting                     (HasSlottingVar (..), MonadSlots (..),
                                                    MonadSlotsData, SlottingData,
                                                    currentTimeSlottingSimple)
-import           Pos.Ssc.Types                    (SscBlock)
 import           Pos.Ssc.Extra                    (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.Types                    (SscBlock)
 import           Pos.Txp                          (GenericTxpLocalData, MempoolExt,
                                                    TxpGlobalSettings, TxpHolderTag,
                                                    mkTxpLocalData)

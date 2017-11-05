@@ -16,6 +16,7 @@ import           Universum
 
 import           Pos.Binary.Communication  ()
 import           Pos.Binary.Relay          ()
+import           Pos.Binary.Txp            ()
 import           Pos.Communication.Limits  ()
 import           Pos.Communication.Message ()
 import           Pos.Communication.Relay   (InvReqDataParams (..), MempoolParams (..),

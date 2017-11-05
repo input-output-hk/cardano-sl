@@ -2,9 +2,8 @@
 
 -- | Miscellaneous instances, etc. Related to the genesis blockchain of course.
 
-module Pos.Block.Core.Genesis.Misc
-       ( mkGenesisHeader
-       , mkGenesisBlock
+module Pos.Core.Block.Genesis.Instances
+       (
        ) where
 
 import           Universum
@@ -13,26 +12,20 @@ import qualified Data.Text.Buildable          as Buildable
 import           Formatting                   (bprint, build, int, sformat, stext, (%))
 import           Serokell.Util                (Color (Magenta), colorize, listJson)
 
-import           Pos.Binary.Block.Core        ()
 import           Pos.Binary.Class             (Bi)
-import           Pos.Block.Core.Genesis.Chain (Body (..), ConsensusData (..))
-import           Pos.Block.Core.Genesis.Lens  (gcdDifficulty, gcdEpoch)
-import           Pos.Block.Core.Genesis.Types (GenesisBlock, GenesisBlockHeader,
-                                               GenesisBlockchain,
-                                               GenesisExtraBodyData (..),
-                                               GenesisExtraHeaderData (..))
-import           Pos.Block.Core.Union.Types   (BlockHeader, blockHeaderHash)
-import           Pos.Core                     (EpochIndex, EpochOrSlot (..),
-                                               GenericBlock (..), GenericBlockHeader (..),
-                                               HasConfiguration, HasDifficulty (..),
-                                               HasEpochIndex (..), HasEpochOrSlot (..),
-                                               HasHeaderHash (..), HeaderHash,
-                                               IsGenesisHeader, IsHeader, SlotLeaders,
-                                               gbHeader, gbhConsensus, mkGenericHeader,
-                                               recreateGenericBlock)
+import           Pos.Binary.Core.Block        ()
+import           Pos.Core.Block.Blockchain    (GenericBlock (..), GenericBlockHeader (..),
+                                               gbHeader, gbhConsensus)
+import           Pos.Core.Block.Genesis.Chain (Body (..), ConsensusData (..))
+import           Pos.Core.Block.Genesis.Lens  (gcdDifficulty, gcdEpoch)
+import           Pos.Core.Block.Genesis.Types (GenesisBlock, GenesisBlockHeader,
+                                               GenesisBlockchain)
+import           Pos.Core.Block.Union.Types   (BlockHeader, blockHeaderHash)
+import           Pos.Core.Class               (HasDifficulty (..), HasEpochIndex (..),
+                                               HasEpochOrSlot (..), HasHeaderHash (..),
+                                               IsGenesisHeader, IsHeader)
+import           Pos.Core.Types               (EpochOrSlot (..), HeaderHash)
 import           Pos.Crypto                   (hashHexF)
-import           Pos.Data.Attributes          (mkAttributes)
-import           Pos.Util.Util                (leftToPanic)
 
 ----------------------------------------------------------------------------
 -- Buildable
@@ -111,47 +104,3 @@ instance HasDifficulty GenesisBlock where
 
 instance Bi BlockHeader => IsHeader GenesisBlockHeader
 instance Bi BlockHeader => IsGenesisHeader GenesisBlockHeader
-
-----------------------------------------------------------------------------
--- Smart constructors
-----------------------------------------------------------------------------
-
-type SanityConstraint
-     = ( HasDifficulty BlockHeader
-       , HasHeaderHash BlockHeader
-       , HasConfiguration
-       )
-
--- | Smart constructor for 'GenesisBlockHeader'. Uses 'mkGenericHeader'.
-mkGenesisHeader
-    :: SanityConstraint
-    => Maybe BlockHeader
-    -> EpochIndex
-    -> Body GenesisBlockchain
-    -> GenesisBlockHeader
-mkGenesisHeader prevHeader epoch body =
-    -- here we know that genesis header construction can not fail
-    leftToPanic "mkGenesisHeader: " $
-    mkGenericHeader
-        prevHeader
-        body
-        consensus
-        (GenesisExtraHeaderData $ mkAttributes ())
-  where
-    difficulty = maybe 0 (view difficultyL) prevHeader
-    consensus _ _ =
-        GenesisConsensusData {_gcdEpoch = epoch, _gcdDifficulty = difficulty}
-
--- | Smart constructor for 'GenesisBlock'.
-mkGenesisBlock
-    :: SanityConstraint
-    => Maybe BlockHeader
-    -> EpochIndex
-    -> SlotLeaders
-    -> GenesisBlock
-mkGenesisBlock prevHeader epoch leaders =
-    leftToPanic "mkGenesisBlock: " $ recreateGenericBlock header body extra
-  where
-    header = mkGenesisHeader prevHeader epoch body
-    body = GenesisBody leaders
-    extra = GenesisExtraBodyData $ mkAttributes ()

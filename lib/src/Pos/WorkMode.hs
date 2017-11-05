@@ -26,12 +26,12 @@ import           System.Wlog             (HasLoggerName (..), LoggerName)
 
 import           Pos.Block.BListener     (MonadBListener (..), onApplyBlocksStub,
                                           onRollbackBlocksStub)
-import           Pos.Block.Core          (Block, BlockHeader)
 import           Pos.Block.Slog.Types    (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Block.Types         (Undo)
 import           Pos.Context             (HasNodeContext (..), HasPrimaryKey (..),
                                           HasSscContext (..), NodeContext)
 import           Pos.Core                (HasConfiguration, IsHeader)
+import           Pos.Core.Block          (Block, BlockHeader)
 import           Pos.DB                  (MonadGState (..), NodeDBs)
 import           Pos.DB.Block            (dbGetBlockDefault, dbGetBlockSscDefault,
                                           dbGetHeaderDefault, dbGetHeaderSscDefault,
@@ -56,8 +56,8 @@ import           Pos.Slotting.Impl.Sum   (currentTimeSlottingSum,
                                           getCurrentSlotBlockingSum,
                                           getCurrentSlotInaccurateSum, getCurrentSlotSum)
 import           Pos.Slotting.MemState   (HasSlottingVar (..), MonadSlotsData)
-import           Pos.Ssc.Types           (SscBlock)
 import           Pos.Ssc.Extra           (SscMemTag, SscState)
+import           Pos.Ssc.Types           (SscBlock)
 import           Pos.Txp                 (GenericTxpLocalData, MempoolExt,
                                           MonadTxpLocal (..), TxpHolderTag, txNormalize,
                                           txProcessTransaction)

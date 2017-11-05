@@ -29,7 +29,6 @@ import           Ether.Internal                    (HasLens (..))
 import           Mockable                          (Production)
 import           System.Wlog                       (HasLoggerName (..))
 
-import           Pos.Block.Core                    (Block, BlockHeader)
 import           Pos.Block.Slog                    (HasSlogContext (..),
                                                     HasSlogGState (..))
 import           Pos.Block.Types                   (Undo)
@@ -45,6 +44,7 @@ import           Pos.Context                       (HasNodeContext (..))
 import           Pos.Core                          (Address, HasConfiguration,
                                                     HasPrimaryKey (..), IsHeader,
                                                     isRedeemAddress, largestHDAddressBoot)
+import           Pos.Core.Block                    (Block, BlockHeader)
 import           Pos.Crypto                        (PassPhrase)
 import           Pos.DB                            (MonadGState (..))
 import           Pos.DB.Block                      (MonadBlockDB, dbGetBlockDefault,

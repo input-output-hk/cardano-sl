@@ -22,12 +22,12 @@ import           System.Wlog                      (HasLoggerName (modifyLoggerNa
                                                    WithLogger)
 
 import           Pos.Block.BListener              (MonadBListener (..))
-import           Pos.Block.Core                   (BlockHeader, blockHeader,
-                                                   getBlockHeader, mainBlockTxPayload)
 import           Pos.Block.Types                  (Blund, undoTx)
 import           Pos.Core                         (HasConfiguration, HeaderHash,
                                                    Timestamp, difficultyL, headerHash,
                                                    headerSlotL, prevBlockL)
+import           Pos.Core.Block                   (BlockHeader, blockHeader,
+                                                   getBlockHeader, mainBlockTxPayload)
 import           Pos.Core.Txp                     (TxAux (..), TxUndo)
 import           Pos.DB.BatchOp                   (SomeBatchOp)
 import           Pos.DB.Class                     (MonadDBRead)

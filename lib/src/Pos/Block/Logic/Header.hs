@@ -23,7 +23,6 @@ import           Serokell.Util.Text        (listJson)
 import           Serokell.Util.Verify      (VerificationRes (..), isVerSuccess)
 import           System.Wlog               (WithLogger, logDebug)
 
-import           Pos.Block.Core            (BlockHeader)
 import           Pos.Block.Logic.Util      (lcaWithMainChain)
 import           Pos.Block.Pure            (VerifyHeaderParams (..), verifyHeader,
                                             verifyHeaders)
@@ -35,6 +34,7 @@ import           Pos.Core                  (BlockCount, EpochOrSlot (..),
                                             getChainDifficulty, getEpochOrSlot,
                                             headerHash, headerHashG, headerSlotL,
                                             prevBlockL)
+import           Pos.Core.Block            (BlockHeader)
 import           Pos.Core.Configuration    (genesisHash)
 import           Pos.Crypto                (hash)
 import           Pos.DB                    (MonadDBRead)

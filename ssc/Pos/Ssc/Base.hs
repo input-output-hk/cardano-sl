@@ -31,7 +31,6 @@ module Pos.Ssc.Base
        , verifyOpening
 
        -- * Payload and proof
-       , mkSscProof
        , stripSscPayload
        , defaultSscPayload
        ) where
@@ -58,13 +57,12 @@ import           Pos.Core.Configuration     (HasConfiguration, slotSecurityParam
 import           Pos.Core.Ssc               (Commitment (..),
                                              CommitmentsMap (getCommitmentsMap),
                                              Opening (..), SignedCommitment,
-                                             SscPayload (..), SscProof (..),
-                                             mkCommitmentsMapUnsafe)
+                                             SscPayload (..), mkCommitmentsMapUnsafe)
 import           Pos.Core.Vss               (VssCertificate (vcExpiryEpoch),
                                              VssCertificatesMap (..))
 import           Pos.Crypto                 (Secret, SecretKey, SignTag (SignCommitment),
                                              Threshold, VssPublicKey, checkSig,
-                                             genSharedSecret, getDhSecret, hash,
+                                             genSharedSecret, getDhSecret,
                                              secretToDhSecret, sign, toPublic,
                                              verifySecret)
 import           Pos.Util.Limits            (stripHashMap)
@@ -238,22 +236,6 @@ checkCertTTL curEpochIndex vc =
 ----------------------------------------------------------------------------
 -- Payload and proof
 ----------------------------------------------------------------------------
-
--- | Create proof (for inclusion into block header) from 'SscPayload'.
-mkSscProof :: HasConfiguration => SscPayload -> SscProof
-mkSscProof payload =
-    case payload of
-        CommitmentsPayload comms certs ->
-            proof CommitmentsProof comms certs
-        OpeningsPayload openings certs ->
-            proof OpeningsProof openings certs
-        SharesPayload shares certs     ->
-            proof SharesProof shares certs
-        CertificatesPayload certs      ->
-            CertificatesProof $ hash certs
-      where
-        proof constr hm cert =
-            constr (hash hm) (hash cert)
 
 -- | Removes parts of payload so its binary representation length
 -- fits into passed limit. If limit is too low (0), we can return

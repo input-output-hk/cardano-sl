@@ -23,11 +23,11 @@ import qualified Ether
 import           System.Wlog                  (WithLogger)
 
 import           Pos.Block.BListener          (MonadBListener (..))
-import           Pos.Block.Core               (Block, MainBlock, mainBlockTxPayload)
 import           Pos.Block.Types              (Blund)
 import           Pos.Core                     (HasConfiguration, HeaderHash, difficultyL,
                                                epochIndexL, getChainDifficulty,
                                                headerHash)
+import           Pos.Core.Block               (Block, MainBlock, mainBlockTxPayload)
 import           Pos.Crypto                   (withHash)
 import           Pos.DB.BatchOp               (SomeBatchOp (..))
 import           Pos.DB.Class                 (MonadDBRead)

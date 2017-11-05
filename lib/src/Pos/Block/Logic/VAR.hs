@@ -22,7 +22,6 @@ import qualified Data.List.NonEmpty       as NE
 import           Ether.Internal           (HasLens (..))
 import           System.Wlog              (logDebug)
 
-import           Pos.Block.Core           (Block)
 import           Pos.Block.Error          (ApplyBlocksException (..),
                                            RollbackException (..),
                                            VerifyBlocksException (..))
@@ -36,6 +35,7 @@ import           Pos.Block.Slog           (ShouldCallBListener (..), mustDataBeK
 import           Pos.Block.Types          (Blund, Undo (..))
 import           Pos.Core                 (HeaderHash, epochIndexL, headerHashG,
                                            prevBlockL)
+import           Pos.Core.Block           (Block)
 import           Pos.Delegation.Logic     (dlgVerifyBlocks)
 import qualified Pos.GState               as GS
 import           Pos.Lrc.Worker           (LrcModeFull, lrcSingleShot)

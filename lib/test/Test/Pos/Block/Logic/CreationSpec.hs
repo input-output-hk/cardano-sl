@@ -18,7 +18,6 @@ import           Pos.Arbitrary.Block        ()
 import           Pos.Arbitrary.Delegation   (genDlgPayload)
 import           Pos.Arbitrary.Txp          (GoodTx, goodTxToTxAux)
 import           Pos.Binary.Class           (biSize)
-import           Pos.Block.Core             (BlockHeader, MainBlock)
 import           Pos.Block.Logic            (RawPayload (..), createMainBlockPure)
 import qualified Pos.Communication          ()
 import           Pos.Core                   (BlockVersionData (bvdMaxBlockSize),
@@ -26,6 +25,7 @@ import           Pos.Core                   (BlockVersionData (bvdMaxBlockSize),
                                              blkSecurityParam, genesisBlockVersionData,
                                              mkVssCertificatesMapLossy,
                                              unsafeMkLocalSlotIndex)
+import           Pos.Core.Block             (BlockHeader, MainBlock)
 import           Pos.Core.Txp               (TxAux)
 import           Pos.Core.Update            (UpdatePayload (..))
 import           Pos.Crypto                 (SecretKey)

@@ -33,7 +33,6 @@ import           System.Wlog              (WithLogger)
 
 import           Pos.Binary.Core          ()
 import           Pos.Block.BListener      (MonadBListener (..))
-import           Pos.Block.Core           (Block, genBlockLeaders, mainBlockSlot)
 import           Pos.Block.Pure           (verifyBlocks)
 import           Pos.Block.Slog.Context   (slogGetLastSlots, slogPutLastSlots)
 import           Pos.Block.Slog.Types     (HasSlogGState, LastBlkSlots, SlogUndo (..))
@@ -43,6 +42,7 @@ import           Pos.Core                 (BlockVersion (..), FlatSlotId,
                                            HasConfiguration, blkSecurityParam,
                                            difficultyL, epochIndexL, flattenSlotId,
                                            headerHash, headerHashG, prevBlockL)
+import           Pos.Core.Block           (Block, genBlockLeaders, mainBlockSlot)
 import           Pos.DB                   (SomeBatchOp (..))
 import           Pos.DB.Block             (MonadBlockDBWrite, blkGetHeader)
 import           Pos.DB.Class             (MonadDBRead, dbPutBlund)

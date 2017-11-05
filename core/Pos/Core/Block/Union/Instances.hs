@@ -1,6 +1,6 @@
 -- | United miscellaneous functionality.
 
-module Pos.Block.Core.Union.Misc
+module Pos.Core.Block.Union.Instances
        ( getBlockHeader
        , blockHeader
        ) where
@@ -11,11 +11,12 @@ import           Control.Lens               (Getter, choosing, to)
 import qualified Data.Text.Buildable        as Buildable
 
 import           Pos.Binary.Class           (Bi)
-import           Pos.Block.Core.Genesis     ()
-import           Pos.Block.Core.Main        ()
-import           Pos.Block.Core.Union.Types (Block, BlockHeader, blockHeaderHash)
-import           Pos.Core                   (GenericBlock (..), HasDifficulty (..),
-                                             HasHeaderHash (..), IsHeader)
+import           Pos.Core.Block.Blockchain  (GenericBlock (..))
+import           Pos.Core.Block.Genesis     ()
+import           Pos.Core.Block.Main        ()
+import           Pos.Core.Block.Union.Types (Block, BlockHeader, blockHeaderHash)
+import           Pos.Core.Class             (HasDifficulty (..), HasHeaderHash (..),
+                                             IsHeader)
 
 ----------------------------------------------------------------------------
 -- Buildable

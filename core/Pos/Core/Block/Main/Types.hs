@@ -1,6 +1,6 @@
 -- | Types defining the main blockchain.
 
-module Pos.Block.Core.Main.Types
+module Pos.Core.Block.Main.Types
        ( MainBlockchain
        , MainBlockHeader
        , MainExtraBodyData (..)
@@ -14,18 +14,17 @@ module Pos.Block.Core.Main.Types
 
 import           Universum
 
-import qualified Data.Text.Buildable as Buildable
-import           Formatting          (bprint, build, builder, (%))
+import qualified Data.Text.Buildable       as Buildable
+import           Formatting                (bprint, build, builder, (%))
 
-import           Pos.Binary.Core     ()
-import           Pos.Binary.Crypto   ()
-import           Pos.Core.Block      (Blockchain (..), GenericBlock (..),
-                                      GenericBlockHeader (..))
-import           Pos.Core.Types      (BlockVersion, ChainDifficulty, HeaderHash,
-                                      ProxySigHeavy, ProxySigLight, SlotId (..),
-                                      SoftwareVersion)
-import           Pos.Crypto          (Hash, Signature)
-import           Pos.Data.Attributes (Attributes, areAttributesKnown)
+import           Pos.Binary.Crypto         ()
+import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlock (..),
+                                            GenericBlockHeader (..))
+import           Pos.Core.Types            (BlockVersion, ChainDifficulty, HeaderHash,
+                                            ProxySigHeavy, ProxySigLight, SlotId (..),
+                                            SoftwareVersion)
+import           Pos.Crypto                (Hash, Signature)
+import           Pos.Data.Attributes       (Attributes, areAttributesKnown)
 
 -- | Represents blockchain consisting of main blocks, i. e. blocks
 -- with actual payload (transactions, SSC, update system, etc.).

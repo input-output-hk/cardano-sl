@@ -25,6 +25,7 @@ module Pos.Core.Ssc
        -- * Payload
        , SscPayload (..)
        , SscProof (..)
+       , mkSscProof
 
        -- * Misc
        , NodeSet
@@ -33,7 +34,7 @@ module Pos.Core.Ssc
 import           Universum
 
 import           Control.Lens           (each, traverseOf)
-import           Data.Hashable          (Hashable (..))
+import           Data.Hashable          (Hashable)
 import           Data.HashMap.Strict    (HashMap)
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.Text.Buildable
@@ -41,12 +42,14 @@ import           Data.Text.Lazy.Builder (Builder)
 import           Formatting             (Format, bprint, build, int, (%))
 import           Serokell.Util          (listJson)
 
-import           Pos.Binary.Class       (AsBinary (..), fromBinaryM, serialize')
+import           Pos.Binary.Class       (AsBinary (..), Bi (..), fromBinaryM, serialize')
 import           Pos.Core.Address       (addressHash)
+import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Types         (EpochIndex, StakeholderId)
 import           Pos.Core.Vss           (VssCertificatesMap (..), vcExpiryEpoch)
 import           Pos.Crypto             (DecShare, EncShare, Hash, PublicKey, Secret,
-                                         SecretProof, Signature, VssPublicKey, shortHashF)
+                                         SecretProof, Signature, VssPublicKey, hash,
+                                         shortHashF)
 
 type NodeSet = HashSet StakeholderId
 
@@ -191,6 +194,28 @@ data SscProof
 
 instance NFData SscPayload
 instance NFData SscProof
+
+-- | Create proof (for inclusion into block header) from 'SscPayload'.
+mkSscProof
+    :: ( HasConfiguration
+       , Bi VssCertificatesMap
+       , Bi CommitmentsMap
+       , Bi Opening
+       ) => SscPayload -> SscProof
+mkSscProof payload =
+    case payload of
+        CommitmentsPayload comms certs ->
+            proof CommitmentsProof comms certs
+        OpeningsPayload openings certs ->
+            proof OpeningsProof openings certs
+        SharesPayload shares certs     ->
+            proof SharesProof shares certs
+        CertificatesPayload certs      ->
+            CertificatesProof (hash certs)
+  where
+    proof constr hm cert =
+        constr (hash hm) (hash cert)
+
 
 isEmptySscPayload :: SscPayload -> Bool
 isEmptySscPayload (CommitmentsPayload comms certs) = null comms && null certs

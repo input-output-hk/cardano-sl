@@ -19,7 +19,6 @@ import           Test.QuickCheck                  (Arbitrary (..), Gen, Property
                                                    Testable (..), forAll, ioProperty)
 import           Test.QuickCheck.Monadic          (PropertyM, monadic)
 
-import           Pos.Block.Core                   (Block, BlockHeader)
 import           Pos.Block.Slog                   (mkSlogGState)
 import           Pos.Block.Types                  (Undo)
 import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
@@ -27,6 +26,7 @@ import           Pos.Client.Txp.Util              (TxCreateMode)
 import           Pos.Configuration                (HasNodeConfiguration)
 import           Pos.Core                         (Address, HasConfiguration, IsHeader,
                                                    SlotId, Timestamp (..))
+import           Pos.Core.Block                   (Block, BlockHeader)
 import           Pos.DB                           (MonadGState (..))
 import qualified Pos.DB                           as DB
 import qualified Pos.DB.Block                     as DB
@@ -38,8 +38,8 @@ import           Pos.Slotting                     (HasSlottingVar (..), MonadSlo
                                                    MonadSlotsData, SimpleSlottingVar,
                                                    mkSimpleSlottingVar)
 import qualified Pos.Slotting                     as Slot
-import           Pos.Ssc.Types                    (SscBlock)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.Types                    (SscBlock)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util.Util                    (Some, postfixLFields)
 

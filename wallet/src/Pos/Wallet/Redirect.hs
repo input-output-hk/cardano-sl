@@ -22,9 +22,9 @@ import           Data.Time.Units       (Millisecond)
 import           Ether.Internal        (HasLens (..))
 import           System.Wlog           (WithLogger)
 
-import           Pos.Block.Core        (BlockHeader)
 import qualified Pos.Context           as PC
 import           Pos.Core              (ChainDifficulty, HasConfiguration, difficultyL)
+import           Pos.Core.Block        (BlockHeader)
 import           Pos.DB.Block          (MonadBlockDB)
 import           Pos.DB.DB             (getTipHeader)
 import qualified Pos.GState            as GS

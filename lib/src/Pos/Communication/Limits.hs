@@ -21,7 +21,6 @@ import           Data.Coerce                        (coerce)
 import           GHC.Exts                           (IsList (..))
 
 import           Pos.Binary.Class                   (AsBinary (..))
-import           Pos.Block.Core                     (Block, BlockHeader)
 import           Pos.Block.Network.Types            (MsgBlock (..), MsgGetBlocks (..),
                                                      MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Protocol   (MsgSubscribe (..))
@@ -30,6 +29,7 @@ import           Pos.Configuration                  (HasNodeConfiguration,
                                                      recoveryHeadersMessage)
 import           Pos.Core                           (BlockVersionData (..),
                                                      VssCertificate, coinPortionToDouble)
+import           Pos.Core.Block                     (Block, BlockHeader)
 import           Pos.Core.Configuration             (HasConfiguration, blkSecurityParam)
 import           Pos.Core.Ssc                       (Commitment (..), InnerSharesMap,
                                                      Opening (..), SignedCommitment)

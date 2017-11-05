@@ -64,7 +64,6 @@ import           Pos.AllSecrets                 (AllSecrets (..), HasAllSecrets 
                                                  mkAllSecretsSimple)
 import           Pos.Block.BListener            (MonadBListener (..), onApplyBlocksStub,
                                                  onRollbackBlocksStub)
-import           Pos.Block.Core                 (Block, BlockHeader)
 import           Pos.Block.Slog                 (HasSlogGState (..), mkSlogGState)
 import           Pos.Block.Types                (Undo)
 import           Pos.Configuration              (HasNodeConfiguration)
@@ -75,6 +74,7 @@ import           Pos.Core                       (BlockVersionData, CoreConfigura
                                                  IsHeader, SlotId,
                                                  TestnetDistribution (..), Timestamp (..),
                                                  genesisSecretKeys, withGenesisSpec)
+import           Pos.Core.Block                 (Block, BlockHeader)
 import           Pos.Core.Configuration         (HasGenesisBlockVersionData,
                                                  withGenesisBlockVersionData)
 import           Pos.DB                         (DBPure, MonadBlockDBGeneric (..),
@@ -103,9 +103,9 @@ import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots
                                                  getCurrentSlotSimple,
                                                  mkSimpleSlottingVar)
 import           Pos.Slotting.MemState          (MonadSlotsData)
-import           Pos.Ssc.Types                  (SscBlock)
 import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState)
 import           Pos.Ssc.GodTossing             (HasGtConfiguration)
+import           Pos.Ssc.Types                  (SscBlock)
 import           Pos.Txp                        (GenericTxpLocalData, MempoolExt,
                                                  MonadTxpLocal (..), TxpGlobalSettings,
                                                  TxpHolderTag, mkTxpLocalData,

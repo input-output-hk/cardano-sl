@@ -28,7 +28,6 @@ import           Test.QuickCheck                (Arbitrary (..), choose, sublist
 import           Test.QuickCheck.Gen            (Gen (MkGen))
 import           Test.QuickCheck.Monadic        (assert, pick)
 
-import           Pos.Block.Core                 (blockHeader)
 import           Pos.Block.Types                (Blund)
 import           Pos.Client.KeyStorage          (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances        (getBalance)
@@ -38,6 +37,7 @@ import           Pos.Core                       (Address, BlockCount, Coin,
                                                  gsSecretKeysPoor, headerHashG)
 import           Pos.Core.Address               (IsBootstrapEraAddr (..),
                                                  deriveLvl2KeyPair)
+import           Pos.Core.Block                 (blockHeader)
 import           Pos.Core.Txp                   (TxIn, TxOut (..), TxOutAux (..))
 import           Pos.Crypto                     (EncryptedSecretKey, PassPhrase,
                                                  ShouldCheckPassphrase (..),

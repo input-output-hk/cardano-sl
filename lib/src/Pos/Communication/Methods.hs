@@ -16,6 +16,7 @@ import           Universum
 import           Pos.Binary.Communication   ()
 import           Pos.Binary.Core            ()
 import           Pos.Binary.Relay           ()
+import           Pos.Binary.Txp             ()
 import           Pos.Communication.Message  ()
 import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..))
 import           Pos.Communication.Relay    (invReqDataFlowTK, resOk)

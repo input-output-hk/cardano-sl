@@ -6,7 +6,7 @@
 -- small parts of it. It makes it clear what exactly is stored in
 -- 'MainBlock'. Similar fact is true for `mainHeader' prefix.
 
-module Pos.Block.Core.Main.Lens
+module Pos.Core.Block.Main.Lens
        (
          -- * MainToSign
          msHeaderHash
@@ -68,21 +68,22 @@ import           Universum
 
 import           Control.Lens              (makeLenses)
 
-import           Pos.Block.Core.Main.Chain (Body (..), BodyProof (..), ConsensusData (..))
-import           Pos.Block.Core.Main.Types (BlockBodyAttributes, BlockHeaderAttributes,
+import           Pos.Core.Block.Blockchain (gbBody, gbExtra, gbHeader, gbPrevBlock,
+                                            gbhBodyProof, gbhConsensus, gbhExtra,
+                                            gbhPrevBlock)
+import           Pos.Core.Block.Main.Chain (Body (..), BodyProof (..), ConsensusData (..))
+import           Pos.Core.Block.Main.Types (BlockBodyAttributes, BlockHeaderAttributes,
                                             BlockSignature, MainBlock, MainBlockHeader,
                                             MainBlockchain, MainExtraBodyData,
                                             MainExtraHeaderData, MainToSign (..))
-import           Pos.Core                  (BlockVersion, ChainDifficulty, HeaderHash,
-                                            SlotId, SoftwareVersion, gbBody, gbExtra,
-                                            gbHeader, gbPrevBlock, gbhBodyProof,
-                                            gbhConsensus, gbhExtra, gbhPrevBlock)
+import           Pos.Core.Delegation       (DlgPayload)
 import           Pos.Core.Ssc              (SscPayload)
 import           Pos.Core.Txp              (Tx, TxPayload, TxWitness, txpTxs,
                                             txpWitnesses)
+import           Pos.Core.Types            (BlockVersion, ChainDifficulty, HeaderHash,
+                                            SlotId, SoftwareVersion)
 import           Pos.Core.Update           (UpdatePayload)
 import           Pos.Crypto                (Hash, PublicKey)
-import           Pos.Delegation.Types      (DlgPayload)
 import           Pos.Merkle                (MerkleTree)
 
 ----------------------------------------------------------------------------

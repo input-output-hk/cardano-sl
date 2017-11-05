@@ -37,7 +37,6 @@ import           Test.QuickCheck.Monadic           (PropertyM (..), monadic)
 
 import           Pos.AllSecrets                    (HasAllSecrets (..))
 import           Pos.Block.BListener               (MonadBListener (..))
-import           Pos.Block.Core                    (Block, BlockHeader)
 import           Pos.Block.Slog                    (HasSlogGState (..))
 import           Pos.Block.Types                   (Undo)
 import           Pos.Client.KeyStorage             (MonadKeys (..), MonadKeysRead (..),
@@ -55,6 +54,7 @@ import           Pos.Context                       (ConnectedPeers (..), LastKno
                                                     RecoveryHeaderTag)
 import           Pos.Core                          (HasConfiguration, IsHeader,
                                                     Timestamp (..), largestHDAddressBoot)
+import           Pos.Core.Block                    (Block, BlockHeader)
 import           Pos.Crypto                        (PassPhrase)
 import           Pos.DB                            (MonadBlockDBGeneric (..),
                                                     MonadBlockDBGenericWrite (..),

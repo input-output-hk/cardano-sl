@@ -45,13 +45,13 @@ import           Mockable                     (CurrentTime, Mockable)
 import           Serokell.Util.Text           (listJson)
 import           System.Wlog                  (WithLogger)
 
-import           Pos.Block.Core               (Block, MainBlock, mainBlockSlot,
-                                               mainBlockTxPayload)
 import           Pos.Block.Types              (Blund)
 import           Pos.Context                  (genesisBlock0)
 import           Pos.Core                     (Address, ChainDifficulty, HasConfiguration,
                                                HeaderHash, Timestamp (..), difficultyL,
                                                headerHash)
+import           Pos.Core.Block               (Block, MainBlock, mainBlockSlot,
+                                               mainBlockTxPayload)
 import           Pos.Crypto                   (WithHash (..), withHash)
 import           Pos.DB                       (MonadDBRead, MonadGState)
 import           Pos.DB.Block                 (MonadBlockDB, blkGetBlund)

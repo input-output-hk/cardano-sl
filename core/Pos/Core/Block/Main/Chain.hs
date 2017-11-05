@@ -3,7 +3,7 @@
 
 -- | Definitions of the main blockchain ('Blockchain' class and related).
 
-module Pos.Block.Core.Main.Chain
+module Pos.Core.Block.Main.Chain
        ( BodyProof (..)
        , ConsensusData (..)
        , Body (..)
@@ -12,22 +12,23 @@ module Pos.Block.Core.Main.Chain
 import           Universum
 
 import           Pos.Binary.Class           (Bi)
-import           Pos.Binary.Core            ()
-import           Pos.Binary.Delegation      ()
-import           Pos.Binary.Txp             ()
-import           Pos.Binary.Update          ()
-import           Pos.Block.Core.Main.Types  (MainBlock, MainBlockchain, MainExtraBodyData,
+import           Pos.Binary.Core.Delegation ()
+import           Pos.Binary.Core.Ssc        ()
+import           Pos.Binary.Core.Txp        ()
+import           Pos.Binary.Core.Update     ()
+import           Pos.Core.Block.Blockchain  (Blockchain (..), GenericBlockHeader (..))
+import           Pos.Core.Block.Main.Types  (MainBlock, MainBlockchain, MainExtraBodyData,
                                              MainExtraHeaderData, MainToSign (..))
-import           Pos.Block.Core.Union.Types (Block, BlockHeader, BlockSignature (..))
-import           Pos.Core                   (Blockchain (..), ChainDifficulty,
-                                             GenericBlockHeader (..), HasConfiguration,
-                                             IsMainHeader (..), SlotId (..))
+import           Pos.Core.Block.Union.Types (Block, BlockHeader, BlockSignature (..))
+import           Pos.Core.Class             (IsMainHeader (..))
+import           Pos.Core.Configuration     (HasConfiguration)
+import           Pos.Core.Delegation        (DlgPayload)
 import           Pos.Core.Ssc               (SscPayload, SscProof)
+import           Pos.Core.Ssc               (mkSscProof)
 import           Pos.Core.Txp               (TxPayload, TxProof, mkTxProof)
+import           Pos.Core.Types             (ChainDifficulty, SlotId (..))
 import           Pos.Core.Update            (UpdatePayload, UpdateProof, mkUpdateProof)
 import           Pos.Crypto                 (Hash, PublicKey, hash)
-import           Pos.Delegation.Types       (DlgPayload)
-import           Pos.Ssc.Base               (mkSscProof)
 
 instance ( HasConfiguration
          , Bi BlockHeader

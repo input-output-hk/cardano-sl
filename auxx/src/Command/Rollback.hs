@@ -13,13 +13,13 @@ import           Formatting                       (build, int, sformat, string, 
 import           System.Wlog                      (logInfo)
 
 import           Pos.Binary                       (serialize)
-import           Pos.Block.Core                   (mainBlockTxPayload)
 import           Pos.Block.Logic                  (BypassSecurityCheck (..),
                                                    rollbackBlocksUnsafe)
 import           Pos.Block.Slog                   (ShouldCallBListener (..))
 import           Pos.Block.Types                  (Blund)
 import           Pos.Core                         (HasConfiguration, difficultyL,
                                                    epochIndexL)
+import           Pos.Core.Block                   (mainBlockTxPayload)
 import           Pos.DB.DB                        (getTipHeader, loadBlundsFromTipByDepth)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)

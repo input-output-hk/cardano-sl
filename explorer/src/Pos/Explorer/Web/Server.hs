@@ -1,9 +1,9 @@
 {-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE GADTs               #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeOperators       #-}
-{-# LANGUAGE GADTs               #-}
 
 -- API server logic
 
@@ -44,8 +44,6 @@ import qualified Pos.DB.Block                         as DB
 import qualified Pos.DB.DB                            as DB
 
 import           Pos.Binary.Class                     (biSize)
-import           Pos.Block.Core                       (MainBlock, mainBlockSlot,
-                                                       mainBlockTxPayload, mcdSlot)
 import           Pos.Block.Types                      (Blund, Undo)
 import           Pos.Core                             (AddrType (..), Address (..), Coin,
                                                        EpochIndex, HeaderHash, Timestamp,
@@ -57,6 +55,8 @@ import           Pos.Core                             (AddrType (..), Address (.
                                                        sumCoins, timestampToPosix,
                                                        unsafeAddCoin, unsafeIntegerToCoin,
                                                        unsafeSubCoin)
+import           Pos.Core.Block                       (MainBlock, mainBlockSlot,
+                                                       mainBlockTxPayload, mcdSlot)
 import           Pos.DB.Class                         (MonadDBRead)
 import           Pos.Slotting                         (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.GodTossing.Configuration     (HasGtConfiguration)

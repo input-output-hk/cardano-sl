@@ -1,12 +1,13 @@
 -- | Binary serialization of Pos.Block.* Types.
 
-module Pos.Binary.Block.Block
+module Pos.Binary.Undo
        (
        ) where
 
-import           Pos.Binary.Block.Slog ()
 import           Pos.Binary.Class      (Cons (..), Field (..), deriveSimpleBiCxt)
 import           Pos.Binary.Core       ()
+import           Pos.Binary.Delegation ()
+import           Pos.Binary.Slog       ()
 import           Pos.Binary.Update     ()
 import           Pos.Block.Slog.Types  (SlogUndo)
 import           Pos.Block.Types       (Undo (..))

@@ -1,6 +1,6 @@
 -- | Binary serialization of Slog types.
 
-module Pos.Binary.Block.Slog
+module Pos.Binary.Slog
        (
        ) where
 

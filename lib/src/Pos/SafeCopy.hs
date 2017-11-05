@@ -18,7 +18,7 @@ import           Serokell.Data.Memory.Units      (Byte, fromBytes, toBytes)
 
 import           Pos.Binary.Class                (Bi)
 import qualified Pos.Binary.Class                as Bi
-import           Pos.Block.Core
+import           Pos.Core.Block
 import           Pos.Core.Fee                    (Coeff (..), TxFeePolicy (..),
                                                   TxSizeLinear (..))
 import           Pos.Core.Ssc                    (Commitment (..), CommitmentsMap,

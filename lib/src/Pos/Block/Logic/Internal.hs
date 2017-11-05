@@ -33,14 +33,14 @@ import           Mockable             (CurrentTime, Mockable)
 import           Serokell.Util.Text   (listJson)
 
 import           Pos.Block.BListener  (MonadBListener)
-import           Pos.Block.Core       (Block, GenesisBlock, MainBlock, mbTxPayload,
-                                       mbUpdatePayload)
 import           Pos.Block.Slog       (BypassSecurityCheck (..), MonadSlogApply,
                                        MonadSlogBase, ShouldCallBListener,
                                        slogApplyBlocks, slogRollbackBlocks)
 import           Pos.Block.Types      (Blund, Undo (undoTx, undoUS))
 import           Pos.Core             (HasConfiguration, IsGenesisHeader, IsMainHeader,
                                        epochIndexL, gbBody, gbHeader, headerHash)
+import           Pos.Core.Block       (Block, GenesisBlock, MainBlock, mbTxPayload,
+                                       mbUpdatePayload)
 import           Pos.Core.Txp         (TxPayload)
 import           Pos.Core.Update      (UpdateBlock, UpdatePayload)
 import           Pos.DB               (MonadDB, MonadGState, SomeBatchOp (..))

@@ -9,9 +9,9 @@ import           Universum
 import           Test.Hspec          (Spec, describe)
 
 import           Pos.Arbitrary.Block ()
-import qualified Pos.Block.Core      as BT
 import qualified Pos.Block.Network   as BT
 import qualified Pos.Communication   ()
+import qualified Pos.Core.Block      as BT
 
 import           Test.Pos.Helpers    (binaryTest)
 import           Test.Pos.Util       (withDefConfiguration)

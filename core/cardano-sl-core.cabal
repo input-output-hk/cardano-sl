@@ -31,7 +31,23 @@ library
 
                        Pos.Core
                        Pos.Core.Address
+
                        Pos.Core.Block
+                       Pos.Core.Block.Blockchain
+                       Pos.Core.Block.Genesis
+                       Pos.Core.Block.Genesis.Chain
+                       Pos.Core.Block.Genesis.Lens
+                       Pos.Core.Block.Genesis.Instances
+                       Pos.Core.Block.Genesis.Types
+                       Pos.Core.Block.Main
+                       Pos.Core.Block.Main.Chain
+                       Pos.Core.Block.Main.Lens
+                       Pos.Core.Block.Main.Instances
+                       Pos.Core.Block.Main.Types
+                       Pos.Core.Block.Union
+                       Pos.Core.Block.Union.Instances
+                       Pos.Core.Block.Union.Types
+
                        Pos.Core.BlockVersionData
                        Pos.Core.Class
                        Pos.Core.Configuration
@@ -97,6 +113,7 @@ library
                        Pos.Binary.Core
                        Pos.Binary.Core.Address
                        Pos.Binary.Core.Block
+                       Pos.Binary.Core.Blockchain
                        Pos.Binary.Core.Coin
                        Pos.Binary.Core.Delegation
                        Pos.Binary.Core.Fee

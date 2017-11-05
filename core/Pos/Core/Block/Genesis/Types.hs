@@ -1,6 +1,6 @@
 -- | Types defining the genesis blockchain.
 
-module Pos.Block.Core.Genesis.Types
+module Pos.Core.Block.Genesis.Types
        ( GenesisBlockchain
        , GenesisBlockHeader
        , GenesisBlock
@@ -12,11 +12,11 @@ module Pos.Block.Core.Genesis.Types
 
 import           Universum
 
-import qualified Data.Text.Buildable as Buildable
-import           Formatting          (bprint, build, (%))
+import qualified Data.Text.Buildable       as Buildable
+import           Formatting                (bprint, build, (%))
 
-import           Pos.Core.Block      (GenericBlock (..), GenericBlockHeader (..))
-import           Pos.Data.Attributes (Attributes, areAttributesKnown)
+import           Pos.Core.Block.Blockchain (GenericBlock (..), GenericBlockHeader (..))
+import           Pos.Data.Attributes       (Attributes, areAttributesKnown)
 
 -- | Represents genesis block header attributes.
 type GenesisHeaderAttributes = Attributes ()

@@ -38,7 +38,6 @@ import           System.Wlog                (logDebug, logInfo, logWarning)
 import           Pos.Binary.Class           (biSize)
 import           Pos.Binary.Communication   ()
 import           Pos.Binary.Txp             ()
-import           Pos.Block.Core             (Block, BlockHeader, blockHeader)
 import           Pos.Block.Error            (ApplyBlocksException)
 import           Pos.Block.Logic            (ClassifyHeaderRes (..),
                                              ClassifyHeadersRes (..), classifyHeaders,
@@ -61,6 +60,7 @@ import           Pos.Core                   (EpochOrSlot (..), HasConfiguration,
                                              criticalForkThreshold, crucialSlot,
                                              epochIndexL, epochOrSlotG, gbHeader,
                                              headerHashG, isMoreDifficult, prevBlockL)
+import           Pos.Core.Block             (Block, BlockHeader, blockHeader)
 import           Pos.Crypto                 (shortHashF)
 import           Pos.DB.Block               (blkGetHeader)
 import qualified Pos.DB.DB                  as DB

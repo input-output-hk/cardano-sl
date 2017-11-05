@@ -133,6 +133,12 @@
                 }
             }
         },
+        "ApiVersion": {
+            "type": "string",
+            "enum": [
+                "ApiVersion0"
+            ]
+        },
         "Payment": {
             "example": {
                 "sourceAccount": {
@@ -580,6 +586,9 @@
                 }
             }
         },
+        "WalletStateSnapshot": {
+            "type": "string"
+        },
         "CAccountMeta": {
             "required": [
                 "caName"
@@ -665,6 +674,29 @@
                 }
             }
         },
+        "ClientInfo": {
+            "required": [
+                "ciApiVersion",
+                "ciSoftwareVersion",
+                "ciCabalVersion",
+                "ciGitRevision"
+            ],
+            "type": "object",
+            "properties": {
+                "ciSoftwareVersion": {
+                    "$ref": "#/definitions/SoftwareVersion"
+                },
+                "ciCabalVersion": {
+                    "$ref": "#/definitions/Version"
+                },
+                "ciApiVersion": {
+                    "$ref": "#/definitions/ApiVersion"
+                },
+                "ciGitRevision": {
+                    "type": "string"
+                }
+            }
+        },
         "EstimatedFees": {
             "example": {
                 "estimatedAmount": 4
@@ -709,6 +741,29 @@
                     "maximum": 1.8446744073709551615e19,
                     "minimum": 0,
                     "type": "integer"
+                }
+            }
+        },
+        "Version": {
+            "required": [
+                "versionBranch",
+                "versionTags"
+            ],
+            "type": "object",
+            "properties": {
+                "versionTags": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "versionBranch": {
+                    "items": {
+                        "maximum": 9223372036854775807,
+                        "minimum": -9223372036854775808,
+                        "type": "integer"
+                    },
+                    "type": "array"
                 }
             }
         },
@@ -816,6 +871,9 @@
                     "$ref": "#/definitions/CAccountId"
                 }
             }
+        },
+        "CFilePath": {
+            "type": "string"
         },
         "AccountUpdate": {
             "example": {
@@ -957,7 +1015,7 @@
                     {
                         "required": true,
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/CFilePath"
                         },
                         "in": "body",
                         "name": "body"
@@ -1213,7 +1271,7 @@
                     {
                         "required": true,
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/CFilePath"
                         },
                         "in": "body",
                         "name": "body"
@@ -1543,6 +1601,24 @@
                 ]
             }
         },
+        "/api/v0/info": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/ClientInfo"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
         "/api/v1/wallets/{walletId}/accounts": {
             "post": {
                 "summary": "Creates a new Account for the given Wallet.",
@@ -1788,7 +1864,7 @@
                     {
                         "required": true,
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/CFilePath"
                         },
                         "in": "body",
                         "name": "body"
@@ -1980,6 +2056,24 @@
                         "schema": {
                             "items": [],
                             "type": "array"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/info": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/ClientInfo"
                         },
                         "description": ""
                     }
@@ -2327,7 +2421,7 @@
                     {
                         "required": true,
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/CFilePath"
                         },
                         "in": "body",
                         "name": "body"
@@ -2907,11 +3001,29 @@
                     {
                         "required": true,
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/CFilePath"
                         },
                         "in": "body",
                         "name": "body"
                     }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/v0/test/state": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/WalletStateSnapshot"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/octet-stream"
                 ],
                 "tags": [
                     "V0"
@@ -3648,7 +3760,7 @@
                     {
                         "required": true,
                         "schema": {
-                            "type": "string"
+                            "$ref": "#/definitions/CFilePath"
                         },
                         "in": "body",
                         "name": "body"
@@ -3764,6 +3876,24 @@
                         "name": "address",
                         "type": "string"
                     }
+                ],
+                "tags": [
+                    "V0"
+                ]
+            }
+        },
+        "/api/test/state": {
+            "get": {
+                "responses": {
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/WalletStateSnapshot"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/octet-stream"
                 ],
                 "tags": [
                     "V0"

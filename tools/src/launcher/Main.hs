@@ -55,7 +55,7 @@ import           Pos.Client.CLI (configurationOptionsParser, readLoggerConfig)
 import           Pos.Core (Timestamp (..))
 import           Pos.Launcher (HasConfigurations, withConfigurations)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..))
-import           Pos.Reporting.Methods (retrieveLogFiles, sendReport)
+import           Pos.Reporting.Methods (compressLogs, retrieveLogFiles, sendReport)
 import           Pos.ReportServer.Report (ReportType (..))
 import           Pos.Util (directory, sleep)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
@@ -487,8 +487,9 @@ reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
     let ec = case exitCode of
             ExitSuccess   -> 0
             ExitFailure n -> n
-    -- TODO CSL-1732 Compress with tgz
-    sendReport (normalise logPath:logFiles) (RCrash ec) "cardano-node" reportServ
+    txz <- compressLogs $ normalise logPath:logFiles
+    sendReport [txz] (RCrash ec) "cardano-node" reportServ
+    removeFile txz
 
 -- Taken from the 'turtle' library and modified
 system'

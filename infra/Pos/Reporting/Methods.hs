@@ -20,30 +20,40 @@ module Pos.Reporting.Methods
        -- E. g. to report crash from launcher.
        , sendReport
        , retrieveLogFiles
+       , compressLogs
        ) where
 
 import           Universum
 
+
+import qualified Codec.Archive.Tar as Tar
+import qualified Codec.Archive.Tar.Entry as Tar
 import           Control.Exception (ErrorCall (..), Exception (..))
 import           Control.Lens (each, to)
 import           Control.Monad.Catch (try)
 import           Data.Aeson (encode)
 import           Data.Bits (Bits (..))
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
+import           Data.Conduit (runConduitRes, yield, (.|))
+import           Data.Conduit.List (consume)
+import qualified Data.Conduit.Lzma as Lzma
 import qualified Data.HashMap.Strict as HM
 import           Data.List (isSuffixOf)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
+import           Data.Time.Format (defaultTimeLocale, formatTime)
 import           Formatting (sformat, shown, stext, string, (%))
 import           Network.HTTP.Client (httpLbs, newManager, parseUrlThrow)
 import qualified Network.HTTP.Client.MultipartFormData as Form
 import           Network.HTTP.Client.TLS (tlsManagerSettings)
 import           Network.Info (IPv4 (..), getNetworkInterfaces, ipv4)
 import           Serokell.Util.Text (listBuilderJSON)
-import           System.Directory (doesFileExist)
+import           System.Directory (canonicalizePath, doesFileExist, removeFile)
 import           System.FilePath (takeFileName)
 import           System.Info (arch, os)
-import           System.IO (hClose)
+import           System.IO (IOMode (WriteMode), hClose, hFlush, withFile)
 import           System.Wlog (LoggerConfig (..), Severity (..), WithLogger, hwFilePath, lcTree,
                               logError, logInfo, logMessage, logWarning, ltFiles, ltSubloggers,
                               retrieveLogContent)
@@ -120,14 +130,6 @@ sendReport logFiles reportType appName reportServerUri = do
         , rReportType = reportType
         }
 
--- | Creates a temp file from given text
-withTempLogFile :: (MonadIO m, MonadMask m) => Text -> (FilePath -> m a) -> m a
-withTempLogFile rawLogs action = do
-    withSystemTempFile "main.log" $ \tempFp tempHandle -> do
-        liftIO $ do
-            TIO.hPutStrLn tempHandle rawLogs
-            hClose tempHandle
-        action tempFp
 
 -- | Given logger config, retrieves all (logger name, filepath) for
 -- every logger that has file handle. Filepath inside does __not__
@@ -139,6 +141,50 @@ retrieveLogFiles lconfig = fromLogTree $ lconfig ^. lcTree
         let curElems = map ([],) (lt ^.. ltFiles . each . hwFilePath)
             addFoo (part, node) = map (first (part :)) $ fromLogTree node
         in curElems ++ concatMap addFoo (lt ^. ltSubloggers . to HM.toList)
+
+-- | Pass a list of absolute paths to log files. This function will
+-- archive and compress these files and put resulting file into log
+-- directory (returning filepath is absolute).
+compressLogs :: (MonadIO m) => [FilePath] -> m FilePath
+compressLogs files = liftIO $ do
+    tar <- tarPackIndependently files
+    tarxz <-
+        BS.concat <$>
+        runConduitRes (yield tar .| Lzma.compress (Just 0) .| consume)
+    aName <- getArchiveName
+    withFile aName WriteMode $ \handle -> do
+        BS.hPut handle tarxz
+        hFlush handle
+    pure aName
+  where
+    tarPackIndependently :: [FilePath] -> IO ByteString
+    tarPackIndependently paths = do
+        entries <- forM paths $ \p -> do
+            unlessM (doesFileExist p) $ throwM $
+                PackingError $ "can't pack log file " <> fromString p <>
+                               " because it doesn't exist or it's not a file"
+            tPath <- either (throwM . PackingError . fromString)
+                            pure
+                            (Tar.toTarPath False $ takeFileName p)
+            pabs <- canonicalizePath p
+            Tar.packFileEntry pabs tPath
+        pure $ BSL.toStrict $ Tar.write entries
+    getArchiveName = liftIO $ do
+        curTime <- formatTime defaultTimeLocale "%q" <$> getCurrentTime
+        pure $ "report-" <> curTime <> ".tar.lzma"
+
+-- | Creates a temp file from given text
+withTempLogFile :: (MonadIO m, MonadMask m) => Text -> (FilePath -> m a) -> m a
+withTempLogFile rawLogs action = do
+    withSystemTempFile "main.log" $ \tempFp tempHandle -> do
+        liftIO $ do
+            TIO.hPutStrLn tempHandle rawLogs
+            hClose tempHandle
+        archivePath <- compressLogs [tempFp]
+        fullArchivePath <- liftIO $ canonicalizePath archivePath
+        aRes <- action fullArchivePath
+        liftIO $ removeFile fullArchivePath
+        pure aRes
 
 ----------------------------------------------------------------------------
 -- Node-specific

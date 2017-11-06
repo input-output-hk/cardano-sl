@@ -42,7 +42,6 @@ function unsafeStringToUint8ArrayOfCharCodes(str) {
 }
 
 var atobIsDefined = typeof atob === "function";
-var btoaIsDefined = typeof btoa === "function";
 
 function decodeUtf8(str) {
     var decoder = new TextDecoder('utf8');

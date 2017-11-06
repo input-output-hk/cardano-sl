@@ -347,6 +347,7 @@ test-suite cardano-explorer-test
                      , bytestring
                      , cardano-sl-explorer
                      , cardano-sl-core
+                     , cardano-sl-txp
                      , cardano-sl
                      , cborg
                      , cereal

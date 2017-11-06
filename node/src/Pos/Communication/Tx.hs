@@ -21,8 +21,8 @@ import           Pos.Client.Txp.Addresses   (MonadAddresses (..))
 import           Pos.Client.Txp.Balances    (MonadBalances (..), getOwnUtxo,
                                              getOwnUtxoForPk)
 import           Pos.Client.Txp.History     (MonadTxHistory (..))
-import           Pos.Client.Txp.Util        (TxCreateMode, TxError (..), createMTx,
-                                             createRedemptionTx, createTx)
+import           Pos.Client.Txp.Util        (TxCreateMode, TxError (..), InputSelectionPolicy,
+                                             createMTx, createRedemptionTx, createTx)
 import           Pos.Communication.Methods  (sendTx)
 import           Pos.Communication.Protocol (EnqueueMsg, OutSpecs)
 import           Pos.Communication.Specs    (createOutSpecs)
@@ -61,13 +61,14 @@ submitAndSave enqueue txAux@TxAux {..} = do
 prepareMTx
     :: TxMode ssc m
     => (Address -> SafeSigner)
+    -> InputSelectionPolicy
     -> NonEmpty Address
     -> NonEmpty TxOutAux
     -> AddrData m
     -> m (TxAux, NonEmpty TxOut)
-prepareMTx hdwSigners addrs outputs addrData = do
+prepareMTx hdwSigners inputSelectionPolicy addrs outputs addrData = do
     utxo <- getOwnUtxos (toList addrs)
-    eitherToThrow =<< createMTx utxo hdwSigners outputs addrData
+    eitherToThrow =<< createMTx inputSelectionPolicy utxo hdwSigners outputs addrData
 
 -- | Construct Tx using secret key and given list of desired outputs
 submitTx

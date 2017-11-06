@@ -7,7 +7,7 @@ import Control.Monad.Eff.Exception (error, Error, EXCEPTION)
 import Control.Monad.Eff.Ref.Unsafe (unsafeRunRef)
 import Control.Monad.Eff.Ref (modifyRef, newRef, readRef)
 import Control.Monad.Error.Class (throwError)
-import Daedalus.Types (CId, _address, _ccoin, CAccount, CTx, CAccountMeta, CTxId, CTxMeta, _ctxIdValue, WalletError, CProfile, CAccountInit, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress, CInitialized, CPassPhrase, _passPhrase, CCoin, CPaperVendWalletRedeem, Wal, CWallet, CWalletInit, walletAddressToUrl, CAccountId, CAddress, Addr, CWalletMeta, CFilePath (..), ScrollOffset (..), ScrollLimit (..))
+import Daedalus.Types (CId, _address, _ccoin, CAccount, CTx, CAccountMeta, CTxId, CTxMeta, _ctxIdValue, WalletError, CProfile, CAccountInit, CUpdateInfo, SoftwareVersion, CWalletRedeem, SyncProgress, CInitialized, CPassPhrase, _passPhrase, CCoin, CPaperVendWalletRedeem, Wal, CWallet, CWalletInit, walletAddressToUrl, CAccountId, CAddress, Addr, CWalletMeta, CFilePath (..), ScrollOffset (..), ScrollLimit (..), InputSelectionPolicy)
 import Data.Argonaut.Parser (jsonParser)
 import Data.Argonaut.Generic.Aeson (decodeJson, encodeJson)
 import Data.Bifunctor (lmap)
@@ -197,11 +197,11 @@ updateProfile :: forall eff. TLSOptions -> CProfile -> Aff (http :: HTTP, except
 updateProfile tls = postRBody tls $ noQueryParam ["profile"]
 --------------------------------------------------------------------------------
 -- Transactions ----------------------------------------------------------------
-newPayment :: forall eff. TLSOptions -> Maybe CPassPhrase -> CAccountId -> CId Addr -> CCoin -> Aff (http :: HTTP, exception :: EXCEPTION | eff) CTx
-newPayment tls pass addrFrom addrTo amount = postR tls $ queryParams ["txs", "payments", walletAddressToUrl addrFrom, _address addrTo, _ccoin amount] [qParam "passphrase" $ _passPhrase <$> pass]
+newPayment :: forall eff. TLSOptions -> Maybe CPassPhrase -> CAccountId -> CId Addr -> CCoin -> Maybe InputSelectionPolicy -> Aff (http :: HTTP, exception :: EXCEPTION | eff) CTx
+newPayment tls pass addrFrom addrTo amount = postRBody tls $ queryParams ["txs", "payments", walletAddressToUrl addrFrom, _address addrTo, _ccoin amount] [qParam "passphrase" $ _passPhrase <$> pass]
 
-txFee :: forall eff. TLSOptions -> CAccountId -> CId Addr -> CCoin -> Aff (http :: HTTP, exception :: EXCEPTION | eff) CCoin
-txFee tls addrFrom addrTo amount = getR tls $ noQueryParam ["txs", "fee", walletAddressToUrl addrFrom, _address addrTo, _ccoin amount]
+txFee :: forall eff. TLSOptions -> CAccountId -> CId Addr -> CCoin -> Maybe InputSelectionPolicy -> Aff (http :: HTTP, exception :: EXCEPTION | eff) CCoin
+txFee tls addrFrom addrTo amount = postRBody tls $ noQueryParam ["txs", "fee", walletAddressToUrl addrFrom, _address addrTo, _ccoin amount]
 
 updateTransaction :: forall eff. TLSOptions -> CAccountId -> CTxId -> CTxMeta -> Aff (http :: HTTP, exception :: EXCEPTION | eff) Unit
 updateTransaction tls addr ctxId = postRBody tls $ noQueryParam ["txs", "payments", walletAddressToUrl addr, _ctxIdValue ctxId]

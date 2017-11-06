@@ -19,10 +19,10 @@ import           Test.Hspec
 import           Test.QuickCheck
 import           Test.QuickCheck.Instances        ()
 
-import           Cardano.Wallet.API
 import           Cardano.Wallet.API.Types
+import qualified Cardano.Wallet.API.V1            as V1
+import qualified Cardano.Wallet.API.V1.Handlers   as V1
 import           Cardano.Wallet.API.V1.Parameters
-import           Cardano.Wallet.Server
 
 --
 -- Instances to allow use of `servant-quickcheck`.
@@ -87,15 +87,19 @@ noEmptyBody = RequestPredicate $ \req mgr -> do
     throw $ PredicateFailure "noEmptyBody" (Just req) resp
   return [resp]
 
+
+predicates :: Predicates
+predicates = not500
+         <%> deleteReqShouldReturn204
+         <%> putIdempotency
+         <%> noEmptyBody
+         <%> mempty
+
 -- Our API apparently is returning JSON Arrays which is considered bad practice as very old
 -- browsers can be hacked: https://haacked.com/archive/2009/06/25/json-hijacking.aspx/
--- TODO: Should we worry about this?
+-- The general consensus, after discussing this with the team, is that we can be moderately safe.
 spec :: Spec
 spec = describe "Servant API Properties" $ do
-  it "follows best practices & is RESTful abiding" $ do
-   withServantServer walletAPI (return walletServer) $ \burl ->
-     serverSatisfies walletAPI burl stdArgs (not500
-                                   <%> deleteReqShouldReturn204
-                                   <%> putIdempotency
-                                   <%> noEmptyBody
-                                   <%> mempty)
+  it "V1 API follows best practices & is RESTful abiding" $ do
+   withServantServer (Proxy @V1.API) (return V1.handlers) $ \burl ->
+     serverSatisfies (Proxy @V1.API) burl stdArgs predicates

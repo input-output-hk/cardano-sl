@@ -21,6 +21,7 @@ import           Pos.Wallet.Web.ClientTypes   (Addr, ApiVersion (..), CAccount,
                                                ClientInfo (..), SyncProgress, Wal)
 import           Pos.Wallet.Web.Error         (WalletError)
 import           Pos.Wallet.Web.Sockets.Types (NotifyEvent)
+import           Servant.API.ContentTypes     (NoContent (..))
 
 deriveJSON defaultOptions ''CAccountId
 deriveJSON defaultOptions ''CWAddressMeta
@@ -70,3 +71,6 @@ instance ToJSON ClientInfo where
             , "cabalVersion" .= showVersion ciCabalVersion
             , "apiVersion" .= ciApiVersion
             ]
+
+instance ToJSON NoContent where
+    toJSON NoContent = toJSON ()

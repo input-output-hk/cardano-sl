@@ -106,7 +106,7 @@ redeemAdaInternal passphrase cAccId seedBs = do
     let cWalId = aiWId accId
     -- We add TxHistoryEntry's meta created by us in advance
     -- to make TxHistoryEntry in CTx consistent with entry in history.
-    addHistoryTxMeta cWalId th
+    _ <- addHistoryTxMeta cWalId th
     cWalAddrs <- getWalletAddrsSet Ever cWalId
     diff <- getCurChainDifficulty
     fst <$> constructCTx cWalId cWalAddrs diff th

@@ -15,3 +15,5 @@ extra-deps:
   - servant-server-0.10
   - servant-client-0.10
 
+nix:
+  shell-file: ../shell.nix

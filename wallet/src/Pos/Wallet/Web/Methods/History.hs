@@ -5,7 +5,7 @@
 module Pos.Wallet.Web.Methods.History
        ( MonadWalletHistory
        , getHistoryLimited
-       , addHistoryTx
+       , addHistoryTxMeta
        , constructCTx
        , getCurChainDifficulty
        , updateTransaction
@@ -29,10 +29,10 @@ import           Pos.Util.LogSafe             (logInfoS)
 import           Pos.Util.Servant             (encodeCType)
 import           Pos.Wallet.WalletMode        (MonadBlockchainInfo (..), getLocalHistory)
 import           Pos.Wallet.Web.ClientTypes   (AccountId (..), Addr, CId, CTx (..), CTxId,
-                                               CTxMeta (..), CWAddressMeta (..), Wal,
-                                               mkCTx)
+                                               CTxMeta (..), CWAddressMeta (..),
+                                               ScrollLimit, ScrollOffset, Wal, mkCTx)
 import           Pos.Wallet.Web.Error         (WalletError (..))
-import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic)
+import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogicRead)
 import           Pos.Wallet.Web.Pending       (PendingTx (..), ptxPoolInfo)
 import           Pos.Wallet.Web.State         (AddressLookupMode (Ever), MonadWalletDB,
                                                MonadWalletDBRead, addOnlyNewTxMetas,
@@ -44,7 +44,7 @@ import           Pos.Wallet.Web.Util          (decodeCTypeOrFail, getAccountAddr
 
 
 type MonadWalletHistory ctx m =
-    ( MonadWalletLogic ctx m
+    ( MonadWalletLogicRead ctx m
     , MonadBlockchainInfo m
     , MonadTxHistory m
     )
@@ -73,11 +73,6 @@ getFullWalletHistory cWalId = do
     fullHistory <- addRecentPtxHistory cWalId $ localHistory `Map.union` blockHistory
     walAddrs    <- getWalletAddrsSet Ever cWalId
     diff        <- getCurChainDifficulty
-    -- TODO when we introduce some mechanism to react on new tx in mempool,
-    -- we will set timestamp tx as current time and remove call of @addHistoryTxs@
-    -- We call @addHistoryTxs@ only for mempool transactions because for
-    -- transactions from block and resubmitting timestamp is already known.
-    addHistoryTxs cWalId localHistory
     cHistory <- forM fullHistory (constructCTx cWalId walAddrs diff)
     pure (cHistory, fromIntegral $ Map.size cHistory)
 
@@ -123,8 +118,8 @@ getHistoryLimited
     => Maybe (CId Wal)
     -> Maybe AccountId
     -> Maybe (CId Addr)
-    -> Maybe Word
-    -> Maybe Word
+    -> Maybe ScrollOffset
+    -> Maybe ScrollLimit
     -> m ([CTx], Word)
 getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
     (cWalId, accIds) <- case (mCWalId, mAccId) of
@@ -153,21 +148,21 @@ getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
     errorDontSpecifyBoth = RequestError $
         "Please do not specify both walletId and accountId at the same time"
 
-addHistoryTx
+addHistoryTxMeta
     :: MonadWalletDB ctx m
     => CId Wal
     -> TxHistoryEntry
     -> m ()
-addHistoryTx cWalId = addHistoryTxs cWalId . txHistoryListToMap . one
+addHistoryTxMeta cWalId = addHistoryTxsMeta cWalId . txHistoryListToMap . one
 
 -- This functions is helper to do @addHistoryTx@ for
 -- all txs from mempool as one Acidic transaction.
-addHistoryTxs
+addHistoryTxsMeta
     :: MonadWalletDB ctx m
     => CId Wal
     -> Map TxId TxHistoryEntry
     -> m ()
-addHistoryTxs cWalId historyEntries = do
+addHistoryTxsMeta cWalId historyEntries = do
     metas <- mapM toMeta historyEntries
     addOnlyNewTxMetas cWalId metas
   where
@@ -198,7 +193,7 @@ updateTransaction accId txId txMeta = do
     setWalletTxMeta (aiWId accId) txId txMeta
 
 addRecentPtxHistory
-    :: (WithLogger m, MonadWalletDB ctx m)
+    :: (WithLogger m, MonadWalletDBRead ctx m)
     => CId Wal -> Map TxId TxHistoryEntry -> m (Map TxId TxHistoryEntry)
 addRecentPtxHistory wid currentHistory = do
     pendingTxs <- getWalletPendingTxs wid

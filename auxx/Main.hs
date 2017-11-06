@@ -21,7 +21,6 @@ import           Pos.Launcher          (HasConfigurations, NodeParams (..), Node
 import           Pos.Network.Types     (NetworkConfig (..), Topology (..),
                                         topologyDequeuePolicy, topologyEnqueuePolicy,
                                         topologyFailurePolicy)
-import           Pos.Ssc.SscAlgo       (SscAlgo (GodTossingAlgo))
 import           Pos.Txp               (txpGlobalSettings)
 import           Pos.Util.CompileInfo  (HasCompileInfo, retrieveCompileTimeInfo,
                                         withCompileInfo)
@@ -92,8 +91,8 @@ action opts@AuxxOptions {..} command = withConfigurations conf $ do
                     , acTempDbUsed = tempDbUsed }
             lift $ runReaderT auxxAction auxxContext
     let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
-    let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
-    bracketNodeResources nodeParams gtParams txpGlobalSettings initNodeDBs $ \nr ->
+    let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
+    bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
         runRealBasedMode toRealMode realModeToAuxx nr $
             (if aoNodeEnabled then runNodeWithSinglePlugin nr else identity)
             (auxxPlugin opts command)
@@ -101,7 +100,7 @@ action opts@AuxxOptions {..} command = withConfigurations conf $ do
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)
     nArgs =
-        CLI.NodeArgs {sscAlgo = GodTossingAlgo, behaviorConfigPath = Nothing}
+        CLI.NodeArgs {behaviorConfigPath = Nothing}
     cmdCtx = CmdCtx {ccPeers = aoPeers}
 
 main :: IO ()

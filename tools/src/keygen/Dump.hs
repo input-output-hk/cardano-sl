@@ -1,62 +1,109 @@
 -- | Generation of genesis data for testnet.
 
 module Dump
-       ( dumpKeyfile
+       ( dumpRichSecrets
        , dumpFakeAvvmSeed
        , dumpGeneratedGenesisData
        ) where
 
 import           Universum
 
-import           Control.Lens         ((?~))
-import           Crypto.Random        (MonadRandom)
-import qualified Data.Text            as T
-import qualified Serokell.Util.Base64 as B64
-import           System.Directory     (createDirectoryIfMissing)
-import           System.FilePath      ((</>))
-import           System.Wlog          (WithLogger, logInfo)
+import           Control.Lens           ((?~))
+import qualified Data.Text              as T
+import           Serokell.Util          (enumerate)
+import qualified Serokell.Util.Base64   as B64
+import           System.Directory       (createDirectoryIfMissing)
+import           System.FilePath        ((</>))
+import           System.Wlog            (WithLogger, logInfo)
 
-import           Pos.Core.Genesis     (GeneratedSecrets (..), TestnetBalanceOptions (..))
-import           Pos.Crypto           (EncryptedSecretKey, SecretKey, VssKeyPair,
-                                       noPassEncrypt)
-import           Pos.Util.UserSecret  (initializeUserSecret, mkGenesisWalletUserSecret,
-                                       takeUserSecret, usKeys, usPrimKey, usVss, usWallet,
-                                       writeUserSecretRelease)
+import           Pos.Core.Configuration (HasGeneratedSecrets, generatedSecrets)
+import           Pos.Core.Genesis       (GeneratedSecrets (..), RichSecrets (..))
+import           Pos.Crypto             (EncryptedSecretKey, SecretKey)
+import           Pos.Util.UserSecret    (UserSecret, initializeUserSecret,
+                                         mkGenesisWalletUserSecret, takeUserSecret,
+                                         usKeys, usPrimKey, usVss, usWallet,
+                                         writeUserSecretRelease)
 
+----------------------------------------------------------------------------
+-- Dump individual secrets
+----------------------------------------------------------------------------
+
+dumpDlgIssuerSecret
+    :: (MonadIO m, MonadThrow m, WithLogger m)
+    => FilePath
+    -> SecretKey
+    -> m ()
+dumpDlgIssuerSecret fp sk = dumpUserSecret fp $ usPrimKey .~ Just sk
+
+dumpRichSecrets
+    :: (MonadIO m, MonadThrow m, WithLogger m)
+    => FilePath
+    -> RichSecrets
+    -> m ()
+dumpRichSecrets fp RichSecrets {..} =
+    dumpUserSecret fp $
+    foldl' (.) identity [ usPrimKey .~ Just rsPrimaryKey
+                        , usVss .~ Just rsVssKeyPair
+                        ]
+
+dumpPoorSecret
+    :: (MonadIO m, MonadThrow m, WithLogger m)
+    => FilePath
+    -> EncryptedSecretKey
+    -> m ()
+dumpPoorSecret fp hdwSk =
+    dumpUserSecret fp $
+    foldl' (.) identity [ usKeys %~ (hdwSk :)
+                        , usWallet ?~ mkGenesisWalletUserSecret hdwSk
+                        ]
+
+dumpFakeAvvmSeed :: MonadIO m => FilePath -> ByteString -> m ()
+dumpFakeAvvmSeed fp seed = writeFile fp (B64.encode seed)
+
+----------------------------------------------------------------------------
+-- Dump all generated secrets
+----------------------------------------------------------------------------
 
 dumpGeneratedGenesisData
-    :: (MonadIO m, WithLogger m, MonadThrow m, MonadRandom m)
+    :: (MonadIO m, WithLogger m, MonadThrow m, HasGeneratedSecrets)
     => (FilePath, FilePath)
-    -> TestnetBalanceOptions
-    -> GeneratedSecrets
     -> m ()
-dumpGeneratedGenesisData (dir, pat) tbo GeneratedSecrets {..} = do
-    dumpKeyfiles (dir, pat) tbo (gsSecretKeysRich <> gsSecretKeysPoor)
+dumpGeneratedGenesisData (dir, pat) = do
+    let GeneratedSecrets {..} =
+            fromMaybe (error "GeneratedSecrets are unknown") generatedSecrets
+    dumpKeyfiles (dir, pat) gsDlgIssuersSecrets gsRichSecrets gsPoorSecrets
     dumpFakeAvvmSeeds dir gsFakeAvvmSeeds
 
 dumpKeyfiles
-    :: (MonadIO m, MonadThrow m, WithLogger m, MonadRandom m)
+    :: (MonadIO m, MonadThrow m, WithLogger m)
     => (FilePath, FilePath) -- directory and key-file pattern
-    -> TestnetBalanceOptions
-    -> [(SecretKey, EncryptedSecretKey, VssKeyPair)]
+    -> [SecretKey]
+    -> [RichSecrets]
+    -> [EncryptedSecretKey]
     -> m ()
-dumpKeyfiles (dir, pat) TestnetBalanceOptions{..} secrets = do
-    let keysDir = dir </> "keys-testnet"
+dumpKeyfiles (dir, pat) dlgIssuers richs poors = do
+    let keysDir = dir </> "generated-keys"
+    let dlgIssuersDir = keysDir </> "dlg-issuers"
     let richDir = keysDir </> "rich"
     let poorDir = keysDir </> "poor"
-    logInfo $ "Generating testnet data into " <> fromString keysDir
-    liftIO $ createDirectoryIfMissing True richDir
-    liftIO $ createDirectoryIfMissing True poorDir
+    logInfo $ "Dumping generated genesis secrets into " <> fromString keysDir
+    mapM_ (liftIO . createDirectoryIfMissing True)
+        [ dlgIssuersDir
+        , richDir
+        , poorDir
+        ]
 
-    let totalStakeholders = tboRichmen + tboPoors
-    let (richmen, poors) = splitAt (fromIntegral tboRichmen) secrets
+    let totalSecrets = length dlgIssuers + length richs + length poors
 
-    forM_ (zip richmen [1 .. tboRichmen]) $ \(sk, i) ->
-        dumpKeyfile True (richDir </> applyPattern pat i) sk
-    forM_ (zip poors [1 .. tboPoors]) $ \(sk, i) ->
-        dumpKeyfile False (poorDir </> applyPattern pat i) sk
+    let patternize = applyPattern @Int pat
+    forM_ (enumerate dlgIssuers) $ \(i, sk) ->
+        dumpDlgIssuerSecret (dlgIssuersDir </> patternize i) sk
+    forM_ (enumerate richs) $ \(i, richSecrets) ->
+        dumpRichSecrets (richDir </> patternize i) richSecrets
+    forM_ (enumerate poors) $ \(i, hdwSk) ->
+        dumpPoorSecret (poorDir </> patternize i) hdwSk
 
-    logInfo $ show totalStakeholders <> " keyfiles are generated"
+    logInfo $ show totalSecrets <> " keyfiles are generated"
 
 dumpFakeAvvmSeeds
     :: (MonadIO m, WithLogger m)
@@ -69,7 +116,7 @@ dumpFakeAvvmSeeds dir seeds = do
     liftIO $ createDirectoryIfMissing True keysDir
     let faoCount = length seeds
 
-    forM_ (zip seeds [1 .. faoCount]) $ \(seed, i) ->
+    forM_ (enumerate seeds) $ \(i :: Int, seed) ->
         dumpFakeAvvmSeed (keysDir </> ("fake-" <> show i <> ".seed")) seed
 
     logInfo (show faoCount <> " fake avvm seeds are generated")
@@ -78,28 +125,18 @@ dumpFakeAvvmSeeds dir seeds = do
 -- Helpers
 ----------------------------------------------------------------------------
 
-dumpKeyfile
-    :: (MonadIO m, MonadThrow m, WithLogger m, MonadRandom m)
-    => Bool
-    -> FilePath
-    -> (SecretKey, EncryptedSecretKey, VssKeyPair)
+dumpUserSecret
+    :: (MonadIO m, MonadThrow m, WithLogger m)
+    => FilePath
+    -> (UserSecret -> UserSecret)
     -> m ()
-dumpKeyfile isPrim fp (sk, hdwSk, vss) = do
+dumpUserSecret fp operation = do
     initializeUserSecret fp
     us <- takeUserSecret fp
+    writeUserSecretRelease (operation us)
 
-    writeUserSecretRelease $
-        us & (if isPrim
-            then usPrimKey .~ Just sk
-            else (usKeys %~ (noPassEncrypt sk :))
-                . (usWallet ?~ mkGenesisWalletUserSecret hdwSk))
-        & usVss .~ Just vss
-
-dumpFakeAvvmSeed :: MonadIO m => FilePath -> ByteString -> m ()
-dumpFakeAvvmSeed fp seed = flip writeFile (B64.encode seed) fp
-
--- | Replace "{}" with the result of applying 'show' to the given
--- value. Used in keygen, probably shouldn't be here.
+-- Replace "{}" with the result of applying 'show' to the given
+-- value.
 applyPattern :: Show a => FilePath -> a -> FilePath
 applyPattern fp a = replace "{}" (show a) fp
   where

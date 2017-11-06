@@ -11,8 +11,9 @@ module Pos.Launcher.Scenario
 
 import           Universum
 
+import qualified Data.HashMap.Strict      as HM
 import           Data.Time.Units          (Second)
-import           Formatting               (build, int, sformat, shown, (%))
+import           Formatting               (bprint, build, int, sformat, shown, (%))
 import           Mockable                 (mapConcurrently, race)
 import           Serokell.Util.Text       (listJson)
 import           System.Exit              (ExitCode (..))
@@ -22,9 +23,11 @@ import           System.Wlog              (WithLogger, getLoggerName, logDebug, 
 import           Pos.Communication        (ActionSpec (..), OutSpecs, WorkerSpec,
                                            wrapActionSpec)
 import           Pos.Context              (getOurPublicKey, ncNetworkConfig)
-import           Pos.Core                 (GenesisData (gdBootStakeholders),
+import           Pos.Core                 (GenesisData (gdBootStakeholders, gdHeavyDelegation),
+                                           GenesisDelegation (..),
                                            GenesisWStakeholders (..), addressHash,
                                            gdFtsSeed, genesisData)
+import           Pos.Crypto               (pskDelegatePk)
 import qualified Pos.DB.DB                as DB
 import           Pos.DHT.Real             (KademliaDHTInstance (..),
                                            kademliaJoinNetworkNoThrow,
@@ -84,6 +87,15 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
         (length $ getGenesisWStakeholders genesisStakeholders)
         bootDustThreshold
         genesisStakeholders
+
+    let genesisDelegation = gdHeavyDelegation genesisData
+    let formatDlgPair (issuerId, delegateId) =
+            bprint (build%" -> "%build) issuerId delegateId
+    logInfo $ sformat ("GenesisDelegation (stakeholder ids): "%listJson)
+            $ map (formatDlgPair . second (addressHash . pskDelegatePk))
+            $ HM.toList
+            $ unGenesisDelegation genesisDelegation
+
     firstGenesisHash <- GS.getFirstGenesisBlockHash
     logInfo $ sformat
         ("First genesis block hash: "%build%", genesis seed is "%build)

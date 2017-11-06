@@ -280,11 +280,11 @@ testGenesisPagesTotal
     -> CAddressesFilter
     -> Handler Integer
 -- number of redeemed addresses pages
-testGenesisPagesTotal _ RedeemedAddresses = pure 1
+testGenesisPagesTotal _ RedeemedAddresses    = pure 1
 -- number of non redeemed addresses pages
 testGenesisPagesTotal _ NonRedeemedAddresses = pure 1
 -- number of all redeem addresses pages
-testGenesisPagesTotal _ _ = pure 2
+testGenesisPagesTotal _ _                    = pure 2
 
 testGenesisAddressInfo
     :: Maybe Word

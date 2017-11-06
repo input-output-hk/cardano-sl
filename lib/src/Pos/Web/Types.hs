@@ -1,15 +1,15 @@
 -- | Types used by web server.
 
 module Pos.Web.Types
-       ( GodTossingStage (..)
+       ( SscStage (..)
        , TlsParams (..)
        , CConfirmedProposalState (..)
        ) where
 
 import           Universum
 
--- | Stages of GodTossing algorithm.
-data GodTossingStage
+-- | Stages of SSC.
+data SscStage
     = CommitmentStage
     | OpeningStage
     | SharesStage

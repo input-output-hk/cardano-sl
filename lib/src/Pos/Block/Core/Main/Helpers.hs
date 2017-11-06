@@ -28,7 +28,7 @@ import           Pos.Core                   (Blockchain (..), BlockchainHelpers 
 import           Pos.Crypto                 (ProxySignature (..), SignTag (..), checkSig,
                                              hash, isSelfSignedPsk, proxyVerify)
 import           Pos.Delegation.Helpers     (dlgVerifyPayload)
-import           Pos.Ssc.GodTossing.Functions (verifySscPayload)
+import           Pos.Ssc.Functions          (verifySscPayload)
 import           Pos.Util.Util              (Some (Some))
 
 instance ( Bi BlockHeader

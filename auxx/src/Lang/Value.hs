@@ -29,6 +29,7 @@ module Lang.Value
        , RollbackParams(..)
        , ProposeUpdateSystem(..)
        , GenBlocksParams(..)
+       , AddKeyParams (..)
 
        ) where
 
@@ -59,6 +60,7 @@ data AddrDistrPart = AddrDistrPart
 -- | Parameters for 'ProposeUpdate' command.
 data ProposeUpdateParams = ProposeUpdateParams
     { puSecretKeyIdx         :: !Int -- the node that creates/signs the proposal
+    , puVoteAll              :: !Bool
     , puBlockVersion         :: !BlockVersion
     , puSoftwareVersion      :: !SoftwareVersion
     , puBlockVersionModifier :: !BlockVersionModifier
@@ -82,6 +84,14 @@ data GenBlocksParams = GenBlocksParams
     , bgoSeed   :: !(Maybe Int)
     -- ^ Generating seed.
     } deriving (Show)
+
+-- | Parameters of `add-key` command.
+data AddKeyParams = AddKeyParams
+    { akpFile    :: !FilePath
+    -- ^ Path to 'UserSecret'.
+    , akpPrimary :: !Bool
+    -- ^ If 'True', then primary key will be added.
+    }
 
 data Value
     = ValueUnit

@@ -1,9 +1,9 @@
 {-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE GADTs               #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeOperators       #-}
-{-# LANGUAGE GADTs               #-}
 
 -- API server logic
 
@@ -59,7 +59,7 @@ import           Pos.Core                             (AddrType (..), Address (.
                                                        unsafeSubCoin)
 import           Pos.DB.Class                         (MonadDBRead)
 import           Pos.Slotting                         (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.GodTossing.Configuration     (HasGtConfiguration)
+import           Pos.Ssc.Configuration                (HasSscConfiguration)
 import           Pos.Txp                              (MonadTxpMem, Tx (..), TxAux, TxId,
                                                        TxMap, TxOutAux (..), getLocalTxs,
                                                        getMemPool, mpLocalTxs, taTx,
@@ -98,7 +98,6 @@ import           Pos.Explorer.Web.ClientTypes         (Byte, CAda (..), CAddress
                                                        toTxBrief)
 import           Pos.Explorer.Web.Error               (ExplorerError (..))
 
-
 ----------------------------------------------------------------
 -- Top level functionality
 ----------------------------------------------------------------
@@ -108,7 +107,7 @@ type MainBlund = (MainBlock, Undo)
 type ExplorerMode ctx m =
     ( WorkMode ctx m
     , HasGenesisRedeemAddressInfo m
-    , HasGtConfiguration
+    , HasSscConfiguration
     )
 
 explorerServeImpl
@@ -601,7 +600,6 @@ getGenesisPagesTotal mPageSize addrFilt = do
     pure $ fromIntegral $ (length filteredGrai + pageSize - 1) `div` pageSize
   where
     pageSize = fromIntegral $ toPageSize mPageSize
-
 
 -- | Search the blocks by epoch and slot. Slot is optional.
 epochSlotSearch

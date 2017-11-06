@@ -1,9 +1,10 @@
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE DataKinds           #-}
-{-# LANGUAGE KindSignatures      #-}
-{-# LANGUAGE Rank2Types          #-}
-{-# LANGUAGE TypeFamilies        #-}
-{-# LANGUAGE TypeOperators       #-}
+{-# LANGUAGE AllowAmbiguousTypes       #-}
+{-# LANGUAGE DataKinds                 #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE KindSignatures            #-}
+{-# LANGUAGE Rank2Types                #-}
+{-# LANGUAGE TypeFamilies              #-}
+{-# LANGUAGE TypeOperators             #-}
 
 -- | Some utilites for more flexible servant usage.
 
@@ -60,10 +61,11 @@ import           Servant.Server          (Handler (..), HasServer (..), ServantE
                                           Server)
 import qualified Servant.Server.Internal as SI
 import           Servant.Swagger         (HasSwagger (toSwagger))
-import           System.Wlog             (LoggerName, usingLoggerName)
+import           System.Wlog             (LoggerName, LoggerNameBox, usingLoggerName)
 
+import           Pos.Util.LogSafe        (BuildableSafe, SecuredText, buildSafe,
+                                          logInfoSP, secretOnlyF, secretOnlyF2)
 import           Pos.Util.Util           (colorizeDull)
-import           Pos.Util.LogSafe        (logInfoS)
 
 -------------------------------------------------------------------------
 -- Utility functions
@@ -273,9 +275,11 @@ type ApiLoggingConfig = LoggerName
 
 -- | Used to incrementally collect info about passed parameters.
 data ApiParamsLogInfo
-    = ApiParamsLogInfo [Text]  -- ^ Parameters gathered at current stage
-    | ApiNoParamsLogInfo Text  -- ^ Parameters collection failed with reason
-                               --   (e.g. decoding error)
+      -- | Parameters gathered at current stage
+    = ApiParamsLogInfo [SecuredText]
+      -- | Parameters collection failed with reason
+      --   (e.g. decoding error)
+    | ApiNoParamsLogInfo Text
 
 makePrisms ''ApiParamsLogInfo
 
@@ -353,7 +357,7 @@ instance ( KnownSymbol path
         first updateParamsInfo
       where
         updateParamsInfo = do
-            let path = toText . symbolVal $ Proxy @path
+            let path = const . toText . symbolVal $ Proxy @path
             _ApiParamsLogInfo %~ (path :)
 
 -- | Describes a way to log a single parameter.
@@ -363,18 +367,19 @@ class ApiHasArgClass apiType a =>
     type ApiArgToLog apiType a = ApiArg apiType a
 
     toLogParamInfo
-        :: Buildable (ApiArgToLog apiType a)
-        => Proxy (apiType a) -> ApiArg apiType a -> Text
+        :: BuildableSafe (ApiArgToLog apiType a)
+        => Proxy (apiType a) -> ApiArg apiType a -> SecuredText
     default toLogParamInfo
-        :: Buildable (ApiArgToLog apiType a)
-        => Proxy (apiType a) -> ApiArgToLog apiType a -> Text
-    toLogParamInfo _ = pretty
+        :: BuildableSafe (ApiArgToLog apiType a)
+        => Proxy (apiType a) -> ApiArgToLog apiType a -> SecuredText
+    toLogParamInfo _ param = \sl -> sformat (buildSafe sl) param
 
 instance KnownSymbol s => ApiCanLogArg (Capture s) a
 instance ApiCanLogArg (ReqBody ct) a
 instance KnownSymbol cs => ApiCanLogArg (QueryParam cs) a where
     type ApiArgToLog (QueryParam cs) a = a
-    toLogParamInfo _ = maybe noEntry pretty
+    toLogParamInfo _ mparam =
+        \sl -> maybe noEntry (sformat $ buildSafe sl) mparam
       where
         noEntry = colorizeDull White "-"
 
@@ -391,7 +396,7 @@ instance ( HasServer (apiType a :> LoggingApiRec config res) ctx
          , ApiHasArg apiType a res
          , ApiHasArg apiType a (LoggingApiRec config res)
          , ApiCanLogArg apiType a
-         , Buildable (ApiArgToLog apiType a)
+         , BuildableSafe (ApiArgToLog apiType a)
          ) =>
          HasLoggingServer config (apiType a :> res) ctx where
     routeWithLog =
@@ -399,9 +404,10 @@ instance ( HasServer (apiType a :> LoggingApiRec config res) ctx
         \(paramsInfo, f) a -> (a `updateParamsInfo` paramsInfo, f a)
       where
         updateParamsInfo a = do
-            let paramName = apiArgName $ Proxy @(apiType a)
-                paramVal  = toLogParamInfo (Proxy @(apiType a)) a
-                paramInfo = sformat (string%": "%stext) paramName paramVal
+            let paramVal = toLogParamInfo (Proxy @(apiType a)) a
+                paramName = apiArgName $ Proxy @(apiType a)
+                paramInfo =
+                    \sl -> sformat (string%": "%stext) paramName (paramVal sl)
             _ApiParamsLogInfo %~ (paramInfo :)
 
 -- | Modify an action so that it performs all the required logging.
@@ -440,30 +446,38 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
         return $ do
             endTime <- liftIO getPOSIXTime
             return $ sformat shown (endTime - startTime)
-    performLogging msg = do
+    inLogCtx :: MonadIO m => LoggerNameBox m a -> m a
+    inLogCtx logAction = do
         let loggerName = reflect configP
-        liftIO . usingLoggerName loggerName $ logInfoS msg
+        usingLoggerName loggerName logAction
+    eParamLogs :: Either Text SecuredText
     eParamLogs = case paramsInfo of
-        ApiParamsLogInfo info -> do
-            let params = mconcat $ reverse info <&>
-                  bprint ("    "%stext%" "%stext%"\n") (colorizeDull White ":>")
-            Right $ sformat ("\n"%stext%"\n"%build) cmethod params
+        ApiParamsLogInfo info -> Right $ \sl ->
+            let params =
+                  mconcat $ reverse info <&> \securedParamsInfo ->
+                      sformat ("    "%stext%" "%stext%"\n")
+                          (colorizeDull White ":>")
+                          (securedParamsInfo sl)
+            in  sformat ("\n"%stext%"\n"%build) cmethod params
         ApiNoParamsLogInfo why -> Left why
-    logWithParamInfo msg =
+    logWithParamInfo :: MonadIO m => SecuredText -> m ()
+    logWithParamInfo securedText =
         case eParamLogs of
             Left e ->
-                performLogging $ sformat ("\n"%stext%" "%stext)
+                inLogCtx $ logInfoSP $ \sl ->
+                    sformat ("\n"%stext%secretOnlyF sl (" "%stext))
                         (colorizeDull Red "Unexecuted request due to error") e
-            Right paramLogs ->
-                performLogging $ paramLogs <> msg
+            Right paramLogs -> do
+                inLogCtx $ logInfoSP $ \sl ->
+                    sformat (build%" "%build) (paramLogs sl) (securedText sl)
     reportResponse timer resp = do
         durationText <- timer
-        logWithParamInfo $
-            sformat ("  "%stext%" "%stext%" "%stext%" "%stext%" "%stext)
+        logWithParamInfo $ \sl ->
+            sformat ("  "%stext%" "%stext%" "%stext%secretOnlyF2 sl (stext%stext))
                 (colorizeDull White "Status:")
                 (colorizeDull Green "OK")
                 durationText
-                (colorizeDull White ">")
+                (colorizeDull White " > ")
                 (showResponse resp)
     catchErrors st =
         flip catchError (servantErrHandler st) .
@@ -471,7 +485,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
     servantErrHandler timer err@ServantErr{..} = do
         durationText <- timer
         let errMsg = sformat (build%" "%string) errHTTPCode errReasonPhrase
-        logWithParamInfo $
+        logWithParamInfo $ \_sl ->
             sformat ("  "%stext%" "%stext%" "%stext)
                 (colorizeDull White "Status: ")
                 (colorizeDull Red errMsg)
@@ -479,7 +493,7 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
         throwError err
     exceptionsHandler timer e = do
         durationText <- timer
-        logWithParamInfo $
+        logWithParamInfo $ \_sl ->
             sformat ("  "%stext%" "%shown%" "%stext)
                 (colorizeDull Red "Error")
                 e

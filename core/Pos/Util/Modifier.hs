@@ -20,12 +20,16 @@ module Pos.Util.Modifier
 
        , insert
        , delete
+       , alter
+       , KeyState (..)
 
        , mapMaybeM
        , mapMaybe
        , modifyHashMap
        , modifyMap
        , foldlMapModWKey'
+       , fromHashMap
+       , toHashMap
        ) where
 
 import           Universum                 hiding (filter, mapMaybe, toList)
@@ -168,6 +172,27 @@ delete
     => k -> MapModifier k v -> MapModifier k v
 delete k (MapModifier m) = MapModifier $ HM.insert k Nothing m
 
+data KeyState v
+    = KeyNotFound
+    | KeyDeleted
+    | KeyInserted v
+
+alter
+    :: (Eq k, Hashable k)
+    => (KeyState v -> KeyState v)
+    -> k
+    -> MapModifier k v
+    -> MapModifier k v
+alter f key (MapModifier mm) = MapModifier $ HM.alter transformedF key mm
+  where
+    toMaybe KeyNotFound     = Nothing
+    toMaybe KeyDeleted      = Just Nothing
+    toMaybe (KeyInserted v) = Just $ Just v
+
+    transformedF Nothing         = toMaybe $ f KeyNotFound
+    transformedF (Just Nothing)  = toMaybe $ f KeyDeleted
+    transformedF (Just (Just v)) = toMaybe $ f (KeyInserted v)
+
 -- | Transform this modifier in Functor context by applying a function to every
 -- insertion and retaining only some of them. Underlying map should be already
 -- transformed.
@@ -209,3 +234,9 @@ foldlMapModWKey'
     -> MapModifier k v
     -> a
 foldlMapModWKey' f acc = HM.foldlWithKey' f acc . getMapModifier
+
+toHashMap :: MapModifier k v -> HashMap k (Maybe v)
+toHashMap = getMapModifier
+
+fromHashMap :: HashMap k (Maybe v) -> MapModifier k v
+fromHashMap = MapModifier

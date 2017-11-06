@@ -2,13 +2,19 @@
 
 -- | Types representing client (wallet) requests on wallet API.
 module Pos.Wallet.Web.ClientTypes.Types
-      ( -- * Identifiers & primitives
-        CId (..)
+      ( SyncProgress (..)
+      , spLocalCD
+      , spNetworkCD
+      , spPeers
+
+        -- * Identifiers & primitives
+      , CId (..)
       , CHash (..)
       , CPassPhrase (..)
       , CTxId (..)
       , CAccountId (..)
       , CCoin (..)
+      , mkCCoin
       , Wal (..)
       , Addr (..)
       , PassPhraseLU
@@ -49,10 +55,11 @@ module Pos.Wallet.Web.ClientTypes.Types
       , CElectronCrashReport (..)
 
         -- * Misc
-      , SyncProgress (..)
-      , spLocalCD
-      , spNetworkCD
-      , spPeers
+      , ScrollOffset (..)
+      , ScrollLimit (..)
+      , CFilePath (..)
+      , ApiVersion (..)
+      , ClientInfo (..)
       ) where
 
 import           Universum
@@ -63,15 +70,33 @@ import           Data.Hashable         (Hashable (..))
 import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable         (Typeable)
+import           Data.Version          (Version)
 import           Formatting            (bprint, build, builder, shown, (%))
 import qualified Prelude
 import           Serokell.Util         (listJsonIndent)
 import           Servant.Multipart     (FileData)
 
-import           Pos.Core.Types        (ScriptVersion)
+import           Pos.Core.Types        (Coin, ScriptVersion, unsafeGetCoin)
 import           Pos.Types             (BlockVersion, ChainDifficulty, SoftwareVersion)
 import           Pos.Util.BackupPhrase (BackupPhrase)
+import           Pos.Util.LogSafe      (SecureLog (..), buildUnsecure)
 import           Pos.Util.Servant      (HasTruncateLogPolicy, WithTruncatedLog (..))
+
+data SyncProgress = SyncProgress
+    { _spLocalCD   :: ChainDifficulty
+    , _spNetworkCD :: Maybe ChainDifficulty
+    , _spPeers     :: Word
+    } deriving (Show, Generic, Typeable)
+
+makeLenses ''SyncProgress
+
+instance Buildable SyncProgress where
+    build SyncProgress{..} =
+        bprint ("progress="%build%"/"%build%" peers="%build)
+               _spLocalCD _spNetworkCD _spPeers
+
+instance Default SyncProgress where
+    def = SyncProgress 0 mzero 0
 
 ----------------------------------------------------------------------------
 -- Identifiers & primitives
@@ -89,6 +114,9 @@ instance Hashable CHash where
 newtype CId w = CId CHash
     deriving (Show, Eq, Ord, Generic, Hashable, Buildable)
 
+instance Buildable (SecureLog $ CId w) where
+    build _ = "<id>"
+
 -- | Marks address as belonging to wallet set.
 data Wal = Wal
     deriving (Show, Generic)
@@ -100,6 +128,9 @@ data Addr = Addr
 -- | Client transaction id
 newtype CTxId = CTxId CHash
     deriving (Show, Eq, Generic, Hashable, Buildable)
+
+instance Buildable (SecureLog CTxId) where
+    build _ = "<tx id>"
 
 mkCTxId :: Text -> CTxId
 mkCTxId = CTxId . CHash
@@ -113,9 +144,15 @@ instance Show CPassPhrase where
 newtype CAccountId = CAccountId Text
     deriving (Eq, Show, Generic, Buildable)
 
+instance Buildable (SecureLog CAccountId) where
+    build _ = "<account id>"
+
 newtype CCoin = CCoin
     { getCCoin :: Text
     } deriving (Show, Eq, Generic, Buildable)
+
+mkCCoin :: Coin -> CCoin
+mkCCoin = CCoin . show . unsafeGetCoin
 
 -- | Passphrase last update time
 type PassPhraseLU = POSIXTime
@@ -137,6 +174,14 @@ instance Buildable AccountId where
     build AccountId{..} =
         bprint (build%"@"%build) aiWId aiIndex
 
+instance Buildable (SecureLog AccountId) where
+    build _ = "<account id>"
+
+instance Buildable (SecureLog (Maybe AccountId)) where
+    build (SecureLog mAccId) = maybe "-" (const "<account id>") mAccId
+
+-- TODO: extract first three fields as @Coordinates@ and use only it where
+-- required (maybe nowhere)
 -- | Account identifier
 data CWAddressMeta = CWAddressMeta
     { -- | Address of wallet this account belongs to
@@ -177,6 +222,9 @@ instance Buildable CWalletMeta where
         bprint ("("%build%"/"%build%")")
                cwAssurance cwUnit
 
+instance Buildable (SecureLog CWalletMeta) where
+    build = buildUnsecure
+
 instance Default CWalletMeta where
     def = CWalletMeta "Personal Wallet Set" CWANormal 0
 
@@ -186,7 +234,11 @@ data CAccountMeta = CAccountMeta
     } deriving (Eq, Show, Generic)
 
 instance Buildable CAccountMeta where
+    -- can't log for now, names are dangerous
     build CAccountMeta{..} = "<meta>"
+
+instance Buildable (SecureLog CAccountMeta) where
+    build (SecureLog CAccountMeta{..}) = "<meta>"
 
 instance Default CAccountMeta where
     def = CAccountMeta "Personal Wallet"
@@ -206,6 +258,9 @@ instance Buildable CWalletInit where
         bprint (build%" / "%build)
                cwBackupPhrase cwInitMeta
 
+instance Buildable (SecureLog CWalletInit) where
+    build _ = "<wallet init>"
+
 -- | Query data for redeem
 data CWalletRedeem = CWalletRedeem
     { crWalletId :: !CAccountId
@@ -213,9 +268,10 @@ data CWalletRedeem = CWalletRedeem
     } deriving (Show, Generic)
 
 instance Buildable CWalletRedeem where
-    build CWalletRedeem{..} =
-        bprint (build%" <- "%build)
-               crWalletId crSeed
+    build _ = "<wallet redeem info>"
+
+instance Buildable (SecureLog CWalletRedeem) where
+    build _ = "<wallet redeem info>"
 
 -- | Query data for redeem
 data CPaperVendWalletRedeem = CPaperVendWalletRedeem
@@ -225,9 +281,10 @@ data CPaperVendWalletRedeem = CPaperVendWalletRedeem
     } deriving (Show, Generic)
 
 instance Buildable CPaperVendWalletRedeem where
-    build CPaperVendWalletRedeem{..} =
-        bprint (build%" <- "%build%" / "%build)
-               pvWalletId pvSeed pvBackupPhrase
+    build _ = "<paper vend wallet redeem info>"
+
+instance Buildable (SecureLog CPaperVendWalletRedeem) where
+    build _ = "<papervend wallet redeem info>"
 
 -- | Query data for account creation
 data CAccountInit = CAccountInit
@@ -239,6 +296,9 @@ instance Buildable CAccountInit where
     build CAccountInit{..} =
         bprint (build%" / "%build)
                caInitWId caInitMeta
+
+instance Buildable (SecureLog CAccountInit) where
+    build _ = "<account init>"
 
 ----------------------------------------------------------------------------
 -- Wallet struture - responses
@@ -342,6 +402,9 @@ instance Buildable CProfile where
     build CProfile{..} =
         bprint ("{ cpLocale="%build%" }") cpLocale
 
+instance Buildable (SecureLog CProfile) where
+    build = buildUnsecure
+
 -- | Added default instance for `testReset`, we need an inital state for
 -- @CProfile@
 instance Default CProfile where
@@ -358,6 +421,9 @@ data CTxMeta = CTxMeta
 
 instance Buildable CTxMeta where
     build CTxMeta{..} = bprint ("{ date="%build%" }") ctmDate
+
+instance Buildable (SecureLog CTxMeta) where
+    build _ = "<tx meta>"
 
 -- | State of transaction, corresponding to
 -- 'Pos.Wallet.Web.Pending.Types.PtxCondition'.
@@ -479,6 +545,9 @@ instance Buildable CInitialized where
         bprint (build%"/"%build)
                cPreInit cTotalTime
 
+instance Buildable (SecureLog CInitialized) where
+    build = buildUnsecure
+
 data CElectronCrashReport = CElectronCrashReport
     { cecVersion     :: Text
     , cecPlatform    :: Text
@@ -495,18 +564,59 @@ data CElectronCrashReport = CElectronCrashReport
 -- Misc
 ----------------------------------------------------------------------------
 
-data SyncProgress = SyncProgress
-    { _spLocalCD   :: ChainDifficulty
-    , _spNetworkCD :: Maybe ChainDifficulty
-    , _spPeers     :: Word
-    } deriving (Show, Generic, Typeable)
+newtype ScrollOffset = ScrollOffset Word
+    deriving (Eq, Ord, Show, Enum, Num, Real, Integral, Generic, Typeable,
+              Buildable)
 
-makeLenses ''SyncProgress
+newtype ScrollLimit = ScrollLimit Word
+    deriving (Eq, Ord, Show, Enum, Num, Real, Integral, Generic, Typeable,
+              Buildable)
 
-instance Buildable SyncProgress where
-    build SyncProgress{..} =
-        bprint ("progress="%build%"/"%build%" peers="%build)
-               _spLocalCD _spNetworkCD _spPeers
+instance Buildable (SecureLog ScrollOffset) where
+    build = buildUnsecure
 
-instance Default SyncProgress where
-    def = SyncProgress 0 mzero 0
+instance Buildable (SecureLog ScrollLimit) where
+    build = buildUnsecure
+
+newtype CFilePath = CFilePath Text
+    deriving (Eq, Ord, Generic, Typeable, Buildable)
+
+instance Buildable (SecureLog CFilePath) where
+    build _ = "<filepath>"
+
+----------------------------------------------------------------------------
+-- Version and client info
+----------------------------------------------------------------------------
+
+-- | Version of wallet API. Currently we have only 0-th version. We
+-- will add new constructors when new versions appear.
+data ApiVersion =
+    ApiVersion0
+    deriving (Show, Generic)
+
+-- | Information about this client.
+data ClientInfo = ClientInfo
+    { ciApiVersion      :: !ApiVersion
+    -- ^ Version of wallet API.
+    , ciSoftwareVersion :: !SoftwareVersion
+    -- ^ Software version (from the blockchain's point of view).
+    , ciCabalVersion    :: !Version
+    -- ^ Version specified in cabal file.
+    , ciGitRevision     :: !Text
+    -- ^ Git revision from which this software was built.
+    } deriving (Show, Generic)
+
+instance Buildable Version where
+    build v = bprint shown v
+
+instance Buildable ApiVersion where
+    build ApiVersion0 = bprint "API v0"
+
+instance Buildable ClientInfo where
+    build ClientInfo{..} =
+        bprint ("ClientInfo\n"%
+                "    apiVersion: "%build%
+                "    softwareVersion:"%build%
+                "    cabalVersion: "%build%
+                "    ciGitRevision: "%build)
+            ciApiVersion ciSoftwareVersion ciCabalVersion ciGitRevision

@@ -1,5 +1,5 @@
 name:                cardano-sl-auxx
-version:             1.0.2
+version:             1.0.3
 synopsis:            Cardano SL - Auxx
 description:         Cardano SL - Auxx
 license:             MIT
@@ -222,3 +222,16 @@ test-suite cardano-auxx-test
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+
+executable cardano-hash-installer
+  hs-source-dirs:      src
+  main-is:             HashInstaller.hs
+  build-depends:       base
+                       , bytestring
+                       , formatting
+                       , cardano-sl-core
+                       , cardano-sl
+                       , universum
+  default-extensions:   OverloadedStrings
+  ghc-options:         -threaded -rtsopts
+                       -Wall

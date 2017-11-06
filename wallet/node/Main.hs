@@ -27,7 +27,6 @@ import           Pos.Launcher         (ConfigurationOptions (..), HasConfigurati
                                        NodeParams (..), NodeResources (..),
                                        bracketNodeResources, loggerBracket, runNode,
                                        withConfigurations)
-import           Pos.Ssc.SscAlgo      (SscAlgo (..))
 import           Pos.Ssc.Types        (SscParams)
 import           Pos.Txp              (txpGlobalSettings)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,
@@ -38,7 +37,7 @@ import           Pos.Wallet.Web       (WalletWebMode, bracketWalletWS, bracketWa
                                        walletServeWebFull, walletServerOuts)
 import           Pos.Wallet.Web.State (cleanupAcidStatePeriodically, flushWalletStorage,
                                        getWalletAddresses)
-import           Pos.Web              (serveWebGT)
+import           Pos.Web              (serveWeb)
 import           Pos.WorkMode         (WorkMode)
 
 import           NodeOptions          (WalletArgs (..), WalletNodeArgs (..),
@@ -76,17 +75,17 @@ actionWithWallet sscParams nodeParams wArgs@WalletArgs {..} =
             logInfo "Resyncing wallets with blockchain..."
             syncWallets
     runNodeWithInit init nr =
-        let (ActionSpec f, outs) = runNode nr plugins
+        let (ActionSpec f, outs) = runNode nr allPlugins
          in (ActionSpec $ \v s -> init >> f v s, outs)
     convPlugins = (, mempty) . map (\act -> ActionSpec $ \__vI __sA -> act)
     syncWallets :: WalletWebMode ()
     syncWallets = do
         sks <- getWalletAddresses >>= mapM getSKById
         syncWalletsWithGState sks
-    plugins :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
-    plugins = mconcat [ convPlugins (pluginsGT wArgs)
-                      , walletProd wArgs
-                      , acidCleanupWorker wArgs ]
+    allPlugins :: HasConfigurations => ([WorkerSpec WalletWebMode], OutSpecs)
+    allPlugins = mconcat [ convPlugins (plugins wArgs)
+                         , walletProd wArgs
+                         , acidCleanupWorker wArgs ]
 
 acidCleanupWorker :: HasConfigurations => WalletArgs -> ([WorkerSpec WalletWebMode], OutSpecs)
 acidCleanupWorker WalletArgs{..} =
@@ -107,20 +106,20 @@ walletProd WalletArgs {..} = first one $ worker walletServerOuts $ \sendActions 
         walletAddress
         (Just walletTLSParams)
 
-pluginsGT ::
+plugins ::
     ( WorkMode ctx m
     , HasNodeContext ctx
     , HasConfigurations
     , HasCompileInfo
     ) => WalletArgs -> [m ()]
-pluginsGT WalletArgs {..}
-    | enableWeb = [serveWebGT webPort (Just walletTLSParams)]
+plugins WalletArgs {..}
+    | enableWeb = [serveWeb webPort (Just walletTLSParams)]
     | otherwise = []
 
 action :: HasCompileInfo => WalletNodeArgs -> Production ()
 action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
     withConfigurations conf $ do
-        whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData
+        whenJust cnaDumpGenesisDataPath $ CLI.dumpGenesisData True
         logInfo $ sformat ("System start time is " % shown) $ gdStartTime genesisData
         t <- currentTime
         logInfo $ sformat ("Current time is " % shown) (Timestamp t)
@@ -129,12 +128,12 @@ action (WalletNodeArgs (cArgs@CommonNodeArgs{..}) (wArgs@WalletArgs{..})) =
         logInfo $ sformat ("Using configs and genesis:\n"%shown) conf
 
         let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-        let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
+        let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
-        actionWithWallet gtParams currentParams wArgs
+        actionWithWallet sscParams currentParams wArgs
   where
     nodeArgs :: NodeArgs
-    nodeArgs = NodeArgs { sscAlgo = GodTossingAlgo, behaviorConfigPath = Nothing }
+    nodeArgs = NodeArgs { behaviorConfigPath = Nothing }
 
     conf :: ConfigurationOptions
     conf = CLI.configurationOptions $ CLI.commonArgs cArgs

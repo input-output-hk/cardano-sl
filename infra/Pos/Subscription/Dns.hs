@@ -30,6 +30,7 @@ import           Pos.Network.Types                     (Bucket (..), DnsDomains 
 import           Pos.Slotting                          (MonadSlotsData,
                                                         getNextEpochSlotDuration)
 import           Pos.Subscription.Common
+import           Pos.Util.Timer                        (Timer)
 
 dnsSubscriptionWorker
     :: forall kademlia ctx m.
@@ -41,8 +42,9 @@ dnsSubscriptionWorker
      )
     => NetworkConfig kademlia
     -> DnsDomains DNS.Domain
+    -> Timer
     -> Worker m
-dnsSubscriptionWorker networkCfg DnsDomains{..} sendActions = do
+dnsSubscriptionWorker networkCfg DnsDomains{..} keepAliveTimer sendActions = do
     -- Shared state between the threads which do subscriptions.
     -- It's a 'Map Int (Alts NodeId)' used to determine the current
     -- peers set for our bucket 'BucketBehindNatWorker'. Each thread takes
@@ -94,7 +96,7 @@ dnsSubscriptionWorker networkCfg DnsDomains{..} sendActions = do
     subscribeToOne dnsPeers = case dnsPeers of
         [] -> return ()
         (peer:peers) -> do
-            void $ subscribeTo sendActions peer
+            void $ subscribeTo keepAliveTimer sendActions peer
             subscribeToOne peers
 
     -- Find peers via DNS, preserving order.

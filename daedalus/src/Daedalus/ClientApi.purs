@@ -8,9 +8,9 @@ import Control.Monad.Eff.Uncurried (EffFn1, mkEffFn1, EffFn2, mkEffFn2, EffFn4, 
 import Control.Monad.Error.Class (throwError)
 import Control.Promise (Promise, fromAff)
 import Daedalus.BackendApi as B
+import Daedalus.Types (getProfileLocale, mkBackupPhrase, mkCAccountId, mkCAccountInit, mkCAccountMeta, mkCCoin, mkCId, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCProfile, mkCTxId, mkCTxMeta, mkCWalletInit, mkCWalletMeta, mkCWalletRedeem, optionalString, CFilePath (..))
 import Daedalus.Crypto as Crypto
 import Daedalus.TLS (TLSOptions, FS, initTLS)
-import Daedalus.Types (getProfileLocale, mkBackupPhrase, mkCAccountId, mkCAccountInit, mkCAccountMeta, mkCCoin, mkCId, mkCInitialized, mkCPaperVendWalletRedeem, mkCPassPhrase, mkCProfile, mkCTxId, mkCTxMeta, mkCWalletInit, mkCWalletMeta, mkCWalletRedeem, optionalString)
 import Data.Argonaut (Json)
 import Data.Argonaut.Generic.Aeson (encodeJson)
 import Data.Array as A
@@ -266,7 +266,7 @@ importWallet = mkEffFn3 cImportWallet
         -> Eff (http :: HTTP, err :: EXCEPTION, exception :: EXCEPTION | eff) (Promise Json)
     cImportWallet tls filePath spendingPassword = do
         pass <- mkCPassPhrase spendingPassword
-        let importedWallet = B.importWallet tls pass filePath
+        let importedWallet = B.importWallet tls pass (CFilePath filePath)
         fromAff <<< map encodeJson $ importedWallet
 
 -- | Rename a wallet set.
@@ -489,7 +489,7 @@ newWAddress = mkEffFn3 cNewWAddress
 -- | Promise { <pending> }
 -- | > false
 isValidAddress :: forall eff. EffFn2 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String (Promise Boolean)
-isValidAddress = mkEffFn2 $ \tls -> fromAff <<< B.isValidAddress tls
+isValidAddress = mkEffFn2 $ \tls -> fromAff <<< B.isValidAddress tls <<< mkCId
 
 --------------------------------------------------------------------------------
 -- Profiles --------------------------------------------------------------------
@@ -907,10 +907,10 @@ localTimeDifference = mkEffFn1 $ fromAff <<< map encodeJson <<< B.localTimeDiffe
 --------------------------------------------------------------------------------
 -- JSON backup -----------------------------------------------------------------
 importBackupJSON :: forall eff. EffFn2 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String (Promise Json)
-importBackupJSON = mkEffFn2 $ \tls -> fromAff <<< map encodeJson <<< B.importBackupJSON tls
+importBackupJSON = mkEffFn2 $ \tls -> fromAff <<< map encodeJson <<< B.importBackupJSON tls <<< CFilePath
 
 exportBackupJSON :: forall eff. EffFn3 (http :: HTTP, exception :: EXCEPTION | eff) TLSOptions String String (Promise Unit)
-exportBackupJSON = mkEffFn3 $ \tls wId -> fromAff <<< B.exportBackupJSON tls (mkCId wId)
+exportBackupJSON = mkEffFn3 $ \tls wId path -> fromAff $ B.exportBackupJSON tls (mkCId wId) (CFilePath path)
 
 --------------------------------------------------------------------------------
 -- Mnemonics ---------------------------------------------------------------------

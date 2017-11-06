@@ -44,7 +44,7 @@ import           Pos.DB                       (DBError (..), DBIteratorClass (..
 import           Pos.DB.Block                 (MonadBlockDBWrite)
 import           Pos.DB.DB                    (initNodeDBs)
 import           Pos.DB.GState.Common         (gsGetBi, gsPutBi, writeBatchGState)
-import           Pos.Ssc.GodTossing           (HasGtConfiguration)
+import           Pos.Ssc                      (HasSscConfiguration)
 import           Pos.Txp.Core                 (Tx, TxId, TxOut (..), TxOutAux (..))
 import           Pos.Txp.DB                   (getAllPotentiallyHugeUtxo, utxoSource)
 import           Pos.Txp.GenesisUtxo          (genesisUtxo)
@@ -61,7 +61,7 @@ explorerInitDB
        , MonadBlockDBWrite m
        , MonadDB m
        , HasConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        )
     => m ()
 explorerInitDB = initNodeDBs >> prepareExplorerDB

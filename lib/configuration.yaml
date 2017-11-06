@@ -26,8 +26,8 @@ dev: &dev
             fakeAvvmBalance:
               count: 10
               oneBalance: 100000
-            distribution:
-              testnetRichmenStakeDistr: []
+            avvmBalanceFactor: 1
+            useHeavyDlg: True  # it's better to use heavy delegation to test it more often
             seed: 0
         blockVersionData: &dev_core_genesis_spec_blockVersionData
           scriptVersion:     0
@@ -104,8 +104,7 @@ dev: &dev
       bvAlt: 0
     systemTag: system
 
-  # GodTossing
-  gt: &dev_gt
+  ssc: &dev_ssc
     mpcSendInterval: 10 # must be less than (2 * k * slotDuration - networkDiameter)
     mdNoCommitmentsEpochThreshold: 3
     noReportNoSecretsForEpoch1: False
@@ -151,8 +150,8 @@ bench: &bench
             fakeAvvmBalance:
               count: 100
               oneBalance: 15000000
-            distribution:
-              testnetRichmenStakeDistr: []
+            avvmBalanceFactor: 1
+            useHeavyDlg: False
             seed: 0
         blockVersionData:
           <<: *dev_core_genesis_spec_blockVersionData
@@ -281,15 +280,15 @@ mainnet_base: &mainnet_base
 
   update: &mainnet_base_update
     applicationName: cardano-sl
-    applicationVersion: 2
+    applicationVersion: 0
     lastKnownBlockVersion:
       bvMajor: 0
-      bvMinor: 0
+      bvMinor: 1
       bvAlt: 0
     systemTag: none
 
-  # GodTossing
-  gt:
+  # SSC
+  ssc:
     mpcSendInterval: 100 # must be less than (2 * k * slotDuration - networkDiameter)
     mdNoCommitmentsEpochThreshold: 3
     noReportNoSecretsForEpoch1: True
@@ -14805,15 +14804,25 @@ mainnet_full: &mainnet_full
 mainnet_wallet_win64: &mainnet_wallet_win64
   <<: *mainnet_full
   update:
-    <<: *mainnet_base_update
+    <<:
     applicationName: csl-daedalus
+    applicationVersion: 3
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 1
+      bvAlt: 0
     systemTag: win64
 
 mainnet_wallet_macos64: &mainnet_wallet_macos64
   <<: *mainnet_full
   update:
-    <<: *mainnet_base_update
+    <<:
     applicationName: csl-daedalus
+    applicationVersion: 3
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 1
+      bvAlt: 0
     systemTag: macos64
 
 ##############################################################################
@@ -14834,15 +14843,73 @@ mainnet_dryrun_full: &mainnet_dryrun_full
 mainnet_dryrun_wallet_win64: &mainnet_dryrun_wallet_win64
   <<: *mainnet_dryrun_full
   update:
-    <<: *mainnet_base_update
+    <<:
     applicationName: csl-daedalus
+    applicationVersion: 3
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 1
+      bvAlt: 0
     systemTag: win64
 
 mainnet_dryrun_wallet_macos64: &mainnet_dryrun_wallet_macos64
   <<: *mainnet_dryrun_full
   update:
-    <<: *mainnet_base_update
+    <<:
     applicationName: csl-daedalus
+    applicationVersion: 3
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 1
+      bvAlt: 0
+    systemTag: macos64
+
+##############################################################################
+##                                                                          ##
+##   Mainnet staging with short epoch                                       ##
+##                                                                          ##
+##############################################################################
+
+mainnet_staging_short_epoch_full: &mainnet_staging_short_epoch_full
+  <<: *mainnet_base
+  core:
+    <<: *mainnet_base_core
+    genesis:
+      src:
+        file: mainnet-staging-short-epoch-genesis.json
+        hash: f73231256fe6784c408e8a31b7bb8250f80ce64fdbdec137ad1da2faa257a166
+  update:
+    <<:
+    applicationName: cardano-sl
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
+    systemTag: none
+
+mainnet_staging_short_epoch_wallet_win64:
+  <<: *mainnet_staging_short_epoch_full
+  update:
+    <<:
+    applicationName: csl-daedalus
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
+    systemTag: win64
+
+mainnet_staging_short_epoch_wallet_macos64:
+  <<: *mainnet_staging_short_epoch_full
+  update:
+    <<:
+    applicationName: csl-daedalus
+    applicationVersion: 0
+    lastKnownBlockVersion:
+      bvMajor: 0
+      bvMinor: 0
+      bvAlt: 0
     systemTag: macos64
 
 ##############################################################################
@@ -14913,8 +14980,8 @@ devnet: &devnet
             fakeAvvmBalance:
               count: 100
               oneBalance: 15000000
-            distribution:
-              testnetRichmenStakeDistr: []
+            avvmBalanceFactor: 1
+            useHeavyDlg: True
             seed: 0
 
   node:
@@ -14957,8 +15024,8 @@ testnet_public_full: &testnet_public_full
             fakeAvvmBalance:
               count: 100
               oneBalance: 15000000
-            distribution:
-              testnetRichmenStakeDistr: []
+            avvmBalanceFactor: 1
+            useHeavyDlg: True
             seed: 0
 
 testnet_staging_full: &testnet_staging_full

@@ -37,6 +37,8 @@ module Pos.Wallet.Web.State.State
        , getCustomAddress
        , isCustomAddress
        , getWalletUtxo
+       , getWalletBalancesAndUtxo
+       , updateWalletBalancesAndUtxo
        , getPendingTxs
        , getWalletPendingTxs
        , getPendingTx
@@ -75,8 +77,8 @@ module Pos.Wallet.Web.State.State
        , casPtxCondition
        , ptxUpdateMeta
        , addOnlyNewPendingTx
-       , flushWalletStorage
        , getWalletStorage
+       , flushWalletStorage
        ) where
 
 import           Data.Acid                    (EventResult, EventState, QueryEvent,
@@ -87,7 +89,7 @@ import           Universum
 
 import           Pos.Client.Txp.History       (TxHistoryEntry)
 import           Pos.Core.Configuration       (HasConfiguration)
-import           Pos.Txp                      (TxId, Utxo)
+import           Pos.Txp                      (TxId, Utxo, UtxoModifier)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Util.Servant             (encodeCType)
 import           Pos.Util.Util                (HasLens')
@@ -101,7 +103,8 @@ import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemS
 import           Pos.Wallet.Web.State.Acidic  as A
 import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..),
                                                CustomAddressType (..), PtxMetaUpdate (..),
-                                               WalletStorage, WalletTip (..))
+                                               WalletBalances, WalletStorage,
+                                               WalletTip (..))
 
 -- | No read or write, just access to state handler
 type MonadWalletDBAccess ctx m =
@@ -251,6 +254,12 @@ setWalletTxHistory cWalId = updateDisk . A.SetWalletTxHistory cWalId
 
 getWalletUtxo :: MonadWalletDBRead ctx m => m Utxo
 getWalletUtxo = queryDisk A.GetWalletUtxo
+
+getWalletBalancesAndUtxo :: MonadWalletDBRead ctx m => m (WalletBalances, Utxo)
+getWalletBalancesAndUtxo = queryDisk A.GetWalletBalancesAndUtxo
+
+updateWalletBalancesAndUtxo :: MonadWalletDB ctx m => UtxoModifier -> m ()
+updateWalletBalancesAndUtxo = updateDisk . A.UpdateWalletBalancesAndUtxo
 
 setWalletUtxo :: MonadWalletDB ctx m => Utxo -> m ()
 setWalletUtxo = updateDisk . A.SetWalletUtxo

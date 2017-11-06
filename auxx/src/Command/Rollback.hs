@@ -22,7 +22,7 @@ import           Pos.Core                         (HasConfiguration, difficultyL
                                                    epochIndexL)
 import           Pos.DB.DB                        (getTipHeader, loadBlundsFromTipByDepth)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.Configuration            (HasSscConfiguration)
 import           Pos.StateLock                    (Priority (..), withStateLock)
 import           Pos.Txp                          (TxAux, flattenTxPayload)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
@@ -35,7 +35,7 @@ import           Mode                             (AuxxMode)
 -- from it to the given file.
 rollbackAndDump
     :: ( HasConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        , HasUpdateConfiguration
        , HasInfraConfiguration
        , HasCompileInfo
@@ -67,7 +67,7 @@ rollbackAndDump numToRollback outFile = withStateLock HighPriority "auxx" $ \_ -
     -- It's illegal to rollback 0-th genesis block.  We also may load
     -- more blunds than necessary, because genesis blocks don't
     -- contribute to depth counter.
-    modifyBlunds :: HasGtConfiguration => NewestFirst [] Blund -> NewestFirst [] Blund
+    modifyBlunds :: HasSscConfiguration => NewestFirst [] Blund -> NewestFirst [] Blund
     modifyBlunds =
         over _NewestFirst (genericTake numToRollback . skip0thGenesis)
     skip0thGenesis = filter (not . is0thGenesis)

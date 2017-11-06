@@ -25,7 +25,7 @@ import           Pos.Configuration        (HasNodeConfiguration)
 import           Pos.Core.Configuration   (HasConfiguration)
 import           Pos.Crypto               (Hash, SignTag (SignUSVote), emptyPassphrase,
                                            encToPublic, hash, hashHexF, safeSign,
-                                           unsafeHash, withSafeSigner)
+                                           unsafeHash, withSafeSigner, withSafeSigners)
 import           Pos.Exception            (reportFatalError)
 import           Pos.Infra.Configuration  (HasInfraConfiguration)
 import           Pos.Update               (SystemTag, UpId, UpdateData (..),
@@ -96,24 +96,32 @@ propose sendActions ProposeUpdateParams{..} = do
     updateData <- mapM updateDataElement puUpdates
     let udata = HM.fromList updateData
     let whenCantCreate = error . mappend "Failed to create update proposal: "
-    withSafeSigner skey (pure emptyPassphrase) $ \case
-        Nothing -> reportFatalError "Invalid passphrase"
-        Just ss -> do
-            let updateProposal = either whenCantCreate identity $
-                    mkUpdateProposalWSign
-                        puBlockVersion
-                        puBlockVersionModifier
-                        puSoftwareVersion
-                        udata
-                        def
-                        ss
-            if null ccPeers
-                then reportFatalError "Error: no addresses specified"
-                else do
-                    submitUpdateProposal (immediateConcurrentConversations sendActions ccPeers) ss updateProposal
-                    let id = hash updateProposal
-                    logInfo $ sformat ("Update proposal submitted, upId: "%hashHexF) id
-                    return id
+    skeys <- if not puVoteAll then pure [skey]
+             else getSecretKeysPlain
+    withSafeSigners skeys (pure emptyPassphrase) $ \ss -> do
+        unless (length skeys == length ss) $
+            reportFatalError $ "Number of safe signers: " <> show (length ss) <>
+                               ", expected " <> show (length skeys)
+        let publisherSS = ss !! if not puVoteAll then 0 else puSecretKeyIdx
+        let updateProposal = either whenCantCreate identity $
+                mkUpdateProposalWSign
+                    puBlockVersion
+                    puBlockVersionModifier
+                    puSoftwareVersion
+                    udata
+                    def
+                    publisherSS
+        if null ccPeers
+            then reportFatalError "Error: no addresses specified"
+            else do
+                let upid = hash updateProposal
+                let enqueue = immediateConcurrentConversations sendActions ccPeers
+                submitUpdateProposal enqueue ss updateProposal
+                if not puVoteAll then
+                    putText (sformat ("Update proposal submitted, upId: "%hashHexF) upid)
+                else
+                    putText (sformat ("Update proposal submitted along with votes, upId: "%hashHexF) upid)
+                return upid
 
 updateDataElement :: ProposeUpdateSystem -> AuxxMode (SystemTag, UpdateData)
 updateDataElement ProposeUpdateSystem{..} = do

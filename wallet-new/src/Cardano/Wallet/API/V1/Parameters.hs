@@ -13,7 +13,7 @@ module Cardano.Wallet.API.V1.Parameters where
 import           Universum
 
 import           Cardano.Wallet.API.Types    (AlternativeApiArg, DQueryParam,
-                                              WithDefaultApiArg, inRouteServer)
+                                              WithDefaultApiArg, mapRouter)
 import           Cardano.Wallet.API.V1.Types
 
 import           Data.Text                   (Text)
@@ -41,5 +41,5 @@ instance HasServer (WithWalletRequestParams subApi) ctx =>
     type ServerT (WalletRequestParams :> subApi) m =
         PaginationParams -> ServerT subApi m
     route =
-        inRouteServer @(WithWalletRequestParams subApi) route $
+        mapRouter @(WithWalletRequestParams subApi) route $
         \f ppPage ppPerPage ppResponseType -> f $ PaginationParams {..}

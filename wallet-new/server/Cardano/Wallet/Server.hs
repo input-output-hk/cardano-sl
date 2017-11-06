@@ -1,13 +1,30 @@
 
 module Cardano.Wallet.Server where
 
-import Cardano.Wallet.API
-import qualified Cardano.Wallet.API.V1.Handlers as V1
+import           Universum
+
+import           Cardano.Wallet.API
 import qualified Cardano.Wallet.API.V0.Handlers as V0
+import qualified Cardano.Wallet.API.V1.Handlers as V1
 
-import Servant
+import           Pos.Launcher.Configuration     (HasConfigurations)
+import           Pos.Util.CompileInfo           (HasCompileInfo)
+import           Pos.Wallet.Web.Mode            (MonadFullWalletWebMode, WalletWebMode)
+import           Servant
 
-walletServer :: Server WalletAPI
-walletServer =   V0.handlers
-            :<|> V0.handlers
-            :<|> V1.handlers
+-- | This function has the tricky task of plumbing different versions of the API,
+-- with potentially different monadic stacks into a uniform @Server@ we can use
+-- with Servant.
+-- You see below two calls to 'V0.handlers', and this is because we support (at the
+-- time of writing) two ways of accessing the V0 API, which are either by hitting
+-- `/api/..` or by hitting `/api/v0/...`.
+
+-- walletServer :: (HasConfigurations, HasCompileInfo) => Server WalletAPI
+walletServer
+    :: forall ctx m.
+       ( MonadFullWalletWebMode ctx m )
+    => (m :~> Handler)
+    -> Server WalletAPI
+walletServer natV0 = V0.handlers natV0
+                :<|> V0.handlers natV0
+                :<|> V1.handlers

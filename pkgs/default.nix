@@ -2252,7 +2252,7 @@ self: {
           description = "Cardano SL - wallet";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-wallet-new = callPackage ({ QuickCheck, aeson, aeson-pretty, base, bytestring, containers, data-default, formatting, hspec, http-api-data, http-client, http-types, insert-ordered-containers, lens, mkDerivation, mtl, neat-interpolation, network-uri, quickcheck-instances, serokell-util, servant, servant-client, servant-quickcheck, servant-server, servant-swagger, stdenv, string-conv, swagger2, text, text-format, transformers, universum, unordered-containers, wai, wai-cors, wai-extra, warp }:
+      cardano-sl-wallet-new = callPackage ({ QuickCheck, aeson, aeson-pretty, base, bytestring, cardano-sl, cardano-sl-core, cardano-sl-infra, cardano-sl-ssc, cardano-sl-wallet, containers, data-default, exceptions, formatting, hspec, http-api-data, http-client, http-types, insert-ordered-containers, lens, log-warper, mkDerivation, mtl, neat-interpolation, network-uri, node-sketch, optparse-applicative, quickcheck-instances, serokell-util, servant, servant-client, servant-quickcheck, servant-server, servant-swagger, stdenv, stm, string-conv, swagger2, text, text-format, time-units, transformers, universum, unordered-containers, wai, wai-cors, wai-extra, warp }:
       mkDerivation {
           pname = "cardano-sl-wallet-new";
           version = "0.1.0.0";
@@ -2262,6 +2262,7 @@ self: {
           libraryHaskellDepends = [
             aeson
             base
+            cardano-sl-wallet
             containers
             data-default
             formatting
@@ -2286,22 +2287,34 @@ self: {
             aeson-pretty
             base
             bytestring
+            cardano-sl
+            cardano-sl-core
+            cardano-sl-infra
+            cardano-sl-ssc
+            cardano-sl-wallet
             containers
             data-default
+            exceptions
             formatting
             http-api-data
             http-types
             insert-ordered-containers
             lens
+            log-warper
+            mtl
             neat-interpolation
+            node-sketch
+            optparse-applicative
             QuickCheck
             servant
             servant-server
             servant-swagger
+            stm
             string-conv
             swagger2
             text
             text-format
+            time-units
             universum
             unordered-containers
             wai
@@ -2313,6 +2326,11 @@ self: {
             aeson
             aeson-pretty
             base
+            cardano-sl
+            cardano-sl-core
+            cardano-sl-infra
+            cardano-sl-ssc
+            cardano-sl-wallet
             containers
             data-default
             formatting

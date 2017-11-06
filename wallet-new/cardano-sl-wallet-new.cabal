@@ -46,6 +46,7 @@ library
                      , universum
                      , serokell-util
                      , warp
+                     , cardano-sl-wallet
   default-language:    Haskell2010
   default-extensions: TypeOperators
                       DataKinds
@@ -69,33 +70,48 @@ executable wallet-new-server
                        Cardano.Wallet.API.V1.Handlers.Updates
                        Cardano.Wallet.API.V1.Swagger
                        Cardano.Wallet.Server
+                       Cardano.Wallet.Server.CLI
+                       Cardano.Wallet.Server.Plugins
   build-depends:       base
                      , QuickCheck
                      , aeson
                      , aeson-pretty
                      , bytestring
+                     , cardano-sl
+                     , cardano-sl-core
+                     , cardano-sl-infra
+                     , cardano-sl-ssc
+                     , cardano-sl-wallet
                      , cardano-sl-wallet-new
                      , containers
                      , data-default
+                     , exceptions
+                     , formatting
                      , formatting
                      , http-api-data
                      , http-types
-                     , lens
-                     , neat-interpolation
                      , insert-ordered-containers
-                     , unordered-containers
+                     , lens
+                     , log-warper
+                     , mtl
+                     , neat-interpolation
+                     , node-sketch
+                     , optparse-applicative
                      , servant
                      , servant-server
                      , servant-swagger
+                     , stm
                      , string-conv
                      , swagger2
                      , text
                      , text-format
+                     , time-units
                      , universum
-                     , warp
+                     , unordered-containers
                      , wai
-                     , wai-extra
                      , wai-cors
+                     , wai-extra
+                     , warp
   default-language:    Haskell2010
   default-extensions: TypeOperators
                       DataKinds
@@ -103,6 +119,8 @@ executable wallet-new-server
                       OverloadedStrings
                       ScopedTypeVariables
                       TypeApplications
+                      TypeFamilies
+                      FlexibleContexts
                       TemplateHaskell
                       RecordWildCards
 
@@ -117,6 +135,11 @@ test-suite wallet-new-specs
                   , QuickCheck
                   , aeson
                   , aeson-pretty
+                  , cardano-sl
+                  , cardano-sl-core
+                  , cardano-sl-infra
+                  , cardano-sl-ssc
+                  , cardano-sl-wallet
                   , cardano-sl-wallet-new
                   , containers
                   , data-default
@@ -124,10 +147,9 @@ test-suite wallet-new-specs
                   , hspec
                   , http-client
                   , http-types
+                  , insert-ordered-containers
                   , lens
                   , neat-interpolation
-                  , insert-ordered-containers
-                  , unordered-containers
                   , quickcheck-instances
                   , servant
                   , servant-quickcheck
@@ -135,14 +157,18 @@ test-suite wallet-new-specs
                   , servant-swagger
                   , string-conv
                   , swagger2
-                  , universum
                   , text
+                  , universum
+                  , unordered-containers
   default-language: Haskell2010
   default-extensions: TypeOperators
                       DataKinds
                       NoImplicitPrelude
                       OverloadedStrings
                       ScopedTypeVariables
+                      FlexibleInstances
+                      FlexibleContexts
+                      TypeFamilies
                       TypeApplications
                       TemplateHaskell
                       RecordWildCards

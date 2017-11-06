@@ -13,28 +13,29 @@ import           Universum
 
 import           Cardano.Wallet.API
 import           Cardano.Wallet.API.Types
-import qualified Cardano.Wallet.API.V1.Errors     as Errors
+import qualified Cardano.Wallet.API.V1.Errors            as Errors
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
+import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 
-import           Control.Lens                     ((?~))
-import           Data.Aeson                       (ToJSON (..),
-                                                   Value (Number, Object, String))
+import           Control.Lens                            ((?~))
+import           Data.Aeson                              (ToJSON (..),
+                                                          Value (Number, Object, String))
 import           Data.Aeson.Encode.Pretty
-import           Data.Default                     (Default (def))
-import qualified Data.HashMap.Strict              as HM
-import           Data.HashMap.Strict.InsOrd       (InsOrdHashMap)
-import qualified Data.HashMap.Strict.InsOrd       as InsOrdHM
-import           Data.Map                         (Map)
-import qualified Data.Map.Strict                  as M
-import           Data.Set                         (Set)
-import qualified Data.Set                         as Set
+import           Data.Default                            (Default (def))
+import qualified Data.HashMap.Strict                     as HM
+import           Data.HashMap.Strict.InsOrd              (InsOrdHashMap)
+import qualified Data.HashMap.Strict.InsOrd              as InsOrdHM
+import           Data.Map                                (Map)
+import qualified Data.Map.Strict                         as M
+import           Data.Set                                (Set)
+import qualified Data.Set                                as Set
 import           Data.String.Conv
-import           Data.Swagger                     hiding (Header)
+import           Data.Swagger                            hiding (Header)
 import           Data.Swagger.Declare
-import qualified Data.Text                        as T
+import qualified Data.Text                               as T
 import           Data.Typeable
-import           Formatting                       (build, sformat)
+import           Formatting                              (build, sformat)
 import           GHC.TypeLits
 import           NeatInterpolation
 import           Servant.API.Sub

@@ -1,23 +1,47 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
+{-# LANGUAGE UndecidableInstances #-}
 module SwaggerSpec where
 
 import           Universum
 
+import qualified Prelude
+
 import           Cardano.Wallet.API
-import           Cardano.Wallet.API.V1.Swagger ()
+import           Cardano.Wallet.API.V1.Swagger    ()
 import           Data.Aeson
+import           Data.String.Conv
 import           Data.Swagger
+import           Pos.Wallet.Aeson.ClientTypes     ()
+import           Pos.Wallet.Web.ClientTypes.Types
 import           Servant.API.ContentTypes
 import           Servant.Swagger.Test
 import           Test.Hspec
 import           Test.QuickCheck
-import           Test.QuickCheck.Instances     ()
+import           Test.QuickCheck.Instances        ()
 
 
--- Syntethic instances to be able to use `validateEveryToJSON`.
+-- Syntethic instances and orphans to be able to use `validateEveryToJSON`.
+-- In the future, hopefully, we will never need these.
+
+instance {-# OVERLAPPABLE #-} Buildable a => Prelude.Show a where
+    show = toS . pretty
+
+instance ToJSON CFilePath where
+  toJSON (CFilePath c) = toJSON c
 
 instance Arbitrary NoContent where
     arbitrary = pure NoContent
+
+instance Arbitrary CWalletInit
+instance Arbitrary CWalletMeta
+instance Arbitrary CFilePath
+instance Arbitrary CAccountMeta
+instance Arbitrary CAccountInit
+instance Arbitrary CProfile
+instance Arbitrary CTxMeta
+instance Arbitrary CWalletRedeem
+instance Arbitrary CPaperVendWalletRedeem
+instance Arbitrary CInitialized
 
 instance ToJSON NoContent where
     toJSON NoContent = String mempty

@@ -9,6 +9,7 @@
 module Pos.Wallet.Web.Server.Runner
        ( walletServeWebFull
        , runWRealMode
+       , nat
        ) where
 
 import           Universum                      hiding (over)

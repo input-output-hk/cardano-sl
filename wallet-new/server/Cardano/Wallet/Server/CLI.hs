@@ -96,7 +96,7 @@ walletBackendParamsParser = WalletBackendParams <$> enableMonitoringApiParser
                                                 <*> dbOptionsParser
   where
     enableMonitoringApiParser :: Parser Bool
-    enableMonitoringApiParser = switch (long "web" <>
+    enableMonitoringApiParser = switch (long "monitoring-api" <>
                                         help "Activate the node monitoring API."
                                        )
 

@@ -7,6 +7,7 @@ module Cardano.Wallet.Server.Plugins (
     , walletBackend
     ) where
 
+import qualified Prelude
 import           Universum
 
 import           Cardano.Wallet.API             as API
@@ -75,7 +76,8 @@ walletBackend WalletBackendParams {..} =
       walletServeImpl
         (getApplication sendActions)
         walletAddress
-        (Just walletTLSParams)
+        -- Disable TLS if in debug mode.
+        (if (isDebugMode walletRunMode) then Nothing else (Just walletTLSParams))
   where
     -- Gets the Wai `Application` to run.
     getApplication :: SendActions WalletWebMode -> WalletWebMode Application

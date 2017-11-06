@@ -181,7 +181,7 @@ generateSwaggerDocumentation = do
 main :: IO ()
 main = withCompileInfo $(retrieveCompileTimeInfo) $ do
   cfg <- getWalletNodeOptions
-  putText "Wallet is starting.."
+  putText "Wallet is starting..."
   generateSwaggerDocumentation
   let loggingParams = CLI.loggingParams "node" (wsoNodeArgs cfg)
   loggerBracket loggingParams . runProduction $ do

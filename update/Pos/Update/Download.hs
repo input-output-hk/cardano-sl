@@ -39,8 +39,8 @@ import           Pos.Update.Core.Types    (UpdateData (..), UpdateProposal (..))
 import           Pos.Update.Mode          (UpdateMode)
 import           Pos.Update.Params        (UpdateParams (..))
 import           Pos.Update.Poll.Types    (ConfirmedProposalState (..))
-import           Pos.Util                 ((<//>))
 import           Pos.Util.Concurrent      (withMVar)
+import           Pos.Util.Util            ((<//>))
 
 -- | Compute hash of installer, this is hash is 'udPkgHash' from 'UpdateData'.
 --

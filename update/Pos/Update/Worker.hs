@@ -14,21 +14,21 @@ import           System.Wlog                (logDebug, logInfo)
 
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker,
                                              worker)
-import           Pos.Update.Configuration   (curSoftwareVersion)
-import           Pos.Context                (recoveryCommGuard)
 import           Pos.Core                   (SoftwareVersion (..))
+import           Pos.Recovery.Info          (recoveryCommGuard)
 import           Pos.Shutdown               (triggerShutdown)
+import           Pos.Update.Configuration   (curSoftwareVersion)
 import           Pos.Update.Context         (UpdateContext (..))
 import           Pos.Update.Core            (UpdateProposal (..))
 import           Pos.Update.DB              (getConfirmedProposals)
 import           Pos.Update.Download        (downloadUpdate)
 import           Pos.Update.Logic.Local     (processNewSlot)
+import           Pos.Update.Mode            (UpdateMode)
 import           Pos.Update.Poll            (ConfirmedProposalState (..))
 import           Pos.Util.Util              (lensOf)
-import           Pos.WorkMode.Class         (WorkMode)
 
 -- | Update System related workers.
-usWorkers :: forall ctx m. WorkMode ctx m => ([WorkerSpec m], OutSpecs)
+usWorkers :: forall ctx m. UpdateMode ctx m => ([WorkerSpec m], OutSpecs)
 usWorkers = (map fst [processNewSlotWorker, checkForUpdateWorker], mempty)
   where
     -- These are two separate workers. We want them to run in parallel
@@ -48,7 +48,7 @@ usWorkers = (map fst [processNewSlotWorker, checkForUpdateWorker], mempty)
             recoveryCommGuard "checkForUpdate" (checkForUpdate @ctx @m)
 
 checkForUpdate ::
-       forall ctx m. WorkMode ctx m
+       forall ctx m. UpdateMode ctx m
     => m ()
 checkForUpdate = do
     logDebug "Checking for update..."
@@ -79,7 +79,7 @@ checkForUpdate = do
 -- application. When an update is downloaded, it shuts the system
 -- down. It should be used in there is no high-level code which shuts
 -- down the system (e. g. in regular node w/o wallet or in explorer).
-updateTriggerWorker :: WorkMode ctx m => ([WorkerSpec m], OutSpecs)
+updateTriggerWorker :: UpdateMode ctx m => ([WorkerSpec m], OutSpecs)
 updateTriggerWorker = first pure $ worker mempty $ \_ -> do
     logInfo "Update trigger worker is locked"
     void $ takeMVar . ucDownloadedUpdate =<< view (lensOf @UpdateContext)

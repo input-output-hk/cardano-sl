@@ -89,9 +89,6 @@ library
                         -- Client CLI
                         Pos.Client.CLI
 
-                        -- Update system
-                        Pos.Update
-
                         -- Utilities/helpers
                         Pos.Util
                         Pos.Util.Config
@@ -255,12 +252,6 @@ library
                         -- Statistics
                         Pos.Statistics.Ekg
                         Pos.Statistics.Statsd
-
-                        -- Update System
-                        Pos.Update.Download
-                        Pos.Update.Network
-                        Pos.Update.Network.Listeners
-                        Pos.Update.Worker
 
   build-depends:        MonadRandom
                       , QuickCheck

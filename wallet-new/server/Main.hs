@@ -28,7 +28,8 @@ import           Pos.Core                             (Timestamp (..), gdStartTi
 import           Pos.DB.DB                            (initNodeDBs)
 import           Pos.Launcher                         (NodeParams (..),
                                                        NodeResources (..),
-                                                       bracketNodeResources, runNode,
+                                                       bracketNodeResources,
+                                                       loggerBracket, runNode,
                                                        withConfigurations)
 import           Pos.Launcher.Configuration           (ConfigurationOptions,
                                                        HasConfigurations)
@@ -182,7 +183,8 @@ main = withCompileInfo $(retrieveCompileTimeInfo) $ do
   cfg <- getWalletNodeOptions
   putText "Wallet is starting.."
   generateSwaggerDocumentation
-  runProduction $ do
-      CLI.printFlags
-      logInfo "[Attention] Software is built with the wallet backend"
-      startEdgeNode cfg
+  let loggingParams = CLI.loggingParams "node" (wsoNodeArgs cfg)
+  loggerBracket loggingParams . runProduction $ do
+    CLI.printFlags
+    logInfo "[Attention] Software is built with the wallet backend"
+    startEdgeNode cfg

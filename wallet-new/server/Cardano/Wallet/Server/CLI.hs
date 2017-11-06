@@ -123,7 +123,7 @@ tlsParamsParser = TlsParams <$> certPathParser
                                 "tlscert"
                                 "FILEPATH"
                                 "Path to file with TLS certificate"
-                                <> value "server.crt"
+                                <> value "scripts/tls-files/server.crt"
                                )
 
     keyPathParser :: Parser FilePath
@@ -131,7 +131,7 @@ tlsParamsParser = TlsParams <$> certPathParser
                                "tlskey"
                                "FILEPATH"
                                "Path to file with TLS key"
-                               <> value "server.key"
+                               <> value "scripts/tls-files/server.key"
                               )
 
     caPathParser :: Parser FilePath
@@ -139,7 +139,7 @@ tlsParamsParser = TlsParams <$> certPathParser
                               "tlsca"
                               "FILEPATH"
                               "Path to file with TLS certificate authority"
-                              <> value "ca.crt"
+                              <> value "scripts/tls-files/ca.crt"
                              )
 
 -- | The parser for the @WalletDBOptions@.

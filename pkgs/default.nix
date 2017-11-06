@@ -2326,6 +2326,11 @@ self: {
             aeson
             aeson-pretty
             base
+            cardano-sl
+            cardano-sl-core
+            cardano-sl-infra
+            cardano-sl-ssc
+            cardano-sl-wallet
             containers
             data-default
             formatting

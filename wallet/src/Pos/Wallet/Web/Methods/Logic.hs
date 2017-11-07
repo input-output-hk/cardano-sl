@@ -32,6 +32,7 @@ import qualified Data.HashMap.Strict        as HM
 import           Data.List                  (findIndex)
 import           Data.Time.Clock.POSIX      (getPOSIXTime)
 import           Formatting                 (build, sformat, (%))
+import           Servant.API.ContentTypes   (NoContent (..))
 import           System.Wlog                (WithLogger)
 
 import           Pos.Client.KeyStorage      (MonadKeys (..), MonadKeysRead, addSecretKey,
@@ -234,10 +235,11 @@ createWalletSafe cid wsMeta isReady = do
 
 markWalletReady
   :: MonadWalletLogic ctx m
-  => CId Wal -> Bool -> m ()
+  => CId Wal -> Bool -> m NoContent
 markWalletReady cid isReady = do
     _ <- getWalletMetaIncludeUnready True cid >>= maybeThrow noWallet
     setWalletReady cid isReady
+    return NoContent
   where
     noWallet = RequestError $
         sformat ("No wallet with that id "%build%" found") cid
@@ -247,7 +249,7 @@ markWalletReady cid isReady = do
 -- Deleters
 ----------------------------------------------------------------------------
 
-deleteWallet :: MonadWalletLogic ctx m => CId Wal -> m ()
+deleteWallet :: MonadWalletLogic ctx m => CId Wal -> m NoContent
 deleteWallet wid = do
     accounts <- getAccounts (Just wid)
     mapM_ (deleteAccount <=< decodeCTypeOrFail . caId) accounts
@@ -255,9 +257,10 @@ deleteWallet wid = do
     removeTxMetas wid
     removeHistoryCache wid
     deleteSecretKey . fromIntegral =<< getAddrIdx wid
+    return NoContent
 
-deleteAccount :: MonadWalletLogic ctx m => AccountId -> m ()
-deleteAccount = removeAccount
+deleteAccount :: MonadWalletLogic ctx m => AccountId -> m NoContent
+deleteAccount aid = removeAccount aid $> NoContent
 
 ----------------------------------------------------------------------------
 -- Modifiers
@@ -275,7 +278,7 @@ updateAccount accId wMeta = do
 
 changeWalletPassphrase
     :: MonadWalletLogic ctx m
-    => CId Wal -> PassPhrase -> PassPhrase -> m ()
+    => CId Wal -> PassPhrase -> PassPhrase -> m NoContent
 changeWalletPassphrase wid oldPass newPass = do
     oldSK <- getSKById wid
 
@@ -284,6 +287,7 @@ changeWalletPassphrase wid oldPass newPass = do
         deleteSK oldPass
         addSecretKey newSK
         setWalletPassLU wid =<< liftIO getPOSIXTime
+    return NoContent
   where
     badPass = RequestError "Invalid old passphrase given"
     deleteSK passphrase = do

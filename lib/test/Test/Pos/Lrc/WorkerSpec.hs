@@ -45,6 +45,7 @@ import           Test.Pos.Configuration    (defaultTestBlockVersionData)
 import           Test.Pos.Util             (maybeStopProperty, stopProperty,
                                             withStaticConfigurations)
 
+
 spec :: Spec
 -- Currently we want to run it only 4 times, because there is no
 -- much randomization (its effect is likely negligible) and
@@ -134,7 +135,7 @@ lrcCorrectnessProp = do
     () <$ bpGenBlocks (Just blkCount1) (EnableTxPayload False) (InplaceDB True)
     lift $ Lrc.lrcSingleShot 1
     leaders1 <-
-        maybeStopProperty "No leaders for epoch#1!" =<< lift (Lrc.getLeaders 1)
+        maybeStopProperty "No leaders for epoch#1!" =<< lift (Lrc.getLeadersForEpoch 1)
     -- Here we use 'genesisSeed' (which is the seed for the 0-th
     -- epoch) because we have a contract that if there is no ssc
     -- payload the previous seed must be reused (which is the case in

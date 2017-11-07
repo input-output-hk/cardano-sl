@@ -30,6 +30,7 @@ library
 
                         -- Needed for testing
                         Pos.Arbitrary.Explorer
+                        Pos.Explorer.BListener
 
   other-modules:        Pos.Explorer.Aeson.ClientTypes
                         Pos.Explorer.Socket.Holder
@@ -43,7 +44,6 @@ library
                         Pos.Explorer.Txp.Toil.Class
                         Pos.Explorer.Txp.Toil.Logic
                         Pos.Explorer.Txp.Toil.Types
-                        Pos.Explorer.BListener
 
   build-depends:        QuickCheck
                       , aeson
@@ -338,6 +338,7 @@ test-suite cardano-explorer-test
                        Test.Pos.Explorer.Web.ServerSpec
                        Test.Pos.Explorer.Web.ClientTypesSpec
 
+                       -- Test.Pos.Explorer.BListenerSpec -- TODO(KS): To merge when we merge tests.
                        Test.Pos.Explorer.Identity.BinarySpec
 
   type:                exitcode-stdio-1.0

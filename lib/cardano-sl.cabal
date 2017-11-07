@@ -133,7 +133,6 @@ library
                         Test.Pos.Block.Logic.Util
                         Test.Pos.Block.Logic.Event
 
-  -- Explorer (TODO: move into cardano-explorer)
   exposed-modules:
                         Pos.Util.Servant
 

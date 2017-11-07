@@ -66,7 +66,7 @@ var atobIsDefined = typeof atob === "function";
 
 // Decode buffer into utf8 string
 function decodeUtf8(buf) {
-    var decoder = new TextDecoder('utf8');
+    var decoder = new TextDecoder('utf-8');
     decoder.decode(buf);
 }
 

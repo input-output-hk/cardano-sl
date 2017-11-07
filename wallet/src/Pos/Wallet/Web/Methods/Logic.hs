@@ -29,14 +29,13 @@ import           Universum
 
 import           Crypto.Random (MonadRandom)
 import qualified Data.HashMap.Strict as HM
-import           Data.List (findIndex)
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Formatting (build, sformat, (%))
 import           Servant.API.ContentTypes (NoContent (..))
 import           System.Wlog (WithLogger)
 
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead, addSecretKey,
-                                        deleteSecretKey, getSecretKeysPlain)
+                                        deleteSecretKeyBy)
 import           Pos.Core (Coin, sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto (PassPhrase, changeEncPassphrase, checkPassMatches, emptyPassphrase)
@@ -49,7 +48,7 @@ import           Pos.Util.Servant (encodeCType)
 import           Pos.Wallet.Aeson ()
 import           Pos.Wallet.WalletMode (MonadBalances (..), WalletMempoolExt)
 import           Pos.Wallet.Web.Account (AddrGenSeed, genUniqueAccountId, genUniqueAddress,
-                                         getAddrIdx, getSKById)
+                                         getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAccountInit (..),
                                              CAccountMeta (..), CAddress (..), CCoin, CId,
                                              CWAddressMeta (..), CWallet (..), CWalletMeta (..),
@@ -68,7 +67,6 @@ import           Pos.Wallet.Web.Tracking (BlockLockMode, CAccModifier (..), Cach
                                           sortedInsertions)
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
                                       getWalletAccountIds)
-
 
 type MonadWalletLogicRead ctx m =
     ( MonadIO m
@@ -250,7 +248,7 @@ deleteWallet wid = do
     removeWallet wid
     removeTxMetas wid
     removeHistoryCache wid
-    deleteSecretKey . fromIntegral =<< getAddrIdx wid
+    deleteSecretKeyBy ((== wid) . encToCId)
     return NoContent
 
 deleteAccount :: MonadWalletLogic ctx m => AccountId -> m NoContent
@@ -278,15 +276,9 @@ changeWalletPassphrase wid oldPass newPass = do
 
     unless (isJust $ checkPassMatches newPass oldSK) $ do
         newSK <- maybeThrow badPass =<< changeEncPassphrase oldPass newPass oldSK
-        deleteSK oldPass
+        deleteSecretKeyBy ((== wid) . encToCId)
         addSecretKey newSK
         setWalletPassLU wid =<< liftIO getPOSIXTime
     return NoContent
   where
     badPass = RequestError "Invalid old passphrase given"
-    deleteSK passphrase = do
-        let nice k = encToCId k == wid && isJust (checkPassMatches passphrase k)
-        midx <- findIndex nice <$> getSecretKeysPlain
-        idx  <- RequestError "No key with such address and pass found"
-                `maybeThrow` midx
-        deleteSecretKey (fromIntegral idx)

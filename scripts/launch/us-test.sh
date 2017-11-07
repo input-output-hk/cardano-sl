@@ -18,14 +18,14 @@ if [[ "$CONFIG" == "" ]];then
 fi
 
 if [[ "$UI" == "" ]];then
-  export UI=scripts/launch/ui-simulator.sh 
+  export UI=scripts/launch/ui-simulator.sh
 fi
 
 rm -R run; mkdir run
 
-export WALLET_CONFIG=run/cofiguration.wallet.yaml
+export WALLET_CONFIG=run/configuration.wallet.yaml
 
-scripts/launch/Test.hs --configuration-key $CONFIG_KEY --configuration-file $CONFIG gen-wallet-conf -o $WALLET_CONFIG
+scripts/launch/Test.hs --configuration-key $CONFIG_KEY --configuration-file $CONFIG gen-wallet-conf -o $WALLET_CONFIG || exit 1
 
 WALLET_TEST=1 scripts/launch/demo.sh
 

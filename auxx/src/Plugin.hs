@@ -77,24 +77,26 @@ rawExec mHasAuxxMode AuxxOptions{..} mSendActions = \case
     Left WithCommandAction{..} -> do
         printAction <- getPrintAction
         printAction "... the auxx plugin is ready"
-        forever $ withCommand $ runCmd mHasAuxxMode mSendActions printAction
-    Right cmd -> runWalletCmd mHasAuxxMode mSendActions cmd
+        forever $ withCommand $ \line -> do
+            expr <- eitherToThrow $ Lang.parse line
+            value <- eitherToThrow =<< Lang.evaluate commandProcs expr
+            withValueText printAction value
+    Right cmd -> worker' runCmdOuts $ runWalletCmd cmd
+  where
+    worker' specs w =
+        worker specs $ \sa -> do
+            logInfo $ sformat ("Length of genesis utxo: " %int)
+                              (length $ unGenesisUtxo genesisUtxo)
+            w (addLogging sa)
 
-runWalletCmd ::
-       ( HasCompileInfo
-       , MonadIO m
-       , Mockable Catch m
-       , MonadThrow m
-       , CanLog m
-       , HasLoggerName m
-       , Mockable Delay m
-       )
-    => Maybe (Dict (MonadAuxxMode m))
-    -> Maybe (SendActions m)
-    -> Text
-    -> m ()
-runWalletCmd mHasAuxxMode mSendActions line = do
-    runCmd mHasAuxxMode mSendActions printAction line
+runWalletCmd :: (HasConfigurations, HasCompileInfo) => Text -> Worker AuxxMode
+runWalletCmd line sendActions = do
+    printAction "Running command: "
+    printAction $ "\t" <> line
+    let commandProcs = createCommandProcs printAction sendActions
+    expr <- eitherToThrow $ Lang.parse line
+    value <- eitherToThrow =<< Lang.evaluate commandProcs expr
+    withValueText printAction value
     printAction "Command execution finished"
     printAction " " -- for exit by SIGPIPE
     liftIO $ hFlush stdout

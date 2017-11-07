@@ -15,6 +15,7 @@ import           Control.Monad.Except      (ExceptT (..), runExceptT)
 import           Control.Monad.Trans       (lift)
 import           Data.Aeson.Lens
 import qualified Data.List                 as L
+import qualified Data.List.NonEmpty        as NE
 import qualified Data.Map                  as M
 import           Data.Maybe                (catMaybes, fromJust, fromMaybe)
 import           Data.Monoid               ((<>))
@@ -139,32 +140,67 @@ updateTest config (Config{..}) = do
             genBlockSize <- config ^? genBlockSizeL
             sv <- config ^? svL
             (cNodes :: Int) <- round <$> config ^? richL
-            return $ (,cNodes) $ "propose-update 0 "
-              <> showF bvMajor <> "." <> showF bvMinor <> "." <> showF bvAlt
-              <> " " <> showF genScriptVersion <> " " <> showF (genSlot / 1000)
-              <> " " <> showF genBlockSize
-              <> " " <> T.unpack walletAppName <> ":" <> showF (sv + 1)
-              <> " " <> T.unpack tag <> " test_updater.sh none"
+            let bvmStr = "bvm"
+                    <> " script-version: " <> showF genScriptVersion
+                    <> " slot-duration: " <> showF (genSlot / 1000)
+                    <> " max-block-size: " <> showF genBlockSize
+                updStr = "upd-bin"
+                    <> " system: " <> show (T.unpack tag)
+                    <> " installer-path: ./test_updater.sh"
+            return $ (,cNodes) $ "propose-update i:0"
+              <> " block-version: " <> showF bvMajor <> "." <> showF bvMinor <> "." <> showF bvAlt
+              <> " software-version: ~software~" <> T.unpack walletAppName <> ":" <> showF (sv + 1)
+              <> " bvm: (" <> bvmStr <> ")"
+              <> " update: (" <> updStr <> ")"
+              <> " vote-all: false"
     Prelude.putStrLn proposeUpdStr
     Y.encodeFile "run/conf-fresh.yaml" (M.singleton cKey config'')
 
-    TIO.writeFile "test_updater.sh" $ "cp run/conf-fresh.yaml run/cofiguration.wallet.yaml"
-    let cmdPropose = L.intercalate "," $
-                  (map (\i -> "add-key run/gen-keys/keys-testnet/rich/key"<>show i<>".sk") [1..cNodes])
-                  ++ [ proposeUpdStr ]
+    TIO.writeFile "test_updater.sh" $ "cp run/conf-fresh.yaml run/configuration.wallet.yaml"
+    let cmdPropose = L.intercalate ";" $
+                  (map (\i -> "add-key primary: true file: ./run/gen-keys/generated-keys/rich/key"<>show i<>".sk") [0..cNodes-1])
+                  ++ [ "listaddr", proposeUpdStr ]
         keygenBase = "cardano-keygen --configuration-key "<>cKey<>" --configuration-file "<>cFile'<>" --system-start 0"
-        auxx cmds = "cardano-auxx --keyfile run/auxx.keys --configuration-key "
-            <>cKey<>" --configuration-file "<>cFile'<>" --system-start 0"
-            <> " --peer 127.0.0.1:3001 --db-path run/auxx-db cmd --commands \""<>T.pack cmds<>"\""
+        auxx cmds = ("cardano-auxx",)
+            [ "--keyfile", "run/auxx.keys"
+            , "--configuration-key", cKey
+            , "--configuration-file", cFile'
+            , "--system-start", "0"
+            , "--peer", "127.0.0.1:3001"
+            , "--db-path", "run/auxx-db"
+            , "--log-config", "scripts/log-templates/log-config-greppable.yaml"
+            , "cmd", "--commands", T.pack cmds
+            ]
     shells (keygenBase <> " generate-keys-by-spec --genesis-out-dir run/gen-keys") empty
     shells (keygenBase <> " rearrange --mask 'run/gen-keys/keys-testnet/rich/key*.sk'") empty
-    (exitCode, T.lines -> auxxOut) <- shellStrict (auxx cmdPropose) empty
-    let fileHash = L.last $ T.words $ head $ filter ("Read file test_updater.sh succesfuly, its hash" `T.isPrefixOf`) auxxOut
-    let updHash = L.last $ T.words $ head $ filter ("Update proposal submitted, upId" `T.isPrefixOf`) auxxOut
+    (exitCode, textToLines -> auxxOut) <- uncurry procStrict (auxx cmdPropose) empty
+    case exitCode of
+        ExitSuccess -> do
+            echo "Proposing an update succeeded, here are the logs:"
+            mapM_ (echo . mappend "\t") auxxOut
+        ExitFailure _ -> do
+            echo "Proposing an update failed, see auxx output:"
+            mapM_ (echo . mappend "\t") auxxOut
+            exit exitCode
+    let matchInAuxxOut pat = do
+            (lineToText -> t) <- NE.toList auxxOut
+            match (suffix pat) t
+        extractFromAuxxOut s pat =
+            case matchInAuxxOut pat of
+                m:_ -> return m
+                _ -> do
+                    echo $ "Could not extract " <> s <> " from auxxOut"
+                    exit $ ExitFailure 1
+    fileHash <- extractFromAuxxOut "fileHash" $
+        "Read file ./test_updater.sh succesfuly, its hash: " *>
+        (T.pack <$> some hexDigit)
+    updHash <- extractFromAuxxOut "updHash" $
+        "Update proposal submitted, upId: " *>
+        (T.pack <$> some hexDigit)
     TIO.putStrLn $ fileHash <> " " <> updHash
-    let cmdVote = L.intercalate "," $
-                  (map (\i -> "vote "<>show i<>" y "<>T.unpack updHash) [1..cNodes-1])
-    shells (auxx cmdVote) empty
+    let cmdVote = L.intercalate ";" $
+                  (map (\i -> "vote "<>show i<>" agree: true up-id: "<>T.unpack updHash) [1..cNodes-1])
+    uncurry procs (auxx cmdVote) empty
 
     shells ("mkdir run/serve-upd; mv test_updater.sh run/serve-upd/"<>fileHash) empty
 

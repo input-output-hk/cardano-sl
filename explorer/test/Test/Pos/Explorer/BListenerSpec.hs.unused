@@ -14,16 +14,21 @@ import           Test.QuickCheck           (Arbitrary (..), Gen, Property, forAl
                                             suchThat, (===))
 import           Test.QuickCheck.Monadic   (assert, pre)
 
-import           Pos.Core                  (BlockCount (..), EpochIndex (..), HeaderHash)
+import           Pos.Core                  (BlockCount (..), EpochIndex (..),
+                                            HasConfiguration, HeaderHash)
 import           Pos.Util                  (divRoundUp)
 
-import           Pos.Explorer              (Epoch, convertToPagedMap, epochPagedBlocksMap)
-import           Test.Pos.Block.Logic.Mode (BlockProperty, HasVarSpecConfigurations)
+import           Data.Default              (def)
+import           Pos.Explorer.BListener    (epochPagedBlocksMap)
+import           Pos.Explorer.DB           (Epoch, convertToPagedMap)
+import           Pos.Launcher              (HasConfigurations)
+import           Pos.Util.CompileInfo      (HasCompileInfo, withCompileInfo)
+import           Test.Pos.Block.Logic.Mode (BlockProperty)
 import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..),
                                             bpGenBlock, bpGenBlocks, bpGoToArbitraryState)
-import           Test.Pos.Util             (giveCoreConf, giveGtConf, giveInfraConf,
-                                            giveNodeConf, giveUpdateConf)
-
+import           Test.Pos.Util             (HasStaticConfigurations, splitIntoChunks,
+                                            stopProperty, withDefConfigurations,
+                                            withStaticConfigurations)
 
 
 ----------------------------------------------------------------------------
@@ -41,12 +46,12 @@ spec = do
 ----------------------------------------------------------------------------
 
 functionalSpec :: Spec
-functionalSpec = giveGtConf $ giveNodeConf $ giveInfraConf $ giveUpdateConf $ giveCoreConf $
+functionalSpec = withStaticConfigurations $ withCompileInfo def $
     describe "Pos.Explorer.BListenerSpec" $ modifyMaxSuccess (min 12) $ do
         describe "verifyBlocksExplorer" verifyBlocksPrefixExplorerSpec
 
 verifyBlocksPrefixExplorerSpec
-    :: HasVarSpecConfigurations => Spec
+    :: (HasStaticConfigurations, HasCompileInfo) => Spec
 verifyBlocksPrefixExplorerSpec = do
     prop verifyCorrectNumberOfEpochsEmptyBlocks verifyEmptyValidBlockExplorer
     prop verifyCorrectNumberOfEpochsBlocks verifyValidBlocksExplorer
@@ -55,7 +60,7 @@ verifyBlocksPrefixExplorerSpec = do
     verifyCorrectNumberOfEpochsBlocks = "explorer correct number of epoch pages"
 
 verifyEmptyValidBlockExplorer
-    :: HasVarSpecConfigurations
+    :: (HasConfigurations, HasCompileInfo)
     => BlockProperty ()
 verifyEmptyValidBlockExplorer = do
     emptyBlock     <- fst <$> bpGenBlock (EnableTxPayload False) (InplaceDB False)
@@ -63,7 +68,8 @@ verifyEmptyValidBlockExplorer = do
     assert $ length epochBlocksMap == 1
 
 verifyValidBlocksExplorer
-    :: HasVarSpecConfigurations => BlockProperty ()
+    :: (HasConfigurations, HasCompileInfo)
+    => BlockProperty ()
 verifyValidBlocksExplorer = do
 
     bpGoToArbitraryState

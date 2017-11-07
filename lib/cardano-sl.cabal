@@ -441,10 +441,6 @@ test-suite cardano-test
                        Test.Pos.Ssc.Toss.BaseSpec
                        Test.Pos.Ssc.VssCertDataSpec
 
-                       -- Explorer
-                       Test.Pos.Explorer.BListenerSpec
-                       Test.Pos.Explorer.Identity.BinarySpec
-
                        -- Everything else
                        Test.Pos.Cbor.Canonicity
                        Test.Pos.Cbor.CborSpec

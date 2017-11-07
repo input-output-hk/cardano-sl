@@ -260,7 +260,7 @@ deleteWallet wid = do
     return NoContent
 
 deleteAccount :: MonadWalletLogic ctx m => AccountId -> m NoContent
-deleteAccount aid = removeAccount aid >> return NoContent
+deleteAccount aid = removeAccount aid $> NoContent
 
 ----------------------------------------------------------------------------
 -- Modifiers

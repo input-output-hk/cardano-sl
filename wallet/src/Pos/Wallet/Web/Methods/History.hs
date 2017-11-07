@@ -213,7 +213,9 @@ addRecentPtxHistory wid currentHistory = do
 
 logTxHistory
     :: (Container t, Element t ~ TxHistoryEntry, WithLogger m, MonadIO m)
-    => Text -> t -> m NoContent
-logTxHistory desc t = do
-    logInfoS . sformat (stext%" transactions history: "%listJson) desc . map _thTxId . toList $ t
-    return NoContent
+    => Text -> t -> m ()
+logTxHistory desc = do
+    logInfoS
+        . sformat (stext%" transactions history: "%listJson) desc
+        . map _thTxId
+        . toList

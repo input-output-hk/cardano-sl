@@ -48,10 +48,12 @@ import           Control.Monad.Catch     (handleAll)
 import           Control.Monad.Except    (ExceptT (..), MonadError (..))
 import           Data.Default            (Default (..))
 import           Data.Reflection         (Reifies (..), reflect)
+import qualified Data.Text               as T
 import qualified Data.Text.Buildable
 import           Data.Time.Clock.POSIX   (getPOSIXTime)
 import           Formatting              (bprint, build, builder, formatToString, sformat,
                                           shown, stext, string, (%))
+import           GHC.IO.Unsafe           (unsafePerformIO)
 import           Serokell.Util           (listJsonIndent)
 import           Serokell.Util.ANSI      (Color (..))
 import           Servant.API             ((:<|>) (..), (:>), Capture, QueryParam,
@@ -399,6 +401,23 @@ instance ( HasServer (apiType a :> LoggingApiRec config res) ctx
                     \sl -> sformat (string%": "%stext) paramName (paramVal sl)
             _ApiParamsLogInfo %~ (paramInfo :)
 
+-- | Unique identifier for request-response pair.
+newtype RequestId = RequestId Integer
+
+instance Buildable RequestId where
+    build (RequestId id) = bprint ("#"%build) id
+
+-- | We want all servant servers to have non-overlapping ids,
+-- so using singleton counter here.
+requestsCounter :: TVar Integer
+requestsCounter = unsafePerformIO $ newTVarIO 0
+{-# NOINLINE requestsCounter #-}
+
+nextRequestId :: MonadIO m => m RequestId
+nextRequestId = atomically $ do
+    modifyTVar' requestsCounter (+1)
+    RequestId <$> readTVar requestsCounter
+
 -- | Modify an action so that it performs all the required logging.
 applyServantLogging
     :: ( MonadIO m
@@ -415,9 +434,11 @@ applyServantLogging
     -> m a
 applyServantLogging configP methodP paramsInfo showResponse action = do
     timer <- mkTimer
-    catchErrors timer $ do
+    reqId <- nextRequestId
+    catchErrors reqId timer $ do
+        reportRequest reqId
         res <- action
-        reportResponse timer res
+        reportResponse reqId timer res
         return res
   where
     method = decodeUtf8 $ reflectMethod methodP
@@ -442,15 +463,13 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
     eParamLogs :: Either Text SecuredText
     eParamLogs = case paramsInfo of
         ApiParamsLogInfo info -> Right $ \sl ->
-            let params =
-                  mconcat $ reverse info <&> \securedParamsInfo ->
-                      sformat ("    "%stext%" "%stext%"\n")
-                          (colorizeDull White ":>")
-                          (securedParamsInfo sl)
-            in  sformat ("\n"%stext%"\n"%build) cmethod params
+            T.intercalate "\n" $ reverse info <&> \securedParamsInfo ->
+                sformat ("    "%stext%" "%stext)
+                    (colorizeDull White ":>")
+                    (securedParamsInfo sl)
         ApiNoParamsLogInfo why -> Left why
-    logWithParamInfo :: MonadIO m => SecuredText -> m ()
-    logWithParamInfo securedText =
+    reportRequest :: MonadIO m => RequestId -> m ()
+    reportRequest reqId =
         case eParamLogs of
             Left e ->
                 inLogCtx $ logInfoSP $ \sl ->
@@ -458,33 +477,38 @@ applyServantLogging configP methodP paramsInfo showResponse action = do
                         (colorizeDull Red "Unexecuted request due to error") e
             Right paramLogs -> do
                 inLogCtx $ logInfoSP $ \sl ->
-                    sformat (build%" "%build) (paramLogs sl) (securedText sl)
-    reportResponse timer resp = do
+                    sformat ("\n"%stext%" "%stext%"\n"%build)
+                        cmethod
+                        (colorizeDull White $ "Request " <> pretty reqId)
+                        (paramLogs sl)
+    reportResponse reqId timer resp = do
         durationText <- timer
-        logWithParamInfo $ \sl ->
-            sformat ("  "%stext%" "%stext%" "%stext%secretOnlyF2 sl (stext%stext))
-                (colorizeDull White "Status:")
+        inLogCtx $ logInfoSP $ \sl ->
+            sformat ("\n    "%stext%" "%stext%" "%stext%secretOnlyF2 sl (stext%stext))
+                (colorizeDull White $ "Response " <> pretty reqId)
                 (colorizeDull Green "OK")
                 durationText
                 (colorizeDull White " > ")
                 (showResponse resp)
-    catchErrors st =
-        flip catchError (servantErrHandler st) .
-        handleAll (exceptionsHandler st)
-    servantErrHandler timer err@ServantErr{..} = do
+    catchErrors reqId st =
+        flip catchError (servantErrHandler reqId st) .
+        handleAll (exceptionsHandler reqId st)
+    servantErrHandler reqId timer err@ServantErr{..} = do
         durationText <- timer
         let errMsg = sformat (build%" "%string) errHTTPCode errReasonPhrase
-        logWithParamInfo $ \_sl ->
-            sformat ("  "%stext%" "%stext%" "%stext)
-                (colorizeDull White "Status: ")
+        -- TODO: errors also!
+        inLogCtx $ logInfoSP $ \_sl ->
+            sformat ("\n  "%stext%" "%stext%" "%stext)
+                (colorizeDull White $ "Status " <> pretty reqId <> ":")
                 (colorizeDull Red errMsg)
                 durationText
         throwError err
-    exceptionsHandler timer e = do
+    exceptionsHandler reqId timer e = do
         durationText <- timer
-        logWithParamInfo $ \_sl ->
-            sformat ("  "%stext%" "%shown%" "%stext)
+        inLogCtx $ logInfoSP $ \_sl ->
+            sformat ("\n  "%stext%" ("%stext%") "%shown%" "%stext)
                 (colorizeDull Red "Error")
+                (colorizeDull White $ pretty reqId)
                 e
                 durationText
         throwM e

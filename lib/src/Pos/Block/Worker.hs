@@ -55,7 +55,7 @@ import           Pos.Delegation.Helpers      (isRevokePsk)
 import           Pos.Delegation.Logic        (getDlgTransPsk)
 import           Pos.Delegation.Types        (ProxySKBlockInfo)
 import           Pos.GState                  (getAdoptedBVData, getPskByIssuer)
-import           Pos.Lrc.DB                  (getLeaders)
+import qualified Pos.Lrc.DB                  as LrcDB (getLeadersForEpoch)
 import           Pos.Reporting               (MetricMonitor (..), MetricMonitorState,
                                               noReportMonitor, recordValue, reportOrLogE)
 import           Pos.Slotting                (currentTimeSlotting,
@@ -64,9 +64,10 @@ import           Pos.Util                    (logWarningSWaitLinear, mconcatPair
 import           Pos.Util.Chrono             (OldestFirst (..))
 import           Pos.Util.JsonLog            (jlCreatedBlock)
 import           Pos.Util.LogSafe            (logDebugS, logInfoS, logWarningS)
-import           Pos.Util.TimeWarp           (CanJsonLog (..))
 import           Pos.Util.Timer              (Timer)
+import           Pos.Util.TimeWarp           (CanJsonLog (..))
 import           Pos.WorkMode.Class          (WorkMode)
+
 
 ----------------------------------------------------------------------------
 -- All workers
@@ -117,7 +118,11 @@ blockCreator (slotId@SlotId {..}) sendActions = do
         jsonLog $ jlCreatedBlock (Left createdBlk)
 
     -- Then we get leaders for current epoch.
-    leadersMaybe <- getLeaders siEpoch
+    -- Note: we are using non-blocking version here.  If we known
+    -- genesis block for current epoch, then we either have calculated
+    -- it before and it implies presense of leaders in MVar or we have
+    -- read leaders from DB during initialization.
+    leadersMaybe <- LrcDB.getLeadersForEpoch siEpoch
     case leadersMaybe of
         -- If we don't know leaders, we can't do anything.
         Nothing -> logWarning "Leaders are not known for new slot"

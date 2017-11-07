@@ -20,6 +20,7 @@ import           Data.Typeable               (Typeable, typeRep)
 import           Data.Version                (Version)
 import           Servant.Multipart           (FileData (..))
 
+import           Pos.Client.Txp.Util         (InputSelectionPolicy)
 import           Pos.Types                   (ApplicationName, BlockCount (..),
                                               BlockVersion, ChainDifficulty, Coin,
                                               SlotCount (..), SoftwareVersion)
@@ -76,6 +77,7 @@ instance ToSchema      CT.SyncProgress
 instance ToSchema      BlockCount
 instance ToSchema      SlotCount
 instance ToSchema      ChainDifficulty
+instance ToSchema      InputSelectionPolicy
 instance ToSchema      BlockVersion
 instance ToSchema      BackupPhrase
 instance ToParamSchema CT.CPassPhrase

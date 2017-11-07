@@ -17,7 +17,8 @@ import           Pos.Client.KeyStorage          (getSecretKeys)
 import           Pos.Client.Txp.Addresses       (MonadAddresses)
 import           Pos.Client.Txp.Balances        (MonadBalances (..))
 import           Pos.Client.Txp.History         (TxHistoryEntry (..))
-import           Pos.Client.Txp.Util            (computeTxFee, runTxCreator)
+import           Pos.Client.Txp.Util            (InputSelectionPolicy, computeTxFee,
+                                                 runTxCreator)
 import           Pos.Communication              (prepareMTx)
 import           Pos.Core                       (Coin, getCurrentTimestamp)
 import           Pos.Crypto                     (PassPhrase, ShouldCheckPassphrase (..),
@@ -52,12 +53,14 @@ newPayment
     -> AccountId
     -> CId Addr
     -> Coin
+    -> InputSelectionPolicy
     -> m CTx
-newPayment passphrase srcAccount dstAddress coin =
+newPayment passphrase srcAccount dstAddress coin policy =
     sendMoney
         passphrase
         (AccountMoneySource srcAccount)
         (one (dstAddress, coin))
+        policy
 
 type MonadFees ctx m =
     ( MonadCatch m
@@ -72,12 +75,13 @@ getTxFee
      => AccountId
      -> CId Addr
      -> Coin
+     -> InputSelectionPolicy
      -> m CCoin
-getTxFee srcAccount dstAccount coin = do
+getTxFee srcAccount dstAccount coin policy = do
     utxo <- getMoneySourceUtxo (AccountMoneySource srcAccount)
     outputs <- coinDistrToOutputs $ one (dstAccount, coin)
     TxFee fee <- rewrapTxError "Cannot compute transaction fee" $
-        eitherToThrow =<< runTxCreator (computeTxFee utxo outputs)
+        eitherToThrow =<< runTxCreator policy (computeTxFee utxo outputs)
     pure $ encodeCType fee
 
 data MoneySource
@@ -126,8 +130,9 @@ sendMoney
     => PassPhrase
     -> MoneySource
     -> NonEmpty (CId Addr, Coin)
+    -> InputSelectionPolicy
     -> m CTx
-sendMoney passphrase moneySource dstDistr = do
+sendMoney passphrase moneySource dstDistr policy = do
     let srcWallet = getMoneySourceWallet moneySource
     rootSk <- getSKById srcWallet
     checkPassMatches passphrase rootSk `whenNothing`
@@ -152,7 +157,7 @@ sendMoney passphrase moneySource dstDistr = do
     outputs <- coinDistrToOutputs dstDistr
     th <- rewrapTxError "Cannot send transaction" $ do
         (txAux, inpTxOuts') <-
-            prepareMTx getSinger srcAddrs outputs (relatedAccount, passphrase)
+            prepareMTx getSinger policy srcAddrs outputs (relatedAccount, passphrase)
 
         ts <- Just <$> getCurrentTimestamp
         let tx = taTx txAux

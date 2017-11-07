@@ -1889,7 +1889,7 @@ self: {
           description = "Cardano SL - shared seed computation";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-tools = callPackage ({ Chart, Chart-diagrams, Glob, MonadRandom, QuickCheck, aeson, ansi-wl-pprint, array, async, attoparsec, base, base58-bytestring, bytestring, canonical-json, cardano-report-server, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-txp, containers, cpphs, cryptonite, data-default, directory, ed25519, ether, fgl, filepath, foldl, formatting, graphviz, kademlia, lens, lifted-async, log-warper, mkDerivation, mtl, neat-interpolation, node-sketch, optparse-applicative, parsec, pipes, pipes-bytestring, pipes-interleave, pipes-safe, process, random, random-shuffle, safe-exceptions, serokell-util, stdenv, stm, system-filepath, tabl, tar, text, time, time-units, universum, unix, unix-compat, unordered-containers, vector, yaml }:
+      cardano-sl-tools = callPackage ({ Chart, Chart-diagrams, Glob, MonadRandom, QuickCheck, aeson, ansi-wl-pprint, array, async, attoparsec, base, base58-bytestring, bytestring, canonical-json, cardano-report-server, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, cardano-sl-ssc, cardano-sl-txp, containers, cpphs, cryptonite, data-default, directory, ed25519, ether, fgl, filepath, foldl, formatting, graphviz, kademlia, lens, lifted-async, log-warper, mkDerivation, mtl, neat-interpolation, node-sketch, optparse-applicative, parsec, pipes, pipes-bytestring, pipes-interleave, pipes-safe, process, random, random-shuffle, safe-exceptions, serokell-util, silently, stdenv, stm, system-filepath, tabl, tar, text, text-format, time, time-units, universum, unix, unix-compat, unordered-containers, vector, yaml }:
       mkDerivation {
           pname = "cardano-sl-tools";
           version = "1.0.3";
@@ -1947,6 +1947,7 @@ self: {
             random-shuffle
             safe-exceptions
             serokell-util
+            silently
             stm
             system-filepath
             tabl
@@ -6364,6 +6365,22 @@ self: {
           doCheck = false;
           description = "A cross-platform library for setting environment variables";
           license = stdenv.lib.licenses.mit;
+        }) {};
+      silently = callPackage ({ base, deepseq, directory, mkDerivation, stdenv }:
+      mkDerivation {
+          pname = "silently";
+          version = "1.2.5";
+          sha256 = "cef625635053a46032ca53b43d311921875a437910b6568ded17027fdca83839";
+          libraryHaskellDepends = [
+            base
+            deepseq
+            directory
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "https://github.com/hspec/silently";
+          description = "Prevent or capture writing to stdout and other handles";
+          license = stdenv.lib.licenses.bsd3;
         }) {};
       simple-sendfile = callPackage ({ base, bytestring, mkDerivation, network, stdenv, unix }:
       mkDerivation {

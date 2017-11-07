@@ -16,20 +16,19 @@ import           Cardano.Wallet.API.Types    (AlternativeApiArg, DQueryParam,
                                               WithDefaultApiArg, mapRouter)
 import           Cardano.Wallet.API.V1.Types
 
-import           Data.Text                   (Text)
 import           Servant
 
--- | A special parameter which combines `response_type` query argument and
+-- | A special parameter which combines `response_format` query argument and
 -- `Daedalus-Response-Format` header (which have the same meaning) in one API argument.
-type ResponseTypeParam = WithDefaultApiArg
-    (AlternativeApiArg (QueryParam "response_type") (Header "Daedalus-Response-Format"))
-    ResponseType
+type ResponseFormatParam = WithDefaultApiArg
+    (AlternativeApiArg (QueryParam "response_format") (Header "Daedalus-Response-Format"))
+    ResponseFormat
 
 -- | Unpacked pagination parameters.
 type WithWalletRequestParams c =
        DQueryParam "page"     Page
     :> DQueryParam "per_page" PerPage
-    :> ResponseTypeParam
+    :> ResponseFormatParam
     :> c
 
 -- | Stub datatype which is used as special API argument specifier for
@@ -42,4 +41,4 @@ instance HasServer (WithWalletRequestParams subApi) ctx =>
         PaginationParams -> ServerT subApi m
     route =
         mapRouter @(WithWalletRequestParams subApi) route $
-        \f ppPage ppPerPage ppResponseType -> f $ PaginationParams {..}
+        \f ppPage ppPerPage ppResponseFormat -> f $ PaginationParams {..}

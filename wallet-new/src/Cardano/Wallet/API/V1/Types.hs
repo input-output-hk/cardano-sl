@@ -13,7 +13,7 @@ module Cardano.Wallet.API.V1.Types (
   , Metadata (..)
   , Page(..)
   , PerPage(..)
-  , ResponseType (..)
+  , ResponseFormat (..)
   , PaginationParams (..)
   , maxPerPageEntries
   , defaultPerPageEntries
@@ -144,37 +144,37 @@ deriveJSON Serokell.defaultOptions ''ExtendedResponse
 instance Arbitrary a => Arbitrary (ExtendedResponse a) where
   arbitrary = ExtendedResponse <$> arbitrary <*> arbitrary
 
--- | A `ResponseType` determines which type of response we want to return.
--- For now there's only two response types - plain and extended with pagination data.
-data ResponseType = Plain | Extended
+-- | A `ResponseFormat` determines which type of response we want to return.
+-- For now there's only two response formats - plain and extended with pagination data.
+data ResponseFormat = Plain | Extended
     deriving (Show, Eq, Generic, Enum, Bounded)
 
-instance Buildable ResponseType where
+instance Buildable ResponseFormat where
     build Plain    = "plain"
     build Extended = "extended"
 
-instance FromHttpApiData ResponseType where
+instance FromHttpApiData ResponseFormat where
     parseQueryParam qp = parseQueryParam @Text qp >>= \case
         "plain"    -> Right Plain
         "extended" -> Right Extended
-        _          -> Left "unknown response type"
+        _          -> Right def -- yield the default
 
-instance ToHttpApiData ResponseType where
+instance ToHttpApiData ResponseFormat where
     toQueryParam = sformat build
 
-instance Default ResponseType where
+instance Default ResponseFormat where
     def = Plain
 
-instance Arbitrary ResponseType where
+instance Arbitrary ResponseFormat where
     arbitrary = oneof $ map pure [minBound..maxBound]
 
 -- | `PaginationParams` is datatype which combines request params related
 -- to pagination together
 
 data PaginationParams = PaginationParams
-    { ppPage         :: Page
-    , ppPerPage      :: PerPage
-    , ppResponseType :: ResponseType
+    { ppPage           :: Page
+    , ppPerPage        :: PerPage
+    , ppResponseFormat :: ResponseFormat
     } deriving (Show, Eq, Generic)
 
 -- | Type introduced to mimick Swagger 3.0 'oneOf' keyword. It's used to model responses whose body can change

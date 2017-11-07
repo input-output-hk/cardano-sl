@@ -28,7 +28,7 @@ listWallets :: PaginationParams
             -> Handler (OneOf [Wallet] (ExtendedResponse [Wallet]))
 listWallets PaginationParams {..} = do
   example <- liftIO $ generate (resize 3 arbitrary)
-  case ppResponseType of
+  case ppResponseFormat of
     Extended -> return $ OneOf $ Right $
       ExtendedResponse {
         extData = example

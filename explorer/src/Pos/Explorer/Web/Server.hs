@@ -44,7 +44,7 @@ import qualified Pos.DB.Block                         as DB
 import qualified Pos.DB.DB                            as DB
 
 import           Pos.Binary.Class                     (biSize)
-import           Pos.Block.Core                       (MainBlock, mainBlockSlot,
+import           Pos.Block.Core                       (Block, MainBlock, mainBlockSlot,
                                                        mainBlockTxPayload, mcdSlot)
 import           Pos.Block.Types                      (Blund, Undo)
 import           Pos.Core                             (AddrType (..), Address (..), Coin,
@@ -59,7 +59,6 @@ import           Pos.Core                             (AddrType (..), Address (.
                                                        unsafeSubCoin)
 import           Pos.DB.Class                         (MonadDBRead)
 import           Pos.Slotting                         (MonadSlots (..), getSlotStart)
-import           Pos.Ssc.Configuration                (HasSscConfiguration)
 import           Pos.Txp                              (MonadTxpMem, Tx (..), TxAux, TxId,
                                                        TxMap, TxOutAux (..), getLocalTxs,
                                                        getMemPool, mpLocalTxs, taTx,
@@ -73,7 +72,7 @@ import           Pos.WorkMode                         (WorkMode)
 import           Pos.Explorer.Aeson.ClientTypes       ()
 import           Pos.Explorer.Core                    (TxExtra (..))
 import           Pos.Explorer.DB                      (getAddrBalance, getAddrHistory,
-                                                       getEpochBlocks,
+                                                       getEpochBlocks, getEpochPages,
                                                        getLastTransactions, getPageBlocks,
                                                        getTxExtra, getUtxoSum)
 import           Pos.Explorer.ExtraContext            (HasGenesisRedeemAddressInfo (..))
@@ -98,6 +97,8 @@ import           Pos.Explorer.Web.ClientTypes         (Byte, CAda (..), CAddress
                                                        toTxBrief)
 import           Pos.Explorer.Web.Error               (ExplorerError (..))
 
+
+
 ----------------------------------------------------------------
 -- Top level functionality
 ----------------------------------------------------------------
@@ -107,7 +108,6 @@ type MainBlund = (MainBlock, Undo)
 type ExplorerMode ctx m =
     ( WorkMode ctx m
     , HasGenesisRedeemAddressInfo m
-    , HasSscConfiguration
     )
 
 explorerServeImpl
@@ -144,6 +144,8 @@ explorerHandlers _sendActions =
     :<|>
       getAddressSummary
     :<|>
+      epochPageSearch
+    :<|>
       epochSlotSearch
     :<|>
       getGenesisSummary
@@ -153,6 +155,7 @@ explorerHandlers _sendActions =
       getGenesisAddressInfo
     :<|>
       getStatsTxs
+
 
 ----------------------------------------------------------------
 -- API Functions
@@ -220,12 +223,13 @@ getBlocksPage mPageNumber mPageSize = do
     -- TODO: Fix this Int / Integer thing once we merge repositories
     pageBlocksHH    <- getPageHHsOrThrow $ fromIntegral pageNumber
     blunds          <- forM pageBlocksHH getBlundOrThrow
-    cBlocksEntry    <- forM (rights' blunds) toBlockEntry
+    cBlocksEntry    <- forM (blundToMainBlockUndo blunds) toBlockEntry
 
     -- Return total pages and the blocks. We start from page 1.
     pure (totalPages, reverse cBlocksEntry)
   where
-    rights' x = [(mb, u) | (Right mb, u) <- x]
+    blundToMainBlockUndo :: [Blund] -> [(MainBlock, Undo)]
+    blundToMainBlockUndo blund = [(mainBlock, undo) | (Right mainBlock, undo) <- blund]
 
     -- Either get the @HeaderHash@es from the @Page@ or throw an exception.
     getPageHHsOrThrow
@@ -601,36 +605,34 @@ getGenesisPagesTotal mPageSize addrFilt = do
   where
     pageSize = fromIntegral $ toPageSize mPageSize
 
--- | Search the blocks by epoch and slot. Slot is optional.
+-- | Search the blocks by epoch and slot.
 epochSlotSearch
     :: ExplorerMode ctx m
     => EpochIndex
-    -> Maybe Word16
+    -> Word16
     -> m [CBlockEntry]
-epochSlotSearch epochIndex mSlotIndex = do
+epochSlotSearch epochIndex slotIndex = do
 
-    -- [CSE-236] Disable search for epoch only
-    -- TODO: Remove restriction if epoch search will be optimized
-    when (isNothing mSlotIndex) $
-        throwM $ Internal "We currently do not support searching for epochs only."
+    -- The slots start from 0 so we need to modify the calculation of the index.
+    let page = fromIntegral $ (slotIndex `div` 10) + 1
 
     -- Get pages from the database
     -- TODO: Fix this Int / Integer thing once we merge repositories
-    epochBlocksHH   <- getPageHHsOrThrow epochIndex
+    epochBlocksHH   <- getPageHHsOrThrow epochIndex page
     blunds          <- forM epochBlocksHH getBlundOrThrow
-    cBlocksEntry    <- forM (getEpochSlots mSlotIndex (rights' blunds)) toBlockEntry
+    cBlocksEntry    <- forM (getEpochSlots slotIndex (blundToMainBlockUndo blunds)) toBlockEntry
 
     pure cBlocksEntry
   where
-    rights' x = [(mb, u) | (Right mb, u) <- x]
+    blundToMainBlockUndo :: [Blund] -> [(MainBlock, Undo)]
+    blundToMainBlockUndo blund = [(mainBlock, undo) | (Right mainBlock, undo) <- blund]
     -- Get epoch slot block that's being searched or return all epochs if
     -- the slot is @Nothing@.
     getEpochSlots
-        :: Maybe Word16
+        :: Word16
         -> [MainBlund]
         -> [MainBlund]
-    getEpochSlots Nothing           blunds = blunds
-    getEpochSlots (Just slotIndex) blunds = filter filterBlundsBySlotIndex blunds
+    getEpochSlots slotIndex' blunds = filter filterBlundsBySlotIndex blunds
       where
         getBlundSlotIndex
             :: MainBlund
@@ -640,19 +642,74 @@ epochSlotSearch epochIndex mSlotIndex = do
         filterBlundsBySlotIndex
             :: MainBlund
             -> Bool
-        filterBlundsBySlotIndex blund = getBlundSlotIndex blund == slotIndex
+        filterBlundsBySlotIndex blund = getBlundSlotIndex blund == slotIndex'
 
     -- Either get the @HeaderHash@es from the @Epoch@ or throw an exception.
     getPageHHsOrThrow
         :: (DB.MonadBlockDB m, MonadThrow m)
         => EpochIndex
+        -> Int
         -> m [HeaderHash]
-    getPageHHsOrThrow epoch = getEpochBlocks epoch >>=
-        maybeThrow (Internal errMsg)
+    getPageHHsOrThrow epoch page =
+        getEpochBlocks epoch page >>= maybeThrow (Internal errMsg)
       where
         errMsg :: Text
-        errMsg = sformat ("No blocks on epoch "%build%" found!") epoch
+        errMsg = sformat ("No blocks on epoch "%build%" page "%build%" found!") epoch page
 
+-- | Search the blocks by epoch and epoch page number.
+epochPageSearch
+    :: ExplorerMode ctx m
+    => EpochIndex
+    -> Maybe Int
+    -> m (Int, [CBlockEntry])
+epochPageSearch epochIndex mPage = do
+
+    -- Get the page if it exists, return first page otherwise.
+    let page = fromMaybe 1 mPage
+
+    -- We want to fetch as many pages as we have in this @Epoch@.
+    epochPagesNumber <- getEpochPages epochIndex >>= maybeThrow (Internal "No epoch pages.")
+
+    -- Get pages from the database
+    -- TODO: Fix this Int / Integer thing once we merge repositories
+    epochBlocksHH       <- getPageHHsOrThrow epochIndex page
+    blunds              <- forM epochBlocksHH getBlundOrThrow
+
+    let sortedBlunds     = sortBlocksByEpochSlots blunds
+    let sortedMainBlocks = blundToMainBlockUndo sortedBlunds
+
+    cBlocksEntry        <- forM sortedMainBlocks toBlockEntry
+
+    pure (epochPagesNumber, cBlocksEntry)
+  where
+    blundToMainBlockUndo :: [Blund] -> [(MainBlock, Undo)]
+    blundToMainBlockUndo blund = [(mainBlock, undo) | (Right mainBlock, undo) <- blund]
+
+    -- Either get the @HeaderHash@es from the @Epoch@ or throw an exception.
+    getPageHHsOrThrow
+        :: (DB.MonadBlockDB m, MonadThrow m)
+        => EpochIndex
+        -> Int
+        -> m [HeaderHash]
+    getPageHHsOrThrow epoch page' =
+        getEpochBlocks epoch page' >>= maybeThrow (Internal errMsg)
+      where
+        errMsg :: Text
+        errMsg = sformat ("No blocks on epoch "%build%" page "%build%" found!") epoch page'
+
+    -- | Sorting.
+    sortBlocksByEpochSlots
+        :: [(Block, Undo)]
+        -> [(Block, Undo)]
+    sortBlocksByEpochSlots blocks = sortOn (Down . getBlockIndex . fst) blocks
+      where
+        -- | Get the block index number. We start with the the index 1 for the
+        -- genesis block and add 1 for the main blocks since they start with 1
+        -- as well.
+        getBlockIndex :: (Block) -> Int
+        getBlockIndex (Left _)      = 1
+        getBlockIndex (Right block) =
+            fromIntegral $ (+1) $ getSlotIndex $ siSlot $ block ^. mainBlockSlot
 
 getStatsTxs
     :: forall ctx m. ExplorerMode ctx m

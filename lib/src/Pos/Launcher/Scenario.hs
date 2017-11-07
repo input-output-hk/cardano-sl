@@ -49,6 +49,7 @@ import           Pos.Util.LogSafe         (logInfoS)
 import           Pos.Worker               (allWorkers)
 import           Pos.WorkMode.Class       (WorkMode)
 
+
 -- | Entry point of full node.
 -- Initialization, running of workers, running of plugins.
 runNode'
@@ -108,7 +109,7 @@ runNode' NodeResources {..} workers' plugins' = ActionSpec $ \vI sendActions -> 
             logInfo $
             sformat ("Last known leaders for epoch "%build%" are: "%listJson)
                     lastKnownEpoch leaders
-    LrcDB.getLeaders lastKnownEpoch >>= maybe onNoLeaders onLeaders
+    LrcDB.getLeadersForEpoch lastKnownEpoch >>= maybe onNoLeaders onLeaders
     tipHeader <- DB.getTipHeader
     logInfo $ sformat ("Current tip header: "%build) tipHeader
 

@@ -26,10 +26,11 @@ module Pos.DB.GState.Common
        , CommonOp (..)
        ) where
 
+import           Universum
+
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB    as Rocks
 import           Formatting          (bprint, int, sformat, stext, (%))
-import           Universum
 
 import           Pos.Binary.Class    (Bi)
 import           Pos.Binary.Crypto   ()

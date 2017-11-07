@@ -26,9 +26,10 @@ import           Pos.Subscription.Common (subscriptionWorker)
 import           Pos.Subscription.Dht    (dhtSubscriptionWorker)
 import           Pos.Subscription.Dns    (dnsSubscriptionWorker)
 import           Pos.Txp                 (txRelays)
-import           Pos.Txp.Worker          (txpWorkers)
 import           Pos.Update              (usRelays, usWorkers)
 import           Pos.Util                (mconcatPair)
+import           Pos.Util.JsonLog        (JLEvent (JLTxReceived))
+import           Pos.Util.TimeWarp       (jsonLog)
 import           Pos.WorkMode            (WorkMode)
 
 -- | All, but in reality not all, workers used by full node.
@@ -47,7 +48,6 @@ allWorkers NodeResources {..} = mconcatPair
 
       -- Have custom loggers
     , wrap' "block"      $ blkWorkers ncSubscriptionKeepAliveTimer
-    , wrap' "txp"        $ txpWorkers
     , wrap' "delegation" $ dlgWorkers
     , wrap' "slotting"   $ (properSlottingWorkers, mempty)
 
@@ -63,7 +63,7 @@ allWorkers NodeResources {..} = mconcatPair
       -- MAGIC "relay" out specs.
       -- There's no cardano-sl worker for them; they're put out by the outbound
       -- queue system from time-warp (enqueueConversation on SendActions).
-    , ([], relayPropagateOut (mconcat [delegationRelays, sscRelays, txRelays, usRelays] :: [Relay m]))
+    , ([], relayPropagateOut (mconcat [delegationRelays, sscRelays, txRelays logTx, usRelays] :: [Relay m]))
 
       -- Kademlia has some workers to run.
       --
@@ -80,3 +80,4 @@ allWorkers NodeResources {..} = mconcatPair
        fst (localWorker logNewSlotWorker) :
        map (fst . localWorker) (slottingWorkers ncSlottingContext)
     wrap' lname = first (map $ wrapActionSpec $ "worker" <> lname)
+    logTx = jsonLog . JLTxReceived

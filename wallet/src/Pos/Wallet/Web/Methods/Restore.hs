@@ -111,7 +111,7 @@ importWalletDo
     -> m CWallet
 importWalletDo passphrase wSecret = do
     wId <- cwId <$> importWalletSecret emptyPassphrase wSecret
-    L.changeWalletPassphrase wId emptyPassphrase passphrase
+    _ <- L.changeWalletPassphrase wId emptyPassphrase passphrase
     L.getWallet wId
 
 importWalletSecret

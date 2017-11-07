@@ -27,6 +27,7 @@ import           Pos.Wallet.Web.Error         (WalletError (..))
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.State         (createAccount, getWalletMeta)
 import           Pos.Wallet.Web.Tracking      (syncWalletOnImport)
+import           Servant.API.ContentTypes     (NoContent (..))
 
 import           Pos.Crypto                   (emptyPassphrase, firstHardened)
 
@@ -79,7 +80,8 @@ importWalletJSON (CFilePath (toString -> fp)) = do
         sformat ("Error while reading JSON backup file: "%stext) $
         toText err
 
-exportWalletJSON :: MonadWalletBackup ctx m => CId Wal -> CFilePath -> m ()
+exportWalletJSON :: MonadWalletBackup ctx m => CId Wal -> CFilePath -> m NoContent
 exportWalletJSON wid (CFilePath (toString -> fp)) = do
     wBackup <- TotalBackup <$> getWalletBackup wid
     liftIO $ BSL.writeFile fp $ A.encode wBackup
+    return NoContent

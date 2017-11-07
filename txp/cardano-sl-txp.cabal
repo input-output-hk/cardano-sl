@@ -13,10 +13,7 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
-    Pos.Aeson.Txp
-
-    Pos.Arbitrary.Txp
-    Pos.Arbitrary.Txp.Unsafe
+    Pos.Txp
 
     Pos.Txp.Core
     Pos.Txp.Core.Core
@@ -47,6 +44,10 @@ library
     Pos.Txp.Logic.Global
     Pos.Txp.Logic.Local
 
+    Pos.Txp.Network
+    Pos.Txp.Network.Listeners
+    Pos.Txp.Network.Types
+
     Pos.Txp.MemState
     Pos.Txp.MemState.Class
     Pos.Txp.MemState.Holder
@@ -61,6 +62,14 @@ library
     Pos.Script
     Pos.Script.Examples
 
+    Pos.Aeson.Txp
+
+    Pos.Arbitrary.Txp
+    Pos.Arbitrary.Txp.Unsafe
+    Pos.Arbitrary.Txp.Network
+
+    Pos.Binary.Txp
+    Pos.Binary.Txp.Network
     Pos.Binary.Txp.Core
 
   build-depends:       QuickCheck

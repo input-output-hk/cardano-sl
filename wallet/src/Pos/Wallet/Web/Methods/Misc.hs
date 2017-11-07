@@ -29,7 +29,8 @@ import           Mockable                     (MonadMockable)
 import           Pos.Core                     (SoftwareVersion (..))
 import           Pos.Update.Configuration     (HasUpdateConfiguration, curSoftwareVersion)
 import           Pos.Util                     (maybeThrow)
-import           Servant.API.ContentTypes     (MimeRender (..), OctetStream)
+import           Servant.API.ContentTypes     (MimeRender (..), NoContent (..),
+                                               OctetStream)
 
 import           Pos.Client.KeyStorage        (MonadKeys, deleteSecretKey, getSecretKeys)
 import           Pos.NtpCheck                 (NtpCheckMonad, NtpStatus (..),
@@ -86,12 +87,12 @@ nextUpdate = do
     noUpdates = RequestError "No updates available"
 
 -- | Postpone next update after restart
-postponeUpdate :: MonadWalletDB ctx m => m ()
-postponeUpdate = removeNextUpdate
+postponeUpdate :: MonadWalletDB ctx m => m NoContent
+postponeUpdate = removeNextUpdate >> return NoContent
 
 -- | Delete next update info and restart immediately
-applyUpdate :: (MonadWalletDB ctx m, MonadUpdates m) => m ()
-applyUpdate = removeNextUpdate >> applyLastUpdate
+applyUpdate :: (MonadWalletDB ctx m, MonadUpdates m) => m NoContent
+applyUpdate = removeNextUpdate >> applyLastUpdate >> return NoContent
 
 ----------------------------------------------------------------------------
 -- Sync progress
@@ -123,8 +124,8 @@ localTimeDifference =
 -- Reset
 ----------------------------------------------------------------------------
 
-testResetAll :: (MonadWalletDB ctx m, MonadKeys m) => m ()
-testResetAll = deleteAllKeys >> testReset
+testResetAll :: (MonadWalletDB ctx m, MonadKeys m) => m NoContent
+testResetAll = deleteAllKeys >> testReset >> return NoContent
   where
     deleteAllKeys :: MonadKeys m => m ()
     deleteAllKeys = do

@@ -1400,6 +1400,7 @@ self: {
             cardano-sl
             cardano-sl-core
             cardano-sl-infra
+            cardano-sl-txp
             formatting
             log-warper
             network-transport-tcp
@@ -1645,6 +1646,7 @@ self: {
             bytestring
             cardano-sl
             cardano-sl-core
+            cardano-sl-txp
             cborg
             cereal
             containers

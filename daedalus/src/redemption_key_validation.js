@@ -46,7 +46,7 @@ function decodeNode (str) {
 
 // Convert base64url into base64
 function toRfc4648(str) {
-    return str.replace('_', '/').replace('-', '+');
+    return str.replace(new RegExp('_', 'g'), '/').replace(new RegExp('-', 'g'), '+');
 }
 
 // Convert String into Uint8Array buffer

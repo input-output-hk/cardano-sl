@@ -25,29 +25,28 @@ module Test.Pos.Util
        , stopProperty
        , maybeStopProperty
        , splitIntoChunks
+       , expectedOne
        ) where
 
 import           Universum
 
-import           Data.Tagged                      (Tagged (..))
-import           Test.QuickCheck                  (Arbitrary (arbitrary), Property,
-                                                   counterexample, property)
-import           Test.QuickCheck.Gen              (choose)
-import           Test.QuickCheck.Monadic          (PropertyM, pick, stop)
-import           Test.QuickCheck.Property         (Result (..), failed)
+import           Data.Tagged                (Tagged (..))
+import           Test.QuickCheck            (Arbitrary (arbitrary), Property,
+                                             counterexample, property)
+import           Test.QuickCheck.Gen        (choose)
+import           Test.QuickCheck.Monadic    (PropertyM, pick, stop)
+import           Test.QuickCheck.Property   (Result (..), failed)
 
-import           Pos.Configuration                (HasNodeConfiguration,
-                                                   withNodeConfiguration)
-import           Pos.Core                         (HasConfiguration, withGenesisSpec)
-import           Pos.Infra.Configuration          (HasInfraConfiguration,
-                                                   withInfraConfiguration)
-import           Pos.Launcher.Configuration       (Configuration (..), HasConfigurations)
-import           Pos.Ssc.Configuration            (HasSscConfiguration,
-                                                   withSscConfiguration)
-import           Pos.Update.Configuration         (HasUpdateConfiguration,
-                                                   withUpdateConfiguration)
+import           Pos.Configuration          (HasNodeConfiguration, withNodeConfiguration)
+import           Pos.Core                   (HasConfiguration, withGenesisSpec)
+import           Pos.Infra.Configuration    (HasInfraConfiguration,
+                                             withInfraConfiguration)
+import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
+import           Pos.Ssc.Configuration      (HasSscConfiguration, withSscConfiguration)
+import           Pos.Update.Configuration   (HasUpdateConfiguration,
+                                             withUpdateConfiguration)
 
-import           Test.Pos.Configuration           (defaultTestConf)
+import           Test.Pos.Configuration     (defaultTestConf)
 
 -- | This constraint requires all configurations which are not
 -- always hardcoded in tests (currently).
@@ -158,3 +157,12 @@ splitIntoChunks maxSize items = do
     case nonEmpty chunk of
         Nothing      -> return []
         Just chunkNE -> (chunkNE :) <$> splitIntoChunks maxSize rest
+
+expectedOne :: Monad m => Text -> [a] -> PropertyM m a
+expectedOne desc = \case
+    [] ->  kickOut "expected at least one element, but list empty"
+    [x] -> pure x
+    _ ->   kickOut "expected one element, but list contains more elements"
+  where
+    kickOut err = stopProperty $ err <> " (" <> desc <> ")"
+

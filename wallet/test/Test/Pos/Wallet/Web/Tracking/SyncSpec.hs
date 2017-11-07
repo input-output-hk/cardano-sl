@@ -12,6 +12,7 @@ import           Test.QuickCheck.Monadic      (pick)
 
 import           Pos.Block.Logic              (rollbackBlocks)
 import           Pos.Core                     (BlockCount (..), blkSecurityParam)
+import           Pos.Crypto                   (emptyPassphrase)
 import           Pos.Launcher                 (HasConfigurations)
 import           Pos.Util.Chrono              (nonEmptyOldestFirst, toNewestFirst)
 import           Pos.Util.CompileInfo         (HasCompileInfo, withCompileInfo)
@@ -32,7 +33,7 @@ spec = withCompileInfo def $
 twoApplyTwoRollbacksSpec :: (HasCompileInfo, HasConfigurations) => Spec
 twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
     let k = fromIntegral blkSecurityParam :: Word64
-    void $ importSomeWallets
+    void $ importSomeWallets (pure emptyPassphrase)
     genesisWalletDB <- lift WS.getWalletStorage
     applyBlocksCnt1 <- pick $ choose (1, k `div` 2)
     applyBlocksCnt2 <- pick $ choose (1, k `div` 2)

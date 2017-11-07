@@ -226,11 +226,13 @@ test-suite cardano-auxx-test
 
 executable cardano-hash-installer
   hs-source-dirs:      src
+  default-language:    Haskell2010
   main-is:             HashInstaller.hs
   build-depends:       base
                        , bytestring
                        , formatting
                        , cardano-sl-core
+                       , cardano-sl-update
                        , cardano-sl
                        , universum
   default-extensions:   OverloadedStrings

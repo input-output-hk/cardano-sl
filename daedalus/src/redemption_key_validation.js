@@ -172,32 +172,32 @@ function tests() {
         Array.prototype.push.apply(testList, [rardomString(46, b58Charset)])
     }
 
-    var redemptionKeyTrue = 0 
-    var redemptionKeyFalse = 0 
-    var paperVendRedemptionKeyTrue = 0 
-    var paperVendRedemptionKeyFalse = 0 
+    var redemptionKeyValid = 0
+    var redemptionKeyInvalid = 0
+    var paperVendRedemptionKeyValid = 0
+    var paperVendRedemptionKeyInvalid = 0
     for (var i = 0, len = testList.length; i < len ; i++) {
         if(isValidRedemptionKey(testList[i]) == api.isValidRedemptionKey(testList[i])) {
-            isValidRedemptionKey(testList[i])? redemptionKeyTrue++: redemptionKeyFalse++;
+            isValidRedemptionKey(testList[i])? redemptionKeyValid++: redemptionKeyInvalid++;
         } else {
             console.log("Test failed for redemption key: " + testList[i])
         }
         if(isValidPaperVendRedemptionKey(testList[i]) == api.isValidPaperVendRedemptionKey(testList[i])) {
-            isValidPaperVendRedemptionKey(testList[i])? paperVendRedemptionKeyTrue++: paperVendRedemptionKeyFalse++;
+            isValidPaperVendRedemptionKey(testList[i])? paperVendRedemptionKeyValid++: paperVendRedemptionKeyInvalid++;
         } else {
             console.log("Test failed for paper vend redemption key: " + testList[i])
         }
     }
 
-    console.log("Successfull tests for redemption key: " + (redemptionKeyTrue + redemptionKeyFalse))
-    console.log("Failed tests for redemption key: " + (testList.length - redemptionKeyTrue - redemptionKeyFalse))
-    console.log("redemptionKeyTrue: " + redemptionKeyTrue)
-    console.log("redemptionKeyFalse: " + redemptionKeyFalse)
+    console.log("Successfull tests for redemption key: " + (redemptionKeyValid + redemptionKeyInvalid))
+    console.log("Failed tests for redemption key: " + (testList.length - redemptionKeyValid - redemptionKeyInvalid))
+    console.log("redemptionKeyValid: " + redemptionKeyValid)
+    console.log("redemptionKeyInvalid: " + redemptionKeyInvalid)
 
-    console.log("Successfull tests for paper vend redemption key: " + (paperVendRedemptionKeyTrue + paperVendRedemptionKeyFalse))
-    console.log("Failed tests for paper vend redemption key: " + (testList.length - paperVendRedemptionKeyTrue - paperVendRedemptionKeyFalse))
-    console.log("redemptionKeyTrue: " + paperVendRedemptionKeyTrue)
-    console.log("redemptionKeyFalse: " + paperVendRedemptionKeyFalse)
+    console.log("Successfull tests for paper vend redemption key: " + (paperVendRedemptionKeyValid + paperVendRedemptionKeyInvalid))
+    console.log("Failed tests for paper vend redemption key: " + (testList.length - paperVendRedemptionKeyValid - paperVendRedemptionKeyInvalid))
+    console.log("paperVendRedemptionKeyValid: " + paperVendRedemptionKeyValid)
+    console.log("paperVendRedemptionKeyInvalid: " + paperVendRedemptionKeyInvalid)
 
 }
 

@@ -24,10 +24,12 @@ import           Pos.Communication.Util          (wrapListener)
 import           Pos.Delegation.Listeners        (delegationRelays)
 import           Pos.Network.Types               (Bucket, NodeId, Topology,
                                                   topologySubscribers)
-import           Pos.Subscription.Common         (subscriptionListeners)
 import           Pos.Ssc                         (sscRelays)
+import           Pos.Subscription.Common         (subscriptionListeners)
 import           Pos.Txp                         (txRelays)
 import           Pos.Update                      (usRelays)
+import           Pos.Util.JsonLog                (JLEvent (JLTxReceived))
+import           Pos.Util.TimeWarp               (jsonLog)
 import           Pos.WorkMode.Class              (WorkMode)
 
 -- | All listeners running on one node.
@@ -40,7 +42,7 @@ allListeners oq topology enqueue = mconcat $
         -- block retrieval queue, no?
         [ modifier "block"        $ blockListeners oq
         , modifier "ssc"          $ relayListeners oq enqueue sscRelays
-        , modifier "tx"           $ relayListeners oq enqueue txRelays
+        , modifier "tx"           $ relayListeners oq enqueue (txRelays logTx)
         , modifier "delegation"   $ relayListeners oq enqueue delegationRelays
         , modifier "update"       $ relayListeners oq enqueue usRelays
         ] ++ [
@@ -48,6 +50,7 @@ allListeners oq topology enqueue = mconcat $
         | Just (subscriberNodeType, _) <- [topologySubscribers topology]
         ]
   where
+    logTx = jsonLog . JLTxReceived
     modifier lname mkL = mkL { mkListeners = mkListeners' }
       where
         mkListeners' v p =

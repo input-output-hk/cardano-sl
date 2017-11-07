@@ -77,7 +77,7 @@ import           Servant.API                ((:<|>), (:>), Capture, Delete, Get,
                                              ReqBody, Verb)
 import           Servant.Server             (HasServer (..))
 import           Servant.Swagger.UI         (SwaggerSchemaUI)
-import           Servant.API.ContentTypes   (OctetStream)
+import           Servant.API.ContentTypes   (OctetStream, NoContent)
 import           Universum
 
 import           Pos.Types                  (Coin, SoftwareVersion)
@@ -145,7 +145,7 @@ type WRes verbType a = WalletVerb (verbType '[JSON] a)
 type TestReset =
        "test"
     :> "reset"
-    :> WRes Post ()
+    :> WRes Post NoContent
 
 type TestState =
        "test"
@@ -188,7 +188,7 @@ type RestoreWallet =
 type DeleteWallet =
        "wallets"
     :> Capture "walletId" (CId Wal)
-    :> WRes Delete ()
+    :> WRes Delete NoContent
 
 type ImportWallet =
        "wallets"
@@ -203,7 +203,7 @@ type ChangeWalletPassphrase =
     :> Capture "walletId" (CId Wal)
     :> DCQueryParam "old" CPassPhrase
     :> DCQueryParam "new" CPassPhrase
-    :> WRes Post ()
+    :> WRes Post NoContent
 
 -------------------------------------------------------------------------
 -- Accounts
@@ -234,7 +234,7 @@ type NewAccount =
 type DeleteAccount =
        "accounts"
     :> CCapture "accountId" CAccountId
-    :> WRes Delete ()
+    :> WRes Delete NoContent
 
 -------------------------------------------------------------------------
 -- Wallet addresses
@@ -295,7 +295,7 @@ type UpdateTx =
     :> CCapture "address" CAccountId
     :> Capture "transaction" CTxId
     :> ReqBody '[JSON] CTxMeta
-    :> WRes Post ()
+    :> WRes Post NoContent
 
 type GetHistory =
        "txs"
@@ -318,12 +318,12 @@ type NextUpdate =
 type PostponeUpdate =
        "update"
     :> "postpone"
-    :> WRes Post ()
+    :> WRes Post NoContent
 
 type ApplyUpdate =
        "update"
     :> "apply"
-    :> WRes Post ()
+    :> WRes Post NoContent
 
 -------------------------------------------------------------------------
 -- Redemptions
@@ -352,7 +352,7 @@ type ReportingInitialized =
        "reporting"
     :> "initialized"
     :> ReqBody '[JSON] CInitialized
-    :> WRes Post ()
+    :> WRes Post NoContent
 
 -------------------------------------------------------------------------
 -- Settings
@@ -396,7 +396,7 @@ type ExportBackupJSON =
     :> "export"
     :> Capture "walletId" (CId Wal)
     :> ReqBody '[JSON] CFilePath
-    :> WRes Post ()
+    :> WRes Post NoContent
 
 -------------------------------------------------------------------------
 -- Settings

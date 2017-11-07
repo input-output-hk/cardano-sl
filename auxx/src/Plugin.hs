@@ -29,6 +29,8 @@ import           Pos.Crypto                 (AHash (..), fullPublicKeyF, hashHex
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Txp                    (genesisUtxo, unGenesisUtxo)
 import           Pos.Util.CompileInfo       (HasCompileInfo)
+import           Pos.Util.JsonLog           (JLEvent (JLTxReceived))
+import           Pos.Util.TimeWarp          (jsonLog)
 import           Pos.Util.Util              (eitherToThrow)
 import           Pos.WorkMode               (EmptyMempoolExt, RealMode, RealModeContext)
 
@@ -125,7 +127,10 @@ runCmdOuts =
         , txRelays
               @(RealModeContext EmptyMempoolExt)
               @(RealMode EmptyMempoolExt)
+              logTx
         ]
+  where
+    logTx = jsonLog . JLTxReceived
 
 ----------------------------------------------------------------------------
 -- Extra logging

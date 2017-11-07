@@ -167,7 +167,7 @@ sendMoney passphrase moneySource dstDistr = do
 
     -- We add TxHistoryEntry's meta created by us in advance
     -- to make TxHistoryEntry in CTx consistent with entry in history.
-    addHistoryTxMeta srcWallet th
+    _ <- addHistoryTxMeta srcWallet th
     srcWalletAddrs <- getWalletAddrsSet Ever srcWallet
     diff <- getCurChainDifficulty
     fst <$> constructCTx srcWallet srcWalletAddrs diff th

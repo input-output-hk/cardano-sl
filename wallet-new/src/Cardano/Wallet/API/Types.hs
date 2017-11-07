@@ -28,11 +28,6 @@ import           Test.QuickCheck
 --
 -- Utilities
 --
--- NOTE: Many things here are stolen from `Pos.Util.Servant` of `cardano-sl` package.
--- I didn't simply import it because I don't want to introduce `cardano-sl` as a dependency on
--- stage of API prototyping, as it would slow down rebuilds of the prototype.
--- In the future we should import this from `cardano-sl` or move `Pos.Util.Servant` module
--- to `wallet-new` altogether.
 
 -- | `mapRouter` is helper function used in order to transform one `HasServer`
 -- instance to another. It can be used to introduce custom request params type.
@@ -44,13 +39,10 @@ mapRouter
     -> (Proxy api' -> SI.Context ctx -> SI.Delayed env (Server api') -> SI.Router env)
 mapRouter routing f = \_ ctx delayed -> routing Proxy ctx (fmap f delayed)
 
--- | `Unmaybe` and `UnmaybeArg` type families are necessary to
--- get `a` from `Maybe a` in a way which doesn't make GHC mad.
--- Used in definition of `ApiHasArgClass` and `HasServer` instances for
+-- | The `UnmaybeArg` type family is necessary to
+-- get `a -> b` from `Maybe a -> b` in a way which doesn't make GHC mad.
+-- Used in `HasServer` instances for
 -- `WithDefaultApiArg`
-type family Unmaybe a where
-    Unmaybe (Maybe a) = a
-
 type family UnmaybeArg a where
     UnmaybeArg (Maybe a -> b) = a -> b
 

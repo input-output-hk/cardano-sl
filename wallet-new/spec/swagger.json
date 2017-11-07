@@ -1036,10 +1036,6 @@
                         "description": "Invalid `new` or `old`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -1133,10 +1129,6 @@
                         "description": "`accountId` not found"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -1251,10 +1243,6 @@
                         "description": "Invalid `body`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -1537,10 +1525,6 @@
                         "description": "`walletId` not found"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -1794,10 +1778,6 @@
                         "description": "Invalid `body`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -1836,10 +1816,6 @@
             "post": {
                 "responses": {
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -2063,10 +2039,6 @@
             "post": {
                 "responses": {
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -2131,10 +2103,6 @@
                         "description": "`accountId` not found"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -2231,10 +2199,6 @@
                         "description": "`walletId` not found"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -2411,10 +2375,6 @@
                         "description": "Invalid `body`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -2736,10 +2696,6 @@
             "post": {
                 "responses": {
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -2802,10 +2758,6 @@
                         "description": "Invalid `body`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -3093,10 +3045,6 @@
             "post": {
                 "responses": {
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -3289,10 +3237,6 @@
             "post": {
                 "responses": {
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -3314,10 +3258,6 @@
                         "description": "Invalid `body`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -3607,10 +3547,6 @@
             "post": {
                 "responses": {
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -3724,10 +3660,6 @@
                         "description": "Invalid `body`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -3850,10 +3782,6 @@
                         "description": "Invalid `new` or `old`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },

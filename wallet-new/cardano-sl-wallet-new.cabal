@@ -81,6 +81,7 @@ executable wallet-new-server
                      , cardano-sl-core
                      , cardano-sl-infra
                      , cardano-sl-ssc
+                     , cardano-sl-txp
                      , cardano-sl-wallet
                      , cardano-sl-wallet-new
                      , containers
@@ -139,6 +140,7 @@ test-suite wallet-new-specs
                   , cardano-sl-core
                   , cardano-sl-infra
                   , cardano-sl-ssc
+                  , cardano-sl-txp
                   , cardano-sl-wallet
                   , cardano-sl-wallet-new
                   , containers

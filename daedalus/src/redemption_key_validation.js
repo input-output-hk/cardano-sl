@@ -70,48 +70,139 @@ function decodeUtf8(buf) {
     decoder.decode(buf);
 }
 
+// Implements: "Valid redemption key should be base64 and base64url decodable, it should end with '=' and it should be 44 chars long."
+function isValidRedemptionKey(code) {
+    var res = true;
+    try {
+        // Check if atob is defined (if we are in browser - it should be as we are in Electron)
+        // Note that with Electron we will probably run the first branch (so, atob is defined) but just in case we add fallback - as there are some mentiones that it was not working sometimes https://github.com/electron/electron/issues/8529
+        if(atobIsDefined) {
+            // If we are in browser then:
+            //  * convert input data from base64url into base64 - as vending was done in a messy way with both base64 and base64 url
+            //  * decode base64 with atob - note that atob usually does base64 validity check under the hood
+            //  * convert string into Uint8Array with unsafeStringToUint8ArrayOrCharCodes
+            //  * decode Uint8Array into a utf-8 string
+            decodeUtf8(unsafeStringToUint8ArrayOrCharCodes(atob(toRfc4648(code))));
+        } else {
+            // If we are not in browser then:
+            //  * convert input data from base64url into base64 - as vending was done in a messy way with both base64 and base64 url
+            //  * decode base64 using node facilities but additionally run manual base64 validity check (which Node doesn't implement)
+            //
+            //  This branch probably won't run at all in Electron.
+            decodeNode(toRfc4648(code));
+        }
+    } catch (err) {
+        res = false;
+    }
+    // Return true if:
+    //  * its base64 or base64url decodable - ada vending state mess
+    //  * ends with '=' - base64 padds string with optional '=' or two '=' signs. In ada vending phase we were using base64 configured where '=' was always added at the end.
+    //  * length of base64 string should be 44 chars long. Its 32 byte decoded data - but this check is more exact becase of optional '=' in base64. See example:
+    //      > base64url.toBuffer("qL8R4QIcQ_ZsRqOAbeRfcZhilN_MksRtDaEAAAArM-A=").length
+    //          32
+    //      > base64url.toBuffer("qL8R4QIcQ_ZsRqOAbeRfcZhilN_MksRtDaEAAAArM-A").length
+    //          32
+    //  Later example above is 32 byte long but its not valid ada redemption key because ada redemption key ends with '=' (lib used in above example is https://www.npmjs.com/package/base64url)
+    return res && code.endsWith('=') && code.length == 44;
+}
+
+// Implements: "Valid paper vend redemption key should be base58 decodable 32 byte stream."
+function isValidPaperVendRedemptionKey(code) {
+    try {
+        return bs58.decode(code).length == 32;
+    } catch (err) {
+        return false;
+    }
+}
+
+function tests() {
+    // Before running tests be sure to build client api. For more information see cardano docs
+    const api = require('../output/Daedalus.ClientApi')
+
+    // taken from https://stackoverflow.com/a/1349462/1924817
+    var rardomString = function(len, charSet) {
+        charSet = charSet || 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        var randomString = '';
+        for (var i = 0; i < len; i++) {
+            var randomPoz = Math.floor(Math.random() * charSet.length);
+            randomString += charSet.substring(randomPoz,randomPoz+1);
+        }
+        return randomString;
+    }
+
+    // generate base64 samples
+    // Some will be valid, some won't
+    var b64Length = function(l, charSet) {
+        var b64 = rardomString(l, charSet) // valid base64 but might be invalid redemption key (depending on the size)
+        var b64Pad1 = b64 + "="   // should be valid depending on the size
+        var b64Pad2 = b64 + "=="  // should be valid depending on the size
+        var b64Pad3 = b64 + "===" // invalid
+        return [b64, b64Pad1, b64Pad2, b64Pad3]
+    }
+
+    var testList = []
+    var numberOfGroupTests = 100;
+    var b64Charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+    var b64urlCharset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
+    var b58Charset = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+    for (var i = 0; i < numberOfGroupTests; i++) {
+        // generate base64 test strings
+        Array.prototype.push.apply(testList, b64Length(40, b64Charset))
+        Array.prototype.push.apply(testList, b64Length(41, b64Charset))
+        Array.prototype.push.apply(testList, b64Length(42, b64Charset))
+        Array.prototype.push.apply(testList, b64Length(43, b64Charset))
+        Array.prototype.push.apply(testList, b64Length(44, b64Charset))
+        Array.prototype.push.apply(testList, b64Length(45, b64Charset))
+
+        // generate base64url test strings
+        Array.prototype.push.apply(testList, b64Length(40, b64urlCharset))
+        Array.prototype.push.apply(testList, b64Length(41, b64urlCharset))
+        Array.prototype.push.apply(testList, b64Length(42, b64urlCharset))
+        Array.prototype.push.apply(testList, b64Length(43, b64urlCharset))
+        Array.prototype.push.apply(testList, b64Length(44, b64urlCharset))
+        Array.prototype.push.apply(testList, b64Length(45, b64urlCharset))
+
+        // generate base58 test strings
+        Array.prototype.push.apply(testList, [rardomString(40, b58Charset)])
+        Array.prototype.push.apply(testList, [rardomString(41, b58Charset)])
+        Array.prototype.push.apply(testList, [rardomString(42, b58Charset)])
+        Array.prototype.push.apply(testList, [rardomString(43, b58Charset)])
+        Array.prototype.push.apply(testList, [rardomString(44, b58Charset)]) // most of the time this will be correct base58
+        Array.prototype.push.apply(testList, [rardomString(45, b58Charset)])
+        Array.prototype.push.apply(testList, [rardomString(46, b58Charset)])
+    }
+
+    var redemptionKeyTrue = 0 
+    var redemptionKeyFalse = 0 
+    var paperVendRedemptionKeyTrue = 0 
+    var paperVendRedemptionKeyFalse = 0 
+    for (var i = 0, len = testList.length; i < len ; i++) {
+        if(isValidRedemptionKey(testList[i]) == api.isValidRedemptionKey(testList[i])) {
+            isValidRedemptionKey(testList[i])? redemptionKeyTrue++: redemptionKeyFalse++;
+        } else {
+            console.log("Test failed for redemption key: " + testList[i])
+        }
+        if(isValidPaperVendRedemptionKey(testList[i]) == api.isValidPaperVendRedemptionKey(testList[i])) {
+            isValidPaperVendRedemptionKey(testList[i])? paperVendRedemptionKeyTrue++: paperVendRedemptionKeyFalse++;
+        } else {
+            console.log("Test failed for paper vend redemption key: " + testList[i])
+        }
+    }
+
+    console.log("Successfull tests for redemption key: " + (redemptionKeyTrue + redemptionKeyFalse))
+    console.log("Failed tests for redemption key: " + (testList.length - redemptionKeyTrue - redemptionKeyFalse))
+    console.log("redemptionKeyTrue: " + redemptionKeyTrue)
+    console.log("redemptionKeyFalse: " + redemptionKeyFalse)
+
+    console.log("Successfull tests for paper vend redemption key: " + (paperVendRedemptionKeyTrue + paperVendRedemptionKeyFalse))
+    console.log("Failed tests for paper vend redemption key: " + (testList.length - paperVendRedemptionKeyTrue - paperVendRedemptionKeyFalse))
+    console.log("redemptionKeyTrue: " + paperVendRedemptionKeyTrue)
+    console.log("redemptionKeyFalse: " + paperVendRedemptionKeyFalse)
+
+}
+
 module.exports = {
-    // Implements: "Valid redemption key should be base64 and base64url decodable, it should end with '=' and it should be 44 chars long."
-    isValidRedemptionKey: (code) => {
-        var res = true;
-        try {
-            // Check if atob is defined (if we are in browser - it should be as we are in Electron)
-            // Note that with Electron we will probably run the first branch (so, atob is defined) but just in case we add fallback - as there are some mentiones that it was not working sometimes https://github.com/electron/electron/issues/8529
-            if(atobIsDefined) {
-                // If we are in browser then:
-                //  * convert input data from base64url into base64 - as vending was done in a messy way with both base64 and base64 url
-                //  * decode base64 with atob - note that atob usually does base64 validity check under the hood
-                //  * convert string into Uint8Array with unsafeStringToUint8ArrayOrCharCodes
-                //  * decode Uint8Array into a utf-8 string
-                decodeUtf8(unsafeStringToUint8ArrayOrCharCodes(atob(toRfc4648(code))));
-            } else {
-                // If we are not in browser then:
-                //  * convert input data from base64url into base64 - as vending was done in a messy way with both base64 and base64 url
-                //  * decode base64 using node facilities but additionally run manual base64 validity check (which Node doesn't implement)
-                //
-                //  This branch probably won't run at all in Electron.
-                decodeNode(toRfc4648(code));
-            }
-        } catch (err) {
-            res = false;
-        }
-        // Return true if:
-        //  * its base64 or base64url decodable - ada vending state mess
-        //  * ends with '=' - base64 padds string with optional '=' or two '=' signs. In ada vending phase we were using base64 configured where '=' was always added at the end.
-        //  * length of base64 string should be 44 chars long. Its 32 byte decoded data - but this check is more exact becase of optional '=' in base64. See example:
-        //      > base64url.toBuffer("qL8R4QIcQ_ZsRqOAbeRfcZhilN_MksRtDaEAAAArM-A=").length
-        //          32
-        //      > base64url.toBuffer("qL8R4QIcQ_ZsRqOAbeRfcZhilN_MksRtDaEAAAArM-A").length
-        //          32
-        //  Later example above is 32 byte long but its not valid ada redemption key because ada redemption key ends with '=' (lib used in above example is https://www.npmjs.com/package/base64url)
-        return res && code.endsWith('=') && code.length == 44;
-    },
-    // Implements: "Valid paper vend redemption key should be base58 decodable 32 byte stream."
-    isValidPaperVendRedemptionKey: (code) => {
-        try {
-            return bs58.decode(code).length == 32;
-        } catch (err) {
-            return false;
-        }
-    },
+    isValidRedemptionKey: isValidRedemptionKey,
+    isValidPaperVendRedemptionKey: isValidPaperVendRedemptionKey,
+    tests: tests,
 }

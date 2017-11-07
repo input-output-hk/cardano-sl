@@ -43,9 +43,6 @@ instance Arbitrary CWalletRedeem
 instance Arbitrary CPaperVendWalletRedeem
 instance Arbitrary CInitialized
 
-instance ToJSON NoContent where
-    toJSON NoContent = String mempty
-
 instance ToSchema NoContent where
     declareNamedSchema _ = pure (NamedSchema Nothing mempty)
 

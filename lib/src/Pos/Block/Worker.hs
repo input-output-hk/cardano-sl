@@ -118,10 +118,6 @@ blockCreator (slotId@SlotId {..}) sendActions = do
         jsonLog $ jlCreatedBlock (Left createdBlk)
 
     -- Then we get leaders for current epoch.
-    -- Note: we are using non-blocking version here.  If we known
-    -- genesis block for current epoch, then we either have calculated
-    -- it before and it implies presense of leaders in MVar or we have
-    -- read leaders from DB during initialization.
     leadersMaybe <- LrcDB.getLeadersForEpoch siEpoch
     case leadersMaybe of
         -- If we don't know leaders, we can't do anything.

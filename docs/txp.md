@@ -32,54 +32,91 @@ places.
 ## Global transaction processing
 
 Global transaction processing can be described by presenting an
-algorithm to solve the following problem: given a sequence of blocks
-`B₀, B₁, B₂, …` (where `B₀` is the first genesis block) check whether
-transactions from these blocks are valid. The algorithm is similar to
-the one from Bitcoin (for example, UTXO is used to prevent
-double-spending), but is more complicated because there are more
-features.
+algorithm to solve the following problem:
 
-For verification we maintain some state (called GState) which
-corresponds to the application of a sequence of blocks. It's
-associated with the hash of the header of the last applied block
-(i. e. this hash is integral part of this state). So, given a sequence
-of blocks `B₀, B₁, B₂, …` we can compute sequence of states `S₀, S₁,
-S₂, …`. There is also genesis state `G` which takes places before any
-block is applied. This state is derived from genesis data (see ??? TODO).
+> Given a sequence of blocks `B₀, B₁, B₂, …` (where `B₀` is the first genesis block) check whether
+transactions from these blocks are valid.
 
-In theory transaction verification can be stateless (except genesis
-state `G`) and be described without mentioning any additional state
+The algorithm is similar to the one from Bitcoin (for example, UTXO is used to prevent
+double-spending), but is more complicated due to various reasons, including:
+  
+* Extendable (via update mechanism) data structures
+* Maintaining stakes in addition to balances
+
+
+We describe global txp as stateful algorithm:
+* Initial state `S₀` is derived from blockchain genesis data (see [mainnet genesis JSON](https://raw.githubusercontent.com/input-output-hk/cardano-sl/e7cfb1724024e0db2f25ddd2eb8f8f17c0bc497f/node/mainnet-genesis.json))
+* `S₁, S₂, …` are maintained as sequential application of blocks  `B₀, B₁, B₂, … ` to state `S₀`  
+* State transition function. Given GState `S` and a main block `B` return either an error describing why `B` is invalid (w.r.t. tx payload) or new GState `S'`
+  ```
+  verifyAndApplyGState :: GState -> MainBlock -> Either TxPayloadVerificationError GState
+  -- ^ Note, that function definition and types are different in code and are put here for reader's convenience
+  ```
+  * Note, that state transition function is defined only for main blocks. This is done because genesis blocks (as defined in Ouroboros) don't have tx payload and thus are not considered by global txp.
+  * Recall that tx payload contains transactions (stored in Merkle tree) and their witnesses.
+
+Note, that in theory transaction verification can be stateless (except genesis
+state `S₀`) and be described without mentioning any additional state
 (apart from blocks themselves). But in practice it would be very
-inefficient and inconvenient, so we present the verification algorithm
-in a stateful way.
+inefficient and inconvenient.
 
-The problem: given GState `S` and a block `B` return either an error
-describing why `B` is invalid (w.r.t. tx payload) or new GState
-`S'`. Genesis blocks don't have tx payload and are ignored by global
-txp. Recall that tx payload contains transactions (stored in Merkle
-tree) and their witnesses.
+For sake of simplicity, we describe state transition function in two parts:
+* Verification: given GState `S` and a main block `B`, check whether `B` is valid (and can be applied to `S`)
+* Modification: given GState `S` and a main block `B` (successfully verified against `S`), produce `S'`
 
 ### GState
 
-In this section we describe parts of GState relevant to transaction
-processing.
+In this section we describe parts of GState relevant to transaction processing (GState is an actual structure in code used by few more components).
 
-* UTXO (unspent transaction outputs). It's a map from `TxIn` to
-  `TxOutAux` which contains all unspent outputs. `TxOutAux` is just an
-  alias for `TxOut`. Later it can be extended if we want to associate
+* UTXO (unspent transaction outputs)
+  ```
+  type TxId = Hash Tx
+  data TxOut = TxOut
+     { txOutAddress :: !Address
+     , txOutValue   :: !Coin
+     }
+  data TxIn
+     = TxInUtxo
+     { -- | Which transaction's output is used
+       txInHash  :: !TxId
+       -- | Index of the output in transaction's outputs
+     , txInIndex :: !Word32
+     }
+     | TxInUnknown !Word8 !ByteString
+     
+  data TxOutAux = TxOutAux
+     { toaOut   :: !TxOut
+     -- ^ Tx output
+     }
+     
+     
+  type Utxo = Map TxIn TxOutAux
+  ```
+  
+  * UTXO is a map from `TxIn` to
+  `TxOutAux` ([code](https://github.com/input-output-hk/cardano-sl/blob/e7cfb1724024e0db2f25ddd2eb8f8f17c0bc497f/txp/Pos/Txp/Toil/Types.hs#L58)) which contains all unspent outputs.  
+  * `TxOutAux` is just an alias for `TxOut` ([code](https://github.com/input-output-hk/cardano-sl/blob/e7cfb1724024e0db2f25ddd2eb8f8f17c0bc497f/txp/Pos/Txp/Core/Types.hs#L160)). Later it can be extended if we want to associate
   more data with unspent outputs (e. g. slot of the block in which
   this transaction appeared).
-  For example, if a transaction `A` has 1 output (`out1`) which hasn't been
+  * Example: if a transaction `A` has 1 output (`out1`) which hasn't been
   spent yet, UTXO will have a pair `(TxIn (hash A) 0, out1)`.
-* Stakes. They are not needed for tx verification, but they are needed
-  for other parts of the protocol (for example, leader election
-  process called FTS) and they are maintained by tx processing.
-  We store total stake and a map from `StakeholderId` to its stake (`Coin`).
-* Adopted `BlockVersionData`. This data type contains various
-  parameters of the algorithm which can be updated by Update
-  System (details are not covered in this document). Txp doesn't
-  modify this value, it only reads it. Some values are relevant for
-  transaction processing:
+* Stakes
+  ```
+  type StakesMap = HashMap StakeholderId Coin
+  type TotalStake = Coin -- this type doesn't exist in code and put here for convenience of reader
+  ```
+  * Stakes are used by other parts of the protocol (for example, leader election
+  process Follow-the-satoshi or FTS)
+  * Stakes are not needed for tx verification
+  * Stakes are maintained by tx processing: we store total stake and a map from `StakeholderId` to its stake (`Coin`)
+* Adopted `BlockVersionData`.
+  This data type ([code](https://github.com/input-output-hk/cardano-sl/blob/e7cfb1724024e0db2f25ddd2eb8f8f17c0bc497f/core/Pos/Core/Types.hs#L318)) contains various
+  parameters of the algorithm
+  which can be updated by Update System (details are not covered in this document).
+  
+  Txp doesn't modify this value, it only reads it.
+  
+  Some values are relevant for transaction processing:
   * `maxTxSize` – maximal size of a transaction.
   * `scriptVersion` – determines the rules which should be used to
     verify scripts.
@@ -87,7 +124,7 @@ processing.
     transaction has enough fees.
   * `unlockStakeEpoch` – epoch when bootstrap era ends.
 
-### Unknown data checks
+### Unknown data handling
 
 Many types in Cardano-SL are designed in an extensible way. They can
 be extended via softfork in future (e. g. new data can be attached or
@@ -145,205 +182,253 @@ done only if `alt` component is the same as adopted one. In
 other cases (i. e. when our `(major, minor)` is less than from
 adopted version) check is not done.
 
-Let's assume that we have already compared these two versions and know
-whether we permit unknown data in blocks. Let's call a flag which
-determines whether all data must be known `verifyAllIsKnown`.
-
 Note: when we say that attributes must be known, it means that
 unparsed fields must be empty.
 
-### Outputs checks
+### Verification
+
+As stated above, we want to verify block `B` validity against GState `S`.
+To do so, each transaction from block's transaction payload is taken separately (in order of inclusion into block) and considered against `S`.
+
+Let's assume that version comparison as described at the end of previos section (Unknown data handling) is done.
+Let's denote flag `verifyAllIsKnown` and assign it value:
+ * `True` if check is to be done
+    - I.e. only known data should be considered valid (unknown data is prohibitied)
+ * `False` otherwise
+
+#### General checks
+
+Checks, that are considering whole transaction, not inputs/outputs in particular.
+
+- *Consistency check*: number of inputs in a transaction must be the same as number of witnesses for this transaction
+- *Attributes known check*: if `verifyAllIsKnown` is `True`, all transaction attributes must be known.
+- *Transaction size check*: size of transaction doesn't exceed size limit
+    - Transaction size is computed as number of bytes in serialized `TxAux` (which contains transaction and its witness)
+    - Transaction size limit is part of `BlockVersionData`.
+    - If the size of transaction is greater than the limit from the adopted `BlockVersionData`, transaction is
+invalid.
+- *Bootstrap era check*: if the block was created during bootstrap era, all
+output addresses must have `BootstrapEraDistr` distribution
+  - Predicate "was created during bootstrap era" is checked with block's slot field
+    and adopted `BlockVersionData` (which contains data which slot is defined last for bootstrap era)
+
+#### Outputs checks
 
 For each output address we perform the following checks:
 1. If `verifyAllIsKnown` is `True`, address' attributes must be known.
 2. If `verifyAllIsKnown` is `True`, address' type must be known.
 3. Address can't be a redeem address.
 
-### Consistency check
+#### Inputs checks
 
-There is only one consistency check: number of inputs in a transaction
-must be the same as number of witnesses for this transaction.
+For each input `i` we perform:
 
-### Transaction attributes check
+- *Inputs known check*: if `verifyAllIsKnown` is `True`, type of input `i` should be known
+- *UTXO check*: If input `i` is of type `TxInUtxo`, it should have corresponding record in UTXO
+- *Difference check*: input `i` must be different from all other inputs in transaction
 
-If `verifyAllIsKnown` is `True`, transaction's attributes must be known.
+In addition we perform number of consolidated checks (checks which consider whole set of inputs):
 
-### Inputs-dependent checks
+* Witness check (separately for each witness)
+* Sums check (check inputs sum is greater than or equal to outputs sum)
+* Transaction fee check (check transaction fee is fine)
 
-Some checks heavily depend on whether there is at least one input
-with unknown type. There are three cases:
+##### Witness checks
 
-1. There is such input and `verifyAllIsKnown` is `True`. In this case
-   transaction is immediately considered invalid.
-2. There is such input and `verifyAllIsKnown` is `False`. It means
-   that there was a protocol update not known to our software. In this
-   case we can't know whether that input is valid and how much value
-   it has. So we perform only basic
-   checks: [outputs checks](#outputs-checks)
-   and [consistency check](#consistency-check). Note that we don't
-   perform
-   [transaction's attributes check](#transaction-attributes-check),
-   because `verifyAllIsKnown` is `False`.
-3. All inputs have known format (i. e. `TxInUtxo`). In this case
-   (which should be the most common one) we can check all inputs'
-   legitimacy, compare input and output sums, check fee, etc.
-   These checks are described in more details below.
+Witness check for any type is two-fold:
 
-In the following (until [tx size check section](#tx-size-check)) we
-consider case (3), when all inputs are `TxInUtxo`. The next step is to
-lookup all inputs in UTXO. If at least one input is not found,
-transaction is invalid. We further assume that for each input we know
-corresponding unspent output. All inputs must exist in UTXO.
+* check that witness corresponds to the address of corresponding input
+* check witness is correct
 
-All inputs of a transaction must be different and each input must be
-properly certified by its witness.
+We describe checks for each type in folowing sections.
 
-#### Witness checks
+###### Public key witness
 
-Witness checks consist of two parts: we need to check that witness
-corresponds to the address from the output we want to spend and we
-need to check that witness itself is correct.
+Witness `PkWitness` contains:
 
-* If witness is `PkWitness` (which contains a public key and a
-  signature), we require that address is a `PubKey` address and its
-  spending data is `PubKey` spending data with the same key as in
-  the witness. Witness itself is checked by checking validity of the
-  signature stored in this witness. Note: signature inside witness is
-  given for `TxSigData` (which is basically the same as `Hash Tx`)
+* public key `pk`
+* signature `sig`
+
+We require:
+
+* Address is a `PubKey` address
+* Address spending data is created with public key `pk` (\*)
+* Signature `sig` is a valid signature of transaction (validity checked with `pk`)
+
+Note: signature inside witness is given for `TxSigData` (which is basically the same as `Hash Tx`)
   with `SignTx` tag.
-* If witness is `ScriptWitness` (which contains validator and redeemer
-  scripts), we require that address is a `Script` address and its
-  spending data is `Script` spending data with validator script from
-  the witness. Witness itself is valid if few conditions are met.
-  * Both redeemer and validator script have the same version.
-  * If `verifyAllIsKnown` is `True`, script version (which is same for
-    redeemer and validator) must be known. Currently it means that
-    version must be equal to 0, it's the only version known to our software.
-  * Plutus validation script built from redeemer and validator for
-    given tx must return `True`.
-* If witness is `RedeemWitness` (which contains a redeem public key
-  and a redeem signature), we require that address is a `Redeem`
-  address and its spending data is `Redeem` spending data with the
-  same key as in the witness. Witness itself is checked in the same
-  way as `PkWitness` except that signature scheme is the one from
-  RSCoin and signing tag is `SignRedeemTx`.
-* If witness has unknown type with tag `t`, corresponding address must
-  have unknown type with tag `t`. Witness itself is valid only if
-  `verifyAllIsKnown` is `False`.
-
-Note: even though address doesn't contain its spending data, it's easy
+  
+Note (\*): even though address doesn't contain its spending data, it's easy
 to check whether given spending data corresponds to given
 address. Suppose we have an address `addr` and spending data
 `asd`. Let's say that `addr` has attributes `attrs` and type `t`. We
 can construct `Address'` from `attrs`, `t` and `asd` and compare its
 hash with the one from `addr`.
+  
+###### Script witness
 
-#### Sums check
+Witness `ScriptWitness` contains:
+  
+* validator script, `validator`
+* redeemer script, `redeemer`
 
-Recall that at this step we assume that all inputs are known and
-have been resolved into corresponding unspent outputs of previous
-txs. So for each input we know its value. We then compute sum of all
-inputs and all outputs. If sum of outputs is greater than sum of
-inputs, tx is considered invalid. Otherwise this check succeeds and
-the difference between sum of inputs and sum of outputs is considered
-to be transaction fee.
+We require:
+  
+* Address is a `Script` address
+* Address spending data is created with validator script same as `validator`
+* Both `redeemer` and `validator` scripts have the same version.
+* If `verifyAllIsKnown` is `True`, script version (which is same for
+    redeemer and validator) must be known.
+    - For CSL 1.0 it means that version must be equal to 0, it's the only version known to our software.
+* Plutus validation script built from redeemer and validator for
+    given tx must return `True`
 
-#### Fee check
+###### Redeem witness
 
-Fee check is performed for all transactions except those where all
-inputs correspond to `Redeem` addresses. So it's free to redeem ADA.
+Witness `PkWitness` contains:
 
-By this time we already know how much fee the transaction includes. We
-also know transaction's size. Fee check depends on the currently
-adopted `TxFeePolicy` (part of `BlockVersionData`). There are two
-options:
-1. Fee policy is `TxFeePolicyTxSizeLinear`. In this case we need to
-   compute minimal required fee for this transaction. This value is
-   computed using fixed-precision arithmetic (precision is 1e-9) using
-   formula `a + b * txSize`. If minimal fee is negative or is greater
-   than maximal number of coins in the system, transaction is rejected
-   (it probably indicates there is a mistake in currently adopted fee
-   policy). Then we compare actual fee of tx with minimal required fee
-   and if it's greater than or equal to the minimal value, transaction
-   is valid with regards to this check.
-2. Fee policy is `TxFeePolicyUnknown`. In this case the check is
-   skipped (i. e. transaction is considered valid with respect to fee
-   policy). It's questionable which behavior we want in this case, but
-   currently it's implemented this way.
+* redeem public key `pk`
+* redeem signature `sig`
 
-### Tx size check
+We require:
 
-We compute transaction size as number of bytes in serialized `TxAux`
-(which contains transaction and its witness). Transaction size limit
-is part of `BlockVersionData`. If the size of transaction is greater
-than the limit from the adopted `BlockVersionData`, transaction is
-invalid.
 
-### Bootstrap era check
+* Address is a `Redeem` address 
+* Address spending data is created with redeem public key `pk`
+* Signature `sig` is a valid signature of transaction (validity checked with `pk`)
 
-If the block was created during bootstrap era (which is easy to check,
-because every main block contains `SlotId` in which it was created and
-we know when bootstrap era ends from adopted `BlockVersionData`), all
-output addresses must have `BootstrapEraDistr` distribution.
 
-### GState modifications
+###### Unknown witness
+
+* If `verifyAllIsKnown` is `True`, witness is invalid
+* If witness has unknown type with tag `t`, corresponding address must
+  have unknown type with tag `t`
+ 
+##### Sums check
+
+This check is omitted if (and only if):
+* There is an unknown transaction input
+
+For each input and output we know its value (i.e. associated balance). We compute sum of all inputs and all outputs.
+
+* If sum of outputs is greater than sum of inputs, tx is considered invalid
+* Otherwise, check succeeds, difference between sum of inputs and sum of outputs is considered to be *transaction fee*.
+
+##### Transaction fee check
+
+This check is omitted if (and only if) one of conditions met:
+* There is an unknown transaction input
+* All inputs correspond to `Redeem` addresses
+  - Implication of this rule is that one can redeem ADA without paying fee
+* Currently adopted tx fee policy is unknown
+
+For this check we know:
+
+* Transaction fee `txFee` (from *Sums check*)
+* Transaction size `txSize` (from *Transaction size check*)
+* Currently adopted tx fee policy (as part of `BlockVersionData`), which is of known type
+
+###### Size-linear policy
+Only policy supported by CSL v1.0 is `TxFeePolicyTxSizeLinear`.
+
+For it, we need to compute minimal required fee for this transaction.
+This value is computed using fixed-precision arithmetic (precision is 1e-9) using formula:
+
+```
+minFee = a + b * txSize
+```
+
+There are two cases check fails (and transaction rejected):
+
+* Minimal fee is negative or is greater than maximal number of coins in the system
+
+   ```minFee < 0 || minFee > maxBound @Coin```
+   - It probably indicates there is a mistake in currently adopted fee
+   policy
+* Actual fee is less than the minimal fee
+
+   ```txFee < minFee```
+
+### GState modification
 
 If all checks above pass, we modify GState appropriately. We modify
-stakes and UTXO. UTXO modification is trivial:
-* All `TxInUtxo` inputs with are deleted from UTXO.
+stakes and UTXO.
+
+#### UTXO modification
+
+UTXO modification is trivial:
+
+* All `TxInUtxo` inputs are deleted from UTXO
 * For each output `out` with index `i` we put `(TxInUtxo (hash tx) i,
   out)` into UTXO.
 
-Stakes modification is a bit more complex, but is also very
-intuitive. We have `TxOut`s corresponding to inputs and outputs of
-transaction. Each `TxOut` can be converted to a list of
-`(StakeholderId, Coin)` pairs. It depends on `AddrStakeDistribution`
-of given address.
-* For `BootstrapEraDistr` the value of `TxOut` is distributed among
-bootstrap stakeholders proportional to their weights. The behavior
-depends on whether the value is less than the sum of weights of all
-stakeholders (this sum is called `bootDustThreshold`). If it's greater
-than or equal to `bootDustThreshold`, then each stakeholder receives
-`val * w_ᵢ / weights_sum` coins (`val` is the value of `TxOut`) and one
-stakeholder also receives the remainder (the choice is
-deterministc). If it's less than `bootDustThreshold`, then some
-stakeholders will receive the same stake as their weights, one
-stakeholder may receive less then their weight and other stakeholders
-won't receive anything.
-* If distribution is `SingleKeyDistr id`, then the value of `TxOut` will
-be assigned to `id`.
-* In case of `MultiKeyDistr` stake will be distributed among multiple
-stakeholders according to specified portions. The first stakeholder
-may receive slightly more than others due to rounding.
+Note, that `TxInUtxo` is only input type supported in CSL v1.0. For unknown inputs GState is not modified.
 
-Then these lists are concatenated and we have two lists of
-`(StakeholderId, Coin)` pairs: the first one is how much stake each
-stakeholder should lose, the second one is how much stake each
-stakeholder should gain. Then stakes of all mentioned stakeholders are
-updated appropriately. Also total stake is updated.
+#### Computing stakes for transaction output
+
+Each `txOut` can be converted to a list of `(StakeholderId, Coin)` pairs.
+
+This is being done with considering `AddrStakeDistribution` attribute of address corresponding to `txOut`:
+
+- For `BootstrapEraDistr` the value `val` of `txOut` is distributed among
+bootstrap stakeholders proportional to their weights.
+
+    + If `val >= bootDustThreshold`, then each stakeholder receives
+`val * w_ᵢ / weights_sum` coins
+      - one stakeholder also receives the remainder (the choice is deterministc)
+    + Otherwise:
+      - some stakeholders will receive the same stake as their weights
+      - one stakeholder may receive less then their weight
+      - other stakeholders won't receive anything
+- For `SingleKeyDistr id` distribution, the value of `TxOut` will be assigned to stakeholder `id`.
+- For `MultiKeyDistr portions` stake will be distributed among multiple
+stakeholders according to specified `portions`
+     + The first stakeholder may receive slightly more than others due to rounding.
+
+#### Stakes modification
+
+Stakes modification is a bit more complex than UTXO modification, but is also very intuitive:
+
+1. Each `TxInUtxo` input corresponds to some `TxOut`, we compute stakes for it
+   * For all inputs, stake lists are concatenated into one, `inStakes`
+   * This list denotes how much stake each stakeholder should lose
+2. Each output is `TxOut`, we compute stakes for it
+   * For all inputs, stake lists are concatenated into one, `outStakes`
+   * This list denotes how much stake each stakeholder should gain
+3. Stakes of all mentioned stakeholders are updated appropriately
+   * Decreased for all `TxInUtxo` inputs
+   * Increased for all outputs
+4. Total stake is updated
 
 ## Local transaction processing
 
 Local transaction processing is needed for transaction relay. Node can
 receive a standalone transaction from the network and then it needs to
-verify it again its current state (global + mempool) and apply or
-reject. If it's applied, it's also relayed further, so that other
-nodes in network become aware of a valid transaction. There are few
-differences between local txp and global txp:
+verify it against its current state (global + mempool) and:
 
-1. In local txp we consider not only GState, but also mempool. We
-   behave as if transactions in mempool were applied as part of a
-   block. We never modify GState, only in-memory data is modified.
-2. We also have a limit on mempool size, specified in a number of
+* Apply and relay further (to neighbors)
+* Reject
+
+There are few differences between local txp and global txp:
+
+* In local txp we consider not only GState, but also mempool. We
+   behave as if transactions in mempool were applied as part of another
+   block on top of GState `S`.
+   We never modify GState, only mempool is modified.
+* We impose a limit on mempool size, specified in a number of
    transactions. If mempool is overwhelmed, we won't accept new
-   transactions until we free up some space.
-3. Transaction verification depends on epoch (to determine whether to
-   apply bootstrap era checks). In global txp we know
-   epoch from block header. In local txp we use current epoch. If it's
+   transactions until we free some space up.
+* Transaction verification depends on current epoch (to determine whether to
+   apply bootstrap era checks).
+   In global txp we know epoch from block header.
+
+   In local txp we use current epoch. If it's
    unknown (which means that our local chain is quite outdated), we
    reject incoming transactions.
-4. `verifyAllIsKnown` is always set to `True` in local txp.
+
+* `verifyAllIsKnown` is always set to `True` in local txp (in all related checks).
 
 Note that local transaction processing is basically an implementation
 detail and other nodes can do it differently. For example, a node can
-always reject all transactions and never relay them (which is bad).
+always reject all transactions and never relay them.
+ 

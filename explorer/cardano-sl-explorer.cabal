@@ -338,6 +338,7 @@ test-suite cardano-explorer-test
                        Test.Pos.Explorer.Web.ServerSpec
                        Test.Pos.Explorer.Web.ClientTypesSpec
 
+                       -- Test.Pos.Explorer.BListenerSpec -- TODO(KS): To merge when we merge tests.
                        Test.Pos.Explorer.Identity.BinarySpec
 
   type:                exitcode-stdio-1.0

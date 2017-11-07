@@ -1401,6 +1401,7 @@ self: {
             cardano-sl-core
             cardano-sl-infra
             cardano-sl-txp
+            cardano-sl-update
             formatting
             log-warper
             network-transport-tcp
@@ -2020,7 +2021,7 @@ self: {
           description = "Cardano SL - transaction processing";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-update = callPackage ({ QuickCheck, aeson, base, binary, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, concurrent-extra, conduit, containers, cpphs, data-default, ether, exceptions, formatting, generic-arbitrary, hashable, lens, log-warper, mkDerivation, mtl, node-sketch, parsec, reflection, resourcet, rocksdb-haskell, safecopy, serokell-util, stdenv, stm, tagged, template-haskell, text, text-format, th-lift-instances, time-units, transformers, universum, unordered-containers }:
+      cardano-sl-update = callPackage ({ QuickCheck, aeson, base, binary, bytestring, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-lrc, concurrent-extra, conduit, containers, cpphs, data-default, directory, ether, exceptions, formatting, generic-arbitrary, hashable, http-client, http-client-tls, http-conduit, lens, log-warper, memory, mkDerivation, mtl, node-sketch, parsec, reflection, resourcet, rocksdb-haskell, safe-exceptions, safecopy, serokell-util, stdenv, stm, tagged, template-haskell, text, text-format, th-lift-instances, time-units, transformers, universum, unordered-containers }:
       mkDerivation {
           pname = "cardano-sl-update";
           version = "1.0.3";
@@ -2029,6 +2030,7 @@ self: {
             aeson
             base
             binary
+            bytestring
             cardano-sl-core
             cardano-sl-db
             cardano-sl-infra
@@ -2037,13 +2039,18 @@ self: {
             conduit
             containers
             data-default
+            directory
             ether
             exceptions
             formatting
             generic-arbitrary
             hashable
+            http-client
+            http-client-tls
+            http-conduit
             lens
             log-warper
+            memory
             mtl
             node-sketch
             parsec
@@ -2051,6 +2058,7 @@ self: {
             reflection
             resourcet
             rocksdb-haskell
+            safe-exceptions
             safecopy
             serokell-util
             stm

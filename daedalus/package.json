@@ -47,6 +47,7 @@
   },
   "//": "NOTE: if you will be bumping bip39 to >=2.2.0 be aware of https://issues.serokell.io/issue/VD-95 . In this case you will have to modify how we validate paperVendMnemonics. Affected endpoints: isValidMnemonic, redeemAdaPaperVend",
   "dependencies": {
+    "base64url": "^2.0.0",
     "bip39": "2.2.0",
     "blakejs": "^1.1.0",
     "bs58": "^4.0.1",

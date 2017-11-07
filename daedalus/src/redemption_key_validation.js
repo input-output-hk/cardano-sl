@@ -49,6 +49,7 @@ function decodeUtf8(str) {
 }
 
 module.exports = {
+    // Implements: "Valid redemption key should be base64 and base64url decodable, it should end with '=' and it should be 44 chars long."
     isValidRedemptionKey: (code) => {
         var res = false;
         try {
@@ -64,6 +65,7 @@ module.exports = {
         }
         return res && code.endsWith('=') && code.length == 44;
     },
+    // Implements: "Valid paper vend redemption key should be base58 decodable 32 byte stream."
     isValidPaperVendRedemptionKey: (code) => {
         try {
             return bs58.decode(code).length == 32;

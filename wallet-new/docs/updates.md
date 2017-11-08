@@ -391,7 +391,7 @@ whilst not overriding the *current* update. As a practical example, consider the
     |i  |                                                |                        ------------------------+
     |m  |                                                <-----------------------/                        |
     |e  |                                                |                                                |
-    |   |       PUT /api/v1/skip                         |                                                |
+    |   |       PUT /api/v1/update/skip                  |                                                |
     |   +------------------------------------------------> the user just skipped a mandatory update!      |
     |   |                                                |                                                |
     |   |                                                |                                                |

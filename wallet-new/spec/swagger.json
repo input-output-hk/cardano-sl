@@ -14,6 +14,7 @@
         "CPtxCondition": {
             "type": "string",
             "enum": [
+                "CPtxCreating",
                 "CPtxApplying",
                 "CPtxInBlocks",
                 "CPtxWontApply",
@@ -446,6 +447,13 @@
                     "type": "number"
                 }
             }
+        },
+        "InputSelectionPolicy": {
+            "type": "string",
+            "enum": [
+                "OptimizeForSecurity",
+                "OptimizeForSize"
+            ]
         },
         "CWalletMeta": {
             "required": [
@@ -1036,10 +1044,6 @@
                         "description": "Invalid `new` or `old`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -1133,10 +1137,6 @@
                         "description": "`accountId` not found"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -1251,10 +1251,6 @@
                         "description": "Invalid `body`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -1301,10 +1297,16 @@
             }
         },
         "/api/v0/txs/fee/{from}/{to}/{amount}": {
-            "get": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
                 "responses": {
                     "404": {
                         "description": "`from` or `to` or `amount` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body`"
                     },
                     "200": {
                         "schema": {
@@ -1337,6 +1339,14 @@
                         "in": "path",
                         "name": "amount",
                         "type": "integer"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/InputSelectionPolicy"
+                        },
+                        "in": "body",
+                        "name": "body"
                     }
                 ],
                 "tags": [
@@ -1537,10 +1547,6 @@
                         "description": "`walletId` not found"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -1794,10 +1800,6 @@
                         "description": "Invalid `body`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -1836,10 +1838,6 @@
             "post": {
                 "responses": {
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -1905,12 +1903,15 @@
         },
         "/api/v0/txs/payments/{from}/{to}/{amount}": {
             "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
                 "responses": {
                     "404": {
                         "description": "`from` or `to` or `amount` not found"
                     },
                     "400": {
-                        "description": "Invalid `passphrase`"
+                        "description": "Invalid `body` or `passphrase`"
                     },
                     "200": {
                         "schema": {
@@ -1948,6 +1949,14 @@
                         "in": "path",
                         "name": "amount",
                         "type": "integer"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/InputSelectionPolicy"
+                        },
+                        "in": "body",
+                        "name": "body"
                     }
                 ],
                 "tags": [
@@ -2063,10 +2072,6 @@
             "post": {
                 "responses": {
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -2131,10 +2136,6 @@
                         "description": "`accountId` not found"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -2231,10 +2232,6 @@
                         "description": "`walletId` not found"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -2316,10 +2313,16 @@
             }
         },
         "/api/txs/fee/{from}/{to}/{amount}": {
-            "get": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
                 "responses": {
                     "404": {
                         "description": "`from` or `to` or `amount` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body`"
                     },
                     "200": {
                         "schema": {
@@ -2352,6 +2355,14 @@
                         "in": "path",
                         "name": "amount",
                         "type": "integer"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/InputSelectionPolicy"
+                        },
+                        "in": "body",
+                        "name": "body"
                     }
                 ],
                 "tags": [
@@ -2411,10 +2422,6 @@
                         "description": "Invalid `body`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -2516,12 +2523,15 @@
         },
         "/api/txs/payments/{from}/{to}/{amount}": {
             "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
                 "responses": {
                     "404": {
                         "description": "`from` or `to` or `amount` not found"
                     },
                     "400": {
-                        "description": "Invalid `passphrase`"
+                        "description": "Invalid `body` or `passphrase`"
                     },
                     "200": {
                         "schema": {
@@ -2559,6 +2569,14 @@
                         "in": "path",
                         "name": "amount",
                         "type": "integer"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/InputSelectionPolicy"
+                        },
+                        "in": "body",
+                        "name": "body"
                     }
                 ],
                 "tags": [
@@ -2736,10 +2754,6 @@
             "post": {
                 "responses": {
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -2802,10 +2816,6 @@
                         "description": "Invalid `body`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -3093,10 +3103,6 @@
             "post": {
                 "responses": {
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -3289,10 +3295,6 @@
             "post": {
                 "responses": {
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -3314,10 +3316,6 @@
                         "description": "Invalid `body`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -3607,10 +3605,6 @@
             "post": {
                 "responses": {
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -3724,10 +3718,6 @@
                         "description": "Invalid `body`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -3850,10 +3840,6 @@
                         "description": "Invalid `new` or `old`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },

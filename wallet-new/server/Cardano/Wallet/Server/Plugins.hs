@@ -1,4 +1,7 @@
-{- | A collection of plugins used by this edge node. -}
+{- | A collection of plugins used by this edge node.
+     A @Plugin@ is essentially a set of actions which will be run in
+     a particular monad, at some point in time.
+-}
 {-# LANGUAGE TupleSections #-}
 module Cardano.Wallet.Server.Plugins (
       Plugin

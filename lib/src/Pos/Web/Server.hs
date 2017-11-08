@@ -4,15 +4,10 @@
 -- | Web server.
 
 module Pos.Web.Server
-       ( MyWorkMode
-       , WebMode
-       , serveImpl
-       , nat
-       , serveWebBase
-       , applicationBase
+       ( serveImpl
        , route53HealthCheckApplication
-       , serveWebGT
-       , applicationGT
+       , serveWeb
+       , application
        ) where
 
 import           Universum
@@ -20,6 +15,7 @@ import           Universum
 import qualified Control.Monad.Catch             as Catch
 import           Control.Monad.Except            (MonadError (throwError))
 import qualified Control.Monad.Reader            as Mtl
+import           Data.Aeson.TH                   (defaultOptions, deriveToJSON)
 import           Data.Default                    (Default)
 import           Mockable                        (Production (runProduction))
 import           Network.Wai                     (Application)
@@ -32,28 +28,30 @@ import           Servant.Server                  (Handler, ServantErr (errBody),
 import           Servant.Utils.Enter             ((:~>) (NT), enter)
 
 import qualified Network.Broadcast.OutboundQueue as OQ
-import           Pos.Aeson.Types                 ()
+import           Pos.Aeson.Txp                   ()
 import           Pos.Context                     (HasNodeContext (..), HasSscContext (..),
                                                   NodeContext, getOurPublicKey)
 import           Pos.Core                        (EpochIndex (..), SlotLeaders)
 import           Pos.Core.Configuration          (HasConfiguration)
+import           Pos.DB                          (MonadDBRead)
 import qualified Pos.DB                          as DB
 import qualified Pos.GState                      as GS
 import qualified Pos.Lrc.DB                      as LrcDB
 import           Pos.Network.Types               (Bucket (BucketSubscriptionListener),
                                                   Topology, topologyMaxBucketSize)
-import           Pos.Ssc.GodTossing              (scParticipateSsc)
+import           Pos.Ssc                         (scParticipateSsc)
 import           Pos.Txp                         (TxOut (..), toaOut)
 import           Pos.Txp.MemState                (GenericTxpLocalData, MempoolExt,
                                                   askTxpMem, getLocalTxs)
+import           Pos.Update.Configuration        (HasUpdateConfiguration)
 import           Pos.Web.Mode                    (WebMode, WebModeContext (..))
 import           Pos.WorkMode                    (OQ)
 import           Pos.WorkMode.Class              (WorkMode)
 
-import           Pos.Web.Api                     (BaseNodeApi, GodTossingApi, GtNodeApi,
-                                                  HealthCheckApi, baseNodeApi, gtNodeApi,
-                                                  healthCheckApi)
-import           Pos.Web.Types                   (TlsParams (..))
+import           Pos.Web.Api                     (NodeApi, HealthCheckApi,
+                                                  healthCheckApi, nodeApi)
+import           Pos.Web.Types                   (CConfirmedProposalState (..),
+                                                  TlsParams (..))
 
 ----------------------------------------------------------------------------
 -- Top level functionality
@@ -65,33 +63,24 @@ type MyWorkMode ctx m =
     , Default (MempoolExt m)
     )
 
-serveWebBase :: MyWorkMode ctx m => Word16 -> Maybe TlsParams -> m ()
-serveWebBase = serveImpl applicationBase "127.0.0.1"
-
-applicationBase :: MyWorkMode ctx m => m Application
-applicationBase = do
-    server <- servantServerBase
-    return $ serve baseNodeApi server
-
 route53HealthCheckApplication :: MyWorkMode ctx m => Topology t -> OQ m -> m Application
 route53HealthCheckApplication topology oq = do
     server <- servantServerHealthCheck topology oq
     return $ serve healthCheckApi server
 
-serveWebGT :: MyWorkMode ctx m => Word16 -> Maybe TlsParams -> m ()
-serveWebGT = serveImpl applicationGT "127.0.0.1"
+serveWeb :: MyWorkMode ctx m => Word16 -> Maybe TlsParams -> m ()
+serveWeb = serveImpl application "127.0.0.1"
 
-applicationGT :: MyWorkMode ctx m => m Application
-applicationGT = do
-    server <- servantServerGT
-    return $ serve gtNodeApi server
+application :: MyWorkMode ctx m => m Application
+application = do
+    server <- servantServer
+    return $ serve nodeApi server
 
 serveImpl
     :: (HasConfiguration, MonadIO m)
     => m Application -> String -> Word16 -> Maybe TlsParams -> m ()
-serveImpl application host port walletTLSParams =
-    liftIO . maybe runSettings runTLS mTlsConfig mySettings
-        =<< application
+serveImpl app host port walletTLSParams =
+    liftIO . maybe runSettings runTLS mTlsConfig mySettings =<< app
   where
     mySettings = setHost (fromString host) $
                  setPort (fromIntegral port) defaultSettings
@@ -132,23 +121,22 @@ nat = do
     txpLocalData <- askTxpMem
     return $ NT (convertHandler nc nodeDBs txpLocalData)
 
-servantServerBase :: forall ctx m . MyWorkMode ctx m => m (Server BaseNodeApi)
-servantServerBase = flip enter baseServantHandlers <$> (nat @(MempoolExt m) @ctx @m)
-
 servantServerHealthCheck :: forall ctx t m . MyWorkMode ctx m => Topology t -> OQ m -> m (Server HealthCheckApi)
 servantServerHealthCheck topology oq =
     flip enter (healthCheckServantHandlers topology oq) <$> (nat @(MempoolExt m) @ctx @m)
 
-servantServerGT :: forall ctx m . MyWorkMode ctx m => m (Server GtNodeApi)
-servantServerGT = flip enter (baseServantHandlers :<|> gtServantHandlers) <$>
+servantServer :: forall ctx m . MyWorkMode ctx m => m (Server NodeApi)
+servantServer = flip enter nodeServantHandlers <$>
     (nat @(MempoolExt m) @ctx @m)
 
 ----------------------------------------------------------------------------
--- Base handlers
+-- Node handlers
 ----------------------------------------------------------------------------
 
-baseServantHandlers :: (HasConfiguration, Default ext) => ServerT BaseNodeApi (WebMode ext)
-baseServantHandlers =
+nodeServantHandlers
+    :: (HasConfiguration, HasUpdateConfiguration, Default ext)
+    => ServerT NodeApi (WebMode ext)
+nodeServantHandlers =
     getLeaders
     :<|>
     getUtxo
@@ -158,12 +146,19 @@ baseServantHandlers =
     GS.getTip
     :<|>
     getLocalTxsNum
+    :<|>
+    confirmedProposals
+    :<|>
+    toggleSscParticipation
+    -- :<|> sscHasSecret
+    -- :<|> getOurSecret
+    -- :<|> getSscStage
 
 getLeaders :: HasConfiguration => Maybe EpochIndex -> WebMode ext SlotLeaders
 getLeaders maybeEpoch = do
     -- epoch <- maybe (siEpoch <$> getCurrentSlot) pure maybeEpoch
     epoch <- maybe (pure 0) pure maybeEpoch
-    maybe (throwM err) pure =<< LrcDB.getLeaders epoch
+    maybe (throwM err) pure =<< LrcDB.getLeadersForEpoch epoch
   where
     err = err404 { errBody = encodeUtf8 ("Leaders are not know for current epoch"::Text) }
 
@@ -172,6 +167,41 @@ getUtxo = map toaOut . toList <$> GS.getAllPotentiallyHugeUtxo
 
 getLocalTxsNum :: Default ext => WebMode ext Word
 getLocalTxsNum = fromIntegral . length <$> getLocalTxs
+
+-- | Get info on all confirmed proposals
+confirmedProposals
+    :: (HasUpdateConfiguration, MonadDBRead m)
+    => m [CConfirmedProposalState]
+confirmedProposals = do
+    proposals <- GS.getConfirmedProposals Nothing
+    pure $ map (CConfirmedProposalState . show) proposals
+
+toggleSscParticipation :: Bool -> WebMode ext ()
+toggleSscParticipation enable =
+    view sscContext >>=
+    atomically . flip writeTVar enable . scParticipateSsc
+
+-- sscHasSecret :: SscWebHandler Bool
+-- sscHasSecret = isJust <$> getSecret
+
+-- getOurSecret :: SscWebHandler SharedSeed
+-- getOurSecret = maybe (throw err) (pure . convertSscSecret) =<< getSecret
+--   where
+--     err = err404 { errBody = "I don't have secret" }
+--     doPanic = panic "our secret is malformed"
+--     convertSscSecret =
+--         secretToSharedSeed .
+--         fromMaybe doPanic . fromBinaryM . getOpening . view _2
+
+-- getSscStage :: SscWebHandler SscStage
+-- getSscStage = do
+--     getSscStageImpl . siSlot <$> getCurrentSlot
+--   where
+--     getSscStageImpl idx
+--         | isCommitmentIdx idx = CommitmentStage
+--         | isOpeningIdx idx = OpeningStage
+--         | isSharesIdx idx = SharesStage
+--         | otherwise = OrdinaryStage
 
 ----------------------------------------------------------------------------
 -- HealthCheck handlers
@@ -196,44 +226,8 @@ getRoute53HealthCheck (topologyMaxBucketSize -> getSize) oq = do
         OQ.SpareCapacity sc           -> return $ show sc <> "/" <> maxCapacityTxt -- yields 200/OK
 
 ----------------------------------------------------------------------------
--- GodTossing handlers
-----------------------------------------------------------------------------
-
-type GtWebMode ext = WebMode ext
-
-gtServantHandlers :: ServerT GodTossingApi (GtWebMode ext)
-gtServantHandlers =
-    toggleGtParticipation {- :<|> gtHasSecret :<|> getOurSecret :<|> getGtStage -}
-
-toggleGtParticipation :: Bool -> GtWebMode ext ()
-toggleGtParticipation enable =
-    view sscContext >>=
-    atomically . flip writeTVar enable . scParticipateSsc
-
--- gtHasSecret :: GtWebHandler Bool
--- gtHasSecret = isJust <$> getSecret
-
--- getOurSecret :: GtWebHandler SharedSeed
--- getOurSecret = maybe (throw err) (pure . convertGtSecret) =<< getSecret
---   where
---     err = err404 { errBody = "I don't have secret" }
---     doPanic = panic "our secret is malformed"
---     convertGtSecret =
---         secretToSharedSeed .
---         fromMaybe doPanic . fromBinaryM . getOpening . view _2
-
--- getGtStage :: GtWebHandler GodTossingStage
--- getGtStage = do
---     getGtStageImpl . siSlot <$> getCurrentSlot
---   where
---     getGtStageImpl idx
---         | isCommitmentIdx idx = CommitmentStage
---         | isOpeningIdx idx = OpeningStage
---         | isSharesIdx idx = SharesStage
---         | otherwise = OrdinaryStage
-
-----------------------------------------------------------------------------
 -- Orphan instances
 ----------------------------------------------------------------------------
 
 deriving instance FromHttpApiData EpochIndex
+deriveToJSON defaultOptions ''CConfirmedProposalState

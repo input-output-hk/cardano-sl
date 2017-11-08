@@ -54,8 +54,9 @@ import           Pos.Lrc                    (HasLrcContext, LrcModeFull, lrcSing
 import qualified Pos.Lrc.DB                 as LrcDB
 import           Pos.Reporting              (reportError)
 import           Pos.Ssc.Base               (defaultSscPayload, stripSscPayload)
-import           Pos.Ssc.Extra              (MonadSscMem, sscGetLocalPayload,
-                                             sscResetLocal)
+import           Pos.Ssc.Logic              (sscGetLocalPayload)
+import           Pos.Ssc.Mem                (MonadSscMem)
+import           Pos.Ssc.State              (sscResetLocal)
 import           Pos.StateLock              (Priority (..), StateLock, StateLockMetrics,
                                              modifyStateLock)
 import           Pos.Txp                    (MempoolExt, MonadTxpLocal (..), MonadTxpMem,
@@ -154,7 +155,7 @@ createGenesisBlockDo epoch = do
     actuallyCreate tipHeader = do
         lrcSingleShot epoch
         leaders <- lrcActionOnEpochReason epoch "createGenesisBlockDo "
-            LrcDB.getLeaders
+            LrcDB.getLeadersForEpoch
         let blk = mkGenesisBlock (Just tipHeader) epoch leaders
         let newTip = headerHash blk
         verifyBlocksPrefix (one (Left blk)) >>= \case

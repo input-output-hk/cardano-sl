@@ -33,7 +33,7 @@ import           Pos.Generator.BlockEvent         (BlockApplyResult (..), BlockE
                                                    SnapshotId, SnapshotOperation (..),
                                                    beaInput, beaOutValid, berInput,
                                                    berOutValid)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.Configuration            (HasSscConfiguration)
 import           Pos.Txp                          (MonadTxpLocal)
 import           Pos.Util.Chrono                  (NE, OldestFirst)
 import           Pos.Util.Util                    (eitherToThrow, lensOf)
@@ -59,7 +59,7 @@ data BlockEventResult
     | BlockEventDbChanged DbNotEquivalentToSnapshot
 
 verifyAndApplyBlocks' ::
-       ( HasGtConfiguration
+       ( HasSscConfiguration
        , HasConfiguration
        , BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
@@ -76,7 +76,7 @@ verifyAndApplyBlocks' blunds = do
 
 -- | Execute a single block event.
 runBlockEvent ::
-       ( HasGtConfiguration
+       ( HasSscConfiguration
        , HasConfiguration
        , BlockLrcMode BlockTestContext m
        , MonadTxpLocal m
@@ -160,7 +160,7 @@ data BlockScenarioResult
 runBlockScenario ::
        ( MonadPureDB ctx m
        , ctx ~ BlockTestContext
-       , HasGtConfiguration
+       , HasSscConfiguration
        , HasConfiguration
        , BlockLrcMode BlockTestContext m
        , MonadTxpLocal m

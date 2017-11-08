@@ -2,20 +2,26 @@ module Pos.Wallet.Aeson.ClientTypes
        (
        ) where
 
+import           Universum
+
+import           Data.Aeson                   (FromJSON (..), ToJSON (..), object, (.=))
 import           Data.Aeson.TH                (defaultOptions, deriveJSON, deriveToJSON)
+import           Data.Version                 (showVersion)
+
 import           Pos.Core.Types               (SoftwareVersion (..))
 import           Pos.Util.BackupPhrase        (BackupPhrase)
-import           Pos.Wallet.Web.ClientTypes   (Addr, CAccount, CAccountId, CAccountInit,
-                                               CAccountMeta, CAddress, CCoin, CHash, CId,
-                                               CInitialized, CInitialized,
-                                               CPaperVendWalletRedeem, CProfile, CProfile,
-                                               CPtxCondition, CTExMeta, CTx, CTxId,
-                                               CTxMeta, CUpdateInfo, CWAddressMeta,
+import           Pos.Wallet.Web.ClientTypes   (Addr, ApiVersion (..), CAccount,
+                                               CAccountId, CAccountInit, CAccountMeta,
+                                               CAddress, CCoin, CFilePath (..), CHash,
+                                               CId, CInitialized, CPaperVendWalletRedeem,
+                                               CProfile, CPtxCondition, CTExMeta, CTx,
+                                               CTxId, CTxMeta, CUpdateInfo, CWAddressMeta,
                                                CWallet, CWalletAssurance, CWalletInit,
-                                               CWalletMeta, CWalletRedeem, SyncProgress,
-                                               Wal)
+                                               CWalletMeta, CWalletRedeem,
+                                               ClientInfo (..), SyncProgress, Wal)
 import           Pos.Wallet.Web.Error         (WalletError)
 import           Pos.Wallet.Web.Sockets.Types (NotifyEvent)
+import           Servant.API.ContentTypes     (NoContent (..))
 
 deriveJSON defaultOptions ''CAccountId
 deriveJSON defaultOptions ''CWAddressMeta
@@ -35,16 +41,36 @@ deriveJSON defaultOptions ''Addr
 deriveJSON defaultOptions ''CHash
 deriveJSON defaultOptions ''CInitialized
 
-deriveToJSON defaultOptions ''CCoin
+deriveJSON defaultOptions ''CCoin
+deriveJSON defaultOptions ''CTxId
+deriveJSON defaultOptions ''CAddress
+deriveJSON defaultOptions ''CAccount
+deriveJSON defaultOptions ''CWallet
+deriveJSON defaultOptions ''CPtxCondition
+deriveJSON defaultOptions ''CTx
+deriveJSON defaultOptions ''CTExMeta
+deriveJSON defaultOptions ''SoftwareVersion
+deriveJSON defaultOptions ''CUpdateInfo
+
 deriveToJSON defaultOptions ''SyncProgress
 deriveToJSON defaultOptions ''NotifyEvent
 deriveToJSON defaultOptions ''WalletError
-deriveToJSON defaultOptions ''CTxId
-deriveToJSON defaultOptions ''CAddress
-deriveToJSON defaultOptions ''CAccount
-deriveToJSON defaultOptions ''CWallet
-deriveToJSON defaultOptions ''CPtxCondition
-deriveToJSON defaultOptions ''CTx
-deriveToJSON defaultOptions ''CTExMeta
-deriveToJSON defaultOptions ''SoftwareVersion
-deriveToJSON defaultOptions ''CUpdateInfo
+
+-- For backward compatibility.
+-- Guys /really/ want it to be normal JSON
+deriving instance FromJSON CFilePath
+
+instance ToJSON ApiVersion where
+    toJSON ApiVersion0 = "v0"
+
+instance ToJSON ClientInfo where
+    toJSON ClientInfo {..} =
+        object
+            [ "gitRevision" .= ciGitRevision
+            , "softwareVersion" .= pretty ciSoftwareVersion
+            , "cabalVersion" .= showVersion ciCabalVersion
+            , "apiVersion" .= ciApiVersion
+            ]
+
+instance ToJSON NoContent where
+    toJSON NoContent = toJSON ()

@@ -41,8 +41,8 @@ import           Pos.Reporting               (HasReportingContext, MonadReportin
 import           Pos.Security.Params         (SecurityParams)
 import           Pos.Shutdown                (HasShutdownContext)
 import           Pos.Slotting.Class          (MonadSlots)
-import           Pos.Ssc.Extra               (MonadSscMem)
-import           Pos.Ssc.GodTossing          (HasGtConfiguration)
+import           Pos.Ssc                     (HasSscConfiguration)
+import           Pos.Ssc.Mem                 (MonadSscMem)
 import           Pos.StateLock               (StateLock, StateLockMetrics)
 import           Pos.Txp.MemState            (MempoolExt, MonadTxpLocal, MonadTxpMem)
 import           Pos.Update.Configuration    (HasUpdateConfiguration)
@@ -93,7 +93,7 @@ type WorkMode ctx m
       , HasSlogContext ctx
       , HasSlogGState ctx
       , HasNodeType ctx
-      , HasGtConfiguration
+      , HasSscConfiguration
       )
 
 -- | More relaxed version of 'WorkMode'.

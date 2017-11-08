@@ -21,11 +21,12 @@ import           Pos.Client.Txp.Util            (computeTxFee, runTxCreator)
 import           Pos.Communication              (prepareMTx)
 import           Pos.Core                       (Coin, TxAux (..), TxOut (..),
                                                  getCurrentTimestamp)
+import           Pos.Core.Txp                   (_txOutputs)
 import           Pos.Crypto                     (PassPhrase, ShouldCheckPassphrase (..),
                                                  checkPassMatches, hash,
                                                  withSafeSignerUnsafe)
 import           Pos.DB                         (MonadGState)
-import           Pos.Txp                        (TxFee (..), Utxo, _txOutputs)
+import           Pos.Txp                        (TxFee (..), Utxo)
 import           Pos.Util                       (eitherToThrow, maybeThrow)
 import           Pos.Util.Servant               (encodeCType)
 import           Pos.Wallet.Aeson.ClientTypes   ()
@@ -35,7 +36,7 @@ import           Pos.Wallet.Web.ClientTypes     (AccountId (..), Addr, CCoin, CI
                                                  CTx (..), CWAddressMeta (..), Wal,
                                                  addrMetaToAccount)
 import           Pos.Wallet.Web.Error           (WalletError (..))
-import           Pos.Wallet.Web.Methods.History (addHistoryTx, constructCTx,
+import           Pos.Wallet.Web.Methods.History (addHistoryTxMeta, constructCTx,
                                                  getCurChainDifficulty)
 import           Pos.Wallet.Web.Methods.Txp     (MonadWalletTxFull, coinDistrToOutputs,
                                                  rewrapTxError, submitAndSaveNewPtx)
@@ -165,7 +166,9 @@ sendMoney passphrase moneySource dstDistr = do
 
         th <$ submitAndSaveNewPtx ptx
 
-    addHistoryTx srcWallet th
+    -- We add TxHistoryEntry's meta created by us in advance
+    -- to make TxHistoryEntry in CTx consistent with entry in history.
+    _ <- addHistoryTxMeta srcWallet th
     srcWalletAddrs <- getWalletAddrsSet Ever srcWallet
     diff <- getCurChainDifficulty
     fst <$> constructCTx srcWallet srcWalletAddrs diff th

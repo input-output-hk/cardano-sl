@@ -56,14 +56,14 @@ import           Network.SocketIO               (Socket, socketId)
 import qualified Pos.Block.Logic                as DB
 import           Pos.Block.Types                (Blund)
 import           Pos.Core.Block                 (Block, mainBlockTxPayload)
+import           Pos.Core.Txp                   (Tx (..), TxOut (..), TxOutAux (..),
+                                                 txOutAddress, txpTxs)
 import           Pos.Crypto                     (hash, withHash)
 import qualified Pos.DB.Block                   as DB
 import           Pos.DB.Class                   (MonadDBRead)
 import           Pos.Explorer.Core              (TxExtra (..))
 import qualified Pos.Explorer.DB                as DB
 import qualified Pos.GState                     as DB
-import           Pos.Txp                        (Tx (..), TxOut (..), TxOutAux (..),
-                                                 txOutAddress, txpTxs)
 import           Pos.Types                      (Address, HeaderHash)
 import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (getOldestFirst)

@@ -101,9 +101,10 @@ type ELocalToilMode m =
 -- if transaction is valid.
 eProcessTx
     :: (ELocalToilMode m, MonadError ToilVerFailure m)
-    => EpochIndex -> (TxId, TxAux) -> TxExtra -> m ()
-eProcessTx curEpoch tx@(id, aux) extra = do
+    => EpochIndex -> (TxId, TxAux) -> (TxUndo -> TxExtra) -> m ()
+eProcessTx curEpoch tx@(id, aux) createExtra = do
     undo <- Txp.processTx curEpoch tx
+    let extra = createExtra undo
     putTxExtraWithHistory id extra $ getTxRelatedAddrs aux undo
     let balanceUpdate = getBalanceUpdate aux undo
     updateAddrBalances balanceUpdate
@@ -121,7 +122,7 @@ eNormalizeToil curEpoch txs = mapM_ normalize ordered
     ordered = fromMaybe txs $ topsortTxs wHash txs
     wHash (i, (txAux, _)) = WithHash (taTx txAux) i
     normalize = runExceptT . uncurry (eProcessTx curEpoch) . repair
-    repair (i, (txAux, extra)) = ((i, txAux), extra)
+    repair (i, (txAux, extra)) = ((i, txAux), const extra)
 
 ----------------------------------------------------------------------------
 -- Helpers

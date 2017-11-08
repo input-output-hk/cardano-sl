@@ -29,7 +29,9 @@ import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), CAccount (..)
                                                    CCoin (..), CElectronCrashReport (..),
                                                    CHash (..), CId (..), CPassPhrase (..),
                                                    CPtxCondition (..), CTx (..),
-                                                   CTxId (..), CWallet (..), mkCTxId)
+                                                   CTxId (..), CWallet (..),
+                                                   ScrollLimit (..), ScrollOffset (..),
+                                                   mkCTxId)
 import           Pos.Wallet.Web.Pending.Types     (PtxCondition (..))
 
 ----------------------------------------------------------------------------
@@ -107,6 +109,7 @@ type instance OriginType CPtxCondition = Maybe PtxCondition
 
 instance ToCType CPtxCondition where
     encodeCType = maybe CPtxNotTracked $ \case
+        PtxCreating{}       -> CPtxCreating
         PtxApplying{}       -> CPtxApplying
         PtxInNewestBlocks{} -> CPtxInBlocks
         PtxPersisted{}      -> CPtxInBlocks
@@ -136,6 +139,11 @@ instance FromHttpApiData CTxId where
 instance FromHttpApiData CPassPhrase where
     parseUrlPiece = pure . CPassPhrase
 
+instance FromHttpApiData ScrollOffset where
+    parseUrlPiece = fmap ScrollOffset . parseUrlPiece
+
+instance FromHttpApiData ScrollLimit where
+    parseUrlPiece = fmap ScrollLimit . parseUrlPiece
 
 instance FromMultipart CElectronCrashReport where
     fromMultipart form = do

@@ -37,7 +37,7 @@ import           Pos.DB.GState.Common             (getTip, getTipBlockGeneric,
 import           Pos.DB.Misc                      (prepareMiscDB)
 import           Pos.GState.GState                (prepareGStateDB, sanityCheckGStateDB)
 import           Pos.Lrc.DB                       (prepareLrcDB)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.Configuration            (HasSscConfiguration)
 import           Pos.Update.DB                    (getAdoptedBVData)
 import           Pos.Util                         (inAssertMode)
 import           Pos.Util.Chrono                  (NewestFirst)
@@ -49,7 +49,7 @@ initNodeDBs
        , MonadBlockDBWrite m
        , MonadDB m
        , HasConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        )
     => m ()
 initNodeDBs = do

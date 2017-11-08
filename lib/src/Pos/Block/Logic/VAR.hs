@@ -39,7 +39,7 @@ import           Pos.Core.Block           (Block)
 import           Pos.Delegation.Logic     (dlgVerifyBlocks)
 import qualified Pos.GState               as GS
 import           Pos.Lrc.Worker           (LrcModeFull, lrcSingleShot)
-import           Pos.Ssc.Extra            (sscVerifyBlocks)
+import           Pos.Ssc                  (sscVerifyBlocks)
 import           Pos.Ssc.Util             (toSscBlock)
 import           Pos.Txp.Settings         (TxpGlobalSettings (..))
 import           Pos.Update.Logic         (usVerifyBlocks)

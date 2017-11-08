@@ -57,6 +57,7 @@ module Pos.DB.Block
 
 import           Universum
 
+import           Control.Exception.Safe (handle)
 import           Control.Lens           (at, _Wrapped)
 import           Data.ByteArray         (convert)
 import qualified Data.ByteString        as BS (hPut, readFile)
@@ -67,7 +68,7 @@ import           System.Directory       (createDirectoryIfMissing, removeFile)
 import           System.FilePath        ((</>))
 import           System.IO              (IOMode (WriteMode), hClose, hFlush,
                                          openBinaryFile)
-import           System.IO.Error        (isDoesNotExistError)
+import           System.IO.Error        (IOError, isDoesNotExistError)
 
 import           Pos.Binary.Class       (Bi, decodeFull, serialize')
 import           Pos.Binary.Core.Block  ()
@@ -92,7 +93,7 @@ import           Pos.DB.Rocks           (MonadRealDB, blockDataDir, getBlockInde
                                          getNodeDBs, rocksDelete, rocksPutBi)
 import           Pos.DB.Sum             (MonadDBSum, eitherDB)
 import           Pos.Delegation.Types   (DlgUndo (..))
-import           Pos.Ssc.Types          (SscBlock)
+import           Pos.Ssc                (SscBlock)
 import           Pos.Ssc.Util           (toSscBlock)
 import           Pos.Util               (Some (..), maybeThrow)
 import           Pos.Util.Chrono        (NewestFirst (..))
@@ -487,13 +488,15 @@ delete :: (MonadRealDB ctx m) => ByteString -> m ()
 delete k = rocksDelete k =<< getBlockIndexDB
 
 getData ::  forall m v . (MonadIO m, MonadCatch m, Bi v) => FilePath -> m (Maybe v)
-getData fp = flip catch handle $ liftIO $
-    either (\er -> throwM $ DBMalformed $
-             sformat ("Couldn't deserialize "%build%", reason: "%build) fp er) pure .
-    decodeFull <$>
-    BS.readFile fp
+getData fp = handle handler $ liftIO $
+    either onDecodeError (pure . Just) . decodeFull =<< BS.readFile fp
   where
-    handle e
+    onDecodeError :: Text -> IO a
+    onDecodeError err =
+        throwM $ DBMalformed $ sformat
+        ("Couldn't deserialize "%build%", reason: "%build) fp err
+    handler :: IOError -> m (Maybe x)
+    handler e
         | isDoesNotExistError e = pure Nothing
         | otherwise = throwM e
 
@@ -503,9 +506,9 @@ putData fp v = liftIO $
         BS.hPut h (serialize' v) >> hFlush h
 
 deleteData :: (MonadIO m, MonadCatch m) => FilePath -> m ()
-deleteData fp = (liftIO $ removeFile fp) `catch` handle
+deleteData fp = (liftIO $ removeFile fp) `catch` handler
   where
-    handle e
+    handler e
         | isDoesNotExistError e = pure ()
         | otherwise = throwM e
 

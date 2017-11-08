@@ -5,14 +5,18 @@
 module Pos.Wallet.Web.State.Storage
        (
          WalletStorage (..)
+       , WalletInfo (..)
+       , AccountInfo (..)
+       , AddressInfo (..)
        , AddressLookupMode (..)
        , CustomAddressType (..)
+       , WalletBalances
        , WalletTip (..)
        , PtxMetaUpdate (..)
        , Query
        , Update
-       , flushWalletStorage
        , getWalletStorage
+       , flushWalletStorage
        , getProfile
        , setProfile
        , getAccountIds
@@ -49,6 +53,8 @@ module Pos.Wallet.Web.State.Storage
        , setWalletTxHistory
        , getWalletTxHistory
        , getWalletUtxo
+       , getWalletBalancesAndUtxo
+       , updateWalletBalancesAndUtxo
        , setWalletUtxo
        , addOnlyNewTxMeta
        , setWalletTxMeta
@@ -68,29 +74,36 @@ module Pos.Wallet.Web.State.Storage
        , removeFromHistoryCache
        , setPtxCondition
        , casPtxCondition
+       , removeOnlyCreatingPtx
        , ptxUpdateMeta
        , addOnlyNewPendingTx
        ) where
 
 import           Universum
 
-import           Control.Lens                 (at, ix, makeClassy, makeLenses, non', to,
-                                               toListOf, traversed, (%=), (+=), (.=),
-                                               (<<.=), (?=), _Empty, _head)
-import           Control.Monad.State.Class    (put)
+import           Control.Lens                 (at, has, ix, makeClassy, makeLenses, non',
+                                               to, toListOf, traversed, (%=), (+=), (.=),
+                                               (<<.=), (?=), _Empty, _Just, _head)
+import           Control.Monad.State.Class    (get, put)
+import qualified Control.Monad.State.Lazy     as LS
 import           Data.Default                 (Default, def)
 import qualified Data.HashMap.Strict          as HM
 import qualified Data.Map                     as M
 import           Data.SafeCopy                (Migrate (..), base, deriveSafeCopySimple,
                                                extension)
 import           Data.Time.Clock.POSIX        (POSIXTime)
+import           Serokell.Util                (zoom')
 
 import           Pos.Client.Txp.History       (TxHistoryEntry, txHistoryListToMap)
 import           Pos.Core.Configuration       (HasConfiguration)
+import           Pos.Core.Txp                 (TxAux, TxId)
 import           Pos.Core.Types               (SlotId, Timestamp)
-import           Pos.Txp                      (TxAux, TxId, Utxo)
+import           Pos.Txp                      (AddrCoinMap, Utxo, UtxoModifier,
+                                               applyUtxoModToAddrCoinMap,
+                                               utxoToAddressCoinMap)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Util.BackupPhrase        (BackupPhrase)
+import qualified Pos.Util.Modifier            as MM
 import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CCoin,
                                                CHash, CId, CProfile, CTxId, CTxMeta,
                                                CUpdateInfo, CWAddressMeta (..),
@@ -98,7 +111,7 @@ import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CC
                                                PassPhraseLU, Wal, addrMetaToAccount)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition,
                                                PtxSubmitTiming (..), ptxCond,
-                                               ptxSubmitTiming)
+                                               ptxSubmitTiming, _PtxCreating)
 import           Pos.Wallet.Web.Pending.Util  (incPtxSubmitTimingPure, mkPtxSubmitTiming,
                                                ptxMarkAcknowledgedPure)
 
@@ -141,6 +154,7 @@ makeLenses ''WalletInfo
 
 -- | Maps addresses to their first occurrence in the blockchain
 type CustomAddresses = HashMap (CId Addr) HeaderHash
+type WalletBalances = AddrCoinMap
 
 data WalletStorage = WalletStorage
     { _wsWalletInfos     :: !(HashMap (CId Wal) WalletInfo)
@@ -150,6 +164,9 @@ data WalletStorage = WalletStorage
     , _wsTxHistory       :: !(HashMap (CId Wal) (HashMap CTxId CTxMeta))
     , _wsHistoryCache    :: !(HashMap (CId Wal) (Map TxId TxHistoryEntry))
     , _wsUtxo            :: !Utxo
+    -- @_wsBalances@ depends on @_wsUtxo@,
+    -- it's forbidden to update @_wsBalances@ without @_wsUtxo@
+    , _wsBalances        :: !WalletBalances
     , _wsUsedAddresses   :: !CustomAddresses
     , _wsChangeAddresses :: !CustomAddresses
     } deriving (Eq)
@@ -168,6 +185,7 @@ instance Default WalletStorage where
         , _wsUsedAddresses   = mempty
         , _wsChangeAddresses = mempty
         , _wsUtxo            = mempty
+        , _wsBalances        = mempty
         }
 
 type Query a = forall m. (MonadReader WalletStorage m) => m a
@@ -265,8 +283,19 @@ getWalletTxHistory cWalId = toList <<$>> preview (wsTxHistory . ix cWalId)
 getWalletUtxo :: Query Utxo
 getWalletUtxo = view wsUtxo
 
+getWalletBalancesAndUtxo :: Query (WalletBalances, Utxo)
+getWalletBalancesAndUtxo = (,) <$> view wsBalances <*> view wsUtxo
+
+updateWalletBalancesAndUtxo :: UtxoModifier -> Update ()
+updateWalletBalancesAndUtxo modifier = do
+    balAndUtxo <- (,) <$> use wsBalances <*> use wsUtxo
+    wsBalances .= applyUtxoModToAddrCoinMap modifier balAndUtxo
+    wsUtxo %= MM.modifyMap modifier
+
 setWalletUtxo :: Utxo -> Update ()
-setWalletUtxo utxo = wsUtxo .= utxo
+setWalletUtxo utxo = do
+    wsUtxo .= utxo
+    wsBalances .= utxoToAddressCoinMap utxo
 
 getUpdates :: Query [CUpdateInfo]
 getUpdates = view wsReadyUpdates
@@ -434,14 +463,29 @@ setPtxCondition :: CId Wal -> TxId -> PtxCondition -> Update ()
 setPtxCondition wid txId cond =
     wsWalletInfos . ix wid . wsPendingTxs . ix txId . ptxCond .= cond
 
+-- | Conditional modifier.
+-- Returns 'True' if pending transaction existed and modification was applied.
+checkAndSmthPtx
+    :: CId Wal
+    -> TxId
+    -> (Maybe PtxCondition -> Bool)
+    -> LS.State (Maybe PendingTx) ()
+    -> Update Bool
+checkAndSmthPtx wid txId whetherModify modifier =
+    fmap getAny $ zoom' (wsWalletInfos . ix wid . wsPendingTxs . at txId) $ do
+        matches <- whetherModify . fmap _ptxCond <$> get
+        when matches modifier
+        return (Any matches)
+
 -- | Compare-and-set version of 'setPtxCondition'.
--- Returns 'True' if transaction existed and modification was applied.
 casPtxCondition :: CId Wal -> TxId -> PtxCondition -> PtxCondition -> Update Bool
-casPtxCondition wid txId expectedCond newCond = do
-    oldCond <- preuse $ wsWalletInfos . ix wid . wsPendingTxs . ix txId . ptxCond
-    let success = oldCond == Just expectedCond
-    when success $ setPtxCondition wid txId newCond
-    return success
+casPtxCondition wid txId expectedCond newCond =
+    checkAndSmthPtx wid txId (== Just expectedCond) (_Just . ptxCond .= newCond)
+
+-- | Removes pending transaction, if its status is 'PtxCreating'.
+removeOnlyCreatingPtx :: CId Wal -> TxId -> Update Bool
+removeOnlyCreatingPtx wid txId =
+    checkAndSmthPtx wid txId (has (_Just . _PtxCreating)) (put Nothing)
 
 data PtxMetaUpdate
     = PtxIncSubmitTiming
@@ -514,7 +558,6 @@ deriveSafeCopySimple 0 'base ''AccountInfo
 deriveSafeCopySimple 0 'base ''WalletTip
 deriveSafeCopySimple 0 'base ''WalletInfo
 
-
 -- Legacy versions, for migrations
 
 data WalletStorage_v0 = WalletStorage_v0
@@ -529,19 +572,47 @@ data WalletStorage_v0 = WalletStorage_v0
     , _v0_wsChangeAddresses :: !CustomAddresses
     }
 
+data WalletStorage_v1 = WalletStorage_v1
+    { _v1_wsWalletInfos     :: !(HashMap (CId Wal) WalletInfo)
+    , _v1_wsAccountInfos    :: !(HashMap AccountId AccountInfo)
+    , _v1_wsProfile         :: !CProfile
+    , _v1_wsReadyUpdates    :: [CUpdateInfo]
+    , _v1_wsTxHistory       :: !(HashMap (CId Wal) (HashMap CTxId CTxMeta))
+    , _v1_wsHistoryCache    :: !(HashMap (CId Wal) (Map TxId TxHistoryEntry))
+    , _v1_wsUtxo            :: !Utxo
+    , _v1_wsUsedAddresses   :: !CustomAddresses
+    , _v1_wsChangeAddresses :: !CustomAddresses
+    }
+
 deriveSafeCopySimple 0 'base ''WalletStorage_v0
-deriveSafeCopySimple 1 'extension ''WalletStorage
+deriveSafeCopySimple 1 'extension ''WalletStorage_v1
+deriveSafeCopySimple 2 'extension ''WalletStorage
+
+instance Migrate WalletStorage_v1 where
+    type MigrateFrom WalletStorage_v1 = WalletStorage_v0
+    migrate WalletStorage_v0{..} = WalletStorage_v1
+        { _v1_wsWalletInfos     = _v0_wsWalletInfos
+        , _v1_wsAccountInfos    = _v0_wsAccountInfos
+        , _v1_wsProfile         = _v0_wsProfile
+        , _v1_wsReadyUpdates    = _v0_wsReadyUpdates
+        , _v1_wsTxHistory       = _v0_wsTxHistory
+        , _v1_wsHistoryCache    = HM.map txHistoryListToMap _v0_wsHistoryCache
+        , _v1_wsUtxo            = _v0_wsUtxo
+        , _v1_wsUsedAddresses   = _v0_wsUsedAddresses
+        , _v1_wsChangeAddresses = _v0_wsChangeAddresses
+        }
 
 instance Migrate WalletStorage where
-    type MigrateFrom WalletStorage = WalletStorage_v0
-    migrate WalletStorage_v0{..} = WalletStorage
-        { _wsWalletInfos     = _v0_wsWalletInfos
-        , _wsAccountInfos    = _v0_wsAccountInfos
-        , _wsProfile         = _v0_wsProfile
-        , _wsReadyUpdates    = _v0_wsReadyUpdates
-        , _wsTxHistory       = _v0_wsTxHistory
-        , _wsHistoryCache    = HM.map txHistoryListToMap _v0_wsHistoryCache
-        , _wsUtxo            = _v0_wsUtxo
-        , _wsUsedAddresses   = _v0_wsUsedAddresses
-        , _wsChangeAddresses = _v0_wsChangeAddresses
+    type MigrateFrom WalletStorage = WalletStorage_v1
+    migrate WalletStorage_v1{..} = WalletStorage
+        { _wsWalletInfos     = _v1_wsWalletInfos
+        , _wsAccountInfos    = _v1_wsAccountInfos
+        , _wsProfile         = _v1_wsProfile
+        , _wsReadyUpdates    = _v1_wsReadyUpdates
+        , _wsTxHistory       = _v1_wsTxHistory
+        , _wsHistoryCache    = _v1_wsHistoryCache
+        , _wsUtxo            = _v1_wsUtxo
+        , _wsBalances        = utxoToAddressCoinMap _v1_wsUtxo
+        , _wsUsedAddresses   = _v1_wsUsedAddresses
+        , _wsChangeAddresses = _v1_wsChangeAddresses
         }

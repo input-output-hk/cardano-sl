@@ -1,5 +1,5 @@
 name:                cardano-sl
-version:             1.0.2
+version:             1.0.3
 synopsis:            Cardano SL main implementation
 description:         Please see README.md
 license:             MIT
@@ -20,7 +20,6 @@ library
                         -- Arbitrary instances
                         Pos.Arbitrary.Block
                         Pos.Arbitrary.Delegation
-                        Pos.Arbitrary.Txp.Network
 
                         Pos.Aeson
                         Pos.Binary
@@ -60,6 +59,8 @@ library
                         Pos.Behavior
 
                         -- Something
+                        Pos.Types
+
                         Pos.Launcher
                         Pos.Launcher.Configuration
                         Pos.Launcher.Resource
@@ -71,10 +72,6 @@ library
                         -- Something
                         Pos.Security
                         Pos.Security.Workers
-
-                        -- SSC
-                        Pos.Ssc.GodTossing
-                        Pos.Ssc.SscAlgo
 
                         -- Statistics
                         Pos.Statistics
@@ -91,14 +88,6 @@ library
 
                         -- Client CLI
                         Pos.Client.CLI
-
-                        -- Txp
-                        Pos.Txp
-
-                        Pos.Types
-
-                        -- Update system
-                        Pos.Update
 
                         -- Utilities/helpers
                         Pos.Util
@@ -151,9 +140,6 @@ library
                         Pos.Binary.Slog
                         Pos.Binary.Undo
                         Pos.Binary.Delegation
-                        Pos.Binary.Ssc
-                        Pos.Binary.Txp
-                        Pos.Binary.Txp.Network
 
                         -- Block processing
                         Pos.Block.BHelpers
@@ -251,18 +237,6 @@ library
                         -- Statistics
                         Pos.Statistics.Ekg
                         Pos.Statistics.Statsd
-
-                        -- Txp
-                        Pos.Txp.Network
-                        Pos.Txp.Network.Listeners
-                        Pos.Txp.Network.Types
-                        Pos.Txp.Worker
-
-                        -- Update System
-                        Pos.Update.Download
-                        Pos.Update.Network
-                        Pos.Update.Network.Listeners
-                        Pos.Update.Worker
 
   build-depends:        MonadRandom
                       , QuickCheck
@@ -433,8 +407,15 @@ test-suite cardano-test
 
                        -- Txp
                        Test.Pos.Client.Txp.Mode
-                       Test.Pos.Client.Txp.Util
                        Test.Pos.Client.Txp.UtilSpec
+
+                       -- Ssc
+                       Test.Pos.Ssc.ComputeSharesSpec
+                       Test.Pos.Ssc.Identity.BinarySpec
+                       Test.Pos.Ssc.Identity.SafeCopySpec
+                       Test.Pos.Ssc.SeedSpec
+                       Test.Pos.Ssc.Toss.BaseSpec
+                       Test.Pos.Ssc.VssCertDataSpec
 
                        -- Everything else
                        Test.Pos.Cbor.Canonicity
@@ -450,12 +431,6 @@ test-suite cardano-test
                        Test.Pos.MerkleSpec
                        Test.Pos.Slotting.TypesSpec
                        Test.Pos.Slotting.BinarySpec
-                       Test.Pos.Ssc.GodTossing.ComputeSharesSpec
-                       Test.Pos.Ssc.GodTossing.Identity.BinarySpec
-                       Test.Pos.Ssc.GodTossing.Identity.SafeCopySpec
-                       Test.Pos.Ssc.GodTossing.SeedSpec
-                       Test.Pos.Ssc.GodTossing.Toss.BaseSpec
-                       Test.Pos.Ssc.GodTossing.VssCertDataSpec
                        Test.Pos.Txp.CoreSpec
                        Test.Pos.Txp.Identity.BinarySpec
                        Test.Pos.Txp.Toil.UtxoSpec
@@ -582,6 +557,7 @@ benchmark cardano-bench-criterion
                      , bytestring
                      , cardano-sl-core
                      , cardano-sl-txp
+                     , cardano-sl-ssc
                      , cardano-sl
                      , containers
                      , criterion

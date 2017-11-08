@@ -65,10 +65,8 @@ import           Pos.Network.Types                (NetworkConfig (..), Topology 
 import           Pos.Shutdown.Types               (ShutdownContext (..))
 import           Pos.Slotting                     (SlottingContextSum (..), SlottingData,
                                                    mkNtpSlottingVar, mkSimpleSlottingVar)
-import           Pos.Ssc.Types                    (SscParams,
-                                                   createSscContext)
-import           Pos.Ssc.Extra                    (SscState, mkSscState)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc                          (HasSscConfiguration, SscParams,
+                                                   SscState, createSscContext, mkSscState)
 import           Pos.StateLock                    (newStateLock)
 import           Pos.Txp                          (GenericTxpLocalData (..),
                                                    TxpGlobalSettings, mkTxpLocalData,
@@ -79,6 +77,7 @@ import           Pos.Launcher.Mode                (InitMode, InitModeContext (..
 import           Pos.Update.Context               (mkUpdateContext)
 import qualified Pos.Update.DB                    as GState
 import           Pos.Util                         (newInitFuture)
+import           Pos.Util.Timer                   (newTimer)
 
 import qualified System.Wlog                      as Logger
 
@@ -125,7 +124,7 @@ allocateNodeResources
        , HasConfiguration
        , HasNodeConfiguration
        , HasInfraConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        )
     => Transport m
     -> NetworkConfig KademliaDHTInstance
@@ -207,7 +206,7 @@ bracketNodeResources :: forall ext m a.
       , HasConfiguration
       , HasNodeConfiguration
       , HasInfraConfiguration
-      , HasGtConfiguration
+      , HasSscConfiguration
       )
     => NodeParams
     -> SscParams
@@ -297,6 +296,7 @@ allocateNodeContext ancd txpSettings = do
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.
     peersVar <- newTVarIO mempty
+    ncSubscriptionKeepAliveTimer <- newTimer $ 30 * 1000000 -- TODO: use slot duration
     let ctx =
             NodeContext
             { ncConnectedPeers = ConnectedPeers peersVar

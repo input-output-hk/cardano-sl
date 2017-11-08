@@ -22,7 +22,8 @@ module Pos.Core.Ssc
        , SharesMap
        , SharesDistribution
 
-       -- * Payload
+       -- * Payload and proof
+       , VssCertificatesHash
        , SscPayload (..)
        , SscProof (..)
        , mkSscProof
@@ -39,6 +40,7 @@ import           Data.HashMap.Strict    (HashMap)
 import qualified Data.HashMap.Strict    as HM
 import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder (Builder)
+import           Fmt                    (genericF)
 import           Formatting             (Format, bprint, build, int, (%))
 import           Serokell.Util          (listJson)
 
@@ -46,7 +48,8 @@ import           Pos.Binary.Class       (AsBinary (..), Bi (..), fromBinaryM, se
 import           Pos.Core.Address       (addressHash)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Types         (EpochIndex, StakeholderId)
-import           Pos.Core.Vss           (VssCertificatesMap (..), vcExpiryEpoch)
+import           Pos.Core.Vss           (VssCertificate, VssCertificatesMap (..),
+                                         vcExpiryEpoch)
 import           Pos.Crypto             (DecShare, EncShare, Hash, PublicKey, Secret,
                                          SecretProof, Signature, VssPublicKey, hash,
                                          shortHashF)
@@ -57,7 +60,7 @@ type NodeSet = HashSet StakeholderId
 -- Commitments
 ----------------------------------------------------------------------------
 
--- | Commitment is a message generated during the first stage of GodTossing.
+-- | Commitment is a message generated during the first stage of SSC.
 -- It contains encrypted shares and proof of secret.
 --
 -- There can be more than one share generated for a single participant.
@@ -177,20 +180,32 @@ data SscPayload
         { spVss    :: !VssCertificatesMap }
     deriving (Eq, Show, Generic)
 
+-- Note: we can't use 'VssCertificatesMap', because we serialize it as
+-- a 'HashSet', but in the very first version of mainnet this map was
+-- serialized as a 'HashMap' (and 'VssCertificatesMap' was just a type
+-- alias for that 'HashMap').
+--
+-- Alternative approach would be to keep 'instance Bi VssCertificatesMap'
+-- the same as it was in mainnet.
+type VssCertificatesHash = Hash (HashMap StakeholderId VssCertificate)
+
 -- | Proof that SSC payload is correct (it's included into block header)
 data SscProof
     = CommitmentsProof
         { sprComms :: !(Hash CommitmentsMap)
-        , sprVss   :: !(Hash VssCertificatesMap) }
+        , sprVss   :: !VssCertificatesHash }
     | OpeningsProof
         { sprOpenings :: !(Hash OpeningsMap)
-        , sprVss      :: !(Hash VssCertificatesMap) }
+        , sprVss      :: !VssCertificatesHash }
     | SharesProof
         { sprShares :: !(Hash SharesMap)
-        , sprVss    :: !(Hash VssCertificatesMap) }
+        , sprVss    :: !VssCertificatesHash }
     | CertificatesProof
-        { sprVss    :: !(Hash VssCertificatesMap) }
+        { sprVss    :: !VssCertificatesHash }
     deriving (Eq, Show, Generic)
+
+instance Buildable SscProof where
+    build = genericF
 
 instance NFData SscPayload
 instance NFData SscProof
@@ -201,6 +216,7 @@ mkSscProof
        , Bi VssCertificatesMap
        , Bi CommitmentsMap
        , Bi Opening
+       , Bi VssCertificate
        ) => SscPayload -> SscProof
 mkSscProof payload =
     case payload of
@@ -211,10 +227,10 @@ mkSscProof payload =
         SharesPayload shares certs     ->
             proof SharesProof shares certs
         CertificatesPayload certs      ->
-            CertificatesProof (hash certs)
+            CertificatesProof (hash $ getVssCertificatesMap certs)
   where
-    proof constr hm cert =
-        constr (hash hm) (hash cert)
+    proof constr hm (getVssCertificatesMap -> certs) =
+        constr (hash hm) (hash certs)
 
 
 isEmptySscPayload :: SscPayload -> Bool
@@ -225,7 +241,7 @@ isEmptySscPayload (CertificatesPayload certs)      = null certs
 
 instance Buildable SscPayload where
     build gp
-        | isEmptySscPayload gp = "  no GodTossing payload"
+        | isEmptySscPayload gp = "  no SSC payload"
         | otherwise =
             case gp of
                 CommitmentsPayload comms certs ->

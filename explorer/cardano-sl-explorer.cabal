@@ -1,5 +1,5 @@
 name:                cardano-sl-explorer
-version:             1.0.2
+version:             1.0.3
 synopsis:            Cardano explorer
 description:         Please see README.md
 license:             MIT
@@ -338,6 +338,7 @@ test-suite cardano-explorer-test
                        Test.Pos.Explorer.Web.ServerSpec
                        Test.Pos.Explorer.Web.ClientTypesSpec
 
+                       -- Test.Pos.Explorer.BListenerSpec -- TODO(KS): To merge when we merge tests.
                        Test.Pos.Explorer.Identity.BinarySpec
 
   type:                exitcode-stdio-1.0
@@ -347,6 +348,7 @@ test-suite cardano-explorer-test
                      , bytestring
                      , cardano-sl-explorer
                      , cardano-sl-core
+                     , cardano-sl-txp
                      , cardano-sl
                      , cborg
                      , cereal

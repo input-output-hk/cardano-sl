@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- | Some types related to GodTossing. There are also types in
+-- | Some types related to SSC. There are also types in
 -- "Pos.Core.Ssc".
 
 module Pos.Ssc.Types
@@ -12,7 +12,7 @@ module Pos.Ssc.Types
        , SscSecretStorage (..)
        , SscLocalData (..)
        , SscState (..)
-       , SscBlock (..)
+       , SscBlock
 
        -- * Lenses
        -- ** SscGlobalState
@@ -30,36 +30,35 @@ module Pos.Ssc.Types
        , createSscContext
        ) where
 
-import           Control.Lens                   (choosing, makeLenses, makeWrapped,
-                                                 _Wrapped)
-import           Data.Default                   (Default, def)
-import qualified Data.HashMap.Strict            as HM
-import qualified Data.Text                      as T
+import           Control.Lens               (makeLenses)
+import           Data.Default               (Default, def)
+import qualified Data.HashMap.Strict        as HM
+import qualified Data.Text                  as T
 import qualified Data.Text.Buildable
-import           Data.Text.Lazy.Builder         (Builder, fromText)
-import           Formatting                     (sformat, (%))
-import           Serokell.Data.Memory.Units     (Byte)
-import           Serokell.Util                  (listJson)
+import           Data.Text.Lazy.Builder     (Builder, fromText)
+import           Formatting                 (sformat, (%))
+import           Serokell.Data.Memory.Units (Byte)
+import           Serokell.Util              (listJson)
 import           Universum
 
-import           Pos.Core                       (EpochIndex, HasDifficulty (..),
-                                                 HasEpochIndex (..), HasEpochOrSlot (..),
-                                                 HasHeaderHash (..), IsGenesisHeader,
-                                                 IsMainHeader)
-import           Pos.Core.Ssc                   (CommitmentsMap (getCommitmentsMap),
-                                                 Opening, OpeningsMap, SharesMap,
-                                                 SignedCommitment, SscPayload)
-import           Pos.Crypto                     (VssKeyPair)
-import           Pos.Ssc.GodTossing.Behavior    (GtBehavior)
-import           Pos.Ssc.GodTossing.Toss.Types  (TossModifier)
-import qualified Pos.Ssc.GodTossing.VssCertData as VCD
-import           Pos.Util.Util                  (Some)
+import           Pos.Core                   (EpochIndex, HasDifficulty (..),
+                                             HasEpochIndex (..), HasEpochOrSlot (..),
+                                             HasHeaderHash (..), IsGenesisHeader,
+                                             IsMainHeader)
+import           Pos.Core.Ssc               (CommitmentsMap (getCommitmentsMap), Opening,
+                                             OpeningsMap, SharesMap, SignedCommitment,
+                                             SscPayload)
+import           Pos.Crypto                 (VssKeyPair)
+import           Pos.Ssc.Behavior           (SscBehavior)
+import           Pos.Ssc.Toss.Types         (TossModifier)
+import qualified Pos.Ssc.VssCertData        as VCD
+import           Pos.Util.Util              (Some)
 
 ----------------------------------------------------------------------------
 -- SscGlobalState
 ----------------------------------------------------------------------------
 
--- | Global state of GodTossing, contains relevant SSC data from blocks.
+-- | Global state of SSC, contains relevant SSC data from blocks.
 data SscGlobalState = SscGlobalState
     { -- | Commitments are added during the first phase of epoch.
       _sgsCommitments     :: !CommitmentsMap
@@ -123,7 +122,7 @@ data SscParams = SscParams
                                    --    SSC in case SSC requires
                                    --    participation.
     , spVssKeyPair :: !VssKeyPair  -- ^ Key pair used for secret sharing
-    , spBehavior   :: !GtBehavior  -- ^ Settings for the algorithm
+    , spBehavior   :: !SscBehavior -- ^ Settings for the algorithm
     }
 
 -- | SSC specific context in NodeContext
@@ -132,10 +131,10 @@ data SscContext = SscContext
       -- | Vss key pair used for MPC.
       scVssKeyPair     :: !VssKeyPair
     , -- | Flag which determines whether we want to participate in SSC.
-      -- TODO: consider putting it into GtBehavior?
+      -- TODO: consider putting it into SscBehavior?
       scParticipateSsc :: !(TVar Bool)
     , -- | Settings for the algorithm
-      scBehavior       :: !(TVar GtBehavior)
+      scBehavior       :: !(TVar SscBehavior)
     }
 
 createSscContext :: MonadIO m => SscParams -> m SscContext
@@ -166,8 +165,8 @@ data SscSecretStorage = SscSecretStorage
 
 -- | Internal SSC state stored in memory
 data SscLocalData = SscLocalData
-    { -- | 'TossModifier' which also serves as mempool of GT data,
-      -- because for GodTossing modifier and mempool are same.
+    { -- | 'TossModifier' which also serves as mempool of SSC data,
+      -- because for SSC modifier and mempool are same.
       _ldModifier :: !TossModifier
     , -- | Epoch for which this mempool can be used to form payload.
       _ldEpoch    :: !EpochIndex
@@ -193,21 +192,16 @@ data SscState =
 ----------------------------------------------------------------------------
 
 -- [CSL-1156] Find a better way for this
---
--- NB. there are plans to make it a 'type' (like 'TxpBlock' and
--- 'UpdateBlock'). Previously it wasn't possible, but now it is.
-newtype SscBlock = SscBlock
-    { getSscBlock :: Either (Some IsGenesisHeader)
-                            (Some IsMainHeader, SscPayload)
-    }
+type SscBlock = Either (Some IsGenesisHeader) (Some IsMainHeader, SscPayload)
 
-makeWrapped ''SscBlock
+instance HasDifficulty (Some IsMainHeader, SscPayload) where
+    difficultyL = _1 . difficultyL
+instance HasEpochIndex (Some IsMainHeader, SscPayload) where
+    epochIndexL = _1 . epochIndexL
+instance HasHeaderHash (Some IsMainHeader, SscPayload) where
+    headerHash     = headerHash . fst
+instance HasEpochOrSlot (Some IsMainHeader, SscPayload) where
+    getEpochOrSlot = getEpochOrSlot . fst
 
-instance HasDifficulty SscBlock where
-    difficultyL = _Wrapped . choosing difficultyL (_1 . difficultyL)
-instance HasEpochIndex SscBlock where
-    epochIndexL = _Wrapped . choosing epochIndexL (_1 . epochIndexL)
 instance HasHeaderHash SscBlock where
-    headerHash     = either headerHash (headerHash . fst) . getSscBlock
-instance HasEpochOrSlot SscBlock where
-    getEpochOrSlot = either getEpochOrSlot (getEpochOrSlot . fst) . getSscBlock
+    headerHash     = either headerHash headerHash

@@ -27,7 +27,7 @@ misc: 292K
 
 #### misc
 
-* `gtSecretStorageKey` -> `GtSecretStorage` <- own generated secret, for last epoch (for which secret was generated)
+* `gtSecretStorageKey` -> `SscSecretStorage` <- own generated secret, for last epoch (for which secret was generated)
 * `skh/` -> *Unused, to be removed*
 * `psk/` -> `[ProxySKLight]`
 
@@ -42,7 +42,7 @@ misc: 292K
 
 #### ssc
 
-* `ssc/` -> `GtGlobalState` <- full state of godtossing
+* `ssc/` -> `SscGlobalState` <- full state of SSC
 
 #### block extra
 

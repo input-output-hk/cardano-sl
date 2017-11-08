@@ -56,8 +56,8 @@ import           Pos.Slotting.Impl.Sum   (currentTimeSlottingSum,
                                           getCurrentSlotBlockingSum,
                                           getCurrentSlotInaccurateSum, getCurrentSlotSum)
 import           Pos.Slotting.MemState   (HasSlottingVar (..), MonadSlotsData)
-import           Pos.Ssc.Extra           (SscMemTag, SscState)
-import           Pos.Ssc.Types           (SscBlock)
+import           Pos.Ssc.Mem             (SscMemTag)
+import           Pos.Ssc.Types           (SscBlock, SscState)
 import           Pos.Txp                 (GenericTxpLocalData, MempoolExt,
                                           MonadTxpLocal (..), TxpHolderTag, txNormalize,
                                           txProcessTransaction)

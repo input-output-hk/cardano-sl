@@ -15,7 +15,7 @@ import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Ssc           (Commitment (..), CommitmentsMap (..),
                                          Opening (..), OpeningsMap, SharesMap,
                                          SignedCommitment, SscPayload (..), SscProof (..),
-                                         mkCommitmentsMap)
+                                         VssCertificatesHash, mkCommitmentsMap)
 import           Pos.Core.Vss           (VssCertificate (..), VssCertificatesMap (..),
                                          mkVssCertificatesMap, recreateVssCertificate)
 import           Pos.Crypto             (Hash, PublicKey)
@@ -120,13 +120,13 @@ deriveSimpleBiCxt [t|HasConfiguration|] ''SscPayload [
 deriveSimpleBi ''SscProof [
     Cons 'CommitmentsProof [
         Field [| sprComms    :: Hash CommitmentsMap     |],
-        Field [| sprVss      :: Hash VssCertificatesMap |] ],
+        Field [| sprVss      :: VssCertificatesHash |] ],
     Cons 'OpeningsProof [
         Field [| sprOpenings :: Hash OpeningsMap        |],
-        Field [| sprVss      :: Hash VssCertificatesMap |] ],
+        Field [| sprVss      :: VssCertificatesHash |] ],
     Cons 'SharesProof [
         Field [| sprShares   :: Hash SharesMap          |],
-        Field [| sprVss      :: Hash VssCertificatesMap |] ],
+        Field [| sprVss      :: VssCertificatesHash |] ],
     Cons 'CertificatesProof [
-        Field [| sprVss      :: Hash VssCertificatesMap |] ]
+        Field [| sprVss      :: VssCertificatesHash |] ]
     ]

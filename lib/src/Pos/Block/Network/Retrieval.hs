@@ -48,13 +48,14 @@ import           Pos.Reporting              (reportOrLogE, reportOrLogW)
 import           Pos.Util                   (_neHead, _neLast)
 import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..),
                                              _NewestFirst, _OldestFirst)
+import           Pos.Util.Timer             (Timer, startTimer)
 import           Pos.WorkMode.Class         (WorkMode)
 
 retrievalWorker
     :: forall ctx m.
        (WorkMode ctx m)
-    => (WorkerSpec m, OutSpecs)
-retrievalWorker = worker outs retrievalWorkerImpl
+    => Timer -> (WorkerSpec m, OutSpecs)
+retrievalWorker keepAliveTimer = worker outs (retrievalWorkerImpl keepAliveTimer)
   where
     outs = announceBlockOuts <>
            toOutSpecs [convH (Proxy :: Proxy MsgGetBlocks)
@@ -77,8 +78,8 @@ retrievalWorker = worker outs retrievalWorkerImpl
 retrievalWorkerImpl
     :: forall ctx m.
        (WorkMode ctx m)
-    => SendActions m -> m ()
-retrievalWorkerImpl SendActions {..} =
+    => Timer -> SendActions m -> m ()
+retrievalWorkerImpl keepAliveTimer SendActions {..} =
     handleAll mainLoopE $ do
         logDebug "Starting retrievalWorker loop"
         mainLoop
@@ -103,6 +104,7 @@ retrievalWorkerImpl SendActions {..} =
                 -- No tasks & recovery header is there ⇒ do recovery.
                 (_, Just (nodeId, rHeader))  ->
                     pure (handleRecoveryWithHandler nodeId rHeader)
+        startTimer keepAliveTimer
         thingToDoNext
         mainLoop
     mainLoopE e = do

@@ -11,6 +11,8 @@ module Pos.Core.Block.Genesis.Chain
 
 import           Universum
 
+import qualified Data.Text.Buildable          as Buildable
+
 import           Pos.Core.Block.Blockchain    (Blockchain (..), BlockchainHelpers (..))
 import           Pos.Core.Block.Genesis.Types (GenesisBlock, GenesisBlockchain,
                                                GenesisExtraBodyData,
@@ -45,6 +47,9 @@ instance Blockchain GenesisBlockchain where
     type BBlock GenesisBlockchain = Block
 
     mkBodyProof = GenesisProof . hash . _gbLeaders
+
+instance Buildable (BodyProof GenesisBlockchain) where
+    build (GenesisProof h) = Buildable.build h
 
 instance BlockchainHelpers GenesisBlockchain where
     verifyBBlockHeader _ = pure ()

@@ -11,6 +11,9 @@ module Pos.Core.Block.Main.Chain
 
 import           Universum
 
+import qualified Data.Text.Buildable
+import           Fmt                        (genericF)
+
 import           Pos.Binary.Class           (Bi)
 import           Pos.Binary.Core.Delegation ()
 import           Pos.Binary.Core.Ssc        ()
@@ -85,6 +88,9 @@ instance ( HasConfiguration
 
 deriving instance Show MainToSign
 deriving instance Eq MainToSign
+
+instance Buildable (BodyProof MainBlockchain) where
+    build = genericF
 
 instance NFData (BodyProof MainBlockchain)
 instance NFData (ConsensusData MainBlockchain)

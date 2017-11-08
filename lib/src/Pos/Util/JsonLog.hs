@@ -47,7 +47,7 @@ import           Pos.Core.Block.Genesis.Lens   (genBlockEpoch)
 import           Pos.Core.Block.Main.Lens      (mainBlockSlot)
 import           Pos.Core.Txp                  (txpTxs)
 import           Pos.Crypto                    (hash, hashHexF)
-import           Pos.Txp.MemState.Types        (MemPoolModifyReason)
+import           Pos.Txp                       (JLTxR (..), MemPoolModifyReason)
 import           Pos.Types                     (EpochIndex (..), HeaderHash, headerHashF)
 
 type BlockId = Text
@@ -67,12 +67,6 @@ data JLTxS = JLTxS
     { jlsNodeId :: Text
     , jlsTxId   :: Text
     , jlsInvReq :: InvReqDataFlowLog
-    } deriving Show
-
--- | Json log of one transaction being received by a node.
-data JLTxR = JLTxR
-    { jlrTxId  :: Text
-    , jlrError :: Maybe Text
     } deriving Show
 
 -- | Get 'SlotId' from 'JLSlotId'.

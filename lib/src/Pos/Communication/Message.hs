@@ -15,7 +15,7 @@ import           Pos.Communication.Types.Relay    (DataMsg, InvMsg, InvOrData, M
                                                    ReqMsg, ReqOrRes)
 import           Pos.Core.Update                  (UpdateProposal, UpdateVote)
 import           Pos.Delegation.Types             (ProxySKLightConfirmation)
-import           Pos.Ssc.GodTossing.Types.Message (MCCommitment, MCOpening, MCShares,
+import           Pos.Ssc.Message                  (MCCommitment, MCOpening, MCShares,
                                                    MCVssCertificate)
 import           Pos.Txp.Network.Types            (TxMsgContents)
 import           Pos.Types                        (ProxySKHeavy, ProxySKLight)

@@ -22,6 +22,8 @@ module Pos.Wallet.Web.State.Acidic
        , GetWalletSyncTip (..)
        , GetWalletAddresses (..)
        , GetWalletUtxo (..)
+       , GetWalletBalancesAndUtxo (..)
+       , UpdateWalletBalancesAndUtxo (..)
        , SetWalletUtxo (..)
        , GetAccountWAddresses (..)
        , DoesWAddressExist (..)
@@ -65,10 +67,11 @@ module Pos.Wallet.Web.State.Acidic
        , RemoveFromHistoryCache (..)
        , SetPtxCondition (..)
        , CasPtxCondition (..)
+       , RemoveOnlyCreatingPtx (..)
        , PtxUpdateMeta (..)
        , AddOnlyNewPendingTx (..)
-       , FlushWalletStorage (..)
        , GetWalletStorage (..)
+       , FlushWalletStorage (..)
        -- * No longer used, just here for migrations and backwards compatibility
        , UpdateHistoryCache (..)
        ) where
@@ -125,6 +128,8 @@ makeAcidic ''WalletStorage
     , 'WS.getWalletSyncTip
     , 'WS.getWalletAddresses
     , 'WS.getWalletUtxo
+    , 'WS.getWalletBalancesAndUtxo
+    , 'WS.updateWalletBalancesAndUtxo
     , 'WS.setWalletUtxo
     , 'WS.getAccountWAddresses
     , 'WS.doesWAddressExist
@@ -168,6 +173,7 @@ makeAcidic ''WalletStorage
     , 'WS.removeFromHistoryCache
     , 'WS.setPtxCondition
     , 'WS.casPtxCondition
+    , 'WS.removeOnlyCreatingPtx
     , 'WS.ptxUpdateMeta
     , 'WS.addOnlyNewPendingTx
     , 'WS.flushWalletStorage

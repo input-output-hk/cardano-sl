@@ -26,7 +26,7 @@ import           Pos.Wallet.Web.ClientTypes     (AccountId (..), CAccountId (..)
                                                  CPaperVendWalletRedeem (..), CTx (..),
                                                  CWalletRedeem (..))
 import           Pos.Wallet.Web.Error           (WalletError (..))
-import           Pos.Wallet.Web.Methods.History (addHistoryTx, constructCTx,
+import           Pos.Wallet.Web.Methods.History (addHistoryTxMeta, constructCTx,
                                                  getCurChainDifficulty)
 import qualified Pos.Wallet.Web.Methods.Logic   as L
 import           Pos.Wallet.Web.Methods.Txp     (MonadWalletTxFull, rewrapTxError,
@@ -104,7 +104,9 @@ redeemAdaInternal passphrase cAccId seedBs = do
 
     -- add redemption transaction to the history of new wallet
     let cWalId = aiWId accId
-    addHistoryTx cWalId th
+    -- We add TxHistoryEntry's meta created by us in advance
+    -- to make TxHistoryEntry in CTx consistent with entry in history.
+    _ <- addHistoryTxMeta cWalId th
     cWalAddrs <- getWalletAddrsSet Ever cWalId
     diff <- getCurChainDifficulty
     fst <$> constructCTx cWalId cWalAddrs diff th

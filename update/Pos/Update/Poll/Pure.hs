@@ -31,11 +31,12 @@ import           Pos.Update.Poll.Types     (BlockVersionState (..),
 
 newtype PurePoll a = PurePoll
     { getPurePoll :: StateT Poll.PollState (NamedPureLogger Identity) a
-    } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName)
+    } deriving (Functor, Applicative, Monad, CanLog, HasLoggerName, MonadState Poll.PollState)
 
 runPurePollWithLogger :: Poll.PollState -> PurePoll a -> (a, Poll.PollState, [LogEvent])
-runPurePollWithLogger ps =
-    (\((a, b), c) -> (a, b, c)) . runIdentity . runNamedPureLog . flip runStateT ps . getPurePoll
+runPurePollWithLogger ps pp =
+    let innerMonad = usingStateT ps . getPurePoll $ pp
+    in  (\((a, finalState), logs) -> (a, finalState, logs)) . runIdentity . runNamedPureLog $ innerMonad
 
 evalPurePollWithLogger :: Poll.PollState -> PurePoll a -> a
 evalPurePollWithLogger r = view _1 . runPurePollWithLogger r

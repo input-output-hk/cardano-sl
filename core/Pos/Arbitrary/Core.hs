@@ -21,7 +21,7 @@ module Pos.Arbitrary.Core
 import           Universum
 
 import qualified Data.ByteString                   as BS (pack)
-import qualified Data.HashMap.Strict               as HM
+import           Data.List                         ((!!))
 import qualified Data.Map                          as M
 import           Data.Time.Units                   (Microsecond, Millisecond, Second,
                                                     TimeUnit (..), convertUnit)
@@ -38,7 +38,7 @@ import           Pos.Binary.Class                  (FixedSizeInt (..), SignedVar
                                                     TinyVarInt (..), UnsignedVarInt (..))
 import           Pos.Binary.Core                   ()
 import           Pos.Binary.Crypto                 ()
-import           Pos.Core.Address                  (addressHash, makeAddress)
+import           Pos.Core.Address                  (makeAddress)
 import           Pos.Core.Coin                     (coinToInteger, divCoin, unsafeSubCoin)
 import           Pos.Core.Configuration            (HasGenesisBlockVersionData,
                                                     HasProtocolConstants, epochSlots)
@@ -452,9 +452,11 @@ instance Arbitrary Types.ApplicationName where
     arbitrary =
         either (error . mappend "arbitrary @ApplicationName failed: ") identity .
         Types.mkApplicationName .
-        toText . map (chr . flip mod 128) . take Types.applicationNameMaxLength <$>
+        toText . map selectAlpha . take Types.applicationNameMaxLength <$>
         arbitrary
-    shrink = genericShrink
+      where
+        selectAlpha n = alphabet !! (n `mod` length alphabet)
+        alphabet = "-0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 instance Arbitrary Types.BlockVersion where
     arbitrary = genericArbitrary
@@ -514,7 +516,7 @@ instance Arbitrary G.FakeAvvmOptions where
 
 instance HasProtocolConstants => Arbitrary G.GenesisDelegation where
     arbitrary =
-        leftToPanic "arbitrary@GenesisDelegation" . G.mkGenesisDelegation . HM.fromList <$> do
+        leftToPanic "arbitrary@GenesisDelegation" . G.mkGenesisDelegation <$> do
             secretKeys <- sized (nonrepeating . min 10) -- we generate at most tens keys,
                                                         -- because 'nonrepeating' fails when
                                                         -- we want too many items, because
@@ -522,11 +524,9 @@ instance HasProtocolConstants => Arbitrary G.GenesisDelegation where
             return $
                 case secretKeys of
                     []                 -> []
-                    (delegate:issuers) -> mkCertPair (toPublic delegate) <$> issuers
+                    (delegate:issuers) -> mkCert (toPublic delegate) <$> issuers
       where
-        mkCertPair delegatePk issuer =
-            ( addressHash (toPublic issuer)
-            , createPsk issuer delegatePk 0 )
+        mkCert delegatePk issuer = createPsk issuer delegatePk 0
 
 instance Arbitrary G.GenesisWStakeholders where
     arbitrary = G.GenesisWStakeholders <$> arbitrary
@@ -582,7 +582,7 @@ deriving instance Arbitrary a => Arbitrary (FixedSizeInt a)
 deriving instance Arbitrary TinyVarInt
 
 ----------------------------------------------------------------------------
--- GodTossing
+-- SSC
 ----------------------------------------------------------------------------
 
 instance HasProtocolConstants => Arbitrary VssCertificate where

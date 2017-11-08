@@ -306,8 +306,18 @@ instance Monad m => Monoid (MkListeners m) where
 -- This is used by behind-NAT nodes, who join the network by sending a
 -- MsgSubscribe to a relay nodes.
 --
+-- Note that after node A subscribes, it doesn't send anything to node B
+-- anymore. Therefore it might happen that due to problems within the network
+-- (e.g. router failures, see
+-- https://blog.stephencleary.com/2009/05/detection-of-half-open-dropped.html
+-- for more detailed information) node B closes the subscription channel after
+-- it tries to send data to node A and fails, whereas node A will be oblivious
+-- to that event and won't try to reestablish the channel. To remedy that node A
+-- needs to periodically send keep-alive like data to node B in order to ensure
+-- that the connection is valid.
+--
 -- Kademia nodes might also use this if they want a guarantee that they receive
 -- messages from their peers (without subscription we rely on luck for some
 -- nodes to decide to add us to their list of known peers).
-data MsgSubscribe = MsgSubscribe
+data MsgSubscribe = MsgSubscribe | MsgSubscribeKeepAlive
     deriving (Generic, Show, Eq)

@@ -1,6 +1,6 @@
 {-# LANGUAGE TypeFamilies #-}
 
--- | Core functions from GodTossing SSC.
+-- | Core functions from SSC.
 
 module Pos.Ssc.Base
        (
@@ -266,7 +266,7 @@ stripSscPayload lim payload = case payload of
                  stripHashMap l .
                  getVssCertificatesMap
 
--- | Default godtossing payload depending on local slot index.
+-- | Default SSC payload depending on local slot index.
 defaultSscPayload :: HasConfiguration => LocalSlotIndex -> SscPayload
 defaultSscPayload lsi
     | isCommitmentIdx lsi = CommitmentsPayload mempty mempty

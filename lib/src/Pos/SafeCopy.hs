@@ -59,6 +59,7 @@ import           Pos.Data.Attributes             (Attributes (..), UnparsedField
 import           Pos.Delegation.Types            (DlgPayload (..))
 import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (..),
                                                   MerkleTree (..))
+import qualified Pos.Util.Modifier               as MM
 
 
 ----------------------------------------------------------------------------
@@ -97,7 +98,7 @@ instance Bi SecretProof => SafeCopy SecretProof where
     putCopy = Bi.putCopyBi
 
 ----------------------------------------------------------------------------
--- God tossing
+-- SSC
 ----------------------------------------------------------------------------
 
 deriveSafeCopySimple 0 'base ''VssCertificate
@@ -349,3 +350,7 @@ instance Cereal.Serialize Byte where
     put = Cereal.put . toBytes
 
 instance SafeCopy Byte
+
+instance (SafeCopy k, SafeCopy v, Eq k, Hashable k) => SafeCopy (MM.MapModifier k v) where
+    getCopy = contain $ MM.fromHashMap <$> safeGet
+    putCopy mm = contain $ safePut (MM.toHashMap mm)

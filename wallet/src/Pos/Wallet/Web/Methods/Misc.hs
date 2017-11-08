@@ -16,27 +16,39 @@ module Pos.Wallet.Web.Methods.Misc
        , localTimeDifference
 
        , testResetAll
+       , dumpState
+       , WalletStateSnapshot (..)
        ) where
 
 import           Universum
 
-import           Mockable                   (MonadMockable)
+import           Data.Aeson                   (encode)
+import           Data.Aeson.TH                (defaultOptions, deriveJSON)
+import qualified Data.Text.Buildable
+import           Mockable                     (MonadMockable)
+import           Pos.Core                     (SoftwareVersion (..))
+import           Pos.Update.Configuration     (HasUpdateConfiguration, curSoftwareVersion)
+import           Pos.Util                     (maybeThrow)
+import           Servant.API.ContentTypes     (MimeRender (..), NoContent (..),
+                                               OctetStream)
 
-import           Pos.Client.KeyStorage      (MonadKeys, deleteSecretKey, getSecretKeys)
-import           Pos.Core                   (SoftwareVersion (..), decodeTextAddress)
-import           Pos.NtpCheck               (NtpCheckMonad, NtpStatus (..),
-                                             mkNtpStatusVar)
-import           Pos.Update.Configuration   (HasUpdateConfiguration, curSoftwareVersion)
-import           Pos.Util                   (maybeThrow)
-
-import           Pos.Wallet.WalletMode      (MonadBlockchainInfo (..), MonadUpdates (..))
-import           Pos.Wallet.Web.ClientTypes (CProfile (..), CUpdateInfo (..),
-                                             SyncProgress (..))
-import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.State       (MonadWalletDB, MonadWalletDBRead,
-                                             getNextUpdate, getProfile, removeNextUpdate,
-                                             setProfile, testReset)
-
+import           Pos.Client.KeyStorage        (MonadKeys, deleteSecretKey, getSecretKeys)
+import           Pos.NtpCheck                 (NtpCheckMonad, NtpStatus (..),
+                                               mkNtpStatusVar)
+import           Pos.Wallet.Aeson.ClientTypes ()
+import           Pos.Wallet.Aeson.Storage     ()
+import           Pos.Wallet.WalletMode        (MonadBlockchainInfo, MonadUpdates,
+                                               applyLastUpdate, connectedPeers,
+                                               localChainDifficulty,
+                                               networkChainDifficulty)
+import           Pos.Wallet.Web.ClientTypes   (Addr, CId, CProfile (..), CUpdateInfo (..),
+                                               SyncProgress (..), cIdToAddress)
+import           Pos.Wallet.Web.Error         (WalletError (..))
+import           Pos.Wallet.Web.State         (MonadWalletDB, MonadWalletDBRead,
+                                               getNextUpdate, getProfile,
+                                               getWalletStorage, removeNextUpdate,
+                                               setProfile, testReset)
+import           Pos.Wallet.Web.State.Storage (WalletStorage)
 
 ----------------------------------------------------------------------------
 -- Profile
@@ -52,10 +64,8 @@ updateUserProfile profile = setProfile profile >> getUserProfile
 -- Address
 ----------------------------------------------------------------------------
 
--- NOTE: later we will have `isValidAddress :: CId -> m Bool` which should work for arbitrary crypto
-isValidAddress :: Monad m => Text -> m Bool
-isValidAddress sAddr =
-    pure . isRight $ decodeTextAddress sAddr
+isValidAddress :: Monad m => CId Addr -> m Bool
+isValidAddress = pure . isRight . cIdToAddress
 
 ----------------------------------------------------------------------------
 -- Updates
@@ -77,12 +87,12 @@ nextUpdate = do
     noUpdates = RequestError "No updates available"
 
 -- | Postpone next update after restart
-postponeUpdate :: MonadWalletDB ctx m => m ()
-postponeUpdate = removeNextUpdate
+postponeUpdate :: MonadWalletDB ctx m => m NoContent
+postponeUpdate = removeNextUpdate >> return NoContent
 
 -- | Delete next update info and restart immediately
-applyUpdate :: (MonadWalletDB ctx m, MonadUpdates m) => m ()
-applyUpdate = removeNextUpdate >> applyLastUpdate
+applyUpdate :: (MonadWalletDB ctx m, MonadUpdates m) => m NoContent
+applyUpdate = removeNextUpdate >> applyLastUpdate >> return NoContent
 
 ----------------------------------------------------------------------------
 -- Sync progress
@@ -101,7 +111,7 @@ syncProgress =
 
 localTimeDifference :: (NtpCheckMonad m, MonadMockable m) => m Word
 localTimeDifference =
-    mkNtpStatusVar >>= readMVar >>= pure . diff
+    diff <$> (mkNtpStatusVar >>= readMVar)
   where
     diff :: NtpStatus -> Word
     diff = \case
@@ -114,10 +124,29 @@ localTimeDifference =
 -- Reset
 ----------------------------------------------------------------------------
 
-testResetAll :: (MonadWalletDB ctx m, MonadKeys m) => m ()
-testResetAll = deleteAllKeys >> testReset
+testResetAll :: (MonadWalletDB ctx m, MonadKeys m) => m NoContent
+testResetAll = deleteAllKeys >> testReset >> return NoContent
   where
     deleteAllKeys :: MonadKeys m => m ()
     deleteAllKeys = do
         keyNum <- length <$> getSecretKeys
         replicateM_ keyNum $ deleteSecretKey 0
+
+----------------------------------------------------------------------------
+-- Print wallet state
+----------------------------------------------------------------------------
+
+data WalletStateSnapshot = WalletStateSnapshot
+    { wssWalletStorage :: WalletStorage
+    } deriving (Generic)
+
+deriveJSON defaultOptions ''WalletStateSnapshot
+
+instance MimeRender OctetStream WalletStateSnapshot where
+    mimeRender _ = encode
+
+instance Buildable WalletStateSnapshot where
+    build _ = "<wallet-state-snapshot>"
+
+dumpState :: MonadWalletDBRead ctx m => m WalletStateSnapshot
+dumpState = WalletStateSnapshot <$> getWalletStorage

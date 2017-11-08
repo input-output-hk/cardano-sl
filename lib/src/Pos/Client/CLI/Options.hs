@@ -14,7 +14,6 @@ module Pos.Client.CLI.Options
        , walletAddressOption
        , networkAddressOption
        , templateParser
-       , sscAlgoOption
 
        , nodeIdOption
        ) where
@@ -28,11 +27,9 @@ import           Serokell.Util                        (sec)
 import           Serokell.Util.OptParse               (fromParsec)
 
 import           Pos.Binary.Core                      ()
-import           Pos.Client.CLI.Util                  (sscAlgoParser)
 import           Pos.Communication                    (NodeId)
 import           Pos.Core                             (Timestamp (..))
 import           Pos.Launcher.Configuration           (ConfigurationOptions (..))
-import           Pos.Ssc.SscAlgo                      (SscAlgo (..))
 import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
                                                        addrParserNoWildcard,
                                                        addressToNodeId)
@@ -61,6 +58,7 @@ configurationOptionsParser = do
     cfoFilePath    <- filePathParser
     cfoKey         <- keyParser
     cfoSystemStart <- systemStartParser
+    cfoSeed        <- seedParser
     return ConfigurationOptions{..}
   where
     filePathParser :: Opt.Parser FilePath
@@ -81,6 +79,11 @@ configurationOptionsParser = do
         Opt.metavar "TIMESTAMP" <>
         Opt.help    "System start time. Format - seconds since Unix Epoch." <>
         Opt.value   (cfoSystemStart def)
+    seedParser :: Opt.Parser (Maybe Integer)
+    seedParser = Opt.optional $ Opt.option Opt.auto $
+        Opt.long    "configuration-seed" <>
+        Opt.metavar "INTEGER" <>
+        Opt.help    "Seed for genesis generation. Overrides one from configuration file."
 
 templateParser :: (HasName f, HasMetavar f) => String -> String -> String -> Opt.Mod f a
 templateParser long metavar help =
@@ -118,15 +121,6 @@ portOption portNum =
     Opt.option Opt.auto $
         templateParser "port" "PORT" "Port to work on."
         <> Opt.value portNum
-        <> Opt.showDefault
-
-sscAlgoOption :: Opt.Parser SscAlgo
-sscAlgoOption =
-    Opt.option (fromParsec sscAlgoParser) $
-        templateParser "ssc-algo"
-                       "ALGO"
-                       "Shared Seed Calculation algorithm which nodes will use."
-        <> Opt.value GodTossingAlgo
         <> Opt.showDefault
 
 reportServersOption :: Opt.Parser [Text]

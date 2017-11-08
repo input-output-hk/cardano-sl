@@ -62,7 +62,7 @@ import           Pos.Binary                       (AsBinaryClass (..), Bi (..), 
 import           Pos.Communication                (Limit (..), MessageLimitedPure (..))
 import           Pos.Configuration                (HasNodeConfiguration)
 import           Pos.Core                         (HasConfiguration)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.Configuration            (HasSscConfiguration)
 import           Test.Pos.Block.Logic.Mode        (BlockProperty, blockPropertyTestable)
 import           Test.Pos.Cbor.Canonicity         (perturbCanonicity)
 import qualified Test.Pos.Cbor.ReferenceImplementation as R
@@ -305,7 +305,7 @@ splitIntoChunks maxSize items = do
 
 -- | Specialized version of 'prop' function from 'hspec'.
 blockPropertySpec ::
-       (HasNodeConfiguration, HasGtConfiguration)
+       (HasNodeConfiguration, HasSscConfiguration)
     => String
     -> (HasConfiguration => BlockProperty a)
     -> Spec

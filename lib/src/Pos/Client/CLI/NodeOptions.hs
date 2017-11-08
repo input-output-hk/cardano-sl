@@ -27,10 +27,9 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 import           Paths_cardano_sl             (version)
 
 import           Pos.Client.CLI.Options       (CommonArgs (..), commonArgsParser,
-                                               optionalJSONPath, sscAlgoOption)
+                                               optionalJSONPath)
 import           Pos.HealthCheck.Route53      (route53HealthCheckOption)
 import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
-import           Pos.Ssc.SscAlgo              (SscAlgo (..))
 import           Pos.Statistics               (EkgParams, StatsdParams, ekgParamsOption,
                                                statsdParamsOption)
 import           Pos.Util.BackupPhrase        (BackupPhrase, backupPhraseWordsNum)
@@ -120,14 +119,12 @@ commonNodeArgsParser = do
 data SimpleNodeArgs = SimpleNodeArgs CommonNodeArgs NodeArgs
 
 data NodeArgs = NodeArgs
-    { sscAlgo            :: !SscAlgo
-    , behaviorConfigPath :: !(Maybe FilePath)
+    { behaviorConfigPath :: !(Maybe FilePath)
     } deriving Show
 
 simpleNodeArgsParser :: Parser SimpleNodeArgs
 simpleNodeArgsParser = do
     commonNodeArgs <- commonNodeArgsParser
-    sscAlgo <- sscAlgoOption
     behaviorConfigPath <- behaviorConfigOption
     pure $ SimpleNodeArgs commonNodeArgs NodeArgs{..}
 

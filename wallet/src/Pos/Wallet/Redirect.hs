@@ -29,9 +29,8 @@ import           System.Wlog                    (WithLogger, logWarning)
 
 import qualified Pos.Context                    as PC
 import           Pos.Core                       (ChainDifficulty, HasConfiguration,
-                                                 Timestamp, difficultyL,
-                                                 getCurrentTimestamp)
-import           Pos.Core                       (Tx, TxAux (..), TxId, TxUndo)
+                                                 Timestamp, Tx, TxAux (..), TxId, TxUndo,
+                                                 difficultyL, getCurrentTimestamp)
 import           Pos.Core.Block                 (BlockHeader)
 import           Pos.Crypto                     (WithHash (..))
 import           Pos.DB.Block                   (MonadBlockDB)

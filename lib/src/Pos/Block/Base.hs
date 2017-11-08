@@ -1,3 +1,5 @@
+-- | Block constructors and basic functions.
+
 module Pos.Block.Base
        ( mkMainBlock
        , mkMainHeader
@@ -14,8 +16,8 @@ import           Data.Default                 (Default (def))
 
 import           Pos.Block.BHelpers           ()
 import           Pos.Core                     (EpochIndex, HasConfiguration,
-                                               HasDifficulty (..), HasHeaderHash,
-                                               LocalSlotIndex, SlotId, SlotLeaders)
+                                               HasDifficulty (..), LocalSlotIndex, SlotId,
+                                               SlotLeaders)
 import           Pos.Core.Block               (BlockHeader, BlockSignature (..),
                                                GenesisBlock, GenesisBlockHeader,
                                                GenesisBlockchain,
@@ -42,15 +44,9 @@ import           Pos.Util.Util                (leftToPanic)
 -- Main smart constructors
 ----------------------------------------------------------------------------
 
-type SanityConstraintM
-     = ( HasDifficulty BlockHeader
-       , HasHeaderHash BlockHeader
-       , HasConfiguration
-       )
-
 -- | Smart constructor for 'MainBlockHeader'.
 mkMainHeader
-    :: SanityConstraintM
+    :: HasConfiguration
     => Maybe BlockHeader
     -> SlotId
     -> SecretKey
@@ -88,7 +84,7 @@ mkMainHeader prevHeader slotId sk pske body extra =
 -- | Smart constructor for 'MainBlock'. Uses 'mkMainHeader'. It
 -- verifies consistency of given data and may fail.
 mkMainBlock
-    :: (HasUpdateConfiguration, SanityConstraintM, MonadError Text m)
+    :: (HasUpdateConfiguration, HasConfiguration, MonadError Text m)
     => Maybe BlockHeader
     -> SlotId
     -> SecretKey
@@ -112,8 +108,8 @@ mkMainBlock prevHeader slotId sk pske body =
             (hash extraB)
 
 -- | Empty (i. e. no payload) body of main block for given local slot index.
-emptyMainBody ::
-       HasConfiguration
+emptyMainBody
+    :: HasConfiguration
     => LocalSlotIndex
     -> Body MainBlockchain
 emptyMainBody slot =
@@ -128,15 +124,9 @@ emptyMainBody slot =
 -- Genesis smart constructors
 ----------------------------------------------------------------------------
 
-type SanityConstraintG
-     = ( HasDifficulty BlockHeader
-       , HasHeaderHash BlockHeader
-       , HasConfiguration
-       )
-
 -- | Smart constructor for 'GenesisBlockHeader'. Uses 'mkGenericHeader'.
 mkGenesisHeader
-    :: SanityConstraintG
+    :: HasConfiguration
     => Maybe BlockHeader
     -> EpochIndex
     -> Body GenesisBlockchain
@@ -156,7 +146,7 @@ mkGenesisHeader prevHeader epoch body =
 
 -- | Smart constructor for 'GenesisBlock'.
 mkGenesisBlock
-    :: SanityConstraintG
+    :: HasConfiguration
     => Maybe BlockHeader
     -> EpochIndex
     -> SlotLeaders

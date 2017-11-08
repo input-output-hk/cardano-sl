@@ -1,4 +1,4 @@
--- | Serialization of core types from GodTossing SSC.
+-- | Serialization of core types from SSC.
 
 module Pos.Binary.Core.Ssc
        (
@@ -119,13 +119,13 @@ deriveSimpleBiCxt [t|HasConfiguration|] ''SscPayload [
 
 deriveSimpleBi ''SscProof [
     Cons 'CommitmentsProof [
-        Field [| sprComms    :: Hash CommitmentsMap     |],
+        Field [| sprComms    :: Hash CommitmentsMap |],
         Field [| sprVss      :: VssCertificatesHash |] ],
     Cons 'OpeningsProof [
-        Field [| sprOpenings :: Hash OpeningsMap        |],
+        Field [| sprOpenings :: Hash OpeningsMap    |],
         Field [| sprVss      :: VssCertificatesHash |] ],
     Cons 'SharesProof [
-        Field [| sprShares   :: Hash SharesMap          |],
+        Field [| sprShares   :: Hash SharesMap      |],
         Field [| sprVss      :: VssCertificatesHash |] ],
     Cons 'CertificatesProof [
         Field [| sprVss      :: VssCertificatesHash |] ]

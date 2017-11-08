@@ -37,7 +37,7 @@ instance Buildable DlgPayload where
             ("proxy signing keys ("%int%" items): "%listJson%"\n")
             (length psks) psks
 
--- | Constructor of 'DlgPaylod' which ensures absence of duplicates.
+-- | Constructor of 'DlgPayload' which ensures absence of duplicates.
 mkDlgPayload :: (HasConfiguration, MonadError Text m) => [ProxySKHeavy] -> m DlgPayload
 mkDlgPayload proxySKs = do
     unless (null duplicates) $

@@ -1,4 +1,4 @@
--- | Serialization of core types from 'Pos.Block'.
+-- | Serialization of core types from 'Pos.Core.Block'.
 
 module Pos.Binary.Core.Block
        (

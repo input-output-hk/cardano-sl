@@ -1,19 +1,26 @@
 -- | Binary serialization of Pos.Block.* Types.
 
-module Pos.Binary.Undo
+module Pos.Binary.Block.Types
        (
        ) where
 
-import           Pos.Binary.Class      (Cons (..), Field (..), deriveSimpleBiCxt)
+import           Universum
+
+import           Pos.Binary.Class      (Cons (..), Field (..), deriveSimpleBi,
+                                        deriveSimpleBiCxt)
 import           Pos.Binary.Core       ()
 import           Pos.Binary.Delegation ()
-import           Pos.Binary.Slog       ()
 import           Pos.Binary.Update     ()
-import           Pos.Block.Slog.Types  (SlogUndo)
+import           Pos.Block.Slog.Types  (SlogUndo (..))
 import           Pos.Block.Types       (Undo (..))
-import           Pos.Core              (HasConfiguration, TxpUndo)
+import           Pos.Core              (FlatSlotId, HasConfiguration, TxpUndo)
 import           Pos.Delegation.Types  (DlgUndo)
 import           Pos.Update.Poll.Types (USUndo)
+
+deriveSimpleBi ''SlogUndo [
+    Cons 'SlogUndo [
+        Field [| getSlogUndo  :: Maybe FlatSlotId |]
+    ]]
 
 deriveSimpleBiCxt [t|HasConfiguration|] ''Undo [
     Cons 'Undo [

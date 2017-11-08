@@ -39,8 +39,6 @@ module Pos.Core.Txp
        -- * Undo
        , TxUndo
        , TxpUndo
-
-       -- * Block message
        ) where
 
 import           Universum

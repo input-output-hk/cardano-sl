@@ -137,8 +137,7 @@ library
   other-modules:        Pos.Aeson.Types
 
                         -- Binary serialization
-                        Pos.Binary.Slog
-                        Pos.Binary.Undo
+                        Pos.Binary.Block.Types
                         Pos.Binary.Delegation
 
                         -- Block processing

@@ -1,5 +1,30 @@
 # Transaction processing
 
+## Table of contents
+
+  * [Prerequisites](#prerequisites)
+  * [Overview](#overview)
+  * [Global transaction processing](#global-transaction-processing)
+    + [GState](#gstate)
+    + [Unknown data handling](#unknown-data-handling)
+    + [Verification](#verification)
+      - [General checks](#general-checks)
+      - [Outputs checks](#outputs-checks)
+      - [Inputs checks](#inputs-checks)
+        * [Witness checks](#witness-checks)
+          + [Public key witness](#public-key-witness)
+          + [Script witness](#script-witness)
+          + [Redeem witness](#redeem-witness)
+          + [Unknown witness](#unknown-witness)
+        * [Sums check](#sums-check)
+        * [Transaction fee check](#transaction-fee-check)
+          + [Size-linear policy](#size-linear-policy)
+    + [GState modification](#gstate-modification)
+      - [UTXO modification](#utxo-modification)
+      - [Computing stakes for transaction output](#computing-stakes-for-transaction-output)
+      - [Stakes modification](#stakes-modification)
+  * [Local transaction processing](#local-transaction-processing)
+
 ## Prerequisites
 
 * You should know what a transaction is, its structure and about tx

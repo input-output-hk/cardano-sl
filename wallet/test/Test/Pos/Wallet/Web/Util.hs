@@ -34,8 +34,8 @@ import           Pos.Client.KeyStorage          (getSecretKeysPlain)
 import           Pos.Client.Txp.Balances        (getBalance)
 import           Pos.Context                    (LastKnownHeaderTag, ProgressHeaderTag)
 import           Pos.Core                       (Address, BlockCount, Coin,
-                                                 HasConfiguration, generatedSecrets,
-                                                 gsSecretKeysPoor, headerHashG)
+                                                 HasConfiguration, genesisSecretsPoor,
+                                                 headerHashG)
 import           Pos.Core.Address               (IsBootstrapEraAddr (..),
                                                  deriveLvl2KeyPair)
 import           Pos.Crypto                     (EncryptedSecretKey, PassPhrase,
@@ -51,7 +51,7 @@ import           Pos.Util.CompileInfo           (HasCompileInfo)
 import           Pos.Util.Servant               (encodeCType)
 import           Pos.Util.UserSecret            (mkGenesisWalletUserSecret)
 import           Pos.Util.Util                  (HasLens (..), _neLast)
-import           Pos.Wallet.Web.ClientTypes     (Addr, CId)
+import           Pos.Wallet.Web.ClientTypes     (Addr, CId, Wal, encToCId)
 import           Pos.Wallet.Web.Methods.Restore (importWalletDo)
 
 import           Test.Pos.Block.Logic.Util      (EnableTxPayload, InplaceDB,
@@ -74,7 +74,7 @@ wpGenBlocks blkCnt enTxPayload inplaceDB = do
     params <- genBlockGenParams blkCnt enTxPayload inplaceDB
     g <- pick $ MkGen $ \qc _ -> qc
     lift $ modifyStateLock HighPriority "wpGenBlocks" $ \prevTip -> do
-        blunds <- evalRandT (genBlocks params) g
+        blunds <- OldestFirst <$> evalRandT (genBlocks params maybeToList) g
         case nonEmpty $ getOldestFirst blunds of
             Just nonEmptyBlunds -> do
                 let tipBlockHeader = nonEmptyBlunds ^. _neLast . _1 . blockHeader
@@ -103,9 +103,7 @@ wpGenBlock = fmap (unsafeHead . toList) ... wpGenBlocks (Just 1)
 importSomeWallets :: (HasConfigurations, HasCompileInfo) => WalletProperty [PassPhrase]
 importSomeWallets = do
     let secrets =
-            map (view _2) .
-            gsSecretKeysPoor .
-            fromMaybe (error "Generated secrets are unknown") $ generatedSecrets
+            fromMaybe (error "Generated secrets are unknown") genesisSecretsPoor
     (encSecrets, passphrases) <- pick $ do
         seks <- take 10 <$> sublistOf secrets `suchThat` (not . null)
         let l = length seks
@@ -118,19 +116,20 @@ importSomeWallets = do
     pure passphrases
 
 -- | Take passphrases of our wallets
--- and return some address from one of our wallets
+-- and return some address from one of our wallets and id of this wallet.
 -- BE CAREFUL: this functions might take long time b/c it uses @deriveLvl2KeyPair@
-deriveRandomAddress :: [PassPhrase] -> WalletProperty (CId Addr)
+deriveRandomAddress :: [PassPhrase] -> WalletProperty (CId Addr, CId Wal)
 deriveRandomAddress passphrases = do
     skeys <- lift getSecretKeysPlain
     let l = length skeys
     assert (l > 0)
     walletIdx <- pick $ choose (0, l - 1)
     let sk = skeys !! walletIdx
+    let walId = encToCId sk
     let psw = passphrases !! walletIdx
     addressMB <- pick $ genWalletAddress sk psw
     address <- maybeStopProperty "deriveRandomAddress: couldn't derive HD address" addressMB
-    pure $ encodeCType address
+    pure (encodeCType address, walId)
 
 ----------------------------------------------------------------------------
 -- Wallet addresses generation
@@ -206,4 +205,3 @@ newtype DerivingIndex = DerivingIndex
 
 instance Arbitrary DerivingIndex where
     arbitrary = DerivingIndex <$> choose (firstHardened, firstHardened + (firstHardened - 1))
-

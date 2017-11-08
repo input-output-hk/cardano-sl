@@ -18,15 +18,14 @@ import           System.Wlog                      (LoggerName, WithLogger)
 import           Pos.Behavior                     (BehaviorConfig (..))
 import           Pos.Client.CLI.NodeOptions       (CommonNodeArgs (..), NodeArgs (..))
 import           Pos.Client.CLI.Options           (CommonArgs (..))
-import           Pos.Client.CLI.Secrets           (updateUserSecretVSS,
-                                                   userSecretWithGenesisKey)
+import           Pos.Client.CLI.Secrets           (prepareUserSecret)
 import           Pos.Core.Configuration           (HasConfiguration)
 import           Pos.Crypto                       (VssKeyPair)
 import           Pos.Launcher                     (BaseParams (..), LoggingParams (..),
                                                    NodeParams (..))
 import           Pos.Network.CLI                  (intNetworkConfigOpts)
-import           Pos.Ssc.GodTossing               (SscParams (..))
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc                          (SscParams (..))
+import           Pos.Ssc.Configuration            (HasSscConfiguration)
 import           Pos.Update.Params                (UpdateParams (..))
 import           Pos.Util.UserSecret              (peekUserSecret)
 
@@ -48,7 +47,7 @@ gtSscParams CommonNodeArgs {..} vssSK BehaviorConfig{..} =
     SscParams
     { spSscEnabled = True
     , spVssKeyPair = vssSK
-    , spBehavior   = bcGtBehavior
+    , spBehavior   = bcSscBehavior
     }
 
 getKeyfilePath :: CommonNodeArgs -> FilePath
@@ -65,16 +64,14 @@ getNodeParams ::
        , Mockable Catch m
        , Mockable Throw m
        , HasConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        )
     => CommonNodeArgs
     -> NodeArgs
     -> m NodeParams
 getNodeParams cArgs@CommonNodeArgs{..} NodeArgs{..} = do
     (primarySK, userSecret) <-
-        userSecretWithGenesisKey cArgs =<<
-            updateUserSecretVSS cArgs =<<
-                peekUserSecret (getKeyfilePath cArgs)
+        prepareUserSecret cArgs =<< peekUserSecret (getKeyfilePath cArgs)
     npNetworkConfig <- intNetworkConfigOpts networkConfigOpts
     npBehaviorConfig <- case behaviorConfigPath of
         Nothing -> pure def

@@ -1,56 +1,60 @@
-{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE GADTs #-}
 
 module Command.Help
-       ( helpMessage
+       ( mkHelpMessage
        ) where
 
 import           Universum
 
-import           NeatInterpolation (text)
+import qualified Data.Text        as T
 
-helpMessage :: Text
-helpMessage = [text|
-Avaliable commands:
-   balance <address>              -- check balance on given address (may be any address)
-   send <N> [<address> <coins>]+  -- create and send transaction with given outputs
-                                     from own address #N
-   send-to-all-genesis <duration> <conc> <delay> <sendmode> <csvfile>
-                                  -- create and send transactions from all genesis addresses for <duration>
-                                     seconds, delay in ms.  conc is the number of threads that send
-                                     transactions concurrently. sendmode can be one of "neighbours",
-                                     "round-robin", and "send-random".
-   vote <N> <decision> <upid>     -- send vote with given hash of proposal id (in base16) and
-                                     decision, from own address #N
-   propose-update <N> <block ver> <software ver> <script ver> <slot duration> <max block size> <propose_file>?
-                                  -- propose an update with given versions and other data
-                                     with one positive vote for it, from own address #N
+import           Pos.Util.Justify (leftAlign)
 
-   propose-unlock-stake-epoch <N> <block ver> <software ver> <epoch>
-                                  -- propose an update with the specified unlock stake epoch,
-                                  -- with one positive vote for it, from our own address #N
+import           Lang.Argument    (ArgCardinality (..), SomeArgCardinality (..),
+                                   TypeName (..), getParameters)
+import           Lang.Command     (CommandProc (..))
+import           Lang.Name        (Name)
 
-   listaddr                       -- list own addresses
-   delegate-light <N> <M> <eStart> <eEnd>?
-                                  -- delegate secret key #N to pk <M> light version (M is encoded in base58),
-                                     where eStart is cert start epoch, eEnd -- expire epoch
-   delegate-heavy <N> <M> <e>     -- delegate secret key #N to pk <M> heavyweight (M is encoded in base58),
-                                     e is current epoch.
-   add-key-pool <N>               -- add key from intial pool
-   add-key <file>                 -- add key from file
+commandHelp :: CommandProc m -> Text
+commandHelp CommandProc{..} =
+    let
+        parameters = getParameters cpArgumentConsumer
+        name = pretty cpName
+        prefixes = name : repeat (T.replicate (T.length name) " ")
+        helpLines = map (\l -> "-- " <> l <> "\n") $ leftAlign 40 cpHelp
+        parameterLines =
+            if null parameters
+            then [""]
+            else map parameterHelp parameters
+        commandDesc = T.intercalate "\n" $
+            zipWith (\p h -> p <> " " <> h) prefixes parameterLines
+    in
+        T.concat helpLines <> commandDesc
 
-   addr-distr <N> boot
-   addr-distr <N> [<M>:<coinPortion>]+
-                                  -- print the address for pk <N> (encoded in base58) with the specified distribution,
-                                  -- where <M> is stakeholder id (pk hash), and the coin portion can be a coefficient
-                                  -- in [0..1] or a percentage (ex. 42%)
+parameterHelp :: (Name, TypeName, SomeArgCardinality) -> Text
+parameterHelp (name, tn, ac) = pretty name <> ": " <> withArgCardinality ac (withTypeName tn NeedWrap)
 
-   rollback <N> <file>            -- Rollback <N> blocks (genesis or main doesn't matter) and dump transactions from
-                                  -- them to <file> in binary format.
+data NeedWrap = NeedWrap | DontNeedWrap
 
-   generate-blocks <N> <seed>?    -- Generate blocks. Parameters are number of blocks and seed.
-   send-from-file <file>          -- Read transactions in binary format from <file> and submit them to the network.
-                                  -- <file> should be in format produced by 'rollback' command.
+withArgCardinality :: SomeArgCardinality -> Text -> Text
+withArgCardinality (SomeArgCardinality ac) = case ac of
+    ArgCardSingle -> identity
+    ArgCardOpt    -> (<> "?")
+    ArgCardMany   -> (<> "*")
+    ArgCardSome   -> (<> "+")
 
-   help                           -- show this message
-   quit                           -- shutdown node wallet
-|]
+withTypeName :: TypeName -> NeedWrap -> Text
+withTypeName (TypeName t) _ = t
+withTypeName (TypeNameEither tn1 tn2) needWrap =
+    case needWrap of
+        DontNeedWrap -> t'
+        NeedWrap     -> wrap t'
+  where
+    wrap t = "(" <> t <> ")"
+    t' = withTypeName tn1 DontNeedWrap <> " | " <>
+         withTypeName tn2 DontNeedWrap
+
+mkHelpMessage :: [CommandProc m] -> Text
+mkHelpMessage cps =
+    "Available commands:\n\n" <>
+    mconcat (map (\cp -> commandHelp cp <> "\n\n") cps)

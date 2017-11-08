@@ -34,7 +34,7 @@ import           Pos.DB.DB       (getTipBlock)
 import           Pos.Explorer.DB (Page, getPageBlocks)
 
 import           Pos.Core        (Address, Coin, HasConfiguration, isRedeemAddress)
-import           Pos.Lrc         (getLeaders)
+import           Pos.Lrc         (getLeadersForEpoch)
 import           Pos.Slotting    (MonadSlotsData, getSlotStart)
 import           Pos.Txp         (GenesisUtxo (..), genesisUtxo, utxoToAddressCoinPairs)
 import           Pos.Types       (EpochIndex, HeaderHash, SlotId (..), SlotLeaders,
@@ -113,7 +113,7 @@ prodMode = ExplorerMockMode {
       emmGetPageBlocks          = getPageBlocks,
       emmGetBlundFromHH         = blkGetBlund,
       emmGetSlotStart           = getSlotStart,
-      emmGetLeadersFromEpoch    = getLeaders
+      emmGetLeadersFromEpoch    = getLeadersForEpoch
     }
 
 -- | So we can just reuse the default instance and change individial functions.

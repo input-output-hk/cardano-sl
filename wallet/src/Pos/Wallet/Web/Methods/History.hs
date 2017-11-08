@@ -5,7 +5,7 @@
 module Pos.Wallet.Web.Methods.History
        ( MonadWalletHistory
        , getHistoryLimited
-       , addHistoryTx
+       , addHistoryTxMeta
        , constructCTx
        , getCurChainDifficulty
        , updateTransaction
@@ -29,11 +29,11 @@ import           Pos.Util.LogSafe             (logInfoS)
 import           Pos.Util.Servant             (encodeCType)
 import           Pos.Wallet.WalletMode        (MonadBlockchainInfo (..), getLocalHistory)
 import           Pos.Wallet.Web.ClientTypes   (AccountId (..), Addr, CId, CTx (..), CTxId,
-                                               CTxMeta (..), CWAddressMeta (..), Wal,
-                                               mkCTx)
+                                               CTxMeta (..), CWAddressMeta (..),
+                                               ScrollLimit, ScrollOffset, Wal, mkCTx)
 import           Pos.Wallet.Web.Error         (WalletError (..))
-import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic)
-import           Pos.Wallet.Web.Pending       (PendingTx (..), ptxPoolInfo)
+import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogicRead)
+import           Pos.Wallet.Web.Pending       (PendingTx (..), isPtxActive, ptxPoolInfo)
 import           Pos.Wallet.Web.State         (AddressLookupMode (Ever), MonadWalletDB,
                                                MonadWalletDBRead, addOnlyNewTxMetas,
                                                getHistoryCache, getPendingTx, getTxMeta,
@@ -41,10 +41,11 @@ import           Pos.Wallet.Web.State         (AddressLookupMode (Ever), MonadWa
 import           Pos.Wallet.Web.Util          (decodeCTypeOrFail, getAccountAddrsOrThrow,
                                                getWalletAccountIds, getWalletAddrs,
                                                getWalletAddrsSet)
+import           Servant.API.ContentTypes     (NoContent (..))
 
 
 type MonadWalletHistory ctx m =
-    ( MonadWalletLogic ctx m
+    ( MonadWalletLogicRead ctx m
     , MonadBlockchainInfo m
     , MonadTxHistory m
     )
@@ -67,17 +68,12 @@ getFullWalletHistory cWalId = do
 
     let localHistory = unfilteredLocalHistory `Map.difference` blockHistory
 
-    logTxHistory "Block" blockHistory
-    logTxHistory "Mempool" localHistory
+    _ <- logTxHistory "Block" blockHistory
+    _ <- logTxHistory "Mempool" localHistory
 
-    fullHistory <- addRecentPtxHistory cWalId $ localHistory `Map.union` blockHistory
+    fullHistory <- addPtxHistory cWalId $ localHistory `Map.union` blockHistory
     walAddrs    <- getWalletAddrsSet Ever cWalId
     diff        <- getCurChainDifficulty
-    -- TODO when we introduce some mechanism to react on new tx in mempool,
-    -- we will set timestamp tx as current time and remove call of @addHistoryTxs@
-    -- We call @addHistoryTxs@ only for mempool transactions because for
-    -- transactions from block and resubmitting timestamp is already known.
-    addHistoryTxs cWalId localHistory
     cHistory <- forM fullHistory (constructCTx cWalId walAddrs diff)
     pure (cHistory, fromIntegral $ Map.size cHistory)
 
@@ -123,8 +119,8 @@ getHistoryLimited
     => Maybe (CId Wal)
     -> Maybe AccountId
     -> Maybe (CId Addr)
-    -> Maybe Word
-    -> Maybe Word
+    -> Maybe ScrollOffset
+    -> Maybe ScrollLimit
     -> m ([CTx], Word)
 getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
     (cWalId, accIds) <- case (mCWalId, mAccId) of
@@ -153,23 +149,26 @@ getHistoryLimited mCWalId mAccId mAddrId mSkip mLimit = do
     errorDontSpecifyBoth = RequestError $
         "Please do not specify both walletId and accountId at the same time"
 
-addHistoryTx
+addHistoryTxMeta
     :: MonadWalletDB ctx m
     => CId Wal
     -> TxHistoryEntry
-    -> m ()
-addHistoryTx cWalId = addHistoryTxs cWalId . txHistoryListToMap . one
+    -> m NoContent
+addHistoryTxMeta cWalId txhe = do
+    _ <- addHistoryTxsMeta cWalId . txHistoryListToMap . one $ txhe
+    return NoContent
 
 -- This functions is helper to do @addHistoryTx@ for
 -- all txs from mempool as one Acidic transaction.
-addHistoryTxs
+addHistoryTxsMeta
     :: MonadWalletDB ctx m
     => CId Wal
     -> Map TxId TxHistoryEntry
-    -> m ()
-addHistoryTxs cWalId historyEntries = do
+    -> m NoContent
+addHistoryTxsMeta cWalId historyEntries = do
     metas <- mapM toMeta historyEntries
     addOnlyNewTxMetas cWalId metas
+    return NoContent
   where
     toMeta THEntry {..} = CTxMeta <$> case _thTimestamp of
         Nothing -> liftIO getPOSIXTime
@@ -193,28 +192,32 @@ constructCTx cWalId walAddrsSet diff wtx@THEntry{..} = do
 getCurChainDifficulty :: MonadBlockchainInfo m => m ChainDifficulty
 getCurChainDifficulty = maybe localChainDifficulty pure =<< networkChainDifficulty
 
-updateTransaction :: MonadWalletDB ctx m => AccountId -> CTxId -> CTxMeta -> m ()
+updateTransaction :: MonadWalletDB ctx m => AccountId -> CTxId -> CTxMeta -> m NoContent
 updateTransaction accId txId txMeta = do
     setWalletTxMeta (aiWId accId) txId txMeta
+    return NoContent
 
-addRecentPtxHistory
-    :: (WithLogger m, MonadWalletDB ctx m)
+addPtxHistory
+    :: (WithLogger m, MonadWalletDBRead ctx m)
     => CId Wal -> Map TxId TxHistoryEntry -> m (Map TxId TxHistoryEntry)
-addRecentPtxHistory wid currentHistory = do
+addPtxHistory wid currentHistory = do
     pendingTxs <- getWalletPendingTxs wid
     let candidates = toCandidates pendingTxs
-    logTxHistory "Pending" candidates
+    _ <- logTxHistory "Pending" candidates
     return $ Map.union currentHistory candidates
   where
     toCandidates =
             txHistoryListToMap
-        .   mapMaybe (ptxPoolInfo . _ptxCond)
+        .   mapMaybe getPtxTh
         .   fromMaybe []
+    getPtxTh PendingTx{..} =
+        guard (isPtxActive _ptxCond) *> ptxPoolInfo _ptxCond
 
 logTxHistory
     :: (Container t, Element t ~ TxHistoryEntry, WithLogger m, MonadIO m)
     => Text -> t -> m ()
-logTxHistory desc =
-    logInfoS .
-    sformat (stext%" transactions history: "%listJson) desc .
-    map _thTxId . toList
+logTxHistory desc = do
+    logInfoS
+        . sformat (stext%" transactions history: "%listJson) desc
+        . map _thTxId
+        . toList

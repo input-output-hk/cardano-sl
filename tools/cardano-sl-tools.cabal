@@ -1,5 +1,5 @@
 name:                cardano-sl-tools
-version:             1.0.2
+version:             1.0.3
 synopsis:            Cardano SL - Tools
 description:         Cardano SL - Tools
 license:             MIT
@@ -283,6 +283,7 @@ executable cardano-launcher
                      , optparse-applicative
                      , process
                      , safe-exceptions
+                     , silently
                      , system-filepath
                      , text
                      , time-units

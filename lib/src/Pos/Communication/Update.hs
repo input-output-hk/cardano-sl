@@ -15,7 +15,7 @@ import           Pos.Communication.Protocol (EnqueueMsg)
 import           Pos.Crypto                 (SafeSigner, SignTag (SignUSVote), hash,
                                              safeSign, safeToPublic)
 import           Pos.DB.Class               (MonadGState)
-import           Pos.Update                 (UpdateProposal, UpdateVote (..))
+import           Pos.Update                 (UpId, UpdateProposal, UpdateVote (..))
 import           Pos.WorkMode.Class         (MinWorkMode)
 
 -- | Send UpdateVote to given addresses
@@ -31,15 +31,22 @@ submitVote enqueue voteUpd = do
 submitUpdateProposal
     :: (MinWorkMode m, MonadGState m)
     => EnqueueMsg m
-    -> SafeSigner
+    -> [SafeSigner]
     -> UpdateProposal
     -> m ()
 submitUpdateProposal enqueue ss prop = do
     let upid = hash prop
-    let initUpdVote = UpdateVote
-            { uvKey        = safeToPublic ss
+    let votes = constructVotes upid
+    sendUpdateProposal enqueue upid prop votes
+  where
+    createVote upid (signer, signature) =
+        UpdateVote
+            { uvKey        = safeToPublic signer
             , uvProposalId = upid
             , uvDecision   = True
-            , uvSignature  = safeSign SignUSVote ss (upid, True)
+            , uvSignature  = signature
             }
-    sendUpdateProposal enqueue upid prop [initUpdVote]
+    constructVotes :: UpId -> [UpdateVote]
+    constructVotes upid =
+        let signatures = map (\s -> safeSign SignUSVote s (upid, True)) ss
+        in map (createVote upid) (zip ss signatures)

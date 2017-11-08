@@ -69,7 +69,7 @@ import           Pos.Generator.Block              (BlockGenParams (..), BlockTxp
                                                    MonadBlockGen, TxGenParams (..),
                                                    genBlocks)
 import           Pos.GState.Context               (withClonedGState)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.Configuration            (HasSscConfiguration)
 import           Pos.Txp                          (TxpGlobalSettings)
 import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..),
                                                    toNewestFirst, toOldestFirst,
@@ -189,9 +189,7 @@ genBlocksInTree secrets bootStakeholders blockchainTree = do
             , _bgpSkipNoKey       = False
             , _bgpTxpGlobalSettings = txpSettings
             }
-    -- Partial pattern-matching is safe because we specify
-    -- blockCount = 1 in the generation parameters.
-    OldestFirst [block] <- genBlocks blockGenParams
+    [block] <- genBlocks blockGenParams maybeToList
     forestBlocks <- genBlocksInForest secrets bootStakeholders blockchainForest
     return $ BlockchainTree block forestBlocks
 
@@ -330,7 +328,7 @@ newtype CheckCount = CheckCount Word
     deriving (Eq, Ord, Show, Num)
 
 -- The tip after the block event. 'Nothing' when the event doesn't affect the tip.
-blkEvTip :: (HasConfiguration, HasGtConfiguration) => BlockEvent -> Maybe HeaderHash
+blkEvTip :: (HasConfiguration, HasSscConfiguration) => BlockEvent -> Maybe HeaderHash
 blkEvTip = \case
     BlkEvApply bea -> Just $
         (headerHash . NE.head . getNewestFirst . toNewestFirst . view beaInput) bea
@@ -348,7 +346,7 @@ hhSnapshotId = SnapshotId . sformat hashHexF
 
 -- | Whenever the resulting tips of apply/rollback operations coincide,
 -- add a snapshot equivalence comparison.
-enrichWithSnapshotChecking :: (HasConfiguration, HasGtConfiguration) => BlockScenario -> (BlockScenario, CheckCount)
+enrichWithSnapshotChecking :: (HasConfiguration, HasSscConfiguration) => BlockScenario -> (BlockScenario, CheckCount)
 enrichWithSnapshotChecking (BlockScenario bs) = (BlockScenario bs', checkCount)
   where
     checkCount = sum (hhStatusEnd :: HhStatusMap)

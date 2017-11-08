@@ -11,7 +11,8 @@ import qualified Data.ByteString       as BS
 import           Data.Digest.CRC32     (CRC32 (..))
 import           Data.Word             (Word8)
 
-import           Pos.Binary.Class      (Bi (..), decodeCrcProtected, decodeListLen,
+import           Pos.Binary.Class      (Bi (..), decodeCrcProtected,
+                                        decodeListLenCanonical,
                                         decodeUnknownCborDataItem, deserialize',
                                         encodeCrcProtected, encodeListLen,
                                         encodeUnknownCborDataItem, enforceSize,
@@ -93,7 +94,7 @@ instance Bi AddrStakeDistribution where
             SingleKeyDistr id -> encode (w8 0, id)
             UnsafeMultiKeyDistr distr -> encode (w8 1, distr)
     decode =
-        decodeListLen >>= \case
+        decodeListLenCanonical >>= \case
             0 -> pure BootstrapEraDistr
             2 ->
                 decode @Word8 >>= \case

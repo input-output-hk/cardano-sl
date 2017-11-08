@@ -99,19 +99,19 @@ tlsParamsOption = do
                 "tlscert"
                 "FILEPATH"
                 "Path to file with TLS certificate"
-                <> Opt.value "server.crt"
+                <> Opt.value "./scripts/tls-files/server.crt"
     tpKeyPath <-
         Opt.strOption $
             CLI.templateParser
                 "tlskey"
                 "FILEPATH"
                 "Path to file with TLS key"
-                <> Opt.value "server.key"
+                <> Opt.value "./scripts/tls-files/server.key"
     tpCaPath <-
         Opt.strOption $
             CLI.templateParser
                 "tlsca"
                 "FILEPATH"
                 "Path to file with TLS certificate authority"
-                <> Opt.value "ca.crt"
+                <> Opt.value "./scripts/tls-files/ca.crt"
     return TlsParams{..}

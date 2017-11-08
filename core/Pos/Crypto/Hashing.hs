@@ -20,11 +20,13 @@ module Pos.Crypto.Hashing
 
          -- * Common Hash
        , Hash
+       , AHash(..)
        , hashHexF
        , shortHashF
        , hash
        , hashRaw
        , unsafeHash
+       , unsafeCheatingHashCoerce
 
          -- * Utility
        , CastHash (castHash)
@@ -39,6 +41,7 @@ import           Control.Lens         (makeLensesFor)
 import           Crypto.Hash          (Blake2b_256, Digest, HashAlgorithm, hashDigestSize)
 import qualified Crypto.Hash          as Hash
 import qualified Data.ByteArray       as ByteArray
+import           Data.Coerce          (coerce)
 import           Data.Hashable        (Hashable (hashWithSalt), hashPtrWithSalt)
 import           Data.Reflection      (reifyNat)
 import qualified Data.Text.Buildable  as Buildable
@@ -162,6 +165,19 @@ hashHexF = later $ \(AbstractHash x) -> Buildable.build (show x :: Text)
 -- | Smart formatter for 'Hash' to show only first @8@ characters of 'Hash'.
 shortHashF :: Format r (AbstractHash algo a -> r)
 shortHashF = fitLeft 8 %. hashHexF
+
+newtype AHash = AHash { getAHash :: forall a. Hash a }
+
+deriving instance Eq AHash
+deriving instance Ord AHash
+deriving instance Show AHash
+deriving instance Buildable AHash
+
+-- | This instance is severe abuse of the fact that the 'a'
+-- parameter of 'AbstractHash' is phantom. It intentionally
+-- confuses existential quantification with universal.
+unsafeCheatingHashCoerce :: Hash a -> AHash
+unsafeCheatingHashCoerce h = AHash (coerce h)
 
 -- | Type class for unsafe cast between hashes.
 -- You must ensure that types have identical Bi instances.

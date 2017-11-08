@@ -49,7 +49,7 @@ import qualified Prelude
 import           Universum
 
 import           Control.Arrow                    ((&&&))
-import           Control.Lens                     (ix, _Left)
+import           Control.Lens                     (_Left)
 import           Control.Monad.Error.Class        (throwError)
 import qualified Data.ByteArray                   as BA
 import           Data.Default                     (Default (..), def)
@@ -70,6 +70,7 @@ import           Pos.Explorer.ExplorerMode        (ExplorerMode)
 import           Pos.Explorer.ExtraContext        (HasExplorerCSLInterface (..))
 
 import qualified Pos.GState                       as GS
+import qualified Pos.Lrc                   as Lrc (getLeader)
 import           Pos.Merkle                       (getMerkleRoot, mtRoot)
 import           Pos.Txp                          (Tx (..), TxId, TxOut (..),
                                                    TxOutAux (..), TxUndo, txpTxs,
@@ -87,7 +88,6 @@ import           Pos.Types                        (Address, Coin, EpochIndex,
 import           Serokell.Data.Memory.Units       (Byte)
 import           Serokell.Util.Base16             as SB16
 import           Servant.API                      (FromHttpApiData (..))
-
 
 
 -------------------------------------------------------------------------------------
@@ -216,7 +216,7 @@ toBlockEntry (blk, Undo{..}) = do
         slotIndex     = siSlot  blkHeaderSlot
 
     -- Find the epoch and slot leader
-    epochSlotLeader   <- getLeaderFromEpochSlot epochIndex slotIndex
+    epochSlotLeader   <- Lrc.getLeader $ SlotId epochIndex slotIndex
 
     -- Fill required fields for @CBlockEntry@
     let cbeEpoch      = getEpochIndex epochIndex
@@ -237,25 +237,6 @@ toBlockEntry (blk, Undo{..}) = do
 
 
     return CBlockEntry {..}
-
-
--- | Get leader from epoch and slot in order to display them on the frontend.
--- Returning @Maybe@ is the simplest implementation for now, since it's hard
--- to forsee what is and what will the state of leaders be at any given moment.
-getLeaderFromEpochSlot
-    :: ExplorerMode ctx m
-    => EpochIndex
-    -> LocalSlotIndex
-    -> m (Maybe StakeholderId)
-getLeaderFromEpochSlot epochIndex slotIndex = do
-    -- Get leaders from the database
-    leadersMaybe <- getLeadersFromEpochCSLI epochIndex
-    -- If we have leaders for the given epoch, find the leader that is leading
-    -- the slot we are interested in. If we find it, return it, otherwise
-    -- return @Nothing@.
-    pure $ leadersMaybe >>= \leaders -> leaders ^? ix intSlotIndex
-  where
-    intSlotIndex = fromIntegral $ getSlotIndex slotIndex
 
 
 -- | List of tx entries is returned from "get latest N transactions" endpoint

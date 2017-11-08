@@ -22,7 +22,7 @@ import           System.IO.Error              (isDoesNotExistError)
 import           System.Wlog                  (logDebug)
 
 import           Pos.Client.KeyStorage        (addSecretKey)
-import           Pos.Core.Configuration       (genesisHdwSecretKeys)
+import           Pos.Core.Configuration       (genesisSecretsPoor)
 import           Pos.Crypto                   (EncryptedSecretKey, PassPhrase,
                                                emptyPassphrase, firstHardened)
 import           Pos.StateLock                (Priority (..), withStateLockNoMetrics)
@@ -34,9 +34,9 @@ import           Pos.Util.UserSecret          (UserSecretDecodingError (..),
 import           Pos.Wallet.Web.Account       (GenSeed (..), genSaveRootKey,
                                                genUniqueAccountId)
 import           Pos.Wallet.Web.ClientTypes   (AccountId (..), CAccountInit (..),
-                                               CAccountMeta (..), CId, CWallet (..),
-                                               CWalletInit (..), CWalletMeta (..), Wal,
-                                               encToCId)
+                                               CAccountMeta (..), CFilePath (..), CId,
+                                               CWallet (..), CWalletInit (..),
+                                               CWalletMeta (..), Wal, encToCId)
 import           Pos.Wallet.Web.Error         (WalletError (..), rewrapToWalletError)
 import qualified Pos.Wallet.Web.Methods.Logic as L
 import           Pos.Wallet.Web.State         (createAccount, removeHistoryCache,
@@ -89,9 +89,9 @@ restoreWallet passphrase cwInit = do
 importWallet
     :: L.MonadWalletLogic ctx m
     => PassPhrase
-    -> Text
+    -> CFilePath
     -> m CWallet
-importWallet passphrase (toString -> fp) = do
+importWallet passphrase (CFilePath (toString -> fp)) = do
     secret <-
         rewrapToWalletError isDoesNotExistError noFile $
         rewrapToWalletError (\UserSecretDecodingError{} -> True) decodeFailed $
@@ -111,7 +111,7 @@ importWalletDo
     -> m CWallet
 importWalletDo passphrase wSecret = do
     wId <- cwId <$> importWalletSecret emptyPassphrase wSecret
-    L.changeWalletPassphrase wId emptyPassphrase passphrase
+    _ <- L.changeWalletPassphrase wId emptyPassphrase passphrase
     L.getWallet wId
 
 importWalletSecret
@@ -148,7 +148,7 @@ importWalletSecret passphrase WalletUserSecret{..} = do
 addInitialRichAccount :: L.MonadWalletLogic ctx m => Int -> m ()
 addInitialRichAccount keyId =
     E.handleAll wSetExistsHandler $ do
-        let hdwSecretKeys = fromMaybe (error "Hdw secrets keys are unknown") genesisHdwSecretKeys
+        let hdwSecretKeys = fromMaybe (error "Hdw secrets keys are unknown") genesisSecretsPoor
         key <- maybeThrow noKey (hdwSecretKeys ^? ix keyId)
         void $ importWalletSecret emptyPassphrase $
             mkGenesisWalletUserSecret key

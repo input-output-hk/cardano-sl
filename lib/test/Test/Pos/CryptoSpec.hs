@@ -21,9 +21,9 @@ import           Pos.Arbitrary.Crypto    (SharedSecrets (..))
 import           Pos.Binary              (AsBinary, Bi)
 import           Pos.Core                (HasConfiguration)
 import qualified Pos.Crypto              as Crypto
-import           Pos.Ssc.GodTossing      ()
+import           Pos.Ssc                 ()
 
-import           Test.Pos.CborSpec       (U)
+import           Test.Pos.Cbor.CborSpec  (U)
 import           Test.Pos.Helpers        (binaryEncodeDecode, binaryTest,
                                           msgLenLimitedTest, safeCopyEncodeDecode,
                                           safeCopyTest, serDeserId, (.=.))

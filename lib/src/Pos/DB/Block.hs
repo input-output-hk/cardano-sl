@@ -57,44 +57,45 @@ module Pos.DB.Block
 
 import           Universum
 
-import           Control.Lens            (at, _Wrapped)
-import           Data.ByteArray          (convert)
-import qualified Data.ByteString         as BS (hPut, readFile)
-import           Data.Default            (Default (def))
-import           Ether.Internal          (HasLens (..))
-import           Formatting              (build, formatToString, sformat, (%))
-import           System.Directory        (createDirectoryIfMissing, removeFile)
-import           System.FilePath         ((</>))
-import           System.IO               (IOMode (WriteMode), hClose, hFlush,
-                                          openBinaryFile)
-import           System.IO.Error         (isDoesNotExistError)
+import           Control.Exception.Safe (handle)
+import           Control.Lens           (at, _Wrapped)
+import           Data.ByteArray         (convert)
+import qualified Data.ByteString        as BS (hPut, readFile)
+import           Data.Default           (Default (def))
+import           Ether.Internal         (HasLens (..))
+import           Formatting             (build, formatToString, sformat, (%))
+import           System.Directory       (createDirectoryIfMissing, removeFile)
+import           System.FilePath        ((</>))
+import           System.IO              (IOMode (WriteMode), hClose, hFlush,
+                                         openBinaryFile)
+import           System.IO.Error        (IOError, isDoesNotExistError)
 
-import           Pos.Binary.Block        ()
-import           Pos.Binary.Class        (Bi, decodeFull, serialize')
-import           Pos.Block.Core          (Block, BlockHeader, GenesisBlock)
-import qualified Pos.Block.Core          as BC
-import           Pos.Block.Types         (Blund, SlogUndo (..), Undo (..))
-import           Pos.Core                (BlockCount, HasConfiguration,
-                                          HasDifficulty (difficultyL),
-                                          HasPrevBlock (prevBlockL), HeaderHash, IsHeader,
-                                          headerHash)
-import           Pos.Core.Configuration  (genesisHash)
-import           Pos.Crypto              (hashHexF, shortHashF)
-import           Pos.DB.Class            (DBTag (..), MonadBlockDBGeneric (..),
-                                          MonadBlockDBGenericWrite (..), MonadDBRead,
-                                          dbGetBlund)
-import           Pos.DB.Error            (DBError (..))
-import           Pos.DB.Functions        (dbGetBi, dbSerializeValue)
-import           Pos.DB.Pure             (DBPureVar, MonadPureDB, atomicModifyIORefPure,
-                                          pureBlockIndexDB, pureBlocksStorage)
-import           Pos.DB.Rocks            (MonadRealDB, blockDataDir, getBlockIndexDB,
-                                          getNodeDBs, rocksDelete, rocksPutBi)
-import           Pos.DB.Sum              (MonadDBSum, eitherDB)
-import           Pos.Delegation.Types    (DlgUndo (..))
-import           Pos.Ssc.Types           (SscBlock)
-import           Pos.Ssc.Util            (toSscBlock)
-import           Pos.Util                (Some (..), maybeThrow)
-import           Pos.Util.Chrono         (NewestFirst (..))
+import           Pos.Binary.Block       ()
+import           Pos.Binary.Class       (Bi, decodeFull, serialize')
+import           Pos.Block.Core         (Block, BlockHeader, GenesisBlock)
+import qualified Pos.Block.Core         as BC
+import           Pos.Block.Types        (Blund, SlogUndo (..), Undo (..))
+import           Pos.Core               (BlockCount, HasConfiguration,
+                                         HasDifficulty (difficultyL),
+                                         HasPrevBlock (prevBlockL), HeaderHash, IsHeader,
+                                         headerHash)
+import           Pos.Core.Configuration (genesisHash)
+import           Pos.Crypto             (hashHexF, shortHashF)
+import           Pos.DB.Class           (DBTag (..), MonadBlockDBGeneric (..),
+                                         MonadBlockDBGenericWrite (..), MonadDBRead,
+                                         dbGetBlund)
+import           Pos.DB.Error           (DBError (..))
+import           Pos.DB.Functions       (dbGetBi, dbSerializeValue)
+import           Pos.DB.Pure            (DBPureVar, MonadPureDB, atomicModifyIORefPure,
+                                         pureBlockIndexDB, pureBlocksStorage)
+import           Pos.DB.Rocks           (MonadRealDB, blockDataDir, getBlockIndexDB,
+                                         getNodeDBs, rocksDelete, rocksPutBi)
+import           Pos.DB.Sum             (MonadDBSum, eitherDB)
+import           Pos.Delegation.Types   (DlgUndo (..))
+import           Pos.Ssc                (SscBlock)
+import           Pos.Ssc.Util           (toSscBlock)
+import           Pos.Util               (Some (..), maybeThrow)
+import           Pos.Util.Chrono        (NewestFirst (..))
 
 ----------------------------------------------------------------------------
 -- Implementations for 'MonadRealDB'
@@ -486,13 +487,15 @@ delete :: (MonadRealDB ctx m) => ByteString -> m ()
 delete k = rocksDelete k =<< getBlockIndexDB
 
 getData ::  forall m v . (MonadIO m, MonadCatch m, Bi v) => FilePath -> m (Maybe v)
-getData fp = flip catch handle $ liftIO $
-    either (\er -> throwM $ DBMalformed $
-             sformat ("Couldn't deserialize "%build%", reason: "%build) fp er) pure .
-    decodeFull <$>
-    BS.readFile fp
+getData fp = handle handler $ liftIO $
+    either onDecodeError (pure . Just) . decodeFull =<< BS.readFile fp
   where
-    handle e
+    onDecodeError :: Text -> IO a
+    onDecodeError err =
+        throwM $ DBMalformed $ sformat
+        ("Couldn't deserialize "%build%", reason: "%build) fp err
+    handler :: IOError -> m (Maybe x)
+    handler e
         | isDoesNotExistError e = pure Nothing
         | otherwise = throwM e
 
@@ -502,9 +505,9 @@ putData fp v = liftIO $
         BS.hPut h (serialize' v) >> hFlush h
 
 deleteData :: (MonadIO m, MonadCatch m) => FilePath -> m ()
-deleteData fp = (liftIO $ removeFile fp) `catch` handle
+deleteData fp = (liftIO $ removeFile fp) `catch` handler
   where
-    handle e
+    handler e
         | isDoesNotExistError e = pure ()
         | otherwise = throwM e
 

@@ -15,30 +15,30 @@ module Pos.Launcher.Configuration
 
 import           Universum
 
-import           Data.Aeson                       (FromJSON (..), genericParseJSON)
-import           Data.Default                     (Default (..))
-import           Serokell.Aeson.Options           (defaultOptions)
-import           System.FilePath                  (takeDirectory)
-import           System.Wlog                      (WithLogger, logInfo)
+import           Data.Aeson                   (FromJSON (..), genericParseJSON)
+import           Data.Default                 (Default (..))
+import           Serokell.Aeson.Options       (defaultOptions)
+import           System.FilePath              (takeDirectory)
+import           System.Wlog                  (WithLogger, logInfo)
 
 -- FIXME consistency on the locus of the JSON instances for configuration.
--- Core keeps them separate, infra update and gt define them on-site.
-import           Pos.Aeson.Core.Configuration     ()
+-- Core keeps them separate, infra update and ssc define them on-site.
+import           Pos.Aeson.Core.Configuration ()
 
 import           Pos.Configuration
 import           Pos.Core.Configuration
-import           Pos.Core.Types                   (Timestamp)
+import           Pos.Core.Types               (Timestamp)
 import           Pos.Infra.Configuration
-import           Pos.Ssc.GodTossing.Configuration
+import           Pos.Ssc.Configuration
 import           Pos.Update.Configuration
-import           Pos.Util.Config                  (parseYamlConfig)
+import           Pos.Util.Config              (parseYamlConfig)
 
 -- | Product of all configurations required to run a node.
 data Configuration = Configuration
     { ccCore   :: !CoreConfiguration
     , ccInfra  :: !InfraConfiguration
     , ccUpdate :: !UpdateConfiguration
-    , ccGt     :: !GtConfiguration
+    , ccSsc    :: !SscConfiguration
     , ccNode   :: !NodeConfiguration
     } deriving (Show, Generic)
 
@@ -49,7 +49,7 @@ type HasConfigurations =
     ( HasConfiguration
     , HasInfraConfiguration
     , HasUpdateConfiguration
-    , HasGtConfiguration
+    , HasSscConfiguration
     , HasNodeConfiguration
     )
 
@@ -62,6 +62,9 @@ data ConfigurationOptions = ConfigurationOptions
       -- | An optional system start time override. Required when using a
       -- testnet genesis configuration.
     , cfoSystemStart :: !(Maybe Timestamp)
+      -- | Seed for secrets generation can be provided via CLI, in
+      -- this case it overrides one from configuration file.
+    , cfoSeed        :: !(Maybe Integer)
     } deriving (Show)
 
 defaultConfigurationOptions :: ConfigurationOptions
@@ -69,6 +72,7 @@ defaultConfigurationOptions = ConfigurationOptions
     { cfoFilePath    = "lib/configuration.yaml"
     , cfoKey         = "default"
     , cfoSystemStart = Nothing
+    , cfoSeed        = Nothing
     }
 
 instance Default ConfigurationOptions where
@@ -82,11 +86,11 @@ withConfigurations
     -> (HasConfigurations => m r)
     -> m r
 withConfigurations co@ConfigurationOptions{..} act = do
-    logInfo $ show co
+    logInfo ("using configurations: " <> show co)
     Configuration{..} <- parseYamlConfig cfoFilePath cfoKey
     let configurationDir = takeDirectory cfoFilePath
-    withCoreConfigurations ccCore configurationDir cfoSystemStart $
+    withCoreConfigurations ccCore configurationDir cfoSystemStart cfoSeed $
         withInfraConfiguration ccInfra $
         withUpdateConfiguration ccUpdate $
-        withGtConfiguration ccGt $
+        withSscConfiguration ccSsc $
         withNodeConfiguration ccNode $ act

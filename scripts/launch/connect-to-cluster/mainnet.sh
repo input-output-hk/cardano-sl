@@ -24,6 +24,7 @@ stack exec -- cardano-node                                  \
     --tlscert ./scripts/tls-files/server.crt                \
     --tlskey ./scripts/tls-files/server.key                 \
     --tlsca ./scripts/tls-files/ca.crt                      \
+    --web                                                   \
     --no-ntp                                                \
     --topology "${TMP_TOPOLOGY_YAML}"                       \
     --log-config scripts/log-templates/log-config-qa.yaml   \

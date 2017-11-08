@@ -69,7 +69,7 @@ import           Pos.Reporting                    (HasReportingContext (..))
 import           Pos.Shutdown                     (HasShutdownContext (..))
 import           Pos.Slotting.Class               (MonadSlots (..))
 import           Pos.Slotting.MemState            (HasSlottingVar (..), MonadSlotsData)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.Configuration            (HasSscConfiguration)
 import           Pos.Ssc.Types                    (HasSscContext (..), SscBlock)
 import           Pos.Txp                          (MempoolExt, MonadTxpLocal (..),
                                                    txNormalize, txProcessTransaction,
@@ -202,18 +202,18 @@ instance HasConfiguration => MonadDB AuxxMode where
     dbWriteBatch = realModeToAuxx ... dbWriteBatch
     dbDelete = realModeToAuxx ... dbDelete
 
-instance (HasConfiguration, HasGtConfiguration) =>
+instance (HasConfiguration, HasSscConfiguration) =>
          MonadBlockDBGenericWrite BlockHeader Block Undo AuxxMode where
     dbPutBlund = realModeToAuxx ... dbPutBlund
 
-instance (HasConfiguration, HasGtConfiguration) =>
+instance (HasConfiguration, HasSscConfiguration) =>
          MonadBlockDBGeneric BlockHeader Block Undo AuxxMode
   where
     dbGetBlock  = realModeToAuxx ... dbGetBlock
     dbGetUndo   = realModeToAuxx ... dbGetUndo @BlockHeader @Block @Undo
     dbGetHeader = realModeToAuxx ... dbGetHeader @BlockHeader @Block @Undo
 
-instance (HasConfiguration, HasGtConfiguration) =>
+instance (HasConfiguration, HasSscConfiguration) =>
          MonadBlockDBGeneric (Some IsHeader) SscBlock () AuxxMode
   where
     dbGetBlock  = realModeToAuxx ... dbGetBlock
@@ -231,7 +231,7 @@ instance HasConfiguration => MonadBalances AuxxMode where
     getOwnUtxos addrs = ifM isTempDbUsed (getOwnUtxosGenesis addrs) (getFilteredUtxo addrs)
     getBalance = getBalanceFromUtxo
 
-instance (HasConfiguration, HasInfraConfiguration, HasGtConfiguration, HasCompileInfo) =>
+instance (HasConfiguration, HasInfraConfiguration, HasSscConfiguration, HasCompileInfo) =>
          MonadTxHistory AuxxMode where
     getBlockHistory = getBlockHistoryDefault
     getLocalHistory = getLocalHistoryDefault

@@ -18,15 +18,16 @@ import           Pos.Crypto                  (encToSecret)
 import           Pos.Generator.Block         (BlockGenParams (..), genBlocks,
                                               tgpTxCountRange)
 import           Pos.Launcher                (HasConfigurations)
+import           Pos.StateLock               (Priority (..), withStateLock)
 import           Pos.Txp                     (txpGlobalSettings)
 import           Pos.Util.CompileInfo        (withCompileInfo)
 
-import           Command.Types               (GenBlocksParams (..))
+import           Lang.Value                  (GenBlocksParams (..))
 import           Mode                        (AuxxMode)
 
 
 generateBlocks :: HasConfigurations => GenBlocksParams -> AuxxMode ()
-generateBlocks GenBlocksParams{..} = do
+generateBlocks GenBlocksParams{..} = withStateLock HighPriority "auxx" $ \_ -> do
     seed <- liftIO $ maybe randomIO pure bgoSeed
     logInfo $ "Generating with seed " <> show seed
 
@@ -43,7 +44,7 @@ generateBlocks GenBlocksParams{..} = do
                 , _bgpSkipNoKey       = True
                 , _bgpTxpGlobalSettings = txpGlobalSettings
                 }
-    withCompileInfo def $ void $ evalRandT (genBlocks bgenParams) (mkStdGen seed)
+    withCompileInfo def $ evalRandT (genBlocks bgenParams (const ())) (mkStdGen seed)
     -- We print it twice because there can be a ton of logs and
     -- you don't notice the first message.
     logInfo $ "Generated with seed " <> show seed

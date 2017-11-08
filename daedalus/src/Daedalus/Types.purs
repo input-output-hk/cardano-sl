@@ -4,6 +4,7 @@ module Daedalus.Types
        , module E
        , module BP
        , module DT
+       , module CLI
        , _address
        , _ccoin
        , _passPhrase
@@ -33,6 +34,7 @@ module Daedalus.Types
 import Prelude
 import Data.Types as DT
 import Pos.Core.Types as C
+import Pos.Client.Txp.Util as CLI
 import Pos.Util.BackupPhrase as BP
 import Pos.Wallet.Web.ClientTypes.Types as CT
 import Pos.Wallet.Web.Error.Types as E
@@ -44,13 +46,13 @@ import Data.Argonaut.Core (fromString)
 import Data.Argonaut.Generic.Aeson (decodeJson)
 import Data.Array (length, filter)
 import Data.Either (either, Either(..))
-import Data.Foreign (F, Foreign, isNull, readString, readNull)
+import Data.Foreign (F, Foreign, isNull, readString)
 import Data.Int53 (fromInt)
 import Data.Maybe (Maybe(..))
 import Data.String (split, null, trim, joinWith, Pattern(..))
 import Data.Types (mkTime)
 import Pos.Util.BackupPhrase (BackupPhrase(..))
-import Pos.Wallet.Web.ClientTypes.Types (CId(..), CHash(..), CPassPhrase(..), CCoin(..), Wal(..), CAccountId(..), CWalletMeta(..))
+import Pos.Wallet.Web.ClientTypes.Types (CId(..), CHash(..), CPassPhrase(..), CCoin(..), Wal, CAccountId(..), CWalletMeta(..))
 
 space :: Pattern
 space = Pattern " "

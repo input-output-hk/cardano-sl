@@ -52,7 +52,6 @@ import           Pos.Util.LoggerName              (HasLoggerName' (..),
                                                    modifyLoggerNameDefault)
 import           Pos.Util.TimeWarp                (CanJsonLog (..))
 import           System.Wlog                      (HasLoggerName (..), LoggerName)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
 import           Pos.Launcher.Configuration       (HasConfigurations)
 import           Pos.WorkMode                     (MinWorkMode)
 
@@ -76,7 +75,6 @@ type ExplorerMode ctx m =
     , HasExplorerCSLInterface m
     -- ^ For mocking external functions
     , HasGenesisRedeemAddressInfo m
-    , HasGtConfiguration
     -- ^ Genesis operations
     , MonadTxpMem (MempoolExt m) ctx m
     -- ^ Txp, could be @TxpLocalWorkMode@

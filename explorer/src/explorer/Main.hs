@@ -36,7 +36,6 @@ import           Pos.Launcher              (ConfigurationOptions (..), HasConfig
                                             bracketNodeResources, hoistNodeResources,
                                             loggerBracket, runNode, runRealBasedMode,
                                             withConfigurations)
-import           Pos.Ssc.SscAlgo           (SscAlgo (..))
 import           Pos.Types                 (Timestamp (Timestamp))
 import           Pos.Update                (updateTriggerWorker)
 import           Pos.Util                  (mconcatPair)
@@ -70,7 +69,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
         logInfo $ sformat ("Using configs and genesis:\n"%shown) conf
 
         let vssSK = fromJust $ npUserSecret currentParams ^. usVss
-        let gtParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
+        let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig currentParams)
 
         let plugins :: HasConfigurations => ([WorkerSpec ExplorerProd], OutSpecs)
             plugins = mconcatPair
@@ -78,7 +77,7 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
                 , notifierPlugin NotifierSettings{ nsPort = notifierPort }
                 , updateTriggerWorker
                 ]
-        bracketNodeResources currentParams gtParams
+        bracketNodeResources currentParams sscParams
             explorerTxpGlobalSettings
             explorerInitDB $ \nr@NodeResources {..} ->
             let extraCtx = makeExtraCtx
@@ -100,4 +99,4 @@ action (ExplorerNodeArgs (cArgs@CommonNodeArgs{..}) ExplorerArgs{..}) =
         in runRealBasedMode (runExplorerProd extraCtx) liftToExplorerProd nr
 
     nodeArgs :: NodeArgs
-    nodeArgs = NodeArgs { sscAlgo = GodTossingAlgo, behaviorConfigPath = Nothing }
+    nodeArgs = NodeArgs { behaviorConfigPath = Nothing }

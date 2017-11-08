@@ -7,7 +7,7 @@ module Pos.Binary.Txp.Core
 import           Universum
 
 import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..),
-                                     decodeKnownCborDataItem, decodeListLen,
+                                     decodeKnownCborDataItem, decodeListLenCanonical,
                                      decodeUnknownCborDataItem, deriveSimpleBi,
                                      encodeKnownCborDataItem, encodeListLen,
                                      encodeUnknownCborDataItem, enforceSize, matchSize)
@@ -78,7 +78,7 @@ instance Bi T.TxInWitness where
             encode tag <>
             encodeUnknownCborDataItem bs
     decode = do
-        len <- decodeListLen
+        len <- decodeListLenCanonical
         tag <- decode @Word8
         case tag of
             0 -> do

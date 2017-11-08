@@ -113,7 +113,7 @@ verifySums
 verifySums resolvedInputs outputs =
   case mTxFee of
       Nothing -> throwError $
-          ToilOutGTIn {tInputSum = inpSum, tOutputSum = outSum}
+          ToilOutGreaterThanIn {tInputSum = inpSum, tOutputSum = outSum}
       Just txFee ->
           return txFee
   where

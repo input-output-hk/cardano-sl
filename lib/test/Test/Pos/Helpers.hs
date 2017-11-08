@@ -38,6 +38,7 @@ import           Universum
 
 import           Codec.CBOR.FlatTerm              (toFlatTerm, validFlatTerm)
 import qualified Data.ByteString                  as BS
+import qualified Data.ByteString.Lazy             as BSL
 import           Data.SafeCopy                    (SafeCopy, safeGet, safePut)
 import qualified Data.Semigroup                   as Semigroup
 import           Data.Serialize                   (runGet, runPut)
@@ -56,12 +57,15 @@ import           Test.QuickCheck.Monadic          (PropertyM, pick)
 import qualified Text.JSON.Canonical              as CanonicalJSON
 
 import           Pos.Binary                       (AsBinaryClass (..), Bi (..), serialize,
-                                                   serialize', unsafeDeserialize)
+                                                   serialize', unsafeDeserialize,
+                                                   decodeFull)
 import           Pos.Communication                (Limit (..), MessageLimitedPure (..))
 import           Pos.Configuration                (HasNodeConfiguration)
 import           Pos.Core                         (HasConfiguration)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.Configuration            (HasSscConfiguration)
 import           Test.Pos.Block.Logic.Mode        (BlockProperty, blockPropertyTestable)
+import           Test.Pos.Cbor.Canonicity         (perturbCanonicity)
+import qualified Test.Pos.Cbor.ReferenceImplementation as R
 
 ----------------------------------------------------------------------------
 -- From/to tests
@@ -74,6 +78,14 @@ binaryEncodeDecode a = (unsafeDeserialize . serialize $ a) === a
 -- | Machinery to test we perform "flat" encoding.
 cborFlatTermValid :: (Show a, Bi a) => a -> Property
 cborFlatTermValid = property . validFlatTerm . toFlatTerm . encode
+
+-- Test that serialized 'a' has canonical representation, i.e. if we're able to
+-- change its serialized form, it won't be successfully deserialized.
+cborCanonicalRep :: forall a. (Bi a, Show a) => a -> Property
+cborCanonicalRep a = counterexample (show a) . property $ do
+    let sa = serialize a
+    sa' <- R.serialise <$> perturbCanonicity (R.deserialise sa)
+    pure $ sa == sa' || isLeft (decodeFull @a $ BSL.toStrict sa')
 
 safeCopyEncodeDecode :: (Show a, Eq a, SafeCopy a) => a -> Property
 safeCopyEncodeDecode a =
@@ -100,7 +112,9 @@ identityTest fun = prop (typeName @a) fun
 
 binaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
 binaryTest =
-    identityTest @a $ \x -> binaryEncodeDecode x .&&. cborFlatTermValid x
+    identityTest @a $ \x -> binaryEncodeDecode x
+                       .&&. cborFlatTermValid x
+                       .&&. cborCanonicalRep x
 
 safeCopyTest :: forall a. IdTestingRequiredClasses SafeCopy a => Spec
 safeCopyTest = identityTest @a safeCopyEncodeDecode
@@ -291,7 +305,7 @@ splitIntoChunks maxSize items = do
 
 -- | Specialized version of 'prop' function from 'hspec'.
 blockPropertySpec ::
-       (HasNodeConfiguration, HasGtConfiguration)
+       (HasNodeConfiguration, HasSscConfiguration)
     => String
     -> (HasConfiguration => BlockProperty a)
     -> Spec

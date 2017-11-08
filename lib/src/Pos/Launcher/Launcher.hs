@@ -18,7 +18,7 @@ import           Pos.Launcher.Resource            (NodeResources (..),
 import           Pos.Launcher.Runner              (runRealMode)
 import           Pos.Launcher.Scenario            (runNode)
 import           Pos.Ssc.Types                    (SscParams)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import           Pos.Ssc.Configuration            (HasSscConfiguration)
 import           Pos.Txp                          (txpGlobalSettings)
 import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo             (HasCompileInfo)
@@ -33,7 +33,7 @@ runNodeReal
     :: ( HasConfiguration
        , HasUpdateConfiguration
        , HasInfraConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        , HasNodeConfiguration
        , HasCompileInfo
        )

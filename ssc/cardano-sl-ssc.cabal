@@ -1,5 +1,5 @@
 name:                cardano-sl-ssc
-version:             1.0.2
+version:             1.0.3
 synopsis:            Cardano SL - shared seed computation
 description:         Cardano SL - shared seed computation
 license:             MIT
@@ -13,72 +13,61 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+    Pos.Ssc
+
     Pos.Ssc.Core
     Pos.Ssc.Core.Types
     Pos.Ssc.Core.Functions
 
-    Pos.Ssc.SeedError
-    Pos.Ssc.VerifyError
+    Pos.Ssc.Error
+    Pos.Ssc.Error.Seed
+    Pos.Ssc.Error.Verify
 
     Pos.Ssc.Types
 
-    -- SSC
-    Pos.Arbitrary.Ssc
+    Pos.Ssc.Logic
+    Pos.Ssc.Logic.Local
+    Pos.Ssc.Logic.Global
+    Pos.Ssc.Logic.VAR
 
-    Pos.Ssc.Class
-    Pos.Ssc.Class.LocalData
-    Pos.Ssc.Class.Storage
-    Pos.Ssc.Class.Listeners
-    Pos.Ssc.Class.Workers
+    Pos.Ssc.State
+    Pos.Ssc.State.Local
+    Pos.Ssc.State.Global
 
-    Pos.Ssc.Extra
-    Pos.Ssc.Extra.Holder
-    Pos.Ssc.Extra.Class
-    Pos.Ssc.Extra.Logic
-
+    Pos.Ssc.Message
+    Pos.Ssc.Listeners
+    Pos.Ssc.Worker
+    Pos.Ssc.Lrc
+    Pos.Ssc.Mem
+    Pos.Ssc.Functions
+    Pos.Ssc.SecretStorage
+    Pos.Ssc.VssCertData
+    Pos.Ssc.Seed
+    Pos.Ssc.Configuration
+    Pos.Ssc.Behavior
+    Pos.Ssc.Shares
+    Pos.Ssc.DB
     Pos.Ssc.Mode
     Pos.Ssc.RichmenComponent
 
+    Pos.Ssc.Toss
+    Pos.Ssc.Toss.Logic
+    Pos.Ssc.Toss.Pure
+    Pos.Ssc.Toss.Base
+    Pos.Ssc.Toss.Class
+    Pos.Ssc.Toss.Trans
+    Pos.Ssc.Toss.Types
+
+    Pos.Arbitrary.Ssc
+
+    Pos.Binary.Ssc
+    Pos.Binary.Ssc.Core
+    Pos.Binary.Ssc.Types
+    Pos.Binary.Ssc.Toss
+    Pos.Binary.Ssc.Relay
+
     Pos.Security.Params
     Pos.Security.Util
-
-    -- GodTossing
-    Pos.Arbitrary.Ssc.GodTossing
-
-    Pos.Ssc.GodTossing.Configuration
-
-    Pos.Ssc.GodTossing.Behavior
-
-    Pos.Ssc.GodTossing.Types.Message
-
-    Pos.Ssc.GodTossing.Toss
-    Pos.Ssc.GodTossing.Toss.Logic
-    Pos.Ssc.GodTossing.Toss.Pure
-    Pos.Ssc.GodTossing.Toss.Base
-    Pos.Ssc.GodTossing.Toss.Class
-    Pos.Ssc.GodTossing.Toss.Trans
-    Pos.Ssc.GodTossing.Toss.Types
-
-    Pos.Ssc.GodTossing.LocalData
-    Pos.Ssc.GodTossing.LocalData.Logic
-
-    Pos.Ssc.GodTossing.VssCertData
-    Pos.Ssc.GodTossing.SecretStorage
-    Pos.Ssc.GodTossing.Functions
-    Pos.Ssc.GodTossing.DB
-    Pos.Ssc.GodTossing.GState
-    Pos.Ssc.GodTossing.Richmen
-    Pos.Ssc.GodTossing.Seed
-    Pos.Ssc.GodTossing.Shares
-    Pos.Ssc.GodTossing.Listeners
-    Pos.Ssc.GodTossing.Workers
-    Pos.Ssc.GodTossing.Network.Constraint
-
-    Pos.Binary.GodTossing
-    Pos.Binary.GodTossing.Core
-    Pos.Binary.GodTossing.Types
-    Pos.Binary.GodTossing.Toss
-    Pos.Binary.GodTossing.Relay
 
   build-depends:       QuickCheck
                      , aeson
@@ -98,6 +87,7 @@ library
                      , extra
                      , file-embed
                      , filepath
+                     , fmt
                      , formatting
                      , generic-arbitrary
                      , hashable

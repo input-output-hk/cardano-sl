@@ -72,8 +72,7 @@ import           Pos.Core                       (BlockVersionData, CoreConfigura
                                                  GenesisConfiguration (..),
                                                  GenesisInitializer (..),
                                                  GenesisSpec (..), HasConfiguration,
-                                                 IsHeader, SlotId,
-                                                 TestnetDistribution (..), Timestamp (..),
+                                                 IsHeader, SlotId, Timestamp (..),
                                                  genesisSecretKeys, withGenesisSpec)
 import           Pos.Core.Configuration         (HasGenesisBlockVersionData,
                                                  withGenesisBlockVersionData)
@@ -103,9 +102,9 @@ import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots
                                                  getCurrentSlotSimple,
                                                  mkSimpleSlottingVar)
 import           Pos.Slotting.MemState          (MonadSlotsData)
+import           Pos.Ssc                        (HasSscConfiguration, SscMemTag, SscState,
+                                                 mkSscState)
 import           Pos.Ssc.Types                  (SscBlock)
-import           Pos.Ssc.Extra                  (SscMemTag, SscState, mkSscState)
-import           Pos.Ssc.GodTossing             (HasGtConfiguration)
 import           Pos.Txp                        (GenericTxpLocalData, MempoolExt,
                                                  MonadTxpLocal (..), TxpGlobalSettings,
                                                  TxpHolderTag, mkTxpLocalData,
@@ -168,7 +167,8 @@ genGenesisInitializer :: HasGenesisBlockVersionData => Gen GenesisInitializer
 genGenesisInitializer = do
     tiTestBalance <- arbitrary
     tiFakeAvvmBalance <- arbitrary
-    let tiDistribution = TestnetRichmenStakeDistr
+    tiAvvmBalanceFactor <- arbitrary
+    tiUseHeavyDlg <- arbitrary
     tiSeed <- arbitrary
     return TestnetInitializer {..}
 
@@ -248,7 +248,7 @@ instance HasAllSecrets BlockTestContext where
 ----------------------------------------------------------------------------
 
 initBlockTestContext
-    :: (HasConfiguration, HasGtConfiguration, HasNodeConfiguration)
+    :: (HasConfiguration, HasSscConfiguration, HasNodeConfiguration)
     => TestParams
     -> (BlockTestContext -> Emulation a)
     -> Emulation a
@@ -305,7 +305,7 @@ instance HasLens BlockTestContextTag BlockTestContext BlockTestContext where
 
 type BlockTestMode = ReaderT BlockTestContext Emulation
 
-runBlockTestMode :: (HasNodeConfiguration, HasGtConfiguration, HasConfiguration)
+runBlockTestMode :: (HasNodeConfiguration, HasSscConfiguration, HasConfiguration)
                  => TestParams -> BlockTestMode a -> IO a
 runBlockTestMode tp action =
     runEmulation (getTimestamp $ tp ^. tpStartTime) $
@@ -320,7 +320,7 @@ type BlockProperty = PropertyM BlockTestMode
 -- | Convert 'BlockProperty' to 'Property' using given generator of
 -- 'TestParams'.
 blockPropertyToProperty ::
-       (HasNodeConfiguration, HasGtConfiguration)
+       (HasNodeConfiguration, HasSscConfiguration)
     => Gen TestParams
     -> (HasConfiguration =>
             BlockProperty a)
@@ -339,11 +339,11 @@ blockPropertyToProperty tpGen blockProperty =
 --
 -- The following code doesn't compile:
 --
--- instance (HasNodeConfiguration, HasGtConfiguration)
+-- instance (HasNodeConfiguration, HasSscConfiguration)
 --          => Testable (HasConfiguration => BlockProperty a) where
 --     property = blockPropertyToProperty arbitrary
 blockPropertyTestable ::
-       (HasNodeConfiguration, HasGtConfiguration)
+       (HasNodeConfiguration, HasSscConfiguration)
     => (HasConfiguration => BlockProperty a)
     -> Property
 blockPropertyTestable = blockPropertyToProperty arbitrary

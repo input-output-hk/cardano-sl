@@ -221,7 +221,7 @@ encodeUnknownCborDataItem x = E.encodeTag 24 <> encode x
 -- failing if the tag cannot be found.
 decodeCborDataItemTag :: D.Decoder s ()
 decodeCborDataItemTag = do
-    t <- D.decodeTag
+    t <- D.decodeTagCanonical
     when (t /= 24) $ fail $
         "decodeCborDataItem: expected a bytestring with \
         \CBOR (marked by tag 24), found tag: " <> show t

@@ -29,6 +29,8 @@ servantHandlers
 servantHandlers =
      M.testResetAll
     :<|>
+     M.dumpState
+    :<|>
 
      M.getWallet
     :<|>
@@ -94,8 +96,7 @@ servantHandlers =
     :<|>
 
      (blockchainSlotDuration <&> fromIntegral)
-    :<|>
-     pure curSoftwareVersion
+    :<|> pure curSoftwareVersion
     :<|>
      M.syncProgress
     :<|>
@@ -104,6 +105,8 @@ servantHandlers =
      M.importWalletJSON
     :<|>
      M.exportWalletJSON
+    :<|>
+     M.getClientInfo
 
 servantHandlersWithSwagger
     :: MonadFullWalletWebMode ctx m

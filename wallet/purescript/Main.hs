@@ -15,6 +15,7 @@ import           Options.Applicative                       (execParser, fullDesc
 import           Universum
 
 import           Paths_cardano_sl                          (version)
+import qualified Pos.Client.Txp.Util                       as CL
 import qualified Pos.Types                                 as PT
 import qualified Pos.Util.BackupPhrase                     as BP
 import qualified Pos.Wallet.Web.ClientTypes                as CT
@@ -71,6 +72,9 @@ main = do
       , mkSumType (Proxy @CT.CPassPhrase)
       , mkSumType (Proxy @CT.CWalletAssurance)
       , mkSumType (Proxy @CT.CCoin)
+      , mkSumType (Proxy @CT.ScrollOffset)
+      , mkSumType (Proxy @CT.ScrollLimit)
+      , mkSumType (Proxy @CT.CFilePath)
       , mkSumType (Proxy @PT.Coin)
       , mkSumType (Proxy @PT.BlockCount)
       , mkSumType (Proxy @PT.ChainDifficulty)
@@ -78,6 +82,7 @@ main = do
       , mkSumType (Proxy @PT.SoftwareVersion)
       , mkSumType (Proxy @PT.ApplicationName)
       , mkSumType (Proxy @BP.BackupPhrase)
+      , mkSumType (Proxy @CL.InputSelectionPolicy)
       ]
   where
       customBridge =

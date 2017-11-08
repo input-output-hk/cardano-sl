@@ -1,5 +1,5 @@
 name:                cardano-sl-lrc
-version:             1.0.2
+version:             1.0.3
 synopsis:            Cardano SL - Leaders and Richmen computation
 description:         Cardano SL - Leaders and Richmen computation
 license:             MIT
@@ -40,6 +40,7 @@ library
                      , log-warper
                      , node-sketch
                      , reflection
+                     , rocksdb-haskell
                      , text-format
                      , QuickCheck
                      , universum

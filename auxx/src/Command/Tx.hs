@@ -3,69 +3,78 @@
 -- | Tx sending functionality in Auxx.
 
 module Command.Tx
-       ( sendToAllGenesis
+       ( SendToAllGenesisParams (..)
+       , sendToAllGenesis
        , send
        , sendTxsFromFile
        ) where
 
 import           Universum
 
-import           Control.Concurrent.STM.TQueue    (newTQueue, tryReadTQueue, writeTQueue)
-import           Control.Exception.Safe           (Exception (..), try)
-import           Control.Monad.Except             (runExceptT)
-import qualified Data.ByteString                  as BS
-import qualified Data.HashMap.Strict              as HM
-import           Data.List                        ((!!))
-import qualified Data.List.NonEmpty               as NE
-import qualified Data.Text                        as T
-import qualified Data.Text.IO                     as T
-import           Data.Time.Units                  (toMicroseconds)
-import           Formatting                       (build, int, sformat, shown, stext, (%))
-import           Mockable                         (Mockable, SharedAtomic, SharedAtomicT,
-                                                   bracket, concurrently, currentTime,
-                                                   delay, forConcurrently,
-                                                   modifySharedAtomic, newSharedAtomic)
-import           Serokell.Util                    (ms, sec)
-import           System.IO                        (BufferMode (LineBuffering), hClose,
-                                                   hSetBuffering)
-import           System.Random                    (randomRIO)
-import           System.Wlog                      (logError, logInfo)
+import           Control.Concurrent.STM.TQueue (newTQueue, tryReadTQueue, writeTQueue)
+import           Control.Exception.Safe        (Exception (..), try)
+import           Control.Monad.Except          (runExceptT)
+import qualified Data.ByteString               as BS
+import           Data.Default                  (def)
+import qualified Data.HashMap.Strict           as HM
+import           Data.List                     ((!!))
+import qualified Data.List.NonEmpty            as NE
+import qualified Data.Text                     as T
+import qualified Data.Text.IO                  as T
+import           Data.Time.Units               (toMicroseconds)
+import           Formatting                    (build, int, sformat, shown, stext, (%))
+import           Mockable                      (Mockable, SharedAtomic, SharedAtomicT,
+                                                bracket, concurrently, currentTime, delay,
+                                                forConcurrently, modifySharedAtomic,
+                                                newSharedAtomic)
+import           Serokell.Util                 (ms, sec)
+import           System.IO                     (BufferMode (LineBuffering), hClose,
+                                                hSetBuffering)
+import           System.Random                 (randomRIO)
+import           System.Wlog                   (logError, logInfo)
 
-import           Pos.Binary                       (decodeFull)
-import           Pos.Client.KeyStorage            (getSecretKeysPlain)
-import           Pos.Client.Txp.Balances          (getOwnUtxoForPk)
-import           Pos.Client.Txp.Util              (createTx)
-import           Pos.Communication                (SendActions,
-                                                   immediateConcurrentConversations,
-                                                   prepareMTx, submitTxRaw)
-import           Pos.Configuration                (HasNodeConfiguration)
-import           Pos.Core                         (BlockVersionData (bvdSlotDuration),
-                                                   IsBootstrapEraAddr (..),
-                                                   Timestamp (..), deriveFirstHDAddress,
-                                                   makePubKeyAddress, mkCoin)
-import           Pos.Core.Configuration           (HasConfiguration,
-                                                   genesisBlockVersionData,
-                                                   genesisSecretKeys)
-import           Pos.Crypto                       (EncryptedSecretKey, emptyPassphrase,
-                                                   encToPublic, fakeSigner, safeToPublic,
-                                                   toPublic, withSafeSigners)
-import           Pos.Infra.Configuration          (HasInfraConfiguration)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Txp                          (TxAux, TxOut (..), TxOutAux (..),
-                                                   topsortTxAuxes, txaF)
-import           Pos.Update.Configuration         (HasUpdateConfiguration)
-import           Pos.Util.CompileInfo             (HasCompileInfo)
-import           Pos.Util.UserSecret              (usWallet, userSecret, wusRootKey)
-import           Pos.Util.Util                    (maybeThrow)
+import           Pos.Binary                    (decodeFull)
+import           Pos.Client.KeyStorage         (getSecretKeysPlain)
+import           Pos.Client.Txp.Balances       (getOwnUtxoForPk)
+import           Pos.Client.Txp.Util           (createTx)
+import           Pos.Communication             (SendActions,
+                                                immediateConcurrentConversations,
+                                                prepareMTx, submitTxRaw)
+import           Pos.Configuration             (HasNodeConfiguration)
+import           Pos.Core                      (BlockVersionData (bvdSlotDuration),
+                                                IsBootstrapEraAddr (..), Timestamp (..),
+                                                deriveFirstHDAddress, makePubKeyAddress,
+                                                mkCoin)
+import           Pos.Core.Configuration        (HasConfiguration, genesisBlockVersionData,
+                                                genesisSecretKeys)
+import           Pos.Crypto                    (EncryptedSecretKey, emptyPassphrase,
+                                                encToPublic, fakeSigner, safeToPublic,
+                                                toPublic, withSafeSigners)
+import           Pos.Infra.Configuration       (HasInfraConfiguration)
+import           Pos.Ssc.Configuration         (HasSscConfiguration)
+import           Pos.Txp                       (TxAux, TxOut (..), TxOutAux (..),
+                                                topsortTxAuxes, txaF)
+import           Pos.Update.Configuration      (HasUpdateConfiguration)
+import           Pos.Util.CompileInfo          (HasCompileInfo)
+import           Pos.Util.UserSecret           (usWallet, userSecret, wusRootKey)
+import           Pos.Util.Util                 (maybeThrow)
 
-import           Command.Types                    (SendMode (..),
-                                                   SendToAllGenesisParams (..))
-import           Mode                             (AuxxMode, CmdCtx (..), getCmdCtx,
-                                                   makePubKeyAddressAuxx)
+import           Lang.Value                    (SendMode (..))
+import           Mode                          (AuxxMode, CmdCtx (..), getCmdCtx,
+                                                makePubKeyAddressAuxx)
 
 ----------------------------------------------------------------------------
 -- Send to all genesis
 ----------------------------------------------------------------------------
+
+-- | Parameters for 'SendToAllGenesis' command.
+data SendToAllGenesisParams = SendToAllGenesisParams
+    { stagpDuration    :: !Int
+    , stagpConc        :: !Int
+    , stagpDelay       :: !Int
+    , stagpMode        :: !SendMode
+    , stagpTpsSentFile :: !FilePath
+    } deriving (Show)
 
 -- | Count submitted and failed transactions.
 --
@@ -93,7 +102,7 @@ sendToAllGenesis
        , HasNodeConfiguration
        , HasInfraConfiguration
        , HasUpdateConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        , HasCompileInfo
        )
     => SendActions AuxxMode
@@ -194,7 +203,7 @@ send
        , HasNodeConfiguration
        , HasInfraConfiguration
        , HasUpdateConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        , HasCompileInfo
        )
     => SendActions AuxxMode
@@ -215,7 +224,7 @@ send sendActions idx outputs = do
         let addrSig = HM.fromList $ zip allAddresses signers
         let getSigner = fromMaybe (error "Couldn't get SafeSigner") . flip HM.lookup addrSig
         -- BE CAREFUL: We create remain address using our pk, wallet doesn't show such addresses
-        (txAux,_) <- lift $ prepareMTx getSigner (NE.fromList allAddresses) (map TxOutAux outputs) curPk
+        (txAux,_) <- lift $ prepareMTx getSigner def (NE.fromList allAddresses) (map TxOutAux outputs) curPk
         txAux <$ (ExceptT $ try $ submitTxRaw (immediateConcurrentConversations sendActions ccPeers) txAux)
     case etx of
         Left err -> logError $ sformat ("Error: "%stext) (toText $ displayException err)
@@ -239,7 +248,7 @@ sendTxsFromFile
        , HasInfraConfiguration
        , HasUpdateConfiguration
        , HasNodeConfiguration
-       , HasGtConfiguration
+       , HasSscConfiguration
        , HasCompileInfo
        )
     => SendActions AuxxMode

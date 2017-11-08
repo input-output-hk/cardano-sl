@@ -13,7 +13,7 @@ module Pos.Explorer.ExtraContext
     -- ^ Genesis address info
 
     , HasExplorerCSLInterface (..)
-    , ExplorerMockMode (..)
+    , ExplorerMockableMode (..)
     , makeMockExtraCtx
     -- ^ Explorer mock interface
 
@@ -51,8 +51,8 @@ runExtraContextT :: Monad m => ExtraContext -> ExtraContextT m a -> m a
 runExtraContextT = flip Ether.runReaderT
 
 data ExtraContext = ExtraContext
-    { ecAddressCoinPairs :: GenesisRedeemAddressInfo
-    , ecExplorerMockMode :: ExplorerMockMode
+    { ecAddressCoinPairs     :: GenesisRedeemAddressInfo
+    , ecExplorerMockableMode :: ExplorerMockableMode
     }
 
 makeExtraCtx :: HasConfiguration => ExtraContext
@@ -60,16 +60,16 @@ makeExtraCtx =
     let addressCoinPairs = utxoToAddressCoinPairs $ unGenesisUtxo genesisUtxo
         redeemOnly = filter (isRedeemAddress . fst) addressCoinPairs
     in ExtraContext
-        { ecAddressCoinPairs = V.fromList redeemOnly
-        , ecExplorerMockMode = prodMode
+        { ecAddressCoinPairs     = V.fromList redeemOnly
+        , ecExplorerMockableMode = prodMode
         }
 
 -- | For mocking we mostly need to replace just the external CSL functions.
-makeMockExtraCtx :: HasConfiguration => ExplorerMockMode -> ExtraContext
+makeMockExtraCtx :: HasConfiguration => ExplorerMockableMode -> ExtraContext
 makeMockExtraCtx explorerMockMode =
     ExtraContext
         { ecAddressCoinPairs = V.empty
-        , ecExplorerMockMode = explorerMockMode
+        , ecExplorerMockableMode = explorerMockMode
         }
 
 -------------------------------------------------------------------------------------
@@ -93,7 +93,7 @@ instance Monad m => HasGenesisRedeemAddressInfo (ExtraContextT m) where
 -- them out of the picture in order to be able to mock them.
 -------------------------------------------------------------------------------------
 
-data ExplorerMockMode = ExplorerMockMode
+data ExplorerMockableMode = ExplorerMockableMode
     { emmGetTipBlock
           :: forall m. MonadBlockDB m => m Block
     , emmGetPageBlocks
@@ -107,8 +107,8 @@ data ExplorerMockMode = ExplorerMockMode
     }
 
 -- | This is what we use in production when we run Explorer.
-prodMode :: ExplorerMockMode
-prodMode = ExplorerMockMode {
+prodMode :: ExplorerMockableMode
+prodMode = ExplorerMockableMode {
       emmGetTipBlock            = getTipBlock,
       emmGetPageBlocks          = getPageBlocks,
       emmGetBlundFromHH         = blkGetBlund,
@@ -121,8 +121,8 @@ prodMode = ExplorerMockMode {
 -- On the other side, it moves that error into runtime and enables simple mocking.
 -- This is a good thing once we have a larger amount of functions, like in _explorer_,
 -- and this gives us the flexibility to "mock" whichever we want.
-instance Default (ExplorerMockMode) where
-  def = ExplorerMockMode {
+instance Default (ExplorerMockableMode) where
+  def = ExplorerMockableMode {
         emmGetTipBlock            = errorImpl,
         emmGetPageBlocks          = errorImpl,
         emmGetBlundFromHH         = errorImpl,
@@ -152,25 +152,25 @@ instance (Monad m, MonadBlockDB m, MonadDBRead m, MonadSlotsData ctx m) =>
 
     getTipBlockCSLI = do
         extraCtx <- Ether.ask @ExtraContext
-        let explorerMockMode = ecExplorerMockMode extraCtx
+        let explorerMockMode = ecExplorerMockableMode extraCtx
         emmGetTipBlock explorerMockMode
 
     getPageBlocksCSLI page = do
         extraCtx <- Ether.ask @ExtraContext
-        let explorerMockMode = ecExplorerMockMode extraCtx
+        let explorerMockMode = ecExplorerMockableMode extraCtx
         emmGetPageBlocks explorerMockMode $ page
 
     getBlundFromHHCSLI headerHash = do
         extraCtx <- Ether.ask @ExtraContext
-        let explorerMockMode = ecExplorerMockMode extraCtx
+        let explorerMockMode = ecExplorerMockableMode extraCtx
         emmGetBlundFromHH explorerMockMode $ headerHash
 
     getSlotStartCSLI slotId = do
         extraCtx <- Ether.ask @ExtraContext
-        let explorerMockMode = ecExplorerMockMode extraCtx
+        let explorerMockMode = ecExplorerMockableMode extraCtx
         emmGetSlotStart explorerMockMode $ slotId
 
     getLeadersFromEpochCSLI epochIndex = do
         extraCtx <- Ether.ask @ExtraContext
-        let explorerMockMode = ecExplorerMockMode extraCtx
+        let explorerMockMode = ecExplorerMockableMode extraCtx
         emmGetLeadersFromEpoch explorerMockMode $ epochIndex

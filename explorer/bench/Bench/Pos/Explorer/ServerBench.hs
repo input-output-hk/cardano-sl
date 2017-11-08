@@ -24,13 +24,12 @@ import           Pos.Types                    (HeaderHash, SlotLeaders, Timestam
 import           Test.Pos.Util                (withDefConfigurations)
 
 import           Pos.Explorer.ExplorerMode    (ExplorerTestParams, runExplorerTestMode)
-import           Pos.Explorer.ExtraContext    (ExplorerMockMode (..), ExtraContext (..),
-                                               makeMockExtraCtx)
+import           Pos.Explorer.ExtraContext    (ExplorerMockableMode (..),
+                                               ExtraContext (..), makeMockExtraCtx)
 import           Pos.Explorer.TestUtil        (produceBlocksByBlockNumberAndSlots,
                                                produceSecretKeys, produceSlotLeaders)
 import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
 import           Pos.Explorer.Web.Server      (getBlocksPage, getBlocksTotal)
-
 
 
 ----------------------------------------------------------------
@@ -42,10 +41,10 @@ import           Pos.Explorer.Web.Server      (getBlocksPage, getBlocksTotal)
 data GeneratedTestArguments = GeneratedTestArguments
     { _gtaPageNumber              :: Maybe Word
     , _gtaTipBlock                :: Block
-    , _gtaBlockHeaderHashes       :: {-Maybe -}[HeaderHash]
-    , _gtaBlundsFromHeaderHashes  :: {-Maybe -}Blund
-    , _gtaSlotStart               :: {-Maybe -}Timestamp
-    , _gtaSlotLeaders             :: {-Maybe -}SlotLeaders
+    , _gtaBlockHeaderHashes       :: [HeaderHash]
+    , _gtaBlundsFromHeaderHashes  :: Blund
+    , _gtaSlotStart               :: Timestamp
+    , _gtaSlotLeaders             :: SlotLeaders
     } deriving (Generic)
 
 makeLenses ''GeneratedTestArguments
@@ -90,7 +89,7 @@ getBlocksTotalMock genTestArgs = do
     testParams <- testParamsGen
 
     -- We replace the "real" database with our custom data.
-    let mode :: ExplorerMockMode
+    let mode :: ExplorerMockableMode
         mode = def { emmGetTipBlock = pure $ genTestArgs ^. gtaTipBlock }
 
     -- The extra context so we can mock the functions.
@@ -109,7 +108,7 @@ getBlocksPageMock genTestArgs = do
     testParams <- testParamsGen -- TODO(ks): Temporary test params, will be removed.
 
         -- We replace the "real" database with our custom data.
-    let mode :: ExplorerMockMode
+    let mode :: ExplorerMockableMode
         mode = def {
             emmGetTipBlock         = pure $ genTestArgs ^. gtaTipBlock,
             emmGetPageBlocks       = \_ -> pure $ Just $ genTestArgs ^. gtaBlockHeaderHashes,

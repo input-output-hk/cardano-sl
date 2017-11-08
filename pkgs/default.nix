@@ -1649,14 +1649,10 @@ self: {
             bytestring
             cardano-sl
             cardano-sl-core
-<<<<<<< HEAD
             cardano-sl-db
             cardano-sl-ssc
             cardano-sl-txp
             cardano-sl-update
-=======
-            cardano-sl-txp
->>>>>>> e60820db70fce2532064505a5fc246c3ca9c413c
             cborg
             cereal
             containers

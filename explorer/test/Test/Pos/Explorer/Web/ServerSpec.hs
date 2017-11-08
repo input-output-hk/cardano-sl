@@ -22,8 +22,9 @@ import           Pos.Core                     (EpochIndex (..), HasConfiguration
                                                LocalSlotIndex (..), SlotId (..))
 import           Pos.DB.Block                 (MonadBlockDB)
 import           Pos.Explorer.ExplorerMode    (runExplorerTestMode)
-import           Pos.Explorer.ExtraContext    (ExplorerMockMode (..), ExtraContext (..),
-                                               makeExtraCtx, makeMockExtraCtx)
+import           Pos.Explorer.ExtraContext    (ExplorerMockableMode (..),
+                                               ExtraContext (..), makeExtraCtx,
+                                               makeMockExtraCtx)
 import           Pos.Explorer.TestUtil        (basicBlockGenericUnsafe, emptyBlk,
                                                leftToCounter)
 import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
@@ -33,7 +34,6 @@ import           Pos.Explorer.Web.Server      (getBlocksLastPage, getBlocksPage,
                                                pureGetBlocksTotal)
 import           Pos.Launcher.Configuration   (HasConfigurations)
 import           Test.Pos.Util                (withDefConfigurations)
-
 
 
 ----------------------------------------------------------------
@@ -69,7 +69,8 @@ blocksPureTotalSpec =
                                "\n\nBlock: " <> show blk) $
                  blocksTotal > 0
 
--- | A spec with the simple test that two equal algorithms should work the same.
+-- | A spec with the simple test that @getBlocksPagesTotal@ works correct.
+-- It shows that two equal algorithms should work the same.
 blocksPagesPureTotalSpec :: HasConfiguration => Spec
 blocksPagesPureTotalSpec =
     describe "pureGetBlocksPagesTotal"
@@ -99,7 +100,7 @@ blocksTotalUnitSpec =
                       testBlock = pure $ basicBlockGenericUnsafe prevHeader sk slotId
 
                   -- We replace the "real" database with our custom data.
-                  let mode :: ExplorerMockMode
+                  let mode :: ExplorerMockableMode
                       mode = def { emmGetTipBlock = testBlock }
 
                   -- The extra context so we can mock the functions.
@@ -130,7 +131,7 @@ blocksPagesTotalUnitSpec =
                       testBlock = pure $ basicBlockGenericUnsafe prevHeader sk slotId
 
                   -- We replace the "real" database with our custom data.
-                  let mode :: ExplorerMockMode
+                  let mode :: ExplorerMockableMode
                       mode = def { emmGetTipBlock = testBlock }
 
                   -- The extra context so we can mock the functions.
@@ -172,7 +173,7 @@ blocksPageUnitSpec =
                       testBlock = pure $ basicBlockGenericUnsafe prevHeader sk mockSlotId
 
                   -- We replace the "real" functions with our custom functions.
-                  let mode :: ExplorerMockMode
+                  let mode :: ExplorerMockableMode
                       mode = def {
                           emmGetTipBlock            = testBlock,
                           emmGetPageBlocks          = \_   -> pure $ Just hh,
@@ -214,7 +215,7 @@ blocksLastPageUnitSpec =
                       testBlock = pure $ basicBlockGenericUnsafe prevHeader sk slotId
 
                   -- We replace the "real" functions with our custom functions.
-                  let mode :: ExplorerMockMode
+                  let mode :: ExplorerMockableMode
                       mode = def {
                           emmGetTipBlock            = testBlock,
                           emmGetPageBlocks          = \_   -> pure $ Just hh,
@@ -253,7 +254,7 @@ blocksTotalFunctionalSpec =
                   let extraContext :: ExtraContext
                       extraContext = makeExtraCtx
 
-                  -- We run the function in @BlockTestMode@ so we don't need to define
+                  -- We run the function in @ExplorerTestMode@ so we don't need to define
                   -- a million instances.
                   let blockExecution :: IO Integer
                       blockExecution =

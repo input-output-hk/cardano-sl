@@ -2,7 +2,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Explorer.TestUtil
-    ( generateValidExplorerMockMode
+    ( generateValidExplorerMockableMode
     , produceBlocksByBlockNumberAndSlots
     , basicBlockGenericUnsafe
     , basicBlock
@@ -43,7 +43,7 @@ import           Pos.Txp.Core                      (TxAux)
 import           Test.Pos.Util                     (withDefConfigurations)
 import           Pos.Update.Configuration          (HasUpdateConfiguration)
 import           Pos.Update.Core                   (UpdatePayload (..))
-import           Pos.Explorer.ExtraContext         (ExplorerMockMode (..))
+import           Pos.Explorer.ExtraContext         (ExplorerMockableMode (..))
 
 
 ----------------------------------------------------------------
@@ -84,11 +84,11 @@ type SlotLeadersNumber = Word
 ----------------------------------------------------------------
 
 -- | More predictable generation that doesn't violate the invariants.
-generateValidExplorerMockMode
+generateValidExplorerMockableMode
     :: BlockNumber
     -> SlotsPerEpoch
-    -> IO ExplorerMockMode
-generateValidExplorerMockMode blocksNumber slotsPerEpoch = do
+    -> IO ExplorerMockableMode
+generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
 
     slotStart     <- liftIO $ generate $ arbitrary
 
@@ -103,7 +103,7 @@ generateValidExplorerMockMode blocksNumber slotsPerEpoch = do
 
     let tipBlock = Prelude.last blocks
 
-    pure $ ExplorerMockMode
+    pure $ ExplorerMockableMode
         { emmGetTipBlock          = pure tipBlock
         , emmGetPageBlocks        = \_ -> pure $ Just blockHHs
         , emmGetBlundFromHH       = \_ -> pure $ Just blundsFHHs
@@ -113,7 +113,7 @@ generateValidExplorerMockMode blocksNumber slotsPerEpoch = do
 
 ----------------------------------------------------------------
 -- Utility
--- TODO(ks): Extract this in some common PureBlockTest module in src/?
+-- TODO(ks): Extract this in some common PureBlockTest module in lib/?
 ----------------------------------------------------------------
 
 basicBlockGenericUnsafe
@@ -225,13 +225,12 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
 
         epochBlocks :: [MainBlock]
         epochBlocks =
-            -- TODO(ks): Need to create blocks that are not dependant on genesis block.
+            -- TODO(ks): Need to create prev. blocks that are not dependant on genesis block.
             generateBlocks getPrevBlockHeader <$> blockNumbers
           where
             blockNumbers :: [Word]
             blockNumbers = [1..slotsPerEpoch']
 
-            -- type BlockHeader ssc = Either (GenesisBlockHeader ssc) (MainBlockHeader ssc)
             getPrevBlockHeader :: BlockHeader
             getPrevBlockHeader = getBlockHeader . Left $ epochGenesisBlock
 

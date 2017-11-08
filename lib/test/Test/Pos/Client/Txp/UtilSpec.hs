@@ -19,9 +19,9 @@ import           Test.QuickCheck          (Discard (..), Gen, arbitrary, choose)
 import           Test.QuickCheck.Monadic  (forAllM, stop)
 
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Client.Txp.Util      (TxError (..), TxOutputs, TxWithSpendings,
-                                           createMTx, createRedemptionTx,
-                                           isNotEnoughMoneyTxError)
+import           Pos.Client.Txp.Util      (InputSelectionPolicy (..), TxError (..),
+                                           TxOutputs, TxWithSpendings, createMTx,
+                                           createRedemptionTx, isNotEnoughMoneyTxError)
 import           Pos.Core                 (BlockVersionData (..), Coeff (..),
                                            TxFeePolicy (..), TxSizeLinear (..),
                                            makePubKeyAddressBoot, makeRedeemAddress,
@@ -87,10 +87,22 @@ createMTxSpec = do
     feeForManyAddressesDesc =
         "Fee evaluation succeedes when many addresses are used"
 
+-- TODO [CSM-527] test with ungrouped inputs picking as well.
+useGroupedInputs :: InputSelectionPolicy
+useGroupedInputs = OptimizeForSecurity
+
+testCreateMTx
+    :: HasTxpConfigurations
+    => CreateMTxParams
+    -> TxpTestProperty (Either TxError (TxAux, NonEmpty TxOut))
+testCreateMTx CreateMTxParams{..} =
+    createMTx useGroupedInputs cmpUtxo (getSignerFromList cmpSigners)
+    cmpOutputs cmpAddrData
+
 createMTxWorksWhenWeAreRichSpec :: HasTxpConfigurations => TxpTestProperty ()
 createMTxWorksWhenWeAreRichSpec =
-    forAllM gen $ \(CreateMTxParams {..}) -> do
-        txOrError <- createMTx cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
+    forAllM gen $ \txParams@CreateMTxParams{..} -> do
+        txOrError <- testCreateMTx txParams
         case txOrError of
             Left err -> stopProperty $ sformat ("Failed to create tx: "%build) err
             Right tx -> ensureTxMakesSense tx cmpUtxo cmpOutputs
@@ -99,8 +111,8 @@ createMTxWorksWhenWeAreRichSpec =
 
 stabilizationDoesNotFailSpec :: HasTxpConfigurations => TxpTestProperty ()
 stabilizationDoesNotFailSpec = do
-    forAllM gen $ \(CreateMTxParams {..}) -> do
-        txOrError <- createMTx cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
+    forAllM gen $ \txParams@CreateMTxParams{..} -> do
+        txOrError <- testCreateMTx txParams
         case txOrError of
             Left err@FailedToStabilize -> stopProperty $ pretty err
             Left _                     -> return ()
@@ -110,8 +122,8 @@ stabilizationDoesNotFailSpec = do
 
 feeIsNonzeroSpec :: HasTxpConfigurations => TxpTestProperty ()
 feeIsNonzeroSpec = do
-    forAllM gen $ \(CreateMTxParams {..}) -> do
-        txOrError <- createMTx cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
+    forAllM gen $ \txParams@CreateMTxParams{..} -> do
+        txOrError <- testCreateMTx txParams
         case txOrError of
             Left (NotEnoughMoney _) -> return ()
             Left err -> stopProperty $ pretty err
@@ -123,8 +135,8 @@ feeIsNonzeroSpec = do
 
 manyUtxoTo1Spec :: HasTxpConfigurations => TxpTestProperty ()
 manyUtxoTo1Spec = do
-    forAllM gen $ \(CreateMTxParams {..}) -> do
-        txOrError <- createMTx cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
+    forAllM gen $ \txParams@CreateMTxParams{..} -> do
+        txOrError <- testCreateMTx txParams
         case txOrError of
             Left err -> stopProperty $ pretty err
             Right tx -> ensureTxMakesSense tx cmpUtxo cmpOutputs
@@ -133,8 +145,8 @@ manyUtxoTo1Spec = do
 
 manyAddressesTo1Spec :: HasTxpConfigurations => TxpTestProperty ()
 manyAddressesTo1Spec = do
-    forAllM gen $ \(CreateMTxParams {..}) -> do
-        txOrError <- createMTx cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
+    forAllM gen $ \txParams@CreateMTxParams{..} -> do
+        txOrError <- testCreateMTx txParams
         case txOrError of
             Left err -> stopProperty $ pretty err
             Right tx -> ensureTxMakesSense tx cmpUtxo cmpOutputs
@@ -143,8 +155,8 @@ manyAddressesTo1Spec = do
 
 manyAddressesToManySpec :: HasTxpConfigurations => TxpTestProperty ()
 manyAddressesToManySpec = do
-    forAllM gen $ \(CreateMTxParams {..}) -> do
-        txOrError <- createMTx cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
+    forAllM gen $ \txParams@CreateMTxParams{..} -> do
+        txOrError <- testCreateMTx txParams
         case txOrError of
             Left err -> stopProperty $ pretty err
             Right tx -> ensureTxMakesSense tx cmpUtxo cmpOutputs
@@ -173,7 +185,10 @@ redemptionSpec = do
 txWithRedeemOutputFailsSpec :: HasTxpConfigurations => TxpTestProperty ()
 txWithRedeemOutputFailsSpec = do
     forAllM genParams $ \(CreateMTxParams {..}) -> do
-        txOrError <- createMTx cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
+        txOrError <-
+            createMTx useGroupedInputs cmpUtxo
+                      (getSignerFromList cmpSigners)
+                      cmpOutputs cmpAddrData
         case txOrError of
             Left (OutputIsRedeem _) -> return ()
             Left err -> stopProperty $ pretty err
@@ -204,7 +219,7 @@ feeForManyAddressesSpec manyAddrs =
 
     withTxFeePolicy feePolicyConstTerm feePolicySlope $ do
         -- tx builder should find this utxo to be enough for construction
-        txOrError <- createTxWithParams params
+        txOrError <- testCreateMTx params
         txAux <- case txOrError of
             Left err ->
                 if isNotEnoughMoneyTxError err
@@ -220,13 +235,11 @@ feeForManyAddressesSpec manyAddrs =
         let enoughInputs = succ . length . _txInputs $ taTx txAux
             utxo' = M.fromList . take enoughInputs . M.toList $ cmpUtxo params
             params' = params { cmpUtxo = utxo' }
-        txOrError' <- createTxWithParams params'
+        txOrError' <- testCreateMTx params'
         case txOrError' of
             Left err -> stopProperty $ sformat ("On second attempt: "%build) err
             Right _  -> return ()
   where
-    createTxWithParams CreateMTxParams {..} =
-        createMTx cmpUtxo (getSignerFromList cmpSigners) cmpOutputs cmpAddrData
     -- considering two corner cases of utxo outputs distribution
     mkParams
         | manyAddrs = makeManyAddressesTo1Params

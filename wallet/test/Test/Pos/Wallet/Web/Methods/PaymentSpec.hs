@@ -63,7 +63,7 @@ oneNewPaymentSpec = walletPropertySpec oneNewPaymentDesc $ do
     initBalance <- getBalance srcAddr
     -- `div` 2 to leave money for tx fee
     coins <- pick $ mkCoin <$> choose (1, unsafeGetCoin initBalance `div` 2)
-    void $ lift $ newPayment pswd srcAccId dstCAddr coins
+    void $ lift $ newPayment pswd srcAccId dstCAddr coins def
     dstAddr <- lift $ decodeCTypeOrFail dstCAddr
     txLinearPolicy <- lift $ (bvdTxFeePolicy <$> gsAdoptedBVData) <&> \case
         TxFeePolicyTxSizeLinear linear -> linear

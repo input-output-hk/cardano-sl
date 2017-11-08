@@ -15,6 +15,7 @@ import           Control.Concurrent.STM.TQueue (newTQueue, tryReadTQueue, writeT
 import           Control.Exception.Safe        (Exception (..), try)
 import           Control.Monad.Except          (runExceptT)
 import qualified Data.ByteString               as BS
+import           Data.Default                  (def)
 import qualified Data.HashMap.Strict           as HM
 import           Data.List                     ((!!))
 import qualified Data.List.NonEmpty            as NE
@@ -223,7 +224,7 @@ send sendActions idx outputs = do
         let addrSig = HM.fromList $ zip allAddresses signers
         let getSigner = fromMaybe (error "Couldn't get SafeSigner") . flip HM.lookup addrSig
         -- BE CAREFUL: We create remain address using our pk, wallet doesn't show such addresses
-        (txAux,_) <- lift $ prepareMTx getSigner (NE.fromList allAddresses) (map TxOutAux outputs) curPk
+        (txAux,_) <- lift $ prepareMTx getSigner def (NE.fromList allAddresses) (map TxOutAux outputs) curPk
         txAux <$ (ExceptT $ try $ submitTxRaw (immediateConcurrentConversations sendActions ccPeers) txAux)
     case etx of
         Left err -> logError $ sformat ("Error: "%stext) (toText $ displayException err)

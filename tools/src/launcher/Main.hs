@@ -119,11 +119,11 @@ optionsParser = do
     -- Wallet-related args
     loWalletPath <- optional $ textOption $
         long    "wallet" <>
-        help    "Path to the wallet executable." <>
+        help    "Path to the wallet frontend executable (e. g. Daedalus)." <>
         metavar "PATH"
     loWalletArgs <- many $ textOption $
         short   'w' <>
-        help    "An argument to be passed to the wallet." <>
+        help    "An argument to be passed to the wallet frontend executable." <>
         metavar "ARG"
 
     -- Update-related args

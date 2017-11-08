@@ -20,13 +20,13 @@ Flag for-installer
 
 library
   hs-source-dirs:     src
-  exposed-modules:    
-                      Pos.Wallet
+  exposed-modules:    Pos.Wallet
                       Pos.Wallet.Redirect
                       Pos.Wallet.WalletMode
 
                       Pos.Wallet.Aeson
                       Pos.Wallet.Aeson.ClientTypes
+                      Pos.Wallet.Aeson.Options
                       Pos.Wallet.Aeson.Storage
                       Pos.Wallet.Aeson.WalletBackup
 

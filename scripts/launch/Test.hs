@@ -128,7 +128,7 @@ updateTest :: Y.Value -> Config -> IO ()
 updateTest config (Config{..}) = do
     let config' = config & appNameL .~ walletAppName
         config'' = config' & svL %~ (+1)
-        showF = (show :: Int -> String) . round
+        showF = T.pack . show @Int . round
         cFile' = T.pack $ F.encodeString cFile
         (proposeUpdStr, cNodes) = fromMaybe (error "Failed to form update proposal cmd") $ do
             tag <- config ^? tagL
@@ -145,22 +145,23 @@ updateTest config (Config{..}) = do
                     <> " slot-duration: " <> showF (genSlot / 1000)
                     <> " max-block-size: " <> showF genBlockSize
                 updStr = "upd-bin"
-                    <> " system: " <> show (T.unpack tag)
+                    <> " system: " <> T.pack (show tag)
                     <> " installer-path: ./test_updater.sh"
             return $ (,cNodes) $ "propose-update i:0"
               <> " block-version: " <> showF bvMajor <> "." <> showF bvMinor <> "." <> showF bvAlt
-              <> " software-version: ~software~" <> T.unpack walletAppName <> ":" <> showF (sv + 1)
+              <> " software-version: ~software~" <> walletAppName <> ":" <> showF (sv + 1)
               <> " bvm: (" <> bvmStr <> ")"
               <> " update: (" <> updStr <> ")"
-              <> " vote-all: false"
-    Prelude.putStrLn proposeUpdStr
+              <> " vote-all: true"
+    TIO.putStrLn proposeUpdStr
     Y.encodeFile "run/conf-fresh.yaml" (M.singleton cKey config'')
 
     TIO.writeFile "test_updater.sh" $ "cp run/conf-fresh.yaml run/configuration.wallet.yaml"
-    let cmdPropose = L.intercalate ";" $
-                  (map (\i -> "add-key primary: true file: ./run/gen-keys/generated-keys/rich/key"<>show i<>".sk") [0..cNodes-1])
-                  ++ [ "listaddr", proposeUpdStr ]
-        keygenBase = "cardano-keygen --configuration-key "<>cKey<>" --configuration-file "<>cFile'<>" --system-start 0"
+    let cmdPropose = T.intercalate ";"
+            [ "add-key-pool " <> T.unwords (format ("i:"%d) <$> [0..cNodes-1])
+            , "listaddr"
+            , proposeUpdStr
+            ]
         auxx cmds = ("cardano-auxx",)
             [ "--keyfile", "run/auxx.keys"
             , "--configuration-key", cKey
@@ -169,10 +170,8 @@ updateTest config (Config{..}) = do
             , "--peer", "127.0.0.1:3001"
             , "--db-path", "run/auxx-db"
             , "--log-config", "scripts/log-templates/log-config-greppable.yaml"
-            , "cmd", "--commands", T.pack cmds
+            , "cmd", "--commands", cmds
             ]
-    shells (keygenBase <> " generate-keys-by-spec --genesis-out-dir run/gen-keys") empty
-    shells (keygenBase <> " rearrange --mask 'run/gen-keys/keys-testnet/rich/key*.sk'") empty
     (exitCode, textToLines -> auxxOut) <- uncurry procStrict (auxx cmdPropose) empty
     case exitCode of
         ExitSuccess -> do
@@ -198,9 +197,6 @@ updateTest config (Config{..}) = do
         "Update proposal submitted, upId: " *>
         (T.pack <$> some hexDigit)
     TIO.putStrLn $ fileHash <> " " <> updHash
-    let cmdVote = L.intercalate ";" $
-                  (map (\i -> "vote "<>show i<>" agree: true up-id: "<>T.unpack updHash) [1..cNodes-1])
-    uncurry procs (auxx cmdVote) empty
 
     shells ("mkdir run/serve-upd; mv test_updater.sh run/serve-upd/"<>fileHash) empty
 

@@ -80,9 +80,10 @@ import           Servant.Swagger.UI         (SwaggerSchemaUI)
 import           Servant.API.ContentTypes   (OctetStream, NoContent)
 import           Universum
 
+import           Pos.Client.Txp.Util        (InputSelectionPolicy)
 import           Pos.Types                  (Coin, SoftwareVersion)
 import           Pos.Util.Servant           (ApiLoggingConfig, CCapture, CQueryParam,
-                                             CReqBody, DCQueryParam,
+                                             CReqBody, DCQueryParam, DReqBody,
                                              HasLoggingServer (..), LoggingApi,
                                              ModifiesApiRes (..), ReportDecodeError (..),
                                              VerbMod, WithTruncatedLog (..),
@@ -279,6 +280,7 @@ type NewPayment =
     :> CCapture "from" CAccountId
     :> Capture "to" (CId Addr)
     :> Capture "amount" Coin
+    :> DReqBody '[JSON] (Maybe InputSelectionPolicy)
     :> WRes Post CTx
 
 type TxFee =
@@ -287,7 +289,8 @@ type TxFee =
     :> CCapture "from" CAccountId
     :> Capture "to" (CId Addr)
     :> Capture "amount" Coin
-    :> WRes Get CCoin
+    :> DReqBody '[JSON] (Maybe InputSelectionPolicy)
+    :> WRes Post CCoin
 
 type UpdateTx =
        "txs"

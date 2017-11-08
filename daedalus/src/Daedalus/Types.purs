@@ -4,6 +4,7 @@ module Daedalus.Types
        , module E
        , module BP
        , module DT
+       , module CLI
        , _address
        , _ccoin
        , _passPhrase
@@ -33,6 +34,7 @@ module Daedalus.Types
 import Prelude
 import Data.Types as DT
 import Pos.Core.Types as C
+import Pos.Client.Txp.Util as CLI
 import Pos.Util.BackupPhrase as BP
 import Pos.Wallet.Web.ClientTypes.Types as CT
 import Pos.Wallet.Web.Error.Types as E

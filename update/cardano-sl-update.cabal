@@ -13,9 +13,15 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:
+                       Pos.Update
+
                        -- Arbitrary
                        Pos.Arbitrary.Update
-
+                       -- Binary
+                       Pos.Binary.Update
+                       Pos.Binary.Update.Core
+                       Pos.Binary.Update.Relay
+                       -- Aeson
                        Pos.Aeson.Update
 
                        -- Core
@@ -23,14 +29,15 @@ library
                        Pos.Update.Core.BlockVersion
                        Pos.Update.Core.Types
 
-                       Pos.Update.Mode
-                       Pos.Update.DB
+                       -- Misc
                        Pos.Update.Configuration
                        Pos.Update.Constants
-                       Pos.Update.RichmenComponent
+                       Pos.Update.DB
+                       Pos.Update.Download
                        Pos.Update.Lrc
-
-                       Pos.Binary.Update
+                       Pos.Update.Mode
+                       Pos.Update.RichmenComponent
+                       Pos.Update.Worker
 
                        -- Logic
                        Pos.Update.Logic
@@ -62,6 +69,10 @@ library
                        Pos.Update.MemState.Functions
                        Pos.Update.MemState.Types
 
+                       -- Network
+                       Pos.Update.Network
+                       Pos.Update.Network.Listeners
+
                        -- Context-like things
                        Pos.Update.Context
                        Pos.Update.Params
@@ -76,27 +87,34 @@ library
                      , aeson
                      , base
                      , binary
+                     , bytestring
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-infra
                      , cardano-sl-lrc
                      , concurrent-extra
-                     , containers
                      , conduit
+                     , containers
                      , data-default
+                     , directory
                      , ether >= 0.5
                      , exceptions
                      , formatting
                      , generic-arbitrary
                      , hashable
+                     , http-client
+                     , http-client-tls
+                     , http-conduit
                      , lens
                      , log-warper
+                     , memory
                      , mtl
                      , node-sketch
                      , parsec
                      , reflection
                      , resourcet
                      , rocksdb-haskell >= 1.0.0
+                     , safe-exceptions
                      , safecopy
                      , serokell-util
                      , stm

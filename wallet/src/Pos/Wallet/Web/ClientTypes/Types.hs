@@ -430,7 +430,8 @@ instance Buildable (SecureLog CTxMeta) where
 -- @PtxInNewestBlocks@ and @PtxPersisted@ states are merged into one
 -- not to provide information which conflicts with 'ctConfirmations'.
 data CPtxCondition
-    = CPtxApplying
+    = CPtxCreating  -- not for displaying to frontend
+    | CPtxApplying
     | CPtxInBlocks
     | CPtxWontApply
     | CPtxNotTracked  -- ^ tx was made not in this life

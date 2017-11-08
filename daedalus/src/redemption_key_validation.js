@@ -12,16 +12,15 @@ function toRfc4648(str) {
 
 // Checks is input string valid base64 or base64url
 function isValidBase64Url(code) {
-    var isValid = true;
     try {
-            // Note that atob is defined in Electron render process where its being used. This won't work in Node
-            //  * convert input data from base64url into base64 - as vending was done in a messy way with both base64 and base64 url
-            //  * decode base64 with atob - note that atob usually does base64 validity check under the hood
-            atob(toRfc4648(code));
+        // Note that atob is defined in Electron render process where its being used. This won't work in Node
+        //  * convert input data from base64url into base64 - as vending was done in a messy way with both base64 and base64 url
+        //  * decode base64 with atob - note that atob usually does base64 validity check under the hood
+        atob(toRfc4648(code));
+        return true;
     } catch (err) {
-        isValid = false;
+        return false;
     }
-    return isValid;
 }
 
 // Implements: "Valid redemption key should be base64 and base64url decodable, it should end with '=' and it should be 44 chars long."

@@ -327,5 +327,3 @@ instance {-# OVERLAPPING #-} CanJsonLog ExplorerTestMode where
 
 -- instance HasConfigurations => Testable (ExplorerTestProperty a) where
 --     property = explorerCreatePropertyToProperty arbitrary
-
-

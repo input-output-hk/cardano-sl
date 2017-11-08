@@ -1,7 +1,16 @@
 {-# LANGUAGE ScopedTypeVariables  #-}
 {-# LANGUAGE UndecidableInstances #-}
 
-module Pos.Explorer.TestUtil where
+module Pos.Explorer.TestUtil
+    ( generateValidExplorerMockMode
+    , produceBlocksByBlockNumberAndSlots
+    , basicBlockGenericUnsafe
+    , basicBlock
+    , emptyBlk
+    , leftToCounter
+    , produceSlotLeaders
+    , produceSecretKeys
+    ) where
 
 import qualified Prelude
 import           Universum
@@ -24,15 +33,17 @@ import           Pos.Block.Types                   (SlogUndo, Undo)
 import qualified Pos.Communication                 ()
 import           Pos.Core                          (BlockCount (..), ChainDifficulty (..),
                                                     EpochIndex (..), HasConfiguration,
-                                                    LocalSlotIndex (..), SlotId (..),
-                                                    SlotLeaders, StakeholderId,
-                                                    difficultyL)
+                                                     LocalSlotIndex (..),
+                                                    SlotId (..), SlotLeaders,
+                                                    StakeholderId,  difficultyL)
 import           Pos.Crypto                        (SecretKey)
 import           Pos.Delegation                    (DlgPayload, DlgUndo, ProxySKBlockInfo)
 import           Pos.Ssc.Core                      (SscPayload, defaultSscPayload)
 import           Pos.Txp.Core                      (TxAux)
+import           Test.Pos.Util                     (withDefConfigurations)
 import           Pos.Update.Configuration          (HasUpdateConfiguration)
 import           Pos.Update.Core                   (UpdatePayload (..))
+import           Pos.Explorer.ExtraContext         (ExplorerMockMode (..))
 
 
 ----------------------------------------------------------------
@@ -57,6 +68,48 @@ instance HasConfiguration => Arbitrary DlgUndo where
 
 instance HasConfiguration => Arbitrary Undo where
     arbitrary = genericArbitrary
+
+----------------------------------------------------------------
+-- Util types
+----------------------------------------------------------------
+
+-- TODO(ks): We can migrate to newtype(s) at some point, good enough for now.
+type BlockNumber       = Word
+type SlotsPerEpoch     = Word
+type TotalEpochs       = Word
+type SlotLeadersNumber = Word
+
+----------------------------------------------------------------
+-- Function mocks
+----------------------------------------------------------------
+
+-- | More predictable generation that doesn't violate the invariants.
+generateValidExplorerMockMode
+    :: BlockNumber
+    -> SlotsPerEpoch
+    -> IO ExplorerMockMode
+generateValidExplorerMockMode blocksNumber slotsPerEpoch = do
+
+    slotStart     <- liftIO $ generate $ arbitrary
+
+    blockHHs      <- liftIO $ generate $ arbitrary
+    blundsFHHs    <- liftIO $ generate $ withDefConfigurations arbitrary
+
+    slotLeaders   <- produceSlotLeaders blocksNumber
+    secretKeys    <- produceSecretKeys blocksNumber
+
+    blocks <- withDefConfigurations $
+        produceBlocksByBlockNumberAndSlots blocksNumber slotsPerEpoch slotLeaders secretKeys
+
+    let tipBlock = Prelude.last blocks
+
+    pure $ ExplorerMockMode
+        { emmGetTipBlock          = pure tipBlock
+        , emmGetPageBlocks        = \_ -> pure $ Just blockHHs
+        , emmGetBlundFromHH       = \_ -> pure $ Just blundsFHHs
+        , emmGetSlotStart         = \_ -> pure $ Just slotStart
+        , emmGetLeadersFromEpoch  = \_ -> pure $ Just slotLeaders
+        }
 
 ----------------------------------------------------------------
 -- Utility
@@ -116,9 +169,6 @@ producePureBlock limit prev txs psk slot dlgPay sscPay usPay sk =
 leftToCounter :: (ToString s, Testable p) => Either s a -> (a -> p) -> Property
 leftToCounter x c = either (\t -> counterexample (toString t) False) (property . c) x
 
-type BlockNumber   = Word
-type SlotsPerEpoch = Word
-type TotalEpochs   = Word
 
 -- | Function that should generate arbitrary blocks that we can use in tests.
 produceBlocksByBlockNumberAndSlots
@@ -175,7 +225,7 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
 
         epochBlocks :: [MainBlock]
         epochBlocks =
-            -- TODO(ks): Not correct, but I will fix it later.
+            -- TODO(ks): Need to create blocks that are not dependant on genesis block.
             generateBlocks getPrevBlockHeader <$> blockNumbers
           where
             blockNumbers :: [Word]
@@ -209,11 +259,6 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
 
                 integralBlockNumber :: Integral a => a
                 integralBlockNumber = fromIntegral blockNumber'
-
--- type SlotLeaders   = NonEmpty StakeholderId
--- type StakeholderId = AbstractHash Blake2b_224 PublicKey
-
-type SlotLeadersNumber = Word
 
 
 -- | Produce N slot leaders so we can test it realistically.

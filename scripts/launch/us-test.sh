@@ -27,8 +27,7 @@ export WALLET_CONFIG=run/configuration.wallet.yaml
 
 scripts/launch/Test.hs --configuration-key $CONFIG_KEY --configuration-file $CONFIG gen-wallet-conf -o $WALLET_CONFIG || exit 1
 
-WALLET_TEST=1 scripts/launch/demo.sh
-
+scripts/launch/demo-with-wallet-api.sh
 
 echo -n "Enter 'start' to execute update > "
 while read l; do

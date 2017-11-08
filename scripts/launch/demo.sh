@@ -128,7 +128,8 @@ while [[ $i -lt $panesCnt ]]; do
       if [[ $WALLET_CONFIG != "" ]]; then
           conf_file=$WALLET_CONFIG
       fi
-      wallet_args=" --tlscert $base/../tls-files/server.crt --tlskey $base/../tls-files/server.key --tlsca $base/../tls-files/ca.crt " # --wallet-rebuild-db'
+      wallet_args=" --tlscert $base/../tls-files/server.crt --tlskey $base/../tls-files/server.key --tlsca $base/../tls-files/ca.crt $wallet_flush" # --wallet-rebuild-db'
+      wallet_args="$wallet_args --wallet-address 127.0.0.1:8090"
       exec_name='cardano-node'
       if [[ $WALLET_DEBUG != "" ]]; then
           wallet_args="$wallet_args --wallet-debug"

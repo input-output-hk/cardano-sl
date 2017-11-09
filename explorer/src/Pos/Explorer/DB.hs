@@ -10,7 +10,7 @@ module Pos.Explorer.DB
        , Epoch
        , EpochPagedBlocksKey
        , numOfLastTxs
-       , pageSize
+       , defaultPageSize
        , getTxExtra
        , getAddrHistory
        , getAddrBalance
@@ -91,8 +91,8 @@ numOfLastTxs :: Int
 numOfLastTxs = 20
 
 -- | The default page size.
-pageSize :: Int
-pageSize = 10
+defaultPageSize :: Int
+defaultPageSize = 10
 
 ----------------------------------------------------------------------------
 -- Util
@@ -129,7 +129,7 @@ convertToPagedMap ehh = fromList $ convertToPaged ehh
 
         -- | Take that huge chunk of @HeaderHash@es and page it.
         convertHHsToPages :: [(Page, [HeaderHash])]
-        convertHHsToPages = zip [1..] $ splitEvery pageSize headerHashes
+        convertHHsToPages = zip [1..] $ splitEvery defaultPageSize headerHashes
           where
             -- | Split the list every N elements.
             splitEvery :: Int -> [a] -> [[a]]

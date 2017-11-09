@@ -14,8 +14,8 @@ module Pos.Explorer.Web.Server
        , explorerHandlers
 
        -- pure functions
-       , pureGetBlocksTotal
-       , pureGetBlocksPagesTotal
+       , getBlockDifficulty
+       , roundToBlockPage
 
        -- api functions
        , getBlocksTotal
@@ -72,7 +72,7 @@ import           Pos.Txp                              (MonadTxpMem, Tx (..), TxA
                                                        getMemPool, mpLocalTxs, taTx,
                                                        topsortTxs, txOutValue, txpTxs,
                                                        _txOutputs)
-import           Pos.Util                             (maybeThrow)
+import           Pos.Util                             (maybeThrow, divRoundUp)
 import           Pos.Util.Chrono                      (NewestFirst (..))
 import           Pos.Web                              (serveImpl)
 
@@ -81,7 +81,7 @@ import           Pos.Explorer.Core                    (TxExtra (..))
 import           Pos.Explorer.DB                      (getAddrBalance, getAddrHistory,
                                                        getEpochBlocks, getEpochPages,
                                                        getLastTransactions, getTxExtra,
-                                                       getUtxoSum)
+                                                       getUtxoSum, defaultPageSize)
 import           Pos.Explorer.ExplorerMode            (ExplorerMode)
 import           Pos.Explorer.ExtraContext            (HasExplorerCSLInterface (..),
                                                        HasGenesisRedeemAddressInfo (..))
@@ -187,11 +187,8 @@ getBlocksTotal
 getBlocksTotal = do
     -- Get the tip block.
     tipBlock <- getTipBlockCSLI
-    pure $ pureGetBlocksTotal tipBlock
+    pure $ getBlockDifficulty tipBlock
 
--- | A pure function that return the number of blocks.
-pureGetBlocksTotal :: Block -> Integer
-pureGetBlocksTotal tipBlock = fromIntegral $ getChainDifficulty $ tipBlock ^. difficultyL
 
 -- | Get last blocks with a page parameter. This enables easier paging on the
 -- client side and should enable a simple and thin client logic.
@@ -271,23 +268,9 @@ getBlocksPagesTotal mPageSize = do
         throwM $ Internal "Page size must be greater than 1 if you want to display blocks."
 
     -- We start from page 1.
-    let pagesTotal = pureGetBlocksPagesTotal blocksTotal pageSize
+    let pagesTotal = roundToBlockPage blocksTotal
 
     pure pagesTotal
-
-
--- | A pure calculation of the page number.
--- Get total pages from the blocks. And we want the page
--- with the example, the page size 10,
--- to start with 10 + 1 == 11, not with 10 since with
--- 10 we'll have an empty page.
--- Could also be `((blocksTotal - 1) `div` pageSizeInt) + 1`.
-pureGetBlocksPagesTotal :: Integer -> Integer -> Integer
-pureGetBlocksPagesTotal blocksTotal pageSizeInt = divRoundUp blocksTotal pageSizeInt
-  where
-    -- A simplification mentioned by @thatguy.
-    divRoundUp :: Integer -> Integer -> Integer
-    divRoundUp a b = (a + b - 1) `div` b
 
 
 -- | Get the last page from the blockchain. We use the default 10
@@ -295,7 +278,7 @@ pureGetBlocksPagesTotal blocksTotal pageSizeInt = divRoundUp blocksTotal pageSiz
 getBlocksLastPage
     :: ExplorerMode ctx m
     => m (Integer, [CBlockEntry])
-getBlocksLastPage = getBlocksPage Nothing (Just defaultPageSize)
+getBlocksLastPage = getBlocksPage Nothing (Just defaultPageSizeWord)
 
 
 -- | Get last transactions from the blockchain.
@@ -352,7 +335,7 @@ getBlockTxs
     -> Maybe Word
     -> m [CTxBrief]
 getBlockTxs cHash mLimit mSkip = do
-    let limit = fromIntegral $ fromMaybe defaultPageSize mLimit
+    let limit = fromIntegral $ fromMaybe defaultPageSizeWord mLimit
     let skip = fromIntegral $ fromMaybe 0 mSkip
     txs <- getMainBlockTxs cHash
 
@@ -738,7 +721,7 @@ getStatsTxs
     -> m (Integer, [(CTxId, Byte)])
 getStatsTxs mPageNumber = do
     -- Get blocks from the requested page
-    blocksPage <- getBlocksPage mPageNumber (Just defaultPageSize)
+    blocksPage <- getBlocksPage mPageNumber (Just defaultPageSizeWord)
 
     blockPageTxsInfo <- getBlockPageTxsInfo blocksPage
     pure blockPageTxsInfo
@@ -771,11 +754,24 @@ getStatsTxs mPageNumber = do
 -- Helpers
 --------------------------------------------------------------------------------
 
-defaultPageSize :: Word
-defaultPageSize = 10
+-- | A pure calculation of the page number.
+-- Get total pages from the blocks. And we want the page
+-- with the example, the page size 10,
+-- to start with 10 + 1 == 11, not with 10 since with
+-- 10 we'll have an empty page.
+-- Could also be `((blocksTotal - 1) `div` pageSizeInt) + 1`.
+roundToBlockPage :: Integer -> Integer
+roundToBlockPage blocksTotal = divRoundUp blocksTotal $ fromIntegral defaultPageSize
+
+-- | A pure function that return the number of blocks.
+getBlockDifficulty :: Block -> Integer
+getBlockDifficulty tipBlock = fromIntegral $ getChainDifficulty $ tipBlock ^. difficultyL
+
+defaultPageSizeWord :: Word
+defaultPageSizeWord = fromIntegral defaultPageSize
 
 toPageSize :: Maybe Word -> Integer
-toPageSize = fromIntegral . fromMaybe defaultPageSize
+toPageSize = fromIntegral . fromMaybe defaultPageSizeWord
 
 getMainBlockTxs :: ExplorerMode ctx m => CHash -> m [Tx]
 getMainBlockTxs cHash = do

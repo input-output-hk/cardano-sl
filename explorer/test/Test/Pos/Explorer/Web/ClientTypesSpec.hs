@@ -106,11 +106,6 @@ unitTests = do
 -- Quickcheck tests
 ----------------------------------------------------------------------------
 
--- type AddressHash   = AbstractHash Blake2b_224
--- type Hash          = AbstractHash Blake2b_256
--- type TxId          = Hash Tx = AbstractHash Blake2b_256 Tx
--- type StakeholderId = AddressHash PublicKey = AbstractHash Blake2b_224 PublicKey
-
 quickcheckTests :: Spec
 quickcheckTests =
     describe "Hash serialization" $ do

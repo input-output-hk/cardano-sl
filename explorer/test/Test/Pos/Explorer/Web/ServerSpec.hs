@@ -30,10 +30,10 @@ import           Pos.Explorer.TestUtil        (basicBlockGenericUnsafe, emptyBlk
 import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
 import           Pos.Explorer.Web.Server      (getBlocksLastPage, getBlocksPage,
                                                getBlocksPagesTotal, getBlocksTotal,
-                                               pureGetBlocksPagesTotal,
-                                               pureGetBlocksTotal)
+                                               getBlockDifficulty)
 import           Pos.Launcher.Configuration   (HasConfigurations)
 import           Test.Pos.Util                (withDefConfigurations)
+import           Pos.Util                     (divRoundUp)
 
 
 ----------------------------------------------------------------
@@ -46,8 +46,8 @@ import           Test.Pos.Util                (withDefConfigurations)
 spec :: Spec
 spec = withDefConfigurations $ do
     describe "Pos.Explorer.Web.Server" $ do
-        blocksPureTotalSpec
-        blocksPagesPureTotalSpec
+        blocksTotalSpec
+        blocksPagesTotalSpec
 
         blocksTotalUnitSpec
         blocksPagesTotalUnitSpec
@@ -58,30 +58,30 @@ spec = withDefConfigurations $ do
 
 -- | A spec with the following test invariant. If a block is generated, there is no way
 -- that blocksTotal could be less than 1.
-blocksPureTotalSpec :: HasConfigurations => Spec
-blocksPureTotalSpec =
-    describe "pureGetBlocksTotal"
+blocksTotalSpec :: HasConfigurations => Spec
+blocksTotalSpec =
+    describe "getBlockDifficulty"
     $ modifyMaxSuccess (const 200) $ do
         prop "created blocks means block size > 0" $ emptyBlk $ \blk0 -> leftToCounter blk0 $ \blk ->
             let mainBlock   = Right blk
-                blocksTotal = pureGetBlocksTotal mainBlock
+                blocksTotal = getBlockDifficulty mainBlock
             in counterexample ("Total blocks sizes: " <> show blocksTotal <>
                                "\n\nBlock: " <> show blk) $
                  blocksTotal > 0
 
 -- | A spec with the simple test that @getBlocksPagesTotal@ works correct.
 -- It shows that two equal algorithms should work the same.
-blocksPagesPureTotalSpec :: HasConfiguration => Spec
-blocksPagesPureTotalSpec =
-    describe "pureGetBlocksPagesTotal"
+blocksPagesTotalSpec :: HasConfiguration => Spec
+blocksPagesTotalSpec =
+    describe "divRoundUp"
     $ modifyMaxSuccess (const 10000) $ do
         prop "valid page number holds" $
-            forAll arbitrary $ \(blocksTotal, pageSizeInt) ->
+            forAll arbitrary $ \(blocksTotal :: Integer, pageSizeInt :: Integer) ->
             -- Otherwise it doesn't make sense.
             blocksTotal >= 1 && pageSizeInt >= 1 ==>
                 ((blocksTotal - 1) `div` pageSizeInt) + 1
                     `shouldBe`
-                        pureGetBlocksPagesTotal blocksTotal pageSizeInt
+                        divRoundUp blocksTotal pageSizeInt
 
 -- | A spec with the following test invariant. If a block is generated, there is no way
 -- that blocksTotal could be less than 1.

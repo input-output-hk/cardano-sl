@@ -48,8 +48,6 @@ library
                      , serokell-util
                      , warp
                      , cardano-sl-wallet
-                     -- Unwanted deps
-                     , cardano-sl
   default-language:    Haskell2010
   default-extensions: TypeOperators
                       DataKinds

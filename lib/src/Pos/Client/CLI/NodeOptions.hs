@@ -21,7 +21,6 @@ import           Options.Applicative          (Parser, auto, execParser, footerD
                                                fullDesc, header, help, helper, info,
                                                infoOption, long, metavar, option,
                                                progDesc, strOption, switch, value)
-import           Prelude                      (show)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl             (version)
@@ -32,7 +31,6 @@ import           Pos.HealthCheck.Route53      (route53HealthCheckOption)
 import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
 import           Pos.Statistics               (EkgParams, StatsdParams, ekgParamsOption,
                                                statsdParamsOption)
-import           Pos.Util.BackupPhrase        (BackupPhrase, backupPhraseWordsNum)
 import           Pos.Util.CompileInfo         (CompileTimeInfo (..), HasCompileInfo,
                                                compileInfo)
 import           Pos.Util.TimeWarp            (NetworkAddress)
@@ -43,7 +41,6 @@ data CommonNodeArgs = CommonNodeArgs
     -- these two arguments are only used in development mode
     , devGenesisSecretI      :: !(Maybe Int)
     , keyfilePath            :: !FilePath
-    , backupPhrase           :: !(Maybe BackupPhrase)
     , networkConfigOpts      :: !NetworkConfigOpts
       -- ^ Network configuration
     , jlPath                 :: !(Maybe FilePath)
@@ -79,11 +76,6 @@ commonNodeArgsParser = do
         metavar "FILEPATH" <>
         value   "secret.key" <>
         help    "Path to file with secret key (we use it for Daedalus)."
-    backupPhrase <- optional $ option auto $
-        long    "backup-phrase" <>
-        metavar "PHRASE" <>
-        help    (show backupPhraseWordsNum ++
-                 "-word phrase to recover the wallet. Words should be separated by spaces.")
     networkConfigOpts <- networkConfigOption
     jlPath <-
         optionalJSONPath

@@ -16,7 +16,7 @@ handlers =  listAddresses
 listAddresses :: PaginationParams
               -> Handler (OneOf [Address] (ExtendedResponse [Address]))
 listAddresses PaginationParams {..} =
-  case ppResponseType of
+  case ppResponseFormat of
     Extended -> return $ OneOf $ Right $
       ExtendedResponse {
         extData = [Address "deadBeef", Address "123AABBCC"]

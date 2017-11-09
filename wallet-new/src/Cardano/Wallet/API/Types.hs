@@ -28,63 +28,21 @@ import           Test.QuickCheck
 --
 -- Utilities
 --
--- NOTE: Many things here are stolen from `Pos.Util.Servant` of `cardano-sl` package.
--- I didn't simply import it because I don't want to introduce `cardano-sl` as a dependency on
--- stage of API prototyping, as it would slow down rebuilds of the prototype.
--- In the future we should import this from `cardano-sl` or move `Pos.Util.Servant` module
--- to `wallet-new` altogether.
 
--- | `inRouteServer` is helper function used in order to transform one `HasServer`
+-- | `mapRouter` is helper function used in order to transform one `HasServer`
 -- instance to another. It can be used to introduce custom request params type.
 -- See e. g. `WithDefaultApiArg` as an example of usage
-inRouteServer
+mapRouter
     :: forall api api' ctx env.
        (Proxy api -> SI.Context ctx -> SI.Delayed env (Server api) -> SI.Router env)
     -> (Server api' -> Server api)
     -> (Proxy api' -> SI.Context ctx -> SI.Delayed env (Server api') -> SI.Router env)
-inRouteServer routing f = \_ ctx delayed -> routing Proxy ctx (fmap f delayed)
+mapRouter routing f = \_ ctx delayed -> routing Proxy ctx (fmap f delayed)
 
--- | `ApiHasArg*` types help to reflect on names and types of arguments of API methods,
--- specified by `Capture`s, `QueryParam`s, etc. These types are used to construct more
--- complex useful types such as `WithDefaultApiArg`.
-class ApiHasArgClass apiType a where
-    -- | For arguments-specifiers of API, get argument type.
-    type ApiArg (apiType :: * -> *) a :: *
-    type ApiArg apiType a = a
-
-    -- | Name of argument.
-    -- E.g. name of argument specified by @Capture "nyan"@ is /nyan/.
-    apiArgName :: Proxy (apiType a) -> String
-    default apiArgName
-        :: forall n someApiType. (KnownSymbol n, someApiType n ~ apiType)
-        => Proxy (someApiType n a) -> String
-    apiArgName _ = symbolVal (Proxy @n)
-
-type ApiHasArgInvariant apiType a res =
-    Server (apiType a :> res) ~ (ApiArg apiType a -> Server res)
-
-type ApiHasArg apiType a res =
-    ( ApiHasArgClass apiType a
-    , ApiHasArgInvariant apiType a res
-    )
-
-instance KnownSymbol s => ApiHasArgClass (Capture s) a
-instance KnownSymbol s => ApiHasArgClass (QueryParam s) a where
-    type ApiArg (QueryParam s) a = Maybe a
-instance KnownSymbol s => ApiHasArgClass (QueryParams s) a where
-    type ApiArg (QueryParams s) a = [a]
-instance KnownSymbol s => ApiHasArgClass (Header s) a where
-    type ApiArg (Header s) a = Maybe a
-instance ApiHasArgClass (ReqBody ct) a where
-    apiArgName _ = "request body"
-
--- | `Unmaybe` and `UnmaybeArg` type families are necessary to
--- get `a` from `Maybe a` in a way which doesn't make GHC mad.
--- Used in definition of `ApiHasArgClass` and `HasServer` instances for
+-- | The `UnmaybeArg` type family is necessary to
+-- get `a -> b` from `Maybe a -> b` in a way which doesn't make GHC mad.
+-- Used in `HasServer` instances for
 -- `WithDefaultApiArg`
-type family Unmaybe a where
-    Unmaybe (Maybe a) = a
-
 type family UnmaybeArg a where
     UnmaybeArg (Maybe a -> b) = a -> b
 
@@ -97,11 +55,6 @@ type family UnmaybeArg a where
 -- API specifier which yields `Maybe a` as argument type.
 data WithDefaultApiArg (argType :: * -> *) a
 
-instance (ApiHasArgClass apiType a, ApiArg apiType a ~ Maybe b) =>
-         ApiHasArgClass (WithDefaultApiArg apiType) a where
-    type ApiArg (WithDefaultApiArg apiType) a = Unmaybe (ApiArg apiType a)
-    apiArgName _ = apiArgName (Proxy @(apiType a))
-
 instance ( HasServer (apiType a :> res) ctx
          , Server (apiType a :> res) ~ (Maybe c -> d)
          , Default c
@@ -110,7 +63,7 @@ instance ( HasServer (apiType a :> res) ctx
     type ServerT (WithDefaultApiArg apiType a :> res) m =
         UnmaybeArg (ServerT (apiType a :> res) m)
     route =
-        inRouteServer @(apiType a :> res) route $
+        mapRouter @(apiType a :> res) route $
         \f a -> f $ fromMaybe def a
 
 -- | Type aliases for query params and headers which have default values.
@@ -127,14 +80,6 @@ type family MergeArgs a where
 -- to pass one argument via two ways, e. g. via request header or query parameter.
 data AlternativeApiArg (argA :: * -> *) (argB :: * -> *) a
 
-instance ( ApiHasArgClass argA a
-         , ApiHasArgClass argB a
-         , ApiArg argA a ~ ApiArg argB a
-         ) =>
-         ApiHasArgClass (AlternativeApiArg argA argB) a where
-    type ApiArg (AlternativeApiArg argA argB) a = ApiArg argA a
-    apiArgName _ = apiArgName (Proxy @(argA a))
-
 instance ( HasServer (argA a :> argB a :> res) ctx
          , Server (argA a :> argB a :> res) ~ (t b -> t b -> d)
          , Alternative t
@@ -143,7 +88,7 @@ instance ( HasServer (argA a :> argB a :> res) ctx
     type ServerT (AlternativeApiArg argA argB a :> res) m =
         MergeArgs (ServerT (argA a :> argB a :> res) m)
     route =
-        inRouteServer @(argA a :> argB a :> res) route $
+        mapRouter @(argA a :> argB a :> res) route $
         \f a b -> f $ a <|> b
 
 --

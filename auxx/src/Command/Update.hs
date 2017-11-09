@@ -10,33 +10,30 @@ module Command.Update
 
 import           Universum
 
-import qualified Data.ByteString.Lazy     as BSL
-import           Data.Default             (def)
-import qualified Data.HashMap.Strict      as HM
-import           Data.List                ((!!))
-import           Formatting               (sformat, string, (%))
-import           System.Wlog              (logDebug, logError, logInfo)
+import qualified Data.ByteString.Lazy as BSL
+import           Data.Default (def)
+import qualified Data.HashMap.Strict as HM
+import           Data.List ((!!))
+import           Formatting (sformat, string, (%))
+import           System.Wlog (logDebug, logError, logInfo)
 
-import           Pos.Binary               (Raw)
-import           Pos.Client.KeyStorage    (getSecretKeysPlain)
-import           Pos.Communication        (SendActions, immediateConcurrentConversations,
-                                           submitUpdateProposal, submitVote)
-import           Pos.Configuration        (HasNodeConfiguration)
-import           Pos.Core.Configuration   (HasConfiguration)
-import           Pos.Crypto               (Hash, SignTag (SignUSVote), emptyPassphrase,
-                                           encToPublic, hash, hashHexF, safeSign,
-                                           unsafeHash, withSafeSigner, withSafeSigners)
-import           Pos.Exception            (reportFatalError)
-import           Pos.Infra.Configuration  (HasInfraConfiguration)
-import           Pos.Update               (SystemTag, UpId, UpdateData (..),
-                                           UpdateVote (..), installerHash,
-                                           mkUpdateProposalWSign)
+import           Pos.Binary (Raw)
+import           Pos.Client.KeyStorage (getSecretKeysPlain)
+import           Pos.Communication (SendActions, immediateConcurrentConversations,
+                                    submitUpdateProposal, submitVote)
+import           Pos.Configuration (HasNodeConfiguration)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Crypto (Hash, SignTag (SignUSVote), emptyPassphrase, encToPublic, hash,
+                             hashHexF, safeSign, unsafeHash, withSafeSigner, withSafeSigners)
+import           Pos.Exception (reportFatalError)
+import           Pos.Infra.Configuration (HasInfraConfiguration)
+import           Pos.Update (SystemTag, UpId, UpdateData (..), UpdateVote (..), installerHash,
+                             mkUpdateProposalWSign)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Pos.Util.CompileInfo     (HasCompileInfo)
+import           Pos.Util.CompileInfo (HasCompileInfo)
 
-import           Lang.Value               (ProposeUpdateParams (..),
-                                           ProposeUpdateSystem (..))
-import           Mode                     (AuxxMode, CmdCtx (..), getCmdCtx)
+import           Lang.Value (ProposeUpdateParams (..), ProposeUpdateSystem (..))
+import           Mode (AuxxMode, CmdCtx (..), getCmdCtx)
 
 ----------------------------------------------------------------------------
 -- Vote

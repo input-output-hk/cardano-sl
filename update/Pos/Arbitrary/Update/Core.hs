@@ -6,24 +6,21 @@ module Pos.Arbitrary.Update.Core
 
 import           Universum
 
-import qualified Data.HashMap.Strict               as HM
-import           Test.QuickCheck                   (Arbitrary (..), listOf1, oneof)
+import qualified Data.HashMap.Strict as HM
+import           Test.QuickCheck (Arbitrary (..), listOf1, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Core                ()
-import           Pos.Arbitrary.Crypto              ()
-import           Pos.Binary.Update                 ()
-import           Pos.Core.Configuration            (HasConfiguration)
-import           Pos.Core.Update                   (BlockVersionModifier, SystemTag,
-                                                    UpdateData (..), UpdatePayload (..),
-                                                    UpdateProposal (..),
-                                                    UpdateProposalToSign (..),
-                                                    UpdateVote (..), mkSystemTag,
-                                                    mkUpdateProposalWSign)
-import           Pos.Crypto                        (SignTag (SignUSVote), fakeSigner,
-                                                    sign, toPublic)
-import           Pos.Data.Attributes               (mkAttributes)
-import           Pos.Update.Poll                   (VoteState (..))
+import           Pos.Arbitrary.Core ()
+import           Pos.Arbitrary.Crypto ()
+import           Pos.Binary.Update ()
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Update (BlockVersionModifier, SystemTag, UpdateData (..),
+                                  UpdatePayload (..), UpdateProposal (..),
+                                  UpdateProposalToSign (..), UpdateVote (..), mkSystemTag,
+                                  mkUpdateProposalWSign)
+import           Pos.Crypto (SignTag (SignUSVote), fakeSigner, sign, toPublic)
+import           Pos.Data.Attributes (mkAttributes)
+import           Pos.Update.Poll (VoteState (..))
 
 instance Arbitrary BlockVersionModifier where
     arbitrary = genericArbitrary

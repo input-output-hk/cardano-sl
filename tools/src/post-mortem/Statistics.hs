@@ -12,9 +12,9 @@ module Statistics
     , module Statistics.Tx
     ) where
 
-import           Control.Foldl         (Fold (..))
-import           Data.Map.Strict       (Map)
-import qualified Data.Map.Strict       as M
+import           Control.Foldl (Fold (..))
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
 
 import           JSONLog
 import           Statistics.Block
@@ -29,7 +29,7 @@ import           Statistics.Throughput
 import           Statistics.Tx
 import           Types
 import           Universum
-import           Util.Pipes            (fold')
+import           Util.Pipes (fold')
 
 runJSONFold :: FilePath -> Fold IndexedJLTimedEvent a -> IO a
 runJSONFold logDir fd = runParseLogs logDir $ fold' fd

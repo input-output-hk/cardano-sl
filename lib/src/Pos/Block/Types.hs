@@ -10,15 +10,14 @@ module Pos.Block.Types
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Formatting            (bprint, build, (%))
-import           Serokell.Util.Text    (listJson)
+import           Formatting (bprint, build, (%))
+import           Serokell.Util.Text (listJson)
 
-import           Pos.Block.Slog.Types  (SlogUndo (..))
-import           Pos.Core              (HasConfiguration, HasDifficulty (..),
-                                        HasHeaderHash (..))
-import           Pos.Core.Block        (Block)
-import           Pos.Core.Txp          (TxpUndo)
-import           Pos.Delegation.Types  (DlgUndo)
+import           Pos.Block.Slog.Types (SlogUndo (..))
+import           Pos.Core (HasConfiguration, HasDifficulty (..), HasHeaderHash (..))
+import           Pos.Core.Block (Block)
+import           Pos.Core.Txp (TxpUndo)
+import           Pos.Delegation.Types (DlgUndo)
 import           Pos.Update.Poll.Types (USUndo)
 
 -- | Structure for undo block during rollback

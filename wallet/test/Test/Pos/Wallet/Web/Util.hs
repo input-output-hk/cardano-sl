@@ -19,48 +19,43 @@ module Test.Pos.Wallet.Web.Util
        ) where
 
 import           Universum
-import           Unsafe                         (unsafeHead)
+import           Unsafe (unsafeHead)
 
-import           Control.Concurrent.STM         (putTMVar, tryTakeTMVar, writeTVar)
-import           Control.Monad.Random.Strict    (evalRandT)
-import           Data.List                      ((!!))
-import qualified Data.Map                       as M
-import           Formatting                     (build, sformat, (%))
-import           Test.QuickCheck                (Arbitrary (..), choose, frequency,
-                                                 sublistOf, suchThat, vectorOf)
-import           Test.QuickCheck.Gen            (Gen (MkGen))
-import           Test.QuickCheck.Monadic        (assert, pick)
+import           Control.Concurrent.STM (putTMVar, tryTakeTMVar, writeTVar)
+import           Control.Monad.Random.Strict (evalRandT)
+import           Data.List ((!!))
+import qualified Data.Map as M
+import           Formatting (build, sformat, (%))
+import           Test.QuickCheck (Arbitrary (..), choose, frequency, sublistOf, suchThat, vectorOf)
+import           Test.QuickCheck.Gen (Gen (MkGen))
+import           Test.QuickCheck.Monadic (assert, pick)
 
-import           Pos.Block.Types                (Blund)
-import           Pos.Client.KeyStorage          (getSecretKeysPlain)
-import           Pos.Client.Txp.Balances        (getBalance)
-import           Pos.Context                    (LastKnownHeaderTag, ProgressHeaderTag)
-import           Pos.Core                       (Address, BlockCount, Coin,
-                                                 HasConfiguration, genesisSecretsPoor,
-                                                 headerHashG)
-import           Pos.Core.Address               (IsBootstrapEraAddr (..),
-                                                 deriveLvl2KeyPair)
-import           Pos.Core.Block                 (blockHeader)
-import           Pos.Core.Txp                   (TxIn, TxOut (..), TxOutAux (..))
-import           Pos.Crypto                     (EncryptedSecretKey, PassPhrase,
-                                                 ShouldCheckPassphrase (..),
-                                                 emptyPassphrase, firstHardened)
-import           Pos.Generator.Block            (genBlocks)
-import           Pos.Launcher                   (HasConfigurations)
-import           Pos.StateLock                  (Priority (..), modifyStateLock)
-import           Pos.Txp.Toil                   (Utxo)
-import           Pos.Util.Chrono                (OldestFirst (..))
-import           Pos.Util.CompileInfo           (HasCompileInfo)
-import           Pos.Util.Servant               (encodeCType)
-import           Pos.Util.UserSecret            (mkGenesisWalletUserSecret)
-import           Pos.Util.Util                  (HasLens (..), _neLast)
-import           Pos.Wallet.Web.ClientTypes     (Addr, CId, Wal, encToCId)
+import           Pos.Block.Types (Blund)
+import           Pos.Client.KeyStorage (getSecretKeysPlain)
+import           Pos.Client.Txp.Balances (getBalance)
+import           Pos.Context (LastKnownHeaderTag, ProgressHeaderTag)
+import           Pos.Core (Address, BlockCount, Coin, HasConfiguration, genesisSecretsPoor,
+                           headerHashG)
+import           Pos.Core.Address (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
+import           Pos.Core.Block (blockHeader)
+import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ShouldCheckPassphrase (..),
+                             emptyPassphrase, firstHardened)
+import           Pos.Generator.Block (genBlocks)
+import           Pos.Launcher (HasConfigurations)
+import           Pos.StateLock (Priority (..), modifyStateLock)
+import           Pos.Txp.Toil (Utxo)
+import           Pos.Util.Chrono (OldestFirst (..))
+import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Util.Servant (encodeCType)
+import           Pos.Util.UserSecret (mkGenesisWalletUserSecret)
+import           Pos.Util.Util (HasLens (..), _neLast)
+import           Pos.Wallet.Web.ClientTypes (Addr, CId, Wal, encToCId)
 import           Pos.Wallet.Web.Methods.Restore (importWalletDo)
 
-import           Test.Pos.Block.Logic.Util      (EnableTxPayload, InplaceDB,
-                                                 genBlockGenParams)
-import           Test.Pos.Util                  (assertProperty, maybeStopProperty)
-import           Test.Pos.Wallet.Web.Mode       (WalletProperty)
+import           Test.Pos.Block.Logic.Util (EnableTxPayload, InplaceDB, genBlockGenParams)
+import           Test.Pos.Util (assertProperty, maybeStopProperty)
+import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 
 ----------------------------------------------------------------------------
 -- Block utils

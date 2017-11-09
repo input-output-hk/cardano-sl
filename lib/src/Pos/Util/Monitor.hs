@@ -8,15 +8,15 @@ module Pos.Util.Monitor (
 
     ) where
 
-import           Control.Concurrent           (killThread)
-import           Control.Monad.IO.Class       (MonadIO)
-import           Mockable.Class               (Mockable)
-import qualified Mockable.Metrics             as Metrics
-import           Node                         (Node)
-import           Node.Util.Monitor            (registerMetrics)
+import           Control.Concurrent (killThread)
+import           Control.Monad.IO.Class (MonadIO)
+import           Mockable.Class (Mockable)
+import qualified Mockable.Metrics as Metrics
+import           Node (Node)
+import           Node.Util.Monitor (registerMetrics)
 import           Pos.System.Metrics.Constants (cardanoNamespace)
-import qualified System.Metrics               as Monitoring
-import qualified System.Metrics.Distribution  as Monitoring.Distribution
+import qualified System.Metrics as Monitoring
+import qualified System.Metrics.Distribution as Monitoring.Distribution
 import qualified System.Remote.Monitoring.Wai as Monitoring
 
 import           Universum

@@ -14,7 +14,7 @@ module Pos.Util.Concurrent
 import           Universum
 
 import           Control.Monad.Catch (MonadMask, mask, onException)
-import           Control.Monad.STM   (retry)
+import           Control.Monad.STM (retry)
 
 clearMVar :: MonadIO m => MVar a -> m ()
 clearMVar = void . tryTakeMVar

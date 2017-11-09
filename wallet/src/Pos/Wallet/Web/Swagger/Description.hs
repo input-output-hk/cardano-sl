@@ -10,17 +10,16 @@ module Pos.Wallet.Web.Swagger.Description where
 
 import           Universum
 
-import           Control.Lens                             ((?~))
-import           Data.Swagger                             (Operation, Swagger,
-                                                           description)
-import           Servant                                  ((:>))
-import           Servant.Swagger                          (HasSwagger, subOperations)
-import           Servant.Swagger.Internal.TypeLevel       (IsSubAPI)
+import           Control.Lens ((?~))
+import           Data.Swagger (Operation, Swagger, description)
+import           Servant ((:>))
+import           Servant.Swagger (HasSwagger, subOperations)
+import           Servant.Swagger.Internal.TypeLevel (IsSubAPI)
 
-import           Pos.Util.Servant                         (LoggingApi)
+import           Pos.Util.Servant (LoggingApi)
 import           Pos.Wallet.Web.Api
-import           Pos.Wallet.Web.Swagger.CustomSwagger     (HasCustomSwagger (..))
-import           Pos.Wallet.Web.Swagger.Instances.Schema  ()
+import           Pos.Wallet.Web.Swagger.CustomSwagger (HasCustomSwagger (..))
+import           Pos.Wallet.Web.Swagger.Instances.Schema ()
 import           Pos.Wallet.Web.Swagger.Instances.Swagger ()
 
 -- | Wallet API operations, i.e. modifier of part of api related to

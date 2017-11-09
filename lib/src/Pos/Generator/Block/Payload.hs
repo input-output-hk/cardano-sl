@@ -10,38 +10,34 @@ module Pos.Generator.Block.Payload
 
 import           Universum
 
-import           Control.Lens               (at, uses, (%=), (.=))
-import           Control.Lens.TH            (makeLenses)
+import           Control.Lens (at, uses, (%=), (.=))
+import           Control.Lens.TH (makeLenses)
 import           Control.Monad.Random.Class (MonadRandom (..))
-import qualified Data.HashMap.Strict        as HM
-import           Data.List                  ((!!))
-import qualified Data.List.NonEmpty         as NE
-import qualified Data.Map                   as M
-import qualified Data.Vector                as V
-import           Formatting                 (build, sformat, (%))
-import           System.Random              (RandomGen (..))
+import qualified Data.HashMap.Strict as HM
+import           Data.List ((!!))
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Map as M
+import qualified Data.Vector as V
+import           Formatting (build, sformat, (%))
+import           System.Random (RandomGen (..))
 
-import           Pos.AllSecrets             (asSecretKeys, asSpendingData,
-                                             unInvAddrSpendingData, unInvSecretsMap)
-import           Pos.Client.Txp.Util        (InputSelectionPolicy (..), createGenericTx,
-                                             makeMPubKeyTxAddrs)
-import           Pos.Core                   (AddrSpendingData (..), Address (..), Coin,
-                                             SlotId (..), addressHash, coinToInteger,
-                                             makePubKeyAddressBoot, unsafeIntegerToCoin)
-import           Pos.Core.Configuration     (HasConfiguration)
-import           Pos.Core.Txp               (Tx (..), TxAux (..), TxIn (..), TxOut (..),
-                                             TxOutAux (..))
-import           Pos.Crypto                 (SecretKey, WithHash (..), fakeSigner, hash,
-                                             toPublic)
-import           Pos.Generator.Block.Error  (BlockGenError (..))
-import           Pos.Generator.Block.Mode   (BlockGenMode, BlockGenRandMode,
-                                             MonadBlockGenBase)
-import           Pos.Generator.Block.Param  (HasBlockGenParams (..), HasTxGenParams (..))
-import qualified Pos.GState                 as DB
-import           Pos.Txp.MemState.Class     (MonadTxpLocal (..))
-import           Pos.Txp.Toil.Class         (MonadUtxo (..), MonadUtxoRead (..))
-import           Pos.Txp.Toil.Types         (Utxo)
-import qualified Pos.Txp.Toil.Utxo          as Utxo
+import           Pos.AllSecrets (asSecretKeys, asSpendingData, unInvAddrSpendingData,
+                                 unInvSecretsMap)
+import           Pos.Client.Txp.Util (InputSelectionPolicy (..), createGenericTx,
+                                      makeMPubKeyTxAddrs)
+import           Pos.Core (AddrSpendingData (..), Address (..), Coin, SlotId (..), addressHash,
+                           coinToInteger, makePubKeyAddressBoot, unsafeIntegerToCoin)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxOut (..), TxOutAux (..))
+import           Pos.Crypto (SecretKey, WithHash (..), fakeSigner, hash, toPublic)
+import           Pos.Generator.Block.Error (BlockGenError (..))
+import           Pos.Generator.Block.Mode (BlockGenMode, BlockGenRandMode, MonadBlockGenBase)
+import           Pos.Generator.Block.Param (HasBlockGenParams (..), HasTxGenParams (..))
+import qualified Pos.GState as DB
+import           Pos.Txp.MemState.Class (MonadTxpLocal (..))
+import           Pos.Txp.Toil.Class (MonadUtxo (..), MonadUtxoRead (..))
+import           Pos.Txp.Toil.Types (Utxo)
+import qualified Pos.Txp.Toil.Utxo as Utxo
 
 ----------------------------------------------------------------------------
 -- Tx payload generation

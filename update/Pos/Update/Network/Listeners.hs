@@ -7,19 +7,17 @@ module Pos.Update.Network.Listeners
 
 import           Universum
 
-import           Data.Tagged                      (Tagged (..), tagWith)
-import           Formatting                       (build, sformat, (%))
-import           System.Wlog                      (logDebug, logWarning)
+import           Data.Tagged (Tagged (..), tagWith)
+import           Formatting (build, sformat, (%))
+import           System.Wlog (logDebug, logWarning)
 
-import           Pos.Communication.Relay          (InvReqDataParams (..),
-                                                   MempoolParams (..), Relay (..))
+import           Pos.Communication.Relay (InvReqDataParams (..), MempoolParams (..), Relay (..))
 import           Pos.Communication.Types.Protocol (MsgType (..))
-import           Pos.Core.Update                  (UpdateProposal (..), UpdateVote (..))
-import           Pos.Crypto                       (hash)
-import           Pos.Update.Logic.Local           (getLocalProposalNVotes, getLocalVote,
-                                                   isProposalNeeded, isVoteNeeded,
-                                                   processProposal, processVote)
-import           Pos.Update.Mode                  (UpdateMode)
+import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
+import           Pos.Crypto (hash)
+import           Pos.Update.Logic.Local (getLocalProposalNVotes, getLocalVote, isProposalNeeded,
+                                         isVoteNeeded, processProposal, processVote)
+import           Pos.Update.Mode (UpdateMode)
 
 -- | Relays for data related to update system
 usRelays :: forall ctx m. UpdateMode ctx m

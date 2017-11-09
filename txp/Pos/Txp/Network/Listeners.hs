@@ -10,25 +10,23 @@ module Pos.Txp.Network.Listeners
        , JLTxR (..)
        ) where
 
-import qualified Data.HashMap.Strict              as HM
-import           Data.Tagged                      (Tagged (..), tagWith)
-import           Formatting                       (build, sformat, (%))
-import           Node.Message.Class               (Message)
-import           System.Wlog                      (WithLogger, logInfo)
+import qualified Data.HashMap.Strict as HM
+import           Data.Tagged (Tagged (..), tagWith)
+import           Formatting (build, sformat, (%))
+import           Node.Message.Class (Message)
+import           System.Wlog (WithLogger, logInfo)
 import           Universum
 
-import           Pos.Binary.Txp                   ()
-import           Pos.Communication.Limits.Types   (MessageLimited)
-import           Pos.Communication.Relay          (InvReqDataParams (..),
-                                                   MempoolParams (..), Relay (..))
-import qualified Pos.Communication.Relay          as Relay
+import           Pos.Binary.Txp ()
+import           Pos.Communication.Limits.Types (MessageLimited)
+import           Pos.Communication.Relay (InvReqDataParams (..), MempoolParams (..), Relay (..))
+import qualified Pos.Communication.Relay as Relay
 import           Pos.Communication.Types.Protocol (MsgType (..))
-import           Pos.Core.Txp                     (TxAux (..), TxId)
-import           Pos.Crypto                       (hash)
-import           Pos.Txp.MemState                 (MempoolExt, MonadTxpLocal, MonadTxpMem,
-                                                   getMemPool, txpProcessTx)
-import           Pos.Txp.Network.Types            (TxMsgContents (..))
-import           Pos.Txp.Toil.Types               (MemPool (..))
+import           Pos.Core.Txp (TxAux (..), TxId)
+import           Pos.Crypto (hash)
+import           Pos.Txp.MemState (MempoolExt, MonadTxpLocal, MonadTxpMem, getMemPool, txpProcessTx)
+import           Pos.Txp.Network.Types (TxMsgContents (..))
+import           Pos.Txp.Toil.Types (MemPool (..))
 
 txInvReqDataParams
     :: TxpMode ctx m

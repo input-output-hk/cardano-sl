@@ -20,19 +20,18 @@ module Pos.Client.CLI.Options
 
 import           Universum
 
-import           Data.Default                         (def)
-import qualified Options.Applicative                  as Opt
+import           Data.Default (def)
+import qualified Options.Applicative as Opt
 import           Options.Applicative.Builder.Internal (HasMetavar, HasName)
-import           Serokell.Util                        (sec)
-import           Serokell.Util.OptParse               (fromParsec)
+import           Serokell.Util (sec)
+import           Serokell.Util.OptParse (fromParsec)
 
-import           Pos.Binary.Core                      ()
-import           Pos.Communication                    (NodeId)
-import           Pos.Core                             (Timestamp (..))
-import           Pos.Launcher.Configuration           (ConfigurationOptions (..))
-import           Pos.Util.TimeWarp                    (NetworkAddress, addrParser,
-                                                       addrParserNoWildcard,
-                                                       addressToNodeId)
+import           Pos.Binary.Core ()
+import           Pos.Communication (NodeId)
+import           Pos.Core (Timestamp (..))
+import           Pos.Launcher.Configuration (ConfigurationOptions (..))
+import           Pos.Util.TimeWarp (NetworkAddress, addrParser, addrParserNoWildcard,
+                                    addressToNodeId)
 
 data CommonArgs = CommonArgs
     { logConfig            :: !(Maybe FilePath)

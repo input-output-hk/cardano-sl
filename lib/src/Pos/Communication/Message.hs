@@ -3,22 +3,20 @@ module Pos.Communication.Message
        (
        ) where
 
-import           Data.Tagged                      (Tagged)
+import           Data.Tagged (Tagged)
 import           Universum
 
-import           Node.Message.Class               (Message (..))
+import           Node.Message.Class (Message (..))
 
-import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGetHeaders,
-                                                   MsgHeaders)
+import           Pos.Block.Network.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders, MsgHeaders)
 import           Pos.Communication.Types.Protocol (MsgSubscribe)
-import           Pos.Communication.Types.Relay    (DataMsg, InvMsg, InvOrData, MempoolMsg,
-                                                   ReqMsg, ReqOrRes)
-import           Pos.Core.Update                  (UpdateProposal, UpdateVote)
-import           Pos.Delegation.Types             (ProxySKLightConfirmation)
-import           Pos.Ssc.Message                  (MCCommitment, MCOpening, MCShares,
-                                                   MCVssCertificate)
-import           Pos.Txp.Network.Types            (TxMsgContents)
-import           Pos.Types                        (ProxySKHeavy, ProxySKLight)
+import           Pos.Communication.Types.Relay (DataMsg, InvMsg, InvOrData, MempoolMsg, ReqMsg,
+                                                ReqOrRes)
+import           Pos.Core.Update (UpdateProposal, UpdateVote)
+import           Pos.Delegation.Types (ProxySKLightConfirmation)
+import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares, MCVssCertificate)
+import           Pos.Txp.Network.Types (TxMsgContents)
+import           Pos.Types (ProxySKHeavy, ProxySKLight)
 
 -- Why?
 instance Message Void where

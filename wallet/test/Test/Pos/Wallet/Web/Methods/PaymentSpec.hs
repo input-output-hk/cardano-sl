@@ -4,38 +4,34 @@ module Test.Pos.Wallet.Web.Methods.PaymentSpec
 
 import           Universum
 
-import           Data.Default                   (def)
-import           Data.List                      ((!!))
-import           Formatting                     (build, sformat, (%))
-import           Test.Hspec                     (Spec, describe)
-import           Test.Hspec.QuickCheck          (modifyMaxSuccess)
-import           Test.QuickCheck                (choose)
-import           Test.QuickCheck.Monadic        (pick)
+import           Data.Default (def)
+import           Data.List ((!!))
+import           Formatting (build, sformat, (%))
+import           Test.Hspec (Spec, describe)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess)
+import           Test.QuickCheck (choose)
+import           Test.QuickCheck.Monadic (pick)
 
-import           Pos.Client.Txp.Balances        (getBalance)
-import           Pos.Client.Txp.Util            (txToLinearFee)
-import           Pos.Core                       (TxFeePolicy (..), bvdTxFeePolicy, mkCoin,
-                                                 unsafeGetCoin, unsafeSubCoin)
-import           Pos.Core.Txp                   (Tx (..), TxAux (..), _TxOut)
-import           Pos.DB.Class                   (MonadGState (..))
-import           Pos.Launcher                   (HasConfigurations)
-import           Pos.Txp                        (TxFee (..))
-import           Pos.Util.CompileInfo           (HasCompileInfo, withCompileInfo)
-import           Pos.Wallet.Web.Account         (myRootAddresses)
-import           Pos.Wallet.Web.ClientTypes     (CAccount (..), CWAddressMeta (..))
-import           Pos.Wallet.Web.Methods.Logic   (getAccounts)
+import           Pos.Client.Txp.Balances (getBalance)
+import           Pos.Client.Txp.Util (txToLinearFee)
+import           Pos.Core (TxFeePolicy (..), bvdTxFeePolicy, mkCoin, unsafeGetCoin, unsafeSubCoin)
+import           Pos.Core.Txp (Tx (..), TxAux (..), _TxOut)
+import           Pos.DB.Class (MonadGState (..))
+import           Pos.Launcher (HasConfigurations)
+import           Pos.Txp (TxFee (..))
+import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
+import           Pos.Wallet.Web.Account (myRootAddresses)
+import           Pos.Wallet.Web.ClientTypes (CAccount (..), CWAddressMeta (..))
+import           Pos.Wallet.Web.Methods.Logic (getAccounts)
 import           Pos.Wallet.Web.Methods.Payment (newPayment)
-import qualified Pos.Wallet.Web.State.State     as WS
-import           Pos.Wallet.Web.Util            (decodeCTypeOrFail,
-                                                 getAccountAddrsOrThrow)
-import           Test.Pos.Util                  (assertProperty, expectedOne,
-                                                 maybeStopProperty, stopProperty,
-                                                 withDefConfigurations)
+import qualified Pos.Wallet.Web.State.State as WS
+import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow)
+import           Test.Pos.Util (assertProperty, expectedOne, maybeStopProperty, stopProperty,
+                                withDefConfigurations)
 
-import           Test.Pos.Wallet.Web.Mode       (getSentTxs, walletPropertySpec)
-import           Test.Pos.Wallet.Web.Util       (deriveRandomAddress, expectedAddrBalance,
-                                                 importSomeWallets,
-                                                 mostlyEmptyPassphrases)
+import           Test.Pos.Wallet.Web.Mode (getSentTxs, walletPropertySpec)
+import           Test.Pos.Wallet.Web.Util (deriveRandomAddress, expectedAddrBalance,
+                                           importSomeWallets, mostlyEmptyPassphrases)
 
 
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.

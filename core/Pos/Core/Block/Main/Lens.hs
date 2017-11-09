@@ -66,25 +66,22 @@ module Pos.Core.Block.Main.Lens
 
 import           Universum
 
-import           Control.Lens              (makeLenses)
+import           Control.Lens (makeLenses)
 
-import           Pos.Core.Block.Blockchain (gbBody, gbExtra, gbHeader, gbPrevBlock,
-                                            gbhBodyProof, gbhConsensus, gbhExtra,
-                                            gbhPrevBlock)
+import           Pos.Core.Block.Blockchain (gbBody, gbExtra, gbHeader, gbPrevBlock, gbhBodyProof,
+                                            gbhConsensus, gbhExtra, gbhPrevBlock)
 import           Pos.Core.Block.Main.Chain (Body (..), BodyProof (..), ConsensusData (..))
 import           Pos.Core.Block.Main.Types (BlockBodyAttributes, BlockHeaderAttributes,
                                             BlockSignature, MainBlock, MainBlockHeader,
-                                            MainBlockchain, MainExtraBodyData,
-                                            MainExtraHeaderData, MainToSign (..))
-import           Pos.Core.Delegation       (DlgPayload)
-import           Pos.Core.Ssc              (SscPayload)
-import           Pos.Core.Txp              (Tx, TxPayload, TxWitness, txpTxs,
-                                            txpWitnesses)
-import           Pos.Core.Types            (BlockVersion, ChainDifficulty, HeaderHash,
-                                            SlotId, SoftwareVersion)
-import           Pos.Core.Update           (UpdatePayload)
-import           Pos.Crypto                (Hash, PublicKey)
-import           Pos.Merkle                (MerkleTree)
+                                            MainBlockchain, MainExtraBodyData, MainExtraHeaderData,
+                                            MainToSign (..))
+import           Pos.Core.Delegation (DlgPayload)
+import           Pos.Core.Ssc (SscPayload)
+import           Pos.Core.Txp (Tx, TxPayload, TxWitness, txpTxs, txpWitnesses)
+import           Pos.Core.Types (BlockVersion, ChainDifficulty, HeaderHash, SlotId, SoftwareVersion)
+import           Pos.Core.Update (UpdatePayload)
+import           Pos.Crypto (Hash, PublicKey)
+import           Pos.Merkle (MerkleTree)
 
 ----------------------------------------------------------------------------
 -- MainToSign

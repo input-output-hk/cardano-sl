@@ -9,7 +9,7 @@ module Pos.Reporting.MemState
        , emptyReportingContext
        ) where
 
-import           Control.Lens             (makeLenses)
+import           Control.Lens (makeLenses)
 import           System.Wlog.LoggerConfig (LoggerConfig)
 import           Universum
 

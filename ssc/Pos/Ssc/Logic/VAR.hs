@@ -9,38 +9,35 @@ module Pos.Ssc.Logic.VAR
        , sscRollbackBlocks
        ) where
 
-import           Control.Lens          ((.=), _Wrapped)
-import           Control.Monad.Except  (MonadError (throwError), runExceptT)
-import           Control.Monad.Morph   (hoist)
-import qualified Crypto.Random         as Rand
-import qualified Data.HashMap.Strict   as HM
-import           Formatting            (build, int, sformat, (%))
-import           Serokell.Util         (listJson)
-import           System.Wlog           (WithLogger, logDebug)
+import           Control.Lens ((.=), _Wrapped)
+import           Control.Monad.Except (MonadError (throwError), runExceptT)
+import           Control.Monad.Morph (hoist)
+import qualified Crypto.Random as Rand
+import qualified Data.HashMap.Strict as HM
+import           Formatting (build, int, sformat, (%))
+import           Serokell.Util (listJson)
+import           System.Wlog (WithLogger, logDebug)
 import           Universum
 
-import           Pos.Binary.Ssc        ()
-import           Pos.Core              (BlockVersionData, HasConfiguration, HeaderHash,
-                                        epochIndexL, epochOrSlotG, headerHash)
-import           Pos.Core.Ssc          (SscPayload (..))
-import           Pos.DB                (MonadDBRead, MonadGState, SomeBatchOp (..),
-                                        gsAdoptedBVData)
-import           Pos.Exception         (assertionFailed)
-import           Pos.Lrc.Context       (HasLrcContext)
-import           Pos.Lrc.Types         (RichmenStakes)
+import           Pos.Binary.Ssc ()
+import           Pos.Core (BlockVersionData, HasConfiguration, HeaderHash, epochIndexL,
+                           epochOrSlotG, headerHash)
+import           Pos.Core.Ssc (SscPayload (..))
+import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp (..), gsAdoptedBVData)
+import           Pos.Exception (assertionFailed)
+import           Pos.Lrc.Context (HasLrcContext)
+import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Reporting.Methods (MonadReporting, reportError)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
-import qualified Pos.Ssc.DB            as DB
-import           Pos.Ssc.Error         (SscVerifyError (..), sscIsCriticalVerifyError)
-import           Pos.Ssc.Lrc           (getSscRichmenFromLrc)
-import           Pos.Ssc.Mem           (MonadSscMem, SscGlobalUpdate, askSscMem,
-                                        sscRunGlobalUpdate)
-import           Pos.Ssc.Toss          (MultiRichmenStakes, PureToss, applyGenesisBlock,
-                                        rollbackSsc, runPureTossWithLogger,
-                                        supplyPureTossEnv, verifyAndApplySscPayload)
-import           Pos.Ssc.Types         (SscBlock, SscGlobalState (..), sscGlobal)
-import           Pos.Util.Chrono       (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.Util.Util         (inAssertMode, _neHead, _neLast)
+import qualified Pos.Ssc.DB as DB
+import           Pos.Ssc.Error (SscVerifyError (..), sscIsCriticalVerifyError)
+import           Pos.Ssc.Lrc (getSscRichmenFromLrc)
+import           Pos.Ssc.Mem (MonadSscMem, SscGlobalUpdate, askSscMem, sscRunGlobalUpdate)
+import           Pos.Ssc.Toss (MultiRichmenStakes, PureToss, applyGenesisBlock, rollbackSsc,
+                               runPureTossWithLogger, supplyPureTossEnv, verifyAndApplySscPayload)
+import           Pos.Ssc.Types (SscBlock, SscGlobalState (..), sscGlobal)
+import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.Util (inAssertMode, _neHead, _neLast)
 
 ----------------------------------------------------------------------------
 -- Modes

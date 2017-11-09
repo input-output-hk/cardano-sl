@@ -4,20 +4,19 @@ module Pos.Binary.Core.Script () where
 import           Universum
 
 import qualified PlutusCore.Program as PLCore
-import qualified PlutusCore.Term    as PLCore
+import qualified PlutusCore.Term as PLCore
 import qualified PlutusTypes.ConSig as PLTypes
-import qualified PlutusTypes.Type   as PLTypes
-import qualified Utils.ABT          as ABT
-import qualified Utils.Names        as Names
-import qualified Utils.Vars         as Vars
+import qualified PlutusTypes.Type as PLTypes
+import qualified Utils.ABT as ABT
+import qualified Utils.Names as Names
+import qualified Utils.Vars as Vars
 
-import           Data.Hashable      (Hashable, hashWithSalt)
-import           Data.SafeCopy      (SafeCopy (..))
-import           Pos.Binary.Class   (Bi (..), Cons (..), Field (..), deriveSimpleBi,
-                                     genericDecode, genericEncode, getCopyBi, putCopyBi,
-                                     serialize')
-import           Pos.Core.Script    ()
-import           Pos.Core.Types     (Script (..), ScriptVersion)
+import           Data.Hashable (Hashable, hashWithSalt)
+import           Data.SafeCopy (SafeCopy (..))
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi, genericDecode,
+                                   genericEncode, getCopyBi, putCopyBi, serialize')
+import           Pos.Core.Script ()
+import           Pos.Core.Types (Script (..), ScriptVersion)
 
 
 instance Bi PLCore.Term => SafeCopy PLCore.Term where

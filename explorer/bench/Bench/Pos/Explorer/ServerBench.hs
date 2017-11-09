@@ -6,30 +6,29 @@ module Bench.Pos.Explorer.ServerBench
 import qualified Prelude
 import           Universum
 
-import           Criterion.Main               (Benchmark, bench, defaultConfig,
-                                               defaultMainWith, env, whnf)
-import           Criterion.Types              (Config (..))
-import           Weigh                        (Weigh, io, mainWith)
+import           Criterion.Main (Benchmark, bench, defaultConfig, defaultMainWith, env, whnf)
+import           Criterion.Types (Config (..))
+import           Weigh (Weigh, io, mainWith)
 
-import           Test.QuickCheck              (arbitrary, generate)
+import           Test.QuickCheck (arbitrary, generate)
 
-import           Control.Lens                 (makeLenses)
-import           Data.Default                 (def)
-import           Pos.Arbitrary.Txp.Unsafe     ()
+import           Control.Lens (makeLenses)
+import           Data.Default (def)
+import           Pos.Arbitrary.Txp.Unsafe ()
 
-import           Pos.Core.Block               (Block)
-import           Pos.Block.Types              (Blund)
-import           Pos.Launcher.Configuration   (HasConfigurations)
-import           Pos.Types                    (HeaderHash, SlotLeaders, Timestamp)
-import           Test.Pos.Util                (withDefConfigurations)
+import           Pos.Block.Types (Blund)
+import           Pos.Core.Block (Block)
+import           Pos.Launcher.Configuration (HasConfigurations)
+import           Pos.Types (HeaderHash, SlotLeaders, Timestamp)
+import           Test.Pos.Util (withDefConfigurations)
 
-import           Pos.Explorer.ExplorerMode    (ExplorerTestParams, runExplorerTestMode)
-import           Pos.Explorer.ExtraContext    (ExplorerMockableMode (..),
-                                               ExtraContext (..), makeMockExtraCtx)
-import           Pos.Explorer.TestUtil        (produceBlocksByBlockNumberAndSlots,
-                                               produceSecretKeys, produceSlotLeaders)
+import           Pos.Explorer.ExplorerMode (ExplorerTestParams, runExplorerTestMode)
+import           Pos.Explorer.ExtraContext (ExplorerMockableMode (..), ExtraContext (..),
+                                            makeMockExtraCtx)
+import           Pos.Explorer.TestUtil (produceBlocksByBlockNumberAndSlots, produceSecretKeys,
+                                        produceSlotLeaders)
 import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
-import           Pos.Explorer.Web.Server      (getBlocksPage, getBlocksTotal)
+import           Pos.Explorer.Web.Server (getBlocksPage, getBlocksTotal)
 
 
 ----------------------------------------------------------------
@@ -39,12 +38,12 @@ import           Pos.Explorer.Web.Server      (getBlocksPage, getBlocksTotal)
 -- | The data structure that contains all required generated parameters to test the
 -- function.
 data GeneratedTestArguments = GeneratedTestArguments
-    { _gtaPageNumber              :: Maybe Word
-    , _gtaTipBlock                :: Block
-    , _gtaBlockHeaderHashes       :: [HeaderHash]
-    , _gtaBlundsFromHeaderHashes  :: Blund
-    , _gtaSlotStart               :: Timestamp
-    , _gtaSlotLeaders             :: SlotLeaders
+    { _gtaPageNumber             :: Maybe Word
+    , _gtaTipBlock               :: Block
+    , _gtaBlockHeaderHashes      :: [HeaderHash]
+    , _gtaBlundsFromHeaderHashes :: Blund
+    , _gtaSlotStart              :: Timestamp
+    , _gtaSlotLeaders            :: SlotLeaders
     } deriving (Generic)
 
 makeLenses ''GeneratedTestArguments

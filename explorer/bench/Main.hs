@@ -4,7 +4,7 @@ module Main
 
 import           Universum
 
-import           System.IO                      (hSetEncoding, stdout, utf8)
+import           System.IO (hSetEncoding, stdout, utf8)
 
 import qualified Bench.Pos.Explorer.ServerBench as SB
 

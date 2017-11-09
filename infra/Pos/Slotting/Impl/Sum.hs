@@ -20,18 +20,15 @@ module Pos.Slotting.Impl.Sum
 
 import           Universum
 
-import           Ether.Internal           (HasLens (..))
+import           Ether.Internal (HasLens (..))
 
-import           Pos.Core.Types           (SlotId (..), Timestamp)
-import           Pos.Slotting.Impl.Ntp    (NtpMode, NtpSlottingVar, NtpWorkerMode,
-                                           ntpCurrentTime, ntpGetCurrentSlot,
-                                           ntpGetCurrentSlotBlocking,
-                                           ntpGetCurrentSlotInaccurate, ntpWorkers)
+import           Pos.Core.Types (SlotId (..), Timestamp)
+import           Pos.Slotting.Impl.Ntp (NtpMode, NtpSlottingVar, NtpWorkerMode, ntpCurrentTime,
+                                        ntpGetCurrentSlot, ntpGetCurrentSlotBlocking,
+                                        ntpGetCurrentSlotInaccurate, ntpWorkers)
 import           Pos.Slotting.Impl.Simple (SimpleSlottingMode, SimpleSlottingVar,
-                                           currentTimeSlottingSimple,
-                                           getCurrentSlotBlockingSimple,
-                                           getCurrentSlotInaccurateSimple,
-                                           getCurrentSlotSimple)
+                                           currentTimeSlottingSimple, getCurrentSlotBlockingSimple,
+                                           getCurrentSlotInaccurateSimple, getCurrentSlotSimple)
 
 -- | Sum of all contexts used by slotting implementations.
 data SlottingContextSum

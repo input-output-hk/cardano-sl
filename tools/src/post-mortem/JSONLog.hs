@@ -5,19 +5,19 @@ module JSONLog
     , runParseLogs
     ) where
 
-import           Data.Attoparsec.Text (Parser, parseOnly, string, decimal)
+import           Data.Attoparsec.Text (Parser, decimal, parseOnly, string)
 import           Pipes
-import           Pipes.ByteString     (fromHandle)
-import           Pipes.Interleave     (interleave)
-import qualified Pipes.Prelude        as P
-import           System.Directory     (listDirectory)
-import           System.FilePath      ((</>))
+import           Pipes.ByteString (fromHandle)
+import           Pipes.Interleave (interleave)
+import qualified Pipes.Prelude as P
+import           System.Directory (listDirectory)
+import           System.FilePath ((</>))
 
-import           Pos.Util.JsonLog     (JLEvent, JLTimedEvent (..))
+import           Pos.Util.JsonLog (JLEvent, JLTimedEvent (..))
 import           Types
 import           Universum
-import           Util.Aeson           (parseJSONP)
-import           Util.Safe            (runWithFiles)
+import           Util.Aeson (parseJSONP)
+import           Util.Safe (runWithFiles)
 
 jsonLogs :: FilePath -> IO [(Int, FilePath)]
 jsonLogs logDir = do

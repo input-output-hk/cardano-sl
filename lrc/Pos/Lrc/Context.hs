@@ -14,16 +14,16 @@ module Pos.Lrc.Context
 
 import           Universum
 
-import           Control.Lens        (views)
-import           System.Wlog         (WithLogger)
+import           Control.Lens (views)
+import           System.Wlog (WithLogger)
 
-import           Pos.Core            (EpochIndex)
-import           Pos.DB.Class        (MonadDBRead)
-import           Pos.Exception       (reportFatalError)
-import           Pos.Lrc.DB.Common   (getEpoch)
-import           Pos.Lrc.Error       (LrcError (..))
+import           Pos.Core (EpochIndex)
+import           Pos.DB.Class (MonadDBRead)
+import           Pos.Exception (reportFatalError)
+import           Pos.Lrc.DB.Common (getEpoch)
+import           Pos.Lrc.Error (LrcError (..))
 import           Pos.Util.Concurrent (readTVarConditional)
-import           Pos.Util.Util       (HasLens (..), HasLens', maybeThrow)
+import           Pos.Util.Util (HasLens (..), HasLens', maybeThrow)
 
 data LrcContext = LrcContext
     { -- | Primitive for synchronization with LRC.

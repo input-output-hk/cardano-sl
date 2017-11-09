@@ -24,36 +24,33 @@ module Pos.Launcher.Mode
 
 import           Universum
 
-import           Control.Lens            (makeLensesWith)
-import qualified Control.Monad.Reader    as Mtl
-import           Ether.Internal          (HasLens (..))
-import           Mockable.Production     (Production)
+import           Control.Lens (makeLensesWith)
+import qualified Control.Monad.Reader as Mtl
+import           Ether.Internal (HasLens (..))
+import           Mockable.Production (Production)
 
-import           Pos.Block.Types         (Undo)
-import           Pos.Core                (HasConfiguration, IsHeader, Timestamp)
-import           Pos.Core.Block          (Block, BlockHeader)
-import           Pos.DB                  (NodeDBs)
-import           Pos.DB.Block            (dbGetBlockDefault, dbGetBlockSscDefault,
-                                          dbGetHeaderDefault, dbGetHeaderSscDefault,
-                                          dbGetUndoDefault, dbGetUndoSscDefault,
-                                          dbPutBlundDefault)
-import           Pos.DB.Class            (MonadBlockDBGeneric (..),
-                                          MonadBlockDBGenericWrite (..), MonadDB (..),
-                                          MonadDBRead (..))
-import           Pos.DB.Rocks            (dbDeleteDefault, dbGetDefault,
-                                          dbIterSourceDefault, dbPutDefault,
-                                          dbWriteBatchDefault)
+import           Pos.Block.Types (Undo)
+import           Pos.Core (HasConfiguration, IsHeader, Timestamp)
+import           Pos.Core.Block (Block, BlockHeader)
+import           Pos.DB (NodeDBs)
+import           Pos.DB.Block (dbGetBlockDefault, dbGetBlockSscDefault, dbGetHeaderDefault,
+                               dbGetHeaderSscDefault, dbGetUndoDefault, dbGetUndoSscDefault,
+                               dbPutBlundDefault)
+import           Pos.DB.Class (MonadBlockDBGeneric (..), MonadBlockDBGenericWrite (..),
+                               MonadDB (..), MonadDBRead (..))
+import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
+                               dbWriteBatchDefault)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
-import           Pos.Lrc.Context         (LrcContext)
-import           Pos.Slotting            (HasSlottingVar (..), SlottingData)
-import           Pos.Slotting.Class      (MonadSlots (..))
-import           Pos.Slotting.Impl.Sum   (SlottingContextSum, currentTimeSlottingSum,
-                                          getCurrentSlotBlockingSum,
-                                          getCurrentSlotInaccurateSum, getCurrentSlotSum)
-import           Pos.Slotting.MemState   (MonadSlotsData)
-import           Pos.Ssc.Types           (SscBlock)
-import           Pos.Util                (Some (..))
-import           Pos.Util.Util           (postfixLFields)
+import           Pos.Lrc.Context (LrcContext)
+import           Pos.Slotting (HasSlottingVar (..), SlottingData)
+import           Pos.Slotting.Class (MonadSlots (..))
+import           Pos.Slotting.Impl.Sum (SlottingContextSum, currentTimeSlottingSum,
+                                        getCurrentSlotBlockingSum, getCurrentSlotInaccurateSum,
+                                        getCurrentSlotSum)
+import           Pos.Slotting.MemState (MonadSlotsData)
+import           Pos.Ssc.Types (SscBlock)
+import           Pos.Util (Some (..))
+import           Pos.Util.Util (postfixLFields)
 
 -- The fields are lazy on purpose: this allows using them with
 -- futures.

@@ -18,18 +18,18 @@ module Pos.Util.Chrono
        , splitAtOldestFirst
        ) where
 
-import           Universum          hiding (mapMaybe)
+import           Universum hiding (mapMaybe)
 
-import           Control.Lens       (makePrisms, makeWrapped, _Wrapped)
-import qualified Control.Lens       as Lens (Each (..))
-import           Data.Binary        (Binary)
-import           Data.Coerce        (coerce)
+import           Control.Lens (makePrisms, makeWrapped, _Wrapped)
+import qualified Control.Lens as Lens (Each (..))
+import           Data.Binary (Binary)
+import           Data.Coerce (coerce)
 import qualified Data.List.NonEmpty as NE
-import           Data.Semigroup     (Semigroup)
-import qualified GHC.Exts           as IL
-import           Test.QuickCheck    (Arbitrary)
+import           Data.Semigroup (Semigroup)
+import qualified GHC.Exts as IL
+import           Test.QuickCheck (Arbitrary)
 
-import           Pos.Binary.Class   (Bi)
+import           Pos.Binary.Class (Bi)
 
 newtype NewestFirst f a = NewestFirst {getNewestFirst :: f a}
   deriving (Eq, Ord, Show,

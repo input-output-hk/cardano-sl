@@ -1,7 +1,7 @@
 {-# LANGUAGE GADTs           #-}
-{-# LANGUAGE TypeFamilies    #-}
-{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE RankNTypes      #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies    #-}
 
 module Pos.Communication.Relay.Class
        ( Relay (..)
@@ -10,15 +10,15 @@ module Pos.Communication.Relay.Class
        , MempoolParams (..)
        ) where
 
+import           Node.Message.Class (Message)
+import           Pos.Binary.Class (Bi)
 import           Universum
-import           Node.Message.Class             (Message)
-import           Pos.Binary.Class               (Bi)
 
 import           Pos.Communication.Limits.Types (MessageLimited)
-import           Pos.Communication.Types.Relay  (DataMsg, InvMsg, InvOrData, MempoolMsg,
-                                                 ReqMsg, ReqOrRes)
-import           Pos.Communication.Types.Protocol (NodeId, Msg, EnqueueMsg)
-import           Pos.Network.Types              (Origin)
+import           Pos.Communication.Types.Protocol (EnqueueMsg, Msg, NodeId)
+import           Pos.Communication.Types.Relay (DataMsg, InvMsg, InvOrData, MempoolMsg, ReqMsg,
+                                                ReqOrRes)
+import           Pos.Network.Types (Origin)
 
 -- | Data for general Inv/Req/Dat framework
 

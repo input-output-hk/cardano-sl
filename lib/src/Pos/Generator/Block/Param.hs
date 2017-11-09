@@ -9,16 +9,16 @@ module Pos.Generator.Block.Param
 
 import           Universum
 
-import           Control.Lens.TH     (makeClassy)
-import           Data.Default        (Default (..))
+import           Control.Lens.TH (makeClassy)
+import           Data.Default (Default (..))
 import qualified Data.Text.Buildable
-import           Formatting          (bprint, build, formatToString, int, (%))
+import           Formatting (bprint, build, formatToString, int, (%))
 import qualified Prelude
-import           Serokell.Util       (pairF)
+import           Serokell.Util (pairF)
 
-import           Pos.AllSecrets      (AllSecrets, HasAllSecrets (..))
-import           Pos.Core            (BlockCount, GenesisWStakeholders)
-import           Pos.Txp             (TxpGlobalSettings)
+import           Pos.AllSecrets (AllSecrets, HasAllSecrets (..))
+import           Pos.Core (BlockCount, GenesisWStakeholders)
+import           Pos.Txp (TxpGlobalSettings)
 
 -- | Parameters for transactions payload generation.
 data TxGenParams = TxGenParams

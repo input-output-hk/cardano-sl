@@ -6,16 +6,14 @@ module Pos.Binary.Core.Txp
 
 import           Universum
 
-import           Pos.Binary.Class        (Bi (..), Cons (..), Field (..),
-                                          decodeKnownCborDataItem, decodeListLenCanonical,
-                                          decodeUnknownCborDataItem, deriveSimpleBi,
-                                          encodeKnownCborDataItem, encodeListLen,
-                                          encodeUnknownCborDataItem, enforceSize,
-                                          matchSize)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCborDataItem,
+                                   decodeListLenCanonical, decodeUnknownCborDataItem,
+                                   deriveSimpleBi, encodeKnownCborDataItem, encodeListLen,
+                                   encodeUnknownCborDataItem, enforceSize, matchSize)
 import           Pos.Binary.Core.Address ()
-import           Pos.Binary.Merkle       ()
-import qualified Pos.Core.Txp            as T
-import qualified Pos.Core.Types          as T
+import           Pos.Binary.Merkle ()
+import qualified Pos.Core.Txp as T
+import qualified Pos.Core.Types as T
 
 ----------------------------------------------------------------------------
 -- Core

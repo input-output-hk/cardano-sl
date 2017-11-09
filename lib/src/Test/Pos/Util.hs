@@ -30,23 +30,20 @@ module Test.Pos.Util
 
 import           Universum
 
-import           Data.Tagged                (Tagged (..))
-import           Test.QuickCheck            (Arbitrary (arbitrary), Property,
-                                             counterexample, property)
-import           Test.QuickCheck.Gen        (choose)
-import           Test.QuickCheck.Monadic    (PropertyM, pick, stop)
-import           Test.QuickCheck.Property   (Result (..), failed)
+import           Data.Tagged (Tagged (..))
+import           Test.QuickCheck (Arbitrary (arbitrary), Property, counterexample, property)
+import           Test.QuickCheck.Gen (choose)
+import           Test.QuickCheck.Monadic (PropertyM, pick, stop)
+import           Test.QuickCheck.Property (Result (..), failed)
 
-import           Pos.Configuration          (HasNodeConfiguration, withNodeConfiguration)
-import           Pos.Core                   (HasConfiguration, withGenesisSpec)
-import           Pos.Infra.Configuration    (HasInfraConfiguration,
-                                             withInfraConfiguration)
+import           Pos.Configuration (HasNodeConfiguration, withNodeConfiguration)
+import           Pos.Core (HasConfiguration, withGenesisSpec)
+import           Pos.Infra.Configuration (HasInfraConfiguration, withInfraConfiguration)
 import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
-import           Pos.Ssc.Configuration      (HasSscConfiguration, withSscConfiguration)
-import           Pos.Update.Configuration   (HasUpdateConfiguration,
-                                             withUpdateConfiguration)
+import           Pos.Ssc.Configuration (HasSscConfiguration, withSscConfiguration)
+import           Pos.Update.Configuration (HasUpdateConfiguration, withUpdateConfiguration)
 
-import           Test.Pos.Configuration     (defaultTestConf)
+import           Test.Pos.Configuration (defaultTestConf)
 
 -- | This constraint requires all configurations which are not
 -- always hardcoded in tests (currently).

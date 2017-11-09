@@ -6,13 +6,12 @@ module Pos.Reporting.Exceptions
 
 import           Universum
 
-import           Control.Exception   (Exception (..))
+import           Control.Exception (Exception (..))
 import qualified Data.Text.Buildable
-import           Formatting          (bprint, string, (%))
-import           Serokell.Util       (listJson)
+import           Formatting (bprint, string, (%))
+import           Serokell.Util (listJson)
 
-import           Pos.Exception       (cardanoExceptionFromException,
-                                      cardanoExceptionToException)
+import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
 
 data ReportingError
     = CantRetrieveLogs [FilePath]

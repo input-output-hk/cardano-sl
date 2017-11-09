@@ -45,26 +45,26 @@ module Pos.Network.Types
        , NodeId (..)
        ) where
 
-import           Universum                             hiding (show)
+import           Universum hiding (show)
 
-import           Data.IP                               (IPv4)
-import           GHC.Show                              (Show (..))
-import           Network.Broadcast.OutboundQueue       (OutboundQ)
-import qualified Network.Broadcast.OutboundQueue       as OQ
+import           Data.IP (IPv4)
+import           GHC.Show (Show (..))
+import           Network.Broadcast.OutboundQueue (OutboundQ)
+import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types
-import           Network.DNS                           (DNSError)
-import qualified Network.DNS                           as DNS
-import qualified Network.Transport.TCP                 as TCP
-import           Node.Internal                         (NodeId (..))
-import qualified System.Metrics                        as Monitoring
-import           System.Wlog.CanLog                    (WithLogger)
+import           Network.DNS (DNSError)
+import qualified Network.DNS as DNS
+import qualified Network.Transport.TCP as TCP
+import           Node.Internal (NodeId (..))
+import qualified System.Metrics as Monitoring
+import           System.Wlog.CanLog (WithLogger)
 
-import           Pos.Network.DnsDomains                (DnsDomains (..), NodeAddr)
-import qualified Pos.Network.DnsDomains                as DnsDomains
-import qualified Pos.Network.Policy                    as Policy
-import           Pos.System.Metrics.Constants          (cardanoNamespace)
-import           Pos.Util.TimeWarp                     (addressToNodeId)
-import           Pos.Util.Util                         (HasLens', lensOf)
+import           Pos.Network.DnsDomains (DnsDomains (..), NodeAddr)
+import qualified Pos.Network.DnsDomains as DnsDomains
+import qualified Pos.Network.Policy as Policy
+import           Pos.System.Metrics.Constants (cardanoNamespace)
+import           Pos.Util.TimeWarp (addressToNodeId)
+import           Pos.Util.Util (HasLens', lensOf)
 
 {-------------------------------------------------------------------------------
   Network configuration

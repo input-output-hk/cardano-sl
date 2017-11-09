@@ -6,21 +6,19 @@ module Pos.Binary.Core.Update
 
 import           Universum
 
-import           Data.Time.Units            (Millisecond)
+import           Data.Time.Units (Millisecond)
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class           (Bi (..), Cons (..), Field (..), Raw,
-                                             deriveSimpleBi, deriveSimpleBiCxt,
-                                             encodeListLen, enforceSize)
-import           Pos.Binary.Core.Script     ()
-import           Pos.Binary.Core.Types      ()
-import           Pos.Core.Configuration     (HasConfiguration)
-import           Pos.Core.Fee               (TxFeePolicy)
-import           Pos.Core.Types             (BlockVersion, CoinPortion, EpochIndex,
-                                             FlatSlotId, ScriptVersion, SoftforkRule,
-                                             SoftwareVersion)
-import qualified Pos.Core.Update            as U
-import           Pos.Crypto                 (Hash, SignTag (SignUSVote), checkSig)
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), Raw, deriveSimpleBi,
+                                   deriveSimpleBiCxt, encodeListLen, enforceSize)
+import           Pos.Binary.Core.Script ()
+import           Pos.Binary.Core.Types ()
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Fee (TxFeePolicy)
+import           Pos.Core.Types (BlockVersion, CoinPortion, EpochIndex, FlatSlotId, ScriptVersion,
+                                 SoftforkRule, SoftwareVersion)
+import qualified Pos.Core.Update as U
+import           Pos.Crypto (Hash, SignTag (SignUSVote), checkSig)
 
 instance Bi U.SystemTag where
     encode = encode . U.getSystemTag

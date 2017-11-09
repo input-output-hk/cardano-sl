@@ -16,64 +16,53 @@ module Pos.Launcher.Runner
        , initQueue
        ) where
 
-import           Universum                       hiding (bracket)
+import           Universum hiding (bracket)
 
-import           Control.Monad.Fix               (MonadFix)
-import qualified Control.Monad.Reader            as Mtl
-import           Data.Default                    (Default)
-import qualified Data.Map                        as M
-import           Formatting                      (build, sformat, (%))
-import           Mockable                        (Mockable, MonadMockable,
-                                                  Production (..), Throw, async, bracket,
-                                                  cancel, killThread, throw)
+import           Control.Monad.Fix (MonadFix)
+import qualified Control.Monad.Reader as Mtl
+import           Data.Default (Default)
+import qualified Data.Map as M
+import           Formatting (build, sformat, (%))
+import           Mockable (Mockable, MonadMockable, Production (..), Throw, async, bracket, cancel,
+                           killThread, throw)
 import qualified Network.Broadcast.OutboundQueue as OQ
-import           Node                            (Node, NodeAction (..), NodeEndPoint,
-                                                  ReceiveDelay, Statistics,
-                                                  defaultNodeEnvironment, noReceiveDelay,
-                                                  node, nodeAckTimeout,
-                                                  simpleNodeEndPoint)
-import qualified Node.Conversation               as N (Conversation, Converse,
-                                                       converseWith)
-import           Node.Util.Monitor               (registerMetrics)
-import           Pos.System.Metrics.Constants    (cardanoNamespace)
-import           Pos.Util.Monitor                (stopMonitor)
-import qualified System.Metrics                  as Metrics
-import           System.Random                   (newStdGen)
+import           Node (Node, NodeAction (..), NodeEndPoint, ReceiveDelay, Statistics,
+                       defaultNodeEnvironment, noReceiveDelay, node, nodeAckTimeout,
+                       simpleNodeEndPoint)
+import qualified Node.Conversation as N (Conversation, Converse, converseWith)
+import           Node.Util.Monitor (registerMetrics)
+import           Pos.System.Metrics.Constants (cardanoNamespace)
+import           Pos.Util.Monitor (stopMonitor)
+import qualified System.Metrics as Metrics
+import           System.Random (newStdGen)
 import qualified System.Remote.Monitoring.Statsd as Monitoring
-import qualified System.Remote.Monitoring.Wai    as Monitoring
-import           System.Wlog                     (WithLogger, logInfo)
+import qualified System.Remote.Monitoring.Wai as Monitoring
+import           System.Wlog (WithLogger, logInfo)
 
-import           Pos.Binary                      ()
-import           Pos.Communication               (ActionSpec (..), EnqueueMsg,
-                                                  InSpecs (..), MkListeners (..), Msg,
-                                                  OutSpecs (..), PackingType, PeerData,
-                                                  SendActions, VerInfo (..), allListeners,
-                                                  bipPacking, hoistSendActions,
-                                                  makeEnqueueMsg, makeSendActions)
-import           Pos.Configuration               (HasNodeConfiguration,
-                                                  conversationEstablishTimeout)
-import           Pos.Context                     (NodeContext (..))
-import           Pos.Core.Configuration          (HasConfiguration, protocolMagic)
-import           Pos.Core.Types                  (ProtocolMagic (..))
-import           Pos.Infra.Configuration         (HasInfraConfiguration)
-import           Pos.Launcher.Param              (BaseParams (..), LoggingParams (..),
-                                                  NodeParams (..))
-import           Pos.Launcher.Resource           (NodeResources (..), hoistNodeResources)
-import           Pos.Network.Types               (NetworkConfig (..), NodeId, initQueue,
-                                                  topologyRoute53HealthCheckEnabled)
-import           Pos.Recovery.Instance           ()
-import           Pos.Ssc                         (HasSscConfiguration)
-import           Pos.Statistics                  (EkgParams (..), StatsdParams (..))
-import           Pos.Txp                         (MonadTxpLocal)
-import           Pos.Update.Configuration        (HasUpdateConfiguration,
-                                                  lastKnownBlockVersion)
-import           Pos.Util.CompileInfo            (HasCompileInfo)
-import           Pos.Util.JsonLog                (JsonLogConfig (..),
-                                                  jsonLogConfigFromHandle)
-import           Pos.Web.Server                  (route53HealthCheckApplication,
-                                                  serveImpl)
-import           Pos.WorkMode                    (EnqueuedConversation (..), OQ, RealMode,
-                                                  RealModeContext (..), WorkMode)
+import           Pos.Binary ()
+import           Pos.Communication (ActionSpec (..), EnqueueMsg, InSpecs (..), MkListeners (..),
+                                    Msg, OutSpecs (..), PackingType, PeerData, SendActions,
+                                    VerInfo (..), allListeners, bipPacking, hoistSendActions,
+                                    makeEnqueueMsg, makeSendActions)
+import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout)
+import           Pos.Context (NodeContext (..))
+import           Pos.Core.Configuration (HasConfiguration, protocolMagic)
+import           Pos.Core.Types (ProtocolMagic (..))
+import           Pos.Infra.Configuration (HasInfraConfiguration)
+import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodeParams (..))
+import           Pos.Launcher.Resource (NodeResources (..), hoistNodeResources)
+import           Pos.Network.Types (NetworkConfig (..), NodeId, initQueue,
+                                    topologyRoute53HealthCheckEnabled)
+import           Pos.Recovery.Instance ()
+import           Pos.Ssc (HasSscConfiguration)
+import           Pos.Statistics (EkgParams (..), StatsdParams (..))
+import           Pos.Txp (MonadTxpLocal)
+import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
+import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Util.JsonLog (JsonLogConfig (..), jsonLogConfigFromHandle)
+import           Pos.Web.Server (route53HealthCheckApplication, serveImpl)
+import           Pos.WorkMode (EnqueuedConversation (..), OQ, RealMode, RealModeContext (..),
+                               WorkMode)
 
 ----------------------------------------------------------------------------
 -- High level runners

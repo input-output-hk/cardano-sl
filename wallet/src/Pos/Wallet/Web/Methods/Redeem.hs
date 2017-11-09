@@ -9,32 +9,29 @@ module Pos.Wallet.Web.Methods.Redeem
 
 import           Universum
 
-import           Data.ByteString.Base58         (bitcoinAlphabet, decodeBase58)
-import qualified Serokell.Util.Base64           as B64
+import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58)
+import qualified Serokell.Util.Base64 as B64
 
-import           Pos.Client.Txp.History         (TxHistoryEntry (..))
-import           Pos.Communication              (prepareRedemptionTx)
-import           Pos.Core                       (TxAux (..), TxOut (..),
-                                                 getCurrentTimestamp)
-import           Pos.Crypto                     (PassPhrase, aesDecrypt, deriveAesKeyBS,
-                                                 hash, redeemDeterministicKeyGen)
-import           Pos.Util                       (maybeThrow)
-import           Pos.Util.BackupPhrase          (toSeed)
-import           Pos.Wallet.Web.Account         (GenSeed (..))
-import           Pos.Wallet.Web.ClientTypes     (AccountId (..), CAccountId (..),
-                                                 CAddress (..),
-                                                 CPaperVendWalletRedeem (..), CTx (..),
-                                                 CWalletRedeem (..))
-import           Pos.Wallet.Web.Error           (WalletError (..))
+import           Pos.Client.Txp.History (TxHistoryEntry (..))
+import           Pos.Communication (prepareRedemptionTx)
+import           Pos.Core (TxAux (..), TxOut (..), getCurrentTimestamp)
+import           Pos.Crypto (PassPhrase, aesDecrypt, deriveAesKeyBS, hash,
+                             redeemDeterministicKeyGen)
+import           Pos.Util (maybeThrow)
+import           Pos.Util.BackupPhrase (toSeed)
+import           Pos.Wallet.Web.Account (GenSeed (..))
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccountId (..), CAddress (..),
+                                             CPaperVendWalletRedeem (..), CTx (..),
+                                             CWalletRedeem (..))
+import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTxMeta, constructCTx,
                                                  getCurChainDifficulty)
-import qualified Pos.Wallet.Web.Methods.Logic   as L
-import           Pos.Wallet.Web.Methods.Txp     (MonadWalletTxFull, rewrapTxError,
-                                                 submitAndSaveNewPtx)
-import           Pos.Wallet.Web.Pending         (mkPendingTx)
-import           Pos.Wallet.Web.State           (AddressLookupMode (Ever))
-import           Pos.Wallet.Web.Tracking        (fixingCachedAccModifier)
-import           Pos.Wallet.Web.Util            (decodeCTypeOrFail, getWalletAddrsSet)
+import qualified Pos.Wallet.Web.Methods.Logic as L
+import           Pos.Wallet.Web.Methods.Txp (MonadWalletTxFull, rewrapTxError, submitAndSaveNewPtx)
+import           Pos.Wallet.Web.Pending (mkPendingTx)
+import           Pos.Wallet.Web.State (AddressLookupMode (Ever))
+import           Pos.Wallet.Web.Tracking (fixingCachedAccModifier)
+import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getWalletAddrsSet)
 
 
 redeemAda

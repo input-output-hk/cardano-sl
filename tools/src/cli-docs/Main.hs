@@ -4,20 +4,19 @@ module Main ( module Main ) where
 
 import           Universum
 
-import           Control.Monad         (forM)
-import           Data.List             (intersperse)
-import           Data.Text             (Text)
-import           Data.Version          (showVersion)
-import           NeatInterpolation     (text)
-import           Options.Applicative   (Parser, execParser, footer, fullDesc, header,
-                                        help, helper, info, infoOption, long, metavar,
-                                        progDesc, strOption)
-import           System.Directory      (doesDirectoryExist, listDirectory)
-import           System.Environment    (getProgName)
+import           Control.Monad (forM)
+import           Data.List (intersperse)
+import           Data.Text (Text)
+import           Data.Version (showVersion)
+import           NeatInterpolation (text)
+import           Options.Applicative (Parser, execParser, footer, fullDesc, header, help, helper,
+                                      info, infoOption, long, metavar, progDesc, strOption)
+import           System.Directory (doesDirectoryExist, listDirectory)
+import           System.Environment (getProgName)
 import           System.FilePath.Posix ((<.>), (</>))
-import           System.Process        (readProcess)
+import           System.Process (readProcess)
 
-import           Paths_cardano_sl      (version)
+import           Paths_cardano_sl (version)
 
 type Help     = Text
 type Markdown = Text

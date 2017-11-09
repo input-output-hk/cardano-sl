@@ -6,42 +6,37 @@ module Test.Pos.Txp.Toil.UtxoSpec
 
 import           Universum
 
-import           Control.Monad.Except  (runExceptT)
-import           Data.List.NonEmpty    (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty    as NE
-import qualified Data.Map              as M
-import qualified Data.Text.Buildable   as B
-import qualified Data.Vector           as V (fromList)
-import           Fmt                   (blockListF', genericF, nameF, (+|), (|+))
-import           Serokell.Util         (allDistinct)
-import           Test.Hspec            (Expectation, Spec, describe, expectationFailure,
-                                        it)
+import           Control.Monad.Except (runExceptT)
+import           Data.List.NonEmpty (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Map as M
+import qualified Data.Text.Buildable as B
+import qualified Data.Vector as V (fromList)
+import           Fmt (blockListF', genericF, nameF, (+|), (|+))
+import           Serokell.Util (allDistinct)
+import           Test.Hspec (Expectation, Spec, describe, expectationFailure, it)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Property, arbitrary, counterexample, (==>))
+import           Test.QuickCheck (Property, arbitrary, counterexample, (==>))
 
-import           Pos.Arbitrary.Txp     (BadSigsTx (..), DoubleInputTx (..), GoodTx (..))
-import           Pos.Core              (HasConfiguration, addressHash, checkPubKeyAddress,
-                                        makePubKeyAddressBoot, makeScriptAddress, mkCoin,
-                                        sumCoins)
-import           Pos.Core.Txp          (Tx (..), TxAux (..), TxIn (..), TxInWitness (..),
-                                        TxOut (..), TxOutAux (..), TxSigData (..),
-                                        TxWitness, isTxInUnknown)
-import           Pos.Crypto            (SignTag (SignTx), checkSig, fakeSigner, hash,
-                                        toPublic, unsafeHash, withHash)
-import           Pos.Data.Attributes   (mkAttributes)
-import           Pos.Script            (PlutusError (..), Script)
-import           Pos.Script.Examples   (alwaysSuccessValidator, badIntRedeemer,
-                                        goodIntRedeemer, goodIntRedeemerWithBlah,
-                                        goodStdlibRedeemer, idValidator, intValidator,
-                                        intValidatorWithBlah, multisigRedeemer,
-                                        multisigValidator, shaStressRedeemer,
-                                        sigStressRedeemer, stdlibValidator)
-import           Pos.Txp               (MonadUtxoRead (utxoGet), ToilVerFailure (..),
-                                        Utxo, VTxContext (..), WitnessVerFailure (..),
-                                        applyTxToUtxoPure, verifyTxUtxo, verifyTxUtxoPure)
-import           Pos.Util              (SmallGenerator (..), nonrepeating, runGen)
+import           Pos.Arbitrary.Txp (BadSigsTx (..), DoubleInputTx (..), GoodTx (..))
+import           Pos.Core (HasConfiguration, addressHash, checkPubKeyAddress, makePubKeyAddressBoot,
+                           makeScriptAddress, mkCoin, sumCoins)
+import           Pos.Core.Txp (Tx (..), TxAux (..), TxIn (..), TxInWitness (..), TxOut (..),
+                               TxOutAux (..), TxSigData (..), TxWitness, isTxInUnknown)
+import           Pos.Crypto (SignTag (SignTx), checkSig, fakeSigner, hash, toPublic, unsafeHash,
+                             withHash)
+import           Pos.Data.Attributes (mkAttributes)
+import           Pos.Script (PlutusError (..), Script)
+import           Pos.Script.Examples (alwaysSuccessValidator, badIntRedeemer, goodIntRedeemer,
+                                      goodIntRedeemerWithBlah, goodStdlibRedeemer, idValidator,
+                                      intValidator, intValidatorWithBlah, multisigRedeemer,
+                                      multisigValidator, shaStressRedeemer, sigStressRedeemer,
+                                      stdlibValidator)
+import           Pos.Txp (MonadUtxoRead (utxoGet), ToilVerFailure (..), Utxo, VTxContext (..),
+                          WitnessVerFailure (..), applyTxToUtxoPure, verifyTxUtxo, verifyTxUtxoPure)
+import           Pos.Util (SmallGenerator (..), nonrepeating, runGen)
 
-import           Test.Pos.Util         (qcIsLeft, qcIsRight, withDefConfiguration)
+import           Test.Pos.Util (qcIsLeft, qcIsRight, withDefConfiguration)
 
 ----------------------------------------------------------------------------
 -- Spec

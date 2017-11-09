@@ -11,16 +11,14 @@ module Pos.Core.Block.Genesis.Chain
 
 import           Universum
 
-import qualified Data.Text.Buildable          as Buildable
+import qualified Data.Text.Buildable as Buildable
 
-import           Pos.Core.Block.Blockchain    (Blockchain (..), BlockchainHelpers (..))
+import           Pos.Core.Block.Blockchain (Blockchain (..), BlockchainHelpers (..))
 import           Pos.Core.Block.Genesis.Types (GenesisBlock, GenesisBlockchain,
-                                               GenesisExtraBodyData,
-                                               GenesisExtraHeaderData)
-import           Pos.Core.Block.Union.Types   (Block, BlockHeader)
-import           Pos.Core.Types               (ChainDifficulty, EpochIndex (..),
-                                               SlotLeaders)
-import           Pos.Crypto                   (Hash, hash)
+                                               GenesisExtraBodyData, GenesisExtraHeaderData)
+import           Pos.Core.Block.Union.Types (Block, BlockHeader)
+import           Pos.Core.Types (ChainDifficulty, EpochIndex (..), SlotLeaders)
+import           Pos.Crypto (Hash, hash)
 
 instance Blockchain GenesisBlockchain where
     -- [CSL-199]: maybe we should use ADS.

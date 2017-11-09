@@ -21,40 +21,34 @@ module Pos.Wallet.Redirect
 
 import           Universum
 
-import           Control.Lens                   (views)
-import qualified Data.HashMap.Strict            as HM
-import           Data.Time.Units                (Millisecond)
-import           Ether.Internal                 (HasLens (..))
-import           System.Wlog                    (WithLogger, logWarning)
+import           Control.Lens (views)
+import qualified Data.HashMap.Strict as HM
+import           Data.Time.Units (Millisecond)
+import           Ether.Internal (HasLens (..))
+import           System.Wlog (WithLogger, logWarning)
 
-import qualified Pos.Context                    as PC
-import           Pos.Core                       (ChainDifficulty, HasConfiguration,
-                                                 Timestamp, Tx, TxAux (..), TxId, TxUndo,
-                                                 difficultyL, getCurrentTimestamp)
-import           Pos.Core.Block                 (BlockHeader)
-import           Pos.Crypto                     (WithHash (..))
-import           Pos.DB.Block                   (MonadBlockDB)
-import           Pos.DB.DB                      (getTipHeader)
-import qualified Pos.GState                     as GS
-import           Pos.Shutdown                   (HasShutdownContext, triggerShutdown)
-import           Pos.Slotting                   (MonadSlots (..),
-                                                 getNextEpochSlotDuration)
-import           Pos.Txp                        (MonadTxpLocal (..), ToilVerFailure,
-                                                 TxpNormalizeMempoolMode,
-                                                 TxpProcessTransactionMode,
-                                                 getLocalTxsNUndo, txNormalize,
-                                                 txProcessTransaction)
-import           Pos.Update.Context             (UpdateContext (ucDownloadedUpdate))
-import           Pos.Update.Poll.Types          (ConfirmedProposalState)
-import           Pos.Wallet.WalletMode          (MonadBlockchainInfo (..),
-                                                 MonadUpdates (..))
-import           Pos.Wallet.Web.Account         (AccountMode, getSKById)
-import           Pos.Wallet.Web.ClientTypes     (CId, Wal)
+import qualified Pos.Context as PC
+import           Pos.Core (ChainDifficulty, HasConfiguration, Timestamp, Tx, TxAux (..), TxId,
+                           TxUndo, difficultyL, getCurrentTimestamp)
+import           Pos.Core.Block (BlockHeader)
+import           Pos.Crypto (WithHash (..))
+import           Pos.DB.Block (MonadBlockDB)
+import           Pos.DB.DB (getTipHeader)
+import qualified Pos.GState as GS
+import           Pos.Shutdown (HasShutdownContext, triggerShutdown)
+import           Pos.Slotting (MonadSlots (..), getNextEpochSlotDuration)
+import           Pos.Txp (MonadTxpLocal (..), ToilVerFailure, TxpNormalizeMempoolMode,
+                          TxpProcessTransactionMode, getLocalTxsNUndo, txNormalize,
+                          txProcessTransaction)
+import           Pos.Update.Context (UpdateContext (ucDownloadedUpdate))
+import           Pos.Update.Poll.Types (ConfirmedProposalState)
+import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (..))
+import           Pos.Wallet.Web.Account (AccountMode, getSKById)
+import           Pos.Wallet.Web.ClientTypes (CId, Wal)
 import           Pos.Wallet.Web.Methods.History (addHistoryTxMeta)
-import qualified Pos.Wallet.Web.State           as WS
-import           Pos.Wallet.Web.Tracking        (THEntryExtra, buildTHEntryExtra,
-                                                 eskToWalletDecrCredentials,
-                                                 isTxEntryInteresting)
+import qualified Pos.Wallet.Web.State as WS
+import           Pos.Wallet.Web.Tracking (THEntryExtra, buildTHEntryExtra,
+                                          eskToWalletDecrCredentials, isTxEntryInteresting)
 
 ----------------------------------------------------------------------------
 -- BlockchainInfo

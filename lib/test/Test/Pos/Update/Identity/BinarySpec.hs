@@ -4,19 +4,19 @@ module Test.Pos.Update.Identity.BinarySpec
        ( spec
        ) where
 
-import           Data.Tagged             (Tagged)
-import           Test.Hspec              (Spec, describe)
+import           Data.Tagged (Tagged)
+import           Test.Hspec (Spec, describe)
 import           Universum
 
-import           Pos.Arbitrary.Infra     ()
-import           Pos.Binary              ()
+import           Pos.Arbitrary.Infra ()
+import           Pos.Binary ()
 import           Pos.Communication.Relay ()
 import qualified Pos.Communication.Relay as R
-import qualified Pos.Update              as U
+import qualified Pos.Update as U
 
-import           Test.Pos.Cbor.CborSpec  (U)
-import           Test.Pos.Helpers        (binaryTest, msgLenLimitedTest)
-import           Test.Pos.Util           (withDefConfiguration, withDefInfraConfiguration)
+import           Test.Pos.Cbor.CborSpec (U)
+import           Test.Pos.Helpers (binaryTest, msgLenLimitedTest)
+import           Test.Pos.Util (withDefConfiguration, withDefInfraConfiguration)
 
 type VoteId' = Tagged U.UpdateVote U.VoteId
 type UpId' = Tagged (U.UpdateProposal, [U.UpdateVote])U.UpId

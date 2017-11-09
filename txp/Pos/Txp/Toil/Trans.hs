@@ -11,19 +11,18 @@ module Pos.Txp.Toil.Trans
 
 import           Universum
 
-import           Control.Lens        (at, to, (%=), (+=), (.=))
-import           Data.Default        (Default (def))
+import           Control.Lens (at, to, (%=), (+=), (.=))
+import           Data.Default (Default (def))
 import qualified Data.HashMap.Strict as HM
 import qualified Ether
 
-import           Pos.Txp.Toil.Class  (MonadStakes (..), MonadStakesRead (..),
-                                      MonadTxPool (..), MonadUtxo (..),
-                                      MonadUtxoRead (..))
-import           Pos.Txp.Toil.Types  (GenericToilModifier (..), MemPool, ToilModifier,
-                                      UndoMap, UtxoModifier, mpLocalTxs, mpSize, svStakes,
-                                      svTotal, tmMemPool, tmStakes, tmUndos, tmUtxo)
-import qualified Pos.Util.Modifier   as MM
-import           Pos.Util.Util       (ether)
+import           Pos.Txp.Toil.Class (MonadStakes (..), MonadStakesRead (..), MonadTxPool (..),
+                                     MonadUtxo (..), MonadUtxoRead (..))
+import           Pos.Txp.Toil.Types (GenericToilModifier (..), MemPool, ToilModifier, UndoMap,
+                                     UtxoModifier, mpLocalTxs, mpSize, svStakes, svTotal, tmMemPool,
+                                     tmStakes, tmUndos, tmUtxo)
+import qualified Pos.Util.Modifier as MM
+import           Pos.Util.Util (ether)
 
 ----------------------------------------------------------------------------
 -- Tranformer

@@ -12,9 +12,9 @@ module Pos.Core.Block.Union.Types
 
 import           Universum
 
-import           Pos.Binary.Class             (Bi)
-import           Pos.Core.Types               (HeaderHash)
-import           Pos.Crypto                   (unsafeHash)
+import           Pos.Binary.Class (Bi)
+import           Pos.Core.Types (HeaderHash)
+import           Pos.Crypto (unsafeHash)
 
 -- Re-exports
 import           Pos.Core.Block.Genesis.Types

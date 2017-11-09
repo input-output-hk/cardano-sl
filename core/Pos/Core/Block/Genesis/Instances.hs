@@ -8,24 +8,22 @@ module Pos.Core.Block.Genesis.Instances
 
 import           Universum
 
-import qualified Data.Text.Buildable          as Buildable
-import           Formatting                   (bprint, build, int, sformat, stext, (%))
-import           Serokell.Util                (Color (Magenta), colorize, listJson)
+import qualified Data.Text.Buildable as Buildable
+import           Formatting (bprint, build, int, sformat, stext, (%))
+import           Serokell.Util (Color (Magenta), colorize, listJson)
 
-import           Pos.Binary.Class             (Bi)
-import           Pos.Binary.Core.Block        ()
-import           Pos.Core.Block.Blockchain    (GenericBlock (..), GenericBlockHeader (..),
-                                               gbHeader, gbhConsensus)
+import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Core.Block ()
+import           Pos.Core.Block.Blockchain (GenericBlock (..), GenericBlockHeader (..), gbHeader,
+                                            gbhConsensus)
 import           Pos.Core.Block.Genesis.Chain (Body (..), ConsensusData (..))
-import           Pos.Core.Block.Genesis.Lens  (gcdDifficulty, gcdEpoch)
-import           Pos.Core.Block.Genesis.Types (GenesisBlock, GenesisBlockHeader,
-                                               GenesisBlockchain)
-import           Pos.Core.Block.Union.Types   (BlockHeader, blockHeaderHash)
-import           Pos.Core.Class               (HasDifficulty (..), HasEpochIndex (..),
-                                               HasEpochOrSlot (..), HasHeaderHash (..),
-                                               IsGenesisHeader, IsHeader)
-import           Pos.Core.Types               (EpochOrSlot (..), HeaderHash)
-import           Pos.Crypto                   (hashHexF)
+import           Pos.Core.Block.Genesis.Lens (gcdDifficulty, gcdEpoch)
+import           Pos.Core.Block.Genesis.Types (GenesisBlock, GenesisBlockHeader, GenesisBlockchain)
+import           Pos.Core.Block.Union.Types (BlockHeader, blockHeaderHash)
+import           Pos.Core.Class (HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
+                                 HasHeaderHash (..), IsGenesisHeader, IsHeader)
+import           Pos.Core.Types (EpochOrSlot (..), HeaderHash)
+import           Pos.Crypto (hashHexF)
 
 ----------------------------------------------------------------------------
 -- Buildable

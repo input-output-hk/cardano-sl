@@ -16,23 +16,21 @@ module Pos.Ssc.Message
        , SscMessageConstraints
        ) where
 
-import           Control.Lens                   (makePrisms)
-import           Data.Tagged                    (Tagged)
-import qualified Data.Text.Buildable            as Buildable
-import           Formatting                     (bprint, build, (%))
-import           Node.Message.Class             (Message)
+import           Control.Lens (makePrisms)
+import           Data.Tagged (Tagged)
+import qualified Data.Text.Buildable as Buildable
+import           Formatting (bprint, build, (%))
+import           Node.Message.Class (Message)
 import           Universum
 
-import           Pos.Core                       (HasConfiguration, StakeholderId,
-                                                 VssCertificate, addressHash, getCertId)
-import           Pos.Core.Ssc                   (InnerSharesMap, Opening,
-                                                 SignedCommitment)
-import           Pos.Ssc.Toss.Types             (SscTag (..))
+import           Pos.Core (HasConfiguration, StakeholderId, VssCertificate, addressHash, getCertId)
+import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment)
+import           Pos.Ssc.Toss.Types (SscTag (..))
 
 import           Pos.Communication.Limits.Types (MessageLimited)
-import           Pos.Communication.Types.Relay  (DataMsg, InvOrData, ReqMsg, ReqOrRes)
-import           Pos.Infra.Configuration        (HasInfraConfiguration)
-import           Pos.Ssc.Configuration          (HasSscConfiguration)
+import           Pos.Communication.Types.Relay (DataMsg, InvOrData, ReqMsg, ReqOrRes)
+import           Pos.Infra.Configuration (HasInfraConfiguration)
+import           Pos.Ssc.Configuration (HasSscConfiguration)
 
 class HasSscTag a where
     toSscTag :: a -> SscTag

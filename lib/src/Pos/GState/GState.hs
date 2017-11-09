@@ -10,27 +10,23 @@ module Pos.GState.GState
 
 import           Universum
 
-import           Control.Monad.Catch              (MonadMask)
-import qualified Database.RocksDB                 as Rocks
-import           System.Wlog                      (WithLogger)
+import           Control.Monad.Catch (MonadMask)
+import qualified Database.RocksDB as Rocks
+import           System.Wlog (WithLogger)
 
-import           Pos.Core                         (GenesisData (..), HasConfiguration,
-                                                   HeaderHash, genesisData)
-import           Pos.DB.Class                     (MonadDB, MonadDBRead)
-import           Pos.DB.GState.Common             (initGStateCommon, isInitialized,
-                                                   setInitialized)
-import           Pos.DB.GState.Stakes             (getRealTotalStake)
-import           Pos.DB.Rocks                     (DB (..), MonadRealDB, NodeDBs (..),
-                                                   Snapshot (..), gStateDB, getNodeDBs,
-                                                   usingReadOptions, usingSnapshot)
-import           Pos.Delegation.DB                (initGStateDlg)
-import           Pos.GState.BlockExtra            (initGStateBlockExtra)
-import           Pos.Ssc.Configuration            (HasSscConfiguration)
-import           Pos.Ssc.DB                       (initSscDB)
-import           Pos.Txp.DB                       (initGStateStakes, initGStateUtxo,
-                                                   sanityCheckStakes, sanityCheckUtxo)
-import           Pos.Txp.GenesisUtxo              (genesisUtxo)
-import           Pos.Update.DB                    (initGStateUS)
+import           Pos.Core (GenesisData (..), HasConfiguration, HeaderHash, genesisData)
+import           Pos.DB.Class (MonadDB, MonadDBRead)
+import           Pos.DB.GState.Common (initGStateCommon, isInitialized, setInitialized)
+import           Pos.DB.GState.Stakes (getRealTotalStake)
+import           Pos.DB.Rocks (DB (..), MonadRealDB, NodeDBs (..), Snapshot (..), gStateDB,
+                               getNodeDBs, usingReadOptions, usingSnapshot)
+import           Pos.Delegation.DB (initGStateDlg)
+import           Pos.GState.BlockExtra (initGStateBlockExtra)
+import           Pos.Ssc.Configuration (HasSscConfiguration)
+import           Pos.Ssc.DB (initSscDB)
+import           Pos.Txp.DB (initGStateStakes, initGStateUtxo, sanityCheckStakes, sanityCheckUtxo)
+import           Pos.Txp.GenesisUtxo (genesisUtxo)
+import           Pos.Update.DB (initGStateUS)
 
 -- | Put missing initial data into GState DB.
 prepareGStateDB ::

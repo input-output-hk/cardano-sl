@@ -18,15 +18,15 @@ module Pos.Txp.Toil.Class
 
 import           Universum
 
-import           Control.Lens              (at, (.=))
+import           Control.Lens (at, (.=))
 import           Control.Monad.Trans.Class (MonadTrans)
 import qualified Ether
-import           Fmt                       ((+|), (|+))
+import           Fmt ((+|), (|+))
 
-import           Pos.Core                  (Coin, HasConfiguration, StakeholderId)
-import           Pos.Core.Txp              (TxAux, TxId, TxIn, TxOutAux, TxUndo)
-import           Pos.Txp.Toil.Types        (Utxo)
-import           Pos.Util.Util             (HasLens', ether, lensOf)
+import           Pos.Core (Coin, HasConfiguration, StakeholderId)
+import           Pos.Core.Txp (TxAux, TxId, TxIn, TxOutAux, TxUndo)
+import           Pos.Txp.Toil.Types (Utxo)
+import           Pos.Util.Util (HasLens', ether, lensOf)
 
 ----------------------------------------------------------------------------
 -- MonadUtxo

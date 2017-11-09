@@ -6,15 +6,15 @@ module Pos.Arbitrary.Update.Network
 
 import           Universum
 
-import           Test.QuickCheck           (Arbitrary (..), listOf)
+import           Test.QuickCheck (Arbitrary (..), listOf)
 
-import           Pos.Arbitrary.Core        ()
+import           Pos.Arbitrary.Core ()
 import           Pos.Arbitrary.Update.Core ()
-import           Pos.Binary.Update         ()
-import           Pos.Communication.Relay   (DataMsg (..))
-import           Pos.Core.Configuration    (HasConfiguration)
-import           Pos.Core.Update           (UpdateProposal (..), UpdateVote (..))
-import           Pos.Crypto                (SignTag (SignUSVote), hash, sign, toPublic)
+import           Pos.Binary.Update ()
+import           Pos.Communication.Relay (DataMsg (..))
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
+import           Pos.Crypto (SignTag (SignUSVote), hash, sign, toPublic)
 
 instance HasConfiguration => Arbitrary (DataMsg UpdateVote) where
     arbitrary = DataMsg <$> arbitrary

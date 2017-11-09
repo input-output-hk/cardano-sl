@@ -7,24 +7,23 @@ module Test.Pos.Txp.CoreSpec
 
 import           Universum
 
-import           Control.Lens          (each)
-import qualified Data.HashMap.Strict   as HM
-import           Data.List             (elemIndex, (\\))
-import qualified Data.List.NonEmpty    as NE
-import           Test.Hspec            (Spec, describe)
+import           Control.Lens (each)
+import qualified Data.HashMap.Strict as HM
+import           Data.List (elemIndex, (\\))
+import qualified Data.List.NonEmpty as NE
+import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (NonNegative (..), Positive (..), Property,
-                                        arbitrary, forAll, resize, shuffle, vectorOf,
-                                        (.&.), (===))
-import           Test.QuickCheck.Gen   (Gen)
+import           Test.QuickCheck (NonNegative (..), Positive (..), Property, arbitrary, forAll,
+                                  resize, shuffle, vectorOf, (.&.), (===))
+import           Test.QuickCheck.Gen (Gen)
 
-import           Pos.Arbitrary.Txp     ()
-import           Pos.Core.Txp          (Tx (..), TxIn (..), TxOut (..), mkTx)
-import           Pos.Crypto            (hash, whData, withHash)
-import           Pos.Data.Attributes   (mkAttributes)
-import           Pos.Txp.Topsort       (topsortTxs)
-import           Pos.Types             (mkCoin)
-import           Pos.Util              (sublistN, _neHead)
+import           Pos.Arbitrary.Txp ()
+import           Pos.Core.Txp (Tx (..), TxIn (..), TxOut (..), mkTx)
+import           Pos.Crypto (hash, whData, withHash)
+import           Pos.Data.Attributes (mkAttributes)
+import           Pos.Txp.Topsort (topsortTxs)
+import           Pos.Types (mkCoin)
+import           Pos.Util (sublistN, _neHead)
 
 spec :: Spec
 spec = describe "Txp.Core" $ do

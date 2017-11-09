@@ -12,17 +12,16 @@ module Pos.Update.Poll.Logic.Version
        , verifySoftwareVersion
        ) where
 
-import           Control.Monad.Except       (MonadError, throwError)
+import           Control.Monad.Except (MonadError, throwError)
 import           Universum
 
-import           Pos.Core                   (EpochIndex, SoftwareVersion (..))
-import           Pos.Core.Update            (BlockVersionData (..),
-                                             BlockVersionModifier (..), UpId,
-                                             UpdateProposal (..))
-import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Failure    (PollVerFailure (..))
+import           Pos.Core (EpochIndex, SoftwareVersion (..))
+import           Pos.Core.Update (BlockVersionData (..), BlockVersionModifier (..), UpId,
+                                  UpdateProposal (..))
+import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
+import           Pos.Update.Poll.Failure (PollVerFailure (..))
 import           Pos.Update.Poll.Logic.Base (canBeProposedBV, verifyNextBVMod)
-import           Pos.Update.Poll.Types      (BlockVersionState (..))
+import           Pos.Update.Poll.Types (BlockVersionState (..))
 
 
 -- Here we add check that block version data from proposal is consistent

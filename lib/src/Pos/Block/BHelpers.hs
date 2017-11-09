@@ -9,28 +9,26 @@ module Pos.Block.BHelpers
 
 import           Universum
 
-import           Control.Monad.Except       (MonadError (throwError))
+import           Control.Monad.Except (MonadError (throwError))
 
-import           Pos.Binary.Class           (Bi)
-import           Pos.Binary.Core            ()
-import           Pos.Binary.Core.Txp        ()
-import           Pos.Binary.Core.Update     ()
-import           Pos.Core.Block.Blockchain  (Blockchain (..), BlockchainHelpers (..),
-                                             GenericBlock (..), GenericBlockHeader (..),
-                                             gbExtra)
-import           Pos.Core.Block.Main.Chain  (Body (..), ConsensusData (..))
-import           Pos.Core.Block.Main.Lens   (mainBlockEBDataProof)
-import           Pos.Core.Block.Main.Types  (MainBlockHeader, MainBlockchain,
-                                             MainToSign (..))
+import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Core ()
+import           Pos.Binary.Core.Txp ()
+import           Pos.Binary.Core.Update ()
+import           Pos.Core.Block.Blockchain (Blockchain (..), BlockchainHelpers (..),
+                                            GenericBlock (..), GenericBlockHeader (..), gbExtra)
+import           Pos.Core.Block.Main.Chain (Body (..), ConsensusData (..))
+import           Pos.Core.Block.Main.Lens (mainBlockEBDataProof)
+import           Pos.Core.Block.Main.Types (MainBlockHeader, MainBlockchain, MainToSign (..))
 import           Pos.Core.Block.Union.Types (BlockHeader, BlockSignature (..))
-import           Pos.Core.Class             (IsMainHeader (..), epochIndexL)
-import           Pos.Core.Configuration     (HasConfiguration)
-import           Pos.Core.Types             (SlotId (..))
-import           Pos.Crypto                 (ProxySignature (..), SignTag (..), checkSig,
-                                             hash, isSelfSignedPsk, proxyVerify)
-import           Pos.Delegation.Helpers     (dlgVerifyPayload)
-import           Pos.Ssc.Functions          (verifySscPayload)
-import           Pos.Util.Util              (Some (Some))
+import           Pos.Core.Class (IsMainHeader (..), epochIndexL)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Types (SlotId (..))
+import           Pos.Crypto (ProxySignature (..), SignTag (..), checkSig, hash, isSelfSignedPsk,
+                             proxyVerify)
+import           Pos.Delegation.Helpers (dlgVerifyPayload)
+import           Pos.Ssc.Functions (verifySscPayload)
+import           Pos.Util.Util (Some (Some))
 
 instance ( Bi BlockHeader
          , HasConfiguration

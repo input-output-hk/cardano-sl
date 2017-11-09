@@ -48,41 +48,37 @@ module Pos.Explorer.Web.ClientTypes
 import qualified Prelude
 import           Universum
 
-import           Control.Arrow              ((&&&))
-import           Control.Lens               (_Left)
-import           Control.Monad.Error.Class  (throwError)
-import qualified Data.ByteArray             as BA
-import           Data.Default               (Default (..))
-import           Data.Fixed                 (Micro, showFixed)
-import qualified Data.List.NonEmpty         as NE
-import           Data.Time.Clock.POSIX      (POSIXTime)
-import           Formatting                 (build, sformat, (%))
-import           Pos.Binary                 (Bi, biSize)
-import           Pos.Block.Types            (Undo (..))
-import           Pos.Core                   (timestampToPosix)
-import           Pos.Core.Block             (MainBlock, mainBlockSlot, mainBlockTxPayload,
-                                             mcdSlot)
-import           Pos.Core.Txp               (Tx (..), TxId, TxOut (..), TxOutAux (..),
-                                             TxUndo, txpTxs, _txOutputs)
-import           Pos.Crypto                 (AbstractHash, Hash, HashAlgorithm, hash)
+import           Control.Arrow ((&&&))
+import           Control.Lens (_Left)
+import           Control.Monad.Error.Class (throwError)
+import qualified Data.ByteArray as BA
+import           Data.Default (Default (..))
+import           Data.Fixed (Micro, showFixed)
+import qualified Data.List.NonEmpty as NE
+import           Data.Time.Clock.POSIX (POSIXTime)
+import           Formatting (build, sformat, (%))
+import           Pos.Binary (Bi, biSize)
+import           Pos.Block.Types (Undo (..))
+import           Pos.Core (timestampToPosix)
+import           Pos.Core.Block (MainBlock, mainBlockSlot, mainBlockTxPayload, mcdSlot)
+import           Pos.Core.Txp (Tx (..), TxId, TxOut (..), TxOutAux (..), TxUndo, txpTxs, _txOutputs)
+import           Pos.Crypto (AbstractHash, Hash, HashAlgorithm, hash)
 
-import           Pos.Explorer.Core          (TxExtra (..))
-import           Pos.Explorer.ExplorerMode  (ExplorerMode)
-import           Pos.Explorer.ExtraContext  (HasExplorerCSLInterface (..))
+import           Pos.Explorer.Core (TxExtra (..))
+import           Pos.Explorer.ExplorerMode (ExplorerMode)
+import           Pos.Explorer.ExtraContext (HasExplorerCSLInterface (..))
 
-import qualified Pos.GState                 as GS
-import qualified Pos.Lrc                    as Lrc (getLeader)
-import           Pos.Merkle                 (getMerkleRoot, mtRoot)
-import           Pos.Types                  (Address, Coin, EpochIndex, LocalSlotIndex,
-                                             SlotId (..), StakeholderId, Timestamp,
-                                             addressF, coinToInteger, decodeTextAddress,
-                                             gbHeader, gbhConsensus, getEpochIndex,
-                                             getSlotIndex, headerHash, mkCoin, prevBlockL,
-                                             sumCoins, unsafeAddCoin, unsafeGetCoin,
-                                             unsafeIntegerToCoin, unsafeSubCoin)
+import qualified Pos.GState as GS
+import qualified Pos.Lrc as Lrc (getLeader)
+import           Pos.Merkle (getMerkleRoot, mtRoot)
+import           Pos.Types (Address, Coin, EpochIndex, LocalSlotIndex, SlotId (..), StakeholderId,
+                            Timestamp, addressF, coinToInteger, decodeTextAddress, gbHeader,
+                            gbhConsensus, getEpochIndex, getSlotIndex, headerHash, mkCoin,
+                            prevBlockL, sumCoins, unsafeAddCoin, unsafeGetCoin, unsafeIntegerToCoin,
+                            unsafeSubCoin)
 import           Serokell.Data.Memory.Units (Byte)
-import           Serokell.Util.Base16       as SB16
-import           Servant.API                (FromHttpApiData (..))
+import           Serokell.Util.Base16 as SB16
+import           Servant.API (FromHttpApiData (..))
 
 
 -------------------------------------------------------------------------------------

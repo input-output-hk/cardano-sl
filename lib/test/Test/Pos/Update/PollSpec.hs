@@ -6,29 +6,25 @@ module Test.Pos.Update.PollSpec
 
 import           Universum
 
-import           Control.Lens                      (at)
-import qualified Data.HashSet                      as HS
-import           Test.Hspec                        (Spec, describe)
-import           Test.Hspec.QuickCheck             (modifyMaxSuccess, prop)
-import           Test.QuickCheck                   (Arbitrary (..), Gen, Property,
-                                                    conjoin, forAll, listOf, suchThat,
-                                                    (===))
+import           Control.Lens (at)
+import qualified Data.HashSet as HS
+import           Test.Hspec (Spec, describe)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
+import           Test.QuickCheck (Arbitrary (..), Gen, Property, conjoin, forAll, listOf, suchThat,
+                                  (===))
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Core                          (ApplicationName, BlockVersion (..),
-                                                    BlockVersionData (..),
-                                                    HasConfiguration,
-                                                    SoftwareVersion (..), StakeholderId,
-                                                    addressHash)
-import           Pos.Core.Update                   (UpId, UpdateProposal (..))
-import           Pos.Crypto                        (hash)
-import           Pos.Slotting.Types                (SlottingData)
-import           Pos.Update.BlockVersion           (applyBVM)
-import qualified Pos.Update.Poll                   as Poll
-import qualified Pos.Util.Modifier                 as MM
+import           Pos.Core (ApplicationName, BlockVersion (..), BlockVersionData (..),
+                           HasConfiguration, SoftwareVersion (..), StakeholderId, addressHash)
+import           Pos.Core.Update (UpId, UpdateProposal (..))
+import           Pos.Crypto (hash)
+import           Pos.Slotting.Types (SlottingData)
+import           Pos.Update.BlockVersion (applyBVM)
+import qualified Pos.Update.Poll as Poll
+import qualified Pos.Util.Modifier as MM
 
-import           Test.Pos.Helpers                  (formsMonoid)
-import           Test.Pos.Util                     (withDefConfiguration)
+import           Test.Pos.Helpers (formsMonoid)
+import           Test.Pos.Util (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Poll" $ do
@@ -136,7 +132,7 @@ applyActionToModifier (InsertActiveProposal ps) pst = \p ->
         upId = hash up
         p' = case MM.lookup innerLookupFun upId (Poll.pmActiveProps p) of
             Nothing -> p
-            Just _ -> p & Poll.pmEpochProposersL %~ fmap (HS.insert (addressHash upFrom))
+            Just _  -> p & Poll.pmEpochProposersL %~ fmap (HS.insert (addressHash upFrom))
     in p' & (Poll.pmActivePropsL %~ MM.insert upId ps)
   where
     innerLookupFun k = pst ^. Poll.psActiveProposals . at k

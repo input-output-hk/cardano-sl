@@ -38,31 +38,31 @@ module Pos.Util
        -- ** MonadFail LoggerNameBox
        ) where
 
-import           Universum                    hiding (finally)
+import           Universum hiding (finally)
 
-import qualified Control.Monad                as Monad (fail)
+import qualified Control.Monad as Monad (fail)
 import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Either                  (rights)
-import           Data.Hashable                (Hashable)
-import qualified Data.HashMap.Strict          as HM
-import           Data.List                    (span, zipWith3, zipWith4)
-import           Data.Ratio                   ((%))
-import qualified Data.Text                    as T
-import           Data.Time.Clock              (UTCTime)
-import           Data.Time.Clock.POSIX        (posixSecondsToUTCTime)
-import           Data.Time.Units              (Microsecond, toMicroseconds)
-import           Serokell.Util                (VerificationRes (..))
-import           System.IO                    (hClose)
-import           System.Wlog                  (LoggerNameBox (..))
-import           Text.Parsec                  (ParsecT)
+import           Data.Either (rights)
+import           Data.Hashable (Hashable)
+import qualified Data.HashMap.Strict as HM
+import           Data.List (span, zipWith3, zipWith4)
+import           Data.Ratio ((%))
+import qualified Data.Text as T
+import           Data.Time.Clock (UTCTime)
+import           Data.Time.Clock.POSIX (posixSecondsToUTCTime)
+import           Data.Time.Units (Microsecond, toMicroseconds)
+import           Serokell.Util (VerificationRes (..))
+import           System.IO (hClose)
+import           System.Wlog (LoggerNameBox (..))
+import           Text.Parsec (ParsecT)
 -- SafeCopy instance for HashMap
-import           Serokell.AcidState           ()
+import           Serokell.AcidState ()
 
 import           Pos.Util.Arbitrary
 import           Pos.Util.Concurrent
 import           Pos.Util.Future
 import           Pos.Util.TimeLimit
-import           Pos.Util.Undefined           ()
+import           Pos.Util.Undefined ()
 import           Pos.Util.Util
 
 -- | Specialized version of 'mappend' for restricted to pair type.

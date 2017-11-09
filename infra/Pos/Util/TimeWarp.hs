@@ -16,14 +16,14 @@ module Pos.Util.TimeWarp
 
 import           Universum
 
-import qualified Data.ByteString.Char8          as BS8
-import           Formatting                     (build, formatToString, shown, (%))
+import qualified Data.ByteString.Char8 as BS8
+import           Formatting (build, formatToString, shown, (%))
 import           JsonLog
 import qualified Network.Transport.TCP.Internal as TCP
-import           Node                           (NodeId (..))
-import qualified Serokell.Util.Parse            as P
-import qualified Text.Parsec                    as P
-import qualified Text.Parsec.Text               as P
+import           Node (NodeId (..))
+import qualified Serokell.Util.Parse as P
+import qualified Text.Parsec as P
+import qualified Text.Parsec.Text as P
 
 -- | @"127.0.0.1"@.
 localhost :: ByteString

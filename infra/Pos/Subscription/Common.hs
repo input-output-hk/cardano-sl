@@ -10,31 +10,27 @@ module Pos.Subscription.Common
     , subscriptionWorker
     ) where
 
-import qualified Network.Broadcast.OutboundQueue       as OQ
+import qualified Network.Broadcast.OutboundQueue as OQ
 import           Network.Broadcast.OutboundQueue.Types (removePeer, simplePeers)
-import           Universum                             hiding (bracket)
+import           Universum hiding (bracket)
 
-import           Formatting                            (sformat, shown, (%))
-import           Mockable                              (Bracket, Catch, Mockable, Throw,
-                                                        bracket, try)
-import           Node.Message.Class                    (Message)
-import           System.Wlog                           (WithLogger, logDebug, logNotice)
+import           Formatting (sformat, shown, (%))
+import           Mockable (Bracket, Catch, Mockable, Throw, bracket, try)
+import           Node.Message.Class (Message)
+import           System.Wlog (WithLogger, logDebug, logNotice)
 
-import           Pos.Binary.Class                      (Bi)
-import           Pos.Communication.Limits.Types        (MessageLimited, recvLimited)
-import           Pos.Communication.Listener            (listenerConv)
-import           Pos.Communication.Protocol            (Conversation (..),
-                                                        ConversationActions (..),
-                                                        ListenerSpec, MkListeners,
-                                                        MsgSubscribe (..), NodeId,
-                                                        OutSpecs, SendActions, Worker,
-                                                        WorkerSpec, constantListeners,
-                                                        convH, toOutSpecs,
-                                                        withConnectionTo, worker)
-import           Pos.DB.Class                          (MonadGState)
-import           Pos.KnownPeers                        (MonadKnownPeers (..))
-import           Pos.Network.Types                     (Bucket (..), NodeType)
-import           Pos.Util.Timer                        (Timer, waitTimer, startTimer)
+import           Pos.Binary.Class (Bi)
+import           Pos.Communication.Limits.Types (MessageLimited, recvLimited)
+import           Pos.Communication.Listener (listenerConv)
+import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
+                                             ListenerSpec, MkListeners, MsgSubscribe (..), NodeId,
+                                             OutSpecs, SendActions, Worker, WorkerSpec,
+                                             constantListeners, convH, toOutSpecs, withConnectionTo,
+                                             worker)
+import           Pos.DB.Class (MonadGState)
+import           Pos.KnownPeers (MonadKnownPeers (..))
+import           Pos.Network.Types (Bucket (..), NodeType)
+import           Pos.Util.Timer (Timer, startTimer, waitTimer)
 
 type SubscriptionMode m =
     ( MonadIO m

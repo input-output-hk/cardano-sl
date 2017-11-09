@@ -5,10 +5,10 @@ module Pos.DHT.Real.Param
        ) where
 
 import qualified Data.ByteString.Base64.URL as B64 (decode)
-import qualified Data.ByteString.Char8      as B8
-import           Pos.DHT.Model.Types        (DHTKey, bytesToDHTKey)
-import qualified Pos.Network.Yaml           as Y
-import           Pos.Util.TimeWarp          (NetworkAddress)
+import qualified Data.ByteString.Char8 as B8
+import           Pos.DHT.Model.Types (DHTKey, bytesToDHTKey)
+import qualified Pos.Network.Yaml as Y
+import           Pos.Util.TimeWarp (NetworkAddress)
 import           Universum
 
 -- | Parameters for the Kademlia DHT subsystem.

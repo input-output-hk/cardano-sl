@@ -27,12 +27,12 @@ module Pos.Core.Configuration.Core
 
 import           Universum
 
-import           Data.Reflection        (Given (..), give)
-import           Data.Time.Units        (Microsecond, Second, convertUnit)
+import           Data.Reflection (Given (..), give)
+import           Data.Time.Units (Microsecond, Second, convertUnit)
 
-import           Pos.Binary.Class       (Raw)
+import           Pos.Binary.Class (Raw)
 import           Pos.Core.Genesis.Types (GenesisSpec (..))
-import           Pos.Crypto.Hashing     (Hash)
+import           Pos.Crypto.Hashing (Hash)
 
 data GenesisConfiguration
       -- | Genesis from a 'GenesisSpec'.

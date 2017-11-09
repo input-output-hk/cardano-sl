@@ -8,7 +8,7 @@ import           Universum
 
 import qualified Pos.Update.Constants as C
 
-import           Test.Hspec           (Spec, describe, it, shouldSatisfy)
+import           Test.Hspec (Spec, describe, it, shouldSatisfy)
 
 spec :: Spec
 spec = describe "Constants" $ do

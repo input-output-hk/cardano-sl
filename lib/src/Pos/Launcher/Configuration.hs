@@ -15,11 +15,11 @@ module Pos.Launcher.Configuration
 
 import           Universum
 
-import           Data.Aeson                   (FromJSON (..), genericParseJSON)
-import           Data.Default                 (Default (..))
-import           Serokell.Aeson.Options       (defaultOptions)
-import           System.FilePath              (takeDirectory)
-import           System.Wlog                  (WithLogger, logInfo)
+import           Data.Aeson (FromJSON (..), genericParseJSON)
+import           Data.Default (Default (..))
+import           Serokell.Aeson.Options (defaultOptions)
+import           System.FilePath (takeDirectory)
+import           System.Wlog (WithLogger, logInfo)
 
 -- FIXME consistency on the locus of the JSON instances for configuration.
 -- Core keeps them separate, infra update and ssc define them on-site.
@@ -27,11 +27,11 @@ import           Pos.Aeson.Core.Configuration ()
 
 import           Pos.Configuration
 import           Pos.Core.Configuration
-import           Pos.Core.Types               (Timestamp)
+import           Pos.Core.Types (Timestamp)
 import           Pos.Infra.Configuration
 import           Pos.Ssc.Configuration
 import           Pos.Update.Configuration
-import           Pos.Util.Config              (parseYamlConfig)
+import           Pos.Util.Config (parseYamlConfig)
 
 -- | Product of all configurations required to run a node.
 data Configuration = Configuration

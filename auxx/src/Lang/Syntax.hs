@@ -13,9 +13,9 @@ import           Universum
 
 import           Data.Scientific (Scientific)
 
-import           Lang.Name       (Name)
-import           Pos.Crypto      (AHash, PublicKey)
-import           Pos.Types       (Address, BlockVersion, SoftwareVersion, StakeholderId)
+import           Lang.Name (Name)
+import           Pos.Crypto (AHash, PublicKey)
+import           Pos.Types (Address, BlockVersion, SoftwareVersion, StakeholderId)
 
 data Expr
     = ExprUnit

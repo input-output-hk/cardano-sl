@@ -58,18 +58,17 @@ module Pos.DB.Class
 
 import           Universum
 
-import           Control.Monad.Morph          (hoist)
-import           Control.Monad.Trans          (MonadTrans (..))
-import           Control.Monad.Trans.Control  (MonadBaseControl)
+import           Control.Monad.Morph (hoist)
+import           Control.Monad.Trans (MonadTrans (..))
+import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Conduit                 (Source)
-import qualified Database.RocksDB             as Rocks
-import           Serokell.Data.Memory.Units   (Byte)
+import           Data.Conduit (Source)
+import qualified Database.RocksDB as Rocks
+import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class             (Bi)
-import           Pos.Core                     (BlockVersionData (..), EpochIndex,
-                                               HasConfiguration, HeaderHash,
-                                               isBootstrapEra)
+import           Pos.Binary.Class (Bi)
+import           Pos.Core (BlockVersionData (..), EpochIndex, HasConfiguration, HeaderHash,
+                           isBootstrapEra)
 
 ----------------------------------------------------------------------------
 -- Pure

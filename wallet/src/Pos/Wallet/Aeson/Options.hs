@@ -7,8 +7,7 @@ module Pos.Wallet.Aeson.Options
 
 import           Universum
 
-import           Data.Aeson.TH (Options (..), SumEncoding (..), defaultOptions,
-                                defaultTaggedObject)
+import           Data.Aeson.TH (Options (..), SumEncoding (..), defaultOptions, defaultTaggedObject)
 
 -- Let's use something similar to this options one day
 customOptions :: Options

@@ -7,24 +7,22 @@ module Pos.Wallet.Aeson.Storage
 
 import           Universum
 
-import           Data.Aeson                   (FromJSON (..), FromJSONKey (..),
-                                               FromJSONKeyFunction (..), ToJSON (..),
-                                               ToJSONKey (..))
-import           Data.Aeson.TH                (defaultOptions, deriveJSON)
-import           Data.Aeson.Types             (toJSONKeyText)
-import qualified Data.Text                    as T
+import           Data.Aeson (FromJSON (..), FromJSONKey (..), FromJSONKeyFunction (..), ToJSON (..),
+                             ToJSONKey (..))
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
+import           Data.Aeson.Types (toJSONKeyText)
+import qualified Data.Text as T
 
-import           Pos.Aeson.Crypto             ()
-import           Pos.Aeson.Txp                ()
-import           Pos.Client.Txp.History       (TxHistoryEntry)
-import           Pos.Util.Util                (eitherToFail)
+import           Pos.Aeson.Crypto ()
+import           Pos.Aeson.Txp ()
+import           Pos.Client.Txp.History (TxHistoryEntry)
+import           Pos.Util.Util (eitherToFail)
 
 import           Pos.Wallet.Aeson.ClientTypes ()
-import           Pos.Wallet.Web.ClientTypes   (AccountId (..), CHash (..), CId (..),
-                                               CTxId (..))
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CHash (..), CId (..), CTxId (..))
 import           Pos.Wallet.Web.Pending.Types (PendingTx, PtxCondition, PtxSubmitTiming)
-import           Pos.Wallet.Web.State.Storage (AccountInfo, AddressInfo, WalletInfo,
-                                               WalletStorage, WalletTip)
+import           Pos.Wallet.Web.State.Storage (AccountInfo, AddressInfo, WalletInfo, WalletStorage,
+                                               WalletTip)
 
 instance FromJSON (CId a) => FromJSONKey (CId a) where
     fromJSONKey = FromJSONKeyTextParser parser

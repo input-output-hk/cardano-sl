@@ -30,29 +30,26 @@ module Pos.Ssc.Types
        , createSscContext
        ) where
 
-import           Control.Lens               (makeLenses)
-import           Data.Default               (Default, def)
-import qualified Data.HashMap.Strict        as HM
-import qualified Data.Text                  as T
+import           Control.Lens (makeLenses)
+import           Data.Default (Default, def)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Text as T
 import qualified Data.Text.Buildable
-import           Data.Text.Lazy.Builder     (Builder, fromText)
-import           Formatting                 (sformat, (%))
+import           Data.Text.Lazy.Builder (Builder, fromText)
+import           Formatting (sformat, (%))
 import           Serokell.Data.Memory.Units (Byte)
-import           Serokell.Util              (listJson)
+import           Serokell.Util (listJson)
 import           Universum
 
-import           Pos.Core                   (EpochIndex, HasDifficulty (..),
-                                             HasEpochIndex (..), HasEpochOrSlot (..),
-                                             HasHeaderHash (..), IsGenesisHeader,
-                                             IsMainHeader)
-import           Pos.Core.Ssc               (CommitmentsMap (getCommitmentsMap), Opening,
-                                             OpeningsMap, SharesMap, SignedCommitment,
-                                             SscPayload)
-import           Pos.Crypto                 (VssKeyPair)
-import           Pos.Ssc.Behavior           (SscBehavior)
-import           Pos.Ssc.Toss.Types         (TossModifier)
-import qualified Pos.Ssc.VssCertData        as VCD
-import           Pos.Util.Util              (Some)
+import           Pos.Core (EpochIndex, HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
+                           HasHeaderHash (..), IsGenesisHeader, IsMainHeader)
+import           Pos.Core.Ssc (CommitmentsMap (getCommitmentsMap), Opening, OpeningsMap, SharesMap,
+                               SignedCommitment, SscPayload)
+import           Pos.Crypto (VssKeyPair)
+import           Pos.Ssc.Behavior (SscBehavior)
+import           Pos.Ssc.Toss.Types (TossModifier)
+import qualified Pos.Ssc.VssCertData as VCD
+import           Pos.Util.Util (Some)
 
 ----------------------------------------------------------------------------
 -- SscGlobalState

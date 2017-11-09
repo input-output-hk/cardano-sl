@@ -3,28 +3,25 @@
 module Pos.Binary.Core.Address () where
 
 import           Universum
-import           Unsafe                (unsafeFromJust)
+import           Unsafe (unsafeFromJust)
 
-import           Codec.CBOR.Encoding   (Encoding)
-import qualified Codec.CBOR.Write      as CBOR.Write
-import qualified Data.ByteString       as BS
-import           Data.Digest.CRC32     (CRC32 (..))
-import           Data.Word             (Word8)
+import           Codec.CBOR.Encoding (Encoding)
+import qualified Codec.CBOR.Write as CBOR.Write
+import qualified Data.ByteString as BS
+import           Data.Digest.CRC32 (CRC32 (..))
+import           Data.Word (Word8)
 
-import           Pos.Binary.Class      (Bi (..), decodeCrcProtected,
-                                        decodeListLenCanonical,
-                                        decodeUnknownCborDataItem, deserialize',
-                                        encodeCrcProtected, encodeListLen,
-                                        encodeUnknownCborDataItem, enforceSize,
-                                        serialize')
+import           Pos.Binary.Class (Bi (..), decodeCrcProtected, decodeListLenCanonical,
+                                   decodeUnknownCborDataItem, deserialize', encodeCrcProtected,
+                                   encodeListLen, encodeUnknownCborDataItem, enforceSize,
+                                   serialize')
 import           Pos.Binary.Core.Types ()
-import           Pos.Binary.Crypto     ()
-import           Pos.Core.Types        (AddrAttributes (..), AddrSpendingData (..),
-                                        AddrStakeDistribution (..), AddrType (..),
-                                        Address (..), Address' (..), mkMultiKeyDistr)
-import           Pos.Data.Attributes   (Attributes (..), decodeAttributes,
-                                        encodeAttributes)
-import           Pos.Util.Util         (eitherToFail)
+import           Pos.Binary.Crypto ()
+import           Pos.Core.Types (AddrAttributes (..), AddrSpendingData (..),
+                                 AddrStakeDistribution (..), AddrType (..), Address (..),
+                                 Address' (..), mkMultiKeyDistr)
+import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes)
+import           Pos.Util.Util (eitherToFail)
 
 ----------------------------------------------------------------------------
 -- Helper types serialization

@@ -4,8 +4,8 @@ module Pos.Update.Poll.Modifier
        ( modifyPollModifier
        ) where
 
-import           Data.Default          (Default (def))
-import           Data.Semigroup        (Semigroup)
+import           Data.Default (Default (def))
+import           Data.Semigroup (Semigroup)
 import           Universum
 
 import           Pos.Update.Poll.Types (PollModifier (..))

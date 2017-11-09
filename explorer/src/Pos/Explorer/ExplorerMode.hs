@@ -10,50 +10,45 @@ module Pos.Explorer.ExplorerMode
 
 import           Universum
 
-import           Control.Lens                   (lens, makeLensesWith)
-import           Control.Monad.Catch            (MonadMask)
-import           Ether.Internal                 (HasLens (..))
+import           Control.Lens (lens, makeLensesWith)
+import           Control.Monad.Catch (MonadMask)
+import           Ether.Internal (HasLens (..))
 
-import           Pos.Block.Slog                 (mkSlogGState)
-import           Pos.Block.Types                (Undo)
-import           Pos.Core                       (IsHeader, SlotId, Timestamp (..))
-import           Pos.Core.Block                 (Block, BlockHeader)
-import           Pos.DB                         (MonadGState (..))
-import qualified Pos.DB                         as DB
-import           Pos.DB.Block                   (MonadBlockDB)
-import qualified Pos.DB.Block                   as DB
-import           Pos.DB.Class                   (MonadDBRead)
-import           Pos.DB.DB                      as DB
-import qualified Pos.GState                     as GS
-import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
-import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots (..),
-                                                 MonadSlotsData, SimpleSlottingVar,
-                                                 mkSimpleSlottingVar)
-import qualified Pos.Slotting                   as Slot
-import           Pos.Ssc.Types                  (SscBlock)
-import           Pos.Txp                        (GenericTxpLocalData (..), MempoolExt,
-                                                 MonadTxpMem, TxpHolderTag,
-                                                 mkTxpLocalData)
-import           Pos.Util.Util                  (Some, postfixLFields)
+import           Pos.Block.Slog (mkSlogGState)
+import           Pos.Block.Types (Undo)
+import           Pos.Core (IsHeader, SlotId, Timestamp (..))
+import           Pos.Core.Block (Block, BlockHeader)
+import           Pos.DB (MonadGState (..))
+import qualified Pos.DB as DB
+import           Pos.DB.Block (MonadBlockDB)
+import qualified Pos.DB.Block as DB
+import           Pos.DB.Class (MonadDBRead)
+import           Pos.DB.DB as DB
+import qualified Pos.GState as GS
+import           Pos.Lrc (LrcContext (..), mkLrcSyncData)
+import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData,
+                               SimpleSlottingVar, mkSimpleSlottingVar)
+import qualified Pos.Slotting as Slot
+import           Pos.Ssc.Types (SscBlock)
+import           Pos.Txp (GenericTxpLocalData (..), MempoolExt, MonadTxpMem, TxpHolderTag,
+                          mkTxpLocalData)
+import           Pos.Util.Util (Some, postfixLFields)
 
-import           Pos.Explorer.ExtraContext      (ExtraContext, ExtraContextT,
-                                                 HasExplorerCSLInterface,
-                                                 HasGenesisRedeemAddressInfo,
-                                                 runExtraContextT)
-import           Pos.Explorer.Txp               (ExplorerExtra (..))
+import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, HasExplorerCSLInterface,
+                                            HasGenesisRedeemAddressInfo, runExtraContextT)
+import           Pos.Explorer.Txp (ExplorerExtra (..))
 
 -- Need Emulation because it has instance Mockable CurrentTime
-import           Mockable                       (Production, currentTime, runProduction)
-import           Pos.Launcher.Configuration     (HasConfigurations)
-import           Pos.Util.JsonLog               (HasJsonLogConfig (..), jsonLogDefault)
-import           Pos.Util.LoggerName            (HasLoggerName' (..),
-                                                 getLoggerNameDefault,
-                                                 modifyLoggerNameDefault)
-import           Pos.Util.TimeWarp              (CanJsonLog (..))
-import           Pos.WorkMode                   (MinWorkMode)
-import           System.Wlog                    (HasLoggerName (..), LoggerName)
+import           Mockable (Production, currentTime, runProduction)
+import           Pos.Launcher.Configuration (HasConfigurations)
+import           Pos.Util.JsonLog (HasJsonLogConfig (..), jsonLogDefault)
+import           Pos.Util.LoggerName (HasLoggerName' (..), getLoggerNameDefault,
+                                      modifyLoggerNameDefault)
+import           Pos.Util.TimeWarp (CanJsonLog (..))
+import           Pos.WorkMode (MinWorkMode)
+import           System.Wlog (HasLoggerName (..), LoggerName)
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)
-import           Test.Pos.Block.Logic.Mode      (TestParams (..))
+import           Test.Pos.Block.Logic.Mode (TestParams (..))
 
 
 -------------------------------------------------------------------------------------
@@ -101,15 +96,15 @@ type ExplorerTestMode = ReaderT ExplorerTestContext Emulation
 type ExplorerExtraTestMode = ExtraContextT ExplorerTestMode
 
 data ExplorerTestContext = ExplorerTestContext
-    { etcGState        :: !GS.GStateContext
-    , etcSystemStart   :: !Timestamp
-    , etcSSlottingVar  :: !SimpleSlottingVar
-    , etcSlotId        :: !(Maybe SlotId)
+    { etcGState       :: !GS.GStateContext
+    , etcSystemStart  :: !Timestamp
+    , etcSSlottingVar :: !SimpleSlottingVar
+    , etcSlotId       :: !(Maybe SlotId)
     -- ^ If this value is 'Just' we will return it as the current
     -- slot. Otherwise simple slotting is used.
-    , etcTxpLocalData  :: !(GenericTxpLocalData ExplorerExtra)
-    , etcLoggerName    :: !LoggerName
-    , etcParams        :: !ExplorerTestParams
+    , etcTxpLocalData :: !(GenericTxpLocalData ExplorerExtra)
+    , etcLoggerName   :: !LoggerName
+    , etcParams       :: !ExplorerTestParams
     }
 
 makeLensesWith postfixLFields ''ExplorerTestContext

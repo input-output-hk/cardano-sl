@@ -10,64 +10,55 @@
 
 import           Universum
 
-import           Control.Concurrent                   (modifyMVar_)
-import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, poll, wait,
-                                                       waitAny, withAsyncWithUnmask)
-import           Control.Exception.Safe               (tryAny)
-import           Data.List                            (isSuffixOf)
-import qualified Data.Text.IO                         as T
-import           Data.Time.Units                      (Second, convertUnit)
-import           Data.Version                         (showVersion)
-import           Formatting                           (int, sformat, shown, stext, (%))
-import qualified NeatInterpolation                    as Q (text)
-import           Options.Applicative                  (Mod, OptionFields, Parser, auto,
-                                                       execParser, footerDoc, fullDesc,
-                                                       header, help, helper, info,
-                                                       infoOption, long, metavar, option,
-                                                       progDesc, short, strOption)
-import           System.Directory                     (createDirectoryIfMissing,
-                                                       doesFileExist,
-                                                       getTemporaryDirectory, removeFile)
-import           System.Environment                   (getExecutablePath)
-import           System.Exit                          (ExitCode (..))
-import           System.FilePath                      (normalise, (</>))
-import qualified System.IO                            as IO
-import           System.Process                       (ProcessHandle,
-                                                       readProcessWithExitCode)
-import qualified System.Process                       as Process
-import           System.Timeout                       (timeout)
-import           System.Wlog                          (logError, logInfo, logNotice,
-                                                       logWarning)
-import qualified System.Wlog                          as Log
-import           Text.PrettyPrint.ANSI.Leijen         (Doc)
+import           Control.Concurrent (modifyMVar_)
+import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, poll, wait, waitAny,
+                                                       withAsyncWithUnmask)
+import           Control.Exception.Safe (tryAny)
+import           Data.List (isSuffixOf)
+import qualified Data.Text.IO as T
+import           Data.Time.Units (Second, convertUnit)
+import           Data.Version (showVersion)
+import           Formatting (int, sformat, shown, stext, (%))
+import qualified NeatInterpolation as Q (text)
+import           Options.Applicative (Mod, OptionFields, Parser, auto, execParser, footerDoc,
+                                      fullDesc, header, help, helper, info, infoOption, long,
+                                      metavar, option, progDesc, short, strOption)
+import           System.Directory (createDirectoryIfMissing, doesFileExist, getTemporaryDirectory,
+                                   removeFile)
+import           System.Environment (getExecutablePath)
+import           System.Exit (ExitCode (..))
+import           System.FilePath (normalise, (</>))
+import qualified System.IO as IO
+import           System.Process (ProcessHandle, readProcessWithExitCode)
+import qualified System.Process as Process
+import           System.Timeout (timeout)
+import           System.Wlog (logError, logInfo, logNotice, logWarning)
+import qualified System.Wlog as Log
+import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 #ifdef mingw32_HOST_OS
-import qualified System.IO.Silently                   as Silently
+import qualified System.IO.Silently as Silently
 #endif
 
 #ifndef mingw32_HOST_OS
-import           System.Posix.Signals                 (sigKILL, signalProcess)
-import qualified System.Process.Internals             as Process
+import           System.Posix.Signals (sigKILL, signalProcess)
+import qualified System.Process.Internals as Process
 #endif
 
 -- Modules needed for system'
-import           Control.Exception                    (handle, mask_, throwIO)
-import           Foreign.C.Error                      (Errno (..), ePIPE)
-import           GHC.IO.Exception                     (IOErrorType (..), IOException (..))
+import           Control.Exception (handle, mask_, throwIO)
+import           Foreign.C.Error (Errno (..), ePIPE)
+import           GHC.IO.Exception (IOErrorType (..), IOException (..))
 
-import           Paths_cardano_sl                     (version)
-import           Pos.Client.CLI                       (configurationOptionsParser,
-                                                       readLoggerConfig)
-import           Pos.Core                             (Timestamp (..))
-import           Pos.Launcher                         (HasConfigurations,
-                                                       withConfigurations)
-import           Pos.Launcher.Configuration           (ConfigurationOptions (..))
-import           Pos.Reporting.Methods                (retrieveLogFiles, sendReport)
-import           Pos.ReportServer.Report              (ReportType (..))
-import           Pos.Util                             (directory, sleep)
-import           Pos.Util.CompileInfo                 (HasCompileInfo,
-                                                       retrieveCompileTimeInfo,
-                                                       withCompileInfo)
+import           Paths_cardano_sl (version)
+import           Pos.Client.CLI (configurationOptionsParser, readLoggerConfig)
+import           Pos.Core (Timestamp (..))
+import           Pos.Launcher (HasConfigurations, withConfigurations)
+import           Pos.Launcher.Configuration (ConfigurationOptions (..))
+import           Pos.Reporting.Methods (retrieveLogFiles, sendReport)
+import           Pos.ReportServer.Report (ReportType (..))
+import           Pos.Util (directory, sleep)
+import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 
 data LauncherOptions = LO
     { loNodePath            :: !FilePath

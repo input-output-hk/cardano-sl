@@ -9,33 +9,27 @@ module Pos.Txp.Toil.Utxo.Functions
 
 import           Universum
 
-import           Control.Lens              (_Left)
+import           Control.Lens (_Left)
 import           Control.Monad.Error.Class (MonadError (..))
-import qualified Data.List.NonEmpty        as NE
-import           Formatting                (int, sformat, (%))
-import           Serokell.Util             (VerificationRes, allDistinct, enumerate,
-                                            formatFirstError, verResToMonadError,
-                                            verifyGeneric)
+import qualified Data.List.NonEmpty as NE
+import           Formatting (int, sformat, (%))
+import           Serokell.Util (VerificationRes, allDistinct, enumerate, formatFirstError,
+                                verResToMonadError, verifyGeneric)
 
-import           Pos.Binary.Core.Txp       ()
-import           Pos.Core                  (AddrType (..), Address (..), HasConfiguration,
-                                            addressF, integerToCoin, isRedeemAddress,
-                                            isUnknownAddressType, sumCoins)
-import           Pos.Core.Address          (checkPubKeyAddress, checkRedeemAddress,
-                                            checkScriptAddress)
-import           Pos.Core.Txp              (Tx (..), TxAttributes, TxAux (..), TxIn (..),
-                                            TxInWitness (..), TxOut (..), TxOutAux (..),
-                                            TxSigData (..), TxUndo, TxWitness,
-                                            isTxInUnknown)
-import           Pos.Crypto                (SignTag (SignRedeemTx, SignTx), WithHash (..),
-                                            checkSig, hash, redeemCheckSig)
-import           Pos.Data.Attributes       (Attributes (attrRemain), areAttributesKnown)
-import           Pos.Script                (Script (..), isKnownScriptVersion,
-                                            txScriptCheck)
-import           Pos.Txp.Toil.Class        (MonadUtxo (..), MonadUtxoRead (..), utxoDel,
-                                            utxoPut)
-import           Pos.Txp.Toil.Failure      (ToilVerFailure (..), WitnessVerFailure (..))
-import           Pos.Txp.Toil.Types        (TxFee (..))
+import           Pos.Binary.Core.Txp ()
+import           Pos.Core (AddrType (..), Address (..), HasConfiguration, addressF, integerToCoin,
+                           isRedeemAddress, isUnknownAddressType, sumCoins)
+import           Pos.Core.Address (checkPubKeyAddress, checkRedeemAddress, checkScriptAddress)
+import           Pos.Core.Txp (Tx (..), TxAttributes, TxAux (..), TxIn (..), TxInWitness (..),
+                               TxOut (..), TxOutAux (..), TxSigData (..), TxUndo, TxWitness,
+                               isTxInUnknown)
+import           Pos.Crypto (SignTag (SignRedeemTx, SignTx), WithHash (..), checkSig, hash,
+                             redeemCheckSig)
+import           Pos.Data.Attributes (Attributes (attrRemain), areAttributesKnown)
+import           Pos.Script (Script (..), isKnownScriptVersion, txScriptCheck)
+import           Pos.Txp.Toil.Class (MonadUtxo (..), MonadUtxoRead (..), utxoDel, utxoPut)
+import           Pos.Txp.Toil.Failure (ToilVerFailure (..), WitnessVerFailure (..))
+import           Pos.Txp.Toil.Types (TxFee (..))
 
 ----------------------------------------------------------------------------
 -- Verification

@@ -8,10 +8,10 @@ module Pos.Core.Fee
 
 import           Universum
 
-import           Data.Fixed                 (Fixed (..), Nano, showFixed)
-import           Data.Hashable              (Hashable)
-import qualified Data.Text.Buildable        as Buildable
-import           Formatting                 (bprint, build, shown, (%))
+import           Data.Fixed (Fixed (..), Nano, showFixed)
+import           Data.Hashable (Hashable)
+import qualified Data.Text.Buildable as Buildable
+import           Formatting (bprint, build, shown, (%))
 import           Serokell.Data.Memory.Units (Byte, toBytes)
 
 -- | A fractional coefficient of fixed precision.

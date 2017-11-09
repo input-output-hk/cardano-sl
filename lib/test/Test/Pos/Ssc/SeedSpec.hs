@@ -5,37 +5,33 @@ module Test.Pos.Ssc.SeedSpec
        ) where
 
 import           Universum
-import           Unsafe                   ()
+import           Unsafe ()
 
-import           Control.Lens             (each, traverseOf)
-import           Crypto.Random            (MonadRandom)
-import qualified Data.HashMap.Strict      as HM
-import           Data.List                (lookup, unzip, (\\))
-import qualified Data.List.NonEmpty       as NE
-import           Formatting               (build, int, sformat, shown, (%))
-import           Serokell.Util            (listJson)
-import           Test.Hspec               (Spec, describe, pending)
-import           Test.Hspec.QuickCheck    (modifyMaxSize, modifyMaxSuccess, prop)
-import           Test.QuickCheck          (Property, choose, counterexample, generate,
-                                           ioProperty, property, sized, (===))
+import           Control.Lens (each, traverseOf)
+import           Crypto.Random (MonadRandom)
+import qualified Data.HashMap.Strict as HM
+import           Data.List (lookup, unzip, (\\))
+import qualified Data.List.NonEmpty as NE
+import           Formatting (build, int, sformat, shown, (%))
+import           Serokell.Util (listJson)
+import           Test.Hspec (Spec, describe, pending)
+import           Test.Hspec.QuickCheck (modifyMaxSize, modifyMaxSuccess, prop)
+import           Test.QuickCheck (Property, choose, counterexample, generate, ioProperty, property,
+                                  sized, (===))
 import           Test.QuickCheck.Property (failed, succeeded)
 
 import           Pos.Binary
-import           Pos.Core                 (AddressHash, HasConfiguration, addressHash)
-import           Pos.Core.Ssc             (Commitment (..), CommitmentsMap, Opening (..),
-                                           getCommShares, getCommitmentsMap,
-                                           mkCommitmentsMap)
-import           Pos.Crypto               (DecShare, PublicKey, SecretKey,
-                                           SignTag (SignCommitment), Threshold,
-                                           VssKeyPair, VssPublicKey, decryptShare, sign,
-                                           toPublic, toVssPublicKey)
-import           Pos.Ssc                  (SscSeedError (..), calculateSeed,
-                                           genCommitmentAndOpening, secretToSharedSeed,
-                                           vssThreshold)
-import           Pos.Types                (SharedSeed (..), StakeholderId, mkCoin)
-import           Pos.Util                 (nonrepeating, sublistN)
+import           Pos.Core (AddressHash, HasConfiguration, addressHash)
+import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), getCommShares,
+                               getCommitmentsMap, mkCommitmentsMap)
+import           Pos.Crypto (DecShare, PublicKey, SecretKey, SignTag (SignCommitment), Threshold,
+                             VssKeyPair, VssPublicKey, decryptShare, sign, toPublic, toVssPublicKey)
+import           Pos.Ssc (SscSeedError (..), calculateSeed, genCommitmentAndOpening,
+                          secretToSharedSeed, vssThreshold)
+import           Pos.Types (SharedSeed (..), StakeholderId, mkCoin)
+import           Pos.Util (nonrepeating, sublistN)
 
-import           Test.Pos.Util            (withDefConfiguration)
+import           Test.Pos.Util (withDefConfiguration)
 
 getPubAddr :: SecretKey -> AddressHash PublicKey
 getPubAddr = addressHash . toPublic

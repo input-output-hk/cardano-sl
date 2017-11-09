@@ -24,20 +24,19 @@ module Pos.Update.Poll.PollState
 
 import           Universum
 
-import           Control.Lens          (makeLenses)
-import qualified Data.HashMap.Strict   as HM
-import qualified Data.HashSet          as HS
+import           Control.Lens (makeLenses)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet as HS
 
-import           Pos.Core.Types        (ApplicationName, BlockVersion, BlockVersionData,
-                                        EpochIndex, NumSoftwareVersion,
-                                        SoftwareVersion (..), StakeholderId)
-import           Pos.Core.Update       (UpId, UpdateProposal (..))
-import           Pos.Lrc.DB.Issuers    (IssuersStakes)
-import           Pos.Lrc.Types         (FullRichmenData)
-import           Pos.Slotting.Types    (SlottingData)
+import           Pos.Core.Types (ApplicationName, BlockVersion, BlockVersionData, EpochIndex,
+                                 NumSoftwareVersion, SoftwareVersion (..), StakeholderId)
+import           Pos.Core.Update (UpId, UpdateProposal (..))
+import           Pos.Lrc.DB.Issuers (IssuersStakes)
+import           Pos.Lrc.Types (FullRichmenData)
+import           Pos.Slotting.Types (SlottingData)
 import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState,
                                         PollModifier (..), ProposalState, psProposal)
-import           Pos.Util.Modifier     (foldlMapModWKey', modifyHashMap)
+import           Pos.Util.Modifier (foldlMapModWKey', modifyHashMap)
 
 data PollState = PollState
     { -- | All competing block versions with their states

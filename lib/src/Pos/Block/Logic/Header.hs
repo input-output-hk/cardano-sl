@@ -14,41 +14,36 @@ module Pos.Block.Logic.Header
 
 import           Universum
 
-import           Control.Monad.Except      (MonadError (throwError))
+import           Control.Monad.Except (MonadError (throwError))
 import           Control.Monad.Trans.Maybe (MaybeT (MaybeT), runMaybeT)
-import           Data.List.NonEmpty        ((<|))
-import qualified Data.Text                 as T
-import           Formatting                (build, int, sformat, (%))
-import           Serokell.Util.Text        (listJson)
-import           Serokell.Util.Verify      (VerificationRes (..), isVerSuccess)
-import           System.Wlog               (WithLogger, logDebug)
+import           Data.List.NonEmpty ((<|))
+import qualified Data.Text as T
+import           Formatting (build, int, sformat, (%))
+import           Serokell.Util.Text (listJson)
+import           Serokell.Util.Verify (VerificationRes (..), isVerSuccess)
+import           System.Wlog (WithLogger, logDebug)
 
-import           Pos.Block.Logic.Util      (lcaWithMainChain)
-import           Pos.Block.Pure            (VerifyHeaderParams (..), verifyHeader,
-                                            verifyHeaders)
-import           Pos.Configuration         (HasNodeConfiguration, recoveryHeadersMessage)
-import           Pos.Core                  (BlockCount, EpochOrSlot (..),
-                                            HasConfiguration, HeaderHash, SlotId (..),
-                                            blkSecurityParam, bvdMaxHeaderSize,
-                                            difficultyL, epochIndexL, epochOrSlotG,
-                                            getChainDifficulty, getEpochOrSlot,
-                                            headerHash, headerHashG, headerSlotL,
-                                            prevBlockL)
-import           Pos.Core.Block            (BlockHeader)
-import           Pos.Core.Configuration    (genesisHash)
-import           Pos.Crypto                (hash)
-import           Pos.DB                    (MonadDBRead)
-import qualified Pos.DB.Block              as DB
-import qualified Pos.DB.DB                 as DB
-import           Pos.Delegation.Cede       (dlgVerifyHeader, runDBCede)
-import qualified Pos.GState                as GS
-import           Pos.Lrc.Context           (HasLrcContext)
-import qualified Pos.Lrc.DB                as LrcDB
-import           Pos.Slotting.Class        (MonadSlots (getCurrentSlot))
-import           Pos.Util                  (_neHead, _neLast)
-import           Pos.Util.Chrono           (NE, NewestFirst (..), OldestFirst (..),
-                                            toNewestFirst, toOldestFirst, _NewestFirst,
-                                            _OldestFirst)
+import           Pos.Block.Logic.Util (lcaWithMainChain)
+import           Pos.Block.Pure (VerifyHeaderParams (..), verifyHeader, verifyHeaders)
+import           Pos.Configuration (HasNodeConfiguration, recoveryHeadersMessage)
+import           Pos.Core (BlockCount, EpochOrSlot (..), HasConfiguration, HeaderHash, SlotId (..),
+                           blkSecurityParam, bvdMaxHeaderSize, difficultyL, epochIndexL,
+                           epochOrSlotG, getChainDifficulty, getEpochOrSlot, headerHash,
+                           headerHashG, headerSlotL, prevBlockL)
+import           Pos.Core.Block (BlockHeader)
+import           Pos.Core.Configuration (genesisHash)
+import           Pos.Crypto (hash)
+import           Pos.DB (MonadDBRead)
+import qualified Pos.DB.Block as DB
+import qualified Pos.DB.DB as DB
+import           Pos.Delegation.Cede (dlgVerifyHeader, runDBCede)
+import qualified Pos.GState as GS
+import           Pos.Lrc.Context (HasLrcContext)
+import qualified Pos.Lrc.DB as LrcDB
+import           Pos.Slotting.Class (MonadSlots (getCurrentSlot))
+import           Pos.Util (_neHead, _neLast)
+import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
+                                  toOldestFirst, _NewestFirst, _OldestFirst)
 
 -- | Result of single (new) header classification.
 data ClassifyHeaderRes

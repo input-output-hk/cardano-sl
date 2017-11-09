@@ -7,32 +7,30 @@ module Pos.Arbitrary.Block
 
 import           Universum
 
-import qualified Data.Text.Buildable               as Buildable
-import           Formatting                        (bprint, build, (%))
+import qualified Data.Text.Buildable as Buildable
+import           Formatting (bprint, build, (%))
 import qualified Prelude
-import           System.Random                     (Random, mkStdGen, randomR)
-import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, suchThat,
-                                                    vectorOf)
+import           System.Random (Random, mkStdGen, randomR)
+import           Test.QuickCheck (Arbitrary (..), Gen, choose, suchThat, vectorOf)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Delegation          (genDlgPayload)
-import           Pos.Arbitrary.Ssc                 (SscPayloadDependsOnSlot (..))
-import           Pos.Arbitrary.Txp                 ()
-import           Pos.Arbitrary.Update              ()
-import           Pos.Binary.Class                  (Bi, Raw, biSize)
-import qualified Pos.Block.Base                    as T
-import           Pos.Block.Network                 as T
-import qualified Pos.Block.Pure                    as T
-import           Pos.Core                          (HasConfiguration, epochSlots)
-import qualified Pos.Core                          as Core
-import qualified Pos.Core.Block                    as T
-import           Pos.Core.Ssc                      (SscPayload, SscProof)
-import           Pos.Crypto                        (ProxySecretKey, PublicKey, SecretKey,
-                                                    createPsk, hash, toPublic)
-import           Pos.Data.Attributes               (areAttributesKnown)
-import qualified Pos.Types                         as T
-import           Pos.Util.Arbitrary                (makeSmall)
-import           Pos.Util.Util                     (leftToPanic)
+import           Pos.Arbitrary.Delegation (genDlgPayload)
+import           Pos.Arbitrary.Ssc (SscPayloadDependsOnSlot (..))
+import           Pos.Arbitrary.Txp ()
+import           Pos.Arbitrary.Update ()
+import           Pos.Binary.Class (Bi, Raw, biSize)
+import qualified Pos.Block.Base as T
+import           Pos.Block.Network as T
+import qualified Pos.Block.Pure as T
+import           Pos.Core (HasConfiguration, epochSlots)
+import qualified Pos.Core as Core
+import qualified Pos.Core.Block as T
+import           Pos.Core.Ssc (SscPayload, SscProof)
+import           Pos.Crypto (ProxySecretKey, PublicKey, SecretKey, createPsk, hash, toPublic)
+import           Pos.Data.Attributes (areAttributesKnown)
+import qualified Pos.Types as T
+import           Pos.Util.Arbitrary (makeSmall)
+import           Pos.Util.Util (leftToPanic)
 
 newtype BodyDependsOnSlot b = BodyDependsOnSlot
     { genBodyDepsOnSlot :: Core.SlotId -> Gen (T.Body b)
@@ -393,9 +391,9 @@ instance (Arbitrary SscPayload, HasConfiguration) =>
         let atMost2HeadersAndLeaders = take 2 $ drop skip headers
             (prev, header) =
                 case atMost2HeadersAndLeaders of
-                    [h] -> (Nothing, h)
+                    [h]      -> (Nothing, h)
                     [h1, h2] -> (Just h1, h2)
-                    _ -> error "[BlockSpec] the headerchain doesn't have enough headers"
+                    _        -> error "[BlockSpec] the headerchain doesn't have enough headers"
             -- This binding captures the chosen header's epoch. It is used to
             -- drop all all leaders of headers from previous epochs.
             thisEpochStartIndex = fromIntegral epochSlots *

@@ -6,11 +6,11 @@ module Pos.Binary.Core.Blockchain
 
 import           Universum
 
-import           Pos.Binary.Class                (Bi (..), encodeListLen, enforceSize)
-import qualified Pos.Core.Block.Blockchain       as T
+import           Pos.Binary.Class (Bi (..), encodeListLen, enforceSize)
+import qualified Pos.Core.Block.Blockchain as T
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants, protocolMagic)
-import qualified Pos.Core.Types                  as T
-import           Pos.Util.Util                   (eitherToFail)
+import qualified Pos.Core.Types as T
+import           Pos.Util.Util (eitherToFail)
 
 -- | This instance required only for Arbitrary instance of HeaderHash
 -- due to @instance Bi a => Hash a@.

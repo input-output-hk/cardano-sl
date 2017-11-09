@@ -25,6 +25,7 @@ import           Universum                        hiding (bracket)
 import           Control.Concurrent.STM           (newEmptyTMVarIO, newTBQueueIO)
 import           Data.Default                     (Default)
 import qualified Data.Time                        as Time
+import           Data.Time.Units                  (toMicroseconds)
 import           Formatting                       (sformat, shown, (%))
 import           Mockable                         (Bracket, Catch, Mockable,
                                                    Production (..), Throw, bracket, throw)
@@ -49,7 +50,8 @@ import           Pos.Configuration
 import           Pos.Context                      (ConnectedPeers (..), NodeContext (..),
                                                    StartTime (..))
 import           Pos.Core                         (HasConfiguration, Timestamp,
-                                                   gdStartTime, genesisData)
+                                                   gdStartTime, genesisData,
+                                                   gdBlockVersionData, bvdSlotDuration)
 import           Pos.DB                           (MonadDBRead, NodeDBs)
 import           Pos.DB.Rocks                     (closeNodeDBs, openNodeDBs)
 import           Pos.Delegation                   (DelegationVar, mkDelegationVar)
@@ -296,7 +298,11 @@ allocateNodeContext ancd txpSettings = do
     -- TODO synchronize the NodeContext peers var with whatever system
     -- populates it.
     peersVar <- newTVarIO mempty
-    ncSubscriptionKeepAliveTimer <- newTimer $ 30 * 1000000 -- TODO: use slot duration
+    let slotDuration :: Integer
+        slotDuration = toMicroseconds . bvdSlotDuration $ gdBlockVersionData genesisData
+    ncSubscriptionKeepAliveTimer <- newTimer . fromIntegral $
+        -- newTimer expects Int, so if slot duration is bigger, use maxBound
+        min slotDuration $ fromIntegral (maxBound::Int)
     let ctx =
             NodeContext
             { ncConnectedPeers = ConnectedPeers peersVar

@@ -72,17 +72,16 @@ module Pos.Wallet.Web.State.State
        , getWalletStorage
        , flushWalletStorage
        , applyModifierToWallet
-       , rollbackModifierFromWallet
        ) where
+
+import           Universum
 
 import           Data.Acid                        (EventResult, EventState, QueryEvent,
                                                    UpdateEvent)
 import qualified Data.Map                         as Map
 import           Ether.Internal                   (lensOf)
-import           Universum
 
 import           Pos.Client.Txp.History           (TxHistoryEntry)
-import           Pos.Core                         (SlotId)
 import           Pos.Core.Configuration           (HasConfiguration)
 import           Pos.Txp                          (TxId, Utxo, UtxoModifier)
 import           Pos.Types                        (HeaderHash)
@@ -302,6 +301,3 @@ flushWalletStorage = updateDisk A.FlushWalletStorage
 
 applyModifierToWallet :: MonadWalletDB ctx m => CId Wal -> HeaderHash -> WalletModifier -> m ()
 applyModifierToWallet = updateDisk ... A.ApplyModifierToWallet
-
-rollbackModifierFromWallet :: MonadWalletDB ctx m => SlotId -> CId Wal -> HeaderHash -> WalletModifier -> m ()
-rollbackModifierFromWallet = updateDisk ... A.RollbackModifierFromWallet

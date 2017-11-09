@@ -77,7 +77,6 @@ module Pos.Wallet.Web.State.Storage
        , ptxUpdateMeta
        , addOnlyNewPendingTx
        , applyModifierToWallet
-       , rollbackModifierFromWallet
        ) where
 
 import           Universum
@@ -120,7 +119,8 @@ import           Pos.Wallet.Web.Pending.Util      (incPtxSubmitTimingPure,
                                                    mkPtxSubmitTiming,
                                                    ptxMarkAcknowledgedPure)
 import           Pos.Wallet.Web.Tracking.Modifier (IndexedMapModifier (..),
-                                                   WalletModifier (..), indexedDeletions,
+                                                   WalletModifier (..), emmDeletions,
+                                                   emmInsertions, indexedDeletions,
                                                    sortedInsertions)
 
 type AddressSortingKey = Int
@@ -529,38 +529,31 @@ applyModifierToWallet
     -> Update ()
 applyModifierToWallet wid newTip WalletModifier{..} = do
     mapM_ addWAddress (sortedInsertions wmAddresses)
-    mapM_ (addCustomAddress UsedAddr . fst) (MM.insertions wmUsed)
-    mapM_ (addCustomAddress ChangeAddr . fst) (MM.insertions wmChange)
-    utxo <- use wsUtxo
-    setWalletUtxo (MM.modifyMap wmUtxo utxo)
-    let cMetas = mapMaybe (\(_, THEntry {..}) ->
-                             (\mts -> (encodeCType _thTxId, CTxMeta . timestampToPosix $ mts)) <$> _thTimestamp)
-                 $ MM.insertions wmHistoryEntries
-    addOnlyNewTxMetas wid cMetas
-    let addedHistory = txHistoryListToMap $ map snd $ MM.insertions wmHistoryEntries
-    insertIntoHistoryCache wid addedHistory
-    forM_ wmAddedPtxCandidates $ \(txid, ptxBlkInfo) ->
-        setPtxCondition wid txid (PtxInNewestBlocks ptxBlkInfo)
-    setWalletSyncTip wid newTip
-
-rollbackModifierFromWallet
-    :: SlotId
-    -> CId Wal
-    -> HeaderHash
-    -> WalletModifier
-    -> Update ()
-rollbackModifierFromWallet curSlot wid newTip WalletModifier{..} = do
     mapM_ removeWAddress (indexedDeletions wmAddresses)
+    mapM_ (addCustomAddress UsedAddr . fst) (MM.insertions wmUsed)
     mapM_ (removeCustomAddress UsedAddr) (MM.deletions wmUsed)
+    mapM_ (addCustomAddress ChangeAddr . fst) (MM.insertions wmChange)
     mapM_ (removeCustomAddress ChangeAddr) (MM.deletions wmChange)
     utxo <- use wsUtxo
     setWalletUtxo (MM.modifyMap wmUtxo utxo)
-    forM_ wmDeletedPtxCandidates $ \(txid, poolInfo) -> do
-        ptxUpdateMeta wid txid (PtxResetSubmitTiming curSlot)
-        setPtxCondition wid txid (PtxApplying poolInfo)
+
+    let addedHistory = map snd $ MM.insertions wmHistoryEntries
+    let addedHistoryMap = txHistoryListToMap addedHistory
     let deletedHistory = MM.deletions wmHistoryEntries
-    removeFromHistoryCache wid (M.fromList $ zip deletedHistory $ repeat ())
+    let cMetas = mapMaybe (\THEntry {..} ->
+                             (\mts -> (encodeCType _thTxId, CTxMeta . timestampToPosix $ mts)) <$> _thTimestamp)
+                 addedHistory
+    addOnlyNewTxMetas wid cMetas
     removeWalletTxMetas wid (map encodeCType deletedHistory)
+    insertIntoHistoryCache wid addedHistoryMap
+    removeFromHistoryCache wid (M.fromList $ zip deletedHistory $ repeat ())
+
+    forM_ (emmInsertions wmPtxCandidates) $ \(txid, ptxBlkInfo) ->
+        setPtxCondition wid txid (PtxInNewestBlocks ptxBlkInfo)
+    forM_ (emmDeletions wmPtxCandidates) $ \(txid, (poolInfo, slot)) -> do
+        ptxUpdateMeta wid txid (PtxResetSubmitTiming slot)
+        setPtxCondition wid txid (PtxApplying poolInfo)
+
     setWalletSyncTip wid newTip
 
 deriveSafeCopySimple 0 'base ''CCoin

@@ -19,7 +19,7 @@ import           Pos.Wallet.Web.State.Memory.Types (ExtStorageModifier (..),
                                                     ExtStorageModifierVar,
                                                     HasExtStorageModifier)
 import qualified Pos.Wallet.Web.State.Memory.Types as SM
-import           Pos.Wallet.Web.Tracking           (WalletTrackingEnvRead,
+import           Pos.Wallet.Web.Tracking           (WalletTrackingMempoolEnv,
                                                     trackingApplyTxToModifierM,
                                                     txMempoolToModifier)
 import           Pos.Wallet.Web.Util               (getWalletAddrMetas)
@@ -42,7 +42,7 @@ updateStorageModifierOnTx (_, txAux, txUndo) = do
         \e -> e {esmMemStorageModifier = foldr SM.applyWalModifier (esmMemStorageModifier e) walMods}
 
 buildStorageModifier
-    :: ( WalletTrackingEnvRead ctx m
+    :: ( WalletTrackingMempoolEnv ctx m
        , AccountMode ctx m
        )
     => m ExtStorageModifier

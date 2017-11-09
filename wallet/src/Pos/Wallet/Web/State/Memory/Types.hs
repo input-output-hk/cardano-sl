@@ -2,6 +2,8 @@
 
 module Pos.Wallet.Web.State.Memory.Types
        ( ExtStorageModifier (..)
+       , esmTipL
+       , esmMemStorageModifierL
        , ExtStorageModifierVar
        , HasExtStorageModifier
 
@@ -14,11 +16,12 @@ module Pos.Wallet.Web.State.Memory.Types
 
 import           Universum
 
+import           Control.Lens                     (makeLensesWith)
 import qualified Data.HashMap.Strict              as HM
 
 import           Pos.Core                         (HeaderHash)
 import           Pos.Core.Configuration           (HasConfiguration)
-import           Pos.Util.Util                    (HasLens)
+import           Pos.Util.Util                    (HasLens, postfixLFields2)
 
 import           Pos.Wallet.Web.ClientTypes       (CId, Wal)
 import           Pos.Wallet.Web.State.Storage     (WalletInfo (..), WalletStorage (..),
@@ -33,6 +36,7 @@ data ExtStorageModifier = ExtStorageModifier
     { esmTip                :: !HeaderHash
     , esmMemStorageModifier :: !StorageModifier
     }
+
 
 type ExtStorageModifierVar = TVar ExtStorageModifier
 type HasExtStorageModifier ctx = HasLens ExtStorageModifierVar ctx ExtStorageModifierVar
@@ -70,3 +74,5 @@ applyModifiers modifiers s = foldr f s modifiers
         , SyncedWith hh <- _wiSyncTip wi =
             execState (applyModifierToWallet id hh modif) storage
         | otherwise = storage
+
+makeLensesWith postfixLFields2 ''ExtStorageModifier

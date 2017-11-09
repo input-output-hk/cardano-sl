@@ -22,8 +22,8 @@ module Pos.Wallet.Web.Tracking.Sync
        , trackingApplyTxToModifierM
        , trackingRollbackTxs
        , BlockLockMode
-       , WalletTrackingEnv
-       , WalletTrackingEnvRead
+       , WalletTrackingSyncEnv
+       , WalletTrackingMempoolEnv
 
        , syncWalletOnImport
        , txMempoolToModifier
@@ -40,7 +40,6 @@ import           Unsafe                           (unsafeLast)
 
 import           Control.Lens                     (to)
 import           Control.Monad.Catch              (handleAll)
-import qualified Data.DList                       as DL
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.List.NonEmpty               as NE
 import qualified Data.Map                         as M
@@ -54,7 +53,7 @@ import           Pos.Block.Core                   (BlockHeader, getBlockHeader,
 import           Pos.Block.Types                  (Blund, undoTx)
 import           Pos.Core                         (BlockHeaderStub, ChainDifficulty,
                                                    HasConfiguration, HasDifficulty (..),
-                                                   Timestamp, blkSecurityParam,
+                                                   SlotId, Timestamp, blkSecurityParam,
                                                    genesisHash, headerHash, headerSlotL)
 import           Pos.Crypto                       (EncryptedSecretKey, WithHash (..),
                                                    shortHashF, withHash)
@@ -62,8 +61,8 @@ import qualified Pos.DB.Block                     as DB
 import qualified Pos.DB.DB                        as DB
 import qualified Pos.GState                       as GS
 import           Pos.GState.BlockExtra            (foldlUpWhileM, resolveForwardLink)
-import           Pos.Slotting                     (MonadSlotsData, getSlotStartPure,
-                                                   getSystemStartM)
+import           Pos.Slotting                     (MonadSlots (..), MonadSlotsData,
+                                                   getSlotStartPure, getSystemStartM)
 import           Pos.StateLock                    (Priority (..), StateLock,
                                                    withStateLockNoMetrics)
 import           Pos.Txp                          (GenesisUtxo (..), TxAux (..),
@@ -95,7 +94,8 @@ import           Pos.Wallet.Web.Tracking.Decrypt  (THEntryExtra (..), buildTHEnt
 import           Pos.Wallet.Web.Tracking.Modifier (CachedWalletModifier,
                                                    WalletModifier (..),
                                                    deleteAndInsertIMM, deleteAndInsertMM,
-                                                   deleteAndInsertVM)
+                                                   deleteAndInsertVM, emmDelete,
+                                                   emmInsert)
 import           Pos.Wallet.Web.Util              (getWalletAddrMetas)
 
 type BlockLockMode ctx m =
@@ -106,7 +106,7 @@ type BlockLockMode ctx m =
      , MonadMask m
      )
 
-type WalletTrackingEnvRead ctx m =
+type WalletTrackingMempoolEnv ctx m =
      ( BlockLockMode ctx m
      , MonadTxpMem WalletMempoolExt ctx m
      , WS.MonadWalletDBRead ctx m
@@ -115,15 +115,16 @@ type WalletTrackingEnvRead ctx m =
      , HasConfiguration
      )
 
-type WalletTrackingEnv ctx m =
-     ( WalletTrackingEnvRead ctx m
+type WalletTrackingSyncEnv ctx m =
+     ( WalletTrackingMempoolEnv ctx m
+     , MonadSlots ctx m
      , MonadWalletDB ctx m
      )
 
-syncWalletOnImport :: WalletTrackingEnv ctx m => EncryptedSecretKey -> m ()
+syncWalletOnImport :: WalletTrackingSyncEnv ctx m => EncryptedSecretKey -> m ()
 syncWalletOnImport = syncWalletsWithGState . one
 
-txMempoolToModifier :: WalletTrackingEnvRead ctx m => EncryptedSecretKey -> m WalletModifier
+txMempoolToModifier :: WalletTrackingMempoolEnv ctx m => EncryptedSecretKey -> m WalletModifier
 txMempoolToModifier encSK = do
     let wHash (i, TxAux {..}, _) = WithHash taTx i
         wId = encToCId encSK
@@ -154,7 +155,7 @@ syncWalletsWithGState
     :: forall ctx m.
     ( MonadWalletDB ctx m
     , BlockLockMode ctx m
-    , MonadSlotsData ctx m
+    , MonadSlots ctx m
     , HasConfiguration
     )
     => [EncryptedSecretKey] -> m ()
@@ -210,7 +211,7 @@ syncWalletWithGStateUnsafe
     ( MonadWalletDB ctx m
     , DB.MonadBlockDB m
     , WithLogger m
-    , MonadSlotsData ctx m
+    , MonadSlots ctx m
     , HasConfiguration
     )
     => EncryptedSecretKey      -- ^ Secret key for decoding our addresses
@@ -221,6 +222,7 @@ syncWalletWithGStateUnsafe
 syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
     systemStart  <- getSystemStartM
     slottingData <- GS.getSlottingData
+    curSlot <- getCurrentSlotInaccurate
 
     let gstateHHash = headerHash gstateH
         loadCond (b, _) _ = b ^. difficultyL <= gstateH ^. difficultyL
@@ -239,7 +241,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
 
         rollbackBlock :: [CWAddressMeta] -> Blund -> WalletModifier
         rollbackBlock allAddresses (b, u) =
-            trackingRollbackTxs encSK allAddresses (\bh -> (mDiff bh, blkHeaderTs bh)) $
+            trackingRollbackTxs encSK allAddresses curSlot (\bh -> (mDiff bh, blkHeaderTs bh)) $
             zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
 
         applyBlock :: [CWAddressMeta] -> Blund -> m WalletModifier
@@ -356,19 +358,18 @@ trackingApplyTxToModifier wdc allAddresses fInfo WalletModifier{..} (tx, undo, b
         usedAddrs = map (cwamId . snd) theeOutputs
         changeAddrs = evalChange allAddresses (map (cwamId . snd) theeInputs) usedAddrs
 
-        addedPtxCandidates =
+        newPtxCandidates =
             if | Just ptxBlkInfo <- mPtxBlkInfo
-                    -> DL.cons (txId, ptxBlkInfo) wmAddedPtxCandidates
+                    -> emmInsert txId ptxBlkInfo wmPtxCandidates
                 | otherwise
-                    -> wmAddedPtxCandidates
+                    -> wmPtxCandidates
     WalletModifier
         (deleteAndInsertIMM [] (map snd theeOutputs) wmAddresses)
         historyModifier
         (deleteAndInsertVM [] (zip usedAddrs hhs) wmUsed)
         (deleteAndInsertVM [] (zip changeAddrs hhs) wmChange)
         (deleteAndInsertMM ownTxIns ownTxOuts wmUtxo)
-        addedPtxCandidates
-        wmDeletedPtxCandidates
+        newPtxCandidates
 
 -- Process transactions on block rollback.
 -- Like @trackingApplyTxs@, but vise versa.
@@ -376,11 +377,12 @@ trackingRollbackTxs
     :: HasConfiguration
     => EncryptedSecretKey -- ^ Wallet's secret key
     -> [CWAddressMeta]    -- ^ All addresses
+    -> SlotId
     -> (BlockHeader
       -> (Maybe ChainDifficulty, Maybe Timestamp))  -- ^ Function to determine tx chain difficulty and timestamp
     -> [(TxAux, TxUndo, BlockHeader)] -- ^ Txs of blocks and corresponding header hash
     -> WalletModifier
-trackingRollbackTxs (eskToWalletDecrCredentials -> wdc) allAddress fInfo txs =
+trackingRollbackTxs (eskToWalletDecrCredentials -> wdc) allAddress curSlot fInfo txs =
     foldl' rollbackTx mempty txs
   where
     rollbackTx :: WalletModifier -> (TxAux, TxUndo, BlockHeader) -> WalletModifier
@@ -396,7 +398,7 @@ trackingRollbackTxs (eskToWalletDecrCredentials -> wdc) allAddress fInfo txs =
                 maybe wmHistoryEntries
                       (\th -> MM.delete (_thTxId th) wmHistoryEntries)
                       (isTxEntryInteresting thee)
-            deletedPtxCandidates = DL.cons (txId, theeTxEntry) wmDeletedPtxCandidates
+            newPtxCandidates = emmDelete txId (theeTxEntry, curSlot) wmPtxCandidates
 
         -- Rollback isn't needed, because we don't use @utxoGet@
         -- (undo contains all required information)
@@ -408,8 +410,7 @@ trackingRollbackTxs (eskToWalletDecrCredentials -> wdc) allAddress fInfo txs =
             (deleteAndInsertVM (zip usedAddrs hhs) [] wmUsed)
             (deleteAndInsertVM (zip changeAddrs hhs) [] wmChange)
             (deleteAndInsertMM ownTxOutIns (map fst theeInputs) wmUtxo)
-            wmAddedPtxCandidates
-            deletedPtxCandidates
+            newPtxCandidates
 
 evalChange
     :: [CWAddressMeta] -- ^ All adresses
@@ -430,14 +431,14 @@ setLogger = modifyLoggerName (<> "wallet" <> "sync")
 -- | Evaluates `txMempoolToModifier` and provides result as a parameter
 -- to given function.
 fixingCachedAccModifier
-    :: (WalletTrackingEnvRead ctx m, MonadKeySearch key m)
+    :: (WalletTrackingMempoolEnv ctx m, MonadKeySearch key m)
     => (CachedWalletModifier -> key -> m a)
     -> key -> m a
 fixingCachedAccModifier action key =
     findKey key >>= txMempoolToModifier >>= flip action key
 
 fixCachedAccModifierFor
-    :: (WalletTrackingEnvRead ctx m, MonadKeySearch key m)
+    :: (WalletTrackingMempoolEnv ctx m, MonadKeySearch key m)
     => key
     -> (CachedWalletModifier -> m a)
     -> m a

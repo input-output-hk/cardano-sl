@@ -144,8 +144,8 @@ onRollbackBlocksWebWallet blunds = setLogger . reportTimeouts "rollback" $ do
         encSK <- getSKById wid
         blkHeaderTs <- blkHeaderTsGetter
 
-        let mapModifier = trackingRollbackTxs encSK allAddresses (\bh -> (gbDiff bh, blkHeaderTs bh)) txs
-        WS.rollbackModifierFromWallet curSlot wid newTip mapModifier
+        let mapModifier = trackingRollbackTxs encSK allAddresses curSlot (\bh -> (gbDiff bh, blkHeaderTs bh)) txs
+        WS.applyModifierToWallet wid newTip mapModifier
         logMsg "Rolled back" (getNewestFirst blunds) wid mapModifier
 
     gbDiff = Just . view difficultyL

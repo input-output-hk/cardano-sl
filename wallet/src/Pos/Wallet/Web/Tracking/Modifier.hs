@@ -18,17 +18,23 @@ module Pos.Wallet.Web.Tracking.Modifier
        , insertIMM
        , deleteIMM
        , deleteAndInsertIMM
+
+       , ExtraMapModifier
+       , emmInsert
+       , emmDelete
+       , emmInsertions
+       , emmDeletions
        ) where
 
 import           Universum
 
-import           Data.DList                   (DList)
+import qualified Data.HashMap.Strict          as HM
 import qualified Data.Text.Buildable
 import           Formatting                   (bprint, build, (%))
 import           Serokell.Util                (listJson, listJsonIndent)
 
 import           Pos.Client.Txp.History       (TxHistoryEntry (..))
-import           Pos.Core                     (HeaderHash)
+import           Pos.Core                     (HeaderHash, SlotId)
 import           Pos.Txp.Core                 (TxId)
 import           Pos.Txp.Toil                 (UtxoModifier)
 import           Pos.Util.Modifier            (MapModifier)
@@ -37,40 +43,30 @@ import qualified Pos.Util.Modifier            as MM
 import           Pos.Wallet.Web.ClientTypes   (Addr, CId, CWAddressMeta)
 import           Pos.Wallet.Web.Pending.Types (PtxBlockInfo)
 
--- VoidModifier describes a difference between two states.
--- It's (set of added k, set of deleted k) essentially.
-type VoidModifier a = MapModifier a ()
-
-data IndexedMapModifier a = IndexedMapModifier
-    { immModifier :: MM.MapModifier a Int
-    , immCounter  :: Int
-    }
-
-sortedInsertions :: IndexedMapModifier a -> [a]
-sortedInsertions = map fst . sortWith snd . MM.insertions . immModifier
-
-indexedDeletions :: IndexedMapModifier a -> [a]
-indexedDeletions = MM.deletions . immModifier
-
-instance (Eq a, Hashable a) => Monoid (IndexedMapModifier a) where
-    mempty = IndexedMapModifier mempty 0
-    IndexedMapModifier m1 c1 `mappend` IndexedMapModifier m2 c2 =
-        IndexedMapModifier (m1 <> fmap (+ c1) m2) (c1 + c2)
+----------------------------------------------------------------------------
+-- Wallet modifier
+----------------------------------------------------------------------------
 
 data WalletModifier = WalletModifier
-    { wmAddresses            :: !(IndexedMapModifier CWAddressMeta)
-    , wmHistoryEntries       :: !(MapModifier TxId TxHistoryEntry)
-    , wmUsed                 :: !(VoidModifier (CId Addr, HeaderHash))
-    , wmChange               :: !(VoidModifier (CId Addr, HeaderHash))
-    , wmUtxo                 :: !UtxoModifier
-    , wmAddedPtxCandidates   :: !(DList (TxId, PtxBlockInfo))
-    , wmDeletedPtxCandidates :: !(DList (TxId, TxHistoryEntry))
+    { wmAddresses      :: !(IndexedMapModifier CWAddressMeta)
+    , wmHistoryEntries :: !(MapModifier TxId TxHistoryEntry)
+    , wmUsed           :: !(VoidModifier (CId Addr, HeaderHash))
+    , wmChange         :: !(VoidModifier (CId Addr, HeaderHash))
+    , wmUtxo           :: !UtxoModifier
+    , wmPtxCandidates  :: !(ExtraMapModifier TxId PtxBlockInfo (TxHistoryEntry, SlotId))
     }
 
 instance Monoid WalletModifier where
-    mempty = WalletModifier mempty mempty mempty mempty mempty mempty mempty
-    (WalletModifier a b c d e f g) `mappend` (WalletModifier a1 b1 c1 d1 e1 f1 g1) =
-        WalletModifier (a <> a1) (b <> b1) (c <> c1) (d <> d1) (e <> e1) (f <> f1) (g <> g1)
+    mempty = WalletModifier mempty mempty mempty mempty mempty mempty
+    (WalletModifier addr hist used change utxo cand) `mappend`
+        (WalletModifier addr1 hist1 used1 change1 utxo1 cand1) =
+            WalletModifier
+                (addr <> addr1)
+                (hist <> hist1)
+                (used <> used1)
+                (change <> change1)
+                (utxo <> utxo1)
+                (cand1 <> cand) -- to overwrite values with the same keys
 
 instance Buildable WalletModifier where
     build WalletModifier{..} =
@@ -91,12 +87,58 @@ instance Buildable WalletModifier where
         wmUtxo
         (map snd $ MM.insertions wmHistoryEntries)
         (MM.deletions wmHistoryEntries)
-        (map fst wmAddedPtxCandidates)
-        (map fst wmDeletedPtxCandidates)
+        (map fst $ emmInsertions wmPtxCandidates)
+        (map fst $ emmDeletions wmPtxCandidates)
 
 -- | `txMempoolToModifier`, once evaluated, is passed around under this type in
 -- scope of single request.
 type CachedWalletModifier = WalletModifier
+
+----------------------------------------------------------------------------
+--  Void, Indexed, and ExtraMap modifiers
+----------------------------------------------------------------------------
+
+-- | VoidModifier describes a difference between two states.
+-- It's pair (set of added k, set of deleted k) essentially.
+type VoidModifier a = MapModifier a ()
+
+-- | IndexedMapModifier keeps a sequential number for each insertion.
+data IndexedMapModifier a = IndexedMapModifier
+    { immModifier :: MM.MapModifier a Int
+    , immCounter  :: Int
+    }
+
+sortedInsertions :: IndexedMapModifier a -> [a]
+sortedInsertions = map fst . sortWith snd . MM.insertions . immModifier
+
+indexedDeletions :: IndexedMapModifier a -> [a]
+indexedDeletions = MM.deletions . immModifier
+
+instance (Eq a, Hashable a) => Monoid (IndexedMapModifier a) where
+    mempty = IndexedMapModifier mempty 0
+    IndexedMapModifier m1 c1 `mappend` IndexedMapModifier m2 c2 =
+        IndexedMapModifier (m1 <> fmap (+ c1) m2) (c1 + c2)
+
+-- | ExtraMapModifier keeps extra information for deletions.
+-- Left is for insertions, Right is for deletions.
+type ExtraMapModifier k i d = HashMap k (Either i d)
+
+emmInsert :: (Eq k, Hashable k) => k -> i -> ExtraMapModifier k i d -> ExtraMapModifier k i d
+emmInsert k v emm = HM.insert k (Left v) emm
+
+emmDelete :: forall k i d . (Eq k, Hashable k) => k -> d -> ExtraMapModifier k i d -> ExtraMapModifier k i d
+emmDelete k v emm = HM.alter f k emm
+  where
+    f :: Maybe (Either i d) -> Maybe (Either i d)
+    f Nothing          = Just $ Right v
+    f (Just (Left _))  = Nothing
+    f (Just (Right _)) = Just $ Right v
+
+emmInsertions :: ExtraMapModifier k i d -> [(k, i)]
+emmInsertions = HM.toList . HM.mapMaybe leftToMaybe
+
+emmDeletions :: ExtraMapModifier k i d -> [(k, d)]
+emmDeletions = HM.toList . HM.mapMaybe rightToMaybe
 
 ----------------------------------------------------------------------------
 -- Funcs

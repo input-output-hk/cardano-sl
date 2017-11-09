@@ -72,7 +72,6 @@ module Pos.Wallet.Web.State.Acidic
        , GetWalletStorage (..)
        , FlushWalletStorage (..)
        , ApplyModifierToWallet (..)
-       , RollbackModifierFromWallet (..)
        -- * No longer used, just here for migrations and backwards compatibility
        , UpdateHistoryCache (..)
        ) where
@@ -179,5 +178,4 @@ makeAcidic ''WalletStorage
     , 'WS.flushWalletStorage
     , 'WS.getWalletStorage
     , 'WS.applyModifierToWallet
-    , 'WS.rollbackModifierFromWallet
     ]

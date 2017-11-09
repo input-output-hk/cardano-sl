@@ -13,10 +13,11 @@ import           Control.Monad.Trans   (MonadTrans)
 import           System.Wlog           (WithLogger)
 
 import           Pos.Core              (ApplicationName, BlockVersion, ChainDifficulty,
-                                        Coin, EpochIndex, NumSoftwareVersion, SlotId,
-                                        SoftwareVersion, StakeholderId, HasConfiguration)
+                                        Coin, EpochIndex, HasConfiguration,
+                                        NumSoftwareVersion, SlotId, SoftwareVersion,
+                                        StakeholderId)
+import           Pos.Core.Update       (BlockVersionData, UpId)
 import           Pos.Slotting.Types    (SlottingData)
-import           Pos.Update.Core       (BlockVersionData, UpId)
 import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState,
                                         DecidedProposalState, ProposalState,
                                         UndecidedProposalState)

@@ -58,10 +58,12 @@ import qualified Data.List.NonEmpty         as NE
 import           Data.Time.Clock.POSIX      (POSIXTime)
 import           Formatting                 (build, sformat, (%))
 import           Pos.Binary                 (Bi, biSize)
-import           Pos.Block.Core             (MainBlock, mainBlockSlot, mainBlockTxPayload,
-                                             mcdSlot)
 import           Pos.Block.Types            (Undo (..))
 import           Pos.Core                   (HasConfiguration, timestampToPosix)
+import           Pos.Core.Block             (MainBlock, mainBlockSlot, mainBlockTxPayload,
+                                             mcdSlot)
+import           Pos.Core.Txp               (Tx (..), TxId, TxOut (..), TxOutAux (..),
+                                             TxUndo, txpTxs, _txOutputs)
 import           Pos.Crypto                 (Hash, hash)
 import           Pos.DB.Block               (MonadBlockDB)
 import           Pos.DB.Class               (MonadDBRead)
@@ -72,8 +74,6 @@ import qualified Pos.Lrc                    as Lrc (getLeader)
 import           Pos.Merkle                 (getMerkleRoot, mtRoot)
 import           Pos.Slotting               (MonadSlots (..), getSlotStart)
 import           Pos.Ssc.Configuration      (HasSscConfiguration)
-import           Pos.Txp                    (Tx (..), TxId, TxOut (..), TxOutAux (..),
-                                             TxUndo, txpTxs, _txOutputs)
 import           Pos.Types                  (Address, AddressHash, Coin, EpochIndex,
                                              LocalSlotIndex, SlotId (..), StakeholderId,
                                              Timestamp, addressF, coinToInteger,
@@ -85,8 +85,6 @@ import           Pos.Types                  (Address, AddressHash, Coin, EpochIn
 import           Serokell.Data.Memory.Units (Byte)
 import           Serokell.Util.Base16       as SB16
 import           Servant.API                (FromHttpApiData (..))
-
-
 
 -------------------------------------------------------------------------------------
 -- Hash types

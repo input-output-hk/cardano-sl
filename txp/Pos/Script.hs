@@ -38,11 +38,11 @@ import qualified Utils.Names                as PL
 
 import           Pos.Binary.Class           (Bi)
 import qualified Pos.Binary.Class           as Bi
+import           Pos.Binary.Core.Txp        ()
 import           Pos.Binary.Crypto          ()
-import           Pos.Binary.Txp.Core        ()
 import           Pos.Core.Script            ()
+import           Pos.Core.Txp               (TxSigData (..))
 import           Pos.Core.Types             (Script (..), ScriptVersion, Script_v0)
-import           Pos.Txp.Core.Types         (TxSigData (..))
 
 {- NOTE
 

@@ -22,6 +22,7 @@ import           Pos.Core                   (AddrStakeDistribution (..), Address
                                              unsafeGetCoin)
 import           Pos.Core.Address           (makeAddress)
 import           Pos.Core.Configuration     (HasConfiguration, genesisSecretKeys)
+import           Pos.Core.Txp               (TxOut (..))
 import           Pos.Core.Types             (AddrAttributes (..), AddrSpendingData (..))
 import           Pos.Crypto                 (PublicKey, emptyPassphrase, encToPublic,
                                              fullPublicKeyF, hashHexF, noPassEncrypt,
@@ -30,7 +31,6 @@ import           Pos.Crypto                 (PublicKey, emptyPassphrase, encToPu
 import           Pos.DB.Class               (MonadGState (..))
 import           Pos.Infra.Configuration    (HasInfraConfiguration)
 import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Txp                    (TxOut (..))
 import           Pos.Update                 (BlockVersionModifier (..))
 import           Pos.Util.CompileInfo       (HasCompileInfo)
 import           Pos.Util.UserSecret        (WalletUserSecret (..), readUserSecret,

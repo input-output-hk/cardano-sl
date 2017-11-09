@@ -23,11 +23,11 @@ import           Universum
 import           Control.Monad.Catch              (MonadMask)
 import           System.Wlog                      (WithLogger)
 
-import           Pos.Block.Core                   (Block, BlockHeader)
 import           Pos.Block.Types                  (Blund)
 import           Pos.Context.Functions            (genesisBlock0)
 import           Pos.Core                         (BlockCount, BlockVersionData,
                                                    HasConfiguration, headerHash)
+import           Pos.Core.Block                   (Block, BlockHeader)
 import           Pos.DB.Block                     (MonadBlockDB, MonadBlockDBWrite,
                                                    loadBlundsByDepth, loadBlundsWhile,
                                                    prepareBlockDB)

@@ -22,15 +22,16 @@ import           Test.QuickCheck.Property (failed, succeeded)
 
 import           Pos.Binary
 import           Pos.Core                 (AddressHash, HasConfiguration, addressHash)
+import           Pos.Core.Ssc             (Commitment (..), CommitmentsMap, Opening (..),
+                                           getCommShares, getCommitmentsMap,
+                                           mkCommitmentsMap)
 import           Pos.Crypto               (DecShare, PublicKey, SecretKey,
                                            SignTag (SignCommitment), Threshold,
                                            VssKeyPair, VssPublicKey, decryptShare, sign,
                                            toPublic, toVssPublicKey)
-import           Pos.Ssc                  (Commitment (..), CommitmentsMap, Opening (..),
-                                           SscSeedError (..), calculateSeed,
-                                           genCommitmentAndOpening, getCommShares,
-                                           getCommitmentsMap, mkCommitmentsMap,
-                                           secretToSharedSeed, vssThreshold)
+import           Pos.Ssc                  (SscSeedError (..), calculateSeed,
+                                           genCommitmentAndOpening, secretToSharedSeed,
+                                           vssThreshold)
 import           Pos.Types                (SharedSeed (..), StakeholderId, mkCoin)
 import           Pos.Util                 (nonrepeating, sublistN)
 

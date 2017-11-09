@@ -18,9 +18,15 @@ import           Serokell.Data.Memory.Units      (Byte, fromBytes, toBytes)
 
 import           Pos.Binary.Class                (Bi)
 import qualified Pos.Binary.Class                as Bi
-import           Pos.Block.Core
+import           Pos.Core.Block
 import           Pos.Core.Fee                    (Coeff (..), TxFeePolicy (..),
                                                   TxSizeLinear (..))
+import           Pos.Core.Ssc                    (Commitment (..), CommitmentsMap,
+                                                  Opening (..), SscPayload (..),
+                                                  SscProof (..))
+import           Pos.Core.Txp                    (Tx (..), TxIn (..), TxInWitness (..),
+                                                  TxOut (..), TxOutAux (..),
+                                                  TxPayload (..), TxProof (..))
 import           Pos.Core.Types                  (AddrAttributes (..),
                                                   AddrSpendingData (..),
                                                   AddrStakeDistribution (..),
@@ -34,6 +40,10 @@ import           Pos.Core.Types                  (AddrAttributes (..),
                                                   Script (..), SharedSeed (..),
                                                   SlotCount (..), SlotId (..),
                                                   SoftforkRule (..), SoftwareVersion (..))
+import           Pos.Core.Update                 (BlockVersionModifier (..),
+                                                  SystemTag (..), UpdateData (..),
+                                                  UpdatePayload (..), UpdateProposal (..),
+                                                  UpdateVote (..))
 import           Pos.Core.Vss                    (VssCertificate (..), VssCertificatesMap)
 import           Pos.Crypto.Hashing              (AbstractHash (..))
 import           Pos.Crypto.HD                   (HDAddressPayload (..))
@@ -49,16 +59,6 @@ import           Pos.Data.Attributes             (Attributes (..), UnparsedField
 import           Pos.Delegation.Types            (DlgPayload (..))
 import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (..),
                                                   MerkleTree (..))
-import           Pos.Ssc.Core                    (Commitment (..), CommitmentsMap,
-                                                  Opening (..), SscPayload (..),
-                                                  SscProof (..))
-import           Pos.Txp.Core.Types              (Tx (..), TxIn (..), TxInWitness (..),
-                                                  TxOut (..), TxOutAux (..),
-                                                  TxPayload (..), TxProof (..))
-import           Pos.Update.Core.Types           (BlockVersionModifier (..),
-                                                  SystemTag (..), UpdateData (..),
-                                                  UpdatePayload (..), UpdateProposal (..),
-                                                  UpdateVote (..))
 import qualified Pos.Util.Modifier               as MM
 
 

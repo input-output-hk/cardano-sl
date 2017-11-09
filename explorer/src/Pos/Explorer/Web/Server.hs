@@ -44,8 +44,6 @@ import qualified Pos.DB.Block                         as DB
 import qualified Pos.DB.DB                            as DB
 
 import           Pos.Binary.Class                     (biSize)
-import           Pos.Block.Core                       (Block, MainBlock, mainBlockSlot,
-                                                       mainBlockTxPayload, mcdSlot)
 import           Pos.Block.Types                      (Blund, Undo)
 import           Pos.Core                             (AddrType (..), Address (..), Coin,
                                                        EpochIndex, HeaderHash, Timestamp,
@@ -57,13 +55,15 @@ import           Pos.Core                             (AddrType (..), Address (.
                                                        sumCoins, timestampToPosix,
                                                        unsafeAddCoin, unsafeIntegerToCoin,
                                                        unsafeSubCoin)
+import           Pos.Core.Block                       (Block, MainBlock, mainBlockSlot,
+                                                       mainBlockTxPayload, mcdSlot)
+import           Pos.Core.Txp                         (Tx (..), TxAux, TxId,
+                                                       TxOutAux (..), taTx, txOutValue,
+                                                       txpTxs, _txOutputs)
 import           Pos.DB.Class                         (MonadDBRead)
 import           Pos.Slotting                         (MonadSlots (..), getSlotStart)
-import           Pos.Txp                              (MonadTxpMem, Tx (..), TxAux, TxId,
-                                                       TxMap, TxOutAux (..), getLocalTxs,
-                                                       getMemPool, mpLocalTxs, taTx,
-                                                       topsortTxs, txOutValue, txpTxs,
-                                                       _txOutputs)
+import           Pos.Txp                              (MonadTxpMem, TxMap, getLocalTxs,
+                                                       getMemPool, mpLocalTxs, topsortTxs)
 import           Pos.Util                             (maybeThrow)
 import           Pos.Util.Chrono                      (NewestFirst (..))
 import           Pos.Web                              (serveImpl)

@@ -7,29 +7,29 @@ module Pos.Update.Mode
 
 import           Universum
 
-import           Control.Monad.Catch      (MonadMask)
-import           Data.Tagged              (Tagged)
-import           Ether.Internal           (HasLens (..))
-import           Mockable                 (MonadMockable)
-import           Node.Message.Class       (Message)
-import           System.Wlog              (WithLogger)
+import           Control.Monad.Catch            (MonadMask)
+import           Data.Tagged                    (Tagged)
+import           Ether.Internal                 (HasLens (..))
+import           Mockable                       (MonadMockable)
+import           Node.Message.Class             (Message)
+import           System.Wlog                    (WithLogger)
 
-import           Pos.Binary.Update        ()
+import           Pos.Binary.Update              ()
 import           Pos.Communication.Limits.Types (MessageLimited)
-import qualified Pos.Communication.Relay  as Relay
-import           Pos.Core.Configuration   (HasConfiguration)
-import           Pos.Crypto               (Hash, PublicKey)
-import           Pos.DB.Class             (MonadDB, MonadGState)
-import           Pos.Lrc.Context          (HasLrcContext)
-import           Pos.Recovery.Info        (MonadRecoveryInfo)
-import           Pos.Reporting            (MonadReporting)
-import           Pos.Shutdown.Class       (HasShutdownContext)
-import           Pos.Slotting.Class       (MonadSlots)
-import           Pos.StateLock            (StateLock)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
-import           Pos.Update.Context       (UpdateContext)
-import           Pos.Update.Core          (UpId, UpdateProposal, UpdateVote)
-import           Pos.Update.Params        (UpdateParams)
+import qualified Pos.Communication.Relay        as Relay
+import           Pos.Core.Configuration         (HasConfiguration)
+import           Pos.Core.Update                (UpId, UpdateProposal, UpdateVote)
+import           Pos.Crypto                     (Hash, PublicKey)
+import           Pos.DB.Class                   (MonadDB, MonadGState)
+import           Pos.Lrc.Context                (HasLrcContext)
+import           Pos.Recovery.Info              (MonadRecoveryInfo)
+import           Pos.Reporting                  (MonadReporting)
+import           Pos.Shutdown.Class             (HasShutdownContext)
+import           Pos.Slotting.Class             (MonadSlots)
+import           Pos.StateLock                  (StateLock)
+import           Pos.Update.Configuration       (HasUpdateConfiguration)
+import           Pos.Update.Context             (UpdateContext)
+import           Pos.Update.Params              (UpdateParams)
 
 type UpdateMode ctx m
     = ( WithLogger m

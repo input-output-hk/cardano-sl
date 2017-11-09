@@ -1,7 +1,7 @@
 
 -- | This module is testing the ClientTypes module.
 
-{-# LANGUAGE AllowAmbiguousTypes       #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 module Test.Pos.Explorer.Web.ClientTypesSpec
        ( spec
@@ -12,9 +12,9 @@ import           Universum
 import           Prelude                      (id)
 
 import           Pos.Binary                   (Bi)
+import           Pos.Core.Txp                 (TxId)
 import           Pos.Crypto
 import           Pos.Explorer.Web.ClientTypes
-import           Pos.Txp                      (TxId)
 import           Pos.Types                    (Address)
 import           Test.Hspec                   (Spec, describe, it, shouldBe,
                                                shouldSatisfy)

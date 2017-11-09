@@ -16,11 +16,10 @@ import           Test.QuickCheck            (Gen, Property, Testable, arbitrary,
 
 import           Pos.Arbitrary.Block        ()
 import           Pos.Arbitrary.Delegation   (genDlgPayload)
-import           Pos.Arbitrary.Txp          (GoodTx, goodTxToTxAux)
 import           Pos.Arbitrary.Ssc          (commitmentMapEpochGen,
                                              vssCertificateEpochGen)
+import           Pos.Arbitrary.Txp          (GoodTx, goodTxToTxAux)
 import           Pos.Binary.Class           (biSize)
-import           Pos.Block.Core             (BlockHeader, MainBlock)
 import           Pos.Block.Logic            (RawPayload (..), createMainBlockPure)
 import qualified Pos.Communication          ()
 import           Pos.Core                   (BlockVersionData (bvdMaxBlockSize),
@@ -28,12 +27,14 @@ import           Pos.Core                   (BlockVersionData (bvdMaxBlockSize),
                                              blkSecurityParam, genesisBlockVersionData,
                                              mkVssCertificatesMapLossy,
                                              unsafeMkLocalSlotIndex)
+import           Pos.Core.Block             (BlockHeader, MainBlock)
+import           Pos.Core.Ssc               (SscPayload (..))
+import           Pos.Core.Txp               (TxAux)
+import           Pos.Core.Update            (UpdatePayload (..))
 import           Pos.Crypto                 (SecretKey)
 import           Pos.Delegation             (DlgPayload, ProxySKBlockInfo)
-import           Pos.Ssc                    (SscPayload (..), defaultSscPayload)
-import           Pos.Txp.Core               (TxAux)
+import           Pos.Ssc.Base               (defaultSscPayload)
 import           Pos.Update.Configuration   (HasUpdateConfiguration)
-import           Pos.Update.Core            (UpdatePayload (..))
 import           Pos.Util                   (SmallGenerator (..), makeSmall)
 
 import           Test.Pos.Util              (withDefConfiguration,

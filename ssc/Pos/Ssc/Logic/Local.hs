@@ -33,16 +33,16 @@ import           Pos.Core                 (BlockVersionData (..), EpochIndex,
                                            HasConfiguration, IsHeader, SlotId (..),
                                            StakeholderId, VssCertificate, epochIndexL,
                                            mkVssCertificatesMapSingleton)
+import           Pos.Core.Ssc             (InnerSharesMap, Opening, SignedCommitment,
+                                           SscPayload (..), mkCommitmentsMap)
 import           Pos.DB                   (MonadBlockDBGeneric, MonadDBRead,
                                            MonadGState (gsAdoptedBVData))
 import           Pos.DB.GState.Common     (getTipHeaderGeneric)
 import           Pos.Lrc.Context          (HasLrcContext)
 import           Pos.Lrc.Types            (RichmenStakes)
 import           Pos.Slotting             (MonadSlots (getCurrentSlot))
+import           Pos.Ssc.Base             (isCommitmentIdx, isOpeningIdx, isSharesIdx)
 import           Pos.Ssc.Configuration    (HasSscConfiguration)
-import           Pos.Ssc.Core             (InnerSharesMap, Opening, SignedCommitment,
-                                           SscPayload (..), isCommitmentIdx, isOpeningIdx,
-                                           isSharesIdx, mkCommitmentsMap)
 import           Pos.Ssc.Error            (SscVerifyError (..))
 import           Pos.Ssc.Lrc              (getSscRichmenFromLrc)
 import           Pos.Ssc.Mem              (MonadSscMem, SscLocalQuery, SscLocalUpdate,

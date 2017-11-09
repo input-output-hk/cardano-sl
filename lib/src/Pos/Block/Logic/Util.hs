@@ -23,13 +23,13 @@ import qualified Data.List.NonEmpty     as NE
 import           Formatting             (int, sformat, (%))
 import           System.Wlog            (WithLogger)
 
-import           Pos.Block.Core         (BlockHeader)
 import           Pos.Block.Slog.Context (slogGetLastSlots)
 import           Pos.Block.Slog.Types   (HasSlogGState)
 import           Pos.Core               (BlockCount, FlatSlotId, HeaderHash,
                                          Timestamp (..), diffEpochOrSlot, difficultyL,
                                          fixedTimeCQ, flattenSlotId, getEpochOrSlot,
                                          headerHash, prevBlockL)
+import           Pos.Core.Block         (BlockHeader)
 import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam,
                                          slotSecurityParam)
 import           Pos.DB                 (MonadDBRead)

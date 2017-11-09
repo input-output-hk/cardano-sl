@@ -17,8 +17,9 @@ import           Universum
 import           Formatting                   (build, sformat, (%))
 
 import           Pos.Client.Txp.History       (TxHistoryEntry)
+import           Pos.Core.Txp                 (TxAux (..), TxId)
 import           Pos.Slotting.Class           (MonadSlots (..))
-import           Pos.Txp                      (ToilVerFailure (..), TxAux (..), TxId)
+import           Pos.Txp                      (ToilVerFailure (..))
 import           Pos.Util.Util                (maybeThrow)
 import           Pos.Wallet.Web.ClientTypes   (CId, Wal)
 import           Pos.Wallet.Web.Error         (WalletError (RequestError))

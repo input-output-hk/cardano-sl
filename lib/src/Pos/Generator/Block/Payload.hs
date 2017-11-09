@@ -29,6 +29,8 @@ import           Pos.Core                   (AddrSpendingData (..), Address (..)
                                              SlotId (..), addressHash, coinToInteger,
                                              makePubKeyAddressBoot, unsafeIntegerToCoin)
 import           Pos.Core.Configuration     (HasConfiguration)
+import           Pos.Core.Txp               (Tx (..), TxAux (..), TxIn (..), TxOut (..),
+                                             TxOutAux (..))
 import           Pos.Crypto                 (SecretKey, WithHash (..), fakeSigner, hash,
                                              toPublic)
 import           Pos.Generator.Block.Error  (BlockGenError (..))
@@ -36,8 +38,6 @@ import           Pos.Generator.Block.Mode   (BlockGenMode, BlockGenRandMode,
                                              MonadBlockGenBase)
 import           Pos.Generator.Block.Param  (HasBlockGenParams (..), HasTxGenParams (..))
 import qualified Pos.GState                 as DB
-import           Pos.Txp.Core               (Tx (..), TxAux (..), TxIn (..), TxOut (..),
-                                             TxOutAux (..))
 import           Pos.Txp.MemState.Class     (MonadTxpLocal (..))
 import           Pos.Txp.Toil.Class         (MonadUtxo (..), MonadUtxoRead (..))
 import           Pos.Txp.Toil.Types         (Utxo)

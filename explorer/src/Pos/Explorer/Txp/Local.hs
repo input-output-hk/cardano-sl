@@ -13,12 +13,12 @@ import           Universum
 import qualified Data.HashMap.Strict   as HM
 import           System.Wlog           (NamedPureLogger)
 
+import           Pos.Core.Txp          (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
 import           Pos.DB.Class          (MonadDBRead, MonadGState (..))
 import qualified Pos.Explorer.DB       as ExDB
 import           Pos.Slotting          (MonadSlots (getCurrentSlot), getSlotStart)
 import           Pos.StateLock         (Priority (..), StateLock, StateLockMetrics,
                                         withStateLock)
-import           Pos.Txp.Core          (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
 import           Pos.Txp.Logic.Local   (ProcessTxContext (..), buildProccessTxContext,
                                         ptcExtra, txNormalizeAbstract,
                                         txProcessTransactionAbstract)

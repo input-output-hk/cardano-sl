@@ -29,9 +29,9 @@ import qualified Control.Monad.Reader    as Mtl
 import           Ether.Internal          (HasLens (..))
 import           Mockable.Production     (Production)
 
-import           Pos.Block.Core          (Block, BlockHeader)
 import           Pos.Block.Types         (Undo)
 import           Pos.Core                (HasConfiguration, IsHeader, Timestamp)
+import           Pos.Core.Block          (Block, BlockHeader)
 import           Pos.DB                  (NodeDBs)
 import           Pos.DB.Block            (dbGetBlockDefault, dbGetBlockSscDefault,
                                           dbGetHeaderDefault, dbGetHeaderSscDefault,

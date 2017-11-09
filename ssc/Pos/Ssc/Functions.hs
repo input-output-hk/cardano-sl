@@ -16,28 +16,27 @@ module Pos.Ssc.Functions
 
 import           Universum
 
-import           Control.Lens                    (to)
-import           Control.Monad.Except            (MonadError (throwError))
-import qualified Data.HashMap.Strict             as HM
-import           Serokell.Util.Verify            (isVerSuccess)
+import           Control.Lens         (to)
+import           Control.Monad.Except (MonadError (throwError))
+import qualified Data.HashMap.Strict  as HM
+import           Serokell.Util.Verify (isVerSuccess)
 
-import           Pos.Binary.Crypto               ()
-import           Pos.Binary.Ssc.Core             ()
-import           Pos.Core                        (EpochIndex (..), HasConfiguration,
-                                                  HasGenesisData, HasProtocolConstants,
-                                                  IsMainHeader, SlotId (..),
-                                                  StakeholderId, VssCertificatesMap,
-                                                  genesisVssCerts, headerSlotL)
-import           Pos.Core.Slotting               (crucialSlot)
-import           Pos.Ssc.Core                    (CommitmentsMap (getCommitmentsMap),
-                                                  SscPayload (..), checkCertTTL,
-                                                  isCommitmentId, isOpeningId, isSharesId,
-                                                  verifySignedCommitment, vssThreshold)
-import           Pos.Ssc.Toss.Base               (verifyEntriesGuardM)
-import           Pos.Ssc.Error                   (SscVerifyError (..))
-import           Pos.Ssc.Types                   (SscGlobalState (..))
-import qualified Pos.Ssc.VssCertData             as VCD
-import           Pos.Util.Util                   (Some)
+import           Pos.Binary.Core.Ssc  ()
+import           Pos.Binary.Crypto    ()
+import           Pos.Core             (EpochIndex (..), HasConfiguration, HasGenesisData,
+                                       HasProtocolConstants, IsMainHeader, SlotId (..),
+                                       StakeholderId, VssCertificatesMap, genesisVssCerts,
+                                       headerSlotL)
+import           Pos.Core.Slotting    (crucialSlot)
+import           Pos.Core.Ssc         (CommitmentsMap (getCommitmentsMap),
+                                       SscPayload (..))
+import           Pos.Ssc.Base         (checkCertTTL, isCommitmentId, isOpeningId,
+                                       isSharesId, verifySignedCommitment, vssThreshold)
+import           Pos.Ssc.Error        (SscVerifyError (..))
+import           Pos.Ssc.Toss.Base    (verifyEntriesGuardM)
+import           Pos.Ssc.Types        (SscGlobalState (..))
+import qualified Pos.Ssc.VssCertData  as VCD
+import           Pos.Util.Util        (Some)
 
 ----------------------------------------------------------------------------
 -- Simple predicates for SSC.Types

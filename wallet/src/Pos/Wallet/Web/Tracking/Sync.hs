@@ -49,8 +49,6 @@ import           Formatting                       (build, sformat, (%))
 import           System.Wlog                      (HasLoggerName, WithLogger, logError,
                                                    logInfo, logWarning, modifyLoggerName)
 
-import           Pos.Block.Core                   (BlockHeader, getBlockHeader,
-                                                   mainBlockTxPayload)
 import           Pos.Block.Types                  (Blund, undoTx)
 import           Pos.Client.Txp.History           (TxHistoryEntry (..),
                                                    txHistoryListToMap)
@@ -60,6 +58,10 @@ import           Pos.Core                         (BlockHeaderStub, ChainDifficu
                                                    blkSecurityParam, genesisHash,
                                                    headerHash, headerSlotL,
                                                    timestampToPosix)
+import           Pos.Core.Block                   (BlockHeader, getBlockHeader,
+                                                   mainBlockTxPayload)
+import           Pos.Core.Txp                     (TxAux (..), TxOutAux (..), TxUndo,
+                                                   toaOut, txOutAddress)
 import           Pos.Crypto                       (EncryptedSecretKey, WithHash (..),
                                                    shortHashF, withHash)
 import qualified Pos.DB.Block                     as DB
@@ -70,12 +72,10 @@ import           Pos.Slotting                     (MonadSlots (..), MonadSlotsDa
                                                    getSlotStartPure, getSystemStartM)
 import           Pos.StateLock                    (Priority (..), StateLock,
                                                    withStateLockNoMetrics)
-import           Pos.Txp                          (GenesisUtxo (..), TxAux (..),
-                                                   TxOutAux (..), TxUndo,
-                                                   flattenTxPayload, genesisUtxo, toaOut,
-                                                   topsortTxs, txOutAddress,
+import           Pos.Txp                          (MonadTxpMem, flattenTxPayload,
+                                                   genesisUtxo, getLocalTxsNUndo,
+                                                   topsortTxs, unGenesisUtxo,
                                                    utxoToModifier)
-import           Pos.Txp.MemState.Class           (MonadTxpMem, getLocalTxsNUndo)
 import           Pos.Util.Chrono                  (getNewestFirst)
 import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
 import qualified Pos.Util.Modifier                as MM

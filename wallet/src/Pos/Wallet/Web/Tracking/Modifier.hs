@@ -29,7 +29,7 @@ import           Serokell.Util                (listJson, listJsonIndent)
 
 import           Pos.Client.Txp.History       (TxHistoryEntry (..))
 import           Pos.Core                     (HeaderHash)
-import           Pos.Txp.Core                 (TxId)
+import           Pos.Core.Txp                 (TxId)
 import           Pos.Txp.Toil                 (UtxoModifier)
 import           Pos.Util.Modifier            (MapModifier)
 import qualified Pos.Util.Modifier            as MM

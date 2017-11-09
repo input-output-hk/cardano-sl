@@ -47,13 +47,13 @@ import           Pos.Core                      (BlockVersionData (bvdSlotDuratio
                                                 mkCoin)
 import           Pos.Core.Configuration        (HasConfiguration, genesisBlockVersionData,
                                                 genesisSecretKeys)
+import           Pos.Core.Txp                  (TxAux, TxOut (..), TxOutAux (..), txaF)
 import           Pos.Crypto                    (EncryptedSecretKey, emptyPassphrase,
                                                 encToPublic, fakeSigner, safeToPublic,
                                                 toPublic, withSafeSigners)
 import           Pos.Infra.Configuration       (HasInfraConfiguration)
 import           Pos.Ssc.Configuration         (HasSscConfiguration)
-import           Pos.Txp                       (TxAux, TxOut (..), TxOutAux (..),
-                                                topsortTxAuxes, txaF)
+import           Pos.Txp                       (topsortTxAuxes)
 import           Pos.Update.Configuration      (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo          (HasCompileInfo)
 import           Pos.Util.UserSecret           (usWallet, userSecret, wusRootKey)

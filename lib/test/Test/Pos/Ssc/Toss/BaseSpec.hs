@@ -27,22 +27,22 @@ import           Pos.Core              (Coin, EpochIndex, EpochOrSlot (..),
                                         VssCertificate (..), VssCertificatesMap (..),
                                         addressHash, crucialSlot, genesisBlockVersionData,
                                         insertVss, mkCoin, _vcVssKey)
+import           Pos.Core.Ssc          (Commitment, CommitmentSignature,
+                                        CommitmentsMap (..), InnerSharesMap, Opening,
+                                        OpeningsMap, SharesMap, SignedCommitment,
+                                        mkCommitmentsMapUnsafe)
 import           Pos.Crypto            (DecShare, PublicKey, SecretKey,
                                         SignTag (SignCommitment), sign, toPublic)
 import           Pos.Lrc.Types         (RichmenStakes)
-import           Pos.Ssc               (Commitment, CommitmentSignature,
-                                        CommitmentsMap (..), InnerSharesMap,
-                                        MultiRichmenStakes, Opening, OpeningsMap,
-                                        PureTossWithEnv, SharesMap, SignedCommitment,
+import           Pos.Ssc               (MultiRichmenStakes, PureTossWithEnv,
                                         SscGlobalState (..), SscVerifyError (..),
                                         VssCertData (..), checkCertificatesPayload,
                                         checkCommitmentsPayload, checkOpeningsPayload,
-                                        checkSharesPayload, deleteSignedCommitment,
-                                        mkCommitmentsMapUnsafe, runPureToss,
-                                        sgsCommitments, sgsOpenings, sgsShares,
-                                        sgsVssCertificates, supplyPureTossEnv,
-                                        verifyCommitment, verifyCommitmentSignature,
-                                        verifyOpening)
+                                        checkSharesPayload, runPureToss, sgsCommitments,
+                                        sgsOpenings, sgsShares, sgsVssCertificates,
+                                        supplyPureTossEnv)
+import           Pos.Ssc.Base          (deleteSignedCommitment, verifyCommitment,
+                                        verifyCommitmentSignature, verifyOpening)
 
 import           Test.Pos.Util         (qcElem, qcFail, qcIsRight, withDefConfiguration)
 

@@ -21,7 +21,6 @@ import           Test.QuickCheck           (Gen, arbitrary, choose)
 import           Test.QuickCheck.Monadic   (pick)
 
 import           Pos.Binary.Class          (serialize')
-import           Pos.Block.Core            (mainBlockTxPayload)
 import           Pos.Block.Logic           (applyBlocksUnsafe)
 import           Pos.Block.Slog            (ShouldCallBListener (..))
 import           Pos.Core                  (Coin, EpochIndex, GenesisData (..),
@@ -29,11 +28,12 @@ import           Pos.Core                  (Coin, EpochIndex, GenesisData (..),
                                             TestnetBalanceOptions (..), addressHash,
                                             blkSecurityParam, coinF, genesisData,
                                             genesisSecretKeysPoor, genesisSecretKeysRich)
+import           Pos.Core.Block            (mainBlockTxPayload)
+import           Pos.Core.Txp              (TxAux, mkTxPayload)
 import           Pos.Crypto                (SecretKey, toPublic)
 import qualified Pos.GState                as GS
 import           Pos.Launcher              (HasConfigurations)
 import qualified Pos.Lrc                   as Lrc
-import           Pos.Txp                   (TxAux, mkTxPayload)
 import           Pos.Util.CompileInfo      (HasCompileInfo, withCompileInfo)
 import           Pos.Util.Util             (getKeys)
 

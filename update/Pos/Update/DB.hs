@@ -54,6 +54,8 @@ import           Pos.Core                     (ApplicationName, BlockVersion,
                                                SlotId, SoftwareVersion (..),
                                                StakeholderId, TimeDiff (..), epochSlots)
 import           Pos.Core.Configuration       (HasConfiguration, genesisBlockVersionData)
+import           Pos.Core.Update              (BlockVersionData (..), UpId,
+                                               UpdateProposal (..))
 import           Pos.Crypto                   (hash)
 import           Pos.DB                       (DBIteratorClass (..), DBTag (..), IterType,
                                                MonadDB, MonadDBRead (..),
@@ -67,8 +69,6 @@ import           Pos.Update.Configuration     (HasUpdateConfiguration, ourAppNam
                                                ourSystemTag)
 import           Pos.Update.Constants         (genesisBlockVersion,
                                                genesisSoftwareVersions)
-import           Pos.Update.Core              (BlockVersionData (..), UpId,
-                                               UpdateProposal (..))
 import           Pos.Update.Poll.Types        (BlockVersionState (..),
                                                ConfirmedProposalState (..),
                                                DecidedProposalState (dpsDifficulty),

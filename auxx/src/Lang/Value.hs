@@ -38,8 +38,8 @@ import           Universum
 import           Control.Lens    (makePrisms)
 import           Data.Scientific (Scientific)
 
+import           Pos.Core.Txp    (TxOut)
 import           Pos.Crypto      (AHash, PublicKey)
-import           Pos.Txp         (TxOut)
 import           Pos.Types       (AddrStakeDistribution, Address, BlockVersion,
                                   CoinPortion, SoftwareVersion, StakeholderId)
 import           Pos.Update      (BlockVersionData, BlockVersionModifier, SystemTag)

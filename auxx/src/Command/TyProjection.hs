@@ -41,8 +41,8 @@ import           Pos.Core                   (AddrStakeDistribution (..), Address
                                              ScriptVersion, SoftwareVersion,
                                              StakeholderId, mkCoin,
                                              unsafeCoinPortionFromDouble, unsafeGetCoin)
+import           Pos.Core.Txp               (TxOut (..))
 import           Pos.Crypto                 (AHash (..), Hash, PublicKey)
-import           Pos.Txp                    (TxOut (..))
 import           Pos.Update                 (BlockVersionModifier (..), SystemTag (..),
                                              mkSystemTag)
 

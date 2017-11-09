@@ -21,7 +21,7 @@ import           Pos.Core                   (BlockVersion, Coin, EpochIndex,
                                              HasConfiguration, HeaderHash, SlotId (..),
                                              SoftforkRule (..), StakeholderId,
                                              crucialSlot, sumCoins, unsafeIntegerToCoin)
-import           Pos.Update.Core            (BlockVersionData (..))
+import           Pos.Core.Update            (BlockVersionData (..))
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
 import           Pos.Update.Poll.Failure    (PollVerFailure (..))
 import           Pos.Update.Poll.Logic.Base (ConfirmedEpoch, CurEpoch, adoptBlockVersion,

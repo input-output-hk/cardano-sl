@@ -14,16 +14,16 @@ module Pos.Update.Configuration
 
 import           Universum
 
-import           Data.Aeson                 (FromJSON (..), genericParseJSON)
-import           Data.Reflection            (Given (..), give)
-import           Serokell.Aeson.Options     (defaultOptions)
+import           Data.Aeson             (FromJSON (..), genericParseJSON)
+import           Data.Reflection        (Given (..), give)
+import           Serokell.Aeson.Options (defaultOptions)
 
 -- For FromJSON instances.
-import           Pos.Aeson.Core             ()
-import           Pos.Aeson.Update           ()
-import           Pos.Core                   (ApplicationName, BlockVersion (..),
-                                             SoftwareVersion (..))
-import           Pos.Update.Core            (SystemTag)
+import           Pos.Aeson.Core         ()
+import           Pos.Aeson.Update       ()
+import           Pos.Core               (ApplicationName, BlockVersion (..),
+                                         SoftwareVersion (..))
+import           Pos.Core.Update        (SystemTag)
 
 ----------------------------------------------------------------------------
 -- Config itself

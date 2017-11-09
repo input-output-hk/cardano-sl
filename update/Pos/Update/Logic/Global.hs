@@ -18,6 +18,7 @@ import           Pos.Core                 (ApplicationName, BlockVersion,
                                            SoftwareVersion (..), StakeholderId,
                                            addressHash, blockVersionL, epochIndexL,
                                            headerHashG, headerLeaderKeyL, headerSlotL)
+import           Pos.Core.Update          (BlockVersionData, UpId, UpdateBlock)
 import qualified Pos.DB.BatchOp           as DB
 import qualified Pos.DB.Class             as DB
 import           Pos.Exception            (reportFatalError)
@@ -25,7 +26,6 @@ import           Pos.Lrc.Context          (HasLrcContext)
 import           Pos.Reporting            (MonadReporting)
 import           Pos.Slotting             (MonadSlotsData, SlottingData, slottingVar)
 import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
-import           Pos.Update.Core          (BlockVersionData, UpId, UpdateBlock)
 import           Pos.Update.DB            (UpdateOp (..))
 import           Pos.Update.Poll          (BlockVersionState, ConfirmedProposalState,
                                            MonadPoll, PollModifier (..), PollVerFailure,

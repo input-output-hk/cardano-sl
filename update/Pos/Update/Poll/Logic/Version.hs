@@ -16,7 +16,7 @@ import           Control.Monad.Except       (MonadError, throwError)
 import           Universum
 
 import           Pos.Core                   (EpochIndex, SoftwareVersion (..))
-import           Pos.Update.Core            (BlockVersionData (..),
+import           Pos.Core.Update            (BlockVersionData (..),
                                              BlockVersionModifier (..), UpId,
                                              UpdateProposal (..))
 import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))

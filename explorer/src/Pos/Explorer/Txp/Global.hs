@@ -10,6 +10,7 @@ import qualified Data.HashMap.Strict   as HM
 
 import           Pos.Core              (HasConfiguration, HeaderHash, SlotId (..),
                                         epochIndexL, headerHash, headerSlotL)
+import           Pos.Core.Txp          (TxAux, TxUndo)
 import           Pos.DB                (SomeBatchOp (..))
 import           Pos.Slotting          (MonadSlots, getSlotStart)
 import           Pos.Txp               (ApplyBlocksSettings (..), TxpBlund,
@@ -17,7 +18,6 @@ import           Pos.Txp               (ApplyBlocksSettings (..), TxpBlund,
                                         applyBlocksWith, blundToAuxNUndo,
                                         genericToilModifierToBatch, runToilAction,
                                         txpGlobalSettings)
-import           Pos.Txp.Core          (TxAux, TxUndo)
 import           Pos.Util.Chrono       (NE, NewestFirst (..))
 import qualified Pos.Util.Modifier     as MM
 

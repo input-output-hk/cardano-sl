@@ -17,13 +17,14 @@ import DOM.HTML.History (DocumentTitle(..), URL(..), pushState)
 import DOM.HTML.Window (history)
 import DOM.Node.Node (contains)
 import DOM.Node.Types (ElementId(..), elementToNode)
-import Data.Array (filter, length, snoc, take, (:))
+import Data.Array (filter, length, null, snoc, take, (:))
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
 import Data.Foreign (toForeign)
+import Data.Generic (gShow)
 import Data.Int (fromString)
 import Data.Lens ((^.), over, set)
-import Data.Maybe (Maybe(..), maybe)
+import Data.Maybe (Maybe(..), fromJust, isJust, maybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchGenesisAddressInfo, fetchGenesisAddressInfoTotalPages, fetchGenesisSummary, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, epochPageSearch, epochSlotSearch)
@@ -46,6 +47,9 @@ import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Explorer.View.Dashboard.Transactions (maxTransactionRows)
 import Explorer.View.GenesisBlock (maxAddressInfoRows)
 import Network.RemoteData (RemoteData(..), _Success, isNotAsked, isSuccess, withDefault)
+import Partial.Unsafe (unsafePartial)
+import Pos.Core.Lenses.Types (getEpochIndex)
+import Pos.Core.Types (EpochIndex(..), _EpochIndex)
 import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
 import Pos.Explorer.Web.ClientTypes (CAddress(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress, caTxList)
@@ -634,7 +638,6 @@ update (ReceivePaginatedBlocks (Right (Tuple totalPages blocks))) state =
               else []
     }
     where
-
         subItem = mkSocketSubscriptionItem (SocketSubscription SubBlockLastPage) SocketNoData
 
 update (ReceivePaginatedBlocks (Left error)) state =
@@ -675,28 +678,31 @@ update (RequestEpochPageSearch epochIndex pNumber) state =
     , effects: [ attempt (epochPageSearch epochIndex pNumber) >>= pure <<< Just <<< ReceiveEpochPageSearch ]
     }
 update (ReceiveEpochPageSearch (Right (Tuple totalPages blocks))) state =
-    noEffects $
+    { state:
         set loading false $
         set (viewStates <<< blocksViewState <<< blsViewLoadingPagination) false $
         set currentBlocksResult (Success blocks) $
         set (viewStates <<< blocksViewState <<< blsViewMaxPagination) (PageNumber totalPages) state
-
-update (ReceiveEpochPageSearch (Left error)) state =
-    { state:
-        set loading false $
-        set (viewStates <<< blocksViewState <<< blsViewLoadingPagination) false $
-        set currentBlocksResult (Failure error) $
-        over errors (\errors' -> (show error) : errors') state
     , effects:
         if ( (syncBySocket $ state ^. syncAction) && (not $ hasSubscription subItem state) )
-            -- ^ If we are in `syncBySocket` mode add subscription only once
-            -- Since paginating epochs and requesting/receiving new page data
-            -- will trigger `ReceiveEpochPageSearch` every time
+            -- ^ In `syncBySocket` mode we are adding subscription `SubEpochsLastPage` only once per epoch
+            -- So we can paginate current epoch and request/receive its pages w/o sub- or + unsubscribing
             then [ pure <<< Just $ SocketAddSubscription subItem ]
             else []
     }
     where
-        subItem = mkSocketSubscriptionItem (SocketSubscription SubEpochsLastPage) SocketNoData
+        subItemData = case state ^. (viewStates <<< blocksViewState <<< blsViewEpochIndex) of
+                      Just epochIndex -> SocketEpochIndex epochIndex
+                      Nothing -> SocketNoData
+        subItem = mkSocketSubscriptionItem (SocketSubscription SubEpochsLastPage) subItemData
+
+update (ReceiveEpochPageSearch (Left error)) state =
+    noEffects $
+        set loading false $
+        set (viewStates <<< blocksViewState <<< blsViewLoadingPagination) false $
+        set currentBlocksResult (Failure error) $
+        over errors (\errors' -> (show error) : errors') state
+
 
 
 update (RequestEpochSlotSearch epoch slot) state =
@@ -1068,11 +1074,13 @@ socketSubscribeEvent socket (SocketSubscriptionItem item) =
     where
         event = toEvent <<< Subscribe <<< unwrap $ _.socketSub item
         subData = _.socketSubData item
+        -- epochIndex e = e ^. (_EpochIndex <<< getEpochIndex)
 
         subscribe :: Socket -> String -> SocketSubscriptionData -> Eff (socket :: SocketIO | eff) Unit
         subscribe s e SocketNoData = emit s e
         subscribe s e (SocketOffsetData (SocketOffset o)) = emitData s e o
         subscribe s e (SocketCAddressData (CAddress addr)) = emitData s e addr
+        subscribe s e (SocketEpochIndex (EpochIndex epoch)) = emitData s e (epoch ^. getEpochIndex)
 
 socketUnsubscribeEvent :: forall eff . Socket -> SocketSubscriptionItem
     -> Eff (socket :: SocketIO | eff) Unit

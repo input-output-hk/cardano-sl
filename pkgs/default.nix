@@ -1191,6 +1191,7 @@ self: {
             cardano-sl-ssc
             cardano-sl-txp
             cardano-sl-update
+            cborg
             cereal
             conduit
             containers
@@ -1218,6 +1219,7 @@ self: {
             formatting
             generic-arbitrary
             hashable
+            hspec
             http-client
             http-client-tls
             http-conduit
@@ -1647,7 +1649,10 @@ self: {
             bytestring
             cardano-sl
             cardano-sl-core
+            cardano-sl-db
+            cardano-sl-ssc
             cardano-sl-txp
+            cardano-sl-update
             cborg
             cereal
             containers

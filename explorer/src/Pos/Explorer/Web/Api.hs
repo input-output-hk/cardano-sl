@@ -36,7 +36,6 @@ import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON,
                                                QueryParam)
 import           Servant.Server               (ServantErr (..))
 
-
 type PageNumber = Integer
 
 -- | API result modification mode used here.

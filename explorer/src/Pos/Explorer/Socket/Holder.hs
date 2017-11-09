@@ -45,10 +45,10 @@ data ClientContext = ClientContext
     , _ccConnection :: !Socket
     }
 
+makeClassy ''ClientContext
+
 mkClientContext :: Socket -> ClientContext
 mkClientContext = ClientContext Nothing Nothing
-
-makeClassy ''ClientContext
 
 data ConnectionsState = ConnectionsState
     { -- | Active sessions

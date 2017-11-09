@@ -123,15 +123,15 @@ library
                         Pos.Generator.Block.Param
 
                         -- Common code for tests
-                        Test.Pos.Configuration
-                        Test.Pos.Util
                         Test.Pos.Block.Logic.Emulation
                         Test.Pos.Block.Logic.Mode
                         Test.Pos.Block.Logic.Util
                         Test.Pos.Block.Logic.Event
 
-  -- Explorer (TODO: move into cardano-explorer)
-  exposed-modules:
+                        -- Util code for tests
+                        Test.Pos.Util
+                        Test.Pos.Configuration
+
                         Pos.Util.Servant
 
   other-modules:        Pos.Aeson.Types
@@ -346,6 +346,9 @@ library
                       , yaml
                       -- https://issues.serokell.io/issue/DEVOPS-230
                       , cpphs
+                      -- Required for common test modules
+                      , cborg
+                      , hspec
 
   if !os(windows)
     build-depends:      unix

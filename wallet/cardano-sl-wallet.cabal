@@ -98,6 +98,7 @@ library
                       Pos.Wallet.Web.Util
 
                       Pos.Util.BackupPhrase
+                      Pos.Util.Mnemonics
 
   other-modules:        Paths_cardano_sl_wallet
 
@@ -457,7 +458,7 @@ test-suite cardano-wallet-test
                      , universum >= 0.1.11
                      , unordered-containers
                      , vector
- 
+
   hs-source-dirs:      test
   default-language:    Haskell2010
   ghc-options:         -threaded

@@ -17,9 +17,9 @@ import           Serokell.Util.Base64 (JsonByteString (..))
 import           Pos.Aeson.Core       ()
 import           Pos.Aeson.Crypto     ()
 import           Pos.Core             (coinToInteger, decodeTextAddress, integerToCoin)
-import           Pos.Crypto           (decodeAbstractHash, hashHexF)
-import           Pos.Txp.Core         (Tx, TxAux, TxIn (..), TxInWitness (..), TxOut (..),
+import           Pos.Core.Txp         (Tx, TxAux, TxIn (..), TxInWitness (..), TxOut (..),
                                        TxOutAux, TxSigData)
+import           Pos.Crypto           (decodeAbstractHash, hashHexF)
 import           Pos.Util.Util        (eitherToFail)
 
 txInFromText :: Text -> Either Text TxIn

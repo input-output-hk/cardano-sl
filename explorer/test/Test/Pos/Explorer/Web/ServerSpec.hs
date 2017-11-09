@@ -16,7 +16,7 @@ import           Test.QuickCheck              (arbitrary, counterexample, forAll
 import           Test.QuickCheck.Monadic      (assert, monadicIO, run)
 
 import           Pos.Arbitrary.Block          ()
-import           Pos.Block.Core               (Block)
+import           Pos.Core.Block               (Block)
 import qualified Pos.Communication            ()
 import           Pos.Core                     (EpochIndex (..), HasConfiguration,
                                                LocalSlotIndex (..), SlotId (..))

@@ -24,20 +24,20 @@ import           Pos.Core                          (EpochIndex, HasConfiguration
                                                     VssCertificatesMap, mkVssCertificate,
                                                     mkVssCertificatesMapLossy, vssMaxTTL,
                                                     vssMinTTL)
+import           Pos.Core.Ssc                      (Commitment (..), CommitmentsMap,
+                                                    Opening (..), SignedCommitment,
+                                                    SscPayload (..), SscProof (..),
+                                                    mkCommitmentsMap)
 import           Pos.Crypto                        (SecretKey, deterministic,
                                                     randomNumberInRange, toVssPublicKey,
                                                     vssKeyGen)
-import           Pos.Ssc.Core                      (Commitment (..), CommitmentsMap,
-                                                    SscPayload (..), SscProof (..),
-                                                    Opening (..), SignedCommitment,
-                                                    genCommitmentAndOpening,
+import           Pos.Ssc.Base                      (genCommitmentAndOpening,
                                                     isCommitmentId, isOpeningId,
-                                                    isSharesId, mkCommitmentsMap,
-                                                    mkCommitmentsMap, mkSignedCommitment)
+                                                    isSharesId, mkSignedCommitment)
+import           Pos.Ssc.Message                   (MCCommitment (..), MCOpening (..),
+                                                    MCShares (..), MCVssCertificate (..),
+                                                    SscTag (..))
 import           Pos.Ssc.Toss.Types                (TossModifier (..))
-import           Pos.Ssc.Message                   (SscTag (..), MCCommitment (..),
-                                                    MCOpening (..), MCShares (..),
-                                                    MCVssCertificate (..))
 import           Pos.Ssc.Types                     (SscGlobalState (..),
                                                     SscSecretStorage (..))
 import           Pos.Ssc.VssCertData               (VssCertData (..))

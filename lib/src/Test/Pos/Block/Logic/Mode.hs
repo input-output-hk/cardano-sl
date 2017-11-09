@@ -64,7 +64,6 @@ import           Pos.AllSecrets                 (AllSecrets (..), HasAllSecrets 
                                                  mkAllSecretsSimple)
 import           Pos.Block.BListener            (MonadBListener (..), onApplyBlocksStub,
                                                  onRollbackBlocksStub)
-import           Pos.Block.Core                 (Block, BlockHeader)
 import           Pos.Block.Slog                 (HasSlogGState (..), mkSlogGState)
 import           Pos.Block.Types                (Undo)
 import           Pos.Configuration              (HasNodeConfiguration)
@@ -74,6 +73,7 @@ import           Pos.Core                       (BlockVersionData, CoreConfigura
                                                  GenesisSpec (..), HasConfiguration,
                                                  IsHeader, SlotId, Timestamp (..),
                                                  genesisSecretKeys, withGenesisSpec)
+import           Pos.Core.Block                 (Block, BlockHeader)
 import           Pos.Core.Configuration         (HasGenesisBlockVersionData,
                                                  withGenesisBlockVersionData)
 import           Pos.DB                         (DBPure, MonadBlockDBGeneric (..),

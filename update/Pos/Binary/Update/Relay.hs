@@ -5,12 +5,12 @@ module Pos.Binary.Update.Relay
 import           Universum
 
 import           Pos.Binary.Class              (Bi (..))
+import           Pos.Binary.Core.Update        ()
 import           Pos.Binary.Infra              ()
-import           Pos.Binary.Update.Core        ()
 import           Pos.Communication.Types.Relay (DataMsg (..))
 import           Pos.Core                      (HasConfiguration)
+import qualified Pos.Core.Update               as U
 import           Pos.Crypto                    (hash)
-import qualified Pos.Update.Core.Types         as U
 
 ----------------------------------------------------------------------------
 -- Relay

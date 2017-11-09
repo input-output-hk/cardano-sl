@@ -13,9 +13,9 @@ import qualified Data.Conduit.List as CL
 
 import           Pos.Core          (AddrAttributes (..), Address (..),
                                     addrAttributesUnwrapped)
+import           Pos.Core.Txp      (toaOut, txOutAddress)
 import           Pos.Crypto.HD     (HDAddressPayload, HDPassphrase, unpackHDAddressAttr)
 import           Pos.DB.Class      (DBTag (GStateDB), MonadDBRead, dbIterSource)
-import           Pos.Txp.Core      (toaOut, txOutAddress)
 import           Pos.Txp.DB        (UtxoIter)
 
 discoverHDAddress :: MonadDBRead m => HDPassphrase -> m [(Address, [Word32])]

@@ -25,7 +25,7 @@ import           Universum
 
 import           Pos.Core                       (HasConfiguration, StakeholderId,
                                                  VssCertificate, addressHash, getCertId)
-import           Pos.Ssc.Core                   (InnerSharesMap, Opening,
+import           Pos.Core.Ssc                   (InnerSharesMap, Opening,
                                                  SignedCommitment)
 import           Pos.Ssc.Toss.Types             (SscTag (..))
 

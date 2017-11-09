@@ -24,13 +24,14 @@ import           System.Wlog                 (WithLogger, logError)
 import           Pos.Core                    (Address, Coin, EpochIndex, HeaderHash,
                                               Timestamp, mkCoin, sumCoins, unsafeAddCoin,
                                               unsafeSubCoin)
+import           Pos.Core.Txp                (Tx (..), TxAux (..), TxId, TxOut (..),
+                                              TxOutAux (..), TxUndo, _TxOut)
 import           Pos.Crypto                  (WithHash (..), hash)
 import           Pos.Explorer.Core           (AddrHistory, TxExtra (..))
 import           Pos.Explorer.Txp.Toil.Class (MonadTxExtra (..), MonadTxExtraRead (..))
-import           Pos.Txp.Core                (Tx (..), TxAux (..), TxId, TxOut (..),
-                                              TxOutAux (..), TxUndo, topsortTxs, _TxOut)
 import           Pos.Txp.Toil                (ToilVerFailure (..))
 import qualified Pos.Txp.Toil                as Txp
+import           Pos.Txp.Topsort             (topsortTxs)
 import           Pos.Util.Chrono             (NewestFirst (..))
 import           Pos.Util.Util               (Sign (..))
 

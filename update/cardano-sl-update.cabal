@@ -19,15 +19,12 @@ library
                        Pos.Arbitrary.Update
                        -- Binary
                        Pos.Binary.Update
-                       Pos.Binary.Update.Core
+                       Pos.Binary.Update.Poll
                        Pos.Binary.Update.Relay
                        -- Aeson
                        Pos.Aeson.Update
 
-                       -- Core
-                       Pos.Update.Core
-                       Pos.Update.Core.BlockVersion
-                       Pos.Update.Core.Types
+                       Pos.Update.BlockVersion
 
                        -- Misc
                        Pos.Update.Configuration

@@ -53,8 +53,6 @@ import           Pos.DB.Block                         (MonadBlockDB, blkGetBlund
 import           Pos.DB.Class                         (MonadDBRead)
 
 import           Pos.Binary.Class                     (biSize)
-import           Pos.Block.Core                       (Block, MainBlock, mainBlockSlot,
-                                                       mainBlockTxPayload, mcdSlot)
 import           Pos.Block.Types                      (Blund, Undo)
 import           Pos.Core                             (AddrType (..), Address (..), Coin,
                                                        EpochIndex, HeaderHash, Timestamp,
@@ -66,22 +64,24 @@ import           Pos.Core                             (AddrType (..), Address (.
                                                        sumCoins, timestampToPosix,
                                                        unsafeAddCoin, unsafeIntegerToCoin,
                                                        unsafeSubCoin)
+import           Pos.Core.Block                       (Block, MainBlock, mainBlockSlot,
+                                                       mainBlockTxPayload, mcdSlot)
+import           Pos.Core.Txp                         (Tx (..), TxAux, TxId,
+                                                       TxOutAux (..), taTx, txOutValue,
+                                                       txpTxs, _txOutputs)
 import           Pos.Slotting                         (MonadSlots (..), getSlotStart)
-import           Pos.Txp                              (MonadTxpMem, Tx (..), TxAux, TxId,
-                                                       TxMap, TxOutAux (..), getLocalTxs,
-                                                       getMemPool, mpLocalTxs, taTx,
-                                                       topsortTxs, txOutValue, txpTxs,
-                                                       _txOutputs)
-import           Pos.Util                             (maybeThrow, divRoundUp)
+import           Pos.Txp                              (MonadTxpMem, TxMap, getLocalTxs,
+                                                       getMemPool, mpLocalTxs, topsortTxs)
+import           Pos.Util                             (divRoundUp, maybeThrow)
 import           Pos.Util.Chrono                      (NewestFirst (..))
 import           Pos.Web                              (serveImpl)
 
 import           Pos.Explorer.Aeson.ClientTypes       ()
 import           Pos.Explorer.Core                    (TxExtra (..))
-import           Pos.Explorer.DB                      (getAddrBalance, getAddrHistory,
-                                                       getEpochBlocks, getEpochPages,
-                                                       getLastTransactions, getTxExtra,
-                                                       getUtxoSum, defaultPageSize)
+import           Pos.Explorer.DB                      (defaultPageSize, getAddrBalance,
+                                                       getAddrHistory, getEpochBlocks,
+                                                       getEpochPages, getLastTransactions,
+                                                       getTxExtra, getUtxoSum)
 import           Pos.Explorer.ExplorerMode            (ExplorerMode)
 import           Pos.Explorer.ExtraContext            (HasExplorerCSLInterface (..),
                                                        HasGenesisRedeemAddressInfo (..))

@@ -15,9 +15,7 @@ library
   exposed-modules:
     Pos.Ssc
 
-    Pos.Ssc.Core
-    Pos.Ssc.Core.Types
-    Pos.Ssc.Core.Functions
+    Pos.Ssc.Base
 
     Pos.Ssc.Error
     Pos.Ssc.Error.Seed
@@ -61,7 +59,6 @@ library
     Pos.Arbitrary.Ssc
 
     Pos.Binary.Ssc
-    Pos.Binary.Ssc.Core
     Pos.Binary.Ssc.Types
     Pos.Binary.Ssc.Toss
     Pos.Binary.Ssc.Relay

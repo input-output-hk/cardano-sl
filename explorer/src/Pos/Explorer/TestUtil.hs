@@ -25,25 +25,26 @@ import           Test.QuickCheck                   (Arbitrary (..), Property, Te
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary)
 
 import           Pos.Arbitrary.Block               ()
-import           Pos.Block.Core                    (Block, BlockHeader, GenesisBlock,
-                                                    MainBlock, getBlockHeader)
-import           Pos.Block.Core.Genesis.Misc       (mkGenesisBlock)
+import           Pos.Block.Base                    (mkGenesisBlock)
 import           Pos.Block.Logic                   (RawPayload (..), createMainBlockPure)
 import           Pos.Block.Types                   (SlogUndo, Undo)
 import qualified Pos.Communication                 ()
 import           Pos.Core                          (BlockCount (..), ChainDifficulty (..),
                                                     EpochIndex (..), HasConfiguration,
-                                                     LocalSlotIndex (..),
-                                                    SlotId (..), SlotLeaders,
-                                                    StakeholderId,  difficultyL)
+                                                    LocalSlotIndex (..), SlotId (..),
+                                                    SlotLeaders, StakeholderId,
+                                                    difficultyL)
+import           Pos.Core.Block                    (Block, BlockHeader, GenesisBlock,
+                                                    MainBlock, getBlockHeader)
+import           Pos.Core.Ssc                      (SscPayload)
+import           Pos.Core.Txp                      (TxAux)
+import           Pos.Core.Update                   (UpdatePayload (..))
 import           Pos.Crypto                        (SecretKey)
 import           Pos.Delegation                    (DlgPayload, DlgUndo, ProxySKBlockInfo)
-import           Pos.Ssc.Core                      (SscPayload, defaultSscPayload)
-import           Pos.Txp.Core                      (TxAux)
-import           Test.Pos.Util                     (withDefConfigurations)
-import           Pos.Update.Configuration          (HasUpdateConfiguration)
-import           Pos.Update.Core                   (UpdatePayload (..))
 import           Pos.Explorer.ExtraContext         (ExplorerMockableMode (..))
+import           Pos.Ssc.Base                      (defaultSscPayload)
+import           Pos.Update.Configuration          (HasUpdateConfiguration)
+import           Test.Pos.Util                     (withDefConfigurations)
 
 
 ----------------------------------------------------------------

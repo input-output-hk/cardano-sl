@@ -96,9 +96,10 @@ import           Serokell.Util                (zoom')
 
 import           Pos.Client.Txp.History       (TxHistoryEntry, txHistoryListToMap)
 import           Pos.Core.Configuration       (HasConfiguration)
+import           Pos.Core.Txp                 (TxAux, TxId)
 import           Pos.Core.Types               (SlotId, Timestamp)
-import           Pos.Txp                      (AddrCoinMap, TxAux, TxId, Utxo,
-                                               UtxoModifier, applyUtxoModToAddrCoinMap,
+import           Pos.Txp                      (AddrCoinMap, Utxo, UtxoModifier,
+                                               applyUtxoModToAddrCoinMap,
                                                utxoToAddressCoinMap)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Util.BackupPhrase        (BackupPhrase)

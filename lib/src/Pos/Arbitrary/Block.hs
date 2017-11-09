@@ -20,15 +20,16 @@ import           Pos.Arbitrary.Ssc                 (SscPayloadDependsOnSlot (..)
 import           Pos.Arbitrary.Txp                 ()
 import           Pos.Arbitrary.Update              ()
 import           Pos.Binary.Class                  (Bi, Raw, biSize)
-import qualified Pos.Block.Core                    as T
+import qualified Pos.Block.Base                    as T
 import           Pos.Block.Network                 as T
 import qualified Pos.Block.Pure                    as T
 import           Pos.Core                          (HasConfiguration, epochSlots)
 import qualified Pos.Core                          as Core
+import qualified Pos.Core.Block                    as T
+import           Pos.Core.Ssc                      (SscPayload, SscProof)
 import           Pos.Crypto                        (ProxySecretKey, PublicKey, SecretKey,
                                                     createPsk, hash, toPublic)
 import           Pos.Data.Attributes               (areAttributesKnown)
-import           Pos.Ssc.Core                      (SscPayload, SscProof)
 import qualified Pos.Types                         as T
 import           Pos.Util.Arbitrary                (makeSmall)
 import           Pos.Util.Util                     (leftToPanic)

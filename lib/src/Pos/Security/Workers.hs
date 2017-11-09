@@ -11,7 +11,6 @@ import           Serokell.Util              (sec)
 import           System.Wlog                (logWarning)
 
 import           Pos.Binary.Ssc             ()
-import           Pos.Block.Core             (BlockHeader)
 import           Pos.Block.Logic            (needRecovery)
 import           Pos.Block.Network          (requestTipOuts, triggerRecovery)
 import           Pos.Communication.Protocol (OutSpecs, SendActions (..), WorkerSpec,
@@ -23,6 +22,7 @@ import           Pos.Context                (getOurPublicKey, getUptime,
 import           Pos.Core                   (SlotId (..), flattenEpochOrSlot,
                                              flattenSlotId, headerHash, headerLeaderKeyL,
                                              prevBlockL)
+import           Pos.Core.Block             (BlockHeader)
 import           Pos.Core.Configuration     (HasConfiguration, genesisHash)
 import           Pos.Crypto                 (PublicKey)
 import           Pos.DB                     (DBError (DBMalformed))

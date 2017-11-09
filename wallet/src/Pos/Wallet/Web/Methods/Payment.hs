@@ -20,13 +20,14 @@ import           Pos.Client.Txp.History         (TxHistoryEntry (..))
 import           Pos.Client.Txp.Util            (InputSelectionPolicy, computeTxFee,
                                                  runTxCreator)
 import           Pos.Communication              (prepareMTx)
-import           Pos.Core                       (Coin, getCurrentTimestamp)
+import           Pos.Core                       (Coin, TxAux (..), TxOut (..),
+                                                 getCurrentTimestamp)
+import           Pos.Core.Txp                   (_txOutputs)
 import           Pos.Crypto                     (PassPhrase, ShouldCheckPassphrase (..),
                                                  checkPassMatches, hash,
                                                  withSafeSignerUnsafe)
 import           Pos.DB                         (MonadGState)
-import           Pos.Txp                        (TxFee (..), Utxo, _txOutputs)
-import           Pos.Txp.Core                   (TxAux (..), TxOut (..))
+import           Pos.Txp                        (TxFee (..), Utxo)
 import           Pos.Util                       (eitherToThrow, maybeThrow)
 import           Pos.Util.Servant               (encodeCType)
 import           Pos.Wallet.Aeson.ClientTypes   ()

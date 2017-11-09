@@ -26,12 +26,12 @@ import           Serokell.Util                (listJson, mapJson)
 import           System.Wlog                  (WithLogger, logDebug)
 
 import           Pos.Binary.Communication     ()
-import           Pos.Block.Core               (Block, mainBlockDlgPayload, mainBlockSlot)
 import           Pos.Block.Types              (Blund, Undo (undoDlg))
 import           Pos.Context                  (lrcActionOnEpochReason)
 import           Pos.Core                     (EpochIndex (..), HasConfiguration,
                                                StakeholderId, addressHash, epochIndexL,
                                                gbHeader, headerHash, prevBlockL, siEpoch)
+import           Pos.Core.Block               (Block, mainBlockDlgPayload, mainBlockSlot)
 import           Pos.Crypto                   (ProxySecretKey (..), shortHashF)
 import           Pos.DB                       (DBError (DBMalformed), MonadDBRead,
                                                SomeBatchOp (..))

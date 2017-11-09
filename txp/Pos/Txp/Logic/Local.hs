@@ -35,6 +35,7 @@ import           System.Wlog          (NamedPureLogger, WithLogger, logDebug, lo
 
 import           Pos.Core             (BlockVersionData, EpochIndex, HasConfiguration,
                                        HeaderHash, siEpoch)
+import           Pos.Core.Txp         (Tx (..), TxAux (..), TxId)
 import           Pos.Crypto           (WithHash (..))
 import           Pos.DB.Class         (MonadDBRead, MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
@@ -42,7 +43,6 @@ import           Pos.Reporting        (reportError)
 import           Pos.Slotting         (MonadSlots (..))
 import           Pos.StateLock        (Priority (..), StateLock, StateLockMetrics,
                                        withStateLock)
-import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId, topsortTxs)
 import           Pos.Txp.MemState     (GenericTxpLocalData (..), GenericTxpLocalDataPure,
                                        MempoolExt, MonadTxpMem, TxpLocalWorkMode,
                                        askTxpMem, getLocalTxsMap, getUtxoModifier,
@@ -52,6 +52,7 @@ import           Pos.Txp.Toil         (DBToil, GenericToilModifier (..),
                                        Utxo, mpLocalTxs, normalizeToil, processTx,
                                        runDBToil, runToilTLocal, runToilTLocalExtra,
                                        utxoGetReader)
+import           Pos.Txp.Topsort      (topsortTxs)
 import           Pos.Util.Util        (HasLens (..), HasLens')
 
 -- Base context for tx processing in.

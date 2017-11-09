@@ -16,8 +16,6 @@ import           Formatting                 (build, sformat, (%))
 import           Mockable                   (throw)
 import           System.Wlog                (logDebug, logWarning)
 
-import           Pos.Block.Core             (Block, BlockHeader, MainBlockHeader,
-                                             blockHeader)
 import           Pos.Block.Logic            (getHeadersFromManyTo)
 import           Pos.Block.Network.Types    (MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Limits   (recvLimited)
@@ -27,6 +25,8 @@ import           Pos.Communication.Protocol (Conversation (..), ConversationActi
                                              Origin (..), OutSpecs, convH, toOutSpecs)
 import           Pos.Context                (recoveryInProgress)
 import           Pos.Core                   (headerHash, prevBlockL)
+import           Pos.Core.Block             (Block, BlockHeader, MainBlockHeader,
+                                             blockHeader)
 import           Pos.Crypto                 (shortHashF)
 import qualified Pos.DB.Block               as DB
 import qualified Pos.DB.DB                  as DB

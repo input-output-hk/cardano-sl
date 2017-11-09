@@ -16,9 +16,9 @@ import           Serokell.Util              (listJson)
 
 import           Pos.Core                   (Address, HeaderHash, ScriptVersion,
                                              TxFeePolicy, addressDetailedF)
+import           Pos.Core.Txp               (TxIn, TxInWitness, TxOut (..))
 import           Pos.Data.Attributes        (UnparsedFields)
 import           Pos.Script                 (PlutusError)
-import           Pos.Txp.Core               (TxIn, TxInWitness, TxOut (..))
 import           Pos.Txp.Toil.Types         (TxFee)
 
 ----------------------------------------------------------------------------

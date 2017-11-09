@@ -35,12 +35,12 @@ import           Data.Time.Clock          (UTCTime)
 import           Ether.Internal           (HasLens (..))
 import           System.Wlog              (LoggerConfig)
 
-import           Pos.Block.Core           (BlockHeader)
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQueueTag)
 import           Pos.Block.Slog.Types     (HasSlogContext (..), HasSlogGState (..),
                                            SlogContext (..))
 import           Pos.Communication.Types  (NodeId)
 import           Pos.Core                 (HasPrimaryKey (..), Timestamp)
+import           Pos.Core.Block           (BlockHeader)
 import           Pos.DHT.Real.Types       (KademliaDHTInstance)
 import           Pos.Launcher.Param       (BaseParams (..), NodeParams (..))
 import           Pos.Lrc.Context          (LrcContext)

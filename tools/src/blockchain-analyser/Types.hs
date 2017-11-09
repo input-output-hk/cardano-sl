@@ -20,9 +20,9 @@ import qualified Control.Monad.Reader as Mtl
 import           Ether.Internal       (HasLens (..))
 import           Mockable             (Production)
 
-import           Pos.Block.Core       (Block, BlockHeader)
 import           Pos.Block.Types      (Undo)
 import           Pos.Core             (HasConfiguration, HeaderHash, prevBlockL)
+import           Pos.Core.Block       (Block, BlockHeader)
 import           Pos.DB               (MonadBlockDBGeneric (..), MonadDBRead (..))
 import qualified Pos.DB               as DB
 import qualified Pos.DB.Block         as BDB

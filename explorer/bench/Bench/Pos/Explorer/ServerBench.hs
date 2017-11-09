@@ -17,7 +17,7 @@ import           Control.Lens                 (makeLenses)
 import           Data.Default                 (def)
 import           Pos.Arbitrary.Txp.Unsafe     ()
 
-import           Pos.Block.Core               (Block)
+import           Pos.Core.Block               (Block)
 import           Pos.Block.Types              (Blund)
 import           Pos.Launcher.Configuration   (HasConfigurations)
 import           Pos.Types                    (HeaderHash, SlotLeaders, Timestamp)

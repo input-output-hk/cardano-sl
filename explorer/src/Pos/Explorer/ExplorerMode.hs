@@ -14,10 +14,10 @@ import           Control.Lens                   (lens, makeLensesWith)
 import           Control.Monad.Catch            (MonadMask)
 import           Ether.Internal                 (HasLens (..))
 
-import           Pos.Block.Core                 (Block, BlockHeader)
 import           Pos.Block.Slog                 (mkSlogGState)
 import           Pos.Block.Types                (Undo)
 import           Pos.Core                       (IsHeader, SlotId, Timestamp (..))
+import           Pos.Core.Block                 (Block, BlockHeader)
 import           Pos.DB                         (MonadGState (..))
 import qualified Pos.DB                         as DB
 import           Pos.DB.Block                   (MonadBlockDB)

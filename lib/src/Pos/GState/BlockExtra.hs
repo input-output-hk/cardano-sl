@@ -24,11 +24,11 @@ import           Formatting           (bprint, build, (%))
 import           Serokell.Util.Text   (listJson)
 
 import           Pos.Binary.Class     (serialize')
-import           Pos.Block.Core       (Block, BlockHeader)
 import           Pos.Block.Slog.Types (LastBlkSlots, noLastBlkSlots)
 import           Pos.Core             (FlatSlotId, HasConfiguration, HasHeaderHash,
                                        HeaderHash, genesisHash, headerHash, slotIdF,
                                        unflattenSlotId)
+import           Pos.Core.Block       (Block, BlockHeader)
 import           Pos.Crypto           (shortHashF)
 import           Pos.DB               (DBError (..), MonadDB, MonadDBRead,
                                        RocksBatchOp (..), dbSerializeValue)

@@ -13,12 +13,12 @@ import           Pos.Block.Network.Types          (MsgBlock, MsgGetBlocks, MsgGe
 import           Pos.Communication.Types.Protocol (MsgSubscribe)
 import           Pos.Communication.Types.Relay    (DataMsg, InvMsg, InvOrData, MempoolMsg,
                                                    ReqMsg, ReqOrRes)
+import           Pos.Core.Update                  (UpdateProposal, UpdateVote)
 import           Pos.Delegation.Types             (ProxySKLightConfirmation)
 import           Pos.Ssc.Message                  (MCCommitment, MCOpening, MCShares,
                                                    MCVssCertificate)
 import           Pos.Txp.Network.Types            (TxMsgContents)
 import           Pos.Types                        (ProxySKHeavy, ProxySKLight)
-import           Pos.Update.Core.Types            (UpdateProposal, UpdateVote)
 
 -- Why?
 instance Message Void where

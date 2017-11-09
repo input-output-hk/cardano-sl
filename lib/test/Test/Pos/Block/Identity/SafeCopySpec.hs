@@ -8,7 +8,7 @@ import           Test.Hspec          (Spec, describe)
 import           Universum
 
 import           Pos.Arbitrary.Block ()
-import qualified Pos.Block.Core      as BT
+import qualified Pos.Core.Block      as BT
 
 import           Test.Pos.Helpers    (safeCopyTest)
 import           Test.Pos.Util       (withDefConfiguration)

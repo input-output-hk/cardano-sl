@@ -90,7 +90,8 @@ import           Universum
 
 import           Pos.Client.Txp.History       (TxHistoryEntry)
 import           Pos.Core.Configuration       (HasConfiguration)
-import           Pos.Txp                      (TxId, Utxo, UtxoModifier)
+import           Pos.Core.Txp                 (TxId)
+import           Pos.Txp                      (Utxo, UtxoModifier)
 import           Pos.Types                    (HeaderHash)
 import           Pos.Util.Servant             (encodeCType)
 import           Pos.Util.Util                (HasLens')

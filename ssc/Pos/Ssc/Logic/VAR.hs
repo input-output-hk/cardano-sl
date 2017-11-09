@@ -22,6 +22,7 @@ import           Universum
 import           Pos.Binary.Ssc        ()
 import           Pos.Core              (BlockVersionData, HasConfiguration, HeaderHash,
                                         epochIndexL, epochOrSlotG, headerHash)
+import           Pos.Core.Ssc          (SscPayload (..))
 import           Pos.DB                (MonadDBRead, MonadGState, SomeBatchOp (..),
                                         gsAdoptedBVData)
 import           Pos.Exception         (assertionFailed)
@@ -29,7 +30,6 @@ import           Pos.Lrc.Context       (HasLrcContext)
 import           Pos.Lrc.Types         (RichmenStakes)
 import           Pos.Reporting.Methods (MonadReporting, reportError)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
-import           Pos.Ssc.Core          (SscPayload (..))
 import qualified Pos.Ssc.DB            as DB
 import           Pos.Ssc.Error         (SscVerifyError (..), sscIsCriticalVerifyError)
 import           Pos.Ssc.Lrc           (getSscRichmenFromLrc)

@@ -70,15 +70,16 @@ import           System.IO              (IOMode (WriteMode), hClose, hFlush,
                                          openBinaryFile)
 import           System.IO.Error        (IOError, isDoesNotExistError)
 
-import           Pos.Binary.Block       ()
+import           Pos.Binary.Block.Types ()
 import           Pos.Binary.Class       (Bi, decodeFull, serialize')
-import           Pos.Block.Core         (Block, BlockHeader, GenesisBlock)
-import qualified Pos.Block.Core         as BC
+import           Pos.Binary.Core.Block  ()
 import           Pos.Block.Types        (Blund, SlogUndo (..), Undo (..))
 import           Pos.Core               (BlockCount, HasConfiguration,
                                          HasDifficulty (difficultyL),
                                          HasPrevBlock (prevBlockL), HeaderHash, IsHeader,
                                          headerHash)
+import           Pos.Core.Block         (Block, BlockHeader, GenesisBlock)
+import qualified Pos.Core.Block         as CB
 import           Pos.Core.Configuration (genesisHash)
 import           Pos.Crypto             (hashHexF, shortHashF)
 import           Pos.DB.Class           (DBTag (..), MonadBlockDBGeneric (..),
@@ -131,7 +132,7 @@ putBlundReal (blk, undo) = do
     liftIO . createDirectoryIfMissing False =<< dirDataPath h
     flip putData blk =<< blockDataPath h
     flip putData undo =<< undoDataPath h
-    putBi (blockIndexKey h) (BC.getBlockHeader blk)
+    putBi (blockIndexKey h) (CB.getBlockHeader blk)
 
 deleteBlock :: (MonadRealDB ctx m) => HeaderHash -> m ()
 deleteBlock hh = do
@@ -331,7 +332,7 @@ dbPutBlundPureDefault (blk,undo) = do
     (var :: DBPureVar) <- view (lensOf @DBPureVar)
     flip atomicModifyIORefPure var $
         (pureBlocksStorage . at h .~ Just (serialize'  (blk,undo))) .
-        (pureBlockIndexDB . at (blockIndexKey h) .~ Just (dbSerializeValue $ BC.getBlockHeader blk))
+        (pureBlockIndexDB . at (blockIndexKey h) .~ Just (dbSerializeValue $ CB.getBlockHeader blk))
 
 dbGetBlockSscPureDefault ::
        (HasConfiguration, MonadPureDB ctx m)

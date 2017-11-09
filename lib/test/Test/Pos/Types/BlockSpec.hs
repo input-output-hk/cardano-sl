@@ -1,6 +1,6 @@
 {-# LANGUAGE RankNTypes #-}
 
--- | Specification of Pos.Block.Core and Pos.Block.Pure.
+-- | Specification of Pos.Core.Block and Pos.Block.Pure.
 
 module Test.Pos.Types.BlockSpec
        ( spec
@@ -15,9 +15,10 @@ import           Test.QuickCheck       (Property, (===), (==>))
 
 import           Pos.Arbitrary.Block   as T
 import           Pos.Binary            (Bi)
-import qualified Pos.Block.Core        as T
+import qualified Pos.Block.Base        as T
 import qualified Pos.Block.Pure        as T
 import           Pos.Core              (HasConfiguration, genesisHash)
+import qualified Pos.Core.Block        as T
 import           Pos.Crypto            (ProxySecretKey (pskIssuerPk), SecretKey,
                                         SignTag (..), createPsk, proxySign, sign,
                                         toPublic)

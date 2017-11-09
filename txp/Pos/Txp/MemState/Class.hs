@@ -37,7 +37,7 @@ import           Pos.DB.Class           (MonadDBRead, MonadGState (..))
 import           Pos.Reporting          (MonadReporting)
 import           Pos.Slotting           (MonadSlots (..))
 
-import           Pos.Txp.Core.Types     (TxAux, TxId, TxUndo)
+import           Pos.Core.Txp           (TxAux, TxId, TxUndo)
 import           Pos.Txp.MemState.Types (GenericTxpLocalData (..),
                                          GenericTxpLocalDataPure)
 import           Pos.Txp.Toil.Failure   (ToilVerFailure)

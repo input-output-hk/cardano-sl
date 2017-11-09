@@ -1,7 +1,6 @@
 
 -- | This module is testing the ClientTypes module.
 
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
 module Test.Pos.Explorer.Web.ClientTypesSpec

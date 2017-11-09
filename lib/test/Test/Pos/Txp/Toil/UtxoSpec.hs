@@ -23,6 +23,9 @@ import           Pos.Arbitrary.Txp     (BadSigsTx (..), DoubleInputTx (..), Good
 import           Pos.Core              (HasConfiguration, addressHash, checkPubKeyAddress,
                                         makePubKeyAddressBoot, makeScriptAddress, mkCoin,
                                         sumCoins)
+import           Pos.Core.Txp          (Tx (..), TxAux (..), TxIn (..), TxInWitness (..),
+                                        TxOut (..), TxOutAux (..), TxSigData (..),
+                                        TxWitness, isTxInUnknown)
 import           Pos.Crypto            (SignTag (SignTx), checkSig, fakeSigner, hash,
                                         toPublic, unsafeHash, withHash)
 import           Pos.Data.Attributes   (mkAttributes)
@@ -34,11 +37,8 @@ import           Pos.Script.Examples   (alwaysSuccessValidator, badIntRedeemer,
                                         multisigValidator, shaStressRedeemer,
                                         sigStressRedeemer, stdlibValidator)
 import           Pos.Txp               (MonadUtxoRead (utxoGet), ToilVerFailure (..),
-                                        Tx (..), TxAux (..), TxIn (..), TxInWitness (..),
-                                        TxOut (..), TxOutAux (..), TxSigData (..),
-                                        TxWitness, Utxo, VTxContext (..),
-                                        WitnessVerFailure (..), applyTxToUtxoPure,
-                                        isTxInUnknown, verifyTxUtxo, verifyTxUtxoPure)
+                                        Utxo, VTxContext (..), WitnessVerFailure (..),
+                                        applyTxToUtxoPure, verifyTxUtxo, verifyTxUtxoPure)
 import           Pos.Util              (SmallGenerator (..), nonrepeating, runGen)
 
 import           Test.Pos.Util         (qcIsLeft, qcIsRight, withDefConfiguration)

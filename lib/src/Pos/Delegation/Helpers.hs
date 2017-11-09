@@ -15,9 +15,9 @@ import           Control.Monad.Except      (MonadError (throwError))
 import qualified Data.HashMap.Strict       as HM
 import           Data.List                 (partition)
 
-import           Pos.Block.Core.Main.Lens  (mainBlockDlgPayload)
-import           Pos.Block.Core.Main.Types (MainBlock)
 import           Pos.Core                  (EpochIndex)
+import           Pos.Core.Block.Main.Lens  (mainBlockDlgPayload)
+import           Pos.Core.Block.Main.Types (MainBlock)
 import           Pos.Crypto                (ProxySecretKey (..), isSelfSignedPsk)
 import           Pos.Delegation.Types      (DlgMemPool, DlgPayload (getDlgPayload))
 

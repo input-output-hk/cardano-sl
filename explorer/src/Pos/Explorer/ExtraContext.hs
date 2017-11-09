@@ -25,8 +25,8 @@ import qualified Data.Vector     as V
 import qualified Ether
 
 import           Data.Default    (Default (..), def)
-import           Pos.Block.Core  (Block)
 import           Pos.Block.Types (Blund)
+import           Pos.Core.Block  (Block)
 import           Pos.DB.Block    (MonadBlockDB, blkGetBlund)
 import           Pos.DB.Class    (MonadDBRead)
 import           Pos.DB.DB       (getTipBlock)

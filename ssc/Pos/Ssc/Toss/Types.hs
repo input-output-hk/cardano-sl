@@ -12,15 +12,15 @@ module Pos.Ssc.Toss.Types
        , tmCertificates
        ) where
 
-import           Control.Lens            (makeLenses)
-import qualified Data.Text.Buildable     as Buildable
+import           Control.Lens        (makeLenses)
+import qualified Data.Text.Buildable as Buildable
 import           Universum
 
-import           Pos.Core                (HasConfiguration, LocalSlotIndex, SlotId,
-                                          VssCertificatesMap)
-import           Pos.Ssc.Core            (CommitmentsMap, OpeningsMap, SharesMap,
-                                          isCommitmentId, isCommitmentIdx, isOpeningId,
-                                          isOpeningIdx, isSharesId, isSharesIdx)
+import           Pos.Core            (HasConfiguration, LocalSlotIndex, SlotId,
+                                      VssCertificatesMap)
+import           Pos.Core.Ssc        (CommitmentsMap, OpeningsMap, SharesMap)
+import           Pos.Ssc.Base        (isCommitmentId, isCommitmentIdx, isOpeningId,
+                                      isOpeningIdx, isSharesId, isSharesIdx)
 
 -- | Tag corresponding to SSC data.
 data SscTag

@@ -33,8 +33,8 @@ import qualified Data.Text.Buildable
 import           Formatting                       (bprint, build, (%))
 
 import           Pos.Client.Txp.History           (TxHistoryEntry)
+import           Pos.Core.Txp                     (TxAux, TxId)
 import           Pos.Core.Types                   (ChainDifficulty, FlatSlotId, SlotId)
-import           Pos.Txp.Core.Types               (TxAux, TxId)
 import           Pos.Wallet.Web.ClientTypes.Types (CId, Wal)
 
 -- | Required information about block where given pending transaction is sited

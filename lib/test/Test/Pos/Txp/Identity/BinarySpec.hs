@@ -13,6 +13,7 @@ import           Test.Hspec.QuickCheck   (prop)
 import           Pos.Arbitrary.Infra     ()
 import           Pos.Binary              ()
 import           Pos.Communication.Relay as R
+import qualified Pos.Core.Txp            as T
 import qualified Pos.Txp                 as T
 import           Pos.Util                (SmallGenerator)
 

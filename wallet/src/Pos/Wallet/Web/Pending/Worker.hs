@@ -24,6 +24,7 @@ import           Pos.Configuration                 (HasNodeConfiguration,
 import           Pos.Core                          (ChainDifficulty (..), SlotId (..),
                                                     difficultyL)
 import           Pos.Core.Configuration            (HasConfiguration)
+import           Pos.Core.Txp                      (TxAux (..))
 import           Pos.Crypto                        (WithHash (..))
 import           Pos.DB.Block                      (MonadBlockDB)
 import           Pos.DB.DB                         (getTipHeader)
@@ -32,7 +33,7 @@ import           Pos.Reporting                     (MonadReporting)
 import           Pos.Shutdown                      (HasShutdownContext)
 import           Pos.Slotting                      (MonadSlots, getNextEpochSlotDuration,
                                                     onNewSlot)
-import           Pos.Txp                           (TxAux (..), topsortTxs)
+import           Pos.Txp                           (topsortTxs)
 import           Pos.Util.LogSafe                  (logInfoS)
 import           Pos.Wallet.Web.Networking         (MonadWalletSendActions)
 import           Pos.Wallet.Web.Pending.Functions  (usingPtxCoords)

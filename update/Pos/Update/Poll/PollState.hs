@@ -31,9 +31,9 @@ import qualified Data.HashSet          as HS
 import           Pos.Core.Types        (ApplicationName, BlockVersion, BlockVersionData,
                                         EpochIndex, NumSoftwareVersion,
                                         SoftwareVersion (..), StakeholderId)
+import           Pos.Core.Update       (UpId, UpdateProposal (..))
 import           Pos.Lrc.DB.Issuers    (IssuersStakes)
 import           Pos.Lrc.Types         (FullRichmenData)
-import           Pos.Update.Core       (UpId, UpdateProposal (..))
 import           Pos.Slotting.Types    (SlottingData)
 import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState,
                                         PollModifier (..), ProposalState, psProposal)

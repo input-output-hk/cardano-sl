@@ -29,7 +29,6 @@ import           Mockable                         (Production)
 import           System.Wlog                      (HasLoggerName (..))
 
 import           Pos.Block.BListener              (MonadBListener (..))
-import           Pos.Block.Core                   (Block, BlockHeader)
 import           Pos.Block.Slog                   (HasSlogContext (..),
                                                    HasSlogGState (..))
 import           Pos.Block.Types                  (Undo)
@@ -50,6 +49,7 @@ import           Pos.Core                         (Address, HasConfiguration,
                                                    largestPubKeyAddressBoot,
                                                    largestPubKeyAddressSingleKey,
                                                    makePubKeyAddress, siEpoch)
+import           Pos.Core.Block                   (Block, BlockHeader)
 import           Pos.Crypto                       (EncryptedSecretKey, PublicKey,
                                                    emptyPassphrase)
 import           Pos.DB                           (DBSum (..), MonadGState (..), NodeDBs,

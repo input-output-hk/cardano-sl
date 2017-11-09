@@ -15,9 +15,9 @@ import           Universum
 
 import           Pos.Core             (BlockVersionData, EpochIndex, EpochOrSlot,
                                        StakeholderId, VssCertificate, VssCertificatesMap)
-import           Pos.Lrc.Types        (RichmenStakes)
-import           Pos.Ssc.Core         (CommitmentsMap, InnerSharesMap, Opening,
+import           Pos.Core.Ssc         (CommitmentsMap, InnerSharesMap, Opening,
                                        OpeningsMap, SharesMap, SignedCommitment)
+import           Pos.Lrc.Types        (RichmenStakes)
 
 ----------------------------------------------------------------------------
 -- Read-only

@@ -10,7 +10,7 @@ import           Universum
 
 import           Pos.Core              (ApplicationName, BlockVersion, NumSoftwareVersion,
                                         SoftwareVersion (..))
-import           Pos.Update.Core       (UpId)
+import           Pos.Core.Update       (UpId)
 import           Pos.Update.Poll.Class (MonadPoll (..))
 import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState,
                                         PrevValue (..), ProposalState (..), USUndo (..))

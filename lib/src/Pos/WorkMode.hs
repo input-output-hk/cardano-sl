@@ -26,12 +26,12 @@ import           System.Wlog             (HasLoggerName (..), LoggerName)
 
 import           Pos.Block.BListener     (MonadBListener (..), onApplyBlocksStub,
                                           onRollbackBlocksStub)
-import           Pos.Block.Core          (Block, BlockHeader)
 import           Pos.Block.Slog.Types    (HasSlogContext (..), HasSlogGState (..))
 import           Pos.Block.Types         (Undo)
 import           Pos.Context             (HasNodeContext (..), HasPrimaryKey (..),
                                           HasSscContext (..), NodeContext)
 import           Pos.Core                (HasConfiguration, IsHeader)
+import           Pos.Core.Block          (Block, BlockHeader)
 import           Pos.DB                  (MonadGState (..), NodeDBs)
 import           Pos.DB.Block            (dbGetBlockDefault, dbGetBlockSscDefault,
                                           dbGetHeaderDefault, dbGetHeaderSscDefault,

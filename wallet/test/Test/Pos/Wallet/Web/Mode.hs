@@ -37,7 +37,6 @@ import           Test.QuickCheck.Monadic           (PropertyM (..), monadic)
 
 import           Pos.AllSecrets                    (HasAllSecrets (..))
 import           Pos.Block.BListener               (MonadBListener (..))
-import           Pos.Block.Core                    (Block, BlockHeader)
 import           Pos.Block.Slog                    (HasSlogGState (..))
 import           Pos.Block.Types                   (Undo)
 import           Pos.Client.KeyStorage             (MonadKeys (..), MonadKeysRead (..),
@@ -55,6 +54,8 @@ import           Pos.Context                       (ConnectedPeers (..), LastKno
                                                     RecoveryHeaderTag)
 import           Pos.Core                          (HasConfiguration, IsHeader,
                                                     Timestamp (..), largestHDAddressBoot)
+import           Pos.Core.Block                    (Block, BlockHeader)
+import           Pos.Core.Txp                      (TxAux)
 import           Pos.Crypto                        (PassPhrase)
 import           Pos.DB                            (MonadBlockDBGeneric (..),
                                                     MonadBlockDBGenericWrite (..),
@@ -83,9 +84,8 @@ import           Pos.Ssc.Types                     (SscBlock, SscState)
 import           Pos.StateLock                     (StateLock, StateLockMetrics (..),
                                                     newStateLock)
 import           Pos.Txp                           (GenericTxpLocalData, MempoolExt,
-                                                    MonadTxpLocal (..), TxAux,
-                                                    TxpGlobalSettings, TxpHolderTag,
-                                                    txNormalize,
+                                                    MonadTxpLocal (..), TxpGlobalSettings,
+                                                    TxpHolderTag, txNormalize,
                                                     txProcessTransactionNoLock, txpTip)
 import           Pos.Update.Context                (UpdateContext)
 import           Pos.Util.CompileInfo              (HasCompileInfo)
@@ -110,7 +110,8 @@ import           Pos.Wallet.Web.Networking         (MonadWalletSendActions (..))
 import           Pos.Wallet.WalletMode             (MonadBlockchainInfo (..),
                                                     MonadUpdates (..), WalletMempoolExt)
 import           Pos.Wallet.Web.ClientTypes        (AccountId)
-import           Pos.Wallet.Web.Mode               (getBalanceDefault, getNewAddressWebWallet,
+import           Pos.Wallet.Web.Mode               (getBalanceDefault,
+                                                    getNewAddressWebWallet,
                                                     getOwnUtxosDefault)
 import           Pos.Wallet.Web.State              (MonadWalletDB, WalletState,
                                                     openMemState)

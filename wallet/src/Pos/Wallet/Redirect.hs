@@ -27,11 +27,11 @@ import           Data.Time.Units                (Millisecond)
 import           Ether.Internal                 (HasLens (..))
 import           System.Wlog                    (WithLogger, logWarning)
 
-import           Pos.Block.Core                 (BlockHeader)
 import qualified Pos.Context                    as PC
 import           Pos.Core                       (ChainDifficulty, HasConfiguration,
-                                                 Timestamp, difficultyL,
-                                                 getCurrentTimestamp)
+                                                 Timestamp, Tx, TxAux (..), TxId, TxUndo,
+                                                 difficultyL, getCurrentTimestamp)
+import           Pos.Core.Block                 (BlockHeader)
 import           Pos.Crypto                     (WithHash (..))
 import           Pos.DB.Block                   (MonadBlockDB)
 import           Pos.DB.DB                      (getTipHeader)
@@ -39,8 +39,7 @@ import qualified Pos.GState                     as GS
 import           Pos.Shutdown                   (HasShutdownContext, triggerShutdown)
 import           Pos.Slotting                   (MonadSlots (..),
                                                  getNextEpochSlotDuration)
-import           Pos.Txp                        (MonadTxpLocal (..), ToilVerFailure, Tx,
-                                                 TxAux (..), TxId, TxUndo,
+import           Pos.Txp                        (MonadTxpLocal (..), ToilVerFailure,
                                                  TxpNormalizeMempoolMode,
                                                  TxpProcessTransactionMode,
                                                  getLocalTxsNUndo, txNormalize,

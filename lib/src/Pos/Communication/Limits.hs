@@ -21,7 +21,6 @@ import           Data.Coerce                        (coerce)
 import           GHC.Exts                           (IsList (..))
 
 import           Pos.Binary.Class                   (AsBinary (..))
-import           Pos.Block.Core                     (Block, BlockHeader)
 import           Pos.Block.Network.Types            (MsgBlock (..), MsgGetBlocks (..),
                                                      MsgGetHeaders (..), MsgHeaders (..))
 import           Pos.Communication.Types.Protocol   (MsgSubscribe (..))
@@ -30,7 +29,12 @@ import           Pos.Configuration                  (HasNodeConfiguration,
                                                      recoveryHeadersMessage)
 import           Pos.Core                           (BlockVersionData (..),
                                                      VssCertificate, coinPortionToDouble)
+import           Pos.Core.Block                     (Block, BlockHeader)
 import           Pos.Core.Configuration             (HasConfiguration, blkSecurityParam)
+import           Pos.Core.Ssc                       (Commitment (..), InnerSharesMap,
+                                                     Opening (..), SignedCommitment)
+import           Pos.Core.Txp                       (TxAux)
+import           Pos.Core.Update                    (UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto                         (AbstractHash, DecShare, EncShare,
                                                      ProxyCert (..), ProxySecretKey (..),
                                                      ProxySignature (..), PublicKey,
@@ -38,14 +42,10 @@ import           Pos.Crypto                         (AbstractHash, DecShare, Enc
                                                      Signature (..), VssPublicKey)
 import qualified Pos.DB.Class                       as DB
 import           Pos.Delegation.Types               (ProxySKLightConfirmation)
-import           Pos.Ssc.Core                       (Commitment (..), InnerSharesMap,
-                                                     Opening (..), SignedCommitment)
 import           Pos.Ssc.Message                    (MCCommitment (..), MCOpening (..),
                                                      MCShares (..), MCVssCertificate (..))
-import           Pos.Txp.Core                       (TxAux)
 import           Pos.Txp.Network.Types              (TxMsgContents (..))
 import           Pos.Types                          (EpochIndex)
-import           Pos.Update.Core.Types              (UpdateProposal (..), UpdateVote (..))
 
 -- Reexports
 import           Pos.Communication.Limits.Instances ()

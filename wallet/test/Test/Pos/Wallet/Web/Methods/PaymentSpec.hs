@@ -28,13 +28,14 @@ import           Pos.Wallet.Web.Methods.Payment (newPayment)
 import qualified Pos.Wallet.Web.State.State     as WS
 import           Pos.Wallet.Web.Util            (decodeCTypeOrFail,
                                                  getAccountAddrsOrThrow)
-import           Test.Pos.Util                  (assertProperty, maybeStopProperty,
-                                                 stopProperty, withDefConfigurations)
+import           Test.Pos.Util                  (assertProperty, expectedOne,
+                                                 maybeStopProperty, stopProperty,
+                                                 withDefConfigurations)
 
-import           Test.Pos.Wallet.Web.Mode       (WalletProperty, getSentTxs,
-                                                 walletPropertySpec)
+import           Test.Pos.Wallet.Web.Mode       (getSentTxs, walletPropertySpec)
 import           Test.Pos.Wallet.Web.Util       (deriveRandomAddress, expectedAddrBalance,
-                                                 importSomeWallets)
+                                                 importSomeWallets,
+                                                 mostlyEmptyPassphrases)
 
 
 -- TODO remove HasCompileInfo when MonadWalletWebMode will be splitted.
@@ -47,7 +48,7 @@ spec = withCompileInfo def $
 
 oneNewPaymentSpec :: (HasCompileInfo, HasConfigurations) => Spec
 oneNewPaymentSpec = walletPropertySpec oneNewPaymentDesc $ do
-    passphrases <- importSomeWallets
+    passphrases <- importSomeWallets mostlyEmptyPassphrases
     (dstCAddr, dstWalId) <- deriveRandomAddress passphrases
     let l = length passphrases
     rootsWIds <- lift myRootAddresses
@@ -100,11 +101,6 @@ oneNewPaymentSpec = walletPropertySpec oneNewPaymentDesc $ do
         lift . decodeCTypeOrFail . cwamId =<<
         expectedOne "address" =<<
         lift (getAccountAddrsOrThrow WS.Existing srcAccId)
-    expectedOne :: Text -> [a] -> WalletProperty a
-    expectedOne what []     = stopProperty $ "expected at least one " <> what <> ", but list empty"
-    expectedOne _ [x]       = pure x
-    expectedOne what (_:_)  = stopProperty $ "expected one " <> what <> ", but list contains more elements"
-
     oneNewPaymentDesc =
         "Send money from one own address to another; " <>
         "check balances validity for destination address, source address and change address; " <>

@@ -7,7 +7,10 @@ module Test.Pos.Wallet.Web.Util
        , wpGenBlock
 
        -- * Wallet utils
+       , importWallets
        , importSomeWallets
+       , importSingleWallet
+       , mostlyEmptyPassphrases
        , deriveRandomAddress
        , genWalletLvl2KeyPair
        , genWalletAddress
@@ -23,8 +26,8 @@ import           Control.Monad.Random.Strict    (evalRandT)
 import           Data.List                      ((!!))
 import qualified Data.Map                       as M
 import           Formatting                     (build, sformat, (%))
-import           Test.QuickCheck                (Arbitrary (..), choose, sublistOf,
-                                                 suchThat, vectorOf)
+import           Test.QuickCheck                (Arbitrary (..), choose, frequency,
+                                                 sublistOf, suchThat, vectorOf)
 import           Test.QuickCheck.Gen            (Gen (MkGen))
 import           Test.QuickCheck.Monadic        (assert, pick)
 
@@ -41,7 +44,7 @@ import           Pos.Core.Block                 (blockHeader)
 import           Pos.Core.Txp                   (TxIn, TxOut (..), TxOutAux (..))
 import           Pos.Crypto                     (EncryptedSecretKey, PassPhrase,
                                                  ShouldCheckPassphrase (..),
-                                                 firstHardened)
+                                                 emptyPassphrase, firstHardened)
 import           Pos.Generator.Block            (genBlocks)
 import           Pos.Launcher                   (HasConfigurations)
 import           Pos.StateLock                  (Priority (..), modifyStateLock)
@@ -98,22 +101,42 @@ wpGenBlock = fmap (unsafeHead . toList) ... wpGenBlocks (Just 1)
 -- Wallet test helpers
 ----------------------------------------------------------------------------
 
--- | Import some nonempty set, but not bigger than 10 elements, of genesis secrets.
+-- | Import some nonempty set, but not bigger than given number of elements, of genesis secrets.
 -- Returns corresponding passphrases.
-importSomeWallets :: (HasConfigurations, HasCompileInfo) => WalletProperty [PassPhrase]
-importSomeWallets = do
+importWallets
+    :: (HasConfigurations, HasCompileInfo)
+    => Int -> Gen PassPhrase -> WalletProperty [PassPhrase]
+importWallets numLimit passGen = do
     let secrets =
             fromMaybe (error "Generated secrets are unknown") genesisSecretsPoor
     (encSecrets, passphrases) <- pick $ do
-        seks <- take 10 <$> sublistOf secrets `suchThat` (not . null)
+        seks <- take numLimit <$> sublistOf secrets `suchThat` (not . null)
         let l = length seks
-        passwds <- vectorOf l arbitrary
+        passwds <- vectorOf l passGen
         pure (seks, passwds)
     let wuses = map mkGenesisWalletUserSecret encSecrets
     lift $ mapM_ (uncurry importWalletDo) (zip passphrases wuses)
     skeys <- lift getSecretKeysPlain
     assertProperty (not (null skeys)) "Empty set of imported keys"
     pure passphrases
+
+importSomeWallets
+    :: (HasConfigurations, HasCompileInfo)
+    => Gen PassPhrase -> WalletProperty [PassPhrase]
+importSomeWallets = importWallets 10
+
+importSingleWallet
+    :: (HasConfigurations, HasCompileInfo)
+    => Gen PassPhrase -> WalletProperty PassPhrase
+importSingleWallet passGen =
+    fromMaybe (error "No wallets imported") . head <$> importWallets 1 passGen
+
+mostlyEmptyPassphrases :: Gen PassPhrase
+mostlyEmptyPassphrases =
+    frequency
+        [ (5, pure emptyPassphrase)
+        , (1, arbitrary)
+        ]
 
 -- | Take passphrases of our wallets
 -- and return some address from one of our wallets and id of this wallet.

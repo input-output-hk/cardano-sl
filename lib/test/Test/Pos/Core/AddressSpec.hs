@@ -25,7 +25,7 @@ import           Pos.Core                   (Address, IsBootstrapEraAddr (..),
 import           Pos.Crypto                 (EncryptedSecretKey, PassPhrase, PublicKey,
                                              SecretKey (..), ShouldCheckPassphrase (..),
                                              deterministicKeyGen, emptyPassphrase,
-                                             mkEncSecret, noPassEncrypt, toPublic)
+                                             mkEncSecretUnsafe, noPassEncrypt, toPublic)
 import           Pos.Crypto.HD              (HDAddressPayload (..))
 
 spec :: Spec
@@ -68,7 +68,7 @@ spec = describe "Address" $ do
 
             genHDAddrBootSomePass (SecretKey sk) = do
                 passphrase <- arbitrary
-                esk <- mkEncSecret passphrase sk
+                esk <- mkEncSecretUnsafe passphrase sk
                 genHDAddrBoot' passphrase esk <$> arbitrary <*> arbitrary
 
         largestAddressProp "HD address with BootstrapEra distribution"

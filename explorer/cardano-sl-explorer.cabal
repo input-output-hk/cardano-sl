@@ -79,6 +79,7 @@ library
                       , engine-io
                       , engine-io-wai
                       , wai
+                      , wai-extra
                       , wai-cors
                       , warp
   hs-source-dirs:       src

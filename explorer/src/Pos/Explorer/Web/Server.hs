@@ -29,6 +29,7 @@ import qualified Data.List.NonEmpty               as NE
 import           Data.Maybe                       (fromMaybe)
 import           Formatting                       (build, int, sformat, (%))
 import           Network.Wai                      (Application)
+import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
 import qualified Serokell.Util.Base64             as B64
 import           Servant.API                      ((:<|>) ((:<|>)))
 import           Servant.Server                   (Server, ServerT, serve)
@@ -66,7 +67,7 @@ import           Pos.Txp                          (MonadTxpMem, Tx (..), TxAux, 
                                                    _txOutputs)
 import           Pos.Util                         (maybeThrow)
 import           Pos.Util.Chrono                  (NewestFirst (..))
-import           Pos.Web                          (serveImplNoTLS)
+import           Pos.Web                          (serveImpl)
 import           Pos.WorkMode                     (WorkMode)
 
 import           Pos.Explorer                     (TxExtra (..), getEpochBlocks,
@@ -110,7 +111,9 @@ explorerServeImpl
     => m Application
     -> Word16
     -> m ()
-explorerServeImpl = flip serveImplNoTLS "*"
+explorerServeImpl app port = serveImpl loggingApp "*" port Nothing
+  where
+    loggingApp = logStdoutDev <$> app
 
 explorerApp :: ExplorerMode ctx m => m (Server ExplorerApi) -> m Application
 explorerApp serv = serve explorerApi <$> serv

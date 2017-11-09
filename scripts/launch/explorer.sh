@@ -27,9 +27,9 @@ cmd="stack exec cardano-explorer --
       --log-config explorer/log-config.yaml \
       --topology ./run/topology0.yaml \
       --kademlia ./run/kademlia_explorer.yaml \
+      --node-id node$n \
       --no-ntp"
 echo "$cmd"
 $cmd
 #tmux select-pane -t 3
 #tmux send-keys "$cmd" C-m
-

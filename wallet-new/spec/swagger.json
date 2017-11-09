@@ -1036,10 +1036,6 @@
                         "description": "Invalid `new` or `old`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -1133,10 +1129,6 @@
                         "description": "`accountId` not found"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -1251,10 +1243,6 @@
                         "description": "Invalid `body`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -1537,10 +1525,6 @@
                         "description": "`walletId` not found"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -1676,7 +1660,7 @@
                         "description": "`walletId` not found"
                     },
                     "400": {
-                        "description": "Invalid `Daedalus-Response-Format` or `response_type` or `per_page` or `page`"
+                        "description": "Invalid `Daedalus-Response-Format` or `response_format` or `per_page` or `page`"
                     },
                     "200": {
                         "schema": {
@@ -1715,13 +1699,13 @@
                     {
                         "default": "plain",
                         "in": "query",
-                        "name": "response_type",
+                        "name": "response_format",
                         "type": "string",
                         "enum": [
                             "plain",
                             "extended"
                         ],
-                        "description": "Determines the response type. If set to `extended`, then fetched\ndata should be wrapped in an `ExtendedResponse` (see the Models section).\nAn `ExtendedResponse` includes useful metadata which can be used by clients\nto support pagination.\n"
+                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
                     },
                     {
                         "default": "plain",
@@ -1732,7 +1716,7 @@
                             "plain",
                             "extended"
                         ],
-                        "description": "The same as URL parameter `response_type`. If the header `Daedalus-Response-Format`\nis present in the HTTP request with a value set to `extended`, the fetched data will\nbe wrapped in an `ExtendedResponse`.\n"
+                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
                     }
                 ],
                 "tags": [
@@ -1794,10 +1778,6 @@
                         "description": "Invalid `body`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -1836,10 +1816,6 @@
             "post": {
                 "responses": {
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -2063,10 +2039,6 @@
             "post": {
                 "responses": {
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -2131,10 +2103,6 @@
                         "description": "`accountId` not found"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -2231,10 +2199,6 @@
                         "description": "`walletId` not found"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -2411,10 +2375,6 @@
                         "description": "Invalid `body`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -2673,7 +2633,7 @@
                 "summary": "Returns all the available wallets.",
                 "responses": {
                     "400": {
-                        "description": "Invalid `Daedalus-Response-Format` or `response_type` or `per_page` or `page`"
+                        "description": "Invalid `Daedalus-Response-Format` or `response_format` or `per_page` or `page`"
                     },
                     "200": {
                         "schema": {
@@ -2706,13 +2666,13 @@
                     {
                         "default": "plain",
                         "in": "query",
-                        "name": "response_type",
+                        "name": "response_format",
                         "type": "string",
                         "enum": [
                             "plain",
                             "extended"
                         ],
-                        "description": "Determines the response type. If set to `extended`, then fetched\ndata should be wrapped in an `ExtendedResponse` (see the Models section).\nAn `ExtendedResponse` includes useful metadata which can be used by clients\nto support pagination.\n"
+                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
                     },
                     {
                         "default": "plain",
@@ -2723,7 +2683,7 @@
                             "plain",
                             "extended"
                         ],
-                        "description": "The same as URL parameter `response_type`. If the header `Daedalus-Response-Format`\nis present in the HTTP request with a value set to `extended`, the fetched data will\nbe wrapped in an `ExtendedResponse`.\n"
+                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
                     }
                 ],
                 "tags": [
@@ -2736,10 +2696,6 @@
             "post": {
                 "responses": {
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -2802,10 +2758,6 @@
                         "description": "Invalid `body`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -3093,10 +3045,6 @@
             "post": {
                 "responses": {
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -3289,10 +3237,6 @@
             "post": {
                 "responses": {
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -3314,10 +3258,6 @@
                         "description": "Invalid `body`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -3487,7 +3427,7 @@
                 "summary": "Returns all the addresses.",
                 "responses": {
                     "400": {
-                        "description": "Invalid `Daedalus-Response-Format` or `response_type` or `per_page` or `page`"
+                        "description": "Invalid `Daedalus-Response-Format` or `response_format` or `per_page` or `page`"
                     },
                     "200": {
                         "schema": {
@@ -3520,13 +3460,13 @@
                     {
                         "default": "plain",
                         "in": "query",
-                        "name": "response_type",
+                        "name": "response_format",
                         "type": "string",
                         "enum": [
                             "plain",
                             "extended"
                         ],
-                        "description": "Determines the response type. If set to `extended`, then fetched\ndata should be wrapped in an `ExtendedResponse` (see the Models section).\nAn `ExtendedResponse` includes useful metadata which can be used by clients\nto support pagination.\n"
+                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
                     },
                     {
                         "default": "plain",
@@ -3537,7 +3477,7 @@
                             "plain",
                             "extended"
                         ],
-                        "description": "The same as URL parameter `response_type`. If the header `Daedalus-Response-Format`\nis present in the HTTP request with a value set to `extended`, the fetched data will\nbe wrapped in an `ExtendedResponse`.\n"
+                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
                     }
                 ],
                 "tags": [
@@ -3607,10 +3547,6 @@
             "post": {
                 "responses": {
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -3724,10 +3660,6 @@
                         "description": "Invalid `body`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },
@@ -3850,10 +3782,6 @@
                         "description": "Invalid `new` or `old`"
                     },
                     "200": {
-                        "schema": {
-                            "items": [],
-                            "type": "array"
-                        },
                         "description": ""
                     }
                 },

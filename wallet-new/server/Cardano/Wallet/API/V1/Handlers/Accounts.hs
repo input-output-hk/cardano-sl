@@ -42,7 +42,7 @@ listAccounts :: PaginationParams
              -> Handler (OneOf [Account] (ExtendedResponse [Account]))
 listAccounts PaginationParams {..} = do
   example <- liftIO $ generate (resize 3 arbitrary)
-  case ppResponseType of
+  case ppResponseFormat of
     Extended -> return $ OneOf $ Right $
       ExtendedResponse {
         extData = example

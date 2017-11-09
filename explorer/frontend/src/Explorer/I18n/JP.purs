@@ -145,7 +145,6 @@ translation =
         , fooCardanoFoundationYoutube: "カルダノ財団 Youtube"
         , fooCardanoFoundationTwitter: "カルダノ財団 Twitter"
         , fooCardanoHub: "カルダノハブ"
-        , fooCardanoLaunch: "カルダノローンチ"
         , fooCardanoSlack: "カルダノ財団 Slack"
         , fooCardanoReddit: "カルダノ財団 Reddit"
         , fooCardanoCommunity: "カルダノコミュニティー"

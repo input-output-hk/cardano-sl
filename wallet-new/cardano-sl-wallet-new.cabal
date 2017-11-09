@@ -12,7 +12,8 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Cardano.Wallet.API
+  exposed-modules:     Cardano.Wallet.Orphans
+                       Cardano.Wallet.API
                        Cardano.Wallet.API.Types
                        Cardano.Wallet.API.V1
                        Cardano.Wallet.API.V1.Types
@@ -47,6 +48,8 @@ library
                      , serokell-util
                      , warp
                      , cardano-sl-wallet
+                     -- Unwanted deps
+                     , cardano-sl
   default-language:    Haskell2010
   default-extensions: TypeOperators
                       DataKinds
@@ -132,6 +135,7 @@ test-suite wallet-new-specs
   main-is:          Spec.hs
   other-modules:    SwaggerSpec
                     APISpec
+                    MarshallingSpec
   build-depends:    base
                   , QuickCheck
                   , aeson

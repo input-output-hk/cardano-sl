@@ -946,20 +946,36 @@
         },
         "NewWallet": {
             "example": {
-                "passphrase": "My passphrase",
-                "backupPhrase": "MyBackupPhraseHashed"
+                "backupPhrase": {
+                    "bpToList": [
+                        "",
+                        "H\u0008"
+                    ]
+                },
+                "spendingPassword": "My passphrase"
             },
             "required": [
-                "passphrase",
-                "backupPhrase"
+                "backupPhrase",
+                "spendingPassword"
             ],
             "type": "object",
             "description": "A type represending an request for creating a(n) Wallet. You can still pass an entire Wallet as input, and extra  fields (which are not meant to be controlled by user) will simply be ignored.",
             "properties": {
-                "passphrase": {
-                    "type": "string"
-                },
                 "backupPhrase": {
+                    "required": [
+                        "bpToList"
+                    ],
+                    "type": "object",
+                    "properties": {
+                        "bpToList": {
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        }
+                    }
+                },
+                "spendingPassword": {
                     "type": "string"
                 }
             }

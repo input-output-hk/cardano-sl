@@ -53,6 +53,11 @@ import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck
 import           Web.HttpApiData
 
+import           Cardano.Wallet.Orphans ()
+
+-- V0 logic
+import           Pos.Util.BackupPhrase  (BackupPhrase)
+
 --
 -- Swagger & REST-related types
 --
@@ -213,8 +218,11 @@ instance Arbitrary WalletError where
 -- Domain-specific types, mostly placeholders.
 --
 
-type BackupPhrase = Text
-type Passphrase   = Text
+-- A 'SpendingPassword' represent a secret piece of information which can be
+-- optionally supplied by the user to encrypt the private keys. As private keys
+-- are needed to spend funds and this password secures spending, here the name
+-- 'SpendingPassword'.
+type SpendingPassword = Text
 
 data WalletAssurance = AssuranceNormal
                      | AssuranceStrict
@@ -245,14 +253,14 @@ type Coins = Int
 
 -- | A type modelling the request for a new wallet.
 data NewWallet = NewWallet {
-      newwalBackupPhrase :: BackupPhrase
-    , newwalPassphrase   :: Maybe Passphrase
+      newwalBackupPhrase     :: BackupPhrase
+    , newwalSpendingPassword :: Maybe SpendingPassword
     } deriving (Eq, Show, Generic)
 
 deriveJSON Serokell.defaultOptions  ''NewWallet
 
 instance Arbitrary NewWallet where
-  arbitrary = NewWallet <$> pure "MyBackupPhraseHashed"
+  arbitrary = NewWallet <$> arbitrary
                         <*> pure (Just "My passphrase")
 
 -- | A type modelling the update of an existing wallet.

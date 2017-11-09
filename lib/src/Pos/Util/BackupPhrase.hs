@@ -1,11 +1,10 @@
 -- | Module providing restoring from backup phrase functionality
 
 module Pos.Util.BackupPhrase
-       ( BackupPhrase
+       ( BackupPhrase(..)
        , mkBackupPhrase12
        , mkBackupPhrase9
        , backupPhraseWordsNum
-       , bpToList
        , toSeed
        , keysFromPhrase
        , safeKeysFromPhrase

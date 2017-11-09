@@ -1,7 +1,6 @@
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeOperators       #-}
 
@@ -15,6 +14,7 @@ module Pos.Explorer.Web.Server
 
        -- function useful for socket-io server
        , topsortTxsOrFail
+       , epochPageSearch
        , getMempoolTxs
        , getBlocksLastPage
        , cAddrToAddr
@@ -108,6 +108,7 @@ type MainBlund = (MainBlock, Undo)
 type ExplorerMode ctx m =
     ( WorkMode ctx m
     , HasGenesisRedeemAddressInfo m
+    , MonadSlots ctx m
     )
 
 explorerServeImpl
@@ -706,7 +707,7 @@ epochPageSearch epochIndex mPage = do
         -- | Get the block index number. We start with the the index 1 for the
         -- genesis block and add 1 for the main blocks since they start with 1
         -- as well.
-        getBlockIndex :: (Block) -> Int
+        getBlockIndex :: Block -> Int
         getBlockIndex (Left _)      = 1
         getBlockIndex (Right block) =
             fromIntegral $ (+1) $ getSlotIndex $ siSlot $ block ^. mainBlockSlot

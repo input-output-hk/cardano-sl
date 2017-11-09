@@ -19,13 +19,16 @@ module Pos.Explorer.Socket.Holder
        , csAddressSubscribers
        , csBlocksSubscribers
        , csBlocksPageSubscribers
-       , csBlocksOffSubscribers
+       , csEpochsLastPageSubscribers
        , csTxsSubscribers
        , csClients
        , ccAddress
-       , ccBlockOff
+       , ccEpochIndex
        , ccConnection
        ) where
+
+import           Universum
+
 
 import           Control.Lens             (makeClassy)
 import qualified Data.Map.Strict          as M
@@ -37,11 +40,11 @@ import           System.Wlog              (NamedPureLogger, WithLogger,
                                            launchNamedPureLog)
 
 import           Pos.Types                (Address)
-import           Universum
+import           Pos.Core.Types           (EpochIndex)
 
 data ClientContext = ClientContext
     { _ccAddress    :: !(Maybe Address)
-    , _ccBlockOff   :: !(Maybe Word)
+    , _ccEpochIndex :: !(Maybe EpochIndex)
     , _ccConnection :: !Socket
     }
 
@@ -52,17 +55,17 @@ makeClassy ''ClientContext
 
 data ConnectionsState = ConnectionsState
     { -- | Active sessions
-      _csClients               :: !(M.Map SocketId ClientContext)
+      _csClients                   :: !(M.Map SocketId ClientContext)
       -- | Sessions subscribed to given address.
-    , _csAddressSubscribers    :: !(M.Map Address (S.Set SocketId))
+    , _csAddressSubscribers        :: !(M.Map Address (S.Set SocketId))
       -- | Sessions subscribed to notifications about new blocks.
-    , _csBlocksSubscribers     :: !(S.Set SocketId)
-      -- | Sessions subscribed to notifications about new blocks with offset.
-    , _csBlocksPageSubscribers :: !(S.Set SocketId)
-      -- | Sessions subscribed to notifications about last page.
-    , _csBlocksOffSubscribers  :: !(M.Map Word (S.Set SocketId))
+    , _csBlocksSubscribers         :: !(S.Set SocketId)
+      -- | Sessions subscribed to notifications about last page of blocks.
+    , _csBlocksPageSubscribers     :: !(S.Set SocketId)
       -- | Sessions subscribed to notifications about new transactions.
-    , _csTxsSubscribers        :: !(S.Set SocketId)
+    , _csTxsSubscribers            :: !(S.Set SocketId)
+    -- | Sessions subscribed to notifications about last page of epochs.
+    , _csEpochsLastPageSubscribers :: !(M.Map EpochIndex (S.Set SocketId))
     }
 
 makeClassy ''ConnectionsState
@@ -76,8 +79,8 @@ mkConnectionsState =
     , _csAddressSubscribers = mempty
     , _csBlocksSubscribers = mempty
     , _csBlocksPageSubscribers = mempty
-    , _csBlocksOffSubscribers = mempty
     , _csTxsSubscribers = mempty
+    , _csEpochsLastPageSubscribers = mempty
     }
 
 withConnState

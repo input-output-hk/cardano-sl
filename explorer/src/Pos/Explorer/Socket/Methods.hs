@@ -25,15 +25,18 @@ module Pos.Explorer.Socket.Methods
        -- Un-/Subscriptions
        , subscribeAddr
        , subscribeBlocksLastPage
+       , subscribeEpochsLastPage
        , subscribeTxs
        , unsubscribeAddr
        , unsubscribeBlocksLastPage
+       , unsubscribeEpochsLastPage
        , unsubscribeTxs
 
        -- * Notifications
        , notifyAddrSubscribers
        , notifyBlocksLastPageSubscribers
        , notifyTxsSubscribers
+       , notifyEpochsLastPageSubscribers
 
       -- * DB data
        , getBlundsFromTo
@@ -45,6 +48,8 @@ module Pos.Explorer.Socket.Methods
        , addrsTouchedByTx
        , fromCAddressOrThrow
        ) where
+
+import           Universum
 
 import           Control.Lens                   (at, ix, lens, non, (.=), _Just)
 import           Control.Monad.State            (MonadState)
@@ -69,20 +74,21 @@ import           Pos.Util                       (maybeThrow)
 import           Pos.Util.Chrono                (getOldestFirst)
 import           System.Wlog                    (WithLogger, logDebug, logWarning,
                                                  modifyLoggerName)
-import           Universum
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Socket.Holder     (ClientContext, ConnectionsState,
                                                  ExplorerSockets, ccAddress, ccConnection,
-                                                 csAddressSubscribers,
+                                                 ccEpochIndex, csAddressSubscribers,
                                                  csBlocksPageSubscribers, csClients,
+                                                 csEpochsLastPageSubscribers,
                                                  csTxsSubscribers, mkClientContext)
 import           Pos.Explorer.Socket.Util       (EventName (..), emitTo)
 import           Pos.Explorer.Web.ClientTypes   (CAddress, CTxBrief, CTxEntry (..),
-                                                 TxInternal (..), fromCAddress, toTxBrief)
+                                                 EpochIndex (..), TxInternal (..),
+                                                 fromCAddress, toTxBrief)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
-import           Pos.Explorer.Web.Server        (ExplorerMode, getBlocksLastPage,
-                                                 topsortTxsOrFail)
+import           Pos.Explorer.Web.Server        (ExplorerMode, epochPageSearch,
+                                                 getBlocksLastPage, topsortTxsOrFail)
 
 -- * Event names
 
@@ -226,6 +232,17 @@ txsSubParam sessId =
         , spCliData      = noCliDataKept
         }
 
+
+epochsLastPageSubParam :: SocketId -> SubscriptionParam EpochIndex
+epochsLastPageSubParam sessId =
+    SubscriptionParam
+        { spSessId       = sessId
+        , spDesc         = const "epochs last page"
+        , spSubscription = \epochIndex ->
+              csEpochsLastPageSubscribers . at epochIndex . non S.empty . at sessId
+        , spCliData      = ccEpochIndex
+        }
+
 -- | Unsubscribes on any previous address and subscribes on given one.
 subscribeAddr
     :: SubscriptionMode m
@@ -259,6 +276,17 @@ unsubscribeTxs
     => SocketId -> m ()
 unsubscribeTxs sessId = unsubscribe (txsSubParam sessId)
 
+subscribeEpochsLastPage
+    :: SubscriptionMode m
+    => EpochIndex -> SocketId -> m ()
+subscribeEpochsLastPage epochIndex sessId =
+    subscribe epochIndex (epochsLastPageSubParam sessId)
+
+unsubscribeEpochsLastPage
+    :: SubscriptionMode m
+    => SocketId -> m ()
+unsubscribeEpochsLastPage sessId = unsubscribe (epochsLastPageSubParam sessId)
+
 unsubscribeFully
     :: SubscriptionMode m
     => SocketId -> m ()
@@ -269,6 +297,7 @@ unsubscribeFully sessId = do
         unsubscribeAddr sessId
         unsubscribeBlocksLastPage sessId
         unsubscribeTxs sessId
+        unsubscribeEpochsLastPage sessId
 
 -- * Notifications
 
@@ -307,6 +336,15 @@ notifyTxsSubscribers
     => [CTxEntry] -> ExplorerSockets m ()
 notifyTxsSubscribers cTxEntries =
     view csTxsSubscribers >>= broadcast @ctx TxsUpdated cTxEntries
+
+notifyEpochsLastPageSubscribers
+    :: forall ctx m . ExplorerMode ctx m
+    => EpochIndex -> ExplorerSockets m ()
+notifyEpochsLastPageSubscribers currentEpoch =
+    whenJustM (view $ csEpochsLastPageSubscribers . at currentEpoch) $
+        \recipients -> do
+            epochs <- lift $ epochPageSearch @ctx currentEpoch Nothing
+            broadcast @ctx EpochsLastPageUpdated epochs recipients
 
 -- * Helpers
 

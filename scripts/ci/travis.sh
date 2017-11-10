@@ -29,6 +29,7 @@ for trgt in $targets; do
 #    TODO: CSL-1133
 #    if [[ "$trgt" == "cardano-sl" ]]; then
 #      stack test --nix --fast --jobs=2 --coverage \
+#      --test-arguments='--seed=42' \
 #      --ghc-options="-j +RTS -A128m -n2m -RTS";
 #      stack --nix hpc report $to_build
 #    fi

@@ -133,6 +133,7 @@ library
                        Pos.Util.Concurrent.PriorityLock
                        Pos.Util.Concurrent.RWLock
                        Pos.Util.Concurrent.RWVar
+                       Pos.Util.Migration.Class
                        Pos.Util.Chrono
                        Pos.Util.Justify
                        Pos.Util.Limits

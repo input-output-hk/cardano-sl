@@ -6,5 +6,5 @@ module Pos.Aeson
        (
        ) where
 
-import           Pos.Aeson.Crypto        ()
-import           Pos.Aeson.Types         ()
+import           Pos.Aeson.Crypto ()
+import           Pos.Aeson.Types ()

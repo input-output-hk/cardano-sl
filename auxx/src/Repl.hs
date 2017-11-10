@@ -34,9 +34,9 @@ module Repl
 import           Universum
 
 import           Control.Concurrent.Async (race_)
-import           Control.Exception        (Exception (..))
-import           Data.Text                (strip)
-import           Mockable                 (Catch, Mockable, handle)
+import           Control.Exception (Exception (..))
+import           Data.Text (strip)
+import           Mockable (Catch, Mockable, handle)
 import           System.Console.Haskeline (InputT)
 import qualified System.Console.Haskeline as Haskeline
 

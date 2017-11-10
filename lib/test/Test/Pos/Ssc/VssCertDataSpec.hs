@@ -4,31 +4,28 @@ module Test.Pos.Ssc.VssCertDataSpec
        ( spec
        ) where
 
-import           Universum             hiding (empty, filter)
+import           Universum hiding (empty, filter)
 
-import qualified Data.HashMap.Strict   as HM
-import qualified Data.HashSet          as HS
-import           Data.List.Extra       (nubOrdOn)
-import qualified Data.Set              as S
-import           Data.Tuple            (swap)
-import           Test.Hspec            (Spec, describe)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet as HS
+import           Data.List.Extra (nubOrdOn)
+import qualified Data.Set as S
+import           Data.Tuple (swap)
+import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Arbitrary (..), Gen, Property, choose, conjoin,
-                                        counterexample, suchThat, vectorOf, (.&&.), (==>))
+import           Test.QuickCheck (Arbitrary (..), Gen, Property, choose, conjoin, counterexample,
+                                  suchThat, vectorOf, (.&&.), (==>))
 
-import           Pos.Core              (EpochIndex (..), EpochOrSlot (..),
-                                        HasConfiguration, SlotId (..),
-                                        VssCertificate (..), getCertId,
-                                        getVssCertificatesMap, mkVssCertificate,
-                                        slotSecurityParam)
-import           Pos.Core.Slotting     (flattenEpochOrSlot, unflattenSlotId)
-import           Pos.Ssc               (SscGlobalState (..), VssCertData (..), delete,
-                                        empty, expiryEoS, filter, sgsVssCertificates,
-                                        insert, keys, lookup, member, rollbackSsc,
-                                        runPureToss, setLastKnownSlot)
-import           Pos.Util.Chrono       (NewestFirst (..))
+import           Pos.Core (EpochIndex (..), EpochOrSlot (..), HasConfiguration, SlotId (..),
+                           VssCertificate (..), getCertId, getVssCertificatesMap, mkVssCertificate,
+                           slotSecurityParam)
+import           Pos.Core.Slotting (flattenEpochOrSlot, unflattenSlotId)
+import           Pos.Ssc (SscGlobalState (..), VssCertData (..), delete, empty, expiryEoS, filter,
+                          insert, keys, lookup, member, rollbackSsc, runPureToss, setLastKnownSlot,
+                          sgsVssCertificates)
+import           Pos.Util.Chrono (NewestFirst (..))
 
-import           Test.Pos.Util         (qcIsJust, withDefConfiguration)
+import           Test.Pos.Util (qcIsJust, withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Ssc.VssCertData" $ do

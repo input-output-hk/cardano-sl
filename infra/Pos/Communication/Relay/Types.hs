@@ -1,18 +1,18 @@
-{-# LANGUAGE GADTs           #-}
+{-# LANGUAGE GADTs #-}
 
 module Pos.Communication.Relay.Types
        ( RelayError (..)
        , PropagationMsg (..)
        ) where
 
-import           Prelude                       (Show (..))
-import           Universum                     hiding (Show)
+import           Prelude (Show (..))
+import           Universum hiding (Show)
 
-import qualified Data.Text.Buildable           as Buildable
-import           Formatting                    (bprint, build, (%))
-import           Node                          (Message)
+import qualified Data.Text.Buildable as Buildable
+import           Formatting (bprint, build, (%))
+import           Node (Message)
 
-import           Pos.Binary.Class              (Bi)
+import           Pos.Binary.Class (Bi)
 import           Pos.Communication.Types.Protocol (Msg)
 import           Pos.Communication.Types.Relay (DataMsg, InvOrData, ReqOrRes)
 

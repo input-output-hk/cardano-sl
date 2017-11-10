@@ -3,7 +3,7 @@ module Pos.Binary.Core.Coin () where
 import           Universum
 
 import           Pos.Binary.Class (Bi (..))
-import           Pos.Core.Types   (Coin, mkCoin, unsafeGetCoin)
+import           Pos.Core.Types (Coin, mkCoin, unsafeGetCoin)
 
 -- number of total coins is 45*10^9 * 10^6
 --

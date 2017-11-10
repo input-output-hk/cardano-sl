@@ -3,8 +3,8 @@ module Pos.HealthCheck.Route53
        ( route53HealthCheckOption
        ) where
 
-import qualified Options.Applicative    as Opt
-import           Pos.Util.TimeWarp      (NetworkAddress, addrParser)
+import qualified Options.Applicative as Opt
+import           Pos.Util.TimeWarp (NetworkAddress, addrParser)
 import           Serokell.Util.OptParse (fromParsec)
 import           Universum
 

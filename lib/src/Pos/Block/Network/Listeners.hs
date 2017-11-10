@@ -4,28 +4,27 @@ module Pos.Block.Network.Listeners
        ( blockListeners
        ) where
 
-import           Formatting                      (build, int, sformat, (%))
+import           Formatting (build, int, sformat, (%))
 import qualified Network.Broadcast.OutboundQueue as OQ
-import           Serokell.Util.Text              (listJson)
-import           System.Wlog                     (logDebug, logWarning)
+import           Serokell.Util.Text (listJson)
+import           System.Wlog (logDebug, logWarning)
 import           Universum
 
-import           Pos.Binary.Communication        ()
-import           Pos.Block.Logic                 (getHeadersFromToIncl)
-import           Pos.Block.Network.Announce      (handleHeadersCommunication)
-import           Pos.Block.Network.Logic         (handleUnsolicitedHeaders)
-import           Pos.Block.Network.Types         (MsgBlock (..), MsgGetBlocks (..),
-                                                  MsgGetHeaders, MsgHeaders (..))
-import           Pos.Communication.Limits        (recvLimited)
-import           Pos.Communication.Listener      (listenerConv)
-import           Pos.Communication.Protocol      (ConversationActions (..),
-                                                  ListenerSpec (..), MkListeners,
-                                                  OutSpecs, constantListeners)
-import qualified Pos.DB.Block                    as DB
-import           Pos.DB.Error                    (DBError (DBMalformed))
-import           Pos.Network.Types               (Bucket, NodeId)
-import           Pos.Util.Chrono                 (NewestFirst (..))
-import           Pos.WorkMode.Class              (WorkMode)
+import           Pos.Binary.Communication ()
+import           Pos.Block.Logic (getHeadersFromToIncl)
+import           Pos.Block.Network.Announce (handleHeadersCommunication)
+import           Pos.Block.Network.Logic (handleUnsolicitedHeaders)
+import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders,
+                                          MsgHeaders (..))
+import           Pos.Communication.Limits (recvLimited)
+import           Pos.Communication.Listener (listenerConv)
+import           Pos.Communication.Protocol (ConversationActions (..), ListenerSpec (..),
+                                             MkListeners, OutSpecs, constantListeners)
+import qualified Pos.DB.Block as DB
+import           Pos.DB.Error (DBError (DBMalformed))
+import           Pos.Network.Types (Bucket, NodeId)
+import           Pos.Util.Chrono (NewestFirst (..))
+import           Pos.WorkMode.Class (WorkMode)
 
 blockListeners
     :: WorkMode ctx m

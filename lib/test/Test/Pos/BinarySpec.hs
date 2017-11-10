@@ -4,23 +4,21 @@ module Test.Pos.BinarySpec
        ( spec
        ) where
 
-import           Data.Bits             (setBit)
-import qualified Data.ByteString       as BS
-import           Data.Fixed            (Nano)
-import           Data.Time.Units       (Microsecond, Millisecond)
+import           Data.Bits (setBit)
+import qualified Data.ByteString as BS
+import           Data.Fixed (Nano)
+import           Data.Time.Units (Microsecond, Millisecond)
+import           Numeric (showHex)
 import           Serokell.Data.Memory.Units (Byte)
-import           Numeric               (showHex)
 
-import           Test.Hspec            (Spec, anyErrorCall, describe, it, shouldBe,
-                                        shouldSatisfy, xdescribe)
+import           Test.Hspec (Spec, anyErrorCall, describe, it, shouldBe, shouldSatisfy, xdescribe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck       (Arbitrary (..), choose, generate, suchThat)
+import           Test.QuickCheck (Arbitrary (..), choose, generate, suchThat)
 import           Universum
 
-import qualified Pos.Binary            as B
+import qualified Pos.Binary as B
 
-import           Test.Pos.Helpers      (binaryEncodeDecode, binaryTest,
-                                        shouldThrowException)
+import           Test.Pos.Helpers (binaryEncodeDecode, binaryTest, shouldThrowException)
 
 spec :: Spec
 spec = describe "Bi" $ modifyMaxSuccess (const 10000) $ do

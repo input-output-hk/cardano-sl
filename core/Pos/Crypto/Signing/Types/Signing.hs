@@ -26,20 +26,20 @@ module Pos.Crypto.Signing.Types.Signing
        , isSelfSignedPsk
        ) where
 
-import qualified Cardano.Crypto.Wallet  as CC
-import           Data.Hashable          (Hashable)
-import qualified Data.Hashable          as Hashable
-import qualified Data.Text.Buildable    as B
+import qualified Cardano.Crypto.Wallet as CC
+import           Data.Hashable (Hashable)
+import qualified Data.Hashable as Hashable
+import qualified Data.Text.Buildable as B
 import           Data.Text.Lazy.Builder (Builder)
-import           Formatting             (Format, bprint, build, fitLeft, later, (%), (%.))
-import           Prelude                (show)
-import qualified Serokell.Util.Base16   as B16
-import qualified Serokell.Util.Base64   as Base64 (decode, formatBase64)
-import           Serokell.Util.Text     (pairF)
-import           Universum              hiding (show)
+import           Formatting (Format, bprint, build, fitLeft, later, (%), (%.))
+import           Prelude (show)
+import qualified Serokell.Util.Base16 as B16
+import qualified Serokell.Util.Base64 as Base64 (decode, formatBase64)
+import           Serokell.Util.Text (pairF)
+import           Universum hiding (show)
 
-import           Pos.Binary.Class       (Bi)
-import           Pos.Crypto.Hashing     (hash)
+import           Pos.Binary.Class (Bi)
+import           Pos.Crypto.Hashing (hash)
 
 ----------------------------------------------------------------------------
 -- Orphan instances

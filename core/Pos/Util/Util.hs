@@ -94,64 +94,56 @@ module Pos.Util.Util
        ) where
 
 import           Universum
-import           Unsafe                         (unsafeInit, unsafeLast)
+import           Unsafe (unsafeInit, unsafeLast)
 
-import           Control.Concurrent             (myThreadId, threadDelay)
-import           Control.Lens                   (ALens', Getter, Getting, Iso', LensRules,
-                                                 cloneLens, coerced, foldMapOf, lensField,
-                                                 lensRules, mappingNamer, to, ( # ))
-import           Control.Monad.Base             (MonadBase)
-import qualified Control.Monad.Catch            as MC
-import           Control.Monad.Morph            (MFunctor (..))
-import           Control.Monad.Trans.Class      (MonadTrans)
-import           Control.Monad.Trans.Identity   (IdentityT (..))
+import           Control.Concurrent (myThreadId, threadDelay)
+import           Control.Lens (ALens', Getter, Getting, Iso', LensRules, cloneLens, coerced,
+                               foldMapOf, lensField, lensRules, mappingNamer, to, ( # ))
+import           Control.Monad.Base (MonadBase)
+import qualified Control.Monad.Catch as MC
+import           Control.Monad.Morph (MFunctor (..))
+import           Control.Monad.Trans.Class (MonadTrans)
+import           Control.Monad.Trans.Identity (IdentityT (..))
 import           Control.Monad.Trans.Lift.Local (LiftLocal (..))
-import           Control.Monad.Trans.Resource   (MonadResource (..), ResourceT,
-                                                 transResourceT)
-import qualified Crypto.Random                  as Rand
-import           Data.Aeson                     (FromJSON (..), ToJSON (..))
-import qualified Data.Aeson                     as A
-import qualified Data.Aeson.Types               as A
-import           Data.Char                      (isAlphaNum)
-import           Data.Hashable                  (Hashable (hashWithSalt))
-import qualified Data.HashMap.Strict            as HM
-import           Data.HashSet                   (fromMap)
-import           Data.List                      (last)
-import qualified Data.List.NonEmpty             as NE
-import qualified Data.Map                       as M
-import qualified Data.Semigroup                 as Smg
-import           Data.Tagged                    (Tagged (Tagged))
-import           Data.Text.Buildable            (build)
-import           Data.Time                      (getCurrentTime)
-import           Data.Time.Clock                (NominalDiffTime)
-import           Data.Time.Units                (Attosecond, Day, Femtosecond, Fortnight,
-                                                 Hour, Microsecond, Millisecond, Minute,
-                                                 Nanosecond, Picosecond, Second, Week,
-                                                 toMicroseconds)
-import           Data.Typeable                  (typeRep)
+import           Control.Monad.Trans.Resource (MonadResource (..), ResourceT, transResourceT)
+import qualified Crypto.Random as Rand
+import           Data.Aeson (FromJSON (..), ToJSON (..))
+import qualified Data.Aeson as A
+import qualified Data.Aeson.Types as A
+import           Data.Char (isAlphaNum)
+import           Data.Hashable (Hashable (hashWithSalt))
+import qualified Data.HashMap.Strict as HM
+import           Data.HashSet (fromMap)
+import           Data.List (last)
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Map as M
+import qualified Data.Semigroup as Smg
+import           Data.Tagged (Tagged (Tagged))
+import           Data.Text.Buildable (build)
+import           Data.Time (getCurrentTime)
+import           Data.Time.Clock (NominalDiffTime)
+import           Data.Time.Units (Attosecond, Day, Femtosecond, Fortnight, Hour, Microsecond,
+                                  Millisecond, Minute, Nanosecond, Picosecond, Second, Week,
+                                  toMicroseconds)
+import           Data.Typeable (typeRep)
 import qualified Ether
-import           Ether.Internal                 (HasLens (..))
-import qualified Formatting                     as F
-import qualified Language.Haskell.TH            as TH
-import qualified Language.Haskell.TH.Syntax     as TH
-import           Mockable                       (ChannelT, Counter, Distribution, Gauge,
-                                                 MFunctor' (..), Mockable (..), Promise,
-                                                 SharedAtomicT, SharedExclusiveT,
-                                                 ThreadId)
+import           Ether.Internal (HasLens (..))
+import qualified Formatting as F
+import qualified Language.Haskell.TH as TH
+import qualified Language.Haskell.TH.Syntax as TH
+import           Mockable (ChannelT, Counter, Distribution, Gauge, MFunctor' (..), Mockable (..),
+                           Promise, SharedAtomicT, SharedExclusiveT, ThreadId)
 import qualified Prelude
-import           Serokell.Data.Memory.Units     (Byte, fromBytes, toBytes)
-import qualified System.Console.ANSI            as ANSI
-import           System.Directory               (canonicalizePath, createDirectory,
-                                                 doesDirectoryExist,
-                                                 getTemporaryDirectory, listDirectory,
-                                                 removeDirectoryRecursive, removeFile)
-import           System.FilePath                (normalise, pathSeparator, takeDirectory,
-                                                 (</>))
-import           System.IO                      (hClose, openTempFile)
-import           System.Wlog                    (CanLog, HasLoggerName (..),
-                                                 LoggerNameBox (..))
-import qualified Test.QuickCheck                as QC
-import           Test.QuickCheck.Monadic        (PropertyM (..))
+import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
+import qualified System.Console.ANSI as ANSI
+import           System.Directory (canonicalizePath, createDirectory, doesDirectoryExist,
+                                   getTemporaryDirectory, listDirectory, removeDirectoryRecursive,
+                                   removeFile)
+import           System.FilePath (normalise, pathSeparator, takeDirectory, (</>))
+import           System.IO (hClose, openTempFile)
+import           System.Wlog (CanLog, HasLoggerName (..), LoggerNameBox (..))
+import qualified Test.QuickCheck as QC
+import           Test.QuickCheck.Monadic (PropertyM (..))
 
 ----------------------------------------------------------------------------
 -- Some

@@ -4,20 +4,20 @@ module Test.Pos.Types.Identity.BinarySpec
        ( spec
        ) where
 
-import           Test.Hspec            (Spec, describe)
+import           Test.Hspec (Spec, describe)
 import           Universum
 
-import           Pos.Arbitrary.Core    ()
-import           Pos.Arbitrary.Infra   ()
-import qualified Pos.Core              as T
-import qualified Pos.Core.Fee          as Fee
-import           Pos.Data.Attributes   (Attributes (..))
+import           Pos.Arbitrary.Core ()
+import           Pos.Arbitrary.Infra ()
+import qualified Pos.Core as T
+import qualified Pos.Core.Fee as Fee
+import           Pos.Data.Attributes (Attributes (..))
 import           Pos.Util.BackupPhrase (BackupPhrase)
-import           Pos.Util.Chrono       (NE, NewestFirst, OldestFirst)
+import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 
 import           Test.Pos.Cbor.CborSpec (U)
-import           Test.Pos.Helpers      (binaryTest, msgLenLimitedTest)
-import           Test.Pos.Util         (withDefConfiguration, withDefInfraConfiguration)
+import           Test.Pos.Helpers (binaryTest, msgLenLimitedTest)
+import           Test.Pos.Util (withDefConfiguration, withDefInfraConfiguration)
 
 spec :: Spec
 spec = withDefInfraConfiguration $ withDefConfiguration $ describe "Types" $ do

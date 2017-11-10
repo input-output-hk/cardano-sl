@@ -13,7 +13,7 @@ module Pos.Util.Concurrent.RWVar
        , modifyPure
        ) where
 
-import           Universum                  hiding (modify)
+import           Universum hiding (modify)
 
 import           Pos.Util.Concurrent.RWLock (RWLock)
 import qualified Pos.Util.Concurrent.RWLock as RWL

@@ -13,40 +13,36 @@ module Pos.Wallet.Web.Tracking.BListener
 
 import           Universum
 
-import           Control.Lens                     (to)
-import qualified Data.List.NonEmpty               as NE
-import           Data.Time.Units                  (convertUnit)
-import           Formatting                       (build, sformat, (%))
-import           System.Wlog                      (HasLoggerName (modifyLoggerName),
-                                                   WithLogger)
+import           Control.Lens (to)
+import qualified Data.List.NonEmpty as NE
+import           Data.Time.Units (convertUnit)
+import           Formatting (build, sformat, (%))
+import           System.Wlog (HasLoggerName (modifyLoggerName), WithLogger)
 
-import           Pos.Block.BListener              (MonadBListener (..))
-import           Pos.Block.Core                   (BlockHeader, blockHeader,
-                                                   getBlockHeader, mainBlockTxPayload)
-import           Pos.Block.Types                  (Blund, undoTx)
-import           Pos.Core                         (HasConfiguration, HeaderHash,
-                                                   Timestamp, difficultyL, headerHash,
-                                                   headerSlotL, prevBlockL)
-import           Pos.DB.BatchOp                   (SomeBatchOp)
-import           Pos.DB.Class                     (MonadDBRead)
-import qualified Pos.GState                       as GS
-import           Pos.Reporting                    (MonadReporting, reportOrLogW)
-import           Pos.Slotting                     (MonadSlots, MonadSlotsData,
-                                                   getCurrentEpochSlotDuration,
-                                                   getSlotStartPure, getSystemStartM)
-import           Pos.Txp.Core                     (TxAux (..), TxUndo, flattenTxPayload)
-import           Pos.Util.Chrono                  (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
-import           Pos.Util.TimeLimit               (CanLogInParallel, logWarningWaitInf)
+import           Pos.Block.BListener (MonadBListener (..))
+import           Pos.Block.Types (Blund, undoTx)
+import           Pos.Core (HasConfiguration, HeaderHash, Timestamp, difficultyL, headerHash,
+                           headerSlotL, prevBlockL)
+import           Pos.Core.Block (BlockHeader, blockHeader, getBlockHeader, mainBlockTxPayload)
+import           Pos.Core.Txp (TxAux (..), TxUndo)
+import           Pos.DB.BatchOp (SomeBatchOp)
+import           Pos.DB.Class (MonadDBRead)
+import qualified Pos.GState as GS
+import           Pos.Reporting (MonadReporting, reportOrLogW)
+import           Pos.Slotting (MonadSlots, MonadSlotsData, getCurrentEpochSlotDuration,
+                               getSlotStartPure, getSystemStartM)
+import           Pos.Txp.Base (flattenTxPayload)
+import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Util.LogSafe (logInfoS, logWarningS)
+import           Pos.Util.TimeLimit (CanLogInParallel, logWarningWaitInf)
 
-import           Pos.Wallet.Web.Account           (AccountMode, getSKById)
-import           Pos.Wallet.Web.ClientTypes       (CId, Wal)
-import qualified Pos.Wallet.Web.State             as WS
+import           Pos.Wallet.Web.Account (AccountMode, getSKById)
+import           Pos.Wallet.Web.ClientTypes (CId, Wal)
+import qualified Pos.Wallet.Web.State as WS
 import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..))
-import           Pos.Wallet.Web.Tracking.Sync     (applyModifierToWallet,
-                                                   rollbackModifierFromWallet,
-                                                   trackingApplyTxs, trackingRollbackTxs)
-import           Pos.Wallet.Web.Util              (getWalletAddrMetas)
+import           Pos.Wallet.Web.Tracking.Sync (applyModifierToWallet, rollbackModifierFromWallet,
+                                               trackingApplyTxs, trackingRollbackTxs)
+import           Pos.Wallet.Web.Util (getWalletAddrMetas)
 
 walletGuard ::
     ( AccountMode ctx m

@@ -35,24 +35,23 @@ module Pos.Binary.Class.Primitive
        , decodeCrcProtected
        ) where
 
-import qualified Codec.CBOR.Decoding           as D
-import qualified Codec.CBOR.Encoding           as E
-import qualified Codec.CBOR.Read               as CBOR.Read
-import qualified Codec.CBOR.Write              as CBOR.Write
-import           Control.Exception             (throw)
-import           Control.Monad.ST              (ST, runST)
-import qualified Data.ByteString               as BS
-import qualified Data.ByteString.Lazy          as BSL
+import qualified Codec.CBOR.Decoding as D
+import qualified Codec.CBOR.Encoding as E
+import qualified Codec.CBOR.Read as CBOR.Read
+import qualified Codec.CBOR.Write as CBOR.Write
+import           Control.Exception (throw)
+import           Control.Monad.ST (ST, runST)
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Internal as BSL
-import           Data.SafeCopy                 (Contained, SafeCopy (..), contain,
-                                                safeGet, safePut)
-import qualified Data.Serialize                as Cereal (Get, Put)
-import           Data.Typeable                 (typeOf)
+import           Data.SafeCopy (Contained, SafeCopy (..), contain, safeGet, safePut)
+import qualified Data.Serialize as Cereal (Get, Put)
+import           Data.Typeable (typeOf)
 
-import           Data.Digest.CRC32             (CRC32 (..))
-import           Formatting                    (formatToString, shown, (%))
-import           Pos.Binary.Class.Core         (Bi (..), enforceSize)
-import           Serokell.Data.Memory.Units    (Byte)
+import           Data.Digest.CRC32 (CRC32 (..))
+import           Formatting (formatToString, shown, (%))
+import           Pos.Binary.Class.Core (Bi (..), enforceSize)
+import           Serokell.Data.Memory.Units (Byte)
 import           Universum
 
 -- | Serialize a Haskell value to an external binary representation.

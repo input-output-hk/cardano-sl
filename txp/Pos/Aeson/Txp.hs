@@ -4,23 +4,22 @@ module Pos.Aeson.Txp where
 
 import           Universum
 
-import           Data.Aeson           (FromJSON (..), FromJSONKey (..),
-                                       FromJSONKeyFunction (..), ToJSON (toJSON),
-                                       ToJSONKey (..), object, withObject, (.:), (.=))
-import           Data.Aeson.TH        (defaultOptions, deriveJSON)
-import           Data.Aeson.Types     (toJSONKeyText)
-import qualified Data.Text            as T
-import           Formatting           (build, int, sformat, (%))
+import           Data.Aeson (FromJSON (..), FromJSONKey (..), FromJSONKeyFunction (..),
+                             ToJSON (toJSON), ToJSONKey (..), object, withObject, (.:), (.=))
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
+import           Data.Aeson.Types (toJSONKeyText)
+import qualified Data.Text as T
+import           Formatting (build, int, sformat, (%))
 import qualified Serokell.Util.Base16 as B16
 import           Serokell.Util.Base64 (JsonByteString (..))
 
-import           Pos.Aeson.Core       ()
-import           Pos.Aeson.Crypto     ()
-import           Pos.Core             (coinToInteger, decodeTextAddress, integerToCoin)
-import           Pos.Crypto           (decodeAbstractHash, hashHexF)
-import           Pos.Txp.Core         (Tx, TxAux, TxIn (..), TxInWitness (..), TxOut (..),
-                                       TxOutAux, TxSigData)
-import           Pos.Util.Util        (eitherToFail)
+import           Pos.Aeson.Core ()
+import           Pos.Aeson.Crypto ()
+import           Pos.Core (coinToInteger, decodeTextAddress, integerToCoin)
+import           Pos.Core.Txp (Tx, TxAux, TxIn (..), TxInWitness (..), TxOut (..), TxOutAux,
+                               TxSigData)
+import           Pos.Crypto (decodeAbstractHash, hashHexF)
+import           Pos.Util.Util (eitherToFail)
 
 txInFromText :: Text -> Either Text TxIn
 txInFromText t = case T.splitOn "_" t of
@@ -29,7 +28,7 @@ txInFromText t = case T.splitOn "_" t of
     _                        -> fail $ toString $ "Invalid TxIn " <> t
 
 txInToText :: TxIn -> Text
-txInToText TxInUtxo {..} = sformat ("TxInUtxo_"%hashHexF%"_"%int) txInHash txInIndex
+txInToText TxInUtxo {..}        = sformat ("TxInUtxo_"%hashHexF%"_"%int) txInHash txInIndex
 txInToText (TxInUnknown tag bs) = sformat ("TxInUnknown_"%int%"_"%B16.base16F) tag bs
 
 instance FromJSON TxIn where

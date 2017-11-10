@@ -11,13 +11,13 @@ module Test.Pos.Explorer.MockFactory
 
 import           Universum
 
-import           System.Wlog                      (LoggerName)
+import           System.Wlog (LoggerName)
 
-import           Pos.Types                        (Address)
+import           Pos.Types (Address)
 
-import           Pos.Core                         (makePubKeyAddressBoot, unsafeIntegerToCoin)
-import           Pos.Crypto                       (SecretKey, toPublic)
-import           Pos.Txp                          (TxOut(..))
+import           Pos.Core (makePubKeyAddressBoot, unsafeIntegerToCoin)
+import           Pos.Core.Txp (TxOut (..))
+import           Pos.Crypto (SecretKey, toPublic)
 
 -- | Factory to create `TxOut`
 -- | It is mostly taken from `makeTxOutAux` in `Test.Pos.Client.Txp.UtilSpec`

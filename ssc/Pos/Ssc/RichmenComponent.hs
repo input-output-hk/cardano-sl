@@ -7,13 +7,12 @@ module Pos.Ssc.RichmenComponent
 
 import           Universum
 
-import           Pos.Core               (BlockVersionData (bvdMpcThd), EpochIndex,
-                                         HasGenesisBlockVersionData,
-                                         genesisBlockVersionData)
-import           Pos.DB.Class           (MonadDBRead)
-import           Pos.Lrc.Class          (RichmenComponent (..))
+import           Pos.Core (BlockVersionData (bvdMpcThd), EpochIndex, HasGenesisBlockVersionData,
+                           genesisBlockVersionData)
+import           Pos.DB.Class (MonadDBRead)
+import           Pos.Lrc.Class (RichmenComponent (..))
 import           Pos.Lrc.DB.RichmenBase (getRichmen)
-import           Pos.Lrc.Types          (RichmenStakes)
+import           Pos.Lrc.Types (RichmenStakes)
 
 data RCSsc
 

@@ -23,27 +23,25 @@ module Pos.Slotting.Util
 
 import           Universum
 
-import           Data.Time.Units        (Millisecond)
-import           Formatting             (int, sformat, shown, (%))
-import           Mockable               (Delay, Mockable, delay)
-import           Serokell.Util          (sec)
-import           System.Wlog            (WithLogger, logDebug, logInfo, logNotice,
-                                         modifyLoggerName)
+import           Data.Time.Units (Millisecond)
+import           Formatting (int, sformat, shown, (%))
+import           Mockable (Delay, Mockable, delay)
+import           Serokell.Util (sec)
+import           System.Wlog (WithLogger, logDebug, logInfo, logNotice, modifyLoggerName)
 
-import           Pos.Core               (FlatSlotId, HasConfiguration, LocalSlotIndex,
-                                         SlotId (..), Timestamp (..), flattenSlotId,
-                                         slotIdF)
-import           Pos.Recovery.Info      (MonadRecoveryInfo, recoveryInProgress)
-import           Pos.Reporting.Methods  (MonadReporting, reportOrLogE)
-import           Pos.Shutdown           (HasShutdownContext)
-import           Pos.Slotting.Class     (MonadSlots (..))
-import           Pos.Slotting.Error     (SlottingError (..))
+import           Pos.Core (FlatSlotId, HasConfiguration, LocalSlotIndex, SlotId (..),
+                           Timestamp (..), flattenSlotId, slotIdF)
+import           Pos.Recovery.Info (MonadRecoveryInfo, recoveryInProgress)
+import           Pos.Reporting.Methods (MonadReporting, reportOrLogE)
+import           Pos.Shutdown (HasShutdownContext)
+import           Pos.Slotting.Class (MonadSlots (..))
+import           Pos.Slotting.Error (SlottingError (..))
 import           Pos.Slotting.Impl.Util (slotFromTimestamp)
-import           Pos.Slotting.MemState  (MonadSlotsData, getCurrentNextEpochSlottingDataM,
-                                         getEpochSlottingDataM, getSystemStartM)
-import           Pos.Slotting.Types     (EpochSlottingData (..), SlottingData,
-                                         computeSlotStart, lookupEpochSlottingData)
-import           Pos.Util.Util          (maybeThrow)
+import           Pos.Slotting.MemState (MonadSlotsData, getCurrentNextEpochSlottingDataM,
+                                        getEpochSlottingDataM, getSystemStartM)
+import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData, computeSlotStart,
+                                     lookupEpochSlottingData)
+import           Pos.Util.Util (maybeThrow)
 
 
 -- | Get flat id of current slot based on MonadSlots.

@@ -8,26 +8,24 @@ module Pos.Explorer.Web.TestServer
 
 import           Universum
 
-import           Data.Time                      (defaultTimeLocale, parseTimeOrError)
-import           Data.Time.Clock.POSIX          (POSIXTime, utcTimeToPOSIXSeconds)
-import           Network.Wai                    (Application)
-import           Network.Wai.Handler.Warp       (run)
-import           Servant.API                    ((:<|>) ((:<|>)))
-import           Servant.Server                 (Handler, Server, serve)
+import           Data.Time (defaultTimeLocale, parseTimeOrError)
+import           Data.Time.Clock.POSIX (POSIXTime, utcTimeToPOSIXSeconds)
+import           Network.Wai (Application)
+import           Network.Wai.Handler.Warp (run)
+import           Servant.API ((:<|>) ((:<|>)))
+import           Servant.Server (Handler, Server, serve)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
-import           Pos.Explorer.Web.Api           (ExplorerApi, explorerApi)
-import           Pos.Explorer.Web.ClientTypes   (Byte, CAda (..), CAddress (..),
-                                                 CAddressSummary (..), CAddressType (..),
-                                                 CAddressesFilter (..), CBlockEntry (..),
-                                                 CBlockSummary (..),
-                                                 CGenesisAddressInfo (..),
-                                                 CGenesisSummary (..), CHash (..),
-                                                 CTxBrief (..), CTxEntry (..), CTxId (..),
-                                                 CTxSummary (..), mkCCoin)
-import           Pos.Explorer.Web.Error         (ExplorerError (..))
-import           Pos.Types                      (EpochIndex (..), mkCoin)
-import           Pos.Web                        ()
+import           Pos.Explorer.Web.Api (ExplorerApi, explorerApi)
+import           Pos.Explorer.Web.ClientTypes (Byte, CAda (..), CAddress (..), CAddressSummary (..),
+                                               CAddressType (..), CAddressesFilter (..),
+                                               CBlockEntry (..), CBlockSummary (..),
+                                               CGenesisAddressInfo (..), CGenesisSummary (..),
+                                               CHash (..), CTxBrief (..), CTxEntry (..), CTxId (..),
+                                               CTxSummary (..), mkCCoin)
+import           Pos.Explorer.Web.Error (ExplorerError (..))
+import           Pos.Types (EpochIndex (..), mkCoin)
+import           Pos.Web ()
 
 
 ----------------------------------------------------------------

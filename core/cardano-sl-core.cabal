@@ -31,7 +31,23 @@ library
 
                        Pos.Core
                        Pos.Core.Address
+
                        Pos.Core.Block
+                       Pos.Core.Block.Blockchain
+                       Pos.Core.Block.Genesis
+                       Pos.Core.Block.Genesis.Chain
+                       Pos.Core.Block.Genesis.Lens
+                       Pos.Core.Block.Genesis.Instances
+                       Pos.Core.Block.Genesis.Types
+                       Pos.Core.Block.Main
+                       Pos.Core.Block.Main.Chain
+                       Pos.Core.Block.Main.Lens
+                       Pos.Core.Block.Main.Instances
+                       Pos.Core.Block.Main.Types
+                       Pos.Core.Block.Union
+                       Pos.Core.Block.Union.Instances
+                       Pos.Core.Block.Union.Types
+
                        Pos.Core.BlockVersionData
                        Pos.Core.Class
                        Pos.Core.Configuration
@@ -44,11 +60,15 @@ library
                        Pos.Core.Constants
                        Pos.Core.Coin
                        Pos.Core.Context
+                       Pos.Core.Delegation
                        Pos.Core.Fee
+                       Pos.Core.Update
                        Pos.Core.Script
                        Pos.Core.SharedSeed
                        Pos.Core.Slotting
+                       Pos.Core.Ssc
                        Pos.Core.Timestamp
+                       Pos.Core.Txp
                        Pos.Core.Types
                        Pos.Core.Version
                        Pos.Core.Vss
@@ -93,10 +113,15 @@ library
                        Pos.Binary.Core
                        Pos.Binary.Core.Address
                        Pos.Binary.Core.Block
+                       Pos.Binary.Core.Blockchain
                        Pos.Binary.Core.Coin
+                       Pos.Binary.Core.Delegation
                        Pos.Binary.Core.Fee
                        Pos.Binary.Core.Script
+                       Pos.Binary.Core.Ssc
+                       Pos.Binary.Core.Txp
                        Pos.Binary.Core.Types
+                       Pos.Binary.Core.Update
                        Pos.Binary.Core.Version
 
                        Pos.System.Metrics.Constants

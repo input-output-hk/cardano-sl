@@ -8,11 +8,11 @@ module Pos.Lrc.Mode
 
 import           Universum
 
-import           Mockable        (Async, Bracket, Concurrently, Delay, Mockables)
-import           System.Wlog     (WithLogger)
+import           Mockable (Async, Bracket, Concurrently, Delay, Mockables)
+import           System.Wlog (WithLogger)
 
-import           Pos.Core        (HasConfiguration)
-import           Pos.DB.Class    (MonadDB, MonadGState)
+import           Pos.Core (HasConfiguration)
+import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.Lrc.Context (HasLrcContext)
 
 -- | Set of constraints used by LRC.

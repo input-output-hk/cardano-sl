@@ -6,19 +6,20 @@ module Test.Pos.Txp.Identity.BinarySpec
 
 import           Universum
 
-import           Data.Tagged             (Tagged)
-import           Test.Hspec              (Spec, describe)
-import           Test.Hspec.QuickCheck   (prop)
+import           Data.Tagged (Tagged)
+import           Test.Hspec (Spec, describe)
+import           Test.Hspec.QuickCheck (prop)
 
-import           Pos.Arbitrary.Infra     ()
-import           Pos.Binary              ()
+import           Pos.Arbitrary.Infra ()
+import           Pos.Binary ()
 import           Pos.Communication.Relay as R
-import qualified Pos.Txp                 as T
-import           Pos.Util                (SmallGenerator)
+import qualified Pos.Core.Txp as T
+import qualified Pos.Txp as T
+import           Pos.Util (SmallGenerator)
 
-import           Test.Pos.Cbor.CborSpec  (extensionProperty)
-import           Test.Pos.Helpers        (binaryTest, msgLenLimitedTest)
-import           Test.Pos.Util           (withDefConfiguration, withDefInfraConfiguration)
+import           Test.Pos.Cbor.CborSpec (extensionProperty)
+import           Test.Pos.Helpers (binaryTest, msgLenLimitedTest)
+import           Test.Pos.Util (withDefConfiguration, withDefInfraConfiguration)
 
 spec :: Spec
 spec = withDefInfraConfiguration $ withDefConfiguration $

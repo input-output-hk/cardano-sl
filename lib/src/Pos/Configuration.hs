@@ -33,14 +33,14 @@ module Pos.Configuration
 
 import           Universum
 
-import           Data.Aeson             (FromJSON (..), genericParseJSON)
-import           Data.Reflection        (Given (..), give)
-import           Data.Time.Units        (Microsecond, Second)
+import           Data.Aeson (FromJSON (..), genericParseJSON)
+import           Data.Reflection (Given (..), give)
+import           Data.Time.Units (Microsecond, Second)
 import           Serokell.Aeson.Options (defaultOptions)
-import           Serokell.Util          (ms, sec)
-import qualified Text.Parsec            as P
+import           Serokell.Util (ms, sec)
+import qualified Text.Parsec as P
 
-import           Pos.Util.TimeWarp      (NetworkAddress, addrParser)
+import           Pos.Util.TimeWarp (NetworkAddress, addrParser)
 
 type HasNodeConfiguration = Given NodeConfiguration
 

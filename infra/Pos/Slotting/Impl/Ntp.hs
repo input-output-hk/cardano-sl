@@ -28,31 +28,28 @@ module Pos.Slotting.Impl.Ntp
 
 import           Universum
 
-import qualified Control.Concurrent.STM      as STM
-import           Control.Lens                (makeLenses)
+import qualified Control.Concurrent.STM as STM
+import           Control.Lens (makeLenses)
 import           Control.Monad.Trans.Control (MonadBaseControl)
-import qualified Data.List.NonEmpty          as NE
-import           Data.Time.Units             (Microsecond)
-import           Formatting                  (int, sformat, shown, stext, (%))
-import           Mockable                    (Catch, CurrentTime, Delay, Fork, Mockables,
-                                              Throw, currentTime, delay)
-import           NTP.Client                  (NtpClientSettings (..), ntpSingleShot,
-                                              startNtpClient)
-import           NTP.Example                 ()
-import           Serokell.Util               (sec)
-import           System.Wlog                 (WithLogger, logDebug, logInfo, logWarning)
+import qualified Data.List.NonEmpty as NE
+import           Data.Time.Units (Microsecond)
+import           Formatting (int, sformat, shown, stext, (%))
+import           Mockable (Catch, CurrentTime, Delay, Fork, Mockables, Throw, currentTime, delay)
+import           NTP.Client (NtpClientSettings (..), ntpSingleShot, startNtpClient)
+import           NTP.Example ()
+import           Serokell.Util (sec)
+import           System.Wlog (WithLogger, logDebug, logInfo, logWarning)
 
-import           Pos.Core.Configuration      (HasConfiguration)
-import           Pos.Core.Slotting           (unflattenSlotId)
-import           Pos.Core.Types              (EpochIndex, SlotId (..), Timestamp (..))
-import           Pos.Infra.Configuration     (HasInfraConfiguration)
-import qualified Pos.Infra.Configuration     as Infra
-import qualified Pos.Slotting.Configuration  as C
-import           Pos.Slotting.Impl.Util      (approxSlotUsingOutdated, slotFromTimestamp)
-import           Pos.Slotting.MemState       (MonadSlotsData, getCurrentNextEpochIndexM,
-                                              getCurrentNextEpochSlottingDataM,
-                                              waitCurrentEpochEqualsM)
-import           Pos.Util.Util               (median)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Slotting (unflattenSlotId)
+import           Pos.Core.Types (EpochIndex, SlotId (..), Timestamp (..))
+import           Pos.Infra.Configuration (HasInfraConfiguration)
+import qualified Pos.Infra.Configuration as Infra
+import qualified Pos.Slotting.Configuration as C
+import           Pos.Slotting.Impl.Util (approxSlotUsingOutdated, slotFromTimestamp)
+import           Pos.Slotting.MemState (MonadSlotsData, getCurrentNextEpochIndexM,
+                                        getCurrentNextEpochSlottingDataM, waitCurrentEpochEqualsM)
+import           Pos.Util.Util (median)
 
 ----------------------------------------------------------------------------
 -- TODO

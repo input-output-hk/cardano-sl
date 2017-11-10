@@ -15,57 +15,52 @@ module Pos.Block.Logic.Creation
 
 import           Universum
 
-import           Control.Lens               (uses, (-=), (.=), _Wrapped)
-import           Control.Monad.Except       (MonadError (throwError), runExceptT)
-import           Data.Default               (Default (def))
-import           Formatting                 (build, fixed, ords, sformat, stext, (%))
+import           Control.Lens (uses, (-=), (.=), _Wrapped)
+import           Control.Monad.Except (MonadError (throwError), runExceptT)
+import           Data.Default (Default (def))
+import           Formatting (build, fixed, ords, sformat, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
-import           System.Wlog                (WithLogger, logDebug)
+import           System.Wlog (WithLogger, logDebug)
 
-import           Pos.Binary.Class           (biSize)
-import           Pos.Block.Core             (BlockHeader, GenesisBlock, MainBlock,
-                                             MainBlockchain, mkGenesisBlock, mkMainBlock)
-import qualified Pos.Block.Core             as BC
-import           Pos.Block.Logic.Internal   (MonadBlockApply, applyBlocksUnsafe,
-                                             normalizeMempool)
-import           Pos.Block.Logic.Util       (calcChainQualityM)
-import           Pos.Block.Logic.VAR        (verifyBlocksPrefix)
-import           Pos.Block.Slog             (HasSlogGState (..), ShouldCallBListener (..))
-import           Pos.Context                (HasPrimaryKey, getOurSecretKey,
-                                             lrcActionOnEpochReason)
-import           Pos.Core                   (Blockchain (..), EpochIndex,
-                                             EpochOrSlot (..), HasConfiguration,
-                                             HeaderHash, SlotId (..),
-                                             chainQualityThreshold, epochIndexL,
-                                             epochSlots, flattenSlotId, getEpochOrSlot,
-                                             headerHash)
-import           Pos.Crypto                 (SecretKey)
-import qualified Pos.DB.Block               as DB
-import qualified Pos.DB.DB                  as DB
-import           Pos.Delegation             (DelegationVar, DlgPayload (getDlgPayload),
-                                             ProxySKBlockInfo, clearDlgMemPool,
-                                             getDlgMempool, mkDlgPayload)
-import           Pos.Exception              (assertionFailed, reportFatalError)
-import           Pos.Lrc                    (HasLrcContext, LrcModeFull, lrcSingleShot)
-import qualified Pos.Lrc.DB                 as LrcDB
-import           Pos.Reporting              (reportError)
-import           Pos.Ssc                    (MonadSscMem, SscPayload, defaultSscPayload,
-                                             sscGetLocalPayload, sscResetLocal,
-                                             stripSscPayload)
-import           Pos.StateLock              (Priority (..), StateLock, StateLockMetrics,
-                                             modifyStateLock)
-import           Pos.Txp                    (MempoolExt, MonadTxpLocal (..), MonadTxpMem,
-                                             clearTxpMemPool, txGetPayload)
-import           Pos.Txp.Core               (TxAux (..), emptyTxPayload, mkTxPayload)
-import           Pos.Update                 (UpdateContext)
-import           Pos.Update.Configuration   (HasUpdateConfiguration)
-import           Pos.Update.Core            (UpdatePayload (..))
-import qualified Pos.Update.DB              as UDB
-import           Pos.Update.Logic           (clearUSMemPool, usCanCreateBlock,
-                                             usPreparePayload)
-import           Pos.Util                   (_neHead)
-import           Pos.Util.LogSafe           (logInfoS)
-import           Pos.Util.Util              (HasLens (..), HasLens', leftToPanic)
+import           Pos.Binary.Class (biSize)
+import           Pos.Block.Base (mkGenesisBlock, mkMainBlock)
+import           Pos.Block.Logic.Internal (MonadBlockApply, applyBlocksUnsafe, normalizeMempool)
+import           Pos.Block.Logic.Util (calcChainQualityM)
+import           Pos.Block.Logic.VAR (verifyBlocksPrefix)
+import           Pos.Block.Slog (HasSlogGState (..), ShouldCallBListener (..))
+import           Pos.Context (HasPrimaryKey, getOurSecretKey, lrcActionOnEpochReason)
+import           Pos.Core (Blockchain (..), EpochIndex, EpochOrSlot (..), HasConfiguration,
+                           HeaderHash, SlotId (..), chainQualityThreshold, epochIndexL, epochSlots,
+                           flattenSlotId, getEpochOrSlot, headerHash)
+import           Pos.Core.Block (BlockHeader, GenesisBlock, MainBlock, MainBlockchain)
+import qualified Pos.Core.Block as BC
+import           Pos.Core.Ssc (SscPayload)
+import           Pos.Core.Txp (TxAux (..), mkTxPayload)
+import           Pos.Core.Update (UpdatePayload (..))
+import           Pos.Crypto (SecretKey)
+import qualified Pos.DB.Block as DB
+import qualified Pos.DB.DB as DB
+import           Pos.Delegation (DelegationVar, DlgPayload (getDlgPayload), ProxySKBlockInfo,
+                                 clearDlgMemPool, getDlgMempool, mkDlgPayload)
+import           Pos.Exception (assertionFailed, reportFatalError)
+import           Pos.Lrc (HasLrcContext, LrcModeFull, lrcSingleShot)
+import qualified Pos.Lrc.DB as LrcDB
+import           Pos.Reporting (reportError)
+import           Pos.Ssc.Base (defaultSscPayload, stripSscPayload)
+import           Pos.Ssc.Logic (sscGetLocalPayload)
+import           Pos.Ssc.Mem (MonadSscMem)
+import           Pos.Ssc.State (sscResetLocal)
+import           Pos.StateLock (Priority (..), StateLock, StateLockMetrics, modifyStateLock)
+import           Pos.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem, clearTxpMemPool,
+                          txGetPayload)
+import           Pos.Txp.Base (emptyTxPayload)
+import           Pos.Update (UpdateContext)
+import           Pos.Update.Configuration (HasUpdateConfiguration)
+import qualified Pos.Update.DB as UDB
+import           Pos.Update.Logic (clearUSMemPool, usCanCreateBlock, usPreparePayload)
+import           Pos.Util (_neHead)
+import           Pos.Util.LogSafe (logInfoS)
+import           Pos.Util.Util (HasLens (..), HasLens', leftToPanic)
 
 -- | A set of constraints necessary to create a block from mempool.
 type MonadCreateBlock ctx m

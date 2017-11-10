@@ -14,35 +14,31 @@ module Pos.Core.Configuration
 
 import           Universum
 
-import           Control.Lens                            (coerced)
-import qualified Data.ByteString                         as BS
-import qualified Data.ByteString.Lazy                    as BSL
-import           Formatting                              (sformat, shown, (%))
-import           System.FilePath                         ((</>))
-import           System.Wlog                             (WithLogger, logInfo)
-import qualified Text.JSON.Canonical                     as Canonical
+import           Control.Lens (coerced)
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
+import           Formatting (sformat, shown, (%))
+import           System.FilePath ((</>))
+import           System.Wlog (WithLogger, logInfo)
+import qualified Text.JSON.Canonical as Canonical
 
-import           Pos.Binary.Class                        (Raw)
-import           Pos.Core.Coin                           (applyCoinPortionDown,
-                                                          coinToInteger)
+import           Pos.Binary.Class (Raw)
+import           Pos.Core.Coin (applyCoinPortionDown, coinToInteger)
 import           Pos.Core.Configuration.BlockVersionData as E
-import           Pos.Core.Configuration.Core             as E
+import           Pos.Core.Configuration.Core as E
 import           Pos.Core.Configuration.GeneratedSecrets as E
-import           Pos.Core.Configuration.GenesisData      as E
-import           Pos.Core.Configuration.GenesisHash      as E
-import           Pos.Core.Configuration.Protocol         as E
-import           Pos.Core.Genesis.Canonical              ()
-import           Pos.Core.Genesis.Generate               (GeneratedGenesisData (..),
-                                                          generateGenesisData)
-import           Pos.Core.Genesis.Helpers                (mkGenesisDelegation)
-import           Pos.Core.Genesis.Types                  (GenesisAvvmBalances (..),
-                                                          GenesisData (..),
-                                                          GenesisInitializer (..),
-                                                          GenesisSpec (..),
-                                                          getGenesisAvvmBalances)
-import           Pos.Core.Types                          (Coin, Timestamp)
-import           Pos.Crypto.Hashing                      (Hash, hashRaw, unsafeHash)
-import           Pos.Util.Util                           (leftToPanic)
+import           Pos.Core.Configuration.GenesisData as E
+import           Pos.Core.Configuration.GenesisHash as E
+import           Pos.Core.Configuration.Protocol as E
+import           Pos.Core.Genesis.Canonical ()
+import           Pos.Core.Genesis.Generate (GeneratedGenesisData (..), generateGenesisData)
+import           Pos.Core.Genesis.Helpers (mkGenesisDelegation)
+import           Pos.Core.Genesis.Types (GenesisAvvmBalances (..), GenesisData (..),
+                                         GenesisInitializer (..), GenesisSpec (..),
+                                         getGenesisAvvmBalances)
+import           Pos.Core.Types (Coin, Timestamp)
+import           Pos.Crypto.Hashing (Hash, hashRaw, unsafeHash)
+import           Pos.Util.Util (leftToPanic)
 
 -- | Coarse catch-all configuration constraint for use by depending modules.
 type HasConfiguration =

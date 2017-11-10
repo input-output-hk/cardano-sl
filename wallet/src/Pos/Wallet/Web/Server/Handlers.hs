@@ -10,18 +10,18 @@ module Pos.Wallet.Web.Server.Handlers
 import           Universum
 
 import           Pos.Wallet.Web.Swagger.Spec (swaggerSpecForWalletApi)
-import           Servant.API                 ((:<|>) ((:<|>)))
-import           Servant.Server              (Handler, Server, ServerT)
-import           Servant.Swagger.UI          (swaggerSchemaUIServer)
-import           Servant.Utils.Enter         ((:~>) (..), enter)
+import           Servant.API ((:<|>) ((:<|>)))
+import           Servant.Server (Handler, Server, ServerT)
+import           Servant.Swagger.UI (swaggerSchemaUIServer)
+import           Servant.Utils.Enter ((:~>) (..), enter)
 
-import           Pos.Update.Configuration    (curSoftwareVersion)
-import           Pos.Wallet.WalletMode       (blockchainSlotDuration)
-import           Pos.Wallet.Web.Account      (GenSeed (RandomSeed))
-import           Pos.Wallet.Web.Api          (WalletApi, WalletSwaggerApi)
-import qualified Pos.Wallet.Web.Methods      as M
-import           Pos.Wallet.Web.Mode         (MonadFullWalletWebMode)
-import           Pos.Wallet.Web.Tracking     (fixingCachedAccModifier)
+import           Pos.Update.Configuration (curSoftwareVersion)
+import           Pos.Wallet.WalletMode (blockchainSlotDuration)
+import           Pos.Wallet.Web.Account (GenSeed (RandomSeed))
+import           Pos.Wallet.Web.Api (WalletApi, WalletSwaggerApi)
+import qualified Pos.Wallet.Web.Methods as M
+import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode)
+import           Pos.Wallet.Web.Tracking (fixingCachedAccModifier)
 
 servantHandlers
     :: MonadFullWalletWebMode ctx m

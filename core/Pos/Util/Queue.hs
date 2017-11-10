@@ -19,7 +19,7 @@ module Pos.Util.Queue
     , dequeue
     ) where
 
-import Universum
+import           Universum
 
 data Q a = Q [a] [a]
 

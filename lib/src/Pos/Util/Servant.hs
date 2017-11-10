@@ -44,29 +44,28 @@ module Pos.Util.Servant
 
 import           Universum
 
-import           Control.Lens            (Iso, iso, makePrisms)
-import           Control.Monad.Catch     (handleAll)
-import           Control.Monad.Except    (ExceptT (..), MonadError (..))
-import           Data.Default            (Default (..))
-import           Data.Reflection         (Reifies (..), reflect)
+import           Control.Lens (Iso, iso, makePrisms)
+import           Control.Monad.Catch (handleAll)
+import           Control.Monad.Except (ExceptT (..), MonadError (..))
+import           Data.Default (Default (..))
+import           Data.Reflection (Reifies (..), reflect)
 import qualified Data.Text.Buildable
-import           Data.Time.Clock.POSIX   (getPOSIXTime)
-import           GHC.TypeLits            (KnownSymbol, symbolVal)
-import           Formatting              (bprint, build, builder, formatToString, sformat,
-                                          shown, stext, string, (%))
-import           Serokell.Util           (listJsonIndent)
-import           Serokell.Util.ANSI      (Color (..))
-import           Servant.API             ((:<|>) (..), (:>), Capture, QueryParam,
-                                          ReflectMethod (..), ReqBody, Verb)
-import           Servant.Server          (Handler (..), HasServer (..), ServantErr (..),
-                                          Server)
+import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Formatting (bprint, build, builder, formatToString, sformat, shown, stext, string,
+                             (%))
+import           GHC.TypeLits (KnownSymbol, symbolVal)
+import           Serokell.Util (listJsonIndent)
+import           Serokell.Util.ANSI (Color (..))
+import           Servant.API ((:<|>) (..), (:>), Capture, QueryParam, ReflectMethod (..), ReqBody,
+                              Verb)
+import           Servant.Server (Handler (..), HasServer (..), ServantErr (..), Server)
 import qualified Servant.Server.Internal as SI
-import           Servant.Swagger         (HasSwagger (toSwagger))
-import           System.Wlog             (LoggerName, LoggerNameBox, usingLoggerName)
+import           Servant.Swagger (HasSwagger (toSwagger))
+import           System.Wlog (LoggerName, LoggerNameBox, usingLoggerName)
 
-import           Pos.Util.LogSafe        (BuildableSafe, SecuredText, buildSafe,
-                                          logInfoSP, secretOnlyF, secretOnlyF2)
-import           Pos.Util.Util           (colorizeDull)
+import           Pos.Util.LogSafe (BuildableSafe, SecuredText, buildSafe, logInfoSP, secretOnlyF,
+                                   secretOnlyF2)
+import           Pos.Util.Util (colorizeDull)
 
 -------------------------------------------------------------------------
 -- Utility functions

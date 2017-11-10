@@ -7,17 +7,16 @@ module Pos.Wallet.Web.Swagger.Spec
 
 import           Universum
 
-import           Control.Lens                         ((?~))
-import           Data.Swagger                         (Swagger, description, info, title,
-                                                       version)
-import           Data.Text.Buildable                  (build)
-import           Data.Version                         (showVersion)
-import qualified Paths_cardano_sl                     as CSL
+import           Control.Lens ((?~))
+import           Data.Swagger (Swagger, description, info, title, version)
+import           Data.Text.Buildable (build)
+import           Data.Version (showVersion)
+import qualified Paths_cardano_sl as CSL
 
-import           Pos.Wallet.Web.Api                   (walletApi)
+import           Pos.Wallet.Web.Api (walletApi)
 import           Pos.Wallet.Web.Swagger.CustomSwagger (toCustomSwagger)
-import           Pos.Wallet.Web.Swagger.Description   ()
-import           Servant.API.ContentTypes             (NoContent (..))
+import           Pos.Wallet.Web.Swagger.Description ()
+import           Servant.API.ContentTypes (NoContent (..))
 
 
 instance Buildable NoContent where

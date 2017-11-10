@@ -10,10 +10,10 @@ module Pos.Ssc.State.Local
 
 import           Universum
 
-import           Pos.Core      (SlotId (..))
-import           Pos.DB        (MonadDBRead)
-import           Pos.Slotting  (MonadSlots (getCurrentSlot))
-import           Pos.Ssc.Mem   (MonadSscMem, askSscMem)
+import           Pos.Core (SlotId (..))
+import           Pos.DB (MonadDBRead)
+import           Pos.Slotting (MonadSlots (getCurrentSlot))
+import           Pos.Ssc.Mem (MonadSscMem, askSscMem)
 import           Pos.Ssc.Types (SscLocalData (..), sscLocal)
 
 -- | Reset local data to empty state.  This function can be used when

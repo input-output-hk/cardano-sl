@@ -6,8 +6,8 @@ module Pos.Util.Undefined () where
 
 import           Universum
 
-import           Data.Binary     (Binary)
-import           Data.Hashable   (Hashable)
+import           Data.Binary (Binary)
+import           Data.Hashable (Hashable)
 import           Test.QuickCheck (Arbitrary (..))
 
 

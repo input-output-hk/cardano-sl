@@ -22,29 +22,26 @@ module Pos.Txp.DB.Stakes
 
 import           Universum
 
-import           Control.Lens                 (at)
+import           Control.Lens (at)
 import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Conduit                 (Source, mapOutput, runConduitRes, (.|))
-import qualified Data.Conduit.List            as CL
-import qualified Data.HashMap.Strict          as HM
+import           Data.Conduit (Source, mapOutput, runConduitRes, (.|))
+import qualified Data.Conduit.List as CL
+import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable
-import qualified Database.RocksDB             as Rocks
-import           Formatting                   (bprint, sformat, (%))
-import           Serokell.Util                (Color (Red), colorize)
-import           System.Wlog                  (WithLogger, logError)
+import qualified Database.RocksDB as Rocks
+import           Formatting (bprint, sformat, (%))
+import           Serokell.Util (Color (Red), colorize)
+import           System.Wlog (WithLogger, logError)
 
-import           Pos.Core                     (Coin, HasConfiguration, StakeholderId,
-                                               StakesMap, coinF, mkCoin, sumCoins,
-                                               unsafeAddCoin, unsafeIntegerToCoin)
-import           Pos.Crypto                   (shortHashF)
-import           Pos.DB                       (DBError (..), DBTag (GStateDB), IterType,
-                                               MonadDB, MonadDBRead, RocksBatchOp (..),
-                                               dbIterSource, dbSerializeValue)
-import           Pos.DB.GState.Common         (gsPutBi)
-import           Pos.DB.GState.Stakes         (StakeIter, ftsStakeKey, ftsSumKey,
-                                               getRealTotalStake)
-import           Pos.Txp.Toil.Types           (GenesisUtxo (..))
-import           Pos.Txp.Toil.Utxo            (utxoToStakes)
+import           Pos.Core (Coin, HasConfiguration, StakeholderId, StakesMap, coinF, mkCoin,
+                           sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Crypto (shortHashF)
+import           Pos.DB (DBError (..), DBTag (GStateDB), IterType, MonadDB, MonadDBRead,
+                         RocksBatchOp (..), dbIterSource, dbSerializeValue)
+import           Pos.DB.GState.Common (gsPutBi)
+import           Pos.DB.GState.Stakes (StakeIter, ftsStakeKey, ftsSumKey, getRealTotalStake)
+import           Pos.Txp.Toil.Types (GenesisUtxo (..))
+import           Pos.Txp.Toil.Utxo (utxoToStakes)
 
 ----------------------------------------------------------------------------
 -- Operations

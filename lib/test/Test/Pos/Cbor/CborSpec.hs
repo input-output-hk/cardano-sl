@@ -14,36 +14,34 @@ module Test.Pos.Cbor.CborSpec
 
 import           Universum
 
-import qualified Data.ByteString                   as BS
-import           Test.Hspec                        (Arg, Expectation, Spec, SpecWith,
-                                                    describe, it, pendingWith, shouldBe)
-import           Test.Hspec.QuickCheck             (modifyMaxSuccess, modifyMaxSize, prop)
+import qualified Data.ByteString as BS
+import           Test.Hspec (Arg, Expectation, Spec, SpecWith, describe, it, pendingWith, shouldBe)
+import           Test.Hspec.QuickCheck (modifyMaxSize, modifyMaxSuccess, prop)
 import           Test.QuickCheck
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import qualified Codec.CBOR.FlatTerm               as CBOR
+import qualified Codec.CBOR.FlatTerm as CBOR
 
-import           Pos.Arbitrary.Block               ()
-import           Pos.Arbitrary.Core                ()
-import           Pos.Arbitrary.Delegation          ()
-import           Pos.Arbitrary.Infra               ()
-import           Pos.Arbitrary.Slotting            ()
-import           Pos.Arbitrary.Ssc                 ()
-import           Pos.Arbitrary.Update              ()
+import           Pos.Arbitrary.Block ()
+import           Pos.Arbitrary.Core ()
+import           Pos.Arbitrary.Delegation ()
+import           Pos.Arbitrary.Infra ()
+import           Pos.Arbitrary.Slotting ()
+import           Pos.Arbitrary.Ssc ()
+import           Pos.Arbitrary.Update ()
 import           Pos.Binary.Class
-import           Pos.Binary.Communication          ()
-import           Pos.Binary.Core.Fee               ()
-import           Pos.Binary.Core.Script            ()
-import           Pos.Binary.Crypto                 ()
-import           Pos.Binary.Ssc                    ()
-import           Pos.Binary.Infra                  ()
-import           Pos.Binary.Relay                  ()
-import           Pos.Core.Types                    (ScriptVersion)
-import           Pos.Data.Attributes               (Attributes (..), decodeAttributes,
-                                                    encodeAttributes)
+import           Pos.Binary.Communication ()
+import           Pos.Binary.Core.Fee ()
+import           Pos.Binary.Core.Script ()
+import           Pos.Binary.Crypto ()
+import           Pos.Binary.Infra ()
+import           Pos.Binary.Relay ()
+import           Pos.Binary.Ssc ()
+import           Pos.Core.Types (ScriptVersion)
+import           Pos.Data.Attributes (Attributes (..), decodeAttributes, encodeAttributes)
 import qualified Test.Pos.Cbor.ReferenceImplementation as R
-import           Test.Pos.Helpers                  (binaryTest)
-import           Test.Pos.Util                     (withDefConfiguration)
+import           Test.Pos.Helpers (binaryTest)
+import           Test.Pos.Util (withDefConfiguration)
 
 data User
     = Login { login :: String

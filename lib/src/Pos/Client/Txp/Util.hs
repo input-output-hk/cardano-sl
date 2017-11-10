@@ -39,42 +39,37 @@ module Pos.Client.Txp.Util
 
 import           Universum
 
-import           Control.Lens             (makeLenses, (%=), (.=))
-import           Control.Monad.Except     (ExceptT, MonadError (throwError), runExceptT)
-import           Data.Default             (Default (..))
-import           Data.Fixed               (Fixed, HasResolution)
-import qualified Data.HashSet             as HS
-import           Data.List                (tail)
-import qualified Data.List.NonEmpty       as NE
-import qualified Data.Map                 as M
-import qualified Data.Semigroup           as S
+import           Control.Lens (makeLenses, (%=), (.=))
+import           Control.Monad.Except (ExceptT, MonadError (throwError), runExceptT)
+import           Data.Default (Default (..))
+import           Data.Fixed (Fixed, HasResolution)
+import qualified Data.HashSet as HS
+import           Data.List (tail)
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Map as M
+import qualified Data.Semigroup as S
 import qualified Data.Text.Buildable
-import qualified Data.Vector              as V
-import           Formatting               (bprint, build, sformat, stext, (%))
-import           Serokell.Util            (listJson)
+import qualified Data.Vector as V
+import           Formatting (bprint, build, sformat, stext, (%))
+import           Serokell.Util (listJson)
 
-import           Pos.Binary               (biSize)
+import           Pos.Binary (biSize)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Core                 (TxFeePolicy (..), TxSizeLinear (..),
-                                           bvdTxFeePolicy, calculateTxSizeLinear,
-                                           coinToInteger, integerToCoin, isRedeemAddress,
-                                           txSizeLinearMinValue, unsafeAddCoin,
-                                           unsafeIntegerToCoin, unsafeSubCoin)
-import           Pos.Core.Configuration   (HasConfiguration)
-import           Pos.Crypto               (RedeemSecretKey, SafeSigner,
-                                           SignTag (SignRedeemTx, SignTx),
-                                           deterministicKeyGen, fakeSigner, hash,
-                                           redeemSign, redeemToPublic, safeSign,
-                                           safeToPublic)
-import           Pos.Data.Attributes      (mkAttributes)
-import           Pos.DB                   (MonadGState, gsAdoptedBVData)
-import           Pos.Script               (Script)
-import           Pos.Script.Examples      (multisigRedeemer, multisigValidator)
-import           Pos.Txp                  (Tx (..), TxAux (..), TxFee (..), TxIn (..),
-                                           TxInWitness (..), TxOut (..), TxOutAux (..),
-                                           TxSigData (..), Utxo)
-import           Pos.Types                (Address, Coin, StakeholderId, mkCoin, sumCoins)
-import           Pos.Util.LogSafe         (SecureLog, buildUnsecure)
+import           Pos.Core (TxFeePolicy (..), TxSizeLinear (..), bvdTxFeePolicy,
+                           calculateTxSizeLinear, coinToInteger, integerToCoin, isRedeemAddress,
+                           txSizeLinearMinValue, unsafeAddCoin, unsafeIntegerToCoin, unsafeSubCoin)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Crypto (RedeemSecretKey, SafeSigner, SignTag (SignRedeemTx, SignTx),
+                             deterministicKeyGen, fakeSigner, hash, redeemSign, redeemToPublic,
+                             safeSign, safeToPublic)
+import           Pos.Data.Attributes (mkAttributes)
+import           Pos.DB (MonadGState, gsAdoptedBVData)
+import           Pos.Script (Script)
+import           Pos.Script.Examples (multisigRedeemer, multisigValidator)
+import           Pos.Txp (Tx (..), TxAux (..), TxFee (..), TxIn (..), TxInWitness (..), TxOut (..),
+                          TxOutAux (..), TxSigData (..), Utxo)
+import           Pos.Types (Address, Coin, StakeholderId, mkCoin, sumCoins)
+import           Pos.Util.LogSafe (SecureLog, buildUnsecure)
 
 type TxInputs = NonEmpty TxIn
 type TxOwnedInputs owner = NonEmpty (owner, TxIn)

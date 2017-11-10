@@ -31,25 +31,24 @@ module Pos.Communication.Protocol
 
 import           Universum
 
-import qualified Data.HashMap.Strict              as HM
-import qualified Data.List.NonEmpty               as NE
-import qualified Data.Text.Buildable              as B
-import           Formatting                       (bprint, build, sformat, (%))
-import           Mockable                         (Delay, Fork, Mockable, Mockables,
-                                                   SharedAtomic, Throw, throw)
-import qualified Node                             as N
-import           Node.Message.Class               (Message (..), MessageCode, messageCode)
-import           Serokell.Util.Text               (listJson)
-import           System.Wlog                      (WithLogger, logWarning)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Text.Buildable as B
+import           Formatting (bprint, build, sformat, (%))
+import           Mockable (Delay, Fork, Mockable, Mockables, SharedAtomic, Throw, throw)
+import qualified Node as N
+import           Node.Message.Class (Message (..), MessageCode, messageCode)
+import           Serokell.Util.Text (listJson)
+import           System.Wlog (WithLogger, logWarning)
 
 import           Pos.Communication.Types.Protocol
-import           Pos.Core.Configuration           (HasConfiguration)
-import           Pos.Core.Types                   (SlotId)
-import           Pos.Recovery.Info                (MonadRecoveryInfo)
-import           Pos.Reporting                    (MonadReporting)
-import           Pos.Shutdown                     (HasShutdownContext)
-import           Pos.Slotting                     (MonadSlots)
-import           Pos.Slotting.Util                (onNewSlot)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Types (SlotId)
+import           Pos.Recovery.Info (MonadRecoveryInfo)
+import           Pos.Reporting (MonadReporting)
+import           Pos.Shutdown (HasShutdownContext)
+import           Pos.Slotting (MonadSlots)
+import           Pos.Slotting.Util (onNewSlot)
 
 mapListener
     :: (forall t. m t -> m t) -> Listener m -> Listener m

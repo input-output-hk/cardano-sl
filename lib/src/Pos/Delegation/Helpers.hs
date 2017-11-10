@@ -10,16 +10,16 @@ module Pos.Delegation.Helpers
 
 import           Universum
 
-import           Control.Lens              ((%=))
-import           Control.Monad.Except      (MonadError (throwError))
-import qualified Data.HashMap.Strict       as HM
-import           Data.List                 (partition)
+import           Control.Lens ((%=))
+import           Control.Monad.Except (MonadError (throwError))
+import qualified Data.HashMap.Strict as HM
+import           Data.List (partition)
 
-import           Pos.Block.Core.Main.Lens  (mainBlockDlgPayload)
-import           Pos.Block.Core.Main.Types (MainBlock)
-import           Pos.Core                  (EpochIndex)
-import           Pos.Crypto                (ProxySecretKey (..), isSelfSignedPsk)
-import           Pos.Delegation.Types      (DlgMemPool, DlgPayload (getDlgPayload))
+import           Pos.Core (EpochIndex)
+import           Pos.Core.Block.Main.Lens (mainBlockDlgPayload)
+import           Pos.Core.Block.Main.Types (MainBlock)
+import           Pos.Crypto (ProxySecretKey (..), isSelfSignedPsk)
+import           Pos.Delegation.Types (DlgMemPool, DlgPayload (getDlgPayload))
 
 -- | Verify delegation payload without using GState. This function can
 -- be used for block verification in isolation, also it can be used

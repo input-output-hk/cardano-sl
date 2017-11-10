@@ -8,7 +8,7 @@ module Pos.Wallet.Web.Sockets.Types
 import           Universum
 
 import qualified Network.WebSockets as WS
-import           Pos.Types          (ChainDifficulty)
+import           Pos.Types (ChainDifficulty)
 
 -- | Shortcut for websocket connection
 type WSConnection = WS.Connection

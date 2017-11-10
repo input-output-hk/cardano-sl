@@ -18,16 +18,15 @@ module Pos.Util.TimeLimit
        , waitRandomInterval
        ) where
 
-import           Universum         hiding (bracket, finally)
+import           Universum hiding (bracket, finally)
 
-import           Data.Time.Units   (Microsecond, Second, convertUnit)
-import           Formatting        (sformat, shown, stext, (%))
-import           Mockable          (Async, Bracket, Delay, Mockable, delay, race,
-                                    withAsyncWithUnmask)
-import           System.Wlog       (WithLogger, logWarning)
+import           Data.Time.Units (Microsecond, Second, convertUnit)
+import           Formatting (sformat, shown, stext, (%))
+import           Mockable (Async, Bracket, Delay, Mockable, delay, race, withAsyncWithUnmask)
+import           System.Wlog (WithLogger, logWarning)
 
 import           Pos.Crypto.Random (randomNumber)
-import           Pos.Util.LogSafe  (logWarningS)
+import           Pos.Util.LogSafe (logWarningS)
 
 -- | Data type to represent waiting strategy for printing warnings
 -- if action take too much time.

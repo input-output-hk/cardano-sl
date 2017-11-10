@@ -19,23 +19,21 @@ module Pos.GState.BlockExtra
 import           Universum
 
 import qualified Data.Text.Buildable
-import qualified Database.RocksDB     as Rocks
-import           Formatting           (bprint, build, (%))
-import           Serokell.Util.Text   (listJson)
+import qualified Database.RocksDB as Rocks
+import           Formatting (bprint, build, (%))
+import           Serokell.Util.Text (listJson)
 
-import           Pos.Binary.Class     (serialize')
-import           Pos.Block.Core       (Block, BlockHeader)
+import           Pos.Binary.Class (serialize')
 import           Pos.Block.Slog.Types (LastBlkSlots, noLastBlkSlots)
-import           Pos.Core             (FlatSlotId, HasConfiguration, HasHeaderHash,
-                                       HeaderHash, genesisHash, headerHash, slotIdF,
-                                       unflattenSlotId)
-import           Pos.Crypto           (shortHashF)
-import           Pos.DB               (DBError (..), MonadDB, MonadDBRead,
-                                       RocksBatchOp (..), dbSerializeValue)
-import           Pos.DB.Block         (MonadBlockDB, blkGetBlock, blkGetHeader)
+import           Pos.Core (FlatSlotId, HasConfiguration, HasHeaderHash, HeaderHash, genesisHash,
+                           headerHash, slotIdF, unflattenSlotId)
+import           Pos.Core.Block (Block, BlockHeader)
+import           Pos.Crypto (shortHashF)
+import           Pos.DB (DBError (..), MonadDB, MonadDBRead, RocksBatchOp (..), dbSerializeValue)
+import           Pos.DB.Block (MonadBlockDB, blkGetBlock, blkGetHeader)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi)
-import           Pos.Util.Chrono      (OldestFirst (..))
-import           Pos.Util.Util        (maybeThrow)
+import           Pos.Util.Chrono (OldestFirst (..))
+import           Pos.Util.Util (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Getters

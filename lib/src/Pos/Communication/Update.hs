@@ -9,14 +9,13 @@ module Pos.Communication.Update
 
 import           Universum
 
-import           Pos.Binary                 ()
-import           Pos.Communication.Methods  (sendUpdateProposal, sendVote)
+import           Pos.Binary ()
+import           Pos.Communication.Methods (sendUpdateProposal, sendVote)
 import           Pos.Communication.Protocol (EnqueueMsg)
-import           Pos.Crypto                 (SafeSigner, SignTag (SignUSVote), hash,
-                                             safeSign, safeToPublic)
-import           Pos.DB.Class               (MonadGState)
-import           Pos.Update                 (UpId, UpdateProposal, UpdateVote (..))
-import           Pos.WorkMode.Class         (MinWorkMode)
+import           Pos.Crypto (SafeSigner, SignTag (SignUSVote), hash, safeSign, safeToPublic)
+import           Pos.DB.Class (MonadGState)
+import           Pos.Update (UpId, UpdateProposal, UpdateVote (..))
+import           Pos.WorkMode.Class (MinWorkMode)
 
 -- | Send UpdateVote to given addresses
 submitVote

@@ -22,32 +22,27 @@ module Pos.Wallet.Web.Methods.Misc
 
 import           Universum
 
-import           Data.Aeson                   (encode)
-import           Data.Aeson.TH                (defaultOptions, deriveJSON)
+import           Data.Aeson (encode)
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
 import qualified Data.Text.Buildable
-import           Mockable                     (MonadMockable)
-import           Pos.Core                     (SoftwareVersion (..))
-import           Pos.Update.Configuration     (HasUpdateConfiguration, curSoftwareVersion)
-import           Pos.Util                     (maybeThrow)
-import           Servant.API.ContentTypes     (MimeRender (..), NoContent (..),
-                                               OctetStream)
+import           Mockable (MonadMockable)
+import           Pos.Core (SoftwareVersion (..))
+import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion)
+import           Pos.Util (maybeThrow)
+import           Servant.API.ContentTypes (MimeRender (..), NoContent (..), OctetStream)
 
-import           Pos.Client.KeyStorage        (MonadKeys, deleteSecretKey, getSecretKeys)
-import           Pos.NtpCheck                 (NtpCheckMonad, NtpStatus (..),
-                                               mkNtpStatusVar)
+import           Pos.Client.KeyStorage (MonadKeys, deleteSecretKey, getSecretKeys)
+import           Pos.NtpCheck (NtpCheckMonad, NtpStatus (..), mkNtpStatusVar)
 import           Pos.Wallet.Aeson.ClientTypes ()
-import           Pos.Wallet.Aeson.Storage     ()
-import           Pos.Wallet.WalletMode        (MonadBlockchainInfo, MonadUpdates,
-                                               applyLastUpdate, connectedPeers,
-                                               localChainDifficulty,
-                                               networkChainDifficulty)
-import           Pos.Wallet.Web.ClientTypes   (Addr, CId, CProfile (..), CUpdateInfo (..),
-                                               SyncProgress (..), cIdToAddress)
-import           Pos.Wallet.Web.Error         (WalletError (..))
-import           Pos.Wallet.Web.State         (MonadWalletDB, MonadWalletDBRead,
-                                               getNextUpdate, getProfile,
-                                               getWalletStorage, removeNextUpdate,
-                                               setProfile, testReset)
+import           Pos.Wallet.Aeson.Storage ()
+import           Pos.Wallet.WalletMode (MonadBlockchainInfo, MonadUpdates, applyLastUpdate,
+                                        connectedPeers, localChainDifficulty,
+                                        networkChainDifficulty)
+import           Pos.Wallet.Web.ClientTypes (Addr, CId, CProfile (..), CUpdateInfo (..),
+                                             SyncProgress (..), cIdToAddress)
+import           Pos.Wallet.Web.Error (WalletError (..))
+import           Pos.Wallet.Web.State (MonadWalletDB, MonadWalletDBRead, getNextUpdate, getProfile,
+                                       getWalletStorage, removeNextUpdate, setProfile, testReset)
 import           Pos.Wallet.Web.State.Storage (WalletStorage)
 
 ----------------------------------------------------------------------------

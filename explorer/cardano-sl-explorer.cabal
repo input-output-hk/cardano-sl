@@ -13,27 +13,33 @@ extra-source-files:  README.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:      Pos.Explorer.Core
+  exposed-modules:      Pos.Explorer.ExplorerMode
+
+                        Pos.Explorer.Core
                         Pos.Explorer.DB
                         Pos.Explorer.ExtraContext
                         Pos.Explorer.Socket
                         Pos.Explorer.Socket.App
                         Pos.Explorer.Socket.Methods
                         Pos.Explorer.Socket.Util
+
                         Pos.Explorer.Txp
+
                         Pos.Explorer.Web
                         Pos.Explorer.Web.Api
                         Pos.Explorer.Web.ClientTypes
                         Pos.Explorer.Web.Error
                         Pos.Explorer.Web.TestServer
                         Pos.Explorer.Web.Server
+                        Pos.Explorer.Web.Transform
+
+                        Pos.Explorer.TestUtil
 
                         -- Needed for testing
                         Pos.Arbitrary.Explorer
 
   other-modules:        Pos.Explorer.Aeson.ClientTypes
                         Pos.Explorer.Socket.Holder
-                        Pos.Explorer.Web.Transform
 
                         Pos.Binary.Explorer
                         Pos.Explorer.Core.Types
@@ -57,6 +63,7 @@ library
                       , either
                       , ether >= 0.5.1
                       , exceptions
+                      , data-default
                       , formatting
                       , generic-arbitrary
                       , lens
@@ -75,6 +82,8 @@ library
                       , transformers
                       , universum
                       , unordered-containers
+                      , QuickCheck
+                      , generic-arbitrary
                       , vector
 
                       -- cardano sl
@@ -84,6 +93,7 @@ library
                       , cardano-sl-txp
                       , cardano-sl-db
                       , cardano-sl-ssc
+                      , cardano-sl-txp
                       , cardano-sl-update
 
                       -- mtl ++
@@ -347,8 +357,11 @@ test-suite cardano-explorer-test
                      , base
                      , bytestring
                      , cardano-sl-explorer
+                     , cardano-sl-update
                      , cardano-sl-core
                      , cardano-sl-txp
+                     , cardano-sl-ssc
+                     , cardano-sl-db
                      , cardano-sl
                      , cborg
                      , cereal
@@ -391,6 +404,68 @@ test-suite cardano-explorer-test
                        -rtsopts
                        -Wall
                        -fno-warn-orphans
+
+  -- linker speed up for linux
+  if os(linux)
+    ghc-options:       -optl-fuse-ld=gold
+    ld-options:        -fuse-ld=gold
+
+  default-extensions:   DeriveDataTypeable
+                        DeriveGeneric
+                        GeneralizedNewtypeDeriving
+                        StandaloneDeriving
+                        FlexibleContexts
+                        FlexibleInstances
+                        MultiParamTypeClasses
+                        FunctionalDependencies
+                        DefaultSignatures
+                        NoImplicitPrelude
+                        OverloadedStrings
+                        RecordWildCards
+                        TypeApplications
+                        TupleSections
+                        ViewPatterns
+                        LambdaCase
+                        MultiWayIf
+                        ConstraintKinds
+                        UndecidableInstances
+                        BangPatterns
+                        TemplateHaskell
+                        ScopedTypeVariables
+
+  build-tools: cpphs >= 1.19
+  ghc-options: -pgmP cpphs -optP --cpp
+
+benchmark cardano-explorer-bench
+  hs-source-dirs:      bench
+  main-is:             Main.hs
+  other-modules:       Bench.Pos.Explorer.ServerBench
+  type:                exitcode-stdio-1.0
+  build-depends:       QuickCheck
+                     , base
+                     , binary
+                     , bytestring
+                     , cardano-sl-explorer
+                     , cardano-sl-core
+                     , cardano-sl-txp
+                     , cardano-sl
+                     , containers
+                     , criterion
+                     , cryptonite
+                     , data-default
+                     , formatting
+                     , lens
+                     , log-warper
+                     , serokell-util >= 0.1.3.4
+                     , text-format
+                     , universum >= 0.1.11
+                     , vector
+                     , weigh
+  default-language:    Haskell2010
+  ghc-options:         -threaded -rtsopts
+                       -Wall
+                       -fno-warn-orphans
+                       -O2
 
   -- linker speed up for linux
   if os(linux)

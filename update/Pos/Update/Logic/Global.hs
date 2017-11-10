@@ -22,14 +22,16 @@ import qualified Pos.DB.Class as DB
 import           Pos.Exception (reportFatalError)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Reporting (MonadReporting)
-import           Pos.Slotting (MonadSlotsData, SlottingData, slottingVar)
+import           Pos.Slotting (MonadSlotsData, slottingVar)
+import           Pos.Slotting.Types (SlottingData)
 import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
 import           Pos.Update.DB (UpdateOp (..))
-import           Pos.Update.Poll (BlockVersionState, ConfirmedProposalState, MonadPoll,
-                                  PollModifier (..), PollVerFailure, ProposalState, USUndo,
-                                  canCreateBlockBV, execPollT, execRollT, processGenesisBlock,
-                                  recordBlockIssuance, reportUnexpectedError, rollbackUS, runDBPoll,
-                                  runPollT, verifyAndApplyUSPayload)
+import           Pos.Update.Poll (MonadPoll, PollModifier (..), PollVerFailure, canCreateBlockBV,
+                                  execPollT, execRollT, processGenesisBlock, recordBlockIssuance,
+                                  reportUnexpectedError, rollbackUS, runDBPoll, runPollT,
+                                  verifyAndApplyUSPayload)
+import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState, ProposalState,
+                                        USUndo)
 import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 import qualified Pos.Util.Modifier as MM
 import           Pos.Util.Util (inAssertMode)

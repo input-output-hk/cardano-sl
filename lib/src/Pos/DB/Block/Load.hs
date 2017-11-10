@@ -21,16 +21,18 @@ import           Control.Lens (_Wrapped)
 import           Formatting (sformat, (%))
 
 import           Pos.Binary.Core.Block ()
+import           Pos.Block.Types (Blund)
 import           Pos.Core (BlockCount, HasConfiguration, HasDifficulty (difficultyL),
                            HasPrevBlock (prevBlockL), HeaderHash)
-import           Pos.Core.Block (Blund)
 import           Pos.Core.Block (Block, BlockHeader)
 import qualified Pos.Core.Block as CB
 import           Pos.Core.Configuration (genesisHash)
 import           Pos.Crypto (shortHashF)
-import           Pos.DB.Class (MonadDBRead, dbGetBlock, dbGetBlund)
+import           Pos.DB.Block (getBlund)
+import           Pos.DB.BlockIndex (getHeader)
+import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead, getBlock)
 import           Pos.DB.Error (DBError (..))
-import           Pos.DB.GState.Common (getHeader, getTip)
+import           Pos.DB.GState.Common (getTip)
 import           Pos.Util.Chrono (NewestFirst (..))
 import           Pos.Util.Util (maybeThrow)
 
@@ -113,7 +115,7 @@ loadBlundsByDepth = loadDataByDepth getBlundThrow (const True)
 -- | Load blocks starting from block with header hash equal to given hash
 -- and while @predicate@ is true.
 loadBlocksWhile
-    :: MonadDBRead m
+    :: MonadBlockDBRead m
     => (Block -> Bool) -> HeaderHash -> m (NewestFirst [] Block)
 loadBlocksWhile = loadDataWhile getBlockThrow
 
@@ -164,10 +166,10 @@ loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
 ----------------------------------------------------------------------------
 
 getBlockThrow
-    :: MonadDBRead m
+    :: MonadBlockDBRead m
     => HeaderHash -> m Block
 getBlockThrow hash =
-    maybeThrow (DBMalformed $ sformat errFmt hash) =<< dbGetBlock hash
+    maybeThrow (DBMalformed $ sformat errFmt hash) =<< getBlock hash
   where
     errFmt = "getBlockThrow: no block with HeaderHash: "%shortHashF
 
@@ -178,3 +180,11 @@ getHeaderThrow hash =
     maybeThrow (DBMalformed $ sformat errFmt hash) =<< getHeader hash
   where
     errFmt = "getBlockThrow: no block header with hash: "%shortHashF
+
+getBlundThrow
+    :: MonadDBRead m
+    => HeaderHash -> m Blund
+getBlundThrow hash =
+    maybeThrow (DBMalformed $ sformat errFmt hash) =<< getBlund hash
+  where
+    errFmt = "getBlundThrow: no blund with HeaderHash: "%shortHashF

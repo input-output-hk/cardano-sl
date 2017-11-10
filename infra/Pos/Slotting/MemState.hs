@@ -22,10 +22,11 @@ import           Universum
 import           Control.Monad.STM (retry)
 
 import           Pos.Core.Types (EpochIndex, Timestamp)
-import           Pos.Slotting.Types (EpochSlottingData, SlottingData, getAllEpochIndices,
-                                     getCurrentEpochIndex, getCurrentEpochSlottingData,
-                                     getNextEpochIndex, getNextEpochSlottingData,
-                                     insertEpochSlottingDataUnsafe, lookupEpochSlottingData)
+import           Pos.Slotting.Types (getAllEpochIndices, getCurrentEpochIndex,
+                                     getCurrentEpochSlottingData, getNextEpochIndex,
+                                     getNextEpochSlottingData, insertEpochSlottingDataUnsafe,
+                                     lookupEpochSlottingData)
+import           Pos.Slotting.Types (EpochSlottingData, SlottingData)
 
 ----------------------------------------------------------------------------
 -- Context

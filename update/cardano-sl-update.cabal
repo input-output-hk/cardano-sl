@@ -19,8 +19,8 @@ library
                        Pos.Arbitrary.Update
                        -- Binary
                        Pos.Binary.Update
-                       Pos.Binary.Update.Poll
                        Pos.Binary.Update.Relay
+                       Pos.Binary.Update.Poll
                        -- Aeson
                        Pos.Aeson.Update
 
@@ -44,10 +44,10 @@ library
                        -- Poll
                        Pos.Update.Poll
                        Pos.Update.Poll.Class
-                       Pos.Update.Poll.Types
                        Pos.Update.Poll.Modifier
                        Pos.Update.Poll.PollState
                        Pos.Update.Poll.Trans
+                       Pos.Update.Poll.Types
                        Pos.Update.Poll.RollTrans
                        Pos.Update.Poll.Failure
                        Pos.Update.Poll.Pure

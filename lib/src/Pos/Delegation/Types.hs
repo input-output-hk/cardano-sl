@@ -1,25 +1,23 @@
 -- | Delegation-related local types.
 
 module Pos.Delegation.Types
-       ( DlgPayload (..)
-       , mkDlgPayload
-       , ProxySKLightConfirmation
-       , DlgUndo (..)
+       ( ProxySKLightConfirmation
        , DlgMemPool
        , ProxySKBlockInfo
+       , DlgUndo (..)
+       , module Pos.Core.Delegation
        ) where
 
 import           Universum
 
-import qualified Data.Text.Buildable
+import qualified Data.Text.Buildable as Buildable
 import           Formatting (bprint, (%))
-import           Serokell.Util (listJson)
+import           Serokell.Util.Text (listJson)
 
 import           Pos.Binary.Core ()
 import           Pos.Core (ProxySKHeavy, ProxySKLight, ProxySigLight, StakeholderId)
 import           Pos.Core.Delegation (DlgPayload (..), mkDlgPayload)
 import           Pos.Crypto (PublicKey)
-
 
 -- | Undo for the delegation component.
 data DlgUndo = DlgUndo

@@ -6,6 +6,7 @@ module Pos.DB.GState.Common
        (
          -- * Getters
          getTip
+       , getTipSomething
        , getMaxSeenDifficulty
        , getMaxSeenDifficultyMaybe
 
@@ -28,7 +29,7 @@ import           Universum
 
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB as Rocks
-import           Formatting (bprint, int, (%))
+import           Formatting (bprint, int, sformat, stext, (%))
 
 import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core.Blockchain ()
@@ -70,6 +71,16 @@ writeBatchGState = dbWriteBatch' GStateDB
 -- | Get current tip from GState DB.
 getTip :: MonadDBRead m => m HeaderHash
 getTip = maybeThrow (DBMalformed "no tip in GState DB") =<< getTipMaybe
+
+getTipSomething
+    :: forall m smth.
+       MonadDBRead m
+    => Text -> (HeaderHash -> m (Maybe smth)) -> m smth
+getTipSomething smthDescription smthGetter =
+    maybe onFailure pure =<< smthGetter =<< getTip
+  where
+    fmt = "there is no "%stext%" corresponding to tip"
+    onFailure = throwM $ DBMalformed $ sformat fmt smthDescription
 
 -- | Get maximum seen chain difficulty (used to prevent improper rollbacks).
 getMaxSeenDifficulty :: MonadDBRead m => m ChainDifficulty

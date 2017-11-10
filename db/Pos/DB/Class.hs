@@ -39,6 +39,8 @@ module Pos.DB.Class
        , DBIteratorClass (..)
        , IterType
        , MonadDBRead (..)
+       , MonadBlockDBRead
+       , getBlock
        , MonadDB (..)
 
          -- * GState
@@ -61,9 +63,11 @@ import           Data.Conduit (Source)
 import qualified Database.RocksDB as Rocks
 import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Class (Bi, decodeFull)
+import           Pos.Binary.Core.Blockchain ()
 import           Pos.Core (Block, BlockVersionData (..), EpochIndex, HasConfiguration, HeaderHash,
                            isBootstrapEra)
+import           Pos.Core.Block (BlockchainHelpers, MainBlockchain)
 
 ----------------------------------------------------------------------------
 -- Pure
@@ -100,10 +104,10 @@ class (HasConfiguration, MonadBaseControl IO m, MonadThrow m) => MonadDBRead m w
         ) => DBTag -> Proxy i -> Source (ResourceT m) (IterType i)
 
     -- | Get block by header hash
-    dbGetBlockRaw :: HeaderHash -> m (Maybe ByteString)
+    dbGetRawBlock :: HeaderHash -> m (Maybe ByteString)
 
     -- | Get undo by header hash
-    dbGetUndoRaw :: HeaderHash -> m (Maybe ByteString)
+    dbGetRawUndo :: HeaderHash -> m (Maybe ByteString)
 
 instance {-# OVERLAPPABLE #-}
     (MonadDBRead m, MonadTrans t, MonadThrow (t m), MonadBaseControl IO (t m)) =>
@@ -112,8 +116,16 @@ instance {-# OVERLAPPABLE #-}
     dbGet tag = lift . dbGet tag
     dbIterSource tag (p :: Proxy i) =
         hoist (hoist lift) (dbIterSource tag p)
-    dbGetBlockRaw = lift . dbGetBlockRaw
-    dbGetUndoRaw = lift . dbGetUndoRaw
+    dbGetRawBlock = lift . dbGetRawBlock
+    dbGetRawUndo = lift . dbGetRawUndo
+
+
+type MonadBlockDBRead m = (MonadDBRead m, BlockchainHelpers MainBlockchain)
+
+getBlock :: MonadBlockDBRead m => HeaderHash -> m (Maybe Block)
+getBlock x = do
+    mBS <- dbGetRawBlock x
+    pure $ rightToMaybe . decodeFull =<< mBS
 
 -- | Pure interface to the database. Combines read-only interface and
 -- ability to put raw bytes.
@@ -142,7 +154,7 @@ class MonadDBRead m => MonadDB m where
     dbDelete :: DBTag -> ByteString -> m ()
 
     -- | Put given blund into the Block DB.
-    dbPutBlund :: (Block, ByteString) -> m ()
+    dbPutRawBlund :: (Block, ByteString) -> m ()
 
 instance {-# OVERLAPPABLE #-}
     (MonadDB m, MonadTrans t, MonadThrow (t m), MonadBaseControl IO (t m)) =>
@@ -151,7 +163,7 @@ instance {-# OVERLAPPABLE #-}
     dbPut = lift ... dbPut
     dbWriteBatch = lift ... dbWriteBatch
     dbDelete = lift ... dbDelete
-    dbPutBlund = lift ... dbPutBlund
+    dbPutRawBlund = lift ... dbPutRawBlund
 
 ----------------------------------------------------------------------------
 -- GState abstraction

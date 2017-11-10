@@ -44,8 +44,6 @@ import           Pos.Crypto (ProxySecretKey (..), PublicKey, SignTag (SignProxyS
                              verifyPsk)
 import           Pos.DB (MonadDB, MonadDBRead, MonadGState, MonadRealDB)
 import qualified Pos.DB as DB
-import           Pos.DB.Block (MonadBlockDB)
-import qualified Pos.DB.DB as DB
 import qualified Pos.DB.Misc as Misc
 import           Pos.Delegation.Cede (CedeModifier (..), CheckForCycle (..), dlgVerifyPskHeavy,
                                       evalMapCede, pskToDlgEdgeAction)
@@ -130,7 +128,6 @@ type ProcessHeavyConstraint ctx m =
        ( MonadIO m
        , MonadMask m
        , MonadDBRead m
-       , MonadBlockDB m
        , MonadGState m
        , MonadDelegation ctx m
        , MonadReader ctx m

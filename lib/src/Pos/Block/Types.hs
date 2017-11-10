@@ -5,6 +5,7 @@ module Pos.Block.Types
        ( SlogUndo (..)
        , Undo (..)
        , Blund
+       , RawBlund
        ) where
 
 import           Universum
@@ -33,6 +34,8 @@ instance NFData Undo
 -- | Block and its Undo.
 type Blund = (Block, Undo)
 
+type RawBlund = (Block, ByteString)
+
 instance HasConfiguration => Buildable Undo where
     build Undo{..} =
         bprint ("Undo:\n"%
@@ -47,3 +50,4 @@ instance HasDifficulty Blund where
 
 instance HasHeaderHash Block => HasHeaderHash Blund where
     headerHash = headerHash . fst
+

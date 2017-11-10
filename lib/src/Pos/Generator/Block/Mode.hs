@@ -32,19 +32,18 @@ import           System.Wlog (WithLogger, logWarning)
 
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogGState (..))
-import           Pos.Block.Types (Undo)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (Address, GenesisWStakeholders (..), HasConfiguration, HasPrimaryKey (..),
-                           IsHeader, SlotId (..), Timestamp, epochOrSlotToSlot, getEpochOrSlot,
+                           SlotId (..), Timestamp, epochOrSlotToSlot, getEpochOrSlot,
                            largestPubKeyAddressBoot)
-import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Crypto (SecretKey)
-import           Pos.DB (DBSum, MonadBlockDBGeneric (..), MonadBlockDBGenericWrite (..), MonadDB,
-                         MonadDBRead)
+import           Pos.DB (DBSum, MonadDB, MonadDBRead)
 import qualified Pos.DB as DB
-import qualified Pos.DB.Block as BDB
-import           Pos.DB.DB (getTipHeader, gsAdoptedBVDataDefault)
+import           Pos.DB.Block (dbGetRawBlockSumDefault, dbGetRawUndoSumDefault,
+                               dbPutRawBlundSumDefault)
+import qualified Pos.DB.Block as DB
+import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.Delegation (DelegationVar, mkDelegationVar)
 import           Pos.Exception (reportFatalError)
 import           Pos.Generator.Block.Param (BlockGenParams (..), HasBlockGenParams (..),
@@ -55,14 +54,15 @@ import           Pos.KnownPeers (MonadFormatPeers)
 import           Pos.Lrc (HasLrcContext, LrcContext (..))
 import           Pos.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Reporting (HasReportingContext (..), ReportingContext, emptyReportingContext)
-import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData, SlottingData,
+import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData,
                                currentTimeSlottingSimple)
-import           Pos.Ssc (HasSscConfiguration, SscBlock, SscMemTag, SscState, mkSscState)
+import           Pos.Slotting.Types (SlottingData)
+import           Pos.Ssc (HasSscConfiguration, SscMemTag, SscState, mkSscState)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, TxpGlobalSettings, TxpHolderTag,
                           mkTxpLocalData)
 import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Update.Context (UpdateContext, mkUpdateContext)
-import           Pos.Util (HasLens (..), Some, newInitFuture, postfixLFields)
+import           Pos.Util (HasLens (..), newInitFuture, postfixLFields)
 
 -- Remove this once there's no #ifdef-ed Pos.Txp import
 {-# ANN module ("HLint: ignore Use fewer imports" :: Text) #-}
@@ -185,7 +185,7 @@ mkBlockGenContext bgcParams@BlockGenParams{..} = do
                 (bgcGState ^. GS.gscLrcContext)
                 initSlot
     usingReaderT initCtx $ do
-        tipEOS <- getEpochOrSlot <$> getTipHeader
+        tipEOS <- getEpochOrSlot <$> DB.getTipHeader
         putInitSlot (epochOrSlotToSlot tipEOS)
         bgcSscState <- mkSscState
         bgcUpdateContext <- mkUpdateContext
@@ -220,18 +220,14 @@ instance HasSlottingVar InitBlockGenContext where
 instance MonadBlockGenBase m => MonadDBRead (InitBlockGenMode ext m) where
     dbGet = DB.dbGetSumDefault
     dbIterSource = DB.dbIterSourceSumDefault
+    dbGetRawBlock = dbGetRawBlockSumDefault
+    dbGetRawUndo = dbGetRawUndoSumDefault
 
 instance MonadBlockGenBase m => MonadDB (InitBlockGenMode ext m) where
     dbPut = DB.dbPutSumDefault
     dbWriteBatch = DB.dbWriteBatchSumDefault
     dbDelete = DB.dbDeleteSumDefault
-
-instance (HasSscConfiguration, MonadBlockGenBase m) =>
-    MonadBlockDBGeneric BlockHeader Block Undo (InitBlockGenMode ext m)
-  where
-    dbGetBlock = BDB.dbGetBlockSumDefault
-    dbGetUndo = BDB.dbGetUndoSumDefault
-    dbGetHeader = BDB.dbGetHeaderSumDefault
+    dbPutRawBlund = dbPutRawBlundSumDefault
 
 instance (MonadBlockGenBase m, MonadSlotsData ctx (InitBlockGenMode ext m))
       => MonadSlots ctx (InitBlockGenMode ext m)
@@ -305,29 +301,14 @@ instance HasNodeType (BlockGenContext ext) where
 instance MonadBlockGenBase m => MonadDBRead (BlockGenMode ext m) where
     dbGet = DB.dbGetSumDefault
     dbIterSource = DB.dbIterSourceSumDefault
+    dbGetRawBlock = DB.dbGetRawBlockSumDefault
+    dbGetRawUndo = DB.dbGetRawUndoSumDefault
 
 instance MonadBlockGenBase m => MonadDB (BlockGenMode ext m) where
     dbPut = DB.dbPutSumDefault
     dbWriteBatch = DB.dbWriteBatchSumDefault
     dbDelete = DB.dbDeleteSumDefault
-
-instance (HasSscConfiguration, MonadBlockGenBase m) =>
-    MonadBlockDBGeneric BlockHeader Block Undo (BlockGenMode ext m)
-  where
-    dbGetBlock = BDB.dbGetBlockSumDefault
-    dbGetUndo = BDB.dbGetUndoSumDefault
-    dbGetHeader = BDB.dbGetHeaderSumDefault
-
-instance (HasSscConfiguration, MonadBlockGenBase m) =>
-    MonadBlockDBGeneric (Some IsHeader) SscBlock () (BlockGenMode ext m)
-  where
-    dbGetBlock = BDB.dbGetBlockSscSumDefault
-    dbGetUndo = BDB.dbGetUndoSscSumDefault
-    dbGetHeader = BDB.dbGetHeaderSscSumDefault
-
-instance (HasSscConfiguration, MonadBlockGenBase m) =>
-         MonadBlockDBGenericWrite BlockHeader Block Undo (BlockGenMode ext m) where
-    dbPutBlund = BDB.dbPutBlundSumDefault
+    dbPutRawBlund = DB.dbPutRawBlundSumDefault
 
 instance (MonadBlockGenBase m, MonadSlotsData ctx (BlockGenMode ext m))
       => MonadSlots ctx (BlockGenMode ext m)

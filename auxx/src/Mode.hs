@@ -10,6 +10,7 @@ module Mode
        -- * Mode, context, etc.
        , AuxxContext (..)
        , AuxxMode
+       , MonadAuxxMode
 
        -- * Helpers
        , getCmdCtx
@@ -24,9 +25,10 @@ import           Universum
 import           Control.Lens (lens, makeLensesWith)
 import           Control.Monad.Morph (hoist)
 import           Control.Monad.Reader (withReaderT)
-import           Data.Default (def)
-import           Mockable (Production)
-import           System.Wlog (HasLoggerName (..))
+import           Crypto.Random (MonadRandom)
+import           Data.Default (def, Default)
+import           Mockable (Production, MonadMockable, Promise)
+import           System.Wlog (HasLoggerName (..), CanLog)
 
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
@@ -79,6 +81,43 @@ data CmdCtx = CmdCtx
     }
 
 type AuxxMode = ReaderT AuxxContext Production
+type MonadAuxxMode m =
+    ( HasConfigurations
+    , MonadReader AuxxContext m
+    , MonadMockable m
+    , MonadSlots AuxxContext m
+    , HasLoggerName m
+    , CanJsonLog m
+    , MonadDBRead m
+    , MonadDB m
+    , MonadBlockDBGenericWrite BlockHeader Block Undo m
+    , MonadBlockDBGeneric BlockHeader Block Undo m
+    , MonadBlockDBGeneric (Some IsHeader) SscBlock () m
+    , MonadGState m
+    , MonadBListener m
+    , MonadBalances m
+    , MonadTxHistory m
+    , MonadKnownPeers m
+    , MonadFormatPeers m
+    , MonadAddresses m
+    , MonadKeysRead m
+    , MonadKeys m
+    , MonadTxpLocal m
+    , MonadTxpLocal (BlockGenMode EmptyMempoolExt m)
+    , MonadMask m
+    , CanLog m
+    , AddrDataIsPublicKey m
+    , Eq (Promise m (Maybe ())) -- what?
+    , MonadRandom m
+    , Default (MempoolExt m)
+    , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
+    , MonadFail m
+    )
+
+-- For MonadAuxxMode we need to make sure that AddrData m in MonadAdresses
+-- is indeed PublicKey, as it is for AuxxMode.
+class (AddrData m ~ PublicKey) => AddrDataIsPublicKey m
+instance AddrDataIsPublicKey AuxxMode
 
 data AuxxContext = AuxxContext
     { acRealModeContext :: !(RealModeContext EmptyMempoolExt)
@@ -93,7 +132,7 @@ makeLensesWith postfixLFields ''AuxxContext
 ----------------------------------------------------------------------------
 
 -- | Get 'CmdCtx' in 'AuxxMode'.
-getCmdCtx :: AuxxMode CmdCtx
+getCmdCtx :: MonadAuxxMode m => m CmdCtx
 getCmdCtx = view acCmdCtx_L
 
 isTempDbUsed :: AuxxMode Bool
@@ -230,7 +269,7 @@ instance MonadKnownPeers AuxxMode where
 instance MonadFormatPeers AuxxMode where
     formatKnownPeers = OQ.Reader.formatKnownPeersReader (rmcOutboundQ . acRealModeContext)
 
-instance (HasConfiguration, HasInfraConfiguration) =>
+instance (HasConfigurations, HasCompileInfo) =>
          MonadAddresses AuxxMode where
     type AddrData AuxxMode = PublicKey
     getNewAddress = makePubKeyAddressAuxx
@@ -262,9 +301,9 @@ instance (HasConfigurations) =>
 -- choose suitable stake distribution. We want to pick it based on
 -- whether we are currently in bootstrap era.
 makePubKeyAddressAuxx ::
-       (HasConfiguration, HasInfraConfiguration)
+       MonadAuxxMode m
     => PublicKey
-    -> AuxxMode Address
+    -> m Address
 makePubKeyAddressAuxx pk = do
     epochIndex <- siEpoch <$> getCurrentSlotInaccurate
     ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra epochIndex
@@ -272,9 +311,9 @@ makePubKeyAddressAuxx pk = do
 
 -- | Similar to @makePubKeyAddressAuxx@ but create HD address.
 deriveHDAddressAuxx ::
-       (HasConfiguration, HasInfraConfiguration)
+       MonadAuxxMode m
     => EncryptedSecretKey
-    -> AuxxMode Address
+    -> m Address
 deriveHDAddressAuxx hdwSk = do
     epochIndex <- siEpoch <$> getCurrentSlotInaccurate
     ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra epochIndex

@@ -5,6 +5,7 @@
 
 module Plugin
        ( auxxPlugin
+       , rawExec
        ) where
 
 import           Universum
@@ -13,6 +14,7 @@ import           Universum
 import           System.Exit (ExitCode (ExitSuccess))
 import           System.Posix.Process (exitImmediately)
 #endif
+import           Data.Constraint (Dict(..))
 import           Formatting (float, int, sformat, stext, (%))
 import           Mockable (delay)
 import           Node.Conversation (ConversationActions (..))
@@ -46,30 +48,41 @@ import           Repl (WithCommandAction (..))
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 auxxPlugin ::
-       (HasConfigurations, HasCompileInfo)
-    => AuxxOptions
+       HasCompileInfo
+    => Dict HasConfigurations
+    -> AuxxOptions
     -> Either (WithCommandAction AuxxMode) Text
     -> (WorkerSpec AuxxMode, OutSpecs)
-auxxPlugin AuxxOptions{..} = \case
-    Left WithCommandAction{..} -> worker' runCmdOuts $ \sendActions -> do
+auxxPlugin hasConfigurations@Dict auxxOptions repl = worker' runCmdOuts $ \sendActions ->
+    rawExec (Just hasConfigurations) (Just Dict) auxxOptions (Just sendActions) repl
+  where
+    worker' specs w = worker specs $ \sa -> do
+        logInfo $ sformat ("Length of genesis utxo: " %int)
+                          (length $ unGenesisUtxo genesisUtxo)
+        w (addLogging sa)
+
+rawExec ::
+       (HasCompileInfo, Monad m)
+    => Maybe (Dict HasConfigurations)
+    -> Maybe (Dict MonadAuxxMode)
+    -> AuxxOptions
+    -> Maybe (SendActions m)
+    -> Either (WithCommandAction m) Text
+    -> m ()
+rawExec mHasConfigurations mHasAuxxMode AuxxOptions{..} mSendActions = \case
+    Left WithCommandAction{..} -> do
         printAction <- getPrintAction
-        let commandProcs = createCommandProcs printAction sendActions
+        let commandProcs = rights $ createCommandProcs mHasConfigurations mHasAuxxMode printAction mSendActions
         printAction "... the auxx plugin is ready"
         forever $ withCommand $ \line -> do
             expr <- eitherToThrow $ Lang.parse line
             value <- eitherToThrow =<< Lang.evaluate commandProcs expr
             withValueText printAction value
-    Right cmd -> worker' runCmdOuts $ runWalletCmd cmd
-  where
-    worker' specs w =
-        worker specs $ \sa -> do
-            logInfo $ sformat ("Length of genesis utxo: " %int)
-                              (length $ unGenesisUtxo genesisUtxo)
-            w (addLogging sa)
+    Right cmd -> runWalletCmd mHasConfigurations cmd mSendActions
 
-runWalletCmd :: (HasConfigurations, HasCompileInfo) => Text -> Worker AuxxMode
-runWalletCmd line sendActions = do
-    let commandProcs = createCommandProcs printAction sendActions
+runWalletCmd :: HasCompileInfo => Maybe (Dict HasConfigurations) -> Text -> Maybe (SendActions AuxxMode) -> AuxxMode ()
+runWalletCmd mHasConfigurations line mSendActions = do
+    let commandProcs = rights $ createCommandProcs mHasConfigurations printAction mSendActions
     expr <- eitherToThrow $ Lang.parse line
     value <- eitherToThrow =<< Lang.evaluate commandProcs expr
     withValueText printAction value

@@ -54,7 +54,7 @@ withTypeName (TypeNameEither tn1 tn2) needWrap =
     t' = withTypeName tn1 DontNeedWrap <> " | " <>
          withTypeName tn2 DontNeedWrap
 
-mkHelpMessage :: [CommandProc m] -> Text
+mkHelpMessage :: [Either Text (CommandProc m)] -> Text
 mkHelpMessage cps =
     "Available commands:\n\n" <>
-    mconcat (map (\cp -> commandHelp cp <> "\n\n") cps)
+    mconcat (map (\cp -> either identity commandHelp cp <> "\n\n") cps)

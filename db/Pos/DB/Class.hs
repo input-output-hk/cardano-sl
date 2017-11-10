@@ -49,11 +49,6 @@ module Pos.DB.Class
        , gsMaxProposalSize
        , gsUnlockStakeEpoch
        , gsIsBootstrapEra
-
-         -- * Block DB
-       , MonadBlockDBGeneric (..)
-       , dbGetBlund
-       , MonadBlockDBGenericWrite (..)
        ) where
 
 import           Universum
@@ -67,7 +62,7 @@ import qualified Database.RocksDB as Rocks
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class (Bi)
-import           Pos.Core (BlockVersionData (..), EpochIndex, HasConfiguration, HeaderHash,
+import           Pos.Core (Block, BlockVersionData (..), EpochIndex, HasConfiguration, HeaderHash,
                            isBootstrapEra)
 
 ----------------------------------------------------------------------------
@@ -104,6 +99,12 @@ class (HasConfiguration, MonadBaseControl IO m, MonadThrow m) => MonadDBRead m w
         , Bi (IterValue i)
         ) => DBTag -> Proxy i -> Source (ResourceT m) (IterType i)
 
+    -- | Get block by header hash
+    dbGetBlockRaw :: HeaderHash -> m (Maybe ByteString)
+
+    -- | Get undo by header hash
+    dbGetUndoRaw :: HeaderHash -> m (Maybe ByteString)
+
 instance {-# OVERLAPPABLE #-}
     (MonadDBRead m, MonadTrans t, MonadThrow (t m), MonadBaseControl IO (t m)) =>
         MonadDBRead (t m)
@@ -111,6 +112,8 @@ instance {-# OVERLAPPABLE #-}
     dbGet tag = lift . dbGet tag
     dbIterSource tag (p :: Proxy i) =
         hoist (hoist lift) (dbIterSource tag p)
+    dbGetBlockRaw = lift . dbGetBlockRaw
+    dbGetUndoRaw = lift . dbGetUndoRaw
 
 -- | Pure interface to the database. Combines read-only interface and
 -- ability to put raw bytes.
@@ -138,6 +141,8 @@ class MonadDBRead m => MonadDB m where
     -- with given key from DB corresponding to given tag.
     dbDelete :: DBTag -> ByteString -> m ()
 
+    -- | Put given blund into the Block DB.
+    dbPutBlund :: (Block, ByteString) -> m ()
 
 instance {-# OVERLAPPABLE #-}
     (MonadDB m, MonadTrans t, MonadThrow (t m), MonadBaseControl IO (t m)) =>
@@ -146,6 +151,7 @@ instance {-# OVERLAPPABLE #-}
     dbPut = lift ... dbPut
     dbWriteBatch = lift ... dbWriteBatch
     dbDelete = lift ... dbDelete
+    dbPutBlund = lift ... dbPutBlund
 
 ----------------------------------------------------------------------------
 -- GState abstraction
@@ -190,55 +196,3 @@ gsIsBootstrapEra :: MonadGState m => EpochIndex -> m Bool
 gsIsBootstrapEra epoch = do
     unlockStakeEpoch <- gsUnlockStakeEpoch
     pure $ isBootstrapEra unlockStakeEpoch epoch
-
-----------------------------------------------------------------------------
--- Block DB abstraction
-----------------------------------------------------------------------------
-
--- | Monad which provides read-only access to the Block DB. It's
--- generic in a way that it allows to specify different types of
--- block|header|undo. Read rationale behind this type in the
--- documentation of this module.
-class MonadDBRead m =>
-      MonadBlockDBGeneric header blk undo m | blk -> header, blk -> undo where
-    dbGetHeader :: HeaderHash -> m (Maybe header)
-    dbGetBlock :: HeaderHash -> m (Maybe blk)
-    dbGetUndo :: HeaderHash -> m (Maybe undo)
-
-instance {-# OVERLAPPABLE #-}
-    (MonadBlockDBGeneric header blk undo m, MonadTrans t,
-     MonadDBRead (t m)) =>
-        MonadBlockDBGeneric header blk undo (t m)
-  where
-    dbGetHeader = lift . dbGetHeader @header @blk @undo
-    dbGetBlock = lift . dbGetBlock @header @blk @undo
-    dbGetUndo = lift . dbGetUndo @header @blk @undo
-
--- | Convenient wrapper which combines 'dbGetBlock' and 'dbGetUndo' to
--- read 'Blund'.
-dbGetBlund ::
-       forall header blk undo m. MonadBlockDBGeneric header blk undo m
-    => HeaderHash
-    -> m $ Maybe (blk, undo)
-dbGetBlund x =
-    runMaybeT $
-    (,) <$> MaybeT (dbGetBlock @header @blk @undo x) <*>
-    MaybeT (dbGetUndo @header @blk @undo x)
-
--- | Superclass of 'MonadBlockDB' which allows to modify the Block
--- DB.
---
--- TODO: support deletion when we actually start using deletion
--- (probably not soon).
-class MonadBlockDBGeneric header blk undo m => MonadBlockDBGenericWrite header blk undo m where
-    -- | Put given blund into the Block DB.
-    dbPutBlund :: (blk,undo) -> m ()
-
-instance {-# OVERLAPPABLE #-}
-    ( MonadBlockDBGenericWrite header blk undo m
-    , MonadBlockDBGeneric header blk undo (t m)
-    , MonadTrans t
-    ) =>
-        MonadBlockDBGenericWrite header blk undo (t m)
-  where
-    dbPutBlund = lift . dbPutBlund

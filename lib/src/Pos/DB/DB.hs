@@ -6,15 +6,7 @@
 
 module Pos.DB.DB
        ( initNodeDBs
-
-       , getTip
-       , getTipBlock
-       , getTipHeader
-       , loadBlundsFromTipWhile
-       , loadBlundsFromTipByDepth
-
        , sanityCheckDB
-
        , gsAdoptedBVDataDefault
        ) where
 
@@ -56,20 +48,6 @@ initNodeDBs = do
     prepareLrcDB
     prepareMiscDB
 
--- | Load blunds from BlockDB starting from tip and while the @condition@ is
--- true.
-loadBlundsFromTipWhile
-    :: (MonadBlockDB m)
-    => (Block -> Bool) -> m (NewestFirst [] Blund)
-loadBlundsFromTipWhile condition = getTip >>= loadBlundsWhile condition
-
--- | Load blunds from BlockDB starting from tip which have depth less than
--- given.
-loadBlundsFromTipByDepth
-    :: (MonadBlockDB m)
-    => BlockCount -> m (NewestFirst [] Blund)
-loadBlundsFromTipByDepth d = getTip >>= loadBlundsByDepth d
-
 sanityCheckDB ::
        ( MonadMask m
        , WithLogger m
@@ -78,18 +56,6 @@ sanityCheckDB ::
        )
     => m ()
 sanityCheckDB = inAssertMode sanityCheckGStateDB
-
--- | Specialized version of 'getTipBlockGeneric'.
-getTipBlock ::
-       (MonadBlockDB m)
-    => m Block
-getTipBlock = getTipBlockGeneric @Block
-
--- | Specialized version of 'getTipHeaderGeneric'.
-getTipHeader ::
-       (MonadBlockDB m)
-    => m BlockHeader
-getTipHeader = getTipHeaderGeneric @Block
 
 ----------------------------------------------------------------------------
 -- MonadGState instance

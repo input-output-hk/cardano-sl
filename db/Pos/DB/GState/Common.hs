@@ -8,8 +8,6 @@ module Pos.DB.GState.Common
          getTip
        , getMaxSeenDifficulty
        , getMaxSeenDifficultyMaybe
-       , getTipBlockGeneric
-       , getTipHeaderGeneric
 
          -- * Initialization
        , isInitialized
@@ -30,17 +28,17 @@ import           Universum
 
 import qualified Data.Text.Buildable
 import qualified Database.RocksDB as Rocks
-import           Formatting (bprint, int, sformat, stext, (%))
+import           Formatting (bprint, int, (%))
 
 import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Core.Blockchain ()
 import           Pos.Binary.Core.Types ()
 import           Pos.Binary.Crypto ()
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Core.Types (ChainDifficulty, HeaderHash)
 import           Pos.Crypto (shortHashF)
 import           Pos.DB.BatchOp (RocksBatchOp (..), dbWriteBatch')
-import           Pos.DB.Class (DBTag (GStateDB), MonadBlockDBGeneric (dbGetBlock, dbGetHeader),
-                               MonadDB (dbDelete), MonadDBRead)
+import           Pos.DB.Class (DBTag (GStateDB), MonadDB (dbDelete), MonadDBRead (..))
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.DB.Functions (dbGetBi, dbPutBi, dbSerializeValue)
 import           Pos.Util.Util (maybeThrow)
@@ -78,30 +76,6 @@ getMaxSeenDifficulty :: MonadDBRead m => m ChainDifficulty
 getMaxSeenDifficulty =
     maybeThrow (DBMalformed "no max chain difficulty in GState DB") =<<
     getMaxSeenDifficultyMaybe
-
--- | Get 'Block' corresponding to tip.
-getTipBlockGeneric
-    :: forall block header undo m.
-       MonadBlockDBGeneric header block undo m
-    => m block
-getTipBlockGeneric = getTipSomething "block" (dbGetBlock @_ @block)
-
--- | Get 'BlockHeader' corresponding to tip.
-getTipHeaderGeneric
-    :: forall block header undo m.
-       MonadBlockDBGeneric header block undo m
-    => m header
-getTipHeaderGeneric = getTipSomething "header" (dbGetHeader @_ @block)
-
-getTipSomething
-    :: forall m smth.
-       MonadDBRead m
-    => Text -> (HeaderHash -> m (Maybe smth)) -> m smth
-getTipSomething smthDescription smthGetter =
-    maybe onFailure pure =<< smthGetter =<< getTip
-  where
-    fmt = "there is no "%stext%" corresponding to tip"
-    onFailure = throwM $ DBMalformed $ sformat fmt smthDescription
 
 ----------------------------------------------------------------------------
 -- Common operations

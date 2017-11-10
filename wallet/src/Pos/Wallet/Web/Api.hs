@@ -111,8 +111,9 @@ instance ReportDecodeError (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) 
     reportDecodeError _ err = throwM (DecodeError err) ^. from serverHandlerL'
 
 instance ( HasServer (Verb mt st ct $ ApiModifiedRes WalletVerbTag a) ctx
-         , Reifies config ApiLoggingConfig
+         , HasServer (WalletVerb (Verb mt st ct a)) ctx
          , ReflectMethod mt
+         , Reifies config ApiLoggingConfig
          , Buildable (WithTruncatedLog a)
          ) =>
          HasLoggingServer config (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) ctx where

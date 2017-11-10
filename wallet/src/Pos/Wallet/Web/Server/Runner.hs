@@ -21,7 +21,6 @@ import           Ether.Internal (HasLens (..))
 import           Mockable (Production, runProduction)
 import           Network.Wai (Application)
 import           Servant.Server (Handler)
-import           Servant.Utils.Enter ((:~>) (..))
 import           System.Wlog (logInfo)
 
 import           Pos.Communication (ActionSpec (..), OutSpecs)
@@ -75,13 +74,10 @@ walletServeWebFull sendActions debug = walletServeImpl action
         saVar <- asks wwmcSendActions
         atomically $ STM.putTMVar saVar sendActions
         when debug $ addInitialRichAccount 0
-        walletApplication $
-            walletServer @WalletWebModeContext @WalletWebMode nat
 
-nat :: WalletWebMode (WalletWebMode :~> Handler)
-nat = do
-    wwmc <- view (lensOf @WalletWebModeContextTag)
-    pure $ NT (convertHandler wwmc)
+        wwmc <- view (lensOf @WalletWebModeContextTag)
+        walletApplication $
+            walletServer @WalletWebModeContext @WalletWebMode (convertHandler wwmc)
 
 convertHandler
     :: WalletWebModeContext

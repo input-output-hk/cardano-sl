@@ -104,6 +104,15 @@ type IdTestingRequiredClassesAlmost a = (Eq a, Show a, Arbitrary a, Typeable a)
 
 type IdTestingRequiredClasses f a = (Eq a, Show a, Arbitrary a, Typeable a, f a)
 
+identityTestSpec
+  :: forall a. (IdTestingRequiredClassesAlmost a)
+  => (forall b. IdTestingRequiredClassesAlmost b => Spec)
+  -> Spec
+identityTestSpec s = describe (typeName @a) (s @a)
+  where
+    typeName :: forall x. Typeable x => String
+    typeName = show $ typeRep (Proxy @a)
+
 identityTest :: forall a. (IdTestingRequiredClassesAlmost a) => (a -> Property) -> Spec
 identityTest fun = prop (typeName @a) fun
   where
@@ -112,9 +121,10 @@ identityTest fun = prop (typeName @a) fun
 
 binaryTest :: forall a. IdTestingRequiredClasses Bi a => Spec
 binaryTest =
-    identityTest @a $ \x -> binaryEncodeDecode x
-                       .&&. cborFlatTermValid x
-                       .&&. cborCanonicalRep x
+    identityTestSpec @a $ do
+      prop "binary encode and decode are inverses" $ binaryEncodeDecode @a
+      prop "performs flat encoding" $ cborFlatTermValid @a
+      prop "has cbor canonical representation" $ cborCanonicalRep @a
 
 safeCopyTest :: forall a. IdTestingRequiredClasses SafeCopy a => Spec
 safeCopyTest = identityTest @a safeCopyEncodeDecode

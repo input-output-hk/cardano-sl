@@ -12,24 +12,23 @@ module Pos.Client.CLI.Util
 
 import           Universum
 
-import           Control.Lens           (zoom, (?=))
-import qualified Data.ByteString.Lazy   as BSL
-import           Formatting             (sformat, shown, (%))
-import           System.Wlog            (LoggerConfig (..), Severity (Info, Warning),
-                                         WithLogger, fromScratch, lcTree, logInfo,
-                                         ltSeverity, parseLoggerConfig, zoomLogger)
-import           Text.Parsec            (try)
-import qualified Text.Parsec.Char       as P
-import qualified Text.Parsec.Text       as P
+import           Control.Lens (zoom, (?=))
+import qualified Data.ByteString.Lazy as BSL
+import           Formatting (sformat, shown, (%))
+import           System.Wlog (LoggerConfig (..), Severity (Info, Warning), WithLogger, fromScratch,
+                              lcTree, logInfo, ltSeverity, parseLoggerConfig, zoomLogger)
+import           Text.Parsec (try)
+import qualified Text.Parsec.Char as P
+import qualified Text.Parsec.Text as P
 
-import           Pos.Binary.Core        ()
-import           Pos.Core               (StakeholderId)
-import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson,
-                                         genesisData, prettyGenesisJson)
-import           Pos.Crypto             (decodeAbstractHash)
-import           Pos.Security.Params    (AttackTarget (..), AttackType (..))
-import           Pos.Util               (eitherToFail, inAssertMode)
-import           Pos.Util.TimeWarp      (addrParser)
+import           Pos.Binary.Core ()
+import           Pos.Core (StakeholderId)
+import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson, genesisData,
+                                         prettyGenesisJson)
+import           Pos.Crypto (decodeAbstractHash)
+import           Pos.Security.Params (AttackTarget (..), AttackType (..))
+import           Pos.Util (eitherToFail, inAssertMode)
+import           Pos.Util.TimeWarp (addrParser)
 
 printFlags :: WithLogger m => m ()
 printFlags = do

@@ -21,24 +21,23 @@ module Pos.Explorer.ExtraContext
 
 import           Universum
 
-import qualified Data.Vector     as V
+import qualified Data.Vector as V
 import qualified Ether
 
-import           Data.Default    (Default (..), def)
+import           Data.Default (Default (..), def)
 import           Pos.Block.Types (Blund)
-import           Pos.Core.Block  (Block)
-import           Pos.DB.Block    (MonadBlockDB, blkGetBlund)
-import           Pos.DB.Class    (MonadDBRead)
-import           Pos.DB.DB       (getTipBlock)
+import           Pos.Core.Block (Block)
+import           Pos.DB.Block (MonadBlockDB, blkGetBlund)
+import           Pos.DB.Class (MonadDBRead)
+import           Pos.DB.DB (getTipBlock)
 
 import           Pos.Explorer.DB (Page, getPageBlocks)
 
-import           Pos.Core        (Address, Coin, HasConfiguration, isRedeemAddress)
-import           Pos.Lrc         (getLeadersForEpoch)
-import           Pos.Slotting    (MonadSlotsData, getSlotStart)
-import           Pos.Txp         (GenesisUtxo (..), genesisUtxo, utxoToAddressCoinPairs)
-import           Pos.Types       (EpochIndex, HeaderHash, SlotId (..), SlotLeaders,
-                                  Timestamp)
+import           Pos.Core (Address, Coin, HasConfiguration, isRedeemAddress)
+import           Pos.Lrc (getLeadersForEpoch)
+import           Pos.Slotting (MonadSlotsData, getSlotStart)
+import           Pos.Txp (GenesisUtxo (..), genesisUtxo, utxoToAddressCoinPairs)
+import           Pos.Types (EpochIndex, HeaderHash, SlotId (..), SlotLeaders, Timestamp)
 
 
 -------------------------------------------------------------------------------------

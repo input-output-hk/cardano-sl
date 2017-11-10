@@ -5,17 +5,16 @@ module Lang.Name
        , unsafeMkName
        ) where
 
-import           Prelude                           (Show (..))
+import           Prelude (Show (..))
 import           Universum
 
-import           Data.Char                         (isAlpha)
-import           Data.Coerce                       (coerce)
-import qualified Data.List.NonEmpty                as NonEmpty
-import           Data.List.Split                   (splitWhen)
-import qualified Data.Text.Buildable               as Buildable
-import           Test.QuickCheck.Arbitrary.Generic (Arbitrary (..), genericArbitrary,
-                                                    genericShrink)
-import           Test.QuickCheck.Gen               (suchThat)
+import           Data.Char (isAlpha)
+import           Data.Coerce (coerce)
+import qualified Data.List.NonEmpty as NonEmpty
+import           Data.List.Split (splitWhen)
+import qualified Data.Text.Buildable as Buildable
+import           Test.QuickCheck.Arbitrary.Generic (Arbitrary (..), genericArbitrary, genericShrink)
+import           Test.QuickCheck.Gen (suchThat)
 
 -- | Invariant: @isAlpha . getLetter = const True@
 newtype Letter = Letter { getLetter :: Char }

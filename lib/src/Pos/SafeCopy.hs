@@ -6,60 +6,45 @@ module Pos.SafeCopy
 
 import           Universum
 
-import qualified Cardano.Crypto.Wallet           as CC
+import qualified Cardano.Crypto.Wallet as CC
 import qualified Cardano.Crypto.Wallet.Encrypted as CC
-import qualified Crypto.ECC.Edwards25519         as ED25519
-import qualified Crypto.Sign.Ed25519             as EDS25519
-import           Data.SafeCopy                   (SafeCopy (..), base, contain,
-                                                  deriveSafeCopySimple, safeGet, safePut)
-import qualified Data.Serialize                  as Cereal (Serialize (..), getWord8,
-                                                            putWord8)
-import           Serokell.Data.Memory.Units      (Byte, fromBytes, toBytes)
+import qualified Crypto.ECC.Edwards25519 as ED25519
+import qualified Crypto.Sign.Ed25519 as EDS25519
+import           Data.SafeCopy (SafeCopy (..), base, contain, deriveSafeCopySimple, safeGet,
+                                safePut)
+import qualified Data.Serialize as Cereal (Serialize (..), getWord8, putWord8)
+import           Serokell.Data.Memory.Units (Byte, fromBytes, toBytes)
 
-import           Pos.Binary.Class                (Bi)
-import qualified Pos.Binary.Class                as Bi
+import           Pos.Binary.Class (Bi)
+import qualified Pos.Binary.Class as Bi
 import           Pos.Core.Block
-import           Pos.Core.Fee                    (Coeff (..), TxFeePolicy (..),
-                                                  TxSizeLinear (..))
-import           Pos.Core.Ssc                    (Commitment (..), CommitmentsMap,
-                                                  Opening (..), SscPayload (..),
-                                                  SscProof (..))
-import           Pos.Core.Txp                    (Tx (..), TxIn (..), TxInWitness (..),
-                                                  TxOut (..), TxOutAux (..),
-                                                  TxPayload (..), TxProof (..))
-import           Pos.Core.Types                  (AddrAttributes (..),
-                                                  AddrSpendingData (..),
-                                                  AddrStakeDistribution (..),
-                                                  AddrType (..), Address (..),
-                                                  Address' (..), ApplicationName (..),
-                                                  BlockCount (..), BlockVersion (..),
-                                                  BlockVersionData (..),
-                                                  ChainDifficulty (..), Coin,
-                                                  CoinPortion (..), EpochIndex (..),
-                                                  EpochOrSlot (..), LocalSlotIndex (..),
-                                                  Script (..), SharedSeed (..),
-                                                  SlotCount (..), SlotId (..),
-                                                  SoftforkRule (..), SoftwareVersion (..))
-import           Pos.Core.Update                 (BlockVersionModifier (..),
-                                                  SystemTag (..), UpdateData (..),
-                                                  UpdatePayload (..), UpdateProposal (..),
-                                                  UpdateVote (..))
-import           Pos.Core.Vss                    (VssCertificate (..), VssCertificatesMap)
-import           Pos.Crypto.Hashing              (AbstractHash (..))
-import           Pos.Crypto.HD                   (HDAddressPayload (..))
-import           Pos.Crypto.SecretSharing        (SecretProof)
-import           Pos.Crypto.Signing.Redeem       (RedeemPublicKey (..),
-                                                  RedeemSecretKey (..),
-                                                  RedeemSignature (..))
-import           Pos.Crypto.Signing.Signing      (ProxyCert (..), ProxySecretKey (..),
-                                                  ProxySignature (..), PublicKey (..),
-                                                  SecretKey (..), Signature (..),
-                                                  Signed (..))
-import           Pos.Data.Attributes             (Attributes (..), UnparsedFields)
-import           Pos.Delegation.Types            (DlgPayload (..))
-import           Pos.Merkle                      (MerkleNode (..), MerkleRoot (..),
-                                                  MerkleTree (..))
-import qualified Pos.Util.Modifier               as MM
+import           Pos.Core.Fee (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
+import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), SscPayload (..),
+                               SscProof (..))
+import           Pos.Core.Txp (Tx (..), TxIn (..), TxInWitness (..), TxOut (..), TxOutAux (..),
+                               TxPayload (..), TxProof (..))
+import           Pos.Core.Types (AddrAttributes (..), AddrSpendingData (..),
+                                 AddrStakeDistribution (..), AddrType (..), Address (..),
+                                 Address' (..), ApplicationName (..), BlockCount (..),
+                                 BlockVersion (..), BlockVersionData (..), ChainDifficulty (..),
+                                 Coin, CoinPortion (..), EpochIndex (..), EpochOrSlot (..),
+                                 LocalSlotIndex (..), Script (..), SharedSeed (..), SlotCount (..),
+                                 SlotId (..), SoftforkRule (..), SoftwareVersion (..))
+import           Pos.Core.Update (BlockVersionModifier (..), SystemTag (..), UpdateData (..),
+                                  UpdatePayload (..), UpdateProposal (..), UpdateVote (..))
+import           Pos.Core.Vss (VssCertificate (..), VssCertificatesMap)
+import           Pos.Crypto.Hashing (AbstractHash (..))
+import           Pos.Crypto.HD (HDAddressPayload (..))
+import           Pos.Crypto.SecretSharing (SecretProof)
+import           Pos.Crypto.Signing.Redeem (RedeemPublicKey (..), RedeemSecretKey (..),
+                                            RedeemSignature (..))
+import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..),
+                                             ProxySignature (..), PublicKey (..), SecretKey (..),
+                                             Signature (..), Signed (..))
+import           Pos.Data.Attributes (Attributes (..), UnparsedFields)
+import           Pos.Delegation.Types (DlgPayload (..))
+import           Pos.Merkle (MerkleNode (..), MerkleRoot (..), MerkleTree (..))
+import qualified Pos.Util.Modifier as MM
 
 
 ----------------------------------------------------------------------------
@@ -238,7 +223,7 @@ instance SafeCopy BlockSignature where
         1 -> BlockPSignatureLight <$> safeGet
         2 -> BlockPSignatureHeavy <$> safeGet
         t -> fail $ "getCopy@BlockSignature: couldn't read tag: " <> show t
-    putCopy (BlockSignature sig)       = contain $ Cereal.putWord8 0 >> safePut sig
+    putCopy (BlockSignature sig)            = contain $ Cereal.putWord8 0 >> safePut sig
     putCopy (BlockPSignatureLight proxySig) = contain $ Cereal.putWord8 1 >> safePut proxySig
     putCopy (BlockPSignatureHeavy proxySig) = contain $ Cereal.putWord8 2 >> safePut proxySig
 

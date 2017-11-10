@@ -45,83 +45,64 @@ module Test.Pos.Block.Logic.Mode
 
 import           Universum
 
-import           Control.Lens                   (lens, makeClassy, makeLensesWith)
-import           Data.Default                   (def)
-import qualified Data.Map                       as Map
+import           Control.Lens (lens, makeClassy, makeLensesWith)
+import           Data.Default (def)
+import qualified Data.Map as Map
 import qualified Data.Text.Buildable
-import           Data.Time.Units                (TimeUnit (..))
-import           Ether.Internal                 (HasLens (..))
-import           Formatting                     (bprint, build, formatToString, shown,
-                                                 (%))
-import           Mockable                       (Production, currentTime, runProduction)
+import           Data.Time.Units (TimeUnit (..))
+import           Ether.Internal (HasLens (..))
+import           Formatting (bprint, build, formatToString, shown, (%))
+import           Mockable (Production, currentTime, runProduction)
 import qualified Prelude
-import           System.Wlog                    (HasLoggerName (..), LoggerName)
-import           Test.QuickCheck                (Arbitrary (..), Gen, Property, forAll,
-                                                 ioProperty)
-import           Test.QuickCheck.Monadic        (PropertyM, monadic)
+import           System.Wlog (HasLoggerName (..), LoggerName)
+import           Test.QuickCheck (Arbitrary (..), Gen, Property, forAll, ioProperty)
+import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
-import           Pos.AllSecrets                 (AllSecrets (..), HasAllSecrets (..),
-                                                 mkAllSecretsSimple)
-import           Pos.Block.BListener            (MonadBListener (..), onApplyBlocksStub,
-                                                 onRollbackBlocksStub)
-import           Pos.Block.Slog                 (HasSlogGState (..), mkSlogGState)
-import           Pos.Block.Types                (Undo)
-import           Pos.Configuration              (HasNodeConfiguration)
-import           Pos.Core                       (BlockVersionData, CoreConfiguration (..),
-                                                 GenesisConfiguration (..),
-                                                 GenesisInitializer (..),
-                                                 GenesisSpec (..), HasConfiguration,
-                                                 IsHeader, SlotId, Timestamp (..),
-                                                 genesisSecretKeys, withGenesisSpec)
-import           Pos.Core.Block                 (Block, BlockHeader)
-import           Pos.Core.Configuration         (HasGenesisBlockVersionData,
-                                                 withGenesisBlockVersionData)
-import           Pos.DB                         (DBPure, MonadBlockDBGeneric (..),
-                                                 MonadBlockDBGenericWrite (..),
-                                                 MonadDB (..), MonadDBRead (..),
-                                                 MonadGState (..))
-import qualified Pos.DB                         as DB
-import qualified Pos.DB.Block                   as DB
-import           Pos.DB.DB                      (gsAdoptedBVDataDefault, initNodeDBs)
-import           Pos.DB.Pure                    (DBPureVar, newDBPureVar)
-import           Pos.Delegation                 (DelegationVar, mkDelegationVar)
-import           Pos.Generator.Block            (BlockGenMode)
-import           Pos.Generator.BlockEvent       (SnapshotId)
-import qualified Pos.GState                     as GS
-import           Pos.KnownPeers                 (MonadFormatPeers (..))
-import           Pos.Launcher.Configuration     (Configuration (..), HasConfigurations)
-import           Pos.Lrc                        (LrcContext (..), mkLrcSyncData)
-import           Pos.Network.Types              (HasNodeType (..), NodeType (..))
-import           Pos.Reporting                  (HasReportingContext (..),
-                                                 ReportingContext, emptyReportingContext)
-import           Pos.Slotting                   (HasSlottingVar (..), MonadSlots (..),
-                                                 SimpleSlottingMode, SimpleSlottingVar,
-                                                 SlottingData, currentTimeSlottingSimple,
-                                                 getCurrentSlotBlockingSimple,
-                                                 getCurrentSlotInaccurateSimple,
-                                                 getCurrentSlotSimple,
-                                                 mkSimpleSlottingVar)
-import           Pos.Slotting.MemState          (MonadSlotsData)
-import           Pos.Ssc                        (HasSscConfiguration, SscMemTag, SscState,
-                                                 mkSscState)
-import           Pos.Ssc.Types                  (SscBlock)
-import           Pos.Txp                        (GenericTxpLocalData, MempoolExt,
-                                                 MonadTxpLocal (..), TxpGlobalSettings,
-                                                 TxpHolderTag, mkTxpLocalData,
-                                                 txNormalize, txProcessTransactionNoLock,
-                                                 txpGlobalSettings)
-import           Pos.Update.Context             (UpdateContext, mkUpdateContext)
-import           Pos.Util                       (Some, newInitFuture, postfixLFields,
-                                                 postfixLFields2)
-import           Pos.Util.CompileInfo           (withCompileInfo)
-import           Pos.Util.LoggerName            (HasLoggerName' (..),
-                                                 getLoggerNameDefault,
-                                                 modifyLoggerNameDefault)
-import           Pos.WorkMode                   (EmptyMempoolExt)
+import           Pos.AllSecrets (AllSecrets (..), HasAllSecrets (..), mkAllSecretsSimple)
+import           Pos.Block.BListener (MonadBListener (..), onApplyBlocksStub, onRollbackBlocksStub)
+import           Pos.Block.Slog (HasSlogGState (..), mkSlogGState)
+import           Pos.Block.Types (Undo)
+import           Pos.Configuration (HasNodeConfiguration)
+import           Pos.Core (BlockVersionData, CoreConfiguration (..), GenesisConfiguration (..),
+                           GenesisInitializer (..), GenesisSpec (..), HasConfiguration, IsHeader,
+                           SlotId, Timestamp (..), genesisSecretKeys, withGenesisSpec)
+import           Pos.Core.Block (Block, BlockHeader)
+import           Pos.Core.Configuration (HasGenesisBlockVersionData, withGenesisBlockVersionData)
+import           Pos.DB (DBPure, MonadBlockDBGeneric (..), MonadBlockDBGenericWrite (..),
+                         MonadDB (..), MonadDBRead (..), MonadGState (..))
+import qualified Pos.DB as DB
+import qualified Pos.DB.Block as DB
+import           Pos.DB.DB (gsAdoptedBVDataDefault, initNodeDBs)
+import           Pos.DB.Pure (DBPureVar, newDBPureVar)
+import           Pos.Delegation (DelegationVar, mkDelegationVar)
+import           Pos.Generator.Block (BlockGenMode)
+import           Pos.Generator.BlockEvent (SnapshotId)
+import qualified Pos.GState as GS
+import           Pos.KnownPeers (MonadFormatPeers (..))
+import           Pos.Launcher.Configuration (Configuration (..), HasConfigurations)
+import           Pos.Lrc (LrcContext (..), mkLrcSyncData)
+import           Pos.Network.Types (HasNodeType (..), NodeType (..))
+import           Pos.Reporting (HasReportingContext (..), ReportingContext, emptyReportingContext)
+import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), SimpleSlottingMode,
+                               SimpleSlottingVar, SlottingData, currentTimeSlottingSimple,
+                               getCurrentSlotBlockingSimple, getCurrentSlotInaccurateSimple,
+                               getCurrentSlotSimple, mkSimpleSlottingVar)
+import           Pos.Slotting.MemState (MonadSlotsData)
+import           Pos.Ssc (HasSscConfiguration, SscMemTag, SscState, mkSscState)
+import           Pos.Ssc.Types (SscBlock)
+import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..), TxpGlobalSettings,
+                          TxpHolderTag, mkTxpLocalData, txNormalize, txProcessTransactionNoLock,
+                          txpGlobalSettings)
+import           Pos.Update.Context (UpdateContext, mkUpdateContext)
+import           Pos.Util (Some, newInitFuture, postfixLFields, postfixLFields2)
+import           Pos.Util.CompileInfo (withCompileInfo)
+import           Pos.Util.LoggerName (HasLoggerName' (..), getLoggerNameDefault,
+                                      modifyLoggerNameDefault)
+import           Pos.WorkMode (EmptyMempoolExt)
 
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation, sudoLiftIO)
-import           Test.Pos.Configuration         (defaultTestBlockVersionData,
-                                                 defaultTestConf, defaultTestGenesisSpec)
+import           Test.Pos.Configuration (defaultTestBlockVersionData, defaultTestConf,
+                                         defaultTestGenesisSpec)
 
 ----------------------------------------------------------------------------
 -- Parameters

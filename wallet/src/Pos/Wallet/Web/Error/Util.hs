@@ -10,10 +10,10 @@ module Pos.Wallet.Web.Error.Util
 
 import           Universum
 
-import           Control.Monad.Catch        (Handler (..), catches, tryJust)
-import           Formatting                 (sformat, shown, (%))
-import           Servant.Server             (ServantErr (..), err500)
-import           System.Wlog                (CanLog, logError, usingLoggerName)
+import           Control.Monad.Catch (Handler (..), catches, tryJust)
+import           Formatting (sformat, shown, (%))
+import           Servant.Server (ServantErr (..), err500)
+import           System.Wlog (CanLog, logError, usingLoggerName)
 
 import           Pos.Wallet.Web.Error.Types (WalletError (..), _RequestError)
 

@@ -6,11 +6,11 @@ module Pos.Behavior
 
 import           Universum
 
-import qualified Data.Aeson                  as A
-import           Data.Default                (Default (..))
+import qualified Data.Aeson as A
+import           Data.Default (Default (..))
 
-import           Pos.Security.Params         (SecurityParams)
-import           Pos.Ssc.Behavior            (SscBehavior)
+import           Pos.Security.Params (SecurityParams)
+import           Pos.Ssc.Behavior (SscBehavior)
 
 data BehaviorConfig = BehaviorConfig
     { bcSecurityParams :: !SecurityParams    -- ^ network

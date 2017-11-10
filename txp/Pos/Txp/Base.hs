@@ -11,26 +11,24 @@ module Pos.Txp.Base
 
 import           Universum
 
-import           Control.Lens        (ix)
-import qualified Data.ByteArray      as ByteArray
-import qualified Data.HashSet        as HS
-import           Data.List           (zipWith)
-import qualified Data.Map.Strict     as M
+import           Control.Lens (ix)
+import qualified Data.ByteArray as ByteArray
+import qualified Data.HashSet as HS
+import           Data.List (zipWith)
+import qualified Data.Map.Strict as M
 
-import           Pos.Binary.Core     ()
+import           Pos.Binary.Core ()
 import           Pos.Binary.Core.Txp ()
-import           Pos.Binary.Crypto   ()
-import           Pos.Core            (AddrStakeDistribution (..), Address (..), Coin,
-                                      CoinPortion, GenesisData (..), HasGenesisData,
-                                      StakeholderId, StakesList, aaStakeDistribution,
-                                      addrAttributesUnwrapped, applyCoinPortionDown,
-                                      coinToInteger, genesisData, mkCoin, sumCoins,
-                                      unsafeAddCoin, unsafeGetCoin, unsafeIntegerToCoin)
-import           Pos.Core.Genesis    (GenesisWStakeholders (..))
-import           Pos.Core.Txp        (TxAux (..), TxOut (..), TxOutAux (..),
-                                      TxPayload (..), mkTxPayload)
-import           Pos.Crypto          (hash)
-import           Pos.Crypto.Random   (deterministic, randomNumber)
+import           Pos.Binary.Crypto ()
+import           Pos.Core (AddrStakeDistribution (..), Address (..), Coin, CoinPortion,
+                           GenesisData (..), HasGenesisData, StakeholderId, StakesList,
+                           aaStakeDistribution, addrAttributesUnwrapped, applyCoinPortionDown,
+                           coinToInteger, genesisData, mkCoin, sumCoins, unsafeAddCoin,
+                           unsafeGetCoin, unsafeIntegerToCoin)
+import           Pos.Core.Genesis (GenesisWStakeholders (..))
+import           Pos.Core.Txp (TxAux (..), TxOut (..), TxOutAux (..), TxPayload (..), mkTxPayload)
+import           Pos.Crypto (hash)
+import           Pos.Crypto.Random (deterministic, randomNumber)
 
 -- | A predicate for `TxOutAux` which checks whether given address
 -- belongs to it.

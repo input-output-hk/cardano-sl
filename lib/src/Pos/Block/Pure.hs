@@ -17,28 +17,23 @@ module Pos.Block.Pure
 
 import           Universum
 
-import           Control.Lens               (ix)
-import           Formatting                 (build, int, sformat, (%))
+import           Control.Lens (ix)
+import           Formatting (build, int, sformat, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
-import           Serokell.Util              (VerificationRes (..), verifyGeneric)
+import           Serokell.Util (VerificationRes (..), verifyGeneric)
 
-import qualified Pos.Binary.Class           as Bi
-import           Pos.Binary.Core            ()
-import           Pos.Binary.Update          ()
-import           Pos.Block.BHelpers         ()
-import           Pos.Core                   (BlockVersionData (..), ChainDifficulty,
-                                             EpochOrSlot, HasConfiguration,
-                                             HasDifficulty (..), HasEpochIndex (..),
-                                             HasEpochOrSlot (..), HasHeaderHash (..),
-                                             HeaderHash, SlotId (..), SlotLeaders,
-                                             addressHash, gbExtra, gbhExtra, getSlotIndex,
-                                             headerSlotL, prevBlockL)
-import           Pos.Core.Block             (Block, BlockHeader, gebAttributes,
-                                             gehAttributes, genBlockLeaders,
-                                             getBlockHeader, mainHeaderLeaderKey,
-                                             mebAttributes, mehAttributes)
-import           Pos.Data.Attributes        (areAttributesKnown)
-import           Pos.Util.Chrono            (NewestFirst (..), OldestFirst)
+import qualified Pos.Binary.Class as Bi
+import           Pos.Binary.Core ()
+import           Pos.Binary.Update ()
+import           Pos.Block.BHelpers ()
+import           Pos.Core (BlockVersionData (..), ChainDifficulty, EpochOrSlot, HasConfiguration,
+                           HasDifficulty (..), HasEpochIndex (..), HasEpochOrSlot (..),
+                           HasHeaderHash (..), HeaderHash, SlotId (..), SlotLeaders, addressHash,
+                           gbExtra, gbhExtra, getSlotIndex, headerSlotL, prevBlockL)
+import           Pos.Core.Block (Block, BlockHeader, gebAttributes, gehAttributes, genBlockLeaders,
+                                 getBlockHeader, mainHeaderLeaderKey, mebAttributes, mehAttributes)
+import           Pos.Data.Attributes (areAttributesKnown)
+import           Pos.Util.Chrono (NewestFirst (..), OldestFirst)
 
 ----------------------------------------------------------------------------
 -- Header

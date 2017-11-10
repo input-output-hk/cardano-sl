@@ -7,16 +7,15 @@ module Pos.Core.Block.Union.Instances
 
 import           Universum
 
-import           Control.Lens               (Getter, choosing, to)
-import qualified Data.Text.Buildable        as Buildable
+import           Control.Lens (Getter, choosing, to)
+import qualified Data.Text.Buildable as Buildable
 
-import           Pos.Binary.Class           (Bi)
-import           Pos.Core.Block.Blockchain  (GenericBlock (..))
-import           Pos.Core.Block.Genesis     ()
-import           Pos.Core.Block.Main        ()
+import           Pos.Binary.Class (Bi)
+import           Pos.Core.Block.Blockchain (GenericBlock (..))
+import           Pos.Core.Block.Genesis ()
+import           Pos.Core.Block.Main ()
 import           Pos.Core.Block.Union.Types (Block, BlockHeader, blockHeaderHash)
-import           Pos.Core.Class             (HasDifficulty (..), HasHeaderHash (..),
-                                             IsHeader)
+import           Pos.Core.Class (HasDifficulty (..), HasHeaderHash (..), IsHeader)
 
 ----------------------------------------------------------------------------
 -- Buildable

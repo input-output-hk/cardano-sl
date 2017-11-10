@@ -11,34 +11,28 @@ module Pos.Block.Base
 
 import           Universum
 
-import           Control.Monad.Except         (MonadError)
-import           Data.Default                 (Default (def))
+import           Control.Monad.Except (MonadError)
+import           Data.Default (Default (def))
 
-import           Pos.Block.BHelpers           ()
-import           Pos.Core                     (EpochIndex, HasConfiguration,
-                                               HasDifficulty (..), LocalSlotIndex, SlotId,
-                                               SlotLeaders)
-import           Pos.Core.Block               (BlockHeader, BlockSignature (..),
-                                               GenesisBlock, GenesisBlockHeader,
-                                               GenesisBlockchain,
-                                               GenesisExtraBodyData (..),
-                                               GenesisExtraHeaderData (..), MainBlock,
-                                               MainBlockHeader, MainBlockchain,
-                                               MainExtraBodyData (..),
-                                               MainExtraHeaderData (..), MainToSign (..),
-                                               mkGenericHeader, recreateGenericBlock)
+import           Pos.Block.BHelpers ()
+import           Pos.Core (EpochIndex, HasConfiguration, HasDifficulty (..), LocalSlotIndex, SlotId,
+                           SlotLeaders)
+import           Pos.Core.Block (BlockHeader, BlockSignature (..), GenesisBlock, GenesisBlockHeader,
+                                 GenesisBlockchain, GenesisExtraBodyData (..),
+                                 GenesisExtraHeaderData (..), MainBlock, MainBlockHeader,
+                                 MainBlockchain, MainExtraBodyData (..), MainExtraHeaderData (..),
+                                 MainToSign (..), mkGenericHeader, recreateGenericBlock)
 import           Pos.Core.Block.Genesis.Chain (Body (..), ConsensusData (..))
-import           Pos.Core.Block.Main.Chain    (Body (..), ConsensusData (..))
-import           Pos.Crypto                   (ProxySecretKey (..), SecretKey,
-                                               SignTag (..), hash, proxySign, sign,
-                                               toPublic)
-import           Pos.Data.Attributes          (mkAttributes)
-import           Pos.Delegation.Types         (ProxySKBlockInfo)
-import           Pos.Ssc.Base                 (defaultSscPayload)
-import           Pos.Txp.Base                 (emptyTxPayload)
-import           Pos.Update.Configuration     (HasUpdateConfiguration, curSoftwareVersion,
-                                               lastKnownBlockVersion)
-import           Pos.Util.Util                (leftToPanic)
+import           Pos.Core.Block.Main.Chain (Body (..), ConsensusData (..))
+import           Pos.Crypto (ProxySecretKey (..), SecretKey, SignTag (..), hash, proxySign, sign,
+                             toPublic)
+import           Pos.Data.Attributes (mkAttributes)
+import           Pos.Delegation.Types (ProxySKBlockInfo)
+import           Pos.Ssc.Base (defaultSscPayload)
+import           Pos.Txp.Base (emptyTxPayload)
+import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
+                                           lastKnownBlockVersion)
+import           Pos.Util.Util (leftToPanic)
 
 ----------------------------------------------------------------------------
 -- Main smart constructors

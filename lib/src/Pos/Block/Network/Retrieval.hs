@@ -8,48 +8,46 @@ module Pos.Block.Network.Retrieval
 
 import           Universum
 
-import           Control.Concurrent.STM     (putTMVar, swapTMVar, tryReadTBQueue,
-                                             tryReadTMVar, tryTakeTMVar)
-import           Control.Lens               (to, _Wrapped)
-import           Control.Monad.Except       (ExceptT, runExceptT, throwError)
-import           Control.Monad.STM          (retry)
-import           Data.List.NonEmpty         ((<|))
-import qualified Data.List.NonEmpty         as NE
-import qualified Data.Set                   as S
-import           Ether.Internal             (HasLens (..))
-import           Formatting                 (build, builder, int, sformat, stext, (%))
-import           Mockable                   (delay, handleAll)
+import           Control.Concurrent.STM (putTMVar, swapTMVar, tryReadTBQueue, tryReadTMVar,
+                                         tryTakeTMVar)
+import           Control.Lens (to, _Wrapped)
+import           Control.Monad.Except (ExceptT, runExceptT, throwError)
+import           Control.Monad.STM (retry)
+import           Data.List.NonEmpty ((<|))
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Set as S
+import           Ether.Internal (HasLens (..))
+import           Formatting (build, builder, int, sformat, stext, (%))
+import           Mockable (delay, handleAll)
 import           Serokell.Data.Memory.Units (unitBuilder)
-import           Serokell.Util              (listJson, sec)
-import           System.Wlog                (logDebug, logError, logInfo, logWarning)
+import           Serokell.Util (listJson, sec)
+import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
-import           Pos.Binary.Class           (biSize)
-import           Pos.Binary.Communication   ()
-import           Pos.Block.Logic            (ClassifyHeaderRes (..), classifyNewHeader)
+import           Pos.Binary.Class (biSize)
+import           Pos.Binary.Communication ()
+import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader)
 import           Pos.Block.Network.Announce (announceBlockOuts)
-import           Pos.Block.Network.Logic    (BlockNetLogicException (DialogUnexpected),
-                                             MkHeadersRequestResult (..), handleBlocks,
-                                             mkBlocksRequest, mkHeadersRequest,
-                                             requestHeaders, triggerRecovery)
-import           Pos.Block.Network.Types    (MsgBlock (..), MsgGetBlocks (..))
-import           Pos.Block.RetrievalQueue   (BlockRetrievalTask (..))
-import           Pos.Communication.Limits   (recvLimited)
+import           Pos.Block.Network.Logic (BlockNetLogicException (DialogUnexpected),
+                                          MkHeadersRequestResult (..), handleBlocks,
+                                          mkBlocksRequest, mkHeadersRequest, requestHeaders,
+                                          triggerRecovery)
+import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..))
+import           Pos.Block.RetrievalQueue (BlockRetrievalTask (..))
+import           Pos.Communication.Limits (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              EnqueueMsg, MsgType (..), NodeId, OutSpecs,
-                                             SendActions (..), WorkerSpec, convH,
-                                             toOutSpecs, waitForConversations, worker)
-import           Pos.Context                (BlockRetrievalQueueTag, ProgressHeaderTag,
-                                             RecoveryHeaderTag)
-import           Pos.Core                   (HasHeaderHash (..), HeaderHash, difficultyL,
-                                             isMoreDifficult, prevBlockL)
-import           Pos.Core.Block             (Block, BlockHeader, blockHeader)
-import           Pos.Crypto                 (shortHashF)
-import           Pos.Reporting              (reportOrLogE, reportOrLogW)
-import           Pos.Util                   (_neHead, _neLast)
-import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..),
-                                             _NewestFirst, _OldestFirst)
-import           Pos.Util.Timer             (Timer, startTimer)
-import           Pos.WorkMode.Class         (WorkMode)
+                                             SendActions (..), WorkerSpec, convH, toOutSpecs,
+                                             waitForConversations, worker)
+import           Pos.Context (BlockRetrievalQueueTag, ProgressHeaderTag, RecoveryHeaderTag)
+import           Pos.Core (HasHeaderHash (..), HeaderHash, difficultyL, isMoreDifficult, prevBlockL)
+import           Pos.Core.Block (Block, BlockHeader, blockHeader)
+import           Pos.Crypto (shortHashF)
+import           Pos.Reporting (reportOrLogE, reportOrLogW)
+import           Pos.Util (_neHead, _neLast)
+import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
+                                  _OldestFirst)
+import           Pos.Util.Timer (Timer, startTimer)
+import           Pos.WorkMode.Class (WorkMode)
 
 retrievalWorker
     :: forall ctx m.

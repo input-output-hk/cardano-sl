@@ -6,14 +6,14 @@ module Pos.Txp.MemState.Metrics
 
 import           Universum
 
-import           Formatting                   (sformat, shown, (%))
-import qualified System.Metrics               as Metrics
-import qualified System.Metrics.Gauge         as Metrics.Gauge
-import           System.Wlog                  (logDebug)
+import           Formatting (sformat, shown, (%))
+import qualified System.Metrics as Metrics
+import qualified System.Metrics.Gauge as Metrics.Gauge
+import           System.Wlog (logDebug)
 
-import           Pos.StateLock                (StateLockMetrics (..))
+import           Pos.StateLock (StateLockMetrics (..))
 import           Pos.System.Metrics.Constants (withCardanoNamespace)
-import           Pos.Txp.Toil.Types           (MemPool (_mpSize))
+import           Pos.Txp.Toil.Types (MemPool (_mpSize))
 
 -- | 'StateLockMetrics' to record txp MemPool metrics.
 recordTxpMetrics :: Metrics.Store -> TVar MemPool -> IO StateLockMetrics

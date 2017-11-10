@@ -6,18 +6,17 @@ module Pos.Arbitrary.Delegation
 
 import           Universum
 
-import qualified Data.HashMap.Strict               as HM
-import           Test.QuickCheck                   (Arbitrary (..), Gen, listOf)
+import qualified Data.HashMap.Strict as HM
+import           Test.QuickCheck (Arbitrary (..), Gen, listOf)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Core                ()
-import           Pos.Binary.Core                   ()
-import           Pos.Communication.Types.Relay     (DataMsg (..))
-import           Pos.Core                          (EpochIndex, HasConfiguration)
-import           Pos.Crypto                        (ProxySecretKey (..), createPsk)
-import           Pos.Delegation.Types              (DlgPayload, ProxySKLightConfirmation,
-                                                    mkDlgPayload)
-import           Pos.Util.Util                     (leftToPanic)
+import           Pos.Arbitrary.Core ()
+import           Pos.Binary.Core ()
+import           Pos.Communication.Types.Relay (DataMsg (..))
+import           Pos.Core (EpochIndex, HasConfiguration)
+import           Pos.Crypto (ProxySecretKey (..), createPsk)
+import           Pos.Delegation.Types (DlgPayload, ProxySKLightConfirmation, mkDlgPayload)
+import           Pos.Util.Util (leftToPanic)
 
 genDlgPayload :: HasConfiguration => EpochIndex -> Gen DlgPayload
 genDlgPayload epoch =

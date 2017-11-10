@@ -5,7 +5,7 @@ module Pos.Binary.Core.Version () where
 import           Universum
 
 import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), deriveSimpleBi)
-import qualified Pos.Core.Types   as V
+import qualified Pos.Core.Types as V
 
 instance Bi V.ApplicationName where
   encode appName = encode (V.getApplicationName appName)

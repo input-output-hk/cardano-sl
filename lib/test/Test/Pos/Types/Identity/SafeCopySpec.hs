@@ -6,13 +6,13 @@ module Test.Pos.Types.Identity.SafeCopySpec
 
 import           Universum
 
-import           Test.Hspec       (Spec, describe)
+import           Test.Hspec (Spec, describe)
 
-import qualified Pos.Core         as Core
-import qualified Pos.Core.Txp     as Txp
+import qualified Pos.Core as Core
+import qualified Pos.Core.Txp as Txp
 
 import           Test.Pos.Helpers (safeCopyTest)
-import           Test.Pos.Util    (withDefConfiguration)
+import           Test.Pos.Util (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Types" $ do

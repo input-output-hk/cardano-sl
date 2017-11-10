@@ -17,9 +17,9 @@ module Pos.Core.Configuration.Protocol
 
 import           Universum
 
-import           Data.Reflection        (Given (..), give)
+import           Data.Reflection (Given (..), give)
 import           Pos.Core.Genesis.Types (ProtocolConstants (..))
-import           Pos.Core.Types         (BlockCount (..), ProtocolMagic (..), SlotCount)
+import           Pos.Core.Types (BlockCount (..), ProtocolMagic (..), SlotCount)
 
 type HasProtocolConstants = Given ProtocolConstants
 

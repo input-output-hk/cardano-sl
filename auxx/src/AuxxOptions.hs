@@ -11,20 +11,18 @@ module AuxxOptions
 
 import           Universum
 
-import           Data.Version                 (showVersion)
-import           NeatInterpolation            (text)
-import           Options.Applicative          (CommandFields, Mod, Parser, command,
-                                               execParser, footerDoc, fullDesc, header,
-                                               help, helper, info, infoOption, long,
-                                               metavar, progDesc, subparser, switch)
-import           Pos.Communication            (NodeId)
-import           Serokell.Util.OptParse       (strOption)
+import           Data.Version (showVersion)
+import           NeatInterpolation (text)
+import           Options.Applicative (CommandFields, Mod, Parser, command, execParser, footerDoc,
+                                      fullDesc, header, help, helper, info, infoOption, long,
+                                      metavar, progDesc, subparser, switch)
+import           Pos.Communication (NodeId)
+import           Serokell.Util.OptParse (strOption)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
-import           Paths_cardano_sl             (version)
-import qualified Pos.Client.CLI               as CLI
-import           Pos.Util.CompileInfo         (CompileTimeInfo (..), HasCompileInfo,
-                                               compileInfo)
+import           Paths_cardano_sl (version)
+import qualified Pos.Client.CLI as CLI
+import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo, compileInfo)
 
 ----------------------------------------------------------------------------
 -- Types

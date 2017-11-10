@@ -8,16 +8,14 @@ module Pos.Update.Poll.Failure
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Formatting                 (bprint, build, int, sformat, stext, (%))
+import           Formatting (bprint, build, int, sformat, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
 
-import           Pos.Core                   (ApplicationName, BlockVersion,
-                                             BlockVersionData, Coin, EpochIndex,
-                                             HeaderHash, NumSoftwareVersion,
-                                             ScriptVersion, StakeholderId, coinF)
-import           Pos.Core.Update            (BlockVersionModifier, UpAttributes, UpId)
-import           Pos.Crypto                 (shortHashF)
-import           Pos.Reporting              (MonadReporting, reportError)
+import           Pos.Core (ApplicationName, BlockVersion, BlockVersionData, Coin, EpochIndex,
+                           HeaderHash, NumSoftwareVersion, ScriptVersion, StakeholderId, coinF)
+import           Pos.Core.Update (BlockVersionModifier, UpAttributes, UpId)
+import           Pos.Crypto (shortHashF)
+import           Pos.Reporting (MonadReporting, reportError)
 
 -- | PollVerFailure represents all possible errors which can
 -- appear in Poll data verification.

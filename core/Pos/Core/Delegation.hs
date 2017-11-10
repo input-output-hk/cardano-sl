@@ -7,16 +7,16 @@ module Pos.Core.Delegation
 
 import           Universum
 
-import           Control.Monad.Except   (MonadError (throwError))
-import           Data.Default           (Default (def))
-import           Data.List              (groupBy)
+import           Control.Monad.Except (MonadError (throwError))
+import           Data.Default (Default (def))
+import           Data.List (groupBy)
 import qualified Data.Text.Buildable
-import           Formatting             (bprint, int, sformat, (%))
-import           Serokell.Util          (listJson)
+import           Formatting (bprint, int, sformat, (%))
+import           Serokell.Util (listJson)
 
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Types         (ProxySKHeavy)
-import           Pos.Crypto             (ProxySecretKey (..), verifyPsk)
+import           Pos.Core.Types (ProxySKHeavy)
+import           Pos.Crypto (ProxySecretKey (..), verifyPsk)
 
 -- Consider making this a set.
 -- | 'DlgPayload' is put into 'MainBlock' and consists of a list of

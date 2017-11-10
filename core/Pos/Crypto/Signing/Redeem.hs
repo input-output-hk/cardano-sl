@@ -8,13 +8,13 @@ module Pos.Crypto.Signing.Redeem
 
 import           Universum
 
-import           Crypto.Random        (MonadRandom, getRandomBytes)
-import qualified Data.ByteString      as BS
-import           Data.Coerce          (coerce)
+import           Crypto.Random (MonadRandom, getRandomBytes)
+import qualified Data.ByteString as BS
+import           Data.Coerce (coerce)
 
-import qualified Crypto.Sign.Ed25519  as Ed25519
-import           Pos.Binary.Class     (Bi, Raw)
-import qualified Pos.Binary.Class     as Bi
+import qualified Crypto.Sign.Ed25519 as Ed25519
+import           Pos.Binary.Class (Bi, Raw)
+import qualified Pos.Binary.Class as Bi
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
 import           Pos.Crypto.Signing.Tag (SignTag, signTag)
 import           Pos.Crypto.Signing.Types.Redeem

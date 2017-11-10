@@ -12,11 +12,11 @@ module Pos.Core.Block.Genesis.Types
 
 import           Universum
 
-import qualified Data.Text.Buildable       as Buildable
-import           Formatting                (bprint, build, (%))
+import qualified Data.Text.Buildable as Buildable
+import           Formatting (bprint, build, (%))
 
 import           Pos.Core.Block.Blockchain (GenericBlock (..), GenericBlockHeader (..))
-import           Pos.Data.Attributes       (Attributes, areAttributesKnown)
+import           Pos.Data.Attributes (Attributes, areAttributesKnown)
 
 -- | Represents genesis block header attributes.
 type GenesisHeaderAttributes = Attributes ()

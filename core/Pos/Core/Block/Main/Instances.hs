@@ -8,31 +8,29 @@ module Pos.Core.Block.Main.Instances
 
 import           Universum
 
-import qualified Data.Text.Buildable        as Buildable
-import           Formatting                 (bprint, build, int, stext, (%))
-import           Serokell.Util              (Color (Magenta), colorize, listJson)
+import qualified Data.Text.Buildable as Buildable
+import           Formatting (bprint, build, int, stext, (%))
+import           Serokell.Util (Color (Magenta), colorize, listJson)
 
-import           Pos.Binary.Class           (Bi)
-import           Pos.Binary.Core.Block      ()
-import           Pos.Core.Block.Blockchain  (GenericBlock (..), GenericBlockHeader (..))
-import           Pos.Core.Block.Main.Chain  (Body (..), ConsensusData (..))
-import           Pos.Core.Block.Main.Lens   (mainBlockBlockVersion, mainBlockDifficulty,
-                                             mainBlockSlot, mainBlockSoftwareVersion,
-                                             mainHeaderBlockVersion, mainHeaderDifficulty,
-                                             mainHeaderLeaderKey, mainHeaderSlot,
-                                             mainHeaderSoftwareVersion, mbTxs,
-                                             mcdDifficulty, mehBlockVersion,
-                                             mehSoftwareVersion)
-import           Pos.Core.Block.Main.Types  (MainBlock, MainBlockHeader, MainBlockchain,
-                                             MainExtraHeaderData (..))
+import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Core.Block ()
+import           Pos.Core.Block.Blockchain (GenericBlock (..), GenericBlockHeader (..))
+import           Pos.Core.Block.Main.Chain (Body (..), ConsensusData (..))
+import           Pos.Core.Block.Main.Lens (mainBlockBlockVersion, mainBlockDifficulty,
+                                           mainBlockSlot, mainBlockSoftwareVersion,
+                                           mainHeaderBlockVersion, mainHeaderDifficulty,
+                                           mainHeaderLeaderKey, mainHeaderSlot,
+                                           mainHeaderSoftwareVersion, mbTxs, mcdDifficulty,
+                                           mehBlockVersion, mehSoftwareVersion)
+import           Pos.Core.Block.Main.Types (MainBlock, MainBlockHeader, MainBlockchain,
+                                            MainExtraHeaderData (..))
 import           Pos.Core.Block.Union.Types (BlockHeader, blockHeaderHash)
-import           Pos.Core.Class             (HasBlockVersion (..), HasDifficulty (..),
-                                             HasEpochIndex (..), HasEpochOrSlot (..),
-                                             HasHeaderHash (..), HasSoftwareVersion (..),
-                                             IsHeader, IsMainHeader (..))
-import           Pos.Core.Configuration     (HasConfiguration)
-import           Pos.Core.Types             (EpochOrSlot (..), HeaderHash, slotIdF)
-import           Pos.Crypto                 (hashHexF)
+import           Pos.Core.Class (HasBlockVersion (..), HasDifficulty (..), HasEpochIndex (..),
+                                 HasEpochOrSlot (..), HasHeaderHash (..), HasSoftwareVersion (..),
+                                 IsHeader, IsMainHeader (..))
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Types (EpochOrSlot (..), HeaderHash, slotIdF)
+import           Pos.Crypto (hashHexF)
 
 
 instance Bi BlockHeader => Buildable MainBlockHeader where

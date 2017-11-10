@@ -11,14 +11,13 @@ module Pos.Crypto.AsBinary (
 
 import           Universum
 
-import qualified Data.ByteString          as BS
-import           Data.Text.Buildable      (Buildable)
-import qualified Data.Text.Buildable      as Buildable
-import           Formatting               (bprint, int, sformat, stext, (%))
+import qualified Data.ByteString as BS
+import           Data.Text.Buildable (Buildable)
+import qualified Data.Text.Buildable as Buildable
+import           Formatting (bprint, int, sformat, stext, (%))
 
-import           Pos.Binary.Class         (AsBinary (..), AsBinaryClass (..), Bi,
-                                           decodeFull, serialize')
-import           Pos.Crypto.Hashing       (hash, shortHashF)
+import           Pos.Binary.Class (AsBinary (..), AsBinaryClass (..), Bi, decodeFull, serialize')
+import           Pos.Crypto.Hashing (hash, shortHashF)
 import           Pos.Crypto.SecretSharing (DecShare (..), EncShare (..), Secret (..),
                                            VssPublicKey (..))
 

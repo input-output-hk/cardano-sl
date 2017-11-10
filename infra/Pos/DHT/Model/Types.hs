@@ -17,23 +17,23 @@ module Pos.DHT.Model.Types
 
 import           Universum
 
-import qualified Control.Monad               as Monad (fail)
-import qualified Data.ByteString             as BS
-import           Data.Hashable               (Hashable (..))
-import           Data.Text.Buildable         (Buildable (..))
-import           Formatting                  (bprint, (%))
-import qualified Formatting                  as F
-import           Network.Kademlia            (fromBS)
+import qualified Control.Monad as Monad (fail)
+import qualified Data.ByteString as BS
+import           Data.Hashable (Hashable (..))
+import           Data.Text.Buildable (Buildable (..))
+import           Formatting (bprint, (%))
+import qualified Formatting as F
+import           Network.Kademlia (fromBS)
 import           Network.Kademlia.HashNodeId (HashId (..), genNonce, hashAddress)
 import qualified Prelude
-import qualified Serokell.Util.Base64        as B64
-import qualified Serokell.Util.Parse         as P
-import           Serokell.Util.Text          (listBuilderJSON)
-import qualified Text.Parsec.Char            as P
-import qualified Text.Parsec.Text            as P
+import qualified Serokell.Util.Base64 as B64
+import qualified Serokell.Util.Parse as P
+import           Serokell.Util.Text (listBuilderJSON)
+import qualified Text.Parsec.Char as P
+import qualified Text.Parsec.Text as P
 
-import           Pos.Crypto.Random           (runSecureRandom)
-import           Pos.Util.TimeWarp           (NetworkAddress, addrParser)
+import           Pos.Crypto.Random (runSecureRandom)
+import           Pos.Util.TimeWarp (NetworkAddress, addrParser)
 
 -- | Data type for DHT exceptions.
 data DHTException = NodeDown | AllPeersUnavailable

@@ -2,26 +2,25 @@
 {-# LANGUAGE TupleSections #-}
 module Main where
 
-import           Universum        hiding (bracket)
+import           Universum hiding (bracket)
 
-import           Mockable         (Production, bracket, runProduction)
-import           Pos.Block.Types  (Undo)
-import qualified Pos.Client.CLI   as CLI
-import           Pos.Core         (HasConfiguration, headerHash)
-import           Pos.Core.Block   (Block)
-import           Pos.Core.Types   (HeaderHash)
-import           Pos.DB           (closeNodeDBs, openNodeDBs)
-import qualified Pos.DB.Block     as DB
-import qualified Pos.DB.DB        as DB
-import           Pos.Launcher     (withConfigurations)
-import           Pos.Util.Chrono  (NewestFirst (..))
-import           System.Directory (canonicalizePath, doesDirectoryExist, getFileSize,
-                                   listDirectory, withCurrentDirectory)
+import           Mockable (Production, bracket, runProduction)
+import           Pos.Block.Types (Undo)
+import qualified Pos.Client.CLI as CLI
+import           Pos.Core (HasConfiguration, headerHash)
+import           Pos.Core.Block (Block)
+import           Pos.Core.Types (HeaderHash)
+import           Pos.DB (closeNodeDBs, openNodeDBs)
+import qualified Pos.DB.Block as DB
+import qualified Pos.DB.DB as DB
+import           Pos.Launcher (withConfigurations)
+import           Pos.Util.Chrono (NewestFirst (..))
+import           System.Directory (canonicalizePath, doesDirectoryExist, getFileSize, listDirectory,
+                                   withCurrentDirectory)
 
-import           Options          (CLIOptions (..), getOptions)
-import           Rendering        (render, renderBlock, renderBlocks, renderHeader)
-import           Types            (BlockchainInspector, DBFolderStat,
-                                   initBlockchainAnalyser, prevBlock)
+import           Options (CLIOptions (..), getOptions)
+import           Rendering (render, renderBlock, renderBlocks, renderHeader)
+import           Types (BlockchainInspector, DBFolderStat, initBlockchainAnalyser, prevBlock)
 
 -- | Like Unix's `du -s`, but works across all the major platforms and
 -- returns the total number of bytes the directory occupies on disk.

@@ -13,10 +13,9 @@ import           Universum
 import qualified Pos.Communication.Configuration as Conf
 import           Pos.Communication.Limits.Types (Limit (..), MessageLimited (..),
                                                  MessageLimitedPure (..))
-import           Pos.Communication.Types.Relay  (DataMsg (..), InvMsg, InvOrData,
-                                                 MempoolMsg (..), ReqMsg, ReqOrRes,
-                                                 ResMsg)
-import           Pos.Infra.Configuration        (HasInfraConfiguration)
+import           Pos.Communication.Types.Relay (DataMsg (..), InvMsg, InvOrData, MempoolMsg (..),
+                                                ReqMsg, ReqOrRes, ResMsg)
+import           Pos.Infra.Configuration (HasInfraConfiguration)
 
 ----------------------------------------------------------------------------
 -- Instances of MessageLimited for the relay types.

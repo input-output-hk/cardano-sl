@@ -15,36 +15,32 @@ module Pos.Explorer.TestUtil
 import qualified Prelude
 import           Universum
 
-import           Data.Default                      (def)
-import qualified Data.List.NonEmpty                as NE
-import           Data.Text.Buildable               (build)
-import           Serokell.Data.Memory.Units        (Byte, Gigabyte, convertUnit)
-import           Test.QuickCheck                   (Arbitrary (..), Property, Testable,
-                                                    counterexample, forAll, generate,
-                                                    property)
+import           Data.Default (def)
+import qualified Data.List.NonEmpty as NE
+import           Data.Text.Buildable (build)
+import           Serokell.Data.Memory.Units (Byte, Gigabyte, convertUnit)
+import           Test.QuickCheck (Arbitrary (..), Property, Testable, counterexample, forAll,
+                                  generate, property)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary)
 
-import           Pos.Arbitrary.Block               ()
-import           Pos.Block.Base                    (mkGenesisBlock)
-import           Pos.Block.Logic                   (RawPayload (..), createMainBlockPure)
-import           Pos.Block.Types                   (SlogUndo, Undo)
-import qualified Pos.Communication                 ()
-import           Pos.Core                          (BlockCount (..), ChainDifficulty (..),
-                                                    EpochIndex (..), HasConfiguration,
-                                                    LocalSlotIndex (..), SlotId (..),
-                                                    SlotLeaders, StakeholderId,
-                                                    difficultyL)
-import           Pos.Core.Block                    (Block, BlockHeader, GenesisBlock,
-                                                    MainBlock, getBlockHeader)
-import           Pos.Core.Ssc                      (SscPayload)
-import           Pos.Core.Txp                      (TxAux)
-import           Pos.Core.Update                   (UpdatePayload (..))
-import           Pos.Crypto                        (SecretKey)
-import           Pos.Delegation                    (DlgPayload, DlgUndo, ProxySKBlockInfo)
-import           Pos.Explorer.ExtraContext         (ExplorerMockableMode (..))
-import           Pos.Ssc.Base                      (defaultSscPayload)
-import           Pos.Update.Configuration          (HasUpdateConfiguration)
-import           Test.Pos.Util                     (withDefConfigurations)
+import           Pos.Arbitrary.Block ()
+import           Pos.Block.Base (mkGenesisBlock)
+import           Pos.Block.Logic (RawPayload (..), createMainBlockPure)
+import           Pos.Block.Types (SlogUndo, Undo)
+import qualified Pos.Communication ()
+import           Pos.Core (BlockCount (..), ChainDifficulty (..), EpochIndex (..), HasConfiguration,
+                           LocalSlotIndex (..), SlotId (..), SlotLeaders, StakeholderId,
+                           difficultyL)
+import           Pos.Core.Block (Block, BlockHeader, GenesisBlock, MainBlock, getBlockHeader)
+import           Pos.Core.Ssc (SscPayload)
+import           Pos.Core.Txp (TxAux)
+import           Pos.Core.Update (UpdatePayload (..))
+import           Pos.Crypto (SecretKey)
+import           Pos.Delegation (DlgPayload, DlgUndo, ProxySKBlockInfo)
+import           Pos.Explorer.ExtraContext (ExplorerMockableMode (..))
+import           Pos.Ssc.Base (defaultSscPayload)
+import           Pos.Update.Configuration (HasUpdateConfiguration)
+import           Test.Pos.Util (withDefConfigurations)
 
 
 ----------------------------------------------------------------

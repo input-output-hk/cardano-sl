@@ -7,7 +7,7 @@ module Pos.Update.BlockVersion
 
 import           Universum
 
-import           Pos.Core        (BlockVersionData (..))
+import           Pos.Core (BlockVersionData (..))
 import           Pos.Core.Update (BlockVersionModifier (..))
 
 -- | Apply 'BlockVersionModifier' to 'BlockVersionData'.

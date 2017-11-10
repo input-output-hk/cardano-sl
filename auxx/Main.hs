@@ -3,35 +3,32 @@ module Main
        ) where
 
 import           Universum
-import           Unsafe                (unsafeFromJust)
+import           Unsafe (unsafeFromJust)
 
-import           Formatting            (sformat, shown, (%))
-import           Mockable              (Production, currentTime, runProduction)
+import           Formatting (sformat, shown, (%))
+import           Mockable (Production, currentTime, runProduction)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..))
-import qualified System.IO.Temp        as Temp
-import           System.Wlog           (logInfo)
+import qualified System.IO.Temp as Temp
+import           System.Wlog (logInfo)
 
-import qualified Pos.Client.CLI        as CLI
-import           Pos.Communication     (OutSpecs, WorkerSpec)
-import           Pos.Core              (Timestamp (..), gdStartTime, genesisData)
-import           Pos.DB.DB             (initNodeDBs)
-import           Pos.Launcher          (HasConfigurations, NodeParams (..), NodeResources,
-                                        bracketNodeResources, loggerBracket, lpConsoleLog,
-                                        runNode, runRealBasedMode, withConfigurations)
-import           Pos.Network.Types     (NetworkConfig (..), Topology (..),
-                                        topologyDequeuePolicy, topologyEnqueuePolicy,
-                                        topologyFailurePolicy)
-import           Pos.Txp               (txpGlobalSettings)
-import           Pos.Util.CompileInfo  (HasCompileInfo, retrieveCompileTimeInfo,
-                                        withCompileInfo)
-import           Pos.Util.UserSecret   (usVss)
-import           Pos.WorkMode          (EmptyMempoolExt, RealMode)
+import qualified Pos.Client.CLI as CLI
+import           Pos.Communication (OutSpecs, WorkerSpec)
+import           Pos.Core (Timestamp (..), gdStartTime, genesisData)
+import           Pos.DB.DB (initNodeDBs)
+import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
+                               bracketNodeResources, loggerBracket, lpConsoleLog, runNode,
+                               runRealBasedMode, withConfigurations)
+import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyDequeuePolicy,
+                                    topologyEnqueuePolicy, topologyFailurePolicy)
+import           Pos.Txp (txpGlobalSettings)
+import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.UserSecret (usVss)
+import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
-import           AuxxOptions           (AuxxAction (..), AuxxOptions (..), getAuxxOptions)
-import           Mode                  (AuxxContext (..), AuxxMode, CmdCtx (..),
-                                        realModeToAuxx)
-import           Plugin                (auxxPlugin)
-import           Repl                  (WithCommandAction, withAuxxRepl)
+import           AuxxOptions (AuxxAction (..), AuxxOptions (..), getAuxxOptions)
+import           Mode (AuxxContext (..), AuxxMode, CmdCtx (..), realModeToAuxx)
+import           Plugin (auxxPlugin)
+import           Repl (WithCommandAction, withAuxxRepl)
 
 -- 'NodeParams' obtained using 'CLI.getNodeParams' are not perfect for
 -- Auxx, so we need to adapt them slightly.

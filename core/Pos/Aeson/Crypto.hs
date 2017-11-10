@@ -4,24 +4,21 @@ module Pos.Aeson.Crypto
 
 import           Universum
 
-import           Crypto.Hash          (HashAlgorithm)
-import qualified Crypto.Sign.Ed25519  as Ed25519
-import           Data.Aeson           (FromJSON (..), FromJSONKey (..),
-                                       FromJSONKeyFunction (..), ToJSON (..),
-                                       ToJSONKey (..))
-import           Data.Aeson.TH        (defaultOptions, deriveJSON)
-import           Data.Aeson.Types     (toJSONKeyText)
-import           Formatting           (sformat)
+import           Crypto.Hash (HashAlgorithm)
+import qualified Crypto.Sign.Ed25519 as Ed25519
+import           Data.Aeson (FromJSON (..), FromJSONKey (..), FromJSONKeyFunction (..), ToJSON (..),
+                             ToJSONKey (..))
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
+import           Data.Aeson.Types (toJSONKeyText)
+import           Formatting (sformat)
 import           Serokell.Util.Base64 (JsonByteString (..))
 
-import           Pos.Crypto           (AbstractHash, HDAddressPayload (..), ProxyCert,
-                                       ProxySecretKey, PublicKey, RedeemPublicKey,
-                                       RedeemSignature, Signature (..),
-                                       decodeAbstractHash, fullProxyCertHexF,
-                                       fullPublicKeyF, fullSignatureHexF, hashHexF,
-                                       hashHexF, parseFullProxyCert, parseFullPublicKey,
-                                       parseFullSignature)
-import           Pos.Util.Util        (eitherToFail, parseJSONWithRead)
+import           Pos.Crypto (AbstractHash, HDAddressPayload (..), ProxyCert, ProxySecretKey,
+                             PublicKey, RedeemPublicKey, RedeemSignature, Signature (..),
+                             decodeAbstractHash, fullProxyCertHexF, fullPublicKeyF,
+                             fullSignatureHexF, hashHexF, parseFullProxyCert, parseFullPublicKey,
+                             parseFullSignature)
+import           Pos.Util.Util (eitherToFail, parseJSONWithRead)
 
 instance ToJSON (AbstractHash algo a) where
     toJSON = toJSON . sformat hashHexF

@@ -4,22 +4,20 @@ module Pos.Binary.Core.Ssc
        (
        ) where
 
-import qualified Data.HashSet           as HS
+import qualified Data.HashSet as HS
 import           Universum
 
-import           Pos.Binary.Class       (Bi (..), Cons (..), Decoder, Encoding,
-                                         Field (..), deriveSimpleBi, deriveSimpleBiCxt,
-                                         encodeListLen, enforceSize)
-import           Pos.Binary.Crypto      ()
+import           Pos.Binary.Class (Bi (..), Cons (..), Decoder, Encoding, Field (..),
+                                   deriveSimpleBi, deriveSimpleBiCxt, encodeListLen, enforceSize)
+import           Pos.Binary.Crypto ()
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Ssc           (Commitment (..), CommitmentsMap (..),
-                                         Opening (..), OpeningsMap, SharesMap,
-                                         SignedCommitment, SscPayload (..), SscProof (..),
-                                         VssCertificatesHash, mkCommitmentsMap)
-import           Pos.Core.Vss           (VssCertificate (..), VssCertificatesMap (..),
-                                         mkVssCertificatesMap, recreateVssCertificate)
-import           Pos.Crypto             (Hash, PublicKey)
-import           Serokell.Util          (allDistinct)
+import           Pos.Core.Ssc (Commitment (..), CommitmentsMap (..), Opening (..), OpeningsMap,
+                               SharesMap, SignedCommitment, SscPayload (..), SscProof (..),
+                               VssCertificatesHash, mkCommitmentsMap)
+import           Pos.Core.Vss (VssCertificate (..), VssCertificatesMap (..), mkVssCertificatesMap,
+                               recreateVssCertificate)
+import           Pos.Crypto (Hash, PublicKey)
+import           Serokell.Util (allDistinct)
 
 instance Bi Commitment where
   encode Commitment{..} = encodeListLen 2 <> encode commShares

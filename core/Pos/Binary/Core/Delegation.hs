@@ -6,11 +6,11 @@ module Pos.Binary.Core.Delegation
 
 import           Universum
 
-import           Pos.Binary.Class       (Bi (..))
-import           Pos.Binary.Crypto      ()
+import           Pos.Binary.Class (Bi (..))
+import           Pos.Binary.Crypto ()
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Delegation    (DlgPayload (getDlgPayload), mkDlgPayload)
-import           Pos.Util.Util          (eitherToFail)
+import           Pos.Core.Delegation (DlgPayload (getDlgPayload), mkDlgPayload)
+import           Pos.Util.Util (eitherToFail)
 
 instance HasConfiguration => Bi DlgPayload where
     encode = encode . getDlgPayload

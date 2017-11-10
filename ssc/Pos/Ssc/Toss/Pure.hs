@@ -14,20 +14,18 @@ module Pos.Ssc.Toss.Pure
 
 import           Universum
 
-import           Control.Lens        (at, uses, (%=), (.=))
-import qualified Crypto.Random       as Rand
-import           System.Wlog         (CanLog, HasLoggerName (..), LogEvent,
-                                      NamedPureLogger (..), WithLogger, dispatchEvents,
-                                      runNamedPureLog)
+import           Control.Lens (at, uses, (%=), (.=))
+import qualified Crypto.Random as Rand
+import           System.Wlog (CanLog, HasLoggerName (..), LogEvent, NamedPureLogger (..),
+                              WithLogger, dispatchEvents, runNamedPureLog)
 
-import           Pos.Core            (BlockVersionData, EpochIndex, HasGenesisData,
-                                      HasProtocolConstants, crucialSlot, genesisVssCerts)
-import           Pos.Lrc.Types       (RichmenSet, RichmenStakes)
-import           Pos.Ssc.Base        (deleteSignedCommitment, insertSignedCommitment)
-import           Pos.Ssc.Toss.Class  (MonadToss (..), MonadTossEnv (..),
-                                      MonadTossRead (..))
-import           Pos.Ssc.Types       (SscGlobalState, sgsCommitments, sgsOpenings,
-                                      sgsShares, sgsVssCertificates)
+import           Pos.Core (BlockVersionData, EpochIndex, HasGenesisData, HasProtocolConstants,
+                           crucialSlot, genesisVssCerts)
+import           Pos.Lrc.Types (RichmenSet, RichmenStakes)
+import           Pos.Ssc.Base (deleteSignedCommitment, insertSignedCommitment)
+import           Pos.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..), MonadTossRead (..))
+import           Pos.Ssc.Types (SscGlobalState, sgsCommitments, sgsOpenings, sgsShares,
+                                sgsVssCertificates)
 import qualified Pos.Ssc.VssCertData as VCD
 
 type MultiRichmenStakes = HashMap EpochIndex RichmenStakes

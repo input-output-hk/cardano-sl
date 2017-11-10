@@ -19,9 +19,9 @@ module Pos.Crypto.Scrypt
 
 import           Universum
 
-import           Crypto.Random    (MonadRandom, getRandomBytes)
-import qualified Crypto.Scrypt    as S
-import           Data.Default     (Default (..))
+import           Crypto.Random (MonadRandom, getRandomBytes)
+import qualified Crypto.Scrypt as S
+import           Data.Default (Default (..))
 
 import           Pos.Binary.Class (Bi, serialize')
 

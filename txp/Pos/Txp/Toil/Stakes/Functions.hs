@@ -10,16 +10,16 @@ module Pos.Txp.Toil.Stakes.Functions
 import           Universum
 
 import qualified Data.HashMap.Strict as HM
-import qualified Data.HashSet        as HS
-import           Formatting          (sformat, (%))
-import           Serokell.Util.Text  (listJson)
-import           System.Wlog         (WithLogger, logDebug)
+import qualified Data.HashSet as HS
+import           Formatting (sformat, (%))
+import           Serokell.Util.Text (listJson)
+import           System.Wlog (WithLogger, logDebug)
 
-import           Pos.Core            (HasGenesisData, StakesList, coinToInteger, mkCoin,
-                                      sumCoins, unsafeIntegerToCoin)
-import           Pos.Core.Txp        (Tx (..), TxAux (..), TxOutAux (..), TxUndo)
-import           Pos.Txp.Base        (txOutStake)
-import           Pos.Txp.Toil.Class  (MonadStakes (..), MonadStakesRead (..))
+import           Pos.Core (HasGenesisData, StakesList, coinToInteger, mkCoin, sumCoins,
+                           unsafeIntegerToCoin)
+import           Pos.Core.Txp (Tx (..), TxAux (..), TxOutAux (..), TxUndo)
+import           Pos.Txp.Base (txOutStake)
+import           Pos.Txp.Toil.Class (MonadStakes (..), MonadStakesRead (..))
 
 type StakesMode m
      = ( MonadStakes m

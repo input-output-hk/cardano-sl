@@ -15,15 +15,15 @@ module Pos.Txp.Settings.Global
 import           Universum
 
 import           Control.Monad.Except (MonadError)
-import           System.Wlog          (WithLogger)
+import           System.Wlog (WithLogger)
 
-import           Pos.Core             (HasConfiguration, IsGenesisHeader, IsMainHeader)
-import           Pos.Core.Txp         (TxPayload, TxpUndo)
-import           Pos.DB               (MonadDBRead, MonadGState, SomeBatchOp)
-import           Pos.Slotting         (MonadSlots)
+import           Pos.Core (HasConfiguration, IsGenesisHeader, IsMainHeader)
+import           Pos.Core.Txp (TxPayload, TxpUndo)
+import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp)
+import           Pos.Slotting (MonadSlots)
 import           Pos.Txp.Toil.Failure (ToilVerFailure)
-import           Pos.Util.Chrono      (NE, NewestFirst, OldestFirst)
-import           Pos.Util.Util        (Some)
+import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
+import           Pos.Util.Util (Some)
 
 type TxpCommonMode m =
     ( WithLogger m

@@ -37,37 +37,33 @@ module Pos.Core.Update
 
 import           Universum
 
-import           Data.Char                  (isAscii)
-import           Data.Default               (Default (def))
-import           Data.Hashable              (Hashable)
-import qualified Data.HashMap.Strict        as HM
-import qualified Data.Text                  as T
-import qualified Data.Text.Buildable        as Buildable
-import           Data.Text.Lazy.Builder     (Builder)
-import           Data.Time.Units            (Millisecond)
-import           Formatting                 (Format, bprint, build, builder, int, later,
-                                             (%))
-import           Instances.TH.Lift          ()
+import           Data.Char (isAscii)
+import           Data.Default (Default (def))
+import           Data.Hashable (Hashable)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Text as T
+import qualified Data.Text.Buildable as Buildable
+import           Data.Text.Lazy.Builder (Builder)
+import           Data.Time.Units (Millisecond)
+import           Formatting (Format, bprint, build, builder, int, later, (%))
+import           Instances.TH.Lift ()
 import           Language.Haskell.TH.Syntax (Lift)
 import           Serokell.Data.Memory.Units (Byte, memory)
-import           Serokell.Util.Text         (listJson)
+import           Serokell.Util.Text (listJson)
 
-import           Pos.Binary.Class           (Bi, Raw)
-import           Pos.Binary.Crypto          ()
-import           Pos.Core.Address           (addressHash)
-import           Pos.Core.BlockVersionData  ()
-import           Pos.Core.Class             (IsGenesisHeader, IsMainHeader)
-import           Pos.Core.Configuration     (HasConfiguration)
-import           Pos.Core.Fee               (TxFeePolicy)
-import           Pos.Core.Types             (BlockVersion, BlockVersionData (..),
-                                             CoinPortion, EpochIndex, FlatSlotId,
-                                             ScriptVersion, SoftforkRule, SoftwareVersion)
-import           Pos.Crypto                 (Hash, PublicKey, SafeSigner,
-                                             SignTag (SignUSProposal), Signature,
-                                             checkSig, hash, safeSign, safeToPublic,
-                                             shortHashF)
-import           Pos.Data.Attributes        (Attributes, areAttributesKnown)
-import           Pos.Util.Util              (Some)
+import           Pos.Binary.Class (Bi, Raw)
+import           Pos.Binary.Crypto ()
+import           Pos.Core.Address (addressHash)
+import           Pos.Core.BlockVersionData ()
+import           Pos.Core.Class (IsGenesisHeader, IsMainHeader)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Fee (TxFeePolicy)
+import           Pos.Core.Types (BlockVersion, BlockVersionData (..), CoinPortion, EpochIndex,
+                                 FlatSlotId, ScriptVersion, SoftforkRule, SoftwareVersion)
+import           Pos.Crypto (Hash, PublicKey, SafeSigner, SignTag (SignUSProposal), Signature,
+                             checkSig, hash, safeSign, safeToPublic, shortHashF)
+import           Pos.Data.Attributes (Attributes, areAttributesKnown)
+import           Pos.Util.Util (Some)
 
 ----------------------------------------------------------------------------
 -- UpdateProposal and related

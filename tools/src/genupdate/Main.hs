@@ -7,26 +7,25 @@ module Main
 
 import           Universum
 
-import qualified Codec.Archive.Tar            as Tar
-import           Crypto.Hash                  (Digest, SHA512, hashlazy)
-import qualified Data.ByteString.Lazy         as BSL
-import           Data.List                    ((\\))
-import qualified Data.Text.Lazy.IO            as TL
-import           Data.Version                 (showVersion)
-import           Formatting                   (Format, format, mapf, text, (%))
-import qualified NeatInterpolation            as NI (text)
-import           Options.Applicative          (Parser, execParser, footerDoc, fullDesc,
-                                               header, help, helper, info, infoOption,
-                                               long, metavar, option, progDesc, short)
-import           Options.Applicative.Types    (readerAsk)
-import           System.Exit                  (ExitCode (ExitFailure))
-import           System.FilePath              (normalise, takeFileName, (<.>), (</>))
-import qualified System.PosixCompat           as PosixCompat
-import           System.Process               (readProcess)
+import qualified Codec.Archive.Tar as Tar
+import           Crypto.Hash (Digest, SHA512, hashlazy)
+import qualified Data.ByteString.Lazy as BSL
+import           Data.List ((\\))
+import qualified Data.Text.Lazy.IO as TL
+import           Data.Version (showVersion)
+import           Formatting (Format, format, mapf, text, (%))
+import qualified NeatInterpolation as NI (text)
+import           Options.Applicative (Parser, execParser, footerDoc, fullDesc, header, help, helper,
+                                      info, infoOption, long, metavar, option, progDesc, short)
+import           Options.Applicative.Types (readerAsk)
+import           System.Exit (ExitCode (ExitFailure))
+import           System.FilePath (normalise, takeFileName, (<.>), (</>))
+import qualified System.PosixCompat as PosixCompat
+import           System.Process (readProcess)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
-import           Paths_cardano_sl             (version)
-import           Pos.Util                     (directory, ls, withTempDir)
+import           Paths_cardano_sl (version)
+import           Pos.Util (directory, ls, withTempDir)
 
 data UpdateGenOptions = UpdateGenOptions
     { oldDir    :: !Text

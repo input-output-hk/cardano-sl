@@ -9,16 +9,15 @@ module Pos.Lrc.FtsPure
 
 import           Universum
 
-import           Data.Conduit        (runConduitPure, (.|))
-import qualified Data.Conduit.List   as CL
+import           Data.Conduit (runConduitPure, (.|))
+import qualified Data.Conduit.List as CL
 import qualified Data.HashMap.Strict as HM
-import           Formatting          (int, sformat, (%))
+import           Formatting (int, sformat, (%))
 
-import           Pos.Core            (Coin, HasConfiguration, SharedSeed (..),
-                                      SlotLeaders, StakeholderId, coinToInteger, mkCoin,
-                                      sumCoins)
-import           Pos.Lrc.Fts         (followTheSatoshiM)
-import           Pos.Txp.Toil        (Utxo, utxoToStakes)
+import           Pos.Core (Coin, HasConfiguration, SharedSeed (..), SlotLeaders, StakeholderId,
+                           coinToInteger, mkCoin, sumCoins)
+import           Pos.Lrc.Fts (followTheSatoshiM)
+import           Pos.Txp.Toil (Utxo, utxoToStakes)
 
 -- | Choose several random stakeholders (specifically, their amount is
 -- currently hardcoded in 'Pos.Constants.epochSlots').

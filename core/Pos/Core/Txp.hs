@@ -43,27 +43,26 @@ module Pos.Core.Txp
 
 import           Universum
 
-import           Control.Lens            (makeLenses, makePrisms)
-import           Data.Hashable           (Hashable)
-import qualified Data.Text.Buildable     as Buildable
-import           Data.Vector             (Vector)
-import           Fmt                     (genericF)
-import           Formatting              (Format, bprint, build, builder, formatToString,
-                                          int, later, sformat, (%))
-import           Serokell.Util.Base16    (base16F)
-import           Serokell.Util.Text      (listJson, listJsonIndent)
-import           Serokell.Util.Verify    (VerificationRes (..), verResSingleF,
-                                          verifyGeneric)
+import           Control.Lens (makeLenses, makePrisms)
+import           Data.Hashable (Hashable)
+import qualified Data.Text.Buildable as Buildable
+import           Data.Vector (Vector)
+import           Fmt (genericF)
+import           Formatting (Format, bprint, build, builder, formatToString, int, later, sformat,
+                             (%))
+import           Serokell.Util.Base16 (base16F)
+import           Serokell.Util.Text (listJson, listJsonIndent)
+import           Serokell.Util.Verify (VerificationRes (..), verResSingleF, verifyGeneric)
 
-import           Pos.Binary.Class        (Bi)
+import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core.Address ()
-import           Pos.Binary.Crypto       ()
-import           Pos.Core.Address        (Address (..), addressHash)
-import           Pos.Core.Types          (Coin, Script, coinF, mkCoin)
-import           Pos.Crypto              (Hash, PublicKey, RedeemPublicKey,
-                                          RedeemSignature, Signature, hash, shortHashF)
-import           Pos.Data.Attributes     (Attributes, areAttributesKnown)
-import           Pos.Merkle              (MerkleRoot, MerkleTree, mkMerkleTree, mtRoot)
+import           Pos.Binary.Crypto ()
+import           Pos.Core.Address (Address (..), addressHash)
+import           Pos.Core.Types (Coin, Script, coinF, mkCoin)
+import           Pos.Crypto (Hash, PublicKey, RedeemPublicKey, RedeemSignature, Signature, hash,
+                             shortHashF)
+import           Pos.Data.Attributes (Attributes, areAttributesKnown)
+import           Pos.Merkle (MerkleRoot, MerkleTree, mkMerkleTree, mtRoot)
 
 -- | Represents transaction identifier as 'Hash' of 'Tx'.
 type TxId = Hash Tx
@@ -133,7 +132,7 @@ data TxIn
 instance Hashable TxIn
 
 instance Buildable TxIn where
-    build TxInUtxo {..} = bprint ("TxInUtxo "%shortHashF%" #"%int) txInHash txInIndex
+    build TxInUtxo {..}        = bprint ("TxInUtxo "%shortHashF%" #"%int) txInHash txInIndex
     build (TxInUnknown tag bs) = bprint ("TxInUnknown "%int%" "%base16F) tag bs
 
 instance NFData TxIn

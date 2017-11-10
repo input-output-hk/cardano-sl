@@ -21,70 +21,57 @@ module Mode
 
 import           Universum
 
-import           Control.Lens                     (lens, makeLensesWith)
-import           Control.Monad.Morph              (hoist)
-import           Control.Monad.Reader             (withReaderT)
-import           Data.Default                     (def)
-import           Mockable                         (Production)
-import           System.Wlog                      (HasLoggerName (..))
+import           Control.Lens (lens, makeLensesWith)
+import           Control.Monad.Morph (hoist)
+import           Control.Monad.Reader (withReaderT)
+import           Data.Default (def)
+import           Mockable (Production)
+import           System.Wlog (HasLoggerName (..))
 
-import           Pos.Block.BListener              (MonadBListener (..))
-import           Pos.Block.Slog                   (HasSlogContext (..),
-                                                   HasSlogGState (..))
-import           Pos.Block.Types                  (Undo)
-import           Pos.Client.KeyStorage            (MonadKeys (..), MonadKeysRead (..),
-                                                   getSecretDefault, modifySecretDefault)
-import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
-import           Pos.Client.Txp.Balances          (MonadBalances (..), getBalanceFromUtxo,
-                                                   getOwnUtxosGenesis)
-import           Pos.Client.Txp.History           (MonadTxHistory (..),
-                                                   getBlockHistoryDefault,
-                                                   getLocalHistoryDefault, saveTxDefault)
-import           Pos.Communication                (NodeId)
-import           Pos.Context                      (HasNodeContext (..))
-import           Pos.Core                         (Address, HasConfiguration,
-                                                   HasPrimaryKey (..),
-                                                   IsBootstrapEraAddr (..), IsHeader,
-                                                   deriveFirstHDAddress,
-                                                   largestPubKeyAddressBoot,
-                                                   largestPubKeyAddressSingleKey,
-                                                   makePubKeyAddress, siEpoch)
-import           Pos.Core.Block                   (Block, BlockHeader)
-import           Pos.Crypto                       (EncryptedSecretKey, PublicKey,
-                                                   emptyPassphrase)
-import           Pos.DB                           (DBSum (..), MonadGState (..), NodeDBs,
-                                                   gsIsBootstrapEra)
-import           Pos.DB.Class                     (MonadBlockDBGeneric (..),
-                                                   MonadBlockDBGenericWrite (..),
-                                                   MonadDB (..), MonadDBRead (..))
-import           Pos.Generator.Block              (BlockGenMode)
-import           Pos.GState                       (HasGStateContext (..),
-                                                   getGStateImplicit)
-import           Pos.Infra.Configuration          (HasInfraConfiguration)
-import           Pos.KnownPeers                   (MonadFormatPeers (..),
-                                                   MonadKnownPeers (..))
-import           Pos.Launcher                     (HasConfigurations)
-import           Pos.Network.Types                (HasNodeType (..), NodeType (..))
-import           Pos.Reporting                    (HasReportingContext (..))
-import           Pos.Shutdown                     (HasShutdownContext (..))
-import           Pos.Slotting.Class               (MonadSlots (..))
-import           Pos.Slotting.MemState            (HasSlottingVar (..), MonadSlotsData)
-import           Pos.Ssc.Configuration            (HasSscConfiguration)
-import           Pos.Ssc.Types                    (HasSscContext (..), SscBlock)
-import           Pos.Txp                          (MempoolExt, MonadTxpLocal (..),
-                                                   txNormalize, txProcessTransaction,
-                                                   txProcessTransactionNoLock)
-import           Pos.Txp.DB.Utxo                  (getFilteredUtxo)
-import           Pos.Util                         (Some (..))
-import           Pos.Util.CompileInfo             (HasCompileInfo, withCompileInfo)
-import           Pos.Util.JsonLog                 (HasJsonLogConfig (..))
-import           Pos.Util.LoggerName              (HasLoggerName' (..))
-import qualified Pos.Util.OutboundQueue           as OQ.Reader
-import           Pos.Util.TimeWarp                (CanJsonLog (..))
-import           Pos.Util.UserSecret              (HasUserSecret (..))
-import           Pos.Util.Util                    (HasLens (..), postfixLFields)
-import           Pos.WorkMode                     (EmptyMempoolExt, RealMode,
-                                                   RealModeContext (..))
+import           Pos.Block.BListener (MonadBListener (..))
+import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
+import           Pos.Block.Types (Undo)
+import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..), getSecretDefault,
+                                        modifySecretDefault)
+import           Pos.Client.Txp.Addresses (MonadAddresses (..))
+import           Pos.Client.Txp.Balances (MonadBalances (..), getBalanceFromUtxo,
+                                          getOwnUtxosGenesis)
+import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDefault,
+                                         getLocalHistoryDefault, saveTxDefault)
+import           Pos.Communication (NodeId)
+import           Pos.Context (HasNodeContext (..))
+import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..), IsBootstrapEraAddr (..),
+                           IsHeader, deriveFirstHDAddress, largestPubKeyAddressBoot,
+                           largestPubKeyAddressSingleKey, makePubKeyAddress, siEpoch)
+import           Pos.Core.Block (Block, BlockHeader)
+import           Pos.Crypto (EncryptedSecretKey, PublicKey, emptyPassphrase)
+import           Pos.DB (DBSum (..), MonadGState (..), NodeDBs, gsIsBootstrapEra)
+import           Pos.DB.Class (MonadBlockDBGeneric (..), MonadBlockDBGenericWrite (..),
+                               MonadDB (..), MonadDBRead (..))
+import           Pos.Generator.Block (BlockGenMode)
+import           Pos.GState (HasGStateContext (..), getGStateImplicit)
+import           Pos.Infra.Configuration (HasInfraConfiguration)
+import           Pos.KnownPeers (MonadFormatPeers (..), MonadKnownPeers (..))
+import           Pos.Launcher (HasConfigurations)
+import           Pos.Network.Types (HasNodeType (..), NodeType (..))
+import           Pos.Reporting (HasReportingContext (..))
+import           Pos.Shutdown (HasShutdownContext (..))
+import           Pos.Slotting.Class (MonadSlots (..))
+import           Pos.Slotting.MemState (HasSlottingVar (..), MonadSlotsData)
+import           Pos.Ssc.Configuration (HasSscConfiguration)
+import           Pos.Ssc.Types (HasSscContext (..), SscBlock)
+import           Pos.Txp (MempoolExt, MonadTxpLocal (..), txNormalize, txProcessTransaction,
+                          txProcessTransactionNoLock)
+import           Pos.Txp.DB.Utxo (getFilteredUtxo)
+import           Pos.Util (Some (..))
+import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
+import           Pos.Util.JsonLog (HasJsonLogConfig (..))
+import           Pos.Util.LoggerName (HasLoggerName' (..))
+import qualified Pos.Util.OutboundQueue as OQ.Reader
+import           Pos.Util.TimeWarp (CanJsonLog (..))
+import           Pos.Util.UserSecret (HasUserSecret (..))
+import           Pos.Util.Util (HasLens (..), postfixLFields)
+import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext (..))
 
 -- | Command execution context.
 data CmdCtx = CmdCtx
@@ -125,7 +112,7 @@ instance HasLens DBSum AuxxContext DBSum where
     lensOf =
         let getter ctx = RealDB (ctx ^. (lensOf @NodeDBs))
             setter ctx (RealDB db') = ctx & (lensOf @NodeDBs) .~ db'
-            setter _ (PureDB _) = error "Auxx: tried to set pure db insteaf of nodedb"
+            setter _ (PureDB _)     = error "Auxx: tried to set pure db insteaf of nodedb"
         in lens getter setter
 
 instance HasGStateContext AuxxContext where

@@ -34,14 +34,13 @@ module Pos.Core.Block.Blockchain
 
 import           Universum
 
-import           Control.Lens                       (makeLenses)
-import           Control.Monad.Except               (MonadError (throwError))
-import           Formatting                         (build, sformat, (%))
+import           Control.Lens (makeLenses)
+import           Control.Monad.Except (MonadError (throwError))
+import           Formatting (build, sformat, (%))
 
-import           Pos.Core.Class                     (HasHeaderHash (..),
-                                                     HasPrevBlock (..))
+import           Pos.Core.Class (HasHeaderHash (..), HasPrevBlock (..))
 import           Pos.Core.Configuration.GenesisHash (HasGenesisHash, genesisHash)
-import           Pos.Core.Types                     (HeaderHash)
+import           Pos.Core.Types (HeaderHash)
 
 ----------------------------------------------------------------------------
 -- Blockchain class

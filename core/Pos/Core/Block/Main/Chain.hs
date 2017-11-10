@@ -12,25 +12,25 @@ module Pos.Core.Block.Main.Chain
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Fmt                        (genericF)
+import           Fmt (genericF)
 
-import           Pos.Binary.Class           (Bi)
+import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core.Delegation ()
-import           Pos.Binary.Core.Ssc        ()
-import           Pos.Binary.Core.Txp        ()
-import           Pos.Binary.Core.Update     ()
-import           Pos.Core.Block.Blockchain  (Blockchain (..), GenericBlockHeader (..))
-import           Pos.Core.Block.Main.Types  (MainBlock, MainBlockchain, MainExtraBodyData,
-                                             MainExtraHeaderData, MainToSign (..))
+import           Pos.Binary.Core.Ssc ()
+import           Pos.Binary.Core.Txp ()
+import           Pos.Binary.Core.Update ()
+import           Pos.Core.Block.Blockchain (Blockchain (..), GenericBlockHeader (..))
+import           Pos.Core.Block.Main.Types (MainBlock, MainBlockchain, MainExtraBodyData,
+                                            MainExtraHeaderData, MainToSign (..))
 import           Pos.Core.Block.Union.Types (Block, BlockHeader, BlockSignature (..))
-import           Pos.Core.Class             (IsMainHeader (..))
-import           Pos.Core.Configuration     (HasConfiguration)
-import           Pos.Core.Delegation        (DlgPayload)
-import           Pos.Core.Ssc               (SscPayload, SscProof, mkSscProof)
-import           Pos.Core.Txp               (TxPayload, TxProof, mkTxProof)
-import           Pos.Core.Types             (ChainDifficulty, SlotId (..))
-import           Pos.Core.Update            (UpdatePayload, UpdateProof, mkUpdateProof)
-import           Pos.Crypto                 (Hash, PublicKey, hash)
+import           Pos.Core.Class (IsMainHeader (..))
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Delegation (DlgPayload)
+import           Pos.Core.Ssc (SscPayload, SscProof, mkSscProof)
+import           Pos.Core.Txp (TxPayload, TxProof, mkTxProof)
+import           Pos.Core.Types (ChainDifficulty, SlotId (..))
+import           Pos.Core.Update (UpdatePayload, UpdateProof, mkUpdateProof)
+import           Pos.Crypto (Hash, PublicKey, hash)
 
 instance ( HasConfiguration
          , Bi BlockHeader

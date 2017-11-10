@@ -14,20 +14,18 @@ module Pos.Crypto.Signing.Types.Safe
        , checkPassMatches
        ) where
 
-import qualified Cardano.Crypto.Wallet            as CC
-import           Crypto.Random                    (MonadRandom)
-import           Data.ByteArray                   (ByteArray, ByteArrayAccess,
-                                                   ScrubbedBytes)
-import           Data.Default                     (Default (..))
-import           Data.Text.Buildable              (build)
-import qualified Data.Text.Buildable              as B
+import qualified Cardano.Crypto.Wallet as CC
+import           Crypto.Random (MonadRandom)
+import           Data.ByteArray (ByteArray, ByteArrayAccess, ScrubbedBytes)
+import           Data.Default (Default (..))
+import           Data.Text.Buildable (build)
+import qualified Data.Text.Buildable as B
 import qualified Prelude
 import           Universum
 
-import           Pos.Binary.Class                 (Bi)
-import qualified Pos.Crypto.Scrypt                as S
-import           Pos.Crypto.Signing.Types.Signing (PublicKey (..), SecretKey (..),
-                                                   toPublic)
+import           Pos.Binary.Class (Bi)
+import qualified Pos.Crypto.Scrypt as S
+import           Pos.Crypto.Signing.Types.Signing (PublicKey (..), SecretKey (..), toPublic)
 
 -- | Encrypted HD secret key.
 data EncryptedSecretKey = EncryptedSecretKey

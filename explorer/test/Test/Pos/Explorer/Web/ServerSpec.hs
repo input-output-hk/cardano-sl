@@ -8,32 +8,28 @@ module Test.Pos.Explorer.Web.ServerSpec
 
 import           Universum
 
-import           Data.Default                 (def)
-import           Data.List.NonEmpty           (fromList)
-import           Test.Hspec                   (Spec, describe, shouldBe)
-import           Test.Hspec.QuickCheck        (modifyMaxSuccess, prop)
-import           Test.QuickCheck              (arbitrary, counterexample, forAll, (==>))
-import           Test.QuickCheck.Monadic      (assert, monadicIO, run)
+import           Data.Default (def)
+import           Data.List.NonEmpty (fromList)
+import           Test.Hspec (Spec, describe, shouldBe)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
+import           Test.QuickCheck (arbitrary, counterexample, forAll, (==>))
+import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
-import           Pos.Arbitrary.Block          ()
-import           Pos.Core.Block               (Block)
-import qualified Pos.Communication            ()
-import           Pos.Core                     (EpochIndex (..), HasConfiguration,
-                                               LocalSlotIndex (..), SlotId (..))
-import           Pos.DB.Block                 (MonadBlockDB)
-import           Pos.Explorer.ExplorerMode    (runExplorerTestMode)
-import           Pos.Explorer.ExtraContext    (ExplorerMockableMode (..),
-                                               ExtraContext (..), makeExtraCtx,
-                                               makeMockExtraCtx)
-import           Pos.Explorer.TestUtil        (basicBlockGenericUnsafe, emptyBlk,
-                                               leftToCounter)
+import           Pos.Arbitrary.Block ()
+import qualified Pos.Communication ()
+import           Pos.Core (EpochIndex (..), HasConfiguration, LocalSlotIndex (..), SlotId (..))
+import           Pos.Core.Block (Block)
+import           Pos.DB.Block (MonadBlockDB)
+import           Pos.Explorer.ExplorerMode (runExplorerTestMode)
+import           Pos.Explorer.ExtraContext (ExplorerMockableMode (..), ExtraContext (..),
+                                            makeExtraCtx, makeMockExtraCtx)
+import           Pos.Explorer.TestUtil (basicBlockGenericUnsafe, emptyBlk, leftToCounter)
 import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
-import           Pos.Explorer.Web.Server      (getBlocksLastPage, getBlocksPage,
-                                               getBlocksPagesTotal, getBlocksTotal,
-                                               getBlockDifficulty)
-import           Pos.Launcher.Configuration   (HasConfigurations)
-import           Test.Pos.Util                (withDefConfigurations)
-import           Pos.Util                     (divRoundUp)
+import           Pos.Explorer.Web.Server (getBlockDifficulty, getBlocksLastPage, getBlocksPage,
+                                          getBlocksPagesTotal, getBlocksTotal)
+import           Pos.Launcher.Configuration (HasConfigurations)
+import           Pos.Util (divRoundUp)
+import           Test.Pos.Util (withDefConfigurations)
 
 
 ----------------------------------------------------------------

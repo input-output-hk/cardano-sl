@@ -9,13 +9,13 @@ module Pos.Block.Error
 
 import           Universum
 
-import           Control.Exception      (Exception (..))
-import           Data.Text.Buildable    (Buildable (..))
+import           Control.Exception (Exception (..))
+import           Data.Text.Buildable (Buildable (..))
 import           Data.Text.Lazy.Builder (Builder, fromText)
-import           Formatting             (bprint, stext, (%))
+import           Formatting (bprint, stext, (%))
 
-import           Pos.Core               (HeaderHash)
-import           Pos.Crypto             (shortHashF)
+import           Pos.Core (HeaderHash)
+import           Pos.Crypto (shortHashF)
 
 data BlkError
 

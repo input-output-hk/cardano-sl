@@ -14,49 +14,32 @@ module Pos.Core.Genesis.Generate
 
 import           Universum
 
-import           Crypto.Random                           (MonadRandom, getRandomBytes)
-import qualified Data.HashMap.Strict                     as HM
-import qualified Data.Map.Strict                         as Map
-import           Serokell.Util.Verify                    (VerificationRes (..),
-                                                          formatAllErrors, verifyGeneric)
+import           Crypto.Random (MonadRandom, getRandomBytes)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Map.Strict as Map
+import           Serokell.Util.Verify (VerificationRes (..), formatAllErrors, verifyGeneric)
 
-import           Pos.Binary.Class                        (asBinary, serialize')
-import           Pos.Binary.Core.Address                 ()
-import           Pos.Core.Address                        (Address,
-                                                          IsBootstrapEraAddr (..),
-                                                          addressHash,
-                                                          deriveFirstHDAddress,
-                                                          makePubKeyAddressBoot)
-import           Pos.Core.Coin                           (mkCoin, unsafeIntegerToCoin)
+import           Pos.Binary.Class (asBinary, serialize')
+import           Pos.Binary.Core.Address ()
+import           Pos.Core.Address (Address, IsBootstrapEraAddr (..), addressHash,
+                                   deriveFirstHDAddress, makePubKeyAddressBoot)
+import           Pos.Core.Coin (mkCoin, unsafeIntegerToCoin)
 import           Pos.Core.Configuration.BlockVersionData (HasGenesisBlockVersionData)
-import           Pos.Core.Configuration.Protocol         (HasProtocolConstants, vssMaxTTL,
-                                                          vssMinTTL)
-import           Pos.Core.Genesis.Helpers                (mkGenesisDelegation)
-import           Pos.Core.Genesis.Types                  (FakeAvvmOptions (..),
-                                                          GenesisAvvmBalances (..),
-                                                          GenesisDelegation,
-                                                          GenesisInitializer (..),
-                                                          GenesisNonAvvmBalances (..),
-                                                          GenesisVssCertificatesMap (..),
-                                                          GenesisWStakeholders (..),
-                                                          TestnetBalanceOptions (..),
-                                                          noGenesisDelegation)
-import           Pos.Core.Types                          (Coin, CoinPortion, ProxySKHeavy,
-                                                          StakeholderId,
-                                                          unsafeCoinPortionFromDouble)
-import           Pos.Core.Vss                            (VssCertificate,
-                                                          mkVssCertificate,
-                                                          mkVssCertificatesMap)
-import           Pos.Crypto                              (EncryptedSecretKey,
-                                                          RedeemPublicKey, SecretKey,
-                                                          VssKeyPair, createPsk,
-                                                          deterministic, emptyPassphrase,
-                                                          encToSecret, keyGen,
-                                                          randomNumberInRange,
-                                                          redeemDeterministicKeyGen,
-                                                          safeKeyGen, toPublic,
-                                                          toVssPublicKey, vssKeyGen)
-import           Pos.Util.Util                           (leftToPanic)
+import           Pos.Core.Configuration.Protocol (HasProtocolConstants, vssMaxTTL, vssMinTTL)
+import           Pos.Core.Genesis.Helpers (mkGenesisDelegation)
+import           Pos.Core.Genesis.Types (FakeAvvmOptions (..), GenesisAvvmBalances (..),
+                                         GenesisDelegation, GenesisInitializer (..),
+                                         GenesisNonAvvmBalances (..),
+                                         GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
+                                         TestnetBalanceOptions (..), noGenesisDelegation)
+import           Pos.Core.Types (Coin, CoinPortion, ProxySKHeavy, StakeholderId,
+                                 unsafeCoinPortionFromDouble)
+import           Pos.Core.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMap)
+import           Pos.Crypto (EncryptedSecretKey, RedeemPublicKey, SecretKey, VssKeyPair, createPsk,
+                             deterministic, emptyPassphrase, encToSecret, keyGen,
+                             randomNumberInRange, redeemDeterministicKeyGen, safeKeyGen, toPublic,
+                             toVssPublicKey, vssKeyGen)
+import           Pos.Util.Util (leftToPanic)
 
 -- | Data generated by @generateGenesisData@ using genesis-spec.
 data GeneratedGenesisData = GeneratedGenesisData

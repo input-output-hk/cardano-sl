@@ -7,8 +7,8 @@ module Pos.Infra.Configuration
        , ntpServers
        ) where
 
-import           Data.Aeson             (FromJSON (..), genericParseJSON)
-import           Data.Reflection        (Given, give, given)
+import           Data.Aeson (FromJSON (..), genericParseJSON)
+import           Data.Reflection (Given, give, given)
 import           Serokell.Aeson.Options (defaultOptions)
 import           Universum
 

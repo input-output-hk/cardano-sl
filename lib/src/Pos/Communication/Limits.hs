@@ -14,38 +14,33 @@ module Pos.Communication.Limits
 
 import           Universum
 
-import qualified Cardano.Crypto.Wallet              as CC
-import           Crypto.Hash.IO                     (HashAlgorithm, hashDigestSize)
-import qualified Crypto.SCRAPE                      as Scrape
-import           Data.Coerce                        (coerce)
-import           GHC.Exts                           (IsList (..))
+import qualified Cardano.Crypto.Wallet as CC
+import           Crypto.Hash.IO (HashAlgorithm, hashDigestSize)
+import qualified Crypto.SCRAPE as Scrape
+import           Data.Coerce (coerce)
+import           GHC.Exts (IsList (..))
 
-import           Pos.Binary.Class                   (AsBinary (..))
-import           Pos.Block.Network.Types            (MsgBlock (..), MsgGetBlocks (..),
-                                                     MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.Types.Protocol   (MsgSubscribe (..))
-import           Pos.Communication.Types.Relay      (DataMsg (..))
-import           Pos.Configuration                  (HasNodeConfiguration,
-                                                     recoveryHeadersMessage)
-import           Pos.Core                           (BlockVersionData (..),
-                                                     VssCertificate, coinPortionToDouble)
-import           Pos.Core.Block                     (Block, BlockHeader)
-import           Pos.Core.Configuration             (HasConfiguration, blkSecurityParam)
-import           Pos.Core.Ssc                       (Commitment (..), InnerSharesMap,
-                                                     Opening (..), SignedCommitment)
-import           Pos.Core.Txp                       (TxAux)
-import           Pos.Core.Update                    (UpdateProposal (..), UpdateVote (..))
-import           Pos.Crypto                         (AbstractHash, DecShare, EncShare,
-                                                     ProxyCert (..), ProxySecretKey (..),
-                                                     ProxySignature (..), PublicKey,
-                                                     Secret, SecretProof (..),
-                                                     Signature (..), VssPublicKey)
-import qualified Pos.DB.Class                       as DB
-import           Pos.Delegation.Types               (ProxySKLightConfirmation)
-import           Pos.Ssc.Message                    (MCCommitment (..), MCOpening (..),
-                                                     MCShares (..), MCVssCertificate (..))
-import           Pos.Txp.Network.Types              (TxMsgContents (..))
-import           Pos.Types                          (EpochIndex)
+import           Pos.Binary.Class (AsBinary (..))
+import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
+                                          MsgHeaders (..))
+import           Pos.Communication.Types.Protocol (MsgSubscribe (..))
+import           Pos.Communication.Types.Relay (DataMsg (..))
+import           Pos.Configuration (HasNodeConfiguration, recoveryHeadersMessage)
+import           Pos.Core (BlockVersionData (..), VssCertificate, coinPortionToDouble)
+import           Pos.Core.Block (Block, BlockHeader)
+import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam)
+import           Pos.Core.Ssc (Commitment (..), InnerSharesMap, Opening (..), SignedCommitment)
+import           Pos.Core.Txp (TxAux)
+import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
+import           Pos.Crypto (AbstractHash, DecShare, EncShare, ProxyCert (..), ProxySecretKey (..),
+                             ProxySignature (..), PublicKey, Secret, SecretProof (..),
+                             Signature (..), VssPublicKey)
+import qualified Pos.DB.Class as DB
+import           Pos.Delegation.Types (ProxySKLightConfirmation)
+import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
+                                  MCVssCertificate (..))
+import           Pos.Txp.Network.Types (TxMsgContents (..))
+import           Pos.Types (EpochIndex)
 
 -- Reexports
 import           Pos.Communication.Limits.Instances ()

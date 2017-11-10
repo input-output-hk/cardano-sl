@@ -17,35 +17,30 @@ module Pos.Explorer.BListener
 
 import           Universum
 
-import           Control.Lens                 (at, non)
+import           Control.Lens (at, non)
 import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Coerce                  (coerce)
-import           Data.List                    ((\\))
-import qualified Data.List.NonEmpty           as NE
-import qualified Data.Map                     as M
+import           Data.Coerce (coerce)
+import           Data.List ((\\))
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Map as M
 import qualified Ether
-import           System.Wlog                  (WithLogger)
+import           System.Wlog (WithLogger)
 
-import           Pos.Block.BListener          (MonadBListener (..))
-import           Pos.Block.Types              (Blund)
-import           Pos.Core                     (HasConfiguration, HeaderHash,
-                                               LocalSlotIndex (..), SlotId (..),
-                                               difficultyL, epochIndexL,
-                                               getChainDifficulty, headerHash,
-                                               mainBlockSlot)
-import           Pos.Core.Block               (Block, MainBlock, mainBlockTxPayload)
-import           Pos.Core.Txp                 (Tx, txpTxs)
-import           Pos.Crypto                   (withHash)
-import           Pos.DB.BatchOp               (SomeBatchOp (..))
-import           Pos.DB.Class                 (MonadDBRead)
-import           Pos.Explorer.DB              (Epoch, EpochPagedBlocksKey, Page,
-                                               defaultPageSize, findEpochMaxPages,
-                                               numOfLastTxs)
-import qualified Pos.Explorer.DB              as DB
-import           Pos.Txp                      (topsortTxs)
-import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..),
-                                               toNewestFirst)
-import           Pos.Util.Util                (inAssertMode)
+import           Pos.Block.BListener (MonadBListener (..))
+import           Pos.Block.Types (Blund)
+import           Pos.Core (HasConfiguration, HeaderHash, LocalSlotIndex (..), SlotId (..),
+                           difficultyL, epochIndexL, getChainDifficulty, headerHash, mainBlockSlot)
+import           Pos.Core.Block (Block, MainBlock, mainBlockTxPayload)
+import           Pos.Core.Txp (Tx, txpTxs)
+import           Pos.Crypto (withHash)
+import           Pos.DB.BatchOp (SomeBatchOp (..))
+import           Pos.DB.Class (MonadDBRead)
+import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page, defaultPageSize,
+                                  findEpochMaxPages, numOfLastTxs)
+import qualified Pos.Explorer.DB as DB
+import           Pos.Txp (topsortTxs)
+import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst)
+import           Pos.Util.Util (inAssertMode)
 
 
 ----------------------------------------------------------------------------

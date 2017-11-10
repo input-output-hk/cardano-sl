@@ -11,43 +11,39 @@ module Pos.Launcher.Scenario
 
 import           Universum
 
-import qualified Data.HashMap.Strict      as HM
-import           Data.Time.Units          (Second)
-import           Formatting               (bprint, build, int, sformat, shown, (%))
-import           Mockable                 (mapConcurrently, race)
-import           Serokell.Util.Text       (listJson)
-import           System.Exit              (ExitCode (..))
-import           System.Wlog              (WithLogger, getLoggerName, logDebug, logInfo,
-                                           logWarning)
+import qualified Data.HashMap.Strict as HM
+import           Data.Time.Units (Second)
+import           Formatting (bprint, build, int, sformat, shown, (%))
+import           Mockable (mapConcurrently, race)
+import           Serokell.Util.Text (listJson)
+import           System.Exit (ExitCode (..))
+import           System.Wlog (WithLogger, getLoggerName, logDebug, logInfo, logWarning)
 
-import           Pos.Communication        (ActionSpec (..), OutSpecs, WorkerSpec,
-                                           wrapActionSpec)
-import           Pos.Context              (getOurPublicKey, ncNetworkConfig)
-import           Pos.Core                 (GenesisData (gdBootStakeholders, gdHeavyDelegation),
-                                           GenesisDelegation (..),
-                                           GenesisWStakeholders (..), addressHash,
-                                           gdFtsSeed, genesisData)
-import           Pos.Crypto               (pskDelegatePk)
-import qualified Pos.DB.DB                as DB
-import           Pos.DHT.Real             (KademliaDHTInstance (..),
-                                           kademliaJoinNetworkNoThrow,
-                                           kademliaJoinNetworkRetry)
-import qualified Pos.GState               as GS
-import           Pos.Launcher.Resource    (NodeResources (..))
-import           Pos.Lrc.DB               as LrcDB
-import           Pos.Network.Types        (NetworkConfig (..), topologyRunKademlia)
-import           Pos.NtpCheck             (NtpStatus (..), ntpSettings, withNtpCheck)
-import           Pos.Reporting            (reportError)
-import           Pos.Shutdown             (waitForShutdown)
-import           Pos.Slotting             (waitSystemStart)
-import           Pos.Txp                  (bootDustThreshold)
+import           Pos.Communication (ActionSpec (..), OutSpecs, WorkerSpec, wrapActionSpec)
+import           Pos.Context (getOurPublicKey, ncNetworkConfig)
+import           Pos.Core (GenesisData (gdBootStakeholders, gdHeavyDelegation),
+                           GenesisDelegation (..), GenesisWStakeholders (..), addressHash,
+                           gdFtsSeed, genesisData)
+import           Pos.Crypto (pskDelegatePk)
+import qualified Pos.DB.DB as DB
+import           Pos.DHT.Real (KademliaDHTInstance (..), kademliaJoinNetworkNoThrow,
+                               kademliaJoinNetworkRetry)
+import qualified Pos.GState as GS
+import           Pos.Launcher.Resource (NodeResources (..))
+import           Pos.Lrc.DB as LrcDB
+import           Pos.Network.Types (NetworkConfig (..), topologyRunKademlia)
+import           Pos.NtpCheck (NtpStatus (..), ntpSettings, withNtpCheck)
+import           Pos.Reporting (reportError)
+import           Pos.Shutdown (waitForShutdown)
+import           Pos.Slotting (waitSystemStart)
+import           Pos.Txp (bootDustThreshold)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
                                            lastKnownBlockVersion, ourSystemTag)
-import           Pos.Util                 (inAssertMode)
-import           Pos.Util.CompileInfo     (HasCompileInfo, compileInfo)
-import           Pos.Util.LogSafe         (logInfoS)
-import           Pos.Worker               (allWorkers)
-import           Pos.WorkMode.Class       (WorkMode)
+import           Pos.Util (inAssertMode)
+import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
+import           Pos.Util.LogSafe (logInfoS)
+import           Pos.Worker (allWorkers)
+import           Pos.WorkMode.Class (WorkMode)
 
 
 -- | Entry point of full node.

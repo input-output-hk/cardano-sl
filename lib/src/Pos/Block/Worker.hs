@@ -9,64 +9,55 @@ module Pos.Block.Worker
 
 import           Universum
 
-import           Control.Lens                (ix)
-import qualified Data.List.NonEmpty          as NE
-import           Data.Time.Units             (Microsecond)
-import           Formatting                  (Format, bprint, build, fixed, int, now,
-                                              sformat, shown, (%))
-import           Mockable                    (delay, fork)
-import           Serokell.Util               (listJson, pairF, sec)
-import qualified System.Metrics.Label        as Label
-import           System.Wlog                 (logDebug, logInfo, logWarning)
+import           Control.Lens (ix)
+import qualified Data.List.NonEmpty as NE
+import           Data.Time.Units (Microsecond)
+import           Formatting (Format, bprint, build, fixed, int, now, sformat, shown, (%))
+import           Mockable (delay, fork)
+import           Serokell.Util (listJson, pairF, sec)
+import qualified System.Metrics.Label as Label
+import           System.Wlog (logDebug, logInfo, logWarning)
 
-import           Pos.Binary.Communication    ()
-import           Pos.Block.Logic             (calcChainQualityFixedTime,
-                                              calcChainQualityM, calcOverallChainQuality,
-                                              createGenesisBlockAndApply,
-                                              createMainBlockAndApply)
-import           Pos.Block.Network.Announce  (announceBlock, announceBlockOuts)
+import           Pos.Binary.Communication ()
+import           Pos.Block.Logic (calcChainQualityFixedTime, calcChainQualityM,
+                                  calcOverallChainQuality, createGenesisBlockAndApply,
+                                  createMainBlockAndApply)
+import           Pos.Block.Network.Announce (announceBlock, announceBlockOuts)
 import           Pos.Block.Network.Retrieval (retrievalWorker)
-import           Pos.Block.Slog              (scCQFixedMonitorState,
-                                              scCQOverallMonitorState, scCQkMonitorState,
-                                              scCrucialValuesLabel,
-                                              scDifficultyMonitorState,
-                                              scEpochMonitorState,
-                                              scGlobalSlotMonitorState,
-                                              scLocalSlotMonitorState, slogGetLastSlots)
-import           Pos.Communication.Protocol  (OutSpecs, SendActions (..), Worker,
-                                              WorkerSpec, onNewSlotWorker)
-import           Pos.Configuration           (networkDiameter)
-import           Pos.Context                 (getOurPublicKey, recoveryCommGuard)
-import           Pos.Core                    (BlockVersionData (..), ChainDifficulty,
-                                              FlatSlotId, SlotId (..),
-                                              Timestamp (Timestamp), blkSecurityParam,
-                                              difficultyL, epochSlots, fixedTimeCQSec,
-                                              flattenSlotId, gbHeader, getSlotIndex,
-                                              slotIdF, unflattenSlotId)
-import           Pos.Core.Address            (addressHash)
-import           Pos.Core.Configuration      (HasConfiguration, criticalCQ,
-                                              criticalCQBootstrap, nonCriticalCQ,
-                                              nonCriticalCQBootstrap)
-import           Pos.Crypto                  (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
-import           Pos.DB                      (gsIsBootstrapEra)
-import qualified Pos.DB.DB                   as DB
-import           Pos.DB.Misc                 (getProxySecretKeysLight)
-import           Pos.Delegation.Helpers      (isRevokePsk)
-import           Pos.Delegation.Logic        (getDlgTransPsk)
-import           Pos.Delegation.Types        (ProxySKBlockInfo)
-import           Pos.GState                  (getAdoptedBVData, getPskByIssuer)
-import qualified Pos.Lrc.DB                  as LrcDB (getLeadersForEpoch)
-import           Pos.Reporting               (MetricMonitor (..), MetricMonitorState,
-                                              noReportMonitor, recordValue, reportOrLogE)
-import           Pos.Slotting                (currentTimeSlotting,
-                                              getSlotStartEmpatically)
-import           Pos.Util                    (logWarningSWaitLinear, mconcatPair)
-import           Pos.Util.Chrono             (OldestFirst (..))
-import           Pos.Util.JsonLog            (jlCreatedBlock)
-import           Pos.Util.LogSafe            (logDebugS, logInfoS, logWarningS)
-import           Pos.Util.Timer              (Timer)
-import           Pos.Util.TimeWarp           (CanJsonLog (..))
-import           Pos.WorkMode.Class          (WorkMode)
+import           Pos.Block.Slog (scCQFixedMonitorState, scCQOverallMonitorState, scCQkMonitorState,
+                                 scCrucialValuesLabel, scDifficultyMonitorState,
+                                 scEpochMonitorState, scGlobalSlotMonitorState,
+                                 scLocalSlotMonitorState, slogGetLastSlots)
+import           Pos.Communication.Protocol (OutSpecs, SendActions (..), Worker, WorkerSpec,
+                                             onNewSlotWorker)
+import           Pos.Configuration (networkDiameter)
+import           Pos.Context (getOurPublicKey, recoveryCommGuard)
+import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId, SlotId (..),
+                           Timestamp (Timestamp), blkSecurityParam, difficultyL, epochSlots,
+                           fixedTimeCQSec, flattenSlotId, gbHeader, getSlotIndex, slotIdF,
+                           unflattenSlotId)
+import           Pos.Core.Address (addressHash)
+import           Pos.Core.Configuration (HasConfiguration, criticalCQ, criticalCQBootstrap,
+                                         nonCriticalCQ, nonCriticalCQBootstrap)
+import           Pos.Crypto (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
+import           Pos.DB (gsIsBootstrapEra)
+import qualified Pos.DB.DB as DB
+import           Pos.DB.Misc (getProxySecretKeysLight)
+import           Pos.Delegation.Helpers (isRevokePsk)
+import           Pos.Delegation.Logic (getDlgTransPsk)
+import           Pos.Delegation.Types (ProxySKBlockInfo)
+import           Pos.GState (getAdoptedBVData, getPskByIssuer)
+import qualified Pos.Lrc.DB as LrcDB (getLeadersForEpoch)
+import           Pos.Reporting (MetricMonitor (..), MetricMonitorState, noReportMonitor,
+                                recordValue, reportOrLogE)
+import           Pos.Slotting (currentTimeSlotting, getSlotStartEmpatically)
+import           Pos.Util (logWarningSWaitLinear, mconcatPair)
+import           Pos.Util.Chrono (OldestFirst (..))
+import           Pos.Util.JsonLog (jlCreatedBlock)
+import           Pos.Util.LogSafe (logDebugS, logInfoS, logWarningS)
+import           Pos.Util.Timer (Timer)
+import           Pos.Util.TimeWarp (CanJsonLog (..))
+import           Pos.WorkMode.Class (WorkMode)
 
 
 ----------------------------------------------------------------------------

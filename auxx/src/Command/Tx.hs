@@ -12,56 +12,48 @@ module Command.Tx
 import           Universum
 
 import           Control.Concurrent.STM.TQueue (newTQueue, tryReadTQueue, writeTQueue)
-import           Control.Exception.Safe        (Exception (..), try)
-import           Control.Monad.Except          (runExceptT)
-import qualified Data.ByteString               as BS
-import           Data.Default                  (def)
-import qualified Data.HashMap.Strict           as HM
-import           Data.List                     ((!!))
-import qualified Data.List.NonEmpty            as NE
-import qualified Data.Text                     as T
-import qualified Data.Text.IO                  as T
-import           Data.Time.Units               (toMicroseconds)
-import           Formatting                    (build, int, sformat, shown, stext, (%))
-import           Mockable                      (Mockable, SharedAtomic, SharedAtomicT,
-                                                bracket, concurrently, currentTime, delay,
-                                                forConcurrently, modifySharedAtomic,
-                                                newSharedAtomic)
-import           Serokell.Util                 (ms, sec)
-import           System.IO                     (BufferMode (LineBuffering), hClose,
-                                                hSetBuffering)
-import           System.Random                 (randomRIO)
-import           System.Wlog                   (logError, logInfo)
+import           Control.Exception.Safe (Exception (..), try)
+import           Control.Monad.Except (runExceptT)
+import qualified Data.ByteString as BS
+import           Data.Default (def)
+import qualified Data.HashMap.Strict as HM
+import           Data.List ((!!))
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Text as T
+import qualified Data.Text.IO as T
+import           Data.Time.Units (toMicroseconds)
+import           Formatting (build, int, sformat, shown, stext, (%))
+import           Mockable (Mockable, SharedAtomic, SharedAtomicT, bracket, concurrently,
+                           currentTime, delay, forConcurrently, modifySharedAtomic, newSharedAtomic)
+import           Serokell.Util (ms, sec)
+import           System.IO (BufferMode (LineBuffering), hClose, hSetBuffering)
+import           System.Random (randomRIO)
+import           System.Wlog (logError, logInfo)
 
-import           Pos.Binary                    (decodeFull)
-import           Pos.Client.KeyStorage         (getSecretKeysPlain)
-import           Pos.Client.Txp.Balances       (getOwnUtxoForPk)
-import           Pos.Client.Txp.Util           (createTx)
-import           Pos.Communication             (SendActions,
-                                                immediateConcurrentConversations,
-                                                prepareMTx, submitTxRaw)
-import           Pos.Configuration             (HasNodeConfiguration)
-import           Pos.Core                      (BlockVersionData (bvdSlotDuration),
-                                                IsBootstrapEraAddr (..), Timestamp (..),
-                                                deriveFirstHDAddress, makePubKeyAddress,
-                                                mkCoin)
-import           Pos.Core.Configuration        (HasConfiguration, genesisBlockVersionData,
-                                                genesisSecretKeys)
-import           Pos.Core.Txp                  (TxAux, TxOut (..), TxOutAux (..), txaF)
-import           Pos.Crypto                    (EncryptedSecretKey, emptyPassphrase,
-                                                encToPublic, fakeSigner, safeToPublic,
-                                                toPublic, withSafeSigners)
-import           Pos.Infra.Configuration       (HasInfraConfiguration)
-import           Pos.Ssc.Configuration         (HasSscConfiguration)
-import           Pos.Txp                       (topsortTxAuxes)
-import           Pos.Update.Configuration      (HasUpdateConfiguration)
-import           Pos.Util.CompileInfo          (HasCompileInfo)
-import           Pos.Util.UserSecret           (usWallet, userSecret, wusRootKey)
-import           Pos.Util.Util                 (maybeThrow)
+import           Pos.Binary (decodeFull)
+import           Pos.Client.KeyStorage (getSecretKeysPlain)
+import           Pos.Client.Txp.Balances (getOwnUtxoForPk)
+import           Pos.Client.Txp.Util (createTx)
+import           Pos.Communication (SendActions, immediateConcurrentConversations, prepareMTx,
+                                    submitTxRaw)
+import           Pos.Configuration (HasNodeConfiguration)
+import           Pos.Core (BlockVersionData (bvdSlotDuration), IsBootstrapEraAddr (..),
+                           Timestamp (..), deriveFirstHDAddress, makePubKeyAddress, mkCoin)
+import           Pos.Core.Configuration (HasConfiguration, genesisBlockVersionData,
+                                         genesisSecretKeys)
+import           Pos.Core.Txp (TxAux, TxOut (..), TxOutAux (..), txaF)
+import           Pos.Crypto (EncryptedSecretKey, emptyPassphrase, encToPublic, fakeSigner,
+                             safeToPublic, toPublic, withSafeSigners)
+import           Pos.Infra.Configuration (HasInfraConfiguration)
+import           Pos.Ssc.Configuration (HasSscConfiguration)
+import           Pos.Txp (topsortTxAuxes)
+import           Pos.Update.Configuration (HasUpdateConfiguration)
+import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Util.UserSecret (usWallet, userSecret, wusRootKey)
+import           Pos.Util.Util (maybeThrow)
 
-import           Lang.Value                    (SendMode (..))
-import           Mode                          (AuxxMode, CmdCtx (..), getCmdCtx,
-                                                makePubKeyAddressAuxx)
+import           Lang.Value (SendMode (..))
+import           Mode (AuxxMode, CmdCtx (..), getCmdCtx, makePubKeyAddressAuxx)
 
 ----------------------------------------------------------------------------
 -- Send to all genesis

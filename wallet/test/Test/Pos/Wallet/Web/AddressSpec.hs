@@ -4,31 +4,30 @@ module Test.Pos.Wallet.Web.AddressSpec
 
 import           Universum
 
-import           Data.Default                 (def)
-import           Formatting                   (sformat, (%))
-import           Serokell.Data.Memory.Units   (memory)
-import           Test.Hspec                   (Spec, describe)
-import           Test.Hspec.QuickCheck        (modifyMaxSuccess, prop)
-import           Test.QuickCheck              (Discard (..), arbitrary)
-import           Test.QuickCheck.Monadic      (pick, stop)
+import           Data.Default (def)
+import           Formatting (sformat, (%))
+import           Serokell.Data.Memory.Units (memory)
+import           Test.Hspec (Spec, describe)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
+import           Test.QuickCheck (Discard (..), arbitrary)
+import           Test.QuickCheck.Monadic (pick, stop)
 
-import           Pos.Binary                   (biSize)
-import           Pos.Client.Txp.Addresses     (getFakeChangeAddress, getNewAddress)
-import           Pos.Core.Address             (Address)
-import           Pos.Crypto                   (PassPhrase)
-import           Pos.Launcher                 (HasConfigurations)
-import           Pos.Util.CompileInfo         (HasCompileInfo, withCompileInfo)
+import           Pos.Binary (biSize)
+import           Pos.Client.Txp.Addresses (getFakeChangeAddress, getNewAddress)
+import           Pos.Core.Address (Address)
+import           Pos.Crypto (PassPhrase)
+import           Pos.Launcher (HasConfigurations)
+import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 
-import           Pos.Wallet.Web.Account       (GenSeed (..), genUniqueAddress)
-import           Pos.Wallet.Web.ClientTypes   (AccountId, CAccountInit (..), caId, cwamId)
-import           Pos.Wallet.Web.Error         (WalletError (..))
+import           Pos.Wallet.Web.Account (GenSeed (..), genUniqueAddress)
+import           Pos.Wallet.Web.ClientTypes (AccountId, CAccountInit (..), caId, cwamId)
+import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.Logic (newAccount)
-import           Pos.Wallet.Web.State         (getWalletAddresses)
-import           Pos.Wallet.Web.Util          (decodeCTypeOrFail)
-import           Test.Pos.Util                (assertProperty, expectedOne,
-                                               withDefConfigurations)
-import           Test.Pos.Wallet.Web.Mode     (WalletProperty)
-import           Test.Pos.Wallet.Web.Util     (importSingleWallet, mostlyEmptyPassphrases)
+import           Pos.Wallet.Web.State (getWalletAddresses)
+import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
+import           Test.Pos.Util (assertProperty, expectedOne, withDefConfigurations)
+import           Test.Pos.Wallet.Web.Mode (WalletProperty)
+import           Test.Pos.Wallet.Web.Util (importSingleWallet, mostlyEmptyPassphrases)
 
 spec :: Spec
 spec = withCompileInfo def $

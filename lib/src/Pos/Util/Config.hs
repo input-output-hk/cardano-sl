@@ -9,13 +9,13 @@ module Pos.Util.Config
 
 import           Universum
 
-import qualified Data.Map                   as Map
-import qualified Data.Yaml                  as Y
+import qualified Data.Map as Map
+import qualified Data.Yaml as Y
 import qualified Language.Haskell.TH.Syntax as TH
-import           System.Directory           (canonicalizePath, getDirectoryContents)
-import           System.FilePath            (takeDirectory, takeFileName, (</>))
+import           System.Directory (canonicalizePath, getDirectoryContents)
+import           System.FilePath (takeDirectory, takeFileName, (</>))
 
-import           Pos.Util.Util              (maybeThrow)
+import           Pos.Util.Util (maybeThrow)
 
 embedYamlObject :: Y.FromJSON r => FilePath -> FilePath -> (r -> TH.Q TH.Exp) -> TH.Q TH.Exp
 embedYamlObject name marker parser = do

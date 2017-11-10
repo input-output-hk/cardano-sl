@@ -6,19 +6,17 @@ module Pos.Delegation.Worker
 
 import           Universum
 
-import           Mockable                   (CurrentTime, Delay, Mockable, currentTime,
-                                             delay)
-import           Serokell.Util              (sec)
+import           Mockable (CurrentTime, Delay, Mockable, currentTime, delay)
+import           Serokell.Util (sec)
 
 import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localWorker)
-import           Pos.Configuration          (HasNodeConfiguration)
-import           Pos.Delegation.Class       (MonadDelegation)
-import           Pos.Delegation.Logic       (invalidateProxyCaches,
-                                             runDelegationStateAction)
-import           Pos.Reporting              (MonadReporting, reportOrLogE)
-import           Pos.Shutdown               (HasShutdownContext)
-import           Pos.Util                   (microsecondsToUTC)
-import           Pos.WorkMode.Class         (WorkMode)
+import           Pos.Configuration (HasNodeConfiguration)
+import           Pos.Delegation.Class (MonadDelegation)
+import           Pos.Delegation.Logic (invalidateProxyCaches, runDelegationStateAction)
+import           Pos.Reporting (MonadReporting, reportOrLogE)
+import           Pos.Shutdown (HasShutdownContext)
+import           Pos.Util (microsecondsToUTC)
+import           Pos.WorkMode.Class (WorkMode)
 
 -- | All workers specific to proxy sertificates processing.
 dlgWorkers :: (WorkMode ctx m) => ([WorkerSpec m], OutSpecs)

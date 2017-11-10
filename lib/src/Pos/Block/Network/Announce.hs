@@ -10,30 +10,29 @@ module Pos.Block.Network.Announce
 
 import           Universum
 
-import           Control.Monad.Except       (runExceptT)
-import           Ether.Internal             (HasLens (..))
-import           Formatting                 (build, sformat, (%))
-import           Mockable                   (throw)
-import           System.Wlog                (logDebug, logWarning)
+import           Control.Monad.Except (runExceptT)
+import           Ether.Internal (HasLens (..))
+import           Formatting (build, sformat, (%))
+import           Mockable (throw)
+import           System.Wlog (logDebug, logWarning)
 
-import           Pos.Block.Logic            (getHeadersFromManyTo)
-import           Pos.Block.Network.Types    (MsgGetHeaders (..), MsgHeaders (..))
-import           Pos.Communication.Limits   (recvLimited)
-import           Pos.Communication.Message  ()
+import           Pos.Block.Logic (getHeadersFromManyTo)
+import           Pos.Block.Network.Types (MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Communication.Limits (recvLimited)
+import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
-                                             EnqueueMsg, MsgType (..), NodeId,
-                                             Origin (..), OutSpecs, convH, toOutSpecs)
-import           Pos.Context                (recoveryInProgress)
-import           Pos.Core                   (headerHash, prevBlockL)
-import           Pos.Core.Block             (Block, BlockHeader, MainBlockHeader,
-                                             blockHeader)
-import           Pos.Crypto                 (shortHashF)
-import qualified Pos.DB.Block               as DB
-import qualified Pos.DB.DB                  as DB
-import           Pos.Security               (AttackType (..), NodeAttackedError (..),
-                                             SecurityParams (..), shouldIgnoreAddress)
-import           Pos.Util.TimeWarp          (nodeIdToAddress)
-import           Pos.WorkMode.Class         (WorkMode)
+                                             EnqueueMsg, MsgType (..), NodeId, Origin (..),
+                                             OutSpecs, convH, toOutSpecs)
+import           Pos.Context (recoveryInProgress)
+import           Pos.Core (headerHash, prevBlockL)
+import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader, blockHeader)
+import           Pos.Crypto (shortHashF)
+import qualified Pos.DB.Block as DB
+import qualified Pos.DB.DB as DB
+import           Pos.Security (AttackType (..), NodeAttackedError (..), SecurityParams (..),
+                               shouldIgnoreAddress)
+import           Pos.Util.TimeWarp (nodeIdToAddress)
+import           Pos.WorkMode.Class (WorkMode)
 
 announceBlockOuts :: OutSpecs
 announceBlockOuts = toOutSpecs [convH (Proxy :: Proxy MsgHeaders)

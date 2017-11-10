@@ -34,25 +34,23 @@ module Pos.Core.Ssc
 
 import           Universum
 
-import           Control.Lens           (each, traverseOf)
-import           Data.Hashable          (Hashable)
-import           Data.HashMap.Strict    (HashMap)
-import qualified Data.HashMap.Strict    as HM
+import           Control.Lens (each, traverseOf)
+import           Data.Hashable (Hashable)
+import           Data.HashMap.Strict (HashMap)
+import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder (Builder)
-import           Fmt                    (genericF)
-import           Formatting             (Format, bprint, build, int, (%))
-import           Serokell.Util          (listJson)
+import           Fmt (genericF)
+import           Formatting (Format, bprint, build, int, (%))
+import           Serokell.Util (listJson)
 
-import           Pos.Binary.Class       (AsBinary (..), Bi (..), fromBinaryM, serialize')
-import           Pos.Core.Address       (addressHash)
+import           Pos.Binary.Class (AsBinary (..), Bi (..), fromBinaryM, serialize')
+import           Pos.Core.Address (addressHash)
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Types         (EpochIndex, StakeholderId)
-import           Pos.Core.Vss           (VssCertificate, VssCertificatesMap (..),
-                                         vcExpiryEpoch)
-import           Pos.Crypto             (DecShare, EncShare, Hash, PublicKey, Secret,
-                                         SecretProof, Signature, VssPublicKey, hash,
-                                         shortHashF)
+import           Pos.Core.Types (EpochIndex, StakeholderId)
+import           Pos.Core.Vss (VssCertificate, VssCertificatesMap (..), vcExpiryEpoch)
+import           Pos.Crypto (DecShare, EncShare, Hash, PublicKey, Secret, SecretProof, Signature,
+                             VssPublicKey, hash, shortHashF)
 
 type NodeSet = HashSet StakeholderId
 

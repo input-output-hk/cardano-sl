@@ -6,16 +6,16 @@ module Test.Pos.Delegation.Identity.BinarySpec
 
 import           Universum
 
-import           Test.Hspec                    (Spec, describe)
+import           Test.Hspec (Spec, describe)
 
-import           Pos.Arbitrary.Delegation      ()
-import           Pos.Arbitrary.Infra           ()
+import           Pos.Arbitrary.Delegation ()
+import           Pos.Arbitrary.Infra ()
 import           Pos.Communication.Types.Relay (DataMsg (..))
-import           Pos.Core                      (ProxySKHeavy, ProxySKLight)
-import           Pos.Delegation                (DlgPayload, ProxySKLightConfirmation)
+import           Pos.Core (ProxySKHeavy, ProxySKLight)
+import           Pos.Delegation (DlgPayload, ProxySKLightConfirmation)
 
-import           Test.Pos.Helpers              (binaryTest)
-import           Test.Pos.Util                 (withDefConfiguration)
+import           Test.Pos.Helpers (binaryTest)
+import           Test.Pos.Util (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Delegation types" $ do

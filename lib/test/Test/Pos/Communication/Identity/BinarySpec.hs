@@ -6,15 +6,15 @@ module Test.Pos.Communication.Identity.BinarySpec
 
 import           Universum
 
-import           Node.Message.Class    (MessageCode)
-import           Test.Hspec            (Spec, describe)
+import           Node.Message.Class (MessageCode)
+import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
 
-import           Pos.Arbitrary.Infra   ()
-import qualified Pos.Communication     as C
+import           Pos.Arbitrary.Infra ()
+import qualified Pos.Communication as C
 
 import           Test.Pos.Cbor.CborSpec (extensionProperty)
-import           Test.Pos.Helpers      (binaryTest)
+import           Test.Pos.Helpers (binaryTest)
 
 spec :: Spec
 spec = describe "Communication" $ do

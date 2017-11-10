@@ -9,13 +9,13 @@ module Pos.DHT.Real.CLI
 
 import           Universum
 
-import           Formatting             (build, formatToString, shown, (%))
-import qualified Options.Applicative    as Opt
+import           Formatting (build, formatToString, shown, (%))
+import qualified Options.Applicative as Opt
 import           Serokell.Util.OptParse (fromParsec)
-import           Text.Parsec            (eof, parse)
+import           Text.Parsec (eof, parse)
 
-import           Pos.DHT.Model.Types    (DHTKey, DHTNode, dhtKeyParser, dhtNodeParser)
-import           Pos.Util.TimeWarp      (NetworkAddress, addrParser)
+import           Pos.DHT.Model.Types (DHTKey, DHTNode, dhtKeyParser, dhtNodeParser)
+import           Pos.Util.TimeWarp (NetworkAddress, addrParser)
 
 dhtExplicitInitialOption :: Opt.Parser Bool
 dhtExplicitInitialOption =

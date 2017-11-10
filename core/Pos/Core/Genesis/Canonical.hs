@@ -6,50 +6,39 @@ module Pos.Core.Genesis.Canonical
 
 import           Universum
 
-import           Data.Fixed                 (Fixed (..))
-import qualified Data.HashMap.Strict        as HM
-import           Data.Time.Units            (Millisecond, Second, convertUnit)
-import           Data.Typeable              (typeRep)
-import           Formatting                 (formatToString)
+import           Data.Fixed (Fixed (..))
+import qualified Data.HashMap.Strict as HM
+import           Data.Time.Units (Millisecond, Second, convertUnit)
+import           Data.Typeable (typeRep)
+import           Formatting (formatToString)
 import           Serokell.Data.Memory.Units (Byte)
-import           Serokell.Util.Base16       (base16F)
-import qualified Serokell.Util.Base16       as B16
-import           Serokell.Util.Base64       (base64F)
-import qualified Serokell.Util.Base64       as B64
-import           Serokell.Util.Text         (readDecimal, readUnsignedDecimal)
-import           Text.JSON.Canonical        (FromJSON (..), FromObjectKey (..), Int54,
-                                             JSValue (..), ReportSchemaErrors (expected),
-                                             ToJSON (..), ToObjectKey (..),
-                                             expectedButGotValue, fromJSField,
-                                             fromJSObject, mkObject)
+import           Serokell.Util.Base16 (base16F)
+import qualified Serokell.Util.Base16 as B16
+import           Serokell.Util.Base64 (base64F)
+import qualified Serokell.Util.Base64 as B64
+import           Serokell.Util.Text (readDecimal, readUnsignedDecimal)
+import           Text.JSON.Canonical (FromJSON (..), FromObjectKey (..), Int54, JSValue (..),
+                                      ReportSchemaErrors (expected), ToJSON (..), ToObjectKey (..),
+                                      expectedButGotValue, fromJSField, fromJSObject, mkObject)
 
-import           Pos.Binary.Class           (AsBinary (..))
-import           Pos.Binary.Core.Address    ()
-import           Pos.Core.Address           (addressF, decodeTextAddress)
-import           Pos.Core.Fee               (Coeff (..), TxFeePolicy (..),
-                                             TxSizeLinear (..))
-import           Pos.Core.Genesis.Helpers   (recreateGenesisDelegation)
-import           Pos.Core.Genesis.Types     (GenesisAvvmBalances (..), GenesisData (..),
-                                             GenesisDelegation (..),
-                                             GenesisNonAvvmBalances (..),
-                                             GenesisVssCertificatesMap (..),
-                                             GenesisWStakeholders (..),
-                                             ProtocolConstants (..))
-import           Pos.Core.Types             (Address, BlockVersionData (..), Coin,
-                                             CoinPortion, EpochIndex (..),
-                                             SharedSeed (..), SoftforkRule (..),
-                                             StakeholderId, Timestamp (..),
-                                             getCoinPortion, mkCoin, mkCoinPortion,
-                                             unsafeGetCoin)
-import           Pos.Core.Vss               (VssCertificate (..), VssCertificatesMap (..),
-                                             validateVssCertificatesMap)
-import           Pos.Crypto                 (ProxyCert, ProxySecretKey (..), PublicKey,
-                                             RedeemPublicKey, Signature,
-                                             decodeAbstractHash, fromAvvmPk,
-                                             fullProxyCertHexF, fullPublicKeyF,
-                                             fullSignatureHexF, hashHexF,
-                                             parseFullProxyCert, parseFullPublicKey,
-                                             parseFullSignature, redeemPkB64UrlF)
+import           Pos.Binary.Class (AsBinary (..))
+import           Pos.Binary.Core.Address ()
+import           Pos.Core.Address (addressF, decodeTextAddress)
+import           Pos.Core.Fee (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
+import           Pos.Core.Genesis.Helpers (recreateGenesisDelegation)
+import           Pos.Core.Genesis.Types (GenesisAvvmBalances (..), GenesisData (..),
+                                         GenesisDelegation (..), GenesisNonAvvmBalances (..),
+                                         GenesisVssCertificatesMap (..), GenesisWStakeholders (..),
+                                         ProtocolConstants (..))
+import           Pos.Core.Types (Address, BlockVersionData (..), Coin, CoinPortion, EpochIndex (..),
+                                 SharedSeed (..), SoftforkRule (..), StakeholderId, Timestamp (..),
+                                 getCoinPortion, mkCoin, mkCoinPortion, unsafeGetCoin)
+import           Pos.Core.Vss (VssCertificate (..), VssCertificatesMap (..),
+                               validateVssCertificatesMap)
+import           Pos.Crypto (ProxyCert, ProxySecretKey (..), PublicKey, RedeemPublicKey, Signature,
+                             decodeAbstractHash, fromAvvmPk, fullProxyCertHexF, fullPublicKeyF,
+                             fullSignatureHexF, hashHexF, parseFullProxyCert, parseFullPublicKey,
+                             parseFullSignature, redeemPkB64UrlF)
 
 ----------------------------------------------------------------------------
 -- Primitive standard/3rdparty types

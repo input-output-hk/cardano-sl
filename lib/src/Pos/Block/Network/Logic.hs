@@ -22,61 +22,52 @@ module Pos.Block.Network.Logic
 
 import           Universum
 
-import           Control.Concurrent.STM     (isFullTBQueue, readTVar, writeTBQueue,
-                                             writeTVar)
-import           Control.Exception          (Exception (..))
-import           Control.Lens               (to)
-import qualified Data.List.NonEmpty         as NE
-import qualified Data.Text.Buildable        as B
-import           Ether.Internal             (HasLens (..))
-import           Formatting                 (bprint, build, builder, int, sformat, shown,
-                                             stext, (%))
+import           Control.Concurrent.STM (isFullTBQueue, readTVar, writeTBQueue, writeTVar)
+import           Control.Exception (Exception (..))
+import           Control.Lens (to)
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Text.Buildable as B
+import           Ether.Internal (HasLens (..))
+import           Formatting (bprint, build, builder, int, sformat, shown, stext, (%))
 import           Serokell.Data.Memory.Units (unitBuilder)
-import           Serokell.Util.Text         (listJson)
-import           System.Wlog                (logDebug, logInfo, logWarning)
+import           Serokell.Util.Text (listJson)
+import           System.Wlog (logDebug, logInfo, logWarning)
 
-import           Pos.Binary.Class           (biSize)
-import           Pos.Binary.Communication   ()
-import           Pos.Binary.Txp             ()
-import           Pos.Block.Error            (ApplyBlocksException)
-import           Pos.Block.Logic            (ClassifyHeaderRes (..),
-                                             ClassifyHeadersRes (..), classifyHeaders,
-                                             classifyNewHeader, getHeadersOlderExp,
-                                             lcaWithMainChain, verifyAndApplyBlocks)
-import qualified Pos.Block.Logic            as L
+import           Pos.Binary.Class (biSize)
+import           Pos.Binary.Communication ()
+import           Pos.Binary.Txp ()
+import           Pos.Block.Error (ApplyBlocksException)
+import           Pos.Block.Logic (ClassifyHeaderRes (..), ClassifyHeadersRes (..), classifyHeaders,
+                                  classifyNewHeader, getHeadersOlderExp, lcaWithMainChain,
+                                  verifyAndApplyBlocks)
+import qualified Pos.Block.Logic as L
 import           Pos.Block.Network.Announce (announceBlock)
-import           Pos.Block.Network.Types    (MsgGetBlocks (..), MsgGetHeaders (..),
-                                             MsgHeaders (..))
-import           Pos.Block.RetrievalQueue   (BlockRetrievalQueue, BlockRetrievalTask (..))
-import           Pos.Block.Types            (Blund)
-import           Pos.Communication.Limits   (recvLimited)
+import           Pos.Block.Network.Types (MsgGetBlocks (..), MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalTask (..))
+import           Pos.Block.Types (Blund)
+import           Pos.Communication.Limits (recvLimited)
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
-                                             EnqueueMsg, MsgType (..), NodeId, OutSpecs,
-                                             convH, toOutSpecs, waitForConversations)
-import           Pos.Context                (BlockRetrievalQueueTag, LastKnownHeaderTag,
-                                             recoveryInProgress)
-import           Pos.Core                   (EpochOrSlot (..), HasConfiguration,
-                                             HasHeaderHash (..), HeaderHash, SlotId (..),
-                                             criticalForkThreshold, crucialSlot,
-                                             epochIndexL, epochOrSlotG, gbHeader,
-                                             headerHashG, isMoreDifficult, prevBlockL)
-import           Pos.Core.Block             (Block, BlockHeader, blockHeader)
-import           Pos.Crypto                 (shortHashF)
-import           Pos.DB.Block               (blkGetHeader)
-import qualified Pos.DB.DB                  as DB
-import           Pos.Exception              (cardanoExceptionFromException,
-                                             cardanoExceptionToException)
-import           Pos.Lrc.Error              (LrcError (UnknownBlocksForLrc))
-import           Pos.Lrc.Worker             (lrcSingleShot)
-import           Pos.Reporting.Methods      (reportMisbehaviour)
-import           Pos.StateLock              (Priority (..), modifyStateLock,
-                                             withStateLockNoMetrics)
-import           Pos.Util                   (inAssertMode, _neHead, _neLast)
-import           Pos.Util.Chrono            (NE, NewestFirst (..), OldestFirst (..),
-                                             _NewestFirst, _OldestFirst)
-import           Pos.Util.JsonLog           (jlAdoptedBlock)
-import           Pos.Util.TimeWarp          (CanJsonLog (..))
-import           Pos.WorkMode.Class         (WorkMode)
+                                             EnqueueMsg, MsgType (..), NodeId, OutSpecs, convH,
+                                             toOutSpecs, waitForConversations)
+import           Pos.Context (BlockRetrievalQueueTag, LastKnownHeaderTag, recoveryInProgress)
+import           Pos.Core (EpochOrSlot (..), HasConfiguration, HasHeaderHash (..), HeaderHash,
+                           SlotId (..), criticalForkThreshold, crucialSlot, epochIndexL,
+                           epochOrSlotG, gbHeader, headerHashG, isMoreDifficult, prevBlockL)
+import           Pos.Core.Block (Block, BlockHeader, blockHeader)
+import           Pos.Crypto (shortHashF)
+import           Pos.DB.Block (blkGetHeader)
+import qualified Pos.DB.DB as DB
+import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
+import           Pos.Lrc.Error (LrcError (UnknownBlocksForLrc))
+import           Pos.Lrc.Worker (lrcSingleShot)
+import           Pos.Reporting.Methods (reportMisbehaviour)
+import           Pos.StateLock (Priority (..), modifyStateLock, withStateLockNoMetrics)
+import           Pos.Util (inAssertMode, _neHead, _neLast)
+import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), _NewestFirst,
+                                  _OldestFirst)
+import           Pos.Util.JsonLog (jlAdoptedBlock)
+import           Pos.Util.TimeWarp (CanJsonLog (..))
+import           Pos.WorkMode.Class (WorkMode)
 
 ----------------------------------------------------------------------------
 -- Exceptions

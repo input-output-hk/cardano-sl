@@ -12,14 +12,13 @@ module Pos.Delegation.Types
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Formatting          (bprint, (%))
-import           Serokell.Util       (listJson)
+import           Formatting (bprint, (%))
+import           Serokell.Util (listJson)
 
-import           Pos.Binary.Core     ()
-import           Pos.Core            (ProxySKHeavy, ProxySKLight, ProxySigLight,
-                                      StakeholderId)
+import           Pos.Binary.Core ()
+import           Pos.Core (ProxySKHeavy, ProxySKLight, ProxySigLight, StakeholderId)
 import           Pos.Core.Delegation (DlgPayload (..), mkDlgPayload)
-import           Pos.Crypto          (PublicKey)
+import           Pos.Crypto (PublicKey)
 
 
 -- | Undo for the delegation component.

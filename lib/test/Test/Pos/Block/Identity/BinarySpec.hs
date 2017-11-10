@@ -6,15 +6,15 @@ module Test.Pos.Block.Identity.BinarySpec
 
 import           Universum
 
-import           Test.Hspec          (Spec, describe)
+import           Test.Hspec (Spec, describe)
 
 import           Pos.Arbitrary.Block ()
-import qualified Pos.Block.Network   as BT
-import qualified Pos.Communication   ()
-import qualified Pos.Core.Block      as BT
+import qualified Pos.Block.Network as BT
+import qualified Pos.Communication ()
+import qualified Pos.Core.Block as BT
 
-import           Test.Pos.Helpers    (binaryTest)
-import           Test.Pos.Util       (withDefConfiguration)
+import           Test.Pos.Helpers (binaryTest)
+import           Test.Pos.Util (withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ describe "Block types" $ do

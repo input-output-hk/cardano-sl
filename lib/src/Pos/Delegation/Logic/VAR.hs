@@ -13,51 +13,45 @@ module Pos.Delegation.Logic.VAR
 
 import           Universum
 
-import           Control.Lens                 (at, non, to, uses, (.=), (?=), _Wrapped)
-import           Control.Monad.Except         (throwError)
-import           Control.Monad.Morph          (hoist)
-import qualified Data.HashMap.Strict          as HM
-import qualified Data.HashSet                 as HS
-import           Data.List                    ((\\))
-import qualified Data.Text.Buildable          as B
-import           Formatting                   (bprint, build, sformat, (%))
-import           Mockable                     (CurrentTime, Mockable)
-import           Serokell.Util                (listJson, mapJson)
-import           System.Wlog                  (WithLogger, logDebug)
+import           Control.Lens (at, non, to, uses, (.=), (?=), _Wrapped)
+import           Control.Monad.Except (throwError)
+import           Control.Monad.Morph (hoist)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet as HS
+import           Data.List ((\\))
+import qualified Data.Text.Buildable as B
+import           Formatting (bprint, build, sformat, (%))
+import           Mockable (CurrentTime, Mockable)
+import           Serokell.Util (listJson, mapJson)
+import           System.Wlog (WithLogger, logDebug)
 
-import           Pos.Binary.Communication     ()
-import           Pos.Block.Types              (Blund, Undo (undoDlg))
-import           Pos.Context                  (lrcActionOnEpochReason)
-import           Pos.Core                     (EpochIndex (..), HasConfiguration,
-                                               StakeholderId, addressHash, epochIndexL,
-                                               gbHeader, headerHash, prevBlockL, siEpoch)
-import           Pos.Core.Block               (Block, mainBlockDlgPayload, mainBlockSlot)
-import           Pos.Crypto                   (ProxySecretKey (..), shortHashF)
-import           Pos.DB                       (DBError (DBMalformed), MonadDBRead,
-                                               SomeBatchOp (..))
-import qualified Pos.DB                       as DB
-import qualified Pos.DB.Block                 as DB
-import qualified Pos.DB.DB                    as DB
-import           Pos.Delegation.Cede          (CedeModifier (..), CheckForCycle (..),
-                                               DlgEdgeAction (..), MapCede,
-                                               MonadCede (..), MonadCedeRead (..),
-                                               detectCycleOnAddition, dlgEdgeActionIssuer,
-                                               dlgVerifyHeader, dlgVerifyPskHeavy,
-                                               evalMapCede, getPskChain, getPskPk, modPsk,
-                                               pskToDlgEdgeAction, runDBCede)
-import           Pos.Delegation.Class         (MonadDelegation, dwProxySKPool, dwTip)
-import           Pos.Delegation.Logic.Common  (DelegationError (..),
-                                               runDelegationStateAction)
-import           Pos.Delegation.Logic.Mempool (clearDlgMemPoolAction,
-                                               deleteFromDlgMemPool,
+import           Pos.Binary.Communication ()
+import           Pos.Block.Types (Blund, Undo (undoDlg))
+import           Pos.Context (lrcActionOnEpochReason)
+import           Pos.Core (EpochIndex (..), HasConfiguration, StakeholderId, addressHash,
+                           epochIndexL, gbHeader, headerHash, prevBlockL, siEpoch)
+import           Pos.Core.Block (Block, mainBlockDlgPayload, mainBlockSlot)
+import           Pos.Crypto (ProxySecretKey (..), shortHashF)
+import           Pos.DB (DBError (DBMalformed), MonadDBRead, SomeBatchOp (..))
+import qualified Pos.DB as DB
+import qualified Pos.DB.Block as DB
+import qualified Pos.DB.DB as DB
+import           Pos.Delegation.Cede (CedeModifier (..), CheckForCycle (..), DlgEdgeAction (..),
+                                      MapCede, MonadCede (..), MonadCedeRead (..),
+                                      detectCycleOnAddition, dlgEdgeActionIssuer, dlgVerifyHeader,
+                                      dlgVerifyPskHeavy, evalMapCede, getPskChain, getPskPk, modPsk,
+                                      pskToDlgEdgeAction, runDBCede)
+import           Pos.Delegation.Class (MonadDelegation, dwProxySKPool, dwTip)
+import           Pos.Delegation.Logic.Common (DelegationError (..), runDelegationStateAction)
+import           Pos.Delegation.Logic.Mempool (clearDlgMemPoolAction, deleteFromDlgMemPool,
                                                processProxySKHeavyInternal)
-import           Pos.Delegation.Types         (DlgPayload (getDlgPayload), DlgUndo (..))
-import qualified Pos.GState                   as GS
-import           Pos.Lrc.Context              (HasLrcContext)
-import qualified Pos.Lrc.DB                   as LrcDB
-import           Pos.Lrc.Types                (RichmenSet)
-import           Pos.Util                     (getKeys, _neHead)
-import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..))
+import           Pos.Delegation.Types (DlgPayload (getDlgPayload), DlgUndo (..))
+import qualified Pos.GState as GS
+import           Pos.Lrc.Context (HasLrcContext)
+import qualified Pos.Lrc.DB as LrcDB
+import           Pos.Lrc.Types (RichmenSet)
+import           Pos.Util (getKeys, _neHead)
+import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
 
 -- Copied from 'these' library.
 data These a b = This a | That b | These a b

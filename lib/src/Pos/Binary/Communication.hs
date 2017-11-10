@@ -6,21 +6,18 @@ module Pos.Binary.Communication () where
 
 import           Universum
 
-import           Pos.Binary.Class                 (Bi (..), Cons (..), Field (..),
-                                                   decodeKnownCborDataItem,
-                                                   decodeUnknownCborDataItem,
-                                                   deriveSimpleBi,
-                                                   encodeKnownCborDataItem, encodeListLen,
-                                                   encodeUnknownCborDataItem, enforceSize)
-import           Pos.Binary.Core.Block            ()
-import           Pos.Binary.Core.Blockchain       ()
-import           Pos.Block.BHelpers               ()
-import           Pos.Block.Network.Types          (MsgBlock (..), MsgGetBlocks (..),
-                                                   MsgGetHeaders (..), MsgHeaders (..))
+import           Pos.Binary.Class (Bi (..), Cons (..), Field (..), decodeKnownCborDataItem,
+                                   decodeUnknownCborDataItem, deriveSimpleBi,
+                                   encodeKnownCborDataItem, encodeListLen,
+                                   encodeUnknownCborDataItem, enforceSize)
+import           Pos.Binary.Core.Block ()
+import           Pos.Binary.Core.Blockchain ()
+import           Pos.Block.BHelpers ()
+import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..), MsgGetHeaders (..),
+                                          MsgHeaders (..))
 import           Pos.Communication.Types.Protocol (HandlerSpec (..), HandlerSpecs,
                                                    MsgSubscribe (..), VerInfo (..))
-import           Pos.Core                         (BlockVersion, HasConfiguration,
-                                                   HeaderHash)
+import           Pos.Core (BlockVersion, HasConfiguration, HeaderHash)
 
 -- TODO: move into each component
 

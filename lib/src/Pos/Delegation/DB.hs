@@ -46,26 +46,23 @@ module Pos.Delegation.DB
 
 import           Universum
 
-import           Control.Lens                 (at, non)
+import           Control.Lens (at, non)
 import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Conduit                 (Source, mapOutput, runConduitRes, (.|))
-import qualified Data.Conduit.List            as CL
-import qualified Data.HashMap.Strict          as HM
-import qualified Data.HashSet                 as HS
-import qualified Database.RocksDB             as Rocks
+import           Data.Conduit (Source, mapOutput, runConduitRes, (.|))
+import qualified Data.Conduit.List as CL
+import qualified Data.HashMap.Strict as HM
+import qualified Data.HashSet as HS
+import qualified Database.RocksDB as Rocks
 
-import           Pos.Binary.Class             (serialize')
-import           Pos.Core                     (ProxySKHeavy, StakeholderId, addressHash,
-                                               HasConfiguration)
-import           Pos.Core.Genesis             (GenesisDelegation (..))
-import           Pos.Crypto                   (ProxySecretKey (..), PublicKey, verifyPsk)
-import           Pos.DB                       (RocksBatchOp (..), dbSerializeValue,
-                                               encodeWithKeyPrefix)
-import           Pos.DB.Class                 (DBIteratorClass (..), DBTag (..), MonadDB,
-                                               MonadDBRead (..))
-import           Pos.DB.GState.Common         (gsGetBi, writeBatchGState)
-import           Pos.Delegation.Cede.Types    (DlgEdgeAction (..))
-import           Pos.Delegation.Helpers       (isRevokePsk)
+import           Pos.Binary.Class (serialize')
+import           Pos.Core (HasConfiguration, ProxySKHeavy, StakeholderId, addressHash)
+import           Pos.Core.Genesis (GenesisDelegation (..))
+import           Pos.Crypto (ProxySecretKey (..), PublicKey, verifyPsk)
+import           Pos.DB (RocksBatchOp (..), dbSerializeValue, encodeWithKeyPrefix)
+import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), MonadDB, MonadDBRead (..))
+import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
+import           Pos.Delegation.Cede.Types (DlgEdgeAction (..))
+import           Pos.Delegation.Helpers (isRevokePsk)
 
 ----------------------------------------------------------------------------
 -- Getters/direct accessors

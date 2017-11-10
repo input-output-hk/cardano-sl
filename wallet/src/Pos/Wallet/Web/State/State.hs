@@ -82,30 +82,26 @@ module Pos.Wallet.Web.State.State
        , flushWalletStorage
        ) where
 
-import           Data.Acid                    (EventResult, EventState, QueryEvent,
-                                               UpdateEvent)
-import qualified Data.Map                     as Map
-import           Ether.Internal               (lensOf)
+import           Data.Acid (EventResult, EventState, QueryEvent, UpdateEvent)
+import qualified Data.Map as Map
+import           Ether.Internal (lensOf)
 import           Universum
 
-import           Pos.Client.Txp.History       (TxHistoryEntry)
-import           Pos.Core.Configuration       (HasConfiguration)
-import           Pos.Core.Txp                 (TxId)
-import           Pos.Txp                      (Utxo, UtxoModifier)
-import           Pos.Types                    (HeaderHash)
-import           Pos.Util.Servant             (encodeCType)
-import           Pos.Util.Util                (HasLens')
-import           Pos.Wallet.Web.ClientTypes   (AccountId, Addr, CAccountMeta, CId,
-                                               CProfile, CTxId, CTxMeta, CUpdateInfo,
-                                               CWAddressMeta, CWalletMeta, PassPhraseLU,
-                                               Wal)
+import           Pos.Client.Txp.History (TxHistoryEntry)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Txp (TxId)
+import           Pos.Txp (Utxo, UtxoModifier)
+import           Pos.Types (HeaderHash)
+import           Pos.Util.Servant (encodeCType)
+import           Pos.Util.Util (HasLens')
+import           Pos.Wallet.Web.ClientTypes (AccountId, Addr, CAccountMeta, CId, CProfile, CTxId,
+                                             CTxMeta, CUpdateInfo, CWAddressMeta, CWalletMeta,
+                                             PassPhraseLU, Wal)
 import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition)
-import           Pos.Wallet.Web.State.Acidic  (WalletState, closeState, openMemState,
-                                               openState)
-import           Pos.Wallet.Web.State.Acidic  as A
-import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..),
-                                               CustomAddressType (..), PtxMetaUpdate (..),
-                                               WalletBalances, WalletStorage,
+import           Pos.Wallet.Web.State.Acidic (WalletState, closeState, openMemState, openState)
+import           Pos.Wallet.Web.State.Acidic as A
+import           Pos.Wallet.Web.State.Storage (AddressLookupMode (..), CustomAddressType (..),
+                                               PtxMetaUpdate (..), WalletBalances, WalletStorage,
                                                WalletTip (..))
 
 -- | No read or write, just access to state handler

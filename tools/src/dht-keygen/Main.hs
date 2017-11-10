@@ -2,18 +2,16 @@ module Main
   ( main
   ) where
 
-import qualified Data.ByteString.Char8       as BS
-import           Data.Version                (showVersion)
-import           Network.Kademlia.HashNodeId (HashId (..), Nonce (..), genNonce,
-                                              hashAddress)
-import           Options.Applicative         (Parser, execParser, fullDesc, header, help,
-                                              helper, info, infoOption, long, metavar,
-                                              progDesc, short, strOption)
-import           Serokell.Util.Base64        (encodeUrl)
+import qualified Data.ByteString.Char8 as BS
+import           Data.Version (showVersion)
+import           Network.Kademlia.HashNodeId (HashId (..), Nonce (..), genNonce, hashAddress)
+import           Options.Applicative (Parser, execParser, fullDesc, header, help, helper, info,
+                                      infoOption, long, metavar, progDesc, short, strOption)
+import           Serokell.Util.Base64 (encodeUrl)
 import           Universum
 
-import           Paths_cardano_sl            (version)
-import           Pos.Crypto                  (runSecureRandom)
+import           Paths_cardano_sl (version)
+import           Pos.Crypto (runSecureRandom)
 
 nonceLen :: Int
 nonceLen = 14

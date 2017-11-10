@@ -26,6 +26,7 @@ module Cardano.Wallet.API.V1.Types (
   , WalletError (..)
   -- * Domain-specific types
   , Wallet (..)
+  , AssuranceLevel (..)
   , NewWallet (..)
   , WalletUpdate (..)
   , WalletId (..)
@@ -44,19 +45,22 @@ import           Universum
 
 import           Data.Aeson
 import           Data.Aeson.TH
-import           Data.Default           (Default (def))
-import           Data.Text              (Text)
+import           Data.Default                     (Default (def))
+import           Data.Text                        (Text, dropEnd, toLower)
 import qualified Data.Text.Buildable
-import           Formatting             (build, sformat)
-import           GHC.Generics           (Generic)
-import qualified Serokell.Aeson.Options as Serokell
+import           Formatting                       (build, sformat)
+import           GHC.Generics                     (Generic)
+import qualified Serokell.Aeson.Options           as Serokell
 import           Test.QuickCheck
 import           Web.HttpApiData
 
-import           Cardano.Wallet.Orphans ()
+import           Cardano.Wallet.Orphans           ()
 
 -- V0 logic
-import           Pos.Util.BackupPhrase  (BackupPhrase)
+import           Pos.Util.BackupPhrase            (BackupPhrase)
+import qualified Pos.Wallet.Web.ClientTypes.Types as V0
+
+import qualified Pos.Core.Types                   as Core
 
 --
 -- Swagger & REST-related types
@@ -224,14 +228,15 @@ instance Arbitrary WalletError where
 -- 'SpendingPassword'.
 type SpendingPassword = Text
 
-data WalletAssurance = AssuranceNormal
-                     | AssuranceStrict
+data AssuranceLevel =  NormalAssurance
+                     | StrictAssurance
                      deriving (Eq, Show, Enum, Bounded)
 
-instance Arbitrary WalletAssurance where
+instance Arbitrary AssuranceLevel where
     arbitrary = elements [minBound .. maxBound]
 
-deriveJSON Serokell.defaultOptions ''WalletAssurance
+deriveJSON Serokell.defaultOptions { constructorTagModifier = toString . toLower . dropEnd 9 . fromString
+                                   } ''AssuranceLevel
 
 -- | A Wallet ID.
 newtype WalletId = WalletId Text deriving (Show, Eq, Generic)
@@ -253,8 +258,12 @@ type Coins = Int
 
 -- | A type modelling the request for a new wallet.
 data NewWallet = NewWallet {
-      newwalBackupPhrase     :: BackupPhrase
-    , newwalSpendingPassword :: Maybe SpendingPassword
+      newwalBackupPhrase     :: !BackupPhrase
+    -- ^ The backup phrase to restore the wallet.
+    , newwalSpendingPassword :: !(Maybe SpendingPassword)
+    -- ^ The spending password to encrypt the private keys.
+    , newwalAssuranceLevel   :: !AssuranceLevel
+    , newwalName             :: !Text
     } deriving (Eq, Show, Generic)
 
 deriveJSON Serokell.defaultOptions  ''NewWallet
@@ -262,37 +271,44 @@ deriveJSON Serokell.defaultOptions  ''NewWallet
 instance Arbitrary NewWallet where
   arbitrary = NewWallet <$> arbitrary
                         <*> pure (Just "My passphrase")
+                        <*> arbitrary
+                        <*> pure "My Wallet"
 
 -- | A type modelling the update of an existing wallet.
 data WalletUpdate = WalletUpdate {
-      uwalUnit      :: !Int
-    , uwalAssurance :: WalletAssurance
-    , uwalName      :: Text
+      uwalAssuranceLevel :: !AssuranceLevel
+    , uwalName           :: !Text
     } deriving (Eq, Show, Generic)
 
 deriveJSON Serokell.defaultOptions  ''WalletUpdate
 
 instance Arbitrary WalletUpdate where
-  arbitrary = WalletUpdate <$> fmap getPositive arbitrary
-                           <*> arbitrary
-                           <*> fmap fromString arbitrary
+  arbitrary = WalletUpdate <$> arbitrary
+                           <*> pure "My Wallet"
+
+-- A 'RenderedBalance' represent the @rendered@ UTXO for
+-- this 'Wallet'.
+newtype RenderedBalance = RenderedBalance { renderBalance :: Text }
+                        deriving (Show, Eq, Generic)
+
+instance Arbitrary RenderedBalance where
+    arbitrary = RenderedBalance . V0.getCCoin . V0.mkCCoin . Core.mkCoin <$> choose (minBound,12345678)
+
+deriveJSON defaultOptions { unwrapUnaryRecords = True } ''RenderedBalance
 
 -- | A Wallet.
 data Wallet = Wallet {
-      walId        :: WalletId
-    , walUnit      :: !Int
-    , walAssurance :: WalletAssurance
-    -- | The name for this wallet.
-    , walName      :: Text
+      walId      :: !WalletId
+    , walName    :: !Text
+    , walBalance :: !RenderedBalance
     } deriving (Eq, Show, Generic)
 
-deriveJSON Serokell.defaultOptions  ''Wallet
+deriveJSON Serokell.defaultOptions ''Wallet
 
 instance Arbitrary Wallet where
   arbitrary = Wallet <$> arbitrary
-                     <*> fmap getPositive arbitrary
-                     <*> arbitrary
                      <*> pure "My wallet"
+                     <*> arbitrary
 
 -- Placeholder.
 newtype Address = Address

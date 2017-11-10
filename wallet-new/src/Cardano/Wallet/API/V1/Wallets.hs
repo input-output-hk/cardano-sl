@@ -28,5 +28,5 @@ type API =
                         :> ReqBody '[JSON] (Update Wallet)
                         :> Put '[JSON] Wallet
                    -- Nest the Accounts API
-                   :<|> Tags '["Accounts"] :> Accounts.API
+                   -- :<|> Tags '["Accounts"] :> Accounts.API
                    )

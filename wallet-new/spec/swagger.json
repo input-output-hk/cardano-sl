@@ -68,32 +68,28 @@
         },
         "Wallet": {
             "example": {
+                "balance": "11434779",
                 "name": "My wallet",
-                "assurance": "assuranceNormal",
-                "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
-                "unit": 3
+                "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
             },
             "required": [
+                "balance",
                 "name",
-                "assurance",
-                "id",
-                "unit"
+                "id"
             ],
             "type": "object",
             "description": "A Wallet.",
             "properties": {
-                "name": {
-                    "type": "string"
+                "balance": {
+                    "type": "string",
+                    "readOnly": true
                 },
-                "assurance": {
+                "name": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string",
                     "readOnly": true
-                },
-                "unit": {
-                    "type": "number"
                 }
             }
         },
@@ -426,13 +422,11 @@
         "WalletUpdate": {
             "example": {
                 "name": "¯",
-                "assurance": "assuranceNormal",
-                "unit": 3
+                "assurance": "normal"
             },
             "required": [
                 "name",
-                "assurance",
-                "unit"
+                "assurance"
             ],
             "type": "object",
             "description": "A type represending an update for an existing Wallet.You can still pass an entire Wallet as input, and extra  fields (which are not meant to be controlled by user) will simply be ignored.",
@@ -442,9 +436,6 @@
                 },
                 "assurance": {
                     "type": "string"
-                },
-                "unit": {
-                    "type": "number"
                 }
             }
         },
@@ -901,37 +892,32 @@
         "OneOf [Wallet] (ExtendedResponse [Wallet])": {
             "example": [
                 {
+                    "balance": "1633641",
                     "name": "My wallet",
-                    "assurance": "assuranceStrict",
-                    "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
-                    "unit": 3
+                    "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
                 }
             ],
             "items": {
                 "required": [
+                    "balance",
                     "name",
-                    "assurance",
-                    "id",
-                    "unit"
+                    "id"
                 ],
                 "type": "object",
                 "properties": {
-                    "name": {
+                    "balance": {
                         "type": "string"
                     },
-                    "assurance": {
+                    "name": {
                         "type": "string"
                     },
                     "id": {
                         "type": "string"
-                    },
-                    "unit": {
-                        "type": "number"
                     }
                 }
             },
             "type": "array",
-            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Wallet] or [Wallet] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"name\": \"My wallet\",\n        \"assurance\": \"assuranceStrict\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"unit\": 1\n    },\n    {\n        \"name\": \"My wallet\",\n        \"assurance\": \"assuranceNormal\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"unit\": 3\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"name\": \"My wallet\",\n            \"assurance\": \"assuranceNormal\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"unit\": 2\n        },\n        {\n            \"name\": \"My wallet\",\n            \"assurance\": \"assuranceStrict\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"unit\": 2\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}</pre>"
+            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Wallet] or [Wallet] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"balance\": \"9778033\",\n        \"name\": \"My wallet\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n    },\n    {\n        \"balance\": \"3217745\",\n        \"name\": \"My wallet\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"balance\": \"7594097\",\n            \"name\": \"My wallet\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n        },\n        {\n            \"balance\": \"10500308\",\n            \"name\": \"My wallet\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}</pre>"
         },
         "CCoin": {
             "required": [
@@ -948,14 +934,26 @@
             "example": {
                 "backupPhrase": [
                     "entry",
-                    "mean ",
-                    "inflict",
-                    "merit"
+                    "certain",
+                    "tourist",
+                    "palm",
+                    "palm",
+                    "rabbit",
+                    "worry",
+                    "swamp",
+                    "plastic",
+                    "night",
+                    "tourist",
+                    "mean "
                 ],
+                "name": "¯",
+                "assurance": "normal",
                 "spendingPassword": "My passphrase"
             },
             "required": [
                 "backupPhrase",
+                "name",
+                "assurance",
                 "spendingPassword"
             ],
             "type": "object",
@@ -966,6 +964,12 @@
                         "type": "string"
                     },
                     "type": "array"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "assurance": {
+                    "type": "string"
                 },
                 "spendingPassword": {
                     "type": "string"

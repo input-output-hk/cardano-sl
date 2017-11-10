@@ -47,6 +47,7 @@ library
                      , universum
                      , serokell-util
                      , warp
+                     , cardano-sl-core
                      , cardano-sl-wallet
   default-language:    Haskell2010
   default-extensions: TypeOperators

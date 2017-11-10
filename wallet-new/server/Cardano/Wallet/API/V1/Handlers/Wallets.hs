@@ -31,7 +31,10 @@ handlers =   newWallet
 newWallet :: NewWallet -> WalletWebMode Wallet
 newWallet NewWallet{..} = liftIO $ generate arbitrary
 -- newWallet :: L.MonadWalletLogic ctx m => PassPhrase -> CWalletInit -> m CWallet
-  migrate <$> V0.newWallet _ _
+  let spendingPassword = V0.CPassPhrase <$> newwalSpendingPassword
+      initMeta   = V0.CWalletMeta newwalName newwalAssuranceLevel 0
+  let walletInt  = V0.CWalletInit initMeta newwalBackupPhrase
+  migrate <$> V0.newWallet spendingPassword walletInit
   where
     migrate :: V0.CWallet -> V1.Wallet
     migrate _ = _

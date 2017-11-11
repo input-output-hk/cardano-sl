@@ -32,7 +32,6 @@ import           Mockable (Production)
 import           System.Wlog (HasLoggerName (..))
 
 import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
-import           Pos.Block.Types (Undo)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..), getSecretDefault,
                                         modifySecretDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
@@ -41,16 +40,13 @@ import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDef
                                          getLocalHistoryDefault, saveTxDefault)
 import           Pos.Communication (SendActions (..), submitTxRaw)
 import           Pos.Context (HasNodeContext (..))
-import           Pos.Core (Address, Coin, HasConfiguration, HasPrimaryKey (..), IsHeader,
-                           isRedeemAddress, largestHDAddressBoot, mkCoin)
-import           Pos.Core.Block (Block, BlockHeader)
+import           Pos.Core (Address, Coin, HasConfiguration, HasPrimaryKey (..), isRedeemAddress,
+                           largestHDAddressBoot, mkCoin)
 import           Pos.Crypto (PassPhrase)
 import           Pos.DB (MonadGState (..))
-import           Pos.DB.Block (MonadBlockDB, dbGetBlockDefault, dbGetBlockSscDefault,
-                               dbGetHeaderDefault, dbGetHeaderSscDefault, dbGetUndoDefault,
-                               dbGetUndoSscDefault, dbPutBlundDefault)
-import           Pos.DB.Class (MonadBlockDBGeneric (..), MonadBlockDBGenericWrite (..),
-                               MonadDB (..), MonadDBRead (..))
+import           Pos.DB.Block (dbGetRawBlockRealDefault, dbGetRawUndoRealDefault,
+                               dbPutRawBlundRealDefault)
+import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
                                dbWriteBatchDefault)
@@ -67,12 +63,11 @@ import           Pos.Slotting.Impl.Sum (currentTimeSlottingSum, getCurrentSlotBl
                                         getCurrentSlotInaccurateSum, getCurrentSlotSum)
 import           Pos.Slotting.MemState (HasSlottingVar (..), MonadSlotsData)
 import           Pos.Ssc (HasSscConfiguration)
-import           Pos.Ssc.Types (HasSscContext (..), SscBlock)
+import           Pos.Ssc.Types (HasSscContext (..))
 import           Pos.StateLock (StateLock)
 import           Pos.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem, Utxo, addrBelongsToSet,
                           applyUtxoModToAddrCoinMap, getUtxoModifier)
 import qualified Pos.Txp.DB as DB
-import           Pos.Util (Some (..))
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.JsonLog (HasJsonLogConfig (..), jsonLogDefault)
 import           Pos.Util.LoggerName (HasLoggerName' (..), getLoggerNameDefault,
@@ -180,7 +175,7 @@ type MonadWalletWebMode ctx m =
     , MonadMask m
     , MonadSlots ctx m
     , MonadGState m
-    , MonadBlockDB m
+    , MonadDBRead m
     , MonadTxpMem WalletMempoolExt ctx m
     , MonadRecoveryInfo m
     , MonadBListener m
@@ -232,29 +227,14 @@ instance {-# OVERLAPPING #-} CanJsonLog WalletWebMode where
 instance HasConfiguration => MonadDBRead WalletWebMode where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
+    dbGetRawBlock = dbGetRawBlockRealDefault
+    dbGetRawUndo = dbGetRawUndoRealDefault
 
 instance HasConfiguration => MonadDB WalletWebMode where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
-
-instance (HasConfiguration, HasSscConfiguration) =>
-         MonadBlockDBGenericWrite BlockHeader Block Undo WalletWebMode where
-    dbPutBlund = dbPutBlundDefault
-
-instance (HasConfiguration, HasSscConfiguration) =>
-         MonadBlockDBGeneric BlockHeader Block Undo WalletWebMode
-  where
-    dbGetBlock  = dbGetBlockDefault
-    dbGetUndo   = dbGetUndoDefault
-    dbGetHeader = dbGetHeaderDefault
-
-instance (HasConfiguration, HasSscConfiguration) =>
-         MonadBlockDBGeneric (Some IsHeader) SscBlock () WalletWebMode
-  where
-    dbGetBlock  = dbGetBlockSscDefault
-    dbGetUndo   = dbGetUndoSscDefault
-    dbGetHeader = dbGetHeaderSscDefault
+    dbPutRawBlund = dbPutRawBlundRealDefault
 
 instance HasConfiguration => MonadGState WalletWebMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault

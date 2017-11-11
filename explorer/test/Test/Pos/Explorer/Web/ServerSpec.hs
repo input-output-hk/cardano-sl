@@ -19,7 +19,7 @@ import           Pos.Arbitrary.Block ()
 import qualified Pos.Communication ()
 import           Pos.Core (EpochIndex (..), HasConfiguration, LocalSlotIndex (..), SlotId (..))
 import           Pos.Core.Block (Block)
-import           Pos.DB.Block (MonadBlockDB)
+import           Pos.DB.Class (MonadDBRead (..))
 import           Pos.Explorer.ExplorerMode (runExplorerTestMode)
 import           Pos.Explorer.ExtraContext (ExplorerMockableMode (..), ExtraContext (..),
                                             makeExtraCtx, makeMockExtraCtx)
@@ -92,7 +92,7 @@ blocksTotalUnitSpec =
                 monadicIO $ do
 
                   -- The created arbitrary block.
-                  let testBlock :: MonadBlockDB m => m Block
+                  let testBlock :: MonadDBRead m => m Block
                       testBlock = pure $ basicBlockGenericUnsafe prevHeader sk slotId
 
                   -- We replace the "real" database with our custom data.
@@ -123,7 +123,7 @@ blocksPagesTotalUnitSpec =
                 monadicIO $ do
 
                   -- The created arbitrary block.
-                  let testBlock :: MonadBlockDB m => m Block
+                  let testBlock :: MonadDBRead m => m Block
                       testBlock = pure $ basicBlockGenericUnsafe prevHeader sk slotId
 
                   -- We replace the "real" database with our custom data.
@@ -165,7 +165,7 @@ blocksPageUnitSpec =
                           }
 
                   -- The created arbitrary block.
-                  let testBlock :: MonadBlockDB m => m Block
+                  let testBlock :: MonadDBRead m => m Block
                       testBlock = pure $ basicBlockGenericUnsafe prevHeader sk mockSlotId
 
                   -- We replace the "real" functions with our custom functions.
@@ -207,7 +207,7 @@ blocksLastPageUnitSpec =
                 monadicIO $ do
 
                   -- The created arbitrary block.
-                  let testBlock :: MonadBlockDB m => m Block
+                  let testBlock :: MonadDBRead m => m Block
                       testBlock = pure $ basicBlockGenericUnsafe prevHeader sk slotId
 
                   -- We replace the "real" functions with our custom functions.

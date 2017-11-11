@@ -37,7 +37,6 @@ import           Test.QuickCheck.Monadic (PropertyM (..), monadic)
 import           Pos.AllSecrets (HasAllSecrets (..))
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogGState (..))
-import           Pos.Block.Types (Undo)
 import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead (..), getSecretDefault,
                                         modifySecretPureDefault)
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
@@ -47,12 +46,10 @@ import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDef
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Context (ConnectedPeers (..), LastKnownHeader, LastKnownHeaderTag,
                               ProgressHeader, ProgressHeaderTag, RecoveryHeader, RecoveryHeaderTag)
-import           Pos.Core (HasConfiguration, IsHeader, Timestamp (..), largestHDAddressBoot)
-import           Pos.Core.Block (Block, BlockHeader)
+import           Pos.Core (HasConfiguration, Timestamp (..), largestHDAddressBoot)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Crypto (PassPhrase)
-import           Pos.DB (MonadBlockDBGeneric (..), MonadBlockDBGenericWrite (..), MonadDB (..),
-                         MonadDBRead (..), MonadGState (..))
+import           Pos.DB (MonadDB (..), MonadDBRead (..), MonadGState (..))
 import qualified Pos.DB as DB
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
@@ -69,7 +66,7 @@ import           Pos.Shutdown (HasShutdownContext (..), ShutdownContext (..))
 import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsData)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Ssc.Mem (SscMemTag)
-import           Pos.Ssc.Types (SscBlock, SscState)
+import           Pos.Ssc.Types (SscState)
 import           Pos.StateLock (StateLock, StateLockMetrics (..), newStateLock)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..), TxpGlobalSettings,
                           TxpHolderTag, txNormalize, txProcessTransactionNoLock, txpTip)
@@ -80,7 +77,7 @@ import           Pos.Util.LoggerName (HasLoggerName' (..), getLoggerNameDefault,
                                       modifyLoggerNameDefault)
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
-import           Pos.Util.Util (Some, postfixLFields)
+import           Pos.Util.Util (postfixLFields)
 import           Pos.Wallet.Redirect (applyLastUpdateWebWallet, blockchainSlotDurationWebWallet,
                                       connectedPeersWebWallet, localChainDifficultyWebWallet,
                                       networkChainDifficultyWebWallet, txpNormalizeWebWallet,
@@ -298,30 +295,14 @@ instance {-# OVERLAPPING #-} HasLoggerName WalletTestMode where
 instance HasConfiguration => MonadDBRead WalletTestMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
+    dbGetRawBlock = DB.dbGetRawBlockPureDefault
+    dbGetRawUndo = DB.dbGetRawUndoPureDefault
 
 instance HasConfiguration => MonadDB WalletTestMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
-
-instance HasConfiguration =>
-         MonadBlockDBGeneric BlockHeader Block Undo WalletTestMode
-  where
-    dbGetBlock = DB.dbGetBlockPureDefault
-    dbGetUndo = DB.dbGetUndoPureDefault
-    dbGetHeader = DB.dbGetHeaderPureDefault
-
-instance HasConfiguration => MonadBlockDBGeneric (Some IsHeader) SscBlock () WalletTestMode
-  where
-    dbGetBlock = DB.dbGetBlockSscPureDefault
-    dbGetUndo = DB.dbGetUndoSscPureDefault
-    dbGetHeader = DB.dbGetHeaderSscPureDefault
-
-instance
-    HasConfiguration =>
-    MonadBlockDBGenericWrite BlockHeader Block Undo WalletTestMode
-  where
-    dbPutBlund = DB.dbPutBlundPureDefault
+    dbPutRawBlund = DB.dbPutRawBlundPureDefault
 
 instance HasConfiguration => MonadGState WalletTestMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault

@@ -1,5 +1,5 @@
 #!/usr/bin/env stack
--- stack runghc --package vector --package cassava --package turtle --package safe --package aeson --package yaml --package lens-aeson
+-- stack script --resolver lts-9.12
 
 {-# LANGUAGE DeriveGeneric       #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -8,12 +8,13 @@
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeApplications    #-}
 {-# LANGUAGE ViewPatterns        #-}
+{-# LANGUAGE PackageImports      #-}
 
 import           Control.Lens
 import           Control.Monad             (forM_, void, when)
 import           Control.Monad.Except      (ExceptT (..), runExceptT)
 import           Control.Monad.Trans       (lift)
-import           Data.Aeson.Lens
+import "lens-aeson" Data.Aeson.Lens
 import qualified Data.List                 as L
 import qualified Data.List.NonEmpty        as NE
 import qualified Data.Map                  as M
@@ -194,7 +195,7 @@ updateTest config (Config{..}) = do
         "Read file ./test_updater.sh succesfuly, its hash: " *>
         (T.pack <$> some hexDigit)
     updHash <- extractFromAuxxOut "updHash" $
-        "Update proposal submitted, upId: " *>
+        "Update proposal submitted along with votes, upId: " *>
         (T.pack <$> some hexDigit)
     TIO.putStrLn $ fileHash <> " " <> updHash
 

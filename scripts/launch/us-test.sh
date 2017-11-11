@@ -24,6 +24,7 @@ fi
 rm -R run; mkdir run
 
 export WALLET_CONFIG=run/configuration.wallet.yaml
+export PATH="$(stack path --local-install-root)/bin/:$PATH"
 
 scripts/launch/Test.hs --configuration-key $CONFIG_KEY --configuration-file $CONFIG gen-wallet-conf -o $WALLET_CONFIG || exit 1
 

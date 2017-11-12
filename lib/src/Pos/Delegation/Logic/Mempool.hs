@@ -29,45 +29,37 @@ module Pos.Delegation.Logic.Mempool
 
 import           Universum
 
-import           Control.Lens                     (at, uses, (%=), (+=), (-=), (.=))
-import qualified Data.Cache.LRU                   as LRU
-import qualified Data.HashMap.Strict              as HM
-import           Mockable                         (CurrentTime, Mockable, currentTime)
+import           Control.Lens (at, uses, (%=), (+=), (-=), (.=))
+import qualified Data.Cache.LRU as LRU
+import qualified Data.HashMap.Strict as HM
+import           Mockable (CurrentTime, Mockable, currentTime)
 
-import           Pos.Binary.Class                 (biSize)
-import           Pos.Binary.Communication         ()
-import           Pos.Context                      (lrcActionOnEpochReason)
-import           Pos.Core                         (HasConfiguration, HasPrimaryKey (..),
-                                                   ProxySKHeavy, ProxySKLight,
-                                                   ProxySigLight, addressHash,
-                                                   bvdMaxBlockSize, epochIndexL,
-                                                   getOurPublicKey, headerHash)
-import           Pos.Crypto                       (ProxySecretKey (..), PublicKey,
-                                                   SignTag (SignProxySK), proxyVerify,
-                                                   verifyPsk)
-import           Pos.DB                           (MonadDB, MonadDBRead, MonadGState,
-                                                   MonadRealDB)
-import qualified Pos.DB                           as DB
-import           Pos.DB.Block                     (MonadBlockDB)
-import qualified Pos.DB.DB                        as DB
-import qualified Pos.DB.Misc                      as Misc
-import           Pos.Delegation.Cede              (CedeModifier (..), CheckForCycle (..),
-                                                   dlgVerifyPskHeavy, evalMapCede,
-                                                   pskToDlgEdgeAction)
-import           Pos.Delegation.Class             (DlgMemPool, MonadDelegation,
-                                                   dwConfirmationCache, dwMessageCache,
-                                                   dwPoolSize, dwProxySKPool, dwTip)
-import           Pos.Delegation.Helpers           (isRevokePsk)
-import           Pos.Delegation.Logic.Common      (DelegationStateAction,
-                                                   runDelegationStateAction)
-import           Pos.Delegation.Types             (DlgPayload, mkDlgPayload)
-import           Pos.Lrc.Context                  (HasLrcContext)
-import qualified Pos.Lrc.DB                       as LrcDB
-import           Pos.StateLock                    (StateLock, withStateLockNoMetrics)
-import           Pos.Util                         (HasLens', leftToPanic,
-                                                   microsecondsToUTC)
+import           Pos.Binary.Class (biSize)
+import           Pos.Binary.Communication ()
+import           Pos.Context (lrcActionOnEpochReason)
+import           Pos.Core (HasConfiguration, HasPrimaryKey (..), ProxySKHeavy, ProxySKLight,
+                           ProxySigLight, addressHash, bvdMaxBlockSize, epochIndexL,
+                           getOurPublicKey, headerHash)
+import           Pos.Crypto (ProxySecretKey (..), PublicKey, SignTag (SignProxySK), proxyVerify,
+                             verifyPsk)
+import           Pos.DB (MonadDB, MonadDBRead, MonadGState, MonadRealDB)
+import qualified Pos.DB as DB
+import           Pos.DB.Block (MonadBlockDB)
+import qualified Pos.DB.DB as DB
+import qualified Pos.DB.Misc as Misc
+import           Pos.Delegation.Cede (CedeModifier (..), CheckForCycle (..), dlgVerifyPskHeavy,
+                                      evalMapCede, pskToDlgEdgeAction)
+import           Pos.Delegation.Class (DlgMemPool, MonadDelegation, dwConfirmationCache,
+                                       dwMessageCache, dwPoolSize, dwProxySKPool, dwTip)
+import           Pos.Delegation.Helpers (isRevokePsk)
+import           Pos.Delegation.Logic.Common (DelegationStateAction, runDelegationStateAction)
+import           Pos.Delegation.Types (DlgPayload, mkDlgPayload)
+import           Pos.Lrc.Context (HasLrcContext)
+import qualified Pos.Lrc.DB as LrcDB
+import           Pos.StateLock (StateLock, withStateLockNoMetrics)
+import           Pos.Util (HasLens', leftToPanic, microsecondsToUTC)
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))
-import qualified Pos.Util.Concurrent.RWLock       as RWL
+import qualified Pos.Util.Concurrent.RWLock as RWL
 
 ----------------------------------------------------------------------------
 -- Delegation mempool

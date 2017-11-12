@@ -13,12 +13,12 @@ module Pos.DB.BatchOp
 import           Universum
 
 import qualified Data.Text.Buildable
-import qualified Database.RocksDB    as Rocks
-import           Formatting          (bprint)
-import           Serokell.Util.Text  (listJson)
+import qualified Database.RocksDB as Rocks
+import           Formatting (bprint)
+import           Serokell.Util.Text (listJson)
 
-import           Pos.DB.Class        (DBTag, MonadDB (dbWriteBatch))
-import           Pos.DB.Rocks.Types  (DB (..))
+import           Pos.DB.Class (DBTag, MonadDB (dbWriteBatch))
+import           Pos.DB.Rocks.Types (DB (..))
 
 class RocksBatchOp a where
     toBatchOp :: a -> [Rocks.BatchOp]

@@ -3,21 +3,20 @@ module Pos.Subscription.Dht
     ( dhtSubscriptionWorker
     ) where
 
-import qualified Control.Concurrent.STM                as STM
+import qualified Control.Concurrent.STM as STM
 import           Universum
 
-import           Formatting                            (sformat, shown, (%))
+import           Formatting (sformat, shown, (%))
 import           Network.Broadcast.OutboundQueue.Types (Peers)
-import           System.Wlog                           (logNotice)
+import           System.Wlog (logNotice)
 
-import           Pos.Communication.Protocol            (NodeId, Worker)
-import           Pos.DHT.Real.Real                     (kademliaGetKnownPeers)
-import           Pos.DHT.Real.Types                    (KademliaDHTInstance (..))
-import           Pos.DHT.Workers                       (DhtWorkMode)
-import           Pos.KnownPeers                        (MonadKnownPeers (..))
-import           Pos.Network.Types                     (NodeType, Bucket(..),
-                                                       choosePeers)
-import           Pos.Util.TimeWarp                     (addressToNodeId)
+import           Pos.Communication.Protocol (NodeId, Worker)
+import           Pos.DHT.Real.Real (kademliaGetKnownPeers)
+import           Pos.DHT.Real.Types (KademliaDHTInstance (..))
+import           Pos.DHT.Workers (DhtWorkMode)
+import           Pos.KnownPeers (MonadKnownPeers (..))
+import           Pos.Network.Types (Bucket (..), NodeType, choosePeers)
+import           Pos.Util.TimeWarp (addressToNodeId)
 
 
 -- | This worker will update the known peers (via MonadKnownPeers) every time

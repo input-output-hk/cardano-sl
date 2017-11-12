@@ -4,15 +4,15 @@ module Test.Pos.MerkleSpec
        ( spec
        ) where
 
-import           Data.SafeCopy         (SafeCopy)
-import           Test.Hspec            (Spec, describe)
+import           Data.SafeCopy (SafeCopy)
+import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Property, (===))
+import           Test.QuickCheck (Property, (===))
 import           Universum
 
-import           Pos.Binary            (Bi)
-import           Pos.Merkle            (mkMerkleTree)
-import           Test.Pos.Helpers      (binaryEncodeDecode, safeCopyEncodeDecode)
+import           Pos.Binary (Bi)
+import           Pos.Merkle (mkMerkleTree)
+import           Test.Pos.Helpers (binaryEncodeDecode, safeCopyEncodeDecode)
 
 spec :: Spec
 spec = describe "Merkle" $ do

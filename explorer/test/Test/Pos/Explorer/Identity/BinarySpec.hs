@@ -6,7 +6,7 @@ module Test.Pos.Explorer.Identity.BinarySpec
 
 import           Universum
 
-import           Test.Hspec             (Spec, describe)
+import           Test.Hspec (Spec, describe)
 
 import           Pos.Arbitrary.Explorer ()
 

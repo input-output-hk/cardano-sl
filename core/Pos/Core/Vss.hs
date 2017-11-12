@@ -26,20 +26,19 @@ module Pos.Core.Vss
 
 import           Universum
 
-import           Control.Monad.Except            (MonadError (throwError))
-import qualified Data.HashMap.Strict             as HM
-import           Data.List.Extra                 (nubOrdOn)
-import           Formatting                      (build, sformat, (%))
-import           Serokell.Util                   (allDistinct)
+import           Control.Monad.Except (MonadError (throwError))
+import qualified Data.HashMap.Strict as HM
+import           Data.List.Extra (nubOrdOn)
+import           Formatting (build, sformat, (%))
+import           Serokell.Util (allDistinct)
 
-import           Pos.Binary.Class                (AsBinary (..), Bi)
-import           Pos.Core.Address                (addressHash)
+import           Pos.Binary.Class (AsBinary (..), Bi)
+import           Pos.Core.Address (addressHash)
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
-import           Pos.Core.Types                  (EpochIndex, StakeholderId)
+import           Pos.Core.Types (EpochIndex, StakeholderId)
 import           Pos.Core.Vss.Types
-import           Pos.Crypto                      (PublicKey, SecretKey,
-                                                  SignTag (SignVssCert), Signature,
-                                                  VssPublicKey, checkSig, sign, toPublic)
+import           Pos.Crypto (PublicKey, SecretKey, SignTag (SignVssCert), Signature, VssPublicKey,
+                             checkSig, sign, toPublic)
 
 -- | Make VssCertificate valid up to given epoch using 'SecretKey' to sign
 -- data.

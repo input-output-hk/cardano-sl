@@ -14,13 +14,13 @@ module Pos.Util.Mnemonics
        , fromMnemonic
        ) where
 
-import           Crypto.Hash     (Digest, SHA256, hash)
-import           Data.Bits       (shiftL, shiftR, (.&.), (.|.))
-import           Data.ByteArray  (convert)
+import           Crypto.Hash (Digest, SHA256, hash)
+import           Data.Bits (shiftL, shiftR, (.&.), (.|.))
+import           Data.ByteArray (convert)
 import           Data.ByteString (ByteString)
 import qualified Data.ByteString as BS
-import           Data.Char       (isAscii)
-import qualified Data.List       as L
+import           Data.Char (isAscii)
+import qualified Data.List as L
 import           Universum
 
 -- TODO: use newtypes!

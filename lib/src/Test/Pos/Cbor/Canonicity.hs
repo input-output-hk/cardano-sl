@@ -1,14 +1,14 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Test.Pos.Cbor.Canonicity (
     perturbCanonicity,
     ) where
 
-import           Numeric.Half           (Half(..))
-import           GHC.Float              (RealFloat(..))
-import qualified Control.Monad.State    as S
-import           Test.Pos.Cbor.ReferenceImplementation (UInt(..), Term(..), canonicalNaN)
-import           Test.QuickCheck.Gen    (Gen, choose, sized, shuffle, oneof, elements)
+import qualified Control.Monad.State as S
+import           GHC.Float (RealFloat (..))
+import           Numeric.Half (Half (..))
+import           Test.Pos.Cbor.ReferenceImplementation (Term (..), UInt (..), canonicalNaN)
+import           Test.QuickCheck.Gen (Gen, choose, elements, oneof, shuffle, sized)
 import           Universum
 
 -- | Traverse elements of a Term which can be represented in multiple ways and

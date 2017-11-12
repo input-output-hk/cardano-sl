@@ -9,26 +9,25 @@ module Pos.Update.Poll.Logic.Softfork
 
 import           Universum
 
-import           Control.Monad.Except       (MonadError, throwError)
-import qualified Data.HashSet               as HS
-import qualified Data.List.NonEmpty         as NE
-import           Data.Tagged                (Tagged (..))
-import           Formatting                 (build, sformat, (%))
-import           Serokell.Util.Text         (listJson)
-import           System.Wlog                (logInfo)
+import           Control.Monad.Except (MonadError, throwError)
+import qualified Data.HashSet as HS
+import qualified Data.List.NonEmpty as NE
+import           Data.Tagged (Tagged (..))
+import           Formatting (build, sformat, (%))
+import           Serokell.Util.Text (listJson)
+import           System.Wlog (logInfo)
 
-import           Pos.Core                   (BlockVersion, Coin, EpochIndex,
-                                             HasConfiguration, HeaderHash, SlotId (..),
-                                             SoftforkRule (..), StakeholderId,
-                                             crucialSlot, sumCoins, unsafeIntegerToCoin)
-import           Pos.Update.Core            (BlockVersionData (..))
-import           Pos.Update.Poll.Class      (MonadPoll (..), MonadPollRead (..))
-import           Pos.Update.Poll.Failure    (PollVerFailure (..))
+import           Pos.Core (BlockVersion, Coin, EpochIndex, HasConfiguration, HeaderHash,
+                           SlotId (..), SoftforkRule (..), StakeholderId, crucialSlot, sumCoins,
+                           unsafeIntegerToCoin)
+import           Pos.Core.Update (BlockVersionData (..))
+import           Pos.Update.Poll.Class (MonadPoll (..), MonadPollRead (..))
+import           Pos.Update.Poll.Failure (PollVerFailure (..))
 import           Pos.Update.Poll.Logic.Base (ConfirmedEpoch, CurEpoch, adoptBlockVersion,
                                              calcSoftforkThreshold, canBeAdoptedBV,
                                              updateSlottingData)
-import           Pos.Update.Poll.Types      (BlockVersionState (..))
-import           Pos.Util.Util              (inAssertMode)
+import           Pos.Update.Poll.Types (BlockVersionState (..))
+import           Pos.Util.Util (inAssertMode)
 
 -- | Record the fact that main block with given version and leader has
 -- been issued by for the given slot.

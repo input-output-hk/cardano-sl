@@ -5,7 +5,7 @@ module Pos.Crypto.Signing.Types.Tag
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Formatting             (bprint, shown)
+import           Formatting (bprint, shown)
 
 -- | To protect agains replay attacks (i.e. when an attacker intercepts a
 -- signed piece of data and later sends it again), we add a tag to all data

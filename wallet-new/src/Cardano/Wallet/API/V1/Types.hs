@@ -25,11 +25,15 @@ module Cardano.Wallet.API.V1.Types (
   -- * Error handling
   , WalletError (..)
   -- * Domain-specific types
+  -- * Wallets
   , Wallet (..)
   , AssuranceLevel (..)
   , NewWallet (..)
   , WalletUpdate (..)
   , WalletId (..)
+  , RenderedBalance (..)
+  , SpendingPassword (..)
+  -- * Addresses
   , Address (..)
   , Account (..)
   , AccountId

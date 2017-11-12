@@ -7,14 +7,13 @@ module Test.Auxx.Lang.ArgumentSpec
 
 import           Universum
 
-import           Test.Hspec           (Expectation, Spec, describe, it, shouldBe)
+import           Test.Hspec (Expectation, Spec, describe, it, shouldBe)
 
 import           Command.TyProjection (tyInt, tyString)
-import           Lang.Argument        (ArgumentConsumer, ArgumentError (..),
-                                       ProcError (..), TypeError (..), consumeArguments,
-                                       getArg)
-import           Lang.Syntax          (Arg (..))
-import           Lang.Value           (Value (..))
+import           Lang.Argument (ArgumentConsumer, ArgumentError (..), ProcError (..),
+                                TypeError (..), consumeArguments, getArg)
+import           Lang.Syntax (Arg (..))
+import           Lang.Value (Value (..))
 
 spec :: Spec
 spec = describe "Auxx.Lang.Argument" $ do

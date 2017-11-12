@@ -7,22 +7,22 @@ module Pos.Ssc.Mode
 import           Universum
 
 import           Control.Monad.Catch (MonadMask)
-import qualified Crypto.Random       as Rand
-import           Ether.Internal      (HasLens (..))
-import           Mockable            (MonadMockable)
-import           System.Wlog         (WithLogger)
+import qualified Crypto.Random as Rand
+import           Ether.Internal (HasLens (..))
+import           Mockable (MonadMockable)
+import           System.Wlog (WithLogger)
 
-import           Pos.Core            (HasConfiguration, HasPrimaryKey)
-import           Pos.DB.Class        (MonadDB, MonadGState)
-import           Pos.Lrc.Context     (HasLrcContext)
-import           Pos.Recovery.Info   (MonadRecoveryInfo)
-import           Pos.Reporting       (MonadReporting)
+import           Pos.Core (HasConfiguration, HasPrimaryKey)
+import           Pos.DB.Class (MonadDB, MonadGState)
+import           Pos.Lrc.Context (HasLrcContext)
+import           Pos.Recovery.Info (MonadRecoveryInfo)
+import           Pos.Reporting (MonadReporting)
 import           Pos.Security.Params (SecurityParams)
-import           Pos.Shutdown        (HasShutdownContext)
-import           Pos.Slotting        (MonadSlots)
-import           Pos.Ssc.Mem         (MonadSscMem)
-import           Pos.Ssc.Types       (HasSscContext)
-import           Pos.Util.TimeWarp   (CanJsonLog)
+import           Pos.Shutdown (HasShutdownContext)
+import           Pos.Slotting (MonadSlots)
+import           Pos.Ssc.Mem (MonadSscMem)
+import           Pos.Ssc.Types (HasSscContext)
+import           Pos.Util.TimeWarp (CanJsonLog)
 
 -- | Mode used for all SSC listeners, workers, and the like.
 type SscMode ctx m

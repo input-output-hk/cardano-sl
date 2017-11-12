@@ -13,34 +13,30 @@ module Pos.Explorer.Web.Transform
 
 import           Universum
 
-import qualified Control.Monad.Catch              as Catch (Handler (..), catches)
-import           Control.Monad.Except             (MonadError (throwError))
-import qualified Control.Monad.Reader             as Mtl
-import           Mockable                         (runProduction)
-import           Servant.Server                   (Handler)
-import           Servant.Utils.Enter              ((:~>) (..), enter)
+import qualified Control.Monad.Catch as Catch (Handler (..), catches)
+import           Control.Monad.Except (MonadError (throwError))
+import qualified Control.Monad.Reader as Mtl
+import           Mockable (runProduction)
+import           Servant.Server (Handler)
+import           Servant.Utils.Enter ((:~>) (..), enter)
 
-import           Pos.Communication                (OutSpecs, SendActions, WorkerSpec,
-                                                   worker)
-import           Pos.Configuration                (HasNodeConfiguration)
-import           Pos.Core                         (HasConfiguration)
-import           Pos.Infra.Configuration          (HasInfraConfiguration)
-import           Pos.Recovery                     ()
-import           Pos.Ssc.Configuration            (HasSscConfiguration)
-import           Pos.Txp                          (MempoolExt, MonadTxpLocal (..))
-import           Pos.Update.Configuration         (HasUpdateConfiguration)
-import           Pos.Util.CompileInfo             (HasCompileInfo)
-import           Pos.WorkMode                     (RealMode, RealModeContext (..))
+import           Pos.Communication (OutSpecs, SendActions, WorkerSpec, worker)
+import           Pos.Configuration (HasNodeConfiguration)
+import           Pos.Core (HasConfiguration)
+import           Pos.Infra.Configuration (HasInfraConfiguration)
+import           Pos.Recovery ()
+import           Pos.Ssc.Configuration (HasSscConfiguration)
+import           Pos.Txp (MempoolExt, MonadTxpLocal (..))
+import           Pos.Update.Configuration (HasUpdateConfiguration)
+import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.WorkMode (RealMode, RealModeContext (..))
 
-import           Pos.Explorer.BListener           (ExplorerBListener,
-                                                   runExplorerBListener)
-import           Pos.Explorer.ExtraContext        (ExtraContext, ExtraContextT,
-                                                   makeExtraCtx, runExtraContextT)
-import           Pos.Explorer.Socket.App          (NotifierSettings, notifierApp)
-import           Pos.Explorer.Txp                 (ExplorerExtra, eTxNormalize,
-                                                   eTxProcessTransaction)
-import           Pos.Explorer.Web.Server          (explorerApp, explorerHandlers,
-                                                   explorerServeImpl)
+import           Pos.Explorer.BListener (ExplorerBListener, runExplorerBListener)
+import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, makeExtraCtx,
+                                            runExtraContextT)
+import           Pos.Explorer.Socket.App (NotifierSettings, notifierApp)
+import           Pos.Explorer.Txp (ExplorerExtra, eTxNormalize, eTxProcessTransaction)
+import           Pos.Explorer.Web.Server (explorerApp, explorerHandlers, explorerServeImpl)
 
 -----------------------------------------------------------------
 -- Transformation to `Handler`

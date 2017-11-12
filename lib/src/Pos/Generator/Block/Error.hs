@@ -6,16 +6,15 @@ module Pos.Generator.Block.Error
 
 import           Universum
 
-import           Control.Exception   (Exception (..))
+import           Control.Exception (Exception (..))
 import qualified Data.Text.Buildable
-import           Formatting          (bprint, build, stext, (%))
+import           Formatting (bprint, build, stext, (%))
 
 import           Pos.Binary.Core.Address ()
-import           Pos.Block.Error     (VerifyBlocksException)
-import           Pos.Core            (Address, StakeholderId, addressF)
-import           Pos.Crypto          (shortHashF)
-import           Pos.Exception       (cardanoExceptionFromException,
-                                      cardanoExceptionToException)
+import           Pos.Block.Error (VerifyBlocksException)
+import           Pos.Core (Address, StakeholderId, addressF)
+import           Pos.Crypto (shortHashF)
+import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
 
 -- | Errors which can happen during blockchain generation.
 data BlockGenError

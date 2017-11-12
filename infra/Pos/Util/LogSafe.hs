@@ -46,20 +46,19 @@ module Pos.Util.LogSafe
 
 import           Universum
 
-import           Control.Monad.Trans    (MonadTrans)
-import           Data.List              (isSuffixOf)
-import           Data.Reflection        (Reifies (..), reify)
+import           Control.Monad.Trans (MonadTrans)
+import           Data.List (isSuffixOf)
+import           Data.Reflection (Reifies (..), reify)
 import qualified Data.Text.Buildable
 import           Data.Text.Lazy.Builder (Builder)
-import           Formatting             (bprint, build, fconst, mapf, (%))
-import           Formatting.Internal    (Format (..))
-import           System.Wlog            (CanLog (..), HasLoggerName (..), Severity (..),
-                                         loggerName)
-import           System.Wlog.Handler    (LogHandlerTag (HandlerFilelike))
-import           System.Wlog.Logger     (logMCond)
+import           Formatting (bprint, build, fconst, mapf, (%))
+import           Formatting.Internal (Format (..))
+import           System.Wlog (CanLog (..), HasLoggerName (..), Severity (..), loggerName)
+import           System.Wlog.Handler (LogHandlerTag (HandlerFilelike))
+import           System.Wlog.Logger (logMCond)
 
-import           Pos.Core.Types         (Coin)
-import           Pos.Crypto             (PassPhrase)
+import           Pos.Core.Types (Coin)
+import           Pos.Crypto (PassPhrase)
 
 
 ----------------------------------------------------------------------------

@@ -12,46 +12,41 @@ module Pos.Web.Server
 
 import           Universum
 
-import qualified Control.Monad.Catch             as Catch
-import           Control.Monad.Except            (MonadError (throwError))
-import qualified Control.Monad.Reader            as Mtl
-import           Data.Aeson.TH                   (defaultOptions, deriveToJSON)
-import           Data.Default                    (Default)
-import           Mockable                        (Production (runProduction))
-import           Network.Wai                     (Application)
-import           Network.Wai.Handler.Warp        (defaultSettings, runSettings, setHost,
-                                                  setPort)
-import           Network.Wai.Handler.WarpTLS     (TLSSettings, runTLS, tlsSettingsChain)
-import           Servant.API                     ((:<|>) ((:<|>)), FromHttpApiData)
-import           Servant.Server                  (Handler, ServantErr (errBody), Server,
-                                                  ServerT, err404, err503, serve)
-import           Servant.Utils.Enter             ((:~>) (NT), enter)
+import qualified Control.Monad.Catch as Catch
+import           Control.Monad.Except (MonadError (throwError))
+import qualified Control.Monad.Reader as Mtl
+import           Data.Aeson.TH (defaultOptions, deriveToJSON)
+import           Data.Default (Default)
+import           Mockable (Production (runProduction))
+import           Network.Wai (Application)
+import           Network.Wai.Handler.Warp (defaultSettings, runSettings, setHost, setPort)
+import           Network.Wai.Handler.WarpTLS (TLSSettings, runTLS, tlsSettingsChain)
+import           Servant.API ((:<|>) ((:<|>)), FromHttpApiData)
+import           Servant.Server (Handler, ServantErr (errBody), Server, ServerT, err404, err503,
+                                 serve)
+import           Servant.Utils.Enter ((:~>) (NT), enter)
 
 import qualified Network.Broadcast.OutboundQueue as OQ
-import           Pos.Aeson.Txp                   ()
-import           Pos.Context                     (HasNodeContext (..), HasSscContext (..),
-                                                  NodeContext, getOurPublicKey)
-import           Pos.Core                        (EpochIndex (..), SlotLeaders)
-import           Pos.Core.Configuration          (HasConfiguration)
-import           Pos.DB                          (MonadDBRead)
-import qualified Pos.DB                          as DB
-import qualified Pos.GState                      as GS
-import qualified Pos.Lrc.DB                      as LrcDB
-import           Pos.Network.Types               (Bucket (BucketSubscriptionListener),
-                                                  Topology, topologyMaxBucketSize)
-import           Pos.Ssc                         (scParticipateSsc)
-import           Pos.Txp                         (TxOut (..), toaOut)
-import           Pos.Txp.MemState                (GenericTxpLocalData, MempoolExt,
-                                                  askTxpMem, getLocalTxs)
-import           Pos.Update.Configuration        (HasUpdateConfiguration)
-import           Pos.Web.Mode                    (WebMode, WebModeContext (..))
-import           Pos.WorkMode                    (OQ)
-import           Pos.WorkMode.Class              (WorkMode)
+import           Pos.Aeson.Txp ()
+import           Pos.Context (HasNodeContext (..), HasSscContext (..), NodeContext, getOurPublicKey)
+import           Pos.Core (EpochIndex (..), SlotLeaders)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.DB (MonadDBRead)
+import qualified Pos.DB as DB
+import qualified Pos.GState as GS
+import qualified Pos.Lrc.DB as LrcDB
+import           Pos.Network.Types (Bucket (BucketSubscriptionListener), Topology,
+                                    topologyMaxBucketSize)
+import           Pos.Ssc (scParticipateSsc)
+import           Pos.Txp (TxOut (..), toaOut)
+import           Pos.Txp.MemState (GenericTxpLocalData, MempoolExt, askTxpMem, getLocalTxs)
+import           Pos.Update.Configuration (HasUpdateConfiguration)
+import           Pos.Web.Mode (WebMode, WebModeContext (..))
+import           Pos.WorkMode (OQ)
+import           Pos.WorkMode.Class (WorkMode)
 
-import           Pos.Web.Api                     (NodeApi, HealthCheckApi,
-                                                  healthCheckApi, nodeApi)
-import           Pos.Web.Types                   (CConfirmedProposalState (..),
-                                                  TlsParams (..))
+import           Pos.Web.Api (HealthCheckApi, NodeApi, healthCheckApi, nodeApi)
+import           Pos.Web.Types (CConfirmedProposalState (..), TlsParams (..))
 
 ----------------------------------------------------------------------------
 -- Top level functionality

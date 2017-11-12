@@ -7,11 +7,11 @@ module Pos.Util.SigHandler (
   , uninstallAllHandlers
   ) where
 
-import           Universum
-import           Control.Concurrent   (modifyMVar_, withMVar)
-import           System.IO.Unsafe     (unsafePerformIO)
-import qualified Data.Map.Strict      as Map
+import           Control.Concurrent (modifyMVar_, withMVar)
+import qualified Data.Map.Strict as Map
+import           System.IO.Unsafe (unsafePerformIO)
 import qualified System.Posix.Signals as Posix
+import           Universum
 
 {-------------------------------------------------------------------------------
   Enumeratate signals

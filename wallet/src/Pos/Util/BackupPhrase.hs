@@ -15,10 +15,9 @@ import qualified Prelude
 
 import           Crypto.Hash         (Blake2b_256)
 import           Pos.Binary          (Bi (..), serialize')
-import           Pos.Crypto          (AbstractHash, EncryptedSecretKey, PassPhrase,
-                                      SecretKey, VssKeyPair, deterministicKeyGen,
-                                      deterministicVssKeyGen, safeDeterministicKeyGen,
-                                      unsafeAbstractHash)
+import           Pos.Crypto          (AbstractHash, EncryptedSecretKey, PassPhrase, SecretKey,
+                                      VssKeyPair, deterministicKeyGen, deterministicVssKeyGen,
+                                      safeDeterministicKeyGen, unsafeAbstractHash)
 import           Pos.Util.Mnemonics  (fromMnemonic, toMnemonic)
 import           Test.QuickCheck     (Arbitrary (..), elements, genericShrink, vectorOf)
 

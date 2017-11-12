@@ -6,7 +6,7 @@ module Pos.Client.Txp.Addresses
 
 import           Universum
 
-import           Pos.Core  (Address)
+import           Pos.Core (Address)
 
 -- | A class which have the method to generate a new address
 class Monad m => MonadAddresses m where

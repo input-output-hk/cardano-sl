@@ -14,39 +14,35 @@ module Pos.Block.Logic.VAR
 
 import           Universum
 
-import           Control.Lens             (_Wrapped)
-import           Control.Monad.Catch      (bracketOnError)
-import           Control.Monad.Except     (ExceptT (ExceptT), MonadError (throwError),
-                                           runExceptT, withExceptT)
-import qualified Data.List.NonEmpty       as NE
-import           Ether.Internal           (HasLens (..))
-import           System.Wlog              (logDebug)
+import           Control.Lens (_Wrapped)
+import           Control.Monad.Catch (bracketOnError)
+import           Control.Monad.Except (ExceptT (ExceptT), MonadError (throwError), runExceptT,
+                                       withExceptT)
+import qualified Data.List.NonEmpty as NE
+import           Ether.Internal (HasLens (..))
+import           System.Wlog (logDebug)
 
-import           Pos.Block.Core           (Block)
-import           Pos.Block.Error          (ApplyBlocksException (..),
-                                           RollbackException (..),
-                                           VerifyBlocksException (..))
+import           Pos.Block.Error (ApplyBlocksException (..), RollbackException (..),
+                                  VerifyBlocksException (..))
 import           Pos.Block.Logic.Internal (BypassSecurityCheck (..), MonadBlockApply,
                                            MonadBlockVerify, MonadMempoolNormalization,
                                            applyBlocksUnsafe, normalizeMempool,
-                                           rollbackBlocksUnsafe, toTxpBlock,
-                                           toUpdateBlock)
-import           Pos.Block.Slog           (ShouldCallBListener (..), mustDataBeKnown,
-                                           slogVerifyBlocks)
-import           Pos.Block.Types          (Blund, Undo (..))
-import           Pos.Core                 (HeaderHash, epochIndexL, headerHashG,
-                                           prevBlockL)
-import           Pos.Delegation.Logic     (dlgVerifyBlocks)
-import qualified Pos.GState               as GS
-import           Pos.Lrc.Worker           (LrcModeFull, lrcSingleShot)
-import           Pos.Ssc                  (sscVerifyBlocks)
-import           Pos.Ssc.Util             (toSscBlock)
-import           Pos.Txp.Settings         (TxpGlobalSettings (..))
-import           Pos.Update.Logic         (usVerifyBlocks)
-import           Pos.Update.Poll          (PollModifier)
-import           Pos.Util                 (neZipWith4, spanSafe, _neHead)
-import           Pos.Util.Chrono          (NE, NewestFirst (..), OldestFirst (..),
-                                           toNewestFirst, toOldestFirst)
+                                           rollbackBlocksUnsafe, toTxpBlock, toUpdateBlock)
+import           Pos.Block.Slog (ShouldCallBListener (..), mustDataBeKnown, slogVerifyBlocks)
+import           Pos.Block.Types (Blund, Undo (..))
+import           Pos.Core (HeaderHash, epochIndexL, headerHashG, prevBlockL)
+import           Pos.Core.Block (Block)
+import           Pos.Delegation.Logic (dlgVerifyBlocks)
+import qualified Pos.GState as GS
+import           Pos.Lrc.Worker (LrcModeFull, lrcSingleShot)
+import           Pos.Ssc (sscVerifyBlocks)
+import           Pos.Ssc.Util (toSscBlock)
+import           Pos.Txp.Settings (TxpGlobalSettings (..))
+import           Pos.Update.Logic (usVerifyBlocks)
+import           Pos.Update.Poll (PollModifier)
+import           Pos.Util (neZipWith4, spanSafe, _neHead)
+import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,
+                                  toOldestFirst)
 
 -- -- CHECK: @verifyBlocksLogic
 -- -- #txVerifyBlocks

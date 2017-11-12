@@ -2,16 +2,16 @@ module Statistics.Throughput
     ( throughput
     ) where
 
-import           Data.Map.Strict                           (Map)
-import qualified Data.Map.Strict                           as M
-import           Data.Time.Units                           (Microsecond)
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
+import           Data.Time.Units (Microsecond)
 import           Graphics.Rendering.Chart
-import           Graphics.Rendering.Chart.Easy
 import           Graphics.Rendering.Chart.Backend.Diagrams (renderableToFile)
+import           Graphics.Rendering.Chart.Easy
 import           Graphics.Rendering.Chart.Grid
 
-import           Pos.Txp.MemState.Types                    (MemPoolModifyReason (..))
-import           Pos.Util.JsonLog                          (JLMemPool (..))
+import           Pos.Txp.MemState.Types (MemPoolModifyReason (..))
+import           Pos.Util.JsonLog (JLMemPool (..))
 import           Types
 import           Universum
 

@@ -19,30 +19,27 @@ module Pos.Delegation.Logic.Common
 
 import           Universum
 
-import           Control.Exception    (Exception (..))
-import           Control.Lens         ((%=))
-import qualified Data.Cache.LRU       as LRU
-import qualified Data.HashMap.Strict  as HM
-import qualified Data.Text.Buildable  as B
-import           Data.Time.Clock      (UTCTime, addUTCTime)
-import           Formatting           (bprint, build, sformat, stext, (%))
+import           Control.Exception (Exception (..))
+import           Control.Lens ((%=))
+import qualified Data.Cache.LRU as LRU
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Text.Buildable as B
+import           Data.Time.Clock (UTCTime, addUTCTime)
+import           Formatting (bprint, build, sformat, stext, (%))
 
-import           Pos.Configuration    (HasNodeConfiguration, dlgCacheParam,
-                                       lightDlgConfirmationTimeout, messageCacheTimeout)
-import           Pos.Core             (HasConfiguration, ProxySKHeavy, StakeholderId,
-                                       addressHash, headerHash)
-import           Pos.Crypto           (ProxySecretKey (..), PublicKey)
-import           Pos.DB               (DBError (DBMalformed), MonadDBRead)
-import qualified Pos.DB.Block         as DB
-import qualified Pos.DB.DB            as DB
-import           Pos.Delegation.Cede  (getPskChain, runDBCede)
-import           Pos.Delegation.Class (DelegationVar, DelegationWrap (..),
-                                       MonadDelegation, askDelegationState,
-                                       dwConfirmationCache, dwMessageCache)
-import           Pos.Delegation.DB    (getDlgTransitive)
-import           Pos.Exception        (cardanoExceptionFromException,
-                                       cardanoExceptionToException)
-import           Pos.Util.LRU         (filterLRU)
+import           Pos.Configuration (HasNodeConfiguration, dlgCacheParam,
+                                    lightDlgConfirmationTimeout, messageCacheTimeout)
+import           Pos.Core (HasConfiguration, ProxySKHeavy, StakeholderId, addressHash, headerHash)
+import           Pos.Crypto (ProxySecretKey (..), PublicKey)
+import           Pos.DB (DBError (DBMalformed), MonadDBRead)
+import qualified Pos.DB.Block as DB
+import qualified Pos.DB.DB as DB
+import           Pos.Delegation.Cede (getPskChain, runDBCede)
+import           Pos.Delegation.Class (DelegationVar, DelegationWrap (..), MonadDelegation,
+                                       askDelegationState, dwConfirmationCache, dwMessageCache)
+import           Pos.Delegation.DB (getDlgTransitive)
+import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
+import           Pos.Util.LRU (filterLRU)
 
 ----------------------------------------------------------------------------
 -- Exceptions

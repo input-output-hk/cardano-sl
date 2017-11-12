@@ -8,24 +8,23 @@ module Pos.Update.Worker
 
 import           Universum
 
-import           Formatting                 (build, sformat, (%))
-import           Serokell.Util.Text         (listJsonIndent)
-import           System.Wlog                (logDebug, logInfo)
+import           Formatting (build, sformat, (%))
+import           Serokell.Util.Text (listJsonIndent)
+import           System.Wlog (logDebug, logInfo)
 
-import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker,
-                                             worker)
-import           Pos.Core                   (SoftwareVersion (..))
-import           Pos.Recovery.Info          (recoveryCommGuard)
-import           Pos.Shutdown               (triggerShutdown)
-import           Pos.Update.Configuration   (curSoftwareVersion)
-import           Pos.Update.Context         (UpdateContext (..))
-import           Pos.Update.Core            (UpdateProposal (..))
-import           Pos.Update.DB              (getConfirmedProposals)
-import           Pos.Update.Download        (downloadUpdate)
-import           Pos.Update.Logic.Local     (processNewSlot)
-import           Pos.Update.Mode            (UpdateMode)
-import           Pos.Update.Poll            (ConfirmedProposalState (..))
-import           Pos.Util.Util              (lensOf)
+import           Pos.Communication.Protocol (OutSpecs, WorkerSpec, localOnNewSlotWorker, worker)
+import           Pos.Core (SoftwareVersion (..))
+import           Pos.Core.Update (UpdateProposal (..))
+import           Pos.Recovery.Info (recoveryCommGuard)
+import           Pos.Shutdown (triggerShutdown)
+import           Pos.Update.Configuration (curSoftwareVersion)
+import           Pos.Update.Context (UpdateContext (..))
+import           Pos.Update.DB (getConfirmedProposals)
+import           Pos.Update.Download (downloadUpdate)
+import           Pos.Update.Logic.Local (processNewSlot)
+import           Pos.Update.Mode (UpdateMode)
+import           Pos.Update.Poll (ConfirmedProposalState (..))
+import           Pos.Util.Util (lensOf)
 
 -- | Update System related workers.
 usWorkers :: forall ctx m. UpdateMode ctx m => ([WorkerSpec m], OutSpecs)

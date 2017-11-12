@@ -5,7 +5,7 @@ module Pos.Explorer.Web.Error
        ) where
 
 import qualified Data.Text.Buildable
-import           Formatting          (bprint, stext, (%))
+import           Formatting (bprint, stext, (%))
 import           Universum
 
 newtype ExplorerError =

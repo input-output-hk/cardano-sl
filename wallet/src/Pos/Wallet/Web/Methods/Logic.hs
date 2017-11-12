@@ -27,53 +27,47 @@ module Pos.Wallet.Web.Methods.Logic
 
 import           Universum
 
-import           Crypto.Random              (MonadRandom)
-import qualified Data.HashMap.Strict        as HM
-import           Data.List                  (findIndex)
-import           Data.Time.Clock.POSIX      (getPOSIXTime)
-import           Formatting                 (build, sformat, (%))
-import           Servant.API.ContentTypes   (NoContent (..))
-import           System.Wlog                (WithLogger)
+import           Crypto.Random (MonadRandom)
+import qualified Data.HashMap.Strict as HM
+import           Data.List (findIndex)
+import           Data.Time.Clock.POSIX (getPOSIXTime)
+import           Formatting (build, sformat, (%))
+import           Servant.API.ContentTypes (NoContent (..))
+import           System.Wlog (WithLogger)
 
-import           Pos.Client.KeyStorage      (MonadKeys (..), MonadKeysRead, addSecretKey,
-                                             deleteSecretKey, getSecretKeysPlain)
-import           Pos.Core                   (Coin, sumCoins, unsafeIntegerToCoin)
-import           Pos.Core.Configuration     (HasConfiguration)
-import           Pos.Crypto                 (PassPhrase, changeEncPassphrase,
-                                             checkPassMatches, emptyPassphrase)
-import           Pos.DB.Block               (MonadBlockDB)
-import           Pos.Slotting               (MonadSlots)
-import           Pos.Txp                    (MonadTxpMem)
-import           Pos.Util                   (maybeThrow)
-import qualified Pos.Util.Modifier          as MM
-import           Pos.Util.Servant           (encodeCType)
-import           Pos.Wallet.Aeson           ()
-import           Pos.Wallet.WalletMode      (MonadBalances (..), WalletMempoolExt)
-import           Pos.Wallet.Web.Account     (AddrGenSeed, genUniqueAccountId,
-                                             genUniqueAddress, getAddrIdx, getSKById)
-import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..),
-                                             CAccountInit (..), CAccountMeta (..),
-                                             CAddress (..), CCoin, CId,
-                                             CWAddressMeta (..), CWallet (..),
-                                             CWalletMeta (..), Wal, addrMetaToAccount,
-                                             encToCId, mkCCoin)
-import           Pos.Wallet.Web.Error       (WalletError (..))
-import           Pos.Wallet.Web.State       (AddressLookupMode (Existing),
-                                             CustomAddressType (ChangeAddr, UsedAddr),
-                                             MonadWalletDB, MonadWalletDBRead,
-                                             addWAddress, createAccount, createWallet,
-                                             getAccountIds, getAccountMeta,
-                                             getWalletAddresses,
-                                             getWalletMetaIncludeUnready, getWalletPassLU,
-                                             isCustomAddress, removeAccount,
-                                             removeHistoryCache, removeTxMetas,
-                                             removeWallet, setAccountMeta, setWalletMeta,
-                                             setWalletPassLU, setWalletReady)
-import           Pos.Wallet.Web.Tracking    (BlockLockMode, CAccModifier (..),
-                                             CachedCAccModifier, fixCachedAccModifierFor,
-                                             fixingCachedAccModifier, sortedInsertions)
-import           Pos.Wallet.Web.Util        (decodeCTypeOrFail, getAccountAddrsOrThrow,
-                                             getWalletAccountIds)
+import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead, addSecretKey,
+                                        deleteSecretKey, getSecretKeysPlain)
+import           Pos.Core (Coin, sumCoins, unsafeIntegerToCoin)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Crypto (PassPhrase, changeEncPassphrase, checkPassMatches, emptyPassphrase)
+import           Pos.DB.Block (MonadBlockDB)
+import           Pos.Slotting (MonadSlots)
+import           Pos.Txp (MonadTxpMem)
+import           Pos.Util (maybeThrow)
+import qualified Pos.Util.Modifier as MM
+import           Pos.Util.Servant (encodeCType)
+import           Pos.Wallet.Aeson ()
+import           Pos.Wallet.WalletMode (MonadBalances (..), WalletMempoolExt)
+import           Pos.Wallet.Web.Account (AddrGenSeed, genUniqueAccountId, genUniqueAddress,
+                                         getAddrIdx, getSKById)
+import           Pos.Wallet.Web.ClientTypes (AccountId (..), CAccount (..), CAccountInit (..),
+                                             CAccountMeta (..), CAddress (..), CCoin, CId,
+                                             CWAddressMeta (..), CWallet (..), CWalletMeta (..),
+                                             Wal, addrMetaToAccount, encToCId, mkCCoin)
+import           Pos.Wallet.Web.Error (WalletError (..))
+import           Pos.Wallet.Web.State (AddressLookupMode (Existing),
+                                       CustomAddressType (ChangeAddr, UsedAddr), MonadWalletDB,
+                                       MonadWalletDBRead, addWAddress, createAccount, createWallet,
+                                       getAccountIds, getAccountMeta, getWalletAddresses,
+                                       getWalletMetaIncludeUnready, getWalletPassLU,
+                                       isCustomAddress, removeAccount, removeHistoryCache,
+                                       removeTxMetas, removeWallet, setAccountMeta, setWalletMeta,
+                                       setWalletPassLU, setWalletReady)
+import           Pos.Wallet.Web.Tracking (BlockLockMode, CAccModifier (..), CachedCAccModifier,
+                                          fixCachedAccModifierFor, fixingCachedAccModifier,
+                                          sortedInsertions)
+import           Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow,
+                                      getWalletAccountIds)
 
 
 type MonadWalletLogicRead ctx m =

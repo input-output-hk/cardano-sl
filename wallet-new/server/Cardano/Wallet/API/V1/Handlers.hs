@@ -7,7 +7,6 @@ module Cardano.Wallet.API.V1.Handlers where
 
 import           Universum
 
-import           Pos.Wallet.Web.Mode                      (WalletWebMode)
 
 import           Cardano.Wallet.API.Types
 import qualified Cardano.Wallet.API.V1                    as V1
@@ -16,12 +15,19 @@ import qualified Cardano.Wallet.API.V1.Handlers.Payments  as Payments
 import qualified Cardano.Wallet.API.V1.Handlers.Updates   as Updates
 import qualified Cardano.Wallet.API.V1.Handlers.Wallets   as Wallets
 
+import           Cardano.Wallet.API.V1.Migration
+
 import           Servant
 
 -- | Until we depend from V0 logic to implement the each 'Handler' we
 -- still need the natural transformation here.
-handlers :: (WalletWebMode :~> Handler)
-         -> Server V1.API
+handlers :: ( HasConfiguration
+            , HasCompileInfo
+            , HasInfraConfiguration
+            , HasSscConfiguration
+            )
+            => (MonadV1 :~> Handler)
+            -> Server V1.API
 handlers naturalTransformation = apiVersion
                             :<|> Addresses.handlers
                             :<|> enter naturalTransformation Wallets.handlers

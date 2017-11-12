@@ -1,4 +1,4 @@
-# Default stylish-haskell configuration file in Serokell.
+# Stylish-haskell configuration file used for cardano-sl by Serokell.
 # It's based on default config provided by `stylish-haskell --defaults` but has some changes
 # ==================================
 
@@ -82,7 +82,10 @@ steps:
       #   >                                           init, last, length)
       #
       # Default: true
-      pad_module_names: true
+
+      # Note: we intentionally disable it to make diffs less verbose and avoid
+      # merge conflicts in some cases.
+      pad_module_names: false
 
       # Long list align style takes effect when import is too long. This is
       # determined by 'columns' setting.
@@ -191,7 +194,11 @@ steps:
 
 # A common setting is the number of columns (parts of) code will be wrapped
 # to. Different steps take this into account. Default: 80.
-columns: 90
+#
+# Note: we tend to write code which fits into 80 characters, in some cases
+# 100 is acceptable. For imports we always permit 100 characters because it
+# decreases verbosity of diffs and makes merging easier.
+columns: 100
 
 # By default, line endings are converted according to the OS. You can override
 # preferred format here.

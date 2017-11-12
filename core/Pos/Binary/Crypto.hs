@@ -7,38 +7,32 @@ module Pos.Binary.Crypto () where
 
 import           Universum
 
-import qualified Cardano.Crypto.Wallet           as CC
-import qualified Crypto.ECC.Edwards25519         as Ed25519
-import           Crypto.Hash                     (digestFromByteString)
-import qualified Crypto.PVSS                     as Pvss
-import qualified Crypto.SCRAPE                   as Scrape
-import qualified Crypto.Sign.Ed25519             as EdStandard
-import qualified Data.ByteArray                  as ByteArray
-import qualified Data.ByteString                 as BS
-import           Data.SafeCopy                   (SafeCopy (..))
-import           Formatting                      (int, sformat, (%))
-import           Pos.Crypto.AsBinary             (decShareBytes, encShareBytes,
-                                                  secretBytes, vssPublicKeyBytes)
+import qualified Cardano.Crypto.Wallet as CC
+import qualified Crypto.ECC.Edwards25519 as Ed25519
+import           Crypto.Hash (digestFromByteString)
+import qualified Crypto.PVSS as Pvss
+import qualified Crypto.SCRAPE as Scrape
+import qualified Crypto.Sign.Ed25519 as EdStandard
+import qualified Data.ByteArray as ByteArray
+import qualified Data.ByteString as BS
+import           Data.SafeCopy (SafeCopy (..))
+import           Formatting (int, sformat, (%))
+import           Pos.Crypto.AsBinary (decShareBytes, encShareBytes, secretBytes, vssPublicKeyBytes)
 
-import           Pos.Binary.Class                (AsBinary (..), Bi (..), Cons (..),
-                                                  Field (..), decodeBinary,
-                                                  deriveSimpleBi, encodeBinary,
-                                                  encodeListLen, enforceSize, getCopyBi,
-                                                  putCopyBi)
-import           Pos.Crypto.Hashing              (AbstractHash (..), HashAlgorithm,
-                                                  WithHash (..), withHash)
-import           Pos.Crypto.HD                   (HDAddressPayload (..))
-import           Pos.Crypto.Scrypt               (EncryptedPass (..))
-import qualified Pos.Crypto.SecretSharing        as C
-import           Pos.Crypto.Signing.Types        (ProxyCert (..), ProxySecretKey (..),
-                                                  ProxySignature (..), PublicKey (..),
-                                                  SecretKey (..), Signature (..),
-                                                  Signed (..))
-import           Pos.Crypto.Signing.Types.Redeem (RedeemPublicKey (..),
-                                                  RedeemSecretKey (..),
+import           Pos.Binary.Class (AsBinary (..), Bi (..), Cons (..), Field (..), decodeBinary,
+                                   deriveSimpleBi, encodeBinary, encodeListLen, enforceSize,
+                                   getCopyBi, putCopyBi)
+import           Pos.Crypto.Hashing (AbstractHash (..), HashAlgorithm, WithHash (..), withHash)
+import           Pos.Crypto.HD (HDAddressPayload (..))
+import           Pos.Crypto.Scrypt (EncryptedPass (..))
+import qualified Pos.Crypto.SecretSharing as C
+import           Pos.Crypto.Signing.Types (ProxyCert (..), ProxySecretKey (..), ProxySignature (..),
+                                           PublicKey (..), SecretKey (..), Signature (..),
+                                           Signed (..))
+import           Pos.Crypto.Signing.Types.Redeem (RedeemPublicKey (..), RedeemSecretKey (..),
                                                   RedeemSignature (..))
-import           Pos.Crypto.Signing.Types.Safe   (EncryptedSecretKey (..), PassPhrase,
-                                                  passphraseLength)
+import           Pos.Crypto.Signing.Types.Safe (EncryptedSecretKey (..), PassPhrase,
+                                                passphraseLength)
 
 instance Bi a => Bi (WithHash a) where
     encode = encode . whData

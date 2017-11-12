@@ -24,6 +24,7 @@ library
                        Cardano.Wallet.API.V1.Wallets
                        Cardano.Wallet.API.V1.Errors
                        Cardano.Wallet.API.V1.Updates
+                       Cardano.Wallet.API.V1.Migration
                        Cardano.Wallet.API.V0
                        Cardano.Wallet.API.V0.Types
   ghc-options:         -Wall
@@ -36,6 +37,7 @@ library
                      , http-api-data
                      , http-client
                      , http-types
+                     , lens
                      , mtl
                      , network-uri
                      , servant
@@ -48,6 +50,8 @@ library
                      , serokell-util
                      , warp
                      , cardano-sl-core
+                     , cardano-sl-infra
+                     , cardano-sl-ssc
                      , cardano-sl-wallet
   default-language:    Haskell2010
   default-extensions: TypeOperators
@@ -103,6 +107,8 @@ executable wallet-new-server
                      , servant
                      , servant-server
                      , servant-swagger
+                     , serokell-util
+                     , memory
                      , stm
                      , string-conv
                      , swagger2

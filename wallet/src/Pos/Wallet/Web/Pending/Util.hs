@@ -8,14 +8,13 @@ module Pos.Wallet.Web.Pending.Util
 
 import           Universum
 
-import           Control.Lens                 ((*=), (+=), (+~), (<<*=), (<<.=))
+import           Control.Lens ((*=), (+=), (+~), (<<*=), (<<.=))
 
-import           Pos.Core.Configuration       (HasConfiguration)
-import           Pos.Core.Slotting            (flatSlotId)
-import           Pos.Core.Types               (FlatSlotId, SlotId)
-import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxSubmitTiming (..),
-                                               pstNextDelay, pstNextSlot, ptxPeerAck,
-                                               ptxSubmitTiming)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Core.Slotting (flatSlotId)
+import           Pos.Core.Types (FlatSlotId, SlotId)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxSubmitTiming (..), pstNextDelay,
+                                               pstNextSlot, ptxPeerAck, ptxSubmitTiming)
 
 
 mkPtxSubmitTiming :: HasConfiguration => SlotId -> PtxSubmitTiming

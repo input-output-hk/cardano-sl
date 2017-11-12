@@ -5,8 +5,8 @@ module Pos.Statistics.Ekg
        , ekgParamsOption
        ) where
 
-import qualified Options.Applicative    as Opt
-import           Pos.Util.TimeWarp      (NetworkAddress, addrParserNoWildcard)
+import qualified Options.Applicative as Opt
+import           Pos.Util.TimeWarp (NetworkAddress, addrParserNoWildcard)
 import           Serokell.Util.OptParse (fromParsec)
 import           Universum
 

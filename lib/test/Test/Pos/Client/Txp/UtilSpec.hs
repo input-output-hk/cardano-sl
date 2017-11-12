@@ -8,37 +8,34 @@ module Test.Pos.Client.Txp.UtilSpec
 
 import           Universum
 
-import qualified Data.HashMap.Strict      as HM
-import qualified Data.List.NonEmpty       as NE
-import qualified Data.Map                 as M
-import qualified Data.Set                 as S
-import           Formatting               (build, hex, left, sformat, shown, (%), (%.))
-import           Test.Hspec               (Spec, describe)
-import           Test.Hspec.QuickCheck    (prop)
-import           Test.QuickCheck          (Discard (..), Gen, arbitrary, choose)
-import           Test.QuickCheck.Monadic  (forAllM, stop)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Map as M
+import qualified Data.Set as S
+import           Formatting (build, hex, left, sformat, shown, (%), (%.))
+import           Test.Hspec (Spec, describe)
+import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck (Discard (..), Gen, arbitrary, choose)
+import           Test.QuickCheck.Monadic (forAllM, stop)
 
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
-import           Pos.Client.Txp.Util      (InputSelectionPolicy (..), TxError (..),
-                                           TxOutputs, TxWithSpendings, createMTx,
-                                           createRedemptionTx, isNotEnoughMoneyTxError)
-import           Pos.Core                 (BlockVersionData (..), Coeff (..),
-                                           TxFeePolicy (..), TxSizeLinear (..),
-                                           makePubKeyAddressBoot, makeRedeemAddress,
-                                           unsafeIntegerToCoin)
-import           Pos.Crypto               (RedeemSecretKey, SafeSigner, SecretKey,
-                                           decodeHash, fakeSigner, redeemToPublic,
-                                           toPublic)
-import           Pos.DB                   (gsAdoptedBVData)
-import           Pos.Txp                  (Tx (..), TxAux (..), TxId, TxIn (..),
-                                           TxOut (..), TxOutAux (..), Utxo)
-import           Pos.Types                (Address)
-import           Pos.Util.Arbitrary       (nonrepeating)
-import           Pos.Util.Util            (leftToPanic)
-import           Test.Pos.Util            (stopProperty, withDefConfigurations)
+import           Pos.Client.Txp.Util (InputSelectionPolicy (..), TxError (..), TxOutputs,
+                                      TxWithSpendings, createMTx, createRedemptionTx,
+                                      isNotEnoughMoneyTxError)
+import           Pos.Core (BlockVersionData (..), Coeff (..), TxFeePolicy (..), TxSizeLinear (..),
+                           makePubKeyAddressBoot, makeRedeemAddress, unsafeIntegerToCoin)
+import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, TxIn (..), TxOut (..), TxOutAux (..))
+import           Pos.Crypto (RedeemSecretKey, SafeSigner, SecretKey, decodeHash, fakeSigner,
+                             redeemToPublic, toPublic)
+import           Pos.DB (gsAdoptedBVData)
+import           Pos.Txp (Utxo)
+import           Pos.Types (Address)
+import           Pos.Util.Arbitrary (nonrepeating)
+import           Pos.Util.Util (leftToPanic)
+import           Test.Pos.Util (stopProperty, withDefConfigurations)
 
-import           Test.Pos.Client.Txp.Mode (HasTxpConfigurations, TxpTestMode,
-                                           TxpTestProperty, withBVData)
+import           Test.Pos.Client.Txp.Mode (HasTxpConfigurations, TxpTestMode, TxpTestProperty,
+                                           withBVData)
 
 ----------------------------------------------------------------------------
 -- Tests

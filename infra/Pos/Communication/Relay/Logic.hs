@@ -26,40 +26,35 @@ module Pos.Communication.Relay.Logic
        , InvReqDataFlowLog (..)
        ) where
 
-import           Data.Aeson.TH                      (defaultOptions, deriveJSON)
-import           Data.Proxy                         (asProxyTypeOf)
-import           Data.Tagged                        (Tagged, tagWith)
-import           Data.Typeable                      (typeRep)
-import           Formatting                         (build, sformat, shown, stext, (%))
-import           Mockable                           (MonadMockable, handleAll, throw, try)
-import qualified Network.Broadcast.OutboundQueue    as OQ
-import           Node.Message.Class                 (Message)
-import           System.Wlog                        (WithLogger, logDebug, logError,
-                                                     logWarning)
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
+import           Data.Proxy (asProxyTypeOf)
+import           Data.Tagged (Tagged, tagWith)
+import           Data.Typeable (typeRep)
+import           Formatting (build, sformat, shown, stext, (%))
+import           Mockable (MonadMockable, handleAll, throw, try)
+import qualified Network.Broadcast.OutboundQueue as OQ
+import           Node.Message.Class (Message)
+import           System.Wlog (WithLogger, logDebug, logError, logWarning)
 import           Universum
 
-import           Pos.Binary.Class                   (Bi (..))
+import           Pos.Binary.Class (Bi (..))
 import           Pos.Communication.Limits.Instances ()
-import           Pos.Communication.Limits.Types     (MessageLimited, recvLimited)
-import           Pos.Communication.Listener         (listenerConv)
-import           Pos.Communication.Protocol         (Conversation (..),
-                                                     ConversationActions (..), EnqueueMsg,
-                                                     ListenerSpec, MkListeners, Msg,
-                                                     NodeId, Origin (..), OutSpecs,
-                                                     constantListeners, convH, toOutSpecs,
-                                                     waitForConversations)
-import           Pos.Communication.Relay.Class      (DataParams (..),
-                                                     InvReqDataParams (..),
-                                                     MempoolParams (..), Relay (..))
-import           Pos.Communication.Relay.Types      (PropagationMsg (..))
-import           Pos.Communication.Relay.Util       (expectData, expectInv)
-import           Pos.Communication.Types.Relay      (DataMsg (..), InvMsg (..), InvOrData,
-                                                     MempoolMsg (..), ReqMsg (..),
-                                                     ReqOrRes, ResMsg (..))
-import           Pos.DB.Class                       (MonadGState)
-import           Pos.Infra.Configuration            (HasInfraConfiguration)
-import           Pos.Network.Types                  (Bucket)
-import           Pos.Util.TimeWarp                  (CanJsonLog (..))
+import           Pos.Communication.Limits.Types (MessageLimited, recvLimited)
+import           Pos.Communication.Listener (listenerConv)
+import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
+                                             EnqueueMsg, ListenerSpec, MkListeners, Msg, NodeId,
+                                             Origin (..), OutSpecs, constantListeners, convH,
+                                             toOutSpecs, waitForConversations)
+import           Pos.Communication.Relay.Class (DataParams (..), InvReqDataParams (..),
+                                                MempoolParams (..), Relay (..))
+import           Pos.Communication.Relay.Types (PropagationMsg (..))
+import           Pos.Communication.Relay.Util (expectData, expectInv)
+import           Pos.Communication.Types.Relay (DataMsg (..), InvMsg (..), InvOrData,
+                                                MempoolMsg (..), ReqMsg (..), ReqOrRes, ResMsg (..))
+import           Pos.DB.Class (MonadGState)
+import           Pos.Infra.Configuration (HasInfraConfiguration)
+import           Pos.Network.Types (Bucket)
+import           Pos.Util.TimeWarp (CanJsonLog (..))
 
 type MinRelayWorkMode m =
     ( WithLogger m

@@ -13,11 +13,11 @@ module Pos.Txp.MemState.Types
 
 import           Universum
 
-import           Data.Aeson.TH                    (defaultOptions, deriveJSON)
+import           Data.Aeson.TH (defaultOptions, deriveJSON)
 
 import           Pos.Communication.Types.Protocol (PeerId)
-import           Pos.Core.Types                   (HeaderHash)
-import           Pos.Txp.Toil.Types               (MemPool, UndoMap, UtxoModifier)
+import           Pos.Core.Types (HeaderHash)
+import           Pos.Txp.Toil.Types (MemPool, UndoMap, UtxoModifier)
 
 -- | LocalData of transactions processing.
 -- There are two invariants which must hold for local data

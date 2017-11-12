@@ -4,13 +4,13 @@ module Pos.Discovery.Model.Class
        , withPeersConcurrently
        ) where
 
-import           Universum
-import           Mockable                   (Mockable)
-import           Mockable.Concurrent        (Concurrently, forConcurrently)
+import           Data.Proxy (Proxy)
+import           Data.Set (Set)
+import qualified Data.Set as Set (toList)
+import           Mockable (Mockable)
+import           Mockable.Concurrent (Concurrently, forConcurrently)
 import           Pos.Communication.Protocol (NodeId)
-import           Data.Set                   (Set)
-import qualified Data.Set                   as Set (toList)
-import           Data.Proxy                 (Proxy)
+import           Universum
 
 -- | Provides a set of known peers.
 class Discovery which m where
@@ -28,7 +28,7 @@ withPeers which k = fmap k (peers which)
 -- | Run an m-term against each peer, concurrently.
 --   The target monad must be capable of concurrency.
 withPeersConcurrently
-    :: ( Discovery which m 
+    :: ( Discovery which m
        , Mockable Concurrently m
        )
     => Proxy which

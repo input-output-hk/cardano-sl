@@ -23,36 +23,31 @@ module Pos.Txp.Logic.Local
 
 import           Universum
 
-import           Control.Lens         (makeLenses)
+import           Control.Lens (makeLenses)
 import           Control.Monad.Except (MonadError (..), runExceptT)
-import           Data.Default         (Default (def))
-import qualified Data.HashMap.Strict  as HM
-import qualified Data.List.NonEmpty   as NE
-import qualified Data.Map             as M (fromList)
-import           Formatting           (build, sformat, (%))
-import           System.Wlog          (NamedPureLogger, WithLogger, logDebug, logError,
-                                       logWarning)
+import           Data.Default (Default (def))
+import qualified Data.HashMap.Strict as HM
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Map as M (fromList)
+import           Formatting (build, sformat, (%))
+import           System.Wlog (NamedPureLogger, WithLogger, logDebug, logError, logWarning)
 
-import           Pos.Core             (BlockVersionData, EpochIndex, HasConfiguration,
-                                       HeaderHash, siEpoch)
-import           Pos.Crypto           (WithHash (..))
-import           Pos.DB.Class         (MonadDBRead, MonadGState (..))
+import           Pos.Core (BlockVersionData, EpochIndex, HasConfiguration, HeaderHash, siEpoch)
+import           Pos.Core.Txp (Tx (..), TxAux (..), TxId)
+import           Pos.Crypto (WithHash (..))
+import           Pos.DB.Class (MonadDBRead, MonadGState (..))
 import qualified Pos.DB.GState.Common as GS
-import           Pos.Reporting        (reportError)
-import           Pos.Slotting         (MonadSlots (..))
-import           Pos.StateLock        (Priority (..), StateLock, StateLockMetrics,
-                                       withStateLock)
-import           Pos.Txp.Core         (Tx (..), TxAux (..), TxId, topsortTxs)
-import           Pos.Txp.MemState     (GenericTxpLocalData (..), GenericTxpLocalDataPure,
-                                       MempoolExt, MonadTxpMem, TxpLocalWorkMode,
-                                       askTxpMem, getLocalTxsMap, getUtxoModifier,
-                                       modifyTxpLocalData, setTxpLocalData)
-import           Pos.Txp.Toil         (DBToil, GenericToilModifier (..),
-                                       MonadUtxoRead (..), ToilT, ToilVerFailure (..),
-                                       Utxo, mpLocalTxs, normalizeToil, processTx,
-                                       runDBToil, runToilTLocal, runToilTLocalExtra,
-                                       utxoGetReader)
-import           Pos.Util.Util        (HasLens (..), HasLens')
+import           Pos.Reporting (reportError)
+import           Pos.Slotting (MonadSlots (..))
+import           Pos.StateLock (Priority (..), StateLock, StateLockMetrics, withStateLock)
+import           Pos.Txp.MemState (GenericTxpLocalData (..), GenericTxpLocalDataPure, MempoolExt,
+                                   MonadTxpMem, TxpLocalWorkMode, askTxpMem, getLocalTxsMap,
+                                   getUtxoModifier, modifyTxpLocalData, setTxpLocalData)
+import           Pos.Txp.Toil (DBToil, GenericToilModifier (..), MonadUtxoRead (..), ToilT,
+                               ToilVerFailure (..), Utxo, mpLocalTxs, normalizeToil, processTx,
+                               runDBToil, runToilTLocal, runToilTLocalExtra, utxoGetReader)
+import           Pos.Txp.Topsort (topsortTxs)
+import           Pos.Util.Util (HasLens (..), HasLens')
 
 -- Base context for tx processing in.
 data ProcessTxContext ext = ProcessTxContext

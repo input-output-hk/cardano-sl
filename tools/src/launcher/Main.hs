@@ -323,19 +323,31 @@ clientScenario logConf node wallet updater nodeTimeout report = do
     (nodeHandle, nodeAsync, nodeLog) <- spawnNode node
     walletAsync <- async (runWallet wallet)
     (someAsync, exitCode) <- waitAny [nodeAsync, walletAsync]
+    let restart = clientScenario logConf node wallet updater nodeTimeout report
     if | someAsync == nodeAsync -> do
              logWarning $ sformat ("The node has exited with "%shown) exitCode
              whenJust report $ \repServ -> do
                  logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
                  reportNodeCrash exitCode logConf repServ nodeLog
              logInfo "Waiting for the wallet to die"
-             void $ wait walletAsync
+             walletExitCode <- wait walletAsync
+             logInfo $ sformat ("The wallet has exited with "%shown) walletExitCode
+             when (walletExitCode == ExitFailure 20) $
+                 case exitCode of
+                     ExitSuccess{} -> restart
+                     ExitFailure{} ->
+                         -- -- Commented out because shutdown is broken and node
+                         -- -- returns non-zero codes even for valid scenarios (CSL-1855)
+                         -- TL.putStrLn $
+                         --   "The wallet has exited with code 20, but\
+                         --   \ we won't update due to node crash"
+                         restart -- remove this after CSL-1855
        | exitCode == ExitFailure 20 -> do
              logNotice "The wallet has exited with code 20"
              logInfo $ sformat ("Killing the node in "%int%" seconds") nodeTimeout
              sleep (fromIntegral nodeTimeout)
              killNode nodeHandle nodeAsync
-             clientScenario logConf node wallet updater nodeTimeout report
+             restart
        | otherwise -> do
              logWarning $ sformat ("The wallet has exited with "%shown) exitCode
              -- TODO: does the wallet have some kind of log?

@@ -49,6 +49,7 @@ import           Network.HTTP.Client (httpLbs, newManager, parseUrlThrow)
 import qualified Network.HTTP.Client.MultipartFormData as Form
 import           Network.HTTP.Client.TLS (tlsManagerSettings)
 import           Network.Info (IPv4 (..), getNetworkInterfaces, ipv4)
+import           Pos.ReportServer.Report (ReportInfo (..), ReportType (..))
 import           Serokell.Util.Text (listBuilderJSON)
 import           System.Directory (canonicalizePath, doesFileExist, removeFile)
 import           System.FilePath (takeFileName)
@@ -57,6 +58,7 @@ import           System.IO (IOMode (WriteMode), hClose, hFlush, withFile)
 import           System.Wlog (LoggerConfig (..), Severity (..), WithLogger, hwFilePath, lcTree,
                               logError, logInfo, logMessage, logWarning, ltFiles, ltSubloggers,
                               retrieveLogContent)
+
 
 import           Paths_cardano_sl_infra (version)
 import           Pos.Core.Configuration (HasConfiguration, protocolMagic)
@@ -67,7 +69,6 @@ import           Pos.Network.Types (HasNodeType (..), NodeType (..))
 import           Pos.Reporting.Exceptions (ReportingError (..))
 import           Pos.Reporting.MemState (HasLoggerConfig (..), HasReportServers (..),
                                          HasReportingContext (..))
-import           Pos.ReportServer.Report (ReportInfo (..), ReportType (..))
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 import           Pos.Util.Util (maybeThrow, withSystemTempFile, (<//>))
 
@@ -83,8 +84,8 @@ import           Pos.Util.Util (maybeThrow, withSystemTempFile, (<//>))
 -- __Important notice__: if given paths are logs that we're currently
 -- writing to using this executable (or forked thread), you'll get an
 -- error, because there's no possibility to have two handles on the
--- same file, see 'System.IO' documentation on handles. Use second
--- parameter for that.
+-- same file, see 'System.IO' documentation on handles. See
+-- 'withTempLogFile' to overcome this problem.
 sendReport
     :: (HasConfiguration, HasCompileInfo, MonadIO m, MonadMask m)
     => [FilePath]                 -- ^ Log files to read from
@@ -216,8 +217,9 @@ sendReportNodeImpl rawLogs reportType = do
         let withPath :: ([FilePath] -> m ()) -> m ()
             withPath =
                 maybe (\a -> a [])
-                      (\f cont -> withTempLogFile f $ \file -> cont [file])
+                      (\t cont -> withTempLogFile t $ \file -> cont [file])
                       rawLogs
+        -- logFile is either [a] or [].
         withPath $ \(logFile :: [FilePath]) -> do
             errors <-
                 fmap lefts $ forM servers $

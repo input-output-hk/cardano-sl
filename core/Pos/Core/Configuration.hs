@@ -153,6 +153,8 @@ withCoreConfigurations conf@CoreConfiguration{..} confDir mSystemStart mSeed act
 
         let theConf = conf {ccGenesis = GCSpec theSpec}
 
+        logInfo $ "We are going to generate genesis data from genesis spec," <>
+                  " it can take a lot of time if there are many HD addresses!"
         withGenesisSpec theSystemStart theConf act
 
 withGenesisSpec

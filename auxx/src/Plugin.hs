@@ -16,14 +16,14 @@ import           System.Posix.Process (exitImmediately)
 #endif
 import           Data.Constraint (Dict(..))
 import           Formatting (float, int, sformat, stext, (%))
-import           Mockable (delay)
+import           Mockable (Catch, Delay, Mockable, delay)
 import           Node.Conversation (ConversationActions (..))
 import           Node.Message.Class (Message (..))
 import           Serokell.Util (sec)
 import           System.IO (hFlush, stdout)
-import           System.Wlog (WithLogger, logDebug, logInfo)
+import           System.Wlog (CanLog, HasLoggerName, WithLogger, logDebug, logInfo)
 
-import           Pos.Communication (Conversation (..), OutSpecs (..), SendActions (..), Worker,
+import           Pos.Communication (Conversation (..), OutSpecs (..), SendActions (..),
                                     WorkerSpec, delegationRelays, relayPropagateOut, txRelays,
                                     usRelays, worker)
 import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
@@ -38,7 +38,7 @@ import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext)
 import           AuxxOptions (AuxxOptions (..))
 import           Command (createCommandProcs)
 import qualified Lang
-import           Mode (AuxxMode)
+import           Mode (MonadAuxxMode)
 import           Repl (WithCommandAction (..))
 
 ----------------------------------------------------------------------------
@@ -48,11 +48,11 @@ import           Repl (WithCommandAction (..))
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 auxxPlugin ::
-       HasCompileInfo
+       (HasCompileInfo, MonadAuxxMode m, Mockable Delay m)
     => Dict HasConfigurations
     -> AuxxOptions
-    -> Either (WithCommandAction AuxxMode) Text
-    -> (WorkerSpec AuxxMode, OutSpecs)
+    -> Either WithCommandAction Text
+    -> (WorkerSpec m, OutSpecs)
 auxxPlugin hasConfigurations@Dict auxxOptions repl = worker' runCmdOuts $ \sendActions ->
     rawExec (Just hasConfigurations) (Just Dict) auxxOptions (Just sendActions) repl
   where
@@ -62,12 +62,19 @@ auxxPlugin hasConfigurations@Dict auxxOptions repl = worker' runCmdOuts $ \sendA
         w (addLogging sa)
 
 rawExec ::
-       (HasCompileInfo, Monad m)
+       ( HasCompileInfo
+       , MonadIO m
+       , Mockable Catch m
+       , MonadThrow m
+       , CanLog m
+       , HasLoggerName m
+       , Mockable Delay m
+       )
     => Maybe (Dict HasConfigurations)
-    -> Maybe (Dict MonadAuxxMode)
+    -> Maybe (Dict (MonadAuxxMode m))
     -> AuxxOptions
     -> Maybe (SendActions m)
-    -> Either (WithCommandAction m) Text
+    -> Either WithCommandAction Text
     -> m ()
 rawExec mHasConfigurations mHasAuxxMode AuxxOptions{..} mSendActions = \case
     Left WithCommandAction{..} -> do
@@ -78,11 +85,24 @@ rawExec mHasConfigurations mHasAuxxMode AuxxOptions{..} mSendActions = \case
             expr <- eitherToThrow $ Lang.parse line
             value <- eitherToThrow =<< Lang.evaluate commandProcs expr
             withValueText printAction value
-    Right cmd -> runWalletCmd mHasConfigurations cmd mSendActions
+    Right cmd -> runWalletCmd mHasConfigurations mHasAuxxMode cmd mSendActions
 
-runWalletCmd :: HasCompileInfo => Maybe (Dict HasConfigurations) -> Text -> Maybe (SendActions AuxxMode) -> AuxxMode ()
-runWalletCmd mHasConfigurations line mSendActions = do
-    let commandProcs = rights $ createCommandProcs mHasConfigurations printAction mSendActions
+runWalletCmd ::
+       (HasCompileInfo
+       , MonadIO m
+       , Mockable Catch m
+       , MonadThrow m
+       , CanLog m
+       , HasLoggerName m
+       , Mockable Delay m
+       )
+    => Maybe (Dict HasConfigurations)
+    -> Maybe (Dict (MonadAuxxMode m))
+    -> Text
+    -> Maybe (SendActions m)
+    -> m ()
+runWalletCmd mHasConfigurations mHasAuxxMode line mSendActions = do
+    let commandProcs = rights $ createCommandProcs mHasConfigurations mHasAuxxMode printAction mSendActions
     expr <- eitherToThrow $ Lang.parse line
     value <- eitherToThrow =<< Lang.evaluate commandProcs expr
     withValueText printAction value

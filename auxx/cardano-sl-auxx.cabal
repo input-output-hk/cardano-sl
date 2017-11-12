@@ -51,6 +51,8 @@ library
                      , cardano-sl-ssc
                      , cardano-sl-txp
                      , cardano-sl-update
+                     , constraints
+                     , cryptonite
                      , data-default
                      , ether
                      , containers
@@ -119,6 +121,7 @@ executable cardano-auxx
                      , cardano-sl-core
                      , cardano-sl-infra
                      , cardano-sl-txp
+                     , constraints
                      , log-warper
                      , temporary
                      , node-sketch

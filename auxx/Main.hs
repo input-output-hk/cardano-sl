@@ -5,11 +5,12 @@ module Main
 import           Universum
 import           Unsafe (unsafeFromJust)
 
+import           Data.Constraint (Dict(..))
 import           Formatting (sformat, shown, (%))
-import           Mockable (Production, currentTime, runProduction)
+import           Mockable (Production, MonadMockable, currentTime, runProduction)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..))
 import qualified System.IO.Temp as Temp
-import           System.Wlog (logInfo)
+import           System.Wlog (CanLog, HasLoggerName, logInfo)
 
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (OutSpecs, WorkerSpec)
@@ -27,12 +28,22 @@ import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
 import           AuxxOptions (AuxxAction (..), AuxxOptions (..), getAuxxOptions)
 import           Mode (AuxxContext (..), AuxxMode, CmdCtx (..), realModeToAuxx)
-import           Plugin (auxxPlugin)
+import           Plugin (auxxPlugin, rawExec)
 import           Repl (WithCommandAction, withAuxxRepl)
 
 -- 'NodeParams' obtained using 'CLI.getNodeParams' are not perfect for
 -- Auxx, so we need to adapt them slightly.
-correctNodeParams :: AuxxOptions -> NodeParams -> Production (NodeParams, Bool)
+correctNodeParams ::
+       ( HasCompileInfo
+       , MonadIO m
+       , MonadThrow m
+       , CanLog m
+       , HasLoggerName m
+       , MonadMockable m
+       )
+    => AuxxOptions
+    -> NodeParams
+    -> m (NodeParams, Bool)
 correctNodeParams AuxxOptions {..} np = do
     (dbPath, isTempDbUsed) <- case npDbPathM np of
         Nothing -> do
@@ -69,30 +80,34 @@ runNodeWithSinglePlugin ::
 runNodeWithSinglePlugin nr (plugin, plOuts) =
     runNode nr ([plugin], plOuts)
 
-action :: HasCompileInfo => AuxxOptions -> Either (WithCommandAction AuxxMode) Text -> Production ()
-action opts@AuxxOptions {..} command = withConfigurations conf $ do
+action :: HasCompileInfo => AuxxOptions -> Either WithCommandAction Text -> Production ()
+action opts@AuxxOptions {..} command = do
     CLI.printFlags
-    logInfo $ sformat ("System start time is "%shown) $ gdStartTime genesisData
-    t <- currentTime
-    logInfo $ sformat ("Current time is "%shown) (Timestamp t)
-    (nodeParams, tempDbUsed) <-
-        correctNodeParams opts =<< CLI.getNodeParams cArgs nArgs
     let
-        toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
-        toRealMode auxxAction = do
-            realModeContext <- ask
-            let auxxContext =
-                    AuxxContext
-                    { acRealModeContext = realModeContext
-                    , acCmdCtx = cmdCtx
-                    , acTempDbUsed = tempDbUsed }
-            lift $ runReaderT auxxAction auxxContext
-    let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
-    let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
-    bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
-        runRealBasedMode toRealMode realModeToAuxx nr $
-            (if aoNodeEnabled then runNodeWithSinglePlugin nr else identity)
-            (auxxPlugin opts command)
+        runWithoutNode = do
+          rawExec Nothing Nothing opts Nothing command
+    (flip catch) (\(_ :: SomeException) -> runWithoutNode) $ withConfigurations conf $ do
+        logInfo $ sformat ("System start time is "%shown) $ gdStartTime genesisData
+        t <- currentTime
+        logInfo $ sformat ("Current time is "%shown) (Timestamp t)
+        (nodeParams, tempDbUsed) <-
+            correctNodeParams opts =<< CLI.getNodeParams cArgs nArgs
+        let
+            toRealMode :: AuxxMode a -> RealMode EmptyMempoolExt a
+            toRealMode auxxAction = do
+                realModeContext <- ask
+                let auxxContext =
+                        AuxxContext
+                        { acRealModeContext = realModeContext
+                        , acCmdCtx = cmdCtx
+                        , acTempDbUsed = tempDbUsed }
+                lift $ runReaderT auxxAction auxxContext
+        let vssSK = unsafeFromJust $ npUserSecret nodeParams ^. usVss
+        let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
+        bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
+            runRealBasedMode toRealMode realModeToAuxx nr $
+                (if aoNodeEnabled then runNodeWithSinglePlugin nr else identity)
+                (auxxPlugin Dict opts command)
   where
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)

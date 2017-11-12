@@ -29,6 +29,7 @@ import           Pos.Update (SystemTag, UpId, UpdateData (..), UpdateVote (..), 
 
 import           Lang.Value (ProposeUpdateParams (..), ProposeUpdateSystem (..))
 import           Mode (MonadAuxxMode, CmdCtx (..), getCmdCtx)
+import           Repl (PrintAction)
 
 ----------------------------------------------------------------------------
 -- Vote
@@ -122,7 +123,7 @@ hashFile (Just filename) = do
     logInfo $ sformat ("Read file "%string%" succesfuly, its hash: "%hashHexF) filename h
     pure h
 
-hashInstaller :: (CanLog m, HasLoggerName m, MonadIO m) => FilePath -> m ()
-hashInstaller path = do
+hashInstaller :: MonadIO m => PrintAction m -> FilePath -> m ()
+hashInstaller printAction path = do
     h <- installerHash <$> liftIO (BSL.readFile path)
-    logInfo $ sformat ("Hash of installer '"%string%"' is "%hashHexF) path h
+    printAction $ sformat ("Hash of installer '"%string%"' is "%hashHexF) path h

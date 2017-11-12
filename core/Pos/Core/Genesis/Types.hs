@@ -186,7 +186,9 @@ instance (Hashable Address, Buildable Address) =>
 -- | Predefined balances of avvm entries.
 newtype GenesisAvvmBalances = GenesisAvvmBalances
     { getGenesisAvvmBalances :: HashMap RedeemPublicKey Coin
-    } deriving (Show, Eq, Monoid)
+    } deriving (Show, Eq, Monoid, Container, NontrivialContainer)
+
+type instance Element GenesisAvvmBalances = Coin
 
 -- | Predefined balances of non avvm entries.
 newtype GenesisNonAvvmBalances = GenesisNonAvvmBalances

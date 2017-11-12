@@ -14,7 +14,6 @@ module Pos.Core.Configuration
 
 import           Universum
 
-import           Control.Lens (coerced)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import           Formatting (sformat, shown, (%))
@@ -23,7 +22,6 @@ import           System.Wlog (WithLogger, logInfo)
 import qualified Text.JSON.Canonical as Canonical
 
 import           Pos.Binary.Class (Raw)
-import           Pos.Core.Coin (applyCoinPortionDown, coinToInteger)
 import           Pos.Core.Configuration.BlockVersionData as E
 import           Pos.Core.Configuration.Core as E
 import           Pos.Core.Configuration.GeneratedSecrets as E
@@ -33,10 +31,9 @@ import           Pos.Core.Configuration.Protocol as E
 import           Pos.Core.Genesis.Canonical ()
 import           Pos.Core.Genesis.Generate (GeneratedGenesisData (..), generateGenesisData)
 import           Pos.Core.Genesis.Helpers (mkGenesisDelegation)
-import           Pos.Core.Genesis.Types (GenesisAvvmBalances (..), GenesisData (..),
-                                         GenesisInitializer (..), GenesisSpec (..),
-                                         getGenesisAvvmBalances)
-import           Pos.Core.Types (Coin, Timestamp)
+import           Pos.Core.Genesis.Types (GenesisData (..), GenesisDelegation,
+                                         GenesisInitializer (..), GenesisSpec (..))
+import           Pos.Core.Types (Timestamp)
 import           Pos.Crypto.Configuration (HasCryptoConfiguration)
 import           Pos.Crypto.Hashing (Hash, hashRaw, unsafeHash)
 import           Pos.Util.Util (leftToPanic)
@@ -168,21 +165,18 @@ withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis o
     GCSpec spec ->
         withProtocolConstants (gsProtocolConstants spec) $
         withGenesisBlockVersionData (gsBlockVersionData spec) $
-            let avvmSum = foldr' ((+) . coinToInteger) 0 $ getGenesisAvvmBalances $ gsAvvmDistr spec
-                maxTnBalance = fromIntegral $! coinToInteger (maxBound @Coin) - avvmSum
+            let
+                -- Generate
                 GeneratedGenesisData {..} =
-                    generateGenesisData (gsInitializer spec) maxTnBalance
+                    generateGenesisData (gsInitializer spec) (gsAvvmDistr spec)
 
-                applyAvvmBalanceFactor :: HashMap k Coin -> HashMap k Coin
-                applyAvvmBalanceFactor = map (applyCoinPortionDown ggdAvvmBalanceFactor)
-                finalAvvmDistr :: GenesisAvvmBalances
-                finalAvvmDistr =
-                    ggdAvvm <> gsAvvmDistr spec & over coerced applyAvvmBalanceFactor
-
+                -- Unite with generated
+                finalHeavyDelegation :: GenesisDelegation
                 finalHeavyDelegation =
                     leftToPanic "withGenesisSpec" $ mkGenesisDelegation $
                     (toList $ gsHeavyDelegation spec) <> toList ggdDelegation
 
+                -- Construct the final value
                 theGenesisData =
                    GenesisData
                       { gdBootStakeholders = ggdBootStakeholders
@@ -192,7 +186,7 @@ withGenesisSpec theSystemStart conf@CoreConfiguration{..} val = case ccGenesis o
                       , gdNonAvvmBalances  = ggdNonAvvm
                       , gdBlockVersionData = genesisBlockVersionData
                       , gdProtocolConsts   = protocolConstants
-                      , gdAvvmDistr        = finalAvvmDistr
+                      , gdAvvmDistr        = ggdAvvm
                       , gdFtsSeed          = gsFtsSeed spec
                       }
                 -- Anything will do for the genesis hash. A hash of "patak" was used

@@ -27,7 +27,7 @@ import           System.Directory (createDirectoryIfMissing, doesFileExist, getT
                                    removeFile)
 import           System.Environment (getExecutablePath)
 import           System.Exit (ExitCode (..))
-import           System.FilePath (normalise, (</>))
+import           System.FilePath ((</>))
 import qualified System.IO as IO
 import           System.Process (ProcessHandle, readProcessWithExitCode)
 import qualified System.Process as Process
@@ -293,7 +293,7 @@ serverScenario
 serverScenario logConf node updater report = do
     runUpdater updater
     -- TODO: the updater, too, should create a log if it fails
-    (_, nodeAsync, nodeLog) <- spawnNode node
+    (_, nodeAsync) <- spawnNode node
     exitCode <- wait nodeAsync
     if exitCode == ExitFailure 20 then do
         logNotice $ sformat ("The node has exited with "%shown) exitCode
@@ -302,7 +302,7 @@ serverScenario logConf node updater report = do
         logWarning $ sformat ("The node has exited with "%shown) exitCode
         whenJust report $ \repServ -> do
             logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
-            reportNodeCrash exitCode logConf repServ nodeLog
+            reportNodeCrash exitCode logConf repServ
 
 -- | If we are on desktop, we want the following algorithm:
 --
@@ -320,14 +320,14 @@ clientScenario
     -> M ()
 clientScenario logConf node wallet updater nodeTimeout report = do
     runUpdater updater
-    (nodeHandle, nodeAsync, nodeLog) <- spawnNode node
+    (nodeHandle, nodeAsync) <- spawnNode node
     walletAsync <- async (runWallet wallet)
     (someAsync, exitCode) <- waitAny [nodeAsync, walletAsync]
     if | someAsync == nodeAsync -> do
              logWarning $ sformat ("The node has exited with "%shown) exitCode
              whenJust report $ \repServ -> do
                  logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
-                 reportNodeCrash exitCode logConf repServ nodeLog
+                 reportNodeCrash exitCode logConf repServ
              logInfo "Waiting for the wallet to die"
              void $ wait walletAsync
        | exitCode == ExitFailure 20 -> do
@@ -413,14 +413,14 @@ writeWindowsUpdaterRunner runnerPath = liftIO $ do
 
 spawnNode
     :: (FilePath, [Text], Maybe FilePath)
-    -> M (ProcessHandle, Async ExitCode, FilePath)
+    -> M (ProcessHandle, Async ExitCode)
 spawnNode (path, args, mbLogPath) = do
     logNotice "Starting the node"
     -- We don't explicitly close the `logHandle` here,
     -- but this will be done when we run the `CreateProcess` built
     -- by proc later is `system'`:
     -- http://hackage.haskell.org/package/process-1.6.1.0/docs/System-Process.html#v:createProcess
-    (logPath, logHandle) <- liftIO $ case mbLogPath of
+    (_, logHandle) <- liftIO $ case mbLogPath of
         Just lp -> do
             createDirectoryIfMissing True (directory lp)
             (lp,) <$> openFile lp AppendMode
@@ -452,7 +452,7 @@ spawnNode (path, args, mbLogPath) = do
             exitFailure
         Just ph -> do
             logInfo "Node has started"
-            return (ph, asc, logPath)
+            return (ph, asc)
 
 runWallet :: (FilePath, [Text]) -> M ExitCode
 runWallet (path, args) = do
@@ -476,9 +476,8 @@ reportNodeCrash
     :: ExitCode        -- ^ Exit code of the node
     -> Maybe FilePath  -- ^ Path to the logger config
     -> String          -- ^ URL of the server
-    -> FilePath        -- ^ Path to the stdout log
     -> M ()
-reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
+reportNodeCrash exitCode logConfPath reportServ = liftIO $ do
     logConfig <- readLoggerConfig (toString <$> logConfPath)
     let logFileNames =
             map ((fromMaybe "" (logConfig ^. Log.lcFilePrefix) </>) . snd) $
@@ -487,7 +486,7 @@ reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
     let ec = case exitCode of
             ExitSuccess   -> 0
             ExitFailure n -> n
-    txz <- compressLogs $ normalise logPath:logFiles
+    txz <- compressLogs logFiles
     sendReport [txz] (RCrash ec) "cardano-node" reportServ
     removeFile txz
 

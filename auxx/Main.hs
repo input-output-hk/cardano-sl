@@ -5,6 +5,7 @@ module Main
 import           Universum
 import           Unsafe (unsafeFromJust)
 
+import           Data.Constraint (Dict (..))
 import           Formatting (sformat, shown, (%))
 import           Mockable (Production, MonadMockable, currentTime, runProduction)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..))
@@ -13,7 +14,7 @@ import           System.Wlog (CanLog, HasLoggerName, logInfo)
 
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (OutSpecs, WorkerSpec)
-import           Pos.Core (Timestamp (..), gdStartTime, genesisData)
+import           Pos.Core (ConfigurationError, Timestamp (..), gdStartTime, genesisData)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.Launcher (HasConfigurations, NodeParams (..), NodeResources,
                                bracketNodeResources, loggerBracket, lpConsoleLog, runNode,
@@ -22,6 +23,7 @@ import           Pos.Network.Types (NetworkConfig (..), Topology (..), topologyD
                                     topologyEnqueuePolicy, topologyFailurePolicy)
 import           Pos.Txp (txpGlobalSettings)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.Config (ConfigurationException (..))
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
@@ -85,7 +87,17 @@ action opts@AuxxOptions {..} command = do
     let
         runWithoutNode = do
           rawExec Nothing opts Nothing command
-    (flip catch) (\(_ :: SomeException) -> runWithoutNode) $ withConfigurations conf $ do
+
+    let configToDict :: HasConfigurations => Production (Maybe (Dict HasConfigurations))
+        configToDict = return (Just Dict)
+
+    hasConfigurations <-
+          (flip catch) (\(_ :: ConfigurationException) -> return Nothing)
+        . (flip catch) (\(_ :: ConfigurationError)     -> return Nothing)
+        $ withConfigurations conf configToDict
+    case hasConfigurations of
+      Nothing -> runWithoutNode
+      Just Dict -> do
         logInfo $ sformat ("System start time is "%shown) $ gdStartTime genesisData
         t <- currentTime
         logInfo $ sformat ("Current time is "%shown) (Timestamp t)

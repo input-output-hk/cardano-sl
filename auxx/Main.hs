@@ -5,7 +5,6 @@ module Main
 import           Universum
 import           Unsafe (unsafeFromJust)
 
-import           Data.Constraint (Dict(..))
 import           Formatting (sformat, shown, (%))
 import           Mockable (Production, MonadMockable, currentTime, runProduction)
 import qualified Network.Transport.TCP as TCP (TCPAddr (..))
@@ -85,7 +84,7 @@ action opts@AuxxOptions {..} command = do
     CLI.printFlags
     let
         runWithoutNode = do
-          rawExec Nothing Nothing opts Nothing command
+          rawExec Nothing opts Nothing command
     (flip catch) (\(_ :: SomeException) -> runWithoutNode) $ withConfigurations conf $ do
         logInfo $ sformat ("System start time is "%shown) $ gdStartTime genesisData
         t <- currentTime
@@ -107,7 +106,7 @@ action opts@AuxxOptions {..} command = do
         bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
             runRealBasedMode toRealMode realModeToAuxx nr $
                 (if aoNodeEnabled then runNodeWithSinglePlugin nr else identity)
-                (auxxPlugin Dict opts command)
+                (auxxPlugin opts command)
   where
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs
     conf = CLI.configurationOptions (CLI.commonArgs cArgs)

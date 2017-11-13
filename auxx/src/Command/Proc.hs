@@ -21,14 +21,12 @@ import           Pos.Communication (MsgType (..), Origin (..), SendActions, data
 import           Pos.Core (AddrStakeDistribution (..), Address, StakeholderId, addressHash,
                            mkMultiKeyDistr, unsafeGetCoin)
 import           Pos.Core.Address (makeAddress)
-import           Pos.Core.Configuration (HasConfiguration, genesisSecretKeys)
+import           Pos.Core.Configuration (genesisSecretKeys)
 import           Pos.Core.Txp (TxOut (..))
 import           Pos.Core.Types (AddrAttributes (..), AddrSpendingData (..))
 import           Pos.Crypto (PublicKey, emptyPassphrase, encToPublic, fullPublicKeyF, hashHexF,
                              noPassEncrypt, safeCreatePsk, unsafeCheatingHashCoerce, withSafeSigner)
 import           Pos.DB.Class (MonadGState (..))
-import           Pos.Infra.Configuration (HasInfraConfiguration)
-import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Update (BlockVersionModifier (..))
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.UserSecret (WalletUserSecret (..), readUserSecret, usKeys, usPrimKey,
@@ -57,12 +55,11 @@ import           Repl (PrintAction)
 
 createCommandProcs ::
        forall m. (HasCompileInfo, MonadIO m, CanLog m, HasLoggerName m)
-    => Maybe (Dict HasConfigurations)
-    -> Maybe (Dict (MonadAuxxMode m))
+    => Maybe (Dict (MonadAuxxMode m))
     -> PrintAction m
     -> Maybe (SendActions m)
-    -> [Either Text (CommandProc m)]
-createCommandProcs hasConfigurations hasAuxxMode printAction mSendActions = fix $ \commands -> ([
+    -> [CommandProc m]
+createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \commands -> ([
 
     return CommandProc
     { cpName = "L"
@@ -71,59 +68,53 @@ createCommandProcs hasConfigurations hasAuxxMode printAction mSendActions = fix 
     , cpHelp = "construct a list"
     },
 
-    do
-        Dict <- needsAuxxMode
-        return CommandProc
-            { cpName = "pk"
-            , cpArgumentConsumer = getArg tyInt "i"
-            , cpExec = fmap ValuePublicKey . toLeft . Right
-            , cpHelp = "public key for secret #i"
-            },
+    needsAuxxMode >>= \Dict ->
+    return CommandProc
+    { cpName = "pk"
+    , cpArgumentConsumer = getArg tyInt "i"
+    , cpExec = fmap ValuePublicKey . toLeft . Right
+    , cpHelp = "public key for secret #i"
+    },
 
-    do
-        Dict <- needsAuxxMode
-        return CommandProc
-            { cpName = "s"
-            , cpArgumentConsumer = getArg (tyPublicKey `tyEither` tyInt) "pk"
-            , cpExec = fmap ValueStakeholderId . toLeft . Right
-            , cpHelp = "stakeholder id (hash) of the specified public key"
-            },
+    needsAuxxMode >>= \Dict ->
+    return CommandProc
+    { cpName = "s"
+    , cpArgumentConsumer = getArg (tyPublicKey `tyEither` tyInt) "pk"
+    , cpExec = fmap ValueStakeholderId . toLeft . Right
+    , cpHelp = "stakeholder id (hash) of the specified public key"
+    },
 
-    do
-        Dict <- needsConfigurations
-        Dict <- needsAuxxMode
-        return CommandProc
-            { cpName = "addr"
-            , cpArgumentConsumer =
-                (,) <$> getArg (tyPublicKey `tyEither` tyInt) "pk"
-                    <*> getArgOpt tyAddrStakeDistr "distr"
-            , cpExec = \(pk', mDistr) -> do
-                pk <- toLeft pk'
-                addr <- case mDistr of
-                    Nothing -> makePubKeyAddressAuxx pk
-                    Just distr -> return $
-                        makeAddress (PubKeyASD pk) (AddrAttributes Nothing distr)
-                return $ ValueAddress addr
-            , cpHelp = "address for the specified public key. a stake distribution \
-                      \ can be specified manually (by default it uses the current epoch \
-                      \ to determine whether we want to use bootstrap distr)"
-            },
+    needsAuxxMode >>= \Dict ->
+    return CommandProc
+    { cpName = "addr"
+    , cpArgumentConsumer =
+        (,) <$> getArg (tyPublicKey `tyEither` tyInt) "pk"
+            <*> getArgOpt tyAddrStakeDistr "distr"
+    , cpExec = \(pk', mDistr) -> do
+        pk <- toLeft pk'
+        addr <- case mDistr of
+            Nothing -> makePubKeyAddressAuxx pk
+            Just distr -> return $
+                makeAddress (PubKeyASD pk) (AddrAttributes Nothing distr)
+        return $ ValueAddress addr
+    , cpHelp = "address for the specified public key. a stake distribution \
+              \ can be specified manually (by default it uses the current epoch \
+              \ to determine whether we want to use bootstrap distr)"
+    },
 
-    do
-        Dict <- needsConfigurations
-        Dict <- needsAuxxMode
-        return CommandProc
-            { cpName = "addr-hd"
-            , cpArgumentConsumer = getArg tyInt "i"
-            , cpExec = \i -> do
-                sks <- getSecretKeysPlain
-                sk <- evaluateWHNF (sks !! i) -- WHNF is sufficient to force possible errors
-                                              -- from using (!!). I'd use NF but there's no
-                                              -- NFData instance for secret keys.
-                addrHD <- deriveHDAddressAuxx sk
-                return $ ValueAddress addrHD
-            , cpHelp = "address of the HD wallet for the specified public key"
-            },
+    needsAuxxMode >>= \Dict ->
+    return CommandProc
+    { cpName = "addr-hd"
+    , cpArgumentConsumer = getArg tyInt "i"
+    , cpExec = \i -> do
+        sks <- getSecretKeysPlain
+        sk <- evaluateWHNF (sks !! i) -- WHNF is sufficient to force possible errors
+                                      -- from using (!!). I'd use NF but there's no
+                                      -- NFData instance for secret keys.
+        addrHD <- deriveHDAddressAuxx sk
+        return $ ValueAddress addrHD
+    , cpHelp = "address of the HD wallet for the specified public key"
+    },
 
     return CommandProc
     { cpName = "tx-out"
@@ -135,37 +126,35 @@ createCommandProcs hasConfigurations hasAuxxMode printAction mSendActions = fix 
     , cpHelp = "construct a transaction output"
     },
 
-    do
-        Dict <- needsAuxxMode
-        return CommandProc
-            { cpName = "dp"
-            , cpArgumentConsumer = do
-                adpStakeholderId <- getArg (tyStakeholderId `tyEither` tyPublicKey `tyEither` tyInt) "s"
-                adpCoinPortion <- getArg tyCoinPortion "p"
-                return (adpStakeholderId, adpCoinPortion)
-            , cpExec = \(sId', cp) -> do
-                sId <- toLeft sId'
-                return $ ValueAddrDistrPart (AddrDistrPart sId cp)
-            , cpHelp = "construct an address distribution part"
-            },
+    needsAuxxMode >>= \Dict ->
+    return CommandProc
+    { cpName = "dp"
+    , cpArgumentConsumer = do
+        adpStakeholderId <- getArg (tyStakeholderId `tyEither` tyPublicKey `tyEither` tyInt) "s"
+        adpCoinPortion <- getArg tyCoinPortion "p"
+        return (adpStakeholderId, adpCoinPortion)
+    , cpExec = \(sId', cp) -> do
+        sId <- toLeft sId'
+        return $ ValueAddrDistrPart (AddrDistrPart sId cp)
+    , cpHelp = "construct an address distribution part"
+    },
 
-    do
-        Dict <- needsAuxxMode
-        return CommandProc
-            { cpName = "distr"
-            , cpArgumentConsumer = getArgSome tyAddrDistrPart "dp"
-            , cpExec = \parts -> do
-                distr <- case parts of
-                    AddrDistrPart sId coinPortion :| []
-                      | coinPortion == maxBound ->
-                        return $ SingleKeyDistr sId
-                    _ -> eitherToFail $
-                        mkMultiKeyDistr . Map.fromList $
-                        map (\(AddrDistrPart s cp) -> (s, cp)) $
-                        toList parts
-                return $ ValueAddrStakeDistribution distr
-            , cpHelp = "construct an address distribution (use 'dp' for each part)"
-            },
+    needsAuxxMode >>= \Dict ->
+    return CommandProc
+    { cpName = "distr"
+    , cpArgumentConsumer = getArgSome tyAddrDistrPart "dp"
+    , cpExec = \parts -> do
+        distr <- case parts of
+            AddrDistrPart sId coinPortion :| []
+              | coinPortion == maxBound ->
+                return $ SingleKeyDistr sId
+            _ -> eitherToFail $
+                mkMultiKeyDistr . Map.fromList $
+                map (\(AddrDistrPart s cp) -> (s, cp)) $
+                toList parts
+        return $ ValueAddrStakeDistribution distr
+    , cpHelp = "construct an address distribution (use 'dp' for each part)"
+    },
 
     return . procConst "neighbours" $ ValueSendMode SendNeighbours,
     return . procConst "round-robin" $ ValueSendMode SendRoundRobin,
@@ -176,97 +165,85 @@ createCommandProcs hasConfigurations hasAuxxMode printAction mSendActions = fix 
     return . procConst "true" $ ValueBool True,
     return . procConst "false" $ ValueBool False,
 
-    do
-        Dict <- needsConfigurations
-        Dict <- needsAuxxMode
-        return CommandProc
-            { cpName = "balance"
-            , cpArgumentConsumer = getArg (tyAddress `tyEither` tyPublicKey `tyEither` tyInt) "addr"
-            , cpExec = \addr' -> do
-                addr <- toLeft addr'
-                balance <- getBalance addr
-                return $ ValueNumber (fromIntegral . unsafeGetCoin $ balance)
-            , cpHelp = "check the amount of coins on the specified address"
-            },
+    needsAuxxMode >>= \Dict ->
+    return CommandProc
+    { cpName = "balance"
+    , cpArgumentConsumer = getArg (tyAddress `tyEither` tyPublicKey `tyEither` tyInt) "addr"
+    , cpExec = \addr' -> do
+        addr <- toLeft addr'
+        balance <- getBalance addr
+        return $ ValueNumber (fromIntegral . unsafeGetCoin $ balance)
+    , cpHelp = "check the amount of coins on the specified address"
+    },
 
-    do
-        Dict <- needsConfigurations
-        Dict <- needsAuxxMode
-        return CommandProc
-            { cpName = "bvd"
-            , cpArgumentConsumer = do pure ()
-            , cpExec = \() -> ValueBlockVersionData <$> gsAdoptedBVData
-            , cpHelp = "return current (adopted) BlockVersionData"
-            },
+    needsAuxxMode >>= \Dict ->
+    return CommandProc
+    { cpName = "bvd"
+    , cpArgumentConsumer = do pure ()
+    , cpExec = \() -> ValueBlockVersionData <$> gsAdoptedBVData
+    , cpHelp = "return current (adopted) BlockVersionData"
+    },
 
-    do
-        Dict <- needsConfigurations
-        sendActions <- needsSendActions
-        Dict <- needsAuxxMode
-        return CommandProc
-            { cpName = "send-to-all-genesis"
-            , cpArgumentConsumer = do
-                stagpDuration <- getArg tyInt "dur"
-                stagpConc <- getArg tyInt "conc"
-                stagpDelay <- getArg tyInt "delay"
-                stagpMode <- getArg tySendMode "mode"
-                stagpTpsSentFile <- getArg tyFilePath "file"
-                return Tx.SendToAllGenesisParams{..}
-            , cpExec = \stagp -> do
-                Tx.sendToAllGenesis sendActions stagp
-                return ValueUnit
-            , cpHelp = "create and send transactions from all genesis addresses \
-                      \ for <duration> seconds, <delay> in ms. <conc> is the \
-                      \ number of threads that send transactions concurrently. \
-                      \ <mode> is either 'neighbours', 'round-robin', or 'send-random'"
-            },
+    needsSendActions >>= \sendActions ->
+    needsAuxxMode >>= \Dict ->
+    return CommandProc
+    { cpName = "send-to-all-genesis"
+    , cpArgumentConsumer = do
+        stagpDuration <- getArg tyInt "dur"
+        stagpConc <- getArg tyInt "conc"
+        stagpDelay <- getArg tyInt "delay"
+        stagpMode <- getArg tySendMode "mode"
+        stagpTpsSentFile <- getArg tyFilePath "file"
+        return Tx.SendToAllGenesisParams{..}
+    , cpExec = \stagp -> do
+        Tx.sendToAllGenesis sendActions stagp
+        return ValueUnit
+    , cpHelp = "create and send transactions from all genesis addresses \
+              \ for <duration> seconds, <delay> in ms. <conc> is the \
+              \ number of threads that send transactions concurrently. \
+              \ <mode> is either 'neighbours', 'round-robin', or 'send-random'"
+    },
 
-    do
-        Dict <- needsConfigurations
-        sendActions <- needsSendActions
-        Dict <- needsAuxxMode
-        return CommandProc
-            { cpName = "send-from-file"
-            , cpArgumentConsumer = getArg tyFilePath "file"
-            , cpExec = \filePath -> do
-                Tx.sendTxsFromFile sendActions filePath
-                return ValueUnit
-            , cpHelp = ""
-            },
+    needsSendActions >>= \sendActions ->
+    needsAuxxMode >>= \Dict ->
+    return CommandProc
+    { cpName = "send-from-file"
+    , cpArgumentConsumer = getArg tyFilePath "file"
+    , cpExec = \filePath -> do
+        Tx.sendTxsFromFile sendActions filePath
+        return ValueUnit
+    , cpHelp = ""
+    },
 
-    do
-        Dict <- needsConfigurations
-        sendActions <- needsSendActions
-        Dict <- needsAuxxMode
-        return CommandProc
-            { cpName = "send"
-            , cpArgumentConsumer =
-                (,) <$> getArg tyInt "i"
-                    <*> getArgSome tyTxOut "out"
-            , cpExec = \(i, outputs) -> do
-                Tx.send sendActions i outputs
-                return ValueUnit
-            , cpHelp = "send from #i to specified transaction outputs \
-                      \ (use 'tx-out' to build them)"
-            },
+    needsSendActions >>= \sendActions ->
+    needsAuxxMode >>= \Dict ->
+    return CommandProc
+    { cpName = "send"
+    , cpArgumentConsumer =
+        (,) <$> getArg tyInt "i"
+            <*> getArgSome tyTxOut "out"
+    , cpExec = \(i, outputs) -> do
+        Tx.send sendActions i outputs
+        return ValueUnit
+    , cpHelp = "send from #i to specified transaction outputs \
+              \ (use 'tx-out' to build them)"
+    },
 
-    do
-        Dict <- needsConfigurations
-        sendActions <- needsSendActions
-        Dict <- needsAuxxMode
-        return CommandProc
-            { cpName = "vote"
-            , cpArgumentConsumer =
-                (,,) <$> getArg tyInt "i"
-                    <*> getArg tyBool "agree"
-                    <*> getArg tyHash "up-id"
-            , cpExec = \(i, decision, upId) -> do
-                Update.vote sendActions i decision upId
-                return ValueUnit
-            , cpHelp = "send vote for update proposal <up-id> and \
-                      \ decision <agree> ('true' or 'false'), \
-                      \ using secret key #i"
-            },
+    needsSendActions >>= \sendActions ->
+    needsAuxxMode >>= \Dict ->
+    return CommandProc
+    { cpName = "vote"
+    , cpArgumentConsumer =
+        (,,) <$> getArg tyInt "i"
+            <*> getArg tyBool "agree"
+            <*> getArg tyHash "up-id"
+    , cpExec = \(i, decision, upId) -> do
+        Update.vote sendActions i decision upId
+        return ValueUnit
+    , cpHelp = "send vote for update proposal <up-id> and \
+              \ decision <agree> ('true' or 'false'), \
+              \ using secret key #i"
+    },
 
     return CommandProc
     { cpName = "bvm"
@@ -301,28 +278,26 @@ createCommandProcs hasConfigurations hasAuxxMode printAction mSendActions = fix 
     , cpHelp = "construct a part of the update proposal for binary update"
     },
 
-    do
-        Dict <- needsConfigurations
-        sendActions <- needsSendActions
-        Dict <- needsAuxxMode
-        return CommandProc
-            { cpName = "propose-update"
-            , cpArgumentConsumer = do
-                puSecretKeyIdx <- getArg tyInt "i"
-                puVoteAll <- getArg tyBool "vote-all"
-                puBlockVersion <- getArg tyBlockVersion "block-version"
-                puSoftwareVersion <- getArg tySoftwareVersion "software-version"
-                puBlockVersionModifier <- getArg tyBlockVersionModifier "bvm"
-                puUpdates <- getArgMany tyProposeUpdateSystem "update"
-                pure ProposeUpdateParams{..}
-            , cpExec = \params ->
-                -- FIXME: confuses existential/universal. A better solution
-                -- is to have two ValueHash constructors, one with universal and
-                -- one with existential (relevant via singleton-style GADT) quantification.
-                ValueHash . unsafeCheatingHashCoerce <$> Update.propose sendActions params
-            , cpHelp = "propose an update with one positive vote for it \
-                      \ using secret key #i"
-            },
+    needsSendActions >>= \sendActions ->
+    needsAuxxMode >>= \Dict ->
+    return CommandProc
+    { cpName = "propose-update"
+    , cpArgumentConsumer = do
+        puSecretKeyIdx <- getArg tyInt "i"
+        puVoteAll <- getArg tyBool "vote-all"
+        puBlockVersion <- getArg tyBlockVersion "block-version"
+        puSoftwareVersion <- getArg tySoftwareVersion "software-version"
+        puBlockVersionModifier <- getArg tyBlockVersionModifier "bvm"
+        puUpdates <- getArgMany tyProposeUpdateSystem "update"
+        pure ProposeUpdateParams{..}
+    , cpExec = \params ->
+        -- FIXME: confuses existential/universal. A better solution
+        -- is to have two ValueHash constructors, one with universal and
+        -- one with existential (relevant via singleton-style GADT) quantification.
+        ValueHash . unsafeCheatingHashCoerce <$> Update.propose sendActions params
+    , cpHelp = "propose an update with one positive vote for it \
+              \ using secret key #i"
+    },
 
     return CommandProc
         { cpName = "hash-installer"
@@ -333,165 +308,152 @@ createCommandProcs hasConfigurations hasAuxxMode printAction mSendActions = fix 
         , cpHelp = ""
         },
 
-    do
-        Dict <- needsConfigurations
-        sendActions <- needsSendActions
-        Dict <- needsAuxxMode
-        return CommandProc
-            { cpName = "delegate-light"
-            , cpArgumentConsumer =
-              (,,,) <$> getArg tyInt "i"
-                    <*> getArg tyPublicKey "pk"
-                    <*> getArg tyEpochIndex "start"
-                    <*> getArgOpt tyEpochIndex "end"
-            , cpExec = \(i, delegatePk, startEpoch, lastEpochM) -> do
-                CmdCtx{ccPeers} <- getCmdCtx
-                issuerSk <- (!! i) <$> getSecretKeysPlain
-                withSafeSigner issuerSk (pure emptyPassphrase) $ \case
-                    Nothing -> logError "Invalid passphrase"
-                    Just ss -> do
-                        let psk = safeCreatePsk ss delegatePk (startEpoch, fromMaybe 1000 lastEpochM)
-                        dataFlow
-                            "pskLight"
-                            (immediateConcurrentConversations sendActions ccPeers)
-                            (MsgTransaction OriginSender) psk
-                        logInfo "Sent lightweight cert"
-                return ValueUnit
-            , cpHelp = ""
-            },
+    needsSendActions >>= \sendActions ->
+    needsAuxxMode >>= \Dict ->
+    return CommandProc
+    { cpName = "delegate-light"
+    , cpArgumentConsumer =
+      (,,,) <$> getArg tyInt "i"
+            <*> getArg tyPublicKey "pk"
+            <*> getArg tyEpochIndex "start"
+            <*> getArgOpt tyEpochIndex "end"
+    , cpExec = \(i, delegatePk, startEpoch, lastEpochM) -> do
+        CmdCtx{ccPeers} <- getCmdCtx
+        issuerSk <- (!! i) <$> getSecretKeysPlain
+        withSafeSigner issuerSk (pure emptyPassphrase) $ \case
+            Nothing -> logError "Invalid passphrase"
+            Just ss -> do
+                let psk = safeCreatePsk ss delegatePk (startEpoch, fromMaybe 1000 lastEpochM)
+                dataFlow
+                    "pskLight"
+                    (immediateConcurrentConversations sendActions ccPeers)
+                    (MsgTransaction OriginSender) psk
+                logInfo "Sent lightweight cert"
+        return ValueUnit
+    , cpHelp = ""
+    },
 
-    do
-        Dict <- needsConfigurations
-        sendActions <- needsSendActions
-        Dict <- needsAuxxMode
-        return CommandProc
-            { cpName = "delegate-heavy"
-            , cpArgumentConsumer =
-              (,,,) <$> getArg tyInt "i"
-                    <*> getArg tyPublicKey "pk"
-                    <*> getArg tyEpochIndex "cur"
-                    <*> getArg tyBool "dry"
-            , cpExec = \(i, delegatePk, curEpoch, dry) -> do
-                CmdCtx {ccPeers} <- getCmdCtx
-                issuerSk <- (!! i) <$> getSecretKeysPlain
-                withSafeSigner issuerSk (pure emptyPassphrase) $ \case
-                    Nothing -> logError "Invalid passphrase"
-                    Just ss -> do
-                        let psk = safeCreatePsk ss delegatePk curEpoch
-                        if dry
-                        then do
-                            printAction $
-                                sformat ("JSON: key "%hashHexF%", value "%stext)
-                                    (addressHash $ encToPublic issuerSk)
-                                    (decodeUtf8 $
-                                        CanonicalJSON.renderCanonicalJSON $
-                                        runIdentity $
-                                        CanonicalJSON.toJSON psk)
-                        else do
-                            dataFlow
-                                "pskHeavy"
-                                (immediateConcurrentConversations sendActions ccPeers)
-                                (MsgTransaction OriginSender)
-                                psk
-                            logInfo "Sent heavyweight cert"
-                return ValueUnit
-            , cpHelp = ""
-            },
-
-    do
-        Dict <- needsConfigurations
-        Dict <- needsAuxxMode
-        return CommandProc
-            { cpName = "generate-blocks"
-            , cpArgumentConsumer = do
-                bgoBlockN <- getArg tyWord32 "n"
-                bgoSeed <- getArgOpt tyInt "seed"
-                return GenBlocksParams{..}
-            , cpExec = \params -> do
-                generateBlocks params
-                return ValueUnit
-            , cpHelp = "generate <n> blocks"
-            },
-
-    do
-        Dict <- needsConfigurations
-        Dict <- needsAuxxMode
-        return CommandProc
-            { cpName = "add-key-pool"
-            , cpArgumentConsumer = getArg tyInt "i"
-            , cpExec = \i -> do
-                CmdCtx {..} <- getCmdCtx
-                let secrets = fromMaybe (error "Secret keys are unknown") genesisSecretKeys
-                    key = secrets !! i
-                evaluateNF_ key
-                addSecretKey $ noPassEncrypt key
-                return ValueUnit
-            , cpHelp = ""
-            },
-
-    do
-        Dict <- needsAuxxMode
-        return CommandProc
-            { cpName = "add-key"
-            , cpArgumentConsumer = do
-                akpFile <- getArg tyFilePath "file"
-                akpPrimary <- getArg tyBool "primary"
-                return AddKeyParams {..}
-            , cpExec = \AddKeyParams {..} -> do
-                secret <- readUserSecret akpFile
-                if akpPrimary then do
-                    let primSk = fromMaybe (error "Primary key not found") (secret ^. usPrimKey)
-                    addSecretKey $ noPassEncrypt primSk
-                else
-                    mapM_ addSecretKey $ secret ^. usKeys
-                return ValueUnit
-            , cpHelp = ""
-            },
-
-    do
-        Dict <- needsConfigurations
-        Dict <- needsAuxxMode
-        return CommandProc
-            { cpName = "rollback"
-            , cpArgumentConsumer = do
-                rpNum <- getArg tyWord "n"
-                rpDumpPath <- getArg tyFilePath "dump-file"
-                pure RollbackParams{..}
-            , cpExec = \RollbackParams{..} -> do
-                Rollback.rollbackAndDump rpNum rpDumpPath
-                return ValueUnit
-            , cpHelp = ""
-            },
-
-    do
-        Dict <- needsConfigurations
-        Dict <- needsAuxxMode
-        return CommandProc
-            { cpName = "listaddr"
-            , cpArgumentConsumer = do pure ()
-            , cpExec = \() -> do
-                sks <- getSecretKeysPlain
-                printAction "Available addresses:"
-                for_ (zip [0 :: Int ..] sks) $ \(i, sk) -> do
-                    let pk = encToPublic sk
-                    addr <- makePubKeyAddressAuxx pk
-                    addrHD <- deriveHDAddressAuxx sk
+    needsSendActions >>= \sendActions ->
+    needsAuxxMode >>= \Dict ->
+    return CommandProc
+    { cpName = "delegate-heavy"
+    , cpArgumentConsumer =
+      (,,,) <$> getArg tyInt "i"
+            <*> getArg tyPublicKey "pk"
+            <*> getArg tyEpochIndex "cur"
+            <*> getArg tyBool "dry"
+    , cpExec = \(i, delegatePk, curEpoch, dry) -> do
+        CmdCtx {ccPeers} <- getCmdCtx
+        issuerSk <- (!! i) <$> getSecretKeysPlain
+        withSafeSigner issuerSk (pure emptyPassphrase) $ \case
+            Nothing -> logError "Invalid passphrase"
+            Just ss -> do
+                let psk = safeCreatePsk ss delegatePk curEpoch
+                if dry
+                then do
                     printAction $
-                        sformat ("    #"%int%":   addr:      "%build%"\n"%
-                                "          pk:        "%fullPublicKeyF%"\n"%
-                                "          pk hash:   "%hashHexF%"\n"%
-                                "          HD addr:   "%build)
-                            i addr pk (addressHash pk) addrHD
-                walletMB <- (^. usWallet) <$> (view userSecret >>= atomically . readTVar)
-                whenJust walletMB $ \wallet -> do
-                    addrHD <- deriveHDAddressAuxx (_wusRootKey wallet)
-                    printAction $
-                        sformat ("    Wallet address:\n"%
-                                "          HD addr:   "%build)
-                            addrHD
-                return ValueUnit
-            , cpHelp = ""
-            },
+                        sformat ("JSON: key "%hashHexF%", value "%stext)
+                            (addressHash $ encToPublic issuerSk)
+                            (decodeUtf8 $
+                                CanonicalJSON.renderCanonicalJSON $
+                                runIdentity $
+                                CanonicalJSON.toJSON psk)
+                else do
+                    dataFlow
+                        "pskHeavy"
+                        (immediateConcurrentConversations sendActions ccPeers)
+                        (MsgTransaction OriginSender)
+                        psk
+                    logInfo "Sent heavyweight cert"
+        return ValueUnit
+    , cpHelp = ""
+    },
+
+    needsAuxxMode >>= \Dict ->
+    return CommandProc
+    { cpName = "generate-blocks"
+    , cpArgumentConsumer = do
+        bgoBlockN <- getArg tyWord32 "n"
+        bgoSeed <- getArgOpt tyInt "seed"
+        return GenBlocksParams{..}
+    , cpExec = \params -> do
+        generateBlocks params
+        return ValueUnit
+    , cpHelp = "generate <n> blocks"
+    },
+
+    needsAuxxMode >>= \Dict ->
+    return CommandProc
+    { cpName = "add-key-pool"
+    , cpArgumentConsumer = getArg tyInt "i"
+    , cpExec = \i -> do
+        CmdCtx {..} <- getCmdCtx
+        let secrets = fromMaybe (error "Secret keys are unknown") genesisSecretKeys
+            key = secrets !! i
+        evaluateNF_ key
+        addSecretKey $ noPassEncrypt key
+        return ValueUnit
+    , cpHelp = ""
+    },
+
+    needsAuxxMode >>= \Dict ->
+    return CommandProc
+    { cpName = "add-key"
+    , cpArgumentConsumer = do
+        akpFile <- getArg tyFilePath "file"
+        akpPrimary <- getArg tyBool "primary"
+        return AddKeyParams {..}
+    , cpExec = \AddKeyParams {..} -> do
+        secret <- readUserSecret akpFile
+        if akpPrimary then do
+            let primSk = fromMaybe (error "Primary key not found") (secret ^. usPrimKey)
+            addSecretKey $ noPassEncrypt primSk
+        else
+            mapM_ addSecretKey $ secret ^. usKeys
+        return ValueUnit
+    , cpHelp = ""
+    },
+
+    needsAuxxMode >>= \Dict ->
+    return CommandProc
+    { cpName = "rollback"
+    , cpArgumentConsumer = do
+        rpNum <- getArg tyWord "n"
+        rpDumpPath <- getArg tyFilePath "dump-file"
+        pure RollbackParams{..}
+    , cpExec = \RollbackParams{..} -> do
+        Rollback.rollbackAndDump rpNum rpDumpPath
+        return ValueUnit
+    , cpHelp = ""
+    },
+
+    needsAuxxMode >>= \Dict ->
+    return CommandProc
+    { cpName = "listaddr"
+    , cpArgumentConsumer = do pure ()
+    , cpExec = \() -> do
+        sks <- getSecretKeysPlain
+        printAction "Available addresses:"
+        for_ (zip [0 :: Int ..] sks) $ \(i, sk) -> do
+            let pk = encToPublic sk
+            addr <- makePubKeyAddressAuxx pk
+            addrHD <- deriveHDAddressAuxx sk
+            printAction $
+                sformat ("    #"%int%":   addr:      "%build%"\n"%
+                        "          pk:        "%fullPublicKeyF%"\n"%
+                        "          pk hash:   "%hashHexF%"\n"%
+                        "          HD addr:   "%build)
+                    i addr pk (addressHash pk) addrHD
+        walletMB <- (^. usWallet) <$> (view userSecret >>= atomically . readTVar)
+        whenJust walletMB $ \wallet -> do
+            addrHD <- deriveHDAddressAuxx (_wusRootKey wallet)
+            printAction $
+                sformat ("    Wallet address:\n"%
+                        "          HD addr:   "%build)
+                    addrHD
+        return ValueUnit
+    , cpHelp = ""
+    },
 
     return CommandProc
     { cpName = "help"
@@ -504,12 +466,9 @@ createCommandProcs hasConfigurations hasAuxxMode printAction mSendActions = fix 
                                          -- for the list to type check
   where
     needsAuxxMode :: Either Text (Dict (MonadAuxxMode m))
-    needsAuxxMode = maybe (Left "No auxx mode") Right hasAuxxMode
+    needsAuxxMode = maybe (Left "unavailable without AuxxMode (not enough configuration was provided)") Right hasAuxxMode
     needsSendActions :: Either Text (SendActions m)
     needsSendActions = maybe (Left "SendActions are not available") Right mSendActions
-    needsConfigurations :: Either Text (Dict HasConfigurations)
-    needsConfigurations =
-        maybe (Left "Configurations are not available to run this command") Right hasConfigurations
 
 procConst :: Applicative m => Name -> Value -> CommandProc m
 procConst name value =
@@ -520,19 +479,19 @@ procConst name value =
     , cpHelp = "constant"
     }
 
-class ToLeft a b where
-    toLeft :: MonadAuxxMode m => Either a b -> m a
+class ToLeft m a b where
+    toLeft :: Either a b -> m a
 
-instance (ToLeft a b, ToLeft b c) => ToLeft a (Either b c) where
+instance (Monad m, ToLeft m a b, ToLeft m b c) => ToLeft m a (Either b c) where
     toLeft = toLeft <=< traverse toLeft
 
-instance ToLeft PublicKey Int where
+instance MonadAuxxMode m => ToLeft m PublicKey Int where
     toLeft = either return getPublicKeyFromIndex
 
-instance ToLeft StakeholderId PublicKey where
+instance MonadAuxxMode m => ToLeft m StakeholderId PublicKey where
     toLeft = return . either identity addressHash
 
-instance (HasConfiguration, HasInfraConfiguration) => ToLeft Address PublicKey where
+instance MonadAuxxMode m => ToLeft m Address PublicKey where
     toLeft = either return makePubKeyAddressAuxx
 
 getPublicKeyFromIndex :: MonadAuxxMode m => Int -> m PublicKey

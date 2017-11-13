@@ -17,6 +17,7 @@ module Pos.Explorer.Web.Server
        , epochPageSearch
        , getMempoolTxs
        , getBlocksLastPage
+       , getEpochPagesOrThrow
        , cAddrToAddr
        ) where
 
@@ -71,7 +72,7 @@ import           Pos.WorkMode                         (WorkMode)
 
 import           Pos.Explorer.Aeson.ClientTypes       ()
 import           Pos.Explorer.Core                    (TxExtra (..))
-import           Pos.Explorer.DB                      (getAddrBalance, getAddrHistory,
+import           Pos.Explorer.DB                      (Page, getAddrBalance, getAddrHistory,
                                                        getEpochBlocks, getEpochPages,
                                                        getLastTransactions, getPageBlocks,
                                                        getTxExtra, getUtxoSum)
@@ -657,6 +658,15 @@ epochSlotSearch epochIndex slotIndex = do
         errMsg :: Text
         errMsg = sformat ("No blocks on epoch "%build%" page "%build%" found!") epoch page
 
+-- | Get the @Page@s number from an @Epoch@ or throw an exception.
+getEpochPagesOrThrow
+    :: (DB.MonadBlockDB m, MonadThrow m)
+    => EpochIndex
+    -> m Page
+getEpochPagesOrThrow epochIndex =
+    getEpochPages epochIndex >>= maybeThrow (Internal "No epoch pages.")
+
+
 -- | Search the blocks by epoch and epoch page number.
 epochPageSearch
     :: ExplorerMode ctx m
@@ -669,7 +679,7 @@ epochPageSearch epochIndex mPage = do
     let page = fromMaybe 1 mPage
 
     -- We want to fetch as many pages as we have in this @Epoch@.
-    epochPagesNumber <- getEpochPages epochIndex >>= maybeThrow (Internal "No epoch pages.")
+    epochPagesNumber <- getEpochPagesOrThrow epochIndex
 
     -- Get pages from the database
     -- TODO: Fix this Int / Integer thing once we merge repositories

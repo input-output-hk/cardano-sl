@@ -93,7 +93,7 @@ notifierHandler connVar loggerName = do
     on  (Subscribe SubAddr)             $ asHandler  subscribeAddr
     on_ (Subscribe SubBlockLastPage)    $ asHandler_ subscribeBlocksLastPage
     on_ (Subscribe SubTx)               $ asHandler_ subscribeTxs
-    on  (Subscribe SubEpochsLastPage)   $ asHandler  subscribeEpochsLastPage
+    on_ (Subscribe SubEpochsLastPage)   $ asHandler_ subscribeEpochsLastPage
     on_ (Unsubscribe SubAddr)           $ asHandler_ unsubscribeAddr
     on_ (Unsubscribe SubBlockLastPage)  $ asHandler_ unsubscribeBlocksLastPage
     on_ (Unsubscribe SubTx)             $ asHandler_ unsubscribeTxs

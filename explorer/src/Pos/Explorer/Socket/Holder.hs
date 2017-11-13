@@ -23,7 +23,6 @@ module Pos.Explorer.Socket.Holder
        , csTxsSubscribers
        , csClients
        , ccAddress
-       , ccEpochIndex
        , ccConnection
        ) where
 
@@ -40,16 +39,14 @@ import           System.Wlog              (NamedPureLogger, WithLogger,
                                            launchNamedPureLog)
 
 import           Pos.Types                (Address)
-import           Pos.Core.Types           (EpochIndex)
 
 data ClientContext = ClientContext
     { _ccAddress    :: !(Maybe Address)
-    , _ccEpochIndex :: !(Maybe EpochIndex)
     , _ccConnection :: !Socket
     }
 
 mkClientContext :: Socket -> ClientContext
-mkClientContext = ClientContext Nothing Nothing
+mkClientContext = ClientContext Nothing
 
 makeClassy ''ClientContext
 
@@ -65,7 +62,7 @@ data ConnectionsState = ConnectionsState
       -- | Sessions subscribed to notifications about new transactions.
     , _csTxsSubscribers            :: !(S.Set SocketId)
     -- | Sessions subscribed to notifications about last page of epochs.
-    , _csEpochsLastPageSubscribers :: !(M.Map EpochIndex (S.Set SocketId))
+    , _csEpochsLastPageSubscribers :: !(S.Set SocketId)
     }
 
 makeClassy ''ConnectionsState

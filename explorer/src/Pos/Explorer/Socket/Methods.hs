@@ -78,9 +78,8 @@ import           System.Wlog                    (WithLogger, logDebug, logWarnin
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Socket.Holder     (ClientContext, ConnectionsState,
                                                  ExplorerSockets, ccAddress, ccConnection,
-                                                 ccEpochIndex, csAddressSubscribers,
-                                                 csBlocksPageSubscribers, csClients,
-                                                 csEpochsLastPageSubscribers,
+                                                 csAddressSubscribers, csBlocksPageSubscribers,
+                                                 csClients, csEpochsLastPageSubscribers,
                                                  csTxsSubscribers, mkClientContext)
 import           Pos.Explorer.Socket.Util       (EventName (..), emitTo)
 import           Pos.Explorer.Web.ClientTypes   (CAddress, CTxBrief, CTxEntry (..),
@@ -88,7 +87,8 @@ import           Pos.Explorer.Web.ClientTypes   (CAddress, CTxBrief, CTxEntry (.
                                                  fromCAddress, toTxBrief)
 import           Pos.Explorer.Web.Error         (ExplorerError (..))
 import           Pos.Explorer.Web.Server        (ExplorerMode, epochPageSearch,
-                                                 getBlocksLastPage, topsortTxsOrFail)
+                                                 getBlocksLastPage, getEpochPagesOrThrow,
+                                                 topsortTxsOrFail)
 
 -- * Event names
 
@@ -233,14 +233,13 @@ txsSubParam sessId =
         }
 
 
-epochsLastPageSubParam :: SocketId -> SubscriptionParam EpochIndex
+epochsLastPageSubParam :: SocketId -> SubscriptionParam ()
 epochsLastPageSubParam sessId =
     SubscriptionParam
         { spSessId       = sessId
         , spDesc         = const "epochs last page"
-        , spSubscription = \epochIndex ->
-              csEpochsLastPageSubscribers . at epochIndex . non S.empty . at sessId
-        , spCliData      = ccEpochIndex
+        , spSubscription = \_ -> csEpochsLastPageSubscribers . at sessId
+        , spCliData      = noCliDataKept
         }
 
 -- | Unsubscribes on any previous address and subscribes on given one.
@@ -278,9 +277,9 @@ unsubscribeTxs sessId = unsubscribe (txsSubParam sessId)
 
 subscribeEpochsLastPage
     :: SubscriptionMode m
-    => EpochIndex -> SocketId -> m ()
-subscribeEpochsLastPage epochIndex sessId =
-    subscribe epochIndex (epochsLastPageSubParam sessId)
+    => SocketId -> m ()
+subscribeEpochsLastPage sessId =
+    subscribe () (epochsLastPageSubParam sessId)
 
 unsubscribeEpochsLastPage
     :: SubscriptionMode m
@@ -340,11 +339,14 @@ notifyTxsSubscribers cTxEntries =
 notifyEpochsLastPageSubscribers
     :: forall ctx m . ExplorerMode ctx m
     => EpochIndex -> ExplorerSockets m ()
-notifyEpochsLastPageSubscribers currentEpoch =
-    whenJustM (view $ csEpochsLastPageSubscribers . at currentEpoch) $
-        \recipients -> do
-            epochs <- lift $ epochPageSearch @ctx currentEpoch Nothing
-            broadcast @ctx EpochsLastPageUpdated epochs recipients
+notifyEpochsLastPageSubscribers currentEpoch = do
+    recipients <- view $ csEpochsLastPageSubscribers
+    -- ^ subscriber
+    maxPage <- getEpochPagesOrThrow currentEpoch
+    -- ^ max no. of epoch pages
+    epochs <- lift $ epochPageSearch @ctx currentEpoch $ Just maxPage
+    -- ^ epochs of last page
+    broadcast @ctx EpochsLastPageUpdated epochs recipients
 
 -- * Helpers
 

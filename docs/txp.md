@@ -59,8 +59,12 @@ places.
 Global transaction processing can be described by presenting an
 algorithm to solve the following problem:
 
-> Given a sequence of blocks `B₀, B₁, B₂, …` (where `B₀` is the first genesis block) check whether
-transactions from these blocks are valid.
+> Given a sequence of blocks `B₀, B₁, B₂, …` (where `B₀` is the first
+genesis block) check whether transactions payload (`TxPayload`) from
+these blocks are valid.
+[Recall](https://cardanodocs.com/technical/blocks/#main-block)
+that transactions payload contains actual transactions (stored in the
+Merkle tree) and list of witnesses for inputs of those transactions.
 
 The algorithm is similar to the one from Bitcoin (for example, UTXO is used to prevent
 double-spending), but is more complicated due to various reasons, including:
@@ -243,8 +247,10 @@ Checks, that are considering whole transaction, not inputs/outputs in particular
 invalid.
 - *Bootstrap era check*: if the block was created during bootstrap era, all
 output addresses must have `BootstrapEraDistr` distribution
-  - Predicate "was created during bootstrap era" is checked with block's slot field
-    and adopted `BlockVersionData` (information about final slot for bootstrap era is stored in `BlockVersionData`)
+  - Predicate "was created during bootstrap era" is checked with
+    block's slot field and adopted `BlockVersionData` (information
+    about final epoch for bootstrap era is stored in
+    `BlockVersionData`).
 
 Also there is a check which applies to whole `TxPayload`:
 

@@ -140,8 +140,8 @@ retrieveLogFiles lconfig = fromLogTree $ lconfig ^. lcTree
   where
     fromLogTree lt =
         let curElems = map ([],) (lt ^.. ltFiles . each . hwFilePath)
-            addFoo (part, node) = map (first (part :)) $ fromLogTree node
-        in curElems ++ concatMap addFoo (lt ^. ltSubloggers . to HM.toList)
+            iterNext (part, node) = map (first (part :)) $ fromLogTree node
+        in curElems ++ concatMap iterNext (lt ^. ltSubloggers . to HM.toList)
 
 -- | Pass a list of absolute paths to log files. This function will
 -- archive and compress these files and put resulting file into log
@@ -178,14 +178,13 @@ compressLogs files = liftIO $ do
 withTempLogFile :: (MonadIO m, MonadMask m) => Text -> (FilePath -> m a) -> m a
 withTempLogFile rawLogs action = do
     withSystemTempFile "main.log" $ \tempFp tempHandle -> do
-        liftIO $ do
-            TIO.hPutStrLn tempHandle rawLogs
-            hClose tempHandle
-        archivePath <- compressLogs [tempFp]
-        fullArchivePath <- liftIO $ canonicalizePath archivePath
-        aRes <- action fullArchivePath
-        liftIO $ removeFile fullArchivePath
-        pure aRes
+        let getArchivePath = liftIO $ do
+                TIO.hPutStrLn tempHandle rawLogs
+                hClose tempHandle
+                archivePath <- compressLogs [tempFp]
+                canonicalizePath archivePath
+            removeArchive = liftIO . removeFile
+        bracket getArchivePath removeArchive action
 
 ----------------------------------------------------------------------------
 -- Node-specific

@@ -486,9 +486,8 @@ reportNodeCrash exitCode logConfPath reportServ = liftIO $ do
     let ec = case exitCode of
             ExitSuccess   -> 0
             ExitFailure n -> n
-    txz <- compressLogs logFiles
-    sendReport [txz] (RCrash ec) "cardano-node" reportServ
-    removeFile txz
+    bracket (compressLogs logFiles) removeFile $ \txz ->
+        sendReport [txz] (RCrash ec) "cardano-node" reportServ
 
 -- Taken from the 'turtle' library and modified
 system'

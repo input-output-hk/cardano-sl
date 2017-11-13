@@ -8,21 +8,20 @@ module Test.Pos.UtilSpec
        ( spec
        ) where
 
-import qualified Data.HashMap.Strict   as HM (difference, filter, intersection,
-                                              intersectionWith, keys, mapWithKey, member,
-                                              (!))
-import qualified Data.List.NonEmpty    as NE
-import qualified GHC.Exts              as IL (IsList (..))
+import qualified Data.HashMap.Strict as HM (difference, filter, intersection, intersectionWith,
+                                            keys, mapWithKey, member, (!))
+import qualified Data.List.NonEmpty as NE
+import qualified GHC.Exts as IL (IsList (..))
 
-import           Pos.Binary            (AsBinary)
-import           Pos.Crypto            (DecShare, PublicKey)
-import           Pos.Util              (SmallGenerator (..), diffDoubleMap)
-import           Pos.Util.Chrono       (Chrono (..), NewestFirst (..), OldestFirst (..))
+import           Pos.Binary (AsBinary)
+import           Pos.Crypto (DecShare, PublicKey)
+import           Pos.Util (SmallGenerator (..), diffDoubleMap)
+import           Pos.Util.Chrono (Chrono (..), NewestFirst (..), OldestFirst (..))
 
-import           Test.Hspec            (Expectation, Spec, describe, shouldBe)
+import           Test.Hspec (Expectation, Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.Pos.Helpers      ((.=.))
-import           Test.QuickCheck       (Arbitrary, Property)
+import           Test.Pos.Helpers ((.=.))
+import           Test.QuickCheck (Arbitrary, Property)
 import           Universum
 
 spec :: Spec

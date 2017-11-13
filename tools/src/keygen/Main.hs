@@ -4,41 +4,34 @@ module Main
 
 import           Universum
 
-import           Control.Lens           ((?~))
-import           Crypto.Random          (MonadRandom)
+import           Control.Lens ((?~))
+import           Crypto.Random (MonadRandom)
 import           Data.ByteString.Base58 (bitcoinAlphabet, encodeBase58)
-import qualified Data.List              as L
-import qualified Data.Text              as T
-import           Formatting             (build, sformat, stext, (%))
-import           System.Directory       (createDirectoryIfMissing)
-import           System.FilePath        ((</>))
-import           System.FilePath.Glob   (glob)
-import           System.Wlog            (Severity (Debug), WithLogger, consoleOutB,
-                                         lcTermSeverity, logInfo, setupLogging,
-                                         usingLoggerName)
-import qualified Text.JSON.Canonical    as CanonicalJSON
+import qualified Data.List as L
+import qualified Data.Text as T
+import           Formatting (build, sformat, stext, (%))
+import           System.Directory (createDirectoryIfMissing)
+import           System.FilePath ((</>))
+import           System.FilePath.Glob (glob)
+import           System.Wlog (Severity (Debug), WithLogger, consoleOutB, lcTermSeverity, logInfo,
+                              setupLogging, usingLoggerName)
+import qualified Text.JSON.Canonical as CanonicalJSON
 
-import           Pos.Binary             (asBinary, serialize')
-import qualified Pos.Client.CLI         as CLI
-import           Pos.Core               (CoreConfiguration (..),
-                                         GenesisConfiguration (..),
-                                         GenesisInitializer (..), addressHash, ccGenesis,
-                                         coreConfiguration, generateFakeAvvm,
-                                         generateRichSecrets, gsInitializer,
-                                         mkVssCertificate, vcSigningKey, vssMaxTTL)
-import           Pos.Crypto             (EncryptedSecretKey (..), SecretKey (..),
-                                         VssKeyPair, hashHexF, noPassEncrypt,
-                                         redeemPkB64F, toPublic, toVssPublicKey)
-import           Pos.Launcher           (HasConfigurations, withConfigurations)
-import           Pos.Util.UserSecret    (readUserSecret, takeUserSecret, usKeys,
-                                         usPrimKey, usVss, usWallet,
-                                         writeUserSecretRelease, wusRootKey)
+import           Pos.Binary (asBinary, serialize')
+import qualified Pos.Client.CLI as CLI
+import           Pos.Core (CoreConfiguration (..), GenesisConfiguration (..),
+                           GenesisInitializer (..), addressHash, ccGenesis, coreConfiguration,
+                           generateFakeAvvm, generateRichSecrets, gsInitializer, mkVssCertificate,
+                           vcSigningKey, vssMaxTTL)
+import           Pos.Crypto (EncryptedSecretKey (..), SecretKey (..), VssKeyPair, hashHexF,
+                             noPassEncrypt, redeemPkB64F, toPublic, toVssPublicKey)
+import           Pos.Launcher (HasConfigurations, withConfigurations)
+import           Pos.Util.UserSecret (readUserSecret, takeUserSecret, usKeys, usPrimKey, usVss,
+                                      usWallet, writeUserSecretRelease, wusRootKey)
 
-import           Dump                   (dumpFakeAvvmSeed, dumpGeneratedGenesisData,
-                                         dumpRichSecrets)
-import           KeygenOptions          (DumpAvvmSeedsOptions (..), GenKeysOptions (..),
-                                         KeygenCommand (..), KeygenOptions (..),
-                                         getKeygenOptions)
+import           Dump (dumpFakeAvvmSeed, dumpGeneratedGenesisData, dumpRichSecrets)
+import           KeygenOptions (DumpAvvmSeedsOptions (..), GenKeysOptions (..), KeygenCommand (..),
+                                KeygenOptions (..), getKeygenOptions)
 
 ----------------------------------------------------------------------------
 -- Helpers

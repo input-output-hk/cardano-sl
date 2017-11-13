@@ -16,33 +16,32 @@ module Pos.Script
        , isKnownScriptVersion
        ) where
 
-import           Control.Exception          (ArithException (..), ArrayException (..),
-                                             ErrorCall (..), Handler (..),
-                                             PatternMatchFail (..), SomeException (..),
-                                             catches, displayException, throwIO)
-import           Control.Lens               (_Left)
-import           Control.Monad.Error.Class  (MonadError, throwError)
-import qualified Data.ByteArray             as BA
-import qualified Data.ByteString.Lazy       as BSL
-import qualified Data.Set                   as S
-import qualified Data.Text.Buildable        as Buildable
-import qualified Elaboration.Contexts       as PL
-import qualified Interface.Integration      as PL
-import qualified Interface.Prelude          as PL
+import           Control.Exception (ArithException (..), ArrayException (..), ErrorCall (..),
+                                    Handler (..), PatternMatchFail (..), SomeException (..),
+                                    catches, displayException, throwIO)
+import           Control.Lens (_Left)
+import           Control.Monad.Error.Class (MonadError, throwError)
+import qualified Data.ByteArray as BA
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.Set as S
+import qualified Data.Text.Buildable as Buildable
+import qualified Elaboration.Contexts as PL
+import qualified Interface.Integration as PL
+import qualified Interface.Prelude as PL
 import           Language.Haskell.TH.Syntax (Lift (..), runIO)
-import qualified PlutusCore.EvaluatorTypes  as PLCore
-import qualified PlutusCore.Program         as PL
-import           System.IO.Unsafe           (unsafePerformIO)
-import           Universum                  hiding (lift)
-import qualified Utils.Names                as PL
+import qualified PlutusCore.EvaluatorTypes as PLCore
+import qualified PlutusCore.Program as PL
+import           System.IO.Unsafe (unsafePerformIO)
+import           Universum hiding (lift)
+import qualified Utils.Names as PL
 
-import           Pos.Binary.Class           (Bi)
-import qualified Pos.Binary.Class           as Bi
-import           Pos.Binary.Crypto          ()
-import           Pos.Binary.Txp.Core        ()
-import           Pos.Core.Script            ()
-import           Pos.Core.Types             (Script (..), ScriptVersion, Script_v0)
-import           Pos.Txp.Core.Types         (TxSigData (..))
+import           Pos.Binary.Class (Bi)
+import qualified Pos.Binary.Class as Bi
+import           Pos.Binary.Core.Txp ()
+import           Pos.Binary.Crypto ()
+import           Pos.Core.Script ()
+import           Pos.Core.Txp (TxSigData (..))
+import           Pos.Core.Types (Script (..), ScriptVersion, Script_v0)
 
 {- NOTE
 

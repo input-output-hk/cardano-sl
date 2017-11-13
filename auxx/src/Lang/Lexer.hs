@@ -29,41 +29,28 @@ module Lang.Lexer
 import           Universum
 
 import qualified Control.Applicative.Combinators.NonEmpty as NonEmpty
-import           Control.Lens                             (makePrisms)
-import           Data.Char                                (isAlpha, isAlphaNum)
-import qualified Data.List                                as List
-import qualified Data.List.NonEmpty                       as NonEmpty
-import           Data.Scientific                          (Scientific)
-import qualified Data.Text                                as Text
-import qualified Data.Text.Buildable                      as Buildable
-import           Formatting                               (sformat)
-import           Test.QuickCheck.Arbitrary.Generic        (Arbitrary (..),
-                                                           genericArbitrary,
-                                                           genericShrink)
-import qualified Test.QuickCheck.Gen                      as QC
-import           Test.QuickCheck.Instances                ()
-import           Text.Megaparsec                          (Parsec, between, choice, eof,
-                                                           manyTill, notFollowedBy,
-                                                           parseMaybe, skipMany, takeP,
-                                                           takeWhile1P, try, (<?>))
-import           Text.Megaparsec.Char                     (anyChar, char, satisfy,
-                                                           spaceChar, string)
-import           Text.Megaparsec.Char.Lexer               (charLiteral, decimal,
-                                                           scientific, signed)
+import           Control.Lens (makePrisms)
+import           Data.Char (isAlpha, isAlphaNum)
+import qualified Data.List as List
+import qualified Data.List.NonEmpty as NonEmpty
+import           Data.Scientific (Scientific)
+import qualified Data.Text as Text
+import qualified Data.Text.Buildable as Buildable
+import           Formatting (sformat)
+import           Test.QuickCheck.Arbitrary.Generic (Arbitrary (..), genericArbitrary, genericShrink)
+import qualified Test.QuickCheck.Gen as QC
+import           Test.QuickCheck.Instances ()
+import           Text.Megaparsec (Parsec, between, choice, eof, manyTill, notFollowedBy, parseMaybe,
+                                  skipMany, takeP, takeWhile1P, try, (<?>))
+import           Text.Megaparsec.Char (anyChar, char, satisfy, spaceChar, string)
+import           Text.Megaparsec.Char.Lexer (charLiteral, decimal, scientific, signed)
 
-import           Lang.Name                                (Letter, Name (..),
-                                                           unsafeMkLetter)
-import           Pos.Arbitrary.Core                       ()
-import           Pos.Crypto                               (AHash (..), PublicKey,
-                                                           decodeAbstractHash,
-                                                           fullPublicKeyF, hashHexF,
-                                                           parseFullPublicKey,
-                                                           unsafeCheatingHashCoerce)
-import           Pos.Types                                (Address, BlockVersion (..),
-                                                           SoftwareVersion (..),
-                                                           StakeholderId,
-                                                           decodeTextAddress,
-                                                           mkApplicationName)
+import           Lang.Name (Letter, Name (..), unsafeMkLetter)
+import           Pos.Arbitrary.Core ()
+import           Pos.Crypto (AHash (..), PublicKey, decodeAbstractHash, fullPublicKeyF, hashHexF,
+                             parseFullPublicKey, unsafeCheatingHashCoerce)
+import           Pos.Types (Address, BlockVersion (..), SoftwareVersion (..), StakeholderId,
+                            decodeTextAddress, mkApplicationName)
 
 data BracketSide = BracketSideOpening | BracketSideClosing
     deriving (Eq, Ord, Show, Generic)

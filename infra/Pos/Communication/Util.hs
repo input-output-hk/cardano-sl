@@ -8,17 +8,16 @@ module Pos.Communication.Util
 
 import           Universum
 
-import           Formatting                  (sformat, shown, hex, (%))
-import qualified Node                        as N
-import           System.Wlog                 (LoggerName, modifyLoggerName)
+import           Formatting (hex, sformat, shown, (%))
+import qualified Node as N
+import           System.Wlog (LoggerName, modifyLoggerName)
 
 import           Pos.Communication.Configuration (networkWaitLogInterval)
-import           Pos.Communication.Protocol  (ActionSpec (..), Listener, Message (..),
-                                              mapActionSpec,
-                                              mapListener,
-                                              SendActions (..), Conversation (..))
-import           Pos.Infra.Configuration     (HasInfraConfiguration)
-import           Pos.Util.TimeLimit          (CanLogInParallel, logWarningWaitLinear)
+import           Pos.Communication.Protocol (ActionSpec (..), Conversation (..), Listener,
+                                             Message (..), SendActions (..), mapActionSpec,
+                                             mapListener)
+import           Pos.Infra.Configuration (HasInfraConfiguration)
+import           Pos.Util.TimeLimit (CanLogInParallel, logWarningWaitLinear)
 
 sendActionsWithWaitLog :: ( HasInfraConfiguration, CanLogInParallel m )
             => SendActions m

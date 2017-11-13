@@ -16,38 +16,34 @@ module Pos.DHT.Real.Real
        , withKademliaLogger
        ) where
 
-import qualified Data.ByteString.Char8     as B8 (unpack)
-import qualified Data.ByteString.Lazy      as BS
-import           Data.List                 (intersect, (\\))
-import           Data.Time.Units           (Second)
-import           Formatting                (build, int, sformat, shown, (%))
-import           Mockable                  (Catch, Delay, Mockable, MonadMockable, Throw,
-                                            catch, catchAll, delay, throw, try,
-                                            waitAnyUnexceptional, withAsync)
-import qualified Network.Kademlia          as K
-import qualified Network.Kademlia.Instance as K (KademliaInstance (state),
-                                                 KademliaState (sTree))
-import qualified Network.Kademlia.Tree     as K (toView)
-import           Serokell.Util             (listJson, ms, sec)
-import           System.Directory          (doesFileExist)
-import           System.Wlog               (HasLoggerName (modifyLoggerName), WithLogger,
-                                            logDebug, logError, logInfo, logWarning,
-                                            usingLoggerName)
-import           Universum                 hiding (bracket, catch)
+import qualified Data.ByteString.Char8 as B8 (unpack)
+import qualified Data.ByteString.Lazy as BS
+import           Data.List (intersect, (\\))
+import           Data.Time.Units (Second)
+import           Formatting (build, int, sformat, shown, (%))
+import           Mockable (Catch, Delay, Mockable, MonadMockable, Throw, catch, catchAll, delay,
+                           throw, try, waitAnyUnexceptional, withAsync)
+import qualified Network.Kademlia as K
+import qualified Network.Kademlia.Instance as K (KademliaInstance (state), KademliaState (sTree))
+import qualified Network.Kademlia.Tree as K (toView)
+import           Serokell.Util (listJson, ms, sec)
+import           System.Directory (doesFileExist)
+import           System.Wlog (HasLoggerName (modifyLoggerName), WithLogger, logDebug, logError,
+                              logInfo, logWarning, usingLoggerName)
+import           Universum hiding (bracket, catch)
 
-import           Pos.Binary.Class          (Bi (..), decodeFull)
+import           Pos.Binary.Class (Bi (..), decodeFull)
 import           Pos.Binary.Infra.DHTModel ()
-import           Pos.DHT.Configuration     (enhancedMessageBroadcast,
-                                            enhancedMessageTimeout,
-                                            neighborsSendThreshold)
-import           Pos.DHT.Model.Types       (DHTData, DHTException (..), DHTKey,
-                                            DHTNode (..), randomDHTKey)
-import           Pos.DHT.Real.Param        (KademliaParams (..))
-import           Pos.DHT.Real.Types        (KademliaDHTInstance (..))
-import           Pos.Infra.Configuration   (HasInfraConfiguration)
-import           Pos.Util.LogSafe          (logInfoS)
-import           Pos.Util.TimeLimit        (runWithRandomIntervals')
-import           Pos.Util.TimeWarp         (NetworkAddress)
+import           Pos.DHT.Configuration (enhancedMessageBroadcast, enhancedMessageTimeout,
+                                        neighborsSendThreshold)
+import           Pos.DHT.Model.Types (DHTData, DHTException (..), DHTKey, DHTNode (..),
+                                      randomDHTKey)
+import           Pos.DHT.Real.Param (KademliaParams (..))
+import           Pos.DHT.Real.Types (KademliaDHTInstance (..))
+import           Pos.Infra.Configuration (HasInfraConfiguration)
+import           Pos.Util.LogSafe (logInfoS)
+import           Pos.Util.TimeLimit (runWithRandomIntervals')
+import           Pos.Util.TimeWarp (NetworkAddress)
 
 kademliaConfig :: K.KademliaConfig
 kademliaConfig = K.defaultConfig { K.k = 16 }

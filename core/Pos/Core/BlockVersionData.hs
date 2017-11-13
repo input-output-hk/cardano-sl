@@ -6,13 +6,13 @@ module Pos.Core.BlockVersionData
 
 import           Universum
 
-import qualified Data.Text.Buildable        as Buildable
-import           Formatting                 (Format, bprint, build, int, (%))
+import qualified Data.Text.Buildable as Buildable
+import           Formatting (Format, bprint, build, int, (%))
 import           Serokell.Data.Memory.Units (memory)
 
-import           Pos.Core.Coin              ()
-import           Pos.Core.Types             (BlockVersionData (..), SoftforkRule (..))
-import           Pos.Util.Util              ()
+import           Pos.Core.Coin ()
+import           Pos.Core.Types (BlockVersionData (..), SoftforkRule (..))
+import           Pos.Util.Util ()
 
 instance NFData SoftforkRule
 

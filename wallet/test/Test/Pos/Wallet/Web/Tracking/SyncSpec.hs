@@ -4,24 +4,25 @@ module Test.Pos.Wallet.Web.Tracking.SyncSpec
 
 import           Universum
 
-import           Data.Default                 (def)
-import           Test.Hspec                   (Spec, describe)
-import           Test.Hspec.QuickCheck        (modifyMaxSuccess)
-import           Test.QuickCheck              (choose)
-import           Test.QuickCheck.Monadic      (pick)
+import           Data.Default (def)
+import           Test.Hspec (Spec, describe)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess)
+import           Test.QuickCheck (choose)
+import           Test.QuickCheck.Monadic (pick)
 
-import           Pos.Block.Logic              (rollbackBlocks)
-import           Pos.Core                     (BlockCount (..), blkSecurityParam)
-import           Pos.Launcher                 (HasConfigurations)
-import           Pos.Util.Chrono              (nonEmptyOldestFirst, toNewestFirst)
-import           Pos.Util.CompileInfo         (HasCompileInfo, withCompileInfo)
-import qualified Pos.Wallet.Web.State.State   as WS
+import           Pos.Block.Logic (rollbackBlocks)
+import           Pos.Core (BlockCount (..), blkSecurityParam)
+import           Pos.Crypto (emptyPassphrase)
+import           Pos.Launcher (HasConfigurations)
+import           Pos.Util.Chrono (nonEmptyOldestFirst, toNewestFirst)
+import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
+import qualified Pos.Wallet.Web.State.State as WS
 import           Pos.Wallet.Web.State.Storage (WalletStorage (..))
-import           Test.Pos.Block.Logic.Util    (EnableTxPayload (..), InplaceDB (..))
-import           Test.Pos.Util                (assertProperty, withDefConfigurations)
+import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..))
+import           Test.Pos.Util (assertProperty, withDefConfigurations)
 
-import           Test.Pos.Wallet.Web.Mode     (walletPropertySpec)
-import           Test.Pos.Wallet.Web.Util     (importSomeWallets, wpGenBlocks)
+import           Test.Pos.Wallet.Web.Mode (walletPropertySpec)
+import           Test.Pos.Wallet.Web.Util (importSomeWallets, wpGenBlocks)
 
 spec :: Spec
 spec = withCompileInfo def $
@@ -32,7 +33,7 @@ spec = withCompileInfo def $
 twoApplyTwoRollbacksSpec :: (HasCompileInfo, HasConfigurations) => Spec
 twoApplyTwoRollbacksSpec = walletPropertySpec twoApplyTwoRollbacksDesc $ do
     let k = fromIntegral blkSecurityParam :: Word64
-    void $ importSomeWallets
+    void $ importSomeWallets (pure emptyPassphrase)
     genesisWalletDB <- lift WS.getWalletStorage
     applyBlocksCnt1 <- pick $ choose (1, k `div` 2)
     applyBlocksCnt2 <- pick $ choose (1, k `div` 2)

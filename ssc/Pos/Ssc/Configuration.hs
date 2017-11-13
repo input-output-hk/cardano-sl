@@ -12,12 +12,12 @@ module Pos.Ssc.Configuration
 
 import           Universum
 
-import           Data.Aeson             (FromJSON (..), genericParseJSON)
-import           Data.Reflection        (Given (..), give)
+import           Data.Aeson (FromJSON (..), genericParseJSON)
+import           Data.Reflection (Given (..), give)
 import           Serokell.Aeson.Options (defaultOptions)
 
-import           Data.Time.Units        (Microsecond)
-import           Serokell.Util          (sec)
+import           Data.Time.Units (Microsecond)
+import           Serokell.Util (sec)
 
 type HasSscConfiguration = Given SscConfiguration
 

@@ -10,35 +10,34 @@ module Plugin
 import           Universum
 
 #if !(defined(mingw32_HOST_OS))
-import           System.Exit                (ExitCode (ExitSuccess))
-import           System.Posix.Process       (exitImmediately)
+import           System.Exit (ExitCode (ExitSuccess))
+import           System.Posix.Process (exitImmediately)
 #endif
-import           Formatting                 (float, int, sformat, stext, (%))
-import           Mockable                   (delay)
-import           Node.Conversation          (ConversationActions (..))
-import           Node.Message.Class         (Message (..))
-import           Serokell.Util              (sec)
-import           System.IO                  (hFlush, stdout)
-import           System.Wlog                (WithLogger, logDebug, logInfo)
+import           Formatting (float, int, sformat, stext, (%))
+import           Mockable (delay)
+import           Node.Conversation (ConversationActions (..))
+import           Node.Message.Class (Message (..))
+import           Serokell.Util (sec)
+import           System.IO (hFlush, stdout)
+import           System.Wlog (WithLogger, logDebug, logInfo)
 
-import           Pos.Communication          (Conversation (..), OutSpecs (..),
-                                             SendActions (..), Worker, WorkerSpec,
-                                             delegationRelays, relayPropagateOut,
-                                             txRelays, usRelays, worker)
-import           Pos.Crypto                 (AHash (..), fullPublicKeyF, hashHexF)
+import           Pos.Communication (Conversation (..), OutSpecs (..), SendActions (..), Worker,
+                                    WorkerSpec, delegationRelays, relayPropagateOut, txRelays,
+                                    usRelays, worker)
+import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
 import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Txp                    (genesisUtxo, unGenesisUtxo)
-import           Pos.Util.CompileInfo       (HasCompileInfo)
-import           Pos.Util.JsonLog           (JLEvent (JLTxReceived))
-import           Pos.Util.TimeWarp          (jsonLog)
-import           Pos.Util.Util              (eitherToThrow)
-import           Pos.WorkMode               (EmptyMempoolExt, RealMode, RealModeContext)
+import           Pos.Txp (genesisUtxo, unGenesisUtxo)
+import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Util.JsonLog (JLEvent (JLTxReceived))
+import           Pos.Util.TimeWarp (jsonLog)
+import           Pos.Util.Util (eitherToThrow)
+import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext)
 
-import           AuxxOptions                (AuxxOptions (..))
-import           Command                    (createCommandProcs)
+import           AuxxOptions (AuxxOptions (..))
+import           Command (createCommandProcs)
 import qualified Lang
-import           Mode                       (AuxxMode)
-import           Repl                       (WithCommandAction (..))
+import           Mode (AuxxMode)
+import           Repl (WithCommandAction (..))
 
 ----------------------------------------------------------------------------
 -- Plugin implementation

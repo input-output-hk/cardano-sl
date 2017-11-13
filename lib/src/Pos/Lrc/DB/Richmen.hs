@@ -27,26 +27,23 @@ module Pos.Lrc.DB.Richmen
 
 import           Universum
 
-import qualified Data.HashMap.Strict         as HM
+import qualified Data.HashMap.Strict as HM
 
-import           Pos.Binary.Core             ()
-import           Pos.Context                 (genesisStakes)
-import           Pos.Core                    (BlockVersionData (bvdHeavyDelThd), Coin,
-                                              EpochIndex, HasConfiguration, ProxySKHeavy,
-                                              StakeholderId, addressHash,
-                                              gdHeavyDelegation, genesisBlockVersionData,
-                                              genesisData, unGenesisDelegation)
-import           Pos.Crypto                  (pskDelegatePk)
-import           Pos.DB.Class                (MonadDB, MonadDBRead)
-import           Pos.Lrc.Class               (RichmenComponent (..),
-                                              SomeRichmenComponent (..),
-                                              someRichmenComponent)
-import           Pos.Lrc.DB.RichmenBase      (getRichmen, getRichmenP, putRichmenP)
-import           Pos.Lrc.Logic               (RichmenType (..), findRichmenPure)
-import           Pos.Lrc.Types               (FullRichmenData, RichmenSet)
-import           Pos.Ssc.RichmenComponent    (RCSsc, getRichmenSsc)
+import           Pos.Binary.Core ()
+import           Pos.Context (genesisStakes)
+import           Pos.Core (BlockVersionData (bvdHeavyDelThd), Coin, EpochIndex, HasConfiguration,
+                           ProxySKHeavy, StakeholderId, addressHash, gdHeavyDelegation,
+                           genesisBlockVersionData, genesisData, unGenesisDelegation)
+import           Pos.Crypto (pskDelegatePk)
+import           Pos.DB.Class (MonadDB, MonadDBRead)
+import           Pos.Lrc.Class (RichmenComponent (..), SomeRichmenComponent (..),
+                                someRichmenComponent)
+import           Pos.Lrc.DB.RichmenBase (getRichmen, getRichmenP, putRichmenP)
+import           Pos.Lrc.Logic (RichmenType (..), findRichmenPure)
+import           Pos.Lrc.Types (FullRichmenData, RichmenSet)
+import           Pos.Ssc.RichmenComponent (RCSsc, getRichmenSsc)
 import           Pos.Update.RichmenComponent (RCUs, getRichmenUS)
-import           Pos.Util.Util               (getKeys)
+import           Pos.Util.Util (getKeys)
 
 ----------------------------------------------------------------------------
 -- Initialization

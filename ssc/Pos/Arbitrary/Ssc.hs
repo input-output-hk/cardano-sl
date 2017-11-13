@@ -11,38 +11,28 @@ module Pos.Arbitrary.Ssc
 
 import           Universum
 
-import qualified Data.List.NonEmpty                as NE
-import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, elements,
-                                                    listOf, oneof)
+import qualified Data.List.NonEmpty as NE
+import           Test.QuickCheck (Arbitrary (..), Gen, choose, elements, listOf, oneof)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
 
-import           Pos.Arbitrary.Core.Unsafe         ()
-import           Pos.Binary.Ssc                    ()
-import           Pos.Communication.Types.Relay     (DataMsg (..))
-import           Pos.Core                          (EpochIndex, HasConfiguration,
-                                                    SlotId (..), VssCertificate (..),
-                                                    VssCertificatesMap, mkVssCertificate,
-                                                    mkVssCertificatesMapLossy, vssMaxTTL,
-                                                    vssMinTTL)
-import           Pos.Crypto                        (SecretKey, deterministic,
-                                                    randomNumberInRange, toVssPublicKey,
-                                                    vssKeyGen)
-import           Pos.Ssc.Core                      (Commitment (..), CommitmentsMap,
-                                                    SscPayload (..), SscProof (..),
-                                                    Opening (..), SignedCommitment,
-                                                    genCommitmentAndOpening,
-                                                    isCommitmentId, isOpeningId,
-                                                    isSharesId, mkCommitmentsMap,
-                                                    mkCommitmentsMap, mkSignedCommitment)
-import           Pos.Ssc.Toss.Types                (TossModifier (..))
-import           Pos.Ssc.Message                   (SscTag (..), MCCommitment (..),
-                                                    MCOpening (..), MCShares (..),
-                                                    MCVssCertificate (..))
-import           Pos.Ssc.Types                     (SscGlobalState (..),
-                                                    SscSecretStorage (..))
-import           Pos.Ssc.VssCertData               (VssCertData (..))
-import           Pos.Util.Arbitrary                (Nonrepeating (..), makeSmall,
-                                                    sublistN)
+import           Pos.Arbitrary.Core.Unsafe ()
+import           Pos.Binary.Ssc ()
+import           Pos.Communication.Types.Relay (DataMsg (..))
+import           Pos.Core (EpochIndex, HasConfiguration, SlotId (..), VssCertificate (..),
+                           VssCertificatesMap, mkVssCertificate, mkVssCertificatesMapLossy,
+                           vssMaxTTL, vssMinTTL)
+import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), SignedCommitment,
+                               SscPayload (..), SscProof (..), mkCommitmentsMap)
+import           Pos.Crypto (SecretKey, deterministic, randomNumberInRange, toVssPublicKey,
+                             vssKeyGen)
+import           Pos.Ssc.Base (genCommitmentAndOpening, isCommitmentId, isOpeningId, isSharesId,
+                               mkSignedCommitment)
+import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
+                                  MCVssCertificate (..), SscTag (..))
+import           Pos.Ssc.Toss.Types (TossModifier (..))
+import           Pos.Ssc.Types (SscGlobalState (..), SscSecretStorage (..))
+import           Pos.Ssc.VssCertData (VssCertData (..))
+import           Pos.Util.Arbitrary (Nonrepeating (..), makeSmall, sublistN)
 
 ----------------------------------------------------------------------------
 -- Types

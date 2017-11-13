@@ -23,8 +23,8 @@ library
 
                         Pos.Aeson
                         Pos.Binary
+                        Pos.Block.Base
                         Pos.Block.BListener
-                        Pos.Block.Core
                         Pos.Block.Logic
                         Pos.Block.Network
                         Pos.Block.Pure
@@ -123,41 +123,25 @@ library
                         Pos.Generator.Block.Param
 
                         -- Common code for tests
-                        Test.Pos.Configuration
-                        Test.Pos.Util
                         Test.Pos.Block.Logic.Emulation
                         Test.Pos.Block.Logic.Mode
                         Test.Pos.Block.Logic.Util
                         Test.Pos.Block.Logic.Event
 
-  -- Explorer (TODO: move into cardano-explorer)
-  exposed-modules:
+                        -- Util code for tests
+                        Test.Pos.Util
+                        Test.Pos.Configuration
+
                         Pos.Util.Servant
 
   other-modules:        Pos.Aeson.Types
 
                         -- Binary serialization
-                        Pos.Binary.Block
-                        Pos.Binary.Block.Block
-                        Pos.Binary.Block.Core
-                        Pos.Binary.Block.Slog
+                        Pos.Binary.Block.Types
                         Pos.Binary.Delegation
 
                         -- Block processing
-                        Pos.Block.Core.Genesis
-                        Pos.Block.Core.Genesis.Chain
-                        Pos.Block.Core.Genesis.Lens
-                        Pos.Block.Core.Genesis.Misc
-                        Pos.Block.Core.Genesis.Types
-                        Pos.Block.Core.Main
-                        Pos.Block.Core.Main.Chain
-                        Pos.Block.Core.Main.Helpers
-                        Pos.Block.Core.Main.Lens
-                        Pos.Block.Core.Main.Misc
-                        Pos.Block.Core.Main.Types
-                        Pos.Block.Core.Union
-                        Pos.Block.Core.Union.Misc
-                        Pos.Block.Core.Union.Types
+                        Pos.Block.BHelpers
                         Pos.Block.Error
                         Pos.Block.Logic.Util
                         Pos.Block.Logic.Creation
@@ -362,6 +346,9 @@ library
                       , yaml
                       -- https://issues.serokell.io/issue/DEVOPS-230
                       , cpphs
+                      -- Required for common test modules
+                      , cborg
+                      , hspec
 
   if !os(windows)
     build-depends:      unix

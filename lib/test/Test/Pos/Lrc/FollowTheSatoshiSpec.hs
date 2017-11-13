@@ -7,21 +7,19 @@ module Test.Pos.Lrc.FollowTheSatoshiSpec
 
 import           Universum
 
-import           Data.List             (scanl1)
-import qualified Data.Set              as S (deleteFindMin, fromList)
-import           Test.Hspec            (Spec, describe)
+import           Data.List (scanl1)
+import qualified Data.Set as S (deleteFindMin, fromList)
+import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
-import           Test.QuickCheck       (Arbitrary (..), Property, choose, infiniteListOf,
-                                        suchThat, (===))
+import           Test.QuickCheck (Arbitrary (..), Property, choose, infiniteListOf, suchThat, (===))
 
-import           Pos.Core              (Coin, HasConfiguration, SharedSeed, StakeholderId,
-                                        StakesList, addressHash, blkSecurityParam,
-                                        epochSlots, mkCoin, sumCoins, unsafeAddCoin,
-                                        unsafeIntegerToCoin)
-import           Pos.Crypto            (PublicKey)
-import           Pos.Lrc               (followTheSatoshi)
+import           Pos.Core (Coin, HasConfiguration, SharedSeed, StakeholderId, StakesList,
+                           addressHash, blkSecurityParam, epochSlots, mkCoin, sumCoins,
+                           unsafeAddCoin, unsafeIntegerToCoin)
+import           Pos.Crypto (PublicKey)
+import           Pos.Lrc (followTheSatoshi)
 
-import           Test.Pos.Util         (qcNotElem, withDefConfiguration)
+import           Test.Pos.Util (qcNotElem, withDefConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ do

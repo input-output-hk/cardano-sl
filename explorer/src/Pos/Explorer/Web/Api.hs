@@ -21,21 +21,18 @@ module Pos.Explorer.Web.Api
 
 import           Universum
 
-import           Control.Monad.Catch          (try)
-import           Data.Proxy                   (Proxy (Proxy))
+import           Control.Monad.Catch (try)
+import           Data.Proxy (Proxy (Proxy))
 
 import           Pos.Explorer.Web.ClientTypes (Byte, CAda, CAddress, CAddressSummary,
-                                               CAddressesFilter, CBlockEntry,
-                                               CBlockSummary, CGenesisAddressInfo,
-                                               CGenesisSummary, CHash, CTxBrief, CTxEntry,
-                                               CTxId, CTxSummary)
-import           Pos.Explorer.Web.Error       (ExplorerError)
-import           Pos.Types                    (EpochIndex)
-import           Pos.Util.Servant             (DQueryParam, ModifiesApiRes (..), VerbMod)
-import           Servant.API                  ((:<|>), (:>), Capture, Get, JSON,
-                                               QueryParam)
-import           Servant.Server               (ServantErr (..))
-
+                                               CAddressesFilter, CBlockEntry, CBlockSummary,
+                                               CGenesisAddressInfo, CGenesisSummary, CHash,
+                                               CTxBrief, CTxEntry, CTxId, CTxSummary)
+import           Pos.Explorer.Web.Error (ExplorerError)
+import           Pos.Types (EpochIndex)
+import           Pos.Util.Servant (DQueryParam, ModifiesApiRes (..), VerbMod)
+import           Servant.API ((:<|>), (:>), Capture, Get, JSON, QueryParam)
+import           Servant.Server (ServantErr (..))
 
 type PageNumber = Integer
 

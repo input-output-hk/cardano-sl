@@ -16,20 +16,20 @@ module Pos.DB.Sum
 
 import           Universum
 
-import           Control.Monad.Morph          (hoist)
-import           Control.Monad.Trans.Control  (MonadBaseControl)
+import           Control.Monad.Morph (hoist)
+import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Control.Monad.Trans.Resource (MonadResource)
-import           Data.Conduit                 (Source)
-import           Ether.Internal               (HasLens (..))
+import           Data.Conduit (Source)
+import           Ether.Internal (HasLens (..))
 
-import qualified Database.RocksDB             as Rocks
-import           Pos.Binary.Class             (Bi)
-import           Pos.Core.Configuration       (HasConfiguration)
-import           Pos.DB.Class                 (DBIteratorClass (..), DBTag, IterType)
-import           Pos.DB.Pure                  (DBPureVar)
-import qualified Pos.DB.Pure                  as DB
-import           Pos.DB.Rocks                 (NodeDBs)
-import qualified Pos.DB.Rocks                 as DB
+import qualified Database.RocksDB as Rocks
+import           Pos.Binary.Class (Bi)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.DB.Class (DBIteratorClass (..), DBTag, IterType)
+import           Pos.DB.Pure (DBPureVar)
+import qualified Pos.DB.Pure as DB
+import           Pos.DB.Rocks (NodeDBs)
+import qualified Pos.DB.Rocks as DB
 
 data DBSum = RealDB NodeDBs | PureDB DBPureVar
 

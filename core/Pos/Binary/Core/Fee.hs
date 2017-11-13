@@ -5,13 +5,12 @@ module Pos.Binary.Core.Fee () where
 
 import           Universum
 
-import           Data.Fixed       (Nano)
+import           Data.Fixed (Nano)
 
 import           Pos.Binary.Class (Bi (..), decode, decodeKnownCborDataItem,
-                                   decodeUnknownCborDataItem, encode,
-                                   encodeKnownCborDataItem, encodeListLen,
-                                   encodeUnknownCborDataItem, enforceSize)
-import           Pos.Core.Fee     (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
+                                   decodeUnknownCborDataItem, encode, encodeKnownCborDataItem,
+                                   encodeListLen, encodeUnknownCborDataItem, enforceSize)
+import           Pos.Core.Fee (Coeff (..), TxFeePolicy (..), TxSizeLinear (..))
 
 instance Bi Coeff where
   encode (Coeff n) = encode n

@@ -25,12 +25,12 @@ module Lang.Argument
 
 import           Universum
 
-import qualified Data.Set        as Set
+import qualified Data.Set as Set
 import           Numeric.Natural (Natural)
 
-import           Lang.Name       (Name (..))
-import           Lang.Syntax     (Arg (..))
-import           Lang.Value      (Value)
+import           Lang.Name (Name (..))
+import           Lang.Syntax (Arg (..))
+import           Lang.Value (Value)
 
 data ArgumentError = ArgumentError
     { aeMissingKeys    :: !(Set Name)

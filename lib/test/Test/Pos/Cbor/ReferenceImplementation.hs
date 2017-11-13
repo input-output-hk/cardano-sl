@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 -- | Reference implementation of CBOR (de)serialization.
 module Test.Pos.Cbor.ReferenceImplementation (
@@ -24,24 +24,23 @@ module Test.Pos.Cbor.ReferenceImplementation (
     prop_halfToFromFloat,
     ) where
 
+import qualified Control.Monad.State as S
 import           Data.Bits
-import           Data.List                 (span)
-import           Numeric.Half              (Half(..))
-import qualified Numeric.Half              as Half
-import           GHC.Float                 (RealFloat(..))
-import qualified Control.Monad.State       as S
-import qualified Data.ByteString           as BS
-import qualified Data.ByteString.Lazy      as LBS
-import qualified Data.Text.Encoding        as T
-import           Foreign                   (Storable(..), alloca, castPtr)
-import           System.IO.Unsafe          (unsafeDupablePerformIO)
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as LBS
+import           Data.List (span)
+import qualified Data.Text.Encoding as T
+import           Foreign (Storable (..), alloca, castPtr)
+import           GHC.Float (RealFloat (..))
+import           Numeric.Half (Half (..))
+import qualified Numeric.Half as Half
+import           System.IO.Unsafe (unsafeDupablePerformIO)
 import           Universum
 
-import           Test.QuickCheck.Property  (Property, property, conjoin,
-                                            (===), (.&&.))
-import           Test.QuickCheck.Arbitrary (Arbitrary(..), arbitraryBoundedIntegral)
-import           Test.QuickCheck.Gen       (Gen, elements, sized, oneof, choose,
-                                            frequency, resize, suchThat, vectorOf)
+import           Test.QuickCheck.Arbitrary (Arbitrary (..), arbitraryBoundedIntegral)
+import           Test.QuickCheck.Gen (Gen, choose, elements, frequency, oneof, resize, sized,
+                                      suchThat, vectorOf)
+import           Test.QuickCheck.Property (Property, conjoin, property, (.&&.), (===))
 
 serialise :: Term -> LBS.ByteString
 serialise = LBS.pack . encodeTerm
@@ -319,31 +318,31 @@ packToken (TokenHeader mt ai) extra = case (mt, ai) of
     -- Major type 0:  an unsigned integer.  The 5-bit additional information
     -- is either the integer itself (for additional information values 0
     -- through 23) or the length of additional data.
-    (MajorType0, AiValue n)  -> return (MT0_UnsignedInt n)
+    (MajorType0, AiValue n)             -> return (MT0_UnsignedInt n)
 
     -- Major type 1:  a negative integer.  The encoding follows the rules
     -- for unsigned integers (major type 0), except that the value is
     -- then -1 minus the encoded unsigned integer.
-    (MajorType1, AiValue n)  -> return (MT1_NegativeInt n)
+    (MajorType1, AiValue n)             -> return (MT1_NegativeInt n)
 
     -- Major type 2:  a byte string.  The string's length in bytes is
     -- represented following the rules for positive integers (major type 0).
-    (MajorType2, AiValue n)  -> return (MT2_ByteString n extra)
-    (MajorType2, AiIndefLen) -> return MT2_ByteStringIndef
+    (MajorType2, AiValue n)             -> return (MT2_ByteString n extra)
+    (MajorType2, AiIndefLen)            -> return MT2_ByteStringIndef
 
     -- Major type 3:  a text string, specifically a string of Unicode
     -- characters that is encoded as UTF-8 [RFC3629].  The format of this
     -- type is identical to that of byte strings (major type 2), that is,
     -- as with major type 2, the length gives the number of bytes.
-    (MajorType3, AiValue n)  -> return (MT3_String n extra)
-    (MajorType3, AiIndefLen) -> return MT3_StringIndef
+    (MajorType3, AiValue n)             -> return (MT3_String n extra)
+    (MajorType3, AiIndefLen)            -> return MT3_StringIndef
 
     -- Major type 4:  an array of data items. The array's length follows the
     -- rules for byte strings (major type 2), except that the length
     -- denotes the number of data items, not the length in bytes that the
     -- array takes up.
-    (MajorType4, AiValue n)  -> return (MT4_ArrayLen n)
-    (MajorType4, AiIndefLen) -> return  MT4_ArrayLenIndef
+    (MajorType4, AiValue n)             -> return (MT4_ArrayLen n)
+    (MajorType4, AiIndefLen)            -> return  MT4_ArrayLenIndef
 
     -- Major type 5:  a map of pairs of data items. A map is comprised of
     -- pairs of data items, each pair consisting of a key that is
@@ -351,13 +350,13 @@ packToken (TokenHeader mt ai) extra = case (mt, ai) of
     -- rules for byte strings (major type 2), except that the length
     -- denotes the number of pairs, not the length in bytes that the map
     -- takes up.
-    (MajorType5, AiValue n)  -> return (MT5_MapLen n)
-    (MajorType5, AiIndefLen) -> return  MT5_MapLenIndef
+    (MajorType5, AiValue n)             -> return (MT5_MapLen n)
+    (MajorType5, AiIndefLen)            -> return  MT5_MapLenIndef
 
     -- Major type 6:  optional semantic tagging of other major types.
     -- The initial bytes of the tag follow the rules for positive integers
     -- (major type 0).
-    (MajorType6, AiValue n)  -> return (MT6_Tag n)
+    (MajorType6, AiValue n)             -> return (MT6_Tag n)
 
     -- Major type 7 is for two types of data: floating-point numbers and
     -- "simple values" that do not need any content.  Each value of the
@@ -448,7 +447,7 @@ prop_Token token =
     eqToken (MT7_Float16 f) (MT7_Float16 f') | isNaN f && isNaN f' = property True
     eqToken (MT7_Float32 f) (MT7_Float32 f') | isNaN f && isNaN f' = property True
     eqToken (MT7_Float64 f) (MT7_Float64 f') | isNaN f && isNaN f' = property True
-    eqToken a b                                                    = a === b
+    eqToken a b                              = a === b
 
 data Term = TUInt   UInt
           | TNInt   UInt
@@ -546,41 +545,41 @@ decodeTerm = decodeToken >>= decodeTermFrom
 decodeTermFrom :: Token -> Decoder Term
 decodeTermFrom tk =
     case tk of
-      MT0_UnsignedInt n  -> return (TUInt n)
-      MT1_NegativeInt n  -> return (TNInt n)
+      MT0_UnsignedInt n   -> return (TUInt n)
+      MT1_NegativeInt n   -> return (TNInt n)
 
       MT2_ByteString _ bs -> return (TBytes bs)
       MT2_ByteStringIndef -> decodeBytess []
 
-      MT3_String _ ws    -> either fail (return . TString) (decodeUTF8 ws)
-      MT3_StringIndef    -> decodeStrings []
+      MT3_String _ ws     -> either fail (return . TString) (decodeUTF8 ws)
+      MT3_StringIndef     -> decodeStrings []
 
-      MT4_ArrayLen len   -> decodeArrayN (fromUInt len)
-      MT4_ArrayLenIndef  -> decodeArray []
+      MT4_ArrayLen len    -> decodeArrayN (fromUInt len)
+      MT4_ArrayLenIndef   -> decodeArray []
 
-      MT5_MapLen  len    -> decodeMapN (fromUInt len)
-      MT5_MapLenIndef    -> decodeMap  []
+      MT5_MapLen  len     -> decodeMapN (fromUInt len)
+      MT5_MapLenIndef     -> decodeMap  []
 
-      MT6_Tag     tag    -> decodeTagged tag
+      MT6_Tag     tag     -> decodeTagged tag
 
-      MT7_Simple  20     -> return TFalse
-      MT7_Simple  21     -> return TTrue
-      MT7_Simple  22     -> return TNull
-      MT7_Simple  23     -> return TUndef
-      MT7_Simple  w      -> return (TSimple w)
-      MT7_Float16 f      -> return (TFloat16 f)
-      MT7_Float32 f      -> return (TFloat32 f)
-      MT7_Float64 f      -> return (TFloat64 f)
-      MT7_Break          -> fail "unexpected"
+      MT7_Simple  20      -> return TFalse
+      MT7_Simple  21      -> return TTrue
+      MT7_Simple  22      -> return TNull
+      MT7_Simple  23      -> return TUndef
+      MT7_Simple  w       -> return (TSimple w)
+      MT7_Float16 f       -> return (TFloat16 f)
+      MT7_Float32 f       -> return (TFloat32 f)
+      MT7_Float64 f       -> return (TFloat64 f)
+      MT7_Break           -> fail "unexpected"
 
 
 decodeBytess :: [[Word8]] -> Decoder Term
 decodeBytess acc = do
     tk <- decodeToken
     case tk of
-      MT7_Break            -> return $! TBytess (reverse acc)
-      MT2_ByteString _ bs  -> decodeBytess (bs : acc)
-      _                    -> fail "unexpected"
+      MT7_Break           -> return $! TBytess (reverse acc)
+      MT2_ByteString _ bs -> decodeBytess (bs : acc)
+      _                   -> fail "unexpected"
 
 decodeStrings :: [String] -> Decoder Term
 decodeStrings acc = do
@@ -740,10 +739,10 @@ prop_Term term =
     eqTerm (TMap    ts)  (TMap    ts')   = conjoin (zipWith eqTermPair ts ts')
     eqTerm (TMapI   ts)  (TMapI   ts')   = conjoin (zipWith eqTermPair ts ts')
     eqTerm (TTagged w t) (TTagged w' t') = w === w' .&&. eqTerm t t'
-    eqTerm (TFloat16 f)  (TFloat16 f') | isNaN f && isNaN f' = property True
-    eqTerm (TFloat32 f)  (TFloat32 f') | isNaN f && isNaN f' = property True
-    eqTerm (TFloat64 f)  (TFloat64 f') | isNaN f && isNaN f' = property True
-    eqTerm a b = a === b
+    eqTerm (TFloat16 f)  (TFloat16 f')   | isNaN f && isNaN f' = property True
+    eqTerm (TFloat32 f)  (TFloat32 f')   | isNaN f && isNaN f' = property True
+    eqTerm (TFloat64 f)  (TFloat64 f')   | isNaN f && isNaN f' = property True
+    eqTerm a b                           = a === b
 
     eqTermPair :: (Term, Term) -> (Term, Term) -> Property
     eqTermPair (a, b) (a', b') = eqTerm a a' .&&. eqTerm b b'

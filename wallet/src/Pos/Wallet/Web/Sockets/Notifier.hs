@@ -10,24 +10,22 @@ module Pos.Wallet.Web.Sockets.Notifier
 
 import           Universum
 
-import           Control.Concurrent                (forkFinally)
-import           Control.Lens                      ((.=))
-import           Data.Default                      (Default (def))
-import           Data.Time.Units                   (Microsecond, Second)
-import           Serokell.Util                     (threadDelay)
-import           Servant.Server                    (Handler, runHandler)
-import           Servant.Utils.Enter               ((:~>) (..))
-import           System.Wlog                       (WithLogger, logDebug)
+import           Control.Concurrent (forkFinally)
+import           Control.Lens ((.=))
+import           Data.Default (Default (def))
+import           Data.Time.Units (Microsecond, Second)
+import           Serokell.Util (threadDelay)
+import           Servant.Server (Handler, runHandler)
+import           Servant.Utils.Enter ((:~>) (..))
+import           System.Wlog (WithLogger, logDebug)
 
-import           Pos.DB                            (MonadGState (..))
-import           Pos.Wallet.WalletMode             (MonadBlockchainInfo (..),
-                                                    MonadUpdates (..))
-import           Pos.Wallet.Web.ClientTypes        (spLocalCD, spNetworkCD, spPeers,
-                                                    toCUpdateInfo)
-import           Pos.Wallet.Web.Mode               (MonadWalletWebSockets)
+import           Pos.DB (MonadGState (..))
+import           Pos.Wallet.WalletMode (MonadBlockchainInfo (..), MonadUpdates (..))
+import           Pos.Wallet.Web.ClientTypes (spLocalCD, spNetworkCD, spPeers, toCUpdateInfo)
+import           Pos.Wallet.Web.Mode (MonadWalletWebSockets)
 import           Pos.Wallet.Web.Sockets.Connection (notifyAll)
-import           Pos.Wallet.Web.Sockets.Types      (NotifyEvent (..))
-import           Pos.Wallet.Web.State              (MonadWalletDB, addUpdate)
+import           Pos.Wallet.Web.Sockets.Types (NotifyEvent (..))
+import           Pos.Wallet.Web.State (MonadWalletDB, addUpdate)
 
 type MonadNotifier ctx m =
     ( WithLogger m

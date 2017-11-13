@@ -10,24 +10,23 @@ module Pos.Client.CLI.Params
 
 import           Universum
 
-import           Data.Default                     (def)
-import qualified Data.Yaml                        as Yaml
-import           Mockable                         (Catch, Fork, Mockable, Throw, throw)
-import           System.Wlog                      (LoggerName, WithLogger)
+import           Data.Default (def)
+import qualified Data.Yaml as Yaml
+import           Mockable (Catch, Fork, Mockable, Throw, throw)
+import           System.Wlog (LoggerName, WithLogger)
 
-import           Pos.Behavior                     (BehaviorConfig (..))
-import           Pos.Client.CLI.NodeOptions       (CommonNodeArgs (..), NodeArgs (..))
-import           Pos.Client.CLI.Options           (CommonArgs (..))
-import           Pos.Client.CLI.Secrets           (prepareUserSecret)
-import           Pos.Core.Configuration           (HasConfiguration)
-import           Pos.Crypto                       (VssKeyPair)
-import           Pos.Launcher                     (BaseParams (..), LoggingParams (..),
-                                                   NodeParams (..))
-import           Pos.Network.CLI                  (intNetworkConfigOpts)
-import           Pos.Ssc                          (SscParams (..))
-import           Pos.Ssc.Configuration            (HasSscConfiguration)
-import           Pos.Update.Params                (UpdateParams (..))
-import           Pos.Util.UserSecret              (peekUserSecret)
+import           Pos.Behavior (BehaviorConfig (..))
+import           Pos.Client.CLI.NodeOptions (CommonNodeArgs (..), NodeArgs (..))
+import           Pos.Client.CLI.Options (CommonArgs (..))
+import           Pos.Client.CLI.Secrets (prepareUserSecret)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Crypto (VssKeyPair)
+import           Pos.Launcher (BaseParams (..), LoggingParams (..), NodeParams (..))
+import           Pos.Network.CLI (intNetworkConfigOpts)
+import           Pos.Ssc (SscParams (..))
+import           Pos.Ssc.Configuration (HasSscConfiguration)
+import           Pos.Update.Params (UpdateParams (..))
+import           Pos.Util.UserSecret (peekUserSecret)
 
 loggingParams :: LoggerName -> CommonNodeArgs -> LoggingParams
 loggingParams tag CommonNodeArgs{..} =

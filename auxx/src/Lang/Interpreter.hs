@@ -10,11 +10,11 @@ import           Universum
 
 import           Control.Monad.Except (throwError)
 
-import           Lang.Argument        (ProcError, consumeArguments)
-import           Lang.Command         (CommandProc (..))
-import           Lang.Name            (Name)
-import           Lang.Syntax          (Expr (..), Lit (..), ProcCall (..))
-import           Lang.Value           (Value (..))
+import           Lang.Argument (ProcError, consumeArguments)
+import           Lang.Command (CommandProc (..))
+import           Lang.Name (Name)
+import           Lang.Syntax (Expr (..), Lit (..), ProcCall (..))
+import           Lang.Value (Value (..))
 
 data EvalCtx m = EvalCtx
     { ecCommandProcs :: [CommandProc m]

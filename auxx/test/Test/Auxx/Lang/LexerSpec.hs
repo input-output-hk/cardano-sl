@@ -4,18 +4,16 @@ module Test.Auxx.Lang.LexerSpec
 
 import           Universum
 
-import           Test.Hspec            (Expectation, Spec, describe, it, shouldBe)
+import           Test.Hspec (Expectation, Spec, describe, it, shouldBe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Property, property)
+import           Test.QuickCheck (Property, property)
 
-import           Pos.Core              (BlockVersion (..), SoftwareVersion (..),
-                                        decodeTextAddress, mkApplicationName)
-import           Pos.Crypto            (decodeAbstractHash, parseFullPublicKey,
-                                        unsafeCheatingHashCoerce)
+import           Pos.Core (BlockVersion (..), SoftwareVersion (..), decodeTextAddress,
+                           mkApplicationName)
+import           Pos.Crypto (decodeAbstractHash, parseFullPublicKey, unsafeCheatingHashCoerce)
 
-import           Lang.Lexer            (BracketSide (..), Token (..), detokenize,
-                                        tokenize, tokenize')
-import           Lang.Name             (unsafeMkName)
+import           Lang.Lexer (BracketSide (..), Token (..), detokenize, tokenize, tokenize')
+import           Lang.Name (unsafeMkName)
 
 spec :: Spec
 spec = describe "Auxx.Lang.Lexer" $ do

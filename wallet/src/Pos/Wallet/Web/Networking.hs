@@ -6,7 +6,7 @@ module Pos.Wallet.Web.Networking
 
 import           Universum
 
-import           Pos.Txp   (TxAux)
+import           Pos.Core.Txp (TxAux)
 
 class Monad m => MonadWalletSendActions m where
     sendTxToNetwork :: TxAux -> m Bool

@@ -7,16 +7,15 @@ module Pos.Recovery.Instance
 import           Universum
 
 import qualified Control.Concurrent.STM as STM
-import           Control.Monad.Except   (runExceptT, throwError)
+import           Control.Monad.Except (runExceptT, throwError)
 
-import           Pos.Context.Context    (RecoveryHeader, RecoveryHeaderTag)
-import           Pos.Core               (HasCoreConfiguration, epochOrSlotG,
-                                         epochOrSlotToSlot, flattenSlotId)
-import           Pos.DB.Block           (MonadBlockDB)
-import           Pos.DB.DB              (getTipHeader)
-import           Pos.Recovery.Info      (MonadRecoveryInfo (..), SyncStatus (..))
-import           Pos.Slotting           (MonadSlots (getCurrentSlot))
-import           Pos.Util.Util          (HasLens (..))
+import           Pos.Context.Context (RecoveryHeader, RecoveryHeaderTag)
+import           Pos.Core (HasCoreConfiguration, epochOrSlotG, epochOrSlotToSlot, flattenSlotId)
+import           Pos.DB.Block (MonadBlockDB)
+import           Pos.DB.DB (getTipHeader)
+import           Pos.Recovery.Info (MonadRecoveryInfo (..), SyncStatus (..))
+import           Pos.Slotting (MonadSlots (getCurrentSlot))
+import           Pos.Util.Util (HasLens (..))
 
 instance ( Monad m
          , MonadIO m

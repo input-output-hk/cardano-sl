@@ -15,11 +15,6 @@ library
   exposed-modules:
     Pos.Txp
 
-    Pos.Txp.Core
-    Pos.Txp.Core.Core
-    Pos.Txp.Core.Tx
-    Pos.Txp.Core.Types
-
     Pos.Txp.DB
     Pos.Txp.DB.Stakes
     Pos.Txp.DB.Utxo
@@ -57,7 +52,9 @@ library
     Pos.Txp.Settings
     Pos.Txp.Settings.Global
 
+    Pos.Txp.Base
     Pos.Txp.Error
+    Pos.Txp.Topsort
 
     Pos.Script
     Pos.Script.Examples
@@ -70,7 +67,6 @@ library
 
     Pos.Binary.Txp
     Pos.Binary.Txp.Network
-    Pos.Binary.Txp.Core
 
   build-depends:       QuickCheck
                      , aeson

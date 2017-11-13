@@ -16,16 +16,16 @@ module Pos.Util.CompileInfo
 
 import           Universum
 
-import           Data.Default               (Default (def))
-import           Data.Reflection            (Given (..), give, given)
+import           Data.Default (Default (def))
+import           Data.Reflection (Given (..), give, given)
 import qualified Data.Text.Buildable
-import           Formatting                 (bprint, stext, (%))
-import           Instances.TH.Lift          ()
-import qualified Language.Haskell.TH        as TH
+import           Formatting (bprint, stext, (%))
+import           Instances.TH.Lift ()
+import qualified Language.Haskell.TH as TH
 import qualified Language.Haskell.TH.Syntax as TH
-import           System.Environment         (lookupEnv)
-import           System.Exit                (ExitCode (..))
-import           System.Process             (readProcessWithExitCode)
+import           System.Environment (lookupEnv)
+import           System.Exit (ExitCode (..))
+import           System.Process (readProcessWithExitCode)
 
 
 -- | Data about the system that we want to retrieve in compile time.

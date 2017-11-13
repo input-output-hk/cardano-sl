@@ -15,24 +15,22 @@ module Pos.Wallet.Web.Pending.Submission
 
 import           Universum
 
-import           Control.Monad.Catch              (Handler (..), catches, onException)
-import           Formatting                       (build, sformat, shown, stext, (%))
-import           System.Wlog                      (WithLogger, logInfo)
+import           Control.Monad.Catch (Handler (..), catches, onException)
+import           Formatting (build, sformat, shown, stext, (%))
+import           System.Wlog (WithLogger, logInfo)
 
-import           Pos.Client.Txp.History           (saveTx)
-import           Pos.Communication                (TxMode)
-import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
-import           Pos.Util.Util                    (maybeThrow)
-import           Pos.Wallet.Web.Error             (WalletError (InternalError))
-import           Pos.Wallet.Web.Networking        (MonadWalletSendActions (..))
+import           Pos.Client.Txp.History (saveTx)
+import           Pos.Communication (TxMode)
+import           Pos.Util.LogSafe (logInfoS, logWarningS)
+import           Pos.Util.Util (maybeThrow)
+import           Pos.Wallet.Web.Error (WalletError (InternalError))
+import           Pos.Wallet.Web.Networking (MonadWalletSendActions (..))
 import           Pos.Wallet.Web.Pending.Functions (isReclaimableFailure, ptxPoolInfo,
                                                    usingPtxCoords)
-import           Pos.Wallet.Web.Pending.Types     (PendingTx (..), PtxCondition (..),
-                                                   PtxPoolInfo)
-import           Pos.Wallet.Web.State             (MonadWalletDB,
-                                                   PtxMetaUpdate (PtxMarkAcknowledged),
-                                                   addOnlyNewPendingTx, casPtxCondition,
-                                                   ptxUpdateMeta, removeOnlyCreatingPtx)
+import           Pos.Wallet.Web.Pending.Types (PendingTx (..), PtxCondition (..), PtxPoolInfo)
+import           Pos.Wallet.Web.State (MonadWalletDB, PtxMetaUpdate (PtxMarkAcknowledged),
+                                       addOnlyNewPendingTx, casPtxCondition, ptxUpdateMeta,
+                                       removeOnlyCreatingPtx)
 
 -- | Handers used for to procees various pending transaction submission
 -- errors.

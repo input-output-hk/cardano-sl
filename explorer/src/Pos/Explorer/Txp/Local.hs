@@ -10,29 +10,25 @@ module Pos.Explorer.Txp.Local
 
 import           Universum
 
-import qualified Data.HashMap.Strict   as HM
-import           System.Wlog           (NamedPureLogger)
+import qualified Data.HashMap.Strict as HM
+import           System.Wlog (NamedPureLogger)
 
-import           Pos.DB.Class          (MonadDBRead, MonadGState (..))
-import qualified Pos.Explorer.DB       as ExDB
-import           Pos.Slotting          (MonadSlots (getCurrentSlot), getSlotStart)
-import           Pos.StateLock         (Priority (..), StateLock, StateLockMetrics,
-                                        withStateLock)
-import           Pos.Txp.Core          (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
-import           Pos.Txp.Logic.Local   (ProcessTxContext (..), buildProccessTxContext,
-                                        ptcExtra, txNormalizeAbstract,
-                                        txProcessTransactionAbstract)
-import           Pos.Txp.MemState      (MempoolExt, MonadTxpMem, TxpLocalWorkMode,
-                                        getTxpExtra)
-import           Pos.Txp.Toil          (ToilVerFailure (..))
-import           Pos.Util.Chrono       (NewestFirst (..))
-import qualified Pos.Util.Modifier     as MM
-import           Pos.Util.Util         (HasLens')
+import           Pos.Core.Txp (Tx (..), TxAux (..), TxId, toaOut, txOutAddress)
+import           Pos.DB.Class (MonadDBRead, MonadGState (..))
+import qualified Pos.Explorer.DB as ExDB
+import           Pos.Slotting (MonadSlots (getCurrentSlot), getSlotStart)
+import           Pos.StateLock (Priority (..), StateLock, StateLockMetrics, withStateLock)
+import           Pos.Txp.Logic.Local (ProcessTxContext (..), buildProccessTxContext, ptcExtra,
+                                      txNormalizeAbstract, txProcessTransactionAbstract)
+import           Pos.Txp.MemState (MempoolExt, MonadTxpMem, TxpLocalWorkMode, getTxpExtra)
+import           Pos.Txp.Toil (ToilVerFailure (..))
+import           Pos.Util.Chrono (NewestFirst (..))
+import qualified Pos.Util.Modifier as MM
+import           Pos.Util.Util (HasLens')
 
-import           Pos.Explorer.Core     (TxExtra (..))
-import           Pos.Explorer.Txp.Toil (ExplorerExtra, ExplorerExtraTxp (..),
-                                        MonadTxExtraRead (..), eNormalizeToil, eProcessTx,
-                                        eeLocalTxsExtra)
+import           Pos.Explorer.Core (TxExtra (..))
+import           Pos.Explorer.Txp.Toil (ExplorerExtra, ExplorerExtraTxp (..), MonadTxExtraRead (..),
+                                        eNormalizeToil, eProcessTx, eeLocalTxsExtra)
 
 
 type ETxpLocalWorkMode ctx m =

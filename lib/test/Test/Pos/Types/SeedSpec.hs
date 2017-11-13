@@ -6,12 +6,12 @@ module Test.Pos.Types.SeedSpec
 
 import           Universum
 
-import           Test.Hspec            (Spec, describe)
+import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.Pos.Helpers      (formsCommutativeMonoid)
-import           Test.QuickCheck       (Property, (.&&.))
+import           Test.Pos.Helpers (formsCommutativeMonoid)
+import           Test.QuickCheck (Property, (.&&.))
 
-import           Pos.Types             (SharedSeed)
+import           Pos.Types (SharedSeed)
 
 spec :: Spec
 spec = describe "SharedSeed" $ do

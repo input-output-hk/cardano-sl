@@ -1,7 +1,7 @@
 
 -- | Tests of Pos.Explorer.Socket.Methods
 
-{-# LANGUAGE AllowAmbiguousTypes       #-}
+{-# LANGUAGE AllowAmbiguousTypes #-}
 
 module Test.Pos.Explorer.Socket.MethodsSpec
        ( spec
@@ -9,17 +9,18 @@ module Test.Pos.Explorer.Socket.MethodsSpec
 
 import           Universum
 
-import qualified Data.ByteString.Char8             as BS
-import qualified Data.Set                          as S
-import qualified Data.List.NonEmpty                as NE
+import qualified Data.ByteString.Char8 as BS
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Set as S
 
-import           Test.Hspec                        (Spec, describe, it, shouldBe, shouldThrow, anyException)
-import           Test.Hspec.QuickCheck             (modifyMaxSize, prop)
+import           Test.Hspec (Spec, anyException, describe, it, shouldBe, shouldThrow)
+import           Test.Hspec.QuickCheck (modifyMaxSize, prop)
 
-import           Pos.Crypto                        (SecretKey)
-import           Pos.Explorer.Socket.Methods       (addressSetByTxs, addrSubParam, blockPageSubParam, fromCAddressOrThrow, spSessId, txsSubParam)
-import           Pos.Explorer.Web.ClientTypes      (CAddress(..))
-import           Test.Pos.Explorer.MockFactory     (mkTxOut, secretKeyToAddress)
+import           Pos.Crypto (SecretKey)
+import           Pos.Explorer.Socket.Methods (addrSubParam, addressSetByTxs, blockPageSubParam,
+                                              fromCAddressOrThrow, spSessId, txsSubParam)
+import           Pos.Explorer.Web.ClientTypes (CAddress (..))
+import           Test.Pos.Explorer.MockFactory (mkTxOut, secretKeyToAddress)
 
 
 ----------------------------------------------------------------------------

@@ -64,16 +64,16 @@ module Pos.Binary.Class.TH
 
 import           Universum
 
-import           Control.Lens          (imap)
-import           Data.List             (nubBy)
-import qualified Data.Text             as T
-import           Formatting            (sformat, shown, (%))
+import           Control.Lens (imap)
+import           Data.List (nubBy)
+import qualified Data.Text as T
+import           Formatting (sformat, shown, (%))
 import           Language.Haskell.TH
-import           TH.ReifySimple        (DataCon (..), DataType (..), reifyDataType)
-import           TH.Utilities          (plainInstanceD)
+import           TH.ReifySimple (DataCon (..), DataType (..), reifyDataType)
+import           TH.Utilities (plainInstanceD)
 
-import qualified Codec.CBOR.Decoding   as Cbor
-import qualified Codec.CBOR.Encoding   as Cbor
+import qualified Codec.CBOR.Decoding as Cbor
+import qualified Codec.CBOR.Encoding as Cbor
 import qualified Pos.Binary.Class.Core as Bi
 
 data Cons = Cons

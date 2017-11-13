@@ -1191,6 +1191,7 @@ self: {
             cardano-sl-ssc
             cardano-sl-txp
             cardano-sl-update
+            cborg
             cereal
             conduit
             containers
@@ -1218,6 +1219,7 @@ self: {
             formatting
             generic-arbitrary
             hashable
+            hspec
             http-client
             http-client-tls
             http-conduit
@@ -1647,7 +1649,10 @@ self: {
             bytestring
             cardano-sl
             cardano-sl-core
+            cardano-sl-db
+            cardano-sl-ssc
             cardano-sl-txp
+            cardano-sl-update
             cborg
             cereal
             containers
@@ -2264,7 +2269,7 @@ self: {
           description = "Cardano SL - wallet";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-wallet-new = callPackage ({ QuickCheck, aeson, aeson-pretty, base, bytestring, cardano-sl, cardano-sl-core, cardano-sl-infra, cardano-sl-ssc, cardano-sl-wallet, containers, data-default, exceptions, formatting, hspec, http-api-data, http-client, http-types, insert-ordered-containers, lens, log-warper, mkDerivation, mtl, neat-interpolation, network-uri, node-sketch, optparse-applicative, quickcheck-instances, serokell-util, servant, servant-client, servant-quickcheck, servant-server, servant-swagger, stdenv, stm, string-conv, swagger2, text, text-format, time-units, transformers, universum, unordered-containers, wai, wai-cors, wai-extra, warp }:
+      cardano-sl-wallet-new = callPackage ({ QuickCheck, aeson, aeson-pretty, base, bytestring, cardano-sl, cardano-sl-core, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-wallet, containers, data-default, exceptions, formatting, hspec, http-api-data, http-client, http-types, insert-ordered-containers, lens, log-warper, mkDerivation, mtl, neat-interpolation, network-uri, node-sketch, optparse-applicative, quickcheck-instances, serokell-util, servant, servant-client, servant-quickcheck, servant-server, servant-swagger, stdenv, stm, string-conv, swagger2, text, text-format, time-units, transformers, universum, unordered-containers, wai, wai-cors, wai-extra, warp }:
       mkDerivation {
           pname = "cardano-sl-wallet-new";
           version = "0.1.0.0";
@@ -2303,6 +2308,7 @@ self: {
             cardano-sl-core
             cardano-sl-infra
             cardano-sl-ssc
+            cardano-sl-txp
             cardano-sl-wallet
             containers
             data-default
@@ -2342,6 +2348,7 @@ self: {
             cardano-sl-core
             cardano-sl-infra
             cardano-sl-ssc
+            cardano-sl-txp
             cardano-sl-wallet
             containers
             data-default

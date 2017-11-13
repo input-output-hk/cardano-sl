@@ -27,11 +27,11 @@ module Pos.Core.Coin
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Formatting          (bprint, float, int, (%))
+import           Formatting (bprint, float, int, (%))
 
-import           Pos.Core.Types      (Coin, CoinPortion (getCoinPortion), coinF,
-                                      coinPortionDenominator, mkCoin, unsafeGetCoin)
-import           Pos.Util.Util       (leftToPanic)
+import           Pos.Core.Types (Coin, CoinPortion (getCoinPortion), coinF, coinPortionDenominator,
+                                 mkCoin, unsafeGetCoin)
+import           Pos.Util.Util (leftToPanic)
 
 -- | Compute sum of all coins in container. Result is 'Integer' as a
 -- protection against possible overflow. If you are sure overflow is

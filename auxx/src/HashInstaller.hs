@@ -1,11 +1,11 @@
 module Main where
 
 import qualified Data.ByteString.Lazy as BSL
-import           Formatting           (sformat)
-import           Pos.Crypto           (hashHexF)
-import           Pos.Update           (installerHash)
-import           System.Environment   (getArgs)
-import           Universum            hiding (getArgs)
+import           Formatting (sformat)
+import           Pos.Crypto (hashHexF)
+import           Pos.Update (installerHash)
+import           System.Environment (getArgs)
+import           Universum hiding (getArgs)
 
 main :: IO ()
 main = do

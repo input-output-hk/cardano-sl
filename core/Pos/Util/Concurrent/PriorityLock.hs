@@ -14,10 +14,10 @@ module Pos.Util.Concurrent.PriorityLock
        ) where
 
 import           Control.Concurrent.STM (TMVar, newEmptyTMVar, putTMVar, takeTMVar)
-import           Control.Monad.Catch    (MonadMask)
+import           Control.Monad.Catch (MonadMask)
 import           Universum
 
-import           Pos.Util.Queue         (Q, dequeue, enqueue, queue)
+import           Pos.Util.Queue (Q, dequeue, enqueue, queue)
 
 newtype PriorityLock = PriorityLock (TVar PriorityLockState)
 

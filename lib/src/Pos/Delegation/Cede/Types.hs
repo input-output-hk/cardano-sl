@@ -11,13 +11,13 @@ module Pos.Delegation.Cede.Types
        , cmHasPostedThisEpoch
        ) where
 
-import           Control.Lens           (makeLenses)
+import           Control.Lens (makeLenses)
 import qualified Data.Text.Buildable
-import           Formatting             (bprint, build, (%))
+import           Formatting (bprint, build, (%))
 import           Universum
 
-import           Pos.Core               (ProxySKHeavy, StakeholderId, addressHash)
-import           Pos.Crypto             (pskIssuerPk)
+import           Pos.Core (ProxySKHeavy, StakeholderId, addressHash)
+import           Pos.Crypto (pskIssuerPk)
 import           Pos.Delegation.Helpers (isRevokePsk)
 
 -- | Action on delegation database, used commonly. Generalizes

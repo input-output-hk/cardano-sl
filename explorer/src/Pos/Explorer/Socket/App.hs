@@ -12,57 +12,48 @@ module Pos.Explorer.Socket.App
        , toConfig
        ) where
 
-import           Universum                      hiding (on)
+import           Universum hiding (on)
 
-import qualified Control.Concurrent.STM         as STM
-import           Control.Lens                   ((<<.=))
-import           Control.Monad.State.Class      (MonadState (..))
-import qualified Data.Set                       as S
-import           Data.Time.Units                (Millisecond)
-import           Ether.TaggedTrans              ()
-import           Formatting                     (int, sformat, (%))
-import qualified GHC.Exts                       as Exts
-import           Network.EngineIO               (SocketId)
-import           Network.EngineIO.Wai           (WaiMonad, toWaiApplication, waiAPI)
-import           Network.HTTP.Types.Status      (status404)
-import           Network.SocketIO               (RoutingTable, Socket,
-                                                 appendDisconnectHandler, initialize,
-                                                 socketId)
-import           Network.Wai                    (Application, Middleware, Request,
-                                                 Response, pathInfo, responseLBS)
-import           Network.Wai.Handler.Warp       (Settings, defaultSettings, runSettings,
-                                                 setPort)
-import           Network.Wai.Middleware.Cors    (CorsResourcePolicy, cors, corsOrigins,
-                                                 simpleCorsResourcePolicy)
-import           Serokell.Util.Text             (listJson)
-import           System.Wlog                    (CanLog, HasLoggerName, LoggerName,
-                                                 NamedPureLogger, WithLogger,
-                                                 getLoggerName, logDebug, logInfo,
-                                                 logWarning, modifyLoggerName,
-                                                 usingLoggerName)
+import qualified Control.Concurrent.STM as STM
+import           Control.Lens ((<<.=))
+import           Control.Monad.State.Class (MonadState (..))
+import qualified Data.Set as S
+import           Data.Time.Units (Millisecond)
+import           Ether.TaggedTrans ()
+import           Formatting (int, sformat, (%))
+import qualified GHC.Exts as Exts
+import           Network.EngineIO (SocketId)
+import           Network.EngineIO.Wai (WaiMonad, toWaiApplication, waiAPI)
+import           Network.HTTP.Types.Status (status404)
+import           Network.SocketIO (RoutingTable, Socket, appendDisconnectHandler, initialize,
+                                   socketId)
+import           Network.Wai (Application, Middleware, Request, Response, pathInfo, responseLBS)
+import           Network.Wai.Handler.Warp (Settings, defaultSettings, runSettings, setPort)
+import           Network.Wai.Middleware.Cors (CorsResourcePolicy, cors, corsOrigins,
+                                              simpleCorsResourcePolicy)
+import           Serokell.Util.Text (listJson)
+import           System.Wlog (CanLog, HasLoggerName, LoggerName, NamedPureLogger, WithLogger,
+                              getLoggerName, logDebug, logInfo, logWarning, modifyLoggerName,
+                              usingLoggerName)
 
-import           Pos.Block.Types                (Blund)
-import           Pos.Core                       (addressF)
-import qualified Pos.GState                     as DB
+import           Pos.Block.Types (Blund)
+import           Pos.Core (addressF)
+import qualified Pos.GState as DB
 
 import           Pos.Explorer.Aeson.ClientTypes ()
-import           Pos.Explorer.Socket.Holder     (ConnectionsState, ConnectionsVar,
-                                                 askingConnState, mkConnectionsState,
-                                                 withConnState)
-import           Pos.Explorer.Socket.Methods    (ClientEvent (..), ServerEvent (..),
-                                                 Subscription (..), finishSession,
-                                                 getBlockTxs, getBlundsFromTo, getTxInfo,
-                                                 notifyAddrSubscribers,
-                                                 notifyBlocksLastPageSubscribers,
-                                                 notifyTxsSubscribers, startSession,
-                                                 subscribeAddr, subscribeBlocksLastPage,
-                                                 subscribeTxs, unsubscribeAddr,
-                                                 unsubscribeBlocksLastPage,
-                                                 unsubscribeTxs)
-import           Pos.Explorer.Socket.Util       (emitJSON, forkAccompanion, on, on_,
-                                                 regroupBySnd, runPeriodicallyUnless)
-import           Pos.Explorer.Web.ClientTypes   (cteId, tiToTxEntry)
-import           Pos.Explorer.Web.Server        (ExplorerMode, getMempoolTxs)
+import           Pos.Explorer.Socket.Holder (ConnectionsState, ConnectionsVar, askingConnState,
+                                             mkConnectionsState, withConnState)
+import           Pos.Explorer.Socket.Methods (ClientEvent (..), ServerEvent (..), Subscription (..),
+                                              finishSession, getBlockTxs, getBlundsFromTo,
+                                              getTxInfo, notifyAddrSubscribers,
+                                              notifyBlocksLastPageSubscribers, notifyTxsSubscribers,
+                                              startSession, subscribeAddr, subscribeBlocksLastPage,
+                                              subscribeTxs, unsubscribeAddr,
+                                              unsubscribeBlocksLastPage, unsubscribeTxs)
+import           Pos.Explorer.Socket.Util (emitJSON, forkAccompanion, on, on_, regroupBySnd,
+                                           runPeriodicallyUnless)
+import           Pos.Explorer.Web.ClientTypes (cteId, tiToTxEntry)
+import           Pos.Explorer.Web.Server (ExplorerMode, getMempoolTxs)
 
 
 data NotifierSettings = NotifierSettings

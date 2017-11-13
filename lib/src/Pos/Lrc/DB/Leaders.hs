@@ -18,16 +18,13 @@ module Pos.Lrc.DB.Leaders
 
 import           Universum
 
-import           Pos.Binary.Class      (serialize')
-import           Pos.Binary.Core       ()
+import           Pos.Binary.Class (serialize')
+import           Pos.Binary.Core ()
 import           Pos.Context.Functions (genesisLeaders)
-import           Pos.Core              (EpochIndex, HasConfiguration,
-                                        HasProtocolConstants, SlotId (SlotId),
-                                        SlotLeaders, StakeholderId, flattenSlotId,
-                                        unsafeMkLocalSlotIndex)
-import           Pos.DB.Class          (MonadDB, MonadDBRead)
-import           Pos.Lrc.DB.Common     (dbHasKey, getBi, putBatch, putBatchBi, putBi,
-                                        toRocksOps)
+import           Pos.Core (EpochIndex, HasConfiguration, HasProtocolConstants, SlotId (SlotId),
+                           SlotLeaders, StakeholderId, flattenSlotId, unsafeMkLocalSlotIndex)
+import           Pos.DB.Class (MonadDB, MonadDBRead)
+import           Pos.Lrc.DB.Common (dbHasKey, getBi, putBatch, putBatchBi, putBi, toRocksOps)
 
 ----------------------------------------------------------------------------
 -- Getters

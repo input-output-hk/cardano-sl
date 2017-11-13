@@ -20,41 +20,37 @@ module Pos.Arbitrary.Core
 
 import           Universum
 
-import qualified Data.ByteString                   as BS (pack)
-import           Data.List                         ((!!))
-import qualified Data.Map                          as M
-import           Data.Time.Units                   (Microsecond, Millisecond, Second,
-                                                    TimeUnit (..), convertUnit)
-import           System.Random                     (Random)
-import           Test.QuickCheck                   (Arbitrary (..), Gen, choose, oneof,
-                                                    scale, shrinkIntegral, sized,
-                                                    suchThat)
+import qualified Data.ByteString as BS (pack)
+import           Data.List ((!!))
+import qualified Data.Map as M
+import           Data.Time.Units (Microsecond, Millisecond, Second, TimeUnit (..), convertUnit)
+import           System.Random (Random)
+import           Test.QuickCheck (Arbitrary (..), Gen, choose, oneof, scale, shrinkIntegral, sized,
+                                  suchThat)
 
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary, genericShrink)
-import           Test.QuickCheck.Instances         ()
+import           Test.QuickCheck.Instances ()
 
-import           Pos.Arbitrary.Crypto              ()
-import           Pos.Binary.Class                  (FixedSizeInt (..), SignedVarInt (..),
-                                                    TinyVarInt (..), UnsignedVarInt (..))
-import           Pos.Binary.Core                   ()
-import           Pos.Binary.Crypto                 ()
-import           Pos.Core.Address                  (makeAddress)
-import           Pos.Core.Coin                     (coinToInteger, divCoin, unsafeSubCoin)
-import           Pos.Core.Configuration            (HasGenesisBlockVersionData,
-                                                    HasProtocolConstants, epochSlots)
-import           Pos.Core.Constants                (sharedSeedLength)
-import qualified Pos.Core.Fee                      as Fee
-import qualified Pos.Core.Genesis                  as G
-import qualified Pos.Core.Slotting                 as Types
-import           Pos.Core.Types                    (BlockVersionData (..), Timestamp (..),
-                                                    maxCoinVal)
-import qualified Pos.Core.Types                    as Types
-import           Pos.Core.Vss                      (VssCertificate, mkVssCertificate,
-                                                    mkVssCertificatesMapLossy)
-import           Pos.Crypto                        (createPsk, toPublic)
-import           Pos.Data.Attributes               (Attributes (..), UnparsedFields (..))
-import           Pos.Util.Arbitrary                (nonrepeating)
-import           Pos.Util.Util                     (leftToPanic)
+import           Pos.Arbitrary.Crypto ()
+import           Pos.Binary.Class (FixedSizeInt (..), SignedVarInt (..), TinyVarInt (..),
+                                   UnsignedVarInt (..))
+import           Pos.Binary.Core ()
+import           Pos.Binary.Crypto ()
+import           Pos.Core.Address (makeAddress)
+import           Pos.Core.Coin (coinToInteger, divCoin, unsafeSubCoin)
+import           Pos.Core.Configuration (HasGenesisBlockVersionData, HasProtocolConstants,
+                                         epochSlots)
+import           Pos.Core.Constants (sharedSeedLength)
+import qualified Pos.Core.Fee as Fee
+import qualified Pos.Core.Genesis as G
+import qualified Pos.Core.Slotting as Types
+import           Pos.Core.Types (BlockVersionData (..), Timestamp (..), maxCoinVal)
+import qualified Pos.Core.Types as Types
+import           Pos.Core.Vss (VssCertificate, mkVssCertificate, mkVssCertificatesMapLossy)
+import           Pos.Crypto (createPsk, toPublic)
+import           Pos.Data.Attributes (Attributes (..), UnparsedFields (..))
+import           Pos.Util.Arbitrary (nonrepeating)
+import           Pos.Util.Util (leftToPanic)
 
 {- NOTE: Deriving an 'Arbitrary' instance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

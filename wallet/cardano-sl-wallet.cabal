@@ -398,6 +398,8 @@ test-suite cardano-wallet-test
                        Test.Pos.Wallet.Web.Util
                        
                        -- Test scenarios
+                       Test.Pos.Wallet.Web.AddressSpec
+
                        Test.Pos.Wallet.Web.Methods.LogicSpec
                        Test.Pos.Wallet.Web.Methods.PaymentSpec
 

@@ -29,22 +29,21 @@ module Pos.DB.GState.Common
 import           Universum
 
 import qualified Data.Text.Buildable
-import qualified Database.RocksDB    as Rocks
-import           Formatting          (bprint, int, sformat, stext, (%))
+import qualified Database.RocksDB as Rocks
+import           Formatting (bprint, int, sformat, stext, (%))
 
-import           Pos.Binary.Class    (Bi)
-import           Pos.Binary.Crypto   ()
+import           Pos.Binary.Class (Bi)
 import           Pos.Binary.Core.Types ()
+import           Pos.Binary.Crypto ()
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Core.Types      (ChainDifficulty, HeaderHash)
-import           Pos.Crypto          (shortHashF)
-import           Pos.DB.BatchOp      (RocksBatchOp (..), dbWriteBatch')
-import           Pos.DB.Class        (DBTag (GStateDB),
-                                      MonadBlockDBGeneric (dbGetBlock, dbGetHeader),
-                                      MonadDB (dbDelete), MonadDBRead)
-import           Pos.DB.Error        (DBError (DBMalformed))
-import           Pos.DB.Functions    (dbGetBi, dbPutBi, dbSerializeValue)
-import           Pos.Util.Util       (maybeThrow)
+import           Pos.Core.Types (ChainDifficulty, HeaderHash)
+import           Pos.Crypto (shortHashF)
+import           Pos.DB.BatchOp (RocksBatchOp (..), dbWriteBatch')
+import           Pos.DB.Class (DBTag (GStateDB), MonadBlockDBGeneric (dbGetBlock, dbGetHeader),
+                               MonadDB (dbDelete), MonadDBRead)
+import           Pos.DB.Error (DBError (DBMalformed))
+import           Pos.DB.Functions (dbGetBi, dbPutBi, dbSerializeValue)
+import           Pos.Util.Util (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Common Helpers

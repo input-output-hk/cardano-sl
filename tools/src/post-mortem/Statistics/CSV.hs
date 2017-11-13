@@ -3,14 +3,14 @@ module Statistics.CSV
     , focusToCSV
     ) where
 
-import           Control.Monad.Random   (MonadRandom (..), evalRandT)
-import           System.IO              (hPutStrLn)
-import           System.Random          (mkStdGen)
-import qualified Data.Text              as T
+import           Control.Monad.Random (MonadRandom (..), evalRandT)
+import qualified Data.Text as T
+import           System.IO (hPutStrLn)
+import           System.Random (mkStdGen)
 
-import           Statistics.Focus       (Focus (..))
 import           Pos.Txp.MemState.Types (MemPoolModifyReason (..))
-import           Pos.Util.JsonLog       (JLMemPool (..))
+import           Pos.Util.JsonLog (JLMemPool (..))
+import           Statistics.Focus (Focus (..))
 import           Types
 import           Universum
 

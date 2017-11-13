@@ -14,21 +14,21 @@
 import           Universum
 import           Unsafe
 
-import qualified Control.Lens            as L
-import qualified Data.Aeson.Lens         as L
-import qualified Data.Csv                as CSV
-import           Data.List               (isInfixOf)
-import qualified Data.List.Split         as Split
-import qualified Data.Text               as T
-import qualified Data.Text.Lazy          as TL
+import qualified Control.Lens as L
+import qualified Data.Aeson.Lens as L
+import qualified Data.Csv as CSV
+import           Data.List (isInfixOf)
+import qualified Data.List.Split as Split
+import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Lazy.Encoding as TL
-import qualified Data.Text.Lazy.IO       as TL
-import qualified Data.Time               as Time
-import           Fmt                     (Buildable (..), genericF)
-import qualified System.Directory        as Dir
-import           System.FilePath         (takeFileName, (</>))
-import qualified Text.Megaparsec         as P
-import           Text.Megaparsec.Text    ()
+import qualified Data.Text.Lazy.IO as TL
+import qualified Data.Time as Time
+import           Fmt (Buildable (..), genericF)
+import qualified System.Directory as Dir
+import           System.FilePath (takeFileName, (</>))
+import qualified Text.Megaparsec as P
+import           Text.Megaparsec.Text ()
 
 -- Usage: Give it path to the directory with logs
 main :: IO ()

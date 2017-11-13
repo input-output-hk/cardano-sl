@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds            #-}
+
 {-# LANGUAGE FlexibleContexts     #-}
 {-# LANGUAGE FlexibleInstances    #-}
 {-# LANGUAGE QuasiQuotes          #-}
@@ -180,7 +180,7 @@ requestParameterToDescription :: Map T.Text T.Text
 requestParameterToDescription = M.fromList [
     ("page", pageDescription)
   , ("per_page", perPageDescription (fromString $ show maxPerPageEntries) (fromString $ show defaultPerPageEntries))
-  , ("response_type", responseTypeDescription)
+  , ("response_format", responseFormatDescription)
   , ("Daedalus-Response-Format", responseFormatDescription)
   ]
 
@@ -197,19 +197,13 @@ The number of entries to display for each page. The minimum is **1**, whereas th
 is **$maxValue**. If nothing is specified, **this value defaults to $defaultValue**.
 |]
 
-responseTypeDescription :: T.Text
-responseTypeDescription = [text|
-Determines the response type. If set to `extended`, then fetched
-data should be wrapped in an `ExtendedResponse` (see the Models section).
-An `ExtendedResponse` includes useful metadata which can be used by clients
-to support pagination.
-|]
-
 responseFormatDescription :: T.Text
 responseFormatDescription = [text|
-The same as URL parameter `response_type`. If the header `Daedalus-Response-Format`
-is present in the HTTP request with a value set to `extended`, the fetched data will
-be wrapped in an `ExtendedResponse`.
+Determines the response format. If set to `extended`, then fetched
+data will be wrapped in an `ExtendedResponse` (see the Models section).
+Otherwise, it defaults to "plain", which can as well be passed to switch to a
+simpler response format, which includes only the requested payload.
+An `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.
 |]
 
 instance ToParamSchema PerPage where
@@ -225,13 +219,13 @@ instance ToParamSchema Page where
     & default_ ?~ (Number 1) -- Always show the first page by default.
     & minimum_ ?~ 1
 
-instance ToParamSchema ResponseType where
+instance ToParamSchema ResponseFormat where
     toParamSchema _ = mempty
         & type_ .~ SwaggerString
         & default_ ?~ (String $ rtToText def)
         & enum_ ?~ map (String . rtToText) [minBound..maxBound]
       where
-        rtToText :: ResponseType -> Text
+        rtToText :: ResponseFormat -> Text
         rtToText = sformat build
 
 instance ToParamSchema WalletId

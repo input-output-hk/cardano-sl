@@ -23,8 +23,8 @@ module Pos.Util.Timer
     , startTimer
     ) where
 
-import Universum
-import Control.Concurrent.STM (newTVar, readTVar, retry, registerDelay)
+import           Control.Concurrent.STM (newTVar, readTVar, registerDelay, retry)
+import           Universum
 
 data Timer = Timer
   { delayDuration  :: !Int

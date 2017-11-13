@@ -37,23 +37,22 @@ module Pos.DB.Pure
 
 import           Universum
 
-import           Control.Lens                 (at, makeLenses)
-import           Control.Monad.Trans.Control  (MonadBaseControl)
+import           Control.Lens (at, makeLenses)
+import           Control.Monad.Trans.Control (MonadBaseControl)
 import           Control.Monad.Trans.Resource (MonadResource)
-import qualified Data.ByteString              as BS
-import           Data.Conduit                 (Source)
-import qualified Data.Conduit.List            as CL
-import           Data.Default                 (Default (..))
-import qualified Data.Map                     as M
-import qualified Data.Set                     as S
-import qualified Database.RocksDB             as Rocks
-import           Ether.Internal               (HasLens (..))
+import qualified Data.ByteString as BS
+import           Data.Conduit (Source)
+import qualified Data.Conduit.List as CL
+import           Data.Default (Default (..))
+import qualified Data.Map as M
+import qualified Data.Set as S
+import qualified Database.RocksDB as Rocks
+import           Ether.Internal (HasLens (..))
 
-import           Pos.Binary.Class             (Bi)
-import           Pos.Core                     (HeaderHash, HasConfiguration)
-import           Pos.DB.Class                 (DBIteratorClass (..), DBTag (..), IterType,
-                                               iterKeyPrefix)
-import           Pos.DB.Functions             (processIterEntry)
+import           Pos.Binary.Class (Bi)
+import           Pos.Core (HasConfiguration, HeaderHash)
+import           Pos.DB.Class (DBIteratorClass (..), DBTag (..), IterType, iterKeyPrefix)
+import           Pos.DB.Functions (processIterEntry)
 
 -- | Bytestring to Bytestring mapping mimicking rocks kv storage.
 type DBPureMap = Map ByteString ByteString

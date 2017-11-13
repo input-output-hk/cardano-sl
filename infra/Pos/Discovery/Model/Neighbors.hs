@@ -3,14 +3,14 @@ module Pos.Discovery.Model.Neighbors
        , converseToNeighbors
        ) where
 
-import           Universum
-import           Mockable                   (MonadMockable, handleAll)
-import           Formatting                 (sformat, shown, (%))
-import           System.Wlog                (WithLogger, logWarning, logDebug)
-import           Pos.Discovery.Model.Class  (Discovery (..), withPeersConcurrently)
+import           Formatting (sformat, shown, (%))
+import           Mockable (MonadMockable, handleAll)
+import           Pos.Binary.Class (Bi)
 import           Pos.Communication.Protocol (ConversationActions, Message, NodeId (..),
                                              SendActions (..))
-import           Pos.Binary.Class           (Bi)
+import           Pos.Discovery.Model.Class (Discovery (..), withPeersConcurrently)
+import           System.Wlog (WithLogger, logDebug, logWarning)
+import           Universum
 
 sendToNeighbors
     :: ( Discovery which m

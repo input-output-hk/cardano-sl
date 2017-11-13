@@ -6,12 +6,12 @@ module Pos.Core.SharedSeed
 
 import           Universum
 
-import qualified Data.ByteString       as BS (pack, zipWith)
+import qualified Data.ByteString as BS (pack, zipWith)
 import qualified Data.ByteString.Char8 as BSC (pack)
-import qualified Data.Semigroup        (Semigroup (..))
+import qualified Data.Semigroup (Semigroup (..))
 
-import           Pos.Core.Constants    (sharedSeedLength)
-import           Pos.Core.Types        (SharedSeed (..))
+import           Pos.Core.Constants (sharedSeedLength)
+import           Pos.Core.Types (SharedSeed (..))
 
 instance Semigroup SharedSeed where
     (<>) (SharedSeed a) (SharedSeed b) =

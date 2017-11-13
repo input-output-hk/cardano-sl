@@ -24,49 +24,42 @@ module Pos.Reporting.Methods
 
 import           Universum
 
-import           Control.Exception                     (ErrorCall (..), Exception (..))
-import           Control.Lens                          (each, to)
-import           Control.Monad.Catch                   (try)
-import           Data.Aeson                            (encode)
-import           Data.Bits                             (Bits (..))
-import qualified Data.HashMap.Strict                   as HM
-import           Data.List                             (isSuffixOf)
-import qualified Data.List.NonEmpty                    as NE
-import qualified Data.Text.IO                          as TIO
-import           Data.Time.Clock                       (getCurrentTime)
-import           Formatting                            (sformat, shown, stext, string,
-                                                        (%))
-import           Network.HTTP.Client                   (httpLbs, newManager,
-                                                        parseUrlThrow)
+import           Control.Exception (ErrorCall (..), Exception (..))
+import           Control.Lens (each, to)
+import           Control.Monad.Catch (try)
+import           Data.Aeson (encode)
+import           Data.Bits (Bits (..))
+import qualified Data.HashMap.Strict as HM
+import           Data.List (isSuffixOf)
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Text.IO as TIO
+import           Data.Time.Clock (getCurrentTime)
+import           Formatting (sformat, shown, stext, string, (%))
+import           Network.HTTP.Client (httpLbs, newManager, parseUrlThrow)
 import qualified Network.HTTP.Client.MultipartFormData as Form
-import           Network.HTTP.Client.TLS               (tlsManagerSettings)
-import           Network.Info                          (IPv4 (..), getNetworkInterfaces,
-                                                        ipv4)
-import           Pos.ReportServer.Report               (ReportInfo (..), ReportType (..))
-import           Serokell.Util.Text                    (listBuilderJSON)
-import           System.Directory                      (doesFileExist)
-import           System.FilePath                       (takeFileName)
-import           System.Info                           (arch, os)
-import           System.IO                             (hClose)
-import           System.Wlog                           (LoggerConfig (..), Severity (..),
-                                                        WithLogger, hwFilePath, lcTree,
-                                                        logError, logInfo, logMessage,
-                                                        logWarning, ltFiles, ltSubloggers,
-                                                        retrieveLogContent)
+import           Network.HTTP.Client.TLS (tlsManagerSettings)
+import           Network.Info (IPv4 (..), getNetworkInterfaces, ipv4)
+import           Pos.ReportServer.Report (ReportInfo (..), ReportType (..))
+import           Serokell.Util.Text (listBuilderJSON)
+import           System.Directory (doesFileExist)
+import           System.FilePath (takeFileName)
+import           System.Info (arch, os)
+import           System.IO (hClose)
+import           System.Wlog (LoggerConfig (..), Severity (..), WithLogger, hwFilePath, lcTree,
+                              logError, logInfo, logMessage, logWarning, ltFiles, ltSubloggers,
+                              retrieveLogContent)
 
-import           Paths_cardano_sl_infra                (version)
-import           Pos.Core.Configuration                (HasConfiguration, protocolMagic)
-import           Pos.Core.Types                        (ProtocolMagic (..))
-import           Pos.Exception                         (CardanoFatalError)
-import           Pos.KnownPeers                        (MonadFormatPeers (..))
-import           Pos.Network.Types                     (HasNodeType (..), NodeType (..))
-import           Pos.Reporting.Exceptions              (ReportingError (..))
-import           Pos.Reporting.MemState                (HasLoggerConfig (..),
-                                                        HasReportServers (..),
-                                                        HasReportingContext (..))
-import           Pos.Util.CompileInfo                  (HasCompileInfo, compileInfo)
-import           Pos.Util.Util                         (maybeThrow, withSystemTempFile,
-                                                        (<//>))
+import           Paths_cardano_sl_infra (version)
+import           Pos.Core.Configuration (HasConfiguration, protocolMagic)
+import           Pos.Core.Types (ProtocolMagic (..))
+import           Pos.Exception (CardanoFatalError)
+import           Pos.KnownPeers (MonadFormatPeers (..))
+import           Pos.Network.Types (HasNodeType (..), NodeType (..))
+import           Pos.Reporting.Exceptions (ReportingError (..))
+import           Pos.Reporting.MemState (HasLoggerConfig (..), HasReportServers (..),
+                                         HasReportingContext (..))
+import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
+import           Pos.Util.Util (maybeThrow, withSystemTempFile, (<//>))
 
 type MonadReporting ctx m =
        ( MonadIO m
@@ -172,10 +165,10 @@ logReportType (RInfo text) =
     logInfo $ "Reporting info with text \"" <> text <> "\""
 
 extendRTDesc :: Text -> ReportType -> ReportType
-extendRTDesc text (RError reason) = RError $ reason <> text
+extendRTDesc text (RError reason)                  = RError $ reason <> text
 extendRTDesc text (RMisbehavior isCritical reason) = RMisbehavior isCritical $ reason <> text
-extendRTDesc text' (RInfo text) = RInfo $ text <> text'
-extendRTDesc _ x = x
+extendRTDesc text' (RInfo text)                    = RInfo $ text <> text'
+extendRTDesc _ x                                   = x
 
 -- Note that we are catching all synchronous exceptions, but don't
 -- catch async ones. If reporting is broken, we don't want it to

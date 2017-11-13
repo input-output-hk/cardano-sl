@@ -38,45 +38,34 @@ module Pos.Update.DB
 
 import           Universum
 
-import           Control.Lens                 (at)
+import           Control.Lens (at)
 import           Control.Monad.Trans.Resource (ResourceT)
-import           Data.Conduit                 (Source, mapOutput, runConduitRes, (.|))
-import qualified Data.Conduit.List            as CL
-import           Data.Time.Units              (Microsecond, convertUnit)
-import qualified Database.RocksDB             as Rocks
-import           Serokell.Data.Memory.Units   (Byte)
+import           Data.Conduit (Source, mapOutput, runConduitRes, (.|))
+import qualified Data.Conduit.List as CL
+import           Data.Time.Units (Microsecond, convertUnit)
+import qualified Database.RocksDB as Rocks
+import           Serokell.Data.Memory.Units (Byte)
 
-import           Pos.Binary.Class             (serialize')
-import           Pos.Binary.Infra.Slotting    ()
-import           Pos.Binary.Update            ()
-import           Pos.Core                     (ApplicationName, BlockVersion,
-                                               ChainDifficulty, NumSoftwareVersion,
-                                               SlotId, SoftwareVersion (..),
-                                               StakeholderId, TimeDiff (..), epochSlots)
-import           Pos.Core.Configuration       (HasConfiguration, genesisBlockVersionData)
-import           Pos.Crypto                   (hash)
-import           Pos.DB                       (DBIteratorClass (..), DBTag (..), IterType,
-                                               MonadDB, MonadDBRead (..),
-                                               RocksBatchOp (..), dbSerializeValue,
-                                               encodeWithKeyPrefix)
-import           Pos.DB.Error                 (DBError (DBMalformed))
-import           Pos.DB.GState.Common         (gsGetBi, writeBatchGState)
-import           Pos.Slotting.Types           (EpochSlottingData (..), SlottingData,
-                                               createInitSlottingData)
-import           Pos.Update.Configuration     (HasUpdateConfiguration, ourAppName,
-                                               ourSystemTag)
-import           Pos.Update.Constants         (genesisBlockVersion,
-                                               genesisSoftwareVersions)
-import           Pos.Update.Core              (BlockVersionData (..), UpId,
-                                               UpdateProposal (..))
-import           Pos.Update.Poll.Types        (BlockVersionState (..),
-                                               ConfirmedProposalState (..),
-                                               DecidedProposalState (dpsDifficulty),
-                                               ProposalState (..),
-                                               UndecidedProposalState (upsSlot),
-                                               bvsIsConfirmed, cpsSoftwareVersion,
-                                               psProposal)
-import           Pos.Util.Util                (maybeThrow)
+import           Pos.Binary.Class (serialize')
+import           Pos.Binary.Infra.Slotting ()
+import           Pos.Binary.Update ()
+import           Pos.Core (ApplicationName, BlockVersion, ChainDifficulty, NumSoftwareVersion,
+                           SlotId, SoftwareVersion (..), StakeholderId, TimeDiff (..), epochSlots)
+import           Pos.Core.Configuration (HasConfiguration, genesisBlockVersionData)
+import           Pos.Core.Update (BlockVersionData (..), UpId, UpdateProposal (..))
+import           Pos.Crypto (hash)
+import           Pos.DB (DBIteratorClass (..), DBTag (..), IterType, MonadDB, MonadDBRead (..),
+                         RocksBatchOp (..), dbSerializeValue, encodeWithKeyPrefix)
+import           Pos.DB.Error (DBError (DBMalformed))
+import           Pos.DB.GState.Common (gsGetBi, writeBatchGState)
+import           Pos.Slotting.Types (EpochSlottingData (..), SlottingData, createInitSlottingData)
+import           Pos.Update.Configuration (HasUpdateConfiguration, ourAppName, ourSystemTag)
+import           Pos.Update.Constants (genesisBlockVersion, genesisSoftwareVersions)
+import           Pos.Update.Poll.Types (BlockVersionState (..), ConfirmedProposalState (..),
+                                        DecidedProposalState (dpsDifficulty), ProposalState (..),
+                                        UndecidedProposalState (upsSlot), bvsIsConfirmed,
+                                        cpsSoftwareVersion, psProposal)
+import           Pos.Util.Util (maybeThrow)
 
 ----------------------------------------------------------------------------
 -- Getters

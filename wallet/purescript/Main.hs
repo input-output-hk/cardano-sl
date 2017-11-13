@@ -2,27 +2,24 @@ module Main
        ( main
        ) where
 
-import           Data.Version                              (showVersion)
-import           Language.PureScript.Bridge                (BridgePart, buildBridge,
-                                                            defaultBridge, mkSumType,
-                                                            typeName, writePSTypes, (<|>),
-                                                            (^==))
-import           Language.PureScript.Bridge.PSTypes        (psInt)
+import           Data.Version (showVersion)
+import           Language.PureScript.Bridge (BridgePart, buildBridge, defaultBridge, mkSumType,
+                                             typeName, writePSTypes, (<|>), (^==))
+import           Language.PureScript.Bridge.PSTypes (psInt)
 import           Language.PureScript.Bridge.TypeParameters (A)
-import           Options.Applicative                       (execParser, fullDesc, header,
-                                                            help, helper, info,
-                                                            infoOption, long, progDesc)
+import           Options.Applicative (execParser, fullDesc, header, help, helper, info, infoOption,
+                                      long, progDesc)
 import           Universum
 
-import           Paths_cardano_sl                          (version)
-import qualified Pos.Client.Txp.Util                       as CL
-import qualified Pos.Types                                 as PT
-import qualified Pos.Util.BackupPhrase                     as BP
-import qualified Pos.Wallet.Web.ClientTypes                as CT
-import qualified Pos.Wallet.Web.Error.Types                as ET
-import qualified Pos.Wallet.Web.Sockets                    as WS
+import           Paths_cardano_sl (version)
+import qualified Pos.Client.Txp.Util as CL
+import qualified Pos.Types as PT
+import qualified Pos.Util.BackupPhrase as BP
+import qualified Pos.Wallet.Web.ClientTypes as CT
+import qualified Pos.Wallet.Web.Error.Types as ET
+import qualified Pos.Wallet.Web.Sockets as WS
 
-import           PSTypes                                   (psInt53, psPosixTime)
+import           PSTypes (psInt53, psPosixTime)
 
 showProgramInfoIfRequired :: IO ()
 showProgramInfoIfRequired = void $ execParser programInfo

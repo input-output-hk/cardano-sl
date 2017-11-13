@@ -7,7 +7,7 @@ module Command.Proc
 
 import           Universum
 
-import           Data.Constraint (Dict(..))
+import           Data.Constraint (Dict (..))
 import           Data.List ((!!))
 import qualified Data.Map as Map
 import           Formatting (build, int, sformat, stext, (%))
@@ -45,7 +45,7 @@ import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr, tyAddr
                                        tySystemTag, tyTxOut, tyValue, tyWord, tyWord32)
 import qualified Command.Update as Update
 import           Lang.Argument (getArg, getArgMany, getArgOpt, getArgSome)
-import           Lang.Command (CommandProc (..))
+import           Lang.Command (CommandProc (..), UnavailableCommand (..))
 import           Lang.Name (Name)
 import           Lang.Value (AddKeyParams (..), AddrDistrPart (..), GenBlocksParams (..),
                              ProposeUpdateParams (..), ProposeUpdateSystem (..),
@@ -68,25 +68,28 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     , cpHelp = "construct a list"
     },
 
-    needsAuxxMode >>= \Dict ->
+    let name = "pk" in
+    needsAuxxMode name >>= \Dict ->
     return CommandProc
-    { cpName = "pk"
+    { cpName = name
     , cpArgumentConsumer = getArg tyInt "i"
     , cpExec = fmap ValuePublicKey . toLeft . Right
     , cpHelp = "public key for secret #i"
     },
 
-    needsAuxxMode >>= \Dict ->
+    let name = "s" in
+    needsAuxxMode name >>= \Dict ->
     return CommandProc
-    { cpName = "s"
+    { cpName = name
     , cpArgumentConsumer = getArg (tyPublicKey `tyEither` tyInt) "pk"
     , cpExec = fmap ValueStakeholderId . toLeft . Right
     , cpHelp = "stakeholder id (hash) of the specified public key"
     },
 
-    needsAuxxMode >>= \Dict ->
+    let name = "addr" in
+    needsAuxxMode name >>= \Dict ->
     return CommandProc
-    { cpName = "addr"
+    { cpName = name
     , cpArgumentConsumer =
         (,) <$> getArg (tyPublicKey `tyEither` tyInt) "pk"
             <*> getArgOpt tyAddrStakeDistr "distr"
@@ -102,9 +105,10 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
               \ to determine whether we want to use bootstrap distr)"
     },
 
-    needsAuxxMode >>= \Dict ->
+    let name = "addr-hd" in
+    needsAuxxMode name >>= \Dict ->
     return CommandProc
-    { cpName = "addr-hd"
+    { cpName = name
     , cpArgumentConsumer = getArg tyInt "i"
     , cpExec = \i -> do
         sks <- getSecretKeysPlain
@@ -126,9 +130,10 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     , cpHelp = "construct a transaction output"
     },
 
-    needsAuxxMode >>= \Dict ->
+    let name = "dp" in
+    needsAuxxMode name >>= \Dict ->
     return CommandProc
-    { cpName = "dp"
+    { cpName = name
     , cpArgumentConsumer = do
         adpStakeholderId <- getArg (tyStakeholderId `tyEither` tyPublicKey `tyEither` tyInt) "s"
         adpCoinPortion <- getArg tyCoinPortion "p"
@@ -139,9 +144,10 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     , cpHelp = "construct an address distribution part"
     },
 
-    needsAuxxMode >>= \Dict ->
+    let name = "distr" in
+    needsAuxxMode name >>= \Dict ->
     return CommandProc
-    { cpName = "distr"
+    { cpName = name
     , cpArgumentConsumer = getArgSome tyAddrDistrPart "dp"
     , cpExec = \parts -> do
         distr <- case parts of
@@ -165,9 +171,10 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     return . procConst "true" $ ValueBool True,
     return . procConst "false" $ ValueBool False,
 
-    needsAuxxMode >>= \Dict ->
+    let name = "balance" in
+    needsAuxxMode name >>= \Dict ->
     return CommandProc
-    { cpName = "balance"
+    { cpName = name
     , cpArgumentConsumer = getArg (tyAddress `tyEither` tyPublicKey `tyEither` tyInt) "addr"
     , cpExec = \addr' -> do
         addr <- toLeft addr'
@@ -176,18 +183,20 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     , cpHelp = "check the amount of coins on the specified address"
     },
 
-    needsAuxxMode >>= \Dict ->
+    let name = "bvd" in
+    needsAuxxMode name >>= \Dict ->
     return CommandProc
-    { cpName = "bvd"
+    { cpName = name
     , cpArgumentConsumer = do pure ()
     , cpExec = \() -> ValueBlockVersionData <$> gsAdoptedBVData
     , cpHelp = "return current (adopted) BlockVersionData"
     },
 
-    needsSendActions >>= \sendActions ->
-    needsAuxxMode >>= \Dict ->
+    let name = "send-to-all-genesis" in
+    needsSendActions name >>= \sendActions ->
+    needsAuxxMode name >>= \Dict ->
     return CommandProc
-    { cpName = "send-to-all-genesis"
+    { cpName = name
     , cpArgumentConsumer = do
         stagpDuration <- getArg tyInt "dur"
         stagpConc <- getArg tyInt "conc"
@@ -204,10 +213,11 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
               \ <mode> is either 'neighbours', 'round-robin', or 'send-random'"
     },
 
-    needsSendActions >>= \sendActions ->
-    needsAuxxMode >>= \Dict ->
+    let name = "send-from-file" in
+    needsSendActions name >>= \sendActions ->
+    needsAuxxMode name >>= \Dict ->
     return CommandProc
-    { cpName = "send-from-file"
+    { cpName = name
     , cpArgumentConsumer = getArg tyFilePath "file"
     , cpExec = \filePath -> do
         Tx.sendTxsFromFile sendActions filePath
@@ -215,10 +225,11 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     , cpHelp = ""
     },
 
-    needsSendActions >>= \sendActions ->
-    needsAuxxMode >>= \Dict ->
+    let name = "send" in
+    needsSendActions name >>= \sendActions ->
+    needsAuxxMode name >>= \Dict ->
     return CommandProc
-    { cpName = "send"
+    { cpName = name
     , cpArgumentConsumer =
         (,) <$> getArg tyInt "i"
             <*> getArgSome tyTxOut "out"
@@ -229,10 +240,11 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
               \ (use 'tx-out' to build them)"
     },
 
-    needsSendActions >>= \sendActions ->
-    needsAuxxMode >>= \Dict ->
+    let name = "vote" in
+    needsSendActions name >>= \sendActions ->
+    needsAuxxMode name >>= \Dict ->
     return CommandProc
-    { cpName = "vote"
+    { cpName = name
     , cpArgumentConsumer =
         (,,) <$> getArg tyInt "i"
             <*> getArg tyBool "agree"
@@ -278,10 +290,11 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     , cpHelp = "construct a part of the update proposal for binary update"
     },
 
-    needsSendActions >>= \sendActions ->
-    needsAuxxMode >>= \Dict ->
+    let name = "propose-update" in
+    needsSendActions name >>= \sendActions ->
+    needsAuxxMode name >>= \Dict ->
     return CommandProc
-    { cpName = "propose-update"
+    { cpName = name
     , cpArgumentConsumer = do
         puSecretKeyIdx <- getArg tyInt "i"
         puVoteAll <- getArg tyBool "vote-all"
@@ -308,10 +321,11 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
         , cpHelp = ""
         },
 
-    needsSendActions >>= \sendActions ->
-    needsAuxxMode >>= \Dict ->
+    let name = "delegate-light" in
+    needsSendActions name >>= \sendActions ->
+    needsAuxxMode name >>= \Dict ->
     return CommandProc
-    { cpName = "delegate-light"
+    { cpName = name
     , cpArgumentConsumer =
       (,,,) <$> getArg tyInt "i"
             <*> getArg tyPublicKey "pk"
@@ -333,10 +347,11 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     , cpHelp = ""
     },
 
-    needsSendActions >>= \sendActions ->
-    needsAuxxMode >>= \Dict ->
+    let name = "delegate-heavy" in
+    needsSendActions name >>= \sendActions ->
+    needsAuxxMode name >>= \Dict ->
     return CommandProc
-    { cpName = "delegate-heavy"
+    { cpName = name
     , cpArgumentConsumer =
       (,,,) <$> getArg tyInt "i"
             <*> getArg tyPublicKey "pk"
@@ -369,9 +384,10 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     , cpHelp = ""
     },
 
-    needsAuxxMode >>= \Dict ->
+    let name = "generate-blocks" in
+    needsAuxxMode name >>= \Dict ->
     return CommandProc
-    { cpName = "generate-blocks"
+    { cpName = name
     , cpArgumentConsumer = do
         bgoBlockN <- getArg tyWord32 "n"
         bgoSeed <- getArgOpt tyInt "seed"
@@ -382,9 +398,10 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     , cpHelp = "generate <n> blocks"
     },
 
-    needsAuxxMode >>= \Dict ->
+    let name = "add-key-pool" in
+    needsAuxxMode name >>= \Dict ->
     return CommandProc
-    { cpName = "add-key-pool"
+    { cpName = name
     , cpArgumentConsumer = getArg tyInt "i"
     , cpExec = \i -> do
         CmdCtx {..} <- getCmdCtx
@@ -396,9 +413,10 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     , cpHelp = ""
     },
 
-    needsAuxxMode >>= \Dict ->
+    let name = "add-key" in
+    needsAuxxMode name >>= \Dict ->
     return CommandProc
-    { cpName = "add-key"
+    { cpName = name
     , cpArgumentConsumer = do
         akpFile <- getArg tyFilePath "file"
         akpPrimary <- getArg tyBool "primary"
@@ -414,9 +432,10 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     , cpHelp = ""
     },
 
-    needsAuxxMode >>= \Dict ->
+    let name = "rollback" in
+    needsAuxxMode name >>= \Dict ->
     return CommandProc
-    { cpName = "rollback"
+    { cpName = name
     , cpArgumentConsumer = do
         rpNum <- getArg tyWord "n"
         rpDumpPath <- getArg tyFilePath "dump-file"
@@ -427,9 +446,10 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     , cpHelp = ""
     },
 
-    needsAuxxMode >>= \Dict ->
+    let name = "listaddr" in
+    needsAuxxMode name >>= \Dict ->
     return CommandProc
-    { cpName = "listaddr"
+    { cpName = name
     , cpArgumentConsumer = do pure ()
     , cpExec = \() -> do
         sks <- getSecretKeysPlain
@@ -462,13 +482,15 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
         printAction (mkHelpMessage commands)
         return ValueUnit
     , cpHelp = "display this message"
-    }] :: [Either Text (CommandProc m)]) -- The explicit type signature is required
-                                         -- for the list to type check
+    }] :: [Either UnavailableCommand (CommandProc m)]) -- The explicit type signature is required
+                                                       -- for the list to type check
   where
-    needsAuxxMode :: Either Text (Dict (MonadAuxxMode m))
-    needsAuxxMode = maybe (Left "unavailable without AuxxMode (not enough configuration was provided)") Right hasAuxxMode
-    needsSendActions :: Either Text (SendActions m)
-    needsSendActions = maybe (Left "SendActions are not available") Right mSendActions
+    needsAuxxMode :: Name -> Either UnavailableCommand (Dict (MonadAuxxMode m))
+    needsAuxxMode name =
+        maybe (Left $ UnavailableCommand name "AuxxMode is not available") Right hasAuxxMode
+    needsSendActions :: Name -> Either UnavailableCommand (SendActions m)
+    needsSendActions name =
+        maybe (Left $ UnavailableCommand name "SendActions are not available") Right mSendActions
 
 procConst :: Applicative m => Name -> Value -> CommandProc m
 procConst name value =

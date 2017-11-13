@@ -120,13 +120,14 @@ components).
   type Utxo = Map TxIn TxOutAux
   ```
 
-  * UTXO is a map from `TxIn` to
+  UTXO is a map from `TxIn` to
   `TxOutAux` ([code](https://github.com/input-output-hk/cardano-sl/blob/e7cfb1724024e0db2f25ddd2eb8f8f17c0bc497f/txp/Pos/Txp/Toil/Types.hs#L58)) which contains all unspent outputs.
   * `TxOutAux` is just an alias for `TxOut` ([code](https://github.com/input-output-hk/cardano-sl/blob/e7cfb1724024e0db2f25ddd2eb8f8f17c0bc497f/txp/Pos/Txp/Core/Types.hs#L160)). Later it can be extended if we want to associate
   more data with unspent outputs (e. g. slot of the block in which
   this transaction appeared).
-  * Example: if a transaction `A` has 1 output (`out1`) which hasn't been
+  * If a transaction `A` has 1 output (`out1`) which hasn't been
   spent yet, UTXO will have a pair `(TxIn (hash A) 0, out1)`.
+
 * Stakes
   ```
   type StakesMap = HashMap StakeholderId Coin
@@ -243,7 +244,7 @@ invalid.
 - *Bootstrap era check*: if the block was created during bootstrap era, all
 output addresses must have `BootstrapEraDistr` distribution
   - Predicate "was created during bootstrap era" is checked with block's slot field
-    and adopted `BlockVersionData` (which contains data which slot is defined last for bootstrap era)
+    and adopted `BlockVersionData` (information about final slot for bootstrap era is stored in `BlockVersionData`)
 
 Also there is a check which applies to whole `TxPayload`:
 
@@ -391,16 +392,18 @@ This value is computed using fixed-precision arithmetic (precision is 1e-9) usin
 minFee = a + b * txSize
 ```
 
-There are two cases check fails (and transaction rejected):
+Check succeeds if both conditions hold:
 
-* Minimal fee is negative or is greater than maximal number of coins in the system
+* Minimal fee is non-negative and is smaller than maximal number of coins in the system
 
-   ```minFee < 0 || minFee > maxBound @Coin```
-   - It probably indicates there is a mistake in currently adopted fee
+   ```minFee >= 0 && minFee < maxBound @Coin```
+
+   - If this fails, it probably indicates there is a mistake in currently adopted fee
    policy
-* Actual fee is less than the minimal fee
 
-   ```txFee < minFee```
+* Actual fee is not less than the minimal fee
+
+   ```txFee >= minFee```
 
 ### GState modification
 
@@ -431,7 +434,7 @@ bootstrap stakeholders proportional to their weights.
       - one stakeholder also receives the remainder (the choice is deterministc)
     + Otherwise:
       - some stakeholders will receive the same stake as their weights
-      - one stakeholder may receive less then their weight
+      - one stakeholder may receive less than their weight
       - other stakeholders won't receive anything
 - For `SingleKeyDistr id` distribution, the value of `TxOut` will be assigned to stakeholder `id`.
 - For `MultiKeyDistr portions` stake will be distributed among multiple
@@ -446,7 +449,7 @@ Stakes modification is a bit more complex than UTXO modification, but is also ve
    * For all inputs, stake lists are concatenated into one, `inStakes`
    * This list denotes how much stake each stakeholder should lose
 2. Each output is `TxOut`, we compute stakes for it
-   * For all inputs, stake lists are concatenated into one, `outStakes`
+   * For all outputs, stake lists are concatenated into one, `outStakes`
    * This list denotes how much stake each stakeholder should gain
 3. Stakes of all mentioned stakeholders are updated appropriately
    * Decreased for all `TxInUtxo` inputs

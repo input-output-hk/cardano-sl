@@ -36,7 +36,7 @@ data Action
     -- socket endpoints
     | SocketConnected Boolean
     | SocketBlocksPageUpdated (Either Error (Tuple Int CBlockEntries))
-    | SocketEpochsPageUpdated (Either Error (Tuple Int CBlockEntries))
+    | SocketEpochsLastPageUpdated (Either Error (Tuple Int CBlockEntries))
     | SocketTxsUpdated (Either Error CTxEntries)
     | SocketAddressTxsUpdated (Either Error CTxBriefs)
     | SocketAddSubscription SocketSubscriptionItem

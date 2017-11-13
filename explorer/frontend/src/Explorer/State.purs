@@ -59,6 +59,7 @@ initialState =
             }
         , blocksViewState:
             { blsViewPagination: PageNumber minPagination
+            , blsViewPaginated: false
             , blsViewMaxPagination: PageNumber minPagination
             , blsViewPaginationEditable: false
             , blsViewEpochIndex: Nothing

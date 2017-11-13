@@ -61,7 +61,6 @@ mkCBlockEntry = CBlockEntry
     , cbeBlockLead: Nothing
     }
 
-
 -- | Update time of a slot
 setTimeOfBlock :: NominalDiffTime -> CBlockEntry -> CBlockEntry
 setTimeOfBlock time block =
@@ -70,8 +69,13 @@ setTimeOfBlock time block =
 -- | Update slot / epoch of a slot
 setEpochSlotOfBlock :: Int -> Int -> CBlockEntry -> CBlockEntry
 setEpochSlotOfBlock epoch slot block =
-    set (_CBlockEntry <<< cbeEpoch) epoch $
-    set (_CBlockEntry <<< cbeSlot) slot block
+    let block' = setEpochOfBlock epoch block in
+    set (_CBlockEntry <<< cbeSlot) slot block'
+
+-- | Update epoch of a slot
+setEpochOfBlock :: Int -> CBlockEntry -> CBlockEntry
+setEpochOfBlock epoch block =
+    set (_CBlockEntry <<< cbeEpoch) epoch block
 
 -- | Update hash of a slot
 setHashOfBlock :: CHash -> CBlockEntry -> CBlockEntry

@@ -130,6 +130,7 @@ type AddressDetailViewState =
 
 type BlocksViewState =
     { blsViewPagination :: PageNumber
+    , blsViewPaginated :: Boolean -- Flag to see whether an user is currently paginating or not
     , blsViewMaxPagination :: PageNumber
     , blsViewPaginationEditable :: Boolean
     , blsViewEpochIndex :: Maybe EpochIndex

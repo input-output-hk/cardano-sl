@@ -83,7 +83,7 @@ epochsPageUpdatedEventHandler :: forall eff. ActionChannel -> Json
     -> Eff (channel :: CHANNEL | eff) Unit
 epochsPageUpdatedEventHandler channel json =
     let result = decodeResult' json in
-    send channel $ SocketEpochsPageUpdated result
+    send channel $ SocketEpochsLastPageUpdated result
 
 txsUpdatedHandler :: forall eff. ActionChannel -> Json
     -> Eff (channel :: CHANNEL | eff) Unit

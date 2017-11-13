@@ -46,7 +46,6 @@ data SocketSubscriptionData
     = SocketNoData                    -- no data sending to backend
     | SocketOffsetData SocketOffset   -- sending value of `SocketOffset`
     | SocketCAddressData CAddress     -- sending value of `CAddress`
-    | SocketEpochIndex EpochIndex     -- sending value of `EpochIndex`
 
 derive instance gSocketSubscriptionData :: Generic SocketSubscriptionData
 instance eqSocketSubscriptionData :: Eq SocketSubscriptionData where

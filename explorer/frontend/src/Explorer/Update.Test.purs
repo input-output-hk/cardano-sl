@@ -17,11 +17,11 @@ import Explorer.Api.Types (SocketSubscription(..), SocketSubscriptionData(..))
 import Explorer.I18n.Lang (Language(..))
 import Explorer.Lenses.State (connected, currentAddressSummary, dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, gblAddressInfosPagination, gblAddressInfosPaginationEditable, gblMaxAddressInfosPagination, genesisBlockViewState, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, viewStates)
 import Explorer.State (initialState, mkSocketSubscriptionItem)
-import Explorer.Test.MockFactory (mkCBlockEntry, mkCTxBrief, mkEmptyCAddressSummary, mkEmptyCTxEntry, mkCTxBriefs, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfTx, setTxOfAddressSummary)
+import Explorer.Test.MockFactory (mkCBlockEntry, mkCTxBrief, mkCTxBriefs, mkEmptyCAddressSummary, mkEmptyCTxEntry, setEpochOfBlock, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfTx, setTxOfAddressSummary)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (PageNumber(..), PageSize(..))
-import Explorer.Update (update)
-import Explorer.Util.Factory (mkCHash, mkCTxId)
+import Explorer.Update (update,hasBlocksFromEpoch)
+import Explorer.Util.Factory (mkCHash, mkCTxId, mkEpochIndex)
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Network.RemoteData (RemoteData(..), _Success, isLoading, isNotAsked, withDefault)
 import Pos.Explorer.Socket.Methods (Subscription(..))
@@ -352,3 +352,20 @@ testUpdate =
                     state = _.state effModel
                     result = state ^. socket <<< subscriptions
                 in length result `shouldEqual` 0
+
+        describe "blocksFromEpoch" do
+            let blockA = setEpochOfBlock 2 mkCBlockEntry
+                blockB = setEpochOfBlock 2 mkCBlockEntry
+                blockC = setEpochOfBlock 2 mkCBlockEntry
+                blockD = setEpochOfBlock 2 mkCBlockEntry
+                blockE = setEpochOfBlock 2 mkCBlockEntry
+                blocks =
+                    [ blockA
+                    , blockB
+                    , blockC
+                    , blockD
+                    ]
+            it "are found" do
+              hasBlocksFromEpoch blocks (mkEpochIndex 2) `shouldEqual` true
+            it "are not found" do
+              hasBlocksFromEpoch blocks (mkEpochIndex 1) `shouldEqual` false

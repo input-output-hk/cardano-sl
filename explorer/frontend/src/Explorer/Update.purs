@@ -17,25 +17,24 @@ import DOM.HTML.History (DocumentTitle(..), URL(..), pushState)
 import DOM.HTML.Window (history)
 import DOM.Node.Node (contains)
 import DOM.Node.Types (ElementId(..), elementToNode)
-import Data.Array (filter, length, null, snoc, take, (:))
+import Data.Array (filter, length, snoc, take, (:))
 import Data.Either (Either(..))
-import Data.Foldable (traverse_)
+import Data.Foldable (any, traverse_)
 import Data.Foreign (toForeign)
-import Data.Generic (gShow)
 import Data.Int (fromString)
 import Data.Lens ((^.), over, set)
-import Data.Maybe (Maybe(..), fromJust, isJust, maybe)
+import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchGenesisAddressInfo, fetchGenesisAddressInfoTotalPages, fetchGenesisSummary, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, epochPageSearch, epochSlotSearch)
 import Explorer.Api.Socket (toEvent)
 import Explorer.Api.Types (SocketOffset(..), SocketSubscription(..), SocketSubscriptionData(..))
-import Explorer.Lenses.State (addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewLoadingPagination, blsViewMaxPagination, blsViewPagination, blsViewPaginationEditable, blsViewEpochIndex, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentCGenesisAddressInfos, currentCGenesisSummary, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gWaypoints, gblAddressInfosPagination, gblAddressInfosPaginationEditable, gblAddressFilter, gblLoadingAddressInfosPagination, gblMaxAddressInfosPagination, genesisBlockViewState, globalViewState, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
+import Explorer.Lenses.State (_PageNumber, addressDetail, addressTxPagination, addressTxPaginationEditable, blockDetail, blockTxPagination, blockTxPaginationEditable, blocksViewState, blsViewEpochIndex, blsViewLoadingPagination, blsViewPaginated, blsViewMaxPagination, blsViewPagination, blsViewPaginationEditable, connected, connection, currentAddressSummary, currentBlockSummary, currentBlockTxs, currentBlocksResult, currentCAddress, currentCGenesisAddressInfos, currentCGenesisSummary, currentTxSummary, dbViewBlockPagination, dbViewBlockPaginationEditable, dbViewBlocksExpanded, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, dbViewSelectedApiCode, dbViewTxsExpanded, errors, gViewMobileMenuOpenend, gViewSearchInputFocused, gViewSearchQuery, gViewSearchTimeQuery, gViewSelectedSearch, gWaypoints, gblAddressFilter, gblAddressInfosPagination, gblAddressInfosPaginationEditable, gblLoadingAddressInfosPagination, gblMaxAddressInfosPagination, genesisBlockViewState, globalViewState, latestBlocks, latestTransactions, loading, route, socket, subscriptions, syncAction, viewStates)
 import Explorer.Routes (Route(..), match, toUrl)
 import Explorer.State (addressQRImageId, emptySearchQuery, emptySearchTimeQuery, hasSubscription, headerSearchContainerId, heroSearchContainerId, minPagination, mkSocketSubscriptionItem, mobileMenuSearchContainerId)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.App (AppEffects)
-import Explorer.Types.State (PageNumber(..), PageSize(..), Search(..), SocketSubscriptionItem(..), State, WaypointItem(..))
+import Explorer.Types.State (PageNumber(..), PageSize(..), Search(..), SocketSubscriptionItem(..), State, WaypointItem(..), CBlockEntries)
 import Explorer.Util.Config (SyncAction(..), syncBySocket)
 import Explorer.Util.DOM (addClassToElement, findElementById, removeClassFromElement, scrollTop, nodeToHTMLElement, nodeToHTMLInputElement)
 import Explorer.Util.Data (sortTxsByTime', unionTxs)
@@ -47,13 +46,12 @@ import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Explorer.View.Dashboard.Transactions (maxTransactionRows)
 import Explorer.View.GenesisBlock (maxAddressInfoRows)
 import Network.RemoteData (RemoteData(..), _Success, isNotAsked, isSuccess, withDefault)
-import Partial.Unsafe (unsafePartial)
-import Pos.Core.Lenses.Types (getEpochIndex)
-import Pos.Core.Types (EpochIndex(..), _EpochIndex)
+import Pos.Core.Types (EpochIndex(..))
 import Pos.Explorer.Socket.Methods (ClientEvent(..), Subscription(..))
-import Pos.Explorer.Web.ClientTypes (CAddress(..))
+import Pos.Explorer.Web.ClientTypes (CAddress(..), CBlockEntry(..))
 import Pos.Explorer.Web.Lenses.ClientTypes (_CAddress, _CAddressSummary, caAddress, caTxList)
 import Pux (EffModel, noEffects, onlyEffects)
+import Type.Data.Boolean (kind Boolean)
 import Waypoints (WAYPOINT, destroy, waypoint', up) as WP
 
 update :: forall eff. Action -> State -> EffModel State Action (AppEffects eff)
@@ -99,23 +97,44 @@ update (SocketBlocksPageUpdated (Left error)) state = noEffects $
     set latestBlocks (Failure error) $
     over errors (\errors' -> (show error) : errors') state
 
-update (SocketEpochsPageUpdated (Right (Tuple totalPages blocks))) state =
-    noEffects $
-    -- * 1. Check if an update of `currentBlocksResult` is needed
-    over currentBlocksResult (\bl -> if updateBlocks then Success blocks else bl) $
-    -- * 2. update `blsViewPagination` if needed
-    over (viewStates <<< blocksViewState <<< blsViewPagination)
-        (\ pn@(PageNumber page) -> if updateCurrentPage then PageNumber totalPages else pn) $
-           -- ^ to keep on last page we have to update `blsViewPagination`
-    -- * 3. store `totalPages` into `blsViewMaxPagination`
-    set (viewStates <<< blocksViewState <<< blsViewMaxPagination) (PageNumber totalPages)
-        state
-    where
-      currentEpochPage = state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
-      updateBlocks = (currentEpochPage == PageNumber totalPages) || updateCurrentPage
-      updateCurrentPage = currentEpochPage == (PageNumber $ totalPages - 1) && (length blocks == 1)
+update (SocketEpochsLastPageUpdated (Right (Tuple totalPages blocks))) state =
+    let currentEpoch = fromMaybe (mkEpochIndex 0) $ state ^. (viewStates <<< blocksViewState <<< blsViewEpochIndex) in
+    -- ^ In a normal case we already have an `EpochIndex` in our state,
+    -- because `SocketEpochsLastPageUpdated` is called if we entering `epoch/x` page only
+    if (hasBlocksFromEpoch blocks currentEpoch)
+    -- ^ First check if we are at latest epoch on front-end by comparing epochs of blocks with current epoch
+    -- We have to do this because backend are sending updates about new blocks of latest epoch only
+    -- and the front-end does not know which epoch is the latest
+    then
+        let currentEpochPageNumber = state ^. (viewStates <<< blocksViewState <<< blsViewPagination <<< _PageNumber)
+            updateBlocks = (currentEpochPageNumber == totalPages) || updateCurrentPage
+                            -- ^ update blocks if we are on latest page or current page has to be updated only
+            updateCurrentPage = currentEpochPageNumber == (totalPages - 1) && (length blocks == 1)
+                                -- ^If we are on second last page and get one new block,
+                                -- then we have to update current page, which means switching to latest page
+        in
+            noEffects $
+            -- * 1. Check if an update of `currentBlocksResult` is needed
+            over currentBlocksResult (\bl -> if updateBlocks then Success blocks else bl) $
+            -- * 2. update `blsViewPagination` if needed
+            over (viewStates <<< blocksViewState <<< blsViewPagination)
+                (\ pn@(PageNumber page) -> if updateCurrentPage then PageNumber totalPages else pn) $
+                   -- ^ to keep at last page we have to update `blsViewPagination`
+            -- * 3. store `totalPages` into `blsViewMaxPagination`
+            set (viewStates <<< blocksViewState <<< blsViewMaxPagination) (PageNumber totalPages)
+                state
+    else
+        let subItem = mkSocketSubscriptionItem (SocketSubscription SubEpochsLastPage) SocketNoData in
+        { state
+        , effects:
+              if ( (syncBySocket $ state ^. syncAction) && (hasSubscription subItem state) )
+            -- ^ In `syncBySocket` mode we are adding subscription `SubEpochsLastPage` only once per epoch
+            -- So we can paginate current epoch and request/receive its pages w/o sub- or + unsubscribing
+            then [ pure <<< Just $ SocketRemoveSubscription subItem ]
+            else []
+        }
 
-update (SocketEpochsPageUpdated (Left error)) state = noEffects $
+update (SocketEpochsLastPageUpdated (Left error)) state = noEffects $
     set currentBlocksResult (Failure error) $
     over errors (\errors' -> (show error) : errors') state
 
@@ -306,6 +325,7 @@ update (BlockInvalidTxsPageNumber event) state =
 update (BlocksPaginateBlocks mEvent pageNumber) state =
     { state:
           set (viewStates <<< blocksViewState <<< blsViewPagination) pageNumber $
+          set (viewStates <<< blocksViewState <<< blsViewPaginated) true $
           set (viewStates <<< blocksViewState <<< blsViewPaginationEditable) false state
     , effects:
         [ pure $ maybe Nothing (Just <<< BlurElement <<< nodeToHTMLElement <<< target) mEvent
@@ -684,17 +704,16 @@ update (ReceiveEpochPageSearch (Right (Tuple totalPages blocks))) state =
         set currentBlocksResult (Success blocks) $
         set (viewStates <<< blocksViewState <<< blsViewMaxPagination) (PageNumber totalPages) state
     , effects:
-        if ( (syncBySocket $ state ^. syncAction) && (not $ hasSubscription subItem state) )
-            -- ^ In `syncBySocket` mode we are adding subscription `SubEpochsLastPage` only once per epoch
-            -- So we can paginate current epoch and request/receive its pages w/o sub- or + unsubscribing
+        if ( (syncBySocket $ state ^. syncAction) && (not isPaginated) )
+            -- ^ In `syncBySocket` mode we subscribe `SubEpochsLastPage` once per epoch only
+            -- So we can paginate current epoch and request/receive its pages w/o un- and subscribing
+            -- every time doing an epoch page search
             then [ pure <<< Just $ SocketAddSubscription subItem ]
             else []
     }
     where
-        subItemData = case state ^. (viewStates <<< blocksViewState <<< blsViewEpochIndex) of
-                      Just epochIndex -> SocketEpochIndex epochIndex
-                      Nothing -> SocketNoData
-        subItem = mkSocketSubscriptionItem (SocketSubscription SubEpochsLastPage) subItemData
+        isPaginated = state ^. (viewStates <<< blocksViewState <<< blsViewPaginated)
+        subItem = mkSocketSubscriptionItem (SocketSubscription SubEpochsLastPage) SocketNoData
 
 update (ReceiveEpochPageSearch (Left error)) state =
     noEffects $
@@ -938,6 +957,8 @@ update (Navigate url ev) state = onlyEffects state
 update (UpdateView r@Dashboard) state =
     { state:
         set (viewStates <<< globalViewState <<< gViewMobileMenuOpenend) false $
+        set (viewStates <<< blocksViewState <<< blsViewPaginated) false $
+        -- ^ reset paginate state of blocks here
         set route r state
     , effects:
         [ pure $ Just ScrollTop
@@ -987,6 +1008,8 @@ update (UpdateView r@(Epoch epochIndex)) state =
         -- ^ reset current page number of blocks
         set (viewStates <<< blocksViewState <<< blsViewMaxPagination) (PageNumber minPagination) $
         -- ^ reset max page number of blocks
+        set (viewStates <<< blocksViewState <<< blsViewPaginated) false $
+        -- ^ an user does not trigger a pagination here
         set (viewStates <<< blocksViewState <<< blsViewEpochIndex) (Just epochIndex) $
         -- ^ store current EpochIndex
         set route r state
@@ -1074,13 +1097,11 @@ socketSubscribeEvent socket (SocketSubscriptionItem item) =
     where
         event = toEvent <<< Subscribe <<< unwrap $ _.socketSub item
         subData = _.socketSubData item
-        -- epochIndex e = e ^. (_EpochIndex <<< getEpochIndex)
 
         subscribe :: Socket -> String -> SocketSubscriptionData -> Eff (socket :: SocketIO | eff) Unit
         subscribe s e SocketNoData = emit s e
         subscribe s e (SocketOffsetData (SocketOffset o)) = emitData s e o
         subscribe s e (SocketCAddressData (CAddress addr)) = emitData s e addr
-        subscribe s e (SocketEpochIndex (EpochIndex epoch)) = emitData s e (epoch ^. getEpochIndex)
 
 socketUnsubscribeEvent :: forall eff . Socket -> SocketSubscriptionItem
     -> Eff (socket :: SocketIO | eff) Unit
@@ -1088,3 +1109,11 @@ socketUnsubscribeEvent socket (SocketSubscriptionItem item)  =
     emit socket event
     where
         event = toEvent <<< Unsubscribe <<< unwrap $ _.socketSub item
+
+-- | Check a list of blocks to see whether it has blocks from a specific epoch included or not
+hasBlocksFromEpoch :: CBlockEntries -> EpochIndex -> Boolean
+hasBlocksFromEpoch blocks epoch =
+    any (compare epoch) blocks
+    where
+        compare :: EpochIndex -> CBlockEntry -> Boolean
+        compare (EpochIndex e) (CBlockEntry b) = e.getEpochIndex == b.cbeEpoch

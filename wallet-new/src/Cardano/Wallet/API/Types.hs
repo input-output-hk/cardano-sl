@@ -95,10 +95,6 @@ instance ( HasServer (argA a :> argB a :> res) ctx
 -- Types
 --
 
--- | An empty type which can be used to inject the Swagger summary (i.e. a short, 120 chars
--- description of what an endpoint should do) at the type level, directly in the Servant API.
-data Summary (sym :: Symbol)
-
 -- | An empty type which can be used to inject Swagger tags at the type level,
 -- directly in the Servant API.
 data Tags (tags :: [Symbol])
@@ -118,12 +114,6 @@ data WalletVersion = WalletVersion {
 --
 -- Instances
 --
-
--- | Instance of `HasServer` which erases a `Summary` from its routing,
--- as the latter is needed only for Swagger.
-instance (HasServer subApi context) => HasServer (Summary desc :> subApi) context where
-  type ServerT (Summary desc :> subApi) m = ServerT subApi m
-  route _ = route (Proxy @ subApi)
 
 -- | Instance of `HasServer` which erases the `Tags` from its routing,
 -- as the latter is needed only for Swagger.

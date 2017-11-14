@@ -1,3 +1,4 @@
+{-# LANGUAGE RankNTypes #-}
 module Cardano.Wallet.API.V0.Handlers where
 
 import qualified Cardano.Wallet.API.V0          as V0
@@ -12,6 +13,6 @@ import           Servant
 -- monad @m@ which implements a `MonadFullWalletWebMode` into
 -- a Servant's @Handler@, I can give you back a "plain old" Server.
 handlers :: MonadFullWalletWebMode ctx m
-         => (m :~> Handler)
+         => (forall a. m a -> Handler a)
          -> Server V0.API
-handlers naturalTransformation = enter naturalTransformation V0.servantHandlers
+handlers naturalTransformation = hoistServer (Proxy @V0.API) naturalTransformation V0.servantHandlers

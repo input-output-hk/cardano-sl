@@ -29,35 +29,32 @@ module Pos.Context.Context
 
 import           Universum
 
-import qualified Control.Concurrent.STM   as STM
-import           Control.Lens             (lens, makeLensesWith)
-import           Data.Time.Clock          (UTCTime)
-import           Ether.Internal           (HasLens (..))
-import           System.Wlog              (LoggerConfig)
+import qualified Control.Concurrent.STM as STM
+import           Control.Lens (lens, makeLensesWith)
+import           Data.Time.Clock (UTCTime)
+import           Ether.Internal (HasLens (..))
+import           System.Wlog (LoggerConfig)
 
-import           Pos.Block.Core           (BlockHeader)
 import           Pos.Block.RetrievalQueue (BlockRetrievalQueue, BlockRetrievalQueueTag)
-import           Pos.Block.Slog.Types     (HasSlogContext (..), HasSlogGState (..),
-                                           SlogContext (..))
-import           Pos.Communication.Types  (NodeId)
-import           Pos.Core                 (HasPrimaryKey (..), Timestamp)
-import           Pos.DHT.Real.Types       (KademliaDHTInstance)
-import           Pos.Launcher.Param       (BaseParams (..), NodeParams (..))
-import           Pos.Lrc.Context          (LrcContext)
-import           Pos.Network.Types        (NetworkConfig (..))
-import           Pos.Reporting.MemState   (HasLoggerConfig (..), HasReportServers (..),
-                                           HasReportingContext (..),
-                                           ReportingContext (..))
-import           Pos.Shutdown             (HasShutdownContext (..), ShutdownContext (..))
-import           Pos.Slotting             (HasSlottingVar (..), SlottingContextSum,
-                                           SlottingData)
-import           Pos.Ssc.Types            (HasSscContext (..), SscContext)
-import           Pos.StateLock            (StateLock, StateLockMetrics)
-import           Pos.Txp.Settings         (TxpGlobalSettings)
-import           Pos.Update.Context       (UpdateContext)
-import           Pos.Util.Timer           (Timer)
-import           Pos.Util.UserSecret      (HasUserSecret (..), UserSecret)
-import           Pos.Util.Util            (postfixLFields)
+import           Pos.Block.Slog.Types (HasSlogContext (..), HasSlogGState (..), SlogContext (..))
+import           Pos.Communication.Types (NodeId)
+import           Pos.Core (HasPrimaryKey (..), Timestamp)
+import           Pos.Core.Block (BlockHeader)
+import           Pos.DHT.Real.Types (KademliaDHTInstance)
+import           Pos.Launcher.Param (BaseParams (..), NodeParams (..))
+import           Pos.Lrc.Context (LrcContext)
+import           Pos.Network.Types (NetworkConfig (..))
+import           Pos.Reporting.MemState (HasLoggerConfig (..), HasReportServers (..),
+                                         HasReportingContext (..), ReportingContext (..))
+import           Pos.Shutdown (HasShutdownContext (..), ShutdownContext (..))
+import           Pos.Slotting (HasSlottingVar (..), SlottingContextSum, SlottingData)
+import           Pos.Ssc.Types (HasSscContext (..), SscContext)
+import           Pos.StateLock (StateLock, StateLockMetrics)
+import           Pos.Txp.Settings (TxpGlobalSettings)
+import           Pos.Update.Context (UpdateContext)
+import           Pos.Util.Timer (Timer)
+import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
+import           Pos.Util.Util (postfixLFields)
 
 ----------------------------------------------------------------------------
 -- NodeContext
@@ -85,31 +82,31 @@ data SscContextTag
 
 -- | NodeContext contains runtime context of node.
 data NodeContext = NodeContext
-    { ncSscContext          :: !SscContext
+    { ncSscContext                 :: !SscContext
     -- @georgeee please add documentation when you see this comment
-    , ncUpdateContext       :: !UpdateContext
+    , ncUpdateContext              :: !UpdateContext
     -- ^ Context needed for the update system
-    , ncLrcContext          :: !LrcContext
+    , ncLrcContext                 :: !LrcContext
     -- ^ Context needed for LRC
-    , ncSlottingVar         :: !(Timestamp, TVar SlottingData)
+    , ncSlottingVar                :: !(Timestamp, TVar SlottingData)
     -- ^ Data necessary for 'MonadSlotsData'.
-    , ncSlottingContext     :: !SlottingContextSum
+    , ncSlottingContext            :: !SlottingContextSum
     -- ^ Context needed for Slotting.
-    , ncShutdownContext     :: !ShutdownContext
+    , ncShutdownContext            :: !ShutdownContext
     -- ^ Context needed for Shutdown
-    , ncSlogContext         :: !SlogContext
+    , ncSlogContext                :: !SlogContext
     -- ^ Context needed for Slog.
-    , ncStateLock           :: !StateLock
+    , ncStateLock                  :: !StateLock
     -- ^ A lock which manages access to shared resources.
     -- Stored hash is a hash of last applied block.
-    , ncStateLockMetrics    :: !StateLockMetrics
+    , ncStateLockMetrics           :: !StateLockMetrics
     -- ^ A set of callbacks for 'StateLock'.
-    , ncUserSecret          :: !(TVar UserSecret)
+    , ncUserSecret                 :: !(TVar UserSecret)
     -- ^ Secret keys (and path to file) which are used to send transactions
-    , ncBlockRetrievalQueue :: !BlockRetrievalQueue
+    , ncBlockRetrievalQueue        :: !BlockRetrievalQueue
     -- ^ Concurrent queue that holds block headers that are to be
     -- downloaded.
-    , ncRecoveryHeader      :: !RecoveryHeader
+    , ncRecoveryHeader             :: !RecoveryHeader
     -- ^ In case of recovery mode this variable holds the latest header hash
     -- we know about, and the node we're talking to, so we can do chained
     -- block requests. Invariant: this mvar is full iff we're in recovery mode
@@ -117,24 +114,24 @@ data NodeContext = NodeContext
     -- difficult than this one, we overwrite. Every time we process some
     -- blocks and fail or see that we've downloaded this header, we clean
     -- mvar.
-    , ncLastKnownHeader     :: !LastKnownHeader
+    , ncLastKnownHeader            :: !LastKnownHeader
     -- ^ Header of last known block, generated by network (announcement of
     -- which reached us). Should be use only for informational purposes
     -- (status in Daedalus). It's easy to falsify this value.
-    , ncProgressHeader      :: !ProgressHeader
+    , ncProgressHeader             :: !ProgressHeader
     -- ^ Header of the last block that was downloaded in retrieving
     -- queue. Is needed to show smooth prorgess on the frontend.
-    , ncLoggerConfig        :: !LoggerConfig
+    , ncLoggerConfig               :: !LoggerConfig
     -- ^ Logger config, as taken/read from CLI.
-    , ncNodeParams          :: !NodeParams
+    , ncNodeParams                 :: !NodeParams
     -- ^ Params node is launched with
-    , ncStartTime           :: !StartTime
+    , ncStartTime                  :: !StartTime
     -- ^ Time when node was started ('NodeContext' initialized).
-    , ncTxpGlobalSettings   :: !TxpGlobalSettings
+    , ncTxpGlobalSettings          :: !TxpGlobalSettings
     -- ^ Settings for global Txp.
-    , ncConnectedPeers      :: !ConnectedPeers
+    , ncConnectedPeers             :: !ConnectedPeers
     -- ^ Set of peers that we're connected to.
-    , ncNetworkConfig       :: !(NetworkConfig KademliaDHTInstance)
+    , ncNetworkConfig              :: !(NetworkConfig KademliaDHTInstance)
     -- ^ Timer for delaying sending keep-alive like packets to relay nodes until
     -- a specific duration after the last time a block was received has passed.
     , ncSubscriptionKeepAliveTimer :: !Timer

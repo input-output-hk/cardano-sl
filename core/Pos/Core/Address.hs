@@ -57,38 +57,32 @@ module Pos.Core.Address
 
 import           Universum
 
-import           Crypto.Hash                (Blake2b_224, Digest, SHA3_256)
-import qualified Crypto.Hash                as CryptoHash
-import qualified Data.ByteString            as BS
-import           Data.ByteString.Base58     (Alphabet (..), bitcoinAlphabet, decodeBase58,
-                                             encodeBase58)
-import           Data.Hashable              (Hashable (..))
-import qualified Data.Text.Buildable        as Buildable
-import           Formatting                 (Format, bprint, build, builder, int, later,
-                                             (%))
+import           Crypto.Hash (Blake2b_224, Digest, SHA3_256)
+import qualified Crypto.Hash as CryptoHash
+import qualified Data.ByteString as BS
+import           Data.ByteString.Base58 (Alphabet (..), bitcoinAlphabet, decodeBase58, encodeBase58)
+import           Data.Hashable (Hashable (..))
+import qualified Data.Text.Buildable as Buildable
+import           Formatting (Format, bprint, build, builder, int, later, (%))
 import           Serokell.Data.Memory.Units (Byte)
-import           Serokell.Util              (mapJson)
+import           Serokell.Util (mapJson)
 
-import           Pos.Binary.Class           (Bi, biSize)
-import qualified Pos.Binary.Class           as Bi
-import           Pos.Binary.Crypto          ()
-import           Pos.Core.Coin              ()
-import           Pos.Core.Constants         (accountGenesisIndex, wAddressGenesisIndex)
-import           Pos.Core.Types             (AddrAttributes (..), AddrSpendingData (..),
-                                             AddrStakeDistribution (..), AddrType (..),
-                                             Address (..), Address' (..), AddressHash,
-                                             Script, StakeholderId)
-import           Pos.Crypto.Hashing         (AbstractHash (AbstractHash), hashHexF,
-                                             shortHashF)
-import           Pos.Crypto.HD              (HDAddressPayload, HDPassphrase,
-                                             ShouldCheckPassphrase (..),
-                                             deriveHDPassphrase, deriveHDPublicKey,
-                                             deriveHDSecretKey, packHDAddressAttr)
-import           Pos.Crypto.Signing         (EncryptedSecretKey, PassPhrase, PublicKey,
-                                             RedeemPublicKey, SecretKey,
-                                             deterministicKeyGen, emptyPassphrase,
-                                             encToPublic, noPassEncrypt)
-import           Pos.Data.Attributes        (attrData, mkAttributes)
+import           Pos.Binary.Class (Bi, biSize)
+import qualified Pos.Binary.Class as Bi
+import           Pos.Binary.Crypto ()
+import           Pos.Core.Coin ()
+import           Pos.Core.Constants (accountGenesisIndex, wAddressGenesisIndex)
+import           Pos.Core.Types (AddrAttributes (..), AddrSpendingData (..),
+                                 AddrStakeDistribution (..), AddrType (..), Address (..),
+                                 Address' (..), AddressHash, Script, StakeholderId)
+import           Pos.Crypto.Hashing (AbstractHash (AbstractHash), hashHexF, shortHashF)
+import           Pos.Crypto.HD (HDAddressPayload, HDPassphrase, ShouldCheckPassphrase (..),
+                                deriveHDPassphrase, deriveHDPublicKey, deriveHDSecretKey,
+                                packHDAddressAttr)
+import           Pos.Crypto.Signing (EncryptedSecretKey, PassPhrase, PublicKey, RedeemPublicKey,
+                                     SecretKey, deterministicKeyGen, emptyPassphrase, encToPublic,
+                                     noPassEncrypt)
+import           Pos.Data.Attributes (attrData, mkAttributes)
 
 instance Bi Address => Hashable Address where
     hashWithSalt s = hashWithSalt s . Bi.serialize'

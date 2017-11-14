@@ -6,7 +6,7 @@ module Pos.Network.Windows.DnsDomains
 
 import           Universum
 
-import           Foreign.C             (CString, peekCString)
+import           Foreign.C (CString, peekCString)
 import           Foreign.Marshal.Utils (maybePeek)
 
 

@@ -8,14 +8,13 @@ module Test.Pos.Configuration
 
 import           Universum
 
-import qualified Data.Aeson                 as J
+import qualified Data.Aeson as J
 
-import           Pos.Core                   (BlockVersionData)
-import           Pos.Core.Configuration     (CoreConfiguration (..),
-                                             GenesisConfiguration (..))
-import           Pos.Core.Genesis           (GenesisSpec (..))
+import           Pos.Core (BlockVersionData)
+import           Pos.Core.Configuration (CoreConfiguration (..), GenesisConfiguration (..))
+import           Pos.Core.Genesis (GenesisSpec (..))
 import           Pos.Launcher.Configuration (Configuration (..))
-import           Pos.Util.Config            (embedYamlConfigCT)
+import           Pos.Util.Config (embedYamlConfigCT)
 
 -- | This configuration is embedded into binary and is used by default
 -- in tests.

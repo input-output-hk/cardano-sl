@@ -9,28 +9,28 @@ module Pos.Worker
 
 import           Universum
 
-import           Pos.Block.Worker        (blkWorkers)
-import           Pos.Communication       (OutSpecs, Relay, WorkerSpec, localWorker,
-                                          relayPropagateOut, wrapActionSpec)
-import           Pos.Context             (NodeContext (..))
-import           Pos.Delegation          (delegationRelays, dlgWorkers)
-import           Pos.DHT.Workers         (dhtWorkers)
-import           Pos.Launcher.Resource   (NodeResources (..))
-import           Pos.Network.Types       (NetworkConfig (..), SubscriptionWorker (..),
-                                          topologyRunKademlia, topologySubscriptionWorker)
-import           Pos.Security.Workers    (securityWorkers)
-import           Pos.Slotting            (logNewSlotWorker, slottingWorkers)
-import           Pos.Ssc                 (sscRelays)
-import           Pos.Ssc.Worker          (sscWorkers)
+import           Pos.Block.Worker (blkWorkers)
+import           Pos.Communication (OutSpecs, Relay, WorkerSpec, localWorker, relayPropagateOut,
+                                    wrapActionSpec)
+import           Pos.Context (NodeContext (..))
+import           Pos.Delegation (delegationRelays, dlgWorkers)
+import           Pos.DHT.Workers (dhtWorkers)
+import           Pos.Launcher.Resource (NodeResources (..))
+import           Pos.Network.Types (NetworkConfig (..), SubscriptionWorker (..),
+                                    topologyRunKademlia, topologySubscriptionWorker)
+import           Pos.Security.Workers (securityWorkers)
+import           Pos.Slotting (logNewSlotWorker, slottingWorkers)
+import           Pos.Ssc (sscRelays)
+import           Pos.Ssc.Worker (sscWorkers)
 import           Pos.Subscription.Common (subscriptionWorker)
-import           Pos.Subscription.Dht    (dhtSubscriptionWorker)
-import           Pos.Subscription.Dns    (dnsSubscriptionWorker)
-import           Pos.Txp                 (txRelays)
-import           Pos.Update              (usRelays, usWorkers)
-import           Pos.Util                (mconcatPair)
-import           Pos.Util.JsonLog        (JLEvent (JLTxReceived))
-import           Pos.Util.TimeWarp       (jsonLog)
-import           Pos.WorkMode            (WorkMode)
+import           Pos.Subscription.Dht (dhtSubscriptionWorker)
+import           Pos.Subscription.Dns (dnsSubscriptionWorker)
+import           Pos.Txp (txRelays)
+import           Pos.Update (usRelays, usWorkers)
+import           Pos.Util (mconcatPair)
+import           Pos.Util.JsonLog (JLEvent (JLTxReceived))
+import           Pos.Util.TimeWarp (jsonLog)
+import           Pos.WorkMode (WorkMode)
 
 -- | All, but in reality not all, workers used by full node.
 allWorkers

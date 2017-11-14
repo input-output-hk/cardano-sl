@@ -5,15 +5,14 @@ module Pos.Core.Version
 
 import           Universum
 
-import           Serokell.Util.Parse    (parseIntegralSafe)
-import           Text.Parsec            (parserFail, try)
-import           Text.Parsec.Char       (alphaNum, char, letter, string)
+import           Serokell.Util.Parse (parseIntegralSafe)
+import           Text.Parsec (parserFail, try)
+import           Text.Parsec.Char (alphaNum, char, letter, string)
 import           Text.Parsec.Combinator (manyTill)
-import           Text.Parsec.Text       (Parser)
+import           Text.Parsec.Text (Parser)
 
-import           Pos.Core.Types         (BlockVersion (..), SoftwareVersion (..),
-                                         mkApplicationName)
-import           Pos.Util.Util          ()
+import           Pos.Core.Types (BlockVersion (..), SoftwareVersion (..), mkApplicationName)
+import           Pos.Util.Util ()
 
 parseBlockVersion :: Parser BlockVersion
 parseBlockVersion = do

@@ -15,16 +15,15 @@ module Pos.Block.Slog.Types
 
 import           Universum
 
-import           Control.Lens          (makeClassy)
+import           Control.Lens (makeClassy)
 import qualified Data.Text.Buildable
-import           Formatting            (bprint)
-import           System.Metrics.Label  (Label)
+import           Formatting (bprint)
+import           System.Metrics.Label (Label)
 
-import           Pos.Core              (ChainDifficulty, EpochIndex, FlatSlotId,
-                                        HasConfiguration, LocalSlotIndex, slotIdF,
-                                        unflattenSlotId)
+import           Pos.Core (ChainDifficulty, EpochIndex, FlatSlotId, HasConfiguration,
+                           LocalSlotIndex, slotIdF, unflattenSlotId)
 import           Pos.Reporting.Metrics (MetricMonitorState)
-import           Pos.Util.Chrono       (OldestFirst (..))
+import           Pos.Util.Chrono (OldestFirst (..))
 
 -- | This type contains 'FlatSlotId's of the blocks whose depth is
 -- less than 'blkSecurityParam'. 'FlatSlotId' is chosen in favor of
@@ -89,7 +88,7 @@ instance HasSlogGState SlogContext where
 -- applied.
 newtype SlogUndo = SlogUndo
     { getSlogUndo :: Maybe FlatSlotId
-    } deriving (NFData)
+    } deriving (NFData, Generic)
 
 instance HasConfiguration => Buildable SlogUndo where
     build (SlogUndo oldSlot) =

@@ -7,15 +7,14 @@ module Test.Pos.Util.LimitsSpec
 
 import           Universum
 
-import qualified Data.HashMap.Strict        as HM
+import qualified Data.HashMap.Strict as HM
 import           Serokell.Data.Memory.Units (fromBytes)
-import           Test.Hspec                 (Spec, describe)
-import           Test.Hspec.QuickCheck      (prop)
-import           Test.QuickCheck            (arbitrary, choose, counterexample, forAll,
-                                             property, (===))
+import           Test.Hspec (Spec, describe)
+import           Test.Hspec.QuickCheck (prop)
+import           Test.QuickCheck (arbitrary, choose, counterexample, forAll, property, (===))
 
-import qualified Pos.Binary.Class           as Bi
-import           Pos.Util.Limits            (stripHashMap)
+import qualified Pos.Binary.Class as Bi
+import           Pos.Util.Limits (stripHashMap)
 
 spec :: Spec
 spec = describe "Limits" $ do

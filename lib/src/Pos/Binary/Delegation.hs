@@ -6,17 +6,12 @@ module Pos.Binary.Delegation
 
 import           Universum
 
-import           Pos.Binary.Class     (Bi (..), Cons (..), Field (..), deriveSimpleBi)
-import           Pos.Binary.Core      ()
-import           Pos.Binary.Crypto    ()
-import           Pos.Core             (ProxySKHeavy, StakeholderId, HasConfiguration)
-import           Pos.Delegation.Types (DlgPayload (getDlgPayload), DlgUndo (..),
-                                       mkDlgPayload)
-import           Pos.Util.Util        (eitherToFail)
-
-instance HasConfiguration => Bi DlgPayload where
-    encode = encode . getDlgPayload
-    decode = decode >>= eitherToFail . mkDlgPayload
+import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
+import           Pos.Binary.Core ()
+import           Pos.Binary.Core.Delegation ()
+import           Pos.Binary.Crypto ()
+import           Pos.Core (ProxySKHeavy, StakeholderId)
+import           Pos.Delegation.Types (DlgUndo (..))
 
 deriveSimpleBi ''DlgUndo [
     Cons 'DlgUndo [

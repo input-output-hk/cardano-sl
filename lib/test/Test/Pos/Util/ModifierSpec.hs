@@ -6,13 +6,13 @@ module Test.Pos.Util.ModifierSpec
 
 import           Universum
 
-import qualified Data.HashMap.Strict   as HM
-import           Test.Hspec            (Spec, describe)
+import qualified Data.HashMap.Strict as HM
+import           Test.Hspec (Spec, describe)
 import           Test.Hspec.QuickCheck (prop)
-import           Test.QuickCheck       (Property, (==>))
+import           Test.QuickCheck (Property, (==>))
 
-import qualified Pos.Util.Modifier     as Core
-import           Test.Pos.Helpers      (formsMonoid)
+import qualified Pos.Util.Modifier as Core
+import           Test.Pos.Helpers (formsMonoid)
 
 spec :: Spec
 spec = describe "MapModifier" $ do

@@ -6,38 +6,34 @@ module Test.Pos.Block.Logic.CreationSpec
 
 import           Universum
 
-import           Data.Default               (def)
+import           Data.Default (def)
 import           Serokell.Data.Memory.Units (Byte, Gigabyte, convertUnit, fromBytes)
-import           Test.Hspec                 (Spec, describe, runIO)
-import           Test.Hspec.QuickCheck      (modifyMaxSuccess, prop)
-import           Test.QuickCheck            (Gen, Property, Testable, arbitrary, choose,
-                                             counterexample, elements, forAll, generate,
-                                             listOf, listOf1, oneof, property)
+import           Test.Hspec (Spec, describe, runIO)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
+import           Test.QuickCheck (Gen, Property, Testable, arbitrary, choose, counterexample,
+                                  elements, forAll, generate, listOf, listOf1, oneof, property)
 
-import           Pos.Arbitrary.Block        ()
-import           Pos.Arbitrary.Delegation   (genDlgPayload)
-import           Pos.Arbitrary.Txp          (GoodTx, goodTxToTxAux)
-import           Pos.Arbitrary.Ssc          (commitmentMapEpochGen,
-                                             vssCertificateEpochGen)
-import           Pos.Binary.Class           (biSize)
-import           Pos.Block.Core             (BlockHeader, MainBlock)
-import           Pos.Block.Logic            (RawPayload (..), createMainBlockPure)
-import qualified Pos.Communication          ()
-import           Pos.Core                   (BlockVersionData (bvdMaxBlockSize),
-                                             HasConfiguration, SlotId (..),
-                                             blkSecurityParam, genesisBlockVersionData,
-                                             mkVssCertificatesMapLossy,
-                                             unsafeMkLocalSlotIndex)
-import           Pos.Crypto                 (SecretKey)
-import           Pos.Delegation             (DlgPayload, ProxySKBlockInfo)
-import           Pos.Ssc                    (SscPayload (..), defaultSscPayload)
-import           Pos.Txp.Core               (TxAux)
-import           Pos.Update.Configuration   (HasUpdateConfiguration)
-import           Pos.Update.Core            (UpdatePayload (..))
-import           Pos.Util                   (SmallGenerator (..), makeSmall)
+import           Pos.Arbitrary.Block ()
+import           Pos.Arbitrary.Delegation (genDlgPayload)
+import           Pos.Arbitrary.Ssc (commitmentMapEpochGen, vssCertificateEpochGen)
+import           Pos.Arbitrary.Txp (GoodTx, goodTxToTxAux)
+import           Pos.Binary.Class (biSize)
+import           Pos.Block.Logic (RawPayload (..), createMainBlockPure)
+import qualified Pos.Communication ()
+import           Pos.Core (BlockVersionData (bvdMaxBlockSize), HasConfiguration, SlotId (..),
+                           blkSecurityParam, genesisBlockVersionData, mkVssCertificatesMapLossy,
+                           unsafeMkLocalSlotIndex)
+import           Pos.Core.Block (BlockHeader, MainBlock)
+import           Pos.Core.Ssc (SscPayload (..))
+import           Pos.Core.Txp (TxAux)
+import           Pos.Core.Update (UpdatePayload (..))
+import           Pos.Crypto (SecretKey)
+import           Pos.Delegation (DlgPayload, ProxySKBlockInfo)
+import           Pos.Ssc.Base (defaultSscPayload)
+import           Pos.Update.Configuration (HasUpdateConfiguration)
+import           Pos.Util (SmallGenerator (..), makeSmall)
 
-import           Test.Pos.Util              (withDefConfiguration,
-                                             withDefUpdateConfiguration)
+import           Test.Pos.Util (withDefConfiguration, withDefUpdateConfiguration)
 
 spec :: Spec
 spec = withDefConfiguration $ withDefUpdateConfiguration $

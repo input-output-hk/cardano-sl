@@ -6,8 +6,8 @@ module Types
     , NodeIndex
     ) where
 
-import Data.Time.Units (Microsecond)
-import Universum
+import           Data.Time.Units (Microsecond)
+import           Universum
 
 type TxHash = Text
 type BlockHash = Text

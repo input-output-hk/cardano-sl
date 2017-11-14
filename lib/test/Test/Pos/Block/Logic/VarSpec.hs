@@ -6,54 +6,47 @@ module Test.Pos.Block.Logic.VarSpec
        ( spec
        ) where
 
-import           Universum                    hiding ((<>))
+import           Universum hiding ((<>))
 
-import           Control.Monad.Random.Strict  (MonadRandom (..), RandomGen, evalRandT,
-                                               uniform)
-import           Data.Default                 (def)
-import           Data.List                    (span)
-import           Data.List.NonEmpty           (NonEmpty ((:|)))
-import qualified Data.List.NonEmpty           as NE
-import qualified Data.Ratio                   as Ratio
-import           Data.Semigroup               ((<>))
-import           Test.Hspec                   (Spec, describe)
-import           Test.Hspec.QuickCheck        (modifyMaxSuccess)
-import           Test.QuickCheck.Gen          (Gen (MkGen))
-import           Test.QuickCheck.Monadic      (assert, pick, pre)
-import           Test.QuickCheck.Random       (QCGen)
+import           Control.Monad.Random.Strict (MonadRandom (..), RandomGen, evalRandT, uniform)
+import           Data.Default (def)
+import           Data.List (span)
+import           Data.List.NonEmpty (NonEmpty ((:|)))
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Ratio as Ratio
+import           Data.Semigroup ((<>))
+import           Test.Hspec (Spec, describe)
+import           Test.Hspec.QuickCheck (modifyMaxSuccess)
+import           Test.QuickCheck.Gen (Gen (MkGen))
+import           Test.QuickCheck.Monadic (assert, pick, pre)
+import           Test.QuickCheck.Random (QCGen)
 
-import           Pos.Block.Logic              (verifyAndApplyBlocks, verifyBlocksPrefix)
-import           Pos.Block.Types              (Blund)
-import           Pos.Core                     (GenesisData (..), HasConfiguration,
-                                               blkSecurityParam, epochSlots, genesisData,
-                                               headerHash)
-import           Pos.DB.Pure                  (dbPureDump)
+import           Pos.Block.Logic (verifyAndApplyBlocks, verifyBlocksPrefix)
+import           Pos.Block.Types (Blund)
+import           Pos.Core (GenesisData (..), HasConfiguration, blkSecurityParam, epochSlots,
+                           genesisData, headerHash)
+import           Pos.DB.Pure (dbPureDump)
 import           Pos.Generator.BlockEvent.DSL (BlockApplyResult (..), BlockEventGenT,
-                                               BlockRollbackFailure (..),
-                                               BlockRollbackResult (..), BlockScenario,
-                                               Path, byChance, emitBlockApply,
-                                               emitBlockRollback,
-                                               enrichWithSnapshotChecking, pathSequence,
-                                               runBlockEventGenT)
-import qualified Pos.GState                   as GS
-import           Pos.Launcher                 (HasConfigurations)
-import           Pos.Util.Chrono              (NE, NewestFirst (..), OldestFirst (..),
-                                               nonEmptyNewestFirst, nonEmptyOldestFirst,
-                                               splitAtNewestFirst, toNewestFirst,
-                                               _NewestFirst)
-import           Pos.Util.CompileInfo         (HasCompileInfo, withCompileInfo)
+                                               BlockRollbackFailure (..), BlockRollbackResult (..),
+                                               BlockScenario, Path, byChance, emitBlockApply,
+                                               emitBlockRollback, enrichWithSnapshotChecking,
+                                               pathSequence, runBlockEventGenT)
+import qualified Pos.GState as GS
+import           Pos.Launcher (HasConfigurations)
+import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), nonEmptyNewestFirst,
+                                  nonEmptyOldestFirst, splitAtNewestFirst, toNewestFirst,
+                                  _NewestFirst)
+import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 
-import           Test.Pos.Block.Logic.Event   (BlockScenarioResult (..),
-                                               DbNotEquivalentToSnapshot (..),
-                                               runBlockScenario)
-import           Test.Pos.Block.Logic.Mode    (BlockProperty, BlockTestMode)
-import           Test.Pos.Block.Logic.Util    (EnableTxPayload (..), InplaceDB (..),
-                                               bpGenBlock, bpGenBlocks,
-                                               bpGoToArbitraryState, getAllSecrets,
-                                               satisfySlotCheck)
-import           Test.Pos.Helpers             (blockPropertySpec)
-import           Test.Pos.Util                (HasStaticConfigurations, splitIntoChunks,
-                                               stopProperty, withStaticConfigurations)
+import           Test.Pos.Block.Logic.Event (BlockScenarioResult (..),
+                                             DbNotEquivalentToSnapshot (..), runBlockScenario)
+import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestMode)
+import           Test.Pos.Block.Logic.Util (EnableTxPayload (..), InplaceDB (..), bpGenBlock,
+                                            bpGenBlocks, bpGoToArbitraryState, getAllSecrets,
+                                            satisfySlotCheck)
+import           Test.Pos.Helpers (blockPropertySpec)
+import           Test.Pos.Util (HasStaticConfigurations, splitIntoChunks, stopProperty,
+                                withStaticConfigurations)
 
 
 -- stack test cardano-sl --fast --test-arguments "-m Test.Pos.Block.Logic.Var"

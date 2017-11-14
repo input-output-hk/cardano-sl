@@ -5,11 +5,11 @@ module Pos.Ssc.Lrc
 
 import           Universum
 
-import           Pos.Core                 (BlockVersionData (bvdMpcThd), EpochIndex)
-import qualified Pos.DB                   as DB
-import qualified Pos.Lrc.Consumer         as Lrc
-import qualified Pos.Lrc.Context          as Lrc
-import qualified Pos.Lrc.Types            as Lrc
+import           Pos.Core (BlockVersionData (bvdMpcThd), EpochIndex)
+import qualified Pos.DB as DB
+import qualified Pos.Lrc.Consumer as Lrc
+import qualified Pos.Lrc.Context as Lrc
+import qualified Pos.Lrc.Types as Lrc
 import           Pos.Ssc.RichmenComponent (RCSsc, getRichmenSsc)
 
 -- | Consumer will be called on every Richmen computation.

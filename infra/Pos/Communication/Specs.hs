@@ -3,10 +3,10 @@ module Pos.Communication.Specs
        ( createOutSpecs
        ) where
 
-import           Node.Message.Class            (Message (..))
+import           Node.Message.Class (Message (..))
 import           Universum
 
-import           Pos.Communication.Protocol    (OutSpecs, convH, toOutSpecs)
+import           Pos.Communication.Protocol (OutSpecs, convH, toOutSpecs)
 import           Pos.Communication.Types.Relay (InvOrData, ReqOrRes)
 
 -- FIXME (avieth)

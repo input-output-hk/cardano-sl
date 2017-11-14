@@ -11,18 +11,17 @@ module Pos.GState.Context
 
 import           Universum
 
-import           Control.Lens           (lens, makeClassy)
-import           Ether.Internal         (lensOf)
-import           System.Wlog            (WithLogger)
+import           Control.Lens (lens, makeClassy)
+import           Ether.Internal (lensOf)
+import           System.Wlog (WithLogger)
 
 import           Pos.Block.Slog.Context (cloneSlogGState)
-import           Pos.Block.Slog.Types   (HasSlogGState (..), SlogGState)
-import           Pos.DB.Pure            (cloneDBPure)
-import           Pos.DB.Sum             (DBSum (..))
-import           Pos.Lrc.Context        (HasLrcContext, LrcContext, cloneLrcContext)
-import           Pos.Slotting           (HasSlottingVar, SlottingVar, cloneSlottingVar,
-                                         slottingVar)
-import           Pos.Util               (HasLens')
+import           Pos.Block.Slog.Types (HasSlogGState (..), SlogGState)
+import           Pos.DB.Pure (cloneDBPure)
+import           Pos.DB.Sum (DBSum (..))
+import           Pos.Lrc.Context (HasLrcContext, LrcContext, cloneLrcContext)
+import           Pos.Slotting (HasSlottingVar, SlottingVar, cloneSlottingVar, slottingVar)
+import           Pos.Util (HasLens')
 
 -- | This type contains DB and in-memory contexts which basically
 -- replicate GState. It's parameterized by DB type, because we have

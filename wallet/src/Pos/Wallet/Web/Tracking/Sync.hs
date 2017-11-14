@@ -36,71 +36,58 @@ module Pos.Wallet.Web.Tracking.Sync
        ) where
 
 import           Universum
-import           Unsafe                           (unsafeLast)
+import           Unsafe (unsafeLast)
 
-import           Control.Lens                     (to)
-import           Control.Monad.Catch              (handleAll)
-import qualified Data.DList                       as DL
-import qualified Data.HashMap.Strict              as HM
-import qualified Data.List.NonEmpty               as NE
-import qualified Data.Map                         as M
-import           Ether.Internal                   (HasLens (..))
-import           Formatting                       (build, sformat, (%))
-import           System.Wlog                      (HasLoggerName, WithLogger, logError,
-                                                   logInfo, logWarning, modifyLoggerName)
+import           Control.Lens (to)
+import           Control.Monad.Catch (handleAll)
+import qualified Data.DList as DL
+import qualified Data.HashMap.Strict as HM
+import qualified Data.List.NonEmpty as NE
+import qualified Data.Map as M
+import           Ether.Internal (HasLens (..))
+import           Formatting (build, sformat, (%))
+import           System.Wlog (HasLoggerName, WithLogger, logError, logInfo, logWarning,
+                              modifyLoggerName)
 
-import           Pos.Block.Core                   (BlockHeader, getBlockHeader,
-                                                   mainBlockTxPayload)
-import           Pos.Block.Types                  (Blund, undoTx)
-import           Pos.Client.Txp.History           (TxHistoryEntry (..),
-                                                   txHistoryListToMap)
-import           Pos.Core                         (BlockHeaderStub, ChainDifficulty,
-                                                   HasConfiguration, HasDifficulty (..),
-                                                   HeaderHash, Timestamp,
-                                                   blkSecurityParam, genesisHash,
-                                                   headerHash, headerSlotL,
-                                                   timestampToPosix)
-import           Pos.Crypto                       (EncryptedSecretKey, WithHash (..),
-                                                   shortHashF, withHash)
-import qualified Pos.DB.Block                     as DB
-import qualified Pos.DB.DB                        as DB
-import qualified Pos.GState                       as GS
-import           Pos.GState.BlockExtra            (foldlUpWhileM, resolveForwardLink)
-import           Pos.Slotting                     (MonadSlots (..), MonadSlotsData,
-                                                   getSlotStartPure, getSystemStartM)
-import           Pos.StateLock                    (Priority (..), StateLock,
-                                                   withStateLockNoMetrics)
-import           Pos.Txp                          (GenesisUtxo (..), TxAux (..),
-                                                   TxOutAux (..), TxUndo,
-                                                   flattenTxPayload, genesisUtxo, toaOut,
-                                                   topsortTxs, txOutAddress,
-                                                   utxoToModifier)
-import           Pos.Txp.MemState.Class           (MonadTxpMem, getLocalTxsNUndo)
-import           Pos.Util.Chrono                  (getNewestFirst)
-import           Pos.Util.LogSafe                 (logInfoS, logWarningS)
-import qualified Pos.Util.Modifier                as MM
-import           Pos.Util.Servant                 (encodeCType)
+import           Pos.Block.Types (Blund, undoTx)
+import           Pos.Client.Txp.History (TxHistoryEntry (..), txHistoryListToMap)
+import           Pos.Core (BlockHeaderStub, ChainDifficulty, HasConfiguration, HasDifficulty (..),
+                           HeaderHash, Timestamp, blkSecurityParam, genesisHash, headerHash,
+                           headerSlotL, timestampToPosix)
+import           Pos.Core.Block (BlockHeader, getBlockHeader, mainBlockTxPayload)
+import           Pos.Core.Txp (TxAux (..), TxOutAux (..), TxUndo, toaOut, txOutAddress)
+import           Pos.Crypto (EncryptedSecretKey, WithHash (..), shortHashF, withHash)
+import qualified Pos.DB.Block as DB
+import qualified Pos.DB.DB as DB
+import qualified Pos.GState as GS
+import           Pos.GState.BlockExtra (foldlUpWhileM, resolveForwardLink)
+import           Pos.Slotting (MonadSlots (..), MonadSlotsData, getSlotStartPure, getSystemStartM)
+import           Pos.StateLock (Priority (..), StateLock, withStateLockNoMetrics)
+import           Pos.Txp (MonadTxpMem, flattenTxPayload, genesisUtxo, getLocalTxsNUndo, topsortTxs,
+                          unGenesisUtxo, utxoToModifier)
+import           Pos.Util.Chrono (getNewestFirst)
+import           Pos.Util.LogSafe (logInfoS, logWarningS)
+import qualified Pos.Util.Modifier as MM
+import           Pos.Util.Servant (encodeCType)
 
-import           Pos.Wallet.WalletMode            (WalletMempoolExt)
-import           Pos.Wallet.Web.Account           (MonadKeySearch (..))
-import           Pos.Wallet.Web.ClientTypes       (Addr, CId, CTxMeta (..),
-                                                   CWAddressMeta (..), Wal, encToCId,
-                                                   isTxLocalAddress)
-import           Pos.Wallet.Web.Error.Types       (WalletError (..))
-import           Pos.Wallet.Web.Pending.Types     (PtxBlockInfo, PtxCondition (PtxApplying, PtxInNewestBlocks))
-import           Pos.Wallet.Web.State             (AddressLookupMode (..),
-                                                   CustomAddressType (..), MonadWalletDB,
-                                                   WalletTip (..))
-import qualified Pos.Wallet.Web.State             as WS
-import           Pos.Wallet.Web.Tracking.Decrypt  (THEntryExtra (..), buildTHEntryExtra,
-                                                   eskToWalletDecrCredentials,
-                                                   isTxEntryInteresting,
-                                                   selectOwnAddresses)
+import           Pos.Wallet.WalletMode (WalletMempoolExt)
+import           Pos.Wallet.Web.Account (MonadKeySearch (..))
+import           Pos.Wallet.Web.ClientTypes (Addr, CId, CTxMeta (..), CWAddressMeta (..), Wal,
+                                             encToCId, isTxLocalAddress)
+import           Pos.Wallet.Web.Error.Types (WalletError (..))
+import           Pos.Wallet.Web.Pending.Types (PtxBlockInfo,
+                                               PtxCondition (PtxApplying, PtxInNewestBlocks))
+import           Pos.Wallet.Web.State (AddressLookupMode (..), CustomAddressType (..),
+                                       MonadWalletDB, WalletTip (..))
+import qualified Pos.Wallet.Web.State as WS
+import           Pos.Wallet.Web.Tracking.Decrypt (THEntryExtra (..), buildTHEntryExtra,
+                                                  eskToWalletDecrCredentials, isTxEntryInteresting,
+                                                  selectOwnAddresses)
 import           Pos.Wallet.Web.Tracking.Modifier (CAccModifier (..), CachedCAccModifier,
                                                    deleteAndInsertIMM, deleteAndInsertMM,
                                                    deleteAndInsertVM, indexedDeletions,
                                                    sortedInsertions)
-import           Pos.Wallet.Web.Util              (getWalletAddrMetas)
+import           Pos.Wallet.Web.Util (getWalletAddrMetas)
 
 type BlockLockMode ctx m =
      ( WithLogger m

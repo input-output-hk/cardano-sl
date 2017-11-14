@@ -16,15 +16,15 @@ module Pos.Merkle
 
 import           Universum
 
-import           Data.Bits           (Bits (..))
-import           Data.ByteArray      (ByteArrayAccess, convert)
-import           Data.Coerce         (coerce)
-import qualified Data.Foldable       as Foldable
+import           Data.Bits (Bits (..))
+import           Data.ByteArray (ByteArrayAccess, convert)
+import           Data.Coerce (coerce)
+import qualified Data.Foldable as Foldable
 import qualified Data.Text.Buildable as Buildable
 import qualified Prelude
 
-import           Pos.Binary.Class    (Bi, Raw, serialize')
-import           Pos.Crypto          (Hash, hashRaw)
+import           Pos.Binary.Class (Bi, Raw, serialize')
+import           Pos.Crypto (Hash, hashRaw)
 
 -- | Data type for root of merkle tree.
 newtype MerkleRoot a = MerkleRoot

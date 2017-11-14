@@ -12,20 +12,19 @@ module Pos.Delegation.Cede.Holders
 
 import           Universum
 
-import           Control.Lens                 (at, (%=))
+import           Control.Lens (at, (%=))
 import           Control.Monad.Trans.Identity (IdentityT (..))
-import           Data.Coerce                  (coerce)
-import qualified Data.HashMap.Strict          as HM
-import           Data.HashSet                 as HS
+import           Data.Coerce (coerce)
+import qualified Data.HashMap.Strict as HM
+import           Data.HashSet as HS
 import qualified Ether
 
-import           Pos.DB.Class                 (MonadDBRead)
-import           Pos.Delegation.Cede.Class    (MonadCede (..), MonadCedeRead (..))
-import           Pos.Delegation.Cede.Types    (CedeModifier, DlgEdgeAction (..),
-                                               cmHasPostedThisEpoch, cmPskMods,
-                                               dlgEdgeActionIssuer)
-import qualified Pos.Delegation.DB            as DB
-import           Pos.Util.Util                (ether)
+import           Pos.DB.Class (MonadDBRead)
+import           Pos.Delegation.Cede.Class (MonadCede (..), MonadCedeRead (..))
+import           Pos.Delegation.Cede.Types (CedeModifier, DlgEdgeAction (..), cmHasPostedThisEpoch,
+                                            cmPskMods, dlgEdgeActionIssuer)
+import qualified Pos.Delegation.DB as DB
+import           Pos.Util.Util (ether)
 
 ----------------------------------------------------------------------------
 -- Pure database-only holder

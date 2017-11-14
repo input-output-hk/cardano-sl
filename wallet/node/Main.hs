@@ -9,39 +9,36 @@ module Main
        ( main
        ) where
 
-import           Universum            hiding (over)
+import           Universum hiding (over)
 
-import           Data.Maybe           (fromJust)
-import           Formatting           (sformat, shown, (%))
-import           Mockable             (Production, currentTime, runProduction)
-import           System.Wlog          (logInfo, modifyLoggerName)
+import           Data.Maybe (fromJust)
+import           Formatting (sformat, shown, (%))
+import           Mockable (Production, currentTime, runProduction)
+import           System.Wlog (logInfo, modifyLoggerName)
 
-import           Pos.Binary           ()
-import           Pos.Client.CLI       (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
-import qualified Pos.Client.CLI       as CLI
-import           Pos.Communication    (ActionSpec (..), OutSpecs, WorkerSpec, worker)
-import           Pos.Context          (HasNodeContext)
-import           Pos.Core             (Timestamp (..), gdStartTime, genesisData)
-import           Pos.DB.DB            (initNodeDBs)
-import           Pos.Launcher         (ConfigurationOptions (..), HasConfigurations,
-                                       NodeParams (..), NodeResources (..),
-                                       bracketNodeResources, loggerBracket, runNode,
-                                       withConfigurations)
-import           Pos.Ssc.Types        (SscParams)
-import           Pos.Txp              (txpGlobalSettings)
-import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo,
-                                       withCompileInfo)
-import           Pos.Util.UserSecret  (usVss)
-import           Pos.Wallet.Web       (WalletWebMode, bracketWalletWS, bracketWalletWebDB,
-                                       getSKById, runWRealMode, syncWalletsWithGState,
-                                       walletServeWebFull, walletServerOuts)
+import           Pos.Binary ()
+import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
+import qualified Pos.Client.CLI as CLI
+import           Pos.Communication (ActionSpec (..), OutSpecs, WorkerSpec, worker)
+import           Pos.Context (HasNodeContext)
+import           Pos.Core (Timestamp (..), gdStartTime, genesisData)
+import           Pos.DB.DB (initNodeDBs)
+import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
+                               NodeResources (..), bracketNodeResources, loggerBracket, runNode,
+                               withConfigurations)
+import           Pos.Ssc.Types (SscParams)
+import           Pos.Txp (txpGlobalSettings)
+import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
+import           Pos.Util.UserSecret (usVss)
+import           Pos.Wallet.Web (WalletWebMode, bracketWalletWS, bracketWalletWebDB, getSKById,
+                                 runWRealMode, syncWalletsWithGState, walletServeWebFull,
+                                 walletServerOuts)
 import           Pos.Wallet.Web.State (cleanupAcidStatePeriodically, flushWalletStorage,
                                        getWalletAddresses)
-import           Pos.Web              (serveWeb)
-import           Pos.WorkMode         (WorkMode)
+import           Pos.Web (serveWeb)
+import           Pos.WorkMode (WorkMode)
 
-import           NodeOptions          (WalletArgs (..), WalletNodeArgs (..),
-                                       getWalletNodeOptions)
+import           NodeOptions (WalletArgs (..), WalletNodeArgs (..), getWalletNodeOptions)
 
 
 ----------------------------------------------------------------------------

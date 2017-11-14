@@ -14,23 +14,22 @@ module Pos.Communication.Server
 import           Universum
 
 import qualified Network.Broadcast.OutboundQueue as OQ
-import           System.Wlog                     (LoggerName)
+import           System.Wlog (LoggerName)
 
-import           Pos.Binary.Communication        ()
-import           Pos.Block.Network.Listeners     (blockListeners)
-import           Pos.Communication.Protocol      (EnqueueMsg, MkListeners (..))
-import           Pos.Communication.Relay         (relayListeners)
-import           Pos.Communication.Util          (wrapListener)
-import           Pos.Delegation.Listeners        (delegationRelays)
-import           Pos.Network.Types               (Bucket, NodeId, Topology,
-                                                  topologySubscribers)
-import           Pos.Ssc                         (sscRelays)
-import           Pos.Subscription.Common         (subscriptionListeners)
-import           Pos.Txp                         (txRelays)
-import           Pos.Update                      (usRelays)
-import           Pos.Util.JsonLog                (JLEvent (JLTxReceived))
-import           Pos.Util.TimeWarp               (jsonLog)
-import           Pos.WorkMode.Class              (WorkMode)
+import           Pos.Binary.Communication ()
+import           Pos.Block.Network.Listeners (blockListeners)
+import           Pos.Communication.Protocol (EnqueueMsg, MkListeners (..))
+import           Pos.Communication.Relay (relayListeners)
+import           Pos.Communication.Util (wrapListener)
+import           Pos.Delegation.Listeners (delegationRelays)
+import           Pos.Network.Types (Bucket, NodeId, Topology, topologySubscribers)
+import           Pos.Ssc (sscRelays)
+import           Pos.Subscription.Common (subscriptionListeners)
+import           Pos.Txp (txRelays)
+import           Pos.Update (usRelays)
+import           Pos.Util.JsonLog (JLEvent (JLTxReceived))
+import           Pos.Util.TimeWarp (jsonLog)
+import           Pos.WorkMode.Class (WorkMode)
 
 -- | All listeners running on one node.
 allListeners

@@ -29,25 +29,23 @@ module Pos.Generator.BlockEvent.DSL
 
 import           Universum
 
-import           Control.Lens                (at, makeLenses, (%=), (.=))
+import           Control.Lens (at, makeLenses, (%=), (.=))
 import           Control.Monad.Random.Strict (RandT, RandomGen, mapRandT)
-import qualified Data.Map                    as Map
+import qualified Data.Map as Map
 
-import           Pos.AllSecrets              (AllSecrets)
-import           Pos.Core                    (GenesisWStakeholders)
-import           Pos.Generator.Block         (BlockTxpGenMode, MonadBlockGen)
-import           Pos.Generator.BlockEvent    (BlockApplyResult (..), BlockDesc (..),
-                                              BlockEvent' (..), BlockEventApply' (..),
-                                              BlockEventRollback' (..),
-                                              BlockRollbackFailure (..),
-                                              BlockRollbackResult (..), BlockScenario,
-                                              BlockScenario' (..), Chance (..),
-                                              CheckCount (..), Path, PathSegment,
-                                              SnapshotId, SnapshotOperation (..),
-                                              byChance, enrichWithSnapshotChecking,
-                                              genBlocksInStructure, pathSequence)
-import           Pos.Util.Chrono             (NE, NewestFirst (..), OldestFirst (..),
-                                              toOldestFirst, _NewestFirst)
+import           Pos.AllSecrets (AllSecrets)
+import           Pos.Core (GenesisWStakeholders)
+import           Pos.Generator.Block (BlockTxpGenMode, MonadBlockGen)
+import           Pos.Generator.BlockEvent (BlockApplyResult (..), BlockDesc (..), BlockEvent' (..),
+                                           BlockEventApply' (..), BlockEventRollback' (..),
+                                           BlockRollbackFailure (..), BlockRollbackResult (..),
+                                           BlockScenario, BlockScenario' (..), Chance (..),
+                                           CheckCount (..), Path, PathSegment, SnapshotId,
+                                           SnapshotOperation (..), byChance,
+                                           enrichWithSnapshotChecking, genBlocksInStructure,
+                                           pathSequence)
+import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toOldestFirst,
+                                  _NewestFirst)
 
 data BlockEventGenState = BlockEventGenState
     { _begsEvents      :: !(NewestFirst [] (BlockEvent' Path))

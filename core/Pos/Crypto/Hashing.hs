@@ -37,21 +37,21 @@ module Pos.Crypto.Hashing
 
 import           Universum
 
-import           Control.Lens         (makeLensesFor)
-import           Crypto.Hash          (Blake2b_256, Digest, HashAlgorithm, hashDigestSize)
-import qualified Crypto.Hash          as Hash
-import qualified Data.ByteArray       as ByteArray
-import           Data.Coerce          (coerce)
-import           Data.Hashable        (Hashable (hashWithSalt), hashPtrWithSalt)
-import           Data.Reflection      (reifyNat)
-import qualified Data.Text.Buildable  as Buildable
-import           Formatting           (Format, bprint, fitLeft, later, (%.))
+import           Control.Lens (makeLensesFor)
+import           Crypto.Hash (Blake2b_256, Digest, HashAlgorithm, hashDigestSize)
+import qualified Crypto.Hash as Hash
+import qualified Data.ByteArray as ByteArray
+import           Data.Coerce (coerce)
+import           Data.Hashable (Hashable (hashWithSalt), hashPtrWithSalt)
+import           Data.Reflection (reifyNat)
+import qualified Data.Text.Buildable as Buildable
+import           Formatting (Format, bprint, fitLeft, later, (%.))
 import qualified Prelude
 import qualified Serokell.Util.Base16 as B16
-import           System.IO.Unsafe     (unsafeDupablePerformIO)
+import           System.IO.Unsafe (unsafeDupablePerformIO)
 
-import           Pos.Binary.Class     (Bi, Raw)
-import qualified Pos.Binary.Class     as Bi
+import           Pos.Binary.Class (Bi, Raw)
+import qualified Pos.Binary.Class as Bi
 
 ----------------------------------------------------------------------------
 -- WithHash

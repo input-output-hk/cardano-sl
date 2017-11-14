@@ -29,21 +29,21 @@ module Pos.Crypto.Signing.Signing
        , module Pos.Crypto.Signing.Types.Signing
        ) where
 
-import qualified Cardano.Crypto.Wallet            as CC
-import           Crypto.Random                    (MonadRandom, getRandomBytes)
-import           Data.ByteArray                   (ScrubbedBytes)
-import qualified Data.ByteString                  as BS
-import           Data.Coerce                      (coerce)
-import           Formatting                       (Format, build, later, sformat, (%))
-import qualified Serokell.Util.Base16             as B16
-import           Universum                        hiding (show)
+import qualified Cardano.Crypto.Wallet as CC
+import           Crypto.Random (MonadRandom, getRandomBytes)
+import           Data.ByteArray (ScrubbedBytes)
+import qualified Data.ByteString as BS
+import           Data.Coerce (coerce)
+import           Formatting (Format, build, later, sformat, (%))
+import qualified Serokell.Util.Base16 as B16
+import           Universum hiding (show)
 
-import           Pos.Binary.Class                 (Bi, Raw)
-import qualified Pos.Binary.Class                 as Bi
-import           Pos.Core.Configuration.Protocol  (HasProtocolConstants)
-import           Pos.Crypto.Signing.Tag           (signTag)
+import           Pos.Binary.Class (Bi, Raw)
+import qualified Pos.Binary.Class as Bi
+import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
+import           Pos.Crypto.Signing.Tag (signTag)
 import           Pos.Crypto.Signing.Types.Signing
-import           Pos.Crypto.Signing.Types.Tag     (SignTag (SignProxySK))
+import           Pos.Crypto.Signing.Types.Tag (SignTag (SignProxySK))
 
 ----------------------------------------------------------------------------
 -- Keys, key generation & printing & decoding

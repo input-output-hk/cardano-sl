@@ -6,8 +6,8 @@ module Pos.Ssc.Behavior
 
 import           Universum
 
-import qualified Data.Aeson             as A
-import           Data.Default           (Default (..))
+import qualified Data.Aeson as A
+import           Data.Default (Default (..))
 import           Serokell.Aeson.Options (defaultOptions)
 
 ----------------------------------------------------------------------------

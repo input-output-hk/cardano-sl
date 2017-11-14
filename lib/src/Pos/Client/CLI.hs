@@ -7,8 +7,8 @@ module Pos.Client.CLI
        , module Pos.Client.CLI.Util
        ) where
 
-import          Pos.Client.CLI.NodeOptions
-import          Pos.Client.CLI.Options
-import          Pos.Client.CLI.Params
-import          Pos.Client.CLI.Secrets
-import          Pos.Client.CLI.Util
+import           Pos.Client.CLI.NodeOptions
+import           Pos.Client.CLI.Options
+import           Pos.Client.CLI.Params
+import           Pos.Client.CLI.Secrets
+import           Pos.Client.CLI.Util

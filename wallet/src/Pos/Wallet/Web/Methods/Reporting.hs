@@ -8,9 +8,9 @@ module Pos.Wallet.Web.Methods.Reporting
 
 import           Universum
 
-import           Pos.Reporting.Methods      (MonadReporting, reportInfo)
+import           Pos.Reporting.Methods (MonadReporting, reportInfo)
 import           Pos.Wallet.Web.ClientTypes (CInitialized)
-import           Servant.API.ContentTypes   (NoContent (..))
+import           Servant.API.ContentTypes (NoContent (..))
 
 -- REPORT:INFO Time to initialize Daedalus info (from start to main screen, from start to network connection established)
 reportingInitialized :: MonadReporting ctx m => CInitialized -> m NoContent

@@ -2,12 +2,12 @@ module Pos.Util.Justify
        ( leftAlign
        ) where
 
-import           Universum          hiding ((<>))
+import           Universum hiding ((<>))
 
-import qualified Data.List          as List
+import qualified Data.List as List
 import qualified Data.List.NonEmpty as NonEmpty
-import           Data.Semigroup     ((<>))
-import qualified Data.Text          as Text
+import           Data.Semigroup ((<>))
+import qualified Data.Text as Text
 
 data Line = Line
   { lineWidth :: Int

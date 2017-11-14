@@ -9,22 +9,23 @@ module Pos.Communication.Methods
        , sendUpdateProposal
        ) where
 
-import           Formatting                 (sformat, (%))
-import           System.Wlog                (logInfo)
+import           Formatting (sformat, (%))
+import           System.Wlog (logInfo)
 import           Universum
 
-import           Pos.Binary.Communication   ()
-import           Pos.Binary.Core            ()
-import           Pos.Binary.Relay           ()
-import           Pos.Communication.Message  ()
+import           Pos.Binary.Communication ()
+import           Pos.Binary.Core ()
+import           Pos.Binary.Relay ()
+import           Pos.Binary.Txp ()
+import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..))
-import           Pos.Communication.Relay    (invReqDataFlowTK, resOk)
-import           Pos.Crypto                 (hash, hashHexF)
-import           Pos.DB.Class               (MonadGState)
-import           Pos.Txp.Core.Types         (TxAux (..))
-import           Pos.Txp.Network.Types      (TxMsgContents (..))
-import           Pos.Update                 (UpId, UpdateProposal, UpdateVote, mkVoteId)
-import           Pos.WorkMode.Class         (MinWorkMode)
+import           Pos.Communication.Relay (invReqDataFlowTK, resOk)
+import           Pos.Core.Txp (TxAux (..))
+import           Pos.Crypto (hash, hashHexF)
+import           Pos.DB.Class (MonadGState)
+import           Pos.Txp.Network.Types (TxMsgContents (..))
+import           Pos.Update (UpId, UpdateProposal, UpdateVote, mkVoteId)
+import           Pos.WorkMode.Class (MinWorkMode)
 
 
 -- | Send Tx to given addresses.

@@ -21,33 +21,33 @@ module Pos.Util.JsonLog
 
 import           Universum
 
-import           Control.Monad.Except          (MonadError)
-import           Control.Monad.Trans.Identity  (IdentityT (..))
-import           Data.Aeson                    (encode)
-import           Data.Aeson.TH                 (deriveJSON)
-import           Data.Aeson.Types              (ToJSON)
-import qualified Data.ByteString.Lazy          as LBS
+import           Control.Monad.Except (MonadError)
+import           Control.Monad.Trans.Identity (IdentityT (..))
+import           Data.Aeson (encode)
+import           Data.Aeson.TH (deriveJSON)
+import           Data.Aeson.Types (ToJSON)
+import qualified Data.ByteString.Lazy as LBS
 import qualified Ether
-import           Formatting                    (sformat)
-import           JsonLog.CanJsonLog            (CanJsonLog)
-import           JsonLog.JsonLogT              (JsonLogConfig (..))
-import qualified JsonLog.JsonLogT              as JL
-import           Mockable                      (Catch, Mockable, realTime)
-import           Serokell.Aeson.Options        (defaultOptions)
-import           System.Wlog                   (WithLogger)
+import           Formatting (sformat)
+import           JsonLog.CanJsonLog (CanJsonLog)
+import           JsonLog.JsonLogT (JsonLogConfig (..))
+import qualified JsonLog.JsonLogT as JL
+import           Mockable (Catch, Mockable, realTime)
+import           Serokell.Aeson.Options (defaultOptions)
+import           System.Wlog (WithLogger)
 
-import           Pos.Binary.Block              ()
-import           Pos.Binary.Core               ()
-import           Pos.Block.Core                (Block, mainBlockTxPayload)
-import           Pos.Block.Core.Genesis.Lens   (genBlockEpoch)
-import           Pos.Block.Core.Main.Lens      (mainBlockSlot)
+import           Pos.Binary.Core ()
+import           Pos.Block.BHelpers ()
 import           Pos.Communication.Relay.Logic (InvReqDataFlowLog)
-import           Pos.Core                      (HasConfiguration, SlotId (..), gbHeader,
-                                                gbhPrevBlock, getSlotIndex, headerHash,
-                                                mkLocalSlotIndex)
-import           Pos.Crypto                    (hash, hashHexF)
-import           Pos.Txp                       (JLTxR (..), MemPoolModifyReason, txpTxs)
-import           Pos.Types                     (EpochIndex (..), HeaderHash, headerHashF)
+import           Pos.Core (HasConfiguration, SlotId (..), gbHeader, gbhPrevBlock, getSlotIndex,
+                           headerHash, mkLocalSlotIndex)
+import           Pos.Core.Block (Block, mainBlockTxPayload)
+import           Pos.Core.Block.Genesis.Lens (genBlockEpoch)
+import           Pos.Core.Block.Main.Lens (mainBlockSlot)
+import           Pos.Core.Txp (txpTxs)
+import           Pos.Crypto (hash, hashHexF)
+import           Pos.Txp (JLTxR (..), MemPoolModifyReason)
+import           Pos.Types (EpochIndex (..), HeaderHash, headerHashF)
 
 type BlockId = Text
 type TxId = Text

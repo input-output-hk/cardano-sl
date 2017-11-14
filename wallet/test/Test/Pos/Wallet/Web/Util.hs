@@ -7,7 +7,10 @@ module Test.Pos.Wallet.Web.Util
        , wpGenBlock
 
        -- * Wallet utils
+       , importWallets
        , importSomeWallets
+       , importSingleWallet
+       , mostlyEmptyPassphrases
        , deriveRandomAddress
        , genWalletLvl2KeyPair
        , genWalletAddress
@@ -16,48 +19,43 @@ module Test.Pos.Wallet.Web.Util
        ) where
 
 import           Universum
-import           Unsafe                         (unsafeHead)
+import           Unsafe (unsafeHead)
 
-import           Control.Concurrent.STM         (putTMVar, tryTakeTMVar, writeTVar)
-import           Control.Monad.Random.Strict    (evalRandT)
-import           Data.List                      ((!!))
-import qualified Data.Map                       as M
-import           Formatting                     (build, sformat, (%))
-import           Test.QuickCheck                (Arbitrary (..), choose, sublistOf,
-                                                 suchThat, vectorOf)
-import           Test.QuickCheck.Gen            (Gen (MkGen))
-import           Test.QuickCheck.Monadic        (assert, pick)
+import           Control.Concurrent.STM (putTMVar, tryTakeTMVar, writeTVar)
+import           Control.Monad.Random.Strict (evalRandT)
+import           Data.List ((!!))
+import qualified Data.Map as M
+import           Formatting (build, sformat, (%))
+import           Test.QuickCheck (Arbitrary (..), choose, frequency, sublistOf, suchThat, vectorOf)
+import           Test.QuickCheck.Gen (Gen (MkGen))
+import           Test.QuickCheck.Monadic (assert, pick)
 
-import           Pos.Block.Core                 (blockHeader)
-import           Pos.Block.Types                (Blund)
-import           Pos.Client.KeyStorage          (getSecretKeysPlain)
-import           Pos.Client.Txp.Balances        (getBalance)
-import           Pos.Context                    (LastKnownHeaderTag, ProgressHeaderTag)
-import           Pos.Core                       (Address, BlockCount, Coin,
-                                                 HasConfiguration, genesisSecretsPoor,
-                                                 headerHashG)
-import           Pos.Core.Address               (IsBootstrapEraAddr (..),
-                                                 deriveLvl2KeyPair)
-import           Pos.Crypto                     (EncryptedSecretKey, PassPhrase,
-                                                 ShouldCheckPassphrase (..),
-                                                 firstHardened)
-import           Pos.Generator.Block            (genBlocks)
-import           Pos.Launcher                   (HasConfigurations)
-import           Pos.StateLock                  (Priority (..), modifyStateLock)
-import           Pos.Txp.Core                   (TxIn, TxOut (..), TxOutAux (..))
-import           Pos.Txp.Toil                   (Utxo)
-import           Pos.Util.Chrono                (OldestFirst (..))
-import           Pos.Util.CompileInfo           (HasCompileInfo)
-import           Pos.Util.Servant               (encodeCType)
-import           Pos.Util.UserSecret            (mkGenesisWalletUserSecret)
-import           Pos.Util.Util                  (HasLens (..), _neLast)
-import           Pos.Wallet.Web.ClientTypes     (Addr, CId, Wal, encToCId)
+import           Pos.Block.Types (Blund)
+import           Pos.Client.KeyStorage (getSecretKeysPlain)
+import           Pos.Client.Txp.Balances (getBalance)
+import           Pos.Context (LastKnownHeaderTag, ProgressHeaderTag)
+import           Pos.Core (Address, BlockCount, Coin, HasConfiguration, genesisSecretsPoor,
+                           headerHashG)
+import           Pos.Core.Address (IsBootstrapEraAddr (..), deriveLvl2KeyPair)
+import           Pos.Core.Block (blockHeader)
+import           Pos.Core.Txp (TxIn, TxOut (..), TxOutAux (..))
+import           Pos.Crypto (EncryptedSecretKey, PassPhrase, ShouldCheckPassphrase (..),
+                             emptyPassphrase, firstHardened)
+import           Pos.Generator.Block (genBlocks)
+import           Pos.Launcher (HasConfigurations)
+import           Pos.StateLock (Priority (..), modifyStateLock)
+import           Pos.Txp.Toil (Utxo)
+import           Pos.Util.Chrono (OldestFirst (..))
+import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Util.Servant (encodeCType)
+import           Pos.Util.UserSecret (mkGenesisWalletUserSecret)
+import           Pos.Util.Util (HasLens (..), _neLast)
+import           Pos.Wallet.Web.ClientTypes (Addr, CId, Wal, encToCId)
 import           Pos.Wallet.Web.Methods.Restore (importWalletDo)
 
-import           Test.Pos.Block.Logic.Util      (EnableTxPayload, InplaceDB,
-                                                 genBlockGenParams)
-import           Test.Pos.Util                  (assertProperty, maybeStopProperty)
-import           Test.Pos.Wallet.Web.Mode       (WalletProperty)
+import           Test.Pos.Block.Logic.Util (EnableTxPayload, InplaceDB, genBlockGenParams)
+import           Test.Pos.Util (assertProperty, maybeStopProperty)
+import           Test.Pos.Wallet.Web.Mode (WalletProperty)
 
 ----------------------------------------------------------------------------
 -- Block utils
@@ -98,22 +96,42 @@ wpGenBlock = fmap (unsafeHead . toList) ... wpGenBlocks (Just 1)
 -- Wallet test helpers
 ----------------------------------------------------------------------------
 
--- | Import some nonempty set, but not bigger than 10 elements, of genesis secrets.
+-- | Import some nonempty set, but not bigger than given number of elements, of genesis secrets.
 -- Returns corresponding passphrases.
-importSomeWallets :: (HasConfigurations, HasCompileInfo) => WalletProperty [PassPhrase]
-importSomeWallets = do
+importWallets
+    :: (HasConfigurations, HasCompileInfo)
+    => Int -> Gen PassPhrase -> WalletProperty [PassPhrase]
+importWallets numLimit passGen = do
     let secrets =
             fromMaybe (error "Generated secrets are unknown") genesisSecretsPoor
     (encSecrets, passphrases) <- pick $ do
-        seks <- take 10 <$> sublistOf secrets `suchThat` (not . null)
+        seks <- take numLimit <$> sublistOf secrets `suchThat` (not . null)
         let l = length seks
-        passwds <- vectorOf l arbitrary
+        passwds <- vectorOf l passGen
         pure (seks, passwds)
     let wuses = map mkGenesisWalletUserSecret encSecrets
     lift $ mapM_ (uncurry importWalletDo) (zip passphrases wuses)
     skeys <- lift getSecretKeysPlain
     assertProperty (not (null skeys)) "Empty set of imported keys"
     pure passphrases
+
+importSomeWallets
+    :: (HasConfigurations, HasCompileInfo)
+    => Gen PassPhrase -> WalletProperty [PassPhrase]
+importSomeWallets = importWallets 10
+
+importSingleWallet
+    :: (HasConfigurations, HasCompileInfo)
+    => Gen PassPhrase -> WalletProperty PassPhrase
+importSingleWallet passGen =
+    fromMaybe (error "No wallets imported") . head <$> importWallets 1 passGen
+
+mostlyEmptyPassphrases :: Gen PassPhrase
+mostlyEmptyPassphrases =
+    frequency
+        [ (5, pure emptyPassphrase)
+        , (1, arbitrary)
+        ]
 
 -- | Take passphrases of our wallets
 -- and return some address from one of our wallets and id of this wallet.

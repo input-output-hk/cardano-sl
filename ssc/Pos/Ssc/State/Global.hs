@@ -14,20 +14,19 @@ module Pos.Ssc.State.Global
        , sscGetGlobalState
        ) where
 
-import           Formatting            (build, sformat, (%))
-import           System.Wlog           (WithLogger, logDebug, logInfo)
+import           Formatting (build, sformat, (%))
+import           System.Wlog (WithLogger, logDebug, logInfo)
 import           Universum
 
-import           Pos.Binary.Ssc        ()
-import           Pos.Core              (EpochIndex (..), HasConfiguration, SlotId (..),
-                                        VssCertificatesMap (..))
-import           Pos.DB                (MonadDBRead)
+import           Pos.Binary.Ssc ()
+import           Pos.Core (EpochIndex (..), HasConfiguration, SlotId (..), VssCertificatesMap (..))
+import           Pos.DB (MonadDBRead)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
-import qualified Pos.Ssc.DB            as DB
-import           Pos.Ssc.Functions     (getStableCertsPure)
-import           Pos.Ssc.Mem           (MonadSscMem, sscRunGlobalQuery)
-import           Pos.Ssc.Types         (SscGlobalState (..), sgsVssCertificates)
-import qualified Pos.Ssc.VssCertData   as VCD
+import qualified Pos.Ssc.DB as DB
+import           Pos.Ssc.Functions (getStableCertsPure)
+import           Pos.Ssc.Mem (MonadSscMem, sscRunGlobalQuery)
+import           Pos.Ssc.Types (SscGlobalState (..), sgsVssCertificates)
+import qualified Pos.Ssc.VssCertData as VCD
 
 ----------------------------------------------------------------------------
 -- Certs

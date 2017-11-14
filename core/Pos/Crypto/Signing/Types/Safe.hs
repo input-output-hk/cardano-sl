@@ -6,28 +6,26 @@ module Pos.Crypto.Signing.Types.Safe
        , SafeSigner (..)
        , passphraseLength
        , emptyPassphrase
-       , mkEncSecretWithSalt
-       , mkEncSecret
+       , mkEncSecretWithSaltUnsafe
+       , mkEncSecretUnsafe
        , encToSecret
        , encToPublic
        , noPassEncrypt
        , checkPassMatches
        ) where
 
-import qualified Cardano.Crypto.Wallet            as CC
-import           Crypto.Random                    (MonadRandom)
-import           Data.ByteArray                   (ByteArray, ByteArrayAccess,
-                                                   ScrubbedBytes)
-import           Data.Default                     (Default (..))
-import           Data.Text.Buildable              (build)
-import qualified Data.Text.Buildable              as B
+import qualified Cardano.Crypto.Wallet as CC
+import           Crypto.Random (MonadRandom)
+import           Data.ByteArray (ByteArray, ByteArrayAccess, ScrubbedBytes)
+import           Data.Default (Default (..))
+import           Data.Text.Buildable (build)
+import qualified Data.Text.Buildable as B
 import qualified Prelude
 import           Universum
 
-import           Pos.Binary.Class                 (Bi)
-import qualified Pos.Crypto.Scrypt                as S
-import           Pos.Crypto.Signing.Types.Signing (PublicKey (..), SecretKey (..),
-                                                   toPublic)
+import           Pos.Binary.Class (Bi)
+import qualified Pos.Crypto.Scrypt as S
+import           Pos.Crypto.Signing.Types.Signing (PublicKey (..), SecretKey (..), toPublic)
 
 -- | Encrypted HD secret key.
 data EncryptedSecretKey = EncryptedSecretKey
@@ -79,18 +77,20 @@ passScryptParam =
 
 -- | Wrap raw secret key, attaching hash to it.
 -- Hash is evaluated using given salt.
-mkEncSecretWithSalt
+-- This function assumes that passphrase matches with secret key.
+mkEncSecretWithSaltUnsafe
     :: Bi PassPhrase
     => S.Salt -> PassPhrase -> CC.XPrv -> EncryptedSecretKey
-mkEncSecretWithSalt salt pp payload =
+mkEncSecretWithSaltUnsafe salt pp payload =
     EncryptedSecretKey payload $ S.encryptPassWithSalt passScryptParam salt pp
 
 -- | Wrap raw secret key, attachind hash to it.
 -- Hash is evaluated using generated salt.
-mkEncSecret
+-- This function assumes that passphrase matches with secret key.
+mkEncSecretUnsafe
     :: (Bi PassPhrase, MonadRandom m)
     => PassPhrase -> CC.XPrv -> m EncryptedSecretKey
-mkEncSecret pp payload =
+mkEncSecretUnsafe pp payload =
     EncryptedSecretKey payload <$> S.encryptPass passScryptParam pp
 
 -- | Generate a secret key from encrypted secret key.
@@ -107,7 +107,7 @@ noPassEncrypt
     :: Bi PassPhrase
     => SecretKey -> EncryptedSecretKey
 noPassEncrypt (SecretKey k) =
-    mkEncSecretWithSalt S.emptySalt emptyPassphrase k
+    mkEncSecretWithSaltUnsafe S.emptySalt emptyPassphrase k
 
 -- Here with types to avoid module import cycles:
 checkPassMatches

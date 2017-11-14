@@ -17,8 +17,8 @@ self: {
           pname = "Cabal";
           version = "1.24.2.0";
           sha256 = "b7d0eb8e3503fbca460c0a6ca5c88352cecfe1b69e0bbc79827872134ed86340";
-          revision = "1";
-          editedCabalFile = "0jw809psa2ms9sy1mnirmbj9h7rs76wbmf24zgjqvhp4wq919z3m";
+          revision = "2";
+          editedCabalFile = "15ncrm7x2lg4hn0m5mhc8hy769bzhmajsm6l9i6536plfs2bbbdj";
           libraryHaskellDepends = [
             array
             base
@@ -1191,6 +1191,7 @@ self: {
             cardano-sl-ssc
             cardano-sl-txp
             cardano-sl-update
+            cborg
             cereal
             conduit
             containers
@@ -1218,6 +1219,7 @@ self: {
             formatting
             generic-arbitrary
             hashable
+            hspec
             http-client
             http-client-tls
             http-conduit
@@ -1647,7 +1649,10 @@ self: {
             bytestring
             cardano-sl
             cardano-sl-core
+            cardano-sl-db
+            cardano-sl-ssc
             cardano-sl-txp
+            cardano-sl-update
             cborg
             cereal
             containers

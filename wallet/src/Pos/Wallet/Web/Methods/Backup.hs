@@ -9,27 +9,25 @@ module Pos.Wallet.Web.Methods.Backup
 
 import           Universum
 
-import           Control.Lens                 (each)
-import qualified Data.Aeson                   as A
-import qualified Data.ByteString.Lazy         as BSL
-import qualified Data.HashMap.Strict          as HM
-import           Formatting                   (sformat, stext, (%))
+import           Control.Lens (each)
+import qualified Data.Aeson as A
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.HashMap.Strict as HM
+import           Formatting (sformat, stext, (%))
 
-import           Pos.Client.KeyStorage        (addSecretKey)
-import           Pos.Wallet.Web.Account       (GenSeed (..), genUniqueAccountId)
-import           Pos.Wallet.Web.Backup        (AccountMetaBackup (..), TotalBackup (..),
-                                               WalletBackup (..), WalletMetaBackup (..),
-                                               getWalletBackup)
-import           Pos.Wallet.Web.ClientTypes   (CAccountInit (..), CAccountMeta (..),
-                                               CFilePath (..), CId, CWallet, Wal,
-                                               encToCId)
-import           Pos.Wallet.Web.Error         (WalletError (..))
+import           Pos.Client.KeyStorage (addSecretKey)
+import           Pos.Wallet.Web.Account (GenSeed (..), genUniqueAccountId)
+import           Pos.Wallet.Web.Backup (AccountMetaBackup (..), TotalBackup (..), WalletBackup (..),
+                                        WalletMetaBackup (..), getWalletBackup)
+import           Pos.Wallet.Web.ClientTypes (CAccountInit (..), CAccountMeta (..), CFilePath (..),
+                                             CId, CWallet, Wal, encToCId)
+import           Pos.Wallet.Web.Error (WalletError (..))
 import qualified Pos.Wallet.Web.Methods.Logic as L
-import           Pos.Wallet.Web.State         (createAccount, getWalletMeta)
-import           Pos.Wallet.Web.Tracking      (syncWalletOnImport)
-import           Servant.API.ContentTypes     (NoContent (..))
+import           Pos.Wallet.Web.State (createAccount, getWalletMeta)
+import           Pos.Wallet.Web.Tracking (syncWalletOnImport)
+import           Servant.API.ContentTypes (NoContent (..))
 
-import           Pos.Crypto                   (emptyPassphrase, firstHardened)
+import           Pos.Crypto (emptyPassphrase, firstHardened)
 
 
 type MonadWalletBackup ctx m = L.MonadWalletLogic ctx m

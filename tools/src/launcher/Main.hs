@@ -10,64 +10,55 @@
 
 import           Universum
 
-import           Control.Concurrent                   (modifyMVar_)
-import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, poll, wait,
-                                                       waitAny, withAsyncWithUnmask)
-import           Control.Exception.Safe               (tryAny)
-import           Data.List                            (isSuffixOf)
-import qualified Data.Text.IO                         as T
-import           Data.Time.Units                      (Second, convertUnit)
-import           Data.Version                         (showVersion)
-import           Formatting                           (int, sformat, shown, stext, (%))
-import qualified NeatInterpolation                    as Q (text)
-import           Options.Applicative                  (Mod, OptionFields, Parser, auto,
-                                                       execParser, footerDoc, fullDesc,
-                                                       header, help, helper, info,
-                                                       infoOption, long, metavar, option,
-                                                       progDesc, short, strOption)
-import           System.Directory                     (createDirectoryIfMissing,
-                                                       doesFileExist,
-                                                       getTemporaryDirectory, removeFile)
-import           System.Environment                   (getExecutablePath)
-import           System.Exit                          (ExitCode (..))
-import           System.FilePath                      (normalise, (</>))
-import qualified System.IO                            as IO
-import           System.Process                       (ProcessHandle,
-                                                       readProcessWithExitCode)
-import qualified System.Process                       as Process
-import           System.Timeout                       (timeout)
-import           System.Wlog                          (logError, logInfo, logNotice,
-                                                       logWarning)
-import qualified System.Wlog                          as Log
-import           Text.PrettyPrint.ANSI.Leijen         (Doc)
+import           Control.Concurrent (modifyMVar_)
+import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, poll, wait, waitAny,
+                                                       withAsyncWithUnmask)
+import           Control.Exception.Safe (tryAny)
+import           Data.List (isSuffixOf)
+import qualified Data.Text.IO as T
+import           Data.Time.Units (Second, convertUnit)
+import           Data.Version (showVersion)
+import           Formatting (int, sformat, shown, stext, (%))
+import qualified NeatInterpolation as Q (text)
+import           Options.Applicative (Mod, OptionFields, Parser, auto, execParser, footerDoc,
+                                      fullDesc, header, help, helper, info, infoOption, long,
+                                      metavar, option, progDesc, short, strOption)
+import           System.Directory (createDirectoryIfMissing, doesFileExist, getTemporaryDirectory,
+                                   removeFile)
+import           System.Environment (getExecutablePath)
+import           System.Exit (ExitCode (..))
+import           System.FilePath (normalise, (</>))
+import qualified System.IO as IO
+import           System.Process (ProcessHandle, readProcessWithExitCode)
+import qualified System.Process as Process
+import           System.Timeout (timeout)
+import           System.Wlog (logError, logInfo, logNotice, logWarning)
+import qualified System.Wlog as Log
+import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 #ifdef mingw32_HOST_OS
-import qualified System.IO.Silently                   as Silently
+import qualified System.IO.Silently as Silently
 #endif
 
 #ifndef mingw32_HOST_OS
-import           System.Posix.Signals                 (sigKILL, signalProcess)
-import qualified System.Process.Internals             as Process
+import           System.Posix.Signals (sigKILL, signalProcess)
+import qualified System.Process.Internals as Process
 #endif
 
 -- Modules needed for system'
-import           Control.Exception                    (handle, mask_, throwIO)
-import           Foreign.C.Error                      (Errno (..), ePIPE)
-import           GHC.IO.Exception                     (IOErrorType (..), IOException (..))
+import           Control.Exception (handle, mask_, throwIO)
+import           Foreign.C.Error (Errno (..), ePIPE)
+import           GHC.IO.Exception (IOErrorType (..), IOException (..))
 
-import           Paths_cardano_sl                     (version)
-import           Pos.Client.CLI                       (configurationOptionsParser,
-                                                       readLoggerConfig)
-import           Pos.Core                             (Timestamp (..))
-import           Pos.Launcher                         (HasConfigurations,
-                                                       withConfigurations)
-import           Pos.Launcher.Configuration           (ConfigurationOptions (..))
-import           Pos.Reporting.Methods                (retrieveLogFiles, sendReport)
-import           Pos.ReportServer.Report              (ReportType (..))
-import           Pos.Util                             (directory, sleep)
-import           Pos.Util.CompileInfo                 (HasCompileInfo,
-                                                       retrieveCompileTimeInfo,
-                                                       withCompileInfo)
+import           Paths_cardano_sl (version)
+import           Pos.Client.CLI (configurationOptionsParser, readLoggerConfig)
+import           Pos.Core (Timestamp (..))
+import           Pos.Launcher (HasConfigurations, withConfigurations)
+import           Pos.Launcher.Configuration (ConfigurationOptions (..))
+import           Pos.Reporting.Methods (retrieveLogFiles, sendReport)
+import           Pos.ReportServer.Report (ReportType (..))
+import           Pos.Util (directory, sleep)
+import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
 
 data LauncherOptions = LO
     { loNodePath            :: !FilePath
@@ -119,11 +110,11 @@ optionsParser = do
     -- Wallet-related args
     loWalletPath <- optional $ textOption $
         long    "wallet" <>
-        help    "Path to the wallet executable." <>
+        help    "Path to the wallet frontend executable (e. g. Daedalus)." <>
         metavar "PATH"
     loWalletArgs <- many $ textOption $
         short   'w' <>
-        help    "An argument to be passed to the wallet." <>
+        help    "An argument to be passed to the wallet frontend executable." <>
         metavar "ARG"
 
     -- Update-related args
@@ -332,19 +323,31 @@ clientScenario logConf node wallet updater nodeTimeout report = do
     (nodeHandle, nodeAsync, nodeLog) <- spawnNode node
     walletAsync <- async (runWallet wallet)
     (someAsync, exitCode) <- waitAny [nodeAsync, walletAsync]
+    let restart = clientScenario logConf node wallet updater nodeTimeout report
     if | someAsync == nodeAsync -> do
              logWarning $ sformat ("The node has exited with "%shown) exitCode
              whenJust report $ \repServ -> do
                  logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
                  reportNodeCrash exitCode logConf repServ nodeLog
              logInfo "Waiting for the wallet to die"
-             void $ wait walletAsync
+             walletExitCode <- wait walletAsync
+             logInfo $ sformat ("The wallet has exited with "%shown) walletExitCode
+             when (walletExitCode == ExitFailure 20) $
+                 case exitCode of
+                     ExitSuccess{} -> restart
+                     ExitFailure{} ->
+                         -- -- Commented out because shutdown is broken and node
+                         -- -- returns non-zero codes even for valid scenarios (CSL-1855)
+                         -- TL.putStrLn $
+                         --   "The wallet has exited with code 20, but\
+                         --   \ we won't update due to node crash"
+                         restart -- remove this after CSL-1855
        | exitCode == ExitFailure 20 -> do
              logNotice "The wallet has exited with code 20"
              logInfo $ sformat ("Killing the node in "%int%" seconds") nodeTimeout
              sleep (fromIntegral nodeTimeout)
              killNode nodeHandle nodeAsync
-             clientScenario logConf node wallet updater nodeTimeout report
+             restart
        | otherwise -> do
              logWarning $ sformat ("The wallet has exited with "%shown) exitCode
              -- TODO: does the wallet have some kind of log?

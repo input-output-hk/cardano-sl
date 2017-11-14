@@ -26,20 +26,19 @@ module Pos.Core.Genesis.Types
 
 import           Universum
 
-import           Control.Monad.Except     (MonadError (throwError))
-import           Data.Hashable            (Hashable)
-import qualified Data.HashMap.Strict      as HM
-import qualified Data.Text.Buildable      as Buildable
-import           Fmt                      (genericF)
-import           Formatting               (bprint, build, fixed, int, (%))
-import           Serokell.Util            (allDistinct, mapJson)
+import           Control.Monad.Except (MonadError (throwError))
+import           Data.Hashable (Hashable)
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Text.Buildable as Buildable
+import           Fmt (genericF)
+import           Formatting (bprint, build, fixed, int, (%))
+import           Serokell.Util (allDistinct, mapJson)
 
-import           Pos.Binary.Crypto        ()
-import           Pos.Core.Coin            ()
-import           Pos.Core.Types           (Address, BlockVersionData, Coin, CoinPortion,
-                                           ProxySKHeavy, SharedSeed, StakeholderId,
-                                           Timestamp)
-import           Pos.Core.Vss.Types       (VssCertificatesMap, getVssCertificatesMap)
+import           Pos.Binary.Crypto ()
+import           Pos.Core.Coin ()
+import           Pos.Core.Types (Address, BlockVersionData, Coin, CoinPortion, ProxySKHeavy,
+                                 SharedSeed, StakeholderId, Timestamp)
+import           Pos.Core.Vss.Types (VssCertificatesMap, getVssCertificatesMap)
 import           Pos.Crypto.Signing.Types (RedeemPublicKey)
 
 -- | Wrapper around weighted stakeholders map to be used in genesis

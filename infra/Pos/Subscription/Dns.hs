@@ -3,34 +3,26 @@ module Pos.Subscription.Dns
     ( dnsSubscriptionWorker
     ) where
 
-import           Data.Either                           (partitionEithers)
-import qualified Data.Map.Strict                       as M
-import           Data.Time.Units                       (Millisecond, Second, convertUnit)
-import           Formatting                            (sformat, shown, int, (%))
-import qualified Network.DNS                           as DNS
-import           System.Wlog                           (logError, logNotice, logWarning)
+import           Data.Either (partitionEithers)
+import qualified Data.Map.Strict as M
+import           Data.Time.Units (Millisecond, Second, convertUnit)
+import           Formatting (int, sformat, shown, (%))
+import qualified Network.DNS as DNS
+import           System.Wlog (logError, logNotice, logWarning)
 import           Universum
 
-import           Mockable                              (Delay, Mockable, delay,
-                                                        Concurrently,
-                                                        forConcurrently,
-                                                        SharedAtomic,
-                                                        SharedAtomicT,
-                                                        newSharedAtomic,
-                                                        modifySharedAtomic)
-import           Network.Broadcast.OutboundQueue.Types (peersFromList, Alts)
+import           Mockable (Concurrently, Delay, Mockable, SharedAtomic, SharedAtomicT, delay,
+                           forConcurrently, modifySharedAtomic, newSharedAtomic)
+import           Network.Broadcast.OutboundQueue.Types (Alts, peersFromList)
 
-import           Pos.Communication.Protocol            (Worker)
-import           Pos.KnownPeers                        (MonadKnownPeers (..))
-import           Pos.Network.DnsDomains                (NodeAddr)
-import           Pos.Network.Types                     (Bucket (..), DnsDomains (..),
-                                                        NetworkConfig (..),
-                                                        NodeId (..), NodeType (..),
-                                                        resolveDnsDomains)
-import           Pos.Slotting                          (MonadSlotsData,
-                                                        getNextEpochSlotDuration)
+import           Pos.Communication.Protocol (Worker)
+import           Pos.KnownPeers (MonadKnownPeers (..))
+import           Pos.Network.DnsDomains (NodeAddr)
+import           Pos.Network.Types (Bucket (..), DnsDomains (..), NetworkConfig (..), NodeId (..),
+                                    NodeType (..), resolveDnsDomains)
+import           Pos.Slotting (MonadSlotsData, getNextEpochSlotDuration)
 import           Pos.Subscription.Common
-import           Pos.Util.Timer                        (Timer)
+import           Pos.Util.Timer (Timer)
 
 dnsSubscriptionWorker
     :: forall kademlia ctx m.

@@ -19,20 +19,19 @@ module Pos.Crypto.Signing.Safe
 
 import           Universum
 
-import qualified Cardano.Crypto.Wallet           as CC
-import           Crypto.Random                   (MonadRandom, getRandomBytes)
-import qualified Data.ByteString                 as BS
-import           Data.Coerce                     (coerce)
+import qualified Cardano.Crypto.Wallet as CC
+import           Crypto.Random (MonadRandom, getRandomBytes)
+import qualified Data.ByteString as BS
+import           Data.Coerce (coerce)
 
-import           Pos.Binary.Class                (Bi, Raw)
-import qualified Pos.Binary.Class                as Bi
+import           Pos.Binary.Class (Bi, Raw)
+import qualified Pos.Binary.Class as Bi
 import           Pos.Core.Configuration.Protocol (HasProtocolConstants)
-import           Pos.Crypto.Hashing              (Hash, hash)
-import qualified Pos.Crypto.Scrypt               as S
-import           Pos.Crypto.Signing.Signing      (ProxyCert (..), ProxySecretKey (..),
-                                                  PublicKey (..), SecretKey (..),
-                                                  Signature (..), sign, toPublic)
-import           Pos.Crypto.Signing.Tag          (SignTag (SignProxySK), signTag)
+import           Pos.Crypto.Hashing (Hash, hash)
+import qualified Pos.Crypto.Scrypt as S
+import           Pos.Crypto.Signing.Signing (ProxyCert (..), ProxySecretKey (..), PublicKey (..),
+                                             SecretKey (..), Signature (..), sign, toPublic)
+import           Pos.Crypto.Signing.Tag (SignTag (SignProxySK), signTag)
 import           Pos.Crypto.Signing.Types.Safe
 
 -- | Regerates secret key with new passphrase.
@@ -46,7 +45,7 @@ changeEncPassphrase
     -> m (Maybe EncryptedSecretKey)
 changeEncPassphrase oldPass newPass esk@(EncryptedSecretKey sk _)
     | isJust $ checkPassMatches oldPass esk =
-        Just <$> mkEncSecret newPass (CC.xPrvChangePass oldPass newPass sk)
+        Just <$> mkEncSecretUnsafe newPass (CC.xPrvChangePass oldPass newPass sk)
     | otherwise = return Nothing
 
 signRaw' :: HasProtocolConstants
@@ -91,7 +90,7 @@ safeDeterministicKeyGen
 safeDeterministicKeyGen seed pp =
     bimap
         PublicKey
-        (mkEncSecretWithSalt (S.mkSalt (hash seed)) pp)
+        (mkEncSecretWithSaltUnsafe (S.mkSalt (hash seed)) pp)
         (safeCreateKeypairFromSeed seed pp)
 
 safeSign :: (HasProtocolConstants, Bi a) => SignTag -> SafeSigner -> a -> Signature a

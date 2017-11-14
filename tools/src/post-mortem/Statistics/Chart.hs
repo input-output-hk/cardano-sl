@@ -2,17 +2,17 @@ module Statistics.Chart
     ( chart
     ) where
 
-import           Data.Map.Strict                           (Map)
-import qualified Data.Map.Strict                           as M
-import           Graphics.Rendering.Chart.Easy
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as M
 import           Graphics.Rendering.Chart.Backend.Diagrams (toFile)
+import           Graphics.Rendering.Chart.Easy
 
-import Types
-import Universum
+import           Types
+import           Universum
 
 getData :: Map TxHash (Maybe Timestamp) -> [(Double, Double)]
 getData m = map normalize pairs
-    
+
   where
     total :: Int
     total = M.size m

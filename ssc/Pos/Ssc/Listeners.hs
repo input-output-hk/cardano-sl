@@ -8,42 +8,33 @@ module Pos.Ssc.Listeners
 
 import           Universum
 
-import           Control.Lens                          (at, to)
-import           Data.Tagged                           (Tagged (..), tagWith)
-import           Formatting                            (build, sformat, (%))
-import           Node.Message.Class                    (Message)
-import           System.Wlog                           (logDebug)
+import           Control.Lens (at, to)
+import           Data.Tagged (Tagged (..), tagWith)
+import           Formatting (build, sformat, (%))
+import           Node.Message.Class (Message)
+import           System.Wlog (logDebug)
 
-import           Pos.Binary.Class                      (Bi)
-import           Pos.Binary.Crypto                     ()
-import           Pos.Binary.Ssc                        ()
-import           Pos.Binary.Infra                      ()
-import           Pos.Communication.Limits.Types        (MessageLimited)
-import           Pos.Communication.Relay               (DataMsg, InvOrData,
-                                                        InvReqDataParams (..),
-                                                        MempoolParams (NoMempool),
-                                                        Relay (..), ReqMsg, ReqOrRes)
-import           Pos.Communication.Types.Protocol      (MsgType (..))
-import           Pos.Core                              (HasConfiguration, StakeholderId,
-                                                        addressHash, getCertId, lookupVss)
-import           Pos.Security.Util                     (shouldIgnorePkAddress)
-import           Pos.Ssc.Mem                           (sscRunLocalQuery)
-import           Pos.Ssc.Configuration                 (HasSscConfiguration)
-import           Pos.Ssc.Core                          (getCommitmentsMap)
-import           Pos.Ssc.Types                         (ldModifier)
-import           Pos.Ssc.Logic                         (sscIsDataUseful,
-                                                        sscProcessCertificate,
-                                                        sscProcessCommitment,
-                                                        sscProcessOpening,
-                                                        sscProcessShares)
-import           Pos.Ssc.Toss                          (SscTag (..), TossModifier,
-                                                        tmCertificates, tmCommitments,
-                                                        tmOpenings, tmShares)
-import           Pos.Ssc.Message                       (MCCommitment (..), MCOpening (..),
-                                                        MCShares (..),
-                                                        MCVssCertificate (..),
-                                                        SscMessageConstraints)
-import           Pos.Ssc.Mode                          (SscMode)
+import           Pos.Binary.Class (Bi)
+import           Pos.Binary.Crypto ()
+import           Pos.Binary.Infra ()
+import           Pos.Binary.Ssc ()
+import           Pos.Communication.Limits.Types (MessageLimited)
+import           Pos.Communication.Relay (DataMsg, InvOrData, InvReqDataParams (..),
+                                          MempoolParams (NoMempool), Relay (..), ReqMsg, ReqOrRes)
+import           Pos.Communication.Types.Protocol (MsgType (..))
+import           Pos.Core (HasConfiguration, StakeholderId, addressHash, getCertId, lookupVss)
+import           Pos.Core.Ssc (getCommitmentsMap)
+import           Pos.Security.Util (shouldIgnorePkAddress)
+import           Pos.Ssc.Configuration (HasSscConfiguration)
+import           Pos.Ssc.Logic (sscIsDataUseful, sscProcessCertificate, sscProcessCommitment,
+                                sscProcessOpening, sscProcessShares)
+import           Pos.Ssc.Mem (sscRunLocalQuery)
+import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
+                                  MCVssCertificate (..), SscMessageConstraints)
+import           Pos.Ssc.Mode (SscMode)
+import           Pos.Ssc.Toss (SscTag (..), TossModifier, tmCertificates, tmCommitments, tmOpenings,
+                               tmShares)
+import           Pos.Ssc.Types (ldModifier)
 
 sscRelays
     :: (SscMessageConstraints, SscMode ctx m)

@@ -10,16 +10,15 @@ module Pos.Txp.Toil.Failure
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Formatting                 (bprint, build, int, shown, stext, (%))
+import           Formatting (bprint, build, int, shown, stext, (%))
 import           Serokell.Data.Memory.Units (Byte, memory)
-import           Serokell.Util              (listJson)
+import           Serokell.Util (listJson)
 
-import           Pos.Core                   (Address, HeaderHash, ScriptVersion,
-                                             TxFeePolicy, addressDetailedF)
-import           Pos.Data.Attributes        (UnparsedFields)
-import           Pos.Script                 (PlutusError)
-import           Pos.Txp.Core               (TxIn, TxInWitness, TxOut (..))
-import           Pos.Txp.Toil.Types         (TxFee)
+import           Pos.Core (Address, HeaderHash, ScriptVersion, TxFeePolicy, addressDetailedF)
+import           Pos.Core.Txp (TxIn, TxInWitness, TxOut (..))
+import           Pos.Data.Attributes (UnparsedFields)
+import           Pos.Script (PlutusError)
+import           Pos.Txp.Toil.Types (TxFee)
 
 ----------------------------------------------------------------------------
 -- ToilVerFailure

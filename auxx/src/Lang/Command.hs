@@ -7,8 +7,8 @@ module Lang.Command
 import           Universum
 
 import           Lang.Argument (ArgumentConsumer)
-import           Lang.Name     (Name)
-import           Lang.Value    (Value)
+import           Lang.Name (Name)
+import           Lang.Value (Value)
 
 data CommandProc m = forall e. CommandProc
     { cpName             :: !Name

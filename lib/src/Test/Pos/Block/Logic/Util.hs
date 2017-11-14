@@ -15,28 +15,25 @@ module Test.Pos.Block.Logic.Util
        ) where
 
 import           Universum
-import           Unsafe                      (unsafeHead)
+import           Unsafe (unsafeHead)
 
 import           Control.Monad.Random.Strict (evalRandT)
-import           Data.Default                (Default (def))
-import           Test.QuickCheck.Gen         (Gen (MkGen), sized)
-import           Test.QuickCheck.Monadic     (PropertyM, pick)
+import           Data.Default (Default (def))
+import           Test.QuickCheck.Gen (Gen (MkGen), sized)
+import           Test.QuickCheck.Monadic (PropertyM, pick)
 
-import           Pos.Block.Core              (Block)
-import           Pos.Block.Types             (Blund)
-import           Pos.Core                    (BlockCount, GenesisData (..),
-                                              HasConfiguration, HasGenesisData,
-                                              SlotId (..), epochIndexL, genesisData)
-import           Pos.Generator.Block         (BlockGenMode, BlockGenParams (..),
-                                              MonadBlockGenInit, genBlocks,
-                                              tgpTxCountRange)
-import           Pos.Txp                     (MempoolExt, MonadTxpLocal,
-                                              TxpGlobalSettings, txpGlobalSettings)
-import           Pos.Util.Chrono             (NE, OldestFirst (..))
-import           Pos.Util.Util               (HasLens', _neLast)
+import           Pos.Block.Types (Blund)
+import           Pos.Core (BlockCount, GenesisData (..), HasConfiguration, HasGenesisData,
+                           SlotId (..), epochIndexL, genesisData)
+import           Pos.Core.Block (Block)
+import           Pos.Generator.Block (BlockGenMode, BlockGenParams (..), MonadBlockGenInit,
+                                      genBlocks, tgpTxCountRange)
+import           Pos.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings, txpGlobalSettings)
+import           Pos.Util.Chrono (NE, OldestFirst (..))
+import           Pos.Util.Util (HasLens', _neLast)
 
-import           Pos.AllSecrets              (AllSecrets, HasAllSecrets (..), allSecrets)
-import           Test.Pos.Block.Logic.Mode   (BlockProperty, BlockTestContext, btcSlotIdL)
+import           Pos.AllSecrets (AllSecrets, HasAllSecrets (..), allSecrets)
+import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestContext, btcSlotIdL)
 
 -- | Wrapper for 'bpGenBlocks' to clarify the meaning of the argument.
 newtype EnableTxPayload = EnableTxPayload Bool

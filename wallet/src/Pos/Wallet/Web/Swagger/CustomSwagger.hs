@@ -10,8 +10,8 @@ module Pos.Wallet.Web.Swagger.CustomSwagger
 
 import           Universum
 
-import           Data.Swagger    (Swagger)
-import           Servant         ((:<|>))
+import           Data.Swagger (Swagger)
+import           Servant ((:<|>))
 import           Servant.Swagger (HasSwagger (..))
 
 -- | Allows to provide some extra info about given endpoint, in addition to info

@@ -6,34 +6,31 @@ module Pos.Aeson.Core
 
 import           Universum
 
-import           Data.Aeson             (FromJSON (..), FromJSONKey (..),
-                                         FromJSONKeyFunction (..), ToJSON (toJSON),
-                                         ToJSONKey (..), object, withObject, (.:), (.=))
-import           Data.Aeson.TH          (defaultOptions, deriveFromJSON, deriveJSON,
-                                         deriveToJSON)
-import           Data.Aeson.Types       (toJSONKeyText)
-import qualified Data.Map               as Map
-import           Data.Time.Units        (Microsecond, Millisecond, Second)
-import           Formatting             (sformat)
+import           Data.Aeson (FromJSON (..), FromJSONKey (..), FromJSONKeyFunction (..),
+                             ToJSON (toJSON), ToJSONKey (..), object, withObject, (.:), (.=))
+import           Data.Aeson.TH (defaultOptions, deriveFromJSON, deriveJSON, deriveToJSON)
+import           Data.Aeson.Types (toJSONKeyText)
+import qualified Data.Map as Map
+import           Data.Time.Units (Microsecond, Millisecond, Second)
+import           Formatting (sformat)
 import qualified Serokell.Aeson.Options as S (defaultOptions)
-import           Serokell.Util.Base64   (JsonByteString (..))
+import           Serokell.Util.Base64 (JsonByteString (..))
 
-import           Pos.Aeson.Crypto       ()
-import           Pos.Aeson.Fee          ()
-import           Pos.Binary.Class       (AsBinary (..))
-import           Pos.Binary.Core        ()
-import           Pos.Core.Address       (Address, addressF, decodeTextAddress)
-import           Pos.Core.Coin          (coinPortionToDouble)
-import           Pos.Core.Types         (ApplicationName (..), BlockCount (..),
-                                         BlockVersion, BlockVersionData, ChainDifficulty,
-                                         Coin, CoinPortion, EpochIndex (..),
-                                         LocalSlotIndex, Script (..), SharedSeed (..),
-                                         SlotCount (..), SlotId, SoftforkRule,
-                                         Timestamp (..), mkApplicationName, mkCoin,
-                                         unsafeCoinPortionFromDouble, unsafeGetCoin)
-import           Pos.Core.Vss           (VssCertificate)
-import           Pos.Data.Attributes    (Attributes, UnparsedFields (..))
-import           Pos.Util.Util          (eitherToFail)
+import           Pos.Aeson.Crypto ()
+import           Pos.Aeson.Fee ()
+import           Pos.Binary.Class (AsBinary (..))
+import           Pos.Binary.Core ()
+import           Pos.Core.Address (Address, addressF, decodeTextAddress)
+import           Pos.Core.Coin (coinPortionToDouble)
+import           Pos.Core.Types (ApplicationName (..), BlockCount (..), BlockVersion,
+                                 BlockVersionData, ChainDifficulty, Coin, CoinPortion,
+                                 EpochIndex (..), LocalSlotIndex, Script (..), SharedSeed (..),
+                                 SlotCount (..), SlotId, SoftforkRule, Timestamp (..),
+                                 mkApplicationName, mkCoin, unsafeCoinPortionFromDouble,
+                                 unsafeGetCoin)
+import           Pos.Core.Vss (VssCertificate)
+import           Pos.Data.Attributes (Attributes, UnparsedFields (..))
+import           Pos.Util.Util (eitherToFail)
 
 instance ToJSON SharedSeed where
     toJSON = toJSON . JsonByteString . getSharedSeed

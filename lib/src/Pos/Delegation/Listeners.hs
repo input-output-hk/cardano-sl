@@ -9,26 +9,24 @@ module Pos.Delegation.Listeners
 import           Universum
 
 import qualified Data.Text.Buildable
-import           Formatting                 (build, sformat, shown, (%))
-import           Serokell.Util.Text         (pairBuilder)
-import           System.Wlog                (logDebug, logInfo, logWarning)
+import           Formatting (build, sformat, shown, (%))
+import           Serokell.Util.Text (pairBuilder)
+import           System.Wlog (logDebug, logInfo, logWarning)
 
-import           Pos.Binary                 ()
-import           Pos.Communication.Limits   ()
-import           Pos.Communication.Message  ()
+import           Pos.Binary ()
+import           Pos.Communication.Limits ()
+import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (MsgType (..), Origin (..))
-import           Pos.Communication.Relay    (DataParams (..), PropagationMsg (..),
-                                             Relay (..), propagateData)
-import           Pos.Core                   (getOurKeys)
-import           Pos.Crypto                 (SignTag (SignProxySK), proxySign,
-                                             pskDelegatePk)
-import           Pos.Delegation.Logic       (ConfirmPskLightVerdict (..),
-                                             PskHeavyVerdict (..), PskLightVerdict (..),
-                                             processConfirmProxySk, processProxySKHeavy,
-                                             processProxySKLight)
-import           Pos.Delegation.Types       (ProxySKLightConfirmation)
-import           Pos.Types                  (ProxySKHeavy)
-import           Pos.WorkMode.Class         (WorkMode)
+import           Pos.Communication.Relay (DataParams (..), PropagationMsg (..), Relay (..),
+                                          propagateData)
+import           Pos.Core (getOurKeys)
+import           Pos.Crypto (SignTag (SignProxySK), proxySign, pskDelegatePk)
+import           Pos.Delegation.Logic (ConfirmPskLightVerdict (..), PskHeavyVerdict (..),
+                                       PskLightVerdict (..), processConfirmProxySk,
+                                       processProxySKHeavy, processProxySKLight)
+import           Pos.Delegation.Types (ProxySKLightConfirmation)
+import           Pos.Types (ProxySKHeavy)
+import           Pos.WorkMode.Class (WorkMode)
 
 instance Buildable ProxySKLightConfirmation where
     build = pairBuilder

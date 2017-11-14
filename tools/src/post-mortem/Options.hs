@@ -3,10 +3,10 @@ module Options
     , parseOptions
     ) where
 
-import Options.Applicative
+import           Options.Applicative
 
-import Types
-import Universum
+import           Types
+import           Universum
 
 data Options =
       Overview !Double ![FilePath]
@@ -19,7 +19,7 @@ overviewOptions = Overview <$> (toProb <$> argument auto
                                 (  metavar "SAMPLEPROB"
                                 <> help "sample probability for frequent events"
                                 ))
-                           <*> (some (argument str 
+                           <*> (some (argument str
                                 (  metavar "LOGDIRS..."
                                 <> help "directories containing the log files"
                                 )))
@@ -35,7 +35,7 @@ focusedOptions = Focus <$> (toText <$> argument str
                                 ))
 
 txRelayOptions :: Parser Options
-txRelayOptions = TxRelay <$> (some (argument str 
+txRelayOptions = TxRelay <$> (some (argument str
     (  metavar "LOGDIRS..."
     <> help "directories containing the log files"
     )))
@@ -49,7 +49,7 @@ throughputOptions = Throughput <$> (argument auto
                                     (  metavar "WAITWINDOW"
                                     <> help "time window for waiting times (in seconds)"
                                     ))
-                               <*> (some (argument str 
+                               <*> (some (argument str
                                     (  metavar "LOGDIRS..."
                                     <> help "directories containing the log files"
                                     )))

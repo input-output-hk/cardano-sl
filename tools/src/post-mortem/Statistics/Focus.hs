@@ -3,16 +3,16 @@ module Statistics.Focus
     , focusF
     ) where
 
-import           Control.Foldl   (Fold (..))
-import           Data.Set        (Set)
-import qualified Data.Set        as S
-import qualified Data.Text       as T
+import           Control.Foldl (Fold (..))
+import           Data.Set (Set)
+import qualified Data.Set as S
+import qualified Data.Text as T
 
-import JSONLog
-import Pos.Util.JsonLog          (JLEvent (..), JLTxR (..), JLBlock(..))
-import Prelude                   (id)
-import Types
-import Universum
+import           JSONLog
+import           Pos.Util.JsonLog (JLBlock (..), JLEvent (..), JLTxR (..))
+import           Prelude (id)
+import           Types
+import           Universum
 
 data Focus =
       Received !(Maybe Text)

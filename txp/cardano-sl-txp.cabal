@@ -72,6 +72,7 @@ library
                      , aeson
                      , base
                      , bytestring
+                     , cardano-sl-util
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-infra

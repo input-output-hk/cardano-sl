@@ -6,20 +6,22 @@ flags:
 
 extra-package-dbs: []
 
+# util → core → db → [lrc, infra] → [ssc, txp, update] → lib → [auxx, explorer, node, tools, wallet]
 packages:
-- lib
+- util
 - core
-- update
-- infra
 - db
 - lrc
-- auxx
+- infra
 - ssc
 - txp
+- update
+- lib
+- auxx
+- explorer
 - node
 - tools
 - wallet
-- explorer
 
 - location:
     git: https://github.com/well-typed/cborg
@@ -140,6 +142,7 @@ apply-ghc-options: everything
 
 # If you find it too restrictive, you can use `scripts/build/cardano-sl.sh' script
 ghc-options:
+  cardano-sl-util:       -Werror
   cardano-sl-core:       -Werror
   cardano-sl-db:         -Werror
   cardano-sl-ssc:        -Werror

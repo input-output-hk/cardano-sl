@@ -14,6 +14,9 @@ module Pos.Util
        -- * Futures
        , module Pos.Util.Future
 
+       , module Pos.Util.Lens
+       , module Pos.Util.Some
+
        -- * Various
        , mappendPair
        , mconcatPair
@@ -61,6 +64,8 @@ import           Serokell.AcidState ()
 import           Pos.Util.Arbitrary
 import           Pos.Util.Concurrent
 import           Pos.Util.Future
+import           Pos.Util.Lens
+import           Pos.Util.Some
 import           Pos.Util.TimeLimit
 import           Pos.Util.Undefined ()
 import           Pos.Util.Util

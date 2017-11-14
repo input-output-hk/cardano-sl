@@ -35,7 +35,7 @@ import           Pos.Update.Poll.Logic.Version (verifyAndApplyProposalBVS, verif
 import           Pos.Update.Poll.Types (ConfirmedProposalState (..), DecidedProposalState (..),
                                         DpsExtra (..), ProposalState (..),
                                         UndecidedProposalState (..), UpsExtra (..), psProposal)
-import           Pos.Util.Util (Some (..))
+import           Pos.Util.Some (Some (..))
 
 type ApplyMode m =
     ( MonadError PollVerFailure m

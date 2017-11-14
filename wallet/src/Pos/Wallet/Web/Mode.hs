@@ -72,7 +72,7 @@ import           Pos.StateLock (StateLock)
 import           Pos.Txp (MempoolExt, MonadTxpLocal (..), MonadTxpMem, Utxo, addrBelongsToSet,
                           applyUtxoModToAddrCoinMap, getUtxoModifier)
 import qualified Pos.Txp.DB as DB
-import           Pos.Util (Some (..))
+import           Pos.Util (Some (..), postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.JsonLog (HasJsonLogConfig (..), jsonLogDefault)
 import           Pos.Util.LoggerName (HasLoggerName' (..), getLoggerNameDefault,
@@ -81,7 +81,6 @@ import qualified Pos.Util.Modifier as MM
 import qualified Pos.Util.OutboundQueue as OQ.Reader
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
-import           Pos.Util.Util (postfixLFields)
 import           Pos.Wallet.Web.Networking (MonadWalletSendActions (..))
 import           Pos.Wallet.Web.Util (decodeCTypeOrFail)
 import           Pos.WorkMode (MinWorkMode, RealModeContext (..))

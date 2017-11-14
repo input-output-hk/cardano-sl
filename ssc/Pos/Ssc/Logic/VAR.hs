@@ -37,7 +37,8 @@ import           Pos.Ssc.Toss (MultiRichmenStakes, PureToss, applyGenesisBlock, 
                                runPureTossWithLogger, supplyPureTossEnv, verifyAndApplySscPayload)
 import           Pos.Ssc.Types (SscBlock, SscGlobalState (..), sscGlobal)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..))
-import           Pos.Util.Util (inAssertMode, _neHead, _neLast)
+import           Pos.Util.Lens (_neHead, _neLast)
+import           Pos.Util.Util (inAssertMode)
 
 ----------------------------------------------------------------------------
 -- Modes

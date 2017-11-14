@@ -29,7 +29,8 @@ import           Pos.Ssc.Toss.Base (checkPayload)
 import           Pos.Ssc.Toss.Class (MonadToss (..), MonadTossEnv (..))
 import           Pos.Ssc.Toss.Types (TossModifier (..))
 import           Pos.Util.Chrono (NewestFirst (..))
-import           Pos.Util.Util (Some, inAssertMode, sortWithMDesc)
+import           Pos.Util.Some (Some)
+import           Pos.Util.Util (inAssertMode, sortWithMDesc)
 
 -- | Verify 'SscPayload' with respect to data provided by
 -- MonadToss. If data is valid it is also applied.  Otherwise

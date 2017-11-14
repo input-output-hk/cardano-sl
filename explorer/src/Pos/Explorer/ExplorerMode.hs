@@ -13,6 +13,7 @@ import           Universum
 import           Control.Lens (lens, makeLensesWith)
 import           Control.Monad.Catch (MonadMask)
 import           Ether.Internal (HasLens (..))
+import           System.Wlog (HasLoggerName (..), LoggerName)
 
 import           Pos.Block.Slog (mkSlogGState)
 import           Pos.Block.Types (Undo)
@@ -32,7 +33,7 @@ import qualified Pos.Slotting as Slot
 import           Pos.Ssc.Types (SscBlock)
 import           Pos.Txp (GenericTxpLocalData (..), MempoolExt, MonadTxpMem, TxpHolderTag,
                           mkTxpLocalData)
-import           Pos.Util.Util (Some, postfixLFields)
+import           Pos.Util (Some, postfixLFields)
 
 import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, HasExplorerCSLInterface,
                                             HasGenesisRedeemAddressInfo, runExtraContextT)
@@ -46,7 +47,6 @@ import           Pos.Util.LoggerName (HasLoggerName' (..), getLoggerNameDefault,
                                       modifyLoggerNameDefault)
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.WorkMode (MinWorkMode)
-import           System.Wlog (HasLoggerName (..), LoggerName)
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)
 import           Test.Pos.Block.Logic.Mode (TestParams (..))
 

@@ -101,8 +101,8 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
                 makeAddress (PubKeyASD pk) (AddrAttributes Nothing distr)
         return $ ValueAddress addr
     , cpHelp = "address for the specified public key. a stake distribution \
-              \ can be specified manually (by default it uses the current epoch \
-              \ to determine whether we want to use bootstrap distr)"
+             \ can be specified manually (by default it uses the current epoch \
+             \ to determine whether we want to use bootstrap distr)"
     },
 
     let name = "addr-hd" in
@@ -208,9 +208,9 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
         Tx.sendToAllGenesis sendActions stagp
         return ValueUnit
     , cpHelp = "create and send transactions from all genesis addresses \
-              \ for <duration> seconds, <delay> in ms. <conc> is the \
-              \ number of threads that send transactions concurrently. \
-              \ <mode> is either 'neighbours', 'round-robin', or 'send-random'"
+             \ for <duration> seconds, <delay> in ms. <conc> is the \
+             \ number of threads that send transactions concurrently. \
+             \ <mode> is either 'neighbours', 'round-robin', or 'send-random'"
     },
 
     let name = "send-from-file" in
@@ -237,7 +237,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
         Tx.send sendActions i outputs
         return ValueUnit
     , cpHelp = "send from #i to specified transaction outputs \
-              \ (use 'tx-out' to build them)"
+             \ (use 'tx-out' to build them)"
     },
 
     let name = "vote" in
@@ -247,14 +247,14 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     { cpName = name
     , cpArgumentConsumer =
         (,,) <$> getArg tyInt "i"
-            <*> getArg tyBool "agree"
-            <*> getArg tyHash "up-id"
+             <*> getArg tyBool "agree"
+             <*> getArg tyHash "up-id"
     , cpExec = \(i, decision, upId) -> do
         Update.vote sendActions i decision upId
         return ValueUnit
     , cpHelp = "send vote for update proposal <up-id> and \
-              \ decision <agree> ('true' or 'false'), \
-              \ using secret key #i"
+             \ decision <agree> ('true' or 'false'), \
+             \ using secret key #i"
     },
 
     return CommandProc
@@ -309,7 +309,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
         -- one with existential (relevant via singleton-style GADT) quantification.
         ValueHash . unsafeCheatingHashCoerce <$> Update.propose sendActions params
     , cpHelp = "propose an update with one positive vote for it \
-              \ using secret key #i"
+             \ using secret key #i"
     },
 
     return CommandProc
@@ -460,16 +460,16 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
             addrHD <- deriveHDAddressAuxx sk
             printAction $
                 sformat ("    #"%int%":   addr:      "%build%"\n"%
-                        "          pk:        "%fullPublicKeyF%"\n"%
-                        "          pk hash:   "%hashHexF%"\n"%
-                        "          HD addr:   "%build)
+                         "          pk:        "%fullPublicKeyF%"\n"%
+                         "          pk hash:   "%hashHexF%"\n"%
+                         "          HD addr:   "%build)
                     i addr pk (addressHash pk) addrHD
         walletMB <- (^. usWallet) <$> (view userSecret >>= atomically . readTVar)
         whenJust walletMB $ \wallet -> do
             addrHD <- deriveHDAddressAuxx (_wusRootKey wallet)
             printAction $
                 sformat ("    Wallet address:\n"%
-                        "          HD addr:   "%build)
+                         "          HD addr:   "%build)
                     addrHD
         return ValueUnit
     , cpHelp = ""

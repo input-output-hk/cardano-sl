@@ -17,8 +17,8 @@ self: {
           pname = "Cabal";
           version = "1.24.2.0";
           sha256 = "b7d0eb8e3503fbca460c0a6ca5c88352cecfe1b69e0bbc79827872134ed86340";
-          revision = "1";
-          editedCabalFile = "0jw809psa2ms9sy1mnirmbj9h7rs76wbmf24zgjqvhp4wq919z3m";
+          revision = "2";
+          editedCabalFile = "15ncrm7x2lg4hn0m5mhc8hy769bzhmajsm6l9i6536plfs2bbbdj";
           libraryHaskellDepends = [
             array
             base
@@ -1218,6 +1218,7 @@ self: {
             focus
             formatting
             generic-arbitrary
+            half
             hashable
             hspec
             http-client
@@ -2128,6 +2129,7 @@ self: {
             node-sketch
             optparse-applicative
             parsec
+            QuickCheck
             random
             reflection
             safecopy
@@ -2269,7 +2271,7 @@ self: {
           description = "Cardano SL - wallet";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-wallet-new = callPackage ({ QuickCheck, aeson, aeson-pretty, base, bytestring, cardano-sl, cardano-sl-core, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-wallet, containers, data-default, exceptions, formatting, hspec, http-api-data, http-client, http-types, insert-ordered-containers, lens, log-warper, mkDerivation, mtl, neat-interpolation, network-uri, node-sketch, optparse-applicative, quickcheck-instances, serokell-util, servant, servant-client, servant-quickcheck, servant-server, servant-swagger, stdenv, stm, string-conv, swagger2, text, text-format, time-units, transformers, universum, unordered-containers, wai, wai-cors, wai-extra, warp }:
+      cardano-sl-wallet-new = callPackage ({ QuickCheck, aeson, aeson-pretty, base, bytestring, cardano-sl, cardano-sl-core, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-wallet, containers, data-default, exceptions, formatting, hspec, http-api-data, http-client, http-types, insert-ordered-containers, lens, log-warper, memory, mkDerivation, mtl, neat-interpolation, network-uri, node-sketch, optparse-applicative, quickcheck-instances, serokell-util, servant, servant-client, servant-quickcheck, servant-server, servant-swagger, stdenv, stm, string-conv, swagger2, text, text-format, time-units, transformers, universum, unordered-containers, wai, wai-cors, wai-extra, warp }:
       mkDerivation {
           pname = "cardano-sl-wallet-new";
           version = "0.1.0.0";
@@ -2279,15 +2281,21 @@ self: {
           libraryHaskellDepends = [
             aeson
             base
+            cardano-sl-core
+            cardano-sl-infra
+            cardano-sl-ssc
             cardano-sl-wallet
             containers
             data-default
+            exceptions
             formatting
             http-api-data
             http-client
             http-types
+            lens
             mtl
             network-uri
+            node-sketch
             QuickCheck
             serokell-util
             servant
@@ -2319,11 +2327,13 @@ self: {
             insert-ordered-containers
             lens
             log-warper
+            memory
             mtl
             neat-interpolation
             node-sketch
             optparse-applicative
             QuickCheck
+            serokell-util
             servant
             servant-server
             servant-swagger
@@ -2344,6 +2354,7 @@ self: {
             aeson
             aeson-pretty
             base
+            bytestring
             cardano-sl
             cardano-sl-core
             cardano-sl-infra
@@ -2352,19 +2363,23 @@ self: {
             cardano-sl-wallet
             containers
             data-default
+            exceptions
             formatting
             hspec
             http-client
             http-types
             insert-ordered-containers
             lens
+            memory
             neat-interpolation
             QuickCheck
             quickcheck-instances
+            serokell-util
             servant
             servant-quickcheck
             servant-server
             servant-swagger
+            stm
             string-conv
             swagger2
             text

@@ -23,7 +23,7 @@ import Data.Foldable (any, traverse_)
 import Data.Foreign (toForeign)
 import Data.Int (fromString)
 import Data.Lens ((^.), over, set)
-import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.Maybe (Maybe(..), maybe)
 import Data.Newtype (unwrap)
 import Data.Tuple (Tuple(..), fst, snd)
 import Explorer.Api.Http (fetchAddressSummary, fetchBlockSummary, fetchBlockTxs, fetchBlocksTotalPages, fetchGenesisAddressInfo, fetchGenesisAddressInfoTotalPages, fetchGenesisSummary, fetchLatestTxs, fetchPageBlocks, fetchTxSummary, epochPageSearch, epochSlotSearch)
@@ -98,41 +98,41 @@ update (SocketBlocksPageUpdated (Left error)) state = noEffects $
     over errors (\errors' -> (show error) : errors') state
 
 update (SocketEpochsLastPageUpdated (Right (Tuple totalPages blocks))) state =
-    let currentEpoch = fromMaybe (mkEpochIndex 0) $ state ^. (viewStates <<< blocksViewState <<< blsViewEpochIndex) in
-    -- ^ In a normal case we already have an `EpochIndex` in our state,
-    -- because `SocketEpochsLastPageUpdated` is called if we entering `epoch/x` page only
-    if (hasBlocksFromEpoch blocks currentEpoch)
-    -- ^ First check if we are at latest epoch on front-end by comparing epochs of blocks with current epoch
-    -- We have to do this because backend are sending updates about new blocks of latest epoch only
-    -- and the front-end does not know which epoch is the latest
-    then
-        let currentEpochPageNumber = state ^. (viewStates <<< blocksViewState <<< blsViewPagination <<< _PageNumber)
-            updateBlocks = (currentEpochPageNumber == totalPages) || updateCurrentPage
-                            -- ^ update blocks if we are on latest page or current page has to be updated only
-            updateCurrentPage = currentEpochPageNumber == (totalPages - 1) && (length blocks == 1)
-                                -- ^If we are on second last page and get one new block,
-                                -- then we have to update current page, which means switching to latest page
-        in
-            noEffects $
-            -- * 1. Check if an update of `currentBlocksResult` is needed
-            over currentBlocksResult (\bl -> if updateBlocks then Success blocks else bl) $
-            -- * 2. update `blsViewPagination` if needed
-            over (viewStates <<< blocksViewState <<< blsViewPagination)
-                (\ pn@(PageNumber page) -> if updateCurrentPage then PageNumber totalPages else pn) $
-                   -- ^ to keep at last page we have to update `blsViewPagination`
-            -- * 3. store `totalPages` into `blsViewMaxPagination`
-            set (viewStates <<< blocksViewState <<< blsViewMaxPagination) (PageNumber totalPages)
-                state
-    else
-        let subItem = mkSocketSubscriptionItem (SocketSubscription SubEpochsLastPage) SocketNoData in
-        { state
-        , effects:
-              if ( (syncBySocket $ state ^. syncAction) && (hasSubscription subItem state) )
-            -- ^ In `syncBySocket` mode we are adding subscription `SubEpochsLastPage` only once per epoch
-            -- So we can paginate current epoch and request/receive its pages w/o sub- or + unsubscribing
-            then [ pure <<< Just $ SocketRemoveSubscription subItem ]
-            else []
-        }
+    let mCurrentEpoch = state ^. (viewStates <<< blocksViewState <<< blsViewEpochIndex)
+        onLatestEpoch = maybe false (hasBlocksFromEpoch blocks) mCurrentEpoch
+    in
+        if onLatestEpoch
+        -- ^ First check if we are on latest epoch at front-end side by comparing epochs of blocks with current epoch
+        -- We have to do this because backend are sending updates about new blocks of latest epoch only
+        -- and the front-end does not know which epoch is the latest
+        then
+            let currentEpochPageNumber = state ^. (viewStates <<< blocksViewState <<< blsViewPagination <<< _PageNumber)
+                updateBlocks = (currentEpochPageNumber == totalPages) || updateCurrentPage
+                                -- ^ update blocks if we are on latest page or current page has to be updated only
+                updateCurrentPage = currentEpochPageNumber == (totalPages - 1) && (length blocks == 1)
+                                    -- ^If we are at second-last page and get one new block,
+                                    -- then we have to update current page, which means switching to latest page
+            in
+                noEffects $
+                -- * 1. Check if an update of `currentBlocksResult` is needed
+                over currentBlocksResult (\bl -> if updateBlocks then Success blocks else bl) $
+                -- * 2. update `blsViewPagination` if needed
+                over (viewStates <<< blocksViewState <<< blsViewPagination)
+                    (\ pn@(PageNumber page) -> if updateCurrentPage then PageNumber totalPages else pn) $
+                       -- ^ to keep at last page we have to update `blsViewPagination`
+                -- * 3. store `totalPages` into `blsViewMaxPagination`
+                set (viewStates <<< blocksViewState <<< blsViewMaxPagination) (PageNumber totalPages)
+                    state
+        else
+            let subItem = mkSocketSubscriptionItem (SocketSubscription SubEpochsLastPage) SocketNoData in
+            { state
+            , effects:
+                  if ( (syncBySocket $ state ^. syncAction) && (hasSubscription subItem state) )
+                -- ^ In `syncBySocket` mode we are adding subscription `SubEpochsLastPage` only once per epoch
+                -- So we can paginate current epoch and request/receive its pages w/o sub- or + unsubscribing
+                then [ pure <<< Just $ SocketRemoveSubscription subItem ]
+                else []
+            }
 
 update (SocketEpochsLastPageUpdated (Left error)) state = noEffects $
     set currentBlocksResult (Failure error) $

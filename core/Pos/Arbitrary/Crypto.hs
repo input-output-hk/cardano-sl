@@ -32,6 +32,7 @@ import           Pos.Crypto.Signing.Redeem (RedeemPublicKey, RedeemSecretKey, Re
 import           Pos.Crypto.Signing.Safe (PassPhrase, createProxyCert, createPsk)
 import           Pos.Crypto.Signing.Types.Tag (SignTag (..))
 import           Pos.Util.Arbitrary (Nonrepeating (..), arbitraryUnsafe, sublistN)
+import           Pos.Util.Orphans ()
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

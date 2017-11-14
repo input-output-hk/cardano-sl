@@ -32,19 +32,10 @@ module Pos.Util
        , neZipWith4
        , spanSafe
 
-       -- * Instances
-       -- ** MonadFail ParsecT
-       -- ** MonadFail Dialog
-       -- ** MonadFail Transfer
-       -- ** MonadFail TimedIO
-       -- ** MonadFail ResponseT
-       -- ** MonadFail LoggerNameBox
        ) where
 
 import           Universum hiding (finally)
 
-import qualified Control.Monad as Monad (fail)
-import           Control.Monad.Trans.Resource (ResourceT)
 import           Data.Either (rights)
 import           Data.Hashable (Hashable)
 import qualified Data.HashMap.Strict as HM
@@ -56,8 +47,6 @@ import           Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import           Data.Time.Units (Microsecond, toMicroseconds)
 import           Serokell.Util (VerificationRes (..))
 import           System.IO (hClose)
-import           System.Wlog (LoggerNameBox (..))
-import           Text.Parsec (ParsecT)
 -- SafeCopy instance for HashMap
 import           Serokell.AcidState ()
 
@@ -148,12 +137,3 @@ eitherToVerRes :: Either Text a -> VerificationRes
 eitherToVerRes (Left errors) = if T.null errors then VerFailure []
                                else VerFailure $ T.split (==';') errors
 eitherToVerRes (Right _ )    = VerSuccess
-
-
-instance MonadFail (ParsecT s u m) where
-    fail = Monad.fail
-
-deriving instance MonadFail m => MonadFail (LoggerNameBox m)
-
-instance MonadFail m => MonadFail (ResourceT m) where
-    fail = lift . fail

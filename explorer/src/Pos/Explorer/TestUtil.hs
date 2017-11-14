@@ -10,6 +10,7 @@ module Pos.Explorer.TestUtil
     , leftToCounter
     , produceSlotLeaders
     , produceSecretKeys
+    , generateValidBlocksSlotsNumber
     ) where
 
 import qualified Prelude
@@ -19,8 +20,8 @@ import           Data.Default (def)
 import qualified Data.List.NonEmpty as NE
 import           Data.Text.Buildable (build)
 import           Serokell.Data.Memory.Units (Byte, Gigabyte, convertUnit)
-import           Test.QuickCheck (Arbitrary (..), Property, Testable, counterexample, forAll,
-                                  generate, property)
+import           Test.QuickCheck (Arbitrary (..), Property, Testable, Gen, counterexample, forAll,
+                                  generate, choose, suchThat, property)
 import           Test.QuickCheck.Arbitrary.Generic (genericArbitrary)
 
 import           Pos.Arbitrary.Block ()
@@ -89,6 +90,9 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
 
     slotStart     <- liftIO $ generate $ arbitrary
 
+    -- TODO(ks): These should be corrected, they should come from
+    -- `produceBlocksByBlockNumberAndSlots` and should not be arbitrary.
+    -- createPagedHeaderHashesPair
     blockHHs      <- liftIO $ generate $ arbitrary
     blundsFHHs    <- liftIO $ generate $ withDefConfigurations arbitrary
 
@@ -107,6 +111,15 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
         , emmGetSlotStart         = \_ -> pure $ Just slotStart
         , emmGetLeadersFromEpoch  = \_ -> pure $ Just slotLeaders
         }
+
+-- | Simplify the generation of blocks number and slots.
+-- For now we have a minimum of one epoch.
+generateValidBlocksSlotsNumber :: Gen (Word, Word)
+generateValidBlocksSlotsNumber = do
+    totalBlocksNumber <- choose (3, 1000)
+    -- You can have minimally two blocks - genesis + main block
+    slotsPerEpoch     <- choose (2, 1000) `suchThat` (< totalBlocksNumber)
+    pure (totalBlocksNumber, slotsPerEpoch)
 
 ----------------------------------------------------------------
 -- Utility
@@ -180,15 +193,21 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
     -- This is just plain wrong and we need to check for it.
     when (blockNumber < slotsNumber) $ error "Illegal argument."
 
-    let generatedEpochBlocksM :: m [[Block]]
-        generatedEpochBlocksM = forM [0..totalEpochs] $ \currentEpoch -> do
-            generateGenericEpochBlocks Nothing slotsNumber (EpochIndex . fromIntegral $ currentEpoch)
+    let generatedEpochBlocksM :: m [Block]
+        generatedEpochBlocksM = concatForM [0..totalEpochs] $ \currentEpoch -> do
+            generateGenericEpochBlocks
+                Nothing
+                slotsNumber
+                (EpochIndex . fromIntegral $ currentEpoch)
 
-    concat <$> generatedEpochBlocksM
+    generatedEpochBlocksM
   where
 
     totalEpochs :: TotalEpochs
     totalEpochs = blockNumber `div` slotsNumber
+
+    remainingSlots :: SlotsPerEpoch
+    remainingSlots = blockNumber `mod` slotsNumber
 
     generateGenericEpochBlocks
         :: Maybe BlockHeader
@@ -196,6 +215,7 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
         -> EpochIndex
         -> m [Block]
     generateGenericEpochBlocks mBlockHeader slotsPerEpoch epochIndex = do
+
         let generatedBlocks = generateEpochBlocks mBlockHeader slotsPerEpoch epochIndex
 
         let gbToMainBlock :: Block
@@ -221,12 +241,32 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
         epochGenesisBlock = mkGenesisBlock mBlockHeader epochIndex producedSlotLeaders
 
         epochBlocks :: [MainBlock]
-        epochBlocks =
+        epochBlocks = do
             -- TODO(ks): Need to create prev. blocks that are not dependant on genesis block.
-            generateBlocks getPrevBlockHeader <$> blockNumbers
+            let mainBlocks = foldl' epochBlocksCalculation (getPrevBlockHeader, []) totalBlockNumbers
+
+            mainBlocks ^. _2
           where
-            blockNumbers :: [Word]
-            blockNumbers = [1..slotsPerEpoch']
+
+            epochBlocksCalculation
+                :: (BlockHeader, [MainBlock])
+                -> Word
+                -> (BlockHeader, [MainBlock])
+            epochBlocksCalculation (previousBlockHeader, mainBlocks) currentBlockNumber = do
+
+                let newBlock :: MainBlock
+                    newBlock = generateBlocks previousBlockHeader currentBlockNumber
+
+                let newBlockHeader :: BlockHeader
+                    newBlockHeader = getBlockHeader . Right $ newBlock
+
+                let newMainBlocks :: [MainBlock]
+                    newMainBlocks = mainBlocks ++ [newBlock]
+
+                (newBlockHeader, newMainBlocks)
+
+            totalBlockNumbers :: [Word]
+            totalBlockNumbers = [1..slotsPerEpoch']
 
             getPrevBlockHeader :: BlockHeader
             getPrevBlockHeader = getBlockHeader . Left $ epochGenesisBlock
@@ -241,8 +281,24 @@ produceBlocksByBlockNumberAndSlots blockNumber slotsNumber producedSlotLeaders s
                 case basicBlock previousBlockHeader currentSecretKey slotId of
                     Left _      -> error "Block creation error!"
                     Right block ->
-                        block & difficultyL .~ (ChainDifficulty $ BlockCount $ fromIntegral blockNumber')
+                        block & difficultyL .~ (ChainDifficulty currentBlockCount)
               where
+                -- If we are on the last epoch we don't neccesarily have the full number of
+                -- slots.
+                currentBlockCount :: BlockCount
+                currentBlockCount =
+                    if epochIndex == (EpochIndex . fromIntegral $ totalEpochs)
+                        then BlockCount $
+                              fromIntegral $
+                              (remainingSlots + (blockNumber' * epochIndexWord))
+                        else BlockCount $
+                              fromIntegral $
+                              blockNumber' * (epochIndexWord + 1)
+                  where
+                    -- | TODO(ks): This is wrong, @EpochIndex@ is @Word64@ and the whole
+                    -- calculation should be corrected because of a possible overflow.
+                    epochIndexWord :: Word
+                    epochIndexWord = fromIntegral $ getEpochIndex epochIndex
 
                 slotId :: SlotId
                 slotId = SlotId

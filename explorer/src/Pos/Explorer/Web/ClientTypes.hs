@@ -165,7 +165,7 @@ fromCTxId (CTxId (CHash txId)) = decodeHashHex txId
 
 newtype CCoin = CCoin
     { getCoin :: Text
-    } deriving (Show, Generic)
+    } deriving (Show, Generic, Eq)
 
 mkCCoin :: Coin -> CCoin
 mkCCoin = CCoin . show . unsafeGetCoin
@@ -191,7 +191,7 @@ data CBlockEntry = CBlockEntry
     , cbeSize       :: !Word64
     , cbeBlockLead  :: !(Maybe Text) -- todo (ks): Maybe CAddress?
     , cbeFees       :: !CCoin
-    } deriving (Show, Generic)
+    } deriving (Show, Generic, Eq)
 
 toBlockEntry
     :: ExplorerMode ctx m

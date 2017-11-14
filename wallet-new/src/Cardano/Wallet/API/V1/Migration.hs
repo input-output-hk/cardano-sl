@@ -5,6 +5,9 @@
 {-# LANGUAGE TypeSynonymInstances  #-}
 module Cardano.Wallet.API.V1.Migration (
       MonadV1
+    , V1Context
+    , v1MonadNat
+    , lowerV1Monad
     , Migrate(..)
     -- * Isomorphisms
     , walletAssurance
@@ -15,19 +18,41 @@ module Cardano.Wallet.API.V1.Migration (
     , HasConfiguration
     ) where
 
+import           Universum
+
 import qualified Cardano.Wallet.API.V1.Types      as V1
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 import           Control.Lens
+import qualified Control.Monad.Catch              as Catch
+import           Mockable                         (runProduction)
+import           Servant
 
 import           Pos.Core.Configuration           (HasConfiguration)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.Ssc                          (HasSscConfiguration)
 import           Pos.Util.CompileInfo             (HasCompileInfo)
-import           Pos.Wallet.Web.Mode              (WalletWebMode)
+import           Pos.Wallet.Web.Mode              (WalletWebMode, WalletWebModeContext)
 
 -- | Temporary monad to handle the migration from the V0 & V1 stacks.
-type MonadV1 = WalletWebMode
+type MonadV1   = WalletWebMode
+type V1Context = WalletWebModeContext
+
+-- | Hoist a 'V1' monad to a Servant's Handler.
+-- See: http://haskell-servant.readthedocs.io/en/stable/tutorial/Server.html#natural-transformations
+v1MonadNat :: V1Context -> (MonadV1 :~> Handler)
+v1MonadNat ctx = NT (lowerV1Monad ctx)
+
+-- | Converts our domain-specific monad into a standard Servant `Handler`.
+lowerV1Monad :: V1Context -> MonadV1 a -> Handler a
+lowerV1Monad ctx handler =
+    liftIO (hoistHandler handler) `Catch.catches` excHandlers
+  where
+
+    hoistHandler :: forall a . MonadV1 a -> IO a
+    hoistHandler = runProduction . flip runReaderT ctx
+
+    excHandlers = [Catch.Handler throwError]
 
 -- | 'Migrate' encapsulates migration between types, when possible.
 class Migrate from to where

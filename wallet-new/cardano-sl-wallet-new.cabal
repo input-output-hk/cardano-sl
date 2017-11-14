@@ -33,6 +33,7 @@ library
                      , aeson
                      , containers
                      , data-default
+                     , exceptions
                      , formatting
                      , http-api-data
                      , http-client
@@ -40,6 +41,7 @@ library
                      , lens
                      , mtl
                      , network-uri
+                     , node-sketch
                      , servant
                      , servant-client
                      , servant-server
@@ -145,6 +147,7 @@ test-suite wallet-new-specs
                   , QuickCheck
                   , aeson
                   , aeson-pretty
+                  , bytestring
                   , cardano-sl
                   , cardano-sl-core
                   , cardano-sl-infra
@@ -154,6 +157,7 @@ test-suite wallet-new-specs
                   , cardano-sl-wallet-new
                   , containers
                   , data-default
+                  , exceptions
                   , formatting
                   , hspec
                   , http-client
@@ -162,11 +166,14 @@ test-suite wallet-new-specs
                   , lens
                   , neat-interpolation
                   , quickcheck-instances
+                  , memory
+                  , serokell-util
                   , servant
                   , servant-quickcheck
                   , servant-server
                   , servant-swagger
                   , string-conv
+                  , stm
                   , swagger2
                   , text
                   , universum

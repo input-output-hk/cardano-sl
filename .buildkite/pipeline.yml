@@ -1,0 +1,7 @@
+steps:
+  - label: ':rocket: Ex-Travis'
+    command: 'source scripts/set_nixpath.sh && TRAVIS_COMMIT=${BUILDKITE_COMMIT} TRAVIS_BRANCH=${BUILDKITE_BRANCH} scripts/ci/travis.sh'
+    env:
+      NIX_REMOTE: daemon
+      PATH: bin:/run/current-system/sw/bin
+      TRAVIS_OS_NAME: linux

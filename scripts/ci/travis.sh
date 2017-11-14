@@ -64,6 +64,8 @@ popd
 export BUILD_UID="$TRAVIS_OS_NAME-${TRAVIS_BRANCH//\//-}"
 export XZ_OPT=-1
 
+mkdir -p s3
+
 echo "Packing up daedalus-bridge ..."
 tar cJf s3/daedalus-bridge-$BUILD_UID.tar.xz daedalus/
 echo "Done"

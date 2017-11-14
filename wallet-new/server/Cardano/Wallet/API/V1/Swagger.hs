@@ -150,12 +150,6 @@ instance HasSwagger (argA a :> argB a :> res) =>
          HasSwagger (AlternativeApiArg argA argB a :> res) where
     toSwagger _ = toSwagger (Proxy @(argA a :> argB a :> res))
 
-instance ( KnownSymbol summary , HasSwagger subApi) => HasSwagger (Summary summary :> subApi) where
-    toSwagger _ =
-        let summaryTxt = toS (symbolVal (Proxy @summary))
-            swgr       = toSwagger (Proxy @subApi)
-        in swgr & (operationsOf swgr) . summary ?~ summaryTxt
-
 instance (KnownSymbols tags, HasSwagger subApi) => HasSwagger (Tags tags :> subApi) where
     toSwagger _ =
         let newTags    = map toS (symbolVals (Proxy @tags))

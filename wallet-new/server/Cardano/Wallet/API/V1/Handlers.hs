@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds             #-}
+{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeFamilies          #-}
 module Cardano.Wallet.API.V1.Handlers where
 
@@ -14,6 +15,7 @@ import qualified Cardano.Wallet.API.V1.Handlers.Addresses as Addresses
 import qualified Cardano.Wallet.API.V1.Handlers.Payments  as Payments
 import qualified Cardano.Wallet.API.V1.Handlers.Updates   as Updates
 import qualified Cardano.Wallet.API.V1.Handlers.Wallets   as Wallets
+import qualified Cardano.Wallet.API.V1.Wallets            as Wallets
 
 import           Cardano.Wallet.API.V1.Migration
 
@@ -26,11 +28,11 @@ handlers :: ( HasConfiguration
             , HasInfraConfiguration
             , HasSscConfiguration
             )
-            => (MonadV1 :~> Handler)
+            => (forall a. MonadV1 a -> Handler a)
             -> Server V1.API
 handlers naturalTransformation = apiVersion
                             :<|> Addresses.handlers
-                            :<|> enter naturalTransformation Wallets.handlers
+                            :<|> hoistServer (Proxy @Wallets.API) naturalTransformation Wallets.handlers
                             :<|> Payments.handlers
                             :<|> Updates.handlers
 

@@ -54,9 +54,6 @@ instance HasGenRequest (argA a :> argB a :> sub) =>
 instance HasGenRequest sub => HasGenRequest (Tags tags :> sub) where
     genRequest _ = genRequest (Proxy :: Proxy sub)
 
-instance HasGenRequest sub => HasGenRequest (Summary sum :> sub) where
-    genRequest _ = genRequest (Proxy :: Proxy sub)
-
 instance HasGenRequest sub => HasGenRequest (WalletRequestParams :> sub) where
     genRequest _ = genRequest (Proxy @(WithWalletRequestParams sub))
 
@@ -120,8 +117,7 @@ v0Server = do
   -- TODO(adinapoli): If the monadic stack ends up diverging between V0 and V1,
   -- it's obviously incorrect using 'testV1Context' here.
   ctx <- testV1Context
-  let nat = Migration.v1MonadNat ctx
-  return (V0.handlers nat)
+  return (V0.handlers (Migration.v1MonadNat ctx))
 
 -- | "Lowers" V1 Handlers from our domain-specific monad to a @Servant@ 'Handler'.
 v1Server :: ( Migration.HasConfiguration
@@ -131,8 +127,7 @@ v1Server :: ( Migration.HasConfiguration
             ) => IO (Server V1.API)
 v1Server = do
   ctx <- testV1Context
-  let nat = Migration.v1MonadNat ctx
-  return (V1.handlers nat)
+  return (V1.handlers (Migration.v1MonadNat ctx))
 
 -- | Returns a test 'V1Context' which can be used for the API specs.
 -- Such context will use an in-memory database.

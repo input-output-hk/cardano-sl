@@ -52,9 +52,12 @@ library
                      , serokell-util
                      , warp
                      , cardano-sl-core
+                     , cardano-sl-wallet
+                     -- Avoidable deps(?)
+                     , cardano-sl
                      , cardano-sl-infra
                      , cardano-sl-ssc
-                     , cardano-sl-wallet
+                     , cardano-sl-update
   default-language:    Haskell2010
   default-extensions: TypeOperators
                       DataKinds

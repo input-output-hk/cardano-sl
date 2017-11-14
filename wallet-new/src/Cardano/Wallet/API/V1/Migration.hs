@@ -2,6 +2,7 @@
 -}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 module Cardano.Wallet.API.V1.Migration (
       MonadV1
@@ -16,6 +17,8 @@ module Cardano.Wallet.API.V1.Migration (
     , HasSscConfiguration
     , HasCompileInfo
     , HasConfiguration
+    , HasUpdateConfiguration
+    , HasNodeConfiguration
     ) where
 
 import           Universum
@@ -28,9 +31,11 @@ import qualified Control.Monad.Catch              as Catch
 import           Mockable                         (runProduction)
 import           Servant
 
+import           Pos.Configuration                (HasNodeConfiguration)
 import           Pos.Core.Configuration           (HasConfiguration)
 import           Pos.Infra.Configuration          (HasInfraConfiguration)
 import           Pos.Ssc                          (HasSscConfiguration)
+import           Pos.Update.Configuration         (HasUpdateConfiguration)
 import           Pos.Util.CompileInfo             (HasCompileInfo)
 import           Pos.Wallet.Web.Mode              (WalletWebMode, WalletWebModeContext)
 
@@ -40,8 +45,8 @@ type V1Context = WalletWebModeContext
 
 -- | Hoist a 'V1' monad to a Servant's Handler.
 -- See: http://haskell-servant.readthedocs.io/en/stable/tutorial/Server.html#natural-transformations
-v1MonadNat :: V1Context -> (MonadV1 :~> Handler)
-v1MonadNat ctx = NT (lowerV1Monad ctx)
+v1MonadNat :: V1Context -> (forall a. MonadV1 a -> Handler a)
+v1MonadNat = lowerV1Monad
 
 -- | Converts our domain-specific monad into a standard Servant `Handler`.
 lowerV1Monad :: V1Context -> MonadV1 a -> Handler a

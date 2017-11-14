@@ -74,7 +74,7 @@ import           Data.Version (Version)
 import           Formatting (bprint, build, builder, shown, (%))
 import qualified Prelude
 import           Serokell.Util (listJsonIndent)
-import           Servant.Multipart (FileData)
+import           Servant.Multipart (FileData, Mem)
 
 import           Pos.Core.Types (Coin, ScriptVersion, unsafeGetCoin)
 import           Pos.Types (BlockVersion, ChainDifficulty, SoftwareVersion)
@@ -558,7 +558,7 @@ data CElectronCrashReport = CElectronCrashReport
     , cecProductName :: Text
     , cecProd        :: Text
     , cecCompanyName :: Text
-    , cecUploadDump  :: FileData
+    , cecUploadDump  :: FileData Mem
     } deriving (Show, Generic)
 
 ----------------------------------------------------------------------------

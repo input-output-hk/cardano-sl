@@ -264,6 +264,7 @@ library
                       , cardano-sl-update
                       , cereal
                       , conduit >= 1.2.8
+                      , constraints
                       , containers
                       , cpphs
                       , cryptonite >= 0.23 && <= 0.23

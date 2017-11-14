@@ -27,7 +27,7 @@ import           Pos.Util.Config (ConfigurationException (..))
 import           Pos.Util.UserSecret (usVss)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 
-import           AuxxOptions (AuxxAction (..), AuxxOptions (..), getAuxxOptions)
+import           AuxxOptions (AuxxAction (..), AuxxOptions (..), AuxxStartMode (..), getAuxxOptions)
 import           Mode (AuxxContext (..), AuxxMode, CmdCtx (..), realModeToAuxx)
 import           Plugin (auxxPlugin, rawExec)
 import           Repl (WithCommandAction, withAuxxRepl)
@@ -91,10 +91,13 @@ action opts@AuxxOptions {..} command = do
     let configToDict :: HasConfigurations => Production (Maybe (Dict HasConfigurations))
         configToDict = return (Just Dict)
 
-    hasConfigurations <-
-          (flip catch) (\(_ :: ConfigurationException) -> return Nothing)
-        . (flip catch) (\(_ :: ConfigurationError)     -> return Nothing)
-        $ withConfigurations conf configToDict
+    hasConfigurations <- case aoStartMode of
+        Automatic -> (flip catch) (\(_ :: ConfigurationException) -> return Nothing)
+                    . (flip catch) (\(_ :: ConfigurationError)     -> return Nothing)
+                    $ withConfigurations conf configToDict
+        Light -> return Nothing
+        _ -> withConfigurations conf configToDict
+
     case hasConfigurations of
       Nothing -> runWithoutNode
       Just Dict -> do
@@ -117,7 +120,7 @@ action opts@AuxxOptions {..} command = do
         let sscParams = CLI.gtSscParams cArgs vssSK (npBehaviorConfig nodeParams)
         bracketNodeResources nodeParams sscParams txpGlobalSettings initNodeDBs $ \nr ->
             runRealBasedMode toRealMode realModeToAuxx nr $
-                (if aoNodeEnabled then runNodeWithSinglePlugin nr else identity)
+                (if aoStartMode == WithNode then runNodeWithSinglePlugin nr else identity)
                 (auxxPlugin opts command)
   where
     cArgs@CLI.CommonNodeArgs {..} = aoCommonNodeArgs

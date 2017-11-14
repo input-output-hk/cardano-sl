@@ -18,11 +18,10 @@ import           Pos.Binary (Bi)
 import qualified Pos.Block.Base as T
 import qualified Pos.Block.Pure as T
 import           Pos.Core (HasConfiguration, genesisHash)
-import qualified Pos.Core.Block as T
+import qualified Pos.Core as T
 import           Pos.Crypto (ProxySecretKey (pskIssuerPk), SecretKey, SignTag (..), createPsk,
                              proxySign, sign, toPublic)
 import           Pos.Data.Attributes (mkAttributes)
-import qualified Pos.Types as T
 import           Pos.Util.Chrono (NewestFirst (..))
 import           Pos.Util.Util (leftToPanic)
 

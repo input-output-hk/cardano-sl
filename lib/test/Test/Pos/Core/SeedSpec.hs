@@ -1,6 +1,6 @@
--- | Specification of 'Pos.Types.SharedSeed' type
+-- | Specification of 'Pos.Core.SharedSeed' type
 
-module Test.Pos.Types.SeedSpec
+module Test.Pos.Core.SeedSpec
        (spec
        ) where
 
@@ -11,7 +11,7 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.Pos.Helpers (formsCommutativeMonoid)
 import           Test.QuickCheck (Property, (.&&.))
 
-import           Pos.Types (SharedSeed)
+import           Pos.Core (SharedSeed)
 
 spec :: Spec
 spec = describe "SharedSeed" $ do

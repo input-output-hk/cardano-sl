@@ -26,7 +26,7 @@ import           Pos.Block.Network.Types (MsgBlock (..), MsgGetBlocks (..), MsgG
 import           Pos.Communication.Types.Protocol (MsgSubscribe (..))
 import           Pos.Communication.Types.Relay (DataMsg (..))
 import           Pos.Configuration (HasNodeConfiguration, recoveryHeadersMessage)
-import           Pos.Core (BlockVersionData (..), VssCertificate, coinPortionToDouble)
+import           Pos.Core (BlockVersionData (..), EpochIndex, VssCertificate, coinPortionToDouble)
 import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam)
 import           Pos.Core.Ssc (Commitment (..), InnerSharesMap, Opening (..), SignedCommitment)
@@ -40,7 +40,6 @@ import           Pos.Delegation.Types (ProxySKLightConfirmation)
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
                                   MCVssCertificate (..))
 import           Pos.Txp.Network.Types (TxMsgContents (..))
-import           Pos.Types (EpochIndex)
 
 -- Reexports
 import           Pos.Communication.Limits.Instances ()

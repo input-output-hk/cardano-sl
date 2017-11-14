@@ -76,8 +76,8 @@ import qualified Prelude
 import           Serokell.Util (listJsonIndent)
 import           Servant.Multipart (FileData, Mem)
 
-import           Pos.Core.Types (Coin, ScriptVersion, unsafeGetCoin)
-import           Pos.Types (BlockVersion, ChainDifficulty, SoftwareVersion)
+import           Pos.Core.Types (BlockVersion, ChainDifficulty, Coin, ScriptVersion,
+                                 SoftwareVersion, unsafeGetCoin)
 import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Util.LogSafe (SecureLog (..), buildUnsecure)
 import           Pos.Util.Servant (HasTruncateLogPolicy, WithTruncatedLog (..))

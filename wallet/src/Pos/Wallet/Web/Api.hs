@@ -68,6 +68,8 @@ module Pos.Wallet.Web.Api
        ) where
 
 
+import           Universum
+
 import           Control.Lens (from)
 import           Control.Monad.Catch (try)
 import           Data.Reflection (Reifies (..))
@@ -75,10 +77,9 @@ import           Servant.API ((:<|>), (:>), Capture, Delete, Get, JSON, Post, Pu
                               ReqBody, Verb)
 import           Servant.API.ContentTypes (NoContent, OctetStream)
 import           Servant.Swagger.UI (SwaggerSchemaUI)
-import           Universum
 
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
-import           Pos.Types (Coin, SoftwareVersion)
+import           Pos.Core (Coin, SoftwareVersion)
 import           Pos.Util.Servant (ApiLoggingConfig, CCapture, CQueryParam, CReqBody, DCQueryParam,
                                    DReqBody, LoggingApi, ModifiesApiRes (..),
                                    ReportDecodeError (..), VerbMod, serverHandlerL')

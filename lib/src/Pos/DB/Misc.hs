@@ -13,10 +13,10 @@ module Pos.DB.Misc
 import           Universum
 
 import           Pos.Binary.Ssc ()
+import           Pos.Core (EpochIndex, ProxySKLight)
 import           Pos.Crypto (PublicKey, pskIssuerPk, pskOmega)
 import           Pos.DB.Class (MonadDB)
 import           Pos.DB.Misc.Common (miscGetBi, miscPutBi)
-import           Pos.Types (EpochIndex, ProxySKLight)
 
 ----------------------------------------------------------------------------
 -- Initialization

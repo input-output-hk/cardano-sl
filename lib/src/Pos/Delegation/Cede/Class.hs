@@ -14,9 +14,9 @@ import           Universum
 
 import           Control.Monad.Trans (MonadTrans)
 
+import           Pos.Core (ProxySKHeavy, StakeholderId, addressHash)
 import           Pos.Crypto (PublicKey)
 import           Pos.Delegation.Cede.Types (DlgEdgeAction (..))
-import           Pos.Types (ProxySKHeavy, StakeholderId, addressHash)
 
 
 -- | This monad abstracts data needed for verifying headers/blocks

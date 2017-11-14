@@ -8,6 +8,7 @@ import           Test.Hspec (Spec, describe)
 import           Universum
 
 import qualified Pos.Core.Ssc as Ssc
+import           Pos.SafeCopy ()
 
 import           Test.Pos.Helpers (safeCopyTest)
 import           Test.Pos.Util (withDefConfiguration)

@@ -33,11 +33,11 @@ import           Pos.DB.DB (getTipBlock)
 
 import           Pos.Explorer.DB (Page, getPageBlocks)
 
-import           Pos.Core (Address, Coin, HasConfiguration, isRedeemAddress)
+import           Pos.Core (Address, Coin, EpochIndex, HasConfiguration, HeaderHash, SlotId (..),
+                           SlotLeaders, Timestamp, isRedeemAddress)
 import           Pos.Lrc (getLeadersForEpoch)
 import           Pos.Slotting (MonadSlotsData, getSlotStart)
 import           Pos.Txp (GenesisUtxo (..), genesisUtxo, utxoToAddressCoinPairs)
-import           Pos.Types (EpochIndex, HeaderHash, SlotId (..), SlotLeaders, Timestamp)
 
 
 -------------------------------------------------------------------------------------

@@ -314,7 +314,7 @@ getNoLongerRichmen newEpoch =
 --   end of prev. epoch
 -- * Delegation payload plus database state doesn't produce cycles.
 --
--- It's assumed blocks are correct from 'Pos.Types.Block#verifyBlocks'
+-- It's assumed blocks are correct from 'Pos.Block.Pure#verifyBlocks'
 -- point of view.
 dlgVerifyBlocks ::
        forall ctx m.

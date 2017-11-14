@@ -572,6 +572,21 @@ instance ( HasServer (Verb mt st ct a) ctx
         inRouteServer @(Verb mt st ct a) route $
         applyLoggingToHandler (Proxy @config) (Proxy @mt)
 
+instance ( HasServer (Verb mt st ct $ ApiModifiedRes mod a) ctx
+         , HasServer (VerbMod mod (Verb mt st ct a)) ctx
+         , ModifiesApiRes mod
+         , ReflectMethod mt
+         , Reifies config ApiLoggingConfig
+         , Buildable (WithTruncatedLog $ ApiModifiedRes mod a)
+         ) =>
+         HasLoggingServer config (VerbMod mod (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) ctx where
+    routeWithLog =
+        -- TODO [CSM-466] avoid manually rewriting rule for composite api modification
+        inRouteServer @(Verb mt st ct $ ApiModifiedRes mod a) route $
+        \(paramsInfo, handler) ->
+            handler & serverHandlerL' %~ modifyApiResult (Proxy @mod)
+                    & applyLoggingToHandler (Proxy @config) (Proxy @mt) . (paramsInfo, )
+
 instance ReportDecodeError api =>
          ReportDecodeError (LoggingApiRec config api) where
     reportDecodeError _ msg =

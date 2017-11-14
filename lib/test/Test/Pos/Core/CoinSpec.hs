@@ -1,6 +1,6 @@
--- | Specification of Pos.Types.Coin
+-- | Specification of Pos.Core.Coin
 
-module Test.Pos.Types.CoinSpec
+module Test.Pos.Core.CoinSpec
        ( spec
        ) where
 
@@ -12,8 +12,8 @@ import           Test.Hspec.QuickCheck (prop)
 import           Test.QuickCheck (Property, (.||.), (===))
 
 import qualified Pos.Arbitrary.Core as C
+import qualified Pos.Core.Coin as C
 import qualified Pos.Core.Types as C
-import qualified Pos.Types as C
 
 import           Test.Pos.Helpers (shouldThrowException, (.=.), (>=.))
 

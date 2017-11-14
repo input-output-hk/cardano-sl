@@ -19,13 +19,12 @@ import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (MsgType (..), Origin (..))
 import           Pos.Communication.Relay (DataParams (..), PropagationMsg (..), Relay (..),
                                           propagateData)
-import           Pos.Core (getOurKeys)
+import           Pos.Core (ProxySKHeavy, getOurKeys)
 import           Pos.Crypto (SignTag (SignProxySK), proxySign, pskDelegatePk)
 import           Pos.Delegation.Logic (ConfirmPskLightVerdict (..), PskHeavyVerdict (..),
                                        PskLightVerdict (..), processConfirmProxySk,
                                        processProxySKHeavy, processProxySKLight)
 import           Pos.Delegation.Types (ProxySKLightConfirmation)
-import           Pos.Types (ProxySKHeavy)
 import           Pos.WorkMode.Class (WorkMode)
 
 instance Buildable ProxySKLightConfirmation where

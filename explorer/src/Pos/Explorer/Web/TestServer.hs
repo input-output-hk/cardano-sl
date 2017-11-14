@@ -15,6 +15,7 @@ import           Network.Wai.Handler.Warp (run)
 import           Servant.API ((:<|>) ((:<|>)))
 import           Servant.Server (Handler, Server, serve)
 
+import           Pos.Core (EpochIndex (..), mkCoin)
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Web.Api (ExplorerApi, explorerApi)
 import           Pos.Explorer.Web.ClientTypes (Byte, CAda (..), CAddress (..), CAddressSummary (..),
@@ -24,9 +25,7 @@ import           Pos.Explorer.Web.ClientTypes (Byte, CAda (..), CAddress (..), C
                                                CHash (..), CTxBrief (..), CTxEntry (..), CTxId (..),
                                                CTxSummary (..), mkCCoin)
 import           Pos.Explorer.Web.Error (ExplorerError (..))
-import           Pos.Types (EpochIndex (..), mkCoin)
 import           Pos.Web ()
-
 
 ----------------------------------------------------------------
 -- Top level functionality

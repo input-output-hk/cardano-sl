@@ -28,7 +28,6 @@ import qualified Pos.Core.Block as T
 import           Pos.Core.Ssc (SscPayload, SscProof)
 import           Pos.Crypto (ProxySecretKey, PublicKey, SecretKey, createPsk, hash, toPublic)
 import           Pos.Data.Attributes (areAttributesKnown)
-import qualified Pos.Types as T
 import           Pos.Util.Arbitrary (makeSmall)
 import           Pos.Util.Util (leftToPanic)
 
@@ -259,14 +258,14 @@ recursiveHeaderGen
        )
     => Bool -- ^ Whether to create genesis block before creating main block for 0th slot
     -> [Either SecretKey (SecretKey, SecretKey, Bool)]
-    -> [T.SlotId]
+    -> [Core.SlotId]
     -> [T.BlockHeader]
     -> Gen [T.BlockHeader]
 recursiveHeaderGen genesis
                    (eitherOfLeader : leaders)
-                   (T.SlotId{..} : rest)
+                   (Core.SlotId{..} : rest)
                    blockchain
-    | genesis && T.getSlotIndex siSlot == 0 = do
+    | genesis && Core.getSlotIndex siSlot == 0 = do
           gBody <- arbitrary
           let gHeader = Left $ T.mkGenesisHeader (head blockchain) siEpoch gBody
           mHeader <- genMainHeader (Just gHeader)
@@ -283,7 +282,7 @@ recursiveHeaderGen genesis
         -- These two values may not be used at all. If the slot in question
         -- will have a simple signature, laziness will prevent them from
         -- being calculated. Otherwise, they'll be the proxy secret key's ω.
-        let slotId = T.SlotId siEpoch siSlot
+        let slotId = Core.SlotId siEpoch siSlot
             (leader, proxySK) = case eitherOfLeader of
                 Left sk -> (sk, Nothing)
                 Right (issuerSK, delegateSK, isSigEpoch) ->
@@ -332,7 +331,7 @@ instance ( Arbitrary SscPayload
          Arbitrary BlockHeaderList where
     arbitrary = do
         incompleteEpochSize <- choose (1, epochSlots - 1)
-        let slot = T.SlotId 0 minBound
+        let slot = Core.SlotId 0 minBound
         generateBHL True slot (epochSlots * bhlEpochs + incompleteEpochSize)
 
 generateBHL
@@ -341,8 +340,8 @@ generateBHL
        )
     => Bool         -- ^ Whether to create genesis block before creating main
                     --    block for 0th slot
-    -> T.SlotId     -- ^ Start slot
-    -> T.SlotCount  -- ^ Slot count
+    -> Core.SlotId     -- ^ Start slot
+    -> Core.SlotCount  -- ^ Slot count
     -> Gen BlockHeaderList
 generateBHL createInitGenesis startSlot slotCount = BHL <$> do
     let correctLeaderGen :: Gen (Either SecretKey (SecretKey, SecretKey, Bool))
@@ -355,7 +354,7 @@ generateBHL createInitGenesis startSlot slotCount = BHL <$> do
     let actualLeaders = map (toPublic . either identity (view _1)) leadersList
         slotIdsRange =
             take (fromIntegral slotCount) $
-            map T.unflattenSlotId [T.flattenSlotId startSlot ..]
+            map Core.unflattenSlotId [Core.flattenSlotId startSlot ..]
     (, actualLeaders) <$>
         recursiveHeaderGen
             createInitGenesis
@@ -381,7 +380,7 @@ instance (Arbitrary SscPayload, HasConfiguration) =>
     arbitrary = do
         -- This integer is used as a seed to randomly choose a slot down below
         seed <- arbitrary :: Gen Int
-        startSlot <- T.SlotId <$> choose (0, bhlMaxStartingEpoch) <*> arbitrary
+        startSlot <- Core.SlotId <$> choose (0, bhlMaxStartingEpoch) <*> arbitrary
         (headers, leaders) <- first reverse . getHeaderList <$> (generateBHL True startSlot =<< choose (1, 2))
         let num = length headers
         -- 'skip' is the random number of headers that should be skipped in
@@ -397,7 +396,7 @@ instance (Arbitrary SscPayload, HasConfiguration) =>
             -- This binding captures the chosen header's epoch. It is used to
             -- drop all all leaders of headers from previous epochs.
             thisEpochStartIndex = fromIntegral epochSlots *
-                                  fromIntegral (header ^. T.epochIndexL)
+                                  fromIntegral (header ^. Core.epochIndexL)
             thisHeadersEpoch = drop thisEpochStartIndex leaders
             -- A helper function. Given integers 'x' and 'y', it chooses a
             -- random integer in the interval [x, y]
@@ -416,14 +415,14 @@ instance (Arbitrary SscPayload, HasConfiguration) =>
                     -- the same epoch but with a greater or equal slot index
                     -- than the header.
                     Right h -> -- Nothing {-
-                        let (T.SlotId e s) = view Core.headerSlotL h
+                        let (Core.SlotId e s) = view Core.headerSlotL h
                             rndEpoch :: Core.EpochIndex
                             rndEpoch = betweenXAndY e maxBound
                             rndSlotIdx :: Core.LocalSlotIndex
                             rndSlotIdx = if rndEpoch > e
                                 then betweenXAndY minBound maxBound
                                 else betweenXAndY s maxBound
-                            rndSlot = T.SlotId rndEpoch rndSlotIdx
+                            rndSlot = Core.SlotId rndEpoch rndSlotIdx
                         in Just rndSlot
             hasUnknownAttributes =
                 not . areAttributesKnown $
@@ -434,7 +433,7 @@ instance (Arbitrary SscPayload, HasConfiguration) =>
             params = T.VerifyHeaderParams
                 { T.vhpPrevHeader = prev
                 , T.vhpCurrentSlot = randomSlotBeforeThisHeader
-                , T.vhpLeaders = nonEmpty $ map T.addressHash thisHeadersEpoch
+                , T.vhpLeaders = nonEmpty $ map Core.addressHash thisHeadersEpoch
                 , T.vhpMaxSize = Just (biSize header)
                 , T.vhpVerifyNoUnknown = not hasUnknownAttributes
                 }

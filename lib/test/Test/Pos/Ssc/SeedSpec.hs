@@ -21,14 +21,14 @@ import           Test.QuickCheck (Property, choose, counterexample, generate, io
 import           Test.QuickCheck.Property (failed, succeeded)
 
 import           Pos.Binary
-import           Pos.Core (AddressHash, HasConfiguration, addressHash)
+import           Pos.Core (AddressHash, HasConfiguration, SharedSeed (..), StakeholderId,
+                           addressHash, mkCoin)
 import           Pos.Core.Ssc (Commitment (..), CommitmentsMap, Opening (..), getCommShares,
                                getCommitmentsMap, mkCommitmentsMap)
 import           Pos.Crypto (DecShare, PublicKey, SecretKey, SignTag (SignCommitment), Threshold,
                              VssKeyPair, VssPublicKey, decryptShare, sign, toPublic, toVssPublicKey)
 import           Pos.Ssc (SscSeedError (..), calculateSeed, genCommitmentAndOpening,
                           secretToSharedSeed, vssThreshold)
-import           Pos.Types (SharedSeed (..), StakeholderId, mkCoin)
 import           Pos.Util (nonrepeating, sublistN)
 
 import           Test.Pos.Util (withDefConfiguration)

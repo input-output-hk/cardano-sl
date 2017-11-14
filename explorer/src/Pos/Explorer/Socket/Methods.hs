@@ -46,6 +46,8 @@ module Pos.Explorer.Socket.Methods
        , fromCAddressOrThrow
        ) where
 
+import           Universum
+
 import           Control.Lens (at, ix, lens, non, (.=), _Just)
 import           Control.Monad.State (MonadState)
 import           Data.Aeson (ToJSON)
@@ -55,6 +57,7 @@ import           Network.EngineIO (SocketId)
 import           Network.SocketIO (Socket, socketId)
 import qualified Pos.Block.Logic as DB
 import           Pos.Block.Types (Blund)
+import           Pos.Core (Address, HeaderHash)
 import           Pos.Core.Block (Block, mainBlockTxPayload)
 import           Pos.Core.Txp (Tx (..), TxOut (..), TxOutAux (..), txOutAddress, txpTxs)
 import           Pos.Crypto (hash, withHash)
@@ -63,11 +66,9 @@ import           Pos.DB.Class (MonadDBRead)
 import           Pos.Explorer.Core (TxExtra (..))
 import qualified Pos.Explorer.DB as DB
 import qualified Pos.GState as DB
-import           Pos.Types (Address, HeaderHash)
 import           Pos.Util (maybeThrow)
 import           Pos.Util.Chrono (getOldestFirst)
 import           System.Wlog (WithLogger, logDebug, logWarning, modifyLoggerName)
-import           Universum
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Socket.Holder (ClientContext, ConnectionsState, ExplorerSockets,

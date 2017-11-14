@@ -36,6 +36,8 @@ module Pos.Util.UserSecret
        , ensureModeIs600
        ) where
 
+import           Universum
+
 import           Control.Exception.Safe (onException, throwString)
 import           Control.Lens (makeLenses, to)
 import qualified Data.ByteString as BS
@@ -45,22 +47,19 @@ import           Formatting (Format, bprint, build, formatToString, later, (%))
 import qualified Prelude
 import           Serokell.Util.Text (listJson)
 import           System.Directory (doesFileExist)
+import           System.Directory (renameFile)
 import           System.FileLock (FileLock, SharedExclusive (..), lockFile, unlockFile,
                                   withFileLock)
-import           Universum
+import           System.FilePath (takeDirectory, takeFileName)
+import           System.IO (hClose, openBinaryTempFile)
+import           System.Wlog (WithLogger)
 
 import           Pos.Binary.Class (Bi (..), decodeFull, encodeListLen, enforceSize, serialize')
 import           Pos.Binary.Class (Cons (..), Field (..), deriveSimpleBi)
 import           Pos.Binary.Crypto ()
-import           Pos.Core (accountGenesisIndex, addressF, makeRootPubKeyAddress,
+import           Pos.Core (Address, accountGenesisIndex, addressF, makeRootPubKeyAddress,
                            wAddressGenesisIndex)
 import           Pos.Crypto (EncryptedSecretKey, SecretKey, VssKeyPair, encToPublic)
-
-import           Pos.Types (Address)
-import           System.Directory (renameFile)
-import           System.FilePath (takeDirectory, takeFileName)
-import           System.IO (hClose, openBinaryTempFile)
-import           System.Wlog (WithLogger)
 
 #ifdef POSIX
 import           Formatting (oct, sformat)

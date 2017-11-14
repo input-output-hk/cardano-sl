@@ -185,3 +185,27 @@ CSL code/core uses valid block already and unsafe blocks will be used
 in the diffusion layer only, so these module sets have minimum number
 of intersections thus minimizing ability to make a mistake too.
 
+### Solution 5: `Verified a` newtype
+
+Introduce newtype:
+```
+data Fully
+
+newtype Verified level s = Verified s
+```
+
+Then rewrite definitions in the following way:
+
+```
+-- old:
+applyBlock :: GState -> Block -> GState
+
+-- new:
+applyBlock :: GState -> Verified Fully Block -> GState
+```
+
+For type `T` you'll need to define lenses for `Verified a T` (all
+lenses applicable to `T`). To construct `Verified Fully T` you'll need
+to do full verification and/or serialization with all checks. It is
+much more verbose than using phantom types, though it is not obvious
+whether using this approach will produce bigger diff.

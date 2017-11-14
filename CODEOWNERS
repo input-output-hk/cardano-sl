@@ -22,6 +22,7 @@ explorer/test/                        @ksaric
 appveyor.yml                    @domenkozar
 nixpkgs-src.json                @domenkozar
 pkgs/generate.sh                @domenkozar
+scripts/ci/                     @domenkozar
 
 # Documentation
 *.md                            @denisshevchenko

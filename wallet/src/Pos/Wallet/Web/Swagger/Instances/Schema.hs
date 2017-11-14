@@ -88,7 +88,7 @@ instance ToSchema      CT.ClientInfo
 instance ToSchema WalletStateSnapshot where
     declareNamedSchema _ = pure $ NamedSchema (Just "WalletStateSnapshot") mempty
 
-instance ToSchema FileData where
+instance ToSchema (FileData tag) where
     declareNamedSchema _ = do
         textSchema <- declareSchemaRef (Proxy :: Proxy Text)
         filepathSchema <- declareSchemaRef (Proxy :: Proxy FilePath)

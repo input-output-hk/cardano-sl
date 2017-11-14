@@ -17,8 +17,8 @@ self: {
           pname = "Cabal";
           version = "1.24.2.0";
           sha256 = "b7d0eb8e3503fbca460c0a6ca5c88352cecfe1b69e0bbc79827872134ed86340";
-          revision = "1";
-          editedCabalFile = "0jw809psa2ms9sy1mnirmbj9h7rs76wbmf24zgjqvhp4wq919z3m";
+          revision = "2";
+          editedCabalFile = "15ncrm7x2lg4hn0m5mhc8hy769bzhmajsm6l9i6536plfs2bbbdj";
           libraryHaskellDepends = [
             array
             base
@@ -1341,7 +1341,7 @@ self: {
           description = "Cardano SL main implementation";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-auxx = callPackage ({ Earley, MonadRandom, QuickCheck, ansi-wl-pprint, async, base, base58-bytestring, bytestring, canonical-json, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, containers, cpphs, data-default, ether, formatting, generic-arbitrary, haskeline, hspec, lens, log-warper, megaparsec, mkDerivation, mmorph, mtl, neat-interpolation, network-transport-tcp, node-sketch, optparse-applicative, parser-combinators, quickcheck-instances, random, safe-exceptions, scientific, serokell-util, split, stdenv, stm, temporary, text, text-format, time-units, transformers, universum, unix, unordered-containers }:
+      cardano-sl-auxx = callPackage ({ Earley, MonadRandom, QuickCheck, ansi-wl-pprint, async, base, base58-bytestring, bytestring, canonical-json, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, constraints, containers, cpphs, cryptonite, data-default, ether, formatting, generic-arbitrary, haskeline, hspec, lens, log-warper, megaparsec, mkDerivation, mmorph, mtl, neat-interpolation, network-transport-tcp, node-sketch, optparse-applicative, parser-combinators, quickcheck-instances, random, safe-exceptions, scientific, serokell-util, split, stdenv, stm, temporary, text, text-format, time-units, transformers, universum, unix, unordered-containers }:
       mkDerivation {
           pname = "cardano-sl-auxx";
           version = "1.0.3";
@@ -1362,7 +1362,9 @@ self: {
             cardano-sl-ssc
             cardano-sl-txp
             cardano-sl-update
+            constraints
             containers
+            cryptonite
             data-default
             Earley
             ether
@@ -1404,6 +1406,7 @@ self: {
             cardano-sl-infra
             cardano-sl-txp
             cardano-sl-update
+            constraints
             formatting
             log-warper
             network-transport-tcp

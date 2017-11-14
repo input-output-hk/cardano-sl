@@ -152,6 +152,8 @@ testV1Context =
     testSendActions :: IO (STM.TMVar (SendActions WalletWebMode))
     testSendActions = STM.newEmptyTMVarIO
 
+    -- For some categories of tests we won't hit the 'RealModeContext', so that's safe
+    -- for now to leave it unimplemented.
     testRealModeContext :: IO (RealModeContext WalletMempoolExt)
     testRealModeContext = return (error "testRealModeContext is currently unimplemented")
 

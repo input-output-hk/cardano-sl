@@ -14970,7 +14970,7 @@ devnet: &devnet
           testnetInitializer:
             testBalance:
               poors:        200 # should be enough for developers
-              richmen:      4   # this is the number of core nodes,
+              richmen:      3   # this is the number of core nodes,
                                 # set to desired value
               richmenShare: 0.96
               totalBalance: 13887504355000000

@@ -216,36 +216,41 @@ the (**current**) update system:
 `We propose changes to the wallet backend data model and the way the installers interact with the cardano launcher.`
 
 To begin with, we will stop downloading an update in the background, but rather we will give the user full control.
-When requested, an update will be downloaded in a transient directory and when the user is ready to apply it,
+
+**When requested, an update will be downloaded in a transient directory and when the user is ready to apply it,
 the downloaded installer will be moved to the folder the Cardano launcher currently watches, so that the
-installation process can be reused without changes to the underlying infrastructure.
+installation process can be reused without changes to the underlying infrastructure.**
 
 We propose adding some extra fields to what used to be called `CUpdateInfo` (which here we rename for
 clarity):
 
-    data WalletSoftwareUpdate = WalletSoftwareUpdate
-        { wsuSoftwareVersion :: !SoftwareVersion
-        , wsuBlockVesion     :: !BlockVersion
-        , wsuScriptVersion   :: !ScriptVersion
-        , wsuImplicit        :: !Bool
-        , wsuVotesFor        :: !Int
-        , wsuVotesAgainst    :: !Int
-        , wsuPositiveStake   :: !CCoin
-        , wsuNegativeStake   :: !CCoin
-        , wsuSeverity        :: !UpdateSeverity
-        -- ^ The severity of the update (i.e. optional or mandatory).
-        , wsuUpdateState     :: !UpdateState
-        -- ^ The state of this update from users point of view.
-        , wsuSha256Checksum  :: !Sha256Checksum
-        -- ^ The checksum expected for this installer. It will probably
-        -- need to be passed as part of the `UpdateProposal` (maybe in an attribute?),
-        -- or we could reuse the hash which is part of the name, if possible.
-        } deriving (Eq, Show, Generic, Typeable)
+```haskell
+data WalletSoftwareUpdate = WalletSoftwareUpdate
+    { wsuSoftwareVersion :: !SoftwareVersion
+    , wsuBlockVesion     :: !BlockVersion
+    , wsuScriptVersion   :: !ScriptVersion
+    , wsuImplicit        :: !Bool
+    , wsuVotesFor        :: !Int
+    , wsuVotesAgainst    :: !Int
+    , wsuPositiveStake   :: !CCoin
+    , wsuNegativeStake   :: !CCoin
+    , wsuSeverity        :: !UpdateSeverity
+    -- ^ The severity of the update (i.e. optional or mandatory).
+    , wsuUpdateState     :: !UpdateState
+    -- ^ The state of this update from users point of view.
+    , wsuSha256Checksum  :: !Sha256Checksum
+    -- ^ The checksum expected for this installer. It will probably
+    -- need to be passed as part of the `UpdateProposal` (maybe in an attribute?),
+    -- or we could reuse the hash which is part of the name, if possible.
+    } deriving (Eq, Show, Generic, Typeable)
+```
 
 where `UpdateSeverity` is defined as an enumeration indicating how compulsory this update is:
 
-    data UpdateSeverity = Mandatory
-                        | Optional
+```haskell
+data UpdateSeverity = Mandatory
+                    | Optional
+```
 
 For hard forks updates (or security-critical issues) we might want to set the severity
 to `Mandatory`, for soft forks and other non-critical updates we can label an update as `Optional`.
@@ -256,15 +261,17 @@ to `Mandatory`, for soft forks and other non-critical updates we can label an up
 
 On the other hand, `wsuUpdateState` records the users' decision towards the update:
 
-    data UpdateState = Applied
-                     -- ^ The update has been fully applied.
-                     | Downloaded !Sha256Checksum !FilePath
-                     -- ^ The update has been downloaded but not applied yet. A Checksum
-                     -- can be stored to verify the integrity of the download.
-                     | Skipped
-                     -- ^ The update has been skipped by the user.
-                     | Proposed
-                     -- ^ The update has been just proposed and is waiting for users' feedback.
+```haskell
+data UpdateState = Applied
+                 -- ^ The update has been fully applied.
+                 | Downloaded !Sha256Checksum !FilePath
+                 -- ^ The update has been downloaded but not applied yet. A Checksum
+                 -- can be stored to verify the integrity of the download.
+                 | Skipped
+                 -- ^ The update has been skipped by the user.
+                 | Proposed
+                 -- ^ The update has been just proposed and is waiting for users' feedback.
+```
 
 Note how we could add an intermediate `Downloading` state, but this would complicate state-handling
 in case a user hard-quits Daedalus whilst the upgrade is being downloaded. In this case, we would
@@ -277,7 +284,9 @@ be downloaded again with no harm being done.
 
 For the proposed schema to succeed, we would need a function like the following:
 
-    updateSeverity :: UpdateProposal -> UpdateSeverity
+```haskell
+updateSeverity :: UpdateProposal -> UpdateSeverity
+```
 
 Such function would gather evidence from an `UpdateProposal` that this is a non-negotiable update.
 
@@ -291,35 +300,15 @@ user stories for the update system.
 
 -   (1) As a Daedalus user, I want the wallet to prompt me if there is a new update available.
 
-At startup Daedalus would make a call to `GET /api/v1/update` to fetch the last available update. Note
-how this endpoint would **always** return a `WalletSoftwareUpdate`.
+At startup Daedalus would make a call to `GET /api/v1/update` to fetch the last available update. If
+no update is available (for example if this is the first time we are configuring this Daedalus instance),
+404 will be returned.
 
-In case this is the first time we are launching Daedalus and there are not updates available,
-we can issue a special "genesis" update record which `UpdateType` will be `Applied`,
-so that it will appear from the outside as no updates are available (which is what we want). In pseudo-code:
-
-``` haskell
-freshClientUpdate :: WalletSoftwareUpdate {
-freshClientUpdate = WalletSoftwareUpdate { 
-          wsuSoftwareVersion = ...
-        , wsuBlockVesion     = ...
-        , wsuScriptVersion   = ...
-        , wsuImplicit        = ...
-        , wsuVotesFor        = ...
-        , wsuVotesAgainst    = ...
-        , wsuPositiveStake   = ...
-        , wsuNegativeStake   = ...
-        , wsuSeverity        = Optional
-        , wsuUpdateState     = Applied
-        , wsuSha256Checksum  = ...
-        }
-```
-
-In case of a `WalletSoftwareUpdate` which has the `wsuUpdateState` field set to `Applied`, Daedalus would
-consider itself updated. In case the fetched `WalletSoftwareUpdate` had `Mandatory` severity (but is not
-yet applied), Daedalus would freeze the UI and prevent the user from doing anything but update.
-At this stage, closing Daedalus won't have any effect, as upon the next startup the RESTful call would be
-performed again.
+In case of a 404 answer or a `WalletSoftwareUpdate` which has the `wsuUpdateState` field set to
+`Applied`, Daedalus would consider itself updated. In case the fetched `WalletSoftwareUpdate`
+had `Mandatory` severity (but is not yet applied), Daedalus would freeze the UI and prevent the
+user from doing anything but update. At this stage, closing Daedalus won't have any effect,
+as upon the next startup the RESTful call would be performed again.
 
 **N.B** A very fair point could be made that we are giving clients too many responsibility and we are offloading
 too much logic to them. If that's the case, we can easily create a new endpoint such as `GET /api/v1/update/severity`
@@ -328,7 +317,7 @@ applied and is marked as `Mandatory` (names and payloads might vary to make them
 
 -   (1.1) As a Daedalus user, I want to be able to download an update.
 
-After having grabbed a `WalletSoftwareUpdate` via `GET /api/v1/update` Daedalus is now in the position to
+After having grabbed a `WalletSoftwareUpdate` via a successful `GET /api/v1/update` Daedalus is now in the position to
 react to user's input. In this story, the user would choose to continue with the update process. To do so, the update
 would need to be downloaded. More specifically, the user would call `POST /api/v1/update/download` which
 would begin the download process. No state change would be necessary in the backend yet. Story `1.2.` assumes
@@ -339,7 +328,7 @@ that this endpoint has been called and it details its behaviour.
 To accomplish this, one possible idea would be to use [chunked transfer encoding](https://en.wikipedia.org/wiki/Chunked_transfer_encoding)
 to send Daedalus information about the progress of the update. For this to work, we would need to store
 the total size of the binary we need to download somewhere, so that Daedalus could compute a progress
-percentage by doing simple math.
+percentage by doing simple math. (**Note**: it has to be investigated how much painful it is on the Servant side).
 
 Once the process is complete, the backend would update the `UpdateState` of a `WalletSoftwareUpdate`
 to remember the fact this update was already downloaded, also recording the `FilePath` where this binary lives and
@@ -363,8 +352,9 @@ moved from the download directory into the folder the Cardano Launcher monitors 
 
 Under this scenario, the user must be able to fetch updates which have been dismissed (or downloaded) but not
 applied yet. This is now easy to accomplish as querying `GET /api/v1/update` would return either an applied update,
-(in which case "No Updates Available" should be shown) or an update which has been downloaded already, or skipped.
-Either way, the user will be in the position to move forward in the update process.
+(in which case "No Updates Available" should be shown), a 404 (which entails the former) or an update which
+has been downloaded already, or skipped. Either way, the user will be in the position to move
+forward in the update process.
 
 -   (4) As a Daedalus user, I want to be able to install an update immediately.
 
@@ -394,20 +384,22 @@ by the present proposal.
 
 At the moment of writing (2017-11-08), the updates are stored in the `wallet-db` as a list:
 
-    data WalletStorage = WalletStorage
-        { _wsWalletInfos     :: !(HashMap (CId Wal) WalletInfo)
-        , _wsAccountInfos    :: !(HashMap AccountId AccountInfo)
-        , _wsProfile         :: !CProfile
-        , _wsReadyUpdates    :: [CUpdateInfo]
-        , _wsTxHistory       :: !(HashMap (CId Wal) (HashMap CTxId CTxMeta))
-        , _wsHistoryCache    :: !(HashMap (CId Wal) (Map TxId TxHistoryEntry))
-        , _wsUtxo            :: !Utxo
-        -- @_wsBalances@ depends on @_wsUtxo@,
-        -- it's forbidden to update @_wsBalances@ without @_wsUtxo@
-        , _wsBalances        :: !WalletBalances
-        , _wsUsedAddresses   :: !CustomAddresses
-        , _wsChangeAddresses :: !CustomAddresses
-        } deriving (Eq)
+```haskell
+data WalletStorage = WalletStorage
+    { _wsWalletInfos     :: !(HashMap (CId Wal) WalletInfo)
+    , _wsAccountInfos    :: !(HashMap AccountId AccountInfo)
+    , _wsProfile         :: !CProfile
+    , _wsReadyUpdates    :: [CUpdateInfo]
+    , _wsTxHistory       :: !(HashMap (CId Wal) (HashMap CTxId CTxMeta))
+    , _wsHistoryCache    :: !(HashMap (CId Wal) (Map TxId TxHistoryEntry))
+    , _wsUtxo            :: !Utxo
+    -- @_wsBalances@ depends on @_wsUtxo@,
+    -- it's forbidden to update @_wsBalances@ without @_wsUtxo@
+    , _wsBalances        :: !WalletBalances
+    , _wsUsedAddresses   :: !CustomAddresses
+    , _wsChangeAddresses :: !CustomAddresses
+    } deriving (Eq)
+```
 
 It is my understanding (adinapoli) that this is necessary because more than one update can be found on the blockchain
 and we need to ensure a linear sequence of patches. I also believe, though, than this restriction was an historical
@@ -416,7 +408,25 @@ as we ship full installers on S3.
 
 **If my reasoning holds, we should be able to maintain in memory only two pieces of state: the current update (i.e.
 the one for which the user started an upgrade process) and the latest update (as in the most recent) we got from
-the blockchain**. Separating these two information apart ensures that new updates can be retrieved from the network
+the blockchain**. Therefore, the updated `WalletStorage` would look like:
+
+```haskell
+data WalletStorage = WalletStorage
+    { _wsWalletInfos     :: !(HashMap (CId Wal) WalletInfo)
+    , _wsAccountInfos    :: !(HashMap AccountId AccountInfo)
+    , _wsProfile         :: !CProfile
+    , _wsCurrentUpdate   :: !(Maybe WalletSoftwareUpdate)
+    , _wsNextUpdate      :: !(Maybe WalletSoftwareUpdate)
+    , _wsTxHistory       :: !(HashMap (CId Wal) (HashMap CTxId CTxMeta))
+    , _wsHistoryCache    :: !(HashMap (CId Wal) (Map TxId TxHistoryEntry))
+    , _wsUtxo            :: !Utxo
+    , _wsBalances        :: !WalletBalances
+    , _wsUsedAddresses   :: !CustomAddresses
+    , _wsChangeAddresses :: !CustomAddresses
+    } deriving (Eq)
+```
+
+Separating these two information apart ensures that new updates can be retrieved from the network
 whilst not overriding the *current* update. As a practical example, consider the following scenario:
 
     |  user (Daedalus)                                wallet backend                          update notifier
@@ -455,6 +465,9 @@ The way updates will transition from the *next* to the *current* can be the foll
   update designed as next, replace it.
 
 - When `GET /api/v1/update` is called:
+   - If the _current_ update is `Nothing` (no update was ever seen by this node), and a _next_ update
+     is available, the replace _current_ with _next_.
+
    - If the _current_ update is in the `Skipped` or `Applied` state, and a _next_ update is available,
      then replace _current_ with _next_. *In-transit* `POST/PUT` http-requests won't
      cause state inconsistencies by the virtue of the fact the input
@@ -470,7 +483,9 @@ The way updates will transition from the *next* to the *current* can be the foll
      that Daedalus can warn the user it has a downloaded (but not applied) update.
 
 - When `POST /api/v1/update` is called:
-    - If the input `WalletSoftwareUpdate` doesn't match the _current_ update, ignore the request.
+    - If the input `WalletSoftwareUpdate` doesn't match the _current_ update, ignore the request
+      and return a [422](https://httpstatuses.com/422) error code together with a proper
+      domain-specific error.
 
     - If the input `WalletSoftwareUpdate` does match the _current_ update, carry on as per
       user story (4) and (4.1), then set the _current_ status to `Applied`.
@@ -506,7 +521,9 @@ types omitted for brevity):
             '200':
               schema:
                 $ref: '#/definitions/WalletSoftwareUpdate'
-              description: 'The latest available update.'
+              description: 'The latest available update, which can be available, downloaded, skipped or applied already.'
+            '404':
+              description: 'There are no updates available (this node never saw one)'
         post:
           description: >
             Applies this update. It takes as input in the body
@@ -526,6 +543,8 @@ types omitted for brevity):
           responses:
             '204':
               description: 'The update has been applied.'
+            '422':
+              description: 'Invalid update provided.'
       /api/v1/update/download:
         post:
           description: >

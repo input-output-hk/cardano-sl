@@ -53,7 +53,7 @@ listAccounts PaginationParams {..} = do
 -- give the idea of how it will look like on Swagger.
 newAccount :: WalletId -> Maybe Text -> AccountUpdate -> Handler Account
 newAccount w@(WalletId wId) _ AccountUpdate{..} = do
-    when (wId /= "testwallet") $ throwError (toError err404 Errors.walletNotFound)
+    when (wId /= "testwallet") $ throwError (toError err404 Errors.WalletNotFound)
     -- In real code we would generate things like addresses (if needed) or
     -- any other form of Id/data.
     newId <- liftIO $ generate (listOf1 arbitrary)

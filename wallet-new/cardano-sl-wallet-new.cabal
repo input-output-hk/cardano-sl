@@ -19,6 +19,7 @@ library
                        Cardano.Wallet.API
                        Cardano.Wallet.API.Types
                        Cardano.Wallet.API.V1
+                       Cardano.Wallet.API.V1.TH
                        Cardano.Wallet.API.V1.Types
                        Cardano.Wallet.API.V1.Parameters
                        Cardano.Wallet.API.V1.Addresses
@@ -30,6 +31,7 @@ library
                        Cardano.Wallet.API.V1.Migration
                        Cardano.Wallet.API.V0
                        Cardano.Wallet.API.V0.Types
+
   ghc-options:         -Wall
   build-depends:       base
                      , QuickCheck
@@ -50,6 +52,7 @@ library
                      , servant
                      , servant-client
                      , servant-server
+                     , template-haskell
                      , text
                      , text-format
                      , transformers

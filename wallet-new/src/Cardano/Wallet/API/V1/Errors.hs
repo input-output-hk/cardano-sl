@@ -1,13 +1,19 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TemplateHaskell   #-}
 
 module Cardano.Wallet.API.V1.Errors where
 
 import           Universum
 
-import           Cardano.Wallet.API.V1.Types (WalletError (..))
-import           Data.Aeson (encode)
-import qualified Network.HTTP.Types.Header as HTTP
-import           Servant
+import           Data.Aeson
+import           Data.Aeson.TH (deriveJSON)
+import           Test.QuickCheck (Arbitrary (..))
 
+import           Cardano.Wallet.API.V1.TH (conNamesList, deriveWalletErrorJSON)
+
+--
+-- Error handling
+--
 
 -- | "Hoist" the given 'Wallet' error into a 'ServantError',
 -- returning as the response body the encoded JSON representation
@@ -24,9 +30,16 @@ applicationJson =
     let [hdr] = getHeaders (addHeader "application/json" mempty :: (Headers '[Header "Content-Type" String] String))
     in hdr
 
+-- | Type representing any error which might be thrown by wallet.
+-- TODO: change fields' types to actual Cardano core types, like `Coin` and `Address`
+data WalletError =
+      NotEnoughMoney { weNeedMore :: !Int }
+    | OutputIsRedeem { weAddress :: !Text }
+    | SomeOtherError { weFoo :: !Text, weBar :: !Int }
+    | NotRecordError !Int !Text
+    | WalletNotFound
 
-walletNotFound :: WalletError
-walletNotFound = WalletError {
-      errCode = 600
-    , errMessage = "The requested Wallet cannot be found."
-    }
+deriveWalletErrorJSON ''WalletError
+
+allErrorsList :: [Text]
+allErrorsList = $(conNamesList ''WalletError)

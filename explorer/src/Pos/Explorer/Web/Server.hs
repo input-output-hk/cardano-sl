@@ -641,15 +641,6 @@ epochSlotSearch epochIndex slotIndex = do
         errMsg :: Text
         errMsg = sformat ("No blocks on epoch "%build%" page "%build%" found!") epoch page
 
--- | Get the @Page@s number from an @Epoch@ or throw an exception.
-getEpochPagesOrThrow
-    :: (MonadBlockDB m, MonadThrow m)
-    => EpochIndex
-    -> m Page
-getEpochPagesOrThrow epochIndex =
-    getEpochPages epochIndex >>= maybeThrow (Internal "No epoch pages.")
-
-
 -- | Search the blocks by epoch and epoch page number.
 epochPageSearch
     :: ExplorerMode ctx m
@@ -884,3 +875,11 @@ getTxMain id TxExtra {..} = case teBlockchainPlace of
         mb <- getMainBlock hh
         maybeThrow (Internal "TxExtra return tx index that is out of bounds") $
             atMay (toList $ mb ^. mainBlockTxPayload . txpTxs) $ fromIntegral idx
+
+-- | Get @Page@ numbers from an @Epoch@ or throw an exception.
+getEpochPagesOrThrow
+    :: (MonadBlockDB m, MonadThrow m)
+    => EpochIndex
+    -> m Page
+getEpochPagesOrThrow epochIndex =
+    getEpochPages epochIndex >>= maybeThrow (Internal "No epoch pages.")

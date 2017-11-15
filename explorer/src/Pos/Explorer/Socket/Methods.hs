@@ -339,9 +339,9 @@ notifyEpochsLastPageSubscribers
 notifyEpochsLastPageSubscribers currentEpoch = do
     recipients <- view $ csEpochsLastPageSubscribers
     -- ^ subscriber
-    maxPage <- getEpochPagesOrThrow currentEpoch
-    -- ^ max no. of epoch pages
-    epochs <- lift $ epochPageSearch @ctx currentEpoch $ Just maxPage
+    lastPage <- getEpochPagesOrThrow currentEpoch
+    -- ^ last epoch page
+    epochs <- lift $ epochPageSearch @ctx currentEpoch $ Just lastPage
     -- ^ epochs of last page
     broadcast @ctx EpochsLastPageUpdated epochs recipients
 

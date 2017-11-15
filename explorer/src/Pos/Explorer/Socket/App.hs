@@ -38,7 +38,6 @@ import           System.Wlog (CanLog, HasLoggerName, LoggerName, NamedPureLogger
 
 import           Pos.Block.Types (Blund)
 import           Pos.Core (addressF, siEpoch)
-import           Pos.Core.Types (SlotId (..))
 import qualified Pos.GState as DB
 import           Pos.Slotting (MonadSlots (getCurrentSlot))
 
@@ -186,7 +185,7 @@ periodicPollChanges connVar closed =
                 -- 1. last page of blocks
                 notifyBlocksLastPageSubscribers
                 -- 2. last page of epochs
-                mSlotId :: Maybe SlotId <- lift $ getCurrentSlot @ctx
+                mSlotId <- lift $ getCurrentSlot @ctx
                 whenJust mSlotId $ notifyEpochsLastPageSubscribers . siEpoch
                 logDebug $ sformat ("Blockchain updated ("%int%" blocks)")
                     (length newBlunds)

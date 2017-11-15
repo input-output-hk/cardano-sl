@@ -6,6 +6,10 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE QuasiQuotes       #-}
 {-# LANGUAGE RankNTypes        #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeSynonymInstances  #-}
 
 import           Universum
 
@@ -13,6 +17,8 @@ import           Control.Concurrent           (modifyMVar_)
 import           Control.Concurrent.Async.Lifted.Safe
     (Async, async, cancel, poll, wait, waitAny, withAsyncWithUnmask)
 import           Control.Exception.Safe       (tryAny)
+import           Control.Lens                 (makeLensesWith)
+import qualified Data.ByteString.Lazy         as BS.L
 import           Data.List                    (isSuffixOf)
 import qualified Data.Text.IO                 as T
 import           Data.Time.Units              (Second, convertUnit)
@@ -55,16 +61,25 @@ import           GHC.IO.Exception             (IOErrorType (..), IOException (..
 import           Paths_cardano_sl             (version)
 import           Pos.Client.CLI               (configurationOptionsParser,
                                                readLoggerConfig)
-import           Pos.Core                     (Timestamp (..))
+import           Pos.Core                     (HasConfiguration, Timestamp (..))
+import           Pos.DB.Class                 (MonadDB (..), MonadDBRead (..))
+import           Pos.DB.Misc                  (affirmUpdateInstalled)
+import           Pos.DB.Rocks                 (NodeDBs, closeNodeDBs, dbDeleteDefault,
+                                               dbGetDefault, dbIterSourceDefault,
+                                               dbPutDefault, dbWriteBatchDefault,
+                                               openNodeDBs)
 import           Pos.Launcher                 (HasConfigurations, withConfigurations)
 import           Pos.Launcher.Configuration   (ConfigurationOptions (..))
 import           Pos.Reporting.Methods        (retrieveLogFiles, sendReport)
 import           Pos.ReportServer.Report      (ReportType (..))
-import           Pos.Util                     (directory, sleep)
+import           Pos.Update                   (installerHash)
+import           Pos.Util                     (HasLens (..), directory, postfixLFields,
+                                               sleep)
 
 data LauncherOptions = LO
     { loNodePath            :: !FilePath
     , loNodeArgs            :: ![Text]
+    , loNodeDbPath          :: !FilePath
     , loNodeLogConfig       :: !(Maybe FilePath)
     , loNodeLogPath         :: !(Maybe FilePath)
     , loWalletPath          :: !(Maybe FilePath)
@@ -99,6 +114,10 @@ optionsParser = do
         short   'n' <>
         help    "An argument to be passed to the node." <>
         metavar "ARG"
+    loNodeDbPath <- strOption $
+        long    "db-path" <>
+        metavar "FILEPATH" <>
+        help    "Path to directory with all DBs used by the node."
     loNodeLogConfig <- optional $ textOption $
         long    "node-log-config" <>
         help    "Path to log config that will be used by the node." <>
@@ -198,6 +217,27 @@ Command example:
     --node-timeout 5                                               \
     --update-archive updateDownloaded.tar|]
 
+data LauncherModeContext = LauncherModeContext { lmcNodeDBs :: NodeDBs }
+
+makeLensesWith postfixLFields ''LauncherModeContext
+
+type LauncherMode = ReaderT LauncherModeContext IO
+
+instance HasLens NodeDBs LauncherModeContext NodeDBs where
+    lensOf = lmcNodeDBs_L
+
+instance HasConfiguration => MonadDBRead LauncherMode where
+    dbGet = dbGetDefault
+    dbIterSource = dbIterSourceDefault
+
+instance HasConfiguration => MonadDB LauncherMode where
+    dbPut = dbPutDefault
+    dbWriteBatch = dbWriteBatchDefault
+    dbDelete = dbDeleteDefault
+
+bracketNodeDBs :: FilePath -> (NodeDBs -> IO a) -> IO a
+bracketNodeDBs dbPath = bracket (openNodeDBs False dbPath) closeNodeDBs
+
 main :: IO ()
 main =
 #ifdef mingw32_HOST_OS
@@ -222,13 +262,16 @@ main =
                   Just _  ->
                       set Log.ltFiles [Log.HandlerWrap "launcher" Nothing] .
                       set Log.ltSeverity (Just Log.Debug)
-    Log.usingLoggerName "launcher" $
+    bracketNodeDBs loNodeDbPath $ \lmcNodeDBs ->
+        Log.usingLoggerName "launcher" $
         withConfigurations loConfiguration $
+        let lmc = LauncherModeContext{..} in
         case loWalletPath of
             Nothing -> do
                 logNotice "LAUNCHER STARTED"
                 logInfo "Running in the server scenario"
                 serverScenario
+                    lmc
                     loNodeLogConfig
                     (loNodePath, realNodeArgs, loNodeLogPath)
                     ( loUpdaterPath
@@ -240,6 +283,7 @@ main =
                 logNotice "LAUNCHER STARTED"
                 logInfo "Running in the client scenario"
                 clientScenario
+                    lmc
                     loNodeLogConfig
                     (loNodePath, realNodeArgs, loNodeLogPath)
                     (wpath, loWalletArgs)
@@ -281,20 +325,21 @@ main =
 -- * Launch the node.
 -- * If it exits with code 20, then update and restart, else quit.
 serverScenario
-    :: Maybe FilePath                      -- ^ Logger config
+    :: LauncherModeContext
+    -> Maybe FilePath                      -- ^ Logger config
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
     -- ^ Updater, args, updater runner, the update .tar
     -> Maybe String                        -- ^ Report server
     -> M ()
-serverScenario logConf node updater report = do
-    runUpdater updater
+serverScenario lmc logConf node updater report = do
+    runUpdater lmc updater
     -- TODO: the updater, too, should create a log if it fails
     (_, nodeAsync, nodeLog) <- spawnNode node
     exitCode <- wait nodeAsync
     if exitCode == ExitFailure 20 then do
         logNotice $ sformat ("The node has exited with "%shown) exitCode
-        serverScenario logConf node updater report
+        serverScenario lmc logConf node updater report
     else do
         logWarning $ sformat ("The node has exited with "%shown) exitCode
         whenJust report $ \repServ -> do
@@ -307,7 +352,8 @@ serverScenario logConf node updater report = do
 -- * Launch the node and the wallet.
 -- * If the wallet exits with code 20, then update and restart, else quit.
 clientScenario
-    :: Maybe FilePath                      -- ^ Logger config
+    :: LauncherModeContext
+    -> Maybe FilePath                      -- ^ Logger config
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
     -> (FilePath, [Text])                  -- ^ Wallet, args
     -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
@@ -315,8 +361,8 @@ clientScenario
     -> Int                                 -- ^ Node timeout, in seconds
     -> Maybe String                        -- ^ Report server
     -> M ()
-clientScenario logConf node wallet updater nodeTimeout report = do
-    runUpdater updater
+clientScenario lmc logConf node wallet updater nodeTimeout report = do
+    runUpdater lmc updater
     (nodeHandle, nodeAsync, nodeLog) <- spawnNode node
     walletAsync <- async (runWallet wallet)
     (someAsync, exitCode) <- waitAny [nodeAsync, walletAsync]
@@ -332,7 +378,7 @@ clientScenario logConf node wallet updater nodeTimeout report = do
              logInfo $ sformat ("Killing the node in "%int%" seconds") nodeTimeout
              sleep (fromIntegral nodeTimeout)
              killNode nodeHandle nodeAsync
-             clientScenario logConf node wallet updater nodeTimeout report
+             clientScenario lmc logConf node wallet updater nodeTimeout report
        | otherwise -> do
              logWarning $ sformat ("The wallet has exited with "%shown) exitCode
              -- TODO: does the wallet have some kind of log?
@@ -354,11 +400,11 @@ clientScenario logConf node wallet updater nodeTimeout report = do
 
 -- | We run the updater and delete the update file if the update was
 -- successful.
-runUpdater :: (FilePath, [Text], Maybe FilePath, Maybe FilePath) -> M ()
-runUpdater (path, args, runnerPath, updateArchive) = do
+runUpdater :: LauncherModeContext -> (FilePath, [Text], Maybe FilePath, Maybe FilePath) -> M ()
+runUpdater lmc (path, args, runnerPath, mUpdateArchivePath) = do
     whenM (liftIO (doesFileExist path)) $ do
         logNotice "Running the updater"
-        let args' = args ++ maybe [] (one . toText) updateArchive
+        let args' = args ++ maybe [] (one . toText) mUpdateArchivePath
         exitCode <- case runnerPath of
             Nothing -> runUpdaterProc path args'
             Just rp -> do
@@ -371,8 +417,10 @@ runUpdater (path, args, runnerPath, updateArchive) = do
                 logInfo "The updater has exited successfully"
                 -- this will throw an exception if the file doesn't exist but
                 -- hopefully if the updater has succeeded it *does* exist
-                whenJust updateArchive $ \fp ->
-                    liftIO (removeFile fp)
+                whenJust mUpdateArchivePath $ \updateArchivePath -> liftIO $ do
+                    updateArchive <- BS.L.readFile updateArchivePath
+                    usingReaderT lmc $ affirmUpdateInstalled (installerHash updateArchive)
+                    removeFile updateArchivePath
             ExitFailure code ->
                 logWarning $ sformat ("The updater has failed (exit code "%int%")") code
 

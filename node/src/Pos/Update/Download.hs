@@ -26,10 +26,11 @@ import           Serokell.Util.Text      (listJsonIndent)
 import           System.Directory        (doesFileExist)
 import           System.Wlog             (logInfo, logWarning)
 
-import           Pos.Binary.Update       ()
 import           Pos.Binary.Class        (Raw)
+import           Pos.Binary.Update       ()
 import           Pos.Core.Types          (SoftwareVersion (..))
 import           Pos.Crypto              (Hash, castHash, hash)
+import           Pos.DB.Misc             (isUpdateInstalled)
 import           Pos.Exception           (reportFatalError)
 import           Pos.Update.Configuration (curSoftwareVersion, ourSystemTag)
 import           Pos.Update.Context      (UpdateContext (..))
@@ -66,7 +67,12 @@ downloadUpdate cps = do
         downloadedUpdateMVar <-
             ucDownloadedUpdate <$> view (lensOf @UpdateContext)
         tryReadMVar downloadedUpdateMVar >>= \case
-            Nothing -> downloadUpdateDo cps
+            Nothing -> do
+                updHash <- getUpdateHash cps
+                installed <- isUpdateInstalled updHash
+                if installed
+                    then onAlreadyInstalled
+                    else downloadUpdateDo updHash cps
             Just existingCPS -> onAlreadyDownloaded existingCPS
   where
     proposalToDL = cpsUpdateProposal cps
@@ -78,27 +84,36 @@ downloadUpdate cps = do
              " and we are waiting for it to be applied")
             proposalToDL
             cpsUpdateProposal
+    onAlreadyInstalled =
+        logInfo $
+        sformat
+            ("We won't download an update for proposal "%build%
+             ", because it's already installed")
+            proposalToDL
 
--- Download and save archive update by given `ConfirmedProposalState`
-downloadUpdateDo :: UpdateMode ctx m => ConfirmedProposalState -> m ()
-downloadUpdateDo cps@ConfirmedProposalState {..} = do
+getUpdateHash :: UpdateMode ctx m => ConfirmedProposalState -> m (Hash Raw)
+getUpdateHash ConfirmedProposalState{..} = do
     useInstaller <- views (lensOf @UpdateParams) upUpdateWithPkg
-    updateServers <- views (lensOf @UpdateParams) upUpdateServers
-
     let dataHash = if useInstaller then udPkgHash else udAppDiffHash
         mupdHash = dataHash <$>
                    HM.lookup ourSystemTag (upData cpsUpdateProposal)
 
+    -- It must be enforced by the caller.
+    maybe (reportFatalError $ sformat
+            ("We are trying to download an update not for our "%
+            "system, update proposal is: "%build)
+            cpsUpdateProposal)
+        pure
+        mupdHash
+
+-- Download and save archive update by given `ConfirmedProposalState`
+downloadUpdateDo :: UpdateMode ctx m => Hash Raw -> ConfirmedProposalState -> m ()
+downloadUpdateDo updHash cps@ConfirmedProposalState {..} = do
+    updateServers <- views (lensOf @UpdateParams) upUpdateServers
+
     logInfo $ sformat ("We are going to start downloading an update for "%build)
               cpsUpdateProposal
     res <- runExceptT $ do
-        -- It must be enforced by the caller.
-        updHash <- maybe (reportFatalError $ sformat
-                            ("We are trying to download an update not for our "%
-                            "system, update proposal is: "%build)
-                            cpsUpdateProposal)
-                          pure
-                   mupdHash
         let updateVersion = upSoftwareVersion cpsUpdateProposal
         -- It's just a sanity check which must always pass due to the
         -- outside logic. We take only updates for our software and

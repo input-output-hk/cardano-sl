@@ -25,10 +25,9 @@ import           Universum
 import           Control.Lens (lens, makeLensesWith)
 import           Control.Monad.Morph (hoist)
 import           Control.Monad.Reader (withReaderT)
-import           Crypto.Random (MonadRandom)
-import           Data.Default (def, Default)
-import           Mockable (Production, MonadMockable, Promise)
-import           System.Wlog (HasLoggerName (..), CanLog)
+import           Data.Default (def)
+import           Mockable (Production)
+import           System.Wlog (HasLoggerName (..))
 
 import           Pos.Block.BListener (MonadBListener (..))
 import           Pos.Block.Slog (HasSlogContext (..), HasSlogGState (..))
@@ -81,43 +80,9 @@ data CmdCtx = CmdCtx
     }
 
 type AuxxMode = ReaderT AuxxContext Production
-type MonadAuxxMode m =
-    ( HasConfigurations
-    , MonadReader AuxxContext m
-    , MonadMockable m
-    , MonadSlots AuxxContext m
-    , HasLoggerName m
-    , CanJsonLog m
-    , MonadDBRead m
-    , MonadDB m
-    , MonadBlockDBGenericWrite BlockHeader Block Undo m
-    , MonadBlockDBGeneric BlockHeader Block Undo m
-    , MonadBlockDBGeneric (Some IsHeader) SscBlock () m
-    , MonadGState m
-    , MonadBListener m
-    , MonadBalances m
-    , MonadTxHistory m
-    , MonadKnownPeers m
-    , MonadFormatPeers m
-    , MonadAddresses m
-    , MonadKeysRead m
-    , MonadKeys m
-    , MonadTxpLocal m
-    , MonadTxpLocal (BlockGenMode EmptyMempoolExt m)
-    , MonadMask m
-    , CanLog m
-    , AddrDataIsPublicKey m
-    , Eq (Promise m (Maybe ())) -- what?
-    , MonadRandom m
-    , Default (MempoolExt m)
-    , MonadTxpLocal (BlockGenMode (MempoolExt m) m)
-    , MonadFail m
-    )
 
--- For MonadAuxxMode we need to make sure that AddrData m in MonadAdresses
--- is indeed PublicKey, as it is for AuxxMode.
-class (AddrData m ~ PublicKey) => AddrDataIsPublicKey m
-instance AddrDataIsPublicKey AuxxMode
+class (m ~ AuxxMode, HasConfigurations, HasCompileInfo) => MonadAuxxMode m
+instance (m ~ AuxxMode, HasConfigurations, HasCompileInfo) => MonadAuxxMode AuxxMode
 
 data AuxxContext = AuxxContext
     { acRealModeContext :: !(RealModeContext EmptyMempoolExt)

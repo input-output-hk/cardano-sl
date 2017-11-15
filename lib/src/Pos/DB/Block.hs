@@ -54,7 +54,8 @@ import           Pos.Core.Block (Block, GenesisBlock)
 import qualified Pos.Core.Block as CB
 import           Pos.Crypto (hashHexF)
 import           Pos.DB.BlockIndex (blockIndexKey)
-import           Pos.DB.Class (MonadDB (..), MonadDBRead (..), getBlock)
+import           Pos.DB.Class (MonadDB (..), MonadDBRead (..), RawBlock (..), RawUndo (..),
+                               getBlock)
 import           Pos.DB.Error (DBError (..))
 import           Pos.DB.Functions (dbSerializeValue)
 import           Pos.DB.GState.Common (getTipSomething)
@@ -72,7 +73,7 @@ import           Pos.Delegation.Types (DlgUndo (..))
 
 getUndo :: MonadDBRead m => HeaderHash -> m (Maybe Undo)
 getUndo x = do
-    mBS <- dbGetRawUndo x
+    mBS <- fmap unRawUndo <$> dbGetRawUndo x
     pure $ rightToMaybe . decodeFull =<< mBS
 
 -- | Convenient wrapper which combines 'dbGetBlock' and 'dbGetUndo' to
@@ -84,7 +85,7 @@ getBlund x =
         <*> MaybeT (getUndo x)
 
 putBlund :: MonadDB m => Blund -> m ()
-putBlund = dbPutRawBlund . fmap serialize'
+putBlund = dbPutRawBlund . fmap (RawUndo . serialize')
 
 -- | Get 'Block' corresponding to tip.
 getTipBlock :: MonadDBRead m => m Block
@@ -117,7 +118,7 @@ putRawBlund (blk, rawUndo) = do
     let h = headerHash blk
     liftIO . createDirectoryIfMissing False =<< dirDataPath h
     flip putData blk =<< blockDataPath h
-    flip putRawData rawUndo =<< undoDataPath h
+    flip putRawData (unRawUndo rawUndo) =<< undoDataPath h
     putBi (blockIndexKey h) (CB.getBlockHeader blk)
 
 deleteBlock :: MonadRealDB ctx m => HeaderHash -> m ()
@@ -134,7 +135,7 @@ prepareBlockDB
     :: MonadDB m
     => GenesisBlock -> m ()
 prepareBlockDB blk =
-    dbPutRawBlund (Left blk, serialize' genesisUndo)
+    dbPutRawBlund (Left blk, RawUndo $ serialize' genesisUndo)
   where
     genesisUndo =
         Undo
@@ -169,14 +170,14 @@ dbGetBlundPureDefault h = do
 dbGetRawBlockPureDefault
     :: (HasConfiguration, MonadPureDB ctx m)
     => HeaderHash
-    -> m (Maybe ByteString)
-dbGetRawBlockPureDefault h = fmap (serialize' . fst) <$> dbGetBlundPureDefault h
+    -> m (Maybe RawBlock)
+dbGetRawBlockPureDefault h = fmap (RawBlock . serialize' . fst) <$> dbGetBlundPureDefault h
 
 dbGetRawUndoPureDefault
     :: forall ctx m. (HasConfiguration, MonadPureDB ctx m)
     => HeaderHash
-    -> m (Maybe ByteString)
-dbGetRawUndoPureDefault h = fmap (serialize' . snd) <$> dbGetBlundPureDefault @ctx @m h
+    -> m (Maybe RawUndo)
+dbGetRawUndoPureDefault h = fmap (RawUndo . serialize' . snd) <$> dbGetBlundPureDefault @ctx @m h
 
 dbPutRawBlundPureDefault ::
        forall ctx m. (HasConfiguration, MonadPureDB ctx m)
@@ -187,7 +188,7 @@ dbPutRawBlundPureDefault (blk, rawUndo) = do
         blund =
             either (error "Couldn't deserialize undo")
                    (blk,)
-                   (decodeFull rawUndo)
+                   (decodeFull $ unRawUndo rawUndo)
     let h = headerHash blk
     (var :: DBPureVar) <- view (lensOf @DBPureVar)
     flip atomicModifyIORefPure var $
@@ -203,19 +204,20 @@ dbPutRawBlundPureDefault (blk, rawUndo) = do
 type BlockDBGenericEnv ctx m =
     ( MonadDBRead m
     , MonadRealDB ctx m
-    , HasConfiguration)
+    , HasConfiguration
+    )
 
 dbGetRawBlockRealDefault ::
        forall ctx m. (BlockDBGenericEnv ctx m)
     => HeaderHash
-    -> m (Maybe ByteString)
-dbGetRawBlockRealDefault = getRawBlock
+    -> m (Maybe RawBlock)
+dbGetRawBlockRealDefault x = RawBlock <<$>> getRawBlock x
 
 dbGetRawUndoRealDefault ::
        forall ctx m. BlockDBGenericEnv ctx m
     => HeaderHash
-    -> m (Maybe ByteString)
-dbGetRawUndoRealDefault = getRawUndo
+    -> m (Maybe RawUndo)
+dbGetRawUndoRealDefault x = RawUndo <<$>> getRawUndo x
 
 dbPutRawBlundRealDefault :: (HasConfiguration, MonadDBRead m, MonadRealDB ctx m) => RawBlund -> m ()
 dbPutRawBlundRealDefault = putRawBlund
@@ -232,12 +234,12 @@ type DBSumEnv ctx m =
 
 dbGetRawBlockSumDefault
     :: forall ctx m. (DBSumEnv ctx m)
-    => HeaderHash -> m (Maybe ByteString)
+    => HeaderHash -> m (Maybe RawBlock)
 dbGetRawBlockSumDefault hh = eitherDB (dbGetRawBlockRealDefault hh) (dbGetRawBlockPureDefault hh)
 
 dbGetRawUndoSumDefault
     :: forall ctx m. DBSumEnv ctx m
-    => HeaderHash -> m (Maybe ByteString)
+    => HeaderHash -> m (Maybe RawUndo)
 dbGetRawUndoSumDefault hh =
     eitherDB (dbGetRawUndoRealDefault hh) (dbGetRawUndoPureDefault hh)
 

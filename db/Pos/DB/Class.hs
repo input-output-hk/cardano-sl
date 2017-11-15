@@ -39,6 +39,8 @@ module Pos.DB.Class
        , DBIteratorClass (..)
        , IterType
        , MonadDBRead (..)
+       , RawBlock (..)
+       , RawUndo (..)
        , MonadBlockDBRead
        , getBlock
        , MonadDB (..)
@@ -90,6 +92,14 @@ class DBIteratorClass i where
 
 type IterType i = (IterKey i, IterValue i)
 
+newtype RawBlock = RawBlock
+    { unRawBlock :: ByteString
+    }
+
+newtype RawUndo = RawUndo
+    { unRawUndo :: ByteString
+    }
+
 -- | Pure read-only interface to the database.
 class (HasConfiguration, MonadBaseControl IO m, MonadThrow m) => MonadDBRead m where
     -- | This function takes tag and key and reads value associated
@@ -104,10 +114,10 @@ class (HasConfiguration, MonadBaseControl IO m, MonadThrow m) => MonadDBRead m w
         ) => DBTag -> Proxy i -> Source (ResourceT m) (IterType i)
 
     -- | Get block by header hash
-    dbGetRawBlock :: HeaderHash -> m (Maybe ByteString)
+    dbGetRawBlock :: HeaderHash -> m (Maybe RawBlock)
 
     -- | Get undo by header hash
-    dbGetRawUndo :: HeaderHash -> m (Maybe ByteString)
+    dbGetRawUndo :: HeaderHash -> m (Maybe RawUndo)
 
 instance {-# OVERLAPPABLE #-}
     (MonadDBRead m, MonadTrans t, MonadThrow (t m), MonadBaseControl IO (t m)) =>
@@ -124,7 +134,7 @@ type MonadBlockDBRead m = (MonadDBRead m, BlockchainHelpers MainBlockchain)
 
 getBlock :: MonadBlockDBRead m => HeaderHash -> m (Maybe Block)
 getBlock x = do
-    mBS <- dbGetRawBlock x
+    mBS <- fmap unRawBlock <$> dbGetRawBlock x
     pure $ rightToMaybe . decodeFull =<< mBS
 
 -- | Pure interface to the database. Combines read-only interface and
@@ -154,7 +164,7 @@ class MonadDBRead m => MonadDB m where
     dbDelete :: DBTag -> ByteString -> m ()
 
     -- | Put given blund into the Block DB.
-    dbPutRawBlund :: (Block, ByteString) -> m ()
+    dbPutRawBlund :: (Block, RawUndo) -> m ()
 
 instance {-# OVERLAPPABLE #-}
     (MonadDB m, MonadTrans t, MonadThrow (t m), MonadBaseControl IO (t m)) =>

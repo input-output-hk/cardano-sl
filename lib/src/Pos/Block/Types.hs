@@ -18,6 +18,7 @@ import           Pos.Block.Slog.Types (SlogUndo (..))
 import           Pos.Core (HasConfiguration, HasDifficulty (..), HasHeaderHash (..))
 import           Pos.Core.Block (Block)
 import           Pos.Core.Txp (TxpUndo)
+import           Pos.DB.Class (RawUndo)
 import           Pos.Delegation.Types (DlgUndo)
 import           Pos.Update.Poll.Types (USUndo)
 
@@ -34,7 +35,7 @@ instance NFData Undo
 -- | Block and its Undo.
 type Blund = (Block, Undo)
 
-type RawBlund = (Block, ByteString)
+type RawBlund = (Block, RawUndo)
 
 instance HasConfiguration => Buildable Undo where
     build Undo{..} =

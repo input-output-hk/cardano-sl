@@ -12,7 +12,7 @@ import           Pos.Util.Justify (leftAlign)
 
 import           Lang.Argument (ArgCardinality (..), SomeArgCardinality (..), TypeName (..),
                                 getParameters)
-import           Lang.Command (CommandProc (..))
+import           Lang.Command (CommandProc (..), UnavailableCommand (..))
 import           Lang.Name (Name)
 
 commandHelp :: CommandProc m -> Text
@@ -30,6 +30,10 @@ commandHelp CommandProc{..} =
             zipWith (\p h -> p <> " " <> h) prefixes parameterLines
     in
         T.concat helpLines <> commandDesc
+
+unavailableCommandHelp :: UnavailableCommand -> Text
+unavailableCommandHelp UnavailableCommand{..} =
+    pretty ucName <> " is unavailable because " <> ucReason
 
 parameterHelp :: (Name, TypeName, SomeArgCardinality) -> Text
 parameterHelp (name, tn, ac) = pretty name <> ": " <> withArgCardinality ac (withTypeName tn NeedWrap)
@@ -54,7 +58,7 @@ withTypeName (TypeNameEither tn1 tn2) needWrap =
     t' = withTypeName tn1 DontNeedWrap <> " | " <>
          withTypeName tn2 DontNeedWrap
 
-mkHelpMessage :: [CommandProc m] -> Text
+mkHelpMessage :: [Either UnavailableCommand (CommandProc m)] -> Text
 mkHelpMessage cps =
     "Available commands:\n\n" <>
-    mconcat (map (\cp -> commandHelp cp <> "\n\n") cps)
+    mconcat (map (\cp -> either unavailableCommandHelp commandHelp cp <> "\n\n") cps)

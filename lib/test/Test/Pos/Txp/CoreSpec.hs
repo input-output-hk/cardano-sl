@@ -18,11 +18,11 @@ import           Test.QuickCheck (NonNegative (..), Positive (..), Property, arb
 import           Test.QuickCheck.Gen (Gen)
 
 import           Pos.Arbitrary.Txp ()
+import           Pos.Core (mkCoin)
 import           Pos.Core.Txp (Tx (..), TxIn (..), TxOut (..), mkTx)
 import           Pos.Crypto (hash, whData, withHash)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Txp.Topsort (topsortTxs)
-import           Pos.Types (mkCoin)
 import           Pos.Util (sublistN, _neHead)
 
 spec :: Spec

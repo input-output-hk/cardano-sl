@@ -14,7 +14,7 @@ import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
 import           Paths_cardano_sl (version)
 import           Pos.Aeson.Genesis (fromAvvmPk)
-import           Pos.Types (makeRedeemAddress)
+import           Pos.Core (makeRedeemAddress)
 
 data AddrConvertOptions = AddrConvertOptions
     { address :: !(Maybe Text)

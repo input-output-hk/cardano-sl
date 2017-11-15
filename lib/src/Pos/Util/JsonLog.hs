@@ -39,15 +39,14 @@ import           System.Wlog (WithLogger)
 import           Pos.Binary.Core ()
 import           Pos.Block.BHelpers ()
 import           Pos.Communication.Relay.Logic (InvReqDataFlowLog)
-import           Pos.Core (HasConfiguration, SlotId (..), gbHeader, gbhPrevBlock, getSlotIndex,
-                           headerHash, mkLocalSlotIndex)
+import           Pos.Core (EpochIndex (..), HasConfiguration, HeaderHash, SlotId (..), gbHeader,
+                           gbhPrevBlock, getSlotIndex, headerHash, headerHashF, mkLocalSlotIndex)
 import           Pos.Core.Block (Block, mainBlockTxPayload)
 import           Pos.Core.Block.Genesis.Lens (genBlockEpoch)
 import           Pos.Core.Block.Main.Lens (mainBlockSlot)
 import           Pos.Core.Txp (txpTxs)
 import           Pos.Crypto (hash, hashHexF)
 import           Pos.Txp (JLTxR (..), MemPoolModifyReason)
-import           Pos.Types (EpochIndex (..), HeaderHash, headerHashF)
 
 type BlockId = Text
 type TxId = Text

@@ -27,7 +27,7 @@ import           System.Directory (createDirectoryIfMissing, doesFileExist, getT
                                    removeFile)
 import           System.Environment (getExecutablePath)
 import           System.Exit (ExitCode (..))
-import           System.FilePath (normalise, (</>))
+import           System.FilePath ((</>))
 import qualified System.IO as IO
 import           System.Process (ProcessHandle, readProcessWithExitCode)
 import qualified System.Process as Process
@@ -55,7 +55,7 @@ import           Pos.Client.CLI (configurationOptionsParser, readLoggerConfig)
 import           Pos.Core (Timestamp (..))
 import           Pos.Launcher (HasConfigurations, withConfigurations)
 import           Pos.Launcher.Configuration (ConfigurationOptions (..))
-import           Pos.Reporting.Methods (retrieveLogFiles, sendReport)
+import           Pos.Reporting.Methods (compressLogs, retrieveLogFiles, sendReport)
 import           Pos.ReportServer.Report (ReportType (..))
 import           Pos.Util (directory, sleep)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)
@@ -293,7 +293,7 @@ serverScenario
 serverScenario logConf node updater report = do
     runUpdater updater
     -- TODO: the updater, too, should create a log if it fails
-    (_, nodeAsync, nodeLog) <- spawnNode node
+    (_, nodeAsync) <- spawnNode node
     exitCode <- wait nodeAsync
     if exitCode == ExitFailure 20 then do
         logNotice $ sformat ("The node has exited with "%shown) exitCode
@@ -302,7 +302,7 @@ serverScenario logConf node updater report = do
         logWarning $ sformat ("The node has exited with "%shown) exitCode
         whenJust report $ \repServ -> do
             logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
-            reportNodeCrash exitCode logConf repServ nodeLog
+            reportNodeCrash exitCode logConf repServ
 
 -- | If we are on desktop, we want the following algorithm:
 --
@@ -320,7 +320,7 @@ clientScenario
     -> M ()
 clientScenario logConf node wallet updater nodeTimeout report = do
     runUpdater updater
-    (nodeHandle, nodeAsync, nodeLog) <- spawnNode node
+    (nodeHandle, nodeAsync) <- spawnNode node
     walletAsync <- async (runWallet wallet)
     (someAsync, exitCode) <- waitAny [nodeAsync, walletAsync]
     let restart = clientScenario logConf node wallet updater nodeTimeout report
@@ -328,7 +328,7 @@ clientScenario logConf node wallet updater nodeTimeout report = do
              logWarning $ sformat ("The node has exited with "%shown) exitCode
              whenJust report $ \repServ -> do
                  logInfo $ sformat ("Sending logs to "%stext) (toText repServ)
-                 reportNodeCrash exitCode logConf repServ nodeLog
+                 reportNodeCrash exitCode logConf repServ
              logInfo "Waiting for the wallet to die"
              walletExitCode <- wait walletAsync
              logInfo $ sformat ("The wallet has exited with "%shown) walletExitCode
@@ -425,14 +425,14 @@ writeWindowsUpdaterRunner runnerPath = liftIO $ do
 
 spawnNode
     :: (FilePath, [Text], Maybe FilePath)
-    -> M (ProcessHandle, Async ExitCode, FilePath)
+    -> M (ProcessHandle, Async ExitCode)
 spawnNode (path, args, mbLogPath) = do
     logNotice "Starting the node"
     -- We don't explicitly close the `logHandle` here,
     -- but this will be done when we run the `CreateProcess` built
     -- by proc later is `system'`:
     -- http://hackage.haskell.org/package/process-1.6.1.0/docs/System-Process.html#v:createProcess
-    (logPath, logHandle) <- liftIO $ case mbLogPath of
+    (_, logHandle) <- liftIO $ case mbLogPath of
         Just lp -> do
             createDirectoryIfMissing True (directory lp)
             (lp,) <$> openFile lp AppendMode
@@ -464,7 +464,7 @@ spawnNode (path, args, mbLogPath) = do
             exitFailure
         Just ph -> do
             logInfo "Node has started"
-            return (ph, asc, logPath)
+            return (ph, asc)
 
 runWallet :: (FilePath, [Text]) -> M ExitCode
 runWallet (path, args) = do
@@ -488,9 +488,8 @@ reportNodeCrash
     :: ExitCode        -- ^ Exit code of the node
     -> Maybe FilePath  -- ^ Path to the logger config
     -> String          -- ^ URL of the server
-    -> FilePath        -- ^ Path to the stdout log
     -> M ()
-reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
+reportNodeCrash exitCode logConfPath reportServ = liftIO $ do
     logConfig <- readLoggerConfig (toString <$> logConfPath)
     let logFileNames =
             map ((fromMaybe "" (logConfig ^. Log.lcFilePrefix) </>) . snd) $
@@ -499,7 +498,8 @@ reportNodeCrash exitCode logConfPath reportServ logPath = liftIO $ do
     let ec = case exitCode of
             ExitSuccess   -> 0
             ExitFailure n -> n
-    sendReport (normalise logPath:logFiles) [] (RCrash ec) "cardano-node" reportServ
+    bracket (compressLogs logFiles) removeFile $ \txz ->
+        sendReport [txz] (RCrash ec) "cardano-node" reportServ
 
 -- Taken from the 'turtle' library and modified
 system'

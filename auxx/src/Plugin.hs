@@ -5,6 +5,7 @@
 
 module Plugin
        ( auxxPlugin
+       , rawExec
        ) where
 
 import           Universum
@@ -13,15 +14,16 @@ import           Universum
 import           System.Exit (ExitCode (ExitSuccess))
 import           System.Posix.Process (exitImmediately)
 #endif
+import           Data.Constraint (Dict(..))
 import           Formatting (float, int, sformat, stext, (%))
-import           Mockable (delay)
+import           Mockable (Catch, Delay, Mockable, delay)
 import           Node.Conversation (ConversationActions (..))
 import           Node.Message.Class (Message (..))
 import           Serokell.Util (sec)
 import           System.IO (hFlush, stdout)
-import           System.Wlog (WithLogger, logDebug, logInfo)
+import           System.Wlog (CanLog, HasLoggerName, WithLogger, logDebug, logInfo)
 
-import           Pos.Communication (Conversation (..), OutSpecs (..), SendActions (..), Worker,
+import           Pos.Communication (Conversation (..), OutSpecs (..), SendActions (..),
                                     WorkerSpec, delegationRelays, relayPropagateOut, txRelays,
                                     usRelays, worker)
 import           Pos.Crypto (AHash (..), fullPublicKeyF, hashHexF)
@@ -36,7 +38,7 @@ import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext)
 import           AuxxOptions (AuxxOptions (..))
 import           Command (createCommandProcs)
 import qualified Lang
-import           Mode (AuxxMode)
+import           Mode (MonadAuxxMode)
 import           Repl (WithCommandAction (..))
 
 ----------------------------------------------------------------------------
@@ -46,30 +48,58 @@ import           Repl (WithCommandAction (..))
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
 auxxPlugin ::
-       (HasConfigurations, HasCompileInfo)
+       (HasCompileInfo, MonadAuxxMode m, Mockable Delay m)
     => AuxxOptions
-    -> Either (WithCommandAction AuxxMode) Text
-    -> (WorkerSpec AuxxMode, OutSpecs)
-auxxPlugin AuxxOptions{..} = \case
-    Left WithCommandAction{..} -> worker' runCmdOuts $ \sendActions -> do
+    -> Either WithCommandAction Text
+    -> (WorkerSpec m, OutSpecs)
+auxxPlugin auxxOptions repl = worker' runCmdOuts $ \sendActions ->
+    rawExec (Just Dict) auxxOptions (Just sendActions) repl
+  where
+    worker' specs w = worker specs $ \sa -> do
+        logInfo $ sformat ("Length of genesis utxo: " %int)
+                          (length $ unGenesisUtxo genesisUtxo)
+        w (addLogging sa)
+
+rawExec ::
+       ( HasCompileInfo
+       , MonadIO m
+       , Mockable Catch m
+       , MonadThrow m
+       , CanLog m
+       , HasLoggerName m
+       , Mockable Delay m
+       )
+    => Maybe (Dict (MonadAuxxMode m))
+    -> AuxxOptions
+    -> Maybe (SendActions m)
+    -> Either WithCommandAction Text
+    -> m ()
+rawExec mHasAuxxMode AuxxOptions{..} mSendActions = \case
+    Left WithCommandAction{..} -> do
         printAction <- getPrintAction
-        let commandProcs = createCommandProcs printAction sendActions
+        let commandProcs = createCommandProcs mHasAuxxMode printAction mSendActions
         printAction "... the auxx plugin is ready"
         forever $ withCommand $ \line -> do
             expr <- eitherToThrow $ Lang.parse line
             value <- eitherToThrow =<< Lang.evaluate commandProcs expr
             withValueText printAction value
-    Right cmd -> worker' runCmdOuts $ runWalletCmd cmd
-  where
-    worker' specs w =
-        worker specs $ \sa -> do
-            logInfo $ sformat ("Length of genesis utxo: " %int)
-                              (length $ unGenesisUtxo genesisUtxo)
-            w (addLogging sa)
+    Right cmd -> runWalletCmd mHasAuxxMode cmd mSendActions
 
-runWalletCmd :: (HasConfigurations, HasCompileInfo) => Text -> Worker AuxxMode
-runWalletCmd line sendActions = do
-    let commandProcs = createCommandProcs printAction sendActions
+runWalletCmd ::
+       ( HasCompileInfo
+       , MonadIO m
+       , Mockable Catch m
+       , MonadThrow m
+       , CanLog m
+       , HasLoggerName m
+       , Mockable Delay m
+       )
+    => Maybe (Dict (MonadAuxxMode m))
+    -> Text
+    -> Maybe (SendActions m)
+    -> m ()
+runWalletCmd mHasAuxxMode line mSendActions = do
+    let commandProcs = createCommandProcs mHasAuxxMode printAction mSendActions
     expr <- eitherToThrow $ Lang.parse line
     value <- eitherToThrow =<< Lang.evaluate commandProcs expr
     withValueText printAction value

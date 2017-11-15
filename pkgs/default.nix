@@ -863,6 +863,20 @@ self: {
           description = "Binary serialisation for Haskell values using lazy ByteStrings";
           license = stdenv.lib.licenses.bsd3;
         }) {};
+      bindings-DSL = callPackage ({ base, mkDerivation, stdenv }:
+      mkDerivation {
+          pname = "bindings-DSL";
+          version = "1.0.23";
+          sha256 = "eb6c76448eeb2a9a17135b08eec0dd09e1917a9f6ab702cea0b2070bd19c10e7";
+          libraryHaskellDepends = [
+            base
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "https://github.com/jwiegley/bindings-dsl/wiki";
+          description = "FFI domain specific language, on top of hsc2hs";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
       blaze-builder = callPackage ({ base, bytestring, deepseq, mkDerivation, stdenv, text }:
       mkDerivation {
           pname = "blaze-builder";
@@ -1697,7 +1711,7 @@ self: {
           description = "Cardano explorer";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-infra = callPackage ({ QuickCheck, aeson, base, base64-bytestring, binary, bytestring, cardano-report-server, cardano-sl-core, cardano-sl-db, containers, cpphs, data-default, directory, dns, either, ekg-core, ether, exceptions, filepath, formatting, generic-arbitrary, hashable, http-client, http-client-tls, iproute, kademlia, lens, list-t, log-warper, mkDerivation, mmorph, monad-control, mtl, network-info, network-transport, network-transport-tcp, node-sketch, optparse-applicative, parsec, reflection, serokell-util, stdenv, stm, tagged, template-haskell, text, text-format, time, time-units, transformers, transformers-base, transformers-lift, universum, unix, unordered-containers, yaml }:
+      cardano-sl-infra = callPackage ({ QuickCheck, aeson, base, base64-bytestring, binary, bytestring, cardano-report-server, cardano-sl-core, cardano-sl-db, conduit, containers, cpphs, data-default, directory, dns, either, ekg-core, ether, exceptions, filepath, formatting, generic-arbitrary, hashable, http-client, http-client-tls, iproute, kademlia, lens, list-t, log-warper, lzma-conduit, mkDerivation, mmorph, monad-control, mtl, network-info, network-transport, network-transport-tcp, node-sketch, optparse-applicative, parsec, reflection, serokell-util, stdenv, stm, tagged, tar, template-haskell, text, text-format, time, time-units, transformers, transformers-base, transformers-lift, universum, unix, unordered-containers, yaml }:
       mkDerivation {
           pname = "cardano-sl-infra";
           version = "1.0.3";
@@ -1711,6 +1725,7 @@ self: {
             cardano-report-server
             cardano-sl-core
             cardano-sl-db
+            conduit
             containers
             data-default
             directory
@@ -1730,6 +1745,7 @@ self: {
             lens
             list-t
             log-warper
+            lzma-conduit
             mmorph
             monad-control
             mtl
@@ -1744,6 +1760,7 @@ self: {
             serokell-util
             stm
             tagged
+            tar
             template-haskell
             text
             text-format
@@ -4781,6 +4798,26 @@ self: {
           description = "a simple, pure LRU cache";
           license = stdenv.lib.licenses.bsd3;
         }) {};
+      lzma-conduit = callPackage ({ base, bindings-DSL, bytestring, conduit, lzma, mkDerivation, resourcet, stdenv, transformers }:
+      mkDerivation {
+          pname = "lzma-conduit";
+          version = "1.1.3.3";
+          sha256 = "17cc0669639891a86fdae101b785f614fbd8560c170b4f8a88929134f2936da5";
+          libraryHaskellDepends = [
+            base
+            bindings-DSL
+            bytestring
+            conduit
+            resourcet
+            transformers
+          ];
+          librarySystemDepends = [ lzma ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "http://github.com/alphaHeavy/lzma-conduit";
+          description = "Conduit interface for lzma/xz compression";
+          license = stdenv.lib.licenses.bsd3;
+        }) { lzma = pkgs.lzma; };
       math-functions = callPackage ({ base, deepseq, mkDerivation, primitive, stdenv, vector, vector-th-unbox }:
       mkDerivation {
           pname = "math-functions";

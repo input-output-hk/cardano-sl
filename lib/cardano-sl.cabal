@@ -90,7 +90,6 @@ library
                         -- Utilities/helpers
                         Pos.Util
                         Pos.Util.Config
-                        Pos.Util.LoggerName
                         Pos.Util.Monitor
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog

@@ -152,7 +152,7 @@ blocksPageUnitSpec :: HasConfigurations => Spec
 blocksPageUnitSpec =
     describe "getBlocksPage"
     $ modifyMaxSuccess (const 200) $ do
-        prop "the number of blocks we get should be the total number of blocks" $
+        prop "block pages total correct && last page non-empty" $
             forAll arbitrary $ \(testParams) ->
             forAll generateValidBlocksSlotsNumber $ \(totalBlocksNumber, slotsPerEpoch) ->
 
@@ -175,15 +175,18 @@ blocksPageUnitSpec =
 
                   -- We finally run it as @PropertyM@ and check if it holds.
                   pagesTotal    <- fst <$> run blockExecution
+                  cBlockEntries <- snd <$> run blockExecution
 
                   -- And we assert that the generated blockchain total block pages count
                   -- is equal to the expected explorer API result, which is number of
                   -- generated blocks divided by 10.
                   -- It shows that two equal algorithms should work the same.
                   assert $ pagesTotal == (fromIntegral ((totalBlocksNumber - 1) `div` 10) + 1)
+                  -- The last page is never empty.
+                  assert $ True == (not . null $ cBlockEntries)
 
-                  -- TODO(ks): We can add more invariants to test here, these are good
-                  -- for now until I fix the @generateValidExplorerMockableMode@.
+                  -- TODO(ks): We can add more invariants to test here, but these are good
+                  -- enough for now.
 
 
 -- | A spec with the following test invariant. If a block is generated, there is no way
@@ -212,11 +215,20 @@ blocksLastPageUnitSpec =
                       blocksLastPageM =
                           runExplorerTestMode testParams extraContext getBlocksLastPage
 
+                  -- We run the function in @BlockTestMode@ so we don't need to define
+                  -- a million instances.
+                  -- We ask the last page of the blocks pages.
+                  let blocksPageM :: IO (Integer, [CBlockEntry])
+                      blocksPageM =
+                          runExplorerTestMode testParams extraContext
+                              $ getBlocksPage Nothing (Just 10)
+
                   -- We finally run it as @PropertyM@ and check if it holds.
-                  pagesTotal <- fst <$> run blocksLastPageM
+                  blocksLastPage <- run blocksLastPageM
+                  blocksPage     <- run blocksPageM
 
                   -- This function should be equal to calling getBlocksPage with @Nothing@.
-                  assert $ pagesTotal == (fromIntegral ((totalBlocksNumber - 1) `div` 10) + 1)
+                  assert $ blocksLastPage == blocksPage
 
 
 -- | A spec with the following test invariant. If a block is generated, there is no way

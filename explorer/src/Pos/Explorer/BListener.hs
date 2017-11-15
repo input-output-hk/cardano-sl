@@ -13,6 +13,8 @@ module Pos.Explorer.BListener
        , epochPagedBlocksMap
        -- * Required for migration
        , findEpochMaxPages
+       -- * Required for test util
+       , createPagedHeaderHashesPair
        ) where
 
 import           Universum

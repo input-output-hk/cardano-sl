@@ -19,6 +19,7 @@ flag asserts
 
 library
   exposed-modules:
+                       Pos.Util.Arbitrary
                        Pos.Util.CompileInfo
 
                        Pos.Util.Concurrent

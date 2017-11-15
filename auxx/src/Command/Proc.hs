@@ -7,62 +7,53 @@ module Command.Proc
 
 import           Universum
 
-import           Data.List                  ((!!))
-import qualified Data.Map                   as Map
-import           Formatting                 (build, int, sformat, stext, (%))
-import           System.Wlog                (logError, logInfo, logWarning)
-import qualified Text.JSON.Canonical        as CanonicalJSON
+import           Data.Constraint (Dict (..))
+import           Data.Default (def)
+import           Data.List ((!!))
+import qualified Data.Map as Map
+import           Formatting (build, int, sformat, stext, (%))
+import           System.Wlog (CanLog, HasLoggerName, logError, logInfo, logWarning)
+import qualified Text.JSON.Canonical as CanonicalJSON
 
-import           Pos.Client.KeyStorage      (addSecretKey, getSecretKeysPlain)
-import           Pos.Client.Txp.Balances    (getBalance)
-import           Pos.Communication          (MsgType (..), Origin (..), SendActions,
-                                             dataFlow, immediateConcurrentConversations)
-import           Pos.Core                   (AddrStakeDistribution (..), Address,
-                                             StakeholderId, addressHash, mkMultiKeyDistr,
-                                             unsafeGetCoin)
-import           Pos.Core.Address           (makeAddress)
-import           Pos.Core.Configuration     (HasConfiguration, genesisSecretKeys)
-import           Pos.Core.Types             (AddrAttributes (..), AddrSpendingData (..))
-import           Pos.Crypto                 (PublicKey, emptyPassphrase, encToPublic,
-                                             fullPublicKeyF, hashHexF, noPassEncrypt,
-                                             safeCreatePsk, unsafeCheatingHashCoerce,
-                                             withSafeSigner)
-import           Pos.DB.Class               (MonadGState (..))
-import           Pos.Infra.Configuration    (HasInfraConfiguration)
-import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Txp                    (TxOut (..))
-import           Pos.Update                 (BlockVersionModifier (..))
-import           Pos.Util.CompileInfo       (HasCompileInfo)
-import           Pos.Util.UserSecret        (WalletUserSecret (..), readUserSecret,
-                                             usKeys, usPrimKey, usWallet, userSecret)
-import           Pos.Util.Util              (eitherToFail)
+import           Pos.Client.KeyStorage (addSecretKey, getSecretKeysPlain)
+import           Pos.Client.Txp.Balances (getBalance)
+import           Pos.Communication (MsgType (..), Origin (..), SendActions, dataFlow,
+                                    immediateConcurrentConversations)
+import           Pos.Core (AddrStakeDistribution (..), Address, SoftwareVersion (..), StakeholderId,
+                           addressHash, mkMultiKeyDistr, unsafeGetCoin)
+import           Pos.Core.Common (AddrAttributes (..), AddrSpendingData (..), makeAddress)
+import           Pos.Core.Configuration (genesisSecretKeys)
+import           Pos.Core.Txp (TxOut (..))
+import           Pos.Crypto (PublicKey, emptyPassphrase, encToPublic, fullPublicKeyF, hashHexF,
+                             noPassEncrypt, safeCreatePsk, unsafeCheatingHashCoerce, withSafeSigner)
+import           Pos.DB.Class (MonadGState (..))
+import           Pos.Update (BlockVersionModifier (..))
+import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Util.UserSecret (WalletUserSecret (..), readUserSecret, usKeys, usPrimKey,
+                                      usWallet, userSecret)
+import           Pos.Util.Util (eitherToFail)
 
-import           Command.BlockGen           (generateBlocks)
-import           Command.Help               (mkHelpMessage)
-import qualified Command.Rollback           as Rollback
-import qualified Command.Tx                 as Tx
-import           Command.TyProjection       (tyAddrDistrPart, tyAddrStakeDistr, tyAddress,
-                                             tyBlockVersion, tyBlockVersionModifier,
-                                             tyBool, tyByte, tyCoin, tyCoinPortion,
-                                             tyEither, tyEpochIndex, tyFilePath, tyHash,
-                                             tyInt, tyProposeUpdateSystem, tyPublicKey,
-                                             tyScriptVersion, tySecond, tySendMode,
-                                             tySoftwareVersion, tyStakeholderId,
-                                             tySystemTag, tyTxOut, tyValue, tyWord,
-                                             tyWord32)
-import qualified Command.Update             as Update
-import           Lang.Argument              (getArg, getArgMany, getArgOpt, getArgSome)
-import           Lang.Command               (CommandProc (..))
-import           Lang.Name                  (Name)
-import           Lang.Value                 (AddKeyParams (..), AddrDistrPart (..),
-                                             GenBlocksParams (..),
-                                             ProposeUpdateParams (..),
-                                             ProposeUpdateSystem (..),
-                                             RollbackParams (..), SendMode (..),
-                                             Value (..))
-import           Mode                       (AuxxMode, CmdCtx (..), deriveHDAddressAuxx,
-                                             getCmdCtx, makePubKeyAddressAuxx)
-import           Repl                       (PrintAction)
+import           Command.BlockGen (generateBlocks)
+import           Command.Help (mkHelpMessage)
+import qualified Command.Rollback as Rollback
+import qualified Command.Tx as Tx
+import           Command.TyProjection (tyAddrDistrPart, tyAddrStakeDistr, tyAddress,
+                                       tyApplicationName, tyBlockVersion, tyBlockVersionModifier,
+                                       tyBool, tyByte, tyCoin, tyCoinPortion, tyEither,
+                                       tyEpochIndex, tyFilePath, tyHash, tyInt,
+                                       tyProposeUpdateSystem, tyPublicKey, tyScriptVersion,
+                                       tySecond, tySendMode, tySoftwareVersion, tyStakeholderId,
+                                       tySystemTag, tyTxOut, tyValue, tyWord, tyWord32)
+import qualified Command.Update as Update
+import           Lang.Argument (getArg, getArgMany, getArgOpt, getArgSome, typeDirectedKwAnn)
+import           Lang.Command (CommandProc (..), UnavailableCommand (..))
+import           Lang.Name (Name)
+import           Lang.Value (AddKeyParams (..), AddrDistrPart (..), GenBlocksParams (..),
+                             ProposeUpdateParams (..), ProposeUpdateSystem (..),
+                             RollbackParams (..), SendMode (..), Value (..))
+import           Mode (CmdCtx (..), MonadAuxxMode, deriveHDAddressAuxx, getCmdCtx,
+                       makePubKeyAddressAuxx)
+import           Repl (PrintAction)
 
 createCommandProcs ::
        forall m. (HasCompileInfo, MonadIO m, CanLog m, HasLoggerName m)
@@ -422,8 +413,11 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     , cpHelp = "generate <n> blocks"
     },
 
-    CommandProc
-    { cpName = "add-key-pool"
+    let name = "add-key-pool" in
+    needsAuxxMode name >>= \Dict ->
+    return CommandProc
+    { cpName = name
+    , cpArgumentPrepare = identity
     , cpArgumentConsumer = getArgMany tyInt "i"
     , cpExec = \is -> do
         when (null is) $ logWarning "Not adding keys from pool (list is empty)"

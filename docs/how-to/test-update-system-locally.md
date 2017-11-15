@@ -5,8 +5,8 @@ This instruction covers how to test software update locally:
   1. Prepare and propose software update
       a. Prepare alt configuration with changed application version constant
       b. Propose updated with script that simply replaces one configuration file (in setup) with other
-  2. Launch wallet node with launcher, Daedalus (or Daedalus emulator)
-      a. When update arrives Deadalus to finish, launcher to restart Daedalus + node
+  2. Launch wallet node with launcher, Daedalus (or script that serves as Daedalus emulator)
+      a. When update arrives to Deadalus to finish, launcher will restart Daedalus + node
 
 ## Prerequisites
 
@@ -17,7 +17,7 @@ Additional utilities to be installed:
 
 ## With Daedalus
 
-Write command to launch Daedalus on your system to `Daedalus.sh`
+Write command to launch Daedalus on your system to `daedalus-example.sh`
 
 ```
 UI=Daedalus.sh ./scripts/launch/us-test.sh

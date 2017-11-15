@@ -15,11 +15,12 @@ import           Universum
 
 import           Control.Concurrent (modifyMVar_)
 import           Control.Concurrent.Async.Lifted.Safe (Async, async, cancel, poll, wait, waitAny,
-                                                       withAsyncWithUnmask)
+                                                       withAsync, withAsyncWithUnmask)
 import           Control.Exception.Safe (tryAny)
 import           Control.Lens (makeLensesWith)
 import qualified Data.ByteString.Lazy as BS.L
 import           Data.List (isSuffixOf)
+import           Data.Maybe (isNothing)
 import qualified Data.Text.IO as T
 import           Data.Time.Units (Second, convertUnit)
 import           Data.Version (showVersion)
@@ -27,14 +28,13 @@ import           Formatting (int, sformat, shown, stext, (%))
 import qualified NeatInterpolation as Q (text)
 import           Options.Applicative (Mod, OptionFields, Parser, auto, execParser, footerDoc,
                                       fullDesc, header, help, helper, info, infoOption, long,
-                                      metavar, option, progDesc, short, strOption)
-import           System.Directory (createDirectoryIfMissing, doesFileExist, getTemporaryDirectory,
-                                   removeFile)
+                                      metavar, option, progDesc, short, strOption, switch)
+import           System.Directory (createDirectoryIfMissing, doesFileExist, removeFile)
 import           System.Environment (getExecutablePath)
 import           System.Exit (ExitCode (..))
 import           System.FilePath ((</>))
 import qualified System.IO as IO
-import           System.Process (ProcessHandle, readProcessWithExitCode)
+import           System.Process (ProcessHandle, waitForProcess)
 import qualified System.Process as Process
 import           System.Timeout (timeout)
 import           System.Wlog (logError, logInfo, logNotice, logWarning)
@@ -80,6 +80,8 @@ data LauncherOptions = LO
     , loNodeLogPath         :: !(Maybe FilePath)
     , loWalletPath          :: !(Maybe FilePath)
     , loWalletArgs          :: ![Text]
+    , loWalletLogging       :: !Bool
+    , loWalletLogPath       :: !(Maybe FilePath)
     , loUpdaterPath         :: !FilePath
     , loUpdaterArgs         :: ![Text]
     , loUpdateArchive       :: !(Maybe FilePath)
@@ -95,6 +97,8 @@ data LauncherOptions = LO
 
 -- | The concrete monad where everything happens
 type M a = (HasConfigurations, HasCompileInfo) => Log.LoggerNameBox IO a
+
+data Executable = EWallet | ENode | EUpdater
 
 optionsParser :: Parser LauncherOptions
 optionsParser = do
@@ -120,8 +124,7 @@ optionsParser = do
         metavar "PATH"
     loNodeLogPath <- optional $ textOption $
         long    "node-log-path" <>
-        help    ("File where node stdout/err will be redirected " <>
-                 "(def: temp file).") <>
+        help    "File where node stdout/err will be redirected " <>
         metavar "PATH"
 
     -- Wallet-related args
@@ -133,7 +136,14 @@ optionsParser = do
         short   'w' <>
         help    "An argument to be passed to the wallet frontend executable." <>
         metavar "ARG"
+    loWalletLogging <- switch $
+        long    "wlogging" <>
+        help    "Bool that determines if wallet should log to stdout"
 
+    loWalletLogPath <- optional $ textOption $
+        long    "wallet-log-path" <>
+        help    "File where wallet stdout/err will be redirected " <>
+        metavar "PATH"
     -- Update-related args
     loUpdaterPath <- textOption $
         long    "updater" <>
@@ -284,13 +294,14 @@ main =
                     (NodeDbPath loNodeDbPath)
                     loNodeLogConfig
                     (loNodePath, realNodeArgs, loNodeLogPath)
-                    (wpath, loWalletArgs)
+                    (wpath, loWalletArgs, loWalletLogPath)
                     ( loUpdaterPath
                     , loUpdaterArgs
                     , loUpdateWindowsRunner
                     , loUpdateArchive)
                     loNodeTimeoutSec
                     loReportServer
+                    loWalletLogging
   where
     -- We propagate configuration options to the node executable,
     -- because we almost certainly want to use the same configuration
@@ -337,7 +348,7 @@ serverScenario
 serverScenario ndbp logConf node updater report = do
     runUpdater ndbp updater
     -- TODO: the updater, too, should create a log if it fails
-    (_, nodeAsync) <- spawnNode node
+    (_, nodeAsync) <- spawnNode node False
     exitCode <- wait nodeAsync
     if exitCode == ExitFailure 20 then do
         logNotice $ sformat ("The node has exited with "%shown) exitCode
@@ -357,18 +368,21 @@ clientScenario
     :: NodeDbPath
     -> Maybe FilePath                      -- ^ Logger config
     -> (FilePath, [Text], Maybe FilePath)  -- ^ Node, its args, node log
-    -> (FilePath, [Text])                  -- ^ Wallet, args
+    -> (FilePath, [Text], Maybe FilePath)
+    -- ^ Wallet, args, wallet log path
     -> (FilePath, [Text], Maybe FilePath, Maybe FilePath)
     -- ^ Updater, args, updater runner, the update .tar
     -> Int                                 -- ^ Node timeout, in seconds
     -> Maybe String                        -- ^ Report server
+    -> Bool                                -- ^ Wallet logging
     -> M ()
-clientScenario ndbp logConf node wallet updater nodeTimeout report = do
+clientScenario ndbp logConf node wallet updater nodeTimeout report walletLog = do
     runUpdater ndbp updater
-    (nodeHandle, nodeAsync) <- spawnNode node
-    walletAsync <- async (runWallet wallet)
+    let doesWalletLogToConsole = isNothing (wallet^._3) && walletLog
+    (nodeHandle, nodeAsync) <- spawnNode node doesWalletLogToConsole
+    walletAsync <- async (runWallet walletLog wallet (node^._3))
     (someAsync, exitCode) <- waitAny [nodeAsync, walletAsync]
-    let restart = clientScenario ndbp logConf node wallet updater nodeTimeout report
+    let restart = clientScenario ndbp logConf node wallet updater nodeTimeout report walletLog
     if | someAsync == nodeAsync -> do
              logWarning $ sformat ("The node has exited with "%shown) exitCode
              whenJust report $ \repServ -> do
@@ -442,13 +456,9 @@ runUpdater ndbp (path, args, runnerPath, mUpdateArchivePath) = do
 
 runUpdaterProc :: HasConfigurations => FilePath -> [Text] -> M ExitCode
 runUpdaterProc path args = liftIO $ do
-    let cr = (Process.proc (toString path) (map toString args))
-                 { Process.std_in  = Process.CreatePipe
-                 , Process.std_out = Process.CreatePipe
-                 , Process.std_err = Process.CreatePipe
-                 }
+    let cr = createProc Process.CreatePipe path args
     phvar <- newEmptyMVar
-    system' phvar cr mempty
+    system' phvar cr mempty EUpdater
 
 writeWindowsUpdaterRunner :: FilePath -> M ()
 writeWindowsUpdaterRunner runnerPath = liftIO $ do
@@ -474,38 +484,28 @@ writeWindowsUpdaterRunner runnerPath = liftIO $ do
 
 spawnNode
     :: (FilePath, [Text], Maybe FilePath)
+    -> Bool -- Wallet logging
     -> M (ProcessHandle, Async ExitCode)
-spawnNode (path, args, mbLogPath) = do
+spawnNode (path, args, mbLogPath) doesWalletLogToConsole = do
     logNotice "Starting the node"
     -- We don't explicitly close the `logHandle` here,
     -- but this will be done when we run the `CreateProcess` built
-    -- by proc later is `system'`:
+    -- by proc later in `system'`:
     -- http://hackage.haskell.org/package/process-1.6.1.0/docs/System-Process.html#v:createProcess
-    (_, logHandle) <- liftIO $ case mbLogPath of
+    cr <- liftIO $ case mbLogPath of
         Just lp -> do
-            createDirectoryIfMissing True (directory lp)
-            (lp,) <$> openFile lp AppendMode
+            createLogFileProc path args lp
+            -- TODO (jmitchell): Find a safe, reliable way to print `logPath`. Cardano
+            -- fails when it prints unicode characters. In the meantime, don't print it.
+            -- See DAEF-12.
+            -- printf ("Redirecting node's stdout and stderr to "%fp%"\n") logPath
         Nothing -> do
-            tempdir <- fromString <$> getTemporaryDirectory
-            -- FIXME (adinapoli): `Shell` from `turtle` was giving us no-resource-leak guarantees
-            -- via the `Managed` monad, which is something we have lost here, and we are back to manual
-            -- resource control. In this case, however, shall we really want to nuke the file? It seems
-            -- something useful to have lying around in the filesystem. We should probably close the
-            -- `Handle`, though, but if this program is short lived it won't matter anyway.
-            IO.openTempFile tempdir "cardano-node-output.log"
-    -- TODO (jmitchell): Find a safe, reliable way to print `logPath`. Cardano
-    -- fails when it prints unicode characters. In the meantime, don't print it.
-    -- See DAEF-12.
-
-    -- printf ("Redirecting node's stdout and stderr to "%fp%"\n") logPath
-    liftIO $ IO.hSetBuffering logHandle IO.LineBuffering
-    let cr = (Process.proc (toString path) (map toString args))
-                 { Process.std_in  = Process.CreatePipe
-                 , Process.std_out = Process.UseHandle logHandle
-                 , Process.std_err = Process.UseHandle logHandle
-                 }
+            let cr = if doesWalletLogToConsole then
+                        Process.CreatePipe
+                    else Process.Inherit
+            return $ createProc cr path args
     phvar <- newEmptyMVar
-    asc <- async (system' phvar cr mempty)
+    asc <- async (system' phvar cr mempty ENode)
     mbPh <- liftIO $ timeout 10000000 (takeMVar phvar)
     case mbPh of
         Nothing -> do
@@ -515,11 +515,55 @@ spawnNode (path, args, mbLogPath) = do
             logInfo "Node has started"
             return (ph, asc)
 
-runWallet :: (FilePath, [Text]) -> M ExitCode
-runWallet (path, args) = do
+runWallet
+    :: Bool                               -- ^ wallet logging
+    -> (FilePath, [Text], Maybe FilePath) -- ^ Wallet, its args, wallet log file
+    -> Maybe FilePath                     -- ^ Node log file
+    -> M ExitCode
+runWallet shouldLog (path, args, mLogPath) nLogPath = do
     logNotice "Starting the wallet"
-    view _1 <$>
-        liftIO (readProcessWithExitCode path (map toString args) mempty)
+    phvar <- newEmptyMVar
+    liftIO $ case mLogPath of
+        Just lp -> do
+            cr <- createLogFileProc path args lp
+            system' phvar cr mempty EWallet
+        Nothing ->
+           -- if nLog is Nothing and shouldLog is True
+           -- we want to CreatePipe otherwise Inherit
+           let cr = if shouldLog && isNothing nLogPath then
+                        Process.CreatePipe
+                    else Process.Inherit
+           in system' phvar (createProc cr path args) mempty EWallet
+
+createLogFileProc :: FilePath -> [Text] -> FilePath -> IO Process.CreateProcess
+createLogFileProc path args lp = do
+    _ <- createDirectoryIfMissing True (directory lp)
+    (_, logHandle) <- (lp,) <$> openFile lp AppendMode
+    IO.hSetBuffering logHandle IO.LineBuffering
+    return $ createProc (Process.UseHandle logHandle) path args
+
+createProc :: Process.StdStream -> FilePath -> [Text] -> Process.CreateProcess
+createProc stdStream path args =
+    (Process.proc path (map toString args))
+            { Process.std_in = Process.CreatePipe
+            , Process.std_out = stdStream
+            , Process.std_err = stdStream
+            }
+
+asyncLog :: Handle -> Handle -> ProcessHandle -> Executable -> IO ExitCode
+asyncLog stdO stdE pH nt = do
+    withAsync (forever $ T.hGetLine stdO >>= customLogger stdout nt) $ \_ ->
+        withAsync (forever $ T.hGetLine stdE >>= customLogger stderr nt) $ \_ -> do
+        waitForProcess pH
+
+customLogger :: Handle -> Executable -> Text -> IO ()
+customLogger hndl loggerName logStr = do
+    T.hPutStrLn hndl $ logNameStr <> logStr
+    where
+        logNameStr = case loggerName of
+            ENode    -> "[node] "
+            EWallet  -> "[wallet] "
+            EUpdater -> "[updater] "
 
 ----------------------------------------------------------------------------
 -- Working with the report server
@@ -559,16 +603,26 @@ system'
     -- ^ Command
     -> [Text]
     -- ^ Lines of standard input
+    -> Executable
+    -- ^ node/wallet log output
     -> io ExitCode
     -- ^ Exit code
-system' phvar p sl = liftIO (do
+system' phvar p sl nt = liftIO (do
     let open = do
-            (m, _, _, ph) <- Process.createProcess p
+            (hIn, stdO, stdE, ph) <- Process.createProcess p
             putMVar phvar ph
-            case m of
-                Just hIn -> IO.hSetBuffering hIn IO.LineBuffering
+            case (hIn, stdO, stdE) of
+                (Just hndl, Just o, Just e) -> do
+                    -- log certain kind of processes since
+                    -- inherited ones might create infinite loop
+                    case (Process.std_out p, Process.std_err p) of
+                        (Process.CreatePipe, Process.CreatePipe) -> do
+                            _ <- asyncLog o e ph nt
+                            return ()
+                        _ -> return ()
+                    IO.hSetBuffering hndl IO.LineBuffering
                 _        -> return ()
-            return (m, ph)
+            return (hIn, ph)
 
     -- Prevent double close
     mvar <- newMVar False

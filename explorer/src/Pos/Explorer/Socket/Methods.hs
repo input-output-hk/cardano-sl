@@ -25,15 +25,18 @@ module Pos.Explorer.Socket.Methods
        -- Un-/Subscriptions
        , subscribeAddr
        , subscribeBlocksLastPage
+       , subscribeEpochsLastPage
        , subscribeTxs
        , unsubscribeAddr
        , unsubscribeBlocksLastPage
+       , unsubscribeEpochsLastPage
        , unsubscribeTxs
 
        -- * Notifications
        , notifyAddrSubscribers
        , notifyBlocksLastPageSubscribers
        , notifyTxsSubscribers
+       , notifyEpochsLastPageSubscribers
 
       -- * DB data
        , getBlundsFromTo
@@ -71,21 +74,26 @@ import           Pos.Util.Chrono (getOldestFirst)
 import           System.Wlog (WithLogger, logDebug, logWarning, modifyLoggerName)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
+import           Pos.Explorer.ExplorerMode (ExplorerMode)
 import           Pos.Explorer.Socket.Holder (ClientContext, ConnectionsState, ExplorerSockets,
                                              ccAddress, ccConnection, csAddressSubscribers,
-                                             csBlocksPageSubscribers, csClients, csTxsSubscribers,
+                                             csBlocksPageSubscribers, csClients,
+                                             csEpochsLastPageSubscribers, csTxsSubscribers,
                                              mkClientContext)
 import           Pos.Explorer.Socket.Util (EventName (..), emitTo)
-import           Pos.Explorer.Web.ClientTypes (CAddress, CTxBrief, CTxEntry (..), TxInternal (..),
+import           Pos.Explorer.Web.ClientTypes (CAddress, CTxBrief, CTxEntry (..),
+                                               EpochIndex (..), TxInternal (..),
                                                fromCAddress, toTxBrief)
 import           Pos.Explorer.Web.Error (ExplorerError (..))
-import           Pos.Explorer.Web.Server (ExplorerMode, getBlocksLastPage, topsortTxsOrFail)
+import           Pos.Explorer.Web.Server (epochPageSearch, getBlocksLastPage,
+                                          getEpochPagesOrThrow, topsortTxsOrFail)
 
 -- * Event names
 
 data Subscription
     = SubAddr
-    | SubBlockLastPage  -- ^ subscribe on blocks last page (newest blocks)
+    | SubBlockLastPage  -- ^ subscribe on blocks last page (latest blocks)
+    | SubEpochsLastPage -- ^ subscribe on epochs last page (latest epoch)
     | SubTx
     deriving (Show, Generic)
 
@@ -101,6 +109,7 @@ instance EventName ClientEvent where
 data ServerEvent
     = AddrUpdated
     | BlocksLastPageUpdated
+    | EpochsLastPageUpdated
     | TxsUpdated
     | CallYou
     deriving (Show, Generic)
@@ -221,6 +230,16 @@ txsSubParam sessId =
         , spCliData      = noCliDataKept
         }
 
+
+epochsLastPageSubParam :: SocketId -> SubscriptionParam ()
+epochsLastPageSubParam sessId =
+    SubscriptionParam
+        { spSessId       = sessId
+        , spDesc         = const "epochs last page"
+        , spSubscription = \_ -> csEpochsLastPageSubscribers . at sessId
+        , spCliData      = noCliDataKept
+        }
+
 -- | Unsubscribes on any previous address and subscribes on given one.
 subscribeAddr
     :: SubscriptionMode m
@@ -254,6 +273,17 @@ unsubscribeTxs
     => SocketId -> m ()
 unsubscribeTxs sessId = unsubscribe (txsSubParam sessId)
 
+subscribeEpochsLastPage
+    :: SubscriptionMode m
+    => SocketId -> m ()
+subscribeEpochsLastPage sessId =
+    subscribe () (epochsLastPageSubParam sessId)
+
+unsubscribeEpochsLastPage
+    :: SubscriptionMode m
+    => SocketId -> m ()
+unsubscribeEpochsLastPage sessId = unsubscribe (epochsLastPageSubParam sessId)
+
 unsubscribeFully
     :: SubscriptionMode m
     => SocketId -> m ()
@@ -264,6 +294,7 @@ unsubscribeFully sessId = do
         unsubscribeAddr sessId
         unsubscribeBlocksLastPage sessId
         unsubscribeTxs sessId
+        unsubscribeEpochsLastPage sessId
 
 -- * Notifications
 
@@ -302,6 +333,18 @@ notifyTxsSubscribers
     => [CTxEntry] -> ExplorerSockets m ()
 notifyTxsSubscribers cTxEntries =
     view csTxsSubscribers >>= broadcast @ctx TxsUpdated cTxEntries
+
+notifyEpochsLastPageSubscribers
+    :: forall ctx m . ExplorerMode ctx m
+    => EpochIndex -> ExplorerSockets m ()
+notifyEpochsLastPageSubscribers currentEpoch = do
+    recipients <- view $ csEpochsLastPageSubscribers
+    -- ^ subscriber
+    lastPage <- getEpochPagesOrThrow currentEpoch
+    -- ^ last epoch page
+    epochs <- lift $ epochPageSearch @ctx currentEpoch $ Just lastPage
+    -- ^ epochs of last page
+    broadcast @ctx EpochsLastPageUpdated epochs recipients
 
 -- * Helpers
 

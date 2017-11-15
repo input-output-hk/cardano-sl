@@ -8,13 +8,20 @@ module Pos.DB.Misc
        , addProxySecretKey
        , removeProxySecretKey
        , dropOldProxySecretKeys
+
+       , isUpdateInstalled
+       , affirmUpdateInstalled
+
        ) where
 
 import           Universum
 
+import           Formatting (sformat)
+
+import           Pos.Binary.Class (Raw)
 import           Pos.Binary.Ssc ()
 import           Pos.Core (EpochIndex, ProxySKLight)
-import           Pos.Crypto (PublicKey, pskIssuerPk, pskOmega)
+import           Pos.Crypto (Hash, PublicKey, hashHexF, pskIssuerPk, pskOmega)
 import           Pos.DB.Class (MonadDB)
 import           Pos.DB.Misc.Common (miscGetBi, miscPutBi)
 
@@ -67,8 +74,21 @@ dropOldProxySecretKeys eId = do
     miscPutBi proxySKKey keys
 
 ----------------------------------------------------------------------------
+-- Update system and tracking
+----------------------------------------------------------------------------
+
+isUpdateInstalled :: MonadDB m => Hash Raw -> m Bool
+isUpdateInstalled h = isJust <$> miscGetBi @() (updateTrackKey h)
+
+affirmUpdateInstalled :: MonadDB m => Hash Raw -> m ()
+affirmUpdateInstalled h = miscPutBi (updateTrackKey h) ()
+
+----------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------
 
 proxySKKey :: ByteString
 proxySKKey = "psk/"
+
+updateTrackKey :: Hash Raw -> ByteString
+updateTrackKey h = "updinst/" <> encodeUtf8 (sformat hashHexF h)

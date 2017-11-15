@@ -205,9 +205,11 @@ executable cardano-launcher
   build-depends:       ansi-wl-pprint
                      , async
                      , base
+                     , bytestring
                      , cardano-report-server >= 0.2.1
                      , cardano-sl
                      , cardano-sl-core
+                     , cardano-sl-db
                      , cardano-sl-infra
                      , data-default
                      , directory

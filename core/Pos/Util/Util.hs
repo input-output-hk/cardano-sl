@@ -48,9 +48,6 @@ module Pos.Util.Util
        , withTempFile
        , withSystemTempFile
 
-       -- * Coloring
-       , colorizeDull
-
        -- * Aeson
        , parseJSONWithRead
 
@@ -77,7 +74,6 @@ import qualified Ether
 import           Ether.Internal (HasLens (..))
 import qualified Language.Haskell.TH as TH
 import qualified Prelude
-import qualified System.Console.ANSI as ANSI
 import           System.Directory (canonicalizePath, createDirectory, doesDirectoryExist,
                                    getTemporaryDirectory, listDirectory, removeDirectoryRecursive,
                                    removeFile)
@@ -320,18 +316,6 @@ withTempFile tmpDir template action =
   where
      ignoringIOErrors :: MC.MonadCatch m => m () -> m ()
      ignoringIOErrors ioe = ioe `MC.catch` (\e -> const (return ()) (e :: Prelude.IOError))
-
-----------------------------------------------------------------------------
--- Coloring
-----------------------------------------------------------------------------
-
--- | Colorize text using 'ANSI.Dull' palete
--- (in contrast to 'Serokell.Util.colorize' which uses 'ANSI.Vivid' palete)
-colorizeDull :: ANSI.Color -> Text -> Text
-colorizeDull color msg =
-    toText (ANSI.setSGRCode [ANSI.SetColor ANSI.Foreground ANSI.Dull color]) <>
-    msg <>
-    toText (ANSI.setSGRCode [ANSI.Reset])
 
 ----------------------------------------------------------------------------
 -- Aeson

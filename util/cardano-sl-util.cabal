@@ -19,6 +19,8 @@ flag asserts
 
 library
   exposed-modules:
+                       Pos.Util.CompileInfo
+
                        Pos.Util.Concurrent
                        Pos.Util.Concurrent.LockedTVar
                        Pos.Util.Concurrent.PriorityLock
@@ -56,7 +58,9 @@ library
                      , mtl
                      , node-sketch
                      , parsec
+                     , process
                      , random
+                     , reflection
                      , resourcet
                      , semigroups
                      , serokell-util
@@ -65,6 +69,7 @@ library
                      , template-haskell
                      , text
                      , text-format
+                     , th-lift-instances
                      , time-units
                      , transformers
                      , transformers-base

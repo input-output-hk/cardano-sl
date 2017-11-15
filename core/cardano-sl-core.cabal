@@ -127,7 +127,6 @@ library
                        Pos.System.Metrics.Constants
 
                        Pos.Util.Arbitrary
-                       Pos.Util.CompileInfo
                        Pos.Util.Chrono
                        Pos.Util.Limits
                        Pos.Util.Mnemonics

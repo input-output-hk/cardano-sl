@@ -166,6 +166,7 @@ executable cardano-explorer
                      , cardano-sl-explorer
                      , cardano-sl-ssc
                      , cardano-sl-update
+                     , cardano-sl-util
                      , containers
                      , data-default
                      , formatting

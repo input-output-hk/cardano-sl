@@ -1,3 +1,4 @@
+{-# LANGUAGE DataKinds     #-}
 {-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeOperators #-}
 
@@ -22,9 +23,8 @@ import           Network.Wai (Application)
 import           Network.Wai.Handler.Warp (defaultSettings, runSettings, setHost, setPort)
 import           Network.Wai.Handler.WarpTLS (TLSSettings, runTLS, tlsSettingsChain)
 import           Servant.API ((:<|>) ((:<|>)), FromHttpApiData)
-import           Servant.Server (Handler, ServantErr (errBody), Server, ServerT, err404, err503,
-                                 serve)
-import           Servant.Utils.Enter ((:~>) (NT), enter)
+import           Servant.Server (Handler, HasServer, ServantErr (errBody), Server, ServerT, err404,
+                                 err503, hoistServer, serve)
 
 import qualified Network.Broadcast.OutboundQueue as OQ
 import           Pos.Aeson.Txp ()
@@ -106,23 +106,28 @@ convertHandler nc nodeDBs txpData handler =
     excHandlers = [Catch.Handler catchServant]
     catchServant = throwError
 
-nat
-    :: forall ext ctx m .
-    ( MyWorkMode ctx m, MempoolExt m ~ ext)
-    => m (WebMode ext :~> Handler)
-nat = do
+withNat
+    :: forall ext ctx api m .
+    (MyWorkMode ctx m, MempoolExt m ~ ext, HasServer api '[])
+    => Proxy api -> ServerT api (WebMode ext) -> m (Server api)
+withNat apiP handlers = do
     nc <- view nodeContext
     nodeDBs <- DB.getNodeDBs
     txpLocalData <- askTxpMem
-    return $ NT (convertHandler nc nodeDBs txpLocalData)
+    return $ hoistServer apiP (convertHandler nc nodeDBs txpLocalData) handlers
 
-servantServerHealthCheck :: forall ctx t m . MyWorkMode ctx m => Topology t -> OQ m -> m (Server HealthCheckApi)
+servantServerHealthCheck
+    :: forall ctx t m.
+       MyWorkMode ctx m
+    => Topology t -> OQ m -> m (Server HealthCheckApi)
 servantServerHealthCheck topology oq =
-    flip enter (healthCheckServantHandlers topology oq) <$> (nat @(MempoolExt m) @ctx @m)
+    withNat (Proxy @HealthCheckApi) $ healthCheckServantHandlers topology oq
 
-servantServer :: forall ctx m . MyWorkMode ctx m => m (Server NodeApi)
-servantServer = flip enter nodeServantHandlers <$>
-    (nat @(MempoolExt m) @ctx @m)
+servantServer
+    :: forall ctx m.
+       MyWorkMode ctx m
+    => m (Server NodeApi)
+servantServer = withNat (Proxy @NodeApi) nodeServantHandlers
 
 ----------------------------------------------------------------------------
 -- Node handlers

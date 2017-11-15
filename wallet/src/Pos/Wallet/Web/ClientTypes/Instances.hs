@@ -14,7 +14,7 @@ import qualified Data.Text.Buildable
 import           Formatting (bprint, build, int, sformat, (%))
 import qualified Serokell.Util.Base16 as Base16
 import           Servant.API (FromHttpApiData (..))
-import           Servant.Multipart (FromMultipart (..), lookupFile, lookupInput)
+import           Servant.Multipart (FromMultipart (..), Mem, lookupFile, lookupInput)
 
 import           Pos.Core (Address, Coin, decodeTextAddress, mkCoin, unsafeGetCoin)
 import           Pos.Core.Txp (TxId)
@@ -140,7 +140,7 @@ instance FromHttpApiData ScrollOffset where
 instance FromHttpApiData ScrollLimit where
     parseUrlPiece = fmap ScrollLimit . parseUrlPiece
 
-instance FromMultipart CElectronCrashReport where
+instance FromMultipart Mem CElectronCrashReport where
     fromMultipart form = do
         let look t = lookupInput t form
         CElectronCrashReport

@@ -20,7 +20,6 @@ import           Universum
 import           Network.Wai (Application)
 import           Serokell.AcidState.ExtendedState (ExtendedState)
 import           Servant.Server (Handler, Server, serve)
-import           Servant.Utils.Enter ((:~>) (..))
 
 import qualified Data.ByteString.Char8 as BS8
 import           Pos.Communication (OutSpecs, sendTxOuts)
@@ -61,10 +60,9 @@ walletApplication serv = do
 walletServer
     :: forall ctx m.
        ( MonadFullWalletWebMode ctx m )
-    => m (m :~> Handler)
+    => (forall x. m x -> Handler x)
     -> m (Server WalletSwaggerApi)
-walletServer natM = do
-    nat <- natM
+walletServer nat = do
     syncWalletsWithGState =<< mapM findKey =<< myRootAddresses
     startPendingTxsResubmitter
     launchNotifier nat

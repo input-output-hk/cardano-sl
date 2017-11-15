@@ -39,9 +39,6 @@ instance HasGenRequest (argA a :> argB a :> sub) =>
 instance HasGenRequest sub => HasGenRequest (Tags tags :> sub) where
     genRequest _ = genRequest (Proxy :: Proxy sub)
 
-instance HasGenRequest sub => HasGenRequest (Summary sum :> sub) where
-    genRequest _ = genRequest (Proxy :: Proxy sub)
-
 instance HasGenRequest sub => HasGenRequest (WalletRequestParams :> sub) where
     genRequest _ = genRequest (Proxy @(WithWalletRequestParams sub))
 

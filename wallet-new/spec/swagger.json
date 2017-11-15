@@ -14,6 +14,7 @@
         "CPtxCondition": {
             "type": "string",
             "enum": [
+                "CPtxCreating",
                 "CPtxApplying",
                 "CPtxInBlocks",
                 "CPtxWontApply",
@@ -446,6 +447,13 @@
                     "type": "number"
                 }
             }
+        },
+        "InputSelectionPolicy": {
+            "type": "string",
+            "enum": [
+                "OptimizeForSecurity",
+                "OptimizeForSize"
+            ]
         },
         "CWalletMeta": {
             "required": [
@@ -1289,10 +1297,16 @@
             }
         },
         "/api/v0/txs/fee/{from}/{to}/{amount}": {
-            "get": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
                 "responses": {
                     "404": {
                         "description": "`from` or `to` or `amount` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body`"
                     },
                     "200": {
                         "schema": {
@@ -1325,6 +1339,14 @@
                         "in": "path",
                         "name": "amount",
                         "type": "integer"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/InputSelectionPolicy"
+                        },
+                        "in": "body",
+                        "name": "body"
                     }
                 ],
                 "tags": [
@@ -1881,12 +1903,15 @@
         },
         "/api/v0/txs/payments/{from}/{to}/{amount}": {
             "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
                 "responses": {
                     "404": {
                         "description": "`from` or `to` or `amount` not found"
                     },
                     "400": {
-                        "description": "Invalid `passphrase`"
+                        "description": "Invalid `body` or `passphrase`"
                     },
                     "200": {
                         "schema": {
@@ -1924,6 +1949,14 @@
                         "in": "path",
                         "name": "amount",
                         "type": "integer"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/InputSelectionPolicy"
+                        },
+                        "in": "body",
+                        "name": "body"
                     }
                 ],
                 "tags": [
@@ -2280,10 +2313,16 @@
             }
         },
         "/api/txs/fee/{from}/{to}/{amount}": {
-            "get": {
+            "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
                 "responses": {
                     "404": {
                         "description": "`from` or `to` or `amount` not found"
+                    },
+                    "400": {
+                        "description": "Invalid `body`"
                     },
                     "200": {
                         "schema": {
@@ -2316,6 +2355,14 @@
                         "in": "path",
                         "name": "amount",
                         "type": "integer"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/InputSelectionPolicy"
+                        },
+                        "in": "body",
+                        "name": "body"
                     }
                 ],
                 "tags": [
@@ -2476,12 +2523,15 @@
         },
         "/api/txs/payments/{from}/{to}/{amount}": {
             "post": {
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
                 "responses": {
                     "404": {
                         "description": "`from` or `to` or `amount` not found"
                     },
                     "400": {
-                        "description": "Invalid `passphrase`"
+                        "description": "Invalid `body` or `passphrase`"
                     },
                     "200": {
                         "schema": {
@@ -2519,6 +2569,14 @@
                         "in": "path",
                         "name": "amount",
                         "type": "integer"
+                    },
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/InputSelectionPolicy"
+                        },
+                        "in": "body",
+                        "name": "body"
                     }
                 ],
                 "tags": [

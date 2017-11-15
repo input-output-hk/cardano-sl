@@ -1,4 +1,4 @@
-
+{-# LANGUAGE RankNTypes #-}
 module Cardano.Wallet.Server where
 
 import           Universum
@@ -23,7 +23,7 @@ import           Servant
 walletServer
     :: forall ctx m.
        ( MonadFullWalletWebMode ctx m )
-    => (m :~> Handler)
+    => (forall a. m a -> Handler a)
     -> Server WalletAPI
 walletServer natV0 = V0.handlers natV0
                 :<|> V0.handlers natV0

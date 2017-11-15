@@ -26,20 +26,18 @@ import qualified Pos.Wallet.Web.Server.Runner   as V0
 import           Pos.Wallet.Web.Sockets         (getWalletWebSockets, launchNotifier,
                                                  upgradeApplicationWS)
 import           Servant                        (Handler, Server, serve)
-import           Servant.Utils.Enter            ((:~>) (..))
 import           System.Wlog                    (logInfo, modifyLoggerName)
 
 import qualified Data.ByteString.Char8          as BS8
-import           Pos.Communication              (ActionSpec (..), OutSpecs, SendActions,
-                                                 WorkerSpec, sendTxOuts, worker)
+import           Pos.Communication              (ActionSpec (..), OutSpecs, SendActions, WorkerSpec,
+                                                 sendTxOuts, worker)
 import           Pos.Context                    (HasNodeContext)
 
 import           Pos.Launcher.Configuration     (HasConfigurations)
 import           Pos.Util.CompileInfo           (HasCompileInfo)
-import           Pos.Wallet.Web.Mode            (MonadFullWalletWebMode,
-                                                 MonadWalletWebMode,
+import           Pos.Wallet.Web.Mode            (MonadFullWalletWebMode, MonadWalletWebMode,
                                                  MonadWalletWebSockets, WalletWebMode,
-                                                 WalletWebModeContext)
+                                                 WalletWebModeContext, WalletWebModeContextTag)
 import           Pos.Wallet.Web.Server.Launcher (walletServeImpl, walletServerOuts)
 import           Pos.Web                        (TlsParams, serveImpl, serveWeb)
 import           Pos.WorkMode                   (WorkMode)
@@ -87,8 +85,8 @@ walletBackend WalletBackendParams {..} =
       atomically $ STM.putTMVar saVar sendActions
       when (isDebugMode walletRunMode) $ addInitialRichAccount 0
       wsConn <- getWalletWebSockets
-      natV0 <- V0.nat
+      ctx <- V0.walletWebModeContext
       syncWalletsWithGState =<< mapM findKey =<< myRootAddresses
       startPendingTxsResubmitter
-      launchNotifier natV0
-      return $ upgradeApplicationWS wsConn $ serve API.walletAPI (API.walletServer natV0)
+      launchNotifier (V0.convertHandler ctx)
+      return $ upgradeApplicationWS wsConn $ serve API.walletAPI (API.walletServer (V0.convertHandler ctx))

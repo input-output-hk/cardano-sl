@@ -73,18 +73,16 @@ import           Control.Lens (from)
 import           Control.Monad.Catch (try)
 import           Data.Reflection (Reifies (..))
 import           Servant.API ((:<|>), (:>), Capture, Delete, Get, JSON, Post, Put, QueryParam,
-                              ReflectMethod (..), ReqBody, Verb)
+                              ReqBody, Verb)
 import           Servant.API.ContentTypes (NoContent, OctetStream)
-import           Servant.Server (HasServer (..))
 import           Servant.Swagger.UI (SwaggerSchemaUI)
 import           Universum
 
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import           Pos.Types (Coin, SoftwareVersion)
 import           Pos.Util.Servant (ApiLoggingConfig, CCapture, CQueryParam, CReqBody, DCQueryParam,
-                                   DReqBody, HasLoggingServer (..), LoggingApi, ModifiesApiRes (..),
-                                   ReportDecodeError (..), VerbMod, WithTruncatedLog (..),
-                                   applyLoggingToHandler, inRouteServer, serverHandlerL')
+                                   DReqBody, LoggingApi, ModifiesApiRes (..),
+                                   ReportDecodeError (..), VerbMod, serverHandlerL')
 import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccountInit, CAccountMeta,
                                              CAddress, CCoin, CFilePath, CId, CInitialized,
                                              CPaperVendWalletRedeem, CPassPhrase, CProfile, CTx,
@@ -110,19 +108,6 @@ instance ModifiesApiRes WalletVerbTag where
 
 instance ReportDecodeError (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) where
     reportDecodeError _ err = throwM (DecodeError err) ^. from serverHandlerL'
-
-instance ( HasServer (Verb mt st ct $ ApiModifiedRes WalletVerbTag a) ctx
-         , Reifies config ApiLoggingConfig
-         , ReflectMethod mt
-         , Buildable (WithTruncatedLog a)
-         ) =>
-         HasLoggingServer config (WalletVerb (Verb (mt :: k1) (st :: Nat) (ct :: [*]) a)) ctx where
-    routeWithLog =
-        -- TODO [CSM-466] avoid manually rewriting rule for composite api modification
-        inRouteServer @(Verb mt st ct $ ApiModifiedRes WalletVerbTag a) route $
-        \(paramsInfo, handler) ->
-            handler & serverHandlerL' %~ modifyApiResult (Proxy @WalletVerbTag)
-                    & applyLoggingToHandler (Proxy @config) (Proxy @mt) . (paramsInfo, )
 
 -- | Specifes servant logging config.
 data WalletLoggingConfig

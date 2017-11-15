@@ -475,7 +475,7 @@ The way updates will transition from the *next* to the *current* can be the foll
     - If the input `WalletSoftwareUpdate` does match the _current_ update, carry on as per
       user story (4) and (4.1), then set the _current_ status to `Applied`.
 
-        - If a _next_ update is available, replace _next_ with _current_.
+        - If a _next_ update is available, replace _current_ with _next_.
 
 ## V1 Swagger spec<a id="sec-5-6" name="sec-5-6"></a>
 

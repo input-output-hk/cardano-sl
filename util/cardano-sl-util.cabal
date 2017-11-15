@@ -35,6 +35,7 @@ library
                        Pos.Util.Orphans
                        Pos.Util.Queue
                        Pos.Util.Some
+                       Pos.Util.Timer
 
   other-modules:
 

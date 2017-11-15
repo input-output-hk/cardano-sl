@@ -110,7 +110,6 @@ library
                         Pos.Util.LogSafe
                         Pos.Util.TimeLimit
                         Pos.Util.TimeWarp
-                        Pos.Util.Timer
 
   other-modules:        Paths_cardano_sl_infra
 

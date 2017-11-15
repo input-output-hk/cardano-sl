@@ -51,18 +51,17 @@ ergonomics:
 # Current design<a id="sec-4" name="sec-4"></a>
 
 This summarises (roughly) how the current update process works.
-NOTE: This is based on my own understanding (adinapoli) so the mileage
-might vary.
 
 -   The update is voted and it enters the blockchain.
 
 -   Nodes broadcasts this update between each other.
 
--   When an edgenode receives an update, it register
-    this information internally.
+-   An edgenode monitors the state of the blockchain, and when an update
+    is found, it's signalled to the wallet backend by populating the
+    [ucDownloadedUpdate](https://github.com/input-output-hk/cardano-sl/blob/master/update/Pos/Update/Download.hs#L130) variable.
 
--   The wallet access this information and stores the
-    update in a list of updates. The list sorts the updates by
+-   The wallet constantly polls this variable and when a new update is
+    found is stored in a list of updates. The list sorts the updates by
     oldest first, so adding a new update is a `O(n)` operation where
     `n` is the number of updates (which is small anyway).
 
@@ -75,7 +74,10 @@ might vary.
 -   When we want to apply an update, we query `GET /api/update`
     and this performs a `O(1)` `head` lookup in the list of updates to
     grab the first (and te oldest), because updates are incremental
-    and needs to be performed in a sequence.
+    and need to be performed in a sequence. If the first (and the oldest)
+    of the updates has `version <= current_version_of_the_code`,
+    then it's dismissed and the process repeats for next update.
+    If there are no updates left, the endpoint reports this information accordingly.
 
 -   If the user applies the update, `POST /api/update/apply` is called.
     We then apply the update using the downloaded binary and we
@@ -245,8 +247,8 @@ where `UpdateSeverity` is defined as an enumeration indicating how compulsory th
     data UpdateSeverity = Mandatory
                         | Optional
 
-For hard forks updates we would set the severity to `Mandatory`, for soft forks and other non-critical updates
-we would label an update as `Optional`.
+For hard forks updates (or security-critical issues) we might want to set the severity
+to `Mandatory`, for soft forks and other non-critical updates we can label an update as `Optional`.
 
 -   `Optional` updates can be rejected by the user, as well as applied to will at a later stage;
 -   `Mandatory` updates will need to be applied immediately and won't allow the user to proceed
@@ -264,6 +266,13 @@ On the other hand, `wsuUpdateState` records the users' decision towards the upda
                      | Proposed
                      -- ^ The update has been just proposed and is waiting for users' feedback.
 
+Note how we could add an intermediate `Downloading` state, but this would complicate state-handling
+in case a user hard-quits Daedalus whilst the upgrade is being downloaded. In this case, we would
+need to catch the exception and update the state back to `Proposed`, but that case be more error
+prone than not updating the state in the first place. Having the state back to `Proposed` is
+important so that the wallet is left in a clean state and upon re-launched Daedalus the update can
+be downloaded again with no harm being done.
+
 ## Determining the severity<a id="sec-5-2" name="sec-5-2"></a>
 
 For the proposed schema to succeed, we would need a function like the following:
@@ -271,6 +280,9 @@ For the proposed schema to succeed, we would need a function like the following:
     updateSeverity :: UpdateProposal -> UpdateSeverity
 
 Such function would gather evidence from an `UpdateProposal` that this is a non-negotiable update.
+
+Note how we don't need to commit just yet whether or not we will treat hard-forks as `Mandatory`, as
+there are good arguments for people wanting to stick with an old version of the chain.
 
 ## User stories<a id="sec-5-3" name="sec-5-3"></a>
 
@@ -332,7 +344,7 @@ applied yet. This is now easy to accomplish as querying `GET /api/v1/update` wou
 (in which case "No Updates Available" should be shown) or an update which has been downloaded already, or skipped.
 Either way, the user will be in the position to move forward in the update process.
 
--   (4) As a Daedalus user, I want to be able to install an update.
+-   (4) As a Daedalus user, I want to be able to install an update immediately.
 
 Once an update has been downloaded, users can choose whether or not install it. In case Daedalus is abruptly closed (but
 the download completed) it will always be possible to recover the installation as per User Story 3.
@@ -344,6 +356,12 @@ the Cardano Launcher expects it, and finally updating the state of the `WalletSo
 `Applied`. These two operation do not need to be atomic: closing the Wallet whilst the copy is happening or
 prior to the change of state won't cause any harm, as Daedalus won't mark the update as happened and the process
 can resume via User Story 3.
+
+-   (4.1) As a Daedalus user, I want to be able to install an update after a manual restart.
+
+In order to support this use case, we might need to extend our current launcher to not automatically restart
+Daedalus after an installer has been downloaded. After we do that, (4) and (4.1) will be very similar, with the
+difference that (4) would somehow ask the cardano launcher to restart everything, whereas in (4.1) it won't.
 
 ## Installers retention<a id="sec-5-4" name="sec-5-4"></a>
 
@@ -556,8 +574,8 @@ types omitted for brevity):
             type: integer
         type: object
       UpdateSeverity:
-        type: enum
-        items: [mandatory, optional]
+        type: string
+        enum: [mandatory, optional]
       UpdateState:
       # Just a stub for now.
         type: object

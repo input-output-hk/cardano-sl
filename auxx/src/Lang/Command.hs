@@ -2,6 +2,7 @@
 
 module Lang.Command
        ( CommandProc(..)
+       , UnavailableCommand(..)
        ) where
 
 import           Universum
@@ -16,3 +17,8 @@ data CommandProc m = forall e. CommandProc
     , cpExec             :: !(e -> m Value)
     , cpHelp             :: !Text
     } deriving ()
+
+data UnavailableCommand = UnavailableCommand
+    { ucName :: !Name
+    , ucReason :: !Text
+    }

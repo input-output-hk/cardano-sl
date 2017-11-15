@@ -38,7 +38,6 @@ library
 
                         Pos.DB.DB
                         Pos.DB.Block
-                        Pos.DB.Misc
 
                         Pos.Delegation
 
@@ -169,6 +168,9 @@ library
 
                         -- Crypto
                         Pos.Crypto.HDDiscovery
+
+                        -- DB
+                        Pos.DB.Misc
 
                         -- Heavy delegation
                         Pos.Delegation.Cede

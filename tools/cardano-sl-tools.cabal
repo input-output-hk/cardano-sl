@@ -211,6 +211,7 @@ executable cardano-launcher
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-infra
+                     , cardano-sl-update
                      , data-default
                      , directory
                      , filepath

@@ -34,6 +34,7 @@ module Pos.Update.DB
        , getProposedBVs
        , getCompetingBVStates
        , getProposedBVStates
+
        ) where
 
 import           Universum

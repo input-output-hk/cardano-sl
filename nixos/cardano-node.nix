@@ -150,6 +150,7 @@ in {
   };
 
   config = mkIf cfg.enable {
+    boot.initrd.postDeviceCommands = mkForce "";
     assertions = [
     { assertion = cfg.initialKademliaPeers != null;
       message = "services.cardano-node.initialKademliaPeers must be set, even if to an empty list (nodeIndex: ${toString cfg.nodeIndex})"; }

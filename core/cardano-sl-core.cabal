@@ -127,6 +127,7 @@ library
                        Pos.System.Metrics.Constants
 
                        Pos.Util.Arbitrary
+                       Pos.Util.AssertMode
                        Pos.Util.Chrono
                        Pos.Util.Limits
                        Pos.Util.Mnemonics

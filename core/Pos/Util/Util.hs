@@ -37,9 +37,6 @@ module Pos.Util.Util
        , mkMinMax
        , minMaxOf
 
-       -- * Asserts
-       , inAssertMode
-
        -- * Aeson
        , parseJSONWithRead
 
@@ -126,17 +123,6 @@ instance {-# OVERLAPPING #-} PowerLift m m where
 
 instance (MonadTrans t, PowerLift m n, Monad n) => PowerLift m (t n) where
   powerLift = lift . powerLift @m @n
-
--- | This function performs checks at compile-time for different actions.
--- May slowdown implementation. To disable such checks (especially in benchmarks)
--- one should compile with: @stack build --flag cardano-sl-core:-asserts@
-inAssertMode :: Applicative m => m a -> m ()
-#ifdef ASSERTS_ON
-inAssertMode x = x *> pure ()
-#else
-inAssertMode _ = pure ()
-#endif
-{-# INLINE inAssertMode #-}
 
 -- | Concatenates two url parts using regular slash '/'.
 -- E.g. @"./dir/" <//> "/file" = "./dir/file"@.

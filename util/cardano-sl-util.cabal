@@ -27,6 +27,7 @@ library
                        Pos.Util.Concurrent.RWLock
                        Pos.Util.Concurrent.RWVar
 
+                       Pos.Util.Filesystem
                        Pos.Util.Future
                        Pos.Util.Justify
                        Pos.Util.Lens
@@ -47,8 +48,10 @@ library
                      , cryptonite
                      , data-default
                      , deepseq
+                     , directory
                      , ether
                      , exceptions
+                     , filepath
                      , formatting
                      , hashable
                      , lens
@@ -70,6 +73,7 @@ library
                      , text
                      , text-format
                      , th-lift-instances
+                     , time
                      , time-units
                      , transformers
                      , transformers-base

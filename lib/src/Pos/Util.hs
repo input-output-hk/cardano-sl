@@ -14,6 +14,7 @@ module Pos.Util
        -- * Futures
        , module Pos.Util.Future
 
+       , module Pos.Util.Filesystem
        , module Pos.Util.Lens
        , module Pos.Util.Some
 
@@ -23,7 +24,6 @@ module Pos.Util
        , eitherToVerRes
        , readerToState
        , diffDoubleMap
-       , withMaybeFile
        , mapEither
        , microsecondsToUTC
 
@@ -46,12 +46,12 @@ import           Data.Time.Clock (UTCTime)
 import           Data.Time.Clock.POSIX (posixSecondsToUTCTime)
 import           Data.Time.Units (Microsecond, toMicroseconds)
 import           Serokell.Util (VerificationRes (..))
-import           System.IO (hClose)
 -- SafeCopy instance for HashMap
 import           Serokell.AcidState ()
 
 import           Pos.Util.Arbitrary
 import           Pos.Util.Concurrent
+import           Pos.Util.Filesystem
 import           Pos.Util.Future
 import           Pos.Util.Lens
 import           Pos.Util.Some
@@ -95,11 +95,6 @@ diffDoubleMap a b = HM.foldlWithKey' go mempty a
                 in if null diff
                        then res
                        else HM.insert extKey diff res
-
-withMaybeFile :: (MonadIO m, MonadMask m) => Maybe FilePath -> IOMode -> (Maybe Handle -> m r) -> m r
-withMaybeFile Nothing     _    f = f Nothing
-withMaybeFile (Just file) mode f =
-    bracket (openFile file mode) (liftIO . hClose) (f . Just)
 
 mapEither :: (a -> Either b c) -> [a] -> [c]
 mapEither f = rights . map f

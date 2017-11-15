@@ -56,7 +56,7 @@ removeProxySecretKey pk = do
     keys <- getProxySecretKeysLight
     miscPutBi proxySKKey $ filter ((/= pk) . pskIssuerPk) keys
 
--- TODO it's not used anywhere yet. Should it be?
+-- TODO CSL-1856 it's not used anywhere yet. Should it be?
 -- | Given epochindex, throws away all outdated PSKs. Remark: it
 -- doesn't remove keys that can be used in future. Call it under write
 -- lock only (see 'miscLock').

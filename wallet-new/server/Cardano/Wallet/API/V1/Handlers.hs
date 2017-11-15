@@ -23,10 +23,8 @@ import           Servant
 
 -- | Until we depend from V0 logic to implement the each 'Handler' we
 -- still need the natural transformation here.
-handlers :: ( HasConfiguration
+handlers :: ( HasConfigurations
             , HasCompileInfo
-            , HasInfraConfiguration
-            , HasSscConfiguration
             )
             => (forall a. MonadV1 a -> Handler a)
             -> Server V1.API

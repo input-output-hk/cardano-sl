@@ -9,34 +9,34 @@ module APISpec where
 
 import           Universum
 
-import qualified Control.Concurrent.STM           as STM
+import qualified Control.Concurrent.STM as STM
 import           Control.Exception
-import           Data.Default                     (def)
-import           Network.HTTP.Client              hiding (Proxy)
+import           Data.Default (def)
+import           Network.HTTP.Client hiding (Proxy)
 import           Network.HTTP.Types
-import           Pos.Communication                (SendActions)
-import           Pos.Util.CompileInfo             (withCompileInfo)
-import           Pos.Wallet.WalletMode            (WalletMempoolExt)
-import           Pos.Wallet.Web.Mode              (WalletWebMode, WalletWebModeContext (..))
-import           Pos.Wallet.Web.Sockets           (ConnectionsVar)
-import           Pos.Wallet.Web.State             (WalletState)
-import           Pos.WorkMode                     (RealModeContext (..))
+import           Pos.Communication (SendActions)
+import           Pos.Util.CompileInfo (withCompileInfo)
+import           Pos.Wallet.WalletMode (WalletMempoolExt)
+import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..))
+import           Pos.Wallet.Web.Sockets (ConnectionsVar)
+import           Pos.Wallet.Web.State (WalletState)
+import           Pos.WorkMode (RealModeContext (..))
 import           Serokell.AcidState.ExtendedState
 import           Servant
 import           Servant.API.Sub
 import           Servant.QuickCheck
 import           Servant.QuickCheck.Internal
 import           Test.Hspec
-import           Test.Pos.Util                    (withDefConfigurations)
+import           Test.Pos.Util (withDefConfigurations)
 import           Test.QuickCheck
-import           Test.QuickCheck.Instances        ()
+import           Test.QuickCheck.Instances ()
 
 import           Cardano.Wallet.API.Types
-import qualified Cardano.Wallet.API.V1            as V0
-import qualified Cardano.Wallet.API.V1            as V1
-import qualified Cardano.Wallet.API.V1.Handlers   as V0
-import qualified Cardano.Wallet.API.V1.Handlers   as V1
-import qualified Cardano.Wallet.API.V1.Migration  as Migration
+import qualified Cardano.Wallet.API.V1 as V0
+import qualified Cardano.Wallet.API.V1 as V1
+import qualified Cardano.Wallet.API.V1.Handlers as V0
+import qualified Cardano.Wallet.API.V1.Handlers as V1
+import qualified Cardano.Wallet.API.V1.Migration as Migration
 import           Cardano.Wallet.API.V1.Parameters
 
 --
@@ -108,10 +108,8 @@ predicates = not500
          <%> mempty
 
 -- | "Lowers" V0 Handlers from our domain-specific monad to a @Servant@ 'Handler'.
-v0Server :: ( Migration.HasConfiguration
+v0Server :: ( Migration.HasConfigurations
             , Migration.HasCompileInfo
-            , Migration.HasInfraConfiguration
-            , Migration.HasSscConfiguration
             ) => IO (Server V0.API)
 v0Server = do
   -- TODO(adinapoli): If the monadic stack ends up diverging between V0 and V1,
@@ -120,10 +118,8 @@ v0Server = do
   return (V0.handlers (Migration.v1MonadNat ctx))
 
 -- | "Lowers" V1 Handlers from our domain-specific monad to a @Servant@ 'Handler'.
-v1Server :: ( Migration.HasConfiguration
+v1Server :: ( Migration.HasConfigurations
             , Migration.HasCompileInfo
-            , Migration.HasInfraConfiguration
-            , Migration.HasSscConfiguration
             ) => IO (Server V1.API)
 v1Server = do
   ctx <- testV1Context

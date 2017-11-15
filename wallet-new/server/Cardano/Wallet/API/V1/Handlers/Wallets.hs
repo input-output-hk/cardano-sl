@@ -2,30 +2,29 @@ module Cardano.Wallet.API.V1.Handlers.Wallets where
 
 import           Universum
 
-import qualified Pos.Wallet.Web.ClientTypes.Types        as V0
-import qualified Pos.Wallet.Web.Methods.Restore          as V0
+import qualified Pos.Wallet.Web.ClientTypes.Types as V0
+import qualified Pos.Wallet.Web.Methods.Restore as V0
 
 import qualified Cardano.Wallet.API.V1.Handlers.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Migration
-import           Cardano.Wallet.API.V1.Types             as V1
-import qualified Cardano.Wallet.API.V1.Wallets           as Wallets
+import           Cardano.Wallet.API.V1.Types as V1
+import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 
-import qualified Data.ByteArray                          as ByteArray
-import qualified Data.ByteString                         as BS
-import           Data.Default                            (def)
-import           Formatting                              (int, sformat, shown, (%))
-import           Pos.Crypto.Signing.Types                (PassPhrase, passphraseLength)
-import           Pos.Wallet.Web.Methods.Logic            (MonadWalletLogic)
-import qualified Serokell.Util.Base16                    as Base16
+import qualified Data.ByteArray as ByteArray
+import qualified Data.ByteString as BS
+import           Data.Default (def)
+import           Formatting (int, sformat, shown, (%))
+import           Pos.Crypto.Signing.Types (PassPhrase, passphraseLength)
+import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic)
+import qualified Serokell.Util.Base16 as Base16
 import           Servant
-import           Test.QuickCheck                         (arbitrary, generate, resize)
+import           Test.QuickCheck (arbitrary, generate, resize)
 
 -- | All the @Servant@ handlers for wallet-specific operations.
-handlers :: ( HasConfiguration
+handlers :: ( HasConfigurations
             , HasCompileInfo
-            , HasInfraConfiguration
-            , HasSscConfiguration
-            ) => ServerT Wallets.API MonadV1
+            )
+         => ServerT Wallets.API MonadV1
 handlers =   newWallet
         :<|> listWallets
         :<|> (\walletId -> do

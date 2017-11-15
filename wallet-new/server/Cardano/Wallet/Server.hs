@@ -21,12 +21,8 @@ import           Servant
 -- time of writing) two ways of accessing the V0 API, which are either by hitting
 -- `/api/..` or by hitting `/api/v0/...`.
 
-walletServer :: ( Migration.HasConfiguration
+walletServer :: ( Migration.HasConfigurations
                 , Migration.HasCompileInfo
-                , Migration.HasUpdateConfiguration
-                , Migration.HasSscConfiguration
-                , Migration.HasNodeConfiguration
-                , Migration.HasInfraConfiguration
                 )
              => (forall a. WalletWebMode a -> Handler a)
              -> Server WalletAPI

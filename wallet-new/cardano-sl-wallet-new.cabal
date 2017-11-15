@@ -13,6 +13,9 @@ cabal-version:       >=1.10
 library
   hs-source-dirs:      src
   exposed-modules:     Cardano.Wallet.Orphans
+                       Cardano.Wallet.Orphans.Aeson
+                       Cardano.Wallet.Orphans.Arbitrary
+                       Cardano.Wallet.Orphans.Bi
                        Cardano.Wallet.API
                        Cardano.Wallet.API.Types
                        Cardano.Wallet.API.V1

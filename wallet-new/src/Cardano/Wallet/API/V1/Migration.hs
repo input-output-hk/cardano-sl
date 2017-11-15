@@ -10,34 +10,34 @@ module Cardano.Wallet.API.V1.Migration (
     , v1MonadNat
     , lowerV1Monad
     , Migrate(..)
-    -- * Isomorphisms
+    -- * Isomorphisms (when available)
     , walletAssurance
     -- * Configuration re-exports
-    , HasInfraConfiguration
-    , HasSscConfiguration
     , HasCompileInfo
+    , HasConfigurations
     , HasConfiguration
+    , HasSscConfiguration
     , HasUpdateConfiguration
     , HasNodeConfiguration
     ) where
 
 import           Universum
 
-import qualified Cardano.Wallet.API.V1.Types      as V1
+import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 import           Control.Lens
-import qualified Control.Monad.Catch              as Catch
-import           Mockable                         (runProduction)
+import qualified Control.Monad.Catch as Catch
+import           Mockable (runProduction)
 import           Servant
 
-import           Pos.Configuration                (HasNodeConfiguration)
-import           Pos.Core.Configuration           (HasConfiguration)
-import           Pos.Infra.Configuration          (HasInfraConfiguration)
-import           Pos.Ssc                          (HasSscConfiguration)
-import           Pos.Update.Configuration         (HasUpdateConfiguration)
-import           Pos.Util.CompileInfo             (HasCompileInfo)
-import           Pos.Wallet.Web.Mode              (WalletWebMode, WalletWebModeContext)
+import           Pos.Configuration (HasNodeConfiguration)
+import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Launcher.Configuration (HasConfigurations)
+import           Pos.Ssc (HasSscConfiguration)
+import           Pos.Update.Configuration (HasUpdateConfiguration)
+import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext)
 
 -- | Temporary monad to handle the migration from the V0 & V1 stacks.
 type MonadV1   = WalletWebMode
@@ -69,9 +69,9 @@ class Migrate from to where
 
 instance Migrate V0.CWallet V1.Wallet where
     migrate V0.CWallet{..} =
-        V1.Wallet { V1.walId   = migrate @(V0.CId V0.Wal) cwId
+        V1.Wallet { V1.walId   = migrate cwId
                   , V1.walName = V0.cwName cwMeta
-                  , V1.walBalance = migrate @V0.CCoin @V1.RenderedBalance cwAmount
+                  , V1.walBalance = migrate cwAmount
                   }
 
 --

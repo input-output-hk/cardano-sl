@@ -49,22 +49,22 @@ import           Universum
 
 import           Data.Aeson
 import           Data.Aeson.TH
-import           Data.Default                     (Default (def))
-import           Data.Text                        (Text, dropEnd, toLower)
+import           Data.Default (Default (def))
+import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text.Buildable
-import           Formatting                       (build, sformat)
-import           GHC.Generics                     (Generic)
-import qualified Serokell.Aeson.Options           as Serokell
+import           Formatting (build, sformat)
+import           GHC.Generics (Generic)
+import qualified Serokell.Aeson.Options as Serokell
 import           Test.QuickCheck
 import           Web.HttpApiData
 
-import           Cardano.Wallet.Orphans           ()
+import           Cardano.Wallet.Orphans.Aeson ()
 
 -- V0 logic
-import           Pos.Util.BackupPhrase            (BackupPhrase)
+import           Pos.Util.BackupPhrase (BackupPhrase)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
-import qualified Pos.Core.Types                   as Core
+import qualified Pos.Core.Types as Core
 
 --
 -- Swagger & REST-related types

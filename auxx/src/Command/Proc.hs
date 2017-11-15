@@ -313,13 +313,13 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     },
 
     return CommandProc
-        { cpName = "hash-installer"
-        , cpArgumentConsumer = getArg tyFilePath "file"
-        , cpExec = \filePath -> do
-            Update.hashInstaller printAction filePath
-            return ValueUnit
-        , cpHelp = ""
-        },
+    { cpName = "hash-installer"
+    , cpArgumentConsumer = getArg tyFilePath "file"
+    , cpExec = \filePath -> do
+        Update.hashInstaller printAction filePath
+        return ValueUnit
+    , cpHelp = ""
+    },
 
     let name = "delegate-light" in
     needsSendActions name >>= \sendActions ->

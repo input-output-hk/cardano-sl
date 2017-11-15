@@ -293,6 +293,28 @@ user stories for the update system.
 
 At startup Daedalus would make a call to `GET /api/v1/update` to fetch the last available update. Note
 how this endpoint would **always** return a `WalletSoftwareUpdate`.
+
+In case this is the first time we are launching Daedalus and there are not updates available,
+we can issue a special "genesis" update record which `UpdateType` will be `Applied`,
+so that it will appear from the outside as no updates are available (which is what we want). In pseudo-code:
+
+``` haskell
+freshClientUpdate :: WalletSoftwareUpdate {
+freshClientUpdate = WalletSoftwareUpdate { 
+          wsuSoftwareVersion = ...
+        , wsuBlockVesion     = ...
+        , wsuScriptVersion   = ...
+        , wsuImplicit        = ...
+        , wsuVotesFor        = ...
+        , wsuVotesAgainst    = ...
+        , wsuPositiveStake   = ...
+        , wsuNegativeStake   = ...
+        , wsuSeverity        = Optional
+        , wsuUpdateState     = Applied
+        , wsuSha256Checksum  = ...
+        }
+```
+
 In case of a `WalletSoftwareUpdate` which has the `wsuUpdateState` field set to `Applied`, Daedalus would
 consider itself updated. In case the fetched `WalletSoftwareUpdate` had `Mandatory` severity (but is not
 yet applied), Daedalus would freeze the UI and prevent the user from doing anything but update.
@@ -353,15 +375,14 @@ a side effect (thus the use of post and the lack of extra names/resources in the
 
 The wallet backend would react to this request by simply moving the downloaded binary into the directory where
 the Cardano Launcher expects it, and finally updating the state of the `WalletSoftwareUpdate` to be marked as
-`Applied`. These two operation do not need to be atomic: closing the Wallet whilst the copy is happening or
+`Applied`. These two operation do **not** need to be atomic: closing the Wallet whilst the copy is happening or
 prior to the change of state won't cause any harm, as Daedalus won't mark the update as happened and the process
 can resume via User Story 3.
 
 -   (4.1) As a Daedalus user, I want to be able to install an update after a manual restart.
 
-In order to support this use case, we might need to extend our current launcher to not automatically restart
-Daedalus after an installer has been downloaded. After we do that, (4) and (4.1) will be very similar, with the
-difference that (4) would somehow ask the cardano launcher to restart everything, whereas in (4.1) it won't.
+This trivially follows from (4), with the difference that after downloading & moving the binary, we won't
+restart Daedalus.
 
 ## Installers retention<a id="sec-5-4" name="sec-5-4"></a>
 
@@ -393,9 +414,9 @@ and we need to ensure a linear sequence of patches. I also believe, though, than
 vestige of the fact we were using binary patching (bsdiff) on the executables, but this is no longer true
 as we ship full installers on S3.
 
-If my reasoning holds, we should be able to maintain in memory only two pieces of state: the current update (i.e.
+**If my reasoning holds, we should be able to maintain in memory only two pieces of state: the current update (i.e.
 the one for which the user started an upgrade process) and the latest update (as in the most recent) we got from
-the blockchain. Separating these two information apart ensures that new updates can be retrieved from the network
+the blockchain**. Separating these two information apart ensures that new updates can be retrieved from the network
 whilst not overriding the *current* update. As a practical example, consider the following scenario:
 
     |  user (Daedalus)                                wallet backend                          update notifier
@@ -428,6 +449,34 @@ whilst not overriding the *current* update. As a practical example, consider the
 If we kept only one single field to store this data, such field might be sensible to data races and *ghost updates*,
 where we could accidentally override data in a way which would cause our internal invariants to be violated.
 
+The way updates will transition from the *next* to the *current* can be the following:
+
+- When a new update arrives, store it as the _next_ update. If there is already an
+  update designed as next, replace it.
+
+- When `GET /api/v1/update` is called:
+   - If the _current_ update is in the `Skipped` or `Applied` state, and a _next_ update is available,
+     then replace _current_ with _next_. *In-transit* `POST/PUT` http-requests won't
+     cause state inconsistencies by the virtue of the fact the input
+     `WalletSoftwareUpdate` won't match anymore.
+
+   - If the _current_ update is in the `Proposed` state, and a _next_ update is available,
+     then replace _current_ with _next_. *In-transit* `POST/PUT` http-requests won't
+     cause state inconsistencies by the virtue of the fact the input
+     `WalletSoftwareUpdate` won't match anymore.
+
+   - If the _current_ update is in the `Downloaded` state, and a _next_ update is available,
+     chances are we want to return the current (downloaded but not applied update) update so
+     that Daedalus can warn the user it has a downloaded (but not applied) update.
+
+- When `POST /api/v1/update` is called:
+    - If the input `WalletSoftwareUpdate` doesn't match the _current_ update, ignore the request.
+
+    - If the input `WalletSoftwareUpdate` does match the _current_ update, carry on as per
+      user story (4) and (4.1), then set the _current_ status to `Applied`.
+
+        - If a _next_ update is available, replace _next_ with _current_.
+
 ## V1 Swagger spec<a id="sec-5-6" name="sec-5-6"></a>
 
 A mockup for the new update API might look like this (some HTTP errors and uninteresting
@@ -459,7 +508,19 @@ types omitted for brevity):
                 $ref: '#/definitions/WalletSoftwareUpdate'
               description: 'The latest available update.'
         post:
-          description: Applies the last update.
+          description: >
+            Applies this update. It takes as input in the body
+            a JSON representing the `WalletSoftwareUpdate` to perform.
+            In case the update has been already performed, the request
+            is simply ignored.
+          parameters:
+            - name: body
+              in: body
+              required: true
+              schema:
+                $ref: '#/definitions/WalletSoftwareUpdate'
+          consumes:
+            - application/json;charset=utf-8
           produces:
             - application/json;charset=utf-8
           responses:
@@ -468,16 +529,30 @@ types omitted for brevity):
       /api/v1/update/download:
         post:
           description: >
-           Download the latest available update. Streams the progress
-           as a chunked HTTP response.
+           Download the requested update. If the input `WalletSoftwareUpdate`
+           is not the current update anymore, an error is returned.
+           Streams the progress as a chunked HTTP response.
+          parameters:
+            - name: body
+              in: body
+              required: true
+              schema:
+                $ref: '#/definitions/WalletSoftwareUpdate'
+          consumes:
+            - application/json;charset=utf-8
           produces:
             - application/octet-stream
           responses:
             '204':
               description: 'The download has started.'
+            '422':
+              description: 'Invalid update provided.'
       /api/v1/update/skip:
         put:
-          description: Skip the available update.
+          description: >
+            Skip the update. If the input `WalletSoftwareUpdate`
+            is not the current update anymore, the request is simply
+            ignored.
           produces:
             - application/json;charset=utf-8
           responses:

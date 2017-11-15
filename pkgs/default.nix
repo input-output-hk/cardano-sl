@@ -2970,8 +2970,8 @@ self: {
           pname = "diagrams-lib";
           version = "1.4.1.2";
           sha256 = "4b6e8805decaef85d355d620311595b16fb702df3885060db19bc9b425652670";
-          revision = "3";
-          editedCabalFile = "14ni87kwmjhbphcihiivvz0nxga355263q36wvbyvvjmxvbdj98n";
+          revision = "4";
+          editedCabalFile = "0wlb4ng803rhx82msl49b39im4cw8naik0pcyyybpphyqbxxs6dd";
           libraryHaskellDepends = [
             active
             adjunctions

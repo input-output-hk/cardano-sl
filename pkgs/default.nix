@@ -1341,7 +1341,7 @@ self: {
           description = "Cardano SL main implementation";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-auxx = callPackage ({ Earley, MonadRandom, QuickCheck, ansi-wl-pprint, async, base, base58-bytestring, bytestring, canonical-json, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, constraints, containers, cpphs, cryptonite, data-default, ether, formatting, generic-arbitrary, haskeline, hspec, lens, log-warper, megaparsec, mkDerivation, mmorph, mtl, neat-interpolation, network-transport-tcp, node-sketch, optparse-applicative, parser-combinators, quickcheck-instances, random, safe-exceptions, scientific, serokell-util, split, stdenv, stm, temporary, text, text-format, time-units, transformers, universum, unix, unordered-containers }:
+      cardano-sl-auxx = callPackage ({ Earley, MonadRandom, QuickCheck, ansi-wl-pprint, async, base, base58-bytestring, bytestring, canonical-json, cardano-sl, cardano-sl-core, cardano-sl-db, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, constraints, containers, cpphs, data-default, ether, formatting, generic-arbitrary, haskeline, hspec, lens, log-warper, megaparsec, mkDerivation, mmorph, mtl, neat-interpolation, network-transport-tcp, node-sketch, optparse-applicative, parser-combinators, quickcheck-instances, random, safe-exceptions, scientific, serokell-util, split, stdenv, stm, temporary, text, text-format, time-units, transformers, universum, unix, unordered-containers }:
       mkDerivation {
           pname = "cardano-sl-auxx";
           version = "1.0.3";
@@ -1364,7 +1364,6 @@ self: {
             cardano-sl-update
             constraints
             containers
-            cryptonite
             data-default
             Earley
             ether
@@ -1399,18 +1398,16 @@ self: {
           ];
           libraryToolDepends = [ cpphs ];
           executableHaskellDepends = [
-            base
-            bytestring
             cardano-sl
             cardano-sl-core
             cardano-sl-infra
             cardano-sl-txp
-            cardano-sl-update
             constraints
             formatting
             log-warper
             network-transport-tcp
             node-sketch
+            safe-exceptions
             temporary
             universum
             unix
@@ -2865,8 +2862,8 @@ self: {
           pname = "diagrams-lib";
           version = "1.4.1.2";
           sha256 = "4b6e8805decaef85d355d620311595b16fb702df3885060db19bc9b425652670";
-          revision = "3";
-          editedCabalFile = "14ni87kwmjhbphcihiivvz0nxga355263q36wvbyvvjmxvbdj98n";
+          revision = "4";
+          editedCabalFile = "0wlb4ng803rhx82msl49b39im4cw8naik0pcyyybpphyqbxxs6dd";
           libraryHaskellDepends = [
             active
             adjunctions

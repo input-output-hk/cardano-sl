@@ -19,6 +19,8 @@ flag asserts
 
 library
   exposed-modules:
+                       Pos.Util
+
                        Pos.Util.Arbitrary
                        Pos.Util.CompileInfo
 
@@ -38,6 +40,7 @@ library
                        Pos.Util.Queue
                        Pos.Util.Some
                        Pos.Util.Timer
+                       Pos.Util.Util
 
   other-modules:
 

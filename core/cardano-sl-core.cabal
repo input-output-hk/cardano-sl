@@ -131,7 +131,6 @@ library
                        Pos.Util.Limits
                        Pos.Util.Mnemonics
                        Pos.Util.Modifier
-                       Pos.Util.Util
 
   other-modules:
                        Pos.Core.Context.PrimaryKey

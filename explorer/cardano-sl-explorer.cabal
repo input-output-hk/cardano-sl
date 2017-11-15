@@ -365,6 +365,7 @@ test-suite cardano-explorer-test
                      , cardano-sl-ssc
                      , cardano-sl-db
                      , cardano-sl
+                     , cardano-sl-util
                      , cborg
                      , cereal
                      , containers

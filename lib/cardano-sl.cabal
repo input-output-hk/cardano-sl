@@ -88,7 +88,6 @@ library
                         Pos.Client.CLI
 
                         -- Utilities/helpers
-                        Pos.Util
                         Pos.Util.Config
                         Pos.Util.Monitor
                         Pos.Util.BackupPhrase
@@ -558,10 +557,11 @@ benchmark cardano-bench-criterion
                      , base
                      , binary
                      , bytestring
+                     , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-txp
                      , cardano-sl-ssc
-                     , cardano-sl
+                     , cardano-sl-util
                      , containers
                      , criterion
                      , data-default

@@ -50,7 +50,8 @@ import           Lang.Name (Name)
 import           Lang.Value (AddKeyParams (..), AddrDistrPart (..), GenBlocksParams (..),
                              ProposeUpdateParams (..), ProposeUpdateSystem (..),
                              RollbackParams (..), SendMode (..), Value (..))
-import           Mode (MonadAuxxMode, CmdCtx (..), deriveHDAddressAuxx, getCmdCtx, makePubKeyAddressAuxx)
+import           Mode (CmdCtx (..), MonadAuxxMode, deriveHDAddressAuxx, getCmdCtx,
+                       makePubKeyAddressAuxx)
 import           Repl (PrintAction)
 
 createCommandProcs ::
@@ -317,32 +318,6 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
     , cpArgumentConsumer = getArg tyFilePath "file"
     , cpExec = \filePath -> do
         Update.hashInstaller printAction filePath
-        return ValueUnit
-    , cpHelp = ""
-    },
-
-    let name = "delegate-light" in
-    needsSendActions name >>= \sendActions ->
-    needsAuxxMode name >>= \Dict ->
-    return CommandProc
-    { cpName = name
-    , cpArgumentConsumer =
-      (,,,) <$> getArg tyInt "i"
-            <*> getArg tyPublicKey "pk"
-            <*> getArg tyEpochIndex "start"
-            <*> getArgOpt tyEpochIndex "end"
-    , cpExec = \(i, delegatePk, startEpoch, lastEpochM) -> do
-        CmdCtx{ccPeers} <- getCmdCtx
-        issuerSk <- (!! i) <$> getSecretKeysPlain
-        withSafeSigner issuerSk (pure emptyPassphrase) $ \case
-            Nothing -> logError "Invalid passphrase"
-            Just ss -> do
-                let psk = safeCreatePsk ss delegatePk (startEpoch, fromMaybe 1000 lastEpochM)
-                dataFlow
-                    "pskLight"
-                    (immediateConcurrentConversations sendActions ccPeers)
-                    (MsgTransaction OriginSender) psk
-                logInfo "Sent lightweight cert"
         return ValueUnit
     , cpHelp = ""
     },

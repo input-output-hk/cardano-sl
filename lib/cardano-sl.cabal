@@ -168,9 +168,6 @@ library
                         -- Crypto
                         Pos.Crypto.HDDiscovery
 
-                        -- DB
-                        Pos.DB.Misc
-
                         -- Heavy delegation
                         Pos.Delegation.Cede
                         Pos.Delegation.Cede.Class

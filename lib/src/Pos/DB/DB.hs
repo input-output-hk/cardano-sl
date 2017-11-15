@@ -31,7 +31,6 @@ import           Pos.DB.Block (MonadBlockDB, MonadBlockDBWrite, loadBlundsByDept
                                prepareBlockDB)
 import           Pos.DB.Class (MonadDB, MonadDBRead (..))
 import           Pos.DB.GState.Common (getTip, getTipBlockGeneric, getTipHeaderGeneric)
-import           Pos.DB.Misc (prepareMiscDB)
 import           Pos.GState.GState (prepareGStateDB, sanityCheckGStateDB)
 import           Pos.Lrc.DB (prepareLrcDB)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
@@ -54,7 +53,6 @@ initNodeDBs = do
     prepareBlockDB genesisBlock0
     prepareGStateDB initialTip
     prepareLrcDB
-    prepareMiscDB
 
 -- | Load blunds from BlockDB starting from tip and while the @condition@ is
 -- true.

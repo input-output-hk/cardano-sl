@@ -1,6 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 
--- | Heavy/lightweight PSK processing, in-mem state and
+-- | Heavy PSK processing, in-mem state and
 -- mempool-related functions.
 
 module Pos.Delegation.Logic.Mempool
@@ -15,15 +15,6 @@ module Pos.Delegation.Logic.Mempool
        , PskHeavyVerdict (..)
        , processProxySKHeavy
        , processProxySKHeavyInternal
-
-       -- * Lightweight psks handling
-       , PskLightVerdict (..)
-       , processProxySKLight
-
-       -- * Confirmations
-       , ConfirmPskLightVerdict (..)
-       , processConfirmProxySk
-       , isProxySKConfirmed
        ) where
 
 
@@ -37,20 +28,17 @@ import           Mockable (CurrentTime, Mockable, currentTime)
 import           Pos.Binary.Class (biSize)
 import           Pos.Binary.Communication ()
 import           Pos.Context (lrcActionOnEpochReason)
-import           Pos.Core (HasConfiguration, HasPrimaryKey (..), ProxySKHeavy, ProxySKLight,
-                           ProxySigLight, addressHash, bvdMaxBlockSize, epochIndexL,
-                           getOurPublicKey, headerHash)
-import           Pos.Crypto (ProxySecretKey (..), PublicKey, SignTag (SignProxySK), proxyVerify,
-                             verifyPsk)
-import           Pos.DB (MonadDB, MonadDBRead, MonadGState, MonadRealDB)
+import           Pos.Core (HasConfiguration, ProxySKHeavy, addressHash, bvdMaxBlockSize,
+                           epochIndexL, headerHash)
+import           Pos.Crypto (ProxySecretKey (..), PublicKey, verifyPsk)
+import           Pos.DB (MonadDBRead, MonadGState)
 import qualified Pos.DB as DB
 import           Pos.DB.Block (MonadBlockDB)
 import qualified Pos.DB.DB as DB
-import qualified Pos.DB.Misc as Misc
 import           Pos.Delegation.Cede (CedeModifier (..), CheckForCycle (..), dlgVerifyPskHeavy,
                                       evalMapCede, pskToDlgEdgeAction)
-import           Pos.Delegation.Class (DlgMemPool, MonadDelegation, dwConfirmationCache,
-                                       dwMessageCache, dwPoolSize, dwProxySKPool, dwTip)
+import           Pos.Delegation.Class (DlgMemPool, MonadDelegation, dwMessageCache, dwPoolSize,
+                                       dwProxySKPool, dwTip)
 import           Pos.Delegation.Helpers (isRevokePsk)
 import           Pos.Delegation.Logic.Common (DelegationStateAction, runDelegationStateAction)
 import           Pos.Delegation.Types (DlgPayload, mkDlgPayload)
@@ -59,7 +47,6 @@ import qualified Pos.Lrc.DB as LrcDB
 import           Pos.StateLock (StateLock, withStateLockNoMetrics)
 import           Pos.Util (HasLens', leftToPanic, microsecondsToUTC)
 import           Pos.Util.Concurrent.PriorityLock (Priority (..))
-import qualified Pos.Util.Concurrent.RWLock as RWL
 
 ----------------------------------------------------------------------------
 -- Delegation mempool
@@ -170,8 +157,7 @@ processProxySKHeavyInternal psk = do
         "Delegation.Logic#processProxySKHeavy: there are no richmen for current epoch"
         LrcDB.getRichmenDlg
     maxBlockSize <- bvdMaxBlockSize <$> DB.gsAdoptedBVData
-    let msg = Right psk
-        consistent = verifyPsk psk
+    let consistent = verifyPsk psk
         iPk = pskIssuerPk psk
 
     -- Retrieve psk pool and perform another db check. It's
@@ -201,10 +187,10 @@ processProxySKHeavyInternal psk = do
         memPoolSize <- use dwPoolSize
         posted <- uses dwProxySKPool (\m -> isJust $ HM.lookup iPk m)
         existsSameMempool <- uses dwProxySKPool $ \m -> HM.lookup iPk m == Just psk
-        cached <- isJust . snd . LRU.lookup msg <$> use dwMessageCache
+        cached <- isJust . snd . LRU.lookup psk <$> use dwMessageCache
         let isRevoke = isRevokePsk psk
         coherent <- uses dwTip $ (==) dbTipHash
-        dwMessageCache %= LRU.insert msg curTime
+        dwMessageCache %= LRU.insert psk curTime
 
         let -- TODO: This is a rather arbitrary limit, we should
             -- revisit it (see CSL-1664)
@@ -221,94 +207,3 @@ processProxySKHeavyInternal psk = do
         when (res == PHAdded) $ putToDlgMemPool iPk psk
         when (res == PHRemoved) $ deleteFromDlgMemPool iPk
         pure res
-
-----------------------------------------------------------------------------
--- Lightweight PSKs processing
-----------------------------------------------------------------------------
-
--- | PSK check verdict. It can be unrelated (other key or spoiled, no
--- way to differ), exist in storage already or be cached.
-data PskLightVerdict
-    = PLUnrelated
-    | PLInvalid
-    | PLExists
-    | PLCached
-    | PLRemoved
-    | PLAdded
-    deriving (Show,Eq)
-
--- TODO CSL-687 Calls to DB are not synchronized for now, because storage is
--- append-only, so nothing bad should happen. But it may be a problem
--- later.
--- | Processes proxy secret key (understands do we need it,
--- adds/caches on decision, returns this decision).
-processProxySKLight ::
-       ( MonadDelegation ctx m
-       , MonadReader ctx m
-       , HasPrimaryKey ctx
-       , MonadDB m
-       , MonadMask m
-       , MonadRealDB ctx m
-       , Mockable CurrentTime m
-       )
-    => ProxySKLight
-    -> m PskLightVerdict
-processProxySKLight psk = do
-    ourPk <- getOurPublicKey
-    curTime <- microsecondsToUTC <$> currentTime
-    miscLock <- view DB.miscLock <$> DB.getNodeDBs
-    psks <- RWL.withRead miscLock Misc.getProxySecretKeysLight
-    res <- runDelegationStateAction $ do
-        let related = ourPk == pskDelegatePk psk || ourPk == pskIssuerPk psk
-            exists = psk `elem` psks
-            msg = Left psk
-            valid = verifyPsk psk
-            selfSigned = isRevokePsk psk
-        cached <- isJust . snd . LRU.lookup msg <$> use dwMessageCache
-        dwMessageCache %= LRU.insert msg curTime
-        pure $ if | not valid -> PLInvalid
-                  | cached -> PLCached
-                  | exists -> PLExists
-                  | selfSigned -> PLRemoved
-                  | not related -> PLUnrelated
-                  | otherwise -> PLAdded
-    -- (2) We're writing to DB
-    when (res == PLAdded) $ RWL.withWrite miscLock $
-        Misc.addProxySecretKey psk
-    when (res == PLRemoved) $ RWL.withWrite miscLock $
-        Misc.removeProxySecretKey $ pskIssuerPk psk
-    pure res
-
-----------------------------------------------------------------------------
--- Lightweight PSK confirmation backpropagation
-----------------------------------------------------------------------------
-
--- | Verdict of 'processConfirmProxySk' function
-data ConfirmPskLightVerdict
-    = CPValid   -- ^ Valid, saved
-    | CPInvalid -- ^ Invalid, throw away
-    | CPCached  -- ^ Already saved
-    deriving (Show,Eq)
-
--- | Takes a lightweight psk, delegate proof of delivery. Checks if
--- it's valid or not. Caches message in any case.
-processConfirmProxySk
-    :: (MonadDelegation ctx m, MonadIO m, MonadMask m, Mockable CurrentTime m)
-    => ProxySKLight -> ProxySigLight ProxySKLight -> m ConfirmPskLightVerdict
-processConfirmProxySk psk proof = do
-    curTime <- microsecondsToUTC <$> currentTime
-    runDelegationStateAction $ do
-        let valid = proxyVerify SignProxySK proof (const True) psk
-        cached <- isJust . snd . LRU.lookup psk <$> use dwConfirmationCache
-        when valid $ dwConfirmationCache %= LRU.insert psk curTime
-        pure $ if | cached    -> CPCached
-                  | valid     -> CPValid
-                  | otherwise -> CPInvalid
-
--- | Checks if we hold a confirmation for given PSK.
-isProxySKConfirmed
-    :: (MonadIO m, MonadMask m, MonadDelegation ctx m)
-    => ProxySKLight -> m Bool
-isProxySKConfirmed psk =
-    runDelegationStateAction $
-        uses dwConfirmationCache $ isJust . snd . LRU.lookup psk

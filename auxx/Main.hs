@@ -5,6 +5,7 @@ module Main
 import           Universum
 import           Unsafe (unsafeFromJust)
 
+import           Control.Exception.Safe (handle)
 import           Data.Constraint (Dict (..))
 import           Formatting (sformat, shown, (%))
 import           Mockable (Production, currentTime, runProduction)
@@ -83,12 +84,12 @@ action opts@AuxxOptions {..} command = do
 
     hasConfigurations <- case aoStartMode of
         Automatic -> do
-            mode <- (flip catch) (\(_ :: ConfigurationException) -> return Nothing)
-                  . (flip catch) (\(_ :: ConfigurationError)     -> return Nothing)
+            mode <- handle @_ @ConfigurationException  (return . const Nothing)
+                  . handle @_ @ConfigurationError      (return . const Nothing)
                   $ withConfigurations conf configToDict
-            case mode of
-                Nothing -> putStrLn ("Starting in light mode" :: Text) >> return Nothing
-                x -> putStrLn ("Starting in standalone mode" :: Text) >> return x
+            mode <$ case mode of
+                Nothing -> putText "Mode: light"
+                _ -> putText "Mode: with-config"
         Light -> return Nothing
         _ -> withConfigurations conf configToDict
 

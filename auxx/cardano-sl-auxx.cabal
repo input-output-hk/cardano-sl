@@ -52,7 +52,6 @@ library
                      , cardano-sl-txp
                      , cardano-sl-update
                      , constraints
-                     , cryptonite
                      , data-default
                      , ether
                      , containers
@@ -126,6 +125,7 @@ executable cardano-auxx
                      , temporary
                      , node-sketch
                      , network-transport-tcp
+                     , safe-exceptions
                      , universum
                      , formatting
   default-language:    Haskell2010

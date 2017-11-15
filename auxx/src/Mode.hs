@@ -82,7 +82,7 @@ data CmdCtx = CmdCtx
 type AuxxMode = ReaderT AuxxContext Production
 
 class (m ~ AuxxMode, HasConfigurations, HasCompileInfo) => MonadAuxxMode m
-instance (m ~ AuxxMode, HasConfigurations, HasCompileInfo) => MonadAuxxMode AuxxMode
+instance (HasConfigurations, HasCompileInfo) => MonadAuxxMode AuxxMode
 
 data AuxxContext = AuxxContext
     { acRealModeContext :: !(RealModeContext EmptyMempoolExt)

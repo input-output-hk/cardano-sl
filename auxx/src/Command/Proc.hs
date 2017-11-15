@@ -59,7 +59,7 @@ createCommandProcs ::
     -> PrintAction m
     -> Maybe (SendActions m)
     -> [CommandProc m]
-createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \commands -> ([
+createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \commands -> [
 
     return CommandProc
     { cpName = "L"
@@ -155,9 +155,9 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
               | coinPortion == maxBound ->
                 return $ SingleKeyDistr sId
             _ -> eitherToFail $
-                mkMultiKeyDistr . Map.fromList $
-                map (\(AddrDistrPart s cp) -> (s, cp)) $
-                toList parts
+                 mkMultiKeyDistr . Map.fromList $
+                 map (\(AddrDistrPart s cp) -> (s, cp)) $
+                 toList parts
         return $ ValueAddrStakeDistribution distr
     , cpHelp = "construct an address distribution (use 'dp' for each part)"
     },
@@ -309,7 +309,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
         -- one with existential (relevant via singleton-style GADT) quantification.
         ValueHash . unsafeCheatingHashCoerce <$> Update.propose sendActions params
     , cpHelp = "propose an update with one positive vote for it \
-             \ using secret key #i"
+               \ using secret key #i"
     },
 
     return CommandProc
@@ -482,8 +482,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
         printAction (mkHelpMessage commands)
         return ValueUnit
     , cpHelp = "display this message"
-    }] :: [Either UnavailableCommand (CommandProc m)]) -- The explicit type signature is required
-                                                       -- for the list to type check
+    }]
   where
     needsAuxxMode :: Name -> Either UnavailableCommand (Dict (MonadAuxxMode m))
     needsAuxxMode name =

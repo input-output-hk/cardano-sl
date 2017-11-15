@@ -92,7 +92,6 @@ library
                         Pos.Util.Config
                         Pos.Util.LoggerName
                         Pos.Util.Monitor
-                        Pos.Util.Undefined
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
                         Pos.Util.OutboundQueue

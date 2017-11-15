@@ -226,18 +226,3 @@ test-suite cardano-auxx-test
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
-
-executable cardano-hash-installer
-  hs-source-dirs:      src
-  default-language:    Haskell2010
-  main-is:             HashInstaller.hs
-  build-depends:       base
-                       , bytestring
-                       , formatting
-                       , cardano-sl-core
-                       , cardano-sl-update
-                       , cardano-sl
-                       , universum
-  default-extensions:   OverloadedStrings
-  ghc-options:         -threaded -rtsopts
-                       -Wall

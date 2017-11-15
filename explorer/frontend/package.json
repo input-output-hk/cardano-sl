@@ -59,7 +59,7 @@
     "jsdom": "^11.3.0",
     "lost": "^8.2.0",
     "module-alias": "^2.0.2",
-    "postcss-button": "0.2.6",
+    "postcss-button": "^0.3.5",
     "postcss-color-function": "^4.0.1",
     "postcss-css-reset": "^1.0.2",
     "postcss-cssnext": "^3.0.2",

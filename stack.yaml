@@ -152,3 +152,4 @@ ghc-options:
   cardano-sl-auxx:       -Werror
   cardano-sl-wallet:     -Werror
   cardano-sl-explorer:   -Werror
+  cardano-sl-node:       -Werror

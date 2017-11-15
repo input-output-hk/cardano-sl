@@ -1,10 +1,12 @@
 module Explorer.Api.Types where
 
 import Prelude
+
 import Data.Argonaut.Core (Json)
 import Data.Generic (class Generic, gEq, gShow)
 import Data.Newtype (class Newtype)
 import Network.HTTP.Affjax (AffjaxResponse)
+import Pos.Core.Types (EpochIndex(..))
 import Pos.Explorer.Socket.Methods (Subscription)
 import Pos.Explorer.Web.ClientTypes (CAddress)
 import Pos.Explorer.Web.Error (ExplorerError)

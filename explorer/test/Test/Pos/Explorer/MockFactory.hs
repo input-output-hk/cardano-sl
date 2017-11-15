@@ -13,9 +13,7 @@ import           Universum
 
 import           System.Wlog (LoggerName)
 
-import           Pos.Types (Address)
-
-import           Pos.Core (makePubKeyAddressBoot, unsafeIntegerToCoin)
+import           Pos.Core (Address, makePubKeyAddressBoot, unsafeIntegerToCoin)
 import           Pos.Core.Txp (TxOut (..))
 import           Pos.Crypto (SecretKey, toPublic)
 

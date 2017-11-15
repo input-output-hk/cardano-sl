@@ -21,7 +21,7 @@ import           Pos.Binary ()
 import           Pos.Client.CLI (CommonNodeArgs (..), NodeArgs (..), getNodeParams)
 import qualified Pos.Client.CLI as CLI
 import           Pos.Communication (OutSpecs, WorkerSpec)
-import           Pos.Core (gdStartTime, genesisData)
+import           Pos.Core (Timestamp (Timestamp), gdStartTime, genesisData)
 import           Pos.Explorer.DB (explorerInitDB)
 import           Pos.Explorer.ExtraContext (makeExtraCtx)
 import           Pos.Explorer.Socket (NotifierSettings (..))
@@ -31,7 +31,6 @@ import           Pos.Explorer.Web (ExplorerProd, explorerPlugin, liftToExplorerP
 import           Pos.Launcher (ConfigurationOptions (..), HasConfigurations, NodeParams (..),
                                NodeResources (..), bracketNodeResources, hoistNodeResources,
                                loggerBracket, runNode, runRealBasedMode, withConfigurations)
-import           Pos.Types (Timestamp (Timestamp))
 import           Pos.Update (updateTriggerWorker)
 import           Pos.Util (mconcatPair)
 import           Pos.Util.CompileInfo (HasCompileInfo, retrieveCompileTimeInfo, withCompileInfo)

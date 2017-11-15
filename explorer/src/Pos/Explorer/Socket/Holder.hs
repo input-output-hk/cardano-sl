@@ -26,6 +26,8 @@ module Pos.Explorer.Socket.Holder
        , ccConnection
        ) where
 
+import           Universum
+
 import           Control.Lens (makeClassy)
 import qualified Data.Map.Strict as M
 import qualified Data.Set as S
@@ -35,8 +37,7 @@ import           Network.SocketIO (Socket)
 import           Serokell.Util.Concurrent (modifyTVarS)
 import           System.Wlog (NamedPureLogger, WithLogger, launchNamedPureLog)
 
-import           Pos.Types (Address)
-import           Universum
+import           Pos.Core (Address)
 
 data ClientContext = ClientContext
     { _ccAddress    :: !(Maybe Address)

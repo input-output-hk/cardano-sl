@@ -6,7 +6,7 @@ module Test.Pos.Types.Identity.ShowReadSpec
 
 import           Universum
 
-import qualified Pos.Types as T (Timestamp)
+import           Pos.Core (Timestamp (..))
 import           Test.Hspec (Spec, describe)
 
 import           Test.Pos.Helpers (showReadTest)
@@ -14,4 +14,4 @@ import           Test.Pos.Helpers (showReadTest)
 spec :: Spec
 spec = describe "Types" $ do
     describe "Show/Read instances" $ do
-        showReadTest @T.Timestamp
+        showReadTest @Timestamp

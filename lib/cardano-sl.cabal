@@ -58,9 +58,7 @@ library
                         -- Behavior
                         Pos.Behavior
 
-                        -- Something
-                        Pos.Types
-
+                        -- Launcher
                         Pos.Launcher
                         Pos.Launcher.Configuration
                         Pos.Launcher.Resource
@@ -261,6 +259,7 @@ library
                       , cardano-sl-update
                       , cereal
                       , conduit >= 1.2.8
+                      , constraints
                       , containers
                       , cpphs
                       , cryptonite >= 0.23 && <= 0.23
@@ -403,6 +402,12 @@ test-suite cardano-test
                        Test.Pos.Block.Logic.CreationSpec
                        Test.Pos.Block.Logic.VarSpec
 
+                       -- Core
+                       Test.Pos.Core.AddressSpec
+                       Test.Pos.Core.CoinSpec
+                       Test.Pos.Core.SeedSpec
+                       Test.Pos.Core.SlottingSpec
+
                        -- LRC
                        Test.Pos.Lrc.FollowTheSatoshiSpec
                        Test.Pos.Lrc.WorkerSpec
@@ -425,7 +430,6 @@ test-suite cardano-test
                        Test.Pos.Cbor.ReferenceImplementation
                        Test.Pos.Communication.Identity.BinarySpec
                        Test.Pos.ConstantsSpec
-                       Test.Pos.Core.AddressSpec
                        Test.Pos.CryptoSpec
                        Test.Pos.Delegation.Identity.BinarySpec
                        Test.Pos.DHT.Identity.BinarySpec
@@ -437,12 +441,9 @@ test-suite cardano-test
                        Test.Pos.Txp.Identity.BinarySpec
                        Test.Pos.Txp.Toil.UtxoSpec
                        Test.Pos.Types.BlockSpec
-                       Test.Pos.Types.CoinSpec
                        Test.Pos.Types.Identity.BinarySpec
                        Test.Pos.Types.Identity.SafeCopySpec
                        Test.Pos.Types.Identity.ShowReadSpec
-                       Test.Pos.Types.SeedSpec
-                       Test.Pos.Types.SlottingSpec
                        Test.Pos.Update.Identity.BinarySpec
                        Test.Pos.Update.Identity.SafeCopySpec
                        Test.Pos.Update.MemStateSpec

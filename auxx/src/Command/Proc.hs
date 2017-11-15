@@ -208,9 +208,9 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
         Tx.sendToAllGenesis sendActions stagp
         return ValueUnit
     , cpHelp = "create and send transactions from all genesis addresses \
-             \ for <duration> seconds, <delay> in ms. <conc> is the \
-             \ number of threads that send transactions concurrently. \
-             \ <mode> is either 'neighbours', 'round-robin', or 'send-random'"
+               \ for <duration> seconds, <delay> in ms. <conc> is the \
+               \ number of threads that send transactions concurrently. \
+               \ <mode> is either 'neighbours', 'round-robin', or 'send-random'"
     },
 
     let name = "send-from-file" in
@@ -237,7 +237,7 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
         Tx.send sendActions i outputs
         return ValueUnit
     , cpHelp = "send from #i to specified transaction outputs \
-             \ (use 'tx-out' to build them)"
+               \ (use 'tx-out' to build them)"
     },
 
     let name = "vote" in
@@ -253,8 +253,8 @@ createCommandProcs hasAuxxMode printAction mSendActions = rights . fix $ \comman
         Update.vote sendActions i decision upId
         return ValueUnit
     , cpHelp = "send vote for update proposal <up-id> and \
-             \ decision <agree> ('true' or 'false'), \
-             \ using secret key #i"
+               \ decision <agree> ('true' or 'false'), \
+               \ using secret key #i"
     },
 
     return CommandProc

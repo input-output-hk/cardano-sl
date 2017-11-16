@@ -4,6 +4,8 @@ module Statistics.Graph
     , writeGraph
     ) where
 
+import           Universum hiding (unlines)
+
 import           Control.Foldl (Fold (..))
 import           Data.Graph.Inductive.Graph (Graph (mkGraph))
 import           Data.Graph.Inductive.PatriciaTree (Gr)
@@ -15,16 +17,15 @@ import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as M
 import           Data.Set (Set)
 import qualified Data.Set as S
-import           Pos.Util.Util (withTempFile)
+import           Pos.Util (withTempFile)
+import           Prelude (unlines)
 import           System.Exit (ExitCode (ExitSuccess))
 import           System.IO (hGetContents, hPutStrLn)
 import           System.Process (readProcessWithExitCode)
 
 import           JSONLog (IndexedJLTimedEvent)
-import           Prelude (unlines)
 import           Statistics.Block (BlockHeader (..), blockChain, blockHeadersF)
 import           Types
-import           Universum hiding (unlines)
 
 graphF :: Fold IndexedJLTimedEvent (DotGraph Int)
 graphF = f <$> blockHeadersF

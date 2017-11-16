@@ -63,7 +63,7 @@ import           Pos.Core.Types (BlockVersion, BlockVersionData (..), CoinPortio
 import           Pos.Crypto (Hash, PublicKey, SafeSigner, SignTag (SignUSProposal), Signature,
                              checkSig, hash, safeSign, safeToPublic, shortHashF)
 import           Pos.Data.Attributes (Attributes, areAttributesKnown)
-import           Pos.Util.Util (Some)
+import           Pos.Util.Some (Some)
 
 ----------------------------------------------------------------------------
 -- UpdateProposal and related

@@ -41,8 +41,8 @@ import           Pos.Explorer.DB (Epoch, EpochPagedBlocksKey, Page, defaultPageS
                                   findEpochMaxPages, numOfLastTxs)
 import qualified Pos.Explorer.DB as DB
 import           Pos.Txp (topsortTxs)
+import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst)
-import           Pos.Util.Util (inAssertMode)
 
 
 ----------------------------------------------------------------------------

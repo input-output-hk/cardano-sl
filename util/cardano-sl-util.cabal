@@ -1,7 +1,9 @@
-name:                cardano-sl-ssc
+name:                cardano-sl-util
 version:             1.0.3
-synopsis:            Cardano SL - shared seed computation
-description:         Cardano SL - shared seed computation
+synopsis:            Cardano SL - general utilities
+description:         This packages contains utility functions not specific
+                     to Cardano SL which extend 3rd party libraries or implement
+                     something from scratch.
 license:             MIT
 license-file:        LICENSE
 author:              Serokell
@@ -11,105 +13,82 @@ category:            Currency
 build-type:          Simple
 cabal-version:       >=1.10
 
+flag asserts
+  default:     True
+  manual:      True
+
 library
   exposed-modules:
-    Pos.Ssc
+                       Pos.Util
 
-    Pos.Ssc.Base
+                       Pos.Util.Arbitrary
+                       Pos.Util.CompileInfo
 
-    Pos.Ssc.Error
-    Pos.Ssc.Error.Seed
-    Pos.Ssc.Error.Verify
+                       Pos.Util.Concurrent
+                       Pos.Util.Concurrent.LockedTVar
+                       Pos.Util.Concurrent.PriorityLock
+                       Pos.Util.Concurrent.RWLock
+                       Pos.Util.Concurrent.RWVar
 
-    Pos.Ssc.Types
+                       Pos.Util.Filesystem
+                       Pos.Util.Future
+                       Pos.Util.Justify
+                       Pos.Util.Lens
+                       Pos.Util.LoggerName
+                       Pos.Util.LRU
+                       Pos.Util.Modifier
+                       Pos.Util.Orphans
+                       Pos.Util.Queue
+                       Pos.Util.Some
+                       Pos.Util.Timer
+                       Pos.Util.Util
 
-    Pos.Ssc.Logic
-    Pos.Ssc.Logic.Local
-    Pos.Ssc.Logic.Global
-    Pos.Ssc.Logic.VAR
-
-    Pos.Ssc.State
-    Pos.Ssc.State.Local
-    Pos.Ssc.State.Global
-
-    Pos.Ssc.Message
-    Pos.Ssc.Listeners
-    Pos.Ssc.Worker
-    Pos.Ssc.Lrc
-    Pos.Ssc.Mem
-    Pos.Ssc.Functions
-    Pos.Ssc.SecretStorage
-    Pos.Ssc.VssCertData
-    Pos.Ssc.Seed
-    Pos.Ssc.Configuration
-    Pos.Ssc.Behavior
-    Pos.Ssc.Shares
-    Pos.Ssc.DB
-    Pos.Ssc.Mode
-    Pos.Ssc.RichmenComponent
-
-    Pos.Ssc.Toss
-    Pos.Ssc.Toss.Logic
-    Pos.Ssc.Toss.Pure
-    Pos.Ssc.Toss.Base
-    Pos.Ssc.Toss.Class
-    Pos.Ssc.Toss.Trans
-    Pos.Ssc.Toss.Types
-
-    Pos.Arbitrary.Ssc
-
-    Pos.Binary.Ssc
-    Pos.Binary.Ssc.Types
-    Pos.Binary.Ssc.Toss
-    Pos.Binary.Ssc.Relay
-
-    Pos.Security.Params
-    Pos.Security.Util
+  other-modules:
 
   build-depends:       QuickCheck
                      , aeson
-                     , array
+                     , autoexporter
                      , base
                      , bytestring
-                     , cardano-sl-util
-                     , cardano-sl-core
-                     , cardano-sl-db
-                     , cardano-sl-infra
-                     , cardano-sl-lrc
                      , containers
+                     , concurrent-extra
                      , cryptonite
                      , data-default
+                     , deepseq
                      , directory
                      , ether
                      , exceptions
-                     , extra
-                     , file-embed
                      , filepath
-                     , fmt
                      , formatting
-                     , generic-arbitrary
                      , hashable
                      , lens
-                     , log-warper
-                     , memory
+                     , log-warper >= 1.0.3
+                     , lrucache
                      , mmorph
-                     , mono-traversable
                      , mtl
                      , node-sketch
                      , parsec
+                     , process
+                     , quickcheck-instances
                      , random
                      , reflection
-                     , rocksdb-haskell >= 1.0.0
+                     , resourcet
+                     , semigroups
                      , serokell-util
                      , stm
                      , tagged
                      , template-haskell
                      , text
                      , text-format
+                     , th-lift-instances
+                     , time
                      , time-units
                      , transformers
+                     , transformers-base
+                     , transformers-lift
                      , universum
                      , unordered-containers
+                     , vector
 
   default-language:    Haskell2010
 
@@ -142,3 +121,5 @@ library
 
   build-tools: cpphs >= 1.19
   ghc-options: -pgmP cpphs -optP --cpp
+  if flag(asserts)
+    cpp-options: -DASSERTS_ON

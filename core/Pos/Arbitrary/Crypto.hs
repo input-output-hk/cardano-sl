@@ -31,7 +31,8 @@ import           Pos.Crypto.Signing.Redeem (RedeemPublicKey, RedeemSecretKey, Re
                                             redeemKeyGen, redeemSign)
 import           Pos.Crypto.Signing.Safe (PassPhrase, createProxyCert, createPsk)
 import           Pos.Crypto.Signing.Types.Tag (SignTag (..))
-import           Pos.Util.Arbitrary (Nonrepeating (..), arbitraryUnsafe, sublistN)
+import           Pos.Util.Arbitrary (Nonrepeating (..), arbitraryUnsafe, runGen, sublistN)
+import           Pos.Util.Orphans ()
 
 {- A note on 'Arbitrary' instances
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -156,7 +157,7 @@ data SharedSecrets = SharedSecrets
 
 sharedSecrets :: [SharedSecrets]
 sharedSecrets =
-    deterministic "sharedSecrets" $ replicateM keysToGenerate $ do
+    runGen $ replicateM keysToGenerate $ do
         parties <- randomNumberInRange 4 (toInteger (length vssKeys))
         ssThreshold <- randomNumberInRange 2 (parties - 2)
         vssKs <- sortWith toVssPublicKey <$>

@@ -11,6 +11,7 @@ module Pos.Explorer.TestUtil
     , produceSlotLeaders
     , produceSecretKeys
     , generateValidBlocksSlotsNumber
+    , createEmptyUndo
     ) where
 
 import qualified Prelude

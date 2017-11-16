@@ -3,20 +3,19 @@
 -}
 module Cardano.Wallet.Server.CLI where
 
-import           Universum            hiding (show)
+import           Universum hiding (show)
 
-import           Data.Time.Units      (Minute)
-import           Data.Version         (showVersion)
-import           Options.Applicative  (Parser, auto, execParser, footerDoc, fullDesc,
-                                       header, help, helper, info, infoOption, long,
-                                       metavar, option, progDesc, strOption, switch,
-                                       value)
-import           Paths_cardano_sl     (version)
-import           Pos.Client.CLI       (CommonNodeArgs (..))
-import qualified Pos.Client.CLI       as CLI
+import           Data.Time.Units (Minute)
+import           Data.Version (showVersion)
+import           Options.Applicative (Parser, auto, execParser, footerDoc, fullDesc, header, help,
+                                      helper, info, infoOption, long, metavar, option, progDesc,
+                                      strOption, switch, value)
+import           Paths_cardano_sl (version)
+import           Pos.Client.CLI (CommonNodeArgs (..))
+import qualified Pos.Client.CLI as CLI
 import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo, compileInfo)
-import           Pos.Util.TimeWarp    (NetworkAddress, localhost)
-import           Pos.Web              (TlsParams (..))
+import           Pos.Util.TimeWarp (NetworkAddress, localhost)
+import           Pos.Web (TlsParams (..))
 
 
 -- | The options parsed from the CLI when starting up this wallet node.
@@ -45,7 +44,7 @@ data WalletBackendParams = WalletBackendParams
     -- ^ Whether or not to run the monitoring API.
     , monitoringApiPort   :: !Word16
     -- ^ The port the monitoring API should listen to.
-    , walletTLSParams     :: !TlsParams
+    , walletTLSParams     :: !(Maybe TlsParams)
     -- ^ The TLS parameters.
     , walletAddress       :: !NetworkAddress
     -- ^ The wallet address.
@@ -113,11 +112,15 @@ walletBackendParamsParser = WalletBackendParams <$> enableMonitoringApiParser
                      \all the genesis keys in the set of secret keys)."
                )
 
-tlsParamsParser :: Parser TlsParams
-tlsParamsParser = TlsParams <$> certPathParser
-                            <*> keyPathParser
-                            <*> caPathParser
+tlsParamsParser :: Parser (Maybe TlsParams)
+tlsParamsParser = constructTlsParams <$> certPathParser
+                                     <*> keyPathParser
+                                     <*> caPathParser
+                                     <*> disabledParser
   where
+    constructTlsParams tpCertPath tpKeyPath tpCaPath disabled =
+        guard (not disabled) $> TlsParams{..}
+
     certPathParser :: Parser FilePath
     certPathParser = strOption (CLI.templateParser
                                 "tlscert"
@@ -141,6 +144,12 @@ tlsParamsParser = TlsParams <$> certPathParser
                               "Path to file with TLS certificate authority"
                               <> value "scripts/tls-files/ca.crt"
                              )
+
+    disabledParser :: Parser Bool
+    disabledParser = switch $
+                     long "no-tls" <>
+                     help "Disable tls. If set, 'tlscert', 'tlskey' \
+                          \and 'tlsca' options are ignored"
 
 -- | The parser for the @WalletDBOptions@.
 dbOptionsParser :: Parser WalletDBOptions

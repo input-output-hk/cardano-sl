@@ -91,7 +91,7 @@ generateValidExplorerMockableMode blocksNumber slotsPerEpoch = do
   where
     createMapPageHHs :: (HasConfiguration) => [Block] -> Map Page [HeaderHash]
     createMapPageHHs blocks =
-        fromListWith (++) [ (k, [v]) | (k, v) <- createPagedHeaderHashesPair blocks]
+        fromListWith (++) [ (page, [hHash]) | (page, hHash) <- createPagedHeaderHashesPair blocks]
 
     createMapHHsBlund :: (HasConfiguration) => [Block] -> Map HeaderHash Blund
     createMapHHsBlund blocks = fromList $ map blockHH blocks

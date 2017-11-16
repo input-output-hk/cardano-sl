@@ -29,6 +29,7 @@ library
 
                         -- Diffusion layer
                         Pos.Diffusion.Types
+                        Pos.Diffusion.Full.Block
 
                         -- GState
                         Pos.GState

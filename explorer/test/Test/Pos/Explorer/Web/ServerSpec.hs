@@ -183,7 +183,7 @@ blocksPageUnitSpec =
                   -- It shows that two equal algorithms should work the same.
                   assert $ pagesTotal == (fromIntegral ((totalBlocksNumber - 1) `div` 10) + 1)
                   -- The last page is never empty.
-                  assert $ True == (not . null $ cBlockEntries)
+                  assert $ not . null $ cBlockEntries
 
                   -- TODO(ks): We can add more invariants to test here, but these are good
                   -- enough for now.

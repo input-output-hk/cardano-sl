@@ -166,7 +166,7 @@ mkFromJsonBody typeName cons =
                         withObject "diagnostic" (\v -> $(caseE (dyn "message") msgMatches))
                     |]
   where
-    msgMatches = map mkMatch cons
+    msgMatches = map mkMatch cons ++ [failMatch]
     mkMatch con = do
         (name, vars) <- getErrNameAndVars con
         bindings <- mkBindings vars
@@ -181,3 +181,4 @@ mkFromJsonBody typeName cons =
             (litP $ stringL $ nameBase name)
             (normalB $ doE $ map varBindStmt bindings ++ [finalStmt])
             []
+    failMatch = match wildP (normalB [e| fail "unknown WalletError tag" |]) []

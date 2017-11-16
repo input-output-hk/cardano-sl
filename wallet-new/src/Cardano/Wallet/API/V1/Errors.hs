@@ -38,6 +38,7 @@ data WalletError =
     | SomeOtherError { weFoo :: !Text, weBar :: !Int }
     | NotRecordError !Int !Text
     | WalletNotFound
+    deriving (Show, Eq)
 
 deriveWalletErrorJSON ''WalletError
 

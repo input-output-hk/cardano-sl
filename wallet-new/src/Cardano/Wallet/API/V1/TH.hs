@@ -11,6 +11,7 @@ module Cardano.Wallet.API.V1.TH
 import           Universum
 
 import           Data.Aeson
+import           Data.Aeson.Types (Parser)
 import           Data.Char (isUpper, toLower)
 import qualified Data.List as DL
 import           Language.Haskell.TH
@@ -92,15 +93,31 @@ conNamesList = reifyTypename >=> \case
 -- Derivation of JSON instances for wallet errors
 --
 
-
 -- | Derive both 'ToJSON' and 'FromJSON' instances for `WalletError`.
 deriveWalletErrorJSON :: Name -> DecsQ
 deriveWalletErrorJSON = reifyTypename >=> \case
     DataD _ name typeVars _ cons _ -> do
         toJson <- deriveWalletErrorToJSON name typeVars cons
-        fromJson <- pure [] -- TODO: provide `FromJSON instance`
+        fromJson <- deriveWalletErrorFromJSON name typeVars cons
         pure $ toJson ++ fromJson
     _otherwise -> fail "deriveWalletErrorJSON: type name should refer to `data`"
+
+-- | Get wallet error name and variable names from a constructor.
+-- Fails, if given constructor type is not supported.
+getErrNameAndVars :: Con -> Q (Name, [String])
+getErrNameAndVars (NormalC name vars) =
+    pure (name, map (("v"++) . show) [1 .. length vars])
+getErrNameAndVars (RecC name vars) =
+    pure (name, map (nameBase . view _1) vars)
+getErrNameAndVars _ = fail "getErrNameAndVars: unsupported constructor type"
+
+-- | Make bindings for var names
+mkBindings :: [String] -> Q [(String, Name)]
+mkBindings = mapM (\name -> (name,) <$> newName name)
+
+--
+-- ToJSON instance derivation
+--
 
 -- | Derive only `ToJSON` instance for `WalletError`
 deriveWalletErrorToJSON :: Name -> [TyVarBndr] -> [Con] -> DecsQ
@@ -109,20 +126,15 @@ deriveWalletErrorToJSON name typeVars cons = pure <$> instanceD
     (pure $ mkAppConstraint ''ToJSON $ mkTypeFromNameAndVars name typeVars)
     [funD 'toJSON $ map mkToJsonClause cons]
 
--- | Make body of `toJSON` function for given constructor
+-- | Make body of `toJSON` function for given constructor.
 mkToJsonClause :: Con -> ClauseQ
-mkToJsonClause (NormalC name vars) =
-    mkToJsonClauseGeneric name $ map (("v"++) . show) [1 .. length vars]
-mkToJsonClause (RecC name vars) =
-    mkToJsonClauseGeneric name $ map (nameBase . view _1) vars
-mkToJsonClause _ = fail "mkToJsonClause: unsupported constructor type"
+mkToJsonClause = uncurry mkToJsonClauseGeneric <=< getErrNameAndVars
 
 -- | Make body of `toJSON` function. Accept constructor name and
 -- constructor variable names.
 mkToJsonClauseGeneric :: Name -> [String] -> ClauseQ
 mkToJsonClauseGeneric constrName varNames = do
-    bindings <- forM varNames $ \name' ->
-        (name',) <$> newName name'
+    bindings <- mkBindings varNames
 
     let pats = map (varP . snd) bindings
         mkVarAssignment (name, bind) = [e| $(stringE $ mkJsonKey name) .= $(varE bind) |]
@@ -136,5 +148,36 @@ mkToJsonClauseGeneric constrName varNames = do
               |])
         []
 
--- deriveWalletErrorFromJSON :: Name -> [TyVarBndr] -> [Con] -> DecsQ
--- deriveWalletErrorFromJSON = undefined
+--
+-- FromJSON instance derivation
+--
+
+deriveWalletErrorFromJSON :: Name -> [TyVarBndr] -> [Con] -> DecsQ
+deriveWalletErrorFromJSON name typeVars cons = pure <$> instanceD
+    (pure $ mkAppConstraintsFromVars ''FromJSON typeVars)
+    (pure $ mkAppConstraint ''FromJSON $ mkTypeFromNameAndVars name typeVars)
+    [funD 'parseJSON [clause [] (mkFromJsonBody name cons) []]]
+
+mkFromJsonBody :: Name -> [Con] -> BodyQ
+mkFromJsonBody typeName cons =
+    normalB [e| withObject $(stringE $ nameBase typeName) $ \o -> do
+                    message <- (o .: "message" :: Parser Text)
+                    (o .: "diagnostic") >>=
+                        withObject "diagnostic" (\v -> $(caseE (dyn "message") msgMatches))
+                    |]
+  where
+    msgMatches = map mkMatch cons
+    mkMatch con = do
+        (name, vars) <- getErrNameAndVars con
+        bindings <- mkBindings vars
+
+        let v = dyn "v"
+            constrExpr = pure $ foldl AppE (ConE name) $ map (VarE . snd) bindings
+            finalStmt = noBindS [e| pure $(constrExpr) |]
+            varBindStmt (name', bind) = bindS (varP bind)
+                [e| $(v) .: $(stringE name') |]
+
+        match
+            (litP $ stringL $ nameBase name)
+            (normalB $ doE $ map varBindStmt bindings ++ [finalStmt])
+            []

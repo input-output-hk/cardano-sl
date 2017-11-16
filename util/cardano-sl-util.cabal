@@ -36,6 +36,7 @@ library
                        Pos.Util.Lens
                        Pos.Util.LoggerName
                        Pos.Util.LRU
+                       Pos.Util.Modifier
                        Pos.Util.Orphans
                        Pos.Util.Queue
                        Pos.Util.Some
@@ -68,6 +69,7 @@ library
                      , node-sketch
                      , parsec
                      , process
+                     , quickcheck-instances
                      , random
                      , reflection
                      , resourcet

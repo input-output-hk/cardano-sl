@@ -64,6 +64,7 @@ import           Cardano.Wallet.Orphans.Aeson ()
 import           Pos.Util.BackupPhrase (BackupPhrase)
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
+import           Pos.Arbitrary.Core ()
 import qualified Pos.Core.Types as Core
 
 --
@@ -300,11 +301,13 @@ instance Arbitrary RenderedBalance where
 
 deriveJSON defaultOptions { unwrapUnaryRecords = True } ''RenderedBalance
 
+type WalletName = Text
+
 -- | A Wallet.
 data Wallet = Wallet {
       walId      :: !WalletId
-    , walName    :: !Text
-    , walBalance :: !RenderedBalance
+    , walName    :: !WalletName
+    , walBalance :: !Core.Coin
     } deriving (Eq, Show, Generic)
 
 deriveJSON Serokell.defaultOptions ''Wallet

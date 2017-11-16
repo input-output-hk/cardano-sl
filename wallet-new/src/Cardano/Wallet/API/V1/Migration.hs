@@ -24,6 +24,7 @@ module Cardano.Wallet.API.V1.Migration (
 import           Universum
 
 import qualified Cardano.Wallet.API.V1.Types as V1
+import qualified Pos.Core.Types as Core
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 import           Control.Lens
@@ -94,8 +95,12 @@ instance Migrate V1.SpendingPassword V0.CPassPhrase where
   migrate pp = V0.CPassPhrase pp
 
 --
-instance Migrate V0.CCoin V1.RenderedBalance where
-    migrate (V0.CCoin c) = V1.RenderedBalance c
+instance Migrate V0.CCoin Core.Coin where
+    migrate = fromMaybe (error "error migrating V0.CCoin -> Core.Coin")
+        . identity fmap Core.mkCoin
+        . readMaybe
+        . toString
+        . V0.getCCoin
 
 instance Migrate V1.RenderedBalance V0.CCoin where
     migrate (V1.RenderedBalance c) = V0.CCoin c

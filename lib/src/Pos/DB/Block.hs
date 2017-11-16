@@ -65,16 +65,16 @@ import           Pos.DB.Rocks (MonadRealDB, blockDataDir, getBlockIndexDB, getNo
                                rocksPutBi)
 import           Pos.DB.Sum (MonadDBSum, eitherDB)
 import           Pos.Delegation.Types (DlgUndo (..))
-
+import           Pos.Util.Util (eitherToThrow)
 
 ----------------------------------------------------------------------------
 -- BlockDB related methods
 ----------------------------------------------------------------------------
 
 getUndo :: MonadDBRead m => HeaderHash -> m (Maybe Undo)
-getUndo x = do
-    mBS <- fmap unRawUndo <$> dbGetRawUndo x
-    pure $ rightToMaybe . decodeFull =<< mBS
+getUndo x = dbGetRawUndo x >>= \case
+    Nothing      -> pure Nothing
+    Just rawUndo -> eitherToThrow $ first DBMalformed $ decodeFull $ unRawUndo rawUndo
 
 -- | Convenient wrapper which combines 'dbGetBlock' and 'dbGetUndo' to
 -- read 'Blund'.
@@ -95,16 +95,13 @@ getTipBlock = getTipSomething "block" getBlock
 -- Implementations for 'MonadRealDB'
 ----------------------------------------------------------------------------
 
--- Get block with given hash from Block DB.  This function has too
--- strict constraint, consider using 'blkGetBlock'.
-
+-- Get serialization of a block with given hash from Block DB.
 getRawBlock
     :: forall ctx m. (HasConfiguration, MonadRealDB ctx m)
     => HeaderHash -> m (Maybe ByteString)
 getRawBlock = blockDataPath >=> getData
 
--- Get undo data for block with given hash from Block DB. This
--- function has too strict constraint, consider using 'blkGetUndo'.
+-- Get serialization of an undo data for block with given hash from Block DB.
 getRawUndo :: (HasConfiguration, MonadRealDB ctx m) => HeaderHash -> m (Maybe ByteString)
 getRawUndo = undoDataPath >=> getData
 
@@ -277,9 +274,7 @@ getRawData ::  forall m . MonadIO m => FilePath -> m ByteString
 getRawData = liftIO . BS.readFile
 
 putData ::  (MonadIO m, Bi v) => FilePath -> v -> m ()
-putData fp v = liftIO $
-    bracket (openBinaryFile fp WriteMode) hClose $ \h ->
-        BS.hPut h (serialize' v) >> hFlush h
+putData fp = putRawData fp . serialize'
 
 putRawData ::  MonadIO m => FilePath -> ByteString -> m ()
 putRawData fp v = liftIO $

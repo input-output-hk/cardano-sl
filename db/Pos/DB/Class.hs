@@ -8,6 +8,7 @@
 -- 'MonadDBRead' contains reading and iterating capabilities. The
 -- advantage of it is that you don't need to do any 'IO' to use it
 -- which makes it suitable for pure testing.
+-- 'MonadDBRead' also give you access to the Block DB.
 --
 -- 'MonadDB' is a superclass of 'MonadDB' and allows to modify
 -- DB. Again, its purpose is to make it possible to use DB w/o IO
@@ -21,16 +22,6 @@
 --
 -- Described two classes have RocksDB implementation "DB.Rocks" and
 -- pure one for testing "DB.Pure".
---
--- 'MonadBlockDBGeneric' contains functions which provide read-only
--- access to the Block DB.
--- For this DB we don't want to use 'MonadRealDB' for several reasons:
--- • we store blocks and undos in files, not in key-value storage;
--- • there are only three getters, so it's not a big problem to make all of
--- them part of type class;
--- • some parts of code need to access Block DB but they don't know actual
--- type of 'Block' and/or 'BlockHeader' as well as 'Undo', so 'MonadBlockDB'
--- is parameterized by these types.
 
 module Pos.DB.Class
        (
@@ -70,6 +61,8 @@ import           Pos.Binary.Core.Blockchain ()
 import           Pos.Core (Block, BlockVersionData (..), EpochIndex, HasConfiguration, HeaderHash,
                            isBootstrapEra)
 import           Pos.Core.Block (BlockchainHelpers, MainBlockchain)
+import           Pos.DB.Error (DBError (DBMalformed))
+import           Pos.Util.Util (eitherToThrow)
 
 ----------------------------------------------------------------------------
 -- Pure
@@ -133,9 +126,9 @@ instance {-# OVERLAPPABLE #-}
 type MonadBlockDBRead m = (MonadDBRead m, BlockchainHelpers MainBlockchain)
 
 getBlock :: MonadBlockDBRead m => HeaderHash -> m (Maybe Block)
-getBlock x = do
-    mBS <- fmap unRawBlock <$> dbGetRawBlock x
-    pure $ rightToMaybe . decodeFull =<< mBS
+getBlock x = dbGetRawBlock x >>= \case
+    Nothing      -> pure Nothing
+    Just rawBlock -> eitherToThrow $ first DBMalformed $ decodeFull $ unRawBlock rawBlock
 
 -- | Pure interface to the database. Combines read-only interface and
 -- ability to put raw bytes.

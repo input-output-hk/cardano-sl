@@ -27,8 +27,14 @@ library
 
                         Pos.DB.DB
 
+                        -- Diffusion layer
+                        Pos.Diffusion.Types
+
                         -- GState
                         Pos.GState
+
+                        -- Logic layer
+                        Pos.Logic.Types
 
                         -- Behavior
                         Pos.Behavior

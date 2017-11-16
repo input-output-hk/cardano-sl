@@ -48,6 +48,7 @@ import           Universum
 
 import           Data.Aeson
 import           Data.Aeson.TH
+import qualified Data.ByteArray as ByteArray
 import           Data.Default (Default (def))
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text.Buildable
@@ -61,7 +62,6 @@ import           Cardano.Wallet.Orphans.Aeson ()
 
 -- V0 logic
 import           Pos.Util.BackupPhrase (BackupPhrase)
-import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 import           Pos.Arbitrary.Core ()
 import qualified Pos.Core.Types as Core
@@ -231,7 +231,8 @@ instance Arbitrary WalletError where
 -- optionally supplied by the user to encrypt the private keys. As private keys
 -- are needed to spend funds and this password secures spending, here the name
 -- 'SpendingPassword'.
--- Practically speaking, it's just a type synonym for a PassPhrase.
+-- Practically speaking, it's just a type synonym for a PassPhrase, which is a
+-- base16-encoded string.
 type SpendingPassword = Core.PassPhrase
 
 data AssuranceLevel =  NormalAssurance
@@ -276,7 +277,7 @@ deriveJSON Serokell.defaultOptions  ''NewWallet
 
 instance Arbitrary NewWallet where
   arbitrary = NewWallet <$> arbitrary
-                        <*> fmap Just arbitrary
+                        <*> pure Nothing
                         <*> arbitrary
                         <*> pure "My Wallet"
 

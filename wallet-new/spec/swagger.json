@@ -838,7 +838,7 @@
                 ],
                 "assuranceLevel": "normal",
                 "name": "My Wallet",
-                "spendingPassword": "My passphrase"
+                "spendingPassword": null
             },
             "required": [
                 "backupPhrase",
@@ -862,7 +862,7 @@
                     "type": "string"
                 },
                 "spendingPassword": {
-                    "type": "string"
+                    "type": "null"
                 }
             }
         },

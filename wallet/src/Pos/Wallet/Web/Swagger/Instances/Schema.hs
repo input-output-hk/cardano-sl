@@ -9,27 +9,24 @@ module Pos.Wallet.Web.Swagger.Instances.Schema where
 
 import           Universum
 
-import           Control.Lens                (mapped, (?~))
-import           Data.Swagger                (NamedSchema (..), SwaggerType (..),
-                                              ToParamSchema (..), ToSchema (..),
-                                              declareNamedSchema, declareSchemaRef,
-                                              defaultSchemaOptions, format,
-                                              genericDeclareNamedSchema, name, properties,
-                                              required, type_)
-import           Data.Typeable               (Typeable, typeRep)
-import           Data.Version                (Version)
-import           Servant.Multipart           (FileData (..))
+import           Control.Lens (mapped, (?~))
+import           Data.Swagger (NamedSchema (..), SwaggerType (..), ToParamSchema (..),
+                               ToSchema (..), declareNamedSchema, declareSchemaRef,
+                               defaultSchemaOptions, format, genericDeclareNamedSchema, name,
+                               properties, required, type_)
+import           Data.Typeable (Typeable, typeRep)
+import           Data.Version (Version)
+import           Servant.Multipart (FileData (..))
 
-import           Pos.Client.Txp.Util         (InputSelectionPolicy)
-import           Pos.Types                   (ApplicationName, BlockCount (..),
-                                              BlockVersion, ChainDifficulty, Coin,
-                                              SlotCount (..), SoftwareVersion)
-import           Pos.Util.BackupPhrase       (BackupPhrase)
+import           Pos.Client.Txp.Util (InputSelectionPolicy)
+import           Pos.Types (ApplicationName, BlockCount (..), BlockVersion, ChainDifficulty, Coin,
+                            SlotCount (..), SoftwareVersion)
+import           Pos.Util.BackupPhrase (BackupPhrase)
 
-import qualified Pos.Wallet.Web.ClientTypes  as CT
-import qualified Pos.Wallet.Web.Error.Types  as ET
+import qualified Pos.Wallet.Web.ClientTypes as CT
+import qualified Pos.Wallet.Web.Error.Types as ET
 
-import           Pos.Aeson.Storage           ()
+import           Pos.Aeson.Storage ()
 import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
 
 -- | Instances we need to build Swagger-specification for 'walletApi':
@@ -71,6 +68,7 @@ instance ToSchema      CT.CCoin
 instance ToSchema      CT.CInitialized
 instance ToSchema      CT.CElectronCrashReport
 instance ToSchema      CT.CUpdateInfo
+instance ToSchema      CT.NewPaymentBatchInit
 instance ToSchema      SoftwareVersion
 instance ToSchema      ApplicationName
 instance ToSchema      CT.SyncProgress

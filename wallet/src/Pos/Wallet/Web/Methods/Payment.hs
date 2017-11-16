@@ -5,56 +5,50 @@
 
 module Pos.Wallet.Web.Methods.Payment
        ( newPayment
+       , newPaymentBatch
        , getTxFee
        ) where
 
-import           Universum
+import Universum
 
-import           Control.Exception                (throw)
-import           Control.Monad.Except             (runExcept)
-import           Formatting                       (sformat, (%))
-import qualified Formatting                       as F
+import Control.Exception (throw)
+import Control.Monad.Except (runExcept)
+import Formatting (sformat, (%))
+import qualified Formatting as F
 
-import           Pos.Aeson.ClientTypes            ()
-import           Pos.Aeson.WalletBackup           ()
-import           Pos.Client.Txp.Addresses         (MonadAddresses (..))
-import           Pos.Client.Txp.Balances          (getOwnUtxos)
-import           Pos.Client.Txp.History           (TxHistoryEntry (..))
-import           Pos.Client.Txp.Util              (InputSelectionPolicy, computeTxFee,
-                                                   runTxCreator)
-import           Pos.Communication                (SendActions (..), prepareMTx)
-import           Pos.Configuration                (HasNodeConfiguration)
-import           Pos.Core                         (Coin, HasConfiguration, addressF,
-                                                   getCurrentTimestamp)
-import           Pos.Crypto                       (PassPhrase, ShouldCheckPassphrase (..),
-                                                   checkPassMatches, hash,
-                                                   withSafeSignerUnsafe)
-import           Pos.Infra.Configuration          (HasInfraConfiguration)
-import           Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
-import           Pos.Txp                          (TxFee (..), Utxo, _txOutputs)
-import           Pos.Txp.Core                     (TxAux (..), TxOut (..))
-import           Pos.Update.Configuration         (HasUpdateConfiguration)
-import           Pos.Util                         (eitherToThrow, maybeThrow)
-import           Pos.Util.LogSafe                 (logInfoS)
-import           Pos.Wallet.KeyStorage            (getSecretKeys)
-import           Pos.Wallet.Web.Account           (GenSeed (..), getSKByAddressPure,
-                                                   getSKById)
-import           Pos.Wallet.Web.ClientTypes       (AccountId (..), Addr, CAddress (..),
-                                                   CCoin, CId, CTx (..),
-                                                   CWAddressMeta (..), Wal,
-                                                   addrMetaToAccount, mkCCoin)
-import           Pos.Wallet.Web.Error             (WalletError (..))
-import           Pos.Wallet.Web.Methods.History   (addHistoryTx, constructCTx,
-                                                   getCurChainDifficulty)
-import qualified Pos.Wallet.Web.Methods.Logic     as L
-import           Pos.Wallet.Web.Methods.Txp       (coinDistrToOutputs, rewrapTxError,
-                                                   submitAndSaveNewPtx)
-import           Pos.Wallet.Web.Mode              (MonadWalletWebMode, WalletWebMode)
-import           Pos.Wallet.Web.Pending           (mkPendingTx)
-import           Pos.Wallet.Web.State             (AddressLookupMode (Ever, Existing))
-import           Pos.Wallet.Web.Util              (decodeCTypeOrFail,
-                                                   getAccountAddrsOrThrow,
-                                                   getWalletAccountIds, getWalletAddrsSet)
+import Data.Default (def)
+import Pos.Aeson.ClientTypes ()
+import Pos.Aeson.WalletBackup ()
+import Pos.Client.Txp.Addresses (MonadAddresses (..))
+import Pos.Client.Txp.Balances (getOwnUtxos)
+import Pos.Client.Txp.History (TxHistoryEntry (..))
+import Pos.Client.Txp.Util (InputSelectionPolicy, computeTxFee, runTxCreator)
+import Pos.Communication (SendActions (..), prepareMTx)
+import Pos.Configuration (HasNodeConfiguration)
+import Pos.Core (Coin, HasConfiguration, addressF, getCurrentTimestamp)
+import Pos.Crypto (PassPhrase, ShouldCheckPassphrase (..), checkPassMatches, hash,
+                   withSafeSignerUnsafe)
+import Pos.Infra.Configuration (HasInfraConfiguration)
+import Pos.Ssc.GodTossing.Configuration (HasGtConfiguration)
+import Pos.Txp (TxFee (..), Utxo, _txOutputs)
+import Pos.Txp.Core (TxAux (..), TxOut (..))
+import Pos.Update.Configuration (HasUpdateConfiguration)
+import Pos.Util (eitherToThrow, maybeThrow)
+import Pos.Util.LogSafe (logInfoS)
+import Pos.Wallet.KeyStorage (getSecretKeys)
+import Pos.Wallet.Web.Account (GenSeed (..), getSKByAddressPure, getSKById)
+import Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CAddress (..), CCoin, CId, CTx (..),
+                                   CWAddressMeta (..), NewPaymentBatchInit (..), Wal,
+                                   addrMetaToAccount, mkCCoin)
+import Pos.Wallet.Web.Error (WalletError (..))
+import Pos.Wallet.Web.Methods.History (addHistoryTx, constructCTx, getCurChainDifficulty)
+import qualified Pos.Wallet.Web.Methods.Logic as L
+import Pos.Wallet.Web.Methods.Txp (coinDistrToOutputs, rewrapTxError, submitAndSaveNewPtx)
+import Pos.Wallet.Web.Mode (MonadWalletWebMode, WalletWebMode)
+import Pos.Wallet.Web.Pending (mkPendingTx)
+import Pos.Wallet.Web.State (AddressLookupMode (Ever, Existing))
+import Pos.Wallet.Web.Util (decodeCTypeOrFail, getAccountAddrsOrThrow, getWalletAccountIds,
+                            getWalletAddrsSet)
 
 newPayment
     :: MonadWalletWebMode m
@@ -72,6 +66,24 @@ newPayment sa passphrase srcAccount dstAccount coin policy = do
         (AccountMoneySource srcAccount)
         (one (dstAccount, coin))
         policy
+
+newPaymentBatch
+    :: MonadWalletWebMode m
+    => SendActions m
+    -> PassPhrase
+    -> NewPaymentBatchInit
+    -> m CTx
+newPaymentBatch sa passphrase NewPaymentBatchInit {..} = do
+    src <- decodeCTypeOrFail npbFrom
+    mDests <- mapM (sequence . second decodeCTypeOrFail) npbTo
+    dst <- nonEmpty mDests `whenNothing`
+        throwM (RequestError "At least one recipient required.")
+    sendMoney
+        sa
+        passphrase
+        (AccountMoneySource src)
+        dst
+        (fromMaybe def npbPolicy)
 
 getTxFee
      :: MonadWalletWebMode m

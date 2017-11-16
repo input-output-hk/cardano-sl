@@ -15,6 +15,7 @@ module Pos.Wallet.Web.ClientTypes.Types
       , CTxId (..)
       , CTxMeta (..)
       , CTExMeta (..)
+      , NewPaymentBatchInit (..)
       , CPtxCondition (..)
       , CInitialized (..)
       , AccountId (..)
@@ -45,24 +46,25 @@ module Pos.Wallet.Web.ClientTypes.Types
 
 import           Universum
 
-import           Control.Lens          (makeLenses)
-import           Data.Default          (Default, def)
-import           Data.Hashable         (Hashable (..))
-import           Data.Text             (Text)
-import           Data.Text.Buildable   (build)
+import           Control.Lens (makeLenses)
+import           Data.Default (Default, def)
+import           Data.Hashable (Hashable (..))
+import           Data.Text (Text)
+import           Data.Text.Buildable (build)
 import           Data.Time.Clock.POSIX (POSIXTime)
-import           Data.Typeable         (Typeable)
-import           Data.Version          (Version)
-import           Formatting            (bprint, (%))
-import qualified Formatting            as F
+import           Data.Typeable (Typeable)
+import           Data.Version (Version)
+import           Formatting (bprint, (%))
+import qualified Formatting as F
 import qualified Prelude
-import           Servant.Multipart     (FileData)
+import           Servant.Multipart (FileData)
 
-import           Pos.Aeson.Types       ()
-import           Pos.Core.Types        (ScriptVersion)
-import           Pos.Types             (BlockVersion, ChainDifficulty, SoftwareVersion)
+import           Pos.Aeson.Types ()
+import           Pos.Client.Txp.Util (InputSelectionPolicy)
+import           Pos.Core.Types (ScriptVersion)
+import           Pos.Types (BlockVersion, ChainDifficulty, SoftwareVersion)
 import           Pos.Util.BackupPhrase (BackupPhrase)
-import           Pos.Util.LogSafe      (SecureLog, buildUnsecure)
+import           Pos.Util.LogSafe (SecureLog, buildUnsecure)
 
 -- TODO [CSM-407] Structurize this mess
 
@@ -302,6 +304,12 @@ data CTExMeta = CTExMeta
     , cexRate        :: Text
     , cexLabel       :: Text -- counter part of client's 'exchange' value
     , cexId          :: CId Addr
+    } deriving (Show, Generic)
+
+data NewPaymentBatchInit = NewPaymentBatchInit
+    { npbFrom   :: CAccountId
+    , npbTo     :: [(CId Addr, CCoin)] -- TODO: use NonEmpty here
+    , npbPolicy :: Maybe InputSelectionPolicy
     } deriving (Show, Generic)
 
 -- | Update system data

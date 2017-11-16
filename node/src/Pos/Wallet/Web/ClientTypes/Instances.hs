@@ -6,52 +6,40 @@ module Pos.Wallet.Web.ClientTypes.Instances () where
 
 import           Universum
 
-import qualified Data.ByteArray                       as ByteArray
-import qualified Data.ByteString                      as BS
-import           Data.List                            (intersperse, partition)
-import           Data.Text                            (splitOn)
+import qualified Data.ByteArray as ByteArray
+import qualified Data.ByteString as BS
+import           Data.List (intersperse, partition)
+import           Data.Text (splitOn)
 import qualified Data.Text.Buildable
-import           Data.Version                         (showVersion)
-import           Formatting                           (bprint, build, builder, int,
-                                                       sformat, shown, string, (%))
-import           Serokell.Util                        (listJsonIndent)
-import qualified Serokell.Util.Base16                 as Base16
-import           Servant.API                          (FromHttpApiData (..))
-import           Servant.Multipart                    (FromMultipart (..), lookupFile,
-                                                       lookupInput)
+import           Data.Version (showVersion)
+import           Formatting (bprint, build, builder, int, later, sformat, shown, string, (%))
+import           Serokell.Util (listJsonIndent, mapBuilder)
+import qualified Serokell.Util.Base16 as Base16
+import           Servant.API (FromHttpApiData (..))
+import           Servant.Multipart (FromMultipart (..), lookupFile, lookupInput)
 
-import           Pos.Core                             (Address, Coin, decodeTextAddress,
-                                                       mkCoin)
-import           Pos.Crypto                           (PassPhrase, passphraseLength)
-import           Pos.Txp.Core.Types                   (TxId)
-import           Pos.Util.LogSafe                     (SecureLog (..), buildUnsecure)
-import           Pos.Util.Servant                     (FromCType (..),
-                                                       HasTruncateLogPolicy (..),
-                                                       OriginType, ToCType (..),
-                                                       WithTruncatedLog (..))
-import           Pos.Wallet.Web.ClientTypes.Functions (addressToCId, cIdToAddress,
-                                                       mkCCoin, mkCTxId,
+import           Pos.Core (Address, Coin, decodeTextAddress, mkCoin)
+import           Pos.Crypto (PassPhrase, passphraseLength)
+import           Pos.Txp.Core.Types (TxId)
+import           Pos.Util.LogSafe (SecureLog (..), buildUnsecure)
+import           Pos.Util.Servant (FromCType (..), HasTruncateLogPolicy (..), OriginType,
+                                   ToCType (..), WithTruncatedLog (..))
+import           Pos.Wallet.Web.ClientTypes.Functions (addressToCId, cIdToAddress, mkCCoin, mkCTxId,
                                                        ptxCondToCPtxCond, txIdToCTxId)
-import           Pos.Wallet.Web.ClientTypes.Types     (AccountId (..), ApiVersion (..),
-                                                       CAccount (..), CAccountId (..),
-                                                       CAccountInit (..),
-                                                       CAccountMeta (..), CAddress (..),
-                                                       CCoin (..),
-                                                       CElectronCrashReport (..),
-                                                       CFilePath (..), CHash (..),
-                                                       CId (..), CInitialized (..),
-                                                       CPaperVendWalletRedeem (..),
-                                                       CPassPhrase (..), CProfile (..),
-                                                       CPtxCondition, CTx (..),
-                                                       CTxId (..), CTxMeta (..),
-                                                       CUpdateInfo (..), CWallet (..),
-                                                       CWallet, CWalletAssurance,
-                                                       CWalletInit (..), CWalletMeta (..),
-                                                       CWalletRedeem (..),
-                                                       ClientInfo (..), ScrollLimit (..),
-                                                       ScrollOffset (..),
-                                                       SyncProgress (..))
-import           Pos.Wallet.Web.Pending.Types         (PtxCondition)
+import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), ApiVersion (..), CAccount (..),
+                                                   CAccountId (..), CAccountInit (..),
+                                                   CAccountMeta (..), CAddress (..), CCoin (..),
+                                                   CElectronCrashReport (..), CFilePath (..),
+                                                   CHash (..), CId (..), CInitialized (..),
+                                                   CPaperVendWalletRedeem (..), CPassPhrase (..),
+                                                   CProfile (..), CPtxCondition, CTx (..),
+                                                   CTxId (..), CTxMeta (..), CUpdateInfo (..),
+                                                   CWallet (..), CWalletAssurance, CWalletInit (..),
+                                                   CWalletMeta (..), CWalletRedeem (..),
+                                                   ClientInfo (..), NewPaymentBatchInit,
+                                                   NewPaymentBatchInit (..), ScrollLimit (..),
+                                                   ScrollOffset (..), SyncProgress (..))
+import           Pos.Wallet.Web.Pending.Types (PtxCondition)
 
 -- TODO [CSM-407] Maybe revert dependency between Functions and Instances modules?
 -- This would allow to get tid of functions like 'ptxCondToCPtxCond' :/
@@ -119,6 +107,19 @@ instance Buildable CAccountInit where
                 %" }")
         caInitWId
         caInitMeta
+
+instance Buildable NewPaymentBatchInit where
+    build NewPaymentBatchInit{..} =
+        bprint ("{ from="%build
+                %" to="%(later mapBuilder)
+                %" policy="%build
+                %" }")
+        npbFrom
+        npbTo
+        npbPolicy
+
+instance Buildable (SecureLog NewPaymentBatchInit) where
+    build = buildUnsecure
 
 instance Buildable (SecureLog CAccountInit) where
     build _ = "<account init>"

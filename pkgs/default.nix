@@ -2282,6 +2282,7 @@ self: {
           libraryHaskellDepends = [
             aeson
             base
+            bytestring
             cardano-sl
             cardano-sl-core
             cardano-sl-infra
@@ -2296,6 +2297,7 @@ self: {
             http-client
             http-types
             lens
+            memory
             mtl
             network-uri
             node-sketch

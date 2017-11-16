@@ -38,7 +38,7 @@ Then when `S` wants to delegate to `D` (with stakeholder id `D_id`), he will:
          * Either immediately (as with current heavyweight delegation)
          * Or later, as part of created block (as with current lightweight delegation)
 
-## Solution with no certificates
+### Solution with no certificates
 
 In solution with no certificates `S` associates his coins directly with `D_id`.
 I.e. each coin `S` posseses will have stake associated with stakeholder id `D_id`.

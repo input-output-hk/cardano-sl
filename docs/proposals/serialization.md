@@ -55,7 +55,7 @@ it is possible to read raw data instead of already deserialized
 value. So let's move to U2-U4.
 
 Current state of CSL-1399 PR aims to cover U4 only, as it was
-described in the YT task. It does it in a wery compact and concise
+described in the YT task. It does it in a very compact and concise
 way, though preventing us from implementing U2. Decoupling
 (de)serialization and datatype verification would give us more
 flexibility to solve U2. At least it seems to be. Before I move to
@@ -75,20 +75,21 @@ we have a bunch of types `T` that conform the following structure:
     using `UnsafeT` where it is possible to construct incorrect `T`.
 
 Pros of this approach:
- * It's easy to implement
+ * It was easy to implement (and it is concise).
  * It integrates into decoder nicely so we shouldn't ever think that
    `T`'s subfield `S` can be invalid. If it's `decode`d, it's
    instantiated. Then it's valid. We can simply feed `S` to `makeT`.
+ * Aligns with Q1 pretty well.
 
 Cons of this approach is that it, well, combines verification and
 deserialization, which we want to avoid.
 
 The first dichotomy i would like to highlight is:
- * __(Q2)__ is it alright to break invariant (3)? Rephrasing: may we
-   assume that type `T` can be valid to different degree? Or we should
-   create `Ti` for each validation step? (like `T0` -- no checks
-   enforced, `T1` -- some checks enforced, ... `Tn` -- valid). If yes,
-   which `n` should we take?
+ * __(Q2)__ is it alright to break invariant (3) (see 2 paragraphs
+   before)? Rephrasing: may we assume that type `T` can be valid to
+   different degree? Or we should create `Ti` for each validation
+   step? (like `T0` -- no checks enforced, `T1` -- some checks
+   enforced, ... `Tn` -- valid). If yes, which `n` should we take?
 
 We need to figure out whether it's alright to accept Q2, it's a tough
 tradeoff: if we reject Q2 it can lead to massive code duplication and

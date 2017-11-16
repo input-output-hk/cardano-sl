@@ -68,32 +68,38 @@
         },
         "Wallet": {
             "example": {
+                "balance": {
+                    "getCoin": 361333354208714
+                },
                 "name": "My wallet",
-                "assurance": "assuranceNormal",
-                "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
-                "unit": 3
+                "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
             },
             "required": [
+                "balance",
                 "name",
-                "assurance",
-                "id",
-                "unit"
+                "id"
             ],
             "type": "object",
             "description": "A Wallet.",
             "properties": {
-                "name": {
-                    "type": "string"
+                "balance": {
+                    "required": [
+                        "getCoin"
+                    ],
+                    "type": "object",
+                    "readOnly": true,
+                    "properties": {
+                        "getCoin": {
+                            "type": "number"
+                        }
+                    }
                 },
-                "assurance": {
+                "name": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string",
                     "readOnly": true
-                },
-                "unit": {
-                    "type": "number"
                 }
             }
         },
@@ -272,61 +278,6 @@
                 }
             }
         },
-        "OneOf [Account] (ExtendedResponse [Account])": {
-            "example": [
-                {
-                    "amount": 3,
-                    "addresses": [
-                        {
-                            "id": "123456"
-                        }
-                    ],
-                    "name": "My account",
-                    "walletId": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
-                    "id": "DEADBeef"
-                }
-            ],
-            "items": {
-                "required": [
-                    "amount",
-                    "addresses",
-                    "name",
-                    "walletId",
-                    "id"
-                ],
-                "type": "object",
-                "properties": {
-                    "amount": {
-                        "type": "number"
-                    },
-                    "addresses": {
-                        "items": {
-                            "required": [
-                                "id"
-                            ],
-                            "type": "object",
-                            "properties": {
-                                "id": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "type": "array"
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "walletId": {
-                        "type": "string"
-                    },
-                    "id": {
-                        "type": "string"
-                    }
-                }
-            },
-            "type": "array",
-            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Account] or [Account] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"amount\": 1,\n        \"addresses\": [\n            {\n                \"id\": \"DEADBeef\"\n            },\n            {\n                \"id\": \"DEADBeef\"\n            }\n        ],\n        \"name\": \"My account\",\n        \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"id\": \"123456\"\n    },\n    {\n        \"amount\": 3,\n        \"addresses\": [\n            {\n                \"id\": \"DEADBeef\"\n            }\n        ],\n        \"name\": \"My account\",\n        \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"id\": \"DEADBeef\"\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"amount\": 2,\n            \"addresses\": [\n                {\n                    \"id\": \"DEADBeef\"\n                }\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": \"DEADBeef\"\n        },\n        {\n            \"amount\": 2,\n            \"addresses\": [\n                {\n                    \"id\": \"DEADBeef\"\n                },\n                {\n                    \"id\": \"123456\"\n                }\n            ],\n            \"name\": \"My account\",\n            \"walletId\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"id\": \"123456\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}</pre>"
-        },
         "OneOf [Address] (ExtendedResponse [Address])": {
             "example": [
                 {
@@ -425,26 +376,21 @@
         },
         "WalletUpdate": {
             "example": {
-                "name": "¯",
-                "assurance": "assuranceNormal",
-                "unit": 3
+                "assuranceLevel": "normal",
+                "name": "My Wallet"
             },
             "required": [
-                "name",
-                "assurance",
-                "unit"
+                "assuranceLevel",
+                "name"
             ],
             "type": "object",
-            "description": "A type represending an update for an existing Wallet.You can still pass an entire Wallet as input, and extra  fields (which are not meant to be controlled by user) will simply be ignored.",
+            "description": "A type represending an update for an existing Wallet.",
             "properties": {
+                "assuranceLevel": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
-                },
-                "assurance": {
-                    "type": "string"
-                },
-                "unit": {
-                    "type": "number"
                 }
             }
         },
@@ -473,66 +419,6 @@
                 },
                 "cwAssurance": {
                     "$ref": "#/definitions/CWalletAssurance"
-                }
-            }
-        },
-        "Account": {
-            "example": {
-                "amount": 3,
-                "addresses": [
-                    {
-                        "id": "123456"
-                    },
-                    {
-                        "id": "DEADBeef"
-                    },
-                    {
-                        "id": "DEADBeef"
-                    }
-                ],
-                "name": "My account",
-                "walletId": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
-                "id": "DEADBeef"
-            },
-            "required": [
-                "amount",
-                "addresses",
-                "name",
-                "walletId",
-                "id"
-            ],
-            "type": "object",
-            "description": "An Account.",
-            "properties": {
-                "amount": {
-                    "type": "number",
-                    "readOnly": true
-                },
-                "addresses": {
-                    "items": {
-                        "required": [
-                            "id"
-                        ],
-                        "type": "object",
-                        "properties": {
-                            "id": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "type": "array",
-                    "readOnly": true
-                },
-                "name": {
-                    "type": "string"
-                },
-                "walletId": {
-                    "type": "string",
-                    "readOnly": true
-                },
-                "id": {
-                    "type": "string",
-                    "readOnly": true
                 }
             }
         },
@@ -883,55 +769,45 @@
         "CFilePath": {
             "type": "string"
         },
-        "AccountUpdate": {
-            "example": {
-                "name": "myAccount"
-            },
-            "required": [
-                "name"
-            ],
-            "type": "object",
-            "description": "A type represending an update for an existing Account.You can still pass an entire Account as input, and extra  fields (which are not meant to be controlled by user) will simply be ignored.",
-            "properties": {
-                "name": {
-                    "type": "string"
-                }
-            }
-        },
         "OneOf [Wallet] (ExtendedResponse [Wallet])": {
             "example": [
                 {
+                    "balance": {
+                        "getCoin": 24471984623077811
+                    },
                     "name": "My wallet",
-                    "assurance": "assuranceStrict",
-                    "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg",
-                    "unit": 3
+                    "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
                 }
             ],
             "items": {
                 "required": [
+                    "balance",
                     "name",
-                    "assurance",
-                    "id",
-                    "unit"
+                    "id"
                 ],
                 "type": "object",
                 "properties": {
-                    "name": {
-                        "type": "string"
+                    "balance": {
+                        "required": [
+                            "getCoin"
+                        ],
+                        "type": "object",
+                        "properties": {
+                            "getCoin": {
+                                "type": "number"
+                            }
+                        }
                     },
-                    "assurance": {
+                    "name": {
                         "type": "string"
                     },
                     "id": {
                         "type": "string"
-                    },
-                    "unit": {
-                        "type": "number"
                     }
                 }
             },
             "type": "array",
-            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Wallet] or [Wallet] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"name\": \"My wallet\",\n        \"assurance\": \"assuranceStrict\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"unit\": 1\n    },\n    {\n        \"name\": \"My wallet\",\n        \"assurance\": \"assuranceNormal\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n        \"unit\": 3\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"name\": \"My wallet\",\n            \"assurance\": \"assuranceNormal\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"unit\": 2\n        },\n        {\n            \"name\": \"My wallet\",\n            \"assurance\": \"assuranceStrict\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\",\n            \"unit\": 2\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}</pre>"
+            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Wallet] or [Wallet] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"balance\": {\n            \"getCoin\": 36547889394682337\n        },\n        \"name\": \"My wallet\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n    },\n    {\n        \"balance\": {\n            \"getCoin\": 17970494008295748\n        },\n        \"name\": \"My wallet\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"balance\": {\n                \"getCoin\": 30779743811174597\n            },\n            \"name\": \"My wallet\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n        },\n        {\n            \"balance\": {\n                \"getCoin\": 5522692044222880\n            },\n            \"name\": \"My wallet\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}</pre>"
         },
         "CCoin": {
             "required": [
@@ -946,21 +822,47 @@
         },
         "NewWallet": {
             "example": {
-                "passphrase": "My passphrase",
-                "backupPhrase": "MyBackupPhraseHashed"
+                "backupPhrase": [
+                    "entry",
+                    "certain",
+                    "tourist",
+                    "palm",
+                    "palm",
+                    "rabbit",
+                    "worry",
+                    "swamp",
+                    "plastic",
+                    "night",
+                    "tourist",
+                    "mean "
+                ],
+                "assuranceLevel": "normal",
+                "name": "My Wallet",
+                "spendingPassword": null
             },
             "required": [
-                "passphrase",
-                "backupPhrase"
+                "backupPhrase",
+                "assuranceLevel",
+                "name",
+                "spendingPassword"
             ],
             "type": "object",
-            "description": "A type represending an request for creating a(n) Wallet. You can still pass an entire Wallet as input, and extra  fields (which are not meant to be controlled by user) will simply be ignored.",
+            "description": "A type represending an request for creating a(n) Wallet.",
             "properties": {
-                "passphrase": {
+                "backupPhrase": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "assuranceLevel": {
                     "type": "string"
                 },
-                "backupPhrase": {
+                "name": {
                     "type": "string"
+                },
+                "spendingPassword": {
+                    "type": "null"
                 }
             }
         },
@@ -1622,129 +1524,6 @@
                 ],
                 "tags": [
                     "V0"
-                ]
-            }
-        },
-        "/api/v1/wallets/{walletId}/accounts": {
-            "post": {
-                "summary": "Creates a new Account for the given Wallet.",
-                "consumes": [
-                    "application/json;charset=utf-8"
-                ],
-                "responses": {
-                    "404": {
-                        "description": "`walletId` not found"
-                    },
-                    "400": {
-                        "description": "Invalid `body` or `Daedalus-Passphrase`"
-                    },
-                    "200": {
-                        "schema": {
-                            "$ref": "#/definitions/Account"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "parameters": [
-                    {
-                        "required": true,
-                        "in": "path",
-                        "name": "walletId",
-                        "type": "string"
-                    },
-                    {
-                        "in": "header",
-                        "name": "Daedalus-Passphrase",
-                        "type": "string"
-                    },
-                    {
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/AccountUpdate"
-                        },
-                        "in": "body",
-                        "name": "body"
-                    }
-                ],
-                "tags": [
-                    "Accounts",
-                    "V1",
-                    "Wallets"
-                ]
-            },
-            "get": {
-                "summary": "Retrieves the full list of Accounts.",
-                "responses": {
-                    "404": {
-                        "description": "`walletId` not found"
-                    },
-                    "400": {
-                        "description": "Invalid `Daedalus-Response-Format` or `response_format` or `per_page` or `page`"
-                    },
-                    "200": {
-                        "schema": {
-                            "$ref": "#/definitions/OneOf [Account] (ExtendedResponse [Account])"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "parameters": [
-                    {
-                        "required": true,
-                        "in": "path",
-                        "name": "walletId",
-                        "type": "string"
-                    },
-                    {
-                        "default": 1,
-                        "minimum": 1,
-                        "in": "query",
-                        "name": "page",
-                        "type": "integer",
-                        "description": "The page number to fetch for this request. The minimum is **1**.\nIf nothing is specified, **this value defaults to 1** and always shows the first\nentries in the requested collection.\n"
-                    },
-                    {
-                        "maximum": 500,
-                        "default": 10,
-                        "minimum": 1,
-                        "in": "query",
-                        "name": "per_page",
-                        "type": "integer",
-                        "description": "The number of entries to display for each page. The minimum is **1**, whereas the maximum\nis **500**. If nothing is specified, **this value defaults to 10**.\n"
-                    },
-                    {
-                        "default": "plain",
-                        "in": "query",
-                        "name": "response_format",
-                        "type": "string",
-                        "enum": [
-                            "plain",
-                            "extended"
-                        ],
-                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
-                    },
-                    {
-                        "default": "plain",
-                        "in": "header",
-                        "name": "Daedalus-Response-Format",
-                        "type": "string",
-                        "enum": [
-                            "plain",
-                            "extended"
-                        ],
-                        "description": "Determines the response format. If set to `extended`, then fetched\ndata will be wrapped in an `ExtendedResponse` (see the Models section).\nOtherwise, it defaults to \"plain\", which can as well be passed to switch to a\nsimpler response format, which includes only the requested payload.\nAn `ExtendedResponse` includes useful metadata which can be used by clients to support pagination.\n"
-                    }
-                ],
-                "tags": [
-                    "Accounts",
-                    "V1",
-                    "Wallets"
                 ]
             }
         },
@@ -2877,127 +2656,6 @@
                     }
                 ],
                 "tags": [
-                    "V1",
-                    "Wallets"
-                ]
-            }
-        },
-        "/api/v1/wallets/{walletId}/accounts/{accountId}": {
-            "get": {
-                "summary": "Retrieves a specific Account, given its Id.",
-                "responses": {
-                    "404": {
-                        "description": "`walletId` or `accountId` not found"
-                    },
-                    "200": {
-                        "schema": {
-                            "$ref": "#/definitions/Account"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "parameters": [
-                    {
-                        "required": true,
-                        "in": "path",
-                        "name": "walletId",
-                        "type": "string"
-                    },
-                    {
-                        "required": true,
-                        "in": "path",
-                        "name": "accountId",
-                        "type": "string"
-                    }
-                ],
-                "tags": [
-                    "Accounts",
-                    "V1",
-                    "Wallets"
-                ]
-            },
-            "delete": {
-                "summary": "Deletes an Account.",
-                "responses": {
-                    "404": {
-                        "description": "`walletId` or `accountId` not found"
-                    },
-                    "204": {
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "parameters": [
-                    {
-                        "required": true,
-                        "in": "path",
-                        "name": "walletId",
-                        "type": "string"
-                    },
-                    {
-                        "required": true,
-                        "in": "path",
-                        "name": "accountId",
-                        "type": "string"
-                    }
-                ],
-                "tags": [
-                    "Accounts",
-                    "V1",
-                    "Wallets"
-                ]
-            },
-            "put": {
-                "summary": "Update an Account for the given Wallet.",
-                "consumes": [
-                    "application/json;charset=utf-8"
-                ],
-                "responses": {
-                    "404": {
-                        "description": "`walletId` or `accountId` not found"
-                    },
-                    "400": {
-                        "description": "Invalid `body`"
-                    },
-                    "200": {
-                        "schema": {
-                            "$ref": "#/definitions/Account"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "parameters": [
-                    {
-                        "required": true,
-                        "in": "path",
-                        "name": "walletId",
-                        "type": "string"
-                    },
-                    {
-                        "required": true,
-                        "in": "path",
-                        "name": "accountId",
-                        "type": "string"
-                    },
-                    {
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/AccountUpdate"
-                        },
-                        "in": "body",
-                        "name": "body"
-                    }
-                ],
-                "tags": [
-                    "Accounts",
                     "V1",
                     "Wallets"
                 ]

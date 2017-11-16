@@ -73,16 +73,12 @@ withExample (_ :: proxy a) desc =
 -- | Generates a description suitable to be used for "Update" types.
 updateDescr :: Typeable a => proxy a -> T.Text
 updateDescr (p :: proxy a) =
-    "A type represending an update for an existing " <> renderType p <>
-    ".You can still pass an entire " <> renderType p <> " as input, and extra " <>
-    " fields (which are not meant to be controlled by user) will simply be ignored."
+    "A type represending an update for an existing " <> renderType p <> "."
 
 -- | Generates a description suitable to be used for "New" types.
 newDescr :: Typeable a => proxy a -> T.Text
 newDescr (p :: proxy a) =
-    "A type represending an request for creating a(n) " <> renderType p <>
-    ". You can still pass an entire " <> renderType p <> " as input, and extra " <>
-    " fields (which are not meant to be controlled by user) will simply be ignored."
+    "A type represending an request for creating a(n) " <> renderType p <> "."
 
 -- | Automatically derives the subset of readOnly fields by diffing the JSON representations of the
 -- given types.

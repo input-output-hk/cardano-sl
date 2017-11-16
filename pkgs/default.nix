@@ -1219,6 +1219,7 @@ self: {
             focus
             formatting
             generic-arbitrary
+            half
             hashable
             hspec
             http-client
@@ -2129,6 +2130,7 @@ self: {
             node-sketch
             optparse-applicative
             parsec
+            QuickCheck
             random
             reflection
             safecopy
@@ -2270,7 +2272,7 @@ self: {
           description = "Cardano SL - wallet";
           license = stdenv.lib.licenses.mit;
         }) {};
-      cardano-sl-wallet-new = callPackage ({ QuickCheck, aeson, aeson-pretty, base, bytestring, cardano-sl, cardano-sl-core, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-wallet, containers, data-default, exceptions, formatting, hspec, http-api-data, http-client, http-types, insert-ordered-containers, lens, log-warper, mkDerivation, mtl, neat-interpolation, network-uri, node-sketch, optparse-applicative, quickcheck-instances, serokell-util, servant, servant-client, servant-quickcheck, servant-server, servant-swagger, stdenv, stm, string-conv, swagger2, text, text-format, time-units, transformers, universum, unordered-containers, wai, wai-cors, wai-extra, warp }:
+      cardano-sl-wallet-new = callPackage ({ QuickCheck, aeson, aeson-pretty, base, bytestring, cardano-sl, cardano-sl-core, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-wallet, containers, data-default, exceptions, formatting, hspec, http-api-data, http-client, http-types, insert-ordered-containers, lens, log-warper, memory, mkDerivation, mtl, neat-interpolation, network-uri, node-sketch, optparse-applicative, quickcheck-instances, serokell-util, servant, servant-client, servant-quickcheck, servant-server, servant-swagger, stdenv, stm, string-conv, swagger2, text, text-format, time-units, transformers, universum, unordered-containers, wai, wai-cors, wai-extra, warp }:
       mkDerivation {
           pname = "cardano-sl-wallet-new";
           version = "0.1.0.0";
@@ -2280,15 +2282,23 @@ self: {
           libraryHaskellDepends = [
             aeson
             base
+            cardano-sl
+            cardano-sl-core
+            cardano-sl-infra
+            cardano-sl-ssc
+            cardano-sl-update
             cardano-sl-wallet
             containers
             data-default
+            exceptions
             formatting
             http-api-data
             http-client
             http-types
+            lens
             mtl
             network-uri
+            node-sketch
             QuickCheck
             serokell-util
             servant
@@ -2320,11 +2330,13 @@ self: {
             insert-ordered-containers
             lens
             log-warper
+            memory
             mtl
             neat-interpolation
             node-sketch
             optparse-applicative
             QuickCheck
+            serokell-util
             servant
             servant-server
             servant-swagger
@@ -2345,6 +2357,7 @@ self: {
             aeson
             aeson-pretty
             base
+            bytestring
             cardano-sl
             cardano-sl-core
             cardano-sl-infra
@@ -2353,19 +2366,23 @@ self: {
             cardano-sl-wallet
             containers
             data-default
+            exceptions
             formatting
             hspec
             http-client
             http-types
             insert-ordered-containers
             lens
+            memory
             neat-interpolation
             QuickCheck
             quickcheck-instances
+            serokell-util
             servant
             servant-quickcheck
             servant-server
             servant-swagger
+            stm
             string-conv
             swagger2
             text
@@ -2985,8 +3002,8 @@ self: {
           pname = "diagrams-lib";
           version = "1.4.1.2";
           sha256 = "4b6e8805decaef85d355d620311595b16fb702df3885060db19bc9b425652670";
-          revision = "3";
-          editedCabalFile = "14ni87kwmjhbphcihiivvz0nxga355263q36wvbyvvjmxvbdj98n";
+          revision = "4";
+          editedCabalFile = "0wlb4ng803rhx82msl49b39im4cw8naik0pcyyybpphyqbxxs6dd";
           libraryHaskellDepends = [
             active
             adjunctions
@@ -6315,38 +6332,66 @@ self: {
           description = "Blaze-html support for servant";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      servant-client = callPackage ({ aeson, attoparsec, base, base-compat, base64-bytestring, bytestring, exceptions, generics-sop, http-api-data, http-client, http-client-tls, http-media, http-types, mkDerivation, monad-control, mtl, network-uri, safe, semigroupoids, servant, stdenv, string-conversions, text, transformers, transformers-base, transformers-compat }:
+      servant-client = callPackage ({ aeson, attoparsec, base, base-compat, bytestring, containers, exceptions, http-client, http-client-tls, http-media, http-types, mkDerivation, monad-control, mtl, semigroupoids, servant-client-core, stdenv, text, transformers, transformers-base, transformers-compat }:
       mkDerivation {
           pname = "servant-client";
-          version = "0.10";
-          sha256 = "55e411ac7e38a5c1b77d8d3c2320369be36a7b7181e27bb5ac4fba308ef93eaa";
-          revision = "2";
-          editedCabalFile = "0j5ws3zjz748kmd7sn9vgdwp4mqdyzw26qnl46jdcf838b6klhl1";
+          version = "0.12";
+          sha256 = "95c9d6cef575f1c7f9cc448753a8d6ca5d53e394638665a5f09dbc83917150f0";
           libraryHaskellDepends = [
             aeson
             attoparsec
             base
             base-compat
-            base64-bytestring
             bytestring
+            containers
             exceptions
-            generics-sop
-            http-api-data
             http-client
             http-client-tls
             http-media
             http-types
             monad-control
             mtl
-            network-uri
-            safe
             semigroupoids
-            servant
-            string-conversions
+            servant-client-core
             text
             transformers
             transformers-base
             transformers-compat
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "http://haskell-servant.readthedocs.org/";
+          description = "automatical derivation of querying functions for servant webservices";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
+      servant-client-core = callPackage ({ base, base-compat, base64-bytestring, bytestring, containers, exceptions, generics-sop, http-api-data, http-media, http-types, mkDerivation, mtl, network-uri, safe, servant, stdenv, text }:
+      mkDerivation {
+          pname = "servant-client-core";
+          version = "0.12";
+          sha256 = "a50cac1cb5225eab8632dc2cb8b1a9917deec67f46cb2f86c2cec31c9f366371";
+          libraryHaskellDepends = [
+            base
+            base-compat
+            base64-bytestring
+            bytestring
+            containers
+            exceptions
+            generics-sop
+            http-api-data
+            http-media
+            http-types
+            mtl
+            network-uri
+            safe
+            servant
+            text
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "http://haskell-servant.readthedocs.org/";
+          description = "Core functionality and class for client function generation for servant APIs";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
       servant-docs = callPackage ({ aeson, aeson-pretty, base, base-compat, bytestring, case-insensitive, control-monad-omega, hashable, http-media, http-types, lens, mkDerivation, servant, stdenv, string-conversions, text, unordered-containers }:
       mkDerivation {
           pname = "servant-docs";
@@ -6382,10 +6427,6 @@ self: {
           doHaddock = false;
           doCheck = false;
           homepage = "http://haskell-servant.readthedocs.org/";
-          description = "automatical derivation of querying functions for servant webservices";
-          license = stdenv.lib.licenses.bsd3;
-        }) {};
-      servant-multipart = callPackage ({ base, bytestring, directory, http-client, http-media, mkDerivation, network, resourcet, servant, servant-server, stdenv, text, transformers, wai, wai-extra, warp }:
           description = "generate API docs for your servant webservice";
           license = stdenv.lib.licenses.bsd3;
         }) {};
@@ -6429,11 +6470,15 @@ self: {
           description = "multipart/form-data (e.g file upload) support for servant";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      servant-quickcheck = callPackage ({ QuickCheck, aeson, base, base-compat, bytestring, case-insensitive, clock, data-default-class, hspec, http-client, http-media, http-types, mkDerivation, mtl, pretty, process, servant, servant-client, servant-server, split, stdenv, string-conversions, temporary, text, time, warp }:
+      servant-quickcheck = callPackage ({ QuickCheck, aeson, base, base-compat, bytestring, case-insensitive, clock, data-default-class, fetchgit, hspec, http-client, http-media, http-types, mkDerivation, mtl, pretty, process, servant, servant-client, servant-server, split, stdenv, string-conversions, temporary, text, time, warp }:
       mkDerivation {
           pname = "servant-quickcheck";
-          version = "0.0.3.1";
-          sha256 = "7a829420ac3d2d39dbd08ed233ff526073cefbb1ab053a0d44c09bd26fe0977a";
+          version = "0.0.4";
+          src = fetchgit {
+            url = "https://github.com/haskell-servant/servant-quickcheck.git";
+            sha256 = "0s50czgy5sw8xh8lqlnsq9q0r9j7ijwz2v73r4k5xrcpaxm6av2c";
+            rev = "6e6595f68c947107beba185392b350abd2009ba0";
+          };
           libraryHaskellDepends = [
             aeson
             base
@@ -6465,7 +6510,6 @@ self: {
           description = "QuickCheck entire APIs";
           license = stdenv.lib.licenses.bsd3;
         }) {};
-      servant-server = callPackage ({ Cabal, aeson, attoparsec, base, base-compat, base64-bytestring, bytestring, containers, directory, exceptions, filepath, http-api-data, http-types, mkDerivation, monad-control, mtl, network, network-uri, resourcet, safe, servant, split, stdenv, string-conversions, system-filepath, text, transformers, transformers-base, transformers-compat, wai, wai-app-static, warp, word8 }:
       servant-server = callPackage ({ Cabal, aeson, attoparsec, base, base-compat, base64-bytestring, bytestring, cabal-doctest, containers, exceptions, filepath, http-api-data, http-types, mkDerivation, monad-control, mtl, network, network-uri, resourcet, safe, servant, split, stdenv, string-conversions, system-filepath, tagged, text, transformers, transformers-base, transformers-compat, wai, wai-app-static, warp, word8 }:
       mkDerivation {
           pname = "servant-server";

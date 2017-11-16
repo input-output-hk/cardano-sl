@@ -12,7 +12,11 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Cardano.Wallet.API
+  exposed-modules:     Cardano.Wallet.Orphans
+                       Cardano.Wallet.Orphans.Aeson
+                       Cardano.Wallet.Orphans.Arbitrary
+                       Cardano.Wallet.Orphans.Bi
+                       Cardano.Wallet.API
                        Cardano.Wallet.API.Types
                        Cardano.Wallet.API.V1
                        Cardano.Wallet.API.V1.Types
@@ -23,20 +27,26 @@ library
                        Cardano.Wallet.API.V1.Wallets
                        Cardano.Wallet.API.V1.Errors
                        Cardano.Wallet.API.V1.Updates
+                       Cardano.Wallet.API.V1.Migration
                        Cardano.Wallet.API.V0
                        Cardano.Wallet.API.V0.Types
   ghc-options:         -Wall
   build-depends:       base
                      , QuickCheck
                      , aeson
+                     , bytestring
                      , containers
                      , data-default
+                     , exceptions
                      , formatting
                      , http-api-data
                      , http-client
                      , http-types
+                     , lens
+                     , memory
                      , mtl
                      , network-uri
+                     , node-sketch
                      , servant
                      , servant-client
                      , servant-server
@@ -46,7 +56,13 @@ library
                      , universum
                      , serokell-util
                      , warp
+                     , cardano-sl-core
                      , cardano-sl-wallet
+                     -- Avoidable deps(?)
+                     , cardano-sl
+                     , cardano-sl-infra
+                     , cardano-sl-ssc
+                     , cardano-sl-update
   default-language:    Haskell2010
   default-extensions: TypeOperators
                       DataKinds
@@ -101,6 +117,8 @@ executable wallet-new-server
                      , servant
                      , servant-server
                      , servant-swagger
+                     , serokell-util
+                     , memory
                      , stm
                      , string-conv
                      , swagger2
@@ -132,10 +150,12 @@ test-suite wallet-new-specs
   main-is:          Spec.hs
   other-modules:    SwaggerSpec
                     APISpec
+                    MarshallingSpec
   build-depends:    base
                   , QuickCheck
                   , aeson
                   , aeson-pretty
+                  , bytestring
                   , cardano-sl
                   , cardano-sl-core
                   , cardano-sl-infra
@@ -145,6 +165,7 @@ test-suite wallet-new-specs
                   , cardano-sl-wallet-new
                   , containers
                   , data-default
+                  , exceptions
                   , formatting
                   , hspec
                   , http-client
@@ -153,11 +174,14 @@ test-suite wallet-new-specs
                   , lens
                   , neat-interpolation
                   , quickcheck-instances
+                  , memory
+                  , serokell-util
                   , servant
                   , servant-quickcheck
                   , servant-server
                   , servant-swagger
                   , string-conv
+                  , stm
                   , swagger2
                   , text
                   , universum

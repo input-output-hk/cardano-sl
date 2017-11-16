@@ -102,13 +102,6 @@ instance Migrate V1.AssuranceLevel V0.CWalletAssurance where
     eitherMigrate V1.NormalAssurance = pure V0.CWANormal
 
 --
-instance Migrate V0.CPassPhrase V1.SpendingPassword where
-  eitherMigrate (V0.CPassPhrase pp) = pure pp
-
-instance Migrate V1.SpendingPassword V0.CPassPhrase where
-  eitherMigrate = pure . V0.CPassPhrase
-
---
 instance Migrate V0.CCoin Core.Coin where
     eitherMigrate =
         maybe (Left $ migrationFailed "error migrating V0.CCoin -> Core.Coin, mkCoin failed.") Right
@@ -116,9 +109,6 @@ instance Migrate V0.CCoin Core.Coin where
         . readMaybe
         . toString
         . V0.getCCoin
-
-instance Migrate V1.RenderedBalance V0.CCoin where
-    eitherMigrate (V1.RenderedBalance c) = pure (V0.CCoin c)
 
 --
 instance Migrate (V0.CId V0.Wal) V1.WalletId where

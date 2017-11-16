@@ -31,8 +31,7 @@ module Cardano.Wallet.API.V1.Types (
   , NewWallet (..)
   , WalletUpdate (..)
   , WalletId (..)
-  , RenderedBalance (..)
-  , SpendingPassword (..)
+  , SpendingPassword
   -- * Addresses
   , Address (..)
   , Account (..)
@@ -66,6 +65,7 @@ import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
 import           Pos.Arbitrary.Core ()
 import qualified Pos.Core.Types as Core
+import qualified Pos.Crypto.Signing.Types as Core
 
 --
 -- Swagger & REST-related types
@@ -231,7 +231,8 @@ instance Arbitrary WalletError where
 -- optionally supplied by the user to encrypt the private keys. As private keys
 -- are needed to spend funds and this password secures spending, here the name
 -- 'SpendingPassword'.
-type SpendingPassword = Text
+-- Practically speaking, it's just a type synonym for a PassPhrase.
+type SpendingPassword = Core.PassPhrase
 
 data AssuranceLevel =  NormalAssurance
                      | StrictAssurance
@@ -275,7 +276,7 @@ deriveJSON Serokell.defaultOptions  ''NewWallet
 
 instance Arbitrary NewWallet where
   arbitrary = NewWallet <$> arbitrary
-                        <*> pure (Just "My passphrase")
+                        <*> fmap Just arbitrary
                         <*> arbitrary
                         <*> pure "My Wallet"
 
@@ -290,16 +291,6 @@ deriveJSON Serokell.defaultOptions  ''WalletUpdate
 instance Arbitrary WalletUpdate where
   arbitrary = WalletUpdate <$> arbitrary
                            <*> pure "My Wallet"
-
--- A 'RenderedBalance' represent the @rendered@ UTXO for
--- this 'Wallet'.
-newtype RenderedBalance = RenderedBalance { renderBalance :: Text }
-                        deriving (Show, Eq, Generic)
-
-instance Arbitrary RenderedBalance where
-    arbitrary = RenderedBalance . V0.getCCoin . V0.mkCCoin . Core.mkCoin <$> choose (minBound,12345678)
-
-deriveJSON defaultOptions { unwrapUnaryRecords = True } ''RenderedBalance
 
 type WalletName = Text
 

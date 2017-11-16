@@ -34,6 +34,7 @@ library
   build-depends:       base
                      , QuickCheck
                      , aeson
+                     , bytestring
                      , containers
                      , data-default
                      , exceptions
@@ -42,6 +43,7 @@ library
                      , http-client
                      , http-types
                      , lens
+                     , memory
                      , mtl
                      , network-uri
                      , node-sketch

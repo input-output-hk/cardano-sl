@@ -10,13 +10,7 @@ import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 
-import qualified Data.ByteArray as ByteArray
-import qualified Data.ByteString as BS
-import           Data.Default (def)
-import           Formatting (int, sformat, shown, (%))
-import           Pos.Crypto.Signing.Types (PassPhrase, passphraseLength)
 import           Pos.Wallet.Web.Methods.Logic (MonadWalletLogic)
-import qualified Serokell.Util.Base16 as Base16
 import           Servant
 import           Test.QuickCheck (arbitrary, generate, resize)
 
@@ -35,27 +29,12 @@ handlers =   newWallet
                 -- :<|> Accounts.handlers walletId
              )
 
--- | TODO(adinapoli): Move this into a more specific module eventually.
--- For now we are just interested in backporting features without proper
--- error handling.
-mkPassPhrase :: SpendingPassword -> Either Text PassPhrase
-mkPassPhrase text = do
-  bs <- Base16.decode text
-  let bl = BS.length bs
-  -- Currently passphrase may be either 32-byte long or empty (for
-  -- unencrypted keys).
-  if bl == 0 || bl == passphraseLength
-      then pure $ ByteArray.convert bs
-      else fail . toString $ sformat
-           ("Expected password length 0 or "%int%", not "%int)
-           passphraseLength bl
-
 -- | Creates a new @wallet@ given a 'NewWallet' payload.
 -- Returns to the client the representation of the created
 -- wallet in the 'Wallet' type.
 newWallet :: (MonadThrow m, MonadWalletLogic ctx m) => NewWallet -> m Wallet
 newWallet NewWallet{..} = do
-  let spendingPassword = either def identity (mkPassPhrase . fromMaybe mempty $ newwalSpendingPassword)
+  let spendingPassword = fromMaybe mempty newwalSpendingPassword
   initMeta <- V0.CWalletMeta <$> pure newwalName
                              <*> migrate newwalAssuranceLevel
                              <*> pure 0

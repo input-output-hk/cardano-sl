@@ -1,10 +1,26 @@
 #!/usr/bin/env bash
-set -o xtrace
+set -eo xtrace
 
 # Make sure we're in a tmux session.
 if ! [ -n "$TMUX" ]; then
   echo "You must run this script from the tmux session!"
   exit 1
+fi
+
+# Make sure we're using proper version of tmux.
+tmux_actual_version=$(tmux -V | awk '{print $2}')
+# All tmux versions contain two numbers only.
+tmux_proper_versions=("2.3" "2.4" "2.5" "2.6")
+checker=""
+for version in "${tmux_proper_versions[@]}"; do
+    if [ "${version}" == "${tmux_actual_version}" ]; then
+        checker="${version}"; break
+    fi
+done
+# If checker is still empty - we're using wrong tmux version!
+if [ "${checker}" == "" ]; then
+    echo "Please upgrade tmux to the version ${tmux_proper_versions[0]} or higher."
+    exit 1
 fi
 
 base=$(dirname "$0")

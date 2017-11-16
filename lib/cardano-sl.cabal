@@ -30,6 +30,8 @@ library
                         -- Diffusion layer
                         Pos.Diffusion.Types
                         Pos.Diffusion.Full.Block
+                        Pos.Diffusion.Full.Txp
+                        Pos.Diffusion.Full.Update
 
                         -- GState
                         Pos.GState

@@ -45,7 +45,6 @@ import           Pos.Core (Address, HasConfiguration, HasPrimaryKey (..), IsBoot
                            largestPubKeyAddressSingleKey, makePubKeyAddress, siEpoch)
 import           Pos.Crypto (EncryptedSecretKey, PublicKey, emptyPassphrase)
 import           Pos.DB (DBSum (..), MonadGState (..), NodeDBs, gsIsBootstrapEra)
-import qualified Pos.DB.Block as DB
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.Generator.Block (BlockGenMode)
 import           Pos.GState (HasGStateContext (..), getGStateImplicit)
@@ -184,14 +183,14 @@ instance {-# OVERLAPPING #-} CanJsonLog AuxxMode where
 instance HasConfiguration => MonadDBRead AuxxMode where
     dbGet = realModeToAuxx ... dbGet
     dbIterSource tag p = hoist (hoist realModeToAuxx) (dbIterSource tag p)
-    dbGetRawBlock = realModeToAuxx ... DB.dbGetRawBlockRealDefault
-    dbGetRawUndo = realModeToAuxx ... DB.dbGetRawUndoRealDefault
+    dbGetRawBlock = realModeToAuxx ... dbGetRawBlock
+    dbGetRawUndo = realModeToAuxx ... dbGetRawUndo
 
 instance HasConfiguration => MonadDB AuxxMode where
     dbPut = realModeToAuxx ... dbPut
     dbWriteBatch = realModeToAuxx ... dbWriteBatch
     dbDelete = realModeToAuxx ... dbDelete
-    dbPutRawBlund = realModeToAuxx ... DB.dbPutRawBlundRealDefault
+    dbPutRawBlund = realModeToAuxx ... dbPutRawBlund
 
 instance HasConfiguration => MonadGState AuxxMode where
     gsAdoptedBVData = realModeToAuxx ... gsAdoptedBVData

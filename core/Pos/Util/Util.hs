@@ -592,7 +592,9 @@ withSystemTempFile :: (MonadIO m, MC.MonadMask m) =>
                       String   -- ^ File name template
                    -> (FilePath -> Handle -> m a) -- ^ Callback that can use the file
                    -> m a
-withSystemTempFile template action = liftIO getCanonicalTemporaryDirectory >>= \tmpDir -> withTempFile tmpDir template action
+withSystemTempFile template action = do
+    tmpDir <- liftIO getCanonicalTemporaryDirectory
+    withTempFile tmpDir template action
 
 -- | Create, open, and use a temporary file in the given directory.
 --

@@ -19,8 +19,8 @@ import           Data.Version (Version)
 import           Servant.Multipart (FileData (..))
 
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
-import           Pos.Types (ApplicationName, BlockCount (..), BlockVersion, ChainDifficulty, Coin,
-                            SlotCount (..), SoftwareVersion)
+import           Pos.Core (ApplicationName, BlockCount (..), BlockVersion, ChainDifficulty, Coin,
+                           SlotCount (..), SoftwareVersion)
 import           Pos.Util.BackupPhrase (BackupPhrase)
 
 import qualified Pos.Wallet.Web.ClientTypes as CT
@@ -88,7 +88,7 @@ instance ToSchema      CT.ClientInfo
 instance ToSchema WalletStateSnapshot where
     declareNamedSchema _ = pure $ NamedSchema (Just "WalletStateSnapshot") mempty
 
-instance ToSchema FileData where
+instance ToSchema (FileData tag) where
     declareNamedSchema _ = do
         textSchema <- declareSchemaRef (Proxy :: Proxy Text)
         filepathSchema <- declareSchemaRef (Proxy :: Proxy FilePath)

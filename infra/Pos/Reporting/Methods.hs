@@ -20,20 +20,30 @@ module Pos.Reporting.Methods
        -- E. g. to report crash from launcher.
        , sendReport
        , retrieveLogFiles
+       , compressLogs
        ) where
 
 import           Universum
 
+
+import qualified Codec.Archive.Tar as Tar
+import qualified Codec.Archive.Tar.Entry as Tar
 import           Control.Exception (ErrorCall (..), Exception (..))
 import           Control.Lens (each, to)
 import           Control.Monad.Catch (try)
 import           Data.Aeson (encode)
 import           Data.Bits (Bits (..))
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
+import           Data.Conduit (runConduitRes, yield, (.|))
+import           Data.Conduit.List (consume)
+import qualified Data.Conduit.Lzma as Lzma
 import qualified Data.HashMap.Strict as HM
 import           Data.List (isSuffixOf)
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Text.IO as TIO
 import           Data.Time.Clock (getCurrentTime)
+import           Data.Time.Format (defaultTimeLocale, formatTime)
 import           Formatting (sformat, shown, stext, string, (%))
 import           Network.HTTP.Client (httpLbs, newManager, parseUrlThrow)
 import qualified Network.HTTP.Client.MultipartFormData as Form
@@ -41,13 +51,14 @@ import           Network.HTTP.Client.TLS (tlsManagerSettings)
 import           Network.Info (IPv4 (..), getNetworkInterfaces, ipv4)
 import           Pos.ReportServer.Report (ReportInfo (..), ReportType (..))
 import           Serokell.Util.Text (listBuilderJSON)
-import           System.Directory (doesFileExist)
+import           System.Directory (canonicalizePath, doesFileExist, removeFile)
 import           System.FilePath (takeFileName)
 import           System.Info (arch, os)
-import           System.IO (hClose)
+import           System.IO (IOMode (WriteMode), hClose, hFlush, withFile)
 import           System.Wlog (LoggerConfig (..), Severity (..), WithLogger, hwFilePath, lcTree,
                               logError, logInfo, logMessage, logWarning, ltFiles, ltSubloggers,
                               retrieveLogContent)
+
 
 import           Paths_cardano_sl_infra (version)
 import           Pos.Core.Configuration (HasConfiguration, protocolMagic)
@@ -61,6 +72,124 @@ import           Pos.Reporting.MemState (HasLoggerConfig (..), HasReportServers 
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 import           Pos.Util.Util (maybeThrow, withSystemTempFile, (<//>))
 
+
+----------------------------------------------------------------------------
+-- General purpose/low level
+----------------------------------------------------------------------------
+
+-- | Given logs files list and report type, sends reports to URI
+-- asked. All files __must__ exist. Report server URI should be in form
+-- like "http(s)://host:port/" without specified endpoint.
+--
+-- __Important notice__: if given paths are logs that we're currently
+-- writing to using this executable (or forked thread), you'll get an
+-- error, because there's no possibility to have two handles on the
+-- same file, see 'System.IO' documentation on handles. See
+-- 'withTempLogFile' to overcome this problem.
+sendReport
+    :: (HasConfiguration, HasCompileInfo, MonadIO m, MonadMask m)
+    => [FilePath]                 -- ^ Log files to read from
+    -> ReportType
+    -> Text
+    -> String
+    -> m ()
+sendReport logFiles reportType appName reportServerUri = do
+    curTime <- liftIO getCurrentTime
+    existingFiles <- filterM (liftIO . doesFileExist) logFiles
+    when (null existingFiles && not (null logFiles)) $
+        throwM $ CantRetrieveLogs logFiles
+
+    rq0 <- parseUrlThrow $ reportServerUri <//> "report"
+    let pathsPart = map partFile' existingFiles
+    let payloadPart =
+            Form.partLBS "payload"
+            (encode $ mkReportInfo curTime)
+    -- If performance will ever be a concern, moving to a global manager
+    -- should help a lot.
+    reportManager <- liftIO $ newManager tlsManagerSettings
+
+    -- Assemble the `Request` out of the Form data.
+    rq <- Form.formDataBody (payloadPart : pathsPart) rq0
+
+    -- Actually perform the HTTP `Request`.
+    e  <- try $ liftIO $ httpLbs rq reportManager
+    whenLeft e $ \(e' :: SomeException) -> throwM $ SendingError e'
+  where
+    partFile' fp = Form.partFile (toFileName fp) fp
+    toFileName = toText . takeFileName
+    mkReportInfo curTime =
+        ReportInfo
+        { rApplication = appName
+        -- We are using version of 'cardano-sl-infra' here. We agreed
+        -- that the version of 'cardano-sl' and it subpackages should
+        -- be same.
+        , rVersion = version
+        , rBuild = pretty compileInfo
+        , rOS = toText (os <> "-" <> arch)
+        , rMagic = getProtocolMagic protocolMagic
+        , rDate = curTime
+        , rReportType = reportType
+        }
+
+
+-- | Given logger config, retrieves all (logger name, filepath) for
+-- every logger that has file handle. Filepath inside does __not__
+-- contain the common logger config prefix.
+retrieveLogFiles :: LoggerConfig -> [([Text], FilePath)]
+retrieveLogFiles lconfig = fromLogTree $ lconfig ^. lcTree
+  where
+    fromLogTree lt =
+        let curElems = map ([],) (lt ^.. ltFiles . each . hwFilePath)
+            iterNext (part, node) = map (first (part :)) $ fromLogTree node
+        in curElems ++ concatMap iterNext (lt ^. ltSubloggers . to HM.toList)
+
+-- | Pass a list of absolute paths to log files. This function will
+-- archive and compress these files and put resulting file into log
+-- directory (returning filepath is absolute).
+compressLogs :: (MonadIO m) => [FilePath] -> m FilePath
+compressLogs files = liftIO $ do
+    tar <- tarPackIndependently files
+    tarxz <-
+        BS.concat <$>
+        runConduitRes (yield tar .| Lzma.compress (Just 0) .| consume)
+    aName <- getArchiveName
+    withFile aName WriteMode $ \handle -> do
+        BS.hPut handle tarxz
+        hFlush handle
+    pure aName
+  where
+    tarPackIndependently :: [FilePath] -> IO ByteString
+    tarPackIndependently paths = do
+        entries <- forM paths $ \p -> do
+            unlessM (doesFileExist p) $ throwM $
+                PackingError $ "can't pack log file " <> fromString p <>
+                               " because it doesn't exist or it's not a file"
+            tPath <- either (throwM . PackingError . fromString)
+                            pure
+                            (Tar.toTarPath False $ takeFileName p)
+            pabs <- canonicalizePath p
+            Tar.packFileEntry pabs tPath
+        pure $ BSL.toStrict $ Tar.write entries
+    getArchiveName = liftIO $ do
+        curTime <- formatTime defaultTimeLocale "%q" <$> getCurrentTime
+        pure $ "report-" <> curTime <> ".tar.lzma"
+
+-- | Creates a temp file from given text
+withTempLogFile :: (MonadIO m, MonadMask m) => Text -> (FilePath -> m a) -> m a
+withTempLogFile rawLogs action = do
+    withSystemTempFile "main.log" $ \tempFp tempHandle -> do
+        let getArchivePath = liftIO $ do
+                TIO.hPutStrLn tempHandle rawLogs
+                hClose tempHandle
+                archivePath <- compressLogs [tempFp]
+                canonicalizePath archivePath
+            removeArchive = liftIO . removeFile
+        bracket getArchivePath removeArchive action
+
+----------------------------------------------------------------------------
+-- Node-specific
+----------------------------------------------------------------------------
+
 type MonadReporting ctx m =
        ( MonadIO m
        , MonadMask m
@@ -73,9 +202,33 @@ type MonadReporting ctx m =
        , HasCompileInfo
        )
 
-----------------------------------------------------------------------------
--- Node-specific
-----------------------------------------------------------------------------
+
+-- Common code across node sending: tries to send logs to at least one
+-- reporting server.
+sendReportNodeImpl
+    :: forall ctx m. (MonadReporting ctx m)
+    => Maybe Text -> ReportType -> m ()
+sendReportNodeImpl rawLogs reportType = do
+    servers <- view (reportingContext . reportServers)
+    if null servers
+    then onNoServers
+    else do
+        let withPath :: ([FilePath] -> m ()) -> m ()
+            withPath =
+                maybe (\a -> a [])
+                      (\t cont -> withTempLogFile t $ \file -> cont [file])
+                      rawLogs
+        -- logFile is either [a] or [].
+        withPath $ \(logFile :: [FilePath]) -> do
+            errors <-
+                fmap lefts $ forM servers $
+                try . sendReport logFile reportType "cardano-node" . toString
+            whenNotNull errors $ throwSE . NE.head
+  where
+    onNoServers =
+        logInfo $ "sendReportNodeImpl: not sending report " <>
+                  "because no reporting servers are specified"
+    throwSE (e :: SomeException) = throwM e
 
 -- | Sends node's logs, taking 'LoggerConfig' from 'NodeContext',
 -- retrieving all logger files from it. List of servers is also taken
@@ -97,7 +250,7 @@ sendReportNode reportType = do
             logContent <-
                 takeGlobalSize charsConst <$>
                 retrieveLogContent logFile (Just 5000)
-            sendReportNodeImpl (reverse logContent) reportType
+            sendReportNodeImpl (Just $ unlines $ reverse logContent) reportType
   where
     -- 2 megabytes, assuming we use chars which are ASCII mostly
     charsConst :: Int
@@ -114,61 +267,7 @@ sendReportNode reportType = do
 
 -- | Same as 'sendReportNode', but doesn't attach any logs.
 sendReportNodeNologs :: (MonadReporting ctx m) => ReportType -> m ()
-sendReportNodeNologs = sendReportNodeImpl []
-
-sendReportNodeImpl
-    :: (MonadReporting ctx m)
-    => [Text] -> ReportType -> m ()
-sendReportNodeImpl rawLogs reportType = do
-    servers <- view (reportingContext . reportServers)
-    when (null servers) onNoServers
-    errors <- fmap lefts $ forM servers $ try .
-        sendReport [] rawLogs reportType "cardano-node" . toString
-    whenNotNull errors $ throwSE . NE.head
-  where
-    onNoServers =
-        logInfo $ "sendReportNodeImpl: not sending report " <>
-                  "because no reporting servers are specified"
-    throwSE (e :: SomeException) = throwM e
-
--- checks if ipv4 is from local range
-ipv4Local :: Word32 -> Bool
-ipv4Local w =
-    or [b1 == 10, b1 == 172 && b2 >= 16 && b2 <= 31, b1 == 192 && b2 == 168]
-  where
-    b1 = w .&. 0xff
-    b2 = (w `shiftR` 8) .&. 0xff
-
--- | Retrieves node info that we would like to know when analyzing
--- malicious behavior of node.
-getNodeInfo :: (MonadIO m, MonadFormatPeers m) => m Text
-getNodeInfo = do
-    peersText <- fromMaybe "unknown" <$> formatKnownPeers sformat
-    (ips :: [Text]) <-
-        map show . filter ipExternal . map ipv4 <$>
-        liftIO getNetworkInterfaces
-    pure $ sformat outputF (pretty $ listBuilderJSON ips) peersText
-  where
-    ipExternal (IPv4 w) =
-        not $ ipv4Local w || w == 0 || w == 16777343 -- the last is 127.0.0.1
-    outputF = ("{ nodeIps: '"%stext%"', peers: '"%stext%"' }")
-
-logReportType :: WithLogger m => ReportType -> m ()
-logReportType (RCrash i) = logError $ "Reporting crash with code " <> show i
-logReportType (RError reason) =
-    logError $ "Reporting error with reason \"" <> reason <> "\""
-logReportType (RMisbehavior True reason) =
-    logError $ "Reporting critical misbehavior with reason \"" <> reason <> "\""
-logReportType (RMisbehavior False reason) =
-    logWarning $ "Reporting non-critical misbehavior with reason \"" <> reason <> "\""
-logReportType (RInfo text) =
-    logInfo $ "Reporting info with text \"" <> text <> "\""
-
-extendRTDesc :: Text -> ReportType -> ReportType
-extendRTDesc text (RError reason)                  = RError $ reason <> text
-extendRTDesc text (RMisbehavior isCritical reason) = RMisbehavior isCritical $ reason <> text
-extendRTDesc text' (RInfo text)                    = RInfo $ text <> text'
-extendRTDesc _ x                                   = x
+sendReportNodeNologs = sendReportNodeImpl Nothing
 
 -- Note that we are catching all synchronous exceptions, but don't
 -- catch async ones. If reporting is broken, we don't want it to
@@ -193,6 +292,45 @@ reportNode sendLogs extendWithNodeInfo reportType =
         sformat ("Didn't manage to report "%shown%
                  " because of exception '"%string%"' raised while sending")
         reportType (displayException e)
+
+    extendRTDesc :: Text -> ReportType -> ReportType
+    extendRTDesc text (RError reason)                  = RError $ reason <> text
+    extendRTDesc text (RMisbehavior isCritical reason) = RMisbehavior isCritical $ reason <> text
+    extendRTDesc text' (RInfo text)                    = RInfo $ text <> text'
+    extendRTDesc _ x                                   = x
+
+    logReportType :: WithLogger m => ReportType -> m ()
+    logReportType (RCrash i) = logError $ "Reporting crash with code " <> show i
+    logReportType (RError reason) =
+        logError $ "Reporting error with reason \"" <> reason <> "\""
+    logReportType (RMisbehavior True reason) =
+        logError $ "Reporting critical misbehavior with reason \"" <> reason <> "\""
+    logReportType (RMisbehavior False reason) =
+        logWarning $ "Reporting non-critical misbehavior with reason \"" <> reason <> "\""
+    logReportType (RInfo text) =
+        logInfo $ "Reporting info with text \"" <> text <> "\""
+
+    -- Retrieves node info that we would like to know when analyzing
+    -- malicious behavior of node.
+    getNodeInfo :: (MonadIO m, MonadFormatPeers m) => m Text
+    getNodeInfo = do
+        peersText <- fromMaybe "unknown" <$> formatKnownPeers sformat
+        (ips :: [Text]) <-
+            map show . filter ipExternal . map ipv4 <$>
+            liftIO getNetworkInterfaces
+        pure $ sformat outputF (pretty $ listBuilderJSON ips) peersText
+      where
+        ipExternal (IPv4 w) =
+            not $ ipv4Local w || w == 0 || w == 16777343 -- the last is 127.0.0.1
+        outputF = ("{ nodeIps: '"%stext%"', peers: '"%stext%"' }")
+
+    -- checks if ipv4 is from local range
+    ipv4Local :: Word32 -> Bool
+    ipv4Local w =
+        or [b1 == 10, b1 == 172 && b2 >= 16 && b2 <= 31, b1 == 192 && b2 == 168]
+      where
+        b1 = w .&. 0xff
+        b2 = (w `shiftR` 8) .&. 0xff
 
 -- | Report «misbehavior», i. e. a situation when something is globally
 -- wrong, not only with our node. 'Bool' argument determines whether
@@ -222,81 +360,6 @@ reportError
     :: forall ctx m . (MonadReporting ctx m)
     => Text -> m ()
 reportError = reportNode True True . RError
-
-----------------------------------------------------------------------------
--- General purpose
-----------------------------------------------------------------------------
-
--- | Given logs files list and report type, sends reports to URI
--- asked. All files __must__ exist. Report server URI should be in form
--- like "http(s)://host:port/" without specified endpoint.
---
--- __Important notice__: if given paths are logs that we're currently
--- writing to using this executable (or forked thread), you'll get an
--- error, because there's no possibility to have two handles on the
--- same file, see 'System.IO' documentation on handles. Use second
--- parameter for that.
-sendReport
-    :: (HasConfiguration, HasCompileInfo, MonadIO m, MonadMask m)
-    => [FilePath]                 -- ^ Log files to read from
-    -> [Text]                     -- ^ Raw log text (optional)
-    -> ReportType
-    -> Text
-    -> String
-    -> m ()
-sendReport logFiles rawLogs reportType appName reportServerUri = do
-    curTime <- liftIO getCurrentTime
-    existingFiles <- filterM (liftIO . doesFileExist) logFiles
-    when (null existingFiles && not (null logFiles)) $
-        throwM $ CantRetrieveLogs logFiles
-    putText $ "Rawlogs size is: " <> show (length rawLogs)
-    withSystemTempFile "main.log" $ \tempFp tempHandle -> liftIO $ do
-        for_ rawLogs $ TIO.hPutStrLn tempHandle
-        hClose tempHandle
-        rq0 <- parseUrlThrow $ reportServerUri <//> "report"
-        let memlogFiles = bool [tempFp] [] (null rawLogs)
-        let memlogPart = map partFile' memlogFiles
-        let pathsPart = map partFile' existingFiles
-        let payloadPart =
-                Form.partLBS "payload"
-                (encode $ mkReportInfo curTime)
-        -- If performance will ever be a concern, moving to a global manager
-        -- should help a lot.
-        reportManager <- newManager tlsManagerSettings
-
-        -- Assemble the `Request` out of the Form data.
-        rq <- Form.formDataBody (payloadPart : (memlogPart ++ pathsPart)) rq0
-
-        -- Actually perform the HTTP `Request`.
-        e  <- try $ httpLbs rq reportManager
-        whenLeft e $ \(e' :: SomeException) -> throwM $ SendingError e'
-  where
-    partFile' fp = Form.partFile (toFileName fp) fp
-    toFileName = toText . takeFileName
-    mkReportInfo curTime =
-        ReportInfo
-        { rApplication = appName
-        -- We are using version of 'cardano-sl-infra' here. We agreed
-        -- that the version of 'cardano-sl' and it subpackages should
-        -- be same.
-        , rVersion = version
-        , rBuild = pretty compileInfo
-        , rOS = toText (os <> "-" <> arch)
-        , rMagic = getProtocolMagic protocolMagic
-        , rDate = curTime
-        , rReportType = reportType
-        }
-
--- | Given logger config, retrieves all (logger name, filepath) for
--- every logger that has file handle. Filepath inside does __not__
--- contain the common logger config prefix.
-retrieveLogFiles :: LoggerConfig -> [([Text], FilePath)]
-retrieveLogFiles lconfig = fromLogTree $ lconfig ^. lcTree
-  where
-    fromLogTree lt =
-        let curElems = map ([],) (lt ^.. ltFiles . each . hwFilePath)
-            addFoo (part, node) = map (first (part :)) $ fromLogTree node
-        in curElems ++ concatMap addFoo (lt ^. ltSubloggers . to HM.toList)
 
 ----------------------------------------------------------------------------
 -- Exception handling

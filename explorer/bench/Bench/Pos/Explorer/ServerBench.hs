@@ -17,9 +17,9 @@ import           Data.Default (def)
 import           Pos.Arbitrary.Txp.Unsafe ()
 
 import           Pos.Block.Types (Blund)
+import           Pos.Core (HeaderHash, SlotLeaders, Timestamp)
 import           Pos.Core.Block (Block)
 import           Pos.Launcher.Configuration (HasConfigurations)
-import           Pos.Types (HeaderHash, SlotLeaders, Timestamp)
 import           Test.Pos.Util (withDefConfigurations)
 
 import           Pos.Explorer.ExplorerMode (ExplorerTestParams, runExplorerTestMode)

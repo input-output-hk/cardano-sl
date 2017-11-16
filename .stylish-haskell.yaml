@@ -236,6 +236,7 @@ language_extensions:
   - MultiWayIf
   - NoImplicitPrelude
   - OverloadedStrings
+  - PolyKinds
   - RecordWildCards
   - ScopedTypeVariables
   - StandaloneDeriving

@@ -20,6 +20,8 @@ import           Data.Text (Text)
 import           Formatting (build, sformat)
 
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
+import           Pos.Core (Address, ChainDifficulty, decodeTextAddress, makePubKeyAddressBoot,
+                           sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Core.Txp (Tx (..), TxOut (..), txOutAddress, txOutValue)
 import           Pos.Core.Update (BlockVersionData (..), BlockVersionModifier (..),
                                   UpdateProposal (..))

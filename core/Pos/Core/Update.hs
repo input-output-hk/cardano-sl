@@ -366,7 +366,8 @@ mkVoteId UpdateVote{..} = (uvProposalId, uvKey, uvDecision)
 -- Payload and proof
 ----------------------------------------------------------------------------
 
--- | Update System payload. 'Pos.Types.BodyProof' contains 'UpdateProof' = @Hash UpdatePayload@.
+-- | Update System payload. 'BodyProof MainBlockchain' contains
+-- 'UpdateProof' = @Hash UpdatePayload@.
 data UpdatePayload = UpdatePayload
     { upProposal :: !(Maybe UpdateProposal)
     , upVotes    :: ![UpdateVote]

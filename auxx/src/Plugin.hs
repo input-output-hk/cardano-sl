@@ -81,8 +81,10 @@ rawExec mHasAuxxMode AuxxOptions{..} mSendActions = \case
         printAction "... the auxx plugin is ready"
         forever $ withCommand $ \line -> do
             expr <- eitherToThrow $ Lang.parse line
-            value <- eitherToThrow =<< Lang.evaluate commandProcs expr
-            withValueText printAction value
+            eitherValue <- Lang.evaluate commandProcs expr
+            case eitherValue of
+                Left evalError -> printAction (show . Lang.ppEvalError $ evalError)
+                Right value -> withValueText printAction value
     Right cmd -> runWalletCmd mHasAuxxMode cmd mSendActions
 
 runWalletCmd ::

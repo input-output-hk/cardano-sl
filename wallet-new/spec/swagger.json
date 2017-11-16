@@ -68,7 +68,9 @@
         },
         "Wallet": {
             "example": {
-                "balance": "11434779",
+                "balance": {
+                    "getCoin": 361333354208714
+                },
                 "name": "My wallet",
                 "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
             },
@@ -81,8 +83,16 @@
             "description": "A Wallet.",
             "properties": {
                 "balance": {
-                    "type": "string",
-                    "readOnly": true
+                    "required": [
+                        "getCoin"
+                    ],
+                    "type": "object",
+                    "readOnly": true,
+                    "properties": {
+                        "getCoin": {
+                            "type": "number"
+                        }
+                    }
                 },
                 "name": {
                     "type": "string"
@@ -762,7 +772,9 @@
         "OneOf [Wallet] (ExtendedResponse [Wallet])": {
             "example": [
                 {
-                    "balance": "1633641",
+                    "balance": {
+                        "getCoin": 24471984623077811
+                    },
                     "name": "My wallet",
                     "id": "J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg"
                 }
@@ -776,7 +788,15 @@
                 "type": "object",
                 "properties": {
                     "balance": {
-                        "type": "string"
+                        "required": [
+                            "getCoin"
+                        ],
+                        "type": "object",
+                        "properties": {
+                            "getCoin": {
+                                "type": "number"
+                            }
+                        }
                     },
                     "name": {
                         "type": "string"
@@ -787,7 +807,7 @@
                 }
             },
             "type": "array",
-            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Wallet] or [Wallet] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"balance\": \"9778033\",\n        \"name\": \"My wallet\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n    },\n    {\n        \"balance\": \"3217745\",\n        \"name\": \"My wallet\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"balance\": \"7594097\",\n            \"name\": \"My wallet\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n        },\n        {\n            \"balance\": \"10500308\",\n            \"name\": \"My wallet\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}</pre>"
+            "description": "OneOf <b>a</b> <b>b</b> is a type introduced to limit with Swagger 2.0's limitation of returning different types depending on the parameter of the request. While this has been fixed in OpenAPI 3, we effectively mimick its behaviour in 2.x. The idea is to return either ExtendedResponse [Wallet] or [Wallet] depending on whether or not the extended response format has been requested. While using the  API this type is erased away in the HTTP response, so that, in case the user requested the 'normal'  response format, an <b>a</b> will be returned. Here's an example:<br><br><pre>[\n    {\n        \"balance\": {\n            \"getCoin\": 36547889394682337\n        },\n        \"name\": \"My wallet\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n    },\n    {\n        \"balance\": {\n            \"getCoin\": 17970494008295748\n        },\n        \"name\": \"My wallet\",\n        \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n    }\n]</pre> In case the user selected the extended format, a full 'ExtendedResponse' will be yielded. Here's an example:<br><br><pre>{\n    \"data\": [\n        {\n            \"balance\": {\n                \"getCoin\": 30779743811174597\n            },\n            \"name\": \"My wallet\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n        },\n        {\n            \"balance\": {\n                \"getCoin\": 5522692044222880\n            },\n            \"name\": \"My wallet\",\n            \"id\": \"J7rQqaLLHBFPrgJXwpktaMB1B1kQBXAyc2uRSfRPzNVGiv6TdxBzkPNBUWysZZZdhFG9gRy3sQFfX5wfpLbi4XTFGFxTg\"\n        }\n    ],\n    \"meta\": {\n        \"page\": 1,\n        \"perPage\": 96,\n        \"totalPages\": 1,\n        \"totalEntries\": 2\n    }\n}</pre>"
         },
         "CCoin": {
             "required": [

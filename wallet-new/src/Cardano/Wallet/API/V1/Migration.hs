@@ -1,5 +1,6 @@
 {- | This is a temporary module to help migration @V0@ datatypes into @V1@ datatypes.
 -}
+{-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
@@ -10,8 +11,7 @@ module Cardano.Wallet.API.V1.Migration (
     , v1MonadNat
     , lowerV1Monad
     , Migrate(..)
-    -- * Isomorphisms (when available)
-    , walletAssurance
+    , migrate
     -- * Configuration re-exports
     , HasCompileInfo
     , HasConfigurations
@@ -23,11 +23,11 @@ module Cardano.Wallet.API.V1.Migration (
 
 import           Universum
 
+import           Cardano.Wallet.API.V1.Errors as Errors
 import qualified Cardano.Wallet.API.V1.Types as V1
 import qualified Pos.Core.Types as Core
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 
-import           Control.Lens
 import qualified Control.Monad.Catch as Catch
 import           Mockable (runProduction)
 import           Servant
@@ -62,49 +62,64 @@ lowerV1Monad ctx handler =
 
 -- | 'Migrate' encapsulates migration between types, when possible.
 class Migrate from to where
-    migrate :: from -> to
+    eitherMigrate :: from -> Either V1.WalletError to
+
+-- | "Run" the migration.
+migrate :: ( Catch.MonadThrow m, Migrate from to ) => from -> m to
+migrate from = case eitherMigrate from of
+    Left e   -> Catch.throwM (migrationError e)
+    Right to -> pure to
+
+-- | A 'ServantError' representing a migration error,
+-- represented here with a <https://httpstatuses.com/422 422> HTTP status code.
+migrationError :: V1.WalletError -> ServantErr
+migrationError = Errors.toError err422
+
+-- | A 'WalletError' representing a failed migration.
+migrationFailed :: Text -> V1.WalletError
+migrationFailed e = V1.WalletError {
+      V1.errCode = 422
+    , V1.errMessage = e
+    }
 
 --
 -- Instances
 --
 
 instance Migrate V0.CWallet V1.Wallet where
-    migrate V0.CWallet{..} =
-        V1.Wallet { V1.walId   = migrate cwId
-                  , V1.walName = V0.cwName cwMeta
-                  , V1.walBalance = migrate cwAmount
-                  }
+    eitherMigrate V0.CWallet{..} =
+        V1.Wallet <$> eitherMigrate cwId
+                  <*> pure (V0.cwName cwMeta)
+                  <*> eitherMigrate cwAmount
 
 --
 instance Migrate V0.CWalletAssurance V1.AssuranceLevel where
-    migrate V0.CWAStrict = V1.StrictAssurance
-    migrate V0.CWANormal = V1.NormalAssurance
+    eitherMigrate V0.CWAStrict = pure V1.StrictAssurance
+    eitherMigrate V0.CWANormal = pure V1.NormalAssurance
 
 instance Migrate V1.AssuranceLevel V0.CWalletAssurance where
-    migrate V1.StrictAssurance = V0.CWAStrict
-    migrate V1.NormalAssurance = V0.CWANormal
-
-walletAssurance :: Iso' V0.CWalletAssurance V1.AssuranceLevel
-walletAssurance = iso migrate migrate
+    eitherMigrate V1.StrictAssurance = pure V0.CWAStrict
+    eitherMigrate V1.NormalAssurance = pure V0.CWANormal
 
 --
 instance Migrate V0.CPassPhrase V1.SpendingPassword where
-  migrate (V0.CPassPhrase pp) = pp
+  eitherMigrate (V0.CPassPhrase pp) = pure pp
 
 instance Migrate V1.SpendingPassword V0.CPassPhrase where
-  migrate pp = V0.CPassPhrase pp
+  eitherMigrate = pure . V0.CPassPhrase
 
 --
 instance Migrate V0.CCoin Core.Coin where
-    migrate = fromMaybe (error "error migrating V0.CCoin -> Core.Coin")
-        . identity fmap Core.mkCoin
+    eitherMigrate =
+        maybe (Left $ migrationFailed "error migrating V0.CCoin -> Core.Coin, mkCoin failed.") Right
+        . fmap Core.mkCoin
         . readMaybe
         . toString
         . V0.getCCoin
 
 instance Migrate V1.RenderedBalance V0.CCoin where
-    migrate (V1.RenderedBalance c) = V0.CCoin c
+    eitherMigrate (V1.RenderedBalance c) = pure (V0.CCoin c)
 
 --
 instance Migrate (V0.CId V0.Wal) V1.WalletId where
-    migrate (V0.CId (V0.CHash h)) = V1.WalletId h
+    eitherMigrate (V0.CId (V0.CHash h)) = pure (V1.WalletId h)

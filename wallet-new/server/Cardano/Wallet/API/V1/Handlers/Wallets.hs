@@ -53,12 +53,14 @@ mkPassPhrase text = do
 -- | Creates a new @wallet@ given a 'NewWallet' payload.
 -- Returns to the client the representation of the created
 -- wallet in the 'Wallet' type.
-newWallet :: MonadWalletLogic ctx m => NewWallet -> m Wallet
+newWallet :: (MonadThrow m, MonadWalletLogic ctx m) => NewWallet -> m Wallet
 newWallet NewWallet{..} = do
   let spendingPassword = either def identity (mkPassPhrase . fromMaybe mempty $ newwalSpendingPassword)
-      initMeta   = V0.CWalletMeta newwalName (migrate newwalAssuranceLevel) 0
-      walletInit = V0.CWalletInit initMeta newwalBackupPhrase
-  migrate <$> V0.newWallet spendingPassword walletInit
+  initMeta <- V0.CWalletMeta <$> pure newwalName
+                             <*> migrate newwalAssuranceLevel
+                             <*> pure 0
+  let walletInit = V0.CWalletInit initMeta newwalBackupPhrase
+  V0.newWallet spendingPassword walletInit >>= migrate
 
 listWallets :: PaginationParams
             -> MonadV1 (OneOf [Wallet] (ExtendedResponse [Wallet]))

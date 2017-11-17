@@ -21,17 +21,15 @@ import qualified Serokell.Aeson.Options as Serokell
 -- String manipulation utils
 --
 
-headToLower :: String -> String
-headToLower []     = []
-headToLower (x:xs) = toLower x : xs
+headToLower :: String -> Maybe String
+headToLower []     = Nothing
+headToLower (x:xs) = Just $ toLower x : xs
 
 stripFieldPrefix :: String -> String
 stripFieldPrefix = dropWhile (not . isUpper)
 
 mkJsonKey :: String -> String
-mkJsonKey s =
-    let s' = headToLower $ stripFieldPrefix s
-    in if null s' then s else s'
+mkJsonKey s = fromMaybe s . headToLower $ stripFieldPrefix s
 
 --
 -- Utils
@@ -120,8 +118,9 @@ deriveWalletErrorJSON = reifyTypename >=> \case
 -- | Get wallet error name and variable names from a constructor.
 -- Fails, if given constructor type is not supported.
 getErrNameAndVars :: Con -> Q (Name, [String])
-getErrNameAndVars (NormalC name vars) =
-    pure (name, map (("v"++) . show) [1 .. length vars])
+getErrNameAndVars (NormalC name vars)
+    | null vars = pure (name, [])
+    | otherwise = fail "getErrNameAndVars: non-record constructor fields are not supported"
 getErrNameAndVars (RecC name vars) =
     pure (name, map (nameBase . view _1) vars)
 getErrNameAndVars _ = fail "getErrNameAndVars: unsupported constructor type"
@@ -181,7 +180,7 @@ mkFromJsonBody typeName cons =
                         withObject "diagnostic" (\v -> $(caseE (dyn "message") msgMatches))
                     |]
   where
-    msgMatches = map mkMatch cons -- ++ [failMatch]
+    msgMatches = map mkMatch cons ++ [failMatch]
     mkMatch con = do
         (name, vars) <- getErrNameAndVars con
         bindings <- mkBindings vars

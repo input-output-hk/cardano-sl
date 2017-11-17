@@ -36,14 +36,10 @@ import           Cardano.Wallet.API.V1.TH (conNamesList, deriveWalletErrorJSON)
 --     "address" : <address>
 -- }
 -- ```
--- If constructor does not define record field names, then data values are labeled with
--- keys "v1", "v2" and so on, e. g. for `NotRecordError` error:
--- ```
--- {
---     "v1" : 3,
---     "v2" : "blah"
--- }
--- ```
+--
+-- Additional data in constructor should be represented as record fields.
+-- Otherwise TemplateHaskell will raise an error.
+--
 -- If constructor does not have additional data (like in case of `WalletNotFound` error),
 -- then "diagnostic" field will be empty object.
 --
@@ -52,7 +48,6 @@ data WalletError =
       NotEnoughMoney { weNeedMore :: !Int }
     | OutputIsRedeem { weAddress :: !Text }
     | SomeOtherError { weFoo :: !Text, weBar :: !Int }
-    | NotRecordError !Int !Text
     | MigrationFailed { weDescription :: !Text }
     | WalletNotFound
     deriving (Show, Eq, Generic)
@@ -69,8 +64,7 @@ instance Arbitrary WalletError where
     arbitrary = oneof
         [ NotEnoughMoney <$> arbitrary
         , OutputIsRedeem <$> pure "address"
-        -- , SomeOtherError <$> pure "blah" <*> arbitrary
-        , NotRecordError <$> arbitrary <*> pure "blah"
+        , SomeOtherError <$> pure "blah" <*> arbitrary
         , MigrationFailed <$> pure "migration"
         , pure WalletNotFound
         ]
@@ -87,12 +81,11 @@ allErrorsList = $(conNamesList ''WalletError)
 -- `WalletError`.
 -- Note: current choices of particular errors are debatable
 walletHTTPError :: WalletError -> ServantErr
-walletHTTPError (NotEnoughMoney _)   = err403 -- <https://httpstatuses.com/403 403> Forbidden
-walletHTTPError (OutputIsRedeem _)   = err403
-walletHTTPError (SomeOtherError _ _) = err418 -- <https://httpstatuses.com/418 418> I'm a teapot
-walletHTTPError (NotRecordError _ _) = err418
-walletHTTPError (MigrationFailed _)  = err422 -- <https://httpstatuses.com/422 422> Unprocessable Entity
-walletHTTPError WalletNotFound       = err404 -- <https://httpstatuses.com/404 404> NotFound
+walletHTTPError NotEnoughMoney{}  = err403 -- <https://httpstatuses.com/403 403> Forbidden
+walletHTTPError OutputIsRedeem{}  = err403
+walletHTTPError SomeOtherError{}  = err418 -- <https://httpstatuses.com/418 418> I'm a teapot
+walletHTTPError MigrationFailed{} = err422 -- <https://httpstatuses.com/422 422> Unprocessable Entity
+walletHTTPError WalletNotFound    = err404 -- <https://httpstatuses.com/404 404> NotFound
 
 -- | "Hoist" the given 'Wallet' error into a 'ServantError',
 -- returning as the response body the encoded JSON representation

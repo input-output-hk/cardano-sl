@@ -235,6 +235,8 @@ instance Arbitrary WalletError where
 -- base16-encoded string.
 type SpendingPassword = Core.PassPhrase
 
+type WalletName = Text
+
 data AssuranceLevel =  NormalAssurance
                      | StrictAssurance
                      deriving (Eq, Show, Enum, Bounded)
@@ -263,14 +265,14 @@ instance ToHttpApiData WalletId where
 
 type Coins = Int
 
--- | A type modelling the request for a new wallet.
+-- | A type modelling the request for a new 'Wallet'.
 data NewWallet = NewWallet {
       newwalBackupPhrase     :: !BackupPhrase
     -- ^ The backup phrase to restore the wallet.
     , newwalSpendingPassword :: !(Maybe SpendingPassword)
     -- ^ The spending password to encrypt the private keys.
     , newwalAssuranceLevel   :: !AssuranceLevel
-    , newwalName             :: !Text
+    , newwalName             :: !WalletName
     } deriving (Eq, Show, Generic)
 
 deriveJSON Serokell.defaultOptions  ''NewWallet
@@ -293,9 +295,7 @@ instance Arbitrary WalletUpdate where
   arbitrary = WalletUpdate <$> arbitrary
                            <*> pure "My Wallet"
 
-type WalletName = Text
-
--- | A Wallet.
+-- | A 'Wallet'.
 data Wallet = Wallet {
       walId      :: !WalletId
     , walName    :: !WalletName
@@ -311,7 +311,8 @@ instance Arbitrary Wallet where
 
 -- Placeholder.
 newtype Address = Address
-  { addrId :: Text -- ^ A base58 Public Key.
+  { addrId :: Text
+    -- ^ A base58 Public Key.
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Address
@@ -321,15 +322,15 @@ instance Arbitrary Address where
 
 type AccountId = Text
 
--- | A wallet 'Account'.
+-- | A wallet's 'Account'.
 data Account = Account
   { accId        :: !AccountId
   , accAddresses :: [Address]
   , accAmount    :: !Coins
-  -- | The Account name.
   , accName      :: !Text
-  -- | The parent Wallet Id.
+  -- ^ The Account name.
   , accWalletId  :: WalletId
+  -- ^ The 'WalletId' this 'Account' belongs to.
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Account
@@ -341,8 +342,8 @@ instance Arbitrary Account where
                                    <*> pure "My account"
                                    <*> arbitrary
 
-data AccountUpdate = AccountUpdate
-  { uaccName      :: !Text
+data AccountUpdate = AccountUpdate {
+    uaccName      :: !Text
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''AccountUpdate
@@ -351,11 +352,11 @@ instance Arbitrary AccountUpdate where
   arbitrary = AccountUpdate . fromString <$> pure "myAccount"
 
 -- | A type incapsulating a password update request.
-data PasswordUpdate = PasswordUpdate
-  { -- | The old password.
+data PasswordUpdate = PasswordUpdate {
     pwdOld :: !Text
-    -- | The new password.
+    -- ^ The old password.
   , pwdNew :: !Text
+    -- ^ The new password.
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''PasswordUpdate
@@ -364,11 +365,11 @@ instance Arbitrary PasswordUpdate where
   arbitrary = PasswordUpdate <$> fmap fromString arbitrary
                              <*> fmap fromString arbitrary
 
--- | `EstimatedFees` represents the fees which would be generated
--- for a payment in case the latter would actually be performed.
-data EstimatedFees = EstimatedFees
-  { -- | The estimated fees, as coins.
+-- | 'EstimatedFees' represents the fees which would be generated
+-- for a 'Payment' in case the latter would actually be performed.
+data EstimatedFees = EstimatedFees {
     feeEstimatedAmount :: !Coins
+    -- ^ The estimated fees, as coins.
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''EstimatedFees
@@ -376,14 +377,26 @@ deriveJSON Serokell.defaultOptions ''EstimatedFees
 instance Arbitrary EstimatedFees where
   arbitrary = EstimatedFees <$> fmap getPositive arbitrary
 
--- | Stub type for a `Payment`.
+-- | Where to send money during a 'Payment'.
+data PaymentDestination = PaymentDestination {
+      pdeAddress :: Address
+    , pdeAmount  :: Core.Coin
+    } deriving (Show, Eq)
+
+deriveJSON Serokell.defaultOptions ''PaymentDestination
+
+instance Arbitrary PaymentDestination where
+  arbitrary = PaymentDestination <$> arbitrary
+                                 <*> arbitrary
+
+-- | A 'Payment' from one source account to one or more 'PaymentDestination'(s).
 data Payment = Payment
-  { -- | The source Account.
-    pmtSourceAccount      :: !Account
-    -- | The destination Address.
-  , pmtDestinationAddress :: !Address
-    -- | The amount for this payment.
-  , pmtAmount             :: !Coins
+  { pmtSourceWallet  :: !WalletId
+    -- ^ The source Wallet.
+  , pmtSourceAccount :: !Account
+    -- ^ The source Account.
+  , pmtDestinations  :: !(NonEmpty PaymentDestination)
+    -- ^ The destinations for this payment.
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Payment
@@ -391,7 +404,7 @@ deriveJSON Serokell.defaultOptions ''Payment
 instance Arbitrary Payment where
   arbitrary = Payment <$> arbitrary
                       <*> arbitrary
-                      <*> fmap getPositive arbitrary
+                      <*> arbitrary
 
 type TxId = Text
 

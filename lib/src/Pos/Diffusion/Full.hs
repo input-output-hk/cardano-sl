@@ -21,7 +21,7 @@ import qualified Network.Transport as NT (closeTransport)
 import           Network.Transport.Abstract (Transport)
 import           Network.Transport.Concrete (concrete)
 import qualified Network.Transport.TCP as TCP
-import           Node (Node, NodeAction (..), simpleNodeEndPoint, NodeEnvironment (..), defaultNodeEnvironment, node)
+import           Node (Node, NodeAction (..), simpleNodeEndPoint, NodeEnvironment (..), defaultNodeEnvironment, node, waitForDispatcher)
 import           Node.Conversation (Converse, converseWith)
 import qualified System.Metrics as Monitoring
 import           System.Random (newStdGen)
@@ -31,12 +31,13 @@ import qualified System.Wlog as Logger
 import qualified System.Systemd.Daemon as Systemd
 #endif
 
-import           Pos.Communication (NodeId, VerInfo, PeerData, PackingType, EnqueueMsg, makeEnqueueMsg, bipPacking, Listener, MkListeners (..))
+import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType, EnqueueMsg, makeEnqueueMsg, bipPacking, Listener, MkListeners (..), HandlerSpecs, InSpecs (..), OutSpecs (..))
 import           Pos.Communication.Relay.Logic (invReqDataFlowTK)
 import           Pos.Communication.Server (allListeners)
 import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout, networkConnectionTimeout)
 import           Pos.Core.Block (Block, MainBlockHeader, BlockHeader)
-import           Pos.Core.Types (HeaderHash)
+import           Pos.Core.Configuration (HasConfiguration, protocolMagic)
+import           Pos.Core.Types (ProtocolMagic (..), HeaderHash)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpId, UpdateVote, UpdateProposal)
 import           Pos.DHT.Real (KademliaDHTInstance, KademliaParams (..), startDHTInstance, stopDHTInstance)
@@ -48,6 +49,7 @@ import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.CLI (NetworkConfigOpts (..), intNetworkConfigOpts)
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), Bucket, initQueue)
 import           Pos.Ssc.Message (MCOpening, MCShares, MCCommitment, MCVssCertificate)
+import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
 import           Pos.WorkMode (WorkMode)
 
@@ -65,13 +67,12 @@ import           Pos.WorkMode (WorkMode)
 -- work to juggle the instances.
 diffusionLayerFull
     :: forall ctx d x .
-       ( WorkMode ctx d, MonadFix d )
+       ( HasConfiguration, HasUpdateConfiguration, WorkMode ctx d, MonadFix d )
     => NetworkConfigOpts
     -> Maybe Monitoring.Store
-    -> VerInfo
     -> ((Logic d -> Production (DiffusionLayer d)) -> Production x)
     -> Production x
-diffusionLayerFull networkConfigOpts mEkgStore ourVerInfo expectLogic =
+diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
     bracket acquire release $ \_ -> expectLogic $ \logic -> do
 
         -- Read in network topology / configuration / policies.
@@ -81,7 +82,31 @@ diffusionLayerFull networkConfigOpts mEkgStore ourVerInfo expectLogic =
         oq :: OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket <-
             initQueue networkConfig mEkgStore 
 
-        let enqueue :: EnqueueMsg d
+        let -- VerInfo is a diffusion-layer-specific thing. It's only used for
+            -- negotiating with peers.
+            ourVerInfo :: VerInfo
+            ourVerInfo = VerInfo (getProtocolMagic protocolMagic) lastKnownBlockVersion ins outs
+
+            ins :: HandlerSpecs
+            InSpecs ins = inSpecs mkL
+
+            -- TODO get OutSpecs that were formerly defined on workers (which
+            -- makes no sense with the diffusion/logic split).
+            outs :: HandlerSpecs
+            OutSpecs outs = outSpecs mkL
+
+            mkL :: MkListeners d
+            mkL = allListeners oq (ncTopology networkConfig) enqueue
+
+            listeners :: VerInfo -> [Listener d]
+            listeners = mkListeners mkL ourVerInfo
+
+            -- Bracket kademlia and network-transport, create a node. This
+            -- will be very involved. Should make it top-level I think.
+            runDiffusionLayer :: d ()
+            runDiffusionLayer = runDiffusionLayerFull networkConfig ourVerInfo oq listeners
+
+            enqueue :: EnqueueMsg d
             enqueue = makeEnqueueMsg ourVerInfo $ \msgType k -> do
                 itList <- OQ.enqueue oq msgType (EnqueuedConversation (msgType, k))
                 let itMap = M.fromList itList
@@ -127,14 +152,6 @@ diffusionLayerFull networkConfigOpts mEkgStore ourVerInfo expectLogic =
             sendSscCommitment :: MCCommitment -> d ()
             sendSscCommitment = void . invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic)
 
-            listeners :: VerInfo -> [Listener d]
-            listeners = mkListeners (allListeners oq (ncTopology networkConfig) enqueue) ourVerInfo
-
-            -- Bracket kademlia and network-transport, create a node. This
-            -- will be very involved. Should make it top-level I think.
-            runDiffusionLayer :: d ()
-            runDiffusionLayer = runDiffusionLayerFull networkConfig ourVerInfo oq listeners
-
             diffusion :: Diffusion d
             diffusion = Diffusion {..}
 
@@ -160,9 +177,20 @@ runDiffusionLayerFull
 runDiffusionLayerFull networkConfig ourVerInfo oq listeners =
     bracketTransport (ncTcpAddr networkConfig) $ \(transport :: Transport d) ->
         bracketKademlia networkConfig $ \_ ->
-            timeWarpNode transport ourVerInfo listeners $ \__theNode converse ->
-                withAsync (OQ.dequeueThread oq (sendMsgFromConverse converse)) $ \_ ->
+            timeWarpNode transport ourVerInfo listeners $ \theNode converse ->
+                withAsync (OQ.dequeueThread oq (sendMsgFromConverse converse)) $ \_ -> do
+                    -- TODO EKG stuff.
+                    -- Both logic and diffusion will use EKG so we don't
+                    -- set it up here in the diffusion layer.
                     notifyReady
+                    -- Wait until the dispatcher finishes (the transport
+                    -- shuts down normally or exceptionally).
+                    -- The expectation is that some user interface component
+                    -- controls when the node goes down, and terminates the
+                    -- diffusion layer via asynchronous exception (KillThread).
+                    -- In the case of the typical full cardano node, the
+                    -- user interface is "wait for control+c".
+                    waitForDispatcher theNode
 
 sendMsgFromConverse
     :: Converse PackingType PeerData d

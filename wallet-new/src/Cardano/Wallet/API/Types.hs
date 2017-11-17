@@ -1,17 +1,18 @@
 {-- Types shared between different API versions. --}
 {-# OPTIONS_GHC -fno-warn-missing-methods #-}
-{-# LANGUAGE ConstraintKinds       #-}
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE DefaultSignatures     #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE GADTs                 #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TypeFamilies          #-}
-{-# LANGUAGE TypeOperators         #-}
-{-# LANGUAGE UndecidableInstances  #-}
+{-# LANGUAGE ConstraintKinds      #-}
+{-# LANGUAGE GADTs                #-}
 
-module Cardano.Wallet.API.Types where
+module Cardano.Wallet.API.Types
+       ( DQueryParam
+       , DHeader
+       , mapRouter
+       , WithDefaultApiArg
+       , AlternativeApiArg
+       , WalletVersion(..)
+       , Tags
+       , APIVersion (..)
+       ) where
 
 import           Universum
 

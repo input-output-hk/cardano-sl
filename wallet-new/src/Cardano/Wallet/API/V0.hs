@@ -1,5 +1,4 @@
-{-# LANGUAGE DataKinds     #-}
-{-# LANGUAGE TypeOperators #-}
+
 module Cardano.Wallet.API.V0 where
 
 import qualified Pos.Wallet.Web.Api as V0

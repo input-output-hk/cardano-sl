@@ -1,8 +1,5 @@
 {- | This is a temporary module to help migration @V0@ datatypes into @V1@ datatypes.
 -}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeSynonymInstances  #-}
 module Cardano.Wallet.API.V1.Migration (

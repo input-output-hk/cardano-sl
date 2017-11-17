@@ -1,11 +1,11 @@
-{-# LANGUAGE DataKinds     #-}
-{-# LANGUAGE TypeOperators #-}
+
 module Cardano.Wallet.API.V1.Addresses where
+
+import           Servant
 
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
 
-import           Servant
 
 type API = "addresses" :> WalletRequestParams
                        :> Summary "Returns all the addresses."

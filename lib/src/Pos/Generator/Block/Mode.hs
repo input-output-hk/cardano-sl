@@ -40,8 +40,8 @@ import           Pos.Core (Address, GenesisWStakeholders (..), HasConfiguration,
 import           Pos.Crypto (SecretKey)
 import           Pos.DB (DBSum, MonadDB, MonadDBRead)
 import qualified Pos.DB as DB
-import           Pos.DB.Block (dbGetRawBlockSumDefault, dbGetRawUndoSumDefault,
-                               dbPutRawBlundSumDefault)
+import           Pos.DB.Block (dbGetSerBlockSumDefault, dbGetSerUndoSumDefault,
+                               dbPutSerBlundSumDefault)
 import qualified Pos.DB.Block as DB
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.Delegation (DelegationVar, mkDelegationVar)
@@ -220,14 +220,14 @@ instance HasSlottingVar InitBlockGenContext where
 instance MonadBlockGenBase m => MonadDBRead (InitBlockGenMode ext m) where
     dbGet = DB.dbGetSumDefault
     dbIterSource = DB.dbIterSourceSumDefault
-    dbGetRawBlock = dbGetRawBlockSumDefault
-    dbGetRawUndo = dbGetRawUndoSumDefault
+    dbGetSerBlock = dbGetSerBlockSumDefault
+    dbGetSerUndo = dbGetSerUndoSumDefault
 
 instance MonadBlockGenBase m => MonadDB (InitBlockGenMode ext m) where
     dbPut = DB.dbPutSumDefault
     dbWriteBatch = DB.dbWriteBatchSumDefault
     dbDelete = DB.dbDeleteSumDefault
-    dbPutRawBlund = dbPutRawBlundSumDefault
+    dbPutSerBlund = dbPutSerBlundSumDefault
 
 instance (MonadBlockGenBase m, MonadSlotsData ctx (InitBlockGenMode ext m))
       => MonadSlots ctx (InitBlockGenMode ext m)
@@ -301,14 +301,14 @@ instance HasNodeType (BlockGenContext ext) where
 instance MonadBlockGenBase m => MonadDBRead (BlockGenMode ext m) where
     dbGet = DB.dbGetSumDefault
     dbIterSource = DB.dbIterSourceSumDefault
-    dbGetRawBlock = DB.dbGetRawBlockSumDefault
-    dbGetRawUndo = DB.dbGetRawUndoSumDefault
+    dbGetSerBlock = DB.dbGetSerBlockSumDefault
+    dbGetSerUndo = DB.dbGetSerUndoSumDefault
 
 instance MonadBlockGenBase m => MonadDB (BlockGenMode ext m) where
     dbPut = DB.dbPutSumDefault
     dbWriteBatch = DB.dbWriteBatchSumDefault
     dbDelete = DB.dbDeleteSumDefault
-    dbPutRawBlund = DB.dbPutRawBlundSumDefault
+    dbPutSerBlund = DB.dbPutSerBlundSumDefault
 
 instance (MonadBlockGenBase m, MonadSlotsData ctx (BlockGenMode ext m))
       => MonadSlots ctx (BlockGenMode ext m)

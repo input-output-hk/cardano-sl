@@ -8,7 +8,7 @@
 -- 'MonadDBRead' contains reading and iterating capabilities. The
 -- advantage of it is that you don't need to do any 'IO' to use it
 -- which makes it suitable for pure testing.
--- 'MonadDBRead' also give you access to the Block DB.
+-- 'MonadDBRead' also provides access to the Block DB.
 --
 -- 'MonadDB' is a superclass of 'MonadDB' and allows to modify
 -- DB. Again, its purpose is to make it possible to use DB w/o IO
@@ -30,9 +30,11 @@ module Pos.DB.Class
        , DBIteratorClass (..)
        , IterType
        , MonadDBRead (..)
-       , RawBlock (..)
-       , RawUndo (..)
+       , Serialized (..)
+       , SerializedBlock
+       , SerializedUndo
        , MonadBlockDBRead
+       , getDeserialized
        , getBlock
        , MonadDB (..)
 
@@ -85,13 +87,15 @@ class DBIteratorClass i where
 
 type IterType i = (IterKey i, IterValue i)
 
-newtype RawBlock = RawBlock
-    { unRawBlock :: ByteString
+newtype Serialized a = Serialized
+    { unSerialized :: ByteString
     }
 
-newtype RawUndo = RawUndo
-    { unRawUndo :: ByteString
-    }
+data SerBlock
+data SerUndo
+
+type SerializedBlock = Serialized SerBlock
+type SerializedUndo = Serialized SerUndo
 
 -- | Pure read-only interface to the database.
 class (HasConfiguration, MonadBaseControl IO m, MonadThrow m) => MonadDBRead m where
@@ -107,10 +111,10 @@ class (HasConfiguration, MonadBaseControl IO m, MonadThrow m) => MonadDBRead m w
         ) => DBTag -> Proxy i -> Source (ResourceT m) (IterType i)
 
     -- | Get block by header hash
-    dbGetRawBlock :: HeaderHash -> m (Maybe RawBlock)
+    dbGetSerBlock :: HeaderHash -> m (Maybe SerializedBlock)
 
     -- | Get undo by header hash
-    dbGetRawUndo :: HeaderHash -> m (Maybe RawUndo)
+    dbGetSerUndo :: HeaderHash -> m (Maybe SerializedUndo)
 
 instance {-# OVERLAPPABLE #-}
     (MonadDBRead m, MonadTrans t, MonadThrow (t m), MonadBaseControl IO (t m)) =>
@@ -119,16 +123,21 @@ instance {-# OVERLAPPABLE #-}
     dbGet tag = lift . dbGet tag
     dbIterSource tag (p :: Proxy i) =
         hoist (hoist lift) (dbIterSource tag p)
-    dbGetRawBlock = lift . dbGetRawBlock
-    dbGetRawUndo = lift . dbGetRawUndo
+    dbGetSerBlock = lift . dbGetSerBlock
+    dbGetSerUndo = lift . dbGetSerUndo
 
 
 type MonadBlockDBRead m = (MonadDBRead m, BlockchainHelpers MainBlockchain)
 
+getDeserialized
+    :: (MonadBlockDBRead m, Bi v)
+    => (x -> m (Maybe (Serialized tag))) -> x -> m (Maybe v)
+getDeserialized getter x = getter x >>= \case
+    Nothing  -> pure Nothing
+    Just ser -> eitherToThrow $ bimap DBMalformed Just $ decodeFull $ unSerialized ser
+
 getBlock :: MonadBlockDBRead m => HeaderHash -> m (Maybe Block)
-getBlock x = dbGetRawBlock x >>= \case
-    Nothing      -> pure Nothing
-    Just rawBlock -> eitherToThrow $ first DBMalformed $ decodeFull $ unRawBlock rawBlock
+getBlock = getDeserialized dbGetSerBlock
 
 -- | Pure interface to the database. Combines read-only interface and
 -- ability to put raw bytes.
@@ -157,7 +166,7 @@ class MonadDBRead m => MonadDB m where
     dbDelete :: DBTag -> ByteString -> m ()
 
     -- | Put given blund into the Block DB.
-    dbPutRawBlund :: (Block, RawUndo) -> m ()
+    dbPutSerBlund :: (Block, SerializedUndo) -> m ()
 
 instance {-# OVERLAPPABLE #-}
     (MonadDB m, MonadTrans t, MonadThrow (t m), MonadBaseControl IO (t m)) =>
@@ -166,7 +175,7 @@ instance {-# OVERLAPPABLE #-}
     dbPut = lift ... dbPut
     dbWriteBatch = lift ... dbWriteBatch
     dbDelete = lift ... dbDelete
-    dbPutRawBlund = lift ... dbPutRawBlund
+    dbPutSerBlund = lift ... dbPutSerBlund
 
 ----------------------------------------------------------------------------
 -- GState abstraction

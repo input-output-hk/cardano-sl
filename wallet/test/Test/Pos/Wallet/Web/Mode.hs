@@ -295,14 +295,14 @@ instance {-# OVERLAPPING #-} HasLoggerName WalletTestMode where
 instance HasConfiguration => MonadDBRead WalletTestMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
-    dbGetRawBlock = DB.dbGetRawBlockPureDefault
-    dbGetRawUndo = DB.dbGetRawUndoPureDefault
+    dbGetSerBlock = DB.dbGetSerBlockPureDefault
+    dbGetSerUndo = DB.dbGetSerUndoPureDefault
 
 instance HasConfiguration => MonadDB WalletTestMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
-    dbPutRawBlund = DB.dbPutRawBlundPureDefault
+    dbPutSerBlund = DB.dbPutSerBlundPureDefault
 
 instance HasConfiguration => MonadGState WalletTestMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault

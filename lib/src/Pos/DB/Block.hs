@@ -16,19 +16,19 @@ module Pos.DB.Block
        , prepareBlockDB
 
        -- * Pure implementation
-       , dbGetRawBlockPureDefault
-       , dbGetRawUndoPureDefault
-       , dbPutRawBlundPureDefault
+       , dbGetSerBlockPureDefault
+       , dbGetSerUndoPureDefault
+       , dbPutSerBlundPureDefault
 
        -- * Rocks implementation
-       , dbGetRawBlockRealDefault
-       , dbGetRawUndoRealDefault
-       , dbPutRawBlundRealDefault
+       , dbGetSerBlockRealDefault
+       , dbGetSerUndoRealDefault
+       , dbPutSerBlundRealDefault
 
        -- * DBSum implementation
-       , dbGetRawBlockSumDefault
-       , dbGetRawUndoSumDefault
-       , dbPutRawBlundSumDefault
+       , dbGetSerBlockSumDefault
+       , dbGetSerUndoSumDefault
+       , dbPutSerBlundSumDefault
        ) where
 
 import           Universum
@@ -38,7 +38,7 @@ import           Control.Lens (at)
 import qualified Data.ByteString as BS (hPut, readFile)
 import           Data.Default (Default (def))
 import           Ether.Internal (HasLens (..))
-import           Formatting (build, formatToString, sformat, (%))
+import           Formatting (formatToString, (%))
 import           System.Directory (createDirectoryIfMissing, removeFile)
 import           System.FilePath ((</>))
 import           System.IO (IOMode (WriteMode), hClose, hFlush, openBinaryFile)
@@ -48,14 +48,14 @@ import           Pos.Binary.Block.Types ()
 import           Pos.Binary.Class (Bi, decodeFull, serialize')
 import           Pos.Binary.Core.Block ()
 import           Pos.Block.BHelpers ()
-import           Pos.Block.Types (Blund, RawBlund, SlogUndo (..), Undo (..))
+import           Pos.Block.Types (Blund, SerializedBlund, SlogUndo (..), Undo (..))
 import           Pos.Core (HasConfiguration, HeaderHash, headerHash)
 import           Pos.Core.Block (Block, GenesisBlock)
 import qualified Pos.Core.Block as CB
 import           Pos.Crypto (hashHexF)
 import           Pos.DB.BlockIndex (blockIndexKey)
-import           Pos.DB.Class (MonadDB (..), MonadDBRead (..), RawBlock (..), RawUndo (..),
-                               getBlock)
+import           Pos.DB.Class (MonadDB (..), MonadDBRead (..), Serialized (..), SerializedBlock,
+                               SerializedUndo, getBlock, getDeserialized)
 import           Pos.DB.Error (DBError (..))
 import           Pos.DB.Functions (dbSerializeValue)
 import           Pos.DB.GState.Common (getTipSomething)
@@ -72,9 +72,7 @@ import           Pos.Util.Util (eitherToThrow)
 ----------------------------------------------------------------------------
 
 getUndo :: MonadDBRead m => HeaderHash -> m (Maybe Undo)
-getUndo x = dbGetRawUndo x >>= \case
-    Nothing      -> pure Nothing
-    Just rawUndo -> eitherToThrow $ first DBMalformed $ decodeFull $ unRawUndo rawUndo
+getUndo = getDeserialized dbGetSerUndo
 
 -- | Convenient wrapper which combines 'dbGetBlock' and 'dbGetUndo' to
 -- read 'Blund'.
@@ -85,7 +83,7 @@ getBlund x =
         <*> MaybeT (getUndo x)
 
 putBlund :: MonadDB m => Blund -> m ()
-putBlund = dbPutRawBlund . fmap (RawUndo . serialize')
+putBlund = dbPutSerBlund . fmap (Serialized . serialize')
 
 -- | Get 'Block' corresponding to tip.
 getTipBlock :: MonadDBRead m => m Block
@@ -96,26 +94,26 @@ getTipBlock = getTipSomething "block" getBlock
 ----------------------------------------------------------------------------
 
 -- Get serialization of a block with given hash from Block DB.
-getRawBlock
+getSerializedBlock
     :: forall ctx m. (HasConfiguration, MonadRealDB ctx m)
     => HeaderHash -> m (Maybe ByteString)
-getRawBlock = blockDataPath >=> getData
+getSerializedBlock = blockDataPath >=> getRawData
 
 -- Get serialization of an undo data for block with given hash from Block DB.
-getRawUndo :: (HasConfiguration, MonadRealDB ctx m) => HeaderHash -> m (Maybe ByteString)
-getRawUndo = undoDataPath >=> getData
+getSerializedUndo :: (HasConfiguration, MonadRealDB ctx m) => HeaderHash -> m (Maybe ByteString)
+getSerializedUndo = undoDataPath >=> getRawData
 
 -- Put given block, its metadata and Undo data into Block DB. This
 -- function uses 'MonadRealDB' constraint which is too
 -- severe. Consider using 'dbPutBlund' instead.
-putRawBlund
+putSerializedBlund
     :: (HasConfiguration, MonadRealDB ctx m)
-    => RawBlund -> m ()
-putRawBlund (blk, rawUndo) = do
+    => SerializedBlund -> m ()
+putSerializedBlund (blk, serUndo) = do
     let h = headerHash blk
     liftIO . createDirectoryIfMissing False =<< dirDataPath h
     flip putData blk =<< blockDataPath h
-    flip putRawData (unRawUndo rawUndo) =<< undoDataPath h
+    flip putRawData (unSerialized serUndo) =<< undoDataPath h
     putBi (blockIndexKey h) (CB.getBlockHeader blk)
 
 deleteBlock :: MonadRealDB ctx m => HeaderHash -> m ()
@@ -132,7 +130,7 @@ prepareBlockDB
     :: MonadDB m
     => GenesisBlock -> m ()
 prepareBlockDB blk =
-    dbPutRawBlund (Left blk, RawUndo $ serialize' genesisUndo)
+    dbPutSerBlund (Left blk, Serialized $ serialize' genesisUndo)
   where
     genesisUndo =
         Undo
@@ -164,28 +162,26 @@ dbGetBlundPureDefault h = do
         Just (Left e)  -> throwM (DBMalformed e)
         Just (Right v) -> pure (Just v)
 
-dbGetRawBlockPureDefault
+dbGetSerBlockPureDefault
     :: (HasConfiguration, MonadPureDB ctx m)
     => HeaderHash
-    -> m (Maybe RawBlock)
-dbGetRawBlockPureDefault h = fmap (RawBlock . serialize' . fst) <$> dbGetBlundPureDefault h
+    -> m (Maybe SerializedBlock)
+dbGetSerBlockPureDefault h = (Serialized . serialize' . fst) <<$>> dbGetBlundPureDefault h
 
-dbGetRawUndoPureDefault
+dbGetSerUndoPureDefault
     :: forall ctx m. (HasConfiguration, MonadPureDB ctx m)
     => HeaderHash
-    -> m (Maybe RawUndo)
-dbGetRawUndoPureDefault h = fmap (RawUndo . serialize' . snd) <$> dbGetBlundPureDefault @ctx @m h
+    -> m (Maybe SerializedUndo)
+dbGetSerUndoPureDefault h = (Serialized . serialize' . snd) <<$>> dbGetBlundPureDefault h
 
-dbPutRawBlundPureDefault ::
+dbPutSerBlundPureDefault ::
        forall ctx m. (HasConfiguration, MonadPureDB ctx m)
-    => RawBlund
+    => SerializedBlund
     -> m ()
-dbPutRawBlundPureDefault (blk, rawUndo) = do
+dbPutSerBlundPureDefault (blk, serUndo) = do
+    undo <- eitherToThrow $ first DBMalformed $ decodeFull $ unSerialized serUndo
     let blund :: Blund
-        blund =
-            either (error "Couldn't deserialize undo")
-                   (blk,)
-                   (decodeFull $ unRawUndo rawUndo)
+        blund = (blk, undo)
     let h = headerHash blk
     (var :: DBPureVar) <- view (lensOf @DBPureVar)
     flip atomicModifyIORefPure var $
@@ -204,20 +200,20 @@ type BlockDBGenericEnv ctx m =
     , HasConfiguration
     )
 
-dbGetRawBlockRealDefault ::
+dbGetSerBlockRealDefault ::
        forall ctx m. (BlockDBGenericEnv ctx m)
     => HeaderHash
-    -> m (Maybe RawBlock)
-dbGetRawBlockRealDefault x = RawBlock <<$>> getRawBlock x
+    -> m (Maybe SerializedBlock)
+dbGetSerBlockRealDefault x = Serialized <<$>> getSerializedBlock x
 
-dbGetRawUndoRealDefault ::
+dbGetSerUndoRealDefault ::
        forall ctx m. BlockDBGenericEnv ctx m
     => HeaderHash
-    -> m (Maybe RawUndo)
-dbGetRawUndoRealDefault x = RawUndo <<$>> getRawUndo x
+    -> m (Maybe SerializedUndo)
+dbGetSerUndoRealDefault x = Serialized <<$>> getSerializedUndo x
 
-dbPutRawBlundRealDefault :: (HasConfiguration, MonadDBRead m, MonadRealDB ctx m) => RawBlund -> m ()
-dbPutRawBlundRealDefault = putRawBlund
+dbPutSerBlundRealDefault :: (HasConfiguration, MonadDBRead m, MonadRealDB ctx m) => SerializedBlund -> m ()
+dbPutSerBlundRealDefault = putSerializedBlund
 
 ----------------------------------------------------------------------------
 -- DBSum implementation
@@ -229,21 +225,21 @@ type DBSumEnv ctx m =
     , HasConfiguration
     )
 
-dbGetRawBlockSumDefault
+dbGetSerBlockSumDefault
     :: forall ctx m. (DBSumEnv ctx m)
-    => HeaderHash -> m (Maybe RawBlock)
-dbGetRawBlockSumDefault hh = eitherDB (dbGetRawBlockRealDefault hh) (dbGetRawBlockPureDefault hh)
+    => HeaderHash -> m (Maybe SerializedBlock)
+dbGetSerBlockSumDefault hh = eitherDB (dbGetSerBlockRealDefault hh) (dbGetSerBlockPureDefault hh)
 
-dbGetRawUndoSumDefault
+dbGetSerUndoSumDefault
     :: forall ctx m. DBSumEnv ctx m
-    => HeaderHash -> m (Maybe RawUndo)
-dbGetRawUndoSumDefault hh =
-    eitherDB (dbGetRawUndoRealDefault hh) (dbGetRawUndoPureDefault hh)
+    => HeaderHash -> m (Maybe SerializedUndo)
+dbGetSerUndoSumDefault hh =
+    eitherDB (dbGetSerUndoRealDefault hh) (dbGetSerUndoPureDefault hh)
 
-dbPutRawBlundSumDefault
+dbPutSerBlundSumDefault
     :: forall ctx m. (DBSumEnv ctx m)
-    => RawBlund -> m ()
-dbPutRawBlundSumDefault b = eitherDB (dbPutRawBlundRealDefault b) (dbPutRawBlundPureDefault b)
+    => SerializedBlund -> m ()
+dbPutSerBlundSumDefault b = eitherDB (dbPutSerBlundRealDefault b) (dbPutSerBlundPureDefault b)
 
 ----------------------------------------------------------------------------
 -- Helpers
@@ -257,21 +253,13 @@ putBi k v = rocksPutBi k v =<< getBlockIndexDB
 delete :: (MonadRealDB ctx m) => ByteString -> m ()
 delete k = rocksDelete k =<< getBlockIndexDB
 
-getData ::  forall m v . (MonadIO m, MonadCatch m, Bi v) => FilePath -> m (Maybe v)
-getData fp = handle handler $ liftIO $
-    either onDecodeError (pure . Just) . decodeFull =<< getRawData fp
+getRawData ::  forall m . (MonadIO m, MonadCatch m) => FilePath -> m (Maybe ByteString)
+getRawData  = handle handler . fmap Just . liftIO . BS.readFile
   where
-    onDecodeError :: Text -> IO a
-    onDecodeError err =
-        throwM $ DBMalformed $ sformat
-        ("Couldn't deserialize "%build%", reason: "%build) fp err
     handler :: IOError -> m (Maybe x)
     handler e
         | isDoesNotExistError e = pure Nothing
         | otherwise = throwM e
-
-getRawData ::  forall m . MonadIO m => FilePath -> m ByteString
-getRawData = liftIO . BS.readFile
 
 putData ::  (MonadIO m, Bi v) => FilePath -> v -> m ()
 putData fp = putRawData fp . serialize'

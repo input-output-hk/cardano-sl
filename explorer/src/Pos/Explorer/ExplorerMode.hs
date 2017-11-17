@@ -170,14 +170,14 @@ instance HasLens DB.DBPureVar ExplorerTestInitContext DB.DBPureVar where
 instance HasConfigurations => DB.MonadDBRead ExplorerTestInitMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
-    dbGetRawBlock = DB.dbGetRawBlockPureDefault
-    dbGetRawUndo = DB.dbGetRawUndoPureDefault
+    dbGetSerBlock = DB.dbGetSerBlockPureDefault
+    dbGetSerUndo = DB.dbGetSerUndoPureDefault
 
 instance HasConfigurations => DB.MonadDB ExplorerTestInitMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
-    dbPutRawBlund = DB.dbPutRawBlundPureDefault
+    dbPutSerBlund = DB.dbPutSerBlundPureDefault
 
 ----------------------------------------------------------------------------
 -- Boilerplate ExplorerTestContext instances
@@ -242,14 +242,14 @@ instance (HasConfigurations, MonadSlotsData ctx ExplorerTestMode)
 instance HasConfigurations => DB.MonadDBRead ExplorerTestMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
-    dbGetRawBlock = DB.dbGetRawBlockPureDefault
-    dbGetRawUndo = DB.dbGetRawUndoPureDefault
+    dbGetSerBlock = DB.dbGetSerBlockPureDefault
+    dbGetSerUndo = DB.dbGetSerUndoPureDefault
 
 instance HasConfigurations => DB.MonadDB ExplorerTestMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
-    dbPutRawBlund = DB.dbPutRawBlundPureDefault
+    dbPutSerBlund = DB.dbPutSerBlundPureDefault
 
 instance {-# OVERLAPPING #-} HasLoggerName ExplorerTestMode where
     getLoggerName = getLoggerNameDefault

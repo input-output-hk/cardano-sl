@@ -30,8 +30,8 @@ import           Pos.Context (HasNodeContext (..), HasPrimaryKey (..), HasSscCon
                               NodeContext)
 import           Pos.Core (HasConfiguration)
 import           Pos.DB (MonadGState (..), NodeDBs)
-import           Pos.DB.Block (dbGetRawBlockRealDefault, dbGetRawUndoRealDefault,
-                               dbPutRawBlundRealDefault)
+import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
+                               dbPutSerBlundRealDefault)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.DB (gsAdoptedBVDataDefault)
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
@@ -159,14 +159,14 @@ instance HasConfiguration => MonadGState (RealMode ext) where
 instance HasConfiguration => MonadDBRead (RealMode ext) where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
-    dbGetRawBlock = dbGetRawBlockRealDefault
-    dbGetRawUndo = dbGetRawUndoRealDefault
+    dbGetSerBlock = dbGetSerBlockRealDefault
+    dbGetSerUndo = dbGetSerUndoRealDefault
 
 instance HasConfiguration => MonadDB (RealMode ext) where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
-    dbPutRawBlund = dbPutRawBlundRealDefault
+    dbPutSerBlund = dbPutSerBlundRealDefault
 
 instance MonadBListener (RealMode ext) where
     onApplyBlocks = onApplyBlocksStub

@@ -5,7 +5,7 @@ module Pos.Block.Types
        ( SlogUndo (..)
        , Undo (..)
        , Blund
-       , RawBlund
+       , SerializedBlund
        ) where
 
 import           Universum
@@ -18,7 +18,7 @@ import           Pos.Block.Slog.Types (SlogUndo (..))
 import           Pos.Core (HasConfiguration, HasDifficulty (..), HasHeaderHash (..))
 import           Pos.Core.Block (Block)
 import           Pos.Core.Txp (TxpUndo)
-import           Pos.DB.Class (RawUndo)
+import           Pos.DB.Class (SerializedUndo)
 import           Pos.Delegation.Types (DlgUndo)
 import           Pos.Update.Poll.Types (USUndo)
 
@@ -35,7 +35,7 @@ instance NFData Undo
 -- | Block and its Undo.
 type Blund = (Block, Undo)
 
-type RawBlund = (Block, RawUndo)
+type SerializedBlund = (Block, SerializedUndo)
 
 instance HasConfiguration => Buildable Undo where
     build Undo{..} =
@@ -51,4 +51,3 @@ instance HasDifficulty Blund where
 
 instance HasHeaderHash Block => HasHeaderHash Blund where
     headerHash = headerHash . fst
-

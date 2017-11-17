@@ -343,14 +343,14 @@ instance HasSlottingVar TestInitModeContext where
 instance HasConfiguration => MonadDBRead TestInitMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
-    dbGetRawBlock = DB.dbGetRawBlockPureDefault
-    dbGetRawUndo = DB.dbGetRawUndoPureDefault
+    dbGetSerBlock = DB.dbGetSerBlockPureDefault
+    dbGetSerUndo = DB.dbGetSerUndoPureDefault
 
 instance HasConfiguration => MonadDB TestInitMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
-    dbPutRawBlund = DB.dbPutRawBlundPureDefault
+    dbPutSerBlund = DB.dbPutSerBlundPureDefault
 
 instance (HasConfiguration, MonadSlotsData ctx TestInitMode)
       => MonadSlots ctx TestInitMode
@@ -466,14 +466,14 @@ instance (HasConfiguration, MonadSlotsData ctx BlockTestMode)
 instance HasConfiguration => MonadDBRead BlockTestMode where
     dbGet = DB.dbGetPureDefault
     dbIterSource = DB.dbIterSourcePureDefault
-    dbGetRawBlock = DB.dbGetRawBlockPureDefault
-    dbGetRawUndo = DB.dbGetRawUndoPureDefault
+    dbGetSerBlock = DB.dbGetSerBlockPureDefault
+    dbGetSerUndo = DB.dbGetSerUndoPureDefault
 
 instance HasConfiguration => MonadDB BlockTestMode where
     dbPut = DB.dbPutPureDefault
     dbWriteBatch = DB.dbWriteBatchPureDefault
     dbDelete = DB.dbDeletePureDefault
-    dbPutRawBlund = DB.dbPutRawBlundPureDefault
+    dbPutSerBlund = DB.dbPutSerBlundPureDefault
 
 instance HasConfiguration => MonadGState BlockTestMode where
     gsAdoptedBVData = gsAdoptedBVDataDefault

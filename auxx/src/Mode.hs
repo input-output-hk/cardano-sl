@@ -183,14 +183,14 @@ instance {-# OVERLAPPING #-} CanJsonLog AuxxMode where
 instance HasConfiguration => MonadDBRead AuxxMode where
     dbGet = realModeToAuxx ... dbGet
     dbIterSource tag p = hoist (hoist realModeToAuxx) (dbIterSource tag p)
-    dbGetRawBlock = realModeToAuxx ... dbGetRawBlock
-    dbGetRawUndo = realModeToAuxx ... dbGetRawUndo
+    dbGetSerBlock = realModeToAuxx ... dbGetSerBlock
+    dbGetSerUndo = realModeToAuxx ... dbGetSerUndo
 
 instance HasConfiguration => MonadDB AuxxMode where
     dbPut = realModeToAuxx ... dbPut
     dbWriteBatch = realModeToAuxx ... dbWriteBatch
     dbDelete = realModeToAuxx ... dbDelete
-    dbPutRawBlund = realModeToAuxx ... dbPutRawBlund
+    dbPutSerBlund = realModeToAuxx ... dbPutSerBlund
 
 instance HasConfiguration => MonadGState AuxxMode where
     gsAdoptedBVData = realModeToAuxx ... gsAdoptedBVData

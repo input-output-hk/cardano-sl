@@ -31,8 +31,8 @@ import           Mockable.Production (Production)
 
 import           Pos.Core (HasConfiguration, Timestamp)
 import           Pos.DB (NodeDBs)
-import           Pos.DB.Block (dbGetRawBlockRealDefault, dbGetRawUndoRealDefault,
-                               dbPutRawBlundRealDefault)
+import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
+                               dbPutSerBlundRealDefault)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
                                dbWriteBatchDefault)
@@ -79,14 +79,14 @@ instance HasSlottingVar InitModeContext where
 instance HasConfiguration => MonadDBRead InitMode where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
-    dbGetRawBlock = dbGetRawBlockRealDefault
-    dbGetRawUndo = dbGetRawUndoRealDefault
+    dbGetSerBlock = dbGetSerBlockRealDefault
+    dbGetSerUndo = dbGetSerUndoRealDefault
 
 instance HasConfiguration => MonadDB InitMode where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
-    dbPutRawBlund = dbPutRawBlundRealDefault
+    dbPutSerBlund = dbPutSerBlundRealDefault
 
 instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx InitMode) =>
          MonadSlots ctx InitMode

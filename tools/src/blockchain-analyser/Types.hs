@@ -59,8 +59,8 @@ instance HasLens DB.NodeDBs BlockchainInspectorContext DB.NodeDBs where
 instance HasConfiguration => MonadDBRead BlockchainInspector where
     dbGet = DB.dbGetDefault
     dbIterSource = DB.dbIterSourceDefault
-    dbGetRawBlock = BDB.dbGetRawBlockRealDefault
-    dbGetRawUndo = BDB.dbGetRawUndoRealDefault
+    dbGetSerBlock = BDB.dbGetSerBlockRealDefault
+    dbGetSerUndo = BDB.dbGetSerUndoRealDefault
 
 prevBlock :: HasConfiguration => Block -> HeaderHash
 prevBlock = view prevBlockL

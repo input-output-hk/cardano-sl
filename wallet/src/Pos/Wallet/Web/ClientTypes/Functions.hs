@@ -26,8 +26,6 @@ import           Pos.Core.Txp (Tx (..), TxOut (..), txOutAddress, txOutValue)
 import           Pos.Core.Update (BlockVersionData (..), BlockVersionModifier (..),
                                   UpdateProposal (..))
 import           Pos.Crypto (EncryptedSecretKey, encToPublic)
-import           Pos.Types (Address, ChainDifficulty, decodeTextAddress, makePubKeyAddressBoot,
-                            sumCoins, unsafeAddCoin, unsafeIntegerToCoin)
 import           Pos.Update.Poll.Types (ConfirmedProposalState (..), StakeholderVotes,
                                         isPositiveVote)
 import           Pos.Util.Servant

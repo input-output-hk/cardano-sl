@@ -70,7 +70,7 @@ ppProcError ProcError{..} = ppArgumentError peArgumentError <$> typeErrorsDoc
 ppEvalError :: EvalError -> Doc
 ppEvalError (CommandNotSupported name) =
         "Command" <+> (squotes . highlight . nameToDoc) name
-    <+> "is anavailable. Try" <+> (squotes . highlight) "help"
+    <+> "is unavailable. Try" <+> (squotes . highlight) "help"
 ppEvalError (InvalidArguments name procError) =
         "Invalid arguments for" <+> (squotes . highlight . nameToDoc) name <> ":"
     <$> indent 2 (ppProcError procError)

@@ -33,6 +33,7 @@ import           Control.Lens (makePrisms)
 import           Data.Char (isAlpha, isAlphaNum)
 import qualified Data.List as List
 import qualified Data.List.NonEmpty as NonEmpty
+import           Data.Loc (Span, loc, spanFromTo)
 import           Data.Scientific (Scientific)
 import qualified Data.Text as Text
 import qualified Data.Text.Buildable as Buildable
@@ -40,8 +41,9 @@ import           Formatting (sformat)
 import           Test.QuickCheck.Arbitrary.Generic (Arbitrary (..), genericArbitrary, genericShrink)
 import qualified Test.QuickCheck.Gen as QC
 import           Test.QuickCheck.Instances ()
-import           Text.Megaparsec (Parsec, between, choice, eof, manyTill, notFollowedBy, parseMaybe,
-                                  skipMany, takeP, takeWhile1P, try, (<?>))
+import           Text.Megaparsec (Parsec, SourcePos (..), between, choice, eof, getPosition,
+                                  manyTill, notFollowedBy, parseMaybe, skipMany, takeP, takeWhile1P,
+                                  try, unPos, (<?>))
 import           Text.Megaparsec.Char (anyChar, char, satisfy, spaceChar, string)
 import           Text.Megaparsec.Char.Lexer (charLiteral, decimal, scientific, signed)
 
@@ -141,17 +143,27 @@ detokenize = unwords . List.map tokenRender
 
 type Lexer a = Parsec Void Text a
 
-tokenize :: Text -> [Token]
+tokenize :: Text -> [(Span, Token)]
 tokenize = fromMaybe noTokenErr . tokenize'
   where
     noTokenErr =
         error "tokenize: no token could be consumed. This is a bug"
 
-tokenize' :: Text -> Maybe [Token]
+tokenize' :: Text -> Maybe [(Span, Token)]
 tokenize' = parseMaybe (between pSkip eof (many pToken))
 
-pToken :: Lexer Token
-pToken = (try pToken' <|> pUnknown) <* pSkip
+pToken :: Lexer (Span, Token)
+pToken = withPosition (try pToken' <|> pUnknown) <* pSkip
+  where
+    posToNum :: (Num a, Num b) => SourcePos -> (a, b)
+    posToNum SourcePos{..} =
+        ( fromInteger . toInteger . unPos $ sourceLine
+        , fromInteger . toInteger . unPos $ sourceColumn)
+    withPosition p = do
+        pos1 <- (uncurry loc) . posToNum <$> getPosition
+        t <- p
+        pos2 <- (uncurry loc) . posToNum <$> getPosition
+        return (spanFromTo pos1 pos2, t)
 
 pUnknown :: Lexer Token
 pUnknown = TokenUnknown . UnknownChar <$> anyChar

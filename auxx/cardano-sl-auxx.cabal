@@ -60,6 +60,7 @@ library
                      , generic-arbitrary
                      , haskeline
                      , lens
+                     , loc
                      , log-warper
                      , megaparsec
                      , mmorph

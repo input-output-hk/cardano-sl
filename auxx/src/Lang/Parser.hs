@@ -9,6 +9,7 @@ import           Universum
 
 import           Control.Applicative.Combinators.NonEmpty (sepBy1)
 import           Control.Lens (Getting)
+import           Data.Loc (Span)
 import           Data.Monoid (First)
 import           Text.Earley (Grammar, Parser, Prod, Report, fullParses, parser, rule, terminal,
                               (<?>))
@@ -20,17 +21,17 @@ import           Lang.Lexer (BracketSide, Token, getFilePath', tokenize, _Bracke
                              _TokenStakeholderId, _TokenString)
 import           Lang.Syntax (Arg (..), Expr (..), Lit (..), ProcCall (..))
 
-tok :: Getting (First a) Token a -> Prod r e Token a
-tok p = terminal (preview p)
+tok :: Getting (First a) Token a -> Prod r e (s, Token) a
+tok p = terminal (preview $ _2 . p)
 
 inBrackets
     :: Getting (First ()) Token BracketSide
-    -> Prod r e Token a
-    -> Prod r e Token a
+    -> Prod r e (s, Token) a
+    -> Prod r e (s, Token) a
 inBrackets p r =
     tok (p . _BracketSideOpening) *> r <* tok (p . _BracketSideClosing)
 
-gExpr :: Grammar r (Prod r Text Token Expr)
+gExpr :: Grammar r (Prod r Text (s, Token) Expr)
 gExpr = mdo
     ntName <- rule $ tok _TokenName
     ntKey <- rule $ tok _TokenKey
@@ -66,10 +67,10 @@ gExpr = mdo
         ] <?> "atom"
     return ntExpr
 
-pExpr :: Parser Text [Token] Expr
+pExpr :: Parser Text [(Span, Token)] Expr
 pExpr = parser gExpr
 
-newtype ParseError = ParseError (Report Text [Token])
+newtype ParseError = ParseError (Report Text [(Span, Token)])
     deriving (Eq, Show)
 
 instance Exception ParseError

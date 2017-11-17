@@ -157,12 +157,12 @@ pToken = withPosition (try pToken' <|> pUnknown) <* pSkip
   where
     posToNum :: (Num a, Num b) => SourcePos -> (a, b)
     posToNum SourcePos{..} =
-        ( fromInteger . toInteger . unPos $ sourceLine
-        , fromInteger . toInteger . unPos $ sourceColumn)
+        ( fromIntegral . unPos $ sourceLine
+        , fromIntegral . unPos $ sourceColumn)
     withPosition p = do
-        pos1 <- (uncurry loc) . posToNum <$> getPosition
+        pos1 <- uncurry loc . posToNum <$> getPosition
         t <- p
-        pos2 <- (uncurry loc) . posToNum <$> getPosition
+        pos2 <- uncurry loc . posToNum <$> getPosition
         return (spanFromTo pos1 pos2, t)
 
 pUnknown :: Lexer Token

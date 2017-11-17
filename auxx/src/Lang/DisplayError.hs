@@ -5,6 +5,7 @@ module Lang.DisplayError
     , ppTypeName
     , ppParseError
     , ppProcError
+    , renderAuxxDoc
     ) where
 
 import           Universum hiding (empty, (<$>))
@@ -12,8 +13,10 @@ import           Universum hiding (empty, (<$>))
 import qualified Data.List.NonEmpty as NE
 import qualified Data.Set as S
 import qualified Data.Text.Lazy as T
+import qualified Text.PrettyPrint.ANSI.Leijen
 
 
+import           Control.Lens (matching)
 import           Data.Loc (Span, loc, locColumn, locLine, spanEnd, spanFromTo, spanStart, toNat)
 import           Data.Loc.Span (joinAsc)
 import           Data.Text (unpack)
@@ -21,12 +24,12 @@ import           Data.Text.Buildable (build)
 import           Data.Text.Lazy.Builder (toLazyText)
 import           Text.Earley (Report (..))
 import           Text.PrettyPrint.ANSI.Leijen (Doc, bold, char, comma, empty, hcat, indent,
-                                               punctuate, squotes, text, vcat, yellow, (<$>), (<+>))
+                                               punctuate, squotes, vcat, yellow, red, (<$>), (<+>))
 
 import           Lang.Argument (ArgumentError (..), ProcError (..), TypeError (..), TypeName (..),
                                 isEmptyArgumentError)
 import           Lang.Interpreter (EvalError (..))
-import           Lang.Lexer (Token (..))
+import           Lang.Lexer (_TokenUnknown)
 import           Lang.Name (Name)
 import           Lang.Parser (ParseError (..))
 
@@ -34,17 +37,20 @@ import           Lang.Parser (ParseError (..))
 highlight :: Doc -> Doc
 highlight = bold . yellow
 
+text :: Text -> Doc
+text = Text.PrettyPrint.ANSI.Leijen.text . unpack
+
 nameToDoc :: Name -> Doc
-nameToDoc = text . T.unpack . toLazyText . build
+nameToDoc = Text.PrettyPrint.ANSI.Leijen.text . T.unpack . toLazyText . build
 
 ppTypeName :: TypeName -> Doc
-ppTypeName (TypeName name)         = text (unpack name)
+ppTypeName (TypeName name)         = text name
 ppTypeName (TypeNameEither tn tn') = ppTypeName tn <+> char '|' <+> ppTypeName tn'
 
 ppTypeError :: TypeError -> Doc
 ppTypeError TypeError{..} =
-        "Couldn't match expected type" <+> (bold . yellow $ ppTypeName teExpectedType)
-    <+> "with actual value"            <+> (bold . yellow $ show teActualValue)
+        "Couldn't match expected type" <+> (highlight $ ppTypeName teExpectedType)
+    <+> "with actual value"            <+> (highlight $ show teActualValue) -- TODO: CSL-1814
     <>  "!"
 
 ppArgumentError :: ArgumentError -> Doc
@@ -65,7 +71,7 @@ ppArgumentError ae@ArgumentError{..} =
     irrelevantPosDoc =
         if aeIrrelevantPos == 0
         then []
-        else ["Irrelevant positional argument:" <+> (highlight . show) aeIrrelevantPos]
+        else ["Irrelevant positional arguments:" <+> (highlight . show) aeIrrelevantPos]
 
 ppProcError :: ProcError -> Doc
 ppProcError ProcError{..} = ppArgumentError peArgumentError <$> typeErrorsDoc
@@ -86,8 +92,8 @@ ppEvalError (InvalidArguments name procError) =
 
 
 renderLine :: Int -> Int -> Text -> Doc
-renderLine start end str = (text $ unpack str)
-  <$> highlight (indent start . hcat . replicate (end - start) $ char '^')
+renderLine start end str = text str
+  <$> (bold . red . indent start . hcat . replicate (end - start) $ char '^')
 
 renderFullLine :: Text -> Doc
 renderFullLine str = renderLine 0 (length str) str
@@ -96,13 +102,17 @@ ppParseError :: ParseError -> Doc
 ppParseError (ParseError str (Report {..})) =
       "Parse error at" <+> text (show span)
   <$> "Unexpected" <+> text unconsumedDesc <> ", expected"
-  <+> hcat (punctuate (text ", or ") $ map (text . unpack) expected)
+  <+> hcat (punctuate (text ", or ") $ map text expected)
   <$> renderLines
   where
     unconsumedDesc = maybe "end of input" show . head . fmap snd $ unconsumed
     strLines = NE.nonEmpty $ take spanLines . drop (spanLineStart - 1) $ lines str
     renderLines = case strLines of
-        Nothing -> error "Wtf"
+        Nothing ->
+            -- This can only happen if megaparsec's 'getPosition' somehow
+            -- returned line number bigger than the actual amount of
+            -- lines in the input text.
+            error "ppParseError/renderLines: span is outside of the input bounds"
         Just (line :| []) -> renderLine (spanColumnStart - 1) (spanColumnEnd - 1) line
         Just (line :| (line' : ls')) ->  let ls = line' :| ls' in
                 renderLine (spanColumnStart - 1) (length line) line
@@ -118,11 +128,14 @@ ppParseError (ParseError str (Report {..})) =
     strEndLoc = loc 1 (fromInteger . toInteger . length $ str)
 
     addColumn col l = loc (locLine l) (locColumn l + col)
-    isTokenUnknown (TokenUnknown _) = True
-    isTokenUnknown _                = False
+
+    isTokenUnknown = isRight . matching _TokenUnknown
     unknownSpans :: [Span]
     unknownSpans = map fst . takeWhile (isTokenUnknown . snd) $ unconsumed
     span = NE.head $
         case NE.nonEmpty (joinAsc unknownSpans) <|> NE.nonEmpty (map fst unconsumed) of
             Nothing -> spanFromTo strEndLoc (addColumn 1 strEndLoc) :|[]
             Just x  -> x
+
+renderAuxxDoc :: Doc -> Text
+renderAuxxDoc = show -- it's fine

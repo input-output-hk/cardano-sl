@@ -32,14 +32,13 @@ import           Pos.Txp (genesisUtxo, unGenesisUtxo)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.JsonLog (JLEvent (JLTxReceived))
 import           Pos.Util.TimeWarp (jsonLog)
-import           Pos.Util.Util (eitherToThrow)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext)
 
 import           AuxxOptions (AuxxOptions (..))
 import           Command (createCommandProcs)
 import qualified Lang
 import           Mode (MonadAuxxMode)
-import           Repl (WithCommandAction (..))
+import           Repl (WithCommandAction (..), PrintAction)
 
 ----------------------------------------------------------------------------
 -- Plugin implementation
@@ -77,14 +76,8 @@ rawExec ::
 rawExec mHasAuxxMode AuxxOptions{..} mSendActions = \case
     Left WithCommandAction{..} -> do
         printAction <- getPrintAction
-        let commandProcs = createCommandProcs mHasAuxxMode printAction mSendActions
         printAction "... the auxx plugin is ready"
-        forever $ withCommand $ \line -> case Lang.parse line of
-            Left parseError -> printAction (show . Lang.ppParseError $ parseError)
-            Right expr -> Lang.evaluate commandProcs expr >>= \eitherValue ->
-                case eitherValue of
-                    Left evalError -> printAction (show . Lang.ppEvalError $ evalError)
-                    Right value -> withValueText printAction value
+        forever $ withCommand $ \line -> runCmd mHasAuxxMode line mSendActions printAction
     Right cmd -> runWalletCmd mHasAuxxMode cmd mSendActions
 
 runWalletCmd ::
@@ -101,10 +94,7 @@ runWalletCmd ::
     -> Maybe (SendActions m)
     -> m ()
 runWalletCmd mHasAuxxMode line mSendActions = do
-    let commandProcs = createCommandProcs mHasAuxxMode printAction mSendActions
-    expr <- eitherToThrow $ Lang.parse line
-    value <- eitherToThrow =<< Lang.evaluate commandProcs expr
-    withValueText printAction value
+    runCmd mHasAuxxMode line mSendActions printAction
     printAction "Command execution finished"
     printAction " " -- for exit by SIGPIPE
     liftIO $ hFlush stdout
@@ -114,6 +104,29 @@ runWalletCmd mHasAuxxMode line mSendActions = do
 #endif
   where
     printAction = putText
+
+runCmd ::
+       ( HasCompileInfo
+       , MonadIO m
+       , Mockable Catch m
+       , MonadThrow m
+       , CanLog m
+       , HasLoggerName m
+       , Mockable Delay m
+       )
+    => Maybe (Dict (MonadAuxxMode m))
+    -> Text
+    -> Maybe (SendActions m)
+    -> PrintAction m
+    -> m ()
+runCmd mHasAuxxMode line mSendActions printAction = do
+    let commandProcs = createCommandProcs mHasAuxxMode printAction mSendActions
+    case Lang.parse line of
+        Left parseError -> printAction (Lang.renderAuxxDoc . Lang.ppParseError $ parseError)
+        Right expr -> Lang.evaluate commandProcs expr >>= \eitherValue ->
+            case eitherValue of
+                Left evalError -> printAction (Lang.renderAuxxDoc . Lang.ppEvalError $ evalError)
+                Right value -> withValueText printAction value
 
 withValueText :: Monad m => (Text -> m ()) -> Lang.Value -> m ()
 withValueText cont = \case

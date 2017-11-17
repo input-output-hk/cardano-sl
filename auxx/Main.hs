@@ -31,7 +31,7 @@ import           Pos.WorkMode (EmptyMempoolExt, RealMode)
 import           AuxxOptions (AuxxAction (..), AuxxOptions (..), AuxxStartMode (..), getAuxxOptions)
 import           Mode (AuxxContext (..), AuxxMode, CmdCtx (..), realModeToAuxx)
 import           Plugin (auxxPlugin, rawExec)
-import           Repl (WithCommandAction, withAuxxRepl)
+import           Repl (WithCommandAction(..), withAuxxRepl)
 
 -- 'NodeParams' obtained using 'CLI.getNodeParams' are not perfect for
 -- Auxx, so we need to adapt them slightly.
@@ -75,9 +75,8 @@ runNodeWithSinglePlugin nr (plugin, plOuts) =
 action :: HasCompileInfo => AuxxOptions -> Either WithCommandAction Text -> Production ()
 action opts@AuxxOptions {..} command = do
     CLI.printFlags
-    let
-        runWithoutNode = do
-          rawExec Nothing opts Nothing command
+    let runWithoutNode = rawExec Nothing opts Nothing command
+    printAction <- either getPrintAction (const $ return putText) command
 
     let configToDict :: HasConfigurations => Production (Maybe (Dict HasConfigurations))
         configToDict = return (Just Dict)
@@ -88,14 +87,13 @@ action opts@AuxxOptions {..} command = do
                   . handle @_ @ConfigurationError      (return . const Nothing)
                   $ withConfigurations conf configToDict
             mode <$ case mode of
-                Nothing -> putText "Mode: light"
-                _ -> putText "Mode: with-config"
+                Nothing -> printAction "Mode: light"
+                _ -> printAction "Mode: with-config"
         Light -> return Nothing
         _ -> withConfigurations conf configToDict
 
     case hasConfigurations of
-      Nothing -> do
-          runWithoutNode
+      Nothing -> runWithoutNode
       Just Dict -> do
           logInfo $ sformat ("System start time is "%shown) $ gdStartTime genesisData
           t <- currentTime

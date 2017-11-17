@@ -67,13 +67,11 @@ gExpr = mdo
         ] <?> "atom"
     return ntExpr
 
-pExpr :: Parser Text [(Span, Token)] Expr
+pExpr :: Parser Text [(s, Token)] Expr
 pExpr = parser gExpr
 
 data ParseError = ParseError Text (Report Text [(Span, Token)])
     deriving (Eq, Show)
-
-instance Exception ParseError
 
 parse :: Text -> Either ParseError Expr
 parse str = first (ParseError str) . toEither . fullParses pExpr . tokenize $ str

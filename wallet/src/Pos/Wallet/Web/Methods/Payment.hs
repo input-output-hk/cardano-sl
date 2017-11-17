@@ -38,7 +38,7 @@ import           Pos.Util.LogSafe (logInfoS)
 import           Pos.Wallet.KeyStorage (getSecretKeys)
 import           Pos.Wallet.Web.Account (GenSeed (..), getSKByAddressPure, getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CAddress (..), CCoin, CId,
-                                             CTx (..), CWAddressMeta (..), NewPaymentBatchInit (..),
+                                             CTx (..), CWAddressMeta (..), NewBatchPayment (..),
                                              Wal, addrMetaToAccount, mkCCoin)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTx, constructCTx, getCurChainDifficulty)
@@ -71,9 +71,9 @@ newPaymentBatch
     :: MonadWalletWebMode m
     => SendActions m
     -> PassPhrase
-    -> NewPaymentBatchInit
+    -> NewBatchPayment
     -> m CTx
-newPaymentBatch sa passphrase NewPaymentBatchInit {..} = do
+newPaymentBatch sa passphrase NewBatchPayment {..} = do
     src <- decodeCTypeOrFail npbFrom
     mDests <- mapM (sequence . second decodeCTypeOrFail) npbTo
     dst <- nonEmpty mDests `whenNothing`

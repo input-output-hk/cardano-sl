@@ -89,7 +89,7 @@ import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccoun
                                              CPaperVendWalletRedeem, CPassPhrase, CProfile, CTx,
                                              CTxId, CTxMeta, CUpdateInfo, CWallet, CWalletInit,
                                              CWalletMeta, CWalletRedeem, ClientInfo,
-                                             NewPaymentBatchInit, ScrollLimit, ScrollOffset,
+                                             NewBatchPayment, ScrollLimit, ScrollOffset,
                                              SyncProgress, Wal)
 import           Pos.Wallet.Web.Error (WalletError (DecodeError), catchEndpointErrors)
 import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
@@ -282,7 +282,7 @@ type NewPaymentBatch =
     :> "payments"
     :> "batch"
     :> DCQueryParam "passphrase" CPassPhrase
-    :> ReqBody '[JSON] NewPaymentBatchInit
+    :> ReqBody '[JSON] NewBatchPayment
     :> WRes Post CTx
 
 type TxFee =

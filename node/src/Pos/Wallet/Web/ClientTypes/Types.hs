@@ -15,7 +15,7 @@ module Pos.Wallet.Web.ClientTypes.Types
       , CTxId (..)
       , CTxMeta (..)
       , CTExMeta (..)
-      , NewPaymentBatchInit (..)
+      , NewBatchPayment (..)
       , CPtxCondition (..)
       , CInitialized (..)
       , AccountId (..)
@@ -306,7 +306,7 @@ data CTExMeta = CTExMeta
     , cexId          :: CId Addr
     } deriving (Show, Generic)
 
-data NewPaymentBatchInit = NewPaymentBatchInit
+data NewBatchPayment = NewBatchPayment
     { npbFrom   :: CAccountId
     , npbTo     :: [(CId Addr, CCoin)] -- TODO: use NonEmpty here
     , npbPolicy :: Maybe InputSelectionPolicy

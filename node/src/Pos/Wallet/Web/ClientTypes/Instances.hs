@@ -36,8 +36,8 @@ import           Pos.Wallet.Web.ClientTypes.Types (AccountId (..), ApiVersion (.
                                                    CTxId (..), CTxMeta (..), CUpdateInfo (..),
                                                    CWallet (..), CWalletAssurance, CWalletInit (..),
                                                    CWalletMeta (..), CWalletRedeem (..),
-                                                   ClientInfo (..), NewPaymentBatchInit,
-                                                   NewPaymentBatchInit (..), ScrollLimit (..),
+                                                   ClientInfo (..), NewBatchPayment,
+                                                   NewBatchPayment (..), ScrollLimit (..),
                                                    ScrollOffset (..), SyncProgress (..))
 import           Pos.Wallet.Web.Pending.Types (PtxCondition)
 
@@ -108,8 +108,8 @@ instance Buildable CAccountInit where
         caInitWId
         caInitMeta
 
-instance Buildable NewPaymentBatchInit where
-    build NewPaymentBatchInit{..} =
+instance Buildable NewBatchPayment where
+    build NewBatchPayment{..} =
         bprint ("{ from="%build
                 %" to="%(later mapBuilder)
                 %" policy="%build
@@ -118,7 +118,7 @@ instance Buildable NewPaymentBatchInit where
         npbTo
         npbPolicy
 
-instance Buildable (SecureLog NewPaymentBatchInit) where
+instance Buildable (SecureLog NewBatchPayment) where
     build = buildUnsecure
 
 instance Buildable (SecureLog CAccountInit) where

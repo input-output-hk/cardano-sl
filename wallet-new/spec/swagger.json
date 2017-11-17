@@ -1743,42 +1743,6 @@
                 ]
             }
         },
-        "/api/v1/payments/fees": {
-            "post": {
-                "summary": "Estimate the fees which would originate from the payment.",
-                "consumes": [
-                    "application/json;charset=utf-8"
-                ],
-                "responses": {
-                    "400": {
-                        "description": "Invalid `body`"
-                    },
-                    "200": {
-                        "schema": {
-                            "$ref": "#/definitions/EstimatedFees"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "parameters": [
-                    {
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/Payment"
-                        },
-                        "in": "body",
-                        "name": "body"
-                    }
-                ],
-                "tags": [
-                    "Payments",
-                    "V1"
-                ]
-            }
-        },
         "/api/v0/accounts": {
             "post": {
                 "consumes": [
@@ -2264,42 +2228,6 @@
                 ]
             }
         },
-        "/api/v1/payments": {
-            "post": {
-                "summary": "Generates a new payment from the source Account to the target Address.",
-                "consumes": [
-                    "application/json;charset=utf-8"
-                ],
-                "responses": {
-                    "400": {
-                        "description": "Invalid `body`"
-                    },
-                    "200": {
-                        "schema": {
-                            "$ref": "#/definitions/Transaction"
-                        },
-                        "description": ""
-                    }
-                },
-                "produces": [
-                    "application/json;charset=utf-8"
-                ],
-                "parameters": [
-                    {
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/Payment"
-                        },
-                        "in": "body",
-                        "name": "body"
-                    }
-                ],
-                "tags": [
-                    "Payments",
-                    "V1"
-                ]
-            }
-        },
         "/api/txs/payments/{from}/{to}/{amount}": {
             "post": {
                 "consumes": [
@@ -2718,6 +2646,42 @@
                 ]
             }
         },
+        "/api/v1/transactions": {
+            "post": {
+                "summary": "Generates a new transaction from the source to one or multiple target addresses.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/Transaction"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/Payment"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "Transactions",
+                    "V1"
+                ]
+            }
+        },
         "/api/papervend/redemptions/ada": {
             "post": {
                 "consumes": [
@@ -2961,6 +2925,42 @@
                 ],
                 "tags": [
                     "V0"
+                ]
+            }
+        },
+        "/api/v1/transactions/fees": {
+            "post": {
+                "summary": "Estimate the fees which would originate from the payment.",
+                "consumes": [
+                    "application/json;charset=utf-8"
+                ],
+                "responses": {
+                    "400": {
+                        "description": "Invalid `body`"
+                    },
+                    "200": {
+                        "schema": {
+                            "$ref": "#/definitions/EstimatedFees"
+                        },
+                        "description": ""
+                    }
+                },
+                "produces": [
+                    "application/json;charset=utf-8"
+                ],
+                "parameters": [
+                    {
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/Payment"
+                        },
+                        "in": "body",
+                        "name": "body"
+                    }
+                ],
+                "tags": [
+                    "Transactions",
+                    "V1"
                 ]
             }
         },

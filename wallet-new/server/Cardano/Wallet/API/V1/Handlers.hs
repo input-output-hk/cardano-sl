@@ -10,12 +10,12 @@ import           Universum
 
 
 import           Cardano.Wallet.API.Types
-import qualified Cardano.Wallet.API.V1                    as V1
+import qualified Cardano.Wallet.API.V1 as V1
 import qualified Cardano.Wallet.API.V1.Handlers.Addresses as Addresses
-import qualified Cardano.Wallet.API.V1.Handlers.Payments  as Payments
-import qualified Cardano.Wallet.API.V1.Handlers.Updates   as Updates
-import qualified Cardano.Wallet.API.V1.Handlers.Wallets   as Wallets
-import qualified Cardano.Wallet.API.V1.Wallets            as Wallets
+import qualified Cardano.Wallet.API.V1.Handlers.Transactions as Transactions
+import qualified Cardano.Wallet.API.V1.Handlers.Updates as Updates
+import qualified Cardano.Wallet.API.V1.Handlers.Wallets as Wallets
+import qualified Cardano.Wallet.API.V1.Wallets as Wallets
 
 import           Cardano.Wallet.API.V1.Migration
 
@@ -31,7 +31,7 @@ handlers :: ( HasConfigurations
 handlers naturalTransformation = apiVersion
                             :<|> Addresses.handlers
                             :<|> hoistServer (Proxy @Wallets.API) naturalTransformation Wallets.handlers
-                            :<|> Payments.handlers
+                            :<|> Transactions.handlers
                             :<|> Updates.handlers
 
 apiVersion :: Handler WalletVersion

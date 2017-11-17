@@ -271,38 +271,38 @@ select::-ms-expand {
 ------------------------------ */
 
 @button standard-button {
-  border: none;
-  color: var(--color2);
-  color-hover: color(var(--color2) a(0.5));
-  color-active: var(--color2);
-  background-color: transparent;
-  background-color-hover: transparent;
-  background-color-active: transparent;
+  button-border: none;
+  button-color: var(--color2);
+  button-color-hover: color(var(--color2) a(0.5));
+  button-color-active: var(--color2);
+  button-background-color: transparent;
+  button-background-color-hover: transparent;
+  button-background-color-active: transparent;
 }
 
 @button primary-button {
-  color: var(--color0);
-  color-hover: var(--color0);
-  color-active: color(var(--color0) a(0.8));
+  button-color: var(--color0);
+  button-color-hover: var(--color0);
+  button-color-active: color(var(--color0) a(0.8));
 
-  background-color: var(--color10);
-  background-color-hover: var(--color5);
-  background-color-active: color(var(--color5) a(0.8));
+  button-background-color: var(--color10);
+  button-background-color-hover: var(--color5);
+  button-background-color-active: color(var(--color5) a(0.8));
 }
 
 @button outline-button {
-  color: var(--color9);
-  color-hover: color(var(--color9) a(0.5));
-  color-active: var(--color9);
+  button-color: var(--color9);
+  button-color-hover: color(var(--color9) a(0.5));
+  button-color-active: var(--color9);
 
-  background-color: transparent;
-  background-color-hover: transparent;
-  background-color-active: transparent;
+  button-background-color: transparent;
+  button-background-color-hover: transparent;
+  button-background-color-active: transparent;
 
-  border-width: 1px;
-  border-color: var(--color9);
-  border-color-hover: color(var(--color9) a(0.8));
-  border-color-active: var(--color9);
+  button-border-width: 1px;
+  button-border-color: var(--color9);
+  button-border-color-hover: color(var(--color9) a(0.8));
+  button-border-color-active: var(--color9);
 }
 
 .headline {

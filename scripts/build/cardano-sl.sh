@@ -120,6 +120,8 @@ do
     spec_prj="auxx"
   elif [[ $var == "wallet" ]]; then
     spec_prj="wallet"
+  elif [[ $var == "wallet-new" ]]; then
+    spec_prj="wallet-new"
   elif [[ $var == "explorer" ]]; then
     spec_prj="explorer"
   elif [[ $var == "node" ]]; then
@@ -180,6 +182,7 @@ fi
 
 xperl='$|++; s/(.*) Compiling\s([^\s]+)\s+\(\s+([^\/]+).*/\1 \2/p'
 xgrep="((^.*warning.*$|^.*error.*$|^    .*$|^.*can't find source.*$|^Module imports form a cycle.*$|^  which imports.*$)|^)"
+xsed='1,11d' # the hack is necessary due to warning produced by servant-quickcheck
 
 if [[ $clean == true ]]; then
 
@@ -191,6 +194,9 @@ if [[ $clean == true ]]; then
 
   echo "Cleaning cardano-sl-wallet"
   stack clean cardano-sl-wallet
+
+  echo "Cleaning cardano-sl-wallet-new"
+  stack clean cardano-sl-wallet-new
 
   echo "Cleaning cardano-sl-explorer"
   stack clean cardano-sl-explorer
@@ -214,7 +220,7 @@ if [[ $spec_prj == "" ]]; then
     to_build="$to_build cardano-sl-$prj"
   done
 
-  to_build="$to_build cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet cardano-sl-explorer cardano-sl-node"
+  to_build="$to_build cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet cardano-sl-wallet-new cardano-sl-explorer cardano-sl-node"
 
 elif [[ $spec_prj == "lib" ]]; then
   to_build="cardano-sl"
@@ -224,6 +230,8 @@ elif [[ $spec_prj == "auxx" ]]; then
   to_build="cardano-sl-auxx"
 elif [[ $spec_prj == "wallet" ]]; then
   to_build="cardano-sl-node cardano-sl-wallet"
+elif [[ $spec_prj == "wallet-new" ]]; then
+  to_build="cardano-sl-node cardano-sl-wallet-new"
 elif [[ $spec_prj == "explorer" ]]; then
   to_build="cardano-sl-node cardano-sl-explorer"
 elif [[ $spec_prj == "all" ]]; then
@@ -245,7 +253,8 @@ for prj in $to_build; do
   # Building deps
   sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun --dependencies-only $args $prj"
   echo -e "$sbuild\n"
-  eval $sbuild
+  eval $sbuild 2>&1                         \
+    | sed -e "$xsed"
 
   if [[ $no_code == true ]]; then
     ghc_opts_2="$ghc_opts -fwrite-interface -fno-code"
@@ -257,6 +266,7 @@ for prj in $to_build; do
   echo -e "$sbuild\n"
 
   eval $sbuild 2>&1                         \
+    | sed -e "$xsed"                        \
     | perl -pe "$xperl"                     \
     | { grep -E --color "$xgrep" || true; }
 done
@@ -265,6 +275,7 @@ if [[ $to_build == "" ]]; then
   sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun $fast $args"
   echo -e "$sbuild\n"
   eval $sbuild 2>&1                         \
+    | sed -e "$xsed"                        \
     | perl -pe "$xperl"                     \
     | { grep -E --color "$xgrep" || true; }
 fi
@@ -276,7 +287,8 @@ if [[ $test == true ]]; then
       --no-run-benchmarks                   \
       $fast                                 \
       $args                                 \
-      cardano-sl
+      cardano-sl                            \
+    | sed "$xsed"
 fi
 
 if [[ $coverage == true ]]; then

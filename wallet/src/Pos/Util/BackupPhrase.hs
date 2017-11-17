@@ -1,11 +1,8 @@
 -- | Module providing restoring from backup phrase functionality
 
 module Pos.Util.BackupPhrase
-       ( BackupPhrase
-       , mkBackupPhrase12
-       , mkBackupPhrase9
+       ( BackupPhrase(..)
        , backupPhraseWordsNum
-       , bpToList
        , toSeed
        , keysFromPhrase
        , safeKeysFromPhrase
@@ -22,7 +19,7 @@ import           Pos.Crypto (AbstractHash, EncryptedSecretKey, PassPhrase, Secre
                              deterministicKeyGen, deterministicVssKeyGen, safeDeterministicKeyGen,
                              unsafeAbstractHash)
 import           Pos.Util.Mnemonics (fromMnemonic, toMnemonic)
-import           Test.QuickCheck (Arbitrary (..), genericShrink)
+import           Test.QuickCheck (Arbitrary (..), elements, genericShrink, vectorOf)
 import           Test.QuickCheck.Instances ()
 
 -- | Datatype to contain a valid backup phrase
@@ -35,24 +32,24 @@ instance Bi BackupPhrase where
   decode = BackupPhrase <$> decode
 
 instance Arbitrary BackupPhrase where
-  arbitrary = BackupPhrase <$> arbitrary
+  arbitrary = BackupPhrase <$> vectorOf 12 (elements englishWords)
   shrink    = genericShrink
+
+-- | (Some) valid English words as taken from <https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki BIP-39>
+englishWords :: [Text]
+englishWords = [ "recycle" , "child" , "universe" , "extend" , "edge" , "tourist"
+               , "swamp" , "rare" , "enhance" , "rabbit" , "blast" , "plastic" , "attitude"
+               , "name" , "skull" , "merit" , "night" , "idle" , "bone" , "exact"
+               , "inflict" , "legal" , "predict" , "certain" , "napkin" , "blood"
+               , "color" , "screen" , "birth" , "detect" , "summer" , "palm"
+               , "entry" , "swing" , "fit" , "garden" , "trick" , "timber"
+               , "toss" , "atom" , "kitten" , "flush" , "master" , "transfer"
+               , "success" , "worry" , "rural" , "silver" , "invest" , "mean "
+               ]
 
 -- | Number of words in backup phrase
 backupPhraseWordsNum :: Int
 backupPhraseWordsNum = 12
-
--- | Make backup phrase from list
-mkBackupPhrase12 :: [Text] -> BackupPhrase
-mkBackupPhrase12 ls
-    | length ls == 12 = BackupPhrase ls
-    | otherwise = error "Invalid number of words in backup phrase! Expected 12 words."
-
--- | Make backup phrase from list
-mkBackupPhrase9 :: [Text] -> BackupPhrase
-mkBackupPhrase9 ls
-    | length ls == 9 = BackupPhrase ls
-    | otherwise = error "Invalid number of words in backup phrase! Expected 9 words."
 
 instance Show BackupPhrase where
     show _ = "<backup phrase>"

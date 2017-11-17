@@ -1,0 +1,4 @@
+.stack-work
+.swagger-codegen*
+.dir-locals.el
+.stylish-haskell.yaml

@@ -97,6 +97,9 @@ library
 
                       Pos.Wallet.Web.Util
 
+                      Pos.Util.BackupPhrase
+                      Pos.Util.Mnemonics
+
   other-modules:        Paths_cardano_sl_wallet
 
   build-depends:        acid-state
@@ -135,6 +138,8 @@ library
                       , network-transport-tcp
                       , optparse-applicative
                       , parsec
+                      , QuickCheck
+                      , quickcheck-instances
                       , random
                       , reflection
                       , safecopy

@@ -91,7 +91,6 @@ library
                         -- Utilities/helpers
                         Pos.Util.Config
                         Pos.Util.Monitor
-                        Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
                         Pos.Util.OutboundQueue
                         Pos.Util.UserSecret
@@ -125,6 +124,9 @@ library
                         Test.Pos.Block.Logic.Mode
                         Test.Pos.Block.Logic.Util
                         Test.Pos.Block.Logic.Event
+                        Test.Pos.Helpers
+                        Test.Pos.Cbor.Canonicity
+                        Test.Pos.Cbor.ReferenceImplementation
 
                         -- Util code for tests
                         Test.Pos.Util
@@ -243,6 +245,7 @@ library
                       , base64-bytestring
                       , binary
                       , bytestring
+                      , cborg
                       , canonical-json
                       , cardano-crypto
                       , cardano-report-server >= 0.2.1
@@ -281,7 +284,9 @@ library
                       , focus
                       , formatting
                       , generic-arbitrary
+                      , half
                       , hashable
+                      , hspec
                       , http-client
                       , http-client-tls
                       , http-conduit
@@ -422,9 +427,7 @@ test-suite cardano-test
                        Test.Pos.Ssc.VssCertDataSpec
 
                        -- Everything else
-                       Test.Pos.Cbor.Canonicity
                        Test.Pos.Cbor.CborSpec
-                       Test.Pos.Cbor.ReferenceImplementation
                        Test.Pos.Communication.Identity.BinarySpec
                        Test.Pos.ConstantsSpec
                        Test.Pos.CryptoSpec
@@ -445,7 +448,6 @@ test-suite cardano-test
                        Test.Pos.Update.Identity.SafeCopySpec
                        Test.Pos.Update.MemStateSpec
                        Test.Pos.Update.PollSpec
-                       Test.Pos.Helpers
                        Test.Pos.Util.LimitsSpec
                        Test.Pos.Util.ModifierSpec
                        Test.Pos.UtilSpec

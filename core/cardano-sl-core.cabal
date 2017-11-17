@@ -129,7 +129,6 @@ library
                        Pos.Util.AssertMode
                        Pos.Util.Chrono
                        Pos.Util.Limits
-                       Pos.Util.Mnemonics
 
   other-modules:
                        Pos.Core.Context.PrimaryKey

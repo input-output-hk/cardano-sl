@@ -363,6 +363,9 @@ test-suite cardano-wallet-test
 
                        Test.Pos.Wallet.Web.Tracking.SyncSpec
 
+                       -- Something else
+                       Test.Pos.Types.Identity.BinarySpec
+
   type:                exitcode-stdio-1.0
   build-depends:       MonadRandom
                      , QuickCheck

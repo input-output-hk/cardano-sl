@@ -153,6 +153,14 @@ test-suite wallet-new-specs
   other-modules:    SwaggerSpec
                     APISpec
                     MarshallingSpec
+                    Cardano.Wallet.API.V0.Handlers
+                    Cardano.Wallet.API.V1.Handlers
+                    Cardano.Wallet.API.V1.Handlers.Accounts
+                    Cardano.Wallet.API.V1.Handlers.Addresses
+                    Cardano.Wallet.API.V1.Handlers.Payments
+                    Cardano.Wallet.API.V1.Handlers.Wallets
+                    Cardano.Wallet.API.V1.Handlers.Updates
+                    Cardano.Wallet.API.V1.Swagger
   build-depends:    base
                   , QuickCheck
                   , aeson

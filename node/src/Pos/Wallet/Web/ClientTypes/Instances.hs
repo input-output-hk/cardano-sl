@@ -112,11 +112,11 @@ instance Buildable NewBatchPayment where
     build NewBatchPayment{..} =
         bprint ("{ from="%build
                 %" to="%(later mapBuilder)
-                %" policy="%build
+                %" inputSelectionPolicy="%build
                 %" }")
         npbFrom
         npbTo
-        npbPolicy
+        npbInputSelectionPolicy
 
 instance Buildable (SecureLog NewBatchPayment) where
     build = buildUnsecure

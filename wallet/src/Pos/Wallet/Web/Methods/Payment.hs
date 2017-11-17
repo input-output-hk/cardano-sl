@@ -16,7 +16,6 @@ import           Control.Monad.Except (runExcept)
 import           Formatting (sformat, (%))
 import qualified Formatting as F
 
-import           Data.Default (def)
 import           Pos.Aeson.ClientTypes ()
 import           Pos.Aeson.WalletBackup ()
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
@@ -83,7 +82,7 @@ newPaymentBatch sa passphrase NewBatchPayment {..} = do
         passphrase
         (AccountMoneySource src)
         dst
-        (fromMaybe def npbPolicy)
+        npbInputSelectionPolicy
 
 getTxFee
      :: MonadWalletWebMode m

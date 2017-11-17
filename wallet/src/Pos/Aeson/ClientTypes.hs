@@ -4,10 +4,12 @@ module Pos.Aeson.ClientTypes
 
 import           Universum
 
-import           Data.Aeson (FromJSON (..), ToJSON (..), object, (.=))
+import           Data.Aeson (FromJSON (..), ToJSON (..), object, withArray, withObject, (.!=), (.:),
+                             (.:?), (.=))
 import           Data.Aeson.TH (defaultOptions, deriveJSON, deriveToJSON)
 import           Data.Version (showVersion)
 
+import           Data.Default (def)
 import           Pos.Aeson.Options (customOptionsWithTag)
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import           Pos.Core.Types (SoftwareVersion (..))
@@ -19,7 +21,7 @@ import           Pos.Wallet.Web.ClientTypes (Addr, ApiVersion (..), CAccount, CA
                                              CTExMeta, CTx, CTxId, CTxMeta, CUpdateInfo,
                                              CWAddressMeta, CWallet, CWalletAssurance, CWalletInit,
                                              CWalletMeta, CWalletRedeem, ClientInfo (..),
-                                             NewBatchPayment, SyncProgress, Wal)
+                                             NewBatchPayment (..), SyncProgress, Wal)
 import           Pos.Wallet.Web.Error (WalletError)
 import           Pos.Wallet.Web.Sockets.Types (NotifyEvent)
 
@@ -35,7 +37,6 @@ deriveJSON defaultOptions ''CPaperVendWalletRedeem
 deriveJSON defaultOptions ''CTxMeta
 deriveJSON defaultOptions ''CProfile
 deriveJSON defaultOptions ''BackupPhrase
-deriveJSON defaultOptions ''NewBatchPayment
 deriveJSON defaultOptions ''CId
 deriveJSON defaultOptions ''Wal
 deriveJSON defaultOptions ''Addr
@@ -73,3 +74,15 @@ instance ToJSON ClientInfo where
             , "cabalVersion" .= showVersion ciCabalVersion
             , "apiVersion" .= ciApiVersion
             ]
+
+instance FromJSON NewBatchPayment where
+    parseJSON = withObject "NewBatchPayment" $ \o -> do
+        npbFrom <- o .: "from"
+        npbTo <- fmap toList $ withArray "NewBatchPayment.to" collectRecipientTuples =<< o .: "to"
+        npbInputSelectionPolicy <- o .:? "inputSelectionPolicy" .!= def
+        return $ NewBatchPayment {..}
+      where
+        collectRecipientTuples = mapM $ withObject "NewBatchPayment.to[x]" $
+            \o -> (,)
+                <$> o .: "address"
+                <*> o .: "amount"

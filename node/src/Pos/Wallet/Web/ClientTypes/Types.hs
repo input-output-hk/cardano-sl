@@ -307,9 +307,9 @@ data CTExMeta = CTExMeta
     } deriving (Show, Generic)
 
 data NewBatchPayment = NewBatchPayment
-    { npbFrom   :: CAccountId
-    , npbTo     :: [(CId Addr, CCoin)] -- TODO: use NonEmpty here
-    , npbPolicy :: Maybe InputSelectionPolicy
+    { npbFrom                 :: CAccountId
+    , npbTo                   :: [(CId Addr, CCoin)] -- TODO: use NonEmpty here
+    , npbInputSelectionPolicy :: InputSelectionPolicy
     } deriving (Show, Generic)
 
 -- | Update system data

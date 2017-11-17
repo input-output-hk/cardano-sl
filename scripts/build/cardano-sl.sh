@@ -187,33 +187,18 @@ xperl_workaround='$_ = "" if ( $. <= 11 )'
 xperl="$xperl_pretty ; $xperl_workaround"
 xgrep="((^.*warning.*$|^.*error.*$|^    .*$|^.*can't find source.*$|^Module imports form a cycle.*$|^  which imports.*$)|^)"
 
+function cleanPackage () { echo "Cleaning $1"; stack clean $1 2>&1 | perl -pe "$xperl_workaround"; };
 if [[ $clean == true ]]; then
 
-  echo "Cleaning cardano-sl-tools"
-  stack clean cardano-sl-tools
+  cleanPackage cardano-sl-tools
+  cleanPackage cardano-sl-auxx
+  cleanPackage cardano-sl-wallet
+  cleanPackage cardano-sl-wallet-new
+  cleanPackage cardano-sl-explorer
+  cleanPackage cardano-sl-node
+  cleanPackage cardano-sl
 
-  echo "Cleaning cardano-sl-auxx"
-  stack clean cardano-sl-auxx
-
-  echo "Cleaning cardano-sl-wallet"
-  stack clean cardano-sl-wallet
-
-  echo "Cleaning cardano-sl-wallet-new"
-  stack clean cardano-sl-wallet-new
-
-  echo "Cleaning cardano-sl-explorer"
-  stack clean cardano-sl-explorer
-
-  echo "Cleaning cardano-sl-node"
-  stack clean cardano-sl-node
-
-  echo "Cleaning cardano-sl"
-  stack clean cardano-sl
-
-  for prj in $projects; do
-    echo "Cleaning cardano-sl-$prj"
-    stack clean "cardano-sl-$prj"
-  done
+  for prj in $projects; do cleanPackage "cardano-sl-$prj"; done
   exit
 fi
 

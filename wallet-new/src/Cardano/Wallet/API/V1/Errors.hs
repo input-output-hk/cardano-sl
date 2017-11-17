@@ -18,6 +18,34 @@ import           Cardano.Wallet.API.V1.TH (conNamesList, deriveWalletErrorJSON)
 --
 
 -- | Type representing any error which might be thrown by wallet.
+--
+-- Errors are represented in JSON in the following way:
+-- ```
+-- {
+--     "message" : <constr_name>,
+--     "diagnostic" : <data>
+-- }
+-- ```
+-- where `<constr_name>` is a string containing name of error's constructor (e. g. `NotEnoughMoney`),
+-- and `<data>` is an object containing additional error data.
+-- Additional data contains constructor fields, field names are record field names without
+-- a `we` prefix, e. g. for `OutputIsRedeem` error "diagnostic" field will be the following:
+-- ```
+-- {
+--     "address" : <address>
+-- }
+-- ```
+-- If constructor does not define record field names, then data values are labeled with
+-- keys "v1", "v2" and so on, e. g. for `NotRecordError` error:
+-- ```
+-- {
+--     "v1" : 3,
+--     "v2" : "blah"
+-- }
+-- ```
+-- If constructor does not have additional data (like in case of `WalletNotFound` error),
+-- then "diagnostic" field will be empty object.
+--
 -- TODO: change fields' types to actual Cardano core types, like `Coin` and `Address`
 data WalletError =
       NotEnoughMoney { weNeedMore :: !Int }

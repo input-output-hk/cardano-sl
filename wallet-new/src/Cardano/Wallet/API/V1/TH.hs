@@ -92,6 +92,21 @@ conNamesList = reifyTypename >=> \case
 --
 -- Derivation of JSON instances for wallet errors
 --
+-- NB: Unfortunately, `Options` from `Data.Aeson.TH` are not flexible
+-- enough to generate JSON instances in the decided way (see `Cardano.Wallet.API.V1.Errors`
+-- for details) using standard `deriveJSON` function.
+--
+-- If we could put additional error data not in separate `diagnostic` object,
+-- but in root object along with error tag, e. g.
+-- ```
+-- {
+--     "message" : "SomeOtherError",
+--     "foo" : "blah",
+--     "bar" : 3
+-- }
+-- ```
+-- then it would be possible to derive JSON instances using `deriveJSON`,
+-- which would make this file way shorter.
 
 -- | Derive both 'ToJSON' and 'FromJSON' instances for `WalletError`.
 deriveWalletErrorJSON :: Name -> DecsQ

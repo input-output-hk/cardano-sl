@@ -2,6 +2,7 @@ module MarshallingSpec where
 
 import           Universum
 
+import           Cardano.Wallet.API.V1.Errors (WalletError)
 import           Cardano.Wallet.API.V1.Types
 import           Cardano.Wallet.Orphans ()
 import           Data.Aeson
@@ -25,7 +26,7 @@ spec = describe "Marshalling & Unmarshalling" $ do
   prop "Aeson TransactionGroupingPolicy roundtrips" (aesonRoundtrip @TransactionGroupingPolicy Proxy)
   prop "Aeson TransactionType roundtrips" (aesonRoundtrip @TransactionType Proxy)
   prop "Aeson Transaction roundtrips" (aesonRoundtrip @Transaction Proxy)
-
+  prop "Aeson WalletError roundtrips" (aesonRoundtrip @WalletError Proxy)
 
 aesonRoundtrip :: (Arbitrary a, ToJSON a, FromJSON a, Eq a, Show a) => proxy a -> Property
 aesonRoundtrip (_ :: proxy a) = forAll arbitrary $ \(s :: a) -> do

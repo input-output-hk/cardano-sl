@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TemplateHaskell   #-}
 
@@ -9,7 +10,7 @@ import           Data.Aeson
 import           Data.Aeson.TH (deriveJSON)
 import qualified Network.HTTP.Types.Header as HTTP
 import           Servant
-import           Test.QuickCheck (Arbitrary (..))
+import           Test.QuickCheck (Arbitrary (..), oneof)
 
 import           Cardano.Wallet.API.V1.TH (conNamesList, deriveWalletErrorJSON)
 
@@ -54,11 +55,29 @@ data WalletError =
     | NotRecordError !Int !Text
     | MigrationFailed { weDescription :: !Text }
     | WalletNotFound
-    deriving (Show, Eq)
+    deriving (Show, Eq, Generic)
+
+--
+-- Instances for `WalletError`
 
 deriveWalletErrorJSON ''WalletError
 
 instance Exception WalletError where
+
+-- TODO: generate `Arbitrary` instance with TH too?
+instance Arbitrary WalletError where
+    arbitrary = oneof
+        [ NotEnoughMoney <$> arbitrary
+        , OutputIsRedeem <$> pure "address"
+        -- , SomeOtherError <$> pure "blah" <*> arbitrary
+        , NotRecordError <$> arbitrary <*> pure "blah"
+        , MigrationFailed <$> pure "migration"
+        , pure WalletNotFound
+        ]
+
+--
+-- Helpers
+--
 
 -- | List of all existing error tags. Populates automatically
 allErrorsList :: [Text]

@@ -181,7 +181,7 @@ mkFromJsonBody typeName cons =
                         withObject "diagnostic" (\v -> $(caseE (dyn "message") msgMatches))
                     |]
   where
-    msgMatches = map mkMatch cons ++ [failMatch]
+    msgMatches = map mkMatch cons -- ++ [failMatch]
     mkMatch con = do
         (name, vars) <- getErrNameAndVars con
         bindings <- mkBindings vars
@@ -190,7 +190,7 @@ mkFromJsonBody typeName cons =
             constrExpr = pure $ foldl AppE (ConE name) $ map (VarE . snd) bindings
             finalStmt = noBindS [e| pure $(constrExpr) |]
             varBindStmt (name', bind) = bindS (varP bind)
-                [e| $(v) .: $(stringE name') |]
+                [e| $(v) .: $(stringE $ mkJsonKey name') |]
 
         match
             (litP $ stringL $ nameBase name)

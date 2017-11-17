@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-projects="core db lrc infra update ssc tools txp auxx wallet node explorer"
+projects="binary util core db lrc infra update ssc tools txp auxx wallet node explorer"
 
 # incpath can be used to specify custom include paths, e. g.:
 # incpath=$(find $(stack path $@ --compiler-bin)/../lib -maxdepth 2 -path */include)

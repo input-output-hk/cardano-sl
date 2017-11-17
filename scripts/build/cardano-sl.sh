@@ -38,8 +38,8 @@ set -o pipefail
 # * Pass --no-asserts to disable asserts.
 # * Pass --bench-mode to use the configuration used by modern benchmarks.
 
-# We can't have auxx, wallet or explorer here, because it depends on 'cardano-sl'.
-projects="core db lrc infra update ssc txp"
+# We can't have auxx, node, wallet or explorer here, because they depend on 'cardano-sl'.
+projects="util core db lrc infra update ssc txp"
 
 args=''
 

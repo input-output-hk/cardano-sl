@@ -10,14 +10,15 @@ import           Criterion.Main (Benchmark, bench, defaultConfig, defaultMainWit
 import           Criterion.Types (Config (..))
 import           Weigh (Weigh, io, mainWith)
 
-import           Test.QuickCheck (arbitrary, generate)
+import           Test.QuickCheck (Arbitrary, arbitrary, generate)
 
 import           Control.Lens (makeLenses)
 import           Data.Default (def)
+import           Data.Text.Buildable (build)
 import           Pos.Arbitrary.Txp.Unsafe ()
 
-import           Pos.Block.Types (Blund)
-import           Pos.Core (HeaderHash, SlotLeaders, Timestamp)
+import           Pos.Block.Types (Blund, Undo (..))
+import           Pos.Core (HasConfiguration, HeaderHash, SlotLeaders, Timestamp)
 import           Pos.Core.Block (Block)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Test.Pos.Util (withDefConfigurations)
@@ -26,10 +27,20 @@ import           Pos.Explorer.ExplorerMode (ExplorerTestParams, runExplorerTestM
 import           Pos.Explorer.ExtraContext (ExplorerMockableMode (..), ExtraContext (..),
                                             makeMockExtraCtx)
 import           Pos.Explorer.TestUtil (produceBlocksByBlockNumberAndSlots, produceSecretKeys,
-                                        produceSlotLeaders)
+                                        produceSlotLeaders, createEmptyUndo)
 import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
 import           Pos.Explorer.Web.Server (getBlocksPage, getBlocksTotal)
 
+----------------------------------------------------------------
+-- Arbitrary and Show instances
+----------------------------------------------------------------
+
+-- TODO(ks): This is not really arbitrary, but should work until CSL-1884
+instance HasConfiguration => Prelude.Show Undo where
+    show = show . build
+
+instance HasConfiguration => Arbitrary Undo where
+    arbitrary = pure createEmptyUndo
 
 ----------------------------------------------------------------
 -- Function mocks

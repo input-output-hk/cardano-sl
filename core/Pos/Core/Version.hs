@@ -12,7 +12,7 @@ import           Text.Parsec.Combinator (manyTill)
 import           Text.Parsec.Text (Parser)
 
 import           Pos.Core.Types (BlockVersion (..), SoftwareVersion (..), mkApplicationName)
-import           Pos.Util.Util ()
+import           Pos.Util.Orphans ()
 
 parseBlockVersion :: Parser BlockVersion
 parseBlockVersion = do

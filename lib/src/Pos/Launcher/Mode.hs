@@ -45,7 +45,7 @@ import           Pos.Slotting.Impl.Sum (SlottingContextSum, currentTimeSlottingS
                                         getCurrentSlotSum)
 import           Pos.Slotting.MemState (MonadSlotsData)
 import           Pos.Slotting.Types (SlottingData)
-import           Pos.Util.Util (postfixLFields)
+import           Pos.Util.Lens (postfixLFields)
 
 -- The fields are lazy on purpose: this allows using them with
 -- futures.
@@ -95,4 +95,3 @@ instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx InitMode) 
     getCurrentSlotBlocking   = getCurrentSlotBlockingSum
     getCurrentSlotInaccurate = getCurrentSlotInaccurateSum
     currentTimeSlotting      = currentTimeSlottingSum
-

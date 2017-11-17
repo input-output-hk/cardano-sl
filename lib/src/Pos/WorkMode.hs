@@ -53,13 +53,13 @@ import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..), T
                           txNormalize, txProcessTransaction)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.JsonLog (HasJsonLogConfig (..), JsonLogConfig, jsonLogDefault)
+import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.LoggerName (HasLoggerName' (..), getLoggerNameDefault,
                                       modifyLoggerNameDefault)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..), OQ)
 import qualified Pos.Util.OutboundQueue as OQ.Reader
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
-import           Pos.Util.Util (postfixLFields)
 import           Pos.WorkMode.Class (MinWorkMode, WorkMode)
 
 

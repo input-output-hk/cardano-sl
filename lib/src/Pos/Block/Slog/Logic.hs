@@ -52,7 +52,8 @@ import           Pos.Lrc.Context (HasLrcContext)
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
-import           Pos.Util (inAssertMode, _neHead, _neLast)
+import           Pos.Util (_neHead, _neLast)
+import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Chrono (NE, NewestFirst (getNewestFirst), OldestFirst (..), toOldestFirst)
 
 ----------------------------------------------------------------------------

@@ -61,13 +61,13 @@ import           Pos.Ssc.Types (HasSscContext (..))
 import           Pos.Txp (MempoolExt, MonadTxpLocal (..), txNormalize, txProcessTransaction,
                           txProcessTransactionNoLock)
 import           Pos.Txp.DB.Utxo (getFilteredUtxo)
+import           Pos.Util (HasLens (..), postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.JsonLog (HasJsonLogConfig (..))
 import           Pos.Util.LoggerName (HasLoggerName' (..))
 import qualified Pos.Util.OutboundQueue as OQ.Reader
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
-import           Pos.Util.Util (HasLens (..), postfixLFields)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext (..))
 
 -- | Command execution context.

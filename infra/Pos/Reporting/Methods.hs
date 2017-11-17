@@ -70,7 +70,8 @@ import           Pos.Reporting.Exceptions (ReportingError (..))
 import           Pos.Reporting.MemState (HasLoggerConfig (..), HasReportServers (..),
                                          HasReportingContext (..))
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
-import           Pos.Util.Util (maybeThrow, withSystemTempFile, (<//>))
+import           Pos.Util.Filesystem (withSystemTempFile)
+import           Pos.Util.Util (maybeThrow, (<//>))
 
 
 ----------------------------------------------------------------------------

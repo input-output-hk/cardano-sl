@@ -6,6 +6,8 @@ module Pos.Explorer.ExplorerMode
     , ExplorerTestParams
     , runExplorerTestMode
     , etcParams_L
+    , ExplorerProperty
+    , explorerPropertyToProperty
     ) where
 
 import           Universum
@@ -13,6 +15,10 @@ import           Universum
 import           Control.Lens (lens, makeLensesWith)
 import           Control.Monad.Catch (MonadMask)
 import           Ether.Internal (HasLens (..))
+import           System.Wlog (HasLoggerName (..), LoggerName)
+
+import           Test.QuickCheck (Gen, Property, Testable (..), arbitrary, forAll, ioProperty)
+import           Test.QuickCheck.Monadic (PropertyM, monadic)
 
 import           Pos.Block.Slog (mkSlogGState)
 import           Pos.Core (SlotId, Timestamp (..))
@@ -28,10 +34,11 @@ import           Pos.Slotting (HasSlottingVar (..), MonadSlots (..), MonadSlotsD
 import qualified Pos.Slotting as Slot
 import           Pos.Txp (GenericTxpLocalData (..), MempoolExt, MonadTxpMem, TxpHolderTag,
                           mkTxpLocalData)
-import           Pos.Util.Util (postfixLFields)
+import           Pos.Util (postfixLFields)
 
 import           Pos.Explorer.ExtraContext (ExtraContext, ExtraContextT, HasExplorerCSLInterface,
-                                            HasGenesisRedeemAddressInfo, runExtraContextT)
+                                            HasGenesisRedeemAddressInfo, makeExtraCtx,
+                                            runExtraContextT)
 import           Pos.Explorer.Txp (ExplorerExtra (..))
 
 -- Need Emulation because it has instance Mockable CurrentTime
@@ -42,7 +49,6 @@ import           Pos.Util.LoggerName (HasLoggerName' (..), getLoggerNameDefault,
                                       modifyLoggerNameDefault)
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.WorkMode (MinWorkMode)
-import           System.Wlog (HasLoggerName (..), LoggerName)
 import           Test.Pos.Block.Logic.Emulation (Emulation (..), runEmulation)
 import           Test.Pos.Block.Logic.Mode (TestParams (..))
 
@@ -262,18 +268,16 @@ instance {-# OVERLAPPING #-} CanJsonLog ExplorerTestMode where
 -- Property
 ----------------------------------------------------------------------------
 
--- TODO(ks): We can add these later on if needed.
--- type ExplorerTestProperty = PropertyM ExplorerTestMode
+type ExplorerProperty = PropertyM ExplorerExtraTestMode
 
--- explorerCreatePropertyToProperty
---     :: HasConfigurations
---     => Gen ExplorerTestParams
---     -> ExplorerTestProperty a
---     -> ExtraContext
---     -> Property
--- explorerCreatePropertyToProperty tpGen txpTestProperty extraContext =
---     forAll tpGen $ \tp ->
---         monadic (ioProperty . (runExplorerTestMode tp extraContext)) txpTestProperty
+explorerPropertyToProperty
+    :: HasConfigurations
+    => Gen ExplorerTestParams
+    -> ExplorerProperty a
+    -> Property
+explorerPropertyToProperty tpGen explorerTestProperty =
+    forAll tpGen $ \tp ->
+        monadic (ioProperty . (runExplorerTestMode tp makeExtraCtx)) explorerTestProperty
 
--- instance HasConfigurations => Testable (ExplorerTestProperty a) where
---     property = explorerCreatePropertyToProperty arbitrary
+instance HasConfigurations => Testable (ExplorerProperty a) where
+    property = explorerPropertyToProperty arbitrary

@@ -40,8 +40,8 @@ import           Pos.Lrc (lrcSingleShot)
 import           Pos.Lrc.Context (lrcActionOnEpochReason)
 import qualified Pos.Lrc.DB as LrcDB
 import           Pos.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings)
+import           Pos.Util (HasLens', maybeThrow, _neHead)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
-import           Pos.Util.Util (HasLens', maybeThrow, _neHead)
 
 ----------------------------------------------------------------------------
 -- Block generation

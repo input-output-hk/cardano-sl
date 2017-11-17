@@ -53,9 +53,9 @@ import           Pos.Ssc.Types (HasSscContext (..), SscContext)
 import           Pos.StateLock (StateLock, StateLockMetrics)
 import           Pos.Txp.Settings (TxpGlobalSettings)
 import           Pos.Update.Context (UpdateContext)
+import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.Timer (Timer)
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
-import           Pos.Util.Util (postfixLFields)
 
 ----------------------------------------------------------------------------
 -- NodeContext

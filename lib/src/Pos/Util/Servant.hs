@@ -57,7 +57,7 @@ import           Formatting (bprint, build, builder, formatToString, sformat, sh
                              (%))
 import           GHC.TypeLits (KnownSymbol, symbolVal)
 import           Serokell.Util (listJsonIndent)
-import           Serokell.Util.ANSI (Color (..))
+import           Serokell.Util.ANSI (Color (..), colorizeDull)
 import           Servant.API ((:<|>) (..), (:>), Capture, QueryParam, ReflectMethod (..), ReqBody,
                               Verb)
 import           Servant.Server (Handler (..), HasServer (..), ServantErr (..), Server)
@@ -67,7 +67,6 @@ import           System.Wlog (LoggerName, LoggerNameBox, usingLoggerName)
 
 import           Pos.Util.LogSafe (BuildableSafe, SecuredText, buildSafe, logInfoSP, secretOnlyF,
                                    secretOnlyF2)
-import           Pos.Util.Util (colorizeDull)
 
 -------------------------------------------------------------------------
 -- Utility functions

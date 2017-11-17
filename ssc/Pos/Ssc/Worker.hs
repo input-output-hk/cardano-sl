@@ -62,8 +62,9 @@ import           Pos.Ssc.State (getGlobalCerts, getStableCerts, sscGetGlobalStat
 import           Pos.Ssc.Toss (computeParticipants, computeSharesDistrPure)
 import           Pos.Ssc.Types (HasSscContext (..), scBehavior, scParticipateSsc, scVssKeyPair,
                                 sgsCommitments)
+import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.LogSafe (logDebugS, logErrorS, logInfoS, logWarningS)
-import           Pos.Util.Util (getKeys, inAssertMode, leftToPanic)
+import           Pos.Util.Util (getKeys, leftToPanic)
 
 sscWorkers
   :: (SscMessageConstraints, SscMode ctx m)

@@ -71,13 +71,13 @@ import           Pos.StateLock (StateLock, StateLockMetrics (..), newStateLock)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, MonadTxpLocal (..), TxpGlobalSettings,
                           TxpHolderTag, txNormalize, txProcessTransactionNoLock, txpTip)
 import           Pos.Update.Context (UpdateContext)
+import           Pos.Util (postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.JsonLog (HasJsonLogConfig (..), JsonLogConfig (..), jsonLogDefault)
 import           Pos.Util.LoggerName (HasLoggerName' (..), getLoggerNameDefault,
                                       modifyLoggerNameDefault)
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
-import           Pos.Util.Util (postfixLFields)
 import           Pos.Wallet.Redirect (applyLastUpdateWebWallet, blockchainSlotDurationWebWallet,
                                       connectedPeersWebWallet, localChainDifficultyWebWallet,
                                       networkChainDifficultyWebWallet, txpNormalizeWebWallet,

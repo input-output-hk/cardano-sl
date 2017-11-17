@@ -89,11 +89,8 @@ library
                         Pos.Client.CLI
 
                         -- Utilities/helpers
-                        Pos.Util
                         Pos.Util.Config
-                        Pos.Util.LoggerName
                         Pos.Util.Monitor
-                        Pos.Util.Undefined
                         Pos.Util.BackupPhrase
                         Pos.Util.JsonLog
                         Pos.Util.OutboundQueue
@@ -249,6 +246,7 @@ library
                       , canonical-json
                       , cardano-crypto
                       , cardano-report-server >= 0.2.1
+                      , cardano-sl-util
                       , cardano-sl-core
                       , cardano-sl-db
                       , cardano-sl-infra
@@ -460,6 +458,7 @@ test-suite cardano-test
                      , bytestring
                      , canonical-json
                      , cardano-sl
+                     , cardano-sl-util
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-infra
@@ -557,10 +556,11 @@ benchmark cardano-bench-criterion
                      , base
                      , binary
                      , bytestring
+                     , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-txp
                      , cardano-sl-ssc
-                     , cardano-sl
+                     , cardano-sl-util
                      , containers
                      , criterion
                      , data-default

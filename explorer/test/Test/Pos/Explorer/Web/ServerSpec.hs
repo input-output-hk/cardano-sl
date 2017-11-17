@@ -8,8 +8,6 @@ module Test.Pos.Explorer.Web.ServerSpec
 
 import           Universum
 
-import           Data.Default (def)
-import           Data.List.NonEmpty (fromList)
 import           Test.Hspec (Spec, describe, shouldBe)
 import           Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import           Test.QuickCheck (arbitrary, counterexample, forAll, (==>))
@@ -17,13 +15,11 @@ import           Test.QuickCheck.Monadic (assert, monadicIO, run)
 
 import           Pos.Arbitrary.Block ()
 import qualified Pos.Communication ()
-import           Pos.Core (EpochIndex (..), HasConfiguration, LocalSlotIndex (..), SlotId (..))
-import           Pos.Core.Block (Block)
-import           Pos.DB.Class (MonadDBRead (..))
+import           Pos.Core (HasConfiguration)
 import           Pos.Explorer.ExplorerMode (runExplorerTestMode)
-import           Pos.Explorer.ExtraContext (ExplorerMockableMode (..), ExtraContext (..),
-                                            makeExtraCtx, makeMockExtraCtx)
-import           Pos.Explorer.TestUtil (basicBlockGenericUnsafe, emptyBlk, leftToCounter)
+import           Pos.Explorer.ExtraContext (ExtraContext (..), makeExtraCtx, makeMockExtraCtx)
+import           Pos.Explorer.TestUtil (emptyBlk, generateValidBlocksSlotsNumber,
+                                        generateValidExplorerMockableMode, leftToCounter)
 import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
 import           Pos.Explorer.Web.Server (getBlockDifficulty, getBlocksLastPage, getBlocksPage,
                                           getBlocksPagesTotal, getBlocksTotal)
@@ -38,7 +34,7 @@ import           Test.Pos.Util (withDefConfigurations)
 
 {-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
 
--- sack test cardano-sl-explorer --fast --test-arguments "-m Test.Pos.Explorer.Web.ServerSpec"
+-- stack test cardano-sl-explorer --fast --test-arguments "-m Test.Pos.Explorer.Web.ServerSpec"
 spec :: Spec
 spec = withDefConfigurations $ do
     describe "Pos.Explorer.Web.Server" $ do
@@ -80,24 +76,21 @@ blocksPagesTotalSpec =
                         divRoundUp blocksTotal pageSizeInt
 
 -- | A spec with the following test invariant. If a block is generated, there is no way
--- that blocksTotal could be less than 1.
+-- that blocksTotal could be different then the number of blocks on the blockchain.
 -- I originally thought that this is going to be faster then emulation, but seems the
 -- real issue of performance here is the block creation speed.
 blocksTotalUnitSpec :: HasConfigurations => Spec
 blocksTotalUnitSpec =
-    describe "getBlocksTotalUnit"
+    describe "getBlocksTotal"
     $ modifyMaxSuccess (const 200) $ do
-        prop "created blocks means block size > 0" $
-            forAll arbitrary $ \(testParams, prevHeader, sk, slotId) ->
+        prop "block total == created number of blockchain blocks" $
+            forAll arbitrary $ \(testParams) ->
+            forAll generateValidBlocksSlotsNumber $ \(totalBlocksNumber, slotsPerEpoch) ->
+
                 monadicIO $ do
 
-                  -- The created arbitrary block.
-                  let testBlock :: MonadDBRead m => m Block
-                      testBlock = pure $ basicBlockGenericUnsafe prevHeader sk slotId
-
-                  -- We replace the "real" database with our custom data.
-                  let mode :: ExplorerMockableMode
-                      mode = def { emmGetTipBlock = testBlock }
+                  -- We replace the "real" blockchain with our custom generated one.
+                  mode <- lift $ generateValidExplorerMockableMode totalBlocksNumber slotsPerEpoch
 
                   -- The extra context so we can mock the functions.
                   let extraContext :: ExtraContext
@@ -110,7 +103,10 @@ blocksTotalUnitSpec =
 
                   -- We finally run it as @PropertyM@ and check if it holds.
                   blocksTotal <- run blockExecution
-                  assert $ blocksTotal > 0
+
+                  -- And we assert that the generated blockchain total block count is equal
+                  -- to the expected explorer API result.
+                  assert $ blocksTotal == fromIntegral totalBlocksNumber
 
 -- | A spec with the following test invariant. If a block is generated, there is no way
 -- that blocks pages could be < 1.
@@ -118,17 +114,14 @@ blocksPagesTotalUnitSpec :: HasConfigurations => Spec
 blocksPagesTotalUnitSpec =
     describe "getBlocksPagesTotal"
     $ modifyMaxSuccess (const 200) $ do
-        prop "block pages = 1" $
-            forAll arbitrary $ \(testParams, prevHeader, sk, slotId) ->
+        prop "block pages total == created number of paged blockchain blocks" $
+            forAll arbitrary $ \(testParams) ->
+            forAll generateValidBlocksSlotsNumber $ \(totalBlocksNumber, slotsPerEpoch) ->
+
                 monadicIO $ do
 
-                  -- The created arbitrary block.
-                  let testBlock :: MonadDBRead m => m Block
-                      testBlock = pure $ basicBlockGenericUnsafe prevHeader sk slotId
-
-                  -- We replace the "real" database with our custom data.
-                  let mode :: ExplorerMockableMode
-                      mode = def { emmGetTipBlock = testBlock }
+                  -- We replace the "real" blockchain with our custom generated one.
+                  mode <- lift $ generateValidExplorerMockableMode totalBlocksNumber slotsPerEpoch
 
                   -- The extra context so we can mock the functions.
                   let extraContext :: ExtraContext
@@ -142,8 +135,13 @@ blocksPagesTotalUnitSpec =
                               $ getBlocksPagesTotal (Just 10)
 
                   -- We finally run it as @PropertyM@ and check if it holds.
-                  blocksTotal <- run blockExecution
-                  assert $ blocksTotal > 0
+                  pagesTotal <- run blockExecution
+
+                  -- And we assert that the generated blockchain total block pages count
+                  -- is equal to the expected explorer API result, which is number of
+                  -- generated blocks divided by 10.
+                  -- It shows that two equal algorithms should work the same.
+                  assert $ pagesTotal == (fromIntegral ((totalBlocksNumber - 1) `div` 10) + 1)
 
 -- | A spec with the following test invariant. If a block is generated, there is no way
 -- that the client block is not. Also, we can check for specific properties on the
@@ -152,32 +150,14 @@ blocksPageUnitSpec :: HasConfigurations => Spec
 blocksPageUnitSpec =
     describe "getBlocksPage"
     $ modifyMaxSuccess (const 200) $ do
-        prop "count(block) > 0" $
-            forAll arbitrary $ \(testParams, prevHeader, sk) ->
-            forAll arbitrary $ \(timestamp, blund, leader, hh) ->
+        prop "block pages total correct && last page non-empty" $
+            forAll arbitrary $ \(testParams) ->
+            forAll generateValidBlocksSlotsNumber $ \(totalBlocksNumber, slotsPerEpoch) ->
+
                 monadicIO $ do
 
-                  -- A mock slot Id
-                  let mockSlotId :: SlotId
-                      mockSlotId = SlotId
-                          { siEpoch = EpochIndex 0
-                          , siSlot  = UnsafeLocalSlotIndex 1
-                          }
-
-                  -- The created arbitrary block.
-                  let testBlock :: MonadDBRead m => m Block
-                      testBlock = pure $ basicBlockGenericUnsafe prevHeader sk mockSlotId
-
-                  -- We replace the "real" functions with our custom functions.
-                  let mode :: ExplorerMockableMode
-                      mode = def {
-                          emmGetTipBlock            = testBlock,
-                          emmGetPageBlocks          = \_   -> pure $ Just hh,
-                          emmGetBlundFromHH         = \_   -> pure $ Just blund,
-                          emmGetSlotStart           = \_   -> pure $ Just timestamp,
-                          emmGetLeadersFromEpoch    = \_   ->
-                              pure . Just . fromList $ [leader]
-                      }
+                  -- We replace the "real" blockchain with our custom generated one.
+                  mode <- lift $ generateValidExplorerMockableMode totalBlocksNumber slotsPerEpoch
 
                   -- The extra context so we can mock the functions.
                   let extraContext :: ExtraContext
@@ -185,14 +165,27 @@ blocksPageUnitSpec =
 
                   -- We run the function in @BlockTestMode@ so we don't need to define
                   -- a million instances.
+                  -- We ask the last page of the blocks pages.
                   let blockExecution :: IO (Integer, [CBlockEntry])
                       blockExecution =
                           runExplorerTestMode testParams extraContext
                               $ getBlocksPage Nothing (Just 10)
 
                   -- We finally run it as @PropertyM@ and check if it holds.
-                  blocksTotal <- fst <$> run blockExecution
-                  assert $ blocksTotal > 0
+                  pagesTotal    <- fst <$> run blockExecution
+                  cBlockEntries <- snd <$> run blockExecution
+
+                  -- And we assert that the generated blockchain total block pages count
+                  -- is equal to the expected explorer API result, which is number of
+                  -- generated blocks divided by 10.
+                  -- It shows that two equal algorithms should work the same.
+                  assert $ pagesTotal == (fromIntegral ((totalBlocksNumber - 1) `div` 10) + 1)
+                  -- The last page is never empty.
+                  assert $ not . null $ cBlockEntries
+
+                  -- TODO(ks): We can add more invariants to test here, but these are good
+                  -- enough for now.
+
 
 -- | A spec with the following test invariant. If a block is generated, there is no way
 -- that the client block is not. Also, we can check for specific properties on the
@@ -201,24 +194,14 @@ blocksLastPageUnitSpec :: HasConfigurations => Spec
 blocksLastPageUnitSpec =
     describe "getBlocksLastPage"
     $ modifyMaxSuccess (const 200) $ do
-        prop "count(block) > 0" $
-            forAll arbitrary $ \(testParams, prevHeader, sk, slotId) ->
-            forAll arbitrary $ \(timestamp, blund, leader, hh) ->
+        prop "getBlocksLastPage == getBlocksPage Nothing" $
+            forAll arbitrary $ \(testParams) ->
+            forAll generateValidBlocksSlotsNumber $ \(totalBlocksNumber, slotsPerEpoch) ->
+
                 monadicIO $ do
 
-                  -- The created arbitrary block.
-                  let testBlock :: MonadDBRead m => m Block
-                      testBlock = pure $ basicBlockGenericUnsafe prevHeader sk slotId
-
-                  -- We replace the "real" functions with our custom functions.
-                  let mode :: ExplorerMockableMode
-                      mode = def {
-                          emmGetTipBlock            = testBlock,
-                          emmGetPageBlocks          = \_   -> pure $ Just hh,
-                          emmGetBlundFromHH         = \_   -> pure $ Just blund,
-                          emmGetSlotStart           = \_   -> pure $ Just timestamp,
-                          emmGetLeadersFromEpoch    = \_   -> pure $ Just leader
-                      }
+                  -- We replace the "real" blockchain with our custom generated one.
+                  mode <- lift $ generateValidExplorerMockableMode totalBlocksNumber slotsPerEpoch
 
                   -- The extra context so we can mock the functions.
                   let extraContext :: ExtraContext
@@ -226,13 +209,24 @@ blocksLastPageUnitSpec =
 
                   -- We run the function in @BlockTestMode@ so we don't need to define
                   -- a million instances.
-                  let blockExecution :: IO (Integer, [CBlockEntry])
-                      blockExecution =
+                  let blocksLastPageM :: IO (Integer, [CBlockEntry])
+                      blocksLastPageM =
                           runExplorerTestMode testParams extraContext getBlocksLastPage
 
+                  -- We run the function in @BlockTestMode@ so we don't need to define
+                  -- a million instances.
+                  -- We ask the last page of the blocks pages.
+                  let blocksPageM :: IO (Integer, [CBlockEntry])
+                      blocksPageM =
+                          runExplorerTestMode testParams extraContext
+                              $ getBlocksPage Nothing (Just 10)
+
                   -- We finally run it as @PropertyM@ and check if it holds.
-                  blocksTotal <- fst <$> run blockExecution
-                  assert $ blocksTotal > 0
+                  blocksLastPage <- run blocksLastPageM
+                  blocksPage     <- run blocksPageM
+
+                  -- This function should be equal to calling getBlocksPage with @Nothing@.
+                  assert $ blocksLastPage == blocksPage
 
 
 -- | A spec with the following test invariant. If a block is generated, there is no way
@@ -259,3 +253,5 @@ blocksTotalFunctionalSpec =
                   -- We finally run it as @PropertyM@ and check if it holds.
                   blocksTotal <- run blockExecution
                   assert $ blocksTotal >= 0
+
+

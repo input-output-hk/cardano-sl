@@ -70,13 +70,13 @@ gExpr = mdo
 pExpr :: Parser Text [(Span, Token)] Expr
 pExpr = parser gExpr
 
-newtype ParseError = ParseError (Report Text [(Span, Token)])
+data ParseError = ParseError Text (Report Text [(Span, Token)])
     deriving (Eq, Show)
 
 instance Exception ParseError
 
 parse :: Text -> Either ParseError Expr
-parse = first ParseError . toEither . fullParses pExpr . tokenize
+parse str = first (ParseError str) . toEither . fullParses pExpr . tokenize $ str
   where
     toEither = \case
       ([] , r) -> Left r

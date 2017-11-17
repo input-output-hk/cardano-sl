@@ -51,7 +51,6 @@ import           Pos.Communication.Relay.Types (PropagationMsg (..))
 import           Pos.Communication.Relay.Util (expectData, expectInv)
 import           Pos.Communication.Types.Relay (DataMsg (..), InvMsg (..), InvOrData,
                                                 MempoolMsg (..), ReqMsg (..), ReqOrRes, ResMsg (..))
-import           Pos.DB.Class (MonadGState)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Network.Types (Bucket)
 import           Pos.Util.TimeWarp (CanJsonLog (..))
@@ -85,7 +84,6 @@ handleReqL
        , Message (ReqMsg key)
        , Buildable key
        , MinRelayWorkMode m
-       , MonadGState m
        )
     => OQ.OutboundQ pack NodeId Bucket
     -> (NodeId -> key -> m (Maybe contents))
@@ -115,7 +113,6 @@ handleReqL oq handleReq = listenerConv oq $ \__ourVerInfo nodeId conv ->
 handleMempoolL
     :: forall pack m.
        ( MinRelayWorkMode m
-       , MonadGState m
        )
     => OQ.OutboundQ pack NodeId Bucket
     -> MempoolParams m
@@ -144,8 +141,7 @@ handleDataOnlyL
        , Message (DataMsg contents)
        , Buildable contents
        , RelayWorkMode ctx m
-       , MonadGState m
-       , MessageLimited (DataMsg contents)
+       , MessageLimited (DataMsg contents) m
        )
     => OQ.OutboundQ pack NodeId Bucket
     -> EnqueueMsg m
@@ -180,7 +176,6 @@ handleDataDo
        , Bi (InvOrData key contents)
        , Bi (ReqOrRes key)
        , Message Void
-       , MonadGState m
        )
     => NodeId
     -> (Origin NodeId -> Msg)
@@ -202,7 +197,6 @@ handleDataDo provenance mkMsg enqueue contentsToKey handleData dmContents = do
 relayMsg
     :: ( RelayWorkMode ctx m
        , Message Void
-       , MonadGState m
        )
     => EnqueueMsg m
     -> PropagationMsg
@@ -213,7 +207,6 @@ relayMsg enqueue pm = void $ propagateData enqueue pm >>= waitForConversations
 propagateData
     :: forall ctx m.
        ( RelayWorkMode ctx m
-       , MonadGState m
        , Message Void
        )
     => EnqueueMsg m
@@ -263,7 +256,6 @@ handleInvDo handleInv imKey =
 relayListenersOne
   :: forall pack ctx m.
      ( RelayWorkMode ctx m
-     , MonadGState m
      , Message Void
      )
   => OQ.OutboundQ pack NodeId Bucket -> EnqueueMsg m -> Relay m -> MkListeners m
@@ -278,7 +270,6 @@ relayListeners
   :: forall pack ctx m.
      ( WithLogger m
      , RelayWorkMode ctx m
-     , MonadGState m
      , Message Void
      )
   => OQ.OutboundQ pack NodeId Bucket -> EnqueueMsg m -> [Relay m] -> MkListeners m
@@ -287,7 +278,6 @@ relayListeners oq enqueue = mconcat . map (relayListenersOne oq enqueue)
 invDataListener
   :: forall pack key contents ctx m.
      ( RelayWorkMode ctx m
-     , MonadGState m
      , Message (ReqOrRes key)
      , Message (InvOrData key contents)
      , Bi (ReqOrRes key)
@@ -295,7 +285,7 @@ invDataListener
      , Buildable contents
      , Buildable key
      , Eq key
-     , MessageLimited (DataMsg contents)
+     , MessageLimited (DataMsg contents) m
      , Message Void
      )
   => OQ.OutboundQ pack NodeId Bucket
@@ -344,7 +334,7 @@ propagateOutImpl (Data dp) = toOutSpecs
 invReqDataFlowDo
     :: ( Buildable key
        , MinRelayWorkMode m
-       , MonadGState m
+       , MessageLimited (ReqOrRes key) m
        , Eq key
        )
     => Text
@@ -441,7 +431,6 @@ invReqDataFlowTK
        , Buildable key
        , Typeable contents
        , MinRelayWorkMode m
-       , MonadGState m
        , Bi (InvOrData (Tagged contents key) contents)
        , Bi (ReqOrRes (Tagged contents key))
        , Eq key
@@ -472,7 +461,6 @@ invReqDataFlow
        , Bi (ReqOrRes key)
        , Buildable key
        , MinRelayWorkMode m
-       , MonadGState m
        , Eq key
        )
     => Text

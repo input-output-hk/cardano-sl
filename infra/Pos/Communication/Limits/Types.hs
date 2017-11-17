@@ -9,8 +9,6 @@ module Pos.Communication.Limits.Types
        , (<+>)
 
        , MessageLimited (..)
-       , MessageLimitedPure (..)
-
 
        , recvLimited
 
@@ -23,7 +21,6 @@ module Pos.Communication.Limits.Types
 import           Universum
 
 import           Pos.Communication.Protocol (ConversationActions (..))
-import qualified Pos.DB.Class as DB
 
 -- | A limit on the length of something (in bytes).
 --   TODO should check for overflow in the Num instance.
@@ -42,12 +39,12 @@ Limit x <+> Limit y = Limit $ x + y
 
 -- | Defines how to determine the limit of some type's serialized
 -- representation using some particular state. See 'recvLimited'.
-class MessageLimited a where
-    getMsgLenLimit :: DB.MonadGState m => Proxy a -> m (Limit a)
-    default getMsgLenLimit :: ( MessageLimitedPure a
-                              , DB.MonadGState m
-                              ) => Proxy a -> m (Limit a)
-    getMsgLenLimit _ = pure msgLenLimit
+--
+-- TODO FIXME can we get rid of this class?
+-- Its instances are basically tied up with the Binary instances; they assume
+-- to know how they are defined.
+class MessageLimited a m where
+    getMsgLenLimit :: Proxy a -> m (Limit a)
 
 -- | Pure analogy to `MessageLimited`. Allows to easily get message length
 -- limit for simple types.
@@ -61,37 +58,40 @@ class MessageLimited a where
 -- 1) Create instance with limit @1@.
 -- 2) Add test case, run - it would fail and report actual size.
 -- 3) Insert that value into instance.
---
--- TODO FIXME can we get rid of this class?
--- Its instances are basically tied up with the Binary instances; they assume
--- to know how they are defined.
-class MessageLimitedPure a where
-    msgLenLimit :: Limit a
 
-instance MessageLimitedPure a => MessageLimitedPure (Maybe a) where
-    msgLenLimit = Just <$> msgLenLimit + 1
+instance (Applicative m, MessageLimited a m) => MessageLimited (Maybe a) m where
+    getMsgLenLimit _ = (\lim -> Just <$> lim + 1) <$> (getMsgLenLimit Proxy)
 
-instance ( MessageLimitedPure a
-         , MessageLimitedPure b
+instance ( MessageLimited a m
+         , MessageLimited b m
+         , Applicative m
          )
-         => MessageLimitedPure (Either a b) where
-    msgLenLimit = 1 + max (Left <$> msgLenLimit) (Right <$> msgLenLimit)
+         => MessageLimited (Either a b) m where
+    getMsgLenLimit _ = f <$> getMsgLenLimit Proxy <*> getMsgLenLimit Proxy
+      where
+      f limA limB = 1 + max (Left <$> limA) (Right <$> limB)
 
-instance ( MessageLimitedPure a
-         , MessageLimitedPure b
+instance ( MessageLimited a m
+         , MessageLimited b m
+         , Applicative m
          )
-         => MessageLimitedPure (a, b) where
-    msgLenLimit = (,) <$> msgLenLimit <+> msgLenLimit
+         => MessageLimited (a, b) m where
+    getMsgLenLimit _ = f <$> getMsgLenLimit Proxy <*> getMsgLenLimit Proxy
+      where
+      f limA limB = (,) <$> limA <+> limB
 
-instance ( MessageLimitedPure a
-         , MessageLimitedPure b
-         , MessageLimitedPure c
+instance ( MessageLimited a m
+         , MessageLimited b m
+         , MessageLimited c m
+         , Applicative m
          )
-         => MessageLimitedPure (a, b, c) where
-    msgLenLimit = (,,) <$> msgLenLimit <+> msgLenLimit <+> msgLenLimit
+         => MessageLimited (a, b, c) m where
+    getMsgLenLimit _ = f <$> getMsgLenLimit Proxy <*> getMsgLenLimit Proxy <*> getMsgLenLimit Proxy
+      where
+      f limA limB limC = (,,) <$> limA <+> limB <+> limC
 
-instance MessageLimitedPure Bool where
-    msgLenLimit = 1
+instance Applicative m => MessageLimited Bool m where
+    getMsgLenLimit _ = pure 1
 
 -- | Use the MessageLimited instance to determine the length limit of a
 --   'rcv' type within the monadic context, and then receive at most that
@@ -99,7 +99,7 @@ instance MessageLimitedPure Bool where
 --   an exception is raised.
 recvLimited
     :: forall rcv snd m .
-       ( DB.MonadGState m, MessageLimited rcv )
+       ( Monad m, MessageLimited rcv m )
     => ConversationActions snd rcv m -> m (Maybe rcv)
 recvLimited conv = getMsgLenLimit (Proxy @rcv) >>= recv conv . getLimit
 

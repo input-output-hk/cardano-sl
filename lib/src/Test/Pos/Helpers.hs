@@ -31,6 +31,7 @@ import           Universum
 import           Codec.CBOR.FlatTerm (toFlatTerm, validFlatTerm)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
+import           Data.Functor.Identity (Identity (..))
 import           Data.SafeCopy (SafeCopy, safeGet, safePut)
 import qualified Data.Semigroup as Semigroup
 import           Data.Serialize (runGet, runPut)
@@ -45,7 +46,7 @@ import qualified Text.JSON.Canonical as CanonicalJSON
 
 import           Pos.Binary (AsBinaryClass (..), Bi (..), decodeFull, serialize, serialize',
                              unsafeDeserialize)
-import           Pos.Communication (Limit (..), MessageLimitedPure (..))
+import           Pos.Communication (Limit (..), MessageLimited (..))
 import           Pos.Util.Arbitrary (SmallGenerator (..))
 import           Test.Pos.Cbor.Canonicity (perturbCanonicity)
 import qualified Test.Pos.Cbor.RefImpl as R
@@ -201,9 +202,9 @@ msgLenLimitedTest' limit desc whetherTest =
         in  conjoin $ doCheck <$> [1..13 :: Int]
 
 msgLenLimitedTest
-    :: forall a. (IdTestingRequiredClasses Bi a, MessageLimitedPure a)
+    :: forall a. (IdTestingRequiredClasses Bi a, MessageLimited a Identity)
     => Spec
-msgLenLimitedTest = msgLenLimitedTest' @a msgLenLimit "" (const True)
+msgLenLimitedTest = msgLenLimitedTest' @a (runIdentity (getMsgLenLimit Proxy)) "" (const True)
 
 ----------------------------------------------------------------------------
 -- Monoid/Semigroup laws

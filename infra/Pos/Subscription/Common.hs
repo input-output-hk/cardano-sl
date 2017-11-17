@@ -41,7 +41,7 @@ type SubscriptionMode m =
     , MonadKnownPeers m
     , MonadGState m
     , Message MsgSubscribe
-    , MessageLimited MsgSubscribe
+    , MessageLimited MsgSubscribe m
     , Bi MsgSubscribe
     , Message Void
     )

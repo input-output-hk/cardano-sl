@@ -8,8 +8,17 @@ module Pos.Communication.Limits
        (
          module Pos.Communication.Limits.Types
 
-       , updateVoteNumLimit
-       , commitmentsNumLimit
+       , SscLimits (..)
+       , HasSscLimits
+
+       , TxpLimits (..)
+       , HasTxpLimits
+
+       , UpdateLimits (..)
+       , HasUpdateLimits
+
+       , BlockLimits (..)
+       , HasBlockLimits
        ) where
 
 import           Universum
@@ -18,7 +27,10 @@ import qualified Cardano.Crypto.Wallet as CC
 import           Crypto.Hash.IO (HashAlgorithm, hashDigestSize)
 import qualified Crypto.SCRAPE as Scrape
 import           Data.Coerce (coerce)
+import           Data.Functor.Identity (Identity (..))
+import           Data.Reflection (Given, given)
 import           GHC.Exts (IsList (..))
+import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class (AsBinary (..))
 import           Pos.Block.Configuration (HasBlockConfiguration, recoveryHeadersMessage)
@@ -27,16 +39,14 @@ import           Pos.Block.Network (MsgBlock (..), MsgGetBlocks (..), MsgGetHead
 import           Pos.Communication.Types.Protocol (MsgSubscribe (..))
 import           Pos.Communication.Types.Relay (DataMsg (..))
 import           Pos.Configuration (HasNodeConfiguration)
-import           Pos.Core (BlockVersionData (..), EpochIndex, VssCertificate, coinPortionToDouble)
-import           Pos.Core.Block (Block, BlockHeader)
+import           Pos.Core (EpochIndex, VssCertificate)
+import           Pos.Core.Block (MainBlock, GenesisBlock, Block, MainBlockHeader, GenesisBlockHeader, BlockHeader)
 import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam)
 import           Pos.Core.Ssc (Commitment (..), InnerSharesMap, Opening (..), SignedCommitment)
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpdateProposal (..), UpdateVote (..))
 import           Pos.Crypto (AbstractHash, DecShare, EncShare, ProxyCert (..), ProxySecretKey (..),
-                             ProxySignature (..), PublicKey, Secret, SecretProof (..),
-                             Signature (..), VssPublicKey)
-import qualified Pos.DB.Class as DB
+                             PublicKey, Secret, SecretProof (..), Signature (..), VssPublicKey)
 import           Pos.Ssc.Message (MCCommitment (..), MCOpening (..), MCShares (..),
                                   MCVssCertificate (..))
 import           Pos.Txp.Network.Types (TxMsgContents (..))
@@ -53,14 +63,14 @@ import           Pos.Communication.Limits.Types
 ---- Core and lower
 ----------------------------------------------------------------------------
 
-instance MessageLimitedPure CC.XSignature where
-    msgLenLimit = 66
+instance Applicative m => MessageLimited CC.XSignature m where
+    getMsgLenLimit _ = pure 66
 
-instance MessageLimitedPure (Signature a) where
-    msgLenLimit = Signature <$> msgLenLimit
+instance Applicative m => MessageLimited (Signature a) m where
+    getMsgLenLimit _ = fmap Signature <$> getMsgLenLimit Proxy
 
-instance MessageLimitedPure PublicKey where
-    msgLenLimit = 66
+instance Applicative m => MessageLimited PublicKey m where
+    getMsgLenLimit _ = pure 66
 
 -- Sometimes 'AsBinary a' is serialized with some overhead compared to
 -- 'a'. This is tricky to estimate as CBOR uses a number of bytes at
@@ -69,135 +79,143 @@ instance MessageLimitedPure PublicKey where
 maxAsBinaryOverhead :: Limit a
 maxAsBinaryOverhead = 64
 
-instance MessageLimitedPure a => MessageLimitedPure (AsBinary a) where
-    msgLenLimit = coerce (msgLenLimit @a) + maxAsBinaryOverhead
+instance (Functor m, MessageLimited a m) => MessageLimited (AsBinary a) m where
+    getMsgLenLimit _ = (((+) maxAsBinaryOverhead) . coerce) <$> (getMsgLenLimit (Proxy :: Proxy a))
 
-instance MessageLimitedPure VssPublicKey where
-    msgLenLimit = 35
+instance Applicative m => MessageLimited VssPublicKey m where
+    getMsgLenLimit _ = pure 35
 
-instance MessageLimitedPure Secret where
-    msgLenLimit = 35
+instance Applicative m => MessageLimited Secret m where
+    getMsgLenLimit _ = pure 35
 
-instance MessageLimitedPure EncShare where
-    msgLenLimit = 103
+instance Applicative m => MessageLimited EncShare m where
+    getMsgLenLimit _ = pure 103
 
-instance MessageLimitedPure DecShare where
-    msgLenLimit = 103 --4+35+64       TODO: might be outdated
+instance Applicative m => MessageLimited DecShare m where
+    getMsgLenLimit _ = pure 103 --4+35+64       TODO: might be outdated
 
-instance MessageLimitedPure Scrape.Commitment where
-    msgLenLimit = 35
+instance Applicative m => MessageLimited Scrape.Commitment m where
+    getMsgLenLimit _ = pure 35
 
-instance MessageLimitedPure Scrape.ExtraGen where
-    msgLenLimit = 35
+instance Applicative m => MessageLimited Scrape.ExtraGen m where
+    getMsgLenLimit _ = pure 35
 
-instance MessageLimitedPure Scrape.Proof where
-    msgLenLimit = 35
+instance Applicative m => MessageLimited Scrape.Proof m where
+    getMsgLenLimit _ = pure 35
 
-instance HashAlgorithm algo => MessageLimitedPure (AbstractHash algo a) where
-    msgLenLimit = fromInteger $
-        toInteger (hashDigestSize (error "msgLenLimit AbstractHash" :: algo))
+instance (Applicative m, HashAlgorithm algo) => MessageLimited (AbstractHash algo a) m where
+    getMsgLenLimit _ = pure $ fromInteger $
+        toInteger (hashDigestSize (error "getMsgLenLimit AbstractHash" :: algo))
         + 4
 
-instance MessageLimitedPure EpochIndex where
-    msgLenLimit = 12
+instance Applicative m => MessageLimited EpochIndex m where
+    getMsgLenLimit _ = pure 12
 
 -----------------------------------------------------------------
 -- Delegation
 -----------------------------------------------------------------
 
-instance MessageLimitedPure (ProxyCert w) where
-    msgLenLimit = ProxyCert <$> msgLenLimit
+instance Applicative m => MessageLimited (ProxyCert w) m where
+    getMsgLenLimit _ = fmap ProxyCert <$> getMsgLenLimit Proxy
 
-instance MessageLimitedPure w => MessageLimitedPure (ProxySecretKey w) where
-    msgLenLimit = ProxySecretKey <$> msgLenLimit <+> msgLenLimit
-                                 <+> msgLenLimit <+> msgLenLimit
-
-instance MessageLimitedPure w => MessageLimitedPure (ProxySignature w a) where
-    msgLenLimit = ProxySignature <$> msgLenLimit <+> msgLenLimit
-
-instance MessageLimitedPure w => MessageLimited (ProxySecretKey w)
-instance MessageLimitedPure w => MessageLimited (ProxySignature w a)
+instance (Applicative m, MessageLimited w m) => MessageLimited (ProxySecretKey w) m where
+    getMsgLenLimit _ = f <$> getMsgLenLimit Proxy
+                         <*> getMsgLenLimit Proxy
+                         <*> getMsgLenLimit Proxy
+                         <*> getMsgLenLimit Proxy
+      where
+        f a b c d = ProxySecretKey <$> a <+> b <+> c <+> d
 
 ----------------------------------------------------------------------------
 ---- SSC
 ----------------------------------------------------------------------------
 
--- | Upper bound on number of 'Scrape.Commitment's in single 'Commitment'.
--- Actually it's a maximum number of participants in SSC. So it also
--- limits number of shares, for instance.
-commitmentsNumLimit :: DB.MonadGState m => m Int
-commitmentsNumLimit =
-    -- succ is just in case
-    succ . ceiling . recip . coinPortionToDouble . bvdMpcThd <$>
-    DB.gsAdoptedBVData
+data SscLimits m = SscLimits
+    { commitmentsNumLimit :: m Int
+    }
 
-instance MessageLimited SecretProof where
+type HasSscLimits m = Given (SscLimits m)
+
+instance (HasSscLimits m, Monad m) => MessageLimited SecretProof m where
     getMsgLenLimit _ = do
-        numLimit <- commitmentsNumLimit
+        numLimit <- commitmentsNumLimit given
         parproofsLimit <- getMsgLenLimit (Proxy @Scrape.ParallelProofs)
+        a <- getMsgLenLimit Proxy
+        b <- getMsgLenLimit Proxy
         return $ SecretProof
-                   <$> msgLenLimit
-                   <+> msgLenLimit
+                   <$> a
+                   <+> b
                    <+> parproofsLimit
                    <+> vector numLimit
 
-instance MessageLimited (AsBinary SecretProof) where
-    getMsgLenLimit _ =
-        coerce . (maxAsBinaryOverhead +) <$>
-        getMsgLenLimit (Proxy @SecretProof)
+instance (HasSscLimits m, Monad m) => MessageLimited (AsBinary SecretProof) m where
+    getMsgLenLimit _ = do
+        a <- getMsgLenLimit (Proxy @SecretProof)
+        return $ coerce (maxAsBinaryOverhead + a)
+        -- coerce . (maxAsBinaryOverhead +) <$>
+        -- getMsgLenLimit (Proxy @SecretProof)
 
-instance MessageLimited Scrape.ParallelProofs where
+instance (HasSscLimits m, Monad m) => MessageLimited Scrape.ParallelProofs m where
     getMsgLenLimit _ = do
         -- ParallelProofs =
         --   • Challenge (has size 32)
         --   • as many proofs as there are participants
         --     (each proof has size 32)
-        numLimit <- fromIntegral <$> commitmentsNumLimit
+        numLimit <- fromIntegral <$> commitmentsNumLimit given
         return $ 32 + numLimit * 32 + 100 -- 100 just in case; something like
                                           -- 20 should be enough
 
-instance MessageLimited Commitment where
+instance (HasSscLimits m, Monad m) => MessageLimited Commitment m where
     getMsgLenLimit _ = do
         proofLimit <- getMsgLenLimit (Proxy @SecretProof)
-        numLimit <- commitmentsNumLimit
+        numLimit <- commitmentsNumLimit given
         return $
             Commitment <$> proofLimit <+> multiMap numLimit
 
-instance MessageLimited SignedCommitment where
+{-
+-- SignedCommitment ~ (,,) ...
+--
+-- but (,,) already has a MessageLimited instance.
+instance (HasSscLimits m, Monad m) => MessageLimited SignedCommitment m where
     getMsgLenLimit _ = do
         commLimit <- getMsgLenLimit (Proxy @Commitment)
-        return $ (,,) <$> msgLenLimit <+> commLimit <+> msgLenLimit
+        a <- getMsgLenLimit Proxy
+        b <- getMsgLenLimit Proxy
+        return $ (,,) <$> a <+> commLimit <+> b
+        -- return $ (,,) <$> getMsgLenLimit Proxy <+> commLimit <+> getMsgLenLimit Proxy
+-}
 
-instance MessageLimitedPure Opening where
-    msgLenLimit = 37 -- 35 for `Secret` + 2 for the `AsBinary` wrapping
+instance (Applicative m) => MessageLimited Opening m where
+    getMsgLenLimit _ = pure 37 -- 35 for `Secret` + 2 for the `AsBinary` wrapping
 
-instance MessageLimited InnerSharesMap where
+instance (HasSscLimits m, Monad m) => MessageLimited InnerSharesMap m where
     getMsgLenLimit _ = do
-        numLimit <- commitmentsNumLimit
+        numLimit <- commitmentsNumLimit given
         return $ multiMap numLimit
 
 -- There is some precaution in this limit. 179 means that epoch is
 -- extremely large. It shouldn't happen in practice, but adding few
 -- bytes to the limit is harmless.
-instance MessageLimitedPure VssCertificate where
-    msgLenLimit = 179
+instance (Applicative m) => MessageLimited VssCertificate m where
+    getMsgLenLimit _ = pure 179
 
-instance MessageLimitedPure MCOpening where
-    msgLenLimit = MCOpening <$> msgLenLimit <+> msgLenLimit
+instance (Applicative m) => MessageLimited MCOpening m where
+    getMsgLenLimit _ = f <$> getMsgLenLimit Proxy <*> getMsgLenLimit Proxy
+      where
+        f a b = MCOpening <$> a <+> b
 
-instance MessageLimitedPure MCVssCertificate where
-    msgLenLimit = MCVssCertificate <$> msgLenLimit
+instance (Applicative m) => MessageLimited MCVssCertificate m where
+    getMsgLenLimit _ = fmap MCVssCertificate <$> getMsgLenLimit Proxy
 
-instance MessageLimited MCOpening
-instance MessageLimited MCVssCertificate
-
-instance MessageLimited MCCommitment where
+instance (HasSscLimits m, Monad m) => MessageLimited MCCommitment m where
     getMsgLenLimit _ = fmap MCCommitment
           <$> getMsgLenLimit (Proxy @SignedCommitment)
 
-instance MessageLimited MCShares where
-    getMsgLenLimit _ = (MCShares <$> msgLenLimit <+>)
-          <$> getMsgLenLimit (Proxy @InnerSharesMap)
+instance (HasSscLimits m, Monad m) => MessageLimited MCShares m where
+    getMsgLenLimit _ = f <$> getMsgLenLimit Proxy <*> getMsgLenLimit (Proxy @InnerSharesMap)
+      where
+        f a b = MCShares <$> a <+> b
+
 
 ----------------------------------------------------------------------------
 ---- Data msg
@@ -207,10 +225,7 @@ instance MessageLimited MCShares where
 -- to do additional checks in get, but data payload is serialized
 -- in straightforward way
 
-instance MessageLimitedPure a => MessageLimitedPure (DataMsg a) where
-    msgLenLimit = DataMsg <$> msgLenLimit
-
-instance MessageLimited a => MessageLimited (DataMsg a) where
+instance (MessageLimited a m, Functor m) => MessageLimited (DataMsg a) m where
     --type LimitType (DataMsg a) = LimitType a
     getMsgLenLimit _ = (fmap . fmap) DataMsg (getMsgLenLimit (Proxy @a))
 
@@ -218,84 +233,112 @@ instance MessageLimited a => MessageLimited (DataMsg a) where
 ---- Txp
 ----------------------------------------------------------------------------
 
-instance MessageLimited TxAux where
-    -- FIXME Integer -> Word32
-    getMsgLenLimit _ = Limit . fromIntegral <$> DB.gsMaxTxSize
+data TxpLimits m = TxpLimits
+    { maxTxSize :: m Byte
+    }
 
-instance MessageLimited TxMsgContents where
+type HasTxpLimits m = Given (TxpLimits m)
+
+instance (HasTxpLimits m, Functor m) => MessageLimited TxAux m where
+    -- FIXME Integer -> Word32
+    getMsgLenLimit _ = Limit . fromIntegral <$> maxTxSize given
+
+instance (HasTxpLimits m, Functor m) => MessageLimited TxMsgContents m where
     getMsgLenLimit _ = fmap TxMsgContents <$> getMsgLenLimit (Proxy @TxAux)
 
 ----------------------------------------------------------------------------
 ---- Update System
 ----------------------------------------------------------------------------
 
--- | Upper bound on number of votes carried with single `UpdateProposal`.
-updateVoteNumLimit :: DB.MonadGState m => m Int
-updateVoteNumLimit =
-    -- succ is just in case
-    succ . ceiling . recip . coinPortionToDouble . bvdUpdateVoteThd <$>
-    DB.gsAdoptedBVData
+data UpdateLimits m = UpdateLimits
+    { updateVoteNumLimit :: m Int
+    , maxProposalSize :: m Byte
+    }
 
-instance MessageLimitedPure UpdateVote where
+type HasUpdateLimits m = Given (UpdateLimits m)
+
+instance (Applicative m) => MessageLimited UpdateVote m where
     -- Add `1` byte of serialization overhead.
-    msgLenLimit =
-        (UpdateVote <$> msgLenLimit <+> msgLenLimit <+> msgLenLimit
-                    <+> msgLenLimit) + 1
+    getMsgLenLimit _ = f <$> getMsgLenLimit Proxy
+                         <*> getMsgLenLimit Proxy
+                         <*> getMsgLenLimit Proxy
+                         <*> getMsgLenLimit Proxy
+      where
+        f a b c d = (UpdateVote <$> a <+> b <+> c <+> d) + 1
 
-instance MessageLimited UpdateVote
-
-instance MessageLimited UpdateProposal where
+instance (HasUpdateLimits m, Functor m) => MessageLimited UpdateProposal m where
     -- FIXME Integer -> Word32
-    getMsgLenLimit _ = Limit . fromIntegral <$> DB.gsMaxProposalSize
+    getMsgLenLimit _ = Limit . fromIntegral <$> maxProposalSize given
 
-instance MessageLimited (UpdateProposal, [UpdateVote]) where
+-- Overlapping because there's an instance for (a, b) but that one doesn't
+-- express what we want: a limit on the size of the list of votes.
+instance {-# OVERLAPPING #-} (HasUpdateLimits m, Monad m) => MessageLimited (UpdateProposal, [UpdateVote]) m where
     getMsgLenLimit _ = do
         proposalLimit <- getMsgLenLimit (Proxy @UpdateProposal)
-        voteNumLimit <- updateVoteNumLimit
+        voteNumLimit <- updateVoteNumLimit given
         return ((,) <$> proposalLimit <+> vector voteNumLimit)
 
 ----------------------------------------------------------------------------
 ---- Blocks/headers
 ----------------------------------------------------------------------------
 
-instance MessageLimitedPure MsgGetBlocks where
-    msgLenLimit = MsgGetBlocks <$> msgLenLimit <+> msgLenLimit
+data BlockLimits m = BlockLimits
+    { maxHeaderSize :: m Byte
+    , maxBlockSize  :: m Byte
+    }
 
-instance MessageLimited MsgGetBlocks
+type HasBlockLimits m = Given (BlockLimits m)
 
-instance MessageLimited BlockHeader where
+instance (Applicative m) => MessageLimited MsgGetBlocks m where
+    getMsgLenLimit _ = f <$> getMsgLenLimit Proxy <*> getMsgLenLimit Proxy
+      where
+        f a b = MsgGetBlocks <$> a <+> b
+
+instance (HasBlockLimits m, Applicative m) => MessageLimited MainBlockHeader m where
     -- FIXME Integer -> Word32
-    getMsgLenLimit _ = Limit . fromIntegral <$> DB.gsMaxHeaderSize
+    getMsgLenLimit _ = Limit . fromIntegral <$> maxHeaderSize given
 
-instance MessageLimited Block where
+-- TODO this is probably wrong, but we need it in order to get
+--   MessageLimited BlockHeader m ~ MessageLimited (Either GenesisBlockHeader MainBlockHeader) m
+-- because there is an instance
+--   MessageLimited (Either a b) m
+instance (HasBlockLimits m, Applicative m) => MessageLimited GenesisBlockHeader m where
     -- FIXME Integer -> Word32
-    getMsgLenLimit _ = Limit . fromIntegral <$> DB.gsMaxBlockSize
+    getMsgLenLimit _ = Limit . fromIntegral <$> maxHeaderSize given
 
-instance MessageLimited MsgBlock where
+instance (HasBlockLimits m, Applicative m) => MessageLimited MainBlock m where
+    -- FIXME Integer -> Word32
+    getMsgLenLimit _ = Limit . fromIntegral <$> maxBlockSize given
+
+-- TODO this is probably wrong, but we need it in order to get
+--   MessageLimited Block m ~ MessageLimited (Either GenesisBlock MainBlock) m
+-- because there is an instance
+--   MessageLimited (Either a b) m
+instance (HasBlockLimits m, Applicative m) => MessageLimited GenesisBlock m where
+    -- FIXME Integer -> Word32
+    getMsgLenLimit _ = Limit . fromIntegral <$> maxBlockSize given
+
+instance (HasBlockLimits m, Monad m) => MessageLimited MsgBlock m where
     getMsgLenLimit _ = do
         blkLimit <- getMsgLenLimit (Proxy @Block)
         return $ MsgBlock <$> blkLimit
 
-instance HasConfiguration => MessageLimitedPure MsgGetHeaders where
-    msgLenLimit = MsgGetHeaders <$> vector maxGetHeadersNum <+> msgLenLimit
+instance (HasConfiguration, Applicative m) => MessageLimited MsgGetHeaders m where
+    getMsgLenLimit _ = f <$> getMsgLenLimit Proxy
       where
+        f a = MsgGetHeaders <$> vector maxGetHeadersNum <+> a
         maxGetHeadersNum = ceiling $
             log (fromIntegral blkSecurityParam) + (5 :: Double)
 
-instance HasConfiguration => MessageLimited MsgGetHeaders
-
-instance (HasBlockConfiguration, HasNodeConfiguration) => MessageLimited MsgHeaders
-  where
+instance (HasNodeConfiguration, HasBlockLimits m, Monad m) => MessageLimited MsgHeaders m where
     getMsgLenLimit _ = do
         headerLimit <- getMsgLenLimit (Proxy @BlockHeader)
         return $
             MsgHeaders <$> vectorOf recoveryHeadersMessage headerLimit
 
 -- TODO: Update once we move to CBOR.
-instance MessageLimitedPure MsgSubscribe where
-    msgLenLimit = 0
-
-instance MessageLimited MsgSubscribe
+instance (Applicative m) => MessageLimited MsgSubscribe m where
+    getMsgLenLimit _ = pure 0
 
 ----------------------------------------------------------------------------
 -- Arbitrary
@@ -373,12 +416,12 @@ vectorOf k (Limit x) =
     encodedListLength = 20
 
 -- | Generate limit for a list of messages with N elements
-vector :: (MessageLimitedPure (Item l)) => Int -> Limit l
-vector k = vectorOf k msgLenLimit
+vector :: (MessageLimited (Item l) Identity) => Int -> Limit l
+vector k = vectorOf k (runIdentity (getMsgLenLimit Proxy))
 
 multiMap
-    :: (Item l ~ (k, l0), MessageLimitedPure k, MessageLimitedPure (Item l0))
+    :: (Item l ~ (k, l0), MessageLimited k Identity, MessageLimited (Item l0) Identity)
     => Int -> Limit l
 multiMap k =
     -- max message length is reached when each key has single value
-    vectorOf k $ (,) <$> msgLenLimit <+> vector 1
+    vectorOf k $ (,) <$> (runIdentity (getMsgLenLimit Proxy)) <+> vector 1

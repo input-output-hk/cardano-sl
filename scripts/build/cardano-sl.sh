@@ -253,7 +253,7 @@ for prj in $to_build; do
   # Building deps
   sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun --dependencies-only $args $prj"
   echo -e "$sbuild\n"
-  eval $sbuild 2>$1                         \
+  eval $sbuild 2>&1                         \
     | sed -e "$xsed"
 
   if [[ $no_code == true ]]; then

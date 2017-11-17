@@ -8,7 +8,7 @@ import           Universum
 
 import           Control.Exception (Exception (..))
 import qualified Data.Text.Buildable
-import           Formatting (bprint, string, (%))
+import           Formatting (bprint, stext, string, (%))
 import           Serokell.Util (listJson)
 
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
@@ -17,6 +17,7 @@ data ReportingError
     = CantRetrieveLogs [FilePath]
     | SendingError !SomeException
     | NoPubFiles
+    | PackingError Text
     deriving Show
 
 instance Exception ReportingError where
@@ -39,3 +40,5 @@ instance Buildable ReportingError where
                 "can't find any .pub file in logconfig. " <>
                 "Most probably public logging is misconfigured. Either set reporting " <>
                 "servers to [] or include .pub files in log config"
+            PackingError t ->
+                bprint ("Couldn't pack log files, reason: "%stext) t

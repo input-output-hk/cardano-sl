@@ -9,8 +9,8 @@ import           Pos.Binary.Crypto ()
 import           Pos.Binary.Ssc ()
 import           Pos.Binary.Update ()
 import           Pos.Communication.Types.Relay (DataMsg (..))
+import           Pos.Core (ProxySKHeavy, ProxySKLight)
 import           Pos.Delegation.Types (ProxySKLightConfirmation)
-import           Pos.Types (ProxySKHeavy, ProxySKLight)
 
 instance Bi (DataMsg ProxySKLight) where
     encode = encode . dmContents

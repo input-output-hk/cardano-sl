@@ -30,6 +30,7 @@ library
 
   build-depends:       base
                      , bytestring
+                     , cardano-sl-util
                      , cardano-sl-core
                      , cardano-sl-db
                      , conduit

@@ -15,13 +15,13 @@ import Data.Time.NominalDiffTime (mkTime)
 import Data.Tuple (Tuple(..))
 import Explorer.Api.Types (SocketSubscription(..), SocketSubscriptionData(..))
 import Explorer.I18n.Lang (Language(..))
-import Explorer.Lenses.State (connected, currentAddressSummary, dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, gblAddressInfosPagination, gblAddressInfosPaginationEditable, gblMaxAddressInfosPagination, genesisBlockViewState, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, viewStates)
+import Explorer.Lenses.State (blocksViewState, blsViewEpochIndex, blsViewMaxPagination, blsViewPagination, connected, currentAddressSummary, currentBlocksResult, dbViewBlockPagination, dbViewLoadingBlockPagination, dbViewMaxBlockPagination, gblAddressInfosPagination, gblAddressInfosPaginationEditable, gblMaxAddressInfosPagination, genesisBlockViewState, lang, latestBlocks, latestTransactions, loading, socket, subscriptions, viewStates)
 import Explorer.State (initialState, mkSocketSubscriptionItem)
-import Explorer.Test.MockFactory (mkCBlockEntry, mkCTxBrief, mkEmptyCAddressSummary, mkEmptyCTxEntry, mkCTxBriefs, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfTx, setTxOfAddressSummary)
+import Explorer.Test.MockFactory (mkCBlockEntry, mkCTxBrief, mkCTxBriefs, mkEmptyCAddressSummary, mkEmptyCTxEntry, setEpochOfBlock, setEpochSlotOfBlock, setHashOfBlock, setIdOfTx, setTimeOfTx, setTxOfAddressSummary)
 import Explorer.Types.Actions (Action(..))
 import Explorer.Types.State (PageNumber(..), PageSize(..))
-import Explorer.Update (update)
-import Explorer.Util.Factory (mkCHash, mkCTxId)
+import Explorer.Update (update, hasBlocksFromEpoch)
+import Explorer.Util.Factory (mkCHash, mkCTxId, mkEpochIndex)
 import Explorer.View.Dashboard.Lenses (dashboardViewState)
 import Network.RemoteData (RemoteData(..), _Success, isLoading, isNotAsked, withDefault)
 import Pos.Explorer.Socket.Methods (Subscription(..))
@@ -115,6 +115,116 @@ testUpdate =
                     state = _.state effModel
                     result = unwrap <<< withDefault (PageNumber 0) $ state ^. (dashboardViewState <<< dbViewMaxBlockPagination )
                 in result `shouldEqual` totalPages
+
+        describe "handles SocketAddressTxsUpdated action" do
+            -- mock `currentAddressSummary` first
+            let latestEpoch = 10
+                blockA = setEpochSlotOfBlock latestEpoch 1 $ mkCBlockEntry
+                blockB = setEpochSlotOfBlock latestEpoch 2 $ mkCBlockEntry
+                blockC = setEpochSlotOfBlock latestEpoch 3 $ mkCBlockEntry
+                blockD = setEpochSlotOfBlock latestEpoch 4 $ mkCBlockEntry
+            it "updates blocks (but not currentPage number) at the last (current) page" do
+                let totalPages = 50
+                    currentBlocks =
+                        [ blockA
+                        , blockB
+                        ]
+                    newBlocks =
+                        [ blockA
+                        , blockB
+                        , blockC
+                        , blockD
+                        ]
+                    initialState' = set currentBlocksResult (Success currentBlocks) $
+                        set (viewStates <<< blocksViewState <<< blsViewEpochIndex) (Just $ mkEpochIndex latestEpoch) $
+                        -- ^ we are on at the same (latest) epoch
+                        set (viewStates <<< blocksViewState <<< blsViewPagination) (PageNumber totalPages) $
+                        set (viewStates <<< blocksViewState <<< blsViewMaxPagination) (PageNumber totalPages)
+                        initialState
+                    effModel = update (SocketEpochsLastPageUpdated (Right (Tuple totalPages newBlocks))) initialState'
+                    state = _.state effModel
+                    blocksResult = withDefault [] $ state ^. currentBlocksResult
+                    pagesResult = state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
+                (gShow blocksResult) `shouldEqual` (gShow newBlocks)
+                (gShow pagesResult) `shouldEqual` (gShow $ PageNumber totalPages)
+            it "updates blocks, total pages and currentPage number to stay at the last (current) page" do
+                let totalPages = 50
+                    currentPage = 49
+                    currentBlocks =
+                        [ blockA
+                        , blockB
+                        ]
+                    newBlocks =
+                        [ blockC
+                        ]
+                    initialState' = set currentBlocksResult (Success currentBlocks) $
+                        set (viewStates <<< blocksViewState <<< blsViewEpochIndex) (Just $ mkEpochIndex latestEpoch) $
+                        -- ^ we are on at the same (latest) epoch
+                        set (viewStates <<< blocksViewState <<< blsViewPagination) (PageNumber currentPage) $
+                        -- ^ we are at latest page, but ...
+                        set (viewStates <<< blocksViewState <<< blsViewMaxPagination) (PageNumber currentPage)
+                        -- ^ total pages
+                        initialState
+                    effModel = update (SocketEpochsLastPageUpdated (Right (Tuple totalPages newBlocks))) initialState'
+                    state = _.state effModel
+                    blocksResult = withDefault [] $ state ^. currentBlocksResult
+                    currentPageResult = state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
+                (gShow blocksResult) `shouldEqual` (gShow newBlocks)
+                (gShow currentPageResult) `shouldEqual` (gShow $ PageNumber totalPages)
+            it "while staying at latest epoch it does update total page number only, but not current blocks or current page" do
+                let totalPages = 50
+                    currentTotalPages = 49
+                    currentPage = 1
+                    currentBlocks =
+                        [ blockA
+                        , blockB
+                        ]
+                    newBlocks =
+                        [ blockC
+                        , blockB
+                        ]
+                    initialState' = set currentBlocksResult (Success currentBlocks) $
+                        set (viewStates <<< blocksViewState <<< blsViewEpochIndex) (Just $ mkEpochIndex latestEpoch) $
+                        -- ^ we are on at the same (latest) epoch
+                        set (viewStates <<< blocksViewState <<< blsViewPagination) (PageNumber currentPage) $
+                        -- ^ we are at first page
+                        set (viewStates <<< blocksViewState <<< blsViewMaxPagination) (PageNumber currentTotalPages)
+                        -- ^ total pages
+                        initialState
+                    effModel = update (SocketEpochsLastPageUpdated (Right (Tuple totalPages newBlocks))) initialState'
+                    state = _.state effModel
+                    blocksResult = withDefault [] $ state ^. currentBlocksResult
+                    currentPageResult = state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
+                    totalPagesResult = state ^. (viewStates <<< blocksViewState <<< blsViewMaxPagination)
+                (gShow blocksResult) `shouldEqual` (gShow currentBlocks)
+                (gShow currentPageResult) `shouldEqual` (gShow $ PageNumber currentPage)
+                (gShow totalPagesResult) `shouldEqual` (gShow $ PageNumber totalPages)
+            it "does not update anything while staying at another epoch" do
+                let currentPage = 1
+                    currentTotalPages = 2
+                    totalPages = 50
+                    currentBlocks =
+                        [ blockA
+                        , blockB
+                        ]
+                    newBlocks =
+                        [ blockC
+                        , blockB
+                        ]
+                    initialState' = set currentBlocksResult (Success currentBlocks) $
+                        set (viewStates <<< blocksViewState <<< blsViewEpochIndex) (Just $ mkEpochIndex 0) $
+                        -- ^ we are staying on first (but not latest) epoch
+                        set (viewStates <<< blocksViewState <<< blsViewPagination) (PageNumber currentPage) $
+                        set (viewStates <<< blocksViewState <<< blsViewMaxPagination) (PageNumber currentTotalPages)
+                        initialState
+                    effModel = update (SocketEpochsLastPageUpdated (Right (Tuple 4 newBlocks))) initialState'
+                    state = _.state effModel
+                    blocksResult = withDefault [] $ state ^. currentBlocksResult
+                    currentPageResult = state ^. (viewStates <<< blocksViewState <<< blsViewPagination)
+                    totalPagesResult = state ^. (viewStates <<< blocksViewState <<< blsViewMaxPagination)
+                (gShow blocksResult) `shouldEqual` (gShow currentBlocks)
+                (gShow currentPageResult) `shouldEqual` (gShow $ PageNumber currentPage)
+                (gShow totalPagesResult) `shouldEqual` (gShow $ PageNumber currentTotalPages)
 
         describe "handles SocketAddressTxsUpdated action" do
             -- mock `currentAddressSummary` first
@@ -352,3 +462,20 @@ testUpdate =
                     state = _.state effModel
                     result = state ^. socket <<< subscriptions
                 in length result `shouldEqual` 0
+
+        describe "blocksFromEpoch" do
+            let blockA = setEpochOfBlock 2 mkCBlockEntry
+                blockB = setEpochOfBlock 2 mkCBlockEntry
+                blockC = setEpochOfBlock 2 mkCBlockEntry
+                blockD = setEpochOfBlock 2 mkCBlockEntry
+                blockE = setEpochOfBlock 2 mkCBlockEntry
+                blocks =
+                    [ blockA
+                    , blockB
+                    , blockC
+                    , blockD
+                    ]
+            it "are found" do
+              hasBlocksFromEpoch blocks (mkEpochIndex 2) `shouldEqual` true
+            it "are not found" do
+              hasBlocksFromEpoch blocks (mkEpochIndex 1) `shouldEqual` false

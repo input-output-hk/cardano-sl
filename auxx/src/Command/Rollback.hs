@@ -16,32 +16,27 @@ import           Pos.Binary (serialize)
 import           Pos.Block.Logic (BypassSecurityCheck (..), rollbackBlocksUnsafe)
 import           Pos.Block.Slog (ShouldCallBListener (..))
 import           Pos.Block.Types (Blund)
-import           Pos.Core (HasConfiguration, difficultyL, epochIndexL)
+import           Pos.Core (difficultyL, epochIndexL)
 import           Pos.Core.Block (mainBlockTxPayload)
 import           Pos.Core.Txp (TxAux)
 import           Pos.DB.DB (getTipHeader, loadBlundsFromTipByDepth)
-import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.StateLock (Priority (..), withStateLock)
 import           Pos.Txp (flattenTxPayload)
-import           Pos.Update.Configuration (HasUpdateConfiguration)
 import           Pos.Util.Chrono (NewestFirst, _NewestFirst)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 
-import           Mode (AuxxMode)
+import           Mode (MonadAuxxMode)
 
 -- | Rollback given number of blocks from the DB and dump transactions
 -- from it to the given file.
 rollbackAndDump
-    :: ( HasConfiguration
-       , HasSscConfiguration
-       , HasUpdateConfiguration
-       , HasInfraConfiguration
+    :: ( MonadAuxxMode m
        , HasCompileInfo
        )
     => Word
     -> FilePath
-    -> AuxxMode ()
+    -> m ()
 rollbackAndDump numToRollback outFile = withStateLock HighPriority "auxx" $ \_ -> do
     printTipDifficulty
     blundsMaybeEmpty <- modifyBlunds <$>

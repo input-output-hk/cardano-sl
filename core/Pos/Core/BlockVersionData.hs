@@ -12,7 +12,7 @@ import           Serokell.Data.Memory.Units (memory)
 
 import           Pos.Core.Coin ()
 import           Pos.Core.Types (BlockVersionData (..), SoftforkRule (..))
-import           Pos.Util.Util ()
+import           Pos.Util.Orphans ()
 
 instance NFData SoftforkRule
 

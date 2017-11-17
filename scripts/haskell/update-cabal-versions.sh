@@ -12,6 +12,7 @@ function updateVersion() {
 }
 
 updateVersion lib/cardano-sl.cabal
+updateVersion util/cardano-sl-util.cabal
 updateVersion core/cardano-sl-core.cabal
 updateVersion infra/cardano-sl-infra.cabal
 updateVersion db/cardano-sl-db.cabal
@@ -23,5 +24,6 @@ updateVersion update/cardano-sl-update.cabal
 updateVersion tools/cardano-sl-tools.cabal
 updateVersion txp/cardano-sl-txp.cabal
 updateVersion wallet/cardano-sl-wallet.cabal
+updateVersion node/cardano-sl-node.cabal
 
 echo "Updated to version $newVersion"

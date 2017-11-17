@@ -59,6 +59,7 @@ import           Pos.Communication (Limit (..), MessageLimitedPure (..))
 import           Pos.Configuration (HasNodeConfiguration)
 import           Pos.Core (HasConfiguration)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
+import           Pos.Util.Arbitrary (SmallGenerator (..))
 import           Test.Pos.Block.Logic.Mode (BlockProperty, blockPropertyTestable)
 import           Test.Pos.Cbor.Canonicity (perturbCanonicity)
 import qualified Test.Pos.Cbor.ReferenceImplementation as R
@@ -306,3 +307,9 @@ blockPropertySpec ::
     -> (HasConfiguration => BlockProperty a)
     -> Spec
 blockPropertySpec description bp = prop description (blockPropertyTestable bp)
+
+----------------------------------------------------------------------------
+-- Orphans
+----------------------------------------------------------------------------
+
+deriving instance Bi bi => Bi (SmallGenerator bi)

@@ -20,7 +20,7 @@ import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
                                dbWriteBatchDefault)
 import           Pos.Txp (GenericTxpLocalData, MempoolExt, TxpHolderTag)
-import           Pos.Util.Util (postfixLFields)
+import           Pos.Util.Lens (postfixLFields)
 
 data WebModeContext ext = WebModeContext
     { wmcNodeDBs      :: !NodeDBs

@@ -1,15 +1,13 @@
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeOperators       #-}
 
 -- API server logic
 
 module Pos.Explorer.Web.Server
-       ( ExplorerMode
-       , explorerServeImpl
+       ( explorerServeImpl
        , explorerApp
        , explorerHandlers
 
@@ -24,8 +22,10 @@ module Pos.Explorer.Web.Server
 
        -- function useful for socket-io server
        , topsortTxsOrFail
+       , epochPageSearch
        , getMempoolTxs
        , getBlocksLastPage
+       , getEpochPagesOrThrow
        , cAddrToAddr
        ) where
 
@@ -40,6 +40,7 @@ import qualified Data.Vector as V
 import           Formatting (build, int, sformat, (%))
 import           Network.Wai (Application)
 import           Network.Wai.Middleware.RequestLogger (logStdoutDev)
+
 import qualified Serokell.Util.Base64 as B64
 import           Servant.API ((:<|>) ((:<|>)))
 import           Servant.Server (Server, ServerT, serve)
@@ -68,8 +69,9 @@ import           Pos.Web (serveImpl)
 
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Core (TxExtra (..))
-import           Pos.Explorer.DB (defaultPageSize, getAddrBalance, getAddrHistory, getEpochBlocks,
-                                  getEpochPages, getLastTransactions, getTxExtra, getUtxoSum)
+import           Pos.Explorer.DB (Page, defaultPageSize, getAddrBalance, getAddrHistory,
+                                  getEpochBlocks, getEpochPages, getLastTransactions,
+                                  getTxExtra, getUtxoSum)
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
 import           Pos.Explorer.ExtraContext (HasExplorerCSLInterface (..),
                                             HasGenesisRedeemAddressInfo (..))
@@ -85,7 +87,6 @@ import           Pos.Explorer.Web.ClientTypes (Byte, CAda (..), CAddress (..), C
                                                mkCCoinMB, tiToTxEntry, toBlockEntry, toBlockSummary,
                                                toCAddress, toCHash, toCTxId, toTxBrief)
 import           Pos.Explorer.Web.Error (ExplorerError (..))
-
 
 ----------------------------------------------------------------
 -- Top level functionality
@@ -219,7 +220,7 @@ getBlocksPage mPageNumber mPageSize = do
         :: ExplorerMode ctx m
         => Int
         -> m [HeaderHash]
-    getPageHHsOrThrow pageNumber = do
+    getPageHHsOrThrow pageNumber =
         -- Then let's fetch blocks for a specific page from it and raise exception if not
         -- found.
         getPageBlocksCSLI pageNumber >>= maybeThrow (Internal errMsg)
@@ -652,7 +653,7 @@ epochPageSearch epochIndex mPage = do
     let page = fromMaybe 1 mPage
 
     -- We want to fetch as many pages as we have in this @Epoch@.
-    epochPagesNumber <- getEpochPages epochIndex >>= maybeThrow (Internal "No epoch pages.")
+    epochPagesNumber <- getEpochPagesOrThrow epochIndex
 
     -- Get pages from the database
     -- TODO: Fix this Int / Integer thing once we merge repositories
@@ -690,7 +691,7 @@ epochPageSearch epochIndex mPage = do
         -- | Get the block index number. We start with the the index 1 for the
         -- genesis block and add 1 for the main blocks since they start with 1
         -- as well.
-        getBlockIndex :: (Block) -> Int
+        getBlockIndex :: Block -> Int
         getBlockIndex (Left _)      = 1
         getBlockIndex (Right block) =
             fromIntegral $ (+1) $ getSlotIndex $ siSlot $ block ^. mainBlockSlot
@@ -874,3 +875,11 @@ getTxMain id TxExtra {..} = case teBlockchainPlace of
         mb <- getMainBlock hh
         maybeThrow (Internal "TxExtra return tx index that is out of bounds") $
             atMay (toList $ mb ^. mainBlockTxPayload . txpTxs) $ fromIntegral idx
+
+-- | Get @Page@ numbers from an @Epoch@ or throw an exception.
+getEpochPagesOrThrow
+    :: (MonadBlockDB m, MonadThrow m)
+    => EpochIndex
+    -> m Page
+getEpochPagesOrThrow epochIndex =
+    getEpochPages epochIndex >>= maybeThrow (Internal "No epoch pages.")

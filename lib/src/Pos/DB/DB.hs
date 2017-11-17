@@ -36,7 +36,7 @@ import           Pos.GState.GState (prepareGStateDB, sanityCheckGStateDB)
 import           Pos.Lrc.DB (prepareLrcDB)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Update.DB (getAdoptedBVData)
-import           Pos.Util (inAssertMode)
+import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.Chrono (NewestFirst)
 
 -- | Initialize DBs if necessary.

@@ -25,9 +25,9 @@ import           Pos.Security.Params (SecurityParams)
 import           Pos.Ssc.Behavior (SscBehavior)
 import           Pos.Statistics (EkgParams, StatsdParams)
 import           Pos.Update.Params (UpdateParams)
+import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.TimeWarp (NetworkAddress)
 import           Pos.Util.UserSecret (UserSecret)
-import           Pos.Util.Util (postfixLFields)
 
 -- | Contains all parameters required for hierarchical logger initialization.
 data LoggingParams = LoggingParams

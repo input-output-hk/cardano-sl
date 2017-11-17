@@ -7,6 +7,7 @@ import Control.Monad.Eff (Eff)
 import Data.Time.Test (testNominalDiffTime)
 import Explorer.Api.Socket.Test (testApiSocket)
 import Explorer.Routes.Test (testRoutes)
+import Explorer.State.Test (testState)
 import Explorer.Update.Test (testUpdate)
 import Explorer.Util.Config.Test (testConfigUtil)
 import Explorer.Util.Data.Test (testDataUtil)
@@ -29,4 +30,5 @@ main = run [consoleReporter] do
     testDataUtil
     testStringUtil
     testRoutes
+    testState
     testUpdate

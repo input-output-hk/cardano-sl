@@ -12,7 +12,7 @@ import DOM.HTML.Types (htmlDocumentToEventTarget)
 import DOM.HTML.Window (document, location)
 import Data.Lens ((^.), set)
 import Data.Maybe (Maybe(..), fromMaybe)
-import Explorer.Api.Socket (addressTxsUpdatedEventHandler, blocksPageUpdatedEventHandler, callYouEventHandler, mkSocketHost, connectEvent, closeEvent, connectHandler, closeHandler, toEvent, txsUpdatedHandler) as Ex
+import Explorer.Api.Socket (addressTxsUpdatedEventHandler, blocksPageUpdatedEventHandler, callYouEventHandler, epochsPageUpdatedEventHandler, mkSocketHost, connectEvent, closeEvent, connectHandler, closeHandler, toEvent, txsUpdatedHandler) as Ex
 import Explorer.I18n.Lang (Language(..), detectLocale)
 import Explorer.Lenses.State (connection, testnet, lang, socket, syncAction)
 import Explorer.Routes (match)
@@ -44,11 +44,11 @@ socketConfig appConfig actionChannel = do
     _ <- on socket' Ex.closeEvent $ Ex.closeHandler actionChannel
     _ <- on socket' (Ex.toEvent TxsUpdated) $ Ex.txsUpdatedHandler actionChannel
     _ <- on socket' (Ex.toEvent BlocksLastPageUpdated) $ Ex.blocksPageUpdatedEventHandler actionChannel
+    _ <- on socket' (Ex.toEvent EpochsLastPageUpdated) $ Ex.epochsPageUpdatedEventHandler actionChannel
     _ <- on socket' (Ex.toEvent AddrUpdated) $ Ex.addressTxsUpdatedEventHandler actionChannel
-    -- Note:
-    -- `CallYou` is the answer of `CallMe`.
-    -- Handling both events are needed a to be connected with socket.io manually
     _ <- on socket' (Ex.toEvent CallYou) $ Ex.callYouEventHandler actionChannel
+    -- Note: ^ `CallYou` is the answer of `CallMe`.
+    -- Handling these events are needed to be connected with socket.io manually
     pure $ appConfig
         { initialState = set (socket <<< connection) (Just socket') appConfig.initialState
         , inputs = [ pingSignal ] <> appConfig.inputs

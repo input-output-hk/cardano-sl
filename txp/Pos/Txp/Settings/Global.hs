@@ -23,7 +23,7 @@ import           Pos.DB (MonadDBRead, MonadGState, SomeBatchOp)
 import           Pos.Slotting (MonadSlots)
 import           Pos.Txp.Toil.Failure (ToilVerFailure)
 import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
-import           Pos.Util.Util (Some)
+import           Pos.Util.Some (Some)
 
 type TxpCommonMode m =
     ( WithLogger m

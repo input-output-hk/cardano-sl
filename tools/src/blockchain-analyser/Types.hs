@@ -26,7 +26,7 @@ import           Pos.Core.Block (Block, BlockHeader)
 import           Pos.DB (MonadBlockDBGeneric (..), MonadDBRead (..))
 import qualified Pos.DB as DB
 import qualified Pos.DB.Block as BDB
-import           Pos.Util.Util (postfixLFields)
+import           Pos.Util (postfixLFields)
 
 type DBFolderStat = (Text, Integer)
 

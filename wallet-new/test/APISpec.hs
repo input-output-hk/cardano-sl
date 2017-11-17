@@ -23,7 +23,6 @@ import           Pos.Wallet.Web.State (WalletState)
 import           Pos.WorkMode (RealModeContext (..))
 import           Serokell.AcidState.ExtendedState
 import           Servant
-import           Servant.API.Sub
 import           Servant.QuickCheck
 import           Servant.QuickCheck.Internal
 import           Test.Hspec

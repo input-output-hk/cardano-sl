@@ -39,7 +39,7 @@ import           Pos.Slotting (waitSystemStart)
 import           Pos.Txp (bootDustThreshold)
 import           Pos.Update.Configuration (HasUpdateConfiguration, curSoftwareVersion,
                                            lastKnownBlockVersion, ourSystemTag)
-import           Pos.Util (inAssertMode)
+import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.CompileInfo (HasCompileInfo, compileInfo)
 import           Pos.Util.LogSafe (logInfoS)
 import           Pos.Worker (allWorkers)

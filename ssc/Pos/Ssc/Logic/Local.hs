@@ -53,7 +53,7 @@ import           Pos.Ssc.Toss (PureToss, SscTag (..), TossT, evalPureTossWithLog
                                tmShares, verifyAndApplySscPayload)
 import           Pos.Ssc.Types (SscBlock, SscGlobalState, SscLocalData (..), ldEpoch, ldModifier,
                                 ldSize, sscGlobal, sscLocal)
-import           Pos.Util.Util (Some)
+import           Pos.Util.Some (Some)
 
 -- | Get local payload to be put into main block and for given
 -- 'SlotId'. If payload for given 'SlotId' can't be constructed,

@@ -10,6 +10,7 @@ module Mode
        -- * Mode, context, etc.
        , AuxxContext (..)
        , AuxxMode
+       , MonadAuxxMode
 
        -- * Helpers
        , getCmdCtx
@@ -63,14 +64,13 @@ import           Pos.Ssc.Types (HasSscContext (..), SscBlock)
 import           Pos.Txp (MempoolExt, MonadTxpLocal (..), txNormalize, txProcessTransaction,
                           txProcessTransactionNoLock)
 import           Pos.Txp.DB.Utxo (getFilteredUtxo)
-import           Pos.Util (Some (..))
+import           Pos.Util (HasLens (..), Some (..), postfixLFields)
 import           Pos.Util.CompileInfo (HasCompileInfo, withCompileInfo)
 import           Pos.Util.JsonLog (HasJsonLogConfig (..))
 import           Pos.Util.LoggerName (HasLoggerName' (..))
 import qualified Pos.Util.OutboundQueue as OQ.Reader
 import           Pos.Util.TimeWarp (CanJsonLog (..))
 import           Pos.Util.UserSecret (HasUserSecret (..))
-import           Pos.Util.Util (HasLens (..), postfixLFields)
 import           Pos.WorkMode (EmptyMempoolExt, RealMode, RealModeContext (..))
 
 -- | Command execution context.
@@ -79,6 +79,9 @@ data CmdCtx = CmdCtx
     }
 
 type AuxxMode = ReaderT AuxxContext Production
+
+class (m ~ AuxxMode, HasConfigurations, HasCompileInfo) => MonadAuxxMode m
+instance (HasConfigurations, HasCompileInfo) => MonadAuxxMode AuxxMode
 
 data AuxxContext = AuxxContext
     { acRealModeContext :: !(RealModeContext EmptyMempoolExt)
@@ -93,7 +96,7 @@ makeLensesWith postfixLFields ''AuxxContext
 ----------------------------------------------------------------------------
 
 -- | Get 'CmdCtx' in 'AuxxMode'.
-getCmdCtx :: AuxxMode CmdCtx
+getCmdCtx :: MonadAuxxMode m => m CmdCtx
 getCmdCtx = view acCmdCtx_L
 
 isTempDbUsed :: AuxxMode Bool
@@ -230,7 +233,7 @@ instance MonadKnownPeers AuxxMode where
 instance MonadFormatPeers AuxxMode where
     formatKnownPeers = OQ.Reader.formatKnownPeersReader (rmcOutboundQ . acRealModeContext)
 
-instance (HasConfiguration, HasInfraConfiguration) =>
+instance (HasConfigurations, HasCompileInfo) =>
          MonadAddresses AuxxMode where
     type AddrData AuxxMode = PublicKey
     getNewAddress = makePubKeyAddressAuxx
@@ -262,9 +265,9 @@ instance (HasConfigurations) =>
 -- choose suitable stake distribution. We want to pick it based on
 -- whether we are currently in bootstrap era.
 makePubKeyAddressAuxx ::
-       (HasConfiguration, HasInfraConfiguration)
+       MonadAuxxMode m
     => PublicKey
-    -> AuxxMode Address
+    -> m Address
 makePubKeyAddressAuxx pk = do
     epochIndex <- siEpoch <$> getCurrentSlotInaccurate
     ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra epochIndex
@@ -272,9 +275,9 @@ makePubKeyAddressAuxx pk = do
 
 -- | Similar to @makePubKeyAddressAuxx@ but create HD address.
 deriveHDAddressAuxx ::
-       (HasConfiguration, HasInfraConfiguration)
+       MonadAuxxMode m
     => EncryptedSecretKey
-    -> AuxxMode Address
+    -> m Address
 deriveHDAddressAuxx hdwSk = do
     epochIndex <- siEpoch <$> getCurrentSlotInaccurate
     ibea <- IsBootstrapEraAddr <$> gsIsBootstrapEra epochIndex

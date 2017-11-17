@@ -47,10 +47,10 @@ import           Text.Megaparsec.Char.Lexer (charLiteral, decimal, scientific, s
 
 import           Lang.Name (Letter, Name (..), unsafeMkLetter)
 import           Pos.Arbitrary.Core ()
+import           Pos.Core (Address, BlockVersion (..), SoftwareVersion (..), StakeholderId,
+                           decodeTextAddress, mkApplicationName)
 import           Pos.Crypto (AHash (..), PublicKey, decodeAbstractHash, fullPublicKeyF, hashHexF,
                              parseFullPublicKey, unsafeCheatingHashCoerce)
-import           Pos.Types (Address, BlockVersion (..), SoftwareVersion (..), StakeholderId,
-                            decodeTextAddress, mkApplicationName)
 
 data BracketSide = BracketSideOpening | BracketSideClosing
     deriving (Eq, Ord, Show, Generic)

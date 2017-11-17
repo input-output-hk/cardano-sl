@@ -22,6 +22,7 @@ import           Data.Default (Default (def))
 import           Test.QuickCheck.Gen (Gen (MkGen), sized)
 import           Test.QuickCheck.Monadic (PropertyM, pick)
 
+import           Pos.AllSecrets (AllSecrets, HasAllSecrets (..), allSecrets)
 import           Pos.Block.Types (Blund)
 import           Pos.Core (BlockCount, GenesisData (..), HasConfiguration, HasGenesisData,
                            SlotId (..), epochIndexL, genesisData)
@@ -29,10 +30,8 @@ import           Pos.Core.Block (Block)
 import           Pos.Generator.Block (BlockGenMode, BlockGenParams (..), MonadBlockGenInit,
                                       genBlocks, tgpTxCountRange)
 import           Pos.Txp (MempoolExt, MonadTxpLocal, TxpGlobalSettings, txpGlobalSettings)
+import           Pos.Util (HasLens', _neLast)
 import           Pos.Util.Chrono (NE, OldestFirst (..))
-import           Pos.Util.Util (HasLens', _neLast)
-
-import           Pos.AllSecrets (AllSecrets, HasAllSecrets (..), allSecrets)
 import           Test.Pos.Block.Logic.Mode (BlockProperty, BlockTestContext, btcSlotIdL)
 
 -- | Wrapper for 'bpGenBlocks' to clarify the meaning of the argument.

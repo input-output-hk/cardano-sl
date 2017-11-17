@@ -192,6 +192,9 @@ if [[ $clean == true ]]; then
   echo "Cleaning cardano-sl-wallet"
   stack clean cardano-sl-wallet
 
+  echo "Cleaning cardano-sl-wallet-new"
+  stack clean cardano-sl-wallet-new
+
   echo "Cleaning cardano-sl-explorer"
   stack clean cardano-sl-explorer
 
@@ -214,7 +217,7 @@ if [[ $spec_prj == "" ]]; then
     to_build="$to_build cardano-sl-$prj"
   done
 
-  to_build="$to_build cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet cardano-sl-explorer cardano-sl-node"
+  to_build="$to_build cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet cardano-sl-wallet-new cardano-sl-explorer cardano-sl-node"
 
 elif [[ $spec_prj == "lib" ]]; then
   to_build="cardano-sl"

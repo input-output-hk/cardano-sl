@@ -13,33 +13,33 @@ module Pos.Wallet.Web.Server.Runner
        , convertHandler
        ) where
 
-import           Universum                      hiding (over)
+import           Universum hiding (over)
 
-import qualified Control.Concurrent.STM         as STM
-import qualified Control.Monad.Catch            as Catch
-import           Control.Monad.Except           (MonadError (throwError))
-import qualified Control.Monad.Reader           as Mtl
-import           Ether.Internal                 (HasLens (..))
-import           Mockable                       (Production, runProduction)
-import           Network.Wai                    (Application)
-import           Servant.Server                 (Handler)
-import           System.Wlog                    (logInfo)
+import qualified Control.Concurrent.STM as STM
+import qualified Control.Monad.Catch as Catch
+import           Control.Monad.Except (MonadError (throwError))
+import qualified Control.Monad.Reader as Mtl
+import           Ether.Internal (HasLens (..))
+import           Mockable (Production, runProduction)
+import           Network.Wai (Application)
+import           Servant.Server (Handler)
+import           System.Wlog (logInfo)
 
-import           Pos.Communication              (ActionSpec (..), OutSpecs)
-import           Pos.Communication.Protocol     (SendActions)
-import           Pos.Launcher.Configuration     (HasConfigurations)
-import           Pos.Launcher.Resource          (NodeResources)
-import           Pos.Launcher.Runner            (runRealBasedMode)
-import           Pos.Util.CompileInfo           (HasCompileInfo)
-import           Pos.Util.TimeWarp              (NetworkAddress)
-import           Pos.Wallet.WalletMode          (WalletMempoolExt)
-import           Pos.Wallet.Web.Methods         (addInitialRichAccount)
-import           Pos.Wallet.Web.Mode            (WalletWebMode, WalletWebModeContext (..),
-                                                 WalletWebModeContextTag)
+import           Pos.Communication (ActionSpec (..), OutSpecs)
+import           Pos.Communication.Protocol (SendActions)
+import           Pos.Launcher.Configuration (HasConfigurations)
+import           Pos.Launcher.Resource (NodeResources)
+import           Pos.Launcher.Runner (runRealBasedMode)
+import           Pos.Util.CompileInfo (HasCompileInfo)
+import           Pos.Util.TimeWarp (NetworkAddress)
+import           Pos.Wallet.WalletMode (WalletMempoolExt)
+import           Pos.Wallet.Web.Methods (addInitialRichAccount)
+import           Pos.Wallet.Web.Mode (WalletWebMode, WalletWebModeContext (..),
+                                      WalletWebModeContextTag)
 import           Pos.Wallet.Web.Server.Launcher (walletApplication, walletServeImpl, walletServer)
-import           Pos.Wallet.Web.Sockets         (ConnectionsVar)
-import           Pos.Wallet.Web.State           (WalletState)
-import           Pos.Web                        (TlsParams)
+import           Pos.Wallet.Web.Sockets (ConnectionsVar)
+import           Pos.Wallet.Web.State (WalletState)
+import           Pos.Web (TlsParams)
 
 -- | 'WalletWebMode' runner.
 runWRealMode

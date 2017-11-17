@@ -16,6 +16,7 @@ b
 # Various DBs
 node-db*
 wallet-db/
+wallet-new-db/
 db-*/
 wdb-*/
 

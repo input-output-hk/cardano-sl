@@ -9,6 +9,7 @@
 
 module Pos.Wallet.Web.Api
        ( WalletApi
+       , WalletApiNoPrefix
        , walletApi
 
        , ApiPrefix
@@ -389,7 +390,9 @@ type GetClientInfo =
     :> WRes Get ClientInfo
 
 -- | Servant API which provides access to wallet.
-type WalletApi = ApiPrefix :> (
+type WalletApi = ApiPrefix :> WalletApiNoPrefix
+
+type WalletApiNoPrefix = (
      -- NOTE: enabled in prod mode https://issues.serokell.io/issue/CSM-333
      TestReset
     :<|>

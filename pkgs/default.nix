@@ -1234,6 +1234,7 @@ self: {
             focus
             formatting
             generic-arbitrary
+            half
             hashable
             hspec
             http-client
@@ -2221,6 +2222,7 @@ self: {
             node-sketch
             optparse-applicative
             parsec
+            QuickCheck
             random
             reflection
             safecopy
@@ -2363,6 +2365,134 @@ self: {
           doCheck = true;
           description = "Cardano SL - wallet";
           license = stdenv.lib.licenses.mit;
+        }) {};
+      cardano-sl-wallet-new = callPackage ({ QuickCheck, aeson, aeson-pretty, base, bytestring, cardano-sl, cardano-sl-core, cardano-sl-infra, cardano-sl-ssc, cardano-sl-txp, cardano-sl-update, cardano-sl-util, cardano-sl-wallet, containers, data-default, exceptions, formatting, hspec, http-api-data, http-client, http-types, insert-ordered-containers, lens, log-warper, memory, mkDerivation, mtl, neat-interpolation, network-uri, node-sketch, optparse-applicative, quickcheck-instances, serokell-util, servant, servant-client, servant-quickcheck, servant-server, servant-swagger, stdenv, stm, string-conv, swagger2, text, text-format, time-units, transformers, universum, unordered-containers, wai, wai-cors, wai-extra, warp }:
+      mkDerivation {
+          pname = "cardano-sl-wallet-new";
+          version = "0.1.0.0";
+          src = ./../wallet-new;
+          isLibrary = true;
+          isExecutable = true;
+          libraryHaskellDepends = [
+            aeson
+            base
+            bytestring
+            cardano-sl
+            cardano-sl-core
+            cardano-sl-infra
+            cardano-sl-ssc
+            cardano-sl-update
+            cardano-sl-util
+            cardano-sl-wallet
+            containers
+            data-default
+            exceptions
+            formatting
+            http-api-data
+            http-client
+            http-types
+            lens
+            memory
+            mtl
+            network-uri
+            node-sketch
+            QuickCheck
+            serokell-util
+            servant
+            servant-client
+            servant-server
+            text
+            text-format
+            transformers
+            universum
+            warp
+          ];
+          executableHaskellDepends = [
+            aeson
+            aeson-pretty
+            base
+            bytestring
+            cardano-sl
+            cardano-sl-core
+            cardano-sl-infra
+            cardano-sl-ssc
+            cardano-sl-txp
+            cardano-sl-util
+            cardano-sl-wallet
+            containers
+            data-default
+            exceptions
+            formatting
+            http-api-data
+            http-types
+            insert-ordered-containers
+            lens
+            log-warper
+            memory
+            mtl
+            neat-interpolation
+            node-sketch
+            optparse-applicative
+            QuickCheck
+            serokell-util
+            servant
+            servant-server
+            servant-swagger
+            stm
+            string-conv
+            swagger2
+            text
+            text-format
+            time-units
+            universum
+            unordered-containers
+            wai
+            wai-cors
+            wai-extra
+            warp
+          ];
+          testHaskellDepends = [
+            aeson
+            aeson-pretty
+            base
+            bytestring
+            cardano-sl
+            cardano-sl-core
+            cardano-sl-infra
+            cardano-sl-ssc
+            cardano-sl-txp
+            cardano-sl-util
+            cardano-sl-wallet
+            containers
+            data-default
+            exceptions
+            formatting
+            hspec
+            http-client
+            http-types
+            insert-ordered-containers
+            lens
+            memory
+            neat-interpolation
+            QuickCheck
+            quickcheck-instances
+            serokell-util
+            servant
+            servant-quickcheck
+            servant-server
+            servant-swagger
+            stm
+            string-conv
+            swagger2
+            text
+            universum
+            unordered-containers
+          ];
+          doHaddock = false;
+          doCheck = true;
+          homepage = "https://github.com/swagger-api/swagger-codegen#readme";
+          description = "Auto-generated API bindings for cardano-sl-web-wallet";
+          license = stdenv.lib.licenses.unfree;
         }) {};
       case-insensitive = callPackage ({ base, bytestring, deepseq, hashable, mkDerivation, stdenv, text }:
       mkDerivation {
@@ -6321,6 +6451,66 @@ self: {
           description = "Blaze-html support for servant";
           license = stdenv.lib.licenses.bsd3;
         }) {};
+      servant-client = callPackage ({ aeson, attoparsec, base, base-compat, bytestring, containers, exceptions, http-client, http-client-tls, http-media, http-types, mkDerivation, monad-control, mtl, semigroupoids, servant-client-core, stdenv, text, transformers, transformers-base, transformers-compat }:
+      mkDerivation {
+          pname = "servant-client";
+          version = "0.12";
+          sha256 = "95c9d6cef575f1c7f9cc448753a8d6ca5d53e394638665a5f09dbc83917150f0";
+          libraryHaskellDepends = [
+            aeson
+            attoparsec
+            base
+            base-compat
+            bytestring
+            containers
+            exceptions
+            http-client
+            http-client-tls
+            http-media
+            http-types
+            monad-control
+            mtl
+            semigroupoids
+            servant-client-core
+            text
+            transformers
+            transformers-base
+            transformers-compat
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "http://haskell-servant.readthedocs.org/";
+          description = "automatical derivation of querying functions for servant webservices";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
+      servant-client-core = callPackage ({ base, base-compat, base64-bytestring, bytestring, containers, exceptions, generics-sop, http-api-data, http-media, http-types, mkDerivation, mtl, network-uri, safe, servant, stdenv, text }:
+      mkDerivation {
+          pname = "servant-client-core";
+          version = "0.12";
+          sha256 = "a50cac1cb5225eab8632dc2cb8b1a9917deec67f46cb2f86c2cec31c9f366371";
+          libraryHaskellDepends = [
+            base
+            base-compat
+            base64-bytestring
+            bytestring
+            containers
+            exceptions
+            generics-sop
+            http-api-data
+            http-media
+            http-types
+            mtl
+            network-uri
+            safe
+            servant
+            text
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "http://haskell-servant.readthedocs.org/";
+          description = "Core functionality and class for client function generation for servant APIs";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
       servant-docs = callPackage ({ aeson, aeson-pretty, base, base-compat, bytestring, case-insensitive, control-monad-omega, hashable, http-media, http-types, lens, mkDerivation, servant, stdenv, string-conversions, text, unordered-containers }:
       mkDerivation {
           pname = "servant-docs";
@@ -6397,6 +6587,46 @@ self: {
           doCheck = false;
           homepage = "https://github.com/haskell-servant/servant-multipart#readme";
           description = "multipart/form-data (e.g file upload) support for servant";
+          license = stdenv.lib.licenses.bsd3;
+        }) {};
+      servant-quickcheck = callPackage ({ QuickCheck, aeson, base, base-compat, bytestring, case-insensitive, clock, data-default-class, fetchgit, hspec, http-client, http-media, http-types, mkDerivation, mtl, pretty, process, servant, servant-client, servant-server, split, stdenv, string-conversions, temporary, text, time, warp }:
+      mkDerivation {
+          pname = "servant-quickcheck";
+          version = "0.0.4";
+          src = fetchgit {
+            url = "https://github.com/haskell-servant/servant-quickcheck.git";
+            sha256 = "0s50czgy5sw8xh8lqlnsq9q0r9j7ijwz2v73r4k5xrcpaxm6av2c";
+            rev = "6e6595f68c947107beba185392b350abd2009ba0";
+          };
+          libraryHaskellDepends = [
+            aeson
+            base
+            base-compat
+            bytestring
+            case-insensitive
+            clock
+            data-default-class
+            hspec
+            http-client
+            http-media
+            http-types
+            mtl
+            pretty
+            process
+            QuickCheck
+            servant
+            servant-client
+            servant-server
+            split
+            string-conversions
+            temporary
+            text
+            time
+            warp
+          ];
+          doHaddock = false;
+          doCheck = false;
+          description = "QuickCheck entire APIs";
           license = stdenv.lib.licenses.bsd3;
         }) {};
       servant-server = callPackage ({ Cabal, aeson, attoparsec, base, base-compat, base64-bytestring, bytestring, cabal-doctest, containers, exceptions, filepath, http-api-data, http-types, mkDerivation, monad-control, mtl, network, network-uri, resourcet, safe, servant, split, stdenv, string-conversions, system-filepath, tagged, text, transformers, transformers-base, transformers-compat, wai, wai-app-static, warp, word8 }:
@@ -6749,6 +6979,22 @@ self: {
           homepage = "https://github.com/fpco/streaming-commons";
           description = "Common lower-level functions needed by various streaming data libraries";
           license = stdenv.lib.licenses.mit;
+        }) {};
+      string-conv = callPackage ({ base, bytestring, mkDerivation, stdenv, text }:
+      mkDerivation {
+          pname = "string-conv";
+          version = "0.1.2";
+          sha256 = "f259a03e6f296af19a71c07ab9a98a38661dfe40679f360f8e371334ea226039";
+          libraryHaskellDepends = [
+            base
+            bytestring
+            text
+          ];
+          doHaddock = false;
+          doCheck = false;
+          homepage = "https://github.com/Soostone/string-conv";
+          description = "Standardized conversion between string types";
+          license = stdenv.lib.licenses.bsd3;
         }) {};
       string-conversions = callPackage ({ base, bytestring, mkDerivation, stdenv, text, utf8-string }:
       mkDerivation {

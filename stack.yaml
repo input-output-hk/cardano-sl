@@ -22,6 +22,7 @@ packages:
 - node
 - tools
 - wallet
+- wallet-new # The new (unreleased) version of the wallet
 
 - location:
     git: https://github.com/well-typed/cborg
@@ -101,6 +102,12 @@ packages:
     commit: 2d261bb971bada1893753b503452d9e6e217bc4a
   extra-dep: true
 
+# Unreleased support for servant-0.12
+- location:
+    git: https://github.com/haskell-servant/servant-quickcheck.git
+    commit: 6e6595f68c947107beba185392b350abd2009ba0
+  extra-dep: true
+
 nix:
   shell-file: shell.nix
 
@@ -117,6 +124,8 @@ extra-deps:
 - directory-1.3.1.0               # https://github.com/malcolmwallace/cpphs/issues/8
 - servant-0.12
 - servant-server-0.12
+- servant-client-0.12
+- servant-client-core-0.12
 - servant-multipart-0.11
 - servant-docs-0.11.1             # needed for servant-0.12
 - servant-swagger-1.1.4           # needed for servant-0.12

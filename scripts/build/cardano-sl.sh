@@ -120,6 +120,8 @@ do
     spec_prj="auxx"
   elif [[ $var == "wallet" ]]; then
     spec_prj="wallet"
+  elif [[ $var == "wallet-new" ]]; then
+    spec_prj="wallet-new"
   elif [[ $var == "explorer" ]]; then
     spec_prj="explorer"
   elif [[ $var == "node" ]]; then
@@ -192,6 +194,9 @@ if [[ $clean == true ]]; then
   echo "Cleaning cardano-sl-wallet"
   stack clean cardano-sl-wallet
 
+  echo "Cleaning cardano-sl-wallet-new"
+  stack clean cardano-sl-wallet-new
+
   echo "Cleaning cardano-sl-explorer"
   stack clean cardano-sl-explorer
 
@@ -214,7 +219,7 @@ if [[ $spec_prj == "" ]]; then
     to_build="$to_build cardano-sl-$prj"
   done
 
-  to_build="$to_build cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet cardano-sl-explorer cardano-sl-node"
+  to_build="$to_build cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet cardano-sl-wallet-new cardano-sl-explorer cardano-sl-node"
 
 elif [[ $spec_prj == "lib" ]]; then
   to_build="cardano-sl"
@@ -224,6 +229,8 @@ elif [[ $spec_prj == "auxx" ]]; then
   to_build="cardano-sl-auxx"
 elif [[ $spec_prj == "wallet" ]]; then
   to_build="cardano-sl-node cardano-sl-wallet"
+elif [[ $spec_prj == "wallet-new" ]]; then
+  to_build="cardano-sl-node cardano-sl-wallet-new"
 elif [[ $spec_prj == "explorer" ]]; then
   to_build="cardano-sl-node cardano-sl-explorer"
 elif [[ $spec_prj == "all" ]]; then

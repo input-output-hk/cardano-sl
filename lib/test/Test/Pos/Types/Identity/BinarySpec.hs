@@ -12,7 +12,6 @@ import           Pos.Arbitrary.Infra ()
 import qualified Pos.Core as T
 import qualified Pos.Core.Fee as Fee
 import           Pos.Data.Attributes (Attributes (..))
-import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Util.Chrono (NE, NewestFirst, OldestFirst)
 
 import           Test.Pos.Cbor.CborSpec (U)
@@ -58,7 +57,6 @@ spec = withDefInfraConfiguration $ withDefConfiguration $ describe "Types" $ do
             binaryTest @T.SoftwareVersion
             binaryTest @T.BlockVersion
         describe "Util" $ do
-            binaryTest @BackupPhrase
             binaryTest @(NewestFirst NE U)
             binaryTest @(OldestFirst NE U)
     describe "Message length limit" $ do

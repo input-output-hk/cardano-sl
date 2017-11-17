@@ -22,5 +22,5 @@ spec = describe "Marshalling & Unmarshalling" $ do
 
 
 aesonRoundtrip :: (Arbitrary a, ToJSON a, FromJSON a, Eq a, Show a) => proxy a -> Property
-aesonRoundtrip (_ :: proxy a) = forAll arbitrary $ \(sample :: a) -> do
-    decode (encode (toJSON sample)) === Just sample
+aesonRoundtrip (_ :: proxy a) = forAll arbitrary $ \(s :: a) -> do
+    decode (encode (toJSON s)) === Just s

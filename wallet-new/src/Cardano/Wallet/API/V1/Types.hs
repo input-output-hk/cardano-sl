@@ -48,7 +48,6 @@ import           Universum
 
 import           Data.Aeson
 import           Data.Aeson.TH
-import qualified Data.ByteArray as ByteArray
 import           Data.Default (Default (def))
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text.Buildable

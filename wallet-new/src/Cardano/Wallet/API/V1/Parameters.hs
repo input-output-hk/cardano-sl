@@ -8,12 +8,13 @@
 {-# LANGUAGE TypeOperators         #-}
 {-# LANGUAGE UndecidableInstances  #-}
 {-# OPTIONS_GHC -fno-warn-orphans  #-}
+{-# OPTIONS_GHC -fno-warn-missing-methods #-}
 module Cardano.Wallet.API.V1.Parameters where
 
 import           Universum
 
-import           Cardano.Wallet.API.Types    (AlternativeApiArg, DQueryParam,
-                                              WithDefaultApiArg, mapRouter)
+import           Cardano.Wallet.API.Types (AlternativeApiArg, DQueryParam, WithDefaultApiArg,
+                                           mapRouter)
 import           Cardano.Wallet.API.V1.Types
 
 import           Servant

@@ -1,4 +1,5 @@
 {-- Types shared between different API versions. --}
+{-# OPTIONS_GHC -fno-warn-missing-methods #-}
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE DefaultSignatures     #-}
@@ -16,13 +17,13 @@ import           Universum
 
 import           Data.Aeson
 import           Data.Aeson.TH
-import           Data.Default            (Default (..))
-import qualified Data.Text               as T
+import           Data.Default (Default (..))
+import qualified Data.Text as T
 import           GHC.TypeLits
 import qualified Servant.Server.Internal as SI
 
 import           Servant
-import           Servant.API.Sub         ((:>))
+import           Servant.API.Sub ((:>))
 import           Test.QuickCheck
 
 --

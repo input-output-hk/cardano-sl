@@ -2,7 +2,6 @@
 {-# LANGUAGE TypeOperators #-}
 module Cardano.Wallet.API.V1.Addresses where
 
-import           Cardano.Wallet.API.Types
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
 

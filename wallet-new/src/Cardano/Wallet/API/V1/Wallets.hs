@@ -1,9 +1,5 @@
 module Cardano.Wallet.API.V1.Wallets where
 
-import           Universum
-
-import           Cardano.Wallet.API.Types
-import qualified Cardano.Wallet.API.V1.Accounts   as Accounts
 import           Cardano.Wallet.API.V1.Parameters
 import           Cardano.Wallet.API.V1.Types
 

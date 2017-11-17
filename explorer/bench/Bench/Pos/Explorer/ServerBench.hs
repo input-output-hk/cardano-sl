@@ -3,144 +3,71 @@ module Bench.Pos.Explorer.ServerBench
     , runSpaceBenchmark
     ) where
 
-import qualified Prelude
 import           Universum
 
-import           Criterion.Main (Benchmark, bench, defaultConfig, defaultMainWith, env, whnf)
+import           Criterion.Main (bench, defaultConfig, defaultMainWith, nfIO)
 import           Criterion.Types (Config (..))
-import           Weigh (Weigh, io, mainWith)
+import           Weigh (io, mainWith)
 
-import           Test.QuickCheck (Arbitrary, arbitrary, generate)
+import           Test.QuickCheck (arbitrary, generate)
 
-import           Control.Lens (makeLenses)
-import           Data.Default (def)
-import           Data.Text.Buildable (build)
 import           Pos.Arbitrary.Txp.Unsafe ()
 
-import           Pos.Block.Types (Blund, Undo (..))
-import           Pos.Core (HasConfiguration, HeaderHash, SlotLeaders, Timestamp)
-import           Pos.Core.Block (Block)
-import           Pos.Launcher.Configuration (HasConfigurations)
 import           Test.Pos.Util (withDefConfigurations)
 
 import           Pos.Explorer.ExplorerMode (ExplorerTestParams, runExplorerTestMode)
-import           Pos.Explorer.ExtraContext (ExplorerMockableMode (..), ExtraContext (..),
-                                            makeMockExtraCtx)
-import           Pos.Explorer.TestUtil (produceBlocksByBlockNumberAndSlots, produceSecretKeys,
-                                        produceSlotLeaders, createEmptyUndo)
+import           Pos.Explorer.ExtraContext (ExtraContext (..), makeMockExtraCtx)
+import           Pos.Explorer.TestUtil (BlockNumber, SlotsPerEpoch,
+                                        generateValidExplorerMockableMode)
 import           Pos.Explorer.Web.ClientTypes (CBlockEntry)
 import           Pos.Explorer.Web.Server (getBlocksPage, getBlocksTotal)
 
-----------------------------------------------------------------
--- Arbitrary and Show instances
-----------------------------------------------------------------
-
--- TODO(ks): This is not really arbitrary, but should work until CSL-1884
-instance HasConfiguration => Prelude.Show Undo where
-    show = show . build
-
-instance HasConfiguration => Arbitrary Undo where
-    arbitrary = pure createEmptyUndo
-
-----------------------------------------------------------------
--- Function mocks
-----------------------------------------------------------------
-
--- | The data structure that contains all required generated parameters to test the
--- function.
-data GeneratedTestArguments = GeneratedTestArguments
-    { _gtaPageNumber             :: Maybe Word
-    , _gtaTipBlock               :: Block
-    , _gtaBlockHeaderHashes      :: [HeaderHash]
-    , _gtaBlundsFromHeaderHashes :: Blund
-    , _gtaSlotStart              :: Timestamp
-    , _gtaSlotLeaders            :: SlotLeaders
-    } deriving (Generic)
-
-makeLenses ''GeneratedTestArguments
-
-instance HasConfigurations => NFData GeneratedTestArguments
-
--- | More predictable generation that doesn't violate the invariants.
-genArgs :: Word -> Word -> Word -> IO GeneratedTestArguments
-genArgs blocksNumber slotsPerEpoch pageNumber = do
-
-    slotStart     <- liftIO $ generate $ arbitrary
-
-    blockHHs      <- liftIO $ generate $ arbitrary
-    blundsFHHs    <- liftIO $ generate $ withDefConfigurations arbitrary
-
-    slotLeaders   <- produceSlotLeaders blocksNumber
-    secretKeys    <- produceSecretKeys blocksNumber
-
-    blocks <- withDefConfigurations $
-        produceBlocksByBlockNumberAndSlots blocksNumber slotsPerEpoch slotLeaders secretKeys
-
-    let tipBlock = Prelude.last blocks
-
-    pure $ GeneratedTestArguments
-        { _gtaPageNumber              = Just pageNumber
-        , _gtaTipBlock                = tipBlock
-        , _gtaBlockHeaderHashes       = blockHHs
-        , _gtaBlundsFromHeaderHashes  = blundsFHHs
-        , _gtaSlotStart               = slotStart
-        , _gtaSlotLeaders             = slotLeaders
-        }
 
 ----------------------------------------------------------------
 -- Mocked functions
 ----------------------------------------------------------------
 
-getBlocksTotalMock
-    :: (HasConfigurations)
-    => GeneratedTestArguments
+type BenchmarkTestParams = (ExplorerTestParams, ExtraContext)
+
+-- | @getBlocksTotal@ function for benchmarks.
+getBlocksTotalWithParams
+    :: BenchmarkTestParams
     -> IO Integer
-getBlocksTotalMock genTestArgs = do
+getBlocksTotalWithParams (testParams, extraContext) =
+    withDefConfigurations $
+        runExplorerTestMode testParams extraContext getBlocksTotal
+
+-- | @getBlocksPage@ function for the last page for benchmarks.
+getBlocksPageWithParams
+    :: BenchmarkTestParams
+    -> IO (Integer, [CBlockEntry])
+getBlocksPageWithParams (testParams, extraContext) =
+    withDefConfigurations $
+        runExplorerTestMode testParams extraContext $ getBlocksPage Nothing (Just 10)
+
+-- | This is used to generate the test environment. We don't do this while benchmarking
+-- the functions since that would include the time/memory required for the generation of the
+-- mock blockchain (test environment), and we don't want to include that in our benchmarks.
+generateTestEnv
+    :: BlockNumber
+    -> SlotsPerEpoch
+    -> IO (ExplorerTestParams, ExtraContext)
+generateTestEnv totalBlocksNumber slotsPerEpoch = do
     testParams <- testParamsGen
 
-    -- We replace the "real" database with our custom data.
-    let mode :: ExplorerMockableMode
-        mode = def { emmGetTipBlock = pure $ genTestArgs ^. gtaTipBlock }
+    -- We replace the "real" blockchain with our custom generated one.
+    mode <- generateValidExplorerMockableMode totalBlocksNumber slotsPerEpoch
 
     -- The extra context so we can mock the functions.
     let extraContext :: ExtraContext
-        extraContext = makeMockExtraCtx mode
+        extraContext = withDefConfigurations $ makeMockExtraCtx mode
 
-    runExplorerTestMode testParams extraContext getBlocksTotal
-
-
--- | The actual benched function.
-getBlocksPageMock
-    :: (HasConfigurations)
-    => GeneratedTestArguments
-    -> IO (Integer, [CBlockEntry])
-getBlocksPageMock genTestArgs = do
-    testParams <- testParamsGen -- TODO(ks): Temporary test params, will be removed.
-
-        -- We replace the "real" database with our custom data.
-    let mode :: ExplorerMockableMode
-        mode = def {
-            emmGetTipBlock         = pure $ genTestArgs ^. gtaTipBlock,
-            emmGetPageBlocks       = \_ -> pure $ Just $ genTestArgs ^. gtaBlockHeaderHashes,
-            emmGetBlundFromHH      = \_ -> pure $ Just $ genTestArgs ^. gtaBlundsFromHeaderHashes,
-            emmGetSlotStart        = \_ -> pure $ Just $ genTestArgs ^. gtaSlotStart,
-            emmGetLeadersFromEpoch = \_ -> pure $ Just $ genTestArgs ^. gtaSlotLeaders
-        }
-
-    -- The extra context so we can mock the functions.
-    let extraContext :: ExtraContext
-        extraContext = makeMockExtraCtx mode
-
-    runExplorerTestMode testParams extraContext $ getBlocksPage pageNumber (Just 10)
+    pure (testParams, extraContext)
   where
-    -- The page number we send to the function
-    pageNumber :: Maybe Word
-    pageNumber = genTestArgs ^. gtaPageNumber
+    -- | Generated test parameters.
+    testParamsGen :: IO ExplorerTestParams
+    testParamsGen = generate arbitrary
 
-
--- TODO(ks): Temporary test params, will be removed.
-testParamsGen :: IO ExplorerTestParams
-testParamsGen = generate arbitrary
 
 ----------------------------------------------------------------
 -- Time benchmark
@@ -148,12 +75,22 @@ testParamsGen = generate arbitrary
 
 -- | Time @getBlocksPage@.
 runTimeBenchmark :: IO ()
-runTimeBenchmark = defaultMainWith getBlocksPageConfig
-    [ get100BlocksTotalMock
-    , get100BlocksPageBench
-    , get1000BlocksPageBench
-    , get10000BlocksPageBench
-    ]
+runTimeBenchmark = do
+    -- Generate the test environment before the benchmarks.
+    blocks100   <- generateTestEnv 100 10
+    blocks1000  <- generateTestEnv 1000 10
+    blocks10000 <- generateTestEnv 10000 10
+
+    defaultMainWith getBlocksPageConfig
+        [ bench "getBlocksTotal 100 blocks" $ nfIO $ getBlocksTotalWithParams blocks100
+        , bench "getBlocksTotal 1000 blocks" $ nfIO $ getBlocksTotalWithParams blocks1000
+        , bench "getBlocksTotal 10000 blocks" $ nfIO $ getBlocksTotalWithParams blocks10000
+
+        , bench "getBlocksPage 100 blocks" $ nfIO $ getBlocksPageWithParams blocks100
+        , bench "getBlocksPage 1000 blocks" $ nfIO $ getBlocksPageWithParams blocks1000
+        , bench "getBlocksPage 10000 blocks" $ nfIO $ getBlocksPageWithParams blocks10000
+        ]
+
   where
     -- | Configuration.
     getBlocksPageConfig :: Config
@@ -161,64 +98,23 @@ runTimeBenchmark = defaultMainWith getBlocksPageConfig
         { reportFile = Just "bench/results/ServerBackend.html"
         }
 
-    get100BlocksTotalMock :: Benchmark
-    get100BlocksTotalMock = withDefConfigurations $
-        env (genArgs 100 50 2) $ bench "Get total blocks" . whnf getBlocksTotalMockBench
-      where
-        getBlocksTotalMockBench :: GeneratedTestArguments -> IO Integer
-        getBlocksTotalMockBench = withDefConfigurations getBlocksTotalMock
-
-    get100BlocksPageBench :: Benchmark
-    get100BlocksPageBench = withDefConfigurations $
-        env (genArgs 100 50 2) $ bench "Get 100 blocks page" . whnf getBlocksPageMockBench
-      where
-        getBlocksPageMockBench :: GeneratedTestArguments -> IO (Integer, [CBlockEntry])
-        getBlocksPageMockBench = withDefConfigurations getBlocksPageMock
-
-    get1000BlocksPageBench :: Benchmark
-    get1000BlocksPageBench = withDefConfigurations $
-        env (genArgs 1000 50 2) $ bench "Get 1000 blocks page" . whnf getBlocksPageMockBench
-      where
-        getBlocksPageMockBench :: GeneratedTestArguments -> IO (Integer, [CBlockEntry])
-        getBlocksPageMockBench = withDefConfigurations getBlocksPageMock
-
-    get10000BlocksPageBench :: Benchmark
-    get10000BlocksPageBench = withDefConfigurations $
-        env (genArgs 10000 50 2) $ bench "Get 10000 blocks page" . whnf getBlocksPageMockBench
-      where
-        getBlocksPageMockBench :: GeneratedTestArguments -> IO (Integer, [CBlockEntry])
-        getBlocksPageMockBench = withDefConfigurations getBlocksPageMock
-
-
 ----------------------------------------------------------------
 -- Space benchmark
 ----------------------------------------------------------------
 
 -- | Space @getBlocksPage@.
 runSpaceBenchmark :: IO ()
-runSpaceBenchmark = mapM_ (mainWith =<<)
-    [ get100BlocksTotalMock
-    , get100BlocksPageBench
-    , get1000BlocksPageBench
-    , get10000BlocksPageBench
-    ]
-  where
-    get100BlocksTotalMock :: IO (Weigh ())
-    get100BlocksTotalMock = do
-        io "getBlocksPageBench" (withDefConfigurations getBlocksTotalMock)
-            <$> genArgs 100 50 2
+runSpaceBenchmark = do
+    -- Generate the test environment before the benchmarks.
+    blocks100   <- generateTestEnv 100 10
+    blocks1000  <- generateTestEnv 1000 10
+    blocks10000 <- generateTestEnv 10000 10
 
-    get100BlocksPageBench :: IO (Weigh ())
-    get100BlocksPageBench = do
-        io "getBlocksPageBench" (withDefConfigurations getBlocksPageMock)
-            <$> genArgs 100 50 2
+    mainWith $ do
+        io "getBlocksTotal 100 blocks" getBlocksTotalWithParams blocks100
+        io "getBlocksTotal 1000 blocks" getBlocksTotalWithParams blocks1000
+        io "getBlocksTotal 10000 blocks" getBlocksTotalWithParams blocks10000
 
-    get1000BlocksPageBench :: IO (Weigh ())
-    get1000BlocksPageBench = do
-        io "getBlocksPageBench" (withDefConfigurations getBlocksPageMock)
-            <$> genArgs 1000 50 2
-
-    get10000BlocksPageBench :: IO (Weigh ())
-    get10000BlocksPageBench = do
-        io "getBlocksPageBench" (withDefConfigurations getBlocksPageMock)
-            <$> genArgs 10000 50 2
+        io "getBlocksPage 100 blocks" getBlocksPageWithParams blocks100
+        io "getBlocksPage 1000 blocks" getBlocksPageWithParams blocks1000
+        io "getBlocksPage 10000 blocks" getBlocksPageWithParams blocks10000

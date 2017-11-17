@@ -2,7 +2,9 @@
 {-# LANGUAGE UndecidableInstances #-}
 
 module Pos.Explorer.TestUtil
-    ( generateValidExplorerMockableMode
+    ( BlockNumber
+    , SlotsPerEpoch
+    , generateValidExplorerMockableMode
     , produceBlocksByBlockNumberAndSlots
     , basicBlockGenericUnsafe
     , basicBlock

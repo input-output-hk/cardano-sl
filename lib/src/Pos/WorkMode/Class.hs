@@ -26,7 +26,6 @@ import           Pos.Context (BlockRetrievalQueue, BlockRetrievalQueueTag, HasSs
                               MonadLastKnownHeader, MonadProgressHeader, MonadRecoveryHeader,
                               StartTime, TxpGlobalSettings)
 import           Pos.Core (HasConfiguration, HasPrimaryKey)
-import           Pos.DB.Block (MonadBlockDBWrite, MonadSscBlockDB)
 import           Pos.DB.Class (MonadDB, MonadGState)
 import           Pos.DB.Rocks (MonadRealDB)
 import           Pos.Delegation.Class (MonadDelegation)
@@ -61,8 +60,6 @@ type WorkMode ctx m
       , MonadRealDB ctx m
       , MonadGState m
       , MonadTxpLocal m
-      , MonadSscBlockDB m
-      , MonadBlockDBWrite m
       , MonadTxpMem (MempoolExt m) ctx m
       , MonadDelegation ctx m
       , MonadSscMem ctx m

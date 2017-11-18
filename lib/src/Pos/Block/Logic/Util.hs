@@ -30,9 +30,8 @@ import           Pos.Core (BlockCount, FlatSlotId, HeaderHash, Timestamp (..), d
                            prevBlockL)
 import           Pos.Core.Block (BlockHeader)
 import           Pos.Core.Configuration (HasConfiguration, blkSecurityParam, slotSecurityParam)
-import           Pos.DB (MonadDBRead)
-import           Pos.DB.Block (MonadBlockDB)
-import qualified Pos.DB.DB as DB
+import qualified Pos.DB.BlockIndex as DB
+import           Pos.DB.Class (MonadBlockDBRead)
 import           Pos.Exception (reportFatalError)
 import qualified Pos.GState as GS
 import           Pos.Slotting (MonadSlots (..), getCurrentSlotFlat, slotFromTimestamp)
@@ -45,7 +44,7 @@ import           Pos.Util.Chrono (NE, OldestFirst (..))
 -- header's parent hash. Iterates from newest to oldest until meets
 -- first header that's in main chain. O(n).
 lcaWithMainChain
-    :: (HasConfiguration, MonadDBRead m)
+    :: (HasConfiguration, MonadBlockDBRead m)
     => OldestFirst NE BlockHeader -> m (Maybe HeaderHash)
 lcaWithMainChain headers =
     lcaProceed Nothing $
@@ -77,7 +76,7 @@ needRecovery
     :: forall ctx m.
     ( HasConfiguration
     , MonadSlots ctx m
-    , MonadBlockDB m
+    , MonadBlockDBRead m
     )
     => m Bool
 needRecovery = maybe (pure True) isTooOld =<< getCurrentSlot
@@ -140,7 +139,7 @@ calcChainQualityM newSlot = do
 -- slot is unknown.
 calcOverallChainQuality ::
        forall ctx m res.
-       (Fractional res, MonadSlots ctx m, MonadBlockDB m, HasConfiguration)
+       (Fractional res, MonadSlots ctx m, MonadBlockDBRead m, HasConfiguration)
     => m (Maybe res)
 calcOverallChainQuality =
     getCurrentSlotFlat >>= \case

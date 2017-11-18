@@ -23,7 +23,7 @@ import           Pos.Update.DB (getConfirmedProposals)
 import           Pos.Update.Download (downloadUpdate)
 import           Pos.Update.Logic.Local (processNewSlot)
 import           Pos.Update.Mode (UpdateMode)
-import           Pos.Update.Poll (ConfirmedProposalState (..))
+import           Pos.Update.Poll.Types (ConfirmedProposalState (..))
 import           Pos.Util.Util (lensOf)
 
 -- | Update System related workers.

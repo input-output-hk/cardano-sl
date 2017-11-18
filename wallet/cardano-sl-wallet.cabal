@@ -155,6 +155,7 @@ library
                       , wai-websockets
                       , websockets
                       , QuickCheck
+                      , quickcheck-instances
   if !os(windows)
     build-depends:      unix
 

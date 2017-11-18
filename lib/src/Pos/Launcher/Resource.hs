@@ -55,8 +55,8 @@ import           Pos.Launcher.Param (BaseParams (..), LoggingParams (..), NodePa
 import           Pos.Lrc.Context (LrcContext (..), mkLrcSyncData)
 import           Pos.Network.Types (NetworkConfig (..), Topology (..))
 import           Pos.Shutdown.Types (ShutdownContext (..))
-import           Pos.Slotting (SlottingContextSum (..), SlottingData, mkNtpSlottingVar,
-                               mkSimpleSlottingVar)
+import           Pos.Slotting (SlottingContextSum (..), mkNtpSlottingVar, mkSimpleSlottingVar)
+import           Pos.Slotting.Types (SlottingData)
 import           Pos.Ssc (HasSscConfiguration, SscParams, SscState, createSscContext, mkSscState)
 import           Pos.StateLock (newStateLock)
 import           Pos.Txp (GenericTxpLocalData (..), TxpGlobalSettings, mkTxpLocalData,

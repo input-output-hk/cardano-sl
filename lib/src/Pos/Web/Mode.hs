@@ -16,6 +16,8 @@ import           Mockable (Production)
 import           Pos.Context (HasPrimaryKey (..), HasSscContext (..), NodeContext)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.DB (NodeDBs)
+import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
+                               dbPutSerBlundRealDefault)
 import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
                                dbWriteBatchDefault)
@@ -53,10 +55,13 @@ type WebMode ext = Mtl.ReaderT (WebModeContext ext) Production
 instance HasConfiguration => MonadDBRead (WebMode ext) where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
+    dbGetSerBlock = dbGetSerBlockRealDefault
+    dbGetSerUndo = dbGetSerUndoRealDefault
 
 instance HasConfiguration => MonadDB (WebMode ext) where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
+    dbPutSerBlund = dbPutSerBlundRealDefault
 
 type instance MempoolExt (WebMode ext) = ext

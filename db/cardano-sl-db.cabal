@@ -17,6 +17,7 @@ library
                        Pos.DB.Class
                        Pos.DB.Error
                        Pos.DB.Functions
+                       Pos.DB.BlockIndex
                        Pos.DB.GState.Common
                        Pos.DB.GState.Stakes
                        Pos.DB.Misc.Common
@@ -39,6 +40,7 @@ library
                      , filepath
                      , formatting
                      , lens
+                     , memory
                      , monad-control
                      , mmorph
                      , mtl

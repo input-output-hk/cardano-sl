@@ -29,27 +29,22 @@ import qualified Control.Monad.Reader as Mtl
 import           Ether.Internal (HasLens (..))
 import           Mockable.Production (Production)
 
-import           Pos.Block.Types (Undo)
-import           Pos.Core (HasConfiguration, IsHeader, Timestamp)
-import           Pos.Core.Block (Block, BlockHeader)
+import           Pos.Core (HasConfiguration, Timestamp)
 import           Pos.DB (NodeDBs)
-import           Pos.DB.Block (dbGetBlockDefault, dbGetBlockSscDefault, dbGetHeaderDefault,
-                               dbGetHeaderSscDefault, dbGetUndoDefault, dbGetUndoSscDefault,
-                               dbPutBlundDefault)
-import           Pos.DB.Class (MonadBlockDBGeneric (..), MonadBlockDBGenericWrite (..),
-                               MonadDB (..), MonadDBRead (..))
+import           Pos.DB.Block (dbGetSerBlockRealDefault, dbGetSerUndoRealDefault,
+                               dbPutSerBlundRealDefault)
+import           Pos.DB.Class (MonadDB (..), MonadDBRead (..))
 import           Pos.DB.Rocks (dbDeleteDefault, dbGetDefault, dbIterSourceDefault, dbPutDefault,
                                dbWriteBatchDefault)
 import           Pos.Infra.Configuration (HasInfraConfiguration)
 import           Pos.Lrc.Context (LrcContext)
-import           Pos.Slotting (HasSlottingVar (..), SlottingData)
+import           Pos.Slotting (HasSlottingVar (..))
 import           Pos.Slotting.Class (MonadSlots (..))
 import           Pos.Slotting.Impl.Sum (SlottingContextSum, currentTimeSlottingSum,
                                         getCurrentSlotBlockingSum, getCurrentSlotInaccurateSum,
                                         getCurrentSlotSum)
 import           Pos.Slotting.MemState (MonadSlotsData)
-import           Pos.Ssc.Types (SscBlock)
-import           Pos.Util (Some (..))
+import           Pos.Slotting.Types (SlottingData)
 import           Pos.Util.Lens (postfixLFields)
 
 -- The fields are lazy on purpose: this allows using them with
@@ -84,33 +79,14 @@ instance HasSlottingVar InitModeContext where
 instance HasConfiguration => MonadDBRead InitMode where
     dbGet = dbGetDefault
     dbIterSource = dbIterSourceDefault
+    dbGetSerBlock = dbGetSerBlockRealDefault
+    dbGetSerUndo = dbGetSerUndoRealDefault
 
 instance HasConfiguration => MonadDB InitMode where
     dbPut = dbPutDefault
     dbWriteBatch = dbWriteBatchDefault
     dbDelete = dbDeleteDefault
-
-instance
-    HasConfiguration =>
-    MonadBlockDBGeneric BlockHeader Block Undo InitMode
-  where
-    dbGetBlock  = dbGetBlockDefault
-    dbGetUndo   = dbGetUndoDefault
-    dbGetHeader = dbGetHeaderDefault
-
-instance
-    HasConfiguration =>
-    MonadBlockDBGenericWrite BlockHeader Block Undo InitMode
-  where
-    dbPutBlund = dbPutBlundDefault
-
-instance
-    HasConfiguration =>
-    MonadBlockDBGeneric (Some IsHeader) SscBlock () InitMode
-  where
-    dbGetBlock  = dbGetBlockSscDefault
-    dbGetUndo   = dbGetUndoSscDefault
-    dbGetHeader = dbGetHeaderSscDefault
+    dbPutSerBlund = dbPutSerBlundRealDefault
 
 instance (HasConfiguration, HasInfraConfiguration, MonadSlotsData ctx InitMode) =>
          MonadSlots ctx InitMode

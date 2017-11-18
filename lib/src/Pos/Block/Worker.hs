@@ -41,7 +41,7 @@ import           Pos.Core.Configuration (HasConfiguration, criticalCQ, criticalC
                                          nonCriticalCQ, nonCriticalCQBootstrap)
 import           Pos.Crypto (ProxySecretKey (pskDelegatePk))
 import           Pos.DB (gsIsBootstrapEra)
-import qualified Pos.DB.DB as DB
+import qualified Pos.DB.BlockIndex as DB
 import           Pos.Delegation.Logic (getDlgTransPsk)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
 import           Pos.GState (getAdoptedBVData, getPskByIssuer)

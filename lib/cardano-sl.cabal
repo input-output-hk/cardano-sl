@@ -38,6 +38,7 @@ library
 
                         Pos.DB.DB
                         Pos.DB.Block
+                        Pos.DB.Block.Load
 
                         Pos.Delegation
 
@@ -107,7 +108,9 @@ library
 
                         -- Binary serialization
                         Pos.Binary.Communication
+                        Pos.Binary.Delegation
                         Pos.Binary.Relay
+                        Pos.Binary.Block.Types
 
                         -- Heavy delegation
                         Pos.Delegation.Types
@@ -132,10 +135,6 @@ library
                         Pos.Util.Servant
 
   other-modules:        Pos.Aeson.Types
-
-                        -- Binary serialization
-                        Pos.Binary.Block.Types
-                        Pos.Binary.Delegation
 
                         -- Block processing
                         Pos.Block.BHelpers

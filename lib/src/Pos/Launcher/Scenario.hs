@@ -25,7 +25,7 @@ import           Pos.Core (GenesisData (gdBootStakeholders, gdHeavyDelegation),
                            GenesisDelegation (..), GenesisWStakeholders (..), addressHash,
                            gdFtsSeed, genesisData)
 import           Pos.Crypto (pskDelegatePk)
-import qualified Pos.DB.DB as DB
+import qualified Pos.DB.BlockIndex as DB
 import           Pos.DHT.Real (KademliaDHTInstance (..), kademliaJoinNetworkNoThrow,
                                kademliaJoinNetworkRetry)
 import qualified Pos.GState as GS

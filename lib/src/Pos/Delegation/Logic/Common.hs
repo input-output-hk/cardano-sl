@@ -30,9 +30,8 @@ import           Formatting (bprint, build, sformat, stext, (%))
 import           Pos.Configuration (HasNodeConfiguration, dlgCacheParam, messageCacheTimeout)
 import           Pos.Core (HasConfiguration, ProxySKHeavy, StakeholderId, addressHash, headerHash)
 import           Pos.Crypto (ProxySecretKey (..), PublicKey)
-import           Pos.DB (DBError (DBMalformed), MonadDBRead)
-import qualified Pos.DB.Block as DB
-import qualified Pos.DB.DB as DB
+import           Pos.DB (DBError (DBMalformed), MonadBlockDBRead, MonadDBRead)
+import           Pos.DB.BlockIndex (getTipHeader)
 import           Pos.Delegation.Cede (getPskChain, runDBCede)
 import           Pos.Delegation.Class (DelegationVar, DelegationWrap (..), MonadDelegation,
                                        askDelegationState, dwMessageCache)
@@ -100,10 +99,10 @@ invalidateProxyCaches curTime =
 -- * Sets '_dwEpochId' to epoch of tip.
 -- * Initializes mempools/LRU caches.
 mkDelegationVar ::
-       (MonadIO m, DB.MonadBlockDB m, HasConfiguration, HasNodeConfiguration)
+       (MonadIO m, MonadBlockDBRead m, HasConfiguration, HasNodeConfiguration)
     => m DelegationVar
 mkDelegationVar = do
-    tip <- DB.getTipHeader
+    tip <- getTipHeader
     newTVarIO
         DelegationWrap
         { _dwMessageCache = LRU.newLRU msgCacheLimit

@@ -117,7 +117,6 @@ library
                       , base
                       , parsec
                       , base64-bytestring
-                      , binary
                       , bytestring
                       , cardano-sl-util
                       , cardano-sl-core
@@ -125,10 +124,8 @@ library
                       , cardano-report-server >= 0.3.0
                       , conduit
                       , containers
-                      , data-default
                       , directory
                       , dns
-                      , either
                       , ekg-core
                       , ether >= 0.5
                       , exceptions
@@ -142,7 +139,6 @@ library
                       , iproute
                       , kademlia
                       , lens
-                      , list-t
                       , log-warper >= 1.0.3
                       , monad-control
                       , mtl
@@ -158,14 +154,10 @@ library
                       , tagged
                       , tar
                       , text
-                      , template-haskell
                       , text-format
                       , time
                       , time-units
                       , transformers
-                      , transformers-base
-                      , transformers-lift
-                      , mmorph
                       , network-transport
                       , universum
                       , unordered-containers

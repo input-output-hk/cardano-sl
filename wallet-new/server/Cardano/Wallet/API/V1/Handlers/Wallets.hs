@@ -5,7 +5,6 @@ import           Universum
 import qualified Pos.Wallet.Web.ClientTypes.Types as V0
 import qualified Pos.Wallet.Web.Methods.Restore as V0
 
-import qualified Cardano.Wallet.API.V1.Handlers.Accounts as Accounts
 import           Cardano.Wallet.API.V1.Migration
 import           Cardano.Wallet.API.V1.Types as V1
 import qualified Cardano.Wallet.API.V1.Wallets as Wallets

@@ -1,17 +1,13 @@
 {-# LANGUAGE RankNTypes #-}
 module Cardano.Wallet.Server where
 
-import           Universum
-
 import           Cardano.Wallet.API
 import           Cardano.Wallet.API.V1.Migration as Migration
 
-import qualified Cardano.Wallet.API.V0.Handlers  as V0
-import qualified Cardano.Wallet.API.V1.Handlers  as V1
+import qualified Cardano.Wallet.API.V0.Handlers as V0
+import qualified Cardano.Wallet.API.V1.Handlers as V1
 
-import           Pos.Launcher.Configuration      (HasConfigurations)
-import           Pos.Util.CompileInfo            (HasCompileInfo)
-import           Pos.Wallet.Web.Mode             (WalletWebMode)
+import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Servant
 
 -- | This function has the tricky task of plumbing different versions of the API,

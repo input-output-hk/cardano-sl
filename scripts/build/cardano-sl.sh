@@ -180,37 +180,25 @@ if [[ $ram == true ]];
   else ghc_opts="$ghc_opts +RTS -A256m -n2m -RTS"
 fi
 
-xperl='$|++; s/(.*) Compiling\s([^\s]+)\s+\(\s+([^\/]+).*/\1 \2/p'
+# prettify output of stack build
+xperl_pretty='$|++; s/(.*) Compiling\s([^\s]+)\s+\(\s+([^\/]+).*/\1 \2/p'
+# workaround for warning produced by servant-quickcheck
+xperl_workaround='$_ = "" if ( $. <= 11 )'
+xperl="$xperl_pretty ; $xperl_workaround"
 xgrep="((^.*warning.*$|^.*error.*$|^    .*$|^.*can't find source.*$|^Module imports form a cycle.*$|^  which imports.*$)|^)"
-xsed='1,11d' # the hack is necessary due to warning produced by servant-quickcheck
 
+function cleanPackage () { echo "Cleaning $1"; stack clean $1 2>&1 | perl -pe "$xperl_workaround"; };
 if [[ $clean == true ]]; then
 
-  echo "Cleaning cardano-sl-tools"
-  stack clean cardano-sl-tools
+  cleanPackage cardano-sl-tools
+  cleanPackage cardano-sl-auxx
+  cleanPackage cardano-sl-wallet
+  cleanPackage cardano-sl-wallet-new
+  cleanPackage cardano-sl-explorer
+  cleanPackage cardano-sl-node
+  cleanPackage cardano-sl
 
-  echo "Cleaning cardano-sl-auxx"
-  stack clean cardano-sl-auxx
-
-  echo "Cleaning cardano-sl-wallet"
-  stack clean cardano-sl-wallet
-
-  echo "Cleaning cardano-sl-wallet-new"
-  stack clean cardano-sl-wallet-new
-
-  echo "Cleaning cardano-sl-explorer"
-  stack clean cardano-sl-explorer
-
-  echo "Cleaning cardano-sl-node"
-  stack clean cardano-sl-node
-
-  echo "Cleaning cardano-sl"
-  stack clean cardano-sl
-
-  for prj in $projects; do
-    echo "Cleaning cardano-sl-$prj"
-    stack clean "cardano-sl-$prj"
-  done
+  for prj in $projects; do cleanPackage "cardano-sl-$prj"; done
   exit
 fi
 
@@ -254,7 +242,7 @@ for prj in $to_build; do
   sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun --dependencies-only $args $prj"
   echo -e "$sbuild\n"
   eval $sbuild 2>&1                         \
-    | sed -e "$xsed"
+    | perl -pe "$xperl_workaround"
 
   if [[ $no_code == true ]]; then
     ghc_opts_2="$ghc_opts -fwrite-interface -fno-code"
@@ -266,7 +254,6 @@ for prj in $to_build; do
   echo -e "$sbuild\n"
 
   eval $sbuild 2>&1                         \
-    | sed -e "$xsed"                        \
     | perl -pe "$xperl"                     \
     | { grep -E --color "$xgrep" || true; }
 done
@@ -275,7 +262,6 @@ if [[ $to_build == "" ]]; then
   sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun $fast $args"
   echo -e "$sbuild\n"
   eval $sbuild 2>&1                         \
-    | sed -e "$xsed"                        \
     | perl -pe "$xperl"                     \
     | { grep -E --color "$xgrep" || true; }
 fi
@@ -288,7 +274,7 @@ if [[ $test == true ]]; then
       $fast                                 \
       $args                                 \
       cardano-sl                            \
-    | sed "$xsed"
+    | perl -pe "$xperl_workaround"
 fi
 
 if [[ $coverage == true ]]; then

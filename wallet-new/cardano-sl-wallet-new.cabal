@@ -163,10 +163,12 @@ test-suite wallet-new-specs
   ghc-options:      -Wall
   type:             exitcode-stdio-1.0
   hs-source-dirs:   server test
-  main-is:          Spec.hs
+  main-is:          Test.hs
   other-modules:    SwaggerSpec
                     APISpec
                     MarshallingSpec
+                    Spec
+
                     Cardano.Wallet.API.V0.Handlers
                     Cardano.Wallet.API.V1.Handlers
                     Cardano.Wallet.API.V1.Handlers.Accounts

@@ -20,7 +20,7 @@ import           Cardano.Wallet.API.V1.TH (conNamesList, deriveWalletErrorJSON)
 
 -- | Type representing any error which might be thrown by wallet.
 --
--- Errors are represented in JSON in the following way:
+-- Errors are represented in JSON in the JSend format (<https://labs.omniti.com/labs/jsend>):
 -- ```
 -- {
 --     "message" : <constr_name>,

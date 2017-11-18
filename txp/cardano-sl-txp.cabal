@@ -87,11 +87,9 @@ library
                      , generic-arbitrary
                      , hashable
                      , lens
-                     , lifted-base
                      , log-warper
                      , memory
                      , mmorph
-                     , monad-control
                      , mtl
                      , neat-interpolation
                      , node-sketch
@@ -104,7 +102,6 @@ library
                      , template-haskell
                      , text
                      , text-format
-                     , time-units
                      , transformers
                      , universum
                      , unordered-containers

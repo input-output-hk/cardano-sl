@@ -167,9 +167,6 @@ library
                         -- Crypto
                         Pos.Crypto.HDDiscovery
 
-                        -- DB
-                        Pos.DB.Misc
-
                         -- Heavy delegation
                         Pos.Delegation.Cede
                         Pos.Delegation.Cede.Class
@@ -235,21 +232,13 @@ library
 
   build-depends:        MonadRandom
                       , QuickCheck
-                      , acid-state
                       , aeson >= 0.11.2.1
                       , ansi-terminal
                       , ansi-wl-pprint
-                      , async
                       , base
-                      , base58-bytestring
-                      , base64-bytestring
                       , binary
                       , bytestring
-                      , cborg
-                      , canonical-json
                       , cardano-crypto
-                      , cardano-report-server >= 0.2.1
-                      , cardano-sl-util
                       , cardano-sl-core
                       , cardano-sl-db
                       , cardano-sl-infra
@@ -257,62 +246,43 @@ library
                       , cardano-sl-ssc
                       , cardano-sl-txp
                       , cardano-sl-update
+                      , cardano-sl-util
+                      , canonical-json
                       , cereal
                       , conduit >= 1.2.8
                       , constraints
                       , containers
-                      , cpphs
                       , cryptonite >= 0.23 && <= 0.23
-                      , cryptonite-openssl >= 0.6
                       , data-default
                       , deepseq
-                      , deriving-compat
-                      , digest
                       , directory
-                      , dlist
-                      , dns
                       , ed25519
                       , ekg-core
                       , ekg-statsd
                       , ekg-wai
                       , ether >= 0.5
                       , exceptions
-                      , file-embed >= 0.0.10
                       , filelock >= 0.1.0.1
                       , filepath
-                      , fmt
-                      , focus
                       , formatting
                       , generic-arbitrary
                       , half
                       , hashable
                       , hspec
-                      , http-client
-                      , http-client-tls
-                      , http-conduit
-                      , http-types
-                      , iproute
-                      , kademlia
                       , lens
-                      , list-t
                       , log-warper >= 1.1.1
                       , lrucache
                       , memory
                       , mmorph
                       , monad-control
-                      , monad-loops
-                      , mono-traversable
                       , mtl
                       , neat-interpolation
-                      , network-info >= 0.2.0.8
                       , network-transport
                       , network-transport-tcp
                       , node-sketch >= 0.1.0.0
                       , optparse-applicative
                       , parsec
-                      , plutus-prototype
                       , pvss
-                      , quickcheck-instances
                       , random
                       , reflection
                       , resourcet
@@ -321,27 +291,21 @@ library
                       , safecopy
                       , serokell-util >= 0.1.3.4
                       , servant >= 0.8.1
-                      , servant-multipart >= 0.10
                       , servant-server >= 0.8.1
                       , servant-swagger
                       , stm
-                      , stm-containers
-                      , string-qq
                       , tagged
                       , template-haskell
                       , text
                       , text-format
-                      , th-lift-instances
                       , time
                       , time-units
                       , transformers
                       , transformers-base
-                      , transformers-lift
                       , universum >= 0.1.11
                       , unordered-containers
                       , vector
                       , wai
-                      , wai-extra
                       , warp
                       , warp-tls
                       , yaml
@@ -349,7 +313,6 @@ library
                       , cpphs
                       -- Required for common test modules
                       , cborg
-                      , hspec
 
   if !os(windows)
     build-depends:      unix
@@ -455,7 +418,6 @@ test-suite cardano-test
   type:                exitcode-stdio-1.0
   build-depends:       MonadRandom
                      , QuickCheck
-                     , aeson >= 0.11.2.1
                      , base
                      , bytestring
                      , canonical-json
@@ -473,36 +435,24 @@ test-suite cardano-test
                      , containers
                      , cryptonite
                      , data-default
-                     , ether
-                     , exceptions
                      , extra
                      , fmt
                      , formatting
                      , generic-arbitrary
                      , half
                      , hspec
-                     , kademlia
                      , lens
-                     , log-warper
-                     , memory
-                     , mmorph
-                     , monad-control
                      , mtl
-                     , network-uri
                      , node-sketch
                      , pvss
-                     , quickcheck-instances
                      , random
                      , reflection
-                     , regex-tdfa
-                     , regex-tdfa-text
                      , safecopy
                      , serokell-util >= 0.1.3.4
                      , tagged
                      , text
                      , text-format
                      , time-units
-                     , transformers-base
                      , universum >= 0.1.11
                      , unordered-containers
                      , vector
@@ -556,21 +506,12 @@ benchmark cardano-bench-criterion
   build-depends:       QuickCheck
                      , aeson
                      , base
-                     , binary
-                     , bytestring
-                     , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-txp
                      , cardano-sl-ssc
                      , cardano-sl-util
-                     , containers
+                     , cardano-sl
                      , criterion
-                     , data-default
-                     , formatting
-                     , lens
-                     , log-warper
-                     , serokell-util >= 0.1.3.4
-                     , text-format
                      , universum >= 0.1.11
                      , vector
   default-language:    Haskell2010

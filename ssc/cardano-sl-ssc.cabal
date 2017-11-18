@@ -79,16 +79,10 @@ library
                      , containers
                      , cryptonite
                      , data-default
-                     , directory
                      , ether
                      , exceptions
-                     , extra
-                     , file-embed
-                     , filepath
-                     , fmt
                      , formatting
                      , generic-arbitrary
-                     , hashable
                      , lens
                      , log-warper
                      , memory
@@ -97,13 +91,11 @@ library
                      , mtl
                      , node-sketch
                      , parsec
-                     , random
                      , reflection
                      , rocksdb-haskell >= 1.0.0
                      , serokell-util
                      , stm
                      , tagged
-                     , template-haskell
                      , text
                      , text-format
                      , time-units

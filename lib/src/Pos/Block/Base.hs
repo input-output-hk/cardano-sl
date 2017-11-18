@@ -24,8 +24,7 @@ import           Pos.Core.Block (BlockHeader, BlockSignature (..), GenesisBlock,
                                  MainToSign (..), mkGenericHeader, recreateGenericBlock)
 import           Pos.Core.Block.Genesis.Chain (Body (..), ConsensusData (..))
 import           Pos.Core.Block.Main.Chain (Body (..), ConsensusData (..))
-import           Pos.Crypto (ProxySecretKey (..), SecretKey, SignTag (..), hash, proxySign, sign,
-                             toPublic)
+import           Pos.Crypto (SecretKey, SignTag (..), hash, proxySign, sign, toPublic)
 import           Pos.Data.Attributes (mkAttributes)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
 import           Pos.Ssc.Base (defaultSscPayload)
@@ -56,9 +55,7 @@ mkMainHeader prevHeader slotId sk pske body extra =
     mkGenericHeader prevHeader body consensus extra
   where
     difficulty = maybe 0 (succ . view difficultyL) prevHeader
-    makeSignature toSign (Left psk) =
-        BlockPSignatureLight $ proxySign SignMainBlockLight sk psk toSign
-    makeSignature toSign (Right (psk,_)) =
+    makeSignature toSign (psk,_) =
         BlockPSignatureHeavy $ proxySign SignMainBlockHeavy sk psk toSign
     signature prevHash proof =
         let toSign = MainToSign prevHash proof slotId difficulty extra
@@ -66,7 +63,7 @@ mkMainHeader prevHeader slotId sk pske body extra =
                (BlockSignature $ sign SignMainBlock sk toSign)
                (makeSignature toSign)
                pske
-    leaderPk = maybe (toPublic sk) (either pskIssuerPk snd) pske
+    leaderPk = maybe (toPublic sk) snd pske
     consensus prevHash proof =
         MainConsensusData
         { _mcdSlot = slotId

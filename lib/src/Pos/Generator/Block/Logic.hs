@@ -131,7 +131,7 @@ genBlock eos = withCompileInfo def $ do
                 (Just leaderSK, _) ->
                     -- When we know the secret key we can proceed to the actual creation.
                     Just <$> usingPrimaryKey leaderSK
-                             (lift $ genMainBlock slot (Right . swap <$> transCert))
+                             (lift $ genMainBlock slot (swap <$> transCert))
   where
     genMainBlock ::
         HasCompileInfo =>

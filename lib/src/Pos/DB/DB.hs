@@ -19,7 +19,6 @@ import           Pos.Context.Functions (genesisBlock0)
 import           Pos.Core (BlockVersionData, HasConfiguration, headerHash)
 import           Pos.DB.Block (prepareBlockDB)
 import           Pos.DB.Class (MonadDB, MonadDBRead (..))
-import           Pos.DB.Misc (prepareMiscDB)
 import           Pos.GState.GState (prepareGStateDB, sanityCheckGStateDB)
 import           Pos.Lrc.DB (prepareLrcDB)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
@@ -40,7 +39,6 @@ initNodeDBs = do
     prepareBlockDB genesisBlock0
     prepareGStateDB initialTip
     prepareLrcDB
-    prepareMiscDB
 
 sanityCheckDB ::
        ( MonadMask m

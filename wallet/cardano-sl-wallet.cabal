@@ -352,8 +352,6 @@ test-suite cardano-wallet-test
                        -- Basic mocks and instances
                        Test.Pos.Wallet.Web.Mode
                        Test.Pos.Wallet.Web.Util
-                         
-                       Test.Pos.Types.Identity.BinarySpec
 
                        -- Test scenarios
                        Test.Pos.Wallet.Web.AddressSpec

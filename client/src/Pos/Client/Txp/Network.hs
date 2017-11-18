@@ -1,8 +1,9 @@
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RankNTypes   #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Functions for operating with transactions
 
-module Pos.Communication.Tx
+module Pos.Client.Txp.Network
        ( TxMode
        , submitTx
        , prepareMTx
@@ -11,19 +12,20 @@ module Pos.Communication.Tx
        , sendTxOuts
        ) where
 
+import           Universum
+
 import           Formatting (build, sformat, (%))
 import           Mockable (MonadMockable)
 import           System.Wlog (logInfo)
-import           Universum
 
-import           Pos.Binary ()
 import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..), getOwnUtxo, getOwnUtxoForPk)
 import           Pos.Client.Txp.History (MonadTxHistory (..))
 import           Pos.Client.Txp.Util (InputSelectionPolicy, TxCreateMode, TxError (..), createMTx,
                                       createRedemptionTx, createTx)
-import           Pos.Communication.Methods (sendTx)
-import           Pos.Communication.Protocol (EnqueueMsg, OutSpecs)
+import           Pos.Communication.Message ()
+import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..), OutSpecs)
+import           Pos.Communication.Relay (invReqDataFlowTK, resOk)
 import           Pos.Communication.Specs (createOutSpecs)
 import           Pos.Communication.Types (InvOrDataTK)
 import           Pos.Core (Address, Coin, makeRedeemAddress, mkCoin, unsafeAddCoin)
@@ -92,6 +94,27 @@ submitTxRaw enqueue txAux@TxAux {..} = do
     logInfo $ sformat ("Submitting transaction: "%txaF) txAux
     logInfo $ sformat ("Transaction id: "%build) txId
     sendTx enqueue txAux
+
+-- | Send Tx to given addresses.
+-- Returns 'True' if any peer accepted and applied this transaction.
+sendTx
+    :: (MinWorkMode m, MonadGState m)
+    => EnqueueMsg m -> TxAux -> m Bool
+sendTx enqueue txAux = do
+    anySucceeded <$> invReqDataFlowTK
+        "tx"
+        enqueue
+        (MsgTransaction OriginSender)
+        (hash $ taTx txAux)
+        (TxMsgContents txAux)
+  where
+    anySucceeded outcome =
+        not $ null
+        [ ()
+        | Right (Just peerResponse) <- toList outcome
+        , resOk peerResponse
+        ]
+
 
 sendTxOuts :: OutSpecs
 sendTxOuts = createOutSpecs (Proxy :: Proxy (InvOrDataTK TxId TxMsgContents))

@@ -22,7 +22,8 @@ import           Serokell.AcidState.ExtendedState (ExtendedState)
 import           Servant.Server (Handler, Server, serve)
 
 import qualified Data.ByteString.Char8 as BS8
-import           Pos.Communication (OutSpecs, sendTxOuts)
+import           Pos.Client.Txp.Network (sendTxOuts)
+import           Pos.Communication (OutSpecs)
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
 import           Pos.Util.TimeWarp (NetworkAddress)

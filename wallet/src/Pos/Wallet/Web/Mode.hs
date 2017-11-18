@@ -38,7 +38,8 @@ import           Pos.Client.Txp.Addresses (MonadAddresses (..))
 import           Pos.Client.Txp.Balances (MonadBalances (..))
 import           Pos.Client.Txp.History (MonadTxHistory (..), getBlockHistoryDefault,
                                          getLocalHistoryDefault, saveTxDefault)
-import           Pos.Communication (SendActions (..), submitTxRaw)
+import           Pos.Client.Txp.Network (submitTxRaw)
+import           Pos.Communication (SendActions (..))
 import           Pos.Context (HasNodeContext (..))
 import           Pos.Core (Address, Coin, HasConfiguration, HasPrimaryKey (..), isRedeemAddress,
                            largestHDAddressBoot, mkCoin)

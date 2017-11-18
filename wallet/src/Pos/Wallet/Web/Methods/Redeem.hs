@@ -13,7 +13,7 @@ import           Data.ByteString.Base58 (bitcoinAlphabet, decodeBase58)
 import qualified Serokell.Util.Base64 as B64
 
 import           Pos.Client.Txp.History (TxHistoryEntry (..))
-import           Pos.Communication (prepareRedemptionTx)
+import           Pos.Client.Txp.Network (prepareRedemptionTx)
 import           Pos.Core (TxAux (..), TxOut (..), getCurrentTimestamp)
 import           Pos.Crypto (PassPhrase, aesDecrypt, deriveAesKeyBS, hash,
                              redeemDeterministicKeyGen)

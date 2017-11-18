@@ -25,6 +25,7 @@ library
                         Pos.Binary
                         Pos.Block.Base
                         Pos.Block.BListener
+                        Pos.Block.Error
                         Pos.Block.Logic
                         Pos.Block.Network
                         Pos.Block.Pure
@@ -41,12 +42,6 @@ library
                         Pos.DB.Block.Load
 
                         Pos.Delegation
-
-                        -- Arbitrary data generation
-                        Pos.Generator
-                        Pos.Generator.Block
-                        Pos.Generator.BlockEvent
-                        Pos.Generator.BlockEvent.DSL
 
                         -- GState
                         Pos.GState
@@ -68,6 +63,14 @@ library
                         -- SafeCopy serialization (required in wallet)
                         Pos.SafeCopy
 
+                        -- cardano-sl-client
+                        Pos.Communication.Message
+                        Pos.Communication.Types
+
+                        -- cardano-sl-generator
+                        Pos.Delegation.Logic
+                        Pos.Lrc.DB
+
                         -- Something
                         Pos.Security
                         Pos.Security.Workers
@@ -77,13 +80,6 @@ library
 
                         -- Recovery
                         Pos.Recovery
-
-                        -- Client
-                        Pos.Client.KeyStorage
-                        Pos.Client.Txp.Addresses
-                        Pos.Client.Txp.Balances
-                        Pos.Client.Txp.History
-                        Pos.Client.Txp.Util
 
                         -- Client CLI
                         Pos.Client.CLI
@@ -117,13 +113,6 @@ library
 
                         -- Exposed for tests
                         Pos.Block.Logic.VAR
-                        Pos.Generator.Block.Param
-
-                        -- Common code for tests
-                        Test.Pos.Block.Logic.Emulation
-                        Test.Pos.Block.Logic.Mode
-                        Test.Pos.Block.Logic.Util
-                        Test.Pos.Block.Logic.Event
                         Test.Pos.Helpers
                         Test.Pos.Cbor.Canonicity
                         Test.Pos.Cbor.ReferenceImplementation
@@ -138,7 +127,6 @@ library
 
                         -- Block processing
                         Pos.Block.BHelpers
-                        Pos.Block.Error
                         Pos.Block.Logic.Util
                         Pos.Block.Logic.Creation
                         Pos.Block.Logic.Header
@@ -177,18 +165,11 @@ library
                         Pos.Delegation.DB
                         Pos.Delegation.Helpers
                         Pos.Delegation.Listeners
-                        Pos.Delegation.Logic
                         Pos.Delegation.Logic.Common
                         Pos.Delegation.Logic.Mempool
                         Pos.Delegation.Logic.VAR
                         Pos.Delegation.Lrc
                         Pos.Delegation.Worker
-
-                        -- Arbitrary data generation
-                        Pos.Generator.Block.Error
-                        Pos.Generator.Block.Logic
-                        Pos.Generator.Block.Payload
-                        Pos.Generator.Block.Mode
 
                         -- GState
                         Pos.GState.Context
@@ -201,17 +182,11 @@ library
                         Pos.Launcher.Scenario
 
                         -- Network
-                        Pos.Communication.Types
-                        Pos.Communication.Message
-                        Pos.Communication.Methods
-                        Pos.Communication.Tx
                         Pos.Communication.Server
                         Pos.Communication.Limits
-                        Pos.Communication.Update
 
                         -- LRC
                         Pos.Lrc.Consumers
-                        Pos.Lrc.DB
                         Pos.Lrc.DB.Leaders
                         Pos.Lrc.DB.Lrc
                         Pos.Lrc.DB.Richmen
@@ -364,8 +339,6 @@ test-suite cardano-test
                        -- Pos.Block testing
                        Test.Pos.Block.Identity.BinarySpec
                        Test.Pos.Block.Identity.SafeCopySpec
-                       Test.Pos.Block.Logic.CreationSpec
-                       Test.Pos.Block.Logic.VarSpec
 
                        -- Core
                        Test.Pos.Core.AddressSpec
@@ -375,11 +348,6 @@ test-suite cardano-test
 
                        -- LRC
                        Test.Pos.Lrc.FollowTheSatoshiSpec
-                       Test.Pos.Lrc.WorkerSpec
-
-                       -- Txp
-                       Test.Pos.Client.Txp.Mode
-                       Test.Pos.Client.Txp.UtilSpec
 
                        -- Ssc
                        Test.Pos.Ssc.ComputeSharesSpec

@@ -65,7 +65,7 @@ import           Pos.Core (GenesisWStakeholders, HasConfiguration, HeaderHash, h
 import           Pos.Crypto.Hashing (hashHexF)
 import           Pos.Generator.Block (BlockGenParams (..), BlockTxpGenMode, MonadBlockGen,
                                       TxGenParams (..), genBlocks)
-import           Pos.GState.Context (withClonedGState)
+import           Pos.GState (withClonedGState)
 import           Pos.Ssc.Configuration (HasSscConfiguration)
 import           Pos.Txp (TxpGlobalSettings)
 import           Pos.Util.Chrono (NE, NewestFirst (..), OldestFirst (..), toNewestFirst,

@@ -19,8 +19,8 @@ import           System.Wlog (CanLog, HasLoggerName, logDebug, logError, logInfo
 
 import           Pos.Binary (Raw)
 import           Pos.Client.KeyStorage (getSecretKeysPlain)
-import           Pos.Communication (SendActions, immediateConcurrentConversations,
-                                    submitUpdateProposal, submitVote)
+import           Pos.Client.Update.Network (submitUpdateProposal, submitVote)
+import           Pos.Communication (SendActions, immediateConcurrentConversations)
 import           Pos.Crypto (Hash, SignTag (SignUSVote), emptyPassphrase, encToPublic, hash,
                              hashHexF, safeSign, unsafeHash, withSafeSigner, withSafeSigners)
 import           Pos.Exception (reportFatalError)
@@ -28,7 +28,7 @@ import           Pos.Update (SystemTag, UpId, UpdateData (..), UpdateVote (..), 
                              mkUpdateProposalWSign)
 
 import           Lang.Value (ProposeUpdateParams (..), ProposeUpdateSystem (..))
-import           Mode (MonadAuxxMode, CmdCtx (..), getCmdCtx)
+import           Mode (CmdCtx (..), MonadAuxxMode, getCmdCtx)
 import           Repl (PrintAction)
 
 ----------------------------------------------------------------------------

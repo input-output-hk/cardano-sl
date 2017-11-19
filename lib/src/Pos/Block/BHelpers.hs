@@ -28,7 +28,7 @@ import           Pos.Crypto (ProxySignature (..), SignTag (..), checkSig, hash, 
                              proxyVerify)
 import           Pos.Delegation.Helpers (dlgVerifyPayload)
 import           Pos.Ssc.Functions (verifySscPayload)
-import           Pos.Util.Util (Some (Some))
+import           Pos.Util.Some (Some (Some))
 
 instance ( Bi BlockHeader
          , HasConfiguration

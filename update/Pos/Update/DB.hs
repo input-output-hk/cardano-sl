@@ -48,7 +48,7 @@ import qualified Database.RocksDB as Rocks
 import           Serokell.Data.Memory.Units (Byte)
 
 import           Pos.Binary.Class (serialize')
-import           Pos.Binary.Infra.Slotting ()
+import           Pos.Binary.Infra ()
 import           Pos.Binary.Update ()
 import           Pos.Core (ApplicationName, BlockVersion, ChainDifficulty, NumSoftwareVersion,
                            SlotId, SoftwareVersion (..), StakeholderId, TimeDiff (..), epochSlots)

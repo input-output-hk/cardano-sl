@@ -40,7 +40,7 @@ import           Pos.Client.KeyStorage (MonadKeys (..), MonadKeysRead, addSecret
 import           Pos.Core (Coin, sumCoins, unsafeIntegerToCoin)
 import           Pos.Core.Configuration (HasConfiguration)
 import           Pos.Crypto (PassPhrase, changeEncPassphrase, checkPassMatches, emptyPassphrase)
-import           Pos.DB.Block (MonadBlockDB)
+import           Pos.DB.Class (MonadDBRead)
 import           Pos.Slotting (MonadSlots)
 import           Pos.Txp (MonadTxpMem)
 import           Pos.Util (maybeThrow)
@@ -76,7 +76,7 @@ type MonadWalletLogicRead ctx m =
     , WithLogger m
     , MonadRandom m
     , MonadSlots ctx m
-    , MonadBlockDB m
+    , MonadDBRead m
     , MonadBalances m
     , MonadWalletDBRead ctx m
     , MonadKeysRead m

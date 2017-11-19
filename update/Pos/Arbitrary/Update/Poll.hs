@@ -16,11 +16,12 @@ import           Pos.Arbitrary.Update.Core ()
 import           Pos.Binary.Core ()
 import           Pos.Binary.Update ()
 import           Pos.Core.Configuration (HasConfiguration)
+import           Pos.Update.Poll.Modifier (PollModifier (..))
 import           Pos.Update.Poll.PollState (PollState (..), psActivePropsIdx)
 import           Pos.Update.Poll.Types (BlockVersionState (..), ConfirmedProposalState (..),
-                                        DecidedProposalState (..), DpsExtra (..), PollModifier (..),
-                                        PrevValue, ProposalState (..), USUndo,
-                                        UndecidedProposalState (..), UpsExtra (..))
+                                        DecidedProposalState (..), DpsExtra (..), PrevValue,
+                                        ProposalState (..), USUndo, UndecidedProposalState (..),
+                                        UpsExtra (..))
 
 instance Arbitrary UpsExtra where
     arbitrary = genericArbitrary

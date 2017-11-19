@@ -47,14 +47,15 @@ import           Pos.Network.Types (NetworkConfig (..))
 import           Pos.Reporting.MemState (HasLoggerConfig (..), HasReportServers (..),
                                          HasReportingContext (..), ReportingContext (..))
 import           Pos.Shutdown (HasShutdownContext (..), ShutdownContext (..))
-import           Pos.Slotting (HasSlottingVar (..), SlottingContextSum, SlottingData)
+import           Pos.Slotting (HasSlottingVar (..), SlottingContextSum)
+import           Pos.Slotting.Types (SlottingData)
 import           Pos.Ssc.Types (HasSscContext (..), SscContext)
 import           Pos.StateLock (StateLock, StateLockMetrics)
 import           Pos.Txp.Settings (TxpGlobalSettings)
 import           Pos.Update.Context (UpdateContext)
+import           Pos.Util.Lens (postfixLFields)
 import           Pos.Util.Timer (Timer)
 import           Pos.Util.UserSecret (HasUserSecret (..), UserSecret)
-import           Pos.Util.Util (postfixLFields)
 
 ----------------------------------------------------------------------------
 -- NodeContext

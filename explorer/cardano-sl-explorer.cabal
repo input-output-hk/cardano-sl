@@ -54,13 +54,10 @@ library
   build-depends:        QuickCheck
                       , aeson
                       , base
-                      , base16-bytestring
-                      , binary
                       , bytestring
                       , containers
                       , conduit
                       , data-default
-                      , either
                       , ether >= 0.5.1
                       , exceptions
                       , data-default
@@ -74,7 +71,6 @@ library
                       , resourcet
                       , serokell-util
                       , stm
-                      , tagged
                       , text
                       , text-format
                       , time
@@ -88,6 +84,7 @@ library
 
                       -- cardano sl
                       , cardano-sl
+                      , cardano-sl-binary
                       , cardano-sl-core
                       , cardano-sl-infra
                       , cardano-sl-txp
@@ -95,12 +92,10 @@ library
                       , cardano-sl-ssc
                       , cardano-sl-txp
                       , cardano-sl-update
+                      , cardano-sl-util
 
                       -- mtl ++
                       , mtl
-                      , lifted-base
-                      , monad-control
-                      , monad-loops
 
                       -- servant
                       , servant
@@ -157,27 +152,17 @@ executable cardano-explorer
   main-is:             Main.hs
   other-modules:       NodeOptions
   build-depends:       base
-                     , bytestring
-                     , ether
                      , cardano-sl
                      , cardano-sl-core
                      , cardano-sl-infra
                      , cardano-sl-explorer
-                     , cardano-sl-ssc
                      , cardano-sl-update
-                     , containers
-                     , data-default
+                     , cardano-sl-util
                      , formatting
-                     , lens
                      , log-warper
-                     , mtl
-                     , network-transport-tcp
                      , node-sketch
                      , optparse-applicative
                      , universum
-                     , serokell-util
-                     , time
-                     , time-units
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts
                        -Wall
@@ -217,7 +202,6 @@ executable cardano-explorer-hs2purs
   other-modules:       PSTypes
                        PSOptions
   build-depends:       base
-                     , cardano-sl
                      , cardano-sl-explorer
                      , purescript-bridge
                      , universum
@@ -262,14 +246,12 @@ executable cardano-explorer-swagger
   build-depends:       aeson
                      , base
                      , bytestring
-                     , cardano-sl
                      , cardano-sl-explorer
                      , lens
                      , swagger2
                      , servant-server
                      , servant-multipart
                      , servant-swagger
-                     , servant-swagger-ui
                      , text
                      , universum >= 0.1.11
                      , optparse-applicative
@@ -297,7 +279,6 @@ executable cardano-explorer-mock
   main-is:             Main.hs
   other-modules:
   build-depends:       base
-                     , cardano-sl
                      , cardano-sl-explorer
                      , universum
                      , optparse-applicative
@@ -352,51 +333,21 @@ test-suite cardano-explorer-test
                        Test.Pos.Explorer.Identity.BinarySpec
 
   type:                exitcode-stdio-1.0
-  build-depends:       MonadRandom
-                     , QuickCheck
+  build-depends:       QuickCheck
                      , base
                      , bytestring
                      , cardano-sl-explorer
-                     , cardano-sl-update
                      , cardano-sl-core
                      , cardano-sl-txp
-                     , cardano-sl-ssc
-                     , cardano-sl-db
                      , cardano-sl
-                     , cborg
-                     , cereal
+                     , cardano-sl-util
                      , containers
                      , cryptonite
                      , data-default
-                     , ether
-                     , exceptions
-                     , formatting
-                     , generic-arbitrary
                      , hspec
-                     , kademlia
-                     , lens
                      , log-warper
                      , MonadRandom
-                     , memory
-                     , monad-control
-                     , mtl
-                     , mmorph
-                     , node-sketch
-                     , pvss
-                     , quickcheck-instances
-                     , random
-                     , reflection
-                     , regex-tdfa
-                     , regex-tdfa-text
-                     , safecopy
-                     , serokell-util >= 0.1.3.4
-                     , tagged
-                     , text-format
-                     , time-units
-                     , transformers-base
                      , universum >= 0.1.11
-                     , unordered-containers
-                     , vector
                      , warp
   hs-source-dirs:      test
   default-language:    Haskell2010
@@ -443,23 +394,15 @@ benchmark cardano-explorer-bench
   type:                exitcode-stdio-1.0
   build-depends:       QuickCheck
                      , base
-                     , binary
-                     , bytestring
                      , cardano-sl-explorer
                      , cardano-sl-core
                      , cardano-sl-txp
                      , cardano-sl
-                     , containers
                      , criterion
-                     , cryptonite
                      , data-default
-                     , formatting
                      , lens
-                     , log-warper
-                     , serokell-util >= 0.1.3.4
                      , text-format
                      , universum >= 0.1.11
-                     , vector
                      , weigh
   default-language:    Haskell2010
   ghc-options:         -threaded -rtsopts

@@ -38,8 +38,8 @@ set -o pipefail
 # * Pass --no-asserts to disable asserts.
 # * Pass --bench-mode to use the configuration used by modern benchmarks.
 
-# We can't have auxx, wallet or explorer here, because it depends on 'cardano-sl'.
-projects="core db lrc infra update ssc txp"
+# We can't have auxx, node, wallet or explorer here, because they depend on 'cardano-sl'.
+projects="binary util core db lrc infra update ssc txp"
 
 args=''
 
@@ -120,6 +120,8 @@ do
     spec_prj="auxx"
   elif [[ $var == "wallet" ]]; then
     spec_prj="wallet"
+  elif [[ $var == "wallet-new" ]]; then
+    spec_prj="wallet-new"
   elif [[ $var == "explorer" ]]; then
     spec_prj="explorer"
   elif [[ $var == "node" ]]; then
@@ -178,33 +180,25 @@ if [[ $ram == true ]];
   else ghc_opts="$ghc_opts +RTS -A256m -n2m -RTS"
 fi
 
-xperl='$|++; s/(.*) Compiling\s([^\s]+)\s+\(\s+([^\/]+).*/\1 \2/p'
+# prettify output of stack build
+xperl_pretty='$|++; s/(.*) Compiling\s([^\s]+)\s+\(\s+([^\/]+).*/\1 \2/p'
+# workaround for warning produced by servant-quickcheck
+xperl_workaround='$_ = "" if ( $. <= 11 )'
+xperl="$xperl_pretty ; $xperl_workaround"
 xgrep="((^.*warning.*$|^.*error.*$|^    .*$|^.*can't find source.*$|^Module imports form a cycle.*$|^  which imports.*$)|^)"
 
+function cleanPackage () { echo "Cleaning $1"; stack clean $1 2>&1 | perl -pe "$xperl_workaround"; };
 if [[ $clean == true ]]; then
 
-  echo "Cleaning cardano-sl-tools"
-  stack clean cardano-sl-tools
+  cleanPackage cardano-sl-tools
+  cleanPackage cardano-sl-auxx
+  cleanPackage cardano-sl-wallet
+  cleanPackage cardano-sl-wallet-new
+  cleanPackage cardano-sl-explorer
+  cleanPackage cardano-sl-node
+  cleanPackage cardano-sl
 
-  echo "Cleaning cardano-sl-auxx"
-  stack clean cardano-sl-auxx
-
-  echo "Cleaning cardano-sl-wallet"
-  stack clean cardano-sl-wallet
-
-  echo "Cleaning cardano-sl-explorer"
-  stack clean cardano-sl-explorer
-
-  echo "Cleaning cardano-sl-node"
-  stack clean cardano-sl-node
-
-  echo "Cleaning cardano-sl"
-  stack clean cardano-sl
-
-  for prj in $projects; do
-    echo "Cleaning cardano-sl-$prj"
-    stack clean "cardano-sl-$prj"
-  done
+  for prj in $projects; do cleanPackage "cardano-sl-$prj"; done
   exit
 fi
 
@@ -214,7 +208,7 @@ if [[ $spec_prj == "" ]]; then
     to_build="$to_build cardano-sl-$prj"
   done
 
-  to_build="$to_build cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet cardano-sl-explorer cardano-sl-node"
+  to_build="$to_build cardano-sl cardano-sl-auxx cardano-sl-tools cardano-sl-wallet cardano-sl-wallet-new cardano-sl-explorer cardano-sl-node"
 
 elif [[ $spec_prj == "lib" ]]; then
   to_build="cardano-sl"
@@ -224,6 +218,8 @@ elif [[ $spec_prj == "auxx" ]]; then
   to_build="cardano-sl-auxx"
 elif [[ $spec_prj == "wallet" ]]; then
   to_build="cardano-sl-node cardano-sl-wallet"
+elif [[ $spec_prj == "wallet-new" ]]; then
+  to_build="cardano-sl-node cardano-sl-wallet-new"
 elif [[ $spec_prj == "explorer" ]]; then
   to_build="cardano-sl-node cardano-sl-explorer"
 elif [[ $spec_prj == "all" ]]; then
@@ -245,7 +241,8 @@ for prj in $to_build; do
   # Building deps
   sbuild="stack build --ghc-options=\"$ghc_opts\" $commonargs $norun --dependencies-only $args $prj"
   echo -e "$sbuild\n"
-  eval $sbuild
+  eval $sbuild 2>&1                         \
+    | perl -pe "$xperl_workaround"
 
   if [[ $no_code == true ]]; then
     ghc_opts_2="$ghc_opts -fwrite-interface -fno-code"
@@ -276,7 +273,8 @@ if [[ $test == true ]]; then
       --no-run-benchmarks                   \
       $fast                                 \
       $args                                 \
-      cardano-sl
+      cardano-sl                            \
+    | perl -pe "$xperl_workaround"
 fi
 
 if [[ $coverage == true ]]; then

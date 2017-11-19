@@ -9,17 +9,18 @@ import           Universum
 import qualified Control.Concurrent.STM as STM
 import           Control.Monad.Except (runExceptT, throwError)
 
+import           Pos.Block.BHelpers ()
 import           Pos.Context.Context (RecoveryHeader, RecoveryHeaderTag)
 import           Pos.Core (HasCoreConfiguration, epochOrSlotG, epochOrSlotToSlot, flattenSlotId)
-import           Pos.DB.Block (MonadBlockDB)
-import           Pos.DB.DB (getTipHeader)
+import qualified Pos.DB.BlockIndex as DB
+import           Pos.DB.Class (MonadDBRead)
 import           Pos.Recovery.Info (MonadRecoveryInfo (..), SyncStatus (..))
 import           Pos.Slotting (MonadSlots (getCurrentSlot))
 import           Pos.Util.Util (HasLens (..))
 
 instance ( Monad m
          , MonadIO m
-         , MonadBlockDB m
+         , MonadDBRead m
          , MonadSlots ctx m
          , MonadReader ctx m
          , HasLens RecoveryHeaderTag ctx RecoveryHeader
@@ -32,7 +33,7 @@ instance ( Monad m
                 False -> pass
                 True -> throwError SSDoingRecovery
             curSlot <- note SSUnknownSlot =<< getCurrentSlot
-            tipHeader <- getTipHeader
+            tipHeader <- DB.getTipHeader
             let tipSlot = epochOrSlotToSlot (tipHeader ^. epochOrSlotG)
             unless (tipSlot <= curSlot) $
                 throwError

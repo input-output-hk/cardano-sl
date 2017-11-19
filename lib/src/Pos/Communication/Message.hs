@@ -1,4 +1,3 @@
-
 module Pos.Communication.Message
        (
        ) where
@@ -12,9 +11,8 @@ import           Pos.Block.Network.Types (MsgBlock, MsgGetBlocks, MsgGetHeaders,
 import           Pos.Communication.Types.Protocol (MsgSubscribe)
 import           Pos.Communication.Types.Relay (DataMsg, InvMsg, InvOrData, MempoolMsg, ReqMsg,
                                                 ReqOrRes)
-import           Pos.Core (ProxySKHeavy, ProxySKLight)
+import           Pos.Core (ProxySKHeavy)
 import           Pos.Core.Update (UpdateProposal, UpdateVote)
-import           Pos.Delegation.Types (ProxySKLightConfirmation)
 import           Pos.Ssc.Message (MCCommitment, MCOpening, MCShares, MCVssCertificate)
 import           Pos.Txp.Network.Types (TxMsgContents)
 
@@ -244,31 +242,6 @@ instance Message (InvOrData key MCVssCertificate) where
     formatMessage _ = "Inventory/Data"
 
 
-instance Message (ReqMsg ProxySKLight) where
-    messageCode _ = 74
-    formatMessage _ = "Request"
-
-instance Message (ReqOrRes ProxySKLight) where
-    messageCode _ = 75
-    formatMessage _ = "ReqOrRes"
-
-instance Message (MempoolMsg ProxySKLight) where
-    messageCode _ = 76
-    formatMessage _ = "Mempool"
-
-instance Message (DataMsg ProxySKLight) where
-    messageCode _ = 77
-    formatMessage _ = "Data"
-
-instance Message (InvMsg ProxySKLight) where
-    messageCode _ = 78
-    formatMessage _ = "Inventory"
-
-instance Message (InvOrData key ProxySKLight) where
-    messageCode _ = 79
-    formatMessage _ = "Inventory/Data"
-
-
 instance Message (ReqMsg ProxySKHeavy) where
     messageCode _ = 80
     formatMessage _ = "Request"
@@ -291,31 +264,6 @@ instance Message (InvMsg ProxySKHeavy) where
 
 instance Message (InvOrData key ProxySKHeavy) where
     messageCode _ = 85
-    formatMessage _ = "Inventory/Data"
-
-
-instance Message (ReqMsg ProxySKLightConfirmation) where
-    messageCode _ = 86
-    formatMessage _ = "Request"
-
-instance Message (ReqOrRes ProxySKLightConfirmation) where
-    messageCode _ = 87
-    formatMessage _ = "ReqOrRes"
-
-instance Message (MempoolMsg ProxySKLightConfirmation) where
-    messageCode _ = 88
-    formatMessage _ = "Mempool"
-
-instance Message (DataMsg ProxySKLightConfirmation) where
-    messageCode _ = 89
-    formatMessage _ = "Data"
-
-instance Message (InvMsg ProxySKLightConfirmation) where
-    messageCode _ = 90
-    formatMessage _ = "Inventory"
-
-instance Message (InvOrData key ProxySKLightConfirmation) where
-    messageCode _ = 91
     formatMessage _ = "Inventory/Data"
 
 

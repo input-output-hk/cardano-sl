@@ -49,7 +49,7 @@ import           Pos.Crypto (VssKeyPair)
 import           Pos.Ssc.Behavior (SscBehavior)
 import           Pos.Ssc.Toss.Types (TossModifier)
 import qualified Pos.Ssc.VssCertData as VCD
-import           Pos.Util.Util (Some)
+import           Pos.Util.Some (Some)
 
 ----------------------------------------------------------------------------
 -- SscGlobalState

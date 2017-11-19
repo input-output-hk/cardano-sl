@@ -27,7 +27,8 @@ import           Pos.Core.Configuration (HasConfiguration, canonicalGenesisJson,
                                          prettyGenesisJson)
 import           Pos.Crypto (decodeAbstractHash)
 import           Pos.Security.Params (AttackTarget (..), AttackType (..))
-import           Pos.Util (eitherToFail, inAssertMode)
+import           Pos.Util (eitherToFail)
+import           Pos.Util.AssertMode (inAssertMode)
 import           Pos.Util.TimeWarp (addrParser)
 
 printFlags :: WithLogger m => m ()

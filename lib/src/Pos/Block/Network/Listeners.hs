@@ -70,7 +70,7 @@ handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
                      " blocks to "%build%" one-by-one: "%listJson)
                     (length hashes) nodeId hashes
                 for_ hashes $ \hHash ->
-                    DB.blkGetBlock hHash >>= \case
+                    DB.getBlock hHash >>= \case
                         Nothing -> do
                             send conv (MsgNoBlock $
                                        "Couldn't retrieve block with hash " <> pretty hHash)

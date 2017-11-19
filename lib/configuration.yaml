@@ -113,7 +113,6 @@ dev: &dev
     networkDiameter: 3
     defaultPeers: []
     mdNoBlocksSlotThreshold: 3 # should be less than 2 * k
-    lightDlgConfirmationTimeout: 500
     dlgCacheParam: 500
     recoveryHeadersMessage: 20 # should be greater than k
     messageCacheTimeout: 30
@@ -297,7 +296,6 @@ mainnet_base: &mainnet_base
     networkDiameter: 18
     defaultPeers: []
     mdNoBlocksSlotThreshold: 18 # should be less than 2 * k
-    lightDlgConfirmationTimeout: 500
     dlgCacheParam: 500
     recoveryHeadersMessage: 2200 # should be greater than k
     messageCacheTimeout: 30

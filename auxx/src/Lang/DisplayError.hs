@@ -1,3 +1,4 @@
+{-# ANN module ("HLint: ignore Functor law" :: Text) #-}
 module Lang.DisplayError
     ( ppArgumentError
     , ppEvalError
@@ -129,7 +130,7 @@ ppParseError (ParseError str (Report {..})) =
     unknownSpans :: [Span]
     unknownSpans = map fst . takeWhile (isTokenUnknown . snd) $ unconsumed
     span = NE.head $
-        case NE.nonEmpty (joinAsc unknownSpans) <|> NE.nonEmpty (map fst unconsumed) of
+        case nonEmpty (joinAsc unknownSpans) <|> nonEmpty (map fst unconsumed) of
             Nothing -> spanFromTo strEndLoc (addColumn 1 strEndLoc) :|[]
             Just x  -> x
 

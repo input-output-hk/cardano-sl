@@ -77,8 +77,8 @@ rawExec mHasAuxxMode AuxxOptions{..} mSendActions = \case
     Left WithCommandAction{..} -> do
         printAction <- getPrintAction
         printAction "... the auxx plugin is ready"
-        forever $ withCommand $ \line -> runCmd mHasAuxxMode line mSendActions printAction
-    Right cmd -> runWalletCmd mHasAuxxMode cmd mSendActions
+        forever $ withCommand $ runCmd mHasAuxxMode mSendActions printAction
+    Right cmd -> runWalletCmd mHasAuxxMode mSendActions cmd
 
 runWalletCmd ::
        ( HasCompileInfo
@@ -90,11 +90,11 @@ runWalletCmd ::
        , Mockable Delay m
        )
     => Maybe (Dict (MonadAuxxMode m))
-    -> Text
     -> Maybe (SendActions m)
+    -> Text
     -> m ()
-runWalletCmd mHasAuxxMode line mSendActions = do
-    runCmd mHasAuxxMode line mSendActions printAction
+runWalletCmd mHasAuxxMode mSendActions line = do
+    runCmd mHasAuxxMode mSendActions printAction line
     printAction "Command execution finished"
     printAction " " -- for exit by SIGPIPE
     liftIO $ hFlush stdout
@@ -115,18 +115,17 @@ runCmd ::
        , Mockable Delay m
        )
     => Maybe (Dict (MonadAuxxMode m))
-    -> Text
     -> Maybe (SendActions m)
     -> PrintAction m
+    -> Text
     -> m ()
-runCmd mHasAuxxMode line mSendActions printAction = do
+runCmd mHasAuxxMode mSendActions printAction line = do
     let commandProcs = createCommandProcs mHasAuxxMode printAction mSendActions
     case Lang.parse line of
         Left parseError -> printAction (Lang.renderAuxxDoc . Lang.ppParseError $ parseError)
-        Right expr -> Lang.evaluate commandProcs expr >>= \eitherValue ->
-            case eitherValue of
-                Left evalError -> printAction (Lang.renderAuxxDoc . Lang.ppEvalError $ evalError)
-                Right value -> withValueText printAction value
+        Right expr -> Lang.evaluate commandProcs expr >>= \case
+            Left evalError -> printAction (Lang.renderAuxxDoc . Lang.ppEvalError $ evalError)
+            Right value -> withValueText printAction value
 
 withValueText :: Monad m => (Text -> m ()) -> Lang.Value -> m ()
 withValueText cont = \case

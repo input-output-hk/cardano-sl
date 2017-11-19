@@ -70,7 +70,10 @@ gExpr = mdo
 pExpr :: Parser Text [(s, Token)] Expr
 pExpr = parser gExpr
 
-data ParseError = ParseError Text (Report Text [(Span, Token)])
+data ParseError = ParseError
+    { peSource :: Text
+    , peReport :: Report Text [(Span, Token)]
+    }
     deriving (Eq, Show)
 
 parse :: Text -> Either ParseError Expr

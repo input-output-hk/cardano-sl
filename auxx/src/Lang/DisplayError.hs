@@ -11,15 +11,11 @@ module Lang.DisplayError
 import           Universum hiding (empty, (<$>))
 
 import qualified Data.List.NonEmpty as NE
-import qualified Data.Set as S
-import qualified Data.Text.Lazy as T
 import qualified Text.PrettyPrint.ANSI.Leijen
-
 
 import           Control.Lens (matching)
 import           Data.Loc (Span, loc, locColumn, locLine, spanEnd, spanFromTo, spanStart, toNat)
 import           Data.Loc.Span (joinAsc)
-import           Data.Text (unpack)
 import           Data.Text.Buildable (build)
 import           Data.Text.Lazy.Builder (toLazyText)
 import           Text.Earley (Report (..))
@@ -38,10 +34,10 @@ highlight :: Doc -> Doc
 highlight = bold . yellow
 
 text :: Text -> Doc
-text = Text.PrettyPrint.ANSI.Leijen.text . unpack
+text = Text.PrettyPrint.ANSI.Leijen.text . toString
 
 nameToDoc :: Name -> Doc
-nameToDoc = Text.PrettyPrint.ANSI.Leijen.text . T.unpack . toLazyText . build
+nameToDoc = Text.PrettyPrint.ANSI.Leijen.text . toString . toLazyText . build
 
 ppTypeName :: TypeName -> Doc
 ppTypeName (TypeName name)         = text name
@@ -59,13 +55,13 @@ ppArgumentError ae@ArgumentError{..} =
     then empty
     else vcat $ missingKeysDoc <> irrelevantKeysDoc <> irrelevantPosDoc
   where
-    setToDoc = hcat . punctuate comma . map (highlight . nameToDoc) . S.toList
+    setToDoc = hcat . punctuate comma . map (highlight . nameToDoc) . toList
     missingKeysDoc =
-        if S.null aeMissingKeys
+        if null aeMissingKeys
         then []
         else ["Missing keys:" <+> setToDoc aeMissingKeys]
     irrelevantKeysDoc =
-        if S.null aeIrrelevantKeys
+        if null aeIrrelevantKeys
         then []
         else ["Irrelevant keys:" <+> setToDoc aeIrrelevantKeys]
     irrelevantPosDoc =
@@ -77,10 +73,10 @@ ppProcError :: ProcError -> Doc
 ppProcError ProcError{..} = ppArgumentError peArgumentError <$> typeErrorsDoc
   where
     typeErrorsDoc =
-        if S.null peTypeErrors
+        if null peTypeErrors
         then empty
         else "Following type errors occured:" <$>
-             (indent 2 . hcat . map ppTypeError . S.toList) peTypeErrors
+             (indent 2 . hcat . map ppTypeError . toList) peTypeErrors
 
 ppEvalError :: EvalError -> Doc
 ppEvalError (CommandNotSupported name) =
@@ -106,7 +102,7 @@ ppParseError (ParseError str (Report {..})) =
   <$> renderLines
   where
     unconsumedDesc = maybe "end of input" show . head . fmap snd $ unconsumed
-    strLines = NE.nonEmpty $ take spanLines . drop (spanLineStart - 1) $ lines str
+    strLines = nonEmpty $ take spanLines . drop (spanLineStart - 1) $ lines str
     renderLines = case strLines of
         Nothing ->
             -- This can only happen if megaparsec's 'getPosition' somehow

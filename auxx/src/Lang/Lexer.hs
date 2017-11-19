@@ -33,7 +33,7 @@ import           Control.Lens (makePrisms)
 import           Data.Char (isAlpha, isAlphaNum)
 import qualified Data.List as List
 import qualified Data.List.NonEmpty as NonEmpty
-import           Data.Loc (Span, loc, spanFromTo)
+import           Data.Loc (Loc, Span, loc, spanFromTo)
 import           Data.Scientific (Scientific)
 import qualified Data.Text as Text
 import qualified Data.Text.Buildable as Buildable
@@ -155,14 +155,14 @@ tokenize' = parseMaybe (between pSkip eof (many pToken))
 pToken :: Lexer (Span, Token)
 pToken = withPosition (try pToken' <|> pUnknown) <* pSkip
   where
-    posToNum :: (Num a, Num b) => SourcePos -> (a, b)
-    posToNum SourcePos{..} =
+    posToLoc :: SourcePos -> Loc
+    posToLoc SourcePos{..} = uncurry loc
         ( fromIntegral . unPos $ sourceLine
         , fromIntegral . unPos $ sourceColumn)
     withPosition p = do
-        pos1 <- uncurry loc . posToNum <$> getPosition
+        pos1 <- posToLoc <$> getPosition
         t <- p
-        pos2 <- uncurry loc . posToNum <$> getPosition
+        pos2 <- posToLoc <$> getPosition
         return (spanFromTo pos1 pos2, t)
 
 pUnknown :: Lexer Token

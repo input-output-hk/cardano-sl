@@ -421,6 +421,7 @@ executable cardano-blockchain-analyser
    build-depends:      ansi-wl-pprint
                      , base
                      , cardano-sl
+                     , cardano-sl-binary
                      , cardano-sl-core
                      , cardano-sl-db
                      , cardano-sl-infra

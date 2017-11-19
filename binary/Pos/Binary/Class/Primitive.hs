@@ -11,8 +11,6 @@ module Pos.Binary.Class.Primitive
        , unsafeDeserialize
        , unsafeDeserialize'
        , CBOR.Write.toStrictByteString
-       , putCopyBi
-       , getCopyBi
        , Raw(..)
        -- * Binary serialization
        , AsBinary (..)
@@ -35,6 +33,8 @@ module Pos.Binary.Class.Primitive
        , decodeCrcProtected
        ) where
 
+import           Universum
+
 import qualified Codec.CBOR.Decoding as D
 import qualified Codec.CBOR.Encoding as E
 import qualified Codec.CBOR.Read as CBOR.Read
@@ -44,15 +44,12 @@ import           Control.Monad.ST (ST, runST)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Internal as BSL
-import           Data.SafeCopy (Contained, SafeCopy (..), contain, safeGet, safePut)
-import qualified Data.Serialize as Cereal (Get, Put)
-import           Data.Typeable (typeOf)
-
 import           Data.Digest.CRC32 (CRC32 (..))
+import           Data.Typeable (typeOf)
 import           Formatting (formatToString, shown, (%))
-import           Pos.Binary.Class.Core (Bi (..), enforceSize)
 import           Serokell.Data.Memory.Units (Byte)
-import           Universum
+
+import           Pos.Binary.Class.Core (Bi (..), enforceSize)
 
 -- | Serialize a Haskell value to an external binary representation.
 --
@@ -130,20 +127,6 @@ deserializeOrFail'
               (a, BS.ByteString)
 deserializeOrFail' = deserializeOrFail . BSL.fromStrict
 
-----------------------------------------------------------------------------
--- SafeCopy
-----------------------------------------------------------------------------
-
-putCopyBi :: Bi a => a -> Contained Cereal.Put
-putCopyBi = contain . safePut . serialize
-
-getCopyBi :: forall a. Bi a => Contained (Cereal.Get a)
-getCopyBi = contain $ do
-    bs <- safeGet
-    case deserializeOrFail bs of
-        Left (err, _) -> fail $ "getCopy@" ++ (label (Proxy @a)) <> ": " <> show err
-        Right (x, _)  -> return x
-
 ----------------------------------------
 
 
@@ -179,10 +162,6 @@ newtype Raw = Raw ByteString
 newtype AsBinary a = AsBinary
     { getAsBinary :: ByteString
     } deriving (Show, Eq, Ord, Hashable, NFData)
-
-instance SafeCopy (AsBinary a) where
-    getCopy = contain $ AsBinary <$> safeGet
-    putCopy = contain . safePut . getAsBinary
 
 -- | A simple helper class simplifying work with 'AsBinary'.
 class AsBinaryClass a where

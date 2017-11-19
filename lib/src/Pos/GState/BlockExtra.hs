@@ -11,6 +11,7 @@ module Pos.GState.BlockExtra
        , getFirstGenesisBlockHash
        , BlockExtraOp (..)
        , foldlUpWhileM
+       , loadHashesUpWhile
        , loadHeadersUpWhile
        , loadBlocksUpWhile
        , initGStateBlockExtra
@@ -153,6 +154,15 @@ loadUpWhile getDatum morph start condition = OldestFirst . reverse <$>
         (\b h -> condition (snd b) h)
         (\l e -> pure (e : l))
         []
+
+-- | Bottom-top hashes traversal, basically iterating forward links
+-- with condition.
+loadHashesUpWhile :: (MonadBlockDBRead m, HasHeaderHash a)
+    => a
+    -> (HeaderHash -> Int -> Bool)
+    -> m (OldestFirst [] HeaderHash)
+loadHashesUpWhile start condition =
+    loadUpWhile (pure . Just) identity start condition
 
 -- | Returns headers loaded up.
 loadHeadersUpWhile

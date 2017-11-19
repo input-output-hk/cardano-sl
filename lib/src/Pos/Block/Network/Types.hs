@@ -68,6 +68,7 @@ data MsgHeaders
 
 -- | 'Block' message (see protocol specification).
 data MsgBlock
-    = MsgBlock Block
-    | MsgNoBlock Text
+    = MsgBlock ByteString  -- ^ Raw block representation.
+    | MsgBlockDirect Block -- ^ Compatibility option. Use 'MsgBlock' if possible, it's faster.
+    | MsgNoBlock Text      -- ^ Couldn't retrieve block that was requested.
     deriving (Eq, Show, Generic)

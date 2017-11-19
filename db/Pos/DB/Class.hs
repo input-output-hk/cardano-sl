@@ -130,7 +130,7 @@ instance {-# OVERLAPPABLE #-}
 type MonadBlockDBRead m = (MonadDBRead m, BlockchainHelpers MainBlockchain)
 
 getDeserialized
-    :: (MonadBlockDBRead m, Bi v)
+    :: (MonadThrow m, Bi v)
     => (x -> m (Maybe (Serialized tag))) -> x -> m (Maybe v)
 getDeserialized getter x = getter x >>= \case
     Nothing  -> pure Nothing

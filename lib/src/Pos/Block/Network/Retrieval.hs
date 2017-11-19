@@ -23,7 +23,7 @@ import           Serokell.Data.Memory.Units (unitBuilder)
 import           Serokell.Util (listJson, sec)
 import           System.Wlog (logDebug, logError, logInfo, logWarning)
 
-import           Pos.Binary.Class (biSize)
+import           Pos.Binary.Class (biSize, decodeFull)
 import           Pos.Binary.Communication ()
 import           Pos.Block.Logic (ClassifyHeaderRes (..), classifyNewHeader)
 import           Pos.Block.Network.Announce (announceBlockOuts)
@@ -381,7 +381,7 @@ retrieveBlocks conv lcaChild endH = do
                 (b0 ^. blockHeader) lcaChild
 
 retrieveBlocksDo
-    :: (WorkMode ctx m)
+    :: forall ctx m. (WorkMode ctx m)
     => Int        -- ^ Index of block we're requesting
     -> ConversationActions MsgGetBlocks MsgBlock m
     -> HeaderHash -- ^ We're expecting a child of this block
@@ -392,7 +392,16 @@ retrieveBlocksDo i conv prevH endH = lift (recvLimited conv) >>= \case
         throwError $ sformat ("Failed to receive block #"%int) i
     Just (MsgNoBlock t) ->
         throwError $ sformat ("Server failed to return block #"%int%": "%stext) i t
-    Just (MsgBlock block) -> do
+    Just (MsgBlockDirect block) ->
+        contProcess block
+    Just (MsgBlock bbs) ->
+        either (\e -> throwM $ DialogUnexpected $
+                      "retrieveBlocksDo: couldn't deserialize MsgBlock: " <> e)
+               contProcess
+               (decodeFull bbs)
+  where
+    contProcess :: Block -> ExceptT Text m (OldestFirst NE Block)
+    contProcess block = do
         let prevH' = block ^. prevBlockL
             curH = headerHash block
         when (prevH' /= prevH) $ do

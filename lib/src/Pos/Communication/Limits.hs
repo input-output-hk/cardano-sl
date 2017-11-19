@@ -273,7 +273,7 @@ instance MessageLimited Block where
 instance MessageLimited MsgBlock where
     getMsgLenLimit _ = do
         blkLimit <- getMsgLenLimit (Proxy @Block)
-        return $ MsgBlock <$> blkLimit
+        return $ MsgBlockDirect <$> blkLimit
 
 instance HasConfiguration => MessageLimitedPure MsgGetHeaders where
     msgLenLimit = MsgGetHeaders <$> vector maxGetHeadersNum <+> msgLenLimit

@@ -20,7 +20,7 @@ import           Pos.Communication.Limits (recvLimited)
 import           Pos.Communication.Listener (listenerConv)
 import           Pos.Communication.Protocol (ConversationActions (..), ListenerSpec (..),
                                              MkListeners, OutSpecs, constantListeners)
-import qualified Pos.DB.Block as DB
+import qualified Pos.DB.Class as DB
 import           Pos.DB.Error (DBError (DBMalformed))
 import           Pos.Network.Types (Bucket, NodeId)
 import           Pos.Util.Chrono (NewestFirst (..))
@@ -70,12 +70,12 @@ handleGetBlocks oq = listenerConv oq $ \__ourVerInfo nodeId conv -> do
                      " blocks to "%build%" one-by-one: "%listJson)
                     (length hashes) nodeId hashes
                 for_ hashes $ \hHash ->
-                    DB.getBlock hHash >>= \case
+                    DB.dbGetSerBlock hHash >>= \case
                         Nothing -> do
                             send conv (MsgNoBlock $
                                        "Couldn't retrieve block with hash " <> pretty hHash)
                             failMalformed
-                        Just b -> send conv (MsgBlock b)
+                        Just (DB.Serialized bbs) -> send conv (MsgBlock bbs)
                 logDebug "handleGetBlocks: blocks sending done"
             _ -> logWarning $ "getBlocksByHeaders@retrieveHeaders returned Nothing"
   where

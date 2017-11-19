@@ -227,10 +227,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
     systemStart  <- getSystemStartM
     slottingData <- GS.getSlottingData
 
-    let gstateHHash = headerHash gstateH
-        loadCond (b, _) _ = b ^. difficultyL <= gstateH ^. difficultyL
-        wAddr = encToCId encSK
-        mappendR r mm = pure (r <> mm)
+    let wAddr = encToCId encSK
         diff = (^. difficultyL)
         mDiff = Just . diff
         gbTxs = either (const []) (^. mainBlockTxPayload . to flattenTxPayload)
@@ -247,10 +244,10 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
             trackingRollbackTxs encSK allAddresses mDiff blkHeaderTs $
             zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
 
-        applyBlock :: [CWAddressMeta] -> Blund ssc -> m CAccModifier
-        applyBlock allAddresses (b, u) = pure $
-            trackingApplyTxs encSK allAddresses mDiff blkHeaderTs ptxBlkInfo $
-            zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b)
+        applyBlock :: [CWAddressMeta] -> Blund ssc -> CAccModifier
+        applyBlock allAddresses (b,u) =
+            trackingApplyTxs encSK allAddresses mDiff blkHeaderTs ptxBlkInfo
+                             (zip3 (gbTxs b) (undoTx u) (repeat $ getBlockHeader b))
 
         computeAccModifier :: BlockHeader ssc -> m CAccModifier
         computeAccModifier wHeader = do
@@ -259,6 +256,8 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
                 sformat ("Wallet "%build%" header: "%build%", current tip header: "%build)
                 wAddr wHeader gstateH
             if | diff gstateH > diff wHeader -> do
+                     let loadCond (b,_undo) _ = b ^. difficultyL <= gstateH ^. difficultyL
+                         convertFoo rr blund = pure $ rr <> applyBlock allAddresses blund
                      -- If wallet's syncTip is before than the current tip in the blockchain,
                      -- then it loads wallets starting with @wHeader@.
                      -- Sync tip can be before the current tip
@@ -266,9 +265,13 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
                      -- or if the application was interrupted during rollback.
                      -- We don't load blocks explicitly, because blockain can be long.
                      maybe (pure mempty)
-                         (\wNextH ->
-                            foldlUpWhileM (applyBlock allAddresses) wNextH loadCond mappendR mempty)
-                         =<< resolveForwardLink wHeader
+                           (\wNextH ->
+                              foldlUpWhileM DB.blkGetBlund
+                                            wNextH
+                                            loadCond
+                                            convertFoo
+                                            mempty)
+                           =<< resolveForwardLink wHeader
                | diff gstateH < diff wHeader -> do
                      -- This rollback can occur
                      -- if the application was interrupted during blocks application.
@@ -289,7 +292,7 @@ syncWalletWithGStateUnsafe encSK wTipHeader gstateH = setLogger $ do
 
     startFromH <- maybe firstGenesisHeader pure wTipHeader
     mapModifier@CAccModifier{..} <- computeAccModifier startFromH
-    applyModifierToWallet wAddr gstateHHash mapModifier
+    applyModifierToWallet wAddr (headerHash gstateH) mapModifier
     -- Mark the wallet as ready, so it will be available from api endpoints.
     WS.setWalletReady wAddr True
     logInfoS $

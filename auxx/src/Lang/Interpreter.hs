@@ -25,8 +25,6 @@ data EvalError
     | InvalidArguments Name ProcError
     deriving (Eq, Ord, Show)
 
-instance Exception EvalError
-
 type T m a = Monad m =>
     ReaderT (EvalCtx m) (ExceptT EvalError m) a
 

@@ -1,4 +1,3 @@
-{-# ANN module ("HLint: ignore Functor law" :: Text) #-}
 module Lang.DisplayError
     ( ppArgumentError
     , ppEvalError
@@ -30,6 +29,7 @@ import           Lang.Lexer (_TokenUnknown)
 import           Lang.Name (Name)
 import           Lang.Parser (ParseError (..))
 
+{-# ANN module ("HLint: ignore Functor law" :: Text) #-}
 
 highlight :: Doc -> Doc
 highlight = bold . yellow

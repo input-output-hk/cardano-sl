@@ -35,11 +35,11 @@ import qualified System.Systemd.Daemon as Systemd
 import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType, EnqueueMsg, makeEnqueueMsg, bipPacking, Listener, MkListeners (..), HandlerSpecs, InSpecs (..), OutSpecs (..))
 import           Pos.Communication.Limits (SscLimits (..), UpdateLimits (..), TxpLimits (..), BlockLimits (..), HasUpdateLimits, HasTxpLimits, HasBlockLimits, HasSscLimits)
 import           Pos.Communication.Relay.Logic (invReqDataFlowTK)
-import           Pos.Communication.Server (allListeners)
+--import           Pos.Communication.Server (allListeners)
 import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout, networkConnectionTimeout)
 import           Pos.Core.Block (Block, MainBlockHeader, BlockHeader)
 import           Pos.Core.Coin (coinPortionToDouble)
-import           Pos.Core.Configuration (HasConfiguration, protocolMagic)
+import           Pos.Core.Configuration (protocolMagic)
 import           Pos.Core.Types (ProtocolMagic (..), HeaderHash, BlockVersionData (..))
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpId, UpdateVote, UpdateProposal)
@@ -47,21 +47,16 @@ import           Pos.DHT.Real (KademliaDHTInstance, KademliaParams (..), startDH
 import qualified Pos.Diffusion.Full.Block  as Diffusion.Block
 import qualified Pos.Diffusion.Full.Txp    as Diffusion.Txp
 import qualified Pos.Diffusion.Full.Update as Diffusion.Update
+import           Pos.Diffusion.Full.Types  (DiffusionWorkMode)
 import           Pos.Diffusion.Types (Diffusion (..), DiffusionLayer (..), GetBlocksError (..))
 import           Pos.Logic.Types (Logic (..))
 import           Pos.Network.CLI (NetworkConfigOpts (..), intNetworkConfigOpts)
 import           Pos.Network.Types (NetworkConfig (..), Topology (..), Bucket, initQueue)
 import           Pos.Ssc.Message (MCOpening, MCShares, MCCommitment, MCVssCertificate)
-import           Pos.Update.Configuration (HasUpdateConfiguration, lastKnownBlockVersion)
+import           Pos.Update.Configuration (lastKnownBlockVersion)
 import           Pos.Util.OutboundQueue (EnqueuedConversation (..))
-import           Pos.WorkMode (WorkMode)
 
 -- | The full diffusion layer.
---
--- Constraints on 'd' arise from existing implementation of various things like
--- 'invReqDataFlowTK'. These represent in essence other logic layer dependencies
--- expressed against the monad itself rather than contained in a record.
--- Thankfully 'WorkMode ctx d' satisfies them all.
 --
 -- NB: we could do the whole logic/diffusion layer interface using typeclasses
 -- against a monad, but we'd end up with a bunch of reader constraints over
@@ -69,8 +64,10 @@ import           Pos.WorkMode (WorkMode)
 -- That's to say, we'd have to do the same work anyway, but then even more
 -- work to juggle the instances.
 diffusionLayerFull
-    :: forall ctx d x .
-       ( HasConfiguration, HasUpdateConfiguration, WorkMode ctx d, MonadFix d )
+    :: forall d x .
+       ( DiffusionWorkMode d
+       , MonadFix d
+       )
     => NetworkConfigOpts
     -> Maybe Monitoring.Store
     -> ((Logic d -> Production (DiffusionLayer d)) -> Production x)
@@ -99,7 +96,7 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
             OutSpecs outs = outSpecs mkL
 
             mkL :: MkListeners d
-            mkL = allListeners oq (ncTopology networkConfig) enqueue
+            mkL = error "listeners" -- allListeners oq (ncTopology networkConfig) enqueue
 
             listeners :: VerInfo -> [Listener d]
             listeners = mkListeners mkL ourVerInfo
@@ -128,13 +125,13 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
             announceBlock = void . Diffusion.Block.announceBlock logic enqueue
 
             sendTx :: TxAux -> d Bool
-            sendTx = Diffusion.Txp.sendTx enqueue
+            sendTx = give txpLimits $ Diffusion.Txp.sendTx enqueue
 
             sendUpdateProposal :: UpId -> UpdateProposal -> [UpdateVote] -> d ()
-            sendUpdateProposal = Diffusion.Update.sendUpdateProposal enqueue
+            sendUpdateProposal = give updateLimits $ Diffusion.Update.sendUpdateProposal enqueue
 
             sendVote :: UpdateVote -> d ()
-            sendVote = Diffusion.Update.sendVote enqueue
+            sendVote = give updateLimits $ Diffusion.Update.sendVote enqueue
 
             -- FIXME
             -- SSC stuff has a 'waitUntilSend' motif before it. Must remember to
@@ -208,8 +205,8 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
 -- | Create kademlia, network-transport, and run the outbound queue's
 -- dequeue thread.
 runDiffusionLayerFull
-    :: forall ctx d .
-       ( WorkMode ctx d, MonadFix d )
+    :: forall d .
+       ( DiffusionWorkMode d, MonadFix d )
     => NetworkConfig KademliaParams
     -> VerInfo
     -> OQ.OutboundQ (EnqueuedConversation d) NodeId Bucket
@@ -241,8 +238,8 @@ sendMsgFromConverse converse (EnqueuedConversation (_, k)) nodeId =
 
 -- | Bring up a time-warp node. It will come down when the continuation ends.
 timeWarpNode
-    :: forall ctx d t .
-       ( WorkMode ctx d, MonadFix d )
+    :: forall d t .
+       ( DiffusionWorkMode d, MonadFix d )
     => Transport d
     -> VerInfo
     -> (VerInfo -> [Listener d])

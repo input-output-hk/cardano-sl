@@ -24,6 +24,8 @@ module Pos.Communication.Relay.Logic
        , invReqDataFlowTK
        , dataFlow
        , InvReqDataFlowLog (..)
+
+       , MinRelayWorkMode
        ) where
 
 import           Data.Aeson.TH (defaultOptions, deriveJSON)

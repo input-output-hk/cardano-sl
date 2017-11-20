@@ -21,7 +21,6 @@ import qualified Data.Text.Buildable as B
 -- TODO hopefully we can get rid of this import. It's needed for the
 -- security workers stuff and peeking into some reader context which contains
 -- it (part of WorkMode).
-import           Ether.Internal (HasLens (lensOf))
 import           Formatting (build, sformat, (%), shown, bprint, stext, int, builder)
 import           Mockable (throw)
 import           Serokell.Data.Memory.Units (unitBuilder)
@@ -32,29 +31,27 @@ import           Pos.Binary.Class (biSize)
 -- TODO move Pos.Block.Network.Types to Pos.Diffusion hierarchy.
 -- Logic layer won't know of it.
 import           Pos.Block.Network.Types (MsgGetHeaders (..), MsgHeaders (..), MsgGetBlocks (..), MsgBlock (..))
-import           Pos.Block.Logic (getHeadersFromManyTo)
 import           Pos.Communication.Limits (recvLimited)
 import           Pos.Communication.Message ()
 import           Pos.Communication.Protocol (Conversation (..), ConversationActions (..),
                                              EnqueueMsg, MsgType (..), NodeId, Origin (..),
                                              waitForConversations)
 import           Pos.Core.Configuration (HasConfiguration)
-import           Pos.Context (recoveryInProgress)
 import           Pos.Core (HeaderHash, headerHash, prevBlockL, headerHashG)
 import           Pos.Core.Block (Block, BlockHeader, MainBlockHeader, blockHeader)
 import           Pos.Crypto (shortHashF)
 import           Pos.Diffusion.Types (GetBlocksError (..))
+import           Pos.Diffusion.Full.Types (DiffusionWorkMode)
 import           Pos.Exception (cardanoExceptionFromException, cardanoExceptionToException)
-import           Pos.Logic.Types (Logic (..), GetTipError (..))
+import           Pos.Logic.Types (Logic (..), GetBlockHeadersError (..), GetTipError (..))
 -- Dubious having this security stuff in here.
 -- NB: the logic-layer security policy is actually available here in the
 -- diffusion layer by way of the WorkMode constraint.
-import           Pos.Security (AttackType (..), NodeAttackedError (..), SecurityParams (..),
-                               shouldIgnoreAddress)
+import           Pos.Security (AttackType (..), NodeAttackedError (..),
+                               AttackTarget (..), SecurityParams (..))
 import           Pos.Util (_neHead, _neLast)
 import           Pos.Util.Chrono (NewestFirst (..), _NewestFirst, NE)
-import           Pos.Util.TimeWarp (nodeIdToAddress)
-import           Pos.WorkMode.Class (WorkMode)
+import           Pos.Util.TimeWarp (nodeIdToAddress, NetworkAddress)
 
 ----------------------------------------------------------------------------
 -- Exceptions
@@ -125,7 +122,7 @@ matchRequestedHeaders headers mgh@MsgGetHeaders {..} inRecovery =
 -- | Expects sending message to exactly one node. Receives result or
 -- fails if no result was obtained (no nodes available, timeout, etc).
 enqueueMsgSingle ::
-       (MonadThrow m)
+       ( MonadThrow m )
     => (t2 -> (t1 -> t -> NonEmpty x) -> m (Map NodeId (m b)))
     -> t2
     -> x
@@ -139,19 +136,16 @@ enqueueMsgSingle enqueue msg conv = do
             "enqueueMsgSingle: contacted more than one peers, probably internal error"
         [x] -> pure x
 
--- Currently the logic layer isn't used. Maybe that's OK but it's a bit
--- suspicious. Logic-related things are implicitly used via the 'WorkMode'
--- constraint.
 getBlocks
-    :: forall ctx d .
-       ( WorkMode ctx d )
+    :: forall d .
+       ( DiffusionWorkMode d )
     => Logic d
     -> EnqueueMsg d
     -> NodeId
     -> BlockHeader
     -> [HeaderHash]
     -> d (Either GetBlocksError [Block])
-getBlocks _ enqueue nodeId tipHeader checkpoints = do
+getBlocks logic enqueue nodeId tipHeader checkpoints = do
     headers <- requestHeaders
     blocks <- requestBlocks headers
     return (Right (toList blocks))
@@ -188,7 +182,7 @@ getBlocks _ enqueue nodeId tipHeader checkpoints = do
         logDebug $ sformat ("requestHeaders: sending "%build) mgh
         send conv mgh
         mHeaders <- recvLimited conv
-        inRecovery <- recoveryInProgress
+        inRecovery <- recoveryInProgress logic
         -- TODO: it's very suspicious to see False here as RequestHeaders
         -- is only called when we're in recovery mode.
         logDebug $ sformat ("requestHeaders: inRecovery = "%shown) inRecovery
@@ -330,8 +324,8 @@ getBlocks _ enqueue nodeId tipHeader checkpoints = do
             --else over _Wrapped (block <|) <$> retrieveBlocksDo (i+1) conv curH endH
 
 requestTip
-    :: forall ctx d t .
-       ( WorkMode ctx d )
+    :: forall d t .
+       ( DiffusionWorkMode d )
     => EnqueueMsg d
     -> (BlockHeader -> NodeId -> d t)
     -> d (Map NodeId (d t))
@@ -352,8 +346,9 @@ requestTip enqueue k = enqueue (MsgRequestBlockHeaders Nothing) $ \nodeId _ -> p
         throwM $ DialogUnexpected "peer sent more than one tip"
 
 announceBlock
-    :: forall ctx d .
-       ( WorkMode ctx d )
+    :: forall d .
+       ( DiffusionWorkMode d
+       )
     => Logic d
     -> EnqueueMsg d
     -> MainBlockHeader
@@ -363,12 +358,25 @@ announceBlock logic enqueue header =  do
     enqueue (MsgAnnounceBlockHeader OriginSender) (\addr _ -> announceBlockDo addr)
   where
     announceBlockDo nodeId = pure $ Conversation $ \cA -> do
-        SecurityParams{..} <- view (lensOf @SecurityParams)
-        let throwOnIgnored nId =
+        -- TODO figure out what this security stuff is doing and judge whether
+        -- it needs to change / be removed.
+        sparams <- securityParams logic
+        -- Copied from Pos.Security.Util but made pure. The existing
+        -- implementation was tied to a reader rather than taking a
+        -- SecurityParams value as a function argument.
+        let shouldIgnoreAddress :: NetworkAddress -> Bool
+            shouldIgnoreAddress addr = and
+                [ AttackNoBlocks `elem` spAttackTypes sparams
+                , NetworkAddressTarget addr `elem` spAttackTargets sparams
+                ]
+            throwOnIgnored :: NodeId -> d ()
+            throwOnIgnored nId =
                 whenJust (nodeIdToAddress nId) $ \addr ->
-                    whenM (shouldIgnoreAddress addr) $
+                    when (shouldIgnoreAddress addr) $
                         throw AttackNoBlocksTriggered
-        when (AttackNoBlocks `elem` spAttackTypes) (throwOnIgnored nodeId)
+        -- TODO the when condition is not necessary, as it's a part of the
+        -- conjunction in shouldIgnoreAddress
+        when (AttackNoBlocks `elem` spAttackTypes sparams) (throwOnIgnored nodeId)
         logDebug $
             sformat
                 ("Announcing block"%shortHashF%" to "%build)
@@ -378,8 +386,9 @@ announceBlock logic enqueue header =  do
         handleHeadersCommunication logic cA
 
 handleHeadersCommunication
-    :: forall ctx d .
-       ( WorkMode ctx d )
+    :: forall d .
+       ( DiffusionWorkMode d
+       )
     => Logic d
     -> ConversationActions MsgHeaders MsgGetHeaders d
     -> d ()
@@ -390,7 +399,7 @@ handleHeadersCommunication logic conv = do
         -- logic layer itself. Better yet: don't use it at all. Diffusion layer
         -- is entirely capable of serving blocks even if the logic layer is in
         -- recovery mode.
-        ifM recoveryInProgress onRecovery $ do
+        ifM (recoveryInProgress logic) onRecovery $ do
             headers <- case (mghFrom,mghTo) of
                 ([], Nothing) -> Right . one <$> getLastMainHeader
                 ([], Just h)  -> do
@@ -398,8 +407,11 @@ handleHeadersCommunication logic conv = do
                     case bheader of
                         Left _ -> pure $ Left "getBlockHeader failed"
                         Right mHeader -> pure . maybeToRight "getBlockHeader returned Nothing" . fmap one $ mHeader
-                (c1:cxs, _)   -> runExceptT
-                    (getHeadersFromManyTo (c1:|cxs) mghTo)
+                (c1:cxs, _)   -> do
+                    headers <- getBlockHeaders logic (c1:|cxs) mghTo
+                    case headers of
+                        Left (GetBlockHeadersError txt) -> pure (Left txt)
+                        Right hs -> pure (Right hs)
             either onNoHeaders handleSuccess headers
   where
     -- retrieves header of the newest main block if there's any,
@@ -413,7 +425,7 @@ handleHeadersCommunication logic conv = do
                 Left _  -> do
                     bheader <- getBlockHeader logic (tip ^. prevBlockL)
                     case bheader of
-                        Left err -> throwM err
+                        Left err -> throw err
                         Right mHeader -> pure $ fromMaybe tipHeader mHeader
                 Right _ -> pure tipHeader
     handleSuccess :: NewestFirst NE BlockHeader -> d ()

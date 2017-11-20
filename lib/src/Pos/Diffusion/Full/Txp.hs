@@ -12,18 +12,19 @@ import           Pos.Binary.Core ()
 import           Pos.Binary.Relay ()
 import           Pos.Binary.Txp ()
 import           Pos.Communication.Message ()
+import           Pos.Communication.Limits (HasTxpLimits)
 import           Pos.Communication.Protocol (EnqueueMsg, MsgType (..), Origin (..))
-import           Pos.Communication.Relay (invReqDataFlowTK, resOk)
+import           Pos.Communication.Relay (invReqDataFlowTK, resOk, MinRelayWorkMode)
 import           Pos.Core.Txp (TxAux (..))
 import           Pos.Crypto (hash)
 import           Pos.Txp.Network.Types (TxMsgContents (..))
-import           Pos.WorkMode.Class (WorkMode)
-
 
 -- | Send Tx to given addresses.
 -- Returns 'True' if any peer accepted and applied this transaction.
 sendTx
-    :: ( WorkMode ctx m )
+    :: ( MinRelayWorkMode m
+       , HasTxpLimits m
+       )
     => EnqueueMsg m
     -> TxAux
     -> m Bool

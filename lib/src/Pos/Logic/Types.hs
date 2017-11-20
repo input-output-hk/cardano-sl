@@ -6,11 +6,14 @@ module Pos.Logic.Types
     , KeyVal (..)
     , GetBlockError (..)
     , GetBlockHeaderError (..)
+    , GetBlockHeadersError (..)
     , GetTipError (..)
     , dummyLogicLayer
     ) where
 
 import           Universum
+import           Data.Default              (def)
+
 import           Pos.Communication         (NodeId)
 import           Pos.Core.Configuration    (HasGenesisBlockVersionData, genesisBlockVersionData)
 import           Pos.Core.Block            (Block, BlockHeader)
@@ -18,8 +21,10 @@ import           Pos.Core.Types            (HeaderHash, StakeholderId,
                                             ProxySKHeavy)
 import           Pos.Core.Txp              (TxId, TxAux)
 import           Pos.Core.Update           (UpId, UpdateVote, UpdateProposal, BlockVersionData)
+import           Pos.Security              (SecurityParams (..))
 import           Pos.Ssc.Message           (MCOpening, MCShares, MCCommitment,
                                             MCVssCertificate)
+import           Pos.Util.Chrono           (NewestFirst, NE)
 
 -- | The interface to a diffusion layer, i.e. some component which takes care
 -- of getting data in from and pushing data out to a network.
@@ -32,6 +37,10 @@ data Logic m = Logic
       -- TBD: necessary? Is it any different/faster than getting the block
       -- and taking the header?
     , getBlockHeader     :: HeaderHash -> m (Either GetBlockHeaderError (Maybe BlockHeader))
+      -- Inspired by 'getHeadersFromManyTo'.
+      -- Included here because that function is quite complicated; it's not
+      -- clear whether it can be expressed simply in terms of getBlockHeader.:q
+    , getBlockHeaders    :: NonEmpty HeaderHash -> Maybe HeaderHash -> m (Either GetBlockHeadersError (NewestFirst NE BlockHeader))
       -- Get the current tip of chain.
       -- It's not in Maybe, as getBlock is, because really there should always
       -- be a tip, whereas trying to get a block that isn't in the database is
@@ -69,6 +78,13 @@ data Logic m = Logic
       --
       -- NB light delegation is apparently disabled in master.
     , postPskHeavy      :: ProxySKHeavy -> m Bool
+
+      -- Recovery mode related stuff.
+      -- TODO get rid of this eventually.
+    , recoveryInProgress :: m Bool
+
+      -- TBD does this need to be in the monad? It's not constant?
+    , securityParams     :: m SecurityParams
     }
 
 -- | First iteration solution to the inv/req/data/mempool system.
@@ -120,6 +136,12 @@ data GetBlockHeaderError = GetBlockHeaderError Text
 deriving instance Show GetBlockHeaderError
 instance Exception GetBlockHeaderError
 
+-- | Failure description for getting a block header from the logic layer.
+data GetBlockHeadersError = GetBlockHeadersError Text
+
+deriving instance Show GetBlockHeadersError
+instance Exception GetBlockHeadersError
+
 -- | Failure description for getting the tip of chain from the logic layer.
 data GetTipError = GetTipError Text
 
@@ -147,19 +169,22 @@ dummyLogicLayer stkhldId = LogicLayer
 
     dummyLogic :: Applicative m => Logic m
     dummyLogic = Logic
-        { ourStakeholderId  = stkhldId
-        , getBlock          = \_ -> pure (Right Nothing)
-        , getBlockHeader    = \_ -> pure (Right Nothing)
-        , getTip            = pure (Left (GetTipError "dummy: no tip"))
-        , getAdoptedBVData  = pure genesisBlockVersionData
-        , postBlockHeader   = \_ _ -> pure ()
-        , postPskHeavy      = \_ -> pure False
-        , postTx            = dummyKeyVal
-        , postUpdate        = dummyKeyVal
-        , postSscCommitment = dummyKeyVal
-        , postSscOpening    = dummyKeyVal
-        , postSscShares     = dummyKeyVal
-        , postSscVssCert    = dummyKeyVal
+        { ourStakeholderId   = stkhldId
+        , getBlock           = \_ -> pure (error "dummy: can't get block")
+        , getBlockHeader     = \_ -> pure (error "dummy: can't get header")
+        , getBlockHeaders    = \_ _ -> pure (error "dummy: can't get headers")
+        , getTip             = pure (error "dummy: can't get tip")
+        , getAdoptedBVData   = pure genesisBlockVersionData
+        , postBlockHeader    = \_ _ -> pure ()
+        , postPskHeavy       = \_ -> pure False
+        , postTx             = dummyKeyVal
+        , postUpdate         = dummyKeyVal
+        , postSscCommitment  = dummyKeyVal
+        , postSscOpening     = dummyKeyVal
+        , postSscShares      = dummyKeyVal
+        , postSscVssCert     = dummyKeyVal
+        , recoveryInProgress = pure False
+        , securityParams     = pure def
         }
 
     dummyKeyVal :: Applicative m => KeyVal key val m

@@ -148,7 +148,7 @@ if [[ $prodModesCounter -gt 0 ]]; then
   fi
 fi
 
-commonargs='--test --no-haddock-deps --bench --jobs=4'
+commonargs='--test --test-arguments=--seed=42 --no-haddock-deps --bench --jobs=4'
 norun='--no-run-tests --no-run-benchmarks'
 
 if [[ $no_nix == true ]]; then

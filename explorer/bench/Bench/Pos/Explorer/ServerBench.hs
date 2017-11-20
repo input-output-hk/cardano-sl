@@ -15,6 +15,7 @@ import           Pos.Arbitrary.Txp.Unsafe ()
 
 import           Test.Pos.Util (withDefConfigurations)
 
+import           Pos.Explorer.DB (defaultPageSize)
 import           Pos.Explorer.ExplorerMode (ExplorerTestParams, runExplorerTestMode)
 import           Pos.Explorer.ExtraContext (ExtraContext (..), makeMockExtraCtx)
 import           Pos.Explorer.TestUtil (BlockNumber, SlotsPerEpoch,
@@ -43,16 +44,17 @@ getBlocksPageBench
     -> IO (Integer, [CBlockEntry])
 getBlocksPageBench (testParams, extraContext) =
     withDefConfigurations $
-        runExplorerTestMode testParams extraContext $ getBlocksPage Nothing (Just 10)
+        runExplorerTestMode testParams extraContext $
+            getBlocksPage Nothing (Just $ fromIntegral defaultPageSize)
 
 -- | This is used to generate the test environment. We don't do this while benchmarking
 -- the functions since that would include the time/memory required for the generation of the
 -- mock blockchain (test environment), and we don't want to include that in our benchmarks.
-generateTestEnv
+generateTestParams
     :: BlockNumber
     -> SlotsPerEpoch
     -> IO BenchmarkTestParams
-generateTestEnv totalBlocksNumber slotsPerEpoch = do
+generateTestParams totalBlocksNumber slotsPerEpoch = do
     testParams <- testParamsGen
 
     -- We replace the "real" blockchain with our custom generated one.
@@ -73,9 +75,9 @@ generateTestEnv totalBlocksNumber slotsPerEpoch = do
 usingGeneratedBlocks :: IO (BenchmarkTestParams, BenchmarkTestParams, BenchmarkTestParams)
 usingGeneratedBlocks = do
 
-    blocks100   <- generateTestEnv 100 10
-    blocks1000  <- generateTestEnv 1000 10
-    blocks10000 <- generateTestEnv 10000 10
+    blocks100   <- generateTestParams 100 10
+    blocks1000  <- generateTestParams 1000 10
+    blocks10000 <- generateTestParams 10000 10
 
     pure (blocks100, blocks1000, blocks10000)
 

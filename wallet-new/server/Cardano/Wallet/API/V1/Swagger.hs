@@ -259,11 +259,23 @@ instance ToDocs EstimatedFees where
 instance ToDocs Payment where
   descriptionFor _ = "An exchange of `Coin`(s) from one source to one or more destinations."
 
+instance ToDocs PaymentDistribution where
+  descriptionFor _ = "Maps an `Address` to some `Coin`s and it's typically "
+                  <> "used to specify where to send money during a `Payment`."
+
 instance ToDocs Transaction where
   descriptionFor _ = "A Wallet Transaction."
 
 instance ToDocs WalletSoftwareUpdate where
   descriptionFor _ = "A programmed update to the system."
+
+instance ToDocs TransactionGroupingPolicy where
+  descriptionFor _ = "A policy to be passed to each new `Payment` request to "
+                  <> "determine how a `Transaction` is assembled. "
+                  <> "Possible values: [" <> possibleValuesOf @TransactionGroupingPolicy Proxy <> "]."
+
+possibleValuesOf :: (Show a, Enum a, Bounded a) => Proxy a -> T.Text
+possibleValuesOf (Proxy :: Proxy a) = T.intercalate "," . map show $ ([minBound..maxBound] :: [a])
 
 -- ToSchema instances
 

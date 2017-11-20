@@ -35,8 +35,9 @@ module Cardano.Wallet.API.V1.Types (
   , AccountId
   -- * Payments
   , Payment (..)
-  , PaymentDestination (..)
+  , PaymentDistribution (..)
   , Transaction (..)
+  , TransactionGroupingPolicy (..)
   , EstimatedFees (..)
   -- * Updates
   , WalletSoftwareUpdate (..)
@@ -366,17 +367,18 @@ deriveJSON Serokell.defaultOptions ''EstimatedFees
 instance Arbitrary EstimatedFees where
   arbitrary = EstimatedFees <$> fmap getPositive arbitrary
 
--- | Where to send money during a 'Payment'.
-data PaymentDestination = PaymentDestination {
-      pdeAddress :: Core.Address
-    , pdeAmount  :: Core.Coin
+-- | Maps an 'Address' to some 'Coin's, and it's
+-- typically used to specify where to send money during a 'Payment'.
+data PaymentDistribution = PaymentDistribution {
+      pdAddress :: Core.Address
+    , pdAmount  :: Core.Coin
     } deriving (Show, Eq)
 
-deriveJSON Serokell.defaultOptions ''PaymentDestination
+deriveJSON Serokell.defaultOptions ''PaymentDistribution
 
-instance Arbitrary PaymentDestination where
-  arbitrary = PaymentDestination <$> arbitrary
-                                 <*> arbitrary
+instance Arbitrary PaymentDistribution where
+  arbitrary = PaymentDistribution <$> arbitrary
+                                  <*> arbitrary
 
 -- | A policy to be passed to each new payment request to
 -- determine how a 'Transaction' is assembled.
@@ -396,13 +398,13 @@ instance Arbitrary TransactionGroupingPolicy where
 -- Drops the @Policy@ suffix.
 deriveJSON defaultOptions { constructorTagModifier = reverse . drop 6 . reverse } ''TransactionGroupingPolicy
 
--- | A 'Payment' from one source account to one or more 'PaymentDestination'(s).
+-- | A 'Payment' from one source account to one or more 'PaymentDistribution'(s).
 data Payment = Payment
   { pmtSourceWallet   :: !WalletId
     -- ^ The source Wallet.
   , pmtSourceAccount  :: !AccountId
     -- ^ The source Account.
-  , pmtDestinations   :: !(NonEmpty PaymentDestination)
+  , pmtDestinations   :: !(NonEmpty PaymentDistribution)
     -- ^ The destinations for this payment.
   , pmtGroupingPolicy :: !(Maybe TransactionGroupingPolicy)
     -- ^ Which strategy use in grouping the input transactions.
@@ -418,22 +420,30 @@ instance Arbitrary Payment where
 
 type TxId = Text
 
--- | A Wallet Transaction.
+-- | A 'Wallet''s 'Transaction'.
+-- TODO(adinapoli) This still doesn't include the full payload frontend might
+-- need.
 data Transaction = Transaction
-  { -- | The Tx Id.
-    txId            :: TxId
-    -- | The number of confirmations.
-  , txConfirmations :: !Int
-    -- | The coins moved as part of this transaction.
-  , txAmount        :: !Coins
+  { txId            :: TxId
+    -- ^ The Tx Id.
+  , txConfirmations :: !Word
+    -- ^ The number of confirmations.
+  , txAmount        :: !Core.Coin
+    -- ^ The 'Coin' moved as part of this transaction.
+  , txInputs        :: !(NonEmpty PaymentDistribution)
+    -- ^ The input money distribution.
+  , txOutputs       :: !(NonEmpty PaymentDistribution)
+    -- ^ The output money distribution.
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Transaction
 
 instance Arbitrary Transaction where
   arbitrary = Transaction <$> fmap fromString arbitrary
-                          <*> fmap getPositive arbitrary
-                          <*> fmap getPositive arbitrary
+                          <*> arbitrary
+                          <*> arbitrary
+                          <*> arbitrary
+                          <*> arbitrary
 
 -- | A type representing an upcoming wallet update.
 data WalletSoftwareUpdate = WalletSoftwareUpdate

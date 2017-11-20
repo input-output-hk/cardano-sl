@@ -41,6 +41,7 @@ module Pos.Wallet.Web.Api
        , UpdateProfile
 
        , NewPayment
+       , NewPaymentBatch
        , TxFee
        , UpdateTx
        , GetHistory
@@ -88,8 +89,9 @@ import           Pos.Wallet.Web.ClientTypes (Addr, CAccount, CAccountId, CAccoun
                                              CAddress, CCoin, CFilePath, CId, CInitialized,
                                              CPaperVendWalletRedeem, CPassPhrase, CProfile, CTx,
                                              CTxId, CTxMeta, CUpdateInfo, CWallet, CWalletInit,
-                                             CWalletMeta, CWalletRedeem, ClientInfo, ScrollLimit,
-                                             ScrollOffset, SyncProgress, Wal)
+                                             CWalletMeta, CWalletRedeem, ClientInfo,
+                                             NewBatchPayment, ScrollLimit, ScrollOffset,
+                                             SyncProgress, Wal)
 import           Pos.Wallet.Web.Error (WalletError (DecodeError), catchEndpointErrors)
 import           Pos.Wallet.Web.Methods.Misc (WalletStateSnapshot)
 
@@ -261,6 +263,14 @@ type NewPayment =
     :> Capture "to" (CId Addr)
     :> Capture "amount" Coin
     :> DReqBody '[JSON] (Maybe InputSelectionPolicy)
+    :> WRes Post CTx
+
+type NewPaymentBatch =
+       "txs"
+    :> "payments"
+    :> "batch"
+    :> DCQueryParam "passphrase" CPassPhrase
+    :> ReqBody '[JSON] NewBatchPayment
     :> WRes Post CTx
 
 type TxFee =
@@ -451,6 +461,8 @@ type WalletApiNoPrefix = (
      -- Transactons
      -------------------------------------------------------------------------
      NewPayment
+    :<|>
+     NewPaymentBatch
     :<|>
      TxFee
     :<|>

@@ -133,6 +133,10 @@ instance HasCustomSwagger NewPayment where
     swaggerModifier = modifyDescription
         "Create a new payment transaction."
 
+instance HasCustomSwagger NewPaymentBatch where
+    swaggerModifier = modifyDescription
+        "Create a new payment transaction (can send to multiple recipients)."
+
 instance HasCustomSwagger TxFee where
     swaggerModifier = modifyDescription
         "Estimate fees for performing given transaction. \

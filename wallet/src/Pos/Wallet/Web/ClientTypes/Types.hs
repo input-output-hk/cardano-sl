@@ -12,6 +12,7 @@ module Pos.Wallet.Web.ClientTypes.Types
       , CHash (..)
       , CPassPhrase (..)
       , CTxId (..)
+      , NewBatchPayment (..)
       , CAccountId (..)
       , CCoin (..)
       , mkCCoin
@@ -68,18 +69,21 @@ import           Control.Lens (makeLenses)
 import           Data.Default (Default, def)
 import           Data.Hashable (Hashable (..))
 import qualified Data.Text.Buildable
+import           Data.Text.Lazy.Builder (Builder)
 import           Data.Time.Clock.POSIX (POSIXTime)
 import           Data.Typeable (Typeable)
 import           Data.Version (Version)
-import           Formatting (bprint, build, builder, shown, (%))
+import           Formatting (bprint, build, builder, later, shown, (%))
 import qualified Prelude
-import           Serokell.Util (listJsonIndent)
+import           Serokell.Util (listJsonIndent, mapBuilder)
 import           Servant.Multipart (FileData, Mem)
 
+import           Pos.Client.Txp.Util (InputSelectionPolicy)
 import           Pos.Core.Types (BlockVersion, ChainDifficulty, Coin, ScriptVersion,
                                  SoftwareVersion, unsafeGetCoin)
 import           Pos.Util.BackupPhrase (BackupPhrase)
-import           Pos.Util.LogSafe (SecureLog (..), buildUnsecure)
+import           Pos.Util.LogSafe (LogSecurityLevel, SecureLog (..), buildUnsecure, secretOnlyF,
+                                   secure, secureListF, unsecure)
 import           Pos.Util.Servant (HasTruncateLogPolicy, WithTruncatedLog (..))
 
 data SyncProgress = SyncProgress
@@ -491,6 +495,29 @@ data CTExMeta = CTExMeta
     , cexLabel       :: Text -- counter part of client's 'exchange' value
     , cexId          :: CId Addr
     } deriving (Show, Generic)
+
+data NewBatchPayment = NewBatchPayment
+    { npbFrom                 :: CAccountId
+    , npbTo                   :: [(CId Addr, Coin)]
+    , npbInputSelectionPolicy :: InputSelectionPolicy
+    } deriving (Show, Generic)
+
+buildNewBatchPayment :: LogSecurityLevel -> NewBatchPayment -> Builder
+buildNewBatchPayment sl NewBatchPayment {..} =
+    bprint ("{ from="%secretOnlyF sl build
+            -- TODO: use https://github.com/serokell/serokell-util/pull/19 instead of `later mapBuilder`
+            %" to="%secureListF sl (later mapBuilder)
+            %" inputSelectionPolicy="%secretOnlyF sl build
+            %" }")
+    npbFrom
+    npbTo
+    npbInputSelectionPolicy
+
+instance Buildable NewBatchPayment where
+    build = buildNewBatchPayment unsecure
+
+instance Buildable (SecureLog NewBatchPayment) where
+    build = buildNewBatchPayment secure . getSecureLog
 
 -- | Update system data
 data CUpdateInfo = CUpdateInfo

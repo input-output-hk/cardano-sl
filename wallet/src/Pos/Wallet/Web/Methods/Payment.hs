@@ -5,6 +5,7 @@
 
 module Pos.Wallet.Web.Methods.Payment
        ( newPayment
+       , newPaymentBatch
        , getTxFee
        ) where
 
@@ -31,7 +32,8 @@ import           Pos.Wallet.Aeson.ClientTypes ()
 import           Pos.Wallet.Aeson.WalletBackup ()
 import           Pos.Wallet.Web.Account (getSKByAddressPure, getSKById)
 import           Pos.Wallet.Web.ClientTypes (AccountId (..), Addr, CCoin, CId, CTx (..),
-                                             CWAddressMeta (..), Wal, addrMetaToAccount)
+                                             CWAddressMeta (..), NewBatchPayment (..), Wal,
+                                             addrMetaToAccount)
 import           Pos.Wallet.Web.Error (WalletError (..))
 import           Pos.Wallet.Web.Methods.History (addHistoryTxMeta, constructCTx,
                                                  getCurChainDifficulty)
@@ -56,6 +58,21 @@ newPayment passphrase srcAccount dstAddress coin policy =
         (AccountMoneySource srcAccount)
         (one (dstAddress, coin))
         policy
+
+newPaymentBatch
+    :: MonadWalletTxFull ctx m
+    => PassPhrase
+    -> NewBatchPayment
+    -> m CTx
+newPaymentBatch passphrase NewBatchPayment {..} = do
+    src <- decodeCTypeOrFail npbFrom
+    dst <- nonEmpty npbTo `whenNothing`
+        throwM (RequestError "At least one recipient required.")
+    sendMoney
+        passphrase
+        (AccountMoneySource src)
+        dst
+        npbInputSelectionPolicy
 
 type MonadFees ctx m =
     ( MonadCatch m

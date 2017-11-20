@@ -68,6 +68,7 @@ instance ToSchema      CT.CCoin
 instance ToSchema      CT.CInitialized
 instance ToSchema      CT.CElectronCrashReport
 instance ToSchema      CT.CUpdateInfo
+instance ToSchema      CT.NewBatchPayment
 instance ToSchema      SoftwareVersion
 instance ToSchema      ApplicationName
 instance ToSchema      CT.SyncProgress

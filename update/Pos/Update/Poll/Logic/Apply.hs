@@ -40,14 +40,15 @@ import           Pos.Util.Some (Some (..))
 type ApplyMode m =
     ( MonadError PollVerFailure m
     , MonadPoll m
-    , HasConfiguration)
+    , HasConfiguration
+    )
 
 -- | Verify UpdatePayload with respect to data provided by
 -- MonadPoll. If data is valid it is also applied.  Otherwise
 -- PollVerificationFailure is thrown using MonadError type class.
 --
 -- The first argument specifies whether we should perform unknown data
--- checks.  Currently it means that if it's 'True', then proposal (if
+-- checks. Currently it means that if it's 'True', then proposal (if
 -- it exists) must not have unknown attributes.
 --
 -- When the second argument is 'Left epoch', it means that temporary payload
@@ -276,6 +277,8 @@ applyImplicitAgreement
 applyImplicitAgreement (flattenSlotId -> slotId) cd hh = do
     BlockVersionData {..} <- getAdoptedBVData
     let oldSlot = unflattenSlotId $ slotId - bvdUpdateImplicit
+    -- There is no one implicit agreed proposal
+    -- when slot of block is less than @bvdUpdateImplicit@
     unless (slotId < bvdUpdateImplicit) $
         mapM_ applyImplicitAgreementDo =<< getOldProposals oldSlot
   where

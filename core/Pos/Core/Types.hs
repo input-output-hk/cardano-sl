@@ -289,7 +289,7 @@ instance NFData SoftwareVersion
 ----------------------------------------------------------------------------
 
 -- | Values defining softfork resolution rule.
--- If a proposal is adopted at the 's'-th epoch, softfork resolution threshold
+-- If a proposal is confirmed at the 's'-th epoch, softfork resolution threshold
 -- at the 't'-th epoch will be
 -- 'max spMinThd (spInitThd - (t - s) * spThdDecrement)'.
 --

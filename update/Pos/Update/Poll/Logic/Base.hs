@@ -73,7 +73,7 @@ isConfirmedBV = fmap (maybe False bvsIsConfirmed) . getBVState
 confirmBlockVersion :: MonadPoll m => EpochIndex -> BlockVersion -> m ()
 confirmBlockVersion confirmedEpoch bv =
     getBVState bv >>= \case
-        Nothing -> pass
+        Nothing  -> pass
         Just bvs -> putBVState bv bvs {bvsConfirmedEpoch = Just confirmedEpoch}
 
 -- | Check whether block with given 'BlockVersion' can be created

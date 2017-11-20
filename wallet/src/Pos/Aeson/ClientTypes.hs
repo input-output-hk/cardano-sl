@@ -79,7 +79,7 @@ instance FromJSON NewBatchPayment where
     parseJSON = withObject "NewBatchPayment" $ \o -> do
         npbFrom <- o .: "from"
         npbTo <- fmap toList $ withArray "NewBatchPayment.to" collectRecipientTuples =<< o .: "to"
-        npbInputSelectionPolicy <- o .:? "inputSelectionPolicy" .!= def
+        npbInputSelectionPolicy <- o .:? "groupingPolicy" .!= def
         return $ NewBatchPayment {..}
       where
         collectRecipientTuples = mapM $ withObject "NewBatchPayment.to[x]" $

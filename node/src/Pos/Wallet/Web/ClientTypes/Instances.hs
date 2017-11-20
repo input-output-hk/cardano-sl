@@ -11,6 +11,7 @@ import qualified Data.ByteString as BS
 import           Data.List (intersperse, partition)
 import           Data.Text (splitOn)
 import qualified Data.Text.Buildable
+import           Data.Text.Lazy.Builder (Builder (..))
 import           Data.Version (showVersion)
 import           Formatting (bprint, build, builder, int, later, sformat, shown, string, (%))
 import           Serokell.Util (listJsonIndent, mapBuilder)
@@ -21,7 +22,8 @@ import           Servant.Multipart (FromMultipart (..), lookupFile, lookupInput)
 import           Pos.Core (Address, Coin, decodeTextAddress, mkCoin)
 import           Pos.Crypto (PassPhrase, passphraseLength)
 import           Pos.Txp.Core.Types (TxId)
-import           Pos.Util.LogSafe (SecureLog (..), buildUnsecure)
+import           Pos.Util.LogSafe (LogSecurityLevel, SecureLog (..), buildUnsecure, secretOnlyF,
+                                   secure, secureListF, unsecure)
 import           Pos.Util.Servant (FromCType (..), HasTruncateLogPolicy (..), OriginType,
                                    ToCType (..), WithTruncatedLog (..))
 import           Pos.Wallet.Web.ClientTypes.Functions (addressToCId, cIdToAddress, mkCCoin, mkCTxId,
@@ -108,18 +110,21 @@ instance Buildable CAccountInit where
         caInitWId
         caInitMeta
 
+buildNewBatchPayment :: LogSecurityLevel -> NewBatchPayment -> Builder
+buildNewBatchPayment sl NewBatchPayment {..} =
+    bprint ("{ from="%secretOnlyF sl build
+            %" to="%secureListF sl (later mapBuilder)
+            %" inputSelectionPolicy="%secretOnlyF sl build
+            %" }")
+    npbFrom
+    npbTo
+    npbInputSelectionPolicy
+
 instance Buildable NewBatchPayment where
-    build NewBatchPayment{..} =
-        bprint ("{ from="%build
-                %" to="%(later mapBuilder)
-                %" inputSelectionPolicy="%build
-                %" }")
-        npbFrom
-        npbTo
-        npbInputSelectionPolicy
+    build = buildNewBatchPayment unsecure
 
 instance Buildable (SecureLog NewBatchPayment) where
-    build = "<new batch payment>"
+    build = buildNewBatchPayment secure . getSecureLog
 
 instance Buildable (SecureLog CAccountInit) where
     build _ = "<account init>"

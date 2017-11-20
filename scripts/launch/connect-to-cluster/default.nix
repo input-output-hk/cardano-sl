@@ -7,9 +7,9 @@
 , pkgs ? import localLib.fetchNixPkgs { inherit system config; }
 }:
 
-# TODO: docker to use this script
-# TODO: DEVOPS-159: relays should be more predictable with 
-# TODO: DEVOPS-499: developer clusters: depends on 
+# TODO: DEVOPS-462: docker to use this script
+# TODO: DEVOPS-159: relays should be more predictable 
+# TODO: DEVOPS-499: developer clusters based on runtime JSON
 # TODO: DEVOPS-462: exchanges should use a different topology
 
 let

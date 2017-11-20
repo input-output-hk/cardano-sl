@@ -30,18 +30,18 @@ import           Pos.Explorer.Web.Server (getBlocksPage, getBlocksTotal)
 type BenchmarkTestParams = (ExplorerTestParams, ExtraContext)
 
 -- | @getBlocksTotal@ function for benchmarks.
-getBlocksTotalWithParams
+getBlocksTotalBench
     :: BenchmarkTestParams
     -> IO Integer
-getBlocksTotalWithParams (testParams, extraContext) =
+getBlocksTotalBench (testParams, extraContext) =
     withDefConfigurations $
         runExplorerTestMode testParams extraContext getBlocksTotal
 
 -- | @getBlocksPage@ function for the last page for benchmarks.
-getBlocksPageWithParams
+getBlocksPageBench
     :: BenchmarkTestParams
     -> IO (Integer, [CBlockEntry])
-getBlocksPageWithParams (testParams, extraContext) =
+getBlocksPageBench (testParams, extraContext) =
     withDefConfigurations $
         runExplorerTestMode testParams extraContext $ getBlocksPage Nothing (Just 10)
 
@@ -51,7 +51,7 @@ getBlocksPageWithParams (testParams, extraContext) =
 generateTestEnv
     :: BlockNumber
     -> SlotsPerEpoch
-    -> IO (ExplorerTestParams, ExtraContext)
+    -> IO BenchmarkTestParams
 generateTestEnv totalBlocksNumber slotsPerEpoch = do
     testParams <- testParamsGen
 
@@ -68,29 +68,35 @@ generateTestEnv totalBlocksNumber slotsPerEpoch = do
     testParamsGen :: IO ExplorerTestParams
     testParamsGen = generate arbitrary
 
+-- | Extracted common code. This needs to be run before the benchmarks since we don't
+-- want to include time/memory of the test data generation in the benchmarks.
+usingGeneratedBlocks :: IO (BenchmarkTestParams, BenchmarkTestParams, BenchmarkTestParams)
+usingGeneratedBlocks = do
+
+    blocks100   <- generateTestEnv 100 10
+    blocks1000  <- generateTestEnv 1000 10
+    blocks10000 <- generateTestEnv 10000 10
+
+    pure (blocks100, blocks1000, blocks10000)
 
 ----------------------------------------------------------------
 -- Time benchmark
 ----------------------------------------------------------------
 
-{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
-
 -- | Time @getBlocksPage@.
 runTimeBenchmark :: IO ()
 runTimeBenchmark = do
     -- Generate the test environment before the benchmarks.
-    blocks100   <- generateTestEnv 100 10
-    blocks1000  <- generateTestEnv 1000 10
-    blocks10000 <- generateTestEnv 10000 10
+    (blocks100, blocks1000, blocks10000) <- usingGeneratedBlocks
 
     defaultMainWith getBlocksPageConfig
-        [ bench "getBlocksTotal 100 blocks" $ nfIO $ getBlocksTotalWithParams blocks100
-        , bench "getBlocksTotal 1000 blocks" $ nfIO $ getBlocksTotalWithParams blocks1000
-        , bench "getBlocksTotal 10000 blocks" $ nfIO $ getBlocksTotalWithParams blocks10000
+        [ bench "getBlocksTotal 100 blocks" $ nfIO $ getBlocksTotalBench blocks100
+        , bench "getBlocksTotal 1000 blocks" $ nfIO $ getBlocksTotalBench blocks1000
+        , bench "getBlocksTotal 10000 blocks" $ nfIO $ getBlocksTotalBench blocks10000
 
-        , bench "getBlocksPage 100 blocks" $ nfIO $ getBlocksPageWithParams blocks100
-        , bench "getBlocksPage 1000 blocks" $ nfIO $ getBlocksPageWithParams blocks1000
-        , bench "getBlocksPage 10000 blocks" $ nfIO $ getBlocksPageWithParams blocks10000
+        , bench "getBlocksPage 100 blocks" $ nfIO $ getBlocksPageBench blocks100
+        , bench "getBlocksPage 1000 blocks" $ nfIO $ getBlocksPageBench blocks1000
+        , bench "getBlocksPage 10000 blocks" $ nfIO $ getBlocksPageBench blocks10000
         ]
 
   where
@@ -108,15 +114,13 @@ runTimeBenchmark = do
 runSpaceBenchmark :: IO ()
 runSpaceBenchmark = do
     -- Generate the test environment before the benchmarks.
-    blocks100   <- generateTestEnv 100 10
-    blocks1000  <- generateTestEnv 1000 10
-    blocks10000 <- generateTestEnv 10000 10
+    (blocks100, blocks1000, blocks10000) <- usingGeneratedBlocks
 
     mainWith $ do
-        io "getBlocksTotal 100 blocks" getBlocksTotalWithParams blocks100
-        io "getBlocksTotal 1000 blocks" getBlocksTotalWithParams blocks1000
-        io "getBlocksTotal 10000 blocks" getBlocksTotalWithParams blocks10000
+        io "getBlocksTotal 100 blocks" getBlocksTotalBench blocks100
+        io "getBlocksTotal 1000 blocks" getBlocksTotalBench blocks1000
+        io "getBlocksTotal 10000 blocks" getBlocksTotalBench blocks10000
 
-        io "getBlocksPage 100 blocks" getBlocksPageWithParams blocks100
-        io "getBlocksPage 1000 blocks" getBlocksPageWithParams blocks1000
-        io "getBlocksPage 10000 blocks" getBlocksPageWithParams blocks10000
+        io "getBlocksPage 100 blocks" getBlocksPageBench blocks100
+        io "getBlocksPage 1000 blocks" getBlocksPageBench blocks1000
+        io "getBlocksPage 10000 blocks" getBlocksPageBench blocks10000

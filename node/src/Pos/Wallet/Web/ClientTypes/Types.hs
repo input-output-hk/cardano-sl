@@ -61,7 +61,7 @@ import           Servant.Multipart (FileData)
 
 import           Pos.Aeson.Types ()
 import           Pos.Client.Txp.Util (InputSelectionPolicy)
-import           Pos.Core.Types (ScriptVersion)
+import           Pos.Core.Types (Coin, ScriptVersion)
 import           Pos.Types (BlockVersion, ChainDifficulty, SoftwareVersion)
 import           Pos.Util.BackupPhrase (BackupPhrase)
 import           Pos.Util.LogSafe (SecureLog, buildUnsecure)
@@ -308,7 +308,7 @@ data CTExMeta = CTExMeta
 
 data NewBatchPayment = NewBatchPayment
     { npbFrom                 :: CAccountId
-    , npbTo                   :: [(CId Addr, CCoin)] -- TODO: use NonEmpty here
+    , npbTo                   :: [(CId Addr, Coin)]
     , npbInputSelectionPolicy :: InputSelectionPolicy
     } deriving (Show, Generic)
 

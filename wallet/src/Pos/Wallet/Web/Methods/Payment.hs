@@ -74,8 +74,7 @@ newPaymentBatch
     -> m CTx
 newPaymentBatch sa passphrase NewBatchPayment {..} = do
     src <- decodeCTypeOrFail npbFrom
-    mDests <- mapM (sequence . second decodeCTypeOrFail) npbTo
-    dst <- nonEmpty mDests `whenNothing`
+    dst <- nonEmpty npbTo `whenNothing`
         throwM (RequestError "At least one recipient required.")
     sendMoney
         sa

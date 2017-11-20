@@ -11,6 +11,7 @@ import           Universum hiding (bracket)
 
 import           Control.Monad.Fix (MonadFix)
 import qualified Data.Map as M
+import           Data.Reflection (give)
 import           Formatting (sformat, shown, (%))
 import           Mockable (Mockable, Bracket, bracket, Catch, Throw, throw, withAsync)
 import           Mockable.Production (Production)
@@ -32,12 +33,14 @@ import qualified System.Systemd.Daemon as Systemd
 #endif
 
 import           Pos.Communication (NodeId, VerInfo (..), PeerData, PackingType, EnqueueMsg, makeEnqueueMsg, bipPacking, Listener, MkListeners (..), HandlerSpecs, InSpecs (..), OutSpecs (..))
+import           Pos.Communication.Limits (SscLimits (..), UpdateLimits (..), TxpLimits (..), BlockLimits (..), HasUpdateLimits, HasTxpLimits, HasBlockLimits, HasSscLimits)
 import           Pos.Communication.Relay.Logic (invReqDataFlowTK)
 import           Pos.Communication.Server (allListeners)
 import           Pos.Configuration (HasNodeConfiguration, conversationEstablishTimeout, networkConnectionTimeout)
 import           Pos.Core.Block (Block, MainBlockHeader, BlockHeader)
+import           Pos.Core.Coin (coinPortionToDouble)
 import           Pos.Core.Configuration (HasConfiguration, protocolMagic)
-import           Pos.Core.Types (ProtocolMagic (..), HeaderHash)
+import           Pos.Core.Types (ProtocolMagic (..), HeaderHash, BlockVersionData (..))
 import           Pos.Core.Txp (TxAux)
 import           Pos.Core.Update (UpId, UpdateVote, UpdateProposal)
 import           Pos.DHT.Real (KademliaDHTInstance, KademliaParams (..), startDHTInstance, stopDHTInstance)
@@ -152,10 +155,48 @@ diffusionLayerFull networkConfigOpts mEkgStore expectLogic =
             sendSscCommitment :: MCCommitment -> d ()
             sendSscCommitment = void . invReqDataFlowTK "ssc" enqueue (MsgMPC OriginSender) (ourStakeholderId logic)
 
+            -- Derive various message size limits from the latest adopted
+            -- block version data (provided by the logic layer).
+
+            sscLimits :: SscLimits d
+            sscLimits = SscLimits
+                -- Copied from existing implementation, formerly in
+                -- Pos.Communication.Limits.
+                { commitmentsNumLimit = succ . ceiling . recip . coinPortionToDouble . bvdMpcThd <$> getAdoptedBVData logic
+                }
+
+            txpLimits :: TxpLimits d
+            txpLimits = TxpLimits
+                { maxTxSize = bvdMaxTxSize <$> getAdoptedBVData logic
+                }
+
+            updateLimits :: UpdateLimits d
+            updateLimits = UpdateLimits
+                -- Copied from existing implementation, formerly in
+                -- Pos.Communication.Limits
+                { updateVoteNumLimit = succ . ceiling . recip . coinPortionToDouble . bvdUpdateVoteThd <$> getAdoptedBVData logic
+                , maxProposalSize = bvdMaxProposalSize <$> getAdoptedBVData logic
+                }
+
+            blockLimits :: BlockLimits d
+            blockLimits = BlockLimits
+                { maxBlockSize = bvdMaxBlockSize <$> getAdoptedBVData logic
+                , maxHeaderSize = bvdMaxHeaderSize <$> getAdoptedBVData logic
+                }
+
+            withLimits
+                :: ((HasUpdateLimits d, HasTxpLimits d, HasSscLimits d, HasBlockLimits d) => x) -> x
+            withLimits x =
+                give sscLimits $
+                    give txpLimits $
+                    give updateLimits $
+                    give blockLimits $ x
+
             diffusion :: Diffusion d
             diffusion = Diffusion {..}
 
-        return DiffusionLayer {..}
+        -- seq withLimits so that Werror doesn't stop compilation.
+        return (withLimits `seq` DiffusionLayer {..})
 
   where
     -- TBD will we need any resources here?

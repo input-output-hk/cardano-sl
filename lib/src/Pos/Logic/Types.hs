@@ -12,11 +12,12 @@ module Pos.Logic.Types
 
 import           Universum
 import           Pos.Communication         (NodeId)
+import           Pos.Core.Configuration    (HasGenesisBlockVersionData, genesisBlockVersionData)
 import           Pos.Core.Block            (Block, BlockHeader)
 import           Pos.Core.Types            (HeaderHash, StakeholderId,
                                             ProxySKHeavy)
 import           Pos.Core.Txp              (TxId, TxAux)
-import           Pos.Core.Update           (UpId, UpdateVote, UpdateProposal)
+import           Pos.Core.Update           (UpId, UpdateVote, UpdateProposal, BlockVersionData)
 import           Pos.Ssc.Message           (MCOpening, MCShares, MCCommitment,
                                             MCVssCertificate)
 
@@ -36,6 +37,9 @@ data Logic m = Logic
       -- be a tip, whereas trying to get a block that isn't in the database is
       -- normal.
     , getTip             :: m (Either GetTipError Block)
+
+      -- | Get state of last adopted BlockVersion. Related to update system.
+    , getAdoptedBVData   :: m BlockVersionData
 
       -- Give a block header to the logic layer.
       -- NodeId is needed for first iteration, but will be removed later.
@@ -129,7 +133,11 @@ data LogicLayer m = LogicLayer
     }
 
 -- | A diffusion layer that does nothing, and probably crahes the program.
-dummyLogicLayer :: Applicative m => StakeholderId -> LogicLayer m
+dummyLogicLayer
+    :: ( Applicative m
+       , HasGenesisBlockVersionData
+       )
+    => StakeholderId -> LogicLayer m
 dummyLogicLayer stkhldId = LogicLayer
     { runLogicLayer = pure ()
     , logic         = dummyLogic
@@ -143,6 +151,7 @@ dummyLogicLayer stkhldId = LogicLayer
         , getBlock          = \_ -> pure (Right Nothing)
         , getBlockHeader    = \_ -> pure (Right Nothing)
         , getTip            = pure (Left (GetTipError "dummy: no tip"))
+        , getAdoptedBVData  = pure genesisBlockVersionData
         , postBlockHeader   = \_ _ -> pure ()
         , postPskHeavy      = \_ -> pure False
         , postTx            = dummyKeyVal

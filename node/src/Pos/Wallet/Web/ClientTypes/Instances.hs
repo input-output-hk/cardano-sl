@@ -119,7 +119,7 @@ instance Buildable NewBatchPayment where
         npbInputSelectionPolicy
 
 instance Buildable (SecureLog NewBatchPayment) where
-    build = buildUnsecure
+    build = "<new batch payment>"
 
 instance Buildable (SecureLog CAccountInit) where
     build _ = "<account init>"

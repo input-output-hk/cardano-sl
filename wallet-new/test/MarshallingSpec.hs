@@ -22,8 +22,9 @@ spec = describe "Marshalling & Unmarshalling" $ do
   prop "Aeson PaymentDestination roundtrips" (aesonRoundtrip @PaymentDestination Proxy)
   prop "Aeson NewWallet roundtrips" (aesonRoundtrip @NewWallet Proxy)
   prop "Aeson Coin roundtrips" (aesonRoundtrip @Core.Coin Proxy)
+  prop "Aeson TransactionGroupingPolicy roundtrips" (aesonRoundtrip @TransactionGroupingPolicy Proxy)
 
 
 aesonRoundtrip :: (Arbitrary a, ToJSON a, FromJSON a, Eq a, Show a) => proxy a -> Property
-aesonRoundtrip (_ :: proxy a) = forAll arbitrary $ \(sample :: a) -> do
-    decode (encode (toJSON sample)) === Just sample
+aesonRoundtrip (_ :: proxy a) = forAll arbitrary $ \(s :: a) -> do
+    decode (encode (toJSON s)) === Just s

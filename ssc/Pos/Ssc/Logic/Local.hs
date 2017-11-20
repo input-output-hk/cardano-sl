@@ -29,13 +29,13 @@ import           System.Wlog (WithLogger, launchNamedPureLog, logWarning)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Binary.Ssc ()
-import           Pos.Core (BlockVersionData (..), EpochIndex, HasConfiguration, IsHeader,
-                           SlotId (..), StakeholderId, VssCertificate, epochIndexL,
+import           Pos.Core (BlockVersionData (..), EpochIndex, HasConfiguration, SlotId (..),
+                           StakeholderId, VssCertificate, epochIndexL,
                            mkVssCertificatesMapSingleton)
 import           Pos.Core.Ssc (InnerSharesMap, Opening, SignedCommitment, SscPayload (..),
                                mkCommitmentsMap)
-import           Pos.DB (MonadBlockDBGeneric, MonadDBRead, MonadGState (gsAdoptedBVData))
-import           Pos.DB.GState.Common (getTipHeaderGeneric)
+import           Pos.DB (MonadBlockDBRead, MonadDBRead, MonadGState (gsAdoptedBVData))
+import           Pos.DB.BlockIndex (getTipHeader)
 import           Pos.Lrc.Context (HasLrcContext)
 import           Pos.Lrc.Types (RichmenStakes)
 import           Pos.Slotting (MonadSlots (getCurrentSlot))
@@ -51,9 +51,8 @@ import           Pos.Ssc.Toss (PureToss, SscTag (..), TossT, evalPureTossWithLog
                                hasSharesToss, isGoodSlotForTag, normalizeToss, refreshToss,
                                supplyPureTossEnv, tmCertificates, tmCommitments, tmOpenings,
                                tmShares, verifyAndApplySscPayload)
-import           Pos.Ssc.Types (SscBlock, SscGlobalState, SscLocalData (..), ldEpoch, ldModifier,
-                                ldSize, sscGlobal, sscLocal)
-import           Pos.Util.Some (Some)
+import           Pos.Ssc.Types (SscGlobalState, SscLocalData (..), ldEpoch, ldModifier, ldSize,
+                                sscGlobal, sscLocal)
 
 -- | Get local payload to be put into main block and for given
 -- 'SlotId'. If payload for given 'SlotId' can't be constructed,
@@ -92,9 +91,8 @@ sscGetLocalPayloadQ SlotId {..} = do
 -- block and before releasing lock on block application.
 sscNormalize
     :: forall ctx m.
-       ( MonadDBRead m
-       , MonadGState m
-       , MonadBlockDBGeneric (Some IsHeader) SscBlock () m
+       ( MonadGState m
+       , MonadBlockDBRead m
        , MonadSscMem ctx m
        , MonadReader ctx m
        , HasLrcContext ctx
@@ -105,7 +103,7 @@ sscNormalize
        )
     => m ()
 sscNormalize = do
-    tipEpoch <- view epochIndexL <$> getTipHeaderGeneric @SscBlock
+    tipEpoch <- view epochIndexL <$> getTipHeader
     richmenData <- getSscRichmenFromLrc "sscNormalize" tipEpoch
     bvd <- gsAdoptedBVData
     globalVar <- sscGlobal <$> askSscMem

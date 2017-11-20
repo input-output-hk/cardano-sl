@@ -10,15 +10,12 @@ import           Cardano.Wallet.API
 import           Cardano.Wallet.API.V1.Swagger ()
 import           Cardano.Wallet.Orphans.Aeson ()
 import           Cardano.Wallet.Orphans.Arbitrary ()
-import           Data.Aeson
 import           Data.String.Conv
 import           Data.Swagger
 import           Pos.Wallet.Aeson.ClientTypes ()
-import           Pos.Wallet.Web.ClientTypes.Types
 import           Servant.API.ContentTypes
 import           Servant.Swagger.Test
 import           Test.Hspec
-import           Test.QuickCheck
 import           Test.QuickCheck.Instances ()
 
 

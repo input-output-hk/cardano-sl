@@ -27,7 +27,7 @@ import           Pos.Core (EpochOrSlot (..), SlotId (..), addressHash, epochInde
                            getSlotIndex)
 import           Pos.Core.Block (Block)
 import           Pos.Crypto (pskDelegatePk)
-import           Pos.DB.DB (getTipHeader)
+import qualified Pos.DB.BlockIndex as DB
 import           Pos.Delegation.Logic (getDlgTransPsk)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
 import           Pos.Generator.Block.Error (BlockGenError (..))
@@ -73,7 +73,7 @@ genBlocks params inj = do
   where
     genBlocksDo = do
         let numberOfBlocks = params ^. bgpBlockCount
-        tipEOS <- getEpochOrSlot <$> lift getTipHeader
+        tipEOS <- getEpochOrSlot <$> lift DB.getTipHeader
         let startEOS = succ tipEOS
         let finishEOS = toEnum $ fromEnum tipEOS + fromIntegral numberOfBlocks
         foldM' genOneBlock mempty [startEOS .. finishEOS]
@@ -103,7 +103,7 @@ genBlock eos = withCompileInfo def $ do
     leaders <- lift $ lrcActionOnEpochReason epoch "genBlock" LrcDB.getLeadersForEpoch
     case eos of
         EpochOrSlot (Left _) -> do
-            tipHeader <- lift getTipHeader
+            tipHeader <- lift DB.getTipHeader
             let slot0 = SlotId epoch minBound
             let genesisBlock = mkGenesisBlock (Just tipHeader) epoch leaders
             fmap Just $ withCurrentSlot slot0 $ lift $ verifyAndApply (Left genesisBlock)
@@ -131,7 +131,7 @@ genBlock eos = withCompileInfo def $ do
                 (Just leaderSK, _) ->
                     -- When we know the secret key we can proceed to the actual creation.
                     Just <$> usingPrimaryKey leaderSK
-                             (lift $ genMainBlock slot (Right . swap <$> transCert))
+                             (lift $ genMainBlock slot (swap <$> transCert))
   where
     genMainBlock ::
         HasCompileInfo =>

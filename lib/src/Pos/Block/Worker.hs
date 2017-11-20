@@ -39,11 +39,9 @@ import           Pos.Core (BlockVersionData (..), ChainDifficulty, FlatSlotId, S
 import           Pos.Core.Address (addressHash)
 import           Pos.Core.Configuration (HasConfiguration, criticalCQ, criticalCQBootstrap,
                                          nonCriticalCQ, nonCriticalCQBootstrap)
-import           Pos.Crypto (ProxySecretKey (pskDelegatePk, pskIssuerPk, pskOmega))
+import           Pos.Crypto (ProxySecretKey (pskDelegatePk))
 import           Pos.DB (gsIsBootstrapEra)
-import qualified Pos.DB.DB as DB
-import           Pos.DB.Misc (getProxySecretKeysLight)
-import           Pos.Delegation.Helpers (isRevokePsk)
+import qualified Pos.DB.BlockIndex as DB
 import           Pos.Delegation.Logic (getDlgTransPsk)
 import           Pos.Delegation.Types (ProxySKBlockInfo)
 import           Pos.GState (getAdoptedBVData, getPskByIssuer)
@@ -144,23 +142,6 @@ blockCreator (slotId@SlotId {..}) sendActions = do
             else logDebug $ sformat ("Trimmed leaders: "%listJson) $
                             dropAround (fromIntegral $ fromEnum $ siSlot) 10 strLeaders
 
-        proxyCerts <- getProxySecretKeysLight
-        let validCerts =
-                filter (\pSk -> let (w0,w1) = pskOmega pSk
-                                in and [ siEpoch >= w0
-                                       , siEpoch <= w1
-                                       , not $ isRevokePsk pSk
-                                       ])
-                       proxyCerts
-            -- cert we can use to _issue_ instead of real slot leader
-        let validLightCert = find (\psk -> addressHash (pskIssuerPk psk) == leader &&
-                                           pskDelegatePk psk == ourPk)
-                             validCerts
-        let ourLightPsk = find (\psk -> pskIssuerPk psk == ourPk) validCerts
-        let lightWeDelegated = isJust ourLightPsk
-        let lightWeAreDelegate = isJust validLightCert
-        logDebugS $ sformat ("Available to use lightweight PSKs: "%listJson) validCerts
-
         ourHeavyPsk <- getPskByIssuer (Left ourPk)
         let heavyWeAreIssuer = isJust ourHeavyPsk
         dlgTransM <- getDlgTransPsk leader
@@ -174,18 +155,11 @@ blockCreator (slotId@SlotId {..}) sendActions = do
                  ("Not creating the block (though we're leader) because it's "%
                   "delegated by heavy psk: "%build)
                  ourHeavyPsk
-           | weAreLeader && lightWeDelegated ->
-                 logInfoS $ sformat
-                 ("Not creating the block (though we're leader) because it's "%
-                  "delegated by light psk: "%build)
-                 ourLightPsk
            | weAreLeader ->
                  onNewSlotWhenLeader slotId Nothing sendActions
            | heavyWeAreDelegate ->
-                 let pske = Right . swap <$> dlgTransM
+                 let pske = swap <$> dlgTransM
                  in onNewSlotWhenLeader slotId pske sendActions
-           | lightWeAreDelegate ->
-                 onNewSlotWhenLeader slotId  (Left <$> validLightCert) sendActions
            | otherwise -> pass
 
 onNewSlotWhenLeader
@@ -198,9 +172,7 @@ onNewSlotWhenLeader slotId pske SendActions {..} = do
             sformat ("I have a right to create a block for the slot "%slotIdF%" ")
                     slotId
         logLeader = "because i'm a leader"
-        logCert (Left psk) =
-            sformat ("using ligtweight proxy signature key "%build%", will do it soon") psk
-        logCert (Right (psk,_)) =
+        logCert (psk,_) =
             sformat ("using heavyweight proxy signature key "%build%", will do it soon") psk
     logInfoS $ logReason <> maybe logLeader logCert pske
     nextSlotStart <- getSlotStartEmpatically (succ slotId)

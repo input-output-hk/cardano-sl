@@ -49,8 +49,8 @@ import           System.Wlog (logDebug)
 import           Pos.Communication (SendActions)
 import           Pos.Crypto (WithHash (..), hash, redeemPkBuild, withHash)
 
-import           Pos.DB.Block (MonadBlockDB, blkGetBlund)
-import           Pos.DB.Class (MonadDBRead)
+import           Pos.DB.Block (getBlund)
+import           Pos.DB.Class (MonadBlockDBRead, MonadDBRead)
 
 import           Pos.Binary.Class (biSize)
 import           Pos.Block.Types (Blund, Undo)
@@ -70,8 +70,8 @@ import           Pos.Web (serveImpl)
 import           Pos.Explorer.Aeson.ClientTypes ()
 import           Pos.Explorer.Core (TxExtra (..))
 import           Pos.Explorer.DB (Page, defaultPageSize, getAddrBalance, getAddrHistory,
-                                  getEpochBlocks, getEpochPages, getLastTransactions,
-                                  getTxExtra, getUtxoSum)
+                                  getEpochBlocks, getEpochPages, getLastTransactions, getTxExtra,
+                                  getUtxoSum)
 import           Pos.Explorer.ExplorerMode (ExplorerMode)
 import           Pos.Explorer.ExtraContext (HasExplorerCSLInterface (..),
                                             HasGenesisRedeemAddressInfo (..))
@@ -631,7 +631,7 @@ epochSlotSearch epochIndex slotIndex = do
 
     -- Either get the @HeaderHash@es from the @Epoch@ or throw an exception.
     getPageHHsOrThrow
-        :: (MonadBlockDB m, MonadThrow m)
+        :: (MonadDBRead m, MonadThrow m)
         => EpochIndex
         -> Int
         -> m [HeaderHash]
@@ -672,7 +672,7 @@ epochPageSearch epochIndex mPage = do
 
     -- Either get the @HeaderHash@es from the @Epoch@ or throw an exception.
     getPageHHsOrThrow
-        :: (MonadBlockDB m, MonadThrow m)
+        :: (MonadDBRead m, MonadThrow m)
         => EpochIndex
         -> Int
         -> m [HeaderHash]
@@ -855,7 +855,7 @@ cTxIdToTxId cTxId = either exception pure (fromCTxId cTxId)
 
 getMainBlund :: ExplorerMode ctx m => HeaderHash -> m MainBlund
 getMainBlund h = do
-    (blk, undo) <- blkGetBlund h >>= maybeThrow (Internal "No block found")
+    (blk, undo) <- getBlund h >>= maybeThrow (Internal "No block found")
     either (const $ throwM $ Internal "Block is genesis block") (pure . (,undo)) blk
 
 getMainBlock :: ExplorerMode ctx m => HeaderHash -> m MainBlock
@@ -878,7 +878,7 @@ getTxMain id TxExtra {..} = case teBlockchainPlace of
 
 -- | Get @Page@ numbers from an @Epoch@ or throw an exception.
 getEpochPagesOrThrow
-    :: (MonadBlockDB m, MonadThrow m)
+    :: (MonadBlockDBRead m, MonadThrow m)
     => EpochIndex
     -> m Page
 getEpochPagesOrThrow epochIndex =

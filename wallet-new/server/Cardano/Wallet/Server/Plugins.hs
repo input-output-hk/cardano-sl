@@ -10,7 +10,6 @@ module Cardano.Wallet.Server.Plugins (
     , walletBackend
     ) where
 
-import qualified Prelude
 import           Universum
 
 import           Cardano.Wallet.API as API
@@ -30,21 +29,17 @@ import           Pos.Wallet.Web.Methods.Restore (addInitialRichAccount)
 import           Pos.Wallet.Web.Pending.Worker (startPendingTxsResubmitter)
 import qualified Pos.Wallet.Web.Server.Runner as V0
 import           Pos.Wallet.Web.Sockets (getWalletWebSockets, launchNotifier, upgradeApplicationWS)
-import           Servant (Handler, Server, serve)
+import           Servant (serve)
 import           System.Wlog (logInfo, modifyLoggerName)
 
-import qualified Data.ByteString.Char8 as BS8
-import           Pos.Communication (ActionSpec (..), OutSpecs, SendActions, WorkerSpec, sendTxOuts,
-                                    worker)
+import           Pos.Communication (ActionSpec (..), OutSpecs, SendActions, WorkerSpec, worker)
 import           Pos.Context (HasNodeContext)
 
 import           Pos.Launcher.Configuration (HasConfigurations)
 import           Pos.Util.CompileInfo (HasCompileInfo)
-import           Pos.Wallet.Web.Mode (MonadFullWalletWebMode, MonadWalletWebMode,
-                                      MonadWalletWebSockets, WalletWebMode, WalletWebModeContext,
-                                      WalletWebModeContextTag)
+import           Pos.Wallet.Web.Mode (WalletWebMode)
 import           Pos.Wallet.Web.Server.Launcher (walletServeImpl, walletServerOuts)
-import           Pos.Web (TlsParams, serveImpl, serveWeb)
+import           Pos.Web (serveWeb)
 import           Pos.WorkMode (WorkMode)
 
 -- A @Plugin@ running in the monad @m@.

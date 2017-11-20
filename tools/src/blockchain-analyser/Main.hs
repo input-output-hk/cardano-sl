@@ -11,8 +11,10 @@ import           Pos.Core (HasConfiguration, headerHash)
 import           Pos.Core.Block (Block)
 import           Pos.Core.Types (HeaderHash)
 import           Pos.DB (closeNodeDBs, openNodeDBs)
-import qualified Pos.DB.Block as DB
-import qualified Pos.DB.DB as DB
+import           Pos.DB.Block (getUndo)
+import qualified Pos.DB.Block.Load as DB
+import           Pos.DB.Class (getBlock)
+import qualified Pos.DB.GState.Common as GS
 import           Pos.Launcher (withConfigurations)
 import           Pos.Util.Chrono (NewestFirst (..))
 import           System.Directory (canonicalizePath, doesDirectoryExist, getFileSize, listDirectory,
@@ -53,11 +55,11 @@ analyseBlockchain cli tip =
 
 -- | Tries to fetch a `Block` given its `HeaderHash`.
 fetchBlock :: HasConfiguration => HeaderHash -> BlockchainInspector (Maybe Block)
-fetchBlock = DB.blkGetBlock
+fetchBlock = getBlock
 
 -- | Tries to fetch an `Undo` for the given `Block`.
 fetchUndo :: HasConfiguration => Block -> BlockchainInspector (Maybe Undo)
-fetchUndo block = DB.blkGetUndo (headerHash block)
+fetchUndo = getUndo . headerHash
 
 -- | Analyse the blockchain lazily by rendering all the blocks at once, loading the whole
 -- blockchain into memory. This mode generates very nice-looking tables, but using it for
@@ -95,6 +97,6 @@ action cli@CLIOptions{..} = withConfigurations conf $ do
     -- Now open the DB and inspect it, generating the second report
     bracket (openNodeDBs False dbPath) closeNodeDBs $ \db ->
         initBlockchainAnalyser db $
-            DB.getTip >>= analyseBlockchain cli
+            GS.getTip >>= analyseBlockchain cli
   where
     conf = CLI.configurationOptions commonArgs

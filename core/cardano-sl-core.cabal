@@ -103,11 +103,6 @@ library
                        Pos.Data.Attributes
                        Pos.Exception
 
-                       Pos.Binary.Class
-                       Pos.Binary.Class.Core
-                       Pos.Binary.Class.Numbers
-                       Pos.Binary.Class.Primitive
-                       Pos.Binary.Class.TH
                        Pos.Binary.Crypto
                        Pos.Binary.Merkle
                        Pos.Binary.Core
@@ -138,18 +133,15 @@ library
                      , ansi-terminal
                      , autoexporter
                      , base
-                     , base16-bytestring
                      , base58-bytestring
                      , binary
                      , bytestring
                      , canonical-json
                      , cardano-crypto
+                     , cardano-sl-binary
                      , cardano-sl-util
                      , cborg
-                     , cereal
-                     , concurrent-extra
                      , containers
-                     , contravariant
                      , cryptonite
                      , cryptonite-openssl >= 0.5
                      , data-default
@@ -158,10 +150,8 @@ library
                      , digest
                      , directory
                      , ed25519
-                     , ether >= 0.5
                      , exceptions
                      , extra
-                     , file-embed
                      , filepath
                      , fmt
                      , formatting
@@ -169,39 +159,27 @@ library
                      , hashable
                      , lens
                      , log-warper >= 1.0.3
-                     , lrucache
                      , memory
-                     , mmorph
                      , mtl
                      , node-sketch
                      , parsec
                      , plutus-prototype
-                     , process
                      , pvss
                      , quickcheck-instances
                      , random
                      , reflection
-                     , resourcet
-                     , safecopy
                      , scrypt >= 0.5
-                     , semigroups
                      , serokell-util
-                     , stm
                      , tagged
                      , template-haskell
                      , text
                      , text-format
                      , th-lift-instances
-                     , th-utilities
                      , time
                      , time-units
-                     , transformers
-                     , transformers-base
-                     , transformers-lift
                      , universum
                      , unordered-containers
                      , vector
-                     , yaml
 
   default-language:    Haskell2010
 

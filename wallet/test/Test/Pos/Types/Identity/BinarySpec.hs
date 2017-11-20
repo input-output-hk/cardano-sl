@@ -4,13 +4,13 @@ module Test.Pos.Types.Identity.BinarySpec
        ( spec
        ) where
 
-import           Test.Hspec            (Spec, describe)
+import           Test.Hspec (Spec, describe)
 import           Universum
 
 import           Pos.Util.BackupPhrase (BackupPhrase)
 
-import           Test.Pos.Helpers      (binaryTest)
-import           Test.Pos.Util         (withDefConfiguration, withDefInfraConfiguration)
+import           Test.Pos.Helpers (binaryTest)
+import           Test.Pos.Util (withDefConfiguration, withDefInfraConfiguration)
 
 spec :: Spec
 spec = withDefInfraConfiguration $ withDefConfiguration $ describe "Types" $ do

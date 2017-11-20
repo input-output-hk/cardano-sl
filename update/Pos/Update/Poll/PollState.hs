@@ -34,8 +34,9 @@ import           Pos.Core.Update (UpId, UpdateProposal (..))
 import           Pos.Lrc.DB.Issuers (IssuersStakes)
 import           Pos.Lrc.Types (FullRichmenData)
 import           Pos.Slotting.Types (SlottingData)
-import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState,
-                                        PollModifier (..), ProposalState, psProposal)
+import           Pos.Update.Poll.Modifier (PollModifier (..))
+import           Pos.Update.Poll.Types (BlockVersionState, ConfirmedProposalState, ProposalState,
+                                        psProposal)
 import           Pos.Util.Modifier (foldlMapModWKey', modifyHashMap)
 
 data PollState = PollState

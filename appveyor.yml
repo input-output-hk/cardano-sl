@@ -94,7 +94,7 @@ test_script:
 #   - stack hpc report cardano-sl cardano-sl-txp cardano-sl-core cardano-sl-db cardano-sl-update cardano-sl-infra cardano-sl-lrc cardano-sl-ssc
 # Retry transient failures due to https://github.com/haskell/cabal/issues/4005
   # We intentionally don't build auxx here, because this build is for installer.
-  - scripts\ci\appveyor-retry call stack install cardano-sl cardano-sl-tools cardano-sl-wallet
+  - scripts\ci\appveyor-retry call stack install cardano-sl cardano-sl-tools cardano-sl-wallet cardano-sl-wallet-new
       -j 2
       --no-terminal
       --local-bin-path %WORK_DIR%

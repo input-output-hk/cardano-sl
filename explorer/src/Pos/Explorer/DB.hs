@@ -47,7 +47,6 @@ import           Pos.Core.Txp (Tx, TxId, TxOut (..), TxOutAux (..))
 import           Pos.DB (DBError (..), DBIteratorClass (..), DBTag (GStateDB), MonadDB,
                          MonadDBRead (dbGet), RocksBatchOp (..), dbIterSource, dbSerializeValue,
                          encodeWithKeyPrefix)
-import           Pos.DB.Block (MonadBlockDBWrite)
 import           Pos.DB.DB (initNodeDBs)
 import           Pos.DB.GState.Common (gsGetBi, gsPutBi, writeBatchGState)
 import           Pos.Explorer.Core (AddrHistory, TxExtra (..))
@@ -63,7 +62,6 @@ import           Pos.Util.Util (maybeThrow)
 explorerInitDB
     :: forall ctx m.
        ( MonadReader ctx m
-       , MonadBlockDBWrite m
        , MonadDB m
        , HasConfiguration
        , HasSscConfiguration

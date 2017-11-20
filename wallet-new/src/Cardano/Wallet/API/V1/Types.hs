@@ -3,9 +3,7 @@
 {-# LANGUAGE KindSignatures             #-}
 {-# LANGUAGE LambdaCase                 #-}
 {-# LANGUAGE OverloadedStrings          #-}
-{-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TemplateHaskell            #-}
-{-# LANGUAGE TypeFamilies               #-}
 
 module Cardano.Wallet.API.V1.Types (
   -- * Swagger & REST-related types
@@ -32,8 +30,7 @@ module Cardano.Wallet.API.V1.Types (
   , WalletUpdate (..)
   , WalletId (..)
   , SpendingPassword
-  -- * Addresses
-  , Address (..)
+  -- * Accounts
   , Account (..)
   , AccountId
   -- * Payments
@@ -43,13 +40,14 @@ module Cardano.Wallet.API.V1.Types (
   , EstimatedFees (..)
   -- * Updates
   , WalletSoftwareUpdate (..)
+  -- * Core re-exports
+  , Core.Address
   ) where
 
 import           Universum
 
 import           Data.Aeson
 import           Data.Aeson.TH
-import qualified Data.ByteArray as ByteArray
 import           Data.Default (Default (def))
 import           Data.Text (Text, dropEnd, toLower)
 import qualified Data.Text.Buildable
@@ -64,6 +62,7 @@ import           Cardano.Wallet.Orphans.Aeson ()
 -- V0 logic
 import           Pos.Util.BackupPhrase (BackupPhrase)
 
+import           Pos.Aeson.Core ()
 import           Pos.Arbitrary.Core ()
 import qualified Pos.Core.Types as Core
 import qualified Pos.Crypto.Signing.Types as Core
@@ -228,7 +227,7 @@ instance Arbitrary WalletError where
 -- Domain-specific types, mostly placeholders.
 --
 
--- A 'SpendingPassword' represent a secret piece of information which can be
+-- | A 'SpendingPassword' represent a secret piece of information which can be
 -- optionally supplied by the user to encrypt the private keys. As private keys
 -- are needed to spend funds and this password secures spending, here the name
 -- 'SpendingPassword'.
@@ -310,23 +309,12 @@ instance Arbitrary Wallet where
                      <*> pure "My wallet"
                      <*> arbitrary
 
--- Placeholder.
-newtype Address = Address
-  { addrId :: Text
-    -- ^ A base58 Public Key.
-  } deriving (Show, Eq, Generic)
-
-deriveJSON Serokell.defaultOptions ''Address
-
-instance Arbitrary Address where
-  arbitrary = Address . fromString <$> elements ["DEADBeef", "123456"]
-
 type AccountId = Text
 
 -- | A wallet's 'Account'.
 data Account = Account
   { accId        :: !AccountId
-  , accAddresses :: [Address]
+  , accAddresses :: [Core.Address]
   , accAmount    :: !Coins
   , accName      :: !Text
   -- ^ The Account name.
@@ -380,7 +368,7 @@ instance Arbitrary EstimatedFees where
 
 -- | Where to send money during a 'Payment'.
 data PaymentDestination = PaymentDestination {
-      pdeAddress :: Address
+      pdeAddress :: Core.Address
     , pdeAmount  :: Core.Coin
     } deriving (Show, Eq)
 
@@ -390,20 +378,41 @@ instance Arbitrary PaymentDestination where
   arbitrary = PaymentDestination <$> arbitrary
                                  <*> arbitrary
 
+-- | A policy to be passed to each new payment request to
+-- determine how a 'Transaction' is assembled.
+data TransactionGroupingPolicy =
+      OptimiseForSizePolicy
+    -- ^ Tries to minimise the size of the created transaction
+    -- by choosing only the biggest value available up until
+    -- the stake sum is greater or equal the payment amount.
+    | OptimiseForSecurityPolicy
+    -- ^ Tries to minimise the number of addresses left with
+    -- unspent funds after the transaction has been created.
+    deriving (Show, Ord, Eq, Enum, Bounded)
+
+instance Arbitrary TransactionGroupingPolicy where
+  arbitrary = elements [minBound .. maxBound]
+
+-- Drops the @Policy@ suffix.
+deriveJSON defaultOptions { constructorTagModifier = reverse . drop 6 . reverse } ''TransactionGroupingPolicy
+
 -- | A 'Payment' from one source account to one or more 'PaymentDestination'(s).
 data Payment = Payment
-  { pmtSourceWallet  :: !WalletId
+  { pmtSourceWallet   :: !WalletId
     -- ^ The source Wallet.
-  , pmtSourceAccount :: !Account
+  , pmtSourceAccount  :: !Account
     -- ^ The source Account.
-  , pmtDestinations  :: !(NonEmpty PaymentDestination)
+  , pmtDestinations   :: !(NonEmpty PaymentDestination)
     -- ^ The destinations for this payment.
+  , pmtGroupingPolicy :: !(Maybe TransactionGroupingPolicy)
+    -- ^ Which strategy use in grouping the input transactions.
   } deriving (Show, Eq, Generic)
 
 deriveJSON Serokell.defaultOptions ''Payment
 
 instance Arbitrary Payment where
   arbitrary = Payment <$> arbitrary
+                      <*> arbitrary
                       <*> arbitrary
                       <*> arbitrary
 

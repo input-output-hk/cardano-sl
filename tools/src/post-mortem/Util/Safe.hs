@@ -1,6 +1,5 @@
 module Util.Safe
-    ( runWithFile
-    , runWithFiles
+    ( runWithFiles
     ) where
 
 import           Pipes.Safe (runSafeT)

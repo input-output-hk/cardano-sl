@@ -13,24 +13,23 @@ module Pos.Client.CLI.NodeOptions
        , usageExample
        ) where
 
-import           Universum                    hiding (show)
+import           Universum hiding (show)
 
-import           Data.Version                 (showVersion)
-import           NeatInterpolation            (text)
-import           Options.Applicative          (Parser, auto, execParser, footerDoc, fullDesc,
-                                               header, help, helper, info, infoOption, long,
-                                               metavar, option, progDesc, strOption, switch, value)
+import           Data.Version (showVersion)
+import           NeatInterpolation (text)
+import           Options.Applicative (Parser, auto, execParser, footerDoc, fullDesc, header, help,
+                                      helper, info, infoOption, long, metavar, option, progDesc,
+                                      strOption, switch, value)
 import           Text.PrettyPrint.ANSI.Leijen (Doc)
 
-import           Paths_cardano_sl             (version)
+import           Paths_cardano_sl (version)
 
-import           Pos.Client.CLI.Options       (CommonArgs (..), commonArgsParser, optionalJSONPath)
-import           Pos.HealthCheck.Route53      (route53HealthCheckOption)
-import           Pos.Network.CLI              (NetworkConfigOpts, networkConfigOption)
-import           Pos.Statistics               (EkgParams, StatsdParams, ekgParamsOption,
-                                               statsdParamsOption)
-import           Pos.Util.CompileInfo         (CompileTimeInfo (..), HasCompileInfo, compileInfo)
-import           Pos.Util.TimeWarp            (NetworkAddress)
+import           Pos.Client.CLI.Options (CommonArgs (..), commonArgsParser, optionalJSONPath)
+import           Pos.HealthCheck.Route53 (route53HealthCheckOption)
+import           Pos.Network.CLI (NetworkConfigOpts, networkConfigOption)
+import           Pos.Statistics (EkgParams, StatsdParams, ekgParamsOption, statsdParamsOption)
+import           Pos.Util.CompileInfo (CompileTimeInfo (..), HasCompileInfo, compileInfo)
+import           Pos.Util.TimeWarp (NetworkAddress)
 
 data CommonNodeArgs = CommonNodeArgs
     { dbPath                 :: !(Maybe FilePath)

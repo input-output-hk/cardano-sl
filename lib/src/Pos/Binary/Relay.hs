@@ -9,17 +9,8 @@ import           Pos.Binary.Crypto ()
 import           Pos.Binary.Ssc ()
 import           Pos.Binary.Update ()
 import           Pos.Communication.Types.Relay (DataMsg (..))
-import           Pos.Core (ProxySKHeavy, ProxySKLight)
-import           Pos.Delegation.Types (ProxySKLightConfirmation)
-
-instance Bi (DataMsg ProxySKLight) where
-    encode = encode . dmContents
-    decode = DataMsg <$> decode
+import           Pos.Core (ProxySKHeavy)
 
 instance Bi (DataMsg ProxySKHeavy) where
-    encode = encode . dmContents
-    decode = DataMsg <$> decode
-
-instance Bi (DataMsg ProxySKLightConfirmation) where
     encode = encode . dmContents
     decode = DataMsg <$> decode

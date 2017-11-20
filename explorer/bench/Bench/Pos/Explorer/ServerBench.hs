@@ -73,8 +73,9 @@ generateTestEnv totalBlocksNumber slotsPerEpoch = do
 -- Time benchmark
 ----------------------------------------------------------------
 
+{-# ANN module ("HLint: ignore Reduce duplication" :: Text) #-}
+
 -- | Time @getBlocksPage@.
-{-# ANN funcName ("HLint: ignore Reduce duplication" :: Text) #-}
 runTimeBenchmark :: IO ()
 runTimeBenchmark = do
     -- Generate the test environment before the benchmarks.
@@ -104,7 +105,6 @@ runTimeBenchmark = do
 ----------------------------------------------------------------
 
 -- | Space @getBlocksPage@.
-{-# ANN funcName ("HLint: ignore Reduce duplication" :: Text) #-}
 runSpaceBenchmark :: IO ()
 runSpaceBenchmark = do
     -- Generate the test environment before the benchmarks.
